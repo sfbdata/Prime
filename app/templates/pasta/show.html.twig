@@ -1152,101 +1152,23 @@
     let clientesSelecionados = [];
     let debounceTimer        = null;
 
-    /* Monta a MESMA estrutura que _cliente_linha.html.twig gera no servidor.
-       Se as duas divergirem, adicionar um cliente injeta uma linha com outra
-       cara — defeito que so aparece depois de vincular alguem, nunca ao abrir
-       a pagina. Ao mexer numa, conferir a outra. */
-    function mascararDocumento(valor) {
-        const d = String(valor || '').replace(/\D/g, '');
-        if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
-        if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
-        return String(valor || '');
-    }
-
-    function rotuloDocumento(valor) {
-        const n = String(valor || '').replace(/\D/g, '').length;
-        return n === 11 ? 'CPF' : (n === 14 ? 'CNPJ' : 'Documento');
-    }
-
-    function criarClienteRow(cliente) {
-        const row = document.createElement('div');
-        row.className = 'cliente-linha d-flex align-items-center gap-2 py-2';
-        row.dataset.clienteId = cliente.id;
-
-        // Avatar com as iniciais das DUAS primeiras palavras (mesma regra do Twig).
-        const icone = document.createElement('span');
-        icone.className = 'cliente-avatar';
-        icone.setAttribute('aria-hidden', 'true');
-        icone.textContent = String(cliente.nome || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
-
-        const identidade = document.createElement('div');
-        identidade.className = 'cliente-identidade flex-grow-1';
-
-        const nome = document.createElement('div');
-        nome.className = 'cliente-nome';
-        // Mesmo <span> interno do Twig: é ele que trunca. Texto solto dentro do
-        // flex vira item anônimo e não encolhe — a linha vazava do cartão.
-        const nomeTexto = document.createElement('span');
-        nomeTexto.className = 'cliente-nome-texto';
-        nomeTexto.textContent = cliente.nome;
-        nome.appendChild(nomeTexto);
-        identidade.appendChild(nome);
-
-        if (cliente.documento) {
-            const doc = document.createElement('div');
-            doc.className = 'cliente-doc';
-
-            const rot = document.createElement('span');
-            rot.className = 'cliente-doc-rotulo';
-            rot.textContent = rotuloDocumento(cliente.documento);
-
-            const val = document.createElement('span');
-            val.className = 'cliente-doc-valor';
-            val.textContent = mascararDocumento(cliente.documento);
-
-            doc.appendChild(rot);
-            doc.appendChild(val);
-            identidade.appendChild(doc);
+    /* A linha nova vem PRONTA do servidor (`html` da resposta de vincular e de
+       cadastrar), renderizada pelo MESMO _cliente_linha.html.twig da página —
+       com o ícone de cadastro completo/incompleto e o selo "Principal", e com o
+       autoescape do Twig. Antes havia aqui um espelho JS da linha, sem o ícone:
+       o cliente recém-vinculado ganhava outra cara até o próximo F5. Aqui só se
+       decide ONDE a linha entra. */
+    function linhaDoHtml(html) {
+        if (typeof html !== 'string' || html.trim() === '') {
+            return null;
         }
+        const molde = document.createElement('template');
+        molde.innerHTML = html.trim();
+        const linha = molde.content.firstElementChild;
 
-        const acoes = document.createElement('div');
-        acoes.className = 'd-flex gap-1 flex-shrink-0 js-cliente-acoes';
-
-        const ficha = document.createElement('a');
-        ficha.href = `/clientes/${cliente.id}`;
-        ficha.className = 'cliente-abrir';
-        ficha.title = 'Abrir ficha do cliente (documentos e anexos ficam lá)';
-        ficha.setAttribute('aria-label', 'Abrir cliente ' + String(cliente.nome || ''));
-        // Os dois icones do Twig (D8): fechada no repouso, aberta no hover.
-        ficha.innerHTML = '<i class="bi bi-folder-fill ps-cli-abrir-fechada" aria-hidden="true"></i>'
-                        + '<i class="bi bi-folder2-open ps-cli-abrir-aberta" aria-hidden="true"></i>';
-
-        const formDesv = document.createElement('form');
-        formDesv.method = 'post';
-        formDesv.action = `/pasta/${pastaId}/cliente/${cliente.id}/desvincular`;
-        formDesv.className = 'js-ajax-desvincular-cliente m-0';
-
-        const btnDesv = document.createElement('button');
-        btnDesv.type = 'submit';
-        btnDesv.className = 'btn btn-xs btn-outline-danger';
-        btnDesv.title = 'Desvincular cliente da pasta';
-        btnDesv.innerHTML = '<i class="bi bi-trash"></i>';
-        formDesv.appendChild(btnDesv);
-
-        acoes.appendChild(ficha);
-        acoes.appendChild(formDesv);
-
-        row.appendChild(icone);
-        row.appendChild(identidade);
-        row.appendChild(acoes);
-
-        return row;
+        return linha && linha.classList.contains('cliente-linha') ? linha : null;
     }
 
-    /**
-     * @param {object} cliente
-     * @param {object|undefined} principal estado devolvido pelo servidor após o vínculo
-     */
     /* O bloco tem DOIS destinos: o principal fica fora da area que rola e os
        demais dentro dela, listados direto (auditoria 2 D2: sem "mostrar
        outros N"). Jogar tudo no #clientesList colocaria o cliente novo ao lado
@@ -1266,35 +1188,104 @@
         return bloco;
     }
 
-    function appendClienteRow(cliente, principal) {
-        if (!clientesContainer) {
+    /* A contagem do cabeçalho do cartão (o servidor só a imprime com 1+). */
+    function atualizarContagemClientes(total) {
+        if (typeof total !== 'number') {
             return;
         }
+        const cab = clientesContainer.closest('[data-trilho="clientes"]')?.querySelector('.ps-card-cab');
+        if (!cab) {
+            return;
+        }
+        let badge = cab.querySelector('.ps-contagem');
+        if (total <= 0) {
+            badge?.remove();
+            return;
+        }
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'ps-contagem';
+            const titulo = cab.querySelector('h2');
+            if (titulo) {
+                titulo.after(badge);
+            } else {
+                cab.prepend(badge);
+            }
+        }
+        badge.textContent = String(total);
+    }
+
+    /**
+     * Insere a linha que o servidor devolveu. Devolve false quando não há linha
+     * utilizável — quem chamou mostra a mensagem (ou recarrega), e nada entra.
+     *
+     * @param {string} html linha de _cliente_linha.html.twig
+     * @param {object|undefined} principal estado devolvido pelo servidor após o vínculo
+     * @param {number|undefined} total quantos clientes a pasta tem agora
+     */
+    function appendClienteRow(html, principal, total) {
+        if (!clientesContainer) {
+            return false;
+        }
+        const linha = linhaDoHtml(html);
+        if (!linha) {
+            return false;
+        }
+
         const placeholder = clientesContainer.querySelector('#clientesPlaceholder');
         if (placeholder) {
             placeholder.remove();
         }
 
-        const linha = criarClienteRow(cliente);
+        // A mesma linha já na tela (duplo clique, resposta repetida): troca, não duplica.
+        const clienteId = String(linha.dataset.clienteId ?? '');
+        clientesContainer.querySelectorAll('.cliente-linha').forEach((existente) => {
+            if (String(existente.dataset.clienteId ?? '') === clienteId) {
+                existente.remove();
+            }
+        });
+
+        const ehPrincipal = !!principal && String(principal.clienteId ?? '') === clienteId;
         let blocoPrincipal = clientesContainer.querySelector('.cliente-principal');
 
-        if (!blocoPrincipal) {
-            // Primeiro cliente da pasta: ele E o principal (Pasta::addCliente).
-            blocoPrincipal = document.createElement('div');
-            blocoPrincipal.className = 'cliente-principal';
+        if (ehPrincipal) {
+            // Primeiro cliente da pasta (Pasta::addCliente) — ou pasta cujo principal não
+            // estava gravado: o vínculo grava o novo, e quem estava no topo desce para os outros.
+            if (blocoPrincipal) {
+                Array.from(blocoPrincipal.querySelectorAll('.cliente-linha')).reverse().forEach((anterior) => {
+                    anterior.querySelector('.ps-selo-principal')?.remove();
+                    blocoDosOutros().prepend(anterior);
+                });
+            } else {
+                blocoPrincipal = document.createElement('div');
+                blocoPrincipal.className = 'cliente-principal';
+                clientesContainer.prepend(blocoPrincipal);
+            }
             blocoPrincipal.appendChild(linha);
-            clientesContainer.prepend(blocoPrincipal);
         } else {
             blocoDosOutros().appendChild(linha);
         }
 
-        // Vincular pode MOVER o principal automático: se o cliente novo for o de cadastro mais
-        // antigo e ninguém tiver marcado nada, a Média por CPF passa a ser dele. Sem isto a tela
-        // seguiria mostrando o número do cliente anterior até alguém dar F5.
+        // Vincular pode MOVER o principal automático: a estrela e a Média por CPF seguem o
+        // estado que o servidor devolveu. Sem isto a tela mostraria o número do cliente
+        // anterior até alguém dar F5.
         if (principal) {
             trocaClientePrincipal(principal);
         }
+        atualizarContagemClientes(total);
+
+        return true;
     }
+
+    /* A busca inline do cartão (public/js/pasta-clientes-busca.js) vincula e
+       entrega a resposta aqui, para a linha entrar pelo MESMO caminho do modal.
+       preventDefault() é o "recebido": sem ele a busca recarrega a página. */
+    document.addEventListener('pasta:cliente-vinculado', (event) => {
+        const dados = event.detail || {};
+        if (appendClienteRow(dados.html, dados.principal, dados.total)) {
+            event.preventDefault();
+        }
+    });
 
     function removeClienteRow(clienteId, form = null) {
         if (!clientesContainer) {
@@ -1395,8 +1386,7 @@
             }
 
             const dados = await resp.json();
-            if (dados.sucesso && dados.cliente) {
-                appendClienteRow(dados.cliente, dados.principal);
+            if (dados.sucesso && appendClienteRow(dados.html, dados.principal, dados.total)) {
                 bootstrap.Modal.getInstance(modal)?.hide();
                 return;
             }
@@ -1782,8 +1772,7 @@
                 }
 
                 const dados = await resp.json();
-                if (dados.sucesso && dados.cliente) {
-                    appendClienteRow(dados.cliente, dados.principal);
+                if (dados.sucesso && appendClienteRow(dados.html, dados.principal, dados.total)) {
                     vinculados.push(cliente.id);
                 } else {
                     erros.push(`"${cliente.nome}" vinculado, mas não foi possível atualizar a lista.`);

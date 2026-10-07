@@ -13,9 +13,13 @@
       abre o modal #modalAdicionarCliente (Bootstrap, data-bs-toggle) já com o
       CPF/CNPJ ou o nome digitado nos campos do cadastro.
 
-   Depois de vincular a página recarrega: a linha do cliente, a estrela do
-   principal e a Média por CPF são montadas pelo servidor, e o JS que sabe
-   montá-las sem recarregar mora fechado dentro do show.html.twig.
+   Depois de vincular, a linha do cliente vem PRONTA do servidor (`html` da
+   resposta, pelo mesmo _cliente_linha.html.twig da página — com o ícone de
+   cadastro) e entra sem recarregar: o evento `pasta:cliente-vinculado` a
+   entrega ao JS de clientes do show.html.twig, que a põe no lugar certo e
+   acerta a estrela e a Média por CPF. Se ninguém confirmar (sem `html`, sem o
+   show), a página recarrega — o vínculo já foi gravado. Erro do servidor:
+   mensagem no painel e nada é inserido.
    ============================================================================= */
 (function () {
     'use strict';
@@ -135,6 +139,21 @@
             });
     }
 
+    /* A linha nova vem pronta do servidor (`html`, _cliente_linha.html.twig) e
+       quem a insere é o JS de clientes do show — o MESMO caminho do modal, que
+       sabe o lugar dela (principal x outros), a estrela e a Média por CPF.
+       Devolve true quando ele confirmou (preventDefault) que a linha entrou. */
+    function entregarLinha(dados) {
+        if (typeof dados.html !== 'string' || dados.html === '') { return false; }
+
+        var evento = new CustomEvent('pasta:cliente-vinculado', {
+            cancelable: true,
+            detail: { html: dados.html, principal: dados.principal, total: dados.total }
+        });
+
+        return !document.dispatchEvent(evento);
+    }
+
     function escolher(c) {
         if (c.jaVinculado || c.selo === 'ja_vinculado') { fechar(); return; }
         if (vinculando) { return; }
@@ -161,7 +180,14 @@
                     mostrarErro(r.dados.erro || 'Não foi possível vincular o cliente.');
                     return;
                 }
-                window.location.reload();
+                vinculando = false;
+                if (!entregarLinha(r.dados)) {
+                    // Fallback: ninguém pôs a linha na tela (resposta sem `html`, show sem o
+                    // modal). O vínculo JÁ foi gravado — recarregar mostra o estado real.
+                    window.location.reload();
+                    return;
+                }
+                fechar();
             })
             .catch(function () {
                 vinculando = false;

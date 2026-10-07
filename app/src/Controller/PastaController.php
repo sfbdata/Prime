@@ -687,6 +687,9 @@ class PastaController extends AbstractController
                 // mais antigo e ninguém tiver marcado nada, a média passa a ser dele. A tela precisa
                 // saber disso na hora, senão mostra número velho até alguém dar F5.
                 'principal' => $this->payloadClientePrincipal($pasta),
+                // A linha pronta, pelo MESMO partial da página (ver htmlLinhaCliente).
+                'html'  => $this->htmlLinhaCliente($pasta, $cliente),
+                'total' => $pasta->getClientes()->count(),
             ]);
         }
 
@@ -966,6 +969,26 @@ class PastaController extends AbstractController
             ],
             // Ver a nota em cadastrarEVincularCliente: vincular pode mover o principal automático.
             'principal' => $this->payloadClientePrincipal($pasta),
+            // A linha pronta, pelo MESMO partial da página (ver htmlLinhaCliente).
+            'html'  => $this->htmlLinhaCliente($pasta, $cliente),
+            'total' => $pasta->getClientes()->count(),
+        ]);
+    }
+
+    /**
+     * A linha do cliente recém-vinculado renderizada pelo MESMO partial que a página usa
+     * (`pasta/_cliente_linha.html.twig`), com o autoescape do Twig.
+     *
+     * Antes o JS do show montava a linha por um espelho próprio, que não tinha o ícone de
+     * cadastro completo/incompleto nem o selo "Principal": a linha nova nascia com outra cara
+     * até o próximo F5. Uma fonte só, e a divergência deixa de existir.
+     */
+    private function htmlLinhaCliente(Pasta $pasta, Cliente $cliente): string
+    {
+        return $this->renderView('pasta/_cliente_linha.html.twig', [
+            'pasta'       => $pasta,
+            'cliente'     => $cliente,
+            'ehPrincipal' => $pasta->getClientePrincipal()?->getId() === $cliente->getId(),
         ]);
     }
 
