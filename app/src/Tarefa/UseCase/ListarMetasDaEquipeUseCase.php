@@ -33,12 +33,17 @@ final class ListarMetasDaEquipeUseCase
 {
     public const POR_PAGINA = 25;
 
-    /** status aceito na URL => rótulo do título */
+    /**
+     * status aceito na URL => rótulo do título. `concluidas` e `em_revisao` são o destino das
+     * colunas extras "Metas concluídas" e "Em revisão" da tabela Desempenho (DASH-008).
+     */
     public const STATUS = [
         'todas'         => 'Metas',
         'ativas'        => 'Metas ativas',
         'vencidas'      => 'Metas vencidas',
         'prazo_proximo' => 'Prazos próximos',
+        'concluidas'    => 'Metas concluídas',
+        'em_revisao'    => 'Metas em revisão',
     ];
 
     /** Status medidos contra "agora", sem o recorte de período (como no Dashboard). */
@@ -179,6 +184,8 @@ final class ListarMetasDaEquipeUseCase
             'ativas'        => 'Metas não concluídas, criadas no período.',
             'vencidas'      => 'Metas não concluídas com o prazo já vencido — contadas até agora, sem recorte de período.',
             'prazo_proximo' => 'Metas não concluídas com prazo nos próximos 7 dias — sem recorte de período.',
+            'concluidas'    => 'Metas concluídas, criadas no período.',
+            'em_revisao'    => 'Metas aguardando a revisão do gestor, criadas no período.',
             default         => 'Todas as metas criadas no período, em qualquer status.',
         };
     }

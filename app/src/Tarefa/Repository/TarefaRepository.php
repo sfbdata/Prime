@@ -582,7 +582,11 @@ class TarefaRepository extends ServiceEntityRepository
      *  - ativas        → status != concluida, período (countAtivasPorResponsavel);
      *  - vencidas      → ativas com prazo < $referencia, SEM período (countVencidasPorResponsavel);
      *  - prazo_proximo → ativas com prazo em [$referencia, $referencia+7d], SEM período
-     *                    (countPrazosProximosPorResponsavel).
+     *                    (countPrazosProximosPorResponsavel);
+     *  - concluidas    → status = concluida, período (coluna extra "Metas concluídas", que é
+     *                    countPorResponsavel − countAtivasPorResponsavel);
+     *  - em_revisao    → status = em_revisao, período (coluna extra "Em revisão",
+     *                    MetricasExtrasDoDashboardRepository::contarEmRevisaoPorResponsavel).
      *
      * $responsavelIds é o universo de colaboradores elegíveis (ativos no escritório, já
      * estreitados por responsável/cargo pelo UseCase). A meta entra se QUALQUER responsável dela
@@ -642,6 +646,18 @@ class TarefaRepository extends ServiceEntityRepository
                    ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
                    ->setParameter('referencia', $referencia)
                    ->setParameter('limite', $referencia->modify('+7 days'));
+                break;
+
+            case 'concluidas':
+                $qb->andWhere('t.status = :concluida')
+                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
+                $this->aplicarFiltrosDashboard($qb, $filtros, false);
+                break;
+
+            case 'em_revisao':
+                $qb->andWhere('t.status = :emRevisao')
+                   ->setParameter('emRevisao', Tarefa::STATUS_EM_REVISAO);
+                $this->aplicarFiltrosDashboard($qb, $filtros, false);
                 break;
 
             default: // 'todas'

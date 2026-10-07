@@ -157,8 +157,11 @@ final class ListarMetasDaEquipeUseCaseTest extends TestCase
         yield 'ativas'        => ['ativas', 'ativas'];
         yield 'vencidas'      => ['vencidas', 'vencidas'];
         yield 'prazo_proximo' => ['prazo_proximo', 'prazo_proximo'];
+        yield 'concluidas'    => ['concluidas', 'concluidas'];
+        yield 'em_revisao'    => ['em_revisao', 'em_revisao'];
         yield 'vazio'         => ['', 'todas'];
-        yield 'desconhecido'  => ['concluidas', 'todas'];
+        yield 'desconhecido'  => ['concluida', 'todas'];
+        yield 'revisão sem _' => ['revisao', 'todas'];
     }
 
     #[DataProvider('statusProvider')]
