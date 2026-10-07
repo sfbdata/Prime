@@ -76,7 +76,8 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
         self::assertNull($form->attr('data-confirmar'), 'sem processo vinculado não há o que confirmar');
         self::assertNull($form->attr('onsubmit'), 'a confirmação é do pasta-processo.js, não de JS inline');
 
-        // Ordem do desenho no cabeçalho: … espaço · interruptor · Vincular processo · Peticionar.
+        // Ordem do desenho no cabeçalho: … espaço · interruptor · ⋮ · Vincular processo · Peticionar
+        // (o ⋮ "Mais opções de processos" entrou no P13, N5 — dc L.1581).
         $filhos = $crawler->filter('#processoTabContent > .ps-processos > .ps-card-cab')->children()->each(
             static fn (Crawler $n): string => $n->nodeName() . '.' . (string) $n->attr('class'),
         );
@@ -87,7 +88,8 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
         self::assertIsInt($posVincular);
         self::assertIsInt($posEspaco);
         self::assertSame($posEspaco + 1, $posForm, 'o interruptor vem logo depois do espaço flexível');
-        self::assertSame($posForm + 1, $posVincular, 'e logo antes de "Vincular processo"');
+        self::assertStringContainsString('js-proc-menu-gatilho', $filhos[$posForm + 1], 'logo depois do interruptor, o ⋮ do cabeçalho');
+        self::assertSame($posForm + 2, $posVincular, 'e então "Vincular processo"');
 
         // Vazio de sempre: convite a vincular.
         self::assertCount(1, $crawler->filter('#processoTabContent > .ps-processos > .ps-vazio:not(.ps-vazio--administrativa)'));

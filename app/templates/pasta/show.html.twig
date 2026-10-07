@@ -1678,7 +1678,9 @@
 
         if (form.matches('form.js-ajax-desvincular-processo')) {
             event.preventDefault();
-            if (!confirm('Desvincular o processo desta pasta?')) {
+            // Texto do desenho (procMenu, dc L.2932) vem no `data-confirmar` do form, com o
+            // número do processo e a pasta; o genérico só se o atributo faltar.
+            if (!confirm(form.dataset.confirmar || 'Desvincular o processo desta pasta?')) {
                 return;
             }
             const button = form.querySelector('button[type="submit"]');

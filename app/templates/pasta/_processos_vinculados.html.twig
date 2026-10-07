@@ -75,6 +75,7 @@
             {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"?" %}
         {% endif %}
         <form method="post" action="{{ path('pasta_administrativa_definir', {id: pasta.id}) }}" class="ps-adm-form js-pasta-administrativa"
+              id="psAdmForm{{ pasta.id }}"
               {%- if confirmaAdm %} data-confirmar="{{ confirmaAdm }}"{% endif %}>
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_administrativa_' ~ pasta.id) }}">
             <input type="hidden" name="administrativa" value="{{ administrativa ? '0' : '1' }}">
@@ -85,6 +86,17 @@
                 <span class="ps-adm-sw-trilho" aria-hidden="true"><span class="ps-adm-sw-bola"></span></span>
             </button>
         </form>
+        {# ⋮ do cabeçalho (N5; desenho `procHdMenu`, dc L.1581 e L.6588): entre o interruptor e
+           "Vincular processo", 32px. Do menu do desenho só o item com lastro: marcar/desmarcar
+           "Administrativo sem processo" — o MESMO form do interruptor (atributo `form`), então o
+           submit passa pela confirmação e pelo XHR do pasta-processo.js como o clique no interruptor.
+           Fora (sem função hoje): "Relatório geral de processos" e "Enviar à Controladoria agora".
+           Abre pelo mesmo mecanismo do ⋮ do cartão (`.js-proc-menu-gatilho` + `aria-controls`). #}
+        <button type="button" class="ps-processo-menu-gatilho js-proc-menu-gatilho"
+                title="Mais opções" aria-label="Mais opções de processos"
+                aria-haspopup="menu" aria-expanded="false" aria-controls="psProcHdMenu{{ pasta.id }}">
+            <i class="bi bi-three-dots-vertical"></i>
+        </button>
         <button type="button" class="ps-btn ps-btn--suave" title="Vincular processo" aria-label="Vincular processo"
                 data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
             <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
@@ -94,6 +106,12 @@
            class="ps-btn ps-btn--primario ps-btn--caps" title="Peticionar na pasta" aria-label="Peticionar na pasta">
             <i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>
         </a>
+    </div>
+    <div class="ps-processo-menu" id="psProcHdMenu{{ pasta.id }}" role="menu" hidden>
+        <div class="ps-processo-menu-titulo">Processos · Pasta {{ pasta.nup ?? ('#' ~ pasta.id) }}</div>
+        <button type="submit" form="psAdmForm{{ pasta.id }}" class="ps-processo-menu-item js-proc-hd-adm" role="menuitem">
+            <i class="bi bi-briefcase"></i><span>{{ administrativa ? 'Desmarcar administrativo sem processo' : 'Marcar como administrativo sem processo' }}</span>
+        </button>
     </div>
 
     {% if vinculos|length > 0 %}
@@ -210,7 +228,9 @@
                                 </button>
                             </form>
                         {% endif %}
-                        <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
+                        {# Texto da confirmação do desenho (procMenu, dc L.2932), lido pelo submit delegado do show. #}
+                        <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0"
+                              data-confirmar="{{ 'Desvincular o processo ' ~ proc.numeroProcesso|numero_cnj ~ ' da Pasta ' ~ (pasta.nup ?? ('#' ~ pasta.id)) ~ "?\nOs dados do processo continuam salvos e você pode vincular de novo." }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
                             <input type="hidden" name="processo_id" value="{{ proc.id }}">
                             <button type="submit" class="ps-processo-menu-item" role="menuitem">
