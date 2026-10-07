@@ -217,16 +217,7 @@
 
         function restaurar(html) {
             desmontar(textarea);
-            var div = document.createElement('div');
-            div.className = 'ps-nota-texto';
-            var externo = document.createElement('span');
-            externo.className = 'editor-rico-conteudo';
-            var interno = document.createElement('span');
-            interno.className = 'ql-editor';
-            interno.innerHTML = html || '';   // sempre sanitizado no servidor
-            externo.appendChild(interno);
-            div.appendChild(externo);
-            caixa.replaceWith(div);
+            caixa.replaceWith(textoDaNota(html));
         }
 
         var quillEd = montar(textarea);
@@ -259,9 +250,7 @@
                             return;
                         }
                         restaurar(dados.conteudoHtml);
-                        botaoEditar.setAttribute('data-conteudo', dados.conteudo || '');
-                        botaoEditar.setAttribute('data-conteudo-html', dados.conteudoHtml || '');
-                        marcarEditada(item, dados.editadaEm);
+                        atualizarCopias(item, dados);
                     });
                 })
                 .catch(function () {
@@ -275,6 +264,43 @@
         caixa.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); confirmar(); }
             if (e.key === 'Escape') { restaurar(htmlAtual); }
+        });
+    }
+
+    /* O texto da nota como o partial do Twig o monta (`.ps-nota-texto` > `.editor-rico-conteudo`
+       > `.ql-editor`). O HTML vem sempre sanitizado do servidor. */
+    function textoDaNota(html) {
+        var div = document.createElement('div');
+        div.className = 'ps-nota-texto';
+        var externo = document.createElement('span');
+        externo.className = 'editor-rico-conteudo';
+        var interno = document.createElement('span');
+        interno.className = 'ql-editor';
+        interno.innerHTML = html || '';   // sempre sanitizado no servidor
+        externo.appendChild(interno);
+        div.appendChild(externo);
+        return div;
+    }
+
+    /* FPN-020c: a mesma nota pode estar duas vezes na página — aba Processo e pendurada no
+       Push (ids com sufixo `-push`). Depois de editar uma, TODAS as cópias com o mesmo
+       `data-nota-id` recebem os data-* novos do Editar e a marca "editada", e as outras
+       cópias, o texto novo — sem esperar o recarregar. A cópia editada já teve o texto
+       restaurado por quem chama; uma cópia com a caixa de edição aberta não tem
+       `.ps-nota-texto` e fica com o que a pessoa está escrevendo. */
+    function atualizarCopias(item, dados) {
+        var id = item.getAttribute('data-nota-id');
+        var copias = document.querySelectorAll('.ps-nota[data-nota-id="' + id + '"]');
+        Array.prototype.forEach.call(copias, function (copia) {
+            var botao = copia.querySelector('.js-nota-editar');
+            if (botao) {
+                botao.setAttribute('data-conteudo', dados.conteudo || '');
+                botao.setAttribute('data-conteudo-html', dados.conteudoHtml || '');
+            }
+            marcarEditada(copia, dados.editadaEm);
+            if (copia === item) { return; }
+            var texto = copia.querySelector('.ps-nota-texto');
+            if (texto) { texto.replaceWith(textoDaNota(dados.conteudoHtml)); }
         });
     }
 

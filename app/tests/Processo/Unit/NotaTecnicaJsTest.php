@@ -144,4 +144,41 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString('aria-controls="psNotaMenu{{ nota.id }}{{ idSufixo }}"', $item);
         self::assertStringContainsString('id="psNotaMenu{{ nota.id }}{{ idSufixo }}"', $item);
     }
+
+    #[TestDox('FPN-020c: depois de editar, todas as cópias com o mesmo data-nota-id recebem os data-* do Editar e a marca "editada"; as outras, o texto novo')]
+    public function testEditarAtualizaTodasAsCopias(): void
+    {
+        $editar = $this->funcao('editar');
+        $restaura = strpos($editar, 'restaurar(dados.conteudoHtml);');
+        $copias   = strpos($editar, 'atualizarCopias(item, dados);');
+        self::assertNotFalse($restaura);
+        self::assertNotFalse($copias, 'o sucesso do editar propaga para as cópias');
+        self::assertGreaterThan($restaura, $copias, 'a cópia editada sai da caixa antes da propagação');
+        // A atualização dos data-* e da marca mora num lugar só (vale para a cópia editada também).
+        self::assertStringNotContainsString("botaoEditar.setAttribute('data-conteudo'", $editar);
+        self::assertStringNotContainsString('marcarEditada(item', $editar);
+
+        $atualizar = $this->funcao('atualizarCopias');
+        self::assertStringContainsString("var id = item.getAttribute('data-nota-id');", $atualizar);
+        self::assertStringContainsString(".ps-nota[data-nota-id=\"' + id + '\"]", $atualizar, 'acha as cópias pelo número, não pelo id com sufixo');
+        self::assertStringContainsString("copia.querySelector('.js-nota-editar')", $atualizar);
+        self::assertStringContainsString("botao.setAttribute('data-conteudo', dados.conteudo || '');", $atualizar);
+        self::assertStringContainsString("botao.setAttribute('data-conteudo-html', dados.conteudoHtml || '');", $atualizar);
+        self::assertStringContainsString('marcarEditada(copia, dados.editadaEm);', $atualizar);
+        $pula  = strpos($atualizar, 'if (copia === item) { return; }');
+        $troca = strpos($atualizar, 'texto.replaceWith(textoDaNota(dados.conteudoHtml));');
+        self::assertNotFalse($pula, 'a cópia editada já foi restaurada');
+        self::assertNotFalse($troca, 'as outras cópias recebem o texto novo');
+        self::assertGreaterThan($pula, $troca);
+        self::assertStringContainsString("var texto = copia.querySelector('.ps-nota-texto');", $atualizar);
+        self::assertStringContainsString('if (texto) {', $atualizar, 'cópia com a caixa de edição aberta fica com o que a pessoa escreve');
+
+        // O texto montado é o mesmo do partial e do restaurar (uma função só).
+        $texto = $this->funcao('textoDaNota');
+        foreach (["div.className = 'ps-nota-texto';", "externo.className = 'editor-rico-conteudo';", "interno.className = 'ql-editor';"] as $trecho) {
+            self::assertStringContainsString($trecho, $texto);
+        }
+        self::assertStringContainsString('caixa.replaceWith(textoDaNota(html));', $editar);
+        self::assertStringContainsString('<div class="ps-nota-texto">' . "\n" . '        <span class="editor-rico-conteudo"><span class="ql-editor">', $this->ler(self::ITEM));
+    }
 }
