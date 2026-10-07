@@ -144,6 +144,12 @@
             var alvo = document.getElementById(gatilho.getAttribute('data-ps-pop'));
             if (!alvo) { return; }
 
+            botaoFechar(alvo, function () {
+                alvo.classList.remove('is-aberto');
+                gatilho.setAttribute('aria-expanded', 'false');
+                gatilho.focus();
+            });
+
             gatilho.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var vaiAbrir = !alvo.classList.contains('is-aberto');
@@ -169,6 +175,33 @@
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { fecharTodos(null); }
         });
+    }
+
+    /* X de fechar em toda janelinha (PAS-022; README do pacote, "X de fechar em toda
+       janelinha", e `bluejus-central.js`): canto superior direito, branco sobre a tarja
+       azul quando o menu tem uma, cinza no fundo claro quando não tem. Esc e clique fora
+       continuam fechando. `data-sem-x` no painel desliga; quem já tem o próprio X
+       (`.ps-pop-x`) não ganha outro. */
+    function botaoFechar(painel, fechar) {
+        if (painel.hasAttribute('data-sem-x') || painel.querySelector('.ps-pop-x')) { return; }
+
+        var tarja = painel.querySelector(':scope > .ps-pop-tarja');
+        var botao = document.createElement('button');
+        botao.type      = 'button';
+        botao.className = 'ps-pop-x' + (tarja ? ' ps-pop-x--tarja' : '');
+        botao.title     = 'Fechar (Esc)';
+        botao.setAttribute('aria-label', 'Fechar');
+        botao.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">'
+            + '<path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+        botao.addEventListener('click', function (e) {
+            // Sem propagar: o clique no corpo do painel não fecha (ver popovers), e o
+            // X não é um item com ação própria.
+            e.preventDefault();
+            e.stopPropagation();
+            fechar();
+        });
+
+        (tarja || painel).appendChild(botao);
     }
 
     /* ── 4. Atalhos do trilho ("metas", "detalhar", "todos") ──────────────── */

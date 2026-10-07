@@ -157,4 +157,37 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         // O `animation: none` do reduced-motion vem DEPOIS e vale para o ATIVO também.
         self::assertGreaterThan(strpos($css, '.ps-cab-selo--ativo {'), strpos($css, '.ps-cab-selo, .ps-cab-selo-onda { animation: none; }'));
     }
+
+    #[TestDox('PAS-022: todo popover de `popovers()` ganha o X (na tarja, quando há), com data-sem-x como saída, e o X fecha e devolve o foco')]
+    public function testXDeFecharNosPopovers(): void
+    {
+        $js = self::ler(self::PASTA_JS);
+
+        $popovers = self::trecho($js, 'function popovers()', 'function botaoFechar(');
+        self::assertStringContainsString('botaoFechar(alvo, function () {', $popovers, 'cada alvo de [data-ps-pop] recebe o X');
+        self::assertStringContainsString("alvo.classList.remove('is-aberto');", $popovers);
+        self::assertStringContainsString('gatilho.focus();', $popovers, 'o foco volta ao gatilho');
+
+        $x = self::trecho($js, 'function botaoFechar(', '/* ── 4. Atalhos do trilho');
+        self::assertStringContainsString("painel.hasAttribute('data-sem-x')", $x);
+        self::assertStringContainsString("painel.querySelector('.ps-pop-x')", $x, 'sem X duplicado');
+        self::assertStringContainsString("painel.querySelector(':scope > .ps-pop-tarja')", $x);
+        self::assertStringContainsString("'ps-pop-x' + (tarja ? ' ps-pop-x--tarja' : '')", $x);
+        self::assertStringContainsString("botao.setAttribute('aria-label', 'Fechar');", $x);
+        self::assertStringContainsString("botao.type      = 'button';", $x, 'não submete o form em volta');
+        self::assertStringContainsString('e.stopPropagation();', $x);
+        self::assertStringContainsString('(tarja || painel).appendChild(botao);', $x);
+
+        $css = self::ler(self::CSS);
+        $base = self::regra($css, '.ps-pop-x');
+        foreach (['width: 26px;', 'height: 26px;', 'border-radius: 4px;', 'background: var(--ps-pop-x-bg);', 'color: var(--ps-pop-x-tx);'] as $decl) {
+            self::assertStringContainsString($decl, $base);
+        }
+        self::assertStringContainsString('color: #fff;', self::regra($css, '.ps-pop-x--tarja'), 'branco sobre a tarja');
+        self::assertStringContainsString('--ps-pop-x-bg:', self::regra($css, '[data-bs-theme="dark"] .ps-pop'), 'par escuro');
+
+        // Os dois menus com tarja do cabeçalho são os que hospedam o X branco.
+        $cab = self::ler(self::CABECALHO);
+        self::assertSame(2, substr_count($cab, '<div class="ps-pop-tarja">'));
+    }
 }
