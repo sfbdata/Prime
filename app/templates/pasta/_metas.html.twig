@@ -23,8 +23,15 @@
    metas desta pasta" a partir das próprias linhas. Sem JS, a linha continua
    sendo o link para a meta.
 
-   O que não tem lastro NÃO aparece: número global, duplicar, encaminhar e
-   copiar link. #}
+   ⋮ também com "Copiar link" (PMC-028: a URL ABSOLUTA de `tarefa_show`, pelo
+   mesmo `.js-ps-copiar` do trilho da aba Dados, em pasta-clientes.js) e
+   "Excluir" (PMC-030: POST `tarefa_excluir`, token `excluir_tarefa_<id>`, com
+   confirm()). "Excluir" só aparece quando o `ExcluirTarefaUseCase::podeExcluir`
+   deixaria (criador, dentro da janela) e nunca na pasta excluída (lápide). O
+   desenho oferece "Desfazer" depois de excluir; aqui NÃO há: a exclusão é
+   física, e desfazer exigiria lápide de meta (decisão em aberto).
+
+   O que não tem lastro NÃO aparece: número global, duplicar e encaminhar. #}
 {% set statusLabelTarefa = {
     'pendente':   'Pendente',
     'em_revisao': 'Para Revisão',
@@ -165,6 +172,21 @@
                                 <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
                                     <i class="bi bi-pencil"></i><span>Editar nome</span>
                                 </button>
+                                <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
+                                        data-ps-copiar="{{ url('tarefa_show', {id: tarefa.id}) }}"
+                                        data-ps-copiado="Link da meta copiado">
+                                    <i class="bi bi-link-45deg"></i><span>Copiar link</span>
+                                </button>
+                                {% if not pasta.estaExcluida and meta_pode_excluir(tarefa) %}
+                                    <div class="ps-pop-sep"></div>
+                                    <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
+                                          onsubmit="return confirm('Excluir esta meta? Esta ação não pode ser desfeita.');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
+                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
+                                            <i class="bi bi-trash3"></i><span>Excluir</span>
+                                        </button>
+                                    </form>
+                                {% endif %}
                             </div>
                         </div>
                         {# Edição do nome no lugar do título (desenho: campo + Salvar +
