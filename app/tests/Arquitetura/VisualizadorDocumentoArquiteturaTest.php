@@ -153,10 +153,12 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
 
         self::assertStringContainsString("const EXT_ASSINATURA = ['p7s', 'p7m'];", $js);
         self::assertStringContainsString("{ return 'assinatura'; }", self::corpoDaFuncao($js, 'tipoDe'));
-        self::assertStringContainsString("if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload)); return; }", self::corpoDaFuncao($js, 'abrir'));
+        self::assertStringContainsString("if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload, o.tamanho)); return; }", self::corpoDaFuncao($js, 'abrir'));
 
         $bloco = self::corpoDaFuncao($js, 'blocoAssinatura');
-        self::assertStringContainsString("'Envelope de assinatura digital (' + ext + '). Para conferir a assinatura, use o validador oficial do ITI.'", $bloco);
+        // DOC-141: "(P7S, 12 KB)" como o desenho (bj-visualizar.js:87) quando quem abre passa o tamanho; "(P7S)" sem ele.
+        self::assertStringContainsString("'Envelope de assinatura digital (' + ext + (tam ? ', ' + tam : '') + '). Para conferir a assinatura, use o validador oficial do ITI.'", $bloco);
+        self::assertStringContainsString("const tam = typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '') : String(tamanho == null ? '' : tamanho).trim();", $bloco);
         self::assertStringContainsString('bi-patch-check-fill', $bloco);
         self::assertStringNotContainsString('No sistema', $bloco, 'o sistema não abre o envelope nem mostra o certificado');
         self::assertStringNotContainsString('innerHTML', $bloco);

@@ -48,7 +48,8 @@ final class PastaExploradorVisorTest extends TestCase
         $js = $this->ler(self::VISOR);
 
         self::assertMatchesRegularExpression(
-            '/window\.VisualizadorDocumento\.abrir\(\{\s*url: a\.viewUrl,\s*nome: a\.nome,\s*mime: a\.mime \|\| \'\',\s*urlDownload: a\.downloadUrl,\s*conteudo: el\.alvo,\s*\}\);/',
+            // DOC-141: o tamanho que o explorador já tem vai junto (aviso do P7S); comentário entre as chaves é aceito.
+            '/window\.VisualizadorDocumento\.abrir\(\{\s*url: a\.viewUrl,\s*nome: a\.nome,\s*mime: a\.mime \|\| \'\',\s*urlDownload: a\.downloadUrl,\s*(?:\/\/[^\n]*\n\s*)?tamanho: a\.tamanho \|\| \'\',\s*conteudo: el\.alvo,\s*\}\);/',
             $this->funcao($js, 'renderizar'),
             'o visor não desenha o arquivo: quem desenha (e põe DOCX/planilha em iframe sandbox) é o módulo único'
         );

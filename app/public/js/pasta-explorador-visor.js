@@ -185,6 +185,8 @@
                 nome: a.nome,
                 mime: a.mime || '',
                 urlDownload: a.downloadUrl,
+                // DOC-141: o tamanho que o explorador já mostra no cabeçalho — vai no aviso do P7S.
+                tamanho: a.tamanho || '',
                 conteudo: el.alvo,
             });
         } else {

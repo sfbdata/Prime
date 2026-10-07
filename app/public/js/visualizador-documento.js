@@ -974,13 +974,17 @@
 
     /* P7S/P7M (bj-visualizar.js L84): o envelope não tem o que mostrar no navegador. O aviso é o
        do desenho SEM a frase "no sistema, o documento assinado aparece aqui junto com os dados do
-       certificado" — o sistema não abre o envelope nem valida a assinatura. Só textContent. */
-    function blocoAssinatura(nome, urlDownload) {
+       certificado" — o sistema não abre o envelope nem valida a assinatura. Só textContent.
+       DOC-141: com o tamanho que quem abre já tem (`tamanho`: texto pronto, como o do explorador,
+       ou bytes), o aviso fica "(P7S, 12 KB)" como o desenho; sem ele, "(P7S)" — nada é baixado
+       só para medir. */
+    function blocoAssinatura(nome, urlDownload, tamanho) {
         const ext = extensao(nome).toUpperCase() || 'P7S';
+        const tam = typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '') : String(tamanho == null ? '' : tamanho).trim();
         const div = el('div', 'p-5 text-center text-muted w-100');
         div.appendChild(el('i', 'bi bi-patch-check-fill display-1 d-block mb-3 text-success'));
         div.appendChild(el('p', 'fw-bold mb-1', nome || 'Assinatura digital'));
-        div.appendChild(el('p', null, 'Envelope de assinatura digital (' + ext + '). Para conferir a assinatura, use o validador oficial do ITI.'));
+        div.appendChild(el('p', null, 'Envelope de assinatura digital (' + ext + (tam ? ', ' + tam : '') + '). Para conferir a assinatura, use o validador oficial do ITI.'));
         const a = el('a', 'btn btn-primary');
         a.href = urlDownload;
         a.appendChild(el('i', 'bi bi-download me-1'));
@@ -1515,7 +1519,7 @@
         if (tipo === 'imagem') { renderImagem(alvo, o); return; }
         if (tipo === 'audio')  { renderAudio(alvo, o); return; }
         if (tipo === 'video')  { renderVideo(alvo, o); return; }
-        if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload)); return; }
+        if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload, o.tamanho)); return; }
 
         const render = {
             docx: renderDocx,
