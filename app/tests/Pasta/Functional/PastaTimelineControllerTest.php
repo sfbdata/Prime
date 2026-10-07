@@ -7,9 +7,12 @@ namespace App\Tests\Pasta\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Controller\PastaTimelineController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Service\MontadorDaTimelineInteligente;
 use App\Pasta\Service\RegrasDaTimelineInteligente;
@@ -49,6 +52,31 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         return $msg;
+    }
+
+    private function observacao(string $classe, Pasta $pasta, User $autor, Tenant $tenant, string $texto, string $quando): PastaObservacaoDetalhes|PastaObservacaoFinanceira
+    {
+        /** @var PastaObservacaoDetalhes|PastaObservacaoFinanceira $obs */
+        $obs = new $classe();
+        $obs->setPasta($pasta)->setAutor($autor)->setTenant($tenant)->setConteudo($texto);
+        (new \ReflectionProperty($classe, 'criadaEm'))->setValue($obs, new \DateTimeImmutable($quando));
+
+        $this->em()->persist($obs);
+        $this->em()->flush();
+
+        return $obs;
+    }
+
+    /** @param array<string, mixed> $dados @return array<string, mixed>|null */
+    private function evento(array $dados, string $id): ?array
+    {
+        foreach ($dados['eventos'] as $e) {
+            if ($e['id'] === $id) {
+                return $e;
+            }
+        }
+
+        return null;
     }
 
     private function pagamento(Pasta $pasta, Tenant $tenant, string $descricao, string $vencimento, ?string $pagoEm = null): PastaPagamento
@@ -367,5 +395,103 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         $porId = array_column($dados['eventos'], null, 'id');
         self::assertSame(RegrasDaTimelineInteligente::MARCO_FINANCEIRO, $porId['pq' . $ultimo->getId()]['marco'] ?? null);
         self::assertArrayNotHasKey('pq' . $primeiro->getId(), $porId);
+    }
+
+    #[TestDox('Observações de Detalhes e do Financeiro entram como "Registro em <aba>", com autor, texto puro, busca e pessoa; as de outra pasta, não')]
+    public function testObservacoesDeDetalhesEFinanceiro(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $outra           = $this->criarPasta($tenant);
+
+        $det = $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, '<p>Relato <b>INICIAL-DETALHES</b></p>', '2026-08-10 09:30');
+        $fin = $this->observacao(PastaObservacaoFinanceira::class, $pasta, $user, $tenant, 'ACORDO-HONORARIOS combinado', '2026-08-11 14:00');
+        $detOutra = $this->observacao(PastaObservacaoDetalhes::class, $outra, $user, $tenant, 'DETALHE-DA-OUTRA', '2026-08-12 10:00');
+        $finOutra = $this->observacao(PastaObservacaoFinanceira::class, $outra, $user, $tenant, 'FINANCEIRO-DA-OUTRA', '2026-08-12 11:00');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+        $corpo = (string) $client->getResponse()->getContent();
+
+        $eDet = $this->evento($dados, 'od' . $det->getId());
+        self::assertNotNull($eDet, 'a observação de Detalhes entra na timeline');
+        self::assertSame('Registro em Detalhes', $eDet['titulo']);
+        self::assertSame('Detalhes', $eDet['fonte']);
+        self::assertSame('registro', $eDet['categoria']);
+        self::assertSame('Relato INICIAL-DETALHES', $eDet['texto']);
+        self::assertSame($user->getFullName(), $eDet['autor']);
+        self::assertSame('09:30', $eDet['hora']);
+
+        $eFin = $this->evento($dados, 'of' . $fin->getId());
+        self::assertNotNull($eFin, 'quem vê o financeiro recebe a observação financeira');
+        self::assertSame('Registro em Financeiro', $eFin['titulo']);
+        self::assertSame('Financeiro', $eFin['fonte']);
+
+        self::assertStringNotContainsString('DETALHE-DA-OUTRA', $corpo);
+        self::assertStringNotContainsString('FINANCEIRO-DA-OUTRA', $corpo);
+        self::assertContains($user->getFullName(), $dados['pessoas']);
+        self::assertGreaterThanOrEqual(2, $dados['contagens']['registro']);
+
+        // Busca e pessoa valem para a fonte nova como para as outras.
+        $busca = $this->timeline($client, $pasta, ['q' => 'honorarios']);
+        self::assertSame(['of' . $fin->getId()], $this->ids($busca));
+        $porPessoa = $this->timeline($client, $pasta, ['pessoa' => $user->getFullName(), 'categoria' => 'registro']);
+        self::assertContains('od' . $det->getId(), $this->ids($porPessoa));
+
+        // Recurso irmão: a outra pasta mostra as suas.
+        $b = $this->timeline($client, $outra);
+        self::assertContains('od' . $detOutra->getId(), $this->ids($b));
+        self::assertContains('of' . $finOutra->getId(), $this->ids($b));
+    }
+
+    #[TestDox('Quem não vê o financeiro não recebe a observação financeira (nem o pagamento); a de Detalhes continua')]
+    public function testObservacaoFinanceiraSoParaQuemVeOFinanceiro(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $det = $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, 'DETALHE-VISIVEL', '2026-08-10 09:30');
+        $fin = $this->observacao(PastaObservacaoFinanceira::class, $pasta, $user, $tenant, 'FINANCEIRO-ESCONDIDO', '2026-08-11 14:00');
+        $pag = $this->pagamento($pasta, $tenant, 'PAGAMENTO-ESCONDIDO', '2026-09-01');
+
+        // A regra de hoje é a do guarda de leitura da pasta (quem abre a timeline vê o
+        // financeiro); o dublê diz "não" sem mexer nesse guarda — é o aperto futuro.
+        $naoVe = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $naoVe->method('podeVer')->willReturn(false);
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $naoVe);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertNotNull($this->evento($dados, 'od' . $det->getId()));
+        self::assertNull($this->evento($dados, 'pl' . $pag->getId()), 'o dublê valeu: o pagamento também sumiu');
+        self::assertNull($this->evento($dados, 'of' . $fin->getId()));
+        self::assertStringNotContainsString('FINANCEIRO-ESCONDIDO', $corpo);
+    }
+
+    #[TestDox('Observação gravada com OUTRO escritório não entra, mesmo pendurada nesta pasta')]
+    public function testObservacaoDeOutroEscritorioNaoEntra(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        [, $outro]       = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $minha  = $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, 'DETALHE-MEU', '2026-08-10 09:30');
+        $alheia = $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $outro, 'DETALHE-DO-OUTRO-ESCRITORIO', '2026-08-10 10:30');
+        $alheiaFin = $this->observacao(PastaObservacaoFinanceira::class, $pasta, $user, $outro, 'FINANCEIRO-DO-OUTRO-ESCRITORIO', '2026-08-10 11:30');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertNotNull($this->evento($dados, 'od' . $minha->getId()));
+        self::assertNull($this->evento($dados, 'od' . $alheia->getId()));
+        self::assertNull($this->evento($dados, 'of' . $alheiaFin->getId()));
+        self::assertStringNotContainsString('OUTRO-ESCRITORIO', $corpo);
     }
 }

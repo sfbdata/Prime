@@ -35,4 +35,27 @@ final class PastaObservacaoDetalhesRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * As N observações mais novas da pasta, com o autor no MESMO SELECT (a Timeline inteligente
+     * mostra o nome de cada uma; sem o join, um SELECT de usuário por observação). Presa à pasta e
+     * ao escritório; o teto é o mesmo das outras fontes da timeline, para o top-N da fusão ser exato.
+     *
+     * @return PastaObservacaoDetalhes[]
+     */
+    public function findParaTimeline(Pasta $pasta, Tenant $tenant, int $limite): array
+    {
+        return $this->createQueryBuilder('o')
+            ->leftJoin('o.autor', 'autor')
+            ->addSelect('autor')
+            ->andWhere('o.pasta = :pasta')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('o.criadaEm', 'DESC')
+            ->addOrderBy('o.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
 }

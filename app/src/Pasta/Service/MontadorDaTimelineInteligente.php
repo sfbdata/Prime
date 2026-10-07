@@ -16,7 +16,11 @@ use App\Pasta\DTO\TimelineInteligenteOutput;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
+use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Repository\PastaRepository;
 use Psr\Clock\ClockInterface;
@@ -30,7 +34,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *     `PastaTimelineAssembler`, o mesmo do Histórico; nada é montado duas vezes;
  *  2. publicações do Push dos processos DESTA pasta (`listarItensPorNumerosDoTenant`);
  *  3. metas da pasta (prazo aberto e "todas concluídas");
- *  4. pagamentos da pasta (lançado, quitado, vencido), só para quem vê o financeiro.
+ *  4. observações da aba Detalhes ("Registro em Detalhes", PAS-046);
+ *  5. pagamentos da pasta (lançado, quitado, vencido) e observações da aba Financeiro
+ *     ("Registro em Financeiro"), as duas só para quem vê o financeiro.
  *
  * Uma consulta por fonte, cada uma com o MESMO teto: o top-N da fusão é exato (cada fonte trouxe
  * os seus N mais novos). O que a fonte não diz não vira evento — ver o relatório da L18 para o que
@@ -42,6 +48,8 @@ final class MontadorDaTimelineInteligente
         private readonly PastaTimelineAssembler $assembler,
         private readonly PublicacaoDjenRepository $publicacaoRepository,
         private readonly PastaPagamentoRepository $pagamentoRepository,
+        private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
+        private readonly PastaObservacaoFinanceiraRepository $observacaoFinanceiraRepository,
         private readonly PastaRepository $pastaRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly RegrasDaTimelineInteligente $regras,
@@ -113,7 +121,16 @@ final class MontadorDaTimelineInteligente
             ))->comMarco(RegrasDaTimelineInteligente::MARCO_METAS_CONCLUIDAS);
         }
 
-        // 4. Financeiro.
+        // 4. Observações da aba Detalhes (uma consulta, autor no mesmo SELECT).
+        $observacoesDetalhes = $this->observacaoDetalhesRepository->findParaTimeline($pasta, $tenant, $limite);
+        if (count($observacoesDetalhes) >= $limite) {
+            $truncado = true;
+        }
+        foreach ($observacoesDetalhes as $observacao) {
+            $eventos[] = $this->eventoDaObservacao($observacao);
+        }
+
+        // 5. Financeiro: pagamentos e observações, os dois atrás da MESMA pergunta.
         $financeiroQuitado = false;
         if ($this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta)) {
             $pagamentos        = $this->pagamentoRepository->findByPastaComAutor($pasta, $tenant);
@@ -123,6 +140,14 @@ final class MontadorDaTimelineInteligente
                 foreach ($this->eventosDoPagamento($pagamento, $hoje) as $evento) {
                     $eventos[] = $evento;
                 }
+            }
+
+            $observacoesFinanceiras = $this->observacaoFinanceiraRepository->findParaTimeline($pasta, $tenant, $limite);
+            if (count($observacoesFinanceiras) >= $limite) {
+                $truncado = true;
+            }
+            foreach ($observacoesFinanceiras as $observacao) {
+                $eventos[] = $this->eventoDaObservacao($observacao);
             }
         }
 
@@ -222,6 +247,32 @@ final class MontadorDaTimelineInteligente
             autor: $item->autorNome ?? $item->autorEmail,
             fonte: 'Dados da pasta',
             editado: $item->editadoEm !== null,
+        );
+    }
+
+    /**
+     * Observação de Detalhes ou do Financeiro (desenho `tlEventos`: "Registro em <aba>", com a aba
+     * como fonte). Mesma categoria do registro de Dados — é o chip "Registros" do desenho —, e o
+     * texto sai puro como o dele (o conteúdo também vem do editor rico).
+     */
+    private function eventoDaObservacao(PastaObservacaoDetalhes|PastaObservacaoFinanceira $observacao): EventoDaTimelineOutput
+    {
+        $financeira = $observacao instanceof PastaObservacaoFinanceira;
+        $aba        = $financeira ? 'Financeiro' : 'Detalhes';
+        $autor      = $observacao->getAutor();
+        $nome       = $autor?->getFullName();
+
+        return new EventoDaTimelineOutput(
+            id: ($financeira ? 'of' : 'od') . $observacao->getId(),
+            tipo: $financeira ? 'observacao_financeira' : 'observacao_detalhes',
+            categoria: 'registro',
+            quando: $observacao->getCriadaEm(),
+            soData: false,
+            titulo: 'Registro em ' . $aba,
+            texto: $this->textoPuro($observacao->getConteudo()),
+            autor: $nome !== null && $nome !== '' ? $nome : $autor?->getEmail(),
+            fonte: $aba,
+            editado: $observacao->getEditadaEm() !== null,
         );
     }
 
