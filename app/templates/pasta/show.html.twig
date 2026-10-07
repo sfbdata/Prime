@@ -3893,8 +3893,8 @@ document.addEventListener('DOMContentLoaded', function () {
    caixa alta; rodapé Fechar · Salvar. SÓ a moldura: os campos e o POST para
    `pasta_edit` são os de sempre (ids, names, CSRF). O que o desenho põe e aqui
    não entra, por ser decisão do dono ou função nova (D-META): "Ação" só leitura,
-   Tipo de documento/CPF, Responsável com "Trocar", a pílula "Alterações não
-   salvas" e o Salvar travado sem alteração.
+   Tipo de documento/CPF, a pílula "Alterações não salvas" e o Salvar travado sem
+   alteração. Responsável com "Trocar": PAS-021, abaixo.
 
    Abas de atalho e "Cadastro do cliente" (lote L2; dc L.570-572, 587, 4299-4301):
    são ATALHOS, não abas do form — ficam FORA do <form>, sem `name`, e nenhum campo
@@ -3905,6 +3905,19 @@ document.addEventListener('DOMContentLoaded', function () {
    fecha e abre o drawer do histórico. O desenho descarta o que foi digitado ao
    trocar de aba; aqui, se o form foi alterado, pergunta antes (confirm) — sem a
    pílula, que é D-META. #}
+<style>
+    /* PAS-021: a linha só leitura do desenho (dc L.581: 34px, fundo suave, "Trocar" 26px). */
+    .ps-pe-resp {
+        display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 10px;
+        border-radius: 4px; background: var(--ps-soft); box-shadow: inset 0 0 0 1px var(--ps-border);
+    }
+    .ps-pe-resp-nome { flex: 1; min-width: 0; font-size: 13.5px; color: var(--ps-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ps-pe-resp-trocar {
+        height: 26px; padding: 0 9px; border: none; border-radius: 3px; white-space: nowrap; cursor: pointer;
+        background: var(--ps-accent-bg); color: var(--ps-accent); font-size: 12px; font-weight: 700;
+    }
+    .ps-pe-resp-trocar:hover, .ps-pe-resp-trocar:focus-visible { background: var(--ps-hover); outline: none; }
+</style>
 {% set editCliente = pasta.clientePrincipal %}
 {% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
 {% set editNomeSub = editCliente ? editCliente.nomeExibicao : pasta.nomeCliente %}
@@ -3987,6 +4000,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     {# "Ação" continua EDITÁVEL: o desenho a põe só leitura ("vem do menu
                        Processo"), mas isso é decisão do dono (D-META). #}
                     <div class="ps-modal-pasta-linha ps-modal-pasta-linha--larga">
+                        {# PAS-021 (dc L.581, `pe.trocarResp`): Responsável só leitura com "Trocar", que
+                           fecha a janela e abre o menu de responsável do cabeçalho (o mesmo do ⋮
+                           "Trocar responsável", com o endpoint e o CSRF de sempre). Sem `name`, nada
+                           daqui vai no POST do formulário. O nome é relido do chip do cabeçalho ao
+                           abrir, porque a troca pode ter acontecido depois da carga. #}
+                        <div class="ps-modal-pasta-campo">
+                            <span class="ps-modal-pasta-rotulo" id="editRespRotulo">Responsável</span>
+                            <div class="ps-pe-resp" role="group" aria-labelledby="editRespRotulo">
+                                <span class="ps-pe-resp-nome" data-pe-resp-nome>{{ pasta.responsavel ? pasta.responsavel.fullName : 'Sem responsável' }}</span>
+                                {% if podeEditarPasta and not pasta.estaExcluida %}
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="responsavel">Trocar</button>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <div class="ps-modal-pasta-campo">
                             <label for="edit_nome_acao" class="ps-modal-pasta-rotulo">Ação</label>
                             <input type="text" id="edit_nome_acao" name="nome_acao"
@@ -4052,8 +4080,19 @@ document.addEventListener('DOMContentLoaded', function () {
         historico: function () {
             var abrir = document.getElementById('psHistoricoAbrir');
             if (abrir && abrir.getAttribute('aria-expanded') !== 'true') { abrir.click(); }
+        },
+        // PAS-021: o "Trocar responsável" do ⋮ (pasta-show.js), que abre o menu do chip.
+        responsavel: function () {
+            var trocar = document.getElementById('psMenuTrocarResponsavel');
+            if (trocar) { trocar.click(); }
         }
     };
+
+    modal.addEventListener('show.bs.modal', function () {
+        var nome = modal.querySelector('[data-pe-resp-nome]');
+        var doChip = document.querySelector('.ps-cab-dados .pasta-resp-chip .pasta-resp-nome');
+        if (nome && doChip) { nome.textContent = doChip.textContent.trim(); }
+    });
 
     modal.addEventListener('click', function (e) {
         var gatilho = e.target.closest('.js-pe-ir');
