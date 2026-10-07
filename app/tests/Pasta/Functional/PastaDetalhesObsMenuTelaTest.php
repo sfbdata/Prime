@@ -298,4 +298,29 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("fd.append('resposta_a', raizId);", $caixa);
         self::assertStringContainsString('fetch(urlEnviar,', $caixa);
     }
+
+    #[TestDox('EDT-010r: o compositor de Detalhes liga a @menção e a observação mostra a menção em destaque')]
+    public function testMencaoNaTela(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $obs             = $this->criarObs($pasta, $tenant, $user);
+        $obs->setConteudo('<p>Ver com @[Admin Push](user:' . $user->getId() . ')</p>');
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+
+        self::assertCount(1, $crawler->filter('#formDetalhesObservacao > .ps-compositor-caixa[data-mencionaveis-url="/pasta/' . $pasta->getId() . '/mencionaveis"] > textarea#detalhesObsConteudo'));
+        self::assertCount(1, $crawler->filter('#detalhes-obs-' . $obs->getId() . ' .obs-conteudo-det .ql-editor > p > span.ps-mencao[data-user-id="' . $user->getId() . '"]'));
+
+        $html   = (string) $client->getResponse()->getContent();
+        $script = substr($html, (int) strpos($html, 'const urlEnviar    = '), 60000);
+        self::assertStringContainsString("fdEnvio.set('conteudo', comMencoes(obsConteudo, conteudo));", $script);
+        self::assertStringContainsString("fd.append('conteudo', comMencoes(campo, paragrafosDe(texto)));", $script);
+        self::assertStringContainsString("campo._mencoes = [{ id: autorId, nome: primeiro }];", $script);
+        self::assertStringContainsString("fd.append('conteudo', comMencoes(textarea, textarea.value));", $script);
+        self::assertStringContainsString('PastaMencoes.ligar(textarea, edicao.mencoes);', $script);
+    }
 }

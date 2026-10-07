@@ -21,6 +21,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * pasta e deste escritório, senão nada é gravado. O autor da raiz recebe "<Primeiro nome>
  * respondeu seu comentário" pela {@see ResolucaoDeMencoesDoRegistro} (as regras e a cota do
  * Registro); o aviso e o registro entram na mesma transação.
+ *
+ * @MENÇÕES (EDT-010r): o conteúdo traz tokens `@[Nome](user:ID)`. Depois de sanitizar, a MESMA
+ * {@see ResolucaoDeMencoesDoRegistro} do Registro confere os ids (só colegas ativos deste
+ * escritório; o resto vira texto comum), grava o nome do banco e avisa quem VÊ a pasta. Numa
+ * resposta, o autor respondido recebe só o aviso de resposta (o mais específico).
  */
 final class EnviarObservacaoDetalhesUseCase
 {
@@ -63,6 +68,8 @@ final class EnviarObservacaoDetalhesUseCase
             }
         }
 
+        [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
+
         $obs = new PastaObservacaoDetalhes();
         $obs->setPasta($pasta);
         $obs->setAutor($autor);
@@ -70,7 +77,7 @@ final class EnviarObservacaoDetalhesUseCase
         $obs->setConteudo($conteudo);
         $obs->setRespostaA($raiz);
 
-        if ($raiz === null) {
+        if ($raiz === null && $mencionados === []) {
             $this->em->persist($obs);
             $this->em->flush();
 
@@ -79,11 +86,14 @@ final class EnviarObservacaoDetalhesUseCase
 
         // O link do aviso leva o id da RESPOSTA, que só existe depois do flush — por isso o flush
         // acontece dentro da transação, antes do aviso.
-        return $this->em->wrapInTransaction(function () use ($obs, $raiz, $pasta, $autor, $tenant): PastaObservacaoDetalhes {
+        return $this->em->wrapInTransaction(function () use ($obs, $raiz, $pasta, $autor, $tenant, $mencionados): PastaObservacaoDetalhes {
             $this->em->persist($obs);
             $this->em->flush();
 
-            $this->resolucaoDeMencoes->notificarRespostaNaObservacao($raiz, $obs, $pasta, $autor, $tenant);
+            if ($raiz !== null) {
+                $this->resolucaoDeMencoes->notificarRespostaNaObservacao($raiz, $obs, $pasta, $autor, $tenant);
+            }
+            $this->resolucaoDeMencoes->notificarNaObservacao($mencionados, $obs, $pasta, $autor, $tenant, $raiz?->getAutor());
 
             return $obs;
         });

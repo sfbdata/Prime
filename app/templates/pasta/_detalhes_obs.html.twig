@@ -26,6 +26,11 @@
    resposta abre sob o cartão da raiz, com as classes `.ps-resp-caixa*` do Registro. Na lápide
    não há Responder.
 
+   @menção (EDT-010r): o MESMO pasta-mencoes.js do Registro (carregado pela pasta_show). O
+   compositor é ligado na carga (`[data-mencionaveis-url]`), a caixa de edição ao abrir; ao
+   enviar, `PastaMencoes.paraEnvio` troca cada "@Nome" escolhido pelo token `@[Nome](user:ID)` e o
+   servidor confere o id.
+
    Contexto: `pasta`, `observacoesDetalhes`, `fotosResponsaveis` (mapa userId => url),
    `podeEditarPasta` (bool, opcional — calculado pelo show; fallback aqui). #}
 {# Editor rico (barra de formatação). O Quill é auto-hospedado — sem CDN externo. #}
@@ -62,7 +67,8 @@
     <div class="ps-compositor">
         <form id="formDetalhesObservacao">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_detalhes_obs_' ~ pasta.id) }}">
-            <div class="ps-compositor-caixa">
+            {# @menção (EDT-010r): o pasta-mencoes.js liga o "@" deste compositor e busca nesta URL. #}
+            <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id}) }}">
                 <textarea name="conteudo"
                           id="detalhesObsConteudo"
                           class="form-control detalhes-obs-textarea"
@@ -165,6 +171,13 @@
     const obsLista     = document.getElementById('detalhesObsLista');
     const obsContagem  = document.getElementById('detalhes-obs-count');
     const urlEnviar    = '{{ path("pasta_detalhes_observacao_enviar", {id: pasta.id}) }}';
+    const caixaMencoes = formObs ? formObs.querySelector('[data-mencionaveis-url]') : null;
+    const urlMencionaveis = caixaMencoes ? caixaMencoes.getAttribute('data-mencionaveis-url') : '';
+
+    /** O conteúdo com cada "@Nome" escolhido virando o token `@[Nome](user:ID)`. */
+    function comMencoes(textarea, html) {
+        return window.PastaMencoes ? PastaMencoes.paraEnvio(textarea, html) : html;
+    }
     const MESES        = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
     /* Conta as RAÍZES (respostas não contam, como no Registro); a resposta cuja raiz acabou de
@@ -193,9 +206,11 @@
             obsErro.classList.add('d-none');
 
             try {
+                const fdEnvio = new FormData(formObs);
+                fdEnvio.set('conteudo', comMencoes(obsConteudo, conteudo));
                 const resp = await fetch(urlEnviar, {
                     method: 'POST',
-                    body: new FormData(formObs),
+                    body: fdEnvio,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 const data = await resp.json();
@@ -205,6 +220,7 @@
                 atualizarContagem();
                 // Limpa o editor (que é quem alimenta a textarea); sem isso o texto enviado ficaria na tela.
                 if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
+                if (window.PastaMencoes) { PastaMencoes.esquecer(obsConteudo); }
             } catch (_) {
                 mostrarErro('Erro de rede. Tente novamente.');
             } finally {
@@ -469,7 +485,7 @@
             const fd = new FormData();
             fd.append('_token', token.value);
             fd.append('resposta_a', raizId);
-            fd.append('conteudo', paragrafosDe(texto));
+            fd.append('conteudo', comMencoes(campo, paragrafosDe(texto)));
             try {
                 const resp = await fetch(urlEnviar, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const data = await resp.json();
@@ -489,10 +505,14 @@
             }
         });
 
-        // Responder a uma resposta já começa com "@PrimeiroNome " do autor dela (desenho `respTxt`).
+        // Responder a uma resposta já começa com "@PrimeiroNome " do autor dela (desenho `respTxt`),
+        // como menção REAL: o registro de menções da caixa (`_mencoes`), que o `paraEnvio`
+        // transforma no token `@[Nome](user:ID)`.
+        const autorId  = Number(botao.dataset.respostaAutorId || 0);
         const primeiro = String(botao.dataset.respostaAutorNome || '').trim().split(/\s+/)[0] || '';
-        if (primeiro !== '') {
+        if (autorId > 0 && primeiro !== '') {
             campo.value = '@' + primeiro + ' ';
+            campo._mencoes = [{ id: autorId, nome: primeiro }];
             enviar.disabled = false;
         }
 
@@ -700,12 +720,16 @@
                 const conteudoDiv   = item.querySelector('.obs-conteudo-det');
                 const conteudoAtual = btnEditar.dataset.conteudo;
                 const htmlAtual     = btnEditar.dataset.conteudoHtml ?? '';
+                // @menção: o token volta a "@Nome" no editor e a menção fica lembrada para salvar.
+                const edicao = window.PastaMencoes
+                    ? PastaMencoes.paraEdicao(conteudoAtual)
+                    : { html: conteudoAtual, mencoes: [] };
 
                 const textarea = document.createElement('textarea');
                 textarea.className = 'form-control form-control-sm detalhes-obs-textarea';
                 textarea.rows = 3;
                 textarea.maxLength = 5000;
-                textarea.value = conteudoAtual;
+                textarea.value = edicao.html;
 
                 /* Modo edição do bj-editor (desenho 1.2.3; auditoria 2, T2): os botões moram
                    no rodapé DO editor — "Visível para a equipe" · espaço · Cancelar
@@ -768,6 +792,10 @@
                 } else {
                     textarea.focus();
                 }
+                if (window.PastaMencoes && urlMencionaveis) {
+                    textarea._mencoesUrl = urlMencionaveis;
+                    PastaMencoes.ligar(textarea, edicao.mencoes);
+                }
 
                 btnCancelar.addEventListener('click', function () { restaurarExibicao(htmlAtual); });
 
@@ -781,7 +809,7 @@
 
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
-                    fd.append('conteudo', textarea.value);
+                    fd.append('conteudo', comMencoes(textarea, textarea.value));
 
                     try {
                         const resp = await fetch(btnEditar.dataset.url, {
@@ -931,7 +959,7 @@
                             data-obs-id="{{ obs.id }}"
                             {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
                             data-conteudo="{{ obs.conteudo|e('html_attr') }}"
-                            data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
+                            data-conteudo-html="{{ obs.conteudo|registro_texto|e('html_attr') }}"
                             data-csrf="{{ csrf_token('pasta_detalhes_obs_editar_' ~ obs.id) }}"
                             data-url="{{ path('pasta_detalhes_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
                         <i class="bi bi-pencil"></i>
@@ -1023,10 +1051,11 @@
         </div>
         <div class="ps-anotacao-corpo">
             <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
-            {# `texto_rico` sanitiza e já é `is_safe: html` — legado em texto puro sai
+            {# `registro_texto` = `texto_rico` (sanitiza, `is_safe: html`) + as @menções em destaque
+               (EDT-010r). `texto_rico` sanitiza e já é `is_safe: html` — legado em texto puro sai
                escapado, com as quebras de linha preservadas. #}
             <div class="ps-anotacao-texto obs-conteudo-det">
-                <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|texto_rico }}</span></span>
+                <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|registro_texto }}</span></span>
             </div>
         </div>
     </article>

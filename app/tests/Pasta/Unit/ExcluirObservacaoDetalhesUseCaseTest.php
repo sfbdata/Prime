@@ -48,7 +48,7 @@ final class ExcluirObservacaoDetalhesUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('wrapInTransaction');
         $this->em->expects($this->once())->method('remove')->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'remove'; });
         $this->notificacoes->expects($this->once())->method('excluirPelaAncoraDoLink')
-            ->with($this->identicalTo($this->tenant), [Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO], '#detalhes-obs-12')
+            ->with($this->identicalTo($this->tenant), [Notificacao::TIPO_PASTA_MENCAO_REGISTRO, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO], '#detalhes-obs-12')
             ->willReturnCallback(static function () use (&$ordem): int { $ordem[] = 'avisos'; return 1; });
 
         $this->useCase->executar($obs, $this->autor, $this->tenant);

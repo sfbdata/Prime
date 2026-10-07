@@ -160,7 +160,9 @@
             <div class="ps-compositor">
                 <form id="formFinanceiroObservacao">
                     <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
-                    <div class="ps-compositor-caixa">
+                    {# @menção (EDT-010r): o pasta-mencoes.js (carregado pela pasta_show, em `_dados_anotacoes`)
+                       liga o "@" deste compositor e busca a lista nesta URL. #}
+                    <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id}) }}">
                         <textarea name="conteudo"
                                   id="financeiroObsConteudo"
                                   data-editor-rico
@@ -1459,7 +1461,7 @@
                             title="Editar registro" aria-label="Editar registro"
                             data-obs-id="{{ obs.id }}"
                             data-conteudo="{{ obs.conteudo|e('html_attr') }}"
-                            data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
+                            data-conteudo-html="{{ obs.conteudo|registro_texto|e('html_attr') }}"
                             data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
                             data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
                         <i class="bi bi-pencil"></i>
@@ -1492,8 +1494,9 @@
         <div class="ps-anotacao-corpo">
             <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
             <div class="ps-anotacao-texto obs-conteudo">
-                {# `texto_rico` sanitiza e já é `is_safe: html`. #}
-                <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|texto_rico }}</span></span>
+                {# `registro_texto` é o `texto_rico` (sanitiza, `is_safe: html`) com as @menções
+                   (`@[Nome](user:ID)`, EDT-010r) em destaque `.ps-mencao` — ver MencoesDoRegistro. #}
+                <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|registro_texto }}</span></span>
             </div>
         </div>
     </article>

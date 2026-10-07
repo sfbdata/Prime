@@ -5,34 +5,35 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
+use App\Tests\Processo\Unit\CriaResolucaoDeMencoesDaNota;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
-use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(EditarObservacaoDetalhesUseCase::class)]
 final class EditarObservacaoDetalhesUseCaseTest extends TestCase
 {
     use CriaSanitizadorTextoRico;
+    use CriaResolucaoDeMencoesDaNota;
 
-    private EntityManagerInterface&MockObject $em;
     private EditarObservacaoDetalhesUseCase $useCase;
     private Tenant $tenant;
     private User $autor;
 
     protected function setUp(): void
     {
-        $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EditarObservacaoDetalhesUseCase($this->em, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario());
-        $this->tenant  = new Tenant();
-        $this->autor   = (new User())->setEmail('autor@test.com');
+        $this->tenant  = $this->definirId(new Tenant(), 1);
+        $this->montarMencoes();
+        $this->useCase = new EditarObservacaoDetalhesUseCase($this->em, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario(), $this->resolucao);
+        $this->autor   = $this->pessoa(1, 'Ana Souza');
     }
 
     private function novaObservacao(string $conteudo = 'Original'): PastaObservacaoDetalhes
@@ -114,5 +115,61 @@ final class EditarObservacaoDetalhesUseCaseTest extends TestCase
         $dentro = $obs->getCriadaEm()->add(new \DateInterval('PT15M'));
 
         self::assertTrue($this->useCase->podeEditar($obs, $this->autor, $this->tenant, $dentro));
+    }
+
+    // ── @menção (EDT-010r) ───────────────────────────────────────────────────
+
+    private function naPasta(): PastaObservacaoDetalhes
+    {
+        $pasta = $this->definirId((new Pasta())->setTenant($this->tenant)->setNup('0001/2026'), 77);
+
+        return $this->definirId($this->novaObservacao()->setPasta($pasta), 40);
+    }
+
+    #[TestDox('EDT-010r: editar e mencionar um colega avisa quem passou a ser mencionado, com o link do cartão')]
+    public function testEditarComMencaoAvisa(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->colegasDoEscritorio([$this->autor, $bruno]);
+        $this->acessoAPasta(77, [2 => true]);
+        $avisos = $this->capturarAvisos();
+        $this->em->expects($this->once())->method('wrapInTransaction');
+        $obs = $this->naPasta();
+
+        $this->useCase->executar($obs, $this->autor, $this->tenant, '<p>Fala com @[Bru](user:2) amanhã</p>');
+
+        self::assertStringContainsString('@[Bruno Lima](user:2)', $obs->getConteudo(), 'o nome gravado é o do banco');
+        self::assertCount(1, $avisos);
+        self::assertSame($bruno, $avisos[0]['usuario']);
+        self::assertSame(Notificacao::TIPO_PASTA_MENCAO_REGISTRO, $avisos[0]['tipo']);
+        self::assertSame('Ana mencionou você na Pasta 0001/2026 · Detalhes', $avisos[0]['titulo']);
+        self::assertSame('/pasta/77#detalhes-obs-40', $avisos[0]['notificacao']->getUrl());
+    }
+
+    #[TestDox('EDT-010r: token de quem não é colega ativo deste escritório vira texto e não avisa')]
+    public function testMencaoForjadaViraTexto(): void
+    {
+        $this->colegasDoEscritorio([$this->autor]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $obs = $this->naPasta();
+
+        $this->useCase->executar($obs, $this->autor, $this->tenant, '<p>Oi @[Intruso](user:99)</p>');
+
+        self::assertStringNotContainsString('(user:99)', $obs->getConteudo());
+        self::assertStringContainsString('@Intruso', $obs->getConteudo());
+    }
+
+    #[TestDox('EDT-010r: numa resposta, o autor respondido não recebe a menção (já tem a resposta)')]
+    public function testRespostaPulaOAutorRespondido(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->colegasDoEscritorio([$this->autor, $bruno]);
+        $this->acessoAPasta(77, [2 => true]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $obs  = $this->naPasta();
+        $raiz = $this->definirId((new PastaObservacaoDetalhes())->setPasta($obs->getPasta())->setAutor($bruno)->setTenant($this->tenant)->setConteudo('x'), 39);
+        $obs->setRespostaA($raiz);
+
+        $this->useCase->executar($obs, $this->autor, $this->tenant, '<p>@[Bruno Lima](user:2) ok</p>');
     }
 }

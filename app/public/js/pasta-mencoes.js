@@ -1,5 +1,10 @@
 /**
- * @menção no Registro da pasta (item 20b).
+ * @menção no Registro da pasta (item 20b), nas observações de Detalhes e no Relatório financeiro
+ * (EDT-010r) e nas notas técnicas (PMC-019).
+ *
+ * Todo compositor dentro de um `[data-mencionaveis-url]` é ligado na carga, cada um com a SUA URL
+ * (`textarea._mencoesUrl`); quem monta editor depois (edição, nota técnica) chama `ligar` com a
+ * URL posta na textarea.
  *
  * Digitar "@" no editor do Registro abre a lista de colegas (desenho `bluejus-central.js`
  * `menAbrir`/`menEscolher`): ↑/↓ escolhem, Enter/Tab inserem, Esc fecha. A lista vem do servidor
@@ -286,17 +291,22 @@
     }, true);
     window.addEventListener('scroll', function () { if (pop) { posicionar(); } }, true);
 
+    /** Liga cada compositor marcado (Registro, Detalhes, Financeiro), com a URL da própria caixa. */
     function ligarCompositor(tentativas) {
-        var caixa = document.querySelector('[data-mencionaveis-url]');
-        var textarea = caixa ? caixa.querySelector('textarea') : null;
-        if (!textarea) { return; }
-        if (window.EditorRico && EditorRico.instancia(textarea)) {
-            ligar(textarea);
+        var faltam = 0;
+        document.querySelectorAll('[data-mencionaveis-url]').forEach(function (caixa) {
+            var textarea = caixa.querySelector('textarea');
+            if (!textarea || textarea._mencoesLigado) { return; }
+            if (window.EditorRico && EditorRico.instancia(textarea)) {
+                textarea._mencoesUrl = caixa.getAttribute('data-mencionaveis-url');
+                ligar(textarea);
 
-            return;
-        }
+                return;
+            }
+            faltam++;
+        });
         // O editor é montado por outro script `defer`: espera um pouco se ainda não montou.
-        if (tentativas > 0) { setTimeout(function () { ligarCompositor(tentativas - 1); }, 100); }
+        if (faltam > 0 && tentativas > 0) { setTimeout(function () { ligarCompositor(tentativas - 1); }, 100); }
     }
 
     /** A lista está aberta — no editor dado, se houver (a sugestão de palavras do editor cede a ela). */

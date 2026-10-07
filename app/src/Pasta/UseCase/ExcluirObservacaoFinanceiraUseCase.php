@@ -19,8 +19,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * Salvaguardas: só o autor da observação pode excluí-la, e apenas dentro de uma
  * janela curta após a criação (`JanelaDeEdicaoDeComentario`, 15 minutos) — o suficiente para desfazer um engano.
  *
- * Como no Registro (NOT-01): o "respondeu seu comentário" que ESTE registro gerou (link
- * `pasta_show#financeiro-obs-<id>`) sai junto, na mesma transação — senão a prévia do texto
+ * Como no Registro (NOT-01): a @menção e o "respondeu seu comentário" que ESTE registro gerou (link
+ * `pasta_show#financeiro-obs-<id>`) saem junto, na mesma transação — senão a prévia do texto
  * apagado continuaria no sino. Só os deste escritório e só os da âncora exata. As respostas a
  * este registro continuam (a FK é SET NULL), e os avisos delas também.
  */
@@ -28,6 +28,7 @@ final class ExcluirObservacaoFinanceiraUseCase
 {
     /** Os avisos cujo link aponta para o registro (`#financeiro-obs-<id>`). */
     public const TIPOS_DE_AVISO_DO_REGISTRO = [
+        Notificacao::TIPO_PASTA_MENCAO_REGISTRO,
         Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO,
     ];
 

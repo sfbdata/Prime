@@ -104,6 +104,55 @@ final class EnviarObservacaoDetalhesUseCaseTest extends TestCase
         $this->useCase->executar($this->pasta, $this->autor, str_repeat('a', 5001), $this->tenant);
     }
 
+    #[TestDox('EDT-010r: mencionar um colega grava o nome do banco e o avisa, com o link do cartão e a aba')]
+    public function testMencaoAvisa(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->colegasDoEscritorio([$this->autor, $bruno]);
+        $this->acessoAPasta(77, [2 => true]);
+        $avisos = $this->capturarAvisos();
+        $this->em->expects($this->once())->method('wrapInTransaction');
+
+        $obs = $this->useCase->executar($this->pasta, $this->autor, '<p>Ver com @[Bru](user:2)</p>', $this->tenant);
+
+        self::assertStringContainsString('@[Bruno Lima](user:2)', $obs->getConteudo());
+        self::assertCount(1, $avisos);
+        self::assertSame(Notificacao::TIPO_PASTA_MENCAO_REGISTRO, $avisos[0]['tipo']);
+        self::assertSame('Ana mencionou você na Pasta 0001/2026 · Detalhes', $avisos[0]['titulo']);
+        self::assertSame('/pasta/77#detalhes-obs-' . $obs->getId(), $avisos[0]['notificacao']->getUrl());
+    }
+
+    #[TestDox('EDT-010r: menção a quem não vê a pasta, ou de outro escritório, não avisa')]
+    public function testMencaoSemAcessoOuDeForaNaoAvisa(): void
+    {
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$this->autor, $carla]);
+        $this->acessoAPasta(77, [3 => false]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $obs = $this->useCase->executar($this->pasta, $this->autor, '<p>@[Carla](user:3) e @[Zé](user:99)</p>', $this->tenant);
+
+        self::assertStringNotContainsString('(user:99)', $obs->getConteudo(), 'quem não é colega ativo vira texto');
+    }
+
+    #[TestDox('EDT-010r: resposta que menciona o autor respondido gera UM aviso só — o de resposta')]
+    public function testRespostaComMencaoAoRespondidoAvisaUmaVez(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$this->autor, $bruno, $carla]);
+        $this->acessoAPasta(77, [2 => true, 3 => true]);
+        $avisos = $this->capturarAvisos();
+
+        $this->useCase->executar($this->pasta, $this->autor, '<p>@[Bruno](user:2) e @[Carla](user:3)</p>', $this->tenant, $this->registro($bruno));
+
+        $porPessoa = [];
+        foreach ($avisos as $a) {
+            $porPessoa[] = [$a['usuario']->getId(), $a['tipo']];
+        }
+        self::assertSame([[2, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO], [3, Notificacao::TIPO_PASTA_MENCAO_REGISTRO]], $porPessoa);
+    }
+
     #[TestDox('Pasta de outro escritório: recusa e nada é gravado')]
     public function testPastaDeOutroEscritorioRecusa(): void
     {

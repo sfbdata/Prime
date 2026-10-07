@@ -43,6 +43,10 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * não recebe de novo. Por último, a cota do autor ({@see CotaDeNotificacoesDoRegistro}, SEC-008):
  * estourada, o aviso é suprimido e a mensagem segue gravada — no envio e na edição.
  *
+ * `notificarNaObservacao()` — @menções nas observações de Detalhes e no Relatório financeiro
+ * (EDT-010r): o mesmo `TIPO_PASTA_MENCAO_REGISTRO` e as mesmas regras do Registro, com o link
+ * da âncora do cartão e o rótulo da aba ("· Detalhes", "· Financeiro").
+ *
  * `notificarRespostaNaObservacao()` — o "respondeu seu comentário" do Relatório financeiro
  * (FPN-005) e das observações de Detalhes (PAS-039), com as MESMAS regras do Registro (`EnviarMensagemPastaUseCase`): nunca quem
  * respondeu; só quem ainda tem vínculo ATIVO neste escritório e VÊ esta pasta; um aviso por
@@ -296,6 +300,56 @@ final class ResolucaoDeMencoesDoRegistro
     }
 
     /**
+     * @menções de uma observação de Detalhes ou de um registro do Relatório financeiro
+     * (EDT-010r). Tipo `TIPO_PASTA_MENCAO_REGISTRO` — o do Registro: o sino não distingue a aba,
+     * o título já diz qual é ("… na Pasta N · Financeiro"). Link `pasta_show#<âncora>-<id>`
+     * ({@see ancoraDaObservacao()}): a anti-duplicata é por link, então a edição só avisa quem
+     * passou a ser mencionado.
+     *
+     * Chamar DEPOIS do flush (o link leva o id) e dentro da transação da observação. A pasta e a
+     * observação têm de ser deste escritório e a observação desta pasta — quem chama já
+     * conferiu; aqui a prova é repetida (um aviso com link para pasta alheia vazaria o nome dela).
+     *
+     * @param list<User> $mencionados saída de {@see resolver()}
+     * @param User|null  $pular       o autor da observação respondida (ele já recebe a resposta)
+     */
+    public function notificarNaObservacao(
+        array $mencionados,
+        PastaObservacaoFinanceira|PastaObservacaoDetalhes $obs,
+        Pasta $pasta,
+        User $autor,
+        Tenant $tenant,
+        ?User $pular = null,
+    ): void {
+        $pastaId = $pasta->getId();
+        if ($mencionados === [] || $pastaId === null || $obs->getId() === null) {
+            return;
+        }
+
+        foreach ([$pasta->getTenant(), $obs->getTenant()] as $dono) {
+            if ($dono === null || !self::mesmoTenant($dono, $tenant)) {
+                return;
+            }
+        }
+        if ($obs->getPasta() === null || $obs->getPasta()->getId() !== $pastaId) {
+            return;
+        }
+
+        $this->avisar(
+            $mencionados,
+            $pasta,
+            $autor,
+            $tenant,
+            Notificacao::TIPO_PASTA_MENCAO_REGISTRO,
+            $this->urlGenerator->generate('pasta_show', ['id' => $pastaId]) . self::ancoraDaObservacao($obs),
+            $obs instanceof PastaObservacaoDetalhes ? self::ABA_DE_DETALHES : self::ABA_DO_FINANCEIRO,
+            $obs->getConteudo(),
+            $obs,
+            $pular,
+        );
+    }
+
+    /**
      * O núcleo comum às duas origens: título do desenho (`menNotificar`), prévia de 180 e, para
      * cada mencionado, os filtros na ordem — o autor e `$pular`, o acesso de leitura à pasta, a
      * anti-duplicata e, por último, a cota (só aviso que de fato sairia gasta a cota do autor).
@@ -311,7 +365,7 @@ final class ResolucaoDeMencoesDoRegistro
         string $url,
         string $aba,
         ?string $conteudo,
-        PastaMensagem|NotaTecnica $origem,
+        PastaMensagem|NotaTecnica|PastaObservacaoFinanceira|PastaObservacaoDetalhes $origem,
         ?User $pular,
     ): void {
         $pastaId = (int) $pasta->getId();

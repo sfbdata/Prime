@@ -253,4 +253,31 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#financeiroObsMenu .js-fin-obs-responder'));
         self::assertCount(0, $crawler->filter('#financeiroObsLista .btn-responder-obs'));
     }
+
+    #[TestDox('EDT-010r: o compositor do Relatório financeiro liga a @menção e o registro mostra a menção em destaque')]
+    public function testMencaoNaTela(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant, $pasta] = $this->cenario();
+        $obs = $this->criarRegistro($pasta, $user, $tenant, '<p>Ver com @[Autora do Registro](user:' . $user->getId() . ')</p>');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $caixa = $crawler->filter('#formFinanceiroObservacao > .ps-compositor-caixa[data-mencionaveis-url="/pasta/' . $pasta->getId() . '/mencionaveis"] > textarea#financeiroObsConteudo');
+        self::assertCount(1, $caixa);
+        self::assertCount(1, $crawler->filter('#financeiro-obs-' . $obs->getId() . ' .obs-conteudo .ql-editor > p > span.ps-mencao[data-user-id="' . $user->getId() . '"]'));
+
+        // O script manda o token: o compositor, a resposta e a edição passam pelo paraEnvio.
+        $html   = (string) $client->getResponse()->getContent();
+        $script = substr($html, (int) strpos($html, "const urlEnviarObs = '"), 40000);
+        self::assertStringContainsString("fdEnvio.set('conteudo', comMencoes(obsConteudo, conteudo));", $script);
+        self::assertStringContainsString("fd.append('conteudo', comMencoes(campo, paragrafosDe(texto)));", $script);
+        self::assertStringContainsString("campo._mencoes = [{ id: autorId, nome: primeiro }];", $script);
+        self::assertStringContainsString("fd.append('conteudo', comMencoes(textarea, textarea.value));", $script);
+        self::assertStringContainsString('PastaMencoes.ligar(textarea, edicao.mencoes);', $script);
+        // FPN-005: a caixa de resposta DESTE script manda o id da raiz.
+        $caixaResp = substr($html, (int) strpos($html, 'function abrirCaixaRespostaFin(botao) {'), 6000);
+        self::assertStringContainsString("fd.append('resposta_a', raizId);", $caixaResp);
+    }
 }

@@ -503,4 +503,84 @@ final class PastaObservacaoFinanceiraControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         self::assertCount(1, $this->registrosDaPasta($pasta));
     }
+
+    // ── @menção (EDT-010r) ───────────────────────────────────────────────────
+
+    #[TestDox('EDT-010r: mencionar um colega grava o token com o nome do banco, mostra em destaque e avisa com o link do cartão')]
+    public function testMencaoGravaMostraEAvisa(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $colega = $this->criarUsuario($tenant, 'colega');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/financeiro/observacao", [
+            '_token'   => $this->gerarCsrf('pasta_financeiro_obs_' . $pasta->getId()),
+            'conteudo' => '<p>Falar com @[Col](user:' . $colega->getId() . ')</p>',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('@[Usuário colega](user:' . $colega->getId() . ')', $data['conteudo']);
+        self::assertStringContainsString('<span class="ps-mencao" data-user-id="' . $colega->getId() . '">@Usuário colega</span>', $data['conteudoHtml']);
+
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $avisos = $em->getRepository(Notificacao::class)->findBy(['usuario' => $colega->getId(), 'tipo' => Notificacao::TIPO_PASTA_MENCAO_REGISTRO]);
+        self::assertCount(1, $avisos);
+        self::assertStringEndsWith('/pasta/' . $pasta->getId() . '#financeiro-obs-' . $data['id'], (string) $avisos[0]->getUrl());
+    }
+
+    #[TestDox('EDT-010r: mencionar alguém de OUTRO escritório vira texto e não avisa ninguém')]
+    public function testMencaoDeOutroEscritorioNaoAvisa(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $autor   = $this->criarUsuario($tenantA, 'autor');
+        $alheio  = $this->criarUsuario($tenantB, 'alheio');
+        $pasta   = $this->criarPasta($tenantA);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenantA);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/financeiro/observacao", [
+            '_token'   => $this->gerarCsrf('pasta_financeiro_obs_' . $pasta->getId()),
+            'conteudo' => '<p>Oi @[Alheio](user:' . $alheio->getId() . ')</p>',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringNotContainsString('(user:' . $alheio->getId() . ')', $data['conteudo']);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(0, $em->getRepository(Notificacao::class)->findBy(['usuario' => $alheio->getId()]));
+    }
+
+    #[TestDox('EDT-010r: editar e mencionar avisa quem passou a ser mencionado')]
+    public function testEditarComMencaoAvisa(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $colega = $this->criarUsuario($tenant, 'colega');
+        $pasta  = $this->criarPasta($tenant);
+        $obs    = $this->criarObservacao($pasta, $autor, $tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/financeiro/observacao/{$obs->getId()}/editar", [
+            '_token'   => $this->gerarCsrf('pasta_financeiro_obs_editar_' . $obs->getId()),
+            'conteudo' => '<p>Agora com @[C](user:' . $colega->getId() . ')</p>',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('class="ps-mencao"', $data['conteudoHtml']);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(1, $em->getRepository(Notificacao::class)->findBy(['usuario' => $colega->getId(), 'tipo' => Notificacao::TIPO_PASTA_MENCAO_REGISTRO]));
+    }
 }
