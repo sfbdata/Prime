@@ -252,6 +252,9 @@ nav.app-header.navtop {
 .notif-item.notif-unread { background: var(--bs-secondary-bg); }
 .notif-item:hover        { background: var(--bs-secondary-bg); }
 .notif-icon  { font-size: 1rem; color: #0078AA; margin-top: 2px; flex-shrink: 0; }
+/* Alerta de meta: sino laranja do desenho (FPN-036). Mesma especificidade do .notif-icon, depois dele. */
+.notif-icon.text-orange { color: #e8590c; }
+html[data-bs-theme="dark"] .notif-icon.text-orange { color: #ff8c4a; }
 .notif-body  { flex: 1; min-width: 0; }
 .notif-title { font-size: 0.82rem; font-weight: 600; color: var(--bs-body-color); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .notif-msg   { font-size: 0.78rem; color: var(--bs-secondary-color); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
