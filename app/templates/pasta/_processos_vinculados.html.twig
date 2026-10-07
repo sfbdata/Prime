@@ -251,11 +251,12 @@
                                 data-resumo="{{ resumo|json_encode|e('html_attr') }}" data-aviso="Resumo copiado">
                             <i class="bi bi-clipboard"></i><span>Copiar resumo do processo</span>
                         </button>
-                        {# Compartilhar é o do próprio navegador (Web Share): o item nasce escondido
-                           e o JS só o mostra onde `navigator.share` existe — sem ele, não há função. #}
+                        {# Compartilhar (EDT-006/PMC-002, dc L.2928): Web Share do navegador onde existe;
+                           sem ele o item continua e copia o resumo, com o aviso do desenho. #}
                         <button type="button" class="ps-processo-menu-item js-proc-compartilhar" role="menuitem"
                                 data-titulo="Processo {{ proc.numeroProcesso|numero_cnj }}"
-                                data-resumo="{{ resumo|json_encode|e('html_attr') }}" hidden>
+                                data-resumo="{{ resumo|json_encode|e('html_attr') }}"
+                                data-aviso="Resumo copiado para compartilhar">
                             <i class="bi bi-share"></i><span>Compartilhar</span>
                         </button>
                         {# Imprimir resumo (desenho procMenu dc L.2930, `gmImprimir`; EDT-005): a tabela

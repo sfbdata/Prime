@@ -5,8 +5,9 @@
      `.ps-processo-detalhes` (aria-expanded + aria-controls no botão).
    - ⋮ do cartão: menu `.ps-processo-menu` (fixo, posicionado pelo gatilho), só
      com o que tem função hoje: nota técnica (nota-tecnica.js), alternar o
-     painel, ir à aba Push, copiar número, copiar resumo e Compartilhar — este
-     só aparece onde o navegador tem `navigator.share`. Tornar principal e
+     painel, ir à aba Push, copiar número, copiar resumo, Compartilhar — Web
+     Share onde existe; sem ele, copia o resumo e avisa — e Imprimir resumo, na
+     janela de impressão da pasta (pasta-impressao.js). Tornar principal e
      Desvincular também moram no ⋮, mas são forms `.js-ajax-*` do show.html.twig.
    - Botão direito no cartão (PMC-001, desenho `onContextMenu={p.menu}`): abre o
      MESMO ⋮ do cartão (`data-ps-menu-contexto`) no ponto do cursor. Teclado e
@@ -62,10 +63,6 @@
     }
 
     function preparar(menu) {
-        // Compartilhar só onde existe a função do navegador.
-        var compartilhar = menu.querySelector('.js-proc-compartilhar');
-        if (compartilhar) { compartilhar.hidden = typeof navigator.share !== 'function'; }
-
         // O item de alternar acompanha o estado do botão do cartão.
         var item = menu.querySelector('.js-proc-alternar-menu');
         if (item) {
@@ -137,9 +134,15 @@
         }
     }
 
+    /* Compartilhar (EDT-006/PMC-002; desenho procMenu dc L.2928): com Web Share, a folha do
+       próprio sistema; sem ele (Firefox e boa parte dos desktops), o item NÃO some — copia o
+       resumo e avisa "Resumo copiado para compartilhar", pelo mesmo caminho do "Copiar resumo". */
     function compartilhar(item) {
+        if (typeof navigator.share !== 'function') {
+            copiar(item);
+            return;
+        }
         fechar(false);
-        if (typeof navigator.share !== 'function') { return; }
         navigator.share({
             title: item.getAttribute('data-titulo') || '',
             text: linhasDoResumo(item),

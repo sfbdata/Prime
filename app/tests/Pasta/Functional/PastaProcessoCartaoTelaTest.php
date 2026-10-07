@@ -305,8 +305,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // Copiar número: o número cru (o mesmo do `data-copy` ao lado do número).
         self::assertSame(self::NUMERO, $menu->filter('.js-proc-copiar[data-copiar]')->attr('data-copiar'));
 
-        // Compartilhar: Web Share do navegador; nasce escondido e o JS só o mostra se existir.
-        self::assertNotNull($menu->filter('.js-proc-compartilhar')->attr('hidden'));
+        // Compartilhar (EDT-006/PMC-002, dc L.2928): o item NÃO some sem Web Share — sem ele, copia
+        // o resumo e avisa com o texto do desenho.
+        $compartilhar = $menu->filter('.js-proc-compartilhar');
+        self::assertNull($compartilhar->attr('hidden'), 'Compartilhar nasce visível');
+        self::assertSame('Resumo copiado para compartilhar', $compartilhar->attr('data-aviso'));
 
         // Nada de link morto.
         self::assertCount(0, $menu->filter('a[href="#"], [disabled]'));

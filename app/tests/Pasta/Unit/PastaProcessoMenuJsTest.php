@@ -53,4 +53,19 @@ final class PastaProcessoMenuJsTest extends TestCase
         self::assertStringContainsString("item.classList.contains('js-proc-imprimir'))       { imprimirResumo(item); return; }", $this->js());
         self::assertSame(0, preg_match('/\.(innerHTML|outerHTML)\b|insertAdjacentHTML/', $this->js()), 'nada de HTML em string no ⋮ do processo');
     }
+
+    #[TestDox('EDT-006: sem navigator.share, Compartilhar copia o resumo pelo caminho do "Copiar resumo" — e o menu não esconde mais o item')]
+    public function testCompartilharSemWebShare(): void
+    {
+        $f = $this->funcao('compartilhar');
+
+        self::assertStringContainsString("if (typeof navigator.share !== 'function') {\n            copiar(item);\n            return;\n        }", $f);
+        self::assertStringContainsString('navigator.share({', $f);
+
+        $preparar = $this->funcao('preparar');
+        self::assertStringNotContainsString('js-proc-compartilhar', $preparar, 'o item não é mais escondido na abertura');
+        self::assertStringNotContainsString('.hidden', $preparar);
+        // O aviso é o `data-aviso` do item (copiar), que o template preenche com o texto do desenho.
+        self::assertStringContainsString("item.getAttribute('data-aviso')", $this->funcao('copiar'));
+    }
 }
