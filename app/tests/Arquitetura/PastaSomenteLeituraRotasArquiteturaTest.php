@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Arquitetura;
 
+use App\Entity\Tarefa\TarefaMensagem;
 use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\Pasta;
@@ -25,14 +26,16 @@ use Symfony\Component\Routing\RouterInterface;
  * router INTEIRO (não grep) e, de toda rota de escrita (POST/PUT/PATCH/DELETE, ou sem restrição de
  * método) que envolva pasta, exige UM destes:
  *
- *  1. a action recebe `Pasta` ou uma entidade com `getPasta()` (o listener a vê direto);
+ *  1. a action recebe `Pasta`, uma entidade com `getPasta()` ou uma que chega a ela por
+ *     `getTarefa()->getPasta()` (`TarefaMensagem`) — o listener a vê direto;
  *  2. a action declara `#[PastaPelaFilha]` ou `#[PastaPorId]`, coerente com a rota;
  *  3. a rota está numa lista de exceção do listener (`ROTAS_LIBERADAS`, `ROTAS_SEM_PASTA_EXISTENTE`),
  *     onde cada entrada tem o motivo escrito.
  *
  * "Envolve pasta" é qualquer um destes sinais: nome `pasta_*`; `/pasta/` no path; variável de rota
- * `pastaId`, `pasta_id` ou `pasta`; action que recebe a pasta ou uma filha. Rota que traga o id da
- * pasta só no corpo da requisição não dá nenhum sinal — nem para este teste, nem para o listener.
+ * `pastaId`, `pasta_id` ou `pasta`; action que recebe a pasta, uma filha ou uma neta pela meta.
+ * Rota que traga o id da pasta só no corpo da requisição não dá nenhum sinal — nem para este
+ * teste, nem para o listener.
  *
  * Rota nova que não se encaixar quebra aqui, e a correção é escolher conscientemente um dos três.
  */
@@ -140,9 +143,34 @@ final class PastaSomenteLeituraRotasArquiteturaTest extends KernelTestCase
             if (is_a($classe, Pasta::class, true) || (class_exists($classe) && method_exists($classe, 'getPasta'))) {
                 return true;
             }
+
+            if (self::chegaAPastaPelaMeta($classe)) {
+                return true;
+            }
         }
 
         return false;
+    }
+
+    /**
+     * O degrau de dois níveis do `pastaDosArgumentos()`: a classe tem `getTarefa()` e o TIPO de
+     * retorno declarado dele tem `getPasta()` (`TarefaMensagem` → `Tarefa` → `Pasta`). Lido pela
+     * assinatura, não por instância: o teste não carrega entidade nenhuma.
+     */
+    private static function chegaAPastaPelaMeta(string $classe): bool
+    {
+        if (!class_exists($classe) || !method_exists($classe, 'getTarefa')) {
+            return false;
+        }
+
+        $retorno = (new \ReflectionMethod($classe, 'getTarefa'))->getReturnType();
+        if (!$retorno instanceof \ReflectionNamedType || $retorno->isBuiltin()) {
+            return false;
+        }
+
+        $meta = $retorno->getName();
+
+        return class_exists($meta) && method_exists($meta, 'getPasta');
     }
 
     private static function declaraAPasta(\ReflectionMethod $action): bool
@@ -290,6 +318,20 @@ final class PastaSomenteLeituraRotasArquiteturaTest extends KernelTestCase
             self::assertCount(1, $atributos, $nome);
             self::assertSame($variavel, $atributos[0]->newInstance()->argumento, $nome);
         }
+    }
+
+    #[TestDox('a edição da mensagem da meta chega à pasta por dois níveis (getTarefa → getPasta) e é reconhecida')]
+    public function testMensagemDaMetaEReconhecidaPelosDoisNiveis(): void
+    {
+        $rotas = self::rotasDeEscritaComPasta();
+
+        // O path `/tarefas/mensagem/{id}/editar` não dá nenhum dos outros sinais: só a assinatura
+        // (TarefaMensagem → Tarefa → Pasta) a põe no recorte. Se o degrau de dois níveis quebrar,
+        // ela some daqui — e o listener deixaria de vê-la sem o teste principal acusar.
+        self::assertArrayHasKey('tarefa_mensagem_editar', $rotas, 'tarefa_mensagem_editar não é reconhecida como rota de escrita de pasta.');
+        self::assertTrue(self::chegaAPastaPelaMeta(TarefaMensagem::class));
+        self::assertFalse(method_exists(TarefaMensagem::class, 'getPasta'), 'TarefaMensagem ganhou getPasta(): o degrau de dois níveis deixou de ser o que a cobre.');
+        self::assertTrue(self::recebeAPasta(self::actionObrigatoria('tarefa_mensagem_editar', $rotas['tarefa_mensagem_editar'])));
     }
 
     #[TestDox('as listas de exceção do listener só têm rotas de escrita de pasta que existem')]

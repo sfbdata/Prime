@@ -30,7 +30,7 @@ use Symfony\Component\Routing\RouterInterface;
  *
  * O recorte é `Request` não-segura (POST/PUT/PATCH/DELETE) que receba uma `Pasta` — direta ou por
  * uma filha dela (documento, seção, mensagem, checklist, observação, processo, pagamento: todas
- * têm `getPasta()`). Rota de leitura é GET e passa reto; as buscas da tela (`pasta_clientes_buscar`,
+ * têm `getPasta()`) ou uma neta pela meta (`TarefaMensagem`: `getTarefa()->getPasta()`). Rota de leitura é GET e passa reto; as buscas da tela (`pasta_clientes_buscar`,
  * `pasta_buscar_processos`) são GET de propósito e continuam funcionando na pasta riscada.
  *
  * Rota que recebe só o id (`int`) de uma filha — documento, seção — declara de onde vem a pasta com
@@ -137,9 +137,39 @@ final class PastaSomenteLeituraListener
                     return $pasta;
                 }
             }
+
+            // Neta da pasta, pela meta: `TarefaMensagem` não tem `getPasta()`, chega à pasta por
+            // `getTarefa()->getPasta()`. Sem este degrau, editar a mensagem de uma meta gravava
+            // na pasta excluída (achado P14b). Meta sem pasta (ou objeto sem meta) → segue reto.
+            $pasta = $this->pastaPelaMeta($argumento);
+
+            if ($pasta !== null) {
+                return $pasta;
+            }
         }
 
         return null;
+    }
+
+    /**
+     * A pasta de um argumento que só a alcança em dois níveis: `getTarefa()` → `getPasta()`.
+     * O `PastaSomenteLeituraRotasArquiteturaTest` aplica o mesmo critério à assinatura da action.
+     */
+    private function pastaPelaMeta(mixed $argumento): ?Pasta
+    {
+        if (!is_object($argumento) || !method_exists($argumento, 'getTarefa')) {
+            return null;
+        }
+
+        $tarefa = $argumento->getTarefa();
+
+        if (!is_object($tarefa) || !method_exists($tarefa, 'getPasta')) {
+            return null;
+        }
+
+        $pasta = $tarefa->getPasta();
+
+        return $pasta instanceof Pasta ? $pasta : null;
     }
 
     /**
