@@ -16,8 +16,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Esvazia a lixeira da aba Documentos (D7): apaga de verdade — linha e arquivo — o que está na
  * lixeira há mais de `--dias` (padrão 30, S-10). Nenhum cron o aciona nesta frente: é do operador.
  *
- * `--dry-run` conta e lista sem apagar nada; `--limite=N` processa no máximo N entradas da fila
- * (seções e documentos vencidos) e a próxima execução retoma de onde parou. A ordem INV-6 e a
+ * `--dry-run` conta e lista sem apagar nada; `--limite=N` purga no máximo N entradas da fila
+ * (seções e documentos vencidos; os pulados por caminho inválido não contam) e a próxima execução
+ * retoma de onde parou. A ordem INV-6 e a
  * política de falha moram em `PurgarLixeiraUseCase`: arquivo só sai depois do COMMIT; banco que
  * recusa interrompe sem tocar no disco (código de saída FAILURE); disco que recusa depois do
  * COMMIT vira órfão registrado no log, listado aqui, e não derruba a execução.
@@ -41,7 +42,7 @@ final class PurgarLixeiraCommand extends Command
         $this
             ->addOption('dias', null, InputOption::VALUE_REQUIRED, 'Retenção: só sai o que foi excluído há MAIS de N dias', (string) self::DIAS_PADRAO)
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Conta e lista o que sairia, sem apagar nada')
-            ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Processar no máximo N entradas da fila nesta execução')
+            ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Purgar no máximo N entradas da fila nesta execução (os itens pulados não contam)')
             ->addOption('tenant', null, InputOption::VALUE_REQUIRED, 'Só a lixeira deste escritório (id do tenant). Sem a opção, a instalação inteira: a retenção é política da instalação, não do escritório');
     }
 
@@ -79,7 +80,7 @@ final class PurgarLixeiraCommand extends Command
         $io->section($dryRun ? 'Resumo (simulado — nada apagado)' : 'Resumo');
         // Uma linha legível por máquina (log), antes da tabela para humanos.
         $io->text(sprintf(
-            'resumo: modo=%s dias=%d tenant=%s corte=%s candidatos_secoes=%d candidatos_documentos=%d secoes_removidas=%d documentos_removidos=%d arquivos_removidos=%d arquivos_nao_removidos=%d',
+            'resumo: modo=%s dias=%d tenant=%s corte=%s candidatos_secoes=%d candidatos_documentos=%d secoes_removidas=%d documentos_removidos=%d arquivos_removidos=%d arquivos_nao_removidos=%d secoes_puladas=%d documentos_pulados=%d',
             $dryRun ? 'simulacao' : 'purga',
             $dias,
             $tenantId === null ? 'todos' : (string) $tenantId,
@@ -90,6 +91,8 @@ final class PurgarLixeiraCommand extends Command
             $resultado->documentosRemovidos,
             $resultado->arquivosRemovidos,
             count($resultado->arquivosNaoRemovidos),
+            $resultado->secoesPuladas,
+            $resultado->documentosPulados,
         ));
         $verbo = $dryRun ? 'sairiam' : 'saíram';
         $io->table(['Métrica', 'Total'], [
@@ -100,7 +103,17 @@ final class PurgarLixeiraCommand extends Command
             [sprintf('Documentos que %s do banco (os de dentro das subpastas inclusive)', $verbo), $resultado->documentosRemovidos],
             ['Arquivos apagados do armazenamento (depois do COMMIT)', $resultado->arquivosRemovidos],
             ['Arquivos que ficaram (órfãos registrados no log)', count($resultado->arquivosNaoRemovidos)],
+            ['Subpastas puladas (documento na árvore com caminho inválido)', $resultado->secoesPuladas],
+            ['Documentos pulados (caminho que não vira chave)', $resultado->documentosPulados],
         ]);
+
+        if ($resultado->secoesPuladas + $resultado->documentosPulados > 0) {
+            $io->warning(sprintf(
+                '%d subpasta(s) e %d documento(s) ficaram na lixeira por caminho inválido (ids no log).',
+                $resultado->secoesPuladas,
+                $resultado->documentosPulados,
+            ));
+        }
 
         if ($resultado->arquivosNaoRemovidos !== []) {
             $io->warning('Arquivos que o armazenamento não removeu depois do COMMIT (ver o log):');

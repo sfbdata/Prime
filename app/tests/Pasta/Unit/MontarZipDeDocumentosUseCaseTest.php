@@ -444,6 +444,9 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         $avisos = $this->logger->doNivel('warning');
         self::assertCount(1, $avisos);
         self::assertSame($invalido->getId(), $avisos[0]['contexto']['documento_id']);
+        // SEC-007b: nem o log guarda trecho do caminho (pode ter nome de cliente); só o tipo.
+        self::assertSame('caminho_nao_vira_chave', $avisos[0]['contexto']['motivo']);
+        self::assertStringNotContainsString('segredo-interno', json_encode($avisos, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), 'nenhum trecho do caminho no log');
     }
 
     // ---------------------------------------------------------------- helpers

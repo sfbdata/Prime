@@ -38,15 +38,20 @@ use Psr\Log\LoggerInterface;
  *  - **depois os documentos vencidos** que sobraram (os soltos e os de seções ainda vivas);
  *  - em lotes de {@see LOTE}: um `flush` (COMMIT) por lote, e só então os arquivos do lote saem.
  *    Um lote recusado pelo banco interrompe a execução com os anteriores já consistentes;
- *  - `--limite` conta ENTRADAS DA FILA (seções e documentos vencidos, não a descendência);
- *    rodar de novo retoma de onde parou, porque a fila é "quem ainda está vencido" — idempotente;
+ *  - `--limite` conta ENTRADAS DA FILA EFETIVAMENTE PURGADAS (seções e documentos vencidos que
+ *    saíram, ou sairiam na simulação; não a descendência). A fila inteira é lida (só ids, barato)
+ *    e o limite vale sobre o que foi processado: item PULADO (caminho inválido, seção impedida,
+ *    entrada sumida ou restaurada) não ocupa vaga — senão N itens legados no topo da fila
+ *    prenderiam toda execução com `--limite=N` sem nunca avançar (SEC-007b). Rodar de novo
+ *    retoma de onde parou, porque a fila é "quem ainda está vencido" — idempotente;
  *  - uma entrada que sumiu entre a listagem e a carga (caiu pelo cascade de um ancestral neste
  *    mesmo laço, ou foi purgada por outra execução) é pulada; uma que foi RESTAURADA no meio é
  *    pulada também — reconferida pelo carimbo antes do `remove()`.
  *
  * Linha legada com `caminho_arquivo` que não vira chave (SEC-007: vazio, com `/`, `\`, `..`,
  * controle, ou sem escritório): o documento é PULADO — nem linha, nem arquivo saem — e um
- * `warning` registra o id. A seção que tenha um desses na árvore NÃO é removida, porque o
+ * `warning` registra só ids e o TIPO do motivo — nunca trecho do caminho, que pode ter nome de
+ * cliente. Os pulados entram na contagem do resultado. A seção que tenha um desses na árvore NÃO é removida, porque o
  * cascade levaria a linha legada e deixaria o arquivo sem rastro; os documentos válidos e vencidos
  * de dentro dela ainda saem pela fila de documentos, um a um, como qualquer outro. Antes, a exceção subia, o comando
  * parava, e parava de novo em toda execução seguinte no mesmo registro. Remover a linha "para
@@ -101,9 +106,13 @@ final class PurgarLixeiraUseCase
         $candidatosSecoes     = $this->secoes->contarNaLixeiraVencida($corte, $tenantId);
         $candidatosDocumentos = $this->documentos->contarNaLixeiraVencida($corte, $tenantId);
 
-        $idsSecoes     = $this->secoes->idsNaLixeiraVencida($corte, $limite, $tenantId);
-        $sobra         = $limite === null ? null : max(0, $limite - count($idsSecoes));
-        $idsDocumentos = $sobra === 0 ? [] : $this->documentos->idsNaLixeiraVencida($corte, $sobra, $tenantId);
+        // A fila INTEIRA (só ids): o `--limite` é aplicado ao que for purgado, não à leitura —
+        // senão os pulados ocupariam as vagas (SEC-007b).
+        $idsSecoes     = $this->secoes->idsNaLixeiraVencida($corte, null, $tenantId);
+        $idsDocumentos = $this->documentos->idsNaLixeiraVencida($corte, null, $tenantId);
+
+        /** Vagas que sobram nesta execução; null = sem limite. */
+        $vagas = $limite;
 
         // Quem está na fila desta execução: uma seção cujo ancestral também está na fila é
         // coberta pela árvore dele (antes ou depois dela na ordem), e não entra por conta própria
@@ -115,6 +124,8 @@ final class PurgarLixeiraUseCase
         $documentosRemovidos = 0;
         $arquivosRemovidos   = 0;
         $naoRemovidos        = [];
+        $secoesPuladas       = 0;
+        $documentosPulados   = 0;
 
         // Seções e documentos já cobertos pela árvore de uma seção purgada nesta execução: uma
         // filha (ou um documento de dentro) que também está na fila não pode contar nem ser
@@ -126,9 +137,15 @@ final class PurgarLixeiraUseCase
         $documentosCobertos = [];
 
         foreach (array_chunk($idsSecoes, self::LOTE) as $lote) {
+            if ($vagas === 0) {
+                break;
+            }
             /** @var list<ChaveDeArquivo> $chaves */
             $chaves = [];
             foreach ($lote as $id) {
+                if ($vagas === 0) {
+                    break;
+                }
                 if (isset($cobertas[$id])) {
                     continue;
                 }
@@ -142,11 +159,16 @@ final class PurgarLixeiraUseCase
 
                 $daArvore = $this->coletarArvore($secao);
                 if ($daArvore['impedida']) {
+                    ++$secoesPuladas;
                     $this->registrarPulo('Subpasta não purgada: há documento na árvore com caminho que não vira chave de armazenamento.', [
                         'secao_id' => (int) $secao->getId(),
+                        'motivo'   => 'documento_na_arvore_sem_chave',
                     ]);
 
                     continue;
+                }
+                if ($vagas !== null) {
+                    --$vagas;
                 }
                 $secoesRemovidas     += 1 + $daArvore['subpastas'];
                 $documentosRemovidos += count($daArvore['chaves']);
@@ -169,8 +191,14 @@ final class PurgarLixeiraUseCase
         }
 
         foreach (array_chunk($idsDocumentos, self::LOTE) as $lote) {
+            if ($vagas === 0) {
+                break;
+            }
             $chaves = [];
             foreach ($lote as $id) {
+                if ($vagas === 0) {
+                    break;
+                }
                 if (isset($documentosCobertos[$id])) {
                     continue;
                 }
@@ -181,11 +209,16 @@ final class PurgarLixeiraUseCase
 
                 $chave = $this->chaveOuNada($documento);
                 if ($chave === null) {
+                    ++$documentosPulados;
+
                     continue;
                 }
 
                 $chaves[] = $chave;
                 ++$documentosRemovidos;
+                if ($vagas !== null) {
+                    --$vagas;
+                }
 
                 if (!$simulacao) {
                     $this->em->remove($documento);
@@ -206,6 +239,8 @@ final class PurgarLixeiraUseCase
             secoesRemovidas: $secoesRemovidas,
             arquivosRemovidos: $arquivosRemovidos,
             arquivosNaoRemovidos: $naoRemovidos,
+            secoesPuladas: $secoesPuladas,
+            documentosPulados: $documentosPulados,
         );
     }
 
@@ -288,11 +323,13 @@ final class PurgarLixeiraUseCase
     {
         try {
             return ChavesDePasta::documento($documento);
-        } catch (ChaveDeArquivoInvalida $e) {
+        } catch (ChaveDeArquivoInvalida) {
+            // Só ids e o TIPO do motivo: a mensagem da exceção traz trecho do caminho, que pode
+            // ter nome de cliente (SEC-007b).
             $this->registrarPulo('Documento não purgado: o caminho gravado não vira chave de armazenamento.', [
                 'documento_id' => (int) $documento->getId(),
                 'pasta_id'     => $documento->getPasta()?->getId(),
-                'motivo'       => $e->getMessage(),
+                'motivo'       => self::tipoDaRecusa($documento),
             ]);
 
             return null;
@@ -312,6 +349,16 @@ final class PurgarLixeiraUseCase
         } catch (\Throwable) {
             // Sem onde registrar: o item continua na lixeira, que é o rastro.
         }
+    }
+
+    /** O tipo da recusa da chave, sem nada do conteúdo do caminho. */
+    private static function tipoDaRecusa(PastaDocumento $documento): string
+    {
+        if ($documento->getTenant() === null) {
+            return 'sem_escritorio';
+        }
+
+        return trim((string) $documento->getCaminhoArquivo()) === '' ? 'caminho_vazio' : 'caminho_invalido';
     }
 
     private static function vencida(?\DateTimeImmutable $excluidoEm, \DateTimeImmutable $corte): bool

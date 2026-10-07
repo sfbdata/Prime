@@ -14,6 +14,10 @@ namespace App\Pasta\UseCase;
  *  - `arquivosRemovidos`: arquivos físicos apagados DEPOIS do COMMIT;
  *  - `arquivosNaoRemovidos`: chaves (texto) que ficaram no storage com o banco já confirmado —
  *    órfãos recuperáveis, registrados no log pela `RemocaoAposTransacao`;
+ *  - `secoesPuladas`: seções vencidas da fila que NÃO saíram porque há documento na árvore com
+ *    caminho que não vira chave (SEC-007);
+ *  - `documentosPulados`: documentos vencidos da fila que NÃO saíram pelo mesmo motivo. Nenhum
+ *    pulado ocupa vaga do `--limite` (SEC-007b);
  *  - `simulacao`: `--dry-run` — nada saiu do banco nem do disco.
  */
 final readonly class ResultadoPurgaDaLixeira
@@ -28,6 +32,8 @@ final readonly class ResultadoPurgaDaLixeira
         public int $secoesRemovidas,
         public int $arquivosRemovidos,
         public array $arquivosNaoRemovidos,
+        public int $secoesPuladas = 0,
+        public int $documentosPulados = 0,
     ) {
     }
 }

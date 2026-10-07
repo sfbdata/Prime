@@ -155,13 +155,14 @@ final class MontarZipDeDocumentosUseCase
                     ]);
 
                     continue;
-                } catch (ChaveDeArquivoInvalida $e) {
+                } catch (ChaveDeArquivoInvalida) {
                     $naoEncontrados[] = $entrada;
-                    // O motivo (com o trecho do caminho) fica só no log, nunca na resposta.
+                    // Só ids e o TIPO do motivo, nem na resposta nem no log: a mensagem da exceção
+                    // traz trecho do caminho, que pode ter nome de cliente (SEC-007b).
                     $this->logger->warning('Documento com caminho que não vira chave de armazenamento ficou fora do .zip.', [
                         'documento_id' => $documento->getId(),
                         'pasta_id'     => $pasta->getId(),
-                        'erro'         => $e->getMessage(),
+                        'motivo'       => 'caminho_nao_vira_chave',
                     ]);
 
                     continue;

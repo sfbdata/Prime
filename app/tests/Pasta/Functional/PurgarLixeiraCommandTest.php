@@ -418,6 +418,57 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         self::assertContains((int) $legado->getId(), $ids, 'o documento que impediu também');
     }
 
+    /**
+     * SEC-007b: o `--limite` recortava a LEITURA da fila. Com N+1 itens legados no topo, toda
+     * execução com `--limite=N` gastava as N vagas em pulados e nunca avançava. Agora a fila é
+     * lida inteira (só ids) e o limite vale sobre o que sai; os pulados aparecem no resumo, e o
+     * log guarda só ids e o tipo do motivo — nada do caminho, que pode ter nome de cliente.
+     */
+    #[TestDox('--limite=N com N+1 inválidos (e uma subpasta impedida) no topo: saem os N válidos seguintes, os pulados aparecem no resumo e o log não traz o caminho')]
+    public function testLimiteNaoEhOcupadoPorPulados(): void
+    {
+        $secao  = $this->secao('IMPEDIDA', naLixeiraHa: 80);
+        $l0     = $this->documento('l0.pdf', secao: $secao, naLixeiraHa: 80);
+        $l1     = $this->documento('l1.pdf', naLixeiraHa: 75);
+        $l2     = $this->documento('l2.pdf', naLixeiraHa: 70);
+        $v1     = $this->documento('v1.pdf', naLixeiraHa: 40);
+        $v2     = $this->documento('v2.pdf', naLixeiraHa: 38);
+        $v3     = $this->documento('v3.pdf', naLixeiraHa: 36);
+        foreach ([$l0, $l1, $l2] as $legado) {
+            $this->corromperCaminho($legado, 'pasta-antiga/CLIENTE-FULANO-DE-TAL-' . $legado->getId() . '.pdf');
+        }
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute(['--limite' => '2']);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('candidatos_secoes=1 candidatos_documentos=6 secoes_removidas=0 documentos_removidos=2 arquivos_removidos=2', $this->saida($tester));
+        self::assertStringContainsString('secoes_puladas=1 documentos_pulados=3', $this->saida($tester));
+        self::assertStringContainsString('Documentos pulados (caminho que não vira chave) 3', $this->saida($tester));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $v1->getId()), 'o primeiro válido sai');
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $v2->getId()), 'o segundo válido sai');
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $v3->getId()), 'o terceiro fica: o limite é 2');
+        foreach ([$l0, $l1, $l2] as $legado) {
+            self::assertTrue($this->existeLinha('pasta_documento', (int) $legado->getId()));
+        }
+        self::assertTrue($this->existeLinha('pasta_secao', (int) $secao->getId()));
+
+        $avisos = $this->logger->doNivel('warning');
+        self::assertNotEmpty($avisos);
+        $tudoNoLog = json_encode($avisos, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString('CLIENTE-FULANO', $tudoNoLog, 'nenhum trecho do caminho no log');
+        self::assertStringNotContainsString('pasta-antiga', $tudoNoLog);
+        foreach ($avisos as $aviso) {
+            self::assertArrayHasKey('motivo', $aviso['contexto']);
+        }
+
+        // A execução seguinte avança de novo, pelo mesmo motivo.
+        $tester->execute(['--limite' => '2']);
+        self::assertStringContainsString('documentos_removidos=1', $this->saida($tester));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $v3->getId()));
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function tester(): CommandTester
