@@ -15,6 +15,7 @@ use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
@@ -475,6 +476,17 @@ final class TarefaController extends AbstractController
 
     /**
      * Serve o arquivo de uma mensagem de tarefa inline (para preview).
+     *
+     * SEC-012: o upload do chat não tem lista de tipos, então um `.html` (ou SVG, XML…) enviado
+     * por alguém do escritório abria aqui como documento ativo na origem do BlueJus, com a sessão
+     * de quem clicasse. A resposta segue a MESMA política da `EntregaDeArquivo` (SEC-003): nosniff
+     * sempre e `CSP: sandbox` para todo tipo que não seja PDF, imagem raster, áudio ou vídeo.
+     *
+     * Por que não chama `EntregaDeArquivo::resposta()`: o anexo de tarefa guarda caminho público
+     * com `/`, que `ChaveDeArquivo` recusa, e a conversão para chave é a E2.7 (D5 da spec de
+     * storage). Até lá a decisão de sandbox vem de `EntregaDeArquivo::exigeSandbox()` — uma regra
+     * só, sem cópia — e o `Content-Type` é o palpite da própria `BinaryFileResponse` no
+     * `prepare()`, o mesmo tipo que a decisão de sandbox consultou.
      */
     #[Route('/mensagem/{id}/arquivo/visualizar', name: 'tarefa_mensagem_arquivo_view', methods: ['GET'])]
     public function viewArquivoMensagem(TarefaMensagem $mensagem): Response
@@ -492,8 +504,11 @@ final class TarefaController extends AbstractController
 
         $response = new BinaryFileResponse($caminho);
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, basename($caminho));
-        $mimeType = mime_content_type($caminho) ?: 'application/octet-stream';
-        $response->headers->set('Content-Type', $mimeType);
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        if (EntregaDeArquivo::exigeSandbox($response->getFile()->getMimeType() ?: 'application/octet-stream')) {
+            $response->headers->set('Content-Security-Policy', EntregaDeArquivo::CSP_SANDBOX);
+        }
 
         return $response;
     }
