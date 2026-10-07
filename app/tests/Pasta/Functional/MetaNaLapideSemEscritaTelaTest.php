@@ -169,6 +169,27 @@ final class MetaNaLapideSemEscritaTelaTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('PMC-062: na lápide o cabeçalho da aba Metas não oferece "Nova meta"')]
+    public function testLapideSemNovaMetaNoCabecalho(): void
+    {
+        [$crawler] = $this->abrirPasta(true);
+
+        $cab = $crawler->filter('[data-ps-metas] > .ps-card-cab');
+        self::assertCount(1, $cab);
+        self::assertCount(0, $cab->filter('button[data-bs-target="#modalCriarTarefa"]'));
+        self::assertCount(0, $crawler->filter('[data-bs-target="#modalCriarTarefa"]'), 'nenhum gatilho do modal Nova meta na lápide');
+    }
+
+    #[TestDox('PMC-062: na pasta viva o cabeçalho da aba Metas tem "Nova meta", que abre o modal')]
+    public function testPastaVivaComNovaMetaNoCabecalho(): void
+    {
+        [$crawler] = $this->abrirPasta(false);
+
+        $botao = $crawler->filter('[data-ps-metas] > .ps-card-cab > button.ps-btn--primario[data-bs-toggle="modal"][data-bs-target="#modalCriarTarefa"]');
+        self::assertCount(1, $botao);
+        self::assertStringContainsString('Nova meta', $botao->text());
+    }
+
     #[TestDox('Pasta viva: o ⋮ tem Concluir (aberta) / Reabrir (concluída) e Editar nome, o sino aparece na aberta e o drawer tem o alternar')]
     public function testPastaVivaComEscrita(): void
     {

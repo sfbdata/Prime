@@ -113,10 +113,14 @@
             {% endfor %}
         </div>
         <span class="ps-cab-espaco"></span>
-        <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta para esta pasta" aria-label="Nova meta"
-                data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
-            <i class="bi bi-plus-lg"></i><span>Nova meta</span>
-        </button>
+        {# PMC-062: na lápide o servidor recusa criar meta na pasta (PastaSomenteLeituraListener);
+           o botão não é oferecido. #}
+        {% if not pasta.estaExcluida %}
+            <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta para esta pasta" aria-label="Nova meta"
+                    data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
+                <i class="bi bi-plus-lg"></i><span>Nova meta</span>
+            </button>
+        {% endif %}
     </div>
 
     {% if metasResumo.linhas|length > 0 %}
