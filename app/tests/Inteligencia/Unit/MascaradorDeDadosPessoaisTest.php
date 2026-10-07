@@ -153,6 +153,87 @@ final class MascaradorDeDadosPessoaisTest extends TestCase
         );
     }
 
+    /** @return iterable<string, array{string, string}> */
+    public static function cpfComPontuacaoParcial(): iterable
+    {
+        yield 'só o hífen' => ['Autor CPF 123456789-09.', 'Autor CPF [CPF].'];
+        yield 'pontos e espaço antes do DV' => ['CPF 123.456.789 09, residente', 'CPF [CPF], residente'];
+        yield 'só espaços' => ['CPF 123 456 789 09', 'CPF [CPF]'];
+        yield 'pontos sem o hífen' => ['cpf 529.982.24725', 'cpf [CPF]'];
+        yield 'um ponto só' => ['cpf 529982.247-25', 'cpf [CPF]'];
+    }
+
+    #[DataProvider('cpfComPontuacaoParcial')]
+    #[TestDox('mascara CPF com pontuação parcial ou espaços e DV válido: $_dataName')]
+    public function testMascaraCpfComPontuacaoParcial(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function cnpjAlfanumericoEVariantes(): iterable
+    {
+        // Exemplo oficial do manual do SERPRO/Receita: 12.ABC.345/01DE-35.
+        yield 'alfanumérico formatado (exemplo oficial)' => ['Ré CNPJ 12.ABC.345/01DE-35.', 'Ré CNPJ [CNPJ].'];
+        yield 'alfanumérico sem pontuação (exemplo oficial)' => ['Ré CNPJ 12ABC34501DE35', 'Ré CNPJ [CNPJ]'];
+        yield 'alfanumérico com pontuação parcial' => ['CNPJ 12ABC345/01DE-35', 'CNPJ [CNPJ]'];
+        yield 'outro alfanumérico formatado' => ['(ZZ.1XY.234/0001-90)', '([CNPJ])'];
+        yield 'alfanumérico só ele (remove tudo)' => ['A1B2C3D4E5F668', '[CNPJ]'];
+        yield 'numérico só com barra e hífen' => ['CNPJ 11222333/0001-81', 'CNPJ [CNPJ]'];
+        yield 'numérico só com os pontos' => ['CNPJ 11.222.333000181', 'CNPJ [CNPJ]'];
+        yield 'numérico com espaços' => ['CNPJ 11 222 333 0001 81', 'CNPJ [CNPJ]'];
+    }
+
+    #[DataProvider('cnpjAlfanumericoEVariantes')]
+    #[TestDox('mascara CNPJ alfanumérico e variantes de formato com DV válido: $_dataName')]
+    public function testMascaraCnpjAlfanumericoEVariantes(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function variantesQueNaoSaoDocumento(): iterable
+    {
+        yield 'CPF com hífen e DV inválido' => ['cpf 123456789-00'];
+        yield 'CPF com espaços e DV inválido' => ['cpf 123 456 789 00'];
+        yield 'CPF com espaços de um dígito só repetido' => ['código 111 111 111 11'];
+        yield 'CNPJ alfanumérico com DV inválido' => ['CNPJ 12.ABC.345/01DE-36'];
+        yield 'CNPJ alfanumérico sem pontuação com DV inválido' => ['CNPJ 12ABC34501DE36'];
+        yield 'CNPJ alfanumérico em minúsculas (fora da tabela oficial)' => ['código 12abc34501de35'];
+        yield 'CNPJ alfanumérico colado a letra antes' => ['código X12ABC34501DE35'];
+        yield 'CNPJ alfanumérico colado a dígito depois' => ['código 12ABC34501DE357'];
+        yield 'CNPJ numérico com espaços e DV inválido' => ['CNPJ 11 222 333 0001 80'];
+        yield 'palavras em caixa alta no formato 2-3-3-4 + 2 dígitos' => ['DE ANA LUZ RUAS 12'];
+        yield 'CPF válido no meio de uma lista de números com espaço' => ['valores 100 123 456 789 09 5'];
+        yield 'valor em reais com milhar no formato do CPF' => ['R$ 123.456.789,09'];
+        yield 'telefone fixo com espaços' => ['fone 61 3333 4444'];
+        yield 'telefone celular com espaços' => ['fone 61 9 9999 1234'];
+    }
+
+    #[DataProvider('variantesQueNaoSaoDocumento')]
+    #[TestDox('não mascara variante de formato que não é CPF/CNPJ: $_dataName')]
+    public function testNaoMascaraVarianteQueNaoEhDocumento(string $entrada): void
+    {
+        self::assertSame($entrada, $this->mascarador->mascarar($entrada));
+    }
+
+    #[TestDox('telefone continua [TEL], não vira CPF, com as variantes novas ativas')]
+    public function testTelefoneContinuaTelefone(): void
+    {
+        self::assertSame('Contato [TEL] ou [TEL]', $this->mascarador->mascarar('Contato (61) 99999-1234 ou 61 99999-1234'));
+    }
+
+    #[TestDox('número CNJ formatado continua intacto ao lado de CPF parcial e CNPJ alfanumérico')]
+    public function testCnjIntactoComVariantesNovas(): void
+    {
+        $entrada = 'Processo 0701134-57.2025.8.07.0007, autor 123 456 789 09, ré 12.ABC.345/01DE-35.';
+
+        self::assertSame(
+            'Processo 0701134-57.2025.8.07.0007, autor [CPF], ré [CNPJ].',
+            $this->mascarador->mascarar($entrada),
+        );
+    }
+
     #[TestDox('string vazia continua vazia')]
     public function testVazio(): void
     {
