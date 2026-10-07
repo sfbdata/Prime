@@ -43,7 +43,8 @@ final class PastaIaAgentesPollingArquiteturaTest extends TestCase
 
         self::assertStringContainsString('function ativo() { return !document.hidden && aberto(); }', $js);
         self::assertStringContainsString("classList.remove('ia-drawer-aberto');\n            pausar();", $js, 'fechar pausa');
-        self::assertStringContainsString("carregarPainel();\n            retomar();", $js, 'abrir carrega e retoma');
+        // IA-008: abrir também relê o Registro de auditoria, entre o painel e a retomada do polling.
+        self::assertStringContainsString("carregarPainel();\n            recarregarAuditoria();\n            retomar();", $js, 'abrir carrega e retoma');
     }
 
     #[TestDox('backoff: 2 s nos primeiros 30 s, depois 5 s, depois 10 s; sem intervalo fixo')]
