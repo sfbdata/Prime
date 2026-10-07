@@ -85,7 +85,7 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         return $obs;
     }
 
-    #[TestDox('Arranjo: um menu só, filho direto do Relatório financeiro, escondido, com Copiar texto, Editar e Excluir')]
+    #[TestDox('Arranjo: um menu só, filho direto do Relatório financeiro, escondido, com Copiar texto, Editar, Excluir e Imprimir')]
     public function testMenuDoRegistro(): void
     {
         $client = static::createClient();
@@ -100,14 +100,18 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-titulo'));
 
         $itens = $menu->filter('#financeiroObsMenu > button.ps-fin-menu-item[role="menuitem"]');
-        self::assertSame(['Copiar texto', 'Editar', 'Excluir comentário'], $itens->each(static fn ($b): string => trim($b->text())));
+        self::assertSame(['Copiar texto', 'Editar', 'Excluir comentário', 'Imprimir'], $itens->each(static fn ($b): string => trim($b->text())));
         self::assertSame(
-            ['bi bi-clipboard', 'bi bi-pencil', 'bi bi-trash3'],
+            ['bi bi-clipboard', 'bi bi-pencil', 'bi bi-trash3', 'bi bi-printer'],
             $itens->each(static fn ($b): ?string => $b->filter('i')->attr('class')),
         );
         self::assertStringContainsString('js-fin-obs-copiar', (string) $itens->eq(0)->attr('class'));
         self::assertStringContainsString('js-fin-obs-editar js-fin-obs-gerenciar', (string) $itens->eq(1)->attr('class'));
         self::assertStringContainsString('ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar', (string) $itens->eq(2)->attr('class'));
+        // EDT-003 (dc L.6463): "Imprimir" é o último item. Não é o `.js-obs-imprimir` de Detalhes:
+        // aquele procura o cartão como ANCESTRAL do item, e aqui o menu é um só para a lista.
+        self::assertCount(1, $menu->filter('#financeiroObsMenu > .js-fin-obs-excluir + button.js-fin-obs-imprimir:last-child'));
+        self::assertCount(0, $menu->filter('#financeiroObsMenu .js-obs-imprimir'));
         // FPN-006b: Editar e Excluir ficam sempre no menu (bloqueados quando não dá), então nada
         // nasce escondido.
         self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-sep'));

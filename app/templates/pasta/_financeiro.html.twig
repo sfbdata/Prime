@@ -275,6 +275,12 @@
                 <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar" role="menuitem">
                     <i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir comentário</span>
                 </button>
+                {# EDT-003 (dc L.6463): "Imprimir" é o último, como no ⋮ da observação de Detalhes.
+                   `prepararMenuObs` põe data-autor e data-quando do registro; sem data-tipo: o
+                   registro financeiro do desenho não tem tipo (`regsItens('financeiro')`, tag null). #}
+                <button type="button" class="ps-fin-menu-item js-fin-obs-imprimir" role="menuitem">
+                    <i class="bi bi-printer" aria-hidden="true"></i><span>Imprimir</span>
+                </button>
             </div>
         </section>
     </div>
@@ -1178,6 +1184,11 @@
         const quando = data ? (data.getAttribute('title') || textoLimpo(data)) : '';
         menu.querySelector('.ps-fin-menu-titulo').textContent = autor + (quando ? ' · ' + quando : '');
 
+        // EDT-003: a linha autor · data da folha ("06/10/2026, 14:58", como em Detalhes).
+        const imprimir = menu.querySelector('.js-fin-obs-imprimir');
+        imprimir.setAttribute('data-autor', autor);
+        imprimir.setAttribute('data-quando', quando.replace(' ', ', '));
+
         const podeGerenciar = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
         const editar  = menu.querySelector('.js-fin-obs-editar');
         const excluir = menu.querySelector('.js-fin-obs-excluir');
@@ -1340,6 +1351,13 @@
         }
 
         fechar(false);
+
+        if (item.classList.contains('js-fin-obs-imprimir')) {
+            const cartao = obsAlvo;
+            obsAlvo = null;
+            if (window.PastaImpressao && cartao) { window.PastaImpressao.registro(item, cartao); }
+            return;
+        }
 
         // Editar e Excluir do registro clicam os botões da janela de 15 min do próprio
         // cartão: o handler deles (no _financeiro_obs_script) é o único caminho.
