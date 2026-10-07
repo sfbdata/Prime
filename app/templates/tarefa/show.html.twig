@@ -963,7 +963,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await resp.json();
                 if (!resp.ok) {
                     btnConfirmar.disabled = false;
-                    alert(data.erro ?? 'Erro ao editar.');
+                    alert(data.erro ?? data.mensagem ?? 'Erro ao editar.');
                     return;
                 }
 

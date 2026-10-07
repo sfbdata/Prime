@@ -239,7 +239,7 @@
             alvo.disabled = true;
             try {
                 const { ok, data } = await postar(url, alvo.dataset.csrf);
-                if (!ok) { alert(data.erro ?? 'Erro ao alterar o pagamento.'); return; }
+                if (!ok) { alert(data.erro ?? data.mensagem ?? 'Erro ao alterar o pagamento.'); return; }
                 aplicarResumo(data.resumo);
             } catch (_) {
                 alert('Erro de rede. Tente novamente.');
@@ -256,7 +256,7 @@
             const url = cartao.dataset.baseUrlExcluir.replace('__ID__', id);
             try {
                 const { ok, data } = await postar(url, alvo.dataset.csrf);
-                if (!ok) { alert(data.erro ?? 'Erro ao excluir.'); return; }
+                if (!ok) { alert(data.erro ?? data.mensagem ?? 'Erro ao excluir.'); return; }
                 aplicarResumo(data.resumo);
             } catch (_) {
                 alert('Erro de rede. Tente novamente.');
