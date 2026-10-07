@@ -277,9 +277,10 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Processo ' . self::NUMERO_MASCARA, trim($menu->filter('.ps-processo-menu > .ps-processo-menu-titulo')->text()));
 
         // Ordem do procMenu do desenho (dc L.2914); o único processo é o principal, então não
-        // há "Tornar processo principal". Desvincular é o último, como no desenho.
+        // há "Tornar processo principal". Desvincular é o último, como no desenho. "Editar dados
+        // do processo" (PMC-004) aparece porque o admin tem EDIT no processo.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Desvincular da pasta'],
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Desvincular da pasta'],
             $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
         );
         self::assertSame(

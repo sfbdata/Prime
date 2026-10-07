@@ -175,7 +175,7 @@
                         </div>
                     </div>
                     {# ⋮ do desenho (procMenu, dc L.2914), só com o que tem função hoje. Fora: Abrir no PJe,
-                       Editar/Atualizar dados do PJe, Encaminhar via Chat I.A, Relatório geral,
+                       Atualizar dados do PJe, Encaminhar via Chat I.A, Relatório geral,
                        Imprimir resumo. "Ver processo completo" ocupa o lugar do "Abrir no PJe"
                        (mesmo ícone; abre o cadastro do sistema). Por último, como no desenho,
                        as ações do vínculo: Tornar principal (o desenho é omisso — função que já
@@ -197,6 +197,15 @@
                                     data-botao="#{{ botaoMaisId }}">
                                 <i class="bi bi-card-list"></i><span>Ver todas as informações</span>
                             </button>
+                        {% endif %}
+                        {# "Editar dados do processo" (desenho, procMenu dc L.2922): o desenho edita no
+                           cartão (PMC-005, frente própria); aqui leva à página de cadastro do processo.
+                           Só para quem tem EDIT no processo — a mesma decisão do `processo_edit` — e
+                           nunca na lápide, que é somente-leitura. #}
+                        {% if not pasta.estaExcluida and can_access_resource('processo', proc.id, 'edit') %}
+                            <a href="{{ path('processo_edit', {id: proc.id}) }}" class="ps-processo-menu-item js-proc-editar" role="menuitem">
+                                <i class="bi bi-pencil"></i><span>Editar dados do processo</span>
+                            </a>
                         {% endif %}
                         <button type="button" class="ps-processo-menu-item js-proc-ver-movimentacoes" role="menuitem"
                                 data-aba="push-tab">
