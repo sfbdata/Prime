@@ -47,6 +47,13 @@ use App\Pasta\DTO\SugestaoDeDocumentosOutput;
  *     TODOS os arquivos recebidos — a pasta inteira, qualquer seção; a lixeira não chega aqui (o
  *     `LixeiraFilter` a tira da coleção). O nome é o exibido no explorador (`nomeOriginal`, ou o
  *     título quando ele falta). Independe do catálogo.
+ *     Teto de exibição (DOC-106b): só os {@see self::MAXIMO_DE_DUPLICADOS_EXIBIDOS} primeiros pares,
+ *     por percentual decrescente (empate: a ordem dos arquivos), e o resto vira a contagem
+ *     "e mais N pares parecidos". O desenho é omisso quanto ao volume; a regra dele descarta
+ *     números ("APTO - 101" ≈ "APTO - 102" = 100%), e a pasta 458 do saas_ux (1.112 arquivos)
+ *     dava 15.387 pares e ~2,7 MB de HTML. O teto é CONVENÇÃO DO SISTEMA, não do desenho:
+ *     precisa ser ratificado com o Samuel. A contagem exige a busca inteira (41-50 ms medidos
+ *     nessa pasta), então ela é calculada toda; só a lista exibida é cortada.
  *
  * Sem ação e sem classe processual não há base para escolher catálogo: devolve `semCatalogo()`.
  */
@@ -56,6 +63,9 @@ final class SugestorDeDocumentos
 
     /** bj-docsug.js L108: `s >= .85`. */
     public const SIMILARIDADE_MINIMA_DE_DUPLICADO = 0.85;
+
+    /** DOC-106b: teto de pares exibidos — convenção do sistema, a ratificar com o Samuel. */
+    public const MAXIMO_DE_DUPLICADOS_EXIBIDOS = 20;
 
     /** bj-docsug.js L116 (`ord`). */
     private const ORDEM = [
@@ -86,10 +96,12 @@ final class SugestorDeDocumentos
         $acao   = self::vazioParaNulo($acao);
         $classe = self::vazioParaNulo($classe);
 
-        $duplicados = self::duplicados($arquivos);
+        $todosOsDuplicados = self::duplicados($arquivos);
+        $duplicados        = self::duplicadosExibidos($todosOsDuplicados);
+        $duplicadosAlem    = \count($todosOsDuplicados) - \count($duplicados);
 
         if ($acao === null && $classe === null) {
-            return SugestaoDeDocumentosOutput::semCatalogo($duplicados);
+            return SugestaoDeDocumentosOutput::semCatalogo($duplicados, $duplicadosAlem);
         }
 
         $fase = $classe !== null && preg_match(CatalogoDeDocumentos::CLASSE_DE_CUMPRIMENTO, self::normalizar($classe)) === 1
@@ -196,7 +208,23 @@ final class SugestorDeDocumentos
             $leitura->publicacoesLidas,
             self::prazosEmCurso($leitura, $hoje),
             $duplicados,
+            $duplicadosAlem,
         );
+    }
+
+    /**
+     * DOC-106b: os pares que a tela mostra — percentual decrescente, empate na ordem dos arquivos
+     * (o `usort` do PHP 8 é estável), cortados no teto {@see self::MAXIMO_DE_DUPLICADOS_EXIBIDOS}.
+     *
+     * @param list<array{a: string, b: string, percentual: int}> $pares
+     *
+     * @return list<array{a: string, b: string, percentual: int}>
+     */
+    public static function duplicadosExibidos(array $pares): array
+    {
+        usort($pares, static fn (array $x, array $y): int => $y['percentual'] <=> $x['percentual']);
+
+        return \array_slice($pares, 0, self::MAXIMO_DE_DUPLICADOS_EXIBIDOS);
     }
 
     /**

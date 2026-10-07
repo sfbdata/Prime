@@ -132,4 +132,53 @@ final class SugestorDuplicadosTest extends TestCase
         self::assertFalse($semPar->temDuplicados(), 'só aparece quando há par');
         self::assertSame([], $semPar->duplicados);
     }
+
+    /**
+     * DOC-106b: `$fortes` pares a 100% e `$fracos` a 86% (6 de 7 palavras), sem par entre pares
+     * diferentes — cada par só tem palavras próprias (letras, porque número é descartado).
+     *
+     * @return list<array{titulo: string, nomeOriginal: string, categoria: string, data: string}>
+     */
+    public static function arquivosComPares(int $fracos, int $fortes): array
+    {
+        $arquivos = [];
+        for ($i = 0; $i < $fracos + $fortes; ++$i) {
+            $w = \chr(97 + intdiv($i, 26)) . \chr(97 + $i % 26) . 'x';
+            if ($i < $fracos) {
+                $base       = implode(' ', array_map(static fn (string $l): string => $w . $l, ['a', 'b', 'c', 'd', 'e', 'f']));
+                $arquivos[] = self::arquivo($base . ' golf.pdf');
+                $arquivos[] = self::arquivo($base . ' hotel.pdf');
+            } else {
+                $arquivos[] = self::arquivo("contrato {$w}.pdf");
+                $arquivos[] = self::arquivo("contrato {$w} assinado.pdf");
+            }
+        }
+
+        return $arquivos;
+    }
+
+    #[TestDox('DOC-106b: 30 pares → o painel leva os 20 primeiros por % decrescente (empate na ordem dos arquivos) e conta 10 além')]
+    public function testTetoDeParesExibidos(): void
+    {
+        // Os 10 a 86% vêm PRIMEIRO na ordem dos arquivos: sem ordenar por %, entrariam na tela.
+        $arquivos = self::arquivosComPares(10, 20);
+        self::assertCount(30, SugestorDeDocumentos::duplicados($arquivos), 'premissa: 30 pares, nenhum cruzado');
+
+        foreach ([(new SugestorDeDocumentos())->sugerir('Indenização', null, null, $arquivos, []), (new SugestorDeDocumentos())->sugerir(null, null, null, $arquivos, [])] as $sugestao) {
+            self::assertCount(SugestorDeDocumentos::MAXIMO_DE_DUPLICADOS_EXIBIDOS, $sugestao->duplicados);
+            self::assertSame(10, $sugestao->duplicadosAlem);
+            self::assertSame(array_fill(0, 20, 100), array_column($sugestao->duplicados, 'percentual'));
+            self::assertSame('contrato akx.pdf', $sugestao->duplicados[0]['a'], 'empate: a ordem dos arquivos (o 11º par é o primeiro a 100%)');
+            self::assertSame('contrato bdx.pdf', $sugestao->duplicados[19]['a']);
+        }
+    }
+
+    #[TestDox('DOC-106b: no teto ou abaixo dele, nada fica de fora; e o 86% depois dos 100% na lista')]
+    public function testAteOTetoNadaFicaDeFora(): void
+    {
+        $sugestao = (new SugestorDeDocumentos())->sugerir('Indenização', null, null, self::arquivosComPares(1, 19), []);
+        self::assertCount(20, $sugestao->duplicados);
+        self::assertSame(0, $sugestao->duplicadosAlem);
+        self::assertSame(86, $sugestao->duplicados[19]['percentual'], 'o mais fraco vai para o fim');
+    }
 }

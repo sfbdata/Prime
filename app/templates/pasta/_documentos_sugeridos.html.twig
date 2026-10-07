@@ -175,6 +175,12 @@
                 {% for d in sugestao.duplicados %}
                     <span class="ds-sug-dup-par">{{ d.a }}  ≈  {{ d.b }} ({{ d.percentual }}% parecido; confira se é o mesmo documento)</span>
                 {% endfor %}
+                {# DOC-106b: o servidor manda só os primeiros pares (maior % primeiro); o resto vira a
+                   contagem. Texto neutro: não há tela com a lista inteira, e não se promete uma.
+                   O teto é convenção do sistema (o desenho é omisso), a ratificar com o Samuel. #}
+                {% if sugestao.duplicadosAlem > 0 %}
+                    <span class="ds-sug-dup-mais">e mais {{ sugestao.duplicadosAlem }} {{ sugestao.duplicadosAlem == 1 ? 'par parecido' : 'pares parecidos' }}</span>
+                {% endif %}
             </div>
         {% endif %}
 

@@ -175,6 +175,45 @@ final class PastaDocumentosSugeridosDuplicadosTest extends JusPrimeWebTestCase
         self::assertSame(1, $crawler->filter('#documentosSugeridosCorpo > .ds-sug-dup ~ .ds-sug-rodape')->count());
     }
 
+    #[TestDox('DOC-106b: pasta com 30 pares mostra 20 linhas (as de maior %) e a linha "e mais 10 pares parecidos"')]
+    public function testTetoDeVintePares(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, 'Indenização');
+        foreach (\App\Tests\Pasta\Unit\SugestorDuplicadosTest::arquivosComPares(10, 20) as $arquivo) {
+            $this->anexar($pasta, $tenant, $arquivo['nomeOriginal']);
+        }
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, (int) $pasta->getId());
+
+        $pares = self::pares($crawler);
+        self::assertCount(20, $pares);
+        foreach ($pares as $par) {
+            self::assertStringContainsString('(100% parecido;', $par, 'os 86% ficam fora da tela');
+        }
+        $mais = $crawler->filter('#documentosSugeridosCorpo > .ds-sug-dup > .ds-sug-dup-par + .ds-sug-dup-mais:last-child');
+        self::assertSame(1, $mais->count(), 'logo depois do último par');
+        self::assertSame('e mais 10 pares parecidos', trim($mais->text()));
+    }
+
+    #[TestDox('DOC-106b: até 20 pares não há a linha "e mais"')]
+    public function testSemExcessoSemLinhaDeMais(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, 'Indenização');
+        foreach (\App\Tests\Pasta\Unit\SugestorDuplicadosTest::arquivosComPares(0, 20) as $arquivo) {
+            $this->anexar($pasta, $tenant, $arquivo['nomeOriginal']);
+        }
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, (int) $pasta->getId());
+        self::assertCount(20, self::pares($crawler));
+        self::assertSame(0, $crawler->filter('.ds-sug-dup-mais')->count());
+    }
+
     #[TestDox('sem par não há seção: nomes diferentes, nome idêntico (é o mesmo nome, não par) e pasta vazia')]
     public function testSemParNaoHaSecao(): void
     {
