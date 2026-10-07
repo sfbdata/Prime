@@ -41,6 +41,13 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * e só para PDF; a compressão não muda a contagem (a validação dela exige as mesmas páginas).
  * Falha na contagem → NULL, o upload segue (`app:documentos:calcular-hash --paginas` preenche).
  * `enviadoPor` é quem está logado; NULL nos caminhos sem usuário (importação, Drive).
+ *
+ * ## Tipo pelo conteúdo (DOC-115)
+ *
+ * O tipo é o que o finfo lê no conteúdo (`getMimeType()`), nunca a extensão do nome: executável ou
+ * HTML renomeado para `.odt` chega como `application/x-dosexec`/`text/html` e é recusado. A única
+ * vez em que a extensão entra na conta é para RESTRINGIR: `application/zip` com extensão de pacote
+ * de escritório (ver `PACOTES_POR_EXTENSAO`) só passa se o pacote declarar o tipo por dentro.
  */
 final class UploadPecaUseCase
 {
@@ -64,7 +71,50 @@ final class UploadPecaUseCase
         'application/zip'                                                                    => 50 * 1024 * 1024,
         'application/pkcs7-signature'                                                        => 5 * 1024 * 1024,
         'audio/opus'                                                                         => 50 * 1024 * 1024,
+        // DOC-115: os formatos que o desenho trata e o visor abre. Teto pelo padrão do tipo:
+        // imagem 3 MB, documento/planilha/apresentação 10 MB, texto 5 MB, e-mail 10 MB (o teto do visor).
+        'image/gif'                                                                          => 3 * 1024 * 1024,
+        'image/webp'                                                                         => 3 * 1024 * 1024,
+        'image/tiff'                                                                         => 3 * 1024 * 1024,
+        'image/heic'                                                                         => 3 * 1024 * 1024,
+        'image/heif'                                                                         => 3 * 1024 * 1024,
+        'application/vnd.oasis.opendocument.text'                                            => 10 * 1024 * 1024,
+        'application/vnd.oasis.opendocument.spreadsheet'                                     => 10 * 1024 * 1024,
+        'application/vnd.oasis.opendocument.presentation'                                    => 10 * 1024 * 1024,
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'          => 10 * 1024 * 1024,
+        'text/rtf'                                                                           => 10 * 1024 * 1024,
+        'application/rtf'                                                                    => 10 * 1024 * 1024,
+        'text/csv'                                                                           => 5 * 1024 * 1024,
+        'message/rfc822'                                                                     => 10 * 1024 * 1024,
     ];
+
+    /**
+     * DOC-115: pacotes ZIP que o finfo às vezes devolve como `application/zip` genérico (ordem das
+     * entradas, gerador do arquivo). Extensão => o MIME que o pacote tem de declarar POR DENTRO.
+     *
+     * `application/zip` NÃO vale como ODT/ODS/ODP/PPTX por si só: com uma destas extensões o
+     * pacote é aberto (ZipArchive) e só passa se declarar o tipo coerente — no ODF, a entrada
+     * `mimetype`; no OOXML, a parte principal em `[Content_Types].xml`. Então o documento é gravado
+     * com o MIME do pacote. Zip qualquer renomeado para `.odt` é recusado, em vez de entrar como zip
+     * com cara de documento. Um `.zip` de verdade segue aceito como zip.
+     */
+    private const PACOTES_POR_EXTENSAO = [
+        'odt'  => 'application/vnd.oasis.opendocument.text',
+        'ods'  => 'application/vnd.oasis.opendocument.spreadsheet',
+        'odp'  => 'application/vnd.oasis.opendocument.presentation',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ];
+
+    /** A parte principal que o `[Content_Types].xml` de um OOXML declara, por MIME do pacote. */
+    private const PARTE_PRINCIPAL_OOXML = [
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+    ];
+
+    /**
+     * Teto da leitura das entradas de controle (`mimetype`, `[Content_Types].xml`): nada de inflar
+     * zip bomb. O `[Content_Types].xml` cresce ~150 bytes por slide; 1 MB sobra.
+     */
+    private const LIMITE_ENTRADA_DE_CONTROLE = 1024 * 1024;
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -94,6 +144,16 @@ final class UploadPecaUseCase
         }
 
         $mimeType = $file->getMimeType() ?? '';
+
+        $extensao = strtolower($file->getClientOriginalExtension());
+        if ($mimeType === 'application/zip' && isset(self::PACOTES_POR_EXTENSAO[$extensao])) {
+            $mimeType = self::mimeDoPacote($file->getPathname(), self::PACOTES_POR_EXTENSAO[$extensao])
+                ?? throw new \InvalidArgumentException(sprintf(
+                    '"%s": o conteúdo não é um arquivo .%s válido.',
+                    $file->getClientOriginalName(),
+                    $extensao,
+                ));
+        }
 
         if (!array_key_exists($mimeType, self::MIME_LIMITS)) {
             throw new \InvalidArgumentException(sprintf('Tipo de arquivo não permitido: %s.', $mimeType));
@@ -154,5 +214,38 @@ final class UploadPecaUseCase
         $this->em->flush();
 
         return new ResultadoUploadPeca($doc, $compressao);
+    }
+
+    /**
+     * O MIME do pacote quando o ZIP declara, por dentro, exatamente `$esperado`; null se não
+     * declara (zip genérico, outro tipo de pacote, arquivo ilegível).
+     */
+    private static function mimeDoPacote(string $caminho, string $esperado): ?string
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($caminho, \ZipArchive::RDONLY) !== true) {
+            return null;
+        }
+
+        try {
+            $parte = self::PARTE_PRINCIPAL_OOXML[$esperado] ?? null;
+
+            if ($parte === null) {
+                // ODF: a entrada `mimetype` traz o tipo do documento, sem mais nada.
+                $declarado = $zip->getFromName('mimetype', self::LIMITE_ENTRADA_DE_CONTROLE);
+
+                return \is_string($declarado) && trim($declarado) === $esperado ? $esperado : null;
+            }
+
+            // OOXML: a parte principal tem de estar declarada com o tipo do pacote.
+            $tipos = $zip->getFromName('[Content_Types].xml', self::LIMITE_ENTRADA_DE_CONTROLE);
+            if (!\is_string($tipos)) {
+                return null;
+            }
+
+            return preg_match('/ContentType\s*=\s*["\']' . preg_quote($parte, '/') . '["\']/i', $tipos) === 1 ? $esperado : null;
+        } finally {
+            $zip->close();
+        }
     }
 }

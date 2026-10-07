@@ -20,6 +20,7 @@ use App\Shared\Service\ResultadoCompressao;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -283,6 +284,152 @@ final class UploadPecaUseCaseTest extends TestCase
         self::assertStringEndsWith('.p7s', $resultado->documento->getCaminhoArquivo());
     }
 
+    /** @return iterable<string, array{string, string}> MIME (como o finfo dá) => nome */
+    public static function mimesDoDesenho(): iterable
+    {
+        yield 'GIF'          => ['image/gif', 'carimbo.gif'];
+        yield 'WEBP'         => ['image/webp', 'foto.webp'];
+        yield 'TIFF'         => ['image/tiff', 'digitalizacao.tif'];
+        yield 'HEIC'         => ['image/heic', 'foto.heic'];
+        yield 'HEIF'         => ['image/heif', 'foto.heic'];
+        yield 'ODT'          => ['application/vnd.oasis.opendocument.text', 'parecer.odt'];
+        yield 'ODS'          => ['application/vnd.oasis.opendocument.spreadsheet', 'calculo.ods'];
+        yield 'ODP'          => ['application/vnd.oasis.opendocument.presentation', 'audiencia.odp'];
+        yield 'PPTX'         => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'sustentacao.pptx'];
+        yield 'RTF (text)'   => ['text/rtf', 'contrato.rtf'];
+        yield 'RTF (app)'    => ['application/rtf', 'contrato.rtf'];
+        yield 'CSV'          => ['text/csv', 'parcelas.csv'];
+        yield 'EML'          => ['message/rfc822', 'email.eml'];
+    }
+
+    #[DataProvider('mimesDoDesenho')]
+    #[TestDox('DOC-115: os MIMEs que o desenho trata e o visor abre são aceitos e gravados como vieram')]
+    public function testMimeDoDesenhoEAceito(string $mime, string $nome): void
+    {
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload($mime, 1024, $nome), 'DEMAIS', null, null, $this->tenant);
+
+        self::assertSame($mime, $resultado->documento->getMimeType());
+        self::assertCount(1, $this->armazenamento->gravadas);
+    }
+
+    /** @return iterable<string, array{string, string, int}> */
+    public static function tetosDoDesenho(): iterable
+    {
+        yield 'imagem: 3 MB'        => ['image/webp', 'foto.webp', 3];
+        yield 'documento: 10 MB'    => ['application/vnd.oasis.opendocument.text', 'parecer.odt', 10];
+        yield 'apresentação: 10 MB' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'sustentacao.pptx', 10];
+        yield 'CSV: 5 MB'           => ['text/csv', 'parcelas.csv', 5];
+        yield 'e-mail: 10 MB'       => ['message/rfc822', 'email.eml', 10];
+    }
+
+    #[DataProvider('tetosDoDesenho')]
+    #[TestDox('DOC-115: cada tipo novo tem o teto do padrão do seu tipo')]
+    public function testTetoDoTipoNovo(string $mime, string $nome, int $megas): void
+    {
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        // No teto passa…
+        $this->useCase->executar($this->pasta, null, $this->upload($mime, $megas * 1024 * 1024, $nome), 'DEMAIS', null, null, $this->tenant);
+
+        // …um byte acima, não.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage(sprintf('excede o limite de %d MB', $megas));
+        $this->useCase->executar($this->pasta, null, $this->upload($mime, $megas * 1024 * 1024 + 1, $nome), 'DEMAIS', null, null, $this->tenant);
+    }
+
+    /** @return iterable<string, array{string, string, string}> nome, conteúdo do pacote, MIME que fica */
+    public static function pacotesCoerentes(): iterable
+    {
+        yield 'ODT'  => ['parecer.odt', self::odf('application/vnd.oasis.opendocument.text'), 'application/vnd.oasis.opendocument.text'];
+        yield 'ODS'  => ['calculo.ODS', self::odf('application/vnd.oasis.opendocument.spreadsheet'), 'application/vnd.oasis.opendocument.spreadsheet'];
+        yield 'ODP'  => ['audiencia.odp', self::odf('application/vnd.oasis.opendocument.presentation'), 'application/vnd.oasis.opendocument.presentation'];
+        yield 'PPTX' => ['sustentacao.pptx', self::zip(['[Content_Types].xml' => self::TIPOS_PPTX]), 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+    }
+
+    #[DataProvider('pacotesCoerentes')]
+    #[TestDox('DOC-115: application/zip com extensão de documento entra quando o pacote declara o mesmo tipo, e fica com o MIME do pacote')]
+    public function testZipComPacoteCoerenteFicaComOMimeDoPacote(string $nome, string $conteudo, string $mimeFinal): void
+    {
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/zip', 2048, $nome, $conteudo), 'DEMAIS', null, null, $this->tenant);
+
+        self::assertSame($mimeFinal, $resultado->documento->getMimeType());
+    }
+
+    /** @return iterable<string, array{string, string}> nome, conteúdo */
+    public static function pacotesIncoerentes(): iterable
+    {
+        yield 'zip genérico .odt'             => ['parecer.odt', self::zip(['leia-me.txt' => 'oi'])];
+        yield 'pacote ODS com .odt'           => ['parecer.odt', self::odf('application/vnd.oasis.opendocument.spreadsheet')];
+        yield 'mimetype com sufixo'           => ['parecer.odt', self::odf('application/vnd.oasis.opendocument.text-template')];
+        yield 'zip genérico .pptx'            => ['sustentacao.pptx', self::zip(['[Content_Types].xml' => '<Types/>'])];
+        yield 'DOCX com .pptx'                => ['sustentacao.pptx', self::zip(['[Content_Types].xml' => '<Types><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'])];
+        yield 'nem zip é (finfo mentiu)'      => ['parecer.odt', 'não sou zip'];
+    }
+
+    #[DataProvider('pacotesIncoerentes')]
+    #[TestDox('DOC-115: application/zip com extensão de documento e pacote que não declara o tipo é recusado antes de gravar')]
+    public function testZipComPacoteIncoerenteERecusado(string $nome, string $conteudo): void
+    {
+        $this->em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase->executar($this->pasta, null, $this->upload('application/zip', 2048, $nome, $conteudo), 'DEMAIS', null, null, $this->tenant);
+            self::fail('zip incoerente com a extensão não pode entrar');
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString('o conteúdo não é um arquivo .' . strtolower(pathinfo($nome, \PATHINFO_EXTENSION)) . ' válido', $e->getMessage());
+        }
+
+        self::assertSame([], $this->armazenamento->gravadas);
+    }
+
+    #[TestDox('DOC-115: executável ou HTML com nome .odt seguem recusados — o MIME é do conteúdo, não da extensão')]
+    public function testExecutavelEHtmlRenomeadosSeguemRecusados(): void
+    {
+        $this->em->expects($this->never())->method('flush');
+
+        foreach (['application/x-dosexec', 'application/x-executable', 'text/html'] as $mime) {
+            try {
+                $this->useCase->executar($this->pasta, null, $this->upload($mime, 1024, 'parecer.odt'), 'DEMAIS', null, null, $this->tenant);
+                self::fail($mime . ' não pode entrar');
+            } catch (\InvalidArgumentException $e) {
+                self::assertSame(sprintf('Tipo de arquivo não permitido: %s.', $mime), $e->getMessage());
+            }
+        }
+
+        self::assertSame([], $this->armazenamento->gravadas);
+    }
+
+    private const TIPOS_PPTX = '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        . '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>';
+
+    private static function odf(string $mime): string
+    {
+        return self::zip(['content.xml' => '<?xml version="1.0"?><x/>', 'mimetype' => $mime]);
+    }
+
+    /** @param array<string, string> $entradas */
+    private static function zip(array $entradas): string
+    {
+        $caminho = tempnam(sys_get_temp_dir(), 'doc115_unit_');
+        $zip     = new \ZipArchive();
+        if ($caminho === false || $zip->open($caminho, \ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('não foi possível montar a amostra ZIP');
+        }
+        foreach ($entradas as $nome => $conteudo) {
+            $zip->addFromString($nome, $conteudo);
+        }
+        $zip->close();
+        $bytes = (string) file_get_contents($caminho);
+        @unlink($caminho);
+
+        return $bytes;
+    }
+
     /**
      * `audio/opus` não tem extensão no mapa do Symfony: `guessExtension()` devolve null e o nome
      * termina em `.bin` — exatamente como no `salvar()` antigo (`?? 'bin'`).
@@ -476,10 +623,10 @@ final class UploadPecaUseCaseTest extends TestCase
      * ("stat failed"): é a classe de defeito que derrubava o Kanban e o ServiceDesk, e a sobrescrita
      * não pode escondê-la.
      */
-    private function upload(string $mime, int $tamanho, string $nome): UploadedFile
+    private function upload(string $mime, int $tamanho, string $nome, ?string $conteudo = null): UploadedFile
     {
         $caminho = $this->diretorio . '/' . bin2hex(random_bytes(4));
-        file_put_contents($caminho, self::PDF);
+        file_put_contents($caminho, $conteudo ?? self::PDF);
 
         return new class ($caminho, $nome, $mime, $tamanho) extends UploadedFile {
             public function __construct(
