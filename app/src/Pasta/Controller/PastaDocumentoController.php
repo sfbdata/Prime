@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\DTO\EditarDocumentoDaPastaInput;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
+use App\Pasta\DTO\ZipDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -32,9 +33,11 @@ use App\Service\Tenant\TenantContext;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Shared\Http\EntregaDeArquivoGerado;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -76,6 +79,9 @@ final class PastaDocumentoController extends AbstractController
 {
     /** Ids (documentos + subpastas) aceitos numa ação em lote; acima disso é 422 sem consulta. */
     public const TETO_DE_ITENS_POR_LOTE = 2000;
+
+    /** O cookie que confirma à aba da pasta que o .zip começou a ser enviado (DOC-116). */
+    public const PREFIXO_DO_COOKIE_DE_CONFIRMACAO = 'pex_zip_';
 
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
@@ -428,7 +434,45 @@ final class PastaDocumentoController extends AbstractController
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        return $this->entregaGerada->resposta($saida->arquivo, $saida->nomeDoZip, 'application/zip');
+        $resposta = $this->entregaGerada->resposta($saida->arquivo, $saida->nomeDoZip, 'application/zip');
+        // DOC-116: o nome do desenho tem espaço e pode ter acento — `filename*` em UTF-8 e o
+        // `filename` ASCII transliterado ("Seção" → "Secao"), em vez do "_" que o Symfony poria.
+        $resposta->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+            $saida->nomeDoZip,
+            MontarZipDeDocumentosUseCase::nomeAsciiDoZip($saida->nomeDoZip),
+        );
+        $this->confirmarDownloadNaTela($resposta, $request, $saida);
+
+        return $resposta;
+    }
+
+    /**
+     * O "Baixando <nome> · N arquivos, M pastas" do desenho (DOC-116) só pode aparecer quando o
+     * SERVIDOR confirmou: o .zip sai por `<form target=_blank>` e a aba da pasta não vê a resposta.
+     * A tela manda um `confirmacao` aleatório; quando o .zip começa a ser enviado, vai junto um
+     * cookie de 60 s `pex_zip_<confirmacao>` com o nome e as contagens, que a aba da pasta lê e
+     * apaga. Sem `confirmacao` válido, nada é posto. O cookie não leva nada que o usuário já não
+     * veja (nome do arquivo e contagens) e é `SameSite=Strict`.
+     */
+    private function confirmarDownloadNaTela(Response $resposta, Request $request, ZipDeDocumentosOutput $saida): void
+    {
+        $confirmacao = $request->request->get('confirmacao');
+        if (!is_string($confirmacao) || preg_match('/^[A-Za-z0-9]{8,40}$/', $confirmacao) !== 1) {
+            return;
+        }
+
+        $resposta->headers->setCookie(Cookie::create(
+            self::PREFIXO_DO_COOKIE_DE_CONFIRMACAO . $confirmacao,
+            json_encode(['nome' => $saida->nomeDoZip, 'arquivos' => $saida->arquivos, 'pastas' => $saida->pastas], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            time() + 60,
+            '/',
+            null,
+            $request->isSecure(),
+            false, // a aba da pasta lê o cookie por JS
+            false,
+            Cookie::SAMESITE_STRICT,
+        ));
     }
 
     /**

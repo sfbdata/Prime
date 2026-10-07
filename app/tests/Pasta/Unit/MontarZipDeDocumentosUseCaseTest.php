@@ -111,7 +111,9 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         $saida = $this->useCase->executar($this->pasta, [$raiz], [$a], $this->autor, $this->tenant);
         $this->gerados[] = $saida->arquivo->caminho();
 
-        self::assertSame('documentos-DOC-1.zip', $saida->nomeDoZip);
+        // DOC-116: seleção da RAIZ (raiz.pdf e a subpasta A, ambas no topo) → sem o trecho da subpasta.
+        self::assertSame('Pasta DOC-1 - 07-10-2026.zip', $saida->nomeDoZip);
+        self::assertSame(3, $saida->pastas, 'A, B e a vazia: as três entram no .zip');
         self::assertSame(3, $saida->arquivos);
         self::assertSame(0, $saida->naoEncontrados);
         self::assertSame(strlen('conteúdo raiz') + strlen('conteúdo a') + strlen('conteúdo b'), $saida->bytes);
@@ -447,6 +449,72 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         // SEC-007b: nem o log guarda trecho do caminho (pode ter nome de cliente); só o tipo.
         self::assertSame('caminho_nao_vira_chave', $avisos[0]['contexto']['motivo']);
         self::assertStringNotContainsString('segredo-interno', json_encode($avisos, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), 'nenhum trecho do caminho no log');
+    }
+
+    // ------------------------------------------------- nome do .zip (DOC-116)
+
+    #[TestDox('nome: seleção inteira dentro de UMA subpasta → "Pasta <NUP> - <subpasta> - dd-mm-aaaa.zip" (dc l.3757); o M pastas conta a subárvore')]
+    public function testNomeComSubpastaQuandoASelecaoEDeUmNivel(): void
+    {
+        $provas = $this->secao('Provas', 10);
+        $fotos  = $this->secao('Fotos', 11, $provas);
+        $laudo  = $this->documento('laudo.pdf', $provas, 'l');
+        $foto   = $this->documento('foto.pdf', $fotos, 'f');
+        $this->arvore([$provas, $fotos], [$laudo, $foto]);
+
+        $saida = $this->useCase->executar($this->pasta, [$laudo], [$fotos], $this->autor, $this->tenant);
+        $this->gerados[] = $saida->arquivo->caminho();
+
+        self::assertSame('Pasta DOC-1 - PROVAS - 07-10-2026.zip', $saida->nomeDoZip, 'o nível é o da seção gravada (MAIÚSCULAS, pelo setter)');
+        self::assertSame(2, $saida->arquivos);
+        self::assertSame(1, $saida->pastas, 'só FOTOS entrou como diretório: PROVAS é o nível, não um item da seleção');
+    }
+
+    #[TestDox('nome: itens de níveis diferentes (resultado de busca) → sem o trecho da subpasta')]
+    public function testNomeSemSubpastaQuandoOsNiveisDiferem(): void
+    {
+        $provas = $this->secao('Provas', 10);
+        $outra  = $this->secao('Outra', 11);
+        $emP    = $this->documento('p.pdf', $provas, 'p');
+        $emO    = $this->documento('o.pdf', $outra, 'o');
+        $this->arvore([$provas, $outra], [$emP, $emO]);
+
+        $saida = $this->useCase->executar($this->pasta, [$emP, $emO], [], $this->autor, $this->tenant);
+        $this->gerados[] = $saida->arquivo->caminho();
+
+        self::assertSame('Pasta DOC-1 - 07-10-2026.zip', $saida->nomeDoZip);
+        self::assertSame(0, $saida->pastas);
+    }
+
+    #[TestDox('nome: sem NUP utilizável vira "Pasta #<id>", como o LEIA-ME; caracteres proibidos em nome de arquivo viram "_"; o tamanho da subpasta é limitado')]
+    public function testNomeSemNupECaracteresProibidos(): void
+    {
+        $dia = new \DateTimeImmutable('2026-01-05 23:59:00');
+
+        $semNup = self::comId((new Pasta())->setTenant($this->tenant), 9);
+        self::assertSame('Pasta #9 - 05-01-2026.zip', MontarZipDeDocumentosUseCase::nomeDoZip($semNup, null, $dia));
+        self::assertSame('Pasta #9 - 05-01-2026.zip', MontarZipDeDocumentosUseCase::nomeDoZip(self::comId((new Pasta())->setNup('   ')->setTenant($this->tenant), 9), '', $dia), 'NUP só de espaço e subpasta vazia não deixam " -  - "');
+
+        $barra = self::comId((new Pasta())->setNup('0001/2025')->setTenant($this->tenant), 9);
+        self::assertSame('Pasta 0001_2025 - A_B_C - 05-01-2026.zip', MontarZipDeDocumentosUseCase::nomeDoZip($barra, 'A:B*C', $dia));
+        self::assertSame('Pasta 0001_2025 - _ - 05-01-2026.zip', MontarZipDeDocumentosUseCase::nomeDoZip($barra, '"\\<>|?', $dia), 'sequência de proibidos vira um "_" só');
+
+        $longo = MontarZipDeDocumentosUseCase::nomeDoZip($barra, str_repeat('Á', 200), $dia);
+        self::assertSame('Pasta 0001_2025 - ' . str_repeat('Á', 80) . ' - 05-01-2026.zip', $longo, 'até 80 caracteres (não bytes) da subpasta');
+    }
+
+    #[TestDox('nome: o acento fica no nome (vai no filename* UTF-8); o fallback ASCII translitera e só tem ASCII imprimível, sem "%"')]
+    public function testNomeComAcentoEFallbackAscii(): void
+    {
+        $dia   = new \DateTimeImmutable('2026-10-07 10:00:00');
+        $nome  = MontarZipDeDocumentosUseCase::nomeDoZip($this->pasta, 'SEÇÃO ÚNICA', $dia);
+        self::assertSame('Pasta DOC-1 - SEÇÃO ÚNICA - 07-10-2026.zip', $nome);
+
+        self::assertSame('Pasta DOC-1 - SECAO UNICA - 07-10-2026.zip', MontarZipDeDocumentosUseCase::nomeAsciiDoZip($nome));
+        $estranho = MontarZipDeDocumentosUseCase::nomeAsciiDoZip('Pasta 50% - 日本 - 07-10-2026.zip');
+        self::assertMatchesRegularExpression('/^[\x20-\x7E]+$/', $estranho);
+        self::assertStringNotContainsString('%', $estranho, 'o HeaderUtils recusa "%" no fallback');
+        self::assertStringEndsWith(' - 07-10-2026.zip', $estranho);
     }
 
     // ---------------------------------------------------------------- helpers

@@ -2329,13 +2329,47 @@
             formZip.appendChild(input);
         };
         campo('_token', cfg.csrfLote);
+        const confirmacao = novaConfirmacaoDoZip();
+        campo('confirmacao', confirmacao);
         lote.documentos.forEach(function (id) { campo('documentos[]', id); });
         lote.secoes.forEach(function (id) { campo('secoes[]', id); });
         document.body.appendChild(formZip);
         formZip.submit();
         formZip.remove();
-        toast('Preparando o .zip: ' + pluralizar(lista.length, 'arquivo', 'arquivos') + ' · ' + formatarBytes(somaDeBytes(lista)));
+        // dc l.3754 (DOC-116): o 1º aviso só diz o que a TELA sabe — quantos itens foram pedidos.
+        toast('Preparando ' + pluralizar(itens.length, 'item', 'itens') + ' para download…');
+        aguardarConfirmacaoDoZip(confirmacao);
         return true;
+    }
+    /* O 2º aviso do desenho (dc l.3758): "Baixando <nome> · N arquivos, M pastas". O nome e as
+       contagens são os do SERVIDOR, e só chegam quando o .zip começou a ser enviado: a resposta
+       traz o cookie `pex_zip_<confirmacao>` (60 s), que esta aba lê e apaga. Recusa (aba com a
+       página de erro) não traz cookie, e o aviso não aparece — nada é prometido antes da hora. */
+    const ZIP_CONFIRMACAO_MS = 500;
+    const ZIP_CONFIRMACAO_TETO_MS = 120000;
+    function novaConfirmacaoDoZip() {
+        const bytes = new Uint8Array(12);
+        if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+        else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+        return Array.prototype.map.call(bytes, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    }
+    function lerConfirmacaoDoZip(nome) {
+        const par = document.cookie.split('; ').find(function (c) { return c.indexOf(nome + '=') === 0; });
+        if (!par) return null;
+        document.cookie = nome + '=; Max-Age=0; path=/; SameSite=Strict';
+        try { return JSON.parse(decodeURIComponent(par.slice(nome.length + 1))); } catch (e) { return {}; }
+    }
+    function aguardarConfirmacaoDoZip(confirmacao) {
+        const nome = 'pex_zip_' + confirmacao;
+        const ate = Date.now() + ZIP_CONFIRMACAO_TETO_MS;
+        const olhar = function () {
+            const c = lerConfirmacaoDoZip(nome);
+            if (!c) { if (Date.now() < ate) setTimeout(olhar, ZIP_CONFIRMACAO_MS); return; }
+            const nArq = Number(c.arquivos) || 0, nPas = Number(c.pastas) || 0;
+            if (!c.nome) return;
+            toast('Baixando ' + c.nome + ' · ' + pluralizar(nArq, 'arquivo', 'arquivos') + (nPas ? ', ' + pluralizar(nPas, 'pasta', 'pastas') : ''));
+        };
+        setTimeout(olhar, ZIP_CONFIRMACAO_MS);
     }
 
     /* Favoritos (L6, D2, dc `expFavAlt` L4442). Otimista: a estrela e a posição mudam na hora,

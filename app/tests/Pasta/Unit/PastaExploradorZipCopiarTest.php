@@ -203,4 +203,29 @@ final class PastaExploradorZipCopiarTest extends TestCase
         self::assertStringContainsString("const COPIAR_SO_PASTAS = 'Pastas não são copiadas';", $this->js());
         self::assertStringContainsString("if (o.desabilitado) { n.disabled = true; n.setAttribute('aria-disabled', 'true'); }\n            if (o.titulo) n.title = o.titulo;", $this->js());
     }
+
+    #[TestDox('zip (DOC-116): o 1º aviso é o do desenho e só fala dos itens pedidos; o "Baixando <nome> · N arquivos, M pastas" só sai depois do cookie de confirmação do servidor')]
+    public function testAvisosDoZip(): void
+    {
+        $zip = $this->funcao('baixarZip');
+
+        self::assertStringContainsString("toast('Preparando ' + pluralizar(itens.length, 'item', 'itens') + ' para download…');", $zip);
+        self::assertStringNotContainsString('Preparando o .zip', $this->js(), 'o texto antigo saiu');
+        self::assertStringNotContainsString('Baixando', $zip, 'nada de "Baixando" antes de o servidor confirmar');
+        // A confirmação vai no formulário e o aviso espera por ela DEPOIS do submit.
+        self::assertStringContainsString("campo('confirmacao', confirmacao);", $zip);
+        self::assertLessThan(strpos($zip, 'aguardarConfirmacaoDoZip(confirmacao);'), strpos($zip, 'formZip.submit();'));
+
+        $aguardar = $this->funcao('aguardarConfirmacaoDoZip');
+        self::assertStringContainsString("const nome = 'pex_zip_' + confirmacao;", $aguardar, 'o prefixo é o do controller (PREFIXO_DO_COOKIE_DE_CONFIRMACAO)');
+        self::assertSame('pex_zip_', \App\Pasta\Controller\PastaDocumentoController::PREFIXO_DO_COOKIE_DE_CONFIRMACAO);
+        self::assertStringContainsString("toast('Baixando ' + c.nome + ' · ' + pluralizar(nArq, 'arquivo', 'arquivos') + (nPas ? ', ' + pluralizar(nPas, 'pasta', 'pastas') : ''));", $aguardar);
+        self::assertStringContainsString('if (Date.now() < ate) setTimeout(olhar, ZIP_CONFIRMACAO_MS);', $aguardar, 'desiste depois do teto: recusa não traz cookie');
+
+        $ler = $this->funcao('lerConfirmacaoDoZip');
+        self::assertStringContainsString("document.cookie = nome + '=; Max-Age=0; path=/; SameSite=Strict';", $ler, 'o cookie é apagado ao ser lido');
+        self::assertStringContainsString('JSON.parse(decodeURIComponent(', $ler);
+        // A confirmação casa com a validação do servidor: [A-Za-z0-9]{8,40} — 12 bytes em hex = 24.
+        self::assertStringContainsString('const bytes = new Uint8Array(12);', $this->funcao('novaConfirmacaoDoZip'));
+    }
 }

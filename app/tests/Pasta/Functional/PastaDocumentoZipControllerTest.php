@@ -28,6 +28,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
@@ -90,17 +91,20 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         ArquivoGeradoParaEntrega::limparSobras('zip'); // a montagem limpa sobras velhas: a foto de "antes" tem de ser tirada já limpa
         $temporariosAntes = $this->temporariosDoZip();
 
-        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
-            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
-            'documentos' => [(string) $raiz->getId()],
-            'secoes'     => [(string) $a->getId()],
-        ]);
+        $dias = $this->diasDoPedido(function () use ($client, $pasta, $raiz, $a): void {
+            $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+                '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+                'documentos' => [(string) $raiz->getId()],
+                'secoes'     => [(string) $a->getId()],
+            ]);
+        });
 
         self::assertResponseIsSuccessful();
         self::assertSame('application/zip', $client->getResponse()->headers->get('Content-Type'));
-        self::assertSame(
-            'attachment; filename=documentos-' . $pasta->getNup() . '.zip',
+        // DOC-116: o nome do desenho; seleção da raiz → sem o trecho da subpasta. Só ASCII → sem filename*.
+        self::assertContains(
             $client->getResponse()->headers->get('Content-Disposition'),
+            array_map(fn (string $dia): string => 'attachment; filename="Pasta ' . $pasta->getNup() . ' - ' . $dia . '.zip"', $dias),
         );
 
         $entradas = $this->entradasDoZip($client);
@@ -131,6 +135,76 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $mudancas['nao_encontrados']);
         // `bytes` é a soma do `tamanho_bytes` GRAVADO (o teto também é por ele) — a fixture grava 10 por documento.
         self::assertSame(3 * 10, $mudancas['bytes']);
+    }
+
+    #[TestDox('zip (DOC-116): seleção de UM nível leva a subpasta no nome; acento vai no filename* UTF-8, com fallback ASCII transliterado')]
+    public function testNomeDoZipComSubpastaEAcento(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $secao           = $this->criarSecao($pasta, $tenant, 'Seção'); // gravada "SEÇÃO"
+        $doc             = $this->criarDocumento($pasta, $tenant, $secao, 'laudo.pdf', $this->gravarArquivo($tenant, 'laudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $dias = $this->diasDoPedido(function () use ($client, $pasta, $doc): void {
+            $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+                '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+                'documentos' => [(string) $doc->getId()],
+            ]);
+        });
+
+        self::assertResponseIsSuccessful();
+        self::assertContains(
+            $client->getResponse()->headers->get('Content-Disposition'),
+            array_map(fn (string $dia): string => sprintf(
+                'attachment; filename="Pasta %1$s - SECAO - %2$s.zip"; filename*=utf-8\'\'%3$s',
+                $pasta->getNup(),
+                $dia,
+                rawurlencode('Pasta ' . $pasta->getNup() . ' - SEÇÃO - ' . $dia . '.zip'),
+            ), $dias),
+        );
+        self::assertArrayHasKey('laudo.pdf', $this->entradasDoZip($client));
+    }
+
+    #[TestDox('zip (DOC-116): com `confirmacao` válida, o .zip leva o cookie pex_zip_<confirmacao> (nome, arquivos, pastas; SameSite=Strict, legível por JS); sem ela ou inválida, nenhum cookie')]
+    public function testCookieDeConfirmacaoDoDownload(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $a               = $this->criarSecao($pasta, $tenant, 'Provas');
+        $this->criarSecao($pasta, $tenant, 'Fotos', $a);
+        $this->criarDocumento($pasta, $tenant, $a, 'em-a.pdf', $this->gravarArquivo($tenant, 'a'));
+        $raiz            = $this->criarDocumento($pasta, $tenant, null, 'raiz.pdf', $this->gravarArquivo($tenant, 'r'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $corpo = ['_token' => $this->csrf('pex_lote_' . $pasta->getId()), 'documentos' => [(string) $raiz->getId()], 'secoes' => [(string) $a->getId()]];
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo + ['confirmacao' => 'abc123XYZ789']);
+
+        self::assertResponseIsSuccessful();
+        $cookies = $this->cookiesDeConfirmacao($client);
+        self::assertCount(1, $cookies);
+        $cookie = $cookies[0];
+        self::assertSame(PastaDocumentoController::PREFIXO_DO_COOKIE_DE_CONFIRMACAO . 'abc123XYZ789', $cookie->getName());
+        self::assertFalse($cookie->isHttpOnly(), 'a aba da pasta lê o cookie por JS');
+        self::assertSame('strict', $cookie->getSameSite());
+        self::assertSame('/', $cookie->getPath());
+        self::assertLessThanOrEqual(time() + 60, $cookie->getExpiresTime());
+        $valor = json_decode((string) $cookie->getValue(), true);
+        self::assertIsArray($valor);
+        self::assertStringStartsWith('Pasta ' . $pasta->getNup() . ' - ', (string) $valor['nome']);
+        self::assertSame(2, $valor['arquivos']);
+        self::assertSame(2, $valor['pastas'], 'PROVAS e FOTOS entraram no .zip');
+        $this->entradasDoZip($client);
+
+        foreach (['', 'curto', 'com espaço 123', str_repeat('a', 41), '../../x'] as $invalida) {
+            $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo + ['confirmacao' => $invalida]);
+            self::assertResponseIsSuccessful();
+            self::assertSame([], $this->cookiesDeConfirmacao($client), "confirmação inválida não vira cookie: '{$invalida}'");
+        }
     }
 
     #[TestDox('zip: basta VER a pasta — o leitor baixa; nomes repetidos ficam únicos')]
@@ -684,6 +758,29 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         ksort($entradas);
 
         return $entradas;
+    }
+
+    /**
+     * Os dias (dd-mm-aaaa) em que o pedido pode ter caído: antes e depois dele. O relógio é o real;
+     * um pedido que atravesse a meia-noite aceita qualquer um dos dois.
+     *
+     * @return list<string>
+     */
+    private function diasDoPedido(callable $pedido): array
+    {
+        $antes = (new \DateTimeImmutable())->format('d-m-Y');
+        $pedido();
+
+        return array_values(array_unique([$antes, (new \DateTimeImmutable())->format('d-m-Y')]));
+    }
+
+    /** @return list<Cookie> só os de confirmação do .zip — a sessão pode pôr os dela */
+    private function cookiesDeConfirmacao(KernelBrowser $client): array
+    {
+        return array_values(array_filter(
+            $client->getResponse()->headers->getCookies(),
+            static fn (Cookie $c): bool => str_starts_with($c->getName(), PastaDocumentoController::PREFIXO_DO_COOKIE_DE_CONFIRMACAO),
+        ));
     }
 
     /** @return list<string> */
