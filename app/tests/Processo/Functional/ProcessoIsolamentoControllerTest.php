@@ -18,6 +18,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -434,6 +435,7 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         $datajudId = 'TJSP_1689_G1_80064_' . $numero;
 
         $client->request('POST', '/processos/novo', [
+            '_token'            => $this->tokenDoFormulario($client, '/processos/novo'),
             'numeroProcesso'    => $numero,
             'siglaTribunal'     => 'TJSP',
             'orgaoJulgador'     => '1a Vara Cível',
@@ -491,6 +493,7 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
 
         // --- Criar com 2 assuntos ---
         $client->request('POST', '/processos/novo', [
+            '_token'            => $this->tokenDoFormulario($client, '/processos/novo'),
             'numeroProcesso'    => $numero,
             'siglaTribunal'     => 'TJSP',
             'orgaoJulgador'     => '1a Vara',
@@ -537,6 +540,7 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         // --- Editar: mantém "Dano Moral" (por id), remove "Obrigações", adiciona "Verbas Rescisórias" ---
         $this->logarComTenant($client, $gestor, $tenant);
         $client->request('POST', "/processos/{$processoId}/editar", [
+            '_token'            => $this->tokenDoFormulario($client, "/processos/{$processoId}/editar"),
             'numeroProcesso'    => $numero,
             'siglaTribunal'     => 'TJSP',
             'orgaoJulgador'     => '1a Vara',
@@ -603,6 +607,7 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         // sem carregar os complementos (o form não tem esse campo).
         $this->logarComTenant($client, $gestor, $tenant);
         $client->request('POST', "/processos/{$processoId}/editar", [
+            '_token'            => $this->tokenDoFormulario($client, "/processos/{$processoId}/editar"),
             'numeroProcesso'    => $numero,
             'siglaTribunal'     => 'TJSP',
             'orgaoJulgador'     => '1a Vara',
@@ -627,7 +632,156 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('70867', $recarregado->getOrgaoCodigo(), 'código do órgão da movimentação também é preservado');
     }
 
+    #[TestDox('Criar processo sem token CSRF (ou com token errado) é recusado com 403 e nada é gravado')]
+    public function testCriarSemTokenCsrfERecusadoENadaGrava(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorCsrf_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $semToken  = '5553333' . (++$this->seq) . '20238260100';
+        $tokenRuim = '5553333' . (++$this->seq) . '20238260100';
+
+        $client->request('POST', '/processos/novo', $this->corpoMinimo($semToken));
+        self::assertResponseStatusCodeSame(403, 'POST sem _token não pode criar processo');
+
+        // Token presente mas forjado também não serve.
+        $client->request('POST', '/processos/novo', ['_token' => 'token-forjado'] + $this->corpoMinimo($tokenRuim));
+        self::assertResponseStatusCodeSame(403, 'POST com _token inválido não pode criar processo');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+        self::assertNull($em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $semToken]), 'nada gravado sem token');
+        self::assertNull($em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $tokenRuim]), 'nada gravado com token inválido');
+    }
+
+    #[TestDox('O formulário de novo processo carrega o _token, e com ele o POST cria o processo')]
+    public function testCriarComTokenDoFormularioGrava(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorCsrfOk_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $numero = '5554444' . (++$this->seq) . '20238260100';
+        $client->request('POST', '/processos/novo', ['_token' => $this->tokenDoFormulario($client, '/processos/novo')] + $this->corpoMinimo($numero));
+        self::assertResponseRedirects();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+        $criado = $em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $numero]);
+        self::assertNotNull($criado, 'com o token do formulário o processo é criado como antes');
+        self::assertSame((int) $tenant->getId(), (int) $criado->getTenant()->getId());
+    }
+
+    #[TestDox('Editar processo sem token, com token errado ou com o token de OUTRO processo é recusado com 403 e nada muda')]
+    public function testEditarSemTokenCsrfERecusadoENadaMuda(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $gestor   = $this->criarGestor($tenant, 'gestorCsrfEd_' . uniqid() . '@test.com');
+        $alvo     = $this->criarProcesso($tenant);
+        $vizinho  = $this->criarProcesso($tenant);
+        $alvoId    = (int) $alvo->getId();
+        $vizinhoId = (int) $vizinho->getId();
+        $numero    = (string) $alvo->getNumeroProcesso();
+        $orgaoOriginal = $alvo->getOrgaoJulgador(); // o setter grava em maiúsculas: compara com o getter
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $alterado = ['orgaoJulgador' => '99a Vara Forjada'] + $this->corpoMinimo($numero);
+
+        $client->request('POST', "/processos/{$alvoId}/editar", $alterado);
+        self::assertResponseStatusCodeSame(403, 'POST sem _token não pode editar');
+
+        $client->request('POST', "/processos/{$alvoId}/editar", ['_token' => 'token-forjado'] + $alterado);
+        self::assertResponseStatusCodeSame(403, 'POST com _token inválido não pode editar');
+
+        // O token é amarrado ao id: o emitido para o vizinho (válido na sessão) não edita o alvo.
+        $tokenDoVizinho = $this->tokenDoFormulario($client, "/processos/{$vizinhoId}/editar");
+        $client->request('POST', "/processos/{$alvoId}/editar", ['_token' => $tokenDoVizinho] + $alterado);
+        self::assertResponseStatusCodeSame(403, 'token de outro processo não pode editar o alvo');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+        $recarregado = $em->find(Processo::class, $alvoId);
+        self::assertNotNull($recarregado);
+        self::assertSame($orgaoOriginal, $recarregado->getOrgaoJulgador(), 'o processo não pode ter sido alterado');
+    }
+
+    #[TestDox('Com o token do próprio formulário de edição, o POST altera o processo como antes')]
+    public function testEditarComTokenDoFormularioAltera(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorCsrfEdOk_' . uniqid() . '@test.com');
+        $alvo   = $this->criarProcesso($tenant);
+        $alvoId = (int) $alvo->getId();
+        $numero = (string) $alvo->getNumeroProcesso();
+        $orgaoOriginal = $alvo->getOrgaoJulgador();
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $client->request('POST', "/processos/{$alvoId}/editar", [
+            '_token'        => $this->tokenDoFormulario($client, "/processos/{$alvoId}/editar"),
+            'orgaoJulgador' => '2a Vara Legítima',
+        ] + $this->corpoMinimo($numero));
+        self::assertResponseRedirects();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+        $recarregado = $em->find(Processo::class, $alvoId);
+        self::assertNotNull($recarregado);
+        self::assertNotSame($orgaoOriginal, $recarregado->getOrgaoJulgador(), 'com token válido a edição é gravada');
+        self::assertSame('2A VARA LEGÍTIMA', $recarregado->getOrgaoJulgador());
+    }
+
     // ----------------------------------------------------------------- helpers
+
+    /**
+     * Abre o formulário (GET) e devolve o _token que ele renderiza — o mesmo caminho do navegador.
+     * Prova, de quebra, que o template emite o token: sem ele, o filtro falha aqui.
+     */
+    private function tokenDoFormulario(KernelBrowser $client, string $url): string
+    {
+        $crawler = $client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        $campo = $crawler->filter('#processoForm > input[type="hidden"][name="_token"]');
+        self::assertCount(1, $campo, 'o formulário de processo deve carregar o _token');
+        $token = (string) $campo->attr('value');
+        self::assertNotSame('', $token);
+
+        return $token;
+    }
+
+    /** @return array<string, string> */
+    private function corpoMinimo(string $numero): array
+    {
+        return [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+        ];
+    }
 
     private function limparIdentityMap(): void
     {

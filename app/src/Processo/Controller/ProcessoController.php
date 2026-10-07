@@ -104,6 +104,11 @@ class ProcessoController extends AbstractController
     #[Route('/novo', name: 'processo_new', methods: ['GET', 'POST'])]
     public function new(Request $request, ClienteRepository $clienteRepo, ProcessoRepository $processoRepo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
+        // POST cru (sem Form Component): o CSRF é conferido à mão, antes das guardas (PMC-056).
+        if ($request->isMethod('POST') && !$this->isCsrfTokenValid('processo_new', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
@@ -152,6 +157,12 @@ class ProcessoController extends AbstractController
     #[Route('/{id}/editar', name: 'processo_edit', methods: ['GET', 'POST'])]
     public function edit(Processo $processo, Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
+        // POST cru (sem Form Component): o CSRF é conferido à mão, antes das guardas (PMC-056).
+        // O id do token carrega o id do processo: token emitido para um processo não edita outro.
+        if ($request->isMethod('POST') && !$this->isCsrfTokenValid('processo_edit_' . $processo->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
