@@ -199,27 +199,16 @@
             .catch(function () { avisar('Não foi possível abrir os detalhes do cliente'); });
     }
 
-    // Arrastar pelo cabecalho (desenho: "Arraste para mover").
-    document.addEventListener('pointerdown', function (e) {
-        var cab = e.target.closest('[data-ps-cli-arrastar]');
-        if (!cab || !janelaAberta || e.target.closest('button')) { return; }
-        if (e.button !== undefined && e.button !== 0) { return; }
-        e.preventDefault();
-
-        var janela = janelaAberta;
-        var ox = e.clientX - janela.offsetLeft;
-        var oy = e.clientY - janela.offsetTop;
-        janela.classList.add('is-arrastando');
-
-        function mover(ev) { posicionar(janela, ev.clientX - ox, ev.clientY - oy); }
-        function soltar() {
-            window.removeEventListener('pointermove', mover);
-            window.removeEventListener('pointerup', soltar);
-            janela.classList.remove('is-arrastando');
-        }
-        window.addEventListener('pointermove', mover);
-        window.addEventListener('pointerup', soltar);
-    });
+    // Arrastar pelo cabecalho (desenho: "Arraste para mover"). O arraste e o
+    // utilitario do pasta-show.js (PAS-023); aqui fica so o que e desta janela:
+    // qual e a janela aberta e o `posicionar`, que a mantem dentro da tela.
+    if (window.PsArrastar) {
+        window.PsArrastar.ligar({
+            cabecalho: '[data-ps-cli-arrastar]',
+            janela: function (cab) { return janelaAberta && janelaAberta.contains(cab) ? janelaAberta : null; },
+            posicionar: posicionar
+        });
+    }
 
     /* ── Contatos editaveis na janela (dc L.810-836, logica L.5748-5786) ────
        Lapis abre o campo (Enter salva, Esc cancela; o novo vazio some), lixeira

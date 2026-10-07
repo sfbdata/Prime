@@ -549,6 +549,12 @@
     --ps-pop-x-hv-bg:  rgba(220,53,69,.18);
     --ps-pop-x-hv-tx:  #f1aeb5;
 }
+/* PAS-023: a tarja e o cabeçalho do modal Editar dados arrastam a janela
+   (PsArrastar, no pasta-show.js); o X e os botões continuam com o cursor deles. */
+.ps-pop-tarja,
+#modalEditarPasta .ps-modal-pasta-cab { cursor: grab; touch-action: none; user-select: none; }
+.ps-pop.is-arrastando > .ps-pop-tarja,
+#modalEditarPasta .modal-dialog.is-arrastando .ps-modal-pasta-cab { cursor: grabbing; }
 .ps-pop-tarja:has(> .ps-pop-x) { position: relative; padding-right: 50px; }
 /* Sem tarja, o X ficaria por cima do ✓ do primeiro item (prioridade, metas): o
    painel abre uma faixa de 38px para ele em vez de sobrepor. */

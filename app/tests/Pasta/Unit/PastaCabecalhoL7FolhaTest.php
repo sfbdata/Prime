@@ -190,4 +190,40 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         $cab = self::ler(self::CABECALHO);
         self::assertSame(2, substr_count($cab, '<div class="ps-pop-tarja">'));
     }
+
+    #[TestDox('PAS-023: o arraste é um utilitário só (PsArrastar), usado pela janela do cliente, pelas tarjas dos menus e pelo modal Editar dados')]
+    public function testArrasteExtraidoParaUtilitario(): void
+    {
+        $js = self::ler(self::PASTA_JS);
+
+        // Definido na carga do script, antes do DOMContentLoaded (o pasta-clientes.js é defer).
+        $util = self::trecho($js, 'window.PsArrastar = (function () {', "document.addEventListener('DOMContentLoaded'");
+        self::assertStringContainsString("document.addEventListener('pointerdown', function (e) {", $util);
+        self::assertStringContainsString('e.target.closest(NAO_ARRASTA)', $util, 'botão e campo do cabeçalho continuam clicáveis');
+        self::assertStringContainsString('if (e.button !== undefined && e.button !== 0) { return; }', $util);
+        self::assertStringContainsString('if (opcoes.posicionar) { opcoes.posicionar(janela, x, y); return; }', $util);
+        self::assertStringContainsString("janela.style.translate = x + 'px ' + y + 'px';", $util, 'translate não briga com o transform do Bootstrap');
+        self::assertStringContainsString("window.addEventListener('click', engolir, { capture: true, once: true });", $util, 'soltar fora não fecha o menu');
+        self::assertStringContainsString('return { ligar: ligar, zerar: zerar };', $util);
+
+        $uso = self::trecho($js, 'function arrasteDasJanelas()', '/* ── 4. Atalhos do trilho');
+        self::assertStringContainsString("cabecalho: '.ps-pop.is-aberto > .ps-pop-tarja'", $uso);
+        self::assertStringContainsString("cabecalho: '#modalEditarPasta .ps-modal-pasta-cab'", $uso);
+        self::assertStringContainsString("cab.closest('.modal-dialog')", $uso);
+        self::assertStringContainsString("modal.addEventListener('hidden.bs.modal'", $uso, 'o modal volta ao centro ao fechar');
+        self::assertStringContainsString('if (vaiAbrir) { window.PsArrastar.zerar(alvo); }', self::trecho($js, 'function popovers()', 'function botaoFechar('), 'o menu reabre junto do gatilho');
+
+        $cli = self::ler(__DIR__ . '/../../../public/js/pasta-clientes.js');
+        self::assertStringContainsString("cabecalho: '[data-ps-cli-arrastar]'", $cli);
+        self::assertStringContainsString('posicionar: posicionar', $cli, 'a janela do cliente continua presa à tela');
+        self::assertStringNotContainsString("document.addEventListener('pointerdown'", $cli, 'o arraste próprio saiu');
+
+        // Os ganchos existem nos templates.
+        self::assertStringContainsString('data-ps-cli-arrastar', self::ler(__DIR__ . '/../../../templates/cliente/_resumo.html.twig'));
+        $show = self::ler(__DIR__ . '/../../../templates/pasta/show.html.twig');
+        self::assertMatchesRegularExpression('/id="modalEditarPasta"[^>]*>\s*<div class="modal-dialog ps-modal-pasta">\s*<div class="modal-content">\s*<div class="ps-modal-pasta-cab">/', $show);
+
+        $css = self::ler(self::CSS);
+        self::assertStringContainsString("#modalEditarPasta .ps-modal-pasta-cab { cursor: grab; touch-action: none; user-select: none; }", $css);
+    }
 }

@@ -13,6 +13,71 @@
 (function () {
     'use strict';
 
+    /* ── Arrastar janelinhas (PAS-023; README do pacote, "Janelinhas arrastáveis") ──
+       Utilitário único: o arraste que nasceu na janela "Detalhes do cliente"
+       (pasta-clientes.js) saiu de lá para cá e vale também para o modal Editar dados
+       e para as tarjas dos menus. Fica no `window` na carga do script (antes do
+       DOMContentLoaded): o pasta-clientes.js é `defer` e roda depois deste.
+         ligar({ cabecalho, janela(cab), posicionar(janela, x, y)? })
+       Com `posicionar`, a janela é movida pelo dono (left/top). Sem ele, o
+       utilitário desloca a janela pela propriedade CSS `translate` — que não briga
+       com o `transform` do Bootstrap no modal nem com o do próprio X — e `zerar`
+       a devolve à âncora. Botão, link e campo no cabeçalho continuam clicáveis. */
+    window.PsArrastar = (function () {
+        var NAO_ARRASTA = 'button, a, input, textarea, select, label, [contenteditable="true"]';
+
+        function zerar(janela) {
+            if (!janela) { return; }
+            delete janela.dataset.psArrasteX;
+            delete janela.dataset.psArrasteY;
+            janela.style.translate = '';
+        }
+
+        function ligar(opcoes) {
+            document.addEventListener('pointerdown', function (e) {
+                var cab = e.target.closest ? e.target.closest(opcoes.cabecalho) : null;
+                if (!cab || e.target.closest(NAO_ARRASTA)) { return; }
+                if (e.button !== undefined && e.button !== 0) { return; }
+                var janela = opcoes.janela(cab);
+                if (!janela) { return; }
+                e.preventDefault();
+
+                var x0 = e.clientX;
+                var y0 = e.clientY;
+                var base = opcoes.posicionar
+                    ? [janela.offsetLeft, janela.offsetTop]
+                    : [parseFloat(janela.dataset.psArrasteX) || 0, parseFloat(janela.dataset.psArrasteY) || 0];
+                var andou = false;
+                janela.classList.add('is-arrastando');
+
+                function mover(ev) {
+                    var x = base[0] + ev.clientX - x0;
+                    var y = base[1] + ev.clientY - y0;
+                    if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) > 3) { andou = true; }
+                    if (opcoes.posicionar) { opcoes.posicionar(janela, x, y); return; }
+                    janela.dataset.psArrasteX = String(x);
+                    janela.dataset.psArrasteY = String(y);
+                    janela.style.translate = x + 'px ' + y + 'px';
+                }
+                function soltar() {
+                    window.removeEventListener('pointermove', mover);
+                    window.removeEventListener('pointerup', soltar);
+                    janela.classList.remove('is-arrastando');
+                    if (!andou) { return; }
+                    // Soltar fora do cabeçalho gera um clique no ancestral comum, que
+                    // os menus leem como "clique fora" e fechariam: engole só esse.
+                    var engolir = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+                    window.addEventListener('click', engolir, { capture: true, once: true });
+                    setTimeout(function () { window.removeEventListener('click', engolir, { capture: true }); }, 0);
+                }
+                window.addEventListener('pointermove', mover);
+                window.addEventListener('pointerup', soltar);
+            });
+        }
+
+        return { ligar: ligar, zerar: zerar };
+    }());
+
     document.addEventListener('DOMContentLoaded', function () {
         var pagina = document.querySelector('.ps-page');
         if (!pagina) { return; }
@@ -20,6 +85,7 @@
         indicadorDeAbas();
         drawerDeHistorico();
         popovers();
+        arrasteDasJanelas();
         atalhosDeAba();
         verAnotacoesAnteriores();
         acoesDoMenu();
@@ -156,6 +222,8 @@
                 // Abrir um fecha o outro — foi o pedido do desenho, e evita dois
                 // paineis sobrepostos no mesmo canto.
                 fecharTodos(vaiAbrir ? alvo : null);
+                // Menu arrastado volta a abrir junto do gatilho (PAS-023).
+                if (vaiAbrir) { window.PsArrastar.zerar(alvo); }
                 alvo.classList.toggle('is-aberto', vaiAbrir);
                 gatilho.setAttribute('aria-expanded', vaiAbrir ? 'true' : 'false');
             });
@@ -202,6 +270,26 @@
         });
 
         (tarja || painel).appendChild(botao);
+    }
+
+    /* Onde o arraste vale nesta tela (PAS-023): a tarja azul dos menus do
+       cabeçalho e o cabeçalho do modal Editar dados. O modal volta ao centro
+       quando fecha. */
+    function arrasteDasJanelas() {
+        window.PsArrastar.ligar({
+            cabecalho: '.ps-pop.is-aberto > .ps-pop-tarja',
+            janela: function (cab) { return cab.closest('.ps-pop'); }
+        });
+
+        var modal = document.getElementById('modalEditarPasta');
+        if (!modal) { return; }
+        window.PsArrastar.ligar({
+            cabecalho: '#modalEditarPasta .ps-modal-pasta-cab',
+            janela: function (cab) { return cab.closest('.modal-dialog'); }
+        });
+        modal.addEventListener('hidden.bs.modal', function () {
+            window.PsArrastar.zerar(modal.querySelector('.modal-dialog'));
+        });
     }
 
     /* ── 4. Atalhos do trilho ("metas", "detalhar", "todos") ──────────────── */
