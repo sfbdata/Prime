@@ -195,7 +195,8 @@ final class PastaExploradorZipCopiarTest extends TestCase
         self::assertLessThan(strpos($menu, "op('Copiar links'", $multi), $zipN);
         self::assertStringContainsString("op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),\n                opCopiar(sel),", $menu);
         self::assertStringNotContainsString('arqs.length ? [op(\'Copiar\'', $menu, 'o Copiar não some sem arquivo');
-        self::assertStringContainsString(".concat(ehPasta ? [\n                op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),\n            ] : [", $menu);
+        // A pasta: "Baixar como .zip" no lugar do Baixar, e (DOC-120) o "Copiar link" do nível logo depois.
+        self::assertStringContainsString(".concat(ehPasta ? [\n                op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),\n                // DOC-120: a subpasta também tem link (o nível, por `?pex=`).\n                op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),\n            ] : [", $menu);
         self::assertStringContainsString(".concat([opCopiar([alvo])])", $menu, 'pasta e arquivo: o Copiar está sempre lá');
         $opCopiar = $this->funcao('opCopiar');
         self::assertStringContainsString('const soPastas = !itens.some(ehArquivo);', $opCopiar);

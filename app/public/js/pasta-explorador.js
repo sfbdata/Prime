@@ -111,6 +111,8 @@
         // DOC-118: permissão de EDITAR a pasta (e pasta fora da lápide), decidida no servidor.
         // Falsa (ou ausente), nenhuma ação de escrita é desenhada nem ligada.
         podeEditar:          dados.podeEditar === true,
+        // DOC-120: a pasta_show desta pasta — base do "Copiar link" de uma subpasta.
+        urlPasta:            raiz.dataset.urlPasta || '',
     };
 
     const el = {
@@ -1970,6 +1972,8 @@
         return [op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: 'Enter' })]
             .concat(ehPasta ? [
                 op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),
+                // DOC-120: a subpasta também tem link (o nível, por `?pex=`).
+                op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),
             ] : [
                 op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' }),
                 op('Baixar', 'bi-download', function () { baixar(a); }),
@@ -2153,12 +2157,25 @@
         return v == null ? null : Number(v);
     }
     function linkAbsoluto(a) { return new URL(a.viewUrl, window.location.href).href; }
-    // "Copiar link" (S-12): o link interno de visualização, que exige login e permissão na pasta.
+    /* DOC-120 (dc l.4813, "Compartilhar link" também para pasta): o link de uma SUBPASTA é a
+       pasta_show na aba Documentos com `?pex=<secaoId>` — ao abrir, o explorador entra nesse nível
+       (`pexDoLink`). Absoluto, como o do arquivo; exige login e permissão na pasta. */
+    function linkDaSubpasta(id) {
+        const u = new URL(cfg.urlPasta || window.location.pathname, window.location.href);
+        u.search = '';
+        u.searchParams.set('pex', String(Number(id)));
+        u.hash = 'documentos';
+        return u.href;
+    }
+    // "Copiar link" (S-12): o link interno de visualização, que exige login e permissão na pasta;
+    // de uma subpasta, o link do nível (DOC-120).
     function copiarLinks(itens) {
         const arqs = itens.filter(ehArquivo);
-        if (!arqs.length) return;
-        copiarTexto(arqs.map(function (it) { return linkAbsoluto(it.dado); }).join('\n')).then(function (ok) {
-            if (ok) toast(arqs.length === 1 ? 'Link copiado' : 'Links copiados'); else toastErro('Não foi possível copiar.');
+        const links = arqs.map(function (it) { return linkAbsoluto(it.dado); })
+            .concat(itens.filter(ehPastaItem).map(function (it) { return linkDaSubpasta(it.id); }));
+        if (!links.length) return;
+        copiarTexto(links.join('\n')).then(function (ok) {
+            if (ok) toast(links.length === 1 ? 'Link copiado' : 'Links copiados'); else toastErro('Não foi possível copiar.');
         });
     }
     // "Copiar caminho" (DOC-38): "BlueJus › Pasta <n> › Documentos › … › nome".
@@ -3706,12 +3723,37 @@
     }
 
     // ---------------------------------------------------- estado inicial ----
+    /* `?pex=<secaoId>` (DOC-120): o id de uma subpasta DESTA pasta, ou NULL. Lido uma vez e tirado
+       da barra de endereço (o resto da URL fica), para um recarregar depois de navegar não voltar
+       ao nível do link. Só vale o que está em `pastas` (o #pexDados): o servidor só põe ali as
+       seções vivas desta pasta e deste escritório. */
+    function pexDoLink() {
+        let valor = null;
+        try {
+            const url = new URL(window.location.href);
+            valor = url.searchParams.get('pex');
+            if (valor !== null) {
+                url.searchParams.delete('pex');
+                window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+            }
+        } catch (e) { return null; }
+        if (!valor || !/^[1-9]\d{0,17}$/.test(valor)) return null;
+        return pastaPorId(valor) ? Number(valor) : null;
+    }
     (function inicializar() {
         let salvo = null;
         try { salvo = JSON.parse(sessionStorage.getItem(CHAVE_CAMINHO) || 'null'); } catch (e) { /* formato inválido */ }
         // Só restaura se TODOS os níveis salvos ainda existirem — pasta excluída cai na raiz.
         if (Array.isArray(salvo) && salvo.length && salvo.every(function (id) { return pastaPorId(id); })) {
             caminho = cadeiaAte(salvo[salvo.length - 1]);
+        }
+        // DOC-120: o link de uma subpasta vence o nível salvo. Seção que não é desta pasta
+        // (outra pasta, outro escritório, lixeira, valor que não é id) não está no #pexDados e é
+        // ignorada em silêncio — fica o nível de sempre.
+        const doLink = pexDoLink();
+        if (doLink != null) {
+            caminho = cadeiaAte(doLink);
+            gravarCaminho();
         }
         atualizarBotaoLimpar();
         renderizar();

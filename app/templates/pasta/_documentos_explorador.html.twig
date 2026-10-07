@@ -45,6 +45,7 @@
      data-pasta-rotulo="{{ pasta.nup ?? pasta.id }}"
      data-pasta-excluida="{{ pasta.estaExcluida ? '1' : '0' }}"
      data-pode-editar="{{ explorador.podeEditar ? '1' : '0' }}"
+     data-url-pasta="{{ path('pasta_show', {id: pasta.id}) }}"
      data-total-arquivos="{{ explorador.totalArquivos }}"
      data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"
      data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id) }}"
