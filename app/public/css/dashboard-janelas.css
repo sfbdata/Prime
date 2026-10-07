@@ -117,11 +117,221 @@
 .db-janela-fechar:hover { background: var(--db-jan-fechar-hover-bg); color: var(--db-jan-fechar-hover); }
 .db-janela-fechar:focus-visible { outline: none; box-shadow: var(--db-jan-foco); }
 
+/* ── Histórico do card ─────────────────────────────────────────────────────── */
+
+.db-janela.db-hist {
+    --db-hist-seg-bg:        #edf2f6;
+    --db-hist-seg-borda:     #dfe7ed;
+    --db-hist-seg-txt:       #5f7684;
+    --db-hist-seg-ativo:     #0b6a88;
+    --db-hist-seg-ativo-bg:  #fff;
+    --db-hist-seg-ativo-sombra: 0 1px 2px rgba(16,42,58,.1), 0 0 0 1px rgba(12,122,156,.14);
+    --db-hist-eixo:          #e3eaef;
+    --db-hist-vazio:         #eef3f6;
+    --db-hist-rotulo:        #7b93a2;
+    --db-hist-rotulo-vazio:  #c3d0d8;
+    --db-hist-ouro:          #9a7220;
+    --db-hist-ouro-barra:    linear-gradient(180deg, #f3d27a, #d7aa45);
+    --db-hist-stat-bg:       #f6f9fb;
+    --db-hist-stat-rotulo:   #6b8494;
+    --db-hist-valor:         #0e2533;
+    --db-hist-stat-sub:      #7b93a2;
+    --db-hist-bom:           #14784a;
+    --db-hist-ruim:          #b0302a;
+    --db-hist-igual:         #34505f;
+    --db-hist-nota-bg:       #fafcfd;
+    --db-hist-nota-borda:    #eef3f6;
+    --db-hist-nota:          #7b93a2;
+    width: 330px;
+}
+[data-bs-theme="dark"] .db-janela.db-hist {
+    --db-hist-seg-bg:        var(--bs-secondary-bg);
+    --db-hist-seg-borda:     var(--bs-border-color);
+    --db-hist-seg-txt:       var(--bs-secondary-color);
+    --db-hist-seg-ativo:     #7ccbe4;
+    --db-hist-seg-ativo-bg:  var(--bs-body-bg);
+    --db-hist-seg-ativo-sombra: 0 0 0 1px rgba(124,203,228,.22);
+    --db-hist-eixo:          var(--bs-border-color);
+    --db-hist-vazio:         rgba(255,255,255,.08);
+    --db-hist-rotulo:        var(--bs-secondary-color);
+    --db-hist-rotulo-vazio:  rgba(255,255,255,.28);
+    --db-hist-ouro:          #e6c48a;
+    --db-hist-stat-bg:       var(--bs-secondary-bg);
+    --db-hist-stat-rotulo:   var(--bs-secondary-color);
+    --db-hist-valor:         var(--bs-body-color);
+    --db-hist-stat-sub:      var(--bs-secondary-color);
+    --db-hist-bom:           #5fd39a;
+    --db-hist-ruim:          #f08a84;
+    --db-hist-igual:         var(--bs-secondary-color);
+    --db-hist-nota-bg:       var(--bs-body-bg);
+    --db-hist-nota-borda:    var(--bs-border-color);
+    --db-hist-nota:          var(--bs-secondary-color);
+}
+
+/* cor de cada card (a do glifo/ícone do desenho) */
+.db-hist--pastas   { --db-jan-cor: #0f6fc4; --db-jan-rgb: 15,111,196; }
+.db-hist--metas    { --db-jan-cor: #0c7a9c; --db-jan-rgb: 12,122,156; }
+.db-hist--urgentes { --db-jan-cor: #c0392f; --db-jan-rgb: 192,57,47; }
+.db-hist--global   { --db-jan-cor: #1a8a55; --db-jan-rgb: 31,157,97; }
+[data-bs-theme="dark"] .db-hist--pastas   { --db-jan-cor: #8cc0f0; }
+[data-bs-theme="dark"] .db-hist--metas    { --db-jan-cor: #7ccbe4; }
+[data-bs-theme="dark"] .db-hist--urgentes { --db-jan-cor: #f0a0a4; }
+[data-bs-theme="dark"] .db-hist--global   { --db-jan-cor: #85d3a8; }
+
+.db-hist-graf { padding: 0 14px 12px; }
+
+.db-hist-anos {
+    display: flex;
+    gap: 2px;
+    background: var(--db-hist-seg-bg);
+    border: 1px solid var(--db-hist-seg-borda);
+    border-radius: 4px;
+    padding: 2px;
+    margin-bottom: 12px;
+}
+.db-hist-ano {
+    flex: 1;
+    border: none;
+    cursor: pointer;
+    height: 26px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--db-hist-seg-txt);
+    background: transparent;
+    box-shadow: none;
+    transition: color .2s, background .2s;
+}
+.db-hist-ano:hover { color: var(--db-hist-seg-ativo); }
+.db-hist-ano[aria-pressed="true"] {
+    font-weight: 700;
+    color: var(--db-hist-seg-ativo);
+    background: var(--db-hist-seg-ativo-bg);
+    box-shadow: var(--db-hist-seg-ativo-sombra);
+}
+.db-hist-ano:focus-visible { outline: none; box-shadow: var(--db-jan-foco); }
+
+.db-hist-barras {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 104px;
+    padding: 0 2px;
+    border-bottom: 1px solid var(--db-hist-eixo);
+}
+.db-hist-col {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 3px;
+}
+.db-hist-valor {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    line-height: 1;
+    color: var(--db-jan-cor);
+    min-height: 10px;
+}
+.db-hist-col.is-melhor .db-hist-valor { color: var(--db-hist-ouro); }
+.db-hist-barra {
+    display: block;
+    width: 100%;
+    max-width: 18px;
+    border-radius: 4px 4px 2px 2px;
+    transform-origin: bottom;
+    animation: db-hist-sobe .5s var(--db-jan-ease) both;
+    background: rgba(var(--db-jan-rgb), .28);
+}
+.db-hist-col.is-atual .db-hist-barra { background: linear-gradient(180deg, rgba(var(--db-jan-rgb), 1), rgba(var(--db-jan-rgb), .8)); }
+.db-hist-col.is-melhor .db-hist-barra { background: var(--db-hist-ouro-barra); }
+.db-hist-col.is-vazio .db-hist-barra { background: var(--db-hist-vazio); }
+
+@keyframes db-hist-sobe {
+    from { transform: scaleY(0); }
+    to   { transform: scaleY(1); }
+}
+
+.db-hist-rotulos { display: flex; gap: 4px; padding: 4px 2px 0; }
+.db-hist-rotulo {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--db-hist-rotulo);
+}
+.db-hist-rotulo.is-vazio { color: var(--db-hist-rotulo-vazio); }
+
+.db-hist-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 0 14px 12px;
+}
+.db-hist-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px 9px;
+    border-radius: 4px;
+    background: var(--db-hist-stat-bg);
+}
+.db-hist-stat-rotulo {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--db-hist-stat-rotulo);
+    line-height: 1.25;
+}
+.db-hist-stat-valor {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--db-hist-valor);
+}
+.db-hist-stat-valor--ouro  { color: var(--db-hist-ouro); }
+.db-hist-stat-valor--bom   { color: var(--db-hist-bom); }
+.db-hist-stat-valor--ruim  { color: var(--db-hist-ruim); }
+.db-hist-stat-valor--igual { color: var(--db-hist-igual); }
+.db-hist-stat-sub { font-size: 11px; color: var(--db-hist-stat-sub); line-height: 1.3; }
+
+.db-hist-nota {
+    padding: 10px 14px 12px;
+    border-top: 1px solid var(--db-hist-nota-borda);
+    background: var(--db-hist-nota-bg);
+    border-radius: 0 0 4px 4px;
+    font-size: 11.5px;
+    color: var(--db-hist-nota);
+    line-height: 1.4;
+    text-wrap: pretty;
+}
+
+/* carregando / erro / sem histórico (o desenho não tem esses estados: convenção do painel) */
+.db-hist-aviso {
+    padding: 4px 14px 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--db-jan-sub);
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .db-janela { animation: none; }
+    .db-janela,
+    .db-hist-barra { animation: none; }
 }
 /* preferência pessoal "animações reduzidas" do painel vale como o prefers-reduced-motion */
-body:has(.db-page--sem-anim) .db-janela { animation: none; }
+body:has(.db-page--sem-anim) .db-janela,
+body:has(.db-page--sem-anim) .db-hist-barra { animation: none; }
 
 /* não saem no PDF (desenho: data-print="hide") */
 @media print {

@@ -21,7 +21,7 @@
  * Uso:
  *   var j = window.DbJanelas.abrir({
  *       chave: 'hist:pastas', titulo: 'Pastas criadas', subtitulo: 'Histórico mensal',
- *       icone: 'bi-folder-plus', classe: 'db-hist db-hist--pastas', largura: 330,
+ *       icone: 'bi-folder-plus', classe: 'db-hist db-hist--pastas', largura: 330, altura: 420,
  *       x: ev.clientX, y: ev.clientY, origem: elemento,
  *       montar: function (corpo, janela) { ... }   // só na 1ª abertura da chave
  *   });
@@ -87,7 +87,7 @@
     }
 
     /** Primeira posição: junto ao cursor, deslocada pelas já abertas, inteira dentro da tela. */
-    function posicaoInicial(j, x, y) {
+    function posicaoInicial(j, x, y, alturaPrevista) {
         var r  = j.elemento.getBoundingClientRect();
         var vw = window.innerWidth;
         var vh = window.innerHeight;
@@ -97,7 +97,7 @@
 
         posicionar(j,
             Math.max(MARGEM, Math.min(px, vw - r.width - MARGEM)),
-            Math.max(MARGEM, Math.min(py, vh - r.height - MARGEM)));
+            Math.max(MARGEM, Math.min(py, vh - Math.max(r.height, alturaPrevista || 0) - MARGEM)));
     }
 
     function focavel(alvo) {
@@ -230,7 +230,7 @@
         document.body.appendChild(caixa);
         reordenar();
         if (typeof o.montar === 'function') { o.montar(corpo, j); }
-        posicaoInicial(j, o.x, o.y);
+        posicaoInicial(j, o.x, o.y, o.altura);
         caixa.focus({ preventScroll: true });
 
         return j;

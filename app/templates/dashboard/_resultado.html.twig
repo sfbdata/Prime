@@ -39,10 +39,13 @@
 {% set pct = dashboard.metaGlobalPercent %}
 {# arco do alvo: circunferência de r=22 (2π·22 = 138,23) × percentual #}
 {% set arco = (138.23 * pct / 100)|number_format(2, '.', '') %}
+{# Botão direito num card abre a janela "Histórico" dele (DASH-017, public/js/dashboard-historico.js):
+   `data-historico-url` é o endpoint GET do card. Pastas criadas tem série; os outros três mostram
+   na janela por que ainda não têm (dependem da foto diária). #}
 <div class="db-cards-row">
 
     <div class="db-card-wrap db-card-wrap--esq">
-        <div class="db-stat-card db-stat-card--pastas">
+        <div class="db-stat-card db-stat-card--pastas" data-historico="pastas" data-historico-url="{{ path('dashboard_historico', { card: 'pastas' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -102,7 +105,7 @@
     </div>
 
     <div class="db-card-wrap db-card-wrap--sobe1">
-        <div class="db-stat-card db-stat-card--metas">
+        <div class="db-stat-card db-stat-card--metas" data-historico="metas" data-historico-url="{{ path('dashboard_historico', { card: 'metas' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -156,7 +159,7 @@
     </div>
 
     <div class="db-card-wrap db-card-wrap--sobe2">
-        <div class="db-stat-card db-stat-card--urgentes">
+        <div class="db-stat-card db-stat-card--urgentes" data-historico="urgentes" data-historico-url="{{ path('dashboard_historico', { card: 'urgentes' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -202,7 +205,7 @@
     </div>
 
     <div class="db-card-wrap db-card-wrap--dir">
-        <div class="db-stat-card db-stat-card--global">
+        <div class="db-stat-card db-stat-card--global" data-historico="global" data-historico-url="{{ path('dashboard_historico', { card: 'global' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>

@@ -444,9 +444,11 @@
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
-{# Depois do motor de filtro: a contagem dos cards observa a região que ele recarrega. #}
 {# Janelas flutuantes (DASH-020): componente usado pelo histórico dos cards. #}
 <script src="{{ asset('js/dashboard-janelas.js') }}"></script>
+{# Botão direito num card: janela "Histórico" (DASH-017), sobre o componente acima. #}
+<script src="{{ asset('js/dashboard-historico.js') }}"></script>
+{# Depois do motor de filtro: a contagem dos cards observa a região que ele recarrega. #}
 <script src="{{ asset('js/dashboard.js') }}"></script>
 {# Selects e calendário próprios da barra de filtros: escrevem nos nativos do parcial. #}
 <script src="{{ asset('js/dashboard-filtros.js') }}"></script>
