@@ -22,6 +22,7 @@ use App\Inteligencia\UseCase\ExportarAnaliseEmTextoUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Inteligencia\UseCase\ListarAuditoriaDaPastaUseCase;
 use App\Inteligencia\UseCase\MarcarAnaliseComoLidaUseCase;
+use App\Inteligencia\UseCase\MarcarAnaliseComoNaoLidaUseCase;
 use App\Inteligencia\UseCase\RecolherAnaliseUseCase;
 use App\Inteligencia\UseCase\SolicitarResumoDoPushUseCase;
 use App\Pasta\Entity\Pasta;
@@ -48,7 +49,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *   GET  /pasta/{id}/ia/analises/{analiseId}    → {id, status, statusRotulo, emAndamento, terminal, mensagem, motivoTecnico}
  *   GET  /pasta/{id}/ia/auditoria               → fragmento `inteligencia/_auditoria.html.twig` (rodapé do drawer)
  *   GET  /pasta/{id}/ia/analises/{analiseId}.txt → a análise CONCLUÍDA em text/plain, como anexo (404 se não houver)
- *   POST …/{analiseId}/lida | /excluir | /interna | /recolher → XHR: JSON · form comum: redirect para a pasta #push
+ *   POST …/{analiseId}/lida | /nao-lida | /excluir | /interna | /recolher → XHR: JSON · form comum: redirect para a pasta #push
  * CSRF: `_token` (campo ou header X-CSRF-Token); ids `inteligencia_push_{pastaId}` e
  * `inteligencia_analise_{analiseId}`.
  */
@@ -64,6 +65,7 @@ final class AnalisePushController extends AbstractController
         private readonly ListarAnalisesDaPastaUseCase $listar,
         private readonly ConsultarStatusDaAnaliseUseCase $consultarStatus,
         private readonly MarcarAnaliseComoLidaUseCase $marcarLida,
+        private readonly MarcarAnaliseComoNaoLidaUseCase $marcarNaoLida,
         private readonly ExcluirAnaliseUseCase $excluir,
         private readonly AlternarAnaliseInternaUseCase $alternarInterna,
         private readonly ExportarAnaliseEmTextoUseCase $exportarTexto,
@@ -193,6 +195,21 @@ final class AnalisePushController extends AbstractController
 
         try {
             $saida = $this->marcarLida->executar($analiseId, (int) $pasta->getId(), $user, $tenant);
+        } catch (AnaliseNaoEncontradaException $e) {
+            throw $this->createNotFoundException($e->getMessage());
+        }
+
+        return $this->respostaDaAcao($request, $pasta, $saida->paraJson() + ['lida' => $saida->lida]);
+    }
+
+    #[Route('/analises/{analiseId}/nao-lida', name: 'inteligencia_analise_nao_lida', requirements: ['analiseId' => '\d+'], methods: ['POST'])]
+    public function naoLida(Pasta $pasta, int $analiseId, Request $request): Response
+    {
+        [, $tenant] = $this->guardar($pasta);
+        $this->exigirCsrfDaAnalise($request, $analiseId);
+
+        try {
+            $saida = $this->marcarNaoLida->executar($analiseId, (int) $pasta->getId(), $tenant);
         } catch (AnaliseNaoEncontradaException $e) {
             throw $this->createNotFoundException($e->getMessage());
         }

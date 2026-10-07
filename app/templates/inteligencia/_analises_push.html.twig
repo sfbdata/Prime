@@ -91,6 +91,12 @@
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                                     <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como lida</button>
                                 </form>
+                            {% elseif a.lida %}
+                                {# IA-011 (dc L5159-5160): lida, a opção vira "Marcar como não lido". #}
+                                <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="nao-lida">
+                                    <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                                    <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-envelope" aria-hidden="true"></i>Marcar como não lido</button>
+                                </form>
                             {% endif %}
                             {% if a.status == 'concluida' %}
                                 <button type="button" class="ps-ia-menu-item" role="menuitem"
@@ -158,6 +164,11 @@
                         <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="lida">
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                             <button type="submit" class="ps-ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lida</button>
+                        </form>
+                    {% elseif a.lida %}
+                        <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="nao-lida">
+                            <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                            <button type="submit" class="ps-ia-botao"><i class="bi bi-envelope" aria-hidden="true"></i> Marcar como não lido</button>
                         </form>
                     {% endif %}
                 </footer>
