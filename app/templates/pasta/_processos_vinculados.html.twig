@@ -72,6 +72,9 @@
 .ps-adm-sw.is-ligado .ps-adm-sw-trilho { background: #e8873a; }
 .ps-adm-sw.is-ligado .ps-adm-sw-bola { left: 18px; }
 .ps-adm-sw[aria-busy="true"] { cursor: progress; }
+/* PAS-049b: só leitura (sem EDIT ou lápide) — o mesmo interruptor, mesma aparência, sem clique. */
+.ps-adm-sw[aria-disabled="true"] { cursor: default; }
+.ps-adm-sw[aria-disabled="true"]:hover { background: transparent; }
 </style>
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
@@ -84,7 +87,18 @@
         {% if not administrativa and principalAdm %}
             {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"?" %}
         {% endif %}
-        {% if podeMexerNoVinculo %}
+        {% if not podeMexerNoVinculo %}
+            {# PAS-049b: quem não pode mudar continua VENDO se a pasta é administrativa (com
+               vínculos, o vazio "Administrativo sem processo" não aparece e era o único sinal).
+               Mesmo desenho do interruptor, desabilitado e fora de form: não há o que enviar. #}
+            <button type="button" role="switch" aria-checked="{{ administrativa ? 'true' : 'false' }}"
+                    class="ps-adm-sw ps-adm-sw--leitura{{ administrativa ? ' is-ligado' : '' }}"
+                    disabled aria-disabled="true"
+                    title="{{ administrativa ? 'Pasta administrativa: não terá processo judicial' : 'Pasta não marcada como administrativa' }}">
+                <span class="ps-adm-sw-rotulo">Administrativo sem processo</span>
+                <span class="ps-adm-sw-trilho" aria-hidden="true"><span class="ps-adm-sw-bola"></span></span>
+            </button>
+        {% else %}
         <form method="post" action="{{ path('pasta_administrativa_definir', {id: pasta.id}) }}" class="ps-adm-form js-pasta-administrativa"
               id="psAdmForm{{ pasta.id }}"
               {%- if confirmaAdm %} data-confirmar="{{ confirmaAdm }}"{% endif %}>
@@ -443,7 +457,8 @@
         </div>
     {% elseif administrativa %}
         {# Pasta marcada como administrativa: não é "falta vincular". O desenho é omisso sobre este
-           vazio; o texto vem do title do próprio interruptor. Vincular continua no botão acima. #}
+           vazio; o texto vem do title do próprio interruptor. Para quem edita, vincular continua
+           no cabeçalho; o texto não cita botão nenhum, então vale também para o só leitura. #}
         <div class="ps-vazio ps-vazio--administrativa">
             <i class="bi bi-briefcase"></i>
             <div class="ps-vazio-titulo">Administrativo sem processo</div>
@@ -456,7 +471,9 @@
             <i class="bi bi-bank"></i>
             <div class="ps-vazio-titulo">Nenhum processo judicial vinculado</div>
             <div class="ps-vazio-nota">
-                {% if pasta.nomeAcao %}Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}Vincule um processo pelo botão acima.
+                {% if pasta.nomeAcao %}Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}
+                {#- PAS-049b: o botão só existe para quem edita a pasta viva. -#}
+                {% if podeMexerNoVinculo %}Vincule um processo pelo botão acima.{% else %}Quem edita a pasta pode vincular um processo a ela.{% endif %}
             </div>
         </div>
     {% endif %}

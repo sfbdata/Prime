@@ -84,6 +84,70 @@ final class PastaProcessoAcoesPermissaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $secao->filter('a[href$="/peticionar"]'), 'Peticionar não é escrita no vínculo');
     }
 
+    private const SWITCH_LEITURA = '.ps-card-cab > button.ps-adm-sw.ps-adm-sw--leitura[role="switch"][type="button"][disabled][aria-disabled="true"]';
+
+    #[TestDox('PAS-049b: só leitura com vínculos e pasta administrativa: o interruptor aparece ligado, desabilitado e fora de form')]
+    public function testLeitorVeOIndicadorAdministrativo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        [$pasta] = $this->cenario($tenant);
+        $pasta->setAdministrativa(true);
+        $this->em()->flush();
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.processo.view']);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $secao = $this->abrir($client, $pasta);
+
+        $switch = $secao->filter(self::SWITCH_LEITURA);
+        self::assertCount(1, $switch);
+        self::assertSame('true', $switch->attr('aria-checked'));
+        self::assertStringContainsString('is-ligado', (string) $switch->attr('class'));
+        self::assertSame('Administrativo sem processo', trim($switch->filter('.ps-adm-sw-rotulo')->text()));
+        self::assertSame(self::NENHUMA, $this->acoes($secao), 'continua sem o form que escreve');
+    }
+
+    #[TestDox('PAS-049b: só leitura e pasta NÃO administrativa: o interruptor aparece desligado; o editor recebe o de verdade')]
+    public function testLeitorVeDesligadoEEditorNaoRecebeOLeitura(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        [$pasta] = $this->cenario($tenant);
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.processo.view']);
+        $editor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $switch = $this->abrir($client, $pasta)->filter(self::SWITCH_LEITURA);
+        self::assertCount(1, $switch);
+        self::assertSame('false', $switch->attr('aria-checked'));
+        self::assertStringNotContainsString('is-ligado', (string) $switch->attr('class'));
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $secao = $this->abrir($client, $pasta);
+        self::assertCount(0, $secao->filter('.ps-adm-sw--leitura'));
+        self::assertCount(0, $secao->filter('.ps-adm-sw[disabled]'));
+        self::assertCount(1, $secao->filter('.ps-card-cab > form.js-pasta-administrativa > button.ps-adm-sw[type="submit"]'));
+    }
+
+    #[TestDox('PAS-049b: vazio sem processo — o editor lê "pelo botão acima"; quem só lê, um texto que não cita botão')]
+    public function testVazioNaoCitaBotaoAQuemNaoTem(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $pasta  = $this->criarPasta($tenant);
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.processo.view']);
+        $editor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $nota = trim($this->abrir($client, $pasta)->filter('.ps-vazio > .ps-vazio-nota')->text());
+        self::assertSame('Vincule um processo pelo botão acima.', $nota);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $nota = trim($this->abrir($client, $pasta)->filter('.ps-vazio > .ps-vazio-nota')->text());
+        self::assertSame('Quem edita a pasta pode vincular um processo a ela.', $nota);
+        self::assertStringNotContainsStringIgnoringCase('botão', $nota);
+    }
+
     #[TestDox('Com EDIT na pasta (papel comum): todas as ações aparecem')]
     public function testEditorVe(): void
     {
@@ -108,7 +172,9 @@ final class PastaProcessoAcoesPermissaoTelaTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $user, $tenant);
 
-        self::assertSame(self::NENHUMA, $this->acoes($this->abrir($client, $pasta)));
+        $secao = $this->abrir($client, $pasta);
+        self::assertSame(self::NENHUMA, $this->acoes($secao));
+        self::assertCount(1, $secao->filter(self::SWITCH_LEITURA), 'PAS-049b: o indicador fica, sem clique');
     }
 
     #[TestDox('XHR "Tornar principal" do editor: o cartão que volta mantém as ações')]
