@@ -118,8 +118,9 @@
                         {% endif %}
                         <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ obs.criadaEm|date('H:i') }}</span>
                         {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Do menu do desenho
-                           (dc L.6458) só "Copiar texto" tem função hoje — Editar já é o lápis da janela de
-                           15 min; Encaminhar via Chat I.A e Citar não existem. #}
+                           (dc L.6458-6466) têm função hoje "Copiar texto" e "Citar no novo registro"
+                           (EDT-009), na ordem do desenho — Editar já é o lápis da janela de 15 min;
+                           Encaminhar via Chat I.A, Criar meta e Imprimir não existem aqui. #}
                         <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
                                 aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
                                 aria-controls="psObsMenu{{ obs.id }}">
@@ -129,6 +130,9 @@
                             <div class="ps-processo-menu-titulo">{{ autor ?: 'Autor desconhecido' }} · {{ obs.criadaEm|date('d/m/Y, H:i') }}</div>
                             <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
                                 <i class="bi bi-clipboard"></i><span>Copiar texto</span>
+                            </button>
+                            <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
+                                <i class="bi bi-quote"></i><span>Citar no novo registro</span>
                             </button>
                         </div>
                     </div>
@@ -282,6 +286,9 @@
                         <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
                             <i class="bi bi-clipboard"></i><span>Copiar texto</span>
                         </button>
+                        <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
+                            <i class="bi bi-quote"></i><span>Citar no novo registro</span>
+                        </button>
                     </div>
                 </div>
                 <div class="ps-anotacao-corpo">
@@ -356,6 +363,18 @@
         }
     }
 
+    /* "Citar no novo registro" (EDT-009; dc L.6460): o texto da observação entra no compositor
+       acima como citação, e o editor avisa "Citação inserida no editor". O HTML é LIDO da tela —
+       é o que o servidor já sanitizou (`texto_rico`) — e o editor ainda o reduz aos formatos dele
+       (`EditorRico.inserirCitacao`); nada é escrito com innerHTML aqui. */
+    function citarObs(item) {
+        const artigo = item.closest('.detalhes-obs-item');
+        const corpo  = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
+        fecharMenuObs(false);
+        if (!corpo || !obsConteudo || !window.EditorRico) { return; }
+        EditorRico.inserirCitacao(obsConteudo, corpo.innerHTML);
+    }
+
     // Clique FORA fecha (em captura); Esc fecha e devolve o foco; rolar/redimensionar fecha.
     document.addEventListener('click', function (e) {
         if (!menuAberto) { return; }
@@ -376,6 +395,9 @@
 
             const itemCopiar = e.target.closest('.js-obs-copiar');
             if (itemCopiar) { copiarTextoObs(itemCopiar); return; }
+
+            const itemCitar = e.target.closest('.js-obs-citar');
+            if (itemCitar) { citarObs(itemCitar); return; }
 
             const btnEditar = e.target.closest('.btn-editar-obs-det');
             if (btnEditar) {

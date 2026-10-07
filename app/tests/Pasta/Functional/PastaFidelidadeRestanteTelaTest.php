@@ -173,7 +173,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
     // N7 — ⋮ da observação de Detalhes
     // =========================================================================
 
-    #[TestDox('N7: o ⋮ da observação vem logo depois da hora, com o menu de um item só ("Copiar texto")')]
+    #[TestDox('N7/EDT-009: o ⋮ da observação vem logo depois da hora, com "Copiar texto" e, logo depois, "Citar no novo registro"')]
     public function testMaisAcoesDaObservacao(): void
     {
         $client                       = static::createClient();
@@ -200,8 +200,15 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
 
         $menu = $crawler->filter($topo . ' > #psObsMenu' . $obs->getId() . '[role="menu"]');
         self::assertCount(1, $menu);
-        self::assertCount(1, $menu->filter('[role="menuitem"]'), 'só "Copiar texto" tem função hoje');
+        $itens = $menu->filter('[role="menuitem"]');
+        self::assertCount(2, $itens, 'hoje têm função "Copiar texto" e "Citar no novo registro"');
         self::assertSame('Copiar texto', trim($menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar')->text()));
+
+        // EDT-009 (dc L.6460): ordem do desenho — Citar vem depois de Copiar texto, com o ícone de aspas.
+        $citar = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar + button.js-obs-citar[role="menuitem"]');
+        self::assertCount(1, $citar, '"Citar no novo registro" é o item logo depois de "Copiar texto"');
+        self::assertSame('Citar no novo registro', trim($citar->text()));
+        self::assertCount(1, $citar->filter('i.bi.bi-quote'));
     }
 
     #[TestDox('N7: o cartão montado em JS (observação recém-enviada) tem o MESMO ⋮ que o Twig')]
@@ -231,6 +238,11 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertLessThan($btn, $data, 'a hora vem antes do ⋮');
         self::assertLessThan($menu, $btn);
         self::assertStringContainsString('class="ps-processo-menu-item js-obs-copiar"', $montador);
+        $copiar = strpos($montador, 'js-obs-copiar');
+        $citar  = strpos($montador, 'class="ps-processo-menu-item js-obs-citar" role="menuitem"');
+        self::assertNotFalse($citar, 'o cartão do JS não tem "Citar no novo registro"');
+        self::assertLessThan($citar, $copiar, 'Citar vem depois de Copiar texto, como no Twig');
+        self::assertStringContainsString('<i class="bi bi-quote"></i><span>Citar no novo registro</span>', $montador);
     }
 
     // =========================================================================

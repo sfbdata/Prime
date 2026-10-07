@@ -32,6 +32,7 @@
  *   EditorRico.desmontar(textarea)               → devolve a textarea ao estado original
  *   EditorRico.instancia(textarea)               → a instância Quill (ou null)
  *   EditorRico.marcarEnvio(textarea, enviando)   → envio em curso: o Enviar fica desabilitado
+ *   EditorRico.inserirCitacao(textarea, html)    → "Citar no novo registro": o trecho entra como citação
  *
  * Botão Enviar do compositor: a textarea aponta o seu botão por `data-editor-rico-envio="<id>"`,
  * e o editor o mantém desabilitado enquanto estiver vazio (desenho, `mudou`: `env.disabled = v`).
@@ -1086,6 +1087,80 @@
         }
     }
 
+    // ── Citar no novo registro (desenho: evento `bj-editor-inserir` com
+    //    `<blockquote>…</blockquote><p><br></p>`, e o aviso "Citação inserida no editor") ──────
+    //
+    // O trecho citado NÃO entra como HTML no editor: passa pelo MESMO conversor da colagem
+    // (`clipboard.convert`), que só deixa sobreviver os FORMATOS do editor. Cada linha vira
+    // citação (formato de linha `blockquote`, que o sanitizador do servidor aceita) e o cursor
+    // fica numa linha normal logo abaixo, para a pessoa escrever. Entra pelo caminho do usuário
+    // ('user'): o limite de caracteres vale para a citação como vale para a digitação.
+
+    function deltaDaCitacao(quill, html) {
+        var Delta = Quill.import('delta');
+        var citado = quill.clipboard.convert({ html: String(html || ''), text: '' });
+        var saida = new Delta();
+        var temTexto = false;
+        (citado.ops || []).forEach(function (op) {
+            if (typeof op.insert !== 'string') { return; }
+            var trecho = {};
+            FORMATOS_DE_TRECHO.forEach(function (f) {
+                if (op.attributes && op.attributes[f] !== undefined) { trecho[f] = op.attributes[f]; }
+            });
+            op.insert.split(/(\n)/).forEach(function (parte) {
+                if (parte === '') { return; }
+                if (parte === '\n') { saida.insert('\n', { blockquote: true }); return; }
+                if (parte.trim() !== '') { temTexto = true; }
+                saida.insert(parte, trecho);
+            });
+        });
+        if (!temTexto) { return null; }
+
+        // A última linha também é citação (o conversor tira o "\n" final).
+        var ultimo = saida.ops[saida.ops.length - 1];
+        if (typeof ultimo.insert !== 'string' || ultimo.insert !== '\n') { saida.insert('\n', { blockquote: true }); }
+
+        return saida;
+    }
+
+    function inserirCitacao(textarea, html) {
+        var refs = textarea && textarea._editorRico;
+        var quill = refs && refs.quill;
+        if (!quill) { return false; }
+
+        var citacao = deltaDaCitacao(quill, html);
+        if (!citacao) { return false; }
+
+        // No cursor, se ele estiver no editor; senão, no fim (como o desenho).
+        var faixa = quill.hasFocus() ? quill.getSelection() : null;
+        var indice = faixa ? faixa.index : Math.max(quill.getLength() - 1, 0);
+        var Delta = Quill.import('delta');
+        var mudanca = new Delta().retain(indice);
+        if (faixa && faixa.length) { mudanca.delete(faixa.length); }
+        // Começa numa linha própria: no meio de uma linha, quebra antes.
+        var antes = indice > 0 ? quill.getText(indice - 1, 1) : '\n';
+        var quebra = antes !== '\n' ? 1 : 0;
+        if (quebra) { mudanca.insert('\n'); }
+        mudanca = mudanca.concat(citacao);
+        // A linha normal vazia depois da citação: no fim do texto ela já existe (o "\n" final).
+        var noFim = indice + (faixa ? faixa.length : 0) >= quill.getLength() - 1;
+        if (!noFim) { mudanca.insert('\n'); }
+
+        fecharJanela(refs);
+        fecharChip(refs);
+        if (quill.history) { quill.history.cutoff(); }
+        quill.updateContents(mudanca, 'user');
+        if (quill.history) { quill.history.cutoff(); }
+
+        var cursor = Math.min(indice + quebra + citacao.length(), quill.getLength() - 1);
+        quill.focus();
+        quill.setSelection(cursor, 0, 'user');
+        refs.casca.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        mostrarChip(refs, cursor, textoDoChip('bi-quote', [{ texto: 'Citação inserida no editor' }]), [], 3600);
+
+        return true;
+    }
+
     // ── Botão Enviar do compositor (`mudou` do desenho: `this.env.disabled = v`) ─────────────
     //
     // O compositor aponta o seu botão por `data-editor-rico-envio="<id>"` na textarea. O botão
@@ -1345,6 +1420,7 @@
         desmontar: desmontar,
         instancia: instancia,
         marcarEnvio: marcarEnvio,
+        inserirCitacao: inserirCitacao,
     };
 
     if (document.readyState === 'loading') {
