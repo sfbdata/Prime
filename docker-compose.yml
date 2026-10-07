@@ -18,6 +18,40 @@ services:
     networks:
       - saas_net
 
+  # Worker do Messenger em DEV: consome a fila `async` (transport doctrine, tabela messenger_messages)
+  # como o `worker` do docker-compose.prod.yml. Sem ele, a análise da BlueJus IA pedida na tela fica
+  # `pendente` até alguém rodar `messenger:consume` à mão. Mesma imagem e MESMO bind-mount do php (o
+  # código editado vale na hora; o --time-limit faz o consumidor reiniciar e recarregar o código).
+  # Entrypoint bypassado, como em prod: quem roda composer/migrations é o serviço php.
+  #
+  # OPT-IN (profile `worker`): a fila `async` também leva `SincronizarPastaNoDrive`, e o dev roda com
+  # dados reais; ligar o worker por padrão poderia processar sync de Drive pendente. Para subir:
+  #   docker compose --profile worker up -d worker
+  worker:
+    build:
+      context: .
+      target: dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: jusprime_worker_dev
+    profiles: ["worker"]
+    restart: unless-stopped
+    working_dir: /var/www/app
+    environment:
+      TZ: America/Sao_Paulo
+      APP_ENV: dev
+      APP_DEBUG: 1
+    volumes:
+      - .:/var/www
+    entrypoint: []
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    depends_on:
+      - php
+      - db
+    networks:
+      - saas_net
+
   nginx:
     image: nginx:alpine
     container_name: jusprime_nginx_dev
