@@ -21,19 +21,19 @@
      DOCX (mammoth.js), planilhas XLSX/XLSM/XLS/ODS/CSV (SheetJS) e texto
      (TXT/JSON/XML/LOG/MD/text/*). Bibliotecas auto-hospedadas em
      /js/vendor/, carregadas só quando o tipo pede.
-     ODT (texto do content.xml), PPTX/PPSX (só o texto dos slides), RTF (só
-     o texto), EML (cabeçalhos + corpo) e ZIP (lista das entradas, sem
-     extrair) — sem biblioteca: o ZIP é lido aqui mesmo (diretório central)
-     e descompactado com DecompressionStream('deflate-raw') nativo, com teto
-     de bytes descompactados (zip bomb). XML vai por DOMParser em documento
-     separado (inerte, sem scripts).
+     ODT (texto do content.xml), PPTX/PPSX e ODP (só o texto dos slides), RTF
+     (só o texto), EML (cabeçalhos + corpo) e ZIP (lista das entradas, sem
+     extrair) — sem biblioteca: o ZIP é lido aqui mesmo (diretório central,
+     inclusive ZIP64) e descompactado com DecompressionStream('deflate-raw')
+     nativo, com teto de bytes descompactados (zip bomb). XML vai por
+     DOMParser em documento separado (inerte, sem scripts).
 
    Segurança:
      - HTML gerado por mammoth/SheetJS NUNCA entra no DOM da página: vai para
        um <iframe sandbox=""> (sem scripts, origem opaca) via srcdoc, com CSP
        "default-src 'none'; img-src data:; style-src 'unsafe-inline'".
      - Texto puro vai por textContent num <pre>.
-     - Texto extraído de ODT/PPTX/RTF/EML e a lista do ZIP viram nós do DOM
+     - Texto extraído de ODT/PPTX/ODP/RTF/EML e a lista do ZIP viram nós do DOM
        montados com textContent — nenhuma string do arquivo vira HTML.
      - O HTML de um e-mail (quando não há text/plain) só entra pelo mesmo
        iframe sandbox + CSP; a CSP barra imagem remota (pixel de rastreio).
@@ -66,6 +66,7 @@
     const LIMITE_BYTES_PLANILHA   = 5 * 1024 * 1024;    // 5 MB
     const LIMITE_BYTES_ODT        = 15 * 1024 * 1024;   // 15 MB (como o DOCX)
     const LIMITE_BYTES_PPTX       = 30 * 1024 * 1024;   // 30 MB (apresentação traz imagem)
+    const LIMITE_BYTES_ODP        = 30 * 1024 * 1024;   // 30 MB (como o PPTX)
     const LIMITE_BYTES_RTF        = 10 * 1024 * 1024;   // 10 MB lidos (RTF embute imagem em hexa)
     const LIMITE_BYTES_EML        = 10 * 1024 * 1024;   // 10 MB
     const LIMITE_BYTES_ZIP        = 30 * 1024 * 1024;   // 30 MB (o diretório central fica no fim)
@@ -75,7 +76,7 @@
     const LIMITE_BYTES_XML_ZIP    = 20 * 1024 * 1024;   // 20 MB
     const LIMITE_SLIDES           = 300;
     const LIMITE_ENTRADAS_ZIP     = 2000;
-    const LIMITE_CARACTERES       = 1024 * 1024;        // texto extraído exibido (ODT/RTF/EML/PPTX)
+    const LIMITE_CARACTERES       = 1024 * 1024;        // texto extraído exibido (ODT/RTF/EML/PPTX/ODP)
 
     const CSP_SRCDOC = "default-src 'none'; img-src data:; style-src 'unsafe-inline'";
 
@@ -103,11 +104,13 @@
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
     ];
+    const MIMES_ODP  = ['application/vnd.oasis.opendocument.presentation'];
     const MIMES_RTF  = ['application/rtf', 'application/x-rtf', 'text/rtf'];
     const MIMES_EML  = ['message/rfc822'];
     const MIMES_ZIP  = ['application/zip', 'application/x-zip-compressed', 'application/x-zip'];
     const EXT_ODT  = ['odt'];
     const EXT_PPTX = ['pptx', 'ppsx'];
+    const EXT_ODP  = ['odp'];
     const EXT_RTF  = ['rtf'];
     const EXT_EML  = ['eml'];
     const EXT_ZIP  = ['zip'];
@@ -141,10 +144,11 @@
         if (m.startsWith('video/'))   { return 'video'; }
         if (MIMES_DOCX.includes(m) || EXT_DOCX.includes(ext))         { return 'docx'; }
         if (MIMES_PLANILHA.includes(m) || EXT_PLANILHA.includes(ext)) { return 'planilha'; }
-        /* Antes do texto: text/rtf começa com text/. Antes do ZIP: ODT/PPTX
+        /* Antes do texto: text/rtf começa com text/. Antes do ZIP: ODT/PPTX/ODP
            às vezes chegam com MIME application/zip — a extensão decide. */
         if (MIMES_ODT.includes(m) || EXT_ODT.includes(ext))           { return 'odt'; }
         if (MIMES_PPTX.includes(m) || EXT_PPTX.includes(ext))         { return 'pptx'; }
+        if (MIMES_ODP.includes(m) || EXT_ODP.includes(ext))           { return 'odp'; }
         if (MIMES_RTF.includes(m) || EXT_RTF.includes(ext))           { return 'rtf'; }
         if (MIMES_EML.includes(m) || EXT_EML.includes(ext))           { return 'eml'; }
         if (MIMES_ZIP.includes(m) || EXT_ZIP.includes(ext))           { return 'zip'; }
@@ -305,9 +309,68 @@
     }
 
     /**
+     * Inteiro de 64 bits (little-endian) como Number. Acima de 2^53 não há
+     * precisão — devolve Infinity, que nenhum offset/tamanho real alcança e
+     * cai na checagem de limites como ZIP inválido.
+     */
+    function lerU64(b, p) {
+        const alto = lerU32(b, p + 4);
+        if (alto > 0x1fffff) { return Infinity; }
+        return alto * 0x100000000 + lerU32(b, p);
+    }
+
+    /**
+     * Registro ZIP64 do fim do arquivo: o locator (20 bytes, logo antes do
+     * EOCD) aponta o "zip64 end of central directory record", que traz em 64
+     * bits o total de entradas, o tamanho e o início do diretório central.
+     * → { total, tamCd, inicioCd, fim } | null (sem locator: ZIP comum).
+     * Locator presente com registro ilegível é ZIP corrompido (falha), e não
+     * motivo para cair no EOCD de 16/32 bits — que, num ZIP64, mente.
+     */
+    function lerEocd64(bytes, eocd, invalido) {
+        const loc = eocd - 20;
+        if (loc < 0 || lerU32(bytes, loc) !== 0x07064b50) { return null; }
+        const reg = lerU64(bytes, loc + 8);
+        if (!(reg + 56 <= loc) || lerU32(bytes, reg) !== 0x06064b50) { throw falha(invalido); }
+        return {
+            total:    lerU64(bytes, reg + 32),
+            tamCd:    lerU64(bytes, reg + 40),
+            inicioCd: lerU64(bytes, reg + 48),
+            fim:      reg, // o diretório central termina onde o registro começa
+        };
+    }
+
+    /**
+     * Campo extra ZIP64 (id 0x0001) de uma entrada do diretório central: só
+     * traz, nesta ordem, os campos que no cabeçalho vieram saturados
+     * (0xFFFFFFFF) — tamanho, comprimido, offset do cabeçalho local.
+     */
+    function aplicarExtraZip64(extra, entrada) {
+        let q = 0;
+        while (q + 4 <= extra.length) {
+            const id = lerU16(extra, q);
+            const tam = lerU16(extra, q + 2);
+            if (id === 0x0001) {
+                let c = q + 4;
+                const fimCampo = Math.min(c + tam, extra.length);
+                ['tamanho', 'comprimido', 'offsetLocal'].forEach(function (campo) {
+                    if (entrada[campo] !== 0xffffffff) { return; }
+                    if (c + 8 > fimCampo) { entrada[campo] = Infinity; return; }
+                    entrada[campo] = lerU64(extra, c);
+                    c += 8;
+                });
+                return;
+            }
+            q += 4 + tam;
+        }
+    }
+
+    /**
      * Lê o diretório central (fim do arquivo) — só metadados, nada é
-     * descompactado aqui. ZIP64 não é suportado (arquivo > 4 GB ou > 65535
-     * entradas, fora dos tetos deste visualizador de qualquer forma).
+     * descompactado aqui. Entende ZIP64 (> 65535 entradas ou > 4 GB): EOCD64
+     * locator/record e o campo extra 0x0001 de cada entrada. Os tetos de
+     * bytes baixados continuam os mesmos — o ZIP64 só muda como se lê o
+     * índice, não o quanto se aceita carregar.
      */
     function lerZip(bytes, mensagemInvalido) {
         const invalido = mensagemInvalido || MSG_ZIP_INVALIDO;
@@ -317,24 +380,36 @@
             if (bytes[p] === 0x50 && bytes[p + 1] === 0x4b && bytes[p + 2] === 0x05 && bytes[p + 3] === 0x06) { eocd = p; break; }
         }
         if (eocd < 0) { throw falha(invalido); }
-        const total    = lerU16(bytes, eocd + 10);
-        const tamCd    = lerU32(bytes, eocd + 12);
-        const inicioCd = lerU32(bytes, eocd + 16);
-        if (total === 0xffff || tamCd === 0xffffffff || inicioCd === 0xffffffff) {
-            throw falha('Este ZIP usa o formato ZIP64, que a pré-visualização não lê. Baixe para abrir.');
+        let total    = lerU16(bytes, eocd + 10);
+        let tamCd    = lerU32(bytes, eocd + 12);
+        let inicioCd = lerU32(bytes, eocd + 16);
+        let fimCd    = eocd;
+        const z64 = lerEocd64(bytes, eocd, invalido);
+        if (z64) {
+            total = z64.total;
+            tamCd = z64.tamCd;
+            inicioCd = z64.inicioCd;
+            fimCd = z64.fim;
+        } else if (tamCd === 0xffffffff || inicioCd === 0xffffffff) {
+            /* Saturado sem registro ZIP64 legível: índice inalcançável. (Só o
+               total = 65535, sem ZIP64, é um ZIP comum com 65535 entradas.) */
+            throw falha(invalido);
         }
-        if (inicioCd + tamCd > eocd) { throw falha(invalido); }
+        if (!(inicioCd + tamCd <= fimCd)) { throw falha(invalido); }
+        /* Cada entrada ocupa ao menos 46 bytes: total maior que isso é mentira. */
+        if (total > tamCd / 46) { throw falha(invalido); }
 
         const entradas = [];
         let p = inicioCd;
         for (let i = 0; i < total; i++) {
-            if (p + 46 > eocd || lerU32(bytes, p) !== 0x02014b50) { throw falha(invalido); }
+            if (p + 46 > fimCd || lerU32(bytes, p) !== 0x02014b50) { throw falha(invalido); }
             const flags  = lerU16(bytes, p + 8);
             const lNome  = lerU16(bytes, p + 28);
             const lExtra = lerU16(bytes, p + 30);
             const lComen = lerU16(bytes, p + 32);
+            if (p + 46 + lNome + lExtra > fimCd) { throw falha(invalido); }
             const nome   = nomeDaEntrada(bytes.subarray(p + 46, p + 46 + lNome), (flags & 0x800) !== 0);
-            entradas.push({
+            const entrada = {
                 nome: nome,
                 pasta: nome.endsWith('/'),
                 criptografado: (flags & 1) !== 0,
@@ -343,7 +418,11 @@
                 comprimido: lerU32(bytes, p + 20),
                 tamanho: lerU32(bytes, p + 24),
                 offsetLocal: lerU32(bytes, p + 42),
-            });
+            };
+            if (entrada.comprimido === 0xffffffff || entrada.tamanho === 0xffffffff || entrada.offsetLocal === 0xffffffff) {
+                aplicarExtraZip64(bytes.subarray(p + 46 + lNome, p + 46 + lNome + lExtra), entrada);
+            }
+            entradas.push(entrada);
             p += 46 + lNome + lExtra + lComen;
         }
         return entradas;
@@ -514,6 +593,59 @@
             if (s.trim()) { linhas.push(s); }
         }
         return linhas;
+    }
+
+    /* ------------------------------------------------------- ODP ------- */
+
+    const NS_ODF_DRAW   = 'urn:oasis:names:tc:opendocument:xmlns:drawing:1.0';
+    const NS_ODF_PRES   = 'urn:oasis:names:tc:opendocument:xmlns:presentation:1.0';
+    const NS_ODF_ESTILO = 'urn:oasis:names:tc:opendocument:xmlns:style:1.0';
+
+    /** Nomes dos estilos de página (drawing-page) marcados como ocultos. */
+    function estilosOcultosOdp(doc) {
+        const ocultos = new Set();
+        const props = doc.getElementsByTagNameNS(NS_ODF_ESTILO, 'drawing-page-properties');
+        for (let i = 0; i < props.length; i++) {
+            if (props[i].getAttributeNS(NS_ODF_PRES, 'visibility') !== 'hidden') { continue; }
+            const estilo = props[i].parentNode;
+            if (estilo && estilo.nodeType === 1) { ocultos.add(estilo.getAttributeNS(NS_ODF_ESTILO, 'name') || ''); }
+        }
+        return ocultos;
+    }
+
+    function dentroDeNotasOdp(no, pagina) {
+        for (let p = no.parentNode; p && p !== pagina; p = p.parentNode) {
+            if (p.namespaceURI === NS_ODF_PRES && p.localName === 'notes') { return true; }
+        }
+        return false;
+    }
+
+    /**
+     * Slides de um content.xml de ODP: um draw:page por slide, na ordem do
+     * documento (que é a da apresentação); cada text:p/text:h vira uma linha.
+     * As notas do apresentador ficam de fora, como no PPTX.
+     * → { slides: [{ linhas, oculto }], total }
+     */
+    function slidesOdp(doc, limiteSlides, limiteCaracteres) {
+        const ocultos = estilosOcultosOdp(doc);
+        const paginas = doc.getElementsByTagNameNS(NS_ODF_DRAW, 'page');
+        const slides = [];
+        let caracteres = 0;
+        for (let i = 0; i < paginas.length && i < limiteSlides; i++) {
+            if (caracteres > limiteCaracteres) { break; }
+            const pagina = paginas[i];
+            const linhas = [];
+            const nos = pagina.getElementsByTagNameNS(NS_ODF_TEXTO, '*');
+            for (let j = 0; j < nos.length; j++) {
+                if (!ehParagrafoOdf(nos[j]) || dentroDeNotasOdp(nos[j], pagina)) { continue; }
+                const texto = textoOdf(nos[j]);
+                if (!texto.trim()) { continue; }
+                caracteres += texto.length;
+                linhas.push(texto);
+            }
+            slides.push({ linhas: linhas, oculto: ocultos.has(pagina.getAttributeNS(NS_ODF_DRAW, 'style-name') || '') });
+        }
+        return { slides: slides, total: paginas.length };
     }
 
     /* ------------------------------------------------------- RTF ------- */
@@ -1014,6 +1146,37 @@
         return { fundo: fundo, folha: f };
     }
 
+    /** ODF criptografado: o ZIP é normal, a cifra fica declarada no manifesto. */
+    async function recusarOdfComSenha(bytes, entradas) {
+        const manifesto = acharEntrada(entradas, 'META-INF/manifest.xml');
+        if (!manifesto) { return; }
+        const m = new TextDecoder('utf-8').decode(await extrairEntrada(bytes, manifesto, LIMITE_BYTES_XML_ZIP));
+        if (/encryption-data/.test(m)) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }
+    }
+
+    /** Cartões de slide (PPTX e ODP), só nós + textContent. */
+    function blocoSlides(slides, total) {
+        const wrap = el('div', 'vd-slides-area w-100');
+        const cortou = slides.length < total;
+        wrap.appendChild(aviso('Mostrando só o texto dos slides, sem imagens nem formatação.'
+            + (cortou ? ' Aparecem os ' + slides.length + ' primeiros de ' + total + ' slides. Baixe para ver tudo.' : '')));
+        const lista = el('div', 'vd-slides');
+        slides.forEach(function (s, i) {
+            const card = el('section', 'vd-slide');
+            card.setAttribute('aria-label', 'Slide ' + (i + 1));
+            card.appendChild(el('div', 'vd-slide-numero', 'Slide ' + (i + 1) + ' de ' + total + (s.oculto ? ' · oculto' : '')));
+            if (!s.linhas.length) {
+                card.appendChild(el('p', 'vd-vazio', 'Slide sem texto.'));
+            }
+            s.linhas.forEach(function (l, j) {
+                card.appendChild(el(j === 0 ? 'h3' : 'p', j === 0 ? 'vd-slide-titulo' : null, l));
+            });
+            lista.appendChild(card);
+        });
+        wrap.appendChild(lista);
+        return wrap;
+    }
+
     async function renderOdt(alvo, o, vivo) {
         const arq = await baixar(o.url, LIMITE_BYTES_ODT, false, o.sinal);
         if (!vivo()) { return; }
@@ -1021,12 +1184,7 @@
 
         const invalido = 'O arquivo não parece ser um documento ODT válido (ou está corrompido).';
         const entradas = lerZip(arq.bytes, invalido);
-        /* ODF criptografado: o ZIP é normal, a cifra fica declarada no manifesto. */
-        const manifesto = acharEntrada(entradas, 'META-INF/manifest.xml');
-        if (manifesto) {
-            const m = new TextDecoder('utf-8').decode(await extrairEntrada(arq.bytes, manifesto, LIMITE_BYTES_XML_ZIP));
-            if (/encryption-data/.test(m)) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }
-        }
+        await recusarOdfComSenha(arq.bytes, entradas);
         const conteudo = acharEntrada(entradas, 'content.xml');
         if (!conteudo) { throw falha(invalido); }
         const doc = lerXml(await extrairEntrada(arq.bytes, conteudo, LIMITE_BYTES_XML_ZIP), invalido);
@@ -1074,25 +1232,25 @@
             slides.push({ linhas: linhas, oculto: !!raiz && raiz.getAttribute('show') === '0' });
         }
 
-        const wrap = el('div', 'vd-slides-area w-100');
-        const cortou = slides.length < ordem.length;
-        wrap.appendChild(aviso('Mostrando só o texto dos slides, sem imagens nem formatação.'
-            + (cortou ? ' Aparecem os ' + slides.length + ' primeiros de ' + ordem.length + ' slides. Baixe para ver tudo.' : '')));
-        const lista = el('div', 'vd-slides');
-        slides.forEach(function (s, i) {
-            const card = el('section', 'vd-slide');
-            card.setAttribute('aria-label', 'Slide ' + (i + 1));
-            card.appendChild(el('div', 'vd-slide-numero', 'Slide ' + (i + 1) + ' de ' + ordem.length + (s.oculto ? ' · oculto' : '')));
-            if (!s.linhas.length) {
-                card.appendChild(el('p', 'vd-vazio', 'Slide sem texto.'));
-            }
-            s.linhas.forEach(function (l, j) {
-                card.appendChild(el(j === 0 ? 'h3' : 'p', j === 0 ? 'vd-slide-titulo' : null, l));
-            });
-            lista.appendChild(card);
-        });
-        wrap.appendChild(lista);
-        trocar(alvo, wrap);
+        trocar(alvo, blocoSlides(slides, ordem.length));
+    }
+
+    async function renderOdp(alvo, o, vivo) {
+        const arq = await baixar(o.url, LIMITE_BYTES_ODP, false, o.sinal);
+        if (!vivo()) { return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+
+        const invalido = 'O arquivo não parece ser uma apresentação ODP válida (ou está corrompido).';
+        const entradas = lerZip(arq.bytes, invalido);
+        await recusarOdfComSenha(arq.bytes, entradas);
+        const conteudo = acharEntrada(entradas, 'content.xml');
+        if (!conteudo) { throw falha(invalido); }
+        const doc = lerXml(await extrairEntrada(arq.bytes, conteudo, LIMITE_BYTES_XML_ZIP), invalido);
+        if (!vivo()) { return; }
+
+        const r = slidesOdp(doc, LIMITE_SLIDES, LIMITE_CARACTERES);
+        if (!r.total) { throw falha(invalido); }
+        trocar(alvo, blocoSlides(r.slides, r.total));
     }
 
     async function renderRtf(alvo, o, vivo) {
@@ -1256,6 +1414,7 @@
             texto: renderTexto,
             odt: renderOdt,
             pptx: renderPptx,
+            odp: renderOdp,
             rtf: renderRtf,
             eml: renderEml,
             zip: renderZip,
