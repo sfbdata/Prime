@@ -351,6 +351,28 @@
     position: relative;
 }
 
+/*
+ * EDT-023 — alvo de toque: em tela sem hover, os botões da barra crescem para 34×32, como o
+ * `@media (hover:none){.bjed-b{…}}` do desenho (bj-editor.js l.137). Cor, realce e alinhamento são
+ * `.bjed-b` no desenho e crescem junto; o estilo do parágrafo (`.bjed-sel`) e a mini barra do
+ * botão direito (`.bjed-mt .bjed-b`, fora da `.ql-toolbar`) ficam como estão.
+ */
+@media (hover: none) {
+    .editor-rico .ql-snow.ql-toolbar button {
+        width: 34px;
+        height: 32px;
+    }
+
+    .editor-rico .ql-snow .ql-color-picker,
+    .editor-rico .ql-snow .ql-icon-picker {
+        width: 34px;
+        height: 32px;
+    }
+
+    .editor-rico .ql-snow .ql-color-picker .ql-picker-label,
+    .editor-rico .ql-snow .ql-icon-picker .ql-picker-label { width: 34px; }
+}
+
 /* Barrinha sob o ícone: mostra a cor do trecho selecionado (ou a do desenho, sem seleção). */
 .editor-rico-barra-cor {
     position: absolute;
