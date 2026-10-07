@@ -16,6 +16,12 @@
  *   PastaMencoes.paraEnvio(textarea, html)         → html com os tokens das menções escolhidas
  *   PastaMencoes.paraEdicao(conteudo)              → { html, mencoes } para carregar no editor
  *   PastaMencoes.esquecer(textarea)                → zera as menções (depois de enviar)
+ *   PastaMencoes.listaAberta(quill?)               → a lista de @ está aberta (neste editor)?
+ *
+ * Prioridade das teclas: com a lista aberta, ↑/↓, Enter, Tab e Esc são DELA — inclusive sobre a
+ * sugestão de palavras do editor (EDT-015), que também usa Tab. A garantia é dupla: esta lista
+ * ouve em captura no contêiner do Quill e para a propagação (o editor ouve na raiz, mais abaixo),
+ * e o editor consulta `listaAberta` e se recolhe quando a vê aberta.
  */
 (function () {
     'use strict';
@@ -293,7 +299,12 @@
         if (tentativas > 0) { setTimeout(function () { ligarCompositor(tentativas - 1); }, 100); }
     }
 
-    window.PastaMencoes = { ligar: ligar, paraEnvio: paraEnvio, paraEdicao: paraEdicao, esquecer: esquecer };
+    /** A lista está aberta — no editor dado, se houver (a sugestão de palavras do editor cede a ela). */
+    function listaAberta(quill) {
+        return !!pop && (!quill || estado.quill === quill);
+    }
+
+    window.PastaMencoes = { ligar: ligar, paraEnvio: paraEnvio, paraEdicao: paraEdicao, esquecer: esquecer, listaAberta: listaAberta };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { ligarCompositor(20); });

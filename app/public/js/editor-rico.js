@@ -1027,7 +1027,7 @@
         fecharMenuContexto(refs);
         fecharJanela(refs);
         fecharChip(refs);
-        if (refs.fecharSugestoes) { refs.fecharSugestoes(); }
+        fecharSugestoes(refs);
         fecharOpcoesDeColar(refs);
 
         var faixa = quill.getSelection() || quill.getSelection(true);
@@ -1252,6 +1252,163 @@
             if (colado <= 0) { return; }
             mostrarOpcoesDeColar(refs, { index: faixa.index, length: colado }, texto, formatos);
         }, 0);
+    }
+
+    // ── Sugestão de palavras ao digitar (`sugerir`/`onKey` do desenho, bj-editor.js l.640-680) ──
+    //
+    // A partir de 3 letras, até 4 palavras do vocabulário que começam pelo que foi digitado (sem
+    // acento e sem caixa), a parte digitada marcada. Tab aceita a escolhida (a 1ª, de início);
+    // ↑/↓ navegam e, depois de navegar, Enter também aceita; Esc fecha. Separador, colagem ou
+    // qualquer mudança que não seja digitar/apagar uma letra fecha a lista.
+    //
+    // O vocabulário é o do desenho (`VOCAB` = palavras do `AC` + `EXTRA`), o mesmo `VOCABULARIO`
+    // da autocorreção: um dicionário jurídico ESTÁTICO, sem nenhum dado de cliente ou de processo.
+    //
+    // Com a lista de @menção aberta (pasta-mencoes.js), ela tem prioridade sobre Tab, Enter e as
+    // setas: ouve em captura no contêiner (antes daqui) e, além disso, esta lista se recolhe quando
+    // vê a outra aberta. Palavra logo depois de "@" é o termo da menção: não ganha sugestão.
+
+    var MAX_SUGESTOES = 4;
+    var MIN_LETRAS_SUGESTAO = 3;
+
+    function mencaoAberta(quill) {
+        return !!(window.PastaMencoes && typeof window.PastaMencoes.listaAberta === 'function'
+            && window.PastaMencoes.listaAberta(quill));
+    }
+
+    /** O delta é "digitou UMA letra" ou "apagou UM caractere"? (`onInput` do desenho). */
+    function digitouOuApagouLetra(delta) {
+        var ops = delta.ops || [];
+        var i = ops[0] && typeof ops[0].retain === 'number' && !ops[0].attributes ? 1 : 0;
+        if (ops.length !== i + 1) { return false; }
+        var op = ops[i];
+
+        return (typeof op.insert === 'string' && /^[\p{L}\p{M}]$/u.test(op.insert)) || op.delete === 1;
+    }
+
+    /** A palavra que termina no cursor (cursor sem seleção, no fim da palavra). */
+    function palavraNoCursor(quill) {
+        var faixa = quill.getSelection();
+        if (!faixa || faixa.length > 0) { return null; }
+        var texto = quill.getText();
+        var inicioLinha = texto.lastIndexOf('\n', faixa.index - 1) + 1;
+        var m = texto.slice(inicioLinha, faixa.index).match(/[\p{L}\p{M}]+$/u);
+        if (!m) { return null; }
+        if (/[\p{L}\p{M}]/u.test(texto.charAt(faixa.index))) { return null; } // no meio da palavra
+        var inicio = faixa.index - m[0].length;
+        if (texto.charAt(inicio - 1) === '@') { return null; } // termo da @menção
+
+        return { inicio: inicio, palavra: m[0] };
+    }
+
+    function opcoesDeSugestao(palavra) {
+        var dobrada = dobrar(palavra);
+
+        return VOCABULARIO.filter(function (v) {
+            var vd = dobrar(v);
+
+            return vd.indexOf(dobrada) === 0 && vd !== dobrada;
+        }).slice(0, MAX_SUGESTOES);
+    }
+
+    function fecharSugestoes(refs) {
+        var s = refs.sugestao;
+        if (!s) { return; }
+        s.elemento.remove();
+        window.removeEventListener('scroll', s.rolagem, true);
+        refs.sugestao = null;
+    }
+
+    function marcarSugestao(refs) {
+        var s = refs.sugestao;
+        [].forEach.call(s.elemento.children, function (b, i) {
+            b.classList.toggle('editor-rico-ativo', i === s.i);
+            b.setAttribute('aria-selected', i === s.i ? 'true' : 'false');
+        });
+    }
+
+    function aceitarSugestao(refs, i) {
+        var quill = refs.quill;
+        var s = refs.sugestao;
+        var opcao = s && s.opcoes[i];
+        fecharSugestoes(refs);
+        var w = palavraNoCursor(quill);
+        if (!w || !opcao) { return; }
+        var para = mesmaCaixa(w.palavra, opcao);
+        quill.focus();
+        trocarTrechos(quill, [{ inicio: w.inicio, tamanho: w.palavra.length, para: para }]);
+        quill.setSelection(w.inicio + para.length, 0, 'user');
+    }
+
+    function sugerir(refs) {
+        var quill = refs.quill;
+        if (!quill || mencaoAberta(quill)) { fecharSugestoes(refs); return; }
+        var w = palavraNoCursor(quill);
+        if (!w || w.palavra.length < MIN_LETRAS_SUGESTAO) { fecharSugestoes(refs); return; }
+        var opcoes = opcoesDeSugestao(w.palavra);
+        if (opcoes.length === 0) { fecharSugestoes(refs); return; }
+
+        fecharSugestoes(refs);
+        var lista = el('div', 'editor-rico-sugestoes');
+        lista.setAttribute('role', 'listbox');
+        lista.setAttribute('aria-label', 'Sugestões de palavras');
+        opcoes.forEach(function (o, i) {
+            var palavra = mesmaCaixa(w.palavra, o);
+            var b = semRoubarFoco(el('button', 'editor-rico-sugestao'));
+            b.type = 'button';
+            b.setAttribute('role', 'option');
+            var corpo = el('span');
+            corpo.appendChild(el('mark', '', palavra.slice(0, w.palavra.length)));
+            corpo.appendChild(document.createTextNode(palavra.slice(w.palavra.length)));
+            b.appendChild(corpo);
+            if (i === 0) { b.appendChild(el('span', 'editor-rico-menu-atalho', 'Tab')); }
+            b.addEventListener('click', function () { aceitarSugestao(refs, i); });
+            lista.appendChild(b);
+        });
+        refs.casca.appendChild(lista);
+
+        // Fixa na tela, logo abaixo do cursor (acima, se não couber).
+        var caixa = quill.container.getBoundingClientRect();
+        var limites = quill.getBounds(w.inicio + w.palavra.length, 0) || { left: 0, top: 0, bottom: 0 };
+        var esquerda = caixa.left + limites.left;
+        var topo = caixa.top + limites.top;
+        var base = caixa.top + limites.bottom;
+        lista.style.left = Math.max(8, Math.min(esquerda, window.innerWidth - lista.offsetWidth - 8)) + 'px';
+        lista.style.top = (base + lista.offsetHeight + 8 > window.innerHeight ? topo - lista.offsetHeight - 6 : base + 6) + 'px';
+
+        var rolagem = function (e) { if (!lista.contains(e.target)) { fecharSugestoes(refs); } };
+        window.addEventListener('scroll', rolagem, true);
+        refs.sugestao = { elemento: lista, opcoes: opcoes, i: 0, nav: false, rolagem: rolagem };
+        marcarSugestao(refs);
+    }
+
+    /**
+     * Teclas da lista. Ouvido em CAPTURA na raiz do editor: roda antes do teclado do Quill (Tab
+     * não insere tabulação nem recua a lista com a sugestão aberta) e DEPOIS do da @menção, que
+     * ouve no contêiner e para a propagação quando a lista dela está aberta.
+     */
+    function teclaDaSugestao(refs, e) {
+        var s = refs.sugestao;
+        if (!s) { return; }
+        // A lista de @menção aberta tem prioridade: esta se recolhe e deixa a tecla para ela.
+        if (mencaoAberta(refs.quill)) { fecharSugestoes(refs); return; }
+        var ctrl = e.ctrlKey || e.metaKey;
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            s.nav = true;
+            s.i = (s.i + (e.key === 'ArrowDown' ? 1 : -1) + s.opcoes.length) % s.opcoes.length;
+            marcarSugestao(refs);
+        } else if (e.key === 'Tab' || (e.key === 'Enter' && s.nav && !ctrl)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            aceitarSugestao(refs, s.i);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            fecharSugestoes(refs);
+        }
     }
 
     // ── Localizar e substituir ──────────────────────────────────────────────────────────────
@@ -1725,6 +1882,11 @@
         ligarMenuContexto(refs);
         // Captura: chega antes da colagem do Quill, que segue sendo quem converte e insere.
         casca.addEventListener('paste', function (evento) { aoColar(refs, evento); }, true);
+        // Sugestão de palavras: teclas antes do Quill; sair do editor fecha (como o `blur` do desenho).
+        quill.root.addEventListener('keydown', function (evento) { teclaDaSugestao(refs, evento); }, true);
+        quill.on('selection-change', function (faixa) {
+            if (!faixa) { setTimeout(function () { fecharSugestoes(refs); }, 120); }
+        });
 
         // Conteúdo pré-existente: HTML já sanitizado pelo servidor, ou legado em texto puro.
         if (conteudoInicial !== '') {
@@ -1756,6 +1918,13 @@
             refs.busca.aoMudarTexto();
             // A faixa de opções vale para a colagem que acabou de entrar: mexeu depois, ela sai.
             fecharOpcoesDeColar(refs);
+
+            // Sugestão de palavras: só ao digitar ou apagar uma letra; o resto fecha a lista.
+            if (origem === 'user' && !cortou && digitouOuApagouLetra(delta)) {
+                setTimeout(function () { if (refs.quill) { sugerir(refs); } }, 0);
+            } else {
+                fecharSugestoes(refs);
+            }
 
             // Autocorreção: depois do Quill terminar de aplicar a digitação (como o desenho).
             if (origem === 'user' && !cortou) {
@@ -1837,6 +2006,7 @@
         fecharChip(refs);
         fecharMenuContexto(refs);
         fecharOpcoesDeColar(refs);
+        fecharSugestoes(refs);
         refs.casca.remove();
         refs.quill = null;
         textarea.classList.remove('editor-rico-oculta');
