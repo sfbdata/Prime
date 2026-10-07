@@ -88,11 +88,45 @@ class AgendaController extends AbstractController
         }
 
         $status = $request->query->get('status');
-        $eventos = $eventoRepository->findForCalendar($status);
+
+        // DASH-009: `responsavel` (vindo do número "Eventos na agenda" do Dashboard) troca a lista
+        // pela agenda daquela pessoa, na régua do contador. A pessoa precisa ser do escritório
+        // atual: id desconhecido, de outro escritório ou não numérico devolve lista VAZIA — nunca
+        // a lista sem filtro, que mostraria eventos que o número não conta.
+        $responsavel = trim((string) $request->query->get('responsavel', ''));
+        if ($responsavel === '') {
+            return $this->render('agenda/lista.html.twig', [
+                'eventos' => $eventoRepository->findForCalendar($status),
+                'statusFiltro' => $status,
+            ]);
+        }
+
+        // Data fora do 'Y-m-d' estrito é ignorada, como no contador do Dashboard.
+        $dataValida = static function (string $valor): string {
+            $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+
+            return $data !== false && $data->format('Y-m-d') === $valor ? $valor : '';
+        };
+        $periodo = [
+            'data_de'  => $dataValida(trim((string) $request->query->get('data_de', ''))),
+            'data_ate' => $dataValida(trim((string) $request->query->get('data_ate', ''))),
+        ];
+        $pessoa = $tenant !== null && ctype_digit($responsavel)
+            ? ($this->userRepository->findPorIdsETenant([(int) $responsavel], $tenant)[0] ?? null)
+            : null;
+        $eventos = $pessoa instanceof User && $tenant !== null
+            ? $eventoRepository->findNaAgendaDaPessoa($tenant, $pessoa, $status, $periodo)
+            : [];
 
         return $this->render('agenda/lista.html.twig', [
             'eventos' => $eventos,
             'statusFiltro' => $status,
+            'filtroPessoa' => [
+                'responsavel' => $responsavel,
+                'nome' => $pessoa?->getFullName(),
+                'data_de' => $periodo['data_de'],
+                'data_ate' => $periodo['data_ate'],
+            ],
         ]);
     }
 

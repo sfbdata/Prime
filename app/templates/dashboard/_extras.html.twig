@@ -13,8 +13,12 @@
      - Metas concluídas > 0 e Em revisão > 0 abrem /tarefas/equipe com status
        `concluidas` / `em_revisao`, a pessoa e o período (DASH-008: o critério da
        lista é o da coluna — TarefaRepository::findMetasDaEquipePaginado).
+     - Eventos na agenda > 0 abre /agenda/lista com `responsavel` e o período (DASH-009:
+       EventoRepository::findNaAgendaDaPessoa usa a régua do contador). Só vira link
+       para quem abre a Agenda (módulo `agenda`): sem ele o destino redireciona e o
+       número não teria lista.
    As outras extras não têm lista que bata: taxa (%) e tempo médio (dias) não são
-   contagem de itens, e a agenda não filtra por pessoa. Ficam como número simples.
+   contagem de itens. Ficam como número simples.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% macro valor(chave, valor, userId = null, quem = '', periodoLink = {}) %}
 {%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
@@ -29,6 +33,8 @@
         <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas concluídas de {{ quem }}" aria-label="Abrir: Metas concluídas de {{ quem }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'metas_revisao' and valor > 0 -%}
         <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'em_revisao', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas em revisão de {{ quem }}" aria-label="Abrir: Metas em revisão de {{ quem }}">{{ texto }}</a>
+    {%- elseif userId is not null and chave == 'eventos_agenda' and valor > 0 and can_access_module('agenda') -%}
+        <a class="db-num db-num-link" href="{{ path('agenda_lista', { responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Eventos na agenda de {{ quem }}" aria-label="Abrir: Eventos na agenda de {{ quem }}">{{ texto }}</a>
     {%- elseif valor == 0 -%}
         <span class="db-num db-num--zero">{{ texto }}</span>
     {%- else -%}

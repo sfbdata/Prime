@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -237,6 +238,69 @@ class EventoRepository extends ServiceEntityRepository
         }
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Eventos na agenda de UMA pessoa — o destino do número "Eventos na agenda" do Dashboard
+     * (DASH-009). A régua é a MESMA de MetricasExtrasDoDashboardRepository::contarEventosPorPessoa,
+     * para o número da célula ser o total desta lista:
+     *   - evento do escritório informado (explícito, além do TenantFilter);
+     *   - a pessoa é criadora OU participante (cada evento uma vez, mesmo sendo as duas coisas);
+     *   - só os "Para Todos" (o "Somente para mim" é privado de quem criou);
+     *   - cancelados fora;
+     *   - recorrente entra uma vez (a ocorrência-base), pela data de início;
+     *   - período pela data de início, formato estrito 'Y-m-d' (data inválida é ignorada), fim do
+     *     dia na borda final.
+     * $status (agendado/concluido) só estreita; "cancelado" devolve vazio, como a régua manda.
+     *
+     * @param array<string, mixed> $periodo data_de, data_ate (Y-m-d)
+     *
+     * @return list<Evento>
+     */
+    public function findNaAgendaDaPessoa(Tenant $tenant, User $pessoa, ?string $status = null, array $periodo = []): array
+    {
+        $qb = $this->createQueryBuilder('e')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.visibilidade = :todos')
+            ->andWhere('e.status != :cancelado')
+            ->andWhere('e.criador = :pessoa OR :pessoa MEMBER OF e.participantes')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
+            ->setParameter('cancelado', Evento::STATUS_CANCELADO)
+            ->setParameter('pessoa', $pessoa)
+            ->orderBy('e.dataInicio', 'ASC')
+            ->addOrderBy('e.id', 'ASC');
+
+        if ($status !== null && $status !== '') {
+            $qb->andWhere('e.status = :status')->setParameter('status', $status);
+        }
+
+        $de = $this->lerDataDoPeriodo((string) ($periodo['data_de'] ?? ''), false);
+        if ($de !== null) {
+            $qb->andWhere('e.dataInicio >= :pDe')->setParameter('pDe', $de);
+        }
+        $ate = $this->lerDataDoPeriodo((string) ($periodo['data_ate'] ?? ''), true);
+        if ($ate !== null) {
+            $qb->andWhere('e.dataInicio <= :pAte')->setParameter('pAte', $ate);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /** Mesma leitura de data do Dashboard: 'Y-m-d' estrito; fora disso, null (ignorada). */
+    private function lerDataDoPeriodo(string $valor, bool $fimDoDia): ?\DateTimeImmutable
+    {
+        $valor = trim($valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        if ($data === false || $data->format('Y-m-d') !== $valor) {
+            return null;
+        }
+
+        return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
     }
 
     /**
