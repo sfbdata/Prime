@@ -34,8 +34,10 @@
 {# PAS-014: controle de escrita só para quem o servidor deixaria usar — a MESMA decisão do
    `denyResourceAccessUnlessGranted` de cada rota (editar, prioridade, situação, responsável e
    vincular processo pedem EDIT; excluir e restaurar pedem DELETE). O servidor continua
-   recusando: isto é só a tela não oferecer o que vai dar "sem permissão". Calculado uma vez. #}
-{% set podeEditarPasta  = can_access_resource('pasta', pasta.id, 'edit') %}
+   recusando: isto é só a tela não oferecer o que vai dar "sem permissão". Calculado uma vez:
+   o show já decide `podeEditarPasta` (PAS-047) e repassa; a função só roda se o parcial vier
+   sozinho. #}
+{% set podeEditarPasta  = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set podeExcluirPasta = can_access_resource('pasta', pasta.id, 'delete') %}
 
 <header class="ps-card ps-cabecalho">
