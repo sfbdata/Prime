@@ -252,6 +252,26 @@
                     {% endfor %}
                 {% endif %}
             </div>
+
+            {# Botão direito no registro (dc L.1795 `onContextMenu`, menu dc L.5958; FPN-006). UM menu
+               para a lista, preenchido pelo script do fim deste arquivo com o registro clicado.
+               "Editar" e "Excluir" só aparecem quando o cartão traz os botões da janela de 15 min
+               (autor, dentro do prazo) e clicam ESSES botões: o caminho é o de sempre. Fora do
+               menu ficam "Responder" (o Financeiro ainda não tem resposta, FPN-005), "Encaminhar
+               via Chat I.A" (FPN-007) e "Destacar" (sem lastro). #}
+            <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="Ações do registro" hidden>
+                <div class="ps-fin-menu-titulo"></div>
+                <button type="button" class="ps-fin-menu-item js-fin-obs-copiar" role="menuitem">
+                    <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
+                </button>
+                <div class="ps-fin-menu-sep js-fin-obs-so-autor" role="separator"></div>
+                <button type="button" class="ps-fin-menu-item js-fin-obs-editar js-fin-obs-so-autor" role="menuitem">
+                    <i class="bi bi-pencil" aria-hidden="true"></i><span>Editar</span>
+                </button>
+                <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-so-autor" role="menuitem">
+                    <i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir comentário</span>
+                </button>
+            </div>
         </section>
     </div>
 
@@ -1130,6 +1150,28 @@
         aberto = { menu: menu, gatilho: gatilho };
     }
 
+    /* Menu do registro do Relatório financeiro (FPN-006). Título "autor · data e hora",
+       como o do desenho (dc 5958). Editar e Excluir só existem se o cartão traz os
+       botões da janela de 15 min — o servidor só os põe para o autor, dentro do prazo —
+       e levam os minutos que restam, como no desenho ("Editar · 12 min"). */
+    let obsAlvo = null;
+    function prepararMenuObs(menu, registro) {
+        obsAlvo = registro;
+        const autor = textoLimpo(registro.querySelector('.ps-anotacao-autor'));
+        const data  = registro.querySelector('.ps-anotacao-data');
+        const quando = data ? (data.getAttribute('title') || textoLimpo(data)) : '';
+        menu.querySelector('.ps-fin-menu-titulo').textContent = autor + (quando ? ' · ' + quando : '');
+
+        const podeGerenciar = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
+        menu.querySelectorAll('.js-fin-obs-so-autor').forEach(function (el) { el.hidden = !podeGerenciar; });
+
+        const janela = registro.querySelector('.ps-anotacao-janela');
+        const minutos = janela ? (textoLimpo(janela).match(/\d+/) || [''])[0] : '';
+        const resto = minutos ? ' · ' + minutos + ' min' : '';
+        menu.querySelector('.js-fin-obs-editar span').textContent = 'Editar' + resto;
+        menu.querySelector('.js-fin-obs-excluir span').textContent = 'Excluir comentário' + resto;
+    }
+
     function menuDoGatilho(gatilho) {
         return document.getElementById(gatilho.getAttribute('aria-controls') || '');
     }
@@ -1261,8 +1303,21 @@
             copiar(resumoDosPagamentos(), item.querySelector('span'), 'Resumo copiado');
             return;
         }
+        if (item.classList.contains('js-fin-obs-copiar')) {
+            copiar(textoLimpo(obsAlvo ? obsAlvo.querySelector('.obs-conteudo .ql-editor') : null), item.querySelector('span'), 'Texto copiado');
+            return;
+        }
 
         fechar(false);
+
+        // Editar e Excluir do registro clicam os botões da janela de 15 min do próprio
+        // cartão: o handler deles (no _financeiro_obs_script) é o único caminho.
+        if (item.classList.contains('js-fin-obs-editar') || item.classList.contains('js-fin-obs-excluir')) {
+            const botao = obsAlvo ? obsAlvo.querySelector(item.classList.contains('js-fin-obs-editar') ? '.btn-editar-obs' : '.btn-excluir-obs') : null;
+            obsAlvo = null;
+            if (botao) { botao.click(); }
+            return;
+        }
 
         if (item.classList.contains('js-fin-doc-ver-documentos')) { irParaDocumentos(); return; }
         if (item.classList.contains('js-fin-doc-email-sem-cadastro')) { emailSemCadastro(); return; }
@@ -1288,6 +1343,17 @@
     // no ⋮ de Pagamentos, o menu dele. Durante a renomeação o campo é do usuário.
     document.addEventListener('contextmenu', function (e) {
         if (e.target.closest('input, textarea, .ps-fin-menu')) { return; }
+        // Registro do Relatório financeiro (dc 1795, FPN-006): menu no ponto do clique.
+        // Links, botões e o editor aberto seguem com o menu do navegador.
+        const registro = e.target.closest('#financeiroObsLista .ps-anotacao');
+        if (registro) {
+            const menuObs = document.getElementById('financeiroObsMenu');
+            if (!menuObs || e.target.closest('a, button, .ps-anotacao-edicao')) { return; }
+            e.preventDefault();
+            prepararMenuObs(menuObs, registro);
+            abrir(menuObs, registro, e.clientX, e.clientY);
+            return;
+        }
         // Linha de pagamento (dc 3448-3456, `onContextMenu`): não tem ⋮ à vista no
         // desenho; o menu dela abre só pelo clique direito, e a própria linha
         // faz o papel do gatilho.
