@@ -374,6 +374,27 @@ módulo, que governa apenas a descoberta/listagem. O caso de uso suportado é
 "compartilhar um item isolado com quem não tem o módulo inteiro" (ex.: colaborador
 que deve ver só uma pasta). Ver Falha F1 (rebaixada a comportamento aceito).
 
+### Pasta excluída (lápide): somente leitura por estado
+
+Independente das camadas acima, `PastaSomenteLeituraListener`
+(`app/src/Pasta/EventListener/`, em `kernel.controller_arguments`) recusa toda
+requisição não-segura (POST/PUT/PATCH/DELETE) sobre pasta com `excluida_em`
+preenchido: 403 JSON (`status: erro`) em XHR, redirect para `pasta_show` com flash
+nos demais. Ele acha a pasta nos argumentos da action (`Pasta` ou entidade com
+`getPasta()`) ou, quando a rota recebe só um `int`, pelo atributo declarado na
+action — `#[PastaPelaFilha(entidade, argumento)]` para id de filha (documento,
+seção) e `#[PastaPorId(argumento)]` para id da própria pasta
+(`expediente_pasta_marcadores`, `tarefa_criar_para_pasta`); nesses dois casos a
+busca é por id **e** tenant da sessão, e pasta de outro escritório não recebe a
+recusa (a action responde o próprio 404). Exceções, com motivo no listener:
+`ROTAS_LIBERADAS` (`pasta_restaurar`; `pasta_documentos_zip`, leitura por POST) e
+`ROTAS_SEM_PASTA_EXISTENTE` (`pasta_new`). O alcance é travado por
+`app/tests/Arquitetura/PastaSomenteLeituraRotasArquiteturaTest.php`, que percorre
+o router e falha se uma rota de escrita que envolva pasta (nome `pasta_*`,
+`/pasta/` no path, variável `pastaId`/`pasta_id`/`pasta`, ou action que recebe a
+pasta ou filha) não for alcançada nem for exceção. Rota com o id da pasta só no
+corpo da requisição não é vista por nenhum dos dois.
+
 ---
 
 ## 8. Falhas Conhecidas
