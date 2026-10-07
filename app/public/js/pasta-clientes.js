@@ -303,6 +303,8 @@
         ctAbrir(linha, true);
     }
 
+    var CT_SESSAO_EXPIRADA = 'Sua sessão expirou; recarregue a página';
+
     function ctGravar(valor) {
         if (!ctEditando || !janelaAberta) { return; }
         var ed = ctEditando;
@@ -330,6 +332,9 @@
         ed.linha.classList.add('is-salvando');
         fetch(url, { method: 'POST', body: corpo, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) {
+                // Sessão expirada: o fetch segue o redirect ao login e chega 200 com a página de
+                // login. Isso não é "salvo" — nada é trocado e o usuário é avisado.
+                if (r.redirected) { return { erro: CT_SESSAO_EXPIRADA }; }
                 if (r.ok) { return r.text().then(function (html) { return { html: html }; }); }
 
                 return r.json().then(
@@ -349,7 +354,14 @@
                 var molde = document.createElement('div');
                 molde.innerHTML = res.html.trim();
                 var nova = molde.firstElementChild;
-                if (!nova || janelaAberta !== janela) { return; }
+                if (janelaAberta !== janela) { return; }
+                // Só troca se o que voltou é MESMO a janela (a marca `.ps-cli-janela` do
+                // `cliente/_resumo.html.twig`); qualquer outra página (login) não é resposta.
+                if (!nova || !nova.classList.contains('ps-cli-janela')) {
+                    avisar(CT_SESSAO_EXPIRADA);
+
+                    return;
+                }
                 ctEditando = null;
                 nova.style.left = janela.style.left;
                 nova.style.top = janela.style.top;

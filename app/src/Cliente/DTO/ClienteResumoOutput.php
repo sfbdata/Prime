@@ -146,8 +146,11 @@ final readonly class ClienteResumoOutput
             $contatos[] = ['campo' => Contato::CAMPO_CELULAR, 'tipo' => 'tel', 'icone' => 'bi-telephone', 'rotulo' => 'Celular', 'valor' => $celular];
         }
 
+        // O fixo aparece mesmo quando repete o celular: cada linha é um slot editável do
+        // cadastro, e esconder a repetida deixava o fixo sem lápis nem lixeira — e sem
+        // "+ Telefone", porque o slot não está vazio.
         $fixo = trim((string) $cliente->getTelefoneFixo());
-        if ($fixo !== '' && $fixo !== $celular) {
+        if ($fixo !== '') {
             $contatos[] = ['campo' => Contato::CAMPO_FIXO, 'tipo' => 'tel', 'icone' => 'bi-telephone', 'rotulo' => 'Telefone fixo', 'valor' => $fixo];
         }
 
