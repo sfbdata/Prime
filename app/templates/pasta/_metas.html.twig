@@ -186,6 +186,13 @@
                                         data-ps-copiado="Link da meta copiado">
                                     <i class="bi bi-link-45deg"></i><span>Copiar link</span>
                                 </button>
+                                {# PMC-029: o mesmo "Abrir em Metas" do rodapé do drawer, aqui no ⋮
+                                   (dc L.3560, depois de "Copiar link"). Mesmo destino (`tarefa_show`);
+                                   o destino final segue a D-META-LINK (PMC-037). É leitura: continua
+                                   na pasta excluída. #}
+                                <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-pop-item" role="menuitem">
+                                    <i class="bi bi-box-arrow-up-right"></i><span>Abrir em Metas</span>
+                                </a>
                                 {% if not pasta.estaExcluida and meta_pode_excluir(tarefa) %}
                                     <div class="ps-pop-sep"></div>
                                     <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
