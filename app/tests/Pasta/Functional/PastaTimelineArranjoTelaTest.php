@@ -58,7 +58,7 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         $painel = $crawler->filter('aside#psTimeline.ps-tl[role="dialog"][aria-hidden="true"]');
         self::assertCount(1, $painel);
         self::assertSame('/pasta/' . $pasta->getId() . '/timeline', $painel->attr('data-url'));
-        self::assertSame($user->getId() . '-' . $pasta->getId(), $painel->attr('data-chave'));
+        self::assertNull($painel->attr('data-chave'), 'Sem chave de localStorage: "Enquanto você estava fora" espera persistência no servidor.');
 
         self::assertCount(1, $crawler->filter('#psTimeline > .ps-tl-cab > .ps-tl-cab-texto > h2#psTimelineTitulo'));
         self::assertSame('Timeline inteligente', trim($crawler->filter('#psTimelineTitulo')->text()));
@@ -87,5 +87,19 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         $texto = $crawler->filter('#psTimeline')->text();
         self::assertStringNotContainsString('✦', $texto);
         self::assertDoesNotMatchRegularExpression('/\bIA\b/u', $texto);
+    }
+
+    #[TestDox('Regra do dono: a timeline não guarda nada no navegador — sem localStorage/sessionStorage e sem "Enquanto você estava fora"')]
+    public function testJsSemArmazenamentoNoNavegador(): void
+    {
+        $js = file_get_contents(dirname(__DIR__, 3) . '/public/js/pasta-timeline.js');
+        self::assertIsString($js);
+
+        // Navegador não substitui persistência: o "Enquanto você estava fora" volta só quando a
+        // última abertura for guardada por usuário no servidor.
+        self::assertStringNotContainsString('localStorage', $js);
+        self::assertStringNotContainsString('sessionStorage', $js);
+        self::assertStringNotContainsString('ps-tl-fora', $js);
+        self::assertStringNotContainsString("'desde'", $js);
     }
 }

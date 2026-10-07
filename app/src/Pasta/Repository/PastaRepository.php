@@ -10,6 +10,7 @@ use App\Entity\Auth\User;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaFavorita;
+use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
@@ -950,6 +951,34 @@ class PastaRepository extends ServiceEntityRepository
     private static function prefixoNumerico(string $nup): int
     {
         return preg_match('/^[0-9]{1,18}/', $nup, $casou) === 1 ? (int) $casou[0] : -1;
+    }
+
+    /**
+     * Números dos processos vinculados à pasta, numa consulta só (a timeline inteligente cruza
+     * esses números com o Push). Andar por `getPastaProcessos()` faria uma consulta por processo.
+     * Presa ao escritório pelos dois lados: a pasta E o processo são do tenant informado.
+     *
+     * @return list<string>
+     */
+    public function numerosDosProcessosVinculados(Pasta $pasta, Tenant $tenant): array
+    {
+        $linhas = $this->getEntityManager()->createQueryBuilder()
+            ->select('proc.numeroProcesso AS numero')
+            ->from(PastaProcesso::class, 'pp')
+            ->innerJoin('pp.pasta', 'pa')
+            ->innerJoin('pp.processo', 'proc')
+            ->andWhere('pp.pasta = :pasta')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('proc.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_values(array_filter(
+            array_map(static fn (array $l): string => (string) $l['numero'], $linhas),
+            static fn (string $n): bool => $n !== '',
+        ));
     }
 
     /**

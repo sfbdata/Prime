@@ -10,6 +10,10 @@
    "Criar tarefa"/"Validar" (o estado da sugestão não existe no servidor), "Ver
    alteração" (o texto anterior do registro não é guardado).
 
+   "Enquanto você estava fora" também NÃO é renderizado: precisa da última abertura
+   guardada POR USUÁRIO no servidor, e localStorage não substitui persistência (regra
+   do dono). Fica para quando houver essa persistência por usuário.
+
    O esqueleto é estático; a lista vem de `pasta_timeline` (JSON) e é desenhada pelo
    pasta-timeline.js SÓ com textContent — nenhum texto de usuário passa por HTML.
 
@@ -21,8 +25,7 @@
 
 <aside class="ps-tl" id="psTimeline" role="dialog" aria-modal="true"
        aria-labelledby="psTimelineTitulo" aria-hidden="true"
-       data-url="{{ path('pasta_timeline', {id: pasta.id}) }}"
-       data-chave="{{ app.user ? app.user.id : 0 }}-{{ pasta.id }}">
+       data-url="{{ path('pasta_timeline', {id: pasta.id}) }}">
     <div class="ps-tl-cab">
         <i class="bi bi-activity ps-tl-cab-icone" aria-hidden="true"></i>
         <div class="ps-tl-cab-texto">

@@ -26,7 +26,6 @@ final readonly class FiltroDaTimelineInput
         public string $periodo = 'tudo',
         public ?string $pessoa = null,
         public string $busca = '',
-        public ?\DateTimeImmutable $desde = null,
         public int $limite = self::LIMITE_PADRAO,
     ) {
     }
@@ -47,14 +46,6 @@ final readonly class FiltroDaTimelineInput
         $pessoa = trim((string) $request->query->get('pessoa', ''));
         $busca  = mb_substr(trim((string) $request->query->get('q', '')), 0, 200);
 
-        $desde      = null;
-        $desdeBruto = (string) $request->query->get('desde', '');
-        if ($desdeBruto !== '') {
-            $lido  = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $desdeBruto)
-                ?: \DateTimeImmutable::createFromFormat('Y-m-d\TH:i:s.v\Z', $desdeBruto, new \DateTimeZone('UTC'));
-            $desde = $lido !== false ? $lido : null;
-        }
-
         $limite = (int) $request->query->get('limite', (string) self::LIMITE_PADRAO);
         $limite = max(1, min(self::LIMITE_MAXIMO, $limite));
 
@@ -63,7 +54,6 @@ final readonly class FiltroDaTimelineInput
             periodo: $periodo,
             pessoa: $pessoa !== '' ? $pessoa : null,
             busca: $busca,
-            desde: $desde,
             limite: $limite,
         );
     }

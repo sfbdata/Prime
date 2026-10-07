@@ -138,6 +138,52 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('REGISTRO-DA-PASTA-B', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Vários processos vinculados e autor do pagamento: tudo carregado em lote, nada se perde')]
+    public function testProcessosVinculadosEAutorDoPagamentoEmLote(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+
+        $pasta = $this->criarPasta($tenant);
+        $procA = $this->criarProcesso($tenant, self::NUMERO_A);
+        $procB = $this->criarProcesso($tenant, self::NUMERO_B);
+        $this->vincular($pasta, $procA);
+        $this->vincular($pasta, $procB);
+        $pubA = $this->criarPublicacao($tenant, '51000011', self::NUMERO_A, '2026-08-20', $procA);
+        $pubB = $this->criarPublicacao($tenant, '51000012', self::NUMERO_B, '2026-08-22', $procB);
+
+        $pag = $this->pagamento($pasta, $tenant, 'PAGAMENTO-COM-AUTOR', '2026-09-01');
+        $pag->setAutor($user);
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+
+        self::assertContains('p' . $pubA->getId(), $this->ids($dados));
+        self::assertContains('p' . $pubB->getId(), $this->ids($dados));
+
+        $lancado = array_values(array_filter($dados['eventos'], static fn (array $e) => $e['id'] === 'pl' . $pag->getId()));
+        self::assertCount(1, $lancado);
+        self::assertSame($user->getFullName(), $lancado[0]['autor']);
+    }
+
+    #[TestDox('Sem "Enquanto você estava fora": o servidor ignora `desde` e não devolve `novos`')]
+    public function testSemNovosDesdeAUltimaVisita(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->registrar($pasta, $user, $tenant, 'REGISTRO-QUALQUER', '2026-08-21 10:00');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta, ['desde' => '2020-01-01T00:00:00.000Z']);
+
+        self::assertArrayNotHasKey('novos', $dados);
+        self::assertArrayNotHasKey('resumoDesde', $dados);
+    }
+
     #[TestDox('Pasta de outro escritório: 404 (a própria responde 200)')]
     public function testOutroEscritorioDa404(): void
     {

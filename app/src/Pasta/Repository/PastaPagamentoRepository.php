@@ -45,6 +45,28 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Os pagamentos da pasta com o autor já carregado (fetch join) — a timeline inteligente
+     * escreve o nome de quem lançou em cada um, e o autor preguiçoso custaria uma consulta por
+     * autor. Mesmo recorte de `findByPasta`: desta pasta E deste escritório.
+     *
+     * @return list<PastaPagamento>
+     */
+    public function findByPastaComAutor(Pasta $pasta, Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('p')
+            ->leftJoin('p.autor', 'autor')
+            ->addSelect('autor')
+            ->andWhere('p.pasta = :pasta')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.vencimento', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Guarda de posse: o pagamento só existe se for DESTA pasta e DESTE
      * escritório. Quem chama devolve 404 quando vier nulo — 403 confirmaria
      * que o id existe em algum lugar.

@@ -254,23 +254,6 @@ final class RegrasDaTimelineInteligente
     }
 
     /**
-     * Acontecimentos depois da última visita, até agora, que não foram feitos por quem olha
-     * ("Enquanto você estava fora").
-     *
-     * @param list<EventoDaTimelineOutput> $eventos
-     * @return list<EventoDaTimelineOutput>
-     */
-    public function novosDesde(array $eventos, \DateTimeImmutable $desde, \DateTimeImmutable $agora, ?string $meuNome): array
-    {
-        return array_values(array_filter(
-            $eventos,
-            static fn (EventoDaTimelineOutput $e) => $e->quando > $desde
-                && $e->quando <= $agora
-                && ($meuNome === null || $e->autor !== $meuNome),
-        ));
-    }
-
-    /**
      * Resumo da atividade por CONTAGEM (`tlResumo`) — frases fixas, nenhuma inferência.
      *
      * @param list<EventoDaTimelineOutput> $eventos

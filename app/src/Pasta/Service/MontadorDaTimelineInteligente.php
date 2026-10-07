@@ -18,6 +18,7 @@ use App\Pasta\DTO\TimelineItemType;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Repository\PastaPagamentoRepository;
+use App\Pasta\Repository\PastaRepository;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -41,6 +42,7 @@ final class MontadorDaTimelineInteligente
         private readonly PastaTimelineAssembler $assembler,
         private readonly PublicacaoDjenRepository $publicacaoRepository,
         private readonly PastaPagamentoRepository $pagamentoRepository,
+        private readonly PastaRepository $pastaRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly RegrasDaTimelineInteligente $regras,
         private readonly UrlGeneratorInterface $urlGenerator,
@@ -68,10 +70,8 @@ final class MontadorDaTimelineInteligente
         $eventos = $this->eventosDoHistorico($itens);
 
         // 2. Push dos processos da pasta.
-        $numeros = [];
-        foreach ($pasta->getPastaProcessos() as $vinculo) {
-            $numeros[] = (string) $vinculo->getProcesso()->getNumeroProcesso();
-        }
+        // Os números vêm numa consulta só (antes: uma por processo vinculado).
+        $numeros = $this->pastaRepository->numerosDosProcessosVinculados($pasta, $tenant);
         $publicacoes  = $numeros !== [] ? $this->publicacaoRepository->listarItensPorNumerosDoTenant($tenant, $numeros, $limite) : [];
         $pushCompleto = count($publicacoes) < $limite;
         if (!$pushCompleto) {
@@ -116,7 +116,7 @@ final class MontadorDaTimelineInteligente
         // 4. Financeiro.
         $financeiroQuitado = false;
         if ($this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta)) {
-            $pagamentos        = $this->pagamentoRepository->findByPasta($pasta, $tenant);
+            $pagamentos        = $this->pagamentoRepository->findByPastaComAutor($pasta, $tenant);
             $financeiroQuitado = $pagamentos !== [];
             foreach ($pagamentos as $pagamento) {
                 $financeiroQuitado = $financeiroQuitado && $pagamento->estaPago();
@@ -144,9 +144,6 @@ final class MontadorDaTimelineInteligente
         $eventos = $this->regras->ordenar($this->regras->aplicarMarcos($eventos, $pushCompleto, $financeiroQuitado));
 
         $filtrados = $this->regras->filtrar($eventos, $filtro, $agora);
-        $novos     = $filtro->desde !== null
-            ? $this->regras->novosDesde($eventos, $filtro->desde, $agora, $usuario->getFullName())
-            : null;
 
         return new TimelineInteligenteOutput(
             eventos: array_slice($filtrados, 0, $limite),
@@ -157,8 +154,6 @@ final class MontadorDaTimelineInteligente
             pessoas: $this->regras->pessoas($eventos),
             atencao: $this->regras->atencao($eventos),
             resumo: $this->regras->resumir($filtrados),
-            novos: $novos,
-            resumoDesde: $novos !== null ? $this->regras->resumir($novos) : null,
         );
     }
 

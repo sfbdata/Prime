@@ -267,7 +267,7 @@ final class RegrasDaTimelineInteligenteTest extends TestCase
         self::assertSame([], $this->regras->filtrar($this->base(), $filtro, $this->agora));
     }
 
-    // ── contagens, pessoas, novos, resumo ─────────────────────────────────
+    // ── contagens, pessoas, resumo ─────────────────────────────────
 
     #[TestDox('Contagem dos chips sobre a lista inteira, pessoas em ordem alfabética')]
     public function testContagensEPessoas(): void
@@ -281,20 +281,6 @@ final class RegrasDaTimelineInteligenteTest extends TestCase
         self::assertSame(1, $contagens['documento']);
         self::assertSame(0, $contagens['financeiro']);
         self::assertSame(['Ana Souza', 'Bruno Lima'], $this->regras->pessoas($eventos));
-    }
-
-    #[TestDox('"Enquanto você estava fora": depois da visita, até agora, sem os meus')]
-    public function testNovosDesde(): void
-    {
-        $eventos = [
-            ...$this->base(),
-            $this->evento('futuro', '2026-10-20 08:00', 'meta', 'prazo_meta', 'Prazo da meta'),
-        ];
-
-        $novos = $this->regras->novosDesde($eventos, new \DateTimeImmutable('2026-10-05 12:00'), $this->agora, 'Ana Souza');
-        self::assertSame(['ontem'], $this->ids($novos));
-
-        self::assertSame([], $this->regras->novosDesde($eventos, $this->agora, $this->agora, null));
     }
 
     #[TestDox('Resumo por contagem, com frases fixas')]

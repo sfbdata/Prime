@@ -7,9 +7,9 @@
    A cor de categoria/prioridade vem de constante do servidor e só é aplicada se
    for um hex de 6 dígitos.
 
-   "Enquanto você estava fora": a última abertura fica no localStorage deste
-   navegador, por usuário e pasta (`data-chave`). Não há preferência no servidor
-   para isso; a tela diz "neste navegador".
+   "Enquanto você estava fora" NÃO existe aqui: exige guardar a última abertura
+   por usuário no servidor, e navegador não substitui persistência (regra do dono).
+   Volta quando houver essa persistência.
    ============================================================================= */
 (function () {
     'use strict';
@@ -20,7 +20,6 @@
     if (!painel || !overlay) { return; }
 
     var url      = painel.getAttribute('data-url');
-    var chaveLs  = 'bj-tl-visto:' + (painel.getAttribute('data-chave') || '');
     var busca    = painel.querySelector('[data-tl-busca]');
     var chips    = painel.querySelector('[data-tl-chips]');
     var periodo  = painel.querySelector('[data-tl-periodo]');
@@ -37,7 +36,7 @@
 
     var estado = {
         categoria: 'tudo', periodo: 'tudo', pessoa: '', q: '', limite: LIMITE_INICIAL,
-        resumo: false, resumoDesde: false, abertos: {}, desde: null, dados: null
+        resumo: false, abertos: {}, dados: null
     };
     var focoAnterior = null;
     var controle     = null;
@@ -58,12 +57,6 @@
     function cor(no, valor) {
         if (typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor)) { no.style.setProperty('--tl-cor', valor); }
     }
-    function lerVisto() {
-        try { return window.localStorage.getItem(chaveLs); } catch (e) { return null; }
-    }
-    function gravarVisto() {
-        try { window.localStorage.setItem(chaveLs, new Date().toISOString()); } catch (e) { /* sem storage: segue */ }
-    }
     function dataLocal(iso) { return new Date(iso); }
     function rotuloDoDia(diaIso) {
         var p = diaIso.split('-');
@@ -76,15 +69,10 @@
         if (k < 0) { return d.toLocaleDateString('pt-BR') + ' (futuro)'; }
         return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
     }
-    function formatarDesde(iso) {
-        return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    }
 
     /* ── abrir / fechar ─────────────────────────────────────────────────── */
     function abrirPainel() {
         focoAnterior = document.activeElement;
-        estado.desde = lerVisto();
-        estado.resumoDesde = false;
         painel.classList.add('is-aberto');
         overlay.classList.add('is-aberto');
         painel.removeAttribute('aria-hidden');
@@ -94,7 +82,6 @@
     }
     function fecharPainel() {
         if (!painel.classList.contains('is-aberto')) { return; }
-        gravarVisto();
         painel.classList.remove('is-aberto');
         overlay.classList.remove('is-aberto');
         painel.setAttribute('aria-hidden', 'true');
@@ -133,7 +120,6 @@
     if (resumir) {
         resumir.addEventListener('click', function () {
             estado.resumo = !estado.resumo;
-            estado.resumoDesde = false;
             resumir.setAttribute('aria-pressed', estado.resumo ? 'true' : 'false');
             desenhar();
         });
@@ -155,7 +141,6 @@
         p.set('periodo', estado.periodo);
         if (estado.pessoa) { p.set('pessoa', estado.pessoa); }
         if (estado.q.trim()) { p.set('q', estado.q.trim()); }
-        if (estado.desde) { p.set('desde', estado.desde); }
         p.set('limite', String(estado.limite));
 
         lista.setAttribute('aria-busy', 'true');
@@ -193,8 +178,7 @@
         lista.textContent = '';
         var semFiltro = estado.categoria === 'tudo' && !estado.q.trim();
 
-        if (d.novos && d.novos.total > 0 && semFiltro) { lista.appendChild(caixaFora(d)); }
-        if (estado.resumo || estado.resumoDesde) { lista.appendChild(caixaResumo(d)); }
+        if (estado.resumo) { lista.appendChild(caixaResumo(d)); }
         if (d.atencao && d.atencao.length && semFiltro) { lista.appendChild(caixaAtencao(d)); }
 
         if (!d.eventos.length) {
@@ -246,28 +230,10 @@
         pessoa.value = atual;
     }
 
-    function caixaFora(d) {
-        var caixa = el('div', 'ps-tl-fora');
-        caixa.appendChild(el('div', 'ps-tl-fora-tit', 'Enquanto você estava fora: ' + d.novos.total + ' acontecimento(s)'));
-        var partes = [];
-        Object.keys(d.novos.porCategoria || {}).forEach(function (k) {
-            var rot = d.categorias[k] ? d.categorias[k].rotulo.toLowerCase() : k;
-            partes.push(d.novos.porCategoria[k] + ' ' + rot);
-        });
-        caixa.appendChild(el('div', '', partes.join(' · ')));
-        caixa.appendChild(el('div', 'ps-tl-fora-nota', 'Desde a sua última abertura da timeline neste navegador, em ' + formatarDesde(estado.desde) + '.'));
-        var b = el('button', 'ps-tl-fora-btn', 'Ver resumo');
-        b.type = 'button';
-        b.addEventListener('click', function () { estado.resumoDesde = true; estado.resumo = false; desenhar(); });
-        caixa.appendChild(b);
-        return caixa;
-    }
-
     function caixaResumo(d) {
         var caixa = el('div', 'ps-tl-resumo');
-        var desde = estado.resumoDesde && estado.desde;
-        caixa.appendChild(el('div', 'ps-tl-resumo-tit', desde ? 'O que aconteceu desde ' + formatarDesde(estado.desde) : 'Resumo da atividade'));
-        caixa.appendChild(el('div', '', desde ? (d.resumoDesde || '') : d.resumo));
+        caixa.appendChild(el('div', 'ps-tl-resumo-tit', 'Resumo da atividade'));
+        caixa.appendChild(el('div', '', d.resumo));
         caixa.appendChild(el('div', 'ps-tl-resumo-nota', 'Contagem por regras fixas, sobre os acontecimentos filtrados.'));
         return caixa;
     }
