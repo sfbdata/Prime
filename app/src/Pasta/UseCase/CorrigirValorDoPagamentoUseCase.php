@@ -40,6 +40,11 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Mexe só no `valor` deste lançamento da pasta. Cobrança e contabilidade não
  * passam por aqui: aquele dinheiro é outra coisa, com outro dono.
+ *
+ * TAXA DA PARCELA (M7b): a `juros_mensal` de uma parcela Price é só rótulo
+ * ("· juros N% a.m."), gravado no parcelamento para o valor DAQUELE cálculo.
+ * Com o valor corrigido à mão, a taxa já não explica o valor — então é zerada
+ * (null) no mesmo flush e o sufixo some. Nenhum cálculo usa a taxa.
  */
 final class CorrigirValorDoPagamentoUseCase
 {
@@ -120,6 +125,8 @@ final class CorrigirValorDoPagamentoUseCase
         }
 
         $pagamento->setValor($decimal);
+        // O rótulo de juros descrevia o valor antigo; com o valor à mão, deixa de valer.
+        $pagamento->setJurosMensal(null);
         $this->em->flush();
 
         return true;

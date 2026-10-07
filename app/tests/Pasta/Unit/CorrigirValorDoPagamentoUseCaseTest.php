@@ -60,6 +60,22 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
         self::assertSame('1450.50', $pagamento->getValor(), 'dinheiro entra como decimal, nunca float');
     }
 
+    #[TestDox('M7b: corrigir o valor de uma parcela com juros zera a taxa (só rótulo); mesmo valor não mexe nela')]
+    public function testCorrigirZeraAJurosMensal(): void
+    {
+        $pagamento = $this->pagamento('1300.00');
+        $pagamento->setJurosMensal('1.5000');
+        $mesmo = $this->pagamento('1300.00');
+        $mesmo->setJurosMensal('1.5000');
+
+        self::assertTrue($this->useCase->executar($pagamento, $this->pasta, $this->tenant, '1.450,50', '1.300,00'));
+        self::assertNull($pagamento->getJurosMensal());
+        self::assertSame('1450.50', $pagamento->getValor());
+
+        self::assertFalse($this->useCase->executar($mesmo, $this->pasta, $this->tenant, '1.300', '1.300,00'));
+        self::assertSame('1.5000', $mesmo->getJurosMensal(), 'sem correção, o rótulo continua');
+    }
+
     /**
      * Sem isto o histórico ganharia uma linha "R$ a → R$ a": "1.300" e
      * "1300,00" são o mesmo dinheiro, e a comparação é em centavos.
