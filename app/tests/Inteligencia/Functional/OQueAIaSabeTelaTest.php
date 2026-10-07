@@ -6,7 +6,9 @@ namespace App\Tests\Inteligencia\Functional;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Inteligencia\Contexto\FonteDeContagensDaPastaDoctrine;
+use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\Controller\AnaliseDaPastaController;
+use App\Inteligencia\UseCase\ContarOQueAIaSabeDaPastaUseCase;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
@@ -21,6 +23,7 @@ use Symfony\Component\DomCrawler\Crawler;
  */
 #[CoversClass(AnaliseDaPastaController::class)]
 #[CoversClass(FonteDeContagensDaPastaDoctrine::class)]
+#[CoversClass(ContarOQueAIaSabeDaPastaUseCase::class)]
 final class OQueAIaSabeTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
@@ -85,7 +88,7 @@ final class OQueAIaSabeTelaTest extends JusPrimeWebTestCase
             [
                 ['documentos', '2', 'documentos'],
                 ['tarefas', '4', 'tarefas'],
-                ['prazos', '2', 'prazos'],
+                ['prazos', '2', 'prazos de metas abertas'],
                 ['anotacoes', '3', 'anotações'],
             ],
             $itens->each(static fn (Crawler $i): array => [
@@ -95,6 +98,37 @@ final class OQueAIaSabeTelaTest extends JusPrimeWebTestCase
             ]),
         );
         self::assertSame('O que a IA sabe desta pasta', $crawler->filter(self::GRADE)->attr('title'));
+        // Abaixo do teto: número exato, sem frase de corte.
+        self::assertSame(0, $crawler->filter(self::GRADE . ' [data-ia-sabe-corte]')->count());
+    }
+
+    #[TestDox('IA-006b: acima do teto do montador, o quadro mostra o teto (o que a IA recebe) e diz "de N"')]
+    public function testAcimaDoTetoMostraOTetoEDeN(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $total = MontadorDeContextoDaPasta::LIMITE_DOCUMENTOS + 2;
+        for ($i = 1; $i <= $total; ++$i) {
+            $this->criarDocumento($tenant, $pasta, 'Doc ' . $i);
+        }
+        $this->criarMeta($tenant, $pasta, $user, 'Única meta');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/ia/agentes");
+
+        self::assertResponseIsSuccessful();
+        $documentos = $crawler->filter(self::GRADE . ' > .ia-sabe-item[data-ia-sabe-item="documentos"]');
+        self::assertSame((string) MontadorDeContextoDaPasta::LIMITE_DOCUMENTOS, trim($documentos->filter('.ia-sabe-v')->text()));
+        self::assertSame(
+            sprintf('lê os %d mais recentes de %d', MontadorDeContextoDaPasta::LIMITE_DOCUMENTOS, $total),
+            trim($documentos->filter('[data-ia-sabe-corte]')->text()),
+        );
+        // O quadro que não passou do teto segue exato e sem frase.
+        $tarefas = $crawler->filter(self::GRADE . ' > .ia-sabe-item[data-ia-sabe-item="tarefas"]');
+        self::assertSame('1', trim($tarefas->filter('.ia-sabe-v')->text()));
+        self::assertSame(0, $tarefas->filter('[data-ia-sabe-corte]')->count());
+        self::assertSame(1, $crawler->filter(self::GRADE . ' [data-ia-sabe-corte]')->count());
     }
 
     #[TestDox('pasta vazia: os quatro números são zero (zero é resposta, não ausência)')]

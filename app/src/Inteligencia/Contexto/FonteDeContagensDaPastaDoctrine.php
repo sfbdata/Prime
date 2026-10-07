@@ -6,7 +6,7 @@ namespace App\Inteligencia\Contexto;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
-use App\Inteligencia\DTO\OQueAIaSabeOutput;
+use App\Inteligencia\DTO\ContagensDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
@@ -26,7 +26,7 @@ final class FonteDeContagensDaPastaDoctrine implements FonteDeContagensDaPasta
     ) {
     }
 
-    public function contar(Tenant $tenant, Pasta $pasta): OQueAIaSabeOutput
+    public function contar(Tenant $tenant, Pasta $pasta): ContagensDaPasta
     {
         $documentos = $this->contarDa(PastaDocumento::class, $tenant, $pasta, 'x.excluidoEm IS NULL');
         $tarefas = $this->contarDa(Tarefa::class, $tenant, $pasta);
@@ -42,10 +42,10 @@ final class FonteDeContagensDaPastaDoctrine implements FonteDeContagensDaPasta
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
             ->getQuery()
             ->getSingleScalarResult();
-        $anotacoes = $this->contarDa(PastaMensagem::class, $tenant, $pasta)
-            + $this->contarDa(PastaObservacaoDetalhes::class, $tenant, $pasta);
+        $anotacoes = $this->contarDa(PastaMensagem::class, $tenant, $pasta);
+        $observacoes = $this->contarDa(PastaObservacaoDetalhes::class, $tenant, $pasta);
 
-        return new OQueAIaSabeOutput($documentos, $tarefas, $prazos, $anotacoes);
+        return new ContagensDaPasta($documentos, $tarefas, $prazos, $anotacoes, $observacoes);
     }
 
     /** @param class-string $classe */

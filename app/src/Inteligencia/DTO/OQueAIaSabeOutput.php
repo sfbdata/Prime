@@ -6,37 +6,34 @@ namespace App\Inteligencia\DTO;
 
 /**
  * A grade "O que a IA sabe desta pasta" do drawer (desenho, dc L861-864 e L5691). Quatro dos
- * cinco números do desenho, cada um de uma contagem real no banco:
+ * cinco números do desenho, cada um o que o contexto dos agentes LEVA, não o que a pasta tem:
+ * `valor` é o total limitado pelo teto da seção no
+ * {@see \App\Inteligencia\Contexto\MontadorDeContextoDaPasta}, `total` é o que existe no banco e
+ * `corte` é a frase curta que aparece quando o teto cortou (senão `null`).
  *
- *   - `documentos`: documentos da pasta fora da lixeira;
- *   - `tarefas`: metas da pasta, qualquer situação;
- *   - `prazos`: metas ainda não concluídas que têm prazo;
- *   - `anotacoes`: anotações internas (aba Dados) + observações da aba Detalhes.
+ * O teto é o de CADA seção. O orçamento total de caracteres do montador ainda pode cortar mais
+ * numa pasta de textos longos; esse corte depende do conteúdo e é declarado ao modelo, não aqui.
+ * Nem todo agente lê toda seção (o cartão de cada um diz o que ele lê).
  *
  * O 5º do desenho ("fontes" = soma + 2) é heurística do protótipo e fica de fora.
  */
 final readonly class OQueAIaSabeOutput
 {
+    /**
+     * @param list<array{chave: string, valor: int, total: int, rotulo: string, corte: ?string}> $itens
+     */
     public function __construct(
-        public int $documentos,
-        public int $tarefas,
-        public int $prazos,
-        public int $anotacoes,
+        private array $itens,
     ) {
     }
 
     /**
-     * Na ordem e com os rótulos do desenho (`[docs, 'documentos'], [metas, 'tarefas'], …`).
+     * Na ordem do desenho (documentos, tarefas, prazos, anotações).
      *
-     * @return list<array{chave: string, valor: int, rotulo: string}>
+     * @return list<array{chave: string, valor: int, total: int, rotulo: string, corte: ?string}>
      */
     public function itens(): array
     {
-        return [
-            ['chave' => 'documentos', 'valor' => $this->documentos, 'rotulo' => 'documentos'],
-            ['chave' => 'tarefas', 'valor' => $this->tarefas, 'rotulo' => 'tarefas'],
-            ['chave' => 'prazos', 'valor' => $this->prazos, 'rotulo' => 'prazos'],
-            ['chave' => 'anotacoes', 'valor' => $this->anotacoes, 'rotulo' => 'anotações'],
-        ];
+        return $this->itens;
     }
 }
