@@ -637,4 +637,17 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         self::assertSame(7, $resumo['total']);
         self::assertStringNotContainsString('réplica', (string) json_encode($resumo), 'nenhum texto no resumo (D5)');
     }
+
+    #[TestDox('IA-033: a análise anterior do agente volta mascarada (CPF vira [CPF]); máscara desligada, vai como está')]
+    public function testAnaliseAnteriorMascarada(): void
+    {
+        self::assertSame(
+            'Cliente informou CPF [CPF].',
+            $this->sut()->analiseAnterior($this->tenant, 'Cliente informou CPF ' . self::CPF . '.'),
+        );
+        self::assertNull($this->sut()->analiseAnterior($this->tenant, null));
+
+        $this->configuracao->atualizar(true, 50, 500, false, $this->user);
+        self::assertSame('CPF ' . self::CPF, $this->sut()->analiseAnterior($this->tenant, 'CPF ' . self::CPF));
+    }
 }

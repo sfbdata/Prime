@@ -114,6 +114,15 @@ final class MontadorDeContextoDaPasta
         );
     }
 
+    /**
+     * A análise anterior do agente como pode voltar ao provedor (`<analise_anterior>`): mesma regra
+     * do Push — neutralizada e mascarada pela preferência atual do escritório (IA-033).
+     */
+    public function analiseAnterior(Tenant $tenant, ?string $resumo): ?string
+    {
+        return $this->movimentacoes->analiseAnterior($tenant, $resumo);
+    }
+
     // ---------------------------------------------------------------------------------------
     // Seções
     // ---------------------------------------------------------------------------------------

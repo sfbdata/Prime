@@ -54,7 +54,8 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
         $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $agente);
         $analise->registrarContexto($contexto->hash, $contexto->resumo());
 
-        return $this->prompt->montar($contexto, $anterior?->getResumo());
+        // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
+        return $this->prompt->montar($contexto, $this->montador->analiseAnterior($tenant, $anterior?->getResumo()));
     }
 
     public function motivoDeContextoVazio(): string

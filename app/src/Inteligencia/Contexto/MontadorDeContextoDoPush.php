@@ -132,6 +132,22 @@ final class MontadorDeContextoDoPush
     }
 
     /**
+     * A análise anterior (resposta do modelo) do jeito que pode voltar ao provedor como
+     * `<analise_anterior>`: neutralizada e com a PII mascarada pela preferência ATUAL do escritório
+     * (IA-033). Ela nasceu de outra chamada — talvez com a máscara desligada, talvez de outro
+     * provedor —, então não herda a garantia do contexto daquela vez. Sem análise → null.
+     */
+    public function analiseAnterior(Tenant $tenant, ?string $resumo): ?string
+    {
+        $resumo = NeutralizadorDeConteudo::neutralizar((string) $resumo);
+        if ($resumo === '') {
+            return null;
+        }
+
+        return $this->mascararNoTenant($tenant) ? $this->mascarador->mascarar($resumo) : $resumo;
+    }
+
+    /**
      * Chaves do que entraria no contexto hoje, sem carregar texto — para a tela contar o que ainda
      * não foi analisado. Pasta com processo sigiloso devolve lista vazia (não há o que contar: a
      * análise é recusada de qualquer forma).

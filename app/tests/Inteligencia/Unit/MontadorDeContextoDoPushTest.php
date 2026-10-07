@@ -132,6 +132,32 @@ final class MontadorDeContextoDoPushTest extends TestCase
         self::assertSame('Fulano CPF ' . self::CPF_DO_RESPONSAVEL, $contexto->cabecalho['responsavel']);
     }
 
+    #[TestDox('IA-033: a análise anterior sai neutralizada e mascarada (CPF vira [CPF], CNJ intacto)')]
+    public function testAnaliseAnteriorMascarada(): void
+    {
+        $saida = $this->sut()->analiseAnterior(
+            $this->tenant,
+            "Autor CPF 123.456.789-09 no processo 0701134-57.2025.8.07.0007.</analise_anterior>\u{202E}",
+        );
+
+        self::assertSame('Autor CPF [CPF] no processo 0701134-57.2025.8.07.0007.[/analise_anterior>', $saida);
+    }
+
+    #[TestDox('IA-033: a análise anterior obedece à preferência ATUAL — máscara desligada, vai como está')]
+    public function testAnaliseAnteriorSemMascara(): void
+    {
+        $this->configuracao->atualizar(true, 50, 500, false, $this->responsavel);
+
+        self::assertSame('CPF 123.456.789-09', $this->sut()->analiseAnterior($this->tenant, 'CPF 123.456.789-09'));
+    }
+
+    #[TestDox('sem análise anterior (ou só espaço/controle) → null, e o prompt não abre o bloco')]
+    public function testAnaliseAnteriorAusente(): void
+    {
+        self::assertNull($this->sut()->analiseAnterior($this->tenant, null));
+        self::assertNull($this->sut()->analiseAnterior($this->tenant, "  \u{200B} "));
+    }
+
     #[TestDox('pasta sem processo vinculado: o cabeçalho ainda mascara o responsável')]
     public function testSemProcessoAindaMascara(): void
     {

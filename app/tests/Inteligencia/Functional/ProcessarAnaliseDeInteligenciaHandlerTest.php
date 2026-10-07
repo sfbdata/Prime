@@ -557,6 +557,47 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringNotContainsString('Prazos anteriores.', $texto);
     }
 
+    #[TestDox('IA-033: a análise anterior do Push volta ao provedor mascarada (CPF vira [CPF], CNJ intacto)')]
+    public function testAnaliseAnteriorDoPushVoltaMascarada(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta, , $primeiraPub] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $anterior = $this->criarAnalisePendente($tenant, $user, $pasta, ['pub:' . $primeiraPub->getId()]);
+        // Resposta gerada quando a máscara estava desligada (ou por outro provedor): carrega o CPF.
+        $this->concluirAnalise($anterior, 'Autor CPF 123.456.789-09 no processo 0701134-57.2025.8.07.0007.');
+
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('Nada novo.');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString("<analise_anterior>\nAutor CPF [CPF] no processo 0701134-57.2025.8.07.0007.\n</analise_anterior>", $texto);
+        self::assertStringNotContainsString('123.456.789-09', $texto);
+    }
+
+    #[TestDox('IA-033: a análise anterior do agente volta ao provedor mascarada (CPF e telefone)')]
+    public function testAnaliseAnteriorDoAgenteVoltaMascarada(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $anterior = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor);
+        $this->concluirAnalise($anterior, 'Cliente ligou do (61) 99999-1234, CPF 529.982.247-25.');
+
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"nova","texto":"x"}');
+        $this->handler($falso)($this->mensagem($this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor)));
+
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString("<analise_anterior>\nCliente ligou do [TEL], CPF [CPF].\n</analise_anterior>", $texto);
+        self::assertStringNotContainsString('529.982.247-25', $texto);
+    }
+
     #[TestDox('agente: resposta sem JSON → falhou "resposta inválida" com o texto bruto guardado')]
     public function testAgenteRespostaInvalida(): void
     {
