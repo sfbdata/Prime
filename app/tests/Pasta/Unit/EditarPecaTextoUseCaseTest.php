@@ -21,6 +21,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * Edição de peça. Desde a E2.4B o HTML é regravado por chave; e, pela D14, peça cujo arquivo
@@ -30,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 final class EditarPecaTextoUseCaseTest extends TestCase
 {
     private const ORIGINAL = '<p>Conteúdo original</p>';
+    private const AGORA    = '2026-10-07 14:30:00';
 
     private EntityManagerInterface&MockObject $em;
     private ArmazenamentoEmMemoria $armazenamento;
@@ -40,7 +42,7 @@ final class EditarPecaTextoUseCaseTest extends TestCase
     {
         $this->em            = $this->createMock(EntityManagerInterface::class);
         $this->armazenamento = new ArmazenamentoEmMemoria();
-        $this->useCase       = new EditarPecaTextoUseCase($this->em, $this->armazenamento);
+        $this->useCase       = new EditarPecaTextoUseCase($this->em, $this->armazenamento, new MockClock(new \DateTimeImmutable(self::AGORA)));
 
         $this->doc = $this->documento('5f2b8c0e9a1d4e7f8a6b3c2d1e0f9a8b.html');
         $this->armazenamento->gravar(ChavesDePasta::documento($this->doc), FonteDeConteudo::deTexto(self::ORIGINAL));
@@ -64,6 +66,35 @@ final class EditarPecaTextoUseCaseTest extends TestCase
         self::assertSame('NOVA PETIÇÃO', $this->doc->getTitulo());
         self::assertSame('Nova Petição.html', $this->doc->getNomeOriginal());
         self::assertSame(strlen($novoConteudo), $this->doc->getTamanhoBytes());
+    }
+
+    #[TestDox('DOC-123: editar o texto marca modificado_em com o instante do relógio (a coluna Modificado acompanha)')]
+    public function testEditarMarcaModificadoEm(): void
+    {
+        self::assertNull($this->doc->getModificadoEm(), 'pré-condição: peça nunca editada');
+
+        $this->useCase->executar($this->doc, '<p>Novo conteúdo editado</p>');
+
+        self::assertEquals(new \DateTimeImmutable(self::AGORA), $this->doc->getModificadoEm());
+    }
+
+    #[TestDox('DOC-123: edição recusada (arquivo sumido ou título longo) não marca modificado_em')]
+    public function testEdicaoRecusadaNaoMarcaModificadoEm(): void
+    {
+        $orfa = $this->documento('0123456789abcdef0123456789abcdef.html');
+        try {
+            $this->useCase->executar($orfa, '<p>x</p>');
+            self::fail('devia falhar');
+        } catch (ArquivoNaoEncontrado) {
+        }
+        self::assertNull($orfa->getModificadoEm());
+
+        try {
+            $this->useCase->executar($this->doc, '<p>x</p>', str_repeat('a', 251));
+            self::fail('devia recusar título longo demais');
+        } catch (TituloDePecaLongoDemaisException) {
+        }
+        self::assertNull($this->doc->getModificadoEm());
     }
 
     #[TestDox('sha256 acompanha a substituição: a peça editada fica com o hash do conteúdo novo')]
@@ -122,7 +153,7 @@ final class EditarPecaTextoUseCaseTest extends TestCase
         $raiz  = sys_get_temp_dir() . '/e2-editar-peca-' . bin2hex(random_bytes(6));
         $disco = $this->discoEm($raiz);
         $disco->gravar(ChavesDePasta::documento($this->doc), FonteDeConteudo::deTexto(self::ORIGINAL));
-        $useCase = new EditarPecaTextoUseCase($this->em, $disco);
+        $useCase = new EditarPecaTextoUseCase($this->em, $disco, new MockClock(new \DateTimeImmutable(self::AGORA)));
 
         $this->em->expects($this->never())->method('flush');
         chmod($raiz, 0o000);

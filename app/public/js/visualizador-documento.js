@@ -108,12 +108,17 @@
     const MIMES_RTF  = ['application/rtf', 'application/x-rtf', 'text/rtf'];
     const MIMES_EML  = ['message/rfc822'];
     const MIMES_ZIP  = ['application/zip', 'application/x-zip-compressed', 'application/x-zip'];
+    const MIMES_ASSINATURA = [
+        'application/pkcs7-signature', 'application/x-pkcs7-signature',
+        'application/pkcs7-mime', 'application/x-pkcs7-mime',
+    ];
     const EXT_ODT  = ['odt'];
     const EXT_PPTX = ['pptx', 'ppsx'];
     const EXT_ODP  = ['odp'];
     const EXT_RTF  = ['rtf'];
     const EXT_EML  = ['eml'];
     const EXT_ZIP  = ['zip'];
+    const EXT_ASSINATURA = ['p7s', 'p7m'];
 
     /* ------------------------------------------------------------ util --- */
 
@@ -152,6 +157,7 @@
         if (MIMES_RTF.includes(m) || EXT_RTF.includes(ext))           { return 'rtf'; }
         if (MIMES_EML.includes(m) || EXT_EML.includes(ext))           { return 'eml'; }
         if (MIMES_ZIP.includes(m) || EXT_ZIP.includes(ext))           { return 'zip'; }
+        if (MIMES_ASSINATURA.includes(m) || EXT_ASSINATURA.includes(ext)) { return 'assinatura'; }
         if (m.startsWith('text/') || MIMES_TEXTO.includes(m) || m.endsWith('+xml') || EXT_TEXTO.includes(ext)) {
             return 'texto';
         }
@@ -956,6 +962,23 @@
         return div;
     }
 
+    /* P7S/P7M (bj-visualizar.js L84): o envelope não tem o que mostrar no navegador. O aviso é o
+       do desenho SEM a frase "no sistema, o documento assinado aparece aqui junto com os dados do
+       certificado" — o sistema não abre o envelope nem valida a assinatura. Só textContent. */
+    function blocoAssinatura(nome, urlDownload) {
+        const ext = extensao(nome).toUpperCase() || 'P7S';
+        const div = el('div', 'p-5 text-center text-muted w-100');
+        div.appendChild(el('i', 'bi bi-patch-check-fill display-1 d-block mb-3 text-success'));
+        div.appendChild(el('p', 'fw-bold mb-1', nome || 'Assinatura digital'));
+        div.appendChild(el('p', null, 'Envelope de assinatura digital (' + ext + '). Para conferir a assinatura, use o validador oficial do ITI.'));
+        const a = el('a', 'btn btn-primary');
+        a.href = urlDownload;
+        a.appendChild(el('i', 'bi bi-download me-1'));
+        a.appendChild(document.createTextNode(' Baixar arquivo'));
+        div.appendChild(a);
+        return div;
+    }
+
     function blocoCarregando(nome) {
         const div = el('div', 'vd-carregando p-5 text-center text-muted w-100');
         const sp = el('div', 'spinner-border spinner-border-sm me-2');
@@ -1429,6 +1452,7 @@
         if (tipo === 'imagem') { renderImagem(alvo, o); return; }
         if (tipo === 'audio')  { renderAudio(alvo, o); return; }
         if (tipo === 'video')  { renderVideo(alvo, o); return; }
+        if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload)); return; }
 
         const render = {
             docx: renderDocx,

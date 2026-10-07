@@ -69,7 +69,7 @@
     // dc `zoom`: de 10 em 10, de 50% a 200% (DOC-49).
     const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_PASSO = 10;
     // dc `temZoom`: sem zoom para áudio, vídeo, ZIP (lista) e o que não tem visualização.
-    const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'rtf', 'eml'];
+    const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml'];
     const TIPOS_IMPRIMIVEIS = ['pdf', 'imagem'];
     // Sem a propriedade CSS `zoom`, o grupo some (o CSS tem o @supports correspondente).
     const ZOOM_SUPORTADO = !window.CSS || typeof window.CSS.supports !== 'function' || window.CSS.supports('zoom', '1');

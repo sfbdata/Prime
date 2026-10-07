@@ -118,12 +118,25 @@ final class PastaExploradorVisorTest extends TestCase
         $js = $this->ler(self::VISOR);
 
         self::assertStringContainsString('const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_PASSO = 10;', $js);
-        self::assertStringContainsString("const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'rtf', 'eml'];", $js);
+        self::assertStringContainsString("const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml'];", $js, 'DOC-109: o ODP tem zoom (dc temZoom: pptx cobre ODP)');
         self::assertStringContainsString("el.alvo.style.setProperty('--pex-visor-zoom', String(zoom / 100));", $this->funcao($js, 'aplicarZoom'));
 
         $css = $this->ler(self::CSS);
         self::assertMatchesRegularExpression('/\.pex-visor-alvo \{[^}]*zoom: var\(--pex-visor-zoom\);/s', $css, 'a escala é do contêiner, não de cada renderizador');
         self::assertMatchesRegularExpression('/\.pex-visor-alvo \{[^}]*margin: 0 auto;/s', $css, 'centralizar por justify-content cortaria a esquerda acima de 100%');
+    }
+
+    #[TestDox('DOC-110: a data da meta do visor é a Modificado da lista (modificadoEm ?? carregadoEm), não a do upload')]
+    public function testDataDoVisorEhAModificado(): void
+    {
+        $js  = $this->ler(self::EXPLORADOR);
+        $ini = strpos($js, 'return window.PexVisor.abrir({');
+        self::assertNotFalse($ini);
+        $abrir = substr($js, $ini, (int) strpos($js, 'indice: i,', $ini) - $ini);
+
+        self::assertStringContainsString('data: formatarData(dataModificacao(a)),', $abrir);
+        self::assertStringNotContainsString('formatarData(a.carregadoEm)', $abrir);
+        self::assertStringContainsString('function dataModificacao(a) { return a.modificadoEm || a.carregadoEm; }', $js);
     }
 
     #[TestDox('imprimir só para PDF e imagem, por iframe OCULTO; nos demais o botão fica desabilitado com o motivo no title')]

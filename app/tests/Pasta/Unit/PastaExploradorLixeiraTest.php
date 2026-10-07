@@ -54,7 +54,7 @@ final class PastaExploradorLixeiraTest extends TestCase
     {
         $excluir = $this->funcao('excluirItens');
         // confirm() mantido (S-3), ANTES do pedido.
-        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'if (!confirm(avisoExclusaoDoLote(itens))) return;'));
+        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;'));
         // O que sai da memória é guardado (o objeto inteiro), não recriado depois.
         self::assertStringContainsString('saiu.arquivos.unshift(arquivos.splice(i, 1)[0]);', $excluir);
         self::assertStringContainsString('saiu.pastas.unshift(pastas.splice(i, 1)[0]);', $excluir);

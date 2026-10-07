@@ -146,7 +146,24 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString('baixar(o.url, ' . $teto . ',', self::corpoDaFuncao($js, $render));
     }
 
-    #[TestDox('text/rtf e ODT/PPTX com MIME application/zip não caem no texto nem no ZIP: a ordem do tipoDe decide')]
+    #[TestDox('DOC-114: P7S/P7M viram "assinatura" — aviso do desenho (bj-visualizar.js L84) por textContent, sem baixar o envelope e sem prometer validação que o sistema não faz')]
+    public function testAssinaturaDigitalComAvisoDoDesenho(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("const EXT_ASSINATURA = ['p7s', 'p7m'];", $js);
+        self::assertStringContainsString("{ return 'assinatura'; }", self::corpoDaFuncao($js, 'tipoDe'));
+        self::assertStringContainsString("if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload)); return; }", self::corpoDaFuncao($js, 'abrir'));
+
+        $bloco = self::corpoDaFuncao($js, 'blocoAssinatura');
+        self::assertStringContainsString("'Envelope de assinatura digital (' + ext + '). Para conferir a assinatura, use o validador oficial do ITI.'", $bloco);
+        self::assertStringContainsString('bi-patch-check-fill', $bloco);
+        self::assertStringNotContainsString('No sistema', $bloco, 'o sistema não abre o envelope nem mostra o certificado');
+        self::assertStringNotContainsString('innerHTML', $bloco);
+        self::assertStringNotContainsString('baixar(', $bloco, 'nada a ler: o envelope não é baixado para a tela');
+    }
+
+        #[TestDox('text/rtf e ODT/PPTX com MIME application/zip não caem no texto nem no ZIP: a ordem do tipoDe decide')]
     public function testOrdemDoTipoDe(): void
     {
         $corpo = self::corpoDaFuncao(self::modulo(), 'tipoDe');

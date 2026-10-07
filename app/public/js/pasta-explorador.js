@@ -677,7 +677,7 @@
                     // O desenho é omisso: subindo pela trilha com o filtro ativo, uma pasta sem
                     // nada do tipo não pode parecer vazia — o chip "Mostrando somente" fica logo acima.
                     ? 'Nenhum item do tipo ' + rotuloFiltro(filtroTipo) + (caminho.length ? ' nesta pasta.' : ' aqui.')
-                    : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou clique em Anexar.' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.'));
+                    : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.'));
             el.vazio.hidden = false;
         } else {
             el.vazio.hidden = true;
@@ -1271,13 +1271,18 @@
             if (limpezaDesmarcados.has(id)) limpezaDesmarcados.delete(id); else limpezaDesmarcados.add(id);
             renderizarLimpeza(false);
         });
-        /* Excluir (dc `limpExcluir`): vai pelo excluir-lote, com a MESMA confirmação do Excluir da
-           barra — nada é excluído sem o usuário confirmar. Fecha a lista depois do sucesso. */
+        /* Excluir (dc `limpExcluir`, L4952): vai pelo excluir-lote do Excluir da barra — nada é
+           excluído sem o usuário confirmar —, mas com a confirmação e o aviso do desenho. O prazo
+           da lixeira não entra: ela não tem purga automática. Fecha a lista depois do sucesso. */
         el.limpezaExcluir.addEventListener('click', function () {
-            const itens = sugestoesDeLimpeza().filter(function (x) { return !limpezaDesmarcados.has(x.a.id); }).map(function (x) {
+            const marcados = sugestoesDeLimpeza().filter(function (x) { return !limpezaDesmarcados.has(x.a.id); });
+            const itens = marcados.map(function (x) {
                 return { tipo: 'arquivo', id: x.a.id, nome: x.a.nome, dado: x.a };
             });
-            excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); });
+            excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); }, {
+                confirmacao: 'Excluir ' + itens.length + ' arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.',
+                aviso: itens.length + ' arquivo(s) excluído(s) · ' + formatarBytes(somaDaLimpeza(marcados)) + ' liberados',
+            });
         });
     }
 
@@ -1569,7 +1574,7 @@
                 const t = tipoDe(a.nome);
                 return {
                     id: a.id, nome: a.nome, mime: a.mime || '', viewUrl: a.viewUrl, downloadUrl: a.downloadUrl,
-                    icone: t[0], tipo: t[2], tamanho: a.tamanho ? formatarBytes(a.tamanho) : '', data: formatarData(a.carregadoEm),
+                    icone: t[0], tipo: t[2], tamanho: a.tamanho ? formatarBytes(a.tamanho) : '', data: formatarData(dataModificacao(a)),
                 };
             }),
             indice: i,
@@ -1607,7 +1612,7 @@
        próprios). Backspace / Alt+← / Alt+↑ sobem um nível de qualquer ponto do explorador (como
        no L2); os demais atalhos só com o foco NA LISTA ou numa linha — com o foco num botão da
        faixa, do Organizar, da barra ou de um popover, Enter/Espaço/setas são do navegador.
-       Ctrl+A tudo; Del exclui; F2 renomeia; Enter abre; Espaço visualiza; Esc limpa (ou, com um
+       Ctrl+A tudo; Del exclui; F2 renomeia; Enter abre; Espaço visualiza (só arquivo); Esc limpa (ou, com um
        popover aberto, só o fecha); Ctrl+X/Ctrl+C/Ctrl+V recortam/copiam/colam (o Colar segue o
        modo do que está guardado); setas, Home e End movem a seleção (Shift estende). */
     raiz.addEventListener('keydown', function (e) {
@@ -1664,7 +1669,8 @@
         }
         if (k === ' ') {
             const alvo = sel.length === 1 ? sel[0] : (linhaFocada ? itemPorChave(chaveDoElemento(linhaFocada)) : null);
-            if (alvo) { e.preventDefault(); if (alvo.tipo === 'arquivo') abrirPreviewDe(alvo.dado); else entrar(alvo.id); }
+            // dc L4911: o Espaço só visualiza ARQUIVO; numa pasta não faz nada (entrar é o Enter).
+            if (alvo && alvo.tipo === 'arquivo') { e.preventDefault(); abrirPreviewDe(alvo.dado); }
             return;
         }
         if (ctrl && baixa === 'x') { if (sel.length) { e.preventDefault(); recortar(sel); } return; }
@@ -2480,11 +2486,14 @@
        Samuel decidir (S-3). Desde o L7 o servidor manda para a LIXEIRA e devolve `lixeira: true`
        e os `ids` — é o que o "Desfazer" do toast manda de volta a `urlRestaurar`. O que sai da
        memória é guardado (objetos inteiros, com tokens e URLs) para voltar sem recarregar. */
-    function excluirItens(itens, aoExcluir) {
+    /* `textos` (opcional): `confirmacao` e `aviso` próprios de quem chama (a limpeza, dc L4952);
+       sem eles, a confirmação e o toast genéricos do Excluir. */
+    function excluirItens(itens, aoExcluir, textos) {
         if (!itens.length) return;
+        const t = textos || {};
         const lote = separarChaves(itens.map(chaveDe));
         if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
-        if (!confirm(avisoExclusaoDoLote(itens))) return;
+        if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;
         postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
             if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
             // O back leva a ÁRVORE de cada pasta (mesmo carimbo): tira as filhas e os arquivos delas.
@@ -2503,7 +2512,7 @@
             if (aoExcluir) aoExcluir();
             if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
             invalidarContagemDaLixeira();
-            const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';
+            const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
             const desfazer = desfazerDe(res.j, saiu, itens.length);
             toast(texto, false, desfazer);
         }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });

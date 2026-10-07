@@ -44,6 +44,25 @@ final class PastaExploradorInteracaoTest extends TestCase
         return substr($js, $ini, $fim - $ini);
     }
 
+    #[TestDox('DOC-121: Espaço só visualiza ARQUIVO (dc L4911) — numa pasta não faz nada; entrar na pasta é o Enter')]
+    public function testEspacoNaoEntraNaPasta(): void
+    {
+        $js  = $this->js();
+        $ini = strpos($js, "        if (k === ' ') {");
+        self::assertNotFalse($ini);
+        $espaco = substr($js, $ini, (int) strpos($js, "\n        }", $ini) - $ini);
+
+        self::assertStringContainsString("if (alvo && alvo.tipo === 'arquivo') { e.preventDefault(); abrirPreviewDe(alvo.dado); }", $espaco);
+        self::assertStringNotContainsString('entrar(', $espaco, 'o Espaço não pode entrar na pasta');
+    }
+
+    #[TestDox('DOC-105: vazio dentro de subpasta com o texto do desenho (dc L4872) — "use Colar (Ctrl+V)"; o vazio da raiz segue como estava')]
+    public function testVazioDaSubpasta(): void
+    {
+        $js = $this->js();
+        self::assertStringContainsString("(caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.')", $js);
+    }
+
     #[TestDox('teclado: nenhum atalho dispara com foco em campo de texto, select, contenteditable, dentro do checklist, nem com o menu aberto; Enter/Espaço/Del/F2/setas/Ctrl+A só com o foco na lista ou numa linha')]
     public function testGuardasDoTeclado(): void
     {
@@ -206,11 +225,11 @@ final class PastaExploradorInteracaoTest extends TestCase
     {
         $js = $this->js();
 
-        self::assertStringContainsString('if (!confirm(avisoExclusaoDoLote(itens))) return;', $js);
+        self::assertStringContainsString('if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;', $js);
         self::assertStringContainsString("return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;", $js);
         self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';", $js);
         self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');
-        self::assertStringContainsString("const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';", $js);
+        self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');", $js);
         self::assertStringContainsString('toast(texto, false, desfazer);', $this->funcao('excluirItens'));
         // Toast do desenho: 4,2 s (dc L4772).
         self::assertStringContainsString('const TOAST_MS       = 4200;', $js);
