@@ -130,6 +130,7 @@ final class PastaPagamentoController extends AbstractController
                 primeiroVencimento: $campo('vencimento'),
                 comJuros: $campo('juros') === '1',
                 taxaMensal: $campo('taxa'),
+                descricao: $campo('descricao'),
             ));
         } catch (\DomainException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);

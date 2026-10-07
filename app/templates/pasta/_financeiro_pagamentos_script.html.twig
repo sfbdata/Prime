@@ -403,16 +403,20 @@
             if (taxa === null || !(taxa > 0 && taxa <= 10)) { return { novos: [], erro: 'Informe os juros ao mês entre 0 e 10%.' }; }
         }
 
+        // Descrição livre opcional (fora do desenho): mesma regra do servidor.
+        const livre = valorDe('descricao').replace(/\s+/g, ' ').trim();
         const novos = [];
         const hoje  = hojeIso();
-        if (ent > 0) { novos.push({ d: 'Entrada · ' + rotulo, q: dataBR(hoje), v: ent }); }
+        if (ent > 0) { novos.push({ d: livre ? livre + ' · entrada' : 'Entrada · ' + rotulo, q: dataBR(hoje), v: ent }); }
 
         const principal = total - ent;
         if (principal > 0) {
             const valores = calcularParcelas(principal, n, taxa);
             if (valores === null) { return { novos: [], erro: 'O valor é pequeno demais para ' + n + ' parcelas. Diminua o número de parcelas.' }; }
             valores.forEach((v, k) => novos.push({
-                d: n === 1 ? (tipo === 'custas' ? 'Custas e despesas' : 'Honorários contratuais') : (k + 1) + 'ª parcela · ' + rotulo,
+                d: livre
+                    ? (n === 1 ? livre : livre + ' · ' + (k + 1) + '/' + n)
+                    : (n === 1 ? (tipo === 'custas' ? 'Custas e despesas' : 'Honorários contratuais') : (k + 1) + 'ª parcela · ' + rotulo),
                 q: dataBR(somarMeses(venc, k)),
                 v,
             }));

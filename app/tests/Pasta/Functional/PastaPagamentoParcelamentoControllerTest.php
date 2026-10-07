@@ -211,6 +211,39 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('60 parcelas (o teto) gravam 60 linhas')]
+    public function testTetoDe60(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['total' => '6.000,00', 'parcelas' => '60']);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertCount(60, $this->linhasGravadas($pastaId));
+    }
+
+    #[TestDox('a descrição livre opcional é gravada em todas as linhas geradas')]
+    public function testDescricaoLivreGravada(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, [
+            'total' => '300', 'entrada' => '100', 'entradaPaga' => '0', 'parcelas' => '2', 'descricao' => 'Contrato de março',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(
+            ['Contrato de março · entrada', 'Contrato de março · 1/2', 'Contrato de março · 2/2'],
+            array_column($this->linhasGravadas($pastaId), 'descricao'),
+        );
+    }
+
     #[TestDox('base % da causa usa o valor da causa gravado na pasta')]
     public function testPercentualDaCausa(): void
     {
@@ -256,11 +289,11 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         // e nem a entrada pode ficar gravada sozinha.
         yield 'valor total não é dinheiro'  => [['total' => 'abc', 'parcelas' => '5', 'entrada' => '500,00']];
         yield 'valor total zero'            => [['total' => '0,00', 'parcelas' => '5', 'entrada' => '500,00']];
-        yield 'parcelas acima do teto'      => [['parcelas' => '121', 'entrada' => '500,00']];
+        yield 'parcelas acima do teto (61)' => [['parcelas' => '61', 'entrada' => '500,00']];
         yield 'taxa acima do teto'          => [['parcelas' => '5', 'juros' => '1', 'taxa' => '50', 'entrada' => '500,00']];
         yield 'vencimento inexistente'      => [['parcelas' => '5', 'vencimento' => '2027-02-31', 'entrada' => '500,00']];
         yield 'êxito ainda não grava'       => [['tipo' => 'exito']];
-        yield 'pequeno demais'              => [['total' => '1,00', 'parcelas' => '120']];
+        yield 'pequeno demais'              => [['total' => '0,50', 'parcelas' => '60']];
     }
 
     /** @param array<string, string> $campos */
@@ -431,7 +464,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         // Corpo: tipo → grade → entrada paga → prévia.
         $corpo = "{$form} > .ps-np-corpo";
         self::assertSame(
-            ['ps-np-bloco', 'ps-np-grade', 'ps-np-entrada-paga js-np-entrada-paga', 'ps-np-previa'],
+            ['ps-np-bloco', 'ps-np-grade', 'ps-np-entrada-paga js-np-entrada-paga', 'ps-np-campo ps-np-descricao', 'ps-np-previa'],
             $crawler->filter("{$corpo} > *")->each(static fn (Crawler $d): string => (string) $d->attr('class')),
         );
 
@@ -454,6 +487,12 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame(['Valor fixo', '% da causa'], $crawler->filter("{$corpo} > .ps-np-grade > .ps-np-campo > .ps-np-seg > [data-base]")->each(static fn (Crawler $b): string => trim($b->text())));
         self::assertSame(['Sem juros', 'Com juros'], $crawler->filter("{$corpo} > .ps-np-grade > .ps-np-campo > .ps-np-juros > .ps-np-seg > [data-juros]")->each(static fn (Crawler $b): string => trim($b->text())));
         self::assertCount(1, $crawler->filter("{$corpo} > .ps-np-grade > .ps-np-campo > .ps-np-juros > input.ps-np-taxa[name=\"taxa\"]"));
+
+        // Descrição livre: desvio consciente, opcional, abaixo dos campos do dc.
+        $descricao = $crawler->filter("{$corpo} > label.ps-np-descricao > input[name=\"descricao\"]");
+        self::assertCount(1, $descricao);
+        self::assertNull($descricao->attr('required'), 'opcional');
+        self::assertSame('110', $descricao->attr('maxlength'));
 
         // Prévia (dc L.1990-1999).
         self::assertSame('Prévia', trim($crawler->filter("{$corpo} > .ps-np-previa > .ps-np-previa-cab > .ps-np-rotulo")->text()));

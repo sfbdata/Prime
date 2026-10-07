@@ -73,6 +73,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
             'vencimento'  => '2026-11-06',
             'juros'       => false,
             'taxa'        => '1',
+            'descricao'   => '',
         ];
 
         return new ParcelamentoDaPastaInput(
@@ -86,6 +87,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
             primeiroVencimento: (string) $c['vencimento'],
             comJuros: (bool) $c['juros'],
             taxaMensal: (string) $c['taxa'],
+            descricao: (string) $c['descricao'],
         );
     }
 
@@ -214,16 +216,39 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         self::assertSame([['Entrada · honorários', '1000.00', '2026-10-06', '2026-10-06']], $this->linhas());
     }
 
-    #[TestDox('120 parcelas é o teto e passa')]
+    #[TestDox('60 parcelas é o teto (o mesmo do campo do desenho) e passa')]
     public function testTetoDeParcelas(): void
     {
         $this->em->expects($this->once())->method('flush');
 
         $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input([
-            'total' => '120.000,00', 'parcelas' => (string) RegistrarParcelamentoDaPastaUseCase::MAX_PARCELAS,
+            'total' => '60.000,00', 'parcelas' => '60',
         ]));
 
-        self::assertCount(120, $this->persistidos);
+        self::assertSame(60, RegistrarParcelamentoDaPastaUseCase::MAX_PARCELAS);
+        self::assertCount(60, $this->persistidos);
+    }
+
+    #[TestDox('descrição livre vai em todas as linhas: " · k/N" nas parcelas e " · entrada" na entrada')]
+    public function testDescricaoLivreEmTodasAsLinhas(): void
+    {
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input([
+            'total' => '300', 'entrada' => '100', 'parcelas' => '2', 'descricao' => '  Contrato   de março ',
+        ]));
+
+        self::assertSame(
+            ['Contrato de março · entrada', 'Contrato de março · 1/2', 'Contrato de março · 2/2'],
+            array_column($this->linhas(), 0),
+        );
+    }
+
+    #[TestDox('descrição livre com uma parcela só vai sem sufixo; em branco valem as do desenho')]
+    public function testDescricaoLivreUmaParcela(): void
+    {
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input(['descricao' => 'Acordo extrajudicial']));
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input(['descricao' => '   ']));
+
+        self::assertSame(['Acordo extrajudicial', 'Honorários contratuais'], array_column($this->linhas(), 0));
     }
 
     #[TestDox('taxa no teto (10% a.m.) passa')]
@@ -249,7 +274,8 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         yield 'total negativo'           => [['total' => '-100']];
         yield 'entrada não é dinheiro'   => [['entrada' => '1,2,3']];
         yield 'zero parcelas'            => [['parcelas' => '0']];
-        yield 'acima do teto'            => [['parcelas' => '121']];
+        yield 'acima do teto (61)'       => [['parcelas' => '61']];
+        yield 'descrição longa demais'   => [['descricao' => str_repeat('a', 111)]];
         yield 'parcelas não é número'    => [['parcelas' => 'dez']];
         yield 'parcelas fracionária'     => [['parcelas' => '2.5']];
         yield 'vencimento vazio'         => [['vencimento' => '']];
@@ -260,7 +286,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         yield 'taxa não é número'        => [['juros' => true, 'taxa' => 'um']];
         yield 'percentual zero'          => [['base' => 'pct', 'percentual' => '0']];
         yield 'percentual acima de 100'  => [['base' => 'pct', 'percentual' => '101']];
-        yield 'pequeno demais'           => [['total' => '1,00', 'parcelas' => '120']];
+        yield 'pequeno demais'           => [['total' => '0,50', 'parcelas' => '60']];
     }
 
     /** @param array<string, string|bool> $campos */

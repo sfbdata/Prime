@@ -43,11 +43,18 @@ use Psr\Clock\ClockInterface;
 final class RegistrarParcelamentoDaPastaUseCase
 {
     /**
-     * Teto de parcelas aceito pelo servidor. O campo do desenho vai até 60
-     * (dc L.1966); o servidor aceita até 120 (10 anos) como trava contra POST
-     * forjado que gere milhares de linhas, sem recusar um parcelamento longo real.
+     * Teto de parcelas: o mesmo do campo do desenho (dc L.1966, `min(60, …)`) e
+     * da spec. O servidor recusa acima disso — também é a trava contra POST
+     * forjado que gere centenas de linhas.
      */
-    public const MAX_PARCELAS = 120;
+    public const MAX_PARCELAS = 60;
+
+    /**
+     * Descrição livre opcional (desvio consciente do desenho, que não tem o
+     * campo — ver o comentário do modal). 110 e não os 120 da coluna: sobra
+     * espaço para o sufixo " · 60/60" ou " · entrada".
+     */
+    public const MAX_DESCRICAO = 110;
 
     /**
      * Teto da taxa de juros, em % ao mês. 10% a.m. (≈ 214% a.a.) já está muito
@@ -106,12 +113,21 @@ final class RegistrarParcelamentoDaPastaUseCase
         $valores   = $principal > 0 ? $this->calculadora->parcelas($principal, $quantidade, $taxa) : [];
         $datas     = $principal > 0 ? $this->calculadora->vencimentos($primeiro, $quantidade) : [];
 
+        $descricaoLivre = $this->lerDescricao($input->descricao);
+
         $rotulo    = self::ROTULOS[$tipo];
         $hoje      = $this->clock->now()->setTime(0, 0);
         $lancados  = [];
 
         if ($entradaCentavos > 0) {
-            $entrada = $this->novo($pasta, $autor, $tenant, 'Entrada · ' . $rotulo, $entradaCentavos, $hoje);
+            $entrada = $this->novo(
+                $pasta,
+                $autor,
+                $tenant,
+                $descricaoLivre !== null ? $descricaoLivre . ' · entrada' : 'Entrada · ' . $rotulo,
+                $entradaCentavos,
+                $hoje,
+            );
             if ($input->entradaPaga) {
                 $entrada->alternarQuitacao($hoje);
             }
@@ -119,7 +135,14 @@ final class RegistrarParcelamentoDaPastaUseCase
         }
 
         foreach ($valores as $k => $centavos) {
-            $descricao  = $quantidade === 1 ? self::DESCRICAO_UNICA[$tipo] : sprintf('%dª parcela · %s', $k + 1, $rotulo);
+            $descricao = match (true) {
+                // A descrição digitada vai em TODAS as parcelas; com mais de uma,
+                // cada linha leva " · k/N" para continuar distinguível na lista.
+                $descricaoLivre !== null && $quantidade === 1 => $descricaoLivre,
+                $descricaoLivre !== null                      => sprintf('%s · %d/%d', $descricaoLivre, $k + 1, $quantidade),
+                $quantidade === 1                             => self::DESCRICAO_UNICA[$tipo],
+                default                                       => sprintf('%dª parcela · %s', $k + 1, $rotulo),
+            };
             $lancados[] = $this->novo($pasta, $autor, $tenant, $descricao, $centavos, $datas[$k]);
         }
 
@@ -209,6 +232,23 @@ final class RegistrarParcelamentoDaPastaUseCase
         }
 
         return $quantidade;
+    }
+
+    /** Em branco = usa as descrições do desenho. */
+    private function lerDescricao(string $texto): ?string
+    {
+        $texto = trim((string) preg_replace('/\s+/u', ' ', $texto));
+        if ($texto === '') {
+            return null;
+        }
+
+        if (mb_strlen($texto) > self::MAX_DESCRICAO) {
+            throw new \InvalidArgumentException(
+                sprintf('A descrição pode ter no máximo %d caracteres.', self::MAX_DESCRICAO)
+            );
+        }
+
+        return $texto;
     }
 
     /** Juros ao mês, em percentual decimal com ponto ("1.5"). */

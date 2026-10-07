@@ -651,7 +651,13 @@
    calculada no navegador só para mostrar; o POST leva os CAMPOS e o servidor
    refaz a conta (`RegistrarParcelamentoDaPastaUseCase`) — o que grava é a
    conta dele. Êxito e sucumbência aparecem como no desenho, mas desabilitados:
-   gravá-los depende de migration (fatia 11b). #}
+   gravá-los depende de migration (fatia 11b).
+
+   DESVIO CONSCIENTE do desenho (decisão do orquestrador, P16a): o campo
+   opcional "Descrição", abaixo dos campos do dc. O desenho não o tem, mas o
+   modal antigo tinha descrição livre e a função não pode se perder. Em branco,
+   valem as descrições do desenho; preenchido, vai em todas as linhas geradas
+   (" · k/N" com mais de uma parcela, " · entrada" na entrada). #}
 <div class="modal fade ps-np-modal" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true"
      data-url-parcelar="{{ path('pasta_pagamento_parcelar', {id: pasta.id}) }}"
      data-max-parcelas="60">
@@ -734,6 +740,12 @@
                     <button type="button" class="ps-np-entrada-paga js-np-entrada-paga" aria-pressed="true" hidden>
                         <i class="bi bi-check-square-fill"></i>Entrada já recebida hoje
                     </button>
+
+                    <label class="ps-np-campo ps-np-descricao">
+                        <span class="ps-np-rotulo">Descrição <span class="ps-np-opcional">(opcional)</span></span>
+                        <input type="text" class="ps-np-input" name="descricao" maxlength="110" autocomplete="off"
+                               placeholder="Ex.: Honorários do contrato de março">
+                    </label>
 
                     <div class="ps-np-previa" aria-live="polite">
                         <div class="ps-np-previa-cab">

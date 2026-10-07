@@ -40,6 +40,8 @@ final class ParcelamentoDaPastaInput
         public readonly bool $comJuros,
         /** Juros ao mês em percentual ("1", "1,5"). Ignorado sem juros. */
         public readonly string $taxaMensal,
+        /** Descrição livre opcional; em branco usa as do desenho ("kª parcela · honorários"). */
+        public readonly string $descricao = '',
     ) {
     }
 }

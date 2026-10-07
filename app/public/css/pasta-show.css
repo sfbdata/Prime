@@ -4565,6 +4565,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     color: var(--ps-np-rotulo);
 }
 .ps-np-nota { font-size: 11.5px; color: var(--ps-np-nota); line-height: 1.45; }
+/* Campo fora do desenho (desvio consciente, ver show.html.twig): discreto, sem caixa-alta no "(opcional)". */
+.ps-np-opcional { font-weight: 400; letter-spacing: 0; text-transform: none; }
 
 .ps-np-tipos { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 6px; }
 .ps-np-tipo {
