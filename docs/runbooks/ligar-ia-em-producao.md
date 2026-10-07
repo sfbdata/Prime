@@ -155,7 +155,7 @@ cd /opt/jusprime && sed -i '/^IA_API_KEY=/d' .env.prod && ./scripts/deploy-prod-
 Para desligar só **um** escritório, sem deploy: `/admin/inteligencia` daquele escritório → desligar.
 
 **A fila também é cortada.** O `ProcessarAnaliseDeInteligenciaHandler` reconfere a disponibilidade
-**antes de chamar o provedor** (IA-034): plataforma (`IA_HABILITADA` + provedor), escritório e a
+**antes de chamar o provedor** (IA-034L): plataforma (`IA_HABILITADA` + provedor), escritório e a
 permissão de módulo de quem pediu — a mesma pergunta da solicitação, sem a cota (a análise já foi
 contada quando entrou na fila). Uma análise que estava na fila quando a IA foi desligada termina sem
 sair para o provedor:

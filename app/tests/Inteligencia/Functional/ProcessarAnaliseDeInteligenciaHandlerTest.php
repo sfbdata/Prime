@@ -126,7 +126,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertSame(1, $relida->getTentativas());
     }
 
-    #[TestDox('IA-034: IA_HABILITADA desligada com a análise na fila → indisponivel com o motivo e o provedor NÃO é chamado')]
+    #[TestDox('IA-034L: IA_HABILITADA desligada com a análise na fila → indisponivel com o motivo e o provedor NÃO é chamado')]
     public function testPlataformaDesligadaCortaAFila(): void
     {
         self::bootKernel();
@@ -146,7 +146,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertNull($relida->getResumo());
     }
 
-    #[TestDox('IA-034: escritório desligou a IA com a análise na fila → falhou com o motivo, provedor não chamado')]
+    #[TestDox('IA-034L: escritório desligou a IA com a análise na fila → falhou com o motivo, provedor não chamado')]
     public function testEscritorioDesligadoCortaAFila(): void
     {
         self::bootKernel();
@@ -167,7 +167,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringContainsString('desligada neste escritório', (string) $relida->getErroMotivo());
     }
 
-    #[TestDox('IA-034: a cota NÃO é reconferida no worker — a análise no limite exato (contada na solicitação) conclui')]
+    #[TestDox('IA-034L: a cota NÃO é reconferida no worker — a análise no limite exato (contada na solicitação) conclui')]
     public function testCotaNaoEhReconferidaNoWorker(): void
     {
         self::bootKernel();

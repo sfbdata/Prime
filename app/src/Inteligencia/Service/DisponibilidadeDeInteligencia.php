@@ -46,7 +46,7 @@ final class DisponibilidadeDeInteligencia
 
     /**
      * Os três primeiros níveis (plataforma → escritório → permissão), sem a cota. É a pergunta do
-     * worker antes de chamar o provedor (IA-034): desligar a IA tem de cortar também o que já está
+     * worker antes de chamar o provedor (IA-034L): desligar a IA tem de cortar também o que já está
      * na fila. A cota fica de fora porque a análise que o worker vai processar já foi contada na
      * solicitação — reconferir aqui a recusaria por ela mesma no limite exato.
      */

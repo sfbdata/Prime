@@ -172,7 +172,7 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         }
     }
 
-    #[TestDox('paraProcessamento (worker, IA-034): mesmos três níveis, mas a cota não é consultada')]
+    #[TestDox('paraProcessamento (worker, IA-034L): mesmos três níveis, mas a cota não é consultada')]
     public function testParaProcessamentoIgnoraACota(): void
     {
         $this->configuracoes->method('findDoTenant')->willReturn($this->configuracao(true, diario: 0, mensal: 0));

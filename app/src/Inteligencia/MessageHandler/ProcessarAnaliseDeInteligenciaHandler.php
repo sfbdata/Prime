@@ -221,7 +221,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
     }
 
     /**
-     * IA-034: desligar a IA (plataforma, escritório ou permissão de quem pediu) corta também o que
+     * IA-034L: desligar a IA (plataforma, escritório ou permissão de quem pediu) corta também o que
      * já está na fila. A pergunta é a mesma da solicitação, sem a cota — esta análise já foi
      * contada quando entrou na fila. Indisponível → a linha termina com o motivo e o provedor NÃO
      * é chamado. Sem re-lançar: é um desfecho, não um erro; repetir a mensagem não muda nada.

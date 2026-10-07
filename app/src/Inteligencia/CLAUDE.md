@@ -17,7 +17,7 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
    duração e classe do erro. O texto do pedido carrega conteúdo processual.
 4. **`nivelSigilo > 0` nunca sai.** `MontadorDeContextoDoPush` lança `ContextoBloqueadoException` antes de
    qualquer leitura; o UseCase recusa (409) e o handler marca `falhou` sem chamar o provedor.
-   **Desligar corta a fila (IA-034):** o handler reconfere `DisponibilidadeDeInteligencia::paraProcessamento`
+   **Desligar corta a fila (IA-034L):** o handler reconfere `DisponibilidadeDeInteligencia::paraProcessamento`
    (plataforma, escritório, módulo de quem pediu; a cota não) antes do fluxo e do provedor. Indisponível →
    `indisponivel`/`falhou` com o motivo, sem chamar o provedor e sem relançar.
 5. **Conteúdo externo é dado, não instrução.** TODO valor que não nasceu no código (NUP, classe, assunto,
