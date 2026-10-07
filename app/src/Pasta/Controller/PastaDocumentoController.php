@@ -34,6 +34,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
@@ -92,6 +93,10 @@ final class PastaDocumentoController extends AbstractController
         private readonly MontarZipDeDocumentosUseCase $montarZipUseCase,
         private readonly CopiarDocumentosDaPastaUseCase $copiarUseCase,
         private readonly EntregaDeArquivoGerado $entregaGerada,
+        // `limiter.pasta_documentos_zip` (SEC-004). Interface, não a classe concreta: a injeção
+        // de `RateLimiterFactory` por autowiring é deprecada no Symfony 7.4 (e deixa trocar por
+        // dublê em teste, como no AnaliseDaPastaController).
+        private readonly RateLimiterFactoryInterface $pastaDocumentosZipLimiter,
     ) {
     }
 
@@ -362,6 +367,13 @@ final class PastaDocumentoController extends AbstractController
      * a mensagem. Subpasta selecionada leva a subárvore viva; o que está na lixeira nunca entra. A
      * resposta é o arquivo em stream, apagado depois de enviado (`EntregaDeArquivoGerado`); o
      * registro no `audit_log` é do UseCase.
+     *
+     * SEC-004: cada .zip lê até 1 GB, grava um temporário do mesmo tamanho e prende um worker do
+     * PHP até o fim do envio — com o pool pequeno da VPS, um punhado de cliques derruba o sistema
+     * do escritório. Por isso há um limitador por USUÁRIO (`pasta_documentos_zip`, 3 por minuto),
+     * consumido DEPOIS dos guardas do lote (pedido recusado por CSRF, posse ou permissão não gasta
+     * a cota de ninguém) e ANTES do UseCase, que é a parte cara. Estourou → 429 em JSON, com
+     * `Retry-After` em segundos.
      */
     #[Route('/{id}/documentos/zip', name: 'pasta_documentos_zip', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function zip(Pasta $pasta, Request $request): Response
@@ -375,6 +387,17 @@ final class PastaDocumentoController extends AbstractController
             return $lote;
         }
         [$documentos, $secoes, , $tenant] = $lote;
+
+        $cota = $this->pastaDocumentosZipLimiter->create((string) $currentUser->getId())->consume();
+        if (!$cota->isAccepted()) {
+            $resposta = $this->json(
+                ['erro' => 'Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.'],
+                Response::HTTP_TOO_MANY_REQUESTS,
+            );
+            $resposta->headers->set('Retry-After', (string) max(1, $cota->getRetryAfter()->getTimestamp() - time()));
+
+            return $resposta;
+        }
 
         try {
             $saida = $this->montarZipUseCase->executar($pasta, $documentos, $secoes, $currentUser, $tenant);

@@ -264,6 +264,66 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->auditoriasDeZip((int) $alheia->getId()));
     }
 
+    #[TestDox('zip: o 4º pedido do MESMO usuário no minuto → 429 em JSON com Retry-After, sem montar zip nem auditar; outro usuário do escritório segue baixando (SEC-004)')]
+    public function testLimitadorPorUsuario(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $colega          = $this->criarUsuarioSoLeitura($tenant, (int) $pasta->getId());
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $corpo = ['_token' => $this->csrf('pex_lote_' . $pasta->getId()), 'documentos' => [(string) $doc->getId()]];
+
+        for ($i = 1; $i <= 3; ++$i) {
+            $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+            self::assertResponseIsSuccessful("pedido {$i} de 3 ainda está dentro da cota");
+        }
+        self::assertSame(3, $this->auditoriasDeZip((int) $pasta->getId()));
+
+        ArquivoGeradoParaEntrega::limparSobras('zip');
+        $temporariosAntes = $this->temporariosDoZip();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.', $this->json($client)['erro']);
+        $retry = (int) $client->getResponse()->headers->get('Retry-After');
+        self::assertGreaterThanOrEqual(1, $retry);
+        self::assertLessThanOrEqual(60, $retry);
+        self::assertSame(3, $this->auditoriasDeZip((int) $pasta->getId()), 'recusado pelo limitador: o UseCase nem roda');
+        self::assertSame($temporariosAntes, $this->temporariosDoZip(), 'recusado pelo limitador: nenhum temporário gravado');
+
+        // A chave é o usuário, não a pasta nem o escritório: o colega não paga pela cota de quem estourou.
+        $this->logarComTenant($client, $colega, $tenant);
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+        self::assertResponseIsSuccessful('outro usuário do mesmo escritório, mesma pasta: não é afetado');
+        self::assertSame(4, $this->auditoriasDeZip((int) $pasta->getId()));
+    }
+
+    #[TestDox('zip: pedido recusado pelos guardas do lote (CSRF) não gasta a cota do limitador')]
+    public function testRecusaDoLoteNaoGastaCota(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        for ($i = 1; $i <= 4; ++$i) {
+            $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", ['_token' => 'errado', 'documentos' => [(string) $doc->getId()]]);
+            self::assertResponseStatusCodeSame(400);
+        }
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+        ]);
+        self::assertResponseIsSuccessful('as 4 recusas de CSRF não contaram');
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function cliente(): KernelBrowser

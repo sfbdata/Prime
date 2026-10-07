@@ -70,6 +70,14 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '1 minute'
+        # "Baixar .zip" da seleção no explorador de documentos (SEC-004): chave = id do USUÁRIO.
+        # Cada .zip lê até 1 GB, grava um temporário do mesmo tamanho e prende um worker do PHP
+        # até o fim do envio. 3 por minuto cobre o uso real (baixar, perceber que faltou um
+        # arquivo, baixar de novo) e põe teto no clique repetido ou no laço.
+        pasta_documentos_zip:
+            policy: sliding_window
+            limit: 3
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
