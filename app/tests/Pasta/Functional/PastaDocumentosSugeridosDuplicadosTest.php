@@ -89,6 +89,13 @@ final class PastaDocumentosSugeridosDuplicadosTest extends JusPrimeWebTestCase
 
     private function anexar(Pasta $pasta, Tenant $tenant, string $nomeOriginal, ?PastaSecao $secao = null): PastaDocumento
     {
+        // Depois de `abrir()` (que faz clear) a pasta e o escritório ficam desanexados: religa por referência.
+        $em     = $this->em();
+        $pasta  = $em->contains($pasta) ? $pasta : $em->getReference(Pasta::class, $pasta->getId());
+        $tenant = $em->contains($tenant) ? $tenant : $em->getReference(Tenant::class, $tenant->getId());
+        if ($secao !== null && !$em->contains($secao)) {
+            $secao = $em->getReference(PastaSecao::class, $secao->getId());
+        }
         $doc = (new PastaDocumento())
             ->setTenant($tenant)
             ->setPasta($pasta)
