@@ -10,6 +10,10 @@
  *    Hoje, Limpar e a legenda. O `<input type="date">` (`#tarefaPrazo`) continua sendo o campo
  *    enviado: escolher um dia grava o ISO nele e dispara `change` (o texto do dia e os atalhos do
  *    pasta-metas.js ouvem esse evento).
+ * 4. `confirmarPs`/`avisarPs` (PAS-034; dc L.280-288 `cf`, L.597 `edAviso`): a janela de
+ *    confirmação do desenho (título, trecho, Cancelar e o botão vermelho; Enter confirma, Esc
+ *    cancela) e o aviso no rodapé da tela, no lugar do `confirm`/`alert` do navegador. Sem a
+ *    marcação na página (outra tela), caem no `confirm`/`alert` — nunca somem com a pergunta.
  *
  * Nada aqui escreve HTML com dado de usuário: os nomes vêm do Twig (escapados) e o JS só usa
  * textContent, atributos e cópia de nós já desenhados.
@@ -332,7 +336,90 @@
         pintarCampo();
     }
 
+    /* ── 4. Confirmação e aviso ───────────────────────────────────────────── */
+    var confirmacaoAberta = null; // { resolver, foco }
+
+    /**
+     * Abre a janela de confirmação. `opcoes`: { titulo, texto, rotulo ('Excluir'), icone
+     * ('bi-trash3') }. Devolve uma Promise que resolve `true` só se a pessoa confirmar.
+     */
+    function confirmarPs(opcoes) {
+        var o = opcoes || {};
+        var fundo = document.getElementById('psConfirmar');
+        if (!fundo) {
+            return Promise.resolve(window.confirm([o.titulo, o.texto].filter(Boolean).join('\n\n')));
+        }
+        if (confirmacaoAberta) { encerrarConfirmacao(false); }
+        var caixa = fundo.querySelector('.ps-cf');
+        var ok = fundo.querySelector('[data-ps-cf-ok]');
+        document.getElementById('psConfirmarTitulo').textContent = o.titulo || 'Confirmar';
+        document.getElementById('psConfirmarTexto').textContent = o.texto || '';
+        ok.querySelector('span').textContent = o.rotulo || 'Excluir';
+        ok.querySelector('i').className = 'bi ' + (o.icone || 'bi-trash3');
+        fundo.hidden = false;
+
+        return new Promise(function (resolver) {
+            confirmacaoAberta = { resolver: resolver, foco: document.activeElement };
+            setTimeout(function () { caixa.focus(); }, 30);
+        });
+    }
+
+    function encerrarConfirmacao(resposta) {
+        var fundo = document.getElementById('psConfirmar');
+        if (!fundo || !confirmacaoAberta) { return; }
+        var aberta = confirmacaoAberta;
+        confirmacaoAberta = null;
+        fundo.hidden = true;
+        if (aberta.foco && aberta.foco.focus && document.contains(aberta.foco)) { aberta.foco.focus(); }
+        aberta.resolver(resposta);
+    }
+
+    function ligarConfirmacao() {
+        var fundo = document.getElementById('psConfirmar');
+        if (!fundo) { return; }
+        fundo.addEventListener('click', function (e) {
+            if (e.target === fundo || e.target.closest('[data-ps-cf-cancelar]')) { encerrarConfirmacao(false); return; }
+            if (e.target.closest('[data-ps-cf-ok]')) { encerrarConfirmacao(true); }
+        });
+        fundo.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                encerrarConfirmacao(false);
+            } else if (e.key === 'Enter' && !e.target.closest('[data-ps-cf-cancelar]')) {
+                e.preventDefault();
+                encerrarConfirmacao(true);
+            } else if (e.key === 'Tab') {
+                // O foco não sai da janela enquanto ela está aberta.
+                var botoes = Array.prototype.slice.call(fundo.querySelectorAll('button'));
+                var i = botoes.indexOf(document.activeElement);
+                e.preventDefault();
+                botoes[(i + (e.shiftKey ? -1 : 1) + botoes.length) % botoes.length].focus();
+            }
+        });
+    }
+
+    var avisoTimer = 0;
+
+    /** Aviso no rodapé da tela por 2,6 s (o `gmAviso` do desenho). `tipo`: 'ok' (padrão) ou 'erro'. */
+    function avisarPs(mensagem, tipo) {
+        var aviso = document.getElementById('psAviso');
+        if (!aviso) { window.alert(mensagem); return; }
+        var erro = tipo === 'erro';
+        aviso.classList.toggle('is-erro', erro);
+        aviso.querySelector('i').className = 'bi ' + (erro ? 'bi-exclamation-circle-fill' : 'bi-check-circle-fill');
+        aviso.querySelector('span').textContent = String(mensagem || '');
+        aviso.setAttribute('role', erro ? 'alert' : 'status');
+        aviso.hidden = false;
+        clearTimeout(avisoTimer);
+        avisoTimer = setTimeout(function () { aviso.hidden = true; }, 2600);
+    }
+
+    window.confirmarPs = confirmarPs;
+    window.avisarPs = avisarPs;
+
     contadores();
     seletorDeResponsaveis();
     calendarioDoPrazo();
+    ligarConfirmacao();
 })();

@@ -2880,6 +2880,25 @@ document.addEventListener('DOMContentLoaded', function () {
     const cancelarResposta = document.getElementById('timelineRespondendoCancelar');
     const ROTULO_ORFA      = 'Resposta a uma mensagem excluída';
 
+    /* PAS-034: a janela e o aviso da tela (pasta-dialogos.js), no lugar do confirm/alert. */
+    function avisarErroReg(msg) {
+        if (window.avisarPs) { avisarPs(msg, 'erro'); } else { alert(msg); }
+    }
+
+    /* "Excluir o comentário de NOME?" com a data e o trecho (dc L.5906 `comExcluir`). */
+    function confirmarExclusaoReg(cartao) {
+        const autor = (cartao && cartao.querySelector('.ps-anotacao-autor') || {}).textContent || 'colaborador';
+        const data  = cartao ? cartao.querySelector('.ps-anotacao-data') : null;
+        const corpo = cartao ? cartao.querySelector('.pasta-msg-conteudo .ql-editor') : null;
+        const txt   = (corpo ? corpo.innerText : '').replace(/\s+/g, ' ').trim();
+        const opcoes = {
+            titulo: 'Excluir o comentário de ' + autor.trim() + '?',
+            texto: (data && data.title ? data.title + ' · ' : '') + '"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')
+                + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.',
+        };
+        return window.confirmarPs ? confirmarPs(opcoes) : Promise.resolve(confirm(opcoes.titulo));
+    }
+
     function responderA(id, nome) {
         if (!inputRespostaA || !faixaRespondendo) { return; }
         inputRespostaA.value = String(id);
@@ -3133,7 +3152,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const vazio = window.EditorRico
                         ? EditorRico.estaVazio(textareaEd)
                         : textareaEd.value.trim() === '';
-                    if (vazio) { alert('A mensagem não pode ser vazia.'); return; }
+                    if (vazio) { avisarErroReg('A mensagem não pode ser vazia.'); return; }
 
                     btnSalvar.disabled = true;
                     const fd = new FormData();
@@ -3156,11 +3175,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             area.remove();
                             conteudoDiv.classList.remove('d-none');
                         } else {
-                            alert(data.erro ?? 'Erro ao editar.');
+                            avisarErroReg(data.erro ?? 'Erro ao editar.');
                             btnSalvar.disabled = false;
                         }
                     } catch (_) {
-                        alert('Erro de rede.');
+                        avisarErroReg('Erro de rede.');
                         btnSalvar.disabled = false;
                     }
                 });
@@ -3170,9 +3189,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const btnExcluir = e.target.closest('.btn-excluir-msg-pasta');
             if (btnExcluir) {
-                if (!confirm('Excluir esta mensagem? Esta ação não pode ser desfeita.')) { return; }
-
                 const msgId = btnExcluir.dataset.msgId;
+                if (!(await confirmarExclusaoReg(document.getElementById('pasta-msg-' + msgId)))) { return; }
+
                 const fd    = new FormData();
                 fd.append('_token', btnExcluir.dataset.csrf);
 
@@ -3230,10 +3249,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     } else {
                         const data = await resp.json();
-                        alert(data.erro ?? 'Erro ao excluir.');
+                        avisarErroReg(data.erro ?? 'Erro ao excluir.');
                     }
                 } catch (_) {
-                    alert('Erro de rede.');
+                    avisarErroReg('Erro de rede.');
                 }
             }
         });
@@ -5085,6 +5104,60 @@ document.addEventListener('DOMContentLoaded', function () {
     fotosResponsaveis: fotosResponsaveis|default({}),
 }) }}
 {{ include('pasta/_resp_script.html.twig') }}
+
+{# PAS-034 (dc L.280-288 `cf` e L.597 `edAviso`): a janela de confirmação e o aviso da tela, no
+   lugar do `confirm`/`alert` do navegador. Um de cada por página; /js/pasta-dialogos.js
+   (`confirmarPs`/`avisarPs`) só troca TEXTO e mostra/esconde. #}
+<style>
+    .ps-body { --ps-cf-cab: #0b6a96; --ps-cf-ok: #b3262e; --ps-cf-ok-hv: #921f26; --ps-aviso-bg: #12242f; --ps-aviso-ok: #5fd39a; --ps-aviso-erro: #ff8a80; }
+    [data-bs-theme="dark"] .ps-body { --ps-cf-cab: #0a5f86; --ps-cf-ok: #c0392f; --ps-cf-ok-hv: #a3232b; --ps-aviso-bg: #0b161d; }
+    .ps-cf-fundo {
+        position: fixed; inset: 0; z-index: 2147483500; padding: 16px;
+        display: flex; align-items: center; justify-content: center; background: rgba(16,36,48,.32);
+    }
+    .ps-cf-fundo[hidden] { display: none; }
+    .ps-cf {
+        width: min(420px, 100%); border-radius: 4px; overflow: hidden; outline: none;
+        background: var(--ps-card); box-shadow: 0 18px 50px rgba(16,42,58,.28);
+    }
+    .ps-cf-cab { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--ps-cf-cab); color: #fff; }
+    .ps-cf-cab > i { font-size: 16px; }
+    .ps-cf-titulo { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 700; color: #fff; }
+    .ps-cf-fechar {
+        width: 30px; height: 30px; border: none; border-radius: 4px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.16); color: #fff;
+    }
+    .ps-cf-texto { padding: 14px 16px; font-size: 13.5px; line-height: 1.55; color: var(--ps-body); overflow-wrap: anywhere; }
+    .ps-cf-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--ps-div-strong); background: var(--ps-soft); }
+    .ps-cf-btn { height: 34px; border: none; border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .ps-cf-btn--cancelar { padding: 0 14px; background: var(--ps-div-strong); color: var(--ps-text-2); }
+    .ps-cf-btn--ok { padding: 0 16px; background: var(--ps-cf-ok); color: #fff; }
+    .ps-cf-btn--ok:hover, .ps-cf-btn--ok:focus-visible { background: var(--ps-cf-ok-hv); }
+    .ps-aviso {
+        position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483400;
+        display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 10px 14px;
+        border-radius: 4px; background: var(--ps-aviso-bg); color: #fff; font-size: 13px;
+        box-shadow: 0 14px 30px -12px rgba(0,0,0,.5);
+    }
+    .ps-aviso[hidden] { display: none; }
+    .ps-aviso > i { color: var(--ps-aviso-ok); }
+    .ps-aviso.is-erro > i { color: var(--ps-aviso-erro); }
+</style>
+<div class="ps-cf-fundo" id="psConfirmar" hidden>
+    <div class="ps-cf" role="alertdialog" aria-modal="true" aria-labelledby="psConfirmarTitulo" aria-describedby="psConfirmarTexto" tabindex="-1">
+        <div class="ps-cf-cab">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            <h2 class="ps-cf-titulo" id="psConfirmarTitulo"></h2>
+            <button type="button" class="ps-cf-fechar" data-ps-cf-cancelar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="ps-cf-texto" id="psConfirmarTexto"></div>
+        <div class="ps-cf-rodape">
+            <button type="button" class="ps-cf-btn ps-cf-btn--cancelar" data-ps-cf-cancelar>Cancelar</button>
+            <button type="button" class="ps-cf-btn ps-cf-btn--ok" data-ps-cf-ok><i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir</span></button>
+        </div>
+    </div>
+</div>
+<div class="ps-aviso" id="psAviso" role="status" aria-live="polite" hidden><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span></span></div>
 {% endblock %}
 
 {% block javascripts %}

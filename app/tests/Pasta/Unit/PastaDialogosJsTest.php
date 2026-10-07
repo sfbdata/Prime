@@ -93,4 +93,32 @@ final class PastaDialogosJsTest extends TestCase
         self::assertStringContainsString('e.stopPropagation();', $esc);
         self::assertStringContainsString('fechar(true);', $esc);
     }
+
+    #[TestDox('PAS-034: confirmarPs resolve true só no OK; Enter confirma, Esc cancela sem fechar o que está atrás')]
+    public function testConfirmarPs(): void
+    {
+        $f = $this->funcao('ligarConfirmacao');
+        self::assertStringContainsString("e.target.closest('[data-ps-cf-ok]')) { encerrarConfirmacao(true); }", $f);
+        self::assertStringContainsString("e.target === fundo || e.target.closest('[data-ps-cf-cancelar]')) { encerrarConfirmacao(false); return; }", $f);
+        $esc = substr($f, (int) strpos($f, "if (e.key === 'Escape')"), 200);
+        self::assertStringContainsString('e.stopPropagation();', $esc);
+        self::assertStringContainsString('encerrarConfirmacao(false);', $esc);
+        self::assertStringContainsString("e.key === 'Enter' && !e.target.closest('[data-ps-cf-cancelar]')", $f);
+
+        $c = $this->funcao('confirmarPs');
+        self::assertStringContainsString("Promise.resolve(window.confirm(", $c, 'sem a marcação, a pergunta continua sendo feita');
+        self::assertStringContainsString("o.rotulo || 'Excluir'", $c);
+        self::assertStringContainsString(".textContent = o.texto || ''", $c, 'o trecho entra como TEXTO');
+    }
+
+    #[TestDox('PAS-034: avisarPs mostra o aviso por 2,6 s (gmAviso do desenho) e cai no alert sem a marcação')]
+    public function testAvisarPs(): void
+    {
+        $f = $this->funcao('avisarPs');
+        self::assertStringContainsString('setTimeout(function () { aviso.hidden = true; }, 2600);', $f);
+        self::assertStringContainsString("if (!aviso) { window.alert(mensagem); return; }", $f);
+        self::assertStringContainsString("aviso.querySelector('span').textContent = String(mensagem || '');", $f);
+        self::assertStringContainsString('window.confirmarPs = confirmarPs;', $this->js());
+        self::assertStringContainsString('window.avisarPs = avisarPs;', $this->js());
+    }
 }

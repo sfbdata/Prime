@@ -226,6 +226,25 @@
         return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase();
     }
 
+    /* PAS-034: a janela e o aviso da tela (pasta-dialogos.js), no lugar do confirm/alert. */
+    function avisarErroObs(msg) {
+        if (window.avisarPs) { avisarPs(msg, 'erro'); } else { alert(msg); }
+    }
+
+    /* "Excluir o comentário de NOME?" com a data e o trecho (dc L.5906 `comExcluir`). */
+    function confirmarExclusaoObs(artigo) {
+        const autor = (artigo && artigo.querySelector('.ps-anotacao-autor') || {}).textContent || 'colaborador';
+        const data  = artigo ? artigo.querySelector('.ps-anotacao-data') : null;
+        const corpo = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
+        const txt   = (corpo ? corpo.innerText : '').replace(/\s+/g, ' ').trim();
+        const opcoes = {
+            titulo: 'Excluir o comentário de ' + autor.trim() + '?',
+            texto: (data && data.title ? data.title + ' · ' : '') + '"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')
+                + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.',
+        };
+        return window.confirmarPs ? confirmarPs(opcoes) : Promise.resolve(confirm(opcoes.titulo));
+    }
+
     const formObs      = document.getElementById('formDetalhesObservacao');
     const obsConteudo  = document.getElementById('detalhesObsConteudo');
     const btnEnviarObs = document.getElementById('btnEnviarObsDetalhes');
@@ -601,7 +620,7 @@
                     const vazio = window.EditorRico
                         ? EditorRico.estaVazio(textarea)
                         : textarea.value.trim() === '';
-                    if (vazio) { alert('A observação não pode ser vazia.'); return; }
+                    if (vazio) { avisarErroObs('A observação não pode ser vazia.'); return; }
 
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
@@ -621,10 +640,10 @@
                             btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
                         } else {
                             restaurarExibicao(htmlAtual);
-                            alert(data.erro ?? 'Erro ao editar.');
+                            avisarErroObs(data.erro ?? 'Erro ao editar.');
                         }
                     } catch (_) {
-                        alert('Erro de rede.');
+                        avisarErroObs('Erro de rede.');
                     }
                 });
 
@@ -633,9 +652,9 @@
 
             const btnExcluir = e.target.closest('.btn-excluir-obs-det');
             if (btnExcluir) {
-                if (!confirm('Excluir esta observação? Esta ação não pode ser desfeita.')) return;
-
                 const obsId = btnExcluir.dataset.obsId;
+                if (!(await confirmarExclusaoObs(document.getElementById('detalhes-obs-' + obsId)))) { return; }
+
                 const fd    = new FormData();
                 fd.append('_token', btnExcluir.dataset.csrf);
 
@@ -671,10 +690,10 @@
                         }
                     } else {
                         const data = await resp.json();
-                        alert(data.erro ?? 'Erro ao excluir.');
+                        avisarErroObs(data.erro ?? 'Erro ao excluir.');
                     }
                 } catch (_) {
-                    alert('Erro de rede.');
+                    avisarErroObs('Erro de rede.');
                 }
             }
         });
