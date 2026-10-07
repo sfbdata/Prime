@@ -15,6 +15,7 @@ use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\UseCase\ContarOQueAIaSabeDaPastaUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDosAgentesUseCase;
 use App\Inteligencia\UseCase\SolicitarAnaliseDaPastaUseCase;
 use App\Pasta\Entity\Pasta;
@@ -34,6 +35,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Contrato para a tela:
  *   GET  /pasta/{id}/ia/agentes                      → fragmento `inteligencia/_agentes_painel.html.twig`
+ *                                                      (com a grade "O que a IA sabe desta pasta")
  *   POST /pasta/{id}/ia/agentes/{agente}/analises    → 202 {id, status, …} | 200 se devolveu a última ("nada novo")
  *                                                      409 {motivo, mensagem} indisponível/bloqueado/sem dados · 429 cota/ritmo · 503 fila
  *   GET  /pasta/{id}/ia/agentes/{agente}/analises    → fragmento `inteligencia/_analises_agente.html.twig`
@@ -48,6 +50,7 @@ final class AnaliseDaPastaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly SolicitarAnaliseDaPastaUseCase $solicitar,
         private readonly ListarAnalisesDosAgentesUseCase $listar,
+        private readonly ContarOQueAIaSabeDaPastaUseCase $contarOQueSabe,
         // Interface (não a classe) pelo mesmo motivo do AnalisePushController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -60,6 +63,7 @@ final class AnaliseDaPastaController extends AbstractController
 
         return $this->render('inteligencia/_agentes_painel.html.twig', [
             'painel' => $this->listar->executar($pasta, $tenant),
+            'sabe' => $this->contarOQueSabe->executar($pasta, $tenant),
             'pastaId' => (int) $pasta->getId(),
         ]);
     }
