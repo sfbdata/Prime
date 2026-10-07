@@ -9,7 +9,9 @@
    `.text-muted` — a cor apagada vem do pasta-show.css, que o !important do
    Bootstrap impedia. #}
 {% set naPasta = (respContexto|default('pasta')) == 'pasta' %}
+{# `data-contexto`: o _resp_script redesenha o chip vazio conforme o contexto (PAS-013b). #}
 <button type="button" class="pasta-resp-chip"
+        data-contexto="{{ naPasta ? 'pasta' : 'expediente' }}"
         data-pasta-id="{{ pasta.id }}"
         data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
         data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}"

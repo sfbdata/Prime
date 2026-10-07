@@ -119,6 +119,26 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $chip->filter('.pasta-resp-chip > .pasta-resp-nome'));
         self::assertCount(0, $chip->filter('.pasta-resp-nome.text-muted'));
         self::assertSame('Sem responsável', trim($chip->filter('.pasta-resp-nome')->text()));
+        // PAS-013b: o contexto vai no chip, para o _resp_script redesenhar igual depois do salvar.
+        self::assertSame('pasta', $chip->attr('data-contexto'));
+    }
+
+    #[TestDox('PAS-013b: depois de salvar "Sem responsável", o _resp_script redesenha o chip vazio pelo contexto — bi-person-dash sem .text-muted na pasta, bi-person apagado no Expediente')]
+    public function testRedesenhoDoChipVazioSegueOContexto(): void
+    {
+        $js = (string) file_get_contents(__DIR__ . '/../../../templates/pasta/_resp_script.html.twig');
+        $ini = strpos($js, 'function renderChip(chip, userId, nome, fotoUrl) {');
+        self::assertNotFalse($ini);
+        $fim = strpos($js, "html += '<i class=\"bi bi-chevron-down pasta-resp-caret\"></i>';", $ini);
+        self::assertNotFalse($fim);
+        $render = substr($js, $ini, $fim - $ini);
+
+        self::assertStringContainsString("var naPasta = chip.dataset.contexto === 'pasta';", $render);
+        self::assertStringContainsString("<i class=\"bi ' + (naPasta ? 'bi-person-dash' : 'bi-person') + '\"></i></span>'", $render);
+        self::assertStringContainsString("'<span class=\"pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '\">Sem responsável</span>'", $render);
+        // O desenho antigo, fixo, não pode voltar: era ele que desfazia o chip da pasta.
+        self::assertStringNotContainsString('<i class="bi bi-person"></i>', $render);
+        self::assertStringNotContainsString('<span class="pasta-resp-nome text-muted">Sem responsável</span>', $render);
     }
 
     #[TestDox('Expediente: menu e chip continuam como eram — "Filtrar…", sem ✓, chip vazio com bi-person e apagado')]
@@ -153,11 +173,13 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $chipTabela);
         self::assertCount(1, $chipTabela->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person'));
         self::assertCount(1, $chipTabela->filter('.pasta-resp-chip > .pasta-resp-nome.text-muted'));
+        self::assertSame('expediente', $chipTabela->attr('data-contexto'));
 
         $chipCartao = $crawler->filter('.pastas-lista .pasta-card .pasta-resp-chip');
         self::assertCount(1, $chipCartao);
         self::assertCount(1, $chipCartao->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person'));
         self::assertCount(1, $chipCartao->filter('.pasta-resp-chip > .pasta-resp-nome.text-muted'));
+        self::assertSame('expediente', $chipCartao->attr('data-contexto'));
 
         self::assertCount(0, $crawler->filter('.pasta-resp-chip i.bi-person-dash'), 'o ícone do desenho é só da pasta');
     }
