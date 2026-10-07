@@ -153,8 +153,10 @@ final class PastaPagamentoController extends AbstractController
      * gravado aqui — sai do `audit_log` que o flush do UseCase alimenta.
      *
      * Mesma ordem das outras rotas do card: permissão de editar a pasta → CSRF
-     * do pagamento → posse (404) → UseCase. Pasta excluída nem chega aqui: o
-     * `PastaSomenteLeituraListener` recusa todo POST que receba a pasta.
+     * do pagamento → posse (404) → UseCase. O POST leva `valor` (o novo) e
+     * `valorAnterior` (o que a tela mostrou); se este não for mais o do banco,
+     * 409 sem gravar — outra pessoa corrigiu no meio do caminho. Pasta
+     * excluída nem chega aqui: o `PastaSomenteLeituraListener` recusa todo POST que receba a pasta.
      */
     #[Route('/{id}/pagamento/{pagamentoId}/valor', name: 'pasta_pagamento_corrigir_valor', methods: ['POST'])]
     public function corrigirValor(Pasta $pasta, int $pagamentoId, Request $request): JsonResponse
@@ -189,9 +191,18 @@ final class PastaPagamentoController extends AbstractController
                 $pasta,
                 $tenant,
                 (string) $request->request->get('valor', ''),
+                (string) $request->request->get('valorAnterior', ''),
             );
         } catch (\DomainException) {
             return $this->json(['erro' => 'Pagamento não encontrado.'], Response::HTTP_NOT_FOUND);
+        } catch (\UnexpectedValueException $e) {
+            // Outra pessoa corrigiu antes: nada foi gravado. Vai junto o card
+            // relido, para a tela passar a mostrar o valor que vale agora.
+            return $this->json([
+                'erro'       => $e->getMessage(),
+                'valorAtual' => str_replace('.', ',', $pagamento->getValor()),
+                'resumo'     => $this->resumo($pasta),
+            ], Response::HTTP_CONFLICT);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

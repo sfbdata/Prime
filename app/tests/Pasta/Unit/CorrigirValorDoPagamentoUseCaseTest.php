@@ -53,7 +53,7 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
         $pagamento = $this->pagamento('1300.00');
         $this->em->expects($this->once())->method('flush');
 
-        $alterado = $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '1.450,50');
+        $alterado = $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '1.450,50', '1.300,00');
 
         self::assertTrue($alterado);
         self::assertSame('1450.50', $pagamento->getValor(), 'dinheiro entra como decimal, nunca float');
@@ -69,7 +69,7 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
         $pagamento = $this->pagamento('1300.00');
         $this->em->expects($this->never())->method('flush');
 
-        self::assertFalse($this->useCase->executar($pagamento, $this->pasta, $this->tenant, '1.300'));
+        self::assertFalse($this->useCase->executar($pagamento, $this->pasta, $this->tenant, '1.300', '1.300,00'));
         self::assertSame('1300.00', $pagamento->getValor());
     }
 
@@ -92,7 +92,7 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
         $this->em->expects($this->never())->method('flush');
 
         try {
-            $this->useCase->executar($pagamento, $this->pasta, $this->tenant, $entrada);
+            $this->useCase->executar($pagamento, $this->pasta, $this->tenant, $entrada, '1.300,00');
             self::fail('o valor "' . $entrada . '" deveria ter sido recusado');
         } catch (\InvalidArgumentException) {
             self::assertSame('1300.00', $pagamento->getValor(), 'valor recusado não pode ter tocado o pagamento');
@@ -108,7 +108,7 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
 
         try {
-            $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '10,00');
+            $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '10,00', '1.300,00');
         } finally {
             self::assertSame('1300.00', $pagamento->getValor());
         }
@@ -122,6 +122,62 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
 
         $this->expectException(\DomainException::class);
 
-        $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '10,00');
+        $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '10,00', '1.300,00');
+    }
+
+    /**
+     * Perda de atualização: o valor que a tela mostrou não é mais o do banco
+     * (outra pessoa corrigiu). Nada muda, nada é gravado, e a mensagem diz o
+     * valor que vale agora.
+     */
+    #[TestDox('valor exibido diferente do gravado: recusa sem gravar e informa o valor atual')]
+    public function testValorAnteriorDesatualizadoRecusa(): void
+    {
+        $pagamento = $this->pagamento('1450.00');
+        $this->em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '900,00', '1.300,00');
+            self::fail('a correção sobre um valor desatualizado deveria ter sido recusada');
+        } catch (\UnexpectedValueException $e) {
+            self::assertSame(
+                'O valor foi alterado por outra pessoa (agora R$ 1.450,00). Recarregue e confira antes de corrigir.',
+                $e->getMessage(),
+            );
+            self::assertSame('1450.00', $pagamento->getValor());
+        }
+    }
+
+    #[TestDox('valor exibido é comparado em centavos: "1300" vale 1.300,00')]
+    public function testValorAnteriorEmCentavos(): void
+    {
+        $pagamento = $this->pagamento('1300.00');
+        $this->em->expects($this->once())->method('flush');
+
+        self::assertTrue($this->useCase->executar($pagamento, $this->pasta, $this->tenant, '900,00', '1300'));
+        self::assertSame('900.00', $pagamento->getValor());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function valoresAnterioresInvalidos(): iterable
+    {
+        yield 'vazio'     => [''];
+        yield 'em branco' => ['   '];
+        yield 'texto'     => ['abc'];
+    }
+
+    #[DataProvider('valoresAnterioresInvalidos')]
+    #[TestDox('sem o valor exibido ($anterior) recusa como entrada inválida, sem gravar')]
+    public function testSemValorAnteriorRecusa(string $anterior): void
+    {
+        $pagamento = $this->pagamento('1300.00');
+        $this->em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '900,00', $anterior);
+            self::fail('sem o valor exibido a correção não pode ser gravada às cegas');
+        } catch (\InvalidArgumentException) {
+            self::assertSame('1300.00', $pagamento->getValor());
+        }
     }
 }

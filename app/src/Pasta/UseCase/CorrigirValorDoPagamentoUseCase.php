@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\DTO\PastaFinanceiroOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
 use App\Shared\Service\ValorEmReais;
@@ -23,6 +24,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * isso o UseCase só pode dar UM flush — e nenhum quando nada mudou, senão o
  * histórico ganharia uma linha "R$ a → R$ a".
  *
+ * PERDA DE ATUALIZAÇÃO: a correção leva o valor que a tela MOSTROU
+ * (`$valorAnterior`). Se, entre abrir a tela e salvar, outra pessoa já corrigiu
+ * o lançamento, os dois não batem e nada é gravado — senão a segunda correção
+ * passaria por cima da primeira, e o confirm teria mostrado um "de" falso.
+ *
  * Mexe só no `valor` deste lançamento da pasta. Cobrança e contabilidade não
  * passam por aqui: aquele dinheiro é outra coisa, com outro dono.
  */
@@ -36,10 +42,15 @@ final class CorrigirValorDoPagamentoUseCase
      * @return bool `true` quando o valor mudou e foi gravado; `false` quando o
      *              valor informado é o mesmo (nada é gravado, nada é auditado)
      *
-     * @throws \InvalidArgumentException quando o texto não é um valor em reais maior que zero
-     * @throws \DomainException          quando o pagamento não é desta pasta ou deste escritório
+     * @param string $valorAnterior o valor que a tela exibiu quando o usuário abriu a correção
+     *
+     * @throws \InvalidArgumentException  quando o texto não é um valor em reais maior que zero,
+     *                                    ou quando o valor exibido não veio (ou não é valor)
+     * @throws \UnexpectedValueException  quando o valor exibido não é mais o do banco — outra
+     *                                    pessoa corrigiu antes; a mensagem traz o valor atual
+     * @throws \DomainException           quando o pagamento não é desta pasta ou deste escritório
      */
-    public function executar(PastaPagamento $pagamento, Pasta $pasta, Tenant $tenant, string $novoValor): bool
+    public function executar(PastaPagamento $pagamento, Pasta $pasta, Tenant $tenant, string $novoValor, string $valorAnterior): bool
     {
         // O controller já busca com `findByIdAndPastaAndTenant`; a conferência
         // aqui é a segunda trava, para quem chamar este UseCase por outro caminho.
@@ -53,6 +64,21 @@ final class CorrigirValorDoPagamentoUseCase
         // é uma linha que não deveria existir — para isso há o Excluir.
         if ($decimal === null || ValorEmReais::paraCentavos($decimal) <= 0) {
             throw new \InvalidArgumentException('Informe um valor maior que zero.');
+        }
+
+        // Sem o valor exibido não há como saber se a tela estava em dia: recusa
+        // (422) em vez de gravar às cegas.
+        $exibido = trim($valorAnterior) === '' ? null : ValorEmReais::normalizar($valorAnterior, 'valor anterior');
+        if ($exibido === null) {
+            throw new \InvalidArgumentException('Valor anterior não informado. Recarregue a página e tente de novo.');
+        }
+
+        // Comparação em centavos: "1.300" e "1300,00" são o mesmo dinheiro.
+        if (ValorEmReais::paraCentavos($exibido) !== ValorEmReais::paraCentavos($pagamento->getValor())) {
+            throw new \UnexpectedValueException(sprintf(
+                'O valor foi alterado por outra pessoa (agora %s). Recarregue e confira antes de corrigir.',
+                PastaFinanceiroOutput::formatarReais($pagamento->getValor()),
+            ));
         }
 
         if (ValorEmReais::paraCentavos($decimal) === ValorEmReais::paraCentavos($pagamento->getValor())) {

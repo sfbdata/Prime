@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaPagamento;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Persistence\Proxy;
 
 /**
  * @extends ServiceEntityRepository<PastaPagamento>
@@ -73,6 +74,14 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
      * Quem corrigiu sai pelo nome atual do usuário; sem usuário (removido),
      * pelo e-mail gravado na própria linha do audit_log.
      *
+     * Nome de PROXY também conta: o `AuditLogSubscriber` grava
+     * `$entity::class` sem normalizar, e um pagamento carregado como
+     * referência preguiçosa do Doctrine sai como
+     * `Proxies\__CG__\App\Pasta\Entity\PastaPagamento`. Normalizar no
+     * subscriber mudaria o que se grava para TODAS as entidades auditadas (e
+     * as linhas antigas continuariam com o nome de proxy); aceitar os dois
+     * nomes aqui resolve o card sem mexer no histórico do sistema inteiro.
+     *
      * @param PastaPagamento[] $pagamentos
      *
      * @return array<int, list<CorrecaoDeValorDoPagamentoOutput>> por id do pagamento, da mais antiga à mais recente
@@ -99,7 +108,7 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
                    a.changes->'diff'->'changes'->'valor'->>'to'   AS para
             FROM audit_log a
             LEFT JOIN "user" u ON u.id = a.actor_user_id
-            WHERE a.entity_class = :classe
+            WHERE a.entity_class IN (:classe, :classeProxy)
               AND a.tenant_id    = :tenantId
               AND a.action       = 'update'
               AND a.entity_id IN (:ids)
@@ -109,7 +118,12 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
 
         $linhas = $this->getEntityManager()->getConnection()->executeQuery(
             $sql,
-            ['classe' => PastaPagamento::class, 'tenantId' => $tenant->getId(), 'ids' => $ids],
+            [
+                'classe'      => PastaPagamento::class,
+                'classeProxy' => self::nomeDoProxy($this->getEntityManager()->getConfiguration()->getProxyNamespace()),
+                'tenantId'    => $tenant->getId(),
+                'ids'         => $ids,
+            ],
             ['ids' => ArrayParameterType::STRING],
         )->fetchAllAssociative();
 
@@ -131,5 +145,14 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
         }
 
         return $porPagamento;
+    }
+
+    /**
+     * O nome que o Doctrine dá ao proxy de `PastaPagamento` — a mesma montagem
+     * do `ProxyFactory` (namespace dos proxies + `__CG__` + nome da classe).
+     */
+    public static function nomeDoProxy(?string $namespaceDosProxies): string
+    {
+        return rtrim($namespaceDosProxies ?? 'Proxies', '\\') . '\\' . Proxy::MARKER . '\\' . PastaPagamento::class;
     }
 }

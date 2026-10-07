@@ -124,12 +124,21 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
         return $client;
     }
 
-    private function corrigir(KernelBrowser $client, Pasta $pasta, int $pagamentoId, string $valor, ?string $token = null): void
+    /**
+     * @param string|false|null $valorAnterior o valor que a tela "mostrou": `null` usa o
+     *                                         do banco (tela em dia), `false` omite o campo
+     */
+    private function corrigir(KernelBrowser $client, Pasta $pasta, int $pagamentoId, string $valor, ?string $token = null, string|false|null $valorAnterior = null): void
     {
+        $campos = ['_token' => $token ?? 'TOKEN_pasta_pagamento_corrigir_' . $pagamentoId, 'valor' => $valor];
+        if ($valorAnterior !== false) {
+            $campos['valorAnterior'] = $valorAnterior ?? str_replace('.', ',', (string) $this->valorGravado($pagamentoId));
+        }
+
         $client->request(
             'POST',
             "/pasta/{$pasta->getId()}/pagamento/{$pagamentoId}/valor",
-            ['_token' => $token ?? 'TOKEN_pasta_pagamento_corrigir_' . $pagamentoId, 'valor' => $valor],
+            $campos,
             [],
             ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
         );
@@ -265,6 +274,87 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
         $this->logarComTenant($client, $user, $tenant);
 
         $this->corrigir($client, $pasta, $id, $valor);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertArrayHasKey('erro', $this->json($client));
+        self::assertSame('1300.00', $this->valorGravado($id));
+        self::assertSame([], $this->auditoriasDeValor($id));
+    }
+
+    // =========================================================================
+    // Perda de atualização: o POST leva o valor que a tela mostrou
+    // =========================================================================
+
+    /**
+     * Duas abas abertas no mesmo valor: a primeira corrige; a segunda ainda
+     * mostra o valor velho e não pode passar por cima — senão o confirm dela
+     * teria dito "de R$ 1.300,00" quando o valor já era outro.
+     */
+    #[TestDox('valor exibido desatualizado responde 409 com o valor atual e não grava nem audita')]
+    public function testValorAnteriorDesatualizadoDa409(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pasta           = $this->criarPasta($tenant);
+        $id              = (int) $this->criarPagamento($pasta, $tenant, '1300.00')->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->corrigir($client, $pasta, $id, '1.450,00', null, '1.300,00');
+        self::assertResponseIsSuccessful('a primeira aba estava em dia');
+
+        $this->corrigir($client, $pasta, $id, '900,00', null, '1.300,00');
+
+        self::assertResponseStatusCodeSame(409);
+        $dados = $this->json($client);
+        self::assertSame(
+            'O valor foi alterado por outra pessoa (agora R$ 1.450,00). Recarregue e confira antes de corrigir.',
+            $dados['erro'],
+        );
+        self::assertSame('1450,00', $dados['valorAtual']);
+        $corpo = new Crawler((string) $dados['resumo']['html']);
+        self::assertSame(
+            '1450,00',
+            $corpo->filter('.ps-pag-linha[data-pagamento-id="' . $id . '"]')->attr('data-valor'),
+            'o card devolvido já mostra o valor que vale agora',
+        );
+        self::assertSame('1450.00', $this->valorGravado($id), 'a segunda correção não passou por cima');
+        self::assertCount(1, $this->auditoriasDeValor($id), 'só a primeira correção entrou no histórico');
+    }
+
+    #[TestDox('valor exibido escrito de outro jeito ("1300" para 1.300,00) não é conflito')]
+    public function testValorAnteriorComparaEmCentavos(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pasta           = $this->criarPasta($tenant);
+        $id              = (int) $this->criarPagamento($pasta, $tenant, '1300.00')->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->corrigir($client, $pasta, $id, '900,00', null, '1300');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('900.00', $this->valorGravado($id));
+    }
+
+    /** @return iterable<string, array{string|false}> */
+    public static function valoresAnterioresAusentes(): iterable
+    {
+        yield 'campo ausente' => [false];
+        yield 'campo vazio'   => [''];
+        yield 'não é valor'   => ['abc'];
+    }
+
+    #[DataProvider('valoresAnterioresAusentes')]
+    #[TestDox('sem o valor exibido ($valorAnterior) responde 422 e não grava nem audita')]
+    public function testSemValorAnteriorDa422(string|false $valorAnterior): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pasta           = $this->criarPasta($tenant);
+        $id              = (int) $this->criarPagamento($pasta, $tenant, '1300.00')->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->corrigir($client, $pasta, $id, '900,00', null, $valorAnterior);
 
         self::assertResponseStatusCodeSame(422);
         self::assertArrayHasKey('erro', $this->json($client));
@@ -504,5 +594,85 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
             $menu->filter('.ps-fin-menu-item')->each(static fn (Crawler $i) => trim(preg_replace('/\s+/', ' ', $i->text()) ?? '')),
         );
         self::assertSame(['corrigir', 'quitacao', 'excluir'], $menu->filter('.ps-fin-menu-item')->each(static fn (Crawler $i) => (string) $i->attr('data-acao')));
+    }
+
+    /**
+     * O `AuditLogSubscriber` grava `$entity::class` sem normalizar: pagamento
+     * alterado como REFERÊNCIA preguiçosa do Doctrine fica no audit_log com o
+     * nome do proxy (`Proxies\__CG__\...`). A linha forjada usa a classe que o
+     * Doctrine de fato gerou nesta instalação, não uma string montada à mão.
+     */
+    #[TestDox('correção auditada com o nome de PROXY da entidade também vira "corrigido · era"')]
+    public function testHistoricoAceitaNomeDeProxy(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pasta           = $this->criarPasta($tenant);
+        $id              = (int) $this->criarPagamento($pasta, $tenant, '1300.00')->getId();
+
+        $this->em()->clear();
+        $referencia    = $this->em()->getReference(PastaPagamento::class, $id);
+        $classeDoProxy = $referencia::class;
+        self::assertSame(
+            PastaPagamentoRepository::nomeDoProxy($this->em()->getConfiguration()->getProxyNamespace()),
+            $classeDoProxy,
+            'o nome aceito pela consulta é o que o Doctrine gera para o proxy',
+        );
+        $this->em()->clear();
+
+        $tenantId = (int) $tenant->getId();
+        $this->em()->persist((new AuditLog())
+            ->setAction('update')
+            ->setEntityClass($classeDoProxy)
+            ->setEntityId((string) $id)
+            ->setTenantId($tenantId)
+            ->setActorEmail('proxy@test.com')
+            ->setChanges(['diff' => ['changes' => ['valor' => ['from' => '1000.00', 'to' => '1300.00']]]]));
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        $ajuste = $crawler->filter('#psPagamentosCorpo > .ps-pag-linha[data-pagamento-id="' . $id . '"] .ps-pag-direita > .ps-pag-ajuste');
+        self::assertCount(1, $ajuste);
+        self::assertSame('corrigido · era R$ 1.000,00', trim($ajuste->text()));
+    }
+
+    /**
+     * Desenho dc 3462: o "corrigido · era" aparece com `temAjuste && !ed` — no
+     * modo de edição some de TODAS as linhas, não só da que está sendo
+     * corrigida. O modo é a classe `is-editando` no CARTÃO, então a prova é de
+     * arranjo (o aviso mora dentro do cartão `#psPagamentos`) + folha (a regra
+     * que o esconde é escopada pelo cartão em modo, e não pela linha).
+     */
+    #[TestDox('no modo de edição o "corrigido · era" some de todas as linhas (arranjo + folha)')]
+    public function testModoDeEdicaoEscondeAjusteDeTodasAsLinhas(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pasta           = $this->criarPasta($tenant);
+        $a               = (int) $this->criarPagamento($pasta, $tenant, '1000.00', 'Entrada')->getId();
+        $b               = (int) $this->criarPagamento($pasta, $tenant, '2000.00', '1ª parcela')->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->corrigir($client, $pasta, $a, '1.100,00');
+        self::assertResponseIsSuccessful();
+        $this->corrigir($client, $pasta, $b, '2.100,00');
+        self::assertResponseIsSuccessful();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertCount(
+            2,
+            $crawler->filter('#psPagamentos > #psPagamentosCorpo > .ps-pag-linha .ps-pag-direita > .ps-pag-ajuste'),
+            'os dois avisos moram dentro do cartão que recebe `is-editando`',
+        );
+
+        $css = (string) file_get_contents(\dirname(__DIR__, 3) . '/public/css/pasta-show.css');
+        self::assertMatchesRegularExpression(
+            '/#psPagamentos\.is-editando \.ps-pag-ajuste\s*\{\s*display:\s*none;?\s*\}/',
+            $css,
+            'a regra do modo de edição esconde o aviso em todas as linhas do cartão',
+        );
     }
 }

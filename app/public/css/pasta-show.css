@@ -2522,6 +2522,9 @@ span.ps-situacao-pill { cursor: default; }
 /* Lixeira só no modo de edição (dc 1913); fora dele, o menu da linha exclui. */
 #psPagamentos:not(.is-editando) .ps-pag-excluir { display: none; }
 #psPagamentos.is-editando .ps-pag-excluir { opacity: 1; }
+/* "corrigido · era" só FORA do modo de edição (dc 3462: `temAjuste && !ed`):
+   no modo some de TODAS as linhas, não só da que está sendo corrigida. */
+#psPagamentos.is-editando .ps-pag-ajuste { display: none; }
 /* Linha em correção: a caixa toma o lugar do valor. */
 .ps-pag-linha.is-corrigindo .ps-pag-valor,
 .ps-pag-linha.is-corrigindo .ps-pag-valor-editar,
