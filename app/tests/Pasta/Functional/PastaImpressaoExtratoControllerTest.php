@@ -76,6 +76,8 @@ final class PastaImpressaoExtratoControllerTest extends JusPrimeWebTestCase
         $cab = $this->texto($folha->filter('[data-rp-parte="cabecalho"]'));
         self::assertStringContainsString('BLUEJUS', $cab);
         self::assertStringContainsString('Impresso em', $cab);
+        // EDT-008: o desenho (toLocaleString) carimba com segundos — "04/10/2026, 09:18:47".
+        self::assertMatchesRegularExpression('#Impresso em \d{2}/\d{2}/\d{4}, \d{2}:\d{2}:\d{2} por#', $cab);
         self::assertStringContainsString('por Admin Push', $cab);
 
         $faixa = $this->texto($folha->filter('main.rp-folha > [data-rp-parte="dados"]'));
