@@ -84,10 +84,16 @@
     'concluida':  'Concluída',
 } %}
 {% set podeConcluir = can_access_module('tarefas') %}
+{# PMC-060: pasta excluída (lápide) é somente-leitura — o `PastaSomenteLeituraListener` recusa
+   concluir, reabrir, renomear e alertar a meta dela (a meta é filha da pasta). Então a tela não
+   os oferece: no ⋮ e no rodapé do drawer ficam só as leituras (Abrir relatório, Copiar link,
+   Abrir em Metas) e o sino some. Vale também para a aba devolvida por XHR
+   (`ListaDeMetasDaPastaEmJson`), que renderiza este mesmo template. #}
+{% set metaEditavel = podeConcluir and not pasta.estaExcluida %}
 {# PAS-047: o sino faz o POST `tarefa_alertar`, que exige EDITAR a pasta; quem só vê não o
    recebe. `podeEditarPasta` vem calculado uma vez pelo show (fallback: calcula aqui). #}
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
-{% set podeAlertar = podeConcluir and podeEditarPasta %}
+{% set podeAlertar = metaEditavel and podeEditarPasta %}
 {% set ultimosAlertas = podeAlertar and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
 <div class="ps-grade">
 <section class="ps-card ps-metas" data-ps-metas>
@@ -209,7 +215,9 @@
                                 <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-relatorio="{{ tarefa.id }}">
                                     <i class="bi bi-file-earmark-text"></i><span>Abrir relatório</span>
                                 </button>
-                                {% if concluida %}
+                                {% if not metaEditavel %}
+                                    {# Lápide: nada de concluir, reabrir nem editar o nome (PMC-060). #}
+                                {% elseif concluida %}
                                     <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
                                         <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
                                         <button type="submit" class="ps-pop-item" role="menuitem">
@@ -224,9 +232,11 @@
                                         </button>
                                     </form>
                                 {% endif %}
-                                <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
-                                    <i class="bi bi-pencil"></i><span>Editar nome</span>
-                                </button>
+                                {% if metaEditavel %}
+                                    <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
+                                        <i class="bi bi-pencil"></i><span>Editar nome</span>
+                                    </button>
+                                {% endif %}
                                 <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
                                         data-ps-copiar="{{ url('tarefa_show', {id: tarefa.id}) }}"
                                         data-ps-copiado="Link da meta copiado">
@@ -255,13 +265,15 @@
                            Cancelar; Enter salva, Esc cancela). Fica FORA da âncora —
                            campo dentro de link não é HTML válido — e o pasta-metas.js o
                            posiciona sobre o título. #}
-                        <form method="post" action="{{ path('tarefa_renomear', {id: tarefa.id}) }}" class="ps-meta-renomear" hidden>
-                            <input type="hidden" name="_token" value="{{ csrf_token('renomear_tarefa_' ~ tarefa.id) }}">
-                            <input type="text" name="titulo" class="ps-meta-ren-campo" value="{{ tarefa.titulo }}"
-                                   aria-label="Nome da meta" maxlength="160" required autocomplete="off">
-                            <button type="submit" class="ps-meta-ren-salvar">Salvar</button>
-                            <button type="button" class="ps-meta-ren-cancelar">Cancelar</button>
-                        </form>
+                        {% if metaEditavel %}
+                            <form method="post" action="{{ path('tarefa_renomear', {id: tarefa.id}) }}" class="ps-meta-renomear" hidden>
+                                <input type="hidden" name="_token" value="{{ csrf_token('renomear_tarefa_' ~ tarefa.id) }}">
+                                <input type="text" name="titulo" class="ps-meta-ren-campo" value="{{ tarefa.titulo }}"
+                                       aria-label="Nome da meta" maxlength="160" required autocomplete="off">
+                                <button type="submit" class="ps-meta-ren-salvar">Salvar</button>
+                                <button type="button" class="ps-meta-ren-cancelar">Cancelar</button>
+                            </form>
+                        {% endif %}
                     {% endif %}
                 </article>
             {% endfor %}
@@ -391,8 +403,8 @@
                     </div>
                 </div>
                 <div class="ps-mrel-rodape">
-                    {# Mesmas rotas, tokens e guarda do ⋮ da linha. #}
-                    {% if podeConcluir %}
+                    {# Mesmas rotas, tokens e guarda do ⋮ da linha; na lápide, só "Abrir em Metas" (PMC-060). #}
+                    {% if metaEditavel %}
                         {% if rel.tom == 'concluida' %}
                             <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
                                 <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
