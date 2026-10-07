@@ -160,6 +160,7 @@
                 {% else %}
                     {% set diaPushTxt = diaPush ?: 'Sem data' %}
                 {% endif %}
+                {% set notasPush = push.notasDe(item) %}
                 <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
                     data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}"
                     data-push-lida-url="{{ path('pasta_push_lida', {id: pasta.id, publicacaoId: item.id}) }}"
@@ -198,7 +199,7 @@
                                 {% if pushPodeEscrever and push.aceitaNotaTecnica(item) %}title="Clique com o botão direito para adicionar uma nota técnica"{% endif %}
                                 aria-expanded="false"
                                 aria-controls="push-teor-{{ item.id }}"
-                                data-push-url="{{ path('pasta_push_teor', {id: pasta.id, publicacaoId: item.id}) }}">
+                                data-push-url="{{ path('pasta_push_teor', notasPush is empty ? {id: pasta.id, publicacaoId: item.id} : {id: pasta.id, publicacaoId: item.id, penduradas: 1}) }}">
                             <span class="ps-push-assunto">
                                 <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
                                 <span class="ps-push-assunto-txt">{{ item.textoResumo ?: (item.nomeOrgao ?: (item.tipoComunicacao ?? 'Publicação')) }}</span>
@@ -215,6 +216,28 @@
                         </button>
                     </div>
                     <div class="ps-push-teor" id="push-teor-{{ item.id }}" hidden></div>
+                    {# FPN-020 (dc L.2534-2551, `m.temNotas`): as notas técnicas desta movimentação
+                       penduradas sob o cartão, à vista com o teor FECHADO — ler a nota não abre o
+                       teor (que marcaria a publicação como lida). Fica depois do teor: aberto, ele é
+                       o corpo do cartão, e a nota segue pendurada no conjunto. É o mesmo bloco do teor
+                       e da aba Processo (`#notas-publicacao-<id>`, com o compositor para quem
+                       escreve), então o teor, avisado por `penduradas=1`, não o repete. Fora do
+                       `.ps-push-cartao` de propósito: o botão direito ali é o menu da movimentação,
+                       e aqui é o ⋮ da nota (nota-tecnica.js). O processo é o da própria nota — a
+                       consulta só trouxe notas dos processos desta pasta. A mesma nota também
+                       está na aba Processo: aqui os ids levam `-push` (o canônico fica lá, que é
+                       o destino da âncora da @menção). #}
+                    {% if notasPush is not empty %}
+                        {{ include('processo/_notas_tecnicas.html.twig', {
+                            notas: notasPush,
+                            processoId: (notasPush|first).processoId,
+                            publicacaoId: item.id,
+                            pastaId: pasta.id,
+                            mostrarMovimentacao: false,
+                            podeEscreverNota: pushPodeEscrever,
+                            idSufixoNota: '-push',
+                        }) }}
+                    {% endif %}
                 </li>
             {% endfor %}
         </ul>

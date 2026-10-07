@@ -91,8 +91,9 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString(':not([disabled])', $abrir, 'o foco não cai num item bloqueado');
 
         $item = $this->ler(self::ITEM);
-        self::assertStringContainsString('aria-controls="psNotaMenu{{ nota.id }}"', $item);
-        self::assertStringContainsString('id="psNotaMenu{{ nota.id }}"', $item);
+        // O sufixo (FPN-020) é vazio fora do Push pendurado: o id segue psNotaMenu<id>.
+        self::assertStringContainsString('aria-controls="psNotaMenu{{ nota.id }}{{ idSufixo }}"', $item);
+        self::assertStringContainsString('id="psNotaMenu{{ nota.id }}{{ idSufixo }}"', $item);
     }
 
     #[TestDox('PMC-017: "Copiar texto" copia o texto como se lê (menção "@Nome"), e Editar/Excluir fecham o menu antes de agir')]
@@ -123,5 +124,24 @@ final class NotaTecnicaJsTest extends TestCase
         // O compositor é o de nota nova (foco no editor): nenhuma requisição sai daqui.
         self::assertStringNotContainsString('fetch(', $bloco);
         self::assertStringContainsString('focar(quill, textarea)', $this->funcao('abrirCompositor'));
+    }
+
+    #[TestDox('FPN-020: a mesma nota pode estar duas vezes na página — editar mexe no cartão do botão clicado, excluir tira todas as cópias')]
+    public function testCopiasDaMesmaNotaNaPagina(): void
+    {
+        $editar = $this->funcao('editar');
+        self::assertStringContainsString("botaoEditar.closest('.ps-nota')", $editar);
+        self::assertStringNotContainsString("getElementById('nota-tecnica-'", $editar, 'o id acharia a cópia da outra aba');
+
+        $excluir = $this->funcao('excluir');
+        self::assertStringContainsString(".ps-nota[data-nota-id=\"' + botaoExcluir.getAttribute('data-nota-id') + '\"]", $excluir);
+        self::assertStringContainsString('copia.remove()', $excluir);
+        self::assertStringContainsString('atualizarContagem(blocoDaCopia)', $excluir);
+
+        // Do lado do partial: o sufixo entra no id do cartão, no aria-controls e no id do menu.
+        $item = $this->ler(self::ITEM);
+        self::assertStringContainsString('id="nota-tecnica-{{ nota.id }}{{ idSufixo }}" data-nota-id="{{ nota.id }}"', $item);
+        self::assertStringContainsString('aria-controls="psNotaMenu{{ nota.id }}{{ idSufixo }}"', $item);
+        self::assertStringContainsString('id="psNotaMenu{{ nota.id }}{{ idSufixo }}"', $item);
     }
 }

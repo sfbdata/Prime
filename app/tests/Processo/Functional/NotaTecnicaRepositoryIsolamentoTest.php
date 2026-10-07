@@ -101,4 +101,51 @@ final class NotaTecnicaRepositoryIsolamentoTest extends KernelTestCase
         self::assertCount(3, $doProcesso);
         self::assertSame('<p>Antiga</p>', end($doProcesso)->getConteudo());
     }
+
+    #[TestDox('FPN-020: listarPorPublicacoesDosProcessos recorta por escritório, pelas publicações pedidas e pelos processos da pasta')]
+    public function testListarPorPublicacoesDosProcessosRecorta(): void
+    {
+        self::bootKernel();
+        $this->garantirFiltroDesligado();
+        [$userA, $tenantA] = $this->criarAdmin();
+        [$userB, $tenantB] = $this->criarAdmin();
+        $processoA         = $this->criarProcesso($tenantA, self::NUMERO);
+        $outroProcessoA    = $this->criarProcesso($tenantA, '07022222222222222222'); // de outra pasta
+        $processoB         = $this->criarProcesso($tenantB, self::NUMERO);
+        $pub1              = $this->criarPublicacao($tenantA, '50000101', self::NUMERO, '2026-08-20', $processoA);
+        $pub2              = $this->criarPublicacao($tenantA, '50000102', self::NUMERO, '2026-08-21', $processoA);
+        $foraDaPagina      = $this->criarPublicacao($tenantA, '50000103', self::NUMERO, '2026-08-22', $processoA);
+
+        $antiga = new NotaTecnica($tenantA, $processoA, $userA, '<p>Antiga da 1</p>', $pub1);
+        (new \ReflectionProperty(NotaTecnica::class, 'criadaEm'))->setValue($antiga, new \DateTimeImmutable('-10 minutes'));
+        $notas = [
+            $antiga,
+            new NotaTecnica($tenantA, $processoA, $userA, '<p>Nova da 1</p>', $pub1),
+            new NotaTecnica($tenantA, $processoA, $userA, '<p>Da 2</p>', $pub2),
+            new NotaTecnica($tenantA, $processoA, $userA, '<p>Só do processo</p>'),
+            new NotaTecnica($tenantA, $processoA, $userA, '<p>Fora da página</p>', $foraDaPagina),
+            new NotaTecnica($tenantA, $outroProcessoA, $userA, '<p>De outro processo</p>', $pub1),
+            // Registro inconsistente de propósito: escritório B pendurado na publicação de A.
+            new NotaTecnica($tenantB, $processoB, $userB, '<p>De B</p>', $pub1),
+        ];
+        foreach ($notas as $nota) {
+            $this->em()->persist($nota);
+        }
+        $this->em()->flush();
+
+        $conteudos = static fn (array $lista): array => array_map(static fn (NotaTecnica $n): string => $n->getConteudo(), $lista);
+        $ids       = [(int) $pub1->getId(), (int) $pub2->getId()];
+
+        self::assertSame(
+            ['<p>Da 2</p>', '<p>Nova da 1</p>', '<p>Antiga da 1</p>'],
+            $conteudos($this->repositorio()->listarPorPublicacoesDosProcessos($ids, [$processoA], $tenantA)),
+        );
+        // O escritório B, com o processo de B, só vê a sua — e nunca as de A.
+        self::assertSame(['<p>De B</p>'], $conteudos($this->repositorio()->listarPorPublicacoesDosProcessos($ids, [$processoB], $tenantB)));
+        // Processo de A consultado com o escritório B: nada.
+        self::assertSame([], $this->repositorio()->listarPorPublicacoesDosProcessos($ids, [$processoA], $tenantB));
+        // Sem publicação ou sem processo, vazio (e não "todas").
+        self::assertSame([], $this->repositorio()->listarPorPublicacoesDosProcessos([], [$processoA], $tenantA));
+        self::assertSame([], $this->repositorio()->listarPorPublicacoesDosProcessos($ids, [], $tenantA));
+    }
 }

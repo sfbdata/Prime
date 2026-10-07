@@ -32,8 +32,14 @@
              `mostrarMovimentacao` (bool — na aba Processo diz de qual movimentação
              do Push a nota é; dentro do teor da própria publicação é redundante),
              `somenteLeitura` (bool, opcional — a pasta é lápide; vem do bloco),
-             `podeEscreverNota` (bool, opcional — EDIT da pasta e pasta viva; vem do bloco).
+             `podeEscreverNota` (bool, opcional — EDIT da pasta e pasta viva; vem do bloco),
+             `idSufixo` (string, opcional — vem do bloco; ver abaixo).
    ============================================================================ #}
+{# FPN-020: a mesma nota pode estar DUAS vezes na pasta_show — na aba Processo e pendurada sob o
+   cartão do Push. Os ids do cartão e do menu precisam ser únicos (o ⋮ acha o menu por
+   `aria-controls`), então a cópia do Push leva um sufixo. Sem sufixo continua o id canônico
+   `nota-tecnica-<id>`, o da âncora da @menção. `data-nota-id` segue sendo só o número. #}
+{% set idSufixo = idSufixo|default('') %}
 {% set partes = nota.autorNome|trim|split(' ')|filter(p => p is not empty) %}
 {% set iniciais = partes|length > 0
     ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
@@ -44,7 +50,7 @@
    acabou de criar escreve, então vale a lápide só. #}
 {% set podeEscreverNota = podeEscreverNota is defined ? podeEscreverNota : not somenteLeitura %}
 {% set podeGerenciar = not somenteLeitura and nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
-<article class="ps-nota" id="nota-tecnica-{{ nota.id }}" data-nota-id="{{ nota.id }}">
+<article class="ps-nota" id="nota-tecnica-{{ nota.id }}{{ idSufixo }}" data-nota-id="{{ nota.id }}">
     <div class="ps-nota-topo">
         <span class="ps-nota-selo"><i class="bi bi-journal-text" aria-hidden="true"></i>Nota técnica</span>
         <span class="ps-nota-avatar" aria-hidden="true">{{ iniciais }}</span>
@@ -60,10 +66,10 @@
         {% endif %}
         <button type="button" class="ps-nota-menu-btn js-nota-menu" title="Opções da nota"
                 aria-label="Opções da nota" aria-haspopup="menu" aria-expanded="false"
-                aria-controls="psNotaMenu{{ nota.id }}">
+                aria-controls="psNotaMenu{{ nota.id }}{{ idSufixo }}">
             <i class="bi bi-three-dots" aria-hidden="true"></i>
         </button>
-        <div class="ps-nota-menu" id="psNotaMenu{{ nota.id }}" role="menu" hidden>
+        <div class="ps-nota-menu" id="psNotaMenu{{ nota.id }}{{ idSufixo }}" role="menu" hidden>
             <div class="ps-processo-menu-titulo">Nota técnica · {{ nota.autorNome }}</div>
             {% if podeEscreverNota %}
                 <button type="button" class="ps-processo-menu-item js-nota-responder" role="menuitem">

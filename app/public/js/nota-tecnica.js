@@ -160,7 +160,10 @@
     /* ── Editar no lugar: a caixa toma o lugar do texto, como nas observações ── */
     function editar(botaoEditar) {
         var bloco = blocoDe(botaoEditar);
-        var item  = document.getElementById('nota-tecnica-' + botaoEditar.getAttribute('data-nota-id'));
+        // O cartão DESTE botão (o menu mora dentro dele): a mesma nota pode estar duas vezes na
+        // página — aba Processo e pendurada no Push (FPN-020, ids com sufixo) —, e o id buscaria
+        // a outra cópia.
+        var item  = botaoEditar.closest('.ps-nota');
         var texto = item && item.querySelector('.ps-nota-texto');
         if (!bloco || !item || !texto || item.querySelector('.ps-nota-edicao')) { return; }
 
@@ -304,8 +307,13 @@
                         window.alert(dados.erro || 'Erro ao excluir.');
                         return;
                     }
-                    var item = document.getElementById('nota-tecnica-' + botaoExcluir.getAttribute('data-nota-id'));
-                    if (item) { item.remove(); }
+                    // Some de todos os blocos da página (aba Processo e Push pendurado, FPN-020).
+                    var copias = document.querySelectorAll('.ps-nota[data-nota-id="' + botaoExcluir.getAttribute('data-nota-id') + '"]');
+                    Array.prototype.forEach.call(copias, function (copia) {
+                        var blocoDaCopia = blocoDe(copia);
+                        copia.remove();
+                        if (blocoDaCopia) { atualizarContagem(blocoDaCopia); }
+                    });
                     atualizarContagem(bloco);
                 });
             })

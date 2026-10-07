@@ -24,6 +24,7 @@ use App\Pasta\Repository\PastaMensagemRepository;
 use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
+use App\Processo\Repository\NotaTecnicaRepository;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Entity\Permission\AccessRequest;
@@ -307,6 +308,7 @@ class PastaController extends AbstractController
         DisponibilidadeDeInteligencia $disponibilidadeIa,
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
+        NotaTecnicaRepository $notaTecnicaRepository,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -406,15 +408,27 @@ class PastaController extends AbstractController
         // gravada durante a sincronização, então publicação que chegou ANTES de o processo entrar
         // no cadastro nunca a recebe (em produção, 8 das 59 publicações de pastas estavam assim).
         $numerosDosProcessos = [];
+        $processosDaPasta    = [];
         foreach ($pasta->getPastaProcessos() as $vinculo) {
             $numerosDosProcessos[] = $vinculo->getProcesso()->getNumeroProcesso();
+            $processosDaPasta[]    = $vinculo->getProcesso();
         }
+        $itensDoPush = $tenant !== null
+            ? $this->publicacaoDjenRepository->listarItensPorNumerosDoTenant($tenant, $numerosDosProcessos, self::PUSH_LIMITE)
+            : [];
         $push = PastaPushOutput::montar(
-            $tenant !== null
-                ? $this->publicacaoDjenRepository->listarItensPorNumerosDoTenant($tenant, $numerosDosProcessos, self::PUSH_LIMITE)
-                : [],
+            $itensDoPush,
             $numerosDosProcessos,
             self::PUSH_LIMITE,
+            // FPN-020: as notas técnicas penduradas nos cartões, à vista sem abrir o teor. Uma
+            // consulta para a página inteira, recortada por escritório e pelos processos DESTA pasta.
+            $tenant !== null
+                ? $notaTecnicaRepository->listarPorPublicacoesDosProcessos(
+                    array_map(static fn (\App\Djen\DTO\PublicacaoDjenListaItem $item): int => $item->id, $itensDoPush),
+                    $processosDaPasta,
+                    $tenant,
+                )
+                : [],
         );
 
         // BlueJus IA na aba Push (spec inteligencia-resumo-do-push §3.6): sem `modules.inteligencia.view`

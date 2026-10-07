@@ -22,10 +22,13 @@
    publicação pertence; sem ele (não deveria acontecer — a publicação foi achada
    pelos números da pasta) o bloco não aparece, em vez de criar nota sem dono.
 
+   FPN-020: quando a aba já pendurou o bloco de notas sob o cartão (`notasNaLista`, o
+   `penduradas=1` do link), o teor não o repete.
+
    Contexto: `publicacao` (App\Djen\DTO\PublicacaoDjenOutput), `voltarPara`,
              `numeroComunicacao` (string|null),
              `pastaId` (int), `notaProcessoId` (int|null),
-             `notasTecnicas` (App\Processo\DTO\NotaTecnicaOutput[]),
+             `notasTecnicas` (App\Processo\DTO\NotaTecnicaOutput[]), `notasNaLista` (bool),
              `podeEditarPasta` (bool), `pastaExcluida` (bool).
    ============================================================================ #}
 {# FPN-040: a mesma regra do menu de contexto (FPN-014c, _push_processual). Criar tarefa e a nota
@@ -105,7 +108,7 @@
         </div>
     {% endif %}
 
-    {% if notaProcessoId is not null and (teorPodeEscrever or notasTecnicas|length > 0) %}
+    {% if not (notasNaLista ?? false) and notaProcessoId is not null and (teorPodeEscrever or notasTecnicas|length > 0) %}
         {{ include('processo/_notas_tecnicas.html.twig', {
             notas: notasTecnicas,
             processoId: notaProcessoId,

@@ -63,6 +63,9 @@
 /* Dentro do teor do Push o bloco já está "dentro" do cartão: sem recuo nem conector. */
 .ps-page .ps-push-teor .ps-notas { margin: 12px 0 0; }
 .ps-page .ps-push-teor .ps-notas::before { display: none; }
+/* FPN-020: pendurado sob o cartão do Push, com o teor fechado — recuo e conector do desenho
+   (dc:2535-2536: `margin:6px 0 0 30px` e o mesmo "L"). */
+.ps-page .ps-push-item > .ps-notas { margin: 6px 0 0 30px; }
 
 .ps-page .ps-notas-cab {
     display: flex;

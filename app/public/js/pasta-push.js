@@ -517,6 +517,15 @@
                     // Segunda trava: item escondido não abre o cartão (abrir marca como lida).
                     if (de.item.getAttribute('data-push-aceita-nota') !== '1') { return; }
                     var id = de.item.getAttribute('data-push-id');
+                    // FPN-020: com nota pendurada o bloco já está sob o cartão (fora do teor) e
+                    // traz o compositor — abre ali, sem abrir o teor (abrir marcaria como lida).
+                    var pendurado = de.item.querySelector(':scope > #notas-publicacao-' + id);
+                    var novaPendurada = pendurado ? pendurado.querySelector('.js-nota-nova') : null;
+                    if (novaPendurada) {
+                        novaPendurada.click();
+                        pendurado.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        return;
+                    }
                     comTeor(de.cab, function (p) {
                         var bloco = p.querySelector('#notas-publicacao-' + id);
                         var nova = bloco ? bloco.querySelector('.js-nota-nova') : null;

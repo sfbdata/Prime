@@ -69,6 +69,29 @@ final class PastaPushMenuContextoJsTest extends TestCase
         self::assertStringContainsString('js-nota-nova', $notas);
     }
 
+    #[TestDox('FPN-020: com o bloco de notas pendurado sob o cartão, "Adicionar nota técnica" abre o compositor ali, ANTES de abrir o teor')]
+    public function testNotaPenduradaNaoAbreOTeor(): void
+    {
+        $bloco  = $this->blocoDoMenu();
+        $inicio = strpos($bloco, "contains('js-push-menu-nota')");
+        self::assertNotFalse($inicio);
+        $ramo = substr($bloco, $inicio);
+
+        $pendurado = strpos($ramo, "querySelector(':scope > #notas-publicacao-' + id)");
+        $teor      = strpos($ramo, 'comTeor(de.cab');
+        self::assertNotFalse($pendurado, 'procura o bloco filho direto do <li>, não um qualquer da página');
+        self::assertNotFalse($teor);
+        self::assertLessThan($teor, $pendurado, 'o bloco pendurado é tentado antes de abrir o cartão');
+        // Achou: clica e sai — sem cair no comTeor, que abriria o teor (e marcaria como lida).
+        $entre = substr($ramo, $pendurado, $teor - $pendurado);
+        self::assertStringContainsString('novaPendurada.click()', $entre);
+        self::assertStringContainsString('return;', $entre);
+
+        // Do lado do template, o bloco é filho direto do <li> do cartão.
+        $twig = (string) file_get_contents(__DIR__ . '/../../../templates/pasta/_push_processual.html.twig');
+        self::assertStringContainsString("include('processo/_notas_tecnicas.html.twig'", $twig);
+    }
+
     #[TestDox('o menu não lê o teor por conta própria: abre o cartão (o clique do pasta-show.js) e espera data-carregado')]
     public function testSemSegundoCaminhoDeLeitura(): void
     {

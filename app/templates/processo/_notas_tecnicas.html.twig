@@ -21,7 +21,9 @@
    Contexto: `notas` (NotaTecnicaOutput[]), `processoId` (int),
              `publicacaoId` (int|null), `pastaId` (int),
              `mostrarMovimentacao` (bool, repassado ao item),
-             `podeEscreverNota` (bool, opcional — ver PMC-058 abaixo).
+             `podeEscreverNota` (bool, opcional — ver PMC-058 abaixo),
+             `idSufixoNota` (string, opcional — sufixo dos ids dos cartões quando a mesma
+             nota também está em outro bloco da página; FPN-020, o Push pendurado).
    ============================================================================ #}
 {% set blocoId = publicacaoId ? 'notas-publicacao-' ~ publicacaoId : 'notas-processo-' ~ processoId %}
 {# Pasta lápide: o ⋮ de cada nota fica só com a leitura (PMC-017). Vai aos itens pelo contexto. #}
@@ -61,7 +63,7 @@
 
     <div class="ps-notas-lista">
         {% for nota in notas %}
-            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao, somenteLeitura: somenteLeitura, podeEscreverNota: podeEscreverNota}) }}
+            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao, somenteLeitura: somenteLeitura, podeEscreverNota: podeEscreverNota, idSufixo: idSufixoNota ?? ''}) }}
         {% endfor %}
     </div>
 
