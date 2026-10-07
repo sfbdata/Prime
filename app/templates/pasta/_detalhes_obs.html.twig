@@ -42,6 +42,7 @@
                           rows="2"
                           maxlength="5000"
                           data-editor-rico
+                          data-editor-rico-envio="btnEnviarObsDetalhes"
                           placeholder="Adicionar observação…"></textarea>
                 <div class="ps-compositor-rodape">
                     <span class="ps-compositor-nota">Visível para a equipe</span>
@@ -191,6 +192,7 @@
 
             btnEnviarObs.disabled = true;
             btnEnviarObs.textContent = 'Enviando…';
+            if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, true); }
             obsErro.classList.add('d-none');
 
             try {
@@ -209,8 +211,9 @@
             } catch (_) {
                 mostrarErro('Erro de rede. Tente novamente.');
             } finally {
-                btnEnviarObs.disabled = false;
                 btnEnviarObs.textContent = 'Enviar';
+                // O editor decide: depois de enviar ele está vazio, e vazio o Enviar fica apagado.
+                if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, false); } else { btnEnviarObs.disabled = false; }
             }
         });
     }

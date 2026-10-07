@@ -833,3 +833,22 @@
 [data-bs-theme="dark"] .ql-editor .ql-color-purple { color: #b880ff; }
 [data-bs-theme="dark"] .ql-editor .ql-color-green  { color: #35c14a; }
 [data-bs-theme="dark"] .ql-editor .ql-color-red    { color: #ff5c5c; }
+
+/* ── Enviar do compositor apagado (`.bjed-env:disabled`: fundo #a9c7e2, cursor padrão) ────────
+ * O editor desabilita o botão apontado por `data-editor-rico-envio` enquanto o texto está vazio
+ * (EDT-021). A regra mora aqui, e não no CSS da tela, porque o estado é do editor; o seletor
+ * repete o do botão no rodapé do compositor e ganha do `:hover` dele. */
+.ps-compositor-rodape .ps-btn.ps-btn--primario:disabled,
+.ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:hover,
+.ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:focus-visible {
+    background: #a9c7e2;
+    color: #fff;
+    cursor: default;
+}
+
+[data-bs-theme="dark"] .ps-compositor-rodape .ps-btn.ps-btn--primario:disabled,
+[data-bs-theme="dark"] .ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:hover,
+[data-bs-theme="dark"] .ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:focus-visible {
+    background: rgba(47, 134, 208, .35);
+    color: rgba(255, 255, 255, .7);
+}

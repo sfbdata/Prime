@@ -52,6 +52,10 @@
     }
 
     if (formObs) {
+        // Enviar apagado com o editor vazio (EDT-021): o editor procura o botão por este id. A
+        // marcação é do `_financeiro.html.twig`; o vínculo sai daqui, antes de o editor montar.
+        if (btnEnviarObs) { obsConteudo.setAttribute('data-editor-rico-envio', btnEnviarObs.id); }
+
         obsConteudo.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { formObs.requestSubmit(); }
         });
@@ -63,6 +67,7 @@
 
             btnEnviarObs.disabled = true;
             btnEnviarObs.textContent = 'Enviando…';
+            if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, true); }
             obsErro.classList.add('d-none');
 
             try {
@@ -83,8 +88,9 @@
             } catch (_) {
                 mostrarObsErro('Erro de rede. Tente novamente.');
             } finally {
-                btnEnviarObs.disabled = false;
                 btnEnviarObs.textContent = 'Enviar';
+                // O editor decide: depois de enviar ele está vazio, e vazio o Enviar fica apagado.
+                if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, false); } else { btnEnviarObs.disabled = false; }
             }
         });
     }

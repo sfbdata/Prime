@@ -3106,6 +3106,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         btnEnviar.disabled = true;
         btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+        if (window.EditorRico) { EditorRico.marcarEnvio(textarea, true); }
         esconderErro();
 
         try {
@@ -3138,8 +3139,10 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (_) {
             mostrarErro('Erro de rede. Tente novamente.');
         } finally {
-            btnEnviar.disabled = false;
-            btnEnviar.innerHTML = '<i class="bi bi-send me-1"></i> Enviar';
+            // O rótulo volta ao do desenho e ao de antes do envio: só o texto "Enviar" (EDT-022).
+            btnEnviar.textContent = 'Enviar';
+            // O editor decide: depois de enviar ele está vazio, e vazio o Enviar fica apagado (EDT-021).
+            if (window.EditorRico) { EditorRico.marcarEnvio(textarea, false); } else { btnEnviar.disabled = false; }
         }
     });
 

@@ -31,6 +31,10 @@
  *   EditorRico.estaVazio(textarea)               → bool (ignora marcação sem texto)
  *   EditorRico.desmontar(textarea)               → devolve a textarea ao estado original
  *   EditorRico.instancia(textarea)               → a instância Quill (ou null)
+ *   EditorRico.marcarEnvio(textarea, enviando)   → envio em curso: o Enviar fica desabilitado
+ *
+ * Botão Enviar do compositor: a textarea aponta o seu botão por `data-editor-rico-envio="<id>"`,
+ * e o editor o mantém desabilitado enquanto estiver vazio (desenho, `mudou`: `env.disabled = v`).
  */
 (function () {
     'use strict';
@@ -1082,6 +1086,35 @@
         }
     }
 
+    // ── Botão Enviar do compositor (`mudou` do desenho: `this.env.disabled = v`) ─────────────
+    //
+    // O compositor aponta o seu botão por `data-editor-rico-envio="<id>"` na textarea. O botão
+    // fica desabilitado enquanto o editor estiver vazio — a regra é a de `vazio()`: só espaço, ou o
+    // `<p><br></p>` que o Quill deixa, conta como vazio — e enquanto um envio estiver em curso
+    // (`marcarEnvio`), senão digitar durante o envio reabilitaria o botão e permitiria envio em
+    // dobro. O id é procurado a cada atualização: tanto faz a tela marcar a textarea antes ou
+    // depois da montagem. Sem editor montado (Quill ausente), só o envio em curso desabilita — a
+    // textarea crua segue como antes e o servidor continua recusando o vazio.
+
+    function botaoDeEnvio(textarea) {
+        var id = textarea.getAttribute('data-editor-rico-envio');
+
+        return id ? document.getElementById(id) : null;
+    }
+
+    function atualizarEnvio(textarea) {
+        var botao = botaoDeEnvio(textarea);
+        if (!botao) { return; }
+        var quill = instancia(textarea);
+        botao.disabled = textarea._editorRicoEnviando === true || (quill ? vazio(quill) : false);
+    }
+
+    function marcarEnvio(textarea, enviando) {
+        if (!textarea) { return; }
+        textarea._editorRicoEnviando = !!enviando;
+        atualizarEnvio(textarea);
+    }
+
     function atualizarHistorico(refs) {
         var pilha = refs.quill.history && refs.quill.history.stack;
         if (!pilha) { return; }
@@ -1209,6 +1242,7 @@
             sincronizar(textarea, quill);
             atualizarHistorico(refs);
             atualizarRodape(refs, cortou);
+            atualizarEnvio(textarea);
             refs.busca.aoMudarTexto();
 
             // Autocorreção: depois do Quill terminar de aplicar a digitação (como o desenho).
@@ -1234,6 +1268,9 @@
         quill.root.addEventListener('keydown', function (evento) {
             if ((evento.ctrlKey || evento.metaKey) && evento.key === 'Enter') {
                 evento.preventDefault();
+                // Enviar apagado (vazio ou envio em curso): o atalho também não envia.
+                var envio = botaoDeEnvio(textarea);
+                if (envio && envio.disabled) { return; }
                 var formulario = textarea.closest('form');
                 if (formulario) { formulario.requestSubmit(); }
             }
@@ -1241,6 +1278,7 @@
 
         textarea.dataset.editorRicoMontado = '1';
         textarea._editorRico = refs;
+        atualizarEnvio(textarea);
 
         return quill;
     }
@@ -1263,6 +1301,7 @@
         sincronizar(textarea, quill);
         zerarHistorico(refs);
         atualizarRodape(refs, false);
+        atualizarEnvio(textarea);
         refs.busca.aoMudarTexto();
     }
 
@@ -1290,6 +1329,7 @@
         textarea.removeAttribute('tabindex');
         delete textarea.dataset.editorRicoMontado;
         delete textarea._editorRico;
+        atualizarEnvio(textarea);
     }
 
     function montarTodos(raiz) {
@@ -1304,6 +1344,7 @@
         estaVazio: estaVazio,
         desmontar: desmontar,
         instancia: instancia,
+        marcarEnvio: marcarEnvio,
     };
 
     if (document.readyState === 'loading') {
