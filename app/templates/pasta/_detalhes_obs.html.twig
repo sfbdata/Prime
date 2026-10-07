@@ -412,17 +412,24 @@
         menuAberto = null;
     }
 
-    function abrirMenuObs(gatilho) {
+    /* PAS-040 (dc L.2316 `onContextMenu`): o botão direito no cartão abre o MESMO menu do ⋮,
+       no ponto do clique (`px`/`py`); sem eles, o menu desce do ⋮. */
+    function abrirMenuObs(gatilho, px, py) {
         const menu = document.getElementById(gatilho.getAttribute('aria-controls') || '');
         if (!menu) { return; }
-        if (menuAberto && menuAberto.menu === menu) { fecharMenuObs(false); return; }
+        const porClique = typeof px === 'number';
+        if (!porClique && menuAberto && menuAberto.menu === menu) { fecharMenuObs(false); return; }
         fecharMenuObs(false);
         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
         menu.hidden = false;
         const r = gatilho.getBoundingClientRect();
-        const x = r.right - menu.offsetWidth;
+        let x = r.right - menu.offsetWidth;
         let y = r.bottom + 4;
-        if (y + menu.offsetHeight > window.innerHeight - 8) { y = Math.max(8, r.top - menu.offsetHeight - 4); }
+        if (porClique) {
+            x = px;
+            y = py;
+            if (y + menu.offsetHeight > window.innerHeight - 8) { y = Math.max(8, py - menu.offsetHeight); }
+        } else if (y + menu.offsetHeight > window.innerHeight - 8) { y = Math.max(8, r.top - menu.offsetHeight - 4); }
         menu.style.left = Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8)) + 'px';
         menu.style.top  = Math.max(8, y) + 'px';
         gatilho.setAttribute('aria-expanded', 'true');
@@ -517,6 +524,21 @@
     document.addEventListener('ps:fechar-popovers', function () { fecharMenuObs(false); });
 
     if (obsLista) {
+        // PAS-040: botão direito no cartão. Links, botões, a caixa de edição e texto
+        // selecionado seguem com o menu do navegador (mesma regra do Registro).
+        obsLista.addEventListener('contextmenu', function (e) {
+            const alvo   = e.target;
+            const cartao = alvo && alvo.closest ? alvo.closest('.detalhes-obs-item') : null;
+            if (!cartao) { return; }
+            if (alvo.closest('a, button, input, textarea, select, [contenteditable="true"], .ps-anotacao-edicao, .ps-obs-menu')) { return; }
+            const selecao = window.getSelection ? String(window.getSelection()) : '';
+            if (selecao.trim() !== '') { return; }
+            const gatilho = cartao.querySelector('.js-obs-menu');
+            if (!gatilho) { return; }
+            e.preventDefault();
+            abrirMenuObs(gatilho, e.clientX, e.clientY);
+        });
+
         obsLista.addEventListener('click', async function (e) {
             const gatilhoMenu = e.target.closest('.js-obs-menu');
             if (gatilhoMenu) { abrirMenuObs(gatilhoMenu); return; }
