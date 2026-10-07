@@ -91,6 +91,10 @@
     const LIMITE_BYTES_PAGINA_TIFF  = 200 * 1024 * 1024; // página descompactada (16 bits × 4 canais pesa o dobro do RGBA)
     const LIMITE_LADO_TIFF          = 16384;             // lado máximo de um canvas
     const LARGURA_MAX_TIFF          = 1700;              // px desenhados por página
+    /* DOC-112b: os canvas EXIBIDOS ficam todos na tela enquanto o visor estiver aberto — o teto por
+       página não basta (50 páginas de 1700 × 16384 somam ~5,5 GB de canvas). Somado entre as
+       páginas; passando dele, a lista para com o aviso "Aparecem as N primeiras de M páginas". */
+    const LIMITE_PIXELS_EXIBIDOS_TIFF = 150 * 1000 * 1000; // 150 Mpx somados (~600 MB de RGBA)
     /* Teto do que se DESCOMPACTA de dentro de um ZIP (content.xml, slides):
        um XML de poucos KB pode inflar para GB (zip bomb). Por entrada e, nos
        slides, somado. */
@@ -1709,6 +1713,12 @@
         return (Math.ceil(w * bits / 8) + 8) * h;
     }
 
+    /** Pixels do canvas que fica na tela: a mesma redução a LARGURA_MAX_TIFF do paginaTiffEmCanvas. */
+    function pixelsExibidosTiff(w, h) {
+        const escala = Math.min(1, LARGURA_MAX_TIFF / w);
+        return escala < 1 ? Math.max(1, Math.round(w * escala)) * Math.max(1, Math.round(h * escala)) : w * h;
+    }
+
     /** RGBA → canvas, reduzido a LARGURA_MAX_TIFF (o original some depois de copiado). */
     function paginaTiffEmCanvas(rgba, w, h, numero, total) {
         if (!rgba || rgba.length < w * h * 4) { throw falha('O arquivo não parece ser uma imagem TIFF válida (ou está corrompido).'); }
@@ -1758,11 +1768,15 @@
         lista.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px';
         wrap.appendChild(lista);
         let desenhadas = 0;
+        let pixelsExibidos = 0;
         for (let i = 0; i < total && i < LIMITE_PAGINAS_TIFF; i++) {
             const d = paginas[i];
             const w = d.t256[0];
             const h = d.t257[0];
             if (!(w > 0 && h > 0) || w > LIMITE_LADO_TIFF || h > LIMITE_LADO_TIFF || w * h > LIMITE_PIXELS_PAGINA_TIFF) { break; }
+            // DOC-112b: antes de decodificar — a página que estouraria o teto somado nem é lida.
+            const exibidos = pixelsExibidosTiff(w, h);
+            if (pixelsExibidos + exibidos > LIMITE_PIXELS_EXIBIDOS_TIFF) { break; }
             let pagina;
             try {
                 conferirPaginaTiff(d, w, h, arq.bytes.length, invalido);
@@ -1777,6 +1791,7 @@
                 throw (e && e.vdMensagem) ? e : falha(invalido);
             }
             lista.appendChild(pagina);
+            pixelsExibidos += exibidos;
             desenhadas++;
             if (desenhadas === 1) { trocar(alvo, wrap); }
             await new Promise(function (ok) { setTimeout(ok, 0); });

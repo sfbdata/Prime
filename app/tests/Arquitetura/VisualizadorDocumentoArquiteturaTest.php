@@ -486,6 +486,26 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString("c.title = 'Página ' + numero;", $pagina);
     }
 
+    #[TestDox('DOC-112b: teto de pixels EXIBIDOS somado entre as páginas do TIFF, conferido antes de decodificar a página; passando dele, o aviso "Aparecem as N primeiras"')]
+    public function testTiffComTetoSomadoDePixelsExibidos(): void
+    {
+        $js     = self::modulo();
+        $render = self::corpoDaFuncao($js, 'renderTiff');
+
+        self::assertStringContainsString('const LIMITE_PIXELS_EXIBIDOS_TIFF = 150 * 1000 * 1000;', $js);
+        self::assertMatchesRegularExpression(
+            '/const exibidos = pixelsExibidosTiff\(w, h\);\s*if \(pixelsExibidos \+ exibidos > LIMITE_PIXELS_EXIBIDOS_TIFF\) \{ break; \}.*?UTIF\.decodeImage\(buf, d\);.*?pixelsExibidos \+= exibidos;/s',
+            $render,
+            'o teto somado vem antes do decodeImage, e só a página desenhada entra na soma',
+        );
+        self::assertStringContainsString("'Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'", $render);
+
+        // A conta é a mesma redução do canvas da página.
+        $pixels = self::corpoDaFuncao($js, 'pixelsExibidosTiff');
+        self::assertStringContainsString('const escala = Math.min(1, LARGURA_MAX_TIFF / w);', $pixels);
+        self::assertStringContainsString('Math.max(1, Math.round(w * escala)) * Math.max(1, Math.round(h * escala))', $pixels);
+    }
+
     #[TestDox('DOC-112: o índice do TIFF é conferido antes do UTIF (IFD em laço, campo maior que o arquivo, BigTIFF), e a página também (tiras e blocos)')]
     public function testIndiceDoTiffConferido(): void
     {
