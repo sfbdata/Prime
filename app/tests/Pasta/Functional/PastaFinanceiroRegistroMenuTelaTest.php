@@ -88,8 +88,8 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
     #[TestDox('Arranjo: um menu só, filho direto do Relatório financeiro, escondido, com Copiar texto, Editar e Excluir')]
     public function testMenuDoRegistro(): void
     {
-        [$user, $tenant, $pasta] = $this->cenario();
         $client = static::createClient();
+        [$user, $tenant, $pasta] = $this->cenario();
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
@@ -119,9 +119,9 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
     #[TestDox('O registro da autora, dentro da janela, expõe os gatilhos do menu: texto, autor, hora e os botões de editar e excluir')]
     public function testRegistroDaAutoraExpoeOsGatilhos(): void
     {
+        $client = static::createClient();
         [$user, $tenant, $pasta] = $this->cenario();
         $obs = $this->criarRegistro($pasta, $user, $tenant, 'Honorário combinado em 30%.');
-        $client = static::createClient();
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
@@ -139,10 +139,10 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
     #[TestDox('Registro de OUTRO autor não traz os botões: o menu fica só com Copiar texto')]
     public function testRegistroDeOutroAutorSemGatilhos(): void
     {
+        $client = static::createClient();
         [$user, $tenant, $pasta] = $this->cenario();
         $outro = $this->criarUsuario($tenant, 'Outro Autor');
         $obs   = $this->criarRegistro($pasta, $outro, $tenant, 'Registro de outra pessoa.');
-        $client = static::createClient();
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
@@ -156,9 +156,9 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
     #[TestDox('Registro da própria autora FORA da janela de 15 min também não traz os botões')]
     public function testRegistroForaDaJanelaSemGatilhos(): void
     {
+        $client = static::createClient();
         [$user, $tenant, $pasta] = $this->cenario();
         $obs = $this->criarRegistro($pasta, $user, $tenant, 'Registro antigo.', new \DateTimeImmutable('-20 minutes'));
-        $client = static::createClient();
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
