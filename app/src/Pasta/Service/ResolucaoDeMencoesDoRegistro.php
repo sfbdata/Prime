@@ -10,6 +10,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Processo\Entity\NotaTecnica;
 use App\Repository\NotificacaoRepository;
@@ -43,7 +44,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * estourada, o aviso é suprimido e a mensagem segue gravada — no envio e na edição.
  *
  * `notificarRespostaNaObservacao()` — o "respondeu seu comentário" do Relatório financeiro
- * (FPN-005), com as MESMAS regras do Registro (`EnviarMensagemPastaUseCase`): nunca quem
+ * (FPN-005) e das observações de Detalhes (PAS-039), com as MESMAS regras do Registro (`EnviarMensagemPastaUseCase`): nunca quem
  * respondeu; só quem ainda tem vínculo ATIVO neste escritório e VÊ esta pasta; um aviso por
  * resposta (o link é o da resposta); a mesma cota do autor.
  */
@@ -60,6 +61,9 @@ final class ResolucaoDeMencoesDoRegistro
 
     /** Relatório financeiro — rótulo do desenho (`regsLinha(…, 'Financeiro', 'financeiro')`). */
     public const ABA_DO_FINANCEIRO = 'Financeiro';
+
+    /** Relatório inicial de Atendimento — rótulo do desenho (`regsLinha(obsDet, 'Detalhes', …)`). */
+    public const ABA_DE_DETALHES = 'Detalhes';
 
     /** Texto do "respondeu seu comentário" — desenho `bluejus-central.js` `notificarResposta`. */
     private const LIMITE_RESPOSTA = 140;
@@ -187,17 +191,29 @@ final class ResolucaoDeMencoesDoRegistro
 
     /**
      * "<Primeiro nome> respondeu seu comentário" para o autor da RAIZ de uma resposta do
-     * Relatório financeiro (FPN-005). Tipo `TIPO_PASTA_RESPOSTA_REGISTRO` — o mesmo do Registro:
-     * o sino não distingue a aba, e o texto já diz qual é ("· em Financeiro da Pasta N"). Link
-     * `pasta_show#financeiro-obs-<idDaResposta>`: cada resposta tem o seu.
+     * Relatório financeiro (FPN-005) ou das observações de Detalhes (PAS-039). Tipo
+     * `TIPO_PASTA_RESPOSTA_REGISTRO` — o mesmo do Registro: o sino não distingue a aba, e o texto
+     * já diz qual é ("· em Financeiro da Pasta N"). Link `pasta_show#<âncora>-<idDaResposta>`
+     * ({@see ancoraDaObservacao()}): cada resposta tem o seu.
      *
      * Chamar DEPOIS do flush (o link leva o id da resposta) e dentro da transação dela. A pasta,
      * a raiz e a resposta têm de ser deste escritório e a raiz desta pasta — quem chama já
      * conferiu; aqui a prova é repetida, porque um aviso com link para pasta alheia vazaria o
      * nome dela.
      */
-    public function notificarRespostaNaObservacao(PastaObservacaoFinanceira $raiz, PastaObservacaoFinanceira $resposta, Pasta $pasta, User $quemResponde, Tenant $tenant): void
-    {
+    public function notificarRespostaNaObservacao(
+        PastaObservacaoFinanceira|PastaObservacaoDetalhes $raiz,
+        PastaObservacaoFinanceira|PastaObservacaoDetalhes $resposta,
+        Pasta $pasta,
+        User $quemResponde,
+        Tenant $tenant,
+    ): void {
+        // Raiz e resposta da MESMA origem: uma resposta de Detalhes nunca pendura num registro
+        // financeiro (o link e o rótulo da aba sairiam trocados).
+        if ($raiz::class !== $resposta::class) {
+            return;
+        }
+
         $destinatario = $raiz->getAutor();
         $pastaId      = $pasta->getId();
         if ($destinatario === null || $pastaId === null || $resposta->getId() === null || self::mesmoUsuario($destinatario, $quemResponde)) {
@@ -219,7 +235,7 @@ final class ResolucaoDeMencoesDoRegistro
         }
 
         $tipo = Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO;
-        $url  = $this->urlGenerator->generate('pasta_show', ['id' => $pastaId]) . '#financeiro-obs-' . $resposta->getId();
+        $url  = $this->urlGenerator->generate('pasta_show', ['id' => $pastaId]) . self::ancoraDaObservacao($resposta);
 
         // Idempotência da MESMA resposta: o link é único por resposta.
         $jaExiste = $this->notificacaoRepository->findOneBy([
@@ -240,7 +256,7 @@ final class ResolucaoDeMencoesDoRegistro
         $texto = sprintf(
             '"%s" · em %s da Pasta %s · %s. Seu comentário: "%s"',
             mb_substr($this->mencoes->textoDoSino($resposta->getConteudo()), 0, self::LIMITE_RESPOSTA),
-            self::ABA_DO_FINANCEIRO,
+            $resposta instanceof PastaObservacaoDetalhes ? self::ABA_DE_DETALHES : self::ABA_DO_FINANCEIRO,
             ($nup = $pasta->getNup()) !== null && $nup !== '' ? $nup : '#' . $pastaId,
             $resposta->getCriadaEm()->format('d/m/Y H:i'),
             mb_substr($this->mencoes->textoDoSino($raiz->getConteudo()), 0, self::LIMITE_ORIGINAL),
@@ -249,6 +265,16 @@ final class ResolucaoDeMencoesDoRegistro
         $this->notificacaoService
             ->criar($destinatario, $tenant, $tipo, sprintf('%s respondeu seu comentário', self::primeiroNome($quemResponde)), $texto)
             ->setUrl($url);
+    }
+
+    /**
+     * A âncora do cartão na pasta_show: `#financeiro-obs-<id>` (`_financeiro.html.twig`) ou
+     * `#detalhes-obs-<id>` (`_detalhes_obs.html.twig`). É também por ela que a exclusão apaga o
+     * aviso (`excluirPelaAncoraDoLink`).
+     */
+    public static function ancoraDaObservacao(PastaObservacaoFinanceira|PastaObservacaoDetalhes $obs): string
+    {
+        return ($obs instanceof PastaObservacaoDetalhes ? '#detalhes-obs-' : '#financeiro-obs-') . $obs->getId();
     }
 
     /**

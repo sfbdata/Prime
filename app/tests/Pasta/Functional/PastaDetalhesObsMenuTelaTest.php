@@ -74,6 +74,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
 
         [$menu, $itens] = $this->menu($crawler, $obs);
         self::assertSame([
+            'Responder',
             'Copiar texto',
             'Citar no novo registro',
             'Criar meta a partir deste registro',
@@ -91,7 +92,9 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         // A ação real é o botão da janela do cartão, que o item aciona.
         self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} .ps-anotacao-acoes > .btn-editar-obs-det"));
         self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} .ps-anotacao-acoes > .btn-excluir-obs-det"));
-        self::assertStringNotContainsString('Responder', $menu->text());
+        // PAS-039 (dc L.5958): Responder é o primeiro item e clica o botão do cartão.
+        self::assertCount(1, $menu->filter("#psObsMenu{$id} > .ps-processo-menu-titulo + .js-obs-responder[role=\"menuitem\"] > i.bi-reply-fill"));
+        self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} > .ps-anotacao-topo > .btn-responder-obs-det[data-resposta-a=\"{$id}\"]"));
     }
 
     #[TestDox('PAS-041: autor passados 20 min — "Editar · bloqueado" e "Excluir · bloqueado", desabilitados, com bi-lock e o motivo do prazo')]
@@ -106,7 +109,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Editar · bloqueado', 'Excluir · bloqueado', 'Imprimir'], $itens);
+        self::assertSame(['Responder', 'Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Editar · bloqueado', 'Excluir · bloqueado', 'Imprimir'], $itens);
         $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled][aria-disabled="true"]');
         self::assertCount(2, $bloqueados);
         self::assertCount(2, $bloqueados->filter('i.bi-lock'));
@@ -174,6 +177,8 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         [$menu, $itens] = $this->menu($crawler, $obs);
         self::assertSame(['Copiar texto', 'Citar no novo registro', 'Imprimir'], $itens, 'na lápide só leitura: Imprimir fica');
         self::assertCount(0, $menu->filter('.ps-processo-menu-sep'));
+        // PAS-039: nem o item Responder nem o botão do cartão.
+        self::assertCount(0, $crawler->filter('#detalhesObsLista .btn-responder-obs-det, #detalhesObsLista .js-obs-responder'));
     }
 
     #[TestDox('PAS-041: o cartão montado em JS traz os mesmos itens novos, na ordem, e o script os liga ao modal Nova meta e aos botões do cartão')]
@@ -213,5 +218,84 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $acionar = substr($html, (int) strpos($html, 'function acionarDoCartao(item, seletor)'), 500);
         self::assertStringContainsString("querySelector('.ps-anotacao-acoes ' + seletor)", $acionar);
         self::assertStringContainsString('alvo.click()', $acionar);
+    }
+
+    #[TestDox('PAS-039: a resposta fica recuada sob a raiz, com "Resposta a NOME"; a contagem é só das raízes')]
+    public function testRespostaRecuadaSobARaiz(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $raiz            = $this->criarObs($pasta, $tenant, $user, '-2 hours');
+        $resposta        = $this->criarObs($pasta, $tenant, $user, '-1 hour');
+        $resposta->setRespostaA($raiz);
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(1, $crawler->filter('#detalhesObsLista > article.detalhes-obs-item#detalhes-obs-' . $raiz->getId()));
+        self::assertCount(0, $crawler->filter('#detalhesObsLista > #detalhes-obs-' . $resposta->getId()));
+        $cartao = $crawler->filter('#detalhesObsLista > .ps-respostas[data-resposta-de="' . $raiz->getId() . '"] > article.detalhes-obs-item.ps-anotacao--resposta#detalhes-obs-' . $resposta->getId());
+        self::assertCount(1, $cartao);
+        self::assertSame('Resposta a ' . $user->getFullName(), trim($cartao->filter('.ps-anotacao-resposta-rot > span')->text()));
+        self::assertSame('1', trim($crawler->filter('#detalhes-obs-count')->text()), 'respostas não contam');
+
+        // A resposta responde à RAIZ, levando o autor dela para o "@"; a raiz não pré-preenche.
+        $naResposta = $cartao->filter('.ps-anotacao-topo > .btn-responder-obs-det');
+        self::assertSame((string) $raiz->getId(), $naResposta->attr('data-resposta-a'));
+        self::assertSame((string) $user->getId(), $naResposta->attr('data-resposta-autor-id'));
+        $naRaiz = $crawler->filter('#detalhes-obs-' . $raiz->getId() . ' > .ps-anotacao-topo > .btn-responder-obs-det');
+        self::assertSame((string) $raiz->getId(), $naRaiz->attr('data-resposta-a'));
+        self::assertNull($naRaiz->attr('data-resposta-autor-id'));
+        // O ⋮ da resposta também tem Responder.
+        [, $itens] = $this->menu($crawler, $resposta);
+        self::assertSame('Responder', $itens[0]);
+    }
+
+    #[TestDox('PAS-039: a resposta cuja original foi excluída fica solta, com "Resposta a uma mensagem excluída"')]
+    public function testRespostaOrfa(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $raiz            = $this->criarObs($pasta, $tenant, $user, '-2 hours');
+        $resposta        = $this->criarObs($pasta, $tenant, $user, '-1 hour');
+        $resposta->setRespostaA($raiz);
+        $this->em()->flush();
+        $this->em()->remove($raiz);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+
+        $cartao = $crawler->filter('#detalhesObsLista > article.ps-anotacao--resposta#detalhes-obs-' . $resposta->getId());
+        self::assertCount(1, $cartao);
+        self::assertSame('Resposta a uma mensagem excluída', trim($cartao->filter('.ps-anotacao-resposta-rot > span')->text()));
+        self::assertSame((string) $resposta->getId(), $cartao->filter('.btn-responder-obs-det')->attr('data-resposta-a'));
+    }
+
+    #[TestDox('PAS-039: o cartão montado em JS traz o Responder no ⋮ e o botão do cartão')]
+    public function testCartaoDoJsTemResponder(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/pasta/' . $pasta->getId());
+        $html     = (string) $client->getResponse()->getContent();
+        $ini      = (int) strpos($html, 'function inserirItem(data)');
+        $montador = substr($html, $ini, (int) strpos($html, 'obsLista.insertAdjacentHTML', $ini) - $ini);
+
+        self::assertStringContainsString('class="ps-processo-menu-item js-obs-responder" role="menuitem"', $montador);
+        self::assertLessThan(strpos($montador, 'js-obs-copiar'), strpos($montador, 'js-obs-responder'), 'Responder antes de Copiar texto, como no Twig');
+        self::assertStringContainsString('btn-responder-obs-det', $montador);
+        // A caixa de resposta DESTE script (o Registro tem a dele) manda o id da raiz.
+        $caixa = substr($html, (int) strpos($html, 'function abrirCaixaRespostaDet(botao) {'), 6000);
+        self::assertStringContainsString("fd.append('resposta_a', raizId);", $caixa);
+        self::assertStringContainsString('fetch(urlEnviar,', $caixa);
     }
 }

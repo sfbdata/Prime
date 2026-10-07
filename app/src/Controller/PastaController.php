@@ -2197,8 +2197,22 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'A observação não pode ser vazia.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // "Responder" (PAS-039): o id da observação respondida vem do navegador. A busca já é presa
+        // a ESTA pasta e a ESTE escritório (id de outra pasta ou de outro escritório = não achado,
+        // nada gravado); o UseCase repete a prova, inclusive para a raiz.
+        $respostaA   = null;
+        $respostaAId = (int) $request->request->get('resposta_a', 0);
+        if ($respostaAId > 0) {
+            $respostaA = $tenant !== null
+                ? $this->em->getRepository(PastaObservacaoDetalhes::class)->findOneBy(['id' => $respostaAId, 'pasta' => $pasta, 'tenant' => $tenant])
+                : null;
+            if ($respostaA === null) {
+                return $this->json(['erro' => 'A observação respondida não foi encontrada.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
         try {
-            $obs = $this->enviarObservacaoDetalhesUseCase->executar($pasta, $currentUser, $conteudo, $tenant);
+            $obs = $this->enviarObservacaoDetalhesUseCase->executar($pasta, $currentUser, $conteudo, $tenant, $respostaA);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -2213,6 +2227,10 @@ class PastaController extends AbstractController
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_detalhes_obs_editar_' . $obs->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_detalhes_obs_excluir_' . $obs->getId())->getValue(),
+            'autorId'     => $currentUser->getId(),
+            // A RAIZ respondida (já normalizada pelo UseCase): é sob ela que o JS pendura a resposta.
+            'respostaA'     => $obs->getRespostaA()?->getId(),
+            'respostaANome' => $obs->getRespostaA()?->getAutor()?->getFullName() ?? $obs->getRespostaA()?->getAutor()?->getEmail(),
         ], Response::HTTP_CREATED);
     }
 

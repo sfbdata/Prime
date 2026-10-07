@@ -16,6 +16,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta_observacao_detalhes')]
 #[ORM\Index(name: 'idx_pasta_obs_det_pasta_id', columns: ['pasta_id'])]
 #[ORM\Index(name: 'idx_pasta_obs_det_tenant', columns: ['tenant_id'])]
+#[ORM\Index(name: 'idx_pasta_obs_det_resposta_a', columns: ['resposta_a_id'])]
 class PastaObservacaoDetalhes implements Auditavel, TenantAware
 {
     #[ORM\Id]
@@ -44,6 +45,26 @@ class PastaObservacaoDetalhes implements Auditavel, TenantAware
 
     #[ORM\Column(name: 'editada_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $editadaEm = null;
+
+    /**
+     * O registro RAIZ que este responde (PAS-039; desenho 1.2.3, "Resposta a X" — o mesmo
+     * `regsLinha` do Registro da aba Dados).
+     *
+     * A conversa tem UM nível só: responder a uma resposta aponta para a raiz dela (quem
+     * garante é o `EnviarObservacaoDetalhesUseCase`). `SET NULL` porque excluir a original
+     * não apaga o que os outros responderam.
+     */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(name: 'resposta_a_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?PastaObservacaoDetalhes $respostaA = null;
+
+    /**
+     * Marca que o registro NASCEU como resposta. O `SET NULL` apaga o vínculo quando a
+     * original é excluída: sem a marca, a resposta órfã viraria registro comum e a tela não
+     * teria como dizer "Resposta a uma mensagem excluída".
+     */
+    #[ORM\Column(name: 'eh_resposta', type: 'boolean', options: ['default' => false])]
+    private bool $ehResposta = false;
 
     public function __construct()
     {
@@ -118,6 +139,36 @@ class PastaObservacaoDetalhes implements Auditavel, TenantAware
         $this->editadaEm = $editadaEm;
 
         return $this;
+    }
+
+    public function getRespostaA(): ?PastaObservacaoDetalhes
+    {
+        return $this->respostaA;
+    }
+
+    /**
+     * Liga o registro ao que ele responde. Uma vez resposta, sempre resposta: desligar
+     * (`null`) não desfaz a marca `ehResposta`.
+     */
+    public function setRespostaA(?PastaObservacaoDetalhes $respostaA): self
+    {
+        $this->respostaA = $respostaA;
+        if ($respostaA !== null) {
+            $this->ehResposta = true;
+        }
+
+        return $this;
+    }
+
+    public function isResposta(): bool
+    {
+        return $this->ehResposta;
+    }
+
+    /** Resposta cuja original foi excluída (o vínculo caiu pelo `SET NULL`). */
+    public function isRespostaOrfa(): bool
+    {
+        return $this->ehResposta && $this->respostaA === null;
     }
 
     /**

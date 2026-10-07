@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Functional;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
@@ -425,5 +426,158 @@ final class PastaObservacaoDetalhesControllerTest extends JusPrimeWebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(422);
+    }
+
+    // ── Responder (PAS-039) ──────────────────────────────────────────────────
+
+    /** @return list<PastaObservacaoDetalhes> */
+    private function registrosDaPasta(Pasta $pasta): array
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+
+        return $em->getRepository(PastaObservacaoDetalhes::class)->findBy(['pasta' => $pasta->getId()], ['id' => 'ASC']);
+    }
+
+    #[TestDox('PAS-039: responder grava a resposta ligada à raiz e avisa o autor dela, com link para a resposta')]
+    public function testResponderGravaEAvisa(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $dono   = $this->criarUsuario($tenant, 'dono');
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+        $raiz   = $this->criarObservacao($pasta, $dono, $tenant);
+        $raizId = $raiz->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao", [
+            '_token'     => $this->gerarCsrf('pasta_detalhes_obs_' . $pasta->getId()),
+            'conteudo'   => '<p>Recibo emitido</p>',
+            'resposta_a' => (string) $raizId,
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame($raizId, $data['respostaA']);
+        self::assertSame('Usuário dono', $data['respostaANome']);
+
+        $registros = $this->registrosDaPasta($pasta);
+        self::assertCount(2, $registros);
+        self::assertSame($raizId, $registros[1]->getRespostaA()?->getId());
+        self::assertTrue($registros[1]->isResposta());
+
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $avisos = $em->getRepository(Notificacao::class)->findBy(['usuario' => $dono->getId(), 'tipo' => Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO]);
+        self::assertCount(1, $avisos);
+        self::assertSame($tenant->getId(), $avisos[0]->getTenant()?->getId());
+        self::assertStringEndsWith('/pasta/' . $pasta->getId() . '#detalhes-obs-' . $data['id'], (string) $avisos[0]->getUrl());
+    }
+
+    #[TestDox('PAS-039: responder a uma resposta liga à RAIZ (um nível só)')]
+    public function testResponderARespostaLigaARaiz(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'autor');
+        $pasta    = $this->criarPasta($tenant);
+        $raiz     = $this->criarObservacao($pasta, $autor, $tenant);
+        $resposta = $this->criarObservacao($pasta, $autor, $tenant);
+        $resposta->setRespostaA($raiz);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao", [
+            '_token'     => $this->gerarCsrf('pasta_detalhes_obs_' . $pasta->getId()),
+            'conteudo'   => 'Tréplica',
+            'resposta_a' => (string) $resposta->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame($raiz->getId(), $data['respostaA']);
+    }
+
+    #[TestDox('PAS-039: resposta_a de OUTRA pasta do mesmo escritório → 422 e nada é gravado')]
+    public function testResponderAOutraPastaRecusa(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+        $outra  = $this->criarPasta($tenant);
+        $alheio = $this->criarObservacao($outra, $autor, $tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao", [
+            '_token'     => $this->gerarCsrf('pasta_detalhes_obs_' . $pasta->getId()),
+            'conteudo'   => 'Invasão',
+            'resposta_a' => (string) $alheio->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        // A busca do controller já é presa à pasta: o id alheio nem chega ao UseCase.
+        self::assertSame('A observação respondida não foi encontrada.', json_decode((string) $client->getResponse()->getContent(), true)['erro']);
+        self::assertCount(0, $this->registrosDaPasta($pasta));
+        self::assertCount(1, $this->registrosDaPasta($outra));
+    }
+
+    #[TestDox('PAS-039: resposta_a de OUTRO escritório → 422 e nada é gravado')]
+    public function testResponderAOutroEscritorioRecusa(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $userA   = $this->criarUsuario($tenantA, 'usera');
+        $userB   = $this->criarUsuario($tenantB, 'userb');
+        $pastaA  = $this->criarPasta($tenantA);
+        $pastaB  = $this->criarPasta($tenantB);
+        $obsB    = $this->criarObservacao($pastaB, $userB, $tenantB);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $userA, $tenantA);
+
+        $client->request('POST', "/pasta/{$pastaA->getId()}/detalhes/observacao", [
+            '_token'     => $this->gerarCsrf('pasta_detalhes_obs_' . $pastaA->getId()),
+            'conteudo'   => 'Invasão',
+            'resposta_a' => (string) $obsB->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('A observação respondida não foi encontrada.', json_decode((string) $client->getResponse()->getContent(), true)['erro']);
+        self::assertCount(0, $this->registrosDaPasta($pastaA));
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(0, $em->getRepository(Notificacao::class)->findBy(['usuario' => $userB->getId()]));
+    }
+
+    #[TestDox('PAS-039: responder na lápide é recusado e nada é gravado')]
+    public function testResponderNaLapideRecusa(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+        $raiz   = $this->criarObservacao($pasta, $autor, $tenant);
+        $pasta->marcarExcluida($autor, new \DateTimeImmutable());
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao", [
+            '_token'     => $this->gerarCsrf('pasta_detalhes_obs_' . $pasta->getId()),
+            'conteudo'   => 'Na lápide',
+            'resposta_a' => (string) $raiz->getId(),
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        // `PastaSomenteLeituraListener`: a recusa da lápide, antes do controller.
+        self::assertResponseStatusCodeSame(403);
+        self::assertCount(1, $this->registrosDaPasta($pasta));
     }
 }
