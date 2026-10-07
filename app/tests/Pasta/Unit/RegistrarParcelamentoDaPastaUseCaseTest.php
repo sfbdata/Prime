@@ -186,6 +186,18 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         $valores = array_column($this->linhas(), 1);
         self::assertSame(array_merge(array_fill(0, 11, '888.49'), ['888.46']), $valores);
         self::assertSame('10661.85', $saida->totalLancado);
+        // FPN-009: cada parcela registra a taxa (só registro, a conta acima não muda).
+        self::assertSame(array_fill(0, 12, '1.0000'), array_map(static fn ($p) => $p->getJurosMensal(), $this->persistidos));
+    }
+
+    #[TestDox('FPN-009: com juros e entrada, a taxa vai nas parcelas e NUNCA na entrada')]
+    public function testTaxaSoNasParcelas(): void
+    {
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input([
+            'total' => '12.000,00', 'entrada' => '2.000,00', 'parcelas' => '3', 'juros' => true, 'taxa' => '1,5',
+        ]));
+
+        self::assertSame([null, '1.5000', '1.5000', '1.5000'], array_map(static fn ($p) => $p->getJurosMensal(), $this->persistidos));
     }
 
     #[TestDox('juros desligado ignora a taxa digitada, mesmo inválida')]
@@ -196,6 +208,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         ]));
 
         self::assertSame(['33.33', '33.33', '33.34'], array_column($this->linhas(), 1));
+        self::assertSame([null, null, null], array_map(static fn ($p) => $p->getJurosMensal(), $this->persistidos));
     }
 
     #[TestDox('31/01 como 1º vencimento: a 2ª vence 28/02 e a 3ª volta para 31/03')]
