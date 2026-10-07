@@ -14,7 +14,9 @@
      5. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
         pré-preenchido, no mesmo contrato do "Criar tarefa" da publicação
         (pasta-push.js): marca `data-origem-push` e o pasta-push.js limpa os
-        campos ao fechar. O prazo nasce em +7 dias, como o desenho (editável).
+        campos ao fechar. O prazo nasce em +7 dias, como o desenho (editável);
+     6. recolher/expandir a análise (chevron e prévia): troca na hora e grava a
+        escolha do usuário no servidor (POST `inteligencia_analise_recolher`).
 
    A lista é trocada inteira a cada recarga, então todo clique é por delegação
    na seção `.ps-push`. Sem JS, os formulários do fragmento seguem por POST comum.
@@ -326,6 +328,8 @@
         secao.addEventListener('submit', function (e) {
             var form = e.target.closest('form[data-ia-acao]');
             if (!form || !secao.contains(form)) { return; }
+            // Recolher/expandir tem tratamento próprio (troca na hora, sem recarregar a lista).
+            if (form.getAttribute('data-ia-acao') === 'recolher') { return; }
             e.preventDefault();
 
             var confirmar = form.getAttribute('data-ia-confirmar');
@@ -351,6 +355,56 @@
                 .catch(function (falha) {
                     avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar a análise.', true);
                     if (enviar) { enviar.disabled = false; }
+                });
+        });
+
+        /* ── 6. Recolher / expandir (IA-010) ──────────────────────────────── */
+        // Troca o cartão NA HORA e grava no servidor (`preferencia_usuario`); se a gravação
+        // falhar, desfaz e avisa. O chevron e a prévia são botões do formulário `recolher`.
+        function aplicarRecolhida(cartao, recolhida) {
+            cartao.classList.toggle('ps-ia-cartao--recolhida', recolhida);
+            var previa = cartao.querySelector('[data-ia-previa]');
+            if (previa) { previa.hidden = !recolhida; }
+            var chevron = cartao.querySelector('[data-ia-recolher]');
+            if (chevron) {
+                var dica = recolhida ? 'Expandir a análise' : 'Recolher a análise';
+                chevron.setAttribute('aria-expanded', recolhida ? 'false' : 'true');
+                chevron.title = dica;
+                chevron.setAttribute('aria-label', dica);
+                var icone = chevron.querySelector('i');
+                if (icone) { icone.className = 'bi ' + (recolhida ? 'bi-chevron-down' : 'bi-chevron-up'); }
+            }
+            var campo = cartao.querySelector('form[data-ia-acao="recolher"] input[name="recolhida"]');
+            // O campo leva o PRÓXIMO pedido: recolhida agora → o próximo clique expande.
+            if (campo) { campo.value = recolhida ? '0' : '1'; }
+        }
+
+        secao.addEventListener('submit', function (e) {
+            var form = e.target.closest('form[data-ia-acao="recolher"]');
+            if (!form || !secao.contains(form)) { return; }
+            e.preventDefault();
+
+            var cartao = form.closest('[data-ia-analise]');
+            if (!cartao) { return; }
+            var campo = form.querySelector('input[name="recolhida"]');
+            var recolher = !!campo && campo.value === '1';
+            var dados = new FormData(form);
+
+            aplicarRecolhida(cartao, recolher);
+
+            fetch(form.getAttribute('action'), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+                body: dados
+            })
+                .then(lerJson)
+                .then(function (res) {
+                    if (!res.ok) { throw new Error(res.dados.mensagem || 'Não foi possível guardar a sua escolha.'); }
+                })
+                .catch(function (falha) {
+                    aplicarRecolhida(cartao, !recolher);
+                    avisar(falha && falha.message ? falha.message : 'Não foi possível guardar a sua escolha.', true);
                 });
         });
 

@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\UseCase\ObterAnalisesRecolhidasUseCase;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
@@ -20,6 +21,10 @@ use Twig\TwigFunction;
  *
  * `ia_agentes()` — os sete agentes da pasta (enum `Agente`), para o drawer do cabeçalho
  * desenhar a lista sem depender do controller da pasta (legado, fora desta frente).
+ *
+ * `ia_push_recolhidas()` — ids das análises do Push que o usuário logado recolheu neste escritório
+ * (IA-010, `preferencia_usuario`). Função, e não variável do controller, pelo mesmo motivo: o
+ * fragmento da lista é incluído pelo `_push_processual.html.twig` com `only`. Sem sessão, lista vazia.
  */
 final class InteligenciaExtension extends AbstractExtension
 {
@@ -27,6 +32,7 @@ final class InteligenciaExtension extends AbstractExtension
         private readonly DisponibilidadeDeInteligencia $disponibilidade,
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
+        private readonly ObterAnalisesRecolhidasUseCase $recolhidas,
     ) {
     }
 
@@ -35,6 +41,7 @@ final class InteligenciaExtension extends AbstractExtension
         return [
             new TwigFunction('ia_disponibilidade', $this->iaDisponibilidade(...)),
             new TwigFunction('ia_agentes', $this->iaAgentes(...)),
+            new TwigFunction('ia_push_recolhidas', $this->iaPushRecolhidas(...)),
         ];
     }
 
@@ -42,6 +49,19 @@ final class InteligenciaExtension extends AbstractExtension
     public function iaAgentes(): array
     {
         return Agente::cases();
+    }
+
+    /** @return list<int> */
+    public function iaPushRecolhidas(): array
+    {
+        $user = $this->security->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if (!$user instanceof User || $tenant === null) {
+            return [];
+        }
+
+        return $this->recolhidas->executar($tenant, $user);
     }
 
     public function iaDisponibilidade(): Disponibilidade

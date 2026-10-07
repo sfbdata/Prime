@@ -22,6 +22,7 @@ use App\Inteligencia\UseCase\ExportarAnaliseEmTextoUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Inteligencia\UseCase\ListarAuditoriaDaPastaUseCase;
 use App\Inteligencia\UseCase\MarcarAnaliseComoLidaUseCase;
+use App\Inteligencia\UseCase\RecolherAnaliseUseCase;
 use App\Inteligencia\UseCase\SolicitarResumoDoPushUseCase;
 use App\Pasta\Entity\Pasta;
 use App\Service\PermissionChecker;
@@ -47,7 +48,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *   GET  /pasta/{id}/ia/analises/{analiseId}    → {id, status, statusRotulo, emAndamento, terminal, mensagem, motivoTecnico}
  *   GET  /pasta/{id}/ia/auditoria               → fragmento `inteligencia/_auditoria.html.twig` (rodapé do drawer)
  *   GET  /pasta/{id}/ia/analises/{analiseId}.txt → a análise CONCLUÍDA em text/plain, como anexo (404 se não houver)
- *   POST …/{analiseId}/lida | /excluir | /interna → XHR: JSON · form comum: redirect para a pasta #push
+ *   POST …/{analiseId}/lida | /excluir | /interna | /recolher → XHR: JSON · form comum: redirect para a pasta #push
  * CSRF: `_token` (campo ou header X-CSRF-Token); ids `inteligencia_push_{pastaId}` e
  * `inteligencia_analise_{analiseId}`.
  */
@@ -67,6 +68,7 @@ final class AnalisePushController extends AbstractController
         private readonly AlternarAnaliseInternaUseCase $alternarInterna,
         private readonly ExportarAnaliseEmTextoUseCase $exportarTexto,
         private readonly ListarAuditoriaDaPastaUseCase $listarAuditoria,
+        private readonly RecolherAnaliseUseCase $recolherAnalise,
         // Interface (não a classe) pelo mesmo motivo do PoliticaPrivacidadeController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -226,6 +228,27 @@ final class AnalisePushController extends AbstractController
         }
 
         return $this->respostaDaAcao($request, $pasta, $saida->paraJson() + ['internaDoEscritorio' => $saida->internaDoEscritorio]);
+    }
+
+    /**
+     * Recolher/expandir a análise (IA-010): grava a escolha do usuário em `preferencia_usuario`.
+     * Corpo: `recolhida` = 1 (recolher) | 0 (expandir). Análise de outro escritório ou pasta → 404.
+     */
+    #[Route('/analises/{analiseId}/recolher', name: 'inteligencia_analise_recolher', requirements: ['analiseId' => '\d+'], methods: ['POST'])]
+    public function recolher(Pasta $pasta, int $analiseId, Request $request): Response
+    {
+        [$user, $tenant] = $this->guardar($pasta);
+        $this->exigirCsrfDaAnalise($request, $analiseId);
+
+        $recolhida = $request->request->get('recolhida') === '1';
+
+        try {
+            $estado = $this->recolherAnalise->executar($analiseId, (int) $pasta->getId(), $recolhida, $user, $tenant);
+        } catch (AnaliseNaoEncontradaException $e) {
+            throw $this->createNotFoundException($e->getMessage());
+        }
+
+        return $this->respostaDaAcao($request, $pasta, ['id' => $analiseId, 'recolhida' => $estado]);
     }
 
     // -----------------------------------------------------------------------------------------

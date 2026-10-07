@@ -39,6 +39,7 @@
     --ps-ia-menu-sombra: 0 8px 24px rgba(16, 42, 58, .18);
     --ps-ia-off:         #8a97a0;
     --ps-ia-msg-bg:      #f8f5ff;
+    --ps-ia-previa:      #5f5a78;
     /* Chips por tipo de ponto (desenho, `PT`): texto · fundo. */
     --ps-ia-prazo-tx:    #b42318;  --ps-ia-prazo-bg:   #fdecea;
     --ps-ia-atencao-tx:  #b4460a;  --ps-ia-atencao-bg: #fff1e6;
@@ -76,6 +77,7 @@
     --ps-ia-menu-sombra: 0 8px 24px rgba(0, 0, 0, .5);
     --ps-ia-off:         var(--bs-secondary-color);
     --ps-ia-msg-bg:      rgba(122, 92, 214, .12);
+    --ps-ia-previa:      var(--bs-secondary-color);
     --ps-ia-prazo-tx:    #f4a29a;  --ps-ia-prazo-bg:   rgba(180, 35, 24, .25);
     --ps-ia-atencao-tx:  #f6b98a;  --ps-ia-atencao-bg: rgba(180, 70, 10, .25);
     --ps-ia-provid-tx:   #e8c96a;  --ps-ia-provid-bg:  rgba(138, 100, 0, .3);
@@ -315,6 +317,32 @@
 .ps-push .ps-ia-botao:disabled,
 .ps-push .ps-ia-menu-item:disabled,
 .ps-push .ps-ia-icone:disabled { opacity: .6; cursor: progress; }
+
+/* ── Recolher/expandir (dc L2440 e L2452-2454) ── */
+/* Prévia de uma linha: 13px, #5f5a78, reticências, clicável. */
+.ps-push .ps-ia-previa {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ps-ia-previa);
+    line-height: 1.5;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ps-push .ps-ia-previa[hidden] { display: none; }
+/* Recolhida: só o cabeçalho e a prévia (no desenho, o `sc-if aberto` cobre conteúdo e ações). */
+.ps-push .ps-ia-cartao--recolhida .ps-ia-resumo,
+.ps-push .ps-ia-cartao--recolhida .ps-ia-pontos,
+.ps-push .ps-ia-cartao--recolhida .ps-ia-quem,
+.ps-push .ps-ia-cartao--recolhida .ps-ia-base,
+.ps-push .ps-ia-cartao--recolhida .ps-ia-acoes { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
     .ps-push .ps-ia-cartao.is-nova,
