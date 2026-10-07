@@ -6,6 +6,7 @@ use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -32,15 +33,7 @@ class EventoRepository extends ServiceEntityRepository
             ->orderBy('e.dataInicio', 'ASC');
 
         if ($user !== null) {
-            $qb->andWhere(
-                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
-                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
-            )
-               ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
-               ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
-               ->setParameter('user', $user);
+            $this->restringirAoVisivelPara($qb, $user);
         } else {
             $qb->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
                ->setParameter('todos', Evento::VISIBILIDADE_TODOS);
@@ -57,15 +50,7 @@ class EventoRepository extends ServiceEntityRepository
             ->setParameter('end', $end);
 
         if ($user !== null) {
-            $qbRecorrentes->andWhere(
-                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
-                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
-            )
-                          ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
-                          ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
-                          ->setParameter('user', $user);
+            $this->restringirAoVisivelPara($qbRecorrentes, $user);
         } else {
             $qbRecorrentes->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
                           ->setParameter('todos', Evento::VISIBILIDADE_TODOS);
@@ -166,16 +151,7 @@ class EventoRepository extends ServiceEntityRepository
      */
     public function findByUser(User $user): array
     {
-        return $this->createQueryBuilder('e')
-            ->where(
-                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
-                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
-            )
-            ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
-            ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
-            ->setParameter('user', $user)
+        return $this->restringirAoVisivelPara($this->createQueryBuilder('e'), $user)
             ->orderBy('e.dataInicio', 'DESC')
             ->getQuery()
             ->getResult();
@@ -186,19 +162,12 @@ class EventoRepository extends ServiceEntityRepository
      */
     public function findUpcomingByUser(User $user, int $limit = 5): array
     {
-        return $this->createQueryBuilder('e')
-            ->where('e.dataInicio >= :now')
-            ->andWhere(
-                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
-                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
-            )
+        $qb = $this->createQueryBuilder('e')
+            ->where('e.dataInicio >= :now');
+
+        return $this->restringirAoVisivelPara($qb, $user)
             ->andWhere('e.status = :status')
             ->setParameter('now', new \DateTimeImmutable())
-            ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
-            ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
-            ->setParameter('user', $user)
             ->setParameter('status', Evento::STATUS_AGENDADO)
             ->orderBy('e.dataInicio', 'ASC')
             ->setMaxResults($limit)
@@ -223,15 +192,7 @@ class EventoRepository extends ServiceEntityRepository
             ->orderBy('e.dataInicio', 'ASC');
 
         if ($user !== null) {
-            $qb->andWhere(
-                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
-                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
-            )
-               ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
-               ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
-               ->setParameter('user', $user);
+            $this->restringirAoVisivelPara($qb, $user);
         } else {
             $qb->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
                ->setParameter('todos', Evento::VISIBILIDADE_TODOS);
@@ -253,12 +214,25 @@ class EventoRepository extends ServiceEntityRepository
      *     dia na borda final.
      * $status (agendado/concluido) só estreita; "cancelado" devolve vazio, como a régua manda.
      *
+     * SEC-016: POR CIMA da régua, vale a visibilidade do módulo para quem OLHA ($visualizador,
+     * o usuário logado) — a mesma de findForCalendar/findByDateRange. Um "Para Todos" COM
+     * participantes só aparece para o criador e os participantes dele. Sem isso, trocar o id em
+     * `?responsavel=` entregava título, local e participantes das reuniões de qualquer colega.
+     * Consequência deliberada: para quem não participa de tudo, a lista pode ter MENOS itens que o
+     * contador agregado do Dashboard (que não expõe título) — sigilo > paridade, decisão pendente
+     * do Samuel.
+     *
      * @param array<string, mixed> $periodo data_de, data_ate (Y-m-d)
      *
      * @return list<Evento>
      */
-    public function findNaAgendaDaPessoa(Tenant $tenant, User $pessoa, ?string $status = null, array $periodo = []): array
-    {
+    public function findNaAgendaDaPessoa(
+        Tenant $tenant,
+        User $pessoa,
+        User $visualizador,
+        ?string $status = null,
+        array $periodo = [],
+    ): array {
         $qb = $this->createQueryBuilder('e')
             ->andWhere('e.tenant = :tenant')
             ->andWhere('e.visibilidade = :todos')
@@ -270,6 +244,7 @@ class EventoRepository extends ServiceEntityRepository
             ->setParameter('pessoa', $pessoa)
             ->orderBy('e.dataInicio', 'ASC')
             ->addOrderBy('e.id', 'ASC');
+        $this->restringirAoVisivelPara($qb, $visualizador);
 
         if ($status !== null && $status !== '') {
             $qb->andWhere('e.status = :status')->setParameter('status', $status);
@@ -285,6 +260,30 @@ class EventoRepository extends ServiceEntityRepository
         }
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * A regra de visibilidade do módulo Agenda, num lugar só. O usuário vê um evento quando:
+     *   - é "Somente para mim" e ele é o criador;
+     *   - é "Para Todos" e ele é o criador;
+     *   - é "Para Todos" e ele é participante;
+     *   - é "Para Todos" SEM participantes (aberto ao escritório).
+     * Ou seja: "Para Todos" COM participantes é restrito ao criador e aos participantes.
+     *
+     * Exige o alias `e`. Parâmetros com prefixo próprio para não colidir com os da consulta.
+     */
+    private function restringirAoVisivelPara(QueryBuilder $qb, User $visualizador): QueryBuilder
+    {
+        return $qb
+            ->andWhere(
+                '(e.visibilidade = :visSomenteEu AND e.criador = :visualizador) OR ' .
+                '(e.visibilidade = :visTodos AND e.criador = :visualizador) OR ' .
+                '(e.visibilidade = :visTodos AND :visualizador MEMBER OF e.participantes) OR ' .
+                '(e.visibilidade = :visTodos AND SIZE(e.participantes) = 0)'
+            )
+            ->setParameter('visTodos', Evento::VISIBILIDADE_TODOS)
+            ->setParameter('visSomenteEu', Evento::VISIBILIDADE_SOMENTE_EU)
+            ->setParameter('visualizador', $visualizador);
     }
 
     /** Mesma leitura de data do Dashboard: 'Y-m-d' estrito; fora disso, null (ignorada). */
@@ -322,15 +321,7 @@ class EventoRepository extends ServiceEntityRepository
         }
 
         if ($user !== null) {
-            $qb->andWhere(
-                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
-                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
-                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
-            )
-               ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
-               ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
-               ->setParameter('user', $user);
+            $this->restringirAoVisivelPara($qb, $user);
         } else {
             $qb->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
                ->setParameter('todos', Evento::VISIBILIDADE_TODOS);

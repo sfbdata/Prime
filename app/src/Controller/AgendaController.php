@@ -114,8 +114,10 @@ class AgendaController extends AbstractController
         $pessoa = $tenant !== null && ctype_digit($responsavel)
             ? ($this->userRepository->findPorIdsETenant([(int) $responsavel], $tenant)[0] ?? null)
             : null;
+        // SEC-016: a agenda da pessoa passa ainda pela visibilidade de quem está olhando ($user) —
+        // "Para Todos" com participantes só aparece para o criador e os participantes.
         $eventos = $pessoa instanceof User && $tenant !== null
-            ? $eventoRepository->findNaAgendaDaPessoa($tenant, $pessoa, $status, $periodo)
+            ? $eventoRepository->findNaAgendaDaPessoa($tenant, $pessoa, $user, $status, $periodo)
             : [];
 
         return $this->render('agenda/lista.html.twig', [

@@ -13,6 +13,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Repository\EventoRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,8 +31,15 @@ use Symfony\Component\DomCrawler\Crawler;
  * TELA do Dashboard, segue o href e conta as linhas da lista — com e sem período, para cada linha.
  * A massa tem as pegadinhas da régua do contador: cancelado, "Somente para mim", recorrente (conta
  * uma vez), criador que também é participante (conta uma vez), evento entre DOIS colegas sem a
- * gestora (é "Para Todos": entra para eles), fora do período e evento de OUTRO escritório com a
- * própria gestora — que não entra de nenhum lado.
+ * gestora, fora do período e evento de OUTRO escritório com a própria gestora — que não entra de
+ * nenhum lado.
+ *
+ * SEC-016 — EXCEÇÃO DELIBERADA à paridade. A lista aplica, por cima da régua, a visibilidade da
+ * Agenda para QUEM OLHA: "Para Todos" COM participantes só aparece para o criador e os
+ * participantes. O número do Dashboard segue a contagem agregada (guarda `bi`, sem título). Então,
+ * para quem não participa (a gestora no E7 "entre colegas"), o número é MAIOR que a lista — sigilo
+ * > paridade, decisão pendente do Samuel. A paridade continua valendo para os "Para Todos" SEM
+ * participantes e para os eventos de que quem olha participa.
  */
 #[CoversClass(DashboardController::class)]
 #[CoversClass(AgendaController::class)]
@@ -46,6 +54,10 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
     private const LINK   = 'td > a.db-num-link, td > .db-cel > a.db-num-link';
 
     private const LISTA = 'table.table > tbody > tr[data-agenda-evento]';
+
+    /** Título e local do evento "entre colegas" (Carla cria, Bruno participa) — o que não pode vazar. */
+    private const E7       = 'E7 entre colegas';
+    private const LOCAL_E7 = 'Sala Sigilosa do E7';
 
     private function em(): EntityManagerInterface
     {
@@ -75,6 +87,32 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
         $em->flush();
     }
 
+    /** Colaborador (sem `bi`) que abre a Agenda: ganha um papel só com `agenda`. */
+    private function colaboradorComAgenda(Tenant $tenant, User $user): User
+    {
+        $em   = $this->em();
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Agenda ' . uniqid());
+        $em->persist($role);
+        $ut = $em->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenant]);
+        self::assertNotNull($ut);
+        $ut->setTenantRole($role);
+        $em->flush();
+        $this->darModuloAgenda($user, $tenant);
+
+        return $user;
+    }
+
+    /** @param array<string, string> $query */
+    private function lista(KernelBrowser $client, array $query): Crawler
+    {
+        $crawler = $client->request('GET', '/agenda/lista?' . http_build_query($query));
+        self::assertResponseIsSuccessful();
+
+        return $crawler;
+    }
+
     /** @param list<User> $participantes */
     private function evento(
         Tenant $tenant,
@@ -85,9 +123,11 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
         string $status = Evento::STATUS_AGENDADO,
         string $visibilidade = Evento::VISIBILIDADE_TODOS,
         bool $recorrente = false,
+        ?string $local = null,
     ): Evento {
         $evento = new Evento();
         $evento->setTitulo($titulo);
+        $evento->setLocal($local);
         $evento->setDataInicio(new \DateTimeImmutable($inicio));
         $evento->setDataFim((new \DateTimeImmutable($inicio))->modify('+1 hour'));
         $evento->setCriador($criador);
@@ -108,8 +148,11 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
     }
 
     /**
-     * Sem período: Gestora 4 (E1, E2, E5, E6) · Bruno 4 (E1, E2, E5, E7) · Carla 1 (E7).
-     * Fevereiro: Gestora 3 · Bruno 3 · Carla 1 (E5 é de janeiro).
+     * Números do Dashboard (a régua do contador, sem quem olha):
+     *   Sem período: Gestora 4 (E1, E2, E5, E6) · Bruno 4 (E1, E2, E5, E7) · Carla 2 (E7, E8).
+     *   Fevereiro: Gestora 3 · Bruno 3 · Carla 2 (E5 é de janeiro).
+     * Na lista, a gestora não vê o E7 (com participante, e ela não é criadora nem participante);
+     * vê o E8 (Para Todos SEM participantes, aberto ao escritório).
      *
      * @return array{0: User, 1: Tenant, 2: User, 3: User}
      */
@@ -128,7 +171,8 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
         $this->evento($tenant, $gestora, [], '2024-02-15 09:00', 'E4 privado', Evento::STATUS_AGENDADO, Evento::VISIBILIDADE_SOMENTE_EU);
         $this->evento($tenant, $bruno, [$gestora], '2024-01-10 09:00', 'E5 janeiro');
         $this->evento($tenant, $gestora, [], '2024-02-01 08:00', 'E6 semanal', Evento::STATUS_AGENDADO, Evento::VISIBILIDADE_TODOS, true);
-        $this->evento($tenant, $carla, [$bruno], '2024-02-20 14:00', 'E7 entre colegas');
+        $this->evento($tenant, $carla, [$bruno], '2024-02-20 14:00', self::E7, Evento::STATUS_AGENDADO, Evento::VISIBILIDADE_TODOS, false, self::LOCAL_E7);
+        $this->evento($tenant, $carla, [], '2024-02-22 10:00', 'E8 aberto da Carla');
 
         $outro = $this->criarTenant();
         $this->em()->persist(new UserTenant($gestora, $outro));
@@ -157,14 +201,18 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
     }
 
     /**
-     * Para cada linha: o número na célula é o total da lista que o link abre.
+     * Para cada linha: o número na célula é o total da lista que o link abre — MENOS os eventos
+     * que quem olha não pode ver (SEC-016: "Para Todos" com participantes de que ele não é
+     * criador nem participante). Esses entram no número e ficam FORA da lista, sem título nem
+     * local no corpo. Sigilo > paridade (decisão pendente do Samuel).
      *
-     * @param array<string, string> $filtros
-     * @param list<string>          $nomes
+     * @param array<string, string>       $filtros
+     * @param list<string>                $nomes
+     * @param array<string, list<string>> $ocultos nome => títulos contados no número e ocultos na lista
      *
      * @return array<string, int> nome => número
      */
-    private function assertParidade(KernelBrowser $client, array $filtros, array $nomes): array
+    private function assertParidade(KernelBrowser $client, array $filtros, array $nomes, array $ocultos = []): array
     {
         $dashboard = $client->request('GET', '/dashboard' . ($filtros !== [] ? '?' . http_build_query($filtros) : ''));
         self::assertResponseIsSuccessful();
@@ -191,10 +239,15 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
 
             $lista = $client->request('GET', $href);
             self::assertResponseIsSuccessful();
-            self::assertSame($numero, $lista->filter(self::LISTA)->count(), sprintf('%s: célula %d × lista', $nome, $numero));
-            self::assertSame((string) $numero, $lista->filter('[data-agenda-total]')->attr('data-agenda-total'));
+            $naLista = $numero - count($ocultos[$nome] ?? []);
+            self::assertSame($naLista, $lista->filter(self::LISTA)->count(), sprintf('%s: célula %d × lista (ocultos: %d)', $nome, $numero, $numero - $naLista));
+            self::assertSame((string) $naLista, $lista->filter('[data-agenda-total]')->attr('data-agenda-total'));
             self::assertStringContainsString('na agenda de ' . $nome, $lista->filter('[data-agenda-filtro-pessoa]')->text());
             $corpo = (string) $client->getResponse()->getContent();
+            foreach ($ocultos[$nome] ?? [] as $titulo) {
+                self::assertStringNotContainsStringIgnoringCase($titulo, $corpo, sprintf('%s: "%s" não vaza para quem não participa', $nome, $titulo));
+            }
+            self::assertStringNotContainsStringIgnoringCase(self::LOCAL_E7, $corpo, 'o local do E7 não vaza');
             self::assertStringNotContainsStringIgnoringCase('do outro escritório', $corpo);
             self::assertStringNotContainsStringIgnoringCase('E3 cancelado', $corpo);
             self::assertStringNotContainsStringIgnoringCase('E4 privado', $corpo);
@@ -209,10 +262,17 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
         $client = static::createClient();
         $this->semear($client);
 
-        $vistos = $this->assertParidade($client, [], ['Gestora da Tela', 'Bruno Agenda', 'Carla Agenda']);
+        // O E7 (Carla cria, Bruno participa) conta no número de Bruno e de Carla, mas a gestora não
+        // é nem criadora nem participante: fora da lista dela (SEC-016, exceção deliberada).
+        $vistos = $this->assertParidade(
+            $client,
+            [],
+            ['Gestora da Tela', 'Bruno Agenda', 'Carla Agenda'],
+            ['Bruno Agenda' => [self::E7], 'Carla Agenda' => [self::E7]],
+        );
 
         // cancelado, privado e o outro escritório fora; E2 (criador e participante) e o semanal uma vez
-        self::assertSame(['Gestora da Tela' => 4, 'Bruno Agenda' => 4, 'Carla Agenda' => 1], $vistos);
+        self::assertSame(['Gestora da Tela' => 4, 'Bruno Agenda' => 4, 'Carla Agenda' => 2], $vistos);
     }
 
     #[TestDox('Com período: o link leva data_de/data_ate e a lista recorta pela data de início, como a célula')]
@@ -221,9 +281,73 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
         $client = static::createClient();
         $this->semear($client);
 
-        $vistos = $this->assertParidade($client, self::PERIODO, ['Gestora da Tela', 'Bruno Agenda', 'Carla Agenda']);
+        $vistos = $this->assertParidade(
+            $client,
+            self::PERIODO,
+            ['Gestora da Tela', 'Bruno Agenda', 'Carla Agenda'],
+            ['Bruno Agenda' => [self::E7], 'Carla Agenda' => [self::E7]],
+        );
 
-        self::assertSame(['Gestora da Tela' => 3, 'Bruno Agenda' => 3, 'Carla Agenda' => 1], $vistos);
+        self::assertSame(['Gestora da Tela' => 3, 'Bruno Agenda' => 3, 'Carla Agenda' => 2], $vistos);
+    }
+
+    #[TestDox('SEC-016: colega com a Agenda que NÃO participa troca o responsavel e não recebe título nem local da reunião alheia')]
+    public function testTrocarResponsavelNaoVazaEventoComParticipantes(): void
+    {
+        $client = static::createClient();
+        [, $tenant, $bruno, $carla] = $this->semear($client);
+        $davi = $this->colaboradorComAgenda($tenant, $this->criarColaborador($tenant, 'Davi Curioso'));
+        $this->logarComTenant($client, $davi, $tenant);
+
+        // Pré-condição: o E7 existe, é "Para Todos" e tem participante — é exatamente o caso da regra.
+        $e7 = $this->em()->getRepository(Evento::class)->findOneBy(['titulo' => self::E7]);
+        self::assertNotNull($e7, 'pré-condição: E7 semeado');
+        self::assertSame(Evento::VISIBILIDADE_TODOS, $e7->getVisibilidade());
+        self::assertCount(1, $e7->getParticipantes());
+
+        foreach ([$carla, $bruno] as $alvo) {
+            $crawler = $this->lista($client, ['responsavel' => (string) $alvo->getId()]);
+            $corpo   = (string) $client->getResponse()->getContent();
+            self::assertStringNotContainsStringIgnoringCase(self::E7, $corpo, 'título do E7 vazou na agenda de ' . $alvo->getFullName());
+            self::assertStringNotContainsStringIgnoringCase(self::LOCAL_E7, $corpo, 'local do E7 vazou na agenda de ' . $alvo->getFullName());
+            self::assertCount(0, $crawler->filter(self::LISTA . '[data-agenda-evento="' . $e7->getId() . '"]'));
+            // E1, E2, E5 também têm participantes e Davi não está em nenhum.
+            foreach (['E1 reunião', 'E2 audiência', 'E5 janeiro'] as $titulo) {
+                self::assertStringNotContainsStringIgnoringCase($titulo, $corpo);
+            }
+        }
+
+        // Paridade preservada no que é aberto ao escritório: o E8 (Para Todos SEM participantes).
+        $daCarla = $this->lista($client, ['responsavel' => (string) $carla->getId()]);
+        self::assertSame(1, $daCarla->filter(self::LISTA)->count(), 'só o E8');
+        self::assertStringContainsStringIgnoringCase('E8 aberto da Carla', $daCarla->filter(self::LISTA)->text());
+    }
+
+    #[TestDox('SEC-016: criador e participante do evento com participantes continuam vendo-o na agenda do colega')]
+    public function testCriadorEParticipanteVeemOEvento(): void
+    {
+        $client = static::createClient();
+        [, $tenant, $bruno, $carla] = $this->semear($client);
+
+        // Bruno (participante do E7) abre a agenda da Carla: E7 e E8 — a mesma contagem da célula
+        // da Carla (2), porque quem olha participa de tudo o que ela tem.
+        $this->colaboradorComAgenda($tenant, $bruno);
+        $this->logarComTenant($client, $bruno, $tenant);
+        $daCarla = $this->lista($client, ['responsavel' => (string) $carla->getId()]);
+        self::assertSame(2, $daCarla->filter(self::LISTA)->count());
+        $corpo = (string) $client->getResponse()->getContent();
+        self::assertStringContainsStringIgnoringCase(self::E7, $corpo);
+        self::assertStringContainsStringIgnoringCase(self::LOCAL_E7, $corpo);
+
+        // Carla (criadora do E7) abre a agenda do Bruno: vê o E7; os da gestora com Bruno, não.
+        $this->colaboradorComAgenda($tenant, $carla);
+        $this->logarComTenant($client, $carla, $tenant);
+        $doBruno = $this->lista($client, ['responsavel' => (string) $bruno->getId()]);
+        self::assertSame(1, $doBruno->filter(self::LISTA)->count(), 'só o E7');
+        $corpo = (string) $client->getResponse()->getContent();
+        self::assertStringContainsStringIgnoringCase(self::E7, $corpo);
+        self::assertStringContainsStringIgnoringCase(self::LOCAL_E7, $corpo);
+        self::assertStringNotContainsStringIgnoringCase('E1 reunião', $corpo);
     }
 
     #[TestDox('O filtro de status da lista mantém a pessoa e o período (campos ocultos) e só estreita a régua')]

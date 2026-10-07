@@ -60,7 +60,10 @@
                 {%- if filtroPessoa is defined %}
                     <span data-agenda-filtro-pessoa> na agenda de {{ filtroPessoa.nome ?? 'pessoa não encontrada neste escritório' }}
                     {%- if filtroPessoa.data_de != '' or filtroPessoa.data_ate != '' %} · {{ filtroPessoa.data_de != '' ? 'de ' ~ filtroPessoa.data_de|date('d/m/Y') : '' }}{{ filtroPessoa.data_ate != '' ? ' até ' ~ filtroPessoa.data_ate|date('d/m/Y') : '' }}{% endif %}
-                    · em que a pessoa é criadora ou participante, sem cancelados e sem os "Somente para mim"</span>
+                    · em que a pessoa é criadora ou participante, sem cancelados e sem os "Somente para mim"
+                    {#- SEC-016: só os que VOCÊ pode ver — "Para Todos" com participantes é do criador e
+                        dos participantes. Por isso o total pode ser menor que o número do Dashboard. #}
+                    · só os eventos que você pode ver</span>
                 {%- endif -%}
             </span>
         </div>

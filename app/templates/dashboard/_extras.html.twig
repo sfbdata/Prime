@@ -17,6 +17,11 @@
        EventoRepository::findNaAgendaDaPessoa usa a régua do contador). Só vira link
        para quem abre a Agenda (módulo `agenda`): sem ele o destino redireciona e o
        número não teria lista.
+       EXCEÇÃO DELIBERADA (SEC-016): a lista aplica, por cima da régua, a visibilidade da
+       Agenda para quem olha — "Para Todos" COM participantes só aparece para o criador e os
+       participantes. O número continua sendo a contagem agregada (sob o guarda `bi`, sem
+       título), então para quem não participa de todos os eventos da pessoa o número pode ser
+       MAIOR que a lista. Sigilo > paridade; decisão pendente do Samuel.
    As outras extras não têm lista que bata: taxa (%) e tempo médio (dias) não são
    contagem de itens. Ficam como número simples.
 ─────────────────────────────────────────────────────────────────────────── #}
