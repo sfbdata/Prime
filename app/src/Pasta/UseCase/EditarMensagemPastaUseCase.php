@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Exception\MensagemPastaNaoEditavelException;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
+use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,6 +18,14 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Salvaguardas: só o autor da mensagem pode editá-la, e apenas dentro de uma
  * janela curta após a criação (`JanelaDeEdicaoDeComentario`, 15 minutos) — o suficiente para corrigir erros de escrita.
+ *
+ * @MENÇÕES (item 20b): a edição passa pela MESMA {@see ResolucaoDeMencoesDoRegistro} do envio —
+ * só valem ids de colegas ATIVOS deste escritório (o nome gravado é o do banco); token forjado,
+ * de outro escritório ou além do teto vira texto comum. Decisão: editar NOTIFICA quem passou a
+ * ser mencionado, com as mesmas regras do envio (VIEW na pasta, nunca o autor, precedência do
+ * autor respondido numa resposta), na mesma transação da edição. Quem já foi avisado por esta
+ * mensagem (no envio ou numa edição anterior) não recebe de novo: a anti-duplicata é por
+ * destinatário + escritório + tipo + link, e o link é o da mensagem.
  */
 final class EditarMensagemPastaUseCase
 {
@@ -24,6 +33,7 @@ final class EditarMensagemPastaUseCase
         private readonly EntityManagerInterface $em,
         private readonly SanitizadorTextoRico $sanitizador,
         private readonly JanelaDeEdicaoDeComentario $janela,
+        private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
     ) {}
 
     public function podeEditar(PastaMensagem $mensagem, User $usuario, Tenant $tenant, ?\DateTimeImmutable $agora = null): bool
@@ -56,9 +66,30 @@ final class EditarMensagemPastaUseCase
             throw new \InvalidArgumentException('Conteúdo inválido: deve ter entre 1 e 5000 caracteres.');
         }
 
+        [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
+
         $mensagem->setConteudo($conteudo);
         $mensagem->setEditadaEm(new \DateTimeImmutable());
 
-        $this->em->flush();
+        $pasta = $mensagem->getPasta();
+        if ($mencionados === [] || $pasta === null) {
+            $this->em->flush();
+
+            return;
+        }
+
+        // Uma transação só: a edição e as notificações entram (ou não) juntas.
+        $this->em->wrapInTransaction(function () use ($mencionados, $mensagem, $pasta, $usuario, $tenant): void {
+            $this->em->flush();
+
+            $this->resolucaoDeMencoes->notificar(
+                $mencionados,
+                $mensagem,
+                $pasta,
+                $usuario,
+                $tenant,
+                $mensagem->getRespostaA()?->getAutor(),
+            );
+        });
     }
 }

@@ -14,6 +14,7 @@ use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Pasta\Service\MencoesDoRegistro;
+use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
@@ -80,8 +81,16 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             $this->userTenantRepository,
             $this->permissionChecker,
             $urlGenerator,
-            new MencoesDoRegistro($this->criarSanitizadorTextoRico()),
-            $this->userRepository,
+            $mencoes = new MencoesDoRegistro($this->criarSanitizadorTextoRico()),
+            // Real, com os mesmos dublês: é ela que confere ids e notifica as menções.
+            new ResolucaoDeMencoesDoRegistro(
+                $mencoes,
+                $this->userRepository,
+                $this->permissionChecker,
+                $this->notificacaoRepository,
+                $this->notificacaoService,
+                $urlGenerator,
+            ),
         );
 
         $this->tenant = new Tenant();
@@ -698,6 +707,41 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             ->willReturn(new Notificacao());
 
         $this->useCase->executar($this->pasta, $this->autor, '@[Bruno](user:2) ' . str_repeat('x', 300), $this->tenant);
+    }
+
+    #[TestDox('Mais de 20 pessoas: as 20 primeiras são menção e notificam; as excedentes viram texto comum e não notificam')]
+    public function testMaisDeVinteMencoes(): void
+    {
+        $this->cenarioDeMencao();
+        $colegas = [];
+        $acesso  = [];
+        $texto   = '';
+        for ($id = 101; $id <= 125; ++$id) {
+            $colegas[]   = $this->pessoa($id, 'Pessoa ' . $id);
+            $acesso[$id] = true;
+            $texto      .= '@[P' . $id . '](user:' . $id . ') ';
+        }
+        $this->colegasDoEscritorio($colegas);
+        $this->acessoAPasta($acesso);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $notificados = [];
+        $this->notificacaoService->expects($this->exactly(20))
+            ->method('criar')
+            ->willReturnCallback(static function (User $u) use (&$notificados): Notificacao {
+                $notificados[] = (int) $u->getId();
+
+                return new Notificacao();
+            });
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, $texto, $this->tenant);
+
+        self::assertSame(range(101, 120), $notificados);
+        self::assertStringContainsString('@[Pessoa 120](user:120)', $msg->getConteudo());
+        foreach (range(121, 125) as $id) {
+            self::assertStringNotContainsString('(user:' . $id . ')', $msg->getConteudo());
+            self::assertStringContainsString('@P' . $id . ' ', $msg->getConteudo());
+        }
     }
 
     #[TestDox('Sem token de menção, a lista de colegas nem é consultada')]

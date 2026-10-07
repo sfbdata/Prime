@@ -257,6 +257,71 @@ final class PastaMencaoTest extends JusPrimeWebTestCase
         self::assertSame('Oi @Bruno', $dados['conteudo']);
     }
 
+    // ── Edição ───────────────────────────────────────────────────────────────
+
+    /** @return array<string, mixed> o JSON da edição */
+    private function editar(KernelBrowser $client, Pasta $pasta, int $msgId, string $conteudo): array
+    {
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/mensagem/' . $msgId . '/editar', [
+            '_token'   => 'TOKEN_pasta_mensagem_editar_' . $msgId,
+            'conteudo' => $conteudo,
+        ]);
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        return is_array($dados) ? $dados : [];
+    }
+
+    #[TestDox('Editar com token forjado ou com id de OUTRO escritório grava texto comum, sem destaque e sem notificar')]
+    public function testEdicaoComTokenForjadoViraTexto(): void
+    {
+        $client  = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $eu      = $this->membro($tenantA, 'Ana');
+        $deFora  = $this->membro($tenantB, 'Carla de Fora');
+        $pasta   = $this->criarPasta($tenantA);
+
+        $this->logarComTenant($client, $eu, $tenantA);
+        $msgId = (int) $this->enviar($client, $pasta, 'Original')['id'];
+        self::assertResponseStatusCodeSame(201);
+
+        $dados = $this->editar($client, $pasta, $msgId, '<p>Falar com @[Diretor Geral](user:9999999999) e @[Carla](user:' . $deFora->getId() . ')</p>');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('<p>Falar com @Diretor Geral e @Carla</p>', $dados['conteudo']);
+        self::assertStringNotContainsString('ps-mencao', (string) $dados['conteudoHtml']);
+        self::assertCount(0, $this->mencoesRecebidas($deFora));
+    }
+
+    #[TestDox('Editar notifica quem passou a ser mencionado; quem já foi avisado por esta mensagem não recebe de novo')]
+    public function testEdicaoNotificaSoMencaoNova(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $tenant = $this->criarTenant();
+        $eu     = $this->membro($tenant, 'Ana');
+        $bruno  = $this->membro($tenant, 'Bruno Lima');
+        $carla  = $this->membro($tenant, 'Carla Dias');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $eu, $tenant);
+        $msgId = (int) $this->enviar($client, $pasta, 'Oi @[Bruno](user:' . $bruno->getId() . ')')['id'];
+        self::assertResponseStatusCodeSame(201);
+        self::assertCount(1, $this->mencoesRecebidas($bruno));
+
+        $this->editar($client, $pasta, $msgId, 'Oi @[Bruno](user:' . $bruno->getId() . ') e @[Carla](user:' . $carla->getId() . ')');
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(1, $this->mencoesRecebidas($bruno), 'já avisado por esta mensagem: não recebe de novo');
+        $daCarla = $this->mencoesRecebidas($carla);
+        self::assertCount(1, $daCarla);
+        self::assertSame('/pasta/' . $pasta->getId() . '#pasta-msg-' . $msgId, $daCarla[0]->getUrl());
+        self::assertCount(0, $this->mencoesRecebidas($eu));
+    }
+
     // ── Exibição ─────────────────────────────────────────────────────────────
 
     #[TestDox('XSS no nome: o destaque da menção sai escapado na pasta_show (nada vira tag)')]

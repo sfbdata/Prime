@@ -115,6 +115,20 @@ final class MencoesDoRegistro
         return (string) preg_replace_callback(self::PADRAO, static fn (array $m): string => '@' . $m[1], $texto);
     }
 
+    /**
+     * O conteúdo (HTML do editor ou texto puro) como o sino mostra: fim de bloco e <br> viram
+     * espaço (senão "linha um</p><p>linha dois" grudaria), entidades decodificadas, cada menção
+     * como "@Nome" e os brancos colapsados.
+     */
+    public function textoDoSino(?string $html): string
+    {
+        $html  = preg_replace('#<br\s*/?>|</(p|li|h[1-6]|blockquote|pre)>#i', ' ', (string) $html) ?? '';
+        $texto = html_entity_decode(strip_tags($html), \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+        $texto = $this->paraTextoPlano($texto);
+
+        return trim(preg_replace('/[\s\p{Z}]+/u', ' ', $texto) ?? '');
+    }
+
     /** O nome como rótulo do token: sem `[ ] ( ) < >` nem controles, brancos colapsados. */
     public static function rotulo(string $nome): string
     {
