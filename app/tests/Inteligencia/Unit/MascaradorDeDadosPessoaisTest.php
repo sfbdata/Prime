@@ -234,6 +234,52 @@ final class MascaradorDeDadosPessoaisTest extends TestCase
         );
     }
 
+    /**
+     * IA-033: o `&nbsp;` do HTML do DJEN vira U+00A0 no `html_entity_decode`. Onde as variantes
+     * aceitam espaço, aceitam NBSP — e o resto do texto volta byte a byte (o NBSP fora do documento
+     * NÃO é trocado por espaço).
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function comEspacoInquebravel(): iterable
+    {
+        $n = "\u{00A0}";
+        yield 'CPF só com NBSP' => ["CPF{$n}123{$n}456{$n}789{$n}09.", "CPF{$n}[CPF]."];
+        yield 'CPF com pontos e NBSP antes do DV' => ["CPF 123.456.789{$n}09", 'CPF [CPF]'];
+        yield 'CPF misturando espaço e NBSP' => ["CPF 123 456{$n}789 09", 'CPF [CPF]'];
+        yield 'CNPJ numérico com NBSP' => ["CNPJ 11{$n}222{$n}333{$n}0001{$n}81", 'CNPJ [CNPJ]'];
+        yield 'telefone com NBSP depois do DDD' => ["Tel (61){$n}99999-1234", 'Tel [TEL]'];
+        yield 'celular com DDD e NBSP' => ["WhatsApp 61{$n}99999-1234", 'WhatsApp [TEL]'];
+        yield 'CNJ ao lado, separado por NBSP' => [
+            "autos 0701134-57.2025.8.07.0007{$n}e CPF 123{$n}456{$n}789{$n}09",
+            "autos 0701134-57.2025.8.07.0007{$n}e CPF [CPF]",
+        ];
+    }
+
+    #[DataProvider('comEspacoInquebravel')]
+    #[TestDox('NBSP (U+00A0) vale como espaço nas variantes com separador: $_dataName')]
+    public function testMascaraComEspacoInquebravel(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function comEspacoInquebravelQueNaoEhDocumento(): iterable
+    {
+        $n = "\u{00A0}";
+        yield 'CPF com NBSP e DV inválido' => ["cpf 123{$n}456{$n}789{$n}00"];
+        yield 'CPF válido no meio de lista separada por NBSP (borda)' => ["valores 100{$n}123{$n}456{$n}789{$n}09{$n}5"];
+        yield 'CNPJ com NBSP e DV inválido' => ["CNPJ 11{$n}222{$n}333{$n}0001{$n}80"];
+        yield 'texto sem PII com NBSP volta byte a byte' => ["Intime-se{$n}a{$n}parte{$n}autora."];
+    }
+
+    #[DataProvider('comEspacoInquebravelQueNaoEhDocumento')]
+    #[TestDox('NBSP não abre brecha para mascarar o que não é documento: $_dataName')]
+    public function testNaoMascaraComEspacoInquebravelQueNaoEhDocumento(string $entrada): void
+    {
+        self::assertSame($entrada, $this->mascarador->mascarar($entrada));
+    }
+
     #[TestDox('string vazia continua vazia')]
     public function testVazio(): void
     {

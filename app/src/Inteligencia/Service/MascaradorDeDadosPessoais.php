@@ -39,6 +39,15 @@ namespace App\Inteligencia\Service;
  *     alfanumérico, palavras em caixa alta separadas por espaço casariam com o formato).
  * Nas variantes com espaço a borda é mais rígida: nem dígito colado, nem dígito separado por um
  * único `.`, `-` ou espaço — para não pescar um documento no meio de uma lista de números.
+ *
+ * ESPAÇO inclui o U+00A0 (NBSP, IA-033): o `&nbsp;` do HTML do DJEN vira NBSP no
+ * `html_entity_decode`, e "123&nbsp;456&nbsp;789&nbsp;09" é o mesmo CPF de "123 456 789 09". Em
+ * todo lugar onde as variantes aceitam espaço — separador e borda — aceitam o NBSP. O NBSP NÃO é
+ * normalizado para espaço no resto do texto: o mascarador só troca o documento pelo marcador e
+ * devolve todo o resto byte a byte. (Os montadores já passam o texto pelo
+ * {@see NeutralizadorDeConteudo}, cujo `\s+` com `/u` casa o NBSP e o vira espaço antes da máscara;
+ * a regra aqui é para o mascarador não depender de quem o chama.) O telefone usa `\s`, que com
+ * `/u` (UCP) já casa o NBSP.
  */
 final class MascaradorDeDadosPessoais
 {
@@ -58,12 +67,12 @@ final class MascaradorDeDadosPessoais
      * Pontuação parcial ou espaços (IA-002b); o DV decide. A borda dupla — `(?<![0-9])` e
      * `(?<![0-9][. -])`, idem à direita — impede casar um pedaço de "100 123 456 789 09 5".
      */
-    private const CPF_PONTUACAO_PARCIAL = '/(?<![0-9])(?<![0-9][. -])'
-        . '[0-9]{3}[. ]?[0-9]{3}[. ]?[0-9]{3}[-. ]?[0-9]{2}'
-        . '(?![0-9])(?![. -][0-9])/u';
-    private const CNPJ_NUMERICO_COM_ESPACOS = '/(?<![0-9])(?<![0-9][. \/-])'
-        . '[0-9]{2}[. ]?[0-9]{3}[. ]?[0-9]{3}[\/ ]?[0-9]{4}[- ]?[0-9]{2}'
-        . '(?![0-9])(?![. \/-][0-9])/u';
+    private const CPF_PONTUACAO_PARCIAL = '/(?<![0-9])(?<![0-9][. \x{00A0}-])'
+        . '[0-9]{3}[. \x{00A0}]?[0-9]{3}[. \x{00A0}]?[0-9]{3}[-. \x{00A0}]?[0-9]{2}'
+        . '(?![0-9])(?![. \x{00A0}-][0-9])/u';
+    private const CNPJ_NUMERICO_COM_ESPACOS = '/(?<![0-9])(?<![0-9][. \x{00A0}\/-])'
+        . '[0-9]{2}[. \x{00A0}]?[0-9]{3}[. \x{00A0}]?[0-9]{3}[\/ \x{00A0}]?[0-9]{4}[- \x{00A0}]?[0-9]{2}'
+        . '(?![0-9])(?![. \x{00A0}\/-][0-9])/u';
     /** CNPJ alfanumérico (e o numérico com pontuação parcial): 12 `[0-9A-Z]` + 2 DV, pontuação oficial opcional. */
     private const CNPJ_ALFANUMERICO = '/(?<![\p{L}\p{N}])'
         . '[0-9A-Z]{2}\.?[0-9A-Z]{3}\.?[0-9A-Z]{3}\/?[0-9A-Z]{4}-?[0-9]{2}'
@@ -182,9 +191,9 @@ final class MascaradorDeDadosPessoais
         return true;
     }
 
-    /** Tira os separadores aceitos pelos formatos parciais (ponto, barra, hífen, espaço). */
+    /** Tira os separadores aceitos pelos formatos parciais (ponto, barra, hífen, espaço, NBSP). */
     private static function semSeparadores(string $documento): string
     {
-        return str_replace(['.', '/', '-', ' '], '', $documento);
+        return str_replace(['.', '/', '-', ' ', "\u{00A0}"], '', $documento);
     }
 }
