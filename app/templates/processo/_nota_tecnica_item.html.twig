@@ -18,7 +18,7 @@
    nota", "Copiar texto" e "Editar"/"Excluir". "Responder com outra nota" (PMC-057) faz
    o que o desenho faz (`abrirNova`): abre o compositor de nota NOVA do bloco, com o
    foco — sem vínculo de resposta (nota técnica não tem resposta no modelo; isso
-   exigiria migration). Some onde não se escreve (lápide). "Encaminhar via Chat I.A"
+   exigiria migration). Some onde não se escreve (lápide ou só leitura, PMC-058). "Encaminhar via Chat I.A"
    é a PMC-018.
    Editar/Excluir: do autor, dentro da janela de 15 min, com "· N min" (como o
    Financeiro do desenho, dc:5958); fora dela, ou para quem não é o autor, os dois
@@ -31,7 +31,8 @@
    Contexto: `nota` (App\Processo\DTO\NotaTecnicaOutput),
              `mostrarMovimentacao` (bool — na aba Processo diz de qual movimentação
              do Push a nota é; dentro do teor da própria publicação é redundante),
-             `somenteLeitura` (bool, opcional — a pasta é lápide; vem do bloco).
+             `somenteLeitura` (bool, opcional — a pasta é lápide; vem do bloco),
+             `podeEscreverNota` (bool, opcional — EDIT da pasta e pasta viva; vem do bloco).
    ============================================================================ #}
 {% set partes = nota.autorNome|trim|split(' ')|filter(p => p is not empty) %}
 {% set iniciais = partes|length > 0
@@ -39,6 +40,9 @@
     : '?' %}
 {% set ehHoje = nota.criadaEm|date('Y-m-d') == 'now'|date('Y-m-d') %}
 {% set somenteLeitura = somenteLeitura|default(false) %}
+{# PMC-058: o bloco decide quem escreve (EDIT + pasta viva). Na resposta do criar não há bloco: quem
+   acabou de criar escreve, então vale a lápide só. #}
+{% set podeEscreverNota = podeEscreverNota is defined ? podeEscreverNota : not somenteLeitura %}
 {% set podeGerenciar = not somenteLeitura and nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
 <article class="ps-nota" id="nota-tecnica-{{ nota.id }}" data-nota-id="{{ nota.id }}">
     <div class="ps-nota-topo">
@@ -61,7 +65,7 @@
         </button>
         <div class="ps-nota-menu" id="psNotaMenu{{ nota.id }}" role="menu" hidden>
             <div class="ps-processo-menu-titulo">Nota técnica · {{ nota.autorNome }}</div>
-            {% if not somenteLeitura %}
+            {% if podeEscreverNota %}
                 <button type="button" class="ps-processo-menu-item js-nota-responder" role="menuitem">
                     <i class="bi bi-reply" aria-hidden="true"></i><span>Responder com outra nota</span>
                 </button>

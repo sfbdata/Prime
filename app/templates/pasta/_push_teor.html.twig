@@ -34,7 +34,7 @@
    "Marcar como (não) lida" o `pasta_push_lida` aceita com VIEW, então só some na lápide.
    O bloco de notas é leitura também: quem não escreve ainda vê as notas que existem, mas sem
    nenhuma nota o bloco seria só o botão de criar, e não aparece. O botão "Adicionar nota técnica"
-   mora no `processo/_notas_tecnicas` (fora deste escopo): com notas, quem só lê ainda o vê. #}
+   mora no `processo/_notas_tecnicas`, que recebe `podeEscreverNota` daqui (PMC-058). #}
 {% set teorPastaViva = not (pastaExcluida ?? false) %}
 {% set teorPodeEscrever = teorPastaViva and (podeEditarPasta ?? false) %}
 {% set linkDoc = (publicacao.link and (publicacao.link starts with 'https://' or publicacao.link starts with 'http://')) ? publicacao.link : null %}
@@ -112,6 +112,7 @@
             publicacaoId: publicacao.id,
             pastaId: pastaId,
             mostrarMovimentacao: false,
+            podeEscreverNota: teorPodeEscrever,
         }) }}
     {% endif %}
 </div>

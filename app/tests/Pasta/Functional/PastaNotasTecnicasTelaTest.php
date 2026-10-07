@@ -255,6 +255,68 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('PMC-058: quem só lê a pasta vê as notas, sem "Adicionar nota técnica", sem compositor e sem Responder — na aba Processo e no teor do Push')]
+    public function testLeitorNaoRecebeAEscritaDaNota(): void
+    {
+        $client          = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $leitor          = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub  = $this->criarPublicacao($tenant, '60000050', self::NUMERO, '2026-08-20', $processo);
+        $nota = $this->criarNota($processo, $admin, $tenant, '<p>Lida por todos</p>', $pub);
+
+        $alvos = [
+            "/pasta/{$pasta->getId()}"                      => "notas-processo-{$processo->getId()}",
+            "/pasta/{$pasta->getId()}/push/{$pub->getId()}" => "notas-publicacao-{$pub->getId()}",
+        ];
+
+        $this->logarComTenant($client, $admin, $tenant);
+        foreach ($alvos as $url => $blocoId) {
+            $crawler = $client->request('GET', $url);
+            self::assertResponseIsSuccessful($url);
+            $botao = $crawler->filter("#{$blocoId} > .ps-notas-cab > button.js-nota-nova > i.bi-journal-plus");
+            self::assertCount(1, $botao, "quem edita cria nota ({$url})");
+            self::assertSame('Adicionar nota técnica', trim($crawler->filter("#{$blocoId} > .ps-notas-cab > .js-nota-nova")->text()), $url);
+            self::assertCount(1, $crawler->filter("#{$blocoId} > .ps-nota-editor"), $url);
+            self::assertCount(1, $crawler->filter("#{$blocoId} #nota-tecnica-{$nota->getId()} .js-nota-responder"), $url);
+        }
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        foreach ($alvos as $url => $blocoId) {
+            $crawler = $client->request('GET', $url);
+            self::assertResponseIsSuccessful($url);
+            self::assertCount(1, $crawler->filter("#{$blocoId} > .ps-notas-lista > #nota-tecnica-{$nota->getId()}"), "o leitor ainda lê a nota ({$url})");
+            self::assertCount(0, $crawler->filter("#{$blocoId} .js-nota-nova"), $url);
+            self::assertCount(0, $crawler->filter("#{$blocoId} .ps-nota-editor"), $url);
+            self::assertCount(0, $crawler->filter("#{$blocoId} .js-nota-responder"), $url);
+            self::assertStringNotContainsString('Adicionar nota técnica', $crawler->filter("#{$blocoId}")->text(), $url);
+        }
+    }
+
+    #[TestDox('PMC-058: na lápide nem o admin recebe "Adicionar nota técnica" nem o compositor, na aba Processo e no teor')]
+    public function testLapideSemAdicionarNota(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '60000051', self::NUMERO, '2026-08-20', $processo);
+        $this->criarNota($processo, $user, $tenant, '<p>Na lápide</p>', $pub);
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        foreach (["/pasta/{$pasta->getId()}" => "notas-processo-{$processo->getId()}", "/pasta/{$pasta->getId()}/push/{$pub->getId()}" => "notas-publicacao-{$pub->getId()}"] as $url => $blocoId) {
+            $crawler = $client->request('GET', $url);
+            self::assertResponseIsSuccessful($url);
+            self::assertCount(1, $crawler->filter("#{$blocoId} > .ps-notas-lista > .ps-nota"), $url);
+            self::assertCount(0, $crawler->filter("#{$blocoId} .js-nota-nova, #{$blocoId} .ps-nota-editor"), $url);
+        }
+    }
+
     #[TestDox('EDT-021: o editor da nota aponta o "Salvar nota" do PRÓPRIO bloco como botão de envio (apagado com o editor vazio), na aba Processo e no teor')]
     public function testSalvarNotaEhOBotaoDeEnvioDoEditor(): void
     {
