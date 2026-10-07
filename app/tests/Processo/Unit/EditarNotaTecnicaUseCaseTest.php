@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Processo\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Processo\Entity\NotaTecnica;
 use App\Processo\Entity\Processo;
+use App\Processo\Exception\NotaTecnicaForaDoEscopoException;
 use App\Processo\Exception\NotaTecnicaNaoEditavelException;
 use App\Processo\Repository\NotaTecnicaRepository;
 use App\Processo\UseCase\EditarNotaTecnicaUseCase;
@@ -22,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 final class EditarNotaTecnicaUseCaseTest extends TestCase
 {
     use CriaSanitizadorTextoRico;
+    use CriaResolucaoDeMencoesDaNota;
 
     private NotaTecnicaRepository&MockObject $repository;
     private EditarNotaTecnicaUseCase $useCase;
@@ -30,10 +34,11 @@ final class EditarNotaTecnicaUseCaseTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->repository = $this->createMock(NotaTecnicaRepository::class);
-        $this->useCase    = new EditarNotaTecnicaUseCase($this->repository, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario());
         $this->tenant     = new Tenant();
-        $this->autor      = (new User())->setEmail('autor@test.com');
+        $this->montarMencoes();
+        $this->repository = $this->createMock(NotaTecnicaRepository::class);
+        $this->useCase    = new EditarNotaTecnicaUseCase($this->repository, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario(), $this->em, $this->resolucao);
+        $this->autor      = $this->pessoa(1, 'Ana Advogada');
     }
 
     private function novaNota(string $conteudo = '<p>Original</p>'): NotaTecnica
@@ -140,5 +145,67 @@ final class EditarNotaTecnicaUseCaseTest extends TestCase
         (new \ReflectionProperty(NotaTecnica::class, 'autor'))->setValue($nota, null);
 
         self::assertFalse($this->useCase->podeEditar($nota, $this->autor, $this->tenant));
+    }
+
+    // ── @menções (PMC-019) ───────────────────────────────────────────────────
+
+    /** Nota 700 já gravada, na pasta 41 do escritório que vincula o processo dela. */
+    private function notaNaPasta(string $conteudo = '<p>Original</p>'): array
+    {
+        $nota = $this->definirId($this->novaNota($conteudo), 700);
+        $pasta = $this->definirId((new Pasta())->setTenant($this->tenant)->setNup('1232'), 41);
+        $pasta->vincularProcesso($nota->getProcesso());
+
+        return [$nota, $pasta];
+    }
+
+    #[TestDox('editar: token forjado (id inexistente) e id de outro escritório viram texto comum, sem aviso')]
+    public function testEdicaoComTokenForjadoViraTexto(): void
+    {
+        [$nota, $pasta] = $this->notaNaPasta();
+        $this->colegasDoEscritorio([$this->autor]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $this->useCase->executar($nota, $this->autor, $this->tenant, '<p>Falar com @[Diretor Geral](user:9999999999) e @[Carla](user:9)</p>', $pasta);
+
+        self::assertSame('<p>Falar com @Diretor Geral e @Carla</p>', $nota->getConteudo());
+    }
+
+    #[TestDox('editar avisa só quem PASSOU a ser mencionado: quem já tem o aviso desta nota (mesmo link) não recebe de novo')]
+    public function testEdicaoNaoRenotifica(): void
+    {
+        [$nota, $pasta] = $this->notaNaPasta('<p>@[Bruno Lima](user:2)</p>');
+        $this->colegasDoEscritorio([$this->pessoa(2, 'Bruno Lima'), $this->pessoa(3, 'Carla Dias')]);
+        $this->acessoAPasta(41, [2 => true, 3 => true]);
+        // O Bruno já foi avisado por esta nota (no envio): o banco tem o aviso com o mesmo link.
+        $this->notificacaoRepository->method('findOneBy')->willReturnCallback(
+            static fn (array $criterio): ?Notificacao => (int) $criterio['usuario']->getId() === 2
+                && $criterio['tipo'] === Notificacao::TIPO_NOTA_TECNICA_MENCAO
+                && $criterio['url'] === '/pasta/41#nota-tecnica-700'
+                ? new Notificacao() : null,
+        );
+        $avisos = $this->capturarAvisos();
+
+        $this->useCase->executar($nota, $this->autor, $this->tenant, '<p>@[Bruno](user:2) e @[Carla](user:3)</p>', $pasta);
+
+        self::assertCount(1, $avisos);
+        self::assertSame(3, $avisos[0]['usuario']->getId());
+        self::assertSame('/pasta/41#nota-tecnica-700', $avisos[0]['notificacao']->getUrl());
+    }
+
+    #[TestDox('editar com pasta de OUTRO escritório como contexto é recusado e a nota não muda')]
+    public function testEdicaoComPastaAlheiaLancaForaDoEscopo(): void
+    {
+        $nota   = $this->novaNota();
+        $alheia = (new Pasta())->setTenant(new Tenant());
+        $alheia->vincularProcesso($nota->getProcesso());
+        $this->repository->expects($this->never())->method('salvar');
+        $this->expectException(NotaTecnicaForaDoEscopoException::class);
+
+        try {
+            $this->useCase->executar($nota, $this->autor, $this->tenant, '<p>Corrigido</p>', $alheia);
+        } finally {
+            self::assertSame('<p>Original</p>', $nota->getConteudo());
+        }
     }
 }

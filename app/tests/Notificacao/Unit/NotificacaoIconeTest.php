@@ -41,6 +41,13 @@ final class NotificacaoIconeTest extends TestCase
         self::assertSame('bi-file-earmark-check text-primary', $this->icone(ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO));
     }
 
+    #[TestDox('Menção numa nota técnica: o mesmo @ azul da menção do Registro (desenho: `mencao`, bi-at)')]
+    public function testMencaoEmNotaTecnicaEhArrobaAzul(): void
+    {
+        self::assertSame('nota_tecnica_mencao', Notificacao::TIPO_NOTA_TECNICA_MENCAO, 'o tipo gravado no banco não muda');
+        self::assertSame('bi-at text-primary', $this->icone(Notificacao::TIPO_NOTA_TECNICA_MENCAO));
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function tiposQueJaExistiam(): iterable
     {

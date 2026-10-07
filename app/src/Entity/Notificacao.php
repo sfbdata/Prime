@@ -33,6 +33,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_PASTA_RESPOSTA_REGISTRO = 'pasta_resposta_registro';
     /** Alguém @mencionou o destinatário num registro (ou resposta) do Registro da pasta. */
     public const TIPO_PASTA_MENCAO_REGISTRO = 'pasta_mencao_registro';
+    /** Alguém @mencionou o destinatário numa nota técnica de processo (escrita numa pasta). */
+    public const TIPO_NOTA_TECNICA_MENCAO = 'nota_tecnica_mencao';
 
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
@@ -213,6 +215,8 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
             // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.
             self::TIPO_PASTA_MENCAO_REGISTRO => 'bi-at text-primary',
+            // Menção numa nota técnica: o mesmo tipo "mencao" do desenho — `bi-at` em azul.
+            self::TIPO_NOTA_TECNICA_MENCAO => 'bi-at text-primary',
             // Desenho (bluejus-central.js, tipo "alerta"): `bi-bell-fill` em laranja (#e8590c),
             // o mesmo sino da meta já alertada. `text-orange` não é utilitário do Bootstrap: a
             // regra (com o par do tema escuro) precisa existir na folha global (app.css); sem

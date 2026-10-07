@@ -26,8 +26,28 @@
 
     /* ── Editor (fallback para textarea crua se o editor-rico não carregou) ── */
     function montar(textarea) {
-        if (window.EditorRico) { return EditorRico.montar(textarea); }
-        return null;
+        if (!window.EditorRico) { return null; }
+        // `montar` devolve null se já estava montado (o compositor reaberto): a instância segue lá.
+        return EditorRico.montar(textarea) || (EditorRico.instancia ? EditorRico.instancia(textarea) : null);
+    }
+
+    /* ── @menção (PMC-019) ──────────────────────────────────────────────────
+       O MESMO pasta-mencoes.js do Registro (carregado pela pasta_show), com a URL
+       da lista vinda do bloco: só colegas que veem esta pasta. No editor a menção
+       é "@Nome"; ao salvar, `paraEnvio` a troca pelo token `@[Nome](user:ID)` e o
+       servidor confere o id. Sem o script, a nota segue sem menção. */
+    function ligarMencoes(bloco, textarea, mencoesIniciais) {
+        if (!window.PastaMencoes || !bloco) { return; }
+        var url = bloco.getAttribute('data-url-mencionaveis');
+        if (!url) { return; }
+        textarea._mencoesUrl = url;
+        PastaMencoes.ligar(textarea, mencoesIniciais || []);
+    }
+    function conteudoParaEnvio(textarea) {
+        return window.PastaMencoes ? PastaMencoes.paraEnvio(textarea, textarea.value) : textarea.value;
+    }
+    function esquecerMencoes(textarea) {
+        if (window.PastaMencoes) { PastaMencoes.esquecer(textarea); }
     }
     function desmontar(textarea) { if (window.EditorRico) { EditorRico.desmontar(textarea); } }
     function limpar(textarea) {
@@ -68,7 +88,9 @@
         if (!editor || !textarea) { return; }
         esconderErro(bloco);
         editor.hidden = false;
-        focar(montar(textarea), textarea);
+        var quill = montar(textarea);
+        ligarMencoes(bloco, textarea);
+        focar(quill, textarea);
     }
 
     function fecharCompositor(bloco) {
@@ -76,6 +98,7 @@
         var textarea = editor && editor.querySelector('textarea');
         if (!editor || !textarea) { return; }
         limpar(textarea);
+        esquecerMencoes(textarea);
         esconderErro(bloco);
         editor.hidden = true;
     }
@@ -93,7 +116,7 @@
 
         var fd = new FormData();
         fd.append('_token', bloco.getAttribute('data-csrf-criar') || '');
-        fd.append('conteudo', textarea.value);
+        fd.append('conteudo', conteudoParaEnvio(textarea));
         fd.append('pasta_id', bloco.getAttribute('data-pasta-id') || '');
         var publicacaoId = bloco.getAttribute('data-publicacao-id');
         if (publicacaoId) { fd.append('publicacao_id', publicacaoId); }
@@ -136,7 +159,12 @@
         textarea.rows = 3;
         textarea.maxLength = 5000;
         textarea.setAttribute('aria-label', 'Texto da nota técnica');
-        textarea.value = botaoEditar.getAttribute('data-conteudo') || '';
+        // @menção: o token `@[Nome](user:ID)` volta a "@Nome" no editor e fica lembrado para
+        // virar token de novo ao salvar (o mesmo caminho da edição do Registro).
+        var edicao = window.PastaMencoes
+            ? PastaMencoes.paraEdicao(botaoEditar.getAttribute('data-conteudo') || '')
+            : { html: botaoEditar.getAttribute('data-conteudo') || '', mencoes: [] };
+        textarea.value = edicao.html;
 
         var erro = document.createElement('div');
         erro.className = 'ps-nota-erro';
@@ -183,7 +211,9 @@
             caixa.replaceWith(div);
         }
 
-        focar(montar(textarea), textarea);
+        var quillEd = montar(textarea);
+        ligarMencoes(bloco, textarea, edicao.mencoes);
+        focar(quillEd, textarea);
 
         cancelar.addEventListener('click', function () { restaurar(htmlAtual); });
 
@@ -197,7 +227,7 @@
 
             var fd = new FormData();
             fd.append('_token', botaoEditar.getAttribute('data-csrf') || '');
-            fd.append('conteudo', textarea.value);
+            fd.append('conteudo', conteudoParaEnvio(textarea));
             fd.append('pasta_id', bloco.getAttribute('data-pasta-id') || '');
 
             salvar.disabled = true;
@@ -311,4 +341,33 @@
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); salvarNova(bloco); }
         if (e.key === 'Escape') { fecharCompositor(bloco); }
     });
+
+    /* ── Âncora de uma nota (`#nota-tecnica-<id>`) ─────────────────────────
+       É o destino do aviso de @menção (ResolucaoDeMencoesDoRegistro). A nota
+       mora na aba Processo, que não é a aba aberta na carga: abre a aba pelo
+       próprio gatilho do Bootstrap (`<painel>-tab`, a convenção da pasta_show)
+       e rola até o cartão, depois do reflow. */
+    function notaDoFragmento() {
+        var hash = window.location.hash;
+        if (!/^#nota-tecnica-\d+$/.test(hash)) { return; }
+
+        var alvo = document.getElementById(hash.slice(1));
+        if (!alvo) { return; }
+
+        var painel = alvo.closest('.tab-pane');
+        var gatilho = painel && painel.id ? document.getElementById(painel.id + '-tab') : null;
+        if (gatilho && !painel.classList.contains('active') && window.bootstrap) {
+            bootstrap.Tab.getOrCreateInstance(gatilho).show();
+        }
+
+        window.requestAnimationFrame(function () {
+            alvo.scrollIntoView({ block: 'center' });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', notaDoFragmento);
+    } else {
+        notaDoFragmento();
+    }
 }());

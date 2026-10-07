@@ -13,7 +13,8 @@
    porque a mesma nota aparece em toda pasta que vincula o processo.
 
    Contrato com o nota-tecnica.js (não mudar): .ps-notas (+ data-url-criar,
-   data-csrf-criar, data-pasta-id, data-processo-id, data-publicacao-id) ·
+   data-csrf-criar, data-pasta-id, data-processo-id, data-publicacao-id,
+   data-url-mencionaveis) ·
    .ps-notas-contagem · .ps-notas-lista · .ps-nota-editor (+ textarea) ·
    .ps-nota-erro · .js-nota-nova / .js-nota-cancelar / .js-nota-salvar.
 
@@ -27,7 +28,10 @@
      data-csrf-criar="{{ csrf_token('processo_nota_tecnica_' ~ processoId) }}"
      data-pasta-id="{{ pastaId }}"
      data-processo-id="{{ processoId }}"
-     data-publicacao-id="{{ publicacaoId ?? '' }}">
+     data-publicacao-id="{{ publicacaoId ?? '' }}"
+     {#- @menção (PMC-019): a lista do "@" é a do Registro — só colegas que VEEM esta pasta. Fica
+         no bloco, não em `[data-mencionaveis-url]`, que o pasta-mencoes.js reserva ao Registro. #}
+     data-url-mencionaveis="{{ pastaId ? path('pasta_mencionaveis', {id: pastaId}) : '' }}">
     <div class="ps-notas-cab">
         <span class="ps-notas-titulo"><i class="bi bi-journal-text" aria-hidden="true"></i>Notas técnicas</span>
         <span class="ps-contagem ps-notas-contagem" title="Notas técnicas">{{ notas|length }}</span>
@@ -52,7 +56,8 @@
         <div class="ps-nota-editor-rotulo"><i class="bi bi-journal-plus" aria-hidden="true"></i>Nova nota técnica</div>
         <textarea class="ps-nota-textarea" rows="3" maxlength="5000"
                   aria-label="Texto da nota técnica"
-                  placeholder="Explique o processo ou o despacho: o que significa, o que precisa ser feito, prazo…"></textarea>
+                  {#- Desenho dc:1713 (aba Processo) e dc:2554 (teor do Push), com a frase da @menção. #}
+                  placeholder="{{ publicacaoId ? 'Explique o despacho' : 'Explique o processo ou o despacho' }}: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém."></textarea>
         <div class="ps-nota-erro" hidden></div>
         <div class="ps-nota-editor-acoes">
             <button type="button" class="ps-btn js-nota-cancelar">Cancelar</button>

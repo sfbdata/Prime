@@ -46,7 +46,7 @@
                         data-nota-id="{{ nota.id }}"
                         {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
                         data-conteudo="{{ nota.conteudo|e('html_attr') }}"
-                        data-conteudo-html="{{ nota.conteudo|texto_rico|e('html_attr') }}"
+                        data-conteudo-html="{{ nota.conteudo|registro_texto|e('html_attr') }}"
                         data-csrf="{{ csrf_token('processo_nota_tecnica_editar_' ~ nota.id) }}"
                         data-url="{{ path('processo_nota_tecnica_editar', {id: nota.processoId, notaId: nota.id}) }}">
                     <i class="bi bi-pencil"></i>
@@ -64,8 +64,9 @@
             </span>
         {% endif %}
     </div>
-    {# `texto_rico` sanitiza de novo na saída e já é `is_safe: html`. #}
+    {# `registro_texto` é o `texto_rico` (sanitiza de novo na saída, `is_safe: html`) com as
+       @menções em destaque (PMC-019) — o mesmo filtro do Registro da pasta. #}
     <div class="ps-nota-texto">
-        <span class="editor-rico-conteudo"><span class="ql-editor">{{ nota.conteudo|texto_rico }}</span></span>
+        <span class="editor-rico-conteudo"><span class="ql-editor">{{ nota.conteudo|registro_texto }}</span></span>
     </div>
 </article>
