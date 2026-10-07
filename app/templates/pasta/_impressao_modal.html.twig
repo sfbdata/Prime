@@ -1,0 +1,56 @@
+{# ============================================================================
+   Janela "Imprimir" da pasta — desenho aprovado: docs/design/claude-design-2026-10-05 (1)/
+   "02 - EXPEDIENTES 1.2.3.dc.html", `imp` (marcação ~L.195) e `impVals`/`impMontar`
+   (L.4611-4631); impressão por iframe oculto como o `BJImprimir` (bj-visualizar.js).
+
+   Uma janela para todas as folhas da pasta: Imprimir resumo (⋮ do cabeçalho),
+   Imprimir extrato (Financeiro), Imprimir do ⋮ da observação e Imprimir resumo do
+   ⋮ do processo. A folha da pré-visualização vem do SERVIDOR
+   (`pasta_resumo_imprimir?fragmento=1`, mesmos guardas de escritório e permissão
+   da tela); para o registro e o processo o servidor dá só a moldura e a tela põe
+   o corpo, por DOM. Tudo o mais é do pasta-impressao.js.
+
+   Contexto: `pasta`.
+   ============================================================================ #}
+<link rel="stylesheet" href="{{ asset('css/pasta-impressao.css') }}">
+<div class="psi-fundo" id="psImpressao" hidden
+     data-url-folha="{{ path('pasta_resumo_imprimir', {id: pasta.id}) }}">
+    <div class="psi-janela" role="dialog" aria-modal="true" aria-labelledby="psImpressaoTitulo">
+        <div class="psi-cab">
+            <i class="bi bi-printer" aria-hidden="true"></i>
+            <div class="psi-cab-titulo" id="psImpressaoTitulo">Imprimir</div>
+            <button type="button" class="psi-fechar js-psi-fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="psi-corpo">
+            {# A folha ao vivo: o JS troca o conteúdo deste palco pela folha do servidor. #}
+            <div class="psi-palco" id="psImpressaoPalco" aria-live="polite"></div>
+            <div class="psi-lado">
+                <span class="psi-rotulo">Incluir na folha</span>
+                <button type="button" class="psi-opcao js-psi-opcao" data-opcao="cabecalho" aria-pressed="true">
+                    <i class="bi bi-check-square-fill" aria-hidden="true"></i>Cabeçalho do escritório
+                </button>
+                <button type="button" class="psi-opcao js-psi-opcao" data-opcao="dados" aria-pressed="true">
+                    <i class="bi bi-check-square-fill" aria-hidden="true"></i>Dados da pasta e do processo
+                </button>
+                <button type="button" class="psi-opcao js-psi-opcao" data-opcao="autor" aria-pressed="true">
+                    <i class="bi bi-check-square-fill" aria-hidden="true"></i>Autor, data e tipo do registro
+                </button>
+                {# Só aparece quando a folha do servidor trouxe o Financeiro (quem o vê). #}
+                <button type="button" class="psi-opcao js-psi-opcao" data-opcao="financeiro" aria-pressed="false" hidden>
+                    <i class="bi bi-square" aria-hidden="true"></i>Financeiro
+                </button>
+                <span class="psi-rotulo psi-rotulo--tamanho">Tamanho do texto</span>
+                <div class="psi-tamanho">
+                    <button type="button" class="psi-tamanho-btn js-psi-menor" aria-label="Diminuir"><i class="bi bi-dash-lg"></i></button>
+                    <span class="psi-tamanho-valor" id="psImpressaoFonte">11,5 pt</span>
+                    <button type="button" class="psi-tamanho-btn js-psi-maior" aria-label="Aumentar"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="psi-espaco"></div>
+                <span class="psi-nota">Papel A4. Para gerar PDF, escolha "Salvar como PDF" na janela de impressão.</span>
+                <button type="button" class="psi-imprimir js-psi-imprimir"><i class="bi bi-printer"></i>Imprimir</button>
+                <button type="button" class="psi-copiar js-psi-copiar"><i class="bi bi-copy"></i>Copiar texto</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/pasta-impressao.js') }}" defer></script>
