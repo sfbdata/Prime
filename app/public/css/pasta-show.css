@@ -4911,7 +4911,9 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     display: flex;
     flex-direction: column;
     background: var(--ps-tl-bg);
-    border-radius: 6px;
+    /* PAS-024: o JS do desenho usa 6px, mas o README de Quinas (regra
+       transversal mais recente) limita janelas a 4px — vale o README. */
+    border-radius: 4px;
     box-shadow: var(--ps-tl-sombra);
     font-family: Arial, Helvetica, sans-serif;
     color: var(--ps-tl-texto);

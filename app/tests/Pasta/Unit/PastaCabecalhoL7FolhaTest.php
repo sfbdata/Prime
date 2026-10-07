@@ -42,6 +42,15 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         return substr($fonte, $a, $b - $a);
     }
 
+    /** Corpo da regra CSS cujo seletor começa a linha exatamente como `$seletor {`. */
+    private static function regra(string $css, string $seletor): string
+    {
+        $ok = preg_match('/^' . preg_quote($seletor, '/') . ' \{([^}]*)\}/m', $css, $m);
+        self::assertSame(1, $ok, "regra {$seletor} existe");
+
+        return $m[1];
+    }
+
     #[TestDox('EDT-007: "Copiar link" troca bi-link por bi-check2 só quando copiou, e fecha em 900 ms')]
     public function testCopiarLinkTrocaIconeEFechaEm900ms(): void
     {
@@ -56,5 +65,14 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         self::assertStringContainsString('if (iconeCopiar && copiou)', $bloco);
 
         self::assertStringContainsString('<i class="bi bi-link"></i><span class="js-copiar-link-rotulo">', self::ler(self::CABECALHO));
+    }
+
+    #[TestDox('PAS-024: o painel da Timeline tem quinas de 4px (README de Quinas), não os 6px do JS do desenho')]
+    public function testQuinasDaTimelineEm4px(): void
+    {
+        $painel = self::regra(self::ler(self::CSS), '.ps-tl');
+
+        self::assertStringContainsString('border-radius: 4px;', $painel);
+        self::assertStringNotContainsString('border-radius: 6px', $painel);
     }
 }
