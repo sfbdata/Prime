@@ -24,6 +24,10 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * "Enquanto você estava fora" na Timeline inteligente (PAS-043): a visita por usuário e pasta
  * (`pasta_timeline_visita`), gravada ao abrir o painel, e o aviso que sai dela.
  *
+ * O teste de outro escritório com o TenantFilter LIGADO descreve o sistema, mas o 404 pode vir do
+ * filtro (o resolver nem acha a pasta). Os testes `...SemTenantFilter` desligam o filtro dentro da
+ * requisição para provar o guarda explícito do controller (`$pasta->getTenant() !== $tenant`).
+ *
  * Guardas da escrita: pasta do escritório (404, com SUPER_ADMIN para o 404 só poder vir da
  * conferência de dono), CSRF (403), permissão de VER (403 × 200 no mesmo escritório) e lápide
  * (recusa do listener). Isolamento provado com o recurso irmão: a visita a B não muda A.
@@ -36,6 +40,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 final class PastaTimelineVisitaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
+    use DesligaTenantFilterNaRequisicao;
 
     private function instalarCsrfStorage(): void
     {
@@ -248,6 +253,46 @@ final class PastaTimelineVisitaTest extends JusPrimeWebTestCase
         $this->visitar($client, $minha);
         self::assertResponseIsSuccessful();
         self::assertNotFalse($this->linha($minha, $user));
+    }
+
+    #[TestDox('Visita a pasta de outro escritório, SEM o TenantFilter e sem token: 404 do guarda do controller, antes do CSRF')]
+    public function testVisitaDeOutroEscritorioSemTenantFilterDa404AntesDoCsrf(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        [, $outro]       = $this->criarAdmin();
+        $alheia          = $this->criarPasta($outro);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->desligarTenantFilterNaProximaRequisicao();
+
+        // Token inválido de propósito: sem o guarda de dono, a resposta seria o 403 do CSRF (e o
+        // 403 confirmaria que o id existe). O UseCase, que também confere o dono, nem é alcançado.
+        $this->visitar($client, $alheia, 'token_invalido');
+
+        $this->assertTenantFilterFoiDesligado();
+        self::assertResponseStatusCodeSame(404);
+        self::assertFalse($this->linha($alheia, $user));
+    }
+
+    #[TestDox('Timeline de pasta de outro escritório, SEM o TenantFilter: 404 do guarda do controller')]
+    public function testTimelineDeOutroEscritorioSemTenantFilterDa404(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        [, $outro]       = $this->criarAdmin();
+        $alheia          = $this->criarPasta($outro);
+        $alheiaId        = $alheia->getId();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $this->desligarTenantFilterNaProximaRequisicao();
+        $client->request('GET', '/pasta/' . $alheiaId . '/timeline');
+
+        $this->assertTenantFilterFoiDesligado();
+        self::assertResponseStatusCodeSame(404);
     }
 
     #[TestDox('CSRF inválido: 403 e nada gravado')]
