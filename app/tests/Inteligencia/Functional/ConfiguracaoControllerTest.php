@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Functional;
 use App\Entity\Audit\AuditLog;
 use App\Inteligencia\Controller\ConfiguracaoController;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Inteligencia\Enum\SecaoDoContexto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -45,6 +46,35 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(1, $crawler->filter('#ia-configuracao form')->count());
         self::assertSame(1, $crawler->filter('#ia-estado')->count());
+    }
+
+    #[TestDox('o aviso de envio lista CADA seção que os agentes leem (SecaoDoContexto), na ordem do enum, sem travessão')]
+    public function testAvisoDeEnvioListaTodasAsSecoes(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $crawler = $client->request('GET', '/admin/inteligencia');
+        self::assertResponseIsSuccessful();
+
+        $aviso = $crawler->filter('#ia-configuracao #ia-aviso-envio');
+        self::assertSame(1, $aviso->count());
+        $itens = $aviso->filter('#ia-aviso-envio-secoes > [data-ia-secao]');
+        self::assertSame(\count(SecaoDoContexto::cases()), $itens->count(), 'uma entrada por seção do enum, nem mais nem menos');
+
+        foreach (SecaoDoContexto::cases() as $indice => $secao) {
+            self::assertSame($secao->value, $itens->eq($indice)->attr('data-ia-secao'));
+            self::assertSame($secao->rotuloCurto(), trim($itens->eq($indice)->text()));
+        }
+
+        $texto = $aviso->text();
+        // O que vai sempre, fora das seções: cabeçalho da pasta e dos processos.
+        self::assertStringContainsString('nomes da equipe', $texto);
+        self::assertStringContainsString('processos vinculados', $texto);
+        self::assertStringContainsString('Anexo I', $texto);
+        self::assertStringContainsString('segredo de justiça nunca são enviados', $texto);
+        self::assertStringNotContainsString('—', $texto);
     }
 
     #[TestDox('admin liga a IA e muda as cotas: linha criada, consentimento registrado e audit_log com create')]
