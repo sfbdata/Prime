@@ -14,7 +14,9 @@
         relatório"; ▲▼ navegam, Esc / × / fundo fecham. O conteúdo de cada meta
         veio do servidor; aqui só se escolhe qual mostrar e se monta "Outras
         metas desta pasta" a partir das linhas da lista;
-     6. botão direito na linha (PMC-027): abre o MESMO ⋮ da linha no cursor.
+     6. botão direito na linha (PMC-027): abre o MESMO ⋮ da linha no cursor;
+     7. meta recém-criada (PMC-044): `?meta=<id>` na URL abre a aba Metas no
+        filtro "Abertas" com a linha realçada (destino do POST do modal).
 
    Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
    que os contêm são abertos pelo pasta-show.js (`data-ps-pop`).
@@ -24,6 +26,7 @@
 
     function iniciar() {
         filtrosDaLista();
+        realceDaMetaNova();
         atalhosDePrazo();
         avisoDeTituloRepetido();
         renomearNaLista();
@@ -540,5 +543,27 @@
             // Sem coordenada (tecla de menu): fica no canto do ⋮, como no clique.
             if (e.clientX > 0 || e.clientY > 0) { noCursor(menu, e.clientX, e.clientY); }
         });
+    }
+
+    /* ── 7. Meta recém-criada (PMC-044) ───────────────────────────────────── */
+    /* Desenho (dc `salvar` do modal): depois de criar, a pasta fica na aba Metas,
+       filtro "Abertas", com a meta nova realçada. O modal publica por XHR e a
+       lista (numeração, contadores, drawer, menus ⋮) é do servidor, então o
+       destino recarrega a pasta com `?meta=<id>#tarefas`; aqui só se acha a linha
+       e se realça pelo MESMO caminho do "Abrir meta existente". O parâmetro sai
+       da URL para um F5 não realçar de novo. */
+    function realceDaMetaNova() {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('meta');
+        if (!id || !/^\d+$/.test(id)) { return; }
+
+        params.delete('meta');
+        if (window.history && window.history.replaceState) {
+            var busca = params.toString();
+            window.history.replaceState(null, '', window.location.pathname + (busca ? '?' + busca : '') + window.location.hash);
+        }
+
+        var linha = document.querySelector('[data-ps-metas] .ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
+        if (linha) { destacarNaLista(linha); }
     }
 }());

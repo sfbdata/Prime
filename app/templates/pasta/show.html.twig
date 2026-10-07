@@ -4101,8 +4101,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
             if (res.data.sucesso) {
-                // Redireciona para a tarefa criada
-                window.location.href = '/tarefas/' + res.data.id;
+                // PMC-044: fica na pasta, aba Metas, com a meta nova realçada (destino do servidor).
+                window.location.href = res.data.destino;
             } else {
                 erroBox.textContent = res.data.erro || res.data.mensagem || 'Erro ao criar meta.';
                 erroBox.classList.remove('d-none');

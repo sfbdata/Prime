@@ -203,7 +203,14 @@ final class TarefaController extends AbstractController
 
         $this->notificacaoService->notificarTarefaCriada($tarefa);
 
-        return $this->json(['sucesso' => true, 'id' => $tarefa->getId()]);
+        // PMC-044: esta rota só é chamada pelo modal da pasta, então quem criou fica NA pasta — na
+        // aba Metas, com a meta nova realçada (`?meta=`, lido pelo pasta-metas.js). A criação pela
+        // tela /tarefas é outra rota e não muda.
+        return $this->json([
+            'sucesso' => true,
+            'id'      => $tarefa->getId(),
+            'destino' => $this->generateUrl('pasta_show', ['id' => $pasta->getId(), 'meta' => $tarefa->getId()]) . '#tarefas',
+        ]);
     }
 
     /**
