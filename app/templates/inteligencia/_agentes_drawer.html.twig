@@ -15,9 +15,14 @@
 
    Contexto: `pasta` (entidade, a mesma do cabeçalho), `ia` (enum Disponibilidade).
    ============================================================================ #}
-{% set nProcessos = pasta.processos|length %}
-{% set nMetas = pasta.tarefas|length %}
-{% set nDocumentos = pasta.documentos|length %}
+{# Chips do contexto (IA-005, dc L852-854 e L5686): Pasta nº · cliente · nº do processo ·
+   responsável, do dado REAL da pasta — o cliente principal do cadastro (nunca o
+   `nome_cliente`, que é o identificador da pasta), o processo principal e o responsável.
+   "Sem processo" e "Sem responsável" são os textos do próprio desenho; "Sem cliente" segue
+   o mesmo padrão para a pasta sem cliente vinculado. #}
+{% set iaCliente = pasta.clientePrincipal %}
+{% set iaProcesso = pasta.processoPrincipal %}
+{% set iaResponsavel = pasta.responsavel %}
 <div class="ia-drawer-fundo" data-ia-fundo hidden></div>
 <aside class="ia-drawer" id="psIaDrawer" role="dialog" aria-modal="true" aria-label="BlueJus IA" hidden
        data-ia-drawer
@@ -35,10 +40,10 @@
             </button>
         </div>
         <div class="ia-drawer-chips" title="Contexto carregado automaticamente desta tela">
-            <span class="ia-chip"><i class="bi bi-folder2-open" aria-hidden="true"></i>Pasta {{ pasta.nup }}</span>
-            <span class="ia-chip"><i class="bi bi-bank" aria-hidden="true"></i>{{ nProcessos == 0 ? 'sem processo' : (nProcessos ~ ' processo' ~ (nProcessos > 1 ? 's' : '')) }}</span>
-            <span class="ia-chip"><i class="bi bi-check2-square" aria-hidden="true"></i>{{ nMetas }} meta{{ nMetas == 1 ? '' : 's' }}</span>
-            <span class="ia-chip"><i class="bi bi-paperclip" aria-hidden="true"></i>{{ nDocumentos }} documento{{ nDocumentos == 1 ? '' : 's' }}</span>
+            <span class="ia-chip" data-ia-chip="pasta"><i class="bi bi-folder2-open" aria-hidden="true"></i>Pasta {{ pasta.nup }}</span>
+            <span class="ia-chip" data-ia-chip="cliente"><i class="bi bi-person" aria-hidden="true"></i>{{ iaCliente ? iaCliente.nomeExibicao : 'Sem cliente' }}</span>
+            <span class="ia-chip" data-ia-chip="processo"><i class="bi bi-diagram-3" aria-hidden="true"></i>{{ iaProcesso ? iaProcesso.numeroProcesso|numero_cnj : 'Sem processo' }}</span>
+            <span class="ia-chip" data-ia-chip="responsavel"><i class="bi bi-person-badge" aria-hidden="true"></i>{{ iaResponsavel and iaResponsavel.fullName ? iaResponsavel.fullName : 'Sem responsável' }}</span>
         </div>
         {% if not ia.estaDisponivel %}
             {# O motivo REAL, uma vez, no topo — cada agente repete no lugar do botão. #}
