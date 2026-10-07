@@ -5,7 +5,7 @@
    cliente L.1381, ⋮ do prazo L.1348 e L.6150-6151).
 
    1. Janela "Detalhes do cliente": clique no icone de cadastro da linha ou botao
-      direito na linha. O conteudo e um fragmento do servidor (`cliente_resumo`),
+      direito na linha — ou no nome do cliente do cabecalho (PAS-001). O conteudo e um fragmento do servidor (`cliente_resumo`),
       que ja decide permissao e filtra as pastas — aqui so se posiciona, arrasta
       e fecha. Os contatos dela se editam inline (POST `cliente_contatos`).
    2. Copiar (nome, documento, contatos, qualificacao, prazo): `.js-ps-copiar`
@@ -403,6 +403,18 @@
     });
 
     document.addEventListener('contextmenu', function (e) {
+        // Nome do cliente no cabeçalho (PAS-001; desenho `abrirCli`): a mesma janela, no
+        // cursor. Quem selecionou o nome para copiar fica com o menu do navegador.
+        var tituloCliente = e.target.closest('.ps-cabecalho h1.ps-cab-titulo[data-cliente-id]');
+        if (tituloCliente) {
+            var selecao = window.getSelection ? String(window.getSelection()) : '';
+            if (selecao.trim() !== '') { return; }
+            e.preventDefault();
+            abrirJanela(tituloCliente.getAttribute('data-cliente-id'), e.clientX + 4, e.clientY + 4);
+
+            return;
+        }
+
         var linhaCliente = e.target.closest('[data-trilho="clientes"] .cliente-linha[data-cliente-id]');
         if (linhaCliente) {
             e.preventDefault();

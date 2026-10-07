@@ -311,7 +311,11 @@
         <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
         <div class="ps-cab-cliente-corpo">
             <div class="ps-cab-cliente-linha">
-                <h1 class="ps-cab-titulo">
+                {# Com cliente cadastrado, o botão direito no nome abre a janela "Detalhes do
+                   cliente" (PAS-001; desenho dc L.1129, `abrirCli`) — a mesma do botão Cadastro e do
+                   trilho, pelo pasta-clientes.js (`data-cliente-id`). O clique comum não muda. #}
+                <h1 class="ps-cab-titulo"
+                    {%- if cliente %} data-cliente-id="{{ cliente.id }}" aria-describedby="psCabDicaCliente"{% endif %}>
                     {%- if cliente -%}
                         {{ cliente.nomeExibicao }}
                     {%- elseif pasta.nomeCliente -%}
@@ -340,6 +344,10 @@
                 <span class="ps-cab-doc ps-cab-doc--aviso">não vinculado ao cadastro de clientes</span>
             {% endif %}
         </div>
+        {# Dica do desenho (dc L.1135-1137, `tipVis`): aparece ao parar o mouse no nome. Só CSS. #}
+        {% if cliente %}
+            <span class="ps-cab-dica" id="psCabDicaCliente" role="tooltip"><i class="bi bi-mouse2" aria-hidden="true"></i>Detalhes: clique com o botão direito</span>
+        {% endif %}
 
         {# ── BlueJus Intelligence (desenho 1.2.3, dc L.1139): à direita da linha do cliente ──
            Abre o drawer dos agentes da BlueJus IA (spec inteligencia-agentes-da-pasta). Só para
@@ -617,6 +625,28 @@
 .ps-pop-sw.is-ligado { background: var(--ps-accent, #0a7aad); }
 .ps-pop-sw-bola { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(10,40,60,.3); transition: left .2s cubic-bezier(.22,.8,.3,1); }
 .ps-pop-sw.is-ligado .ps-pop-sw-bola { left: 15px; }
+
+/* PAS-001: o nome do cliente aceita o botão direito, e a dica do desenho (`tipVis`) aparece
+   350ms depois de o mouse parar nele. Medidas e cores do desenho (dc L.1136); fundo e texto
+   pelos tokens que já têm o par escuro. */
+.ps-cab-titulo[data-cliente-id] { cursor: context-menu; }
+.ps-cab-dica {
+    position: absolute; left: 50px; top: calc(100% + 6px); z-index: 20;
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    padding: 7px 11px; border-radius: 4px;
+    background: var(--ps-resp-ativa-bg, #e3f0f8); color: var(--ps-chip-text, #0b5f86);
+    font-size: 12.5px; font-weight: 700;
+    box-shadow: 0 8px 18px -10px rgba(12,90,130,.45);
+    pointer-events: none;
+    opacity: 0; visibility: hidden; transform: translateY(-3px);
+    transition: opacity .16s cubic-bezier(.22,.8,.3,1), transform .16s cubic-bezier(.22,.8,.3,1), visibility 0s linear .16s;
+}
+.ps-cab-dica i { font-size: 13px; }
+.ps-cab-cliente:has(.ps-cab-titulo[data-cliente-id]:hover) > .ps-cab-dica {
+    opacity: 1; visibility: visible; transform: none;
+    transition-delay: .35s, .35s, .35s;
+}
+@media (hover: none) { .ps-cab-dica { display: none; } }
 </style>
 <script>
 (function () {
