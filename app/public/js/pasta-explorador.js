@@ -1420,6 +1420,7 @@
             e.preventDefault();
             if (ehToque() && !e.shiftKey && item) { selecionar(chaveDoElemento(item)); abrirPreview(prev); return; }
         }
+        registrarClique(item ? chaveDoElemento(item) : null);
         if (!item) { limparSelecao(); return; }
         const chave = chaveDoElemento(item);
         if (ehToque() && item.dataset.pexTipo === 'pasta') { entrar(Number(item.dataset.pexId)); return; }
@@ -1428,13 +1429,36 @@
         else selecionar(chave);
         el.lista.focus({ preventScroll: true });
     });
+    /* Os dois cliques do duplo clique. Se algo empurrar a lista entre um e outro (a barra de
+       seleção, o painel, um aviso), o 2º cai em OUTRA linha e o `dblclick` chega com o alvo
+       errado — já abriu o arquivo vizinho no Chromium. Um duplo clique de verdade não troca de
+       linha (o navegador só o dispara com os cliques a poucos pixels um do outro), então, se o
+       1º clique foi há menos de DUPLO_CLIQUE_MS numa linha diferente, quem abre é a do 1º. */
+    const DUPLO_CLIQUE_MS = 400;
+    let cliqueAnterior = null;
+    let ultimoClique = null;
+    function registrarClique(chave) {
+        cliqueAnterior = ultimoClique;
+        ultimoClique = { chave: chave, t: Date.now() };
+    }
+    function chaveDoDuploClique(chaveDoAlvo) {
+        const a = cliqueAnterior, u = ultimoClique;
+        if (a && u && a.chave && a.chave !== chaveDoAlvo && u.t - a.t < DUPLO_CLIQUE_MS) return a.chave;
+        return chaveDoAlvo;
+    }
     // Duplo clique abre (dc `abrir`, L4758): pasta entra, arquivo pré-visualiza.
     el.lista.addEventListener('dblclick', function (e) {
         if (e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;
         const item = e.target.closest('.pex-item');
-        if (!item || item.dataset.pexTemp !== undefined) return;
+        if (item && item.dataset.pexTemp !== undefined) return;
+        const chaveDoAlvo = item ? chaveDoElemento(item) : null;
+        const chave = chaveDoDuploClique(chaveDoAlvo);
+        cliqueAnterior = ultimoClique = null;
+        if (!chave) return;
         e.preventDefault();
-        abrirItem(itemPorChave(chaveDoElemento(item)));
+        // O 2º clique, caído na linha errada, também mexeu na seleção: devolve-a ao item aberto.
+        if (chave !== chaveDoAlvo) selecionar(chave);
+        abrirItem(itemPorChave(chave));
     });
 
     function abrirPreview(gatilho) {
