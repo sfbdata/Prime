@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Unit;
 use App\Inteligencia\DTO\ContextoDeAnalise;
 use App\Inteligencia\DTO\MovimentacaoDeContexto;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
+use App\Tests\Inteligencia\Support\CorpusDeInjecao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -150,6 +151,56 @@ final class PromptResumoDoPushTest extends TestCase
         self::assertSame($comAnterior ? 1 : 0, substr_count($texto, '</analise_anterior>'));
         self::assertDoesNotMatchRegularExpression('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $texto, 'sem caractere de controle');
         self::assertStringNotContainsString("\u{202E}", $texto, 'sem override bidi');
+    }
+
+    // =========================================================================
+    // IA-014: corpus de injeção (README do handoff, aceite "/redteam")
+    // =========================================================================
+
+    /** @return iterable<string, array{string}> */
+    public static function corpus(): iterable
+    {
+        return CorpusDeInjecao::ataques();
+    }
+
+    #[DataProvider('corpus')]
+    #[TestDox('corpus ($_dataName) injetado no cabeçalho, na equipe, na movimentação e no resumo anterior: cada ataque fica DENTRO do próprio bloco e nenhum bloco ganha tag a mais')]
+    public function testCorpusDeInjecaoFicaDentroDoBloco(string $ataque): void
+    {
+        $base = $this->contexto();
+        $cabecalho = $base->cabecalho;
+        $cabecalho['classe'] = 'Procedimento Comum ' . $ataque . ' SITIO-PROCESSO';
+        $cabecalho['equipe'] = 'Dra. Ana ' . $ataque . ' SITIO-EQUIPE';
+        $itens = [
+            new MovimentacaoDeContexto('pub:9', '03/10/2026', 'Intimação', 'DJEN · TJDFT', 'Intime-se. ' . $ataque . ' SITIO-MOV'),
+            ...$base->itens,
+        ];
+        $contexto = new ContextoDeAnalise($cabecalho, $itens, ContextoDeAnalise::hashDe($itens), $base->numerosDosProcessos);
+
+        $texto = $this->prompt->montar($contexto, 'Resumo anterior. ' . $ataque . ' SITIO-ANTERIOR')->textoDoUsuario();
+
+        // Só as 8 tags estruturais (4 blocos × abre/fecha) parecem tag: o ataque não acrescentou nenhuma.
+        self::assertSame(8, preg_match_all(CorpusDeInjecao::padraoDeTag(), $texto), 'o dado criou algo com cara de tag de bloco');
+        $this->assertDelimitadoresIntactos($texto, comAnterior: true);
+        self::assertSame(0, preg_match(CorpusDeInjecao::INVISIVEIS, $texto), 'sobrou caractere invisível/de controle');
+
+        foreach (['processo' => 'SITIO-PROCESSO', 'equipe' => 'SITIO-EQUIPE', 'movimentacoes' => 'SITIO-MOV', 'analise_anterior' => 'SITIO-ANTERIOR'] as $tag => $sitio) {
+            $this->assertDentroDoBloco($texto, $tag, $sitio);
+        }
+        self::assertSame(4, substr_count($texto, CorpusDeInjecao::CANARIO), 'o ataque continua no prompt como dado, uma vez por campo');
+    }
+
+    /** O marcador está entre a abertura e o fechamento REAIS do bloco (únicos, conferido antes). */
+    private function assertDentroDoBloco(string $texto, string $tag, string $marcador): void
+    {
+        $abre = strpos($texto, "<{$tag}>\n");
+        $fecha = strpos($texto, "\n</{$tag}>");
+        $onde = strpos($texto, $marcador);
+        self::assertNotFalse($abre, "<{$tag}> não abriu");
+        self::assertNotFalse($fecha, "</{$tag}> não fechou");
+        self::assertNotFalse($onde, "{$marcador} sumiu");
+        self::assertGreaterThan($abre, $onde, "{$marcador} saiu ANTES de <{$tag}>");
+        self::assertLessThan($fecha, $onde, "{$marcador} escapou de <{$tag}>");
     }
 
     #[TestDox('as movimentações entram entre <movimentacoes> e </movimentacoes>, mais recente primeiro')]

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Inteligencia\Unit;
 
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
+use App\Tests\Inteligencia\Support\CorpusDeInjecao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -83,5 +84,54 @@ final class NeutralizadorDeConteudoTest extends TestCase
     public function testVazio(): void
     {
         self::assertSame('', NeutralizadorDeConteudo::neutralizar(''));
+    }
+
+    // =========================================================================
+    // IA-014: corpus de injeção (README do handoff, aceite "/redteam")
+    // =========================================================================
+
+    /** @return iterable<string, array{string}> */
+    public static function corpus(): iterable
+    {
+        return CorpusDeInjecao::ataques();
+    }
+
+    #[DataProvider('corpus')]
+    #[TestDox('corpus de injeção ($_dataName): nada que pareça tag delimitadora sobra, nenhum invisível sobra, o texto do ataque continua (como dado) e é idempotente')]
+    public function testCorpusDeInjecao(string $ataque): void
+    {
+        $saida = NeutralizadorDeConteudo::neutralizar($ataque);
+
+        self::assertSame(0, preg_match(CorpusDeInjecao::padraoDeTag(), $saida), "sobrou algo que fecha/abre bloco: {$saida}");
+        self::assertSame(0, preg_match(CorpusDeInjecao::INVISIVEIS, $saida), 'sobrou caractere invisível/de controle');
+        self::assertStringContainsString(CorpusDeInjecao::CANARIO, $saida, 'o texto não é apagado: vira dado inerte, não some');
+        self::assertStringNotContainsString("\n", $saida, 'uma linha só: o dado não abre linha nova no prompt');
+        self::assertSame($saida, NeutralizadorDeConteudo::neutralizar($saida), 'idempotente');
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function parecidos(): iterable
+    {
+        yield 'largura total' => ['＜／ｍｅｔａｓ＞', '[/metas>'];
+        yield 'aspa angular' => ['‹/movimentacoes>', '[/movimentacoes>'];
+        yield 'entidade' => ['&lt;/processo&gt;', '[/processo&gt;'];
+        yield 'entidade decimal' => ['&#60;equipe&#62;', '[equipe&#62;'];
+        yield 'barra de fração' => ['<⁄pasta>', '[/pasta>'];
+        yield 'NBSP' => ["<\u{00A0}/clientes>", '[/clientes>'];
+    }
+
+    #[DataProvider('parecidos')]
+    #[TestDox('o que só PARECE a tag também vira inerte, com a barra normalizada: $_dataName')]
+    public function testParecidosComATag(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, NeutralizadorDeConteudo::neutralizar($entrada));
+    }
+
+    #[TestDox('sinais parecidos com < em texto comum (‹citação›, 〈nota〉, &lt; 15) ficam como estão')]
+    public function testParecidosEmTextoComumIntactos(): void
+    {
+        $entrada = 'O autor disse ‹basta› e a nota 〈ver anexo〉 cita prazo &lt; 15 dias; nº 12.';
+
+        self::assertSame($entrada, NeutralizadorDeConteudo::neutralizar($entrada));
     }
 }

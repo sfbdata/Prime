@@ -9,6 +9,7 @@ use App\Inteligencia\DTO\SecaoDeContexto;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\SecaoDoContexto;
 use App\Inteligencia\Prompt\PromptDoAgente;
+use App\Tests\Inteligencia\Support\CorpusDeInjecao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -179,6 +180,60 @@ final class PromptDoAgenteTest extends TestCase
         $texto = $this->prompt->montar($comProcessoMalicioso, 'anterior' . $malicioso)->textoDoUsuario();
 
         $this->assertDelimitadoresIntactos($texto);
+    }
+
+    // =========================================================================
+    // IA-014: corpus de injeção (README do handoff, aceite "/redteam")
+    // =========================================================================
+
+    /** @return iterable<string, array{string}> */
+    public static function corpus(): iterable
+    {
+        return CorpusDeInjecao::ataques();
+    }
+
+    #[DataProvider('corpus')]
+    #[TestDox('corpus ($_dataName) injetado na pasta, no processo, em duas seções e no resumo anterior: cada ataque fica DENTRO do próprio bloco e nenhum bloco ganha tag a mais')]
+    public function testCorpusDeInjecaoFicaDentroDoBloco(string $ataque): void
+    {
+        $secoes = [
+            new SecaoDeContexto(SecaoDoContexto::Movimentacoes, ['02/10/2026 · Intimação · DJEN: Intime-se. ' . $ataque . ' SITIO-MOV [nível 5, publicação oficial]']),
+            new SecaoDeContexto(SecaoDoContexto::Anotacoes, ['01/10/2026 · Dra. Ana: ' . $ataque . ' SITIO-ANOTACAO [nível 9, anotação manual]']),
+        ];
+        $base = $this->contexto(Agente::Gestor, $secoes, true, ['acao' => 'Cobrança ' . $ataque . ' SITIO-PASTA']);
+        $contexto = new ContextoDaPasta(
+            $base->agente,
+            $base->cabecalho,
+            ['processo 0701 · classe ' . $ataque . ' SITIO-PROCESSO'],
+            $secoes,
+            $base->hash,
+            true,
+        );
+
+        $texto = $this->prompt->montar($contexto, 'Análise anterior. ' . $ataque . ' SITIO-ANTERIOR')->textoDoUsuario();
+
+        // Só as tags estruturais parecem tag: pasta, processos_vinculados, 2 seções e analise_anterior (5 × 2).
+        self::assertSame(10, preg_match_all(CorpusDeInjecao::padraoDeTag(), $texto), 'o dado criou algo com cara de tag de bloco');
+        $this->assertDelimitadoresIntactos($texto);
+        self::assertSame(0, preg_match(CorpusDeInjecao::INVISIVEIS, $texto), 'sobrou caractere invisível/de controle');
+
+        foreach ([
+            'pasta' => 'SITIO-PASTA',
+            'processos_vinculados' => 'SITIO-PROCESSO',
+            'movimentacoes' => 'SITIO-MOV',
+            'anotacoes' => 'SITIO-ANOTACAO',
+            'analise_anterior' => 'SITIO-ANTERIOR',
+        ] as $tag => $sitio) {
+            $abre = strpos($texto, "<{$tag}>\n");
+            $fecha = strpos($texto, "\n</{$tag}>");
+            $onde = strpos($texto, $sitio);
+            self::assertNotFalse($abre, "<{$tag}> não abriu");
+            self::assertNotFalse($fecha, "</{$tag}> não fechou");
+            self::assertNotFalse($onde, "{$sitio} sumiu");
+            self::assertGreaterThan($abre, $onde, "{$sitio} saiu ANTES de <{$tag}>");
+            self::assertLessThan($fecha, $onde, "{$sitio} escapou de <{$tag}>");
+        }
+        self::assertSame(5, substr_count($texto, CorpusDeInjecao::CANARIO), 'o ataque continua no prompt como dado, uma vez por campo');
     }
 
     /** Cada tag de bloco presente abre e fecha exatamente UMA vez, na forma real `<tag>`/`</tag>`. */
