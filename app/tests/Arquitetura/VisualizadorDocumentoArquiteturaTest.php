@@ -219,18 +219,41 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString('extrairEntrada(arq.bytes, conteudo, LIMITE_BYTES_XML_ZIP)', $render);
         self::assertStringContainsString('await recusarOdfComSenha(arq.bytes, entradas)', $render);
         self::assertStringContainsString('slidesOdp(doc, LIMITE_SLIDES, LIMITE_CARACTERES)', $render);
-        self::assertStringContainsString('trocar(alvo, blocoSlides(r.slides, r.total))', $render);
+        self::assertStringContainsString('trocar(alvo, blocoSlides(r.slides, r.total, r.cortado))', $render);
         self::assertStringContainsString('trocar(alvo, blocoSlides(slides, ordem.length))', self::corpoDaFuncao($js, 'renderPptx'));
         self::assertStringContainsString('await recusarOdfComSenha(arq.bytes, entradas)', self::corpoDaFuncao($js, 'renderOdt'));
 
         $slides = self::corpoDaFuncao($js, 'slidesOdp');
         self::assertStringContainsString("getElementsByTagNameNS(NS_ODF_DRAW, 'page')", $slides, 'um slide por draw:page');
         self::assertStringContainsString('i < limiteSlides', $slides);
-        self::assertStringContainsString('caracteres > limiteCaracteres', $slides);
+        self::assertStringContainsString('const resta = limiteCaracteres - caracteres;', $slides);
         self::assertStringContainsString('dentroDeNotasOdp(', $slides, 'notas do apresentador ficam de fora, como no PPTX');
         self::assertStringContainsString("p.localName === 'notes'", self::corpoDaFuncao($js, 'dentroDeNotasOdp'));
         self::assertStringContainsString("getAttributeNS(NS_ODF_PRES, 'visibility') !== 'hidden'", self::corpoDaFuncao($js, 'estilosOcultosOdp'));
         self::assertStringContainsString('/encryption-data/.test(m)', self::corpoDaFuncao($js, 'recusarOdfComSenha'));
+    }
+
+    #[TestDox('ODP: o teto de caracteres corta DENTRO do slide (linha cortada com reticências) e a tela avisa')]
+    public function testOdpCortaTextoDentroDoSlide(): void
+    {
+        $js     = self::modulo();
+        $slides = self::corpoDaFuncao($js, 'slidesOdp');
+
+        // O teto é conferido a cada linha, não só entre um slide e outro: um content.xml de até
+        // 20 MB cabe num slide só, e a checagem entre slides deixaria esse slide passar inteiro.
+        self::assertStringContainsString('const resta = limiteCaracteres - caracteres;', $slides);
+        self::assertStringContainsString('if (texto.length > resta) {', $slides);
+        self::assertStringContainsString("linhas.push(cortarTexto(texto, resta) + '\\u2026')", $slides);
+        self::assertStringContainsString('i < limiteSlides && !cortado', $slides, 'depois do corte não lê mais slide nenhum');
+        self::assertStringContainsString('if (cortado && !linhas.length) { break; }', $slides, 'slide sem nada que coube não vira cartão "sem texto"');
+        self::assertStringContainsString('return { slides: slides, total: paginas.length, cortado: cortado };', $slides);
+
+        self::assertStringContainsString('corte.slice(0, -1)', self::corpoDaFuncao($js, 'cortarTexto'), 'não deixa meio par substituto no fim');
+
+        $bloco = self::corpoDaFuncao($js, 'blocoSlides');
+        self::assertStringContainsString('function blocoSlides(slides, total, textoCortado)', $bloco);
+        self::assertStringContainsString("(textoCortado ? ' O texto é longo: só o começo aparece aqui.' : '')", $bloco);
+        self::assertStringContainsString("(cortou || textoCortado ? ' Baixe para ver tudo.' : '')", $bloco);
     }
 
     #[TestDox('ZIP64: lerZip lê o EOCD64 (locator 0x07064b50 → registro 0x06064b50) e o extra 0x0001, sem recusar o formato')]

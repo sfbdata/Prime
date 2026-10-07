@@ -624,15 +624,20 @@
      * Slides de um content.xml de ODP: um draw:page por slide, na ordem do
      * documento (que é a da apresentação); cada text:p/text:h vira uma linha.
      * As notas do apresentador ficam de fora, como no PPTX.
-     * → { slides: [{ linhas, oculto }], total }
+     *
+     * O teto de caracteres vale DENTRO do slide também: um content.xml de até
+     * 20 MB cabe num slide só, e checar só entre um slide e outro deixaria esse
+     * slide inteiro passar. A linha que estoura o teto sai cortada (com "…") e
+     * a leitura para ali; slide cujo texto nem começa a caber fica de fora.
+     * → { slides: [{ linhas, oculto }], total, cortado }
      */
     function slidesOdp(doc, limiteSlides, limiteCaracteres) {
         const ocultos = estilosOcultosOdp(doc);
         const paginas = doc.getElementsByTagNameNS(NS_ODF_DRAW, 'page');
         const slides = [];
         let caracteres = 0;
-        for (let i = 0; i < paginas.length && i < limiteSlides; i++) {
-            if (caracteres > limiteCaracteres) { break; }
+        let cortado = false;
+        for (let i = 0; i < paginas.length && i < limiteSlides && !cortado; i++) {
             const pagina = paginas[i];
             const linhas = [];
             const nos = pagina.getElementsByTagNameNS(NS_ODF_TEXTO, '*');
@@ -640,12 +645,26 @@
                 if (!ehParagrafoOdf(nos[j]) || dentroDeNotasOdp(nos[j], pagina)) { continue; }
                 const texto = textoOdf(nos[j]);
                 if (!texto.trim()) { continue; }
+                const resta = limiteCaracteres - caracteres;
+                if (texto.length > resta) {
+                    cortado = true;
+                    if (resta > 0) { linhas.push(cortarTexto(texto, resta) + '\u2026'); }
+                    break;
+                }
                 caracteres += texto.length;
                 linhas.push(texto);
             }
+            if (cortado && !linhas.length) { break; }
             slides.push({ linhas: linhas, oculto: ocultos.has(pagina.getAttributeNS(NS_ODF_DRAW, 'style-name') || '') });
         }
-        return { slides: slides, total: paginas.length };
+        return { slides: slides, total: paginas.length, cortado: cortado };
+    }
+
+    /** Os primeiros `n` caracteres, sem deixar metade de um par substituto (emoji) no fim. */
+    function cortarTexto(texto, n) {
+        const corte = texto.slice(0, n);
+        const ultimo = corte.charCodeAt(corte.length - 1);
+        return ultimo >= 0xD800 && ultimo <= 0xDBFF ? corte.slice(0, -1) : corte;
     }
 
     /* ------------------------------------------------------- RTF ------- */
@@ -1155,11 +1174,14 @@
     }
 
     /** Cartões de slide (PPTX e ODP), só nós + textContent. */
-    function blocoSlides(slides, total) {
+    /** `textoCortado`: o teto de caracteres cortou o texto dentro de um slide (ODP). */
+    function blocoSlides(slides, total, textoCortado) {
         const wrap = el('div', 'vd-slides-area w-100');
         const cortou = slides.length < total;
         wrap.appendChild(aviso('Mostrando só o texto dos slides, sem imagens nem formatação.'
-            + (cortou ? ' Aparecem os ' + slides.length + ' primeiros de ' + total + ' slides. Baixe para ver tudo.' : '')));
+            + (cortou ? ' Aparecem os ' + slides.length + ' primeiros de ' + total + ' slides.' : '')
+            + (textoCortado ? ' O texto é longo: só o começo aparece aqui.' : '')
+            + (cortou || textoCortado ? ' Baixe para ver tudo.' : '')));
         const lista = el('div', 'vd-slides');
         slides.forEach(function (s, i) {
             const card = el('section', 'vd-slide');
@@ -1250,7 +1272,7 @@
 
         const r = slidesOdp(doc, LIMITE_SLIDES, LIMITE_CARACTERES);
         if (!r.total) { throw falha(invalido); }
-        trocar(alvo, blocoSlides(r.slides, r.total));
+        trocar(alvo, blocoSlides(r.slides, r.total, r.cortado));
     }
 
     async function renderRtf(alvo, o, vivo) {
