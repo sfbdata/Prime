@@ -1028,6 +1028,7 @@
         fecharJanela(refs);
         fecharChip(refs);
         if (refs.fecharSugestoes) { refs.fecharSugestoes(); }
+        fecharOpcoesDeColar(refs);
 
         var faixa = quill.getSelection() || quill.getSelection(true);
         var formatos = faixa ? quill.getFormat(faixa) : {};
@@ -1138,6 +1139,119 @@
             e.preventDefault();
             abrirMenuContexto(refs, e.clientX, e.clientY);
         });
+    }
+
+    // ── Colar com opções (`onPaste` + `opcoesColar` do desenho, bj-editor.js l.763-780, 948-957) ─
+    //
+    // Depois de colar HTML (de outro programa, de um e-mail, da web), aparece por 7 s a faixa
+    // "Colar · Manter formatação · Mesclar formatação · Somente texto". A colagem em si continua a
+    // do Quill: o HTML passa pelo conversor dele (`clipboard.convert`), que só deixa os FORMATOS do
+    // editor — é a sanitização do cliente, a mesma de sempre; o servidor sanitiza de novo ao salvar.
+    // As opções só reaproveitam o que já entrou, sem ler nem escrever HTML:
+    //  - Manter formatação  → fica como colou;
+    //  - Mesclar formatação → tira do trecho colado a cor e o realce (o "style" que o desenho
+    //    remove), mantendo ênfase, listas, títulos e alinhamento;
+    //  - Somente texto      → troca o trecho colado pelo texto puro da área de transferência, com
+    //    a formatação do ponto em que se colou.
+    // Texto puro colado não mostra a faixa (o desenho também não). Imagem colada é o EDT-026.
+
+    var DURACAO_OPCOES_DE_COLAR = 7000;
+
+    function fecharOpcoesDeColar(refs) {
+        var c = refs.colagem;
+        if (!c) { return; }
+        clearTimeout(c.temporizador);
+        c.elemento.remove();
+        refs.colagem = null;
+    }
+
+    /** Troca o trecho colado num passo só do histórico (um "desfazer" volta a troca inteira). */
+    function aplicarOpcaoDeColar(refs, opcao) {
+        var quill = refs.quill;
+        var c = refs.colagem;
+        if (!quill || !c) { return; }
+        var faixa = c.faixa;
+        fecharOpcoesDeColar(refs);
+        if (opcao === 'manter') { quill.focus(); return; }
+
+        if (quill.history) { quill.history.cutoff(); }
+        if (opcao === 'mesclar') {
+            quill.formatText(faixa.index, faixa.length, { color: false, background: false }, 'user');
+        } else {
+            var Delta = Quill.import('delta');
+            var troca = new Delta().retain(faixa.index).delete(faixa.length);
+            if (c.texto !== '') { troca.insert(c.texto, c.formatos); }
+            quill.updateContents(troca, 'user');
+        }
+        if (quill.history) { quill.history.cutoff(); }
+
+        var fim = opcao === 'mesclar' ? faixa.index + faixa.length : faixa.index + c.texto.length;
+        quill.focus();
+        quill.setSelection(Math.min(fim, quill.getLength() - 1), 0, 'user');
+    }
+
+    function mostrarOpcoesDeColar(refs, faixa, texto, formatos) {
+        var quill = refs.quill;
+        fecharOpcoesDeColar(refs);
+
+        var faixaDeOpcoes = el('div', 'editor-rico-colar');
+        faixaDeOpcoes.setAttribute('role', 'toolbar');
+        faixaDeOpcoes.setAttribute('aria-label', 'Opções de colagem');
+        var rotulo = el('span', 'editor-rico-colar-rotulo');
+        rotulo.innerHTML = icone('bi-clipboard editor-rico-colar-icone');
+        rotulo.appendChild(document.createTextNode('Colar'));
+        faixaDeOpcoes.appendChild(rotulo);
+
+        [['manter', 'Manter formatação'], ['mesclar', 'Mesclar formatação'], ['texto', 'Somente texto']].forEach(function (o) {
+            var b = semRoubarFoco(el('button', '', o[1]));
+            b.type = 'button';
+            b.addEventListener('click', function () { aplicarOpcaoDeColar(refs, o[0]); });
+            faixaDeOpcoes.appendChild(b);
+        });
+        refs.casca.appendChild(faixaDeOpcoes);
+
+        // Logo abaixo do fim do trecho colado (fixo na tela, como o `.bjed-paste`).
+        var caixa = quill.container.getBoundingClientRect();
+        var b = quill.getBounds(faixa.index + faixa.length, 0) || { left: 0, bottom: 0 };
+        var esquerda = caixa.left + b.left;
+        var base = caixa.top + b.bottom;
+        faixaDeOpcoes.style.left = Math.max(8, Math.min(esquerda, window.innerWidth - faixaDeOpcoes.offsetWidth - 8)) + 'px';
+        faixaDeOpcoes.style.top = Math.min(window.innerHeight - 40, base + 8) + 'px';
+
+        refs.colagem = {
+            elemento: faixaDeOpcoes,
+            faixa: faixa,
+            texto: texto,
+            formatos: formatos,
+            temporizador: setTimeout(function () { fecharOpcoesDeColar(refs); }, DURACAO_OPCOES_DE_COLAR),
+        };
+    }
+
+    /**
+     * Ouvido em CAPTURA na casca: roda antes da colagem do Quill (que é quem converte e insere).
+     * Guarda onde se colou e, terminada a colagem, mede o trecho que entrou — já aparado pelo
+     * limite de caracteres, se for o caso.
+     */
+    function aoColar(refs, evento) {
+        var quill = refs.quill;
+        if (!quill || !quill.root.contains(evento.target)) { return; } // campos da busca: colagem comum
+        var dados = evento.clipboardData;
+        var html = dados ? dados.getData('text/html') : '';
+        fecharOpcoesDeColar(refs);
+        if (!html) { return; }
+
+        var faixa = quill.getSelection(true);
+        if (!faixa) { return; }
+        var texto = dados.getData('text/plain') || '';
+        var formatos = formatosDoTrecho(quill, faixa.index, 0);
+        var tamanhoAntes = quill.getLength() - faixa.length;
+
+        setTimeout(function () {
+            if (!refs.quill) { return; }
+            var colado = quill.getLength() - tamanhoAntes;
+            if (colado <= 0) { return; }
+            mostrarOpcoesDeColar(refs, { index: faixa.index, length: colado }, texto, formatos);
+        }, 0);
     }
 
     // ── Localizar e substituir ──────────────────────────────────────────────────────────────
@@ -1609,6 +1723,8 @@
         refs.ultimaCor = COR_INICIAL;
         refs.ultimoRealce = REALCE_INICIAL;
         ligarMenuContexto(refs);
+        // Captura: chega antes da colagem do Quill, que segue sendo quem converte e insere.
+        casca.addEventListener('paste', function (evento) { aoColar(refs, evento); }, true);
 
         // Conteúdo pré-existente: HTML já sanitizado pelo servidor, ou legado em texto puro.
         if (conteudoInicial !== '') {
@@ -1638,6 +1754,8 @@
             atualizarRodape(refs, cortou);
             atualizarEnvio(textarea);
             refs.busca.aoMudarTexto();
+            // A faixa de opções vale para a colagem que acabou de entrar: mexeu depois, ela sai.
+            fecharOpcoesDeColar(refs);
 
             // Autocorreção: depois do Quill terminar de aplicar a digitação (como o desenho).
             if (origem === 'user' && !cortou) {
@@ -1651,10 +1769,11 @@
 
         // Esc fecha a janelinha e o aviso de correção (sem fechar o modal em volta, se houver).
         casca.addEventListener('keydown', function (evento) {
-            if (evento.key === 'Escape' && (refs.janela || refs.chip)) {
+            if (evento.key === 'Escape' && (refs.janela || refs.chip || refs.colagem)) {
                 evento.stopPropagation();
                 fecharJanela(refs);
                 fecharChip(refs);
+                fecharOpcoesDeColar(refs);
             }
         });
 
@@ -1717,6 +1836,7 @@
         fecharJanela(refs);
         fecharChip(refs);
         fecharMenuContexto(refs);
+        fecharOpcoesDeColar(refs);
         refs.casca.remove();
         refs.quill = null;
         textarea.classList.remove('editor-rico-oculta');
