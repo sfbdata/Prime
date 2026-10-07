@@ -361,7 +361,7 @@ final class PastaDuplicarControllerTest extends JusPrimeWebTestCase
         $itens = $crawler->filter('#psMenuAcoes .ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         $pos   = array_search('Duplicar pasta', $itens, true);
         self::assertNotFalse($pos);
-        self::assertSame('Histórico', $itens[$pos - 1], 'na ordem do desenho: depois do Histórico');
+        self::assertSame('Timeline inteligente', $itens[$pos - 1], 'na ordem do desenho: depois do Histórico e da Timeline inteligente (L18)');
         self::assertSame('Vincular processo', $itens[$pos + 1]);
     }
 

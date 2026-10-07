@@ -776,6 +776,10 @@
     eventosHistorico: eventosHistorico,
 }) }}
 
+{# Timeline inteligente (menu ⋮, atalho T): painel fixo, fora de .ps-page como o
+   drawer do histórico. Os eventos chegam por JSON (`pasta_timeline`). #}
+{{ include('pasta/_timeline_inteligente.html.twig', {pasta: pasta}) }}
+
 {# ── Modais do explorador de documentos ─────────────────────────────────────
    Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos. Modal é
    `position: fixed`, e um ancestral com `transform` (mesmo vindo de uma animação)
@@ -4680,6 +4684,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="/js/pasta-explorador.js"></script>
 {# Indicador das abas, drawer do histórico e popovers do cabeçalho redesenhado. #}
 <script src="/js/pasta-show.js"></script>
+{# Timeline inteligente: carrega os eventos sob demanda e desenha só com textContent. #}
+<script src="/js/pasta-timeline.js"></script>
 <script>
 // Select2 múltiplo para os responsáveis no modal "Nova Meta".
 // Roda neste bloco (após jQuery/Select2 do base) e usa dropdownParent para

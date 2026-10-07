@@ -1,0 +1,69 @@
+{# ============================================================================
+   Timeline inteligente da pasta (L18 da Trilha B, item 14 do plano).
+   Desenho aprovado: docs/design/claude-design-2026-10-05 (1)/bluejus-central.js
+   (`tlRender`/`tlCard`, L.3345-3452) — painel à direita, cabeçalho em gradiente
+   180deg #0d80a3→#0a6c90, busca, chips por tipo, período, pessoa, agrupado por dia.
+
+   POR REGRAS, sem IA (decisão D-IA): sem ✦, sem "BlueJus IA", sem a "IA encontrou".
+   O que o desenho mostra e não tem fonte no sistema NÃO é renderizado: mensagens e
+   ligações do chat, notificações, detecção de tarefa/telefone/e-mail/CNJ com
+   "Criar tarefa"/"Validar" (o estado da sugestão não existe no servidor), "Ver
+   alteração" (o texto anterior do registro não é guardado).
+
+   O esqueleto é estático; a lista vem de `pasta_timeline` (JSON) e é desenhada pelo
+   pasta-timeline.js SÓ com textContent — nenhum texto de usuário passa por HTML.
+
+   Contexto: `pasta`.
+   ============================================================================ #}
+{% set tlCliente = pasta.clientePrincipal ? pasta.clientePrincipal.nomeExibicao : pasta.nomeCliente %}
+{% set tlProc = pasta.processoPrincipal %}
+<div class="ps-tl-overlay" id="psTimelineOverlay" tabindex="-1"></div>
+
+<aside class="ps-tl" id="psTimeline" role="dialog" aria-modal="true"
+       aria-labelledby="psTimelineTitulo" aria-hidden="true"
+       data-url="{{ path('pasta_timeline', {id: pasta.id}) }}"
+       data-chave="{{ app.user ? app.user.id : 0 }}-{{ pasta.id }}">
+    <div class="ps-tl-cab">
+        <i class="bi bi-activity ps-tl-cab-icone" aria-hidden="true"></i>
+        <div class="ps-tl-cab-texto">
+            <h2 id="psTimelineTitulo">Timeline inteligente</h2>
+            <div class="ps-tl-cab-sub">
+                {{- 'Pasta ' ~ pasta.nup -}}
+                {%- if tlCliente %} · {{ tlCliente }}{% endif -%}
+                {%- if tlProc %} · {{ tlProc.numeroProcesso|numero_cnj }}{% endif -%}
+            </div>
+        </div>
+        <button type="button" class="ps-tl-fechar" aria-label="Fechar" title="Fechar (Esc)">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <div class="ps-tl-barra">
+        <input type="search" class="ps-tl-busca" data-tl-busca
+               placeholder="Buscar: &quot;quando falaram sobre o contrato&quot;, &quot;Jéssica&quot;, &quot;prazo&quot;…"
+               aria-label="Buscar na timeline" maxlength="200" autocomplete="off">
+        <div class="ps-tl-chips" data-tl-chips role="group" aria-label="Filtrar por tipo"></div>
+        <div class="ps-tl-linha">
+            <select class="ps-tl-select" data-tl-periodo aria-label="Período">
+                <option value="tudo">Todo o período</option>
+                <option value="hoje">Hoje</option>
+                <option value="ontem">Ontem</option>
+                <option value="semana">Esta semana</option>
+                <option value="mes">Este mês</option>
+            </select>
+            <select class="ps-tl-select ps-tl-select--pessoa" data-tl-pessoa aria-label="Pessoa">
+                <option value="">Todas as pessoas</option>
+            </select>
+            <button type="button" class="ps-tl-resumir" data-tl-resumir aria-pressed="false">
+                <i class="bi bi-list-ul" aria-hidden="true"></i> Resumir atividade
+            </button>
+        </div>
+    </div>
+
+    <div class="ps-tl-lista" data-tl-lista aria-live="polite" aria-busy="false"></div>
+
+    <div class="ps-tl-rodape">
+        <span class="ps-tl-rotulo">Montada por regras fixas a partir do que o sistema registrou.</span>
+        <button type="button" class="ps-tl-mais" data-tl-mais hidden>Carregar mais</button>
+    </div>
+</aside>

@@ -11,13 +11,13 @@
      3. abas no padrão PJe, com o botão Cadastro (ponto de pendências) e a
         Situação (Ativo / Arquivado) à direita.
 
-   As ações (Editar dados, Histórico, Duplicar, Vincular processo, Trocar
-   responsável, Copiar link, Imprimir resumo, Fixar nos favoritos,
-   Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul do desenho.
-   O que o desenho mostra e o sistema ainda não tem (Mover carteira, Timeline
-   inteligente, Link do Push, Acompanhar, Cadeado, Intelligence, foto do
-   cliente) NÃO é renderizado: item inerte ensina o usuário a desconfiar do menu
-   inteiro. "Fixar nos favoritos" (seção Preferências) é real: POST
+   As ações (Editar dados, Histórico, Timeline inteligente, Duplicar, Vincular
+   processo, Trocar responsável, Copiar link, Imprimir resumo, Fixar nos
+   favoritos, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
+   do desenho. O que o desenho mostra e o sistema ainda não tem (Mover carteira,
+   Link do Push, Acompanhar, Cadeado, Intelligence, foto do cliente) NÃO é
+   renderizado: item inerte ensina o usuário a desconfiar do menu inteiro.
+   "Fixar nos favoritos" (seção Preferências) é real: POST
    `pasta_favorito_alternar`.
 
    Pasta arquivada ganha o selo carimbado ARQUIVADO sobre a faixa de dados
@@ -176,6 +176,13 @@
                             id="psHistoricoAbrir" title="Histórico (H)"
                             aria-controls="psHistorico" aria-expanded="false">
                         <i class="bi bi-clock-history"></i><span>Histórico</span><kbd class="ps-pop-atalho">H</kbd>
+                    </button>
+                    {# Timeline inteligente (desenho dc L.1096, `mTimeline`): painel por REGRAS,
+                       sem IA. O atalho T é escutado pelo pasta-timeline.js com o menu aberto. #}
+                    <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="t"
+                            id="psTimelineAbrir" title="Timeline inteligente (T)"
+                            aria-controls="psTimeline" aria-expanded="false">
+                        <i class="bi bi-activity"></i><span>Timeline inteligente</span><kbd class="ps-pop-atalho">T</kbd>
                     </button>
                     {# Duplicar (desenho, `menuPasta('duplicar')`): abre uma pasta nova pelo mesmo
                        caminho da criação normal, com número novo — o "aguardando número" do
