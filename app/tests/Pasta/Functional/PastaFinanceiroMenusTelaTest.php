@@ -11,12 +11,14 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaPagamento;
+use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Zenstruck\Foundry\Test\Factories;
 
 /**
  * Aba Financeiro, desenho 1.2.3: o menu ⋮ dos arquivos, o ⋮ do card Pagamentos
@@ -25,7 +27,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * O que se trava aqui:
  * - o menu do arquivo tem SÓ as ações com função real, e cada uma aponta para a
  *   rota de verdade (nada de item do desenho sem função: "Encaminhar via Chat
- *   I.A", "Enviar por e-mail ao cliente");
+ *   I.A"); "Enviar por e-mail ao cliente" é um `mailto:` montado no servidor;
  * - os ganchos do JS (`btn-renomear-doc`/`btn-excluir-doc` com `data-*`, o
  *   `data-bs-target="#previewDocModal"`) continuaram existindo dentro do menu;
  * - a folha do extrato mora no corpo RE-RENDERIZADO pelo servidor e lista os
@@ -36,6 +38,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[CoversClass(PastaController::class)]
 final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
 {
+    use Factories;
+
     /** @return array{User, Tenant} */
     private function criarUsuarioAdmin(string $sufixo = ''): array
     {
@@ -195,13 +199,13 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $menu    = $crawler->filter("#financeiro-doc-menu-{$doc->getId()}");
 
         self::assertSame(
-            ['Abrir', 'Baixar', 'Copiar nome do arquivo', 'Renomear', 'Ver em Documentos', 'Excluir'],
+            ['Abrir', 'Baixar', 'Copiar nome do arquivo', 'Renomear', 'Enviar por e-mail ao cliente', 'Ver em Documentos', 'Excluir'],
             $this->rotulos($menu),
         );
 
         /* Itens do desenho que dependem de função nova não são renderizados
            (spec §1.3) — nem desabilitados, nem "em breve". */
-        foreach (['Encaminhar', 'e-mail', 'Chat I.A'] as $semFuncao) {
+        foreach (['Encaminhar', 'Chat I.A'] as $semFuncao) {
             self::assertStringNotContainsString($semFuncao, $menu->text(), "\"{$semFuncao}\" não tem função no sistema");
         }
 
@@ -271,6 +275,100 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
     }
 
     // =========================================================================
+    // "Enviar por e-mail ao cliente" (dc 6546): `mailto:` e nada mais
+    // =========================================================================
+
+    private function vincularClienteComEmail(Pasta $pasta, Tenant $tenant, string $email): void
+    {
+        $cliente = ClientePFFactory::createOne(['tenant' => $tenant, 'email' => $email])->_real();
+        $pasta->addCliente($cliente);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+    }
+
+    /**
+     * Assunto e corpo saem do desenho e do dado real, codificados para URL:
+     * aspas, espaço, `&`, `#`, `?` e acento do nome do arquivo não podem
+     * quebrar o link nem virar parâmetro novo do `mailto:`.
+     */
+    #[TestDox('o item monta o mailto: do desenho com assunto e corpo codificados para URL')]
+    public function testEmailMontaMailtoCodificado(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoFinanceiro($pasta, $tenant, 'Recibo & "nota" #2?.pdf');
+        $this->vincularClienteComEmail($pasta, $tenant, 'maria.silva+pasta@exemplo.com.br');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        $item = $crawler->filter("#financeiro-doc-menu-{$doc->getId()} > a.ps-fin-menu-item.js-fin-doc-email");
+        self::assertCount(1, $item, 'com e-mail cadastrado o item é um link');
+        self::assertSame('Enviar por e-mail ao cliente', trim($item->text()));
+        self::assertCount(1, $item->filter('i.bi.bi-envelope'));
+
+        // O título é o PERSISTIDO (o sistema pode normalizar ao gravar).
+        $titulo  = $doc->getTitulo();
+        $nup     = (string) $pasta->getNup();
+        $esperado = 'mailto:maria.silva+pasta@exemplo.com.br'
+            . '?subject=' . rawurlencode('Pasta ' . $nup . ' · ' . $titulo)
+            . '&body=' . rawurlencode('Segue o arquivo "' . $titulo . '" referente à pasta ' . $nup . '.');
+        self::assertSame($esperado, $item->attr('href'));
+
+        // Nada do nome do arquivo escapa cru para a URL.
+        $consulta = (string) parse_url((string) $item->attr('href'), PHP_URL_QUERY);
+        parse_str($consulta, $partes);
+        self::assertSame(['subject', 'body'], array_keys($partes), 'o & do nome não pode virar parâmetro novo');
+        self::assertSame('Pasta ' . $nup . ' · ' . $titulo, $partes['subject']);
+        self::assertStringNotContainsString('#', (string) $item->attr('href'), 'o # do nome não pode virar fragmento');
+
+        // O JS de upload/renomear monta o MESMO link a partir destes dados.
+        $input = $crawler->filter('#financeiro-upload-input');
+        self::assertSame('maria.silva+pasta@exemplo.com.br', $input->attr('data-email-cliente'));
+        self::assertSame($nup, $input->attr('data-pasta-rotulo'));
+    }
+
+    #[TestDox('sem e-mail do cliente o item não tem link: leva à aba Dados com o aviso')]
+    public function testEmailSemCadastro(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoFinanceiro($pasta, $tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $menu = $crawler->filter("#financeiro-doc-menu-{$doc->getId()}");
+        self::assertCount(0, $menu->filter('a.js-fin-doc-email'));
+        self::assertCount(1, $menu->filter('button.ps-fin-menu-item.js-fin-doc-email.js-fin-doc-email-sem-cadastro'));
+        self::assertStringNotContainsString('mailto:', $crawler->filter('#financeiro')->html());
+        self::assertSame('', $crawler->filter('#financeiro-upload-input')->attr('data-email-cliente'));
+        self::assertCount(1, $crawler->filter('#dados-tab'), 'o item leva a uma aba que existe');
+    }
+
+    /**
+     * O cadastro aceita texto livre no e-mail. Um "e-mail" com `?` ou `&`
+     * reescreveria o assunto do link — então ele não entra.
+     */
+    #[TestDox('e-mail cadastrado fora do formato não entra no link')]
+    public function testEmailForaDoFormatoNaoEntra(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoFinanceiro($pasta, $tenant);
+        $this->vincularClienteComEmail($pasta, $tenant, 'ana@exemplo.com?subject=golpe&body=x');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertCount(0, $crawler->filter("#financeiro-doc-menu-{$doc->getId()} a.js-fin-doc-email"));
+        self::assertStringNotContainsString('golpe', $crawler->filter('#financeiro')->html());
+    }
+
+    // =========================================================================
     // ⋮ de Pagamentos e "Imprimir extrato"
     // =========================================================================
 
@@ -292,7 +390,7 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $menu = $crawler->filter("{$cab} > #psPagamentosMenu.ps-fin-menu");
         self::assertCount(1, $menu);
         self::assertSame(
-            ['Adicionar pagamento', 'Ver todos os lançamentos', 'Copiar resumo', 'Imprimir extrato'],
+            ['Adicionar pagamento', 'Editar ou corrigir valores', 'Ver todos os lançamentos', 'Copiar resumo', 'Imprimir extrato'],
             $this->rotulos($menu),
         );
 
@@ -300,9 +398,9 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         self::assertSame('#modalNovoPagamento', $menu->filter('.ps-fin-menu-item')->first()->attr('data-bs-target'));
         self::assertCount(1, $crawler->filter('#modalNovoPagamento'));
 
-        /* "Editar ou corrigir valores" depende de histórico de correção, que não
-           existe: não é renderizado. */
-        self::assertStringNotContainsString('corrigir', $menu->text());
+        /* "Editar ou corrigir valores" liga o modo de edição (dc 3509); o rótulo
+           "Concluir edição" é trocado pelo JS enquanto o modo dura. */
+        self::assertCount(1, $menu->filter('.ps-fin-menu-item.js-pag-editar > i.bi.bi-pencil-square'));
         self::assertStringNotContainsString('Concluir edição', $menu->text());
     }
 

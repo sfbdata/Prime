@@ -1,6 +1,6 @@
 {# ============================================================================
-   Aba Financeiro — card Pagamentos: quitar, excluir e o modal de novo
-   lançamento. O "Ver todos os lançamentos" mora no menu ⋮ do card (script dos
+   Aba Financeiro — card Pagamentos: quitar, excluir, corrigir valor (modo de
+   edição) e o modal de novo lançamento. O "Ver todos os lançamentos" mora no menu ⋮ do card (script dos
    menus, em `_financeiro.html.twig`).
 
    O corpo do card NÃO é remendado no navegador: toda mudança devolve o bloco
@@ -44,12 +44,147 @@
         return { ok: resp.ok, data: await resp.json() };
     }
 
-    // ── Quitar / desfazer e excluir ──────────────────────────────────────────
+    // ── Modo de edição ("Editar ou corrigir valores", dc 3506-3509) ─────────
+    // Estado no CARTÃO, não no corpo: o corpo é trocado a cada resposta e o
+    // modo tem de continuar ligado depois de uma correção. Entrar mostra todos
+    // os lançamentos, como no desenho (`finTodos: true`).
+    const botaoConcluir = document.getElementById('psPagamentosConcluir');
+
+    function definirEdicao(ligado) {
+        cartao.classList.toggle('is-editando', ligado);
+        if (ligado) { cartao.classList.add('is-mostrando-todos'); }
+        if (botaoConcluir) { botaoConcluir.hidden = !ligado; }
+        if (!ligado) { cancelarCorrecao(); }
+    }
+
+    document.addEventListener('ps:pagamentos-alternar-edicao', function () {
+        definirEdicao(!cartao.classList.contains('is-editando'));
+    });
+    if (botaoConcluir) {
+        botaoConcluir.addEventListener('click', function () { definirEdicao(false); });
+    }
+
+    // ── Corrigir valor no lugar (dc 3443-3447) ──────────────────────────────
+    // Enter salva, Esc cancela. O confirm é o texto do desenho. O servidor é
+    // quem valida e grava; o navegador só evita a ida quando nada mudou.
+    let corrigindo = null; // { linha, caixa }
+
+    /** "1.234,56" / "1234.56" → número, só para comparar e montar o confirm. */
+    function lerValor(texto) {
+        let t = String(texto).replace(/R\$|\s/g, '');
+        if (t === '' || /[^0-9.,]/.test(t)) { return NaN; }
+        // Mesma leitura do `ValorEmReais` do servidor: com vírgula, o ponto é
+        // milhar; sem vírgula, só é milhar em grupos exatos de três ("1.234").
+        if (t.indexOf(',') >= 0) { t = t.replace(/\./g, '').replace(',', '.'); }
+        else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(t)) { t = t.replace(/\./g, ''); }
+
+        return Number(t);
+    }
+
+    function brl(n) {
+        return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function cancelarCorrecao() {
+        if (!corrigindo) { return; }
+        corrigindo.caixa.remove();
+        corrigindo.linha.classList.remove('is-corrigindo');
+        corrigindo = null;
+    }
+
+    function abrirCorrecao(linha) {
+        cancelarCorrecao();
+
+        const caixa = document.createElement('div');
+        caixa.className = 'ps-pag-edicao';
+
+        const moeda = document.createElement('span');
+        moeda.className = 'ps-pag-edicao-moeda';
+        moeda.textContent = 'R$';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'ps-pag-edicao-input ps-num';
+        input.inputMode = 'decimal';
+        input.maxLength = 20;
+        input.value = linha.dataset.valor || '';
+        input.setAttribute('aria-label', 'Novo valor de ' + (linha.dataset.descricao || ''));
+
+        const salvar = document.createElement('button');
+        salvar.type = 'button';
+        salvar.className = 'ps-pag-edicao-salvar';
+        salvar.title = 'Salvar (Enter)';
+        salvar.setAttribute('aria-label', 'Salvar valor');
+        salvar.innerHTML = '<i class="bi bi-check-lg"></i>';
+
+        const cancelar = document.createElement('button');
+        cancelar.type = 'button';
+        cancelar.className = 'ps-pag-edicao-cancelar';
+        cancelar.title = 'Cancelar (Esc)';
+        cancelar.setAttribute('aria-label', 'Cancelar');
+        cancelar.innerHTML = '<i class="bi bi-x-lg"></i>';
+
+        caixa.append(moeda, input, salvar, cancelar);
+        linha.querySelector('.ps-pag-direita').prepend(caixa);
+        linha.classList.add('is-corrigindo');
+        corrigindo = { linha: linha, caixa: caixa };
+
+        input.addEventListener('input', function () { input.classList.remove('is-erro'); });
+        input.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter') { ev.preventDefault(); salvarCorrecao(linha, input, salvar); }
+            if (ev.key === 'Escape') { ev.stopPropagation(); cancelarCorrecao(); }
+        });
+        salvar.addEventListener('click', function () { salvarCorrecao(linha, input, salvar); });
+        cancelar.addEventListener('click', cancelarCorrecao);
+
+        input.focus();
+        input.select();
+    }
+
+    async function salvarCorrecao(linha, input, botao) {
+        const novo  = lerValor(input.value);
+        const atual = lerValor(linha.dataset.valor || '');
+
+        if (!(novo > 0)) { input.classList.add('is-erro'); input.focus(); return; }
+        if (Math.abs(novo - atual) < 0.005) { cancelarCorrecao(); return; }
+
+        const pergunta = 'Corrigir "' + (linha.dataset.descricao || '') + '" de ' + brl(atual) + ' para ' + brl(novo) + '?'
+            + '\n\nA alteração fica registrada no histórico com seu nome, data e hora.';
+        if (!window.confirm(pergunta)) { return; }
+
+        const url = cartao.dataset.baseUrlCorrigir.replace('__ID__', linha.dataset.pagamentoId);
+        botao.disabled = true;
+        try {
+            const { ok, data } = await postar(url, linha.dataset.csrfCorrigir, { valor: input.value });
+            if (!ok) {
+                input.classList.add('is-erro');
+                alert(data.erro ?? data.mensagem ?? 'Erro ao corrigir o valor.');
+                return;
+            }
+            corrigindo = null;
+            aplicarResumo(data.resumo);
+        } catch (_) {
+            alert('Erro de rede. Tente novamente.');
+        } finally {
+            botao.disabled = false;
+        }
+    }
+
+    // ── Quitar / desfazer, excluir e corrigir ───────────────────────────────
     corpo.addEventListener('click', async function (e) {
+        if (e.target.closest('.js-pag-entrar-edicao')) { definirEdicao(true); return; }
+
         const alvo = e.target.closest('[data-acao]');
         if (!alvo) { return; }
 
         const id = alvo.dataset.pagamentoId;
+
+        if (alvo.dataset.acao === 'corrigir') {
+            const linha = corpo.querySelector('.ps-pag-linha[data-pagamento-id="' + CSS.escape(id) + '"]');
+            if (linha) { abrirCorrecao(linha); }
+
+            return;
+        }
 
         if (alvo.dataset.acao === 'quitacao') {
             const url = cartao.dataset.baseUrlQuitacao.replace('__ID__', id);

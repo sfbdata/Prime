@@ -25,15 +25,46 @@ final readonly class PastaPagamentoLinhaOutput
         /** `ok` (verde), `proximo` (âmbar) ou `urgente` (vermelho) — os tons de selo que a tela já tem. */
         public string $tom,
         public bool $pago,
+        /** O valor como o campo de correção abre: "1300,00" (pt-BR, sem milhar). */
+        public string $valorEditavel = '',
+        /** @var list<CorrecaoDeValorDoPagamentoOutput> correções de valor, da mais antiga à mais recente */
+        public array $correcoes = [],
     ) {}
+
+    public function foiCorrigido(): bool
+    {
+        return $this->correcoes !== [];
+    }
+
+    /**
+     * O valor de ANTES da primeira correção — o "era R$ a" do desenho
+     * (dc 3462, `ajusteDe: aj[0].de`). Vazio quando nunca foi corrigido.
+     */
+    public function valorOriginalFormatado(): string
+    {
+        return $this->correcoes === []
+            ? ''
+            : PastaFinanceiroOutput::formatarReais($this->correcoes[0]->de);
+    }
+
+    /** Uma correção por linha, como o título do "corrigido · era" (dc 3462). */
+    public function historicoDeCorrecoes(): string
+    {
+        return implode("\n", array_map(
+            static fn (CorrecaoDeValorDoPagamentoOutput $c): string => $c->linha(),
+            $this->correcoes,
+        ));
+    }
 
     /**
      * Três selos, como o desenho 1.2.3 mostra (dc 3438-3441): Pago (verde),
      * Pendente (âmbar) e Vencida (vermelho). Vencida é só APRESENTAÇÃO: o estado
      * continua derivado da data de pagamento e do vencimento (`estaVencido`),
      * nada é gravado. O selo segue sendo o botão de quitar nos três casos.
+     *
+     * @param list<CorrecaoDeValorDoPagamentoOutput> $correcoes do audit_log, já filtradas para ESTE pagamento
      */
-    public static function montar(PastaPagamento $pagamento, \DateTimeImmutable $hoje): self
+    public static function montar(PastaPagamento $pagamento, \DateTimeImmutable $hoje, array $correcoes = []): self
     {
         $pago    = $pagamento->estaPago();
         $vencido = $pagamento->estaVencido($hoje);
@@ -52,6 +83,8 @@ final readonly class PastaPagamentoLinhaOutput
             estado: $estado,
             tom: $tom,
             pago: $pago,
+            valorEditavel: str_replace('.', ',', $pagamento->getValor()),
+            correcoes: $correcoes,
         );
     }
 

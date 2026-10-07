@@ -25,6 +25,18 @@
 {% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' %}
 {% set arquivosVisiveis = 3 %}
 
+{# "Enviar por e-mail ao cliente" do ⋮ do arquivo (desenho 1.2.3, dc 6546): é um
+   `mailto:` e nada mais — o sistema não envia e-mail nem anexa o arquivo; abre o
+   programa de e-mail de quem clicou com destinatário, assunto e corpo prontos.
+   O destinatário é o e-mail do cliente PRINCIPAL, o mesmo que a aba Dados mostra.
+   Só entra endereço com cara de endereço: o charset fechado garante que nada do
+   cadastro vire `?`, `&` ou `#` dentro do link. Assunto e corpo saem por
+   `url_encode` (o JS de upload/renomear espelha com `encodeURIComponent`).
+   Sem e-mail cadastrado, o item leva à aba Dados com o aviso do desenho. #}
+{% set emailCliente = pasta.clientePrincipal ? pasta.clientePrincipal.email|trim : '' %}
+{% set emailCliente = emailCliente matches '/^[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$/' ? emailCliente : '' %}
+{% set rotuloPastaEmail = pasta.nup ?? ('#' ~ pasta.id) %}
+
 {# ── Faixa de status: quatro cards de MESMO peso ──────────────────────────────
    O desenho pede quatro blocos alinhados entre si — rótulo numa linha de 18px e
    o conteúdo na mesma altura nos quatro. Nenhum ganha destaque sobre o outro.
@@ -270,7 +282,9 @@
                            data-base-url-renomear="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                           data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}">
+                           data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-email-cliente="{{ emailCliente }}"
+                           data-pasta-rotulo="{{ rotuloPastaEmail }}">
                 </label>
             </div>
 
@@ -291,9 +305,9 @@
                             </div>
                             {# Menu ⋮ do arquivo (desenho 1.2.3, "Mais ações do arquivo"). Só entram
                                as ações que têm função de verdade: abrir no visualizador, baixar,
-                               copiar o nome, renomear, ver no gerenciador e excluir. "Encaminhar
-                               via Chat I.A" e "Enviar por e-mail ao cliente" do desenho dependem de
-                               função nova e ficam fora (§1.3 da spec).
+                               copiar o nome, renomear, enviar por e-mail ao cliente (`mailto:`), ver
+                               no gerenciador e excluir. "Encaminhar via Chat I.A" do desenho depende
+                               de função nova e fica fora (§1.3 da spec).
                                As classes `btn-renomear-doc`/`btn-excluir-doc` e os `data-*` são os
                                mesmos de antes: o JS deste arquivo escuta por delegação na lista.
                                A MESMA estrutura é montada em JS (`criarItemDoc`, abaixo). #}
@@ -341,6 +355,19 @@
                                             data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
                                         <i class="bi bi-pencil"></i><span>Renomear</span>
                                     </button>
+                                    {% if emailCliente %}
+                                        <a class="ps-fin-menu-item js-fin-doc-email"
+                                           role="menuitem"
+                                           href="mailto:{{ emailCliente }}?subject={{ ('Pasta ' ~ rotuloPastaEmail ~ ' · ' ~ doc.titulo)|url_encode }}&amp;body={{ ('Segue o arquivo "' ~ doc.titulo ~ '" referente à pasta ' ~ rotuloPastaEmail ~ '.')|url_encode }}">
+                                            <i class="bi bi-envelope"></i><span>Enviar por e-mail ao cliente</span>
+                                        </a>
+                                    {% else %}
+                                        <button type="button"
+                                                class="ps-fin-menu-item js-fin-doc-email js-fin-doc-email-sem-cadastro"
+                                                role="menuitem">
+                                            <i class="bi bi-envelope"></i><span>Enviar por e-mail ao cliente</span>
+                                        </button>
+                                    {% endif %}
                                     <button type="button"
                                             class="ps-fin-menu-item js-fin-doc-ver-documentos"
                                             role="menuitem">
@@ -397,7 +424,8 @@
                  data-url-registrar="{{ path('pasta_pagamento_registrar', {id: pasta.id}) }}"
                  data-csrf-registrar="{{ csrf_token('pasta_pagamento_' ~ pasta.id) }}"
                  data-base-url-quitacao="{{ path('pasta_pagamento_alternar_quitacao', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                 data-base-url-excluir="{{ path('pasta_pagamento_excluir', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}">
+                 data-base-url-excluir="{{ path('pasta_pagamento_excluir', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                 data-base-url-corrigir="{{ path('pasta_pagamento_corrigir_valor', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}">
             <div class="ps-card-cab">
                 <h2>Pagamentos</h2>
                 <span class="ps-contagem" id="psPagamentosTotal">{{ pagamentos.total }}</span>
@@ -405,9 +433,19 @@
                 {# Só o ⋮ no cabeçalho (dc 1865-1871): o "ver todos" mora no menu, no item
                    "Ver todos os lançamentos", que alterna a classe `is-mostrando-todos`.
                    ⋮ do card (desenho 1.2.3): só o que tem função hoje. "Editar ou corrigir
-                   valores" depende de histórico de correção que não existe (fila de D) e
-                   fica fora. Os itens de extrato somem quando não há lançamento: o JS
-                   confere, na abertura, se a folha `#psExtratoFolha` existe no corpo. #}
+                   valores" liga o modo de edição — a classe `is-editando` no cartão, que
+                   sobrevive à troca do corpo — e vira "Concluir edição" enquanto ele dura
+                   (dc 3509). O histórico de cada correção sai do `audit_log`. Os itens de
+                   extrato somem quando não há lançamento: o JS confere, na abertura, se a
+                   folha `#psExtratoFolha` existe no corpo.
+                   "Concluir edição" também aparece como botão ao lado do ⋮ enquanto o modo
+                   está ligado (dc 1869). #}
+                <button type="button"
+                        class="ps-pag-concluir js-pag-concluir-edicao"
+                        id="psPagamentosConcluir"
+                        hidden>
+                    <i class="bi bi-check2"></i><span>Concluir edição</span>
+                </button>
                 <button type="button"
                         class="ps-fin-menu-gatilho ps-fin-menu-gatilho--cab"
                         id="psPagamentosMenuBtn"
@@ -423,6 +461,9 @@
                     <button type="button" class="ps-fin-menu-item" role="menuitem"
                             data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
                         <i class="bi bi-plus-lg"></i><span>Adicionar pagamento</span>
+                    </button>
+                    <button type="button" class="ps-fin-menu-item js-pag-editar" role="menuitem">
+                        <i class="bi bi-pencil-square"></i><span>Editar ou corrigir valores</span>
                     </button>
                     <button type="button" class="ps-fin-menu-item js-pag-ver-todos" role="menuitem">
                         <i class="bi bi-list-ul"></i><span>Ver todos os lançamentos</span>
@@ -735,6 +776,29 @@
             + '<i class="bi ' + esc(ic.icone) + '"></i></span>';
     }
 
+    /* "Enviar por e-mail ao cliente": o MESMO `mailto:` que o Twig monta na
+       primeira carga (assunto e corpo do desenho, dc 6546), para o arquivo que
+       acabou de subir ou de ser renomeado. O e-mail vem do servidor já filtrado. */
+    function mailtoDoArquivo(titulo) {
+        const email  = uploadInput ? (uploadInput.dataset.emailCliente || '') : '';
+        const rotulo = uploadInput ? (uploadInput.dataset.pastaRotulo || '') : '';
+        if (!email) { return ''; }
+
+        return 'mailto:' + email
+            + '?subject=' + encodeURIComponent('Pasta ' + rotulo + ' · ' + titulo)
+            + '&body=' + encodeURIComponent('Segue o arquivo "' + titulo + '" referente à pasta ' + rotulo + '.');
+    }
+
+    function htmlItemEmail(titulo) {
+        const href  = mailtoDoArquivo(titulo);
+        const miolo = '<i class="bi bi-envelope"></i><span>Enviar por e-mail ao cliente</span>';
+        if (!href) {
+            return '<button type="button" class="ps-fin-menu-item js-fin-doc-email js-fin-doc-email-sem-cadastro" role="menuitem">' + miolo + '</button>';
+        }
+
+        return '<a class="ps-fin-menu-item js-fin-doc-email" role="menuitem" href="' + esc(href) + '">' + miolo + '</a>';
+    }
+
     function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta) {
         const div = document.createElement('div');
         div.className = 'ps-fin-doc';
@@ -785,6 +849,7 @@
                             data-url="${esc(urlRenomear)}">
                         <i class="bi bi-pencil"></i><span>Renomear</span>
                     </button>
+                    ${htmlItemEmail(titulo)}
                     <button type="button" class="ps-fin-menu-item js-fin-doc-ver-documentos" role="menuitem">
                         <i class="bi bi-folder2-open"></i><span>Ver em Documentos</span>
                     </button>
@@ -942,6 +1007,9 @@
                         if (icone) { icone.outerHTML = htmlIconeDoArquivo(titulo, btnPrevItem ? btnPrevItem.dataset.mime : ''); }
                         const tituloMenu = item.querySelector('.ps-fin-menu-titulo');
                         if (tituloMenu) { tituloMenu.textContent = titulo; tituloMenu.title = titulo; }
+                        // O assunto e o corpo do e-mail citam o nome do arquivo.
+                        const itemEmail = item.querySelector('a.js-fin-doc-email');
+                        if (itemEmail) { itemEmail.href = mailtoDoArquivo(titulo); }
                     } catch (_) {
                         alert('Erro de rede.');
                         restaurarSpan(tituloAtual);
@@ -1030,6 +1098,12 @@
     }
 
     function prepararMenuPagamentos(menu) {
+        const editar = menu.querySelector('.js-pag-editar');
+        if (editar) {
+            const editando = !!document.getElementById('psPagamentos')?.classList.contains('is-editando');
+            editar.querySelector('span').textContent = editando ? 'Concluir edição' : 'Editar ou corrigir valores';
+        }
+
         const temExtrato = !!document.getElementById('psExtratoFolha');
         menu.querySelectorAll('.js-pag-so-com-extrato').forEach(function (el) { el.hidden = !temExtrato; });
 
@@ -1130,6 +1204,31 @@
         if (gatilho && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
     }
 
+    /* Aviso curto do desenho (`gmAviso`). Reaproveita a caixa `.ps-l7-aviso` que a
+       tela já tem, criada sob demanda como em pasta-clientes.js. */
+    let avisoTimer = null;
+    function avisar(texto) {
+        let el = document.querySelector('.ps-l7-aviso');
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'ps-l7-aviso';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            document.body.appendChild(el);
+        }
+        el.textContent = texto;
+        el.classList.add('is-visivel');
+        clearTimeout(avisoTimer);
+        avisoTimer = setTimeout(function () { el.classList.remove('is-visivel'); }, 1800);
+    }
+
+    /* Sem e-mail do cliente: o desenho leva à aba Dados e avisa (dc 6546). */
+    function emailSemCadastro() {
+        const gatilho = document.getElementById('dados-tab');
+        if (gatilho && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
+        avisar('Cadastre um e-mail do cliente para enviar');
+    }
+
     // Clique FORA fecha, em captura: os gatilhos do cabeçalho (pasta-show.js)
     // param a propagação, e o menu ficaria aberto por baixo do outro.
     document.addEventListener('click', function (e) {
@@ -1166,20 +1265,41 @@
         fechar(false);
 
         if (item.classList.contains('js-fin-doc-ver-documentos')) { irParaDocumentos(); return; }
+        if (item.classList.contains('js-fin-doc-email-sem-cadastro')) { emailSemCadastro(); return; }
+        if (item.classList.contains('js-pag-editar')) {
+            // O modo de edição é do script de Pagamentos, que ouve este evento.
+            document.dispatchEvent(new CustomEvent('ps:pagamentos-alternar-edicao'));
+            return;
+        }
         if (item.classList.contains('js-pag-ver-todos')) {
             // Só uma classe no cartão: as linhas escondidas já estão no HTML.
             document.getElementById('psPagamentos')?.classList.toggle('is-mostrando-todos');
             return;
         }
         if (item.classList.contains('js-pag-imprimir-extrato')) { imprimirExtrato(); }
-        // Abrir (modal), Baixar (link), Adicionar pagamento (modal), Renomear e
-        // Excluir seguem o próprio caminho: Bootstrap e o handler da lista.
+        // Abrir (modal), Baixar (link), Enviar por e-mail (link `mailto:`),
+        // Adicionar pagamento (modal), Renomear e Excluir seguem o próprio
+        // caminho: Bootstrap, o navegador e o handler da lista. Os itens do menu
+        // da LINHA de pagamento (Corrigir valor, quitar, excluir) carregam
+        // `data-acao` e são atendidos pelo script de Pagamentos.
     });
 
     // Clique direito: na linha do arquivo abre o menu DELA no ponto do clique;
     // no ⋮ de Pagamentos, o menu dele. Durante a renomeação o campo é do usuário.
     document.addEventListener('contextmenu', function (e) {
         if (e.target.closest('input, textarea, .ps-fin-menu')) { return; }
+        // Linha de pagamento (dc 3448-3456, `onContextMenu`): não tem ⋮ à vista no
+        // desenho; o menu dela abre só pelo clique direito, e a própria linha
+        // faz o papel do gatilho.
+        const linhaPag = e.target.closest('#psPagamentosCorpo .ps-pag-linha[aria-controls]');
+        if (linhaPag) {
+            const menuPag = menuDoGatilho(linhaPag);
+            if (!menuPag) { return; }
+            e.preventDefault();
+            abrir(menuPag, linhaPag, e.clientX, e.clientY);
+            return;
+        }
+
         const linha   = e.target.closest('#financeiro-docs-lista .ps-fin-doc');
         const gatilho = linha ? linha.querySelector('.ps-fin-menu-gatilho') : e.target.closest('#financeiro .ps-fin-menu-gatilho');
         if (!gatilho) { return; }

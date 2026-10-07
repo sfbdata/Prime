@@ -9,6 +9,7 @@ use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\UseCase\AlternarQuitacaoDoPagamentoUseCase;
+use App\Pasta\UseCase\CorrigirValorDoPagamentoUseCase;
 use App\Pasta\UseCase\ExcluirPagamentoDaPastaUseCase;
 use App\Pasta\UseCase\RegistrarPagamentoDaPastaUseCase;
 use App\Service\PermissionChecker;
@@ -38,6 +39,7 @@ final class PastaPagamentoController extends AbstractController
         private readonly RegistrarPagamentoDaPastaUseCase $registrarUseCase,
         private readonly AlternarQuitacaoDoPagamentoUseCase $alternarUseCase,
         private readonly ExcluirPagamentoDaPastaUseCase $excluirUseCase,
+        private readonly CorrigirValorDoPagamentoUseCase $corrigirValorUseCase,
     ) {
     }
 
@@ -146,6 +148,61 @@ final class PastaPagamentoController extends AbstractController
     }
 
     /**
+     * "Editar ou corrigir valores" (desenho 1.2.3, dc 3443-3447): troca o valor
+     * de UM lançamento. O histórico (quem, quando, de quanto para quanto) não é
+     * gravado aqui — sai do `audit_log` que o flush do UseCase alimenta.
+     *
+     * Mesma ordem das outras rotas do card: permissão de editar a pasta → CSRF
+     * do pagamento → posse (404) → UseCase. Pasta excluída nem chega aqui: o
+     * `PastaSomenteLeituraListener` recusa todo POST que receba a pasta.
+     */
+    #[Route('/{id}/pagamento/{pagamentoId}/valor', name: 'pasta_pagamento_corrigir_valor', methods: ['POST'])]
+    public function corrigirValor(Pasta $pasta, int $pagamentoId, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId     = (int) $pasta->getId();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null) {
+            return $this->json(['erro' => 'Escritório não identificado.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_pagamento_corrigir_' . $pagamentoId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        // 404, nunca 403: pagamento de outra pasta ou de outro escritório não
+        // pode nem confirmar que existe.
+        $pagamento = $this->pagamentoRepository->findByIdAndPastaAndTenant($pagamentoId, $pasta, $tenant);
+        if ($pagamento === null) {
+            return $this->json(['erro' => 'Pagamento não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $alterado = $this->corrigirValorUseCase->executar(
+                $pagamento,
+                $pasta,
+                $tenant,
+                (string) $request->request->get('valor', ''),
+            );
+        } catch (\DomainException) {
+            return $this->json(['erro' => 'Pagamento não encontrado.'], Response::HTTP_NOT_FOUND);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'alterado' => $alterado,
+            'resumo'   => $this->resumo($pasta),
+        ]);
+    }
+
+    /**
      * O corpo do card, relido do banco e RENDERIZADO PELO SERVIDOR, com o mesmo
      * partial da primeira carga. A tela troca o bloco inteiro por este.
      *
@@ -160,7 +217,11 @@ final class PastaPagamentoController extends AbstractController
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         $lista  = $tenant !== null ? $this->pagamentoRepository->findByPasta($pasta, $tenant) : [];
-        $saida  = PastaPagamentosOutput::montar($lista);
+        $saida  = PastaPagamentosOutput::montar(
+            $lista,
+            null,
+            $tenant !== null ? $this->pagamentoRepository->correcoesDeValor($lista, $tenant) : [],
+        );
 
         return [
             'total'           => $saida->total,

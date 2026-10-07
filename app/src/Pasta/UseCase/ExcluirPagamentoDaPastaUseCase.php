@@ -10,9 +10,9 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * Apaga um lançamento de pagamento da pasta.
  *
- * É também o caminho de CORREÇÃO: o desenho aprovado não tem edição de linha,
- * então errar a descrição ou o valor se conserta apagando e lançando de novo.
- * A posse (pagamento desta pasta, deste escritório) é conferida antes, por
+ * Errar o VALOR não passa mais por aqui: há o `CorrigirValorDoPagamentoUseCase`,
+ * que guarda o histórico. Errar a descrição ainda se conserta apagando e
+ * lançando de novo. A posse (pagamento desta pasta, deste escritório) é conferida antes, por
  * quem chama, com `findByIdAndPastaAndTenant`.
  */
 final class ExcluirPagamentoDaPastaUseCase

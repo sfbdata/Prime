@@ -448,7 +448,11 @@ class PastaController extends AbstractController
             'documentosContrato'          => $documentosContrato,
             'financeiro'                  => PastaFinanceiroOutput::montar($pasta, $primeiroCliente, $mediaCpf),
             'observacoesFinanceiras'      => $observacoesFinanceiras,
-            'pagamentos'                  => PastaPagamentosOutput::montar($pagamentosDaPasta),
+            'pagamentos'                  => PastaPagamentosOutput::montar(
+                $pagamentosDaPasta,
+                null,
+                $tenant !== null ? $this->pastaPagamentoRepository->correcoesDeValor($pagamentosDaPasta, $tenant) : [],
+            ),
             'observacoesDetalhes'         => $observacoesDetalhes,
             'checklistItens'              => $checklistItens,
             'totalChecklist'              => $totalChecklist,

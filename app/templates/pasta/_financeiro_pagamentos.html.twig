@@ -17,12 +17,23 @@
    "R$ 0,00 recebidos de R$ 0,00" com a barra vazia, "nenhum pago" e uma linha
    simples no lugar da lista.
 
+   "Editar ou corrigir valores" (dc 1869-1913, 3443-3462): com a classe
+   `is-editando` no cartão, o valor de cada linha vira um botão com lápis e a
+   lixeira aparece; fora dele, a linha só mostra o valor. Os dois estados estão
+   no HTML e o CSS escolhe — o modo sobrevive à troca do corpo. A linha que já
+   foi corrigida mostra "corrigido · era R$ a", com o histórico do `audit_log`
+   (só deste pagamento, deste escritório) no título. O menu da LINHA (clique
+   direito, dc 3453-3456) tem Corrigir valor, quitar e excluir.
+
    Contexto: `pagamentos` (PastaPagamentosOutput).
    ============================================================================ #}
 {% set proximosVisiveis = 3 %}
 <div class="ps-pag-total">
     <div class="ps-pag-total-linha">
-        <span class="ps-pag-recebido ps-num">{{ pagamentos.recebidoFormatado }}</span>
+        {# O número recebido é a porta do modo de edição (dc 1876, `fin.edEntrar`). #}
+        <button type="button"
+                class="ps-pag-recebido ps-num js-pag-entrar-edicao"
+                title="Editar ou corrigir os valores dos lançamentos">{{ pagamentos.recebidoFormatado }}</button>
         <span class="ps-pag-previsto">recebidos de {{ pagamentos.previstoFormatado }}</span>
     </div>
     <div class="ps-pag-barra" role="progressbar"
@@ -54,13 +65,30 @@
     {% set linhasEmOrdem = pagamentos.proximos|merge(pagamentos.todos|filter(l => l.pago)) %}
     {% for linha in linhasEmOrdem %}
         {% set alem = not linha.pago and loop.index > proximosVisiveis %}
-        <div class="ps-pag-linha{{ linha.pago ? ' ps-pag-linha--pago' : '' }}{{ alem ? ' ps-pag-linha--alem' : '' }}" data-pagamento-id="{{ linha.id }}">
+        {% set csrfCorrigir = csrf_token('pasta_pagamento_corrigir_' ~ linha.id) %}
+        <div class="ps-pag-linha{{ linha.pago ? ' ps-pag-linha--pago' : '' }}{{ alem ? ' ps-pag-linha--alem' : '' }}{{ linha.foiCorrigido ? ' ps-pag-linha--corrigida' : '' }}"
+             data-pagamento-id="{{ linha.id }}"
+             data-descricao="{{ linha.descricao }}"
+             data-valor="{{ linha.valorEditavel }}"
+             data-csrf-corrigir="{{ csrfCorrigir }}"
+             aria-controls="psPagMenu-{{ linha.id }}">
             <div class="ps-pag-corpo">
                 <div class="ps-pag-descricao" title="{{ linha.descricao }}">{{ linha.descricao }}</div>
                 <div class="ps-pag-quando ps-num">{{ linha.quando }}</div>
             </div>
             <div class="ps-pag-direita">
                 <span class="ps-pag-valor ps-num">{{ linha.valorFormatado }}</span>
+                {# Só no modo de edição (CSS): o valor vira o botão de corrigir. #}
+                <button type="button"
+                        class="ps-pag-valor-editar ps-num"
+                        data-acao="corrigir"
+                        data-pagamento-id="{{ linha.id }}"
+                        title="Clique para editar ou corrigir o valor{{ linha.foiCorrigido ? ' · já corrigido ' ~ linha.correcoes|length ~ 'x' : '' }}">
+                    <span>{{ linha.valorFormatado }}</span><i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+                {% if linha.foiCorrigido %}
+                    <span class="ps-pag-ajuste" title="{{ linha.historicoDeCorrecoes }}">corrigido · era {{ linha.valorOriginalFormatado }}</span>
+                {% endif %}
                 {# O selo é o botão de quitar, como o do Contrato na faixa. #}
                 <button type="button"
                         class="ps-selo ps-selo--{{ linha.tom }} ps-pag-selo"
@@ -69,7 +97,7 @@
                         data-csrf="{{ csrf_token('pasta_pagamento_quitacao_' ~ linha.id) }}"
                         title="{{ linha.pago ? 'Pago — clique para desfazer o recebimento' : 'Clique para marcar como recebido' }}">{{ linha.estado }}</button>
             </div>
-            {# Sem edição de linha no desenho: corrigir é excluir e lançar de novo. #}
+            {# Lixeira: só no modo de edição (dc 1913); fora dele, o menu da linha exclui. #}
             <button type="button"
                     class="ps-anotacao-acao ps-anotacao-acao--perigo ps-pag-excluir"
                     data-acao="excluir"
@@ -78,6 +106,30 @@
                     title="Excluir lançamento">
                 <i class="bi bi-trash3"></i>
             </button>
+
+            {# Menu da linha (dc 3453-3456): abre pelo clique direito; a linha é o
+               gatilho (`aria-controls`). Os itens carregam `data-acao`, como os
+               botões da linha, e o script de Pagamentos os atende. #}
+            <div class="ps-fin-menu" id="psPagMenu-{{ linha.id }}" role="menu" hidden>
+                <div class="ps-fin-menu-titulo" title="{{ linha.descricao }} · {{ linha.valorFormatado }}">{{ linha.descricao }} · {{ linha.valorFormatado }}</div>
+                <button type="button" class="ps-fin-menu-item" role="menuitem"
+                        data-acao="corrigir"
+                        data-pagamento-id="{{ linha.id }}">
+                    <i class="bi bi-pencil"></i><span>Corrigir valor</span>
+                </button>
+                <button type="button" class="ps-fin-menu-item" role="menuitem"
+                        data-acao="quitacao"
+                        data-pagamento-id="{{ linha.id }}"
+                        data-csrf="{{ csrf_token('pasta_pagamento_quitacao_' ~ linha.id) }}">
+                    <i class="bi {{ linha.pago ? 'bi-arrow-counterclockwise' : 'bi-check2-circle' }}"></i><span>{{ linha.pago ? 'Desfazer recebimento' : 'Marcar como recebido' }}</span>
+                </button>
+                <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo" role="menuitem"
+                        data-acao="excluir"
+                        data-pagamento-id="{{ linha.id }}"
+                        data-csrf="{{ csrf_token('pasta_pagamento_excluir_' ~ linha.id) }}">
+                    <i class="bi bi-trash3"></i><span>Excluir lançamento</span>
+                </button>
+            </div>
         </div>
     {% endfor %}
 

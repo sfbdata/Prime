@@ -31,8 +31,10 @@ final readonly class PastaPagamentosOutput
 
     /**
      * @param PastaPagamento[] $pagamentos já ordenados por vencimento pelo repositório
+     * @param array<int, list<CorrecaoDeValorDoPagamentoOutput>> $correcoesPorPagamento
+     *        do audit_log, por id do pagamento (`PastaPagamentoRepository::correcoesDeValor`)
      */
-    public static function montar(array $pagamentos, ?\DateTimeImmutable $hoje = null): self
+    public static function montar(array $pagamentos, ?\DateTimeImmutable $hoje = null, array $correcoesPorPagamento = []): self
     {
         $hoje = $hoje ?? new \DateTimeImmutable('today');
 
@@ -51,7 +53,11 @@ final readonly class PastaPagamentosOutput
                 ++$quantidadePagos;
             }
 
-            $linha   = PastaPagamentoLinhaOutput::montar($pagamento, $hoje);
+            $linha   = PastaPagamentoLinhaOutput::montar(
+                $pagamento,
+                $hoje,
+                $correcoesPorPagamento[(int) $pagamento->getId()] ?? [],
+            );
             $todos[] = $linha;
 
             if (!$pagamento->estaPago()) {
