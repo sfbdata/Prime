@@ -223,18 +223,21 @@
                        e da aba Processo (`#notas-publicacao-<id>`, com o compositor para quem
                        escreve), então o teor, avisado por `penduradas=1`, não o repete. Fora do
                        `.ps-push-cartao` de propósito: o botão direito ali é o menu da movimentação,
-                       e aqui é o ⋮ da nota (nota-tecnica.js). O processo é o da própria nota — a
-                       consulta só trouxe notas dos processos desta pasta. A mesma nota também
-                       está na aba Processo: aqui os ids levam `-push` (o canônico fica lá, que é
-                       o destino da âncora da @menção). #}
+                       e aqui é o ⋮ da nota (nota-tecnica.js). O processo do compositor é o da
+                       PUBLICAÇÃO (FPN-020b), não o da primeira nota: a movimentação pode ter
+                       notas antigas de outro processo da pasta, e a nota nova iria para ele. Sem
+                       processo da pasta que case com o número, o bloco só mostra (sem compositor).
+                       A mesma nota também está na aba Processo: aqui os ids levam `-push` (o
+                       canônico fica lá, que é o destino da âncora da @menção). #}
                     {% if notasPush is not empty %}
+                        {% set processoDoPush = push.processoIdDaPublicacao(item, pasta) %}
                         {{ include('processo/_notas_tecnicas.html.twig', {
                             notas: notasPush,
-                            processoId: (notasPush|first).processoId,
+                            processoId: processoDoPush ?? (notasPush|first).processoId,
                             publicacaoId: item.id,
                             pastaId: pasta.id,
                             mostrarMovimentacao: false,
-                            podeEscreverNota: pushPodeEscrever,
+                            podeEscreverNota: pushPodeEscrever and processoDoPush is not null,
                             idSufixoNota: '-push',
                         }) }}
                     {% endif %}

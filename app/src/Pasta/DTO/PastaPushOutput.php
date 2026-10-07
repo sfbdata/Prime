@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\DTO;
 
 use App\Djen\DTO\PublicacaoDjenListaItem;
+use App\Pasta\Entity\Pasta;
 use App\Processo\DTO\NotaTecnicaOutput;
 use App\Processo\Entity\NotaTecnica;
 
@@ -139,6 +140,30 @@ final readonly class PastaPushOutput
         $numero = self::soDigitos($item->numeroProcessoExibicao);
 
         return $numero !== '' && in_array($numero, $this->numerosDigitos, true);
+    }
+
+    /**
+     * FPN-020b: o processo DESTA pasta a que a publicação pertence — é nele que nasce a nota
+     * criada no bloco pendurado sob o cartão. Mesmo critério do `aceitaNotaTecnica` e do
+     * `pasta_push_teor` (só dígitos dos dois lados). Não vale "o processo da primeira nota": a
+     * publicação pode ter notas antigas de OUTRO processo da pasta, e a nota nova iria para ele.
+     * `null` quando nenhum processo da pasta casa com o número (aí não há onde criar a nota).
+     */
+    public function processoIdDaPublicacao(PublicacaoDjenListaItem $item, Pasta $pasta): ?int
+    {
+        $numero = self::soDigitos($item->numeroProcessoExibicao);
+        if ($numero === '') {
+            return null;
+        }
+
+        foreach ($pasta->getPastaProcessos() as $vinculo) {
+            $processo = $vinculo->getProcesso();
+            if (self::soDigitos($processo->getNumeroProcesso()) === $numero) {
+                return $processo->getId();
+            }
+        }
+
+        return null;
     }
 
     private static function soDigitos(?string $numero): string

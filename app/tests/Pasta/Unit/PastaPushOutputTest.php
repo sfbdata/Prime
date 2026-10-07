@@ -9,6 +9,7 @@ use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\NotaTecnica;
 use App\Processo\Entity\Processo;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -192,6 +193,29 @@ final class PastaPushOutputTest extends TestCase
         (new \ReflectionProperty(NotaTecnica::class, 'id'))->setValue($nota, $id);
 
         return $nota;
+    }
+
+    #[TestDox('FPN-020b: o processo da publicação é o processo da pasta com o mesmo número em dígitos (máscara não importa); nenhum casando → null')]
+    public function testProcessoIdDaPublicacao(): void
+    {
+        $item  = $this->item(1);
+        $push  = PastaPushOutput::montar([$item], ['07011111111111111111'], 100);
+        $pasta = new Pasta();
+        $pasta->vincularProcesso($this->processo(10, '07022222222222222222'));
+
+        self::assertNull($push->processoIdDaPublicacao($item, $pasta), 'nenhum processo da pasta casa com o número');
+
+        $pasta->vincularProcesso($this->processo(20, '0701111-11.1111.1.11.1111'));
+        self::assertSame(20, $push->processoIdDaPublicacao($item, $pasta), 'o que casa, não o primeiro vinculado');
+    }
+
+    private function processo(int $id, string $numero): Processo
+    {
+        $processo = new Processo();
+        $processo->setNumeroProcesso($numero);
+        (new \ReflectionProperty(Processo::class, 'id'))->setValue($processo, $id);
+
+        return $processo;
     }
 
     private function item(int $id, bool $lida = false, ?string $tipo = 'Intimação'): PublicacaoDjenListaItem

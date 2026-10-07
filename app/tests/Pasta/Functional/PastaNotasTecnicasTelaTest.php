@@ -499,6 +499,34 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter("#push #nota-tecnica-{$alheia->getId()}-push"));
     }
 
+    #[TestDox('FPN-020b: publicação do processo B com nota antiga do processo A (os dois da pasta) pendurada → o compositor do bloco cria no B, o processo da PUBLICAÇÃO')]
+    public function testCompositorDaNotaPenduradaUsaOProcessoDaPublicacao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processoA       = $this->criarProcesso($tenant, '07033333333333333333');
+        $processoB       = $this->criarProcesso($tenant, self::NUMERO);
+        // A primeiro: é o da primeira (e única) nota — o critério antigo escolheria ele.
+        $this->vincular($pasta, $processoA);
+        $this->vincular($pasta, $processoB);
+        $pub     = $this->criarPublicacao($tenant, '60000065', self::NUMERO, '2026-08-20', $processoB);
+        $antigaA = $this->criarNota($processoA, $user, $tenant, '<p>Nota antiga do A</p>', $pub);
+        $pubId   = $pub->getId();
+        $bId     = $processoB->getId();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $bloco = $crawler->filter("#push .ps-push-lista > li[data-push-id=\"{$pubId}\"] > .ps-notas#notas-publicacao-{$pubId}");
+        self::assertCount(1, $bloco);
+        self::assertCount(1, $bloco->filter("#nota-tecnica-{$antigaA->getId()}-push"), 'a nota antiga do A segue pendurada');
+        self::assertSame((string) $bId, $bloco->attr('data-processo-id'), 'a nota nova vai para o processo da publicação');
+        self::assertSame("/processos/{$bId}/nota-tecnica", $bloco->attr('data-url-criar'));
+        self::assertCount(1, $bloco->filter('.ps-notas > .ps-nota-editor[hidden]'), 'quem edita segue com o compositor');
+    }
+
     #[TestDox('FPN-020 cross-tenant: nota de OUTRO escritório pendurada na publicação desta pasta não aparece — com o TenantFilter desligado, prova o recorte explícito')]
     public function testNotaDeOutroEscritorioNaoSePendura(): void
     {
