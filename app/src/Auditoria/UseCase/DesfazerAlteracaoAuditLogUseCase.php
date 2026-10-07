@@ -66,6 +66,13 @@ final class DesfazerAlteracaoAuditLogUseCase
         \App\Pasta\Entity\PastaSecao::class => ['pai'],
     ];
 
+    /**
+     * Comprimento do texto que o `AuditLogSubscriber::normalizeValue()` grava ao cortar:
+     * `mb_substr($value, 0, MAX_STRING_LENGTH) . '…'`, com MAX_STRING_LENGTH = 500,
+     * dá 501 caracteres. Se o limite de lá mudar, este tem de mudar junto.
+     */
+    private const COMPRIMENTO_TEXTO_TRUNCADO = 501;
+
     private const TIPOS_DATA_MUTAVEL = [
         Types::DATE_MUTABLE,
         Types::DATETIME_MUTABLE,
@@ -155,7 +162,9 @@ final class DesfazerAlteracaoAuditLogUseCase
             $from = is_array($fieldDiff) ? ($fieldDiff['from'] ?? null) : null;
 
             // O subscriber corta texto longo e marca com `…`: restaurar gravaria o texto cortado.
-            if (is_string($from) && str_ends_with($from, '…')) {
+            // Só o comprimento exato do corte conta — texto curto terminado em "…" (o celular troca
+            // "..." por "…") é valor legítimo e se desfaz normalmente.
+            if (is_string($from) && mb_strlen($from) === self::COMPRIMENTO_TEXTO_TRUNCADO && str_ends_with($from, '…')) {
                 return new DesfazerResultado(false, self::MENSAGEM_VALOR_TRUNCADO);
             }
 

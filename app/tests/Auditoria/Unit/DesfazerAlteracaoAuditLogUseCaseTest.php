@@ -506,6 +506,89 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertNull($pasta->getNomeAcao());
     }
 
+    #[TestDox('texto curto terminado em "…" (o celular troca "..." por "…") não é truncado: desfaz normalmente')]
+    public function testTextoCurtoComReticenciasSeDesfaz(): void
+    {
+        $pasta = $this->pastaDoTenant($this->tenant(1));
+        $pasta->setNomeAcao('ação nova');
+        $this->cenarioDaPasta($pasta, ['nomeAcao' => ['from' => 'aguardando…', 'to' => 'AÇÃO NOVA']]);
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertTrue($resultado->sucesso);
+        self::assertSame((new Pasta())->setNomeAcao('aguardando…')->getNomeAcao(), $pasta->getNomeAcao());
+    }
+
+    #[TestDox('o corte real do subscriber (500 caracteres + "…" = 501) é recusado; 499 + "…" não é corte')]
+    public function testSoOComprimentoExatoDoCorteEhTruncado(): void
+    {
+        $truncado = str_repeat('é', 500) . '…';
+        self::assertSame(501, mb_strlen($truncado));
+
+        $pasta = $this->pastaDoTenant($this->tenant(1));
+        $this->cenarioDaPasta($pasta, ['nomeAcao' => ['from' => $truncado, 'to' => 'ACAO NOVA']]);
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_VALOR_TRUNCADO, $resultado->erro);
+        self::assertNull($pasta->getNomeAcao());
+    }
+
+    #[TestDox('texto de 500 caracteres terminado em "…" (abaixo do limite, não foi cortado) se desfaz')]
+    public function testTextoNoLimiteComReticenciasNaoEhTruncado(): void
+    {
+        $pasta = $this->pastaDoTenant($this->tenant(1));
+        $this->cenarioDaPasta($pasta, ['nomeAcao' => ['from' => str_repeat('a', 499) . '…', 'to' => 'ACAO NOVA']]);
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertTrue($resultado->sucesso);
+    }
+
+    #[TestDox('fase 2: setter que lança no 2º campo depois de aplicar o 1º → refresh, recusa, o 1º campo volta ao valor do banco')]
+    public function testSetterQueLancaNoSegundoCampoDesfazOPrimeiro(): void
+    {
+        // Pasta cujo setPrioridade recusa (regra do próprio setter, depois da conversão de tipos).
+        $pasta = new class extends Pasta {
+            public function setPrioridade(PrioridadePasta $prioridade): self
+            {
+                throw new \LogicException('prioridade recusada pela regra do cadastro');
+            }
+        };
+        $this->comId($pasta, 5);
+        $pasta->setNup('NUP-5');
+        $pasta->setTenant($this->tenant(1));
+        $pasta->setNomeAcao('valor do banco');
+
+        // Ordem do diff: nomeAcao é aplicado primeiro, prioridade lança em seguida.
+        $this->cenarioDaPasta($pasta, [
+            'nomeAcao' => ['from' => 'valor antigo', 'to' => 'VALOR DO BANCO'],
+            'prioridade' => ['from' => 'urgente', 'to' => 'normal'],
+        ]);
+
+        $nomeNoMomentoDoRefresh = null;
+        $this->em->expects($this->once())->method('refresh')->with($pasta)->willReturnCallback(
+            static function (Pasta $entidade) use (&$nomeNoMomentoDoRefresh): void {
+                // Prova de que o 1º campo JÁ tinha sido aplicado quando o refresh veio...
+                $nomeNoMomentoDoRefresh = $entidade->getNomeAcao();
+                // ...e simula o refresh real: relê do banco.
+                $entidade->setNomeAcao('valor do banco');
+            },
+        );
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_VALOR_RECUSADO, $resultado->erro);
+        self::assertSame((new Pasta())->setNomeAcao('valor antigo')->getNomeAcao(), $nomeNoMomentoDoRefresh);
+        self::assertSame((new Pasta())->setNomeAcao('valor do banco')->getNomeAcao(), $pasta->getNomeAcao());
+    }
+
     #[TestDox('pai de PastaSecao (hierarquia, guarda de ciclo nos UseCases de mover): recusa, o pai não muda')]
     public function testPaiDePastaSecaoRecusa(): void
     {
