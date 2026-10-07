@@ -4438,3 +4438,269 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-modal-pasta-btn--cadastro { background: var(--ps-l2-cli-bg); color: var(--ps-l2-aba-ativa-tx); }
 .ps-modal-pasta-btn--cadastro:hover,
 .ps-modal-pasta-btn--cadastro:focus-visible { background: var(--ps-l2-cli-hv); color: var(--ps-l2-aba-ativa-tx); }
+
+/* =============================================================================
+   L16a — Modal "Adicionar pagamento" (desenho 1.2.3, dc L.1928-2012): tipo,
+   base, entrada, parcelas, 1º vencimento, juros e a prévia das parcelas.
+   Medidas do desenho: 540px, cabeçalho #eef2f5, rótulos 10.5px/700 caixa-alta,
+   campos 34px, segmentado 28px, prévia #f6f9fb, botões 34px. O modal vive no
+   <body> (fora de .ps-page), por isso os tokens vão em `.ps-body`, com par escuro.
+   ============================================================================= */
+.ps-body {
+    --ps-np-bg:          #fff;
+    --ps-np-sombra:      0 24px 60px -20px rgba(10,40,60,.45);
+    --ps-np-cab-bg:      #eef2f5;
+    --ps-np-cab-borda:   #e0e7ec;
+    --ps-np-icone:       #0a7aad;
+    --ps-np-titulo:      #12242f;
+    --ps-np-sub:         #6b8494;
+    --ps-np-fechar:      #4f6878;
+    --ps-np-fechar-hv:   #dfe8ee;
+    --ps-np-rotulo:      #6b8494;
+    --ps-np-nota:        #7b93a2;
+    --ps-np-tipo-bg:     #fff;
+    --ps-np-tipo-tx:     #4f6878;
+    --ps-np-tipo-borda:  #dde5eb;
+    --ps-np-on-bg:       #e5f1f7;
+    --ps-np-on-tx:       #0a7aad;
+    --ps-np-on-borda:    #9fcbe2;
+    --ps-np-seg-bg:      #eef2f5;
+    --ps-np-seg-on-bg:   #fff;
+    --ps-np-seg-sombra:  0 1px 2px rgba(16,42,58,.12);
+    --ps-np-input-bg:    #fff;
+    --ps-np-input-bd:    #d3dde4;
+    --ps-np-input-tx:    #12242f;
+    --ps-np-foco:        #0a7aad;
+    --ps-np-foco-anel:   rgba(10,122,173,.14);
+    --ps-np-texto:       #243845;
+    --ps-np-previa-bg:   #f6f9fb;
+    --ps-np-previa-res:  #4f6878;
+    --ps-np-erro:        #c0392b;
+    --ps-np-rodape-bd:   #eef2f5;
+    --ps-np-cancelar:    #eef2f5;
+    --ps-np-cancelar-hv: #e2e9ee;
+    --ps-np-gerar:       #0a7aad;
+    --ps-np-gerar-off:   #c9d6de;
+}
+[data-bs-theme="dark"] .ps-body {
+    --ps-np-bg:          var(--bs-body-bg);
+    --ps-np-sombra:      0 24px 60px -20px rgba(0,0,0,.7);
+    --ps-np-cab-bg:      rgba(255,255,255,.05);
+    --ps-np-cab-borda:   rgba(255,255,255,.08);
+    --ps-np-icone:       var(--ps-accent);
+    --ps-np-titulo:      var(--bs-body-color);
+    --ps-np-sub:         #8fa6b4;
+    --ps-np-fechar:      #9fb3c0;
+    --ps-np-fechar-hv:   rgba(255,255,255,.08);
+    --ps-np-rotulo:      #8fa6b4;
+    --ps-np-nota:        #8fa6b4;
+    --ps-np-tipo-bg:     transparent;
+    --ps-np-tipo-tx:     #b4c4ce;
+    --ps-np-tipo-borda:  rgba(255,255,255,.14);
+    --ps-np-on-bg:       rgba(69,176,214,.16);
+    --ps-np-on-tx:       var(--ps-accent);
+    --ps-np-on-borda:    rgba(69,176,214,.45);
+    --ps-np-seg-bg:      rgba(255,255,255,.06);
+    --ps-np-seg-on-bg:   rgba(255,255,255,.12);
+    --ps-np-seg-sombra:  none;
+    --ps-np-input-bg:    rgba(255,255,255,.04);
+    --ps-np-input-bd:    rgba(255,255,255,.16);
+    --ps-np-input-tx:    var(--bs-body-color);
+    --ps-np-foco:        var(--ps-accent);
+    --ps-np-foco-anel:   rgba(69,176,214,.2);
+    --ps-np-texto:       var(--bs-body-color);
+    --ps-np-previa-bg:   rgba(255,255,255,.04);
+    --ps-np-previa-res:  #9fb3c0;
+    --ps-np-erro:        #ef8a7f;
+    --ps-np-rodape-bd:   rgba(255,255,255,.08);
+    --ps-np-cancelar:    rgba(255,255,255,.08);
+    --ps-np-cancelar-hv: rgba(255,255,255,.14);
+    --ps-np-gerar:       #0a7aad;
+    --ps-np-gerar-off:   rgba(255,255,255,.14);
+}
+
+.ps-np-modal .ps-np-dialogo { max-width: 568px; margin: 5vh auto; padding: 0 14px; } /* 540px de conteúdo + 14px de respiro de cada lado (dc L.1929-1930) */
+.ps-np-modal .ps-np {
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-np-bg);
+    box-shadow: var(--ps-np-sombra);
+    overflow: hidden;
+}
+.ps-np-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--ps-np-cab-bg);
+    border-bottom: 1px solid var(--ps-np-cab-borda);
+}
+.ps-np-cab-icone { font-size: 17px; color: var(--ps-np-icone); }
+.ps-np-cab-textos { flex: 1; min-width: 0; }
+.ps-np-titulo { font-size: 14.5px; font-weight: 700; color: var(--ps-np-titulo); }
+.ps-np-sub { font-size: 11.5px; color: var(--ps-np-sub); }
+.ps-np-fechar {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ps-np-fechar);
+    font-size: 15px;
+    cursor: pointer;
+}
+.ps-np-fechar:hover,
+.ps-np-fechar:focus-visible { background: var(--ps-np-fechar-hv); }
+
+.ps-np-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 13px; }
+.ps-np-bloco { display: flex; flex-direction: column; gap: 6px; }
+.ps-np-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ps-np-rotulo);
+}
+.ps-np-nota { font-size: 11.5px; color: var(--ps-np-nota); line-height: 1.45; }
+
+.ps-np-tipos { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 6px; }
+.ps-np-tipo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 4px;
+    border: 1px solid var(--ps-np-tipo-borda);
+    background: var(--ps-np-tipo-bg);
+    color: var(--ps-np-tipo-tx);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+}
+.ps-np-tipo i { font-size: 12px; }
+.ps-np-tipo.is-ativo { background: var(--ps-np-on-bg); color: var(--ps-np-on-tx); border-color: var(--ps-np-on-borda); }
+.ps-np-tipo:disabled { opacity: .5; cursor: not-allowed; }
+
+.ps-np-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ps-np-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; }
+.ps-np-campo[hidden] { display: none; }
+.ps-np-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--ps-np-input-bd);
+    border-radius: 4px;
+    background: var(--ps-np-input-bg);
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ps-np-input-tx);
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+.ps-np-input:focus { border-color: var(--ps-np-foco); box-shadow: 0 0 0 3px var(--ps-np-foco-anel); }
+
+.ps-np-seg { display: flex; gap: 4px; background: var(--ps-np-seg-bg); border-radius: 4px; padding: 3px; }
+.ps-np-juros { display: flex; gap: 6px; align-items: center; }
+.ps-np-juros .ps-np-seg { flex: 1; }
+.ps-np-seg-op {
+    flex: 1;
+    height: 28px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ps-np-tipo-tx);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.ps-np-seg-op.is-ativo { background: var(--ps-np-seg-on-bg); color: var(--ps-np-on-tx); box-shadow: var(--ps-np-seg-sombra); }
+.ps-np-taxa { width: 64px; flex-shrink: 0; text-align: right; }
+.ps-np-taxa[hidden] { display: none; }
+
+/* O desenho põe o botão 9px abaixo da grade; o gap de 13px do corpo menos 4px dá isso. */
+.ps-np-entrada-paga {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: -4px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ps-np-texto);
+    cursor: pointer;
+    align-self: flex-start;
+}
+.ps-np-entrada-paga[hidden] { display: none; }
+.ps-np-entrada-paga i { font-size: 15px; color: var(--ps-np-icone); }
+
+.ps-np-previa {
+    background: var(--ps-np-previa-bg);
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.ps-np-previa-cab { display: flex; align-items: center; gap: 8px; }
+.ps-np-previa-cab .ps-cab-espaco { flex: 1; }
+.ps-np-previa-resumo { font-size: 12px; color: var(--ps-np-previa-res); font-variant-numeric: tabular-nums; }
+.ps-np-previa-linhas { display: flex; flex-direction: column; gap: 6px; }
+.ps-np-previa-linhas:empty { display: none; }
+.ps-np-previa-linha { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ps-np-previa-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ps-np-texto); }
+.ps-np-previa-quando { color: var(--ps-np-sub); white-space: nowrap; }
+.ps-np-previa-valor { font-weight: 600; color: var(--ps-np-titulo); min-width: 92px; text-align: right; }
+.ps-np-previa-mais,
+.ps-np-previa-vazio { font-size: 12px; color: var(--ps-np-nota); }
+.ps-np-previa-erro { font-size: 12px; font-weight: 600; color: var(--ps-np-erro); }
+.ps-np-previa [hidden] { display: none; }
+
+.ps-np-rodape {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 11px 16px;
+    border-top: 1px solid var(--ps-np-rodape-bd);
+}
+.ps-np-cancelar {
+    height: 34px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-np-cancelar);
+    color: var(--ps-np-texto);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ps-np-cancelar:hover,
+.ps-np-cancelar:focus-visible { background: var(--ps-np-cancelar-hv); }
+.ps-np-gerar {
+    height: 34px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-np-gerar);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.ps-np-gerar:disabled { background: var(--ps-np-gerar-off); cursor: not-allowed; }

@@ -641,43 +641,116 @@
                     {% endif %}
 </div>{# /.ps-page #}
 
-{# ── Modal: novo pagamento da pasta ─────────────────────────────────────────
+{# ── Modal: Adicionar pagamento (desenho 1.2.3, dc L.1928-2012) ──────────────
    FORA de .ps-page pelo mesmo motivo dos modais do gerenciador logo abaixo: um
    ancestral com `transform` (a animação de entrada dos painéis) vira bloco de
-   contenção de `position: fixed` e prende o modal abaixo do backdrop. #}
-<div class="modal fade" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <form id="formNovoPagamento">
-                <div class="modal-header py-2">
-                    <h6 class="modal-title" id="modalNovoPagamentoLabel">
-                        <i class="bi bi-wallet2 me-1"></i> Novo pagamento
-                    </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+   contenção de `position: fixed` e prende o modal abaixo do backdrop.
+
+   Tipo → base (valor fixo | % da causa) → total, entrada, parcelas, 1º
+   vencimento, juros → PRÉVIA das parcelas → "Gerar N lançamentos". A prévia é
+   calculada no navegador só para mostrar; o POST leva os CAMPOS e o servidor
+   refaz a conta (`RegistrarParcelamentoDaPastaUseCase`) — o que grava é a
+   conta dele. Êxito e sucumbência aparecem como no desenho, mas desabilitados:
+   gravá-los depende de migration (fatia 11b). #}
+<div class="modal fade ps-np-modal" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true"
+     data-url-parcelar="{{ path('pasta_pagamento_parcelar', {id: pasta.id}) }}"
+     data-max-parcelas="60">
+    <div class="modal-dialog ps-np-dialogo">
+        <div class="modal-content ps-np">
+            <form id="formNovoPagamento" novalidate>
+                <input type="hidden" name="_token" value="{{ csrf_token('pasta_pagamento_' ~ pasta.id) }}">
+                <input type="hidden" name="tipo" value="contrato">
+                <input type="hidden" name="base" value="valor">
+                <input type="hidden" name="juros" value="0">
+                <input type="hidden" name="entradaPaga" value="1">
+
+                <div class="ps-np-cab">
+                    <i class="bi bi-cash-coin ps-np-cab-icone" aria-hidden="true"></i>
+                    <div class="ps-np-cab-textos">
+                        <div class="ps-np-titulo" id="modalNovoPagamentoLabel">Adicionar pagamento</div>
+                        <div class="ps-np-sub">Valor da causa <span class="js-np-causa">{{ financeiro.valorCausaFormatado }}</span> · cálculo automático</div>
+                    </div>
+                    <button type="button" class="ps-np-fechar" data-bs-dismiss="modal" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold" for="novoPagamentoDescricao">Descrição</label>
-                        <input type="text" class="form-control form-control-sm" id="novoPagamentoDescricao"
-                               name="descricao" maxlength="120" required
-                               placeholder="Ex.: 2ª parcela — honorários">
+
+                <div class="ps-np-corpo">
+                    <div class="ps-np-bloco">
+                        <span class="ps-np-rotulo">Tipo</span>
+                        <div class="ps-np-tipos" role="group" aria-label="Tipo do pagamento">
+                            <button type="button" class="ps-np-tipo is-ativo" data-tipo="contrato" aria-pressed="true"
+                                    data-nota="Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros."
+                                    title="Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros."><i class="bi bi-file-earmark-text"></i>Contratuais</button>
+                            <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false" disabled
+                                    title="Participação no proveito econômico: % sobre o valor da causa, recebido só se houver resultado. Ainda não disponível."><i class="bi bi-trophy"></i>Êxito</button>
+                            <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false" disabled
+                                    title="Fixada pelo juízo, em regra entre 10% e 20% (art. 85 CPC). Ainda não disponível."><i class="bi bi-bank"></i>Sucumbência</button>
+                            <button type="button" class="ps-np-tipo" data-tipo="custas" aria-pressed="false"
+                                    data-nota="Custas e despesas adiantadas a reembolsar pelo cliente."
+                                    title="Custas e despesas adiantadas a reembolsar pelo cliente."><i class="bi bi-receipt"></i>Custas</button>
+                        </div>
+                        <span class="ps-np-nota js-np-tipo-nota">Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros.</span>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold" for="novoPagamentoValor">Valor</label>
-                        <input type="text" class="form-control form-control-sm" id="novoPagamentoValor"
-                               name="valor" inputmode="decimal" maxlength="20" required
-                               placeholder="1.300,00">
+
+                    <div class="ps-np-grade">
+                        <div class="ps-np-campo">
+                            <span class="ps-np-rotulo">Base do valor</span>
+                            <div class="ps-np-seg" role="group" aria-label="Base do valor">
+                                <button type="button" class="ps-np-seg-op is-ativo" data-base="valor" aria-pressed="true">Valor fixo</button>
+                                <button type="button" class="ps-np-seg-op" data-base="pct" aria-pressed="false">% da causa</button>
+                            </div>
+                        </div>
+                        <label class="ps-np-campo js-np-campo-total">
+                            <span class="ps-np-rotulo">Valor total (R$)</span>
+                            <input type="text" class="ps-np-input" name="total" inputmode="decimal" maxlength="20" placeholder="0,00" autocomplete="off">
+                        </label>
+                        <label class="ps-np-campo js-np-campo-pct" hidden>
+                            <span class="ps-np-rotulo">% do valor da causa</span>
+                            <input type="text" class="ps-np-input" name="percentual" inputmode="decimal" maxlength="8" value="20" autocomplete="off">
+                        </label>
+                        <label class="ps-np-campo">
+                            <span class="ps-np-rotulo">Entrada (R$)</span>
+                            <input type="text" class="ps-np-input" name="entrada" inputmode="decimal" maxlength="20" placeholder="opcional" autocomplete="off">
+                        </label>
+                        <label class="ps-np-campo">
+                            <span class="ps-np-rotulo">Parcelas</span>
+                            <input type="number" class="ps-np-input" name="parcelas" min="1" max="60" step="1" value="1">
+                        </label>
+                        <label class="ps-np-campo">
+                            <span class="ps-np-rotulo">1º vencimento</span>
+                            <input type="date" class="ps-np-input" name="vencimento">
+                        </label>
+                        <div class="ps-np-campo">
+                            <span class="ps-np-rotulo">Juros</span>
+                            <div class="ps-np-juros">
+                                <div class="ps-np-seg" role="group" aria-label="Juros">
+                                    <button type="button" class="ps-np-seg-op is-ativo" data-juros="0" aria-pressed="true">Sem juros</button>
+                                    <button type="button" class="ps-np-seg-op" data-juros="1" aria-pressed="false">Com juros</button>
+                                </div>
+                                <input type="text" class="ps-np-input ps-np-taxa" name="taxa" inputmode="decimal" maxlength="7" value="1"
+                                       aria-label="Juros ao mês (%)" title="Juros ao mês (%)" autocomplete="off" hidden>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-1">
-                        <label class="form-label small fw-semibold" for="novoPagamentoVencimento">Vencimento</label>
-                        <input type="date" class="form-control form-control-sm" id="novoPagamentoVencimento"
-                               name="vencimento" required>
+                    <button type="button" class="ps-np-entrada-paga js-np-entrada-paga" aria-pressed="true" hidden>
+                        <i class="bi bi-check-square-fill"></i>Entrada já recebida hoje
+                    </button>
+
+                    <div class="ps-np-previa" aria-live="polite">
+                        <div class="ps-np-previa-cab">
+                            <span class="ps-np-rotulo">Prévia</span>
+                            <span class="ps-cab-espaco"></span>
+                            <span class="ps-np-previa-resumo js-np-resumo"></span>
+                        </div>
+                        <div class="ps-np-previa-linhas js-np-linhas"></div>
+                        <div class="ps-np-previa-mais js-np-mais" hidden></div>
+                        <div class="ps-np-previa-erro js-np-erro" hidden></div>
+                        <div class="ps-np-previa-vazio js-np-vazio">Preencha o valor para ver as parcelas calculadas.</div>
                     </div>
-                    <div id="novoPagamentoErro" class="text-danger small mt-2 d-none"></div>
                 </div>
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm" id="btnSalvarPagamento">Lançar</button>
+
+                <div class="ps-np-rodape">
+                    <button type="button" class="ps-np-cancelar" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="ps-np-gerar" id="btnSalvarPagamento" disabled>Adicionar</button>
                 </div>
             </form>
         </div>

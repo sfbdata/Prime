@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
+use App\Pasta\DTO\ParcelamentoDaPastaInput;
 use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaPagamentoRepository;
@@ -12,6 +13,7 @@ use App\Pasta\UseCase\AlternarQuitacaoDoPagamentoUseCase;
 use App\Pasta\UseCase\CorrigirValorDoPagamentoUseCase;
 use App\Pasta\UseCase\ExcluirPagamentoDaPastaUseCase;
 use App\Pasta\UseCase\RegistrarPagamentoDaPastaUseCase;
+use App\Pasta\UseCase\RegistrarParcelamentoDaPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -40,6 +42,7 @@ final class PastaPagamentoController extends AbstractController
         private readonly AlternarQuitacaoDoPagamentoUseCase $alternarUseCase,
         private readonly ExcluirPagamentoDaPastaUseCase $excluirUseCase,
         private readonly CorrigirValorDoPagamentoUseCase $corrigirValorUseCase,
+        private readonly RegistrarParcelamentoDaPastaUseCase $parcelamentoUseCase,
     ) {
     }
 
@@ -79,6 +82,65 @@ final class PastaPagamentoController extends AbstractController
         return $this->json([
             'id'      => $pagamento->getId(),
             'resumo'  => $this->resumo($pasta),
+        ], Response::HTTP_CREATED);
+    }
+
+    /**
+     * "Adicionar pagamento" do desenho 1.2.3 (dc L.1928-2012): entrada, N
+     * parcelas e juros, gravados de uma vez. O POST leva os CAMPOS do modal; a
+     * conta das parcelas é refeita no UseCase — o que a prévia do navegador
+     * mostrou não é gravado, é recalculado.
+     *
+     * Mesma ordem e mesmo CSRF do lançamento avulso (o gesto é o mesmo: lançar
+     * na pasta): permissão de editar → CSRF → UseCase. Pasta de outro escritório
+     * nem resolve (TenantFilter → 404); pasta excluída é recusada antes pelo
+     * `PastaSomenteLeituraListener`. Erro de campo → 422, sem gravar nada.
+     */
+    #[Route('/{id}/pagamento/parcelamento', name: 'pasta_pagamento_parcelar', methods: ['POST'])]
+    public function parcelar(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId     = (int) $pasta->getId();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null) {
+            return $this->json(['erro' => 'Escritório não identificado.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_pagamento_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $campo = static fn (string $nome): string => (string) $request->request->get($nome, '');
+
+        try {
+            $saida = $this->parcelamentoUseCase->executar($pasta, $currentUser, $tenant, new ParcelamentoDaPastaInput(
+                tipo: $campo('tipo'),
+                base: $campo('base'),
+                valorTotal: $campo('total'),
+                percentual: $campo('percentual'),
+                entrada: $campo('entrada'),
+                entradaPaga: $campo('entradaPaga') === '1',
+                parcelas: $campo('parcelas'),
+                primeiroVencimento: $campo('vencimento'),
+                comJuros: $campo('juros') === '1',
+                taxaMensal: $campo('taxa'),
+            ));
+        } catch (\DomainException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'ids'        => $saida->ids,
+            'quantidade' => $saida->quantidade,
+            'resumo'     => $this->resumo($pasta),
         ], Response::HTTP_CREATED);
     }
 
