@@ -3893,8 +3893,8 @@ document.addEventListener('DOMContentLoaded', function () {
    caixa alta; rodapé Fechar · Salvar. SÓ a moldura: os campos e o POST para
    `pasta_edit` são os de sempre (ids, names, CSRF). O que o desenho põe e aqui
    não entra, por ser decisão do dono ou função nova (D-META): "Ação" só leitura,
-   Tipo de documento/CPF, a pílula "Alterações não salvas" e o Salvar travado sem
-   alteração. Responsável com "Trocar": PAS-021, abaixo.
+   Tipo de documento/CPF. Responsável com "Trocar" (PAS-021), a pílula de estado,
+   o Salvar travado e "Pendências" (PAS-020): abaixo.
 
    Abas de atalho e "Cadastro do cliente" (lote L2; dc L.570-572, 587, 4299-4301):
    são ATALHOS, não abas do form — ficam FORA do <form>, sem `name`, e nenhum campo
@@ -3903,8 +3903,7 @@ document.addEventListener('DOMContentLoaded', function () {
    Cadastro do cabeçalho (sem cliente cadastrado: levam à seção Clientes da aba
    Dados, onde se vincula um); Processo fecha e abre a aba Processo; Histórico
    fecha e abre o drawer do histórico. O desenho descarta o que foi digitado ao
-   trocar de aba; aqui, se o form foi alterado, pergunta antes (confirm) — sem a
-   pílula, que é D-META. #}
+   trocar de aba; aqui, se o form foi alterado, pergunta antes (confirm). #}
 <style>
     /* PAS-021: a linha só leitura do desenho (dc L.581: 34px, fundo suave, "Trocar" 26px). */
     .ps-pe-resp {
@@ -3917,6 +3916,23 @@ document.addEventListener('DOMContentLoaded', function () {
         background: var(--ps-accent-bg); color: var(--ps-accent); font-size: 12px; font-weight: 700;
     }
     .ps-pe-resp-trocar:hover, .ps-pe-resp-trocar:focus-visible { background: var(--ps-hover); outline: none; }
+    /* PAS-020: pílula de estado, Salvar travado e "Pendências" (dc L.567, 584, 588; `peVals`). */
+    .ps-pe-estado {
+        display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 9px;
+        border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--ps-ok-bg); color: var(--ps-ok-text);
+    }
+    .ps-pe-estado-ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--ps-ok-dot); }
+    .ps-pe-estado.is-alterado { background: var(--ps-warn-bg); color: var(--ps-warn-text); }
+    .ps-pe-estado.is-alterado .ps-pe-estado-ponto { background: var(--ps-warn-dot); }
+    .ps-pe-pendencias {
+        display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 4px;
+        background: var(--ps-warn-bg); box-shadow: inset 0 0 0 1px var(--ps-warn-border);
+    }
+    .ps-pe-pendencias[hidden] { display: none; }
+    .ps-pe-pendencias-rot { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ps-warn-text); }
+    .ps-pe-pendencias-linha { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ps-warn-text); }
+    .ps-pe-pendencias-linha i { font-size: 12px; color: var(--ps-danger-dot); }
+    #modalEditarPasta .ps-modal-pasta-btn--salvar:disabled { opacity: 1; background: var(--ps-border-ctl); color: #fff; cursor: not-allowed; }
 </style>
 {% set editCliente = pasta.clientePrincipal %}
 {% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
@@ -3928,15 +3944,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 <span class="ps-modal-pasta-cab-icone" aria-hidden="true"><i class="bi bi-folder2-open"></i></span>
                 <div class="ps-modal-pasta-cab-corpo">
                     <h2 class="ps-modal-pasta-titulo" id="modalEditarPastaLabel"><span class="visually-hidden">Editar dados da </span>Pasta {{ pasta.nup }}</h2>
-                    {% if editNomeSub or editDocumento %}
-                        <div class="ps-modal-pasta-sub">
-                            <span>
+                    {# PAS-020 (dc L.567, `pe.stTxt`): a pílula de estado fica na linha do subtítulo —
+                       "Dados da pasta" (verde) ou "Alterações não salvas" (âmbar); o script abaixo
+                       a alterna comparando o formulário com o que veio do servidor. #}
+                    <div class="ps-modal-pasta-sub">
+                        {% if editNomeSub or editDocumento %}
+                            <span class="ps-modal-pasta-sub-tx">
                                 {{- editNomeSub -}}
                                 {%- if editNomeSub and editDocumento %} · {% endif -%}
                                 {%- if editDocumento -%}{{ editDocumento|documento_br_rotulo }} {{ editDocumento|documento_br }}{%- endif -%}
                             </span>
-                        </div>
-                    {% endif %}
+                        {% endif %}
+                        <span class="ps-pe-estado" data-pe-estado><span class="ps-pe-estado-ponto" aria-hidden="true"></span><span data-pe-estado-txt>Dados da pasta</span></span>
+                    </div>
                 </div>
                 <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -4031,6 +4051,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
+                    {# PAS-020 (dc L.584, `pe.temErro`): o que impede salvar, no bloco "Pendências".
+                       Aqui só o que a tela sabe sozinha (número vazio); número repetido e o resto
+                       continuam com o servidor, que responde no flash de sempre. #}
+                    <div class="ps-pe-pendencias" role="alert" data-pe-pendencias hidden>
+                        <span class="ps-pe-pendencias-rot">Pendências</span>
+                        <span class="ps-pe-pendencias-linha"><i class="bi bi-x-circle-fill" aria-hidden="true"></i><span data-pe-pendencias-txt></span></span>
+                    </div>
+
                 </div>
                 <div class="ps-modal-pasta-rodape">
                     <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-bs-dismiss="modal">Fechar</button>
@@ -4054,12 +4082,45 @@ document.addEventListener('DOMContentLoaded', function () {
     var modal = document.getElementById('modalEditarPasta');
     if (!modal || typeof bootstrap === 'undefined') { return; }
     var form = modal.querySelector('form');
-    var foto = null;
 
     function serializar() {
         return form ? new URLSearchParams(new FormData(form)).toString() : '';
     }
-    modal.addEventListener('shown.bs.modal', function () { foto = serializar(); });
+    // O retrato é o que veio do SERVIDOR (tirado ao carregar): fechar e reabrir com algo
+    // digitado continua "Alterações não salvas".
+    var foto = serializar();
+
+    /* PAS-020 (`peVals`: `mud`, `erro`, `naoSalvar`): a pílula diz se há alteração; o Salvar
+       só acende com alteração e sem pendência; a pendência aparece no bloco. */
+    var estado = modal.querySelector('[data-pe-estado]');
+    var estadoTxt = modal.querySelector('[data-pe-estado-txt]');
+    var pendencias = modal.querySelector('[data-pe-pendencias]');
+    var pendenciasTxt = modal.querySelector('[data-pe-pendencias-txt]');
+    var salvar = form ? form.querySelector('button[type="submit"]') : null;
+    var nup = document.getElementById('edit_nup');
+
+    function conferir() {
+        var mudou = serializar() !== foto;
+        var erro = nup && nup.value.trim() === '' ? 'Informe o número da pasta.' : '';
+        if (estado) {
+            estado.classList.toggle('is-alterado', mudou);
+            estadoTxt.textContent = mudou ? 'Alterações não salvas' : 'Dados da pasta';
+        }
+        if (pendencias) {
+            pendencias.hidden = !(mudou && erro);
+            pendenciasTxt.textContent = mudou ? erro : '';
+        }
+        if (salvar) {
+            salvar.disabled = !(mudou && !erro);
+            salvar.title = !mudou ? 'Nenhuma alteração para salvar' : (erro || '');
+        }
+    }
+    if (form) {
+        form.addEventListener('input', conferir);
+        form.addEventListener('change', conferir);
+    }
+    modal.addEventListener('show.bs.modal', conferir);
+    conferir();
 
     function irParaClientes() {
         var aba = document.getElementById('dados-tab');
@@ -4100,9 +4161,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var destino = destinos[gatilho.getAttribute('data-pe-ir')];
         if (!destino) { return; }
 
-        if (foto !== null && serializar() !== foto) {
+        if (serializar() !== foto) {
             if (!window.confirm('Descartar as alterações não salvas dos dados da pasta?')) { return; }
             form.reset();
+            conferir();
         }
 
         modal.addEventListener('hidden.bs.modal', function aoFechar() {

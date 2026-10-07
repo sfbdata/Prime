@@ -76,4 +76,34 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         self::assertSame('Sem responsável', trim($resp->filter('[data-pe-resp-nome]')->text()));
         self::assertCount(0, $resp->filter('.ps-pe-resp-trocar'), 'quem só lê não troca o responsável');
     }
+
+    #[TestDox('PAS-020: pílula "Dados da pasta" na linha do subtítulo, bloco "Pendências" escondido e o script que trava o Salvar')]
+    public function testPilulaSalvarEPendencias(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $sub = $crawler->filter('#modalEditarPasta .ps-modal-pasta-cab-corpo > .ps-modal-pasta-sub');
+        self::assertCount(1, $sub, 'a linha existe mesmo sem cliente: ela leva a pílula');
+        $pilula = $sub->filter('.ps-modal-pasta-sub > .ps-pe-estado[data-pe-estado]');
+        self::assertSame('Dados da pasta', trim($pilula->text()));
+        self::assertCount(1, $pilula->filter('.ps-pe-estado > .ps-pe-estado-ponto'));
+
+        $pend = $crawler->filter('#modalEditarPasta form > .ps-modal-pasta-corpo > .ps-pe-pendencias[role="alert"][data-pe-pendencias]');
+        self::assertCount(1, $pend, 'o bloco fica no fim do corpo, dentro do formulário');
+        self::assertNotNull($pend->attr('hidden'));
+        self::assertSame('Pendências', trim($pend->filter('.ps-pe-pendencias-rot')->text()));
+        self::assertCount(1, $pend->filter('.ps-pe-pendencias-linha > i.bi-x-circle-fill'));
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString("var foto = serializar();", $html, 'o retrato é o do servidor, tirado ao carregar');
+        self::assertStringContainsString("estadoTxt.textContent = mudou ? 'Alterações não salvas' : 'Dados da pasta';", $html);
+        self::assertStringContainsString("var erro = nup && nup.value.trim() === '' ? 'Informe o número da pasta.' : '';", $html);
+        self::assertStringContainsString('salvar.disabled = !(mudou && !erro);', $html);
+        self::assertStringContainsString('pendencias.hidden = !(mudou && erro);', $html);
+    }
 }
