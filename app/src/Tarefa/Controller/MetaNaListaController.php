@@ -28,9 +28,10 @@ use Symfony\Component\Routing\Attribute\Route;
  * Os três são POST de formulário comum com CSRF e voltam para `pasta_show#tarefas`,
  * como o `tarefa_concluir` de sempre. A guarda é a MESMA do concluir
  * (`TarefaController::assertAccess` + `verificarAcessoTarefa`, reproduzidas aqui sem
- * mudança): módulo `tarefas` + pasta da meta pertencente ao escritório — e, além delas,
- * `canAccessResource('pasta', edit)` sobre a pasta da meta. Meta de outro
- * escritório nem chega aqui — o TenantFilter a esconde e o resolvedor responde 404.
+ * mudança): módulo `tarefas` + meta do escritório da sessão (SEC-013b: 404 se não for) +
+ * pasta da meta com vínculo no escritório — e, além delas, `canAccessResource('pasta', edit)`
+ * sobre a pasta da meta. Normalmente a meta de outro escritório nem chega aqui (o TenantFilter
+ * a esconde e o resolvedor responde 404); o guarda de posse cobre o filtro falhando.
  */
 #[Route('/tarefas')]
 final class MetaNaListaController extends AbstractController
@@ -145,6 +146,14 @@ final class MetaNaListaController extends AbstractController
     /** Igual a `TarefaController::verificarAcessoTarefa`. */
     private function verificarAcessoTarefa(Tarefa $tarefa, Tenant $tenant): void
     {
+        // SEC-013b: a posse vem ANTES do vínculo (mesma correção do TarefaController). Só o
+        // vínculo do criador/responsável da pasta deixa passar a meta de OUTRO escritório quando
+        // essa pessoa está nos dois (e o TenantFilter falhou). Fora do escritório: 404 — 403
+        // confirmaria que o id existe em algum lugar.
+        if ($tarefa->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException('Meta não encontrada.');
+        }
+
         $pasta       = $tarefa->getPasta();
         $criador     = $pasta->getCriadoPor();
         $responsavel = $pasta->getResponsavel();
