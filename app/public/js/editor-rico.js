@@ -170,6 +170,13 @@
     /** Palavras que só servem para reconhecer a forma acentuada / sugerir (`EXTRA` do desenho). */
     var VOCABULARIO_EXTRA = ['processo', 'processual', 'prazo', 'prazos', 'cliente', 'contrato', 'recurso', 'agravo', 'embargos', 'liminar', 'tutela', 'protocolo', 'protocolado', 'advogado', 'advogada', 'assinatura', 'assinado', 'comprovante', 'pagamento', 'parcela', 'acordo', 'atendimento', 'encaminhado', 'encaminhar', 'aguardando', 'solicitado', 'conforme', 'referente', 'mediante', 'expediente', 'expedientes', 'testemunha', 'depoimento', 'laudo', 'deferido', 'indeferido', 'julgado', 'julgamento', 'requerimento', 'requerente', 'requerido', 'executado', 'notificado', 'intimado', 'citado', 'cumprimento', 'embargante', 'embargado', 'agravante', 'agravado', 'apelante', 'apelado', 'reclamante', 'reclamada', 'TJDFT', 'PJe'];
 
+    /**
+     * Sinônimos do menu do botão direito (EDT-012): o dicionário local `SIN` do desenho
+     * (bj-editor.js l.166), copiado literalmente — chave sem acento e minúscula, como `dobrar()`
+     * devolve. Estático: nada sai do navegador nem vem de serviço externo.
+     */
+    var SINONIMOS = { urgente: ['prioritário', 'imediato', 'inadiável'], cliente: ['constituinte', 'contratante', 'assistido'], prazo: ['termo', 'período', 'limite'], processo: ['ação', 'feito', 'autos'], documento: ['arquivo', 'peça', 'registro'], solicitar: ['requerer', 'pedir', 'pleitear'], informar: ['comunicar', 'notificar', 'cientificar'], analisar: ['examinar', 'avaliar', 'verificar'], problema: ['questão', 'pendência', 'impasse'], importante: ['relevante', 'essencial', 'fundamental'], rapido: ['ágil', 'célere', 'breve'], resolver: ['solucionar', 'sanar', 'regularizar'], acordo: ['composição', 'ajuste', 'transação'], reuniao: ['encontro', 'conferência', 'atendimento'], enviar: ['encaminhar', 'remeter', 'despachar'], receber: ['obter', 'acolher'], verificar: ['conferir', 'checar', 'apurar'], pedido: ['requerimento', 'solicitação', 'pleito'], decisao: ['deliberação', 'despacho', 'julgamento'], necessario: ['indispensável', 'imprescindível', 'essencial'], possivel: ['viável', 'factível'], atraso: ['demora', 'morosidade'], pagamento: ['quitação', 'liquidação', 'adimplemento'], contrato: ['instrumento', 'ajuste', 'avença'], advogado: ['patrono', 'procurador', 'causídico'], juiz: ['magistrado', 'julgador'], informacao: ['dado', 'esclarecimento', 'comunicação'], providencia: ['medida', 'diligência', 'ação'], concluir: ['finalizar', 'encerrar', 'terminar'], iniciar: ['começar', 'instaurar', 'dar início'], aguardar: ['esperar', 'acompanhar'], atualizar: ['renovar', 'revisar', 'complementar'], ajuizar: ['propor', 'distribuir', 'protocolar'] };
+
     /** Tira acento e caixa: "Petição" → "peticao". */
     function dobrar(t) {
         return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -967,9 +974,14 @@
     // (tecla de menu, Shift+F10) e o toque longo — casos que o desenho não cobre — seguem com o
     // menu do navegador.
     //
-    // Fora deste menu, de propósito: "Sugestões de correção" e "Sinônimos" (EDT-012), "Definir",
-    // "Traduzir" e "Pesquisar na web", "Inserir qualificação do cliente" (EDT-014) e "Hiperlink…"
-    // (EDT-025: a barra não tem link).
+    // Sinônimos (EDT-012): com a palavra sob o cursor no dicionário local `SINONIMOS`, o bloco
+    // "Sinônimos de "palavra"" entra antes de Localizar, e cada item troca a palavra (na caixa
+    // dela) num passo só do histórico. Como no desenho, o botão direito fora da seleção leva o
+    // cursor ao ponto do clique — a palavra é a que está sob o mouse.
+    //
+    // Fora deste menu, de propósito: "Sugestões de correção", "Definir", "Traduzir" e "Pesquisar
+    // na web", "Inserir qualificação do cliente" (EDT-014) e "Hiperlink…" (EDT-025: a barra não
+    // tem link).
     //
     // Área de transferência: Recortar e Copiar usam a Clipboard API quando ela existe (texto e
     // HTML do próprio editor) e, sem ela, o comando do navegador, que o Quill trata como Ctrl+C/X.
@@ -1144,6 +1156,76 @@
         return caixa.innerHTML;
     }
 
+    /** Nó e deslocamento do texto sob o ponto (padrão e WebKit). */
+    function pontoDoTexto(x, y) {
+        if (document.caretPositionFromPoint) {
+            var p = document.caretPositionFromPoint(x, y);
+
+            return p ? { no: p.offsetNode, deslocamento: p.offset } : null;
+        }
+        if (document.caretRangeFromPoint) {
+            var r = document.caretRangeFromPoint(x, y);
+
+            return r ? { no: r.startContainer, deslocamento: r.startOffset } : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Botão direito FORA da seleção leva o cursor ao ponto do clique (`ctxMenu` do desenho,
+     * `dentroSel`); dentro dela, a seleção fica. O índice sai do blot do Quill sob o ponto.
+     */
+    function moverCursorParaOClique(quill, x, y) {
+        var atual = quill.getSelection();
+        var nativa = window.getSelection();
+        if (atual && atual.length > 0 && nativa && nativa.rangeCount) {
+            var dentro = [].slice.call(nativa.getRangeAt(0).getClientRects()).some(function (q) {
+                return x >= q.left && x <= q.right && y >= q.top && y <= q.bottom;
+            });
+            if (dentro) { return; }
+        }
+
+        var ponto = pontoDoTexto(x, y);
+        if (!ponto || !ponto.no || !quill.root.contains(ponto.no)) { return; }
+        var blot = Quill.find(ponto.no, true);
+        if (!blot || typeof blot.offset !== 'function') { return; }
+
+        var indice = blot.offset(quill.scroll) + (ponto.no.nodeType === 3 ? ponto.deslocamento : 0);
+        quill.setSelection(Math.min(indice, Math.max(quill.getLength() - 1, 0)), 0, 'silent');
+    }
+
+    /**
+     * Palavra sob o cursor (ou que contém a seleção), em índices de `getText()`: a seleção é
+     * estendida às letras vizinhas. Seleção com mais de uma palavra não tem sinônimo — `null`.
+     */
+    function palavraDoMenu(quill, faixa) {
+        if (!faixa) { return null; }
+        var texto = quill.getText();
+        var letra = /[\p{L}\p{M}]/u;
+        var inicio = faixa.index;
+        var fim = faixa.index + faixa.length;
+        while (inicio > 0 && letra.test(texto.charAt(inicio - 1))) { inicio--; }
+        while (fim < texto.length && letra.test(texto.charAt(fim))) { fim++; }
+        var palavra = texto.slice(inicio, fim);
+
+        return /^[\p{L}\p{M}]+$/u.test(palavra) ? { inicio: inicio, texto: palavra } : null;
+    }
+
+    /** Sinônimos do dicionário local para a palavra (busca sem acento e sem caixa). */
+    function sinonimosDe(palavra) {
+        var lista = Object.prototype.hasOwnProperty.call(SINONIMOS, dobrar(palavra)) ? SINONIMOS[dobrar(palavra)] : null;
+
+        return Array.isArray(lista) ? lista : [];
+    }
+
+    /** Troca a palavra pelo sinônimo, na caixa dela, num passo só do histórico. */
+    function trocarPorSinonimo(quill, palavra, sinonimo) {
+        var para = mesmaCaixa(palavra.texto, sinonimo);
+        trocarTrechos(quill, [{ inicio: palavra.inicio, tamanho: palavra.texto.length, para: para }]);
+        quill.setSelection(palavra.inicio + para.length, 0, 'user');
+    }
+
     function abrirMenuContexto(refs, x, y) {
         var quill = refs.quill;
         fecharMenuContexto(refs);
@@ -1151,6 +1233,7 @@
         fecharChip(refs);
         fecharSugestoes(refs);
         fecharOpcoesDeColar(refs);
+        moverCursorParaOClique(quill, x, y);
 
         var faixa = quill.getSelection() || quill.getSelection(true);
         var formatos = faixa ? quill.getFormat(faixa) : {};
@@ -1205,6 +1288,18 @@
         ].forEach(function (b) { paragrafo.appendChild(botaoDoMenu(icone(b[0]), b[1], b[2], executar(b[3]))); });
         menu.appendChild(paragrafo);
         menu.appendChild(el('div', 'editor-rico-menu-separador'));
+
+        var palavra = palavraDoMenu(quill, faixa);
+        var sinonimos = palavra ? sinonimosDe(palavra.texto) : [];
+        if (sinonimos.length) {
+            menu.appendChild(cabecalhoDaJanela('Sinônimos de "' + palavra.texto + '"'));
+            sinonimos.forEach(function (sinonimo) {
+                menu.appendChild(itemDoMenu('bi-arrow-left-right', sinonimo, '', false, executar(function () {
+                    trocarPorSinonimo(quill, palavra, sinonimo);
+                })));
+            });
+            menu.appendChild(el('div', 'editor-rico-menu-separador'));
+        }
 
         menu.appendChild(itemDoMenu('bi-search', 'Localizar e substituir', 'Ctrl+H', false, executar(function () { refs.busca.abrir(); })));
         menu.appendChild(itemDoMenu('bi-spellcheck', 'Revisar texto', '', false, executar(function () {
