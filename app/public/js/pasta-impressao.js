@@ -13,7 +13,7 @@
    - Imprimir: iframe OCULTO com `sandbox` SEM permissão de script (nada roda lá
      dentro) e CSP fechada; a folha entra por DOM. Funciona com pop-up bloqueado.
    - Baixar PDF: o mesmo pedido, na rota `pasta_resumo_pdf` (Dompdf). Só para as
-     folhas que o servidor monta inteiras (não a moldura).
+     folhas que o servidor monta inteiras (resumo e extrato).
    - Copiar texto: o texto da folha como se lê (innerText).
 
    API para os outros scripts da pasta: window.PastaImpressao.
@@ -134,7 +134,7 @@
 
     /**
      * @param {{secao: string, titulo?: string, autor?: string, corpo?: Node}} cfg
-     *        `secao`: resumo | moldura. Na moldura, `titulo`, `autor`
+     *        `secao`: resumo | extrato | moldura. Na moldura, `titulo`, `autor`
      *        (texto) e `corpo` (nó já clonado) vêm da tela.
      */
     function abrir(cfg) {
@@ -377,6 +377,8 @@
     window.PastaImpressao = {
         /** Imprimir resumo da pasta (⋮ do cabeçalho). */
         resumo: function () { return abrir({ secao: 'resumo' }); },
+        /** Imprimir extrato (⋮ de Pagamentos, aba Financeiro). */
+        extrato: function () { return abrir({ secao: 'extrato' }); },
         /**
          * Folha com corpo montado pela tela (registro, processo).
          * @param {{titulo: string, autor?: string, corpo: Node}} cfg

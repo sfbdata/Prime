@@ -50,6 +50,7 @@ final class PastaImpressaoOpcoesTest extends TestCase
     public static function secoes(): iterable
     {
         yield 'resumo' => ['resumo', 'resumo'];
+        yield 'extrato' => ['extrato', 'extrato'];
         yield 'moldura' => ['moldura', 'moldura'];
         yield 'desconhecida vira null (404)' => ['../segredo', null];
     }

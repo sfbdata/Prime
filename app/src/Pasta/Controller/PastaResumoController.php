@@ -41,17 +41,17 @@ use Symfony\Component\Routing\Attribute\Route;
  *  - PDF (`pasta_resumo_pdf`): a mesma folha gerada no servidor (Dompdf), com o rodapé
  *    "BlueJus · página k de n", baixada como anexo.
  *
- * As três obedecem às MESMAS opções (`PastaImpressaoOpcoes`): seção (resumo ou só a moldura, para
- * o registro e o processo que a tela monta), cabeçalho do escritório, dados da pasta, autor,
- * financeiro e tamanho do texto.
+ * As três obedecem às MESMAS opções (`PastaImpressaoOpcoes`): seção (resumo, extrato do
+ * Financeiro ou só a moldura, para o registro e o processo que a tela monta), cabeçalho do
+ * escritório, dados da pasta, autor, financeiro e tamanho do texto.
  *
  * Só leitura. O guarda é o MESMO da tela da pasta, em duas camadas explícitas:
  *   1. a pasta é do escritório da sessão — o resolver de entidade busca por PK e o TenantFilter
  *      não se aplica a `find()`, então a conferência de dono não pode ficar implícita (404);
  *   2. o usuário pode VER esta pasta (`resources.pasta.view`, via `canAccessResource`) — 403.
  *
- * O Financeiro (seção resumida e bloco de lançamentos) só sai para quem o vê, pela regra única de
- * `VisibilidadeDoFinanceiroDaPasta` — a mesma da timeline e da análise.
+ * O Financeiro (seção resumida, bloco de lançamentos e o extrato inteiro) só sai para quem o vê,
+ * pela regra única de `VisibilidadeDoFinanceiroDaPasta` — a mesma da timeline e da análise.
  */
 #[Route('/pasta')]
 final class PastaResumoController extends AbstractController
@@ -182,11 +182,14 @@ final class PastaResumoController extends AbstractController
         }
 
         $veFinanceiro = $this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta);
+        if ($opcoes->secao === PastaImpressaoOpcoes::SECAO_EXTRATO && !$veFinanceiro) {
+            throw $this->createAccessDeniedException('Sem permissão para ver o financeiro desta pasta.');
+        }
 
         $pagamentos = $this->pastaPagamentoRepository->findByPasta($pasta, $tenant);
         $resumo     = $opcoes->secao === PastaImpressaoOpcoes::SECAO_RESUMO
             ? $this->resumoCompleto($pasta, $tenant, $pagamentos, $veFinanceiro)
-            // A moldura só usa a faixa Pasta/Cliente/Processo: sem Push nem checklist.
+            // Extrato e moldura só usam a faixa Pasta/Cliente/Processo: sem Push nem checklist.
             : PastaResumoImpressaoOutput::montar(
                 $pasta,
                 PastaPendenciasOutput::montar($pasta, 0, $pagamentos),
@@ -196,8 +199,9 @@ final class PastaResumoController extends AbstractController
             );
 
         $titulo = match ($opcoes->secao) {
-            PastaImpressaoOpcoes::SECAO_RESUMO => 'Resumo da pasta ' . $resumo->numero,
-            default                            => '',
+            PastaImpressaoOpcoes::SECAO_RESUMO  => 'Resumo da pasta ' . $resumo->numero,
+            PastaImpressaoOpcoes::SECAO_EXTRATO => 'Extrato de pagamentos',
+            default                             => '',
         };
 
         return [

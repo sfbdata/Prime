@@ -1234,7 +1234,13 @@
         return 'Pagamentos · ' + textoLimpo(folha.querySelector('.ps-fin-extrato-total')) + '\n' + linhas.join('\n');
     }
 
+    /* "Imprimir extrato" (desenho dc 3515 → `gmImprimir`, EDT-004/FPN-010): a MESMA janela
+       do Imprimir resumo (pasta-impressao.js), com a folha do servidor — tarja, cabeçalho
+       BLUEJUS, faixa Pasta/Cliente/Processo e rodapé "Documento interno do escritório ·
+       BlueJus". Sem a janela na página (script não carregou), a impressão antiga direta. */
     function imprimirExtrato() {
+        if (window.PastaImpressao && window.PastaImpressao.extrato()) { return; }
+
         const cab   = document.getElementById('psExtratoCabecalho');
         const folha = document.getElementById('psExtratoFolha');
         if (!cab || !folha) { return; }

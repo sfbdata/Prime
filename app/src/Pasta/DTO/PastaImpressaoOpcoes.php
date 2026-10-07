@@ -15,9 +15,9 @@ use Symfony\Component\HttpFoundation\InputBag;
  * desenho (`gmImprimir`): os três primeiros ligados, o Financeiro DESLIGADO. "Tamanho do texto"
  * vai de 9 a 16 pt em passos de 0,5, padrão 11,5.
  *
- * A seção diz QUAL folha: `resumo` (Imprimir resumo) ou `moldura` (só cabeçalho, faixa,
- * financeiro e rodapé: o corpo é posto pela tela — registro e processo). Seção desconhecida é
- * `null`: o controller responde 404.
+ * A seção diz QUAL folha: `resumo` (Imprimir resumo), `extrato` (Imprimir extrato do Financeiro)
+ * ou `moldura` (só cabeçalho, faixa, financeiro e rodapé: o corpo é posto pela tela — registro e
+ * processo). Seção desconhecida é `null`: o controller responde 404.
  *
  * Valor fora do que a tela manda (fonte "abc", 99 pt) não é erro: cai no padrão ou no limite.
  * Quem decide se o usuário VÊ o financeiro não é esta classe — é o controller.
@@ -25,13 +25,14 @@ use Symfony\Component\HttpFoundation\InputBag;
 final readonly class PastaImpressaoOpcoes
 {
     public const SECAO_RESUMO  = 'resumo';
+    public const SECAO_EXTRATO = 'extrato';
     public const SECAO_MOLDURA = 'moldura';
 
     public const FONTE_MINIMA = 9.0;
     public const FONTE_MAXIMA = 16.0;
     public const FONTE_PADRAO = 11.5;
 
-    private const SECOES = [self::SECAO_RESUMO, self::SECAO_MOLDURA];
+    private const SECOES = [self::SECAO_RESUMO, self::SECAO_EXTRATO, self::SECAO_MOLDURA];
 
     public function __construct(
         public ?string $secao,

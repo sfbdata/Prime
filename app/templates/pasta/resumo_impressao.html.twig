@@ -1,6 +1,6 @@
 {# ============================================================================
-   A folha impressa da pasta — "Imprimir resumo" e a moldura do "Imprimir" do
-   registro e do processo.
+   A folha impressa da pasta — "Imprimir resumo", "Imprimir extrato" e a moldura
+   do "Imprimir" do registro e do processo.
    Desenho aprovado: docs/design/claude-design-2026-10-05 (1)/
    "02 - EXPEDIENTES 1.2.3.dc.html" — `imprimirResumo()` (conteúdo do resumo),
    `impMontar()` (faixa azul, cabeçalho BLUEJUS, faixa Pasta/Cliente/Processo,
@@ -232,6 +232,16 @@
                         </table>
                     </section>
                 {% endif %}
+            {% elseif secao == 'extrato' and extrato is not null %}
+                {# O mesmo conteúdo da folha `#psExtratoFolha` da aba Financeiro (dc 3515). #}
+                <section data-secao="extrato">
+                    <p><strong>{{ extrato.recebidoFormatado }}</strong> recebidos de <strong>{{ extrato.contratadoFormatado }}</strong></p>
+                    <ul>
+                        {% for linha in extrato.linhas %}
+                            <li>{{ linha.descricao }}: {{ linha.valor }} · {{ linha.quando }}</li>
+                        {% endfor %}
+                    </ul>
+                </section>
             {% endif %}
         </div>
 
