@@ -417,6 +417,35 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         $this->useCase->executar($this->pasta, [$alheio], [], $this->autor, $this->tenant);
     }
 
+    /**
+     * SEC-007: linha legada cujo `caminho_arquivo` não vira chave. Antes, a `ChaveDeArquivoInvalida`
+     * subia como `InvalidArgumentException` — 422 com o trecho do caminho na mensagem e o .zip
+     * inteiro perdido. Agora segue a política do arquivo ausente.
+     */
+    #[TestDox('caminho gravado inválido (linha legada): não aborta, entra no LEIA-ME como não encontrado, e o caminho não aparece')]
+    public function testCaminhoInvalidoEntraNoLeiaMeComoNaoEncontrado(): void
+    {
+        $ok       = $this->documento('ok.pdf', null, 'ok');
+        $invalido = $this->documento('legado.pdf', null, null);
+        $invalido->setCaminhoArquivo('segredo-interno/legado.pdf');
+        $this->arvore([], [$ok, $invalido]);
+
+        $saida = $this->useCase->executar($this->pasta, [$ok, $invalido], [], $this->autor, $this->tenant);
+        $this->gerados[] = $saida->arquivo->caminho();
+
+        self::assertSame(1, $saida->arquivos);
+        self::assertSame(1, $saida->naoEncontrados);
+
+        $entradas = $this->entradasDoZip($saida->arquivo->caminho());
+        self::assertSame(['LEIA-ME.txt', 'ok.pdf'], array_keys($entradas));
+        self::assertStringContainsString("Não encontrados (ficaram fora deste .zip):\r\n  - legado.pdf", $entradas['LEIA-ME.txt']);
+        self::assertStringNotContainsString('segredo-interno', $entradas['LEIA-ME.txt'], 'o caminho gravado não vai para o usuário');
+
+        $avisos = $this->logger->doNivel('warning');
+        self::assertCount(1, $avisos);
+        self::assertSame($invalido->getId(), $avisos[0]['contexto']['documento_id']);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function secao(string $nome, int $id, ?PastaSecao $pai = null): PastaSecao

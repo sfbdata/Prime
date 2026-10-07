@@ -18,6 +18,7 @@ use App\Pasta\Service\SelecaoDeItensDaPasta;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Doctrine\ORM\EntityManagerInterface;
@@ -55,6 +56,10 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * conferido por `existe()` ANTES de gravar — nada entra, nada sai, o EntityManager fica aberto. Se
  * o arquivo sumir entre a conferência e a leitura, a mesma recusa sobe de dentro da transação, e
  * as cópias já gravadas saem com ela: "nada foi copiado" vale nos dois caminhos.
+ *
+ * Linha legada cujo `caminho_arquivo` não vira chave (SEC-007): o arquivo é inalcançável, então é
+ * a MESMA recusa, com o nome original. Antes subia a mensagem técnica da chave (com o trecho do
+ * caminho gravado) direto no 422.
  */
 final class CopiarDocumentosDaPastaUseCase
 {
@@ -109,7 +114,7 @@ final class CopiarDocumentosDaPastaUseCase
         // Original sem arquivo no armazenamento: recusa ANTES de gravar qualquer cópia — com o
         // nome, e sem fechar o EntityManager. Pane do storage (`FalhaDeArmazenamento`) sobe (D10).
         foreach ($selecao->documentos as $origem) {
-            if (!$this->armazenamento->existe(ChavesDePasta::documento($origem))) {
+            if (!$this->armazenamento->existe(self::chaveDaOrigem($origem))) {
                 throw OriginalNaoEncontradoException::para($origem->getNomeOriginal());
             }
         }
@@ -139,6 +144,19 @@ final class CopiarDocumentosDaPastaUseCase
         return new ResultadoCopiarDocumentosDaPasta($copias);
     }
 
+    /**
+     * A chave do original; caminho gravado que não vira chave é "original não encontrado" — com o
+     * nome que o usuário vê, nunca a mensagem técnica (que traz o trecho do caminho).
+     */
+    private static function chaveDaOrigem(PastaDocumento $origem): ChaveDeArquivo
+    {
+        try {
+            return ChavesDePasta::documento($origem);
+        } catch (ChaveDeArquivoInvalida) {
+            throw OriginalNaoEncontradoException::para($origem->getNomeOriginal());
+        }
+    }
+
     /** @param list<ChaveDeArquivo> $chavesNovas */
     private function copiar(PastaDocumento $origem, string $nome, Pasta $pasta, ?PastaSecao $destino, User $autor, Tenant $tenant, array &$chavesNovas): PastaDocumento
     {
@@ -147,7 +165,7 @@ final class CopiarDocumentosDaPastaUseCase
         $copia->setTenant($tenant);
 
         try {
-            $recurso = $this->armazenamento->abrir(ChavesDePasta::documento($origem));
+            $recurso = $this->armazenamento->abrir(self::chaveDaOrigem($origem));
         } catch (ArquivoNaoEncontrado) {
             // Sumiu entre a conferência e a leitura: a transação desfaz o que já entrou
             // (`NaoConfirmada` → as cópias gravadas saem) e esta recusa sobe com o nome.

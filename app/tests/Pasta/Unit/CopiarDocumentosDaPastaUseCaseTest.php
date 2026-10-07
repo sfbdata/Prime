@@ -371,6 +371,33 @@ final class CopiarDocumentosDaPastaUseCaseTest extends TestCase
         self::assertTrue($this->memoria->existe($this->memoria->gravadas[0]));
     }
 
+    /**
+     * SEC-007: antes, a `ChaveDeArquivoInvalida` (uma `InvalidArgumentException`) subia crua e a
+     * rota devolvia no 422 a mensagem técnica, com o trecho do caminho gravado.
+     */
+    #[TestDox('original com caminho gravado inválido (linha legada): mesma recusa amigável, com o nome e sem o caminho')]
+    public function testOriginalComCaminhoInvalidoRecusaSemCaminho(): void
+    {
+        $ok      = $this->documento('ok.pdf', null, 'ok', 'ok.pdf');
+        $legado  = $this->documento('legado.pdf', null, null, 'segredo-interno/../legado.pdf');
+        $this->noDestino([]);
+
+        $em = $this->emQueFalha();
+        $em->expects($this->never())->method('getConnection');
+        $em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase($em)->executar($this->pasta, [$ok, $legado], null, $this->autor, $this->tenant);
+            self::fail('devia recusar');
+        } catch (OriginalNaoEncontradoException $e) {
+            self::assertSame('O arquivo original de «legado.pdf» não foi encontrado; nada foi copiado.', $e->getMessage());
+            self::assertStringNotContainsString('segredo-interno', $e->getMessage());
+        }
+
+        self::assertSame([], $this->memoria->gravadas, 'nada entrou');
+        self::assertSame([], $this->persistidos);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function useCase(EntityManagerInterface $em, ?ArmazenamentoDeArquivos $armazenamento = null, DestinoDaTransacao $destino = DestinoDaTransacao::NaoConfirmada): CopiarDocumentosDaPastaUseCase

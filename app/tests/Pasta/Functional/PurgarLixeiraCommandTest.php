@@ -21,6 +21,7 @@ use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Shared\Doctrine\Filter\LixeiraFilter;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
+use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Events;
@@ -53,6 +54,7 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
 
     private EntityManagerInterface $em;
     private ArmazenamentoEmMemoria $memoria;
+    private LoggerEmMemoria $logger;
     private Tenant $tenant;
     private User $autor;
     private Pasta $pasta;
@@ -62,6 +64,7 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         self::bootKernel();
         $this->em      = static::getContainer()->get(EntityManagerInterface::class);
         $this->memoria = new ArmazenamentoEmMemoria();
+        $this->logger  = new LoggerEmMemoria();
 
         $this->tenant = new Tenant();
         $this->tenant->setName('Tenant Purga ' . uniqid());
@@ -345,6 +348,76 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         self::assertSame([], $this->memoria->excluidas);
     }
 
+    /**
+     * SEC-007: a chave montada por item lançava `ChaveDeArquivoInvalida`, o comando parava — e
+     * parava de novo em toda execução seguinte, no mesmo registro. Agora o item é pulado (nem a
+     * linha nem arquivo nenhum saem: apagar às cegas é justamente o que não se faz quando a chave
+     * caiu), um aviso registra o id, e a fila segue.
+     */
+    #[TestDox('documento com caminho gravado inválido: é pulado (linha fica, nada é apagado), vira aviso no log, e o próximo da fila sai')]
+    public function testCaminhoInvalidoEhPuladoEAFilaSegue(): void
+    {
+        $legado  = $this->documento('legado.pdf', naLixeiraHa: 60); // mais antigo: primeiro da fila
+        $vencido = $this->documento('vencido.pdf', naLixeiraHa: 40);
+        $this->corromperCaminho($legado, 'pasta-antiga/legado.pdf');
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('candidatos_documentos=2 secoes_removidas=0 documentos_removidos=1 arquivos_removidos=1 arquivos_nao_removidos=0', $this->saida($tester));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $vencido->getId()), 'o próximo da fila saiu');
+        self::assertFalse($this->memoria->existe($this->chaveDe($vencido)));
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $legado->getId()), 'a linha legada fica — é o único rastro do arquivo');
+        self::assertTrue($this->memoria->existe($this->chaveDe($legado)), 'nenhum arquivo é apagado às cegas');
+        self::assertCount(1, $this->memoria->excluidas);
+
+        $avisos = $this->logger->doNivel('warning');
+        self::assertCount(1, $avisos);
+        self::assertSame((int) $legado->getId(), $avisos[0]['contexto']['documento_id']);
+
+        // A execução seguinte não trava no mesmo registro: termina, e só ele continua na fila.
+        $tester->execute([]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('candidatos_documentos=1 secoes_removidas=0 documentos_removidos=0', $this->saida($tester));
+    }
+
+    /**
+     * Apagar a seção levaria a linha legada pelo cascade e deixaria o arquivo sem rastro: as
+     * seções da árvore ficam. Os documentos válidos e vencidos (o de dentro e o solto) saem pela
+     * fila de documentos, um a um.
+     */
+    #[TestDox('subpasta vencida com documento de caminho inválido na árvore: a subpasta e a linha legada ficam; os válidos vencidos saem pela fila de documentos')]
+    public function testSubpastaComCaminhoInvalidoNaArvoreFica(): void
+    {
+        $secao   = $this->secao('VENCIDA', naLixeiraHa: 50);
+        $filha   = $this->secao('FILHA', pai: $secao, naLixeiraHa: 50);
+        $bom     = $this->documento('bom.pdf', secao: $secao, naLixeiraHa: 50);
+        $legado  = $this->documento('legado.pdf', secao: $filha, naLixeiraHa: 50);
+        $solto   = $this->documento('solto.pdf', naLixeiraHa: 40);
+        $this->corromperCaminho($legado, '');
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        foreach ([$secao, $filha] as $s) {
+            self::assertTrue($this->existeLinha('pasta_secao', (int) $s->getId()), 'a árvore impedida não sai');
+        }
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $legado->getId()));
+        self::assertTrue($this->memoria->existe($this->chaveDe($legado)));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $bom->getId()), 'o válido de dentro sai pela fila de documentos');
+        self::assertFalse($this->memoria->existe($this->chaveDe($bom)));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $solto->getId()), 'o resto da fila sai');
+        self::assertFalse($this->memoria->existe($this->chaveDe($solto)));
+
+        $ids = array_map(static fn (array $r): mixed => $r['contexto']['secao_id'] ?? $r['contexto']['documento_id'] ?? null, $this->logger->doNivel('warning'));
+        self::assertContains((int) $secao->getId(), $ids, 'a subpasta pulada é registrada');
+        self::assertContains((int) $legado->getId(), $ids, 'o documento que impediu também');
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function tester(): CommandTester
@@ -358,6 +431,7 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
             $container->get(AcessoALixeira::class),
             new RemocaoAposTransacao($this->memoria, new NullLogger()),
             new MockClock(self::AGORA),
+            $this->logger,
         )));
     }
 
@@ -423,6 +497,12 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         $this->em->flush();
 
         return [$tenant, $pasta];
+    }
+
+    /** Grava um `caminho_arquivo` legado direto no banco (o setter não valida; aqui é o dado antigo). */
+    private function corromperCaminho(PastaDocumento $doc, string $caminho): void
+    {
+        $this->em->getConnection()->executeStatement('UPDATE pasta_documento SET caminho_arquivo = ? WHERE id = ?', [$caminho, $doc->getId()]);
     }
 
     private function chaveDe(PastaDocumento $doc): ChaveDeArquivo

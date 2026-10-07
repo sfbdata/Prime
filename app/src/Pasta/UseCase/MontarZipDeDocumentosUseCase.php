@@ -21,6 +21,7 @@ use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\ArquivoEmprestado;
 use App\Shared\Armazenamento\ArquivoGeradoParaEntrega;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
@@ -50,6 +51,9 @@ use Psr\Log\LoggerInterface;
  *  - documento cuja linha existe mas o arquivo não está no armazenamento NÃO aborta: fica fora do
  *    .zip e entra no `LEIA-ME.txt` como "não encontrado". Pane do storage
  *    (`FalhaDeArmazenamento`) sobe — não é ausência (D10);
+ *  - linha legada cujo `caminho_arquivo` não vira chave (SEC-007: vazio, `/`, `\`, `..`) segue a
+ *    MESMA política: o arquivo não é alcançável, então é "não encontrado" no LEIA-ME. Antes a
+ *    exceção subia como 422 com o trecho do caminho na mensagem, e o .zip inteiro falhava;
  *  - entrada já comprimida por dentro (pdf, imagem, Office, zip, áudio/vídeo) vai em `CM_STORE`:
  *    deflate nela só gasta CPU no `close()`;
  *  - antes de montar, as sobras do diretório privado com mais de 1 h (processo que morreu,
@@ -145,6 +149,16 @@ final class MontarZipDeDocumentosUseCase
                 } catch (ArquivoNaoEncontrado $e) {
                     $naoEncontrados[] = $entrada;
                     $this->logger->warning('Documento sem arquivo no armazenamento ficou fora do .zip.', [
+                        'documento_id' => $documento->getId(),
+                        'pasta_id'     => $pasta->getId(),
+                        'erro'         => $e->getMessage(),
+                    ]);
+
+                    continue;
+                } catch (ChaveDeArquivoInvalida $e) {
+                    $naoEncontrados[] = $entrada;
+                    // O motivo (com o trecho do caminho) fica só no log, nunca na resposta.
+                    $this->logger->warning('Documento com caminho que não vira chave de armazenamento ficou fora do .zip.', [
                         'documento_id' => $documento->getId(),
                         'pasta_id'     => $pasta->getId(),
                         'erro'         => $e->getMessage(),

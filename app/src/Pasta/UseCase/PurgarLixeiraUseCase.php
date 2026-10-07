@@ -10,10 +10,12 @@ use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Esvazia a lixeira vencida: apaga DE VERDADE (linha e arquivo) o que está na lixeira há mais de
@@ -42,6 +44,14 @@ use Psr\Clock\ClockInterface;
  *    mesmo laço, ou foi purgada por outra execução) é pulada; uma que foi RESTAURADA no meio é
  *    pulada também — reconferida pelo carimbo antes do `remove()`.
  *
+ * Linha legada com `caminho_arquivo` que não vira chave (SEC-007: vazio, com `/`, `\`, `..`,
+ * controle, ou sem escritório): o documento é PULADO — nem linha, nem arquivo saem — e um
+ * `warning` registra o id. A seção que tenha um desses na árvore NÃO é removida, porque o
+ * cascade levaria a linha legada e deixaria o arquivo sem rastro; os documentos válidos e vencidos
+ * de dentro dela ainda saem pela fila de documentos, um a um, como qualquer outro. Antes, a exceção subia, o comando
+ * parava, e parava de novo em toda execução seguinte no mesmo registro. Remover a linha "para
+ * destravar" seria agir justamente quando a premissa (a chave) caiu: recusar é o seguro.
+ *
  * Roda inteiro dentro de `AcessoALixeira::comLixeiraVisivel()`: é um dos três lugares que
  * enxergam a lixeira. Auditoria: cada linha que sai é um `delete` do `AuditLogSubscriber`,
  * descendência inclusive (o cascade do ORM a agenda).
@@ -58,6 +68,7 @@ final class PurgarLixeiraUseCase
         private readonly AcessoALixeira $lixeira,
         private readonly RemocaoAposTransacao $remocao,
         private readonly ClockInterface $clock,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -130,6 +141,13 @@ final class PurgarLixeiraUseCase
                 }
 
                 $daArvore = $this->coletarArvore($secao);
+                if ($daArvore['impedida']) {
+                    $this->registrarPulo('Subpasta não purgada: há documento na árvore com caminho que não vira chave de armazenamento.', [
+                        'secao_id' => (int) $secao->getId(),
+                    ]);
+
+                    continue;
+                }
                 $secoesRemovidas     += 1 + $daArvore['subpastas'];
                 $documentosRemovidos += count($daArvore['chaves']);
                 array_push($chaves, ...$daArvore['chaves']);
@@ -161,7 +179,12 @@ final class PurgarLixeiraUseCase
                     continue;
                 }
 
-                $chaves[] = ChavesDePasta::documento($documento);
+                $chave = $this->chaveOuNada($documento);
+                if ($chave === null) {
+                    continue;
+                }
+
+                $chaves[] = $chave;
                 ++$documentosRemovidos;
 
                 if (!$simulacao) {
@@ -218,33 +241,77 @@ final class PurgarLixeiraUseCase
      * Lido com o filtro desligado: pega o que está na lixeira E o que, por inconsistência, ainda
      * estiver vivo lá dentro — o cascade do banco levaria os dois.
      *
-     * @return array{chaves: list<ChaveDeArquivo>, subpastas: int, ids: list<int>, idsDocumentos: list<int>}
+     * `impedida`: algum documento da árvore não vira chave — quem chama não remove a seção.
+     *
+     * @return array{chaves: list<ChaveDeArquivo>, subpastas: int, ids: list<int>, idsDocumentos: list<int>, impedida: bool}
      */
     private function coletarArvore(PastaSecao $secao, int $profundidade = 0): array
     {
         if ($profundidade >= PastaSecao::LIMITE_SEGURANCA) {
-            return ['chaves' => [], 'subpastas' => 0, 'ids' => [], 'idsDocumentos' => []];
+            return ['chaves' => [], 'subpastas' => 0, 'ids' => [], 'idsDocumentos' => [], 'impedida' => false];
         }
 
         $chaves        = [];
         $subpastas     = 0;
         $ids           = [(int) $secao->getId()];
         $idsDocumentos = [];
+        $impedida      = false;
 
         foreach ($secao->getDocumentos() as $documento) {
-            $chaves[]        = ChavesDePasta::documento($documento);
+            $chave = $this->chaveOuNada($documento);
+            if ($chave === null) {
+                $impedida = true;
+
+                continue;
+            }
+            $chaves[]        = $chave;
             $idsDocumentos[] = (int) $documento->getId();
         }
 
         foreach ($secao->getFilhas() as $filha) {
             $daFilha    = $this->coletarArvore($filha, $profundidade + 1);
             $subpastas += 1 + $daFilha['subpastas'];
+            $impedida   = $impedida || $daFilha['impedida'];
             array_push($chaves, ...$daFilha['chaves']);
             array_push($ids, ...$daFilha['ids']);
             array_push($idsDocumentos, ...$daFilha['idsDocumentos']);
         }
 
-        return ['chaves' => $chaves, 'subpastas' => $subpastas, 'ids' => $ids, 'idsDocumentos' => $idsDocumentos];
+        return ['chaves' => $chaves, 'subpastas' => $subpastas, 'ids' => $ids, 'idsDocumentos' => $idsDocumentos, 'impedida' => $impedida];
+    }
+
+    /**
+     * A chave do documento, ou null quando o `caminho_arquivo` gravado não vira chave (linha
+     * legada). Null quer dizer "não toque": quem chama pula o item, nunca apaga às cegas.
+     */
+    private function chaveOuNada(PastaDocumento $documento): ?ChaveDeArquivo
+    {
+        try {
+            return ChavesDePasta::documento($documento);
+        } catch (ChaveDeArquivoInvalida $e) {
+            $this->registrarPulo('Documento não purgado: o caminho gravado não vira chave de armazenamento.', [
+                'documento_id' => (int) $documento->getId(),
+                'pasta_id'     => $documento->getPasta()?->getId(),
+                'motivo'       => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Como no `RemocaoAposTransacao`: o registro nunca muda o desfecho — um logger que lança não
+     * pode derrubar a purga que acabou de decidir NÃO apagar.
+     *
+     * @param array<string, mixed> $contexto
+     */
+    private function registrarPulo(string $mensagem, array $contexto): void
+    {
+        try {
+            $this->logger->warning($mensagem, ['contexto' => 'PurgarLixeiraUseCase'] + $contexto);
+        } catch (\Throwable) {
+            // Sem onde registrar: o item continua na lixeira, que é o rastro.
+        }
     }
 
     private static function vencida(?\DateTimeImmutable $excluidoEm, \DateTimeImmutable $corte): bool
