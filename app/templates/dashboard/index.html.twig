@@ -20,10 +20,13 @@
 {# Estilo pessoal do menu ⋮ (PreferenciasDoDashboardOutput, do usuário LOGADO neste escritório):
    as classes saem do servidor já no HTML, para a página abrir no estilo da pessoa sem piscar. O
    `.db-page` fica FORA da região que o XHR troca, então as classes sobrevivem a cada filtro. O
-   dashboard-preferencias.js lê o estado de `data-preferencias` e grava pelo endpoint. #}
+   dashboard-preferencias.js lê o estado de `data-preferencias` e grava pelo endpoint.
+   `data-ia-avancado-escolhido`: o usuário já gravou o Modo avançado? Se não, ligar pede a
+   confirmação "Ativar Modo Avançado?" (só na primeira vez). #}
 <section class="db-page{{ preferencias.classesCss() != '' ? ' ' ~ preferencias.classesCss() : '' }}"
          data-preferencias="{{ preferencias.paraArray()|json_encode|e('html_attr') }}"
-         data-preferencias-endpoint="{{ path('dashboard_preferencias_salvar') }}">
+         data-preferencias-endpoint="{{ path('dashboard_preferencias_salvar') }}"
+         data-ia-avancado-escolhido="{{ preferencias.iaAvancadoEscolhido ? 'sim' : 'nao' }}">
     {% set respOpcoes = [] %}
     {% for u in responsaveis %}
         {% set respOpcoes = respOpcoes|merge([{ valor: u.id, label: u.nome }]) %}

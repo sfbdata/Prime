@@ -29,6 +29,12 @@
  * clique é ouvido no `.db-page` (delegação) e o aria-checked é reposto a cada recarga. Grava pelo
  * mesmo endpoint/CSRF; a classe `db-page--ia-avancado` mostra o bloco avançado e leva o painel a
  * 600px. "Restaurar padrão" da tabela não mexe nele (no desenho é outra chave).
+ *
+ * Ligar na PRIMEIRA vez (sem escolha gravada: `data-ia-avancado-escolhido="nao"` no `.db-page`)
+ * abre a confirmação "Ativar Modo Avançado?" (`[data-ia-confirma]`, dc L939-959); depois de
+ * qualquer gravação dessa chave, liga direto. Desligar é sempre imediato. O cartão "Conhecer o
+ * Modo avançado" (`[data-ia-teaser]`) aparece por 6s cada vez que o painel abre com o modo
+ * desligado e sai com fade (dc L2586-2595: 6000ms marca a saída, 6600ms some).
  */
 (function () {
     'use strict';
@@ -71,6 +77,9 @@
             });
         }
     } catch (e) { /* sem estado legível: fica o padrão */ }
+
+    // O usuário já gravou o Modo avançado? Sem escolha, ligar pede a confirmação.
+    var iaEscolhido = pagina.getAttribute('data-ia-avancado-escolhido') === 'sim';
 
     // Só a resposta da última gravação vale (duas escolhas rápidas não se atropelam).
     var ultimaGravacao = 0;
@@ -188,6 +197,9 @@
         pagina.querySelectorAll('[data-ia-avancado-switch]').forEach(function (b) {
             b.setAttribute('aria-checked', ligado ? 'true' : 'false');
         });
+        if (ligado) {
+            esconderTeaser();
+        }
     }
 
     function aplicar(e) {
@@ -212,6 +224,9 @@
             if (!r.ok) { throw new Error('HTTP ' + r.status); }
             return r.json();
         }).then(function (dados) {
+            if (corpo.chave === CH_IA) {
+                iaEscolhido = true;
+            }
             if (minha === ultimaGravacao && dados && dados.preferencias) {
                 aplicar(dados.preferencias);
                 var confirmadas = extras(estado);
@@ -339,7 +354,68 @@
     });
 
     // ── Modo avançado do painel Intelligence ────────────────────────────────
+    var TEASER_SAI = 6000;
+    var TEASER_SOME = 6600;
+    var teaserTimers = [];
+
+    function confirmaAberta() {
+        var c = pagina.querySelector('[data-ia-confirma]');
+        return c && !c.hidden ? c : null;
+    }
+
+    function abrirConfirma() {
+        var c = pagina.querySelector('[data-ia-confirma]');
+        if (!c) {
+            mudar(CH_IA, 'ligado');
+            return;
+        }
+        c.hidden = false;
+        var ativar = c.querySelector('[data-ia-confirma-ativar]');
+        if (ativar) { ativar.focus(); }
+    }
+
+    function fecharConfirma(devolverFoco) {
+        var c = confirmaAberta();
+        if (!c) { return; }
+        c.hidden = true;
+        if (devolverFoco) {
+            var sw = pagina.querySelector('[data-ia-avancado-switch]');
+            if (sw) { sw.focus(); }
+        }
+    }
+
+    function limparTeaser() {
+        teaserTimers.forEach(clearTimeout);
+        teaserTimers = [];
+    }
+
+    function esconderTeaser() {
+        limparTeaser();
+        pagina.querySelectorAll('[data-ia-teaser]').forEach(function (t) {
+            t.hidden = true;
+            t.classList.remove('is-saindo');
+        });
+    }
+
+    // Cada abertura do painel com o modo desligado: 6s visível, depois fade e some.
+    function mostrarTeaser() {
+        esconderTeaser();
+        if (estado[CH_IA] === 'ligado') { return; }
+        var t = pagina.querySelector('[data-ia-teaser]');
+        if (!t) { return; }
+        t.hidden = false;
+        teaserTimers.push(setTimeout(function () { t.classList.add('is-saindo'); }, TEASER_SAI));
+        teaserTimers.push(setTimeout(function () {
+            t.hidden = true;
+            t.classList.remove('is-saindo');
+        }, TEASER_SOME));
+    }
+
     function ligarIa() {
+        if (!iaEscolhido) {
+            abrirConfirma();
+            return;
+        }
         mudar(CH_IA, 'ligado');
     }
 
@@ -353,11 +429,53 @@
     }
 
     pagina.addEventListener('click', function (ev) {
-        var alvo = ev.target.closest('[data-ia-avancado-switch]');
-        if (alvo && pagina.contains(alvo)) {
-            alternarIa();
+        var alvo = ev.target.closest('[data-ia-avancado-switch], [data-ia-teaser], [data-ia-confirma-ativar], [data-ia-confirma-cancelar]');
+        if (!alvo || !pagina.contains(alvo)) { return; }
+
+        if (alvo.hasAttribute('data-ia-confirma-ativar')) {
+            fecharConfirma(true);
+            mudar(CH_IA, 'ligado');
+            return;
         }
+        if (alvo.hasAttribute('data-ia-confirma-cancelar')) {
+            fecharConfirma(true);
+            return;
+        }
+        // interruptor do topo ou cartão do rodapé: o mesmo comando (dc: av.alternar)
+        alternarIa();
     });
+
+    // O painel é um [popover] dentro do fragmento trocado: o `toggle` não borbulha, então é
+    // ouvido na captura. Abrir mostra o cartão; fechar limpa cartão e confirmação.
+    document.addEventListener('toggle', function (ev) {
+        if (!ev.target || ev.target.id !== 'dbIaPainel') { return; }
+        if (ev.newState === 'open') {
+            mostrarTeaser();
+        } else {
+            esconderTeaser();
+            fecharConfirma(false);
+        }
+    }, true);
+
+    // Esc com a confirmação aberta fecha só a confirmação; Tab fica entre os dois botões.
+    document.addEventListener('keydown', function (ev) {
+        var c = confirmaAberta();
+        if (!c) { return; }
+        if (ev.key === 'Escape') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            fecharConfirma(true);
+            return;
+        }
+        if (ev.key === 'Tab') {
+            var botoes = Array.prototype.slice.call(c.querySelectorAll('button'));
+            if (!botoes.length) { return; }
+            var i = botoes.indexOf(document.activeElement);
+            var prox = ev.shiftKey ? (i <= 0 ? botoes.length - 1 : i - 1) : (i === -1 || i === botoes.length - 1 ? 0 : i + 1);
+            ev.preventDefault();
+            botoes[prox].focus();
+        }
+    }, true);
 
     // ── lugar do menu: cabeçalho da tabela, ao lado da lupa ─────────────────
     function encaixar() {

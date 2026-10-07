@@ -68,4 +68,43 @@ final class DashboardModoAvancadoJsTest extends TestCase
     {
         self::assertStringContainsString('padrao[CH_IA] = estado[CH_IA];', $this->js());
     }
+
+    #[TestDox('DASH-026: ligar sem escolha gravada abre a confirmação; o estado vem do servidor (data-ia-avancado-escolhido)')]
+    public function testPrimeiraVezPedeConfirmacao(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString("pagina.getAttribute('data-ia-avancado-escolhido') === 'sim'", $js);
+        $ligar = substr($js, (int) strpos($js, 'function ligarIa()'), 200);
+        self::assertStringContainsString('if (!iaEscolhido) {', $ligar);
+        self::assertStringContainsString('abrirConfirma();', $ligar);
+        self::assertStringContainsString('if (corpo.chave === CH_IA) {', $js, 'depois de gravar a chave, não pede de novo');
+    }
+
+    #[TestDox('DASH-026: "Ativar Modo Avançado" grava ligado; "Agora não" só fecha; Esc fecha a confirmação')]
+    public function testBotoesDaConfirmacao(): void
+    {
+        $js = $this->js();
+
+        $ativar = substr($js, (int) strpos($js, "if (alvo.hasAttribute('data-ia-confirma-ativar'))"), 200);
+        self::assertStringContainsString("mudar(CH_IA, 'ligado');", $ativar);
+        $cancelar = substr($js, (int) strpos($js, "if (alvo.hasAttribute('data-ia-confirma-cancelar'))"), 120);
+        self::assertStringContainsString('fecharConfirma(true);', $cancelar);
+        self::assertStringNotContainsString('mudar(', $cancelar);
+        self::assertStringContainsString("if (ev.key === 'Escape') {", substr($js, (int) strpos($js, 'var c = confirmaAberta();')));
+    }
+
+    #[TestDox('DASH-026: o cartão abre a cada abertura do painel (toggle na captura) e sai aos 6000ms / some aos 6600ms')]
+    public function testCartaoPorSeisSegundos(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString('var TEASER_SAI = 6000;', $js);
+        self::assertStringContainsString('var TEASER_SOME = 6600;', $js);
+        self::assertStringContainsString("t.classList.add('is-saindo'); }, TEASER_SAI)", $js);
+        self::assertStringContainsString("document.addEventListener('toggle'", $js);
+        self::assertStringContainsString("ev.target.id !== 'dbIaPainel'", $js);
+        self::assertStringContainsString("if (estado[CH_IA] === 'ligado') { return; }", substr($js, (int) strpos($js, 'function mostrarTeaser()'), 200), 'com o modo ligado o cartão não aparece');
+        self::assertStringContainsString('[data-ia-teaser]', $js);
+    }
 }
