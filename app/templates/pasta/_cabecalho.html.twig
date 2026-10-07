@@ -388,7 +388,20 @@
             <span class="ps-cab-selo-faixa"><i class="bi bi-archive-fill" aria-hidden="true"></i>ARQUIVADO</span>
         </div>
     {% endset %}
-    <div class="ps-cab-dados" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}">
+    {# PAS-002: ao REATIVAR (arquivado → ativo pela pílula), o desenho carimba "ATIVO" por
+       3,3 s (`ativoSeloMostrar`) e o selo some sozinho. Nunca vem do servidor: só existe
+       como modelo, e o script do fim do parcial o põe e o tira. #}
+    {% set seloAtivo %}
+        <div class="ps-cab-selo ps-cab-selo--ativo" role="img" aria-label="Pasta ativa" title="Situação da pasta: Ativo">
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-aro" aria-hidden="true"></span>
+            <span class="ps-cab-selo-faixa"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>ATIVO</span>
+        </div>
+    {% endset %}
+    <div class="ps-cab-dados" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}"
+         data-ps-selo-ativo-modelo="{{ seloAtivo|e('html_attr') }}">
         {% if pasta.situacao == 'arquivado' %}{{ seloArquivado }}{% endif %}
         <div class="ps-cab-dado" data-campo="processo">
             <p class="ps-rotulo"><i class="bi bi-diagram-3"></i>Processo vinculado</p>
@@ -690,19 +703,37 @@
 (function () {
     /* O selo ARQUIVADO acompanha a pílula de situação. Quem faz a troca é o script da
        tela (show.html.twig), que só alterna as classes da pílula; observar a classe evita
-       um segundo caminho de troca e mantém o selo fiel ao que o servidor respondeu. */
+       um segundo caminho de troca e mantém o selo fiel ao que o servidor respondeu.
+       PAS-002: na volta de arquivado para ativo, o carimbo ATIVO bate e some em 3,3 s
+       (desenho `ativoSeloMostrar`); o CSS faz o esmaecer, o timer tira o nó. */
     var pilula = document.getElementById('btn-alternar-status');
     var faixa  = document.querySelector('.ps-cabecalho .ps-cab-dados');
     if (!pilula || !faixa || !faixa.dataset.psSeloModelo || !window.MutationObserver) { return; }
 
+    var estavaArquivada = pilula.classList.contains('ps-situacao-pill--arquivado');
+    var tempoDoAtivo    = null;
+
+    function tirarSeloAtivo() {
+        clearTimeout(tempoDoAtivo);
+        var ativo = faixa.querySelector(':scope > .ps-cab-selo--ativo');
+        if (ativo) { ativo.remove(); }
+    }
+
     function sincronizarSelo() {
         var arquivada = pilula.classList.contains('ps-situacao-pill--arquivado');
-        var selo      = faixa.querySelector(':scope > .ps-cab-selo');
+        var selo      = faixa.querySelector(':scope > .ps-cab-selo--arquivado');
         if (arquivada && !selo) {
+            tirarSeloAtivo();
             faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloModelo);
         } else if (!arquivada && selo) {
             selo.remove();
         }
+        if (estavaArquivada && !arquivada && faixa.dataset.psSeloAtivoModelo) {
+            tirarSeloAtivo();
+            faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloAtivoModelo);
+            tempoDoAtivo = setTimeout(tirarSeloAtivo, 3300);
+        }
+        estavaArquivada = arquivada;
     }
 
     new MutationObserver(sincronizarSelo).observe(pilula, { attributes: true, attributeFilter: ['class'] });

@@ -135,4 +135,26 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         }
         self::assertStringNotContainsString('#b4460a', $escuro);
     }
+
+    #[TestDox('PAS-002: o observador da pílula carimba ATIVO só na volta de arquivado para ativo e tira o selo em 3,3 s')]
+    public function testSeloAtivoPassageiro(): void
+    {
+        $script = self::trecho(self::ler(self::CABECALHO), 'O selo ARQUIVADO acompanha a pílula');
+
+        self::assertStringContainsString("var estavaArquivada = pilula.classList.contains('ps-situacao-pill--arquivado');", $script);
+        self::assertStringContainsString('if (estavaArquivada && !arquivada && faixa.dataset.psSeloAtivoModelo)', $script, 'só na reativação');
+        self::assertStringContainsString("insertAdjacentHTML('afterbegin', faixa.dataset.psSeloAtivoModelo)", $script);
+        self::assertStringContainsString('setTimeout(tirarSeloAtivo, 3300)', $script);
+        self::assertStringContainsString('estavaArquivada = arquivada;', $script);
+        // O ARQUIVADO é procurado pela própria classe: o ATIVO na tela não pode passar por ele.
+        self::assertStringContainsString("faixa.querySelector(':scope > .ps-cab-selo--arquivado')", $script);
+
+        $css = self::ler(self::CSS);
+        $ativo = self::regra($css, '.ps-cab-selo--ativo');
+        self::assertStringContainsString('--selo-cor: #1f9d61;', $ativo);
+        self::assertStringContainsString('psSeloSai 2.6s ease-in-out .55s forwards', $ativo);
+        self::assertStringContainsString('@keyframes psSeloSai', $css);
+        // O `animation: none` do reduced-motion vem DEPOIS e vale para o ATIVO também.
+        self::assertGreaterThan(strpos($css, '.ps-cab-selo--ativo {'), strpos($css, '.ps-cab-selo, .ps-cab-selo-onda { animation: none; }'));
+    }
 }

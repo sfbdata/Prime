@@ -782,7 +782,8 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
    um jeito diferente de `transform` e o transform ja e do giro. O granulado de tinta
    e a mesma mascara de dois radial-gradient do desenho, tambem na escala 0,8.
    Sem clique (`pointer-events:none`): o selo fica por cima dos dados sem tapa-los
-   para o mouse. Suspenso e Cancelado nao existem no sistema — so ha o tom arquivado. */
+   para o mouse. Suspenso e Cancelado nao existem no sistema — so ha o tom arquivado
+   e o ATIVO passageiro da reativacao (PAS-002, abaixo). */
 .ps-cab-selo {
     --selo-cor: #5d7383;
     --selo-papel: #fff;
@@ -863,6 +864,18 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     0%   { opacity: 0; transform: translate(-50%, -50%) scale(.9); }
     15%  { opacity: .24; }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); border-width: .5px; }
+}
+/* PAS-002: carimbo ATIVO passageiro ao reativar (desenho `seloEl` + `ativoSeloMostrar`):
+   verde #1f9d61, ícone bi-check-circle-fill, bate (.55s) e esmaece (seloSai, 2,6s a
+   partir de .55s); o script tira o nó em 3,3s. Fonte 16 × 0,8 (rótulo curto). */
+.ps-cab-selo--ativo {
+    --selo-cor: #1f9d61;
+    animation: psSeloBate .55s cubic-bezier(.2,.9,.3,1.2) both, psSeloSai 2.6s ease-in-out .55s forwards;
+}
+.ps-cab-selo--ativo .ps-cab-selo-faixa { font-size: 12.8px; }
+@keyframes psSeloSai {
+    0%, 78% { opacity: .9; }
+    100%    { opacity: 0; transform: translateY(-50%) rotate(-14deg) scale(.96); }
 }
 /* No escuro, `multiply` sobre o cartao escuro apagaria o carimbo: tinta normal, e o
    "papel" entre os aneis passa a ser o proprio cartao. */
