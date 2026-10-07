@@ -16,8 +16,8 @@
    campos reais do cadastro. Campo vazio não aparece — nada de "Não informado"
    nos campos novos. O ⋮ só tem o que já funciona hoje (pasta-processo.js).
    O que é função nova NÃO aparece: integração com o PJe (abrir/atualizar/
-   editar), marcas (gratuita, tutela, prioridade, 100% digital), encaminhar via
-   Chat e imprimir resumo. "Administrativo sem processo"
+   editar), marcas (gratuita, tutela, prioridade, 100% digital) e encaminhar via
+   Chat. "Administrativo sem processo"
    (`Pasta.administrativa`) é o interruptor do cabeçalho — ver abaixo.
 
    Partes: `proc.partes` é coleção LAZY — uma consulta por processo vinculado
@@ -206,8 +206,8 @@
                         </div>
                     </div>
                     {# ⋮ do desenho (procMenu, dc L.2914), só com o que tem função hoje. Fora: Abrir no PJe,
-                       Atualizar dados do PJe, Encaminhar via Chat I.A, Relatório geral,
-                       Imprimir resumo. "Ver processo completo" ocupa o lugar do "Abrir no PJe"
+                       Atualizar dados do PJe, Encaminhar via Chat I.A e Relatório geral.
+                       "Ver processo completo" ocupa o lugar do "Abrir no PJe"
                        (mesmo ícone; abre o cadastro do sistema). Por último, como no desenho,
                        as ações do vínculo: Tornar principal (o desenho é omisso — função que já
                        existia no cartão) e "Desvincular da pasta". As duas são forms com CSRF,
@@ -257,6 +257,14 @@
                                 data-titulo="Processo {{ proc.numeroProcesso|numero_cnj }}"
                                 data-resumo="{{ resumo|json_encode|e('html_attr') }}" hidden>
                             <i class="bi bi-share"></i><span>Compartilhar</span>
+                        </button>
+                        {# Imprimir resumo (desenho procMenu dc L.2930, `gmImprimir`; EDT-005): a tabela
+                           rótulo/valor do MESMO resumo do "Copiar resumo", na janela de impressão da
+                           pasta (pasta-impressao.js). Montada por DOM, com textContent. #}
+                        <button type="button" class="ps-processo-menu-item js-proc-imprimir" role="menuitem"
+                                data-titulo="Processo {{ proc.numeroProcesso|numero_cnj }}"
+                                data-resumo="{{ resumo|json_encode|e('html_attr') }}">
+                            <i class="bi bi-printer"></i><span>Imprimir resumo</span>
                         </button>
                         {% if podeMexerNoVinculo %}
                         <div class="ps-processo-menu-sep" role="separator"></div>

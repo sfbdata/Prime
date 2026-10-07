@@ -280,7 +280,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // há "Tornar processo principal". Desvincular é o último, como no desenho. "Editar dados
         // do processo" (PMC-004) aparece porque o admin tem EDIT no processo.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Desvincular da pasta'],
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Imprimir resumo', 'Desvincular da pasta'],
             $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
         );
         self::assertSame(
@@ -389,6 +389,16 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             $menu->filter('.js-proc-compartilhar')->attr('data-resumo'),
             'Compartilhar envia o mesmo resumo',
         );
+
+        // EDT-005/PMC-003 (dc L.2930): "Imprimir resumo" logo depois de Compartilhar, com o MESMO
+        // resumo (o pasta-processo.js reaproveita `linhasDoResumo`) e o título "Processo N".
+        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + button.js-proc-imprimir[role="menuitem"]');
+        self::assertCount(1, $imprimir);
+        self::assertSame('Imprimir resumo', trim($imprimir->text()));
+        self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
+        self::assertNull($imprimir->attr('hidden'));
+        self::assertSame($menu->filter('.js-proc-copiar[data-resumo]')->attr('data-resumo'), $imprimir->attr('data-resumo'));
+        self::assertSame('Processo ' . self::NUMERO_MASCARA, $imprimir->attr('data-titulo'));
     }
 
     #[TestDox('⋮ Copiar resumo: processo sem dados não ganha "Não informado" — só número e pasta')]

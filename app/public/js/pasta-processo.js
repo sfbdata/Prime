@@ -146,6 +146,31 @@
         }).catch(function () { /* cancelado pelo usuário */ });
     }
 
+    /* "Imprimir resumo" (EDT-005; desenho procMenu dc L.2930, `gmImprimir`): as MESMAS
+       linhas do "Copiar resumo" viram a tabela do desenho — rótulo em negrito à esquerda,
+       valor à direita, partido no primeiro ": " — e vão para a janela de impressão da
+       pasta (pasta-impressao.js). Tudo por DOM e textContent: o resumo é dado do cadastro. */
+    function imprimirResumo(item) {
+        fechar(false);
+        if (!window.PastaImpressao) { return; }
+        var tabela = document.createElement('table');
+        linhasDoResumo(item).split('\n').forEach(function (linha) {
+            if (linha === '') { return; }
+            var corte  = linha.indexOf(': ');
+            var tr     = document.createElement('tr');
+            var rotulo = document.createElement('td');
+            var forte  = document.createElement('strong');
+            var valor  = document.createElement('td');
+            forte.textContent = corte === -1 ? linha : linha.slice(0, corte);
+            valor.textContent = corte === -1 ? '' : linha.slice(corte + 2);
+            rotulo.appendChild(forte);
+            tr.appendChild(rotulo);
+            tr.appendChild(valor);
+            tabela.appendChild(tr);
+        });
+        window.PastaImpressao.conteudo({ titulo: item.getAttribute('data-titulo') || '', corpo: tabela });
+    }
+
     function irParaAba(item) {
         fechar(false);
         var gatilho = document.getElementById(item.getAttribute('data-aba') || '');
@@ -179,6 +204,7 @@
 
         if (item.classList.contains('js-proc-copiar'))         { copiar(item); return; }
         if (item.classList.contains('js-proc-compartilhar'))   { compartilhar(item); return; }
+        if (item.classList.contains('js-proc-imprimir'))       { imprimirResumo(item); return; }
         if (item.classList.contains('js-proc-ver-movimentacoes')) { irParaAba(item); return; }
         if (item.classList.contains('js-proc-alternar-menu')) {
             var botao = document.querySelector(item.getAttribute('data-botao') || '');
