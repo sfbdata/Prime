@@ -186,4 +186,56 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertSame($raiz->getId(), $data['respostaA']);
     }
+
+    #[TestDox('PAS-031: o Responder de uma RESPOSTA leva o autor dela (id e nome) para o "@Nome "; o da raiz não')]
+    public function testResponderARespostaLevaOAutor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $raiz            = $this->registrar($pasta, $user, $tenant, 'Original', '-2 hours');
+        $resposta        = $this->registrar($pasta, $user, $tenant, 'Resposta', '-1 hour', $raiz);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $daResposta = $crawler->filter('#pasta-msg-' . $resposta->getId() . ' > .ps-anotacao-topo > .btn-responder-msg-pasta');
+        self::assertSame((string) $raiz->getId(), $daResposta->attr('data-resposta-a'), 'continua ligando à raiz');
+        self::assertSame((string) $user->getId(), $daResposta->attr('data-resposta-autor-id'));
+        self::assertSame($user->getFullName(), $daResposta->attr('data-resposta-autor-nome'));
+        $daRaiz = $crawler->filter('#pasta-msg-' . $raiz->getId() . ' > .ps-anotacao-topo > .btn-responder-msg-pasta');
+        self::assertNull($daRaiz->attr('data-resposta-autor-id'), 'responder à raiz não pré-preenche menção');
+
+        $html  = $this->html($client);
+        $caixa = substr($html, (int) strpos($html, 'function abrirCaixaResposta(botao) {'), 9000);
+        self::assertStringContainsString("campo.value = '@' + primeiro + ' ';", $caixa);
+        self::assertStringContainsString('campo._mencoes = [{ id: autorId, nome: primeiro }];', $caixa);
+        self::assertStringContainsString('html = PastaMencoes.paraEnvio(campo, html);', $caixa, 'vira o token @[Nome](user:ID) no envio');
+        // O cartão montado no navegador (sempre de quem publicou) leva o mesmo contrato.
+        self::assertStringContainsString('data-resposta-autor-id="' . $user->getId() . '" data-resposta-autor-nome="${esc(data.autorNome ?? \'\')}"', $html);
+    }
+
+    #[TestDox('PAS-031: o token que a caixa manda vira a menção com o nome do banco')]
+    public function testTokenDaCaixaViraMencao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $raiz            = $this->registrar($pasta, $user, $tenant, 'Original', '-2 hours');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        $token   = $crawler->filter('#formTimelineMensagem input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/mensagem', [
+            '_token'     => $token,
+            'resposta_a' => (string) $raiz->getId(),
+            'conteudo'   => '<p>@[Admin](user:' . $user->getId() . ') feito</p>',
+        ], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('user:' . $user->getId(), $data['conteudo'], 'gravado como token');
+        self::assertStringContainsString($user->getFullName(), $data['conteudoHtml'], 'o rótulo é o nome do banco');
+    }
 }

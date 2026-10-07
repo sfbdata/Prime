@@ -280,11 +280,15 @@
                 </span>
             {% endif %}
             {% if alvoId and not lapide %}
+                {# PAS-031 (dc L.5958 `respTxt`): responder a uma RESPOSTA já começa com "@Nome " do
+                   autor dela — uma menção de verdade (o id vai no token; o servidor confere quem
+                   pode ser mencionado e troca o rótulo pelo nome do banco). #}
                 <button type="button"
                         class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-msg-pasta"
                         title="Responder" aria-label="Responder"
                         data-resposta-a="{{ alvoId }}"
-                        data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}">
+                        data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}"
+                        {%- if raiz and item.usuarioId and autor %} data-resposta-autor-id="{{ item.usuarioId }}" data-resposta-autor-nome="{{ autor }}"{% endif %}>
                     <i class="bi bi-reply-fill"></i>
                 </button>
             {% endif %}

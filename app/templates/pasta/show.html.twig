@@ -3011,7 +3011,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
+        /* PAS-031: responder a uma resposta já começa com "@PrimeiroNome " do autor dela, e ela
+           vai como menção REAL: o mesmo registro de menções que o `PastaMencoes.ligar` guarda
+           na textarea (`_mencoes`), que o `paraEnvio` transforma no token `@[Nome](user:ID)`. */
+        const autorId = Number(botao.dataset.respostaAutorId || 0);
+        const primeiro = String(botao.dataset.respostaAutorNome || '').trim().split(/\s+/)[0] || '';
+        if (autorId > 0 && primeiro !== '') {
+            campo.value = '@' + primeiro + ' ';
+            campo._mencoes = [{ id: autorId, nome: primeiro }];
+            enviar.disabled = false;
+        }
+
         campo.focus();
+        campo.setSelectionRange(campo.value.length, campo.value.length);
         el.scrollIntoView({ block: 'nearest' });
     }
 
@@ -3530,7 +3542,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <button type="button" class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-msg-pasta"
                         title="Responder" aria-label="Responder"
                         data-resposta-a="${esc(alvoId)}"
-                        data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}">
+                        data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}"${ehResposta ? ` data-resposta-autor-id="{{ app.user ? app.user.id : '' }}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"` : ''}>
                     <i class="bi bi-reply-fill"></i>
                 </button>
                 <span class="ps-anotacao-data ps-num" title="${dataHora}">${horaRotulo}</span>
