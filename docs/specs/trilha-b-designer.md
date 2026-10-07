@@ -561,3 +561,15 @@ Onda 4: P16a/b parcelamento (b com migration), P17 Adicionar coluna, P18 timelin
   parcelamento, correção de valor, @menção, timeline).
 - **Próxima ação exata:** o dono faz o smoke no dev (`saas_ux`, pastas 223 e 1025) e decide o §4; depois, push +
   deploy-prod-tls (migrations + cron da purga). Em paralelo, uma sessão nova pode atacar os itens 1–2 acima.
+
+### 10.6 Homologação local da Entrega Intermediária 2 (07/10/2026)
+- Decisões do Samuel aplicadas: Documentos (Idêntico por nível, Copiar desabilitado só-pastas, confirmação ao excluir,
+  rótulo neutro) APROVADOS; Financeiro: entrada/parcelas nascem PENDENTES (`8f5dbc5f`, revisão Fable sem bloqueante);
+  lixeira SEM cron/purga automática; 0 byte do Drive intocados e fora da limpeza; Clientes e destinos pendentes.
+- Smoke técnico automatizado (Playwright, Chromium + Firefox 148) achou 2 bloqueantes, corrigidos em `7a5d698f` e
+  re-testados OK: modal "Adicionar pagamento" não inicializava (script antes do modal no DOM — defeito anterior ao P16a,
+  desde d189f084); duplo clique no Chromium abria o arquivo errado (a barra de seleção empurra a lista, como no dc — o
+  conserto é o dblclick usar o alvo do 1º clique).
+- Não testável no dev: copiar/colar e impressão (os arquivos não existem em `uploads/pastas` do dev); selo Idêntico e
+  faixa de limpeza (sem sha256 na 223). Pasta grande (1.112 docs): aba em ~50–100 ms, busca ~340 ms.
+- Suíte completa: 7755 / 34956. HEAD local antes deste registro: `7a5d698f`. Nada publicado.
