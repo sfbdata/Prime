@@ -203,7 +203,7 @@ final class ObterDadosDashboardUseCase
             totalPastasCriadasAnterior: $totalPastasCriadasAnterior,
             periodoAnterior:            $periodoAnterior,
             colunasExtras:              $colunasExtras,
-            totaisExtras:               $this->totaisExtras($colunasExtras, $mExtras, $linhas),
+            totaisExtras:               $this->totaisExtras($colunasExtras, $linhas),
         );
     }
 
@@ -264,16 +264,15 @@ final class ObterDadosDashboardUseCase
 
     /**
      * Total de cada coluna extra sobre as linhas VISÍVEIS (depois da busca), como a linha de Total:
-     * contagem = soma; taxa = Σ concluídas ÷ Σ metas; tempo médio = Σ dias ÷ Σ metas com data
-     * (a média de todas as metas, não a média das médias). Sem base, null ("—").
+     * contagem = soma; taxa = Σ concluídas ÷ Σ metas; tempo médio = média das linhas com tempo > 0
+     * (a regra do desenho, dc 1.2.2 L.1980). Sem base, null ("—").
      *
-     * @param list<string>                     $colunasExtras
-     * @param array<string, array<int, mixed>> $mExtras
-     * @param LinhaAdvogadoDashboardOutput[]   $linhas
+     * @param list<string>                   $colunasExtras
+     * @param LinhaAdvogadoDashboardOutput[] $linhas
      *
      * @return array<string, int|null>
      */
-    private function totaisExtras(array $colunasExtras, array $mExtras, array $linhas): array
+    private function totaisExtras(array $colunasExtras, array $linhas): array
     {
         $totais = [];
         foreach ($colunasExtras as $coluna) {
@@ -286,13 +285,13 @@ final class ObterDadosDashboardUseCase
             }
 
             if ($coluna === Extras::TEMPO_MEDIO) {
-                $dias  = 0;
-                $metas = 0;
-                foreach ($linhas as $linha) {
-                    $dias  += (int) ($mExtras[$coluna][$linha->userId]['dias'] ?? 0);
-                    $metas += (int) ($mExtras[$coluna][$linha->userId]['metas'] ?? 0);
-                }
-                $totais[$coluna] = $metas > 0 ? (int) round($dias / $metas) : null;
+                // Como o desenho (dc 1.2.2 L.1980): média das LINHAS com tempo > 0, sobre o valor
+                // que cada linha mostra — não a média ponderada pelas metas.
+                $tempos = array_values(array_filter(
+                    array_map(static fn (LinhaAdvogadoDashboardOutput $l): int => (int) ($l->extras[$coluna] ?? 0), $linhas),
+                    static fn (int $dias): bool => $dias > 0,
+                ));
+                $totais[$coluna] = $tempos !== [] ? (int) round(array_sum($tempos) / count($tempos)) : null;
 
                 continue;
             }

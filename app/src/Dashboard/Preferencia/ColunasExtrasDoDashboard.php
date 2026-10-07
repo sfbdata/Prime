@@ -82,7 +82,7 @@ final class ColunasExtrasDoDashboard
             'rotulo' => 'Eventos na agenda',
             'ajuda'  => 'Compromissos no período',
             'tipo'   => self::TIPO_SOMA,
-            'nota'   => 'Eventos visíveis à equipe (não os "somente eu") em que a pessoa é criadora ou participante, pela data de início; cancelados ficam fora.',
+            'nota'   => 'Eventos visíveis à equipe (não os "somente eu") em que a pessoa é criadora ou participante, pela data de início; cancelados ficam fora. Evento recorrente conta uma vez, pela ocorrência-base (a data de início dele), não por repetição.',
         ],
     ];
 

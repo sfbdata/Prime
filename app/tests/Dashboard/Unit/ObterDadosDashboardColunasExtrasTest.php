@@ -179,14 +179,15 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         self::assertSame([], $out->porAdvogado);
     }
 
-    #[TestDox('Tempo médio: média da pessoa arredondada; Total é Σ dias ÷ Σ metas (média das metas, não das médias)')]
-    public function testTempoMedioPonderado(): void
+    #[TestDox('Tempo médio: média da pessoa arredondada; Total é a média das linhas com tempo > 0, como o desenho')]
+    public function testTempoMedioTotalPelasLinhas(): void
     {
         $this->metas([], []);
-        $this->equipe([$this->usuario(7, 'Ana'), $this->usuario(8, 'Bruno'), $this->usuario(9, 'Carla')]);
+        $this->equipe([$this->usuario(7, 'Ana'), $this->usuario(8, 'Bruno'), $this->usuario(9, 'Carla'), $this->usuario(10, 'Davi')]);
         $this->metricas->method('tempoDeConclusaoPorResponsavel')->willReturn([
-            7 => ['dias' => 30, 'metas' => 10], // 3d
-            8 => ['dias' => 1, 'metas' => 1],   // 1d
+            7  => ['dias' => 30, 'metas' => 10], // 3d
+            8  => ['dias' => 1, 'metas' => 1],   // 1d
+            10 => ['dias' => 0, 'metas' => 2],   // 0d: concluiu no mesmo dia
         ]);
 
         $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-01-10'), [], [Extras::TEMPO_MEDIO]);
@@ -195,8 +196,26 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         self::assertSame(3, $x[7][Extras::TEMPO_MEDIO]);
         self::assertSame(1, $x[8][Extras::TEMPO_MEDIO]);
         self::assertNull($x[9][Extras::TEMPO_MEDIO]);
-        // 31 dias ÷ 11 metas = 2,8 → 3 (a média das médias daria 2)
-        self::assertSame([Extras::TEMPO_MEDIO => 3], $out->totaisExtras);
+        self::assertSame(0, $x[10][Extras::TEMPO_MEDIO]);
+        // dc 1.2.2 L.1980: média das linhas com tempo > 0 → (3 + 1) ÷ 2 = 2. A linha "—" e a de
+        // 0d ficam fora (contando a de 0d, daria 4 ÷ 3 = 1).
+        self::assertSame([Extras::TEMPO_MEDIO => 2], $out->totaisExtras);
+    }
+
+    #[TestDox('Tempo médio: o Total NÃO é ponderado pelas metas (3d em 10 metas e 1d em 1 meta → 2d, não 3d)')]
+    public function testTempoMedioTotalNaoEPonderado(): void
+    {
+        $this->metas([], []);
+        $this->equipe([$this->usuario(7, 'Ana'), $this->usuario(8, 'Bruno')]);
+        $this->metricas->method('tempoDeConclusaoPorResponsavel')->willReturn([
+            7 => ['dias' => 30, 'metas' => 10], // 3d
+            8 => ['dias' => 1, 'metas' => 1],   // 1d
+        ]);
+
+        $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-01-10'), [], [Extras::TEMPO_MEDIO]);
+
+        // Ponderada daria 31 ÷ 11 = 2,8 → 3; a do desenho é (3 + 1) ÷ 2 = 2.
+        self::assertSame([Extras::TEMPO_MEDIO => 2], $out->totaisExtras);
     }
 
     #[TestDox('Sem base nenhuma, o Total de taxa e de tempo médio é "—" (null); o de contagem é 0')]

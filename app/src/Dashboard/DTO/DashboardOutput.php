@@ -59,7 +59,7 @@ final class DashboardOutput
         public readonly array  $colunasExtras = [],
         /**
          * Total de cada extra sobre as linhas VISÍVEIS: contagem = soma; taxa = Σ concluídas ÷
-         * Σ metas; tempo médio = Σ dias ÷ Σ metas com data. Null = sem base ("—").
+         * Σ metas; tempo médio = média das linhas com tempo > 0 (desenho). Null = sem base ("—").
          *
          * @var array<string, int|null>
          */
