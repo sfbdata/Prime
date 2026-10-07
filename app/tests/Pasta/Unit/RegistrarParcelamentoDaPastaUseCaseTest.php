@@ -68,7 +68,6 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
             'total'       => '12.000,00',
             'percentual'  => '20',
             'entrada'     => '',
-            'entradaPaga' => true,
             'parcelas'    => '1',
             'vencimento'  => '2026-11-06',
             'juros'       => false,
@@ -82,7 +81,6 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
             valorTotal: (string) $c['total'],
             percentual: (string) $c['percentual'],
             entrada: (string) $c['entrada'],
-            entradaPaga: (bool) $c['entradaPaga'],
             parcelas: (string) $c['parcelas'],
             primeiroVencimento: (string) $c['vencimento'],
             comJuros: (bool) $c['juros'],
@@ -102,7 +100,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         ], $this->persistidos);
     }
 
-    #[TestDox('entrada já paga + 10 parcelas sem juros: 11 linhas, um flush, a soma é o total')]
+    #[TestDox('entrada + 10 parcelas sem juros: 11 linhas PENDENTES, um flush, a soma é o total')]
     public function testEntradaMaisParcelas(): void
     {
         $this->em->expects($this->once())->method('flush');
@@ -114,7 +112,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
 
         $linhas = $this->linhas();
         self::assertCount(11, $linhas);
-        self::assertSame(['Entrada · honorários', '2000.00', '2026-10-06', '2026-10-06'], $linhas[0], 'entrada vence e é paga HOJE');
+        self::assertSame(['Entrada · honorários', '2000.00', '2026-10-06', null], $linhas[0], 'entrada vence hoje e nasce PENDENTE');
         self::assertSame(['1ª parcela · honorários', '1000.00', '2026-11-06', null], $linhas[1]);
         self::assertSame(['10ª parcela · honorários', '1000.00', '2027-08-06', null], $linhas[10]);
         self::assertSame(11, $saida->quantidade);
@@ -127,17 +125,33 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         }
     }
 
-    #[TestDox('entrada NÃO marcada como recebida nasce pendente')]
-    public function testEntradaPendente(): void
+    /**
+     * Regra financeira do dono (07/10/2026): "nenhuma operação pode registrar
+     * recebimento financeiro que não ocorreu". Vale para a entrada também — com
+     * ou sem juros, de contrato ou de custas.
+     *
+     * @param array<string, string|bool> $campos
+     */
+    #[TestDox('entrada e TODAS as parcelas nascem pendentes, sempre (nenhum recebimento automático)')]
+    #[DataProvider('cenariosComEntrada')]
+    public function testNadaNasceRecebido(array $campos): void
     {
-        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input([
-            'entrada'     => '500',
-            'entradaPaga' => false,
-            'parcelas'    => '2',
-        ]));
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input($campos));
 
-        self::assertNull($this->persistidos[0]->getPagoEm());
-        self::assertSame('500.00', $this->persistidos[0]->getValor());
+        self::assertNotEmpty($this->persistidos);
+        foreach ($this->persistidos as $p) {
+            self::assertNull($p->getPagoEm(), $p->getDescricao() . ' não pode nascer recebida');
+            self::assertFalse($p->estaPago());
+        }
+    }
+
+    /** @return iterable<string, array{array<string, string|bool>}> */
+    public static function cenariosComEntrada(): iterable
+    {
+        yield 'contrato, entrada + 2'       => [['entrada' => '500', 'parcelas' => '2']];
+        yield 'custas, entrada + 3'         => [['tipo' => 'custas', 'total' => '900', 'entrada' => '300', 'parcelas' => '3']];
+        yield 'com juros, entrada + 12'     => [['total' => '10.000,00', 'entrada' => '1.000,00', 'parcelas' => '12', 'juros' => true, 'taxa' => '1']];
+        yield 'entrada = total (só ela)'    => [['total' => '1.000,00', 'entrada' => '1.000,00', 'parcelas' => '5']];
     }
 
     #[TestDox('n = 1 sem entrada: uma linha só, "Honorários contratuais" ou "Custas e despesas"')]
@@ -213,7 +227,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
             'total' => '1.000,00', 'entrada' => '5.000,00', 'parcelas' => '5',
         ]));
 
-        self::assertSame([['Entrada · honorários', '1000.00', '2026-10-06', '2026-10-06']], $this->linhas());
+        self::assertSame([['Entrada · honorários', '1000.00', '2026-10-06', null]], $this->linhas());
     }
 
     #[TestDox('60 parcelas é o teto (o mesmo do campo do desenho) e passa')]

@@ -657,7 +657,14 @@
    opcional "Descrição", abaixo dos campos do dc. O desenho não o tem, mas o
    modal antigo tinha descrição livre e a função não pode se perder. Em branco,
    valem as descrições do desenho; preenchido, vai em todas as linhas geradas
-   (" · k/N" com mais de uma parcela, " · entrada" na entrada). #}
+   (" · k/N" com mais de uma parcela, " · entrada" na entrada).
+
+   DESVIO CONSCIENTE do desenho (decisão do dono, 07/10/2026): o dc (L.3471,
+   `entradaPaga: true`) traz o controle "Entrada já recebida hoje", ligado por
+   padrão, que lançava a entrada QUITADA. Removido: "nenhuma operação pode
+   registrar recebimento financeiro que não ocorreu". Entrada e parcelas nascem
+   PENDENTES; o recebimento é o gesto "Marcar como recebido" do ⋮ da linha. O
+   servidor recusa (422) um `entradaPaga=1` que ainda chegue. #}
 <div class="modal fade ps-np-modal" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true"
      data-url-parcelar="{{ path('pasta_pagamento_parcelar', {id: pasta.id}) }}"
      data-max-parcelas="60">
@@ -668,7 +675,6 @@
                 <input type="hidden" name="tipo" value="contrato">
                 <input type="hidden" name="base" value="valor">
                 <input type="hidden" name="juros" value="0">
-                <input type="hidden" name="entradaPaga" value="1">
 
                 <div class="ps-np-cab">
                     <i class="bi bi-cash-coin ps-np-cab-icone" aria-hidden="true"></i>
@@ -737,9 +743,6 @@
                             </div>
                         </div>
                     </div>
-                    <button type="button" class="ps-np-entrada-paga js-np-entrada-paga" aria-pressed="true" hidden>
-                        <i class="bi bi-check-square-fill"></i>Entrada já recebida hoje
-                    </button>
 
                     <label class="ps-np-campo ps-np-descricao">
                         <span class="ps-np-rotulo">Descrição <span class="ps-np-opcional">(opcional)</span></span>

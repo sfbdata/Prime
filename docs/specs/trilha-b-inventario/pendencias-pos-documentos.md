@@ -190,7 +190,7 @@ Nenhum item A/B estava inteiramente feito; os parcialmente feitos estão na linh
   `RegistrarPagamentoDaPastaUseCase::executar(pasta, autor, tenant, descricao, valor, vencimento)` — 1 lançamento.
 - **Desenho:** markup dc L.1928-2012; regra dc L.3470-3500. Cabeçalho "Adicionar pagamento" + "Valor da causa X · cálculo
   automático". **Tipo** (4: contrato, custas, êxito, sucumbência). Para contrato/custas: **Base** (valor | % do valor da
-  causa), Valor total, **Entrada** (opcional; "Entrada já recebida hoje" marca paga hoje), **Parcelas** 1–60,
+  causa), Valor total, **Entrada** (opcional; "Entrada já recebida hoje" marca paga hoje (⚠️ REVOGADO pelo Samuel em 07/10/2026: a entrada nasce PENDENTE; ver D-FIN-ENTRADA)), **Parcelas** 1–60,
   **1º vencimento** (padrão hoje + 1 mês), **Juros** (sem | com, taxa % a.m., padrão 1). Cálculo: com juros, **Price**
   `pmt = P·i/(1−(1+i)^−n)`, arredonda a centavo e a última parcela absorve a diferença; sem juros `P/n`. Descrições:
   "Entrada · honorários|custas", "kª parcela · …", ou "Honorários contratuais"/"Custas e despesas" com n=1. Para

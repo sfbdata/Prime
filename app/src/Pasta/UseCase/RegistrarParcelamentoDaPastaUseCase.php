@@ -22,7 +22,7 @@ use Psr\Clock\ClockInterface;
  * no `PastaPagamento` de hoje e ficam para a fatia com migration (11b).
  *
  * Quem: alguém da equipe com permissão de editar a pasta, ao fechar o contrato
- * com o cliente ("R$ 12.000 em 10 vezes, com entrada de R$ 2.000 já paga").
+ * com o cliente ("R$ 12.000 em 10 vezes, com entrada de R$ 2.000").
  * Antes era uma linha por vez, com a conta de cabeça.
  *
  * A CONTA É FEITA AQUI. O navegador mostra uma prévia com a mesma regra, mas o
@@ -36,9 +36,14 @@ use Psr\Clock\ClockInterface;
  *
  * Reusa as regras do lançamento avulso (`RegistrarPagamentoDaPastaUseCase`):
  * dinheiro lido por `ValorEmReais`, valor > 0, data estrita AAAA-MM-DD que
- * recusa dia inexistente, lançamento nasce PENDENTE. A exceção é a entrada
- * marcada "já recebida hoje" — o desenho a lança quitada na data de hoje, que é
- * de fato o dia em que o dinheiro entrou.
+ * recusa dia inexistente, lançamento nasce PENDENTE — SEM exceção.
+ *
+ * REGRA FINANCEIRA (decisão do dono, 07/10/2026): "nenhuma operação pode
+ * registrar recebimento financeiro que não ocorreu". O desenho (dc L.3471,
+ * `entradaPaga: true`) lançava a entrada quitada hoje; aqui ela nasce pendente,
+ * com vencimento hoje, como todas as parcelas. O recebimento só acontece pelo
+ * gesto explícito "Marcar como recebido" (`AlternarQuitacaoDoPagamentoUseCase`
+ * via `pasta_pagamento_alternar_quitacao`).
  */
 final class RegistrarParcelamentoDaPastaUseCase
 {
@@ -120,7 +125,8 @@ final class RegistrarParcelamentoDaPastaUseCase
         $lancados  = [];
 
         if ($entradaCentavos > 0) {
-            $entrada = $this->novo(
+            // Vence hoje e nasce PENDENTE: quem recebeu marca como recebido.
+            $lancados[] = $this->novo(
                 $pasta,
                 $autor,
                 $tenant,
@@ -128,10 +134,6 @@ final class RegistrarParcelamentoDaPastaUseCase
                 $entradaCentavos,
                 $hoje,
             );
-            if ($input->entradaPaga) {
-                $entrada->alternarQuitacao($hoje);
-            }
-            $lancados[] = $entrada;
         }
 
         foreach ($valores as $k => $centavos) {

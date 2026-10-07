@@ -118,6 +118,19 @@ final class PastaPagamentoController extends AbstractController
 
         $campo = static fn (string $nome): string => (string) $request->request->get($nome, '');
 
+        // "Nenhuma operação pode registrar recebimento financeiro que não
+        // ocorreu" (decisão do dono, 07/10/2026). O modal não tem mais o
+        // controle "Entrada já recebida hoje"; quem ainda mandar `entradaPaga=1`
+        // (aba aberta antes do deploy, POST forjado) é RECUSADO com 422, sem
+        // gravar nada — ignorar em silêncio deixaria a pessoa achando que a
+        // entrada ficou quitada. Só `0` ou ausente/vazio seguem (pendente);
+        // qualquer outro valor (`1`, `true`, `on`…) é recusado.
+        if (!\in_array($campo('entradaPaga'), ['', '0'], true)) {
+            return $this->json([
+                'erro' => 'A entrada não pode ser lançada como recebida. Lance o parcelamento e use "Marcar como recebido" quando o dinheiro entrar.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         try {
             $saida = $this->parcelamentoUseCase->executar($pasta, $currentUser, $tenant, new ParcelamentoDaPastaInput(
                 tipo: $campo('tipo'),
@@ -125,7 +138,6 @@ final class PastaPagamentoController extends AbstractController
                 valorTotal: $campo('total'),
                 percentual: $campo('percentual'),
                 entrada: $campo('entrada'),
-                entradaPaga: $campo('entradaPaga') === '1',
                 parcelas: $campo('parcelas'),
                 primeiroVencimento: $campo('vencimento'),
                 comJuros: $campo('juros') === '1',

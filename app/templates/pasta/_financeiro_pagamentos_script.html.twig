@@ -282,7 +282,6 @@
         campoTot:  modalEl.querySelector('.js-np-campo-total'),
         campoPct:  modalEl.querySelector('.js-np-campo-pct'),
         taxa:      form.querySelector('[name="taxa"]'),
-        entPaga:   modalEl.querySelector('.js-np-entrada-paga'),
         resumo:    modalEl.querySelector('.js-np-resumo'),
         linhas:    modalEl.querySelector('.js-np-linhas'),
         mais:      modalEl.querySelector('.js-np-mais'),
@@ -435,12 +434,6 @@
         el.campoPct.hidden = !pct;
         el.taxa.hidden     = valorDe('juros') !== '1';
 
-        const ent = centavosDe(valorDe('entrada'));
-        el.entPaga.hidden = !(ent > 0);
-        const paga = valorDe('entradaPaga') === '1';
-        el.entPaga.setAttribute('aria-pressed', paga ? 'true' : 'false');
-        el.entPaga.querySelector('i').className = paga ? 'bi bi-check-square-fill' : 'bi bi-square';
-
         const { novos, erro } = calcular();
         const soma = novos.reduce((t, x) => t + x.v, 0);
 
@@ -485,11 +478,6 @@
             definir('juros', juros.dataset.juros);
             marcar(modalEl.querySelectorAll('[data-juros]'), juros);
             renderizar();
-            return;
-        }
-        if (e.target.closest('.js-np-entrada-paga')) {
-            definir('entradaPaga', valorDe('entradaPaga') === '1' ? '0' : '1');
-            renderizar();
         }
     });
     form.addEventListener('input', renderizar);
@@ -499,7 +487,7 @@
     // fixo, 1 parcela, 1º vencimento daqui a um mês, sem juros (taxa 1).
     modalEl.addEventListener('show.bs.modal', function () {
         form.reset();
-        ['tipo', 'base', 'juros', 'entradaPaga'].forEach((n, i) => definir(n, ['contrato', 'valor', '0', '1'][i]));
+        ['tipo', 'base', 'juros'].forEach((n, i) => definir(n, ['contrato', 'valor', '0'][i]));
         marcar(modalEl.querySelectorAll('.ps-np-tipo'), modalEl.querySelector('.ps-np-tipo[data-tipo="contrato"]'));
         marcar(modalEl.querySelectorAll('[data-base]'), modalEl.querySelector('[data-base="valor"]'));
         marcar(modalEl.querySelectorAll('[data-juros]'), modalEl.querySelector('[data-juros="0"]'));

@@ -120,7 +120,6 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
             'total'       => '12.000,00',
             'percentual'  => '20',
             'entrada'     => '',
-            'entradaPaga' => '1',
             'parcelas'    => '1',
             'vencimento'  => '2026-11-06',
             'juros'       => '0',
@@ -153,7 +152,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
     // Caminho feliz
     // =========================================================================
 
-    #[TestDox('grava a entrada já paga e as 10 parcelas de uma vez, e devolve o card com as 11 linhas')]
+    #[TestDox('grava a entrada e as 10 parcelas de uma vez, TODAS pendentes, e devolve o card com as 11 linhas')]
     public function testGravaNLinhas(): void
     {
         $client          = $this->cliente();
@@ -169,13 +168,14 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame(11, $dados['quantidade']);
         self::assertCount(11, $dados['ids']);
         self::assertSame(11, $dados['resumo']['total']);
-        self::assertSame('R$ 2.000,00', $dados['resumo']['recebido'], 'a entrada entra como recebida hoje');
+        self::assertSame(0, $dados['resumo']['quantidadePagos'], 'nada nasce recebido (decisão do dono, 07/10/2026)');
+        self::assertSame('R$ 0,00', $dados['resumo']['recebido'], 'o recebido não muda ao parcelar');
         self::assertStringContainsString('10ª parcela · honorários', $dados['resumo']['html']);
 
         $linhas = $this->linhasGravadas($pastaId);
         self::assertCount(11, $linhas);
         $hoje = (new \DateTimeImmutable('today'))->format('Y-m-d');
-        self::assertSame(['Entrada · honorários', '2000.00', $hoje, $hoje], [$linhas[0]['descricao'], $linhas[0]['valor'], $linhas[0]['vencimento'], $linhas[0]['pago_em']]);
+        self::assertSame(['Entrada · honorários', '2000.00', $hoje, null], [$linhas[0]['descricao'], $linhas[0]['valor'], $linhas[0]['vencimento'], $linhas[0]['pago_em']], 'a entrada vence hoje e nasce PENDENTE');
         self::assertSame(['1ª parcela · honorários', '1000.00', '2026-11-06', null], [$linhas[1]['descricao'], $linhas[1]['valor'], $linhas[1]['vencimento'], $linhas[1]['pago_em']]);
         self::assertSame('2027-08-06', $linhas[10]['vencimento']);
 
@@ -183,6 +183,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame(1200000, $soma, 'a soma gravada é exatamente o total');
 
         foreach ($linhas as $l) {
+            self::assertNull($l['pago_em'], $l['descricao'] . ' não pode nascer recebida');
             self::assertSame($tenant->getId(), (int) $l['tenant_id']);
             self::assertSame($user->getId(), (int) $l['autor_id']);
         }
@@ -192,6 +193,96 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
      * A prova de que o servidor é a fonte: o POST não leva valor de parcela
      * nenhum (e um `valor` forjado é ignorado). O que grava é a Price daqui.
      */
+    /**
+     * Regra financeira do dono (07/10/2026). O modal não manda mais o campo; um
+     * `entradaPaga=1` que chegue (aba antiga, POST forjado) é RECUSADO — não
+     * ignorado em silêncio — e nada é gravado: nem a entrada, nem as parcelas.
+     */
+    #[TestDox('POST com entradaPaga=1 forjado responde 422 e não grava recebimento nenhum')]
+    public function testEntradaPagaForjadaRecusada(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['entrada' => '2.000,00', 'parcelas' => '10', 'entradaPaga' => '1']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('Marcar como recebido', (string) $this->json($client)['erro']);
+        self::assertSame([], $this->linhasGravadas($pastaId), 'nem a entrada nem as parcelas ficam');
+    }
+
+    #[TestDox('qualquer entradaPaga diferente de 0/vazio (true, on, yes, 2) é recusado com 422 e nada é gravado')]
+    #[\PHPUnit\Framework\Attributes\DataProvider('valoresVerdadeiros')]
+    public function testEntradaPagaVerdadeiraRecusada(string $valor): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['entrada' => '100', 'total' => '300', 'parcelas' => '2', 'entradaPaga' => $valor]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame([], $this->linhasGravadas($pastaId));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function valoresVerdadeiros(): iterable
+    {
+        foreach (['true', 'on', 'yes', '2', '1 '] as $v) {
+            yield $v => [$v];
+        }
+    }
+
+    #[TestDox('entradaPaga=0 (ou ausente) segue normal: a entrada nasce pendente')]
+    public function testEntradaPagaZeroAceita(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['entrada' => '100', 'total' => '300', 'parcelas' => '2', 'entradaPaga' => '0']);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame([null, null, null], array_column($this->linhasGravadas($pastaId), 'pago_em'));
+    }
+
+    /**
+     * O recebimento acontece só pelo fluxo existente "Marcar como recebido"
+     * (`pasta_pagamento_alternar_quitacao`), uma linha por vez.
+     */
+    #[TestDox('depois de parcelar, "Marcar como recebido" quita UMA parcela e só ela')]
+    public function testMarcarComoRecebidoQuitaSoUma(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['total' => '300', 'entrada' => '100', 'parcelas' => '2']);
+        self::assertResponseStatusCodeSame(201);
+        $ids = $this->json($client)['ids'];
+        self::assertCount(3, $ids);
+
+        $alvo = (int) $ids[1]; // a 1ª parcela
+        $client->request('POST', "/pasta/{$pastaId}/pagamento/{$alvo}/quitacao", [
+            '_token' => 'TOKEN_pasta_pagamento_quitacao_' . $alvo,
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseIsSuccessful();
+        $dados = $this->json($client);
+        self::assertTrue($dados['pago']);
+        self::assertSame(1, $dados['resumo']['quantidadePagos']);
+        self::assertSame('R$ 100,00', $dados['resumo']['recebido']);
+
+        $hoje   = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        $linhas = $this->linhasGravadas($pastaId);
+        self::assertSame([null, $hoje, null], array_column($linhas, 'pago_em'), 'só a parcela marcada ficou recebida');
+    }
+
     #[TestDox('com juros o servidor recalcula a Price: 10 mil a 1% em 12x = 11 × 888,49 + 888,46')]
     public function testServidorRecalculaPrice(): void
     {
@@ -464,12 +555,16 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         );
         self::assertCount(1, $crawler->filter("{$form} > .ps-np-cab > button.ps-np-fechar[data-bs-dismiss=\"modal\"]"));
 
-        // Corpo: tipo → grade → entrada paga → prévia.
+        // Corpo: tipo → grade → descrição → prévia. SEM o controle "Entrada já
+        // recebida hoje" do desenho (desvio por decisão do dono, 07/10/2026).
         $corpo = "{$form} > .ps-np-corpo";
         self::assertSame(
-            ['ps-np-bloco', 'ps-np-grade', 'ps-np-entrada-paga js-np-entrada-paga', 'ps-np-campo ps-np-descricao', 'ps-np-previa'],
+            ['ps-np-bloco', 'ps-np-grade', 'ps-np-campo ps-np-descricao', 'ps-np-previa'],
             $crawler->filter("{$corpo} > *")->each(static fn (Crawler $d): string => (string) $d->attr('class')),
         );
+        self::assertCount(0, $crawler->filter('#modalNovoPagamento .js-np-entrada-paga'), 'sem o controle de entrada recebida');
+        self::assertCount(0, $crawler->filter('#modalNovoPagamento input[name="entradaPaga"]'), 'o formulário não manda entradaPaga');
+        self::assertStringNotContainsString('Entrada já recebida', $modal->text());
 
         $tipos = $crawler->filter("{$corpo} > .ps-np-bloco > .ps-np-tipos > button.ps-np-tipo");
         self::assertSame(['Contratuais', 'Êxito', 'Sucumbência', 'Custas'], $tipos->each(static fn (Crawler $b): string => trim($b->text())));
