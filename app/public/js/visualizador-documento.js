@@ -914,13 +914,19 @@
         return doc.body.innerHTML;
     }
 
-    /** A limpeza do `neutralizar`, sobre um documento já lido (também a releitura da impressão). */
+    /**
+     * A limpeza do `neutralizar`, sobre um documento já lido (também a releitura da impressão).
+     * DOC-108b: `poster` (vídeo) e `background` (body/table/td legados) também apontam para URL
+     * e saem como o `href` — a CSP `img-src data:` deixa de ser a única barreira contra o pixel
+     * remoto.
+     */
     function limparArvore(doc) {
         doc.querySelectorAll('script,style,iframe,frame,object,embed,link,meta,base,form,svg,math').forEach(function (x) { x.remove(); });
         doc.querySelectorAll('*').forEach(function (n) {
             Array.from(n.attributes).forEach(function (a) {
                 const nome = a.name.toLowerCase();
-                if (nome.startsWith('on') || nome === 'href' || nome === 'srcset' || nome === 'action' || nome === 'formaction') {
+                if (nome.startsWith('on') || nome === 'href' || nome === 'srcset' || nome === 'action' || nome === 'formaction'
+                    || nome === 'poster' || nome === 'background') {
                     n.removeAttribute(a.name);
                 } else if (nome === 'src' && !/^data:image\//i.test(a.value)) {
                     n.removeAttribute(a.name);

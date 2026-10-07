@@ -337,6 +337,22 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString("getElementsByTagName('parsererror')", $lerXml);
     }
 
+    #[TestDox('DOC-108b: a limpeza do HTML gerado tira também poster e background (URL que a CSP era a única a barrar)')]
+    public function testLimparArvoreTiraPosterEBackground(): void
+    {
+        $limpar = self::corpoDaFuncao(self::modulo(), 'limparArvore');
+
+        self::assertStringContainsString("const nome = a.name.toLowerCase();", $limpar, 'compara o nome em minúsculas: POSTER/Background não escapam');
+        self::assertMatchesRegularExpression(
+            "/if \\(nome\\.startsWith\\('on'\\)[^{]*\\|\\| nome === 'poster' \\|\\| nome === 'background'\\) \\{\\s*n\\.removeAttribute\\(a\\.name\\);/s",
+            $limpar,
+            'poster e background caem no mesmo removeAttribute de href/srcset/on*'
+        );
+        foreach (['href', 'srcset', 'action', 'formaction'] as $atributo) {
+            self::assertStringContainsString("nome === '{$atributo}'", $limpar, "{$atributo} segue removido");
+        }
+    }
+
     #[TestDox('falha com mensagem própria (senha, corrompido, grande demais) chega à tela')]
     public function testFalhaComMensagemChegaATela(): void
     {
