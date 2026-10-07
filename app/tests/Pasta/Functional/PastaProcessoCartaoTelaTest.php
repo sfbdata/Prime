@@ -20,8 +20,9 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * resumo Órgão julgador · Valor da causa · Distribuição · Instância, "Ver todas as
  * informações" com os campos reais do cadastro e o ⋮ só com função real.
  *
- * Regra desta entrega: campo vazio NÃO aparece (nem "Não informado") nos blocos novos;
- * a faixa de cima (Classe/Tribunal/Situação) continua como estava.
+ * Regra: no resumo, Órgão julgador · Valor da causa · Distribuição ficam SEMPRE e o vazio diz
+ * "Não informado" (PMC-007, o desenho manda); a Instância e o painel "todas as informações"
+ * só mostram o que o cadastro tem. A faixa de cima (Classe/Tribunal/Situação) continua como estava.
  *
  * Os seletores usam filho direto (`>`) a partir do `article.ps-processo`, para provar
  * que o bloco está NO cartão, e não em algum lugar da página.
@@ -98,10 +99,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             ['1ª VARA CÍVEL DE BRASÍLIA', 'R$ 15.234,50', '14/03/2025', 'G1'],
             $this->textos($resumo->filter('.ps-processo-dado > .ps-processo-valor')),
         );
+        self::assertCount(0, $resumo->filter('.ps-dado--vazio'), 'com dado, nada de vazio');
     }
 
-    #[TestDox('Resumo: sem órgão, distribuição, instância nem valor da causa, a faixa nem é renderizada — nada de "Não informado"')]
-    public function testResumoSomeQuandoNulo(): void
+    #[TestDox('PMC-007: sem órgão, distribuição nem valor da causa, o resumo mostra os três com "Não informado" em itálico; a Instância vazia some')]
+    public function testResumoSemDadoDizNaoInformado(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
@@ -111,8 +113,18 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $cartao = $this->cartao($this->abrir($client, $pasta));
 
-        self::assertCount(0, $cartao->filter('.ps-processo-resumo'));
-        self::assertCount(0, $cartao->filter('[data-proc-campo="orgao"], [data-proc-campo="valor"], [data-proc-campo="distribuicao"], [data-proc-campo="instancia"]'));
+        $dados = $cartao->filter('article.ps-processo > .ps-processo-resumo > .ps-processo-dado');
+        self::assertSame(
+            ['orgao', 'valor', 'distribuicao'],
+            $dados->each(static fn (Crawler $n): string => (string) $n->attr('data-proc-campo')),
+            'os três do desenho, na ordem, e sem a Instância',
+        );
+        foreach (['orgao', 'valor', 'distribuicao'] as $campo) {
+            $valor = $cartao->filter('article.ps-processo > .ps-processo-resumo > [data-proc-campo="' . $campo . '"] > .ps-processo-valor.ps-dado--vazio');
+            self::assertCount(1, $valor, "{$campo} vazio leva .ps-dado--vazio");
+            self::assertSame('Não informado', trim($valor->text()));
+        }
+        self::assertCount(0, $cartao->filter('[data-proc-campo="instancia"]'));
         self::assertStringNotContainsString('Não informado', $cartao->filter('.ps-processo-detalhes')->text(''));
         // A faixa de cima não muda: Classe/Tribunal/Situação seguem com "Não informado(a)".
         self::assertCount(3, $cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado'));

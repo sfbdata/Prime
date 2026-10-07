@@ -13,8 +13,9 @@
    Principal, dados e situação. Abaixo, o resumo do desenho (Órgão julgador ·
    Valor da causa · Distribuição, + Instância) com o que o DataJud já trouxe e o
    `Pasta.valorCausa`; "Ver todas as informações" abre o painel com TODOS os
-   campos reais do cadastro. Campo vazio não aparece — nada de "Não informado"
-   nos campos novos. O ⋮ só tem o que já funciona hoje (pasta-processo.js).
+   campos reais do cadastro. No resumo, os três campos do desenho ficam sempre e o
+   vazio diz "Não informado" (PMC-007); no painel completo, campo vazio não aparece.
+   O ⋮ só tem o que já funciona hoje (pasta-processo.js).
    O que é função nova NÃO aparece: integração com o PJe (abrir/atualizar/
    editar), marcas (gratuita, tutela, prioridade, 100% digital) e encaminhar via
    Chat. "Administrativo sem processo"
@@ -302,36 +303,29 @@
                         </div>
                     </div>
                     {# Resumo do desenho (Órgão julgador · Valor da causa · Distribuição) + Instância.
-                       Aqui campo vazio SOME (o desenho escreve "Não informado"; esta entrega não
-                       exibe o que o cadastro não tem). #}
-                    {% if proc.orgaoJulgador or valorCausa or distribuicao or proc.instancia %}
-                        <div class="ps-processo-resumo">
-                            {% if proc.orgaoJulgador %}
-                                <div class="ps-processo-dado" data-proc-campo="orgao">
-                                    <div class="ps-rotulo">Órgão julgador</div>
-                                    <div class="ps-processo-valor">{{ proc.orgaoJulgador }}</div>
-                                </div>
-                            {% endif %}
-                            {% if valorCausa %}
-                                <div class="ps-processo-dado" data-proc-campo="valor">
-                                    <div class="ps-rotulo">Valor da causa</div>
-                                    <div class="ps-processo-valor ps-num">{{ valorCausa }}</div>
-                                </div>
-                            {% endif %}
-                            {% if distribuicao %}
-                                <div class="ps-processo-dado" data-proc-campo="distribuicao">
-                                    <div class="ps-rotulo">Distribuição</div>
-                                    <div class="ps-processo-valor ps-num">{{ distribuicao }}</div>
-                                </div>
-                            {% endif %}
-                            {% if proc.instancia %}
-                                <div class="ps-processo-dado" data-proc-campo="instancia">
-                                    <div class="ps-rotulo">Instância</div>
-                                    <div class="ps-processo-valor">{{ proc.instancia }}</div>
-                                </div>
-                            {% endif %}
+                       PMC-007: os três do desenho (dc:2897) estão SEMPRE presentes; o vazio diz
+                       "Não informado" em itálico (`.ps-dado--vazio`, mesmo token da Situação).
+                       A Instância não está no resumo do desenho: só aparece quando há dado. #}
+                    <div class="ps-processo-resumo">
+                        <div class="ps-processo-dado" data-proc-campo="orgao">
+                            <div class="ps-rotulo">Órgão julgador</div>
+                            <div class="ps-processo-valor{{ proc.orgaoJulgador ? '' : ' ps-dado--vazio' }}">{{ proc.orgaoJulgador ?: 'Não informado' }}</div>
                         </div>
-                    {% endif %}
+                        <div class="ps-processo-dado" data-proc-campo="valor">
+                            <div class="ps-rotulo">Valor da causa</div>
+                            <div class="ps-processo-valor{{ valorCausa ? ' ps-num' : ' ps-dado--vazio' }}">{{ valorCausa ?: 'Não informado' }}</div>
+                        </div>
+                        <div class="ps-processo-dado" data-proc-campo="distribuicao">
+                            <div class="ps-rotulo">Distribuição</div>
+                            <div class="ps-processo-valor{{ distribuicao ? ' ps-num' : ' ps-dado--vazio' }}">{{ distribuicao ?: 'Não informado' }}</div>
+                        </div>
+                        {% if proc.instancia %}
+                            <div class="ps-processo-dado" data-proc-campo="instancia">
+                                <div class="ps-rotulo">Instância</div>
+                                <div class="ps-processo-valor">{{ proc.instancia }}</div>
+                            </div>
+                        {% endif %}
+                    </div>
                     {% if temDetalhe %}
                         <div class="ps-processo-mais-linha">
                             <button type="button" class="ps-processo-mais js-proc-alternar" id="{{ botaoMaisId }}"
