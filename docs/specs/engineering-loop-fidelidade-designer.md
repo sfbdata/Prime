@@ -173,6 +173,23 @@ cada divergência A trabalhada e as filas B/C/D.
 | PMC-044 | Metas | Fica na aba Metas com a meta nova realçada | P3 | **feito** | ✓ | ✓ | ✓ | `27d3972b` | | Recarrega a página (o desenho atualiza no lugar) |
 | PMC-038 | Metas | Moldura do modal "Nova meta" | P3 | **parcial** | ✓ | ✓ | ✓ | `d8b7a015` | | Corpo do modal (rótulos, contador, chips) e janela não modal: PMC-059 |
 
+| IA-034L | IA | Handler reconfere a disponibilidade: desligar corta a fila | P1 | **feito** | — | ✓ | ✓ | `77a013e0`, `45f0d2af` | Opus | Testes de "sem módulo"/nulo e cota: PAS-A8 |
+| PMC-057/058L | Processo | Responder com outra nota; "Adicionar nota" só para quem edita | P4/P5 | **feito** | ✓ | ✓ | ✓ | `2a46c739`, `30b83bc8` | Opus | |
+| PAS-041 | Detalhes | ⋮ da observação: Criar meta, Editar/Excluir (bloqueado fora da janela) | P2 | **feito** | ✓ | ✓ | ✓ | `42c9fc71` | Opus | Título da meta em branco, como o desenho |
+| PAS-025 | Registro | Menu de botão direito + ⋮ no cartão do Registro | P2 | **feito** (ver PAS-025b) | ✓ | ✓ | ✓ | `b1155da8` | Opus: lápide oferecia Editar | |
+| EDT-001..006 (=PAS-015, FPN-010, PMC-002/003) | Impressão | Imprimir resumo com prévia e opções; Baixar PDF (Dompdf); extrato; observação; resumo do processo; Compartilhar sem Web Share | P2 | **feito** | ✓ | ✓ | ✓ | `8ef83fb9`..`13916732`, `0364f447` | Opus: Dompdf sem remoto, iframe sem script | Imprimir no Registro/Financeiro (`eae03903`, `536c709e`) NÃO está no desenho: retirado no PAS-A8 |
+| PAS-pend | Impressão | Pendência do Financeiro só para quem vê o financeiro | P2 | **feito** | — | ✓ | ✓ | `96d9004b` | | Também no cabeçalho |
+| DASH-006 | Dashboard | "ver pastas"/"ver metas" com paridade card = lista | P2 | **feito** | ✓ | ✓ | ✓ | `6340a902` | Opus | "ver metas" lista também metas sem responsável/de quem saiu (o card conta): ligado a SEC-010 |
+| DASH-020/017 | Dashboard | Janelas flutuantes; histórico de 12 meses no botão direito (Pastas criadas) | P2 | **feito** | ✓ | ✓ | ✓ | `e3cd352d`, `5f9082e1` | Opus | Os outros 3 cards dizem que dependem da foto diária (sem número) |
+| DASH-010b | Dashboard | Sem seta em concluídas/taxa/tempo médio (comparação enviesada) | P1 | **feito** | ✓ | ✓ | ✓ | `61188192` | | Critério de comparação: C |
+| IA-006b/008b | IA | Grade mostra o que a IA recebe (tetos do montador); testes de colega sem acesso | P3 | **feito** | ✓ | ✓ | ✓ | `b615e3f9`, `4d45251b` | | Rótulo "prazos de metas abertas" (o desenho diz "prazos") |
+| DOC-118b/c | Documentos | Escrita marcada na origem do menu; lixeira só para quem o GET atende | P3 | **feito** | — | ✓ | ✓ | `43d50135`, `5dcdb37c` | Opus | |
+| PAS-013 | Cabeçalho | Menu do responsável: ✓, dica, chip vazio do desenho | P4 | **feito** (ver PAS-013b) | ✓ | ✓ | ✓ | `af4205b2` | | |
+| FPN-035 | Topo | Sino de contorno (`bi-bell`) em todo o sistema e no Peticionar | P4 | **feito** | ✓ | — | ✓ | `b216786b`, `f9505f67` | | Todos os desenhos com topo usam o contorno |
+| PAS-047i | Timeline | Notificações do usuário ligadas à pasta, com chip próprio | P3 | **feito** | ✓ | ✓ | ✓ | `1a042302` | | Vazamento testado por todos os caminhos |
+| PMC-036/029/031 | Metas | Todos os responsáveis; Abrir em Metas no ⋮; concluir/reabrir sem recarregar com Desfazer | P3 | **feito** | ✓ | ✓ | ✓ | `9e0a0ae4`, `fd9d5987`, `910575f0`, `2349cd44` | | Ver PMC-060/061 |
+| EDT-012/016/018/019/020/023 | Editor | Sinônimos; "> "/"1)" ao digitar; Citação no estilo; Ctrl+Y; Tab = 4 espaços; botões 34×32 no toque | P3/P4 | **feito** | ✓ | ✓ | ✓ | `d4443c32`..`ef56307f` | (mutações: 7) | |
+
 **Novas divergências achadas no ciclo 1:**
 - **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
   sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
@@ -208,6 +225,16 @@ cada divergência A trabalhada e as filas B/C/D.
 - **PMC-058L (A, P4):** "Adicionar nota técnica" ainda aparece a quem só lê quando a publicação já tem nota.
 - **PMC-059 (A, P3):** corpo do modal "Nova meta" (rótulos 13px/700, contador 0/600, chips de responsáveis) e janela
   não modal como no desenho.
+- **PAS-025b (A, P3):** lápide oferecia Editar/Excluir/Responder no Registro. Em implementação (PAS-A8).
+- **PAS-013b (A, P4):** o script redesenha o chip vazio com o visual antigo depois de salvar. Em implementação (PAS-A8).
+- **EDT-003r (desvio retirado):** "Imprimir" no Registro e no Financeiro não está no desenho (`menuObs`/`extrasObs`
+  só em Detalhes). Retirado no PAS-A8. **Proposta ao Samuel:** quer o Imprimir também nesses dois menus?
+- **PMC-060 (A, P3):** Concluir/Reabrir continuam oferecidos na lápide (o servidor recusa).
+- **PMC-061 (A, P4):** "Desfazer" de um reabrir grava a data de agora como conclusão, não a original.
+- **NOT-01 (A, P4):** excluir mensagem do Registro não apaga a notificação de menção/resposta (a prévia fica no sino
+  e agora na Timeline de quem recebeu).
+- **SEC-014 (registrar):** o Acervo (`PastaRepository::findByFilters`) filtra só por tenant, sem acesso por pasta.
+  Anterior às trilhas. Conferir se está em `docs/AUTORIZACAO.md` como falha conhecida.
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
