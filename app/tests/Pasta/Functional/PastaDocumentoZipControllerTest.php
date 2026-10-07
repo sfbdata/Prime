@@ -20,12 +20,14 @@ use App\Shared\Armazenamento\ArquivoGeradoParaEntrega;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
@@ -264,8 +266,55 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->auditoriasDeZip((int) $alheia->getId()));
     }
 
-    #[TestDox('zip: o 4º pedido do MESMO usuário no minuto → 429 em JSON com Retry-After, sem montar zip nem auditar; outro usuário do escritório segue baixando (SEC-004)')]
-    public function testLimitadorPorUsuario(): void
+    // O limitador real guarda a cota no pool `cache.rate_limiter`, que em teste é um ArrayAdapter: o
+    // `services_resetter` do KernelBrowser o zera entre um pedido e outro, mesmo com disableReboot. Por
+    // isso a prova se divide em três: a configuração (fábrica real, várias chamadas num só processo), o
+    // 429 (dublê que recusa) e a chave por usuário e a ordem depois dos guardas (dublê espião).
+
+    #[TestDox('zip: o limitador configurado aceita 3 pedidos por minuto da mesma chave e recusa o 4º (SEC-004)')]
+    public function testConfiguracaoDoLimitador(): void
+    {
+        static::bootKernel();
+        $fabrica = static::getContainer()->get('limiter.pasta_documentos_zip');
+        self::assertInstanceOf(RateLimiterFactoryInterface::class, $fabrica);
+
+        for ($i = 1; $i <= 3; ++$i) {
+            self::assertTrue($fabrica->create('usuario-1')->consume()->isAccepted(), "pedido {$i} de 3 dentro da cota");
+        }
+        self::assertFalse($fabrica->create('usuario-1')->consume()->isAccepted(), 'o 4º no mesmo minuto é recusado');
+        self::assertTrue($fabrica->create('usuario-2')->consume()->isAccepted(), 'outra chave tem cota própria');
+    }
+
+    #[TestDox('zip: cota estourada → 429 em JSON com Retry-After, sem montar zip, sem auditar e sem temporário (SEC-004)')]
+    public function testCotaEstouradaDevolve429(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        static::getContainer()->set('limiter.pasta_documentos_zip', new RateLimiterFactoryEspiao(aceita: false));
+
+        ArquivoGeradoParaEntrega::limparSobras('zip');
+        $temporariosAntes = $this->temporariosDoZip();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.', $this->json($client)['erro']);
+        $retry = (int) $client->getResponse()->headers->get('Retry-After');
+        self::assertGreaterThanOrEqual(1, $retry);
+        self::assertLessThanOrEqual(60, $retry);
+        self::assertSame(0, $this->auditoriasDeZip((int) $pasta->getId()), 'recusado pelo limitador: o UseCase nem roda');
+        self::assertSame($temporariosAntes, $this->temporariosDoZip(), 'recusado pelo limitador: nenhum temporário gravado');
+    }
+
+    #[TestDox('zip: a chave do limitador é o id do USUÁRIO, e pedido recusado pelos guardas do lote não consome cota (SEC-004)')]
+    public function testChaveDoLimitadorEOrdemDosGuardas(): void
     {
         $client          = $this->cliente();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -274,54 +323,24 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         $colega          = $this->criarUsuarioSoLeitura($tenant, (int) $pasta->getId());
         $this->logarComTenant($client, $user, $tenant);
         $this->limpar();
-        $corpo = ['_token' => $this->csrf('pex_lote_' . $pasta->getId()), 'documentos' => [(string) $doc->getId()]];
-
-        for ($i = 1; $i <= 3; ++$i) {
-            $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
-            self::assertResponseIsSuccessful("pedido {$i} de 3 ainda está dentro da cota");
-        }
-        self::assertSame(3, $this->auditoriasDeZip((int) $pasta->getId()));
-
-        ArquivoGeradoParaEntrega::limparSobras('zip');
-        $temporariosAntes = $this->temporariosDoZip();
-
-        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
-
-        self::assertResponseStatusCodeSame(429);
-        self::assertSame('Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.', $this->json($client)['erro']);
-        $retry = (int) $client->getResponse()->headers->get('Retry-After');
-        self::assertGreaterThanOrEqual(1, $retry);
-        self::assertLessThanOrEqual(60, $retry);
-        self::assertSame(3, $this->auditoriasDeZip((int) $pasta->getId()), 'recusado pelo limitador: o UseCase nem roda');
-        self::assertSame($temporariosAntes, $this->temporariosDoZip(), 'recusado pelo limitador: nenhum temporário gravado');
-
-        // A chave é o usuário, não a pasta nem o escritório: o colega não paga pela cota de quem estourou.
-        $this->logarComTenant($client, $colega, $tenant);
-        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
-        self::assertResponseIsSuccessful('outro usuário do mesmo escritório, mesma pasta: não é afetado');
-        self::assertSame(4, $this->auditoriasDeZip((int) $pasta->getId()));
-    }
-
-    #[TestDox('zip: pedido recusado pelos guardas do lote (CSRF) não gasta a cota do limitador')]
-    public function testRecusaDoLoteNaoGastaCota(): void
-    {
-        $client          = $this->cliente();
-        [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta($tenant);
-        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
-        $this->logarComTenant($client, $user, $tenant);
-        $this->limpar();
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+        static::getContainer()->set('limiter.pasta_documentos_zip', $espiao);
 
         for ($i = 1; $i <= 4; ++$i) {
             $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", ['_token' => 'errado', 'documentos' => [(string) $doc->getId()]]);
             self::assertResponseStatusCodeSame(400);
         }
+        self::assertSame([], $espiao->chavesConsumidas, 'recusa de CSRF não chega ao limitador');
 
-        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
-            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
-            'documentos' => [(string) $doc->getId()],
-        ]);
-        self::assertResponseIsSuccessful('as 4 recusas de CSRF não contaram');
+        $corpo = ['_token' => $this->csrf('pex_lote_' . $pasta->getId()), 'documentos' => [(string) $doc->getId()]];
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+        self::assertResponseIsSuccessful();
+
+        $this->logarComTenant($client, $colega, $tenant);
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+        self::assertResponseIsSuccessful();
+
+        self::assertSame([(string) $user->getId(), (string) $colega->getId()], $espiao->chavesConsumidas, 'uma chave por usuário, não por pasta nem por escritório');
     }
 
     // ----------------------------------------------------------------- helpers
