@@ -106,7 +106,13 @@ e o `fm` ficou congelado para a Cobrança.
 | Schema | OK (as 4 migrations da EI2 aplicadas; as 2 antigas do Ponto seguem em skip, ver §11) |
 | BlueJus IA | **Desligada.** Provedor = `nao_configurado` (`ProvedorNaoConfigurado`), `IA_HABILITADA` ausente (default `false`) |
 
-### Classificação: **DEPLOY CONCLUÍDO · PÓS-DEPLOY TÉCNICO OK · SMOKE VISUAL DE PRODUÇÃO PENDENTE**
+### Classificação: **DEPLOY CONCLUÍDO · PÓS-DEPLOY TÉCNICO OK · SMOKE DE PRODUÇÃO APROVADO**
+
+> **Atualização de 07/10 (início do Engineering Loop):** o Samuel fez o smoke visual e funcional da EI2 em
+> produção e **aprovou**. `719de0e4` é o baseline de produção homologado. O texto abaixo, que trata o smoke
+> como pendente, ficou como histórico. A continuação está em `docs/specs/engineering-loop-fidelidade-designer.md`.
+
+### (histórico) Classificação anterior: DEPLOY CONCLUÍDO · PÓS-DEPLOY TÉCNICO OK · SMOKE VISUAL DE PRODUÇÃO PENDENTE
 
 > A EI2 **não está homologada em produção.** A aprovação do Samuel em 07/10 foi feita no **dev**
 > (`saas_ux`). A suíte verde e o smoke do dev não dizem nada sobre a tela de produção.
