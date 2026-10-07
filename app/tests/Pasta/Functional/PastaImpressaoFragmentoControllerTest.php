@@ -236,6 +236,48 @@ final class PastaImpressaoFragmentoControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('R$ 1.234,00', $html);
     }
 
+    #[TestDox('A pendência do Financeiro ("contrato… pendente… e N pagamentos vencidos") só sai no resumo para quem vê o financeiro')]
+    public function testPendenciaDoFinanceiroSoParaQuemVe(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->pastaComFinanceiro($tenant);
+        self::assertSame('PENDENTE', $pasta->getSituacaoContrato(), 'premissa: pasta nova nasce com contrato pendente');
+
+        $vencido = new PastaPagamento();
+        $vencido->setPasta($pasta);
+        $vencido->setTenant($tenant);
+        $vencido->setDescricao('Parcela atrasada');
+        $vencido->setValor('500.00');
+        $vencido->setVencimento(new \DateTimeImmutable('-20 days'));
+        $this->em()->persist($vencido);
+        $this->em()->flush();
+
+        $ve    = true;
+        $duble = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $duble->method('podeVer')->willReturnCallback(static function () use (&$ve): bool {
+            return $ve;
+        });
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $duble);
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Controle: quem vê recebe a pendência, com os vencidos.
+        $comFin = $this->folha($client->request('GET', $this->url((int) $pasta->getId())));
+        self::assertStringContainsString(
+            'Contrato de honorários pendente de assinatura e 1 pagamento vencido',
+            $this->texto($comFin->filter('[data-secao="pendencias"]')),
+        );
+
+        $ve = false;
+        $client->request('GET', $this->url((int) $pasta->getId()));
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('pendente de assinatura', $html);
+        self::assertStringNotContainsString('pagamento vencido', $html);
+    }
+
     #[TestDox('Fragmento de pasta de OUTRO escritório dá 404, sem nada dela na resposta')]
     public function testOutroEscritorioDa404(): void
     {

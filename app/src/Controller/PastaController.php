@@ -63,6 +63,7 @@ use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\DTO\AnalisesDaPastaOutput;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\TimelineItemDTO;
@@ -305,6 +306,7 @@ class PastaController extends AbstractController
         ListarAnalisesDaPastaUseCase $listarAnalisesIa,
         DisponibilidadeDeInteligencia $disponibilidadeIa,
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
+        VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -469,7 +471,14 @@ class PastaController extends AbstractController
             'push'                        => $push,
             'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
-            'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta, itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo()),
+            // A do Financeiro ("… e N pagamentos vencidos") só para quem vê o financeiro.
+            'pendencias'                  => PastaPendenciasOutput::montar(
+                $pasta,
+                $push->naoLidas,
+                $pagamentosDaPasta,
+                itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
+                veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
+            ),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho

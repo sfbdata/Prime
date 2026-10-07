@@ -192,7 +192,7 @@ final class PastaResumoController extends AbstractController
             // Extrato e moldura só usam a faixa Pasta/Cliente/Processo: sem Push nem checklist.
             : PastaResumoImpressaoOutput::montar(
                 $pasta,
-                PastaPendenciasOutput::montar($pasta, 0, $pagamentos),
+                PastaPendenciasOutput::montar($pasta, 0, $pagamentos, veFinanceiro: $veFinanceiro),
                 [],
                 $pagamentos,
                 incluirFinanceiro: false,
@@ -256,7 +256,14 @@ final class PastaResumoController extends AbstractController
 
         return PastaResumoImpressaoOutput::montar(
             $pasta,
-            PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentos, itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo()),
+            PastaPendenciasOutput::montar(
+                $pasta,
+                $push->naoLidas,
+                $pagamentos,
+                itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
+                // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
+                veFinanceiro: $veFinanceiro,
+            ),
             $push->itens,
             $pagamentos,
             incluirFinanceiro: $veFinanceiro,

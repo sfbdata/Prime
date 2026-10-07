@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
 use App\Entity\Tarefa\Tarefa;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -165,6 +166,42 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#pastaTabs > #financeiro-tab.ps-aba--pend'), 'contrato regular: sem pendência');
         self::assertCount(0, $crawler->filter('#financeiro-tab > .ps-aba-pend'));
         self::assertStringNotContainsString('pendente', (string) $crawler->filter('#financeiro-tab')->attr('title'));
+    }
+
+    #[TestDox('a pendência do Financeiro só acende para quem vê o financeiro (VisibilidadeDoFinanceiroDaPasta): sem ver, nem barra nem title')]
+    public function testFinanceiroSoParaQuemVe(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        self::assertSame('PENDENTE', $pasta->getSituacaoContrato(), 'premissa: pasta nova nasce com contrato pendente');
+
+        // A regra de hoje é a do guarda de leitura; o dublê diz "não" sem mexer nesse guarda.
+        $ve    = true;
+        $duble = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $duble->method('podeVer')->willReturnCallback(static function () use (&$ve): bool {
+            return $ve;
+        });
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $duble);
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Controle: quem vê tem a barra e o motivo.
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#pastaTabs > #financeiro-tab.ps-aba--pend'));
+        self::assertStringContainsString('contrato de honorários pendente', (string) $crawler->filter('#financeiro-tab')->attr('title'));
+
+        $ve      = false;
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('#pastaTabs > #financeiro-tab.ps-aba--pend'));
+        self::assertCount(0, $crawler->filter('#financeiro-tab > .ps-aba-pend'));
+        self::assertStringNotContainsString('pendente', (string) $crawler->filter('#financeiro-tab')->attr('title'));
+        self::assertStringNotContainsString('contrato de honorários pendente de assinatura', (string) $client->getResponse()->getContent());
+        // As outras pendências não dependem disso: a pasta sem processo continua acesa.
+        self::assertCount(1, $crawler->filter('#pastaTabs > #processo-tab.ps-aba--pend'));
     }
 
     // =========================================================================

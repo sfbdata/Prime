@@ -107,7 +107,7 @@ final class PastaPendenciasOutputTest extends TestCase
         $pasta->setSituacaoContrato('PENDENTE');
         $hoje = new \DateTimeImmutable(self::HOJE);
 
-        $out = PastaPendenciasOutput::montar($pasta, 0, [], $hoje);
+        $out = PastaPendenciasOutput::montar($pasta, 0, [], $hoje, veFinanceiro: true);
         self::assertSame(['n' => 1, 'txt' => 'contrato de honorários pendente de assinatura'], $out->porAba['financeiro']);
 
         $pagamentos = [
@@ -117,26 +117,46 @@ final class PastaPendenciasOutputTest extends TestCase
             $this->pagamento('2026-10-05'),        // vence hoje: ainda não venceu
             $this->pagamento('2026-12-01'),        // futuro
         ];
-        $out = PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje);
+        $out = PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje, veFinanceiro: true);
         self::assertSame(
             ['n' => 3, 'txt' => 'contrato de honorários pendente de assinatura e 2 pagamentos vencidos'],
             $out->porAba['financeiro']
         );
 
-        $out = PastaPendenciasOutput::montar($pasta, 0, [$this->pagamento('2026-09-01')], $hoje);
+        $out = PastaPendenciasOutput::montar($pasta, 0, [$this->pagamento('2026-09-01')], $hoje, veFinanceiro: true);
         self::assertSame('contrato de honorários pendente de assinatura e 1 pagamento vencido', $out->porAba['financeiro']['txt']);
 
         // Regra primária do desenho: pró-bono regulariza mesmo com vencidos.
         $pasta->setProBono(true);
-        $out = PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje);
+        $out = PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje, veFinanceiro: true);
         self::assertArrayNotHasKey('financeiro', $out->porAba);
 
         // Contrato regular, sem pró-bono, com vencidos: também não acende (o desenho só
         // conta vencidos enquanto o contrato está pendente).
         $pasta->setProBono(false);
         $pasta->setSituacaoContrato('REGULAR');
-        $out = PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje);
+        $out = PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje, veFinanceiro: true);
         self::assertArrayNotHasKey('financeiro', $out->porAba);
+    }
+
+    #[TestDox('Financeiro: quem NÃO vê o financeiro não recebe a pendência — nem o contrato, nem os vencidos; o padrão é fechado')]
+    public function testFinanceiroSoParaQuemVe(): void
+    {
+        $pasta = $this->pastaRegular();
+        $pasta->setSituacaoContrato('PENDENTE');
+        $hoje       = new \DateTimeImmutable(self::HOJE);
+        $pagamentos = [$this->pagamento('2026-09-01'), $this->pagamento('2026-09-15')];
+
+        // Controle: o cenário produz a pendência para quem vê.
+        self::assertSame(
+            'contrato de honorários pendente de assinatura e 2 pagamentos vencidos',
+            PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje, veFinanceiro: true)->porAba['financeiro']['txt'],
+        );
+
+        self::assertArrayNotHasKey('financeiro', PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje, veFinanceiro: false)->porAba);
+        self::assertArrayNotHasKey('financeiro', PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje)->porAba, 'quem não diz, não vê');
+        // As outras abas não dependem disso.
+        self::assertArrayHasKey('push', PastaPendenciasOutput::montar($pasta, 2, $pagamentos, $hoje, veFinanceiro: false)->porAba);
     }
 
     #[TestDox('Push: publicações não lidas, singular e plural; zero não acende')]
@@ -193,7 +213,7 @@ final class PastaPendenciasOutputTest extends TestCase
         $pasta->setNup('1');
         $this->meta($pasta, Tarefa::STATUS_PENDENTE);
 
-        $out = PastaPendenciasOutput::montar($pasta, 2, [], new \DateTimeImmutable(self::HOJE));
+        $out = PastaPendenciasOutput::montar($pasta, 2, [], new \DateTimeImmutable(self::HOJE), veFinanceiro: true);
 
         self::assertSame(['tarefas', 'processo', 'financeiro', 'push'], array_keys($out->porAba));
     }
