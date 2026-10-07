@@ -77,4 +77,22 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Editado em', $this->html($client));
         self::assertStringContainsString("marca.title = (publicado ? 'Publicado às ' + publicado + ' · ' : '') + 'última edição '", $this->html($client));
     }
+
+    #[TestDox('PAS-037: na linha do Registro só o lápis, com "Editável por mais N minutos"; a lixeira fica escondida para o menu')]
+    public function testLinhaSemLixeiraNemMinutos(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $msg             = $this->registrar($pasta, $user, $tenant, 'Combinado', '-14 minutes -30 seconds');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $acoes = $crawler->filter('#pasta-msg-' . $msg->getId() . ' > .ps-anotacao-topo > .ps-anotacao-acoes');
+        self::assertSame('Editável por mais 1 minuto', $acoes->filter('.ps-anotacao-acoes > .btn-editar-msg-pasta')->attr('title'), 'singular no último minuto');
+        self::assertNotNull($acoes->filter('.ps-anotacao-acoes > .btn-excluir-msg-pasta[data-url][data-csrf]')->attr('hidden'));
+        self::assertCount(0, $crawler->filter('#timelineList .ps-anotacao-janela'), 'sem o "· N min" na linha');
+        self::assertCount(1, $crawler->filter('#psRegMenu > .js-reg-excluir'), 'excluir continua no menu');
+    }
 }

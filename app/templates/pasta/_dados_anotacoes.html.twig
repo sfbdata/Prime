@@ -16,7 +16,7 @@
 
    O que o desenho mostra e é função nova NÃO aparece: encaminhar via Chat I.A,
    destacar, etiqueta do registro, presença do autor. Já existem: a janela de
-   edição de 15 minutos (`comentario_editavel` / "· N min") e o RESPONDER — a
+   edição de 15 minutos (`comentario_editavel`; os minutos na dica do lápis, PAS-037) e o RESPONDER — a
    resposta fica recuada sob a raiz (`.ps-respostas[data-resposta-de]`), com a
    faixa "Resposta a NOME"; um nível só (responder a uma resposta liga à raiz).
    Os ids #timelineRespostaA, #timelineRespondendo, #timelineRespondendoNome,
@@ -236,17 +236,21 @@
             {% endif %}
             <span class="ps-cab-espaco"></span>
             {% if podeGerenciar %}
+                {# PAS-037 (dc L.1309, `editDica`): na linha só o lápis, e os minutos que restam
+                   vão para a dica dele. Excluir mora no menu (PAS-025), que clica o botão
+                   escondido abaixo — a ação, o CSRF e a URL de sempre. #}
+                {% set minRest = comentario_minutos_restantes(item.dataHora) %}
                 <span class="ps-anotacao-acoes">
                     <button type="button"
                             class="ps-anotacao-acao btn-editar-msg-pasta"
-                            title="Editar registro" aria-label="Editar registro"
+                            title="Editável por mais {{ minRest }} {{ minRest == 1 ? 'minuto' : 'minutos' }}" aria-label="Editar registro"
                             data-msg-id="{{ item.mensagemId }}"
                             data-conteudo="{{ item.detalhe|e('html_attr') }}"
                             data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
                             data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button type="button"
+                    <button type="button" hidden
                             class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
                             title="Excluir registro" aria-label="Excluir registro"
                             data-msg-id="{{ item.mensagemId }}"
@@ -254,8 +258,6 @@
                             data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
                         <i class="bi bi-trash3"></i>
                     </button>
-                    {% set minRest = comentario_minutos_restantes(item.dataHora) %}
-                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
                 </span>
             {% endif %}
             {% if alvoId and not lapide %}

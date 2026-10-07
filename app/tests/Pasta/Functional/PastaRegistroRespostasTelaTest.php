@@ -112,7 +112,7 @@ final class PastaRegistroRespostasTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#formTimelineMensagem > #timelineRespondendo.d-none > button#timelineRespondendoCancelar'));
     }
 
-    #[TestDox('dentro dos 15 min a resposta também mostra editar/excluir e o "· N min"')]
+    #[TestDox('dentro dos 15 min a resposta também tem editar/excluir, com os minutos na dica do lápis')]
     public function testJanelaDeEdicaoValeParaResposta(): void
     {
         $client          = static::createClient();
@@ -128,7 +128,9 @@ final class PastaRegistroRespostasTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $acoes);
         self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > .btn-editar-msg-pasta[data-url][data-csrf]'));
         self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > .btn-excluir-msg-pasta[data-url][data-csrf]'));
-        self::assertSame('· 10 min', trim($acoes->filter('.ps-anotacao-acoes > .ps-anotacao-janela')->text()));
+        // PAS-037: os minutos ficam na dica do lápis; a lixeira, escondida, serve ao menu.
+        self::assertSame('Editável por mais 10 minutos', $acoes->filter('.btn-editar-msg-pasta')->attr('title'));
+        self::assertNotNull($acoes->filter('.btn-excluir-msg-pasta')->attr('hidden'));
     }
 
     #[TestDox('resposta cuja original foi excluída fica no primeiro nível dizendo "Resposta a uma mensagem excluída"')]
