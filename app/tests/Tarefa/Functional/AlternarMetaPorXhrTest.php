@@ -68,6 +68,8 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
     private function criarUsuario(Tenant $tenant, string $nome, bool $papelDeSistema = true): User
     {
         $em     = $this->em();
+        // Depois de um pedido o EntityManager foi zerado (services_resetter): religa o escritório.
+        $tenant = $em->contains($tenant) ? $tenant : $em->getReference(Tenant::class, $tenant->getId());
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $user = new User();
@@ -96,6 +98,8 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
     private function criarUsuarioComPermissoes(Tenant $tenant, string $nome, array $codigos): User
     {
         $em     = $this->em();
+        // Depois de um pedido o EntityManager foi zerado (services_resetter): religa o escritório.
+        $tenant = $em->contains($tenant) ? $tenant : $em->getReference(Tenant::class, $tenant->getId());
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $role = new TenantRole();
@@ -257,7 +261,9 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha);
         self::assertSame('concluida', $linha->attr('data-meta-estado'));
         self::assertCount(1, $linha->filter('.ps-meta-acoes form.ps-meta-reabrir[action="/tarefas/' . $id . '/reabrir"]'), 'o Desfazer manda este form');
-        self::assertSame('TOKEN_reabrir_tarefa_' . $id, $linha->filter('form.ps-meta-reabrir input[name="_token"]')->attr('value'));
+        // O html vem do render do próprio pedido, com o gerador real de token: só se exige que exista.
+        // A ida e volta com o token real é o testDesfazerComTokenReal.
+        self::assertNotSame('', (string) $linha->filter('form.ps-meta-reabrir input[name="_token"]')->attr('value'));
         self::assertCount(0, $linha->filter('form.ps-meta-concluir'));
         self::assertSame('atrasada', $aba->filter('article.ps-meta[data-meta-id="' . $outra . '"]')->attr('data-meta-estado'), 'as outras linhas vêm junto, com o próprio estado');
 
