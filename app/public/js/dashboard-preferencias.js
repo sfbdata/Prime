@@ -2,7 +2,7 @@
  * Menu ⋮ "Opções da tabela" do Dashboard (desenho "01 - Dashboard 1.2.2", "Opções da tabela" e
  * "Personalização por usuário").
  *
- * A fonte de verdade é o SERVIDOR, nunca o navegador (sem localStorage): o estilo do usuário
+ * A fonte de verdade é o SERVIDOR, nunca o navegador (nada guardado no navegador): o estilo do usuário
  * logado vem em `data-preferencias` do `.db-page`, já aplicado como classe pelo Twig; cada
  * escolha é gravada pelo POST de `data-preferencias-endpoint` (CSRF no header `X-CSRF-Token`,
  * token `ajax`) e a resposta do servidor é o estado que a tela adota. Se a gravação falhar, a tela
