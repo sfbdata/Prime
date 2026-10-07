@@ -894,6 +894,68 @@
         }
     }
 
+    // ── Autoformatação ao digitar (`autoFormatar` do desenho, bj-editor.js l.618-626) ───────
+    //
+    // No começo de um parágrafo, "1." ou "1)" + espaço vira numeração, "-" ou "*" + espaço vira
+    // marcadores e "> " vira citação — e um chip avisa "Formatação automática aplicada", com
+    // Desfazer. As listas seguem com a conversão do próprio Quill (`list autofill`, que também
+    // aceita "2.", "[ ]" e "[x]"); a citação é feita aqui, do mesmo jeito: o espaço entra, o
+    // histórico é cortado e a conversão vira UM passo — Desfazer volta exatamente o "> " digitado.
+
+    /** Prefixos do `list autofill` do Quill, mais "1)" e ">" (este só no começo exato da linha). */
+    var PREFIXO_AUTOFORMATACAO = /^(?:\s*?(\d+\.|1\)|-|\*|\[ ?\]|\[x\])|>)$/;
+
+    var autopreencherLista = null;
+
+    /** O handler original do Quill para as listas (lido do próprio Quill, não copiado). */
+    function conversaoDeListaDoQuill() {
+        if (!autopreencherLista) {
+            autopreencherLista = Quill.import('modules/keyboard').DEFAULTS.bindings['list autofill'].handler;
+        }
+
+        return autopreencherLista;
+    }
+
+    function autoFormatar(refs, teclado, faixa, contexto) {
+        var quill = refs.quill;
+        var inicio = faixa.index - contexto.offset;
+        var convertido;
+
+        if (contexto.prefix === '>') {
+            convertido = citacaoAutomatica(quill, faixa, contexto);
+        } else {
+            convertido = conversaoDeListaDoQuill().call(teclado, faixa, contexto) === false;
+        }
+        if (!convertido) { return true; } // não converteu: o espaço segue como espaço
+
+        // "Desfazer" só volta a conversão se ela ainda for o último passo do histórico.
+        var pilha = quill.history && quill.history.stack;
+        var passos = pilha ? pilha.undo.length : -1;
+        mostrarChip(refs, inicio, textoDoChip('bi-magic', [{ texto: 'Formatação automática aplicada' }]), [
+            { rotulo: 'Desfazer', acao: function () {
+                if (pilha && pilha.undo.length === passos) { quill.history.undo(); }
+            } },
+        ], 3600);
+
+        return false;
+    }
+
+    /** "> " no começo de um parágrafo (fora de lista, como o desenho): vira citação. */
+    function citacaoAutomatica(quill, faixa, contexto) {
+        if (contexto.format.list || contexto.offset !== 1) { return false; }
+
+        var inicio = faixa.index - contexto.offset;
+        var Delta = Quill.import('delta');
+        quill.insertText(faixa.index, ' ', 'user');
+        if (quill.history) { quill.history.cutoff(); }
+        quill.updateContents(new Delta().retain(inicio).delete(contexto.offset + 1), 'user');
+        quill.formatLine(inicio, 1, 'blockquote', true, 'user');
+        if (quill.history) { quill.history.cutoff(); }
+        quill.setSelection(inicio, 0, 'silent');
+
+        return true;
+    }
+
     // ── Menu do botão direito (`ctxMenu` do desenho, bj-editor.js l.693-762) ───────────────
     //
     // No padrão do Word: mini barra de formatação; Recortar, Copiar, Colar, Colar somente texto;
@@ -1927,6 +1989,15 @@
                         tab: {
                             key: 'Tab',
                             handler: function (faixa, contexto) { return tabulacao(this.quill, faixa, contexto); },
+                        },
+                        // EDT-016: substitui o `list autofill` do Quill (mesmo nome). Soma "1)" e
+                        // "> " ao que ele já convertia ("1.", "-", "*") e avisa com o chip do desenho.
+                        'list autofill': {
+                            key: ' ',
+                            shiftKey: null,
+                            collapsed: true,
+                            prefix: PREFIXO_AUTOFORMATACAO,
+                            handler: function (faixa, contexto) { return autoFormatar(refs, this, faixa, contexto); },
                         },
                     },
                 },
