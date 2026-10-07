@@ -200,8 +200,9 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
 
         $menu = $crawler->filter($topo . ' > #psObsMenu' . $obs->getId() . '[role="menu"]');
         self::assertCount(1, $menu);
+        // PAS-041 acrescentou Criar meta e Editar/Excluir (PastaDetalhesObsMenuTelaTest); aqui, os dois primeiros.
         $itens = $menu->filter('[role="menuitem"]');
-        self::assertCount(2, $itens, 'hoje têm função "Copiar texto" e "Citar no novo registro"');
+        self::assertGreaterThanOrEqual(2, count($itens));
         self::assertSame('Copiar texto', trim($menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar')->text()));
 
         // EDT-009 (dc L.6460): ordem do desenho — Citar vem depois de Copiar texto, com o ícone de aspas.

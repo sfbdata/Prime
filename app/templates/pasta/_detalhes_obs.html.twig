@@ -12,7 +12,18 @@
    `data-ler-mais` na lista: o pasta-ler-mais.js trata cada `.obs-conteudo-det` (texto
    com mais de 3 parágrafos → "continuar lendo"). Só exibição; o conteúdo não muda.
 
-   Contexto: `pasta`, `observacoesDetalhes`, `fotosResponsaveis` (mapa userId => url). #}
+   ⋮ da observação (PAS-041; desenho dc L.5958 `regsLinha` + `extrasObs` L.6465): Copiar
+   texto · Citar no novo registro · Criar meta a partir deste registro · — · Editar ·
+   Excluir comentário. "Criar meta" abre o modal Nova meta (`#modalCriarTarefa`) com a
+   descrição preenchida e o prazo em 7 dias, como o desenho (`novaMetaForm`); só para
+   quem edita a pasta viva. Editar/Excluir clicam os botões da janela de 15 min do
+   cartão (o caminho de sempre) e levam os minutos ("· N min"); fora da janela, ou para
+   quem não é o autor, ficam à vista e desabilitados, "· bloqueado" com `bi-lock` e o
+   motivo na dica (como o Financeiro). Na lápide não há edição: os dois saem.
+   Responder (exige migration) e Imprimir (IMP-A1) não estão aqui.
+
+   Contexto: `pasta`, `observacoesDetalhes`, `fotosResponsaveis` (mapa userId => url),
+   `podeEditarPasta` (bool, opcional — calculado pelo show; fallback aqui). #}
 {# Editor rico (barra de formatação). O Quill é auto-hospedado — sem CDN externo. #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
@@ -25,6 +36,15 @@
 
 {% set meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
 {% set fotos = fotosResponsaveis|default({}) %}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set obsPastaLapide = pasta.estaExcluida %}
+{% set obsPodeCriarMeta = podeEditarPasta and not obsPastaLapide %}
+{% set OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.' %}
+{% set OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.' %}
+<style>
+    .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item:disabled,
+    .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item:disabled:hover { color: var(--ps-label); background: transparent; cursor: not-allowed; opacity: .7; }
+</style>
 
 <section class="ps-card ps-anotacoes ps-detalhes-obs">
     <div class="ps-card-cab ps-card-cab--painel">
@@ -117,10 +137,8 @@
                             </span>
                         {% endif %}
                         <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ obs.criadaEm|date('H:i') }}</span>
-                        {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Do menu do desenho
-                           (dc L.6458-6466) têm função hoje "Copiar texto" e "Citar no novo registro"
-                           (EDT-009), na ordem do desenho — Editar já é o lápis da janela de 15 min;
-                           Encaminhar via Chat I.A, Criar meta e Imprimir não existem aqui. #}
+                        {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Itens: ver o
+                           cabeçalho (PAS-041). Encaminhar via Chat I.A não existe aqui. #}
                         <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
                                 aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
                                 aria-controls="psObsMenu{{ obs.id }}">
@@ -134,6 +152,35 @@
                             <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
                                 <i class="bi bi-quote"></i><span>Citar no novo registro</span>
                             </button>
+                            {% if obsPodeCriarMeta %}
+                                <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
+                                    <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
+                                </button>
+                            {% endif %}
+                            {% if not obsPastaLapide %}
+                                <div class="ps-processo-menu-sep" role="separator"></div>
+                                {% if podeGerenciar %}
+                                    {% set minRestMenu = comentario_minutos_restantes(obs.criadaEm) %}
+                                    <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
+                                            data-obs-id="{{ obs.id }}" title="Edição liberada por mais {{ minRestMenu }} min">
+                                        <i class="bi bi-pencil"></i><span>Editar · {{ minRestMenu }} min</span>
+                                    </button>
+                                    <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
+                                            data-obs-id="{{ obs.id }}" title="Exclusão liberada por mais {{ minRestMenu }} min">
+                                        <i class="bi bi-trash3"></i><span>Excluir comentário · {{ minRestMenu }} min</span>
+                                    </button>
+                                {% else %}
+                                    {% set motivoObs = obs.autor and app.user and obs.autor.id == app.user.id ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR %}
+                                    <button type="button" class="ps-processo-menu-item" role="menuitem"
+                                            disabled aria-disabled="true" title="{{ motivoObs }}">
+                                        <i class="bi bi-lock"></i><span>Editar · bloqueado</span>
+                                    </button>
+                                    <button type="button" class="ps-processo-menu-item" role="menuitem"
+                                            disabled aria-disabled="true" title="{{ motivoObs }}">
+                                        <i class="bi bi-lock"></i><span>Excluir · bloqueado</span>
+                                    </button>
+                                {% endif %}
+                            {% endif %}
                         </div>
                     </div>
                     <div class="ps-anotacao-corpo">
@@ -288,6 +335,18 @@
                         </button>
                         <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
                             <i class="bi bi-quote"></i><span>Citar no novo registro</span>
+                        </button>{% if obsPodeCriarMeta %}
+                        <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
+                            <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
+                        </button>{% endif %}
+                        <div class="ps-processo-menu-sep" role="separator"></div>
+                        <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
+                                data-obs-id="${data.id}" title="Edição liberada por mais {{ comentario_janela_minutos() }} min">
+                            <i class="bi bi-pencil"></i><span>Editar · {{ comentario_janela_minutos() }} min</span>
+                        </button>
+                        <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
+                                data-obs-id="${data.id}" title="Exclusão liberada por mais {{ comentario_janela_minutos() }} min">
+                            <i class="bi bi-trash3"></i><span>Excluir comentário · {{ comentario_janela_minutos() }} min</span>
                         </button>
                     </div>
                 </div>
@@ -375,6 +434,40 @@
         EditorRico.inserirCitacao(obsConteudo, corpo.innerHTML);
     }
 
+    /* "Criar meta a partir deste registro" (PAS-041; dc L.6465 `extrasObs`): o modal Nova meta
+       da pasta (`#modalCriarTarefa`) com a descrição = o texto da observação (600 caracteres) e o
+       prazo em 7 dias, como o `novaMetaForm` do desenho — o título fica para a pessoa. O sinal
+       `origemPush` é o do "Criar tarefa" do Push: o pasta-push.js limpa os campos ao fechar. */
+    function criarMetaObs(item) {
+        const artigo = item.closest('.detalhes-obs-item');
+        const corpo  = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
+        const texto  = corpo ? corpo.innerText.trim() : '';
+        fecharMenuObs(false);
+        const modal = document.getElementById('modalCriarTarefa');
+        if (!modal || !window.bootstrap) { return; }
+
+        const titulo    = document.getElementById('tarefaTitulo');
+        const descricao = document.getElementById('tarefaDescricao');
+        const prazo     = document.getElementById('tarefaPrazo');
+        if (titulo) { titulo.value = ''; }
+        if (descricao) { descricao.value = texto.slice(0, 600); }
+        if (prazo) {
+            const p = new Date(); p.setDate(p.getDate() + 7);
+            prazo.value = p.getFullYear() + '-' + String(p.getMonth() + 1).padStart(2, '0') + '-' + String(p.getDate()).padStart(2, '0');
+        }
+        modal.dataset.origemPush = '1';
+        window.bootstrap.Modal.getOrCreateInstance(modal).show();
+    }
+
+    /* Editar/Excluir do ⋮ (PAS-041): clicam os botões da janela de 15 min do próprio cartão —
+       a mesma ação, o mesmo CSRF e a mesma URL. Sem o botão (janela fechada), nada acontece. */
+    function acionarDoCartao(item, seletor) {
+        fecharMenuObs(false);
+        const artigo = document.getElementById('detalhes-obs-' + item.dataset.obsId);
+        const alvo   = artigo ? artigo.querySelector('.ps-anotacao-acoes ' + seletor) : null;
+        if (alvo) { alvo.click(); }
+    }
+
     // Clique FORA fecha (em captura); Esc fecha e devolve o foco; rolar/redimensionar fecha.
     document.addEventListener('click', function (e) {
         if (!menuAberto) { return; }
@@ -398,6 +491,15 @@
 
             const itemCitar = e.target.closest('.js-obs-citar');
             if (itemCitar) { citarObs(itemCitar); return; }
+
+            const itemMeta = e.target.closest('.js-obs-criar-meta');
+            if (itemMeta) { criarMetaObs(itemMeta); return; }
+
+            const itemEditar = e.target.closest('.js-obs-editar');
+            if (itemEditar) { acionarDoCartao(itemEditar, '.btn-editar-obs-det'); return; }
+
+            const itemExcluir = e.target.closest('.js-obs-excluir');
+            if (itemExcluir) { acionarDoCartao(itemExcluir, '.btn-excluir-obs-det'); return; }
 
             const btnEditar = e.target.closest('.btn-editar-obs-det');
             if (btnEditar) {
