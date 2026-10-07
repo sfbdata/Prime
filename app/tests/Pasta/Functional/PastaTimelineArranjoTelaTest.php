@@ -58,7 +58,9 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         $painel = $crawler->filter('aside#psTimeline.ps-tl[role="dialog"][aria-hidden="true"]');
         self::assertCount(1, $painel);
         self::assertSame('/pasta/' . $pasta->getId() . '/timeline', $painel->attr('data-url'));
-        self::assertNull($painel->attr('data-chave'), 'Sem chave de localStorage: "Enquanto você estava fora" espera persistência no servidor.');
+        self::assertNull($painel->attr('data-chave'), 'Sem chave de localStorage: "Enquanto você estava fora" vem do servidor.');
+        self::assertSame('/pasta/' . $pasta->getId() . '/timeline/visita', $painel->attr('data-visita-url'));
+        self::assertNotSame('', (string) $painel->attr('data-visita-token'));
 
         self::assertCount(1, $crawler->filter('#psTimeline > .ps-tl-cab > .ps-tl-cab-texto > h2#psTimelineTitulo'));
         self::assertSame('Timeline inteligente', trim($crawler->filter('#psTimelineTitulo')->text()));
@@ -89,17 +91,21 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         self::assertDoesNotMatchRegularExpression('/\bIA\b/u', $texto);
     }
 
-    #[TestDox('Regra do dono: a timeline não guarda nada no navegador — sem localStorage/sessionStorage e sem "Enquanto você estava fora"')]
+    #[TestDox('Regra do dono: a timeline não guarda nada no navegador — o "Enquanto você estava fora" vem da visita gravada no servidor')]
     public function testJsSemArmazenamentoNoNavegador(): void
     {
         $js = file_get_contents(dirname(__DIR__, 3) . '/public/js/pasta-timeline.js');
         self::assertIsString($js);
 
-        // Navegador não substitui persistência: o "Enquanto você estava fora" volta só quando a
-        // última abertura for guardada por usuário no servidor.
+        // Navegador não substitui persistência: o "Enquanto você estava fora" (PAS-043) sai da
+        // visita gravada por usuário no servidor — o JS só a registra (POST) e desenha o que vem.
         self::assertStringNotContainsString('localStorage', $js);
         self::assertStringNotContainsString('sessionStorage', $js);
-        self::assertStringNotContainsString('ps-tl-fora', $js);
         self::assertStringNotContainsString("'desde'", $js);
+        self::assertStringContainsString("getAttribute('data-visita-url')", $js);
+        self::assertStringContainsString('registrarVisita().then(carregar)', $js);
+        self::assertStringContainsString('Enquanto você estava fora: ', $js);
+        // D-IA: o 🧠 do desenho fica fora, como o ✦.
+        self::assertStringNotContainsString('🧠', $js);
     }
 }

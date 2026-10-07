@@ -24,6 +24,7 @@ use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Repository\PastaTimelineVisitaRepository;
 use App\Repository\NotificacaoRepository;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -42,6 +43,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *  6. notificações DO USUÁRIO LOGADO ligadas à pasta (PAS-047i) — pela meta ou pelo link —,
  *     pendentes enquanto não lidas; a que aponta para a aba Financeiro, só para quem o vê.
  *
+ * "Enquanto você estava fora" (PAS-043) sai da visita ANTERIOR do usuário a esta timeline
+ * (`pasta_timeline_visita`, gravada ao abrir o painel) — só leitura aqui.
+ *
  * Uma consulta por fonte, cada uma com o MESMO teto: o top-N da fusão é exato (cada fonte trouxe
  * os seus N mais novos). O que a fonte não diz não vira evento — ver o relatório da L18 para o que
  * o desenho mostra e ficou de fora por falta de lastro.
@@ -56,6 +60,7 @@ final class MontadorDaTimelineInteligente
         private readonly PastaObservacaoFinanceiraRepository $observacaoFinanceiraRepository,
         private readonly PastaRepository $pastaRepository,
         private readonly NotificacaoRepository $notificacaoRepository,
+        private readonly PastaTimelineVisitaRepository $visitaRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly RegrasDaTimelineInteligente $regras,
         private readonly UrlGeneratorInterface $urlGenerator,
@@ -193,6 +198,12 @@ final class MontadorDaTimelineInteligente
 
         $filtrados = $this->regras->filtrar($eventos, $filtro, $agora);
 
+        // "Enquanto você estava fora": sobre a lista INTEIRA (o aviso não muda com o chip), a partir
+        // da visita anterior deste usuário a esta pasta.
+        $foraDesde = $this->visitaRepository->visitaAnterior($pasta, $usuario, $tenant);
+        $meusNomes = array_values(array_filter([$usuario->getFullName(), $usuario->getEmail()], static fn (?string $v) => $v !== null && $v !== ''));
+        $novos     = $this->regras->novosDesde($eventos, $foraDesde, $agora, (int) $usuario->getId(), $meusNomes);
+
         return new TimelineInteligenteOutput(
             eventos: array_slice($filtrados, 0, $limite),
             totalFiltrado: count($filtrados),
@@ -202,6 +213,10 @@ final class MontadorDaTimelineInteligente
             pessoas: $this->regras->pessoas($eventos),
             atencao: $this->regras->atencao($eventos),
             resumo: $this->regras->resumir($filtrados),
+            foraDesde: $foraDesde,
+            novos: count($novos),
+            novosPorCategoria: $this->regras->contagemPorCategoria($novos),
+            resumoDesde: $foraDesde !== null ? $this->regras->resumir($this->regras->depoisDe($filtrados, $foraDesde)) : null,
         );
     }
 
@@ -270,6 +285,7 @@ final class MontadorDaTimelineInteligente
             autor: $item->autorNome ?? $item->autorEmail,
             fonte: 'Dados da pasta',
             editado: $item->editadoEm !== null,
+            autorId: $item->usuarioId,
         );
     }
 
@@ -296,6 +312,7 @@ final class MontadorDaTimelineInteligente
             autor: $nome !== null && $nome !== '' ? $nome : $autor?->getEmail(),
             fonte: $aba,
             editado: $observacao->getEditadaEm() !== null,
+            autorId: $autor?->getId(),
         );
     }
 
@@ -388,6 +405,7 @@ final class MontadorDaTimelineInteligente
             texto: $resumo,
             autor: $pagamento->getAutor()?->getFullName(),
             fonte: 'Financeiro',
+            autorId: $pagamento->getAutor()?->getId(),
         )];
 
         if ($pagamento->getPagoEm() !== null) {

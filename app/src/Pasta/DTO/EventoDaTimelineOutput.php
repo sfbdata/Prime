@@ -15,6 +15,10 @@ namespace App\Pasta\DTO;
  * hora para esses — mostra só o dia.
  *
  * Todo texto sai daqui CRU (sem HTML): quem desenha usa `textContent`.
+ *
+ * `autorId`: o id do usuário autor, quando a fonte o tem (mensagem, observação, pagamento). Só
+ * serve às regras do servidor ("Enquanto você estava fora" descarta o que é do próprio usuário)
+ * e não sai no JSON — a tela identifica a pessoa pelo nome, como já fazia.
  */
 final readonly class EventoDaTimelineOutput
 {
@@ -34,6 +38,7 @@ final readonly class EventoDaTimelineOutput
         public bool $editado = false,
         public ?string $link = null,
         public ?string $rotuloLink = null,
+        public ?int $autorId = null,
     ) {
     }
 
@@ -55,6 +60,7 @@ final readonly class EventoDaTimelineOutput
             editado: $this->editado,
             link: $this->link,
             rotuloLink: $this->rotuloLink,
+            autorId: $this->autorId,
         );
     }
 

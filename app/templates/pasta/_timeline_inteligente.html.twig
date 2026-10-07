@@ -13,9 +13,10 @@
    Notificações entram (PAS-047i): só as DO USUÁRIO LOGADO ligadas a esta pasta (pela meta
    ou pelo link), pendentes enquanto não lidas — chip "Notificações", `bi-bell`.
 
-   "Enquanto você estava fora" também NÃO é renderizado: precisa da última abertura
-   guardada POR USUÁRIO no servidor, e localStorage não substitui persistência (regra
-   do dono). Fica para quando houver essa persistência por usuário.
+   "Enquanto você estava fora" (PAS-043): a abertura do painel é guardada POR USUÁRIO no
+   servidor (`pasta_timeline_visita`, POST com CSRF em `data-visita-url`); o aviso conta o
+   que outras pessoas fizeram depois da abertura anterior. Sem o 🧠 do desenho, pela mesma
+   decisão D-IA que tirou o ✦.
 
    O esqueleto é estático; a lista vem de `pasta_timeline` (JSON) e é desenhada pelo
    pasta-timeline.js SÓ com textContent — nenhum texto de usuário passa por HTML.
@@ -28,7 +29,9 @@
 
 <aside class="ps-tl" id="psTimeline" role="dialog" aria-modal="true"
        aria-labelledby="psTimelineTitulo" aria-hidden="true"
-       data-url="{{ path('pasta_timeline', {id: pasta.id}) }}">
+       data-url="{{ path('pasta_timeline', {id: pasta.id}) }}"
+       data-visita-url="{{ path('pasta_timeline_visita', {id: pasta.id}) }}"
+       data-visita-token="{{ csrf_token('pasta_timeline_visita_' ~ pasta.id) }}">
     <div class="ps-tl-cab">
         <i class="bi bi-activity ps-tl-cab-icone" aria-hidden="true"></i>
         <div class="ps-tl-cab-texto">

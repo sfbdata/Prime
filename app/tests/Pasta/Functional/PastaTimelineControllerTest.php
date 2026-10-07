@@ -246,7 +246,7 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         self::assertSame($user->getFullName(), $lancado[0]['autor']);
     }
 
-    #[TestDox('Sem "Enquanto você estava fora": o servidor ignora `desde` e não devolve `novos`')]
+    #[TestDox('O `desde` da URL não manda: sem visita guardada no servidor, nada é novo (PAS-043)')]
     public function testSemNovosDesdeAUltimaVisita(): void
     {
         $client          = static::createClient();
@@ -258,8 +258,9 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $dados = $this->timeline($client, $pasta, ['desde' => '2020-01-01T00:00:00.000Z']);
 
-        self::assertArrayNotHasKey('novos', $dados);
-        self::assertArrayNotHasKey('resumoDesde', $dados);
+        self::assertSame(0, $dados['novos']);
+        self::assertNull($dados['foraDesde']);
+        self::assertNull($dados['resumoDesde']);
     }
 
     #[TestDox('Pasta de outro escritório: 404 (a própria responde 200)')]

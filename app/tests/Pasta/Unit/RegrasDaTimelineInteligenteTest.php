@@ -317,4 +317,63 @@ final class RegrasDaTimelineInteligenteTest extends TestCase
             $this->regras->resumir($this->base()),
         );
     }
+
+    // ── "Enquanto você estava fora" (PAS-043) ─────────────────────────────
+
+    private function deQuem(string $id, string $quando, ?int $autorId, ?string $autor, string $categoria = 'registro'): EventoDaTimelineOutput
+    {
+        return new EventoDaTimelineOutput(
+            id: $id,
+            tipo: 'registro',
+            categoria: $categoria,
+            quando: new \DateTimeImmutable($quando),
+            soData: false,
+            titulo: 'Registro',
+            autor: $autor,
+            autorId: $autorId,
+        );
+    }
+
+    #[TestDox('Novos: só depois da visita e até agora, de outra pessoa; o meu (por id ou, sem id, por nome/e-mail) e o sem autor ficam fora')]
+    public function testNovosDesdeAVisita(): void
+    {
+        $eventos = [
+            $this->deQuem('antes', '2026-10-01 09:00', 2, 'ANA'),
+            $this->deQuem('na-visita', '2026-10-02 10:00', 2, 'ANA'),
+            $this->deQuem('colega', '2026-10-03 10:00', 2, 'ANA'),
+            $this->deQuem('colega-sem-id', '2026-10-03 11:00', null, 'BRUNO'),
+            $this->deQuem('meu', '2026-10-04 10:00', 1, 'EU MESMO'),
+            $this->deQuem('meu-sem-id', '2026-10-04 11:00', null, 'EU MESMO'),
+            $this->deQuem('meu-email', '2026-10-04 12:00', null, 'eu@x.com'),
+            $this->deQuem('sem-autor', '2026-10-05 10:00', null, null, 'processo'),
+            $this->deQuem('futuro', '2026-10-09 10:00', 2, 'ANA', 'meta'),
+        ];
+
+        $novos = $this->regras->novosDesde($eventos, new \DateTimeImmutable('2026-10-02 10:00'), $this->agora, 1, ['EU MESMO', 'eu@x.com']);
+
+        self::assertSame(['colega', 'colega-sem-id'], $this->ids($novos));
+    }
+
+    #[TestDox('Sem visita anterior (primeira abertura): nada é novo')]
+    public function testSemVisitaAnteriorNadaENovo(): void
+    {
+        $eventos = [$this->deQuem('colega', '2026-10-03 10:00', 2, 'ANA')];
+
+        self::assertSame([], $this->regras->novosDesde($eventos, null, $this->agora, 1, ['EU']));
+    }
+
+    #[TestDox('Contagem por categoria na ordem em que aparecem; "depois de" corta pela data, sem olhar o autor')]
+    public function testContagemPorCategoriaEDepoisDe(): void
+    {
+        $eventos = [
+            $this->deQuem('d1', '2026-10-05 10:00', 2, 'ANA', 'documento'),
+            $this->deQuem('r1', '2026-10-04 10:00', 1, 'EU'),
+            $this->deQuem('d2', '2026-10-03 10:00', 2, 'ANA', 'documento'),
+            $this->deQuem('r0', '2026-10-01 10:00', 2, 'ANA'),
+        ];
+
+        self::assertSame(['documento' => 2, 'registro' => 2], $this->regras->contagemPorCategoria($eventos));
+        self::assertSame([], $this->regras->contagemPorCategoria([]));
+        self::assertSame(['d1', 'r1', 'd2'], $this->ids($this->regras->depoisDe($eventos, new \DateTimeImmutable('2026-10-01 10:00'))));
+    }
 }

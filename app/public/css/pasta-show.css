@@ -4968,6 +4968,10 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-res-bd:    #b9d2e2;
     --ps-tl-res-tx:    #0b5f86;
     --ps-tl-atn-tit:   #7b93a2;
+    --ps-tl-fora-bg:   #fff7e6;
+    --ps-tl-fora-bd:   #f0d3a6;
+    --ps-tl-fora-tx:   #7a4b00;
+    --ps-tl-fora-bt:   #7a4b00;
 }
 [data-bs-theme="dark"] .ps-body {
     --ps-tl-bg:        var(--bs-body-bg);
@@ -4991,6 +4995,10 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-res-bd:    rgba(69,176,214,.35);
     --ps-tl-res-tx:    var(--ps-accent);
     --ps-tl-atn-tit:   #8fa6b4;
+    --ps-tl-fora-bg:   rgba(240,170,60,.12);
+    --ps-tl-fora-bd:   rgba(240,170,60,.35);
+    --ps-tl-fora-tx:   #f0b860;
+    --ps-tl-fora-bt:   #9a6206;
 }
 
 /* PAS-049i: o painel do desenho (central:3402) não escurece a tela. O overlay
@@ -5245,6 +5253,31 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 }
 .ps-tl-resumo-tit { font-weight: 700; color: var(--ps-tl-res-tx); margin-bottom: 3px; }
 .ps-tl-resumo-nota { margin-top: 4px; font-size: 11px; color: var(--ps-tl-suave); }
+/* "Enquanto você estava fora" (PAS-043; desenho `tlRender`: #fff7e6 / #f0d3a6 / #7a4b00). */
+.ps-tl-fora {
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    background: var(--ps-tl-fora-bg);
+    border: 1px solid var(--ps-tl-fora-bd);
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ps-tl-forte);
+}
+.ps-tl-fora-tit { font-weight: 700; color: var(--ps-tl-fora-tx); }
+.ps-tl-fora-bt {
+    margin-top: 6px;
+    height: 24px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 3px;
+    background: var(--ps-tl-fora-bt);
+    color: #fff;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
 .ps-tl-atencao {
     margin-bottom: 12px;
     padding: 10px 12px;

@@ -13,6 +13,10 @@ use App\Pasta\Service\RegrasDaTimelineInteligente;
  *
  * `truncado`: alguma fonte atingiu o teto da consulta, ou a lista filtrada passou do limite — a tela
  * avisa e oferece carregar mais, em vez de fingir que mostrou tudo.
+ *
+ * "Enquanto você estava fora" (PAS-043): `foraDesde` é a visita anterior do usuário (nula na
+ * primeira abertura); `novos` e `novosPorCategoria` contam, na lista INTEIRA, o que outras pessoas
+ * fizeram depois dela; `resumoDesde` é o resumo da lista filtrada só a partir dela ("Ver resumo").
  */
 final readonly class TimelineInteligenteOutput
 {
@@ -21,6 +25,7 @@ final readonly class TimelineInteligenteOutput
      * @param array<string, int>           $contagens
      * @param list<string>                 $pessoas
      * @param list<EventoDaTimelineOutput> $atencao
+     * @param array<string, int>           $novosPorCategoria
      */
     public function __construct(
         public array $eventos,
@@ -31,6 +36,10 @@ final readonly class TimelineInteligenteOutput
         public array $pessoas,
         public array $atencao,
         public string $resumo,
+        public ?\DateTimeImmutable $foraDesde = null,
+        public int $novos = 0,
+        public array $novosPorCategoria = [],
+        public ?string $resumoDesde = null,
     ) {
     }
 
@@ -55,6 +64,10 @@ final readonly class TimelineInteligenteOutput
             'pessoas'       => $this->pessoas,
             'atencao'       => array_map(static fn (EventoDaTimelineOutput $e) => $e->paraArray(), $this->atencao),
             'resumo'        => $this->resumo,
+            'foraDesde'     => $this->foraDesde?->format(\DateTimeInterface::ATOM),
+            'novos'         => $this->novos,
+            'novosPorCategoria' => $this->novosPorCategoria,
+            'resumoDesde'   => $this->resumoDesde,
             'categorias'    => $categorias,
             'prioridades'   => $prioridades,
         ];

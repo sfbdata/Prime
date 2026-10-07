@@ -8,7 +8,10 @@ use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Pasta\DTO\FiltroDaTimelineInput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Service\MontadorDaTimelineInteligente;
+use App\Pasta\UseCase\RegistrarVisitaDaTimelineUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,6 +31,10 @@ use Symfony\Component\Routing\Attribute\Route;
  * Cada fonte, depois, é consultada presa ao escritório E à pasta (ver o montador).
  *
  * Pasta excluída (lápide) continua legível: é GET, e o histórico é justamente o que se quer ler.
+ *
+ * A única escrita é `pasta_timeline_visita` (PAS-043): o painel, ao abrir, registra a visita do
+ * usuário — é dela que sai o "Enquanto você estava fora". POST com CSRF por pasta; na lápide, o
+ * `PastaSomenteLeituraListener` recusa, como faz com o favorito, e a tela abre sem o aviso.
  */
 #[Route('/pasta')]
 final class PastaTimelineController extends AbstractController
@@ -36,6 +43,7 @@ final class PastaTimelineController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly MontadorDaTimelineInteligente $montador,
+        private readonly RegistrarVisitaDaTimelineUseCase $registrarVisita,
     ) {
     }
 
@@ -62,6 +70,40 @@ final class PastaTimelineController extends AbstractController
         $timeline = $this->montador->montar($pasta, $tenant, $usuario, FiltroDaTimelineInput::daRequisicao($request));
 
         $resposta = $this->json($timeline->paraArray());
+        $resposta->headers->set('Cache-Control', 'no-store, private');
+
+        return $resposta;
+    }
+
+    #[Route(
+        '/{id}/timeline/visita',
+        name: 'pasta_timeline_visita',
+        requirements: ['id' => '\d+'],
+        methods: ['POST'],
+    )]
+    public function registrarVisita(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant  = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_timeline_visita_' . $pasta->getId(), (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $anterior = $this->registrarVisita->executar($pasta, $usuario, $tenant);
+        } catch (PastaDeOutroEscritorioException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaVerPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+
+        $resposta = $this->json(['anterior' => $anterior?->format(\DateTimeInterface::ATOM)]);
         $resposta->headers->set('Cache-Control', 'no-store, private');
 
         return $resposta;

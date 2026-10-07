@@ -7,9 +7,9 @@
    A cor de categoria/prioridade vem de constante do servidor e só é aplicada se
    for um hex de 6 dígitos.
 
-   "Enquanto você estava fora" NÃO existe aqui: exige guardar a última abertura
-   por usuário no servidor, e navegador não substitui persistência (regra do dono).
-   Volta quando houver essa persistência.
+   "Enquanto você estava fora" (PAS-043): ao abrir, o painel registra a visita no
+   servidor (`data-visita-url`, POST com CSRF) e SÓ DEPOIS carrega a lista — o
+   servidor conta o que é novo a partir da visita anterior. Nada fica no navegador.
    ============================================================================= */
 (function () {
     'use strict';
@@ -20,6 +20,8 @@
     if (!painel || !overlay) { return; }
 
     var url      = painel.getAttribute('data-url');
+    var urlVisita   = painel.getAttribute('data-visita-url');
+    var tokenVisita = painel.getAttribute('data-visita-token');
     var busca    = painel.querySelector('[data-tl-busca]');
     var chips    = painel.querySelector('[data-tl-chips]');
     var periodo  = painel.querySelector('[data-tl-periodo]');
@@ -37,7 +39,7 @@
 
     var estado = {
         categoria: 'tudo', periodo: 'tudo', pessoa: '', q: '', limite: LIMITE_INICIAL,
-        resumo: false, abertos: {}, dados: null
+        resumo: false, resumoDesde: false, abertos: {}, dados: null
     };
     var focoAnterior = null;
     var controle     = null;
@@ -79,7 +81,22 @@
         painel.removeAttribute('aria-hidden');
         if (abrir) { abrir.setAttribute('aria-expanded', 'true'); }
         if (busca) { busca.focus(); }
-        carregar();
+        registrarVisita().then(carregar);
+    }
+
+    // A visita vai ANTES da carga: é ela que desloca a "anterior" no servidor. Falha (lápide,
+    // rede) não impede a timeline de abrir — só fica sem o aviso novo.
+    function registrarVisita() {
+        if (!urlVisita || !window.fetch) { return Promise.resolve(); }
+        var corpo = new URLSearchParams();
+        corpo.set('_token', tokenVisita || '');
+
+        return fetch(urlVisita, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            body: corpo
+        }).then(function () {}, function () {});
     }
     function fecharPainel() {
         if (!painel.classList.contains('is-aberto')) { return; }
@@ -121,6 +138,7 @@
     if (resumir) {
         resumir.addEventListener('click', function () {
             estado.resumo = !estado.resumo;
+            estado.resumoDesde = false;
             resumir.setAttribute('aria-pressed', estado.resumo ? 'true' : 'false');
             desenhar();
         });
@@ -179,6 +197,7 @@
         lista.textContent = '';
         var semFiltro = estado.categoria === 'tudo' && !estado.q.trim();
 
+        if (d.novos > 0 && semFiltro) { lista.appendChild(caixaForaDesde(d)); }
         if (estado.resumo) { lista.appendChild(caixaResumo(d)); }
         if (d.atencao && d.atencao.length && semFiltro) { lista.appendChild(caixaAtencao(d)); }
 
@@ -231,10 +250,36 @@
         pessoa.value = atual;
     }
 
+    // Desenho `tlRender`: "Enquanto você estava fora: N acontecimento(s)", a contagem por tipo
+    // ("2 registros · 1 documentos") e "Ver resumo", que abre o resumo a partir da visita.
+    function caixaForaDesde(d) {
+        var caixa = el('div', 'ps-tl-fora');
+        caixa.appendChild(el('div', 'ps-tl-fora-tit', 'Enquanto você estava fora: ' + d.novos + ' acontecimento(s)'));
+        var partes = [];
+        Object.keys(d.novosPorCategoria || {}).forEach(function (k) {
+            var cat = d.categorias[k];
+            partes.push(d.novosPorCategoria[k] + ' ' + (cat ? cat.rotulo : k).toLowerCase());
+        });
+        caixa.appendChild(el('div', '', partes.join(' · ')));
+        var bt = el('button', 'ps-tl-fora-bt', 'Ver resumo');
+        bt.type = 'button';
+        bt.addEventListener('click', function () {
+            estado.resumo = true;
+            estado.resumoDesde = true;
+            if (resumir) { resumir.setAttribute('aria-pressed', 'true'); }
+            desenhar();
+        });
+        caixa.appendChild(bt);
+        return caixa;
+    }
+
     function caixaResumo(d) {
+        var desde = estado.resumoDesde && d.foraDesde && d.resumoDesde !== null;
         var caixa = el('div', 'ps-tl-resumo');
-        caixa.appendChild(el('div', 'ps-tl-resumo-tit', 'Resumo da atividade'));
-        caixa.appendChild(el('div', '', d.resumo));
+        caixa.appendChild(el('div', 'ps-tl-resumo-tit', desde
+            ? 'O que aconteceu desde ' + new Date(d.foraDesde).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : 'Resumo da atividade'));
+        caixa.appendChild(el('div', '', desde ? d.resumoDesde : d.resumo));
         caixa.appendChild(el('div', 'ps-tl-resumo-nota', 'Contagem por regras fixas, sobre os acontecimentos filtrados.'));
         return caixa;
     }

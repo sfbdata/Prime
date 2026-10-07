@@ -22,7 +22,9 @@ use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
  *  - marcos: criação da pasta, primeira publicação do Push (só com a lista completa), todas as
  *    metas concluídas, financeiro quitado;
  *  - filtros por categoria, período, pessoa e busca com sinônimos;
- *  - resumo da atividade por contagem.
+ *  - resumo da atividade por contagem;
+ *  - "Enquanto você estava fora" (`tlRender`, `novos`): o que aconteceu depois da visita anterior
+ *    do usuário, até agora, feito por OUTRA pessoa.
  *
  * Classe pura (sem banco, sem relógio próprio): o "agora" vem de fora, para o teste fixá-lo.
  */
@@ -308,6 +310,68 @@ final class RegrasDaTimelineInteligente
         }
 
         return $frases !== [] ? implode(' ', $frases) : 'Nenhuma atividade no período.';
+    }
+
+    /**
+     * "Enquanto você estava fora" (desenho `tlRender`: `E.filter(e => e.t > visto && e.t <= Date.now()
+     * && !(e.quem || []).every(u => u === meuId()))`): os acontecimentos DEPOIS da visita anterior,
+     * até agora, com alguém que não é o próprio usuário.
+     *
+     * Lido ao pé da letra, o `every` do desenho dá verdadeiro para lista vazia — então evento SEM
+     * pessoa (publicação do Push, notificação, vencimento) não conta como novo. Aqui também não:
+     * só entra o que tem autor, e autor que não sou eu. O autor é conferido pelo id quando a fonte
+     * o tem; senão (linha do audit_log), pelo nome ou e-mail que a timeline mostra.
+     *
+     * Sem visita anterior (primeira abertura), nada é novo.
+     *
+     * @param list<EventoDaTimelineOutput> $eventos
+     * @param list<string>                 $meusNomes nome e e-mail do usuário, como a timeline os mostra
+     * @return list<EventoDaTimelineOutput>
+     */
+    public function novosDesde(array $eventos, ?\DateTimeImmutable $desde, \DateTimeImmutable $agora, int $meuId, array $meusNomes): array
+    {
+        if ($desde === null) {
+            return [];
+        }
+
+        return array_values(array_filter($eventos, static function (EventoDaTimelineOutput $e) use ($desde, $agora, $meuId, $meusNomes): bool {
+            if ($e->quando <= $desde || $e->quando > $agora) {
+                return false;
+            }
+            if ($e->autorId !== null) {
+                return $e->autorId !== $meuId;
+            }
+
+            return $e->autor !== null && $e->autor !== '' && !in_array($e->autor, $meusNomes, true);
+        }));
+    }
+
+    /**
+     * Quantos de cada categoria (segunda linha do aviso: "2 registros · 1 documentos"), na ordem
+     * em que a categoria aparece na lista (a do desenho, `Object.entries` sobre os novos).
+     *
+     * @param list<EventoDaTimelineOutput> $eventos
+     * @return array<string, int>
+     */
+    public function contagemPorCategoria(array $eventos): array
+    {
+        $contagem = [];
+        foreach ($eventos as $e) {
+            $contagem[$e->categoria] = ($contagem[$e->categoria] ?? 0) + 1;
+        }
+
+        return $contagem;
+    }
+
+    /**
+     * Só o que aconteceu DEPOIS de `desde` (o "Ver resumo" do aviso: `tlResumo(…, visto)`).
+     *
+     * @param list<EventoDaTimelineOutput> $eventos
+     * @return list<EventoDaTimelineOutput>
+     */
+    public function depoisDe(array $eventos, \DateTimeImmutable $desde): array
+    {
+        return array_values(array_filter($eventos, static fn (EventoDaTimelineOutput $e) => $e->quando > $desde));
     }
 
     /**
