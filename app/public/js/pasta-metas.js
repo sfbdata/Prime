@@ -16,7 +16,10 @@
         metas desta pasta" a partir das linhas da lista;
      6. botão direito na linha (PMC-027): abre o MESMO ⋮ da linha no cursor;
      7. meta recém-criada (PMC-044): `?meta=<id>` na URL abre a aba Metas no
-        filtro "Abertas" com a linha realçada (destino do POST do modal).
+        filtro "Abertas" com a linha realçada (destino do POST do modal);
+     8. moldura do modal "Nova meta" (PMC-038): "Criar meta" desabilitado com
+        "Preencha: …" enquanto falta título ou descrição; Recolher e arrastar
+        pela faixa azul.
 
    Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
    que os contêm são abertos pelo pasta-show.js (`data-ps-pop`).
@@ -27,6 +30,7 @@
     function iniciar() {
         filtrosDaLista();
         realceDaMetaNova();
+        molduraDoModalDeMeta();
         atalhosDePrazo();
         avisoDeTituloRepetido();
         renomearNaLista();
@@ -565,5 +569,106 @@
 
         var linha = document.querySelector('[data-ps-metas] .ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
         if (linha) { destacarNaLista(linha); }
+    }
+
+    /* ── 8. Moldura do modal "Nova meta" (PMC-038) ────────────────────────── */
+    /* Desenho (dc `salvarSt`, `faltaTxt`, `recolher`, `arrastar`): o "Criar meta"
+       fica desabilitado, com "Preencha: …" na dica, enquanto falta campo; pronto,
+       a dica é "Criar meta e notificar os responsáveis". Só título e descrição
+       são cobrados: prazo e responsáveis obrigatórios são D-META (decisão
+       pendente), e o servidor só exige os dois. Os outros scripts preenchem os
+       campos por `value` (sem evento), então a conta refaz ao abrir o modal.
+       Recolher (botão ou duplo clique na faixa) esconde corpo e rodapé; a faixa
+       arrasta a janela, sempre com 48px dela à vista. Fechar desfaz os dois. */
+    var FALTA_NENHUMA = 'Criar meta e notificar os responsáveis';
+
+    function faltaNaMeta(titulo, descricao) {
+        var falta = [];
+        if (!titulo || titulo.value.trim() === '') { falta.push('título'); }
+        if (!descricao || descricao.value.trim() === '') { falta.push('descrição'); }
+        return falta;
+    }
+
+    function molduraDoModalDeMeta() {
+        var modal = document.getElementById('modalCriarTarefa');
+        var botao = document.getElementById('btnEnviarTarefa');
+        if (!modal || !botao) { return; }
+        var titulo = document.getElementById('tarefaTitulo');
+        var descricao = document.getElementById('tarefaDescricao');
+        var janela = modal.querySelector('.modal-dialog');
+        var alca = modal.querySelector('[data-ps-nm-alca]');
+        var recolher = modal.querySelector('[data-ps-nm-recolher]');
+
+        function conferir() {
+            var falta = faltaNaMeta(titulo, descricao);
+            botao.disabled = falta.length > 0;
+            botao.title = falta.length > 0 ? 'Preencha: ' + falta.join(', ') : FALTA_NENHUMA;
+        }
+
+        [titulo, descricao].forEach(function (el) {
+            if (el) { el.addEventListener('input', conferir); }
+        });
+        modal.addEventListener('show.bs.modal', conferir);
+        modal.addEventListener('shown.bs.modal', conferir);
+        conferir();
+
+        function alternarRecolhido() {
+            var rec = !janela.classList.contains('is-recolhido');
+            janela.classList.toggle('is-recolhido', rec);
+            if (!recolher) { return; }
+            var dica = rec ? 'Expandir' : 'Recolher (continue vendo a lista)';
+            recolher.setAttribute('aria-label', dica);
+            recolher.title = dica;
+            var icone = recolher.querySelector('i');
+            if (icone) { icone.className = rec ? 'bi bi-chevron-bar-expand' : 'bi bi-dash-lg'; }
+        }
+
+        if (recolher) {
+            recolher.addEventListener('click', function (e) {
+                e.stopPropagation();
+                alternarRecolhido();
+            });
+        }
+
+        if (alca && janela) {
+            alca.addEventListener('dblclick', function (e) {
+                if (e.target.closest('button')) { return; }
+                alternarRecolhido();
+            });
+
+            alca.addEventListener('pointerdown', function (e) {
+                if (e.button !== 0 || e.target.closest('button')) { return; }
+                e.preventDefault();
+                var r = janela.getBoundingClientRect();
+                var x0 = parseFloat(janela.style.left) || 0;
+                var y0 = parseFloat(janela.style.top) || 0;
+                var dx = e.clientX - r.left;
+                var dy = e.clientY - r.top;
+                try { alca.setPointerCapture(e.pointerId); } catch (x) { /* sem captura, segue */ }
+
+                function mover(m) {
+                    var x = Math.min(window.innerWidth - 48, Math.max(48 - r.width, m.clientX - dx));
+                    var y = Math.min(window.innerHeight - 30, Math.max(0, m.clientY - dy));
+                    janela.style.left = (x0 + x - r.left) + 'px';
+                    janela.style.top = (y0 + y - r.top) + 'px';
+                }
+                function soltar() {
+                    alca.removeEventListener('pointermove', mover);
+                    alca.removeEventListener('pointerup', soltar);
+                    alca.removeEventListener('pointercancel', soltar);
+                }
+                alca.addEventListener('pointermove', mover);
+                alca.addEventListener('pointerup', soltar);
+                alca.addEventListener('pointercancel', soltar);
+            });
+        }
+
+        modal.addEventListener('hidden.bs.modal', function () {
+            if (janela) {
+                janela.style.left = '';
+                janela.style.top = '';
+                if (janela.classList.contains('is-recolhido')) { alternarRecolhido(); }
+            }
+        });
     }
 }());

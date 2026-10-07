@@ -3604,6 +3604,101 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 }
 #modalCriarTarefa .ps-nm-dup-abrir:hover { background: var(--ps-nm-dup-btn-hv); }
 
+/* PMC-038 — moldura do modal "Nova meta" (dc L.75-76, 189-192; `janSt`, `rodSt`, `salvarSt`):
+   janela de até 580px com raio 4; faixa #0a7aad (13px 16px, gap 10) com alça, ícone 18px,
+   "Nova meta" 16px/700, a pasta 12px a 85%, botões 30px em branco a 14%; corpo 16px 18px;
+   rodapé #f5f6f7 com borda #e1e6ea, Cancelar #eef2f5/#34505f e "Criar meta" #0a7aad,
+   ambos 36px 13px/700; desabilitado #a9bfcb. Recolhido: só a faixa. */
+.ps-body {
+    --ps-nm-cab-bg: #0a7aad;
+    --ps-nm-rod-bg: #f5f6f7;
+    --ps-nm-rod-bd: #e1e6ea;
+    --ps-nm-cancelar-bg: #eef2f5;
+    --ps-nm-cancelar-hv: #e1e8ed;
+    --ps-nm-cancelar-tx: #34505f;
+    --ps-nm-criar-hv: #0b5f86;
+    --ps-nm-criar-off: #a9bfcb;
+}
+[data-bs-theme="dark"] .ps-body {
+    --ps-nm-rod-bg: var(--ps-card);
+    --ps-nm-rod-bd: var(--ps-div-strong);
+    --ps-nm-cancelar-bg: rgba(255,255,255,.08);
+    --ps-nm-cancelar-hv: rgba(255,255,255,.14);
+    --ps-nm-cancelar-tx: var(--ps-text);
+    --ps-nm-criar-off: rgba(10,122,173,.35);
+}
+.ps-modal-meta.modal-dialog { max-width: min(580px, calc(100vw - 24px)); }
+.ps-modal-meta .modal-content {
+    border: none;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 18px 48px rgba(0,0,0,.3);
+}
+.ps-modal-meta-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 16px;
+    background: var(--ps-nm-cab-bg);
+    color: #fff;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+}
+.ps-modal-meta-alca { font-size: 14px; opacity: .7; }
+.ps-modal-meta-icone { font-size: 18px; }
+.ps-modal-meta-titulo { flex: 1; min-width: 0; margin: 0; font-size: 16px; font-weight: 700; color: #fff; }
+.ps-modal-meta-pasta { font-size: 12px; opacity: .85; white-space: nowrap; }
+.ps-modal-meta-cab-btn {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    cursor: pointer;
+}
+.ps-modal-meta-cab-btn i { font-size: 12px; }
+.ps-modal-meta-cab-btn:hover,
+.ps-modal-meta-cab-btn:focus-visible { background: rgba(255,255,255,.24); }
+.ps-modal-meta-corpo.modal-body { padding: 16px 18px; }
+.ps-modal-meta-rodape.modal-footer {
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--ps-nm-rod-bd);
+    background: var(--ps-nm-rod-bg);
+}
+.ps-modal-meta-rodape.modal-footer > * { margin: 0; }
+.ps-modal-meta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ps-modal-meta-btn i { font-size: 13px; }
+.ps-modal-meta-btn--cancelar { padding: 0 16px; background: var(--ps-nm-cancelar-bg); color: var(--ps-nm-cancelar-tx); }
+.ps-modal-meta-btn--cancelar:hover,
+.ps-modal-meta-btn--cancelar:focus-visible { background: var(--ps-nm-cancelar-hv); }
+.ps-modal-meta-btn--criar { padding: 0 18px; background: var(--ps-nm-cab-bg); color: #fff; }
+.ps-modal-meta-btn--criar:hover,
+.ps-modal-meta-btn--criar:focus-visible { background: var(--ps-nm-criar-hv); }
+.ps-modal-meta-btn--criar:disabled { background: var(--ps-nm-criar-off); cursor: not-allowed; }
+.ps-modal-meta.is-recolhido .ps-modal-meta-corpo,
+.ps-modal-meta.is-recolhido .ps-modal-meta-rodape { display: none; }
+
 /* Trilho da aba Metas (desenho): andamento, o que precisa de atencao e quem
    responde pelas metas. Tudo vem de `PastaMetasResumoOutput`. */
 .ps-metas-andamento, .ps-metas-pessoas, .ps-como-usar { padding: 16px 17px; }

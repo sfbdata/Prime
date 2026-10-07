@@ -4002,20 +4002,35 @@ document.addEventListener('DOMContentLoaded', function () {
 }) }}
 
 
-{# ── Modal: Criar Tarefa ── #}
+{# ── Modal: Nova meta ── #}
+{# PMC-038: a MOLDURA do desenho 1.2.3 (dc L.75-76, 189-192; `janSt`/`rodSt`/`salvarSt`): faixa azul
+   com a alça de arrastar, o ícone, "Nova meta", a pasta, Recolher e Fechar; rodapé cinza com
+   Cancelar e "Criar meta"; o botão fica desabilitado com "Preencha: …" enquanto falta campo
+   obrigatório. Os campos, os ids e os nomes são contrato (pasta-metas.js, pasta-push.js,
+   pasta-ia-*.js e os testes) e não mudam; o que depende de decisão (prazo e responsáveis
+   obrigatórios, "Ação" só leitura, Duplicar meta: D-META) fica como está — por isso o
+   "Preencha" só cobra título e descrição, que é a regra atual do servidor. Arrastar e
+   recolher: /js/pasta-metas.js (molduraDoModalDeMeta). #}
 <div class="modal fade" id="modalCriarTarefa" tabindex="-1" aria-labelledby="modalCriarTarefaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered ps-modal-meta">
         <div class="modal-content">
-            <div class="modal-header">
-                <h6 class="modal-title" id="modalCriarTarefaLabel">
-                    <i class="bi bi-list-task me-2"></i>Nova Meta
-                </h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            <div class="ps-modal-meta-cab" data-ps-nm-alca title="Arraste para mover · duplo clique recolhe">
+                <i class="bi bi-grip-vertical ps-modal-meta-alca" aria-hidden="true"></i>
+                <i class="bi bi-list-check ps-modal-meta-icone" aria-hidden="true"></i>
+                <h2 class="ps-modal-meta-titulo" id="modalCriarTarefaLabel">Nova meta</h2>
+                <span class="ps-modal-meta-pasta">Pasta {{ pasta.nup }}</span>
+                <button type="button" class="ps-modal-meta-cab-btn" data-ps-nm-recolher
+                        aria-label="Recolher (continue vendo a lista)" title="Recolher (continue vendo a lista)">
+                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="ps-modal-meta-cab-btn" data-bs-dismiss="modal" aria-label="Fechar" title="Fechar (Esc)">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
             <form id="formCriarTarefa" method="post"
                   action="{{ path('tarefa_criar_para_pasta', {pastaId: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('tarefa_criar_' ~ pasta.id) }}">
-                <div class="modal-body">
+                <div class="modal-body ps-modal-meta-corpo">
 
                     <div id="tarefaErroMsg" class="alert alert-danger d-none py-2 small"></div>
 
@@ -4066,10 +4081,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
 
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" id="btnEnviarTarefa" class="btn btn-primary btn-sm">
-                        <i class="bi bi-send me-1"></i>Criar Tarefa
+                <div class="modal-footer ps-modal-meta-rodape">
+                    <button type="button" class="ps-modal-meta-btn ps-modal-meta-btn--cancelar" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnEnviarTarefa" class="ps-modal-meta-btn ps-modal-meta-btn--criar"
+                            title="Criar meta e notificar os responsáveis">
+                        <i class="bi bi-send" aria-hidden="true"></i>Criar meta
                     </button>
                 </div>
             </form>
@@ -4081,6 +4097,8 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
     var form = document.getElementById('formCriarTarefa');
     if (!form) return;
+    // O rótulo do desenho volta depois de um erro (o "Enviando…" o substitui durante o envio).
+    var ROTULO_CRIAR = '<i class="bi bi-send" aria-hidden="true"></i>Criar meta';
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -4107,14 +4125,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 erroBox.textContent = res.data.erro || res.data.mensagem || 'Erro ao criar meta.';
                 erroBox.classList.remove('d-none');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Meta';
+                btn.innerHTML = ROTULO_CRIAR;
             }
         })
         .catch(function () {
             erroBox.textContent = 'Erro de comunicação. Tente novamente.';
             erroBox.classList.remove('d-none');
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Tarefa';
+            btn.innerHTML = ROTULO_CRIAR;
         });
     });
 }());

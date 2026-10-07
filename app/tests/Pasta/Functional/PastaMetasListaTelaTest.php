@@ -406,4 +406,62 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         self::assertSame('Protocolar "recurso" especial', $linha->attr('data-meta-titulo'));
         self::assertSame('20/10/2026', $linha->attr('data-meta-prazo'));
     }
+
+    #[TestDox('PMC-038: moldura do desenho no modal "Nova meta" — faixa com alça, ícone, título, pasta, Recolher e Fechar; rodapé Cancelar + "Criar meta"; ids de sempre')]
+    public function testMolduraDoModalNovaMeta(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $modal = $crawler->filter('#modalCriarTarefa');
+        self::assertCount(1, $modal);
+        self::assertSame('modalCriarTarefaLabel', $modal->attr('aria-labelledby'));
+        self::assertStringNotContainsString('Criar Tarefa', $modal->text(), 'o rótulo do desenho é "Criar meta"');
+
+        $cab = $modal->filter('.modal-dialog.ps-modal-meta > .modal-content > .ps-modal-meta-cab[data-ps-nm-alca]');
+        self::assertCount(1, $cab, 'a faixa é filha direta do conteúdo, antes do formulário');
+        self::assertSame('Arraste para mover · duplo clique recolhe', $cab->attr('title'));
+        self::assertSame(
+            ['i.bi-grip-vertical', 'i.bi-list-check', 'h2#modalCriarTarefaLabel', 'span.ps-modal-meta-pasta', 'button[data-ps-nm-recolher]', 'button[data-bs-dismiss]'],
+            $cab->children()->each(static function ($c): string {
+                $n = $c->nodeName();
+                if ($n === 'i') {
+                    return 'i.' . (str_contains((string) $c->attr('class'), 'bi-grip-vertical') ? 'bi-grip-vertical' : (str_contains((string) $c->attr('class'), 'bi-list-check') ? 'bi-list-check' : '?'));
+                }
+                if ($n === 'h2') { return 'h2#' . $c->attr('id'); }
+                if ($n === 'span') { return 'span.' . $c->attr('class'); }
+
+                return 'button[' . ($c->attr('data-ps-nm-recolher') !== null ? 'data-ps-nm-recolher' : ($c->attr('data-bs-dismiss') !== null ? 'data-bs-dismiss' : '?')) . ']';
+            }),
+            'ordem do desenho (dc L.76)',
+        );
+        self::assertSame('Nova meta', trim($cab->filter('h2')->text()));
+        self::assertSame('Pasta ' . $pasta->getNup(), trim($cab->filter('.ps-modal-meta-pasta')->text()));
+        $recolher = $cab->filter('button[data-ps-nm-recolher]');
+        self::assertSame('Recolher (continue vendo a lista)', $recolher->attr('aria-label'));
+        self::assertCount(1, $recolher->filter('i.bi-dash-lg'));
+        $fechar = $cab->filter('button[data-bs-dismiss="modal"]');
+        self::assertSame('Fechar', $fechar->attr('aria-label'));
+        self::assertSame('Fechar (Esc)', $fechar->attr('title'));
+        self::assertCount(1, $fechar->filter('i.bi-x-lg'));
+
+        $form = $modal->filter('.modal-content > form#formCriarTarefa');
+        self::assertCount(1, $form);
+        self::assertCount(1, $form->filter('.modal-body.ps-modal-meta-corpo > #tarefaErroMsg'));
+        foreach (['input#tarefaTitulo[name="titulo"]', 'textarea#tarefaDescricao[name="descricao"]', 'input#tarefaPrazo[name="prazo"]', 'select#tarefaResponsavel[name="responsaveis[]"]'] as $campo) {
+            self::assertCount(1, $form->filter($campo), $campo . ' é contrato');
+        }
+
+        $rodape = $form->filter('.modal-footer.ps-modal-meta-rodape');
+        self::assertSame(['Cancelar', 'Criar meta'], $rodape->children()->each(static fn ($b): string => trim($b->text())));
+        $criar = $rodape->filter('button[type="submit"]#btnEnviarTarefa.ps-modal-meta-btn--criar');
+        self::assertCount(1, $criar);
+        self::assertCount(1, $criar->filter('i.bi-send'));
+        self::assertSame('Criar meta e notificar os responsáveis', $criar->attr('title'));
+        self::assertNotNull($rodape->filter('.ps-modal-meta-btn--cancelar')->attr('data-bs-dismiss'));
+    }
 }
