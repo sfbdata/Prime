@@ -42,7 +42,9 @@ final class PastaExploradorLinkDaSubpastaJsTest extends TestCase
         self::assertNotFalse($zip);
         self::assertNotFalse($link);
         self::assertLessThan(strpos($menu, '] : [', (int) $zip), $link, 'no ramo da pasta (ehPasta ? [ … ] : [ … ])');
-        self::assertStringNotContainsString("'Copiar link'", substr($this->js(), (int) strpos($this->js(), 'const ROTULOS_DE_ESCRITA'), 200));
+        // Leitura (DOC-118b): sem a marca `escrita`, o só leitor continua vendo o "Copiar link".
+        $fimDoLink = strpos($menu, "\n", (int) $link);
+        self::assertStringNotContainsString('escrita', substr($menu, (int) $link, (int) $fimDoLink - (int) $link));
     }
 
     #[TestDox('o link da subpasta: a pasta_show desta pasta (data-url-pasta), sem outra query, com ?pex=<id> e #documentos; o arquivo segue com o link de visualização')]

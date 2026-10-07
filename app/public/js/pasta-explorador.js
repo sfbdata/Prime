@@ -199,11 +199,6 @@
     }
     // A lixeira só se abre com permissão de EDITAR (o GET é dela); na lápide, quem edita ainda a olha.
     function veLixeira() { return !!cfg.urlLixeira && (cfg.podeEditar || cfg.pastaExcluida); }
-    // Rótulos de escrita do menu de contexto (DOC-118): saem dele no modo só leitura.
-    const ROTULOS_DE_ESCRITA = ['Nova pasta', 'Colar', 'Recortar', 'Copiar', 'Mover para…', 'Renomear', 'Editar…'];
-    function ehOpDeEscrita(o) {
-        return o !== SEP && (ROTULOS_DE_ESCRITA.indexOf(o.rotulo) !== -1 || /^Excluir\b/.test(o.rotulo));
-    }
 
     // ------------------------------------------------------------ estado ----
     const pastas   = dados.pastas;            // mutável em memória
@@ -1927,17 +1922,20 @@
        - "Editar…" (categoria, descrição, número) é função do sistema: o desenho é omisso. */
     const SEP = {};
     let menuAcoes = [];
+    /* DOC-118b: a ação que ESCREVE (cria, cola, recorta, copia, move, renomeia, edita, exclui) é
+       marcada aqui, na origem, com `{ escrita: true }`; o menu do só leitor tira as marcadas. Ação
+       de escrita nova sem a marca é pega pelo PastaExploradorSomenteLeituraJsTest, não pelo rótulo. */
     function op(rotulo, ico, acao, extra) {
         extra = extra || {};
-        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado, titulo: extra.titulo || '' };
+        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado, titulo: extra.titulo || '', escrita: extra.escrita === true };
     }
     function opcoesDoMenu(alvo) {
         const sel = itensSelecionados();
         const multi = !!alvo && sel.length > 1 && selecao.has(chaveDe(alvo));
         if (!alvo) {
             return [
-                op('Nova pasta', 'bi-folder-plus', novaPastaInline),
-                op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia }),
+                op('Nova pasta', 'bi-folder-plus', novaPastaInline, { escrita: true }),
+                op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true }),
                 op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' }),
                 SEP,
             ].concat([['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']].map(function (par) {
@@ -1955,14 +1953,14 @@
             const arqs = sel.filter(ehArquivo);
             return [op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })].concat(arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : [], [
                 SEP,
-                op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),
+                op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true }),
                 opCopiar(sel),
             ], [
-                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }),
+                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true }),
                 op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
                 opFavorito(sel),
                 SEP,
-                op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true }),
+                op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true }),
                 SEP,
                 op('Propriedades', 'bi-info-square', mostrarPainel),
             ]);
@@ -1981,21 +1979,21 @@
             ])
             .concat([
                 SEP,
-                op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' }),
+                op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true }),
             ])
             .concat([opCopiar([alvo])])
-            .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })] : [])
+            .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })] : [])
             .concat([
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
-                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }),
+                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true }),
                 op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),
                 opFavorito([alvo]),
                 SEP,
-                op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' }),
+                op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true }),
             ])
-            .concat(ehPasta ? [] : [op('Editar…', 'bi-pencil', function () { abrirEditar(a); })])
+            .concat(ehPasta ? [] : [op('Editar…', 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })])
             .concat([
-                op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true }),
+                op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true }),
                 SEP,
                 op('Propriedades', 'bi-info-square', mostrarPainel),
             ]);
@@ -2004,7 +2002,7 @@
     const COPIAR_SO_PASTAS = 'Pastas não são copiadas';
     function opCopiar(itens) {
         const soPastas = !itens.some(ehArquivo);
-        return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '' });
+        return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });
     }
     // Rótulos e ícones do desenho (dc L4820): desmarcado mostra a estrela cheia, marcado a vazia.
     // Com vários, "Tirar" só quando TODOS já são favoritos; senão marca os que faltam.
@@ -2021,7 +2019,7 @@
         const frag = document.createDocumentFragment();
         menuAcoes = [];
         let ultimoSep = true;
-        opcoesDoMenu(alvo).filter(function (o) { return cfg.podeEditar || !ehOpDeEscrita(o); }).forEach(function (o) {
+        opcoesDoMenu(alvo).filter(function (o) { return cfg.podeEditar || o === SEP || !o.escrita; }).forEach(function (o) {
             if (o === SEP) {
                 if (!ultimoSep) { frag.appendChild(h('div', { class: 'pex-ctx-sep', role: 'separator' })); ultimoSep = true; }
                 return;

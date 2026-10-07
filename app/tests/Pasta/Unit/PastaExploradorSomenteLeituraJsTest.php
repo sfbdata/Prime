@@ -101,24 +101,94 @@ final class PastaExploradorSomenteLeituraJsTest extends TestCase
         self::assertLessThan($guarda, $this->posicao("if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }"));
     }
 
-    #[TestDox('só leitura: o menu de contexto perde Nova pasta, Colar, Recortar, Copiar, Mover, Renomear, Editar… e Excluir; mantém Abrir, Visualizar, Baixar, .zip, links, caminhos, favorito e Propriedades')]
+    /**
+     * DOC-118b: as funções que ESCREVEM. Um `op(` cuja ação chame qualquer uma delas é de escrita.
+     * A lista é conferida contra o próprio JS (cada nome tem de existir como `function`), para não
+     * envelhecer em silêncio.
+     */
+    private const FUNCOES_DE_ESCRITA = [
+        'excluirItens', 'iniciarRenomear', 'salvarRenomear', 'recortar', 'copiar', 'colarEm', 'colarAqui',
+        'moverLote', 'copiarLote', 'escolherDestino', 'novaPastaInline', 'criarPasta', 'abrirEditar',
+        'enviarArquivos', 'restaurarDaLixeira',
+    ];
+
+    /**
+     * Todas as chamadas `op(…)` do JS (fora a definição), com os parênteses balanceados e as
+     * strings puladas — `'Baixar como .zip (' + sel.length + ')'` não engana a contagem.
+     *
+     * @return list<string>
+     */
+    private function chamadasDeOp(): array
+    {
+        $js = $this->js();
+        preg_match_all('/(?<![\w$.])op\(/', $js, $m, PREG_OFFSET_CAPTURE);
+        $chamadas = [];
+        foreach ($m[0] as [, $ini]) {
+            if (substr($js, max(0, $ini - 9), 9) === 'function ') {
+                continue;
+            }
+            $nivel = 0;
+            $aspa  = null;
+            for ($i = $ini + 2, $n = strlen($js); $i < $n; ++$i) {
+                $c = $js[$i];
+                if ($aspa !== null) {
+                    if ($c === '\\') {
+                        ++$i;
+                    } elseif ($c === $aspa) {
+                        $aspa = null;
+                    }
+                    continue;
+                }
+                if ($c === "'" || $c === '"' || $c === '`') {
+                    $aspa = $c;
+                } elseif ($c === '(') {
+                    ++$nivel;
+                } elseif ($c === ')' && --$nivel === 0) {
+                    break;
+                }
+            }
+            self::assertSame(0, $nivel, 'op( sem fechamento em ' . $ini);
+            $chamadas[] = substr($js, $ini, $i - $ini + 1);
+        }
+
+        return $chamadas;
+    }
+
+    #[TestDox('só leitura (DOC-118b): o menu filtra pela marca `escrita` da origem, não por rótulo; todo op( que chama função de escrita tem `escrita: true` e nenhum de leitura tem')]
     public function testMenu(): void
     {
         $js = $this->js();
-        self::assertStringContainsString("const ROTULOS_DE_ESCRITA = ['Nova pasta', 'Colar', 'Recortar', 'Copiar', 'Mover para…', 'Renomear', 'Editar…'];", $js);
-        self::assertStringContainsString("return o !== SEP && (ROTULOS_DE_ESCRITA.indexOf(o.rotulo) !== -1 || /^Excluir\\b/.test(o.rotulo));", $this->funcao('ehOpDeEscrita'));
-        self::assertStringContainsString('opcoesDoMenu(alvo).filter(function (o) { return cfg.podeEditar || !ehOpDeEscrita(o); }).forEach(function (o) {', $this->funcao('abrirMenu'));
+        // A marca é lida estrita no `op()` e o filtro usa só ela; a lista de rótulos acabou.
+        self::assertStringContainsString("escrita: extra.escrita === true };", $this->funcao('op'));
+        self::assertStringContainsString('opcoesDoMenu(alvo).filter(function (o) { return cfg.podeEditar || o === SEP || !o.escrita; }).forEach(function (o) {', $this->funcao('abrirMenu'));
+        self::assertStringNotContainsString('ROTULOS_DE_ESCRITA', $js);
+        self::assertStringNotContainsString('ehOpDeEscrita', $js);
 
-        // Cada rótulo filtrado existe no menu — a lista não pode envelhecer em silêncio.
-        $menu = $this->funcao('opcoesDoMenu') . $this->funcao('opCopiar');
-        foreach (['Nova pasta', 'Colar', 'Recortar', 'Copiar', 'Mover para…', 'Renomear', 'Editar…'] as $rotulo) {
-            self::assertStringContainsString("op('" . $rotulo . "'", $menu, "rótulo de escrita que não está no menu: {$rotulo}");
+        foreach (self::FUNCOES_DE_ESCRITA as $nome) {
+            self::assertStringContainsString('    function ' . $nome . '(', $js, "função de escrita que não existe mais: {$nome}");
         }
-        self::assertStringContainsString("op('Excluir ' + sel.length + ' itens'", $menu);
-        self::assertStringContainsString("op('Excluir', 'bi-trash3'", $menu);
-        // Os de leitura NÃO estão na lista.
-        foreach (['Abrir', 'Visualizar', 'Baixar', 'Baixar como .zip', 'Copiar link', 'Copiar links', 'Copiar caminho', 'Copiar caminhos', 'Marcar como favorito', 'Tirar dos favoritos', 'Propriedades', 'Selecionar tudo'] as $leitura) {
-            self::assertStringNotContainsString("'" . $leitura . "'", substr($js, (int) strpos($js, 'const ROTULOS_DE_ESCRITA'), 200), "leitura não sai do menu: {$leitura}");
+        $chamaEscrita = '/\b(?:' . implode('|', self::FUNCOES_DE_ESCRITA) . ')\b/';
+
+        $deEscrita = [];
+        $deLeitura = [];
+        foreach ($this->chamadasDeOp() as $chamada) {
+            if (preg_match($chamaEscrita, $chamada) === 1) {
+                self::assertStringContainsString('escrita: true', $chamada, "ação de escrita sem a marca: {$chamada}");
+                $deEscrita[] = $chamada;
+            } else {
+                self::assertStringNotContainsString('escrita', $chamada, "ação de leitura marcada como escrita: {$chamada}");
+                $deLeitura[] = $chamada;
+            }
+        }
+
+        // Não vazio: as 12 de escrita de hoje (fundo 2, vários 4, um item 6 — Copiar mora no opCopiar)
+        // e as de leitura que o só leitor tem de continuar vendo.
+        self::assertCount(12, $deEscrita, 'ação de escrita nova? marque-a e ajuste a conta');
+        foreach (["'Nova pasta'", "'Colar'", "'Recortar'", "'Copiar'", "'Mover para…'", "'Renomear'", "'Editar…'", "'Excluir'", "'Excluir ' + sel.length"] as $rotulo) {
+            self::assertNotEmpty(array_filter($deEscrita, static fn (string $c): bool => str_starts_with($c, 'op(' . $rotulo)), "escrita sem marca ou fora do menu: {$rotulo}");
+        }
+        foreach (["'Abrir'", "'Visualizar'", "'Baixar'", "'Baixar como .zip'", "'Baixar como .zip ('", "'Copiar link'", "'Copiar links'", "'Copiar caminho'", "'Copiar caminhos'", "'Propriedades'", "'Selecionar tudo'", 'rotulo,', 'rotuloLixeira()', 'par[1]', 'painel ?'] as $rotulo) {
+            self::assertNotEmpty(array_filter($deLeitura, static fn (string $c): bool => str_starts_with($c, 'op(' . $rotulo)), "leitura que sumiria do só leitor: {$rotulo}");
         }
     }
 
