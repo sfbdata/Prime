@@ -77,6 +77,13 @@ final class EnviarMensagemPastaUseCase
      */
     public function executar(Pasta $pasta, User $autor, string $conteudo, Tenant $tenant, ?PastaMensagem $respostaA = null): PastaMensagem
     {
+        // A pasta tem de ser DESTE escritório: a mensagem nasce com o tenant da sessão, e gravá-la
+        // numa pasta alheia misturaria os dois escritórios. O controller já responde 404 antes;
+        // aqui é a mesma prova, sem depender de quem chama nem do TenantFilter.
+        if (!self::mesmo($pasta->getTenant(), $tenant)) {
+            throw new \InvalidArgumentException('Só é possível registrar mensagem numa pasta deste escritório.');
+        }
+
         // Vem do editor rico (HTML): limpo ANTES de persistir. Texto puro atravessa intacto.
         $conteudo = $this->sanitizador->limpar(trim($conteudo)) ?? '';
 

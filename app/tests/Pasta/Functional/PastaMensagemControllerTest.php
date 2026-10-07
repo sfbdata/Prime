@@ -274,8 +274,8 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    #[TestDox('Editar mensagem na pasta de outro tenant é barrado pela checagem de tenant (403)')]
-    public function testEditarMensagemNaPastaDeOutroTenantRetorna403(): void
+    #[TestDox('Editar mensagem na pasta de outro tenant responde 404 (posse da pasta conferida no controller)')]
+    public function testEditarMensagemNaPastaDeOutroTenantRetorna404(): void
     {
         $client  = static::createClient();
         $tenantA = $this->criarTenant();
@@ -286,8 +286,8 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
         $msgB    = $this->criarMensagem($pastaB, $userB, $tenantB);
 
         $this->instalarCsrfStorage();
-        // userA (super-admin) bypassa o ACESSO À pasta, mas o tenant da sessão é A:
-        // a checagem de tenant no UseCase barra a edição da mensagem do tenant B.
+        // userA (super-admin) bypassa o ACESSO À pasta, mas o tenant da sessão é A: a pasta do
+        // tenant B responde 404 antes de qualquer outra checagem (não confirma que ela existe).
         $this->logarComTenant($client, $userA, $tenantA);
 
         $client->request('POST', "/pasta/{$pastaB->getId()}/mensagem/{$msgB->getId()}/editar", [
@@ -295,7 +295,7 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
             'conteudo' => 'Invasão',
         ]);
 
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(404);
     }
 
     // ── Excluir ──────────────────────────────────────────────────────────────

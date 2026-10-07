@@ -142,8 +142,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
-        $client->loginUser($user);
-        $this->marcarTermosAceitos($client);
+        // Com escritório na sessão: sem ele a rota responde 404 (posse da pasta) antes do CSRF.
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
             '_token' => 'token_invalido',
@@ -341,8 +341,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $secao           = $this->criarSecao($pasta, $tenant);
-        $client->loginUser($user);
-        $this->marcarTermosAceitos($client);
+        // Com escritório na sessão: sem ele a seção (busca escopada ao tenant) responde 404 antes do CSRF.
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/secao/{$secao->getId()}/excluir", [
             '_token' => 'token_invalido',
@@ -740,8 +740,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
-        $client->loginUser($user);
-        $this->marcarTermosAceitos($client);
+        // Com escritório na sessão: sem ele a rota responde 404 (posse da pasta) antes do CSRF.
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request(
             'POST',

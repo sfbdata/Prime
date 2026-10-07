@@ -96,6 +96,8 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->tenant = new Tenant();
         $this->autor  = (new User())->setEmail('autor@test.com');
         $this->pasta  = new Pasta();
+        // A pasta é do escritório da sessão — o UseCase passou a provar isso antes de gravar.
+        $this->pasta->setTenant($this->tenant);
     }
 
     public function testEnviarMensagemCriaEntidade(): void
@@ -109,6 +111,51 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         self::assertSame($this->pasta, $mensagem->getPasta());
         self::assertSame($this->autor, $mensagem->getAutor());
         self::assertSame($this->tenant, $mensagem->getTenant());
+    }
+
+    #[TestDox('Pasta de OUTRO escritório é recusada e nada é gravado')]
+    public function testPastaDeOutroEscritorioRecusa(): void
+    {
+        $alheia = (new Pasta())->setTenant(new Tenant());
+
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar($alheia, $this->autor, 'Invasão', $this->tenant);
+    }
+
+    #[TestDox('Pasta sem escritório é recusada: sem tenant não há como provar a posse')]
+    public function testPastaSemEscritorioRecusa(): void
+    {
+        $this->em->expects($this->never())->method('persist');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar(new Pasta(), $this->autor, 'Sem dono', $this->tenant);
+    }
+
+    #[TestDox('Ids de escritório diferentes recusam (proxies do ORM comparados por id)')]
+    public function testPastaDeOutroEscritorioPorIdRecusa(): void
+    {
+        $this->definirId($this->tenant, 7);
+        $alheia = (new Pasta())->setTenant($this->definirId(new Tenant(), 8));
+
+        $this->em->expects($this->never())->method('persist');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar($alheia, $this->autor, 'Invasão', $this->tenant);
+    }
+
+    #[TestDox('Mesmo escritório por id (outra instância) é aceito')]
+    public function testPastaDoMesmoEscritorioPorIdAceita(): void
+    {
+        $this->definirId($this->tenant, 7);
+        $pasta = (new Pasta())->setTenant($this->definirId(new Tenant(), 7));
+
+        $mensagem = $this->useCase->executar($pasta, $this->autor, 'Legítima', $this->tenant);
+
+        self::assertSame($pasta, $mensagem->getPasta());
     }
 
     public function testConteudoVazioLancaExcecao(): void

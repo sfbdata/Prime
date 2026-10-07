@@ -20,6 +20,7 @@ use App\Cliente\Repository\ClientePJRepository;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Pasta\Repository\PastaMensagemRepository;
 use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
@@ -1018,6 +1019,10 @@ class PastaController extends AbstractController
 
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
@@ -1069,19 +1074,25 @@ class PastaController extends AbstractController
     // ── Editar mensagem do chat (autor, dentro de 24h) ────────────────────────
 
     #[Route('/{id}/mensagem/{msgId}/editar', name: 'pasta_editar_mensagem', methods: ['POST'])]
-    public function editarMensagem(Pasta $pasta, int $msgId, Request $request, MencoesDoRegistro $mencoes): JsonResponse
+    public function editarMensagem(Pasta $pasta, int $msgId, Request $request, MencoesDoRegistro $mencoes, PastaMensagemRepository $mensagemRepository): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
-        $mensagem = $this->em->find(PastaMensagem::class, $msgId);
-        if ($mensagem === null || $mensagem->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $mensagem = $mensagemRepository->findByIdAndPastaAndTenant($msgId, $pasta, $tenant);
+        if ($mensagem === null) {
             return $this->json(['erro' => 'Mensagem não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -1109,19 +1120,25 @@ class PastaController extends AbstractController
     // ── Excluir mensagem do chat (autor, dentro de 24h) ───────────────────────
 
     #[Route('/{id}/mensagem/{msgId}/excluir', name: 'pasta_excluir_mensagem', methods: ['POST'])]
-    public function excluirMensagem(Pasta $pasta, int $msgId, Request $request): JsonResponse
+    public function excluirMensagem(Pasta $pasta, int $msgId, Request $request, PastaMensagemRepository $mensagemRepository): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
-        $mensagem = $this->em->find(PastaMensagem::class, $msgId);
-        if ($mensagem === null || $mensagem->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $mensagem = $mensagemRepository->findByIdAndPastaAndTenant($msgId, $pasta, $tenant);
+        if ($mensagem === null) {
             return $this->json(['erro' => 'Mensagem não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
