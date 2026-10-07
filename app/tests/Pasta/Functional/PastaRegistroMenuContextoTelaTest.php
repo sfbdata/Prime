@@ -104,6 +104,39 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('PastaImpressao.registro(', $this->trecho($html, "menuReg.addEventListener('click'", 1000));
     }
 
+    #[TestDox('PAS-025b: na pasta excluída (lápide) o autor dentro da janela não recebe escrita — sem Editar, Excluir nem Responder no cartão e no menu; Copiar texto fica')]
+    public function testLapideSemEscritaNoRegistro(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        // Do próprio usuário e dentro da janela: fora da lápide teria Editar/Excluir ativos.
+        $msg = $this->registrar($pasta, $user, $tenant, '-5 minutes');
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $cartao = $crawler->filter("#pasta-msg-{$msg->getId()}");
+        self::assertCount(1, $cartao, 'o registro continua à vista');
+        self::assertCount(0, $cartao->filter('.ps-anotacao-acoes, .btn-editar-msg-pasta, .btn-excluir-msg-pasta, .btn-responder-msg-pasta'));
+        self::assertCount(1, $cartao->filter('.js-reg-menu'), 'o ⋮ fica: Copiar texto é leitura');
+
+        $menu  = $crawler->filter('section.ps-anotacoes > #psRegMenu');
+        $itens = $menu->filter('#psRegMenu > .ps-processo-menu-item')->each(
+            static fn ($i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
+        );
+        self::assertSame(['Copiar texto'], $itens);
+        self::assertCount(0, $menu->filter('.js-reg-responder, .js-reg-editar, .js-reg-excluir, .ps-processo-menu-sep'));
+
+        // O JS do menu tolera a ausência dos itens de escrita (senão o ⋮ quebraria na lápide).
+        $abrir = $this->trecho($this->html($client), 'function abrirMenuReg(cartao, gatilho, x, y)', 2200);
+        self::assertStringContainsString("if (responder) { responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta'); }", $abrir);
+        self::assertStringContainsString('if (!editar || !excluir) {', $abrir);
+    }
+
     #[TestDox('PAS-025: cada cartão tem o ⋮ discreto logo depois da hora (teclado e toque) e carrega o fim da janela e se é do autor')]
     public function testCartaoTemOMenuEOsDadosDaJanela(): void
     {

@@ -162,21 +162,27 @@
     {% endif %}
 
     {# PAS-025: um menu só, preenchido pelo JS com o cartão de onde foi aberto. #}
+    {# PAS-025b: na lápide o menu fica só com Copiar texto (as escritas nem são montadas;
+       o JS do show.html.twig tolera a ausência delas). #}
     <div class="ps-reg-menu" id="psRegMenu" role="menu" hidden>
         <div class="ps-processo-menu-titulo js-reg-menu-titulo"></div>
-        <button type="button" class="ps-processo-menu-item js-reg-responder" role="menuitem">
-            <i class="bi bi-reply-fill"></i><span>Responder</span>
-        </button>
+        {% if not pasta.estaExcluida %}
+            <button type="button" class="ps-processo-menu-item js-reg-responder" role="menuitem">
+                <i class="bi bi-reply-fill"></i><span>Responder</span>
+            </button>
+        {% endif %}
         <button type="button" class="ps-processo-menu-item js-reg-copiar" role="menuitem">
             <i class="bi bi-clipboard"></i><span>Copiar texto</span>
         </button>
-        <div class="ps-processo-menu-sep" role="separator"></div>
-        <button type="button" class="ps-processo-menu-item js-reg-editar" role="menuitem">
-            <i class="bi bi-pencil"></i><span>Editar</span>
-        </button>
-        <button type="button" class="ps-processo-menu-item js-reg-excluir" role="menuitem">
-            <i class="bi bi-trash3"></i><span>Excluir comentário</span>
-        </button>
+        {% if not pasta.estaExcluida %}
+            <div class="ps-processo-menu-sep" role="separator"></div>
+            <button type="button" class="ps-processo-menu-item js-reg-editar" role="menuitem">
+                <i class="bi bi-pencil"></i><span>Editar</span>
+            </button>
+            <button type="button" class="ps-processo-menu-item js-reg-excluir" role="menuitem">
+                <i class="bi bi-trash3"></i><span>Excluir comentário</span>
+            </button>
+        {% endif %}
     </div>
 </section>
 
@@ -196,6 +202,10 @@
        do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). Vale igual
        para a resposta. #}
     {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and comentario_editavel(item.dataHora) %}
+    {# PAS-025b: na pasta excluída (lápide) toda escrita é recusada pelo servidor
+       (`PastaSomenteLeituraListener`): sem Editar, Excluir nem Responder, como em Detalhes. #}
+    {% set lapide = pasta.estaExcluida %}
+    {% set podeGerenciar = podeGerenciar and not lapide %}
     {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
     {% set alvoId = raiz ? raiz.mensagemId : item.mensagemId %}
     {% set alvoNome = raiz ? (raiz.autorNome ?? raiz.autorEmail ?? '') : autor %}
@@ -247,7 +257,7 @@
                     <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
                 </span>
             {% endif %}
-            {% if alvoId %}
+            {% if alvoId and not lapide %}
                 <button type="button"
                         class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-msg-pasta"
                         title="Responder" aria-label="Responder"

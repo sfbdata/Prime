@@ -2947,15 +2947,18 @@ document.addEventListener('DOMContentLoaded', function () {
         menuReg.querySelector('.js-reg-menu-titulo').textContent =
             (autorEl ? autorEl.textContent.trim() : '') + (dataEl && dataEl.title ? ' · ' + dataEl.title : '');
 
+        // PAS-025b: na pasta excluída o menu nasce sem Responder, Editar e Excluir.
         const responder = menuReg.querySelector('.js-reg-responder');
-        responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta');
+        if (responder) { responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta'); }
 
         const resto = minutosRestantesReg(cartao);
         const pode  = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0;
         const motivo = cartao.dataset.doAutor === '1' ? REG_MOTIVO_PRAZO : REG_MOTIVO_AUTOR;
         const editar  = menuReg.querySelector('.js-reg-editar');
         const excluir = menuReg.querySelector('.js-reg-excluir');
-        if (pode) {
+        if (!editar || !excluir) {
+            // lápide: sem itens de escrita para pintar
+        } else if (pode) {
             pintarItemReg(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');
             pintarItemReg(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');
         } else {
