@@ -179,6 +179,82 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertNull($item->filter('.ps-push-cab')->attr('title'));
     }
 
+    /** Classes de ação do teor, na ordem, e se o bloco de notas veio com o botão de criar. @return array{list<string>, bool} */
+    private function acoesDoTeor(\Symfony\Component\DomCrawler\Crawler $crawler, int $pubId): array
+    {
+        $acoes = $crawler->filter('.ps-push-acoes > button')->each(static function ($b): string {
+            $classe = (string) $b->attr('class');
+
+            return str_contains($classe, 'js-push-criar-meta') ? 'tarefa' : (str_contains($classe, 'js-push-lida') ? 'lida' : $classe);
+        });
+
+        return [$acoes, $crawler->filter('#notas-publicacao-' . $pubId . ' .js-nota-nova')->count() === 1];
+    }
+
+    #[TestDox('FPN-040: no teor, quem edita recebe Criar tarefa, lida e a nova nota; quem só vê recebe só a lida')]
+    public function testTeorLeitorXEditor(): void
+    {
+        $client          = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $pub    = $this->criarPublicacao($tenant, '73000021', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+        $leitor = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+        $url    = "/pasta/{$pasta->getId()}/push/{$pub->getId()}";
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $crawler = $client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        self::assertSame([['tarefa', 'lida'], true], $this->acoesDoTeor($crawler, (int) $pub->getId()));
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        self::assertSame([['lida'], false], $this->acoesDoTeor($crawler, (int) $pub->getId()));
+        self::assertCount(0, $crawler->filter('#notas-publicacao-' . $pub->getId()), 'sem nota nenhuma, o bloco seria só o botão de criar');
+    }
+
+    #[TestDox('FPN-040: com nota já pendurada, quem só vê ainda lê as notas da movimentação no teor')]
+    public function testTeorLeitorAindaLeAsNotas(): void
+    {
+        $client          = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '73000023', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+        $this->em()->persist(new \App\Processo\Entity\NotaTecnica($tenant, $processo, $admin, '<p>Nota que o leitor lê.</p>', $pub));
+        $this->em()->flush();
+        $leitor = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/push/{$pub->getId()}");
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#notas-publicacao-' . $pub->getId() . ' .ps-notas-lista > *'));
+    }
+
+    #[TestDox('FPN-040: no teor da pasta excluída (lápide) não há Criar tarefa, nem lida, nem nova nota — nem para o admin')]
+    public function testTeorNaLapideSemEscrita(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '73000022', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+        $pub->setTexto('<p>Teor na lápide.</p>');
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/push/{$pub->getId()}");
+        self::assertResponseIsSuccessful();
+        self::assertSame([[], false], $this->acoesDoTeor($crawler, (int) $pub->getId()));
+        self::assertCount(0, $crawler->filter('.ps-push-acoes'));
+        self::assertSame('Teor na lápide.', trim($crawler->filter('.djen-teor')->text()), 'a leitura continua');
+    }
+
     #[TestDox('Sem publicação não há menu (nem cartão para clicar)')]
     public function testSemPublicacaoSemMenu(): void
     {

@@ -103,6 +103,10 @@ final class PastaPushProcessualController extends AbstractController
             'voltarPara' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]) . '#push',
             'pastaId'        => (int) $pasta->getId(),
             'notaProcessoId' => $processoDaPublicacao?->getId(),
+            // FPN-040: os botões de escrita do teor seguem a regra do menu de contexto — Criar
+            // tarefa e nota com EDIT e pasta viva; "lida" (VIEW basta) só some na lápide.
+            'podeEditarPasta' => $this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit'),
+            'pastaExcluida'   => $pasta->estaExcluida(),
             'notasTecnicas'  => array_map(
                 static fn (NotaTecnica $nota): NotaTecnicaOutput => NotaTecnicaOutput::fromEntity($nota),
                 $this->notaTecnicaRepository->listarPorPublicacao($publicacao, $tenant),
