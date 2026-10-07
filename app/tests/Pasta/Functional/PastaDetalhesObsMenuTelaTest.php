@@ -79,6 +79,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
             'Criar meta a partir deste registro',
             'Editar · 10 min',
             'Excluir comentário · 10 min',
+            'Imprimir',
         ], $itens);
 
         $id = $obs->getId();
@@ -91,7 +92,6 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} .ps-anotacao-acoes > .btn-editar-obs-det"));
         self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} .ps-anotacao-acoes > .btn-excluir-obs-det"));
         self::assertStringNotContainsString('Responder', $menu->text());
-        self::assertStringNotContainsString('Imprimir', $menu->text());
     }
 
     #[TestDox('PAS-041: autor passados 20 min — "Editar · bloqueado" e "Excluir · bloqueado", desabilitados, com bi-lock e o motivo do prazo')]
@@ -106,7 +106,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertSame(['Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Editar · bloqueado', 'Excluir · bloqueado', 'Imprimir'], $itens);
         $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled][aria-disabled="true"]');
         self::assertCount(2, $bloqueados);
         self::assertCount(2, $bloqueados->filter('i.bi-lock'));
@@ -129,7 +129,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Editar · bloqueado', 'Excluir · bloqueado'], array_slice($itens, -2));
+        self::assertSame(['Editar · bloqueado', 'Excluir · bloqueado', 'Imprimir'], array_slice($itens, -3));
         foreach ($menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled]') as $b) {
             self::assertSame(self::MOTIVO_AUTOR, $b->getAttribute('title'));
         }
@@ -172,7 +172,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Copiar texto', 'Citar no novo registro'], $itens);
+        self::assertSame(['Copiar texto', 'Citar no novo registro', 'Imprimir'], $itens, 'na lápide só leitura: Imprimir fica');
         self::assertCount(0, $menu->filter('.ps-processo-menu-sep'));
     }
 

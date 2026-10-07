@@ -110,6 +110,21 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString("raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura';", $js);
     }
 
+    #[TestDox('EDT-003: "Imprimir" da observação abre a moldura com "Registro do expediente", a linha autor · data · tipo e o texto CLONADO da tela')]
+    public function testImprimirDaObservacao(): void
+    {
+        $js     = $this->js();
+        $inicio = strpos($js, "e.target.closest('.js-obs-imprimir')");
+        self::assertNotFalse($inicio);
+        $bloco = substr($js, $inicio, 1200);
+
+        self::assertStringContainsString("querySelector('.ps-anotacao-texto .ql-editor')", $bloco);
+        self::assertStringContainsString('n.cloneNode(true)', $bloco, 'o HTML já sanitizado pelo servidor, copiado nó a nó');
+        self::assertStringContainsString("[item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]", $bloco);
+        self::assertStringContainsString(".join(' · ')", $bloco);
+        self::assertStringContainsString("abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo })", $bloco);
+    }
+
     #[TestDox('Ids e classes que o JS usa existem no template da janela')]
     public function testContratoComOTemplate(): void
     {

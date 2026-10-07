@@ -374,6 +374,25 @@
         if (alvo.closest('.js-psi-copiar')) { copiarTexto(); }
     });
 
+    /* ── "Imprimir" do ⋮ da observação (Detalhes) ─────────────────────────
+       Desenho (dc L.6463): título "Registro do expediente", linha autor · data ·
+       tipo e o texto do registro. O texto é o que está na tela — HTML que o
+       servidor já sanitizou (`texto_rico`) —, CLONADO nó a nó para fora do
+       `.ql-editor` (o estilo do editor não vai junto). */
+    document.addEventListener('click', function (e) {
+        var item = e.target && e.target.closest ? e.target.closest('.js-obs-imprimir') : null;
+        if (!item) { return; }
+        var artigo = item.closest('.ps-anotacao');
+        var origem = artigo ? artigo.querySelector('.ps-anotacao-texto .ql-editor') : null;
+        var corpo = document.createElement('div');
+        if (origem) {
+            Array.prototype.forEach.call(origem.childNodes, function (n) { corpo.appendChild(n.cloneNode(true)); });
+        }
+        var linha = [item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]
+            .filter(function (v) { return v; }).join(' · ');
+        abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo });
+    });
+
     window.PastaImpressao = {
         /** Imprimir resumo da pasta (⋮ do cabeçalho). */
         resumo: function () { return abrir({ secao: 'resumo' }); },

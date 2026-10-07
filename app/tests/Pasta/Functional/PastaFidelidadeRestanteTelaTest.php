@@ -202,7 +202,9 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu);
         // PAS-041 acrescentou Criar meta e Editar/Excluir (PastaDetalhesObsMenuTelaTest); aqui, os dois primeiros.
         $itens = $menu->filter('[role="menuitem"]');
-        self::assertGreaterThanOrEqual(2, count($itens));
+        self::assertGreaterThanOrEqual(3, count($itens));
+        // EDT-003: "Imprimir" é o último item do ⋮, como no desenho (dc L.6466).
+        self::assertSame('Imprimir', trim($itens->last()->text()));
         self::assertSame('Copiar texto', trim($menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar')->text()));
 
         // EDT-009 (dc L.6460): ordem do desenho — Citar vem depois de Copiar texto, com o ícone de aspas.
@@ -210,6 +212,16 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $citar, '"Citar no novo registro" é o item logo depois de "Copiar texto"');
         self::assertSame('Citar no novo registro', trim($citar->text()));
         self::assertCount(1, $citar->filter('i.bi.bi-quote'));
+
+        // EDT-003 (dc L.6466): "Imprimir" fecha o menu (depois dos itens do PAS-041), com autor · data · tipo
+        // para a linha da folha ("Atendimento" é o tipo do relatório de Detalhes no desenho).
+        $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > button.js-obs-imprimir[role="menuitem"]:last-child');
+        self::assertCount(1, $imprimir, '"Imprimir" é o último item do ⋮');
+        self::assertSame('Imprimir', trim($imprimir->text()));
+        self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
+        self::assertSame($user->getFullName(), $imprimir->attr('data-autor'));
+        self::assertSame($obs->getCriadaEm()->format('d/m/Y, H:i'), $imprimir->attr('data-quando'));
+        self::assertSame('Atendimento', $imprimir->attr('data-tipo'));
     }
 
     #[TestDox('N7: o cartão montado em JS (observação recém-enviada) tem o MESMO ⋮ que o Twig')]
@@ -244,6 +256,15 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertNotFalse($citar, 'o cartão do JS não tem "Citar no novo registro"');
         self::assertLessThan($citar, $copiar, 'Citar vem depois de Copiar texto, como no Twig');
         self::assertStringContainsString('<i class="bi bi-quote"></i><span>Citar no novo registro</span>', $montador);
+
+        // EDT-003: o cartão do JS também tem "Imprimir", depois de Citar, com os mesmos data-*.
+        $imprimir = strpos($montador, 'class="ps-processo-menu-item js-obs-imprimir" role="menuitem"');
+        self::assertNotFalse($imprimir, 'o cartão do JS não tem "Imprimir"');
+        self::assertLessThan($imprimir, $citar);
+        self::assertStringContainsString('<i class="bi bi-printer"></i><span>Imprimir</span>', $montador);
+        foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="Atendimento"'] as $atributo) {
+            self::assertStringContainsString($atributo, $montador);
+        }
     }
 
     // =========================================================================
