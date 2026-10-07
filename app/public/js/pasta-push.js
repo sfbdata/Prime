@@ -8,8 +8,9 @@
      3. copiar o ID do documento (numeroComunicacao);
      4. marcar como lida / não lida (POST `pasta_push_lida`);
      5. "Criar tarefa": abre o modal de nova meta da pasta pré-preenchido;
-     6. botão direito no cartão (FPN-014): Adicionar nota técnica, Criar tarefa e
-        Copiar texto — cada item aciona o botão que JÁ existe no teor.
+     6. botão direito no cartão (FPN-014): Adicionar nota técnica, Criar tarefa,
+        Marcar como (não) lida, Abrir documento e Copiar texto — cada item usa a
+        ação que JÁ existe no teor ou no cartão.
 
    O teor chega DEPOIS do carregamento da página, então tudo que é clique dentro
    dele é por delegação. E o estado "nova" de uma linha muda por dois caminhos —
@@ -170,23 +171,14 @@
             if (rotulo) { rotulo.textContent = lida ? 'Marcar como não lida' : 'Marcar como lida'; }
         }
 
-        secao.addEventListener('click', function (e) {
-            var botao = e.target.closest('.js-push-lida');
-            if (!botao || botao.disabled) { return; }
-
-            var item = botao.closest('.ps-push-item');
-            var acoes = botao.closest('.ps-push-acoes');
-            var erro = acoes ? acoes.querySelector('.ps-push-acao-erro') : null;
-            var querLida = botao.getAttribute('data-lida') !== '1';
-
+        /* O POST de `pasta_push_lida`, num lugar só: o botão do teor e o item do menu
+           (bloco 6) gravam por aqui. Devolve o estado que o SERVIDOR confirmou. */
+        function gravarLida(url, token, querLida) {
             var dados = new FormData();
-            dados.append('_token', botao.getAttribute('data-token') || '');
+            dados.append('_token', token || '');
             dados.append('lida', querLida ? '1' : '0');
 
-            botao.disabled = true;
-            if (erro) { erro.hidden = true; }
-
-            fetch(botao.getAttribute('data-url'), {
+            return fetch(url, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin',
@@ -199,7 +191,24 @@
                     if (!res.ok || !res.dados.sucesso) {
                         throw new Error(res.dados.erro || res.dados.message || 'Não foi possível atualizar a publicação.');
                     }
-                    var lida = !!res.dados.lida;
+                    return !!res.dados.lida;
+                });
+        }
+
+        secao.addEventListener('click', function (e) {
+            var botao = e.target.closest('.js-push-lida');
+            if (!botao || botao.disabled) { return; }
+
+            var item = botao.closest('.ps-push-item');
+            var acoes = botao.closest('.ps-push-acoes');
+            var erro = acoes ? acoes.querySelector('.ps-push-acao-erro') : null;
+            var querLida = botao.getAttribute('data-lida') !== '1';
+
+            botao.disabled = true;
+            if (erro) { erro.hidden = true; }
+
+            gravarLida(botao.getAttribute('data-url'), botao.getAttribute('data-token'), querLida)
+                .then(function (lida) {
                     pintarBotaoLida(botao, lida);
                     // A classe da linha é a fonte do selo: o observador acima recalcula.
                     if (item) { item.classList.toggle(CLASSE_NOVA, !lida); }
@@ -271,7 +280,15 @@
            não veio, o menu abre o cartão como o clique faria e espera o teor
            chegar. "Copiar texto" copia o teor inteiro quando ele já está na
            página; antes disso, o trecho do título — sem abrir o cartão, que
-           marcaria a publicação como lida. */
+           marcaria a publicação como lida.
+           "Marcar como (não) lida" também não abre o cartão (abrir já é ler, e
+           desfaria o "não lida"): com o teor na página, clica o `.js-push-lida`
+           dele; sem o teor, grava pelo mesmo `gravarLida` do bloco 4, com a URL
+           do <li> e o token do menu. "Abrir documento" abre o link do PJe da
+           linha do documento do teor (`a.ps-push-doc-link[href]`); se o teor
+           ainda não veio, a aba nasce no clique (senão o bloqueador de pop-up a
+           recusaria depois da espera) e recebe o endereço quando ele chega.
+           Com o teor já na página e sem documento, o item some. */
         var menu = document.getElementById('pushMenuContexto');
         var menuDe = null; // { item, cab } do cartão que abriu o menu
         var ESPERA_TEOR_MS = 15000;
@@ -318,9 +335,9 @@
         /* Garante o teor carregado e o cartão aberto, e entrega o painel. Abre
            pelo próprio cartão (o clique do pasta-show.js), para não haver um
            segundo caminho de leitura do teor. */
-        function comTeor(cab, feito) {
+        function comTeor(cab, feito, falhou) {
             var painel = document.getElementById(cab.getAttribute('aria-controls') || '');
-            if (!painel) { return; }
+            if (!painel) { if (falhou) { falhou(); } return; }
             var aberto = cab.getAttribute('aria-expanded') === 'true';
 
             if (painel.dataset.carregado === '1') {
@@ -336,6 +353,7 @@
             var observador = null;
             var prazo = setTimeout(function () {
                 if (observador) { observador.disconnect(); }
+                if (falhou) { falhou(); }
                 avisar('Não foi possível carregar o teor. Tente de novo.');
             }, ESPERA_TEOR_MS);
 
@@ -350,6 +368,7 @@
                     // O pasta-show.js pôs no painel a mensagem de falha.
                     clearTimeout(prazo);
                     if (observador) { observador.disconnect(); }
+                    if (falhou) { falhou(); }
                     return true;
                 }
                 return false;
@@ -367,6 +386,38 @@
                 );
             } else {
                 avisar('Não foi possível copiar');
+            }
+        }
+
+        function painelDe(cab) {
+            return document.getElementById(cab.getAttribute('aria-controls') || '');
+        }
+
+        function teorNaPagina(cab) {
+            var painel = painelDe(cab);
+            return painel && painel.dataset.carregado === '1' ? painel : null;
+        }
+
+        function linkDoDocumento(painel) {
+            var a = painel ? painel.querySelector('a.ps-push-doc-link[href]') : null;
+            var href = a ? a.getAttribute('href') || '' : '';
+            return /^https?:\/\//i.test(href) ? href : null;
+        }
+
+        /** Rótulo do item lida pela linha (a classe "nova" é a fonte, como no selo). */
+        function prepararItensDoMenu(item, cab) {
+            var nova = item.classList.contains(CLASSE_NOVA);
+            var lida = menu.querySelector('.js-push-menu-lida');
+            if (lida) {
+                var rotulo = lida.querySelector('.js-push-menu-lida-rotulo');
+                if (rotulo) { rotulo.textContent = nova ? 'Marcar como lida' : 'Marcar como não lida'; }
+                var icone = lida.querySelector('i');
+                if (icone) { icone.className = 'bi ' + (nova ? 'bi-envelope-open' : 'bi-envelope'); }
+            }
+            var doc = menu.querySelector('.js-push-menu-documento');
+            if (doc) {
+                var painel = teorNaPagina(cab);
+                doc.hidden = !!painel && linkDoDocumento(painel) === null;
             }
         }
 
@@ -389,6 +440,7 @@
                 var titulo = textoLimpo(cartao.querySelector('.ps-push-assunto-txt'));
                 menu.querySelector('.ps-push-menu-titulo').textContent = titulo.slice(0, 60);
                 menuDe = { item: item, cab: cab };
+                prepararItensDoMenu(item, cab);
                 menu.hidden = false;
 
                 // Tecla de menu / Shift+F10 chegam sem ponto de clique: o menu sai no cartão.
@@ -412,6 +464,39 @@
                     var painel = document.getElementById(de.cab.getAttribute('aria-controls') || '');
                     var teor = painel && painel.dataset.carregado === '1' ? painel.querySelector('.djen-teor') : null;
                     copiarTexto(teor ? textoLimpo(teor) : textoLimpo(de.item.querySelector('.ps-push-assunto-txt')));
+                    return;
+                }
+                if (opcao.classList.contains('js-push-menu-lida')) {
+                    var teorLida = teorNaPagina(de.cab);
+                    var botaoLida = teorLida ? teorLida.querySelector('.js-push-lida') : null;
+                    if (botaoLida) { botaoLida.click(); return; }
+                    var querLida = de.item.classList.contains(CLASSE_NOVA);
+                    gravarLida(de.item.getAttribute('data-push-lida-url'), menu.getAttribute('data-lida-token'), querLida)
+                        .then(function (lida) {
+                            de.item.classList.toggle(CLASSE_NOVA, !lida);
+                            avisar(lida ? 'Marcada como lida' : 'Marcada como não lida');
+                        })
+                        .catch(function (falha) {
+                            avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar a publicação.');
+                        });
+                    return;
+                }
+                if (opcao.classList.contains('js-push-menu-documento')) {
+                    var teorDoc = teorNaPagina(de.cab);
+                    if (teorDoc) {
+                        var href = linkDoDocumento(teorDoc);
+                        if (href) { window.open(href, '_blank', 'noopener,noreferrer'); } else { avisar('Esta movimentação não tem documento para abrir.'); }
+                        return;
+                    }
+                    var janela = window.open('', '_blank');
+                    if (janela) { janela.opener = null; }
+                    comTeor(de.cab, function (p) {
+                        var destino = linkDoDocumento(p);
+                        if (destino && janela) { janela.location.replace(destino); return; }
+                        if (janela) { janela.close(); }
+                        if (destino) { window.open(destino, '_blank', 'noopener,noreferrer'); return; }
+                        avisar('Esta movimentação não tem documento para abrir.');
+                    }, function () { if (janela) { janela.close(); } });
                     return;
                 }
                 if (opcao.classList.contains('js-push-menu-tarefa')) {

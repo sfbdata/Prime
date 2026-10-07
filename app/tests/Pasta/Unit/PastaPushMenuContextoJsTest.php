@@ -43,11 +43,11 @@ final class PastaPushMenuContextoJsTest extends TestCase
     {
         $bloco = $this->blocoDoMenu();
 
-        foreach (["getElementById('pushMenuContexto')", "'.ps-push-menu-titulo'", "'.ps-push-menu-item'", "'js-push-menu-nota'", "'js-push-menu-tarefa'", "'js-push-menu-copiar'", "'.ps-push-assunto-txt'"] as $trecho) {
+        foreach (["getElementById('pushMenuContexto')", "'.ps-push-menu-titulo'", "'.ps-push-menu-item'", "'js-push-menu-nota'", "'js-push-menu-tarefa'", "'js-push-menu-lida'", "'.js-push-menu-lida'", "'.js-push-menu-lida-rotulo'", "'js-push-menu-documento'", "'.js-push-menu-documento'", "'data-lida-token'", "'data-push-lida-url'", "'js-push-menu-copiar'", "'.ps-push-assunto-txt'"] as $trecho) {
             self::assertStringContainsString($trecho, $bloco);
         }
         $twig = (string) file_get_contents(__DIR__ . '/../../../templates/pasta/_push_processual.html.twig');
-        foreach (['id="pushMenuContexto"', 'ps-push-menu-titulo', 'js-push-menu-nota', 'js-push-menu-tarefa', 'js-push-menu-copiar'] as $marca) {
+        foreach (['id="pushMenuContexto"', 'ps-push-menu-titulo', 'js-push-menu-nota', 'js-push-menu-tarefa', 'js-push-menu-lida', 'js-push-menu-lida-rotulo', 'js-push-menu-documento', 'data-lida-token=', 'data-push-lida-url=', 'js-push-menu-copiar'] as $marca) {
             self::assertStringContainsString($marca, $twig, "{$marca} é contrato com o JS");
         }
     }
@@ -95,6 +95,63 @@ final class PastaPushMenuContextoJsTest extends TestCase
         self::assertStringContainsString("'.ps-push-assunto-txt'", $ramo);
         self::assertStringNotContainsString('comTeor(', $ramo, 'copiar não pode marcar como lida');
         self::assertStringNotContainsString('innerHTML', $bloco);
+    }
+
+    /** O trecho do ramo `contains('<classe>')` até o primeiro `if (opcao.classList` seguinte. */
+    private function ramo(string $classe): string
+    {
+        $bloco  = $this->blocoDoMenu();
+        $inicio = strpos($bloco, "contains('{$classe}')");
+        self::assertNotFalse($inicio, "ramo {$classe} existe");
+        $fim = strpos($bloco, 'if (opcao.classList', $inicio + 1);
+
+        return substr($bloco, $inicio, ($fim === false ? strlen($bloco) : $fim) - $inicio);
+    }
+
+    #[TestDox('"Marcar como (não) lida": com o teor na página clica o .js-push-lida dele; sem o teor grava por gravarLida, SEM abrir o cartão')]
+    public function testLidaSemAbrirOCartao(): void
+    {
+        $ramo = $this->ramo('js-push-menu-lida');
+
+        self::assertStringContainsString("querySelector('.js-push-lida')", $ramo);
+        self::assertStringContainsString('botaoLida.click()', $ramo);
+        self::assertStringContainsString("gravarLida(de.item.getAttribute('data-push-lida-url'), menu.getAttribute('data-lida-token'), querLida)", $ramo);
+        self::assertStringContainsString('var querLida = de.item.classList.contains(CLASSE_NOVA);', $ramo, 'nova → marca lida; lida → marca não lida');
+        self::assertStringContainsString('de.item.classList.toggle(CLASSE_NOVA, !lida)', $ramo, 'a linha segue o que o servidor confirmou');
+        self::assertStringNotContainsString('comTeor(', $ramo, 'abrir o cartão é ler: desfaria o "não lida"');
+        self::assertStringNotContainsString('cab.click()', $ramo);
+
+        // gravarLida é o MESMO POST do botão do teor (bloco 4), fora do bloco do menu.
+        $js     = (string) file_get_contents(self::JS);
+        $grava  = substr($js, (int) strpos($js, 'function gravarLida('), 900);
+        self::assertStringContainsString("dados.append('_token', token || '')", $grava);
+        self::assertStringContainsString("dados.append('lida', querLida ? '1' : '0')", $grava);
+        self::assertStringContainsString("method: 'POST'", $grava);
+        self::assertStringContainsString("gravarLida(botao.getAttribute('data-url'), botao.getAttribute('data-token'), querLida)", $js, 'o botão do teor também grava por aqui');
+
+        // Rótulo do menu pela classe "nova" da linha.
+        $bloco = $this->blocoDoMenu();
+        self::assertStringContainsString("nova ? 'Marcar como lida' : 'Marcar como não lida'", $bloco);
+        self::assertStringContainsString('prepararItensDoMenu(item, cab);', $bloco);
+    }
+
+    #[TestDox('"Abrir documento" abre o link http(s) do PJe da linha do documento do teor; sem documento no teor carregado, o item some')]
+    public function testAbrirDocumento(): void
+    {
+        $ramo = $this->ramo('js-push-menu-documento');
+
+        self::assertStringContainsString("window.open(href, '_blank', 'noopener,noreferrer')", $ramo);
+        self::assertStringContainsString('janela.opener = null', $ramo);
+        self::assertStringContainsString('janela.location.replace(destino)', $ramo);
+        self::assertStringContainsString('comTeor(de.cab', $ramo);
+
+        $bloco = $this->blocoDoMenu();
+        self::assertStringContainsString("painel.querySelector('a.ps-push-doc-link[href]')", $bloco);
+        self::assertStringContainsString('/^https?:\\/\\//i.test(href)', $bloco, 'só URL http(s), como o teor');
+        self::assertStringContainsString('doc.hidden = !!painel && linkDoDocumento(painel) === null;', $bloco);
+
+        $teor = (string) file_get_contents(__DIR__ . '/../../../templates/pasta/_push_teor.html.twig');
+        self::assertStringContainsString('class="ps-push-doc-link" href=', $teor);
     }
 
     #[TestDox('fecha com Esc (devolvendo o foco ao cartão), clique fora, rolagem e redimensionamento')]

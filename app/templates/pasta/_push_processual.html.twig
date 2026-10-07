@@ -152,6 +152,7 @@
                 {% endif %}
                 <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
                     data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}"
+                    data-push-lida-url="{{ path('pasta_push_lida', {id: pasta.id, publicacaoId: item.id}) }}"
                     data-push-gera-prazo="{{ push.geraPrazo(item) ? '1' : '0' }}">
                     <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPushTxt }}</span></div>
                     {% set diaAnteriorPush = diaPush %}
@@ -207,10 +208,14 @@
         {# Botão direito no cartão (dc L.5394 `ctx`, README L.125-127; FPN-014). UM menu para a
            lista inteira, preenchido pelo pasta-push.js com o cartão clicado. Cada item aciona o
            que JÁ existe no teor: o "Adicionar nota técnica" do bloco de notas, o "Criar tarefa"
-           (modal de nova meta) e a cópia do texto. Ficam de fora os itens do desenho sem lastro
+           (modal de nova meta), o "Marcar como (não) lida" (POST `pasta_push_lida`, mesma URL e
+           mesmo CSRF do botão do teor; a URL vem no <li>, o token aqui) e o "Abrir documento"
+           (o link do PJe da linha do documento do teor), e a cópia do texto. Ordem do desenho
+           (dc L.5385): tarefa, lida, documento. Ficam de fora os itens do desenho sem lastro
            aqui: "Encaminhar via Chat I.A" (FPN-016) e o link externo (FPN-015). Teclado e toque
            seguem pelos botões do teor, como antes. #}
-        <div class="ps-push-menu" id="pushMenuContexto" role="menu" aria-label="Ações da movimentação" hidden>
+        <div class="ps-push-menu" id="pushMenuContexto" role="menu" aria-label="Ações da movimentação"
+             data-lida-token="{{ csrf_token('pasta_push_lida_' ~ pasta.id) }}" hidden>
             <div class="ps-push-menu-titulo"></div>
             <button type="button" class="ps-push-menu-item js-push-menu-nota" role="menuitem">
                 <i class="bi bi-journal-plus" aria-hidden="true"></i><span>Adicionar nota técnica</span>
@@ -218,6 +223,13 @@
             <div class="ps-push-menu-sep" role="separator"></div>
             <button type="button" class="ps-push-menu-item js-push-menu-tarefa" role="menuitem">
                 <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+            </button>
+            {# Rótulo e ícone trocados pelo JS conforme a linha esteja nova ou lida. #}
+            <button type="button" class="ps-push-menu-item js-push-menu-lida" role="menuitem">
+                <i class="bi bi-envelope-open" aria-hidden="true"></i><span class="js-push-menu-lida-rotulo">Marcar como lida</span>
+            </button>
+            <button type="button" class="ps-push-menu-item js-push-menu-documento" role="menuitem">
+                <i class="bi bi-file-earmark-text" aria-hidden="true"></i><span>Abrir documento</span>
             </button>
             <div class="ps-push-menu-sep" role="separator"></div>
             <button type="button" class="ps-push-menu-item js-push-menu-copiar" role="menuitem">
