@@ -4263,6 +4263,57 @@ document.addEventListener('DOMContentLoaded', function () {
         height: 28px; padding: 0 12px; border: none; border-radius: 4px;
         background: var(--ps-accent-bg); color: var(--ps-accent); font-size: 12.5px; font-weight: 700; cursor: pointer;
     }
+    #modalCriarTarefa .ps-nm-cal-campo {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0;
+        height: 40px; width: 138px; padding: 0 10px; border: none; border-radius: 2px;
+        background: var(--ps-card); color: var(--ps-faint); font-size: 14px; cursor: pointer;
+        box-shadow: inset 0 0 0 1px var(--ps-border-ctl);
+    }
+    #modalCriarTarefa .ps-nm-cal-campo.tem-valor { color: var(--ps-text); }
+    #modalCriarTarefa .ps-nm-cal-campo[aria-expanded="true"],
+    #modalCriarTarefa .ps-nm-cal-campo:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-campo i { font-size: 14px; color: var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-txt { font-variant-numeric: tabular-nums; }
+    #modalCriarTarefa .ps-nm-cal {
+        width: 280px; max-width: 100%; border-radius: 2px; overflow: hidden;
+        background: var(--ps-card); box-shadow: var(--ps-shadow-gm);
+    }
+    #modalCriarTarefa .ps-nm-cal[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-cal-cab { display: flex; align-items: center; gap: 4px; padding: 8px; background: var(--ps-accent); color: #fff; }
+    #modalCriarTarefa .ps-nm-cal-mes { flex: 1; text-align: center; font-size: 13.5px; font-weight: 700; letter-spacing: .02em; }
+    #modalCriarTarefa .ps-nm-cal-nav { width: 30px; height: 30px; border: none; border-radius: 2px; background: transparent; color: #fff; cursor: pointer; }
+    #modalCriarTarefa .ps-nm-cal-nav:hover,
+    #modalCriarTarefa .ps-nm-cal-nav:focus-visible { background: rgba(255,255,255,.16); outline: none; }
+    #modalCriarTarefa .ps-nm-cal-nav i { font-size: 13px; }
+    #modalCriarTarefa .ps-nm-cal-semana,
+    #modalCriarTarefa .ps-nm-cal-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 4px 8px 8px; }
+    #modalCriarTarefa .ps-nm-cal-semana { padding: 8px 8px 0; }
+    #modalCriarTarefa .ps-nm-cal-semana span {
+        height: 24px; display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ps-muted);
+    }
+    #modalCriarTarefa .ps-nm-cal-semana span.is-fds { color: var(--ps-placeholder); }
+    #modalCriarTarefa .ps-nm-cal-dia {
+        height: 34px; padding: 0; border: none; border-radius: 2px; background: transparent;
+        color: var(--ps-body); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer;
+        transition: background .14s, color .14s, transform .14s, box-shadow .14s;
+    }
+    #modalCriarTarefa .ps-nm-cal-dia.is-fds { color: var(--ps-faint); }
+    #modalCriarTarefa .ps-nm-cal-dia.is-fora { color: var(--ps-placeholder); }
+    #modalCriarTarefa .ps-nm-cal-dia.is-hoje { font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-dia:disabled { color: var(--ps-border-ctl); cursor: not-allowed; }
+    #modalCriarTarefa .ps-nm-cal-dia:not(:disabled):hover,
+    #modalCriarTarefa .ps-nm-cal-dia:not(:disabled):focus-visible { background: var(--ps-accent-bg); color: var(--ps-accent); transform: scale(1.12); outline: none; }
+    #modalCriarTarefa .ps-nm-cal-dia[aria-pressed="true"],
+    #modalCriarTarefa .ps-nm-cal-dia[aria-pressed="true"]:hover { background: var(--ps-accent); color: #fff; font-weight: 700; transform: none; }
+    #modalCriarTarefa .ps-nm-cal-rodape { display: flex; align-items: center; gap: 6px; padding: 8px; border-top: 1px solid var(--ps-div-strong); background: var(--ps-soft); }
+    #modalCriarTarefa .ps-nm-cal-hoje,
+    #modalCriarTarefa .ps-nm-cal-limpar { height: 28px; padding: 0 10px; border: none; border-radius: 2px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    #modalCriarTarefa .ps-nm-cal-hoje { background: var(--ps-accent-bg); color: var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-limpar { background: transparent; color: var(--ps-muted); }
+    #modalCriarTarefa .ps-nm-cal-hoje:hover,
+    #modalCriarTarefa .ps-nm-cal-limpar:hover { background: var(--ps-div-strong); }
+    #modalCriarTarefa .ps-nm-cal-legenda { font-size: 11px; color: var(--ps-faint); }
     #modalCriarTarefa .ps-nm-resp-concluir:hover,
     #modalCriarTarefa .ps-nm-resp-concluir:focus-visible { background: var(--ps-hover); outline: none; }
 </style>
@@ -4312,12 +4363,41 @@ document.addEventListener('DOMContentLoaded', function () {
                        bloqueia o envio. Comportamento em /js/pasta-metas.js. #}
                     <div class="ps-nm-campo-bloco ps-nm-prazo">
                         <label for="tarefaPrazo" class="ps-nm-rotulo">Prazo</label>
+                        {# PMC-040 (dc L.81-112, `nm.cal`): o campo do desenho é um botão "dd/mm/aaaa" com o
+                           calendário próprio (mês, dias, Hoje, Limpar e a legenda). O <input type="date">
+                           continua sendo o campo ENVIADO (id, name e valor ISO são contrato com o servidor,
+                           os atalhos, o Push e a IA) — só sai da vista. Dias passados ficam indisponíveis,
+                           como no desenho. Comportamento em /js/pasta-dialogos.js (`calendarioDoPrazo`). #}
                         <div class="ps-nm-prazo-linha">
-                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control ps-nm-campo">
+                            <button type="button" class="ps-nm-cal-campo" data-ps-nm-cal-campo
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="tarefaPrazoCalendario"
+                                    aria-label="Escolher prazo">
+                                <span class="ps-nm-cal-txt" data-ps-nm-cal-txt>dd/mm/aaaa</span>
+                                <i class="bi bi-calendar3" aria-hidden="true"></i>
+                            </button>
+                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control ps-nm-campo visually-hidden"
+                                   tabindex="-1" aria-hidden="true">
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="hoje">Hoje</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="amanha">Amanhã</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis5">+5 úteis</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis15">+15 úteis</button>
+                        </div>
+                        <div class="ps-nm-cal" id="tarefaPrazoCalendario" role="dialog" aria-label="Escolher prazo" data-ps-nm-cal hidden>
+                            <div class="ps-nm-cal-cab">
+                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-ant aria-label="Mês anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                                <span class="ps-nm-cal-mes" data-ps-nm-cal-mes aria-live="polite"></span>
+                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-prox aria-label="Próximo mês"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="ps-nm-cal-semana" aria-hidden="true">
+                                <span class="is-fds">D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span class="is-fds">S</span>
+                            </div>
+                            <div class="ps-nm-cal-dias" data-ps-nm-cal-dias></div>
+                            <div class="ps-nm-cal-rodape">
+                                <button type="button" class="ps-nm-cal-hoje" data-ps-nm-cal-hoje>Hoje</button>
+                                <button type="button" class="ps-nm-cal-limpar" data-ps-nm-cal-limpar>Limpar</button>
+                                <span class="ps-nm-rotulo-espaco"></span>
+                                <span class="ps-nm-cal-legenda">Fim de semana em cinza</span>
+                            </div>
                         </div>
                         <div id="tarefaPrazoInfo" class="ps-nm-prazo-info" aria-live="polite">Escolha a data limite.</div>
                         <div id="tarefaTituloRepetido" class="ps-nm-dup" role="status" hidden>

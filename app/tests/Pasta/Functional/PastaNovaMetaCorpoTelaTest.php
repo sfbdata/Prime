@@ -148,4 +148,43 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString("$('#tarefaResponsavel').select2", $html);
         self::assertStringContainsString('/js/pasta-dialogos.js', $html);
     }
+
+    #[TestDox('PMC-040: o botão "dd/mm/aaaa" abre o calendário do desenho; o <input type="date"> continua o campo enviado')]
+    public function testCalendarioDoPrazo(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $prazo = $this->abrir($client, $pasta)->filter('#formCriarTarefa .ps-nm-prazo');
+
+        $linha = $prazo->filter('.ps-nm-prazo > .ps-nm-prazo-linha');
+        self::assertSame(
+            ['button', 'input', 'button', 'button', 'button', 'button'],
+            $linha->children()->each(static fn ($c): string => $c->nodeName()),
+            'o campo do desenho vem antes dos atalhos; o input fica logo depois, fora da vista',
+        );
+        $campo = $linha->filter('.ps-nm-prazo-linha > button.ps-nm-cal-campo[data-ps-nm-cal-campo]');
+        self::assertSame('tarefaPrazoCalendario', $campo->attr('aria-controls'));
+        self::assertSame('dd/mm/aaaa', trim($campo->filter('[data-ps-nm-cal-txt]')->text()));
+        self::assertCount(1, $campo->filter('i.bi-calendar3'));
+
+        $input = $linha->filter('.ps-nm-prazo-linha > input#tarefaPrazo[type="date"][name="prazo"]');
+        self::assertCount(1, $input, 'o valor enviado continua o ISO do input');
+        self::assertStringContainsString('visually-hidden', (string) $input->attr('class'));
+        self::assertSame('-1', $input->attr('tabindex'));
+
+        $cal = $prazo->filter('.ps-nm-prazo > #tarefaPrazoCalendario[role="dialog"][data-ps-nm-cal]');
+        self::assertCount(1, $cal);
+        self::assertNotNull($cal->attr('hidden'));
+        self::assertSame('Mês anterior', $cal->filter('.ps-nm-cal-cab > [data-ps-nm-cal-ant]')->attr('aria-label'));
+        self::assertSame('Próximo mês', $cal->filter('.ps-nm-cal-cab > [data-ps-nm-cal-prox]')->attr('aria-label'));
+        self::assertSame(['D', 'S', 'T', 'Q', 'Q', 'S', 'S'], $cal->filter('.ps-nm-cal-semana > span')->each(static fn ($d) => $d->text()));
+        self::assertSame(
+            ['Hoje', 'Limpar', '', 'Fim de semana em cinza'],
+            $cal->filter('.ps-nm-cal-rodape')->children()->each(static fn ($c): string => trim($c->text())),
+        );
+        self::assertNull($prazo->filter('#tarefaPrazo')->attr('required'), 'prazo continua opcional');
+    }
 }

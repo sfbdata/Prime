@@ -6,6 +6,10 @@
  * 2. Responsáveis da Nova meta (PMC-041; desenho dc L.168-186): chips sobre o campo e a lista
  *    filtrável. O `<select multiple>` (`#tarefaResponsavel`) é a FONTE: aqui só se marcam e
  *    desmarcam as `<option>` dele, e o envio do formulário continua o de sempre.
+ * 3. Calendário do prazo (PMC-040; dc L.81-112, `nm.cal`): o botão "dd/mm/aaaa" abre mês, dias,
+ *    Hoje, Limpar e a legenda. O `<input type="date">` (`#tarefaPrazo`) continua sendo o campo
+ *    enviado: escolher um dia grava o ISO nele e dispara `change` (o texto do dia e os atalhos do
+ *    pasta-metas.js ouvem esse evento).
  *
  * Nada aqui escreve HTML com dado de usuário: os nomes vêm do Twig (escapados) e o JS só usa
  * textContent, atributos e cópia de nós já desenhados.
@@ -197,6 +201,138 @@
         pintar();
     }
 
+    /* ── 3. Calendário do prazo ───────────────────────────────────────────── */
+    var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto',
+        'setembro', 'outubro', 'novembro', 'dezembro'];
+
+    function isoDe(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function dataDe(iso) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+
+        return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+    }
+
+    function calendarioDoPrazo() {
+        var input = document.getElementById('tarefaPrazo');
+        var campo = document.querySelector('[data-ps-nm-cal-campo]');
+        var cal = document.querySelector('[data-ps-nm-cal]');
+        if (!input || !campo || !cal) { return; }
+        var txt = campo.querySelector('[data-ps-nm-cal-txt]');
+        var mesTxt = cal.querySelector('[data-ps-nm-cal-mes]');
+        var dias = cal.querySelector('[data-ps-nm-cal-dias]');
+        var base = null; // 1º dia do mês à vista
+
+        function hoje() {
+            var d = new Date();
+            d.setHours(0, 0, 0, 0);
+
+            return d;
+        }
+
+        function pintarCampo() {
+            var d = dataDe(input.value);
+            txt.textContent = d ? d.toLocaleDateString('pt-BR') : 'dd/mm/aaaa';
+            campo.classList.toggle('tem-valor', !!d);
+        }
+
+        /* A grade do desenho: começa no domingo da semana do dia 1; 5 semanas, ou 6 quando
+           o mês ainda não acabou na 35ª casa. */
+        function desenhar() {
+            var h = hoje();
+            var hojeIso = isoDe(h);
+            mesTxt.textContent = MESES[base.getMonth()] + ' de ' + base.getFullYear();
+            dias.textContent = '';
+            var ini = new Date(base);
+            ini.setDate(1 - base.getDay());
+            for (var i = 0; i < 42; i++) {
+                var d = new Date(ini);
+                d.setDate(ini.getDate() + i);
+                if (i === 35 && d.getMonth() !== base.getMonth()) { break; }
+                var iso = isoDe(d);
+                var passado = d < h;
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'ps-nm-cal-dia'
+                    + (d.getMonth() !== base.getMonth() ? ' is-fora' : '')
+                    + (d.getDay() % 6 === 0 ? ' is-fds' : '')
+                    + (iso === hojeIso ? ' is-hoje' : '');
+                b.textContent = String(d.getDate());
+                b.disabled = passado;
+                b.setAttribute('aria-pressed', input.value === iso ? 'true' : 'false');
+                b.setAttribute('aria-label', d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }) + (passado ? ', indisponível' : ''));
+                b.setAttribute('data-ps-nm-cal-dia', iso);
+                dias.appendChild(b);
+            }
+        }
+
+        function aberto() { return !cal.hidden; }
+
+        function abrir() {
+            var d = dataDe(input.value) || hoje();
+            base = new Date(d.getFullYear(), d.getMonth(), 1);
+            desenhar();
+            cal.hidden = false;
+            campo.setAttribute('aria-expanded', 'true');
+            var foco = dias.querySelector('[aria-pressed="true"]') || dias.querySelector('.is-hoje') || dias.querySelector('button:not(:disabled)');
+            if (foco) { foco.focus(); }
+        }
+
+        function fechar(devolverFoco) {
+            if (!aberto()) { return; }
+            cal.hidden = true;
+            campo.setAttribute('aria-expanded', 'false');
+            if (devolverFoco) { campo.focus(); }
+        }
+
+        function escolher(iso) {
+            input.value = iso;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            pintarCampo();
+            fechar(true);
+        }
+
+        function mudarMes(n) {
+            base = new Date(base.getFullYear(), base.getMonth() + n, 1);
+            desenhar();
+        }
+
+        campo.addEventListener('click', function () {
+            if (aberto()) { fechar(false); } else { abrir(); }
+        });
+        cal.addEventListener('click', function (e) {
+            var dia = e.target.closest('[data-ps-nm-cal-dia]');
+            if (dia && !dia.disabled) { escolher(dia.getAttribute('data-ps-nm-cal-dia')); return; }
+            if (e.target.closest('[data-ps-nm-cal-ant]')) { mudarMes(-1); return; }
+            if (e.target.closest('[data-ps-nm-cal-prox]')) { mudarMes(1); return; }
+            if (e.target.closest('[data-ps-nm-cal-hoje]')) { escolher(isoDe(hoje())); return; }
+            if (e.target.closest('[data-ps-nm-cal-limpar]')) { escolher(''); }
+        });
+        // Esc fecha o CALENDÁRIO, não o modal.
+        cal.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                fechar(true);
+            }
+        });
+        document.addEventListener('click', function (e) {
+            if (aberto() && !cal.contains(e.target) && !campo.contains(e.target)) { fechar(false); }
+        }, true);
+
+        // Atalhos, Push, IA e a observação escrevem no input: o botão acompanha.
+        input.addEventListener('input', pintarCampo);
+        input.addEventListener('change', pintarCampo);
+        if (modalMeta) {
+            modalMeta.addEventListener('show.bs.modal', pintarCampo);
+            modalMeta.addEventListener('hidden.bs.modal', function () { fechar(false); pintarCampo(); });
+        }
+        pintarCampo();
+    }
+
     contadores();
     seletorDeResponsaveis();
+    calendarioDoPrazo();
 })();

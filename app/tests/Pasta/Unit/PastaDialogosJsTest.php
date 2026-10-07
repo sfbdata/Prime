@@ -71,4 +71,26 @@ final class PastaDialogosJsTest extends TestCase
         self::assertStringNotContainsString('innerHTML', $this->js());
         self::assertStringNotContainsString('insertAdjacentHTML', $this->js());
     }
+
+    #[TestDox('PMC-040: escolher grava o ISO no input de sempre e dispara change; dia passado fica indisponível')]
+    public function testCalendarioGravaNoInput(): void
+    {
+        $f = $this->funcao('calendarioDoPrazo');
+        self::assertStringContainsString("input.value = iso;\n            input.dispatchEvent(new Event('change', { bubbles: true }));", $f);
+        self::assertStringContainsString('b.disabled = passado;', $f);
+        self::assertStringContainsString("(passado ? ', indisponível' : '')", $f);
+        self::assertStringContainsString("escolher(isoDe(hoje()))", $f, 'Hoje');
+        self::assertStringContainsString("escolher('')", $f, 'Limpar');
+        self::assertStringContainsString("if (i === 35 && d.getMonth() !== base.getMonth()) { break; }", $f, 'a grade de 5 ou 6 semanas do desenho');
+        self::assertStringContainsString("modalMeta.addEventListener('show.bs.modal', pintarCampo)", $f, 'o input pode chegar preenchido por outro script');
+    }
+
+    #[TestDox('PMC-040: Esc no calendário fecha o calendário e não o modal')]
+    public function testEscDoCalendario(): void
+    {
+        $f   = $this->funcao('calendarioDoPrazo');
+        $esc = substr($f, (int) strpos($f, "cal.addEventListener('keydown'"), 220);
+        self::assertStringContainsString('e.stopPropagation();', $esc);
+        self::assertStringContainsString('fechar(true);', $esc);
+    }
 }
