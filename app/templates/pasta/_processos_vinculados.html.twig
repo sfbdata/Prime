@@ -17,7 +17,7 @@
    nos campos novos. O ⋮ só tem o que já funciona hoje (pasta-processo.js).
    O que é função nova NÃO aparece: integração com o PJe (abrir/atualizar/
    editar), marcas (gratuita, tutela, prioridade, 100% digital), encaminhar via
-   Chat, imprimir resumo e o menu do botão direito. "Administrativo sem processo"
+   Chat e imprimir resumo. "Administrativo sem processo"
    (`Pasta.administrativa`) é o interruptor do cabeçalho — ver abaixo.
 
    Partes: `proc.partes` é coleção LAZY — uma consulta por processo vinculado
@@ -153,7 +153,10 @@
                 <div class="ps-dia"><span class="ps-dia-pilula">
                     {%- if vinculo.vinculadoPor %}Vinculado em {{ vinculo.vinculadoEm|date('d/m/Y') }}{% else %}Processo vinculado{% endif -%}
                 </span></div>
-                <article class="ps-anotacao ps-processo{{ ehPrincipal ? ' ps-processo--principal' : '' }}" data-processo-id="{{ proc.id }}">
+                {# Botão direito no cartão abre o ⋮ no cursor (PMC-001; desenho dc L.1589, com o
+                   mesmo title). Quem escuta é o pasta-processo.js, por `data-ps-menu-contexto`. #}
+                <article class="ps-anotacao ps-processo{{ ehPrincipal ? ' ps-processo--principal' : '' }}" data-processo-id="{{ proc.id }}"
+                         data-ps-menu-contexto="{{ menuId }}" title="Clique com o botão direito para mais opções">
                     <span class="ps-processo-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
                     <div class="ps-processo-topo">

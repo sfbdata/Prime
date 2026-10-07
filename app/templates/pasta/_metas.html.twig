@@ -71,7 +71,10 @@
                 {% set concluida = linha.estado == 'concluida' %}
                 {% set atrasada = linha.estado == 'atrasada' %}
                 {% set tom = linha.estado %}
+                {# Botão direito na linha abre o ⋮ dela no cursor (PMC-027; desenho dc L.1430,
+                   `onContextMenu={m.menuCtx}`). Só quando o ⋮ existe; quem escuta é o pasta-metas.js. #}
                 <article class="ps-meta ps-meta--{{ tom }}"
+                         {%- if podeConcluir %} data-ps-menu-contexto="psMetaMenu{{ tarefa.id }}"{% endif %}
                          data-meta-id="{{ tarefa.id }}"
                          data-meta-estado="{{ tom }}"
                          data-meta-titulo="{{ tarefa.titulo }}"

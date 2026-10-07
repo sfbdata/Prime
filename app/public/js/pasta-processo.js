@@ -8,6 +8,9 @@
      painel, ir à aba Push, copiar número, copiar resumo e Compartilhar — este
      só aparece onde o navegador tem `navigator.share`. Tornar principal e
      Desvincular também moram no ⋮, mas são forms `.js-ajax-*` do show.html.twig.
+   - Botão direito no cartão (PMC-001, desenho `onContextMenu={p.menu}`): abre o
+     MESMO ⋮ do cartão (`data-ps-menu-contexto`) no ponto do cursor. Teclado e
+     toque seguem pelo botão ⋮, que continua no cartão.
    - "Administrativo sem processo" (interruptor do cabeçalho, `admSPtoggle` do
      desenho): ver o bloco no fim do arquivo.
 
@@ -75,13 +78,24 @@
         }
     }
 
-    function abrirMenu(menu, gatilho) {
+    // Botão direito: o canto do menu no cursor (desenho: gmAbrir com clientX/Y),
+    // empurrado para dentro da janela quando não cabe.
+    function posicionarNoPonto(menu, x, y) {
+        var largura = menu.offsetWidth;
+        var altura  = menu.offsetHeight;
+        if (x + largura > window.innerWidth - 8) { x = x - largura; }
+        if (y + altura > window.innerHeight - 8) { y = y - altura; }
+        menu.style.left = Math.max(8, Math.min(x, window.innerWidth - largura - 8)) + 'px';
+        menu.style.top  = Math.max(8, Math.min(y, window.innerHeight - altura - 8)) + 'px';
+    }
+
+    function abrirMenu(menu, gatilho, ponto) {
         fechar(false);
         // Um menu por vez: fecha os popovers do cabeçalho (pasta-show.js).
         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
         preparar(menu);
         menu.hidden = false;
-        posicionar(menu, gatilho);
+        if (ponto) { posicionarNoPonto(menu, ponto.x, ponto.y); } else { posicionar(menu, gatilho); }
         gatilho.setAttribute('aria-expanded', 'true');
         aberto = { menu: menu, gatilho: gatilho };
         var primeiro = menu.querySelector('.ps-processo-menu-item:not([hidden])');
@@ -175,6 +189,33 @@
         // "Adicionar nota técnica": quem abre o compositor é o nota-tecnica.js
         // (`.js-nota-nova` + `data-notas`); aqui só fecha o menu.
         fechar(false);
+    });
+
+    /* ── Botão direito no cartão (PMC-001) ────────────────────────────────
+       O cartão diz qual é o seu ⋮ em `data-ps-menu-contexto`; o menu é o mesmo
+       elemento, com os mesmos itens — nada é duplicado aqui. Links, botões,
+       campos e o próprio menu ficam com o menu nativo do navegador (abrir em
+       nova aba, colar…), e também quem selecionou texto para copiar. Sem
+       coordenada (tecla de menu), o menu abre sob o ⋮, como no clique. */
+    document.addEventListener('contextmenu', function (e) {
+        var alvo = e.target;
+        if (!alvo || !alvo.closest) { return; }
+        // Botão direito em outro lugar fecha o menu aberto, como o clique fora.
+        if (aberto && !aberto.menu.contains(alvo)) { fechar(false); }
+
+        var cartao = alvo.closest('article.ps-processo[data-ps-menu-contexto]');
+        if (!cartao) { return; }
+        if (alvo.closest('a, button, input, textarea, select, [contenteditable="true"], .ps-processo-menu')) { return; }
+        var selecao = window.getSelection ? String(window.getSelection()) : '';
+        if (selecao.trim() !== '') { return; }
+
+        var menu    = document.getElementById(cartao.getAttribute('data-ps-menu-contexto'));
+        var gatilho = cartao.querySelector('.js-proc-menu-gatilho');
+        if (!menu || !gatilho) { return; }
+
+        e.preventDefault();
+        var temPonto = e.clientX > 0 || e.clientY > 0;
+        abrirMenu(menu, gatilho, temPonto ? { x: e.clientX, y: e.clientY } : null);
     });
 
     document.addEventListener('keydown', function (e) {

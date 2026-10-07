@@ -13,7 +13,8 @@
      5. drawer "Relatório da meta": abre pelo clique na linha ou pelo ⋮ "Abrir
         relatório"; ▲▼ navegam, Esc / × / fundo fecham. O conteúdo de cada meta
         veio do servidor; aqui só se escolhe qual mostrar e se monta "Outras
-        metas desta pasta" a partir das linhas da lista.
+        metas desta pasta" a partir das linhas da lista;
+     6. botão direito na linha (PMC-027): abre o MESMO ⋮ da linha no cursor.
 
    Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
    que os contêm são abertos pelo pasta-show.js (`data-ps-pop`).
@@ -27,6 +28,7 @@
         avisoDeTituloRepetido();
         renomearNaLista();
         relatorioDaMeta();
+        menuNoBotaoDireito();
     }
 
     if (document.readyState === 'loading') {
@@ -482,6 +484,61 @@
                 e.preventDefault();
                 primeiro.focus();
             }
+        });
+    }
+
+    /* ── 6. Botão direito na linha da meta (PMC-027) ─────────────────────── */
+    /* Desenho (dc L.1430, `onContextMenu={m.menuCtx}`): o botão direito na linha
+       abre o mesmo menu do ⋮, no cursor. Nada é duplicado: quem abre e fecha o
+       popover continua sendo o pasta-show.js (`data-ps-pop`) — aqui o ⋮ é
+       acionado e o painel só muda de LUGAR. O ⋮ comum devolve o painel ao canto
+       de sempre. Teclado e toque seguem pelo ⋮. Botões, campos, o editor do nome
+       e o próprio menu ficam com o menu nativo, e também quem selecionou texto. */
+    function menuNoBotaoDireito() {
+        var cartao = document.querySelector('[data-ps-metas]');
+        if (!cartao) { return; }
+
+        function voltarAoCanto(menu) {
+            menu.style.left = '';
+            menu.style.top = '';
+            menu.style.right = '';
+        }
+
+        // Coordenadas relativas ao `.ps-pop-wrap` (o painel é absoluto ali dentro),
+        // empurradas para dentro da janela quando não cabem.
+        function noCursor(menu, x, y) {
+            var base = (menu.offsetParent || menu.parentNode).getBoundingClientRect();
+            menu.style.right = 'auto';
+            menu.style.left = (x - base.left) + 'px';
+            menu.style.top = (y - base.top) + 'px';
+            var r = menu.getBoundingClientRect();
+            if (r.right > window.innerWidth - 8) { menu.style.left = (x - base.left - r.width) + 'px'; }
+            if (r.bottom > window.innerHeight - 8) { menu.style.top = (y - base.top - r.height) + 'px'; }
+        }
+
+        // Captura: roda antes do clique do ⋮ que o pasta-show.js escuta.
+        cartao.addEventListener('click', function (e) {
+            var gatilho = e.target.closest('.ps-meta-acoes > .ps-meta-menu-btn');
+            if (!gatilho) { return; }
+            var menu = document.getElementById(gatilho.getAttribute('data-ps-pop') || '');
+            if (menu) { voltarAoCanto(menu); }
+        }, true);
+
+        cartao.addEventListener('contextmenu', function (e) {
+            var linha = e.target.closest('article.ps-meta[data-ps-menu-contexto]');
+            if (!linha || linha.classList.contains('is-renomeando')) { return; }
+            if (e.target.closest('button, input, textarea, select, form, .ps-pop')) { return; }
+            var selecao = window.getSelection ? String(window.getSelection()) : '';
+            if (selecao.trim() !== '') { return; }
+
+            var menu = document.getElementById(linha.getAttribute('data-ps-menu-contexto'));
+            var gatilho = linha.querySelector('.ps-meta-acoes > .ps-meta-menu-btn');
+            if (!menu || !gatilho) { return; }
+
+            e.preventDefault();
+            if (!menu.classList.contains('is-aberto')) { gatilho.click(); }
+            // Sem coordenada (tecla de menu): fica no canto do ⋮, como no clique.
+            if (e.clientX > 0 || e.clientY > 0) { noCursor(menu, e.clientX, e.clientY); }
         });
     }
 }());
