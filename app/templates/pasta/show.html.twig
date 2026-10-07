@@ -3970,7 +3970,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Redireciona para a tarefa criada
                 window.location.href = '/tarefas/' + res.data.id;
             } else {
-                erroBox.textContent = res.data.erro || 'Erro ao criar meta.';
+                erroBox.textContent = res.data.erro || res.data.mensagem || 'Erro ao criar meta.';
                 erroBox.classList.remove('d-none');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Meta';

@@ -460,7 +460,7 @@
         .then(function (res) {
             btn.disabled = false;
             if (!res.ok) {
-                erroEl.textContent   = res.data.erro || 'Erro ao salvar.';
+                erroEl.textContent   = res.data.erro || res.data.mensagem || 'Erro ao salvar.';
                 erroEl.style.display = '';
                 return;
             }
