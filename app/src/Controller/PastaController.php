@@ -103,7 +103,6 @@ use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
-use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
@@ -129,7 +128,6 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * - GET  /pasta/{id}/editar                  → Formulário de edição
  * - POST /pasta/{id}/editar                  → Atualiza pasta
  * - POST /pasta/{id}/deletar                 → Remove pasta
- * - POST /pasta/{id}/documento/upload        → Faz upload de documento
  * - GET  /pasta/documento/{id}/download      → Faz download de documento
  * - POST /pasta/documento/{id}/deletar       → Remove documento
  */
@@ -169,8 +167,8 @@ class PastaController extends AbstractController
         private readonly PastaPagamentoRepository $pastaPagamentoRepository,
         // A MESMA formatação de tamanho que o filtro `formatar_bytes` do Twig usa:
         // a linha que o JS insere depois do upload fica ao lado das que o Twig
-        // desenhou, e o `formatarBytes` privado deste controller escreve
-        // "380.5 KB" onde o Twig escreve "380,5 KB".
+        // desenhou (um formatador próprio escreveria "380.5 KB" onde o Twig
+        // escreve "380,5 KB").
         private readonly ArquivoIconeExtension $arquivoIcone,
         private readonly EnviarObservacaoDetalhesUseCase $enviarObservacaoDetalhesUseCase,
         private readonly EditarObservacaoDetalhesUseCase $editarObservacaoDetalhesUseCase,
@@ -1643,215 +1641,6 @@ class PastaController extends AbstractController
         'image/jpeg'                                                                         => 10 * 1024 * 1024,
         'image/png'                                                                          => 10 * 1024 * 1024,
     ];
-
-    private const MIME_LIMITS = [
-        // Imagens
-        'image/png'                          => 3 * 1024 * 1024,
-        'image/jpeg'                         => 3 * 1024 * 1024,
-        // Documentos
-        'application/pdf'                    => 10 * 1024 * 1024,
-        // Documentos Word
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 10 * 1024 * 1024, // .docx
-        'application/msword'                                                      => 10 * 1024 * 1024, // .doc
-        // KML — mimetypes alternativos que diferentes SOs podem detectar
-        'application/vnd.google-earth.kml+xml' => 5 * 1024 * 1024,
-        'application/xml'                    => 5 * 1024 * 1024,
-        'text/xml'                           => 5 * 1024 * 1024,
-        // Planilhas
-        'application/vnd.ms-excel'                                          => 10 * 1024 * 1024, // .xls
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 10 * 1024 * 1024, // .xlsx
-        // Áudio
-        'audio/x-opus+ogg'                   => 10 * 1024 * 1024,
-        'audio/vorbis'                        => 10 * 1024 * 1024,
-        'audio/opus'                          => 10 * 1024 * 1024,
-        'audio/mpeg'                          => 10 * 1024 * 1024,
-        'audio/ogg'                           => 10 * 1024 * 1024,
-        'audio/mp3'                           => 10 * 1024 * 1024,
-        'audio/wav'                           => 50 * 1024 * 1024,
-        'audio/x-wav'                         => 50 * 1024 * 1024,
-        'audio/mp4'                           => 10 * 1024 * 1024,
-        // Vídeo
-        'video/x-ms-wmv'                      => 50 * 1024 * 1024,
-        'video/mpeg'                          => 50 * 1024 * 1024,
-        'video/ogg'                           => 50 * 1024 * 1024,
-        'video/quicktime'                     => 50 * 1024 * 1024,
-        'video/mp4'                           => 50 * 1024 * 1024,
-    ];
-
-    #[Route('/{id}/documento/upload', name: 'pasta_documento_upload', methods: ['POST'])]
-    public function uploadDocumento(Pasta $pasta, Request $request): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para enviar documentos nesta pasta.');
-        }
-
-        if (!$this->isCsrfTokenValid('upload_documento_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        /** @var \Symfony\Component\HttpFoundation\File\UploadedFile[] $arquivos */
-        $arquivos = $request->files->get('arquivos', []);
-
-        if (empty($arquivos)) {
-            $this->addFlash('error', 'Nenhum arquivo enviado.');
-
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $categorias  = $request->request->all('categorias');
-        $descricoes  = $request->request->all('descricoes');
-        $numeros     = $request->request->all('numeros');
-        $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
-
-        $secaoIdRaw = $request->request->get('secao_id');
-        $secaoId    = null;
-        if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
-            $secaoEncontrada = $this->em->find(PastaSecao::class, (int) $secaoIdRaw);
-            if ($secaoEncontrada !== null && $secaoEncontrada->getPasta()?->getId() === $pasta->getId()) {
-                $secaoId = $secaoEncontrada;
-            }
-        }
-
-        $erros                = [];
-        $salvos               = 0;
-        $bytesEconomizados    = 0;
-        $assinadosComprimidos = 0;
-
-        foreach ($arquivos as $i => $file) {
-            if ($file === null) {
-                continue;
-            }
-
-            $mimeType = $file->getMimeType() ?? '';
-
-            if (!array_key_exists($mimeType, self::MIME_LIMITS)) {
-                $erros[] = sprintf('"%s": tipo não permitido (%s).', $file->getClientOriginalName(), $mimeType);
-                continue;
-            }
-
-            $tamanho = $file->getSize();
-            $limite  = self::MIME_LIMITS[$mimeType];
-
-            if ($tamanho > $limite) {
-                $erros[] = sprintf(
-                    '"%s": excede o limite de %d MB.',
-                    $file->getClientOriginalName(),
-                    intdiv($limite, 1024 * 1024)
-                );
-                continue;
-            }
-
-            $categoriaRaw = isset($categorias[$i]) ? strtoupper(trim((string) $categorias[$i])) : PastaDocumento::CATEGORIA_DEMAIS;
-            $categoria    = array_key_exists($categoriaRaw, self::DOCUMENT_TYPES) ? $categoriaRaw : PastaDocumento::CATEGORIA_DEMAIS;
-            $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
-            $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
-
-            // O escopo sai do próprio documento (R1), só persistido depois da gravação. A
-            // compressão é pela CHAVE (E2.6B), sobre cópia gravável fora do volume.
-            $doc = new PastaDocumento();
-            $doc->setTenant($tenant);
-
-            $upload = FonteDeUploadHttp::de($file);
-
-            // Hash do upload ANTES de mover (depois do gravarEm o caminho não existe mais). Sem
-            // compressão, são estes os bytes que o storage guarda (INV-7).
-            $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
-
-            $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
-            $nomeUnico  = $armazenado->chave->nome;
-
-            // D30: quem responde o tamanho é o storage (ver ClienteController).
-            $tamanhoFinal = $armazenado->tamanhoBytes;
-            if ($reduzirTamanho) {
-                $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
-                $tamanhoFinal = $compressao->tamanhoFinal;
-                $bytesEconomizados += $compressao->tamanhoOriginal - $compressao->tamanhoFinal;
-                if ($compressao->comprimido && $compressao->eraAssinado) {
-                    ++$assinadosComprimidos;
-                }
-                if ($compressao->comprimido) {
-                    // A chave foi regravada com outro binário: o hash é do que FICOU no storage.
-                    // Opcional: se a leitura falhar fica null e o upload segue.
-                    $sha256 = Sha256DeArquivo::deChaveOuNulo($this->armazenamento, $armazenado->chave, $this->logger);
-                }
-            }
-
-            $doc->setPasta($pasta);
-            $doc->setTitulo($file->getClientOriginalName());
-            $doc->setCategoria($categoria);
-            $doc->setDescricao($descricao !== '' ? $descricao : null);
-            $doc->setNumero($numero !== '' ? $numero : null);
-            $doc->setCaminhoArquivo($nomeUnico);
-            $doc->setNomeOriginal($file->getClientOriginalName());
-            $doc->setMimeType($mimeType);
-            $doc->setTamanhoBytes($tamanhoFinal);
-            $doc->setSha256($sha256);
-
-            if ($secaoId !== null) {
-                $doc->setSecao($secaoId);
-            }
-
-            $this->em->persist($doc);
-            ++$salvos;
-        }
-
-        $this->em->flush();
-
-        if ($salvos > 0 && $tenant !== null) {
-            $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
-        }
-
-        if ($erros) {
-            foreach ($erros as $erro) {
-                $this->addFlash('error', $erro);
-            }
-        }
-
-        if ($salvos > 0) {
-            $mensagem = sprintf(
-                '%d documento%s enviado%s com sucesso.',
-                $salvos,
-                $salvos > 1 ? 's' : '',
-                $salvos > 1 ? 's' : ''
-            );
-
-            if ($reduzirTamanho && $bytesEconomizados > 0) {
-                $mensagem .= sprintf(' Economia de %s.', $this->formatarBytes($bytesEconomizados));
-            }
-
-            $this->addFlash('success', $mensagem);
-
-            if ($reduzirTamanho && $bytesEconomizados <= 0) {
-                $this->addFlash('info', 'Não foi possível reduzir os arquivos; mantidos no tamanho original.');
-            }
-        }
-
-        if ($assinadosComprimidos > 0) {
-            $this->addFlash('warning', sprintf(
-                '%d PDF assinado%s foi comprimido — a assinatura pode ter sido invalidada.',
-                $assinadosComprimidos,
-                $assinadosComprimidos > 1 ? 's' : ''
-            ));
-        }
-
-        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-    }
-
-    private function formatarBytes(int $bytes): string
-    {
-        if ($bytes <= 0) {
-            return '0 B';
-        }
-
-        $unidades = ['B', 'KB', 'MB', 'GB'];
-        $i        = (int) floor(log($bytes) / log(1024));
-        $i        = min($i, count($unidades) - 1);
-
-        return sprintf('%.1f %s', $bytes / (1024 ** $i), $unidades[$i]);
-    }
 
     #[Route('/documento/{id}/visualizar', name: 'pasta_documento_view', methods: ['GET'])]
     public function viewDocumento(PastaDocumento $doc): Response
