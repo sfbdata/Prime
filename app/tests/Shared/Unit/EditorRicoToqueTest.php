@@ -71,9 +71,15 @@ final class EditorRicoToqueTest extends TestCase
         $css = $this->css();
         $media = strpos($css, '@media (hover: none)');
 
-        self::assertGreaterThan(strpos($css, ".editor-rico .ql-snow.ql-toolbar button {\n    float: none;\n    width: 30px;\n    height: 28px;"), $media);
-        self::assertGreaterThan(strpos($css, ".editor-rico .ql-snow .ql-icon-picker { width: 30px; }"), $media);
-        self::assertGreaterThan(strpos($css, ".editor-rico .ql-snow .ql-icon-picker .ql-picker-label {\n    width: 30px;"), $media);
+        foreach ([
+            ".editor-rico .ql-snow.ql-toolbar button {\n    float: none;\n    width: 30px;\n    height: 28px;",
+            '.editor-rico .ql-snow .ql-icon-picker { width: 30px; }',
+            ".editor-rico .ql-snow .ql-icon-picker .ql-picker-label {\n    width: 30px;",
+        ] as $padrao) {
+            $pos = strpos($css, $padrao);
+            self::assertNotFalse($pos, "regra de 30×28 não encontrada: {$padrao}");
+            self::assertGreaterThan($pos, $media);
+        }
     }
 
     #[TestDox('o estilo do parágrafo e a mini barra do botão direito não mudam de tamanho')]

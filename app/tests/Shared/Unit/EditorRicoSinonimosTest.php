@@ -98,7 +98,11 @@ final class EditorRicoSinonimosTest extends TestCase
         self::assertStringContainsString('document.caretRangeFromPoint', $this->funcao('pontoDoTexto'));
 
         $menu = $this->funcao('abrirMenuContexto');
-        self::assertLessThan(strpos($menu, 'var faixa = quill.getSelection()'), strpos($menu, 'moverCursorParaOClique(quill, x, y);'), 'o cursor vai ao clique ANTES de o menu ler a seleção');
+        $mover = strpos($menu, 'moverCursorParaOClique(quill, x, y);');
+        $leitura = strpos($menu, 'var faixa = quill.getSelection()');
+        self::assertNotFalse($mover, 'o menu não leva o cursor ao clique');
+        self::assertNotFalse($leitura);
+        self::assertLessThan($leitura, $mover, 'o cursor vai ao clique ANTES de o menu ler a seleção');
     }
 
     #[TestDox('o bloco "Sinônimos de" fica depois de Parágrafo e antes de Localizar, com o ícone do desenho')]
