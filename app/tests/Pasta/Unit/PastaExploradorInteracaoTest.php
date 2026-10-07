@@ -158,7 +158,8 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("function linkAbsoluto(a) { return new URL(a.viewUrl, window.location.href).href; }", $js);
         self::assertStringContainsString("navigator.clipboard.writeText(t).then(function () { return true; }, function () { return copiarPorExec(t); });", $js);
         self::assertStringContainsString("ok = document.execCommand('copy');", $js);
-        self::assertStringContainsString("toast(arqs.length === 1 ? 'Link copiado' : 'Links copiados')", $js);
+        // DOC-120: a contagem soma arquivos e subpastas.
+        self::assertStringContainsString("if (ok) toast(links.length === 1 ? 'Link copiado' : 'Links copiados');", $js);
         self::assertStringNotContainsString('/pastas/', $js, 'a URL fictícia do protótipo não vem para o sistema');
         // "Copiar caminho" (DOC-38): "BlueJus › Pasta <nup> › Documentos › … › nome".
         self::assertStringContainsString("return 'BlueJus › Pasta ' + cfg.pastaRotulo + ' › ' + caminhoLegivel(localDe(it)) + ' › ' + it.nome;", $js);
