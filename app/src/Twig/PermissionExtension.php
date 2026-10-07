@@ -23,6 +23,7 @@ class PermissionExtension extends AbstractExtension
             new TwigFunction('can_access_module', $this->canAccessModule(...)),
             new TwigFunction('can_administer', $this->canAdminister(...)),
             new TwigFunction('has_permission', $this->hasPermission(...)),
+            new TwigFunction('can_access_resource', $this->canAccessResource(...)),
         ];
     }
 
@@ -60,5 +61,23 @@ class PermissionExtension extends AbstractExtension
         }
 
         return $this->permissionChecker->hasPermission($user, $tenant, $permission);
+    }
+
+    /**
+     * `can_access_resource('pasta', pasta.id, 'delete')`: a MESMA decisão que o controller toma
+     * com `denyResourceAccessUnlessGranted` (PermissionChecker::canAccessResource), para a tela
+     * não oferecer o controle que o servidor recusaria. É só honestidade na interface — o
+     * servidor continua conferindo. Cada chamada consulta o banco (vínculo do usuário e acesso
+     * específico ao recurso): guarde o resultado num `set` em vez de chamar dentro de laço grande.
+     */
+    public function canAccessResource(string $resourceType, int $resourceId, string $action): bool
+    {
+        $user = $this->security->getUser();
+
+        if (!$user instanceof User) {
+            return false;
+        }
+
+        return $this->permissionChecker->canAccessResource($user, $this->tenantContext->getCurrentTenant(), $resourceType, $resourceId, $action);
     }
 }

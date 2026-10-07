@@ -31,6 +31,12 @@
    não tem CPF/CNPJ para mostrar — é o estado de 1.152 das 1.201 pastas em produção. #}
 {% set documento = cliente ? (cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null)) : null %}
 {% set eAtiva = pasta.situacao == 'ativo' %}
+{# PAS-014: controle de escrita só para quem o servidor deixaria usar — a MESMA decisão do
+   `denyResourceAccessUnlessGranted` de cada rota (editar, prioridade, situação, responsável e
+   vincular processo pedem EDIT; excluir e restaurar pedem DELETE). O servidor continua
+   recusando: isto é só a tela não oferecer o que vai dar "sem permissão". Calculado uma vez. #}
+{% set podeEditarPasta  = can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeExcluirPasta = can_access_resource('pasta', pasta.id, 'delete') %}
 
 <header class="ps-card ps-cabecalho">
 
@@ -49,6 +55,7 @@
             <div class="ps-cab-etiquetas">
             <div class="ps-cab-sep"></div>
 
+            {% if podeEditarPasta %}
             <div class="ps-pop-wrap">
                 <button type="button"
                         class="ps-prio ps-prio--{{ pasta.prioridade.value }} pasta-prioridade-btn"
@@ -72,6 +79,13 @@
                     {% endfor %}
                 </div>
             </div>
+            {% else %}
+            {# Sem EDIT: o selo mostra a prioridade, sem menu para trocá-la. #}
+            <span class="ps-prio ps-prio--{{ pasta.prioridade.value }}" title="Prioridade">
+                <i class="bi bi-flag-fill"></i>
+                <span class="ps-prio-label">{{ pasta.prioridadeLabel }}</span>
+            </span>
+            {% endif %}
 
             <div class="ps-cab-sep"></div>
 
@@ -142,6 +156,7 @@
                qualquer jeito (PastaSomenteLeituraListener), mas botão que existe e não funciona
                é pior que botão ausente. Ficam o caminho de volta e o histórico — é lá que está
                o registro de quem excluiu e quando. #}
+            {% if podeExcluirPasta %}
             <form method="post" action="{{ path('pasta_restaurar', {id: pasta.id}) }}"
                   onsubmit="return confirm('Restaurar a pasta {{ pasta.nup|e('js') }}?');">
                 <input type="hidden" name="_token" value="{{ csrf_token('restaurar_pasta_' ~ pasta.id) }}">
@@ -149,6 +164,7 @@
                     <i class="bi bi-arrow-counterclockwise"></i><span>Restaurar</span>
                 </button>
             </form>
+            {% endif %}
             <button type="button" class="ps-btn" id="psHistoricoAbrir"
                     title="Histórico do sistema"
                     aria-controls="psHistorico" aria-expanded="false">
@@ -165,11 +181,13 @@
 
                     {# Os atalhos E e H são do desenho; quem os escuta é o pasta-show.js
                        (`data-ps-atalho`), com o menu aberto. #}
+                    {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="e"
                             title="Editar dados (E)"
                             data-bs-toggle="modal" data-bs-target="#modalEditarPasta">
                         <i class="bi bi-pencil"></i><span>Editar dados</span><kbd class="ps-pop-atalho">E</kbd>
                     </button>
+                    {% endif %}
                     {# O histórico automático do sistema vive no drawer; o botão mantém o id
                        que o pasta-show.js procura. #}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="h"
@@ -198,6 +216,7 @@
                         </button>
                     </form>
                     {% endif %}
+                    {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem"
                             data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
                         <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
@@ -205,6 +224,7 @@
                     <button type="button" class="ps-pop-item" role="menuitem" id="psMenuTrocarResponsavel">
                         <i class="bi bi-person-gear"></i><span>Trocar responsável</span>
                     </button>
+                    {% endif %}
 
                     <div class="ps-pop-sep"></div>
                     <div class="ps-pop-secao">Compartilhar</div>
@@ -234,18 +254,23 @@
                         <span class="ps-pop-sw{{ eFavorita ? ' is-ligado' : '' }}" aria-hidden="true"><span class="ps-pop-sw-bola"></span></span>
                     </button>
 
+                    {% if podeEditarPasta or podeExcluirPasta %}
                     <div class="ps-pop-sep"></div>
+                    {% endif %}
+                    {% if podeEditarPasta %}
                     {# Mesma troca de situação da pílula ao lado das abas, por outro caminho. #}
                     <button type="button" class="ps-pop-item js-situacao-opt js-situacao-alternar" role="menuitem"
                             data-situacao="{{ eAtiva ? 'arquivado' : 'ativo' }}">
                         <i class="bi {{ eAtiva ? 'bi-archive' : 'bi-box-arrow-up' }}"></i>
                         <span class="js-situacao-alternar-rotulo">{{ eAtiva ? 'Arquivar' : 'Desarquivar' }} pasta</span>
                     </button>
+                    {% endif %}
                     {# Excluir pede o NÚMERO da pasta digitado (desenho, `menuPasta('excluir')`).
                        O prompt é só o primeiro filtro: o servidor confere `confirmar_nup` com o
                        número gravado e recusa se não bater. O texto não promete "lixeira por
                        30 dias" como o desenho: aqui a pasta vira lápide (ou some, se for a
                        última da sequência). Trocar o prompt() nativo por modal é frente própria. #}
+                    {% if podeExcluirPasta %}
                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
                           class="js-excluir-pasta" data-nup="{{ pasta.nup }}"
                           onsubmit="var n = this.dataset.nup, txt = window.prompt('Excluir a pasta ' + n + '?\nA exclusão fica registrada no histórico.\n\nPara confirmar, digite o número da pasta:'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { window.alert('Número não confere. A pasta não foi excluída.'); return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
@@ -255,6 +280,7 @@
                             <i class="bi bi-trash3"></i><span>Excluir pasta</span>
                         </button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -403,7 +429,9 @@
                 {% endif %}
             {% else %}
                 <p class="ps-dado ps-dado--vazio">Nenhum processo.
+                    {% if podeEditarPasta %}
                     <button type="button" class="ps-link-btn ps-link-btn--vincular" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">vincular</button>
+                    {% endif %}
                 </p>
             {% endif %}
         </div>
@@ -534,7 +562,8 @@
            de sempre (url, csrf, situação atual): o script da tela escuta as opções e
            dispara a mesma troca que o botão "Arquivar" fazia. Pasta excluída é
            somente-leitura: a pílula vira só um selo, sem menu. #}
-        {% if not pasta.estaExcluida %}
+        {# Sem EDIT a pílula vira só o selo, como na lápide: a troca seria recusada. #}
+        {% if not pasta.estaExcluida and podeEditarPasta %}
             <div class="ps-situacao-wrap ps-pop-wrap">
                 <button type="button"
                         id="btn-alternar-status"
