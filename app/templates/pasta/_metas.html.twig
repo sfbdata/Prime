@@ -38,7 +38,11 @@
     'concluida':  'Concluída',
 } %}
 {% set podeConcluir = can_access_module('tarefas') %}
-{% set ultimosAlertas = podeConcluir and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
+{# PAS-047: o sino faz o POST `tarefa_alertar`, que exige EDITAR a pasta; quem só vê não o
+   recebe. `podeEditarPasta` vem calculado uma vez pelo show (fallback: calcula aqui). #}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeAlertar = podeConcluir and podeEditarPasta %}
+{% set ultimosAlertas = podeAlertar and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
 <div class="ps-grade">
 <section class="ps-card ps-metas" data-ps-metas>
     <div class="ps-card-cab ps-card-cab--painel">
@@ -122,7 +126,7 @@
                            responsáveis da meta, sem o próprio usuário. Sem ninguém a
                            alertar, o sino não é desenhado. #}
                         {% set alertaveis = tarefa.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id) %}
-                        {% if not concluida and alertaveis|length > 0 %}
+                        {% if podeAlertar and not concluida and alertaveis|length > 0 %}
                             {# Já alertada: sino cheio e laranja, título "Alertado: Nome às
                                HH:MM. Clique para alertar de novo"; logo depois do envio
                                (volta do POST) ele balança. #}

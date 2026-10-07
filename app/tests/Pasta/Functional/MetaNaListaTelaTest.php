@@ -34,6 +34,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
+    use CriaUsuarioComPermissoesTrait;
 
     private function criarPastaDe(Tenant $tenant, User $criador): Pasta
     {
@@ -296,5 +297,28 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
             'SELECT COUNT(*) FROM notificacao WHERE tarefa_id = :t AND usuario_id = :u AND tipo = :tipo',
             ['t' => $id, 'u' => $brunoId, 'tipo' => AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO],
         ));
+    }
+
+    #[TestDox('PAS-047: sino só para quem EDITA a pasta; com o módulo Tarefas mas só vendo a pasta, sem sino nem POST de alerta')]
+    public function testSinoSoParaQuemEdita(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+        $bruno           = $this->criarColega($tenant, 'Bruno Responsável');
+        $meta            = $this->criarMeta($pasta, $user, [$user, $bruno], Tarefa::STATUS_PENDENTE);
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view', 'resources.pasta.view']);
+        $editor = $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view', 'resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(1, $this->linha($crawler, $meta), 'o leitor vê a meta');
+        self::assertCount(0, $this->linha($crawler, $meta)->filter('.ps-meta-sino'), 'só-leitor: sem sino');
+        self::assertCount(0, $crawler->filter('form.ps-meta-alertar'));
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(1, $this->linha($crawler, $meta)->filter('.ps-meta-sino'), 'editor: com sino');
+        self::assertGreaterThan(0, $crawler->filter('#psMetaSino' . $meta->getId() . ' form.ps-meta-alertar')->count());
     }
 }

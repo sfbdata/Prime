@@ -38,6 +38,11 @@
    ============================================================================ #}
 <div class="ps-page">
 
+    {# PAS-047: a decisão "pode editar a pasta" é tomada UMA vez por página (cada chamada
+       consulta o banco) e repassada aos parciais que oferecem ação de escrita — hoje o
+       "Alertar" do ⋮ do prazo e o sino das Metas, que o servidor só aceita com edit. #}
+    {% set podeEditarPasta = can_access_resource('pasta', pasta.id, 'edit') %}
+
     {{ include('pasta/_cabecalho.html.twig', {
         pasta: pasta,
         fotosResponsaveis: fotosResponsaveis|default({}),
@@ -214,6 +219,7 @@
                     {{ include('pasta/_dados_trilho.html.twig', {
                         pasta: pasta,
                         proximosPrazos: proximosPrazos,
+                        podeEditarPasta: podeEditarPasta,
                     }) }}
                 </div>
             </div>
@@ -252,6 +258,7 @@
                                 {% include 'pasta/_metas.html.twig' with {
                                     pasta: pasta,
                                     metasResumo: metasResumo,
+                                    podeEditarPasta: podeEditarPasta,
                                 } only %}
                             </div>
 

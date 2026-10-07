@@ -49,8 +49,11 @@
            ensina o usuário a desconfiar do menu.
            A data do .ics vem da META (dia inteiro, Y-m-d com ano) — o
            `PastaPrazoOutput.meta` só tem "dd/mm", e o desenho chutava o ano
-           corrente, o que erra todo prazo de dezembro visto em janeiro. #}
-        {% set podeAlertarPrazo = can_access_module('tarefas') and not pasta.estaExcluida %}
+           corrente, o que erra todo prazo de dezembro visto em janeiro.
+           PAS-047: o POST exige EDITAR a pasta (MetaNaListaController::verificarAcessoPasta);
+           quem só vê não recebe o item. `podeEditarPasta` vem calculado uma vez pelo show. #}
+        {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+        {% set podeAlertarPrazo = can_access_module('tarefas') and podeEditarPasta and not pasta.estaExcluida %}
         {% for prazo in proximosPrazos %}
             {% set tarefaDoPrazo = pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first %}
             {% set prazoDia = tarefaDoPrazo and tarefaDoPrazo.prazo ? tarefaDoPrazo.prazo.format('Ymd') : '' %}

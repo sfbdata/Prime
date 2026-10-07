@@ -27,6 +27,10 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *
  * Aparece para quem tem o módulo Tarefas (a guarda do sino), some para quem não tem e some na
  * pasta excluída (lápide, somente leitura). O envio usa o token REAL da página.
+ *
+ * PAS-047: o POST exige EDITAR a pasta; quem tem o módulo Tarefas mas só VÊ a pasta não recebe
+ * o item (o servidor recusaria). Os dois usuários do par têm o módulo Tarefas: a única diferença
+ * entre eles é `resources.pasta.edit`, então o teste prova a guarda de edição, não a do módulo.
  */
 #[CoversClass(PastaController::class)]
 #[CoversClass(MetaNaListaController::class)]
@@ -34,6 +38,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 final class PastaPrazoAlertarTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
+    use CriaUsuarioComPermissoesTrait;
 
     private function criarColega(Tenant $tenant, string $nome): User
     {
@@ -177,5 +182,25 @@ final class PastaPrazoAlertarTelaTest extends JusPrimeWebTestCase
         $menu = $this->menuDoPrazo($client, $pasta, $meta);
 
         self::assertCount(0, $menu->filter('form.ps-prazo-alertar'));
+    }
+
+    #[TestDox('PAS-047: quem só VÊ a pasta (com o módulo Tarefas) não recebe "Alertar"; quem edita, recebe')]
+    public function testSoLeitorNaoVeEditorVe(): void
+    {
+        [$client, , $tenant, $pasta, , $meta] = $this->cenario();
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view', 'resources.pasta.view']);
+        $editor = $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view', 'resources.pasta.view', 'resources.pasta.edit']);
+        $meta->addResponsavel($leitor);
+        $meta->addResponsavel($editor);
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $menu = $this->menuDoPrazo($client, $pasta, $meta);
+        self::assertCount(0, $menu->filter('form.ps-prazo-alertar'), 'só-leitor: sem "Alertar"');
+        self::assertStringNotContainsString('/tarefas/' . $meta->getId() . '/alertar', (string) $client->getResponse()->getContent());
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $menu = $this->menuDoPrazo($client, $pasta, $meta);
+        self::assertGreaterThan(0, $menu->filter('form.ps-prazo-alertar')->count(), 'editor: com "Alertar"');
     }
 }
