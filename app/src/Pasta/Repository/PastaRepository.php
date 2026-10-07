@@ -7,6 +7,7 @@ use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaFavorita;
@@ -677,7 +678,33 @@ class PastaRepository extends ServiceEntityRepository
         // fica de fora) e SEM a lápide (`excluidaEm IS NULL`). A exclusão da lápide só vale
         // quando este filtro vem: sem ele, o acervo segue listando a lápide riscada, como
         // sempre (decisão do dono, 31/08). Sem isso o número clicado não bateria com a lista.
-        if (!empty($filters['criado_por'])) {
+        //
+        // `criado_por=equipe` (e `equipe:<cargo>`) é o destino do "ver pastas" do CARD Pastas
+        // criadas (DASH-006): o card soma as linhas da tabela, ou seja, conta as pastas cujo
+        // criador é colaborador ATIVO do escritório (vínculo `UserTenant.isActive`), opcionalmente
+        // só os do cargo escolhido no painel (`__sem__` = sem cargo, como no Dashboard). O vínculo
+        // é procurado no escritório da própria consulta (`:tenant`, que os dois chamadores já
+        // definem): criador de outro escritório não entra. Cargo vem dentro do valor para que o
+        // filtro viaje como um campo só pelo deep-link e pelo estado salvo do Acervo.
+        $criadoPor = trim((string) ($filters['criado_por'] ?? ''));
+        if ($criadoPor === 'equipe' || str_starts_with($criadoPor, 'equipe:')) {
+            $cargoCriador = $criadoPor === 'equipe' ? '' : trim(substr($criadoPor, strlen('equipe:')));
+
+            $sub = 'SELECT 1 FROM ' . UserTenant::class . ' ut_cpe LEFT JOIN ut_cpe.cargo cg_cpe'
+                . ' WHERE ut_cpe.user = criador_f AND ut_cpe.tenant = :tenant AND ut_cpe.isActive = true';
+            // '__sem__' = ObterDadosDashboardUseCase::CARGO_SEM (literal aqui para o repositório
+            // não depender do UseCase do Dashboard).
+            if ($cargoCriador === '__sem__') {
+                $sub .= " AND (cg_cpe.id IS NULL OR TRIM(cg_cpe.nome) = '')";
+            } elseif ($cargoCriador !== '') {
+                $sub .= ' AND cg_cpe.nome = :cargoCriador';
+                $qb->setParameter('cargoCriador', $cargoCriador);
+            }
+
+            $qb->join('p.criadoPor', 'criador_f')
+               ->andWhere('EXISTS (' . $sub . ')')
+               ->andWhere('p.excluidaEm IS NULL');
+        } elseif (!empty($filters['criado_por'])) {
             $qb->join('p.criadoPor', 'criador_f')
                ->andWhere('criador_f.id = :criadoPor')
                ->andWhere('p.excluidaEm IS NULL')

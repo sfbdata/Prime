@@ -439,7 +439,8 @@ final class DashboardLote4TelaTest extends DashboardWebTestCase
         $ver = $crawler->filter($sel);
         self::assertSame('ver pastas', trim($ver->text()));
         self::assertEquals(['/expediente', ['painel' => 'acervo-geral', 'prioridade' => 'urgente']], $this->destino($ver));
-        self::assertCount(1, $crawler->filter('.db-cards-row a'), 'Só o card Urgentes tem link');
+        // DASH-006: Pastas criadas, Metas ativas e Urgentes têm link; Meta global não.
+        self::assertCount(3, $crawler->filter('.db-cards-row a'), 'Três cards têm link');
 
         $crawler = $client->request('GET', '/dashboard?' . self::PERIODO . '&responsavel=' . $ana->getId());
         self::assertEquals(

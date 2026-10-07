@@ -1687,10 +1687,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (criadoPor && criadoPor.value !== '') {
             var selResp = form.querySelector('select[name="responsavel"]');
             var optResp = selResp ? selResp.querySelector('option[value="' + CSS.escape(criadoPor.value) + '"]') : null;
+            // `equipe` / `equipe:<cargo>`: "ver pastas" do card Pastas criadas do Dashboard
+            // (colaboradores ativos, opcionalmente de um cargo; `__sem__` = sem cargo).
+            var valorCriador;
+            if (criadoPor.value === 'equipe') {
+                valorCriador = 'Equipe';
+            } else if (criadoPor.value.indexOf('equipe:') === 0) {
+                var cargoCriador = criadoPor.value.slice('equipe:'.length);
+                valorCriador = 'Equipe · ' + (cargoCriador === '__sem__' ? 'Sem cargo' : cargoCriador);
+            } else {
+                valorCriador = optResp ? optResp.textContent.trim() : ('colaborador #' + criadoPor.value);
+            }
             chips.push({
                 campo: 'criado_por',
                 rotulo: criadoPor.dataset.rotulo || 'Criado por',
-                valor: optResp ? optResp.textContent.trim() : ('colaborador #' + criadoPor.value)
+                valor: valorCriador
             });
         }
 

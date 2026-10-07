@@ -19,8 +19,11 @@
    `db-g-*` (o estilo mora em public/css/dashboard.css).
    O número final já vem no HTML e em `data-alvo`: funciona sem JS; com JS,
    dashboard.js conta de 0 até ele (desligado em prefers-reduced-motion).
-   Só o card Demandas urgentes traz "ver pastas" (Acervo geral do Expediente);
-   os "ver pastas"/"ver metas" dos outros cards ficam para outro lote. #}
+   Três cards trazem link para a lista que o número conta (DASH-006): Pastas
+   criadas ("ver pastas", Acervo geral filtrado pelo criador), Metas ativas
+   ("ver metas", /tarefas/equipe no escopo do card) e Demandas urgentes ("ver
+   pastas"). Cada link leva os filtros que o card usa — e só esses —, para a
+   lista bater com o número (DashboardCardsVerParidadeTest). #}
 {% import 'dashboard/_tendencia.html.twig' as tend %}
 {% import 'dashboard/_extras.html.twig' as extra %}
 {# Colunas extras ligadas pelo usuário ("Adicionar coluna"), na ordem da tabela: entram depois
@@ -74,6 +77,24 @@
                 <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--1">Pastas criadas</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num" data-card="pastas" data-alvo="{{ dashboard.totalPastasCriadas }}">{{ dashboard.totalPastasCriadas }}</div>
+                    {# "ver pastas": o card soma a coluna Pastas criadas, isto é, as pastas abertas
+                       por colaborador ATIVO do escritório (e do cargo, se filtrado), sem lápide,
+                       no período. No Acervo isso é `criado_por=equipe` (`equipe:<cargo>` com
+                       cargo). Com responsável filtrado o card é a linha dele: `criado_por=<id>`,
+                       o mesmo destino do número da linha. Responsável que não vira linha (fora do
+                       cargo escolhido, ou id que não é número) deixa o card em 0 e a lista não
+                       bateria com ele: aí o link não sai. #}
+                    {% set respCard  = filtros.responsavel|default('') %}
+                    {% set cargoCard = filtros.cargo|default('')|trim %}
+                    {% set pastasQuery = null %}
+                    {% if respCard == '' %}
+                        {% set pastasQuery = { painel: 'acervo-geral', criado_por: cargoCard != '' ? 'equipe:' ~ cargoCard : 'equipe' }|merge(periodoLink) %}
+                    {% elseif respCard matches '/^[1-9][0-9]*$/' and dashboard.totalPastasCriadas > 0 %}
+                        {% set pastasQuery = { painel: 'acervo-geral', criado_por: respCard }|merge(periodoLink) %}
+                    {% endif %}
+                    {% if pastasQuery is not null %}
+                        <a class="db-card-ver" href="{{ path('expediente_index', pastasQuery) }}" title="Abrir: Expediente · pastas criadas">ver pastas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    {% endif %}
                 </div>
                 {# Sem legenda: o desenho mostra só o rótulo e o número neste card. #}
             </div>
@@ -121,6 +142,13 @@
                 <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--2">Metas ativas</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num" data-card="metas" data-alvo="{{ dashboard.totalMetasAtivas }}">{{ dashboard.totalMetasAtivas }}</div>
+                    {# "ver metas": /tarefas/equipe no escopo do CARD (`escopo=card`), que conta
+                       como countMetasAtivas — toda meta não concluída do escritório no período,
+                       com o responsável quando filtrado. O cargo não vai: o card não o usa. #}
+                    {% set metasQuery = { status: 'ativas', escopo: 'card' }
+                        |merge(filtros.responsavel|default('') != '' ? { responsavel: filtros.responsavel } : {})
+                        |merge(periodoLink) %}
+                    <a class="db-card-ver" href="{{ path('tarefa_equipe', metasQuery) }}" title="Abrir: Metas da equipe · metas ativas">ver metas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                 </div>
                 <div class="db-card-legenda db-card-legenda--hover">tarefas ainda não concluídas</div>
             </div>

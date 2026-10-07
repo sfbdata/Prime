@@ -215,4 +215,56 @@ final class ListarMetasDaEquipeUseCaseTest extends TestCase
         self::assertSame(2, $out->pagina);
         self::assertSame(2, $out->totalPaginas);
     }
+
+    #[TestDox('escopo=card com status=ativas usa o critério do card (findMetasAtivasDoCardPaginado), com período e responsável, sem cargo')]
+    public function testEscopoCardUsaCriterioDoCard(): void
+    {
+        $capturado = [];
+        $repo = $this->createMock(TarefaRepository::class);
+        $repo->expects(self::never())->method('findMetasDaEquipePaginado');
+        $repo->expects(self::once())
+            ->method('findMetasAtivasDoCardPaginado')
+            ->willReturnCallback(function (Tenant $t, array $filtros, int $pagina, int $porPagina) use (&$capturado): Paginator {
+                $capturado = compact('filtros', 'pagina', 'porPagina');
+
+                return $this->paginador(7);
+            });
+
+        $useCase = new ListarMetasDaEquipeUseCase(
+            $repo,
+            $this->userRepo([$this->usuario(1, 'Ana'), $this->usuario(2, 'Bruno')], [1 => 'Advogado', 2 => 'Estagiário']),
+        );
+
+        $out = $useCase->executar($this->tenant, $this->referencia, [
+            'status'      => 'ativas',
+            'escopo'      => 'card',
+            'responsavel' => '1',
+            'cargo'       => 'Estagiário',
+            'data_de'     => '2026-09-01',
+            'data_ate'    => '2026-09-30',
+        ]);
+
+        self::assertSame(['data_de' => '2026-09-01', 'data_ate' => '2026-09-30', 'responsavel' => '1'], $capturado['filtros']);
+        self::assertSame(7, $out->total);
+        self::assertSame('card', $out->filtros['escopo'] ?? null, 'a paginação precisa levar o escopo');
+        self::assertArrayNotHasKey('cargo', $out->filtros, 'o card não usa cargo');
+        // O cargo de outro não esvazia o universo do título: o nome vem do escritório.
+        self::assertStringContainsString('Ana', $out->titulo);
+    }
+
+    #[TestDox('escopo=card só vale com status=ativas; com outro status (ou escopo desconhecido) a lista é a da tabela')]
+    public function testEscopoCardIgnoradoForaDeAtivas(): void
+    {
+        foreach ([['status' => 'todas', 'escopo' => 'card'], ['status' => 'ativas', 'escopo' => 'outro']] as $filtros) {
+            $capturado = [];
+            $repo = $this->tarefaRepoCapturando($capturado);
+            $repo->expects(self::never())->method('findMetasAtivasDoCardPaginado');
+            $useCase = new ListarMetasDaEquipeUseCase($repo, $this->userRepo([$this->usuario(1, 'A')]));
+
+            $out = $useCase->executar($this->tenant, $this->referencia, $filtros);
+
+            self::assertSame($filtros['status'], $capturado['status']);
+            self::assertArrayNotHasKey('escopo', $out->filtros);
+        }
+    }
 }

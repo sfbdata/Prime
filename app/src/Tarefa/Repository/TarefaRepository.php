@@ -668,6 +668,38 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Lista do "ver metas" do CARD Metas ativas (DASH-006, `escopo=card` em /tarefas/equipe):
+     * EXATAMENTE as metas que countMetasAtivas conta — status != concluída, do escritório (pela
+     * pasta), criadas no período e, com `responsavel`, só as daquele responsável. Diferente da
+     * findMetasDaEquipePaginado, NÃO recorta pelo universo de colaboradores ativos: o card conta
+     * também meta sem responsável e meta de quem já saiu do escritório. Se countMetasAtivas mudar
+     * de critério, este muda junto (DashboardCardsVerParidadeTest prova a paridade).
+     *
+     * @param array<string, mixed> $filtros data_de, data_ate (Y-m-d), responsavel (userId)
+     *
+     * @return Paginator<Tarefa>
+     */
+    public function findMetasAtivasDoCardPaginado(Tenant $tenant, array $filtros, int $pagina, int $porPagina): Paginator
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->addSelect('p', 'r')
+            ->join('t.pasta', 'p')
+            ->leftJoin('t.responsaveis', 'r')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('t.status != :concluida')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setFirstResult((max(1, $pagina) - 1) * $porPagina)
+            ->setMaxResults($porPagina);
+
+        $this->aplicarFiltrosDashboard($qb, $filtros, true);
+
+        return new Paginator($qb, true);
+    }
+
+    /**
      * Aplica os filtros globais do Dashboard a uma query cujo alias raiz é 't':
      * período por `t.dataCriacao` e, quando $filtrarResponsavel, o responsável (via
      * junção em t.responsaveis). Não é usado nas contagens de vencidas/prazos, que são

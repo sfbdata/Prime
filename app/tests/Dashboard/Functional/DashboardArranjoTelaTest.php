@@ -92,10 +92,15 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         $rotulos = $cards->each(static fn ($c): string => trim($c->filter('.db-card-rotulo')->text()));
         self::assertSame(['Pastas criadas', 'Metas ativas', 'Demandas urgentes', 'Meta global batida'], $rotulos);
 
-        // Nada fake: só o "ver pastas" de Demandas urgentes tem destino pronto (Acervo geral
-        // do Expediente); os dos outros cards seguem fora até o destino existir.
-        self::assertCount(1, $cards->filter('a'), 'Só um card traz link');
-        self::assertCount(1, $cards->filter('.db-stat-card--urgentes a.db-card-ver'));
+        // DASH-006: "ver pastas" (Pastas criadas), "ver metas" (Metas ativas) e "ver pastas"
+        // (Urgentes), cada um na linha do número do PRÓPRIO card; Meta global não tem link.
+        self::assertCount(3, $cards->filter('a'), 'Três cards trazem link');
+        foreach (['pastas' => 'ver pastas', 'metas' => 'ver metas', 'urgentes' => 'ver pastas'] as $card => $texto) {
+            $ver = $cards->filter('.db-stat-card--' . $card . ' > .db-card-corpo > .db-card-valor-linha > a.db-card-ver');
+            self::assertCount(1, $ver, 'link do card ' . $card);
+            self::assertSame($texto, trim($ver->text()));
+        }
+        self::assertCount(0, $cards->filter('.db-stat-card--global a'));
     }
 
     #[TestDox('O card da meta global traz a legenda "X de Y metas concluídas" com os números reais')]
