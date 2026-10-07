@@ -141,8 +141,18 @@ cada divergência A trabalhada e as filas B/C/D.
 | FPN-036 | Notificações | Sino laranja do alerta e ícone da análise | P4 | **feito** | ✓ | ✓ | ✓ | `d39f3dc6`, `b6b0c8c8` | em revisão | `.text-orange` criado com par escuro |
 | FPN-019 | Push | Cor do ponto por quem praticou o ato | P4 | **feito** | ✓ | ✓ | ✓ | `0f0afbe8` | em revisão | Polo ativo/passivo exigiria inferir do texto (D) |
 | FPN-031 | Push | Cabeçalho quebra linha no celular | P3 | **feito** | ✓ | — | ✓ | `6f50322b` | em revisão | Só o smoke prova 375px |
-| DASH-025/026 | Dashboard | Modo avançado lembrado no servidor; confirmação; cartão 6s | P2 | integrado, testes em correção | ✓ | ✓ | | `ac76c8b1`, `78b555f6` | | Confirmação só na 1ª ativação (README) × a cada vez (código do dc): ver D abaixo |
-| DASH-008/010 | Dashboard | Links e setas das colunas extras | P2 | integrado, testes em correção | ✓ | ✓ | | `f29386d5`, `7a36a92e` | | |
+| DASH-025/026 | Dashboard | Modo avançado lembrado no servidor; confirmação; cartão 6s | P2 | **feito** | ✓ | ✓ | ✓ | `ac76c8b1`, `78b555f6`, `14a9fa5b` | as 3 falhas eram do teste | Confirmação só na 1ª ativação (README) × a cada vez (código do dc): ver D abaixo |
+| DASH-008/010 | Dashboard | Links e setas das colunas extras | P2 | **feito** | ✓ | ✓ | ✓ | `f29386d5`, `7a36a92e`, `14a9fa5b` | célula = total da lista | |
+
+| SEC-013b | Segurança | Cópia do guarda falho em `MetaNaListaController` | P2 | **feito** | — | ✓ | ✓ | `fa5ec109` | (mutação: 3 caem) | |
+| FPN-014b/c | Push | Menu: Marcar como lida, Abrir documento; escrita escondida de quem não pode | P3 | **feito** | ✓ | ✓ | ✓ | `0039a027`, `470d5d35` | (mutações: 9) | Lida exige só ver (como o servidor) |
+| PAS-049b | Processo | Interruptor Administrativo em só leitura; vazio sem citar botão ausente | P3 | **feito** | ✓ | ✓ | ✓ | `85c2368e` | | |
+| FPN-006b | Financeiro | "Editar/Excluir · bloqueado" com cadeado; confirmação do desenho | P3 | **feito** | ✓ | ✓ | ✓ | `18555920` | | `confirm()` nativo com o texto do desenho (o desenho tem janela própria) |
+| EDT-021/022 | Editor | Enviar desabilitado com editor vazio; rótulo em texto | P3 | **feito** | ✓ | ✓ | ✓ | `11c0a460` | Opus: sem achado | Contrato `data-editor-rico-envio` |
+| EDT-009 | Editor | "Citar no novo registro" no ⋮ da observação | P2 | **feito** | ✓ | ✓ | ✓ | `fd6e49d6` | Opus: sem XSS | Só em Detalhes, como o desenho |
+| EDT-011 | Editor | Menu de botão direito dentro do editor | P2 | **feito** | ✓ | ✓ | ✓ | `eb3acac5` | Opus: sem XSS | Itens de IA/terceiros ficam de fora (C) |
+| EDT-017 | Editor | Colar com Manter/Mesclar/Somente texto | P3 | **feito** | ✓ | ✓ | ✓ | `76679c97` | Opus: sem XSS | |
+| EDT-015 | Editor | Sugestão de palavras; Tab cede à @menção | P3 | **feito** | ✓ | ✓ | ✓ | `f2bb3421` | Opus | Vocabulário estático já existente |
 
 **Novas divergências achadas no ciclo 1:**
 - **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
@@ -164,6 +174,15 @@ cada divergência A trabalhada e as filas B/C/D.
 - **DASH-029 (C):** a lista "Poderá analisar" do Modo avançado foi reduzida ao que o motor por regras lê (tirados
   Processos, Produtividade, Tendências e Histórico) e saiu "Inteligência de Desempenho da equipe" do subtítulo, por
   regra de "nada fake". Ratificar com o Samuel.
+- **DOC-106b (A, P1 desempenho; teto a ratificar):** a regra do desenho descarta números e gera 15.387 pares (~2,7 MB
+  de HTML) na pasta de 1.112 arquivos. Teto de 20 pares + "e mais N". Em implementação.
+- **DOC-108b (A, P4):** `limparArvore` não remove `poster`/`background` (hoje só a CSP `img-src data:` os barra).
+- **DOC-108 (ratificar):** iframe de impressão com `allow-same-origin allow-modals` (inerte sem `allow-scripts`).
+- **DOC-115b (B/C):** MSG não entrou no Anexar (o visor não abre MSG sem LibreOffice: D-LIBRE).
+- **FPN-040 (A, P3):** botões do próprio teor oferecem escrita a quem só vê e na lápide. Em implementação.
+- **PMC-044/038 (A, P3):** ficar na aba Metas após criar; moldura do modal "Nova meta". Em implementação.
+- **FPN-014 (ratificar):** o desenho rotula a publicação lida como "Já lida" (sem ação); implementado
+  "Marcar como não lida", igual ao botão do teor.
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
