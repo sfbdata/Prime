@@ -80,13 +80,18 @@ final class PastaRespostaNotificaAutorTest extends JusPrimeWebTestCase
         static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 
-    private function responder(KernelBrowser $client, Pasta $pasta, PastaMensagem $alvo, string $conteudo = 'Já liguei'): void
+    /** @return int|null o id da resposta gravada (do JSON do endpoint) */
+    private function responder(KernelBrowser $client, Pasta $pasta, PastaMensagem $alvo, string $conteudo = 'Já liguei'): ?int
     {
         $client->request('POST', "/pasta/{$pasta->getId()}/mensagem", [
             '_token'     => 'TOKEN_pasta_mensagem_' . $pasta->getId(),
             'conteudo'   => $conteudo,
             'resposta_a' => (string) $alvo->getId(),
         ]);
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        return is_array($dados) && isset($dados['id']) ? (int) $dados['id'] : null;
     }
 
     /** @return Notificacao[] */
@@ -100,7 +105,7 @@ final class PastaRespostaNotificaAutorTest extends JusPrimeWebTestCase
             ->getResult();
     }
 
-    #[TestDox('Responder o comentário de outra pessoa notifica o autor, no escritório da pasta, com link para o comentário')]
+    #[TestDox('Responder o comentário de outra pessoa notifica o autor, no escritório da pasta, com link para a própria resposta')]
     public function testNotificaOAutorDoComentario(): void
     {
         $client = static::createClient();
@@ -113,26 +118,28 @@ final class PastaRespostaNotificaAutorTest extends JusPrimeWebTestCase
         $raiz   = $this->comentario($pasta, $dono, $tenant);
 
         $this->logarComTenant($client, $quem, $tenant);
-        $this->responder($client, $pasta, $raiz, '<p>Já liguei, ele <strong>confirmou</strong></p>');
+        $respostaId = $this->responder($client, $pasta, $raiz, '<p>Já liguei, ele <strong>confirmou</strong></p>');
         self::assertResponseStatusCodeSame(201);
+        self::assertNotNull($respostaId);
+        self::assertNotSame($raiz->getId(), $respostaId);
 
         $notificacoes = $this->notificacoesDe($dono);
         self::assertCount(1, $notificacoes);
         $n = $notificacoes[0];
         self::assertSame('Ana respondeu seu comentário', $n->getTitulo());
-        self::assertStringStartsWith('"Já liguei, ele confirmou" · em Dados da Pasta ' . $pasta->getNup() . ' · ', (string) $n->getMensagem());
+        self::assertStringStartsWith('"Já liguei, ele confirmou" · em Dados da pasta da Pasta ' . $pasta->getNup() . ' · ', (string) $n->getMensagem());
         self::assertStringEndsWith('Seu comentário: "Ligar para o cliente"', (string) $n->getMensagem());
         self::assertSame($tenant->getId(), $n->getTenant()?->getId());
         self::assertFalse($n->isLida());
-        self::assertSame('/pasta/' . $pasta->getId() . '#pasta-msg-' . $raiz->getId(), $n->getUrl());
+        self::assertSame('/pasta/' . $pasta->getId() . '#pasta-msg-' . $respostaId, $n->getUrl());
         self::assertSame('bi-person-check text-warning', $n->getIcone());
         self::assertCount(0, $this->notificacoesDe($quem), 'quem respondeu não recebe nada');
 
-        // O link abre a pasta para o destinatário, e a âncora existe na página.
+        // O link abre a pasta para o destinatário, e a âncora da RESPOSTA existe na página.
         $this->logarComTenant($client, $dono, $tenant);
         $crawler = $client->request('GET', (string) strtok((string) $n->getUrl(), '#'));
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('#pasta-msg-' . $raiz->getId()));
+        self::assertCount(1, $crawler->filter('#pasta-msg-' . $respostaId));
     }
 
     #[TestDox('Responder o próprio comentário não gera notificação')]
@@ -228,8 +235,47 @@ final class PastaRespostaNotificaAutorTest extends JusPrimeWebTestCase
         self::assertCount(0, $this->notificacoesDe($userB));
     }
 
-    #[TestDox('Segunda resposta da mesma pessoa ao mesmo comentário não duplica enquanto a anterior não foi lida')]
-    public function testSemDuplicataEnquantoNaoLida(): void
+    #[TestDox('Uma notificação POR RESPOSTA: duas Marias, ou a mesma pessoa respondendo de novo, geram notificações distintas')]
+    public function testUmaNotificacaoPorResposta(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $tenant = $this->criarTenant();
+        $dono   = $this->membro($tenant, 'Bruno');
+        $mariaA = $this->membro($tenant, 'Maria Souza');
+        $mariaB = $this->membro($tenant, 'Maria Lima');
+        $pasta  = $this->criarPasta($tenant);
+        $raiz   = $this->comentario($pasta, $dono, $tenant);
+
+        // Duas Marias: mesmo título ("Maria respondeu seu comentário"), links diferentes.
+        $this->logarComTenant($client, $mariaA, $tenant);
+        $idA = $this->responder($client, $pasta, $raiz, 'Da Maria Souza');
+        self::assertResponseStatusCodeSame(201);
+        $this->logarComTenant($client, $mariaB, $tenant);
+        $idB = $this->responder($client, $pasta, $raiz, 'Da Maria Lima');
+        self::assertResponseStatusCodeSame(201);
+
+        $notificacoes = $this->notificacoesDe($dono);
+        self::assertCount(2, $notificacoes);
+        self::assertSame('Maria respondeu seu comentário', $notificacoes[0]->getTitulo());
+        self::assertSame('Maria respondeu seu comentário', $notificacoes[1]->getTitulo());
+        self::assertSame('/pasta/' . $pasta->getId() . '#pasta-msg-' . $idA, $notificacoes[0]->getUrl());
+        self::assertSame('/pasta/' . $pasta->getId() . '#pasta-msg-' . $idB, $notificacoes[1]->getUrl());
+
+        // A mesma Maria respondendo de novo (anterior ainda NÃO lida) é outra notificação.
+        $this->logarComTenant($client, $mariaA, $tenant);
+        $idC = $this->responder($client, $pasta, $raiz, 'De novo a Maria Souza');
+        self::assertResponseStatusCodeSame(201);
+        self::assertFalse($notificacoes[0]->isLida());
+
+        $notificacoes = $this->notificacoesDe($dono);
+        self::assertCount(3, $notificacoes);
+        self::assertSame('/pasta/' . $pasta->getId() . '#pasta-msg-' . $idC, $notificacoes[2]->getUrl());
+    }
+
+    #[TestDox('A resposta e a notificação entram juntas: o link da notificação aponta para uma resposta gravada')]
+    public function testNotificacaoApontaParaRespostaGravada(): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -237,26 +283,19 @@ final class PastaRespostaNotificaAutorTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $dono   = $this->membro($tenant, 'Bruno');
         $quem   = $this->membro($tenant, 'Ana');
-        $outra  = $this->membro($tenant, 'Carla');
         $pasta  = $this->criarPasta($tenant);
         $raiz   = $this->comentario($pasta, $dono, $tenant);
 
         $this->logarComTenant($client, $quem, $tenant);
-        $this->responder($client, $pasta, $raiz, 'Primeira');
-        $this->responder($client, $pasta, $raiz, 'Segunda');
+        $id = $this->responder($client, $pasta, $raiz, 'Gravada');
         self::assertResponseStatusCodeSame(201);
-        self::assertCount(1, $this->notificacoesDe($dono));
+        self::assertNotNull($id);
 
-        // Outra pessoa respondendo é outra notificação.
-        $this->logarComTenant($client, $outra, $tenant);
-        $this->responder($client, $pasta, $raiz, 'Da Carla');
-        self::assertCount(2, $this->notificacoesDe($dono));
-
-        // Lida a da Ana, a próxima resposta dela volta a notificar.
-        $this->notificacoesDe($dono)[0]->setLida(true);
-        $this->em()->flush();
-        $this->logarComTenant($client, $quem, $tenant);
-        $this->responder($client, $pasta, $raiz, 'Terceira');
-        self::assertCount(3, $this->notificacoesDe($dono));
+        $resposta = $this->em()->find(PastaMensagem::class, $id);
+        self::assertNotNull($resposta);
+        self::assertSame($raiz->getId(), $resposta->getRespostaA()?->getId());
+        $notificacoes = $this->notificacoesDe($dono);
+        self::assertCount(1, $notificacoes);
+        self::assertStringEndsWith('#pasta-msg-' . $id, (string) $notificacoes[0]->getUrl());
     }
 }

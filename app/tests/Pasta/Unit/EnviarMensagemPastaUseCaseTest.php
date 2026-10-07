@@ -37,6 +37,9 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
     private Pasta $pasta;
     private User $autor;
     private Tenant $tenant;
+    /** A última mensagem passada ao `persist` — o dublê do flush dá id a ela, como o banco. */
+    private ?PastaMensagem $persistida = null;
+    private int $proximoId = 950;
 
     protected function setUp(): void
     {
@@ -45,6 +48,20 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
         $this->userTenantRepository  = $this->createMock(UserTenantRepository::class);
         $this->permissionChecker     = $this->createMock(PermissionChecker::class);
+
+        // Como o real: roda o callback (o flush final e o commit não importam ao dublê).
+        $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
+        // O id da resposta só nasce no flush — é o que o link da notificação usa.
+        $this->em->method('persist')->willReturnCallback(function (object $o): void {
+            if ($o instanceof PastaMensagem) {
+                $this->persistida = $o;
+            }
+        });
+        $this->em->method('flush')->willReturnCallback(function (): void {
+            if ($this->persistida !== null && $this->persistida->getId() === null) {
+                $this->definirId($this->persistida, $this->proximoId++);
+            }
+        });
 
         $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $urlGenerator->method('generate')->willReturnCallback(
@@ -242,7 +259,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             ->willReturn($acesso);
     }
 
-    #[TestDox('Responder o comentário de outra pessoa notifica o autor dele, no escritório da pasta, com link para o comentário')]
+    #[TestDox('Responder o comentário de outra pessoa notifica o autor dele, no escritório da pasta, com link para a própria resposta')]
     public function testRespostaNotificaOAutorDoComentario(): void
     {
         $dono = $this->dono();
@@ -260,7 +277,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
                 'Ana respondeu seu comentário',
                 $this->callback(static function (?string $texto): bool {
                     self::assertNotNull($texto);
-                    self::assertStringStartsWith('"Já liguei, ele confirmou" · em Dados da Pasta 1232 · ', $texto);
+                    self::assertStringStartsWith('"Já liguei, ele confirmou" · em Dados da pasta da Pasta 1232 · ', $texto);
                     self::assertMatchesRegularExpression('#· \d{2}/\d{2}/\d{4} \d{2}:\d{2}\. #u', $texto);
                     self::assertStringEndsWith('Seu comentário: "Ligar para o cliente amanhã"', $texto);
 
@@ -271,9 +288,71 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         // Resposta e notificação na MESMA transação.
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar($this->pasta, $this->autor, '<p>Já liguei, <em>ele</em> confirmou</p>', $this->tenant, $raiz);
+        $resposta = $this->useCase->executar($this->pasta, $this->autor, '<p>Já liguei, <em>ele</em> confirmou</p>', $this->tenant, $raiz);
 
-        self::assertSame('/pasta/41#pasta-msg-900', $notificacao->getUrl());
+        self::assertSame(950, $resposta->getId());
+        self::assertSame('/pasta/41#pasta-msg-950', $notificacao->getUrl(), 'o link é da resposta, não da raiz (900)');
+    }
+
+    #[TestDox('Duas pessoas com o mesmo primeiro nome respondendo o mesmo comentário geram DUAS notificações, cada uma com o link da sua resposta')]
+    public function testDuasMariasGeramDuasNotificacoes(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->donoComAcesso($dono);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $mariaA = $this->definirId((new User())->setEmail('ma@test.com')->setFullName('Maria Souza'), 5);
+        $mariaB = $this->definirId((new User())->setEmail('mb@test.com')->setFullName('Maria Lima'), 6);
+
+        $criadas = [];
+        $this->notificacaoService->expects($this->exactly(2))
+            ->method('criar')
+            ->with($this->identicalTo($dono), $this->identicalTo($this->tenant), Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO, 'Maria respondeu seu comentário')
+            ->willReturnCallback(static function () use (&$criadas): Notificacao {
+                return $criadas[] = new Notificacao();
+            });
+
+        $this->useCase->executar($this->pasta, $mariaA, 'Da Maria Souza', $this->tenant, $raiz);
+        $this->persistida = null;
+        $this->useCase->executar($this->pasta, $mariaB, 'Da Maria Lima', $this->tenant, $raiz);
+
+        self::assertCount(2, $criadas);
+        self::assertSame('/pasta/41#pasta-msg-950', $criadas[0]->getUrl());
+        self::assertSame('/pasta/41#pasta-msg-951', $criadas[1]->getUrl());
+    }
+
+    #[TestDox('A mesma pessoa respondendo duas vezes o mesmo comentário gera DUAS notificações')]
+    public function testMesmaPessoaDuasRespostasGeraDuas(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->donoComAcesso($dono);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $this->notificacaoService->expects($this->exactly(2))
+            ->method('criar')
+            ->willReturnCallback(static fn (): Notificacao => new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Primeira', $this->tenant, $raiz);
+        $this->persistida = null;
+        $this->useCase->executar($this->pasta, $this->autor, 'Segunda', $this->tenant, $raiz);
+    }
+
+    #[TestDox('Tudo-ou-nada: falha ao criar a notificação propaga de dentro da transação (a resposta não é confirmada sozinha)')]
+    public function testFalhaNaNotificacaoPropagaDaTransacao(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->donoComAcesso($dono);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $this->em->expects($this->once())->method('wrapInTransaction');
+        $this->notificacaoService->method('criar')->willThrowException(new \RuntimeException('falhou'));
+
+        $this->expectException(\RuntimeException::class);
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Resposta', $this->tenant, $raiz);
     }
 
     #[TestDox('Responder uma RESPOSTA notifica o autor da raiz (é a ela que a conversa fica pendurada)')]
@@ -337,8 +416,8 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->useCase->executar($this->pasta, $this->autor, 'Resposta', $this->tenant, $raiz);
     }
 
-    #[TestDox('Já existe notificação idêntica NÃO LIDA (mesma pessoa respondendo o mesmo comentário): não duplica')]
-    public function testNotificacaoIdenticaNaoLidaNaoDuplica(): void
+    #[TestDox('A MESMA resposta (mesmo destinatário, escritório, tipo e link) já notificada não duplica — idempotência')]
+    public function testMesmaRespostaJaNotificadaNaoDuplica(): void
     {
         $dono = $this->dono();
         $raiz = $this->cenarioDeResposta($dono);
@@ -350,9 +429,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
                 'usuario' => $dono,
                 'tenant'  => $this->tenant,
                 'tipo'    => Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO,
-                'titulo'  => 'Ana respondeu seu comentário',
-                'url'     => '/pasta/41#pasta-msg-900',
-                'lida'    => false,
+                'url'     => '/pasta/41#pasta-msg-950',
             ])
             ->willReturn(new Notificacao());
         $this->notificacaoService->expects($this->never())->method('criar');

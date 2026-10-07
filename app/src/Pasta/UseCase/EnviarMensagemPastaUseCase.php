@@ -29,14 +29,19 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *  - só quem ainda tem vínculo ATIVO neste escritório E acesso de leitura a ESTA pasta
  *    (a mesma checagem da `pasta_show`) — sem acesso, o link levaria a uma tela negada;
  *  - a notificação é do escritório da pasta (Notificacao é TenantAware);
- *  - sem duplicata: se o destinatário já tem uma notificação NÃO LIDA idêntica (mesmo tipo,
- *    mesmo título, mesmo link — isto é, a mesma pessoa respondendo o mesmo comentário), não
- *    cria outra. Lida a anterior, a próxima resposta volta a notificar.
+ *  - uma notificação POR RESPOSTA: duas pessoas (mesmo com o mesmo primeiro nome) ou a mesma
+ *    pessoa respondendo duas vezes geram duas. O link aponta para a própria resposta
+ *    (`#pasta-msg-<idDaResposta>`), e é ele que distingue uma da outra;
+ *  - a anti-duplicata é só idempotência da MESMA resposta: se o destinatário já tem uma
+ *    notificação deste tipo com este link (neste escritório), não cria outra.
  */
 final class EnviarMensagemPastaUseCase
 {
-    /** Onde o Registro mora na pasta_show — vai no texto da notificação ("em Dados da Pasta N"). */
-    private const ABA_DO_REGISTRO = 'Dados';
+    /**
+     * Onde o Registro mora na pasta_show — vai no texto da notificação. É o rótulo do desenho
+     * (`regsLinha`: `abaRot = 'Dados da pasta'`), o que dá "em Dados da pasta da Pasta N".
+     */
+    private const ABA_DO_REGISTRO = 'Dados da pasta';
 
     private const LIMITE_RESPOSTA = 140;
     private const LIMITE_ORIGINAL = 80;
@@ -86,16 +91,25 @@ final class EnviarMensagemPastaUseCase
         $mensagem->setConteudo($conteudo);
         $mensagem->setRespostaA($raiz);
 
-        $this->em->persist($mensagem);
+        if ($raiz === null) {
+            $this->em->persist($mensagem);
+            $this->em->flush();
 
-        if ($raiz !== null) {
-            $this->notificarAutorDoComentario($raiz, $mensagem, $pasta, $autor, $tenant);
+            return $mensagem;
         }
 
-        // Uma transação só: a resposta e a notificação entram (ou não) juntas.
-        $this->em->flush();
+        // Uma transação só: a resposta e a notificação entram (ou não) juntas. O link da
+        // notificação leva o id da RESPOSTA, que só existe depois do flush — por isso o flush
+        // da resposta acontece DENTRO da transação, antes de criar a notificação; o
+        // `wrapInTransaction` faz o flush final e o commit (ou o rollback, se algo falhar).
+        return $this->em->wrapInTransaction(function () use ($mensagem, $raiz, $pasta, $autor, $tenant): PastaMensagem {
+            $this->em->persist($mensagem);
+            $this->em->flush();
 
-        return $mensagem;
+            $this->notificarAutorDoComentario($raiz, $mensagem, $pasta, $autor, $tenant);
+
+            return $mensagem;
+        });
     }
 
     /**
@@ -110,7 +124,7 @@ final class EnviarMensagemPastaUseCase
         }
 
         $pastaId = $pasta->getId();
-        if ($pastaId === null || $raiz->getId() === null) {
+        if ($pastaId === null || $resposta->getId() === null) {
             return;
         }
 
@@ -120,17 +134,16 @@ final class EnviarMensagemPastaUseCase
         }
 
         $titulo = sprintf('%s respondeu seu comentário', self::primeiroNome($quemResponde));
-        // A âncora é o cartão da raiz (`id="pasta-msg-N"` em _dados_anotacoes): a resposta
-        // aparece logo abaixo dela, junto das outras da mesma conversa.
-        $url = $this->urlGenerator->generate('pasta_show', ['id' => $pastaId]) . '#pasta-msg-' . $raiz->getId();
+        // A âncora é o cartão da PRÓPRIA resposta (`id="pasta-msg-N"` em _dados_anotacoes vale
+        // para raiz e resposta): o link leva a ela, e cada resposta tem o seu.
+        $url = $this->urlGenerator->generate('pasta_show', ['id' => $pastaId]) . '#pasta-msg-' . $resposta->getId();
 
+        // Idempotência da MESMA resposta: o link é único por resposta.
         $jaExiste = $this->notificacaoRepository->findOneBy([
             'usuario' => $destinatario,
             'tenant'  => $tenant,
             'tipo'    => Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO,
-            'titulo'  => $titulo,
             'url'     => $url,
-            'lida'    => false,
         ]);
         if ($jaExiste !== null) {
             return;
