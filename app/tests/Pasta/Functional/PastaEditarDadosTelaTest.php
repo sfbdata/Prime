@@ -106,4 +106,24 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('salvar.disabled = !(mudou && !erro);', $html);
         self::assertStringContainsString('pendencias.hidden = !(mudou && erro);', $html);
     }
+
+    #[TestDox('PAS-019: trocar o número pede a confirmação do desenho antes de enviar; o número antigo é o do servidor')]
+    public function testConfirmaTrocaDoNumero(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        self::assertSame($pasta->getNup(), $crawler->filter('#edit_nup')->attr('value'), 'o defaultValue que o script compara');
+
+        $html = (string) $client->getResponse()->getContent();
+        $ini  = strpos($html, "form.addEventListener('submit', function (e) {\n            var antes = nup.defaultValue.trim();");
+        self::assertNotFalse($ini, 'a confirmação fica no envio do formulário');
+        $trecho = substr($html, $ini, 600);
+        self::assertStringContainsString("depois !== '' && depois !== antes", $trecho, 'só quando o número muda');
+        self::assertStringContainsString("window.confirm('Alterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.')", $trecho);
+        self::assertStringContainsString('e.preventDefault();', $trecho, 'Cancelar não envia');
+    }
 }

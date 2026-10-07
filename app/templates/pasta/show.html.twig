@@ -4122,6 +4122,19 @@ document.addEventListener('DOMContentLoaded', function () {
     modal.addEventListener('show.bs.modal', conferir);
     conferir();
 
+    /* PAS-019 (dc L.4287): trocar o NÚMERO pede confirmação antes de gravar, com o texto do
+       desenho — o número antigo é o que veio do servidor (`defaultValue`). */
+    if (form && nup) {
+        form.addEventListener('submit', function (e) {
+            var antes = nup.defaultValue.trim();
+            var depois = nup.value.trim();
+            if (depois !== '' && depois !== antes
+                && !window.confirm('Alterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.')) {
+                e.preventDefault();
+            }
+        });
+    }
+
     function irParaClientes() {
         var aba = document.getElementById('dados-tab');
         if (aba) { aba.click(); }
