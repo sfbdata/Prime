@@ -503,6 +503,25 @@
         quill.setSelection(Math.min(f.index + texto.length, quill.getLength() - 1), 0, 'user');
     }
 
+    /** Tab fora de lista: 4 espaços não separáveis (`onKey` do desenho, bj-editor.js l.682-684). */
+    var TABULACAO = '\u00a0\u00a0\u00a0\u00a0';
+
+    /**
+     * Tecla Tab (sem Shift; Shift+Tab fora de lista segue para o navegador, como no desenho).
+     * Na lista, o desenho recua o item em qualquer posição do cursor — o Quill só recuava com o
+     * cursor no começo e, no meio da linha, inseria "\t".
+     */
+    function tabulacao(quill, faixa, contexto) {
+        if (contexto.format && contexto.format.list) {
+            quill.format('indent', '+1', 'user');
+
+            return false;
+        }
+        inserirTexto(quill, faixa, TABULACAO);
+
+        return false;
+    }
+
     // ── Janelinhas da barra (`.bjed-pop`) ──────────────────────────────────────────────────
     //
     // Abrem dentro da casca, logo abaixo do botão. Os botões de dentro não roubam o foco do texto
@@ -1852,6 +1871,20 @@
                             key: 'h',
                             shortKey: true,
                             handler: function () { refs.busca.abrir(); return false; },
+                        },
+                        // EDT-019: a dica da barra promete Ctrl+Y, mas o Quill só liga esse atalho
+                        // no Windows. Aqui vale em todo sistema (Cmd+Y no macOS), como no desenho.
+                        refazer: {
+                            key: 'y',
+                            shortKey: true,
+                            handler: function () { this.quill.history.redo(); return false; },
+                        },
+                        // EDT-020: substitui o `tab` do Quill, que insere "\t" (some na exibição,
+                        // porque o espaço em branco colapsa). Fora de lista: 4 espaços não
+                        // separáveis, como o desenho; dentro de lista: aumenta o recuo.
+                        tab: {
+                            key: 'Tab',
+                            handler: function (faixa, contexto) { return tabulacao(this.quill, faixa, contexto); },
                         },
                     },
                 },
