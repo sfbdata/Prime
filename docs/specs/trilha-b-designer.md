@@ -140,6 +140,8 @@ _(preenchido após as investigações)_
 | D-CAD-MODAL | Botão "Cadastro" do cabeçalho (P2) abre a janela "Detalhes do cliente" | o desenho tem um modal próprio de cadastro (lote G) | construir o modal de cadastro do desenho | priorizar? | — | — | — |
 | D-META-LINK | "Abrir em Metas" no relatório da meta (P1) leva à página da meta (`tarefa_show`) | o dc leva a `/tarefas/equipe` | — | qual destino? | — | — | — |
 | D-PUSH-HORA | Canto de hora das publicações no Push (P4) vazio | o DJEN não informa hora | — | aceitar? | — | — | — |
+| D-FIN-ENTRADA | Parcelamento: "Entrada já recebida hoje" nasce MARCADA (P16a) | segue o dc (`entradaPaga: true`, L.3471) | quem digita a entrada sem desmarcar grava um recebimento | manter o padrão do desenho? | marcado (dc) × desmarcado | — | risco de recebimento lançado sem ter ocorrido |
+| D-FIN-CORRIDA | Corrigir valor: dois POST exatamente simultâneos | `valorAnterior` + 409 pega tela desatualizada | lock pessimista ou `#[Version]` em `PastaPagamento` (migration) | fechar? | — | sim, com `#[Version]` | raro |
 
 ## 5. Handoff — próxima ação exata
 
