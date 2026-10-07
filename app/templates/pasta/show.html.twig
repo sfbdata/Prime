@@ -3267,6 +3267,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const marca = document.createElement('span');
         marca.className = 'ps-anotacao-editado pasta-msg-editado';
         marca.textContent = 'editado';
+        /* PAS-033: a mesma dica do Twig — a hora de publicação sai do title da hora do cartão
+           ("dd/mm/aaaa HH:MM"); a edição é agora. */
+        const publicado = ((item.querySelector('.ps-anotacao-data') || {}).title || '').slice(-5);
+        const agora = new Date();
+        marca.title = (publicado ? 'Publicado às ' + publicado + ' · ' : '') + 'última edição '
+            + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         if (autor && autor.nextSibling) { topo.insertBefore(marca, autor.nextSibling); } else { topo.appendChild(marca); }
     }
 
