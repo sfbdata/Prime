@@ -37,17 +37,27 @@
         </div>
     {% else %}
         {# ⋮ por prazo (L7, desenho dc L.1348 e L.6150-6151): "Ver nas metas",
-           "Adicionar à agenda (.ics)" e "Copiar"; o botão direito na linha abre o
-           mesmo menu. "Encaminhar via Chat I.A" e "Alertar <responsável>" do
-           desenho NÃO entraram: não há back-end para nenhum dos dois, e item
-           inerte ensina o usuário a desconfiar do menu.
+           "Alertar <primeiro nome>", "Adicionar à agenda (.ics)" e "Copiar"; o
+           botão direito na linha abre o mesmo menu.
+           "Alertar" (PAS-038) é o MESMO POST do sino das Metas (`tarefa_alertar`,
+           token `alertar_tarefa_<id>`, 1 alerta por hora por destinatário, volta
+           para #tarefas) e a mesma guarda de tela (módulo Tarefas). Um item por
+           responsável da meta, sem o próprio usuário — o desenho mostra um só
+           porque a meta dele tem um só. Pasta excluída (lápide) é somente leitura:
+           o item some (o servidor recusaria o POST de qualquer jeito).
+           "Encaminhar via Chat I.A" segue fora: não há back-end, e item inerte
+           ensina o usuário a desconfiar do menu.
            A data do .ics vem da META (dia inteiro, Y-m-d com ano) — o
            `PastaPrazoOutput.meta` só tem "dd/mm", e o desenho chutava o ano
            corrente, o que erra todo prazo de dezembro visto em janeiro. #}
+        {% set podeAlertarPrazo = can_access_module('tarefas') and not pasta.estaExcluida %}
         {% for prazo in proximosPrazos %}
             {% set tarefaDoPrazo = pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first %}
             {% set prazoDia = tarefaDoPrazo and tarefaDoPrazo.prazo ? tarefaDoPrazo.prazo.format('Ymd') : '' %}
             {% set prazoResp = tarefaDoPrazo and tarefaDoPrazo.responsavel ? tarefaDoPrazo.responsavel.fullName : '' %}
+            {% set alertaveisDoPrazo = podeAlertarPrazo and tarefaDoPrazo
+                ? tarefaDoPrazo.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id)
+                : [] %}
             <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}">
                 <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
                 <div class="ps-linha-corpo">
@@ -66,6 +76,15 @@
                         <button type="button" class="ps-pop-item" role="menuitem" data-ps-ir-aba="tarefas-tab">
                             <i class="bi bi-check2-square"></i><span>Ver nas metas</span>
                         </button>
+                        {% for r in alertaveisDoPrazo %}
+                            <form method="post" action="{{ path('tarefa_alertar', {id: prazo.tarefaId}) }}" class="ps-prazo-alertar">
+                                <input type="hidden" name="_token" value="{{ csrf_token('alertar_tarefa_' ~ prazo.tarefaId) }}">
+                                <input type="hidden" name="usuario" value="{{ r.id }}">
+                                <button type="submit" class="ps-pop-item" role="menuitem" title="Alertar {{ r.fullName }} para verificar a meta">
+                                    <i class="bi bi-bell"></i><span>Alertar {{ r.fullName|split(' ')|first }}</span>
+                                </button>
+                            </form>
+                        {% endfor %}
                         <div class="ps-pop-sep"></div>
                         {% if prazoDia %}
                             <button type="button" class="ps-pop-item js-prazo-ics" role="menuitem"
