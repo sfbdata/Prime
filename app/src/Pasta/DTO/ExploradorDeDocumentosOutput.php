@@ -47,6 +47,11 @@ use App\Pasta\Service\SugestoesDeLimpeza;
  *
  * Lixeira (L7, D7): o topo traz `urlRestaurar` (POST, o MESMO token do lote, `csrfLote`) — o
  * "Desfazer" do toast e o Restaurar do modal — e `urlLixeira` (GET, JSON) — a lista da lixeira.
+ *
+ * Só leitura (DOC-118): o topo traz `podeEditar` — permissão de EDITAR a pasta e pasta fora da
+ * lápide, decidido por quem monta (o `PastaController::show`, pelo `PermissionChecker`). Falso, a
+ * tela não desenha nem liga ação de escrita; leitura, busca, visualizar, .zip e favoritos seguem.
+ * O servidor continua recusando por conta própria: a flag é a tela honesta, não a barreira.
  */
 final readonly class ExploradorDeDocumentosOutput
 {
@@ -93,6 +98,7 @@ final readonly class ExploradorDeDocumentosOutput
         public array $limpeza = [],
         public string $urlRestaurar = '',
         public string $urlLixeira = '',
+        public bool $podeEditar = false,
     ) {
     }
 
@@ -104,8 +110,9 @@ final readonly class ExploradorDeDocumentosOutput
      * @param callable(string $idDoToken): string                       $csrf
      * @param int                                                       $pastaId          para as URLs e o token das ações em lote
      * @param array{documentos?: array<int, string|true>, secoes?: array<int, string|true>} $favoritos  os do usuário logado, id => hora em que marcou (`PastaDocumentoFavoritoRepository::idsFavoritosDaPasta`); `true` = favorito sem hora conhecida
+     * @param bool                                                      $podeEditar       quem chama decide (permissão de EDITAR a pasta E pasta fora da lápide, DOC-118); o padrão é o seguro
      */
-    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId, array $favoritos = []): self
+    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId, array $favoritos = [], bool $podeEditar = false): self
     {
         $documentosFavoritos = $favoritos['documentos'] ?? [];
         $secoesFavoritas     = $favoritos['secoes'] ?? [];
@@ -184,6 +191,7 @@ final readonly class ExploradorDeDocumentosOutput
             limpeza: $limpeza->grupos,
             urlRestaurar: $url('pasta_documentos_restaurar', ['id' => $pastaId]),
             urlLixeira: $url('pasta_documentos_lixeira', ['id' => $pastaId]),
+            podeEditar: $podeEditar,
         );
     }
 
@@ -276,6 +284,7 @@ final readonly class ExploradorDeDocumentosOutput
             'limpeza'        => $this->limpeza,
             'urlRestaurar'   => $this->urlRestaurar,
             'urlLixeira'     => $this->urlLixeira,
+            'podeEditar'     => $this->podeEditar,
         ], self::FLAGS_JSON);
     }
 

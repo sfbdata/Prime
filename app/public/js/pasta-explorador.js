@@ -108,6 +108,9 @@
         urlCopiar:           dados.urlCopiar || '',
         // Lápide da Pasta inteira: a lixeira dela só se olha — nada de Desfazer nem Restaurar.
         pastaExcluida:       raiz.dataset.pastaExcluida === '1',
+        // DOC-118: permissão de EDITAR a pasta (e pasta fora da lápide), decidida no servidor.
+        // Falsa (ou ausente), nenhuma ação de escrita é desenhada nem ligada.
+        podeEditar:          dados.podeEditar === true,
     };
 
     const el = {
@@ -177,6 +180,28 @@
         limpezaExcluir:   document.getElementById('pexLimpezaExcluir'),
     };
     if (!el.lista) return;
+
+    /* DOC-118 — só leitura (quem só VÊ a pasta, ou a pasta na lápide): as peças de escrita saem do
+       DOM antes de qualquer `addEventListener`, então nada delas é ligado. Nova pasta e Anexar já
+       nem vêm do servidor; aqui saem também os botões de escrita da barra de seleção (Copiar,
+       Recortar, Renomear, Excluir — o Copiar só existe para o Colar) e a faixa de limpeza (a única
+       ação dela é excluir). Os atalhos (Del, F2, Ctrl+X/C/V), o menu, o arraste, o Sortable e o
+       upload por soltar conferem `cfg.podeEditar` onde são ligados. Leitura, busca, visualizar,
+       .zip e favoritos (preferência pessoal) seguem. O servidor recusa de qualquer jeito. */
+    if (!cfg.podeEditar) {
+        [el.btnNovaPasta, el.btnAnexar, el.fileInput, el.limpeza].forEach(function (n) { if (n) n.remove(); });
+        el.btnNovaPasta = el.btnAnexar = el.fileInput = el.limpeza = null;
+        if (el.selecao) {
+            el.selecao.querySelectorAll('[data-pex-sel="copiar"], [data-pex-sel="recortar"], [data-pex-sel="renomear"], [data-pex-sel="excluir"]').forEach(function (n) { n.remove(); });
+        }
+    }
+    // A lixeira só se abre com permissão de EDITAR (o GET é dela); na lápide, quem edita ainda a olha.
+    function veLixeira() { return !!cfg.urlLixeira && (cfg.podeEditar || cfg.pastaExcluida); }
+    // Rótulos de escrita do menu de contexto (DOC-118): saem dele no modo só leitura.
+    const ROTULOS_DE_ESCRITA = ['Nova pasta', 'Colar', 'Recortar', 'Copiar', 'Mover para…', 'Renomear', 'Editar…'];
+    function ehOpDeEscrita(o) {
+        return o !== SEP && (ROTULOS_DE_ESCRITA.indexOf(o.rotulo) !== -1 || /^Excluir\b/.test(o.rotulo));
+    }
 
     // ------------------------------------------------------------ estado ----
     const pastas   = dados.pastas;            // mutável em memória
@@ -650,6 +675,7 @@
         caixasPorChave = new Map();
         itens.forEach(function (it) {
             const linha = it.tipo === 'pasta' ? linhaPasta(it.dado, buscando) : linhaArquivo(it.dado, buscando);
+            if (!cfg.podeEditar) linha.removeAttribute('draggable');   // DOC-118: nada a arrastar
             linhasPorChave.set(chaveDe(it), linha);
             const caixa = linha.querySelector('.pex-chk-in');
             if (caixa) caixasPorChave.set(chaveDe(it), caixa);
@@ -678,7 +704,9 @@
                     // O desenho é omisso: subindo pela trilha com o filtro ativo, uma pasta sem
                     // nada do tipo não pode parecer vazia — o chip "Mostrando somente" fica logo acima.
                     ? 'Nenhum item do tipo ' + rotuloFiltro(filtroTipo) + (caminho.length ? ' nesta pasta.' : ' aqui.')
-                    : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.'));
+                    // DOC-118: só leitura não recebe convite para arrastar, colar nem anexar.
+                    : (!cfg.podeEditar ? (caminho.length ? 'Pasta vazia.' : 'Nenhum arquivo ainda.')
+                        : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.')));
             el.vazio.hidden = false;
         } else {
             el.vazio.hidden = true;
@@ -1661,6 +1689,8 @@
             return;
         }
         if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }
+        // DOC-118: só leitura — Del, F2 e Ctrl+X/C/V não fazem nada (o Ctrl+C fica com o navegador).
+        if (!cfg.podeEditar && (k === 'Delete' || k === 'F2' || (ctrl && (baixa === 'x' || baixa === 'c' || baixa === 'v')))) return;
         if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }
         if (k === 'F2') { if (sel.length === 1) { e.preventDefault(); iniciarRenomear(sel[0]); } return; }
         if (k === 'Enter') {
@@ -1913,7 +1943,7 @@
             }), [
                 SEP,
                 op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes', 'bi-layout-sidebar-reverse', alternarPainel),
-            ], cfg.urlLixeira ? [
+            ], veLixeira() ? [
                 // L7: a lixeira da pasta (o desenho é omisso — ver "lixeira" abaixo).
                 SEP,
                 op(rotuloLixeira(), 'bi-trash3', abrirLixeira),
@@ -1987,7 +2017,7 @@
         const frag = document.createDocumentFragment();
         menuAcoes = [];
         let ultimoSep = true;
-        opcoesDoMenu(alvo).forEach(function (o) {
+        opcoesDoMenu(alvo).filter(function (o) { return cfg.podeEditar || !ehOpDeEscrita(o); }).forEach(function (o) {
             if (o === SEP) {
                 if (!ultimoSep) { frag.appendChild(h('div', { class: 'pex-ctx-sep', role: 'separator' })); ultimoSep = true; }
                 return;
@@ -2639,7 +2669,7 @@
     }
     // Só a contagem, para o rótulo: em silêncio (sem permissão de editar o GET responde 403).
     function atualizarContagemDaLixeira() {
-        if (!cfg.urlLixeira || lixeiraContagem != null || lixeiraContando) return;
+        if (!veLixeira() || lixeiraContagem != null || lixeiraContando) return;
         lixeiraContando = lerLixeira().catch(function () { /* o rótulo fica sem número */ }).then(function () { lixeiraContando = null; });
     }
 
@@ -2831,7 +2861,7 @@
         });
     }
     if (el.btnLixeira) {
-        el.btnLixeira.hidden = !cfg.urlLixeira;
+        el.btnLixeira.hidden = !veLixeira();
         el.btnLixeira.addEventListener('click', abrirLixeira);
     }
     if (el.btnOrganizar) el.btnOrganizar.addEventListener('click', atualizarContagemDaLixeira);
@@ -3395,8 +3425,9 @@
             el.fileInput.value = '';
         });
     }
-    // Arrastar do computador para a pasta aberta (função só do sistema, DOC-42).
-    if (el.corpo) {
+    // Arrastar do computador para a pasta aberta (função só do sistema, DOC-42). Só leitura: não
+    // é ligado (DOC-118) — o navegador abriria o arquivo solto, como em qualquer página.
+    if (el.corpo && cfg.podeEditar) {
         const temArquivosDoSO = function (e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1; };
         ['dragenter', 'dragover'].forEach(function (ev) {
             el.corpo.addEventListener(ev, function (e) {
@@ -3536,6 +3567,7 @@
     }
     function ligarSortable() {
         if (sortable) { sortable.destroy(); sortable = null; }
+        if (!cfg.podeEditar) return;   // DOC-118: só leitura não reordena nem move
         if (!usaSortable()) return;
         sortable = new Sortable(el.lista, {
             draggable: '.pex-item',
@@ -3635,6 +3667,7 @@
     let arrasteChaves = null;
     el.lista.addEventListener('dragstart', function (e) {
         if (lacoVazio || pressaoNaCaixa) { e.preventDefault(); return; }
+        if (!cfg.podeEditar) { e.preventDefault(); return; }   // DOC-118: arrastar é mover
         if (sortable) return;
         const item = e.target.closest && e.target.closest('.pex-item');
         if (!item || item.dataset.pexTemp !== undefined || e.target.closest('.pex-ren')) { if (e.cancelable) e.preventDefault(); return; }

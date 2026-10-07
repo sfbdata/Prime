@@ -386,6 +386,7 @@ class PastaController extends AbstractController
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
             $pastaId,
             $tenant !== null ? $favoritosDeDocumento->idsFavoritosDaPasta($currentUser, $pasta, $tenant) : [], // estrelas DO usuário logado (D2)
+            podeEditar: !$pasta->estaExcluida() && $this->podeEditarPasta($pasta), // DOC-118: só-leitor e lápide não veem escrita
         );
 
         // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —
