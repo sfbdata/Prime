@@ -2947,6 +2947,12 @@ document.addEventListener('DOMContentLoaded', function () {
         menuReg.querySelector('.js-reg-menu-titulo').textContent =
             (autorEl ? autorEl.textContent.trim() : '') + (dataEl && dataEl.title ? ' · ' + dataEl.title : '');
 
+        // EDT-003: a linha autor · data da folha, do cartão alvo ("06/10/2026, 14:58", como em Detalhes).
+        const imprimir = menuReg.querySelector('.js-reg-imprimir');
+        imprimir.hidden = !window.PastaImpressao;
+        imprimir.setAttribute('data-autor', autorEl ? autorEl.textContent.trim() : '');
+        imprimir.setAttribute('data-quando', dataEl && dataEl.title ? dataEl.title.replace(' ', ', ') : '');
+
         const responder = menuReg.querySelector('.js-reg-responder');
         responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta');
 
@@ -3033,6 +3039,11 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!item || item.disabled || !regAberto) { return; }
             const cartao = regAberto.cartao;
             if (item.classList.contains('js-reg-copiar')) { copiarTextoReg(item, cartao); return; }
+            if (item.classList.contains('js-reg-imprimir')) {
+                fecharMenuReg(false);
+                if (window.PastaImpressao) { window.PastaImpressao.registro(item, cartao); }
+                return;
+            }
             const seletor = item.classList.contains('js-reg-responder') ? '.btn-responder-msg-pasta'
                 : item.classList.contains('js-reg-editar') ? '.ps-anotacao-acoes .btn-editar-msg-pasta'
                 : item.classList.contains('js-reg-excluir') ? '.ps-anotacao-acoes .btn-excluir-msg-pasta'

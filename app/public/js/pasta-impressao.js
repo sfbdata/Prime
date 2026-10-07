@@ -374,15 +374,15 @@
         if (alvo.closest('.js-psi-copiar')) { copiarTexto(); }
     });
 
-    /* ── "Imprimir" do ⋮ da observação (Detalhes) ─────────────────────────
+    /* ── "Imprimir" do ⋮ do registro (Detalhes, Registro, Financeiro) ──────
        Desenho (dc L.6463): título "Registro do expediente", linha autor · data ·
        tipo e o texto do registro. O texto é o que está na tela — HTML que o
        servidor já sanitizou (`texto_rico`) —, CLONADO nó a nó para fora do
-       `.ql-editor` (o estilo do editor não vai junto). */
-    document.addEventListener('click', function (e) {
-        var item = e.target && e.target.closest ? e.target.closest('.js-obs-imprimir') : null;
-        if (!item) { return; }
-        var artigo = item.closest('.ps-anotacao');
+       `.ql-editor` (o estilo do editor não vai junto). `item` carrega data-autor,
+       data-quando e data-tipo (o que faltar sai da linha); `artigo` é o cartão
+       `.ps-anotacao`. Na observação de Detalhes o item mora no cartão; o Registro
+       e o Financeiro têm UM menu para a lista e passam o cartão de onde ele abriu. */
+    function imprimirRegistro(item, artigo) {
         var origem = artigo ? artigo.querySelector('.ps-anotacao-texto .ql-editor') : null;
         var corpo = document.createElement('div');
         if (origem) {
@@ -390,7 +390,14 @@
         }
         var linha = [item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]
             .filter(function (v) { return v; }).join(' · ');
-        abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo });
+
+        return abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo });
+    }
+
+    document.addEventListener('click', function (e) {
+        var item = e.target && e.target.closest ? e.target.closest('.js-obs-imprimir') : null;
+        if (!item) { return; }
+        imprimirRegistro(item, item.closest('.ps-anotacao'));
     });
 
     window.PastaImpressao = {
@@ -405,5 +412,10 @@
         conteudo: function (cfg) {
             return abrir({ secao: 'moldura', titulo: cfg.titulo, autor: cfg.autor || '', corpo: cfg.corpo });
         },
+        /**
+         * "Imprimir" de um menu único da lista (Registro, Financeiro): o item com
+         * data-autor/data-quando/data-tipo e o cartão `.ps-anotacao` de onde o menu abriu.
+         */
+        registro: function (item, artigo) { return imprimirRegistro(item, artigo); },
     };
 }());

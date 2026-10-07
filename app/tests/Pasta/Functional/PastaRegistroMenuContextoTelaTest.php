@@ -54,7 +54,7 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         return substr($html, $ini, $tamanho);
     }
 
-    #[TestDox('PAS-025: o menu único #psRegMenu tem, na ordem do desenho, Responder, Copiar texto, separador, Editar e Excluir comentário, com os ícones')]
+    #[TestDox('PAS-025/EDT-003: o menu único #psRegMenu tem, na ordem do desenho, Responder, Copiar texto, separador, Editar, Excluir comentário e Imprimir, com os ícones')]
     public function testMenuUnicoComOsItensDoDesenho(): void
     {
         $client          = static::createClient();
@@ -72,7 +72,11 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         $itens = $menu->filter('#psRegMenu > .ps-processo-menu-item')->each(
             static fn ($i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
         );
-        self::assertSame(['Responder', 'Copiar texto', 'Editar', 'Excluir comentário'], $itens);
+        self::assertSame(['Responder', 'Copiar texto', 'Editar', 'Excluir comentário', 'Imprimir'], $itens);
+        // EDT-003 (dc L.6463): "Imprimir" é o último item, com a impressora.
+        self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-excluir + button.js-reg-imprimir[role="menuitem"]:last-child > i.bi.bi-printer'));
+        // Não é o `.js-obs-imprimir` de Detalhes: aquele procura o cartão como ANCESTRAL do item.
+        self::assertCount(0, $menu->filter('#psRegMenu .js-obs-imprimir'));
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-responder > i.bi-reply-fill'));
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar > i.bi-clipboard'));
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar + .ps-processo-menu-sep[role="separator"] + .js-reg-editar > i.bi-pencil'));
@@ -189,13 +193,20 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Math.min(15, Math.max(1, Math.ceil(ms / 60000)))', $minutos, 'a regra do servidor: teto, de 1 a 15');
         self::assertStringContainsString('if (!ate || ms <= 0) { return 0; }', $minutos);
 
-        $itens = $this->trecho($html, "menuReg.addEventListener('click'", 1000);
+        $itens = $this->trecho($html, "menuReg.addEventListener('click'", 1300);
         self::assertStringContainsString('item.disabled', $itens);
         self::assertStringContainsString("'.btn-responder-msg-pasta'", $itens);
         self::assertStringContainsString("'.ps-anotacao-acoes .btn-editar-msg-pasta'", $itens);
         self::assertStringContainsString("'.ps-anotacao-acoes .btn-excluir-msg-pasta'", $itens);
         self::assertStringContainsString('if (alvo) { alvo.click(); }', $itens);
         self::assertStringContainsString('copiarTextoReg(item, cartao)', $itens);
+
+        // EDT-003: Imprimir manda o item (com autor e data do cartão alvo) e o PRÓPRIO cartão à janela.
+        self::assertStringContainsString("window.PastaImpressao.registro(item, cartao)", $itens);
+        $imprimir = $this->trecho($html, "const imprimir = menuReg.querySelector('.js-reg-imprimir');", 500);
+        self::assertStringContainsString("imprimir.setAttribute('data-autor', autorEl ? autorEl.textContent.trim() : '')", $imprimir);
+        self::assertStringContainsString("imprimir.setAttribute('data-quando', dataEl && dataEl.title ? dataEl.title.replace(' ', ', ') : '')", $imprimir);
+        self::assertStringNotContainsString('data-tipo', $imprimir, 'o registro do desenho não tem tipo');
 
         $copiar = $this->trecho($html, 'function copiarTextoReg(item, cartao)', 1200);
         self::assertStringContainsString(".pasta-msg-conteudo .ql-editor", $copiar);

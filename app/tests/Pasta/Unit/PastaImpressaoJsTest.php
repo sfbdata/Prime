@@ -110,19 +110,30 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString("raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura';", $js);
     }
 
-    #[TestDox('EDT-003: "Imprimir" da observação abre a moldura com "Registro do expediente", a linha autor · data · tipo e o texto CLONADO da tela')]
-    public function testImprimirDaObservacao(): void
+    #[TestDox('EDT-003: "Imprimir" do registro abre a moldura com "Registro do expediente", a linha autor · data · tipo e o texto CLONADO do cartão')]
+    public function testImprimirDoRegistro(): void
     {
         $js     = $this->js();
-        $inicio = strpos($js, "e.target.closest('.js-obs-imprimir')");
+        $inicio = strpos($js, 'function imprimirRegistro(item, artigo) {');
         self::assertNotFalse($inicio);
-        $bloco = substr($js, $inicio, 1200);
+        $bloco = substr($js, $inicio, 900);
 
-        self::assertStringContainsString("querySelector('.ps-anotacao-texto .ql-editor')", $bloco);
+        self::assertStringContainsString("artigo.querySelector('.ps-anotacao-texto .ql-editor')", $bloco);
         self::assertStringContainsString('n.cloneNode(true)', $bloco, 'o HTML já sanitizado pelo servidor, copiado nó a nó');
         self::assertStringContainsString("[item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]", $bloco);
         self::assertStringContainsString(".join(' · ')", $bloco);
         self::assertStringContainsString("abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo })", $bloco);
+    }
+
+    #[TestDox('EDT-003: na observação de Detalhes o cartão é o ancestral do item; o Registro e o Financeiro (menu único) passam o cartão pela API')]
+    public function testOsDoisCaminhosDoImprimirDoRegistro(): void
+    {
+        $js = $this->js();
+
+        $inicio = strpos($js, "e.target.closest('.js-obs-imprimir')");
+        self::assertNotFalse($inicio);
+        self::assertStringContainsString("imprimirRegistro(item, item.closest('.ps-anotacao'))", substr($js, $inicio, 200));
+        self::assertStringContainsString('registro: function (item, artigo) { return imprimirRegistro(item, artigo); }', $js);
     }
 
     #[TestDox('Ids e classes que o JS usa existem no template da janela')]
