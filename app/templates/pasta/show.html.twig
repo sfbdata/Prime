@@ -1692,6 +1692,20 @@
         return form;
     }
 
+    /**
+     * Depois de desvincular o principal: troca a linha do promovido pela que o servidor
+     * re-renderizou e deixa o trocaClientePrincipal mover a linha e acertar a média.
+     */
+    function aplicarNovoPrincipal(dados) {
+        const novoId = String(dados.novoPrincipalId);
+        const atual  = clientesContainer?.querySelector(`.cliente-linha[data-cliente-id="${novoId}"]`);
+        const nova   = dados.html ? linhaDoHtml(dados.html) : null;
+        if (atual && nova && String(nova.dataset.clienteId ?? '') === novoId) {
+            atual.replaceWith(nova);
+        }
+        trocaClientePrincipal(dados.principal);
+    }
+
     function trocaClientePrincipal(dados) {
         const novoId = String(dados.clienteId ?? '');
 
@@ -1794,6 +1808,12 @@
                 const dados = await resp.json().catch(() => ({}));
                 if (dados.sucesso) {
                     removeClienteRow(dados.clienteId ?? '', form);
+                    // Saiu o PRINCIPAL: o servidor promoveu outro e diz qual. A linha dele
+                    // volta re-renderizada (selo e estrela cheia, pelo mesmo partial), e o
+                    // trocaClientePrincipal a leva ao bloco do principal e atualiza a Média por CPF.
+                    if (dados.novoPrincipalId && dados.principal) {
+                        aplicarNovoPrincipal(dados);
+                    }
                     return;
                 }
 

@@ -725,11 +725,28 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
         }
 
+        // Desvincular o PRINCIPAL faz o servidor promover outro (Pasta::removeCliente → o de
+        // cadastro mais antigo). A tela precisa saber QUAL, senão a estrela, o selo e a Média
+        // por CPF ficam sem dono até alguém dar F5.
+        $eraPrincipal = $pasta->getClientePrincipal()?->getId() === $cliente->getId();
+
         $pasta->removeCliente($cliente);
         $this->em->flush();
 
         if ($request->isXmlHttpRequest()) {
-            return $this->json(['sucesso' => true, 'clienteId' => $cliente->getId()]);
+            $novoPrincipal = $eraPrincipal ? $pasta->getClientePrincipal() : null;
+
+            return $this->json([
+                'sucesso'         => true,
+                'clienteId'       => $cliente->getId(),
+                // null = o principal não mudou (o desvinculado não era ele) ou a pasta ficou sem
+                // cliente. Só com id a tela tem o que mover.
+                'novoPrincipalId' => $novoPrincipal?->getId(),
+                // A linha do promovido re-renderizada pelo MESMO partial (selo e estrela cheia),
+                // como no vínculo (htmlLinhaCliente).
+                'html'            => $novoPrincipal !== null ? $this->htmlLinhaCliente($pasta, $novoPrincipal) : null,
+                'principal'       => $novoPrincipal !== null ? $this->payloadClientePrincipal($pasta) : null,
+            ]);
         }
 
         $this->addFlash('success', 'Cliente desvinculado da pasta com sucesso.');
