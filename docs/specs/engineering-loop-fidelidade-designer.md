@@ -111,7 +111,7 @@ cada divergência A trabalhada e as filas B/C/D.
 | IA-002 | IA | CPF/CNPJ sem pontuação não mascarados | P0 | **feito** | — | ✓ | ✓ | `a3f1352d`, `d808e5d0`, `727cec26` | Opus | + pontuação parcial, CNPJ alfanumérico (IN RFB 2.229/2024), NBSP | Só com DV válido; CNJ de 20 dígitos intacto |
 | IA-001/003/004 | IA | Aceite incompleto; cota mensal dita diária; travessão | P1/P4 | **feito** | ✓ | ✓ | ✓ | `3f87fede`, `631fd4d2`, `78f1e716` | Opus | Aviso amarrado aos montadores por teste (campo novo derruba) | Lista do aceite gerada do enum `SecaoDoContexto` |
 
-| PAS-038 | Pasta/Dados | "Alertar responsável" no ⋮ do prazo | P2 | feito (ver PAS-047) | ✓ | ✓ | ✓ | `586b7952` | Opus: sem bloqueante | Um item por responsável |
+| PAS-038 | Pasta/Dados | "Alertar responsável" no ⋮ do prazo | P2 | feito (ver PAS-047L) | ✓ | ✓ | ✓ | `586b7952` | Opus: sem bloqueante | Um item por responsável |
 | PMC-028/030 | Metas | Copiar link e Excluir no ⋮ da meta | P2 | feito (ver PAS-048) | ✓ | ✓ | ✓ | `5da8b263` | Opus: sem bloqueante | Excluir com confirm, sem Desfazer (exclusão física) |
 | PAS-046 | Timeline | Observações de Detalhes e Financeiro na Timeline | P2 | feito (ver PAS-048) | ✓ | ✓ | ✓ | `c5f520c5` | Opus: sem vazamento no código | Financeiro só sob `podeVer` |
 
@@ -120,7 +120,7 @@ cada divergência A trabalhada e as filas B/C/D.
 | SEC-006 | Financeiro | Corrigir valor sem trava | P2 | **feito** | — | ✓ | ✓ | `eb95ff04` | Opus: sem achado | `SELECT … FOR UPDATE` + releitura; resolve também o §9 #16 sem migration |
 | SEC-007 | Documentos | Caminho legado inválido travava purga, zip e cópia | P2 | **feito** (ver SEC-007b) | — | ✓ | ✓ | `83da8343` | Opus: `--limite` pode prender a fila | Prod (MCP): 22.566/22.566 caminhos válidos; latente |
 | SEC-008 | Registro | Menção e resposta sem limitador | P3 | **feito** | — | ✓ | ✓ | `4db61a5f` | Opus | 30 avisos/10 min por autor; a mensagem sempre grava. Teto a ratificar |
-| IA-033 | IA | Cabeçalho do Push e análise anterior iam ao provedor sem máscara | P1 | **feito** | — | ✓ | ✓ | `d5d2383a`, `916d0849`, `46d14264` | (mutação: 3 caem) | Achado do implementador do IA-002b |
+| IA-033L | IA | Cabeçalho do Push e análise anterior iam ao provedor sem máscara | P1 | **feito** | — | ✓ | ✓ | `d5d2383a`, `916d0849`, `46d14264` | (mutação: 3 caem) | Achado do implementador do IA-002b |
 
 | DOC-115 | Documentos | Anexar aceita ODT/ODS/ODP/RTF/PPTX/EML/CSV/GIF/WEBP/TIFF/HEIC | P2 | **feito** | ✓ | ✓ | ✓ | `6863247c` | (mutação: 9 caem) | Validação pelo conteúdo; zip com extensão ODF/PPTX só passa com o mimetype interno do pacote |
 | DOC-108 | Visualizador | Imprimir qualquer conteúdo do visor, com a tarja | P2 | **feito** | ✓ | ✓ | ✓ | `af6800a4` | pendente | iframe `allow-same-origin allow-modals`, sem scripts; CSP do visualizador |
@@ -129,10 +129,10 @@ cada divergência A trabalhada e as filas B/C/D.
 | PMC-001/027 | Processo/Metas | Botão direito no cartão do processo e na meta | P2 | **feito** | ✓ | ✓ | ✓ | `0e889337` | Opus: sem bloqueante | Menu nativo mantido sobre links/campos/texto selecionado |
 | PMC-004 | Processo | "Editar dados do processo" no ⋮ | P2 | **feito** | ✓ | ✓ | ✓ | `c3942091` | Opus: sem bloqueante | Vai para `processo_edit`; edição inline = PMC-005 (C) |
 | PAS-014 | Cabeçalho | Escrita escondida de quem não pode | P3 | **feito** | ✓ | ✓ | ✓ | `ddbcfe72` | Opus: sem bloqueante | Função Twig `can_access_resource` = mesma decisão do servidor |
-| PAS-047 | Dados/Metas | Alertar e sino só para quem edita | P4 | **feito** | ✓ | ✓ | ✓ | `25184023` | em revisão | |
+| PAS-047L | Dados/Metas | Alertar e sino só para quem edita | P4 | **feito** | ✓ | ✓ | ✓ | `25184023` | em revisão | |
 | PAS-048 | Testes | Financeiro na timeline por todos os caminhos; meta cross-tenant; destino de outra pasta | P3 | **feito** | — | ✓ | ✓ | `bc5efc20` | em revisão | |
 | SEC-007b | Documentos | Limite da purga sobre itens processados; log sem caminho | P4 | **feito** | — | ✓ | ✓ | `7468962a` | em revisão | |
-| PAS-049 | Processo | Escrita da aba Processo escondida de quem não edita | P3 | **feito** | ✓ | ✓ | ✓ | `08f91d55` | em revisão | Também some na lápide |
+| PAS-049L | Processo | Escrita da aba Processo escondida de quem não edita | P3 | **feito** | ✓ | ✓ | ✓ | `08f91d55` | em revisão | Também some na lápide |
 | PAS-050 | Desempenho | `can_access_resource` memorizado por requisição | P3 | **feito** | — | ✓ | ✓ | `8690ac41` | em revisão | ResetInterface |
 | SEC-013 | Segurança | Guarda da Tarefa conferia o vínculo, não a posse | P2 | **feito** (ver SEC-013b) | — | ✓ | ✓ | `8273810f` | em revisão | Cross-tenant → 404 |
 | FPN-012 | Push | Título do cartão = trecho do teor | P2 | **feito** | ✓ | ✓ | ✓ | `a53d6cb6` | em revisão | Órgão vai para o `title` (o desenho não o mostra) |
@@ -146,7 +146,7 @@ cada divergência A trabalhada e as filas B/C/D.
 
 | SEC-013b | Segurança | Cópia do guarda falho em `MetaNaListaController` | P2 | **feito** | — | ✓ | ✓ | `fa5ec109` | (mutação: 3 caem) | |
 | FPN-014b/c | Push | Menu: Marcar como lida, Abrir documento; escrita escondida de quem não pode | P3 | **feito** | ✓ | ✓ | ✓ | `0039a027`, `470d5d35` | (mutações: 9) | Lida exige só ver (como o servidor) |
-| PAS-049b | Processo | Interruptor Administrativo em só leitura; vazio sem citar botão ausente | P3 | **feito** | ✓ | ✓ | ✓ | `85c2368e` | | |
+| PAS-049Lb | Processo | Interruptor Administrativo em só leitura; vazio sem citar botão ausente | P3 | **feito** | ✓ | ✓ | ✓ | `85c2368e` | | |
 | FPN-006b | Financeiro | "Editar/Excluir · bloqueado" com cadeado; confirmação do desenho | P3 | **feito** | ✓ | ✓ | ✓ | `18555920` | | `confirm()` nativo com o texto do desenho (o desenho tem janela própria) |
 | EDT-021/022 | Editor | Enviar desabilitado com editor vazio; rótulo em texto | P3 | **feito** | ✓ | ✓ | ✓ | `11c0a460` | Opus: sem achado | Contrato `data-editor-rico-envio` |
 | EDT-009 | Editor | "Citar no novo registro" no ⋮ da observação | P2 | **feito** | ✓ | ✓ | ✓ | `fd6e49d6` | Opus: sem XSS | Só em Detalhes, como o desenho |
@@ -168,7 +168,7 @@ cada divergência A trabalhada e as filas B/C/D.
 | IA-010/011 | IA | Recolher com prévia (preferência no servidor); marcar como não lido | P3/P4 | **feito** | ✓ | ✓ | ✓ | `99cbb19a`, `856e83c6` | | |
 | IA-012/013 | IA | Runbook de ativação; worker opt-in no compose de dev | P2/P3 | **feito** | — | ✓ | ✓ | `6c68555a`, `97a8a0cf` | | Worker em `--profile worker`: o dev roda dado real e a fila também leva sync do Drive |
 | IA-014 | IA | Corpus de 67 ataques de injeção + homóglifos no neutralizador | P2 | **feito** | — | ✓ | ✓ | `9eccd415` | | |
-| FPN-040 | Push | Teor sem escrita para quem só vê e na lápide | P3 | **feito** | ✓ | ✓ | ✓ | `68c3c1f2` | (mutações: 5) | Ver PMC-058 |
+| FPN-040 | Push | Teor sem escrita para quem só vê e na lápide | P3 | **feito** | ✓ | ✓ | ✓ | `68c3c1f2` | (mutações: 5) | Ver PMC-058L |
 | DOC-106b | Documentos | Teto de 20 pares duplicados + "e mais N" | P1 | **feito** (ratificar teto) | ✓ | ✓ | ✓ | `4c438e1b` | (mutações: 5) | |
 | PMC-044 | Metas | Fica na aba Metas com a meta nova realçada | P3 | **feito** | ✓ | ✓ | ✓ | `27d3972b` | | Recarrega a página (o desenho atualiza no lugar) |
 | PMC-038 | Metas | Moldura do modal "Nova meta" | P3 | **parcial** | ✓ | ✓ | ✓ | `d8b7a015` | | Corpo do modal (rótulos, contador, chips) e janela não modal: PMC-059 |
@@ -178,7 +178,7 @@ cada divergência A trabalhada e as filas B/C/D.
   sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
 - **SEC-004b (A, P1):** trava por escritório (2 zips simultâneos) além do limitador por usuário. Em implementação.
 - **IA-001b / IA-002b (A, P2):** aceite completo; máscara de CPF com pontuação parcial e CNPJ alfanumérico. Em implementação.
-- **PAS-047 (A, P4):** "Alertar" no ⋮ do prazo aparece para quem só vê a pasta (o servidor exige edit). Mesmo
+- **PAS-047L (A, P4):** "Alertar" no ⋮ do prazo aparece para quem só vê a pasta (o servidor exige edit). Mesmo
   comportamento do sino das Metas.
 - **PAS-048 (A, P3, testes):** faltam testes pedidos na spec: observação financeira escondida também na contagem,
   pessoas, "atenção" e busca (com autor exclusivo); PMC-030 de outro escritório → 404; destino de outra pasta do
@@ -202,10 +202,10 @@ cada divergência A trabalhada e as filas B/C/D.
 - **PMC-044/038 (A, P3):** ficar na aba Metas após criar; moldura do modal "Nova meta". Em implementação.
 - **FPN-014 (ratificar):** o desenho rotula a publicação lida como "Já lida" (sem ação); implementado
   "Marcar como não lida", igual ao botão do teor.
-- **IA-034 (A, P1):** o handler da fila não reconfere `IA_HABILITADA`/disponibilidade: desligar a IA não corta o que
+- **IA-034L (A, P1):** o handler da fila não reconfere `IA_HABILITADA`/disponibilidade: desligar a IA não corta o que
   já está na fila. Correção: o handler revalida a disponibilidade antes de chamar o provedor.
 - **PMC-057 (A, P5):** "Responder com outra nota" do desenho só abre o compositor (sem migration).
-- **PMC-058 (A, P4):** "Adicionar nota técnica" ainda aparece a quem só lê quando a publicação já tem nota.
+- **PMC-058L (A, P4):** "Adicionar nota técnica" ainda aparece a quem só lê quando a publicação já tem nota.
 - **PMC-059 (A, P3):** corpo do modal "Nova meta" (rótulos 13px/700, contador 0/600, chips de responsáveis) e janela
   não modal como no desenho.
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
@@ -214,7 +214,17 @@ cada divergência A trabalhada e as filas B/C/D.
   em pt-BR quando o pedido não for XHR, ou o JS conferir a cota antes. Pré-existente para os 4xx; o 429 agrava.
 - **DOC-141 (A, P5):** o aviso do P7S no visor não mostra o tamanho, que o desenho mostra (`bj-visualizar.js:87`).
 
+> **IDs com sufixo `L`** (PAS-047L, PAS-049L, PMC-058L, IA-033L, IA-034L) nasceram neste ledger e colidiam com IDs
+> já usados nos inventários para outra coisa; foram renomeados em 07/10. Os IDs sem sufixo são os do inventário.
+
 ### 3.2 Fila A priorizada (próximos lotes)
+
+**Reconciliação de 07/10 (fim do ciclo 3):** `engineering-loop/fila-a-restante.md`. Dos 148 A do inventário: 71 feitos,
+15 em andamento, 1 virou F por vizinhança (FPN-029, coberto pelo IA-010), **53 pendentes** + 2 novos do ledger;
+8 reclassificados (SEC-011 e FPN-013 → C; IA-009 → B/C; DASH-011/012 → D; DASH-027/028 → C; PAS-044 → D/C).
+Os lotes L1–L9 (ondas 1 e 2) e M1–M8 (migrations, uma por vez) estão no arquivo.
+
+(Fila original do ciclo 0, mantida como histórico:)
 
 Ordem: P0 → P1 → P2 → P3 → P4/P5, agrupando por arquivo para não haver dois escritores no mesmo lugar.
 
