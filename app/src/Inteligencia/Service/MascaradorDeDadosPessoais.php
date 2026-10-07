@@ -18,14 +18,27 @@ namespace App\Inteligencia\Service;
  *   · sem DDD, só com hífen e primeiro dígito 9 (celular) ou 3-5 (fixo).
  * Fica de fora o que se confunde com ano, intervalo e número de lei ("2023-2024", "13105-2015",
  * "1999-2000"): fixo sem DDD começando em 2 não é mascarado — é o preço de não apagar datas.
+ *
+ * CPF e CNPJ SEM pontuação ("CPF 12345678909") também são mascarados, mas só quando a sequência
+ * isolada de 11 (CPF) ou 14 (CNPJ) dígitos passa no dígito verificador: um número solto qualquer
+ * (protocolo, telefone sem formatação, CNJ sem pontuação de 20 dígitos) fica intacto. A borda de
+ * não-dígito dos dois lados garante que um pedaço de uma sequência maior nunca é mascarado.
+ * Sequências de um dígito só repetido (00000000000) passam no cálculo, mas não são documento:
+ * ficam de fora.
  */
 final class MascaradorDeDadosPessoais
 {
     private const CNJ = '/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/u';
 
-    /** Só os formatos com pontuação (como o Designer): dígito solto não é PII identificável. */
+    /** Formatos com pontuação (como o Designer): mascarados sem conferir o DV. */
     private const CNPJ = '/(?<!\d)\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}(?!\d)/u';
     private const CPF = '/(?<!\d)\d{3}\.\d{3}\.\d{3}-\d{2}(?!\d)/u';
+    /**
+     * Sequência isolada de dígitos ASCII, sem pontuação; o DV decide se é CPF/CNPJ. `[0-9]` e não
+     * `\d`: com `/u` o `\d` casa dígito Unicode, e o cálculo do DV lê byte a byte.
+     */
+    private const CNPJ_SEM_PONTUACAO = '/(?<![0-9])[0-9]{14}(?![0-9])/u';
+    private const CPF_SEM_PONTUACAO = '/(?<![0-9])[0-9]{11}(?![0-9])/u';
     private const EMAIL = '/\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/u';
 
     private const TELEFONE = '/(?<![\d-])(?:'
@@ -54,10 +67,21 @@ final class MascaradorDeDadosPessoais
             $texto,
         );
 
-        // 2. Mascara — e-mail e CNPJ antes do CPF/telefone, que são padrões mais curtos.
+        // 2. Mascara — e-mail e CNPJ antes do CPF/telefone, que são padrões mais curtos. Os sem
+        //    pontuação vêm depois dos formatados e só valem com o DV certo.
         $texto = (string) preg_replace(self::EMAIL, '[EMAIL]', $texto);
         $texto = (string) preg_replace(self::CNPJ, '[CNPJ]', $texto);
         $texto = (string) preg_replace(self::CPF, '[CPF]', $texto);
+        $texto = (string) preg_replace_callback(
+            self::CNPJ_SEM_PONTUACAO,
+            static fn (array $m): string => self::cnpjValido($m[0]) ? '[CNPJ]' : $m[0],
+            $texto,
+        );
+        $texto = (string) preg_replace_callback(
+            self::CPF_SEM_PONTUACAO,
+            static fn (array $m): string => self::cpfValido($m[0]) ? '[CPF]' : $m[0],
+            $texto,
+        );
         $texto = (string) preg_replace(self::TELEFONE, '[TEL]', $texto);
 
         // 3. Restaura os CNJ.
@@ -66,5 +90,47 @@ final class MascaradorDeDadosPessoais
         }
 
         return $texto;
+    }
+
+    /** DV do CPF (módulo 11, pesos 10..2 e 11..2). Recebe exatamente 11 dígitos. */
+    private static function cpfValido(string $digitos): bool
+    {
+        if (preg_match('/^(\d)\1{10}$/', $digitos) === 1) {
+            return false;
+        }
+
+        for ($posicao = 9; $posicao <= 10; ++$posicao) {
+            $soma = 0;
+            for ($i = 0; $i < $posicao; ++$i) {
+                $soma += (int) $digitos[$i] * ($posicao + 1 - $i);
+            }
+            $resto = ($soma * 10) % 11;
+            if (($resto === 10 ? 0 : $resto) !== (int) $digitos[$posicao]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** DV do CNPJ (módulo 11, pesos 5..2,9..2 e 6..2,9..2). Recebe exatamente 14 dígitos. */
+    private static function cnpjValido(string $digitos): bool
+    {
+        if (preg_match('/^(\d)\1{13}$/', $digitos) === 1) {
+            return false;
+        }
+
+        foreach ([12 => [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2], 13 => [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]] as $posicao => $pesos) {
+            $soma = 0;
+            foreach ($pesos as $i => $peso) {
+                $soma += (int) $digitos[$i] * $peso;
+            }
+            $resto = $soma % 11;
+            if (($resto < 2 ? 0 : 11 - $resto) !== (int) $digitos[$posicao]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

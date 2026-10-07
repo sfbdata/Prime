@@ -95,6 +95,62 @@ final class MascaradorDeDadosPessoaisTest extends TestCase
     {
         self::assertSame('[CPF]', $this->mascarador->mascarar('123.456.789-09'));
         self::assertSame('[EMAIL]', $this->mascarador->mascarar('x@y.org'));
+        self::assertSame('[CPF]', $this->mascarador->mascarar('12345678909'));
+        self::assertSame('[CNPJ]', $this->mascarador->mascarar('11222333000181'));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function documentosSemPontuacao(): iterable
+    {
+        yield 'CPF válido' => ['Autor CPF 12345678909, residente', 'Autor CPF [CPF], residente'];
+        yield 'outro CPF válido' => ['cpf:52998224725.', 'cpf:[CPF].'];
+        yield 'CNPJ válido' => ['Ré ACME, CNPJ 11222333000181', 'Ré ACME, CNPJ [CNPJ]'];
+        yield 'outro CNPJ válido' => ['(11444777000161)', '([CNPJ])'];
+        yield 'formatado e sem pontuação juntos' => [
+            'CPF 123.456.789-09 e 52998224725; CNPJ 11.222.333/0001-81 e 11444777000161',
+            'CPF [CPF] e [CPF]; CNPJ [CNPJ] e [CNPJ]',
+        ];
+    }
+
+    #[DataProvider('documentosSemPontuacao')]
+    #[TestDox('mascara CPF/CNPJ sem pontuação com DV válido: $_dataName')]
+    public function testMascaraDocumentoSemPontuacao(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function digitosQueNaoSaoDocumento(): iterable
+    {
+        yield '11 dígitos com DV de CPF inválido' => ['protocolo 12345678900'];
+        yield '14 dígitos com DV de CNPJ inválido' => ['protocolo 11222333000180'];
+        yield '11 dígitos repetidos (passam no cálculo)' => ['código 00000000000'];
+        yield '14 dígitos repetidos (passam no cálculo)' => ['código 00000000000000'];
+        yield 'telefone sem pontuação que não passa no DV' => ['ligar 61999991234'];
+        yield '12 dígitos que começam com CPF válido' => ['ref 123456789091'];
+        yield '15 dígitos que começam com CNPJ válido' => ['ref 112223330001810'];
+        // CNJ sem pontuação (20 dígitos): começa com um CPF válido e termina com um CNPJ válido.
+        // Nenhum pedaço pode virar máscara.
+        yield 'CNJ sem pontuação com CPF válido no começo' => ['autos 12345678909250807000'];
+        yield 'CNJ sem pontuação com CNPJ válido no fim' => ['autos 00000011222333000181'];
+    }
+
+    #[DataProvider('digitosQueNaoSaoDocumento')]
+    #[TestDox('não mascara sequência de dígitos que não é CPF/CNPJ: $_dataName')]
+    public function testNaoMascaraDigitosQueNaoSaoDocumento(string $entrada): void
+    {
+        self::assertSame($entrada, $this->mascarador->mascarar($entrada));
+    }
+
+    #[TestDox('número CNJ formatado continua intacto ao lado de CPF e CNPJ sem pontuação')]
+    public function testCnjFormatadoIntactoComDocumentosSemPontuacao(): void
+    {
+        $entrada = 'Processo 0701134-57.2025.8.07.0007, autor 12345678909, ré 11222333000181.';
+
+        self::assertSame(
+            'Processo 0701134-57.2025.8.07.0007, autor [CPF], ré [CNPJ].',
+            $this->mascarador->mascarar($entrada),
+        );
     }
 
     #[TestDox('string vazia continua vazia')]
