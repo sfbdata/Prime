@@ -740,8 +740,9 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         self::assertStringContainsString('@[Pessoa 120](user:120)', $msg->getConteudo());
         foreach (range(121, 125) as $id) {
             self::assertStringNotContainsString('(user:' . $id . ')', $msg->getConteudo());
-            self::assertStringContainsString('@P' . $id . ' ', $msg->getConteudo());
         }
+        // A entrada é aparada (trim) antes de gravar: o último token não tem espaço depois.
+        self::assertStringEndsWith('@[Pessoa 120](user:120) @P121 @P122 @P123 @P124 @P125', $msg->getConteudo());
     }
 
     #[TestDox('Sem token de menção, a lista de colegas nem é consultada')]

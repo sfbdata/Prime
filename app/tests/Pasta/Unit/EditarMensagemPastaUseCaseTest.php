@@ -229,8 +229,9 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
             ->with($this->identicalTo($bruno), $this->identicalTo($this->tenant), AccessRequest::RESOURCE_PASTA, 41, AccessRequest::ACTION_VIEW)
             ->willReturn(true);
         $this->notificacaoRepository->method('findOneBy')->willReturn(null);
-        $this->em->expects($this->once())->method('wrapInTransaction')
-            ->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
+        // Só conta: o stub do setUp já roda o callback. Repetir o callback aqui o executaria DUAS
+        // vezes (o PHPUnit invoca todos os matchers que casam) e duplicaria a notificação.
+        $this->em->expects($this->once())->method('wrapInTransaction');
 
         $notificacao = new Notificacao();
         $this->notificacaoService->expects($this->once())
