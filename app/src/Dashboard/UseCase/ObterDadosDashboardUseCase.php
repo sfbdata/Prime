@@ -138,6 +138,26 @@ final class ObterDadosDashboardUseCase
             array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
         );
 
+        // Tendência das extras com lastro por data (concluídas, taxa, tempo médio, eventos): as
+        // MESMAS consultas/fórmulas no período anterior de mesma duração — a regra das setas
+        // que já existem. Concluídas e taxa saem de Total − Ativas, então só falta o mapa de
+        // ativas do período anterior (o de total já foi lido acima).
+        $extrasComTendencia = $comAnterior ? Extras::comTendencia($colunasExtras) : [];
+        $mExtrasAnt         = [];
+        $mAntAtivas         = [];
+        if ($extrasComTendencia !== [] && $colaboradores !== []) {
+            $filtrosAnteriores = array_merge($filtros, $periodoAnterior);
+            $mExtrasAnt        = $this->mapasExtras(
+                $tenant,
+                $filtrosAnteriores,
+                $extrasComTendencia,
+                array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
+            );
+            if (array_intersect([Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO], $extrasComTendencia) !== []) {
+                $mAntAtivas = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtrosAnteriores);
+            }
+        }
+
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
         foreach ($colaboradores as $user) {
@@ -166,6 +186,13 @@ final class ObterDadosDashboardUseCase
                     $id,
                     $mTotalTarefa[$id] ?? 0,
                     $mAtivasTarefa[$id] ?? 0,
+                ),
+                extrasAnteriores:      $this->valoresExtras(
+                    $extrasComTendencia,
+                    $mExtrasAnt,
+                    $id,
+                    $mAntTarefa[$id] ?? 0,
+                    $mAntAtivas[$id] ?? 0,
                 ),
             );
         }
@@ -204,6 +231,9 @@ final class ObterDadosDashboardUseCase
             periodoAnterior:            $periodoAnterior,
             colunasExtras:              $colunasExtras,
             totaisExtras:               $this->totaisExtras($colunasExtras, $linhas),
+            totaisExtrasAnteriores:     $comAnterior
+                ? $this->totaisExtras($extrasComTendencia, $linhas, true, $mAntTarefa, $mAntAtivas)
+                : null,
         );
     }
 
@@ -267,18 +297,35 @@ final class ObterDadosDashboardUseCase
      * contagem = soma; taxa = Σ concluídas ÷ Σ metas; tempo médio = média das linhas com tempo > 0
      * (a regra do desenho, dc 1.2.2 L.1980). Sem base, null ("—").
      *
+     * Com $anterior, a MESMA regra sobre o período anterior: os valores vêm de
+     * `extrasAnteriores` de cada linha e a taxa, dos mapas de total/ativas anteriores das linhas
+     * visíveis.
+     *
      * @param list<string>                   $colunasExtras
      * @param LinhaAdvogadoDashboardOutput[] $linhas
+     * @param array<int, int>                $mAntTotal  só com $anterior
+     * @param array<int, int>                $mAntAtivas só com $anterior
      *
      * @return array<string, int|null>
      */
-    private function totaisExtras(array $colunasExtras, array $linhas): array
+    private function totaisExtras(array $colunasExtras, array $linhas, bool $anterior = false, array $mAntTotal = [], array $mAntAtivas = []): array
     {
+        $campo  = $anterior ? 'extrasAnteriores' : 'extras';
         $totais = [];
         foreach ($colunasExtras as $coluna) {
             if ($coluna === Extras::TAXA_CONCLUSAO) {
-                $metas      = $this->somar($linhas, 'totalMetas');
-                $concluidas = $metas - $this->somar($linhas, 'metasAtivas');
+                if ($anterior) {
+                    $metas = 0;
+                    $ativas = 0;
+                    foreach ($linhas as $l) {
+                        $metas  += $mAntTotal[$l->userId] ?? 0;
+                        $ativas += $mAntAtivas[$l->userId] ?? 0;
+                    }
+                } else {
+                    $metas  = $this->somar($linhas, 'totalMetas');
+                    $ativas = $this->somar($linhas, 'metasAtivas');
+                }
+                $concluidas = $metas - $ativas;
                 $totais[$coluna] = $metas > 0 ? (int) round($concluidas / $metas * 100) : null;
 
                 continue;
@@ -288,7 +335,7 @@ final class ObterDadosDashboardUseCase
                 // Como o desenho (dc 1.2.2 L.1980): média das LINHAS com tempo > 0, sobre o valor
                 // que cada linha mostra — não a média ponderada pelas metas.
                 $tempos = array_values(array_filter(
-                    array_map(static fn (LinhaAdvogadoDashboardOutput $l): int => (int) ($l->extras[$coluna] ?? 0), $linhas),
+                    array_map(static fn (LinhaAdvogadoDashboardOutput $l): int => (int) (($l->{$campo})[$coluna] ?? 0), $linhas),
                     static fn (int $dias): bool => $dias > 0,
                 ));
                 $totais[$coluna] = $tempos !== [] ? (int) round(array_sum($tempos) / count($tempos)) : null;
@@ -297,7 +344,7 @@ final class ObterDadosDashboardUseCase
             }
 
             $totais[$coluna] = array_sum(array_map(
-                static fn (LinhaAdvogadoDashboardOutput $l): int => (int) ($l->extras[$coluna] ?? 0),
+                static fn (LinhaAdvogadoDashboardOutput $l): int => (int) (($l->{$campo})[$coluna] ?? 0),
                 $linhas,
             ));
         }

@@ -86,6 +86,40 @@ final class ColunasExtrasDoDashboard
         ],
     ];
 
+    /**
+     * Extras com TENDÊNCIA (seta na célula, pílula no Total), com o sentido do macro
+     * `_tendencia.html.twig`. Só as que se reconstroem por data no período anterior de mesma
+     * duração — as mesmas consultas, trocando só as datas (DASH-010):
+     *   - concluídas e taxa: subir é bom ('alta');
+     *   - tempo médio: subir é ruim ('baixa'; desenho `sobeRuim`);
+     *   - eventos: neutro, sempre cinza ('fila'; desenho `neutra`).
+     * Em revisão e Pastas urgentes ficam fora: são estoque (o que está em revisão/urgente
+     * agora), não se reconstroem do passado sem a foto diária.
+     *
+     * @var array<string, string>
+     */
+    public const TENDENCIA = [
+        self::METAS_CONCLUIDAS => 'alta',
+        self::TAXA_CONCLUSAO   => 'alta',
+        self::TEMPO_MEDIO      => 'baixa',
+        self::EVENTOS_AGENDA   => 'fila',
+    ];
+
+    /**
+     * As extras de $colunas que têm tendência, na ordem recebida.
+     *
+     * @param list<string> $colunas
+     *
+     * @return list<string>
+     */
+    public static function comTendencia(array $colunas): array
+    {
+        return array_values(array_filter(
+            $colunas,
+            static fn (string $coluna): bool => isset(self::TENDENCIA[$coluna]),
+        ));
+    }
+
     /** @return list<string> */
     public static function chaves(): array
     {

@@ -27,6 +27,9 @@
    de Pastas criadas, no cabeçalho, em cada linha, no Total e no card do celular. #}
 {% set extras = dashboard.colunasExtras %}
 {% set extrasCatalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') %}
+{# Extras com tendência (DASH-010) => sentido do macro tend.tendencia: concluídas e taxa 'alta',
+   tempo médio 'baixa', eventos 'fila'. Em revisão e Pastas urgentes são estoque: sem seta. #}
+{% set extrasTendencia = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::TENDENCIA') %}
 {# Período do painel para os links "ir para o serviço": some quando o painel está sem
    período (o destino então lista sem recorte de data, como as contagens). #}
 {% set periodoLink = { data_de: filtros.data_de|default(''), data_ate: filtros.data_ate|default('') }|filter(v => v != '') %}
@@ -388,8 +391,28 @@
                         {%- endif -%}
                         {{- tend.tendencia(linha.pastasCriadas, linha.pastasCriadasAnterior, 'seta') -}}
                     </span></td>
+                    {# Extras com tendência: seta igual à das colunas fixas (período anterior de
+                       mesma duração, mesma fórmula). Sem o que medir num dos lados (taxa sem
+                       meta, tempo sem conclusão com data), espaço da seta reservado e vazio. #}
                     {% for k in extras %}
-                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}">{{ extra.valor(k, linha.extras[k] ?? null, linha.userId, quem, periodoLink) }}</td>
+                    {% set sentidoX = extrasTendencia[k] ?? null %}
+                    {% set comSetaX = sentidoX is not null and k in linha.extrasAnteriores|keys %}
+                    {% set atualX = linha.extras[k] ?? null %}
+                    {% set antX = linha.extrasAnteriores[k] ?? null %}
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}">
+                        {%- if comSetaX -%}
+                            <span class="db-cel db-cel--seta">
+                                {{- extra.valor(k, atualX, linha.userId, quem, periodoLink) -}}
+                                {%- if atualX is not null and antX is not null -%}
+                                    {{- tend.tendencia(atualX, antX, 'seta', sentidoX) -}}
+                                {%- else -%}
+                                    <span class="db-seta db-seta--vazia" aria-hidden="true"></span>
+                                {%- endif -%}
+                            </span>
+                        {%- else -%}
+                            {{- extra.valor(k, atualX, linha.userId, quem, periodoLink) -}}
+                        {%- endif -%}
+                    </td>
                     {% endfor %}
                 </tr>
                 {% endfor %}
@@ -431,11 +454,16 @@
                     <td class="text-center db-td-num" data-coluna="demandas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>
                     {# Extras: o Total vem pronto do servidor (soma; % e dias pela base inteira).
-                       Não é link, como os outros números do Total. Sem tendência ainda. #}
+                       Não é link, como os outros números do Total. As com tendência ganham a
+                       pílula (Total anterior pela mesma regra, sobre as mesmas linhas); as
+                       outras, o espaçador. #}
+                    {% set tAntX = dashboard.totaisExtrasAnteriores %}
                     {% for k in extras %}
                     {% set tx = dashboard.totaisExtras[k] ?? null %}
                     {% set tipoX = extrasCatalogo[k].tipo %}
-                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    {% set sentidoX = extrasTendencia[k] ?? null %}
+                    {% set antTx = tAntX is null ? null : (tAntX[k] ?? null) %}
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     {% endfor %}
                 </tr>
             </tfoot>
