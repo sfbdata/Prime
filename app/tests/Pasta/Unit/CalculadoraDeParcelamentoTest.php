@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Pasta\Service\CalculadoraDeParcelamento;
+use App\Pasta\UseCase\RegistrarParcelamentoDaPastaUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -143,13 +144,16 @@ final class CalculadoraDeParcelamentoTest extends TestCase
         }
     }
 
-    #[TestDox('o teto de 120 parcelas com juros de 10% a.m. ainda dá conta sem estourar')]
+    #[TestDox('o teto de 60 parcelas com juros de 10% a.m. ainda dá conta sem estourar')]
     public function testLimitesDaConta(): void
     {
-        $valores = $this->calc->parcelas(9999999999999, 120, '10');
+        // O teto é do caso de uso (o do campo no desenho); a calculadora não o impõe.
+        $teto    = RegistrarParcelamentoDaPastaUseCase::MAX_PARCELAS;
+        $valores = $this->calc->parcelas(9999999999999, $teto, '10');
 
-        self::assertCount(120, $valores);
-        self::assertGreaterThan(0, $valores[119]);
+        self::assertSame(60, $teto);
+        self::assertCount($teto, $valores);
+        self::assertGreaterThan(0, $valores[$teto - 1]);
     }
 
     /** @return list<string> */
