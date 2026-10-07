@@ -164,7 +164,21 @@
                     </div>
                 {% endif %}
             {% endfor %}
+        {% endif %}
 
+        {% if sugestao.temDuplicados %}
+            {# DOC-106 (dc L2157-2159; bj-docsug.js L107-109): pares de nomes ≥ 85% parecidos entre
+               TODOS os arquivos vivos da pasta. Só aparece quando há par — e não depende do
+               catálogo. É aviso: o painel não oferece excluir. #}
+            <div class="ds-sug-dup" id="documentosSugeridosDuplicados">
+                <span class="ds-sug-dup-titulo"><i class="bi bi-files" aria-hidden="true"></i> Possíveis arquivos duplicados</span>
+                {% for d in sugestao.duplicados %}
+                    <span class="ds-sug-dup-par">{{ d.a }}  ≈  {{ d.b }} ({{ d.percentual }}% parecido; confira se é o mesmo documento)</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if sugestao.temCatalogo %}
             {% if pastasDaFase is not empty %}
                 {# DOC-80 (dc L2160-2161): lista fixa por fase. Só mostra — o desenho não tem
                    "criar estas pastas", e não se inventa aqui. #}

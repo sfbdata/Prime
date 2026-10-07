@@ -42,12 +42,20 @@ use App\Pasta\DTO\SugestaoDeDocumentosOutput;
  *     PRIMEIRO, com o trecho da decisão no porquê e a origem; a determinação mais recente vence.
  *     Já localizado (na pasta ou no processo) vira "já existente", como no desenho. As regras de
  *     "não aplicável" (5) não rebaixam o que o juízo exigiu.
+ *  9. Possíveis arquivos duplicados (DOC-106, L107-109): pares de arquivos com nomes ≥ 0,85
+ *     parecidos ({@see SimilaridadeDeNomes}) e normalizados DIFERENTES (nome idêntico não é par), sobre
+ *     TODOS os arquivos recebidos — a pasta inteira, qualquer seção; a lixeira não chega aqui (o
+ *     `LixeiraFilter` a tira da coleção). O nome é o exibido no explorador (`nomeOriginal`, ou o
+ *     título quando ele falta). Independe do catálogo.
  *
  * Sem ação e sem classe processual não há base para escolher catálogo: devolve `semCatalogo()`.
  */
 final class SugestorDeDocumentos
 {
     private const SIMILARIDADE_MINIMA_NO_CHECKLIST = 0.6;
+
+    /** bj-docsug.js L108: `s >= .85`. */
+    public const SIMILARIDADE_MINIMA_DE_DUPLICADO = 0.85;
 
     /** bj-docsug.js L116 (`ord`). */
     private const ORDEM = [
@@ -78,8 +86,10 @@ final class SugestorDeDocumentos
         $acao   = self::vazioParaNulo($acao);
         $classe = self::vazioParaNulo($classe);
 
+        $duplicados = self::duplicados($arquivos);
+
         if ($acao === null && $classe === null) {
-            return SugestaoDeDocumentosOutput::semCatalogo();
+            return SugestaoDeDocumentosOutput::semCatalogo($duplicados);
         }
 
         $fase = $classe !== null && preg_match(CatalogoDeDocumentos::CLASSE_DE_CUMPRIMENTO, self::normalizar($classe)) === 1
@@ -185,6 +195,32 @@ final class SugestorDeDocumentos
             $itens,
             $leitura->publicacoesLidas,
             self::prazosEmCurso($leitura, $hoje),
+            $duplicados,
+        );
+    }
+
+    /**
+     * "Possíveis arquivos duplicados" (regra 9; bj-docsug.js L107-109): cada par de nomes ≥ 0,85
+     * parecidos e normalizados diferentes, `a` antes de `b` na ordem dos arquivos.
+     *
+     * @param list<array{titulo: string, nomeOriginal: string, categoria: string, data: string}> $arquivos
+     *
+     * @return list<array{a: string, b: string, percentual: int}>
+     */
+    public static function duplicados(array $arquivos): array
+    {
+        $nomes = [];
+        foreach (array_values($arquivos) as $i => $arquivo) {
+            $nomes[$i] = $arquivo['nomeOriginal'] !== '' ? $arquivo['nomeOriginal'] : $arquivo['titulo'];
+        }
+
+        return array_map(
+            static fn (array $par): array => [
+                'a'          => $nomes[$par['a']],
+                'b'          => $nomes[$par['b']],
+                'percentual' => (int) round($par['similaridade'] * 100),
+            ],
+            SimilaridadeDeNomes::paresParecidos($nomes, self::SIMILARIDADE_MINIMA_DE_DUPLICADO),
         );
     }
 
