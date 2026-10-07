@@ -316,7 +316,8 @@
        Menu fixo (o teor do Push corta o que transborda), aberto pelo ⋮ — ao lado
        do gatilho — ou pelo botão direito no cartão — no ponto do clique, como o
        `onContextMenu` do desenho. Um menu por vez; fora, Esc, rolar e redimensionar
-       fecham. Editar/Excluir do menu são os próprios `.js-nota-editar/-excluir`. */
+       fecham. Editar/Excluir do menu são os próprios `.js-nota-editar/-excluir`;
+       "Responder com outra nota" (`.js-nota-responder`) abre o compositor do bloco. */
     var menuAberto = null; // { menu, gatilho }
 
     function fecharMenu(devolverFoco) {
@@ -425,6 +426,16 @@
 
         var gatilhoMenu = alvo.closest('.js-nota-menu');
         if (gatilhoMenu) { abrirMenu(gatilhoMenu); return; }
+
+        // PMC-057: "Responder com outra nota" é o `abrirNova` do desenho — o compositor de nota
+        // nova do bloco, com o foco. Não há vínculo de resposta (nota técnica não tem no modelo).
+        var itemResponder = alvo.closest('.js-nota-responder');
+        if (itemResponder) {
+            fecharMenu(false);
+            var blocoResp = blocoDe(itemResponder);
+            if (blocoResp) { abrirCompositor(blocoResp); }
+            return;
+        }
 
         var itemCopiar = alvo.closest('.js-nota-copiar');
         if (itemCopiar) { copiar(itemCopiar); return; }

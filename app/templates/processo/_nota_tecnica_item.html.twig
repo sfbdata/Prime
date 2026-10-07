@@ -8,15 +8,18 @@
 
    Contrato com o nota-tecnica.js (ids e classes não mudam):
    #nota-tecnica-<id> · .ps-nota · .ps-nota-texto · .ps-nota-quando ·
-   .js-nota-menu (+ aria-controls) · .ps-nota-menu · .js-nota-copiar ·
+   .js-nota-menu (+ aria-controls) · .ps-nota-menu · .js-nota-responder · .js-nota-copiar ·
    .js-nota-editar / .js-nota-excluir (+ data-nota-id, data-conteudo,
    data-conteudo-html, data-csrf, data-url).
 
    ⋮ da nota (PMC-017; desenho dc:1700 e o menu de dc:5398-5406): botão 24px
    `bi-three-dots`, "Opções da nota"; o mesmo menu abre pelo botão direito no
-   cartão (nota-tecnica.js). Do menu do desenho têm função hoje "Copiar texto" e
-   "Editar"/"Excluir". "Responder com outra nota" não aparece — nota técnica não tem
-   resposta no modelo (exigiria migration); "Encaminhar via Chat I.A" é a PMC-018.
+   cartão (nota-tecnica.js). Do menu do desenho têm função hoje "Responder com outra
+   nota", "Copiar texto" e "Editar"/"Excluir". "Responder com outra nota" (PMC-057) faz
+   o que o desenho faz (`abrirNova`): abre o compositor de nota NOVA do bloco, com o
+   foco — sem vínculo de resposta (nota técnica não tem resposta no modelo; isso
+   exigiria migration). Some onde não se escreve (lápide). "Encaminhar via Chat I.A"
+   é a PMC-018.
    Editar/Excluir: do autor, dentro da janela de 15 min, com "· N min" (como o
    Financeiro do desenho, dc:5958); fora dela, ou para quem não é o autor, os dois
    ficam desabilitados com `bi-lock` e "· bloqueado". Pasta excluída (lápide): só
@@ -58,6 +61,11 @@
         </button>
         <div class="ps-nota-menu" id="psNotaMenu{{ nota.id }}" role="menu" hidden>
             <div class="ps-processo-menu-titulo">Nota técnica · {{ nota.autorNome }}</div>
+            {% if not somenteLeitura %}
+                <button type="button" class="ps-processo-menu-item js-nota-responder" role="menuitem">
+                    <i class="bi bi-reply" aria-hidden="true"></i><span>Responder com outra nota</span>
+                </button>
+            {% endif %}
             <button type="button" class="ps-processo-menu-item js-nota-copiar" role="menuitem">
                 <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
             </button>

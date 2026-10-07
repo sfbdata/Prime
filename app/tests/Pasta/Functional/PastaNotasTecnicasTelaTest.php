@@ -163,7 +163,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         return [$menu, $itens];
     }
 
-    #[TestDox('⋮ do autor dentro dos 15 min: Copiar texto, Editar · 10 min e Excluir · 10 min, com as ações reais; sem Responder')]
+    #[TestDox('⋮ do autor dentro dos 15 min: Responder com outra nota, Copiar texto, Editar · 10 min e Excluir · 10 min, com as ações reais')]
     public function testMenuDoAutorDentroDaJanela(): void
     {
         $client          = static::createClient();
@@ -177,14 +177,16 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menuDaNota($crawler, $recente);
-        self::assertSame(['Copiar texto', 'Editar · 10 min', 'Excluir · 10 min'], $itens);
+        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Editar · 10 min', 'Excluir · 10 min'], $itens);
         self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-copiar > i.bi-clipboard'));
         self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-editar[data-url][data-csrf][data-conteudo][data-conteudo-html] > i.bi-pencil'));
         self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-excluir[data-url][data-csrf] > i.bi-trash'));
         self::assertSame("/processos/{$processo->getId()}/nota-tecnica/{$recente->getId()}/editar", $menu->filter('.js-nota-editar')->attr('data-url'));
         self::assertCount(0, $menu->filter('.ps-nota-menu-bloqueado'));
-        // Nota técnica não tem resposta no modelo: o item do desenho não é renderizado.
-        self::assertStringNotContainsString('Responder', $menu->text());
+        // PMC-057: "Responder com outra nota" é o `abrirNova` do desenho — só abre o compositor;
+        // não carrega URL nem vínculo (nota técnica não tem resposta no modelo).
+        self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-responder[role="menuitem"] > i.bi-reply'));
+        self::assertCount(0, $menu->filter('.js-nota-responder[data-url], .js-nota-responder[data-csrf]'));
         // O lápis e a lixeira soltos no topo deram lugar ao ⋮.
         self::assertCount(0, $crawler->filter("#nota-tecnica-{$recente->getId()} .ps-anotacao-acoes"));
     }
@@ -203,7 +205,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menuDaNota($crawler, $antiga);
-        self::assertSame(['Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
         self::assertCount(2, $menu->filter('.ps-nota-menu > .ps-nota-menu-bloqueado[disabled][aria-disabled="true"] > i.bi-lock'));
         self::assertCount(0, $menu->filter('.js-nota-editar, .js-nota-excluir, [data-url], [data-csrf]'), 'item bloqueado não carrega ação');
     }
@@ -223,7 +225,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menuDaNota($crawler, $nota);
-        self::assertSame(['Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
         self::assertCount(0, $menu->filter('.js-nota-editar, .js-nota-excluir, [data-url]'));
         self::assertCount(0, $crawler->filter("#nota-tecnica-{$nota->getId()} .ps-anotacao-acoes"));
     }

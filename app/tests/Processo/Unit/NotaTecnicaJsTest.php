@@ -108,4 +108,20 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString("if (btnExcluir) { fecharMenu(false); excluir(btnExcluir); }", $js);
         self::assertStringContainsString("closest('.js-nota-copiar')", $js);
     }
+
+    #[TestDox('PMC-057: "Responder com outra nota" fecha o menu e abre o compositor de nota NOVA do próprio bloco, como o abrirNova do desenho')]
+    public function testResponderAbreOCompositorDoBloco(): void
+    {
+        $js  = $this->ler(self::JS);
+        $ini = strpos($js, "var itemResponder = alvo.closest('.js-nota-responder');");
+        self::assertNotFalse($ini, 'sem o ouvinte do Responder');
+        $bloco = substr($js, $ini, (int) strpos($js, 'return;', $ini) - $ini);
+
+        self::assertStringContainsString('fecharMenu(false)', $bloco);
+        self::assertStringContainsString('blocoDe(itemResponder)', $bloco);
+        self::assertStringContainsString('abrirCompositor(blocoResp)', $bloco);
+        // O compositor é o de nota nova (foco no editor): nenhuma requisição sai daqui.
+        self::assertStringNotContainsString('fetch(', $bloco);
+        self::assertStringContainsString('focar(quill, textarea)', $this->funcao('abrirCompositor'));
+    }
 }
