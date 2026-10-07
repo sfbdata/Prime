@@ -3495,9 +3495,18 @@ document.addEventListener('DOMContentLoaded', function () {
    caixa alta; rodapé Fechar · Salvar. SÓ a moldura: os campos e o POST para
    `pasta_edit` são os de sempre (ids, names, CSRF). O que o desenho põe e aqui
    não entra, por ser decisão do dono ou função nova (D-META): "Ação" só leitura,
-   Tipo de documento/CPF, Responsável com "Trocar", as abas de atalho
-   (Cliente/Processo/Histórico), a pílula "Alterações não salvas", o botão
-   "Cadastro do cliente" e o Salvar travado sem alteração. #}
+   Tipo de documento/CPF, Responsável com "Trocar", a pílula "Alterações não
+   salvas" e o Salvar travado sem alteração.
+
+   Abas de atalho e "Cadastro do cliente" (lote L2; dc L.570-572, 587, 4299-4301):
+   são ATALHOS, não abas do form — ficam FORA do <form>, sem `name`, e nenhum campo
+   sai nem se esconde. "Dados da pasta" é a ativa (sem ação); Cliente e "Cadastro do
+   cliente" fecham o modal e abrem a janela "Detalhes do cliente" pelo botão
+   Cadastro do cabeçalho (sem cliente cadastrado: levam à seção Clientes da aba
+   Dados, onde se vincula um); Processo fecha e abre a aba Processo; Histórico
+   fecha e abre o drawer do histórico. O desenho descarta o que foi digitado ao
+   trocar de aba; aqui, se o form foi alterado, pergunta antes (confirm) — sem a
+   pílula, que é D-META. #}
 {% set editCliente = pasta.clientePrincipal %}
 {% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
 {% set editNomeSub = editCliente ? editCliente.nomeExibicao : pasta.nomeCliente %}
@@ -3520,6 +3529,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
+            <nav class="ps-modal-pasta-abas" aria-label="Atalhos da pasta">
+                <button type="button" class="ps-modal-pasta-aba is-ativa" aria-current="true"><i class="bi bi-folder2" aria-hidden="true"></i>Dados da pasta</button>
+                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="cliente" title="Fechar e abrir o cadastro do cliente"><i class="bi bi-person" aria-hidden="true"></i>Cliente</button>
+                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="processo" title="Fechar e ir à aba Processo"><i class="bi bi-bank" aria-hidden="true"></i>Processo</button>
+                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="historico" title="Fechar e abrir o histórico"><i class="bi bi-clock-history" aria-hidden="true"></i>Histórico</button>
+            </nav>
             <form method="post" action="{{ path('pasta_edit', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('edit_pasta_' ~ pasta.id) }}">
                 <div class="ps-modal-pasta-corpo">
@@ -3593,6 +3608,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 <div class="ps-modal-pasta-rodape">
                     <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--cadastro js-pe-ir" data-pe-ir="cliente"><i class="bi bi-person-vcard" aria-hidden="true"></i>Cadastro do cliente</button>
                     <button type="submit" class="ps-modal-pasta-btn ps-modal-pasta-btn--salvar">
                         <i class="bi bi-check2"></i>Salvar
                     </button>
@@ -3601,6 +3617,65 @@ document.addEventListener('DOMContentLoaded', function () {
         </div>
     </div>
 </div>
+
+<script>
+/* Atalhos do "Editar dados" (lote L2): fecham o modal e SÓ DEPOIS de fechado abrem o
+   destino — abrir a janela ou o drawer com o modal ainda na tela deixaria o foco
+   preso no modal (focus trap do Bootstrap) e o fundo escuro por cima. Os destinos
+   são os gatilhos que a tela já tem: o botão Cadastro do cabeçalho (#psCadastroAbrir,
+   pasta-clientes.js), a aba #processo-tab e o #psHistoricoAbrir (pasta-show.js). */
+(function () {
+    var modal = document.getElementById('modalEditarPasta');
+    if (!modal || typeof bootstrap === 'undefined') { return; }
+    var form = modal.querySelector('form');
+    var foto = null;
+
+    function serializar() {
+        return form ? new URLSearchParams(new FormData(form)).toString() : '';
+    }
+    modal.addEventListener('shown.bs.modal', function () { foto = serializar(); });
+
+    function irParaClientes() {
+        var aba = document.getElementById('dados-tab');
+        if (aba) { aba.click(); }
+        var secao = document.querySelector('[data-trilho="clientes"]');
+        if (secao) { secao.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    }
+
+    var destinos = {
+        cliente: function () {
+            var cadastro = document.getElementById('psCadastroAbrir');
+            if (cadastro) { cadastro.click(); } else { irParaClientes(); }
+        },
+        processo: function () {
+            var aba = document.getElementById('processo-tab');
+            if (aba) { aba.click(); aba.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        },
+        historico: function () {
+            var abrir = document.getElementById('psHistoricoAbrir');
+            if (abrir && abrir.getAttribute('aria-expanded') !== 'true') { abrir.click(); }
+        }
+    };
+
+    modal.addEventListener('click', function (e) {
+        var gatilho = e.target.closest('.js-pe-ir');
+        if (!gatilho) { return; }
+        var destino = destinos[gatilho.getAttribute('data-pe-ir')];
+        if (!destino) { return; }
+
+        if (foto !== null && serializar() !== foto) {
+            if (!window.confirm('Descartar as alterações não salvas dos dados da pasta?')) { return; }
+            form.reset();
+        }
+
+        modal.addEventListener('hidden.bs.modal', function aoFechar() {
+            modal.removeEventListener('hidden.bs.modal', aoFechar);
+            destino();
+        });
+        bootstrap.Modal.getOrCreateInstance(modal).hide();
+    });
+}());
+</script>
 
 <script>
 (function () {

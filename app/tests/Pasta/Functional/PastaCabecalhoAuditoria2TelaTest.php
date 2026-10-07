@@ -118,13 +118,16 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
 
         $rodape = $form->filter('form > .ps-modal-pasta-rodape');
         self::assertCount(1, $rodape);
+        // Fechar · Cadastro do cliente · Salvar (o do meio entrou no lote L2 — dc L.585-588).
         $botoes = $rodape->filter('.ps-modal-pasta-rodape > button');
-        self::assertCount(2, $botoes);
+        self::assertCount(3, $botoes);
         self::assertSame('Fechar', trim($botoes->eq(0)->text()));
         self::assertSame('modal', $botoes->eq(0)->attr('data-bs-dismiss'));
         self::assertSame('button', $botoes->eq(0)->attr('type'));
-        self::assertSame('Salvar', trim($botoes->eq(1)->text()));
-        self::assertSame('submit', $botoes->eq(1)->attr('type'));
+        self::assertSame('Cadastro do cliente', trim($botoes->eq(1)->text()));
+        self::assertSame('button', $botoes->eq(1)->attr('type'));
+        self::assertSame('Salvar', trim($botoes->eq(2)->text()));
+        self::assertSame('submit', $botoes->eq(2)->attr('type'));
 
         // O ⋮ continua abrindo o mesmo modal.
         self::assertCount(1, $crawler->filter('#psMenuAcoes > .ps-pop-item[data-bs-target="#modalEditarPasta"]'));

@@ -8,13 +8,14 @@
      1. Voltar · PASTA nnnn · prioridade · etiquetas · (espaço) · setas ‹ › · ⋮;
      2. o CLIENTE como título (ícone de pessoa, nome, "Movimentado…", documento)
         e a faixa de dados (Processo vinculado · Ação · Responsável [· Cobrança]);
-     3. abas no padrão PJe, com a Situação (Ativo / Arquivado) à direita.
+     3. abas no padrão PJe, com o botão Cadastro (ponto de pendências) e a
+        Situação (Ativo / Arquivado) à direita.
 
    As ações (Editar dados, Histórico, Duplicar, Vincular processo, Trocar
    responsável, Copiar link, Imprimir resumo, Fixar nos favoritos,
    Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul do desenho.
    O que o desenho mostra e o sistema ainda não tem (Mover carteira, Timeline
-   inteligente, Link do Push, Acompanhar, Cadeado, Cadastro, Intelligence, foto do
+   inteligente, Link do Push, Acompanhar, Cadeado, Intelligence, foto do
    cliente) NÃO é renderizado: item inerte ensina o usuário a desconfiar do menu
    inteiro. "Fixar nos favoritos" (seção Preferências) é real: POST
    `pasta_favorito_alternar`.
@@ -492,6 +493,33 @@
                 </button>
             {% endfor %}
         </div>
+
+        {# ── Cadastro: botão à direita das abas, antes da Situação (lote L2) ──
+           Desenho 1.2.3 dc L.1251-1255 (estilos `cadBtnSt`/`cadDot`, dc L.3284-3290):
+           ícone com o ponto VERDE (cadastro completo) ou ÂMBAR (falta algo). A regra é
+           a do `PendenciasDoCadastro` (`cliente_pendencias`), a mesma do ícone do
+           trilho — a tela não decide o que é completo.
+           Destino: o desenho abre um modal próprio de cadastro (dc L.602-743), que não
+           existe aqui; o clique abre a janela "Detalhes do cliente" (`cliente_resumo`,
+           pasta-clientes.js pela classe `js-ps-cli-detalhes` + `data-cliente-id`), que
+           mostra a qualificação e o "Editar cadastro" — e decide a permissão no
+           servidor. Pasta sem cliente cadastrado não tem cadastro para mostrar: o
+           botão não é desenhado. #}
+        {% if cliente %}
+            {% set cadPendencias = cliente_pendencias(cliente) %}
+            {% set cadCompleto = cadPendencias is empty %}
+            {% set cadDica = cadCompleto
+                ? 'Cadastro completo · abrir qualificação do cliente'
+                : 'Cadastro incompleto: ' ~ cadPendencias|length ~ (cadPendencias|length == 1 ? ' pendência' : ' pendências') ~ ' · clique para completar' %}
+            <button type="button" id="psCadastroAbrir"
+                    class="ps-cad-btn js-ps-cli-detalhes"
+                    data-cliente-id="{{ cliente.id }}"
+                    data-pendencias="{{ cadPendencias|length }}"
+                    title="{{ cadDica }}" aria-label="{{ cadDica }}">
+                <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--{{ cadCompleto ? 'completo' : 'pendente' }}"></span></span>
+                <span>Cadastro</span>
+            </button>
+        {% endif %}
 
         {# ── Situação: pílula à direita das abas ──
            Menu com as duas situações que o sistema tem (Ativo, Arquivado); Suspenso e

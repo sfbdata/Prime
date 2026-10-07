@@ -4166,3 +4166,107 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-modal-pasta-campo--2 { grid-column: span 2; }
 @media (max-width: 420px) { .ps-modal-pasta-campo--2 { grid-column: auto; } }
 .ps-modal-pasta-obrig { color: var(--ps-prazo-atraso); }
+
+/* =============================================================================
+   L2 — Cabeçalho e modal "Editar dados": botão Cadastro com o ponto de
+   pendências (dc L.1251-1255; `cadBtnSt`/`cadDot` dc L.3284-3285) e as abas de
+   atalho + "Cadastro do cliente" do modal (dc L.570-572, 587; `abaSt` dc L.4299).
+   Seção própria: os tokens --ps-l2-* nascem aqui e o escuro os redefine aqui. O
+   modal vive no <body>, por isso os tokens vão em `.ps-body` também.
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-l2-cad-hv-bg:     #e3eff6;   /* hover do Cadastro (cabeçalho) */
+    --ps-l2-cad-ok:        #1f9d61;   /* ponto: cadastro completo */
+    --ps-l2-cad-pend:      #d39222;   /* ponto: falta algo */
+    --ps-l2-aba-ativa-tx:  #0a6a96;   /* aba ativa do modal e "Cadastro do cliente" */
+    --ps-l2-cli-bg:        #e3eff6;   /* "Cadastro do cliente" do rodapé */
+    --ps-l2-cli-hv:        #d6e8f2;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-l2-cad-hv-bg:     rgba(69,176,214,.16);
+    --ps-l2-aba-ativa-tx:  var(--ps-accent);
+    --ps-l2-cli-bg:        rgba(69,176,214,.16);
+    --ps-l2-cli-hv:        rgba(69,176,214,.24);
+}
+
+/* Botão Cadastro: à direita das abas, antes da Situação. O `margin-left: auto`
+   empurra os dois para a direita (o desenho os agrupa com `margin-left:auto`), e a
+   Situação logo depois dele perde o próprio auto; o -2px leva o vão de 10px da
+   faixa aos 8px do grupo do desenho. */
+.ps-cad-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 15px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+    background: var(--ps-trilho-cab-bg);
+    color: var(--ps-forte-2);
+}
+.ps-cad-btn:hover,
+.ps-cad-btn:focus-visible { background: var(--ps-l2-cad-hv-bg); color: var(--ps-accent); }
+.ps-cad-btn:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; }
+.ps-cad-btn + .ps-situacao-wrap { margin-left: -2px; }
+.ps-cad-btn-icone { position: relative; display: flex; }
+.ps-cad-btn-icone > i { font-size: 15px; line-height: 1; }
+.ps-cad-ponto {
+    position: absolute;
+    right: -4px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--ps-trilho-cab-bg);
+}
+.ps-cad-ponto--completo { background: var(--ps-l2-cad-ok); }
+.ps-cad-ponto--pendente { background: var(--ps-l2-cad-pend); }
+@media (max-width: 767.98px) {
+    .ps-cad-btn { margin-left: 0; }
+    .ps-cad-btn + .ps-situacao-wrap { margin-left: 0; }
+}
+
+/* Abas de atalho do modal: faixa cinza sob o cabeçalho em gradiente. */
+.ps-modal-pasta-abas {
+    display: flex;
+    gap: 2px;
+    padding: 0 10px;
+    background: var(--ps-trilho-cab-bg);
+    border-bottom: 1px solid var(--ps-trilho-cab-bd);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.ps-modal-pasta-aba {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 12px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--ps-aba-text);
+}
+.ps-modal-pasta-aba i { font-size: 12px; }
+.ps-modal-pasta-aba.is-ativa { border-bottom-color: var(--ps-accent); color: var(--ps-l2-aba-ativa-tx); cursor: default; }
+.ps-modal-pasta-aba:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: -2px; }
+.ps-modal-pasta-btn--cadastro { background: var(--ps-l2-cli-bg); color: var(--ps-l2-aba-ativa-tx); }
+.ps-modal-pasta-btn--cadastro:hover,
+.ps-modal-pasta-btn--cadastro:focus-visible { background: var(--ps-l2-cli-hv); color: var(--ps-l2-aba-ativa-tx); }
