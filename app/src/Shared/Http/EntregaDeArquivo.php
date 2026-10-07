@@ -50,6 +50,29 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *    amplo: "não consegui ler o storage" não é "o arquivo não existe";
  *  - chave inválida vinda da URL é da rota — é ela que monta a chave e responde 404 à recusa.
  *
+ * ## SEC-003 — o que abre inline não executa script na origem do BlueJus
+ *
+ * Inline é mesma origem: um XML com elementos XHTML, um SVG ou um HTML enviado por alguém do
+ * escritório executaria `<script>` com a sessão de quem o abrisse direto (link "abrir em nova
+ * aba", Ctrl+clique). Por isso toda entrega INLINE cujo tipo não seja de {@see self::TIPOS_SEGUROS_INLINE}
+ * (PDF, imagem raster) nem áudio/vídeo sai com `Content-Security-Policy: sandbox; default-src 'none'`
+ * — o navegador trata o documento como de origem opaca, sem script, e não carrega nada de fora.
+ *
+ * Por que CSP e não forçar `text/plain` ou attachment: o visualizador da tela
+ * (`visualizador-documento.js`) lê esses tipos por `fetch()` — a CSP da resposta não se aplica a
+ * quem só lê os bytes, e o `Content-Type` continua o mesmo que ele sempre recebeu. PDF fica de
+ * fora porque o leitor de PDF do Chrome não abre sob `sandbox` (o visor carrega o PDF num iframe
+ * pela própria URL); imagem, áudio e vídeo são carregados por `<img>`/`<audio>`/`<video>`, onde
+ * a CSP da resposta nem é consultada — ficam de fora só para não mudar nada do que já funciona.
+ *
+ * `X-Content-Type-Options: nosniff` vai em toda entrega (inline e download): sem ele o navegador
+ * pode "adivinhar" HTML num arquivo servido como outra coisa. O nginx de prod já manda o mesmo
+ * cabeçalho; mandá-lo daqui garante o mesmo comportamento atrás de qualquer proxy.
+ *
+ * O tipo decidido é o MESMO que a `BinaryFileResponse` vai declarar no `prepare()` (o
+ * `getMimeType()` do arquivo, adivinhado pelo conteúdo) — não o `mime_type` gravado no banco,
+ * que veio do upload e pode mentir.
+ *
  * ## O que ainda não está aqui
  *
  * Redirect, URL assinada e streaming de backend remoto são decisão da E4. Hoje o único
@@ -57,6 +80,24 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class EntregaDeArquivo
 {
+    /** A política das entregas inline de tipo ativo (XML, SVG, HTML, texto…): origem opaca, nada carrega. */
+    public const CSP_SANDBOX = "sandbox; default-src 'none'";
+
+    /**
+     * Tipos que abrem inline SEM a CSP de sandbox: o PDF (o leitor do navegador não abre sob
+     * sandbox) e as imagens raster. Áudio e vídeo entram pelo prefixo, em {@see self::exigeSandbox()}.
+     * SVG NÃO está aqui: é documento ativo, aceita `<script>`.
+     */
+    public const TIPOS_SEGUROS_INLINE = [
+        'application/pdf',
+        'image/png',
+        'image/jpeg',
+        'image/gif',
+        'image/webp',
+        'image/bmp',
+        'image/x-ms-bmp',
+    ];
+
     public function __construct(
         private readonly MaterializadorDeArquivo $materializador,
     ) {
@@ -84,7 +125,25 @@ final class EntregaDeArquivo
             $inline ? ResponseHeaderBag::DISPOSITION_INLINE : ResponseHeaderBag::DISPOSITION_ATTACHMENT,
             $nomeParaDownload,
         );
+        $resposta->headers->set('X-Content-Type-Options', 'nosniff');
+
+        // O mesmo palpite que o prepare() vai usar para o Content-Type (vazio → octet-stream).
+        if ($inline && self::exigeSandbox($resposta->getFile()->getMimeType() ?: 'application/octet-stream')) {
+            $resposta->headers->set('Content-Security-Policy', self::CSP_SANDBOX);
+        }
 
         return $resposta;
+    }
+
+    /** Verdadeiro para todo tipo que, aberto inline, poderia executar script na origem (SEC-003). */
+    public static function exigeSandbox(string $mimeType): bool
+    {
+        $tipo = strtolower(trim(explode(';', $mimeType, 2)[0]));
+
+        if (\in_array($tipo, self::TIPOS_SEGUROS_INLINE, true)) {
+            return false;
+        }
+
+        return !str_starts_with($tipo, 'audio/') && !str_starts_with($tipo, 'video/');
     }
 }

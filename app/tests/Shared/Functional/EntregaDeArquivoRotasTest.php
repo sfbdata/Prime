@@ -80,6 +80,55 @@ final class EntregaDeArquivoRotasTest extends JusPrimeWebTestCase
         self::assertSame(self::PDF, $client->getInternalResponse()->getContent());
     }
 
+    #[TestDox('visualizar XML com XHTML+script pela rota: inline com CSP sandbox e nosniff — o script não roda na origem (SEC-003)')]
+    public function testPastaVisualizarXmlAtivoSaiEmSandbox(): void
+    {
+        $xml             = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            . "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><script>alert(document.cookie)</script></body></html>\n";
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarSuperAdmin();
+        $doc             = $this->criarDocumentoDaPasta($tenant, PastaDocumento::CATEGORIA_DEMAIS, 'mapa.kml', conteudo: $xml, extensao: 'xml', mimeType: 'text/xml');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('GET', '/pasta/documento/' . $doc->getId() . '/visualizar');
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Disposition', 'inline; filename=mapa.kml');
+        self::assertResponseHeaderSame('Content-Security-Policy', EntregaDeArquivo::CSP_SANDBOX);
+        self::assertResponseHeaderSame('X-Content-Type-Options', 'nosniff');
+        // O visor lê os bytes por fetch(): o corpo segue o arquivo, intacto.
+        self::assertSame($xml, $client->getInternalResponse()->getContent());
+    }
+
+    #[TestDox('visualizar PDF pela rota NÃO ganha sandbox — o visor abre o PDF num iframe pela URL e o leitor do navegador recusaria')]
+    public function testPastaVisualizarPdfSemSandbox(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarSuperAdmin();
+        $doc             = $this->criarDocumentoDaPasta($tenant, PastaDocumento::CATEGORIA_DEMAIS, 'Contrato.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('GET', '/pasta/documento/' . $doc->getId() . '/visualizar');
+
+        $this->assertEntregue('inline; filename=Contrato.pdf', 'application/pdf');
+        self::assertFalse($client->getResponse()->headers->has('Content-Security-Policy'));
+    }
+
+    #[TestDox('baixar o XML ativo pela rota: attachment, sem CSP — o download não muda')]
+    public function testPastaBaixarXmlSemSandbox(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarSuperAdmin();
+        $doc             = $this->criarDocumentoDaPasta($tenant, PastaDocumento::CATEGORIA_DEMAIS, 'mapa.xml', conteudo: "<?xml version=\"1.0\"?>\n<a/>\n", extensao: 'xml', mimeType: 'text/xml');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('GET', '/pasta/documento/' . $doc->getId() . '/download');
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Disposition', 'attachment; filename=mapa.xml');
+        self::assertFalse($client->getResponse()->headers->has('Content-Security-Policy'));
+    }
+
     #[TestDox('Range continua funcionando pela rota: bytes=0-9 → 206 com Content-Range e 10 bytes')]
     public function testPastaVisualizarComRange(): void
     {
@@ -287,11 +336,11 @@ final class EntregaDeArquivoRotasTest extends JusPrimeWebTestCase
         self::assertResponseHeaderSame('Accept-Ranges', 'bytes');
     }
 
-    private function gravar(Tenant $tenant, CategoriaDeArquivo $categoria): string
+    private function gravar(Tenant $tenant, CategoriaDeArquivo $categoria, string $conteudo = self::PDF, string $extensao = 'pdf'): string
     {
         $armazenado = static::getContainer()->get(ArmazenamentoDeArquivos::class)->gravar(
-            new NovoArquivo(EscopoDeArquivo::deTenant((int) $tenant->getId()), $categoria, 'pdf'),
-            FonteDeConteudo::deTexto(self::PDF),
+            new NovoArquivo(EscopoDeArquivo::deTenant((int) $tenant->getId()), $categoria, $extensao),
+            FonteDeConteudo::deTexto($conteudo),
         );
         $this->gravados[] = $armazenado->chave;
 
@@ -358,7 +407,7 @@ final class EntregaDeArquivoRotasTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    private function criarDocumentoDaPasta(Tenant $tenant, string $categoria, string $nomeOriginal, bool $gravarArquivo = true): PastaDocumento
+    private function criarDocumentoDaPasta(Tenant $tenant, string $categoria, string $nomeOriginal, bool $gravarArquivo = true, string $conteudo = self::PDF, string $extensao = 'pdf', string $mimeType = 'application/pdf'): PastaDocumento
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
         $pasta = new Pasta();
@@ -369,10 +418,10 @@ final class EntregaDeArquivoRotasTest extends JusPrimeWebTestCase
         $doc = new PastaDocumento();
         $doc->setTitulo($nomeOriginal);
         $doc->setCategoria($categoria);
-        $doc->setCaminhoArquivo($gravarArquivo ? $this->gravar($tenant, CategoriaDeArquivo::PASTA_DOCUMENTO) : 'nunca_gravado_' . uniqid() . '.pdf');
+        $doc->setCaminhoArquivo($gravarArquivo ? $this->gravar($tenant, CategoriaDeArquivo::PASTA_DOCUMENTO, $conteudo, $extensao) : 'nunca_gravado_' . uniqid() . '.pdf');
         $doc->setNomeOriginal($nomeOriginal);
-        $doc->setMimeType('application/pdf');
-        $doc->setTamanhoBytes(\strlen(self::PDF));
+        $doc->setMimeType($mimeType);
+        $doc->setTamanhoBytes(\strlen($conteudo));
         $doc->setPasta($pasta);
         $doc->setTenant($tenant);
         $pasta->addDocumento($doc);
