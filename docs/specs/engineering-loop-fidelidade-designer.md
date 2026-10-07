@@ -103,15 +103,29 @@ cada divergência A trabalhada e as filas B/C/D.
 |---|---|---|---|---|---|---|---|---|---|---|
 | DOC-101 | Documentos | Texto da lixeira prometia purga em 30 dias | P1 | **feito** | ✓ | ✓ | ✓ | `034f6ff1` | — (texto, teste de mutação) | Sem prazo nenhum: D-DOC-RET (prazo) segue aberta |
 | DOC-102/103/105/109/110/114/121/123 | Documentos | Lote DOC-A1: textos da limpeza e do vazio, zoom ODP, data Modificado no visor, P7S, Espaço em pasta, `modificado_em` na peça | P4–P5 | **feito** | ✓ | ✓ | ✓ | `5038bbdf` | Opus: sem bloqueante | 8 mutações. Pendências menores: tamanho no aviso do P7S (desenho mostra) → DOC-141; testes de JS só leem o fonte (sem harness) |
-| SEC-001 (=DOC-119) | Segurança | `PastaSecaoController` busca por id sem tenant | P0 | em implementação (worktree) | — | | | | | Defesa em profundidade; o TenantFilter protege hoje |
-| SEC-002 | Segurança | Mensagem do Registro sem tenant explícito da pasta | P0 | em implementação (worktree) | — | | | | | idem |
-| SEC-003 | Segurança | XML/SVG/HTML do usuário servido inline sem CSP sandbox | P0 | integrado, em revisão | — | ✓ | ✓ | `3b6805f1` | em andamento | `CSP: sandbox; default-src 'none'` fora de PDF, imagem raster, áudio e vídeo; nosniff sempre |
-| SEC-004 (=DOC-117) | Segurança | Zip sem limitador (5 zips param o PHP-FPM) | P1 | integrado, em revisão | — | ✓ | ✓ | `2fd0a672`, `688674e1` | em andamento | 3/min por usuário, 429. O teste original não provava nada (o ArrayAdapter zera entre pedidos); refeito com dublê + mutação. Ver DOC-140 |
-| PMC-056 | Processo | `processo_new`/`processo_edit` sem CSRF | P0 | integrado, em revisão | — | ✓ | ✓ | `38df20f0` | em andamento | Token por ação (`processo_edit_{id}`); mutação derruba 2 testes |
-| IA-002 | IA | CPF/CNPJ sem pontuação não mascarados | P0 | integrado, em revisão | — | ✓ | ✓ | `a3f1352d` | em andamento | Só com DV válido; CNJ de 20 dígitos intacto |
-| IA-001/003/004 | IA | Aceite incompleto; cota mensal dita diária; travessão | P1/P4 | integrado, em revisão | ✓ | ✓ | ✓ | `3f87fede`, `631fd4d2` | em andamento | Lista do aceite gerada do enum `SecaoDoContexto` |
+| SEC-001 (=DOC-119) | Segurança | `PastaSecaoController` busca por id sem tenant | P0 | **feito** | — | ✓ | ✓ | `d9846179` | Opus: sem bloqueante | Teste com TenantFilter desligado (trait); mutação derruba 3 |
+| SEC-002 | Segurança | Mensagem do Registro sem tenant explícito da pasta | P0 | **feito** | — | ✓ | ✓ | `d9846179` | Opus: sem bloqueante | Prod (MCP, agregado): 0 linhas com tenant nulo ou divergente em mensagem/seção/documento |
+| SEC-003 | Segurança | XML/SVG/HTML do usuário servido inline sem CSP sandbox | P0 | **feito** | — | ✓ | ✓ | `3b6805f1` | Opus: sem bloqueante | `CSP: sandbox; default-src 'none'` fora de PDF, imagem raster, áudio e vídeo; nosniff sempre |
+| SEC-004 (=DOC-117) | Segurança | Zip sem limitador (5 zips param o PHP-FPM) | P1 | parcial (ver SEC-004b) | — | ✓ | ✓ | `2fd0a672`, `688674e1` | Opus: limitador sozinho não fecha a indisponibilidade | 3/min por usuário, 429. O teste original não provava nada (o ArrayAdapter zera entre pedidos); refeito com dublê + mutação. Ver DOC-140 |
+| PMC-056 | Processo | `processo_new`/`processo_edit` sem CSRF | P0 | **feito** | — | ✓ | ✓ | `38df20f0` | Opus: sem bloqueante | Token por ação (`processo_edit_{id}`); mutação derruba 2 testes |
+| IA-002 | IA | CPF/CNPJ sem pontuação não mascarados | P0 | feito (ver IA-002b) | — | ✓ | ✓ | `a3f1352d` | Opus: falta pontuação parcial e CNPJ alfanumérico | Só com DV válido; CNJ de 20 dígitos intacto |
+| IA-001/003/004 | IA | Aceite incompleto; cota mensal dita diária; travessão | P1/P4 | feito (ver IA-001b) | ✓ | ✓ | ✓ | `3f87fede`, `631fd4d2` | Opus: aceite ainda omite prioridade, abertura, situação, análise anterior | Lista do aceite gerada do enum `SecaoDoContexto` |
+
+| PAS-038 | Pasta/Dados | "Alertar responsável" no ⋮ do prazo | P2 | feito (ver PAS-047) | ✓ | ✓ | ✓ | `586b7952` | Opus: sem bloqueante | Um item por responsável |
+| PMC-028/030 | Metas | Copiar link e Excluir no ⋮ da meta | P2 | feito (ver PAS-048) | ✓ | ✓ | ✓ | `5da8b263` | Opus: sem bloqueante | Excluir com confirm, sem Desfazer (exclusão física) |
+| PAS-046 | Timeline | Observações de Detalhes e Financeiro na Timeline | P2 | feito (ver PAS-048) | ✓ | ✓ | ✓ | `c5f520c5` | Opus: sem vazamento no código | Financeiro só sob `podeVer` |
 
 **Novas divergências achadas no ciclo 1:**
+- **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
+  sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
+- **SEC-004b (A, P1):** trava por escritório (2 zips simultâneos) além do limitador por usuário. Em implementação.
+- **IA-001b / IA-002b (A, P2):** aceite completo; máscara de CPF com pontuação parcial e CNPJ alfanumérico. Em implementação.
+- **PAS-047 (A, P4):** "Alertar" no ⋮ do prazo aparece para quem só vê a pasta (o servidor exige edit). Mesmo
+  comportamento do sino das Metas.
+- **PAS-048 (A, P3, testes):** faltam testes pedidos na spec: observação financeira escondida também na contagem,
+  pessoas, "atenção" e busca (com autor exclusivo); PMC-030 de outro escritório → 404; destino de outra pasta do
+  mesmo escritório → 404 (era 422) no mover documento.
+- **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
   em pt-BR quando o pedido não for XHR, ou o JS conferir a cota antes. Pré-existente para os 4xx; o 429 agrava.
