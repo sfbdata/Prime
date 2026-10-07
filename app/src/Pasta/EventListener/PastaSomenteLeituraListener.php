@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\EventListener;
 
 use App\Pasta\Attribute\PastaPelaFilha;
+use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\Pasta;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,9 +34,16 @@ use Symfony\Component\Routing\RouterInterface;
  * `pasta_buscar_processos`) são GET de propósito e continuam funcionando na pasta riscada.
  *
  * Rota que recebe só o id (`int`) de uma filha — documento, seção — declara de onde vem a pasta com
- * `#[PastaPelaFilha]`; o listener carrega a filha escopada ao escritório da sessão e recusa igual.
- * O `PastaSomenteLeituraRotasArquiteturaTest` percorre o router e falha se alguma rota de escrita
- * `pasta_*` não for alcançada por nenhum dos caminhos nem estiver numa das listas abaixo.
+ * `#[PastaPelaFilha]`; rota que recebe o id cru da PRÓPRIA pasta (marcadores do Expediente, meta
+ * criada pela pasta) declara `#[PastaPorId]`. Nos dois casos o listener carrega a entidade escopada
+ * ao escritório da sessão e recusa igual.
+ *
+ * O alcance não é garantido por este arquivo, e sim pelo `PastaSomenteLeituraRotasArquiteturaTest`:
+ * ele percorre o router inteiro e falha se uma rota de escrita que envolva pasta (nome `pasta_*`,
+ * `/pasta/` no path, variável `pastaId`/`pasta_id`/`pasta`, ou action que recebe a pasta ou uma
+ * filha) não for alcançada por nenhum dos caminhos nem estiver numa das listas abaixo. Rota que
+ * escape dos quatro sinais (id da pasta no corpo da requisição, por exemplo) não é vista nem pelo
+ * listener nem pelo teste.
  */
 #[AsEventListener(event: KernelEvents::CONTROLLER_ARGUMENTS)]
 final class PastaSomenteLeituraListener
@@ -98,7 +106,8 @@ final class PastaSomenteLeituraListener
         }
 
         $pasta = $this->pastaDosArgumentos($event->getArguments())
-            ?? $this->pastaPelaFilhaDeclarada($event, $request);
+            ?? $this->pastaPelaFilhaDeclarada($event, $request)
+            ?? $this->pastaPorIdDeclarado($event, $request);
 
         if ($pasta === null || !$pasta->estaExcluida()) {
             return;
@@ -175,6 +184,46 @@ final class PastaSomenteLeituraListener
                 if ($pasta instanceof Pasta) {
                     return $pasta;
                 }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A pasta de uma rota que recebe o id cru da própria pasta (`#[PastaPorId]`).
+     *
+     * Mesmo guarda IDOR do `pastaPelaFilhaDeclarada()`: busca por id E escritório da sessão. Pasta
+     * de outro escritório (ou inexistente) → `null`, e a action responde o próprio 404, como antes.
+     */
+    private function pastaPorIdDeclarado(ControllerArgumentsEvent $event, Request $request): ?Pasta
+    {
+        $declaracoes = $event->getAttributes(PastaPorId::class);
+
+        if ($declaracoes === []) {
+            return null;
+        }
+
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null) {
+            return null;
+        }
+
+        foreach ($declaracoes as $declaracao) {
+            $id = $request->attributes->get($declaracao->argumento);
+
+            if (!is_numeric($id)) {
+                continue;
+            }
+
+            $pasta = $this->em->getRepository(Pasta::class)->findOneBy([
+                'id'     => (int) $id,
+                'tenant' => $tenant,
+            ]);
+
+            if ($pasta instanceof Pasta) {
+                return $pasta;
             }
         }
 

@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
@@ -131,9 +132,11 @@ final class TarefaController extends AbstractController
     }
 
     /**
-     * Cria tarefa vinculada a uma pasta (chamada via modal AJAX).
+     * Cria tarefa vinculada a uma pasta (chamada via modal AJAX). Na pasta excluída (lápide) o
+     * PastaSomenteLeituraListener recusa antes de chegar aqui.
      */
     #[Route('/pasta/{pastaId}/criar', name: 'tarefa_criar_para_pasta', methods: ['POST'])]
+    #[PastaPorId('pastaId')]
     public function criarParaPasta(
         int $pastaId,
         Request $request,

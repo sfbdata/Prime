@@ -12,6 +12,7 @@ use App\Expediente\UseCase\CriarMarcadorUseCase;
 use App\Expediente\UseCase\EditarMarcadorUseCase;
 use App\Expediente\UseCase\ExcluirMarcadorUseCase;
 use App\Expediente\UseCase\SincronizarMarcadoresDaPastaUseCase;
+use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
@@ -242,7 +243,9 @@ final class ExpedienteController extends AbstractController
         ]);
     }
 
+    // Pasta excluída (lápide) é somente-leitura: o PastaSomenteLeituraListener recusa pelo id.
     #[Route('/expediente/pasta/{id}/marcadores', name: 'expediente_pasta_marcadores', methods: ['POST'])]
+    #[PastaPorId('id')]
     public function atualizarMarcadoresDaPasta(int $id, Request $request): JsonResponse
     {
         /** @var User $user */

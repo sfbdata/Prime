@@ -18,8 +18,8 @@ namespace App\Pasta\Attribute;
  * `LixeiraFilter` passaria a recusar no resolver — contrato que a tela já consome.
  *
  * O teste de arquitetura `PastaSomenteLeituraRotasArquiteturaTest` exige que toda rota de escrita
- * `pasta_*` receba a pasta (direta ou filha), declare este atributo, ou esteja numa das listas de
- * exceção do listener.
+ * que envolva pasta receba a pasta (direta ou filha), declare este atributo ou o `#[PastaPorId]`,
+ * ou esteja numa das listas de exceção do listener.
  */
 #[\Attribute(\Attribute::TARGET_METHOD)]
 final class PastaPelaFilha
