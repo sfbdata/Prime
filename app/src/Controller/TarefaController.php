@@ -548,6 +548,14 @@ final class TarefaController extends AbstractController
 
     private function verificarAcessoTarefa(User $usuario, Tarefa $tarefa, Tenant $tenant): void
     {
+        // SEC-013: a posse vem ANTES do vínculo. Conferir só se o criador ou o responsável da
+        // pasta tem vínculo com o escritório da sessão deixa passar a meta de OUTRO escritório
+        // quando essa pessoa está nos dois (e o TenantFilter falhou). Fora do escritório: 404,
+        // como todo recurso cross-tenant — 403 confirmaria que o id existe em algum lugar.
+        if ($tarefa->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException('Meta não encontrada.');
+        }
+
         $pasta = $tarefa->getPasta();
         $criador = $pasta->getCriadoPor();
         $responsavel = $pasta->getResponsavel();

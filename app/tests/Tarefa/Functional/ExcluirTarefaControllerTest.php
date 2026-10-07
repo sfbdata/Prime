@@ -189,10 +189,11 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
     /**
      * PAS-048 / PMC-030: o teste acima fica verde só pelo TenantFilter (o find() devolve null).
      * Aqui o filtro sai DENTRO da requisição: a meta do escritório A é carregada, e quem recusa é o
-     * guarda do controller (`verificarAcessoTarefa`, que confere o vínculo do autor da pasta com o
-     * escritório corrente). Esse guarda responde 403 (AccessDenied), não 404 — o 404 do caso real
-     * é o do filtro. Sem o guarda, o UseCase ainda recusaria (tenant da pasta), mas com um 302 de
-     * flash: o status 403 é o que distingue a barreira do controller.
+     * guarda do controller (`verificarAcessoTarefa`). Desde a SEC-013 ele confere PRIMEIRO a posse
+     * (tenant da meta = tenant da sessão) e responde 404, como todo recurso cross-tenant. Sem o
+     * guarda, o UseCase ainda recusaria (tenant da pasta), mas com um 302 de flash: o 404 com o
+     * filtro desligado é o que distingue a barreira do controller. O caso que só a posse cobre
+     * (autor vinculado aos DOIS escritórios) está em TarefaPosseDoEscritorioTest.
      */
     #[TestDox('PMC-030: meta de OUTRO escritório com o TenantFilter desligado — o guarda do controller recusa e a meta não muda')]
     public function testCrossTenantComFiltroDesligadoOGuardaRecusa(): void
@@ -218,7 +219,7 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
         ]);
 
         $this->assertTenantFilterFoiDesligado();
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(404);
         self::assertSame($antes, $conexao->fetchAssociative('SELECT titulo, tenant_id FROM tarefa WHERE id = ?', [$id]), 'a meta do escritório A continua intacta');
     }
 
