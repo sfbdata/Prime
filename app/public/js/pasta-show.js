@@ -209,29 +209,37 @@
         }
 
         // "Copiar link": real — a URL da pasta vai para a area de transferencia.
-        // O rotulo do item vira "Link copiado" por um instante e o menu fecha.
+        // Desenho (`mCopiar`): o rotulo vira "Link copiado", o icone troca de
+        // bi-link para bi-check2 e o menu fecha em 900 ms. Na falha o icone
+        // fica o bi-link: o check diria que copiou.
         var copiar = document.querySelector('.js-copiar-link');
         if (copiar) {
-            copiar.addEventListener('click', function () {
-                var rotulo   = copiar.querySelector('.js-copiar-link-rotulo');
-                var original = rotulo ? rotulo.textContent : '';
-                var link     = copiar.getAttribute('data-link') || window.location.href;
+            var rotuloCopiar   = copiar.querySelector('.js-copiar-link-rotulo');
+            var iconeCopiar    = copiar.querySelector('i.bi');
+            var originalCopiar = rotuloCopiar ? rotuloCopiar.textContent : '';
+            var esperaCopiar   = null;
 
-                function avisar(texto) {
-                    if (rotulo) { rotulo.textContent = texto; }
-                    setTimeout(function () {
-                        if (rotulo) { rotulo.textContent = original; }
+            copiar.addEventListener('click', function () {
+                var link = copiar.getAttribute('data-link') || window.location.href;
+
+                function avisar(texto, copiou) {
+                    if (rotuloCopiar) { rotuloCopiar.textContent = texto; }
+                    if (iconeCopiar && copiou) { iconeCopiar.classList.replace('bi-link', 'bi-check2'); }
+                    clearTimeout(esperaCopiar);
+                    esperaCopiar = setTimeout(function () {
+                        if (rotuloCopiar) { rotuloCopiar.textContent = originalCopiar; }
+                        if (iconeCopiar) { iconeCopiar.classList.replace('bi-check2', 'bi-link'); }
                         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
-                    }, 1600);
+                    }, 900);
                 }
 
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(link).then(
-                        function () { avisar('Link copiado'); },
-                        function () { avisar('Não foi possível copiar'); }
+                        function () { avisar('Link copiado', true); },
+                        function () { avisar('Não foi possível copiar', false); }
                     );
                 } else {
-                    avisar('Não foi possível copiar');
+                    avisar('Não foi possível copiar', false);
                 }
             });
         }
