@@ -109,7 +109,16 @@
         <span class="ps-contagem" id="timeline-count" title="Registros principais (respostas não contam)">{{ anotacoes|length }}</span>
     </div>
 
-    {# ── Compositor ── #}
+    {# ── Compositor ──
+       PAS-025c: na pasta excluída (lápide) o servidor recusa o envio
+       (PastaSomenteLeituraListener); o compositor nem é montado e entra uma nota
+       neutra de só leitura. O JS do show.html.twig já sai cedo sem o
+       #formTimelineMensagem (`if (!form) { return; }`). #}
+    {% if pasta.estaExcluida %}
+    <div class="ps-compositor ps-compositor--leitura" id="timelineSomenteLeitura">
+        <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Pasta excluída: o registro fica só para leitura.</span>
+    </div>
+    {% else %}
     <div class="ps-compositor">
         <form id="formTimelineMensagem">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_mensagem_' ~ pasta.id) }}">
@@ -131,6 +140,7 @@
             </div>
         </form>
     </div>
+    {% endif %}
     <div id="timelineMensagemErro" class="ps-compositor-erro d-none"></div>
 
     {# ── Linha do tempo ──
@@ -141,7 +151,9 @@
             <div class="ps-vazio" id="timelineVazio">
                 <i class="bi bi-chat-left-text"></i>
                 <div class="ps-vazio-titulo">Nenhum registro ainda</div>
-                <div class="ps-vazio-nota">Registre acima o que foi combinado, ligado ou andado no caso.</div>
+                {% if not pasta.estaExcluida %}
+                    <div class="ps-vazio-nota">Registre acima o que foi combinado, ligado ou andado no caso.</div>
+                {% endif %}
             </div>
         {% else %}
             {% set diaAnterior = null %}

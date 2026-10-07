@@ -137,6 +137,62 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('if (!editar || !excluir) {', $abrir);
     }
 
+    #[TestDox('PAS-025c: na lápide o compositor do Registro (#formTimelineMensagem) não é montado e entra a nota de só leitura')]
+    public function testLapideSemCompositorNoRegistro(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $msg             = $this->registrar($pasta, $user, $tenant, '-5 minutes');
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(1, $crawler->filter("#pasta-msg-{$msg->getId()}"), 'o registro continua à vista');
+        self::assertCount(0, $crawler->filter('#formTimelineMensagem, #timelineConteudo, #btnEnviarMensagem'));
+        $nota = $crawler->filter('section.ps-anotacoes > .ps-compositor--leitura#timelineSomenteLeitura > .ps-compositor-nota');
+        self::assertCount(1, $nota);
+        self::assertStringContainsString('só para leitura', $nota->text());
+    }
+
+    #[TestDox('PAS-025c: na lápide sem registro o vazio não manda "registrar acima"')]
+    public function testLapideVaziaSemConviteParaRegistrar(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $vazio = $crawler->filter('#timelineList > #timelineVazio');
+        self::assertCount(1, $vazio);
+        self::assertCount(0, $vazio->filter('.ps-vazio-nota'));
+        self::assertCount(0, $crawler->filter('#formTimelineMensagem'));
+    }
+
+    #[TestDox('PAS-025c: na pasta viva o compositor do Registro está lá e a nota de só leitura não')]
+    public function testPastaVivaComCompositorNoRegistro(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(1, $crawler->filter('section.ps-anotacoes > .ps-compositor > form#formTimelineMensagem #timelineConteudo'));
+        self::assertCount(0, $crawler->filter('#timelineSomenteLeitura, .ps-compositor--leitura'));
+        self::assertCount(1, $crawler->filter('#timelineVazio > .ps-vazio-nota'));
+    }
+
     #[TestDox('PAS-025: cada cartão tem o ⋮ discreto logo depois da hora (teclado e toque) e carrega o fim da janela e se é do autor')]
     public function testCartaoTemOMenuEOsDadosDaJanela(): void
     {
