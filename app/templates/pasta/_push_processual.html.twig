@@ -85,14 +85,15 @@
            lidas, que é o mesmo dado do selo da aba. "Geram prazo" é a regra FIXA do desenho sobre o
            tipo da comunicação (dc L.5414, `/Intima|Decis/`; PastaPushOutput::tipoGeraPrazo) — não
            calcula prazo nenhum (D-PRAZOS segue fora). O filtro roda no navegador (pasta-push.js) —
-           a lista inteira já está na página. #}
-        {% if push.total > 0 %}
-            <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
-                <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
-                <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
-                <button type="button" class="ps-push-filtro" data-push-filtro="prazo" aria-pressed="false">Geram prazo</button>
-            </div>
-        {% endif %}
+           a lista inteira já está na página.
+           FPN-032: os filtros ficam à vista também com a lista vazia (dc L.2419-2421: o cabeçalho
+           não depende de `push.vazio`). Sem lista, o clique só troca o botão ativo — o
+           pasta-push.js não acha `.ps-push-lista` e o vazio da aba continua o que está na tela. #}
+        <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
+            <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
+            <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
+            <button type="button" class="ps-push-filtro" data-push-filtro="prazo" aria-pressed="false">Geram prazo</button>
+        </div>
     </div>
 
     {# Análises da BlueJus IA logo abaixo do cabeçalho, acima da linha do tempo (dc L.2427). O

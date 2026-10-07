@@ -62,8 +62,8 @@ final class PastaPushAcoesTelaTest extends JusPrimeWebTestCase
         self::assertSame(1, $crawler->filter('#push > script[src*="js/pasta-push.js"]')->count());
     }
 
-    #[TestDox('Sem publicação não há filtro: filtrar uma lista vazia não tem sentido')]
-    public function testSemPublicacaoNaoHaFiltro(): void
+    #[TestDox('FPN-032: sem publicação os filtros continuam no cabeçalho (dc L.2419-2421), com Todas ativo, e o vazio é o da aba')]
+    public function testSemPublicacaoOsFiltrosContinuam(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
@@ -74,8 +74,28 @@ final class PastaPushAcoesTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         self::assertResponseIsSuccessful();
-        self::assertSame(0, $crawler->filter('.ps-push-filtros')->count());
-        self::assertSame(1, $crawler->filter('#push-vazio-sem-publicacao')->count());
+        $filtros = $crawler->filter('#push > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro');
+        self::assertSame(['todas', 'novas', 'prazo'], $filtros->each(static fn ($b) => $b->attr('data-push-filtro')));
+        self::assertSame('true', $crawler->filter('.ps-push-filtro[data-push-filtro="todas"]')->attr('aria-pressed'));
+        self::assertSame('0', trim($crawler->filter('#push > .ps-push > .ps-card-cab > .ps-contagem')->text()));
+        self::assertSame(1, $crawler->filter('#push > .ps-push > #push-vazio-sem-publicacao')->count());
+        // Sem lista não há o que filtrar: nem a lista nem o vazio do filtro existem.
+        self::assertSame(0, $crawler->filter('.ps-push-lista, #push-vazio-filtro')->count());
+    }
+
+    #[TestDox('FPN-032: sem processo vinculado os filtros também ficam, e o vazio aponta a aba Processo')]
+    public function testSemProcessoOsFiltrosContinuam(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(3, $crawler->filter('#push > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro')->count());
+        self::assertSame(1, $crawler->filter('#push > .ps-push > #push-vazio-sem-processo')->count());
     }
 
     #[TestDox('Itens: cada linha é filha direta da lista, marca nova/lida e leva a pílula do dia (repetida escondida)')]
