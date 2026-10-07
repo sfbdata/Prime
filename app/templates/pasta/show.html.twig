@@ -2895,6 +2895,168 @@ document.addEventListener('DOMContentLoaded', function () {
         if (nomeRespondendo) { nomeRespondendo.textContent = ''; }
     }
 
+    /* ── Menu do registro (PAS-025; dc L.5958 `regsLinha`) ─────────────────
+       Botão direito no cartão — no ponto do clique — ou o ⋮ do cartão (teclado e
+       toque) abrem o MESMO #psRegMenu, preenchido com o cartão. Cada item clica o
+       botão que o cartão já tem: a ação, o CSRF e a URL são os de sempre. Editar e
+       Excluir levam os minutos que restam ("· N min"); sem os botões ou com a
+       janela vencida, ficam à vista e desabilitados, "· bloqueado" com cadeado e o
+       motivo na dica (o `comPerm` do desenho, sem a frase do usuário primário, que
+       aqui não tem a exceção — como o Financeiro). */
+    const menuReg = document.getElementById('psRegMenu');
+    const REG_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';
+    const REG_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';
+    let regAberto = null; // { cartao, gatilho }
+
+    function fecharMenuReg(devolverFoco) {
+        if (!regAberto) { return; }
+        menuReg.hidden = true;
+        if (regAberto.gatilho) {
+            regAberto.gatilho.setAttribute('aria-expanded', 'false');
+            if (devolverFoco) { regAberto.gatilho.focus(); }
+        }
+        regAberto = null;
+    }
+
+    function pintarItemReg(item, pode, rotulo, icone, motivo) {
+        item.disabled = !pode;
+        if (pode) { item.removeAttribute('aria-disabled'); item.removeAttribute('title'); } else { item.setAttribute('aria-disabled', 'true'); item.title = motivo; }
+        item.querySelector('i').className = 'bi ' + icone;
+        item.querySelector('span').textContent = rotulo;
+    }
+
+    /* Minutos que restam na janela, com a regra do servidor (`minutosRestantes`: teto,
+       de 1 a 15); 0 = vencida. */
+    function minutosRestantesReg(cartao) {
+        const ate = Number(cartao.dataset.janelaAte || 0) * 1000;
+        const ms  = ate - Date.now();
+        if (!ate || ms <= 0) { return 0; }
+        return Math.min({{ comentario_janela_minutos() }}, Math.max(1, Math.ceil(ms / 60000)));
+    }
+
+    function abrirMenuReg(cartao, gatilho, x, y) {
+        if (!menuReg || !cartao) { return; }
+        const porClique = typeof x === 'number';
+        if (!porClique && regAberto && regAberto.cartao === cartao) { fecharMenuReg(false); return; }
+        fecharMenuReg(false);
+        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+
+        const autorEl = cartao.querySelector('.ps-anotacao-autor');
+        const dataEl  = cartao.querySelector('.ps-anotacao-data');
+        menuReg.querySelector('.js-reg-menu-titulo').textContent =
+            (autorEl ? autorEl.textContent.trim() : '') + (dataEl && dataEl.title ? ' · ' + dataEl.title : '');
+
+        const responder = menuReg.querySelector('.js-reg-responder');
+        responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta');
+
+        const resto = minutosRestantesReg(cartao);
+        const pode  = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0;
+        const motivo = cartao.dataset.doAutor === '1' ? REG_MOTIVO_PRAZO : REG_MOTIVO_AUTOR;
+        const editar  = menuReg.querySelector('.js-reg-editar');
+        const excluir = menuReg.querySelector('.js-reg-excluir');
+        if (pode) {
+            pintarItemReg(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');
+            pintarItemReg(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');
+        } else {
+            pintarItemReg(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
+            pintarItemReg(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+        }
+
+        menuReg.hidden = false;
+        let left;
+        let top;
+        if (porClique) {
+            left = x;
+            top  = y;
+            if (top + menuReg.offsetHeight > window.innerHeight - 8) { top = y - menuReg.offsetHeight; }
+        } else {
+            const r = gatilho.getBoundingClientRect();
+            left = r.right - menuReg.offsetWidth;
+            top  = r.bottom + 4;
+            if (top + menuReg.offsetHeight > window.innerHeight - 8) { top = r.top - menuReg.offsetHeight - 4; }
+        }
+        menuReg.style.left = Math.max(8, Math.min(left, window.innerWidth - menuReg.offsetWidth - 8)) + 'px';
+        menuReg.style.top  = Math.max(8, top) + 'px';
+
+        const seta = gatilho || cartao.querySelector('.js-reg-menu');
+        if (seta) { seta.setAttribute('aria-expanded', 'true'); }
+        regAberto = { cartao: cartao, gatilho: seta };
+        const primeiro = menuReg.querySelector('.ps-processo-menu-item:not([disabled]):not([hidden])');
+        if (primeiro) { primeiro.focus(); }
+    }
+
+    function copiarTextoReg(item, cartao) {
+        const corpo  = cartao.querySelector('.pasta-msg-conteudo .ql-editor');
+        const texto  = corpo ? corpo.innerText.trim() : '';
+        const rotulo = item.querySelector('span');
+        const original = rotulo ? rotulo.textContent : '';
+        function avisar(msg) {
+            if (rotulo) { rotulo.textContent = msg; }
+            setTimeout(function () {
+                if (rotulo) { rotulo.textContent = original; }
+                if (regAberto && regAberto.cartao === cartao) { fecharMenuReg(false); }
+            }, 1200);
+        }
+        if (texto && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(
+                function () { avisar('Texto copiado'); },
+                function () { avisar('Não foi possível copiar'); }
+            );
+        } else {
+            avisar('Não foi possível copiar');
+        }
+    }
+
+    if (menuReg && list) {
+        // Botão direito no cartão. Links, botões, a caixa de edição e texto selecionado
+        // seguem com o menu do navegador.
+        list.addEventListener('contextmenu', function (e) {
+            const alvo   = e.target;
+            const cartao = alvo && alvo.closest ? alvo.closest('.ps-anotacao[id^="pasta-msg-"]') : null;
+            if (!cartao) { return; }
+            if (alvo.closest('a, button, input, textarea, select, [contenteditable="true"], .ps-anotacao-edicao')) { return; }
+            const selecao = window.getSelection ? String(window.getSelection()) : '';
+            if (selecao.trim() !== '') { return; }
+            e.preventDefault();
+            abrirMenuReg(cartao, null, e.clientX, e.clientY);
+        });
+
+        list.addEventListener('click', function (e) {
+            const gatilho = e.target.closest('.js-reg-menu');
+            if (!gatilho) { return; }
+            abrirMenuReg(gatilho.closest('.ps-anotacao'), gatilho);
+        });
+
+        menuReg.addEventListener('click', function (e) {
+            const item = e.target.closest('.ps-processo-menu-item');
+            if (!item || item.disabled || !regAberto) { return; }
+            const cartao = regAberto.cartao;
+            if (item.classList.contains('js-reg-copiar')) { copiarTextoReg(item, cartao); return; }
+            const seletor = item.classList.contains('js-reg-responder') ? '.btn-responder-msg-pasta'
+                : item.classList.contains('js-reg-editar') ? '.ps-anotacao-acoes .btn-editar-msg-pasta'
+                : item.classList.contains('js-reg-excluir') ? '.ps-anotacao-acoes .btn-excluir-msg-pasta'
+                : null;
+            fecharMenuReg(false);
+            const alvo = seletor ? cartao.querySelector(seletor) : null;
+            if (alvo) { alvo.click(); }
+        });
+
+        // Fora fecha (em captura); Esc fecha e devolve o foco; rolar/redimensionar fecha.
+        document.addEventListener('click', function (e) {
+            if (!regAberto) { return; }
+            if (menuReg.contains(e.target) || (regAberto.gatilho && regAberto.gatilho.contains(e.target))) { return; }
+            fecharMenuReg(false);
+        }, true);
+        document.addEventListener('keydown', function (e) {
+            if (regAberto && e.key === 'Escape') { fecharMenuReg(true); }
+        });
+        window.addEventListener('resize', function () { fecharMenuReg(false); });
+        window.addEventListener('scroll', function (e) {
+            if (regAberto && !(e.target instanceof Node && menuReg.contains(e.target))) { fecharMenuReg(false); }
+        }, true);
+        document.addEventListener('ps:fechar-popovers', function () { fecharMenuReg(false); });
+    }
+
     {# Editar/excluir mensagem (autor, dentro da janela de 15 min — `JanelaDeEdicaoDeComentario`) — delegado na lista #}
     if (list) {
         list.addEventListener('click', async function (e) {
@@ -3196,7 +3358,9 @@ document.addEventListener('DOMContentLoaded', function () {
            servidor: se divergirem, o registro recém-enviado aparece com outra
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
         const cartao = `
-        <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}">
+        <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
+                 data-janela-ate="${Math.floor(Number(data.criadaEmTs) / 1000) + {{ comentario_janela_minutos() }} * 60}"
+                 data-do-autor="1">
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -3229,6 +3393,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     <i class="bi bi-reply-fill"></i>
                 </button>
                 <span class="ps-anotacao-data ps-num" title="${dataHora}">${horaRotulo}</span>
+                <button type="button" class="ps-reg-menu-btn js-reg-menu" title="Mais ações do registro"
+                        aria-label="Mais ações do registro" aria-haspopup="menu" aria-expanded="false"
+                        aria-controls="psRegMenu">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
             </div>
             <div class="ps-anotacao-corpo">
                 <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>

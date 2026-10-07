@@ -23,6 +23,17 @@
    #timelineRespondendoCancelar e a classe .btn-responder-msg-pasta também são
    contrato com o JS do show.html.twig.
 
+   Menu do registro (PAS-025; desenho dc L.5958, `menu` de `regsLinha`): botão direito no
+   cartão abre um menu só (#psRegMenu), preenchido com o cartão clicado — Responder, Copiar
+   texto, — , "Editar · N min" e "Excluir comentário · N min", ou "· bloqueado" com `bi-lock`
+   e o motivo na dica. Os itens clicam os botões que o cartão já tem (a ação real, o CSRF e a
+   URL de sempre). Encaminhar e Destacar não existem aqui. O desenho não tem ⋮ no cartão; para
+   teclado e toque o cartão ganha um ⋮ discreto (`.js-reg-menu`, 28×28 como o da observação)
+   que abre o MESMO menu. Os minutos saem de `data-janela-ate` (fim da janela, epoch) no
+   momento de abrir; `data-do-autor` escolhe o motivo do bloqueio. Contrato com o JS do
+   show.html.twig: #psRegMenu · .js-reg-menu · .js-reg-responder · .js-reg-copiar ·
+   .js-reg-editar · .js-reg-excluir.
+
    Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM),
    `fotosResponsaveis` (mapa userId => NOME do arquivo da foto, herdado do show; a URL sai de app_profile_foto_serve).
    ============================================================================ #}
@@ -41,6 +52,28 @@
    `|date` do Twig não dá. O JS que monta o registro novo usa a mesma lista. #}
 {% set meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
 {% set fotos = fotosResponsaveis|default({}) %}
+
+<style>
+    /* PAS-025: o ⋮ do registro copia o da observação (dc L.2335: 28×28, #8496a3, 14px). */
+    .ps-anotacoes .ps-reg-menu-btn {
+        width: 28px; height: 28px; padding: 0; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        border: none; background: transparent; color: var(--ps-faint);
+        font-size: 14px; border-radius: 4px; cursor: pointer;
+        transition: background .18s, color .18s;
+    }
+    .ps-anotacoes .ps-reg-menu-btn:hover,
+    .ps-anotacoes .ps-reg-menu-btn:focus-visible,
+    .ps-anotacoes .ps-reg-menu-btn[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-accent); outline: none; }
+    .ps-anotacoes .ps-reg-menu {
+        position: fixed; z-index: 141; width: 250px; max-width: calc(100vw - 24px);
+        padding: 5px; display: flex; flex-direction: column;
+        background: var(--ps-card); border-radius: 4px; box-shadow: var(--ps-shadow-gm);
+    }
+    .ps-anotacoes .ps-reg-menu[hidden] { display: none; }
+    .ps-anotacoes .ps-reg-menu .ps-processo-menu-item:disabled,
+    .ps-anotacoes .ps-reg-menu .ps-processo-menu-item:disabled:hover { color: var(--ps-label); background: transparent; cursor: not-allowed; opacity: .7; }
+</style>
 
 <section class="ps-card ps-anotacoes">
     <div class="ps-card-cab ps-card-cab--painel">
@@ -126,6 +159,24 @@
             Ver anotações anteriores ({{ anotacoes|length - visiveis }})
         </button>
     {% endif %}
+
+    {# PAS-025: um menu só, preenchido pelo JS com o cartão de onde foi aberto. #}
+    <div class="ps-reg-menu" id="psRegMenu" role="menu" hidden>
+        <div class="ps-processo-menu-titulo js-reg-menu-titulo"></div>
+        <button type="button" class="ps-processo-menu-item js-reg-responder" role="menuitem">
+            <i class="bi bi-reply-fill"></i><span>Responder</span>
+        </button>
+        <button type="button" class="ps-processo-menu-item js-reg-copiar" role="menuitem">
+            <i class="bi bi-clipboard"></i><span>Copiar texto</span>
+        </button>
+        <div class="ps-processo-menu-sep" role="separator"></div>
+        <button type="button" class="ps-processo-menu-item js-reg-editar" role="menuitem">
+            <i class="bi bi-pencil"></i><span>Editar</span>
+        </button>
+        <button type="button" class="ps-processo-menu-item js-reg-excluir" role="menuitem">
+            <i class="bi bi-trash3"></i><span>Excluir comentário</span>
+        </button>
+    </div>
 </section>
 
 {#
@@ -153,7 +204,9 @@
         : item.dataHora|date('H:i') %}
 
     <article class="ps-anotacao{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
-             {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"{% endif %}>
+             {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"
+             data-janela-ate="{{ item.dataHora|date('U') + comentario_janela_minutos() * 60 }}"
+             data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"{% endif %}>
         {% if item.ehResposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
@@ -204,6 +257,14 @@
             {% endif %}
             {# Só a hora: o dia está na pílula acima. O title traz a data inteira. #}
             <span class="ps-anotacao-data ps-num" title="{{ item.dataHora|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>
+            {% if item.mensagemId %}
+                {# PAS-025: o caminho do teclado e do toque para o menu do botão direito. #}
+                <button type="button" class="ps-reg-menu-btn js-reg-menu" title="Mais ações do registro"
+                        aria-label="Mais ações do registro" aria-haspopup="menu" aria-expanded="false"
+                        aria-controls="psRegMenu">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+            {% endif %}
         </div>
         <div class="ps-anotacao-corpo">
             <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
