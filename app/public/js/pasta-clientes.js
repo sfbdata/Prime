@@ -7,7 +7,7 @@
    1. Janela "Detalhes do cliente": clique no icone de cadastro da linha ou botao
       direito na linha. O conteudo e um fragmento do servidor (`cliente_resumo`),
       que ja decide permissao e filtra as pastas — aqui so se posiciona, arrasta
-      e fecha.
+      e fecha. Os contatos dela se editam inline (POST `cliente_contatos`).
    2. Copiar (nome, documento, contatos, qualificacao, prazo): `.js-ps-copiar`
       com o texto em `data-ps-copiar`.
    3. "Adicionar a agenda (.ics)": arquivo gerado no navegador a partir dos
@@ -143,6 +143,7 @@
 
     /* ── Janela "Detalhes do cliente" ─────────────────────────────────────── */
     function fecharJanela() {
+        ctEditando = null;
         if (janelaAberta) { janelaAberta.remove(); janelaAberta = null; }
         if (overlay) { overlay.remove(); overlay = null; }
     }
@@ -220,6 +221,148 @@
         window.addEventListener('pointerup', soltar);
     });
 
+    /* ── Contatos editaveis na janela (dc L.810-836, logica L.5748-5786) ────
+       Lapis abre o campo (Enter salva, Esc cancela; o novo vazio some), lixeira
+       remove telefone, "+ Telefone"/"+ E-mail" abrem um campo novo. Quem grava
+       e o POST `cliente_contatos` (data-contatos-url/-token na janela): a
+       resposta e a janela inteira de novo, que substitui esta no mesmo lugar.
+       O servidor normaliza (telefone com mascara, e-mail minusculo) e recusa
+       com 422 + {erro}. Sem permissao de editar, a janela nao traz os botoes. */
+    var ctEditando = null; // { linha, novo, input }
+
+    function ctBotao(classe, icone, titulo) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ps-cli-copiar ps-cli-copiar--mini ' + classe;
+        b.title = titulo;
+        b.setAttribute('aria-label', titulo);
+        var i = document.createElement('i');
+        i.className = 'bi ' + icone;
+        b.appendChild(i);
+
+        return b;
+    }
+
+    function ctSair() {
+        if (!ctEditando) { return; }
+        var ed = ctEditando;
+        ctEditando = null;
+        if (ed.novo) {
+            ed.linha.remove();
+            var vazio = janelaAberta && janelaAberta.querySelector('.ps-cli-contato--vazio');
+            if (vazio && janelaAberta.querySelectorAll('.ps-cli-contato:not(.ps-cli-contato--vazio)').length === 0) { vazio.hidden = false; }
+
+            return;
+        }
+        ed.linha.querySelectorAll('.js-ps-ct-campo').forEach(function (el) { el.remove(); });
+        Array.prototype.forEach.call(ed.linha.children, function (el) { el.hidden = false; });
+    }
+
+    function ctAbrir(linha, novo) {
+        ctSair();
+        var tipo = linha.getAttribute('data-tipo') === 'email' ? 'email' : 'tel';
+        var input = document.createElement('input');
+        input.type = tipo;
+        input.className = 'ps-cli-contato-input js-ps-ct-campo js-ps-ct-input';
+        input.placeholder = tipo === 'tel' ? 'Telefone com DDD' : 'E-mail';
+        input.setAttribute('aria-label', input.placeholder);
+        input.value = novo ? '' : (linha.getAttribute('data-valor') || '');
+
+        // Some o modo leitura (valor, copiar, lapis); o icone do tipo fica.
+        Array.prototype.forEach.call(linha.children, function (el) {
+            if (el.tagName !== 'I') { el.hidden = true; }
+        });
+        var botoes = [ctBotao('js-ps-ct-campo js-ps-ct-salvar', 'bi-check2', 'Salvar')];
+        // E-mail e obrigatorio no cadastro: troca-se, nao se remove.
+        if (tipo === 'tel' && !novo) { botoes.push(ctBotao('js-ps-ct-campo js-ps-ct-remover', 'bi-trash3', 'Remover')); }
+        botoes.push(ctBotao('js-ps-ct-campo js-ps-ct-cancelar', 'bi-x-lg', 'Cancelar'));
+        linha.appendChild(input);
+        botoes.forEach(function (b) { linha.appendChild(b); });
+
+        ctEditando = { linha: linha, novo: novo, input: input };
+        input.focus();
+        if (!novo) { input.select(); }
+    }
+
+    function ctNovo(botao) {
+        if (!janelaAberta) { return; }
+        var lista = janelaAberta.querySelector('.ps-cli-contatos');
+        if (!lista) { return; }
+        var tipo = botao.getAttribute('data-tipo') === 'email' ? 'email' : 'tel';
+        var linha = document.createElement('div');
+        linha.className = 'ps-cli-contato';
+        linha.setAttribute('data-campo', botao.getAttribute('data-campo') || '');
+        linha.setAttribute('data-tipo', tipo);
+        var ic = document.createElement('i');
+        ic.className = 'bi ' + (tipo === 'tel' ? 'bi-telephone' : 'bi-envelope');
+        linha.appendChild(ic);
+        ctSair();
+        var vazio = lista.querySelector('.ps-cli-contato--vazio');
+        if (vazio) { vazio.hidden = true; }
+        lista.appendChild(linha);
+        ctAbrir(linha, true);
+    }
+
+    function ctGravar(valor) {
+        if (!ctEditando || !janelaAberta) { return; }
+        var ed = ctEditando;
+        var janela = janelaAberta;
+        var url = janela.getAttribute('data-contatos-url');
+        var token = janela.getAttribute('data-contatos-token');
+        if (!url || !token) { return; }
+
+        if (valor === '' && ed.novo) { ctSair(); return; }
+        if (valor === '' && ed.linha.getAttribute('data-tipo') === 'email') {
+            ed.input.classList.add('is-invalido');
+            avisar('O e-mail é obrigatório no cadastro');
+
+            return;
+        }
+
+        var corpo = new FormData();
+        corpo.append('campo', ed.linha.getAttribute('data-campo') || '');
+        corpo.append('valor', valor);
+        corpo.append('_token', token);
+        var secao = document.querySelector('[data-trilho="clientes"]');
+        var pasta = secao ? (secao.getAttribute('data-pasta-id') || '') : '';
+        if (pasta) { corpo.append('pasta', pasta); }
+
+        ed.linha.classList.add('is-salvando');
+        fetch(url, { method: 'POST', body: corpo, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) {
+                if (r.ok) { return r.text().then(function (html) { return { html: html }; }); }
+
+                return r.json().then(
+                    function (j) { return { erro: (j && j.erro) || 'Não foi possível salvar o contato' }; },
+                    function () { return { erro: 'Não foi possível salvar o contato' }; }
+                );
+            })
+            .then(function (res) {
+                ed.linha.classList.remove('is-salvando');
+                if (res.erro !== undefined) {
+                    ed.input.classList.add('is-invalido');
+                    ed.input.focus();
+                    avisar(res.erro);
+
+                    return;
+                }
+                var molde = document.createElement('div');
+                molde.innerHTML = res.html.trim();
+                var nova = molde.firstElementChild;
+                if (!nova || janelaAberta !== janela) { return; }
+                ctEditando = null;
+                nova.style.left = janela.style.left;
+                nova.style.top = janela.style.top;
+                janela.replaceWith(nova);
+                janelaAberta = nova;
+                avisar(valor === '' ? 'Contato removido' : 'Contato salvo');
+            })
+            .catch(function () {
+                ed.linha.classList.remove('is-salvando');
+                avisar('Não foi possível salvar o contato');
+            });
+    }
+
     /* ── Delegacao ────────────────────────────────────────────────────────── */
     document.addEventListener('click', function (e) {
         var copiarBtn = e.target.closest('.js-ps-copiar');
@@ -229,6 +372,14 @@
         if (ics) { baixarIcs(ics); return; }
 
         if (e.target.closest('.js-ps-cli-fechar')) { fecharJanela(); return; }
+
+        var ctEditar = e.target.closest('.js-ps-ct-editar');
+        if (ctEditar) { ctAbrir(ctEditar.closest('.ps-cli-contato'), false); return; }
+        var ctNovoBtn = e.target.closest('.js-ps-ct-novo');
+        if (ctNovoBtn) { ctNovo(ctNovoBtn); return; }
+        if (e.target.closest('.js-ps-ct-salvar') && ctEditando) { ctGravar(ctEditando.input.value.trim()); return; }
+        if (e.target.closest('.js-ps-ct-remover') && ctEditando) { ctGravar(''); return; }
+        if (e.target.closest('.js-ps-ct-cancelar')) { ctSair(); return; }
 
         var detalhes = e.target.closest('.js-ps-cli-detalhes');
         if (detalhes) {
@@ -259,6 +410,14 @@
     });
 
     document.addEventListener('keydown', function (e) {
+        // Dentro do campo do contato: Enter salva, Esc cancela SEM fechar a janela.
+        if (ctEditando && e.target === ctEditando.input) {
+            if (e.key === 'Enter') { e.preventDefault(); ctGravar(ctEditando.input.value.trim()); return; }
+            if (e.key === 'Escape') { e.preventDefault(); ctSair(); return; }
+            ctEditando.input.classList.remove('is-invalido');
+
+            return;
+        }
         if (e.key === 'Escape' && janelaAberta) { fecharJanela(); }
     });
 }());

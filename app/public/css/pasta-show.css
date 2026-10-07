@@ -3587,6 +3587,9 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-l7-tag-ativa-bg: #e6f4ec;
     --ps-l7-aviso-bg:     #12242f;
     --ps-l7-aviso-tx:     #fff;
+    --ps-l7-ct-input-bg:   #f1f6f9;
+    --ps-l7-ct-input-anel: #9fc3e3;
+    --ps-l7-ct-input-erro: #d9534f;
 }
 [data-bs-theme="dark"] .ps-body,
 [data-bs-theme="dark"] .ps-page {
@@ -3601,6 +3604,9 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-l7-tag-ativa-bg: rgba(31,157,97,.18);
     --ps-l7-aviso-bg:     var(--bs-emphasis-color);
     --ps-l7-aviso-tx:     var(--bs-body-bg);
+    --ps-l7-ct-input-bg:   var(--bs-tertiary-bg);
+    --ps-l7-ct-input-anel: rgba(69,176,214,.55);
+    --ps-l7-ct-input-erro: #e06c69;
 }
 
 /* ── Ícone de cadastro ao lado do nome (verde completo · âmbar incompleto) ── */
@@ -3788,6 +3794,27 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-cli-contato > i { font-size: 13px; color: var(--ps-muted); width: 16px; text-align: center; flex-shrink: 0; }
 .ps-cli-contato-valor { flex: 1; min-width: 0; font-size: 13px; color: var(--ps-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ps-cli-contato--vazio .ps-cli-contato-valor { color: var(--ps-text-3); }
+/* Edição inline (dc L.825-830): campo 30px, fundo #f1f6f9, anel 1.5px #9fc3e3, 13px. */
+.ps-cli-contatos { display: flex; flex-direction: column; gap: 6px; }
+.ps-cli-contato-input {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-l7-ct-input-bg);
+    box-shadow: inset 0 0 0 1.5px var(--ps-l7-ct-input-anel);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ps-text);
+    outline: none;
+}
+.ps-cli-contato-input.is-invalido { box-shadow: inset 0 0 0 1.5px var(--ps-l7-ct-input-erro); }
+.ps-cli-contato.is-salvando { opacity: .6; pointer-events: none; }
+.ps-cli-contato > [hidden],
+.ps-cli-contatos > [hidden] { display: none !important; }
+.ps-cli-add { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 2px; }
 
 .ps-cli-acoes { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 2px; }
 .ps-cli-acao {

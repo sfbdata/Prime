@@ -3,17 +3,25 @@
    (ClienteResumoController) e posto na tela da pasta pelo pasta-clientes.js.
    Desenho aprovado: "02 - EXPEDIENTES 1.2.3.dc.html", L.779-836.
 
-   SOMENTE LEITURA. No desenho telefone e e-mail se editam aqui mesmo (lápis,
-   "+ Telefone", "+ E-mail"); essa edição continua na ficha, pelo link "Editar
-   cadastro". No rodapé, onde o desenho tem os dois "+", ficam "Copiar
-   qualificação" (que no desenho mora no modal de cadastro, que não existe aqui)
-   e "Editar cadastro".
+   Contatos editáveis aqui mesmo (dc L.810-836, lógica L.5748-5786): lápis abre
+   o campo (Enter salva, Esc cancela), lixeira remove telefone, "+ Telefone" e
+   "+ E-mail" abrem um campo novo. Quem salva é o POST `cliente_contatos`
+   (pasta-clientes.js), que devolve esta janela re-renderizada. O modelo tem 3
+   slots fixos (celular, fixo, e-mail): "+ Telefone" só enquanto houver slot de
+   telefone vazio, "+ E-mail" só se o e-mail estiver vazio, e o e-mail não tem
+   lixeira (é obrigatório no cadastro). Sem permissão de editar o cliente, nada
+   disso aparece: a janela fica só de leitura. O campo de digitação nasce no JS
+   (no HTML servido não há input).
+
+   Depois dos "+", a linha que já existia: "Copiar qualificação" (que no desenho
+   mora no modal de cadastro, que não existe aqui) e "Editar cadastro".
 
    Contexto: `resumo` (ClienteResumoOutput). As pastas já vêm filtradas pela
    permissão POR PASTA — o template não filtra nada.
    ============================================================================ #}
 {% set tagRotulo = {atual: 'Atual', ativa: 'Ativa', arquivada: 'Arquivada'} %}
-<div class="ps-cli-janela" role="dialog" aria-label="Detalhes do cliente" data-cliente-id="{{ resumo.clienteId }}">
+<div class="ps-cli-janela" role="dialog" aria-label="Detalhes do cliente" data-cliente-id="{{ resumo.clienteId }}"
+     {%- if resumo.podeEditar %} data-contatos-url="{{ path('cliente_contatos', {id: resumo.clienteId}) }}" data-contatos-token="{{ csrf_token('cliente_contatos_' ~ resumo.clienteId) }}"{% endif %}>
     <div class="ps-cli-cab" data-ps-cli-arrastar title="Arraste para mover">
         <span class="ps-cli-cab-avatar" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
         <span class="ps-cli-cab-corpo">
@@ -77,16 +85,33 @@
 
         <div class="ps-cli-desde"><i class="bi bi-calendar3"></i>{{ resumo.clienteDesde ? 'Cliente desde ' ~ resumo.clienteDesde|date('d/m/Y') : 'Cliente cadastrado' }}</div>
 
-        {% for c in resumo.contatos %}
-            <div class="ps-cli-contato" data-contato="{{ c.rotulo|e('html_attr') }}">
-                <i class="bi {{ c.icone }}" title="{{ c.rotulo }}"></i>
-                <span class="ps-cli-contato-valor">{{ c.valor }}</span>
-                <button type="button" class="ps-cli-copiar ps-cli-copiar--mini js-ps-copiar" data-ps-copiar="{{ c.valor|e('html_attr') }}"
-                        title="Copiar" aria-label="Copiar {{ c.rotulo|lower }}"><i class="bi bi-copy"></i></button>
+        <div class="ps-cli-contatos">
+            {% for c in resumo.contatos %}
+                <div class="ps-cli-contato" data-contato="{{ c.rotulo|e('html_attr') }}" data-campo="{{ c.campo }}" data-tipo="{{ c.tipo }}" data-valor="{{ c.valor|e('html_attr') }}">
+                    <i class="bi {{ c.icone }}" title="{{ c.rotulo }}"></i>
+                    <span class="ps-cli-contato-valor">{{ c.valor }}</span>
+                    <button type="button" class="ps-cli-copiar ps-cli-copiar--mini js-ps-copiar" data-ps-copiar="{{ c.valor|e('html_attr') }}"
+                            title="Copiar" aria-label="Copiar {{ c.rotulo|lower }}"><i class="bi bi-copy"></i></button>
+                    {% if resumo.podeEditar %}
+                        <button type="button" class="ps-cli-copiar ps-cli-copiar--mini js-ps-ct-editar"
+                                title="Editar" aria-label="Editar {{ c.rotulo|lower }}"><i class="bi bi-pencil"></i></button>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="ps-cli-contato ps-cli-contato--vazio"><i class="bi bi-telephone-x"></i><span class="ps-cli-contato-valor">Nenhum contato informado</span></div>
+            {% endfor %}
+        </div>
+
+        {% if resumo.podeEditar and (resumo.telefoneLivre is not null or resumo.emailVazio) %}
+            <div class="ps-cli-add">
+                {% if resumo.telefoneLivre is not null %}
+                    <button type="button" class="ps-cli-acao js-ps-ct-novo" data-campo="{{ resumo.telefoneLivre }}" data-tipo="tel"><i class="bi bi-plus-lg"></i><span>Telefone</span></button>
+                {% endif %}
+                {% if resumo.emailVazio %}
+                    <button type="button" class="ps-cli-acao js-ps-ct-novo" data-campo="email" data-tipo="email"><i class="bi bi-plus-lg"></i><span>E-mail</span></button>
+                {% endif %}
             </div>
-        {% else %}
-            <div class="ps-cli-contato ps-cli-contato--vazio"><i class="bi bi-telephone-x"></i><span class="ps-cli-contato-valor">Nenhum contato informado</span></div>
-        {% endfor %}
+        {% endif %}
 
         <div class="ps-cli-acoes">
             {% if resumo.qualificacao is not empty %}

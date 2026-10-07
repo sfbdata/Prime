@@ -95,7 +95,8 @@ final class ClienteResumoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('inscrito(a) no CPF nº 123.456.789-0' . $this->seq, $qual);
         self::assertSame('/clientes/' . $ids[0] . '/editar', $janela->filter('.ps-cli-acoes > a.ps-cli-acao')->attr('href'));
 
-        // Somente leitura: nenhum formulário, nenhum campo editável.
+        // Nenhum formulário nem campo no HTML servido: a edição inline dos contatos
+        // cria o input no JS (ver ClienteContatosControllerTest).
         self::assertCount(0, $janela->filter('form, input, textarea'));
     }
 

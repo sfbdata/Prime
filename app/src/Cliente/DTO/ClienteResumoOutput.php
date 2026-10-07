@@ -7,6 +7,7 @@ namespace App\Cliente\DTO;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Cliente\UseCase\AtualizarContatoDoClienteUseCase as Contato;
 use App\Pasta\Entity\Pasta;
 use App\Twig\DocumentoBrExtension;
 
@@ -14,8 +15,10 @@ use App\Twig\DocumentoBrExtension;
  * Tudo que a janela "Detalhes do cliente" (desenho 1.2.3, dc L.779-836) imprime,
  * já resolvido: a tela não decide situação de pasta nem formata documento.
  *
- * SOMENTE LEITURA. O desenho edita telefone e e-mail ali mesmo; aqui a edição
- * continua em `cliente_edit` (link "Editar cadastro").
+ * Contatos: os TRÊS slots fixos do cadastro (celular, fixo, e-mail), cada um com
+ * o `campo` que a edição inline manda (`cliente_contatos`). O desenho tem lista
+ * livre de contatos; o modelo, não — "+ Telefone" só existe enquanto houver slot
+ * de telefone vazio (`telefoneLivre`) e "+ E-mail" só se o e-mail estiver vazio.
  *
  * As pastas chegam JÁ FILTRADAS pela permissão por pasta (quem monta é o
  * controller): este DTO não sabe nada de permissão e não pode ser o lugar onde
@@ -28,7 +31,7 @@ final readonly class ClienteResumoOutput
     public const TAG_ARQUIVADA = 'arquivada';
 
     /**
-     * @param list<array{icone: string, rotulo: string, valor: string}>          $contatos
+     * @param list<array{campo: string, tipo: string, icone: string, rotulo: string, valor: string}> $contatos
      * @param list<array{id: int, nup: string, acao: string, tag: string}>       $pastas
      * @param list<string>                                                      $pendencias
      */
@@ -46,6 +49,8 @@ final readonly class ClienteResumoOutput
         public array $pendencias,
         public string $qualificacao,
         public bool $podeEditar,
+        public ?string $telefoneLivre = null,
+        public bool $emailVazio = false,
     ) {}
 
     /**
@@ -113,27 +118,42 @@ final readonly class ClienteResumoOutput
             pendencias: $pendencias,
             qualificacao: $qualificacao,
             podeEditar: $podeEditar,
+            telefoneLivre: self::telefoneLivre($cliente),
+            emailVazio: trim($cliente->getEmail()) === '',
         );
     }
 
-    /** @return list<array{icone: string, rotulo: string, valor: string}> */
+    /** Slot que "+ Telefone" preenche: o celular primeiro, depois o fixo; nulo se os dois têm valor. */
+    private static function telefoneLivre(Cliente $cliente): ?string
+    {
+        if (trim((string) $cliente->getTelefoneCelular()) === '') {
+            return Contato::CAMPO_CELULAR;
+        }
+        if (trim((string) $cliente->getTelefoneFixo()) === '') {
+            return Contato::CAMPO_FIXO;
+        }
+
+        return null;
+    }
+
+    /** @return list<array{campo: string, tipo: string, icone: string, rotulo: string, valor: string}> */
     private static function contatos(Cliente $cliente): array
     {
         $contatos = [];
 
         $celular = trim((string) $cliente->getTelefoneCelular());
         if ($celular !== '') {
-            $contatos[] = ['icone' => 'bi-telephone', 'rotulo' => 'Celular', 'valor' => $celular];
+            $contatos[] = ['campo' => Contato::CAMPO_CELULAR, 'tipo' => 'tel', 'icone' => 'bi-telephone', 'rotulo' => 'Celular', 'valor' => $celular];
         }
 
         $fixo = trim((string) $cliente->getTelefoneFixo());
         if ($fixo !== '' && $fixo !== $celular) {
-            $contatos[] = ['icone' => 'bi-telephone', 'rotulo' => 'Telefone fixo', 'valor' => $fixo];
+            $contatos[] = ['campo' => Contato::CAMPO_FIXO, 'tipo' => 'tel', 'icone' => 'bi-telephone', 'rotulo' => 'Telefone fixo', 'valor' => $fixo];
         }
 
         $email = trim($cliente->getEmail());
         if ($email !== '') {
-            $contatos[] = ['icone' => 'bi-envelope', 'rotulo' => 'E-mail', 'valor' => $email];
+            $contatos[] = ['campo' => Contato::CAMPO_EMAIL, 'tipo' => 'email', 'icone' => 'bi-envelope', 'rotulo' => 'E-mail', 'valor' => $email];
         }
 
         return $contatos;
