@@ -145,6 +145,8 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         self::assertSame('desligada_no_escritorio', $crawler->filter(self::BOTAO)->attr('data-ia-motivo'));
         self::assertStringContainsString('desligada neste escritório', (string) $crawler->filter(self::BOTAO)->attr('title'));
         self::assertStringContainsString('desligada neste escritório', $crawler->filter(self::DRAWER . ' .ia-agente[data-ia-agente="cliente"] .ia-cta')->text());
+        self::assertStringContainsString('desligada neste escritório. Peça ao administrador', (string) $crawler->filter(self::BOTAO)->attr('title'));
+        self::assertStringNotContainsString('—', (string) $crawler->filter(self::BOTAO)->attr('title'));
     }
 
     #[TestDox('Sem modules.inteligencia.view: nem botão, nem drawer, nem script no cabeçalho')]

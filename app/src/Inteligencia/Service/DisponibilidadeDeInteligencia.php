@@ -65,7 +65,7 @@ final class DisponibilidadeDeInteligencia
 
         $inicioDoMes = new \DateTimeImmutable('first day of this month midnight');
         if ($this->analises->contarDesde($tenant, $inicioDoMes) >= $configuracao->getLimiteMensal()) {
-            return Disponibilidade::LimiteAtingido;
+            return Disponibilidade::LimiteMensalAtingido;
         }
 
         return Disponibilidade::Disponivel;

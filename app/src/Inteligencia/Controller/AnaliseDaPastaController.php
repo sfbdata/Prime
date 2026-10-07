@@ -84,9 +84,9 @@ final class AnaliseDaPastaController extends AbstractController
         } catch (PastaNaoEncontradaException $e) {
             throw $this->createNotFoundException($e->getMessage());
         } catch (InteligenciaIndisponivelException $e) {
-            $status = $e->motivo === Disponibilidade::LimiteAtingido ? Response::HTTP_TOO_MANY_REQUESTS : Response::HTTP_CONFLICT;
+            $status = $e->motivo->ehLimiteDeCota() ? Response::HTTP_TOO_MANY_REQUESTS : Response::HTTP_CONFLICT;
 
-            return $this->recusa($e->motivo->value, $e->motivo->mensagem(), $status);
+            return $this->recusa($e->motivo->codigoDaRecusa(), $e->motivo->mensagem(), $status);
         } catch (ContextoBloqueadoException $e) {
             return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
         } catch (ContextoVazioException $e) {

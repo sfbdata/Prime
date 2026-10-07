@@ -107,10 +107,13 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         $this->permissoes->method('canAccessModule')->willReturn(true);
         $this->analises->method('contarDesde')->willReturn(3);
 
-        self::assertSame(Disponibilidade::LimiteAtingido, $this->sut(new ProvedorFalso())->para($this->user, $this->tenant));
+        $resultado = $this->sut(new ProvedorFalso())->para($this->user, $this->tenant);
+
+        self::assertSame(Disponibilidade::LimiteAtingido, $resultado);
+        self::assertSame('Limite diário de análises atingido', $resultado->mensagem());
     }
 
-    #[TestDox('cota mensal atingida → limite atingido (mesmo com folga no dia)')]
+    #[TestDox('cota mensal atingida → limite MENSAL atingido (mesmo com folga no dia), e a mensagem diz mensal')]
     public function testLimiteMensal(): void
     {
         $this->configuracoes->method('findDoTenant')->willReturn($this->configuracao(true, diario: 50, mensal: 100));
@@ -118,7 +121,12 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         // 1ª chamada = hoje, 2ª = mês.
         $this->analises->method('contarDesde')->willReturnOnConsecutiveCalls(2, 100);
 
-        self::assertSame(Disponibilidade::LimiteAtingido, $this->sut(new ProvedorFalso())->para($this->user, $this->tenant));
+        $resultado = $this->sut(new ProvedorFalso())->para($this->user, $this->tenant);
+
+        self::assertSame(Disponibilidade::LimiteMensalAtingido, $resultado);
+        self::assertSame('Limite mensal de análises atingido', $resultado->mensagem());
+        self::assertTrue($resultado->ehLimiteDeCota());
+        self::assertSame('limite_atingido', $resultado->codigoDaRecusa());
     }
 
     #[TestDox('tudo em ordem → disponível')]
@@ -138,8 +146,29 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
     public function testMensagens(): void
     {
         self::assertSame('IA não configurada nesta instalação', Disponibilidade::NaoConfiguradaNaPlataforma->mensagem());
-        self::assertSame('BlueJus IA desligada neste escritório — peça ao administrador', Disponibilidade::DesligadaNoEscritorio->mensagem());
+        self::assertSame('BlueJus IA desligada neste escritório. Peça ao administrador', Disponibilidade::DesligadaNoEscritorio->mensagem());
         self::assertSame('Sem permissão para usar a BlueJus IA', Disponibilidade::SemPermissao->mensagem());
         self::assertSame('Limite diário de análises atingido', Disponibilidade::LimiteAtingido->mensagem());
+        self::assertSame('Limite mensal de análises atingido', Disponibilidade::LimiteMensalAtingido->mensagem());
+    }
+
+    #[TestDox('nenhuma mensagem da tela usa travessão (regra do README)')]
+    public function testMensagensSemTravessao(): void
+    {
+        foreach (Disponibilidade::cases() as $motivo) {
+            self::assertStringNotContainsString('—', $motivo->mensagem(), $motivo->name);
+            self::assertStringNotContainsString('–', $motivo->mensagem(), $motivo->name);
+        }
+    }
+
+    #[TestDox('só as cotas viram 429; o código da recusa das duas é "limite_atingido" (contrato com o JS)')]
+    public function testCodigoDaRecusa(): void
+    {
+        foreach (Disponibilidade::cases() as $motivo) {
+            $ehCota = \in_array($motivo, [Disponibilidade::LimiteAtingido, Disponibilidade::LimiteMensalAtingido], true);
+
+            self::assertSame($ehCota, $motivo->ehLimiteDeCota(), $motivo->name);
+            self::assertSame($ehCota ? 'limite_atingido' : $motivo->value, $motivo->codigoDaRecusa(), $motivo->name);
+        }
     }
 }
