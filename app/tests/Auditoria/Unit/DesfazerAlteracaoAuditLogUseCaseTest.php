@@ -188,7 +188,12 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
      */
     private function comId(object $entidade, int $id): object
     {
-        (new \ReflectionProperty($entidade, 'id'))->setValue($entidade, $id);
+        // Subclasse anônima (dublê) não enxerga o `id` privado da entidade: sobe até quem o declara.
+        $classe = new \ReflectionClass($entidade);
+        while (!$classe->hasProperty('id') && ($pai = $classe->getParentClass()) !== false) {
+            $classe = $pai;
+        }
+        $classe->getProperty('id')->setValue($entidade, $id);
 
         return $entidade;
     }
