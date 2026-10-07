@@ -188,6 +188,10 @@ final class DashboardModoAvancadoTelaTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/dashboard');
         self::assertSame('true', $crawler->filter(self::SWITCH)->attr('aria-checked'));
 
+        // As requisições anteriores resetaram o EntityManager (services_resetter): o $tenant em
+        // mãos está desanexado e o flush do UserTenant do colega o trataria como entidade nova.
+        $tenant = $this->em()->find(Tenant::class, $tenant->getId());
+        self::assertNotNull($tenant);
         $colega = $this->criarUsuarioComPermissaoBi($tenant);
         $this->logarComTenant($client, $colega, $tenant);
         $crawler = $client->request('GET', '/dashboard');

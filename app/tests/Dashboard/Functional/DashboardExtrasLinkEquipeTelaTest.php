@@ -41,6 +41,10 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
         'metas_revisao'    => ['em_revisao', 'Metas em revisão'],
     ];
 
+    /** O número da célula: direto no td, ou dentro de .db-cel quando a coluna tem seta. */
+    private const NUMERO = 'td > .db-num, td > .db-cel > .db-num';
+    private const LINK   = 'td > a.db-num-link, td > .db-cel > a.db-num-link';
+
     private function em(): EntityManagerInterface
     {
         return static::getContainer()->get(EntityManagerInterface::class);
@@ -135,10 +139,14 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
             $linha = $this->linhaDe($dashboard, $nome);
             foreach (self::COLUNAS as $coluna => [$status, $rotulo]) {
                 $celula = $linha->filter('td[data-coluna="' . $coluna . '"]');
-                $numero = (int) trim($celula->text());
+                // O número é o .db-num da célula; com período, a coluna ganha a seta de
+                // tendência (DASH-010) e o número passa a morar em .db-cel, ao lado dela.
+                $num = $celula->filter(self::NUMERO);
+                self::assertCount(1, $num, sprintf('%s de %s tem um só número', $coluna, $nome));
+                $numero = (int) trim($num->text());
                 $vistos[$nome][$coluna] = $numero;
 
-                $link = $celula->filter('td > a.db-num-link');
+                $link = $celula->filter(self::LINK);
                 if ($numero === 0) {
                     self::assertCount(0, $link, 'zero não é link');
                     continue;
@@ -193,7 +201,7 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
         self::assertSame(['metas_concluidas' => 1, 'metas_revisao' => 0], $vistos['Bruno Extra']);
 
         $dash = $client->request('GET', '/dashboard?data_de=2024-02-01&data_ate=2024-02-29');
-        $href = (string) $this->linhaDe($dash, 'Gestora da Tela')->filter('td[data-coluna="metas_concluidas"] > a')->attr('href');
+        $href = (string) $this->linhaDe($dash, 'Gestora da Tela')->filter('td[data-coluna="metas_concluidas"]')->filter(self::LINK)->attr('href');
         parse_str((string) parse_url($href, PHP_URL_QUERY), $q);
         self::assertSame('2024-02-01', $q['data_de'] ?? null);
         self::assertSame('2024-02-29', $q['data_ate'] ?? null);

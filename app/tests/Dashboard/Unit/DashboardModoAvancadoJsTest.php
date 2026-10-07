@@ -45,7 +45,8 @@ final class DashboardModoAvancadoJsTest extends TestCase
         $js = $this->js();
 
         self::assertStringContainsString("pagina.addEventListener('click'", $js);
-        self::assertStringContainsString("closest('[data-ia-avancado-switch]')", $js);
+        // DASH-026 juntou no mesmo closest o cartão e a confirmação; o interruptor segue nele.
+        self::assertMatchesRegularExpression("/var alvo = ev\\.target\\.closest\\('\\[data-ia-avancado-switch\\][^']*'\\);/", $js);
         self::assertStringContainsString("pagina.querySelectorAll('[data-ia-avancado-switch]')", $js);
         $encaixar = substr($js, (int) strpos($js, 'function encaixar()'));
         self::assertStringContainsString('sincronizarIa();', substr($encaixar, 0, 200), 'o MutationObserver do fragmento chama encaixar → sincronizarIa');
