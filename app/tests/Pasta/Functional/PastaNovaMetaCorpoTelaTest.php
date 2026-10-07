@@ -1,0 +1,151 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Pasta\Functional;
+
+use App\Controller\PastaController;
+use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Pasta\Entity\Pasta;
+use App\Tests\Functional\JusPrimeWebTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+
+/**
+ * PMC-059 (+PMC-039, PMC-041) — corpo do modal "Nova meta" no desenho 1.2.3 (dc L.77-188):
+ * rótulos do desenho, contador da descrição e os responsáveis em chips sobre o <select>,
+ * que continua sendo a fonte do envio.
+ *
+ * O comportamento (marcar, filtrar, contar) roda no navegador (pasta-dialogos.js); aqui se
+ * prova o arranjo que ele lê, com combinador de FILHO DIRETO.
+ */
+#[CoversClass(PastaController::class)]
+#[Group('pasta')]
+final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
+{
+    use CriaFixturesPushDaPastaTrait;
+
+    private function abrir(object $client, Pasta $pasta): object
+    {
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        return $crawler;
+    }
+
+    private function colega(\App\Entity\Tenant\Tenant $tenant, string $nome): User
+    {
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $user   = new User();
+        $user->setEmail('colega_' . uniqid() . '@test.com');
+        $user->setFullName($nome);
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $this->em()->persist($user);
+        $this->em()->persist(new UserTenant($user, $tenant));
+        $this->em()->flush();
+
+        return $user;
+    }
+
+    #[TestDox('rótulos do desenho (.ps-nm-rotulo) em Título, Descrição, Prazo e Responsáveis; "*" só onde o servidor exige')]
+    public function testRotulosDoDesenho(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $corpo = $this->abrir($client, $pasta)->filter('#formCriarTarefa > .modal-body.ps-modal-meta-corpo');
+
+        $blocos = $corpo->filter('.ps-modal-meta-corpo > .ps-nm-campo-bloco');
+        self::assertSame(
+            ['Título', 'Descrição', 'Prazo', 'Responsáveis'],
+            $blocos->each(static fn ($b): string => trim((string) preg_replace('/\s*\*.*$/u', '', $b->filter('.ps-nm-campo-bloco > .ps-nm-rotulo')->text()))),
+        );
+        self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaTitulo"] > .ps-nm-obrig'));
+        self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaDescricao"] > .ps-nm-obrig'));
+        self::assertCount(0, $corpo->filter('label.ps-nm-rotulo[for="tarefaPrazo"] > .ps-nm-obrig'), 'prazo segue opcional (D-META)');
+        self::assertCount(0, $corpo->filter('#tarefaResponsavelRotulo > .ps-nm-obrig'), 'responsáveis seguem opcionais (D-META)');
+        self::assertCount(0, $corpo->filter('.form-label-sm, .form-control-sm'), 'sai o tamanho pequeno do Bootstrap');
+    }
+
+    #[TestDox('PMC-039: o contador fica no rótulo da Descrição e conta contra o limite do servidor (5000)')]
+    public function testContadorDaDescricao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $contador = $crawler->filter('label.ps-nm-rotulo[for="tarefaDescricao"] > span.ps-nm-contador[data-ps-nm-contador="tarefaDescricao"]');
+        self::assertCount(1, $contador);
+        self::assertSame('0/5000', trim($contador->text()));
+        self::assertSame('5000', $crawler->filter('textarea#tarefaDescricao')->attr('maxlength'), 'o limite é o de hoje; o 600 do desenho é decisão');
+    }
+
+    #[TestDox('PMC-041: chips sobre o campo, lista com cada colega (nome em caixa alta) e o <select multiple> de sempre como fonte')]
+    public function testResponsaveisEmChips(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $colega          = $this->colega($tenant, 'Beatriz Lima');
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $bloco = $crawler->filter('#formCriarTarefa .ps-modal-meta-corpo > .ps-nm-resp[data-ps-nm-resp]');
+        self::assertCount(1, $bloco);
+
+        $campo = $bloco->filter('.ps-nm-resp > .ps-nm-resp-campo[role="button"][data-ps-nm-resp-campo]');
+        self::assertCount(1, $campo);
+        self::assertSame('tarefaResponsavelLista', $campo->attr('aria-controls'));
+        self::assertCount(1, $campo->filter('.ps-nm-resp-campo > [data-ps-nm-resp-chips]'));
+        self::assertSame('Selecionar responsáveis', trim($campo->filter('.ps-nm-resp-campo > .ps-nm-resp-vazio')->text()));
+        self::assertCount(1, $campo->filter('.ps-nm-resp-vazio > i.bi-person-plus'));
+        self::assertSame('Selecione um ou mais responsáveis pela meta.', trim($bloco->filter('.ps-nm-resp > .ps-nm-dica')->text()));
+
+        $lista = $bloco->filter('.ps-nm-resp > #tarefaResponsavelLista[data-ps-nm-resp-lista]');
+        self::assertNotNull($lista->attr('hidden'), 'a lista nasce fechada');
+        self::assertSame('Filtrar…', $lista->filter('.ps-nm-resp-busca > input[data-ps-nm-resp-busca]')->attr('placeholder'));
+        $opcao = $lista->filter('.ps-nm-resp-opcoes > button.ps-nm-resp-opcao[data-ps-nm-resp-opcao="' . $colega->getId() . '"]');
+        self::assertCount(1, $opcao);
+        self::assertSame('Beatriz Lima', $opcao->attr('data-nome'));
+        self::assertSame('BEATRIZ LIMA', trim($opcao->filter('.ps-nm-resp-opcao-nome')->text()));
+        self::assertCount(1, $opcao->filter('button > .resp-avatar'), 'avatar (foto ou iniciais) do desenho');
+        self::assertSame('Concluir', trim($lista->filter('.ps-nm-resp-rodape > button[data-ps-nm-resp-concluir]')->text()));
+        self::assertSame('Ninguém encontrado', trim($lista->filter('[data-ps-nm-resp-nada]')->text()));
+
+        // A fonte do envio: o mesmo <select>, com uma <option> por colega da lista.
+        $select = $bloco->filter('.ps-nm-resp > select#tarefaResponsavel[name="responsaveis[]"][multiple]');
+        self::assertCount(1, $select);
+        self::assertSame(
+            $lista->filter('button.ps-nm-resp-opcao')->each(static fn ($b) => $b->attr('data-ps-nm-resp-opcao')),
+            $select->filter('option')->each(static fn ($o) => $o->attr('value')),
+            'cada opção da lista marca a <option> de mesmo valor',
+        );
+        self::assertSame('-1', $select->attr('tabindex'), 'o select fica fora da ordem de foco: quem se usa é a lista');
+    }
+
+    #[TestDox('PMC-041: o Select2 sai do campo de responsáveis e o pasta-dialogos.js entra')]
+    public function testSemSelect2(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $this->abrir($client, $pasta);
+        $html = (string) $client->getResponse()->getContent();
+
+        self::assertStringNotContainsString("$('#tarefaResponsavel').select2", $html);
+        self::assertStringContainsString('/js/pasta-dialogos.js', $html);
+    }
+}

@@ -4185,6 +4185,87 @@ document.addEventListener('DOMContentLoaded', function () {
    obrigatórios, "Ação" só leitura, Duplicar meta: D-META) fica como está — por isso o
    "Preencha" só cobra título e descrição, que é a regra atual do servidor. Arrastar e
    recolher: /js/pasta-metas.js (molduraDoModalDeMeta). #}
+{% import '_partials/_avatar_usuario.html.twig' as nmAvatar %}
+{# PMC-059: o CORPO do desenho (dc L.77-188, `nm.corpoSt` e os rótulos `font-size:13px;
+   font-weight:700;color:#243845`). O CSS mora aqui, junto do modal, para não tocar o
+   pasta-show.css (lote L7); as cores saem dos tokens `--ps-*`, que já têm o par escuro. #}
+<style>
+    #modalCriarTarefa .ps-modal-meta-corpo { display: flex; flex-direction: column; gap: 14px; }
+    #modalCriarTarefa .ps-modal-meta-corpo > .alert { margin: 0; }
+    #modalCriarTarefa .ps-nm-campo-bloco { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    #modalCriarTarefa .ps-nm-rotulo { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 13px; font-weight: 700; color: var(--ps-body); }
+    #modalCriarTarefa .ps-nm-obrig { color: var(--ps-danger-dot); }
+    #modalCriarTarefa .ps-nm-rotulo-espaco { flex: 1; }
+    #modalCriarTarefa .ps-nm-contador { font-size: 11px; font-weight: 600; color: var(--ps-faint); font-variant-numeric: tabular-nums; }
+    #modalCriarTarefa .ps-nm-campo {
+        height: 40px; padding: 0 12px; border: none; border-radius: 4px;
+        background: var(--ps-card); color: var(--ps-text); font-size: 14px;
+        box-shadow: inset 0 0 0 1px var(--ps-border-ctl); transition: box-shadow .15s;
+    }
+    #modalCriarTarefa .ps-nm-campo:focus { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-campo--texto { height: auto; min-height: 84px; padding: 10px 12px; line-height: 1.5; resize: vertical; }
+    #modalCriarTarefa .ps-nm-dica { font-size: 12px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-campo {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 40px;
+        padding: 5px 10px 5px 6px; border-radius: 4px; background: var(--ps-card); cursor: pointer;
+        box-shadow: inset 0 0 0 1px var(--ps-border-ctl);
+    }
+    #modalCriarTarefa .ps-nm-resp-campo:focus-visible,
+    #modalCriarTarefa .ps-nm-resp-campo[aria-expanded="true"] { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-resp-chips { display: contents; }
+    #modalCriarTarefa .ps-nm-resp-chip {
+        display: inline-flex; align-items: center; gap: 6px; height: 28px; max-width: 100%; min-width: 0;
+        padding: 0 4px 0 3px; border-radius: 2px; background: var(--ps-accent-bg); color: var(--ps-accent);
+        font-size: 12.5px; font-weight: 700; white-space: nowrap;
+    }
+    #modalCriarTarefa .ps-nm-resp-chip-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    #modalCriarTarefa .ps-nm-resp-chip-tirar {
+        width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        background: transparent; color: inherit; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-resp-chip-tirar:hover,
+    #modalCriarTarefa .ps-nm-resp-chip-tirar:focus-visible { background: var(--ps-hover); outline: none; }
+    #modalCriarTarefa .ps-nm-resp-chip-tirar i { font-size: 14px; }
+    #modalCriarTarefa .ps-nm-resp-vazio { display: flex; align-items: center; gap: 7px; color: var(--ps-faint); font-size: 13.5px; white-space: nowrap; }
+    #modalCriarTarefa .ps-nm-resp-vazio[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-vazio i { font-size: 15px; }
+    #modalCriarTarefa .ps-nm-resp-seta { font-size: 12px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-lista {
+        display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 2px;
+        background: var(--ps-card); box-shadow: var(--ps-shadow-gm);
+    }
+    #modalCriarTarefa .ps-nm-resp-lista[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-busca {
+        display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px;
+        border-radius: 4px; box-shadow: inset 0 0 0 2px var(--ps-accent);
+    }
+    #modalCriarTarefa .ps-nm-resp-busca i { font-size: 13px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-busca input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--ps-text); font-size: 13.5px; }
+    #modalCriarTarefa .ps-nm-resp-opcoes { max-height: 240px; overflow: auto; display: flex; flex-direction: column; gap: 1px; }
+    #modalCriarTarefa .ps-nm-resp-opcao {
+        display: flex; align-items: center; gap: 11px; width: 100%; min-height: 42px; padding: 6px 10px;
+        border: none; border-radius: 4px; background: transparent; color: var(--ps-body);
+        font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-resp-opcao[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-opcao:hover,
+    #modalCriarTarefa .ps-nm-resp-opcao:focus-visible { background: var(--ps-hover); outline: none; }
+    #modalCriarTarefa .ps-nm-resp-opcao[aria-selected="true"] { background: var(--ps-accent-bg); }
+    #modalCriarTarefa .ps-nm-resp-opcao .resp-avatar { flex-shrink: 0; }
+    #modalCriarTarefa .ps-nm-resp-opcao-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #modalCriarTarefa .ps-nm-resp-opcao-ok { width: 16px; font-size: 16px; color: var(--ps-accent); visibility: hidden; }
+    #modalCriarTarefa .ps-nm-resp-opcao[aria-selected="true"] .ps-nm-resp-opcao-ok { visibility: visible; }
+    #modalCriarTarefa .ps-nm-resp-nada { padding: 14px; text-align: center; font-size: 13px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-nada[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-rodape { display: flex; justify-content: flex-end; padding-top: 4px; border-top: 1px solid var(--ps-div-strong); }
+    #modalCriarTarefa .ps-nm-resp-concluir {
+        height: 28px; padding: 0 12px; border: none; border-radius: 4px;
+        background: var(--ps-accent-bg); color: var(--ps-accent); font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-resp-concluir:hover,
+    #modalCriarTarefa .ps-nm-resp-concluir:focus-visible { background: var(--ps-hover); outline: none; }
+</style>
 <div class="modal fade" id="modalCriarTarefa" tabindex="-1" aria-labelledby="modalCriarTarefaLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered ps-modal-meta">
         <div class="modal-content">
@@ -4208,17 +4289,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     <div id="tarefaErroMsg" class="alert alert-danger d-none py-2 small"></div>
 
-                    <div class="mb-3">
-                        <label for="tarefaTitulo" class="form-label form-label-sm fw-semibold">Título <span class="text-danger">*</span></label>
+                    <div class="ps-nm-campo-bloco">
+                        <label for="tarefaTitulo" class="ps-nm-rotulo">Título <span class="ps-nm-obrig">*</span></label>
                         <input type="text" id="tarefaTitulo" name="titulo"
-                               class="form-control form-control-sm" maxlength="255" required
+                               class="form-control ps-nm-campo" maxlength="255" required
                                placeholder="Resumo objetivo da meta">
                     </div>
 
-                    <div class="mb-3">
-                        <label for="tarefaDescricao" class="form-label form-label-sm fw-semibold">Descrição <span class="text-danger">*</span></label>
+                    {# PMC-039: o contador do desenho (`nm.descCont`) contra o limite que o servidor
+                       aplica hoje (5000). O 600 do desenho mudaria a regra — é decisão (C). #}
+                    <div class="ps-nm-campo-bloco">
+                        <label for="tarefaDescricao" class="ps-nm-rotulo">Descrição <span class="ps-nm-obrig">*</span><span class="ps-nm-rotulo-espaco"></span><span class="ps-nm-contador" id="tarefaDescricaoContador" data-ps-nm-contador="tarefaDescricao">0/5000</span></label>
                         <textarea id="tarefaDescricao" name="descricao"
-                                  class="form-control form-control-sm" rows="3" required maxlength="5000"
+                                  class="form-control ps-nm-campo ps-nm-campo--texto" rows="3" required maxlength="5000"
                                   placeholder="Descreva o que precisa ser feito…"></textarea>
                     </div>
 
@@ -4227,10 +4310,10 @@ document.addEventListener('DOMContentLoaded', function () {
                        pendente com o dono). O aviso de título repetido compara com as
                        metas abertas da própria pasta, já renderizadas na aba; não
                        bloqueia o envio. Comportamento em /js/pasta-metas.js. #}
-                    <div class="mb-3 ps-nm-prazo">
-                        <label for="tarefaPrazo" class="form-label form-label-sm fw-semibold">Prazo</label>
+                    <div class="ps-nm-campo-bloco ps-nm-prazo">
+                        <label for="tarefaPrazo" class="ps-nm-rotulo">Prazo</label>
                         <div class="ps-nm-prazo-linha">
-                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control form-control-sm">
+                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control ps-nm-campo">
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="hoje">Hoje</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="amanha">Amanhã</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis5">+5 úteis</button>
@@ -4244,14 +4327,53 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
-                    <div>
-                        <label for="tarefaResponsavel" class="form-label form-label-sm fw-semibold">Responsáveis</label>
-                        <select id="tarefaResponsavel" name="responsaveis[]" class="form-select form-select-sm" multiple>
+                    {# PMC-041 (dc L.168-186, `nm.escolhidos`/`nm.opcoes`): chips com iniciais sobre o
+                       campo e a lista filtrável com "Concluir". O <select multiple> continua sendo a
+                       FONTE (name, id e valores são contrato com o servidor e os testes): os chips e a
+                       lista só marcam e desmarcam as <option> dele — o envio é o de sempre. A lista
+                       é desenhada aqui (nomes escapados pelo Twig); o JS só alterna classes e
+                       atributos e copia o avatar da opção para o chip. A função do colaborador,
+                       que o desenho mostra à direita do nome, não existe no cadastro: não entra.
+                       Responsáveis seguem opcionais (o "*" do desenho é D-META). Comportamento em
+                       /js/pasta-dialogos.js (`seletorDeResponsaveis`). #}
+                    <div class="ps-nm-campo-bloco ps-nm-resp" data-ps-nm-resp>
+                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">Responsáveis</span>
+                        <div class="ps-nm-resp-campo" role="button" tabindex="0"
+                             aria-labelledby="tarefaResponsavelRotulo" aria-haspopup="listbox"
+                             aria-expanded="false" aria-controls="tarefaResponsavelLista" data-ps-nm-resp-campo>
+                            <span class="ps-nm-resp-chips" data-ps-nm-resp-chips></span>
+                            <span class="ps-nm-resp-vazio" data-ps-nm-resp-vazio><i class="bi bi-person-plus" aria-hidden="true"></i>Selecionar responsáveis</span>
+                            <span class="ps-nm-rotulo-espaco"></span>
+                            <i class="bi bi-chevron-down ps-nm-resp-seta" aria-hidden="true"></i>
+                        </div>
+                        <div class="ps-nm-dica">Selecione um ou mais responsáveis pela meta.</div>
+                        <div class="ps-nm-resp-lista" id="tarefaResponsavelLista" data-ps-nm-resp-lista hidden>
+                            <div class="ps-nm-resp-busca">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="text" placeholder="Filtrar…" aria-label="Filtrar responsáveis"
+                                       autocomplete="off" spellcheck="false" data-ps-nm-resp-busca>
+                            </div>
+                            <div class="ps-nm-resp-opcoes" role="listbox" aria-multiselectable="true" aria-labelledby="tarefaResponsavelRotulo">
+                                {% for u in usuarios %}
+                                    <button type="button" class="ps-nm-resp-opcao" role="option" aria-selected="false"
+                                            data-ps-nm-resp-opcao="{{ u.id }}" data-nome="{{ u.fullName }}">
+                                        {{ nmAvatar.avatar(u.fullName, (fotosResponsaveis|default({}))[u.id]|default(null), 30) }}
+                                        <span class="ps-nm-resp-opcao-nome">{{ u.fullName|upper }}</span>
+                                        <i class="bi bi-check-circle-fill ps-nm-resp-opcao-ok" aria-hidden="true"></i>
+                                    </button>
+                                {% endfor %}
+                                <div class="ps-nm-resp-nada" data-ps-nm-resp-nada hidden>Ninguém encontrado</div>
+                            </div>
+                            <div class="ps-nm-resp-rodape">
+                                <button type="button" class="ps-nm-resp-concluir" data-ps-nm-resp-concluir>Concluir</button>
+                            </div>
+                        </div>
+                        <select id="tarefaResponsavel" name="responsaveis[]" class="visually-hidden" multiple
+                                tabindex="-1" aria-hidden="true">
                             {% for u in usuarios %}
                                 <option value="{{ u.id }}">{{ u.fullName }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Selecione um ou mais responsáveis pela meta.</div>
                     </div>
 
                 </div>
@@ -4893,20 +5015,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="/js/pasta-show.js"></script>
 {# Timeline inteligente: carrega os eventos sob demanda e desenha só com textContent. #}
 <script src="/js/pasta-timeline.js"></script>
-<script>
-// Select2 múltiplo para os responsáveis no modal "Nova Meta".
-// Roda neste bloco (após jQuery/Select2 do base) e usa dropdownParent para
-// funcionar dentro do modal Bootstrap.
-document.addEventListener('DOMContentLoaded', function () {
-    if (typeof $ === 'undefined' || typeof $.fn === 'undefined' || typeof $.fn.select2 === 'undefined') {
-        return;
-    }
-    $('#tarefaResponsavel').select2({
-        placeholder: 'Selecione os responsáveis…',
-        allowClear: true,
-        width: '100%',
-        dropdownParent: $('#modalCriarTarefa'),
-    });
-});
-</script>
+{# Diálogos da pasta: chips de responsáveis e contador do modal Nova meta (PMC-059/041). #}
+<script src="{{ asset('js/pasta-dialogos.js') }}"></script>
 {% endblock %}
