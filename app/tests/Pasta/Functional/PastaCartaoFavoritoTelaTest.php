@@ -107,6 +107,53 @@ final class PastaCartaoFavoritoTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('/pasta/' . $pastaB->getId() . '/favorito', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Pasta excluída (lápide) favorita: o cartão mostra só o indicador, sem o botão que alterna')]
+    public function testLapideFavoritaMostraSoOIndicadorNoCartao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $lapide          = $this->criarPastaComNumero($tenant, '92301');
+        $this->em()->persist(new PastaFavorita($tenant, $user, $lapide));
+        $lapide->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/expediente/painel/acervo-geral', ['view' => 'lista'], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+        self::assertResponseIsSuccessful();
+
+        $ident = $crawler->filter('.pastas-lista > .pasta-card.pasta-excluida > .pasta-card-topo > .pasta-card-ident');
+        self::assertCount(1, $ident, 'o cartão da lápide está na lista');
+        self::assertCount(1, $ident->filter('i.pasta-favorita-estrela.bi-star-fill'), 'a lápide favorita mostra o indicador');
+        self::assertCount(0, $ident->filter('.js-pasta-card-favorito'), 'lápide não aceita POST: nada de botão');
+        self::assertCount(0, $crawler->filter('.js-pasta-card-favorito[data-pasta-id="' . $lapide->getId() . '"]'));
+    }
+
+    #[TestDox('O indicador da estrela na linha da TABELA carrega o id da pasta (o cartão o acende/apaga ao alternar)')]
+    public function testIndicadorDaTabelaTemOIdDaPasta(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $minha           = $this->criarPastaComNumero($tenant, '92401');
+        $comum           = $this->criarPastaComNumero($tenant, '92402');
+        $this->em()->persist(new PastaFavorita($tenant, $user, $minha));
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/expediente/painel/acervo-geral', [], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+        self::assertResponseIsSuccessful();
+
+        $celulaMinha = $crawler->filter('tr > td[data-favorito-celula="' . $minha->getId() . '"]');
+        self::assertCount(1, $celulaMinha, 'a célula do NUP da favorita tem o gancho do script');
+        $indicador = $celulaMinha->filter('i.pasta-favorita-estrela.js-pasta-tabela-favorita');
+        self::assertCount(1, $indicador);
+        self::assertSame((string) $minha->getId(), $indicador->attr('data-pasta-id'));
+
+        // A comum tem o gancho (para o indicador nascer ao ligar), mas não o indicador.
+        $celulaComum = $crawler->filter('tr > td[data-favorito-celula="' . $comum->getId() . '"]');
+        self::assertCount(1, $celulaComum);
+        self::assertCount(0, $celulaComum->filter('.pasta-favorita-estrela'));
+    }
+
     private function estrelaDoCartao(Crawler $crawler, Pasta $pasta): Crawler
     {
         $estrela = $crawler->filter(self::SELETOR_ESTRELA . '[data-pasta-id="' . $pasta->getId() . '"]');

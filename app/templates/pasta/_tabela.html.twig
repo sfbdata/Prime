@@ -89,7 +89,9 @@
                 {% for pasta in pastas %}
                 {% set dias = date().diff(pasta.dataAbertura).days %}
                 <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if pasta.estaExcluida %} pasta-excluida{% endif %}" style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}">
-                    <td class="fw-semibold ps-3 align-middle">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}{{ pasta.nup }}</td>
+                    {# `data-favorito-celula` / `data-pasta-id`: a estrela do cartão (abaixo, no script) acende
+                       ou apaga este indicador quando alterna — tabela e cartão coexistem no DOM. #}
+                    <td class="fw-semibold ps-3 align-middle" data-favorito-celula="{{ pasta.id }}">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}{{ pasta.nup }}</td>
                     <td class="align-middle">
                         {# O NOME DA PASTA vem primeiro; o cliente cadastrado é o fallback. A ordem
                            era a inversa e escondia o padrão do escritório (`CREDOR - DEVEDOR`)
@@ -603,6 +605,21 @@
                         b.title = rotulo;
                         var ic = b.querySelector('i');
                         if (ic) { ic.className = 'bi ' + (on ? 'bi-star-fill' : 'bi-star'); }
+                    });
+                    /* O indicador da linha da TABELA (mesma pasta) acompanha: nasce ao ligar,
+                       sai ao desligar — como o servidor o renderiza (só na favorita). */
+                    document.querySelectorAll('td[data-favorito-celula="' + btn.dataset.pastaId + '"]').forEach(function (celula) {
+                        var ind = celula.querySelector('.js-pasta-tabela-favorita');
+                        if (on && !ind) {
+                            ind = document.createElement('i');
+                            ind.className = 'bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita';
+                            ind.dataset.pastaId = btn.dataset.pastaId;
+                            ind.title = 'Fixada nos favoritos';
+                            ind.setAttribute('aria-label', 'Fixada nos favoritos');
+                            celula.insertBefore(ind, celula.firstChild);
+                        } else if (!on && ind) {
+                            ind.remove();
+                        }
                     });
                 })
                 .catch(function () { window.alert('Erro de comunicação. Tente novamente.'); })
