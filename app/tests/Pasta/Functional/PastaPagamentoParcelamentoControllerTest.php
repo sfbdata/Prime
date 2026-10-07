@@ -447,9 +447,12 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
             $crawler->filter("{$form} > div")->each(static fn (Crawler $d): string => (string) $d->attr('class')),
             'cabeçalho, corpo e rodapé são os três blocos do diálogo',
         );
-        self::assertSame(
-            'TOKEN_pasta_pagamento_' . $pastaId,
-            $crawler->filter("{$form} > input[name=\"_token\"]")->attr('value'),
+        // O gerenciador real mascara o valor (BREACH): a prova é ele aceitar o token desta pasta.
+        self::assertTrue(
+            static::getContainer()->get('security.csrf.token_manager')->isTokenValid(new \Symfony\Component\Security\Csrf\CsrfToken(
+                'pasta_pagamento_' . $pastaId,
+                (string) $crawler->filter("{$form} > input[name=\"_token\"]")->attr('value'),
+            )),
             'o CSRF vai junto do formulário (o modal antigo não o mandava)',
         );
 
