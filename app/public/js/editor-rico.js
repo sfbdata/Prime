@@ -1226,6 +1226,34 @@
         quill.setSelection(palavra.inicio + para.length, 0, 'user');
     }
 
+    /**
+     * "Inserir qualificação do cliente" (EDT-014): o texto já montado no servidor
+     * (`QualificacaoDoCliente`, o mesmo do "Copiar qualificação") entra como TEXTO no cursor, com
+     * um espaço depois, e o chip diz o que entrou — como o desenho. Sem cadastro, só o aviso.
+     * A fonte é um elemento da página com `data-editor-qualificacao` (`data-texto`, `data-nome`,
+     * `data-pendencias`).
+     */
+    function inserirQualificacao(refs, fonte) {
+        var quill = refs.quill;
+        var texto = fonte.getAttribute('data-texto') || '';
+        var faixa = quill.getSelection();
+        if (texto === '') {
+            mostrarChip(refs, faixa ? faixa.index : 0, textoDoChip('bi-person-vcard', [
+                { texto: 'Cliente sem cadastro. Abra a qualificação pelo botão ao lado do nome.' },
+            ]), [], 3600);
+
+            return;
+        }
+        inserirTexto(quill, faixa, texto + ' ');
+        var pendencias = Number(fonte.getAttribute('data-pendencias') || 0);
+        var primeiro = (fonte.getAttribute('data-nome') || '').trim().split(/\s+/)[0] || '';
+        var aviso = pendencias > 0
+            ? 'Qualificação inserida com ' + pendencias + ' pendência(s) no cadastro'
+            : 'Qualificação de ' + primeiro + ' inserida';
+        var depois = quill.getSelection();
+        mostrarChip(refs, depois ? depois.index : 0, textoDoChip('bi-person-vcard', [{ texto: aviso }]), [], 3600);
+    }
+
     function abrirMenuContexto(refs, x, y) {
         var quill = refs.quill;
         fecharMenuContexto(refs);
@@ -1299,6 +1327,15 @@
                 })));
             });
             menu.appendChild(el('div', 'editor-rico-menu-separador'));
+        }
+
+        // EDT-014 (bj-editor.js l.751, `__bjQualificacao`): só na página que traz a qualificação
+        // do cliente — e ela só vem para quem pode ver o cliente.
+        var qualificacao = document.querySelector('[data-editor-qualificacao]');
+        if (qualificacao) {
+            menu.appendChild(itemDoMenu('bi-person-vcard', 'Inserir qualificação do cliente', '', false, executar(function () {
+                inserirQualificacao(refs, qualificacao);
+            })));
         }
 
         menu.appendChild(itemDoMenu('bi-search', 'Localizar e substituir', 'Ctrl+H', false, executar(function () { refs.busca.abrir(); })));

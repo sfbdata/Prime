@@ -5402,6 +5402,20 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 <div class="ps-aviso" id="psAviso" role="status" aria-live="polite" hidden><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span></span></div>
+
+{# EDT-014: a qualificação do cliente principal para o item "Inserir qualificação do cliente" do
+   menu do editor (editor-rico.js `inserirQualificacao`). É PII: só vai na página de quem pode VER
+   o cliente (a mesma regra do `cliente_resumo`). Sem cliente cadastrado, o texto vem vazio e o
+   editor só avisa "Cliente sem cadastro…". #}
+{% set qualCliente = pasta.clientePrincipal %}
+{% if qualCliente is null %}
+    <div hidden data-editor-qualificacao data-texto="" data-nome="" data-pendencias="0"></div>
+{% elseif can_access_resource('cliente', qualCliente.id, 'view') %}
+    <div hidden data-editor-qualificacao
+         data-texto="{{ cliente_qualificacao(qualCliente) }}"
+         data-nome="{{ qualCliente.nomeExibicao }}"
+         data-pendencias="{{ cliente_pendencias(qualCliente)|length }}"></div>
+{% endif %}
 {% endblock %}
 
 {% block javascripts %}
