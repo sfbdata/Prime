@@ -137,9 +137,10 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
 
     private function valorGravado(int $id): ?string
     {
-        $this->em()->clear();
+        // SQL direto: depois da requisição o TenantFilter do EM esconde o pagamento de outro escritório.
+        $valor = $this->em()->getConnection()->fetchOne('SELECT valor FROM pasta_pagamento WHERE id = :id', ['id' => $id]);
 
-        return $this->em()->getRepository(PastaPagamento::class)->find($id)?->getValor();
+        return $valor === false ? null : (string) $valor;
     }
 
     /** @return list<array<string, mixed>> */
@@ -487,7 +488,10 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
         self::assertCount(1, $crawler->filter('#psPagamentosCorpo > .ps-pag-total > .ps-pag-total-linha > button.ps-pag-recebido.js-pag-entrar-edicao'));
 
         $linha = $crawler->filter('#psPagamentosCorpo > .ps-pag-linha[data-pagamento-id="' . $id . '"]');
-        self::assertSame('TOKEN_pasta_pagamento_corrigir_' . $id, $linha->attr('data-csrf-corrigir'));
+        // O gerenciador real mascara o valor (BREACH): a prova é ele aceitar o token para este pagamento.
+        self::assertTrue(static::getContainer()->get('security.csrf.token_manager')->isTokenValid(
+            new \Symfony\Component\Security\Csrf\CsrfToken('pasta_pagamento_corrigir_' . $id, (string) $linha->attr('data-csrf-corrigir')),
+        ));
         self::assertSame('1300,00', $linha->attr('data-valor'));
         self::assertCount(1, $linha->filter('.ps-pag-direita > button.ps-pag-valor-editar[data-acao="corrigir"]'));
         self::assertCount(0, $linha->filter('.ps-pag-ajuste'), 'nunca corrigido: sem "corrigido · era"');

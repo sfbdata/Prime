@@ -343,7 +343,7 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $menu = $crawler->filter("#financeiro-doc-menu-{$doc->getId()}");
         self::assertCount(0, $menu->filter('a.js-fin-doc-email'));
         self::assertCount(1, $menu->filter('button.ps-fin-menu-item.js-fin-doc-email.js-fin-doc-email-sem-cadastro'));
-        self::assertStringNotContainsString('mailto:', $crawler->filter('#financeiro')->html());
+        self::assertCount(0, $crawler->filter('#financeiro a[href^="mailto:"]'), 'sem e-mail cadastrado, nenhum link mailto (o texto aparece só em comentário/script)');
         self::assertSame('', $crawler->filter('#financeiro-upload-input')->attr('data-email-cliente'));
         self::assertCount(1, $crawler->filter('#dados-tab'), 'o item leva a uma aba que existe');
     }
