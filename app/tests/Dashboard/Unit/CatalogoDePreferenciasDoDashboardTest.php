@@ -18,11 +18,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Catalogo::class)]
 final class CatalogoDePreferenciasDoDashboardTest extends TestCase
 {
-    #[TestDox('As chaves aceitas são exatamente as cinco do menu (extras e zerar ficam de fora)')]
+    #[TestDox('As chaves aceitas são exatamente as seis do menu (zerar fica de fora)')]
     public function testChavesFechadas(): void
     {
         self::assertSame(
-            ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons'],
+            ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons', 'dashboard.colunas_extras'],
             Catalogo::chaves(),
         );
     }
@@ -40,6 +40,10 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
         yield 'cargo oculto'          => [Catalogo::COLUNAS_OCULTAS, ['cargo']];
         yield 'sons ligados'          => [Catalogo::SONS, 'ligados'];
         yield 'sons desligados'       => [Catalogo::SONS, 'desligados'];
+        yield 'nenhuma extra'         => [Catalogo::COLUNAS_EXTRAS, []];
+        yield 'uma extra'             => [Catalogo::COLUNAS_EXTRAS, ['metas_concluidas']];
+        yield 'extras na ordem do usuário' => [Catalogo::COLUNAS_EXTRAS, ['eventos_agenda', 'taxa_conclusao', 'tempo_medio']];
+        yield 'as seis extras'        => [Catalogo::COLUNAS_EXTRAS, ['metas_concluidas', 'taxa_conclusao', 'metas_revisao', 'tempo_medio', 'pastas_urgentes', 'eventos_agenda']];
     }
 
     #[DataProvider('valoresAceitos')]
@@ -73,6 +77,16 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
         yield 'coluna aninhada'                   => [Catalogo::COLUNAS_OCULTAS, [['cargo']]];
         yield 'todas as numéricas ocultas'        => [Catalogo::COLUNAS_OCULTAS, Catalogo::COLUNAS_NUMERICAS];
         yield 'todas as ocultáveis'               => [Catalogo::COLUNAS_OCULTAS, Catalogo::COLUNAS_OCULTAVEIS];
+        yield 'extra sem lastro (Pastas concluídas)' => [Catalogo::COLUNAS_EXTRAS, ['pastas_concluidas']];
+        yield 'extra "Relatório" (zerar, D-DASH)' => [Catalogo::COLUNAS_EXTRAS, ['comentarios']];
+        yield 'extra no nome do protótipo'        => [Catalogo::COLUNAS_EXTRAS, ['metasConcluidas']];
+        yield 'extra numérica fixa'               => [Catalogo::COLUNAS_EXTRAS, ['metas']];
+        yield 'extras como string'                => [Catalogo::COLUNAS_EXTRAS, 'tempo_medio'];
+        yield 'extras como objeto'                => [Catalogo::COLUNAS_EXTRAS, ['tempo_medio' => true]];
+        yield 'extra não-string'                  => [Catalogo::COLUNAS_EXTRAS, [1]];
+        yield 'extra aninhada'                    => [Catalogo::COLUNAS_EXTRAS, [['tempo_medio']]];
+        yield 'extras nulas'                      => [Catalogo::COLUNAS_EXTRAS, null];
+        yield 'uma boa e uma inventada'           => [Catalogo::COLUNAS_EXTRAS, ['tempo_medio', 'salario']];
     }
 
     #[DataProvider('valoresRecusados')]
@@ -91,6 +105,21 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
             ['cargo', 'metas_vencidas', 'pastas_criadas'],
             Catalogo::validar(Catalogo::COLUNAS_OCULTAS, ['pastas_criadas', 'cargo', 'metas_vencidas', 'cargo']),
         );
+    }
+
+    #[TestDox('Extras repetidas saem uma vez só, mantendo a ordem do usuário (a 1ª ocorrência)')]
+    public function testExtrasSemRepeticaoNaOrdemDoUsuario(): void
+    {
+        self::assertSame(
+            ['tempo_medio', 'metas_concluidas'],
+            Catalogo::validar(Catalogo::COLUNAS_EXTRAS, ['tempo_medio', 'metas_concluidas', 'tempo_medio']),
+        );
+    }
+
+    #[TestDox('O padrão das extras é nenhuma: a tabela de sempre')]
+    public function testExtrasPadraoVazio(): void
+    {
+        self::assertSame([], Catalogo::padrao(Catalogo::COLUNAS_EXTRAS));
     }
 
     #[TestDox('Seis das sete numéricas ocultas é aceito: sobra uma visível')]

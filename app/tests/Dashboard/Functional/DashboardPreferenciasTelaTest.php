@@ -162,7 +162,7 @@ final class DashboardPreferenciasTelaTest extends DashboardWebTestCase
         self::assertStringContainsString((string) $user->getFullName(), $crawler->filter($menu . ' .db-pref-faixa')->text());
     }
 
-    #[TestDox('O menu não oferece o que o sistema não tem: "Adicionar coluna", zerar')]
+    #[TestDox('O menu não oferece o que o sistema não tem: zerar e "Pastas concluídas" (sem lastro)')]
     public function testMenuSemOQueNaoExiste(): void
     {
         $client = static::createClient();
@@ -171,8 +171,9 @@ final class DashboardPreferenciasTelaTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/dashboard');
         $texto   = $crawler->filter('section.db-page > .db-pref')->text();
 
-        self::assertStringNotContainsString('Adicionar coluna', $texto);
         self::assertStringNotContainsString('Zerar', $texto);
+        self::assertStringNotContainsString('Pastas concluídas', $texto);
+        self::assertStringNotContainsString('Relatório', $texto);
         self::assertSame(1, $crawler->filter('section.db-page > .db-pref [data-pref-mostrar-todas][hidden]')->count(), 'sem coluna oculta, "Mostrar todas" fica escondido');
     }
 

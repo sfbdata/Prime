@@ -15,8 +15,11 @@ use App\Dashboard\Exception\PreferenciaInvalidaException;
  * "Sons" liga/desliga o som do calendário das datas (README do desenho, "Calendário das datas").
  * O som do campeão não existe: depende do troféu, que espera decisão do dono (D-DASH).
  *
+ * "Colunas extras" ("Adicionar coluna") guarda a LISTA das métricas acrescentadas, na ordem em
+ * que o usuário as acrescentou (cada "+" vai para o fim da tabela). Só valem as chaves do
+ * {@see ColunasExtrasDoDashboard} — as métricas que o servidor calcula de verdade.
+ *
  * O que NÃO está aqui, de propósito:
- *   - colunas extras ("Adicionar coluna"): o back-end não calcula essas métricas ainda;
  *   - zerar relatório e acesso restrito: decisão do dono pendente.
  *
  * Os identificadores de coluna são os mesmos do `ordenar` da tabela (`th[data-ordenar]`) e do
@@ -29,6 +32,7 @@ final class CatalogoDePreferenciasDoDashboard
     public const SETAS           = 'dashboard.setas';
     public const COLUNAS_OCULTAS = 'dashboard.colunas_ocultas';
     public const SONS            = 'dashboard.sons';
+    public const COLUNAS_EXTRAS  = 'dashboard.colunas_extras';
 
     public const DENSIDADE_CONFORTAVEL = 'confortavel';
     public const DENSIDADE_COMPACTA    = 'compacta';
@@ -81,6 +85,7 @@ final class CatalogoDePreferenciasDoDashboard
         self::SETAS           => self::SETAS_LIGADAS,
         self::COLUNAS_OCULTAS => [],
         self::SONS            => self::SONS_LIGADOS,
+        self::COLUNAS_EXTRAS  => [],
     ];
 
     /** @return list<string> */
@@ -120,6 +125,10 @@ final class CatalogoDePreferenciasDoDashboard
             return self::validarColunasOcultas($valor);
         }
 
+        if ($chave === self::COLUNAS_EXTRAS) {
+            return self::validarColunasExtras($valor);
+        }
+
         if (!is_string($valor) || !in_array($valor, self::OPCOES[$chave], true)) {
             throw new PreferenciaInvalidaException('Valor não permitido para esta preferência.');
         }
@@ -155,5 +164,28 @@ final class CatalogoDePreferenciasDoDashboard
         }
 
         return $ocultas;
+    }
+
+    /**
+     * Colunas extras: lista de chaves do catálogo de extras, sem repetição, NA ORDEM RECEBIDA —
+     * a ordem é a da tabela (cada "+" acrescenta no fim). Lista vazia = nenhuma extra.
+     *
+     * @return list<string>
+     *
+     * @throws PreferenciaInvalidaException
+     */
+    private static function validarColunasExtras(mixed $valor): array
+    {
+        if (!is_array($valor) || !array_is_list($valor)) {
+            throw new PreferenciaInvalidaException('As colunas extras vêm numa lista.');
+        }
+
+        foreach ($valor as $coluna) {
+            if (!is_string($coluna) || !ColunasExtrasDoDashboard::existe($coluna)) {
+                throw new PreferenciaInvalidaException('Coluna extra desconhecida.');
+            }
+        }
+
+        return ColunasExtrasDoDashboard::filtrar($valor);
     }
 }

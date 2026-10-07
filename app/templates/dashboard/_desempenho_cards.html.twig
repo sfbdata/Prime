@@ -23,6 +23,7 @@
    dashboard). Macros não atravessam o include: o import é refeito aqui.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% import 'dashboard/_tendencia.html.twig' as tend %}
+{% import 'dashboard/_extras.html.twig' as extra %}
 {# Colunas na ordem da tabela; `d` é a direção inicial ao escolher (texto sobe,
    número desce — como o desenho). #}
 {% set colunasOrdem = [
@@ -36,6 +37,11 @@
     { k: 'demandas_ativas', r: 'Demandas ativas', d: 'desc' },
     { k: 'pastas_criadas',  r: 'Pastas criadas',  d: 'desc' }
 ] %}
+{# Colunas extras ligadas (`extras` e `extrasCatalogo` vêm do _resultado): entram no fim do
+   "Ordenar", na ordem da tabela, como no desenho (opcoesOrdem). #}
+{% for k in extras %}
+    {% set colunasOrdem = colunasOrdem|merge([{ k: k, r: extrasCatalogo[k].rotulo, d: 'desc' }]) %}
+{% endfor %}
 {# Mesmo critério do UseCase: coluna desconhecida ou vazia = Total metas decrescente;
    a direção só é crescente com `direcao=asc`. #}
 {% set ordPedido = filtros.ordenar|default('') %}
@@ -168,6 +174,13 @@
                     {{- tend.tendencia(linha.pastasCriadas, linha.pastasCriadasAnterior, 'seta') -}}
                 </span>
             </div>
+            {# Extras: um bloco cada, depois dos de pastas (desenho: "bloco no card do celular"). #}
+            {% for k in extras %}
+            <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
+                <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
+                <span class="db-cel-valor">{{ extra.valor(k, linha.extras[k] ?? null, linha.userId, quem, periodoLink) }}</span>
+            </div>
+            {% endfor %}
         </div>
     </div>
     {% endfor %}
@@ -216,6 +229,14 @@
                 <span class="db-cel-rotulo">Pastas criadas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span>
             </div>
+            {% for k in extras %}
+            {% set tx = dashboard.totaisExtras[k] ?? null %}
+            {% set tipoX = extrasCatalogo[k].tipo %}
+            <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
+                <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span></span>
+            </div>
+            {% endfor %}
         </div>
     </div>
     {% endif %}

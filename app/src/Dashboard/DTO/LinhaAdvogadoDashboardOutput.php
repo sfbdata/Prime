@@ -33,5 +33,10 @@ final class LinhaAdvogadoDashboardOutput
         // foto guarda o estoque inteiro — bases diferentes, comparação sem lastro.)
         public readonly ?int   $metasVencidasAnterior = null,
         public readonly ?int   $prazosProximosAnterior = null,
+        // COLUNAS EXTRAS ("Adicionar coluna") — só as que o usuário ligou, na ordem da tabela:
+        // chave do ColunasExtrasDoDashboard => valor. Contagem é int (zero é dado); taxa (%) e
+        // tempo médio (dias) são null quando não há o que medir — a tela mostra "—".
+        /** @var array<string, int|null> */
+        public readonly array  $extras = [],
     ) {}
 }

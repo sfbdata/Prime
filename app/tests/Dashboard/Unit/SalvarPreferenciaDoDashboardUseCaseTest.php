@@ -30,7 +30,7 @@ final class SalvarPreferenciaDoDashboardUseCaseTest extends TestCase
     private Tenant $tenant;
     private User $usuario;
 
-    private const CHAVES = ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons'];
+    private const CHAVES = ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons', 'dashboard.colunas_extras'];
 
     protected function setUp(): void
     {

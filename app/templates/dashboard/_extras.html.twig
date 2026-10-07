@@ -1,0 +1,38 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Colunas extras da tabela Desempenho ("Adicionar coluna" do menu ⋮; desenho
+   01 - Dashboard 1.2.2, constante EXTRAS). O catálogo e as fórmulas moram no
+   servidor (App\Dashboard\Preferencia\ColunasExtrasDoDashboard e
+   ObterDadosDashboardUseCase); aqui só a forma do número:
+     soma → "12" · pct → "75%" · dias → "4d" (fmtExtra do desenho).
+   Valor null = não há o que medir (taxa sem meta, tempo sem meta concluída com
+   data): "—", nunca um número inventado.
+
+   Número clicável só onde a lista de destino conta a MESMA coisa (regra B12):
+   Pastas urgentes > 0 abre o Acervo geral com prioridade urgente da pessoa (o
+   mesmo destino do "ver pastas" do card Demandas urgentes). As outras extras não
+   têm lista que bata (Metas da equipe não filtra concluídas nem em revisão; a
+   agenda não filtra por pessoa) e ficam como número simples.
+─────────────────────────────────────────────────────────────────────────── #}
+{% macro valor(chave, valor, userId = null, quem = '', periodoLink = {}) %}
+{%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
+{%- set tipo = catalogo[chave].tipo -%}
+{%- if valor is null -%}
+    <span class="db-num db-num--vazio" title="Sem dado no período">—</span>
+{%- else -%}
+    {%- set texto = tipo == 'pct' ? valor ~ '%' : (tipo == 'dias' ? valor ~ 'd' : valor) -%}
+    {%- if userId is not null and chave == 'pastas_urgentes' and valor > 0 -%}
+        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', prioridade: 'urgente', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas urgentes de {{ quem }}" aria-label="Abrir: Expediente · pastas urgentes de {{ quem }}">{{ texto }}</a>
+    {%- elseif valor == 0 -%}
+        <span class="db-num db-num--zero">{{ texto }}</span>
+    {%- else -%}
+        <span class="db-num">{{ texto }}</span>
+    {%- endif -%}
+{%- endif -%}
+{% endmacro %}
+
+{# title do cabeçalho: a ajuda do desenho e, quando há, a ressalva da métrica. #}
+{% macro titulo(chave) %}
+{%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
+{%- set c = catalogo[chave] -%}
+{{- c.ajuda ~ (c.nota != '' ? ' · ' ~ c.nota : '') -}}
+{% endmacro %}

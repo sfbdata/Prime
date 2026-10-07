@@ -49,5 +49,20 @@ final class DashboardOutput
          * @var array{data_de: string, data_ate: string}|null
          */
         public readonly ?array $periodoAnterior = null,
+        // COLUNAS EXTRAS ("Adicionar coluna" do menu ⋮)
+        /**
+         * Chaves do ColunasExtrasDoDashboard ligadas pelo usuário, na ordem da tabela (cada "+"
+         * acrescenta no fim). Vazia = a tabela de sempre.
+         *
+         * @var list<string>
+         */
+        public readonly array  $colunasExtras = [],
+        /**
+         * Total de cada extra sobre as linhas VISÍVEIS: contagem = soma; taxa = Σ concluídas ÷
+         * Σ metas; tempo médio = Σ dias ÷ Σ metas com data. Null = sem base ("—").
+         *
+         * @var array<string, int|null>
+         */
+        public readonly array  $totaisExtras = [],
     ) {}
 }

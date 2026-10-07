@@ -6,7 +6,9 @@ namespace App\Dashboard\UseCase;
 
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
+use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Repository\DashboardFotoRepository;
+use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
@@ -45,6 +47,7 @@ final class ObterDadosDashboardUseCase
         private readonly TarefaRepository $tarefaRepository,
         private readonly UserRepository   $userRepository,
         private readonly DashboardFotoRepository $dashboardFotoRepository,
+        private readonly MetricasExtrasDoDashboardRepository $metricasExtras,
     ) {}
 
     /**
@@ -57,9 +60,16 @@ final class ObterDadosDashboardUseCase
      *                                        card nenhum). Vencidas/prazos próximos seguem
      *                                        relativos a $referencia. `ordenar`/`direcao`
      *                                        ordenam a tabela pela coluna clicada no cabeçalho.
+     * @param array<mixed>         $colunasExtras colunas do "Adicionar coluna" que o usuário ligou
+     *                                        (preferência `dashboard.colunas_extras`), na ordem
+     *                                        da tabela. Só essas são calculadas — uma consulta
+     *                                        agregada por métrica, no máximo; chave fora do
+     *                                        catálogo é ignorada.
      */
-    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros = []): DashboardOutput
+    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros = [], array $colunasExtras = []): DashboardOutput
     {
+        $colunasExtras = Extras::filtrar($colunasExtras);
+
         // CARDS
         $totalMetasAtivas  = $this->tarefaRepository->countMetasAtivas($tenant, $filtros);
         $demandasUrgentes  = $this->pastaRepository->countUrgentes($tenant, $filtros);
@@ -120,6 +130,14 @@ final class ObterDadosDashboardUseCase
 
         $mFoto = $colaboradores === [] ? [] : $this->userRepository->findFotoPorColaboradores($tenant);
 
+        // Colunas extras: os mapas userId => valor, só das ligadas (e só com gente na tabela).
+        $mExtras = $colaboradores === [] ? [] : $this->mapasExtras(
+            $tenant,
+            $filtros,
+            $colunasExtras,
+            array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
+        );
+
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
         foreach ($colaboradores as $user) {
@@ -142,6 +160,13 @@ final class ObterDadosDashboardUseCase
                 pastasCriadasAnterior: $comAnterior ? ($mAntCriadas[$id] ?? 0) : null,
                 metasVencidasAnterior:  $estoque['metas_vencidas']  ?? null,
                 prazosProximosAnterior: $estoque['prazos_proximos'] ?? null,
+                extras:                $this->valoresExtras(
+                    $colunasExtras,
+                    $mExtras,
+                    $id,
+                    $mTotalTarefa[$id] ?? 0,
+                    $mAtivasTarefa[$id] ?? 0,
+                ),
             );
         }
 
@@ -170,14 +195,115 @@ final class ObterDadosDashboardUseCase
             $totalMetasAtivas,
             $demandasUrgentes,
             $metaGlobalPercent,
-            $this->ordenar($linhas, $filtros),
+            $this->ordenar($linhas, $filtros, $colunasExtras),
             totalPastasCriadas:         $totalPastasCriadas,
             metasConcluidas:            $global['concluidas'],
             metasTotal:                 $global['total'],
             totaisAnteriores:           $totaisAnteriores,
             totalPastasCriadasAnterior: $totalPastasCriadasAnterior,
             periodoAnterior:            $periodoAnterior,
+            colunasExtras:              $colunasExtras,
+            totaisExtras:               $this->totaisExtras($colunasExtras, $mExtras, $linhas),
         );
+    }
+
+    /**
+     * Uma consulta agregada por métrica ligada. "Metas concluídas" e "Taxa de conclusão" não
+     * consultam nada: saem de Total metas − Metas ativas, que já estão calculadas.
+     *
+     * @param array<string, mixed> $filtros
+     * @param list<string>         $colunasExtras
+     * @param list<int>            $pessoas
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function mapasExtras(Tenant $tenant, array $filtros, array $colunasExtras, array $pessoas): array
+    {
+        $mapas = [];
+        foreach ($colunasExtras as $coluna) {
+            $mapas[$coluna] = match ($coluna) {
+                Extras::METAS_REVISAO   => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros),
+                Extras::TEMPO_MEDIO     => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros),
+                Extras::PASTAS_URGENTES => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros),
+                Extras::EVENTOS_AGENDA  => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
+                default                 => [],
+            };
+        }
+
+        return $mapas;
+    }
+
+    /**
+     * Valor de cada coluna extra ligada para UMA pessoa. Contagem sem registro é 0 (zero é dado);
+     * taxa sem meta no período e tempo médio sem meta concluída com data são null ("—"): não há
+     * o que medir, e o painel não inventa número.
+     *
+     * @param list<string>                     $colunasExtras
+     * @param array<string, array<int, mixed>> $mExtras
+     *
+     * @return array<string, int|null>
+     */
+    private function valoresExtras(array $colunasExtras, array $mExtras, int $id, int $totalMetas, int $metasAtivas): array
+    {
+        $valores = [];
+        foreach ($colunasExtras as $coluna) {
+            $valores[$coluna] = match ($coluna) {
+                Extras::METAS_CONCLUIDAS => $totalMetas - $metasAtivas,
+                Extras::TAXA_CONCLUSAO   => $totalMetas > 0
+                    ? (int) round(($totalMetas - $metasAtivas) / $totalMetas * 100)
+                    : null,
+                Extras::TEMPO_MEDIO      => isset($mExtras[$coluna][$id]) && $mExtras[$coluna][$id]['metas'] > 0
+                    ? (int) round($mExtras[$coluna][$id]['dias'] / $mExtras[$coluna][$id]['metas'])
+                    : null,
+                default                  => (int) ($mExtras[$coluna][$id] ?? 0),
+            };
+        }
+
+        return $valores;
+    }
+
+    /**
+     * Total de cada coluna extra sobre as linhas VISÍVEIS (depois da busca), como a linha de Total:
+     * contagem = soma; taxa = Σ concluídas ÷ Σ metas; tempo médio = Σ dias ÷ Σ metas com data
+     * (a média de todas as metas, não a média das médias). Sem base, null ("—").
+     *
+     * @param list<string>                     $colunasExtras
+     * @param array<string, array<int, mixed>> $mExtras
+     * @param LinhaAdvogadoDashboardOutput[]   $linhas
+     *
+     * @return array<string, int|null>
+     */
+    private function totaisExtras(array $colunasExtras, array $mExtras, array $linhas): array
+    {
+        $totais = [];
+        foreach ($colunasExtras as $coluna) {
+            if ($coluna === Extras::TAXA_CONCLUSAO) {
+                $metas      = $this->somar($linhas, 'totalMetas');
+                $concluidas = $metas - $this->somar($linhas, 'metasAtivas');
+                $totais[$coluna] = $metas > 0 ? (int) round($concluidas / $metas * 100) : null;
+
+                continue;
+            }
+
+            if ($coluna === Extras::TEMPO_MEDIO) {
+                $dias  = 0;
+                $metas = 0;
+                foreach ($linhas as $linha) {
+                    $dias  += (int) ($mExtras[$coluna][$linha->userId]['dias'] ?? 0);
+                    $metas += (int) ($mExtras[$coluna][$linha->userId]['metas'] ?? 0);
+                }
+                $totais[$coluna] = $metas > 0 ? (int) round($dias / $metas) : null;
+
+                continue;
+            }
+
+            $totais[$coluna] = array_sum(array_map(
+                static fn (LinhaAdvogadoDashboardOutput $l): int => (int) ($l->extras[$coluna] ?? 0),
+                $linhas,
+            ));
+        }
+
+        return $totais;
     }
 
     /**
@@ -327,14 +453,33 @@ final class ObterDadosDashboardUseCase
      * existe, já que a chave chega pela URL — mantém o padrão histórico do painel: mais metas
      * primeiro. Qualquer direção diferente de `asc` é decrescente.
      *
+     * Coluna extra só ordena quando está ligada; o "—" (sem dado) vai sempre para o fim, nas
+     * duas direções — sem dado não é "menor que zero".
+     *
      * @param LinhaAdvogadoDashboardOutput[] $linhas
      * @param array<string, mixed>           $filtros
+     * @param list<string>                   $colunasExtras
      *
      * @return LinhaAdvogadoDashboardOutput[]
      */
-    private function ordenar(array $linhas, array $filtros): array
+    private function ordenar(array $linhas, array $filtros, array $colunasExtras = []): array
     {
         $coluna = (string) ($filtros['ordenar'] ?? '');
+
+        if (in_array($coluna, $colunasExtras, true)) {
+            $asc = ($filtros['direcao'] ?? '') === 'asc';
+            usort($linhas, static function (LinhaAdvogadoDashboardOutput $a, LinhaAdvogadoDashboardOutput $b) use ($coluna, $asc): int {
+                $va = $a->extras[$coluna] ?? null;
+                $vb = $b->extras[$coluna] ?? null;
+                if ($va === null || $vb === null) {
+                    return ($va === null) <=> ($vb === null);
+                }
+
+                return $asc ? $va <=> $vb : $vb <=> $va;
+            });
+
+            return $linhas;
+        }
 
         if (!isset(self::ORDENAVEIS[$coluna])) {
             usort($linhas, static fn (LinhaAdvogadoDashboardOutput $a, LinhaAdvogadoDashboardOutput $b): int => $b->totalMetas <=> $a->totalMetas);

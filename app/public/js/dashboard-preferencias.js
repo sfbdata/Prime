@@ -18,6 +18,11 @@
  *
  * `db-page--sem-som` é lido pelo dashboard-filtros.js na hora de tocar o som do calendário: a
  * escolha vale na hora, sem recarregar.
+ *
+ * Colunas extras ("Adicionar coluna", `dashboard.colunas_extras`): não viram classe — o SERVIDOR
+ * calcula a coluna. Depois que o servidor confirma a gravação e a lista mudou em relação ao que
+ * está na tabela, o fragmento é recarregado pelo mesmo XHR do filtro (submit do form da casca).
+ * "+" acrescenta no fim; desmarcar a "(extra)" em Colunas a remove.
  */
 (function () {
     'use strict';
@@ -33,6 +38,7 @@
     var CH_SETAS = 'dashboard.setas';
     var CH_COLUNAS = 'dashboard.colunas_ocultas';
     var CH_SONS = 'dashboard.sons';
+    var CH_EXTRAS = 'dashboard.colunas_extras';
     var OCULTAVEIS = ['cargo', 'metas', 'metas_ativas', 'metas_vencidas', 'prazos', 'demandas', 'demandas_ativas', 'pastas_criadas'];
     var NUMERICAS = OCULTAVEIS.slice(1);
     var PADRAO = {};
@@ -41,6 +47,7 @@
     PADRAO[CH_SETAS] = 'ligadas';
     PADRAO[CH_COLUNAS] = [];
     PADRAO[CH_SONS] = 'ligados';
+    PADRAO[CH_EXTRAS] = [];
 
     var endpoint = pagina.getAttribute('data-preferencias-endpoint');
     var botao = pref.querySelector('.db-pref-btn');
@@ -60,6 +67,10 @@
     // Só a resposta da última gravação vale (duas escolhas rápidas não se atropelam).
     var ultimaGravacao = 0;
 
+    // Extras que a tabela na tela já traz (as do HTML do servidor). Quando o servidor confirma
+    // uma lista diferente, o fragmento é recarregado para a coluna aparecer/sumir.
+    var extrasNaTela = extras(estado).slice();
+
     function copiar(e) {
         var c = {};
         Object.keys(e).forEach(function (k) {
@@ -70,6 +81,25 @@
 
     function ocultas(e) {
         return Array.isArray(e[CH_COLUNAS]) ? e[CH_COLUNAS] : [];
+    }
+
+    function extras(e) {
+        return Array.isArray(e[CH_EXTRAS]) ? e[CH_EXTRAS] : [];
+    }
+
+    function mesmaLista(a, b) {
+        return a.length === b.length && a.every(function (v, i) { return v === b[i]; });
+    }
+
+    // Recarrega o fragmento com o filtro atual (o filtro-tabela.js intercepta o submit e troca
+    // [data-filtro-resultado] por XHR). Sem o form, recarrega a página.
+    function recarregarTabela() {
+        var form = document.querySelector('[data-filtro-root] [data-filtro-form]');
+        if (!form) {
+            window.location.reload();
+            return;
+        }
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     }
 
     function classesDe(e) {
@@ -116,6 +146,29 @@
         if (mostrar) {
             mostrar.hidden = oc.length === 0;
         }
+
+        // Extras: as ligadas aparecem em Colunas como "(extra)", na ordem da tabela; as outras
+        // ficam em "Adicionar coluna".
+        var ex = extras(estado);
+        var caixaAtivas = menu.querySelector('[data-pref-extras-ativas]');
+        if (caixaAtivas) {
+            ex.forEach(function (k) {
+                var b = caixaAtivas.querySelector('[data-pref-extra-remover="' + k + '"]');
+                if (b) { caixaAtivas.appendChild(b); }
+            });
+            caixaAtivas.querySelectorAll('[data-pref-extra-remover]').forEach(function (b) {
+                b.hidden = ex.indexOf(b.getAttribute('data-pref-extra-remover')) === -1;
+            });
+        }
+        var disponiveis = 0;
+        menu.querySelectorAll('[data-pref-extra-adicionar]').forEach(function (b) {
+            b.hidden = ex.indexOf(b.getAttribute('data-pref-extra-adicionar')) !== -1;
+            if (!b.hidden) { disponiveis++; }
+        });
+        var todas = menu.querySelector('[data-pref-extras-todas]');
+        if (todas) {
+            todas.hidden = disponiveis > 0;
+        }
     }
 
     function aplicar(e) {
@@ -142,6 +195,11 @@
         }).then(function (dados) {
             if (minha === ultimaGravacao && dados && dados.preferencias) {
                 aplicar(dados.preferencias);
+                var confirmadas = extras(estado);
+                if (!mesmaLista(confirmadas, extrasNaTela)) {
+                    extrasNaTela = confirmadas.slice();
+                    recarregarTabela();
+                }
             }
         }).catch(function () {
             if (minha === ultimaGravacao) {
@@ -233,6 +291,18 @@
             var nova = oc.indexOf(col) === -1 ? oc.concat([col]) : oc.filter(function (c) { return c !== col; });
             // mesma ordem que o servidor grava (a da tabela)
             mudar(CH_COLUNAS, OCULTAVEIS.filter(function (c) { return nova.indexOf(c) !== -1; }));
+            return;
+        }
+        if (alvo.hasAttribute('data-pref-extra-adicionar')) {
+            var novaExtra = alvo.getAttribute('data-pref-extra-adicionar');
+            var atuais = extras(estado);
+            // "+" acrescenta no fim da tabela (desenho: extras.concat(k)).
+            if (atuais.indexOf(novaExtra) === -1) { mudar(CH_EXTRAS, atuais.concat([novaExtra])); }
+            return;
+        }
+        if (alvo.hasAttribute('data-pref-extra-remover')) {
+            var sai = alvo.getAttribute('data-pref-extra-remover');
+            mudar(CH_EXTRAS, extras(estado).filter(function (k) { return k !== sai; }));
             return;
         }
         if (alvo.hasAttribute('data-pref-mostrar-todas')) {

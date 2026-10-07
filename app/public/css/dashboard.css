@@ -2214,6 +2214,8 @@
     --db-pref-seg-borda: #dfe7ed;
     --db-pref-caixa-off: #b9c8d2;
     --db-pref-sw-off:    #cfd9e0;
+    --db-pref-add-bg:    #eef6fa;
+    --db-pref-add-borda: #cfe3ec;
     position: relative;
     flex-shrink: 0;
 }
@@ -2224,6 +2226,8 @@
     --db-pref-seg-borda: var(--bs-border-color);
     --db-pref-caixa-off: var(--bs-border-color);
     --db-pref-sw-off:    var(--bs-border-color);
+    --db-pref-add-bg:    var(--bs-secondary-bg);
+    --db-pref-add-borda: var(--bs-border-color);
 }
 /* só os três pontinhos, sem círculo nem borda (28×36) */
 .db-page .db-pref-btn {
@@ -2461,6 +2465,41 @@
 .db-page.db-oculta--demandas [data-coluna="demandas"],
 .db-page.db-oculta--demandas_ativas [data-coluna="demandas_ativas"],
 .db-page.db-oculta--pastas_criadas [data-coluna="pastas_criadas"] { display: none !important; }
+
+/* ── "Adicionar coluna" (desenho 1.2.2, dc L689-706) ────────────────────────
+   Cabeçalho com ⊕ 12px no acento; cada item: caixa "+" 18×18 (#eef6fa, contorno
+   #cfe3ec), rótulo 13.5/600 e ajuda 11.5px; hover #eef6fa. Quando todas já estão
+   na tabela, a frase 12px no lugar da lista. */
+.db-page .db-pref-secao--add { display: flex; align-items: center; gap: 6px; padding-top: 2px; padding-bottom: 6px; }
+.db-page .db-pref-secao--add i { font-size: 12px; color: var(--db-accent); }
+.db-page .db-pref-add { padding: 7px 8px; }
+.db-page .db-pref-add:hover,
+.db-page .db-pref-add:focus-visible { background: var(--db-pref-add-bg); }
+.db-page .db-pref-add-mais {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    background: var(--db-pref-add-bg);
+    color: var(--db-accent);
+    box-shadow: inset 0 0 0 1px var(--db-pref-add-borda);
+}
+.db-page .db-pref-add-mais i { font-size: 12px; }
+.db-page .db-pref-add-txt { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.db-page .db-pref-add-rotulo { font-size: 13.5px; font-weight: 600; color: var(--db-text-strong); }
+.db-page .db-pref-add-ajuda { font-size: 11.5px; line-height: 1.3; color: var(--db-faint); }
+.db-page .db-pref-add-vazio { padding: 6px 8px 4px; font-size: 12px; color: var(--db-faint); }
+.db-page .db-pref-add-vazio[hidden],
+.db-page .db-pref-item[hidden] { display: none; }
+
+/* Colunas extras na tabela: mais de 8 numéricas → mínimo 52px por coluna (a rolagem
+   horizontal com Colaborador fixa já existe no .db-table-scroll). "—" = sem dado. */
+.db-page .db-table--larga .db-th-num { min-width: 52px; }
+.db-page .db-num--vazio { font-weight: 500; color: var(--db-zero); }
+.db-page .db-cel-bloco--extra { grid-column: span 4; }
 
 /* Animações reduzidas: tudo instantâneo, igual a prefers-reduced-motion (o
    desenho usa a mesma regra universal). Os laços infinitos param no 1º ciclo. */

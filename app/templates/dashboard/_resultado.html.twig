@@ -22,6 +22,11 @@
    Só o card Demandas urgentes traz "ver pastas" (Acervo geral do Expediente);
    os "ver pastas"/"ver metas" dos outros cards ficam para outro lote. #}
 {% import 'dashboard/_tendencia.html.twig' as tend %}
+{% import 'dashboard/_extras.html.twig' as extra %}
+{# Colunas extras ligadas pelo usuário ("Adicionar coluna"), na ordem da tabela: entram depois
+   de Pastas criadas, no cabeçalho, em cada linha, no Total e no card do celular. #}
+{% set extras = dashboard.colunasExtras %}
+{% set extrasCatalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') %}
 {# Período do painel para os links "ir para o serviço": some quando o painel está sem
    período (o destino então lista sem recorte de data, como as contagens). #}
 {% set periodoLink = { data_de: filtros.data_de|default(''), data_ate: filtros.data_ate|default('') }|filter(v => v != '') %}
@@ -251,7 +256,9 @@
         {# Sem linhas a tabela continua com a linha de cabeçalhos (desenho); o aviso de
            vazio fica DEPOIS dela, fora do <tbody>, porque os testes contam
            `table > tbody > tr` como gente. #}
-        <table class="table db-table mb-0">
+        {# Mais de 8 numéricas (as 7 + 2 extras ou mais): mínimo de 52px por coluna e, se
+           ainda não couber, rolagem com Colaborador fixa (desenho, "Adicionar coluna"). #}
+        <table class="table db-table mb-0{{ extras|length >= 2 ? ' db-table--larga' : '' }}">
             <thead>
                 {# Ordenação por clique no cabeçalho (padrão Expediente): o th leva `data-ordenar`,
                    o motor filtro-tabela.js grava nos hidden ordenar/direcao do form e recarrega o
@@ -259,7 +266,7 @@
                 {# Mesmo critério do UseCase (e do _desempenho_cards): coluna vazia ou
                    desconhecida = Total metas decrescente, já pintada desde a abertura. #}
                 {% set ordPedido = filtros.ordenar|default('') %}
-                {% set ordValida = ordPedido in ['advogado', 'cargo', 'metas', 'metas_ativas', 'metas_vencidas', 'prazos', 'demandas', 'demandas_ativas', 'pastas_criadas'] %}
+                {% set ordValida = ordPedido in ['advogado', 'cargo', 'metas', 'metas_ativas', 'metas_vencidas', 'prazos', 'demandas', 'demandas_ativas', 'pastas_criadas'] or ordPedido in extras %}
                 {% set ordCol = ordValida ? ordPedido : 'metas' %}
                 {% set ordDir = ordValida and filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
                 <tr>
@@ -273,6 +280,9 @@
                     <th class="sortable text-center db-th-num{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas" data-coluna="demandas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Demandas ativas</th>
                     {# Por quem ABRIU a pasta (criadoPor) — as duas colunas acima são por responsável. #}
                     <th class="sortable text-center db-th-num{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas" data-coluna="pastas_criadas"><i class="bi bi-chevron-expand sort-icon"></i> Pastas criadas</th>
+                    {% for k in extras %}
+                    <th class="sortable text-center db-th-num db-th-extra{{ ordCol == k ? ' ' ~ ordDir : '' }}" data-ordenar="{{ k }}" data-coluna="{{ k }}" data-extra title="{{ extra.titulo(k) }}"><i class="bi bi-chevron-expand sort-icon"></i> {{ extrasCatalogo[k].rotulo }}</th>
+                    {% endfor %}
                 </tr>
             </thead>
             {% if linhas is not empty %}
@@ -378,6 +388,9 @@
                         {%- endif -%}
                         {{- tend.tendencia(linha.pastasCriadas, linha.pastasCriadasAnterior, 'seta') -}}
                     </span></td>
+                    {% for k in extras %}
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}">{{ extra.valor(k, linha.extras[k] ?? null, linha.userId, quem, periodoLink) }}</td>
+                    {% endfor %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -417,6 +430,13 @@
                     <td class="text-center db-td-num" data-coluna="demandas"><span class="db-total-cel"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span></td>
                     <td class="text-center db-td-num" data-coluna="demandas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>
+                    {# Extras: o Total vem pronto do servidor (soma; % e dias pela base inteira).
+                       Não é link, como os outros números do Total. Sem tendência ainda. #}
+                    {% for k in extras %}
+                    {% set tx = dashboard.totaisExtras[k] ?? null %}
+                    {% set tipoX = extrasCatalogo[k].tipo %}
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    {% endfor %}
                 </tr>
             </tfoot>
             {% endif %}

@@ -306,9 +306,11 @@
        dashboard-preferencias.js o move para dentro do `.db-table-header` e o recoloca a cada
        recarga (o mesmo nó: o estado aberto/fechado e os ouvintes sobrevivem). Sem JS ele fica
        escondido: o estilo gravado continua valendo pelas classes do `.db-page`.
-       Só o que o sistema suporta de verdade: densidade, sons (do calendário), animações, setas e
-       colunas visíveis. Fora (decisão do dono ou sem back-end): som do campeão (depende do
-       troféu, D-DASH), "Adicionar coluna", zerar relatório. #}
+       Só o que o sistema suporta de verdade: densidade, sons (do calendário), animações, setas,
+       colunas visíveis e "Adicionar coluna" (as 6 métricas com lastro do
+       ColunasExtrasDoDashboard). Fora (decisão do dono ou sem lastro): som do campeão (depende
+       do troféu, D-DASH), "Pastas concluídas" (a pasta não tem situação "concluída"), zerar
+       relatório. #}
     {% set prefColunas = [
         { chave: 'cargo',           rotulo: 'Cargo' },
         { chave: 'metas',           rotulo: 'Total metas' },
@@ -324,6 +326,12 @@
     {% set animLigadas = preferencias.animacoes == 'ligadas' %}
     {% set setasLigadas = preferencias.setas == 'ligadas' %}
     {% set sonsLigados = preferencias.sons == 'ligados' %}
+    {# Extras: as ligadas primeiro, na ordem da tabela; depois as outras do catálogo (escondidas
+       em "Colunas", visíveis em "Adicionar coluna"). O JS reordena e troca o `hidden` a cada
+       escolha, sem recarregar a página. #}
+    {% set extrasCatalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') %}
+    {% set prefExtras = preferencias.colunasExtras %}
+    {% set prefExtrasOrdem = prefExtras|merge(extrasCatalogo|keys|filter(k => k not in prefExtras)) %}
     <div class="db-pref" data-db-pref hidden>
         <button type="button" class="db-pref-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="db-pref-menu"
                 title="Opções da tabela" aria-label="Opções da tabela"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
@@ -389,6 +397,34 @@
                     <span class="db-pref-rotulo">{{ c.rotulo }}</span>
                 </button>
             {% endfor %}
+            {# Extra ligada aparece aqui como "(extra)", marcada; desmarcar REMOVE a coluna da
+               tabela (desenho: colsOpcoes → salvarPrefs({ extras: extras.filter(...) })). #}
+            <div class="db-pref-extras-ativas" data-pref-extras-ativas>
+            {% for k in prefExtrasOrdem %}
+                <button type="button" class="db-pref-item db-pref-col" role="menuitemcheckbox" aria-checked="true"
+                        data-pref-extra-remover="{{ k }}"{% if k not in prefExtras %} hidden{% endif %}>
+                    <span class="db-pref-caixa" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                    <span class="db-pref-rotulo">{{ extrasCatalogo[k].rotulo }} (extra)</span>
+                </button>
+            {% endfor %}
+            </div>
+
+            <div class="db-pref-div" aria-hidden="true"></div>
+            <div class="db-pref-secao db-pref-secao--add">
+                <i class="bi bi-plus-circle" aria-hidden="true"></i>
+                <span>Adicionar coluna</span>
+            </div>
+            {% for k, c in extrasCatalogo %}
+                <button type="button" class="db-pref-item db-pref-add" role="menuitem" title="{{ c.ajuda }}"
+                        data-pref-extra-adicionar="{{ k }}"{% if k in prefExtras %} hidden{% endif %}>
+                    <span class="db-pref-add-mais" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
+                    <span class="db-pref-add-txt">
+                        <span class="db-pref-add-rotulo">{{ c.rotulo }}</span>
+                        <span class="db-pref-add-ajuda">{{ c.ajuda }}</span>
+                    </span>
+                </button>
+            {% endfor %}
+            <div class="db-pref-add-vazio" data-pref-extras-todas{% if prefExtras|length < extrasCatalogo|length %} hidden{% endif %}>Todas as colunas disponíveis já estão na tabela.</div>
 
             <div class="db-pref-div" aria-hidden="true"></div>
             <button type="button" class="db-pref-item db-pref-restaurar" role="menuitem" data-pref-restaurar>

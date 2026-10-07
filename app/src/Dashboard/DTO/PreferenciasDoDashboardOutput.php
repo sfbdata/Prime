@@ -19,6 +19,7 @@ final class PreferenciasDoDashboardOutput
 {
     /**
      * @param list<string> $colunasOcultas
+     * @param list<string> $colunasExtras  métricas do "Adicionar coluna", na ordem da tabela
      */
     public function __construct(
         public readonly string $densidade,
@@ -26,6 +27,7 @@ final class PreferenciasDoDashboardOutput
         public readonly string $setas,
         public readonly array $colunasOcultas,
         public readonly string $sons,
+        public readonly array $colunasExtras = [],
     ) {
     }
 
@@ -57,6 +59,7 @@ final class PreferenciasDoDashboardOutput
             $valor(Catalogo::SETAS),
             $valor(Catalogo::COLUNAS_OCULTAS),
             $valor(Catalogo::SONS),
+            $valor(Catalogo::COLUNAS_EXTRAS),
         );
     }
 
@@ -73,12 +76,15 @@ final class PreferenciasDoDashboardOutput
             Catalogo::SETAS           => $this->setas,
             Catalogo::COLUNAS_OCULTAS => $this->colunasOcultas,
             Catalogo::SONS            => $this->sons,
+            Catalogo::COLUNAS_EXTRAS  => $this->colunasExtras,
         ];
     }
 
     /**
      * Classes do `.db-page`. O padrão não leva classe nenhuma: a tela padrão continua sendo
      * exatamente a de antes do menu. O dashboard-preferencias.js monta as mesmas classes.
+     * As colunas extras não viram classe: elas mudam o HTML da tabela (o servidor calcula a
+     * coluna), por isso a tela recarrega o fragmento quando a lista muda.
      */
     public function classesCss(): string
     {

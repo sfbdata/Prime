@@ -50,8 +50,13 @@ final class DashboardController extends AbstractController
             'direcao'     => (string) $request->query->get('direcao', ''),
         ];
 
+        // Estilo pessoal do menu ⋮ do usuário LOGADO neste escritório. Lido também no XHR: as
+        // colunas extras ("Adicionar coluna") mudam o HTML da tabela, então o fragmento tem de
+        // sair com as colunas que ele ligou — e o servidor só calcula essas.
+        $preferencias = $this->obterPreferencias->executar($tenant, $currentUser);
+
         $agora  = new \DateTimeImmutable();
-        $output = $this->obterDadosUseCase->executar($tenant, $agora, $filtros);
+        $output = $this->obterDadosUseCase->executar($tenant, $agora, $filtros, $preferencias->colunasExtras);
 
         // BlueJus Intelligence: leitura por regras sobre o DashboardOutput já calculado (os
         // mesmos filtros). O UseCase não sabe que o painel existe.
@@ -108,11 +113,9 @@ final class DashboardController extends AbstractController
             }
         }
 
-        // Estilo pessoal do menu ⋮ (densidade, animações, setas, colunas ocultas) do usuário
-        // LOGADO neste escritório: vira classe no `.db-page` já no HTML, sem esperar o JS. Só no
-        // render completo — o XHR troca o fragmento DENTRO do `.db-page`, que mantém as classes.
-        $preferencias = $this->obterPreferencias->executar($tenant, $currentUser);
-
+        // As preferências (lidas acima) viram classe no `.db-page` já no HTML, sem esperar o JS.
+        // Só no render completo — o XHR troca o fragmento DENTRO do `.db-page`, que mantém as
+        // classes.
         return $this->render('dashboard/index.html.twig', [
             'dashboard'      => $output,
             'preferencias'   => $preferencias,

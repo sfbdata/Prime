@@ -28,6 +28,7 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
             'dashboard.setas'           => 'ligadas',
             'dashboard.colunas_ocultas' => [],
             'dashboard.sons'            => 'ligados',
+            'dashboard.colunas_extras'  => [],
         ], $prefs->paraArray());
     }
 
@@ -65,5 +66,27 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
         self::assertSame('ligados', $prefs->sons, 'o booleano do protótipo cai no padrão (ligados)');
         self::assertArrayNotHasKey('dashboard.zerar', $prefs->paraArray());
         self::assertSame('db-page--sem-anim', $prefs->classesCss());
+    }
+
+    #[TestDox('Colunas extras gravadas voltam na ordem do usuário e não viram classe (o servidor desenha a coluna)')]
+    public function testColunasExtrasNaOrdemSemClasse(): void
+    {
+        $prefs = PreferenciasDoDashboardOutput::deValores([
+            'dashboard.colunas_extras' => ['tempo_medio', 'metas_concluidas'],
+        ]);
+
+        self::assertSame(['tempo_medio', 'metas_concluidas'], $prefs->colunasExtras);
+        self::assertSame(['tempo_medio', 'metas_concluidas'], $prefs->paraArray()['dashboard.colunas_extras']);
+        self::assertSame('', $prefs->classesCss());
+    }
+
+    #[TestDox('Lista de extras gravada com coluna que saiu do catálogo (ex.: "Pastas concluídas") cai no padrão: nenhuma extra')]
+    public function testColunasExtrasEstragadasCaemNoPadrao(): void
+    {
+        $prefs = PreferenciasDoDashboardOutput::deValores([
+            'dashboard.colunas_extras' => ['metas_concluidas', 'pastas_concluidas'],
+        ]);
+
+        self::assertSame([], $prefs->colunasExtras);
     }
 }
