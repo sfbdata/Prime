@@ -93,9 +93,11 @@
                             </div>
                             <div class="ps-meta-linha">
                                 <span title="Autor"><i class="bi bi-person"></i>{{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}</span>
-                                <span title="{% if tarefa.responsaveis|length > 0 %}Responsáveis: {{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}Responsável{% endif %}">
+                                {# PMC-036: todos os responsáveis à vista (dc L.1442, `m.responsaveis`
+                                   = os nomes juntados por ", "), não o primeiro + "+N". #}
+                                <span class="ps-meta-resp" title="{{ tarefa.responsaveis|length > 1 ? 'Responsáveis' : 'Responsável' }}">
                                     <i class="bi bi-people"></i>
-                                    {%- if tarefa.responsaveis|length > 0 %}{{ (tarefa.responsaveis|first).fullName }}{% if tarefa.responsaveis|length > 1 %} +{{ tarefa.responsaveis|length - 1 }}{% endif %}{% else %}—{% endif -%}
+                                    {%- if tarefa.responsaveis|length > 0 %}{{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}—{% endif -%}
                                 </span>
                                 {% if concluida and linha.prazoConcluida %}
                                     <span class="ps-meta-prazo" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}{{ tarefa.dataConclusao ? ' · concluída em ' ~ tarefa.dataConclusao|date('d/m/Y') : '' }}"><i class="bi bi-calendar-event"></i>{{ linha.prazoConcluida }}</span>
