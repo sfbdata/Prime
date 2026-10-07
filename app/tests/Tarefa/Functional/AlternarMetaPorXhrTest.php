@@ -365,6 +365,63 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
     }
 
     // =========================================================================
+    // SEC-015 — a aba só volta para quem pode VER a pasta
+    // =========================================================================
+
+    #[TestDox('SEC-015: com o módulo Tarefas e o vínculo, mas SEM ver a pasta, concluir por XHR uma meta concluída devolve só {sucesso, mudou, mensagem, meta, estado}: sem html, sem contagens e sem o título de outra meta')]
+    public function testConcluirPorXhrSemVerAPastaNaoDevolveAAba(): void
+    {
+        [$client, $tenant, $autor, $pasta] = $this->cenario();
+        $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA)->getId();
+        $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Meta sigilosa da pasta');
+
+        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, 'Só Módulo', ['modules.tarefas.view']), $tenant);
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id]);
+        $dados = $this->json($client);
+
+        self::assertSame(
+            ['sucesso' => true, 'mudou' => false, 'mensagem' => 'A meta já estava concluída', 'meta' => $id, 'estado' => 'concluida'],
+            $dados,
+            'nada além do resultado da própria meta',
+        );
+        $corpo = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('SIGILOSA', mb_strtoupper($corpo));
+        self::assertStringNotContainsString('ANA AUTORA', mb_strtoupper($corpo));
+    }
+
+    #[TestDox('SEC-015: com resources.pasta.view (sem papel de sistema) a aba vem — o limiar é VER a pasta')]
+    public function testConcluirPorXhrComVerAPastaDevolveAAba(): void
+    {
+        [$client, $tenant, $autor, $pasta] = $this->cenario();
+        $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA)->getId();
+        $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Meta visivel da pasta');
+
+        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, 'Vê a pasta', ['modules.tarefas.view', 'resources.pasta.view']), $tenant);
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id]);
+        $dados = $this->json($client);
+
+        self::assertIsString($dados['html']);
+        self::assertStringContainsString('META VISIVEL DA PASTA', mb_strtoupper($dados['html']));
+        self::assertSame(2, $dados['contagens']['total']);
+    }
+
+    #[TestDox('SEC-015: a guarda é do serviço — o reabrir de quem EDITA mas não VÊ a pasta também volta sem a aba')]
+    public function testReabrirPorXhrSemVerAPastaNaoDevolveAAba(): void
+    {
+        [$client, $tenant, $autor, $pasta] = $this->cenario();
+        $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA)->getId();
+        $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Meta sigilosa da pasta');
+
+        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, 'Só edita', ['modules.tarefas.view', 'resources.pasta.edit']), $tenant);
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $id]);
+        $dados = $this->json($client);
+
+        self::assertSame(['sucesso', 'mudou', 'mensagem', 'meta', 'estado'], array_keys($dados));
+        self::assertTrue($dados['mudou']);
+        self::assertStringNotContainsString('SIGILOSA', mb_strtoupper((string) $client->getResponse()->getContent()));
+    }
+
+    // =========================================================================
     // Reabrir
     // =========================================================================
 
@@ -605,6 +662,8 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         self::assertStringContainsString('ps-metas-aviso', $js);
         // PMC-061: o Desfazer de um reabrir pede ao servidor a data original; nenhuma data sai do JS.
         self::assertStringContainsString("if (ehDesfazer && form.matches('form.ps-meta-concluir')) { corpo.append('desfazer', '1'); }", $js);
+        // SEC-015: resposta de sucesso sem `html` (quem não vê a pasta) recarrega a página.
+        self::assertMatchesRegularExpression("/if \\(typeof d\\.html !== 'string'\\) \\{\\s*window\\.location\\.reload\\(\\);/", $js);
 
         $twig = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/templates/pasta/_metas.html.twig');
         self::assertStringContainsString('.ps-metas-aviso {', $twig, 'o estilo do aviso mora no <style> da aba');

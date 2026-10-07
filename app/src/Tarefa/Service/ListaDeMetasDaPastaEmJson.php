@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tarefa\Service;
 
+use App\Entity\Auth\User;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\DTO\PastaMetasResumoOutput;
+use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Twig\Environment;
 
@@ -18,13 +23,23 @@ use Twig\Environment;
  * usa — o pasta-metas.js só troca os pedaços. As contagens vão também em JSON, para quem lê a
  * resposta não precisar raspar HTML.
  *
- * Quem chama (`tarefa_concluir`, `tarefa_reabrir`) já aplicou a guarda e o CSRF; aqui só se
- * monta a resposta. A pasta é a da própria meta — nunca um id vindo da requisição.
+ * Quem chama (`tarefa_concluir`, `tarefa_reabrir`) já aplicou a guarda da AÇÃO e o CSRF. A
+ * pasta é a da própria meta — nunca um id vindo da requisição.
+ *
+ * SEC-015: a guarda de LEITURA mora aqui, não no chamador. Concluir exige só o módulo Tarefas e
+ * o vínculo (D-PERM-META, decisão em aberto), e a aba devolvida traz todas as metas da pasta,
+ * os responsáveis e os relatórios. Quem conclui sem poder VER a pasta (`canAccessResource`
+ * 'pasta' VIEW) recebe só o resultado da própria meta — `{sucesso, mudou, mensagem, meta,
+ * estado}`, sem `html`, sem `contagens` e sem nada de outra meta — e o pasta-metas.js recarrega
+ * a página. Morar aqui faz a regra valer para todo chamador (concluir, reabrir e desfazer).
  */
 final class ListaDeMetasDaPastaEmJson
 {
     public function __construct(
         private readonly Environment $twig,
+        private readonly Security $security,
+        private readonly TenantContext $tenantContext,
+        private readonly PermissionChecker $permissionChecker,
     ) {
     }
 
@@ -48,6 +63,16 @@ final class ListaDeMetasDaPastaEmJson
             }
         }
 
+        if (!$this->podeVerAPasta((int) $pasta->getId())) {
+            return new JsonResponse([
+                'sucesso'  => true,
+                'mudou'    => $mudou,
+                'mensagem' => $mensagem,
+                'meta'     => (int) $tarefa->getId(),
+                'estado'   => $estado,
+            ]);
+        }
+
         return new JsonResponse([
             'sucesso'   => true,
             'mudou'     => $mudou,
@@ -66,5 +91,17 @@ final class ListaDeMetasDaPastaEmJson
                 'metasResumo' => $resumo,
             ]),
         ]);
+    }
+
+    /** Sem usuário ou sem escritório na sessão: não vê (a resposta sai sem a aba). */
+    private function podeVerAPasta(int $pastaId): bool
+    {
+        $usuario = $this->security->getUser();
+        $tenant  = $this->tenantContext->getCurrentTenant();
+        if (!$usuario instanceof User || $tenant === null) {
+            return false;
+        }
+
+        return $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW);
     }
 }

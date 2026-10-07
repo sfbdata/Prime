@@ -719,9 +719,15 @@
                 var d = res.dados;
                 // A recusa da pasta excluída (lápide) vem em JSON com `mensagem`; a
                 // guarda (403/404) e o CSRF não: caem no texto genérico.
-                if (!res.ok || !d || d.sucesso !== true || typeof d.html !== 'string') {
+                if (!res.ok || !d || d.sucesso !== true) {
                     liberar(form);
                     avisar((d && d.mensagem) || 'Não foi possível alterar a meta. Recarregue a página e tente de novo.');
+                    return;
+                }
+                // SEC-015: quem não pode VER a pasta recebe só o resultado da própria meta, sem a
+                // aba (`html`). Nada a trocar aqui: a página é recarregada pelo servidor.
+                if (typeof d.html !== 'string') {
+                    window.location.reload();
                     return;
                 }
                 if (!aplicarAbaNova(cartao, d.html)) {
