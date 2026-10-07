@@ -168,6 +168,7 @@
                     <div class="ps-push-cartao">
                         <span class="ps-push-ponto" aria-hidden="true"></span>
                         <button type="button" class="ps-push-cab"
+                                title="Clique com o botão direito para adicionar uma nota técnica"
                                 aria-expanded="false"
                                 aria-controls="push-teor-{{ item.id }}"
                                 data-push-url="{{ path('pasta_push_teor', {id: pasta.id, publicacaoId: item.id}) }}">
@@ -190,6 +191,26 @@
                 </li>
             {% endfor %}
         </ul>
+        {# Botão direito no cartão (dc L.5394 `ctx`, README L.125-127; FPN-014). UM menu para a
+           lista inteira, preenchido pelo pasta-push.js com o cartão clicado. Cada item aciona o
+           que JÁ existe no teor: o "Adicionar nota técnica" do bloco de notas, o "Criar tarefa"
+           (modal de nova meta) e a cópia do texto. Ficam de fora os itens do desenho sem lastro
+           aqui: "Encaminhar via Chat I.A" (FPN-016) e o link externo (FPN-015). Teclado e toque
+           seguem pelos botões do teor, como antes. #}
+        <div class="ps-push-menu" id="pushMenuContexto" role="menu" aria-label="Ações da movimentação" hidden>
+            <div class="ps-push-menu-titulo"></div>
+            <button type="button" class="ps-push-menu-item js-push-menu-nota" role="menuitem">
+                <i class="bi bi-journal-plus" aria-hidden="true"></i><span>Adicionar nota técnica</span>
+            </button>
+            <div class="ps-push-menu-sep" role="separator"></div>
+            <button type="button" class="ps-push-menu-item js-push-menu-tarefa" role="menuitem">
+                <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+            </button>
+            <div class="ps-push-menu-sep" role="separator"></div>
+            <button type="button" class="ps-push-menu-item js-push-menu-copiar" role="menuitem">
+                <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
+            </button>
+        </div>
         {# Texto do desenho para o filtro que não sobra nada (`vazioTxt`, dc L.5426). #}
         <div class="ps-push-vazio-linha ps-push-vazio-filtro" id="push-vazio-filtro" hidden>Nenhuma movimentação neste filtro.</div>
         {% if push.limiteAtingido %}
@@ -202,7 +223,8 @@
         {% endif %}
     {% endif %}
 </section>
-{# Filtro, selo da aba, copiar ID, marcar (não) lida e criar tarefa a partir da publicação. #}
+{# Filtro, selo da aba, copiar ID, marcar (não) lida, criar tarefa a partir da publicação e o
+   menu do botão direito no cartão. #}
 <script src="{{ asset('js/pasta-push.js') }}" defer></script>
 {% if analisesIa is not null %}
     {# BlueJus IA: pedir, acompanhar (polling 2 s), recarregar a lista e as ações de cada análise. #}

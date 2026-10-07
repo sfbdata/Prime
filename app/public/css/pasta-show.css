@@ -2586,7 +2586,9 @@ span.ps-situacao-pill { cursor: default; }
    itens 13px com 7px 10px, título 10.5/700 em caixa alta, separador de 1px.
    `position: fixed` e posição calculada pelo JS na abertura (canto direito do
    botão, ou o ponto do clique direito), como no desenho: assim o menu não fica
-   preso no recorte da lista nem do cartão. Escopo `#financeiro` porque
+   preso no recorte da lista nem do cartão. O menu do botão direito do cartão do
+   Push (`.ps-push-menu`, FPN-014) é o MESMO menu do desenho e herda estas regras.
+   Escopo `#financeiro` porque
    `.ps-page a:not(.btn)` (0,3,1) pintaria de azul o item "Baixar", que é âncora. */
 #financeiro .ps-fin-menu-gatilho {
     width: 26px;
@@ -2614,7 +2616,8 @@ span.ps-situacao-pill { cursor: default; }
     from { opacity: 0; transform: translate3d(0,-4px,0); }
     to   { opacity: 1; transform: none; }
 }
-#financeiro .ps-fin-menu {
+#financeiro .ps-fin-menu,
+.ps-push .ps-push-menu {
     position: fixed;
     z-index: 141;
     width: 230px;
@@ -2631,11 +2634,14 @@ span.ps-situacao-pill { cursor: default; }
 }
 /* `display: flex` acima venceria o atributo `hidden`; estas duas linhas o devolvem. */
 #financeiro .ps-fin-menu[hidden],
-#financeiro .ps-fin-menu [hidden] { display: none; }
+#financeiro .ps-fin-menu [hidden],
+.ps-push .ps-push-menu[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) {
-    #financeiro .ps-fin-menu { animation: none; }
+    #financeiro .ps-fin-menu,
+    .ps-push .ps-push-menu { animation: none; }
 }
-#financeiro .ps-fin-menu-titulo {
+#financeiro .ps-fin-menu-titulo,
+.ps-push .ps-push-menu-titulo {
     padding: 6px 10px 5px;
     font-size: 10.5px;
     font-weight: 700;
@@ -2646,7 +2652,8 @@ span.ps-situacao-pill { cursor: default; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-#financeiro .ps-fin-menu-item {
+#financeiro .ps-fin-menu-item,
+.ps-push .ps-push-menu-item {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -2663,15 +2670,20 @@ span.ps-situacao-pill { cursor: default; }
     cursor: pointer;
 }
 #financeiro .ps-fin-menu-item:hover,
-#financeiro .ps-fin-menu-item:focus-visible { background: var(--ps-hover); color: var(--ps-body); text-decoration: none; outline: none; }
-#financeiro .ps-fin-menu-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
-#financeiro .ps-fin-menu-item > span { flex: 1; min-width: 0; }
+#financeiro .ps-fin-menu-item:focus-visible,
+.ps-push .ps-push-menu-item:hover,
+.ps-push .ps-push-menu-item:focus-visible { background: var(--ps-hover); color: var(--ps-body); text-decoration: none; outline: none; }
+#financeiro .ps-fin-menu-item i,
+.ps-push .ps-push-menu-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+#financeiro .ps-fin-menu-item > span,
+.ps-push .ps-push-menu-item > span { flex: 1; min-width: 0; }
 #financeiro .ps-fin-menu-item--perigo,
 #financeiro .ps-fin-menu-item--perigo:hover,
 #financeiro .ps-fin-menu-item--perigo:focus-visible { color: var(--ps-danger-text); }
 #financeiro .ps-fin-menu-item--perigo:hover,
 #financeiro .ps-fin-menu-item--perigo:focus-visible { background: var(--ps-danger-hover); }
-#financeiro .ps-fin-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
+#financeiro .ps-fin-menu-sep,
+.ps-push .ps-push-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
 
 /* ── Folha do "Imprimir extrato" ──
    O JS copia o cabeçalho (`#psExtratoCabecalho`) e a lista (`#psExtratoFolha`,
