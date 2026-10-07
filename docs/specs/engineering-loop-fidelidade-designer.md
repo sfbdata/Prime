@@ -198,6 +198,13 @@ cada divergência A trabalhada e as filas B/C/D.
 | L7 (10 itens) | Cabeçalho/CSS | EDT-007/008, PAS-024, PAS-049i, PMC-025/026/007, PAS-002, PAS-022, PAS-023 | P3–P5 | **feito** | ✓ | ✓ | ✓ | `e0e5e7e5`..`4ca881fb` | | `tests/Pasta` 2529 verdes após integrar |
 | FPN-032/020 | Push | Filtros com a lista vazia; notas técnicas penduradas sob o cartão com o teor fechado | P3 | **feito** | ✓ | ✓ | ✓ | `8d30a425`, `72dc6e53` | (mutação do tenant: cai) | Ids `-push` para não duplicar |
 
+| PMC-060/061 | Metas | Lápide sem Concluir/Reabrir/Editar nome/sino; Desfazer do reabrir restaura a data original (guardada na sessão, 600 s, uso único) | P3/P4 | **feito** | ✓ | ✓ | ✓ | `a9d22090`, `ceea2f82` | | Sem migration |
+| NOT-01 | Notificações | Excluir mensagem/nota apaga os avisos de menção e resposta dela (âncora exata) | P4 | **feito** | — | ✓ | ✓ | `12994ec6` | (LIKE `%a%` pego) | |
+| SEC-015 | Segurança | Concluir meta por XHR devolvia a aba Metas a quem não vê a pasta | P0 | **feito** | — | ✓ | ✓ | `a8292b4d` | achado da revisão das ondas 1-2 | Guarda dentro do `ListaDeMetasDaPastaEmJson` (vale para todo chamador) |
+| FPN-020b | Push | Nota pendurada criava no processo da 1ª nota, não no da publicação | P2 | **feito** | — | ✓ | ✓ | `3f99a456` | | Sem processo que case: sem compositor |
+| DOC-111b/112b | Visualizador | Teto da FAT do .doc antes de alocar; teto somado de 150 Mpx no TIFF | P2 | **feito** | — | ✓ | ✓ | `89a34c25`, `45e7b3b7` | | Teto do TIFF a ratificar (A4 de 50 páginas mostra 36) |
+| L6 (14 itens) | Pasta | PMC-059/039/041/040 (corpo e calendário da Nova meta), PAS-034 (diálogos), PAS-021/020/019 (Editar dados), PAS-033/037/032/030/031/040, EDT-014 (qualificação no editor), DOC-124 (rota legada removida) | P2–P5 | **feito** | ✓ | ✓ | ✓ | `fd011225`..`b575428d` | (mutações: 41) | Ver PAS-025c, PAS-034b |
+
 **Novas divergências achadas no ciclo 1:**
 - **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
   sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
@@ -243,6 +250,12 @@ cada divergência A trabalhada e as filas B/C/D.
   e agora na Timeline de quem recebeu).
 - **SEC-014 → F (modelo documentado):** o Acervo lista por tenant e módulo; o acesso por item vale ao abrir. É o
   modelo de `docs/AUTORIZACAO.md` (l.357-373: "o módulo governa apenas a descoberta/listagem").
+- **PAS-025c (A, P3):** o compositor do Registro (`#formTimelineMensagem`) continua na lápide (o servidor recusa).
+- **PAS-034b (A, P4):** `alert`/`confirm` nativos restantes na página (clientes/processos, Financeiro, "Descartar
+  alterações" do Editar dados).
+- **FPN-020c (A, P5):** editar uma cópia da nota pendurada não atualiza a outra cópia até recarregar.
+- **PAS-022b (A, P5):** popovers trocados pelo XHR das Metas ficam sem o X e sem `PsArrastar.zerar`; `pointercancel`.
+- **PMC-062 (A, P5):** "Nova meta" no cabeçalho da aba continua na lápide.
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
