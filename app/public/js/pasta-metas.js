@@ -697,9 +697,15 @@
         var drawer = document.getElementById('psMetaRelatorio');
         var doDrawer = !!(drawer && drawer.contains(form));
 
+        // PMC-061: o "Desfazer" de um reabrir manda o concluir com `desfazer=1`, e o servidor
+        // devolve a data de conclusão ORIGINAL (guardada por ele no reabrir). Nenhuma data sai
+        // daqui; sem a flag, o concluir gravaria a data de agora.
+        var corpo = new FormData(form);
+        if (ehDesfazer && form.matches('form.ps-meta-concluir')) { corpo.append('desfazer', '1'); }
+
         fetch(form.action, {
             method: 'POST',
-            body: new FormData(form),
+            body: corpo,
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
         })

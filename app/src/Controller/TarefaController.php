@@ -12,9 +12,11 @@ use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
+use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
+use App\Tarefa\UseCase\DesfazerReaberturaDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
@@ -27,6 +29,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
+use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\Service\TarefaTimelineAssembler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -426,8 +429,14 @@ final class TarefaController extends AbstractController
      * Conclui a tarefa (qualquer usuário com acesso pode concluir).
      */
     #[Route('/{id}/concluir', name: 'tarefa_concluir', methods: ['POST'])]
-    public function concluir(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, ListaDeMetasDaPastaEmJson $listaEmJson): Response
-    {
+    public function concluir(
+        Tarefa $tarefa,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        ListaDeMetasDaPastaEmJson $listaEmJson,
+        ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
+        DesfazerReaberturaDaMetaUseCase $desfazerReabertura,
+    ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->assertAccess($usuario);
@@ -437,10 +446,43 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        $agora = new \DateTimeImmutable();
+
+        // PMC-061: "Desfazer" do aviso "Meta reaberta". A conclusão volta com a data ORIGINAL,
+        // que o servidor guardou na sessão no reabrir — o navegador só pede `desfazer=1`, não
+        // manda data. Sem data lembrada e válida, recusa (não conclui com "agora"). Sem
+        // notificação: a conclusão original já notificou, e o reabrir não avisou ninguém.
+        if ($request->request->getBoolean('desfazer')) {
+            $anterior = $reaberturaDesfazivel->consumir($request->getSession(), $tarefa, $tenant, $agora);
+
+            try {
+                $restaurou = $desfazerReabertura->executar($tarefa, $tenant, $anterior, $agora);
+            } catch (DesfazerReaberturaRecusadoException $e) {
+                if ($request->isXmlHttpRequest()) {
+                    return new JsonResponse(['sucesso' => false, 'mensagem' => $e->getMessage()], Response::HTTP_CONFLICT);
+                }
+                $this->addFlash('danger', $e->getMessage());
+
+                return $this->redirectToRoute('pasta_show', ['id' => $tarefa->getPasta()->getId(), '_fragment' => 'tarefas']);
+            }
+
+            if ($request->isXmlHttpRequest()) {
+                return $listaEmJson->responder($tarefa, $restaurou, $restaurou ? 'Meta concluída' : 'A meta já estava concluída');
+            }
+            if ($restaurou) {
+                $this->addFlash('success', 'Tarefa concluída.');
+            }
+
+            return $this->redirectToRoute('pasta_show', ['id' => $tarefa->getPasta()->getId(), '_fragment' => 'tarefas']);
+        }
+
+        // Concluir de verdade encerra qualquer "Desfazer" pendente desta meta.
+        $reaberturaDesfazivel->esquecer($request->getSession(), $tarefa, $tenant, $agora);
+
         $concluiu = false;
         if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
             $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
-            $tarefa->setDataConclusao(new \DateTimeImmutable());
+            $tarefa->setDataConclusao($agora);
             $entityManager->flush();
             $concluiu = true;
 

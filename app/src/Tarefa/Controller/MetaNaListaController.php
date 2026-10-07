@@ -14,6 +14,7 @@ use App\Service\Tenant\TenantContext;
 use App\Tarefa\Exception\AlertaDeMetaRecusadoException;
 use App\Tarefa\Exception\TituloDeMetaInvalidoException;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
+use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use App\Tarefa\UseCase\ReabrirMetaUseCase;
 use App\Tarefa\UseCase\RenomearMetaUseCase;
@@ -70,8 +71,13 @@ final class MetaNaListaController extends AbstractController
     }
 
     #[Route('/{id}/reabrir', name: 'tarefa_reabrir', methods: ['POST'])]
-    public function reabrir(Tarefa $tarefa, Request $request, ReabrirMetaUseCase $useCase, ListaDeMetasDaPastaEmJson $listaEmJson): Response
-    {
+    public function reabrir(
+        Tarefa $tarefa,
+        Request $request,
+        ReabrirMetaUseCase $useCase,
+        ListaDeMetasDaPastaEmJson $listaEmJson,
+        ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
+    ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
@@ -82,12 +88,24 @@ final class MetaNaListaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $reabriu = $useCase->executar($tarefa, $tenant);
+        $anterior = $tarefa->getDataConclusao();
+        $reabriu  = $useCase->executar($tarefa, $tenant);
+
+        // PMC-061: o reabrir apaga a data de conclusão; ela fica lembrada no servidor (sessão de
+        // quem reabriu) para o "Desfazer" devolvê-la, em vez de concluir com a data de agora.
+        if ($reabriu && $anterior !== null) {
+            $reaberturaDesfazivel->guardar($request->getSession(), $tarefa, $tenant, $anterior, new \DateTimeImmutable());
+        }
 
         // PMC-031: reabrir pela lista por XHR (e o "Desfazer" do concluir), sem recarregar —
         // mesma guarda e mesmo CSRF acima; a aba volta renderizada pelo servidor.
         if ($request->isXmlHttpRequest()) {
-            return $listaEmJson->responder($tarefa, $reabriu, $reabriu ? 'Meta reaberta' : 'A meta não estava concluída');
+            return $listaEmJson->responder(
+                $tarefa,
+                $reabriu,
+                $reabriu ? 'Meta reaberta' : 'A meta não estava concluída',
+                $reabriu ? $anterior : null,
+            );
         }
 
         if ($reabriu) {

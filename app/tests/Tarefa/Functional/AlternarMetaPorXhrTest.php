@@ -496,6 +496,101 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
     }
 
     // =========================================================================
+    // PMC-061 — Desfazer do reabrir devolve a data de conclusão ORIGINAL
+    // =========================================================================
+
+    /** Meta concluída no dia X (`$concluidaEm`), criada antes dele — como na vida real. */
+    private function metaConcluidaEm(Pasta $pasta, User $autor, string $concluidaEm, string $titulo = 'Protocolar recurso'): int
+    {
+        $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA, $titulo)->getId();
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE tarefa SET data_criacao = :criada, data_conclusao = :concluida WHERE id = :id',
+            ['criada' => (new \DateTimeImmutable('-20 days'))->format('Y-m-d H:i:s'), 'concluida' => $concluidaEm, 'id' => $id],
+        );
+        // A meta criada acima segue no identity map com as datas antigas; o pedido a releria de lá.
+        $this->em()->clear();
+
+        return $id;
+    }
+
+    #[TestDox('PMC-061: concluída no dia X, reabrir e Desfazer → volta concluída com dataConclusao = X (não agora); o reabrir informa X; a restauração entra no audit_log')]
+    public function testDesfazerReabrirDevolveADataOriginal(): void
+    {
+        [$client, $tenant, $autor, $pasta] = $this->cenario();
+        $x  = (new \DateTimeImmutable('-3 days'))->setTime(14, 30)->format('Y-m-d H:i:s');
+        $id = $this->metaConcluidaEm($pasta, $autor, $x);
+
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $id]);
+        $reaberta = $this->json($client);
+        self::assertTrue($reaberta['mudou']);
+        self::assertIsString($reaberta['dataConclusaoAnterior']);
+        self::assertSame($x, (new \DateTimeImmutable($reaberta['dataConclusaoAnterior']))->format('Y-m-d H:i:s'), 'o reabrir informa a data que apagou');
+        self::assertNull($this->metaNoBanco($id)->getDataConclusao());
+
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id, 'desfazer' => '1']);
+        $desfeita = $this->json($client);
+
+        self::assertTrue($desfeita['mudou']);
+        self::assertSame('concluida', $desfeita['estado']);
+        $meta = $this->metaNoBanco($id);
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $meta->getStatus());
+        self::assertSame($x, $meta->getDataConclusao()?->format('Y-m-d H:i:s'), 'a data é a ORIGINAL, não a de agora');
+
+        $auditadas = (int) $this->em()->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM audit_log WHERE entity_class = ? AND entity_id = ? AND action = 'update' AND route = 'tarefa_concluir' AND tenant_id = ?",
+            [Tarefa::class, (string) $id, $tenant->getId()],
+        );
+        self::assertSame(1, $auditadas, 'a restauração fica na trilha de auditoria');
+
+        // Uma vez só: um segundo Desfazer (depois de reabrir por outro caminho) não acha a lembrança.
+        $this->em()->getConnection()->executeStatement("UPDATE tarefa SET status = 'pendente', data_conclusao = NULL WHERE id = :id", ['id' => $id]);
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id, 'desfazer' => '1']);
+        self::assertResponseStatusCodeSame(409);
+    }
+
+    #[TestDox('PMC-061: Desfazer sem reabrir antes (ou de OUTRA meta) → 409 com a mensagem; a meta continua aberta e NÃO ganha a data de agora')]
+    public function testDesfazerSemLembrancaRecusa(): void
+    {
+        [$client, , $autor, $pasta] = $this->cenario();
+        $aberta = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Juntar procuração')->getId();
+        $outra  = $this->metaConcluidaEm($pasta, $autor, (new \DateTimeImmutable('-2 days'))->format('Y-m-d H:i:s'), 'Outra meta');
+
+        // A lembrança é da OUTRA meta: não serve para esta.
+        $client->xmlHttpRequest('POST', '/tarefas/' . $outra . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $outra]);
+        self::assertTrue($this->json($client)['mudou']);
+
+        $client->xmlHttpRequest('POST', '/tarefas/' . $aberta . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $aberta, 'desfazer' => '1']);
+
+        self::assertResponseStatusCodeSame(409);
+        $dados = json_decode((string) $client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertFalse($dados['sucesso']);
+        self::assertStringContainsString('Não foi possível desfazer', (string) $dados['mensagem']);
+        $meta = $this->metaNoBanco($aberta);
+        self::assertSame(Tarefa::STATUS_PENDENTE, $meta->getStatus());
+        self::assertNull($meta->getDataConclusao());
+    }
+
+    #[TestDox('PMC-061: concluir normal depois de reabrir grava a data de agora e encerra o Desfazer pendente')]
+    public function testConcluirNormalEncerraODesfazer(): void
+    {
+        [$client, , $autor, $pasta] = $this->cenario();
+        $x  = (new \DateTimeImmutable('-3 days'))->format('Y-m-d H:i:s');
+        $id = $this->metaConcluidaEm($pasta, $autor, $x);
+
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $id]);
+        $this->json($client);
+
+        $antes = new \DateTimeImmutable('-1 second');
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id]);
+        self::assertTrue($this->json($client)['mudou']);
+        self::assertGreaterThanOrEqual($antes, $this->metaNoBanco($id)->getDataConclusao(), 'sem a flag é o concluir de sempre');
+
+        $this->em()->getConnection()->executeStatement("UPDATE tarefa SET status = 'pendente', data_conclusao = NULL WHERE id = :id", ['id' => $id]);
+        $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id, 'desfazer' => '1']);
+        self::assertResponseStatusCodeSame(409);
+    }
+
+    // =========================================================================
     // Contrato com o pasta-metas.js
     // =========================================================================
 
@@ -508,6 +603,8 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         self::assertStringContainsString("'X-Requested-With': 'XMLHttpRequest'", $js);
         self::assertStringContainsString("'Desfazer'", $js);
         self::assertStringContainsString('ps-metas-aviso', $js);
+        // PMC-061: o Desfazer de um reabrir pede ao servidor a data original; nenhuma data sai do JS.
+        self::assertStringContainsString("if (ehDesfazer && form.matches('form.ps-meta-concluir')) { corpo.append('desfazer', '1'); }", $js);
 
         $twig = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/templates/pasta/_metas.html.twig');
         self::assertStringContainsString('.ps-metas-aviso {', $twig, 'o estilo do aviso mora no <style> da aba');

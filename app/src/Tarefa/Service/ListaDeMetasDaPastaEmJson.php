@@ -31,8 +31,11 @@ final class ListaDeMetasDaPastaEmJson
     /**
      * @param bool   $mudou    false quando a meta já estava no estado pedido (nada a desfazer)
      * @param string $mensagem o texto do aviso ("Meta concluída", "Meta reaberta"...)
+     * @param ?\DateTimeImmutable $dataConclusaoAnterior no reabrir, a data que ele apagou (PMC-061).
+     *        Só informativa: o "Desfazer" NÃO a devolve ao servidor — quem a restaura é a
+     *        `ReaberturaDesfazivelDaMeta`, guardada na sessão.
      */
-    public function responder(Tarefa $tarefa, bool $mudou, string $mensagem): JsonResponse
+    public function responder(Tarefa $tarefa, bool $mudou, string $mensagem, ?\DateTimeImmutable $dataConclusaoAnterior = null): JsonResponse
     {
         $pasta  = $tarefa->getPasta();
         $resumo = PastaMetasResumoOutput::montar($pasta);
@@ -51,6 +54,7 @@ final class ListaDeMetasDaPastaEmJson
             'mensagem'  => $mensagem,
             'meta'      => (int) $tarefa->getId(),
             'estado'    => $estado,
+            'dataConclusaoAnterior' => $dataConclusaoAnterior?->format(\DateTimeInterface::ATOM),
             'contagens' => [
                 'abertas'    => $resumo->abertas,
                 'atrasadas'  => $resumo->atrasadas,
