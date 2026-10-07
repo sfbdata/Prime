@@ -21,21 +21,27 @@ use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * A folha impressa da pasta (desenho 1.2.3: `imprimirResumo`, `impMontar`, `impVals`).
+ * A folha impressa da pasta (desenho 1.2.3: `imprimirResumo`, `impMontar`, `impVals`, `pdfBaixar`).
  *
- * Uma rota de folha, duas formas de entrega:
+ * Uma rota de folha, três formas de entrega:
  *  - página própria (`pasta_resumo_imprimir`): abre em aba nova e chama `window.print()` — é o
  *    caminho sem JS do item "Imprimir resumo" do ⋮;
  *  - fragmento (`?fragmento=1`): só a folha, que o `pasta-impressao.js` põe na pré-visualização
- *    da janela "Imprimir" da própria tela da pasta e imprime por iframe oculto.
+ *    da janela "Imprimir" da própria tela da pasta e imprime por iframe oculto;
+ *  - PDF (`pasta_resumo_pdf`): a mesma folha gerada no servidor (Dompdf), com o rodapé
+ *    "BlueJus · página k de n", baixada como anexo.
  *
- * As duas obedecem às MESMAS opções (`PastaImpressaoOpcoes`): seção (resumo ou só a moldura, para
+ * As três obedecem às MESMAS opções (`PastaImpressaoOpcoes`): seção (resumo ou só a moldura, para
  * o registro e o processo que a tela monta), cabeçalho do escritório, dados da pasta, autor,
  * financeiro e tamanho do texto.
  *
@@ -53,6 +59,11 @@ final class PastaResumoController extends AbstractController
     /** O mesmo teto que a aba Push usa: as pendências do Push contam sobre esse conjunto. */
     private const PUSH_LIMITE = 100;
 
+    /** Rodapé de cada página do PDF (desenho `pdfBaixar`: 8 pt, cinza #7b93a2, centralizado). */
+    public const RODAPE_PDF = 'BlueJus · página {PAGE_NUM} de {PAGE_COUNT}';
+
+    private const LOGO = '/public/images/logo/bluejus_simbolo.svg';
+
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
@@ -60,6 +71,8 @@ final class PastaResumoController extends AbstractController
         private readonly PastaPagamentoRepository $pastaPagamentoRepository,
         private readonly PastaChecklistItemRepository $checklistRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
+        #[Autowire('%kernel.project_dir%')]
+        private readonly string $projectDir,
     ) {
     }
 
@@ -84,6 +97,71 @@ final class PastaResumoController extends AbstractController
         $resposta->headers->set('X-Robots-Tag', 'noindex');
 
         return $resposta;
+    }
+
+    #[Route(
+        '/{id}/resumo/pdf',
+        name: 'pasta_resumo_pdf',
+        requirements: ['id' => '\d+'],
+        methods: ['GET'],
+    )]
+    public function pdf(Pasta $pasta, Request $request): Response
+    {
+        $opcoes   = PastaImpressaoOpcoes::daQuery($request->query);
+        $contexto = $this->contexto($pasta, $opcoes, $opcoes->secao !== null && $opcoes->secao !== PastaImpressaoOpcoes::SECAO_MOLDURA);
+
+        $html = $this->renderView('pasta/resumo_impressao.html.twig', $contexto + [
+            'modo' => 'pdf',
+            'logoPdf' => $this->logoEmbutido(),
+        ]);
+
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        // A folha é toda do servidor: nada aqui deve buscar recurso externo (o logo vai embutido).
+        $options->set('isRemoteEnabled', false);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $canvas  = $dompdf->getCanvas();
+        $metrica = $dompdf->getFontMetrics();
+        $fonte   = $metrica->getFont('Helvetica');
+        $largura = $metrica->getTextWidth('BlueJus · página 10 de 10', $fonte, 8);
+        $canvas->page_text(
+            ($canvas->get_width() - $largura) / 2,
+            $canvas->get_height() - 22,
+            self::RODAPE_PDF,
+            $fonte,
+            8,
+            [123 / 255, 147 / 255, 162 / 255],
+        );
+
+        $nome = self::nomeDoArquivo((string) $contexto['titulo'], new \DateTimeImmutable());
+
+        return new Response((string) $dompdf->output(), Response::HTTP_OK, [
+            'Content-Type'        => 'application/pdf',
+            'X-Robots-Tag'        => 'noindex',
+            'Content-Disposition' => HeaderUtils::makeDisposition(
+                HeaderUtils::DISPOSITION_ATTACHMENT,
+                $nome,
+                self::nomeAscii($nome),
+            ),
+        ]);
+    }
+
+    /**
+     * "BlueJus <título> dd.mm.aaaa.pdf", como o `pdfBaixar` do desenho: barra vira ponto e os
+     * caracteres que o sistema de arquivos recusa (e o "·") viram espaço.
+     */
+    public static function nomeDoArquivo(string $titulo, \DateTimeImmutable $hoje): string
+    {
+        $nome = 'BlueJus ' . str_replace('/', '.', $titulo) . ' ' . $hoje->format('d.m.Y');
+        $nome = (string) preg_replace('/[\\\\\/:*?"<>|·]+/u', ' ', $nome);
+        $nome = trim((string) preg_replace('/\s+/u', ' ', $nome));
+
+        return $nome . '.pdf';
     }
 
     /**
@@ -179,5 +257,20 @@ final class PastaResumoController extends AbstractController
             $pagamentos,
             incluirFinanceiro: $veFinanceiro,
         );
+    }
+
+    /** O símbolo do BlueJus como `data:` — o Dompdf roda sem acesso a arquivo nem rede. */
+    private function logoEmbutido(): ?string
+    {
+        $svg = @file_get_contents($this->projectDir . self::LOGO);
+
+        return $svg !== false ? 'data:image/svg+xml;base64,' . base64_encode($svg) : null;
+    }
+
+    private static function nomeAscii(string $nome): string
+    {
+        $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $nome);
+
+        return (string) preg_replace('/[^\x20-\x7E]|["%\\\\\/]/', '_', $ascii !== false ? $ascii : $nome);
     }
 }

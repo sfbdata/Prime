@@ -7,12 +7,13 @@
    título, autor · data · tipo, corpo no tamanho escolhido, Financeiro e rodapé
    "Documento interno do escritório · BlueJus") e `impFinanceiro()`.
 
-   Uma folha, dois modos (`modo`, decidido pelo PastaResumoController):
+   Uma folha, três modos (`modo`, decidido pelo PastaResumoController):
      - `pagina`: página própria, abre em aba nova e chama window.print() — o
        caminho sem JS do item "Imprimir resumo";
      - `fragmento`: só a folha (com o próprio <style>), que o pasta-impressao.js
        põe na pré-visualização da janela "Imprimir" e imprime por iframe oculto.
-       Nenhum <script> aqui: o iframe de impressão não executa nada.
+       Nenhum <script> aqui: o iframe de impressão não executa nada;
+     - `pdf`: o HTML que o Dompdf converte (CSS 2.1: sem flex; logo embutido).
 
    As partes que a janela liga e desliga levam `data-rp-parte` (cabecalho, dados,
    titulo, autor, corpo, financeiro, rodape). O servidor já omite a parte cuja
@@ -23,7 +24,7 @@
    controller o montou — `extrato`/`resumo.financeiro` nulos para quem não o vê.
 
    Contexto: `modo`, `resumo`, `opcoes`, `titulo`, `extrato`, `pastaId`,
-   `impressoEm`, `impressoPor`.
+   `impressoEm`, `impressoPor` e, no PDF, `logoPdf`.
    ============================================================================ #}
 {% set secao = opcoes.secao %}
 {% set principal = resumo.processos|filter(p => p.principal)|first %}
@@ -86,7 +87,11 @@
                 <table class="rp-cab">
                     <tr>
                         <td class="rp-marca">
-                            <img src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="">
+                            {%- if modo == 'pdf' -%}
+                                {% if logoPdf %}<img src="{{ logoPdf }}" alt="">{% endif %}
+                            {%- else -%}
+                                <img src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="">
+                            {%- endif -%}
                             <span>BLUEJUS</span>
                         </td>
                         <td class="rp-impresso">
@@ -262,6 +267,26 @@
     <style>{{ estiloFolha }}</style>
     {{ folha }}
 </div>
+{% elseif modo == 'pdf' %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ titulo }}</title>
+    <style>
+        @page { size: A4; margin: 14mm 13mm 16mm; }
+        {# Só o body: no Dompdf, margem posta no `html` anula a do @page. #}
+        body { margin: 0; padding: 0; background: #fff; }
+        {{ estiloFolha }}
+        {# Dompdf: a margem da página faz o papel do padding da folha; a faixa azul encosta no topo. #}
+        .rp-folha { display: block; padding: 0; font-family: Helvetica, Arial, sans-serif; }
+        .rp-faixa { margin: -14mm -13mm 30px; }
+    </style>
+</head>
+<body>
+    {{ folha }}
+</body>
+</html>
 {% else %}
 <!DOCTYPE html>
 <html lang="pt-BR">

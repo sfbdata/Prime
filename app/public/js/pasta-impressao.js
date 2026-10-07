@@ -12,6 +12,8 @@
      `rp-sem-<parte>` e o font-size do corpo), sem ir ao servidor.
    - Imprimir: iframe OCULTO com `sandbox` SEM permissão de script (nada roda lá
      dentro) e CSP fechada; a folha entra por DOM. Funciona com pop-up bloqueado.
+   - Baixar PDF: o mesmo pedido, na rota `pasta_resumo_pdf` (Dompdf). Só para as
+     folhas que o servidor monta inteiras (não a moldura).
    - Copiar texto: o texto da folha como se lê (innerText).
 
    API para os outros scripts da pasta: window.PastaImpressao.
@@ -95,7 +97,7 @@
     }
 
     function prontos(sim) {
-        raiz.querySelectorAll('.js-psi-imprimir, .js-psi-copiar').forEach(function (b) {
+        raiz.querySelectorAll('.js-psi-imprimir, .js-psi-baixar, .js-psi-copiar').forEach(function (b) {
             b.disabled = !sim;
         });
     }
@@ -152,6 +154,8 @@
         };
 
         el('psImpressaoTitulo').textContent = 'Imprimir' + (estado.titulo ? ' · ' + estado.titulo : '');
+        // Baixar PDF: só as folhas que o servidor monta inteiras.
+        raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura';
         raiz.querySelector('.js-psi-opcao[data-opcao="financeiro"]').hidden = true;
         mensagemNoPalco('Montando a folha…');
         prontos(false);
@@ -305,6 +309,18 @@
         ]);
     }
 
+    /* ── Baixar PDF ───────────────────────────────────────────────────── */
+    function baixarPdf() {
+        if (!estado || estado.secao === 'moldura') { return; }
+        var u = new URL(raiz.getAttribute('data-url-pdf'), window.location.href);
+        u.searchParams.set('secao', estado.secao);
+        PARTES.forEach(function (parte) { u.searchParams.set(parte, estado.opcoes[parte] ? '1' : '0'); });
+        u.searchParams.set('fonte', String(estado.fonte));
+        // Anexo (Content-Disposition: attachment): o navegador baixa e a tela fica onde está.
+        window.location.assign(u.toString());
+        avisar('Gerando PDF…');
+    }
+
     /* ── Copiar texto ─────────────────────────────────────────────────── */
     function copiarTexto() {
         if (!estado || !estado.folha) { return; }
@@ -354,6 +370,7 @@
         if (alvo.closest('.js-psi-menor')) { estado.fonte = Math.max(FONTE_MIN, estado.fonte - 0.5); aplicar(); return; }
         if (alvo.closest('.js-psi-maior')) { estado.fonte = Math.min(FONTE_MAX, estado.fonte + 0.5); aplicar(); return; }
         if (alvo.closest('.js-psi-imprimir')) { imprimir(); return; }
+        if (alvo.closest('.js-psi-baixar')) { baixarPdf(); return; }
         if (alvo.closest('.js-psi-copiar')) { copiarTexto(); }
     });
 

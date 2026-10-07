@@ -100,9 +100,22 @@ final class PastaImpressaoJanelaTelaTest extends JusPrimeWebTestCase
             trim($dialogo->filter($lado . ' > .psi-nota')->text()),
         );
         self::assertSame(
-            ['Imprimir', 'Copiar texto'],
-            $this->textos($dialogo->filter($lado . ' > .psi-imprimir, ' . $lado . ' > .psi-copiar')),
+            ['Imprimir', 'Baixar PDF', 'Copiar texto'],
+            $this->textos($dialogo->filter($lado . ' > .psi-imprimir, ' . $lado . ' > .psi-baixar, ' . $lado . ' > .psi-copiar')),
         );
-        self::assertCount(1, $dialogo->filter($lado . ' > .psi-nota + .psi-imprimir'), 'a nota fica logo acima do Imprimir');
+        self::assertCount(1, $dialogo->filter($lado . ' > .psi-nota + .psi-imprimir + .psi-baixar + .psi-copiar'), 'a nota fica logo acima dos botões');
+    }
+
+    #[TestDox('Baixar PDF aponta para a rota de PDF desta pasta')]
+    public function testUrlDoPdf(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertSame('/pasta/' . $pasta->getId() . '/resumo/pdf', $crawler->filter('#psImpressao')->attr('data-url-pdf'));
     }
 }

@@ -14,7 +14,8 @@
    ============================================================================ #}
 <link rel="stylesheet" href="{{ asset('css/pasta-impressao.css') }}">
 <div class="psi-fundo" id="psImpressao" hidden
-     data-url-folha="{{ path('pasta_resumo_imprimir', {id: pasta.id}) }}">
+     data-url-folha="{{ path('pasta_resumo_imprimir', {id: pasta.id}) }}"
+     data-url-pdf="{{ path('pasta_resumo_pdf', {id: pasta.id}) }}">
     <div class="psi-janela" role="dialog" aria-modal="true" aria-labelledby="psImpressaoTitulo">
         <div class="psi-cab">
             <i class="bi bi-printer" aria-hidden="true"></i>
@@ -48,6 +49,7 @@
                 <div class="psi-espaco"></div>
                 <span class="psi-nota">Papel A4. Para gerar PDF, escolha "Salvar como PDF" na janela de impressão.</span>
                 <button type="button" class="psi-imprimir js-psi-imprimir"><i class="bi bi-printer"></i>Imprimir</button>
+                <button type="button" class="psi-baixar js-psi-baixar"><i class="bi bi-file-earmark-pdf"></i>Baixar PDF</button>
                 <button type="button" class="psi-copiar js-psi-copiar"><i class="bi bi-copy"></i>Copiar texto</button>
             </div>
         </div>

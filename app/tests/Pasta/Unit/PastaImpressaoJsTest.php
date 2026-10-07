@@ -95,6 +95,21 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString('estado.fonte + 0.5', $js);
     }
 
+    #[TestDox('EDT-002: Baixar PDF leva as mesmas opções da janela à rota de PDF, e só para folha que o servidor monta inteira')]
+    public function testBaixarPdf(): void
+    {
+        $js     = $this->js();
+        $inicio = strpos($js, 'function baixarPdf()');
+        self::assertNotFalse($inicio);
+        $f = substr($js, $inicio, 800);
+
+        self::assertStringContainsString("if (!estado || estado.secao === 'moldura') { return; }", $f);
+        self::assertStringContainsString("raiz.getAttribute('data-url-pdf')", $f);
+        self::assertStringContainsString("u.searchParams.set(parte, estado.opcoes[parte] ? '1' : '0')", $f);
+        self::assertStringContainsString("u.searchParams.set('fonte', String(estado.fonte))", $f);
+        self::assertStringContainsString("raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura';", $js);
+    }
+
     #[TestDox('Ids e classes que o JS usa existem no template da janela')]
     public function testContratoComOTemplate(): void
     {
@@ -106,7 +121,7 @@ final class PastaImpressaoJsTest extends TestCase
             self::assertStringContainsString("'" . $id . "'", $js);
             self::assertStringContainsString('id="' . $id . '"', $twig);
         }
-        foreach (['js-psi-fechar', 'js-psi-opcao', 'js-psi-menor', 'js-psi-maior', 'js-psi-imprimir', 'js-psi-copiar', 'data-url-folha'] as $marca) {
+        foreach (['js-psi-fechar', 'js-psi-opcao', 'js-psi-menor', 'js-psi-maior', 'js-psi-imprimir', 'js-psi-baixar', 'js-psi-copiar', 'data-url-folha', 'data-url-pdf'] as $marca) {
             self::assertStringContainsString($marca, $js);
             self::assertStringContainsString($marca, $twig);
         }
