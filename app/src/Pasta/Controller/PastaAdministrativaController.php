@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Permission\AccessRequest;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirPastaAdministrativaUseCase;
+use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,6 +37,7 @@ final class PastaAdministrativaController extends AbstractController
     public function __construct(
         private readonly DefinirPastaAdministrativaUseCase $definirAdministrativa,
         private readonly TenantContext $tenantContext,
+        private readonly PermissionChecker $permissionChecker,
     ) {
     }
 
@@ -76,7 +79,11 @@ final class PastaAdministrativaController extends AbstractController
             return $this->json([
                 'sucesso'        => true,
                 'administrativa' => $pasta->isAdministrativa(),
-                'html'           => $this->renderView('pasta/_processos_vinculados.html.twig', ['pasta' => $pasta]),
+                'html'           => $this->renderView('pasta/_processos_vinculados.html.twig', [
+                    'pasta'           => $pasta,
+                    // PAS-049: a mesma decisão do show (EDIT na pasta) para o cartão re-renderizado.
+                    'podeEditarPasta' => $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
+                ]),
             ]);
         }
 

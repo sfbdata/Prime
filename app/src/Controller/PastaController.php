@@ -1310,8 +1310,21 @@ class PastaController extends AbstractController
     {
         return $this->json([
             'sucesso' => true,
-            'html'    => $this->renderView('pasta/_processos_vinculados.html.twig', ['pasta' => $pasta]),
+            'html'    => $this->renderView('pasta/_processos_vinculados.html.twig', [
+                'pasta'           => $pasta,
+                // PAS-049: a mesma decisão do show, para o cartão que volta pelo XHR esconder as
+                // ações de escrita de quem não tem EDIT na pasta.
+                'podeEditarPasta' => $this->podeEditarPasta($pasta),
+            ]),
         ]);
+    }
+
+    private function podeEditarPasta(Pasta $pasta): bool
+    {
+        $usuario = $this->getUser();
+
+        return $usuario instanceof \App\Entity\Auth\User
+            && $this->permissionChecker->canAccessResource($usuario, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT);
     }
 
     private function respostaErroProcesso(bool $isXhr, string $mensagem, int $pastaId, int $status): Response
