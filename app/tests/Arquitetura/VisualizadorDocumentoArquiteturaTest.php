@@ -413,6 +413,22 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString('if (c < 0x20) { continue; }', $controles);
     }
 
+    #[TestDox('DOC-111b: o tamanho da FAT do .doc (cabeçalho + cadeia DIFAT) tem teto no número de setores do arquivo ANTES de alocar o Uint32Array')]
+    public function testFatDoDocComTetoAntesDeAlocar(): void
+    {
+        $cfb = self::corpoDaFuncao(self::modulo(), 'lerCfb');
+
+        self::assertStringContainsString('if (qtdFat > totalSetores) { throw falha(invalido); }', $cfb, 'FAT declarada maior que o arquivo é corrompido');
+        self::assertStringContainsString('if (s >= FIM_DE_CADEIA || difat.length >= qtdFat) { return; }', $cfb, 'o DIFAT não cresce além da FAT declarada');
+        self::assertStringContainsString('for (let k = 0; proximo < FIM_DE_CADEIA && difat.length < qtdFat; k++) {', $cfb, 'a cadeia DIFAT para quando já tem os setores da FAT');
+        self::assertStringContainsString('if (setoresFat.length > totalSetores) { throw falha(invalido); }', $cfb);
+
+        $alocacao = (int) strpos($cfb, 'const fat = new Uint32Array(setoresFat.length * porSetor);');
+        self::assertGreaterThan(0, $alocacao);
+        self::assertLessThan($alocacao, (int) strpos($cfb, 'if (qtdFat > totalSetores)'), 'o teto vem ANTES da alocação');
+        self::assertLessThan($alocacao, (int) strpos($cfb, 'if (setoresFat.length > totalSetores)'), 'o teto vem ANTES da alocação');
+    }
+
     #[TestDox('DOC-112: UTIF e pako auto-hospedados em vendor/utif, com a versão e o sha256 de cada arquivo registrados no VERSION')]
     public function testUtifAutoHospedadoComVersao(): void
     {

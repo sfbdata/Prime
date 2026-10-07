@@ -885,17 +885,28 @@
             return (n + 1) * tam;
         }
 
-        /* FAT: os setores dela vêm do DIFAT (109 no cabeçalho + a cadeia de setores DIFAT). */
+        /* FAT: os setores dela vêm do DIFAT (109 no cabeçalho + a cadeia de setores DIFAT).
+           DOC-111b: o tamanho da FAT vem do cabeçalho e da cadeia DIFAT, e os dois são do
+           arquivo. Cada setor da FAT é um setor DESTE arquivo: mais setores de FAT que setores no
+           arquivo é corrompido — recusado ANTES de alocar (sem o teto, 15 MB pediam ~2 GB). O
+           DIFAT guarda só setores válidos e para de ler quando já tem os que a FAT declara. */
+        const qtdFat = lerU32(bytes, 0x2c);
+        if (qtdFat > totalSetores) { throw falha(invalido); }
         const difat = [];
-        for (let i = 0; i < 109; i++) { difat.push(lerU32(bytes, 0x4c + i * 4)); }
+        function anotarDifat(s) {
+            if (s >= FIM_DE_CADEIA || difat.length >= qtdFat) { return; }
+            difat.push(s);
+        }
+        for (let i = 0; i < 109; i++) { anotarDifat(lerU32(bytes, 0x4c + i * 4)); }
         let proximo = lerU32(bytes, 0x44);
-        for (let k = 0; proximo < FIM_DE_CADEIA; k++) {
+        for (let k = 0; proximo < FIM_DE_CADEIA && difat.length < qtdFat; k++) {
             if (k >= totalSetores) { throw falha(invalido); }
             const p = setor(proximo);
-            for (let i = 0; i < porSetor - 1; i++) { difat.push(lerU32(bytes, p + i * 4)); }
+            for (let i = 0; i < porSetor - 1; i++) { anotarDifat(lerU32(bytes, p + i * 4)); }
             proximo = lerU32(bytes, p + tam - 4);
         }
-        const setoresFat = difat.filter(function (s) { return s < FIM_DE_CADEIA; }).slice(0, lerU32(bytes, 0x2c));
+        const setoresFat = difat;
+        if (setoresFat.length > totalSetores) { throw falha(invalido); }
         const fat = new Uint32Array(setoresFat.length * porSetor);
         setoresFat.forEach(function (s, i) {
             const p = setor(s);
