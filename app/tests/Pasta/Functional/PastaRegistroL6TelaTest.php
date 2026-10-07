@@ -95,4 +95,35 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#timelineList .ps-anotacao-janela'), 'sem o "· N min" na linha');
         self::assertCount(1, $crawler->filter('#psRegMenu > .js-reg-excluir'), 'excluir continua no menu');
     }
+
+    #[TestDox('PAS-032: a edição do Registro usa o rodapé dentro do editor (Visível para a equipe · Cancelar · Salvar), como Detalhes')]
+    public function testEdicaoComRodapeNoEditor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $this->abrir($client, $pasta);
+        $html = $this->html($client);
+
+        $ini = strpos($html, "const btnEditar = e.target.closest('.btn-editar-msg-pasta');");
+        self::assertNotFalse($ini);
+        $edicao = substr($html, $ini, 6000);
+        self::assertStringContainsString("area.className = 'pasta-msg-edit-area ps-anotacao-texto ps-anotacao-edicao';", $edicao);
+        self::assertStringContainsString("rodape.className = 'ps-anotacao-edicao-rodape';", $edicao);
+        self::assertStringContainsString("nota.textContent = 'Visível para a equipe';", $edicao);
+        self::assertStringContainsString("btnCancelar.className = 'ps-anotacao-edicao-cancelar';", $edicao);
+        self::assertStringContainsString("btnSalvar.className = 'ps-btn ps-btn--primario';", $edicao);
+        self::assertStringContainsString("moldura.className = 'ps-compositor-caixa';", $edicao);
+        // Ordem do desenho: nota, espaço, Cancelar, Salvar.
+        $ordem = array_map(static fn (string $t): int|false => strpos($edicao, $t), [
+            'rodape.appendChild(nota);', 'rodape.appendChild(espaco);', 'rodape.appendChild(btnCancelar);', 'rodape.appendChild(btnSalvar);',
+        ]);
+        self::assertNotContains(false, $ordem);
+        $ordenada = $ordem;
+        sort($ordenada);
+        self::assertSame($ordenada, $ordem);
+        self::assertStringNotContainsString('btn btn-sm btn-success', $edicao, 'sai o botão verde fora do editor');
+    }
 }
