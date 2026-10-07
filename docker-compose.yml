@@ -36,7 +36,9 @@ services:
         GID: ${GID:-1000}
     container_name: jusprime_worker_dev
     profiles: ["worker"]
-    restart: unless-stopped
+    # Sem restart automático: a fila `async` também leva o sync do Drive e o dev roda com dado real.
+    # Sobe só quando alguém pede (`docker compose --profile worker up -d worker`) e não volta sozinho.
+    restart: "no"
     working_dir: /var/www/app
     environment:
       TZ: America/Sao_Paulo
