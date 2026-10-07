@@ -125,7 +125,7 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString("abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo })", $bloco);
     }
 
-    #[TestDox('EDT-003: na observação de Detalhes o cartão é o ancestral do item; o Registro e o Financeiro (menu único) passam o cartão pela API')]
+    #[TestDox('EDT-003: na observação de Detalhes o cartão é o ancestral do item; a API registro(item, cartao) segue para um menu único da lista')]
     public function testOsDoisCaminhosDoImprimirDoRegistro(): void
     {
         $js = $this->js();

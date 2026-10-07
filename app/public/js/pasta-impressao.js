@@ -374,14 +374,14 @@
         if (alvo.closest('.js-psi-copiar')) { copiarTexto(); }
     });
 
-    /* ── "Imprimir" do ⋮ do registro (Detalhes, Registro, Financeiro) ──────
+    /* ── "Imprimir" do ⋮ da observação (Detalhes) ──────────────────────────
        Desenho (dc L.6463): título "Registro do expediente", linha autor · data ·
        tipo e o texto do registro. O texto é o que está na tela — HTML que o
        servidor já sanitizou (`texto_rico`) —, CLONADO nó a nó para fora do
        `.ql-editor` (o estilo do editor não vai junto). `item` carrega data-autor,
        data-quando e data-tipo (o que faltar sai da linha); `artigo` é o cartão
-       `.ps-anotacao`. Na observação de Detalhes o item mora no cartão; o Registro
-       e o Financeiro têm UM menu para a lista e passam o cartão de onde ele abriu. */
+       `.ps-anotacao`. Na observação de Detalhes o item mora no cartão. O desenho
+       (dc L.6454-6466) só põe "Imprimir" nesse ⋮: o Registro e o Financeiro não têm. */
     function imprimirRegistro(item, artigo) {
         var origem = artigo ? artigo.querySelector('.ps-anotacao-texto .ql-editor') : null;
         var corpo = document.createElement('div');
@@ -413,7 +413,7 @@
             return abrir({ secao: 'moldura', titulo: cfg.titulo, autor: cfg.autor || '', corpo: cfg.corpo });
         },
         /**
-         * "Imprimir" de um menu único da lista (Registro, Financeiro): o item com
+         * "Imprimir" de um registro por um menu único da lista: o item com
          * data-autor/data-quando/data-tipo e o cartão `.ps-anotacao` de onde o menu abriu.
          */
         registro: function (item, artigo) { return imprimirRegistro(item, artigo); },

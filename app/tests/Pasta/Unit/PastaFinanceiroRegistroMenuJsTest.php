@@ -106,22 +106,13 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringContainsString("e.target.closest('.btn-excluir-obs')", $obs);
     }
 
-    #[TestDox('EDT-003: Imprimir leva à janela de impressão o item, com autor e data do registro, e o PRÓPRIO cartão de onde o menu abriu')]
-    public function testImprimirDoRegistro(): void
+    #[TestDox('Desenho (dc L.6454-6466): o menu do Relatório financeiro não tem Imprimir — nem o item, nem o ramo no JS')]
+    public function testMenuDoRegistroNaoImprime(): void
     {
+        // `menuObs`/`extrasObs` do desenho são da observação de Detalhes: só lá há "Imprimir".
         $prep = $this->trecho('function prepararMenuObs(', 'function menuDoGatilho(');
-        self::assertStringContainsString("const imprimir = menu.querySelector('.js-fin-obs-imprimir');", $prep);
-        self::assertStringContainsString("imprimir.setAttribute('data-autor', autor);", $prep);
-        self::assertStringContainsString("imprimir.setAttribute('data-quando', quando.replace(' ', ', '));", $prep);
-        self::assertStringNotContainsString('data-tipo', $prep, 'o registro financeiro do desenho não tem tipo');
-        // Antes do retorno antecipado dos bloqueados: quem não edita também imprime.
-        self::assertLessThan(
-            (int) strpos($prep, 'if (!podeGerenciar)'),
-            (int) strpos($prep, "imprimir.setAttribute('data-autor'"),
-        );
-
-        $ramo = $this->trecho("if (item.classList.contains('js-fin-obs-imprimir'))", "// Editar e Excluir do registro clicam");
-        self::assertStringContainsString('const cartao = obsAlvo;', $ramo);
-        self::assertStringContainsString('window.PastaImpressao.registro(item, cartao)', $ramo);
+        self::assertStringNotContainsString('imprimir', $prep);
+        self::assertStringNotContainsString('js-fin-obs-imprimir', (string) file_get_contents(self::TWIG));
+        self::assertStringNotContainsString('PastaImpressao.registro(', (string) file_get_contents(self::TWIG));
     }
 }

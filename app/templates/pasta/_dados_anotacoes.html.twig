@@ -32,7 +32,8 @@
    que abre o MESMO menu. Os minutos saem de `data-janela-ate` (fim da janela, epoch) no
    momento de abrir; `data-do-autor` escolhe o motivo do bloqueio. Contrato com o JS do
    show.html.twig: #psRegMenu · .js-reg-menu · .js-reg-responder · .js-reg-copiar ·
-   .js-reg-editar · .js-reg-excluir · .js-reg-imprimir (EDT-003, pasta-impressao.js).
+   .js-reg-editar · .js-reg-excluir. Sem "Imprimir": no desenho (dc L.6454-6466) ele mora só no ⋮
+   da observação de Detalhes.
 
    Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM),
    `fotosResponsaveis` (mapa userId => NOME do arquivo da foto, herdado do show; a URL sai de app_profile_foto_serve).
@@ -175,12 +176,6 @@
         </button>
         <button type="button" class="ps-processo-menu-item js-reg-excluir" role="menuitem">
             <i class="bi bi-trash3"></i><span>Excluir comentário</span>
-        </button>
-        {# EDT-003 (dc L.6463): "Imprimir" é o último, como no ⋮ da observação de Detalhes.
-           O JS põe data-autor e data-quando do cartão ao abrir; sem data-tipo: o registro do
-           desenho não tem tipo (`regsItens('expedientes')`, tag null). #}
-        <button type="button" class="ps-processo-menu-item js-reg-imprimir" role="menuitem">
-            <i class="bi bi-printer"></i><span>Imprimir</span>
         </button>
     </div>
 </section>
