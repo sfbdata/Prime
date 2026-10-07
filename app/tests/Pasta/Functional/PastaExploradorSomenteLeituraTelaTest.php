@@ -9,6 +9,7 @@ use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -44,6 +45,7 @@ final class PastaExploradorSomenteLeituraTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($client, $pasta);
 
         self::assertFalse($this->dados($crawler)['podeEditar']);
+        self::assertFalse($this->dados($crawler)['podeVerLixeira'], 'DOC-118c: o GET da lixeira é de quem edita');
         self::assertSame('0', $crawler->filter('#pexExplorador')->attr('data-pode-editar'));
         self::assertCount(0, $crawler->filter('#pexNovaPasta'));
         self::assertCount(0, $crawler->filter('#pexAnexar'));
@@ -67,6 +69,7 @@ final class PastaExploradorSomenteLeituraTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($client, $pasta);
 
         self::assertTrue($this->dados($crawler)['podeEditar']);
+        self::assertTrue($this->dados($crawler)['podeVerLixeira']);
         self::assertSame('1', $crawler->filter('#pexExplorador')->attr('data-pode-editar'));
         self::assertCount(1, $crawler->filter('.pex-cab > #pexNovaPasta'));
         self::assertCount(1, $crawler->filter('.pex-cab > #pexAnexar'));
@@ -89,6 +92,55 @@ final class PastaExploradorSomenteLeituraTelaTest extends JusPrimeWebTestCase
         self::assertSame('0', $crawler->filter('#pexExplorador')->attr('data-pode-editar'));
         self::assertSame('1', $crawler->filter('#pexExplorador')->attr('data-pasta-excluida'));
         self::assertCount(0, $crawler->filter('#pexNovaPasta, #pexAnexar'));
+        // DOC-118c: quem edita ainda olha a lixeira da lápide.
+        self::assertTrue($this->dados($crawler)['podeVerLixeira']);
+    }
+
+    /**
+     * DOC-118c: `podeVerLixeira` é a mesma decisão do GET da lixeira — pedida ao servidor para
+     * cada um dos quatro casos, a flag e o status têm de bater. Só-leitor numa lápide não recebe
+     * a lixeira (antes via o botão e levava 403 sem aviso); quem edita a recebe, com ou sem lápide.
+     *
+     * @return iterable<string, array{list<string>, bool, bool}>
+     */
+    public static function casosDaLixeira(): iterable
+    {
+        $ver    = ['resources.pasta.view', 'modules.pastas.view'];
+        $editar = ['resources.pasta.view', 'resources.pasta.edit', 'modules.pastas.view'];
+
+        yield 'só leitor, pasta viva'   => [$ver, false, false];
+        yield 'só leitor, lápide'       => [$ver, true, false];
+        yield 'quem edita, pasta viva'  => [$editar, false, true];
+        yield 'quem edita, lápide'      => [$editar, true, true];
+    }
+
+    /** @param list<string> $permissoes */
+    #[DataProvider('casosDaLixeira')]
+    #[TestDox('DOC-118c: podeVerLixeira no #pexDados = o GET da lixeira atender ($_dataName)')]
+    public function testLixeiraSoParaQuemOGetAtende(array $permissoes, bool $lapide, bool $esperado): void
+    {
+        $client           = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $pasta            = $this->criarPasta($tenant);
+        $usuario          = $this->criarUsuarioComPermissoes($tenant, $permissoes);
+        if ($lapide) {
+            $pasta->marcarExcluida($admin, new \DateTimeImmutable());
+        }
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $usuario, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        $dados   = $this->dados($crawler);
+
+        self::assertSame($lapide ? '1' : '0', $crawler->filter('#pexExplorador')->attr('data-pasta-excluida'));
+        self::assertArrayHasKey('podeVerLixeira', $dados, 'a flag é contrato do #pexDados');
+        self::assertSame($esperado, $dados['podeVerLixeira']);
+        self::assertNotSame('', $dados['urlLixeira'], 'a URL vem sempre; quem decide é a flag');
+
+        // A flag diz a verdade sobre o servidor: o mesmo usuário pede a lista.
+        $this->em()->clear();
+        $client->request('GET', $dados['urlLixeira']);
+        self::assertResponseStatusCodeSame($esperado ? 200 : 403);
     }
 
     // ----------------------------------------------------------------- helpers

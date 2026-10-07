@@ -387,6 +387,7 @@ class PastaController extends AbstractController
             $pastaId,
             $tenant !== null ? $favoritosDeDocumento->idsFavoritosDaPasta($currentUser, $pasta, $tenant) : [], // estrelas DO usuário logado (D2)
             podeEditar: !$pasta->estaExcluida() && $this->podeEditarPasta($pasta), // DOC-118: só-leitor e lápide não veem escrita
+            podeVerLixeira: $this->podeEditarPasta($pasta), // DOC-118c: a permissão do GET da lixeira, mesmo na lápide
         );
 
         // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —

@@ -52,6 +52,10 @@ use App\Pasta\Service\SugestoesDeLimpeza;
  * lápide, decidido por quem monta (o `PastaController::show`, pelo `PermissionChecker`). Falso, a
  * tela não desenha nem liga ação de escrita; leitura, busca, visualizar, .zip e favoritos seguem.
  * O servidor continua recusando por conta própria: a flag é a tela honesta, não a barreira.
+ *
+ * `podeVerLixeira` (DOC-118c) é a permissão do GET da lixeira — EDITAR a pasta, com ou sem lápide:
+ * na lápide `podeEditar` é falso, mas quem edita ainda olha a lixeira; quem só vê, nunca (o GET
+ * responderia 403).
  */
 final readonly class ExploradorDeDocumentosOutput
 {
@@ -99,6 +103,7 @@ final readonly class ExploradorDeDocumentosOutput
         public string $urlRestaurar = '',
         public string $urlLixeira = '',
         public bool $podeEditar = false,
+        public bool $podeVerLixeira = false,
     ) {
     }
 
@@ -111,8 +116,9 @@ final readonly class ExploradorDeDocumentosOutput
      * @param int                                                       $pastaId          para as URLs e o token das ações em lote
      * @param array{documentos?: array<int, string|true>, secoes?: array<int, string|true>} $favoritos  os do usuário logado, id => hora em que marcou (`PastaDocumentoFavoritoRepository::idsFavoritosDaPasta`); `true` = favorito sem hora conhecida
      * @param bool                                                      $podeEditar       quem chama decide (permissão de EDITAR a pasta E pasta fora da lápide, DOC-118); o padrão é o seguro
+     * @param bool                                                      $podeVerLixeira   quem chama decide (a permissão do GET da lixeira: EDITAR a pasta, mesmo na lápide, DOC-118c); o padrão é o seguro
      */
-    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId, array $favoritos = [], bool $podeEditar = false): self
+    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId, array $favoritos = [], bool $podeEditar = false, bool $podeVerLixeira = false): self
     {
         $documentosFavoritos = $favoritos['documentos'] ?? [];
         $secoesFavoritas     = $favoritos['secoes'] ?? [];
@@ -192,6 +198,7 @@ final readonly class ExploradorDeDocumentosOutput
             urlRestaurar: $url('pasta_documentos_restaurar', ['id' => $pastaId]),
             urlLixeira: $url('pasta_documentos_lixeira', ['id' => $pastaId]),
             podeEditar: $podeEditar,
+            podeVerLixeira: $podeVerLixeira,
         );
     }
 
@@ -285,6 +292,7 @@ final readonly class ExploradorDeDocumentosOutput
             'urlRestaurar'   => $this->urlRestaurar,
             'urlLixeira'     => $this->urlLixeira,
             'podeEditar'     => $this->podeEditar,
+            'podeVerLixeira' => $this->podeVerLixeira,
         ], self::FLAGS_JSON);
     }
 

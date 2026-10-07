@@ -111,6 +111,8 @@
         // DOC-118: permissão de EDITAR a pasta (e pasta fora da lápide), decidida no servidor.
         // Falsa (ou ausente), nenhuma ação de escrita é desenhada nem ligada.
         podeEditar:          dados.podeEditar === true,
+        // DOC-118c: a permissão do GET da lixeira (EDITAR a pasta, mesmo na lápide), decidida no servidor.
+        podeVerLixeira:      dados.podeVerLixeira === true,
         // DOC-120: a pasta_show desta pasta — base do "Copiar link" de uma subpasta.
         urlPasta:            raiz.dataset.urlPasta || '',
     };
@@ -197,8 +199,9 @@
             el.selecao.querySelectorAll('[data-pex-sel="copiar"], [data-pex-sel="recortar"], [data-pex-sel="renomear"], [data-pex-sel="excluir"]').forEach(function (n) { n.remove(); });
         }
     }
-    // A lixeira só se abre com permissão de EDITAR (o GET é dela); na lápide, quem edita ainda a olha.
-    function veLixeira() { return !!cfg.urlLixeira && (cfg.podeEditar || cfg.pastaExcluida); }
+    // A lixeira só se oferece a quem o GET dela atende (EDITAR a pasta); na lápide, quem edita ainda
+    // a olha, quem só vê não (DOC-118c: antes via o botão e levava 403 sem aviso).
+    function veLixeira() { return !!cfg.urlLixeira && cfg.podeVerLixeira; }
 
     // ------------------------------------------------------------ estado ----
     const pastas   = dados.pastas;            // mutável em memória

@@ -213,11 +213,14 @@ final class PastaExploradorSomenteLeituraJsTest extends TestCase
         );
     }
 
-    #[TestDox('só leitura: a lixeira (GET de quem edita) não é oferecida — salvo na lápide, que quem edita ainda olha; Restaurar segue a guarda de sempre')]
+    #[TestDox('só leitura (DOC-118c): a lixeira só é oferecida com `podeVerLixeira` do servidor (a permissão do GET dela) — na lápide, quem só vê não a vê; quem edita ainda olha')]
     public function testLixeira(): void
     {
         $js = $this->js();
-        self::assertStringContainsString('function veLixeira() { return !!cfg.urlLixeira && (cfg.podeEditar || cfg.pastaExcluida); }', $js);
+        self::assertStringContainsString('podeVerLixeira:      dados.podeVerLixeira === true,', $js, 'estrita: ausente = sem lixeira');
+        self::assertStringContainsString('function veLixeira() { return !!cfg.urlLixeira && cfg.podeVerLixeira; }', $js);
+        // A lápide sozinha não abre mais a lixeira (era o furo: só-leitor via o botão e levava 403).
+        self::assertStringNotContainsString('pastaExcluida', $this->funcao('veLixeira'));
         self::assertStringContainsString('], veLixeira() ? [', $this->funcao('opcoesDoMenu'));
         self::assertStringContainsString('el.btnLixeira.hidden = !veLixeira();', $js);
         self::assertStringContainsString('if (!veLixeira() || lixeiraContagem != null || lixeiraContando) return;', $this->funcao('atualizarContagemDaLixeira'));
