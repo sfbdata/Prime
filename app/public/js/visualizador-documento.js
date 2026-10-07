@@ -15,6 +15,10 @@
          Renderiza a pré-visualização em `conteudo` (padrão: #previewDocConteudo).
      VisualizadorDocumento.limpar(conteudo)
          Esvazia a área e cancela qualquer carregamento em andamento.
+     VisualizadorDocumento.paraImpressao(conteudo)
+         DOC-108: cópia inerte do que já está desenhado (DOCX, planilha, texto,
+         ODT, PPTX, ODP, RTF, EML, lista do ZIP) para o visor imprimir; null
+         enquanto carrega, se falhou ou se o tipo não passa por render.
 
    Tipos:
      PDF (iframe), imagem, áudio, vídeo — como sempre foi.
@@ -906,6 +910,12 @@
      */
     function neutralizar(html) {
         const doc = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html');
+        limparArvore(doc);
+        return doc.body.innerHTML;
+    }
+
+    /** A limpeza do `neutralizar`, sobre um documento já lido (também a releitura da impressão). */
+    function limparArvore(doc) {
         doc.querySelectorAll('script,style,iframe,frame,object,embed,link,meta,base,form,svg,math').forEach(function (x) { x.remove(); });
         doc.querySelectorAll('*').forEach(function (n) {
             Array.from(n.attributes).forEach(function (a) {
@@ -917,7 +927,6 @@
                 }
             });
         });
-        return doc.body.innerHTML;
     }
 
     function montarSrcdoc(corpoHtml, css) {
@@ -952,6 +961,7 @@
 
     function blocoNaoDisponivel(urlDownload, mensagem) {
         const div = el('div', 'p-5 text-center text-muted w-100');
+        div.setAttribute('data-vd-sem-conteudo', ''); // DOC-108: não há o que imprimir
         div.appendChild(el('i', 'bi bi-file-earmark display-1 d-block mb-3'));
         div.appendChild(el('p', null, mensagem || 'Pré-visualização não disponível para este tipo de arquivo.'));
         const a = el('a', 'btn btn-primary');
@@ -1417,6 +1427,59 @@
         alvo.replaceChildren(no);
     }
 
+    /* ---------------------------------------------------- impressão ---- */
+
+    /* DOC-108: estilo do documento de impressão — o do `BJImprimir` do desenho (bj-visualizar.js
+       L95-101) mais o mínimo das peças .vd-* (a folha da página não entra no iframe). */
+    const CSS_IMPRESSAO = '@page{size:A4;margin:18mm 16mm 18mm}'
+        + 'body{font-family:Arial,Helvetica,sans-serif;font-size:11.5pt;line-height:1.55;color:#12242f;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+        + 'img,canvas{max-width:100%;page-break-inside:avoid}table{border-collapse:collapse}h1,h2,h3{page-break-after:avoid}'
+        + 'blockquote{border-left:3px solid #c9d6de;margin:8px 0;padding:2px 12px;color:#4f6878}'
+        + 'td,th{border:1px solid #c9d6de;padding:3px 6px;vertical-align:top;text-align:left}p{margin:0 0 .6em}'
+        + 'pre,.vd-folha-pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;margin:0}'
+        + '.vd-aviso{font-size:9pt;color:#6b8494;margin:0 0 8px}.vd-nota{font-size:9.5pt;color:#4f6878}'
+        + '.vd-slide{page-break-inside:avoid;border:1px solid #c9d6de;padding:8px 12px;margin:0 0 10px}.vd-slide-numero{font-size:9pt;color:#6b8494}'
+        + '.vd-email-assunto{font-weight:700;font-size:13pt;margin:0 0 6px}.vd-email-campos{margin:0 0 10px}'
+        + '.vd-email-campos dt{font-weight:700;float:left;clear:left;margin-right:8px}.vd-email-campos dd{margin:0}';
+
+    /**
+     * DOC-108: o conteúdo que JÁ está desenhado em `conteudo`, pronto para imprimir — ou null se
+     * não há (carregando, falhou, PDF/imagem/mídia, que não passam por aqui).
+     *
+     * Nada é desenhado de novo e nenhuma string vira HTML: os nós (montados por textContent) são
+     * CLONADOS para um documento inerte; cada iframe sandbox (DOCX, planilha, e-mail em HTML) dá
+     * lugar ao corpo do srcdoc que o próprio módulo montou, relido por DOMParser e limpo de novo
+     * (`limparArvore`). Botões, abas, mídia e ícones saem (bj-visualizar.js `capturar`, L102).
+     * Quem imprime é o visor, num iframe oculto sem scripts, com a mesma CSP (`csp`).
+     *
+     * @returns {{nos: DocumentFragment, css: string, csp: string}|null}
+     */
+    function paraImpressao(conteudo) {
+        if (!conteudo || conteudo.__vdImprimivel == null || conteudo.__vdImprimivel !== conteudo.__vdToken) { return null; }
+
+        const inerte = document.implementation.createHTMLDocument('');
+        const copia = inerte.importNode(conteudo, true);
+        const originais = conteudo.querySelectorAll('iframe');
+        copia.querySelectorAll('iframe').forEach(function (fr, i) {
+            const quadro = inerte.createElement('div');
+            quadro.className = 'vd-impressao-quadro';
+            const original = originais[i];
+            if (original) {
+                const lido = new DOMParser().parseFromString(original.getAttribute('srcdoc') || '', 'text/html');
+                limparArvore(lido);
+                Array.from(lido.body.childNodes).forEach(function (n) { quadro.appendChild(inerte.importNode(n, true)); });
+            }
+            fr.replaceWith(quadro);
+        });
+        copia.querySelectorAll('button,input,select,textarea,audio,video,.vd-abas,i.bi').forEach(function (x) { x.remove(); });
+
+        const nos = inerte.createDocumentFragment();
+        while (copia.firstChild) { nos.appendChild(copia.firstChild); }
+        if (!nos.textContent.trim() && !nos.querySelector('img')) { return null; }
+
+        return { nos: nos, css: CSS_IMPRESSAO, csp: CSP_SRCDOC };
+    }
+
     /* --------------------------------------------------------- API ------ */
 
     /** Esvazia a área e ABORTA o download em andamento (AbortController). */
@@ -1475,7 +1538,10 @@
         o.sinal = controle.signal;
 
         alvo.appendChild(blocoCarregando(o.nome));
-        render(alvo, o, vivo).catch(function (erro) {
+        render(alvo, o, vivo).then(function () {
+            // DOC-108: só o que terminou de desenhar, com conteúdo, pode ser impresso.
+            if (vivo() && !alvo.querySelector('[data-vd-sem-conteudo]')) { alvo.__vdImprimivel = token; }
+        }, function (erro) {
             if (ehAbort(erro) || !vivo()) { return; }
             /* Falha com mensagem própria (senha, corrompido, zip bomb…) vai
                para a tela; o resto fica com a genérica. */
@@ -1528,5 +1594,6 @@
         limpar: limpar,
         ligarModal: ligarModal,
         tipoDe: tipoDe,
+        paraImpressao: paraImpressao,
     };
 })();

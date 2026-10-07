@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
  * L4634-4673). Teste de FOLHA (precedente: PastaExploradorContratoJsTest, PastaExploradorInteracaoTest):
  * não há harness de navegador na suíte, então o que se trava é o texto das peças — que o
  * conteúdo passa pelo VisualizadorDocumento (sandbox), que o visor percorre a lista VISÍVEL,
- * os limites do zoom, a impressão só de PDF/imagem, o teclado, o trap de foco e a ausência da
+ * os limites do zoom, a impressão (arquivo para PDF/imagem, conteúdo desenhado para o resto — DOC-108), o teclado, o trap de foco e a ausência da
  * área de soltar (S-7). Aparência e impressão de verdade são smoke do dono.
  */
 #[CoversNothing]
@@ -139,19 +139,22 @@ final class PastaExploradorVisorTest extends TestCase
         self::assertStringContainsString('function dataModificacao(a) { return a.modificadoEm || a.carregadoEm; }', $js);
     }
 
-    #[TestDox('imprimir só para PDF e imagem, por iframe OCULTO; nos demais o botão fica desabilitado com o motivo no title')]
+    #[TestDox('imprimir por iframe OCULTO: PDF/imagem pelo arquivo, os tipos desenhados pelo conteúdo (DOC-108); áudio, vídeo e "outro" ficam desabilitados com o motivo no title')]
     public function testImpressao(): void
     {
         $js = $this->ler(self::VISOR);
 
-        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS = ['pdf', 'imagem'];", $js);
+        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS_ARQUIVO = ['pdf', 'imagem'];", $js);
+        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS_CONTEUDO = ['docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'zip'];", $js);
         $render = $this->funcao($js, 'renderizar');
+        self::assertStringContainsString('const imprimivel = ehImprimivel(tipo);', $render);
         self::assertStringContainsString("el.imprimir.setAttribute('aria-disabled', imprimivel ? 'false' : 'true');", $render);
         self::assertStringContainsString("el.imprimir.title = imprimivel ? 'Imprimir' : MOTIVO_SEM_IMPRESSAO;", $render);
-        self::assertStringContainsString('PDF e imagem', $js);
 
         $imprimir = $this->funcao($js, 'imprimir');
-        self::assertStringContainsString("if (TIPOS_IMPRIMIVEIS.indexOf(tipo) === -1) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }", $imprimir);
+        self::assertStringContainsString('if (!ehImprimivel(tipo)) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }', $imprimir);
+        self::assertStringContainsString('if (!renderizado) { mostrarAviso(MSG_ABRA_O_CONTEUDO); return; }', $imprimir, 'conteúdo ainda carregando ou que falhou: só avisa');
+        self::assertStringContainsString("const MSG_ABRA_O_CONTEUDO = 'Abra o conteúdo do arquivo para imprimir';", $js, 'texto do dc L4659');
         self::assertStringContainsString("fr.className = 'pex-visor-impressao';", $imprimir);
         self::assertStringContainsString('fr.src = a.viewUrl;', $imprimir, 'PDF: o próprio arquivo, impresso pelo leitor do navegador');
         self::assertStringContainsString('w.print();', $imprimir);

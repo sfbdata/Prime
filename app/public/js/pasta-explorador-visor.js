@@ -21,9 +21,12 @@
      - "Soltar arquivo no visor" (DOC-51) NÃO é renderizado (S-7): no dc é um
        blob local que nunca chega ao servidor. Arquivo solto aqui é só
        ignorado (sem navegar para ele e sem subir nada).
-     - Imprimir só existe para PDF e imagem, por iframe oculto. Nos demais
-       tipos o botão fica desabilitado com o motivo no title — o dc imprime uma
-       captura do DOM renderizado, que aqui seria o HTML de dentro do sandbox.
+     - Imprimir (DOC-108): PDF e imagem imprimem o próprio arquivo; DOCX,
+       planilha, texto, ODT, PPTX, ODP, RTF, EML e a lista do ZIP imprimem o
+       conteúdo JÁ desenhado, que o VisualizadorDocumento.paraImpressao entrega
+       como cópia inerte e limpa. Esse conteúdo vai para um iframe oculto
+       sandbox sem permissão de script e com a CSP do visualizador. Áudio, vídeo,
+       assinatura e "outro" seguem com o botão desabilitado e o motivo no title.
 
    Sem innerHTML: todo nó nasce por createElement/textContent (nome de arquivo
    é dado do usuário). Sem storage: o zoom vale só para esta abertura.
@@ -70,11 +73,23 @@
     const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_PASSO = 10;
     // dc `temZoom`: sem zoom para áudio, vídeo, ZIP (lista) e o que não tem visualização.
     const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml'];
-    const TIPOS_IMPRIMIVEIS = ['pdf', 'imagem'];
+    // DOC-108: PDF e imagem imprimem o ARQUIVO; os demais, o conteúdo que o visualizador desenhou.
+    const TIPOS_IMPRIMIVEIS_ARQUIVO = ['pdf', 'imagem'];
+    const TIPOS_IMPRIMIVEIS_CONTEUDO = ['docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'zip'];
+    /* O iframe do conteúdo: sandbox sem permissão de script (nada de dentro roda). allow-same-origin é o que
+       deixa o visor preenchê-lo por DOM e chamar print() — sem scripts lá dentro, não abre porta;
+       allow-modals é o que impede o navegador de ignorar o print() de um documento sandbox. */
+    const SANDBOX_IMPRESSAO = 'allow-same-origin allow-modals';
+    // A mesma CSP do srcdoc do visualizador (CSP_SRCDOC): rede fechada, só imagem data: e estilo inline.
+    const CSP_IMPRESSAO = "default-src 'none'; img-src data:; style-src 'unsafe-inline'";
+    // A tarja do dc (L4659): fonte 9pt, cinza, com fio embaixo.
+    const CSS_TARJA = '.cab{font-size:9pt;color:#6b8494;border-bottom:1px solid #c9d6de;padding-bottom:4px;margin-bottom:10px}';
     // Sem a propriedade CSS `zoom`, o grupo some (o CSS tem o @supports correspondente).
     const ZOOM_SUPORTADO = !window.CSS || typeof window.CSS.supports !== 'function' || window.CSS.supports('zoom', '1');
     const MSG_PREPARANDO = 'Preparando impressão…';
-    const MOTIVO_SEM_IMPRESSAO = 'Imprimir direto daqui só funciona com PDF e imagem. Baixe o arquivo para imprimir.';
+    const MOTIVO_SEM_IMPRESSAO = 'Este tipo de arquivo não tem conteúdo para imprimir daqui. Baixe o arquivo para imprimir.';
+    const MSG_ABRA_O_CONTEUDO = 'Abra o conteúdo do arquivo para imprimir'; // dc L4659
+    const MSG_FALHA_IMPRESSAO = 'Não foi possível imprimir neste navegador. Baixe o arquivo para imprimir.';
 
     let lista = [];
     let indice = 0;
@@ -85,6 +100,9 @@
     let overflowAnterior = '';
 
     function aberto() { return !visor.hidden; }
+    function ehImprimivel(tipo) {
+        return TIPOS_IMPRIMIVEIS_ARQUIVO.indexOf(tipo) !== -1 || TIPOS_IMPRIMIVEIS_CONTEUDO.indexOf(tipo) !== -1;
+    }
     function atual() { return lista[indice] || null; }
     function tipoDe(a) {
         return window.VisualizadorDocumento && typeof window.VisualizadorDocumento.tipoDe === 'function'
@@ -154,7 +172,7 @@
         el.zoom.hidden = !ZOOM_SUPORTADO || TIPOS_COM_ZOOM.indexOf(tipo) === -1;
         aplicarZoom();
 
-        const imprimivel = TIPOS_IMPRIMIVEIS.indexOf(tipo) !== -1;
+        const imprimivel = ehImprimivel(tipo);
         el.imprimir.setAttribute('aria-disabled', imprimivel ? 'false' : 'true');
         el.imprimir.title = imprimivel ? 'Imprimir' : MOTIVO_SEM_IMPRESSAO;
         el.imprimir.setAttribute('aria-label', imprimivel ? 'Imprimir' : 'Imprimir (indisponível): ' + MOTIVO_SEM_IMPRESSAO);
@@ -215,19 +233,65 @@
         if (a && a.viewUrl) window.open(a.viewUrl, '_blank', 'noopener');
     }
 
+    /* A tarja do dc (L4659): "BlueJus · Pasta N · nome · impresso em …". Por
+       textContent: o nome do arquivo é dado do usuário. */
+    function tarjaDeImpressao(d, a) {
+        const cab = d.createElement('div');
+        cab.className = 'cab';
+        cab.textContent = 'BlueJus · Pasta ' + (visor.dataset.pastaRotulo || '') + ' · ' + a.nome
+            + ' · impresso em ' + new Date().toLocaleString('pt-BR');
+        return cab;
+    }
+
+    /* O documento vazio do iframe do conteúdo. Só constantes: CSP, estilo do
+       visualizador e da tarja — nenhum dado do arquivo passa por string; o
+       conteúdo entra depois, por DOM (importNode da cópia inerte). */
+    function documentoDeImpressao(css) {
+        return '<!doctype html><html lang="pt-BR"><head>'
+            + '<meta http-equiv="Content-Security-Policy" content="' + CSP_IMPRESSAO + '">'
+            + '<meta charset="utf-8"><style>' + css + CSS_TARJA + '</style></head><body></body></html>';
+    }
+
+    /* Imagem embutida (data:) do DOCX: espera carregar, com teto — sem script
+       no documento, não se aposta só no evento. */
+    function aguardarImagens(d) {
+        const pendentes = Array.from(d.images).filter(function (i) { return !i.complete; });
+        if (!pendentes.length) return Promise.resolve();
+        return Promise.race([
+            Promise.all(pendentes.map(function (i) {
+                return new Promise(function (r) {
+                    i.addEventListener('load', r, { once: true });
+                    i.addEventListener('error', r, { once: true });
+                });
+            })),
+            new Promise(function (r) { setTimeout(r, 1500); }),
+        ]);
+    }
+
     /* Impressão por iframe OCULTO (dc `BJImprimir`): funciona onde pop-up é
        bloqueado. PDF: o próprio arquivo carregado no iframe e impresso pelo
        leitor do navegador. Imagem: um documento mínimo montado por DOM, com a
-       linha de identificação do dc. O iframe fica FORA da tela com tamanho real
-       (o leitor de PDF do Chrome pode não montar num 0×0) e sai depois do
-       afterprint (ou em 60 s). A trava `imprimindo` se solta em até 3 s mesmo sem
-       afterprint; clique durante a preparação só avisa. */
+       tarja do dc. Conteúdo desenhado (DOC-108): iframe sandbox sem scripts, com
+       a CSP do visualizador, preenchido por DOM com a tarja e a cópia inerte do
+       que está na tela. O iframe fica FORA da tela com tamanho real (o leitor de
+       PDF do Chrome pode não montar num 0×0) e sai depois do afterprint (ou em
+       60 s). A trava `imprimindo` se solta em até 3 s mesmo sem afterprint;
+       clique durante a preparação só avisa. */
     function imprimir() {
         const a = atual();
         if (!a) return;
         const tipo = tipoDe(a);
-        if (TIPOS_IMPRIMIVEIS.indexOf(tipo) === -1) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }
+        if (!ehImprimivel(tipo)) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }
         if (imprimindo) { mostrarAviso(MSG_PREPARANDO); return; } // um de cada vez: não empilha iframes
+
+        // Conteúdo desenhado: só depois que o visualizador terminou (dc: "Abra o conteúdo…").
+        let renderizado = null;
+        if (TIPOS_IMPRIMIVEIS_CONTEUDO.indexOf(tipo) !== -1) {
+            renderizado = window.VisualizadorDocumento && typeof window.VisualizadorDocumento.paraImpressao === 'function'
+                ? window.VisualizadorDocumento.paraImpressao(el.alvo)
+                : null;
+            if (!renderizado) { mostrarAviso(MSG_ABRA_O_CONTEUDO); return; }
+        }
 
         imprimindo = true;
         let trava = null;
@@ -260,7 +324,7 @@
                     liberarEm3s();
                     w.print();
                 } catch (e) {
-                    mostrarAviso('Não foi possível imprimir neste navegador. Baixe o arquivo para imprimir.');
+                    mostrarAviso(MSG_FALHA_IMPRESSAO);
                     remover();
                     return;
                 }
@@ -275,20 +339,32 @@
             return;
         }
 
+        if (renderizado) {
+            fr.setAttribute('sandbox', SANDBOX_IMPRESSAO);
+            fr.addEventListener('load', function () {
+                const dc = fr.contentDocument;
+                if (!dc || !dc.body) { remover(); mostrarAviso(MSG_FALHA_IMPRESSAO); return; }
+                dc.title = a.nome;
+                dc.body.appendChild(tarjaDeImpressao(dc, a));
+                dc.body.appendChild(dc.importNode(renderizado.nos, true));
+                aguardarImagens(dc).then(disparar);
+            }, { once: true });
+            fr.srcdoc = documentoDeImpressao(renderizado.css);
+            document.body.appendChild(fr);
+            return;
+        }
+
         // Imagem: o about:blank inicial do iframe, preenchido por DOM.
         document.body.appendChild(fr);
         const d = fr.contentDocument;
-        if (!d) { remover(); mostrarAviso('Não foi possível imprimir neste navegador. Baixe o arquivo para imprimir.'); return; }
+        if (!d) { remover(); mostrarAviso(MSG_FALHA_IMPRESSAO); return; }
         d.title = a.nome;
         const estilo = d.createElement('style');
         estilo.textContent = '@page{margin:12mm}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#12242f}'
-            + '.cab{font-size:9pt;color:#6b8494;border-bottom:1px solid #c9d6de;padding-bottom:4px;margin-bottom:10px}'
+            + CSS_TARJA
             + 'img{display:block;max-width:100%;max-height:250mm;margin:0 auto;page-break-inside:avoid}';
         d.head.appendChild(estilo);
-        const cab = d.createElement('div');
-        cab.className = 'cab';
-        cab.textContent = 'BlueJus · ' + pastaTxt + ' · ' + a.nome + ' · impresso em ' + new Date().toLocaleString('pt-BR');
-        d.body.appendChild(cab);
+        d.body.appendChild(tarjaDeImpressao(d, a));
         const img = d.createElement('img');
         img.alt = a.nome;
         img.addEventListener('load', disparar, { once: true });
