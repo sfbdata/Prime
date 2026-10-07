@@ -573,3 +573,8 @@ Onda 4: P16a/b parcelamento (b com migration), P17 Adicionar coluna, P18 timelin
 - Não testável no dev: copiar/colar e impressão (os arquivos não existem em `uploads/pastas` do dev); selo Idêntico e
   faixa de limpeza (sem sha256 na 223). Pasta grande (1.112 docs): aba em ~50–100 ms, busca ~340 ms.
 - Suíte completa: 7755 / 34956. HEAD local antes deste registro: `7a5d698f`. Nada publicado.
+- **07/10 — smoke visual APROVADO pelo Samuel.** Ajuste pedido depois: caixas de seleção nos itens da aba Documentos
+  (`230a2c43`), presas à MESMA seleção (Ctrl/Shift/teclado/laço/menu/lotes), "Selecionar todos os itens visíveis" com
+  indeterminado (cabeçalho em Detalhes; faixa discreta nos outros modos), alvo de toque 32×32 em toque/<768px,
+  duplo clique iniciado na caixa não abre nada. Revisão Opus aprovada após 3 correções; smoke Chromium + Firefox 9/9 OK;
+  suíte 7767/35122. Pronto para preparar a publicação da Entrega Intermediária 2 (push/deploy são do dono).
