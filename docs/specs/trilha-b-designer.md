@@ -135,6 +135,11 @@ _(preenchido após as investigações)_
 | D-DOC-RET | Lixeira: retenção e purga | 30 dias, comando `app:documentos:purgar-lixeira` global (política da instalação), com `--tenant` opcional; sem cron | agendar o cron na VPS e confirmar o prazo | quando e quantos dias | — | 30 dias, cron diário fora de hora | sem cron a lixeira só cresce (o arquivo continua ocupando disco) |
 | D-DOC-VAZIO | 114 documentos com 0 byte em produção | medido 06/10 pelo MCP: todos com `drive_file_id`, mime `application/x-empty`, sem sha — provável artefato do defeito DT-8 (download do Drive gravava destino vazio); a limpeza NÃO sugere excluí-los | o arquivo real deve estar no Drive | rebaixar do Drive (frente Drive, hoje em 403) ou aceitar? | — | rebaixar quando o Drive voltar | 114 arquivos ilegíveis na tela |
 | D-DOC-IDENT | Selo "Idêntico" e limpeza por nível aberto | segue o dc (`expLimpeza(itens)` do nível) | duplicata em subpastas diferentes não é apontada | quer a varredura da pasta inteira? | — | — | — |
+| D-CLI-AUDIT | Contato do cliente editado na janela de detalhes (P12) sem histórico | pré-existente: `Cliente` não é `Auditavel` (o `audit_log` não cobre Cliente) | tornar Cliente auditável audita o cadastro inteiro | auditar o Cliente? | Auditavel × log próprio do endpoint | auditar o Cliente numa frente própria | troca de contato sem rastro |
+| D-CLI-CONTATOS | Lista livre de contatos (vários e-mails, "principal", "pausar avisos", dc L.4995-5010) | P12 edita só os 3 campos existentes | exige modelo novo (tabela de contatos) e migração dos dados | quer o modelo de contatos do desenho? | — | — | — |
+| D-CAD-MODAL | Botão "Cadastro" do cabeçalho (P2) abre a janela "Detalhes do cliente" | o desenho tem um modal próprio de cadastro (lote G) | construir o modal de cadastro do desenho | priorizar? | — | — | — |
+| D-META-LINK | "Abrir em Metas" no relatório da meta (P1) leva à página da meta (`tarefa_show`) | o dc leva a `/tarefas/equipe` | — | qual destino? | — | — | — |
+| D-PUSH-HORA | Canto de hora das publicações no Push (P4) vazio | o DJEN não informa hora | — | aceitar? | — | — | — |
 
 ## 5. Handoff — próxima ação exata
 
@@ -492,7 +497,8 @@ explorador.
 - **NÃO usar Fable** (limite de tokens). Tudo em Opus, inclusive o que o plano marca "com Fable" (arquitetura, segurança, revisão crítica): compensar com revisão Opus mais rigorosa e re-revisão.
 
 ### 10.2 Em andamento (worktrees de agentes; o orquestrador integra um commit por vez)
-P1 Metas · P9 desfazer da auditoria (relançado em Opus) · P2 cabeçalho/modal · P3 Processo · P10 Financeiro · P12 contatos inline.
+P11 vincular cliente · P14 D-DOC-RO · P15 ODP/ZIP64 · revisão do P10 · ajustes de P9/P12.
+Integrados também: P1 (cf21d836), P2 (43a70c9b), P3 (96d5272a), P9 (5a65f0d2+b89a4919), P10 (80534aa7+88fff98c), P12 (d1335dd5), ajustes P4/P5/P7 (881a933d, 4681b88c, 0a53bba0). Suíte completa 7314/30825 antes do P10.
 Integrados: L8-UI (Documentos COMPLETO, só o L0 aguarda o Samuel), P5 (d90e7b01), P8 (ff5b40c4 + 989bb76b). Revisão em bloco de P4/P5/P7/P8 em andamento.
 Pendência pequena: a âncora `#pasta-msg-<id>` da notificação de resposta (P5) cai num registro escondido em "Ver anotações anteriores" — abrir o bloco quando o fragmento apontar para ele (P13).
 Integrados depois do handoff: P6 (e1c889b8), P7 (d922144e), P4 (d244e7bf — regra "Geram prazo" sem distinção de caixa, desvio consciente do dc; o canto de hora do Push ficou vazio porque o DJEN não dá hora).
