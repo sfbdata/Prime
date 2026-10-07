@@ -106,9 +106,12 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
             $itens->each(static fn ($b): ?string => $b->filter('i')->attr('class')),
         );
         self::assertStringContainsString('js-fin-obs-copiar', (string) $itens->eq(0)->attr('class'));
-        self::assertStringContainsString('js-fin-obs-editar js-fin-obs-so-autor', (string) $itens->eq(1)->attr('class'));
-        self::assertStringContainsString('ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-so-autor', (string) $itens->eq(2)->attr('class'));
-        self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-sep.js-fin-obs-so-autor'));
+        self::assertStringContainsString('js-fin-obs-editar js-fin-obs-gerenciar', (string) $itens->eq(1)->attr('class'));
+        self::assertStringContainsString('ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar', (string) $itens->eq(2)->attr('class'));
+        // FPN-006b: Editar e Excluir ficam sempre no menu (bloqueados quando não dá), então nada
+        // nasce escondido.
+        self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-sep'));
+        self::assertCount(0, $menu->filter('#financeiroObsMenu > [hidden]'));
 
         // Sem lastro no Financeiro: não aparecem (Responder depende do FPN-005).
         foreach (['Responder', 'Encaminhar', 'Destacar'] as $fora) {
@@ -151,6 +154,7 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $cartao);
         self::assertCount(0, $cartao->filter('.btn-editar-obs, .btn-excluir-obs'));
         self::assertCount(1, $cartao->filter('.obs-conteudo .ql-editor'), 'copiar continua possível');
+        self::assertSame('0', $cartao->attr('data-obs-do-autor'), 'motivo do bloqueio: não é o autor');
     }
 
     #[TestDox('Registro da própria autora FORA da janela de 15 min também não traz os botões')]
@@ -166,5 +170,6 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         $cartao = $crawler->filter('#financeiroObsLista > #financeiro-obs-' . $obs->getId());
         self::assertCount(1, $cartao);
         self::assertCount(0, $cartao->filter('.btn-editar-obs, .btn-excluir-obs'));
+        self::assertSame('1', $cartao->attr('data-obs-do-autor'), 'motivo do bloqueio: o prazo passou');
     }
 }

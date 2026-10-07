@@ -47,17 +47,46 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringContainsString('abrir(menuObs, registro, e.clientX, e.clientY)', $ramo);
     }
 
-    #[TestDox('Editar e Excluir só aparecem quando o cartão traz .btn-editar-obs e .btn-excluir-obs')]
-    public function testEditarExcluirSoComOsBotoes(): void
+    #[TestDox('FPN-006b: sem .btn-editar-obs/.btn-excluir-obs no cartão, Editar e Excluir ficam À VISTA, desabilitados, "· bloqueado" com cadeado (dc L.5958)')]
+    public function testEditarExcluirBloqueadosSemOsBotoes(): void
     {
         $prep = $this->trecho('function prepararMenuObs(', 'function menuDoGatilho(');
 
         self::assertStringContainsString("registro.querySelector('.btn-editar-obs')", $prep);
         self::assertStringContainsString("registro.querySelector('.btn-excluir-obs')", $prep);
-        self::assertStringContainsString("querySelectorAll('.js-fin-obs-so-autor')", $prep);
-        self::assertStringContainsString('el.hidden = !podeGerenciar', $prep);
+        self::assertStringNotContainsString('.hidden', $prep, 'bloqueado não é escondido');
+        self::assertStringContainsString("pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);", $prep);
+        self::assertStringContainsString("pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);", $prep);
+        self::assertStringContainsString("pintarItemObs(editar, true, 'Editar' + resto, 'bi-pencil', '');", $prep);
+        self::assertStringContainsString("pintarItemObs(excluir, true, 'Excluir comentário' + resto, 'bi-trash3', '');", $prep);
+        self::assertStringContainsString("excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);", $prep, 'bloqueado sem a cor de perigo (x[3] do desenho)');
+        self::assertStringContainsString("registro.getAttribute('data-obs-do-autor') === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR", $prep);
         self::assertStringContainsString("'.ps-anotacao-janela'", $prep);
         self::assertStringNotContainsString('innerHTML', $prep);
+
+        $pinta = $this->trecho('function pintarItemObs(', 'function prepararMenuObs(');
+        self::assertStringContainsString('item.disabled = !pode;', $pinta);
+        self::assertStringContainsString("item.setAttribute('aria-disabled', 'true')", $pinta);
+        self::assertStringContainsString('item.title = motivo;', $pinta);
+
+        // Item desabilitado não aciona nada, nem por clique sintético.
+        self::assertStringContainsString('!aberto.menu.contains(item) || item.disabled) { return; }', $this->fonte());
+        self::assertStringContainsString("data-obs-do-autor=\"{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}\"", $this->fonte());
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/pasta-show.css');
+        self::assertStringContainsString('#financeiro .ps-fin-menu-item:disabled { cursor: default; }', $css);
+    }
+
+    #[TestDox('FPN-006b: "Excluir comentário" confirma com o texto exato do desenho (dc comExcluir, L.5903)')]
+    public function testConfirmacaoDoDesenho(): void
+    {
+        $obs = (string) file_get_contents(self::OBS_SCRIPT);
+
+        self::assertStringContainsString("if (!confirm(textoDeConfirmacaoExcluir(btnExcluir.closest('.ps-anotacao')))) return;", $obs);
+        self::assertStringNotContainsString('Excluir este registro? Esta ação não pode ser desfeita.', $obs);
+        $f = substr($obs, (int) strpos($obs, 'function textoDeConfirmacaoExcluir('), 1200);
+        self::assertStringContainsString("'Excluir o comentário de ' + (autor || 'colaborador') + '?", $f);
+        self::assertStringContainsString("(quando ? quando + ' · ' : '') + '\"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')", $f);
+        self::assertStringContainsString("'\". Ele some para toda a equipe e a exclusão fica registrada no histórico.'", $f);
     }
 
     #[TestDox('os itens clicam os botões do próprio cartão e copiam o texto do .ql-editor; nada de fetch novo')]

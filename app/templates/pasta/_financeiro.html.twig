@@ -205,7 +205,9 @@
                             {% set diaAnteriorFin = diaFin %}
                         {% endif %}
 
-                        <article class="ps-anotacao" id="financeiro-obs-{{ obs.id }}">
+                        {# `data-obs-do-autor`: só para o motivo do "· bloqueado" do menu (FPN-006b). #}
+                        <article class="ps-anotacao" id="financeiro-obs-{{ obs.id }}"
+                                 data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}">
                             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                             <span class="ps-anotacao-seta" aria-hidden="true"></span>
                             <div class="ps-anotacao-topo">
@@ -255,8 +257,10 @@
 
             {# Botão direito no registro (dc L.1795 `onContextMenu`, menu dc L.5958; FPN-006). UM menu
                para a lista, preenchido pelo script do fim deste arquivo com o registro clicado.
-               "Editar" e "Excluir" só aparecem quando o cartão traz os botões da janela de 15 min
-               (autor, dentro do prazo) e clicam ESSES botões: o caminho é o de sempre. Fora do
+               "Editar" e "Excluir" clicam os botões da janela de 15 min que o cartão traz (autor,
+               dentro do prazo): o caminho é o de sempre. Sem eles, os dois itens ficam À VISTA e
+               desabilitados, "Editar · bloqueado" / "Excluir · bloqueado" com cadeado, como no
+               desenho (dc L.5958; FPN-006b). Fora do
                menu ficam "Responder" (o Financeiro ainda não tem resposta, FPN-005), "Encaminhar
                via Chat I.A" (FPN-007) e "Destacar" (sem lastro). #}
             <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="Ações do registro" hidden>
@@ -264,11 +268,11 @@
                 <button type="button" class="ps-fin-menu-item js-fin-obs-copiar" role="menuitem">
                     <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
                 </button>
-                <div class="ps-fin-menu-sep js-fin-obs-so-autor" role="separator"></div>
-                <button type="button" class="ps-fin-menu-item js-fin-obs-editar js-fin-obs-so-autor" role="menuitem">
+                <div class="ps-fin-menu-sep" role="separator"></div>
+                <button type="button" class="ps-fin-menu-item js-fin-obs-editar js-fin-obs-gerenciar" role="menuitem">
                     <i class="bi bi-pencil" aria-hidden="true"></i><span>Editar</span>
                 </button>
-                <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-so-autor" role="menuitem">
+                <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar" role="menuitem">
                     <i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir comentário</span>
                 </button>
             </div>
@@ -1151,9 +1155,21 @@
     }
 
     /* Menu do registro do Relatório financeiro (FPN-006). Título "autor · data e hora",
-       como o do desenho (dc 5958). Editar e Excluir só existem se o cartão traz os
+       como o do desenho (dc 5958). Editar e Excluir funcionam se o cartão traz os
        botões da janela de 15 min — o servidor só os põe para o autor, dentro do prazo —
-       e levam os minutos que restam, como no desenho ("Editar · 12 min"). */
+       e levam os minutos que restam, como no desenho ("Editar · 12 min"). Sem os
+       botões, o desenho os mostra bloqueados (FPN-006b): "Editar · bloqueado" e
+       "Excluir · bloqueado", cadeado, sem a cor de perigo; aqui também desabilitados,
+       com o motivo do desenho (`comPerm`) na dica — sem a frase do usuário primário,
+       que neste sistema não tem a exceção. */
+    const OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';
+    const OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';
+    function pintarItemObs(item, pode, rotulo, icone, motivo) {
+        item.disabled = !pode;
+        if (pode) { item.removeAttribute('aria-disabled'); item.removeAttribute('title'); } else { item.setAttribute('aria-disabled', 'true'); item.title = motivo; }
+        item.querySelector('i').className = 'bi ' + icone;
+        item.querySelector('span').textContent = rotulo;
+    }
     let obsAlvo = null;
     function prepararMenuObs(menu, registro) {
         obsAlvo = registro;
@@ -1163,13 +1179,22 @@
         menu.querySelector('.ps-fin-menu-titulo').textContent = autor + (quando ? ' · ' + quando : '');
 
         const podeGerenciar = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
-        menu.querySelectorAll('.js-fin-obs-so-autor').forEach(function (el) { el.hidden = !podeGerenciar; });
+        const editar  = menu.querySelector('.js-fin-obs-editar');
+        const excluir = menu.querySelector('.js-fin-obs-excluir');
+        excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);
+
+        if (!podeGerenciar) {
+            const motivo = registro.getAttribute('data-obs-do-autor') === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR;
+            pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
+            pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+            return;
+        }
 
         const janela = registro.querySelector('.ps-anotacao-janela');
         const minutos = janela ? (textoLimpo(janela).match(/\d+/) || [''])[0] : '';
         const resto = minutos ? ' · ' + minutos + ' min' : '';
-        menu.querySelector('.js-fin-obs-editar span').textContent = 'Editar' + resto;
-        menu.querySelector('.js-fin-obs-excluir span').textContent = 'Excluir comentário' + resto;
+        pintarItemObs(editar, true, 'Editar' + resto, 'bi-pencil', '');
+        pintarItemObs(excluir, true, 'Excluir comentário' + resto, 'bi-trash3', '');
     }
 
     function menuDoGatilho(gatilho) {
@@ -1292,7 +1317,7 @@
 
         if (!aberto) { return; }
         const item = e.target.closest('.ps-fin-menu-item');
-        if (!item || !aberto.menu.contains(item)) { return; }
+        if (!item || !aberto.menu.contains(item) || item.disabled) { return; }
 
         if (item.classList.contains('js-fin-doc-copiar-nome')) {
             const ren = aberto.menu.querySelector('.btn-renomear-doc');

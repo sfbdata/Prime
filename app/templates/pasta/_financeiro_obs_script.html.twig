@@ -100,6 +100,21 @@
        MESMA estrutura que o _financeiro.html.twig gera: se divergirem, o registro
        recém-enviado aparece com outra cara. */
     const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    /* "Excluir o comentário de <autor>?" + "<quando> · "<trecho de 140>…". Ele some para
+       toda a equipe e a exclusão fica registrada no histórico." (dc L.5903; FPN-006b). O
+       registro é Auditavel: a exclusão vai ao histórico do sistema, então o texto é verdade. */
+    function textoDeConfirmacaoExcluir(cartao) {
+        const limpo = function (el) { return el ? el.textContent.replace(/\s+/g, ' ').trim() : ''; };
+        const autor  = cartao ? limpo(cartao.querySelector('.ps-anotacao-autor')) : '';
+        const dataEl = cartao ? cartao.querySelector('.ps-anotacao-data') : null;
+        const quando = dataEl ? (dataEl.getAttribute('title') || limpo(dataEl)) : '';
+        const txt    = cartao ? limpo(cartao.querySelector('.obs-conteudo .ql-editor')) : '';
+
+        return 'Excluir o comentário de ' + (autor || 'colaborador') + '?\n\n'
+            + (quando ? quando + ' · ' : '') + '"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')
+            + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.';
+    }
+
     function inserirItemObs(data) {
         const urlEditar  = '{{ path("pasta_financeiro_observacao_editar", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
         const urlExcluir = '{{ path("pasta_financeiro_observacao_excluir", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
@@ -259,7 +274,9 @@
 
             const btnExcluir = e.target.closest('.btn-excluir-obs');
             if (btnExcluir) {
-                if (!confirm('Excluir este registro? Esta ação não pode ser desfeita.')) return;
+                // Confirmação do desenho (dc `comExcluir`, L.5903): título e texto exatos, em
+                // duas partes como o modal de lá (aqui, no confirm do navegador).
+                if (!confirm(textoDeConfirmacaoExcluir(btnExcluir.closest('.ps-anotacao')))) return;
 
                 const obsId = btnExcluir.dataset.obsId;
                 const fd    = new FormData();
