@@ -7,6 +7,7 @@ namespace App\Pasta\Service;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PrioridadePasta;
+use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Repository\MarcadorRepository;
@@ -76,6 +77,8 @@ class PastaTimelineAssembler
             $processoId,
             $limit
         );
+
+        $this->preCarregar($rows);
 
         foreach ($rows as $row) {
             $dto = $this->buildFromAuditRow($row);
@@ -205,7 +208,65 @@ class PastaTimelineAssembler
             badgeCss:   $badgeCss,
             metaId:     $metaId,
             metaTitulo: $metaTitulo,
+            origem:     $this->origemDaClasse($entityClass),
         );
+    }
+
+    /**
+     * A família do evento, pela classe auditada — não pelo título, que é texto de tela e muda.
+     * O que não é documento, meta nem processo é alteração da própria pasta.
+     */
+    private function origemDaClasse(string $entityClass): string
+    {
+        return match (true) {
+            str_ends_with($entityClass, 'PastaDocumento'), str_ends_with($entityClass, 'PastaSecao') => 'documento',
+            str_ends_with($entityClass, '\Tarefa'), str_ends_with($entityClass, 'TarefaMensagem')   => 'meta',
+            str_ends_with($entityClass, '\Processo')                                                => 'processo',
+            default                                                                                 => 'pasta',
+        };
+    }
+
+    /**
+     * Carrega de uma vez os autores e as metas citados nas linhas do audit_log, em vez de um
+     * `find()` por id dentro do laço (N+1 numa pasta com centenas de eventos). Só entra no cache
+     * o que foi ACHADO: o id que não voltou (usuário/meta apagados, ou repositório dublê) segue
+     * pelo caminho de sempre, `find()` sob demanda, e o resultado é o mesmo de antes.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function preCarregar(array $rows): void
+    {
+        $usuarios = [];
+        $tarefas  = [];
+        foreach ($rows as $row) {
+            $ator = $row['actor_user_id'] ?? null;
+            if (is_numeric($ator) && !array_key_exists((int) $ator, $this->nomeCache)) {
+                $usuarios[(int) $ator] = true;
+            }
+
+            $classe   = (string) ($row['entity_class'] ?? '');
+            $entityId = $row['entity_id'] ?? null;
+            if (str_ends_with($classe, '\Tarefa') && is_string($entityId) && ctype_digit($entityId)
+                && !array_key_exists((int) $entityId, $this->tituloMetaCache)) {
+                $tarefas[(int) $entityId] = true;
+            }
+        }
+
+        if ($usuarios !== []) {
+            foreach ($this->userRepository->findBy(['id' => array_keys($usuarios)]) as $usuario) {
+                if ($usuario instanceof User && $usuario->getId() !== null) {
+                    $this->nomeCache[(int) $usuario->getId()] = $usuario->getFullName();
+                }
+            }
+        }
+
+        if ($tarefas !== []) {
+            foreach ($this->tarefaRepository->findBy(['id' => array_keys($tarefas)]) as $tarefa) {
+                if ($tarefa instanceof Tarefa && $tarefa->getId() !== null) {
+                    $this->tituloMetaCache[(int) $tarefa->getId()] = $tarefa->getTitulo();
+                }
+            }
+        }
     }
 
     /**

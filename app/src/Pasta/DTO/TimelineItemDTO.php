@@ -26,5 +26,9 @@ final readonly class TimelineItemDTO
         public ?int $respostaAId = null,
         // Autor da raiz respondida; null numa resposta cuja original foi excluída.
         public ?string $respostaANome = null,
+        // De onde veio o evento do audit_log ('pasta', 'documento', 'meta', 'processo'); null nas
+        // mensagens. Quem lê é a Timeline inteligente, para agrupar por categoria sem adivinhar
+        // pelo texto do título.
+        public ?string $origem = null,
     ) {}
 }

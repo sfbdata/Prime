@@ -23,7 +23,13 @@ class PastaMensagemRepository extends ServiceEntityRepository
      */
     public function findByPasta(Pasta $pasta, Tenant $tenant, int $limit = 150): array
     {
+        // Autor e original respondida vêm na MESMA consulta: a linha do tempo lê o nome de cada
+        // autor, e sem o join cada autor distinto custava um SELECT a mais (N+1). Só relações
+        // para-um — o `setMaxResults` continua valendo por mensagem.
         return $this->createQueryBuilder('m')
+            ->leftJoin('m.autor', 'autor')->addSelect('autor')
+            ->leftJoin('m.respostaA', 'raiz')->addSelect('raiz')
+            ->leftJoin('raiz.autor', 'raizAutor')->addSelect('raizAutor')
             ->andWhere('m.pasta = :pasta')
             ->andWhere('m.tenant = :tenant')
             ->setParameter('pasta', $pasta)
