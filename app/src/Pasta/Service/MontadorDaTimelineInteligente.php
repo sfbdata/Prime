@@ -7,6 +7,7 @@ namespace App\Pasta\Service;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
@@ -23,6 +24,7 @@ use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Repository\NotificacaoRepository;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -36,7 +38,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *  3. metas da pasta (prazo aberto e "todas concluídas");
  *  4. observações da aba Detalhes ("Registro em Detalhes", PAS-046);
  *  5. pagamentos da pasta (lançado, quitado, vencido) e observações da aba Financeiro
- *     ("Registro em Financeiro"), as duas só para quem vê o financeiro.
+ *     ("Registro em Financeiro"), as duas só para quem vê o financeiro;
+ *  6. notificações DO USUÁRIO LOGADO ligadas à pasta (PAS-047i) — pela meta ou pelo link —,
+ *     pendentes enquanto não lidas; a que aponta para a aba Financeiro, só para quem o vê.
  *
  * Uma consulta por fonte, cada uma com o MESMO teto: o top-N da fusão é exato (cada fonte trouxe
  * os seus N mais novos). O que a fonte não diz não vira evento — ver o relatório da L18 para o que
@@ -51,6 +55,7 @@ final class MontadorDaTimelineInteligente
         private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
         private readonly PastaObservacaoFinanceiraRepository $observacaoFinanceiraRepository,
         private readonly PastaRepository $pastaRepository,
+        private readonly NotificacaoRepository $notificacaoRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly RegrasDaTimelineInteligente $regras,
         private readonly UrlGeneratorInterface $urlGenerator,
@@ -132,7 +137,8 @@ final class MontadorDaTimelineInteligente
 
         // 5. Financeiro: pagamentos e observações, os dois atrás da MESMA pergunta.
         $financeiroQuitado = false;
-        if ($this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta)) {
+        $veFinanceiro      = $this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta);
+        if ($veFinanceiro) {
             $pagamentos        = $this->pagamentoRepository->findByPastaComAutor($pasta, $tenant);
             $financeiroQuitado = $pagamentos !== [];
             foreach ($pagamentos as $pagamento) {
@@ -149,6 +155,23 @@ final class MontadorDaTimelineInteligente
             foreach ($observacoesFinanceiras as $observacao) {
                 $eventos[] = $this->eventoDaObservacao($observacao);
             }
+        }
+
+        // 6. Notificações do usuário logado ligadas à pasta (uma consulta; só colunas da própria
+        // notificação). O financeiro responde à MESMA pergunta das fontes acima.
+        $notificacoes = $this->notificacaoRepository->findDoUsuarioLigadasAPasta(
+            $usuario,
+            $tenant,
+            $pasta,
+            $this->urlGenerator->generate('pasta_show', ['id' => $pasta->getId()]),
+            $veFinanceiro,
+            $limite,
+        );
+        if (count($notificacoes) >= $limite) {
+            $truncado = true;
+        }
+        foreach ($notificacoes as $notificacao) {
+            $eventos[] = $this->eventoDaNotificacao($notificacao);
         }
 
         // Marco de criação: o "Pasta criada" do audit_log; sem ele (pasta anterior à auditoria ou
@@ -273,6 +296,29 @@ final class MontadorDaTimelineInteligente
             autor: $nome !== null && $nome !== '' ? $nome : $autor?->getEmail(),
             fonte: $aba,
             editado: $observacao->getEditadaEm() !== null,
+        );
+    }
+
+    /**
+     * Notificação do usuário sobre a pasta (desenho `tlEventos`, `minhas()`: título e texto da
+     * própria notificação, pendente enquanto não lida). Sem autor — a notificação não guarda quem
+     * a causou — e sem link nem fonte, como no desenho. O texto que repete o título (avisos
+     * gravados com título = mensagem) não sai duas vezes.
+     */
+    private function eventoDaNotificacao(Notificacao $notificacao): EventoDaTimelineOutput
+    {
+        $mensagem = trim((string) $notificacao->getMensagem());
+
+        return new EventoDaTimelineOutput(
+            id: 'n' . $notificacao->getId(),
+            tipo: 'notificacao',
+            categoria: 'notificacao',
+            quando: $notificacao->getCriadaEm(),
+            soData: false,
+            titulo: $notificacao->getTitulo(),
+            texto: $mensagem !== '' && $mensagem !== trim($notificacao->getTitulo()) ? $mensagem : null,
+            prioridade: $this->regras->prioridadeDaNotificacao($notificacao->getTipo()),
+            pendente: !$notificacao->isLida(),
         );
     }
 

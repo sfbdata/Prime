@@ -6,6 +6,7 @@ namespace App\Pasta\Service;
 
 use App\Pasta\DTO\EventoDaTimelineOutput;
 use App\Pasta\DTO\FiltroDaTimelineInput;
+use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 
 /**
  * As regras FIXAS da Timeline inteligente — sem modelo de linguagem (decisão D-IA da Trilha B:
@@ -15,7 +16,9 @@ use App\Pasta\DTO\FiltroDaTimelineInput;
  * que tem lastro no sistema:
  *  - prioridade do prazo da meta: vencida há mais de 30 dias = crítico; vencida = importante;
  *  - publicação do Push: "importante" quando o tipo fala em intimação, citação ou prazo;
- *  - "Precisa de atenção": pendente (publicação não lida, pagamento vencido) ou crítico;
+ *  - notificação: "importante" quando é o alerta de meta (o único tipo daqui que o desenho põe no
+ *    nível 3, `TIPOS.alerta`); pendente enquanto não lida;
+ *  - "Precisa de atenção": pendente (publicação ou notificação não lida, pagamento vencido) ou crítico;
  *  - marcos: criação da pasta, primeira publicação do Push (só com a lista completa), todas as
  *    metas concluídas, financeiro quitado;
  *  - filtros por categoria, período, pessoa e busca com sinônimos;
@@ -33,6 +36,8 @@ final class RegrasDaTimelineInteligente
         'processo'   => ['Processos', 'bi-bank', '#34505f'],
         'financeiro' => ['Financeiro', 'bi-cash-coin', '#1e7b45'],
         'cadastro'   => ['Cadastro', 'bi-person-vcard', '#0b5f86'],
+        // As notificações DO USUÁRIO ligadas à pasta (PAS-047i) — `TLC.notificacao` do desenho.
+        'notificacao' => ['Notificações', 'bi-bell', '#c76a12'],
     ];
 
     /** `TLP` do desenho. */
@@ -72,6 +77,16 @@ final class RegrasDaTimelineInteligente
             $diasDeAtraso > 0  => 'importante',
             default            => 'info',
         };
+    }
+
+    /**
+     * Prioridade de uma notificação pelo TIPO (desenho: `TIPOS[n.tipo].nivel >= 3` = importante).
+     * Dos tipos que o sistema grava, só o alerta de meta é nível 3; "concluído" no desenho vem de
+     * uma demanda RESOLVIDA, estado que a notificação daqui não tem — então não há `ok`.
+     */
+    public function prioridadeDaNotificacao(string $tipo): string
+    {
+        return $tipo === AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO ? 'importante' : 'info';
     }
 
     public function prioridadeDaPublicacao(?string $tipo): string

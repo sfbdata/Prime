@@ -32,7 +32,8 @@
     var LIMITE_INICIAL = 200;
     var LIMITE_MAXIMO  = 600;
     var TRES_HORAS     = 3 * 3600 * 1000;
-    var AGRUPAVEIS     = { registro: 1, documento: 1, cadastro: 1 };
+    // `notificacao` agrupa como no desenho (`['mensagem', 'documento', 'observacao', 'notificacao']`).
+    var AGRUPAVEIS     = { registro: 1, documento: 1, cadastro: 1, notificacao: 1 };
 
     var estado = {
         categoria: 'tudo', periodo: 'tudo', pessoa: '', q: '', limite: LIMITE_INICIAL,

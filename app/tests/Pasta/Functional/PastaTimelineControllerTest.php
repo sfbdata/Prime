@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Notificacao;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
@@ -16,6 +18,8 @@ use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Service\MontadorDaTimelineInteligente;
 use App\Pasta\Service\RegrasDaTimelineInteligente;
+use App\Repository\NotificacaoRepository;
+use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -31,6 +35,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
  */
 #[CoversClass(PastaTimelineController::class)]
 #[CoversClass(MontadorDaTimelineInteligente::class)]
+#[CoversClass(NotificacaoRepository::class)]
 #[Group('pasta')]
 final class PastaTimelineControllerTest extends JusPrimeWebTestCase
 {
@@ -108,6 +113,51 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         return $tarefa;
+    }
+
+    private function notificacao(
+        User $usuario,
+        Tenant $tenant,
+        string $titulo,
+        ?string $url = null,
+        ?Tarefa $tarefa = null,
+        string $tipo = Notificacao::TIPO_TAREFA_CRIADA,
+        bool $lida = false,
+        ?string $mensagem = null,
+        string $quando = '2026-08-15 10:00',
+    ): Notificacao {
+        $n = (new Notificacao())
+            ->setUsuario($usuario)
+            ->setTenant($tenant)
+            ->setTipo($tipo)
+            ->setTitulo($titulo)
+            ->setMensagem($mensagem)
+            ->setTarefa($tarefa)
+            ->setUrl($url)
+            ->setLida($lida);
+        (new \ReflectionProperty(Notificacao::class, 'criadaEm'))->setValue($n, new \DateTimeImmutable($quando));
+
+        $this->em()->persist($n);
+        $this->em()->flush();
+
+        return $n;
+    }
+
+    /** Outra pessoa (super admin, como o `criarAdmin`), com nome PRÓPRIO e membro do escritório. */
+    private function colega(Tenant $tenant, string $nome): User
+    {
+        [$colega] = $this->criarAdmin();
+        $colega->setFullName($nome);
+        $this->em()->persist(new UserTenant($colega, $tenant));
+        $this->em()->flush();
+
+        return $colega;
+    }
+
+    /** @param array<string, mixed> $dados @return list<string> */
+    private function idsDeNotificacao(array $dados, string $chave = 'eventos'): array
+    {
+        return array_values(array_filter($this->ids($dados, $chave), static fn (string $id) => str_starts_with($id, 'n')));
     }
 
     /** @return array<string, mixed> */
@@ -557,5 +607,233 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->evento($dados, 'od' . $alheia->getId()));
         self::assertNull($this->evento($dados, 'of' . $alheiaFin->getId()));
         self::assertStringNotContainsString('OUTRO-ESCRITORIO', $corpo);
+    }
+
+    // ── PAS-047i: notificações do usuário logado ligadas à pasta ─────────────────
+
+    #[TestDox('PAS-047i: as notificações DO USUÁRIO ligadas à pasta (pela meta ou pelo link) entram, pendentes enquanto não lidas; as de outra pasta, de prefixo parecido ou sem pasta, não')]
+    public function testNotificacoesDoUsuarioLigadasAPasta(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $outra           = $this->criarPasta($tenant);
+        $meta            = $this->meta($pasta, $tenant, 'Juntar procuração', null);
+        $metaOutra       = $this->meta($outra, $tenant, 'Meta da outra', null);
+        $caminho         = '/pasta/' . $pasta->getId();
+
+        $pelaMeta  = $this->notificacao($user, $tenant, 'Nova meta AVISO-PELA-META', tarefa: $meta, mensagem: 'Juntar procuração', quando: '2026-08-15 10:00');
+        $peloLink  = $this->notificacao($user, $tenant, 'Ana mencionou você AVISO-PELO-LINK', url: $caminho . '#pasta-msg-9', tipo: Notificacao::TIPO_PASTA_MENCAO_REGISTRO, lida: true, quando: '2026-08-15 11:00');
+        $pelaQuery = $this->notificacao($user, $tenant, 'AVISO-PELA-QUERY', url: $caminho . '?meta=1#tarefas', quando: '2026-08-15 12:00');
+        $exato     = $this->notificacao($user, $tenant, 'AVISO-LINK-EXATO', url: $caminho, mensagem: 'AVISO-LINK-EXATO', quando: '2026-08-15 13:00');
+        $alerta    = $this->notificacao($user, $tenant, 'Alerta AVISO-ALERTA', tarefa: $meta, tipo: AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO, quando: '2026-08-15 14:00');
+
+        $daOutraMeta = $this->notificacao($user, $tenant, 'AVISO-DA-OUTRA-PASTA-META', tarefa: $metaOutra);
+        $daOutraLink = $this->notificacao($user, $tenant, 'AVISO-DA-OUTRA-PASTA-LINK', url: '/pasta/' . $outra->getId() . '#pasta-msg-1');
+        // `/pasta/<id>0` começa com o caminho desta pasta, mas é OUTRA pasta.
+        $prefixo  = $this->notificacao($user, $tenant, 'AVISO-DE-PREFIXO', url: $caminho . '0#pasta-msg-1');
+        $semPasta = $this->notificacao($user, $tenant, 'AVISO-SEM-PASTA');
+
+        $minhas = [
+            'n' . $pelaMeta->getId(), 'n' . $peloLink->getId(), 'n' . $pelaQuery->getId(),
+            'n' . $exato->getId(), 'n' . $alerta->getId(),
+        ];
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertEqualsCanonicalizing($minhas, $this->idsDeNotificacao($dados), 'lista de eventos');
+
+        $e = $this->evento($dados, 'n' . $pelaMeta->getId());
+        self::assertNotNull($e, 'pela meta da pasta');
+        self::assertSame('notificacao', $e['tipo']);
+        self::assertSame('notificacao', $e['categoria']);
+        self::assertSame('Nova meta AVISO-PELA-META', $e['titulo']);
+        self::assertSame('Juntar procuração', $e['texto']);
+        self::assertTrue($e['pendente'], 'não lida = pendente');
+        self::assertSame('info', $e['prioridade']);
+        self::assertNull($e['autor'], 'a notificação não guarda quem a causou');
+        self::assertNull($e['fonte']);
+        self::assertNull($e['link']);
+        self::assertSame('10:00', $e['hora']);
+
+        $lida = $this->evento($dados, 'n' . $peloLink->getId());
+        self::assertNotNull($lida, 'pelo link da pasta_show, com âncora');
+        self::assertFalse($lida['pendente'], 'lida não é pendente');
+        self::assertNotNull($this->evento($dados, 'n' . $pelaQuery->getId()), 'pelo link com query');
+        self::assertNull($this->evento($dados, 'n' . $exato->getId())['texto'] ?? null, 'texto igual ao título não sai duas vezes');
+        self::assertSame('importante', $this->evento($dados, 'n' . $alerta->getId())['prioridade'] ?? null, 'alerta de meta');
+
+        // Chips: contagem própria, rótulo e ícone do desenho, e o filtro devolve só elas.
+        self::assertSame(5, $dados['contagens']['notificacao']);
+        self::assertSame('Notificações', $dados['categorias']['notificacao']['rotulo']);
+        self::assertSame('bi-bell', $dados['categorias']['notificacao']['icone']);
+        $chip = $this->timeline($client, $pasta, ['categoria' => 'notificacao']);
+        self::assertEqualsCanonicalizing($minhas, $this->ids($chip));
+
+        // "Precisa de atenção" e chip Pendências: as não lidas, não a lida.
+        $atencao = $this->ids($dados, 'atencao');
+        self::assertContains('n' . $pelaMeta->getId(), $atencao);
+        self::assertContains('n' . $alerta->getId(), $atencao);
+        self::assertNotContains('n' . $peloLink->getId(), $atencao);
+        $pendentes = $this->timeline($client, $pasta, ['categoria' => 'pendente']);
+        self::assertContains('n' . $pelaMeta->getId(), $this->ids($pendentes));
+        self::assertNotContains('n' . $peloLink->getId(), $this->ids($pendentes));
+
+        // A busca alcança o título.
+        $busca = $this->timeline($client, $pasta, ['q' => 'AVISO-PELO-LINK']);
+        self::assertSame(['n' . $peloLink->getId()], $this->ids($busca));
+
+        foreach (['AVISO-DA-OUTRA-PASTA', 'AVISO-DE-PREFIXO', 'AVISO-SEM-PASTA'] as $fora) {
+            self::assertStringNotContainsString($fora, $corpo);
+        }
+        self::assertNull($this->evento($dados, 'n' . $semPasta->getId()));
+
+        // Recurso irmão: as da outra pasta aparecem na outra pasta (e as desta, não).
+        $b = $this->timeline($client, $outra);
+        self::assertEqualsCanonicalizing(
+            ['n' . $daOutraMeta->getId(), 'n' . $daOutraLink->getId()],
+            $this->idsDeNotificacao($b),
+        );
+        self::assertNotContains('n' . $prefixo->getId(), $this->ids($b));
+    }
+
+    #[TestDox('PAS-047i: notificação de OUTRA PESSOA ou gravada em OUTRO ESCRITÓRIO não vaza — nem em eventos, chips, pessoas, atenção ou busca')]
+    public function testNotificacaoDeOutraPessoaOuOutroEscritorioNaoVazaEmNenhumCaminho(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $colega          = $this->colega($tenant, 'Colega Que Recebeu Aviso');
+        [, $outro]       = $this->criarAdmin();
+        $this->em()->persist(new UserTenant($user, $outro));
+        $this->em()->flush();
+
+        $pasta        = $this->criarPasta($tenant);
+        $pastaNoOutro = $this->criarPasta($outro);
+        $meta         = $this->meta($pasta, $tenant, 'Meta da pasta', null);
+        $caminho      = '/pasta/' . $pasta->getId();
+
+        $minha        = $this->notificacao($user, $tenant, 'AVISO-MEU', url: $caminho . '#pasta-msg-1');
+        $doColega     = $this->notificacao($colega, $tenant, 'SEGREDO-DO-COLEGA-XYZ', url: $caminho . '#pasta-msg-2', tipo: AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO);
+        $doColegaMeta = $this->notificacao($colega, $tenant, 'SEGREDO-DO-COLEGA-META', tarefa: $meta);
+        // Mesma pessoa, OUTRO escritório, link para esta pasta: só o escritório difere da `$minha`.
+        $deOutroEscr = $this->notificacao($user, $outro, 'SEGREDO-DE-OUTRO-ESCRITORIO-XYZ', url: $caminho . '#pasta-msg-3', tipo: AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO);
+        $noOutroEscr = $this->notificacao($user, $outro, 'AVISO-NO-OUTRO-ESCRITORIO', url: '/pasta/' . $pastaNoOutro->getId() . '#pasta-msg-4');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertSame(['n' . $minha->getId()], $this->idsDeNotificacao($dados), 'lista de eventos');
+        self::assertSame(1, $dados['contagens']['notificacao'], 'chip Notificações');
+        self::assertSame(1, $dados['contagens']['pendente'], 'chip Pendências: só a minha');
+        self::assertSame(['n' . $minha->getId()], $this->idsDeNotificacao($dados, 'atencao'), '"Precisa de atenção"');
+        self::assertNotContains('Colega Que Recebeu Aviso', $dados['pessoas'], 'lista de pessoas');
+        self::assertStringNotContainsString('SEGREDO', $corpo);
+        self::assertStringNotContainsString('Colega Que Recebeu Aviso', $corpo);
+
+        $chip = $this->timeline($client, $pasta, ['categoria' => 'notificacao']);
+        self::assertSame(['n' . $minha->getId()], $this->ids($chip), 'filtro do chip');
+        $pend = $this->timeline($client, $pasta, ['categoria' => 'pendente']);
+        self::assertSame(['n' . $minha->getId()], $this->idsDeNotificacao($pend), 'filtro Pendências');
+
+        foreach (['SEGREDO-DO-COLEGA-XYZ', 'SEGREDO-DO-COLEGA-META', 'SEGREDO-DE-OUTRO-ESCRITORIO-XYZ'] as $termo) {
+            $busca = $this->timeline($client, $pasta, ['q' => $termo]);
+            self::assertSame([], $busca['eventos'], 'busca por ' . $termo);
+            self::assertSame(0, $busca['totalFiltrado']);
+            self::assertStringNotContainsString('SEGREDO', (string) $client->getResponse()->getContent());
+        }
+
+        // Recurso irmão 1: o colega, na MESMA pasta, recebe as dele (e não a minha).
+        $this->logarComTenant($client, $colega, $tenant);
+        $doColegaDados = $this->timeline($client, $pasta);
+        self::assertEqualsCanonicalizing(
+            ['n' . $doColega->getId(), 'n' . $doColegaMeta->getId()],
+            $this->idsDeNotificacao($doColegaDados),
+        );
+
+        // Recurso irmão 2: no outro escritório, a minha de lá aparece na pasta de lá.
+        $this->logarComTenant($client, $user, $outro);
+        $noOutro = $this->timeline($client, $pastaNoOutro);
+        self::assertSame(['n' . $noOutroEscr->getId()], $this->idsDeNotificacao($noOutro));
+        self::assertNotContains('n' . $deOutroEscr->getId(), $this->ids($noOutro));
+    }
+
+    #[TestDox('PAS-047i: notificação que aponta para a aba Financeiro não vaza para quem não vê o financeiro — nem em eventos, chips, atenção ou busca')]
+    public function testNotificacaoDoFinanceiroNaoVazaEmNenhumCaminho(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $caminho         = '/pasta/' . $pasta->getId();
+
+        $comum  = $this->notificacao($user, $tenant, 'AVISO-COMUM', url: $caminho . '#pasta-msg-1');
+        $fin    = $this->notificacao($user, $tenant, 'AVISO-FINANCEIRO-XYZ', url: $caminho . '#financeiro-obs-7');
+        $finQry = $this->notificacao($user, $tenant, 'AVISO-FINANCEIRO-QRY', url: $caminho . '?x=1#financeiro');
+
+        // Um dublê só, com a resposta trocável (o mesmo padrão do PAS-048).
+        $veFinanceiro = true;
+        $duble = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $duble->method('podeVer')->willReturnCallback(static function () use (&$veFinanceiro): bool {
+            return $veFinanceiro;
+        });
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $duble);
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Controle: quem VÊ recebe as três em todos os caminhos.
+        $com = $this->timeline($client, $pasta);
+        self::assertEqualsCanonicalizing(
+            ['n' . $comum->getId(), 'n' . $fin->getId(), 'n' . $finQry->getId()],
+            $this->idsDeNotificacao($com),
+        );
+        self::assertSame(3, $com['contagens']['notificacao']);
+        self::assertContains('n' . $fin->getId(), $this->ids($com, 'atencao'));
+        self::assertSame(['n' . $fin->getId()], $this->ids($this->timeline($client, $pasta, ['q' => 'AVISO-FINANCEIRO-XYZ'])));
+
+        // Quem NÃO vê.
+        $veFinanceiro = false;
+        $dados = $this->timeline($client, $pasta);
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertSame(['n' . $comum->getId()], $this->idsDeNotificacao($dados), 'lista de eventos');
+        self::assertSame(1, $dados['contagens']['notificacao'], 'chip Notificações');
+        self::assertSame($com['contagens']['tudo'] - 2, $dados['contagens']['tudo'], 'chip Tudo');
+        self::assertSame($com['contagens']['pendente'] - 2, $dados['contagens']['pendente'], 'chip Pendências');
+        self::assertSame(['n' . $comum->getId()], $this->idsDeNotificacao($dados, 'atencao'), '"Precisa de atenção"');
+        self::assertStringNotContainsString('AVISO-FINANCEIRO', $corpo);
+
+        $chip = $this->timeline($client, $pasta, ['categoria' => 'notificacao']);
+        self::assertSame(['n' . $comum->getId()], $this->ids($chip), 'filtro do chip');
+
+        $busca = $this->timeline($client, $pasta, ['q' => 'AVISO-FINANCEIRO-XYZ']);
+        self::assertSame([], $busca['eventos'], 'busca pelo título');
+        self::assertSame(0, $busca['totalFiltrado']);
+        self::assertStringNotContainsString('AVISO-FINANCEIRO', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('PAS-047i: as notificações respeitam o mesmo teto das outras fontes e avisam que cortaram')]
+    public function testNotificacoesRespeitamOLimite(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $caminho         = '/pasta/' . $pasta->getId();
+        for ($i = 1; $i <= 3; ++$i) {
+            // No futuro de propósito: são, sem empate, os mais novos da pasta.
+            $this->notificacao($user, $tenant, 'AVISO ' . $i, url: $caminho . '#pasta-msg-' . $i, quando: sprintf('2099-09-0%d 10:00', $i));
+        }
+
+        $this->logarComTenant($client, $user, $tenant);
+        $cortada = $this->timeline($client, $pasta, ['limite' => 2]);
+
+        self::assertCount(2, $cortada['eventos']);
+        self::assertTrue($cortada['truncado']);
+        self::assertSame(['AVISO 3', 'AVISO 2'], array_column($cortada['eventos'], 'titulo'));
     }
 }

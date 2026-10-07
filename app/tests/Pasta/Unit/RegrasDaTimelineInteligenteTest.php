@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Entity\Notificacao;
 use App\Pasta\DTO\EventoDaTimelineOutput;
 use App\Pasta\DTO\FiltroDaTimelineInput;
 use App\Pasta\Service\RegrasDaTimelineInteligente;
+use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -86,6 +88,30 @@ final class RegrasDaTimelineInteligenteTest extends TestCase
         self::assertSame('importante', $this->regras->prioridadeDaPublicacao('CITAÇÃO'));
         self::assertSame('info', $this->regras->prioridadeDaPublicacao('Edital'));
         self::assertSame('info', $this->regras->prioridadeDaPublicacao(null));
+    }
+
+    #[TestDox('Notificação (PAS-047i): só o alerta de meta é importante; o resto é informativo, nunca "concluído"')]
+    public function testPrioridadeDaNotificacao(): void
+    {
+        self::assertSame('importante', $this->regras->prioridadeDaNotificacao(AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO));
+        self::assertSame('info', $this->regras->prioridadeDaNotificacao(Notificacao::TIPO_PASTA_MENCAO_REGISTRO));
+        self::assertSame('info', $this->regras->prioridadeDaNotificacao(Notificacao::TIPO_TAREFA_CONCLUIDA));
+        self::assertSame('info', $this->regras->prioridadeDaNotificacao('tipo_que_nao_existe'));
+    }
+
+    #[TestDox('Notificações têm chip próprio (desenho `TLC.notificacao`) e o filtro da categoria só devolve elas')]
+    public function testCategoriaDasNotificacoes(): void
+    {
+        self::assertSame(['Notificações', 'bi-bell', '#c76a12'], RegrasDaTimelineInteligente::CATEGORIAS['notificacao']);
+
+        $eventos = [
+            $this->evento('n1', '2026-10-05 10:00', 'notificacao', 'notificacao', 'Aviso', pendente: true),
+            $this->evento('m1', '2026-10-05 11:00'),
+        ];
+        $filtrados = $this->regras->filtrar($eventos, new FiltroDaTimelineInput(categoria: 'notificacao'), $this->agora);
+        self::assertSame(['n1'], $this->ids($filtrados));
+        self::assertSame(1, $this->regras->contagens($eventos)['notificacao']);
+        self::assertSame(['n1'], $this->ids($this->regras->atencao($eventos)), 'não lida = pendente = atenção');
     }
 
     // ── nenhum evento ─────────────────────────────────────────────────────
