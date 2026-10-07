@@ -119,7 +119,7 @@ final class PastaExploradorVisorTest extends TestCase
         $js = $this->ler(self::VISOR);
 
         self::assertStringContainsString('const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_PASSO = 10;', $js);
-        self::assertStringContainsString("const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml'];", $js, 'DOC-109: o ODP tem zoom (dc temZoom: pptx cobre ODP)');
+        self::assertStringContainsString("const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'doc', 'tiff'];", $js, 'DOC-109: o ODP tem zoom (dc temZoom: pptx cobre ODP); DOC-111/112: .doc e TIFF também (dc L4655)');
         self::assertStringContainsString("el.alvo.style.setProperty('--pex-visor-zoom', String(zoom / 100));", $this->funcao($js, 'aplicarZoom'));
 
         $css = $this->ler(self::CSS);
@@ -146,7 +146,7 @@ final class PastaExploradorVisorTest extends TestCase
         $js = $this->ler(self::VISOR);
 
         self::assertStringContainsString("const TIPOS_IMPRIMIVEIS_ARQUIVO = ['pdf', 'imagem'];", $js);
-        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS_CONTEUDO = ['docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'zip'];", $js);
+        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS_CONTEUDO = ['docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'zip', 'doc', 'tiff'];", $js);
         $render = $this->funcao($js, 'renderizar');
         self::assertStringContainsString('const imprimivel = ehImprimivel(tipo);', $render);
         self::assertStringContainsString("el.imprimir.setAttribute('aria-disabled', imprimivel ? 'false' : 'true');", $render);

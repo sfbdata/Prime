@@ -72,10 +72,10 @@
     // dc `zoom`: de 10 em 10, de 50% a 200% (DOC-49).
     const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_PASSO = 10;
     // dc `temZoom`: sem zoom para áudio, vídeo, ZIP (lista) e o que não tem visualização.
-    const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml'];
+    const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'doc', 'tiff'];
     // DOC-108: PDF e imagem imprimem o ARQUIVO; os demais, o conteúdo que o visualizador desenhou.
     const TIPOS_IMPRIMIVEIS_ARQUIVO = ['pdf', 'imagem'];
-    const TIPOS_IMPRIMIVEIS_CONTEUDO = ['docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'zip'];
+    const TIPOS_IMPRIMIVEIS_CONTEUDO = ['docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'zip', 'doc', 'tiff'];
     /* O iframe do conteúdo: sandbox sem permissão de script (nada de dentro roda). allow-same-origin é o que
        deixa o visor preenchê-lo por DOM e chamar print() — sem scripts lá dentro, não abre porta;
        allow-modals é o que impede o navegador de ignorar o print() de um documento sandbox. */
