@@ -3614,6 +3614,44 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-compositor-rodape--solto { margin-top: 8px; border-top: none; background: transparent; padding: 0; }
 /* Sem teto nem rolagem interna: a lista cresce com a pagina (dc 2316, auditoria 2 T1). */
 .ps-detalhes-rolagem { border-radius: 0 0 4px 4px; }
+/* ⋮ da observação (N7, dc L.2335): 28×28, #8496a3, ícone 14px, depois da hora; hover azul.
+   O menu é fixo (o cartão tem `overflow: hidden`) e o JS do _detalhes_obs o posiciona. */
+.ps-detalhes-obs .ps-obs-menu-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--ps-faint);
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-detalhes-obs .ps-obs-menu-btn:hover,
+.ps-detalhes-obs .ps-obs-menu-btn:focus-visible,
+.ps-detalhes-obs .ps-obs-menu-btn[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-accent); outline: none; }
+.ps-detalhes-obs .ps-obs-menu {
+    position: fixed;
+    z-index: 141;
+    width: 230px;
+    max-width: calc(100vw - 24px);
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-card);
+    border-radius: 4px;
+    box-shadow: var(--ps-shadow-gm);
+    animation: psProcEntra .14s var(--ps-ease) backwards;
+}
+.ps-detalhes-obs .ps-obs-menu[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-detalhes-obs .ps-obs-menu { animation: none; }
+}
 /* Trilho da aba Detalhes (desenho): "Registro da pasta" e "Como usar esta aba". */
 .ps-registro-pasta { padding: 17px; }
 .ps-registro-pasta h2 { margin-bottom: 14px; }

@@ -116,6 +116,20 @@
                             </span>
                         {% endif %}
                         <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ obs.criadaEm|date('H:i') }}</span>
+                        {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Do menu do desenho
+                           (dc L.6458) só "Copiar texto" tem função hoje — Editar já é o lápis da janela de
+                           15 min; Encaminhar via Chat I.A e Citar não existem. #}
+                        <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
+                                aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
+                                aria-controls="psObsMenu{{ obs.id }}">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <div class="ps-obs-menu" id="psObsMenu{{ obs.id }}" role="menu" hidden>
+                            <div class="ps-processo-menu-titulo">{{ autor ?: 'Autor desconhecido' }} · {{ obs.criadaEm|date('d/m/Y, H:i') }}</div>
+                            <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
+                                <i class="bi bi-clipboard"></i><span>Copiar texto</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="ps-anotacao-corpo">
                         <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
@@ -255,6 +269,17 @@
                         <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                     </span>
                     <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(hora)}</span>
+                    <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
+                            aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
+                            aria-controls="psObsMenu${data.id}">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <div class="ps-obs-menu" id="psObsMenu${data.id}" role="menu" hidden>
+                        <div class="ps-processo-menu-titulo">${esc(data.autorNome ?? 'Autor desconhecido')} · ${esc(criadaEm.replace(' ', ', '))}</div>
+                        <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
+                            <i class="bi bi-clipboard"></i><span>Copiar texto</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="ps-anotacao-corpo">
                     <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
@@ -271,8 +296,84 @@
         obsLista.scrollTop = 0;
     }
 
+    /* ── ⋮ da observação (N7): menu fixo, posicionado pelo gatilho (o cartão tem
+       `overflow: hidden`, um menu absoluto seria cortado na última observação). ── */
+    let menuAberto = null; // { menu, gatilho }
+
+    function fecharMenuObs(devolverFoco) {
+        if (!menuAberto) { return; }
+        menuAberto.menu.hidden = true;
+        menuAberto.gatilho.setAttribute('aria-expanded', 'false');
+        if (devolverFoco) { menuAberto.gatilho.focus(); }
+        menuAberto = null;
+    }
+
+    function abrirMenuObs(gatilho) {
+        const menu = document.getElementById(gatilho.getAttribute('aria-controls') || '');
+        if (!menu) { return; }
+        if (menuAberto && menuAberto.menu === menu) { fecharMenuObs(false); return; }
+        fecharMenuObs(false);
+        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+        menu.hidden = false;
+        const r = gatilho.getBoundingClientRect();
+        const x = r.right - menu.offsetWidth;
+        let y = r.bottom + 4;
+        if (y + menu.offsetHeight > window.innerHeight - 8) { y = Math.max(8, r.top - menu.offsetHeight - 4); }
+        menu.style.left = Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+        menu.style.top  = Math.max(8, y) + 'px';
+        gatilho.setAttribute('aria-expanded', 'true');
+        menuAberto = { menu: menu, gatilho: gatilho };
+        const primeiro = menu.querySelector('.ps-processo-menu-item');
+        if (primeiro) { primeiro.focus(); }
+    }
+
+    /* "Copiar texto": o texto como se lê na tela (sem a marcação do editor). O rótulo
+       vira o aviso por um instante e o menu fecha, como no ⋮ do processo. */
+    function copiarTextoObs(item) {
+        const artigo = item.closest('.detalhes-obs-item');
+        const corpo  = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
+        const texto  = corpo ? corpo.innerText.trim() : '';
+        const rotulo = item.querySelector('span');
+        const original = rotulo ? rotulo.textContent : '';
+        const menuDaVez = menuAberto ? menuAberto.menu : null;
+        function avisar(msg) {
+            if (rotulo) { rotulo.textContent = msg; }
+            setTimeout(function () {
+                if (rotulo) { rotulo.textContent = original; }
+                if (menuAberto && menuAberto.menu === menuDaVez) { fecharMenuObs(false); }
+            }, 1200);
+        }
+        if (texto && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(
+                function () { avisar('Texto copiado'); },
+                function () { avisar('Não foi possível copiar'); }
+            );
+        } else {
+            avisar('Não foi possível copiar');
+        }
+    }
+
+    // Clique FORA fecha (em captura); Esc fecha e devolve o foco; rolar/redimensionar fecha.
+    document.addEventListener('click', function (e) {
+        if (!menuAberto) { return; }
+        if (menuAberto.menu.contains(e.target) || menuAberto.gatilho.contains(e.target)) { return; }
+        fecharMenuObs(false);
+    }, true);
+    document.addEventListener('keydown', function (e) {
+        if (menuAberto && e.key === 'Escape') { fecharMenuObs(true); }
+    });
+    window.addEventListener('resize', function () { fecharMenuObs(false); });
+    window.addEventListener('scroll', function () { fecharMenuObs(false); }, true);
+    document.addEventListener('ps:fechar-popovers', function () { fecharMenuObs(false); });
+
     if (obsLista) {
         obsLista.addEventListener('click', async function (e) {
+            const gatilhoMenu = e.target.closest('.js-obs-menu');
+            if (gatilhoMenu) { abrirMenuObs(gatilhoMenu); return; }
+
+            const itemCopiar = e.target.closest('.js-obs-copiar');
+            if (itemCopiar) { copiarTextoObs(itemCopiar); return; }
+
             const btnEditar = e.target.closest('.btn-editar-obs-det');
             if (btnEditar) {
                 const obsId         = btnEditar.dataset.obsId;

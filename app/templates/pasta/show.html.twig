@@ -276,7 +276,7 @@
                                             </div>
                                             <div>
                                                 <div class="ps-rotulo">Modificada em</div>
-                                                <div class="ps-registro-pasta-valor ps-num">{% if pasta.modificadoEm %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}<span class="ps-dado--vazio">—</span>{% endif %}</div>
+                                                <div class="ps-registro-pasta-valor ps-num">{% if pasta.modificadoEm %}{# N9 (dc L.6431): "hoje, 26/08/2026 14:58" no dia. #}{% if pasta.modificadoEm|date('Y-m-d') == 'now'|date('Y-m-d') %}hoje, {% endif %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}<span class="ps-dado--vazio">—</span>{% endif %}</div>
                                             </div>
                                             <div>
                                                 <div class="ps-rotulo">Criada por</div>
