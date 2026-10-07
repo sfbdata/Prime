@@ -28,7 +28,8 @@
    Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
    que os contêm são abertos pelo pasta-show.js (`data-ps-pop`). Linha trocada
    pelo item 9 nasce sem os ouvintes do pasta-show.js: o ⋮ e o sino dela são
-   abertos aqui (`popoversDasLinhasNovas`).
+   abertos aqui (`popoversDasLinhasNovas`), e o X de fechar vem de
+   `PsPopovers.religar` (pasta-show.js) logo depois da troca.
    ============================================================================= */
 (function () {
     'use strict';
@@ -620,6 +621,9 @@
             var vaiAbrir = !painel.classList.contains('is-aberto');
             document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
             fecharPopoversNovos(cartao, null);
+            // PAS-022b: como no `popovers()` do pasta-show.js, o menu arrastado reabre
+            // junto do gatilho.
+            if (vaiAbrir && window.PsArrastar) { window.PsArrastar.zerar(painel); }
             painel.classList.toggle('is-aberto', vaiAbrir);
             gatilho.setAttribute('aria-expanded', vaiAbrir ? 'true' : 'false');
         });
@@ -652,6 +656,8 @@
         Array.prototype.forEach.call(cartao.querySelectorAll('[data-ps-pop]'), function (g) {
             g.setAttribute('data-ps-pop-local', '1');
         });
+        // PAS-022b: o X de fechar das janelinhas novas (o do carregamento não as alcança).
+        if (window.PsPopovers) { window.PsPopovers.religar(cartao); }
 
         var grade = cartao.parentNode;
         var trilho = grade ? grade.querySelector(':scope > .ps-trilho') : null;

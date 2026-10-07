@@ -59,9 +59,13 @@
                     janela.dataset.psArrasteY = String(y);
                     janela.style.translate = x + 'px ' + y + 'px';
                 }
+                // PAS-022b: `pointercancel` (o navegador tomou o gesto: rolagem, toque
+                // interrompido) solta como o `pointerup` — senão o `pointermove` fica
+                // ligado e a janela segue o dedo/cursor no próximo movimento.
                 function soltar() {
                     window.removeEventListener('pointermove', mover);
                     window.removeEventListener('pointerup', soltar);
+                    window.removeEventListener('pointercancel', soltar);
                     janela.classList.remove('is-arrastando');
                     if (!andou) { return; }
                     // Soltar fora do cabeçalho gera um clique no ancestral comum, que
@@ -72,6 +76,7 @@
                 }
                 window.addEventListener('pointermove', mover);
                 window.addEventListener('pointerup', soltar);
+                window.addEventListener('pointercancel', soltar);
             });
         }
 
@@ -271,6 +276,25 @@
 
         (tarja || painel).appendChild(botao);
     }
+
+    /* PAS-022b: religar o X nos popovers que chegaram DEPOIS do carregamento (as linhas
+       das Metas trocadas pelo XHR do pasta-metas.js nascem sem ele, porque `popovers()`
+       liga cada `data-ps-pop` uma vez só). Mesmo X e mesmo fechar de `popovers()`; o
+       `botaoFechar` não duplica o X de quem já tem. Fica no `window` na carga do script:
+       o pasta-metas.js é carregado antes deste e só chama depois da troca. */
+    window.PsPopovers = {
+        religar: function (raiz) {
+            Array.prototype.forEach.call((raiz || document).querySelectorAll('[data-ps-pop]'), function (gatilho) {
+                var alvo = document.getElementById(gatilho.getAttribute('data-ps-pop'));
+                if (!alvo) { return; }
+                botaoFechar(alvo, function () {
+                    alvo.classList.remove('is-aberto');
+                    gatilho.setAttribute('aria-expanded', 'false');
+                    gatilho.focus();
+                });
+            });
+        }
+    };
 
     /* Onde o arraste vale nesta tela (PAS-023): a tarja azul dos menus do
        cabeçalho e o cabeçalho do modal Editar dados. O modal volta ao centro
