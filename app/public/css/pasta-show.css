@@ -2681,7 +2681,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-push-meta { font-size: 11px; color: var(--ps-label); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Sem `.ps-push-hora` (N2): o DJEN não dá hora e repetir a data da pílula era duplicata; a seta
    herda o `margin-left: auto` para continuar no canto direito. */
-.ps-push-seta { flex: 0 0 auto; margin-left: auto;color: var(--ps-faint); font-size: 12px; transition: transform .18s var(--ps-ease); }
+.ps-push-seta { flex: 0 0 auto; margin-left: auto; color: var(--ps-faint); font-size: 12px; transition: transform .18s var(--ps-ease); }
 .ps-push-cab[aria-expanded="true"] .ps-push-seta { transform: rotate(180deg); }
 
 .ps-push-teor { margin: 6px 0 0; padding: 12px 14px; background: var(--ps-card); border-radius: 4px; box-shadow: var(--ps-shadow-reg); }
