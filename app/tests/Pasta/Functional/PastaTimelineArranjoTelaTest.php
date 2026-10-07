@@ -108,4 +108,18 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         // D-IA: o 🧠 do desenho fica fora, como o ✦.
         self::assertStringNotContainsString('🧠', $js);
     }
+
+    #[TestDox('"Ver alteração" (PAS-045): o cartão só oferece o botão com `antes`, alterna para "Ocultar alteração" e mostra Antes/Depois por textContent')]
+    public function testJsVerAlteracao(): void
+    {
+        $js = file_get_contents(dirname(__DIR__, 3) . '/public/js/pasta-timeline.js');
+        self::assertIsString($js);
+
+        self::assertStringContainsString("if (e.antes) {", $js);
+        self::assertStringContainsString("alteracao ? 'Ocultar alteração' : 'Ver alteração'", $js);
+        self::assertStringContainsString("[['Antes:', String(e.antes)], ['Depois:', depois]]", $js);
+        self::assertStringContainsString("'Alterado em ' + new Date(e.alteradoEm).toLocaleString('pt-BR')", $js);
+        // Texto de usuário nunca vira HTML.
+        self::assertStringNotContainsString('.innerHTML', $js);
+    }
 }

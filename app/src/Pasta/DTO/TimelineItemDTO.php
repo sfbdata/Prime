@@ -30,5 +30,8 @@ final readonly class TimelineItemDTO
         // mensagens. Quem lê é a Timeline inteligente, para agrupar por categoria sem adivinhar
         // pelo texto do título.
         public ?string $origem = null,
+        // Texto inteiro de antes da última edição da mensagem (PAS-045); null se nunca editada.
+        // Quem lê é a Timeline inteligente ("Ver alteração").
+        public ?string $conteudoAnterior = null,
     ) {}
 }

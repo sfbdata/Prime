@@ -7,8 +7,11 @@
    POR REGRAS, sem IA (decisão D-IA): sem ✦, sem "BlueJus IA", sem a "IA encontrou".
    O que o desenho mostra e não tem fonte no sistema NÃO é renderizado: mensagens e
    ligações do chat, detecção de tarefa/telefone/e-mail/CNJ com
-   "Criar tarefa"/"Validar" (o estado da sugestão não existe no servidor), "Ver
-   alteração" (o texto anterior do registro não é guardado).
+   "Criar tarefa"/"Validar" (o estado da sugestão não existe no servidor).
+
+   "Ver alteração" (PAS-045): o registro de Dados da pasta guarda o texto INTEIRO de antes
+   da última edição (`conteudo_anterior`); o cartão mostra Antes e Depois. Observações de
+   Detalhes e do Financeiro não guardam o anterior — nelas o botão não aparece.
 
    Notificações entram (PAS-047i): só as DO USUÁRIO LOGADO ligadas a esta pasta (pela meta
    ou pelo link), pendentes enquanto não lidas — chip "Notificações", `bi-bell`.

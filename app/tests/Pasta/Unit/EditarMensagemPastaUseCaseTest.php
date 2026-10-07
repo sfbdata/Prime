@@ -104,6 +104,48 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
         self::assertNotNull($mensagem->getEditadaEm());
     }
 
+    #[TestDox('PAS-045: a edição guarda o texto anterior INTEIRO (acima dos 500 do audit_log); só a última versão')]
+    public function testGuardaOTextoAnteriorInteiro(): void
+    {
+        $longo    = str_repeat('Texto original longo. ', 200); // ~4400 caracteres
+        $mensagem = $this->novaMensagem($longo);
+        self::assertNull($mensagem->getConteudoAnterior());
+
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Primeira correção');
+        self::assertSame($longo, $mensagem->getConteudoAnterior());
+        self::assertGreaterThan(500, mb_strlen((string) $mensagem->getConteudoAnterior()));
+
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Segunda correção');
+        self::assertSame('Primeira correção', $mensagem->getConteudoAnterior());
+        self::assertSame('Segunda correção', $mensagem->getConteudo());
+    }
+
+    #[TestDox('PAS-045: salvar sem mudar o texto não apaga o "Antes" da edição real')]
+    public function testSalvarSemMudarMantemOAnterior(): void
+    {
+        $mensagem = $this->novaMensagem('Original');
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Corrigido');
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Corrigido');
+
+        self::assertSame('Original', $mensagem->getConteudoAnterior());
+        self::assertSame('Corrigido', $mensagem->getConteudo());
+    }
+
+    #[TestDox('PAS-045: edição recusada não toca no texto anterior')]
+    public function testEdicaoRecusadaNaoMexeNoAnterior(): void
+    {
+        $mensagem = $this->novaMensagem('Original');
+        $outro    = (new User())->setEmail('outro@test.com');
+
+        try {
+            $this->useCase->executar($mensagem, $outro, $this->tenant, 'Invasor');
+        } catch (MensagemPastaNaoEditavelException) {
+        }
+
+        self::assertNull($mensagem->getConteudoAnterior());
+        self::assertSame('Original', $mensagem->getConteudo());
+    }
+
     public function testNaoAutorLancaExcecao(): void
     {
         $mensagem = $this->novaMensagem();

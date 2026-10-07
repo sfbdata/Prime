@@ -286,6 +286,10 @@ final class MontadorDaTimelineInteligente
             fonte: 'Dados da pasta',
             editado: $item->editadoEm !== null,
             autorId: $item->usuarioId,
+            // "Ver alteração" (PAS-045): o texto anterior inteiro, puro como o atual. Sem edição
+            // (ou anterior à coluna), nulo — e a tela não oferece o botão.
+            antes: $item->editadoEm !== null ? $this->textoPuro($item->conteudoAnterior) : null,
+            alteradoEm: $item->editadoEm,
         );
     }
 

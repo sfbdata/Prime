@@ -4972,6 +4972,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-fora-bd:   #f0d3a6;
     --ps-tl-fora-tx:   #7a4b00;
     --ps-tl-fora-bt:   #7a4b00;
+    --ps-tl-alt-bg:    #fdf3e4;
 }
 [data-bs-theme="dark"] .ps-body {
     --ps-tl-bg:        var(--bs-body-bg);
@@ -4999,6 +5000,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-fora-bd:   rgba(240,170,60,.35);
     --ps-tl-fora-tx:   #f0b860;
     --ps-tl-fora-bt:   #9a6206;
+    --ps-tl-alt-bg:    rgba(240,170,60,.10);
 }
 
 /* PAS-049i: o painel do desenho (central:3402) não escurece a tela. O overlay
@@ -5201,6 +5203,19 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     white-space: pre-line;
 }
 .ps-tl-fonte { margin-top: 3px; font-size: 11px; color: var(--ps-tl-fraco); }
+/* "Ver alteração" (PAS-045; desenho `tlCard`: #fdf3e4, 7px 9px, 12px). */
+.ps-tl-alteracao {
+    margin-top: 6px;
+    padding: 7px 9px;
+    border-radius: 3px;
+    background: var(--ps-tl-alt-bg);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ps-tl-corpo-tx);
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+.ps-tl-alteracao-em { color: var(--ps-tl-fraco); }
 .ps-tl-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
 .ps-tl-acao {
     display: inline-flex;

@@ -373,8 +373,11 @@
 
         var texto = e.texto ? String(e.texto) : '';
         var longo = texto.length > 160;
-        var aberto = !!estado.abertos[e.id];
+        // Como no desenho (`TL.abertos`): 1 = texto inteiro; 'h' = Antes e Depois.
+        var aberto = estado.abertos[e.id] === 1;
+        var alteracao = estado.abertos[e.id] === 'h' && !!e.antes;
         if (texto) { corpo.appendChild(el('div', 'ps-tl-texto', longo && !aberto ? texto.slice(0, 160) + '…' : texto)); }
+        if (alteracao) { corpo.appendChild(caixaAlteracao(e, texto)); }
 
         var rodape = [e.fonte, e.autor].filter(function (x) { return !!x; }).join(' · ');
         if (rodape) { corpo.appendChild(el('div', 'ps-tl-fonte', rodape)); }
@@ -386,6 +389,12 @@
             a.addEventListener('click', function (ev) { irPara(ev, e.link); });
             acoes.appendChild(a);
         }
+        if (e.antes) {
+            var btAlt = el('button', 'ps-tl-acao', alteracao ? 'Ocultar alteração' : 'Ver alteração');
+            btAlt.type = 'button';
+            btAlt.addEventListener('click', function () { estado.abertos[e.id] = alteracao ? 0 : 'h'; desenhar(); });
+            acoes.appendChild(btAlt);
+        }
         if (longo) {
             var bt = el('button', 'ps-tl-acao', aberto ? 'Mostrar menos' : 'Ver tudo');
             bt.type = 'button';
@@ -396,6 +405,21 @@
 
         c.appendChild(corpo);
         return c;
+    }
+
+    // "Ver alteração" (desenho `tlCard`): Antes, Depois (o texto inteiro) e "Alterado em".
+    function caixaAlteracao(e, depois) {
+        var caixa = el('div', 'ps-tl-alteracao');
+        [['Antes:', String(e.antes)], ['Depois:', depois]].forEach(function (par) {
+            var linha = el('div', '');
+            linha.appendChild(el('b', '', par[0]));
+            linha.appendChild(document.createTextNode(' ' + par[1]));
+            caixa.appendChild(linha);
+        });
+        if (e.alteradoEm) {
+            caixa.appendChild(el('div', 'ps-tl-alteracao-em', 'Alterado em ' + new Date(e.alteradoEm).toLocaleString('pt-BR')));
+        }
+        return caixa;
     }
 
     // Link para uma aba DESTA pasta (`#push`): troca a aba aqui, sem recarregar — o
