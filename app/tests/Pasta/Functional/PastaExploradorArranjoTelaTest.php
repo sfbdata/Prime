@@ -315,6 +315,38 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.pex-corpo > script#pexDados[type="application/json"]'));
     }
 
+    #[TestDox('caixa "selecionar todos os visíveis": na coluna Nome do cabeçalho do Detalhes, antes do botão de classificar; nos demais modos, faixa própria entre a trilha e o cabeçalho, oculta')]
+    public function testCaixasSelecionarTodos(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarDocumento($pasta, $tenant, 'a.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $rotulo = 'Selecionar todos os itens visíveis';
+        // Detalhes: dentro da célula Nome do cabeçalho, sem coluna própria (a grade não muda).
+        self::assertCount(1, $crawler->filter('#pexCabecalho > .pex-col-nome > .pex-chk:first-child > input#pexTodosCab[type="checkbox"].pex-chk-in + .pex-chk-caixa[aria-hidden="true"]'));
+        self::assertCount(1, $crawler->filter('#pexCabecalho > .pex-col-nome > .pex-chk + button[data-pex-classificar="nome"]'));
+        self::assertSame($rotulo, $crawler->filter('#pexTodosCab')->attr('aria-label'));
+        self::assertCount(0, $crawler->filter('#pexCabecalho > .pex-chk'), 'não é coluna nova do cabeçalho');
+
+        // Demais modos: faixa entre a trilha e o cabeçalho, nasce oculta (o JS liga).
+        self::assertCount(1, $crawler->filter('.pex-corpo > #pexTrilha + #pexTodos[hidden] + #pexCabecalho'));
+        self::assertCount(1, $crawler->filter('#pexTodos > .pex-chk > input#pexTodosFaixa[type="checkbox"].pex-chk-in + .pex-chk-caixa'));
+        self::assertCount(1, $crawler->filter('#pexTodos > .pex-chk + label.pex-todos-txt[for="pexTodosFaixa"]'));
+        self::assertSame($rotulo, $crawler->filter('#pexTodosFaixa')->attr('aria-label'));
+
+        // As duas nascem desligadas; o JS liga com itens na tela.
+        foreach (['#pexTodosCab', '#pexTodosFaixa'] as $sel) {
+            self::assertNotNull($crawler->filter($sel)->attr('disabled'));
+            self::assertNull($crawler->filter($sel)->attr('aria-checked'), 'checkbox nativo não leva aria-checked');
+        }
+        // As caixas das linhas são do JS: a lista nasce vazia no HTML.
+        self::assertCount(0, $crawler->filter('#pexLista .pex-chk'));
+    }
+
     #[TestDox('os ids do checklist (contrato com o JS inline) continuam todos dentro de #pexChecklist')]
     public function testIdsDoChecklistDentroDaFaixa(): void
     {

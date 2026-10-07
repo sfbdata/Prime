@@ -106,7 +106,7 @@ final class PastaExploradorContratoJsTest extends TestCase
     {
         $js = $this->js();
 
-        self::assertStringContainsString("if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;", $js);
+        self::assertStringContainsString("if (!naCaixa && (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable))) return;", $js);
         self::assertStringContainsString("if (e.target && e.target.closest && e.target.closest('#pexChecklist')) return;", $js, 'Backspace no checklist é do checklist');
     }
 

@@ -151,6 +151,10 @@
         selecao:        document.getElementById('pexSelecao'),
         selecaoTexto:   document.getElementById('pexSelecaoTexto'),
         selecaoLimpar:  document.getElementById('pexSelecaoLimpar'),
+        // Caixas "selecionar todos os visíveis": no cabeçalho do Detalhes e na faixa dos demais modos.
+        todos:          document.getElementById('pexTodos'),
+        todosCab:       document.getElementById('pexTodosCab'),
+        todosFaixa:     document.getElementById('pexTodosFaixa'),
         laco:           document.getElementById('pexLaco'),
         menu:           document.getElementById('pexMenu'),
         menuFundo:      document.getElementById('pexMenuFundo'),
@@ -598,6 +602,7 @@
     // ------------------------------------------------------------ render ----
     let itensRenderizados = [];
     let linhasPorChave = new Map();     // chave → elemento .pex-item do render atual
+    let caixasPorChave = new Map();     // chave → <input type=checkbox> da linha (espelho de `selecao`)
 
     function chaveDe(it) { return it.tipo + ':' + it.id; }
     function chaveDoElemento(n) { return n.dataset.pexTipo + ':' + Number(n.dataset.pexId); }
@@ -615,6 +620,10 @@
 
     function renderizar() {
         renderFavoritosAdiado = null;      // este render já mostra o estado novo dos favoritos
+        // Foco numa peça da linha (caixa, estrela, ⋮) que o render vai trocar: sem isto ele cairia
+        // no <body> e os atalhos do explorador parariam — volta para a lista.
+        const focado = document.activeElement;
+        const focoNaLinha = !!(focado && focado !== el.lista && el.lista.contains(focado));
         const buscando = normalizar(busca) !== '';
         const itens = itensVisiveis();
         itensRenderizados = itens;
@@ -638,14 +647,18 @@
 
         const frag = document.createDocumentFragment();
         linhasPorChave = new Map();
+        caixasPorChave = new Map();
         itens.forEach(function (it) {
             const linha = it.tipo === 'pasta' ? linhaPasta(it.dado, buscando) : linhaArquivo(it.dado, buscando);
             linhasPorChave.set(chaveDe(it), linha);
+            const caixa = linha.querySelector('.pex-chk-in');
+            if (caixa) caixasPorChave.set(chaveDe(it), caixa);
             frag.appendChild(linha);
         });
         el.lista.textContent = '';
         el.lista.appendChild(frag);
         el.lista.hidden = itens.length === 0;
+        if (focoNaLinha && !focado.isConnected) el.lista.focus({ preventScroll: true });
         // Modo Lista (dc L4724): fluxo em colunas, ⌈n/3⌉ linhas.
         el.lista.style.setProperty('--pex-linhas', String(Math.max(1, Math.ceil(itens.length / 3))));
 
@@ -671,7 +684,10 @@
             el.vazio.hidden = true;
         }
 
+        // "Selecionar todos": no Detalhes é a caixa do cabeçalho; nos demais modos, a faixa.
+        if (el.todos) el.todos.hidden = modo === 'det' || itens.length === 0;
         atualizarAtivo();
+        atualizarCaixasTodos();
         renderizarBarra();
         renderizarPainel();
         renderizarLimpeza(buscando);
@@ -864,7 +880,11 @@
         // A estrela vem antes do ícone, na célula do nome (dc L2246); na grade, no canto do cartão.
         // `favorito === null`: linha provisória (nova pasta) — ainda não há o que favoritar.
         const chaveDaLinha = attrs['data-pex-tipo'] + ':' + attrs['data-pex-id'];
+        const on = selecao.has(chaveDaLinha);
+        // Caixa de seleção (pedido do dono, 07/10): antes da estrela nas linhas; no canto superior
+        // DIREITO do cartão na grade (a estrela fica no esquerdo). A linha provisória não tem.
         const nome = h('span', { class: 'pex-cel pex-cel-nome' }, [
+            favorito === null ? null : caixaDeSelecao(on, nomeEl.textContent),
             favorito === null ? null : botaoFavorito(favorito, favoritosEmVoo.has(chaveDaLinha)),
             h('span', { class: 'pex-ico' }, [ehPasta ? icone(TIPO_PASTA[0] + ' pex-ico-pasta') : null]),
             h('span', { class: 'pex-txt' }, txt),
@@ -877,13 +897,23 @@
             if (lado) celulas.push(lado);
         }
         celulas.push(h('span', { class: 'pex-cel pex-cel-acoes' }, [botaoMenu(ehPasta ? 'Ações da pasta' : 'Ações do arquivo')]));
-        const chave = attrs['data-pex-tipo'] + ':' + attrs['data-pex-id'];
-        const on = selecao.has(chave);
         if (on) attrs.class += ' pex-item--sel';
-        attrs.id = idDaLinha(chave);
+        attrs.id = idDaLinha(chaveDaLinha);
         attrs.role = 'option';
         attrs['aria-selected'] = on ? 'true' : 'false';
         return { linha: h('div', attrs, celulas), ico: nome.querySelector('.pex-ico') };
+    }
+
+    /* Caixa de seleção da linha (pedido do dono, 07/10; o desenho é omisso). É um
+       <input type="checkbox"> de verdade, com rótulo "Selecionar <nome>", mas NÃO é outro estado:
+       ela espelha `selecao` (aplicarSelecao) e o clique nela vira alternarSelecao/
+       selecionarIntervalo, como Ctrl/Shift+clique. O <input> é transparente e cobre a caixa
+       inteira (16px no mouse, 32px no toque); quem desenha é o .pex-chk-caixa, pelo CSS.
+       `tabindex="-1"`: sem uma parada de Tab por linha dentro do listbox (como a estrela). */
+    function caixaDeSelecao(on, nome) {
+        const input = h('input', { type: 'checkbox', class: 'pex-chk-in', tabindex: '-1', 'aria-label': 'Selecionar ' + nome, draggable: 'false' });
+        input.checked = !!on;
+        return h('span', { class: 'pex-chk' }, [input, h('span', { class: 'pex-chk-caixa', 'aria-hidden': 'true' })]);
     }
 
     /* Estrela (dc `favLinha`/`favSt`, L4743): 20×20, ícone de 13px; o título muda com o estado
@@ -1258,12 +1288,41 @@
     function aplicarSelecao() {
         linhasPorChave.forEach(function (n, chave) {
             const on = selecao.has(chave);
+            const caixa = caixasPorChave.get(chave);
+            if (caixa && caixa.checked !== on) caixa.checked = on;
             if (n.classList.contains('pex-item--sel') === on) return;
             n.classList.toggle('pex-item--sel', on);
             n.setAttribute('aria-selected', on ? 'true' : 'false');
         });
         atualizarAtivo();
+        atualizarCaixasTodos();
     }
+    /* "Selecionar todos os itens visíveis": marcada com todos os da tela, indeterminada
+       (`indeterminate`, que o navegador já expõe como "mixed") com parte, desligada sem itens. A conta é sobre
+       `itensRenderizados` — o que a busca, o filtro por tipo e o nível aberto deixaram na tela. */
+    function atualizarCaixasTodos() {
+        const total = itensRenderizados.length;
+        let n = 0;
+        itensRenderizados.forEach(function (it) { if (selecao.has(chaveDe(it))) n++; });
+        const todos = total > 0 && n === total;
+        const parte = n > 0 && n < total;
+        [el.todosCab, el.todosFaixa].forEach(function (c) {
+            if (!c) return;
+            c.checked = todos;
+            c.indeterminate = parte;
+            c.disabled = total === 0;
+        });
+    }
+    // Todos visíveis já marcados → desmarca os visíveis; senão marca todos os visíveis. Itens
+    // ocultos por busca/filtro NUNCA entram: a lista é a da tela.
+    function alternarTodosVisiveis() {
+        const chaves = itensRenderizados.map(chaveDe);
+        const visiveis = new Set(chaves);
+        const todos = chaves.length > 0 && chaves.every(function (k) { return selecao.has(k); });
+        if (todos) definirSelecao(Array.from(selecao).filter(function (k) { return !visiveis.has(k); }), { ancora: null, foco: null });
+        else definirSelecao(chaves, { ancora: chaves.length ? chaves[0] : null, foco: foco });
+    }
+    [el.todosCab, el.todosFaixa].forEach(function (c) { if (c) c.addEventListener('change', alternarTodosVisiveis); });
     function atualizarAtivo() {
         const k = foco || (selecao.size ? Array.from(selecao)[selecao.size - 1] : null);
         if (k) el.lista.setAttribute('aria-activedescendant', idDaLinha(k));
@@ -1396,6 +1455,19 @@
         const item = e.target.closest('.pex-item');
         if (item && item.dataset.pexTemp !== undefined) return;
         if (e.target.closest('.pex-ren')) return;
+        // Caixa de seleção: o MESMO estado da seleção — clicar nela é Ctrl+clique (alterna) e,
+        // com Shift, estende da âncora. Nunca abre o item nem entra na pasta (nem no toque), e o
+        // clique não conta para o duplo clique.
+        if (e.target.closest('.pex-chk') && item) {
+            e.stopPropagation();
+            if (e.target.tagName !== 'INPUT') { e.preventDefault(); return; }
+            const chaveDaCaixa = chaveDoElemento(item);
+            registrarClique(chaveDaCaixa, true);
+            if (e.shiftKey && ancora) selecionarIntervalo(chaveDaCaixa);
+            else alternarSelecao(chaveDaCaixa);
+            e.target.checked = selecao.has(chaveDaCaixa);
+            return;
+        }
         // Estrela: alterna o favorito SEM mexer na seleção (dc `favAlt`: preventDefault +
         // stopPropagation). Em voo, o clique é ignorado em alternarFavoritos.
         const btnFav = e.target.closest('.pex-fav');
@@ -1437,9 +1509,9 @@
     const DUPLO_CLIQUE_MS = 400;
     let cliqueAnterior = null;
     let ultimoClique = null;
-    function registrarClique(chave) {
+    function registrarClique(chave, caixa) {
         cliqueAnterior = ultimoClique;
-        ultimoClique = { chave: chave, t: Date.now() };
+        ultimoClique = { chave: chave, t: Date.now(), caixa: !!caixa };
     }
     function chaveDoDuploClique(chaveDoAlvo) {
         const a = cliqueAnterior, u = ultimoClique;
@@ -1448,11 +1520,14 @@
     }
     // Duplo clique abre (dc `abrir`, L4758): pasta entra, arquivo pré-visualiza.
     el.lista.addEventListener('dblclick', function (e) {
-        if (e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;
+        if (e.target.closest('.pex-ren, .pex-menu, .pex-fav, .pex-chk')) return;
         const item = e.target.closest('.pex-item');
         if (item && item.dataset.pexTemp !== undefined) return;
         const chaveDoAlvo = item ? chaveDoElemento(item) : null;
-        const chave = chaveDoDuploClique(chaveDoAlvo);
+        // 1º clique numa CAIXA de seleção: o duplo clique não abre nada. A barra de seleção que
+        // esse clique mostrou empurra a lista, e o 2º clique cai no corpo do item vizinho.
+        const primeiroNaCaixa = !!(cliqueAnterior && cliqueAnterior.caixa && ultimoClique && ultimoClique.t - cliqueAnterior.t < DUPLO_CLIQUE_MS);
+        const chave = primeiroNaCaixa ? null : chaveDoDuploClique(chaveDoAlvo);
         cliqueAnterior = ultimoClique = null;
         if (!chave) return;
         e.preventDefault();
@@ -1538,7 +1613,12 @@
        modo do que está guardado); setas, Home e End movem a seleção (Shift estende). */
     raiz.addEventListener('keydown', function (e) {
         const tag = e.target && e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
+        // Caixa de seleção de uma LINHA: Espaço é dela (alterna, nativo → clique → alternarSelecao)
+        // e Enter não abre o item; as demais teclas seguem como se o foco estivesse na linha. A
+        // caixa "selecionar todos" (fora das linhas) continua sendo um campo como outro qualquer.
+        const naCaixa = tag === 'INPUT' && !!(e.target.classList && e.target.classList.contains('pex-chk-in') && e.target.closest('.pex-item'));
+        if (naCaixa && (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter')) return;
+        if (!naCaixa && (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable))) return;
         // O checklist tem campos e botões próprios: Backspace lá é do checklist, não da navegação.
         if (e.target && e.target.closest && e.target.closest('#pexChecklist')) return;
         if (el.menu && !el.menu.hidden && e.target.closest('#pexMenu')) { teclaNoMenu(e); return; }
@@ -1594,6 +1674,9 @@
         if (ctrl) return;
         if (/^Arrow(Up|Down|Left|Right)$/.test(k) || k === 'Home' || k === 'End') {
             e.preventDefault();
+            // Andar a partir da caixa devolve o foco à lista: o Espaço seguinte não pode alternar
+            // a caixa da linha de onde se saiu.
+            if (naCaixa) el.lista.focus({ preventScroll: true });
             navegarTeclado(k, e.shiftKey);
         }
     });
@@ -1674,7 +1757,12 @@
         el.laco.style.width = (r.r - r.l) + 'px';
         el.laco.style.height = (r.b - r.t) + 'px';
     }
+    // Arrastar a partir da caixa de seleção não move a linha: o `dragstart` chega com o alvo na
+    // LINHA (o elemento arrastável), então quem sabe que a pressão foi na caixa é o mousedown.
+    let pressaoNaCaixa = false;
+    window.addEventListener('mouseup', function () { pressaoNaCaixa = false; }, true);
     el.lista.addEventListener('mousedown', function (e) {
+        pressaoNaCaixa = !!e.target.closest('.pex-chk');
         lacoVazio = false;
         if (e.button !== 0 || !el.laco) return;
         if (e.target.closest('input, button, a, .pex-ren, .pex-menu')) return;
@@ -1755,7 +1843,8 @@
         alvo.addEventListener('pointerdown', function (e) {
             if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
             const linha = e.target.closest('.pex-item');
-            if ((linha && linha.dataset.pexTemp !== undefined) || e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;
+            // Na caixa de seleção o toque só alterna; o toque longo é da LINHA.
+            if ((linha && linha.dataset.pexTemp !== undefined) || e.target.closest('.pex-ren, .pex-menu, .pex-fav, .pex-chk')) return;
             cancelarToqueLongo();
             toqueInicio = { x: e.clientX, y: e.clientY, linha: linha };
             toqueTimer = setTimeout(function () {
@@ -3500,7 +3589,7 @@
     // arrastar um item fora da seleção seleciona só ele; soltar numa pasta move todos.
     let arrasteChaves = null;
     el.lista.addEventListener('dragstart', function (e) {
-        if (lacoVazio) { e.preventDefault(); return; }
+        if (lacoVazio || pressaoNaCaixa) { e.preventDefault(); return; }
         if (sortable) return;
         const item = e.target.closest && e.target.closest('.pex-item');
         if (!item || item.dataset.pexTemp !== undefined || e.target.closest('.pex-ren')) { if (e.cancelable) e.preventDefault(); return; }

@@ -51,7 +51,7 @@ final class PastaExploradorInteracaoTest extends TestCase
 
         $handler = strpos($js, "raiz.addEventListener('keydown', function (e) {");
         self::assertNotFalse($handler);
-        $guardaCampo     = strpos($js, "if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;", $handler);
+        $guardaCampo     = strpos($js, "if (!naCaixa && (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable))) return;", $handler);
         $guardaChecklist = strpos($js, "if (e.target && e.target.closest && e.target.closest('#pexChecklist')) return;", $handler);
         $guardaMenu      = strpos($js, "if (el.menu && !el.menu.hidden && e.target.closest('#pexMenu')) { teclaNoMenu(e); return; }", $handler);
         $backspace       = strpos($js, "if ((k === 'Backspace' || (e.altKey && (k === 'ArrowLeft' || k === 'ArrowUp'))) && caminho.length) {", $handler);
@@ -273,7 +273,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("const base = (e.ctrlKey || e.metaKey) ? Array.from(selecao) : [];", $js, 'Ctrl soma à seleção');
         // Do ícone/nome arrasta; do espaço vazio laça — e o dragstart do espaço vazio é cancelado.
         self::assertStringContainsString('if (linha && (linha.dataset.pexTemp !== undefined || pontoNoConteudo(linha, e.clientX))) return;', $js);
-        self::assertStringContainsString("if (lacoVazio) { e.preventDefault(); return; }", $js);
+        self::assertStringContainsString("if (lacoVazio || pressaoNaCaixa) { e.preventDefault(); return; }", $js);
         self::assertStringContainsString('return !pontoNoConteudo(alvo, evt.clientX);', $js, 'o Sortable (Manual) obedece à mesma regra pelo filter');
         self::assertStringContainsString('if (ativo) suprimirCliqueAte = Date.now() + 80;', $js);
 

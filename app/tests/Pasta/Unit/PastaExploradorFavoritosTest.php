@@ -104,9 +104,9 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertLessThan($selecao, $fav, 'a estrela é tratada antes de qualquer seleção');
         self::assertStringContainsString("alternarFavoritos([it], !ehFavorito(it), { focar: chaveDe(it) });", $js);
 
-        self::assertStringContainsString("if (e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;", $js, 'duplo clique na estrela não abre');
+        self::assertStringContainsString("if (e.target.closest('.pex-ren, .pex-menu, .pex-fav, .pex-chk')) return;", $js, 'duplo clique na estrela não abre');
         self::assertStringContainsString("if ((k === 'Enter' || k === ' ') && e.target.closest && e.target.closest('.pex-fav')) return;", $js, 'Enter/Espaço são do botão');
-        self::assertStringContainsString("e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;\n            cancelarToqueLongo();", $js, 'toque longo na estrela não abre o menu');
+        self::assertStringContainsString("e.target.closest('.pex-ren, .pex-menu, .pex-fav, .pex-chk')) return;\n            cancelarToqueLongo();", $js, 'toque longo na estrela não abre o menu');
     }
 
     #[TestDox('otimista com rollback: a tela muda antes do pedido (estrela e hora provisória); quem falhou volta ao estado e à hora de antes, com toast de erro; alvo em voo não aceita outro clique e mostra aria-busy')]

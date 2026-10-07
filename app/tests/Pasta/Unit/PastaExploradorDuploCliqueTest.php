@@ -36,7 +36,7 @@ final class PastaExploradorDuploCliqueTest extends TestCase
         $ini = strpos($js, "el.lista.addEventListener('dblclick'");
         self::assertNotFalse($ini);
         $handler = substr($js, $ini, (int) strpos($js, "\n    });", $ini) - $ini);
-        self::assertStringContainsString('const chave = chaveDoDuploClique(chaveDoAlvo);', $handler);
+        self::assertStringContainsString('const chave = primeiroNaCaixa ? null : chaveDoDuploClique(chaveDoAlvo);', $handler);
         self::assertStringContainsString('if (chave !== chaveDoAlvo) selecionar(chave);', $handler);
         self::assertStringContainsString('abrirItem(itemPorChave(chave));', $handler);
         // O 2º clique no vazio (a linha "sumiu" de baixo do ponteiro) ainda abre a do 1º.

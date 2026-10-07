@@ -210,11 +210,21 @@
             <span class="pex-trilha-niveis" id="pexTrilhaNiveis"></span>
         </div>
 
+        {# "Selecionar todos" fora do Detalhes (pedido do dono, 07/10; o desenho é omisso): faixa
+           discreta logo acima da lista, no estilo do cabeçalho das colunas. No Detalhes a mesma
+           caixa mora na coluna Nome do cabeçalho (#pexTodosCab). As duas são a MESMA seleção do
+           explorador e só marcam os itens VISÍVEIS (busca, filtro e nível aberto). O JS liga
+           esta faixa só nos outros sete modos, e só com itens na tela. #}
+        <div class="pex-todos" id="pexTodos" hidden>
+            <span class="pex-chk pex-chk--todos"><input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosFaixa" aria-label="Selecionar todos os itens visíveis" disabled><span class="pex-chk-caixa" aria-hidden="true"></span></span>
+            <label class="pex-todos-txt" for="pexTodosFaixa">Selecionar todos</label>
+        </div>
+
         {# Cabeçalho estático do modo Detalhes (dc L2213). Clicar classifica; o `aria-sort`
            nasce em "none": nenhuma coluna manda até alguém pedir. A coluna Categoria entra por
            JS quando ligada no Organizar. #}
         <div class="pex-cabecalho" id="pexCabecalho">
-            <div class="pex-col pex-col-nome" aria-sort="none"><button type="button" data-pex-classificar="nome" title="Classificar por nome"><span>Nome</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-nome" aria-sort="none"><span class="pex-chk pex-chk--todos"><input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosCab" aria-label="Selecionar todos os itens visíveis" disabled><span class="pex-chk-caixa" aria-hidden="true"></span></span><button type="button" data-pex-classificar="nome" title="Classificar por nome"><span>Nome</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
             <div class="pex-col pex-col-tipo" aria-sort="none"><button type="button" data-pex-classificar="tipo" title="Classificar por tipo"><span>Tipo</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
             <div class="pex-col pex-col-tam" aria-sort="none"><button type="button" data-pex-classificar="tamanho" title="Classificar por tamanho"><span>Tamanho</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
             <div class="pex-col pex-col-data" aria-sort="none"><button type="button" data-pex-classificar="data" title="Classificar por data de modificação"><span>Modificado</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>

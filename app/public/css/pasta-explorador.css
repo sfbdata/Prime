@@ -176,6 +176,13 @@
     --pex-fav-on:         #f0b400;
     --pex-fav-hover:      #e0a400;
 
+    /* Caixa de seleção (pedido do dono, 07/10; o desenho é omisso): contorno no cinza dos
+       ícones do cabeçalho, marcada no azul de destaque das colunas (#0a7aad), sinal branco. */
+    --pex-chk-bd:         #9fb1bd;
+    --pex-chk-bg:         #fff;
+    --pex-chk-on:         #0a7aad;
+    --pex-chk-marca:      #fff;
+
     /* L9 — selo "Idêntico" (dc `dupSt`, L4747): #8a4b00 sobre #fff1d6, anel #f0c77a; linha
        duplicada #fffaf0 com barra #e9a23b (dc L4732, DOC-19). Selo de sugestão (`sugSt`):
        #8f2f28 sobre #fdecea, anel #f0b8b2. Faixa de limpeza (dc L2218-2233): fundo #fffaf0,
@@ -415,6 +422,12 @@
     --pex-fav-off:        var(--bs-secondary-color);
     --pex-fav-on:         #f0b400;
     --pex-fav-hover:      #ffc61a;
+
+    /* Caixa de seleção: o mesmo azul claro de acento do escuro; o sinal no fundo da página. */
+    --pex-chk-bd:         var(--bs-secondary-color);
+    --pex-chk-bg:         var(--bs-body-bg);
+    --pex-chk-on:         #45b0d6;
+    --pex-chk-marca:      var(--bs-body-bg);
 
     /* L9: âmbar e vermelho translúcidos sobre o fundo escuro — o texto clareia, sem inverter. */
     --pex-dup-txt:        #f3c27a;
@@ -1128,6 +1141,81 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 }
 @media (prefers-reduced-motion: reduce) { .pex-fav { transition: none; } }
 
+/* Caixa de seleção por item (pedido do dono, 07/10; o desenho é omisso). O <input> real é
+   transparente e cobre a caixa inteira — é ele quem recebe clique, toque, foco e Espaço; o
+   .pex-chk-caixa só desenha (16px, raio 3, como os controles da faixa). Sem coluna própria: na
+   linha ela vem antes da estrela, dentro da célula do nome; na grade, no canto superior direito
+   do cartão (a estrela é do esquerdo). Mesma peça no "selecionar todos" (.pex-chk--todos). */
+.pex-chk { position: relative; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
+.pex-chk-in { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.pex-chk-caixa {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    box-sizing: border-box;
+    border: 1.5px solid var(--pex-chk-bd);
+    border-radius: 3px;
+    background: var(--pex-chk-bg);
+    pointer-events: none;
+    transition: background .12s, border-color .12s;
+}
+.pex-chk-in:hover + .pex-chk-caixa { border-color: var(--pex-chk-on); }
+.pex-chk-in:checked + .pex-chk-caixa,
+.pex-chk-in:indeterminate + .pex-chk-caixa { background: var(--pex-chk-on); border-color: var(--pex-chk-on); }
+/* ✓ desenhado com a borda (sem ícone: nada a medir no laço) e — para o indeterminado — um traço. */
+.pex-chk-in:checked + .pex-chk-caixa::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: solid var(--pex-chk-marca);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+.pex-chk-in:indeterminate + .pex-chk-caixa::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    top: 50%;
+    height: 2px;
+    margin-top: -1px;
+    border: 0;
+    background: var(--pex-chk-marca);
+    transform: none;
+}
+.pex-chk-in:focus-visible + .pex-chk-caixa { box-shadow: 0 0 0 2px var(--pex-busca-anel); }
+.pex-chk-in:disabled { cursor: default; }
+.pex-chk-in:disabled + .pex-chk-caixa { opacity: .45; }
+/* No toque (e abaixo de 768px, onde o explorador já se comporta como toque) o alvo cresce para
+   32×32: a caixa visível continua de 16px, centrada. A peça ocupa 32px na própria célula do
+   nome — nada de largura fixa na linha, então não há rolagem lateral a 375px. */
+@media (max-width: 767.98px), (hover: none) {
+    .pex-chk { width: 32px; height: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { .pex-chk-caixa { transition: none; } }
+
+/* "Selecionar todos" fora do Detalhes: faixa discreta no tom do cabeçalho das colunas. */
+.pex-todos {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--pex-cab-bd);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--pex-cab-txt);
+    user-select: none;
+}
+.pex-todos[hidden] { display: none; }
+.pex-todos-txt { margin: 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pex-col-nome { align-items: center; gap: 8px; }
+
 /* Selecionada (dc L4733): fundo + anel interno de 1px. */
 .pex-item.pex-item--sel { background: var(--pex-sel-bg); box-shadow: inset 0 0 0 1px var(--pex-sel-anel); }
 
@@ -1362,6 +1450,15 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 /* No toque, o ⋮ fica no canto do cartão (fora dele a célula nem existe: `display: none`). */
 .pex--grade .pex-cel-acoes { position: absolute; top: 2px; right: 2px; }
 .pex--grade .pex-menu { width: 24px; height: 24px; font-size: 13px; }
+/* Caixa de seleção no canto superior DIREITO do cartão (o esquerdo é da estrela). No toque o ⋮,
+   que mora nesse canto, desce para logo abaixo do alvo de 32px da caixa. */
+.pex--grade .pex-chk { position: absolute; top: 5px; right: 5px; z-index: 2; }
+@media (max-width: 767.98px), (hover: none) {
+    .pex--grade .pex-chk { top: 0; right: 0; }
+}
+@media (hover: none) {
+    .pex--grade .pex-cel-acoes { top: 34px; }
+}
 
 /* Ícone "estilo Office" (dc `fi()`, L3062-3069): folha branca com dobra, contorno e selo com a
    sigla. As proporções do desenho em função do tamanho `--s` (0,78 de folha; selo 0,74×0,36
