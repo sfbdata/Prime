@@ -30,7 +30,8 @@ final class SalvarPreferenciaDoDashboardUseCaseTest extends TestCase
     private Tenant $tenant;
     private User $usuario;
 
-    private const CHAVES = ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons', 'dashboard.colunas_extras'];
+    private const CHAVES_DO_MENU = ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons', 'dashboard.colunas_extras'];
+    private const CHAVES         = [...self::CHAVES_DO_MENU, 'dashboard.ia_avancado'];
 
     protected function setUp(): void
     {
@@ -110,18 +111,39 @@ final class SalvarPreferenciaDoDashboardUseCaseTest extends TestCase
         self::assertSame('db-page--sem-setas', $prefs->classesCss());
     }
 
-    #[TestDox('Restaurar padrão apaga só as chaves do catálogo do par (escritório, usuário) e devolve o padrão')]
+    #[TestDox('Restaurar padrão apaga só as chaves do MENU do par (escritório, usuário) e devolve o padrão')]
     public function testRestaurarApagaDoUsuario(): void
     {
         $this->repository
             ->expects(self::once())
             ->method('apagarDoUsuario')
-            ->with($this->tenant, $this->usuario, self::CHAVES)
+            ->with($this->tenant, $this->usuario, self::CHAVES_DO_MENU)
             ->willReturn(2);
+        $this->repository->method('valoresDoUsuario')->willReturn([]);
         $this->repository->expects(self::never())->method('gravar');
 
         $prefs = (new RestaurarPreferenciasDoDashboardUseCase($this->repository))->executar($this->tenant, $this->usuario);
 
         self::assertSame('', $prefs->classesCss());
+    }
+
+    #[TestDox('Restaurar padrão da tabela NÃO desliga o Modo avançado do painel Intelligence (desenho: chave à parte)')]
+    public function testRestaurarPreservaModoAvancado(): void
+    {
+        $this->repository
+            ->expects(self::once())
+            ->method('apagarDoUsuario')
+            ->with($this->tenant, $this->usuario, self::callback(static fn (array $chaves): bool => !in_array('dashboard.ia_avancado', $chaves, true)));
+        $this->repository
+            ->expects(self::once())
+            ->method('valoresDoUsuario')
+            ->with($this->tenant, $this->usuario, self::CHAVES)
+            ->willReturn(['dashboard.ia_avancado' => 'ligado']);
+
+        $prefs = (new RestaurarPreferenciasDoDashboardUseCase($this->repository))->executar($this->tenant, $this->usuario);
+
+        self::assertSame('ligado', $prefs->iaAvancado);
+        self::assertTrue($prefs->iaAvancadoEscolhido);
+        self::assertSame('db-page--ia-avancado', $prefs->classesCss());
     }
 }

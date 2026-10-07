@@ -19,6 +19,10 @@ use App\Dashboard\Exception\PreferenciaInvalidaException;
  * que o usuário as acrescentou (cada "+" vai para o fim da tabela). Só valem as chaves do
  * {@see ColunasExtrasDoDashboard} — as métricas que o servidor calcula de verdade.
  *
+ * "Modo avançado" (`dashboard.ia_avancado`) é o interruptor do painel BlueJus Intelligence
+ * (desenho, dc L872 e README "Ativação": "A escolha é por usuário"). O protótipo guardava no
+ * navegador; aqui fica no servidor, como o resto. Nasce desligado (o painel abre no modo básico).
+ *
  * O que NÃO está aqui, de propósito:
  *   - zerar relatório e acesso restrito: decisão do dono pendente.
  *
@@ -33,6 +37,7 @@ final class CatalogoDePreferenciasDoDashboard
     public const COLUNAS_OCULTAS = 'dashboard.colunas_ocultas';
     public const SONS            = 'dashboard.sons';
     public const COLUNAS_EXTRAS  = 'dashboard.colunas_extras';
+    public const IA_AVANCADO     = 'dashboard.ia_avancado';
 
     public const DENSIDADE_CONFORTAVEL = 'confortavel';
     public const DENSIDADE_COMPACTA    = 'compacta';
@@ -42,6 +47,8 @@ final class CatalogoDePreferenciasDoDashboard
     public const SETAS_DESLIGADAS      = 'desligadas';
     public const SONS_LIGADOS          = 'ligados';
     public const SONS_DESLIGADOS       = 'desligados';
+    public const IA_AVANCADO_LIGADO    = 'ligado';
+    public const IA_AVANCADO_DESLIGADO = 'desligado';
 
     /** As sete numéricas, na ordem da tabela. Pelo menos uma tem de ficar visível. */
     public const COLUNAS_NUMERICAS = [
@@ -72,12 +79,13 @@ final class CatalogoDePreferenciasDoDashboard
         self::ANIMACOES => [self::ANIMACOES_LIGADAS, self::ANIMACOES_REDUZIDAS],
         self::SETAS     => [self::SETAS_LIGADAS, self::SETAS_DESLIGADAS],
         self::SONS      => [self::SONS_LIGADOS, self::SONS_DESLIGADOS],
+        self::IA_AVANCADO => [self::IA_AVANCADO_LIGADO, self::IA_AVANCADO_DESLIGADO],
     ];
 
     /**
      * Padrão de cada chave — o que a tela já mostrava antes do menu existir: a tabela já era a
      * compacta (7px), com animações e setas, sem coluna oculta. Sons nascem ligados (desenho:
-     * "padrão ligado").
+     * "padrão ligado"). O Modo avançado nasce desligado (desenho: `avLigado()` é falso sem escolha).
      */
     private const PADROES = [
         self::DENSIDADE       => self::DENSIDADE_COMPACTA,
@@ -86,12 +94,28 @@ final class CatalogoDePreferenciasDoDashboard
         self::COLUNAS_OCULTAS => [],
         self::SONS            => self::SONS_LIGADOS,
         self::COLUNAS_EXTRAS  => [],
+        self::IA_AVANCADO     => self::IA_AVANCADO_DESLIGADO,
     ];
 
     /** @return list<string> */
     public static function chaves(): array
     {
         return array_keys(self::PADROES);
+    }
+
+    /**
+     * As chaves do menu ⋮ da tabela — as que "Restaurar padrão" apaga. O Modo avançado não
+     * entra: no desenho ele mora noutro lugar (o painel Intelligence, chave própria
+     * `bj_ia_avancado`) e o Restaurar da tabela não o desliga.
+     *
+     * @return list<string>
+     */
+    public static function chavesDoMenu(): array
+    {
+        return array_values(array_filter(
+            self::chaves(),
+            static fn (string $chave): bool => $chave !== self::IA_AVANCADO,
+        ));
     }
 
     public static function existe(string $chave): bool

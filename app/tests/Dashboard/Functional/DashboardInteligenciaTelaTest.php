@@ -21,7 +21,7 @@ use Zenstruck\Foundry\Test\Factories;
 /**
  * Painel BlueJus Intelligence na TELA do Dashboard: onde mora (filho direto da região
  * que recarrega), como se apresenta (nome do produto + legenda honesta, sem se vender
- * como inteligência artificial), o Modo avançado expansível sem persistência, a leitura
+ * como inteligência artificial), o Modo avançado atrás do interruptor do topo, a leitura
  * com dados reais (e no XHR) e o isolamento entre escritórios.
  *
  * Arranjo sempre por filho direto (`A > B`): distingue "o painel está no fragmento"
@@ -145,20 +145,27 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertDoesNotMatchRegularExpression('/\banalisou\b/iu', $html, 'o painel não "analisou" nada: ele soma e compara');
     }
 
-    #[TestDox('Modo avançado é um <details> fechado por padrão, sem persistência, com a Central de Inteligência dentro')]
-    public function testModoAvancadoExpansivelSemPersistencia(): void
+    #[TestDox('Modo avançado: interruptor role=switch na linha do título, desligado por padrão; o bloco avançado vem antes da leitura básica')]
+    public function testModoAvancadoAtrasDoInterruptor(): void
     {
         $client = static::createClient();
         $this->criarGestorLogado($client);
 
         $painel = $this->painel($client->request('GET', '/dashboard'));
 
-        $av = $painel->filter('.db-ia-corpo > details.db-ia-av');
-        self::assertCount(1, $av, 'o interruptor do desenho virou um details na cabeça do corpo rolável');
-        self::assertNull($av->attr('open'), 'fechado ao carregar: não há preferência por usuário no sistema');
-        self::assertCount(1, $av->filter('details.db-ia-av > summary.db-ia-av-toggle'));
-        self::assertStringContainsString('Modo avançado', $av->filter('summary')->text());
-        self::assertCount(1, $av->filter('details.db-ia-av > .db-ia-av-corpo > .db-ia-central'));
+        $switch = $painel->filter('aside.db-ia-painel > .db-ia-sub > .db-ia-titulo + button.db-ia-av-switch[role="switch"][data-ia-avancado-switch]');
+        self::assertCount(1, $switch, 'interruptor do desenho (dc L872): na linha de "Visão da equipe", à direita do título');
+        self::assertSame('false', $switch->attr('aria-checked'), 'sem escolha gravada, nasce desligado');
+        self::assertSame('dbIaAvancado', $switch->attr('aria-controls'));
+        self::assertSame('Análises ampliadas do escritório', $switch->attr('title'));
+        self::assertSame('Modo avançado', trim($switch->text()));
+        self::assertCount(1, $switch->filter('button > span.db-ia-switch[aria-hidden="true"] > span.db-ia-switch-bola'));
+        self::assertCount(0, $painel->filter('details.db-ia-av'), 'não é mais um <details>');
+
+        $av = $painel->filter('.db-ia-corpo > div.db-ia-av#dbIaAvancado');
+        self::assertCount(1, $av, 'o bloco avançado é filho direto do corpo rolável');
+        self::assertCount(1, $painel->filter('.db-ia-corpo > div.db-ia-av + section.db-ia-ritmo'), 'avançado ANTES da leitura básica (dc L962 × L1280)');
+        self::assertCount(1, $av->filter('div.db-ia-av > .db-ia-av-corpo > .db-ia-central'));
         self::assertStringContainsString('Central de Inteligência', $av->filter('.db-ia-central')->text());
         self::assertCount(5, $av->filter('.db-ia-central > .db-ia-contagem > .db-ia-chip'), 'um chip por nível');
         self::assertCount(5, $av->filter('.db-ia-av-corpo > .db-ia-cockpit > .db-ia-kpi'), 'cockpit sem "Produtividade"');
@@ -178,7 +185,9 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         $html   = $painel->outerHtml();
 
         self::assertCount(0, $painel->filter('a'), 'nenhum link: não há destino real para nenhum');
-        self::assertCount(1, $painel->filter('button'), 'dentro do painel só o X de fechar (o botão de abrir é irmão, fora do aside)');
+        self::assertCount(2, $painel->filter('button'), 'dentro do painel só o X de fechar e o interruptor do Modo avançado (o botão de abrir é irmão, fora do aside)');
+        self::assertCount(1, $painel->filter('.db-ia-cab > button.db-ia-fechar'));
+        self::assertCount(1, $painel->filter('.db-ia-sub > button.db-ia-av-switch'));
         foreach (['Criar tarefa', 'Resolvido', 'Ignorar', 'Aumentar o nível', 'simular dia', 'Inteligência de Desempenho', 'Não se aplica'] as $proibido) {
             self::assertStringNotContainsString($proibido, $html, $proibido);
         }

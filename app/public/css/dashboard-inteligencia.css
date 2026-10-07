@@ -10,8 +10,11 @@
    redefinido em `[data-bs-theme="dark"]` (hex cravado só no claro).
 
    Sem JS: o painel é um [popover] nativo (abre pelo botão `popovertarget`, fecha
-   por X / Esc / clique fora) e o Modo avançado é um <details>. Quem não suporta
-   popover recebe o painel aberto em bloco abaixo do título (@supports no fim).
+   por X / Esc / clique fora). Quem não suporta popover recebe o painel aberto em
+   bloco abaixo do título (@supports no fim). O Modo avançado é o interruptor
+   `role=switch` do topo, gravado por usuário no servidor (dashboard-preferencias.js);
+   ligado, o `.db-page` leva `db-page--ia-avancado`, que mostra o bloco avançado e
+   alarga o painel para 600px (dc L2578).
    ============================================================================= */
 
 .db-page {
@@ -257,7 +260,7 @@
 }
 .db-page .db-ia-painel:popover-open { display: flex; animation: dbIaEntra .42s var(--db-ia-ease) both; }
 .db-page .db-ia-painel::backdrop { background: var(--db-ia-veu); }
-.db-page .db-ia-painel:has(.db-ia-av[open]) { width: min(600px, 100vw); }
+.db-page.db-page--ia-avancado .db-ia-painel { width: min(600px, 100vw); }
 @keyframes dbIaEntra { from { transform: translate3d(36px,0,0); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* cabeçalho */
@@ -404,28 +407,37 @@
 .db-page .db-ia-limites ul { margin: 0 0 4px; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--db-label); }
 .db-page .db-ia-limites li + li { margin-top: 4px; }
 
-/* ── Modo avançado ───────────────────────────────────────────────────────── */
-.db-page .db-ia-av-toggle {
-    display: flex;
+/* ── Modo avançado ───────────────────────────────────────────────────────────
+   Interruptor do topo (dc L872): pílula 30px, 12.5px/700, trilho 32×18 com bola 14px
+   (sw(), dc L2575). O estado é o aria-checked que o servidor escreve e o JS atualiza. */
+.db-page .db-ia-av-switch {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 34px;
-    padding: 4px 6px 4px 12px;
+    height: 30px;
+    padding: 0 6px 0 10px;
+    border: none;
     border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
     font-size: 12.5px;
     font-weight: 700;
     color: var(--db-ia-switch-pill-texto);
     background: var(--db-ia-switch-pill-bg);
+    flex-shrink: 0;
+    white-space: nowrap;
     transition: background .2s;
 }
-.db-page .db-ia-av-toggle:hover { background: var(--db-ia-switch-pill-bg-hover); }
-.db-page .db-ia-av-toggle i { font-size: 14px; }
-.db-page .db-ia-av-toggle-sub { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 500; color: var(--db-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-page .db-ia-av-switch:hover { background: var(--db-ia-switch-pill-bg-hover); }
+.db-page .db-ia-av-switch:focus-visible { outline: 2px solid var(--db-accent); outline-offset: 2px; }
 .db-page .db-ia-switch { position: relative; width: 32px; height: 18px; border-radius: 999px; flex-shrink: 0; background: var(--db-ia-switch-off); transition: background .2s; }
 .db-page .db-ia-switch-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(16,42,58,.3); transition: transform .22s var(--db-ia-ease); }
-.db-page .db-ia-av[open] > summary .db-ia-switch { background: var(--db-ia-switch-on); }
-.db-page .db-ia-av[open] > summary .db-ia-switch-bola { transform: translateX(14px); }
-.db-page .db-ia-av-corpo { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; animation: dbIaBloco .4s var(--db-ia-ease) both; }
+.db-page .db-ia-av-switch[aria-checked="true"] .db-ia-switch { background: var(--db-ia-switch-on); }
+.db-page .db-ia-av-switch[aria-checked="true"] .db-ia-switch-bola { transform: translateX(14px); }
+/* bloco avançado: no HTML sempre; visível só com o modo ligado */
+.db-page .db-ia-av { display: none; }
+.db-page.db-page--ia-avancado .db-ia-av { display: block; }
+.db-page .db-ia-av-corpo { display: flex; flex-direction: column; gap: 12px; animation: dbIaBloco .4s var(--db-ia-ease) both; }
 .db-page .db-ia-av-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .db-page .db-ia-h { font-size: 15px; font-weight: 700; color: var(--db-text-strong); }
 .db-page .db-ia-h-sub { margin-top: 2px; font-size: 12px; color: var(--db-muted); }
@@ -533,7 +545,8 @@
 @supports not selector(:popover-open) {
     .db-page .db-ia { flex: 0 0 100%; margin-left: 0; }
     .db-page .db-ia-abrir, .db-page .db-ia-fechar { display: none; }
-    .db-page .db-ia-painel { display: flex; position: static; width: 100%; max-width: none; height: auto; border: 1px solid var(--db-border); border-radius: 4px; box-shadow: var(--db-shadow-caixa); }
+    .db-page .db-ia-painel,
+    .db-page.db-page--ia-avancado .db-ia-painel { display: flex; position: static; width: 100%; max-width: none; height: auto; border: 1px solid var(--db-border); border-radius: 4px; box-shadow: var(--db-shadow-caixa); }
     .db-page .db-ia-corpo { overflow: visible; }
 }
 

@@ -23,6 +23,12 @@
  * calcula a coluna. Depois que o servidor confirma a gravação e a lista mudou em relação ao que
  * está na tabela, o fragmento é recarregado pelo mesmo XHR do filtro (submit do form da casca).
  * "+" acrescenta no fim; desmarcar a "(extra)" em Colunas a remove.
+ *
+ * Modo avançado do painel BlueJus Intelligence (`dashboard.ia_avancado`, dc L872): o interruptor
+ * `[data-ia-avancado-switch]` mora no painel, DENTRO do fragmento que o XHR troca — por isso o
+ * clique é ouvido no `.db-page` (delegação) e o aria-checked é reposto a cada recarga. Grava pelo
+ * mesmo endpoint/CSRF; a classe `db-page--ia-avancado` mostra o bloco avançado e leva o painel a
+ * 600px. "Restaurar padrão" da tabela não mexe nele (no desenho é outra chave).
  */
 (function () {
     'use strict';
@@ -39,6 +45,7 @@
     var CH_COLUNAS = 'dashboard.colunas_ocultas';
     var CH_SONS = 'dashboard.sons';
     var CH_EXTRAS = 'dashboard.colunas_extras';
+    var CH_IA = 'dashboard.ia_avancado';
     var OCULTAVEIS = ['cargo', 'metas', 'metas_ativas', 'metas_vencidas', 'prazos', 'demandas', 'demandas_ativas', 'pastas_criadas'];
     var NUMERICAS = OCULTAVEIS.slice(1);
     var PADRAO = {};
@@ -48,6 +55,7 @@
     PADRAO[CH_COLUNAS] = [];
     PADRAO[CH_SONS] = 'ligados';
     PADRAO[CH_EXTRAS] = [];
+    PADRAO[CH_IA] = 'desligado';
 
     var endpoint = pagina.getAttribute('data-preferencias-endpoint');
     var botao = pref.querySelector('.db-pref-btn');
@@ -108,13 +116,14 @@
         if (e[CH_ANIMACOES] === 'reduzidas') { lista.push('db-page--sem-anim'); }
         if (e[CH_SETAS] === 'desligadas') { lista.push('db-page--sem-setas'); }
         if (e[CH_SONS] === 'desligados') { lista.push('db-page--sem-som'); }
+        if (e[CH_IA] === 'ligado') { lista.push('db-page--ia-avancado'); }
         ocultas(e).forEach(function (c) { lista.push('db-oculta--' + c); });
         return lista;
     }
 
     function aplicarClasses(lista) {
         Array.prototype.slice.call(pagina.classList).forEach(function (c) {
-            if (/^db-page--(confortavel|sem-anim|sem-setas|sem-som)$/.test(c) || c.indexOf('db-oculta--') === 0) {
+            if (/^db-page--(confortavel|sem-anim|sem-setas|sem-som|ia-avancado)$/.test(c) || c.indexOf('db-oculta--') === 0) {
                 pagina.classList.remove(c);
             }
         });
@@ -169,6 +178,16 @@
         if (todas) {
             todas.hidden = disponiveis > 0;
         }
+
+        sincronizarIa();
+    }
+
+    // Interruptor do Modo avançado: pode ter sido recriado pelo XHR, então é procurado de novo.
+    function sincronizarIa() {
+        var ligado = estado[CH_IA] === 'ligado';
+        pagina.querySelectorAll('[data-ia-avancado-switch]').forEach(function (b) {
+            b.setAttribute('aria-checked', ligado ? 'true' : 'false');
+        });
     }
 
     function aplicar(e) {
@@ -311,13 +330,38 @@
         }
         if (alvo.hasAttribute('data-pref-restaurar')) {
             var anterior = copiar(estado);
-            aplicar(PADRAO);
+            // o Modo avançado não é opção da tabela: o servidor não o apaga, a tela também não
+            var padrao = copiar(PADRAO);
+            padrao[CH_IA] = estado[CH_IA];
+            aplicar(padrao);
             gravar({ restaurar: true }, anterior);
+        }
+    });
+
+    // ── Modo avançado do painel Intelligence ────────────────────────────────
+    function ligarIa() {
+        mudar(CH_IA, 'ligado');
+    }
+
+    // Desligar é imediato (dc L2581); ligar passa por ligarIa().
+    function alternarIa() {
+        if (estado[CH_IA] === 'ligado') {
+            mudar(CH_IA, 'desligado');
+            return;
+        }
+        ligarIa();
+    }
+
+    pagina.addEventListener('click', function (ev) {
+        var alvo = ev.target.closest('[data-ia-avancado-switch]');
+        if (alvo && pagina.contains(alvo)) {
+            alternarIa();
         }
     });
 
     // ── lugar do menu: cabeçalho da tabela, ao lado da lupa ─────────────────
     function encaixar() {
+        sincronizarIa();
         var cabecalho = document.querySelector('[data-filtro-resultado] .db-table-header');
         if (!cabecalho) { return; }
         if (pref.parentNode !== cabecalho) {
