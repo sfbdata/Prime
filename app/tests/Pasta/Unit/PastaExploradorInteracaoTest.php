@@ -208,7 +208,7 @@ final class PastaExploradorInteracaoTest extends TestCase
 
         self::assertStringContainsString('if (!confirm(avisoExclusaoDoLote(itens))) return;', $js);
         self::assertStringContainsString("return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;", $js);
-        self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira e podem ser restaurados.';", $js);
+        self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';", $js);
         self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');
         self::assertStringContainsString("const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';", $js);
         self::assertStringContainsString('toast(texto, false, desfazer);', $this->funcao('excluirItens'));

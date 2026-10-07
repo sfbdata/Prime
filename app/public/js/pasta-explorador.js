@@ -219,7 +219,6 @@
     const TETO_LOTE      = 2000;
     const TOQUE_LONGO_MS = 500;     // toque longo abre o menu (convenção; o desenho é omisso)
     const TOAST_MS       = 4200;    // dc L4772
-    const DIAS_NA_LIXEIRA   = 30;   // S-10; o cron roda `app:documentos:purgar-lixeira --dias=30`
     const LACO_MARGEM_PX = 40;      // rola sozinho a 40px da borda (dc L4891)
     // Favoritar vários: no máximo 4 pedidos ao mesmo tempo (a rota é de um alvo por pedido).
     const FAVORITO_PARALELO = 4;
@@ -2448,8 +2447,9 @@
     }
 
     // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
-    // Desde o L7 a exclusão vai para a LIXEIRA, e o aviso diz isso (e o prazo).
-    const AVISO_LIXEIRA = ' Os itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira e podem ser restaurados.';
+    // Desde o L7 a exclusão vai para a LIXEIRA, e o aviso diz isso. Sem prazo: a lixeira não tem purga
+    // automática (decisão D-DOC-RET de 07/10) e o prazo de retenção ainda não foi decidido.
+    const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';
     function avisoExclusao(p) {
         const c = contarArvore(p.id);
         if (c.subpastas === 0 && c.arquivos === 0) {
@@ -2603,7 +2603,7 @@
         const lista        = h('ul', { class: 'pex-lix-lista', 'aria-label': 'Itens na lixeira' });
         const vazio        = h('div', { class: 'pex-lix-vazio', hidden: true }, [icone('bi-trash3'), h('span', { text: 'A lixeira está vazia.' })]);
         const aviso        = h('p', { class: 'pex-lix-aviso', role: 'status', 'aria-live': 'polite', hidden: true });
-        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: 'Itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira. Depois disso são apagados de vez.' })]);
+        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: 'Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.' })]);
         const somenteVer   = h('p', { class: 'pex-lix-nota pex-lix-nota--lapide', hidden: !cfg.pastaExcluida }, [icone('bi-lock'), h('span', { text: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.' })]);
         const restaurarSel = h('button', { type: 'button', class: 'btn btn-primary', id: 'pexLixeiraRestaurarSel', disabled: true, hidden: !podeEscreverNaLixeira() }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' Restaurar selecionados' })]);
         const fechar       = h('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: 'Fechar' });
