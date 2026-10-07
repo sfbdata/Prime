@@ -122,6 +122,28 @@ cada divergência A trabalhada e as filas B/C/D.
 | SEC-008 | Registro | Menção e resposta sem limitador | P3 | **feito** | — | ✓ | ✓ | `4db61a5f` | Opus | 30 avisos/10 min por autor; a mensagem sempre grava. Teto a ratificar |
 | IA-033 | IA | Cabeçalho do Push e análise anterior iam ao provedor sem máscara | P1 | **feito** | — | ✓ | ✓ | `d5d2383a`, `916d0849`, `46d14264` | (mutação: 3 caem) | Achado do implementador do IA-002b |
 
+| DOC-115 | Documentos | Anexar aceita ODT/ODS/ODP/RTF/PPTX/EML/CSV/GIF/WEBP/TIFF/HEIC | P2 | **feito** | ✓ | ✓ | ✓ | `6863247c` | (mutação: 9 caem) | Validação pelo conteúdo; zip com extensão ODF/PPTX só passa com o mimetype interno do pacote |
+| DOC-108 | Visualizador | Imprimir qualquer conteúdo do visor, com a tarja | P2 | **feito** | ✓ | ✓ | ✓ | `af6800a4` | pendente | iframe `allow-same-origin allow-modals`, sem scripts; CSP do visualizador |
+| DOC-106 | Documentos | "Possíveis arquivos duplicados" no Sugerir | P3 | **feito** | ✓ | ✓ | ✓ | `77e83988`, `523464af` | pendente | ≥85% por `SimilaridadeDeNomes`; lixeira fora |
+| PAS-001 | Cabeçalho | Botão direito no nome do cliente abre Detalhes + dica | P2 | **feito** | ✓ | ✓ | ✓ | `883061ed` | Opus: sem bloqueante | |
+| PMC-001/027 | Processo/Metas | Botão direito no cartão do processo e na meta | P2 | **feito** | ✓ | ✓ | ✓ | `0e889337` | Opus: sem bloqueante | Menu nativo mantido sobre links/campos/texto selecionado |
+| PMC-004 | Processo | "Editar dados do processo" no ⋮ | P2 | **feito** | ✓ | ✓ | ✓ | `c3942091` | Opus: sem bloqueante | Vai para `processo_edit`; edição inline = PMC-005 (C) |
+| PAS-014 | Cabeçalho | Escrita escondida de quem não pode | P3 | **feito** | ✓ | ✓ | ✓ | `ddbcfe72` | Opus: sem bloqueante | Função Twig `can_access_resource` = mesma decisão do servidor |
+| PAS-047 | Dados/Metas | Alertar e sino só para quem edita | P4 | **feito** | ✓ | ✓ | ✓ | `25184023` | em revisão | |
+| PAS-048 | Testes | Financeiro na timeline por todos os caminhos; meta cross-tenant; destino de outra pasta | P3 | **feito** | — | ✓ | ✓ | `bc5efc20` | em revisão | |
+| SEC-007b | Documentos | Limite da purga sobre itens processados; log sem caminho | P4 | **feito** | — | ✓ | ✓ | `7468962a` | em revisão | |
+| PAS-049 | Processo | Escrita da aba Processo escondida de quem não edita | P3 | **feito** | ✓ | ✓ | ✓ | `08f91d55` | em revisão | Também some na lápide |
+| PAS-050 | Desempenho | `can_access_resource` memorizado por requisição | P3 | **feito** | — | ✓ | ✓ | `8690ac41` | em revisão | ResetInterface |
+| SEC-013 | Segurança | Guarda da Tarefa conferia o vínculo, não a posse | P2 | **feito** (ver SEC-013b) | — | ✓ | ✓ | `8273810f` | em revisão | Cross-tenant → 404 |
+| FPN-012 | Push | Título do cartão = trecho do teor | P2 | **feito** | ✓ | ✓ | ✓ | `a53d6cb6` | em revisão | Órgão vai para o `title` (o desenho não o mostra) |
+| FPN-014 | Push | Botão direito no cartão: nota técnica, criar tarefa, copiar | P2 | **feito** (ver FPN-014b) | ✓ | ✓ | ✓ | `f0161bef` | em revisão | |
+| FPN-006 | Financeiro | Botão direito no registro: copiar, editar, excluir (15 min) | P2 | **feito** | ✓ | ✓ | ✓ | `d5bb3e0f`, `f3345b0c` | em revisão | Responder depende de migration (FPN-005) |
+| FPN-036 | Notificações | Sino laranja do alerta e ícone da análise | P4 | **feito** | ✓ | ✓ | ✓ | `d39f3dc6`, `b6b0c8c8` | em revisão | `.text-orange` criado com par escuro |
+| FPN-019 | Push | Cor do ponto por quem praticou o ato | P4 | **feito** | ✓ | ✓ | ✓ | `0f0afbe8` | em revisão | Polo ativo/passivo exigiria inferir do texto (D) |
+| FPN-031 | Push | Cabeçalho quebra linha no celular | P3 | **feito** | ✓ | — | ✓ | `6f50322b` | em revisão | Só o smoke prova 375px |
+| DASH-025/026 | Dashboard | Modo avançado lembrado no servidor; confirmação; cartão 6s | P2 | integrado, testes em correção | ✓ | ✓ | | `ac76c8b1`, `78b555f6` | | Confirmação só na 1ª ativação (README) × a cada vez (código do dc): ver D abaixo |
+| DASH-008/010 | Dashboard | Links e setas das colunas extras | P2 | integrado, testes em correção | ✓ | ✓ | | `f29386d5`, `7a36a92e` | | |
+
 **Novas divergências achadas no ciclo 1:**
 - **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
   sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
@@ -136,6 +158,12 @@ cada divergência A trabalhada e as filas B/C/D.
   caminho (pode ter nome); o resultado não conta os pulados. Correção: limite sobre os processados.
 - **SEC-008b (C, ratificar):** teto de 30 avisos/10 min pode suprimir aviso legítimo (2 mensagens com 16 menções) sem
   o autor ver. Alternativa técnica: subir o teto ou avisar o autor.
+- **SEC-013b (A, P2):** `MetaNaListaController` tem cópia do guarda falho. Em implementação.
+- **FPN-014b (A, P4):** "Marcar como lida" e "Abrir documento" no menu do Push. Em implementação.
+- **DASH-026 (D):** o código do dc pede confirmação a cada ativação; o README diz "na primeira vez". Implementado como o README.
+- **DASH-029 (C):** a lista "Poderá analisar" do Modo avançado foi reduzida ao que o motor por regras lê (tirados
+  Processos, Produtividade, Tendências e Histórico) e saiu "Inteligência de Desempenho da equipe" do subtítulo, por
+  regra de "nada fake". Ratificar com o Samuel.
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
