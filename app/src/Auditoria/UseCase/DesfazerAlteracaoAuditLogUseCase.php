@@ -58,6 +58,14 @@ final class DesfazerAlteracaoAuditLogUseCase
      */
     private const CAMPOS_DA_LIXEIRA = ['excluidoEm', 'excluidoPor'];
 
+    /**
+     * Associações de hierarquia: a guarda de ciclo mora nos UseCases de mover
+     * (`MoverPastaSecaoUseCase`), não no setter — gravar direto pelo setter poderia fechar um ciclo.
+     */
+    private const CAMPOS_DE_HIERARQUIA = [
+        \App\Pasta\Entity\PastaSecao::class => ['pai'],
+    ];
+
     private const TIPOS_DATA_MUTAVEL = [
         Types::DATE_MUTABLE,
         Types::DATETIME_MUTABLE,
@@ -77,7 +85,9 @@ final class DesfazerAlteracaoAuditLogUseCase
     public const MENSAGEM_CAMPO_NAO_REVERSIVEL = 'O campo "%s" não se desfaz automaticamente. Nada foi alterado.';
     public const MENSAGEM_VALOR_IRRECUPERAVEL = 'O valor anterior do campo "%s" não pôde ser recuperado do registro de auditoria. Nada foi alterado.';
     public const MENSAGEM_ASSOCIACAO_INDISPONIVEL = 'O valor anterior do campo "%s" não existe mais ou não pertence a este escritório. Nada foi alterado.';
-    public const MENSAGEM_VALOR_RECUSADO = 'O valor anterior não é mais aceito pelo cadastro. Nada foi alterado.';
+    public const MENSAGEM_VALOR_TRUNCADO = 'O valor anterior foi gravado truncado na auditoria; não dá para restaurá-lo com segurança. Nada foi alterado.';
+    public const MENSAGEM_HIERARQUIA = 'O campo "%s" muda a hierarquia de pastas e não se desfaz por aqui: use a ação de mover. Nada foi alterado.';
+    public const MENSAGEM_VALOR_RECUSADO ='O valor anterior não é mais aceito pelo cadastro. Nada foi alterado.';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -139,20 +149,20 @@ final class DesfazerAlteracaoAuditLogUseCase
         // Fase 1: preparar TODOS os campos sem tocar na entidade. Qualquer recusa sai daqui.
         /** @var list<array{0: string, 1: mixed}> $aplicacoes */
         $aplicacoes = [];
-        $truncado = false;
 
         foreach ($diff as $campo => $fieldDiff) {
             $campo = (string) $campo;
             $from = is_array($fieldDiff) ? ($fieldDiff['from'] ?? null) : null;
 
+            // O subscriber corta texto longo e marca com `…`: restaurar gravaria o texto cortado.
+            if (is_string($from) && str_ends_with($from, '…')) {
+                return new DesfazerResultado(false, self::MENSAGEM_VALOR_TRUNCADO);
+            }
+
             $preparado = $this->prepararCampo($entity, $metadata, $campo, $from, $tenantId);
 
             if ($preparado instanceof DesfazerResultado) {
                 return $preparado;
-            }
-
-            if (is_string($from) && str_ends_with($from, '…')) {
-                $truncado = true;
             }
 
             $aplicacoes[] = $preparado;
@@ -172,7 +182,7 @@ final class DesfazerAlteracaoAuditLogUseCase
 
         $this->em->flush();
 
-        return new DesfazerResultado(sucesso: true, truncado: $truncado);
+        return new DesfazerResultado(sucesso: true);
     }
 
     /**
@@ -187,6 +197,12 @@ final class DesfazerAlteracaoAuditLogUseCase
         // Item de coleção (`campo[+:id]` / `campo[-:id]`): não há setter de um item só.
         if (str_contains($campo, '[+:') || str_contains($campo, '[-:')) {
             return $naoReversivel;
+        }
+
+        foreach (self::CAMPOS_DE_HIERARQUIA as $classe => $campos) {
+            if ($entity instanceof $classe && in_array($campo, $campos, true)) {
+                return new DesfazerResultado(false, sprintf(self::MENSAGEM_HIERARQUIA, $campo));
+            }
         }
 
         $setter = $this->resolverSetter($entity, $campo);

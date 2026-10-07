@@ -13,6 +13,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Repository\AuditLogRepository;
 use App\Repository\UserTenantRepository;
@@ -484,6 +485,53 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
 
         self::assertFalse($resultado->sucesso);
         self::assertSame(sprintf(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_ASSOCIACAO_INDISPONIVEL, 'responsavel'), $resultado->erro);
+    }
+
+    #[TestDox('texto gravado truncado (…) na auditoria: recusa o desfazer inteiro, nada muda')]
+    public function testTextoTruncadoRecusaTudo(): void
+    {
+        $pasta = $this->pastaDoTenant($this->tenant(1));
+        $pasta->setPrioridade(PrioridadePasta::Normal);
+        $this->cenarioDaPasta($pasta, [
+            'prioridade' => ['from' => 'urgente', 'to' => 'normal'],
+            'nomeAcao' => ['from' => str_repeat('a', 500) . '…', 'to' => 'ACAO NOVA'],
+        ]);
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_VALOR_TRUNCADO, $resultado->erro);
+        self::assertSame(PrioridadePasta::Normal, $pasta->getPrioridade(), 'o outro campo do diff também não pode ter sido aplicado');
+        self::assertNull($pasta->getNomeAcao());
+    }
+
+    #[TestDox('pai de PastaSecao (hierarquia, guarda de ciclo nos UseCases de mover): recusa, o pai não muda')]
+    public function testPaiDePastaSecaoRecusa(): void
+    {
+        $tenant = $this->tenant(1);
+        $secao = $this->comId(new PastaSecao(), 3);
+        $secao->setTenant($tenant);
+        $outra = $this->comId(new PastaSecao(), 4);
+        $outra->setTenant($tenant);
+
+        $log = $this->criarLog('update', PastaSecao::class, '3', ['pai' => ['from' => ['class' => PastaSecao::class, 'id' => '4', 'label' => 'Outra'], 'to' => null]]);
+        $this->auditLogRepository->method('find')->willReturn($log);
+        $this->em->method('find')->willReturnCallback(
+            static fn (string $classe, mixed $id): ?object => match ([$classe, (string) $id]) {
+                [PastaSecao::class, '3'] => $secao,
+                [PastaSecao::class, '4'] => $outra,
+                default => null,
+            },
+        );
+        $this->em->method('getClassMetadata')->willReturn($this->metadata([], ['pai' => [PastaSecao::class, true]]));
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame(sprintf(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_HIERARQUIA, 'pai'), $resultado->erro);
+        self::assertNull($secao->getPai());
     }
 
     #[TestDox('entidade TenantAware de outro escritório (identity map): "Registro não encontrado", nada muda')]
