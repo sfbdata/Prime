@@ -4128,6 +4128,16 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-push > .ps-push-lista:has(~ .ps-push-teto) { border-radius: 0; }
 /* Titulo sem espacamento de letra (dc 2413, U8). */
 .ps-push > .ps-card-cab--faixa h2 { letter-spacing: 0; }
+/* A faixa quebra linha (dc 2412 `flex-wrap:wrap`; FPN-031): com "ver no módulo", o botão de IA
+   (o rótulo de indisponível é uma frase) e os três filtros, ela estourava na horizontal no
+   celular. Abaixo de 768px os filtros ganham a linha deles e o motivo da IA quebra dentro do
+   botão em vez de empurrar a largura. */
+.ps-push > .ps-card-cab--faixa { flex-wrap: wrap; row-gap: 8px; min-width: 0; }
+@media (max-width: 767.98px) {
+    .ps-push > .ps-card-cab--faixa > .ps-push-filtros { flex-basis: 100%; }
+    .ps-push > .ps-card-cab--faixa > .ps-ia-gerar { max-width: 100%; }
+    .ps-push > .ps-card-cab--faixa > .ps-ia-gerar--indisponivel { height: auto; min-height: 28px; padding-top: 4px; padding-bottom: 4px; }
+}
 /* 16px acima do painel no Push, 18px nas outras abas (dc 6595, U11). */
 .ps-paineis:has(> #push.active) { margin-top: 16px; }
 
