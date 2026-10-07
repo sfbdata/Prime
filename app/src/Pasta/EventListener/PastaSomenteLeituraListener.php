@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Pasta\EventListener;
 
+use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\Entity\Pasta;
+use App\Service\Tenant\TenantContext;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -28,12 +31,44 @@ use Symfony\Component\Routing\RouterInterface;
  * uma filha dela (documento, seção, mensagem, checklist, observação, processo, pagamento: todas
  * têm `getPasta()`). Rota de leitura é GET e passa reto; as buscas da tela (`pasta_clientes_buscar`,
  * `pasta_buscar_processos`) são GET de propósito e continuam funcionando na pasta riscada.
+ *
+ * Rota que recebe só o id (`int`) de uma filha — documento, seção — declara de onde vem a pasta com
+ * `#[PastaPelaFilha]`; o listener carrega a filha escopada ao escritório da sessão e recusa igual.
+ * O `PastaSomenteLeituraRotasArquiteturaTest` percorre o router e falha se alguma rota de escrita
+ * `pasta_*` não for alcançada por nenhum dos caminhos nem estiver numa das listas abaixo.
  */
 #[AsEventListener(event: KernelEvents::CONTROLLER_ARGUMENTS)]
 final class PastaSomenteLeituraListener
 {
-    /** Restaurar é a única escrita que uma pasta riscada aceita — é o que desfaz o estado. */
-    private const ROTAS_LIBERADAS = ['pasta_restaurar'];
+    /**
+     * Escritas (ou POST de leitura) que a pasta riscada aceita, cada uma pelo seu motivo:
+     *
+     *  - `pasta_restaurar`: é o que desfaz o estado — a única escrita de verdade liberada;
+     *  - `pasta_documentos_zip`: é LEITURA. É POST só porque a seleção (ids de documentos e
+     *    subpastas) vai no corpo, com CSRF; a permissão exigida é a de VER e o único efeito é o
+     *    registro no `audit_log`. A pasta riscada "abre e mostra tudo" — baixar o que ela mostra
+     *    faz parte de consultar.
+     *
+     * Ficam de FORA de propósito (continuam recusadas): `pasta_favorito_alternar` e
+     * `pasta_documentos_favorito`. Estrela é preferência pessoal, mas o precedente da casa é o
+     * `PastaFavorita`, que recebe a recusa deste listener na pasta riscada (está escrito no
+     * `PastaFavoritoController`); a estrela de documento segue o mesmo critério para a tela não
+     * ter duas regras para o mesmo gesto.
+     *
+     * @var list<string>
+     */
+    public const ROTAS_LIBERADAS = ['pasta_restaurar', 'pasta_documentos_zip'];
+
+    /**
+     * Rotas de escrita `pasta_*` que não operam sobre uma pasta existente — não há lápide para
+     * olhar. O listener não as usa (nelas não há pasta nos argumentos); a lista existe para o
+     * teste de arquitetura distinguir "não precisa" de "esqueceram".
+     *
+     *  - `pasta_new`: cria uma pasta nova.
+     *
+     * @var list<string>
+     */
+    public const ROTAS_SEM_PASTA_EXISTENTE = ['pasta_new'];
 
     private const METODOS_DE_LEITURA = ['GET', 'HEAD', 'OPTIONS'];
 
@@ -42,6 +77,8 @@ final class PastaSomenteLeituraListener
     public function __construct(
         private readonly RequestStack $requestStack,
         private readonly RouterInterface $router,
+        private readonly EntityManagerInterface $em,
+        private readonly TenantContext $tenantContext,
     ) {}
 
     public function __invoke(ControllerArgumentsEvent $event): void
@@ -60,7 +97,8 @@ final class PastaSomenteLeituraListener
             return;
         }
 
-        $pasta = $this->pastaDosArgumentos($event->getArguments());
+        $pasta = $this->pastaDosArgumentos($event->getArguments())
+            ?? $this->pastaPelaFilhaDeclarada($event, $request);
 
         if ($pasta === null || !$pasta->estaExcluida()) {
             return;
@@ -85,6 +123,54 @@ final class PastaSomenteLeituraListener
             // apagar seção de uma pasta excluída passando pelo id da filha.
             if (is_object($argumento) && method_exists($argumento, 'getPasta')) {
                 $pasta = $argumento->getPasta();
+
+                if ($pasta instanceof Pasta) {
+                    return $pasta;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A pasta de uma rota que recebe o id cru da filha (`#[PastaPelaFilha]`).
+     *
+     * A busca é por id E escritório da sessão: é o guarda IDOR. Sem ele, o id de uma seção de
+     * outro escritório numa pasta riscada devolveria a recusa com o link para a pasta alheia —
+     * confirmando que ela existe. Não achou (outro escritório, id inexistente, documento na
+     * lixeira pelo `LixeiraFilter`) → `null` e a action responde o próprio 404/403, como sempre.
+     * Sem escritório na sessão não há como escopar a busca: devolve `null` e a action decide (ela
+     * já recusa ou responde 404 nesse estado).
+     */
+    private function pastaPelaFilhaDeclarada(ControllerArgumentsEvent $event, Request $request): ?Pasta
+    {
+        $declaracoes = $event->getAttributes(PastaPelaFilha::class);
+
+        if ($declaracoes === []) {
+            return null;
+        }
+
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null) {
+            return null;
+        }
+
+        foreach ($declaracoes as $declaracao) {
+            $id = $request->attributes->get($declaracao->argumento);
+
+            if (!is_numeric($id)) {
+                continue;
+            }
+
+            $filha = $this->em->getRepository($declaracao->entidade)->findOneBy([
+                'id'     => (int) $id,
+                'tenant' => $tenant,
+            ]);
+
+            if (is_object($filha) && method_exists($filha, 'getPasta')) {
+                $pasta = $filha->getPasta();
 
                 if ($pasta instanceof Pasta) {
                     return $pasta;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
+use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -94,6 +95,7 @@ final class PastaSecaoController extends AbstractController
     }
 
     #[Route('/secao/{secaoId}/renomear', name: 'pasta_secao_renomear', methods: ['POST'])]
+    #[PastaPelaFilha(entidade: PastaSecao::class, argumento: 'secaoId')]
     public function renomear(int $secaoId, Request $request): JsonResponse
     {
         /** @var User $currentUser */
@@ -128,6 +130,7 @@ final class PastaSecaoController extends AbstractController
     }
 
     #[Route('/secao/{secaoId}/excluir', name: 'pasta_secao_excluir', methods: ['POST'])]
+    #[PastaPelaFilha(entidade: PastaSecao::class, argumento: 'secaoId')]
     public function excluir(int $secaoId, Request $request): JsonResponse
     {
         /** @var User $currentUser */
@@ -168,6 +171,7 @@ final class PastaSecaoController extends AbstractController
     }
 
     #[Route('/secao/{secaoId}/mover', name: 'pasta_secao_mover', methods: ['POST'])]
+    #[PastaPelaFilha(entidade: PastaSecao::class, argumento: 'secaoId')]
     public function mover(int $secaoId, Request $request): JsonResponse
     {
         /** @var User $currentUser */
@@ -214,6 +218,7 @@ final class PastaSecaoController extends AbstractController
     }
 
     #[Route('/documento/{docId}/mover-secao', name: 'pasta_documento_mover_secao', methods: ['POST'])]
+    #[PastaPelaFilha(entidade: PastaDocumento::class, argumento: 'docId')]
     public function moverDocumento(int $docId, Request $request): JsonResponse
     {
         /** @var User $currentUser */

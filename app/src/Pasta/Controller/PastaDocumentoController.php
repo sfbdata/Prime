@@ -7,6 +7,7 @@ namespace App\Pasta\Controller;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\DTO\EditarDocumentoDaPastaInput;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
@@ -95,6 +96,7 @@ final class PastaDocumentoController extends AbstractController
     }
 
     #[Route('/documento/{id}/editar', name: 'pasta_documento_edit', methods: ['POST'])]
+    #[PastaPelaFilha(entidade: PastaDocumento::class, argumento: 'id')]
     public function editar(int $id, Request $request): Response
     {
         /** @var User $currentUser */
