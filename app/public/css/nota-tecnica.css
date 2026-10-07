@@ -141,10 +141,49 @@
     color: var(--ps-muted);
 }
 .ps-page .ps-nota-mov i { font-size: 11px; transform: scaleX(-1); }
-/* Ações (lápis, lixeira, "· N min") sempre visíveis à direita, como o "⋯" do desenho —
-   a regra geral da pasta-show esconde até o hover; aqui não. */
-.ps-page .ps-nota .ps-anotacao-acoes { margin-left: auto; opacity: 1; }
-.ps-page .ps-nota .ps-anotacao-janela { color: var(--ps-label); }
+/* ⋮ da nota (PMC-017; dc:1700): 24×24 à direita, sem moldura, hover azul-claro. */
+.ps-page .ps-nota-menu-btn {
+    margin-left: auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ps-label);
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-page .ps-nota-menu-btn i { font-size: 13px; line-height: 1; }
+.ps-page .ps-nota-menu-btn:hover,
+.ps-page .ps-nota-menu-btn:focus-visible,
+.ps-page .ps-nota-menu-btn[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-nota-rotulo); outline: none; }
+/* O menu: fixo e posicionado pelo JS (o teor do Push corta o que transborda), o mesmo
+   corpo dos menus da pasta (`.ps-processo-menu-*`, pasta-show.css). */
+.ps-page .ps-nota-menu {
+    position: fixed;
+    z-index: 141;
+    width: 230px;
+    max-width: calc(100vw - 24px);
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-card);
+    border-radius: 4px;
+    box-shadow: var(--ps-shadow-gm);
+    animation: psProcEntra .14s var(--ps-ease) backwards;
+}
+.ps-page .ps-nota-menu[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-page .ps-nota-menu { animation: none; }
+}
+/* Editar/Excluir fora da janela (ou de outro autor): `bi-lock` e "· bloqueado", apagados. */
+.ps-page .ps-nota-menu .ps-nota-menu-bloqueado,
+.ps-page .ps-nota-menu .ps-nota-menu-bloqueado:hover { color: var(--ps-label); background: transparent; cursor: not-allowed; opacity: .7; }
 
 .ps-page .ps-nota-texto {
     margin-top: 5px;

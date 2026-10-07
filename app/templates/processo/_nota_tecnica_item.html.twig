@@ -1,6 +1,6 @@
 {# ============================================================================
    UM cartão de nota técnica — desenho 1.2.3 (Claude Designer): caixa azul-clara
-   com borda, selo "NOTA TÉCNICA", avatar, autor, quando, e o texto.
+   com borda, selo "NOTA TÉCNICA", avatar, autor, quando, o ⋮ e o texto.
 
    Renderizado pelo Twig na carga da página E devolvido pronto (`html`) pelo
    `processo_nota_tecnica_criar`: um partial só, para o cartão recém-criado ser
@@ -8,22 +8,35 @@
 
    Contrato com o nota-tecnica.js (ids e classes não mudam):
    #nota-tecnica-<id> · .ps-nota · .ps-nota-texto · .ps-nota-quando ·
+   .js-nota-menu (+ aria-controls) · .ps-nota-menu · .js-nota-copiar ·
    .js-nota-editar / .js-nota-excluir (+ data-nota-id, data-conteudo,
    data-conteudo-html, data-csrf, data-url).
+
+   ⋮ da nota (PMC-017; desenho dc:1700 e o menu de dc:5398-5406): botão 24px
+   `bi-three-dots`, "Opções da nota"; o mesmo menu abre pelo botão direito no
+   cartão (nota-tecnica.js). Do menu do desenho têm função hoje "Copiar texto" e
+   "Editar"/"Excluir". "Responder com outra nota" não aparece — nota técnica não tem
+   resposta no modelo (exigiria migration); "Encaminhar via Chat I.A" é a PMC-018.
+   Editar/Excluir: do autor, dentro da janela de 15 min, com "· N min" (como o
+   Financeiro do desenho, dc:5958); fora dela, ou para quem não é o autor, os dois
+   ficam desabilitados com `bi-lock` e "· bloqueado". Pasta excluída (lápide): só
+   leitura — o menu tem só "Copiar texto".
 
    A posse (autor == usuário logado) decide aqui; o PRAZO vem do mesmo serviço dos
    UseCases (`comentario_editavel` / `comentario_minutos_restantes`).
 
    Contexto: `nota` (App\Processo\DTO\NotaTecnicaOutput),
              `mostrarMovimentacao` (bool — na aba Processo diz de qual movimentação
-             do Push a nota é; dentro do teor da própria publicação é redundante).
+             do Push a nota é; dentro do teor da própria publicação é redundante),
+             `somenteLeitura` (bool, opcional — a pasta é lápide; vem do bloco).
    ============================================================================ #}
 {% set partes = nota.autorNome|trim|split(' ')|filter(p => p is not empty) %}
 {% set iniciais = partes|length > 0
     ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
     : '?' %}
 {% set ehHoje = nota.criadaEm|date('Y-m-d') == 'now'|date('Y-m-d') %}
-{% set podeGerenciar = nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
+{% set somenteLeitura = somenteLeitura|default(false) %}
+{% set podeGerenciar = not somenteLeitura and nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
 <article class="ps-nota" id="nota-tecnica-{{ nota.id }}" data-nota-id="{{ nota.id }}">
     <div class="ps-nota-topo">
         <span class="ps-nota-selo"><i class="bi bi-journal-text" aria-hidden="true"></i>Nota técnica</span>
@@ -38,31 +51,52 @@
                 <i class="bi bi-megaphone-fill" aria-hidden="true"></i>{{ nota.movimentacaoRotulo }}
             </span>
         {% endif %}
-        {% if podeGerenciar %}
-            <span class="ps-anotacao-acoes">
-                <button type="button"
-                        class="ps-anotacao-acao js-nota-editar"
-                        title="Editar nota técnica" aria-label="Editar nota técnica"
-                        data-nota-id="{{ nota.id }}"
-                        {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
-                        data-conteudo="{{ nota.conteudo|e('html_attr') }}"
-                        data-conteudo-html="{{ nota.conteudo|registro_texto|e('html_attr') }}"
-                        data-csrf="{{ csrf_token('processo_nota_tecnica_editar_' ~ nota.id) }}"
-                        data-url="{{ path('processo_nota_tecnica_editar', {id: nota.processoId, notaId: nota.id}) }}">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                <button type="button"
-                        class="ps-anotacao-acao ps-anotacao-acao--perigo js-nota-excluir"
-                        title="Excluir nota técnica" aria-label="Excluir nota técnica"
-                        data-nota-id="{{ nota.id }}"
-                        data-csrf="{{ csrf_token('processo_nota_tecnica_excluir_' ~ nota.id) }}"
-                        data-url="{{ path('processo_nota_tecnica_excluir', {id: nota.processoId, notaId: nota.id}) }}">
-                    <i class="bi bi-trash3"></i>
-                </button>
-                {% set minRest = comentario_minutos_restantes(nota.criadaEm) %}
-                <span class="ps-anotacao-janela small" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
-            </span>
-        {% endif %}
+        <button type="button" class="ps-nota-menu-btn js-nota-menu" title="Opções da nota"
+                aria-label="Opções da nota" aria-haspopup="menu" aria-expanded="false"
+                aria-controls="psNotaMenu{{ nota.id }}">
+            <i class="bi bi-three-dots" aria-hidden="true"></i>
+        </button>
+        <div class="ps-nota-menu" id="psNotaMenu{{ nota.id }}" role="menu" hidden>
+            <div class="ps-processo-menu-titulo">Nota técnica · {{ nota.autorNome }}</div>
+            <button type="button" class="ps-processo-menu-item js-nota-copiar" role="menuitem">
+                <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
+            </button>
+            {% if not somenteLeitura %}
+                <div class="ps-processo-menu-sep" role="separator"></div>
+                {% if podeGerenciar %}
+                    {% set minRest = comentario_minutos_restantes(nota.criadaEm) %}
+                    <button type="button"
+                            class="ps-processo-menu-item js-nota-editar" role="menuitem"
+                            title="Edição liberada por mais {{ minRest }} min"
+                            data-nota-id="{{ nota.id }}"
+                            {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
+                            data-conteudo="{{ nota.conteudo|e('html_attr') }}"
+                            data-conteudo-html="{{ nota.conteudo|registro_texto|e('html_attr') }}"
+                            data-csrf="{{ csrf_token('processo_nota_tecnica_editar_' ~ nota.id) }}"
+                            data-url="{{ path('processo_nota_tecnica_editar', {id: nota.processoId, notaId: nota.id}) }}">
+                        <i class="bi bi-pencil" aria-hidden="true"></i><span>Editar · {{ minRest }} min</span>
+                    </button>
+                    <button type="button"
+                            class="ps-processo-menu-item js-nota-excluir" role="menuitem"
+                            title="Exclusão liberada por mais {{ minRest }} min"
+                            data-nota-id="{{ nota.id }}"
+                            data-csrf="{{ csrf_token('processo_nota_tecnica_excluir_' ~ nota.id) }}"
+                            data-url="{{ path('processo_nota_tecnica_excluir', {id: nota.processoId, notaId: nota.id}) }}">
+                        <i class="bi bi-trash" aria-hidden="true"></i><span>Excluir · {{ minRest }} min</span>
+                    </button>
+                {% else %}
+                    {# Desenho: o aviso do item bloqueado. Sem `data-url`/`data-csrf`: não há o que acionar. #}
+                    <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado" role="menuitem"
+                            disabled aria-disabled="true" title="Só o autor edita a nota, em até 15 minutos">
+                        <i class="bi bi-lock" aria-hidden="true"></i><span>Editar · bloqueado</span>
+                    </button>
+                    <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado" role="menuitem"
+                            disabled aria-disabled="true" title="Só o autor exclui a nota, em até 15 minutos">
+                        <i class="bi bi-lock" aria-hidden="true"></i><span>Excluir · bloqueado</span>
+                    </button>
+                {% endif %}
+            {% endif %}
+        </div>
     </div>
     {# `registro_texto` é o `texto_rico` (sanitiza de novo na saída, `is_safe: html`) com as
        @menções em destaque (PMC-019) — o mesmo filtro do Registro da pasta. #}

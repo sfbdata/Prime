@@ -137,8 +137,34 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertSame('Intimação · 20/08/2026', trim($mov->text()));
     }
 
-    #[TestDox('dentro dos 15 min o autor vê editar/excluir e "· 10 min"; passados 20 min, nada')]
-    public function testJanelaDeEdicao(): void
+    /**
+     * O ⋮ de uma nota: o gatilho e o menu são filhos diretos do topo do cartão, e o menu traz os
+     * itens como filhos diretos (nada de item solto em outro lugar do cartão).
+     *
+     * @return array{\Symfony\Component\DomCrawler\Crawler, list<string>} o menu e o texto dos itens, na ordem
+     */
+    private function menuDaNota(\Symfony\Component\DomCrawler\Crawler $crawler, NotaTecnica $nota): array
+    {
+        $id      = $nota->getId();
+        $gatilho = $crawler->filter("#nota-tecnica-{$id} > .ps-nota-topo > button.js-nota-menu[aria-haspopup=\"menu\"]");
+        self::assertCount(1, $gatilho, 'o ⋮ fica no topo do cartão');
+        self::assertSame("psNotaMenu{$id}", $gatilho->attr('aria-controls'));
+        self::assertSame('Opções da nota', $gatilho->attr('aria-label'));
+        self::assertCount(1, $gatilho->filter('i.bi-three-dots'), 'o ícone do desenho é o ⋯ (bi-three-dots)');
+
+        $menu = $crawler->filter("#nota-tecnica-{$id} > .ps-nota-topo > #psNotaMenu{$id}.ps-nota-menu[role=\"menu\"][hidden]");
+        self::assertCount(1, $menu, 'o menu nasce fechado, ao lado do gatilho');
+        self::assertSame('Nota técnica · ' . $nota->getAutor()?->getFullName(), trim($menu->filter('.ps-nota-menu > .ps-processo-menu-titulo')->text()));
+
+        $itens = $menu->filter('.ps-nota-menu > .ps-processo-menu-item')->each(
+            static fn (\Symfony\Component\DomCrawler\Crawler $i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
+        );
+
+        return [$menu, $itens];
+    }
+
+    #[TestDox('⋮ do autor dentro dos 15 min: Copiar texto, Editar · 10 min e Excluir · 10 min, com as ações reais; sem Responder')]
+    public function testMenuDoAutorDentroDaJanela(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
@@ -146,23 +172,44 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $processo        = $this->criarProcesso($tenant, self::NUMERO);
         $this->vincular($pasta, $processo);
         $recente = $this->criarNota($processo, $user, $tenant, '<p>Recente</p>', null, '-5 minutes');
-        $antiga  = $this->criarNota($processo, $user, $tenant, '<p>Antiga</p>', null, '-20 minutes');
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
-        $acoes = $crawler->filter("#nota-tecnica-{$recente->getId()} > .ps-nota-topo > .ps-anotacao-acoes");
-        self::assertCount(1, $acoes);
-        self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > .js-nota-editar[data-url][data-csrf][data-conteudo]'));
-        self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > .js-nota-excluir[data-url][data-csrf]'));
-        self::assertSame('· 10 min', trim($acoes->filter('.ps-anotacao-acoes > .ps-anotacao-janela')->text()));
-
-        self::assertCount(1, $crawler->filter("#nota-tecnica-{$antiga->getId()}"));
-        self::assertCount(0, $crawler->filter("#nota-tecnica-{$antiga->getId()} .ps-anotacao-acoes"));
+        [$menu, $itens] = $this->menuDaNota($crawler, $recente);
+        self::assertSame(['Copiar texto', 'Editar · 10 min', 'Excluir · 10 min'], $itens);
+        self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-copiar > i.bi-clipboard'));
+        self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-editar[data-url][data-csrf][data-conteudo][data-conteudo-html] > i.bi-pencil'));
+        self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-excluir[data-url][data-csrf] > i.bi-trash'));
+        self::assertSame("/processos/{$processo->getId()}/nota-tecnica/{$recente->getId()}/editar", $menu->filter('.js-nota-editar')->attr('data-url'));
+        self::assertCount(0, $menu->filter('.ps-nota-menu-bloqueado'));
+        // Nota técnica não tem resposta no modelo: o item do desenho não é renderizado.
+        self::assertStringNotContainsString('Responder', $menu->text());
+        // O lápis e a lixeira soltos no topo deram lugar ao ⋮.
+        self::assertCount(0, $crawler->filter("#nota-tecnica-{$recente->getId()} .ps-anotacao-acoes"));
     }
 
-    #[TestDox('quem não é o autor não vê editar/excluir, mesmo dentro da janela')]
-    public function testNaoAutorNaoVeAcoes(): void
+    #[TestDox('⋮ do autor passados 20 min: Editar · bloqueado e Excluir · bloqueado, desabilitados com bi-lock e sem URL')]
+    public function testMenuDoAutorForaDaJanela(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $antiga = $this->criarNota($processo, $user, $tenant, '<p>Antiga</p>', null, '-20 minutes');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+
+        [$menu, $itens] = $this->menuDaNota($crawler, $antiga);
+        self::assertSame(['Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertCount(2, $menu->filter('.ps-nota-menu > .ps-nota-menu-bloqueado[disabled][aria-disabled="true"] > i.bi-lock'));
+        self::assertCount(0, $menu->filter('.js-nota-editar, .js-nota-excluir, [data-url], [data-csrf]'), 'item bloqueado não carrega ação');
+    }
+
+    #[TestDox('⋮ de nota de OUTRO autor, mesmo dentro da janela: só Copiar texto ativo; Editar/Excluir bloqueados')]
+    public function testMenuDeOutroAutor(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
@@ -175,8 +222,35 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
-        self::assertCount(1, $crawler->filter("#nota-tecnica-{$nota->getId()}"));
+        [$menu, $itens] = $this->menuDaNota($crawler, $nota);
+        self::assertSame(['Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertCount(0, $menu->filter('.js-nota-editar, .js-nota-excluir, [data-url]'));
         self::assertCount(0, $crawler->filter("#nota-tecnica-{$nota->getId()} .ps-anotacao-acoes"));
+    }
+
+    #[TestDox('pasta excluída (lápide): o ⋮ da nota é só leitura — Copiar texto, sem editar nem excluir, na aba Processo e no teor do Push')]
+    public function testMenuNaLapideSoLeitura(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub  = $this->criarPublicacao($tenant, '60000030', self::NUMERO, '2026-08-20', $processo);
+        // Do próprio usuário e dentro da janela: fora da lápide teria Editar/Excluir ativos.
+        $nota = $this->criarNota($processo, $user, $tenant, '<p>Na lápide</p>', $pub, '-5 minutes');
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        foreach (["/pasta/{$pasta->getId()}", "/pasta/{$pasta->getId()}/push/{$pub->getId()}"] as $url) {
+            $crawler = $client->request('GET', $url);
+            self::assertResponseIsSuccessful($url);
+
+            [$menu, $itens] = $this->menuDaNota($crawler, $nota);
+            self::assertSame(['Copiar texto'], $itens, $url);
+            self::assertCount(0, $menu->filter('.ps-processo-menu-sep, .ps-nota-menu-bloqueado, [data-url], [data-csrf]'), $url);
+        }
     }
 
     #[TestDox('o teor do Push mostra só as notas DAQUELA movimentação, com o compositor apontando para o processo')]

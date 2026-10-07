@@ -297,10 +297,122 @@
             .catch(function () { window.alert('Erro de rede.'); });
     }
 
+    /* ── ⋮ da nota (PMC-017) ─────────────────────────────────────────────
+       Menu fixo (o teor do Push corta o que transborda), aberto pelo ⋮ — ao lado
+       do gatilho — ou pelo botão direito no cartão — no ponto do clique, como o
+       `onContextMenu` do desenho. Um menu por vez; fora, Esc, rolar e redimensionar
+       fecham. Editar/Excluir do menu são os próprios `.js-nota-editar/-excluir`. */
+    var menuAberto = null; // { menu, gatilho }
+
+    function fecharMenu(devolverFoco) {
+        if (!menuAberto) { return; }
+        menuAberto.menu.hidden = true;
+        menuAberto.gatilho.setAttribute('aria-expanded', 'false');
+        if (devolverFoco) { menuAberto.gatilho.focus(); }
+        menuAberto = null;
+    }
+
+    function abrirMenu(gatilho, x, y) {
+        var menu = document.getElementById(gatilho.getAttribute('aria-controls') || '');
+        if (!menu) { return; }
+        var porClique = typeof x === 'number';
+        if (!porClique && menuAberto && menuAberto.menu === menu) { fecharMenu(false); return; }
+        fecharMenu(false);
+        // Um menu por vez: fecha os popovers da pasta (pasta-show.js e os outros ⋮).
+        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+        menu.hidden = false;
+
+        var left;
+        var top;
+        if (porClique) {
+            left = x;
+            top = y;
+            if (top + menu.offsetHeight > window.innerHeight - 8) { top = y - menu.offsetHeight; }
+        } else {
+            var r = gatilho.getBoundingClientRect();
+            left = r.right - menu.offsetWidth;
+            top = r.bottom + 4;
+            if (top + menu.offsetHeight > window.innerHeight - 8) { top = r.top - menu.offsetHeight - 4; }
+        }
+        menu.style.left = Math.max(8, Math.min(left, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+        menu.style.top = Math.max(8, top) + 'px';
+        gatilho.setAttribute('aria-expanded', 'true');
+        menuAberto = { menu: menu, gatilho: gatilho };
+        var primeiro = menu.querySelector('.ps-processo-menu-item:not([disabled])');
+        if (primeiro) { primeiro.focus(); }
+    }
+
+    /* "Copiar texto": o texto como se lê na tela (menção como "@Nome", sem a
+       marcação do editor). O rótulo vira o aviso por um instante e o menu fecha,
+       como no ⋮ das observações. */
+    function copiar(item) {
+        var artigo = item.closest('.ps-nota');
+        var corpo = artigo ? artigo.querySelector('.ps-nota-texto .ql-editor') : null;
+        var texto = corpo ? corpo.innerText.trim() : '';
+        var rotulo = item.querySelector('span');
+        var original = rotulo ? rotulo.textContent : '';
+        var menuDaVez = menuAberto ? menuAberto.menu : null;
+        function avisar(msg) {
+            if (rotulo) { rotulo.textContent = msg; }
+            setTimeout(function () {
+                if (rotulo) { rotulo.textContent = original; }
+                if (menuAberto && menuAberto.menu === menuDaVez) { fecharMenu(false); }
+            }, 1200);
+        }
+        if (texto && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(
+                function () { avisar('Nota copiada'); },
+                function () { avisar('Não foi possível copiar'); }
+            );
+        } else {
+            avisar('Não foi possível copiar');
+        }
+    }
+
+    // Clique FORA fecha (em captura, antes de qualquer outra ação).
+    document.addEventListener('click', function (e) {
+        if (!menuAberto) { return; }
+        if (menuAberto.menu.contains(e.target) || menuAberto.gatilho.contains(e.target)) { return; }
+        fecharMenu(false);
+    }, true);
+    document.addEventListener('keydown', function (e) {
+        if (menuAberto && e.key === 'Escape') { fecharMenu(true); }
+    });
+    window.addEventListener('resize', function () { fecharMenu(false); });
+    window.addEventListener('scroll', function (e) {
+        if (menuAberto && !(e.target instanceof Node && menuAberto.menu.contains(e.target))) { fecharMenu(false); }
+    }, true);
+    document.addEventListener('ps:fechar-popovers', function () { fecharMenu(false); });
+
+    // Botão direito no cartão: o mesmo menu, no ponto do clique. Links, botões, a
+    // caixa de edição e texto selecionado seguem com o menu do navegador.
+    document.addEventListener('contextmenu', function (e) {
+        var alvo = e.target;
+        if (!alvo || !alvo.closest) { return; }
+        if (menuAberto && !menuAberto.menu.contains(alvo)) { fecharMenu(false); }
+
+        var nota = alvo.closest('.ps-nota');
+        if (!nota) { return; }
+        if (alvo.closest('a, button, input, textarea, select, [contenteditable="true"], .ps-nota-edicao, .ps-nota-menu')) { return; }
+        var selecao = window.getSelection ? String(window.getSelection()) : '';
+        if (selecao.trim() !== '') { return; }
+
+        var gatilho = nota.querySelector('.js-nota-menu');
+        if (!gatilho) { return; }
+        e.preventDefault();
+        abrirMenu(gatilho, e.clientX, e.clientY);
+    });
+
     /* ── Delegação ───────────────────────────────────────────────────────── */
     document.addEventListener('click', function (e) {
         var alvo = e.target;
         if (!alvo || !alvo.closest) { return; }
+
+        var gatilhoMenu = alvo.closest('.js-nota-menu');
+        if (gatilhoMenu) { abrirMenu(gatilhoMenu); return; }
+
+        var itemCopiar = alvo.closest('.js-nota-copiar');
+        if (itemCopiar) { copiar(itemCopiar); return; }
 
         var nova = alvo.closest('.js-nota-nova');
         if (nova) {
@@ -323,11 +435,12 @@
             return;
         }
 
+        // Editar/Excluir moram no ⋮: o menu fecha antes da ação (a caixa de edição, o confirm).
         var btnEditar = alvo.closest('.js-nota-editar');
-        if (btnEditar) { editar(btnEditar); return; }
+        if (btnEditar) { fecharMenu(false); editar(btnEditar); return; }
 
         var btnExcluir = alvo.closest('.js-nota-excluir');
-        if (btnExcluir) { excluir(btnExcluir); }
+        if (btnExcluir) { fecharMenu(false); excluir(btnExcluir); }
     });
 
     /* Ctrl+Enter salva e Esc fecha — no compositor de nota nova (o de edição
