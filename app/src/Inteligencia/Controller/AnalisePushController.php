@@ -18,6 +18,7 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\UseCase\AlternarAnaliseInternaUseCase;
 use App\Inteligencia\UseCase\ConsultarStatusDaAnaliseUseCase;
 use App\Inteligencia\UseCase\ExcluirAnaliseUseCase;
+use App\Inteligencia\UseCase\ExportarAnaliseEmTextoUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Inteligencia\UseCase\MarcarAnaliseComoLidaUseCase;
 use App\Inteligencia\UseCase\SolicitarResumoDoPushUseCase;
@@ -25,6 +26,7 @@ use App\Pasta\Entity\Pasta;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -42,6 +44,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *                                                 409 {motivo, mensagem} indisponível/bloqueado/vazio · 429 cota/ritmo · 503 fila indisponível
  *   GET  /pasta/{id}/ia/push/analises           → fragmento `inteligencia/_analises_push.html.twig`
  *   GET  /pasta/{id}/ia/analises/{analiseId}    → {id, status, statusRotulo, emAndamento, terminal, mensagem, motivoTecnico}
+ *   GET  /pasta/{id}/ia/analises/{analiseId}.txt → a análise CONCLUÍDA em text/plain, como anexo (404 se não houver)
  *   POST …/{analiseId}/lida | /excluir | /interna → XHR: JSON · form comum: redirect para a pasta #push
  * CSRF: `_token` (campo ou header X-CSRF-Token); ids `inteligencia_push_{pastaId}` e
  * `inteligencia_analise_{analiseId}`.
@@ -60,6 +63,7 @@ final class AnalisePushController extends AbstractController
         private readonly MarcarAnaliseComoLidaUseCase $marcarLida,
         private readonly ExcluirAnaliseUseCase $excluir,
         private readonly AlternarAnaliseInternaUseCase $alternarInterna,
+        private readonly ExportarAnaliseEmTextoUseCase $exportarTexto,
         // Interface (não a classe) pelo mesmo motivo do PoliticaPrivacidadeController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -132,6 +136,33 @@ final class AnalisePushController extends AbstractController
             },
             'motivoTecnico' => $podeVerMotivoTecnico ? $saida->erroMotivo : null,
         ]);
+    }
+
+    /**
+     * "Baixar .txt" do cartão (desenho, dc L1001-1003). Mesma guarda das outras rotas por id:
+     * outro escritório ou outra pasta → 404. O corpo é texto do modelo: `text/plain` + `nosniff`
+     * para o navegador nunca o interpretar como HTML, e `no-store` porque é conteúdo processual.
+     */
+    #[Route('/analises/{analiseId}.txt', name: 'inteligencia_analise_txt', requirements: ['analiseId' => '\d+'], methods: ['GET'])]
+    public function baixarTexto(Pasta $pasta, int $analiseId): Response
+    {
+        [, $tenant] = $this->guardar($pasta);
+
+        try {
+            $saida = $this->exportarTexto->executar($analiseId, $pasta, $tenant);
+        } catch (AnaliseNaoEncontradaException $e) {
+            throw $this->createNotFoundException($e->getMessage());
+        }
+
+        $resposta = new Response($saida->conteudo, Response::HTTP_OK, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $saida->nomeDoArquivo),
+        ]);
+        $resposta->setPrivate();
+        $resposta->headers->addCacheControlDirective('no-store');
+
+        return $resposta;
     }
 
     #[Route('/analises/{analiseId}/lida', name: 'inteligencia_analise_lida', requirements: ['analiseId' => '\d+'], methods: ['POST'])]

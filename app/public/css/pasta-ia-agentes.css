@@ -389,6 +389,10 @@
 .ia-icone > i { font-size: 13px; }
 .ia-icone:hover,
 .ia-icone:focus-visible { background: var(--ia-hover-roxo); }
+/* Copiar · Baixar .txt · Imprimir (dc L1001-1003): "Baixar" é âncora, sem sublinhado; o
+   "Copiar" fica verde por 1,4 s depois de copiar (dc L5741, `copiarSt`). */
+a.ia-icone { text-decoration: none; }
+.ia-icone.is-copiado { background: var(--ia-ok-bg); color: var(--ia-ok-tx); }
 .ia-acao[data-ia-acao="interna"] .ia-icone { color: var(--ia-roxo-apag); }
 .ia-acao[data-ia-acao="interna"] .ia-icone.is-interna { color: var(--ia-roxo); }
 .ia-menu-wrap { position: relative; }
