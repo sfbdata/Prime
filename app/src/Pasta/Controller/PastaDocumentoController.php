@@ -70,9 +70,9 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  *
  * `zip` (D5) é a outra exceção: quem pode VER a pasta pode baixar o que vê. Mesmo corpo e token
  * do lote (`{_token, documentos[], secoes[]}`), por `<form target=_blank>` — a resposta é o
- * próprio .zip (download em stream, apagado depois de enviado), ou JSON de erro como nas demais
- * rotas. `copiar` (D6) exige EDITAR: `{_token, documentos[], destinoId|null}`, só arquivos, e
- * responde `{ok, copiados: [<arquivo na forma do explorador>]}`.
+ * próprio .zip (download em stream, apagado depois de enviado); a recusa é JSON para XHR e, para o
+ * formulário da tela, uma página HTML curta no mesmo status (DOC-140). `copiar` (D6) exige
+ * EDITAR: `{_token, documentos[], destinoId|null}`, só arquivos, e responde `{ok, copiados: [<arquivo na forma do explorador>]}`.
  */
 #[Route('/pasta')]
 final class PastaDocumentoController extends AbstractController
@@ -389,9 +389,44 @@ final class PastaDocumentoController extends AbstractController
      * (`VagasDeZipDoEscritorio`, sem esperar). Sem vaga → 429 em JSON. Com vaga, ela é devolvida
      * no `kernel.terminate` — depois de o .zip inteiro ter sido enviado — ou aqui mesmo, quando o
      * UseCase recusa e não há .zip a enviar. Ordem: guardas → limitador → vaga → UseCase.
+     *
+     * DOC-140: a tela pede o .zip por `<form target=_blank>` — sem `X-Requested-With`. Para esse
+     * pedido, QUALQUER recusa (400/403/404/422/429) vira uma página HTML mínima em pt-BR, com a
+     * mensagem e um "Fechar", no MESMO status (e o mesmo `Retry-After`), em vez do JSON cru na aba
+     * nova. Pedido XHR continua recebendo o JSON de sempre. O download em stream não muda.
      */
     #[Route('/{id}/documentos/zip', name: 'pasta_documentos_zip', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function zip(Pasta $pasta, Request $request): Response
+    {
+        $resposta = $this->respostaDoZip($pasta, $request);
+        if ($resposta instanceof JsonResponse && $resposta->getStatusCode() >= 400 && !$request->isXmlHttpRequest()) {
+            return $this->paginaDeRecusaDoZip($resposta);
+        }
+
+        return $resposta;
+    }
+
+    /**
+     * A página da recusa do .zip (DOC-140): a mensagem que o JSON traria — escrita pelo próprio
+     * controller ou pelo UseCase, nunca dado do pedido —, escapada pelo Twig, com o status e o
+     * `Retry-After` do JSON. Não repete id, NUP nem nome de arquivo.
+     */
+    private function paginaDeRecusaDoZip(JsonResponse $json): Response
+    {
+        $dados    = json_decode((string) $json->getContent(), true);
+        $mensagem = is_array($dados) && is_string($dados['erro'] ?? null) && $dados['erro'] !== ''
+            ? $dados['erro']
+            : 'Não foi possível preparar o .zip.';
+
+        $pagina = $this->render('pasta/zip_recusado.html.twig', ['mensagem' => $mensagem], new Response('', $json->getStatusCode()));
+        if ($json->headers->has('Retry-After')) {
+            $pagina->headers->set('Retry-After', (string) $json->headers->get('Retry-After'));
+        }
+
+        return $pagina;
+    }
+
+    private function respostaDoZip(Pasta $pasta, Request $request): Response
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();

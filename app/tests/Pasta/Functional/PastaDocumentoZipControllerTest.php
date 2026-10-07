@@ -28,6 +28,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
@@ -270,7 +271,7 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
             '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
             'documentos' => $ids,
-        ]);
+        ], [], self::XHR);
 
         self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString('limite', (string) $this->json($client)['erro']);
@@ -383,7 +384,7 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
             '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
             'documentos' => [(string) $doc->getId()],
-        ]);
+        ], [], self::XHR);
 
         self::assertResponseStatusCodeSame(429);
         self::assertSame('Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.', $this->json($client)['erro']);
@@ -446,7 +447,7 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
             '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
             'documentos' => [(string) $doc->getId()],
-        ]);
+        ], [], self::XHR);
 
         self::assertResponseStatusCodeSame(429);
         self::assertSame('Já há downloads em .zip em andamento neste escritório. Tente de novo em instantes.', $this->json($client)['erro']);
@@ -481,7 +482,7 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(400, 'o guarda do lote vem antes da vaga');
         self::assertSame([], $espiao->chavesConsumidas, 'recusa de CSRF não chega ao limitador nem à vaga');
 
-        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo, [], self::XHR);
         self::assertResponseStatusCodeSame(429);
         self::assertSame('Já há downloads em .zip em andamento neste escritório. Tente de novo em instantes.', $this->json($client)['erro']);
         self::assertSame([(string) $user->getId()], $espiao->chavesConsumidas, 'o limitador por usuário roda ANTES da vaga');
@@ -502,10 +503,103 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
             '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
             'documentos' => [(string) $doc->getId()],
-        ]);
+        ], [], self::XHR);
 
         self::assertResponseStatusCodeSame(429);
         self::assertSame('Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.', $this->json($client)['erro']);
+    }
+
+    // DOC-140: o .zip sai por `<form target=_blank>` — sem X-Requested-With. A recusa desse pedido
+    // abre uma aba: tem de ser uma página legível no MESMO status, não o JSON cru.
+
+    #[TestDox('zip (DOC-140): sem XHR, cada recusa (400, 403, 404, 422, 429) é uma página HTML pt-BR com a mensagem escapada e o Fechar, no mesmo status, sem JSON nem dado da pasta')]
+    public function testRecusaSemXhrEPaginaHtml(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        [, $outro]       = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $alheia          = $this->criarPasta($outro);
+        $meu             = $this->criarDocumento($pasta, $tenant, null, 'meu-segredo.pdf', $this->gravarArquivo($tenant, 'meu'));
+        $grandes         = [];
+        foreach (['a', 'b', 'c'] as $nome) {
+            $grandes[] = (string) $this->criarDocumento($pasta, $tenant, null, "{$nome}.pdf", null, 400 * 1024 * 1024)->getId();
+        }
+        $semAcesso       = $this->criarUsuarioSemAcesso($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $token = $this->csrf('pex_lote_' . $pasta->getId());
+        $url   = "/pasta/{$pasta->getId()}/documentos/zip";
+
+        $client->request('POST', $url, ['_token' => 'errado', 'documentos' => [(string) $meu->getId()]]);
+        $this->assertPaginaDeRecusa($client, 400, 'Token de segurança inválido.');
+
+        $client->request('POST', "/pasta/{$alheia->getId()}/documentos/zip", ['_token' => $this->csrf('pex_lote_' . $alheia->getId())]);
+        $this->assertPaginaDeRecusa($client, 404, 'Pasta não encontrada.');
+
+        $client->request('POST', $url, ['_token' => $token, 'documentos' => $grandes]);
+        $this->assertPaginaDeRecusa($client, 422, 'limite');
+
+        $client->request('POST', $url, ['_token' => $token]);
+        $this->assertPaginaDeRecusa($client, 422, 'Nenhum item selecionado.');
+
+        $this->logarComTenant($client, $semAcesso, $tenant);
+        $client->request('POST', $url, ['_token' => $token, 'documentos' => [(string) $meu->getId()]]);
+        $this->assertPaginaDeRecusa($client, 403, 'Sem permissão para ver esta pasta.');
+
+        self::assertSame(0, $this->auditoriasDeZip((int) $pasta->getId()));
+    }
+
+    #[TestDox('zip (DOC-140): o 429 sem XHR também é a página, com o mesmo Retry-After; com XHR o MESMO pedido devolve o JSON de sempre')]
+    public function testRecusa429SemXhrEPaginaComRetryAfter(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        static::getContainer()->set('limiter.pasta_documentos_zip', new RateLimiterFactoryEspiao(aceita: false));
+        $corpo = ['_token' => $this->csrf('pex_lote_' . $pasta->getId()), 'documentos' => [(string) $doc->getId()]];
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+        $this->assertPaginaDeRecusa($client, 429, 'Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.');
+        $retry = (int) $client->getResponse()->headers->get('Retry-After');
+        self::assertGreaterThanOrEqual(1, $retry);
+        self::assertLessThanOrEqual(60, $retry);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo, [], self::XHR);
+        self::assertResponseStatusCodeSame(429);
+        self::assertStringStartsWith('application/json', (string) $client->getResponse()->headers->get('Content-Type'));
+        self::assertSame('Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.', $this->json($client)['erro']);
+    }
+
+    #[TestDox('zip (DOC-140): a página escapa a mensagem — HTML na mensagem vira texto')]
+    public function testPaginaDeRecusaEscapaAMensagem(): void
+    {
+        static::bootKernel();
+        $html = static::getContainer()->get('twig')->render('pasta/zip_recusado.html.twig', ['mensagem' => '<script>alert(1)</script> & "x"']);
+
+        self::assertStringNotContainsString('<script>alert(1)</script>', $html);
+        self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;x&quot;', $html);
+    }
+
+    #[TestDox('zip (DOC-140): com XHR, cada recusa continua JSON {erro} no mesmo status')]
+    public function testRecusaComXhrContinuaJson(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", ['_token' => 'errado'], [], self::XHR);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('Token de segurança inválido.', $this->json($client)['erro']);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", ['_token' => $this->csrf('pex_lote_' . $pasta->getId())], [], self::XHR);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Nenhum item selecionado.', $this->json($client)['erro']);
     }
 
     #[TestDox('zip: com uma vaga livre o .zip sai, e a vaga volta ao fim do pedido (SEC-004b)')]
@@ -550,6 +644,32 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
     }
 
     // ----------------------------------------------------------------- helpers
+
+    /** Cabeçalho de pedido XHR: a recusa vem em JSON (a tela pede o .zip SEM ele — DOC-140). */
+    private const XHR = ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
+
+    /** A página de recusa do .zip (DOC-140): status, HTML, mensagem escapada, Fechar, sem JSON e sem dado da pasta. */
+    private function assertPaginaDeRecusa(KernelBrowser $client, int $status, string $trechoDaMensagem): void
+    {
+        $resposta = $client->getResponse();
+        $html     = (string) $resposta->getContent();
+
+        self::assertResponseStatusCodeSame($status);
+        self::assertStringStartsWith('text/html', (string) $resposta->headers->get('Content-Type'));
+        self::assertNull(json_decode($html, true), 'não é JSON');
+        self::assertStringNotContainsString('"erro"', $html);
+        self::assertStringContainsString('<html lang="pt-BR">', $html);
+
+        $pagina = new Crawler($html);
+        self::assertStringContainsString($trechoDaMensagem, $pagina->filter('#zipRecusaMensagem')->text());
+        self::assertStringContainsString(htmlspecialchars($trechoDaMensagem, ENT_QUOTES), $html, 'a mensagem passa pelo escape do Twig');
+        $fechar = $pagina->filter('button#zipRecusaFechar');
+        self::assertCount(1, $fechar);
+        self::assertSame('Fechar', trim($fechar->text()));
+        self::assertSame('window.close()', $fechar->attr('onclick'));
+        self::assertStringNotContainsString('ZIP-', $html, 'o NUP da pasta não aparece');
+        self::assertStringNotContainsString('.pdf', $html, 'nenhum nome de arquivo aparece');
+    }
 
     /** @var list<VagaDeZip> vagas seguradas pelo teste — vivas até o fim dele */
     private array $vagasSeguradas = [];

@@ -62,7 +62,8 @@
 
    L8 (D5/D6, dc `baixar`/`clip`/`colar`, L4793-4853): "Baixar como .zip" por um <form
    target=_blank> montado por DOM com o csrfLote — os tetos (500 arquivos / 1 GB) são conferidos
-   AQUI antes de abrir a aba, porque o erro do servidor chegaria nela como JSON cru; Copiar
+   AQUI antes de abrir a aba, porque o erro do servidor chegaria numa aba nova (desde o DOC-140,
+   uma página curta com a mensagem e "Fechar", não mais o JSON); Copiar
    (Ctrl+C) guarda só ARQUIVOS (o servidor não copia pastas) e Colar distingue o recorte
    (mover-lote) da cópia (copiar), que insere as linhas de `copiados` sem recarregar.
    ========================================================================== */
@@ -2307,7 +2308,8 @@
         });
     }
     /* O .zip (D5) é um POST de formulário com target=_blank: o navegador baixa em stream na aba
-       nova. Em erro, o servidor responde JSON cru NESSA aba — por isso os tetos (500 arquivos /
+       nova. Em erro, o servidor responde NESSA aba uma página curta com a mensagem e "Fechar"
+       (DOC-140; com XHR seria JSON) — mesmo assim os tetos (500 arquivos /
        1 GB pela soma de `tamanho`) e o "sem arquivos" são conferidos aqui, com toast, ANTES de
        abrir. O formulário nasce por DOM (createElement/value), nunca por HTML em string. */
     function baixarZip(itens) {
