@@ -11,9 +11,11 @@
  *    enviado: escolher um dia grava o ISO nele e dispara `change` (o texto do dia e os atalhos do
  *    pasta-metas.js ouvem esse evento).
  * 4. `confirmarPs`/`avisarPs` (PAS-034; dc L.280-288 `cf`, L.597 `edAviso`): a janela de
- *    confirmação do desenho (título, trecho, Cancelar e o botão vermelho; Enter confirma, Esc
- *    cancela) e o aviso no rodapé da tela, no lugar do `confirm`/`alert` do navegador. Sem a
- *    marcação na página (outra tela), caem no `confirm`/`alert` — nunca somem com a pergunta.
+ *    confirmação do desenho (título, trecho, Cancelar e o botão vermelho; o foco nasce no
+ *    Cancelar e Enter nele cancela, Enter fora dele confirma, Esc cancela) e o aviso no rodapé da
+ *    tela, no lugar do `confirm`/`alert` do navegador. O anúncio do aviso sai por regiões vivas
+ *    criadas na carga (PAS-034c). Sem a marcação na página (outra tela), caem no
+ *    `confirm`/`alert` — nunca somem com a pergunta.
  *
  * Nada aqui escreve HTML com dado de usuário: os nomes vêm do Twig (escapados) e o JS só usa
  * textContent, atributos e cópia de nós já desenhados.
@@ -358,9 +360,13 @@
         ok.querySelector('i').className = 'bi ' + (o.icone || 'bi-trash3');
         fundo.hidden = false;
 
+        // PAS-034c: o foco inicial vai para o "Cancelar", não para a caixa — com a caixa focada, um
+        // Enter perdido (ainda do clique/tecla que abriu a janela) confirmava a exclusão.
+        var cancelar = fundo.querySelector('.ps-cf-rodape [data-ps-cf-cancelar]') || caixa;
+
         return new Promise(function (resolver) {
             confirmacaoAberta = { resolver: resolver, foco: document.activeElement };
-            setTimeout(function () { caixa.focus(); }, 30);
+            setTimeout(function () { cancelar.focus(); }, 30);
         });
     }
 
@@ -386,6 +392,10 @@
                 e.preventDefault();
                 e.stopPropagation();
                 encerrarConfirmacao(false);
+            } else if (e.key === 'Enter' && e.target.closest('[data-ps-cf-cancelar]')) {
+                // Enter no Cancelar (onde o foco nasce) CANCELA — explícito, sem depender do clique nativo.
+                e.preventDefault();
+                encerrarConfirmacao(false);
             } else if (e.key === 'Enter' && !e.target.closest('[data-ps-cf-cancelar]')) {
                 e.preventDefault();
                 encerrarConfirmacao(true);
@@ -401,15 +411,55 @@
 
     var avisoTimer = 0;
 
+    /**
+     * PAS-034c: as regiões vivas do aviso nascem JÁ na carga da página, vazias e sempre presentes
+     * (`status` educado e `alert` assertivo). Leitor de tela só anuncia a MUDANÇA de conteúdo de
+     * uma região que já existia; trocar o `role` de um elemento `hidden` no mesmo instante em que
+     * ele aparece não é anunciado de forma confiável. O `#psAviso` vira só o visual (aria-hidden),
+     * para a mensagem não ser lida duas vezes.
+     */
+    function criarRegioesVivas() {
+        var aviso = document.getElementById('psAviso');
+        if (!aviso) { return null; }
+        aviso.removeAttribute('role');
+        aviso.removeAttribute('aria-live');
+        aviso.setAttribute('aria-hidden', 'true');
+
+        function regiao(papel, vivo) {
+            var r = document.createElement('div');
+            r.className = 'visually-hidden';
+            r.setAttribute('role', papel);
+            r.setAttribute('aria-live', vivo);
+            r.setAttribute('aria-atomic', 'true');
+            r.setAttribute('data-ps-aviso-vivo', papel);
+            document.body.appendChild(r);
+
+            return r;
+        }
+
+        return { status: regiao('status', 'polite'), alerta: regiao('alert', 'assertive') };
+    }
+
+    var regioesVivas = criarRegioesVivas();
+    var vivoTimer = 0;
+
     /** Aviso no rodapé da tela por 2,6 s (o `gmAviso` do desenho). `tipo`: 'ok' (padrão) ou 'erro'. */
     function avisarPs(mensagem, tipo) {
         var aviso = document.getElementById('psAviso');
         if (!aviso) { window.alert(mensagem); return; }
         var erro = tipo === 'erro';
+        var texto = String(mensagem || '');
         aviso.classList.toggle('is-erro', erro);
         aviso.querySelector('i').className = 'bi ' + (erro ? 'bi-exclamation-circle-fill' : 'bi-check-circle-fill');
-        aviso.querySelector('span').textContent = String(mensagem || '');
-        aviso.setAttribute('role', erro ? 'alert' : 'status');
+        aviso.querySelector('span').textContent = texto;
+        if (regioesVivas) {
+            // Esvazia e escreve no tique seguinte: a mesma mensagem duas vezes seguidas é anunciada de novo.
+            var alvo = erro ? regioesVivas.alerta : regioesVivas.status;
+            regioesVivas.status.textContent = '';
+            regioesVivas.alerta.textContent = '';
+            clearTimeout(vivoTimer);
+            vivoTimer = setTimeout(function () { alvo.textContent = texto; }, 50);
+        }
         aviso.hidden = false;
         clearTimeout(avisoTimer);
         avisoTimer = setTimeout(function () { aviso.hidden = true; }, 2600);

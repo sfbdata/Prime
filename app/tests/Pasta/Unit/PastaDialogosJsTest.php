@@ -117,8 +117,57 @@ final class PastaDialogosJsTest extends TestCase
         $f = $this->funcao('avisarPs');
         self::assertStringContainsString('setTimeout(function () { aviso.hidden = true; }, 2600);', $f);
         self::assertStringContainsString("if (!aviso) { window.alert(mensagem); return; }", $f);
-        self::assertStringContainsString("aviso.querySelector('span').textContent = String(mensagem || '');", $f);
+        self::assertStringContainsString("var texto = String(mensagem || '');", $f);
+        self::assertStringContainsString("aviso.querySelector('span').textContent = texto;", $f);
         self::assertStringContainsString('window.confirmarPs = confirmarPs;', $this->js());
         self::assertStringContainsString('window.avisarPs = avisarPs;', $this->js());
+    }
+
+    #[TestDox('PAS-034c: o foco inicial da confirmação é o Cancelar, e Enter no Cancelar cancela')]
+    public function testFocoInicialNoCancelar(): void
+    {
+        $c = $this->funcao('confirmarPs');
+        self::assertStringContainsString("var cancelar = fundo.querySelector('.ps-cf-rodape [data-ps-cf-cancelar]') || caixa;", $c);
+        self::assertStringContainsString('setTimeout(function () { cancelar.focus(); }, 30);', $c);
+        self::assertStringNotContainsString('caixa.focus()', $c, 'com a caixa focada, um Enter perdido confirmava a exclusão');
+
+        $f      = $this->funcao('ligarConfirmacao');
+        $enter  = strpos($f, "e.key === 'Enter' && e.target.closest('[data-ps-cf-cancelar]')");
+        self::assertNotFalse($enter, 'Enter no Cancelar tem ramo próprio');
+        $ramo = substr($f, $enter, 260);
+        self::assertStringContainsString('e.preventDefault();', $ramo);
+        self::assertStringContainsString('encerrarConfirmacao(false);', $ramo);
+        self::assertStringNotContainsString('encerrarConfirmacao(true)', substr($ramo, 0, (int) strpos($ramo, '} else if')), 'o ramo do Cancelar não confirma');
+        // O ramo do Cancelar vem ANTES do "Enter confirma": a ordem do if/else decide.
+        self::assertLessThan(
+            strpos($f, "e.key === 'Enter' && !e.target.closest('[data-ps-cf-cancelar]')"),
+            $enter,
+        );
+    }
+
+    #[TestDox('PAS-034c: as regiões vivas do aviso nascem na carga; avisarPs não troca o role do #psAviso escondido')]
+    public function testRegioesVivasCriadasNaCarga(): void
+    {
+        $r = $this->funcao('criarRegioesVivas');
+        self::assertStringContainsString("document.createElement('div')", $r);
+        self::assertStringContainsString("r.setAttribute('role', papel);", $r);
+        self::assertStringContainsString("r.setAttribute('aria-live', vivo);", $r);
+        self::assertStringContainsString("r.setAttribute('aria-atomic', 'true');", $r);
+        self::assertStringContainsString("r.className = 'visually-hidden';", $r, 'escondida só visualmente, nunca com hidden');
+        self::assertStringNotContainsString('r.hidden', $r);
+        self::assertStringContainsString("document.body.appendChild(r);", $r);
+        self::assertStringContainsString("return { status: regiao('status', 'polite'), alerta: regiao('alert', 'assertive') };", $r);
+        self::assertStringContainsString("aviso.setAttribute('aria-hidden', 'true');", $r, 'o visual não é lido duas vezes');
+        self::assertStringContainsString("aviso.removeAttribute('role');", $r);
+
+        // Criadas na CARGA, no corpo da IIFE — não sob demanda dentro de avisarPs.
+        self::assertStringContainsString("\n    var regioesVivas = criarRegioesVivas();\n", $this->js());
+
+        $f = $this->funcao('avisarPs');
+        self::assertStringNotContainsString("setAttribute('role'", $f, 'trocar o role do elemento escondido não é anunciado');
+        self::assertStringContainsString('var alvo = erro ? regioesVivas.alerta : regioesVivas.status;', $f);
+        self::assertStringContainsString("regioesVivas.status.textContent = '';", $f);
+        self::assertStringContainsString("regioesVivas.alerta.textContent = '';", $f);
+        self::assertStringContainsString('vivoTimer = setTimeout(function () { alvo.textContent = texto; }, 50);', $f);
     }
 }
