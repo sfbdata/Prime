@@ -19,9 +19,9 @@
    edição de 15 minutos (`comentario_editavel`; os minutos na dica do lápis, PAS-037) e o RESPONDER — a
    resposta fica recuada sob a raiz (`.ps-respostas[data-resposta-de]`), com a
    faixa "Resposta a NOME"; um nível só (responder a uma resposta liga à raiz).
-   Os ids #timelineRespostaA, #timelineRespondendo, #timelineRespondendoNome,
-   #timelineRespondendoCancelar e a classe .btn-responder-msg-pasta também são
-   contrato com o JS do show.html.twig.
+   A caixa de resposta abre sob o cartão da raiz (PAS-030), montada pelo JS do
+   show.html.twig (`.ps-resp-caixa`); a classe .btn-responder-msg-pasta e os
+   `data-resposta-*` dela são contrato com esse JS.
 
    Menu do registro (PAS-025; desenho dc L.5958, `menu` de `regsLinha`): botão direito no
    cartão abre um menu só (#psRegMenu), preenchido com o cartão clicado — Responder, Copiar
@@ -72,6 +72,33 @@
         background: var(--ps-card); border-radius: 4px; box-shadow: var(--ps-shadow-gm);
     }
     .ps-anotacoes .ps-reg-menu[hidden] { display: none; }
+    /* PAS-030: a caixa de resposta sob o cartão (dc L.1319-1323). */
+    .ps-anotacoes .ps-resp-caixa {
+        margin: -4px 0 12px 36px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+        background: var(--ps-card); border-radius: 4px;
+        box-shadow: 0 1px 2px rgba(16,42,58,.08), inset 3px 0 0 var(--ps-accent);
+    }
+    .ps-anotacoes .ps-resp-caixa-faixa {
+        display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 4px;
+        background: var(--ps-resp-faixa-bg); border: 1px solid var(--ps-resp-faixa-bd); color: var(--ps-resp-faixa-tx);
+        font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    }
+    .ps-anotacoes .ps-resp-caixa-campo {
+        width: 100%; box-sizing: border-box; min-height: 56px; padding: 8px 10px; resize: vertical;
+        border: 1px solid var(--ps-border-ctl); border-radius: 4px; background: var(--ps-card);
+        color: var(--ps-text); font-family: inherit; font-size: 13.5px; outline: none;
+    }
+    .ps-anotacoes .ps-resp-caixa-campo:focus { border-color: var(--ps-accent); }
+    .ps-anotacoes .ps-resp-caixa-erro { font-size: 12px; color: var(--ps-danger-text); }
+    .ps-anotacoes .ps-resp-caixa-erro[hidden] { display: none; }
+    .ps-anotacoes .ps-resp-caixa-acoes { display: flex; justify-content: flex-end; gap: 6px; }
+    .ps-anotacoes .ps-resp-caixa-cancelar,
+    .ps-anotacoes .ps-resp-caixa-enviar {
+        height: 30px; border: none; border-radius: 4px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    .ps-anotacoes .ps-resp-caixa-cancelar { padding: 0 12px; background: var(--ps-div-strong); color: var(--ps-text-2); }
+    .ps-anotacoes .ps-resp-caixa-enviar { padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; background: var(--ps-accent); color: #fff; }
+    .ps-anotacoes .ps-resp-caixa-enviar:disabled { opacity: .55; cursor: not-allowed; }
     .ps-anotacoes .ps-reg-menu .ps-processo-menu-item:disabled,
     .ps-anotacoes .ps-reg-menu .ps-processo-menu-item:disabled:hover { color: var(--ps-label); background: transparent; cursor: not-allowed; opacity: .7; }
 </style>
@@ -86,14 +113,6 @@
     <div class="ps-compositor">
         <form id="formTimelineMensagem">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_mensagem_' ~ pasta.id) }}">
-            {# "Responder" usa ESTE compositor: o botão do cartão preenche o id da raiz e acende a faixa. #}
-            <input type="hidden" name="resposta_a" id="timelineRespostaA" value="">
-            <div class="ps-compositor-respondendo d-none" id="timelineRespondendo">
-                <i class="bi bi-reply-fill" aria-hidden="true"></i>
-                <span>Respondendo a <span id="timelineRespondendoNome"></span></span>
-                <span aria-hidden="true">·</span>
-                <button type="button" class="ps-compositor-respondendo-cancelar" id="timelineRespondendoCancelar">cancelar</button>
-            </div>
             {# @menção (item 20b): o JS do show.html.twig abre a lista ao digitar "@" e busca nesta URL. #}
             <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id}) }}">
                 <textarea name="conteudo"

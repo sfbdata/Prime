@@ -126,4 +126,64 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         self::assertSame($ordenada, $ordem);
         self::assertStringNotContainsString('btn btn-sm btn-success', $edicao, 'sai o botão verde fora do editor');
     }
+
+    #[TestDox('PAS-030: Responder abre a caixa sob o cartão da raiz (faixa, campo, Cancelar e Responder) e envia ao mesmo endpoint com resposta_a')]
+    public function testCaixaDeRespostaSobOCartao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $raiz            = $this->registrar($pasta, $user, $tenant, 'Original', '-2 hours');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(1, $crawler->filter('#pasta-msg-' . $raiz->getId() . ' > .ps-anotacao-topo > .btn-responder-msg-pasta[data-resposta-a="' . $raiz->getId() . '"]'));
+        self::assertCount(0, $crawler->filter('#timelineRespondendo, #timelineRespostaA'), 'a faixa do compositor de cima saiu');
+
+        $html = $this->html($client);
+        $ini  = strpos($html, 'function abrirCaixaResposta(botao) {');
+        self::assertNotFalse($ini);
+        $caixa = substr($html, $ini, 6500);
+        self::assertStringContainsString("const raiz   = document.getElementById('pasta-msg-' + raizId);", $caixa);
+        self::assertStringContainsString('raiz.after(el);', $caixa, 'logo abaixo do cartão da raiz');
+        self::assertStringContainsString("para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');", $caixa);
+        self::assertStringContainsString("campo.placeholder = 'Escreva a resposta…';", $caixa);
+        self::assertStringContainsString("cancelar.textContent = 'Cancelar';", $caixa);
+        self::assertStringContainsString("enviar.appendChild(document.createTextNode('Responder'));", $caixa);
+        self::assertStringContainsString("enviar.disabled = campo.value.trim() === '';", $caixa, 'Responder apagado sem texto');
+        self::assertStringContainsString("e.key === 'Enter' && (e.ctrlKey || e.metaKey)", $caixa);
+        self::assertStringContainsString("e.key === 'Escape'", $caixa);
+        self::assertStringContainsString("fd.append('resposta_a', raizId);", $caixa);
+        self::assertStringContainsString("fd.append('_token', token.value);", $caixa);
+        self::assertStringContainsString('await fetch(urlEnviar,', $caixa, 'o mesmo pasta_enviar_mensagem');
+        self::assertStringContainsString('const conta = inserirMensagem(data);', $caixa);
+        self::assertStringContainsString("abrirCaixaResposta(btnResponder);", $html);
+
+        // O texto vai em parágrafos ESCAPADOS (o servidor sanitiza de novo).
+        $par = substr($html, (int) strpos($html, 'function paragrafosDe(texto) {'), 400);
+        self::assertStringContainsString(".replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')", $par);
+    }
+
+    #[TestDox('PAS-030: a resposta pela caixa grava sob a raiz (mesmo endpoint, mesmo CSRF do compositor)')]
+    public function testEnvioDaCaixaGravaComoResposta(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $raiz            = $this->registrar($pasta, $user, $tenant, 'Original', '-2 hours');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        $token   = $crawler->filter('#formTimelineMensagem input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/mensagem', [
+            '_token'     => $token,
+            'resposta_a' => (string) $raiz->getId(),
+            'conteudo'   => '<p>Feito &amp; conferido</p>',
+        ], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame($raiz->getId(), $data['respostaA']);
+    }
 }

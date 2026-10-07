@@ -2872,12 +2872,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlEnviar   = '{{ path("pasta_enviar_mensagem", {id: pasta.id}) }}';
     const urlEditarTpl  = '{{ path("pasta_editar_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
     const urlExcluirTpl = '{{ path("pasta_excluir_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
-    /* "Responder": o compositor de cima é o mesmo; a faixa "Respondendo a NOME · cancelar"
-       diz para quem vai, e o campo escondido leva o id da RAIZ ao servidor. */
-    const inputRespostaA   = document.getElementById('timelineRespostaA');
-    const faixaRespondendo = document.getElementById('timelineRespondendo');
-    const nomeRespondendo  = document.getElementById('timelineRespondendoNome');
-    const cancelarResposta = document.getElementById('timelineRespondendoCancelar');
     const ROTULO_ORFA      = 'Resposta a uma mensagem excluída';
 
     /* PAS-034: a janela e o aviso da tela (pasta-dialogos.js), no lugar do confirm/alert. */
@@ -2899,20 +2893,126 @@ document.addEventListener('DOMContentLoaded', function () {
         return window.confirmarPs ? confirmarPs(opcoes) : Promise.resolve(confirm(opcoes.titulo));
     }
 
-    function responderA(id, nome) {
-        if (!inputRespostaA || !faixaRespondendo) { return; }
-        inputRespostaA.value = String(id);
-        if (nomeRespondendo) { nomeRespondendo.textContent = nome || 'Autor desconhecido'; }
-        faixaRespondendo.classList.remove('d-none');
-        const quill = window.EditorRico && EditorRico.instancia ? EditorRico.instancia(textarea) : null;
-        if (quill) { quill.focus(); } else if (textarea) { textarea.focus(); }
-        if (form) { form.scrollIntoView({ block: 'nearest' }); }
+    /* ── Responder (PAS-030; dc L.1316-1322 `respOn`, L.5958) ───────────────
+       A caixa abre LOGO ABAIXO do cartão respondido (a raiz: responder a uma resposta
+       liga à raiz, um nível só): faixa "Respondendo a NOME", o campo "Escreva a
+       resposta…", Cancelar e Responder (apagado sem texto). Ctrl+Enter envia, Esc
+       fecha. Uma caixa por vez. O envio é o MESMO `pasta_enviar_mensagem`, com o CSRF
+       do compositor e `resposta_a` = id da raiz; a posse é conferida no servidor. O
+       texto vira parágrafos escapados aqui — o servidor sanitiza de novo. */
+    let caixaResp = null; // { el, raizId, campo }
+
+    function fecharCaixaResposta() {
+        if (!caixaResp) { return; }
+        caixaResp.el.remove();
+        caixaResp = null;
     }
 
-    function pararDeResponder() {
-        if (inputRespostaA) { inputRespostaA.value = ''; }
-        if (faixaRespondendo) { faixaRespondendo.classList.add('d-none'); }
-        if (nomeRespondendo) { nomeRespondendo.textContent = ''; }
+    function paragrafosDe(texto) {
+        return String(texto).split(/\r?\n/).map(function (linha) {
+            const limpa = linha.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return '<p>' + (limpa.trim() === '' ? '<br>' : limpa) + '</p>';
+        }).join('');
+    }
+
+    function abrirCaixaResposta(botao) {
+        const raizId = String(botao.dataset.respostaA || '');
+        const raiz   = document.getElementById('pasta-msg-' + raizId);
+        if (!raiz) { return; }
+        fecharCaixaResposta();
+
+        const el = document.createElement('div');
+        el.className = 'ps-resp-caixa';
+        el.setAttribute('data-resp-caixa', raizId);
+
+        const faixa = document.createElement('div');
+        faixa.className = 'ps-resp-caixa-faixa';
+        const icone = document.createElement('i');
+        icone.className = 'bi bi-reply-fill';
+        icone.setAttribute('aria-hidden', 'true');
+        const para = document.createElement('span');
+        para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');
+        faixa.appendChild(icone);
+        faixa.appendChild(para);
+
+        const campo = document.createElement('textarea');
+        campo.className = 'ps-resp-caixa-campo';
+        campo.rows = 2;
+        campo.maxLength = 5000;
+        campo.placeholder = 'Escreva a resposta…';
+        campo.setAttribute('aria-label', para.textContent);
+
+        const erro = document.createElement('div');
+        erro.className = 'ps-resp-caixa-erro';
+        erro.hidden = true;
+
+        const cancelar = document.createElement('button');
+        cancelar.type = 'button';
+        cancelar.className = 'ps-resp-caixa-cancelar';
+        cancelar.textContent = 'Cancelar';
+
+        const enviar = document.createElement('button');
+        enviar.type = 'button';
+        enviar.className = 'ps-resp-caixa-enviar';
+        enviar.disabled = true;
+        const iEnviar = document.createElement('i');
+        iEnviar.className = 'bi bi-send';
+        iEnviar.setAttribute('aria-hidden', 'true');
+        enviar.appendChild(iEnviar);
+        enviar.appendChild(document.createTextNode('Responder'));
+
+        const acoes = document.createElement('div');
+        acoes.className = 'ps-resp-caixa-acoes';
+        acoes.appendChild(cancelar);
+        acoes.appendChild(enviar);
+
+        el.appendChild(faixa);
+        el.appendChild(campo);
+        el.appendChild(erro);
+        el.appendChild(acoes);
+        raiz.after(el);
+        caixaResp = { el: el, raizId: raizId, campo: campo };
+
+        campo.addEventListener('input', function () { enviar.disabled = campo.value.trim() === ''; });
+        campo.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviar.click(); }
+            else if (e.key === 'Escape') { e.preventDefault(); fecharCaixaResposta(); botao.focus(); }
+        });
+        cancelar.addEventListener('click', function () { fecharCaixaResposta(); });
+        enviar.addEventListener('click', async function () {
+            const texto = campo.value.trim();
+            const token = form ? form.querySelector('input[name="_token"]') : null;
+            if (texto === '' || !token) { return; }
+            enviar.disabled = true;
+            erro.hidden = true;
+            let html = paragrafosDe(texto);
+            if (window.PastaMencoes) { html = PastaMencoes.paraEnvio(campo, html); }
+            const fd = new FormData();
+            fd.append('_token', token.value);
+            fd.append('resposta_a', raizId);
+            fd.append('conteudo', html);
+            try {
+                const resp = await fetch(urlEnviar, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    erro.textContent = data.erro ?? 'Erro ao enviar a resposta.';
+                    erro.hidden = false;
+                    enviar.disabled = false;
+                    return;
+                }
+                fecharCaixaResposta();
+                const conta = inserirMensagem(data);
+                if (vazioMsg) { vazioMsg.remove(); }
+                if (countBadge && conta) { countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1; }
+            } catch (_) {
+                erro.textContent = 'Erro de rede. Tente novamente.';
+                erro.hidden = false;
+                enviar.disabled = false;
+            }
+        });
+
+        campo.focus();
+        el.scrollIntoView({ block: 'nearest' });
     }
 
     /* ── Menu do registro (PAS-025; dc L.5958 `regsLinha`) ─────────────────
@@ -3085,7 +3185,7 @@ document.addEventListener('DOMContentLoaded', function () {
         list.addEventListener('click', async function (e) {
             const btnResponder = e.target.closest('.btn-responder-msg-pasta');
             if (btnResponder) {
-                responderA(btnResponder.dataset.respostaA, btnResponder.dataset.respostaNome);
+                abrirCaixaResposta(btnResponder);
                 return;
             }
 
@@ -3247,7 +3347,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 });
                                 delta += minhas.querySelectorAll(':scope > .ps-anotacao').length;
                             }
-                            if (inputRespostaA && inputRespostaA.value === String(msgId)) { pararDeResponder(); }
+                            if (caixaResp && caixaResp.raizId === String(msgId)) { fecharCaixaResposta(); }
 
                             /* A pílula do dia existe para o PRIMEIRO registro do dia: se ele era o
                                único, a pílula sai junto; sem registro nenhum, a lista volta ao
@@ -3296,10 +3396,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!form) { return; }
 
-    if (cancelarResposta) {
-        cancelarResposta.addEventListener('click', pararDeResponder);
-    }
-
     textarea.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             form.requestSubmit();
@@ -3341,7 +3437,6 @@ document.addEventListener('DOMContentLoaded', function () {
             // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
             if (window.EditorRico) { EditorRico.limpar(textarea); } else { textarea.value = ''; }
             if (window.PastaMencoes) { PastaMencoes.esquecer(textarea); }
-            pararDeResponder();
             if (vazioMsg) { vazioMsg.remove(); }
             // Resposta pendurada numa raiz não conta (desenho: a contagem é dos registros principais).
             if (countBadge && contaComoRegistro) {

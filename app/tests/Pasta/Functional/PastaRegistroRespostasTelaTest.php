@@ -107,9 +107,9 @@ final class PastaRegistroRespostasTelaTest extends JusPrimeWebTestCase
             self::assertCount(0, $crawler->filter('#pasta-msg-' . $msg->getId() . ' .ps-anotacao-acoes'), 'fora da janela não há editar/excluir');
         }
 
-        // O compositor é o mesmo: campo escondido e a faixa "Respondendo a … · cancelar", apagada.
-        self::assertCount(1, $crawler->filter('#formTimelineMensagem > input[type="hidden"][name="resposta_a"]#timelineRespostaA'));
-        self::assertCount(1, $crawler->filter('#formTimelineMensagem > #timelineRespondendo.d-none > button#timelineRespondendoCancelar'));
+        // PAS-030: a resposta não usa mais o compositor de cima — a caixa abre sob o cartão
+        // (PastaRegistroL6TelaTest). O compositor só publica registros novos.
+        self::assertCount(0, $crawler->filter('#formTimelineMensagem [name="resposta_a"], #timelineRespondendo'));
     }
 
     #[TestDox('dentro dos 15 min a resposta também tem editar/excluir, com os minutos na dica do lápis')]
