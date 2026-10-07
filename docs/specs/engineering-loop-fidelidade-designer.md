@@ -190,6 +190,14 @@ cada divergência A trabalhada e as filas B/C/D.
 | PMC-036/029/031 | Metas | Todos os responsáveis; Abrir em Metas no ⋮; concluir/reabrir sem recarregar com Desfazer | P3 | **feito** | ✓ | ✓ | ✓ | `9e0a0ae4`, `fd9d5987`, `910575f0`, `2349cd44` | | Ver PMC-060/061 |
 | EDT-012/016/018/019/020/023 | Editor | Sinônimos; "> "/"1)" ao digitar; Citação no estilo; Ctrl+Y; Tab = 4 espaços; botões 34×32 no toque | P3/P4 | **feito** | ✓ | ✓ | ✓ | `d4443c32`..`ef56307f` | (mutações: 7) | |
 
+| EDT-003r | Impressão | Imprimir retirado do Registro e do Financeiro (não está no desenho) | — | **feito** | ✓ | ✓ | ✓ | `fdbb56b0` | | Proposta ao Samuel na §3.4 |
+| PAS-025b/013b | Registro/Cabeçalho | Lápide sem escrita no Registro; chip vazio redesenhado pelo contexto | P3/P4 | **feito** | ✓ | ✓ | ✓ | `2e7c201c`, `8b21329c` | | |
+| IA-034L (cota) | IA | Cancelada antes do provedor não toma a cota; testes de "sem módulo"/nulo | P3 | **feito** | — | ✓ | ✓ | `2caa5d7c` | (mutações: 4) | |
+| DASH-009 | Dashboard/Agenda | "Eventos na agenda" leva à lista da pessoa, com paridade | P2 | **feito** | ✓ | ✓ | ✓ | `7b9152c6` | | Ver §3.4: "Para Todos" de colegas |
+| DOC-107/108b/111/112 | Visualizador | "Contexto do processo"; `poster`/`background` limpos; .doc (OLE2) e TIFF multipágina (UTIF 3.1.0 vendorizado) | P3/P4 | **feito** | ✓ | ✓ | ✓ | `0e09587e`..`3d14e368`, `98239842` | | Tetos próprios contra bomba/laço; zoom e impressão |
+| L7 (10 itens) | Cabeçalho/CSS | EDT-007/008, PAS-024, PAS-049i, PMC-025/026/007, PAS-002, PAS-022, PAS-023 | P3–P5 | **feito** | ✓ | ✓ | ✓ | `e0e5e7e5`..`4ca881fb` | | `tests/Pasta` 2529 verdes após integrar |
+| FPN-032/020 | Push | Filtros com a lista vazia; notas técnicas penduradas sob o cartão com o teor fechado | P3 | **feito** | ✓ | ✓ | ✓ | `8d30a425`, `72dc6e53` | (mutação do tenant: cai) | Ids `-push` para não duplicar |
+
 **Novas divergências achadas no ciclo 1:**
 - **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
   sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
@@ -233,8 +241,8 @@ cada divergência A trabalhada e as filas B/C/D.
 - **PMC-061 (A, P4):** "Desfazer" de um reabrir grava a data de agora como conclusão, não a original.
 - **NOT-01 (A, P4):** excluir mensagem do Registro não apaga a notificação de menção/resposta (a prévia fica no sino
   e agora na Timeline de quem recebeu).
-- **SEC-014 (registrar):** o Acervo (`PastaRepository::findByFilters`) filtra só por tenant, sem acesso por pasta.
-  Anterior às trilhas. Conferir se está em `docs/AUTORIZACAO.md` como falha conhecida.
+- **SEC-014 → F (modelo documentado):** o Acervo lista por tenant e módulo; o acesso por item vale ao abrir. É o
+  modelo de `docs/AUTORIZACAO.md` (l.357-373: "o módulo governa apenas a descoberta/listagem").
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
@@ -297,6 +305,12 @@ Chat I.A; ver `inventario-ia.md`).
   processo; quem recebe o aviso de publicação nova.
 - **EDT:** Definir/Traduzir/Pesquisar na web (manda texto do cliente a terceiros); rascunho do editor em
   `localStorage`; dono do atalho Ctrl+K (link do editor × busca global), ligado a D-EDITOR e D-BARRA.
+- **Agenda (DASH-009):** o gestor vê na lista da pessoa eventos "Para Todos" de colegas dos quais não participa
+  (coerente com o contador e o `agenda_show`, não com o calendário). A lista sem filtro esconde "Para Todos" com
+  participantes (anterior).
+- **EDT-003r:** quer o "Imprimir" também nos menus do Registro e do Financeiro? (o desenho só o tem em Detalhes)
+- **FPN-020:** o bloco de notas pendurado sob o Push leva o cabeçalho "Notas técnicas · N", como na aba Processo; o
+  desenho do Push (dc:2534) não o mostra.
 - **IA-024:** ratificar a troca dos 10 comandos do desenho pelos 7 agentes. **IA-028:** "Enviar análise ao
   cliente" com cópia para uma Controladoria que não existe. **IA-032:** o botão do Dashboard usa o nome e a
   estrela da IA real sobre um painel por regras.
