@@ -135,9 +135,17 @@
     /** Formatos de trecho (não de linha) — os que o substituir preserva no texto novo. */
     var FORMATOS_DE_TRECHO = ['bold', 'italic', 'underline', 'strike', 'color', 'background'];
 
+    /**
+     * EDT-018: "Citação" no seletor de estilo do parágrafo, como o `popEstilo` do desenho (Normal ·
+     * Título 1 · Título 2 · Citação). O seletor é o do formato `header`; este valor não é um nível
+     * de título — o handler `header` o traduz para o formato `blockquote` (já permitido pelo
+     * sanitizador), e nunca chega a virar `header` no texto.
+     */
+    var ESTILO_CITACAO = 'citacao';
+
     var BARRA = [
         ['undo', 'redo'],
-        [{ header: [2, 3, false] }],
+        [{ header: [false, 2, 3, ESTILO_CITACAO] }],
         ['bold', 'italic', 'underline', 'strike', { color: PALETA_TEXTO }, { background: PALETA_REALCE }],
         [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }, { align: [] }],
         ['blockquote', 'simbolo', 'data'],
@@ -321,7 +329,7 @@
             if (porValor && porValor[valor]) {
                 item.setAttribute('title', porValor[valor]);
             } else if (classe === 'ql-header') {
-                item.setAttribute('title', { '': 'Normal', '2': 'Título 1', '3': 'Título 2' }[valor] || valor);
+                item.setAttribute('title', { '': 'Normal', '2': 'Título 1', '3': 'Título 2', citacao: 'Citação' }[valor] || valor);
             }
         });
     }
@@ -367,6 +375,39 @@
         // O seletor de estilo mostra o nome por CSS (`data-value` do rótulo); a seta é do desenho.
         var estilo = barra.querySelector('.ql-picker.ql-header .ql-picker-label');
         if (estilo) { estilo.innerHTML = icone('bi-chevron-expand'); }
+    }
+
+    /**
+     * Estilo do parágrafo escolhido no seletor (`bloco(t)` do desenho): Citação liga o
+     * `blockquote`; Normal desliga o que houver (título ou citação); Título 1/2 trocam o bloco —
+     * no Quill, título e citação são blocos excludentes, então o título substitui a citação.
+     */
+    function aplicarEstilo(quill, valor) {
+        if (valor === ESTILO_CITACAO) {
+            quill.format('blockquote', true, 'user');
+
+            return;
+        }
+        if (!valor) {
+            quill.format('blockquote', false, 'user');
+        }
+        quill.format('header', valor, 'user');
+    }
+
+    /**
+     * O Quill só sabe marcar no seletor o formato dele (`header`): com o cursor numa citação, o
+     * rótulo voltaria para "Normal". Depois de cada atualização da barra, se o bloco é citação, a
+     * opção Citação é marcada no seletor (e no rótulo, pelo `update` do próprio seletor do Quill).
+     */
+    function marcarCitacaoNoEstilo(refs) {
+        var seletor = refs.seletorEstilo;
+        var faixa = refs.quill.selection.getRange()[0];
+        if (!seletor || !faixa || !refs.quill.getFormat(faixa).blockquote) { return; }
+
+        var opcao = seletor.select.querySelector('option[value="' + ESTILO_CITACAO + '"]');
+        if (!opcao) { return; }
+        opcao.selected = true;
+        seletor.update();
     }
 
     function textoDoEditor(quill) {
@@ -1850,6 +1891,7 @@
                     handlers: {
                         undo: function () { this.quill.history.undo(); },
                         redo: function () { this.quill.history.redo(); },
+                        header: function (valor) { aplicarEstilo(this.quill, valor); },
                         localizar: function () { fecharJanela(refs); refs.busca.alternar(); },
                         simbolo: function () { abrirSimbolos(refs); },
                         data: function () { inserirDataDeHoje(refs); },
@@ -1903,6 +1945,13 @@
             refs.botaoSimbolo = barraFerramentas.querySelector('button.ql-simbolo');
             refs.botaoRevisar = barraFerramentas.querySelector('button.ql-revisar');
         }
+
+        // Citação no seletor de estilo (EDT-018). Registrado DEPOIS da barra e do tema do Quill:
+        // roda após eles terem marcado o seletor pelo `header`, e só corrige o caso da citação.
+        refs.seletorEstilo = ((quill.theme && quill.theme.pickers) || []).find(function (p) {
+            return p.select && p.select.classList.contains('ql-header');
+        }) || null;
+        quill.on('editor-change', function () { marcarCitacaoNoEstilo(refs); });
 
         refs.busca = montarBusca(refs);
         casca.insertBefore(refs.busca.elemento, alvo);
