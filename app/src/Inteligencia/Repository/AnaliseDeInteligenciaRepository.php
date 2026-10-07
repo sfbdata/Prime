@@ -71,6 +71,46 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * A trilha de IA de um alvo (rodapé "Registro de auditoria" do drawer): TODOS os tipos, todos
+     * os agentes e INCLUSIVE as excluídas — exclusão é só visual, a trilha fica. Mais recente
+     * primeiro, com o solicitante já carregado (sem N+1 no nome de quem pediu).
+     *
+     * @return AnaliseDeInteligencia[]
+     */
+    public function listarTrilhaDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, int $limite): array
+    {
+        return $this->createQueryBuilder('a')
+            ->leftJoin('a.solicitante', 's')
+            ->addSelect('s')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.alvoTipo = :alvoTipo')
+            ->andWhere('a.alvoId = :alvoId')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('alvoTipo', $alvoTipo)
+            ->setParameter('alvoId', $alvoId)
+            ->orderBy('a.criadaEm', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Quantas linhas a trilha do alvo tem ao todo (o N do "Registro de auditoria (N)"). */
+    public function contarTrilhaDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId): int
+    {
+        return (int) $this->createQueryBuilder('a')
+            ->select('COUNT(a.id)')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.alvoTipo = :alvoTipo')
+            ->andWhere('a.alvoId = :alvoId')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('alvoTipo', $alvoTipo)
+            ->setParameter('alvoId', $alvoId)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /** A análise em andamento (pendente ou processando) do alvo/tipo/agente, se houver — idempotência do pedido. */
     public function findPendenteDoAlvo(
         Tenant $tenant,

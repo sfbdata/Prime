@@ -42,6 +42,7 @@
     --ia-menu-bg:       #fff;
     --ia-menu-sombra:   0 8px 24px rgba(16, 42, 58, .18);
     --ia-off:           #8a97a0;
+    --ia-rodape-bg:     #fbfcfd;
     /* Selo, marca e chips do cartão: os mesmos roxos do Push. */
     --ia-roxo:          #5b3fb0;
     --ia-roxo-2:        #6a4bc4;
@@ -83,6 +84,7 @@
     --ia-menu-bg:       var(--bs-secondary-bg);
     --ia-menu-sombra:   0 8px 24px rgba(0, 0, 0, .5);
     --ia-off:           var(--bs-secondary-color);
+    --ia-rodape-bg:     var(--bs-tertiary-bg);
     --ia-roxo:          #b9a6f2;
     --ia-roxo-2:        #b9a6f2;
     --ia-roxo-icone:    #a99bd0;
@@ -521,6 +523,49 @@ a.ia-icone { text-decoration: none; }
 .ia-botao:disabled,
 .ia-menu-item:disabled,
 .ia-icone:disabled { opacity: .6; cursor: progress; }
+
+/* ── Rodapé "Registro de auditoria (N)" (dc L1030-1035) ── */
+.ia-drawer-audit {
+    flex-shrink: 0;
+    border-top: 1px solid var(--ia-anel);
+    background: var(--ia-rodape-bg);
+}
+.ia-audit-botao {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 9px 16px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--ia-texto-4);
+    cursor: pointer;
+    text-align: left;
+}
+.ia-audit-botao > .bi-journal-check { font-size: 12px; }
+.ia-audit-rotulo { flex: 1; }
+.ia-audit-seta { font-size: 10px; }
+.ia-audit-lista {
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 0 16px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ia-audit-lista[hidden] { display: none; }
+.ia-audit-linha { display: flex; gap: 8px; font-size: 11.5px; color: var(--ia-texto-3); }
+.ia-audit-hora {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 700;
+    color: var(--ia-azul-txt);
+    flex-shrink: 0;
+}
+.ia-audit-txt { flex: 1; min-width: 0; }
+.ia-audit-vazio { margin: 0; font-size: 11.5px; color: var(--ia-texto-4); }
 
 @media (max-width: 520px) {
     .ia-drawer { width: 100vw; }

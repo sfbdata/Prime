@@ -51,6 +51,9 @@
         <p class="ia-msg" data-ia-msg role="status" hidden></p>
         {{ include('inteligencia/_agentes_painel.html.twig', {painel: null, pastaId: pasta.id}) }}
     </div>
+    {# Rodapé "Registro de auditoria (N)" (dc L1030-1035): nasce sem dados; o JS busca
+       `inteligencia_auditoria_da_pasta` ao abrir o drawer e troca o rodapé inteiro. #}
+    {{ include('inteligencia/_auditoria.html.twig', {auditoria: null, pastaId: pasta.id}) }}
 </aside>
 <link rel="stylesheet" href="/css/pasta-ia-agentes.css">
 <script src="/js/pasta-ia-agentes.js" defer></script>

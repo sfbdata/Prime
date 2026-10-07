@@ -17,7 +17,10 @@
      6. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
         pré-preenchido, no mesmo contrato do pasta-ia-push.js;
      7. Copiar e Imprimir do cartão concluído, sobre o mesmo texto do "Baixar .txt"
-        (GET `inteligencia_analise_txt`).
+        (GET `inteligencia_analise_txt`);
+     8. rodapé "Registro de auditoria (N)": GET `inteligencia_auditoria_da_pasta`
+        a cada abertura do drawer e depois de cada recarga de agente; o chevron
+        abre e fecha a lista.
 
    Tudo por delegação no drawer: o painel e as listas são trocados inteiros.
    Sem JS, os formulários dos fragmentos seguem por POST comum.
@@ -89,6 +92,7 @@
             var fechar = drawer.querySelector('[data-ia-fechar]');
             if (fechar) { fechar.focus(); }
             carregarPainel();
+            recarregarAuditoria();
             retomar();
         }
 
@@ -113,6 +117,46 @@
             if (e.key !== 'Escape' || !aberto()) { return; }
             if (fecharMenus(null)) { return; }
             fechar();
+        });
+
+        /* ── 8. Registro de auditoria (IA-008) ─────────────────────────────── */
+        // O rodapé é trocado inteiro a cada recarga; o aberto/fechado sobrevive à troca.
+        var auditoriaAberta = false;
+        var carregandoAuditoria = false;
+
+        function rodape() { return drawer.querySelector('[data-ia-auditoria]'); }
+
+        function aplicarAuditoria(r) {
+            var botao = r ? r.querySelector('[data-ia-audit-alternar]') : null;
+            var lista = r ? r.querySelector('.ia-audit-lista') : null;
+            var seta = r ? r.querySelector('.ia-audit-seta') : null;
+            if (!botao || !lista) { return; }
+            lista.hidden = !auditoriaAberta;
+            botao.setAttribute('aria-expanded', auditoriaAberta ? 'true' : 'false');
+            if (seta) { seta.className = 'bi ia-audit-seta ' + (auditoriaAberta ? 'bi-chevron-down' : 'bi-chevron-up'); }
+        }
+
+        function recarregarAuditoria() {
+            var r = rodape();
+            if (!r || carregandoAuditoria) { return Promise.resolve(); }
+            carregandoAuditoria = true;
+
+            return buscarFragmento(r.getAttribute('data-ia-auditoria-url'))
+                .then(function (conteudo) {
+                    var novo = conteudo.querySelector('[data-ia-auditoria]');
+                    var atual = rodape();
+                    if (!novo || !atual) { return; }
+                    atual.replaceWith(novo);
+                    aplicarAuditoria(novo);
+                })
+                .catch(function () { /* o rodapé fica como estava; a lista principal avisa os erros */ })
+                .then(function () { carregandoAuditoria = false; });
+        }
+
+        drawer.addEventListener('click', function (e) {
+            if (!e.target.closest('[data-ia-audit-alternar]')) { return; }
+            auditoriaAberta = !auditoriaAberta;
+            aplicarAuditoria(rodape());
         });
 
         function carregarPainel() {
@@ -197,6 +241,7 @@
                     }
                     sincronizarBotao(secao);
                     acompanhar();
+                    recarregarAuditoria();
                 })
                 .catch(function (falha) {
                     avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar as análises.', true);

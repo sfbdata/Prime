@@ -20,6 +20,7 @@ use App\Inteligencia\UseCase\ConsultarStatusDaAnaliseUseCase;
 use App\Inteligencia\UseCase\ExcluirAnaliseUseCase;
 use App\Inteligencia\UseCase\ExportarAnaliseEmTextoUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
+use App\Inteligencia\UseCase\ListarAuditoriaDaPastaUseCase;
 use App\Inteligencia\UseCase\MarcarAnaliseComoLidaUseCase;
 use App\Inteligencia\UseCase\SolicitarResumoDoPushUseCase;
 use App\Pasta\Entity\Pasta;
@@ -44,6 +45,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *                                                 409 {motivo, mensagem} indisponível/bloqueado/vazio · 429 cota/ritmo · 503 fila indisponível
  *   GET  /pasta/{id}/ia/push/analises           → fragmento `inteligencia/_analises_push.html.twig`
  *   GET  /pasta/{id}/ia/analises/{analiseId}    → {id, status, statusRotulo, emAndamento, terminal, mensagem, motivoTecnico}
+ *   GET  /pasta/{id}/ia/auditoria               → fragmento `inteligencia/_auditoria.html.twig` (rodapé do drawer)
  *   GET  /pasta/{id}/ia/analises/{analiseId}.txt → a análise CONCLUÍDA em text/plain, como anexo (404 se não houver)
  *   POST …/{analiseId}/lida | /excluir | /interna → XHR: JSON · form comum: redirect para a pasta #push
  * CSRF: `_token` (campo ou header X-CSRF-Token); ids `inteligencia_push_{pastaId}` e
@@ -64,6 +66,7 @@ final class AnalisePushController extends AbstractController
         private readonly ExcluirAnaliseUseCase $excluir,
         private readonly AlternarAnaliseInternaUseCase $alternarInterna,
         private readonly ExportarAnaliseEmTextoUseCase $exportarTexto,
+        private readonly ListarAuditoriaDaPastaUseCase $listarAuditoria,
         // Interface (não a classe) pelo mesmo motivo do PoliticaPrivacidadeController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -111,6 +114,21 @@ final class AnalisePushController extends AbstractController
 
         return $this->render('inteligencia/_analises_push.html.twig', [
             'analisesIa' => $this->listar->executar($pasta, $tenant),
+            'pastaId' => (int) $pasta->getId(),
+        ]);
+    }
+
+    /**
+     * Rodapé "Registro de auditoria (N)" do drawer (desenho, dc L1030-1035): a trilha de IA desta
+     * pasta, lida de `inteligencia_analise` com tenant explícito. Mesma guarda das outras rotas.
+     */
+    #[Route('/auditoria', name: 'inteligencia_auditoria_da_pasta', methods: ['GET'])]
+    public function auditoria(Pasta $pasta): Response
+    {
+        [, $tenant] = $this->guardar($pasta);
+
+        return $this->render('inteligencia/_auditoria.html.twig', [
+            'auditoria' => $this->listarAuditoria->executar($pasta, $tenant),
             'pastaId' => (int) $pasta->getId(),
         ]);
     }
