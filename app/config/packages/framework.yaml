@@ -78,6 +78,14 @@ framework:
             policy: sliding_window
             limit: 3
             interval: '1 minute'
+        # Avisos no sino disparados pelo Registro da pasta — @menção e "respondeu seu comentário"
+        # (SEC-008): chave = id do AUTOR. Limita a NOTIFICAÇÃO, não a mensagem: estourou, a
+        # mensagem é gravada e o aviso é suprimido (com log). Cada mensagem pode avisar até 20
+        # pessoas; 30 avisos em 10 minutos cobre uma conversa intensa e põe teto no laço.
+        pasta_registro_notificacao:
+            policy: sliding_window
+            limit: 30
+            interval: '10 minutes'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true

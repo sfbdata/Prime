@@ -31,7 +31,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * `#pasta-msg-<id>`. Nunca o autor nem quem `$pular` indicar (precedência da resposta); só quem
  * tem acesso de leitura a ESTA pasta; anti-duplicata por destinatário + escritório + tipo + link —
  * o link é o da mensagem, então quem já foi avisado por ela (no envio ou numa edição anterior)
- * não recebe de novo.
+ * não recebe de novo. Por último, a cota do autor ({@see CotaDeNotificacoesDoRegistro}, SEC-008):
+ * estourada, o aviso é suprimido e a mensagem segue gravada — no envio e na edição.
  */
 final class ResolucaoDeMencoesDoRegistro
 {
@@ -48,6 +49,7 @@ final class ResolucaoDeMencoesDoRegistro
         private readonly NotificacaoRepository $notificacaoRepository,
         private readonly NotificacaoService $notificacaoService,
         private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly CotaDeNotificacoesDoRegistro $cota,
     ) {
     }
 
@@ -127,6 +129,11 @@ final class ResolucaoDeMencoesDoRegistro
                 'url'     => $url,
             ]);
             if ($jaExiste !== null) {
+                continue;
+            }
+
+            // Depois dos filtros: só aviso que de fato sairia gasta a cota do autor.
+            if (!$this->cota->permite($autor, $pessoa, Notificacao::TIPO_PASTA_MENCAO_REGISTRO, $mensagem)) {
                 continue;
             }
 

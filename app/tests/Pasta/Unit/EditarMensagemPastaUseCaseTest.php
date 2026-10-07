@@ -12,12 +12,14 @@ use App\Pasta\Exception\MensagemPastaNaoEditavelException;
 use App\Entity\Notificacao;
 use App\Entity\Permission\AccessRequest;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
+use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,6 +27,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 #[CoversClass(EditarMensagemPastaUseCase::class)]
@@ -35,6 +38,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
 
     private EntityManagerInterface&MockObject $em;
     private UserRepository&MockObject $userRepository;
+    private CotaDeNotificacoesDoRegistro $cota;
     private PermissionChecker&MockObject $permissionChecker;
     private NotificacaoRepository&MockObject $notificacaoRepository;
     private NotificacaoService&MockObject $notificacaoService;
@@ -51,6 +55,8 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
         $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
         $this->notificacaoService    = $this->createMock(NotificacaoService::class);
         $this->mencoes               = new MencoesDoRegistro($this->criarSanitizadorTextoRico());
+        // Cota que aceita sempre: os casos daqui não são sobre o teto (SEC-008 tem os próprios).
+        $this->cota                  = new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(), new NullLogger());
 
         // Como o real: roda o callback.
         $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
@@ -71,6 +77,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
                 $this->notificacaoRepository,
                 $this->notificacaoService,
                 $urlGenerator,
+                $this->cota,
             ),
         );
         $this->tenant  = new Tenant();
