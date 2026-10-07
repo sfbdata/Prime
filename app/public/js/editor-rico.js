@@ -834,6 +834,312 @@
         }
     }
 
+    // ── Menu do botão direito (`ctxMenu` do desenho, bj-editor.js l.693-762) ───────────────
+    //
+    // No padrão do Word: mini barra de formatação; Recortar, Copiar, Colar, Colar somente texto;
+    // Parágrafo (alinhar e recuar); Localizar e substituir, Revisar texto e Selecionar tudo. Cada
+    // item chama a MESMA função que a barra e os atalhos já usam (API do Quill: `format`,
+    // `removeFormat`, `setSelection`, a busca e a revisão) — o menu não grava marcação nova.
+    //
+    // Só o botão direito do MOUSE abre este menu. Shift + botão direito (como no desenho), o teclado
+    // (tecla de menu, Shift+F10) e o toque longo — casos que o desenho não cobre — seguem com o
+    // menu do navegador.
+    //
+    // Fora deste menu, de propósito: "Sugestões de correção" e "Sinônimos" (EDT-012), "Definir",
+    // "Traduzir" e "Pesquisar na web", "Inserir qualificação do cliente" (EDT-014) e "Hiperlink…"
+    // (EDT-025: a barra não tem link).
+    //
+    // Área de transferência: Recortar e Copiar usam a Clipboard API quando ela existe (texto e
+    // HTML do próprio editor) e, sem ela, o comando do navegador, que o Quill trata como Ctrl+C/X.
+    // Colar só lê a área de transferência com a permissão do navegador; sem ela, o aviso do
+    // desenho ("Use Ctrl+V para colar…") — e nada é colado. O que vem colado passa pelo MESMO
+    // conversor da colagem do Quill (`clipboard.convert`), que só deixa os FORMATOS do editor.
+
+    /** Últimas cores usadas na barra (desenho: `corAtual` #c0392f e `realceAtual` #fff3a3 no início). */
+    var COR_INICIAL = 'vermelho';
+    var REALCE_INICIAL = 'amarelo';
+
+    function fecharMenuContexto(refs) {
+        var m = refs.menuContexto;
+        if (!m) { return; }
+        m.elemento.remove();
+        document.removeEventListener('mousedown', m.foraDele, true);
+        document.removeEventListener('keydown', m.tecla, true);
+        window.removeEventListener('scroll', m.rolagem, true);
+        window.removeEventListener('resize', m.redimensionar);
+        refs.menuContexto = null;
+    }
+
+    /** Aviso curto no chip do editor (o `chip(html)` do desenho, sem "Desfazer"). */
+    function avisar(refs, texto) {
+        var faixa = refs.quill.getSelection();
+        mostrarChip(refs, faixa ? faixa.index : 0, textoDoChip('bi-magic', [{ texto: texto }]), [], 3600);
+    }
+
+    /** "Limpar formatação" igual ao botão da barra (handler `clean` do Quill). */
+    function limparFormatacao(quill, faixa) {
+        if (!faixa) { return; }
+        if (faixa.length === 0) {
+            var formatos = quill.getFormat();
+            Object.keys(formatos).forEach(function (nome) {
+                if (FORMATOS_DE_TRECHO.indexOf(nome) !== -1) { quill.format(nome, false, 'user'); }
+            });
+
+            return;
+        }
+        quill.removeFormat(faixa.index, faixa.length, 'user');
+    }
+
+    /** Recuo igual ao botão da barra (handler `indent` do Quill: relativo ao recuo atual). */
+    function recuar(quill, passo) {
+        var atual = parseInt(quill.getFormat().indent || 0, 10);
+        quill.format('indent', atual + passo, 'user');
+    }
+
+    function copiarSelecao(refs, faixa, recortar) {
+        var quill = refs.quill;
+        if (!faixa || faixa.length === 0) { return; }
+        var falhou = function () {
+            avisar(refs, recortar
+                ? 'Use Ctrl+X para recortar (o navegador bloqueou o acesso direto)'
+                : 'Use Ctrl+C para copiar (o navegador bloqueou o acesso direto)');
+        };
+        var depois = function () {
+            if (!recortar) { return; }
+            quill.deleteText(faixa.index, faixa.length, 'user');
+            quill.setSelection(faixa.index, 0, 'user');
+        };
+        var texto = quill.getText(faixa.index, faixa.length);
+        var api = navigator.clipboard;
+
+        if (api && api.write && typeof ClipboardItem !== 'undefined') {
+            var html = quill.getSemanticHTML(faixa.index, faixa.length);
+            api.write([new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([texto], { type: 'text/plain' }),
+            })]).then(depois, function () {
+                // Sem permissão para HTML (alguns navegadores): tenta só o texto.
+                (api.writeText ? api.writeText(texto) : Promise.reject(new Error('sem writeText'))).then(depois, falhou);
+            });
+
+            return;
+        }
+        if (api && api.writeText) {
+            api.writeText(texto).then(depois, falhou);
+
+            return;
+        }
+        // Sem Clipboard API: o comando do navegador dispara o copiar/recortar do próprio Quill.
+        quill.setSelection(faixa.index, faixa.length, 'silent');
+        var ok = false;
+        try { ok = document.execCommand(recortar ? 'cut' : 'copy'); } catch (erro) { ok = false; }
+        if (!ok) { falhou(); }
+    }
+
+    /**
+     * Cola no lugar guardado. HTML vai pelo conversor da colagem do Quill (`clipboard.convert`):
+     * o mesmo filtro de formatos do Ctrl+V. Texto puro herda a formatação do ponto.
+     */
+    function colarConteudo(refs, faixa, html, texto) {
+        var quill = refs.quill;
+        if (!quill) { return; }
+        var f = faixa || { index: Math.max(quill.getLength() - 1, 0), length: 0 };
+        quill.focus();
+        if (!html) {
+            if (texto) { inserirTexto(quill, f, texto); }
+
+            return;
+        }
+        var Delta = Quill.import('delta');
+        var conteudo = quill.clipboard.convert({ html: html, text: texto || '' });
+        quill.updateContents(new Delta().retain(f.index).delete(f.length).concat(conteudo), 'user');
+        quill.setSelection(Math.min(f.index + conteudo.length(), quill.getLength() - 1), 0, 'user');
+    }
+
+    function colarDaAreaDeTransferencia(refs, faixa, somenteTexto) {
+        var api = navigator.clipboard;
+        var bloqueado = function () { avisar(refs, 'Use Ctrl+V para colar (o navegador bloqueou o acesso direto)'); };
+        if (!api || !api.readText) { bloqueado(); return; }
+
+        var soTexto = function () {
+            api.readText().then(function (t) { colarConteudo(refs, faixa, '', t); }, bloqueado);
+        };
+        if (somenteTexto || !api.read) { soTexto(); return; }
+
+        // Imagem colada fica para o EDT-026: aqui só HTML e texto.
+        api.read().then(function (itens) {
+            return Promise.all(itens.map(function (item) {
+                if (item.types.indexOf('text/html') !== -1) {
+                    return item.getType('text/html').then(function (b) { return b.text(); }).then(function (h) { return { html: h }; });
+                }
+                if (item.types.indexOf('text/plain') !== -1) {
+                    return item.getType('text/plain').then(function (b) { return b.text(); }).then(function (t) { return { texto: t }; });
+                }
+
+                return {};
+            }));
+        }).then(function (partes) {
+            var html = partes.map(function (p) { return p.html || ''; }).join('');
+            var texto = partes.map(function (p) { return p.texto || ''; }).join('');
+            colarConteudo(refs, faixa, html, texto);
+        }, soTexto);
+    }
+
+    function botaoDoMenu(iconeHtml, titulo, ativo, acao) {
+        var b = semRoubarFoco(el('button', 'editor-rico-menu-botao' + (ativo ? ' editor-rico-ativo' : '')));
+        b.type = 'button';
+        b.title = titulo;
+        b.setAttribute('aria-label', titulo);
+        b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        b.innerHTML = iconeHtml; // só ícone constante deste arquivo — nunca dado
+        b.addEventListener('click', acao);
+
+        return b;
+    }
+
+    function itemDoMenu(iconeNome, rotulo, atalho, desabilitado, acao) {
+        var b = semRoubarFoco(el('button', 'editor-rico-menu-item'));
+        b.type = 'button';
+        b.setAttribute('role', 'menuitem');
+        b.innerHTML = icone(iconeNome);
+        b.appendChild(el('span', '', rotulo));
+        if (atalho) { b.appendChild(el('span', 'editor-rico-menu-atalho', atalho)); }
+        if (desabilitado) { b.disabled = true; }
+        b.addEventListener('click', acao);
+
+        return b;
+    }
+
+    /** Ícone + barrinha da última cor (`.bjed-bar`); a cor é a variável CSS da paleta, por nome. */
+    function iconeComCor(nome, variavel) {
+        var caixa = el('span');
+        caixa.innerHTML = icone(nome);
+        var barra = el('span', 'editor-rico-menu-cor');
+        barra.setAttribute('aria-hidden', 'true');
+        barra.style.backgroundColor = 'var(' + variavel + ')';
+        caixa.appendChild(barra);
+
+        return caixa.innerHTML;
+    }
+
+    function abrirMenuContexto(refs, x, y) {
+        var quill = refs.quill;
+        fecharMenuContexto(refs);
+        fecharJanela(refs);
+        fecharChip(refs);
+        if (refs.fecharSugestoes) { refs.fecharSugestoes(); }
+
+        var faixa = quill.getSelection() || quill.getSelection(true);
+        var formatos = faixa ? quill.getFormat(faixa) : {};
+        var temSelecao = !!(faixa && faixa.length > 0);
+        var cor = refs.ultimaCor || COR_INICIAL;
+        var realce = refs.ultimoRealce || REALCE_INICIAL;
+
+        // Toda ação fecha o menu e devolve o cursor/seleção de antes ao texto.
+        function executar(acao) {
+            return function () {
+                fecharMenuContexto(refs);
+                quill.focus();
+                if (faixa) { quill.setSelection(faixa.index, faixa.length, 'silent'); }
+                acao();
+            };
+        }
+
+        var menu = el('div', 'editor-rico-menu');
+        menu.setAttribute('role', 'menu');
+        menu.setAttribute('aria-label', 'Menu do editor');
+
+        var barra = el('div', 'editor-rico-menu-barra');
+        [
+            [icone('bi-type-bold'), 'Negrito', !!formatos.bold, function () { quill.format('bold', !formatos.bold, 'user'); }],
+            [icone('bi-type-italic'), 'Itálico', !!formatos.italic, function () { quill.format('italic', !formatos.italic, 'user'); }],
+            [icone('bi-type-underline'), 'Sublinhado', !!formatos.underline, function () { quill.format('underline', !formatos.underline, 'user'); }],
+            [icone('bi-type-strikethrough'), 'Tachado', !!formatos.strike, function () { quill.format('strike', !formatos.strike, 'user'); }],
+            [iconeComCor('bi-highlighter', '--er-realce-' + realce), 'Realçar com a última cor', false, function () { quill.format('background', realce, 'user'); }],
+            [iconeComCor('bi-fonts', '--er-cor-' + cor), 'Cor da fonte (última usada)', false, function () { quill.format('color', cor, 'user'); }],
+            [icone('bi-list-ul'), 'Marcadores', formatos.list === 'bullet', function () { quill.format('list', formatos.list === 'bullet' ? false : 'bullet', 'user'); }],
+            [icone('bi-list-ol'), 'Numeração', formatos.list === 'ordered', function () { quill.format('list', formatos.list === 'ordered' ? false : 'ordered', 'user'); }],
+            [icone('bi-type-h2'), 'Título', formatos.header === 2, function () { quill.format('header', formatos.header === 2 ? false : 2, 'user'); }],
+            [icone('bi-eraser'), 'Limpar formatação', false, function () { limparFormatacao(quill, quill.getSelection()); }],
+        ].forEach(function (b) { barra.appendChild(botaoDoMenu(b[0], b[1], b[2], executar(b[3]))); });
+        menu.appendChild(barra);
+
+        menu.appendChild(itemDoMenu('bi-scissors', 'Recortar', 'Ctrl+X', !temSelecao, executar(function () { copiarSelecao(refs, faixa, true); })));
+        menu.appendChild(itemDoMenu('bi-copy', 'Copiar', 'Ctrl+C', !temSelecao, executar(function () { copiarSelecao(refs, faixa, false); })));
+        menu.appendChild(itemDoMenu('bi-clipboard', 'Colar', 'Ctrl+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, false); })));
+        menu.appendChild(itemDoMenu('bi-clipboard-check', 'Colar somente texto', 'Ctrl+Shift+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, true); })));
+        menu.appendChild(el('div', 'editor-rico-menu-separador'));
+
+        menu.appendChild(cabecalhoDaJanela('Parágrafo'));
+        var paragrafo = el('div', 'editor-rico-menu-barra editor-rico-menu-barra-paragrafo');
+        [
+            ['bi-text-left', 'À esquerda', !formatos.align, function () { quill.format('align', false, 'user'); }],
+            ['bi-text-center', 'Centralizado', formatos.align === 'center', function () { quill.format('align', 'center', 'user'); }],
+            ['bi-text-right', 'À direita', formatos.align === 'right', function () { quill.format('align', 'right', 'user'); }],
+            ['bi-justify', 'Justificado', formatos.align === 'justify', function () { quill.format('align', 'justify', 'user'); }],
+            ['bi-text-indent-right', 'Diminuir recuo', false, function () { recuar(quill, -1); }],
+            ['bi-text-indent-left', 'Aumentar recuo', false, function () { recuar(quill, 1); }],
+        ].forEach(function (b) { paragrafo.appendChild(botaoDoMenu(icone(b[0]), b[1], b[2], executar(b[3]))); });
+        menu.appendChild(paragrafo);
+        menu.appendChild(el('div', 'editor-rico-menu-separador'));
+
+        menu.appendChild(itemDoMenu('bi-search', 'Localizar e substituir', 'Ctrl+H', false, executar(function () { refs.busca.abrir(); })));
+        menu.appendChild(itemDoMenu('bi-spellcheck', 'Revisar texto', '', false, executar(function () {
+            abrirJanela(refs, refs.botaoRevisar, conteudoDaRevisao(refs));
+        })));
+        menu.appendChild(itemDoMenu('bi-check2-all', 'Selecionar tudo', 'Ctrl+A', false, function () {
+            fecharMenuContexto(refs);
+            quill.focus();
+            quill.setSelection(0, Math.max(quill.getLength() - 1, 0), 'user');
+        }));
+
+        refs.casca.appendChild(menu);
+        var largura = menu.offsetWidth;
+        var altura = menu.offsetHeight;
+        menu.style.left = Math.max(8, Math.min(x, window.innerWidth - largura - 8)) + 'px';
+        menu.style.top = Math.max(8, Math.min(y, window.innerHeight - altura - 8)) + 'px';
+
+        var estado = {
+            elemento: menu,
+            foraDele: function (e) { if (!menu.contains(e.target)) { fecharMenuContexto(refs); } },
+            // Esc fecha o menu (e só ele: um modal em volta continua aberto).
+            tecla: function (e) {
+                if (e.key !== 'Escape') { return; }
+                e.preventDefault();
+                e.stopPropagation();
+                fecharMenuContexto(refs);
+                quill.focus();
+            },
+            rolagem: function (e) { if (!menu.contains(e.target)) { fecharMenuContexto(refs); } },
+            redimensionar: function () { fecharMenuContexto(refs); },
+        };
+        document.addEventListener('mousedown', estado.foraDele, true);
+        document.addEventListener('keydown', estado.tecla, true);
+        window.addEventListener('scroll', estado.rolagem, true);
+        window.addEventListener('resize', estado.redimensionar);
+        refs.menuContexto = estado;
+    }
+
+    /**
+     * Liga o menu ao editor. Só abre para o botão direito do MOUSE (lembrado no `pointerdown` logo
+     * antes): o `contextmenu` do teclado e do toque não tem esse `pointerdown` e fica com o menu
+     * do navegador. No Mac, Ctrl+clique é o botão direito.
+     */
+    function ligarMenuContexto(refs) {
+        var raiz = refs.quill.root;
+        raiz.addEventListener('pointerdown', function (e) {
+            var direito = e.button === 2 || (e.button === 0 && e.ctrlKey);
+            refs.botaoDireitoEm = e.pointerType === 'mouse' && direito ? Date.now() : 0;
+        });
+        raiz.addEventListener('contextmenu', function (e) {
+            var doMouse = refs.botaoDireitoEm && Date.now() - refs.botaoDireitoEm < 1500;
+            refs.botaoDireitoEm = 0;
+            if (e.shiftKey || !doMouse) { return; } // Shift + botão direito: menu do navegador
+            e.preventDefault();
+            abrirMenuContexto(refs, e.clientX, e.clientY);
+        });
+    }
+
     // ── Localizar e substituir ──────────────────────────────────────────────────────────────
     //
     // Tudo pela API do Quill (índices de `getText()`, que coincidem com os do documento porque o
@@ -1258,6 +1564,15 @@
                         simbolo: function () { abrirSimbolos(refs); },
                         data: function () { inserirDataDeHoje(refs); },
                         revisar: function () { abrirRevisao(refs); },
+                        // A cor/realce escolhidos ficam lembrados para a mini barra do botão direito.
+                        color: function (valor) {
+                            if (valor) { refs.ultimaCor = valor; }
+                            this.quill.format('color', valor, 'user');
+                        },
+                        background: function (valor) {
+                            if (valor) { refs.ultimoRealce = valor; }
+                            this.quill.format('background', valor, 'user');
+                        },
                     },
                 },
                 keyboard: {
@@ -1290,6 +1605,10 @@
 
         refs.rodape = montarRodape();
         casca.appendChild(refs.rodape.elemento);
+
+        refs.ultimaCor = COR_INICIAL;
+        refs.ultimoRealce = REALCE_INICIAL;
+        ligarMenuContexto(refs);
 
         // Conteúdo pré-existente: HTML já sanitizado pelo servidor, ou legado em texto puro.
         if (conteudoInicial !== '') {
@@ -1397,6 +1716,7 @@
         clearTimeout(refs.rodape && refs.rodape.temporizador);
         fecharJanela(refs);
         fecharChip(refs);
+        fecharMenuContexto(refs);
         refs.casca.remove();
         refs.quill = null;
         textarea.classList.remove('editor-rico-oculta');

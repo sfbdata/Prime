@@ -660,6 +660,120 @@
 
 [data-bs-theme="dark"] .editor-rico-chip { box-shadow: 0 0 0 1px var(--bs-border-color), 0 10px 24px -10px rgba(0, 0, 0, .7); }
 
+/* ── Menu do botão direito (`.bjed-cm`, `.bjed-mt`, `.bjed-cmsep`) ─────────────────────────
+ * Fixo na tela, no ponto do clique (o JS limita às bordas). Mora dentro da casca para herdar
+ * os tokens `--er-*` dos dois temas. */
+.editor-rico {
+    --er-menu-sombra:  0 1px 2px rgba(16, 42, 58, .08), 0 18px 40px -12px rgba(10, 50, 80, .42);
+    --er-menu-icone:   #5f7684;
+    --er-menu-off:     #b3c0c9;
+    --er-menu-off-ic:  #c8d3da;
+    --er-menu-linha:   #eef2f5;
+    --er-atalho:       #8496a3;
+}
+
+[data-bs-theme="dark"] .editor-rico {
+    --er-menu-sombra:  0 0 0 1px var(--bs-border-color), 0 18px 40px -12px rgba(0, 0, 0, .7);
+    --er-menu-icone:   var(--bs-secondary-color);
+    --er-menu-off:     rgba(255, 255, 255, .3);
+    --er-menu-off-ic:  rgba(255, 255, 255, .22);
+    --er-menu-linha:   var(--bs-border-color);
+    --er-atalho:       var(--bs-secondary-color);
+}
+
+.editor-rico-menu {
+    position: fixed;
+    z-index: 400;
+    min-width: 250px;
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+    padding: 5px;
+    border-radius: 4px;
+    background: var(--er-pop-bg);
+    box-shadow: var(--er-menu-sombra);
+    font-family: inherit;
+    text-align: left;
+    animation: editor-rico-entrar .12s both;
+}
+
+/* Mini barra de formatação e a fileira do Parágrafo. */
+.editor-rico-menu-barra {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px 3px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--er-menu-linha);
+}
+.editor-rico-menu-barra-paragrafo { border-bottom: 0; margin-bottom: 0; }
+
+.editor-rico-menu-botao {
+    position: relative;
+    flex-shrink: 0;
+    width: 28px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--er-icone);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .12s, color .12s, box-shadow .12s;
+}
+.editor-rico-menu-botao:hover {
+    background: var(--er-hover-bg);
+    color: var(--er-acento);
+    box-shadow: var(--er-hover-sombra);
+}
+.editor-rico-menu-botao.editor-rico-ativo { background: var(--er-ativo-bg); color: var(--er-ativo-tx); box-shadow: none; }
+
+/* `.bjed-bar`: a última cor usada, sob o ícone. */
+.editor-rico-menu-cor {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 4px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+/* `.bjed-cm .bjed-it` */
+.editor-rico-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--er-item-tx);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.editor-rico-menu-item:hover { background: var(--er-item-hover); }
+.editor-rico-menu-item i { width: 16px; font-size: 14px; text-align: center; color: var(--er-menu-icone); }
+.editor-rico-menu-item:disabled { color: var(--er-menu-off); cursor: default; background: transparent; }
+.editor-rico-menu-item:disabled i { color: var(--er-menu-off-ic); }
+
+/* `.bjed-k` */
+.editor-rico-menu-atalho {
+    margin-left: auto;
+    padding-left: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    color: var(--er-atalho);
+}
+
+/* `.bjed-cmsep` */
+.editor-rico-menu-separador { height: 1px; margin: 4px 8px; background: var(--er-menu-linha); }
+
 /* ── Localizar e substituir (`.bjed-find`) ───────────────────────────────────────────────── */
 
 .editor-rico-busca {
