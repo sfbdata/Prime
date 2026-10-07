@@ -42,9 +42,12 @@
 <script src="{{ asset('js/pasta-processo.js') }}" defer></script>
 {# "Administrativo sem processo" (desenho 1.2.3, `admSPtoggle`, dc L.1580): interruptor no
    cabeçalho, entre o espaço e "Vincular processo". É um form comum (POST + CSRF →
-   PastaAdministrativaController), que volta para a aba Processo — o parcial é trocado por XHR
-   em outras ações e o form segue funcionando sem JS. Manda o ESTADO FINAL (o contrário do atual).
-   Marcar com processo vinculado pede confirmação (texto do desenho); não impede. Vincular continua
+   PastaAdministrativaController): sem JS, recarrega e volta para a aba Processo. Com JS,
+   pasta-processo.js intercepta o submit, vira o interruptor na hora, manda por XHR e troca o
+   cartão pelo `html` que o servidor devolve (parcial do Twig, autoescapado); se o servidor
+   recusar, o interruptor volta e a mensagem aparece. Manda o ESTADO FINAL (o contrário do atual).
+   Marcar com processo vinculado pede confirmação (texto do desenho, em `data-confirmar`, lido
+   pelo JS); não impede. Vincular continua
    disponível com a pasta marcada. Medidas do desenho: rótulo 11px/700 caixa-alta, cinza
    (#7b93a2) desligado e laranja (#b4460a) ligado; trilho 34×18 (#c5d0d8 / #e8873a), bola 14px. #}
 {% set administrativa = pasta.administrativa %}
@@ -58,6 +61,7 @@
 .ps-adm-sw.is-ligado .ps-adm-sw-rotulo { color: #b4460a; }
 .ps-adm-sw.is-ligado .ps-adm-sw-trilho { background: #e8873a; }
 .ps-adm-sw.is-ligado .ps-adm-sw-bola { left: 18px; }
+.ps-adm-sw[aria-busy="true"] { cursor: progress; }
 </style>
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
@@ -68,10 +72,10 @@
         {% set principalAdm = vinculos|length > 0 ? pasta.vinculoPrincipal : null %}
         {% set confirmaAdm = null %}
         {% if not administrativa and principalAdm %}
-            {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ ' vinculado. Marcar mesmo assim como "Administrativo sem processo"?' %}
+            {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"?" %}
         {% endif %}
         <form method="post" action="{{ path('pasta_administrativa_definir', {id: pasta.id}) }}" class="ps-adm-form js-pasta-administrativa"
-              {%- if confirmaAdm %} onsubmit="return confirm('{{ confirmaAdm|e('js') }}');"{% endif %}>
+              {%- if confirmaAdm %} data-confirmar="{{ confirmaAdm }}"{% endif %}>
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_administrativa_' ~ pasta.id) }}">
             <input type="hidden" name="administrativa" value="{{ administrativa ? '0' : '1' }}">
             <button type="submit" role="switch" aria-checked="{{ administrativa ? 'true' : 'false' }}"
@@ -142,26 +146,9 @@
                             <span class="ps-processo-principal"><i class="bi bi-star-fill"></i>Principal</span>
                         {% endif %}
                         <span class="ps-cab-espaco"></span>
+                        {# Desenho (N4, dc L.1689-1690): no cartão só o copiar, o selo Principal e o ⋮.
+                           Tornar principal, abrir o processo e desvincular moram no ⋮. #}
                         <div class="ps-processo-acoes">
-                            {% if not ehPrincipal %}
-                                <form method="post" action="{{ path('pasta_definir_processo_principal', {id: pasta.id}) }}" class="js-ajax-processo-principal m-0">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_definir_principal_processo_' ~ pasta.id) }}">
-                                    <input type="hidden" name="processo_id" value="{{ proc.id }}">
-                                    <button type="submit" class="ps-btn ps-btn--icone ps-btn--mini" title="Tornar processo principal" aria-label="Tornar processo principal">
-                                        <i class="bi bi-star"></i>
-                                    </button>
-                                </form>
-                            {% endif %}
-                            <a href="{{ path('processo_show', {id: proc.id}) }}" class="ps-btn ps-btn--icone ps-btn--mini" title="Ver processo completo" aria-label="Ver processo completo">
-                                <i class="bi bi-box-arrow-up-right"></i>
-                            </a>
-                            <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
-                                <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
-                                <input type="hidden" name="processo_id" value="{{ proc.id }}">
-                                <button type="submit" class="ps-btn ps-btn--icone ps-btn--mini ps-btn--perigo" title="Desvincular processo da pasta" aria-label="Desvincular processo da pasta">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
                             <button type="button" class="ps-processo-menu-gatilho js-proc-menu-gatilho"
                                     title="Mais opções" aria-label="Mais opções do processo"
                                     aria-haspopup="menu" aria-expanded="false" aria-controls="{{ menuId }}">
@@ -169,9 +156,13 @@
                             </button>
                         </div>
                     </div>
-                    {# ⋮ do desenho (procMenu), só com o que tem função hoje. Fora: Abrir no PJe,
+                    {# ⋮ do desenho (procMenu, dc L.2914), só com o que tem função hoje. Fora: Abrir no PJe,
                        Editar/Atualizar dados do PJe, Encaminhar via Chat I.A, Relatório geral,
-                       Imprimir resumo. Desvincular continua no botão da lixeira (form com CSRF). #}
+                       Imprimir resumo. "Ver processo completo" ocupa o lugar do "Abrir no PJe"
+                       (mesmo ícone; abre o cadastro do sistema). Por último, como no desenho,
+                       as ações do vínculo: Tornar principal (o desenho é omisso — função que já
+                       existia no cartão) e "Desvincular da pasta". As duas são forms com CSRF,
+                       interceptados pelo submit delegado do show.html.twig (`.js-ajax-*`). #}
                     <div class="ps-processo-menu" id="{{ menuId }}" role="menu" hidden>
                         <div class="ps-processo-menu-titulo">Processo {{ proc.numeroProcesso|numero_cnj }}</div>
                         {# Mesmo gatilho do botão do bloco de notas (nota-tecnica.js aceita `data-notas`). #}
@@ -180,6 +171,9 @@
                             <i class="bi bi-journal-plus"></i><span>Adicionar nota técnica</span>
                         </button>
                         <div class="ps-processo-menu-sep" role="separator"></div>
+                        <a href="{{ path('processo_show', {id: proc.id}) }}" class="ps-processo-menu-item" role="menuitem">
+                            <i class="bi bi-box-arrow-up-right"></i><span>Ver processo completo</span>
+                        </a>
                         {% if temDetalhe %}
                             <button type="button" class="ps-processo-menu-item js-proc-alternar-menu" role="menuitem"
                                     data-botao="#{{ botaoMaisId }}">
@@ -206,6 +200,23 @@
                                 data-resumo="{{ resumo|json_encode|e('html_attr') }}" hidden>
                             <i class="bi bi-share"></i><span>Compartilhar</span>
                         </button>
+                        <div class="ps-processo-menu-sep" role="separator"></div>
+                        {% if not ehPrincipal %}
+                            <form method="post" action="{{ path('pasta_definir_processo_principal', {id: pasta.id}) }}" class="js-ajax-processo-principal m-0">
+                                <input type="hidden" name="_token" value="{{ csrf_token('pasta_definir_principal_processo_' ~ pasta.id) }}">
+                                <input type="hidden" name="processo_id" value="{{ proc.id }}">
+                                <button type="submit" class="ps-processo-menu-item" role="menuitem">
+                                    <i class="bi bi-star"></i><span>Tornar processo principal</span>
+                                </button>
+                            </form>
+                        {% endif %}
+                        <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
+                            <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
+                            <input type="hidden" name="processo_id" value="{{ proc.id }}">
+                            <button type="submit" class="ps-processo-menu-item" role="menuitem">
+                                <i class="bi bi-x-lg"></i><span>Desvincular da pasta</span>
+                            </button>
+                        </form>
                     </div>
                     {# Só o que o cadastro tem (Datajud/manual). Campo vazio diz "Não informado",
                        como no desenho — nunca um valor inventado. #}

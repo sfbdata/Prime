@@ -276,9 +276,15 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($menu->attr('hidden'));
         self::assertSame('Processo ' . self::NUMERO_MASCARA, trim($menu->filter('.ps-processo-menu > .ps-processo-menu-titulo')->text()));
 
+        // Ordem do procMenu do desenho (dc L.2914); o único processo é o principal, então não
+        // há "Tornar processo principal". Desvincular é o último, como no desenho.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver todas as informações', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar'],
-            $this->textos($menu->filter('.ps-processo-menu > .ps-processo-menu-item')),
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Desvincular da pasta'],
+            $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
+        );
+        self::assertSame(
+            '/processos/' . $processo->getId(),
+            parse_url((string) $menu->filter('.ps-processo-menu > a.ps-processo-menu-item')->attr('href'), \PHP_URL_PATH),
         );
 
         // Nota técnica: o gatilho do nota-tecnica.js aponta para o bloco DESTE processo, que existe.
@@ -303,6 +309,53 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
 
         // Nada de link morto.
         self::assertCount(0, $menu->filter('a[href="#"], [disabled]'));
+    }
+
+    #[TestDox('N4: no cartão só o copiar, o selo Principal e o ⋮; estrela, abrir e desvincular moram no ⋮ do PRÓPRIO processo')]
+    public function testAcoesDoCartaoMoramNoMenu(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        // O primeiro vínculo vira o principal; o segundo é o que oferece "tornar principal".
+        $principal = $this->criarProcesso($tenant, '07022222220258070007');
+        $this->vincular($pasta, $principal);
+        $outro = $this->processoCompleto($pasta);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        $cartoes = $crawler->filter('#processoTabContent > .ps-processos > .ps-registro > article.ps-processo');
+        self::assertCount(2, $cartoes);
+
+        foreach ([$principal, $outro] as $proc) {
+            $cartao = $crawler->filter('#processoTabContent > .ps-processos > .ps-registro > article.ps-processo[data-processo-id="' . $proc->getId() . '"]');
+            self::assertCount(1, $cartao);
+
+            // Ações do cartão: só o ⋮ (o copiar fica ao lado do número).
+            $acoes = $cartao->filter('article.ps-processo > .ps-processo-topo > .ps-processo-acoes');
+            self::assertSame(['button'], $acoes->children()->each(static fn (Crawler $n): string => $n->nodeName()));
+            self::assertCount(1, $acoes->filter('.ps-processo-acoes > button.js-proc-menu-gatilho'));
+            self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-topo > .ps-copiar[data-copy]'));
+            self::assertCount(0, $cartao->filter('.ps-processo-topo form, .ps-processo-topo .bi-trash, .ps-processo-topo .bi-star, .ps-processo-topo .bi-box-arrow-up-right'));
+
+            // Os forms com CSRF continuam, agora como itens do ⋮.
+            $menu = $cartao->filter('article.ps-processo > .ps-processo-menu');
+            $desv = $menu->filter('.ps-processo-menu > form.js-ajax-desvincular-processo');
+            self::assertCount(1, $desv);
+            self::assertSame((string) $proc->getId(), $desv->filter('input[name="processo_id"]')->attr('value'));
+            self::assertNotSame('', (string) $desv->filter('input[name="_token"]')->attr('value'));
+            self::assertSame('Desvincular da pasta', trim($desv->filter('button[type="submit"].ps-processo-menu-item[role="menuitem"]')->text()));
+        }
+
+        $menuPrincipal = $crawler->filter('article.ps-processo[data-processo-id="' . $principal->getId() . '"] > .ps-processo-menu');
+        self::assertCount(0, $menuPrincipal->filter('form.js-ajax-processo-principal'), 'o principal não oferece "tornar principal"');
+        self::assertCount(1, $crawler->filter('article.ps-processo[data-processo-id="' . $principal->getId() . '"] > .ps-processo-topo > .ps-processo-principal'));
+
+        $menuOutro = $crawler->filter('article.ps-processo[data-processo-id="' . $outro->getId() . '"] > .ps-processo-menu');
+        $tornar    = $menuOutro->filter('.ps-processo-menu > form.js-ajax-processo-principal');
+        self::assertCount(1, $tornar);
+        self::assertSame((string) $outro->getId(), $tornar->filter('input[name="processo_id"]')->attr('value'));
+        self::assertSame('Tornar processo principal', trim($tornar->filter('button[type="submit"].ps-processo-menu-item')->text()));
     }
 
     #[TestDox('⋮ Copiar resumo: texto montado só com os dados reais do processo e da pasta — linha vazia não entra')]

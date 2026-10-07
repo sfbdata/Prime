@@ -6,7 +6,10 @@
    - ⋮ do cartão: menu `.ps-processo-menu` (fixo, posicionado pelo gatilho), só
      com o que tem função hoje: nota técnica (nota-tecnica.js), alternar o
      painel, ir à aba Push, copiar número, copiar resumo e Compartilhar — este
-     só aparece onde o navegador tem `navigator.share`.
+     só aparece onde o navegador tem `navigator.share`. Tornar principal e
+     Desvincular também moram no ⋮, mas são forms `.js-ajax-*` do show.html.twig.
+   - "Administrativo sem processo" (interruptor do cabeçalho, `admSPtoggle` do
+     desenho): ver o bloco no fim do arquivo.
 
    Tudo por delegação no `document`: o parcial `_processos_vinculados` volta por
    XHR (vincular / desvincular / principal) e o cartão novo já nasce funcionando.
@@ -183,5 +186,82 @@
         // Disparado pelos outros menus da tela; o próprio abrirMenu dispara antes
         // de registrar `aberto`, então não se fecha a si mesmo.
         fechar(false);
+    });
+
+    /* ── "Administrativo sem processo" sem recarregar ───────────────────────
+       O form `.js-pasta-administrativa` funciona sozinho (POST + CSRF + recarga).
+       Com JS: confirmação do `data-confirmar` (só existe quando há processo
+       vinculado e o pedido é ligar), o interruptor vira NA HORA, o POST vai por
+       XHR com o mesmo FormData (token incluso) e, no sucesso, o cartão inteiro é
+       trocado pelo `html` da resposta via `window.mpSwapProcessos` (show.html.twig).
+       Esse HTML é o parcial `_processos_vinculados` renderizado pelo Twig no
+       servidor, com autoescape — nenhum dado do usuário é montado em string aqui.
+       Se o servidor recusar (403/404/422, sessão expirada, rede), o interruptor
+       volta ao estado anterior e a mensagem do servidor (`erro`) aparece. */
+    function pintarInterruptor(botao, ligado) {
+        botao.classList.toggle('is-ligado', ligado);
+        botao.setAttribute('aria-checked', ligado ? 'true' : 'false');
+    }
+
+    function falhaAdministrativa(form, botao, ligadoAntes, mensagem) {
+        pintarInterruptor(botao, ligadoAntes);
+        botao.disabled = false;
+        botao.removeAttribute('aria-busy');
+        delete form.dataset.enviando;
+        window.alert(mensagem || 'Não foi possível alterar "Administrativo sem processo". Tente de novo.');
+        botao.focus();
+    }
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('form.js-pasta-administrativa')) { return; }
+        // Sem fetch, segue o caminho sem JS (POST + recarga).
+        if (typeof window.fetch !== 'function' || typeof window.FormData !== 'function') { return; }
+
+        e.preventDefault();
+        if (form.dataset.enviando) { return; }
+
+        var confirmar = form.getAttribute('data-confirmar');
+        if (confirmar && !window.confirm(confirmar)) { return; }
+
+        var botao = form.querySelector('button[role="switch"]');
+        if (!botao) { form.submit(); return; }
+
+        var ligadoAntes = botao.getAttribute('aria-checked') === 'true';
+        var corpo = new FormData(form);
+        form.dataset.enviando = '1';
+        pintarInterruptor(botao, !ligadoAntes);
+        botao.disabled = true;
+        botao.setAttribute('aria-busy', 'true');
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: corpo,
+        }).then(function (resp) {
+            return resp.json().catch(function () { return {}; }).then(function (dados) {
+                return { ok: resp.ok, dados: dados || {} };
+            });
+        }, function () {
+            // Só a falha de REDE desfaz aqui: um erro depois da troca não pode
+            // "desligar" na tela o que o servidor já gravou.
+            falhaAdministrativa(form, botao, ligadoAntes, 'Erro de comunicação. A marcação pode não ter sido salva — recarregue a página.');
+            return null;
+        }).then(function (r) {
+            if (!r) { return; }
+            if (!r.ok || r.dados.sucesso !== true || typeof r.dados.html !== 'string') {
+                falhaAdministrativa(form, botao, ligadoAntes, typeof r.dados.erro === 'string' ? r.dados.erro : '');
+                return;
+            }
+            if (typeof window.mpSwapProcessos !== 'function') {
+                // Gravou, mas a tela não sabe trocar o cartão: recarrega para mostrar o estado real.
+                window.location.reload();
+                return;
+            }
+            window.mpSwapProcessos(r.dados.html);
+            var novo = document.querySelector('form.js-pasta-administrativa button[role="switch"]');
+            if (novo) { novo.focus(); }
+        });
     });
 }());

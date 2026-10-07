@@ -73,7 +73,8 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('is-ligado', (string) $botao->attr('class'));
         self::assertSame('Administrativo sem processo', trim($botao->filter('.ps-adm-sw-rotulo')->text()));
         self::assertStringContainsString('não terá processo judicial', (string) $botao->attr('title'));
-        self::assertNull($form->attr('onsubmit'), 'sem processo vinculado não há o que confirmar');
+        self::assertNull($form->attr('data-confirmar'), 'sem processo vinculado não há o que confirmar');
+        self::assertNull($form->attr('onsubmit'), 'a confirmação é do pasta-processo.js, não de JS inline');
 
         // Ordem do desenho no cabeçalho: … espaço · interruptor · Vincular processo · Peticionar.
         $filhos = $crawler->filter('#processoTabContent > .ps-processos > .ps-card-cab')->children()->each(
@@ -118,7 +119,7 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#processoTabContent > .ps-processos > .ps-card-cab > button[data-bs-target="#modalVincularProcesso"]'));
     }
 
-    #[TestDox('Com processo vinculado e desligado: o form pede confirmação com o número da pasta e do processo (texto do desenho)')]
+    #[TestDox('Com processo vinculado e desligado: o form leva em data-confirmar o texto do desenho (pasta e processo), sem onsubmit inline')]
     public function testConfirmacaoQuandoTemProcesso(): void
     {
         $client          = static::createClient();
@@ -127,14 +128,25 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
         $this->vincular($pasta, $this->criarProcesso($tenant, self::NUMERO));
         $this->logarComTenant($client, $user, $tenant);
 
-        $onsubmit = (string) $this->formInterruptor($this->abrir($client, $pasta))->attr('onsubmit');
-        self::assertStringStartsWith('return confirm(', $onsubmit);
-        // O texto passa por |e('js'): espaço vira   e as aspas, ". Decodificado:
-        $texto = json_decode('"' . str_replace("'", '', substr($onsubmit, strlen('return confirm('), -2)) . '"', false, 512, JSON_THROW_ON_ERROR);
+        $form = $this->formInterruptor($this->abrir($client, $pasta));
+        self::assertNull($form->attr('onsubmit'));
+        // Texto do desenho (admSPtoggle, dc L.6588), com a quebra de linha antes da pergunta.
         self::assertSame(
-            'A Pasta ' . $pasta->getNup() . ' tem o processo ' . self::NUMERO_MASCARA . ' vinculado. Marcar mesmo assim como "Administrativo sem processo"?',
-            $texto,
+            'A Pasta ' . $pasta->getNup() . ' tem o processo ' . self::NUMERO_MASCARA . " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"?",
+            $form->attr('data-confirmar'),
         );
+    }
+
+    #[TestDox('O JS do interruptor (pasta-processo.js) é carregado pelo próprio parcial')]
+    public function testParcialCarregaOJsDoInterruptor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(1, $crawler->filter('#processoTabContent > script[src*="js/pasta-processo.js"]'));
     }
 
     #[TestDox('Ligado e com processo: a lista de processos continua, sem o vazio administrativo, e desligar não pede confirmação')]
@@ -150,6 +162,7 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($client, $pasta);
         $form    = $this->formInterruptor($crawler);
         self::assertSame('true', $form->filter('button[role="switch"]')->attr('aria-checked'));
+        self::assertNull($form->attr('data-confirmar'));
         self::assertNull($form->attr('onsubmit'));
         self::assertCount(1, $crawler->filter('#processoTabContent > .ps-processos > .ps-registro > article.ps-processo'));
         self::assertCount(0, $crawler->filter('#processoTabContent > .ps-processos > .ps-vazio'));

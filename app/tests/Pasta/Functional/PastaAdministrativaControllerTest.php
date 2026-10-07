@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
@@ -276,6 +277,72 @@ final class PastaAdministrativaControllerTest extends JusPrimeWebTestCase
         $this->definir($client, $pasta, '1');
 
         self::assertResponseStatusCodeSame(403);
+        self::assertFalse($this->administrativaNoBanco($pasta));
+    }
+
+    #[TestDox('XHR com CSRF inválido dá 403 em JSON com `erro` e sem `html` — é o que o JS usa para desfazer o interruptor')]
+    public function testCsrfInvalidoXhrDa403EmJson(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->definir($client, $pasta, '1', 'token_invalido', self::XHR);
+
+        self::assertResponseStatusCodeSame(403);
+        $dados = $this->json($client);
+        self::assertSame('Token de segurança inválido.', $dados['erro'] ?? null);
+        self::assertArrayNotHasKey('html', $dados);
+        self::assertFalse($this->administrativaNoBanco($pasta));
+    }
+
+    #[TestDox('XHR de quem só pode VER a pasta dá 403 em JSON com `erro`, sem `html`, e não grava nada')]
+    public function testSoVerXhrDa403EmJson(): void
+    {
+        $client     = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        $leitor     = $this->criarUsuarioSemPermissaoDoModulo($tenant); // só resources.pasta.view
+        $pasta      = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $leitor, $tenant);
+        $this->definir($client, $pasta, '1', null, self::XHR);
+
+        self::assertResponseStatusCodeSame(403);
+        $dados = $this->json($client);
+        self::assertIsString($dados['erro'] ?? null);
+        self::assertNotSame('', $dados['erro']);
+        self::assertArrayNotHasKey('html', $dados);
+        self::assertFalse($this->administrativaNoBanco($pasta));
+    }
+
+    #[TestDox('XHR ao DESMARCAR com processo vinculado devolve o cartão com o interruptor desligado e a confirmação de volta em data-confirmar')]
+    public function testXhrDesmarcarComProcessoDevolveConfirmacao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->vincular($pasta, $this->criarProcesso($tenant, '07011345720258070007'));
+        $pasta->setAdministrativa(true);
+        $this->em()->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->definir($client, $pasta, '0', null, self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $dados = $this->json($client);
+        self::assertTrue($dados['sucesso']);
+        self::assertFalse($dados['administrativa']);
+        $html = new Crawler('<div id="processoTabContent">' . $dados['html'] . '</div>');
+        $form = $html->filter('#processoTabContent > .ps-processos > .ps-card-cab > form.js-pasta-administrativa');
+        self::assertCount(1, $form);
+        self::assertSame('false', $form->filter('button[role="switch"]')->attr('aria-checked'));
+        self::assertSame('1', $form->filter('input[name="administrativa"]')->attr('value'));
+        self::assertStringContainsString('Administrativo sem processo', (string) $form->attr('data-confirmar'));
+        self::assertNull($form->attr('onsubmit'));
         self::assertFalse($this->administrativaNoBanco($pasta));
     }
 

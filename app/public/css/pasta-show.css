@@ -3052,6 +3052,11 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-processo-menu-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
 .ps-processo-menu-item > span { flex: 1; min-width: 0; }
 .ps-processo-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
+/* N4: "Ver processo completo" e os forms de Tornar principal / Desvincular moram no ⋮. */
+a.ps-processo-menu-item,
+a.ps-processo-menu-item:hover,
+a.ps-processo-menu-item:focus-visible { text-decoration: none; }
+.ps-processo-menu > form { margin: 0; }
 
 /* ── Aba Metas: lista sobre fundo cinza, borda colorida pelo estado ── */
 /* Sem `overflow: hidden`: o menu ⋮ da ultima meta abre para baixo e seria cortado.
