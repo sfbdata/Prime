@@ -102,6 +102,9 @@ final class PurgarEscritorioUseCase
         ['user_tenant', 'tenant_id = :tenant'],
         // Notas técnicas do processo (tenant_id direto). Cairiam por cascata do processo, mas a FK à
         // publicação é SET NULL: apagar antes evita o UPDATE inútil e deixa a deleção explícita.
+        // Versões anteriores da nota (PMC-020): caem pela CASCADE da nota, mas a FK de tenant é
+        // NO ACTION — deleção explícita, ANTES da nota.
+        ['nota_tecnica_versao', 'tenant_id = :tenant'],
         ['nota_tecnica', 'tenant_id = :tenant'],
         // DJEN — publicações e OABs monitoradas (tenant_id direto; FKs a processo/oab_monitorada
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).

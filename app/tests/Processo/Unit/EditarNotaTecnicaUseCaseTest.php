@@ -10,10 +10,12 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Processo\Entity\NotaTecnica;
+use App\Processo\Entity\NotaTecnicaVersao;
 use App\Processo\Entity\Processo;
 use App\Processo\Exception\NotaTecnicaForaDoEscopoException;
 use App\Processo\Exception\NotaTecnicaNaoEditavelException;
 use App\Processo\Repository\NotaTecnicaRepository;
+use App\Processo\Repository\NotaTecnicaVersaoRepository;
 use App\Processo\UseCase\EditarNotaTecnicaUseCase;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,6 +30,9 @@ final class EditarNotaTecnicaUseCaseTest extends TestCase
     use CriaResolucaoDeMencoesDaNota;
 
     private NotaTecnicaRepository&MockObject $repository;
+    private NotaTecnicaVersaoRepository&MockObject $versaoRepository;
+    /** @var list<NotaTecnicaVersao> */
+    private array $versoes = [];
     private EditarNotaTecnicaUseCase $useCase;
     private Tenant $tenant;
     private User $autor;
@@ -37,7 +42,12 @@ final class EditarNotaTecnicaUseCaseTest extends TestCase
         $this->tenant     = new Tenant();
         $this->montarMencoes();
         $this->repository = $this->createMock(NotaTecnicaRepository::class);
-        $this->useCase    = new EditarNotaTecnicaUseCase($this->repository, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario(), $this->em, $this->resolucao);
+        $this->versaoRepository = $this->createMock(NotaTecnicaVersaoRepository::class);
+        $this->versoes    = [];
+        $this->versaoRepository->method('adicionar')->willReturnCallback(function (NotaTecnicaVersao $v): void {
+            $this->versoes[] = $v;
+        });
+        $this->useCase    = new EditarNotaTecnicaUseCase($this->repository, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario(), $this->em, $this->resolucao, $this->versaoRepository);
         $this->autor      = $this->pessoa(1, 'Ana Advogada');
     }
 
@@ -60,6 +70,56 @@ final class EditarNotaTecnicaUseCaseTest extends TestCase
         self::assertNotNull($nota->getEditadaEm());
         self::assertSame('<p>Corrigido</p>', $saida->conteudo);
         self::assertNotNull($saida->editadaEm);
+    }
+
+    #[TestDox('PMC-020: cada edição que muda o texto guarda o anterior INTEIRO (acima dos 500 do audit_log), com autor e quando foi escrito')]
+    public function testEdicaoGuardaVersaoAnteriorInteira(): void
+    {
+        $longo = '<p>' . str_repeat('Despacho original. ', 150) . 'FIM</p>'; // ~2800 caracteres
+        $nota  = $this->novaNota($longo);
+        $criadaEm = $nota->getCriadaEm();
+
+        $this->useCase->executar($nota, $this->autor, $this->tenant, '<p>Primeira correção</p>');
+        self::assertCount(1, $this->versoes);
+        self::assertSame($longo, $this->versoes[0]->getConteudo());
+        self::assertGreaterThan(500, mb_strlen($this->versoes[0]->getConteudo()));
+        self::assertSame($this->autor, $this->versoes[0]->getAutor());
+        self::assertSame($this->tenant, $this->versoes[0]->getTenant());
+        self::assertSame($nota, $this->versoes[0]->getNota());
+        self::assertSame($criadaEm, $this->versoes[0]->getEscritaEm());
+
+        $editadaEm = $nota->getEditadaEm();
+        $this->useCase->executar($nota, $this->autor, $this->tenant, '<p>Segunda correção</p>');
+        self::assertCount(2, $this->versoes);
+        self::assertSame('<p>Primeira correção</p>', $this->versoes[1]->getConteudo());
+        self::assertSame($editadaEm, $this->versoes[1]->getEscritaEm());
+        self::assertSame('<p>Segunda correção</p>', $nota->getConteudo());
+    }
+
+    #[TestDox('PMC-020: salvar sem mudar o texto não cria versão')]
+    public function testSalvarSemMudarNaoCriaVersao(): void
+    {
+        $nota = $this->novaNota('<p>Original</p>');
+
+        $this->useCase->executar($nota, $this->autor, $this->tenant, '<p>Original</p>');
+
+        self::assertSame([], $this->versoes);
+    }
+
+    #[TestDox('PMC-020: edição recusada (não autor, vazio) não cria versão')]
+    public function testEdicaoRecusadaNaoCriaVersao(): void
+    {
+        $nota  = $this->novaNota();
+        $outro = (new User())->setEmail('outro@test.com');
+
+        foreach ([[$outro, '<p>Invasor</p>'], [$this->autor, '<p><br></p>']] as [$quem, $texto]) {
+            try {
+                $this->useCase->executar($nota, $quem, $this->tenant, $texto);
+            } catch (NotaTecnicaNaoEditavelException|\InvalidArgumentException) {
+            }
+        }
+
+        self::assertSame([], $this->versoes);
     }
 
     #[TestDox('a edição também sanitiza — segunda porta do mesmo campo')]

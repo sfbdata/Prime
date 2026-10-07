@@ -11,9 +11,11 @@ use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Processo\DTO\NotaTecnicaOutput;
 use App\Processo\Entity\NotaTecnica;
+use App\Processo\Entity\NotaTecnicaVersao;
 use App\Processo\Exception\NotaTecnicaForaDoEscopoException;
 use App\Processo\Exception\NotaTecnicaNaoEditavelException;
 use App\Processo\Repository\NotaTecnicaRepository;
+use App\Processo\Repository\NotaTecnicaVersaoRepository;
 use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -28,6 +30,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * forjado, de outro escritório ou de ex-colaborador vira texto comum. Editar avisa só quem
  * PASSOU a ser mencionado: a anti-duplicata é por destinatário + escritório + tipo + link, e o
  * link é o da nota. Como na criação, sem pasta de contexto ninguém é avisado.
+ *
+ * Versões (PMC-020): a edição que MUDA o texto guarda o de antes, inteiro, em `nota_tecnica_versao`
+ * — no mesmo flush da edição (as duas entram ou nenhuma). Salvar sem mudar não cria versão. Só se
+ * grava: o desenho não mostra as versões.
  */
 final class EditarNotaTecnicaUseCase
 {
@@ -37,6 +43,7 @@ final class EditarNotaTecnicaUseCase
         private readonly JanelaDeEdicaoDeComentario $janela,
         private readonly EntityManagerInterface $em,
         private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
+        private readonly NotaTecnicaVersaoRepository $versaoRepository,
     ) {}
 
     public function podeEditar(NotaTecnica $nota, User $usuario, Tenant $tenant, ?\DateTimeImmutable $agora = null): bool
@@ -75,6 +82,9 @@ final class EditarNotaTecnicaUseCase
 
         [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
+        if ($conteudo !== $nota->getConteudo()) {
+            $this->versaoRepository->adicionar(NotaTecnicaVersao::daNotaAntesDeEditar($nota, $tenant));
+        }
         $nota->editar($conteudo);
 
         if ($mencionados === [] || $pasta === null) {
