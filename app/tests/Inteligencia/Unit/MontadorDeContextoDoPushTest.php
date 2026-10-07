@@ -111,7 +111,7 @@ final class MontadorDeContextoDoPushTest extends TestCase
     #[TestDox('o cadastro do processo (classe, órgão) não passa pelo mascarador — mesma política da linha do processo dos agentes')]
     public function testCadastroDoProcessoNaoMascarado(): void
     {
-        $processo = $this->pasta->getProcessos()->first();
+        $processo = $this->pasta->getProcessos()[0] ?? null;
         self::assertInstanceOf(Processo::class, $processo);
         // 11 dígitos com DV de CPF válido: o mascarador trocaria; o cabeçalho do processo não o chama.
         $processo->setOrgaoJulgador('Vara 12345678909');
