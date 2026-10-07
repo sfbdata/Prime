@@ -16,7 +16,10 @@ use App\Djen\DTO\PublicacaoDjenListaItem;
  */
 final readonly class PastaPushOutput
 {
-    /** @param PublicacaoDjenListaItem[] $itens */
+    /**
+     * @param PublicacaoDjenListaItem[] $itens
+     * @param string[]                  $numerosDigitos CNJ dos processos da pasta, só dígitos
+     */
     private function __construct(
         public array $itens,
         public bool $temProcesso,
@@ -24,6 +27,7 @@ final readonly class PastaPushOutput
         public int $naoLidas,
         public bool $limiteAtingido,
         public ?string $numeroUnico,
+        private array $numerosDigitos = [],
     ) {}
 
     /**
@@ -49,6 +53,7 @@ final readonly class PastaPushOutput
             // O módulo filtra por UM texto de busca. Com dois processos não há número único que
             // represente a pasta, e mandar um deles seria oferecer um recorte errado com cara de certo.
             numeroUnico: count($numeros) === 1 ? $numeros[0] : null,
+            numerosDigitos: array_values(array_filter(array_map(self::soDigitos(...), $numeros), static fn (string $n): bool => $n !== '')),
         );
     }
 
@@ -70,5 +75,25 @@ final readonly class PastaPushOutput
     public function geraPrazo(PublicacaoDjenListaItem $item): bool
     {
         return self::tipoGeraPrazo($item->tipoComunicacao);
+    }
+
+    /**
+     * A movimentação recebe nota técnica? A nota é do PROCESSO da pasta a que a publicação
+     * pertence (`pasta_push_teor` → `notaProcessoId`); sem ele, o teor não traz o bloco de notas e
+     * o "Adicionar nota técnica" do menu (FPN-014c) não teria o que acionar. Mesma comparação do
+     * controller do teor: só dígitos dos dois lados. O teor ainda acha o processo pela FK da
+     * publicação; aqui só pelo número, que é por onde a lista inteira foi casada — na dúvida o
+     * item some, nunca promete o que o teor não entrega.
+     */
+    public function aceitaNotaTecnica(PublicacaoDjenListaItem $item): bool
+    {
+        $numero = self::soDigitos($item->numeroProcessoExibicao);
+
+        return $numero !== '' && in_array($numero, $this->numerosDigitos, true);
+    }
+
+    private static function soDigitos(?string $numero): string
+    {
+        return preg_replace('/\D+/', '', (string) $numero) ?? '';
     }
 }

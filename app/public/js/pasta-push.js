@@ -404,8 +404,15 @@
             return /^https?:\/\//i.test(href) ? href : null;
         }
 
-        /** Rótulo do item lida pela linha (a classe "nova" é a fonte, como no selo). */
+        /** Rótulo do item lida pela linha (a classe "nova" é a fonte, como no selo); a nota
+            técnica só no cartão que a aceita (FPN-014c: `data-push-aceita-nota`, do servidor). */
         function prepararItensDoMenu(item, cab) {
+            var aceitaNota = item.getAttribute('data-push-aceita-nota') === '1';
+            var nota = menu.querySelector('.js-push-menu-nota');
+            if (nota) { nota.hidden = !aceitaNota; }
+            var sepNota = menu.querySelector('.js-push-menu-sep-nota');
+            if (sepNota) { sepNota.hidden = !aceitaNota; }
+
             var nova = item.classList.contains(CLASSE_NOVA);
             var lida = menu.querySelector('.js-push-menu-lida');
             if (lida) {
@@ -507,6 +514,8 @@
                     return;
                 }
                 if (opcao.classList.contains('js-push-menu-nota')) {
+                    // Segunda trava: item escondido não abre o cartão (abrir marca como lida).
+                    if (de.item.getAttribute('data-push-aceita-nota') !== '1') { return; }
                     var id = de.item.getAttribute('data-push-id');
                     comTeor(de.cab, function (p) {
                         var bloco = p.querySelector('#notas-publicacao-' + id);

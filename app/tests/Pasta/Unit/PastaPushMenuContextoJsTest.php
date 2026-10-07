@@ -154,6 +154,27 @@ final class PastaPushMenuContextoJsTest extends TestCase
         self::assertStringContainsString('class="ps-push-doc-link" href=', $teor);
     }
 
+    #[TestDox('FPN-014c: a nota técnica (e o separador dela) some no cartão com data-push-aceita-nota != 1, e o ramo não abre o cartão')]
+    public function testNotaSoNoCartaoQueAceita(): void
+    {
+        $bloco = $this->blocoDoMenu();
+
+        self::assertStringContainsString("var aceitaNota = item.getAttribute('data-push-aceita-nota') === '1';", $bloco);
+        self::assertStringContainsString('nota.hidden = !aceitaNota;', $bloco);
+        self::assertStringContainsString('sepNota.hidden = !aceitaNota;', $bloco);
+        $ramo = $this->ramo('js-push-menu-nota');
+        $trava = strpos($ramo, "getAttribute('data-push-aceita-nota') !== '1') { return; }");
+        self::assertNotFalse($trava, 'segunda trava antes de abrir o cartão');
+        self::assertLessThan((int) strpos($ramo, 'comTeor('), $trava);
+
+        $twig = (string) file_get_contents(__DIR__ . '/../../../templates/pasta/_push_processual.html.twig');
+        self::assertStringContainsString('js-push-menu-sep-nota', $twig);
+        self::assertStringContainsString('data-push-aceita-nota=', $twig);
+        // [hidden] precisa vencer o display:flex do item (senão o item escondido aparece).
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/pasta-show.css');
+        self::assertStringContainsString(".ps-push .ps-push-menu-item[hidden],\n.ps-push .ps-push-menu-sep[hidden] { display: none; }", $css);
+    }
+
     #[TestDox('fecha com Esc (devolvendo o foco ao cartão), clique fora, rolagem e redimensionamento')]
     public function testFechamento(): void
     {

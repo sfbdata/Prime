@@ -121,6 +121,64 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Teor completo da publicação.', trim($crawler->filter('.djen-teor')->text()), '"Copiar texto" lê daqui');
     }
 
+    /** Textos dos itens do menu, na ordem. @return list<string> */
+    private function itensDoMenu(\Symfony\Component\DomCrawler\Crawler $crawler): array
+    {
+        return $crawler->filter('#pushMenuContexto > button.ps-push-menu-item')->each(static fn ($b): string => trim($b->text()));
+    }
+
+    #[TestDox('FPN-014c: quem só VÊ a pasta não recebe nota nem tarefa no menu, nem a dica do cartão; lida e leituras ficam')]
+    public function testLeitorSemEscritaNoMenu(): void
+    {
+        $client          = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $pub    = $this->criarPublicacao($tenant, '73000011', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+        $leitor = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+
+        // Irmão: o admin (edita) recebe tudo, e o cartão aceita nota.
+        $this->logarComTenant($client, $admin, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertSame(['Adicionar nota técnica', 'Criar tarefa', 'Marcar como lida', 'Abrir documento', 'Copiar texto'], $this->itensDoMenu($crawler));
+        $item = $crawler->filter('.ps-push-item[data-push-id="' . $pub->getId() . '"]');
+        self::assertSame('1', $item->attr('data-push-aceita-nota'));
+        self::assertSame('Clique com o botão direito para adicionar uma nota técnica', $item->filter('.ps-push-cab')->attr('title'));
+
+        // O leitor: o pasta_push_lida aceita VIEW, então "Marcar como lida" fica.
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Marcar como lida', 'Abrir documento', 'Copiar texto'], $this->itensDoMenu($crawler));
+        self::assertCount(1, $crawler->filter('#pushMenuContexto > .ps-push-menu-sep'), 'sem nota, sem o separador dela');
+        $item = $crawler->filter('.ps-push-item[data-push-id="' . $pub->getId() . '"]');
+        self::assertSame('0', $item->attr('data-push-aceita-nota'));
+        self::assertNull($item->filter('.ps-push-cab')->attr('title'), 'a dica não promete nota a quem não pode');
+    }
+
+    #[TestDox('FPN-014c: na pasta excluída (lápide) só sobram as leituras — nem nota, nem tarefa, nem lida (o listener recusaria o POST)')]
+    public function testLapideSoLeituras(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '73000012', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(['Abrir documento', 'Copiar texto'], $this->itensDoMenu($crawler));
+        $item = $crawler->filter('.ps-push-item[data-push-id="' . $pub->getId() . '"]');
+        self::assertSame('0', $item->attr('data-push-aceita-nota'));
+        self::assertNull($item->filter('.ps-push-cab')->attr('title'));
+    }
+
     #[TestDox('Sem publicação não há menu (nem cartão para clicar)')]
     public function testSemPublicacaoSemMenu(): void
     {

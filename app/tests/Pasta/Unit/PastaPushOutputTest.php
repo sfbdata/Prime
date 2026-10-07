@@ -124,6 +124,17 @@ final class PastaPushOutputTest extends TestCase
         self::assertSame([], array_filter($push->itens, $push->geraPrazo(...)));
     }
 
+    #[TestDox('FPN-014c: aceita nota técnica quando o número da publicação (com máscara) é de um processo da pasta, em dígitos; senão não')]
+    public function testAceitaNotaTecnicaPeloNumeroEmDigitos(): void
+    {
+        $item = $this->item(1);
+
+        self::assertTrue(PastaPushOutput::montar([$item], ['07011111111111111111'], 100)->aceitaNotaTecnica($item));
+        self::assertTrue(PastaPushOutput::montar([$item], ['0701111-11.1111.1.11.1111'], 100)->aceitaNotaTecnica($item), 'máscara dos dois lados não importa');
+        self::assertFalse(PastaPushOutput::montar([$item], ['07022222222222222222'], 100)->aceitaNotaTecnica($item), 'processo de outra pasta: sem bloco de notas');
+        self::assertFalse(PastaPushOutput::montar([$item], [], 100)->aceitaNotaTecnica($item));
+    }
+
     private function item(int $id, bool $lida = false, ?string $tipo = 'Intimação'): PublicacaoDjenListaItem
     {
         return PublicacaoDjenListaItem::fromRow([

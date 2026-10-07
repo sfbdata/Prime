@@ -2688,6 +2688,10 @@ span.ps-situacao-pill { cursor: default; }
 #financeiro .ps-fin-menu-item--perigo:focus-visible { background: var(--ps-danger-hover); }
 #financeiro .ps-fin-menu-sep,
 .ps-push .ps-push-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
+/* Item e separador que o pasta-push.js esconde por cartão (documento sem link, nota sem processo):
+   o display:flex acima venceria o [hidden] do navegador. */
+.ps-push .ps-push-menu-item[hidden],
+.ps-push .ps-push-menu-sep[hidden] { display: none; }
 
 /* ── Folha do "Imprimir extrato" ──
    O JS copia o cabeçalho (`#psExtratoCabecalho`) e a lista (`#psExtratoFolha`,
