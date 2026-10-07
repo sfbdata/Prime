@@ -19,10 +19,16 @@
         filtro "Abertas" com a linha realçada (destino do POST do modal);
      8. moldura do modal "Nova meta" (PMC-038): "Criar meta" desabilitado com
         "Preencha: …" enquanto falta título ou descrição; Recolher e arrastar
-        pela faixa azul.
+        pela faixa azul;
+     9. concluir e reabrir sem recarregar (PMC-031): os MESMOS formulários do ⋮
+        e do rodapé do drawer vão por XHR; o servidor devolve a aba renderizada
+        de novo e aqui só se trocam os pedaços (cartão, trilho, seções do
+        drawer), com o aviso "Meta concluída" / "Meta reaberta" + "Desfazer".
 
    Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
-   que os contêm são abertos pelo pasta-show.js (`data-ps-pop`).
+   que os contêm são abertos pelo pasta-show.js (`data-ps-pop`). Linha trocada
+   pelo item 9 nasce sem os ouvintes do pasta-show.js: o ⋮ e o sino dela são
+   abertos aqui (`popoversDasLinhasNovas`).
    ============================================================================= */
 (function () {
     'use strict';
@@ -36,6 +42,8 @@
         renomearNaLista();
         relatorioDaMeta();
         menuNoBotaoDireito();
+        popoversDasLinhasNovas();
+        alternarSemRecarregar();
     }
 
     if (document.readyState === 'loading') {
@@ -43,6 +51,10 @@
     } else {
         iniciar();
     }
+
+    /* Preenchido pelo relatorioDaMeta (item 5): troca as seções do drawer pelas
+       que o servidor devolveu no item 9. */
+    var trocarSecoesDoRelatorio; // sem valor inicial: iniciar() pode rodar antes desta linha
 
     /* ── 1. Filtros da lista ──────────────────────────────────────────────── */
     var FILTRO_INICIAL = 'abertas'; // o desenho abre sempre em "Abertas"
@@ -356,8 +368,13 @@
         document.body.appendChild(fundo);
         document.body.appendChild(drawer);
 
-        var secoes = Array.prototype.slice.call(drawer.querySelectorAll('.ps-mrel-meta[data-meta-rel]'));
-        var ordem = secoes.map(function (s) { return s.getAttribute('data-meta-rel'); });
+        var secoes = [];
+        var ordem = [];
+        function lerSecoes() {
+            secoes = Array.prototype.slice.call(drawer.querySelectorAll('.ps-mrel-meta[data-meta-rel]'));
+            ordem = secoes.map(function (s) { return s.getAttribute('data-meta-rel'); });
+        }
+        lerSecoes();
         var pos = drawer.querySelector('[data-ps-mrel-pos]');
         var anterior = drawer.querySelector('[data-ps-mrel-anterior]');
         var proxima = drawer.querySelector('[data-ps-mrel-proxima]');
@@ -465,6 +482,25 @@
         });
         fundo.addEventListener('click', fechar);
 
+        // Item 9: o servidor mandou a aba de novo. As seções do drawer são trocadas
+        // pelas novas (o cabeçalho e os ouvintes ficam); aberto, ele continua na
+        // MESMA meta, com o foco no botão que a substituiu.
+        trocarSecoesDoRelatorio = function (novoDrawer) {
+            secoes.forEach(function (s) { s.remove(); });
+            Array.prototype.forEach.call(novoDrawer.querySelectorAll('.ps-mrel-meta[data-meta-rel]'), function (s) {
+                drawer.appendChild(s);
+            });
+            lerSecoes();
+            if (atual === null || drawer.hidden) { return; }
+            if (ordem.indexOf(atual) === -1) {
+                fechar();
+                return;
+            }
+            mostrar(atual);
+            var alvo = secoes[ordem.indexOf(atual)].querySelector('.ps-mrel-alternar') || botaoFechar;
+            alvo.focus();
+        };
+
         document.addEventListener('keydown', function (e) {
             if (drawer.hidden) { return; }
             if (e.key === 'Escape') {
@@ -491,6 +527,236 @@
                 e.preventDefault();
                 primeiro.focus();
             }
+        });
+    }
+
+    /* ── 9. Concluir e reabrir sem recarregar (PMC-031) ───────────────────── */
+    /* (Fica antes do 6 de propósito: o PastaMenuBotaoDireitoJsTest lê do 6 ao
+       fim do arquivo e exige que o botão direito não monte nada em JS.) */
+    /* Desenho (dc `metaVals.alternar`, L.3548; aviso L.1509-1510): marcar como
+       concluída ou reabrir troca a linha na hora e mostra "Meta concluída" /
+       "Meta reaberta" com "Desfazer" por 4,2 s. Aqui os formulários de sempre
+       (⋮ da linha e rodapé do drawer) vão por XHR para as MESMAS rotas, com o
+       mesmo CSRF; o servidor responde com a aba renderizada de novo e nada é
+       recontado no navegador — só se trocam o conteúdo do cartão, o trilho e as
+       seções do drawer, e o filtro escolhido é reaplicado. "Desfazer" manda o
+       formulário OPOSTO da linha nova (reabrir depois de concluir e vice-versa),
+       pela mesma guarda. Sem fetch, o formulário segue o POST + redirect. */
+    var FORMS_DE_ALTERNAR = 'form.ps-meta-concluir, form.ps-meta-reabrir, form.ps-mrel-alternar-form';
+    var AVISO_MS = 4200; // dc `aviso`: o aviso some em 4,2 s
+
+    var avisoEl = null;
+    var avisoTexto = null;
+    var avisoBotao = null;
+    var avisoTimer = null;
+    var avisoDesfazer = null;
+
+    function esconderAviso() {
+        clearTimeout(avisoTimer);
+        avisoDesfazer = null;
+        if (avisoEl) { avisoEl.hidden = true; }
+    }
+
+    function avisar(texto, desfazer) {
+        if (!avisoEl) {
+            avisoEl = document.createElement('div');
+            avisoEl.className = 'ps-metas-aviso';
+            avisoEl.setAttribute('role', 'status');
+            avisoEl.setAttribute('aria-live', 'polite');
+            avisoEl.hidden = true;
+            avisoTexto = document.createElement('span');
+            avisoBotao = document.createElement('button');
+            avisoBotao.type = 'button';
+            avisoBotao.className = 'ps-metas-aviso-desfazer';
+            avisoBotao.textContent = 'Desfazer';
+            avisoBotao.addEventListener('click', function () {
+                var acao = avisoDesfazer;
+                esconderAviso();
+                if (acao) { acao(); }
+            });
+            avisoEl.appendChild(avisoTexto);
+            avisoEl.appendChild(avisoBotao);
+            document.body.appendChild(avisoEl);
+        }
+
+        clearTimeout(avisoTimer);
+        avisoTexto.textContent = texto;
+        avisoDesfazer = desfazer || null;
+        avisoBotao.hidden = avisoDesfazer === null;
+        // Esconder e mostrar de novo reinicia a animação de entrada.
+        avisoEl.hidden = true;
+        void avisoEl.offsetWidth;
+        avisoEl.hidden = false;
+        avisoTimer = setTimeout(esconderAviso, AVISO_MS);
+    }
+
+    /* Linha trocada nasce sem os ouvintes do pasta-show.js (que liga cada
+       `data-ps-pop` uma vez, no carregamento). O ⋮ e o sino dela recebem
+       `data-ps-pop-local` e são abertos aqui, com as mesmas regras: abrir um
+       fecha os outros, clique fora, item do menu ou Esc fecham. */
+    function painelDe(gatilho) {
+        return document.getElementById(gatilho.getAttribute('data-ps-pop') || '');
+    }
+
+    function fecharPopoversNovos(cartao, exceto) {
+        Array.prototype.forEach.call(cartao.querySelectorAll('[data-ps-pop-local]'), function (g) {
+            var painel = painelDe(g);
+            if (!painel || painel === exceto) { return; }
+            painel.classList.remove('is-aberto');
+            g.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    function popoversDasLinhasNovas() {
+        var cartao = document.querySelector('[data-ps-metas]');
+        if (!cartao) { return; }
+
+        cartao.addEventListener('click', function (e) {
+            var gatilho = e.target.closest('[data-ps-pop-local]');
+            if (!gatilho) { return; }
+            e.stopPropagation(); // o clique no gatilho não é "clique fora"
+            var painel = painelDe(gatilho);
+            if (!painel) { return; }
+            var vaiAbrir = !painel.classList.contains('is-aberto');
+            document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+            fecharPopoversNovos(cartao, null);
+            painel.classList.toggle('is-aberto', vaiAbrir);
+            gatilho.setAttribute('aria-expanded', vaiAbrir ? 'true' : 'false');
+        });
+
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.ps-pop') && !e.target.closest('.ps-pop-item')) { return; }
+            fecharPopoversNovos(cartao, null);
+        });
+        document.addEventListener('ps:fechar-popovers', function () { fecharPopoversNovos(cartao, null); });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { fecharPopoversNovos(cartao, null); }
+        });
+    }
+
+    function aplicarAbaNova(cartao, html) {
+        var molde = document.createElement('template');
+        molde.innerHTML = html;
+        var novo = molde.content;
+        var novoCartao = novo.querySelector('[data-ps-metas]');
+        if (!novoCartao) { return false; }
+
+        var ativo = cartao.querySelector('[data-ps-metas-filtro].is-ativo');
+        var filtro = ativo ? ativo.getAttribute('data-ps-metas-filtro') : FILTRO_INICIAL;
+
+        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+        // O elemento do cartão fica (os ouvintes dos itens 1 a 6 moram nele);
+        // só o conteúdo é trocado.
+        while (cartao.firstChild) { cartao.removeChild(cartao.firstChild); }
+        while (novoCartao.firstChild) { cartao.appendChild(novoCartao.firstChild); }
+        Array.prototype.forEach.call(cartao.querySelectorAll('[data-ps-pop]'), function (g) {
+            g.setAttribute('data-ps-pop-local', '1');
+        });
+
+        var grade = cartao.parentNode;
+        var trilho = grade ? grade.querySelector(':scope > .ps-trilho') : null;
+        var novoTrilho = novo.querySelector('.ps-trilho');
+        if (trilho && novoTrilho) { trilho.replaceWith(novoTrilho); }
+
+        var novoDrawer = novo.querySelector('#psMetaRelatorio');
+        if (novoDrawer && trocarSecoesDoRelatorio) { trocarSecoesDoRelatorio(novoDrawer); }
+
+        aplicarFiltro(cartao, filtro);
+
+        return true;
+    }
+
+    function metaDoFormulario(form) {
+        var dono = form.closest('[data-meta-id]') || form.closest('[data-meta-rel]');
+        if (!dono) { return null; }
+
+        return dono.getAttribute('data-meta-id') || dono.getAttribute('data-meta-rel');
+    }
+
+    function liberar(form) {
+        form.removeAttribute('data-ps-enviando');
+        Array.prototype.forEach.call(form.querySelectorAll('button'), function (b) { b.disabled = false; });
+    }
+
+    /* Depois da troca, o botão que tinha o foco (item do ⋮) não existe mais: o
+       foco vai para o ⋮ da mesma linha, se ela continua à vista no filtro, ou
+       para o filtro ativo. No drawer quem cuida é o `trocarSecoesDoRelatorio`. */
+    function devolverFoco(cartao, id) {
+        var linha = cartao.querySelector('.ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
+        var alvo = linha && !linha.hidden ? linha.querySelector('.ps-meta-acoes > .ps-meta-menu-btn') : null;
+        if (!alvo) { alvo = cartao.querySelector('[data-ps-metas-filtro].is-ativo'); }
+        if (alvo) { alvo.focus(); }
+    }
+
+    function enviarAlternancia(cartao, form, ehDesfazer) {
+        if (form.hasAttribute('data-ps-enviando')) { return; }
+        form.setAttribute('data-ps-enviando', '1');
+        Array.prototype.forEach.call(form.querySelectorAll('button'), function (b) { b.disabled = true; });
+
+        var id = metaDoFormulario(form);
+        var drawer = document.getElementById('psMetaRelatorio');
+        var doDrawer = !!(drawer && drawer.contains(form));
+
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        })
+            .then(function (r) {
+                return r.json().then(
+                    function (d) { return { ok: r.ok, dados: d }; },
+                    function () { return { ok: false, dados: null }; }
+                );
+            })
+            .then(function (res) {
+                var d = res.dados;
+                // A recusa da pasta excluída (lápide) vem em JSON com `mensagem`; a
+                // guarda (403/404) e o CSRF não: caem no texto genérico.
+                if (!res.ok || !d || d.sucesso !== true || typeof d.html !== 'string') {
+                    liberar(form);
+                    avisar((d && d.mensagem) || 'Não foi possível alterar a meta. Recarregue a página e tente de novo.');
+                    return;
+                }
+                if (!aplicarAbaNova(cartao, d.html)) {
+                    window.location.reload();
+                    return;
+                }
+                if (!doDrawer && id) { devolverFoco(cartao, id); }
+                if (ehDesfazer) {
+                    avisar('Desfeito');
+                    return;
+                }
+                avisar(d.mensagem, d.mudou && id ? function () { desfazer(cartao, id); } : null);
+            })
+            .catch(function () {
+                liberar(form);
+                avisar('Erro de comunicação. Recarregue a página para conferir a meta.');
+            });
+    }
+
+    function desfazer(cartao, id) {
+        var linha = cartao.querySelector('.ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
+        var oposto = linha ? linha.querySelector('.ps-meta-acoes form.ps-meta-concluir, .ps-meta-acoes form.ps-meta-reabrir') : null;
+        if (!oposto) {
+            avisar('Não foi possível desfazer. Recarregue a página.');
+            return;
+        }
+        enviarAlternancia(cartao, oposto, true);
+    }
+
+    function alternarSemRecarregar() {
+        var cartao = document.querySelector('[data-ps-metas]');
+        if (!cartao || !window.fetch || !window.FormData || !('content' in document.createElement('template'))) { return; }
+
+        // No document: o drawer (com o rodapé "Marcar como concluída") mora no <body>.
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!form || !form.matches || !form.matches(FORMS_DE_ALTERNAR)) { return; }
+            var drawer = document.getElementById('psMetaRelatorio');
+            if (!cartao.contains(form) && !(drawer && drawer.contains(form))) { return; }
+            e.preventDefault();
+            enviarAlternancia(cartao, form, false);
         });
     }
 

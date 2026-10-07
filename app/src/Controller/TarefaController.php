@@ -26,6 +26,7 @@ use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
+use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\TarefaTimelineAssembler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -425,7 +426,7 @@ final class TarefaController extends AbstractController
      * Conclui a tarefa (qualquer usuário com acesso pode concluir).
      */
     #[Route('/{id}/concluir', name: 'tarefa_concluir', methods: ['POST'])]
-    public function concluir(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): Response
+    public function concluir(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, ListaDeMetasDaPastaEmJson $listaEmJson): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -436,13 +437,24 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        $concluiu = false;
         if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
             $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
             $tarefa->setDataConclusao(new \DateTimeImmutable());
             $entityManager->flush();
+            $concluiu = true;
 
             $this->notificacaoService->notificarTarefaConcluida($tarefa);
+        }
 
+        // PMC-031: a lista da aba Metas conclui por XHR, sem recarregar. Mesma guarda e mesmo
+        // CSRF acima; a resposta traz a aba renderizada de novo pelo servidor (linha, filtros,
+        // trilho e drawer), para nada ser recontado no navegador. Sem JS, segue o POST + redirect.
+        if ($request->isXmlHttpRequest()) {
+            return $listaEmJson->responder($tarefa, $concluiu, $concluiu ? 'Meta concluída' : 'A meta já estava concluída');
+        }
+
+        if ($concluiu) {
             $this->addFlash('success', 'Tarefa concluída.');
         }
 

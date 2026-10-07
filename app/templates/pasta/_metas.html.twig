@@ -31,7 +31,53 @@
    desenho oferece "Desfazer" depois de excluir; aqui NÃO há: a exclusão é
    física, e desfazer exigiria lápide de meta (decisão em aberto).
 
+   Concluir e Reabrir sem recarregar (PMC-031): com JS, o pasta-metas.js manda os
+   MESMOS formulários (⋮ e rodapé do drawer) por XHR; `tarefa_concluir` e
+   `tarefa_reabrir` respondem JSON com esta aba renderizada de novo
+   (`ListaDeMetasDaPastaEmJson`) e o aviso "Meta concluída" / "Meta reaberta" traz
+   "Desfazer", que manda o formulário oposto da linha nova (mesma guarda e CSRF).
+   Sem JS, continua o POST + redirect.
+
    O que não tem lastro NÃO aparece: número global, duplicar e encaminhar. #}
+{# Aviso com "Desfazer" (dc L.1509-1510): fixo, centrado, 24px do rodapé, raio 4,
+   13px; "Desfazer" #7cc4ff/700. O `.ps-l7-aviso` da tela não serve: tem
+   `pointer-events: none` e o botão precisa de clique. Nasce no <body> pelo
+   pasta-metas.js; as cores seguem os tokens do aviso curto (tema escuro incluso). #}
+<style>
+    .ps-metas-aviso {
+        --ps-metas-aviso-acao: #7cc4ff;
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        z-index: 1070;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 4px;
+        background: var(--ps-l7-aviso-bg, #12242f);
+        color: var(--ps-l7-aviso-tx, #fff);
+        font-size: 13px;
+        box-shadow: 0 14px 30px -12px rgba(0, 0, 0, .5);
+        transform: translateX(-50%);
+        animation: psMetasAvisoEntra .25s both;
+    }
+    .ps-metas-aviso[hidden] { display: none; }
+    [data-bs-theme="dark"] .ps-metas-aviso { --ps-metas-aviso-acao: #0a7aad; }
+    .ps-metas-aviso-desfazer {
+        border: none;
+        padding: 0;
+        background: transparent;
+        color: var(--ps-metas-aviso-acao);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .ps-metas-aviso-desfazer[hidden] { display: none; }
+    @keyframes psMetasAvisoEntra { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    @media (prefers-reduced-motion: reduce) { .ps-metas-aviso { animation: none; } }
+</style>
 {% set statusLabelTarefa = {
     'pendente':   'Pendente',
     'em_revisao': 'Para Revisão',

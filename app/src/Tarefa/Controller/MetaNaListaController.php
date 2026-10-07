@@ -13,6 +13,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Exception\AlertaDeMetaRecusadoException;
 use App\Tarefa\Exception\TituloDeMetaInvalidoException;
+use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use App\Tarefa\UseCase\ReabrirMetaUseCase;
 use App\Tarefa\UseCase\RenomearMetaUseCase;
@@ -26,7 +27,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * renomear ("Editar nome"), reabrir ("Reabrir meta") e o sino "Alertar para verificar".
  *
  * Os três são POST de formulário comum com CSRF e voltam para `pasta_show#tarefas`,
- * como o `tarefa_concluir` de sempre. A guarda é a MESMA do concluir
+ * como o `tarefa_concluir` de sempre. O reabrir também aceita XHR (PMC-031): responde JSON
+ * com a aba renderizada de novo (`ListaDeMetasDaPastaEmJson`), sem flash. A guarda é a MESMA do concluir
  * (`TarefaController::assertAccess` + `verificarAcessoTarefa`, reproduzidas aqui sem
  * mudança): módulo `tarefas` + meta do escritório da sessão (SEC-013b: 404 se não for) +
  * pasta da meta com vínculo no escritório — e, além delas, `canAccessResource('pasta', edit)`
@@ -68,7 +70,7 @@ final class MetaNaListaController extends AbstractController
     }
 
     #[Route('/{id}/reabrir', name: 'tarefa_reabrir', methods: ['POST'])]
-    public function reabrir(Tarefa $tarefa, Request $request, ReabrirMetaUseCase $useCase): Response
+    public function reabrir(Tarefa $tarefa, Request $request, ReabrirMetaUseCase $useCase, ListaDeMetasDaPastaEmJson $listaEmJson): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -80,7 +82,15 @@ final class MetaNaListaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        if ($useCase->executar($tarefa, $tenant)) {
+        $reabriu = $useCase->executar($tarefa, $tenant);
+
+        // PMC-031: reabrir pela lista por XHR (e o "Desfazer" do concluir), sem recarregar —
+        // mesma guarda e mesmo CSRF acima; a aba volta renderizada pelo servidor.
+        if ($request->isXmlHttpRequest()) {
+            return $listaEmJson->responder($tarefa, $reabriu, $reabriu ? 'Meta reaberta' : 'A meta não estava concluída');
+        }
+
+        if ($reabriu) {
             $this->addFlash('success', 'Meta reaberta.');
         }
 
