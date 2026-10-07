@@ -78,7 +78,8 @@
         {% else %}
             <div class="ds-sug-contexto">
                 <div class="ds-sug-contexto-linha">
-                    <span class="ds-sug-rotulo">Contexto da pasta</span>
+                    {# DOC-107: o rótulo do desenho (dc L2132). #}
+                    <span class="ds-sug-rotulo">Contexto do processo</span>
                     <span class="ds-sug-fase">{{ sugestao.faseNome }}</span>
                     {% if sugestao.leuOProcesso %}
                         <span class="ds-sug-conf ds-sug-conf--media" title="Só o teor das publicações do Push foi lido, por regras; o PDF do processo não">Confiança média</span>
