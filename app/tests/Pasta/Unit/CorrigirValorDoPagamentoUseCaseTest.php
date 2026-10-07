@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\UseCase\CorrigirValorDoPagamentoUseCase;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -179,5 +180,39 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
         } catch (\InvalidArgumentException) {
             self::assertSame('1300.00', $pagamento->getValor());
         }
+    }
+
+    /**
+     * SEC-006: a comparação com o valor exibido só vale sob a trava da linha. O
+     * `refresh` com PESSIMISTIC_WRITE é o que trava E relê; a prova contra o banco
+     * está em `CorrigirValorDoPagamentoTravaTest`.
+     */
+    #[TestDox('relê o pagamento com PESSIMISTIC_WRITE dentro de uma transação, antes do flush')]
+    public function testReleSobTravaAntesDeGravar(): void
+    {
+        $pagamento = $this->pagamento('1300.00');
+        $ordem     = [];
+        $this->em->expects($this->once())->method('beginTransaction')->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'begin'; });
+        $this->em->expects($this->once())->method('refresh')
+            ->with($pagamento, LockMode::PESSIMISTIC_WRITE)
+            ->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'refresh'; });
+        $this->em->expects($this->once())->method('flush')->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'flush'; });
+        $this->em->expects($this->once())->method('commit')->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'commit'; });
+        $this->em->expects($this->never())->method('rollback');
+
+        self::assertTrue($this->useCase->executar($pagamento, $this->pasta, $this->tenant, '900,00', '1.300,00'));
+        self::assertSame(['begin', 'refresh', 'flush', 'commit'], $ordem);
+    }
+
+    #[TestDox('conflito sob a trava: desfaz a transação, sem commit')]
+    public function testConflitoDesfazATransacao(): void
+    {
+        $pagamento = $this->pagamento('1450.00');
+        $this->em->expects($this->once())->method('rollback');
+        $this->em->expects($this->never())->method('commit');
+
+        $this->expectException(\UnexpectedValueException::class);
+
+        $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '900,00', '1.300,00');
     }
 }
