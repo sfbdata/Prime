@@ -133,6 +133,7 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         yield 'EML'  => ['eml', 'renderEml', 'LIMITE_BYTES_EML'];
         yield 'ZIP'  => ['zip', 'renderZip', 'LIMITE_BYTES_ZIP'];
         yield 'DOC'  => ['doc', 'renderDoc', 'LIMITE_BYTES_DOC'];
+        yield 'TIFF' => ['tiff', 'renderTiff', 'LIMITE_BYTES_TIFF'];
     }
 
     #[DataProvider('formatosSoTexto')]
@@ -412,6 +413,109 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString('if (c < 0x20) { continue; }', $controles);
     }
 
+    #[TestDox('DOC-112: UTIF e pako auto-hospedados em vendor/utif, com a versão e o sha256 de cada arquivo registrados no VERSION')]
+    public function testUtifAutoHospedadoComVersao(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("pako:    { src: BASE_VENDOR + 'utif/pako_inflate.min.js',       global: 'pako' },", $js);
+        self::assertStringContainsString("utif:    { src: BASE_VENDOR + 'utif/UTIF.js',                   global: 'UTIF' },", $js);
+
+        $versao = (string) file_get_contents(self::raiz() . '/public/js/vendor/utif/VERSION');
+        self::assertStringContainsString('utif 3.1.0', $versao);
+        self::assertStringContainsString('pako 1.0.11', $versao);
+        self::assertStringContainsString('sha256 (UTIF.js): ' . hash_file('sha256', self::raiz() . '/public/js/vendor/utif/UTIF.js'), $versao, 'o UTIF.js é o do pacote, sem alteração');
+        self::assertStringContainsString('sha256 (pako_inflate.min.js): ' . hash_file('sha256', self::raiz() . '/public/js/vendor/utif/pako_inflate.min.js'), $versao);
+        self::assertStringContainsString('MIT', (string) file_get_contents(self::raiz() . '/public/js/vendor/utif/LICENSE'));
+        self::assertStringContainsString('MIT', (string) file_get_contents(self::raiz() . '/public/js/vendor/utif/LICENSE-pako'));
+    }
+
+    #[TestDox('DOC-112: TIFF vem antes de image/* no tipoDe (o <img> do Chrome e do Firefox não abre TIFF); um PNG chamado .tif segue imagem')]
+    public function testTiffAntesDaImagem(): void
+    {
+        $js     = self::modulo();
+        $tipoDe = self::corpoDaFuncao($js, 'tipoDe');
+
+        self::assertStringContainsString("const MIMES_TIFF = ['image/tiff', 'image/tiff-fx', 'image/x-tiff'];", $js);
+        self::assertStringContainsString("const EXT_TIFF   = ['tif', 'tiff'];", $js);
+        self::assertStringContainsString("if (MIMES_TIFF.includes(m) || (EXT_TIFF.includes(ext) && !m.startsWith('image/'))) { return 'tiff'; }", $tipoDe);
+        self::assertLessThan((int) strpos($tipoDe, "return 'imagem';"), (int) strpos($tipoDe, "return 'tiff';"));
+    }
+
+    #[TestDox('DOC-112: cada página do TIFF vira um canvas (RGBA por putImageData), com tetos de páginas, pixels e bytes; nenhum HTML')]
+    public function testTiffEmCanvasComTetos(): void
+    {
+        $js     = self::modulo();
+        $render = self::corpoDaFuncao($js, 'renderTiff');
+        $pagina = self::corpoDaFuncao($js, 'paginaTiffEmCanvas');
+
+        self::assertStringContainsString('carregarUtif()', $render);
+        self::assertStringContainsString('baixar(o.url, LIMITE_BYTES_TIFF, false, o.sinal)', $render, 'o TIFF inteiro ou nada: o índice das páginas pode estar no fim');
+        self::assertMatchesRegularExpression('/conferirTiff\(arq\.bytes, invalido\);\s*let ifds;\s*try \{ ifds = UTIF\.decode\(buf\); \}/', $render, 'o índice é conferido ANTES do UTIF.decode');
+        self::assertMatchesRegularExpression('/conferirPaginaTiff\(d, w, h, arq\.bytes\.length, invalido\);.*?orcamentoInflateTiff = bytesPagina \+ 1024 \* 1024;.*?UTIF\.decodeImage\(buf, d\);/s', $render, 'estrutura e orçamento do inflate antes do decodeImage');
+        self::assertStringContainsString('i < total && i < LIMITE_PAGINAS_TIFF', $render);
+        self::assertStringContainsString('w > LIMITE_LADO_TIFF || h > LIMITE_LADO_TIFF || w * h > LIMITE_PIXELS_PAGINA_TIFF', $render);
+        self::assertStringContainsString('if (bytesPagina > LIMITE_BYTES_PAGINA_TIFF) { break; }', $render);
+        self::assertStringContainsString("'Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'", $render);
+        self::assertStringContainsString("lista.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px';", $render, 'as páginas uma embaixo da outra, com 14 px (bj-visualizar.js L66)');
+        self::assertStringContainsString('await new Promise(function (ok) { setTimeout(ok, 0); });', $render, 'cede a thread entre uma página e outra');
+        foreach (['innerHTML', 'srcdoc', 'montarSrcdoc', 'neutralizar'] as $proibido) {
+            self::assertStringNotContainsString($proibido, $render . $pagina);
+        }
+
+        self::assertStringContainsString("document.createElement('canvas')", $pagina);
+        self::assertStringContainsString('putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, w * h * 4), w, h), 0, 0)', $pagina);
+        self::assertStringContainsString('const escala = Math.min(1, LARGURA_MAX_TIFF / w);', $pagina, 'página grande é reduzida para a tela');
+        self::assertStringContainsString("c.style.cssText = 'display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)';", $pagina, 'página branca com a sombra do desenho');
+        self::assertStringContainsString("c.title = 'Página ' + numero;", $pagina);
+    }
+
+    #[TestDox('DOC-112: o índice do TIFF é conferido antes do UTIF (IFD em laço, campo maior que o arquivo, BigTIFF), e a página também (tiras e blocos)')]
+    public function testIndiceDoTiffConferido(): void
+    {
+        $js = self::modulo();
+
+        $indice = self::corpoDaFuncao($js, 'conferirTiff');
+        self::assertStringContainsString('if (vistos.has(off) || vistos.size >= LIMITE_IFDS_TIFF || profundidade > 8) { throw falha(invalido); }', $indice, 'IFD que aponta para si mesmo laçaria o UTIF.decode');
+        self::assertStringContainsString('if (valor + tamanho > bytes.length) { throw falha(invalido); }', $indice, 'campo que declara 4 bilhões de valores travaria a aba');
+        self::assertStringContainsString('if (u16(2) !== 42)', $indice);
+        self::assertStringContainsString('(tag === 330 || tag === 34665)', $indice, 'sub-IFDs e EXIF, que o UTIF também percorre');
+        self::assertStringContainsString('do { proximo = ifd(proximo, 0); } while (proximo !== 0);', $indice);
+
+        $pagina = self::corpoDaFuncao($js, 'conferirPaginaTiff');
+        self::assertStringContainsString('if (!bcnt || bcnt.length !== soff.length) { throw falha(invalido); }', $pagina, 'contagem trocada laça o decodificador de fax');
+        self::assertStringContainsString('soff[i] + bcnt[i] > tamanhoArquivo', $pagina);
+        self::assertStringContainsString('if (soff.length < Math.ceil(w / tw) * Math.ceil(h / th)) { throw falha(invalido); }', $pagina);
+        self::assertStringContainsString('if (!(rps >= 1) || soff.length > Math.ceil(h / rps)) { throw falha(invalido); }', $pagina);
+
+        self::assertStringContainsString('if (!(bits > 0) || bits > 64)', self::corpoDaFuncao($js, 'bytesDaPaginaTiff'));
+    }
+
+    #[TestDox('DOC-112: o inflate que o UTIF usa tem teto (tira Deflate não infla para GB) e o pako original volta ao global depois de carregar o UTIF')]
+    public function testInflateDoTiffComTeto(): void
+    {
+        $js = self::modulo();
+
+        $envelope = self::corpoDaFuncao($js, 'pakoComTeto');
+        self::assertStringContainsString('if (total > orcamentoInflateTiff) { throw falha(MSG_TIFF_GRANDE); }', $envelope);
+        self::assertStringContainsString('inf.push(dados, true);', $envelope);
+
+        $carregar = self::corpoDaFuncao($js, 'carregarUtif');
+        self::assertMatchesRegularExpression("/window\.pako = pakoComTeto\(pako\);\s*return carregarBiblioteca\('utif'\)\.finally\(function \(\) \{ window\.pako = pako; \}\);/", $carregar, 'o UTIF guarda o self.pako do momento em que carrega');
+        self::assertMatchesRegularExpression("/carregarBiblioteca\('pako'\)\.then\(/", $carregar, 'o pako carrega ANTES do UTIF');
+    }
+
+    #[TestDox('DOC-112: na impressão, o canvas (que o clone deixa em branco) vira <img> com o PNG da página, uma por folha')]
+    public function testImpressaoDoTiffTrocaCanvasPorImagem(): void
+    {
+        $copiar = self::corpoDaFuncao(self::modulo(), 'paraImpressao');
+
+        self::assertStringContainsString("const telas = conteudo.querySelectorAll('canvas');", $copiar);
+        self::assertStringContainsString("img.src = telas[i].toDataURL('image/png');", $copiar, 'data: — a CSP da impressão só deixa imagem data:');
+        self::assertStringContainsString("img.style.cssText = 'width:100%;display:block;margin:0 0 6mm;page-break-after:always';", $copiar, 'como o capturar do desenho (bj-visualizar.js L102)');
+        self::assertStringContainsString('cv.replaceWith(img);', $copiar);
+    }
+
     #[TestDox('falha com mensagem própria (senha, corrompido, grande demais) chega à tela')]
     public function testFalhaComMensagemChegaATela(): void
     {
@@ -437,6 +541,11 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         yield 'mammoth (versão)'  => ['public/js/vendor/mammoth/VERSION'];
         yield 'SheetJS (js)'      => ['public/js/vendor/xlsx/xlsx.full.min.js'];
         yield 'SheetJS (licença)' => ['public/js/vendor/xlsx/LICENSE'];
+        yield 'UTIF (js)'         => ['public/js/vendor/utif/UTIF.js'];
+        yield 'UTIF (licença)'    => ['public/js/vendor/utif/LICENSE'];
+        yield 'UTIF (versão)'     => ['public/js/vendor/utif/VERSION'];
+        yield 'pako (js)'         => ['public/js/vendor/utif/pako_inflate.min.js'];
+        yield 'pako (licença)'    => ['public/js/vendor/utif/LICENSE-pako'];
     }
 
     #[DataProvider('arquivosVendor')]

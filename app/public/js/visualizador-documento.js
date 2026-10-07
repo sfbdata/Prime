@@ -22,6 +22,8 @@
 
    Tipos:
      PDF (iframe), imagem, áudio, vídeo — como sempre foi.
+     TIFF (UTIF.js, auto-hospedado): cada página num <canvas>, porque o Chrome
+     e o Firefox não abrem TIFF num <img>.
      DOCX (mammoth.js), planilhas XLSX/XLSM/XLS/ODS/CSV (SheetJS) e texto
      (TXT/JSON/XML/LOG/MD/text/*). Bibliotecas auto-hospedadas em
      /js/vendor/, carregadas só quando o tipo pede.
@@ -56,6 +58,10 @@
     const BIBLIOTECAS = {
         mammoth: { src: BASE_VENDOR + 'mammoth/mammoth.browser.min.js', global: 'mammoth' },
         xlsx:    { src: BASE_VENDOR + 'xlsx/xlsx.full.min.js',          global: 'XLSX' },
+        /* DOC-112: UTIF 3.1.0 (TIFF) e o pako 1.0.11 de que ele depende (só o inflate, para a
+           compressão Deflate). Versões e hashes em vendor/utif/VERSION. */
+        pako:    { src: BASE_VENDOR + 'utif/pako_inflate.min.js',       global: 'pako' },
+        utif:    { src: BASE_VENDOR + 'utif/UTIF.js',                   global: 'UTIF' },
     };
 
     /* Limites. O de bytes é o que de fato segura o navegador: mammoth e
@@ -75,6 +81,16 @@
     const LIMITE_BYTES_RTF        = 10 * 1024 * 1024;   // 10 MB lidos (RTF embute imagem em hexa)
     const LIMITE_BYTES_EML        = 10 * 1024 * 1024;   // 10 MB
     const LIMITE_BYTES_ZIP        = 30 * 1024 * 1024;   // 30 MB (o diretório central fica no fim)
+    const LIMITE_BYTES_TIFF       = 30 * 1024 * 1024;   // 30 MB (o índice das páginas pode estar no fim)
+    /* TIFF: o custo é o de DECODIFICAR (RGBA de 4 bytes por pixel na thread principal), não o de
+       baixar — uma página de poucos KB pode declarar 100 mil × 100 mil pixels. Por página, e a
+       página exibida é reduzida a LARGURA_MAX_TIFF (o canvas fica na tela enquanto o visor estiver
+       aberto). */
+    const LIMITE_PAGINAS_TIFF       = 50;
+    const LIMITE_PIXELS_PAGINA_TIFF = 50 * 1000 * 1000;  // 50 Mpx (A4 a 600 dpi tem ~35)
+    const LIMITE_BYTES_PAGINA_TIFF  = 200 * 1024 * 1024; // página descompactada (16 bits × 4 canais pesa o dobro do RGBA)
+    const LIMITE_LADO_TIFF          = 16384;             // lado máximo de um canvas
+    const LARGURA_MAX_TIFF          = 1700;              // px desenhados por página
     /* Teto do que se DESCOMPACTA de dentro de um ZIP (content.xml, slides):
        um XML de poucos KB pode inflar para GB (zip bomb). Por entrada e, nos
        slides, somado. */
@@ -126,6 +142,8 @@
     const EXT_EML  = ['eml'];
     const EXT_ZIP  = ['zip'];
     const EXT_ASSINATURA = ['p7s', 'p7m'];
+    const MIMES_TIFF = ['image/tiff', 'image/tiff-fx', 'image/x-tiff'];
+    const EXT_TIFF   = ['tif', 'tiff'];
 
     /* ------------------------------------------------------------ util --- */
 
@@ -151,6 +169,9 @@
         const ext = extensao(nome);
 
         if (m === 'application/pdf')  { return 'pdf'; }
+        /* Antes da imagem: o Chrome e o Firefox não abrem TIFF num <img>. A extensão só decide
+           quando o MIME não diz que é outra imagem (um PNG chamado .tif segue como imagem). */
+        if (MIMES_TIFF.includes(m) || (EXT_TIFF.includes(ext) && !m.startsWith('image/'))) { return 'tiff'; }
         if (m.startsWith('image/'))   { return 'imagem'; }
         if (m.startsWith('audio/'))   { return 'audio'; }
         if (m.startsWith('video/'))   { return 'video'; }
@@ -196,6 +217,49 @@
             document.head.appendChild(s);
         });
         return carregando[chave];
+    }
+
+    /* DOC-112: o UTIF chama pako.inflate(tira) e usa o resultado inteiro — uma tira Deflate de
+       poucos KB pode inflar para GB. Ele guarda o `self.pako` que existe quando o UTIF.js
+       carrega: nesse instante o global é trocado por um envelope com teto e, carregado o UTIF,
+       volta a ser o pako original. O teto é o tamanho da página que está sendo decodificada
+       (`orcamentoInflateTiff`, posto pelo renderTiff antes de cada decodeImage). */
+    let orcamentoInflateTiff = 0;
+    const MSG_TIFF_GRANDE = 'Imagem grande demais para pré-visualizar. Baixe para abrir.';
+
+    function pakoComTeto(pako) {
+        return {
+            inflate: function (dados) {
+                const inf = new pako.Inflate();
+                const partes = [];
+                let total = 0;
+                inf.onData = function (pedaco) {
+                    total += pedaco.length;
+                    if (total > orcamentoInflateTiff) { throw falha(MSG_TIFF_GRANDE); }
+                    partes.push(pedaco);
+                };
+                inf.onEnd = function () { /* o resultado é o das partes */ };
+                inf.push(dados, true);
+                if (inf.err) { throw new Error('inflate'); }
+                orcamentoInflateTiff -= total;
+                const saida = new Uint8Array(total);
+                let pos = 0;
+                partes.forEach(function (p) { saida.set(p, pos); pos += p.length; });
+                return saida;
+            },
+        };
+    }
+
+    let carregandoUtif = null;
+    function carregarUtif() {
+        if (window.UTIF) { return Promise.resolve(window.UTIF); }
+        if (carregandoUtif) { return carregandoUtif; }
+        carregandoUtif = carregarBiblioteca('pako').then(function (pako) {
+            window.pako = pakoComTeto(pako);
+            return carregarBiblioteca('utif').finally(function () { window.pako = pako; });
+        });
+        carregandoUtif.catch(function () { carregandoUtif = null; });
+        return carregandoUtif;
     }
 
     /** Lê a resposta até `limite` bytes; cancela o resto do download. */
@@ -1544,6 +1608,175 @@
         trocar(alvo, wrap);
     }
 
+    /* Tamanho, em bytes, de cada tipo de campo do TIFF (TIFF 6.0 + 13 = IFD). */
+    const TIFF_TAMANHO_DO_TIPO = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8, 13: 4 };
+    const LIMITE_IFDS_TIFF = 2000;
+
+    /**
+     * Confere o índice do TIFF ANTES de entregá-lo ao UTIF.decode, que não tem guarda nenhuma: um
+     * IFD que aponta para si mesmo laça para sempre, e um campo que declara 4 bilhões de valores
+     * trava a aba. Percorre o que o UTIF vai percorrer — a cadeia de páginas, os sub-IFDs (330),
+     * o EXIF (34665) e a MakerNote em formato de IFD (37500) — com conjunto de visitados, teto de
+     * IFDs e de profundidade, e cada campo tem de caber no arquivo. O que o UTIF lê por outro
+     * caminho (MakerNote da Nikon, DNG privado 50740) é recusado. BigTIFF (43) o UTIF não lê.
+     */
+    function conferirTiff(bytes, invalido) {
+        if (bytes.length < 8) { throw falha(invalido); }
+        const le = bytes[0] === 0x49 && bytes[1] === 0x49;
+        if (!le && !(bytes[0] === 0x4d && bytes[1] === 0x4d)) { throw falha(invalido); }
+        const u16 = function (p) { return le ? lerU16(bytes, p) : ((bytes[p] << 8) | bytes[p + 1]); };
+        const u32 = function (p) {
+            return le ? lerU32(bytes, p) : (((bytes[p] << 24) | (bytes[p + 1] << 16) | (bytes[p + 2] << 8) | bytes[p + 3]) >>> 0);
+        };
+        if (u16(2) !== 42) { throw falha('Este TIFF usa um formato (BigTIFF) que a pré-visualização não lê. Baixe para abrir.'); }
+
+        const vistos = new Set();
+        function ifd(off, profundidade) {
+            if (vistos.has(off) || vistos.size >= LIMITE_IFDS_TIFF || profundidade > 8) { throw falha(invalido); }
+            vistos.add(off);
+            if (off + 2 > bytes.length) { throw falha(invalido); }
+            const n = u16(off);
+            if (off + 2 + n * 12 + 4 > bytes.length) { throw falha(invalido); }
+            for (let i = 0; i < n; i++) {
+                const e = off + 2 + i * 12;
+                const tag = u16(e);
+                const tipo = u16(e + 2);
+                const qtd = u32(e + 4);
+                const tamanho = (TIFF_TAMANHO_DO_TIPO[tipo] || 0) * qtd;
+                const valor = tamanho > 4 ? u32(e + 8) : e + 8;
+                if (valor + tamanho > bytes.length) { throw falha(invalido); }
+                if (tag === 50740 || (tag === 37500 && qtd >= 5 && String.fromCharCode.apply(null, bytes.subarray(valor, valor + 5)) === 'Nikon')) {
+                    throw falha('Este TIFF traz dados de câmera que a pré-visualização não lê. Baixe para abrir.');
+                }
+                if ((tag === 330 || tag === 34665) && (tipo === 3 || tipo === 4)) { // o UTIF só segue SHORT/LONG
+                    for (let j = 0; j < qtd; j++) {
+                        ifd(tipo === 3 ? u16(valor + j * 2) : u32(valor + j * 4), profundidade + 1);
+                    }
+                }
+                if (tag === 37500 && u32(e + 8) + 2 <= bytes.length && u16(u32(e + 8)) < 300) { ifd(u32(e + 8), profundidade + 1); }
+            }
+            return u32(off + 2 + n * 12);
+        }
+
+        let proximo = u32(4);
+        do { proximo = ifd(proximo, 0); } while (proximo !== 0);
+    }
+
+    /**
+     * Confere a ESTRUTURA da página antes do UTIF.decodeImage, que confia nela: tiras/blocos com
+     * deslocamento e tamanho dentro do arquivo, uma contagem para cada deslocamento, bloco
+     * (tile) de tamanho são e em número suficiente. Sem isso, uma contagem trocada faz o
+     * decodificador de fax ler `undefined` e laçar para sempre.
+     */
+    function conferirPaginaTiff(d, w, h, tamanhoArquivo, invalido) {
+        const cmpr = d.t259 ? d.t259[0] : 1;
+        const soff = d.t273 || d.t324;
+        let bcnt = d.t279 || d.t325;
+        if (!soff || !soff.length) { throw falha(invalido); }
+        if (cmpr === 1 && soff.length === 1 && !bcnt) { bcnt = [0]; } // o UTIF calcula sozinho
+        if (!bcnt || bcnt.length !== soff.length) { throw falha(invalido); }
+        for (let i = 0; i < soff.length; i++) {
+            if (!(soff[i] >= 0) || !(bcnt[i] >= 0) || soff[i] + bcnt[i] > tamanhoArquivo) { throw falha(invalido); }
+        }
+        if (d.t322) {
+            const tw = d.t322[0];
+            const th = d.t323 ? d.t323[0] : 0;
+            if (!(tw > 0 && th > 0) || tw > LIMITE_LADO_TIFF || th > LIMITE_LADO_TIFF || tw * th > LIMITE_PIXELS_PAGINA_TIFF) { throw falha(invalido); }
+            if (soff.length < Math.ceil(w / tw) * Math.ceil(h / th)) { throw falha(invalido); }
+        } else {
+            const rps = d.t278 ? Math.min(d.t278[0], h) : h;
+            if (!(rps >= 1) || soff.length > Math.ceil(h / rps)) { throw falha(invalido); }
+        }
+    }
+
+    /* Bytes que a página ocupa DESCOMPACTADA — o buffer que o UTIF aloca e o máximo que o inflate
+       pode entregar —, com a mesma conta de bits por pixel que o decodeImage faz. Mais de 64 bits
+       por pixel não é TIFF que o visor abra. */
+    function bytesDaPaginaTiff(d, w, h) {
+        const bits = d.t258 ? Math.min(32, d.t258[0]) * d.t258.length : ((d.t277 || [1])[0] || 1);
+        if (!(bits > 0) || bits > 64) { throw falha('Este TIFF usa um formato de cor que a pré-visualização não lê. Baixe para abrir.'); }
+        return (Math.ceil(w * bits / 8) + 8) * h;
+    }
+
+    /** RGBA → canvas, reduzido a LARGURA_MAX_TIFF (o original some depois de copiado). */
+    function paginaTiffEmCanvas(rgba, w, h, numero, total) {
+        if (!rgba || rgba.length < w * h * 4) { throw falha('O arquivo não parece ser uma imagem TIFF válida (ou está corrompido).'); }
+        let c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, w * h * 4), w, h), 0, 0);
+        const escala = Math.min(1, LARGURA_MAX_TIFF / w);
+        if (escala < 1) {
+            const r = document.createElement('canvas');
+            r.width = Math.max(1, Math.round(w * escala));
+            r.height = Math.max(1, Math.round(h * escala));
+            const ctx = r.getContext('2d');
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(c, 0, 0, r.width, r.height);
+            c.width = 0; // solta a memória do tamanho original
+            c = r;
+        }
+        c.className = 'vd-tiff-pagina';
+        c.title = 'Página ' + numero;
+        c.setAttribute('role', 'img');
+        c.setAttribute('aria-label', 'Página ' + numero + ' de ' + total);
+        // bj-visualizar.js L66: página branca com sombra, na largura disponível.
+        c.style.cssText = 'display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)';
+        return c;
+    }
+
+    /* DOC-112 (bj-visualizar.js L66): cada página do TIFF vira um canvas, uma embaixo da outra,
+       com 14 px entre elas. A 1ª página já entra na tela; as outras vêm em seguida, cedendo a
+       thread entre uma e outra. Página acima do teto encerra a lista com aviso. */
+    async function renderTiff(alvo, o, vivo) {
+        const [UTIF, arq] = await Promise.all([carregarUtif(), baixar(o.url, LIMITE_BYTES_TIFF, false, o.sinal)]);
+        if (!vivo()) { return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+
+        const invalido = 'O arquivo não parece ser uma imagem TIFF válida (ou está corrompido).';
+        const buf = arq.bytes.buffer.slice(arq.bytes.byteOffset, arq.bytes.byteOffset + arq.bytes.byteLength);
+        conferirTiff(arq.bytes, invalido);
+        let ifds;
+        try { ifds = UTIF.decode(buf); } catch (e) { throw falha(invalido); }
+        const paginas = (ifds || []).filter(function (d) { return d && d.t256 && d.t257; });
+        if (!paginas.length) { throw falha(invalido); }
+        const total = paginas.length;
+
+        const wrap = el('div', 'vd-documento w-100');
+        const lista = el('div', 'vd-folha-fundo vd-tiff');
+        lista.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px';
+        wrap.appendChild(lista);
+        let desenhadas = 0;
+        for (let i = 0; i < total && i < LIMITE_PAGINAS_TIFF; i++) {
+            const d = paginas[i];
+            const w = d.t256[0];
+            const h = d.t257[0];
+            if (!(w > 0 && h > 0) || w > LIMITE_LADO_TIFF || h > LIMITE_LADO_TIFF || w * h > LIMITE_PIXELS_PAGINA_TIFF) { break; }
+            let pagina;
+            try {
+                conferirPaginaTiff(d, w, h, arq.bytes.length, invalido);
+                const bytesPagina = bytesDaPaginaTiff(d, w, h);
+                if (bytesPagina > LIMITE_BYTES_PAGINA_TIFF) { break; }
+                orcamentoInflateTiff = bytesPagina + 1024 * 1024; // folga de 1 MB
+                UTIF.decodeImage(buf, d);
+                pagina = paginaTiffEmCanvas(UTIF.toRGBA8(d), d.width, d.height, i + 1, total);
+            } catch (e) {
+                /* Da 2ª página em diante, a que falha encerra a lista (as de cima ficam na tela). */
+                if (desenhadas) { break; }
+                throw (e && e.vdMensagem) ? e : falha(invalido);
+            }
+            lista.appendChild(pagina);
+            desenhadas++;
+            if (desenhadas === 1) { trocar(alvo, wrap); }
+            await new Promise(function (ok) { setTimeout(ok, 0); });
+            if (!vivo()) { return; }
+        }
+        if (!desenhadas) { throw falha(MSG_TIFF_GRANDE); }
+        if (desenhadas < total) {
+            wrap.insertBefore(aviso('Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'), lista);
+        }
+    }
+
     /* DOC-111: a faixa do desenho (bj-visualizar.js L68) DENTRO da folha, com as cores dele. Sem a
        2ª frase ("No sistema, o servidor converte para PDF…"): o sistema não converte. */
     async function renderDoc(alvo, o, vivo) {
@@ -1713,6 +1946,16 @@
             }
             fr.replaceWith(quadro);
         });
+        /* DOC-112: o canvas clonado nasce em branco — cada página do TIFF vira <img> com o PNG do
+           canvas original (bj-visualizar.js `capturar`, L102), uma por folha. */
+        const telas = conteudo.querySelectorAll('canvas');
+        copia.querySelectorAll('canvas').forEach(function (cv, i) {
+            const img = inerte.createElement('img');
+            try { img.src = telas[i].toDataURL('image/png'); } catch (e) { /* canvas ilegível: sai em branco */ }
+            img.alt = cv.getAttribute('aria-label') || '';
+            img.style.cssText = 'width:100%;display:block;margin:0 0 6mm;page-break-after:always';
+            cv.replaceWith(img);
+        });
         copia.querySelectorAll('button,input,select,textarea,audio,video,.vd-abas,i.bi').forEach(function (x) { x.remove(); });
 
         const nos = inerte.createDocumentFragment();
@@ -1768,6 +2011,7 @@
             odp: renderOdp,
             rtf: renderRtf,
             doc: renderDoc,
+            tiff: renderTiff,
             eml: renderEml,
             zip: renderZip,
         }[tipo];
