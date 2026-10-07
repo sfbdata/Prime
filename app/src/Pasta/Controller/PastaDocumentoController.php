@@ -18,6 +18,7 @@ use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
+use App\Pasta\Service\VagasDeZipDoEscritorio;
 use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
 use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
@@ -97,6 +98,8 @@ final class PastaDocumentoController extends AbstractController
         // de `RateLimiterFactory` por autowiring é deprecada no Symfony 7.4 (e deixa trocar por
         // dublê em teste, como no AnaliseDaPastaController).
         private readonly RateLimiterFactoryInterface $pastaDocumentosZipLimiter,
+        // SEC-004b: no máximo 2 .zips simultâneos por escritório (trava não bloqueante).
+        private readonly VagasDeZipDoEscritorio $vagasDeZip,
     ) {
     }
 
@@ -374,6 +377,12 @@ final class PastaDocumentoController extends AbstractController
      * consumido DEPOIS dos guardas do lote (pedido recusado por CSRF, posse ou permissão não gasta
      * a cota de ninguém) e ANTES do UseCase, que é a parte cara. Estourou → 429 em JSON, com
      * `Retry-After` em segundos.
+     *
+     * SEC-004b: a cota é por usuário, então vários colegas juntos ainda prenderiam todos os
+     * workers. Depois do limitador, o pedido ocupa uma das 2 vagas de .zip do ESCRITÓRIO
+     * (`VagasDeZipDoEscritorio`, sem esperar). Sem vaga → 429 em JSON. Com vaga, ela é devolvida
+     * no `kernel.terminate` — depois de o .zip inteiro ter sido enviado — ou aqui mesmo, quando o
+     * UseCase recusa e não há .zip a enviar. Ordem: guardas → limitador → vaga → UseCase.
      */
     #[Route('/{id}/documentos/zip', name: 'pasta_documentos_zip', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function zip(Pasta $pasta, Request $request): Response
@@ -399,11 +408,23 @@ final class PastaDocumentoController extends AbstractController
             return $resposta;
         }
 
+        $vaga = $this->vagasDeZip->ocupar($tenant);
+        if ($vaga === null) {
+            return $this->json(
+                ['erro' => 'Já há downloads em .zip em andamento neste escritório. Tente de novo em instantes.'],
+                Response::HTTP_TOO_MANY_REQUESTS,
+            );
+        }
+
         try {
             $saida = $this->montarZipUseCase->executar($pasta, $documentos, $secoes, $currentUser, $tenant);
         } catch (\InvalidArgumentException $e) {
+            $vaga->liberar();
+
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (AccessDeniedException) {
+            $vaga->liberar();
+
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 

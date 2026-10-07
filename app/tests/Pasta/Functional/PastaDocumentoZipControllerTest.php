@@ -14,6 +14,8 @@ use App\Pasta\Controller\PastaDocumentoController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Service\VagaDeZip;
+use App\Pasta\Service\VagasDeZipDoEscritorio;
 use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoGeradoParaEntrega;
@@ -46,6 +48,11 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
 
     protected function tearDown(): void
     {
+        foreach ($this->vagasSeguradas as $vaga) {
+            $vaga->liberar();
+        }
+        $this->vagasSeguradas = [];
+
         if ($this->arquivosGravados !== []) {
             $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
             foreach ($this->arquivosGravados as $chave) {
@@ -343,7 +350,160 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         self::assertSame([(string) $user->getId(), (string) $colega->getId()], $espiao->chavesConsumidas, 'uma chave por usuário, não por pasta nem por escritório');
     }
 
+    // SEC-004b: as vagas de .zip por escritório. O teste segura as vagas por FORA, com outra
+    // instância do serviço sobre o mesmo diretório — é o que outro worker do FPM faria. No
+    // KernelBrowser o `kernel.terminate` roda antes de o conteúdo ser lido (em produção, o runtime
+    // o dispara depois de `send()`); aqui a prova é que a vaga foi devolvida ao fim do pedido.
+
+    #[TestDox('zip: as 2 vagas do escritório ocupadas → 429 em JSON com a mensagem, sem montar zip nem auditar (SEC-004b)')]
+    public function testSemVagaNoEscritorioDevolve429(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $seguradas = $this->ocuparVagas($tenant, VagasDeZipDoEscritorio::VAGAS_POR_ESCRITORIO);
+
+        ArquivoGeradoParaEntrega::limparSobras('zip');
+        $temporariosAntes = $this->temporariosDoZip();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('Já há downloads em .zip em andamento neste escritório. Tente de novo em instantes.', $this->json($client)['erro']);
+        self::assertSame(0, $this->auditoriasDeZip((int) $pasta->getId()), 'sem vaga: o UseCase nem roda');
+        self::assertSame($temporariosAntes, $this->temporariosDoZip(), 'sem vaga: nenhum temporário gravado');
+
+        // Uma vaga devolvida pelo outro "worker" → o próximo pedido passa.
+        $seguradas[0]->liberar();
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+        ]);
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('zip: ordem guardas → limitador → vaga — CSRF errado com as vagas cheias é 400; vaga cheia já gastou a cota do usuário (SEC-004b)')]
+    public function testOrdemGuardasLimitadorVaga(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $this->ocuparVagas($tenant, VagasDeZipDoEscritorio::VAGAS_POR_ESCRITORIO);
+        // Antes do 1º pedido: o contêiner recusa trocar serviço já inicializado.
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+        static::getContainer()->set('limiter.pasta_documentos_zip', $espiao);
+        $corpo = ['_token' => $this->csrf('pex_lote_' . $pasta->getId()), 'documentos' => [(string) $doc->getId()]];
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", ['_token' => 'errado', 'documentos' => [(string) $doc->getId()]]);
+        self::assertResponseStatusCodeSame(400, 'o guarda do lote vem antes da vaga');
+        self::assertSame([], $espiao->chavesConsumidas, 'recusa de CSRF não chega ao limitador nem à vaga');
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", $corpo);
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('Já há downloads em .zip em andamento neste escritório. Tente de novo em instantes.', $this->json($client)['erro']);
+        self::assertSame([(string) $user->getId()], $espiao->chavesConsumidas, 'o limitador por usuário roda ANTES da vaga');
+    }
+
+    #[TestDox('zip: limitador estourado responde o 429 dele, mesmo com as vagas cheias — a vaga nem é tentada (SEC-004b)')]
+    public function testLimitadorVemAntesDaVaga(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $this->ocuparVagas($tenant, VagasDeZipDoEscritorio::VAGAS_POR_ESCRITORIO);
+        static::getContainer()->set('limiter.pasta_documentos_zip', new RateLimiterFactoryEspiao(aceita: false));
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.', $this->json($client)['erro']);
+    }
+
+    #[TestDox('zip: com uma vaga livre o .zip sai, e a vaga volta ao fim do pedido (SEC-004b)')]
+    public function testVagaVoltaAoFimDoPedido(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $this->ocuparVagas($tenant, VagasDeZipDoEscritorio::VAGAS_POR_ESCRITORIO - 1);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertArrayHasKey('rel.pdf', $this->entradasDoZip($client));
+        self::assertCount(1, $this->ocuparVagas($tenant, 1), 'a vaga usada pelo pedido foi devolvida');
+    }
+
+    #[TestDox('zip: as vagas são POR ESCRITÓRIO — outro escritório com as vagas cheias não trava este (SEC-004b)')]
+    public function testVagasDeOutroEscritorioNaoAfetam(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        [, $outro]       = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'rel.pdf', $this->gravarArquivo($tenant, 'conteudo'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+        $this->ocuparVagas($outro, VagasDeZipDoEscritorio::VAGAS_POR_ESCRITORIO);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+        ]);
+
+        self::assertResponseIsSuccessful();
+    }
+
     // ----------------------------------------------------------------- helpers
+
+    /** @var list<VagaDeZip> vagas seguradas pelo teste — vivas até o fim dele */
+    private array $vagasSeguradas = [];
+
+    /**
+     * Ocupa $quantas vagas do escritório por fora do pedido, como outro worker faria. Falha o
+     * teste se alguma não entrar — a pré-condição tem de ser verdadeira.
+     *
+     * @return list<VagaDeZip>
+     */
+    private function ocuparVagas(Tenant $tenant, int $quantas): array
+    {
+        $container = static::getContainer();
+        $vagas     = new VagasDeZipDoEscritorio(
+            (string) $container->getParameter('kernel.project_dir'),
+            (string) $container->getParameter('kernel.environment'),
+        );
+
+        $ocupadas = [];
+        for ($i = 0; $i < $quantas; ++$i) {
+            $vaga = $vagas->ocupar($tenant);
+            self::assertNotNull($vaga, 'pré-condição: a vaga ' . ($i + 1) . ' tinha de estar livre');
+            $ocupadas[] = $vaga;
+        }
+        array_push($this->vagasSeguradas, ...$ocupadas);
+
+        return $ocupadas;
+    }
 
     private function cliente(): KernelBrowser
     {
