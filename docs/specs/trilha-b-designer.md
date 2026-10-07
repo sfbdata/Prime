@@ -497,7 +497,9 @@ explorador.
 - **NÃO usar Fable** (limite de tokens). Tudo em Opus, inclusive o que o plano marca "com Fable" (arquitetura, segurança, revisão crítica): compensar com revisão Opus mais rigorosa e re-revisão.
 
 ### 10.2 Em andamento (worktrees de agentes; o orquestrador integra um commit por vez)
-P13 fidelidade restante da Pasta · P16a parcelamento · P17a Adicionar coluna · revisão de P11/P14/P15.
+P19 @menção · ajustes pós-revisão (tarefa_mensagem_editar na lápide, novo principal ao desvincular, Total do tempo médio do P17a).
+Integrados: P13 (d89eca6b…6bf1430a), P14b (be7601d3, c46480f0 — AUTORIZACAO.md documenta o listener —, 3ac3a4d7), P15b ODP por slide (a0a3257a), P16a parcelamento Price (639d53ff, 4c1871a0, 73f7db1a — teto 60, descrição livre opcional mantida), P17a colunas extras (ecbe539f, 8e2e8442). **Suíte completa 7628/34217.**
+Falta do plano: P16b êxito/sucumbência (migration), P17b "Pastas concluídas" (sem lastro), P18 timeline inteligente.
 Integrados na sequência: P11 (949d587d), P14 (ad689398 — atributo `#[PastaPelaFilha]` + teste de ARQUITETURA que barra rota `pasta_*` de escrita sem cobertura), P15 (16a6b558), ajustes P9 (3381f6c7), P12 (3584a2c1), P10 (0df5b2a0 — `valorAnterior` + 409). Suíte completa 7424/31418.
 Registrado: corrida residual na correção de valor (dois POST simultâneos) — fechar com lock pessimista/`#[Version]`; arquivo >4 GB no visualizador exige HTTP Range no backend; `PastaSecaoController` usa `em->find` sem tenant (o TenantFilter cobre, mas sem defesa em profundidade).
 Integrados também: P1 (cf21d836), P2 (43a70c9b), P3 (96d5272a), P9 (5a65f0d2+b89a4919), P10 (80534aa7+88fff98c), P12 (d1335dd5), ajustes P4/P5/P7 (881a933d, 4681b88c, 0a53bba0). Suíte completa 7314/30825 antes do P10.
