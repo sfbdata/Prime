@@ -30,8 +30,9 @@
    de Pastas criadas, no cabeçalho, em cada linha, no Total e no card do celular. #}
 {% set extras = dashboard.colunasExtras %}
 {% set extrasCatalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') %}
-{# Extras com tendência (DASH-010) => sentido do macro tend.tendencia: concluídas e taxa 'alta',
-   tempo médio 'baixa', eventos 'fila'. Em revisão e Pastas urgentes são estoque: sem seta. #}
+{# Extras com tendência (DASH-010) => sentido do macro tend.tendencia: hoje só eventos ('fila').
+   Em revisão e Pastas urgentes são estoque; concluídas, taxa e tempo médio recortam por criação
+   e leem o status de hoje (DASH-010b): sem seta. Motivo em ColunasExtrasDoDashboard::TENDENCIA. #}
 {% set extrasTendencia = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::TENDENCIA') %}
 {# Período do painel para os links "ir para o serviço": some quando o painel está sem
    período (o destino então lista sem recorte de data, como as contagens). #}

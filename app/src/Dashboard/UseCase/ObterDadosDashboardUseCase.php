@@ -138,24 +138,19 @@ final class ObterDadosDashboardUseCase
             array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
         );
 
-        // Tendência das extras com lastro por data (concluídas, taxa, tempo médio, eventos): as
-        // MESMAS consultas/fórmulas no período anterior de mesma duração — a regra das setas
-        // que já existem. Concluídas e taxa saem de Total − Ativas, então só falta o mapa de
-        // ativas do período anterior (o de total já foi lido acima).
+        // Tendência das extras com lastro por data (hoje só Eventos na agenda): a MESMA consulta
+        // no período anterior de mesma duração — a regra das setas que já existem. Concluídas,
+        // taxa e tempo médio ficam sem seta (DASH-010b, ver ColunasExtrasDoDashboard::TENDENCIA)
+        // e, por isso, sem consulta do período anterior.
         $extrasComTendencia = $comAnterior ? Extras::comTendencia($colunasExtras) : [];
         $mExtrasAnt         = [];
-        $mAntAtivas         = [];
         if ($extrasComTendencia !== [] && $colaboradores !== []) {
-            $filtrosAnteriores = array_merge($filtros, $periodoAnterior);
-            $mExtrasAnt        = $this->mapasExtras(
+            $mExtrasAnt = $this->mapasExtras(
                 $tenant,
-                $filtrosAnteriores,
+                array_merge($filtros, $periodoAnterior),
                 $extrasComTendencia,
                 array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
             );
-            if (array_intersect([Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO], $extrasComTendencia) !== []) {
-                $mAntAtivas = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtrosAnteriores);
-            }
         }
 
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
@@ -187,13 +182,8 @@ final class ObterDadosDashboardUseCase
                     $mTotalTarefa[$id] ?? 0,
                     $mAtivasTarefa[$id] ?? 0,
                 ),
-                extrasAnteriores:      $this->valoresExtras(
-                    $extrasComTendencia,
-                    $mExtrasAnt,
-                    $id,
-                    $mAntTarefa[$id] ?? 0,
-                    $mAntAtivas[$id] ?? 0,
-                ),
+                // Só extras com consulta própria (Eventos) têm tendência: total/ativas não entram.
+                extrasAnteriores:      $this->valoresExtras($extrasComTendencia, $mExtrasAnt, $id, 0, 0),
             );
         }
 
@@ -232,7 +222,7 @@ final class ObterDadosDashboardUseCase
             colunasExtras:              $colunasExtras,
             totaisExtras:               $this->totaisExtras($colunasExtras, $linhas),
             totaisExtrasAnteriores:     $comAnterior
-                ? $this->totaisExtras($extrasComTendencia, $linhas, true, $mAntTarefa, $mAntAtivas)
+                ? $this->totaisExtras($extrasComTendencia, $linhas, true)
                 : null,
         );
     }
@@ -297,35 +287,23 @@ final class ObterDadosDashboardUseCase
      * contagem = soma; taxa = Σ concluídas ÷ Σ metas; tempo médio = média das linhas com tempo > 0
      * (a regra do desenho, dc 1.2.2 L.1980). Sem base, null ("—").
      *
-     * Com $anterior, a MESMA regra sobre o período anterior: os valores vêm de
-     * `extrasAnteriores` de cada linha e a taxa, dos mapas de total/ativas anteriores das linhas
-     * visíveis.
+     * Com $anterior, a MESMA regra sobre o período anterior, com os valores de
+     * `extrasAnteriores` de cada linha — só para as extras de ColunasExtrasDoDashboard::TENDENCIA
+     * (hoje, Eventos na agenda: uma soma).
      *
      * @param list<string>                   $colunasExtras
      * @param LinhaAdvogadoDashboardOutput[] $linhas
-     * @param array<int, int>                $mAntTotal  só com $anterior
-     * @param array<int, int>                $mAntAtivas só com $anterior
      *
      * @return array<string, int|null>
      */
-    private function totaisExtras(array $colunasExtras, array $linhas, bool $anterior = false, array $mAntTotal = [], array $mAntAtivas = []): array
+    private function totaisExtras(array $colunasExtras, array $linhas, bool $anterior = false): array
     {
         $campo  = $anterior ? 'extrasAnteriores' : 'extras';
         $totais = [];
         foreach ($colunasExtras as $coluna) {
             if ($coluna === Extras::TAXA_CONCLUSAO) {
-                if ($anterior) {
-                    $metas = 0;
-                    $ativas = 0;
-                    foreach ($linhas as $l) {
-                        $metas  += $mAntTotal[$l->userId] ?? 0;
-                        $ativas += $mAntAtivas[$l->userId] ?? 0;
-                    }
-                } else {
-                    $metas  = $this->somar($linhas, 'totalMetas');
-                    $ativas = $this->somar($linhas, 'metasAtivas');
-                }
-                $concluidas = $metas - $ativas;
+                $metas      = $this->somar($linhas, 'totalMetas');
+                $concluidas = $metas - $this->somar($linhas, 'metasAtivas');
                 $totais[$coluna] = $metas > 0 ? (int) round($concluidas / $metas * 100) : null;
 
                 continue;

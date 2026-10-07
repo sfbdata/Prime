@@ -40,8 +40,8 @@ final class LinhaAdvogadoDashboardOutput
         public readonly array  $extras = [],
         // TENDÊNCIA DAS EXTRAS — o valor de cada extra com tendência
         // (ColunasExtrasDoDashboard::TENDENCIA) no período anterior de mesma duração, pela
-        // MESMA fórmula. Vazio sem período completo. Null = não havia o que medir antes
-        // (taxa sem meta, tempo sem conclusão com data): sem seta, nada inventado.
+        // MESMA fórmula (hoje só Eventos na agenda). Vazio sem período completo. Extra fora
+        // da TENDENCIA não tem chave aqui: sem seta, nada inventado.
         /** @var array<string, int|null> */
         public readonly array  $extrasAnteriores = [],
     ) {}

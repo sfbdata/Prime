@@ -6,13 +6,13 @@
    desenhado: o painel nunca inventa uma comparação.
 
    Cor pelo SIGNIFICADO, não pela direção (README), escolhida por `sentido`:
-     'alta' (padrão) → subir é bom: Total metas, Total demandas, Pastas criadas,
-                       e as extras Metas concluídas e Taxa de conclusão;
-     'baixa'         → cair é bom: Vencidas, Prazos próximos e a extra Tempo médio;
+     'alta' (padrão) → subir é bom: Total metas, Total demandas, Pastas criadas;
+     'baixa'         → cair é bom: Vencidas, Prazos próximos;
      'fila'          → sempre cinza: subir ou cair não é bom nem ruim sozinho —
                        a extra Eventos na agenda (desenho: `neutra`). Metas/Demandas
                        ativas seguem sem tendência (o painel as filtra por período e
-                       a foto é o estoque inteiro). Sentido das extras:
+                       a foto é o estoque inteiro). Sentido das extras (e por que
+                       concluídas, taxa e tempo médio não têm seta):
                        ColunasExtrasDoDashboard::TENDENCIA.
    Estável (variação abaixo de 2%) é cinza em qualquer sentido. Vencidas e Prazos
    comparam com a foto diária de data_de − 1 (dashboard_foto).
