@@ -1809,7 +1809,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-doc:last-child { border-bottom: none; }
 .ps-doc:hover,
 .ps-doc:focus-visible { background: var(--ps-hover-doc); color: var(--ps-text); text-decoration: none; }
-.ps-doc:hover .ps-doc-nome { color: var(--ps-accent); }
+/* Só o fundo no hover (N11, dc L.1400): o nome não muda de cor. */
 .ps-doc .ps-linha-corpo { display: block; }
 .ps-doc .ps-doc-nome,
 .ps-doc .ps-doc-meta { display: block; }
@@ -2052,7 +2052,8 @@ span.ps-situacao-pill { cursor: default; }
     gap: 10px !important;
     border-bottom: 1px solid var(--ps-div-weak);
 }
-.ps-clientes .cliente-linha:hover { background: var(--ps-hover); }
+/* Sem fundo no hover (N11, dc L.1377 e L.6132): o desenho não pinta a linha do cliente;
+   o hover só revela as ações (abaixo). */
 .ps-clientes .cliente-nome {
     display: flex;
     align-items: center;
@@ -2074,7 +2075,8 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-label);
     margin-top: 1px;
 }
-.ps-clientes .cliente-doc-rotulo { font-weight: 600; margin-right: 3px; }
+/* "CPF 006…" num texto só, peso normal (N10, dc L.1385 e L.6115): o rótulo não se destaca. */
+.ps-clientes .cliente-doc-rotulo { font-weight: inherit; margin-right: 0; }
 .ps-clientes .cliente-principal {
     background: var(--ps-cli-principal);
     border-radius: 0;

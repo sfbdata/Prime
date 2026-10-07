@@ -144,7 +144,8 @@
         <div class="ps-vinc-erro" role="alert" hidden></div>
     </div>
 
-    <div id="clientesList">
+    {# `data-nome-cliente`: o JS do show remonta o vazio deste bloco (abaixo) ao desvincular o último cliente. #}
+    <div id="clientesList" data-nome-cliente="{{ pasta.nomeCliente }}">
         {% set clientePrincipal = pasta.clientePrincipal %}
         {% if pasta.clientes|length > 0 %}
             {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}

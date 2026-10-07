@@ -25,6 +25,7 @@
         acoesDoMenu();
         acordeaoDoPush();
         abaDoFragmento();
+        mensagemDoFragmento();
     });
 
     /* ── 1. Indicador das abas ────────────────────────────────────────────── */
@@ -329,6 +330,44 @@
 
         var gatilho = document.getElementById(hash.slice(1) + '-tab');
         if (gatilho) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
+    }
+
+    /* ── 9. Âncora de um registro (`#pasta-msg-<id>`) ─────────────────────
+       É o destino da notificação de resposta (EnviarMensagemPastaUseCase). O
+       registro pode estar entre os "anteriores" (`.ps-anotacao--extra`, d-none,
+       ou dentro de uma conversa escondida): sem abrir o bloco, o navegador não
+       tem para onde rolar. Abre pelo PRÓPRIO botão "Ver anotações anteriores"
+       (mesmo efeito do clique), garante a aba Dados e rola até o cartão. */
+    function mensagemDoFragmento() {
+        var hash = window.location.hash;
+        if (!/^#pasta-msg-\d+$/.test(hash)) { return; }
+
+        var alvo = document.getElementById(hash.slice(1));
+        if (!alvo) { return; }
+
+        var escondido = alvo.classList.contains('ps-anotacao--extra')
+            || !!alvo.closest('.ps-anotacao--extra');
+        if (escondido) {
+            var botao = document.getElementById('psAnotacoesMais');
+            if (botao) {
+                botao.click();
+            } else {
+                document.querySelectorAll('.ps-anotacao--extra').forEach(function (item) {
+                    item.classList.remove('d-none');
+                });
+            }
+        }
+
+        var gatilhoDados = document.getElementById('dados-tab');
+        var painel = alvo.closest('.tab-pane');
+        if (gatilhoDados && painel && !painel.classList.contains('active') && window.bootstrap) {
+            bootstrap.Tab.getOrCreateInstance(gatilhoDados).show();
+        }
+
+        // Depois do reflow (o bloco acabou de aparecer e a aba pode ter trocado).
+        window.requestAnimationFrame(function () {
+            alvo.scrollIntoView({ block: 'center' });
+        });
     }
 
 }());

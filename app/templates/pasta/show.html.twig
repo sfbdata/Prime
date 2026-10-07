@@ -1144,7 +1144,6 @@
     const urlBuscar               = document.getElementById('urlBuscarClientes')?.value ?? '';
     const urlVincular             = document.getElementById('urlVincularCliente')?.value ?? '';
     const csrfVincular            = document.getElementById('csrfVincularCliente')?.value ?? '';
-    const pastaId                 = '{{ pasta.id }}';
     const csrfDesvincularProcesso = '{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}';
     const clientesContainer       = document.getElementById('clientesList');
 
@@ -1303,9 +1302,52 @@
         if (row) {
             row.remove();
         }
-        if (!clientesContainer.querySelector('.cliente-linha')) {
-            clientesContainer.insertAdjacentHTML('beforeend', '<div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>');
+        // Bloco que ficou sem linha sai, como o Twig, que só o imprime com cliente dentro.
+        clientesContainer.querySelectorAll('.cliente-principal, .clientes-outros').forEach((bloco) => {
+            if (!bloco.querySelector('.cliente-linha')) {
+                bloco.remove();
+            }
+        });
+
+        const restantes = clientesContainer.querySelectorAll('.cliente-linha').length;
+        atualizarContagemClientes(restantes);
+        if (restantes === 0 && !clientesContainer.querySelector('#clientesPlaceholder')) {
+            clientesContainer.appendChild(montaPlaceholderClientes());
         }
+    }
+
+    /* O vazio do cartão com a MESMA marcação do _dados_trilho.html.twig (os dois estados:
+       o identificador em texto solto da pasta, quando existe, ou o "Nenhum cliente
+       vinculado"). Montado por nós (textContent), nunca por string com dado do usuário. */
+    function montaPlaceholderClientes() {
+        const nomeSolto = clientesContainer.dataset.nomeCliente ?? '';
+        const div = document.createElement('div');
+        div.id = 'clientesPlaceholder';
+        const icone = document.createElement('i');
+        icone.className = 'bi bi-person-circle';
+
+        if (nomeSolto !== '') {
+            div.className = 'ps-cliente';
+            icone.style.color = 'var(--ps-faint)';
+            const nome = document.createElement('span');
+            nome.className = 'ps-cliente-nome flex-grow-1';
+            nome.textContent = nomeSolto;
+            const selo = document.createElement('span');
+            selo.className = 'ps-selo ps-selo--tranquilo';
+            selo.textContent = 'não vinculado';
+            div.append(icone, nome, selo);
+            return div;
+        }
+
+        div.className = 'ps-vazio';
+        const titulo = document.createElement('div');
+        titulo.className = 'ps-vazio-titulo';
+        titulo.textContent = 'Nenhum cliente vinculado';
+        const nota = document.createElement('div');
+        nota.className = 'ps-vazio-nota';
+        nota.textContent = 'Vincule o cliente para calcular a média por CPF.';
+        div.append(icone, titulo, nota);
+        return div;
     }
 
 
@@ -1568,19 +1610,57 @@
     function trocaClientePrincipal(dados) {
         const novoId = String(dados.clienteId ?? '');
 
+        let linhaNova = null;
         document.querySelectorAll('#clientesList .cliente-linha').forEach((linha) => {
+            const clienteId = String(linha.dataset.clienteId ?? '');
+            const ehNovo = clienteId === novoId;
+            if (ehNovo) {
+                linhaNova = linha;
+            }
+
+            // O selo "Principal" anda junto com a estrela (o Twig o põe no fim de .cliente-nome).
+            const nome = linha.querySelector('.cliente-nome');
+            const selo = nome?.querySelector('.ps-selo-principal');
+            if (ehNovo && nome && !selo) {
+                const novoSelo = document.createElement('span');
+                novoSelo.className = 'ps-selo-principal';
+                novoSelo.textContent = 'Principal';
+                nome.appendChild(novoSelo);
+            } else if (!ehNovo && selo) {
+                selo.remove();
+            }
+
             const acoes = linha.querySelector('.js-cliente-acoes');
             if (!acoes) {
                 return;
             }
-            const clienteId = String(linha.dataset.clienteId ?? '');
             const atual = acoes.querySelector('form.js-ajax-cliente-principal, .js-cliente-principal-estrela');
             if (!atual) {
                 return;
             }
 
-            atual.replaceWith(montaEstrelaPrincipal(clienteId, clienteId === novoId, linha.dataset.tokenPrincipal ?? ''));
+            atual.replaceWith(montaEstrelaPrincipal(clienteId, ehNovo, linha.dataset.tokenPrincipal ?? ''));
         });
+
+        // E a linha vai para o bloco do principal (fora da rolagem), como no próximo F5;
+        // quem estava lá desce para o topo dos outros.
+        if (clientesContainer && linhaNova && !linhaNova.closest('.cliente-principal')) {
+            let blocoPrincipal = clientesContainer.querySelector('.cliente-principal');
+            if (blocoPrincipal) {
+                Array.from(blocoPrincipal.querySelectorAll('.cliente-linha')).reverse().forEach((anterior) => {
+                    blocoDosOutros().prepend(anterior);
+                });
+            } else {
+                blocoPrincipal = document.createElement('div');
+                blocoPrincipal.className = 'cliente-principal';
+                clientesContainer.prepend(blocoPrincipal);
+            }
+            blocoPrincipal.appendChild(linhaNova);
+            const outros = clientesContainer.querySelector('.clientes-outros');
+            if (outros && !outros.querySelector('.cliente-linha')) {
+                outros.remove();
+            }
+        }
 
         const media = document.getElementById('financeiro-media-cpf');
         if (media && dados.mediaFormatada) {
