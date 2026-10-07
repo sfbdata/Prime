@@ -285,4 +285,13 @@
 .ps-page .ps-nota-editor-acoes .ps-btn--primario { padding: 0 14px; border: none; transition: background .15s; }
 .ps-page .ps-nota-editor-acoes .ps-btn--primario:hover,
 .ps-page .ps-nota-editor-acoes .ps-btn--primario:focus-visible { border: none; background: var(--ps-env-hv); color: #fff; }
+/* EDT-021: "Salvar nota" apagado com o editor vazio — o mesmo estado do Enviar do compositor
+   (`.bjed-env:disabled`: fundo #a9c7e2, cursor padrão; editor-rico.css), aqui no rodapé da nota
+   e vencendo o :hover acima. */
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled,
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:hover,
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:focus-visible { background: #a9c7e2; color: #fff; cursor: default; }
+[data-bs-theme="dark"] .ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled,
+[data-bs-theme="dark"] .ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:hover,
+[data-bs-theme="dark"] .ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:focus-visible { background: rgba(47, 134, 208, .35); color: rgba(255, 255, 255, .7); }
 .ps-page .ps-nota-erro { font-size: 12.5px; color: var(--ps-danger-text); margin-top: 6px; }

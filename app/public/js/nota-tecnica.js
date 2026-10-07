@@ -59,6 +59,17 @@
     function focar(quill, textarea) {
         if (quill && typeof quill.focus === 'function') { quill.focus(); } else { textarea.focus(); }
     }
+    /* EDT-021: o "Salvar nota" é o botão de envio do editor (`data-editor-rico-envio`) — o
+       editor o mantém apagado enquanto estiver vazio. Durante o envio quem apaga é
+       `EditorRico.marcarEnvio`: mexer no `disabled` direto seria desfeito na próxima tecla
+       (e reabriria o envio em dobro). Sem o editor, a textarea crua segue como antes. */
+    function marcarEnvio(textarea, botao, enviando) {
+        if (window.EditorRico && EditorRico.marcarEnvio) {
+            EditorRico.marcarEnvio(textarea, enviando);
+        } else {
+            botao.disabled = enviando;
+        }
+    }
 
     /* ── Bloco ───────────────────────────────────────────────────────────── */
     function blocoDe(el) { return el.closest('.ps-notas'); }
@@ -121,7 +132,7 @@
         var publicacaoId = bloco.getAttribute('data-publicacao-id');
         if (publicacaoId) { fd.append('publicacao_id', publicacaoId); }
 
-        botao.disabled = true;
+        marcarEnvio(textarea, botao, true);
         botao.textContent = 'Salvando…';
         esconderErro(bloco);
 
@@ -140,8 +151,9 @@
             })
             .catch(function () { mostrarErro(bloco, 'Erro de rede. Tente novamente.'); })
             .then(function () {
-                botao.disabled = false;
                 botao.textContent = 'Salvar nota';
+                // Volta ao estado do editor: depois de salvar ele está vazio, e o botão segue apagado.
+                marcarEnvio(textarea, botao, false);
             });
     }
 
@@ -179,6 +191,9 @@
         salvar.type = 'button';
         salvar.className = 'ps-btn ps-btn--primario';
         salvar.textContent = 'Salvar nota';
+        // EDT-021: apagado com o editor vazio, como o do compositor (o id é o elo do contrato).
+        salvar.id = 'nota-tecnica-' + botaoEditar.getAttribute('data-nota-id') + '-salvar';
+        textarea.setAttribute('data-editor-rico-envio', salvar.id);
 
         var acoes = document.createElement('div');
         acoes.className = 'ps-nota-editor-acoes';
@@ -230,14 +245,14 @@
             fd.append('conteudo', conteudoParaEnvio(textarea));
             fd.append('pasta_id', bloco.getAttribute('data-pasta-id') || '');
 
-            salvar.disabled = true;
+            marcarEnvio(textarea, salvar, true);
             fetch(botaoEditar.getAttribute('data-url'), { method: 'POST', body: fd, headers: CABECALHOS, credentials: 'same-origin' })
                 .then(function (resp) {
                     return resp.json().catch(function () { return {}; }).then(function (dados) {
                         if (!resp.ok) {
                             erro.textContent = dados.erro || 'Erro ao editar.';
                             erro.hidden = false;
-                            salvar.disabled = false;
+                            marcarEnvio(textarea, salvar, false);
                             return;
                         }
                         restaurar(dados.conteudoHtml);
@@ -249,7 +264,7 @@
                 .catch(function () {
                     erro.textContent = 'Erro de rede.';
                     erro.hidden = false;
-                    salvar.disabled = false;
+                    marcarEnvio(textarea, salvar, false);
                 });
         }
 

@@ -56,14 +56,17 @@
     {# Desenho dc:1693–1710 (auditoria 2 P3): as notas primeiro, o compositor depois. #}
     <div class="ps-nota-editor" hidden>
         <div class="ps-nota-editor-rotulo"><i class="bi bi-journal-plus" aria-hidden="true"></i>Nova nota técnica</div>
+        {#- EDT-021: o editor mantém o "Salvar nota" apagado enquanto estiver vazio (contrato
+            `data-editor-rico-envio` do editor-rico.js; o id é único por bloco). #}
         <textarea class="ps-nota-textarea" rows="3" maxlength="5000"
+                  data-editor-rico-envio="{{ blocoId }}-salvar"
                   aria-label="Texto da nota técnica"
                   {#- Desenho dc:1713 (aba Processo) e dc:2554 (teor do Push), com a frase da @menção. #}
                   placeholder="{{ publicacaoId ? 'Explique o despacho' : 'Explique o processo ou o despacho' }}: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém."></textarea>
         <div class="ps-nota-erro" hidden></div>
         <div class="ps-nota-editor-acoes">
             <button type="button" class="ps-btn js-nota-cancelar">Cancelar</button>
-            <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" title="Salvar (Ctrl+Enter)">Salvar nota</button>
+            <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" id="{{ blocoId }}-salvar" title="Salvar (Ctrl+Enter)">Salvar nota</button>
         </div>
     </div>
 </div>

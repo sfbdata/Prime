@@ -253,6 +253,35 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('EDT-021: o editor da nota aponta o "Salvar nota" do PRÓPRIO bloco como botão de envio (apagado com o editor vazio), na aba Processo e no teor')]
+    public function testSalvarNotaEhOBotaoDeEnvioDoEditor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '60000040', self::NUMERO, '2026-08-20', $processo);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $alvos = [
+            "/pasta/{$pasta->getId()}"                      => "notas-processo-{$processo->getId()}",
+            "/pasta/{$pasta->getId()}/push/{$pub->getId()}" => "notas-publicacao-{$pub->getId()}",
+        ];
+        foreach ($alvos as $url => $blocoId) {
+            $crawler = $client->request('GET', $url);
+            self::assertResponseIsSuccessful($url);
+
+            $textarea = $crawler->filter("#{$blocoId} > .ps-nota-editor > textarea");
+            self::assertCount(1, $textarea, $url);
+            self::assertSame("{$blocoId}-salvar", $textarea->attr('data-editor-rico-envio'), $url);
+            // O id aponta para o Salvar DESTE bloco, dentro das ações do compositor — e é único na página.
+            self::assertCount(1, $crawler->filter("#{$blocoId} > .ps-nota-editor > .ps-nota-editor-acoes > button.js-nota-salvar#{$blocoId}-salvar"), $url);
+            self::assertCount(1, $crawler->filter("#{$blocoId}-salvar"), $url);
+            self::assertSame('Salvar nota', trim($crawler->filter("#{$blocoId}-salvar")->text()), $url);
+        }
+    }
+
     #[TestDox('o teor do Push mostra só as notas DAQUELA movimentação, com o compositor apontando para o processo')]
     public function testTeorDoPushMostraSoAsNotasDaMovimentacao(): void
     {

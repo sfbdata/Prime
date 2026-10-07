@@ -38,6 +38,30 @@ final class NotaTecnicaJsTest extends TestCase
         return substr($js, $ini, $fim - $ini);
     }
 
+    #[TestDox('EDT-021: durante o envio quem apaga o "Salvar nota" é EditorRico.marcarEnvio — nunca `disabled` direto, que a próxima tecla desfaria')]
+    public function testSalvarUsaMarcarEnvioDoEditor(): void
+    {
+        $marcar = $this->funcao('marcarEnvio');
+        self::assertStringContainsString('EditorRico.marcarEnvio(textarea, enviando)', $marcar);
+
+        $nova = $this->funcao('salvarNova');
+        self::assertStringContainsString('marcarEnvio(textarea, botao, true)', $nova);
+        self::assertStringContainsString('marcarEnvio(textarea, botao, false)', $nova);
+        self::assertStringNotContainsString('botao.disabled = ', $nova);
+        // Com o editor vazio o botão já está apagado: Ctrl+Enter também não envia.
+        self::assertStringContainsString('botao.disabled) { return; }', $nova);
+
+        $editar = $this->funcao('editar');
+        self::assertStringContainsString("textarea.setAttribute('data-editor-rico-envio', salvar.id)", $editar);
+        self::assertStringContainsString('marcarEnvio(textarea, salvar, true)', $editar);
+        self::assertStringNotContainsString('salvar.disabled = ', $editar);
+        // O contrato é declarado ANTES de montar o editor (a montagem já calcula o estado do botão).
+        self::assertLessThan(
+            strpos($editar, 'montar(textarea)'),
+            strpos($editar, "setAttribute('data-editor-rico-envio'"),
+        );
+    }
+
     #[TestDox('PMC-017: o botão direito no cartão abre o MESMO menu do ⋮, no ponto do clique, poupando links, botões, edição e texto selecionado')]
     public function testBotaoDireitoAbreOMenuDaNota(): void
     {
