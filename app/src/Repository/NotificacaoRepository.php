@@ -169,6 +169,39 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Apaga os avisos cujo link termina EXATAMENTE na âncora informada (`#pasta-msg-12`,
+     * `#nota-tecnica-7`), dos tipos informados, no escritório informado (NOT-01): quando a
+     * mensagem do Registro ou a nota técnica é excluída, a menção/resposta que apontava para ela
+     * não pode continuar no sino (nem na Timeline de quem recebeu) com a prévia do texto apagado.
+     *
+     * "Termina em": `#pasta-msg-12` não casa `#pasta-msg-123` (nem `#pasta-msg-112`), porque a
+     * âncora inteira, com o `#`, tem de ser o fim do link. O escritório é EXPLÍCITO — DELETE em
+     * massa em DQL não passa pelo TenantFilter —, e o tipo restringe ao aviso que essa âncora
+     * gera, para não alcançar link de outra natureza que por acaso termine igual.
+     *
+     * @param list<string> $tipos
+     *
+     * @return int quantos avisos foram apagados
+     */
+    public function excluirPelaAncoraDoLink(Tenant $tenant, array $tipos, string $ancora): int
+    {
+        if ($tipos === [] || !str_starts_with($ancora, '#') || strlen($ancora) < 2) {
+            return 0;
+        }
+
+        return $this->createQueryBuilder('n')
+            ->delete()
+            ->where('n.tenant = :tenant')
+            ->andWhere('n.tipo IN (:tipos)')
+            ->andWhere('n.url LIKE :sufixo')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipos', $tipos)
+            ->setParameter('sufixo', '%' . addcslashes($ancora, '%_\\'))
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
      * As N notificações mais novas DO USUÁRIO, no escritório, ligadas à pasta (Timeline
      * inteligente, PAS-047i): a meta da notificação é desta pasta, ou o link leva à `pasta_show`
      * DELA (`$caminhoDaPasta` exato, ou seguido de `#`/`?` — `/pasta/12` não casa `/pasta/123`).
