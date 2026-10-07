@@ -154,6 +154,25 @@ cada divergência A trabalhada e as filas B/C/D.
 | EDT-017 | Editor | Colar com Manter/Mesclar/Somente texto | P3 | **feito** | ✓ | ✓ | ✓ | `76679c97` | Opus: sem XSS | |
 | EDT-015 | Editor | Sugestão de palavras; Tab cede à @menção | P3 | **feito** | ✓ | ✓ | ✓ | `f2bb3421` | Opus | Vocabulário estático já existente |
 
+| DOC-116 | Documentos | Nome do .zip do desenho; "Baixando" só após confirmação | P4 | **feito** | ✓ | ✓ | ✓ | `19f3ada0` | | Cookie de confirmação de 60 s (SameSite=Strict) |
+| DOC-140 | Documentos | Recusa do .zip fora de XHR vira página legível | P3 | **feito** | ✓ | ✓ | ✓ | `7a7ea58b`, `d4366e55` | | 404 de pasta alheia segue a página do framework |
+| DOC-118 | Documentos | Explorador e checklist sem escrita para quem só vê | P3 | **feito** | ✓ | ✓ | ✓ | `b7a074d5` | | Fecha também D-DOC-RO (tela) para o explorador |
+| DOC-120 | Documentos | Copiar link de subpasta + `?pex` | P5 | **feito** | ✓ | ✓ | ✓ | `40ec0828` | | Parâmetro de outra pasta ignorado em silêncio |
+| DOC-141 | Visualizador | Tamanho no aviso do P7S | P5 | **feito** | ✓ | ✓ | ✓ | `047fd224` | | |
+| PMC-019 (=EDT-010=FPN-022) | Processo | @menção nas notas técnicas | P2 | **feito** | ✓ | ✓ | ✓ | `05d7f470` | (mutação: 2 caem) | Serviço de menções generalizado; cota compartilhada com o Registro |
+| PMC-017 (=FPN-021) | Processo | ⋮ da nota técnica (e botão direito), bloqueado fora da janela | P2 | **feito** | ✓ | ✓ | ✓ | `e0f8f131` | | Responder não renderizado (ver PMC-057) |
+| EDT-021 (nota) | Editor | "Salvar nota" desabilitado vazio | P3 | **feito** | ✓ | ✓ | ✓ | `33e84d88` | | |
+| IA-007 | IA | Copiar, Baixar .txt e Imprimir no resultado | P2 | **feito** | ✓ | ✓ | ✓ | `ff9df25f` | | Opera sobre análise gravada; nada simulado |
+| IA-008 | IA | "Registro de auditoria (N)" no drawer | P2 | **feito** | ✓ | ✓ | ✓ | `fff3f75f` | | Só metadado |
+| IA-005/006 | IA | Chips e grade "O que a IA sabe desta pasta" | P3 | **feito** | ✓ | ✓ | ✓ | `39ca4566`, `38ef7c6e` | | 4 contadores reais; "fontes" fora |
+| IA-010/011 | IA | Recolher com prévia (preferência no servidor); marcar como não lido | P3/P4 | **feito** | ✓ | ✓ | ✓ | `99cbb19a`, `856e83c6` | | |
+| IA-012/013 | IA | Runbook de ativação; worker opt-in no compose de dev | P2/P3 | **feito** | — | ✓ | ✓ | `6c68555a`, `97a8a0cf` | | Worker em `--profile worker`: o dev roda dado real e a fila também leva sync do Drive |
+| IA-014 | IA | Corpus de 67 ataques de injeção + homóglifos no neutralizador | P2 | **feito** | — | ✓ | ✓ | `9eccd415` | | |
+| FPN-040 | Push | Teor sem escrita para quem só vê e na lápide | P3 | **feito** | ✓ | ✓ | ✓ | `68c3c1f2` | (mutações: 5) | Ver PMC-058 |
+| DOC-106b | Documentos | Teto de 20 pares duplicados + "e mais N" | P1 | **feito** (ratificar teto) | ✓ | ✓ | ✓ | `4c438e1b` | (mutações: 5) | |
+| PMC-044 | Metas | Fica na aba Metas com a meta nova realçada | P3 | **feito** | ✓ | ✓ | ✓ | `27d3972b` | | Recarrega a página (o desenho atualiza no lugar) |
+| PMC-038 | Metas | Moldura do modal "Nova meta" | P3 | **parcial** | ✓ | ✓ | ✓ | `d8b7a015` | | Corpo do modal (rótulos, contador, chips) e janela não modal: PMC-059 |
+
 **Novas divergências achadas no ciclo 1:**
 - **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
   sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
@@ -183,6 +202,12 @@ cada divergência A trabalhada e as filas B/C/D.
 - **PMC-044/038 (A, P3):** ficar na aba Metas após criar; moldura do modal "Nova meta". Em implementação.
 - **FPN-014 (ratificar):** o desenho rotula a publicação lida como "Já lida" (sem ação); implementado
   "Marcar como não lida", igual ao botão do teor.
+- **IA-034 (A, P1):** o handler da fila não reconfere `IA_HABILITADA`/disponibilidade: desligar a IA não corta o que
+  já está na fila. Correção: o handler revalida a disponibilidade antes de chamar o provedor.
+- **PMC-057 (A, P5):** "Responder com outra nota" do desenho só abre o compositor (sem migration).
+- **PMC-058 (A, P4):** "Adicionar nota técnica" ainda aparece a quem só lê quando a publicação já tem nota.
+- **PMC-059 (A, P3):** corpo do modal "Nova meta" (rótulos 13px/700, contador 0/600, chips de responsáveis) e janela
+  não modal como no desenho.
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
