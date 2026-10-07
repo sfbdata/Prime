@@ -107,6 +107,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\SanitizadorTextoRico;
+use App\Pasta\Service\MencoesDoRegistro;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -1010,7 +1011,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/mensagem', name: 'pasta_enviar_mensagem', methods: ['POST'])]
-    public function enviarMensagem(Pasta $pasta, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
+    public function enviarMensagem(Pasta $pasta, Request $request, MencoesDoRegistro $mencoes): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1050,9 +1051,10 @@ class PastaController extends AbstractController
 
         return $this->json([
             'id'          => $mensagem->getId(),
-            // cru volta ao editor; conteudoHtml é o que a tela exibe (sanitizado).
+            // cru volta ao editor; conteudoHtml é o que a tela exibe (sanitizado, com as
+            // @menções em destaque — o mesmo filtro `registro_texto` do Twig).
             'conteudo'     => $mensagem->getConteudo(),
-            'conteudoHtml' => $sanitizador->paraExibicao($mensagem->getConteudo()),
+            'conteudoHtml' => $mencoes->exibir($mensagem->getConteudo()),
             'autorNome'   => $currentUser->getFullName(),
             'criadaEm'    => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs'  => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
@@ -1067,7 +1069,7 @@ class PastaController extends AbstractController
     // ── Editar mensagem do chat (autor, dentro de 24h) ────────────────────────
 
     #[Route('/{id}/mensagem/{msgId}/editar', name: 'pasta_editar_mensagem', methods: ['POST'])]
-    public function editarMensagem(Pasta $pasta, int $msgId, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
+    public function editarMensagem(Pasta $pasta, int $msgId, Request $request, MencoesDoRegistro $mencoes): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1099,7 +1101,7 @@ class PastaController extends AbstractController
 
         return $this->json([
             'conteudo'     => $mensagem->getConteudo(),
-            'conteudoHtml' => $sanitizador->paraExibicao($mensagem->getConteudo()),
+            'conteudoHtml' => $mencoes->exibir($mensagem->getConteudo()),
             'editadaEm'    => $mensagem->getEditadaEm()?->format('d/m/Y H:i'),
         ]);
     }

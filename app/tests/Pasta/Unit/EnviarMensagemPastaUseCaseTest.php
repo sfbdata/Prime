@@ -11,7 +11,9 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
+use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Pasta\Service\MencoesDoRegistro;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
@@ -33,6 +35,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
     private NotificacaoRepository&MockObject $notificacaoRepository;
     private UserTenantRepository&MockObject $userTenantRepository;
     private PermissionChecker&MockObject $permissionChecker;
+    private UserRepository&MockObject $userRepository;
     private EnviarMensagemPastaUseCase $useCase;
     private Pasta $pasta;
     private User $autor;
@@ -48,6 +51,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
         $this->userTenantRepository  = $this->createMock(UserTenantRepository::class);
         $this->permissionChecker     = $this->createMock(PermissionChecker::class);
+        $this->userRepository        = $this->createMock(UserRepository::class);
 
         // Como o real: roda o callback (o flush final e o commit não importam ao dublê).
         $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
@@ -76,6 +80,8 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             $this->userTenantRepository,
             $this->permissionChecker,
             $urlGenerator,
+            new MencoesDoRegistro($this->criarSanitizadorTextoRico()),
+            $this->userRepository,
         );
 
         $this->tenant = new Tenant();
@@ -483,6 +489,223 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             ->willReturn(new Notificacao());
 
         $this->useCase->executar($this->pasta, $this->autor, '<p>' . str_repeat('r', 300) . '</p>', $this->tenant, $raiz);
+    }
+
+    // ── @menção (item 20b) ───────────────────────────────────────────────────
+
+    /** Pasta 41 (NUP 1232) no escritório 7; o autor (id 1) é "Ana Paula Souza". */
+    private function cenarioDeMencao(): void
+    {
+        $this->definirId($this->pasta, 41);
+        $this->definirId($this->tenant, 7);
+        $this->pasta->setNup('1232');
+        $this->definirId($this->autor, 1);
+        $this->autor->setFullName('Ana Paula Souza');
+    }
+
+    /** @param list<User> $colegas a lista de colegas ATIVOS do escritório (a consulta é presa ao tenant) */
+    private function colegasDoEscritorio(array $colegas): void
+    {
+        $this->userRepository->method('findColaboradoresAtivosPorTenant')
+            ->with($this->identicalTo($this->tenant))
+            ->willReturn($colegas);
+    }
+
+    /** @param array<int, bool> $acesso userId => vê a pasta 41 */
+    private function acessoAPasta(array $acesso): void
+    {
+        $this->permissionChecker->method('canAccessResource')->willReturnCallback(
+            function (User $u, ?Tenant $t, string $tipo, int $id, string $acao) use ($acesso): bool {
+                self::assertSame($this->tenant, $t);
+                self::assertSame([AccessRequest::RESOURCE_PASTA, 41, AccessRequest::ACTION_VIEW], [$tipo, $id, $acao]);
+
+                return $acesso[(int) $u->getId()] ?? false;
+            },
+        );
+    }
+
+    private function pessoa(int $id, string $nome): User
+    {
+        return $this->definirId((new User())->setEmail('p' . $id . '@test.com')->setFullName($nome), $id);
+    }
+
+    #[TestDox('Mencionar um colega com acesso notifica ele: "Ana mencionou você na Pasta 1232 · Dados da pasta", prévia e link da mensagem')]
+    public function testMencaoNotificaOMencionado(): void
+    {
+        $this->cenarioDeMencao();
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->colegasDoEscritorio([$this->autor, $bruno]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $notificacao = new Notificacao();
+        $this->notificacaoService->expects($this->once())
+            ->method('criar')
+            ->with(
+                $this->identicalTo($bruno),
+                $this->identicalTo($this->tenant),
+                Notificacao::TIPO_PASTA_MENCAO_REGISTRO,
+                'Ana mencionou você na Pasta 1232 · Dados da pasta',
+                'Veja isto @Bruno Lima, por favor',
+            )
+            ->willReturn($notificacao);
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, '<p>Veja isto @[Bru](user:2), por <em>favor</em></p>', $this->tenant);
+
+        self::assertSame('/pasta/41#pasta-msg-950', $notificacao->getUrl());
+        // Gravado na forma canônica: o rótulo digitado ("Bru") deu lugar ao nome do banco.
+        self::assertStringContainsString('@[Bruno Lima](user:2)', $msg->getConteudo());
+    }
+
+    #[TestDox('Id inexistente ou de OUTRO escritório (fora da lista de colegas ativos) é ignorado: sem notificação, sem marcação')]
+    public function testIdForaDoEscritorioEIgnorado(): void
+    {
+        $this->cenarioDeMencao();
+        $this->colegasDoEscritorio([$this->autor, $this->pessoa(2, 'Bruno Lima')]);
+        $this->permissionChecker->expects($this->never())->method('canAccessResource');
+        $this->notificacaoService->expects($this->never())->method('criar');
+        // Sem resposta e sem menção válida: gravação simples, sem transação.
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, 'Oi @[Fulano do Outro](user:99) e @[Nada](user:12345)', $this->tenant);
+
+        self::assertSame('Oi @Fulano do Outro e @Nada', $msg->getConteudo());
+    }
+
+    #[TestDox('Mencionado sem acesso à pasta não é notificado (a menção fica gravada)')]
+    public function testMencionadoSemAcessoNaoENotificado(): void
+    {
+        $this->cenarioDeMencao();
+        $this->colegasDoEscritorio([$this->pessoa(3, 'Carla Dias')]);
+        $this->acessoAPasta([3 => false]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, 'Oi @[Carla](user:3)', $this->tenant);
+
+        self::assertSame('Oi @[Carla Dias](user:3)', $msg->getConteudo());
+    }
+
+    #[TestDox('Mencionar a si mesmo não notifica')]
+    public function testMencionarASiMesmoNaoNotifica(): void
+    {
+        $this->cenarioDeMencao();
+        $this->colegasDoEscritorio([$this->autor]);
+        $this->acessoAPasta([1 => true]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Lembrete para @[Ana](user:1)', $this->tenant);
+    }
+
+    #[TestDox('Usuário desativado (mesmo com vínculo) não conta como colega: ignorado')]
+    public function testUsuarioDesativadoEIgnorado(): void
+    {
+        $this->cenarioDeMencao();
+        $inativo = $this->pessoa(4, 'Davi Inativo');
+        $inativo->setIsActive(false);
+        $this->colegasDoEscritorio([$inativo]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, 'Oi @[Davi](user:4)', $this->tenant);
+
+        self::assertSame('Oi @Davi', $msg->getConteudo());
+    }
+
+    #[TestDox('PRECEDÊNCIA: numa resposta, o autor respondido que também é mencionado recebe SÓ a notificação de resposta')]
+    public function testRespostaTemPrecedenciaSobreMencao(): void
+    {
+        $dono = $this->dono(); // id 2, Bruno Lima
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->colegasDoEscritorio([$this->autor, $dono]);
+        $this->donoComAcesso($dono);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $this->notificacaoService->expects($this->once())
+            ->method('criar')
+            ->with($this->identicalTo($dono), $this->anything(), Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO)
+            ->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Certo @[Bruno](user:2)', $this->tenant, $raiz);
+    }
+
+    #[TestDox('Numa resposta, um TERCEIRO mencionado recebe a de menção e o respondido recebe a de resposta')]
+    public function testRespostaComTerceiroMencionado(): void
+    {
+        $dono  = $this->dono();
+        $raiz  = $this->cenarioDeResposta($dono);
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$dono, $carla]);
+        $this->userTenantRepository->method('existeVinculoAtivo')->willReturn(true);
+        $this->acessoAPasta([2 => true, 3 => true]);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $tipos = [];
+        $this->notificacaoService->expects($this->exactly(2))
+            ->method('criar')
+            ->willReturnCallback(static function (User $u, Tenant $t, string $tipo) use (&$tipos): Notificacao {
+                $tipos[(int) $u->getId()] = $tipo;
+
+                return new Notificacao();
+            });
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Já liguei, @[Carla](user:3) confirma', $this->tenant, $raiz);
+
+        self::assertSame([2 => Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO, 3 => Notificacao::TIPO_PASTA_MENCAO_REGISTRO], $tipos);
+    }
+
+    #[TestDox('Idempotência da menção: o mesmo destinatário, escritório, tipo e link já notificado não duplica')]
+    public function testMencaoIdempotente(): void
+    {
+        $this->cenarioDeMencao();
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->colegasDoEscritorio([$bruno]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->expects($this->once())
+            ->method('findOneBy')
+            ->with([
+                'usuario' => $bruno,
+                'tenant'  => $this->tenant,
+                'tipo'    => Notificacao::TIPO_PASTA_MENCAO_REGISTRO,
+                'url'     => '/pasta/41#pasta-msg-950',
+            ])
+            ->willReturn(new Notificacao());
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Oi @[Bruno](user:2)', $this->tenant);
+    }
+
+    #[TestDox('A mesma pessoa mencionada duas vezes no texto recebe UMA notificação')]
+    public function testMencaoRepetidaNoTextoNotificaUmaVez(): void
+    {
+        $this->cenarioDeMencao();
+        $this->colegasDoEscritorio([$this->pessoa(2, 'Bruno Lima')]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+        $this->notificacaoService->expects($this->once())->method('criar')->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, '@[Bruno](user:2) e de novo @[Bruno](user:2)', $this->tenant);
+    }
+
+    #[TestDox('A prévia da menção corta em 180 caracteres com reticências (desenho menNotificar)')]
+    public function testPreviaDaMencaoCortaEm180(): void
+    {
+        $this->cenarioDeMencao();
+        $this->colegasDoEscritorio([$this->pessoa(2, 'Bruno Lima')]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+        $this->notificacaoService->expects($this->once())
+            ->method('criar')
+            ->with($this->anything(), $this->anything(), $this->anything(), $this->anything(), '@Bruno Lima ' . str_repeat('x', 168) . '…')
+            ->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, '@[Bruno](user:2) ' . str_repeat('x', 300), $this->tenant);
+    }
+
+    #[TestDox('Sem token de menção, a lista de colegas nem é consultada')]
+    public function testSemMencaoNaoConsultaColegas(): void
+    {
+        $this->userRepository->expects($this->never())->method('findColaboradoresAtivosPorTenant');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Sem ninguém, nem ana@x.com', $this->tenant);
     }
 
     /**

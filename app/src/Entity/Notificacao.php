@@ -29,6 +29,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_DJEN_PUBLICACAO = 'djen_publicacao';
     /** Alguém respondeu, no Registro da pasta, um comentário do destinatário. */
     public const TIPO_PASTA_RESPOSTA_REGISTRO = 'pasta_resposta_registro';
+    /** Alguém @mencionou o destinatário num registro (ou resposta) do Registro da pasta. */
+    public const TIPO_PASTA_MENCAO_REGISTRO = 'pasta_mencao_registro';
 
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
@@ -207,6 +209,8 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_DJEN_PUBLICACAO => 'bi-newspaper text-primary',
             // Desenho (bluejus-central.js, tipo "direcionada"): `bi-person-check` em âmbar.
             self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
+            // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.
+            self::TIPO_PASTA_MENCAO_REGISTRO => 'bi-at text-primary',
             default => 'bi-bell text-secondary',
         };
     }

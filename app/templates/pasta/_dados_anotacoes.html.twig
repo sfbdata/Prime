@@ -31,6 +31,8 @@
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
+{# @menção do Registro (item 20b) — depois do editor, que ele usa. #}
+<script src="{{ asset('js/pasta-mencoes.js') }}" defer></script>
 
 {% import _self as registro %}
 
@@ -58,7 +60,8 @@
                 <span aria-hidden="true">·</span>
                 <button type="button" class="ps-compositor-respondendo-cancelar" id="timelineRespondendoCancelar">cancelar</button>
             </div>
-            <div class="ps-compositor-caixa">
+            {# @menção (item 20b): o JS do show.html.twig abre a lista ao digitar "@" e busca nesta URL. #}
+            <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id}) }}">
                 <textarea name="conteudo"
                           id="timelineConteudo"
                           data-editor-rico
@@ -204,8 +207,10 @@
         <div class="ps-anotacao-corpo">
             <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
             <div class="ps-anotacao-texto pasta-msg-conteudo">
-                {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. #}
-                <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
+                {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. O
+                   `registro_texto` é o `texto_rico` com as @menções (`@[Nome](user:ID)`) em
+                   destaque `.ps-mencao` — ver MencoesDoRegistro. #}
+                <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|registro_texto }}</span></span>
             </div>
         </div>
     </article>

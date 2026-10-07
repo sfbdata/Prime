@@ -2895,7 +2895,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 const conteudoDiv = item.querySelector('.pasta-msg-conteudo');
                 if (!conteudoDiv || item.querySelector('.pasta-msg-edit-area')) { return; }
 
-                const conteudoAtual = btnEditar.dataset.conteudo;
+                /* @menção: o token `@[Nome](user:ID)` volta a "@Nome" no editor e fica lembrado
+                   para virar token de novo ao salvar (pasta-mencoes.js). */
+                const edicao = window.PastaMencoes
+                    ? PastaMencoes.paraEdicao(btnEditar.dataset.conteudo)
+                    : { html: btnEditar.dataset.conteudo, mencoes: [] };
+                const conteudoAtual = edicao.html;
 
                 const area = document.createElement('div');
                 area.className = 'pasta-msg-edit-area mt-1';
@@ -2929,6 +2934,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Transforma a textarea recem-criada em editor (o auto-init so pega o DOM inicial).
                 if (window.EditorRico) {
                     const quillEd = EditorRico.montar(textareaEd);
+                    if (window.PastaMencoes) { PastaMencoes.ligar(textareaEd, edicao.mencoes); }
                     if (quillEd) { quillEd.focus(); } else { textareaEd.focus(); }
                 } else {
                     textareaEd.focus();
@@ -2949,7 +2955,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     btnSalvar.disabled = true;
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
-                    fd.append('conteudo', textareaEd.value);
+                    fd.append('conteudo', window.PastaMencoes ? PastaMencoes.paraEnvio(textareaEd, textareaEd.value) : textareaEd.value);
 
                     try {
                         const resp = await fetch(btnEditar.dataset.url, {
@@ -3088,9 +3094,12 @@ document.addEventListener('DOMContentLoaded', function () {
         esconderErro();
 
         try {
+            const fdEnvio = new FormData(form);
+            // @menção: cada "@Nome" escolhido na lista vai como token `@[Nome](user:ID)`.
+            if (window.PastaMencoes) { fdEnvio.set('conteudo', PastaMencoes.paraEnvio(textarea, conteudo)); }
             const resp = await fetch(urlEnviar, {
                 method: 'POST',
-                body: new FormData(form),
+                body: fdEnvio,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
             });
 
@@ -3104,6 +3113,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const contaComoRegistro = inserirMensagem(data);
             // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
             if (window.EditorRico) { EditorRico.limpar(textarea); } else { textarea.value = ''; }
+            if (window.PastaMencoes) { PastaMencoes.esquecer(textarea); }
             pararDeResponder();
             if (vazioMsg) { vazioMsg.remove(); }
             // Resposta pendurada numa raiz não conta (desenho: a contagem é dos registros principais).

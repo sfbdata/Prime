@@ -1412,6 +1412,17 @@ span.ps-situacao-pill { cursor: default; }
 .ps-registro .ps-anotacao-icone { font-size: 13px; color: var(--ps-dia-text); margin-top: 4px; transform: scaleX(-1); flex-shrink: 0; }
 .ps-registro .ps-anotacao-texto { flex: 1; min-width: 0; font-size: 14.5px; line-height: 1.6; color: var(--ps-registro-txt); text-wrap: pretty; }
 .ps-anotacao-texto .ql-editor { padding: 0; font-size: inherit; line-height: inherit; }
+/* @menção no texto do registro (item 20b) — desenho `pintarTexto`: 700, azul de destaque. */
+.ps-anotacao-texto .ps-mencao { font-weight: 700; color: var(--ps-accent); }
+/* Lista do "@" (desenho `menAbrir`): 280px, até 300 de altura, sombra e raio 4. */
+.ps-mencao-lista { position: fixed; z-index: 1080; width: 280px; max-height: 300px; overflow: auto; padding: 4px; background: #fff; border-radius: 4px; box-shadow: 0 10px 30px rgba(10,40,60,.22), 0 0 0 1px #dbe4ea; font-family: Arial, Helvetica, sans-serif; }
+.ps-mencao-lista-cab { padding: 6px 8px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: #7b93a2; text-transform: uppercase; }
+.ps-mencao-opcao { display: flex; align-items: center; gap: 9px; width: 100%; padding: 6px 8px; border: none; border-radius: 3px; text-align: left; cursor: pointer; font-family: inherit; background: transparent; }
+.ps-mencao-opcao[aria-selected="true"] { background: #e5f1f7; }
+.ps-mencao-avatar { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #0d80a3, #0a5f86); background-size: cover; background-position: center; }
+.ps-mencao-textos { display: flex; flex-direction: column; min-width: 0; }
+.ps-mencao-nome { font-size: 13px; font-weight: 700; color: #12242f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-mencao-cargo { font-size: 11px; color: #6b8291; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Editar no lugar (Financeiro e Detalhes): a caixa toma o lugar do texto, ao lado
    do megafone; os botoes ficam abaixo dela. */
 .ps-registro .ps-anotacao-edicao { flex: 1; min-width: 0; }
