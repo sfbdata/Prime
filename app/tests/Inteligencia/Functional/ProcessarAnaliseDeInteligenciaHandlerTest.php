@@ -8,7 +8,9 @@ use App\Entity\Notificacao;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
+use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
@@ -165,6 +167,106 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $relida = $this->reler($analise);
         self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
         self::assertStringContainsString('desligada neste escritório', (string) $relida->getErroMotivo());
+    }
+
+    #[TestDox('IA-034L: a permissão do módulo foi retirada de quem pediu com a análise na fila → falhou com o motivo, provedor não chamado')]
+    public function testPermissaoRetiradaCortaAFila(): void
+    {
+        self::bootKernel();
+        [$admin, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $admin);
+        $solicitante = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'modules.inteligencia.view']);
+        $analise = $this->criarAnalisePendente($tenant, $solicitante, $pasta);
+
+        // Retira o módulo do papel DEPOIS de a análise entrar na fila.
+        $vinculos = $this->em()->getRepository(TenantRolePermission::class)->findAll();
+        $retirados = 0;
+        foreach ($vinculos as $vinculo) {
+            if ($vinculo->getPermission()?->getCode() === 'modules.inteligencia.view'
+                && $vinculo->getTenantRole()?->getTenant()?->getId() === $tenant->getId()) {
+                $vinculo->getTenantRole()->getTenantRolePermissions()->removeElement($vinculo);
+                $this->em()->remove($vinculo);
+                ++$retirados;
+            }
+        }
+        $this->em()->flush();
+        self::assertSame(1, $retirados, 'só o papel do solicitante tinha o módulo');
+
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: Sem permissão para usar a BlueJus IA', $relida->getErroMotivo());
+        self::assertNull($relida->getResumo());
+    }
+
+    #[TestDox('IA-034L: quem pediu não existe mais (solicitante nulo) → falhou com o motivo, provedor não chamado')]
+    public function testSolicitanteNuloCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, null, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: quem pediu a análise não existe mais', $relida->getErroMotivo());
+    }
+
+    #[TestDox('IA-034L: N análises canceladas antes do provedor (indisponivel e falhou) não tomam a cota; as outras falhas continuam contando')]
+    public function testCanceladaAntesDoProvedorNaoTomaACota(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $configuracao = $this->ligarIaNoTenant($tenant, $user, limiteDiario: 2);
+
+        // Três canceladas pelo escritório desligado (falhou) e duas pela plataforma (indisponivel).
+        $configuracao->atualizar(false, 2, 500, true, $user);
+        $this->em()->flush();
+        for ($i = 0; $i < 3; ++$i) {
+            $this->handler(new ProvedorFalso())($this->mensagem($this->criarAnalisePendente($tenant, $user, $pasta)));
+        }
+        for ($i = 0; $i < 2; ++$i) {
+            $this->handler(new ProvedorFalso(), iaHabilitada: false)($this->mensagem($this->criarAnalisePendente($tenant, $user, $pasta)));
+        }
+        // E uma que falhou por outro motivo (não é cancelamento): essa conta.
+        $outra = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $outra->falhar('resposta inválida do provedor');
+        $this->em()->flush();
+
+        $configuracao = $this->em()->find(\get_class($configuracao), $configuracao->getId());
+        $configuracao->atualizar(true, 2, 500, true, $user);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $repo = static::getContainer()->get(AnaliseDeInteligenciaRepository::class);
+        $tenant = $this->em()->find(\get_class($tenant), $tenant->getId());
+        $user   = $this->em()->find(\get_class($user), $user->getId());
+        self::assertSame(6, (int) $this->em()->createQuery('SELECT COUNT(a.id) FROM ' . AnaliseDeInteligencia::class . ' a WHERE a.tenant = :t')
+            ->setParameter('t', $tenant)->getSingleScalarResult(), 'as seis linhas existem');
+        self::assertSame(1, $repo->contarDesde($tenant, new \DateTimeImmutable('today')), 'só a falha que não é cancelamento conta');
+        self::assertSame(1, $repo->contarDesde($tenant, new \DateTimeImmutable('first day of this month midnight')));
+
+        $disponibilidade = new DisponibilidadeDeInteligencia(
+            new ProvedorFalso(),
+            static::getContainer()->get(ConfiguracaoDeInteligenciaRepository::class),
+            $repo,
+            static::getContainer()->get(PermissionChecker::class),
+            true,
+        );
+        self::assertSame(Disponibilidade::Disponivel, $disponibilidade->para($user, $tenant), 'limite 2, uma contada: ainda dá para pedir');
     }
 
     #[TestDox('IA-034L: a cota NÃO é reconferida no worker — a análise no limite exato (contada na solicitação) conclui')]

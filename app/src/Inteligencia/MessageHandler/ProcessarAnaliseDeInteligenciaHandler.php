@@ -230,7 +230,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
     {
         $solicitante = $analise->getSolicitante();
         if ($solicitante === null) {
-            $this->falhar($analise, 'cancelada antes do provedor: quem pediu a análise não existe mais');
+            $this->falhar($analise, AnaliseDeInteligenciaRepository::MOTIVO_CANCELADA_ANTES_DO_PROVEDOR . 'quem pediu a análise não existe mais');
 
             return false;
         }
@@ -240,7 +240,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
             return true;
         }
 
-        $motivo = 'cancelada antes do provedor: ' . $disponibilidade->mensagem();
+        $motivo = AnaliseDeInteligenciaRepository::MOTIVO_CANCELADA_ANTES_DO_PROVEDOR . $disponibilidade->mensagem();
         if ($disponibilidade === Disponibilidade::NaoConfiguradaNaPlataforma) {
             $analise->registrarProvedor($this->provedor->nome());
             $analise->marcarIndisponivel($motivo);
