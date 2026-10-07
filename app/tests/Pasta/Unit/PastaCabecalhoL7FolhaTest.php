@@ -75,4 +75,18 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         self::assertStringContainsString('border-radius: 4px;', $painel);
         self::assertStringNotContainsString('border-radius: 6px', $painel);
     }
+
+    #[TestDox('PAS-049i: a Timeline não escurece a tela, mas o overlay segue cobrindo a página para o clique fora fechar')]
+    public function testTimelineSemFundoEscurecido(): void
+    {
+        $overlay = self::regra(self::ler(self::CSS), '.ps-tl-overlay');
+
+        self::assertStringContainsString('background: transparent;', $overlay);
+        self::assertStringNotContainsString('rgba(', $overlay);
+        self::assertStringContainsString('position: fixed;', $overlay, 'continua cobrindo a página');
+        self::assertStringContainsString('inset: 0;', $overlay);
+
+        $js = self::ler(__DIR__ . '/../../../public/js/pasta-timeline.js');
+        self::assertStringContainsString("overlay.addEventListener('click', fecharPainel)", $js, 'o clique fora fecha');
+    }
 }

@@ -4890,10 +4890,12 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-atn-tit:   #8fa6b4;
 }
 
+/* PAS-049i: o painel do desenho (central:3402) não escurece a tela. O overlay
+   continua — transparente — porque é ele que recebe o clique fora e fecha. */
 .ps-tl-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(12,32,45,.24);
+    background: transparent;
     z-index: 1057;
     opacity: 0;
     visibility: hidden;
