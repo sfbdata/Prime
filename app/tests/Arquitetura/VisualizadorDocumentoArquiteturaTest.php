@@ -132,6 +132,7 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         yield 'RTF'  => ['rtf', 'renderRtf', 'LIMITE_BYTES_RTF'];
         yield 'EML'  => ['eml', 'renderEml', 'LIMITE_BYTES_EML'];
         yield 'ZIP'  => ['zip', 'renderZip', 'LIMITE_BYTES_ZIP'];
+        yield 'DOC'  => ['doc', 'renderDoc', 'LIMITE_BYTES_DOC'];
     }
 
     #[DataProvider('formatosSoTexto')]
@@ -201,6 +202,10 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         yield 'ZIP'  => ['renderZip'];
         yield 'cartões de slide' => ['blocoSlides'];
         yield 'slides do ODP'    => ['slidesOdp'];
+        yield 'DOC'              => ['renderDoc'];
+        yield 'texto do DOC'     => ['textoDoDoc'];
+        yield 'controles do DOC' => ['limparTextoDoc'];
+        yield 'leitor OLE2'      => ['lerCfb'];
     }
 
     #[DataProvider('rendersSemHtml')]
@@ -351,6 +356,60 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         foreach (['href', 'srcset', 'action', 'formaction'] as $atributo) {
             self::assertStringContainsString("nome === '{$atributo}'", $limpar, "{$atributo} segue removido");
         }
+    }
+
+    #[TestDox('DOC-111: .doc/.dot (application/msword) mostram só o texto, com a faixa do desenho dentro da folha e sem prometer conversão no servidor')]
+    public function testDocAntigoMostraSoOTextoComAFaixa(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("const MIMES_DOC    = ['application/msword'];", $js);
+        self::assertStringContainsString("const EXT_DOC      = ['doc', 'dot'];", $js);
+        self::assertStringContainsString('if (MIMES_DOC.includes(m) || EXT_DOC.includes(ext))', self::corpoDaFuncao($js, 'tipoDe'));
+        self::assertStringContainsString('const LIMITE_BYTES_DOC        = 15 * 1024 * 1024;', $js);
+
+        $render = self::corpoDaFuncao($js, 'renderDoc');
+        self::assertStringContainsString('baixar(o.url, LIMITE_BYTES_DOC, false, o.sinal)', $render, 'o .doc inteiro ou nada: o índice OLE2 pode estar no fim');
+        self::assertStringContainsString('textoDoDoc(arq.bytes, LIMITE_CARACTERES)', $render);
+        self::assertStringContainsString("'Formato antigo do Word (.doc): mostrando só o texto.'", $render, 'texto da faixa do desenho (bj-visualizar.js L68)');
+        self::assertStringContainsString('background:#fff7e6;color:#7a4b00;border-radius:4px;padding:8px 12px;margin-bottom:16px;font-size:12px', $render, 'as cores e medidas da faixa do desenho');
+        self::assertStringContainsString('fl.folha.appendChild(faixa);', $render, 'a faixa fica DENTRO da folha, como no desenho');
+        self::assertStringContainsString("el('div', 'vd-folha-pre', r.texto)", $render, 'o texto entra por textContent');
+        self::assertStringNotContainsString('servidor', $render, 'o sistema não converte o .doc: a 2ª frase do desenho ficaria falsa');
+        self::assertStringNotContainsString('innerHTML', $render);
+    }
+
+    #[TestDox('DOC-111: o texto vem da tabela de peças do Word 97 (OLE2 → WordDocument → Clx), com guarda de laço, senha e Word 6/95 recusados')]
+    public function testDocLidoPelaTabelaDePecas(): void
+    {
+        $js = self::modulo();
+
+        $cfb = self::corpoDaFuncao($js, 'lerCfb');
+        self::assertStringContainsString('lerU32(bytes, 0) !== 0xe011cfd0 || lerU32(bytes, 4) !== 0xe11ab1a1', $cfb, 'assinatura D0 CF 11 E0 A1 B1 1A E1');
+        self::assertStringContainsString('if (s >= tabela.length || lista.length >= teto) { throw falha(invalido); }', $cfb, 'cadeia de setores com laço vira "corrompido", não trava a aba');
+        self::assertStringContainsString('if (k >= totalSetores) { throw falha(invalido); }', $cfb, 'a cadeia do DIFAT também tem guarda');
+        self::assertStringContainsString('if (p + n > origem.length) { throw falha(invalido); }', $cfb);
+        self::assertStringContainsString('if (e.tamanhoAlto !== 0 || e.tamanho > bytes.length) { throw falha(invalido); }', $cfb, 'stream maior que o arquivo não aloca');
+        self::assertStringContainsString('if (e.tamanho < corte) {', $cfb, 'stream pequeno sai do mini stream');
+
+        $doc = self::corpoDaFuncao($js, 'textoDoDoc');
+        self::assertStringContainsString("cfb.stream('WordDocument')", $doc);
+        self::assertStringContainsString('lerU16(wd, 0) !== 0xa5ec', $doc, 'wIdent do FIB');
+        self::assertStringContainsString("if (flags & 0x0100) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }", $doc);
+        self::assertStringContainsString('if (lerU16(wd, 2) < 0xc1) {', $doc, 'Word 6/95 tem outro FIB: recusa em vez de ler errado');
+        self::assertStringContainsString("cfb.stream(flags & 0x0200 ? '1Table' : '0Table')", $doc, 'fWhichTblStm escolhe o stream da tabela');
+        self::assertStringContainsString('const fcClx = lerU32(wd, rgFc + 33 * 8);', $doc);
+        self::assertStringContainsString('if (cpIni >= ccpText) { break; }', $doc, 'só o corpo: nota, cabeçalho e caixa de texto ficam de fora');
+        self::assertStringContainsString('if (total + qtd > limite) { qtd = limite - total; cortado = true; }', $doc);
+        self::assertStringContainsString('(fcBruto & 0x40000000) !== 0', $doc, 'fCompressed: CP1252 com 1 byte; senão UTF-16LE');
+        self::assertStringContainsString("new TextDecoder('windows-1252')", $doc);
+        self::assertStringContainsString("new TextDecoder('utf-16le')", $doc);
+        self::assertStringContainsString('if (!Number.isInteger(ini) || fimPeca > wd.length) { throw falha(invalido); }', $doc);
+        self::assertStringNotContainsString('DecompressionStream', $doc, 'o .doc não comprime o texto: nada a descompactar');
+
+        $controles = self::corpoDaFuncao($js, 'limparTextoDoc');
+        self::assertStringContainsString('if (campos.indexOf(true) !== -1) { continue; }', $controles, 'do campo fica só o resultado, nunca o código');
+        self::assertStringContainsString('if (c < 0x20) { continue; }', $controles);
     }
 
     #[TestDox('falha com mensagem própria (senha, corrompido, grande demais) chega à tela')]

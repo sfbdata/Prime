@@ -26,7 +26,7 @@
      (TXT/JSON/XML/LOG/MD/text/*). Bibliotecas auto-hospedadas em
      /js/vendor/, carregadas só quando o tipo pede.
      ODT (texto do content.xml), PPTX/PPSX e ODP (só o texto dos slides), RTF
-     (só o texto), EML (cabeçalhos + corpo) e ZIP (lista das entradas, sem
+     e DOC do Word 97-2003 (só o texto), EML (cabeçalhos + corpo) e ZIP (lista das entradas, sem
      extrair) — sem biblioteca: o ZIP é lido aqui mesmo (diretório central,
      inclusive ZIP64) e descompactado com DecompressionStream('deflate-raw')
      nativo, com teto de bytes descompactados (zip bomb). XML vai por
@@ -37,7 +37,7 @@
        um <iframe sandbox=""> (sem scripts, origem opaca) via srcdoc, com CSP
        "default-src 'none'; img-src data:; style-src 'unsafe-inline'".
      - Texto puro vai por textContent num <pre>.
-     - Texto extraído de ODT/PPTX/ODP/RTF/EML e a lista do ZIP viram nós do DOM
+     - Texto extraído de ODT/PPTX/ODP/RTF/DOC/EML e a lista do ZIP viram nós do DOM
        montados com textContent — nenhuma string do arquivo vira HTML.
      - O HTML de um e-mail (quando não há text/plain) só entra pelo mesmo
        iframe sandbox + CSP; a CSP barra imagem remota (pixel de rastreio).
@@ -67,6 +67,7 @@
     const LIMITE_COLUNAS_PLANILHA = 200;
     const LIMITE_BYTES_TEXTO      = 1024 * 1024;        // 1 MB exibidos
     const LIMITE_BYTES_DOCX       = 15 * 1024 * 1024;   // 15 MB
+    const LIMITE_BYTES_DOC        = 15 * 1024 * 1024;   // 15 MB (como o DOCX; o .doc não comprime)
     const LIMITE_BYTES_PLANILHA   = 5 * 1024 * 1024;    // 5 MB
     const LIMITE_BYTES_ODT        = 15 * 1024 * 1024;   // 15 MB (como o DOCX)
     const LIMITE_BYTES_PPTX       = 30 * 1024 * 1024;   // 30 MB (apresentação traz imagem)
@@ -101,6 +102,8 @@
         'application/ld+json',
     ];
     const EXT_DOCX     = ['docx'];
+    const MIMES_DOC    = ['application/msword'];
+    const EXT_DOC      = ['doc', 'dot'];
     const EXT_PLANILHA = ['xlsx', 'xlsm', 'xls', 'ods', 'csv'];
     const EXT_TEXTO    = ['txt', 'json', 'xml', 'log', 'md'];
     const MIMES_ODT  = ['application/vnd.oasis.opendocument.text'];
@@ -153,6 +156,7 @@
         if (m.startsWith('video/'))   { return 'video'; }
         if (MIMES_DOCX.includes(m) || EXT_DOCX.includes(ext))         { return 'docx'; }
         if (MIMES_PLANILHA.includes(m) || EXT_PLANILHA.includes(ext)) { return 'planilha'; }
+        if (MIMES_DOC.includes(m) || EXT_DOC.includes(ext))           { return 'doc'; }
         /* Antes do texto: text/rtf começa com text/. Antes do ZIP: ODT/PPTX/ODP
            às vezes chegam com MIME application/zip — a extensão decide. */
         if (MIMES_ODT.includes(m) || EXT_ODT.includes(ext))           { return 'odt'; }
@@ -788,6 +792,214 @@
         };
     }
 
+    /* -------------------------------------------- DOC (Word 97-2003) - */
+
+    /* DOC-111 (bj-visualizar.js L68): o .doc antigo mostra só o TEXTO. O desenho varre os bytes
+       atrás de trechos legíveis; aqui o texto vem do lugar certo — o arquivo é um Compound File
+       (OLE2) e o texto do corpo está no stream WordDocument, nos pedaços que a tabela de peças
+       (Clx, no stream 0Table/1Table) aponta. Assim não entram nome de fonte, estilo nem
+       metadado. Nada é descompactado (o .doc não comprime o texto): o teto é o de bytes baixados
+       e o de caracteres exibidos; as cadeias de setores têm guarda de laço. */
+    const MSG_DOC_INVALIDO = 'O arquivo não parece ser um documento .doc válido (ou está corrompido).';
+    const FIM_DE_CADEIA    = 0xfffffffa; // daqui para cima: ENDOFCHAIN, FREESECT, FATSECT, DIFSECT
+
+    /**
+     * Compound File Binary ([MS-CFB]) → { stream(nome) } com os bytes do stream (ou null).
+     * Toda posição é conferida contra o tamanho do arquivo; cadeia mais longa que o número de
+     * setores é laço e vira "corrompido".
+     */
+    function lerCfb(bytes, invalido) {
+        if (bytes.length < 512 || lerU32(bytes, 0) !== 0xe011cfd0 || lerU32(bytes, 4) !== 0xe11ab1a1) { throw falha(invalido); }
+        const deslocamento = lerU16(bytes, 0x1e);
+        if ((deslocamento !== 9 && deslocamento !== 12) || lerU16(bytes, 0x20) !== 6) { throw falha(invalido); }
+        const tam = 1 << deslocamento;
+        const porSetor = tam / 4;
+        const totalSetores = Math.floor(bytes.length / tam) - 1; // o cabeçalho ocupa o 1º setor
+
+        function setor(n) {
+            if (n >= totalSetores) { throw falha(invalido); }
+            return (n + 1) * tam;
+        }
+
+        /* FAT: os setores dela vêm do DIFAT (109 no cabeçalho + a cadeia de setores DIFAT). */
+        const difat = [];
+        for (let i = 0; i < 109; i++) { difat.push(lerU32(bytes, 0x4c + i * 4)); }
+        let proximo = lerU32(bytes, 0x44);
+        for (let k = 0; proximo < FIM_DE_CADEIA; k++) {
+            if (k >= totalSetores) { throw falha(invalido); }
+            const p = setor(proximo);
+            for (let i = 0; i < porSetor - 1; i++) { difat.push(lerU32(bytes, p + i * 4)); }
+            proximo = lerU32(bytes, p + tam - 4);
+        }
+        const setoresFat = difat.filter(function (s) { return s < FIM_DE_CADEIA; }).slice(0, lerU32(bytes, 0x2c));
+        const fat = new Uint32Array(setoresFat.length * porSetor);
+        setoresFat.forEach(function (s, i) {
+            const p = setor(s);
+            for (let j = 0; j < porSetor; j++) { fat[i * porSetor + j] = lerU32(bytes, p + j * 4); }
+        });
+
+        function cadeia(inicio, tabela, teto) {
+            const lista = [];
+            for (let s = inicio; s < FIM_DE_CADEIA; s = tabela[s]) {
+                if (s >= tabela.length || lista.length >= teto) { throw falha(invalido); }
+                lista.push(s);
+            }
+            return lista;
+        }
+
+        /* Junta os setores da cadeia; `tamanho` null = a cadeia inteira (diretório, mini FAT). */
+        function juntar(lista, tamSetor, origem, posDe, tamanho) {
+            const total = tamanho == null ? lista.length * tamSetor : tamanho;
+            if (total > lista.length * tamSetor) { throw falha(invalido); }
+            const saida = new Uint8Array(total);
+            for (let i = 0, pos = 0; pos < total; i++) {
+                const p = posDe(lista[i]);
+                const n = Math.min(tamSetor, total - pos);
+                if (p + n > origem.length) { throw falha(invalido); }
+                saida.set(origem.subarray(p, p + n), pos);
+                pos += n;
+            }
+            return saida;
+        }
+
+        const dir = juntar(cadeia(lerU32(bytes, 0x30), fat, totalSetores), tam, bytes, setor, null);
+        const entradas = [];
+        for (let p = 0; p + 128 <= dir.length; p += 128) {
+            const tipo = dir[p + 0x42];
+            if (tipo !== 2 && tipo !== 5) { continue; } // só stream e raiz interessam
+            const lNome = Math.min(64, lerU16(dir, p + 0x40));
+            entradas.push({
+                nome: new TextDecoder('utf-16le').decode(dir.subarray(p, p + Math.max(0, lNome - 2))),
+                tipo: tipo,
+                inicio: lerU32(dir, p + 0x74),
+                tamanho: lerU32(dir, p + 0x78),
+                tamanhoAlto: tam === 512 ? 0 : lerU32(dir, p + 0x7c), // v3: a parte alta é lixo
+            });
+        }
+        const raiz = entradas.find(function (e) { return e.tipo === 5; });
+        if (!raiz) { throw falha(invalido); }
+        const corte = lerU32(bytes, 0x38);
+        let mini = null;
+
+        /* Stream pequeno mora no mini stream (setores de 64 bytes dentro do stream da raiz). */
+        function miniStream() {
+            if (mini) { return mini; }
+            if (raiz.tamanho > bytes.length) { throw falha(invalido); }
+            const dados = juntar(cadeia(raiz.inicio, fat, totalSetores), tam, bytes, setor, raiz.tamanho);
+            const brutoMiniFat = juntar(cadeia(lerU32(bytes, 0x3c), fat, totalSetores), tam, bytes, setor, null);
+            const tabela = new Uint32Array(brutoMiniFat.length / 4);
+            for (let i = 0; i < tabela.length; i++) { tabela[i] = lerU32(brutoMiniFat, i * 4); }
+            mini = { dados: dados, tabela: tabela };
+            return mini;
+        }
+
+        return {
+            stream: function (nome) {
+                const e = entradas.find(function (x) { return x.tipo === 2 && x.nome === nome; });
+                if (!e) { return null; }
+                if (e.tamanhoAlto !== 0 || e.tamanho > bytes.length) { throw falha(invalido); }
+                if (e.tamanho < corte) {
+                    const m = miniStream();
+                    const lista = cadeia(e.inicio, m.tabela, m.tabela.length);
+                    return juntar(lista, 64, m.dados, function (s) { return s * 64; }, e.tamanho);
+                }
+                return juntar(cadeia(e.inicio, fat, totalSetores), tam, bytes, setor, e.tamanho);
+            },
+        };
+    }
+
+    /**
+     * Texto do corpo de um .doc Word 97-2003 ([MS-DOC]: FIB → Clx → PlcPcd), até `limite`
+     * caracteres. → { texto, cortado }
+     */
+    function textoDoDoc(bytes, limite) {
+        const invalido = MSG_DOC_INVALIDO;
+        const cfb = lerCfb(bytes, invalido);
+        const wd = cfb.stream('WordDocument');
+        if (!wd || wd.length < 64 || lerU16(wd, 0) !== 0xa5ec) { throw falha(invalido); }
+        const flags = lerU16(wd, 0x0a);
+        if (flags & 0x0100) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }
+        if (lerU16(wd, 2) < 0xc1) {
+            throw falha('Este .doc é de uma versão do Word anterior à 97, que a pré-visualização não lê. Baixe para abrir.');
+        }
+
+        /* FIB: base (32 bytes) → fibRgW (csw × 2) → fibRgLw (cslw × 4) → fibRgFcLcb (pares fc/lcb). */
+        const csw = lerU16(wd, 32);
+        const pCslw = 34 + csw * 2;
+        if (pCslw + 2 > wd.length) { throw falha(invalido); }
+        const cslw = lerU16(wd, pCslw);
+        const rgLw = pCslw + 2;
+        const pCb = rgLw + cslw * 4;
+        if (cslw < 4 || pCb + 2 > wd.length) { throw falha(invalido); }
+        const ccpText = lerU32(wd, rgLw + 3 * 4); // caracteres do corpo (sem nota, cabeçalho, caixa de texto)
+        const rgFc = pCb + 2;
+        if (lerU16(wd, pCb) < 34 || rgFc + 34 * 8 > wd.length) { throw falha(invalido); }
+        const fcClx = lerU32(wd, rgFc + 33 * 8);
+        const lcbClx = lerU32(wd, rgFc + 33 * 8 + 4);
+
+        const tabela = cfb.stream(flags & 0x0200 ? '1Table' : '0Table');
+        if (!tabela || lcbClx === 0 || fcClx + lcbClx > tabela.length) { throw falha(invalido); }
+
+        /* Clx: zero ou mais Prc (0x01 + cbGrpprl + grpprl) e então o Pcdt (0x02 + lcb + PlcPcd). */
+        const fim = fcClx + lcbClx;
+        let p = fcClx;
+        while (p < fim && tabela[p] === 0x01) {
+            if (p + 3 > fim) { throw falha(invalido); }
+            p += 3 + lerU16(tabela, p + 1);
+        }
+        if (p + 5 > fim || tabela[p] !== 0x02) { throw falha(invalido); }
+        const lcb = lerU32(tabela, p + 1);
+        const plc = p + 5;
+        const pecas = (lcb - 4) / 12; // (n + 1) CPs de 4 bytes + n Pcd de 8 bytes
+        if (plc + lcb > fim || !Number.isInteger(pecas) || pecas < 1) { throw falha(invalido); }
+
+        const cp1252 = new TextDecoder('windows-1252');
+        const utf16 = new TextDecoder('utf-16le');
+        const partes = [];
+        let total = 0;
+        let cortado = false;
+        for (let i = 0; i < pecas && !cortado; i++) {
+            const cpIni = lerU32(tabela, plc + i * 4);
+            if (cpIni >= ccpText) { break; }
+            let qtd = Math.min(lerU32(tabela, plc + (i + 1) * 4), ccpText) - cpIni;
+            if (qtd <= 0) { continue; }
+            if (total + qtd > limite) { qtd = limite - total; cortado = true; }
+            const fcBruto = lerU32(tabela, plc + (pecas + 1) * 4 + i * 8 + 2);
+            const comprimido = (fcBruto & 0x40000000) !== 0;
+            const fc = fcBruto & 0x3fffffff;
+            const ini = comprimido ? fc / 2 : fc; // comprimido: 1 byte por caractere (CP1252)
+            const fimPeca = ini + qtd * (comprimido ? 1 : 2);
+            if (!Number.isInteger(ini) || fimPeca > wd.length) { throw falha(invalido); }
+            partes.push((comprimido ? cp1252 : utf16).decode(wd.subarray(ini, fimPeca)));
+            total += qtd;
+        }
+        return { texto: limparTextoDoc(partes.join('')), cortado: cortado };
+    }
+
+    /**
+     * Caracteres de controle do Word → texto: parágrafo, quebra e fim de célula viram linha; do
+     * campo (0x13 código 0x14 resultado 0x15) fica só o resultado; âncora de imagem/objeto e
+     * hífen opcional somem.
+     */
+    function limparTextoDoc(bruto) {
+        const saida = [];
+        const campos = []; // pilha: true = ainda no código do campo
+        for (let i = 0; i < bruto.length; i++) {
+            const c = bruto.charCodeAt(i);
+            if (c === 0x13) { campos.push(true); continue; }
+            if (c === 0x14) { if (campos.length) { campos[campos.length - 1] = false; } continue; }
+            if (c === 0x15) { campos.pop(); continue; }
+            if (campos.indexOf(true) !== -1) { continue; }
+            if (c === 0x0d || c === 0x0b || c === 0x07 || c === 0x0e || c === 0x0a) { saida.push('\n'); continue; }
+            if (c === 0x0c) { saida.push('\n\n'); continue; }
+            if (c === 0x1e) { saida.push('-'); continue; }
+            if (c === 0x09) { saida.push('\t'); continue; }
+            if (c < 0x20) { continue; }
+            saida.push(bruto[i]);
+        }
+        return saida.join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
     /* ------------------------------------------------------- EML ------- */
 
     /** Cabeçalho/corpo de uma mensagem ou parte MIME (string binária). */
@@ -1332,6 +1544,26 @@
         trocar(alvo, wrap);
     }
 
+    /* DOC-111: a faixa do desenho (bj-visualizar.js L68) DENTRO da folha, com as cores dele. Sem a
+       2ª frase ("No sistema, o servidor converte para PDF…"): o sistema não converte. */
+    async function renderDoc(alvo, o, vivo) {
+        const arq = await baixar(o.url, LIMITE_BYTES_DOC, false, o.sinal);
+        if (!vivo()) { return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+
+        const r = textoDoDoc(arq.bytes, LIMITE_CARACTERES);
+        const wrap = el('div', 'vd-documento w-100');
+        const fl = folha();
+        const faixa = el('div', 'vd-faixa-doc', 'Formato antigo do Word (.doc): mostrando só o texto.'
+            + (r.cortado ? ' O documento é longo: só o começo aparece aqui. Baixe para ver tudo.' : ''));
+        faixa.setAttribute('role', 'note');
+        faixa.style.cssText = 'background:#fff7e6;color:#7a4b00;border-radius:4px;padding:8px 12px;margin-bottom:16px;font-size:12px';
+        fl.folha.appendChild(faixa);
+        fl.folha.appendChild(r.texto ? el('div', 'vd-folha-pre', r.texto) : el('p', 'vd-vazio', 'Documento sem texto.'));
+        wrap.appendChild(fl.fundo);
+        trocar(alvo, wrap);
+    }
+
     const CSS_EMAIL = 'html{background:#fff}body{margin:0;padding:16px 20px;font-family:Arial,Helvetica,sans-serif;'
         + 'font-size:14px;line-height:1.5;color:#1d1d1d;overflow-wrap:anywhere}img{max-width:100%;height:auto}'
         + 'table{max-width:100%}';
@@ -1535,6 +1767,7 @@
             pptx: renderPptx,
             odp: renderOdp,
             rtf: renderRtf,
+            doc: renderDoc,
             eml: renderEml,
             zip: renderZip,
         }[tipo];
