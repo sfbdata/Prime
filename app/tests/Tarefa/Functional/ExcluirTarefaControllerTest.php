@@ -12,6 +12,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Pasta\Functional\DesligaTenantFilterNaRequisicao;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -21,6 +22,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(TarefaController::class)]
 final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
 {
+    use DesligaTenantFilterNaRequisicao;
+
     private function criarUsuario(Tenant $tenant, string $email): User
     {
         $container = static::getContainer();
@@ -181,6 +184,42 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
         }
         $em->clear();
         self::assertNotNull($em->find(Tarefa::class, $id), 'meta do tenant A deve permanecer intacta');
+    }
+
+    /**
+     * PAS-048 / PMC-030: o teste acima fica verde só pelo TenantFilter (o find() devolve null).
+     * Aqui o filtro sai DENTRO da requisição: a meta do escritório A é carregada, e quem recusa é o
+     * guarda do controller (`verificarAcessoTarefa`, que confere o vínculo do autor da pasta com o
+     * escritório corrente). Esse guarda responde 403 (AccessDenied), não 404 — o 404 do caso real
+     * é o do filtro. Sem o guarda, o UseCase ainda recusaria (tenant da pasta), mas com um 302 de
+     * flash: o status 403 é o que distingue a barreira do controller.
+     */
+    #[TestDox('PMC-030: meta de OUTRO escritório com o TenantFilter desligado — o guarda do controller recusa e a meta não muda')]
+    public function testCrossTenantComFiltroDesligadoOGuardaRecusa(): void
+    {
+        $client   = static::createClient();
+        $tenantA  = $this->criarTenant();
+        $tenantB  = $this->criarTenant();
+        $autorA   = $this->criarUsuario($tenantA, 'autor_a_' . uniqid() . '@test.com');
+        $atacante = $this->criarUsuario($tenantB, 'atacante_b_' . uniqid() . '@test.com');
+        $tarefa   = $this->criarTarefa($tenantA, $autorA, $autorA);
+        $id       = (int) $tarefa->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $atacante, $tenantB);
+
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $antes   = $conexao->fetchAssociative('SELECT titulo, tenant_id FROM tarefa WHERE id = ?', [$id]);
+        self::assertNotFalse($antes);
+
+        $this->desligarTenantFilterNaProximaRequisicao();
+        $client->request('POST', "/tarefas/{$id}/excluir", [
+            '_token' => $this->gerarCsrf('excluir_tarefa_' . $id),
+        ]);
+
+        $this->assertTenantFilterFoiDesligado();
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame($antes, $conexao->fetchAssociative('SELECT titulo, tenant_id FROM tarefa WHERE id = ?', [$id]), 'a meta do escritório A continua intacta');
     }
 
     #[TestDox('Criador não exclui meta fora da janela de 24h: meta permanece')]

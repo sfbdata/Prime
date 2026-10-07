@@ -473,6 +473,70 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('FINANCEIRO-ESCONDIDO', $corpo);
     }
 
+    #[TestDox('PAS-048: observação financeira de AUTOR EXCLUSIVO não vaza para quem não vê o financeiro — nem em eventos, contagens, pessoas, atenção ou busca')]
+    public function testObservacaoFinanceiraDeAutorExclusivoNaoVazaEmNenhumCaminho(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        // Autora que SÓ escreveu a observação financeira: se o nome dela aparecer em
+        // qualquer lugar da resposta, foi por essa observação.
+        $autora = new User();
+        $autora->setEmail('autora_fin_' . uniqid() . '@test.com');
+        $autora->setFullName('Autora Exclusiva Do Financeiro');
+        $autora->setRoles(['ROLE_USER']);
+        $autora->setIsActive(true);
+        $autora->setPassword('dummy_hash');
+        $this->em()->persist($autora);
+        $this->em()->flush();
+
+        $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, 'DETALHE-COMUM', '2026-08-10 09:30');
+        $fin = $this->observacao(PastaObservacaoFinanceira::class, $pasta, $autora, $tenant, 'SEGREDO-FINANCEIRO-XYZ', '2026-08-11 14:00');
+
+        // Um dublê só, com a resposta trocável: primeiro "vê" (prova que o cenário produz o
+        // evento em todos os caminhos), depois "não vê" (prova que ele some de todos).
+        $veFinanceiro    = true;
+        $duble = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $duble->method('podeVer')->willReturnCallback(static function () use (&$veFinanceiro): bool {
+            return $veFinanceiro;
+        });
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $duble);
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Quem VÊ: a observação aparece na lista, na contagem, nas pessoas e na busca.
+        $comFin = $this->timeline($client, $pasta);
+        self::assertNotNull($this->evento($comFin, 'of' . $fin->getId()), 'controle: quem vê recebe');
+        self::assertContains('Autora Exclusiva Do Financeiro', $comFin['pessoas']);
+        $buscaComFin = $this->timeline($client, $pasta, ['q' => 'SEGREDO-FINANCEIRO-XYZ']);
+        self::assertSame(['of' . $fin->getId()], $this->ids($buscaComFin));
+
+        // Quem NÃO vê.
+        $veFinanceiro    = false;
+        $dados = $this->timeline($client, $pasta);
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertNull($this->evento($dados, 'of' . $fin->getId()), 'lista de eventos');
+        self::assertSame($comFin['contagens']['registro'] - 1, $dados['contagens']['registro'], 'chip Registros');
+        self::assertSame($comFin['contagens']['tudo'] - 1, $dados['contagens']['tudo'], 'chip Tudo');
+        self::assertNotContains('Autora Exclusiva Do Financeiro', $dados['pessoas'], 'lista de pessoas');
+        self::assertNotContains('of' . $fin->getId(), $this->ids($dados, 'atencao'), '"Precisa de atenção"');
+        self::assertStringNotContainsString('SEGREDO-FINANCEIRO-XYZ', $corpo);
+        self::assertStringNotContainsString('Autora Exclusiva Do Financeiro', $corpo);
+
+        $busca      = $this->timeline($client, $pasta, ['q' => 'SEGREDO-FINANCEIRO-XYZ']);
+        $corpoBusca = (string) $client->getResponse()->getContent();
+        self::assertSame([], $busca['eventos'], 'busca pelo texto dela');
+        self::assertSame(0, $busca['totalFiltrado']);
+        self::assertStringNotContainsString('SEGREDO-FINANCEIRO-XYZ', $corpoBusca);
+        self::assertStringNotContainsString('Autora Exclusiva Do Financeiro', $corpoBusca);
+
+        $porPessoa = $this->timeline($client, $pasta, ['pessoa' => 'Autora Exclusiva Do Financeiro']);
+        self::assertSame([], $porPessoa['eventos'], 'filtro pela pessoa dela');
+    }
+
     #[TestDox('Observação gravada com OUTRO escritório não entra, mesmo pendurada nesta pasta')]
     public function testObservacaoDeOutroEscritorioNaoEntra(): void
     {

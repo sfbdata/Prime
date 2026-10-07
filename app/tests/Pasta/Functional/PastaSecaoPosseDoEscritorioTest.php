@@ -157,6 +157,49 @@ final class PastaSecaoPosseDoEscritorioTest extends JusPrimeWebTestCase
         self::assertNull($this->conexao()->fetchOne('SELECT secao_id FROM pasta_documento WHERE id = ?', [$id]));
     }
 
+    /**
+     * PAS-048: o RECURSO IRMÃO que o TenantFilter não cobre — as duas pastas são do MESMO
+     * escritório, então só o `pasta = :pasta` da busca do destino recusa. Sem ele, o UseCase
+     * barrava com InvalidArgumentException (422) — que confirma que a seção existe.
+     */
+    #[TestDox('mover documento para seção de OUTRA pasta do MESMO escritório responde 404 (não 422) e a seção dele não muda')]
+    public function testMoverDocumentoParaSecaoDeOutraPastaDoMesmoEscritorio(): void
+    {
+        [$client, , $tenantA] = $this->prepararIntrusoDoEscritorioA();
+        $pastaA   = $this->criarPasta($tenantA);
+        $origem   = $this->criarSecao($pastaA, $tenantA, 'Origem');
+        $docA     = $this->criarDocumento($pastaA, $tenantA, $origem);
+        $irma     = $this->criarSecao($this->criarPasta($tenantA), $tenantA, 'Da pasta irmã');
+        $id       = (int) $docA->getId();
+        $idOrigem = (int) $origem->getId();
+
+        $client->request('POST', "/pasta/documento/{$id}/mover-secao", [
+            '_token'   => $this->csrf('pasta_doc_mover_' . $id),
+            'secao_id' => (string) $irma->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame($idOrigem, (int) $this->conexao()->fetchOne('SELECT secao_id FROM pasta_documento WHERE id = ?', [$id]));
+    }
+
+    #[TestDox('controle: mover documento para OUTRA seção da MESMA pasta funciona (200) e o secao_id muda')]
+    public function testMoverDocumentoParaSecaoDaMesmaPasta(): void
+    {
+        [$client, , $tenantA] = $this->prepararIntrusoDoEscritorioA();
+        $pastaA  = $this->criarPasta($tenantA);
+        $docA    = $this->criarDocumento($pastaA, $tenantA, $this->criarSecao($pastaA, $tenantA, 'Origem'));
+        $destino = $this->criarSecao($pastaA, $tenantA, 'Destino', null, 2);
+        $id      = (int) $docA->getId();
+
+        $client->request('POST', "/pasta/documento/{$id}/mover-secao", [
+            '_token'   => $this->csrf('pasta_doc_mover_' . $id),
+            'secao_id' => (string) $destino->getId(),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame((int) $destino->getId(), (int) $this->conexao()->fetchOne('SELECT secao_id FROM pasta_documento WHERE id = ?', [$id]));
+    }
+
     // ── criar ────────────────────────────────────────────────────────────────
 
     #[TestDox('criar seção na pasta de OUTRO escritório (filtro desligado) responde 404 e nenhuma seção nasce')]
