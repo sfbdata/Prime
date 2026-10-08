@@ -63,6 +63,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
+        // Última visita do usuário à Timeline da pasta (M4/PAS-043, 07/10): marcador pessoal de leitura,
+        // regravado a cada abertura, como os favoritos e as preferências. Não é ato sobre dado do escritório.
+        \App\Pasta\Entity\PastaTimelineVisita::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
