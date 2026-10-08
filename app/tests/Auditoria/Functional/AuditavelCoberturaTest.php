@@ -60,6 +60,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Foto diária do estoque do Dashboard: dado DERIVADO de tarefa/pasta (contagens), regravado
         // pelo cron. Não é ato de ninguém e não prova nada — auditar só duplicaria números.
         \App\Dashboard\Entity\DashboardFoto::class,
+        // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
+        // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
+        \App\Processo\Entity\NotaTecnicaVersao::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
