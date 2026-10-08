@@ -205,6 +205,18 @@ cada divergência A trabalhada e as filas B/C/D.
 | DOC-111b/112b | Visualizador | Teto da FAT do .doc antes de alocar; teto somado de 150 Mpx no TIFF | P2 | **feito** | — | ✓ | ✓ | `89a34c25`, `45e7b3b7` | | Teto do TIFF a ratificar (A4 de 50 páginas mostra 36) |
 | L6 (14 itens) | Pasta | PMC-059/039/041/040 (corpo e calendário da Nova meta), PAS-034 (diálogos), PAS-021/020/019 (Editar dados), PAS-033/037/032/030/031/040, EDT-014 (qualificação no editor), DOC-124 (rota legada removida) | P2–P5 | **feito** | ✓ | ✓ | ✓ | `fd011225`..`b575428d` | (mutações: 41) | Ver PAS-025c, PAS-034b |
 
+| M1 FPN-005 | Financeiro | Responder a registro do Relatório financeiro (`resposta_a`) | P2 | **feito** | ✓ | ✓ | ✓ | `07ba1031` (`Version20261007205740`) | Opus onda 3: sem bloqueante | resposta_a de outra pasta/escritório → 422 |
+| M2 PAS-039 | Detalhes | Responder nas observações de Detalhes | P2 | **feito** | ✓ | ✓ | ✓ | `6576bc7a` (`Version20261007211757`) | idem | |
+| M3 EDT-010r | Observações | @menção em Detalhes e Financeiro | P2 | **feito** | ✓ | ✓ | ✓ | `ab78b61f` (sem migration) | idem | Fecha EDT-010 por completo |
+| M4 PAS-043 | Timeline | "Enquanto você estava fora" (visita por usuário e pasta) | P2 | **feito** | ✓ | ✓ | ✓ | `207dd2fd` (`Version20261007215638`), `a70f0a2f` | idem | Visita gravada ao ABRIR (desenho: ao fechar), com a anterior guardada; 🧠 tirado (D-IA) |
+| M6 PAS-045 | Timeline | "Ver alteração" do registro editado | P3 | **feito** | ✓ | ✓ | ✓ | `092338fd` (`Version20261007220558`) | idem | Só no Registro; Detalhes/Financeiro: PAS-045b |
+| M8 PMC-020 | Processo | Versões anteriores da nota técnica a cada edição | P4 | **feito** (sem tela) | — | ✓ | ✓ | `97b0bc45` (`Version20261007221253`) | idem | O desenho não mostra tela de versões |
+| M7 FPN-009/008 | Financeiro | "· juros N% a.m." nas parcelas Price; confirm de excluir do desenho | P3 | **feito** | ✓ | ✓ | ✓ | `be356e16` (`Version20261007221859`), `bc2273c7` | idem | Nenhum valor mudou (teste de foto); zera ao corrigir valor |
+| M5 PAS-005/PMC-052 | Clientes | Foto do cliente | P2 | **C** | | | | | | Grava PII sem auditoria: depende de D-CLI-AUDIT |
+| SEC-016 | Segurança | Lista da Agenda por pessoa ignorava quem olha (via `responsavel=<id>`) | P0 | **feito** | — | ✓ | ✓ | `a0f07c60` | achado da revisão do L6 | Regra de visibilidade num método só (7 consultas); o número do Dashboard pode ser maior que a lista: §3.4 |
+| PAS-034c | Diálogos | Foco inicial no Cancelar; região viva criada na carga | P3 | **feito** | — | ✓ | ✓ | `2aa69c6f` | | |
+| PAS-025c/PMC-062/PAS-022b/FPN-020c | Pasta | Compositor e "Nova meta" fora da lápide; X religado após XHR; cópias da nota atualizadas | P3–P5 | **feito** | ✓ | ✓ | ✓ | `ee636b4b`, `871c4ab3`, `54ac9e23`, `146eb3a5` | | |
+
 **Novas divergências achadas no ciclo 1:**
 - **SEC-012 (A, P0):** `tarefa_mensagem_arquivo_view` serve anexo da Tarefa inline por `BinaryFileResponse` próprio,
   sem `EntregaDeArquivo` (sem CSP), e o upload aceita `.html`. Achado da revisão do SEC-003. Em implementação.
@@ -256,6 +268,11 @@ cada divergência A trabalhada e as filas B/C/D.
 - **FPN-020c (A, P5):** editar uma cópia da nota pendurada não atualiza a outra cópia até recarregar.
 - **PAS-022b (A, P5):** popovers trocados pelo XHR das Metas ficam sem o X e sem `PsArrastar.zerar`; `pointercancel`.
 - **PMC-062 (A, P5):** "Nova meta" no cabeçalho da aba continua na lápide.
+- **PAS-045b (A, migration):** "Ver alteração" também nas observações de Detalhes e do Financeiro.
+- **LGPD-01 (C):** `nota_tecnica_versao` e `pasta_mensagem.conteudo_anterior` guardam o texto apagado na edição sem
+  prazo de retenção e sem tela.
+- **PUB-01 (publicação):** as migrations M4 e M8 criam FKs para `pasta`/`user`/`tenant` sem `lock_timeout`. Publicar
+  fora do minuto múltiplo de 15 (cron do Sync) ou com `SET lock_timeout`.
 - **Deprecations:** `debug:container --deprecations` mostra **5**, não 9 como diz o §11 #6 do mestre.
 - **DOC-140 (A, P3):** o .zip sai por `<form target=_blank>`; qualquer recusa (429, 422, 403) abre uma aba com o
   JSON cru e o toast "Preparando o .zip" aparece mesmo assim. Proposta: a rota responder uma página simples
