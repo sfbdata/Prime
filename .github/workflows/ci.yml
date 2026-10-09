@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .env.prod.example
+      - app/config/services.yaml
+      - app/src/Auth/Service/CadastroMailer.php
+      - app/src/Auth/Service/ConviteMailer.php
+      - app/src/Auth/Service/RedefinicaoSenhaMailer.php
+      - app/src/Command/TestMailerCommand.php
+      - app/src/Service/InvitationService.php
+      - app/src/Shared/Email/IdentidadeDeEmail.php
+      - app/tests/Auth/Unit/CadastroMailerTest.php
+      - app/tests/Auth/Unit/ConviteMailerTest.php
+      - app/tests/Auth/Unit/RedefinicaoSenhaMailerTest.php
+      - app/tests/Command/Unit/TestMailerCommandTest.php
+      - app/tests/Service/Functional/InvitationServiceTest.php
+      - app/tests/Shared/Functional/IdentidadeDeEmailContainerTest.php
+      - app/tests/Shared/Unit/IdentidadeDeEmailTest.php
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  email-institucional:
+    name: E-mails institucionais
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: saas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d saas"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: app
+
+    env:
+      APP_ENV: test
+      APP_SECRET: ci-test-only
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/saas?serverVersion=15&charset=utf8"
+      MAILER_DSN: "null://null"
+      MAILER_FROM: "BlueJus <nao-responda@example.test>"
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.2"
+          extensions: ctype, dom, fileinfo, gd, iconv, intl, libxml, mbstring, pdo_pgsql, simplexml, xml, xmlreader, xmlwriter, zip, zlib
+          tools: composer:v2
+          coverage: none
+
+      - name: Validar Composer
+        run: composer validate --no-check-publish
+
+      - name: Instalar dependencias
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Preparar banco de teste
+        run: |
+          php bin/console doctrine:database:create --if-not-exists --env=test
+          # A cadeia historica de migrations pressupoe dados de um dump e nao e
+          # compativel com banco vazio. Estes testes usam apenas o schema mapeado.
+          php bin/console doctrine:schema:create --env=test
+
+      - name: Validar configuracao Symfony
+        run: |
+          php bin/console lint:yaml config --parse-tags
+          php bin/console lint:container --env=test
+
+      - name: Executar testes de e-mail
+        run: |
+          php bin/phpunit \
+            tests/Shared/Unit/IdentidadeDeEmailTest.php \
+            tests/Shared/Functional/IdentidadeDeEmailContainerTest.php \
+            tests/Auth/Unit/CadastroMailerTest.php \
+            tests/Auth/Unit/ConviteMailerTest.php \
+            tests/Auth/Unit/RedefinicaoSenhaMailerTest.php \
+            tests/Command/Unit/TestMailerCommandTest.php \
+            tests/Service/Functional/InvitationServiceTest.php \
+            tests/Auth/Functional/CadastroControllerTest.php \
+            tests/Auth/Functional/AdminConviteControllerTest.php \
+            tests/Auth/Functional/GerenciarConvitesControllerTest.php
