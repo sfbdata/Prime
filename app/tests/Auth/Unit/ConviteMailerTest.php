@@ -8,6 +8,7 @@ use App\Auth\Service\ConviteMailer;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Email\IdentidadeDeEmail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -26,6 +27,7 @@ final class ConviteMailerTest extends TestCase
     private ConviteMailer $service;
 
     private const MAILER_FROM = 'BlueJus <test@bluejus.test>';
+    private const MAILER_REPLY_TO = 'infra@bluejus.test';
     private const FAKE_URL    = 'https://app.jusprime.com.br/convite/abc123';
     private const TOKEN       = 'abc123def456abc123def456abc123def456abc123def456abc123def456abc1';
 
@@ -39,7 +41,7 @@ final class ConviteMailerTest extends TestCase
             $this->mailer,
             $this->twig,
             $this->urlGenerator,
-            self::MAILER_FROM,
+            new IdentidadeDeEmail(self::MAILER_FROM, self::MAILER_REPLY_TO),
         );
     }
 
@@ -100,7 +102,7 @@ final class ConviteMailerTest extends TestCase
 
         $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
 
-        self::assertSame('Você foi convidado para o BlueJus', $emailCapturado->getSubject());
+        self::assertSame('[BlueJus] Você foi convidado para o BlueJus', $emailCapturado->getSubject());
     }
 
     public function testEnviarConvitePlataformaFromCorreto(): void
@@ -118,6 +120,7 @@ final class ConviteMailerTest extends TestCase
 
         self::assertSame('test@bluejus.test', $emailCapturado->getFrom()[0]->getAddress());
         self::assertSame('BlueJus', $emailCapturado->getFrom()[0]->getName());
+        self::assertSame('infra@bluejus.test', $emailCapturado->getReplyTo()[0]->getAddress());
     }
 
     public function testEnviarConvitePlataformaToCorreto(): void
@@ -192,9 +195,12 @@ final class ConviteMailerTest extends TestCase
         $this->service->enviarConviteEscritorio($this->criarConviteEscritorio());
 
         self::assertSame(
-            'Você foi convidado para colaborar em um escritório no BlueJus',
+            '[BlueJus] Você foi convidado para colaborar em um escritório no BlueJus',
             $emailCapturado->getSubject(),
         );
+        self::assertSame('test@bluejus.test', $emailCapturado->getFrom()[0]->getAddress());
+        self::assertSame('BlueJus', $emailCapturado->getFrom()[0]->getName());
+        self::assertSame('infra@bluejus.test', $emailCapturado->getReplyTo()[0]->getAddress());
     }
 
     public function testEnviarConviteEscritorioUsaTemplateCorreto(): void

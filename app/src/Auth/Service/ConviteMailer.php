@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Entity\Auth\Invitation;
+use App\Shared\Email\IdentidadeDeEmail;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -17,7 +18,7 @@ final class ConviteMailer
         private readonly MailerInterface $mailer,
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urlGenerator,
-        private readonly string $mailerFrom,
+        private readonly IdentidadeDeEmail $identidadeDeEmail,
     ) {
     }
 
@@ -35,10 +36,9 @@ final class ConviteMailer
         ]);
 
         $email = (new Email())
-            ->from($this->mailerFrom)
             ->to($invitation->getEmail())
-            ->subject('Você foi convidado para o BlueJus')
             ->html($html);
+        $this->identidadeDeEmail->aplicar($email, 'Você foi convidado para o BlueJus');
 
         try {
             $this->mailer->send($email);
@@ -64,10 +64,9 @@ final class ConviteMailer
         ]);
 
         $email = (new Email())
-            ->from($this->mailerFrom)
             ->to($invitation->getEmail())
-            ->subject('Você foi convidado para colaborar em um escritório no BlueJus')
             ->html($html);
+        $this->identidadeDeEmail->aplicar($email, 'Você foi convidado para colaborar em um escritório no BlueJus');
 
         try {
             $this->mailer->send($email);

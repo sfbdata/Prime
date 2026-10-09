@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Entity\Auth\User;
+use App\Shared\Email\IdentidadeDeEmail;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -24,7 +25,7 @@ final class RedefinicaoSenhaMailer implements RedefinicaoSenhaMailerInterface
         private readonly MailerInterface $mailer,
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urlGenerator,
-        private readonly string $mailerFrom,
+        private readonly IdentidadeDeEmail $identidadeDeEmail,
     ) {
     }
 
@@ -42,10 +43,9 @@ final class RedefinicaoSenhaMailer implements RedefinicaoSenhaMailerInterface
         ]);
 
         $email = (new Email())
-            ->from($this->mailerFrom)
             ->to((string) $user->getEmail())
-            ->subject('Redefinição de senha no BlueJus')
             ->html($html);
+        $this->identidadeDeEmail->aplicar($email, 'Redefinição de senha no BlueJus');
 
         try {
             $this->mailer->send($email);

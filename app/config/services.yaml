@@ -8,6 +8,8 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     mailer_from: '%env(MAILER_FROM)%'
+    # Opcional: vazio omite o cabeçalho Reply-To. Em produção, usar uma caixa monitorada.
+    mailer_reply_to: '%env(string:default::MAILER_REPLY_TO)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
     # Uploads ficam em public/uploads/* (volume persistido uploads_prod). A defesa contra
     # acesso direto é o bloqueio de /uploads/ estático no nginx (C5.1) — todos são servidos
@@ -76,6 +78,7 @@ services:
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
         bind:
             string $mailerFrom: '%mailer_from%'
+            string $mailerReplyTo: '%mailer_reply_to%'
             string $datajudApiKey: '%env(DATAJUD_API_KEY)%'
             string $datajudBaseUrl: '%env(DATAJUD_BASE_URL)%'
             string $djenBaseUrl: '%env(DJEN_BASE_URL)%'
