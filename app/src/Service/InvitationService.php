@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Entity\Auth\User;
+use App\Shared\Email\IdentidadeDeEmail;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Mailer\MailerInterface;
@@ -10,12 +13,13 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
-class InvitationService
+final class InvitationService
 {
     public function __construct(
-        private EntityManagerInterface $entityManager,
-        private MailerInterface $mailer,
-        private UrlGeneratorInterface $urlGenerator
+        private readonly EntityManagerInterface $entityManager,
+        private readonly MailerInterface $mailer,
+        private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly IdentidadeDeEmail $identidadeDeEmail,
     ) {
     }
 
@@ -49,10 +53,9 @@ class InvitationService
         $fullName = $user->getFullName() ?? 'Usuário';
 
         $email = (new Email())
-            ->from('jusprime.samuel@gmail.com')
             ->to((string) $user->getEmail())
-            ->subject($subject)
             ->text("Olá {$fullName},\n\nVocê foi convidado para acessar o sistema.\nClique no link abaixo para criar sua senha:\n\n{$link}");
+        $this->identidadeDeEmail->aplicar($email, $subject);
 
         try {
             $this->mailer->send($email);
