@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Auth\Entity\CadastroPendente;
+use App\Shared\Email\IdentidadeDeEmail;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -17,7 +18,7 @@ final class CadastroMailer
         private readonly MailerInterface $mailer,
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urlGenerator,
-        private readonly string $mailerFrom,
+        private readonly IdentidadeDeEmail $identidadeDeEmail,
     ) {
     }
 
@@ -35,10 +36,9 @@ final class CadastroMailer
         ]);
 
         $email = (new Email())
-            ->from($this->mailerFrom)
             ->to($cadastro->getEmail())
-            ->subject('Confirme seu cadastro no BlueJus')
             ->html($html);
+        $this->identidadeDeEmail->aplicar($email, 'Confirme seu cadastro no BlueJus');
 
         try {
             $this->mailer->send($email);
