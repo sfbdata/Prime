@@ -1,6 +1,12 @@
 name: CI
 
 on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Numero do pull request a validar
+        required: true
+        type: string
   pull_request:
     branches:
       - master
@@ -23,9 +29,10 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
@@ -61,8 +68,50 @@ jobs:
       MAILER_FROM: "BlueJus <nao-responda@example.test>"
 
     steps:
+      - name: Validar merge ref do PR
+        id: pr
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: |
+          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Numero de PR invalido."
+            exit 1
+          fi
+
+          estado=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.state')
+          base=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.base.ref')
+          head_sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha')
+
+          if [[ "$estado" != "open" || "$base" != "master" ]]; then
+            echo "O PR deve estar aberto e ter master como base."
+            exit 1
+          fi
+
+          merge_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/pull/$PR_NUMBER/merge" --jq '.object.sha')
+
+          if [[ ! "$merge_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Merge ref invalido ou indisponivel."
+            exit 1
+          fi
+
+          {
+            echo "pr_number=$PR_NUMBER"
+            echo "head_sha=$head_sha"
+            echo "merge_sha=$merge_sha"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Baixar o codigo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.pr.outputs.merge_sha }}
+
+      - name: Confirmar codigo do PR
+        working-directory: .
+        env:
+          MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
+        run: test "$(git rev-parse HEAD)" = "$MERGE_SHA"
 
       - name: Configurar PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
