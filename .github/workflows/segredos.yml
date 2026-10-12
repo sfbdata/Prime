@@ -1,0 +1,71 @@
+# Guarda de segredos no CI: recusa credencial nova em PR e em push para o master.
+#
+# Duas camadas, as duas só sobre os commits NOVOS do evento (scripts/git-hooks/intervalo-ci.sh):
+#   1. scripts/git-hooks/verificar-segredos.py — a mesma guarda do pre-commit (DSN com senha, nomes
+#      de arquivo proibidos, regras do projeto). Pega quem commitou sem o hook.
+#   2. gitleaks — ~150 regras de formato da comunidade + a regra url-com-credencial do
+#      .gitleaks.toml (as padrão não reconhecem senha em DSN; medido em 12/10/2026).
+#
+# O histórico antigo tem um segredo conhecido (3ee0082a). Ele não trava PR nenhum porque nenhum
+# PR o reintroduz no intervalo varrido; ver .gitleaksignore.
+
+name: Guarda de segredos
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: segredos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  segredos:
+    name: Segredos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GITLEAKS_IMAGE: zricethezav/gitleaks:v8.21.2@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46
+
+    steps:
+      - name: Checkout com histórico (o intervalo precisa dos commits anteriores)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Testes da guarda
+        run: python3 -m unittest discover -s scripts/git-hooks -p 'test_*.py' -v
+
+      - name: Calcular o intervalo de commits
+        id: intervalo
+        env:
+          EVENTO: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          ANTES: ${{ github.event.before }}
+          DEPOIS: ${{ github.sha }}
+        run: |
+          intervalo="$(bash scripts/git-hooks/intervalo-ci.sh "$EVENTO" "$PR_BASE" "$PR_HEAD" "$ANTES" "$DEPOIS")"
+          echo "Intervalo varrido: $intervalo ($(git rev-list --count "$intervalo") commits)"
+          echo "valor=$intervalo" >> "$GITHUB_OUTPUT"
+
+      - name: Guarda do projeto
+        env:
+          INTERVALO: ${{ steps.intervalo.outputs.valor }}
+        run: python3 -I scripts/git-hooks/verificar-segredos.py --intervalo "$INTERVALO"
+
+      - name: gitleaks
+        env:
+          INTERVALO: ${{ steps.intervalo.outputs.valor }}
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo "$GITLEAKS_IMAGE" \
+            git . --config .gitleaks.toml --gitleaks-ignore-path .gitleaksignore \
+            --log-opts="$INTERVALO" --redact --no-banner --exit-code 1

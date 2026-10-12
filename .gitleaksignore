@@ -1,0 +1,37 @@
+# Achados ANTIGOS do gitleaks, conferidos um a um em 12/10/2026 e aceitos como falso positivo.
+# Formato: <commit>:<arquivo>:<regra>:<linha> (impressão digital exata — não cobre achado novo,
+# nem a mesma linha em outro commit). O CI só varre os commits do PR/push; esta lista existe para
+# que uma auditoria do histórico inteiro (`gitleaks git .`) mostre só o que importa.
+#
+# 🔴 NÃO está aqui, de propósito: 3ee0082a app/.env:14 e :15 (url-com-credencial) — a senha REAL
+# do Gmail que ficou no repositório público de 15/02 a 12/10/2026. Ela continua aparecendo na
+# auditoria completa até o dono confirmar a revogação na conta Google. Só então pode entrar aqui.
+
+# .env.prod.example: placeholder do modelo de produção
+b846f68cdde58bf306d53b3644dd252fb822e8c9:.env.prod.example:generic-api-key:8
+
+# .github/workflows/ci.yml: senha do Postgres EFÊMERO do GitHub Actions (serviço do próprio job)
+c246db9a657fbac29e2b7aa485a0b73eefe8a8eb:.github/workflows/ci.yml:url-com-credencial:59
+
+# app/.env: DATAJUD_API_KEY — chave PÚBLICA divulgada pelo CNJ (datajud-wiki.cnj.jus.br/api-publica/acesso)
+4d82496ebccc341370e540c232391908d5e2b243:app/.env:generic-api-key:19
+
+# app/.env.dev: APP_SECRET de DESENVOLVIMENTO (convenção do Symfony: .env.dev é versionado)
+845298f99e1e0d771199c90b262dee770a430817:app/.env.dev:generic-api-key:3
+9b5270bb9660ab083483043ae3fe5052cd25f3a9:app/.env.dev:generic-api-key:3
+
+# app/tests/Auth/Unit/ConviteMailerTest.php: token fictício de teste unitário
+701573a4f90d90af43d46b3b86aba383cbd05a68:app/tests/Auth/Unit/ConviteMailerTest.php:generic-api-key:30
+
+# design/expediente.pen: identificador interno do arquivo de desenho (OpenPencil), não credencial
+f96a044bdc6279c8a74086767737608295e16c19:design/expediente.pen:generic-api-key:12681
+
+# scripts/testar-deploy-guardas.sh: token GitHub FICTÍCIO e sequencial (ghp_0123456789abcdef…), fixture do teste das guardas de deploy
+845e981f2afadb19101050880589e5b109b54864:scripts/testar-deploy-guardas.sh:github-pat:61
+845e981f2afadb19101050880589e5b109b54864:scripts/testar-deploy-guardas.sh:github-pat:70
+845e981f2afadb19101050880589e5b109b54864:scripts/testar-deploy-guardas.sh:github-pat:145
+845e981f2afadb19101050880589e5b109b54864:scripts/testar-deploy-guardas.sh:github-pat:159
+dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:74
+dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:178
+dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:188
+dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:202

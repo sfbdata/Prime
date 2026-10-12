@@ -1,0 +1,46 @@
+# Configuração do gitleaks usada no CI (.github/workflows/segredos.yml).
+#
+# Camada 2 da guarda de segredos. A camada 1 é scripts/git-hooks/verificar-segredos.py, que roda no
+# pre-commit e também no CI; o gitleaks soma as ~150 regras de formato mantidas pela comunidade.
+#
+# 🔴 As regras padrão do gitleaks NÃO reconhecem senha dentro de URL/DSN
+# (smtp://usuario:senha@host). Foi medido em 12/10/2026: a varredura do histórico inteiro com as
+# regras padrão não acusou a senha do Gmail que ficou meses em app/.env. Por isso a regra
+# `url-com-credencial` abaixo — a mesma da camada 1.
+#
+# Achados ANTIGOS (falsos positivos já conferidos) ficam no .gitleaksignore por impressão digital
+# exata. O CI só varre os commits do PR/push, então o histórico não trava ninguém.
+
+title = "BlueJus — guarda de segredos"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "url-com-credencial"
+description = "Usuário e senha embutidos em URL/DSN (SMTP, banco, Redis, AMQP...)"
+# O usuário aceita `@` de propósito: o DSN vazado era smtp://conta@gmail.com:senha@smtp.gmail.com.
+regex = '''(?i)\b[a-z][a-z0-9+.\-]{1,20}://[^\s:/'"`<>]+:([^\s@'"`<>/]+)@'''
+secretGroup = 1
+keywords = ["://"]
+
+    [rules.allowlist]
+    description = "Placeholders, referências a variável e o banco do container de dev"
+    regexTarget = "secret"
+    regexes = [
+        # banco do docker-compose de DEV (padrão público) e placeholders curtos
+        # (`ci` = Postgres efêmero do próprio GitHub Actions, em .github/workflows/ci.yml)
+        '''^(?i)(symfony|ci|senha|senha_app|p|pw|pass|passwd|password|guest|changeme|secret|null)$''',
+        # ${VAR}, $VAR, %env(...)%, <valor>, máscaras
+        '''^[$%<*]''',
+        '''(?i)troque|change|exemplo|example|placeholder|dummy|fake|sua_|seu_|xxx''',
+    ]
+
+[allowlist]
+description = "Código de terceiros e arquivos gerados"
+paths = [
+    '''(^|/)app/vendor/''',
+    '''(^|/)node_modules/''',
+    '''(^|/)composer\.lock$''',
+    '''(^|/)package-lock\.json$''',
+]
