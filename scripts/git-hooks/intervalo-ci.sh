@@ -7,30 +7,35 @@
 #
 # Uso: intervalo-ci.sh <evento> <pr_base> <pr_head> <push_antes> <push_depois>
 #   pull_request → <pr_base>..<pr_head>
-#   push         → <push_antes>..<push_depois>; se o "antes" não existe (branch nova, push forçado),
-#                  cai para merge-base com origin/master..<push_depois>
+#   push         → <push_antes>..<push_depois>
+#
+# FALHA FECHADO (saída 2) quando não há como saber o que é novo: push sem "antes" (primeiro push,
+# push forçado que reescreveu o master) ou intervalo vazio. A 1ª versão caía para o merge-base com
+# origin/master — que, num push para o próprio master, é o commit do topo: intervalo vazio, 0
+# commits varridos e CI verde. Push forçado no master é exceção; o CI vermelho é o alarme certo,
+# e a resposta é a auditoria completa do runbook (docs/runbooks/guarda-de-segredos.md).
 set -euo pipefail
 
 evento="${1:-}"; pr_base="${2:-}"; pr_head="${3:-}"; antes="${4:-}"; depois="${5:-}"
 zeros=0000000000000000000000000000000000000000
 
 existe() { [ -n "$1" ] && git cat-file -e "$1^{commit}" 2>/dev/null; }
+recusa() { echo "intervalo-ci: $1 — varredura recusada (rode a auditoria completa do runbook)." >&2; exit 2; }
 
-if [ "$evento" = "pull_request" ]; then
-    existe "$pr_base" && existe "$pr_head" || { echo "intervalo-ci: SHA do PR ausente" >&2; exit 2; }
-    echo "$pr_base..$pr_head"
-    exit 0
-fi
+case "$evento" in
+    pull_request)
+        existe "$pr_base" && existe "$pr_head" || recusa "SHA do PR ausente"
+        intervalo="$pr_base..$pr_head"
+        ;;
+    push)
+        existe "$depois" || recusa "commit do push ausente"
+        [ "$antes" != "$zeros" ] && existe "$antes" || recusa "push sem commit anterior conhecido (primeiro push ou push forçado)"
+        intervalo="$antes..$depois"
+        ;;
+    *)
+        recusa "evento não suportado: '$evento'"
+        ;;
+esac
 
-existe "$depois" || { echo "intervalo-ci: commit do push ausente" >&2; exit 2; }
-
-if [ "$antes" != "$zeros" ] && existe "$antes"; then
-    echo "$antes..$depois"
-    exit 0
-fi
-
-if git rev-parse --verify --quiet origin/master >/dev/null; then
-    echo "$(git merge-base origin/master "$depois")..$depois"
-else
-    echo "$depois^!"   # sem referência de comparação: só o próprio commit
-fi
+[ "$(git rev-list --count "$intervalo")" -gt 0 ] || recusa "intervalo $intervalo vazio"
+echo "$intervalo"

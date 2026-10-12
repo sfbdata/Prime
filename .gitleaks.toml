@@ -3,10 +3,16 @@
 # Camada 2 da guarda de segredos. A camada 1 é scripts/git-hooks/verificar-segredos.py, que roda no
 # pre-commit e também no CI; o gitleaks soma as ~150 regras de formato mantidas pela comunidade.
 #
-# 🔴 As regras padrão do gitleaks NÃO reconhecem senha dentro de URL/DSN
-# (smtp://usuario:senha@host). Foi medido em 12/10/2026: a varredura do histórico inteiro com as
-# regras padrão não acusou a senha do Gmail que ficou meses em app/.env. Por isso a regra
-# `url-com-credencial` abaixo — a mesma da camada 1.
+# 🔴 As regras padrão do gitleaks NÃO reconhecem:
+#   - senha dentro de URL/DSN (smtp://usuario:senha@host) — medido em 12/10/2026: a varredura do
+#     histórico inteiro não acusou a senha do Gmail que ficou meses em app/.env;
+#   - senha em variável *_PASS / *_PWD / SENHA, nem a senha de app do Gmail com espaços
+#     ("abcd efgh ijkl mnop") — medido na revisão adversarial do mesmo dia.
+# Daí as regras abaixo, as mesmas da camada 1.
+#
+# As allowlists são deliberadamente ESTREITAS (revisão de 12/10): `%` só vale como %env(..)% ou
+# %parametro% (senha codificada começa com %21, %2A...), e palavra de placeholder só salva valor
+# todo minúsculo com separador (troque_esta_senha), nunca senha real com a palavra dentro.
 #
 # Achados ANTIGOS (falsos positivos já conferidos) ficam no .gitleaksignore por impressão digital
 # exata. O CI só varre os commits do PR/push, então o histórico não trava ninguém.
@@ -25,15 +31,75 @@ secretGroup = 1
 keywords = ["://"]
 
     [rules.allowlist]
-    description = "Placeholders, referências a variável e o banco do container de dev"
+    description = "Placeholders, referências e o banco do container de dev"
     regexTarget = "secret"
     regexes = [
-        # banco do docker-compose de DEV (padrão público) e placeholders curtos
-        # (`ci` = Postgres efêmero do próprio GitHub Actions, em .github/workflows/ci.yml)
+        # banco do docker-compose de DEV (padrão público), Postgres efêmero do CI (`ci`) e curtos
         '''^(?i)(symfony|ci|senha|senha_app|p|pw|pass|passwd|password|guest|changeme|secret|null)$''',
-        # ${VAR}, $VAR, %env(...)%, <valor>, máscaras
-        '''^[$%<*]''',
-        '''(?i)troque|change|exemplo|example|placeholder|dummy|fake|sua_|seu_|xxx''',
+        # ${VAR} / $VAR, %env(...)%, %parametro%, <valor>, {{ twig }}
+        '''^(\$|%env\(|\{\{)''',
+        '''^%[A-Za-z0-9_.]+%$''',
+        '''^%[-+ #0]*[0-9]*(\.[0-9]+)?[sdfuxi]$''',
+        '''(x{8,}|X{8,}|\*{8,}|0{8,}|\.{8,})''',  # sem retrorreferência: o gitleaks usa RE2 (Go)
+        '''^<.*>$''',
+        # placeholder escrito: todo minúsculo, com separador e a palavra
+        '''^[a-z0-9_.\-]*(troque|change|exemplo|example|placeholder|dummy|fake|sua_|seu_|senha|password|segredo|secret|aqui)[a-z0-9_.\-]*$''',
+        '''^[A-Z0-9_.\-]*(TROQUE|CHANGE|EXEMPLO|EXAMPLE|PLACEHOLDER|DUMMY|FAKE|SUA_|SEU_|SENHA|PASSWORD|SEGREDO|SECRET|AQUI)[A-Z0-9_.\-]*$''',
+        '''^!ChangeMe!$''',
+        # máscara: ****, xxxx
+        '''^(\*+|x+)$''',
+    ]
+
+[[rules]]
+id = "senha-em-variavel"
+# Só em arquivo de configuração (mesmo escopo da camada 1): em código e teste, senha fictícia
+# em constante é rotina e viraria ruído no CI (medido: 23 falsos positivos no histórico).
+path = '''(?i)(^|/)(\.env[^/]*|[^/]*\.env(\.[^/]*)?|[^/]*\.(ini|ya?ml|toml|conf|cfg|properties|json|sh|bash)|Dockerfile[^/]*|docker-compose[^/]*)$'''
+description = "Senha em variável/chave PASS, PWD, PASSWORD, SENHA (sem aspas)"
+regex = '''(?i)\b(?:[A-Z0-9]+_)*(?:PASSWORD|PASSWD|SENHA|PASS|PWD)(?:_[A-Z0-9]+)*["']?[ \t]*[:=][ \t]*([^\s"'#,;]{8,})'''
+secretGroup = 1
+keywords = ["pass", "pwd", "senha"]
+
+    [rules.allowlist]
+    description = "Placeholders, referências e expressões de código"
+    regexTarget = "secret"
+    regexes = [
+        '''^(\$|%env\(|\{\{|@[A-Za-z]|![a-z]+/)''',
+        '''^%[A-Za-z0-9_.]+%$''',
+        '''^%[-+ #0]*[0-9]*(\.[0-9]+)?[sdfuxi]$''',
+        '''(x{8,}|X{8,}|\*{8,}|0{8,}|\.{8,})''',  # sem retrorreferência: o gitleaks usa RE2 (Go)
+        '''^<.*>$''',
+        '''[()\[\]{}]''',
+        '''\$\(|\$\{|`''',
+        '''^[a-z0-9_.\-]*(troque|change|exemplo|example|placeholder|dummy|fake|sua_|seu_|senha|password|segredo|secret|aqui)[a-z0-9_.\-]*$''',
+        '''^[A-Z0-9_.\-]*(TROQUE|CHANGE|EXEMPLO|EXAMPLE|PLACEHOLDER|DUMMY|FAKE|SUA_|SEU_|SENHA|PASSWORD|SEGREDO|SECRET|AQUI)[A-Z0-9_.\-]*$''',
+        '''^!ChangeMe!$''',
+        '''^(\*+|x+)$''',
+    ]
+
+[[rules]]
+id = "senha-em-variavel-entre-aspas"
+# Só em arquivo de configuração (mesmo escopo da camada 1): em código e teste, senha fictícia
+# em constante é rotina e viraria ruído no CI (medido: 23 falsos positivos no histórico).
+path = '''(?i)(^|/)(\.env[^/]*|[^/]*\.env(\.[^/]*)?|[^/]*\.(ini|ya?ml|toml|conf|cfg|properties|json|sh|bash)|Dockerfile[^/]*|docker-compose[^/]*)$'''
+description = "Senha entre aspas em variável/chave PASS, PWD, PASSWORD, SENHA (aceita espaços: senha de app do Gmail)"
+regex = '''(?i)\b(?:[A-Z0-9]+_)*(?:PASSWORD|PASSWD|SENHA|PASS|PWD)(?:_[A-Z0-9]+)*["']?[ \t]*[:=][ \t]*["']([^"'\n]{8,})["']'''
+secretGroup = 1
+keywords = ["pass", "pwd", "senha"]
+
+    [rules.allowlist]
+    description = "Placeholders e referências"
+    regexTarget = "secret"
+    regexes = [
+        '''^(\$|%env\(|\{\{|@[A-Za-z]|![a-z]+/)''',
+        '''^%[A-Za-z0-9_.]+%$''',
+        '''^%[-+ #0]*[0-9]*(\.[0-9]+)?[sdfuxi]$''',
+        '''(x{8,}|X{8,}|\*{8,}|0{8,}|\.{8,})''',  # sem retrorreferência: o gitleaks usa RE2 (Go)
+        '''^<.*>$''',
+        '''^[a-z0-9_.\-]*(troque|change|exemplo|example|placeholder|dummy|fake|sua_|seu_|senha|password|segredo|secret|aqui)[a-z0-9_.\-]*$''',
+        '''^[A-Z0-9_.\-]*(TROQUE|CHANGE|EXEMPLO|EXAMPLE|PLACEHOLDER|DUMMY|FAKE|SUA_|SEU_|SENHA|PASSWORD|SEGREDO|SECRET|AQUI)[A-Z0-9_.\-]*$''',
+        '''^!ChangeMe!$''',
+        '''^(\*+|x+)$''',
     ]
 
 [allowlist]

@@ -49,6 +49,16 @@ id_ed25519*
 client_secret*.json
 *service-account*.json
 *service_account*.json
+rclone.conf
+.netrc
+# Token do GitHub do composer (o .composer-auth.json da raiz já está acima, na regra do build)
+/app/auth.json
+# Dumps compactados (o *.dump já está mais abaixo). *.sql cru NÃO entra: script SQL de consulta
+# é legítimo em docs/; quem barra dump é a guarda pelo nome e pelo conteúdo.
+*.sql.gz
+*.sql.zst
+*.sql.bz2
+*.sql.xz
 
 # Token do GitHub usado no build (composer install). Mora na VPS, nunca no git.
 # O modelo versionado é o .composer-auth.json.example.

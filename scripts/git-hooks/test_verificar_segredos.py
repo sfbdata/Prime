@@ -121,9 +121,78 @@ class ConteudoTest(unittest.TestCase):
     def test_o_mesmo_app_secret_em_app_env_e_pego(self):
         self.assertEqual(['atribuicao-sensivel'], regras('app/.env', 'APP_SECRET=' + aleatorio(32)))
 
+    # --- Achados da revisão adversarial de 12/10/2026 (cada um passava pelas duas camadas) ---
+
+    def test_senha_codificada_com_percent_e_pega(self):
+        # Senha que começa com símbolo vai codificada no DSN; `%` era tratado como parâmetro.
+        for senha in ('%21' + aleatorio(14), '%2A' + aleatorio(14)):
+            with self.subTest(senha=senha[:3]):
+                linha = 'MAILER_DSN=smtp://conta%40gmail.com:' + senha + '@smtp.gmail.com:587'
+                self.assertEqual(['url-com-credencial'], regras('app/.env', linha))
+
+    def test_senha_com_simbolo_no_inicio_ou_parenteses_e_pega(self):
+        for senha in ('!' + aleatorio(14), '*' + aleatorio(14), aleatorio(6) + '(' + aleatorio(6)):
+            with self.subTest(primeiro=senha[0]):
+                self.assertEqual(['url-com-credencial'], regras('app/.env', 'X=redis://u:' + senha + '@h:6379'))
+
+    def test_referencias_continuam_aceitas(self):
+        for linha in ("password: '%env(DB_SENHA)%'", "password: '%senha_do_banco%'",
+                      'DB_PASS=$DB_PASS', "secret: !php/const App\\X::Y"):
+            with self.subTest(linha=linha):
+                self.assertEqual([], regras('config/x.yaml', linha))
+
+    def test_chaves_pass_e_pwd_sao_sensiveis(self):
+        for chave in ('MAILER_PASS', 'DB_PASS', 'DB_PWD', 'PASS'):
+            with self.subTest(chave=chave):
+                self.assertEqual(['atribuicao-sensivel'], regras('app/.env', chave + '=' + aleatorio(17)))
+
+    def test_pass_como_substring_de_outra_palavra_nao_e_sensivel(self):
+        for chave in ('BYPASS_CACHE', 'PASSO_ATUAL', 'COMPASS_URL'):
+            with self.subTest(chave=chave):
+                self.assertEqual([], regras('app/.env', chave + '=' + aleatorio(17)))
+
+    def test_senha_de_app_do_gmail_com_espacos_entre_aspas_e_pega(self):
+        # É assim que o Google exibe a senha de app: 4 grupos de 4 letras.
+        valor = ' '.join(senha_de_app_gmail()[i:i + 4] for i in range(0, 16, 4))
+        self.assertEqual(['atribuicao-sensivel'], regras('app/.env', f'MAILER_PASSWORD="{valor}"'))
+
+    def test_palavra_de_placeholder_dentro_de_senha_real_nao_salva(self):
+        self.assertEqual(['url-com-credencial'], regras('app/.env', 'X=pgsql://app:' + aleatorio(11) + 'change@db'))
+        self.assertEqual(['atribuicao-sensivel'], regras('app/.env', 'SENHA=Empresa1234567'))
+
+    def test_json_com_chave_entre_aspas_e_avaliado(self):
+        self.assertEqual(['atribuicao-sensivel'], regras('config/x.json', '{"password": "' + aleatorio(14) + '"}'))
+
+    def test_formato_de_printf_na_url_e_aceito(self):
+        self.assertEqual([], regras('app/tests/X.php', "sprintf('pgsql://%s:%s@db:5432/%s', $u, $p, $b)"))
+
+    def test_placeholder_de_caractere_repetido_apos_prefixo_e_aceito(self):
+        # .sync-oauth.env.example: GOCSPX- seguido de um só caractere repetido.
+        self.assertEqual([], regras('.sync-oauth.env.example', 'GOOGLE_DRIVE_OAUTH_CLIENT_SECRET=GOC' + 'SPX-' + 'x' * 24))
+
+    def test_valor_montado_por_substituicao_de_shell_e_aceito(self):
+        linha = 'POSTGRES_PASSWORD="$(grep ' + "'^POSTGRES_PASSWORD='" + ' "${DIR}/.env.prod" | cut -d= -f2-)"'
+        self.assertEqual([], regras('scripts/backup.sh', linha))
+
+    def test_senha_real_ao_lado_de_printf_continua_pega(self):
+        self.assertEqual(['url-com-credencial'], regras('app/X.php', "'pgsql://app:" + aleatorio(16) + "@db/%s'"))
+
     def test_marca_de_permissao_aceita_a_linha(self):
         linha = 'TOKEN_FIXO=' + aleatorio(30) + '  # segredo:permitido — valor público do fornecedor'
         self.assertEqual([], regras('config/x.yaml', linha))
+
+
+class ParserDeDiffTest(unittest.TestCase):
+    def test_linha_adicionada_com_mais_mais_nao_troca_o_arquivo(self):
+        diff = ('diff --git a/a.env b/a.env\n--- a/a.env\n+++ b/a.env\n@@ -0,0 +1,2 @@\n'
+                '+++ b/README.md\n+API_TOKEN=' + aleatorio(30) + '\n')
+        achados = guarda.ler_diff(diff)
+        self.assertEqual([('a.env', 2, 'atribuicao-sensivel')], [(a.arquivo, a.linha, a.regra) for a in achados])
+
+    def test_caminho_entre_aspas_e_lido(self):
+        diff = ('diff --git "a/x\\ty.env" "b/x\\ty.env"\n--- "a/x\\ty.env"\n+++ "b/x\\ty.env"\n'
+                '@@ -0,0 +1 @@\n+API_TOKEN=' + aleatorio(30) + '\n')
+        self.assertEqual(['x\ty.env'], [a.arquivo for a in guarda.ler_diff(diff)])
 
 
 class NomeDeArquivoTest(unittest.TestCase):
@@ -214,6 +283,34 @@ class RepositorioTest(unittest.TestCase):
         self.assertEqual(1, codigo)
         self.assertIn('arquivo-proibido', saida)
 
+    def test_renomear_para_nome_proibido_e_recusado(self):
+        self.escrever('notas.txt', 'nada\n')
+        self.commitar('notas')
+        self.git('mv', 'notas.txt', 'chave.pem')
+        codigo, saida = self.rodar()
+        self.assertEqual(1, codigo)
+        self.assertIn('chave.pem', saida)
+
+    def test_segredo_digitado_ao_resolver_conflito_de_merge_e_pego(self):
+        base = self.git('rev-parse', 'HEAD').strip()
+        self.escrever('config.yaml', 'valor: 1\n')
+        self.commitar('base do conflito')
+        self.git('switch', '-q', '-c', 'lado')
+        self.escrever('config.yaml', 'valor: 2\n')
+        self.commitar('lado')
+        self.git('switch', '-q', 'master')
+        self.escrever('config.yaml', 'valor: 3\n')
+        self.commitar('master')
+        subprocess.run(['git', 'merge', '-q', 'lado'], cwd=self.repo, capture_output=True)  # conflita
+        senha = aleatorio(24)
+        self.escrever('config.yaml', 'valor: 4\ndb_password: ' + senha + '\n')
+        self.git('add', 'config.yaml')
+        self.git('-c', 'core.hooksPath=/dev/null', 'commit', '-q', '--no-edit')
+        codigo, saida = self.rodar('--intervalo', f'{base}..HEAD')
+        self.assertEqual(1, codigo)
+        self.assertIn('config.yaml', saida)
+        self.assertNotIn(senha, saida)
+
     def test_intervalo_nao_e_travado_pelo_segredo_do_historico(self):
         # O caso do 3ee0082a: segredo num commit ANTIGO, já na base. O PR novo, limpo, tem de passar.
         self.escrever('app/.env', 'MAILER_DSN=smtp://conta@gmail.com:' + senha_de_app_gmail() + '@smtp.gmail.com:587\n')
@@ -235,6 +332,56 @@ class RepositorioTest(unittest.TestCase):
         codigo, saida = self.rodar('--intervalo', f'{base}..HEAD')
         self.assertEqual(1, codigo)
         self.assertNotIn(senha, saida)
+
+
+class IntervaloCiTest(unittest.TestCase):
+    """scripts/git-hooks/intervalo-ci.sh: só commits novos, e falha FECHADO quando não sabe quais são."""
+
+    ZEROS = '0' * 40
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.repo = Path(self._tmp.name)
+        for args in (('init', '-q', '-b', 'master'), ('config', 'user.email', 't@exemplo.test'),
+                     ('config', 'user.name', 'T')):
+            subprocess.run(['git', *args], cwd=self.repo, check=True, capture_output=True)
+        self.shas = []
+        for i in range(3):
+            (self.repo / f'f{i}.txt').write_text(str(i))
+            subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, capture_output=True)
+            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', str(i)],
+                           cwd=self.repo, check=True, capture_output=True)
+            self.shas.append(subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=self.repo, check=True,
+                                            capture_output=True, text=True).stdout.strip())
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def intervalo(self, *args: str) -> tuple[int, str]:
+        r = subprocess.run(['bash', str(AQUI / 'intervalo-ci.sh'), *args], cwd=self.repo,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout.strip()
+
+    def test_pull_request(self):
+        self.assertEqual((0, f'{self.shas[0]}..{self.shas[2]}'),
+                         self.intervalo('pull_request', self.shas[0], self.shas[2], '', ''))
+
+    def test_push_normal(self):
+        self.assertEqual((0, f'{self.shas[1]}..{self.shas[2]}'),
+                         self.intervalo('push', '', '', self.shas[1], self.shas[2]))
+
+    def test_primeiro_push_falha_fechado(self):
+        self.assertEqual(2, self.intervalo('push', '', '', self.ZEROS, self.shas[2])[0])
+
+    def test_push_forcado_com_antes_desconhecido_falha_fechado(self):
+        # O caso apontado na revisão: antes caía no merge-base = topo, intervalo vazio e CI verde.
+        self.assertEqual(2, self.intervalo('push', '', '', 'f' * 40, self.shas[2])[0])
+
+    def test_intervalo_vazio_falha_fechado(self):
+        self.assertEqual(2, self.intervalo('push', '', '', self.shas[2], self.shas[1])[0])
+
+    def test_evento_desconhecido_falha_fechado(self):
+        self.assertEqual(2, self.intervalo('workflow_dispatch', '', '', '', self.shas[2])[0])
 
 
 class HookPreCommitTest(unittest.TestCase):

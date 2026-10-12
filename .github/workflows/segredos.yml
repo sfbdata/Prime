@@ -1,6 +1,7 @@
 # Guarda de segredos no CI: recusa credencial nova em PR e em push para o master.
 #
-# Duas camadas, as duas só sobre os commits NOVOS do evento (scripts/git-hooks/intervalo-ci.sh):
+# Duas camadas, as duas só sobre os commits NOVOS do evento (scripts/git-hooks/intervalo-ci.sh, que
+# falha fechado quando não sabe o que é novo — ex.: push forçado no master):
 #   1. scripts/git-hooks/verificar-segredos.py — a mesma guarda do pre-commit (DSN com senha, nomes
 #      de arquivo proibidos, regras do projeto). Pega quem commitou sem o hook.
 #   2. gitleaks — ~150 regras de formato da comunidade + a regra url-com-credencial do
@@ -21,8 +22,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: segredos-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # PR: um grupo por PR, e o run novo cancela o anterior (ele varre o PR inteiro de novo).
+  # Push: um grupo por RUN. Cada push só varre o próprio before..after; cancelar um run — em
+  # andamento ou PENDENTE, que o GitHub cancela mesmo sem cancel-in-progress — deixaria os commits
+  # daquele push sem varredura nenhuma.
+  group: segredos-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   segredos:
@@ -68,4 +73,4 @@ jobs:
           docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo "$GITLEAKS_IMAGE" \
             git . --config .gitleaks.toml --gitleaks-ignore-path .gitleaksignore \
-            --log-opts="$INTERVALO" --redact --no-banner --exit-code 1
+            --log-opts="$INTERVALO" --redact --verbose --no-banner --exit-code 1
