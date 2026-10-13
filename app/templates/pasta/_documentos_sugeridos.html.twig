@@ -24,10 +24,16 @@
    Documentos para o checklist e as sugestões saírem do servidor de novo. "Atualizar" é o mesmo
    recarregamento: as regras rodam no servidor a cada abertura da tela.
 
+   C6-DOC-01 (a regra do DOC-118): "+ Checklist" e "Adicionar N faltante(s)" são escrita — o POST
+   exige editar a pasta e a lápide o recusa. Só saem do servidor com `explorador.podeEditar`
+   (permissão de editar E pasta fora da lápide, decidido no PastaController::show); sem ele o
+   painel só se olha. Fora do explorador (contexto sem `explorador`) vale o mesmo: sem escrita.
+
    Incluído por `pasta/_documentos_checklist.html.twig`; usa `pasta`, `checklistItens`, `sugestao`
-   (se o checklist já calculou), `conflitoCnj` e `organizacaoSugerida` do contexto.
+   (se o checklist já calculou), `explorador`, `conflitoCnj` e `organizacaoSugerida` do contexto.
 #}
 {% set sugestao = sugestao ?? documentos_sugeridos(pasta, checklistItens|default([])) %}
+{% set sugPodeEscrever = explorador.podeEditar ?? false %}
 {% if sugestao is not null %}
 {% set conflito = conflitoCnj|default(null) %}
 {% set pastasDaFase = sugestao.temCatalogo ? (organizacaoSugerida|default({}))[sugestao.faseChave]|default([]) : [] %}
@@ -153,7 +159,7 @@
                                         </a>
                                     {% endif %}
                                 </div>
-                                {% if it.podeIrAoChecklist %}
+                                {% if it.podeIrAoChecklist and sugPodeEscrever %}
                                     <button type="button" class="ds-sug-add-um" data-titulo="{{ it.nome }}" title="Adicionar ao checklist">
                                         <i class="bi bi-plus-lg" aria-hidden="true"></i>Checklist
                                     </button>
@@ -205,7 +211,7 @@
 
             {% set faltantes = sugestao.nomesDosFaltantes %}
             <div class="ds-sug-rodape">
-                {% if faltantes is not empty %}
+                {% if faltantes is not empty and sugPodeEscrever %}
                     <button type="button" class="ds-sug-add-todos" id="btnDocumentosSugeridosFaltantes"
                             data-titulos="{{ faltantes|json_encode|e('html_attr') }}">
                         Adicionar {{ faltantes|length }} faltante(s) ao checklist
