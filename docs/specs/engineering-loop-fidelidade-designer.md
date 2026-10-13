@@ -357,4 +357,16 @@ dono).
 
 (um registro por ciclo: o que foi auditado, implementado, testado e revisado)
 
+### Ciclo 6 — reauditoria de convergência (12/10/2026)
+
+- **Estado inicial:** master `4a98cc6b` (topo do loop `cceb7e48`; `4a98cc6b` é de outra frente). Suíte completa
+  **9007/9007** (50.022 asserções). Árvore com `scripts/restore.sh` e `scripts/testar-restore.sh` de outra frente
+  (não tocados).
+- **Auditoria:** 8 auditores Opus somente leitura. Relatórios em `engineering-loop/c6/reauditoria-*.md`,
+  consolidação em `engineering-loop/c6/consolidacao.md`.
+- **Resultado:** 162 feitos conferidos → 151 ✓, 11 ◐, **1 regressão** (C6-PAS-01, P1: cartão recém-enviado do
+  Registro com `data-janela-ate="NaN"`, vindo de `b1155da8`). 5 A pendentes do inventário, 37 A novos, 5 C/D novos.
+  1 P0 novo: **C6-SEC-03** (`tarefa_criar_para_pasta` sem posse nem permissão na pasta).
+- **Implementação:** lotes S6-* da consolidação §3 (registro de cada lote abaixo).
+
 ## 5. Handoff
