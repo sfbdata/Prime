@@ -29,8 +29,8 @@ final class PastaClientesAcoesPermissaoTelaTest extends JusPrimeWebTestCase
     use CriaFixturesPushDaPastaTrait;
     use CriaUsuarioComPermissoesTrait;
 
-    private const NENHUMA = ['vincular' => 0, 'busca' => 0, 'tornarPrincipal' => 0, 'desvincular' => 0];
-    private const TODAS   = ['vincular' => 1, 'busca' => 1, 'tornarPrincipal' => 1, 'desvincular' => 2];
+    private const NENHUMA = ['vincular' => 0, 'busca' => 0, 'tornarPrincipal' => 0, 'desvincular' => 0, 'tokenPrincipal' => 0];
+    private const TODAS   = ['vincular' => 1, 'busca' => 1, 'tornarPrincipal' => 1, 'desvincular' => 2, 'tokenPrincipal' => 2];
 
     private function novoPf(Tenant $tenant, string $nome, string $cpf): ClientePF
     {
@@ -86,6 +86,9 @@ final class PastaClientesAcoesPermissaoTelaTest extends JusPrimeWebTestCase
             'busca'           => $secao->filter('section > #psVincCliente.ps-vinc')->count(),
             'tornarPrincipal' => $secao->filter('.js-cliente-acoes > form.js-ajax-cliente-principal')->count(),
             'desvincular'     => $secao->filter('.js-cliente-acoes > form.js-ajax-desvincular-cliente')->count(),
+            // O token de tornar principal mora na linha (o JS o usa ao remontar a estrela): sem a ação,
+            // a linha não carrega o token de uma escrita que a tela não oferece.
+            'tokenPrincipal'  => $secao->filter('.cliente-linha[data-token-principal]')->count(),
         ];
     }
 
