@@ -21,6 +21,12 @@
    ============================================================================ #}
 {% set podeVerMotivoTecnico = can_administer('admin.inteligencia.manage') %}
 {% set hojeIa = 'now'|date('Y-m-d') %}
+{# C6-IA-03: "Criar tarefa da providência" segue a regra do Push (FPN-014c, `pushPodeEscrever`):
+   só com EDIT da pasta e pasta viva — quem só vê e a lápide não recebem o item (o modal de nova
+   meta grava na pasta). O parcial chega só com o `pastaId` (também pela recarga XHR), então a
+   lápide vem de `nota_tecnica_somente_leitura`, o ponto único "pasta lápide ou alheia" por id;
+   `can_access_resource` guarda a resposta por requisição. #}
+{% set iaPodeCriarTarefa = not nota_tecnica_somente_leitura(pastaId) and can_access_resource('pasta', pastaId, 'edit') %}
 <div class="ia-ag-lista" data-ia-lista="{{ saida.agente.value }}"
      data-ia-url="{{ path('inteligencia_agente_listar', {id: pastaId, agente: saida.agente.value}) }}"
      data-ia-em-andamento="{{ saida.temEmAndamento ? '1' : '0' }}"
@@ -81,16 +87,16 @@
                             {% if a.terminal and not a.lida %}
                                 <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="lida">
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                                    <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como lida</button>
+                                    <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como lido</button>
                                 </form>
                             {% elseif a.lida %}
                                 {# IA-011: mesmo par lido/não lido do cartão do Push (dc L5159-5160). #}
                                 <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="nao-lida">
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                                    <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-envelope" aria-hidden="true"></i>Marcar como não lido</button>
+                                    <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como não lido</button>
                                 </form>
                             {% endif %}
-                            {% if a.status == 'concluida' %}
+                            {% if a.status == 'concluida' and iaPodeCriarTarefa %}
                                 <button type="button" class="ia-menu-item" role="menuitem"
                                         data-ia-criar-meta
                                         data-meta-titulo="{{ pontoDeAcao ? pontoDeAcao.texto|slice(0, 90) : 'Providência indicada pelo ' ~ (a.agenteNome ?? 'agente da IA') }}"
@@ -158,7 +164,7 @@
                     {% if a.terminal and not a.lida %}
                         <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="lida">
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                            <button type="submit" class="ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lida</button>
+                            <button type="submit" class="ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lido</button>
                         </form>
                     {% elseif a.lida %}
                         <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="nao-lida">
