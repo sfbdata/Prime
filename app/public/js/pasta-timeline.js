@@ -7,9 +7,9 @@
    A cor de categoria/prioridade vem de constante do servidor e só é aplicada se
    for um hex de 6 dígitos.
 
-   "Enquanto você estava fora" NÃO existe aqui: exige guardar a última abertura
-   por usuário no servidor, e navegador não substitui persistência (regra do dono).
-   Volta quando houver essa persistência.
+   "Enquanto você estava fora" (PAS-043): ao abrir, o painel registra a visita no
+   servidor (`data-visita-url`, POST com CSRF) e SÓ DEPOIS carrega a lista — o
+   servidor conta o que é novo a partir da visita anterior. Nada fica no navegador.
    ============================================================================= */
 (function () {
     'use strict';
@@ -20,6 +20,8 @@
     if (!painel || !overlay) { return; }
 
     var url      = painel.getAttribute('data-url');
+    var urlVisita   = painel.getAttribute('data-visita-url');
+    var tokenVisita = painel.getAttribute('data-visita-token');
     var busca    = painel.querySelector('[data-tl-busca]');
     var chips    = painel.querySelector('[data-tl-chips]');
     var periodo  = painel.querySelector('[data-tl-periodo]');
@@ -32,11 +34,12 @@
     var LIMITE_INICIAL = 200;
     var LIMITE_MAXIMO  = 600;
     var TRES_HORAS     = 3 * 3600 * 1000;
-    var AGRUPAVEIS     = { registro: 1, documento: 1, cadastro: 1 };
+    // `notificacao` agrupa como no desenho (`['mensagem', 'documento', 'observacao', 'notificacao']`).
+    var AGRUPAVEIS     = { registro: 1, documento: 1, cadastro: 1, notificacao: 1 };
 
     var estado = {
         categoria: 'tudo', periodo: 'tudo', pessoa: '', q: '', limite: LIMITE_INICIAL,
-        resumo: false, abertos: {}, dados: null
+        resumo: false, resumoDesde: false, abertos: {}, dados: null
     };
     var focoAnterior = null;
     var controle     = null;
@@ -78,7 +81,22 @@
         painel.removeAttribute('aria-hidden');
         if (abrir) { abrir.setAttribute('aria-expanded', 'true'); }
         if (busca) { busca.focus(); }
-        carregar();
+        registrarVisita().then(carregar);
+    }
+
+    // A visita vai ANTES da carga: é ela que desloca a "anterior" no servidor. Falha (lápide,
+    // rede) não impede a timeline de abrir — só fica sem o aviso novo.
+    function registrarVisita() {
+        if (!urlVisita || !window.fetch) { return Promise.resolve(); }
+        var corpo = new URLSearchParams();
+        corpo.set('_token', tokenVisita || '');
+
+        return fetch(urlVisita, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            body: corpo
+        }).then(function () {}, function () {});
     }
     function fecharPainel() {
         if (!painel.classList.contains('is-aberto')) { return; }
@@ -120,6 +138,7 @@
     if (resumir) {
         resumir.addEventListener('click', function () {
             estado.resumo = !estado.resumo;
+            estado.resumoDesde = false;
             resumir.setAttribute('aria-pressed', estado.resumo ? 'true' : 'false');
             desenhar();
         });
@@ -178,6 +197,7 @@
         lista.textContent = '';
         var semFiltro = estado.categoria === 'tudo' && !estado.q.trim();
 
+        if (d.novos > 0 && semFiltro) { lista.appendChild(caixaForaDesde(d)); }
         if (estado.resumo) { lista.appendChild(caixaResumo(d)); }
         if (d.atencao && d.atencao.length && semFiltro) { lista.appendChild(caixaAtencao(d)); }
 
@@ -230,10 +250,36 @@
         pessoa.value = atual;
     }
 
+    // Desenho `tlRender`: "Enquanto você estava fora: N acontecimento(s)", a contagem por tipo
+    // ("2 registros · 1 documentos") e "Ver resumo", que abre o resumo a partir da visita.
+    function caixaForaDesde(d) {
+        var caixa = el('div', 'ps-tl-fora');
+        caixa.appendChild(el('div', 'ps-tl-fora-tit', 'Enquanto você estava fora: ' + d.novos + ' acontecimento(s)'));
+        var partes = [];
+        Object.keys(d.novosPorCategoria || {}).forEach(function (k) {
+            var cat = d.categorias[k];
+            partes.push(d.novosPorCategoria[k] + ' ' + (cat ? cat.rotulo : k).toLowerCase());
+        });
+        caixa.appendChild(el('div', '', partes.join(' · ')));
+        var bt = el('button', 'ps-tl-fora-bt', 'Ver resumo');
+        bt.type = 'button';
+        bt.addEventListener('click', function () {
+            estado.resumo = true;
+            estado.resumoDesde = true;
+            if (resumir) { resumir.setAttribute('aria-pressed', 'true'); }
+            desenhar();
+        });
+        caixa.appendChild(bt);
+        return caixa;
+    }
+
     function caixaResumo(d) {
+        var desde = estado.resumoDesde && d.foraDesde && d.resumoDesde !== null;
         var caixa = el('div', 'ps-tl-resumo');
-        caixa.appendChild(el('div', 'ps-tl-resumo-tit', 'Resumo da atividade'));
-        caixa.appendChild(el('div', '', d.resumo));
+        caixa.appendChild(el('div', 'ps-tl-resumo-tit', desde
+            ? 'O que aconteceu desde ' + new Date(d.foraDesde).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : 'Resumo da atividade'));
+        caixa.appendChild(el('div', '', desde ? d.resumoDesde : d.resumo));
         caixa.appendChild(el('div', 'ps-tl-resumo-nota', 'Contagem por regras fixas, sobre os acontecimentos filtrados.'));
         return caixa;
     }
@@ -327,8 +373,11 @@
 
         var texto = e.texto ? String(e.texto) : '';
         var longo = texto.length > 160;
-        var aberto = !!estado.abertos[e.id];
+        // Como no desenho (`TL.abertos`): 1 = texto inteiro; 'h' = Antes e Depois.
+        var aberto = estado.abertos[e.id] === 1;
+        var alteracao = estado.abertos[e.id] === 'h' && !!e.antes;
         if (texto) { corpo.appendChild(el('div', 'ps-tl-texto', longo && !aberto ? texto.slice(0, 160) + '…' : texto)); }
+        if (alteracao) { corpo.appendChild(caixaAlteracao(e, texto)); }
 
         var rodape = [e.fonte, e.autor].filter(function (x) { return !!x; }).join(' · ');
         if (rodape) { corpo.appendChild(el('div', 'ps-tl-fonte', rodape)); }
@@ -340,6 +389,12 @@
             a.addEventListener('click', function (ev) { irPara(ev, e.link); });
             acoes.appendChild(a);
         }
+        if (e.antes) {
+            var btAlt = el('button', 'ps-tl-acao', alteracao ? 'Ocultar alteração' : 'Ver alteração');
+            btAlt.type = 'button';
+            btAlt.addEventListener('click', function () { estado.abertos[e.id] = alteracao ? 0 : 'h'; desenhar(); });
+            acoes.appendChild(btAlt);
+        }
         if (longo) {
             var bt = el('button', 'ps-tl-acao', aberto ? 'Mostrar menos' : 'Ver tudo');
             bt.type = 'button';
@@ -350,6 +405,21 @@
 
         c.appendChild(corpo);
         return c;
+    }
+
+    // "Ver alteração" (desenho `tlCard`): Antes, Depois (o texto inteiro) e "Alterado em".
+    function caixaAlteracao(e, depois) {
+        var caixa = el('div', 'ps-tl-alteracao');
+        [['Antes:', String(e.antes)], ['Depois:', depois]].forEach(function (par) {
+            var linha = el('div', '');
+            linha.appendChild(el('b', '', par[0]));
+            linha.appendChild(document.createTextNode(' ' + par[1]));
+            caixa.appendChild(linha);
+        });
+        if (e.alteradoEm) {
+            caixa.appendChild(el('div', 'ps-tl-alteracao-em', 'Alterado em ' + new Date(e.alteradoEm).toLocaleString('pt-BR')));
+        }
+        return caixa;
     }
 
     // Link para uma aba DESTA pasta (`#push`): troca a aba aqui, sem recarregar — o

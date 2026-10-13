@@ -17,6 +17,9 @@ use Doctrine\Persistence\ManagerRegistry;
 // Não-final: espelha ProcessoRepository e permite substituição por mock nos testes de UseCase.
 class PublicacaoDjenRepository extends ServiceEntityRepository
 {
+    /** Caracteres do teor (HTML cru) que a lista da PASTA projeta para montar o `textoResumo`. */
+    private const TEXTO_INICIO_LISTA = 2000;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, PublicacaoDjen::class);
@@ -193,6 +196,10 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                 'p.nomeOrgao AS nomeOrgao',
                 'p.lida AS lida',
                 'IDENTITY(p.processo) AS processoId',
+                // Só o COMEÇO do teor, para o título do cartão (`textoResumo`, FPN-012): o
+                // teor inteiro continua fora da lista. Folga sobre os 220 caracteres do
+                // resumo porque o teor vem em HTML e as tags também ocupam espaço.
+                'SUBSTRING(p.texto, 1, ' . self::TEXTO_INICIO_LISTA . ') AS textoInicio',
             )
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.numeroProcesso IN (:numeros)')

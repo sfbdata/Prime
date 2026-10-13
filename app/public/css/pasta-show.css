@@ -190,6 +190,8 @@
     --ps-push-cit-bg:     #e6f4ec;
     --ps-push-out-tx:     #4f6878;               /* demais tipos */
     --ps-push-out-bg:     #eef2f5;
+    --ps-push-ponto-juizo:    #0f6ea8;           /* ponto da linha do tempo: ato do juizo (dc 5365 COR) */
+    --ps-push-ponto-cartorio: #e0261b;           /* ponto: cartorio / servidor */
 
     --ps-shadow-card:   0 1px 2px rgba(16,42,58,.04);
     --ps-shadow-pop:    0 10px 30px rgba(16,42,58,.14);
@@ -351,6 +353,8 @@
     --ps-push-cit-bg:     rgba(31,157,97,.16);
     --ps-push-out-tx:     var(--bs-secondary-color);
     --ps-push-out-bg:     var(--bs-border-color-translucent);
+    --ps-push-ponto-juizo:    #4fa3d9;
+    --ps-push-ponto-cartorio: #f0675d;
 
     --ps-shadow-card:   0 1px 2px rgba(0,0,0,.35);
     --ps-shadow-pop:    0 10px 30px rgba(0,0,0,.5);
@@ -530,6 +534,54 @@
     color: #fff;
 }
 .ps-pop-tarja i { font-size: 13px; opacity: .9; }
+/* PAS-022: X de fechar que o pasta-show.js (`botaoFechar`) põe em cada popover —
+   desenho (`bluejus-central.js`, "X de fechar em toda janelinha"): 26×26, quina 4px,
+   branco translúcido na tarja; no fundo claro, cinza que avermelha no hover. */
+.ps-pop {
+    --ps-pop-x-bg:     rgba(238,243,246,.95);
+    --ps-pop-x-tx:     #4f6878;
+    --ps-pop-x-hv-bg:  #fdeceb;
+    --ps-pop-x-hv-tx:  #a3232b;
+}
+[data-bs-theme="dark"] .ps-pop {
+    --ps-pop-x-bg:     rgba(255,255,255,.08);
+    --ps-pop-x-tx:     #b4c4ce;
+    --ps-pop-x-hv-bg:  rgba(220,53,69,.18);
+    --ps-pop-x-hv-tx:  #f1aeb5;
+}
+/* PAS-023: a tarja e o cabeçalho do modal Editar dados arrastam a janela
+   (PsArrastar, no pasta-show.js); o X e os botões continuam com o cursor deles. */
+.ps-pop-tarja,
+#modalEditarPasta .ps-modal-pasta-cab { cursor: grab; touch-action: none; user-select: none; }
+.ps-pop.is-arrastando > .ps-pop-tarja,
+#modalEditarPasta .modal-dialog.is-arrastando .ps-modal-pasta-cab { cursor: grabbing; }
+.ps-pop-tarja:has(> .ps-pop-x) { position: relative; padding-right: 50px; }
+/* Sem tarja, o X ficaria por cima do ✓ do primeiro item (prioridade, metas): o
+   painel abre uma faixa de 38px para ele em vez de sobrepor. */
+.ps-pop:has(> .ps-pop-x) { padding-top: 38px; }
+.ps-pop-x {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: var(--ps-pop-x-bg);
+    color: var(--ps-pop-x-tx);
+    transition: background .15s, color .15s;
+}
+.ps-pop-x:hover,
+.ps-pop-x:focus-visible { background: var(--ps-pop-x-hv-bg); color: var(--ps-pop-x-hv-tx); }
+.ps-pop-x--tarja { top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.14); color: #fff; }
+.ps-pop-x--tarja:hover,
+.ps-pop-x--tarja:focus-visible { background: rgba(255,255,255,.26); color: #fff; }
 .ps-pop-secao {
     padding: 8px 10px 3px;
     font-size: 10.5px;
@@ -778,7 +830,8 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
    um jeito diferente de `transform` e o transform ja e do giro. O granulado de tinta
    e a mesma mascara de dois radial-gradient do desenho, tambem na escala 0,8.
    Sem clique (`pointer-events:none`): o selo fica por cima dos dados sem tapa-los
-   para o mouse. Suspenso e Cancelado nao existem no sistema — so ha o tom arquivado. */
+   para o mouse. Suspenso e Cancelado nao existem no sistema — so ha o tom arquivado
+   e o ATIVO passageiro da reativacao (PAS-002, abaixo). */
 .ps-cab-selo {
     --selo-cor: #5d7383;
     --selo-papel: #fff;
@@ -859,6 +912,18 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     0%   { opacity: 0; transform: translate(-50%, -50%) scale(.9); }
     15%  { opacity: .24; }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); border-width: .5px; }
+}
+/* PAS-002: carimbo ATIVO passageiro ao reativar (desenho `seloEl` + `ativoSeloMostrar`):
+   verde #1f9d61, ícone bi-check-circle-fill, bate (.55s) e esmaece (seloSai, 2,6s a
+   partir de .55s); o script tira o nó em 3,3s. Fonte 16 × 0,8 (rótulo curto). */
+.ps-cab-selo--ativo {
+    --selo-cor: #1f9d61;
+    animation: psSeloBate .55s cubic-bezier(.2,.9,.3,1.2) both, psSeloSai 2.6s ease-in-out .55s forwards;
+}
+.ps-cab-selo--ativo .ps-cab-selo-faixa { font-size: 12.8px; }
+@keyframes psSeloSai {
+    0%, 78% { opacity: .9; }
+    100%    { opacity: 0; transform: translateY(-50%) rotate(-14deg) scale(.96); }
 }
 /* No escuro, `multiply` sobre o cartao escuro apagaria o carimbo: tinta normal, e o
    "papel" entre os aneis passa a ser o proprio cartao. */
@@ -2003,6 +2068,13 @@ span.ps-situacao-pill { cursor: default; }
     .ps-btn--nota span,
     .ps-fin-btn-largo span,
     .ps-fin-btn-add span { display: inline; }
+    /* PMC-025: nem estes — o desenho (dc:1582-1583, 1425) mantém o rótulo de
+       "Vincular processo", "Peticionar na pasta" e "Nova meta" no celular; o
+       cabeçalho do cartão quebra a linha em vez de esconder o texto. */
+    .ps-processos > .ps-card-cab .ps-btn span,
+    .ps-metas > .ps-card-cab .ps-btn span { display: inline; }
+    .ps-processos > .ps-card-cab .ps-btn,
+    .ps-metas > .ps-card-cab .ps-btn { padding: 0 13px; }
     .ps-btn--largo { padding: 0 12px; }
     .ps-drawer { width: 100%; }
     /* Em tela estreita o trilho rola na horizontal; as abas param de dividir o
@@ -2586,7 +2658,9 @@ span.ps-situacao-pill { cursor: default; }
    itens 13px com 7px 10px, título 10.5/700 em caixa alta, separador de 1px.
    `position: fixed` e posição calculada pelo JS na abertura (canto direito do
    botão, ou o ponto do clique direito), como no desenho: assim o menu não fica
-   preso no recorte da lista nem do cartão. Escopo `#financeiro` porque
+   preso no recorte da lista nem do cartão. O menu do botão direito do cartão do
+   Push (`.ps-push-menu`, FPN-014) é o MESMO menu do desenho e herda estas regras.
+   Escopo `#financeiro` porque
    `.ps-page a:not(.btn)` (0,3,1) pintaria de azul o item "Baixar", que é âncora. */
 #financeiro .ps-fin-menu-gatilho {
     width: 26px;
@@ -2614,7 +2688,8 @@ span.ps-situacao-pill { cursor: default; }
     from { opacity: 0; transform: translate3d(0,-4px,0); }
     to   { opacity: 1; transform: none; }
 }
-#financeiro .ps-fin-menu {
+#financeiro .ps-fin-menu,
+.ps-push .ps-push-menu {
     position: fixed;
     z-index: 141;
     width: 230px;
@@ -2631,11 +2706,14 @@ span.ps-situacao-pill { cursor: default; }
 }
 /* `display: flex` acima venceria o atributo `hidden`; estas duas linhas o devolvem. */
 #financeiro .ps-fin-menu[hidden],
-#financeiro .ps-fin-menu [hidden] { display: none; }
+#financeiro .ps-fin-menu [hidden],
+.ps-push .ps-push-menu[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) {
-    #financeiro .ps-fin-menu { animation: none; }
+    #financeiro .ps-fin-menu,
+    .ps-push .ps-push-menu { animation: none; }
 }
-#financeiro .ps-fin-menu-titulo {
+#financeiro .ps-fin-menu-titulo,
+.ps-push .ps-push-menu-titulo {
     padding: 6px 10px 5px;
     font-size: 10.5px;
     font-weight: 700;
@@ -2646,7 +2724,8 @@ span.ps-situacao-pill { cursor: default; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-#financeiro .ps-fin-menu-item {
+#financeiro .ps-fin-menu-item,
+.ps-push .ps-push-menu-item {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -2663,15 +2742,27 @@ span.ps-situacao-pill { cursor: default; }
     cursor: pointer;
 }
 #financeiro .ps-fin-menu-item:hover,
-#financeiro .ps-fin-menu-item:focus-visible { background: var(--ps-hover); color: var(--ps-body); text-decoration: none; outline: none; }
-#financeiro .ps-fin-menu-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
-#financeiro .ps-fin-menu-item > span { flex: 1; min-width: 0; }
+#financeiro .ps-fin-menu-item:focus-visible,
+.ps-push .ps-push-menu-item:hover,
+.ps-push .ps-push-menu-item:focus-visible { background: var(--ps-hover); color: var(--ps-body); text-decoration: none; outline: none; }
+#financeiro .ps-fin-menu-item i,
+.ps-push .ps-push-menu-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+#financeiro .ps-fin-menu-item > span,
+.ps-push .ps-push-menu-item > span { flex: 1; min-width: 0; }
 #financeiro .ps-fin-menu-item--perigo,
 #financeiro .ps-fin-menu-item--perigo:hover,
 #financeiro .ps-fin-menu-item--perigo:focus-visible { color: var(--ps-danger-text); }
 #financeiro .ps-fin-menu-item--perigo:hover,
 #financeiro .ps-fin-menu-item--perigo:focus-visible { background: var(--ps-danger-hover); }
-#financeiro .ps-fin-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
+/* "Editar · bloqueado" / "Excluir · bloqueado" (FPN-006b): a cara do item do desenho, sem clique. */
+#financeiro .ps-fin-menu-item:disabled { cursor: default; }
+#financeiro .ps-fin-menu-item:disabled:hover { background: transparent; }
+#financeiro .ps-fin-menu-sep,
+.ps-push .ps-push-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
+/* Item e separador que o pasta-push.js esconde por cartão (documento sem link, nota sem processo):
+   o display:flex acima venceria o [hidden] do navegador. */
+.ps-push .ps-push-menu-item[hidden],
+.ps-push .ps-push-menu-sep[hidden] { display: none; }
 
 /* ── Folha do "Imprimir extrato" ──
    O JS copia o cabeçalho (`#psExtratoCabecalho`) e a lista (`#psExtratoFolha`,
@@ -2745,6 +2836,11 @@ span.ps-situacao-pill { cursor: default; }
    medir pelo CARTAO, nao pelo <li> — que inclui a pilula do dia. */
 .ps-push-cartao { position: relative; margin-top: 10px; }
 .ps-push-cartao > .ps-push-ponto { left: -31px; top: 13px; }
+/* Cor por quem praticou o ato (dc 5365 `COR`, 5375 `cursor:help`; FPN-019). A dica e o `title`. */
+.ps-push-ponto--juizo,
+.ps-push-ponto--cartorio { cursor: help; }
+.ps-push-ponto--juizo { background: var(--ps-push-ponto-juizo); }
+.ps-push-ponto--cartorio { background: var(--ps-push-ponto-cartorio); }
 .ps-push-cartao > .ps-push-cab { margin-top: 0; }
 .ps-push-cab {
     position: relative;
@@ -3576,6 +3672,101 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 }
 #modalCriarTarefa .ps-nm-dup-abrir:hover { background: var(--ps-nm-dup-btn-hv); }
 
+/* PMC-038 — moldura do modal "Nova meta" (dc L.75-76, 189-192; `janSt`, `rodSt`, `salvarSt`):
+   janela de até 580px com raio 4; faixa #0a7aad (13px 16px, gap 10) com alça, ícone 18px,
+   "Nova meta" 16px/700, a pasta 12px a 85%, botões 30px em branco a 14%; corpo 16px 18px;
+   rodapé #f5f6f7 com borda #e1e6ea, Cancelar #eef2f5/#34505f e "Criar meta" #0a7aad,
+   ambos 36px 13px/700; desabilitado #a9bfcb. Recolhido: só a faixa. */
+.ps-body {
+    --ps-nm-cab-bg: #0a7aad;
+    --ps-nm-rod-bg: #f5f6f7;
+    --ps-nm-rod-bd: #e1e6ea;
+    --ps-nm-cancelar-bg: #eef2f5;
+    --ps-nm-cancelar-hv: #e1e8ed;
+    --ps-nm-cancelar-tx: #34505f;
+    --ps-nm-criar-hv: #0b5f86;
+    --ps-nm-criar-off: #a9bfcb;
+}
+[data-bs-theme="dark"] .ps-body {
+    --ps-nm-rod-bg: var(--ps-card);
+    --ps-nm-rod-bd: var(--ps-div-strong);
+    --ps-nm-cancelar-bg: rgba(255,255,255,.08);
+    --ps-nm-cancelar-hv: rgba(255,255,255,.14);
+    --ps-nm-cancelar-tx: var(--ps-text);
+    --ps-nm-criar-off: rgba(10,122,173,.35);
+}
+.ps-modal-meta.modal-dialog { max-width: min(580px, calc(100vw - 24px)); }
+.ps-modal-meta .modal-content {
+    border: none;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 18px 48px rgba(0,0,0,.3);
+}
+.ps-modal-meta-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 16px;
+    background: var(--ps-nm-cab-bg);
+    color: #fff;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+}
+.ps-modal-meta-alca { font-size: 14px; opacity: .7; }
+.ps-modal-meta-icone { font-size: 18px; }
+.ps-modal-meta-titulo { flex: 1; min-width: 0; margin: 0; font-size: 16px; font-weight: 700; color: #fff; }
+.ps-modal-meta-pasta { font-size: 12px; opacity: .85; white-space: nowrap; }
+.ps-modal-meta-cab-btn {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    cursor: pointer;
+}
+.ps-modal-meta-cab-btn i { font-size: 12px; }
+.ps-modal-meta-cab-btn:hover,
+.ps-modal-meta-cab-btn:focus-visible { background: rgba(255,255,255,.24); }
+.ps-modal-meta-corpo.modal-body { padding: 16px 18px; }
+.ps-modal-meta-rodape.modal-footer {
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--ps-nm-rod-bd);
+    background: var(--ps-nm-rod-bg);
+}
+.ps-modal-meta-rodape.modal-footer > * { margin: 0; }
+.ps-modal-meta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ps-modal-meta-btn i { font-size: 13px; }
+.ps-modal-meta-btn--cancelar { padding: 0 16px; background: var(--ps-nm-cancelar-bg); color: var(--ps-nm-cancelar-tx); }
+.ps-modal-meta-btn--cancelar:hover,
+.ps-modal-meta-btn--cancelar:focus-visible { background: var(--ps-nm-cancelar-hv); }
+.ps-modal-meta-btn--criar { padding: 0 18px; background: var(--ps-nm-cab-bg); color: #fff; }
+.ps-modal-meta-btn--criar:hover,
+.ps-modal-meta-btn--criar:focus-visible { background: var(--ps-nm-criar-hv); }
+.ps-modal-meta-btn--criar:disabled { background: var(--ps-nm-criar-off); cursor: not-allowed; }
+.ps-modal-meta.is-recolhido .ps-modal-meta-corpo,
+.ps-modal-meta.is-recolhido .ps-modal-meta-rodape { display: none; }
+
 /* Trilho da aba Metas (desenho): andamento, o que precisa de atencao e quem
    responde pelas metas. Tudo vem de `PastaMetasResumoOutput`. */
 .ps-metas-andamento, .ps-metas-pessoas, .ps-como-usar { padding: 16px 17px; }
@@ -4084,7 +4275,42 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-metas .ps-vazio { padding: 52px 24px; }
 
 /* ── Processo (P6, P7, P13) ── */
-.ps-processos > .ps-card-cab--painel { gap: 12px; }
+/* PMC-025: o cabeçalho do desenho (dc:1576) quebra a linha (`flex-wrap:wrap`) —
+   é o que deixa os rótulos caberem abaixo de 768px. */
+.ps-processos > .ps-card-cab--painel { gap: 12px; flex-wrap: wrap; }
+
+/* PMC-026: interruptor "Administrativo sem processo" (desenho `admSPtoggle`/`admSProt`,
+   dc:1580 e 6588). Saiu do <style> do _processos_vinculados para cá, com tokens e par
+   escuro: o laranja #b4460a no cartão escuro ficava sem contraste. */
+.ps-page {
+    --ps-adm-rotulo:        var(--ps-label);
+    --ps-adm-rotulo-on:     #b4460a;
+    --ps-adm-trilho:        #c5d0d8;
+    --ps-adm-trilho-on:     #e8873a;
+    --ps-adm-bola:          #fff;
+    --ps-adm-bola-sombra:   0 1px 2px rgba(0,0,0,.3);
+    --ps-adm-hover:         var(--ps-accent-bg);
+}
+[data-bs-theme="dark"] .ps-page {
+    --ps-adm-rotulo-on:     #ff9a55;
+    --ps-adm-trilho:        rgba(255,255,255,.2);
+    --ps-adm-trilho-on:     #d9782f;
+    --ps-adm-bola:          #f1f4f6;
+    --ps-adm-bola-sombra:   0 1px 2px rgba(0,0,0,.6);
+}
+.ps-adm-form { margin: 0; }
+.ps-adm-sw { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px; border: none; background: transparent; font-family: inherit; cursor: pointer; border-radius: 4px; }
+.ps-adm-sw:hover, .ps-adm-sw:focus-visible { background: var(--ps-adm-hover); }
+.ps-adm-sw-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ps-adm-rotulo); }
+.ps-adm-sw-trilho { position: relative; width: 34px; height: 18px; border-radius: 9px; background: var(--ps-adm-trilho); transition: background .2s; flex-shrink: 0; }
+.ps-adm-sw-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ps-adm-bola); box-shadow: var(--ps-adm-bola-sombra); transition: left .2s; }
+.ps-adm-sw.is-ligado .ps-adm-sw-rotulo { color: var(--ps-adm-rotulo-on); }
+.ps-adm-sw.is-ligado .ps-adm-sw-trilho { background: var(--ps-adm-trilho-on); }
+.ps-adm-sw.is-ligado .ps-adm-sw-bola { left: 18px; }
+.ps-adm-sw[aria-busy="true"] { cursor: progress; }
+/* PAS-049b: só leitura (sem EDIT ou lápide) — o mesmo interruptor, mesma aparência, sem clique. */
+.ps-adm-sw[aria-disabled="true"] { cursor: default; }
+.ps-adm-sw[aria-disabled="true"]:hover { background: transparent; }
 .ps-processos .ps-btn--primario.ps-btn--caps i { font-size: 13px; }
 .ps-processos .ps-btn--primario.ps-btn--caps:hover,
 .ps-processos .ps-btn--primario.ps-btn--caps:focus-visible { border-color: var(--ps-env-hv); background: var(--ps-env-hv); }
@@ -4107,6 +4333,16 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-push > .ps-push-lista:has(~ .ps-push-teto) { border-radius: 0; }
 /* Titulo sem espacamento de letra (dc 2413, U8). */
 .ps-push > .ps-card-cab--faixa h2 { letter-spacing: 0; }
+/* A faixa quebra linha (dc 2412 `flex-wrap:wrap`; FPN-031): com "ver no módulo", o botão de IA
+   (o rótulo de indisponível é uma frase) e os três filtros, ela estourava na horizontal no
+   celular. Abaixo de 768px os filtros ganham a linha deles e o motivo da IA quebra dentro do
+   botão em vez de empurrar a largura. */
+.ps-push > .ps-card-cab--faixa { flex-wrap: wrap; row-gap: 8px; min-width: 0; }
+@media (max-width: 767.98px) {
+    .ps-push > .ps-card-cab--faixa > .ps-push-filtros { flex-basis: 100%; }
+    .ps-push > .ps-card-cab--faixa > .ps-ia-gerar { max-width: 100%; }
+    .ps-push > .ps-card-cab--faixa > .ps-ia-gerar--indisponivel { height: auto; min-height: 28px; padding-top: 4px; padding-bottom: 4px; }
+}
 /* 16px acima do painel no Push, 18px nas outras abas (dc 6595, U11). */
 .ps-paineis:has(> #push.active) { margin-top: 16px; }
 
@@ -4732,6 +4968,11 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-res-bd:    #b9d2e2;
     --ps-tl-res-tx:    #0b5f86;
     --ps-tl-atn-tit:   #7b93a2;
+    --ps-tl-fora-bg:   #fff7e6;
+    --ps-tl-fora-bd:   #f0d3a6;
+    --ps-tl-fora-tx:   #7a4b00;
+    --ps-tl-fora-bt:   #7a4b00;
+    --ps-tl-alt-bg:    #fdf3e4;
 }
 [data-bs-theme="dark"] .ps-body {
     --ps-tl-bg:        var(--bs-body-bg);
@@ -4755,12 +4996,19 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-res-bd:    rgba(69,176,214,.35);
     --ps-tl-res-tx:    var(--ps-accent);
     --ps-tl-atn-tit:   #8fa6b4;
+    --ps-tl-fora-bg:   rgba(240,170,60,.12);
+    --ps-tl-fora-bd:   rgba(240,170,60,.35);
+    --ps-tl-fora-tx:   #f0b860;
+    --ps-tl-fora-bt:   #9a6206;
+    --ps-tl-alt-bg:    rgba(240,170,60,.10);
 }
 
+/* PAS-049i: o painel do desenho (central:3402) não escurece a tela. O overlay
+   continua — transparente — porque é ele que recebe o clique fora e fecha. */
 .ps-tl-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(12,32,45,.24);
+    background: transparent;
     z-index: 1057;
     opacity: 0;
     visibility: hidden;
@@ -4778,7 +5026,9 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     display: flex;
     flex-direction: column;
     background: var(--ps-tl-bg);
-    border-radius: 6px;
+    /* PAS-024: o JS do desenho usa 6px, mas o README de Quinas (regra
+       transversal mais recente) limita janelas a 4px — vale o README. */
+    border-radius: 4px;
     box-shadow: var(--ps-tl-sombra);
     font-family: Arial, Helvetica, sans-serif;
     color: var(--ps-tl-texto);
@@ -4953,6 +5203,19 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     white-space: pre-line;
 }
 .ps-tl-fonte { margin-top: 3px; font-size: 11px; color: var(--ps-tl-fraco); }
+/* "Ver alteração" (PAS-045; desenho `tlCard`: #fdf3e4, 7px 9px, 12px). */
+.ps-tl-alteracao {
+    margin-top: 6px;
+    padding: 7px 9px;
+    border-radius: 3px;
+    background: var(--ps-tl-alt-bg);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ps-tl-corpo-tx);
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+.ps-tl-alteracao-em { color: var(--ps-tl-fraco); }
 .ps-tl-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
 .ps-tl-acao {
     display: inline-flex;
@@ -5005,6 +5268,31 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 }
 .ps-tl-resumo-tit { font-weight: 700; color: var(--ps-tl-res-tx); margin-bottom: 3px; }
 .ps-tl-resumo-nota { margin-top: 4px; font-size: 11px; color: var(--ps-tl-suave); }
+/* "Enquanto você estava fora" (PAS-043; desenho `tlRender`: #fff7e6 / #f0d3a6 / #7a4b00). */
+.ps-tl-fora {
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    background: var(--ps-tl-fora-bg);
+    border: 1px solid var(--ps-tl-fora-bd);
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ps-tl-forte);
+}
+.ps-tl-fora-tit { font-weight: 700; color: var(--ps-tl-fora-tx); }
+.ps-tl-fora-bt {
+    margin-top: 6px;
+    height: 24px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 3px;
+    background: var(--ps-tl-fora-bt);
+    color: #fff;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
 .ps-tl-atencao {
     margin-bottom: 12px;
     padding: 10px 12px;

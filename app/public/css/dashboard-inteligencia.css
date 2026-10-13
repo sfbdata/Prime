@@ -10,8 +10,11 @@
    redefinido em `[data-bs-theme="dark"]` (hex cravado só no claro).
 
    Sem JS: o painel é um [popover] nativo (abre pelo botão `popovertarget`, fecha
-   por X / Esc / clique fora) e o Modo avançado é um <details>. Quem não suporta
-   popover recebe o painel aberto em bloco abaixo do título (@supports no fim).
+   por X / Esc / clique fora). Quem não suporta popover recebe o painel aberto em
+   bloco abaixo do título (@supports no fim). O Modo avançado é o interruptor
+   `role=switch` do topo, gravado por usuário no servidor (dashboard-preferencias.js);
+   ligado, o `.db-page` leva `db-page--ia-avancado`, que mostra o bloco avançado e
+   alarga o painel para 600px (dc L2578).
    ============================================================================= */
 
 .db-page {
@@ -58,6 +61,22 @@
     --db-ia-switch-pill-bg: rgba(12,122,156,.08);
     --db-ia-switch-pill-bg-hover: rgba(12,122,156,.15);
     --db-ia-switch-pill-texto: #0b5a78;
+    /* confirmação "Ativar Modo Avançado?" e cartão "Conhecer o Modo avançado" (dc L941-959, L1412-1418) */
+    --db-ia-confirma-veu:     rgba(14,37,51,.32);
+    --db-ia-confirma-bg:      #fff;
+    --db-ia-confirma-sombra:  0 30px 60px -24px rgba(12,48,72,.5);
+    --db-ia-confirma-titulo:  #0e2533;
+    --db-ia-confirma-texto:   #4f6878;
+    --db-ia-confirma-rotulo:  #7b93a2;
+    --db-ia-confirma-item:    #1d3a4a;
+    --db-ia-confirma-check:   #14784a;
+    --db-ia-confirma-nao-bg:  #eef3f6;
+    --db-ia-confirma-nao-bg-hover: #e3ebf0;
+    --db-ia-confirma-nao-texto: #34505f;
+    --db-ia-azul-grad:        linear-gradient(120deg, #0f6fc4 0%, #0c7a9c 100%);
+    --db-ia-confirma-sim-sombra: 0 8px 18px -10px rgba(15,111,196,.7);
+    --db-ia-teaser-sombra:    0 12px 26px -16px rgba(15,111,196,.8);
+    --db-ia-teaser-sombra-hover: 0 16px 30px -16px rgba(15,111,196,.9);
     /* ícones das três perguntas (dc L2725-2727) */
     --db-ia-q-oque-bg:      #e9f5f9;  --db-ia-q-oque:   #0c7a9c;
     --db-ia-q-porque-bg:    #eef1fb;  --db-ia-q-porque: #3d5bb5;
@@ -128,6 +147,20 @@
     --db-ia-switch-pill-bg: rgba(79,179,212,.14);
     --db-ia-switch-pill-bg-hover: rgba(79,179,212,.22);
     --db-ia-switch-pill-texto: var(--db-accent-text);
+    --db-ia-confirma-veu:     rgba(0,0,0,.5);
+    --db-ia-confirma-bg:      var(--bs-body-bg);
+    --db-ia-confirma-sombra:  0 30px 60px -24px rgba(0,0,0,.85);
+    --db-ia-confirma-titulo:  var(--db-text-strong);
+    --db-ia-confirma-texto:   var(--db-label);
+    --db-ia-confirma-rotulo:  var(--db-faint);
+    --db-ia-confirma-item:    var(--bs-body-color);
+    --db-ia-confirma-check:   #6ddaa2;
+    --db-ia-confirma-nao-bg:  rgba(255,255,255,.08);
+    --db-ia-confirma-nao-bg-hover: rgba(255,255,255,.14);
+    --db-ia-confirma-nao-texto: var(--bs-body-color);
+    --db-ia-confirma-sim-sombra: none;
+    --db-ia-teaser-sombra:    0 12px 26px -16px rgba(0,0,0,.8);
+    --db-ia-teaser-sombra-hover: 0 16px 30px -16px rgba(0,0,0,.9);
     --db-ia-q-oque-bg:      rgba(79,179,212,.14);  --db-ia-q-oque:   var(--db-accent);
     --db-ia-q-porque-bg:    rgba(99,130,220,.18);  --db-ia-q-porque: #9fb2f0;
     --db-ia-q-fazer-bg:     rgba(214,146,30,.18);  --db-ia-q-fazer:  #e9be6c;
@@ -257,7 +290,7 @@
 }
 .db-page .db-ia-painel:popover-open { display: flex; animation: dbIaEntra .42s var(--db-ia-ease) both; }
 .db-page .db-ia-painel::backdrop { background: var(--db-ia-veu); }
-.db-page .db-ia-painel:has(.db-ia-av[open]) { width: min(600px, 100vw); }
+.db-page.db-page--ia-avancado .db-ia-painel { width: min(600px, 100vw); }
 @keyframes dbIaEntra { from { transform: translate3d(36px,0,0); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* cabeçalho */
@@ -404,28 +437,37 @@
 .db-page .db-ia-limites ul { margin: 0 0 4px; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--db-label); }
 .db-page .db-ia-limites li + li { margin-top: 4px; }
 
-/* ── Modo avançado ───────────────────────────────────────────────────────── */
-.db-page .db-ia-av-toggle {
-    display: flex;
+/* ── Modo avançado ───────────────────────────────────────────────────────────
+   Interruptor do topo (dc L872): pílula 30px, 12.5px/700, trilho 32×18 com bola 14px
+   (sw(), dc L2575). O estado é o aria-checked que o servidor escreve e o JS atualiza. */
+.db-page .db-ia-av-switch {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 34px;
-    padding: 4px 6px 4px 12px;
+    height: 30px;
+    padding: 0 6px 0 10px;
+    border: none;
     border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
     font-size: 12.5px;
     font-weight: 700;
     color: var(--db-ia-switch-pill-texto);
     background: var(--db-ia-switch-pill-bg);
+    flex-shrink: 0;
+    white-space: nowrap;
     transition: background .2s;
 }
-.db-page .db-ia-av-toggle:hover { background: var(--db-ia-switch-pill-bg-hover); }
-.db-page .db-ia-av-toggle i { font-size: 14px; }
-.db-page .db-ia-av-toggle-sub { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 500; color: var(--db-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-page .db-ia-av-switch:hover { background: var(--db-ia-switch-pill-bg-hover); }
+.db-page .db-ia-av-switch:focus-visible { outline: 2px solid var(--db-accent); outline-offset: 2px; }
 .db-page .db-ia-switch { position: relative; width: 32px; height: 18px; border-radius: 999px; flex-shrink: 0; background: var(--db-ia-switch-off); transition: background .2s; }
 .db-page .db-ia-switch-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(16,42,58,.3); transition: transform .22s var(--db-ia-ease); }
-.db-page .db-ia-av[open] > summary .db-ia-switch { background: var(--db-ia-switch-on); }
-.db-page .db-ia-av[open] > summary .db-ia-switch-bola { transform: translateX(14px); }
-.db-page .db-ia-av-corpo { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; animation: dbIaBloco .4s var(--db-ia-ease) both; }
+.db-page .db-ia-av-switch[aria-checked="true"] .db-ia-switch { background: var(--db-ia-switch-on); }
+.db-page .db-ia-av-switch[aria-checked="true"] .db-ia-switch-bola { transform: translateX(14px); }
+/* bloco avançado: no HTML sempre; visível só com o modo ligado */
+.db-page .db-ia-av { display: none; }
+.db-page.db-page--ia-avancado .db-ia-av { display: block; }
+.db-page .db-ia-av-corpo { display: flex; flex-direction: column; gap: 12px; animation: dbIaBloco .4s var(--db-ia-ease) both; }
 .db-page .db-ia-av-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .db-page .db-ia-h { font-size: 15px; font-weight: 700; color: var(--db-text-strong); }
 .db-page .db-ia-h-sub { margin-top: 2px; font-size: 12px; color: var(--db-muted); }
@@ -514,6 +556,85 @@
 .db-page .db-ia-resposta { display: flex; gap: 9px; margin-top: 8px; padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-resposta-anel); font-size: 12.5px; line-height: 1.5; color: var(--db-text); animation: dbIaBloco .2s ease both; }
 .db-page .db-ia-resposta i { font-size: 14px; color: var(--db-accent); margin-top: 1px; }
 
+/* ── Confirmação "Ativar Modo Avançado?" (dc L939-959) ──────────────────────
+   Véu sobre o painel inteiro (absolute no aside), caixa de até 380px no centro. */
+.db-page .db-ia-confirma {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: var(--db-ia-confirma-veu);
+    animation: dbIaBloco .2s ease both;
+}
+.db-page .db-ia-confirma[hidden] { display: none; }
+.db-page .db-ia-confirma-caixa {
+    width: 100%;
+    max-width: 380px;
+    padding: 20px;
+    border-radius: 4px;
+    background: var(--db-ia-confirma-bg);
+    box-shadow: var(--db-ia-confirma-sombra);
+    animation: dbIaConfirmaEntra .25s var(--db-ia-ease) both;
+}
+@keyframes dbIaConfirmaEntra { from { opacity: 0; transform: translate3d(0,8px,0); filter: blur(3px); } to { opacity: 1; transform: none; filter: blur(0); } }
+.db-page .db-ia-confirma-cab { display: flex; align-items: center; gap: 10px; }
+.db-page .db-ia-confirma-icone { width: 34px; height: 34px; flex-shrink: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: var(--db-ia-azul-grad); color: #fff; font-size: 16px; }
+.db-page .db-ia-confirma-titulo { font-size: 16px; font-weight: 700; color: var(--db-ia-confirma-titulo); }
+.db-page .db-ia-confirma-texto { margin-top: 12px; font-size: 13px; line-height: 1.5; color: var(--db-ia-confirma-texto); }
+.db-page .db-ia-confirma-rotulo { margin-top: 12px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--db-ia-confirma-rotulo); }
+.db-page .db-ia-confirma-escopo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; margin: 7px 0 0; padding: 0; list-style: none; }
+.db-page .db-ia-confirma-escopo li { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--db-ia-confirma-item); }
+.db-page .db-ia-confirma-escopo i { font-size: 13px; color: var(--db-ia-confirma-check); }
+.db-page .db-ia-confirma-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.db-page .db-ia-confirma-nao,
+.db-page .db-ia-confirma-sim { height: 36px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px; cursor: pointer; }
+.db-page .db-ia-confirma-nao { padding: 0 14px; font-weight: 600; color: var(--db-ia-confirma-nao-texto); background: var(--db-ia-confirma-nao-bg); }
+.db-page .db-ia-confirma-nao:hover { background: var(--db-ia-confirma-nao-bg-hover); }
+.db-page .db-ia-confirma-sim { padding: 0 16px; font-weight: 700; color: #fff; background: var(--db-ia-azul-grad); box-shadow: var(--db-ia-confirma-sim-sombra); }
+.db-page .db-ia-confirma-sim:hover { filter: brightness(1.06); }
+.db-page .db-ia-confirma-nao:focus-visible,
+.db-page .db-ia-confirma-sim:focus-visible { outline: 2px solid var(--db-accent); outline-offset: 2px; }
+
+/* ── Cartão "Conhecer o Modo avançado" (dc L1412-1418, teaserStyle L2595) ─────
+   Entra 0,5s depois do painel; o JS marca `is-saindo` aos 6s (fade + recolhimento em
+   0,5s) e o esconde aos 6,6s. Com o modo ligado não aparece. A entrada usa
+   `backwards` (não `both`) para a animação não segurar opacity/transform e a saída
+   por transição funcionar. */
+.db-page .db-ia-teaser {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 16px 12px;
+    padding: 12px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    color: #fff;
+    background: var(--db-ia-azul-grad);
+    box-shadow: var(--db-ia-teaser-sombra);
+    overflow: hidden;
+    max-height: 120px;
+    opacity: 1;
+    transform: none;
+    animation: dbIaBloco .45s var(--db-ia-ease) .5s backwards;
+    transition: opacity .5s ease, transform .5s var(--db-ia-ease), max-height .5s ease, margin .5s ease, padding .5s ease, box-shadow .2s;
+}
+.db-page .db-ia-teaser[hidden],
+.db-page.db-page--ia-avancado .db-ia-teaser { display: none; }
+.db-page .db-ia-teaser:hover { box-shadow: var(--db-ia-teaser-sombra-hover); }
+.db-page .db-ia-teaser:focus-visible { outline: 2px solid var(--db-accent); outline-offset: 2px; }
+.db-page .db-ia-teaser.is-saindo { max-height: 0; opacity: 0; transform: translate3d(0,10px,0); margin-bottom: 0; padding-top: 0; padding-bottom: 0; pointer-events: none; }
+.db-page .db-ia-teaser-icone { width: 34px; height: 34px; flex-shrink: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.16); font-size: 16px; }
+.db-page .db-ia-teaser-texto { flex: 1; min-width: 0; }
+.db-page .db-ia-teaser-titulo { display: block; font-size: 13.5px; font-weight: 700; }
+.db-page .db-ia-teaser-sub { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: rgba(255,255,255,.85); }
+.db-page .db-ia-teaser-seta { font-size: 14px; }
+
 /* rodapé */
 .db-page .db-ia-rodape { display: flex; align-items: center; gap: 7px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
 .db-page .db-ia-rodape i { font-size: 12px; color: var(--db-accent); }
@@ -533,7 +654,8 @@
 @supports not selector(:popover-open) {
     .db-page .db-ia { flex: 0 0 100%; margin-left: 0; }
     .db-page .db-ia-abrir, .db-page .db-ia-fechar { display: none; }
-    .db-page .db-ia-painel { display: flex; position: static; width: 100%; max-width: none; height: auto; border: 1px solid var(--db-border); border-radius: 4px; box-shadow: var(--db-shadow-caixa); }
+    .db-page .db-ia-painel,
+    .db-page.db-page--ia-avancado .db-ia-painel { display: flex; position: relative; width: 100%; max-width: none; height: auto; border: 1px solid var(--db-border); border-radius: 4px; box-shadow: var(--db-shadow-caixa); }
     .db-page .db-ia-corpo { overflow: visible; }
 }
 

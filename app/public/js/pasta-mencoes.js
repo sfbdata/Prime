@@ -1,5 +1,10 @@
 /**
- * @menção no Registro da pasta (item 20b).
+ * @menção no Registro da pasta (item 20b), nas observações de Detalhes e no Relatório financeiro
+ * (EDT-010r) e nas notas técnicas (PMC-019).
+ *
+ * Todo compositor dentro de um `[data-mencionaveis-url]` é ligado na carga, cada um com a SUA URL
+ * (`textarea._mencoesUrl`); quem monta editor depois (edição, nota técnica) chama `ligar` com a
+ * URL posta na textarea.
  *
  * Digitar "@" no editor do Registro abre a lista de colegas (desenho `bluejus-central.js`
  * `menAbrir`/`menEscolher`): ↑/↓ escolhem, Enter/Tab inserem, Esc fecha. A lista vem do servidor
@@ -16,6 +21,12 @@
  *   PastaMencoes.paraEnvio(textarea, html)         → html com os tokens das menções escolhidas
  *   PastaMencoes.paraEdicao(conteudo)              → { html, mencoes } para carregar no editor
  *   PastaMencoes.esquecer(textarea)                → zera as menções (depois de enviar)
+ *   PastaMencoes.listaAberta(quill?)               → a lista de @ está aberta (neste editor)?
+ *
+ * Prioridade das teclas: com a lista aberta, ↑/↓, Enter, Tab e Esc são DELA — inclusive sobre a
+ * sugestão de palavras do editor (EDT-015), que também usa Tab. A garantia é dupla: esta lista
+ * ouve em captura no contêiner do Quill e para a propagação (o editor ouve na raiz, mais abaixo),
+ * e o editor consulta `listaAberta` e se recolhe quando a vê aberta.
  */
 (function () {
     'use strict';
@@ -280,20 +291,30 @@
     }, true);
     window.addEventListener('scroll', function () { if (pop) { posicionar(); } }, true);
 
+    /** Liga cada compositor marcado (Registro, Detalhes, Financeiro), com a URL da própria caixa. */
     function ligarCompositor(tentativas) {
-        var caixa = document.querySelector('[data-mencionaveis-url]');
-        var textarea = caixa ? caixa.querySelector('textarea') : null;
-        if (!textarea) { return; }
-        if (window.EditorRico && EditorRico.instancia(textarea)) {
-            ligar(textarea);
+        var faltam = 0;
+        document.querySelectorAll('[data-mencionaveis-url]').forEach(function (caixa) {
+            var textarea = caixa.querySelector('textarea');
+            if (!textarea || textarea._mencoesLigado) { return; }
+            if (window.EditorRico && EditorRico.instancia(textarea)) {
+                textarea._mencoesUrl = caixa.getAttribute('data-mencionaveis-url');
+                ligar(textarea);
 
-            return;
-        }
+                return;
+            }
+            faltam++;
+        });
         // O editor é montado por outro script `defer`: espera um pouco se ainda não montou.
-        if (tentativas > 0) { setTimeout(function () { ligarCompositor(tentativas - 1); }, 100); }
+        if (faltam > 0 && tentativas > 0) { setTimeout(function () { ligarCompositor(tentativas - 1); }, 100); }
     }
 
-    window.PastaMencoes = { ligar: ligar, paraEnvio: paraEnvio, paraEdicao: paraEdicao, esquecer: esquecer };
+    /** A lista está aberta — no editor dado, se houver (a sugestão de palavras do editor cede a ela). */
+    function listaAberta(quill) {
+        return !!pop && (!quill || estado.quill === quill);
+    }
+
+    window.PastaMencoes = { ligar: ligar, paraEnvio: paraEnvio, paraEdicao: paraEdicao, esquecer: esquecer, listaAberta: listaAberta };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { ligarCompositor(20); });

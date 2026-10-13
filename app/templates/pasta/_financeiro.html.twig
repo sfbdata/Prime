@@ -22,6 +22,8 @@
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 
+{% import _self as fin %}
+
 {% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' %}
 {% set arquivosVisiveis = 3 %}
 
@@ -151,13 +153,16 @@
         <section class="ps-card ps-anotacoes" id="financeiroRelatorio">
             <div class="ps-card-cab ps-card-cab--painel">
                 <h2>Relatório financeiro</h2>
-                <span class="ps-contagem" id="financeiro-obs-count">{{ observacoesFinanceiras|length }}</span>
+                {% set idsContagemFin = observacoesFinanceiras|map(o => o.id) %}
+                <span class="ps-contagem" id="financeiro-obs-count" title="Registros principais (respostas não contam)">{{ observacoesFinanceiras|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemFin)|length }}</span>
             </div>
 
             <div class="ps-compositor">
                 <form id="formFinanceiroObservacao">
                     <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
-                    <div class="ps-compositor-caixa">
+                    {# @menção (EDT-010r): o pasta-mencoes.js (carregado pela pasta_show, em `_dados_anotacoes`)
+                       liga o "@" deste compositor e busca a lista nesta URL. #}
+                    <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id}) }}">
                         <textarea name="conteudo"
                                   id="financeiroObsConteudo"
                                   data-editor-rico
@@ -185,15 +190,12 @@
                 {% else %}
                     {% set mesesFin = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
                     {% set diaAnteriorFin = null %}
-                    {% for obs in observacoesFinanceiras %}
-                        {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
-                        {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
-                        {% set iniciais = partes|length > 0
-                            ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
-                            : '?' %}
-                        {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo
-                           vem do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
-                        {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
+                    {# Responder (FPN-005): a resposta não entra na linha do tempo por conta própria —
+                       fica recuada sob a raiz, da mais antiga à mais nova, e não data nem conta a
+                       raiz. Vira item de primeiro nível a que não tem a raiz à mão: a órfã (original
+                       excluída) e a que responde a uma raiz fora do limite da consulta. #}
+                    {% set idsFin = observacoesFinanceiras|map(o => o.id) %}
+                    {% for obs in observacoesFinanceiras|filter(o => o.respostaA is null or o.respostaA.id not in idsFin) %}
                         {% set diaFin = obs.criadaEm|date('Y-m-d') %}
 
                         {# Linha do tempo do desenho 1.2.3: pílula do dia, cartão com ponto e seta.
@@ -205,52 +207,48 @@
                             {% set diaAnteriorFin = diaFin %}
                         {% endif %}
 
-                        <article class="ps-anotacao" id="financeiro-obs-{{ obs.id }}">
-                            <span class="ps-anotacao-ponto" aria-hidden="true"></span>
-                            <span class="ps-anotacao-seta" aria-hidden="true"></span>
-                            <div class="ps-anotacao-topo">
-                                <span class="ps-avatar ps-avatar--24">{{ iniciais }}</span>
-                                <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
-                                {% if obs.editadaEm %}
-                                    <span class="ps-anotacao-editado" title="Editado em {{ obs.editadaEm|date('d/m/Y H:i') }}">editado</span>
-                                {% endif %}
-                                <span class="ps-cab-espaco"></span>
-                                {% if podeGerenciar %}
-                                    <span class="ps-anotacao-acoes">
-                                        <button type="button"
-                                                class="ps-anotacao-acao btn-editar-obs"
-                                                title="Editar registro" aria-label="Editar registro"
-                                                data-obs-id="{{ obs.id }}"
-                                                data-conteudo="{{ obs.conteudo|e('html_attr') }}"
-                                                data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
-                                                data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
-                                                data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button type="button"
-                                                class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
-                                                title="Excluir registro" aria-label="Excluir registro"
-                                                data-obs-id="{{ obs.id }}"
-                                                data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
-                                                data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
-                                            <i class="bi bi-trash3"></i>
-                                        </button>
-                                        {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
-                                        <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
-                                    </span>
-                                {% endif %}
-                                <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ obs.criadaEm|date('H:i') }}</span>
+                        {{ fin.registro(obs, null, pasta) }}
+
+                        {% set respostasFin = observacoesFinanceiras|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
+                        {% if respostasFin|length > 0 %}
+                            <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
+                                {% for resposta in respostasFin %}
+                                    {{ fin.registro(resposta, obs, pasta) }}
+                                {% endfor %}
                             </div>
-                            <div class="ps-anotacao-corpo">
-                                <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
-                                <div class="ps-anotacao-texto obs-conteudo">
-                                    {# `texto_rico` sanitiza e já é `is_safe: html`. #}
-                                    <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|texto_rico }}</span></span>
-                                </div>
-                            </div>
-                        </article>
+                        {% endif %}
                     {% endfor %}
                 {% endif %}
+            </div>
+
+            {# Botão direito no registro (dc L.1795 `onContextMenu`, menu dc L.5958; FPN-006). UM menu
+               para a lista, preenchido pelo script do fim deste arquivo com o registro clicado.
+               "Editar" e "Excluir" clicam os botões da janela de 15 min que o cartão traz (autor,
+               dentro do prazo): o caminho é o de sempre. Sem eles, os dois itens ficam À VISTA e
+               desabilitados, "Editar · bloqueado" / "Excluir · bloqueado" com cadeado, como no
+               desenho (dc L.5958; FPN-006b). "Responder" (FPN-005) clica o
+               botão de responder do cartão; na lápide ele não existe e o item some (o servidor
+               recusa toda escrita, `PastaSomenteLeituraListener`). Fora do menu ficam "Encaminhar
+               via Chat I.A" (FPN-007) e "Destacar" (sem lastro). #}
+            <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="Ações do registro" hidden>
+                <div class="ps-fin-menu-titulo"></div>
+                {% if not pasta.estaExcluida %}
+                    <button type="button" class="ps-fin-menu-item js-fin-obs-responder" role="menuitem">
+                        <i class="bi bi-reply-fill" aria-hidden="true"></i><span>Responder</span>
+                    </button>
+                {% endif %}
+                <button type="button" class="ps-fin-menu-item js-fin-obs-copiar" role="menuitem">
+                    <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
+                </button>
+                <div class="ps-fin-menu-sep" role="separator"></div>
+                <button type="button" class="ps-fin-menu-item js-fin-obs-editar js-fin-obs-gerenciar" role="menuitem">
+                    <i class="bi bi-pencil" aria-hidden="true"></i><span>Editar</span>
+                </button>
+                <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar" role="menuitem">
+                    <i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir comentário</span>
+                </button>
+                {# Sem "Imprimir": no desenho (dc L.6454-6466, menuObs/extrasObs) ele mora só no ⋮
+                   da observação de Detalhes. #}
             </div>
         </section>
     </div>
@@ -1130,6 +1128,53 @@
         aberto = { menu: menu, gatilho: gatilho };
     }
 
+    /* Menu do registro do Relatório financeiro (FPN-006). Título "autor · data e hora",
+       como o do desenho (dc 5958). Editar e Excluir funcionam se o cartão traz os
+       botões da janela de 15 min — o servidor só os põe para o autor, dentro do prazo —
+       e levam os minutos que restam, como no desenho ("Editar · 12 min"). Sem os
+       botões, o desenho os mostra bloqueados (FPN-006b): "Editar · bloqueado" e
+       "Excluir · bloqueado", cadeado, sem a cor de perigo; aqui também desabilitados,
+       com o motivo do desenho (`comPerm`) na dica — sem a frase do usuário primário,
+       que neste sistema não tem a exceção. */
+    const OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';
+    const OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';
+    function pintarItemObs(item, pode, rotulo, icone, motivo) {
+        item.disabled = !pode;
+        if (pode) { item.removeAttribute('aria-disabled'); item.removeAttribute('title'); } else { item.setAttribute('aria-disabled', 'true'); item.title = motivo; }
+        item.querySelector('i').className = 'bi ' + icone;
+        item.querySelector('span').textContent = rotulo;
+    }
+    let obsAlvo = null;
+    function prepararMenuObs(menu, registro) {
+        obsAlvo = registro;
+        const autor = textoLimpo(registro.querySelector('.ps-anotacao-autor'));
+        const data  = registro.querySelector('.ps-anotacao-data');
+        const quando = data ? (data.getAttribute('title') || textoLimpo(data)) : '';
+        menu.querySelector('.ps-fin-menu-titulo').textContent = autor + (quando ? ' · ' + quando : '');
+
+        // Responder (FPN-005): o item existe fora da lápide; vale se o cartão traz o botão.
+        const responder = menu.querySelector('.js-fin-obs-responder');
+        if (responder) { responder.disabled = !registro.querySelector('.btn-responder-obs'); }
+
+        const podeGerenciar = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
+        const editar  = menu.querySelector('.js-fin-obs-editar');
+        const excluir = menu.querySelector('.js-fin-obs-excluir');
+        excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);
+
+        if (!podeGerenciar) {
+            const motivo = registro.getAttribute('data-obs-do-autor') === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR;
+            pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
+            pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+            return;
+        }
+
+        const janela = registro.querySelector('.ps-anotacao-janela');
+        const minutos = janela ? (textoLimpo(janela).match(/\d+/) || [''])[0] : '';
+        const resto = minutos ? ' · ' + minutos + ' min' : '';
+        pintarItemObs(editar, true, 'Editar' + resto, 'bi-pencil', '');
+        pintarItemObs(excluir, true, 'Excluir comentário' + resto, 'bi-trash3', '');
+    }
+
     function menuDoGatilho(gatilho) {
         return document.getElementById(gatilho.getAttribute('aria-controls') || '');
     }
@@ -1167,7 +1212,13 @@
         return 'Pagamentos · ' + textoLimpo(folha.querySelector('.ps-fin-extrato-total')) + '\n' + linhas.join('\n');
     }
 
+    /* "Imprimir extrato" (desenho dc 3515 → `gmImprimir`, EDT-004/FPN-010): a MESMA janela
+       do Imprimir resumo (pasta-impressao.js), com a folha do servidor — tarja, cabeçalho
+       BLUEJUS, faixa Pasta/Cliente/Processo e rodapé "Documento interno do escritório ·
+       BlueJus". Sem a janela na página (script não carregou), a impressão antiga direta. */
     function imprimirExtrato() {
+        if (window.PastaImpressao && window.PastaImpressao.extrato()) { return; }
+
         const cab   = document.getElementById('psExtratoCabecalho');
         const folha = document.getElementById('psExtratoFolha');
         if (!cab || !folha) { return; }
@@ -1250,7 +1301,7 @@
 
         if (!aberto) { return; }
         const item = e.target.closest('.ps-fin-menu-item');
-        if (!item || !aberto.menu.contains(item)) { return; }
+        if (!item || !aberto.menu.contains(item) || item.disabled) { return; }
 
         if (item.classList.contains('js-fin-doc-copiar-nome')) {
             const ren = aberto.menu.querySelector('.btn-renomear-doc');
@@ -1261,8 +1312,24 @@
             copiar(resumoDosPagamentos(), item.querySelector('span'), 'Resumo copiado');
             return;
         }
+        if (item.classList.contains('js-fin-obs-copiar')) {
+            copiar(textoLimpo(obsAlvo ? obsAlvo.querySelector('.obs-conteudo .ql-editor') : null), item.querySelector('span'), 'Texto copiado');
+            return;
+        }
 
         fechar(false);
+
+        // Responder, Editar e Excluir do registro clicam os botões do próprio cartão: o
+        // handler deles (no _financeiro_obs_script) é o único caminho.
+        if (item.classList.contains('js-fin-obs-editar') || item.classList.contains('js-fin-obs-excluir') || item.classList.contains('js-fin-obs-responder')) {
+            const seletor = item.classList.contains('js-fin-obs-responder') ? '.btn-responder-obs'
+                : (item.classList.contains('js-fin-obs-editar') ? '.btn-editar-obs' : '.btn-excluir-obs');
+            // `:scope > .ps-anotacao-topo`: o botão do PRÓPRIO cartão.
+            const botao = obsAlvo ? obsAlvo.querySelector(':scope > .ps-anotacao-topo ' + seletor) : null;
+            obsAlvo = null;
+            if (botao) { botao.click(); }
+            return;
+        }
 
         if (item.classList.contains('js-fin-doc-ver-documentos')) { irParaDocumentos(); return; }
         if (item.classList.contains('js-fin-doc-email-sem-cadastro')) { emailSemCadastro(); return; }
@@ -1288,6 +1355,17 @@
     // no ⋮ de Pagamentos, o menu dele. Durante a renomeação o campo é do usuário.
     document.addEventListener('contextmenu', function (e) {
         if (e.target.closest('input, textarea, .ps-fin-menu')) { return; }
+        // Registro do Relatório financeiro (dc 1795, FPN-006): menu no ponto do clique.
+        // Links, botões e o editor aberto seguem com o menu do navegador.
+        const registro = e.target.closest('#financeiroObsLista .ps-anotacao');
+        if (registro) {
+            const menuObs = document.getElementById('financeiroObsMenu');
+            if (!menuObs || e.target.closest('a, button, .ps-anotacao-edicao')) { return; }
+            e.preventDefault();
+            prepararMenuObs(menuObs, registro);
+            abrir(menuObs, registro, e.clientX, e.clientY);
+            return;
+        }
         // Linha de pagamento (dc 3448-3456, `onContextMenu`): não tem ⋮ à vista no
         // desenho; o menu dela abre só pelo clique direito, e a própria linha
         // faz o papel do gatilho.
@@ -1330,3 +1408,96 @@
 
 {{ include('pasta/_financeiro_obs_script.html.twig') }}
 {{ include('pasta/_financeiro_pagamentos_script.html.twig') }}
+
+{#
+   Um registro do Relatório financeiro. `raiz` é o registro respondido quando o cartão é uma
+   resposta pendurada nele (null para a raiz e para a resposta solta — a órfã, cuja original foi
+   excluída, ou a que responde a algo fora do limite). Mesma estrutura do Registro da aba Dados
+   (`_dados_anotacoes`): faixa "Resposta a NOME", recuo em `.ps-respostas`, botão de responder
+   que aparece com o cartão sob o mouse. O JS (`_financeiro_obs_script`) monta a MESMA marcação.
+#}
+{% macro registro(obs, raiz, pasta) %}
+    {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
+    {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
+    {% set iniciais = partes|length > 0
+        ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
+        : '?' %}
+    {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo
+       vem do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
+    {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
+    {% set lapide = pasta.estaExcluida %}
+    {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
+    {% set alvoId = raiz ? raiz.id : obs.id %}
+    {% set alvoNome = raiz ? (raiz.autor.fullName ?? raiz.autor.email ?? '') : autor %}
+    {% set respostaANome = obs.respostaA ? (obs.respostaA.autor.fullName ?? obs.respostaA.autor.email ?? null) : null %}
+    {# Resposta de outro dia que não o da raiz: a hora leva o dia junto ("06/10 · 09:12"). #}
+    {% set horaRotulo = (raiz and obs.criadaEm|date('Y-m-d') != raiz.criadaEm|date('Y-m-d'))
+        ? obs.criadaEm|date('d/m') ~ ' · ' ~ obs.criadaEm|date('H:i')
+        : obs.criadaEm|date('H:i') %}
+
+    {# `data-obs-do-autor`: só para o motivo do "· bloqueado" do menu (FPN-006b). #}
+    <article class="ps-anotacao{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="financeiro-obs-{{ obs.id }}"
+             data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}">
+        {% if obs.resposta %}
+            {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
+            <div class="ps-anotacao-resposta-rot">
+                <i class="bi bi-reply-fill" aria-hidden="true"></i>
+                <span>{% if respostaANome is not null %}Resposta a {{ respostaANome }}{% else %}Resposta a uma mensagem excluída{% endif %}</span>
+            </div>
+        {% endif %}
+        <span class="ps-anotacao-ponto" aria-hidden="true"></span>
+        <span class="ps-anotacao-seta" aria-hidden="true"></span>
+        <div class="ps-anotacao-topo">
+            <span class="ps-avatar ps-avatar--24">{{ iniciais }}</span>
+            <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+            {% if obs.editadaEm %}
+                <span class="ps-anotacao-editado" title="Editado em {{ obs.editadaEm|date('d/m/Y H:i') }}">editado</span>
+            {% endif %}
+            <span class="ps-cab-espaco"></span>
+            {% if podeGerenciar %}
+                <span class="ps-anotacao-acoes">
+                    <button type="button"
+                            class="ps-anotacao-acao btn-editar-obs"
+                            title="Editar registro" aria-label="Editar registro"
+                            data-obs-id="{{ obs.id }}"
+                            data-conteudo="{{ obs.conteudo|e('html_attr') }}"
+                            data-conteudo-html="{{ obs.conteudo|registro_texto|e('html_attr') }}"
+                            data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
+                            data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button"
+                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
+                            title="Excluir registro" aria-label="Excluir registro"
+                            data-obs-id="{{ obs.id }}"
+                            data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
+                            data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                    {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
+                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
+                </span>
+            {% endif %}
+            {% if not lapide %}
+                {# Responder a uma RESPOSTA já começa com "@Nome " do autor dela (desenho `respTxt`). #}
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs"
+                        title="Responder" aria-label="Responder"
+                        data-resposta-a="{{ alvoId }}"
+                        data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}"
+                        {%- if raiz and obs.autor and autor %} data-resposta-autor-id="{{ obs.autor.id }}" data-resposta-autor-nome="{{ autor }}"{% endif %}>
+                    <i class="bi bi-reply-fill"></i>
+                </button>
+            {% endif %}
+            <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>
+        </div>
+        <div class="ps-anotacao-corpo">
+            <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
+            <div class="ps-anotacao-texto obs-conteudo">
+                {# `registro_texto` é o `texto_rico` (sanitiza, `is_safe: html`) com as @menções
+                   (`@[Nome](user:ID)`, EDT-010r) em destaque `.ps-mencao` — ver MencoesDoRegistro. #}
+                <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|registro_texto }}</span></span>
+            </div>
+        </div>
+    </article>
+{% endmacro %}

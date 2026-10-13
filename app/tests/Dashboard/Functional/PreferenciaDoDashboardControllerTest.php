@@ -113,6 +113,7 @@ final class PreferenciaDoDashboardControllerTest extends DashboardWebTestCase
                 'dashboard.colunas_ocultas' => [],
                 'dashboard.sons'            => 'ligados',
                 'dashboard.colunas_extras'  => [],
+                'dashboard.ia_avancado'     => 'desligado',
             ],
             'classes' => 'db-page--confortavel',
         ], $this->resposta($client));

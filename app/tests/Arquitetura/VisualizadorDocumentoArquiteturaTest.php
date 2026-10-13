@@ -132,6 +132,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         yield 'RTF'  => ['rtf', 'renderRtf', 'LIMITE_BYTES_RTF'];
         yield 'EML'  => ['eml', 'renderEml', 'LIMITE_BYTES_EML'];
         yield 'ZIP'  => ['zip', 'renderZip', 'LIMITE_BYTES_ZIP'];
+        yield 'DOC'  => ['doc', 'renderDoc', 'LIMITE_BYTES_DOC'];
+        yield 'TIFF' => ['tiff', 'renderTiff', 'LIMITE_BYTES_TIFF'];
     }
 
     #[DataProvider('formatosSoTexto')]
@@ -146,7 +148,26 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString('baixar(o.url, ' . $teto . ',', self::corpoDaFuncao($js, $render));
     }
 
-    #[TestDox('text/rtf e ODT/PPTX com MIME application/zip não caem no texto nem no ZIP: a ordem do tipoDe decide')]
+    #[TestDox('DOC-114: P7S/P7M viram "assinatura" — aviso do desenho (bj-visualizar.js L84) por textContent, sem baixar o envelope e sem prometer validação que o sistema não faz')]
+    public function testAssinaturaDigitalComAvisoDoDesenho(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("const EXT_ASSINATURA = ['p7s', 'p7m'];", $js);
+        self::assertStringContainsString("{ return 'assinatura'; }", self::corpoDaFuncao($js, 'tipoDe'));
+        self::assertStringContainsString("if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload, o.tamanho)); return; }", self::corpoDaFuncao($js, 'abrir'));
+
+        $bloco = self::corpoDaFuncao($js, 'blocoAssinatura');
+        // DOC-141: "(P7S, 12 KB)" como o desenho (bj-visualizar.js:87) quando quem abre passa o tamanho; "(P7S)" sem ele.
+        self::assertStringContainsString("'Envelope de assinatura digital (' + ext + (tam ? ', ' + tam : '') + '). Para conferir a assinatura, use o validador oficial do ITI.'", $bloco);
+        self::assertStringContainsString("const tam = typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '') : String(tamanho == null ? '' : tamanho).trim();", $bloco);
+        self::assertStringContainsString('bi-patch-check-fill', $bloco);
+        self::assertStringNotContainsString('No sistema', $bloco, 'o sistema não abre o envelope nem mostra o certificado');
+        self::assertStringNotContainsString('innerHTML', $bloco);
+        self::assertStringNotContainsString('baixar(', $bloco, 'nada a ler: o envelope não é baixado para a tela');
+    }
+
+        #[TestDox('text/rtf e ODT/PPTX com MIME application/zip não caem no texto nem no ZIP: a ordem do tipoDe decide')]
     public function testOrdemDoTipoDe(): void
     {
         $corpo = self::corpoDaFuncao(self::modulo(), 'tipoDe');
@@ -182,6 +203,10 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         yield 'ZIP'  => ['renderZip'];
         yield 'cartões de slide' => ['blocoSlides'];
         yield 'slides do ODP'    => ['slidesOdp'];
+        yield 'DOC'              => ['renderDoc'];
+        yield 'texto do DOC'     => ['textoDoDoc'];
+        yield 'controles do DOC' => ['limparTextoDoc'];
+        yield 'leitor OLE2'      => ['lerCfb'];
     }
 
     #[DataProvider('rendersSemHtml')]
@@ -318,6 +343,215 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString("getElementsByTagName('parsererror')", $lerXml);
     }
 
+    #[TestDox('DOC-108b: a limpeza do HTML gerado tira também poster e background (URL que a CSP era a única a barrar)')]
+    public function testLimparArvoreTiraPosterEBackground(): void
+    {
+        $limpar = self::corpoDaFuncao(self::modulo(), 'limparArvore');
+
+        self::assertStringContainsString("const nome = a.name.toLowerCase();", $limpar, 'compara o nome em minúsculas: POSTER/Background não escapam');
+        self::assertMatchesRegularExpression(
+            "/if \\(nome\\.startsWith\\('on'\\)[^{]*\\|\\| nome === 'poster' \\|\\| nome === 'background'\\) \\{\\s*n\\.removeAttribute\\(a\\.name\\);/s",
+            $limpar,
+            'poster e background caem no mesmo removeAttribute de href/srcset/on*'
+        );
+        foreach (['href', 'srcset', 'action', 'formaction'] as $atributo) {
+            self::assertStringContainsString("nome === '{$atributo}'", $limpar, "{$atributo} segue removido");
+        }
+    }
+
+    #[TestDox('DOC-111: .doc/.dot (application/msword) mostram só o texto, com a faixa do desenho dentro da folha e sem prometer conversão no servidor')]
+    public function testDocAntigoMostraSoOTextoComAFaixa(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("const MIMES_DOC    = ['application/msword'];", $js);
+        self::assertStringContainsString("const EXT_DOC      = ['doc', 'dot'];", $js);
+        self::assertStringContainsString('if (MIMES_DOC.includes(m) || EXT_DOC.includes(ext))', self::corpoDaFuncao($js, 'tipoDe'));
+        self::assertStringContainsString('const LIMITE_BYTES_DOC        = 15 * 1024 * 1024;', $js);
+
+        $render = self::corpoDaFuncao($js, 'renderDoc');
+        self::assertStringContainsString('baixar(o.url, LIMITE_BYTES_DOC, false, o.sinal)', $render, 'o .doc inteiro ou nada: o índice OLE2 pode estar no fim');
+        self::assertStringContainsString('textoDoDoc(arq.bytes, LIMITE_CARACTERES)', $render);
+        self::assertStringContainsString("'Formato antigo do Word (.doc): mostrando só o texto.'", $render, 'texto da faixa do desenho (bj-visualizar.js L68)');
+        self::assertStringContainsString('background:#fff7e6;color:#7a4b00;border-radius:4px;padding:8px 12px;margin-bottom:16px;font-size:12px', $render, 'as cores e medidas da faixa do desenho');
+        self::assertStringContainsString('fl.folha.appendChild(faixa);', $render, 'a faixa fica DENTRO da folha, como no desenho');
+        self::assertStringContainsString("el('div', 'vd-folha-pre', r.texto)", $render, 'o texto entra por textContent');
+        self::assertStringNotContainsString('servidor', $render, 'o sistema não converte o .doc: a 2ª frase do desenho ficaria falsa');
+        self::assertStringNotContainsString('innerHTML', $render);
+    }
+
+    #[TestDox('DOC-111: o texto vem da tabela de peças do Word 97 (OLE2 → WordDocument → Clx), com guarda de laço, senha e Word 6/95 recusados')]
+    public function testDocLidoPelaTabelaDePecas(): void
+    {
+        $js = self::modulo();
+
+        $cfb = self::corpoDaFuncao($js, 'lerCfb');
+        self::assertStringContainsString('lerU32(bytes, 0) !== 0xe011cfd0 || lerU32(bytes, 4) !== 0xe11ab1a1', $cfb, 'assinatura D0 CF 11 E0 A1 B1 1A E1');
+        self::assertStringContainsString('if (s >= tabela.length || lista.length >= teto) { throw falha(invalido); }', $cfb, 'cadeia de setores com laço vira "corrompido", não trava a aba');
+        self::assertStringContainsString('if (k >= totalSetores) { throw falha(invalido); }', $cfb, 'a cadeia do DIFAT também tem guarda');
+        self::assertStringContainsString('if (p + n > origem.length) { throw falha(invalido); }', $cfb);
+        self::assertStringContainsString('if (e.tamanhoAlto !== 0 || e.tamanho > bytes.length) { throw falha(invalido); }', $cfb, 'stream maior que o arquivo não aloca');
+        self::assertStringContainsString('if (e.tamanho < corte) {', $cfb, 'stream pequeno sai do mini stream');
+
+        $doc = self::corpoDaFuncao($js, 'textoDoDoc');
+        self::assertStringContainsString("cfb.stream('WordDocument')", $doc);
+        self::assertStringContainsString('lerU16(wd, 0) !== 0xa5ec', $doc, 'wIdent do FIB');
+        self::assertStringContainsString("if (flags & 0x0100) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }", $doc);
+        self::assertStringContainsString('if (lerU16(wd, 2) < 0xc1) {', $doc, 'Word 6/95 tem outro FIB: recusa em vez de ler errado');
+        self::assertStringContainsString("cfb.stream(flags & 0x0200 ? '1Table' : '0Table')", $doc, 'fWhichTblStm escolhe o stream da tabela');
+        self::assertStringContainsString('const fcClx = lerU32(wd, rgFc + 33 * 8);', $doc);
+        self::assertStringContainsString('if (cpIni >= ccpText) { break; }', $doc, 'só o corpo: nota, cabeçalho e caixa de texto ficam de fora');
+        self::assertStringContainsString('if (total + qtd > limite) { qtd = limite - total; cortado = true; }', $doc);
+        self::assertStringContainsString('(fcBruto & 0x40000000) !== 0', $doc, 'fCompressed: CP1252 com 1 byte; senão UTF-16LE');
+        self::assertStringContainsString("new TextDecoder('windows-1252')", $doc);
+        self::assertStringContainsString("new TextDecoder('utf-16le')", $doc);
+        self::assertStringContainsString('if (!Number.isInteger(ini) || fimPeca > wd.length) { throw falha(invalido); }', $doc);
+        self::assertStringNotContainsString('DecompressionStream', $doc, 'o .doc não comprime o texto: nada a descompactar');
+
+        $controles = self::corpoDaFuncao($js, 'limparTextoDoc');
+        self::assertStringContainsString('if (campos.indexOf(true) !== -1) { continue; }', $controles, 'do campo fica só o resultado, nunca o código');
+        self::assertStringContainsString('if (c < 0x20) { continue; }', $controles);
+    }
+
+    #[TestDox('DOC-111b: o tamanho da FAT do .doc (cabeçalho + cadeia DIFAT) tem teto no número de setores do arquivo ANTES de alocar o Uint32Array')]
+    public function testFatDoDocComTetoAntesDeAlocar(): void
+    {
+        $cfb = self::corpoDaFuncao(self::modulo(), 'lerCfb');
+
+        self::assertStringContainsString('if (qtdFat > totalSetores) { throw falha(invalido); }', $cfb, 'FAT declarada maior que o arquivo é corrompido');
+        self::assertStringContainsString('if (s >= FIM_DE_CADEIA || difat.length >= qtdFat) { return; }', $cfb, 'o DIFAT não cresce além da FAT declarada');
+        self::assertStringContainsString('for (let k = 0; proximo < FIM_DE_CADEIA && difat.length < qtdFat; k++) {', $cfb, 'a cadeia DIFAT para quando já tem os setores da FAT');
+        self::assertStringContainsString('if (setoresFat.length > totalSetores) { throw falha(invalido); }', $cfb);
+
+        $alocacao = (int) strpos($cfb, 'const fat = new Uint32Array(setoresFat.length * porSetor);');
+        self::assertGreaterThan(0, $alocacao);
+        self::assertLessThan($alocacao, (int) strpos($cfb, 'if (qtdFat > totalSetores)'), 'o teto vem ANTES da alocação');
+        self::assertLessThan($alocacao, (int) strpos($cfb, 'if (setoresFat.length > totalSetores)'), 'o teto vem ANTES da alocação');
+    }
+
+    #[TestDox('DOC-112: UTIF e pako auto-hospedados em vendor/utif, com a versão e o sha256 de cada arquivo registrados no VERSION')]
+    public function testUtifAutoHospedadoComVersao(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("pako:    { src: BASE_VENDOR + 'utif/pako_inflate.min.js',       global: 'pako' },", $js);
+        self::assertStringContainsString("utif:    { src: BASE_VENDOR + 'utif/UTIF.js',                   global: 'UTIF' },", $js);
+
+        $versao = (string) file_get_contents(self::raiz() . '/public/js/vendor/utif/VERSION');
+        self::assertStringContainsString('utif 3.1.0', $versao);
+        self::assertStringContainsString('pako 1.0.11', $versao);
+        self::assertStringContainsString('sha256 (UTIF.js): ' . hash_file('sha256', self::raiz() . '/public/js/vendor/utif/UTIF.js'), $versao, 'o UTIF.js é o do pacote, sem alteração');
+        self::assertStringContainsString('sha256 (pako_inflate.min.js): ' . hash_file('sha256', self::raiz() . '/public/js/vendor/utif/pako_inflate.min.js'), $versao);
+        self::assertStringContainsString('MIT', (string) file_get_contents(self::raiz() . '/public/js/vendor/utif/LICENSE'));
+        self::assertStringContainsString('MIT', (string) file_get_contents(self::raiz() . '/public/js/vendor/utif/LICENSE-pako'));
+    }
+
+    #[TestDox('DOC-112: TIFF vem antes de image/* no tipoDe (o <img> do Chrome e do Firefox não abre TIFF); um PNG chamado .tif segue imagem')]
+    public function testTiffAntesDaImagem(): void
+    {
+        $js     = self::modulo();
+        $tipoDe = self::corpoDaFuncao($js, 'tipoDe');
+
+        self::assertStringContainsString("const MIMES_TIFF = ['image/tiff', 'image/tiff-fx', 'image/x-tiff'];", $js);
+        self::assertStringContainsString("const EXT_TIFF   = ['tif', 'tiff'];", $js);
+        self::assertStringContainsString("if (MIMES_TIFF.includes(m) || (EXT_TIFF.includes(ext) && !m.startsWith('image/'))) { return 'tiff'; }", $tipoDe);
+        self::assertLessThan((int) strpos($tipoDe, "return 'imagem';"), (int) strpos($tipoDe, "return 'tiff';"));
+    }
+
+    #[TestDox('DOC-112: cada página do TIFF vira um canvas (RGBA por putImageData), com tetos de páginas, pixels e bytes; nenhum HTML')]
+    public function testTiffEmCanvasComTetos(): void
+    {
+        $js     = self::modulo();
+        $render = self::corpoDaFuncao($js, 'renderTiff');
+        $pagina = self::corpoDaFuncao($js, 'paginaTiffEmCanvas');
+
+        self::assertStringContainsString('carregarUtif()', $render);
+        self::assertStringContainsString('baixar(o.url, LIMITE_BYTES_TIFF, false, o.sinal)', $render, 'o TIFF inteiro ou nada: o índice das páginas pode estar no fim');
+        self::assertMatchesRegularExpression('/conferirTiff\(arq\.bytes, invalido\);\s*let ifds;\s*try \{ ifds = UTIF\.decode\(buf\); \}/', $render, 'o índice é conferido ANTES do UTIF.decode');
+        self::assertMatchesRegularExpression('/conferirPaginaTiff\(d, w, h, arq\.bytes\.length, invalido\);.*?orcamentoInflateTiff = bytesPagina \+ 1024 \* 1024;.*?UTIF\.decodeImage\(buf, d\);/s', $render, 'estrutura e orçamento do inflate antes do decodeImage');
+        self::assertStringContainsString('i < total && i < LIMITE_PAGINAS_TIFF', $render);
+        self::assertStringContainsString('w > LIMITE_LADO_TIFF || h > LIMITE_LADO_TIFF || w * h > LIMITE_PIXELS_PAGINA_TIFF', $render);
+        self::assertStringContainsString('if (bytesPagina > LIMITE_BYTES_PAGINA_TIFF) { break; }', $render);
+        self::assertStringContainsString("'Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'", $render);
+        self::assertStringContainsString("lista.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px';", $render, 'as páginas uma embaixo da outra, com 14 px (bj-visualizar.js L66)');
+        self::assertStringContainsString('await new Promise(function (ok) { setTimeout(ok, 0); });', $render, 'cede a thread entre uma página e outra');
+        foreach (['innerHTML', 'srcdoc', 'montarSrcdoc', 'neutralizar'] as $proibido) {
+            self::assertStringNotContainsString($proibido, $render . $pagina);
+        }
+
+        self::assertStringContainsString("document.createElement('canvas')", $pagina);
+        self::assertStringContainsString('putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, w * h * 4), w, h), 0, 0)', $pagina);
+        self::assertStringContainsString('const escala = Math.min(1, LARGURA_MAX_TIFF / w);', $pagina, 'página grande é reduzida para a tela');
+        self::assertStringContainsString("c.style.cssText = 'display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)';", $pagina, 'página branca com a sombra do desenho');
+        self::assertStringContainsString("c.title = 'Página ' + numero;", $pagina);
+    }
+
+    #[TestDox('DOC-112b: teto de pixels EXIBIDOS somado entre as páginas do TIFF, conferido antes de decodificar a página; passando dele, o aviso "Aparecem as N primeiras"')]
+    public function testTiffComTetoSomadoDePixelsExibidos(): void
+    {
+        $js     = self::modulo();
+        $render = self::corpoDaFuncao($js, 'renderTiff');
+
+        self::assertStringContainsString('const LIMITE_PIXELS_EXIBIDOS_TIFF = 150 * 1000 * 1000;', $js);
+        self::assertMatchesRegularExpression(
+            '/const exibidos = pixelsExibidosTiff\(w, h\);\s*if \(pixelsExibidos \+ exibidos > LIMITE_PIXELS_EXIBIDOS_TIFF\) \{ break; \}.*?UTIF\.decodeImage\(buf, d\);.*?pixelsExibidos \+= exibidos;/s',
+            $render,
+            'o teto somado vem antes do decodeImage, e só a página desenhada entra na soma',
+        );
+        self::assertStringContainsString("'Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'", $render);
+
+        // A conta é a mesma redução do canvas da página.
+        $pixels = self::corpoDaFuncao($js, 'pixelsExibidosTiff');
+        self::assertStringContainsString('const escala = Math.min(1, LARGURA_MAX_TIFF / w);', $pixels);
+        self::assertStringContainsString('Math.max(1, Math.round(w * escala)) * Math.max(1, Math.round(h * escala))', $pixels);
+    }
+
+    #[TestDox('DOC-112: o índice do TIFF é conferido antes do UTIF (IFD em laço, campo maior que o arquivo, BigTIFF), e a página também (tiras e blocos)')]
+    public function testIndiceDoTiffConferido(): void
+    {
+        $js = self::modulo();
+
+        $indice = self::corpoDaFuncao($js, 'conferirTiff');
+        self::assertStringContainsString('if (vistos.has(off) || vistos.size >= LIMITE_IFDS_TIFF || profundidade > 8) { throw falha(invalido); }', $indice, 'IFD que aponta para si mesmo laçaria o UTIF.decode');
+        self::assertStringContainsString('if (valor + tamanho > bytes.length) { throw falha(invalido); }', $indice, 'campo que declara 4 bilhões de valores travaria a aba');
+        self::assertStringContainsString('if (u16(2) !== 42)', $indice);
+        self::assertStringContainsString('(tag === 330 || tag === 34665)', $indice, 'sub-IFDs e EXIF, que o UTIF também percorre');
+        self::assertStringContainsString('do { proximo = ifd(proximo, 0); } while (proximo !== 0);', $indice);
+
+        $pagina = self::corpoDaFuncao($js, 'conferirPaginaTiff');
+        self::assertStringContainsString('if (!bcnt || bcnt.length !== soff.length) { throw falha(invalido); }', $pagina, 'contagem trocada laça o decodificador de fax');
+        self::assertStringContainsString('soff[i] + bcnt[i] > tamanhoArquivo', $pagina);
+        self::assertStringContainsString('if (soff.length < Math.ceil(w / tw) * Math.ceil(h / th)) { throw falha(invalido); }', $pagina);
+        self::assertStringContainsString('if (!(rps >= 1) || soff.length > Math.ceil(h / rps)) { throw falha(invalido); }', $pagina);
+
+        self::assertStringContainsString('if (!(bits > 0) || bits > 64)', self::corpoDaFuncao($js, 'bytesDaPaginaTiff'));
+    }
+
+    #[TestDox('DOC-112: o inflate que o UTIF usa tem teto (tira Deflate não infla para GB) e o pako original volta ao global depois de carregar o UTIF')]
+    public function testInflateDoTiffComTeto(): void
+    {
+        $js = self::modulo();
+
+        $envelope = self::corpoDaFuncao($js, 'pakoComTeto');
+        self::assertStringContainsString('if (total > orcamentoInflateTiff) { throw falha(MSG_TIFF_GRANDE); }', $envelope);
+        self::assertStringContainsString('inf.push(dados, true);', $envelope);
+
+        $carregar = self::corpoDaFuncao($js, 'carregarUtif');
+        self::assertMatchesRegularExpression("/window\.pako = pakoComTeto\(pako\);\s*return carregarBiblioteca\('utif'\)\.finally\(function \(\) \{ window\.pako = pako; \}\);/", $carregar, 'o UTIF guarda o self.pako do momento em que carrega');
+        self::assertMatchesRegularExpression("/carregarBiblioteca\('pako'\)\.then\(/", $carregar, 'o pako carrega ANTES do UTIF');
+    }
+
+    #[TestDox('DOC-112: na impressão, o canvas (que o clone deixa em branco) vira <img> com o PNG da página, uma por folha')]
+    public function testImpressaoDoTiffTrocaCanvasPorImagem(): void
+    {
+        $copiar = self::corpoDaFuncao(self::modulo(), 'paraImpressao');
+
+        self::assertStringContainsString("const telas = conteudo.querySelectorAll('canvas');", $copiar);
+        self::assertStringContainsString("img.src = telas[i].toDataURL('image/png');", $copiar, 'data: — a CSP da impressão só deixa imagem data:');
+        self::assertStringContainsString("img.style.cssText = 'width:100%;display:block;margin:0 0 6mm;page-break-after:always';", $copiar, 'como o capturar do desenho (bj-visualizar.js L102)');
+        self::assertStringContainsString('cv.replaceWith(img);', $copiar);
+    }
+
     #[TestDox('falha com mensagem própria (senha, corrompido, grande demais) chega à tela')]
     public function testFalhaComMensagemChegaATela(): void
     {
@@ -343,6 +577,11 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         yield 'mammoth (versão)'  => ['public/js/vendor/mammoth/VERSION'];
         yield 'SheetJS (js)'      => ['public/js/vendor/xlsx/xlsx.full.min.js'];
         yield 'SheetJS (licença)' => ['public/js/vendor/xlsx/LICENSE'];
+        yield 'UTIF (js)'         => ['public/js/vendor/utif/UTIF.js'];
+        yield 'UTIF (licença)'    => ['public/js/vendor/utif/LICENSE'];
+        yield 'UTIF (versão)'     => ['public/js/vendor/utif/VERSION'];
+        yield 'pako (js)'         => ['public/js/vendor/utif/pako_inflate.min.js'];
+        yield 'pako (licença)'    => ['public/js/vendor/utif/LICENSE-pako'];
     }
 
     #[DataProvider('arquivosVendor')]

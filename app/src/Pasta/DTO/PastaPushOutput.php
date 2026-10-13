@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Pasta\DTO;
 
 use App\Djen\DTO\PublicacaoDjenListaItem;
+use App\Pasta\Entity\Pasta;
+use App\Processo\DTO\NotaTecnicaOutput;
+use App\Processo\Entity\NotaTecnica;
 
 /**
  * O que a aba Push Processual da pasta precisa mostrar, já resolvido — a tela não decide nada.
@@ -16,7 +19,11 @@ use App\Djen\DTO\PublicacaoDjenListaItem;
  */
 final readonly class PastaPushOutput
 {
-    /** @param PublicacaoDjenListaItem[] $itens */
+    /**
+     * @param PublicacaoDjenListaItem[] $itens
+     * @param string[]                  $numerosDigitos CNJ dos processos da pasta, só dígitos
+     * @param array<int, NotaTecnicaOutput[]> $notasPorPublicacao id da publicação => notas dela
+     */
     private function __construct(
         public array $itens,
         public bool $temProcesso,
@@ -24,14 +31,20 @@ final readonly class PastaPushOutput
         public int $naoLidas,
         public bool $limiteAtingido,
         public ?string $numeroUnico,
+        private array $numerosDigitos = [],
+        private array $notasPorPublicacao = [],
     ) {}
 
     /**
      * @param PublicacaoDjenListaItem[] $itens publicações já casadas com os processos da pasta
      * @param string[]                  $numeros números CNJ dos processos vinculados à pasta
      * @param int                       $limite teto aplicado na consulta
+     * @param NotaTecnica[]             $notas  notas penduradas nas publicações da lista, já
+     *                                          recortadas por escritório e processo da pasta
+     *                                          (NotaTecnicaRepository::listarPorPublicacoesDosProcessos),
+     *                                          mais recente primeiro
      */
-    public static function montar(array $itens, array $numeros, int $limite): self
+    public static function montar(array $itens, array $numeros, int $limite, array $notas = []): self
     {
         $numeros = array_values(array_filter(
             array_map(static fn (?string $n): string => trim((string) $n), $numeros),
@@ -49,7 +62,49 @@ final readonly class PastaPushOutput
             // O módulo filtra por UM texto de busca. Com dois processos não há número único que
             // represente a pasta, e mandar um deles seria oferecer um recorte errado com cara de certo.
             numeroUnico: count($numeros) === 1 ? $numeros[0] : null,
+            numerosDigitos: array_values(array_filter(array_map(self::soDigitos(...), $numeros), static fn (string $n): bool => $n !== '')),
+            notasPorPublicacao: self::agruparNotas($notas, $itens),
         );
+    }
+
+    /**
+     * FPN-020 (desenho 1.2.3, dc L.2534-2551, `m.temNotas`): as notas técnicas penduradas NESTA
+     * movimentação, que a aba mostra sob o cartão sem abrir o teor. Vazio = o cartão não tem
+     * bloco de notas na lista (e o teor traz o seu, com o compositor, como antes).
+     *
+     * @return NotaTecnicaOutput[]
+     */
+    public function notasDe(PublicacaoDjenListaItem $item): array
+    {
+        return $this->notasPorPublicacao[$item->id] ?? [];
+    }
+
+    /**
+     * Agrupa por publicação, na ordem em que vieram (mais recente primeiro). Nota de publicação que
+     * não está na lista fica de fora: só se pendura nota em cartão que existe.
+     *
+     * @param NotaTecnica[]             $notas
+     * @param PublicacaoDjenListaItem[] $itens
+     *
+     * @return array<int, NotaTecnicaOutput[]>
+     */
+    private static function agruparNotas(array $notas, array $itens): array
+    {
+        $naLista = [];
+        foreach ($itens as $item) {
+            $naLista[$item->id] = true;
+        }
+
+        $porPublicacao = [];
+        foreach ($notas as $nota) {
+            $publicacaoId = $nota->getPublicacaoDjen()?->getId();
+            if ($publicacaoId === null || !isset($naLista[$publicacaoId])) {
+                continue;
+            }
+            $porPublicacao[$publicacaoId][] = NotaTecnicaOutput::fromEntity($nota);
+        }
+
+        return $porPublicacao;
     }
 
     /**
@@ -70,5 +125,49 @@ final readonly class PastaPushOutput
     public function geraPrazo(PublicacaoDjenListaItem $item): bool
     {
         return self::tipoGeraPrazo($item->tipoComunicacao);
+    }
+
+    /**
+     * A movimentação recebe nota técnica? A nota é do PROCESSO da pasta a que a publicação
+     * pertence (`pasta_push_teor` → `notaProcessoId`); sem ele, o teor não traz o bloco de notas e
+     * o "Adicionar nota técnica" do menu (FPN-014c) não teria o que acionar. Mesma comparação do
+     * controller do teor: só dígitos dos dois lados. O teor ainda acha o processo pela FK da
+     * publicação; aqui só pelo número, que é por onde a lista inteira foi casada — na dúvida o
+     * item some, nunca promete o que o teor não entrega.
+     */
+    public function aceitaNotaTecnica(PublicacaoDjenListaItem $item): bool
+    {
+        $numero = self::soDigitos($item->numeroProcessoExibicao);
+
+        return $numero !== '' && in_array($numero, $this->numerosDigitos, true);
+    }
+
+    /**
+     * FPN-020b: o processo DESTA pasta a que a publicação pertence — é nele que nasce a nota
+     * criada no bloco pendurado sob o cartão. Mesmo critério do `aceitaNotaTecnica` e do
+     * `pasta_push_teor` (só dígitos dos dois lados). Não vale "o processo da primeira nota": a
+     * publicação pode ter notas antigas de OUTRO processo da pasta, e a nota nova iria para ele.
+     * `null` quando nenhum processo da pasta casa com o número (aí não há onde criar a nota).
+     */
+    public function processoIdDaPublicacao(PublicacaoDjenListaItem $item, Pasta $pasta): ?int
+    {
+        $numero = self::soDigitos($item->numeroProcessoExibicao);
+        if ($numero === '') {
+            return null;
+        }
+
+        foreach ($pasta->getPastaProcessos() as $vinculo) {
+            $processo = $vinculo->getProcesso();
+            if (self::soDigitos($processo->getNumeroProcesso()) === $numero) {
+                return $processo->getId();
+            }
+        }
+
+        return null;
+    }
+
+    private static function soDigitos(?string $numero): string
+    {
+        return preg_replace('/\D+/', '', (string) $numero) ?? '';
     }
 }

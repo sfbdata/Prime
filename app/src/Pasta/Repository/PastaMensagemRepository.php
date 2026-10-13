@@ -19,6 +19,23 @@ class PastaMensagemRepository extends ServiceEntityRepository
     }
 
     /**
+     * Uma mensagem pelo id, desta pasta E deste escritório — o guard IDOR de editar/excluir, que
+     * recebem o id da mensagem na URL. Filtro explícito: não depende de o TenantFilter estar ligado.
+     */
+    public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?PastaMensagem
+    {
+        return $this->createQueryBuilder('m')
+            ->andWhere('m.id = :id')
+            ->andWhere('m.pasta = :pasta')
+            ->andWhere('m.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * @return PastaMensagem[]
      */
     public function findByPasta(Pasta $pasta, Tenant $tenant, int $limit = 150): array

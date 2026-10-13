@@ -46,6 +46,8 @@ final class TarefaEquipeController extends AbstractController
             'cargo'       => (string) $request->query->get('cargo', ''),
             'data_de'     => (string) $request->query->get('data_de', ''),
             'data_ate'    => (string) $request->query->get('data_ate', ''),
+            // `card`: "ver metas" do card Metas ativas (critério do card, ver o UseCase).
+            'escopo'      => (string) $request->query->get('escopo', ''),
         ];
 
         return $this->render('tarefa/equipe.html.twig', [

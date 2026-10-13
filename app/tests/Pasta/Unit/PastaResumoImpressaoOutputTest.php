@@ -58,7 +58,7 @@ final class PastaResumoImpressaoOutputTest extends TestCase
     {
         return PastaResumoImpressaoOutput::montar(
             $pasta,
-            PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $this->hoje()),
+            PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $this->hoje(), veFinanceiro: $financeiro),
             [],
             $pagamentos,
             $financeiro,

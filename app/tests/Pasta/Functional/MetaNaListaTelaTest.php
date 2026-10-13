@@ -34,6 +34,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
+    use CriaUsuarioComPermissoesTrait;
 
     private function criarPastaDe(Tenant $tenant, User $criador): Pasta
     {
@@ -127,7 +128,7 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
     // ⋮ da meta
     // =========================================================================
 
-    #[TestDox('⋮ da meta aberta: "Abrir relatório", "Marcar como concluída" e "Editar nome"; da concluída: "Abrir relatório", "Reabrir meta" (POST tarefa_reabrir) e "Editar nome"')]
+    #[TestDox('⋮ da meta aberta: "Abrir relatório", "Marcar como concluída", "Editar nome", "Copiar link", "Abrir em Metas" e "Excluir" (criador, na janela); da concluída: "Abrir relatório", "Reabrir meta" (POST tarefa_reabrir), "Editar nome", "Copiar link", "Abrir em Metas" e "Excluir"')]
     public function testItensDoMenu(): void
     {
         $client          = static::createClient();
@@ -141,16 +142,16 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 
         $menuAberta = $this->linha($crawler, $aberta)->filter('article > .ps-meta-acoes > #psMetaMenu' . $aberta->getId() . '.ps-pop');
         self::assertSame(
-            ['Abrir relatório', 'Marcar como concluída', 'Editar nome'],
-            $menuAberta->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
+            ['Abrir relatório', 'Marcar como concluída', 'Editar nome', 'Copiar link', 'Abrir em Metas', 'Excluir'],
+            $menuAberta->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item, .ps-pop > a.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
         );
         self::assertSame((string) $aberta->getId(), $menuAberta->filter('.ps-pop > button[type="button"][data-ps-meta-renomear]')->attr('data-ps-meta-renomear'));
         self::assertCount(0, $menuAberta->filter('form.ps-meta-reabrir'));
 
         $menuConcluida = $this->linha($crawler, $concluida)->filter('article > .ps-meta-acoes > #psMetaMenu' . $concluida->getId() . '.ps-pop');
         self::assertSame(
-            ['Abrir relatório', 'Reabrir meta', 'Editar nome'],
-            $menuConcluida->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
+            ['Abrir relatório', 'Reabrir meta', 'Editar nome', 'Copiar link', 'Abrir em Metas', 'Excluir'],
+            $menuConcluida->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item, .ps-pop > a.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
         );
         $reabrir = $menuConcluida->filter('.ps-pop > form.ps-meta-reabrir');
         self::assertSame('post', strtolower((string) $reabrir->attr('method')));
@@ -296,5 +297,107 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
             'SELECT COUNT(*) FROM notificacao WHERE tarefa_id = :t AND usuario_id = :u AND tipo = :tipo',
             ['t' => $id, 'u' => $brunoId, 'tipo' => AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO],
         ));
+    }
+
+    #[TestDox('PAS-047: sino só para quem EDITA a pasta; com o módulo Tarefas mas só vendo a pasta, sem sino nem POST de alerta')]
+    public function testSinoSoParaQuemEdita(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+        $bruno           = $this->criarColega($tenant, 'Bruno Responsável');
+        $meta            = $this->criarMeta($pasta, $user, [$user, $bruno], Tarefa::STATUS_PENDENTE);
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view', 'resources.pasta.view']);
+        $editor = $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view', 'resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(1, $this->linha($crawler, $meta), 'o leitor vê a meta');
+        self::assertCount(0, $this->linha($crawler, $meta)->filter('.ps-meta-sino'), 'só-leitor: sem sino');
+        self::assertCount(0, $crawler->filter('form.ps-meta-alertar'));
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(1, $this->linha($crawler, $meta)->filter('.ps-meta-sino'), 'editor: com sino');
+        self::assertGreaterThan(0, $crawler->filter('#psMetaSino' . $meta->getId() . ' form.ps-meta-alertar')->count());
+    }
+
+    // =========================================================================
+    // "Abrir em Metas" no ⋮ (PMC-029)
+    // =========================================================================
+
+    #[TestDox('PMC-029: o ⋮ traz "Abrir em Metas" logo depois de "Copiar link", um link (GET) para a MESMA meta do rodapé do drawer')]
+    public function testAbrirEmMetasNoMenu(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+        $aberta          = $this->criarMeta($pasta, $user, [$user], Tarefa::STATUS_PENDENTE);
+        $concluida       = $this->criarMeta($pasta, $user, [$user], Tarefa::STATUS_CONCLUIDA);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        foreach ([$aberta, $concluida] as $meta) {
+            $menu = $this->linha($crawler, $meta)->filter('article > .ps-meta-acoes > #psMetaMenu' . $meta->getId() . '.ps-pop');
+            $item = $menu->filter('.ps-pop > a.ps-pop-item[role="menuitem"]');
+            self::assertCount(1, $item, 'um "Abrir em Metas" por menu, filho direto do painel');
+            self::assertSame('Abrir em Metas', trim($item->text()));
+            self::assertCount(1, $item->filter('i.bi-box-arrow-up-right'));
+            self::assertSame('/tarefas/' . $meta->getId(), $item->attr('href'));
+
+            // Mesmo destino do rodapé do drawer (o destino final é a D-META-LINK).
+            $doDrawer = $crawler->filter('#psMetaRelatorio .ps-mrel-meta[data-meta-rel="' . $meta->getId() . '"] a.ps-mrel-modulo');
+            self::assertSame($doDrawer->attr('href'), $item->attr('href'));
+
+            // Ordem do desenho (dc L.3559-3560): logo depois de "Copiar link".
+            $filhos = $menu->filter('.ps-pop > *')->each(static fn (Crawler $n) => trim($n->text()));
+            $i = array_search('Copiar link', $filhos, true);
+            self::assertNotFalse($i);
+            self::assertSame('Abrir em Metas', $filhos[$i + 1]);
+        }
+
+        // O link leva à meta de verdade.
+        $client->request('GET', '/tarefas/' . $aberta->getId());
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('PMC-029: pasta excluída (lápide) mantém "Abrir em Metas" — é leitura')]
+    public function testAbrirEmMetasNaLapide(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+        $meta            = $this->criarMeta($pasta, $user, [$user], Tarefa::STATUS_PENDENTE);
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        self::assertCount(1, $this->linha($crawler, $meta)->filter('.ps-meta-acoes .ps-pop > a.ps-pop-item[href="/tarefas/' . $meta->getId() . '"]'));
+    }
+
+    #[TestDox('PMC-029: sem o módulo Tarefas não há ⋮ nem "Abrir em Metas"; na pasta de outro escritório não aparece link para meta alheia')]
+    public function testAbrirEmMetasSemModuloEOutroEscritorio(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+        $meta            = $this->criarMeta($pasta, $user, [$user], Tarefa::STATUS_PENDENTE);
+
+        $soPasta = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+        $this->logarComTenant($client, $soPasta, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(1, $crawler->filter('article.ps-meta[data-meta-id="' . $meta->getId() . '"]'));
+        self::assertCount(0, $crawler->filter('.ps-meta-acoes a.ps-pop-item'), 'sem módulo, sem ⋮');
+
+        [$userB, $tenantB] = $this->criarAdmin();
+        $pastaB = $this->criarPastaDe($tenantB, $userB);
+        $metaB  = $this->criarMeta($pastaB, $userB, [$userB], Tarefa::STATUS_PENDENTE);
+        $this->logarComTenant($client, $userB, $tenantB);
+        $crawler = $this->abrir($client, $pastaB);
+        self::assertSame(['/tarefas/' . $metaB->getId()], $crawler->filter('.ps-meta-acoes .ps-pop > a.ps-pop-item')->each(static fn (Crawler $a) => $a->attr('href')));
+        self::assertCount(0, $crawler->filter('a[href="/tarefas/' . $meta->getId() . '"]'));
     }
 }

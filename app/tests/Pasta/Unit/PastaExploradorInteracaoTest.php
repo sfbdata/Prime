@@ -44,6 +44,25 @@ final class PastaExploradorInteracaoTest extends TestCase
         return substr($js, $ini, $fim - $ini);
     }
 
+    #[TestDox('DOC-121: Espaço só visualiza ARQUIVO (dc L4911) — numa pasta não faz nada; entrar na pasta é o Enter')]
+    public function testEspacoNaoEntraNaPasta(): void
+    {
+        $js  = $this->js();
+        $ini = strpos($js, "        if (k === ' ') {");
+        self::assertNotFalse($ini);
+        $espaco = substr($js, $ini, (int) strpos($js, "\n        }", $ini) - $ini);
+
+        self::assertStringContainsString("if (alvo && alvo.tipo === 'arquivo') { e.preventDefault(); abrirPreviewDe(alvo.dado); }", $espaco);
+        self::assertStringNotContainsString('entrar(', $espaco, 'o Espaço não pode entrar na pasta');
+    }
+
+    #[TestDox('DOC-105: vazio dentro de subpasta com o texto do desenho (dc L4872) — "use Colar (Ctrl+V)"; o vazio da raiz segue como estava')]
+    public function testVazioDaSubpasta(): void
+    {
+        $js = $this->js();
+        self::assertStringContainsString("(caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.')", $js);
+    }
+
     #[TestDox('teclado: nenhum atalho dispara com foco em campo de texto, select, contenteditable, dentro do checklist, nem com o menu aberto; Enter/Espaço/Del/F2/setas/Ctrl+A só com o foco na lista ou numa linha')]
     public function testGuardasDoTeclado(): void
     {
@@ -98,13 +117,13 @@ final class PastaExploradorInteracaoTest extends TestCase
         $corpo = $this->funcao('opcoesDoMenu');
 
         // Fundo (dc L4826-4834).
-        $fundo = ["op('Nova pasta', 'bi-folder-plus', novaPastaInline)", "op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' })", "['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']", "op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes'"];
+        $fundo = ["op('Nova pasta', 'bi-folder-plus', novaPastaInline, { escrita: true })", "op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", "op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' })", "['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']", "op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes'"];
         // Vários itens (dc L4797-4808): "Baixar como .zip (N)" abre; Copiar logo depois de Recortar (L8).
         // "Mover para…" (modal de destino) é função do sistema (§16.7) e mora aqui, não na barra.
-        $multi = ["op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })", "op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' })", 'opCopiar(sel),', "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); })", "op('Copiar caminhos'", 'opFavorito(sel),', "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
+        $multi = ["op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })", "op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true })", 'opCopiar(sel),', "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true })", "op('Copiar caminhos'", 'opFavorito(sel),', "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
         // Um item (dc L4809-4826), sem Chat; o favorito (L6, dc L4820) logo depois de Copiar caminho.
         // Pasta: "Baixar como .zip" no lugar do Baixar; arquivo: Copiar depois de Recortar (L8).
-        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); })", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' })", '.concat([opCopiar([alvo])])', "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); })", "op('Copiar caminho', 'bi-signpost'", 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' })", "op('Editar…', 'bi-pencil'", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true })"];
+        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); })", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true })", '.concat([opCopiar([alvo])])', "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true })", "op('Copiar caminho', 'bi-signpost'", 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true })", "op('Editar…', 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true })"];
         $pos = -1;
         foreach (array_merge($fundo, $multi, $item) as $trecho) {
             $p = strpos($corpo, $trecho, $pos + 1);
@@ -139,7 +158,8 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("function linkAbsoluto(a) { return new URL(a.viewUrl, window.location.href).href; }", $js);
         self::assertStringContainsString("navigator.clipboard.writeText(t).then(function () { return true; }, function () { return copiarPorExec(t); });", $js);
         self::assertStringContainsString("ok = document.execCommand('copy');", $js);
-        self::assertStringContainsString("toast(arqs.length === 1 ? 'Link copiado' : 'Links copiados')", $js);
+        // DOC-120: a contagem soma arquivos e subpastas.
+        self::assertStringContainsString("if (ok) toast(links.length === 1 ? 'Link copiado' : 'Links copiados');", $js);
         self::assertStringNotContainsString('/pastas/', $js, 'a URL fictícia do protótipo não vem para o sistema');
         // "Copiar caminho" (DOC-38): "BlueJus › Pasta <nup> › Documentos › … › nome".
         self::assertStringContainsString("return 'BlueJus › Pasta ' + cfg.pastaRotulo + ' › ' + caminhoLegivel(localDe(it)) + ' › ' + it.nome;", $js);
@@ -206,11 +226,11 @@ final class PastaExploradorInteracaoTest extends TestCase
     {
         $js = $this->js();
 
-        self::assertStringContainsString('if (!confirm(avisoExclusaoDoLote(itens))) return;', $js);
+        self::assertStringContainsString('if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;', $js);
         self::assertStringContainsString("return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;", $js);
-        self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira e podem ser restaurados.';", $js);
+        self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';", $js);
         self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');
-        self::assertStringContainsString("const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';", $js);
+        self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');", $js);
         self::assertStringContainsString('toast(texto, false, desfazer);', $this->funcao('excluirItens'));
         // Toast do desenho: 4,2 s (dc L4772).
         self::assertStringContainsString('const TOAST_MS       = 4200;', $js);

@@ -198,6 +198,35 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->idsResponsaveis((int) $data['id']));
     }
 
+    #[TestDox('PMC-044: criar pela pasta devolve o destino NA pasta — aba Metas com ?meta=<id> — e a linha da meta nova está lá')]
+    public function testDestinoFicaNaPastaComAMetaNova(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor_' . uniqid() . '@test.com');
+        $pasta  = $this->criarPasta($tenant, $autor);
+        $pastaId = (int) $pasta->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
+            '_token'    => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+            'titulo'    => 'Meta que fica na pasta',
+            'descricao' => 'Depois de criar, a pasta continua aberta',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($data['sucesso'] ?? false);
+        $id = (int) $data['id'];
+        self::assertSame("/pasta/{$pastaId}?meta={$id}#tarefas", $data['destino'] ?? null);
+
+        $crawler = $client->request('GET', "/pasta/{$pastaId}?meta={$id}");
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#tarefas [data-ps-metas] .ps-metas-lista > .ps-meta[data-meta-id="' . $id . '"]'), 'a linha que o pasta-metas.js realça');
+    }
+
     #[TestDox('Título vazio retorna 422 e não cria meta')]
     public function testTituloVazioRetorna422(): void
     {

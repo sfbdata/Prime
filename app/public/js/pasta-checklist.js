@@ -32,6 +32,25 @@
     var lista = document.getElementById('checklistLista');
     if (!raiz || !lista) { return; }
 
+    // DOC-118: a flag `podeEditar` do explorador (permissão de EDITAR a pasta e pasta fora da
+    // lápide, decidida no servidor) chega em `data-pode-editar` do #pexExplorador. Sem ela, os
+    // controles de escrita (✎, +, modelos, alça, marcar) saem antes de qualquer listener: o
+    // checklist só se olha.
+    var explorador = document.getElementById('pexExplorador');
+    if (!explorador || explorador.getAttribute('data-pode-editar') !== '1') {
+        ['btnChecklistEditar', 'btnChecklistAdicionar', 'checklistFormAdicionar', 'btnChecklistModelos', 'checklistModelosPainel'].forEach(function (id) {
+            var n = document.getElementById(id);
+            if (n) { n.remove(); }
+        });
+        lista.querySelectorAll('.checklist-drag-handle').forEach(function (n) { n.remove(); });
+        lista.querySelectorAll('.js-checklist-toggle').forEach(function (b) {
+            b.disabled = true;
+            b.setAttribute('aria-disabled', 'true');
+            b.removeAttribute('title');
+        });
+        return;
+    }
+
     var PASTA_ID    = raiz.getAttribute('data-pasta-id');
     var CSRF_PASTA  = raiz.getAttribute('data-csrf-pasta');
     var URL_ADD     = '/pasta/' + PASTA_ID + '/checklist';
@@ -737,6 +756,13 @@
     var motivo = '';
 
     if (!url || !botao) { return; }
+
+    // DOC-118: só leitura — o interruptor, a confirmação e o Reativar saem; o estado só se mostra.
+    var explorador = document.getElementById('pexExplorador');
+    if (!explorador || explorador.getAttribute('data-pode-editar') !== '1') {
+        [botao, painel, reativ].forEach(function (n) { if (n) { n.remove(); } });
+        return;
+    }
 
     function recarregarNaAbaDocumentos() {
         if (window.location.hash !== '#documentos') {

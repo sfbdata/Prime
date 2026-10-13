@@ -176,9 +176,17 @@
             </div>
             {# Extras: um bloco cada, depois dos de pastas (desenho: "bloco no card do celular"). #}
             {% for k in extras %}
+            {% set sentidoX = extrasTendencia[k] ?? null %}
+            {% set atualX = linha.extras[k] ?? null %}
+            {% set antX = linha.extrasAnteriores[k] ?? null %}
             <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
                 <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
-                <span class="db-cel-valor">{{ extra.valor(k, linha.extras[k] ?? null, linha.userId, quem, periodoLink) }}</span>
+                <span class="db-cel-valor">
+                    {{- extra.valor(k, atualX, linha.userId, quem, periodoLink) -}}
+                    {%- if sentidoX is not null and atualX is not null and antX is not null -%}
+                        {{- tend.tendencia(atualX, antX, 'seta', sentidoX) -}}
+                    {%- endif -%}
+                </span>
             </div>
             {% endfor %}
         </div>
@@ -229,12 +237,15 @@
                 <span class="db-cel-rotulo">Pastas criadas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span>
             </div>
+            {% set tAntX = dashboard.totaisExtrasAnteriores %}
             {% for k in extras %}
             {% set tx = dashboard.totaisExtras[k] ?? null %}
             {% set tipoX = extrasCatalogo[k].tipo %}
+            {% set sentidoX = extrasTendencia[k] ?? null %}
+            {% set antTx = tAntX is null ? null : (tAntX[k] ?? null) %}
             <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
                 <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span></span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% endif %}</span>
             </div>
             {% endfor %}
         </div>

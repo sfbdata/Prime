@@ -20,8 +20,9 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * resumo Órgão julgador · Valor da causa · Distribuição · Instância, "Ver todas as
  * informações" com os campos reais do cadastro e o ⋮ só com função real.
  *
- * Regra desta entrega: campo vazio NÃO aparece (nem "Não informado") nos blocos novos;
- * a faixa de cima (Classe/Tribunal/Situação) continua como estava.
+ * Regra: no resumo, Órgão julgador · Valor da causa · Distribuição ficam SEMPRE e o vazio diz
+ * "Não informado" (PMC-007, o desenho manda); a Instância e o painel "todas as informações"
+ * só mostram o que o cadastro tem. A faixa de cima (Classe/Tribunal/Situação) continua como estava.
  *
  * Os seletores usam filho direto (`>`) a partir do `article.ps-processo`, para provar
  * que o bloco está NO cartão, e não em algum lugar da página.
@@ -98,10 +99,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             ['1ª VARA CÍVEL DE BRASÍLIA', 'R$ 15.234,50', '14/03/2025', 'G1'],
             $this->textos($resumo->filter('.ps-processo-dado > .ps-processo-valor')),
         );
+        self::assertCount(0, $resumo->filter('.ps-dado--vazio'), 'com dado, nada de vazio');
     }
 
-    #[TestDox('Resumo: sem órgão, distribuição, instância nem valor da causa, a faixa nem é renderizada — nada de "Não informado"')]
-    public function testResumoSomeQuandoNulo(): void
+    #[TestDox('PMC-007: sem órgão, distribuição nem valor da causa, o resumo mostra os três com "Não informado" em itálico; a Instância vazia some')]
+    public function testResumoSemDadoDizNaoInformado(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
@@ -111,8 +113,18 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $cartao = $this->cartao($this->abrir($client, $pasta));
 
-        self::assertCount(0, $cartao->filter('.ps-processo-resumo'));
-        self::assertCount(0, $cartao->filter('[data-proc-campo="orgao"], [data-proc-campo="valor"], [data-proc-campo="distribuicao"], [data-proc-campo="instancia"]'));
+        $dados = $cartao->filter('article.ps-processo > .ps-processo-resumo > .ps-processo-dado');
+        self::assertSame(
+            ['orgao', 'valor', 'distribuicao'],
+            $dados->each(static fn (Crawler $n): string => (string) $n->attr('data-proc-campo')),
+            'os três do desenho, na ordem, e sem a Instância',
+        );
+        foreach (['orgao', 'valor', 'distribuicao'] as $campo) {
+            $valor = $cartao->filter('article.ps-processo > .ps-processo-resumo > [data-proc-campo="' . $campo . '"] > .ps-processo-valor.ps-dado--vazio');
+            self::assertCount(1, $valor, "{$campo} vazio leva .ps-dado--vazio");
+            self::assertSame('Não informado', trim($valor->text()));
+        }
+        self::assertCount(0, $cartao->filter('[data-proc-campo="instancia"]'));
         self::assertStringNotContainsString('Não informado', $cartao->filter('.ps-processo-detalhes')->text(''));
         // A faixa de cima não muda: Classe/Tribunal/Situação seguem com "Não informado(a)".
         self::assertCount(3, $cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado'));
@@ -277,9 +289,10 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Processo ' . self::NUMERO_MASCARA, trim($menu->filter('.ps-processo-menu > .ps-processo-menu-titulo')->text()));
 
         // Ordem do procMenu do desenho (dc L.2914); o único processo é o principal, então não
-        // há "Tornar processo principal". Desvincular é o último, como no desenho.
+        // há "Tornar processo principal". Desvincular é o último, como no desenho. "Editar dados
+        // do processo" (PMC-004) aparece porque o admin tem EDIT no processo.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Desvincular da pasta'],
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Imprimir resumo', 'Desvincular da pasta'],
             $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
         );
         self::assertSame(
@@ -304,8 +317,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // Copiar número: o número cru (o mesmo do `data-copy` ao lado do número).
         self::assertSame(self::NUMERO, $menu->filter('.js-proc-copiar[data-copiar]')->attr('data-copiar'));
 
-        // Compartilhar: Web Share do navegador; nasce escondido e o JS só o mostra se existir.
-        self::assertNotNull($menu->filter('.js-proc-compartilhar')->attr('hidden'));
+        // Compartilhar (EDT-006/PMC-002, dc L.2928): o item NÃO some sem Web Share — sem ele, copia
+        // o resumo e avisa com o texto do desenho.
+        $compartilhar = $menu->filter('.js-proc-compartilhar');
+        self::assertNull($compartilhar->attr('hidden'), 'Compartilhar nasce visível');
+        self::assertSame('Resumo copiado para compartilhar', $compartilhar->attr('data-aviso'));
 
         // Nada de link morto.
         self::assertCount(0, $menu->filter('a[href="#"], [disabled]'));
@@ -388,6 +404,16 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             $menu->filter('.js-proc-compartilhar')->attr('data-resumo'),
             'Compartilhar envia o mesmo resumo',
         );
+
+        // EDT-005/PMC-003 (dc L.2930): "Imprimir resumo" logo depois de Compartilhar, com o MESMO
+        // resumo (o pasta-processo.js reaproveita `linhasDoResumo`) e o título "Processo N".
+        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + button.js-proc-imprimir[role="menuitem"]');
+        self::assertCount(1, $imprimir);
+        self::assertSame('Imprimir resumo', trim($imprimir->text()));
+        self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
+        self::assertNull($imprimir->attr('hidden'));
+        self::assertSame($menu->filter('.js-proc-copiar[data-resumo]')->attr('data-resumo'), $imprimir->attr('data-resumo'));
+        self::assertSame('Processo ' . self::NUMERO_MASCARA, $imprimir->attr('data-titulo'));
     }
 
     #[TestDox('⋮ Copiar resumo: processo sem dados não ganha "Não informado" — só número e pasta')]

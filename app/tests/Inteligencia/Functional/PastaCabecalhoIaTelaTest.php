@@ -125,11 +125,46 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         self::assertSame(1, $gestor->filter('.ia-ag-lista[data-ia-lista="gestor"] > [data-ia-carregando]')->count());
         self::assertStringNotContainsString('financeiro', $drawer->filter('.ia-agente[data-ia-agente="processual"] .ia-agente-le')->text());
 
-        // Chips do contexto desta tela.
+        // Chips do contexto desta tela (IA-005): pasta sem cliente nem responsável.
         $chips = $drawer->filter('.ia-drawer-cab > .ia-drawer-chips > .ia-chip');
         self::assertSame(4, $chips->count());
         self::assertStringContainsString('Pasta ' . $pasta->getNup(), $chips->eq(0)->text());
-        self::assertStringContainsString('1 processo', $chips->eq(1)->text());
+        self::assertSame('Sem cliente', trim($chips->eq(1)->text()));
+        self::assertSame('0701134-57.2025.8.07.0007', trim($chips->eq(2)->text()));
+        self::assertSame('Sem responsável', trim($chips->eq(3)->text()));
+    }
+
+    #[TestDox('IA-005: chips do desenho na ordem: Pasta nº · cliente principal · nº do processo principal · responsável')]
+    public function testChipsDoContexto(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->criarClientePF($tenant, $pasta, 'Maria <i>Souza</i>');
+        $responsavel = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view'], 'resp');
+        $responsavel->setFullName('Dra. Ana Lima');
+        $pasta->setResponsavel($responsavel);
+        $this->em()->flush();
+        $this->ligarIaNoTenant($tenant, $user);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrirPasta($client, (int) $pasta->getId());
+
+        $chips = $crawler->filter(self::DRAWER . ' > .ia-drawer-cab > .ia-drawer-chips > .ia-chip');
+        self::assertSame(
+            ['pasta', 'cliente', 'processo', 'responsavel'],
+            $chips->each(static fn (Crawler $c): ?string => $c->attr('data-ia-chip')),
+            'os quatro chips do desenho, nesta ordem',
+        );
+        self::assertSame('Pasta ' . $pasta->getNup(), trim($chips->eq(0)->text()));
+        self::assertSame(mb_strtoupper('Maria <i>Souza</i>'), mb_strtoupper(trim($chips->eq(1)->text())), 'o nome do cliente sai como texto');
+        self::assertSame(0, $chips->eq(1)->filter('i:not(.bi)')->count(), 'nenhuma tag do nome vira HTML');
+        self::assertSame('0701134-57.2025.8.07.0007', trim($chips->eq(2)->text()));
+        self::assertSame('Dra. Ana Lima', trim($chips->eq(3)->text()));
+        self::assertSame(1, $chips->eq(0)->filter('i.bi-folder2-open')->count());
+        self::assertSame(1, $chips->eq(1)->filter('i.bi-person')->count());
+        self::assertSame(1, $chips->eq(2)->filter('i.bi-diagram-3')->count());
+        self::assertSame(1, $chips->eq(3)->filter('i.bi-person-badge')->count());
     }
 
     #[TestDox('Escritório com a IA desligada: botão e agentes com "desligada neste escritório"')]
@@ -145,6 +180,8 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         self::assertSame('desligada_no_escritorio', $crawler->filter(self::BOTAO)->attr('data-ia-motivo'));
         self::assertStringContainsString('desligada neste escritório', (string) $crawler->filter(self::BOTAO)->attr('title'));
         self::assertStringContainsString('desligada neste escritório', $crawler->filter(self::DRAWER . ' .ia-agente[data-ia-agente="cliente"] .ia-cta')->text());
+        self::assertStringContainsString('desligada neste escritório. Peça ao administrador', (string) $crawler->filter(self::BOTAO)->attr('title'));
+        self::assertStringNotContainsString('—', (string) $crawler->filter(self::BOTAO)->attr('title'));
     }
 
     #[TestDox('Sem modules.inteligencia.view: nem botão, nem drawer, nem script no cabeçalho')]

@@ -152,6 +152,7 @@
     --er-pop-sombra:   0 1px 2px rgba(16, 42, 58, .08), 0 16px 36px -12px rgba(10, 50, 80, .38);
     --er-item-tx:      #243845;
     --er-item-hover:   #eef5fa;
+    --er-citacao-tx:   #455c6b;
     --er-rotulo:       #7b93a2;
     --er-amostra-bd:   rgba(0, 0, 0, .12);
     --er-busca-bg:     #f6f9fb;
@@ -201,6 +202,7 @@
     --er-pop-sombra:   0 0 0 1px var(--bs-border-color), 0 8px 24px rgba(0, 0, 0, .5);
     --er-item-tx:      var(--bs-body-color);
     --er-item-hover:   rgba(255, 255, 255, .06);
+    --er-citacao-tx:   var(--bs-secondary-color);
     --er-rotulo:       var(--bs-secondary-color);
     --er-amostra-bd:   rgba(255, 255, 255, .16);
     --er-busca-bg:     var(--bs-secondary-bg);
@@ -351,6 +353,28 @@
     position: relative;
 }
 
+/*
+ * EDT-023 — alvo de toque: em tela sem hover, os botões da barra crescem para 34×32, como o
+ * `@media (hover:none){.bjed-b{…}}` do desenho (bj-editor.js l.137). Cor, realce e alinhamento são
+ * `.bjed-b` no desenho e crescem junto; o estilo do parágrafo (`.bjed-sel`) e a mini barra do
+ * botão direito (`.bjed-mt .bjed-b`, fora da `.ql-toolbar`) ficam como estão.
+ */
+@media (hover: none) {
+    .editor-rico .ql-snow.ql-toolbar button {
+        width: 34px;
+        height: 32px;
+    }
+
+    .editor-rico .ql-snow .ql-color-picker,
+    .editor-rico .ql-snow .ql-icon-picker {
+        width: 34px;
+        height: 32px;
+    }
+
+    .editor-rico .ql-snow .ql-color-picker .ql-picker-label,
+    .editor-rico .ql-snow .ql-icon-picker .ql-picker-label { width: 34px; }
+}
+
 /* Barrinha sob o ícone: mostra a cor do trecho selecionado (ou a do desenho, sem seleção). */
 .editor-rico-barra-cor {
     position: absolute;
@@ -394,6 +418,8 @@
 .editor-rico .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="2"]::before { content: "Título 1"; }
 .editor-rico .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="3"]::before,
 .editor-rico .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="3"]::before { content: "Título 2"; }
+.editor-rico .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="citacao"]::before,
+.editor-rico .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="citacao"]::before { content: "Citação"; }
 
 /* ── Menus dos seletores ─────────────────────────────────────────────────────────────────── */
 
@@ -429,6 +455,8 @@
 .editor-rico .ql-snow .ql-picker.ql-header .ql-picker-item::before { font-size: 13.5px; }
 .editor-rico .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="2"]::before { font-size: 17px; font-weight: 700; }
 .editor-rico .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="3"]::before { font-size: 15px; font-weight: 700; color: var(--er-ativo-tx); }
+/* Prévia da Citação (`popEstilo`: 13.5px, itálico, #455c6b). */
+.editor-rico .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="citacao"]::before { font-style: italic; color: var(--er-citacao-tx); }
 
 /* Alinhamento: lista com ícone + nome, como `popAlinhar`. */
 .editor-rico .ql-snow .ql-icon-picker .ql-picker-options { width: auto; min-width: 170px; }
@@ -660,6 +688,202 @@
 
 [data-bs-theme="dark"] .editor-rico-chip { box-shadow: 0 0 0 1px var(--bs-border-color), 0 10px 24px -10px rgba(0, 0, 0, .7); }
 
+/* ── Menu do botão direito (`.bjed-cm`, `.bjed-mt`, `.bjed-cmsep`) ─────────────────────────
+ * Fixo na tela, no ponto do clique (o JS limita às bordas). Mora dentro da casca para herdar
+ * os tokens `--er-*` dos dois temas. */
+.editor-rico {
+    --er-menu-sombra:  0 1px 2px rgba(16, 42, 58, .08), 0 18px 40px -12px rgba(10, 50, 80, .42);
+    --er-menu-icone:   #5f7684;
+    --er-menu-off:     #b3c0c9;
+    --er-menu-off-ic:  #c8d3da;
+    --er-menu-linha:   #eef2f5;
+    --er-atalho:       #8496a3;
+}
+
+[data-bs-theme="dark"] .editor-rico {
+    --er-menu-sombra:  0 0 0 1px var(--bs-border-color), 0 18px 40px -12px rgba(0, 0, 0, .7);
+    --er-menu-icone:   var(--bs-secondary-color);
+    --er-menu-off:     rgba(255, 255, 255, .3);
+    --er-menu-off-ic:  rgba(255, 255, 255, .22);
+    --er-menu-linha:   var(--bs-border-color);
+    --er-atalho:       var(--bs-secondary-color);
+}
+
+.editor-rico-menu {
+    position: fixed;
+    z-index: 400;
+    min-width: 250px;
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+    padding: 5px;
+    border-radius: 4px;
+    background: var(--er-pop-bg);
+    box-shadow: var(--er-menu-sombra);
+    font-family: inherit;
+    text-align: left;
+    animation: editor-rico-entrar .12s both;
+}
+
+/* Mini barra de formatação e a fileira do Parágrafo. */
+.editor-rico-menu-barra {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px 3px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--er-menu-linha);
+}
+.editor-rico-menu-barra-paragrafo { border-bottom: 0; margin-bottom: 0; }
+
+.editor-rico-menu-botao {
+    position: relative;
+    flex-shrink: 0;
+    width: 28px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--er-icone);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .12s, color .12s, box-shadow .12s;
+}
+.editor-rico-menu-botao:hover {
+    background: var(--er-hover-bg);
+    color: var(--er-acento);
+    box-shadow: var(--er-hover-sombra);
+}
+.editor-rico-menu-botao.editor-rico-ativo { background: var(--er-ativo-bg); color: var(--er-ativo-tx); box-shadow: none; }
+
+/* `.bjed-bar`: a última cor usada, sob o ícone. */
+.editor-rico-menu-cor {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 4px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+/* `.bjed-cm .bjed-it` */
+.editor-rico-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--er-item-tx);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.editor-rico-menu-item:hover { background: var(--er-item-hover); }
+.editor-rico-menu-item i { width: 16px; font-size: 14px; text-align: center; color: var(--er-menu-icone); }
+.editor-rico-menu-item:disabled { color: var(--er-menu-off); cursor: default; background: transparent; }
+.editor-rico-menu-item:disabled i { color: var(--er-menu-off-ic); }
+
+/* `.bjed-k` */
+.editor-rico-menu-atalho {
+    margin-left: auto;
+    padding-left: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    color: var(--er-atalho);
+}
+
+/* `.bjed-cmsep` */
+.editor-rico-menu-separador { height: 1px; margin: 4px 8px; background: var(--er-menu-linha); }
+
+/* ── Sugestão de palavras ao digitar (`.bjed-sug`) ─────────────────────────────────────────── */
+
+.editor-rico {
+    --er-sugestao-sombra: 0 1px 2px rgba(16, 42, 58, .08), 0 14px 30px -12px rgba(10, 50, 80, .4);
+}
+[data-bs-theme="dark"] .editor-rico { --er-sugestao-sombra: var(--er-pop-sombra); }
+
+.editor-rico-sugestoes {
+    position: fixed;
+    z-index: 400;
+    min-width: 170px;
+    padding: 4px;
+    border-radius: 4px;
+    background: var(--er-pop-bg);
+    box-shadow: var(--er-sugestao-sombra);
+    font-family: inherit;
+    text-align: left;
+    animation: editor-rico-entrar .12s both;
+}
+
+/* `.bjed-sug .bjed-it` */
+.editor-rico-sugestao {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 6px 9px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--er-item-tx);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.editor-rico-sugestao:hover,
+.editor-rico-sugestao.editor-rico-ativo { background: var(--er-item-hover); }
+
+/* `.bjed-sug mark`: a parte digitada, em azul e negrito (sem o fundo do <mark> do Bootstrap). */
+.editor-rico-sugestao mark {
+    padding: 0;
+    background: transparent;
+    color: var(--er-acento);
+    font-weight: 700;
+}
+
+/* ── Opções de colagem (`.bjed-paste`): escura nos dois temas, como o chip ────────────────── */
+
+.editor-rico-colar {
+    position: fixed;
+    z-index: 9000;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 4px;
+    background: #12242f;
+    box-shadow: 0 8px 20px -6px rgba(0, 0, 0, .4);
+    animation: editor-rico-entrar .14s both;
+}
+.editor-rico-colar-rotulo {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    color: #9fb7c6;
+    font: 600 11px Arial, Helvetica, sans-serif;
+}
+.editor-rico-colar-icone { margin-right: 4px; }
+.editor-rico-colar button {
+    height: 24px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    font: 600 11px Arial, Helvetica, sans-serif;
+    cursor: pointer;
+}
+.editor-rico-colar button:hover { background: rgba(255, 255, 255, .14); }
+
+[data-bs-theme="dark"] .editor-rico-colar { box-shadow: 0 0 0 1px var(--bs-border-color), 0 8px 20px -6px rgba(0, 0, 0, .7); }
+
 /* ── Localizar e substituir (`.bjed-find`) ───────────────────────────────────────────────── */
 
 .editor-rico-busca {
@@ -833,3 +1057,22 @@
 [data-bs-theme="dark"] .ql-editor .ql-color-purple { color: #b880ff; }
 [data-bs-theme="dark"] .ql-editor .ql-color-green  { color: #35c14a; }
 [data-bs-theme="dark"] .ql-editor .ql-color-red    { color: #ff5c5c; }
+
+/* ── Enviar do compositor apagado (`.bjed-env:disabled`: fundo #a9c7e2, cursor padrão) ────────
+ * O editor desabilita o botão apontado por `data-editor-rico-envio` enquanto o texto está vazio
+ * (EDT-021). A regra mora aqui, e não no CSS da tela, porque o estado é do editor; o seletor
+ * repete o do botão no rodapé do compositor e ganha do `:hover` dele. */
+.ps-compositor-rodape .ps-btn.ps-btn--primario:disabled,
+.ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:hover,
+.ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:focus-visible {
+    background: #a9c7e2;
+    color: #fff;
+    cursor: default;
+}
+
+[data-bs-theme="dark"] .ps-compositor-rodape .ps-btn.ps-btn--primario:disabled,
+[data-bs-theme="dark"] .ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:hover,
+[data-bs-theme="dark"] .ps-compositor-rodape .ps-btn.ps-btn--primario:disabled:focus-visible {
+    background: rgba(47, 134, 208, .35);
+    color: rgba(255, 255, 255, .7);
+}

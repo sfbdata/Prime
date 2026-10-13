@@ -15,6 +15,14 @@ namespace App\Pasta\DTO;
  * hora para esses — mostra só o dia.
  *
  * Todo texto sai daqui CRU (sem HTML): quem desenha usa `textContent`.
+ *
+ * `autorId`: o id do usuário autor, quando a fonte o tem (mensagem, observação, pagamento). Só
+ * serve às regras do servidor ("Enquanto você estava fora" descarta o que é do próprio usuário)
+ * e não sai no JSON — a tela identifica a pessoa pelo nome, como já fazia.
+ *
+ * `antes` / `alteradoEm` (PAS-045, "Ver alteração"): o texto de antes da última edição, CRU, e
+ * quando ela aconteceu. Só o registro de Dados da pasta guarda o anterior; nos outros é nulo e a
+ * tela não oferece o botão.
  */
 final readonly class EventoDaTimelineOutput
 {
@@ -34,6 +42,9 @@ final readonly class EventoDaTimelineOutput
         public bool $editado = false,
         public ?string $link = null,
         public ?string $rotuloLink = null,
+        public ?int $autorId = null,
+        public ?string $antes = null,
+        public ?\DateTimeImmutable $alteradoEm = null,
     ) {
     }
 
@@ -55,6 +66,9 @@ final readonly class EventoDaTimelineOutput
             editado: $this->editado,
             link: $this->link,
             rotuloLink: $this->rotuloLink,
+            autorId: $this->autorId,
+            antes: $this->antes,
+            alteradoEm: $this->alteradoEm,
         );
     }
 
@@ -78,6 +92,8 @@ final readonly class EventoDaTimelineOutput
             'editado'    => $this->editado,
             'link'       => $this->link,
             'rotuloLink' => $this->rotuloLink,
+            'antes'      => $this->antes,
+            'alteradoEm' => $this->alteradoEm?->format(\DateTimeInterface::ATOM),
         ];
     }
 }

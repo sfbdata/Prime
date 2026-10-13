@@ -44,6 +44,8 @@
      data-pasta-id="{{ pasta.id }}"
      data-pasta-rotulo="{{ pasta.nup ?? pasta.id }}"
      data-pasta-excluida="{{ pasta.estaExcluida ? '1' : '0' }}"
+     data-pode-editar="{{ explorador.podeEditar ? '1' : '0' }}"
+     data-url-pasta="{{ path('pasta_show', {id: pasta.id}) }}"
      data-total-arquivos="{{ explorador.totalArquivos }}"
      data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"
      data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id) }}"
@@ -72,9 +74,13 @@
             <input type="search" id="pexBusca" placeholder="Buscar arquivos e pastas…" aria-label="Buscar arquivos e pastas" autocomplete="off">
             <button type="button" class="pex-busca-limpar" id="pexBuscaLimpar" aria-label="Limpar busca" hidden><i class="bi bi-x"></i></button>
         </label>
+        {# DOC-118: quem só VÊ a pasta (ou a pasta na lápide) não recebe Nova pasta nem Anexar —
+           o servidor recusaria (`explorador.podeEditar`, decidido no PastaController::show). #}
+        {% if explorador.podeEditar %}
         <button type="button" class="pex-btn-nova" id="pexNovaPasta"><i class="bi bi-folder-plus" aria-hidden="true"></i><span>Nova pasta</span></button>
         <button type="button" class="pex-btn-anexar" id="pexAnexar"><i class="bi bi-paperclip" aria-hidden="true"></i><span>Anexar</span></button>
-        <input type="file" id="pexFileInput" multiple hidden accept=".png,.jpg,.jpeg,.pdf,.kml,.xml,.xls,.xlsx,.doc,.docx,.txt,.zip,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
+        <input type="file" id="pexFileInput" multiple hidden accept=".png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.heic,.heif,.pdf,.kml,.xml,.xls,.xlsx,.ods,.csv,.doc,.docx,.odt,.rtf,.pptx,.odp,.txt,.eml,.zip,.p7s,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
+        {% endif %}
 
         <div class="pex-menu-wrap">
             <button type="button" class="pex-btn-menu" id="pexOrganizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexOrganizarMenu" title="Organizar colunas e filtrar por tipo">
@@ -250,7 +256,7 @@
             <div class="pex-limpeza-lista" id="pexLimpezaLista" hidden>
                 <div class="pex-limpeza-itens" id="pexLimpezaItens"></div>
                 <div class="pex-limpeza-rodape">
-                    <span class="pex-limpeza-nota">Nada é excluído sem você confirmar.</span>
+                    <span class="pex-limpeza-nota">Nada é excluído sem você confirmar. A exclusão pode ser desfeita.</span>
                     <button type="button" class="pex-limpeza-excluir" id="pexLimpezaExcluir">Excluir</button>
                 </div>
             </div>

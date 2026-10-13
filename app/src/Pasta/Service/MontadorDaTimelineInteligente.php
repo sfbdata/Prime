@@ -7,6 +7,7 @@ namespace App\Pasta\Service;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
@@ -16,9 +17,15 @@ use App\Pasta\DTO\TimelineInteligenteOutput;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
+use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Repository\PastaTimelineVisitaRepository;
+use App\Repository\NotificacaoRepository;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -30,7 +37,14 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *     `PastaTimelineAssembler`, o mesmo do Histórico; nada é montado duas vezes;
  *  2. publicações do Push dos processos DESTA pasta (`listarItensPorNumerosDoTenant`);
  *  3. metas da pasta (prazo aberto e "todas concluídas");
- *  4. pagamentos da pasta (lançado, quitado, vencido), só para quem vê o financeiro.
+ *  4. observações da aba Detalhes ("Registro em Detalhes", PAS-046);
+ *  5. pagamentos da pasta (lançado, quitado, vencido) e observações da aba Financeiro
+ *     ("Registro em Financeiro"), as duas só para quem vê o financeiro;
+ *  6. notificações DO USUÁRIO LOGADO ligadas à pasta (PAS-047i) — pela meta ou pelo link —,
+ *     pendentes enquanto não lidas; a que aponta para a aba Financeiro, só para quem o vê.
+ *
+ * "Enquanto você estava fora" (PAS-043) sai da visita ANTERIOR do usuário a esta timeline
+ * (`pasta_timeline_visita`, gravada ao abrir o painel) — só leitura aqui.
  *
  * Uma consulta por fonte, cada uma com o MESMO teto: o top-N da fusão é exato (cada fonte trouxe
  * os seus N mais novos). O que a fonte não diz não vira evento — ver o relatório da L18 para o que
@@ -42,7 +56,11 @@ final class MontadorDaTimelineInteligente
         private readonly PastaTimelineAssembler $assembler,
         private readonly PublicacaoDjenRepository $publicacaoRepository,
         private readonly PastaPagamentoRepository $pagamentoRepository,
+        private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
+        private readonly PastaObservacaoFinanceiraRepository $observacaoFinanceiraRepository,
         private readonly PastaRepository $pastaRepository,
+        private readonly NotificacaoRepository $notificacaoRepository,
+        private readonly PastaTimelineVisitaRepository $visitaRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly RegrasDaTimelineInteligente $regras,
         private readonly UrlGeneratorInterface $urlGenerator,
@@ -113,9 +131,19 @@ final class MontadorDaTimelineInteligente
             ))->comMarco(RegrasDaTimelineInteligente::MARCO_METAS_CONCLUIDAS);
         }
 
-        // 4. Financeiro.
+        // 4. Observações da aba Detalhes (uma consulta, autor no mesmo SELECT).
+        $observacoesDetalhes = $this->observacaoDetalhesRepository->findParaTimeline($pasta, $tenant, $limite);
+        if (count($observacoesDetalhes) >= $limite) {
+            $truncado = true;
+        }
+        foreach ($observacoesDetalhes as $observacao) {
+            $eventos[] = $this->eventoDaObservacao($observacao);
+        }
+
+        // 5. Financeiro: pagamentos e observações, os dois atrás da MESMA pergunta.
         $financeiroQuitado = false;
-        if ($this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta)) {
+        $veFinanceiro      = $this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta);
+        if ($veFinanceiro) {
             $pagamentos        = $this->pagamentoRepository->findByPastaComAutor($pasta, $tenant);
             $financeiroQuitado = $pagamentos !== [];
             foreach ($pagamentos as $pagamento) {
@@ -124,6 +152,31 @@ final class MontadorDaTimelineInteligente
                     $eventos[] = $evento;
                 }
             }
+
+            $observacoesFinanceiras = $this->observacaoFinanceiraRepository->findParaTimeline($pasta, $tenant, $limite);
+            if (count($observacoesFinanceiras) >= $limite) {
+                $truncado = true;
+            }
+            foreach ($observacoesFinanceiras as $observacao) {
+                $eventos[] = $this->eventoDaObservacao($observacao);
+            }
+        }
+
+        // 6. Notificações do usuário logado ligadas à pasta (uma consulta; só colunas da própria
+        // notificação). O financeiro responde à MESMA pergunta das fontes acima.
+        $notificacoes = $this->notificacaoRepository->findDoUsuarioLigadasAPasta(
+            $usuario,
+            $tenant,
+            $pasta,
+            $this->urlGenerator->generate('pasta_show', ['id' => $pasta->getId()]),
+            $veFinanceiro,
+            $limite,
+        );
+        if (count($notificacoes) >= $limite) {
+            $truncado = true;
+        }
+        foreach ($notificacoes as $notificacao) {
+            $eventos[] = $this->eventoDaNotificacao($notificacao);
         }
 
         // Marco de criação: o "Pasta criada" do audit_log; sem ele (pasta anterior à auditoria ou
@@ -145,6 +198,12 @@ final class MontadorDaTimelineInteligente
 
         $filtrados = $this->regras->filtrar($eventos, $filtro, $agora);
 
+        // "Enquanto você estava fora": sobre a lista INTEIRA (o aviso não muda com o chip), a partir
+        // da visita anterior deste usuário a esta pasta.
+        $foraDesde = $this->visitaRepository->visitaAnterior($pasta, $usuario, $tenant);
+        $meusNomes = array_values(array_filter([$usuario->getFullName(), $usuario->getEmail()], static fn (?string $v) => $v !== null && $v !== ''));
+        $novos     = $this->regras->novosDesde($eventos, $foraDesde, $agora, (int) $usuario->getId(), $meusNomes);
+
         return new TimelineInteligenteOutput(
             eventos: array_slice($filtrados, 0, $limite),
             totalFiltrado: count($filtrados),
@@ -154,6 +213,10 @@ final class MontadorDaTimelineInteligente
             pessoas: $this->regras->pessoas($eventos),
             atencao: $this->regras->atencao($eventos),
             resumo: $this->regras->resumir($filtrados),
+            foraDesde: $foraDesde,
+            novos: count($novos),
+            novosPorCategoria: $this->regras->contagemPorCategoria($novos),
+            resumoDesde: $foraDesde !== null ? $this->regras->resumir($this->regras->depoisDe($filtrados, $foraDesde)) : null,
         );
     }
 
@@ -222,6 +285,61 @@ final class MontadorDaTimelineInteligente
             autor: $item->autorNome ?? $item->autorEmail,
             fonte: 'Dados da pasta',
             editado: $item->editadoEm !== null,
+            autorId: $item->usuarioId,
+            // "Ver alteração" (PAS-045): o texto anterior inteiro, puro como o atual. Sem edição
+            // (ou anterior à coluna), nulo — e a tela não oferece o botão.
+            antes: $item->editadoEm !== null ? $this->textoPuro($item->conteudoAnterior) : null,
+            alteradoEm: $item->editadoEm,
+        );
+    }
+
+    /**
+     * Observação de Detalhes ou do Financeiro (desenho `tlEventos`: "Registro em <aba>", com a aba
+     * como fonte). Mesma categoria do registro de Dados — é o chip "Registros" do desenho —, e o
+     * texto sai puro como o dele (o conteúdo também vem do editor rico).
+     */
+    private function eventoDaObservacao(PastaObservacaoDetalhes|PastaObservacaoFinanceira $observacao): EventoDaTimelineOutput
+    {
+        $financeira = $observacao instanceof PastaObservacaoFinanceira;
+        $aba        = $financeira ? 'Financeiro' : 'Detalhes';
+        $autor      = $observacao->getAutor();
+        $nome       = $autor?->getFullName();
+
+        return new EventoDaTimelineOutput(
+            id: ($financeira ? 'of' : 'od') . $observacao->getId(),
+            tipo: $financeira ? 'observacao_financeira' : 'observacao_detalhes',
+            categoria: 'registro',
+            quando: $observacao->getCriadaEm(),
+            soData: false,
+            titulo: 'Registro em ' . $aba,
+            texto: $this->textoPuro($observacao->getConteudo()),
+            autor: $nome !== null && $nome !== '' ? $nome : $autor?->getEmail(),
+            fonte: $aba,
+            editado: $observacao->getEditadaEm() !== null,
+            autorId: $autor?->getId(),
+        );
+    }
+
+    /**
+     * Notificação do usuário sobre a pasta (desenho `tlEventos`, `minhas()`: título e texto da
+     * própria notificação, pendente enquanto não lida). Sem autor — a notificação não guarda quem
+     * a causou — e sem link nem fonte, como no desenho. O texto que repete o título (avisos
+     * gravados com título = mensagem) não sai duas vezes.
+     */
+    private function eventoDaNotificacao(Notificacao $notificacao): EventoDaTimelineOutput
+    {
+        $mensagem = trim((string) $notificacao->getMensagem());
+
+        return new EventoDaTimelineOutput(
+            id: 'n' . $notificacao->getId(),
+            tipo: 'notificacao',
+            categoria: 'notificacao',
+            quando: $notificacao->getCriadaEm(),
+            soData: false,
+            titulo: $notificacao->getTitulo(),
+            texto: $mensagem !== '' && $mensagem !== trim($notificacao->getTitulo()) ? $mensagem : null,
+            prioridade: $this->regras->prioridadeDaNotificacao($notificacao->getTipo()),
+            pendente: !$notificacao->isLida(),
         );
     }
 
@@ -291,6 +409,7 @@ final class MontadorDaTimelineInteligente
             texto: $resumo,
             autor: $pagamento->getAutor()?->getFullName(),
             fonte: 'Financeiro',
+            autorId: $pagamento->getAutor()?->getId(),
         )];
 
         if ($pagamento->getPagoEm() !== null) {

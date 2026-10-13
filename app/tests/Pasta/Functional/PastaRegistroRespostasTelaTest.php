@@ -107,12 +107,12 @@ final class PastaRegistroRespostasTelaTest extends JusPrimeWebTestCase
             self::assertCount(0, $crawler->filter('#pasta-msg-' . $msg->getId() . ' .ps-anotacao-acoes'), 'fora da janela não há editar/excluir');
         }
 
-        // O compositor é o mesmo: campo escondido e a faixa "Respondendo a … · cancelar", apagada.
-        self::assertCount(1, $crawler->filter('#formTimelineMensagem > input[type="hidden"][name="resposta_a"]#timelineRespostaA'));
-        self::assertCount(1, $crawler->filter('#formTimelineMensagem > #timelineRespondendo.d-none > button#timelineRespondendoCancelar'));
+        // PAS-030: a resposta não usa mais o compositor de cima — a caixa abre sob o cartão
+        // (PastaRegistroL6TelaTest). O compositor só publica registros novos.
+        self::assertCount(0, $crawler->filter('#formTimelineMensagem [name="resposta_a"], #timelineRespondendo'));
     }
 
-    #[TestDox('dentro dos 15 min a resposta também mostra editar/excluir e o "· N min"')]
+    #[TestDox('dentro dos 15 min a resposta também tem editar/excluir, com os minutos na dica do lápis')]
     public function testJanelaDeEdicaoValeParaResposta(): void
     {
         $client          = static::createClient();
@@ -128,7 +128,9 @@ final class PastaRegistroRespostasTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $acoes);
         self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > .btn-editar-msg-pasta[data-url][data-csrf]'));
         self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > .btn-excluir-msg-pasta[data-url][data-csrf]'));
-        self::assertSame('· 10 min', trim($acoes->filter('.ps-anotacao-acoes > .ps-anotacao-janela')->text()));
+        // PAS-037: os minutos ficam na dica do lápis; a lixeira, escondida, serve ao menu.
+        self::assertSame('Editável por mais 10 minutos', $acoes->filter('.btn-editar-msg-pasta')->attr('title'));
+        self::assertNotNull($acoes->filter('.btn-excluir-msg-pasta')->attr('hidden'));
     }
 
     #[TestDox('resposta cuja original foi excluída fica no primeiro nível dizendo "Resposta a uma mensagem excluída"')]

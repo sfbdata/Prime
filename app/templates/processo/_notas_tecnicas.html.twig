@@ -13,21 +13,39 @@
    porque a mesma nota aparece em toda pasta que vincula o processo.
 
    Contrato com o nota-tecnica.js (não mudar): .ps-notas (+ data-url-criar,
-   data-csrf-criar, data-pasta-id, data-processo-id, data-publicacao-id) ·
+   data-csrf-criar, data-pasta-id, data-processo-id, data-publicacao-id,
+   data-url-mencionaveis) ·
    .ps-notas-contagem · .ps-notas-lista · .ps-nota-editor (+ textarea) ·
    .ps-nota-erro · .js-nota-nova / .js-nota-cancelar / .js-nota-salvar.
 
    Contexto: `notas` (NotaTecnicaOutput[]), `processoId` (int),
              `publicacaoId` (int|null), `pastaId` (int),
-             `mostrarMovimentacao` (bool, repassado ao item).
+             `mostrarMovimentacao` (bool, repassado ao item),
+             `podeEscreverNota` (bool, opcional — ver PMC-058 abaixo),
+             `idSufixoNota` (string, opcional — sufixo dos ids dos cartões quando a mesma
+             nota também está em outro bloco da página; FPN-020, o Push pendurado).
    ============================================================================ #}
 {% set blocoId = publicacaoId ? 'notas-publicacao-' ~ publicacaoId : 'notas-processo-' ~ processoId %}
+{# Pasta lápide: o ⋮ de cada nota fica só com a leitura (PMC-017). Vai aos itens pelo contexto. #}
+{% set somenteLeitura = nota_tecnica_somente_leitura(pastaId) %}
+{# PMC-058: criar nota exige EDIT da pasta e pasta viva — a regra do servidor. Quem só lê (ou a
+   lápide) vê as notas que existem, sem "Adicionar nota técnica", sem compositor e sem "Responder
+   com outra nota". A flag vem do include (`podeEscreverNota`, o teor do Push passa a sua) ou do
+   `podeEditarPasta` que o parcial da aba Processo já calculou; sem nenhum dos dois, pergunta a
+   `can_access_resource`, que guarda a resposta por requisição (um bloco por processo não repete
+   a consulta). #}
+{% set podeEscreverNota = not somenteLeitura and (podeEscreverNota is defined
+    ? podeEscreverNota
+    : (podeEditarPasta ?? can_access_resource('pasta', pastaId, 'edit'))) %}
 <div class="ps-notas{{ publicacaoId ? ' ps-notas--publicacao' : '' }}" id="{{ blocoId }}"
      data-url-criar="{{ path('processo_nota_tecnica_criar', {id: processoId}) }}"
      data-csrf-criar="{{ csrf_token('processo_nota_tecnica_' ~ processoId) }}"
      data-pasta-id="{{ pastaId }}"
      data-processo-id="{{ processoId }}"
-     data-publicacao-id="{{ publicacaoId ?? '' }}">
+     data-publicacao-id="{{ publicacaoId ?? '' }}"
+     {#- @menção (PMC-019): a lista do "@" é a do Registro — só colegas que VEEM esta pasta. Fica
+         no bloco, não em `[data-mencionaveis-url]`, que o pasta-mencoes.js reserva ao Registro. #}
+     data-url-mencionaveis="{{ pastaId ? path('pasta_mencionaveis', {id: pastaId}) : '' }}">
     <div class="ps-notas-cab">
         <span class="ps-notas-titulo"><i class="bi bi-journal-text" aria-hidden="true"></i>Notas técnicas</span>
         <span class="ps-contagem ps-notas-contagem" title="Notas técnicas">{{ notas|length }}</span>
@@ -35,28 +53,36 @@
             {%- if publicacaoId %}Sobre esta movimentação. {% endif -%}
             A nota é do processo: aparece em toda pasta que o vincula.
         </span>
-        <span class="ps-cab-espaco"></span>
-        <button type="button" class="ps-btn ps-btn--suave ps-btn--nota js-nota-nova" title="Adicionar nota técnica" aria-label="Adicionar nota técnica">
-            <i class="bi bi-journal-plus"></i><span>Adicionar nota técnica</span>
-        </button>
+        {% if podeEscreverNota %}
+            <span class="ps-cab-espaco"></span>
+            <button type="button" class="ps-btn ps-btn--suave ps-btn--nota js-nota-nova" title="Adicionar nota técnica" aria-label="Adicionar nota técnica">
+                <i class="bi bi-journal-plus"></i><span>Adicionar nota técnica</span>
+            </button>
+        {% endif %}
     </div>
 
     <div class="ps-notas-lista">
         {% for nota in notas %}
-            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao}) }}
+            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao, somenteLeitura: somenteLeitura, podeEscreverNota: podeEscreverNota, idSufixo: idSufixoNota ?? ''}) }}
         {% endfor %}
     </div>
 
     {# Desenho dc:1693–1710 (auditoria 2 P3): as notas primeiro, o compositor depois. #}
+    {% if podeEscreverNota %}
     <div class="ps-nota-editor" hidden>
         <div class="ps-nota-editor-rotulo"><i class="bi bi-journal-plus" aria-hidden="true"></i>Nova nota técnica</div>
+        {#- EDT-021: o editor mantém o "Salvar nota" apagado enquanto estiver vazio (contrato
+            `data-editor-rico-envio` do editor-rico.js; o id é único por bloco). #}
         <textarea class="ps-nota-textarea" rows="3" maxlength="5000"
+                  data-editor-rico-envio="{{ blocoId }}-salvar"
                   aria-label="Texto da nota técnica"
-                  placeholder="Explique o processo ou o despacho: o que significa, o que precisa ser feito, prazo…"></textarea>
+                  {#- Desenho dc:1713 (aba Processo) e dc:2554 (teor do Push), com a frase da @menção. #}
+                  placeholder="{{ publicacaoId ? 'Explique o despacho' : 'Explique o processo ou o despacho' }}: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém."></textarea>
         <div class="ps-nota-erro" hidden></div>
         <div class="ps-nota-editor-acoes">
             <button type="button" class="ps-btn js-nota-cancelar">Cancelar</button>
-            <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" title="Salvar (Ctrl+Enter)">Salvar nota</button>
+            <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" id="{{ blocoId }}-salvar" title="Salvar (Ctrl+Enter)">Salvar nota</button>
         </div>
     </div>
+    {% endif %}
 </div>

@@ -25,7 +25,8 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      *  - `EntregaDeArquivo` — é quem deve;
      *  - `ArquivoStorageService` — o shim de D2, com o `servir()` que ninguém mais chama; sai na E2.8;
      *  - `TarefaController` — o anexo de tarefa guarda caminho com `/`, que `ChaveDeArquivo` recusa
-     *    (D5); a decisão é da E2.7;
+     *    (D5); a decisão é da E2.7. Enquanto a exceção durar, a visualização inline aplica a
+     *    política da entrega (SEC-012) — travado em {@see self::testTarefaAplicaAPoliticaDeSandbox()};
      *  - `EntregaDeArquivoGerado` (aba Documentos, D5 do .zip) — entrega arquivo GERADO pela
      *    aplicação, nunca persistido: o tipo do parâmetro (`ArquivoGeradoParaEntrega`) só nasce de
      *    uma `AreaTemporariaPrivada`, e é o único lugar que liga `deleteFileAfterSend` — o .zip
@@ -60,6 +61,22 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
             array_values(array_diff($achados, self::QUEM_MONTA_RESPOSTA_DE_ARQUIVO)),
             'arquivo persistido tem de sair pela EntregaDeArquivo, endereçado por chave',
         );
+    }
+
+    /**
+     * SEC-012: a exceção do `TarefaController` não pode virar porta para HTML ativo na origem. Se
+     * alguém reescrever a visualização do anexo sem a política da entrega, isto cai — o teste
+     * funcional (`TarefaAnexoVisualizarTest`) prova o comportamento pela rota.
+     */
+    #[TestDox('a exceção do TarefaController aplica a política da entrega: nosniff e sandbox por exigeSandbox() (SEC-012)')]
+    public function testTarefaAplicaAPoliticaDeSandbox(): void
+    {
+        $codigo = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/src/Controller/TarefaController.php'));
+
+        self::assertMatchesRegularExpression('/EntregaDeArquivo::exigeSandbox\s*\(/', $codigo);
+        self::assertMatchesRegularExpression('/EntregaDeArquivo::CSP_SANDBOX\b/', $codigo);
+        self::assertMatchesRegularExpression("/'X-Content-Type-Options',\s*'nosniff'/", $codigo);
+        self::assertDoesNotMatchRegularExpression('/\bmime_content_type\s*\(/', $codigo, 'o Content-Type é o palpite da própria resposta, o mesmo que a decisão de sandbox consulta');
     }
 
     #[TestDox('fora do núcleo, ninguém conhece o backend local nem o resolvedor de caminho (D11)')]

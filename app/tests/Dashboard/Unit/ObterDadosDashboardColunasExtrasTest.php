@@ -129,16 +129,27 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         self::assertSame([Extras::METAS_CONCLUIDAS => 3, Extras::TAXA_CONCLUSAO => 43], $out->totaisExtras);
     }
 
-    #[TestDox('Cada métrica com consulta é chamada UMA vez, com o tenant e o filtro da tabela; eventos recebem o universo da tabela')]
+    #[TestDox('Cada métrica com consulta é chamada UMA vez por período, com o tenant e o filtro da tabela; eventos recebem o universo da tabela')]
     public function testUmaConsultaPorMetrica(): void
     {
-        $filtros = ['data_de' => '2024-01-01', 'data_ate' => '2024-01-31', 'cargo' => '', 'responsavel' => ''];
+        $filtros    = ['data_de' => '2024-01-01', 'data_ate' => '2024-01-31', 'cargo' => '', 'responsavel' => ''];
+        $anteriores = ['data_de' => '2023-12-01', 'data_ate' => '2023-12-31', 'cargo' => '', 'responsavel' => ''];
         $this->metas([], []);
         $this->equipe([$this->usuario(7, 'Ana'), $this->usuario(8, 'Bruno')]);
+        // Estoque (sem tendência): uma consulta só, no período atual.
         $this->metricas->expects(self::once())->method('contarEmRevisaoPorResponsavel')->with($this->tenant, $filtros)->willReturn([7 => 2]);
-        $this->metricas->expects(self::once())->method('tempoDeConclusaoPorResponsavel')->with($this->tenant, $filtros)->willReturn([]);
         $this->metricas->expects(self::once())->method('contarUrgentesPorResponsavel')->with($this->tenant, $filtros)->willReturn([8 => 5]);
-        $this->metricas->expects(self::once())->method('contarEventosPorPessoa')->with($this->tenant, $filtros, [7, 8])->willReturn([7 => 1]);
+        // Tempo médio ficou sem tendência (DASH-010b): só o período atual.
+        $this->metricas->expects(self::once())->method('tempoDeConclusaoPorResponsavel')->with($this->tenant, $filtros)->willReturn([]);
+        // Com tendência (DASH-010): atual e período anterior de mesma duração — uma de cada.
+        $eventos = [];
+        $this->metricas->expects(self::exactly(2))->method('contarEventosPorPessoa')
+            ->willReturnCallback(function (Tenant $t, array $f, array $pessoas) use (&$eventos): array {
+                self::assertSame([7, 8], $pessoas);
+                $eventos[] = $f;
+
+                return $f['data_de'] === '2024-01-01' ? [7 => 1] : [];
+            });
 
         $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-02-10'), $filtros, Extras::chaves());
         $x   = $this->extrasPorPessoa($out);
@@ -150,6 +161,7 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         self::assertSame(1, $x[7][Extras::EVENTOS_AGENDA]);
         self::assertSame(0, $x[8][Extras::EVENTOS_AGENDA]);
         self::assertNull($x[7][Extras::TEMPO_MEDIO], 'sem meta concluída com data: "—"');
+        self::assertSame([$filtros, $anteriores], $eventos);
     }
 
     #[TestDox('Só as extras ligadas consultam: ligar só "Em revisão" não chama tempo, urgentes nem eventos')]
@@ -279,5 +291,88 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
 
         self::assertCount(1, $out->porAdvogado);
         self::assertSame([Extras::METAS_CONCLUIDAS => 3, Extras::TAXA_CONCLUSAO => 75, Extras::PASTAS_URGENTES => 2], $out->totaisExtras);
+    }
+
+    // ─── tendência das extras (DASH-010) ─────────────────────────────
+
+    #[TestDox('Sem período completo, nenhuma extra tem anterior (sem seta) e nenhuma consulta extra é repetida')]
+    public function testSemPeriodoSemAnterior(): void
+    {
+        $this->metas([7 => 4], [7 => 1]);
+        $this->equipe([$this->usuario(7, 'Ana')]);
+        $this->metricas->expects(self::once())->method('contarEventosPorPessoa')->willReturn([7 => 2]);
+
+        $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-01-10'), ['data_de' => '2024-01-01'], [Extras::METAS_CONCLUIDAS, Extras::EVENTOS_AGENDA]);
+
+        self::assertSame([], $out->porAdvogado[0]->extrasAnteriores);
+        self::assertNull($out->totaisExtrasAnteriores);
+    }
+
+    #[TestDox('Com período: só eventos têm anterior (mesma consulta, datas trocadas); concluídas, taxa e tempo (DASH-010b) e o estoque ficam sem')]
+    public function testAnteriorSoDosEventos(): void
+    {
+        $filtros = ['data_de' => '2024-02-01', 'data_ate' => '2024-02-29'];
+        $antes   = '2024-01-03'; // 29 dias antes de 01/02: 03/01 a 31/01
+        $this->metas([7 => 4, 8 => 3], [7 => 1, 8 => 3]);
+        $this->equipe([$this->usuario(7, 'Ana'), $this->usuario(8, 'Bruno')]);
+        $this->metricas->expects(self::once())->method('tempoDeConclusaoPorResponsavel')
+            ->with($this->tenant, $filtros)
+            ->willReturn([7 => ['dias' => 6, 'metas' => 3], 8 => ['dias' => 4, 'metas' => 1]]);
+        $this->metricas->expects(self::exactly(2))->method('contarEventosPorPessoa')->willReturnCallback(
+            static fn (Tenant $t, array $f, array $p): array => $f['data_de'] === $antes ? [8 => 1] : [7 => 2, 8 => 1],
+        );
+        $this->metricas->expects(self::once())->method('contarEmRevisaoPorResponsavel')->willReturn([]);
+        $this->metricas->expects(self::once())->method('contarUrgentesPorResponsavel')->willReturn([]);
+
+        $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-02-10'), $filtros, Extras::chaves());
+        $ant = [];
+        foreach ($out->porAdvogado as $l) {
+            $ant[$l->userId] = $l->extrasAnteriores;
+        }
+
+        self::assertSame([Extras::EVENTOS_AGENDA => 0], $ant[7], 'Ana: nenhum evento antes; nenhuma outra extra tem anterior');
+        self::assertSame([Extras::EVENTOS_AGENDA => 1], $ant[8]);
+        self::assertSame([Extras::EVENTOS_AGENDA => 1], $out->totaisExtrasAnteriores, 'Total anterior: só eventos (soma)');
+        // irmã que prova o alvo: as três seguem calculadas no período atual
+        self::assertSame(
+            [Extras::METAS_CONCLUIDAS => 3, Extras::TAXA_CONCLUSAO => 43, Extras::TEMPO_MEDIO => 3, Extras::EVENTOS_AGENDA => 3],
+            array_intersect_key($out->totaisExtras, array_flip([Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO, Extras::TEMPO_MEDIO, Extras::EVENTOS_AGENDA])),
+        );
+    }
+
+    #[TestDox('DASH-010b: concluídas e taxa ligadas não consultam o período anterior (ativas e total só uma vez, no atual)')]
+    public function testConcluidasETaxaNaoConsultamOAnterior(): void
+    {
+        $filtros = ['data_de' => '2024-02-01', 'data_ate' => '2024-02-29'];
+        $this->tarefaRepo->expects(self::once())->method('countAtivasPorResponsavel')->with($this->tenant, $filtros)->willReturn([7 => 1]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([7 => 4]);
+        $this->equipe([$this->usuario(7, 'Ana')]);
+        $this->metricas->expects(self::never())->method(self::anything());
+
+        $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-02-10'), $filtros, [Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO]);
+
+        self::assertSame([], $out->porAdvogado[0]->extrasAnteriores);
+        self::assertSame([], $out->totaisExtrasAnteriores, 'com período há anterior, mas nenhuma extra ligada tem tendência');
+        self::assertSame([Extras::METAS_CONCLUIDAS => 3, Extras::TAXA_CONCLUSAO => 75], $out->totaisExtras);
+    }
+
+    #[TestDox('O Total anterior de eventos soma só as linhas VISÍVEIS (a busca tira a Ana dos dois lados)')]
+    public function testTotalAnteriorRespeitaBusca(): void
+    {
+        $this->metas([], []);
+        $this->equipe([$this->usuario(7, 'Ana'), $this->usuario(8, 'Bruno')]);
+        $this->metricas->method('contarEventosPorPessoa')->willReturnCallback(
+            static fn (Tenant $t, array $f, array $p): array => $f['data_de'] === '2024-02-01' ? [7 => 5, 8 => 2] : [7 => 9, 8 => 1],
+        );
+
+        $out = $this->sut->executar(
+            $this->tenant,
+            new \DateTimeImmutable('2024-02-10'),
+            ['data_de' => '2024-02-01', 'data_ate' => '2024-02-29', 'busca' => 'bru'],
+            [Extras::EVENTOS_AGENDA],
+        );
+
+        self::assertSame([Extras::EVENTOS_AGENDA => 2], $out->totaisExtras);
+        self::assertSame([Extras::EVENTOS_AGENDA => 1], $out->totaisExtrasAnteriores);
     }
 }

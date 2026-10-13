@@ -20,21 +20,21 @@ use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * Upload de documentos na pasta (`POST /pasta/{id}/documento/upload`), contra o storage e o
- * diretório REAIS (`var/uploads-test/pastas` em teste). Não tinha teste até a E2.4A.
+ * Upload de documento pelo Financeiro da pasta (`POST /pasta/{id}/financeiro/upload`) contra o
+ * storage: chave (R1), sha256, hash pós-compressão e falha de gravação. O dublê em memória é o
+ * único jeito de ver o escopo da chave e de provocar falha de gravação.
  *
- * O DAMA reverte o banco, não o disco: todo arquivo que surgir no diretório durante a requisição
- * é removido no tearDown. Os dois últimos casos trocam o storage pelo dublê em memória: é o único
- * jeito de ver o escopo da chave (R1) e de provocar falha de gravação.
+ * Até o DOC-124 estes casos corriam "nas duas rotas": esta e o upload legado
+ * `pasta_documento_upload`, que só servia a um bloco `{% if false %}` da pasta_show e foi
+ * removido com ele. A aba Documentos envia por `pasta_peticionar_upload` (Peticionar*Test).
  */
 #[CoversClass(PastaController::class)]
-final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
+final class PastaFinanceiroUploadArmazenamentoTest extends JusPrimeWebTestCase
 {
     private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
 
@@ -54,124 +54,6 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         parent::tearDown();
     }
 
-    #[TestDox('dois arquivos: cada um vira um documento com arquivo próprio em %uploads_dir%, nome e MIME')]
-    public function testUploadGravaCadaArquivoERegistraODocumento(): void
-    {
-        $client = static::createClient();
-        $this->instalarCsrfStorage();
-        $tenant = $this->criarTenant();
-        $gestor = $this->criarGestor($tenant);
-        $pasta  = $this->criarPasta($tenant);
-        $id     = (int) $pasta->getId();
-        static::getContainer()->get(EntityManagerInterface::class)->clear();
-
-        $this->logarComTenant($client, $gestor, $tenant);
-
-        $novos = $this->enviar($client, $id, [
-            ['conteudo' => self::PDF, 'nome' => 'procuracao.pdf'],
-            ['conteudo' => self::PDF . '% segundo', 'nome' => 'contrato.pdf'],
-        ]);
-
-        self::assertResponseRedirects();
-        self::assertCount(2, $novos, 'cada upload tem de ter o próprio arquivo');
-
-        $documentos = $this->documentosDaPasta($id);
-        self::assertCount(2, $documentos);
-
-        $porNome = [];
-        foreach ($documentos as $doc) {
-            $porNome[$doc->getNomeOriginal()] = $doc;
-        }
-
-        foreach (['procuracao.pdf' => self::PDF, 'contrato.pdf' => self::PDF . '% segundo'] as $nome => $conteudo) {
-            $doc     = $porNome[$nome] ?? self::fail('documento não registrado: ' . $nome);
-            $caminho = $this->diretorio() . '/' . $doc->getCaminhoArquivo();
-
-            self::assertMatchesRegularExpression('/^[0-9a-f]{32}\.pdf$/', $doc->getCaminhoArquivo());
-            self::assertContains($doc->getCaminhoArquivo(), $novos);
-            self::assertStringEqualsFile($caminho, $conteudo);
-            self::assertSame('application/pdf', $doc->getMimeType());
-            self::assertSame(\strlen($conteudo), $doc->getTamanhoBytes());
-            self::assertSame($tenant->getId(), $doc->getTenant()?->getId());
-        }
-    }
-
-    /**
-     * E2.6B: compressão pela CHAVE, em upload MÚLTIPLO — o que o unit não cobre é cada arquivo
-     * terminar com a própria versão comprimida e o próprio tamanho medido, sem um contaminar o outro.
-     */
-    #[TestDox('reduzir_tamanho: cada arquivo fica comprimido, íntegro e com o tamanho do disco')]
-    public function testReduzirTamanhoComprimeCadaArquivo(): void
-    {
-        if (!GhostscriptDeTeste::disponivel()) {
-            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
-        }
-
-        $client = static::createClient();
-        $this->instalarCsrfStorage();
-        $tenant = $this->criarTenant();
-        $gestor = $this->criarGestor($tenant);
-        $pasta  = $this->criarPasta($tenant);
-        $id     = (int) $pasta->getId();
-        static::getContainer()->get(EntityManagerInterface::class)->clear();
-
-        $this->logarComTenant($client, $gestor, $tenant);
-
-        $gordo    = $this->pdfGordo();
-        $pequeno  = self::PDF;
-
-        $this->enviar($client, $id, [
-            ['conteudo' => $gordo, 'nome' => 'peticao.pdf'],
-            ['conteudo' => $pequeno, 'nome' => 'nota.pdf'],
-        ], reduzirTamanho: true);
-
-        self::assertResponseRedirects();
-        $documentos = $this->documentosDaPasta($id);
-        self::assertCount(2, $documentos);
-
-        foreach ($documentos as $doc) {
-            $caminho = $this->diretorio() . '/' . $doc->getCaminhoArquivo();
-            self::assertFileExists($caminho);
-            $gravado = (string) file_get_contents($caminho);
-
-            self::assertStringStartsWith('%PDF-', $gravado);
-            self::assertSame(\strlen($gravado), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
-            self::assertSame(hash('sha256', $gravado), $doc->getSha256(), 'o sha256 tem de ser do arquivo que FICOU no disco, comprimido ou não');
-
-            if ($doc->getNomeOriginal() === 'peticao.pdf') {
-                self::assertLessThan(\strlen($gordo), \strlen($gravado), 'o arquivo gordo não foi comprimido');
-                continue;
-            }
-
-            // O pequeno não encolhe: o original fica byte a byte (INV-7).
-            self::assertSame($pequeno, $gravado);
-        }
-
-        self::assertSame([], glob($this->diretorio() . '/.compress_*') ?: [], 'sobrou temporário de compressão no volume');
-    }
-
-    #[TestDox('D30: a coluna guarda o tamanho que o STORAGE mediu, não o que o upload declarou')]
-    public function testTamanhoPersistidoVemDoStorage(): void
-    {
-        $client = static::createClient();
-        $this->instalarCsrfStorage();
-        $duble  = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
-        $duble->memoria->tamanhoRelatado = 4242;
-        $tenant = $this->criarTenant();
-        $gestor = $this->criarGestor($tenant);
-        $pasta  = $this->criarPasta($tenant);
-        $id     = (int) $pasta->getId();
-        static::getContainer()->get(EntityManagerInterface::class)->clear();
-
-        $this->logarComTenant($client, $gestor, $tenant);
-
-        $this->enviar($client, $id, [['conteudo' => self::PDF, 'nome' => 'procuracao.pdf']]);
-
-        $documentos = $this->documentosDaPasta($id);
-        self::assertCount(1, $documentos);
-        self::assertSame(4242, $documentos[0]->getTamanhoBytes());
-    }
-
     private function pdfGordo(): string
     {
         $temporario = sys_get_temp_dir() . '/gordo_' . bin2hex(random_bytes(6)) . '.pdf';
@@ -180,54 +62,11 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         return GhostscriptDeTeste::pdfGordo($temporario);
     }
 
-    #[TestDox('tipo fora da lista é recusado sem gravar arquivo nem registrar documento')]
-    public function testTipoNaoPermitidoNaoGrava(): void
-    {
-        $client = static::createClient();
-        $this->instalarCsrfStorage();
-        $tenant = $this->criarTenant();
-        $gestor = $this->criarGestor($tenant);
-        $pasta  = $this->criarPasta($tenant);
-        $id     = (int) $pasta->getId();
-        static::getContainer()->get(EntityManagerInterface::class)->clear();
-
-        $this->logarComTenant($client, $gestor, $tenant);
-
-        $novos = $this->enviar($client, $id, [
-            ['conteudo' => "MZ\x90\x00\x03\x00\x00\x00" . str_repeat("\0", 200), 'nome' => 'setup.exe'],
-        ]);
-
-        self::assertResponseRedirects();
-        self::assertSame([], $novos, 'a recusa tem de acontecer antes de qualquer gravação');
-        self::assertCount(0, $this->documentosDaPasta($id));
-    }
-
-    #[TestDox('upload na pasta de outro escritório responde 404 sem gravar arquivo nem registrar documento')]
-    public function testPastaDeOutroTenantRetorna404SemGravar(): void
-    {
-        $client = static::createClient();
-        $this->instalarCsrfStorage();
-        $tenantA = $this->criarTenant();
-        $tenantB = $this->criarTenant();
-        $gestorA = $this->criarGestor($tenantA);
-        $pastaB  = $this->criarPasta($tenantB);
-        $idB     = (int) $pastaB->getId();
-        static::getContainer()->get(EntityManagerInterface::class)->clear();
-
-        $this->logarComTenant($client, $gestorA, $tenantA);
-
-        $novos = $this->enviar($client, $idB, [['conteudo' => self::PDF, 'nome' => 'intruso.pdf']]);
-
-        self::assertResponseStatusCodeSame(404);
-        self::assertSame([], $novos);
-        self::assertCount(0, $this->documentosDaPasta($idB));
-    }
-
     /**
      * R1: no disco o escopo da chave não aparece (a categoria é plana). Contra o dublê, a chave
      * gravada tem de ser exatamente a que a leitura monta a partir do documento persistido.
      */
-    #[TestDox('R1: nas duas rotas, a chave gravada é a mesma que a leitura monta a partir do documento')]
+    #[TestDox('R1: a chave gravada é a mesma que a leitura monta a partir do documento')]
     public function testChaveGravadaEhAMesmaDaLeitura(): void
     {
         $client = static::createClient();
@@ -241,10 +80,6 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         static::getContainer()->get(EntityManagerInterface::class)->clear();
 
         $this->logarComTenant($client, $gestor, $tenant);
-
-        $this->enviar($client, $id, [['conteudo' => self::PDF, 'nome' => 'procuracao.pdf']]);
-        self::assertResponseRedirects();
-        $pelaTela = $duble->memoria->ultimaGravada();
 
         $client->request(
             'POST',
@@ -260,7 +95,7 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
             $porNome[$doc->getNomeOriginal()] = $doc;
         }
 
-        foreach (['procuracao.pdf' => $pelaTela, 'contrato.pdf' => $peloFinanceiro] as $nome => $gravada) {
+        foreach (['contrato.pdf' => $peloFinanceiro] as $nome => $gravada) {
             $doc = $porNome[$nome] ?? self::fail('documento não registrado: ' . $nome);
 
             self::assertTrue($gravada->ehIgualA(ChavesDePasta::documento($doc)), $nome . ': gravação e leitura divergem');
@@ -270,7 +105,7 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('sha256: nas duas rotas, o documento nasce com o hash do conteúdo que o storage guardou')]
+    #[TestDox('sha256: o documento nasce com o hash do conteúdo que o storage guardou')]
     public function testSha256GravadoNasDuasRotas(): void
     {
         $client = static::createClient();
@@ -285,9 +120,6 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $gestor, $tenant);
 
-        $this->enviar($client, $id, [['conteudo' => self::PDF, 'nome' => 'procuracao.pdf']]);
-        self::assertResponseRedirects();
-
         $client->request(
             'POST',
             "/pasta/{$id}/financeiro/upload",
@@ -301,7 +133,7 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
             $porNome[$doc->getNomeOriginal()] = $doc;
         }
 
-        foreach (['procuracao.pdf' => self::PDF, 'contrato.pdf' => self::PDF . '% contrato'] as $nome => $conteudo) {
+        foreach (['contrato.pdf' => self::PDF . '% contrato'] as $nome => $conteudo) {
             $doc = $porNome[$nome] ?? self::fail('documento não registrado: ' . $nome);
 
             self::assertSame(hash('sha256', $conteudo), $doc->getSha256(), $nome);
@@ -313,7 +145,7 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('hash pós-compressão: se a releitura falhar, nas duas rotas o upload segue com sha256 null')]
+    #[TestDox('hash pós-compressão: se a releitura falhar, o upload segue com sha256 null')]
     public function testFalhaAoRelerOComprimidoNaoDerrubaOUpload(): void
     {
         if (!GhostscriptDeTeste::disponivel()) {
@@ -335,8 +167,6 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
 
         $gordo = $this->pdfGordo();
-        $this->enviar($client, $id, [['conteudo' => $gordo, 'nome' => 'peticao.pdf']], reduzirTamanho: true);
-        self::assertResponseRedirects();
 
         $client->request(
             'POST',
@@ -347,14 +177,14 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(201);
 
         $documentos = $this->documentosDaPasta($id);
-        self::assertCount(2, $documentos);
+        self::assertCount(1, $documentos);
         foreach ($documentos as $doc) {
             self::assertNull($doc->getSha256(), $doc->getNomeOriginal() . ': sem hash legível, fica null');
             self::assertLessThan(\strlen($gordo), $doc->getTamanhoBytes(), $doc->getNomeOriginal() . ': a compressão aconteceu');
         }
     }
 
-    #[TestDox('falha do storage: nas duas rotas, nenhum documento é registrado')]
+    #[TestDox('falha do storage: nenhum documento é registrado')]
     public function testFalhaDoStorageNaoRegistraDocumento(): void
     {
         $client = static::createClient();
@@ -369,10 +199,6 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         static::getContainer()->get(EntityManagerInterface::class)->clear();
 
         $this->logarComTenant($client, $gestor, $tenant);
-
-        $this->enviar($client, $id, [['conteudo' => self::PDF, 'nome' => 'procuracao.pdf']]);
-        self::assertResponseStatusCodeSame(500);
-        self::assertStringContainsString('disco cheio', (string) $client->getResponse()->getContent(), 'o 500 tem de ser a falha de gravação, não outra');
 
         $client->request(
             'POST',
@@ -397,38 +223,6 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         return new UploadedFile($origem, $nome, null, null, true);
     }
 
-    /**
-     * @param list<array{conteudo: string, nome: string}> $arquivos
-     *
-     * @return list<string> nomes que surgiram no diretório durante a requisição
-     */
-    private function enviar(KernelBrowser $client, int $pastaId, array $arquivos, bool $reduzirTamanho = false): array
-    {
-        $uploads = [];
-        foreach ($arquivos as $i => $arquivo) {
-            $uploads[$i] = $this->uploadDe($arquivo['conteudo'], $arquivo['nome']);
-        }
-
-        $antes = $this->arquivosNoDiretorio();
-
-        $client->request(
-            'POST',
-            "/pasta/{$pastaId}/documento/upload",
-            [
-                '_token'     => 'TOKEN_upload_documento_pasta_' . $pastaId,
-                'categorias' => array_fill(0, \count($arquivos), PastaDocumento::CATEGORIA_DEMAIS),
-            ] + ($reduzirTamanho ? ['reduzir_tamanho' => '1'] : []),
-            ['arquivos' => $uploads],
-        );
-
-        $novos = array_values(array_diff($this->arquivosNoDiretorio(), $antes));
-        foreach ($novos as $novo) {
-            $this->arquivosCriados[] = $this->diretorio() . '/' . $novo;
-        }
-
-        return $novos;
-    }
-
     /** @return list<PastaDocumento> */
     private function documentosDaPasta(int $pastaId): array
     {
@@ -439,26 +233,6 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         $em->clear();
 
         return $em->getRepository(PastaDocumento::class)->findBy(['pasta' => $pastaId]);
-    }
-
-    private function diretorio(): string
-    {
-        return (string) static::getContainer()->getParameter('uploads_dir');
-    }
-
-    /** @return list<string> só arquivos: as subpastas de tenant (imagens do editor) não contam */
-    private function arquivosNoDiretorio(): array
-    {
-        $diretorio = $this->diretorio();
-
-        if (!is_dir($diretorio)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_diff(scandir($diretorio) ?: [], ['.', '..']),
-            static fn (string $nome): bool => is_file($diretorio . '/' . $nome),
-        ));
     }
 
     private function instalarCsrfStorage(): void

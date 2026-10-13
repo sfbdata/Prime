@@ -180,6 +180,23 @@ final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Adicionar 4 faltante(s) ao checklist', $painel->filter('#btnDocumentosSugeridosFaltantes')->text());
     }
 
+    #[TestDox('DOC-107: o bloco de contexto leva o rótulo do desenho, "Contexto do processo" (dc L2132), seguido da fase')]
+    public function testRotuloDoContextoEhODoDesenho(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, 'Ação de indenização por danos morais');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, (int) $pasta->getId());
+
+        $linha = $crawler->filter('#documentosSugeridosCorpo .ds-sug-contexto > .ds-sug-contexto-linha');
+        self::assertSame(1, $linha->count());
+        self::assertSame('Contexto do processo', trim($linha->filter('.ds-sug-rotulo')->text()));
+        self::assertSame(1, $linha->filter('.ds-sug-rotulo + .ds-sug-fase')->count(), 'a fase vem logo depois do rótulo');
+        self::assertStringNotContainsString('Contexto da pasta', $crawler->filter('#documentosSugeridos')->text());
+    }
+
     #[TestDox('"Adicionar faltantes" grava pelo endpoint do checklist com o token do painel; depois, nada mais falta')]
     public function testAdicionarFaltantesCriaItensNoChecklist(): void
     {

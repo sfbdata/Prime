@@ -54,7 +54,7 @@ final class PastaExploradorLixeiraTest extends TestCase
     {
         $excluir = $this->funcao('excluirItens');
         // confirm() mantido (S-3), ANTES do pedido.
-        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'if (!confirm(avisoExclusaoDoLote(itens))) return;'));
+        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;'));
         // O que sai da memória é guardado (o objeto inteiro), não recriado depois.
         self::assertStringContainsString('saiu.arquivos.unshift(arquivos.splice(i, 1)[0]);', $excluir);
         self::assertStringContainsString('saiu.pastas.unshift(pastas.splice(i, 1)[0]);', $excluir);
@@ -102,7 +102,7 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertMatchesRegularExpression('/\.pex-toast-desfazer \{[^}]*background: transparent;[^}]*color: var\(--pex-toast-desfazer\);[^}]*font-size: 13px;[^}]*font-weight: 700;/', $css);
     }
 
-    #[TestDox('lixeira: modal montado por createElement/textContent (zero innerHTML) e pendurado no <body>; nota dos 30 dias; Restaurar com o csrfLote')]
+    #[TestDox('lixeira: modal montado por createElement/textContent (zero innerHTML) e pendurado no <body>; nota sem prazo de purga (D-DOC-RET); Restaurar com o csrfLote')]
     public function testModalDaLixeira(): void
     {
         $js    = $this->js();
@@ -112,8 +112,10 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringNotContainsString('insertAdjacentHTML', $js);
         self::assertStringContainsString('document.body.appendChild(raizModal);', $modal, 'fora do painel animado da aba');
         self::assertStringContainsString("class: 'modal fade pex-modal pex-lix'", $modal);
-        self::assertStringContainsString("'Itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira. Depois disso são apagados de vez.'", $modal);
-        self::assertStringContainsString('const DIAS_NA_LIXEIRA   = 30;', $js);
+        // Sem purga automática (D-DOC-RET, 07/10): a tela não pode prometer prazo nem apagamento de vez.
+        self::assertStringContainsString("'Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.'", $modal);
+        self::assertStringNotContainsString('DIAS_NA_LIXEIRA', $js);
+        self::assertDoesNotMatchRegularExpression('/\\d+ dias na lixeira|apagados de vez\\./', $js);
         // A linha: nome por `text` (textContent), excluído em/por e caminho original.
         $linha = $this->funcao('linhaDaLixeira');
         self::assertStringContainsString("h('span', { class: 'pex-lix-nome', id: nomeId, text: it.nome, title: it.nome })", $linha);

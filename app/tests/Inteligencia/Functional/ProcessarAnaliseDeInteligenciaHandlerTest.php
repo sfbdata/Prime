@@ -8,7 +8,9 @@ use App\Entity\Notificacao;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
+use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
@@ -20,9 +22,12 @@ use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
+use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
+use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
 use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use App\Tests\Inteligencia\Support\ProvedorFalso;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
@@ -43,11 +48,18 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
-    private function handler(ProvedorDeLinguagem $provedor, ?LoggerInterface $logger = null): ProcessarAnaliseDeInteligenciaHandler
+    private function handler(ProvedorDeLinguagem $provedor, ?LoggerInterface $logger = null, bool $iaHabilitada = true): ProcessarAnaliseDeInteligenciaHandler
     {
         $c = static::getContainer();
 
         $repositorio = $c->get(AnaliseDeInteligenciaRepository::class);
+        $disponibilidade = new DisponibilidadeDeInteligencia(
+            $provedor,
+            $c->get(ConfiguracaoDeInteligenciaRepository::class),
+            $repositorio,
+            $c->get(PermissionChecker::class),
+            $iaHabilitada,
+        );
 
         return new ProcessarAnaliseDeInteligenciaHandler(
             $this->em(),
@@ -57,6 +69,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
+            $disponibilidade,
             $logger ?? new NullLogger(),
         );
     }
@@ -97,7 +110,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringContainsString('ignorada', $logger->doNivel('warning')[0]['mensagem']);
     }
 
-    #[TestDox('ProvedorNaoConfigurado → indisponivel e UnrecoverableMessageHandlingException (sem retry)')]
+    #[TestDox('ProvedorNaoConfigurado → indisponivel antes do provedor, sem re-lançar (repetir não muda nada)')]
     public function testProvedorNaoConfigurado(): void
     {
         self::bootKernel();
@@ -106,17 +119,171 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $this->ligarIaNoTenant($tenant, $user);
         $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
 
-        try {
-            $this->handler(new ProvedorNaoConfigurado())($this->mensagem($analise));
-            self::fail('deveria lançar Unrecoverable');
-        } catch (UnrecoverableMessageHandlingException) {
-        }
+        $this->handler(new ProvedorNaoConfigurado())($this->mensagem($analise));
 
         $relida = $this->reler($analise);
         self::assertSame(StatusDaAnalise::Indisponivel, $relida->getStatus());
         self::assertSame('nao_configurado', $relida->getProvedor());
-        self::assertStringContainsString('não configurado', (string) $relida->getErroMotivo());
+        self::assertStringContainsString('não configurada', (string) $relida->getErroMotivo());
         self::assertSame(1, $relida->getTentativas());
+    }
+
+    #[TestDox('IA-034L: IA_HABILITADA desligada com a análise na fila → indisponivel com o motivo e o provedor NÃO é chamado')]
+    public function testPlataformaDesligadaCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso, iaHabilitada: false)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Indisponivel, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: IA não configurada nesta instalação', $relida->getErroMotivo());
+        self::assertNull($relida->getResumo());
+    }
+
+    #[TestDox('IA-034L: escritório desligou a IA com a análise na fila → falhou com o motivo, provedor não chamado')]
+    public function testEscritorioDesligadoCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $configuracao = $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $configuracao->atualizar(false, 50, 500, true, $user);
+        $this->em()->flush();
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertStringContainsString('desligada neste escritório', (string) $relida->getErroMotivo());
+    }
+
+    #[TestDox('IA-034L: a permissão do módulo foi retirada de quem pediu com a análise na fila → falhou com o motivo, provedor não chamado')]
+    public function testPermissaoRetiradaCortaAFila(): void
+    {
+        self::bootKernel();
+        [$admin, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $admin);
+        $solicitante = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'modules.inteligencia.view']);
+        $analise = $this->criarAnalisePendente($tenant, $solicitante, $pasta);
+
+        // Retira o módulo do papel DEPOIS de a análise entrar na fila.
+        $vinculos = $this->em()->getRepository(TenantRolePermission::class)->findAll();
+        $retirados = 0;
+        foreach ($vinculos as $vinculo) {
+            if ($vinculo->getPermission()?->getCode() === 'modules.inteligencia.view'
+                && $vinculo->getTenantRole()?->getTenant()?->getId() === $tenant->getId()) {
+                $vinculo->getTenantRole()->getTenantRolePermissions()->removeElement($vinculo);
+                $this->em()->remove($vinculo);
+                ++$retirados;
+            }
+        }
+        $this->em()->flush();
+        self::assertSame(1, $retirados, 'só o papel do solicitante tinha o módulo');
+
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: Sem permissão para usar a BlueJus IA', $relida->getErroMotivo());
+        self::assertNull($relida->getResumo());
+    }
+
+    #[TestDox('IA-034L: quem pediu não existe mais (solicitante nulo) → falhou com o motivo, provedor não chamado')]
+    public function testSolicitanteNuloCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, null, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: quem pediu a análise não existe mais', $relida->getErroMotivo());
+    }
+
+    #[TestDox('IA-034L: N análises canceladas antes do provedor (indisponivel e falhou) não tomam a cota; as outras falhas continuam contando')]
+    public function testCanceladaAntesDoProvedorNaoTomaACota(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $configuracao = $this->ligarIaNoTenant($tenant, $user, limiteDiario: 2);
+
+        // Três canceladas pelo escritório desligado (falhou) e duas pela plataforma (indisponivel).
+        $configuracao->atualizar(false, 2, 500, true, $user);
+        $this->em()->flush();
+        for ($i = 0; $i < 3; ++$i) {
+            $this->handler(new ProvedorFalso())($this->mensagem($this->criarAnalisePendente($tenant, $user, $pasta)));
+        }
+        for ($i = 0; $i < 2; ++$i) {
+            $this->handler(new ProvedorFalso(), iaHabilitada: false)($this->mensagem($this->criarAnalisePendente($tenant, $user, $pasta)));
+        }
+        // E uma que falhou por outro motivo (não é cancelamento): essa conta.
+        $outra = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $outra->falhar('resposta inválida do provedor');
+        $this->em()->flush();
+
+        $configuracao = $this->em()->find(\get_class($configuracao), $configuracao->getId());
+        $configuracao->atualizar(true, 2, 500, true, $user);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $repo = static::getContainer()->get(AnaliseDeInteligenciaRepository::class);
+        $tenant = $this->em()->find(\get_class($tenant), $tenant->getId());
+        $user   = $this->em()->find(\get_class($user), $user->getId());
+        self::assertSame(6, (int) $this->em()->createQuery('SELECT COUNT(a.id) FROM ' . AnaliseDeInteligencia::class . ' a WHERE a.tenant = :t')
+            ->setParameter('t', $tenant)->getSingleScalarResult(), 'as seis linhas existem');
+        self::assertSame(1, $repo->contarDesde($tenant, new \DateTimeImmutable('today')), 'só a falha que não é cancelamento conta');
+        self::assertSame(1, $repo->contarDesde($tenant, new \DateTimeImmutable('first day of this month midnight')));
+
+        $disponibilidade = new DisponibilidadeDeInteligencia(
+            new ProvedorFalso(),
+            static::getContainer()->get(ConfiguracaoDeInteligenciaRepository::class),
+            $repo,
+            static::getContainer()->get(PermissionChecker::class),
+            true,
+        );
+        self::assertSame(Disponibilidade::Disponivel, $disponibilidade->para($user, $tenant), 'limite 2, uma contada: ainda dá para pedir');
+    }
+
+    #[TestDox('IA-034L: a cota NÃO é reconferida no worker — a análise no limite exato (contada na solicitação) conclui')]
+    public function testCotaNaoEhReconferidaNoWorker(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user, limiteDiario: 1);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('Resumo no limite.', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertTrue($falso->foiChamado());
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($analise)->getStatus());
     }
 
     #[TestDox('ProvedorFalso com JSON válido → concluida com resumo, pontos, quem, tokens, modelo e notificação')]
@@ -555,6 +722,47 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
         self::assertStringContainsString("<analise_anterior>\nVisão anterior do gestor.\n</analise_anterior>", $texto);
         self::assertStringNotContainsString('Prazos anteriores.', $texto);
+    }
+
+    #[TestDox('IA-033: a análise anterior do Push volta ao provedor mascarada (CPF vira [CPF], CNJ intacto)')]
+    public function testAnaliseAnteriorDoPushVoltaMascarada(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta, , $primeiraPub] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $anterior = $this->criarAnalisePendente($tenant, $user, $pasta, ['pub:' . $primeiraPub->getId()]);
+        // Resposta gerada quando a máscara estava desligada (ou por outro provedor): carrega o CPF.
+        $this->concluirAnalise($anterior, 'Autor CPF 123.456.789-09 no processo 0701134-57.2025.8.07.0007.');
+
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('Nada novo.');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString("<analise_anterior>\nAutor CPF [CPF] no processo 0701134-57.2025.8.07.0007.\n</analise_anterior>", $texto);
+        self::assertStringNotContainsString('123.456.789-09', $texto);
+    }
+
+    #[TestDox('IA-033: a análise anterior do agente volta ao provedor mascarada (CPF e telefone)')]
+    public function testAnaliseAnteriorDoAgenteVoltaMascarada(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $anterior = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor);
+        $this->concluirAnalise($anterior, 'Cliente ligou do (61) 99999-1234, CPF 529.982.247-25.');
+
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"nova","texto":"x"}');
+        $this->handler($falso)($this->mensagem($this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor)));
+
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString("<analise_anterior>\nCliente ligou do [TEL], CPF [CPF].\n</analise_anterior>", $texto);
+        self::assertStringNotContainsString('529.982.247-25', $texto);
     }
 
     #[TestDox('agente: resposta sem JSON → falhou "resposta inválida" com o texto bruto guardado')]

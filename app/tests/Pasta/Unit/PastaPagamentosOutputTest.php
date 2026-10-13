@@ -200,4 +200,57 @@ final class PastaPagamentosOutputTest extends TestCase
         self::assertSame('R$ 1.000,00', $saida->recebidoFormatado);
         self::assertSame([], $saida->proximos);
     }
+
+    // ── FPN-009: "· juros N% a.m." ────────────────────────────────────────
+
+    #[TestDox('FPN-009: parcela com juros leva " · juros N% a.m." em qualquer estado; sem taxa (antiga, entrada, avulso) não leva')]
+    public function testSufixoDeJuros(): void
+    {
+        $pendente = $this->pagamento('1084.34', '2026-09-28')->setJurosMensal('1.5000');
+        $vencida  = $this->pagamento('1084.34', '2026-08-20')->setJurosMensal('1.5000');
+        $paga     = $this->pagamento('1084.34', '2026-08-20', '2026-08-15')->setJurosMensal('1.5000');
+        $antiga   = $this->pagamento('1084.34', '2026-09-28');
+
+        $linhas = array_map(
+            fn (PastaPagamento $p) => PastaPagamentoLinhaOutput::montar($p, $this->hoje())->quando,
+            [$pendente, $vencida, $paga, $antiga],
+        );
+
+        self::assertSame([
+            'vence 28/09/2026 · juros 1,5% a.m.',
+            'venceu 20/08/2026 · há 8 dias · juros 1,5% a.m.',
+            'pago em 15/08/2026 · juros 1,5% a.m.',
+            'vence 28/09/2026',
+        ], $linhas);
+    }
+
+    #[TestDox('FPN-009: a taxa sai sem zeros à direita e com vírgula (2 → "2", 0,99 → "0,99", 10 → "10"); zero não vira sufixo')]
+    public function testFormatoDaTaxa(): void
+    {
+        $sufixo = fn (string $taxa): string => PastaPagamentoLinhaOutput::montar(
+            $this->pagamento('100.00', '2026-12-01')->setJurosMensal($taxa),
+            $this->hoje(),
+        )->quando;
+
+        self::assertSame('vence 01/12/2026 · juros 2% a.m.', $sufixo('2.0000'));
+        self::assertSame('vence 01/12/2026 · juros 0,99% a.m.', $sufixo('0.9900'));
+        self::assertSame('vence 01/12/2026 · juros 10% a.m.', $sufixo('10.0000'));
+        self::assertSame('vence 01/12/2026 · juros 1,2345% a.m.', $sufixo('1.2345'));
+        self::assertSame('vence 01/12/2026', $sufixo('0.0000'));
+    }
+
+    #[TestDox('FPN-009: a taxa NÃO entra em conta nenhuma — totais e valor da linha iguais com e sem ela')]
+    public function testTaxaNaoMudaTotais(): void
+    {
+        $semTaxa = [$this->pagamento('1084.34', '2026-09-28'), $this->pagamento('2000.00', '2026-08-28', '2026-08-28')];
+        $comTaxa = [$this->pagamento('1084.34', '2026-09-28')->setJurosMensal('1.5000'), $this->pagamento('2000.00', '2026-08-28', '2026-08-28')];
+
+        $a = PastaPagamentosOutput::montar($semTaxa, $this->hoje());
+        $b = PastaPagamentosOutput::montar($comTaxa, $this->hoje());
+
+        self::assertSame(
+            [$a->total, $a->quantidadePagos, $a->recebidoFormatado, $a->previstoFormatado, $a->percentual, $a->todos[0]->valorFormatado],
+            [$b->total, $b->quantidadePagos, $b->recebidoFormatado, $b->previstoFormatado, $b->percentual, $b->todos[0]->valorFormatado],
+        );
+    }
 }

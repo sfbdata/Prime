@@ -138,6 +138,21 @@ final class ObterDadosDashboardUseCase
             array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
         );
 
+        // Tendência das extras com lastro por data (hoje só Eventos na agenda): a MESMA consulta
+        // no período anterior de mesma duração — a regra das setas que já existem. Concluídas,
+        // taxa e tempo médio ficam sem seta (DASH-010b, ver ColunasExtrasDoDashboard::TENDENCIA)
+        // e, por isso, sem consulta do período anterior.
+        $extrasComTendencia = $comAnterior ? Extras::comTendencia($colunasExtras) : [];
+        $mExtrasAnt         = [];
+        if ($extrasComTendencia !== [] && $colaboradores !== []) {
+            $mExtrasAnt = $this->mapasExtras(
+                $tenant,
+                array_merge($filtros, $periodoAnterior),
+                $extrasComTendencia,
+                array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
+            );
+        }
+
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
         foreach ($colaboradores as $user) {
@@ -167,6 +182,8 @@ final class ObterDadosDashboardUseCase
                     $mTotalTarefa[$id] ?? 0,
                     $mAtivasTarefa[$id] ?? 0,
                 ),
+                // Só extras com consulta própria (Eventos) têm tendência: total/ativas não entram.
+                extrasAnteriores:      $this->valoresExtras($extrasComTendencia, $mExtrasAnt, $id, 0, 0),
             );
         }
 
@@ -204,6 +221,9 @@ final class ObterDadosDashboardUseCase
             periodoAnterior:            $periodoAnterior,
             colunasExtras:              $colunasExtras,
             totaisExtras:               $this->totaisExtras($colunasExtras, $linhas),
+            totaisExtrasAnteriores:     $comAnterior
+                ? $this->totaisExtras($extrasComTendencia, $linhas, true)
+                : null,
         );
     }
 
@@ -267,13 +287,18 @@ final class ObterDadosDashboardUseCase
      * contagem = soma; taxa = Σ concluídas ÷ Σ metas; tempo médio = média das linhas com tempo > 0
      * (a regra do desenho, dc 1.2.2 L.1980). Sem base, null ("—").
      *
+     * Com $anterior, a MESMA regra sobre o período anterior, com os valores de
+     * `extrasAnteriores` de cada linha — só para as extras de ColunasExtrasDoDashboard::TENDENCIA
+     * (hoje, Eventos na agenda: uma soma).
+     *
      * @param list<string>                   $colunasExtras
      * @param LinhaAdvogadoDashboardOutput[] $linhas
      *
      * @return array<string, int|null>
      */
-    private function totaisExtras(array $colunasExtras, array $linhas): array
+    private function totaisExtras(array $colunasExtras, array $linhas, bool $anterior = false): array
     {
+        $campo  = $anterior ? 'extrasAnteriores' : 'extras';
         $totais = [];
         foreach ($colunasExtras as $coluna) {
             if ($coluna === Extras::TAXA_CONCLUSAO) {
@@ -288,7 +313,7 @@ final class ObterDadosDashboardUseCase
                 // Como o desenho (dc 1.2.2 L.1980): média das LINHAS com tempo > 0, sobre o valor
                 // que cada linha mostra — não a média ponderada pelas metas.
                 $tempos = array_values(array_filter(
-                    array_map(static fn (LinhaAdvogadoDashboardOutput $l): int => (int) ($l->extras[$coluna] ?? 0), $linhas),
+                    array_map(static fn (LinhaAdvogadoDashboardOutput $l): int => (int) (($l->{$campo})[$coluna] ?? 0), $linhas),
                     static fn (int $dias): bool => $dias > 0,
                 ));
                 $totais[$coluna] = $tempos !== [] ? (int) round(array_sum($tempos) / count($tempos)) : null;
@@ -297,7 +322,7 @@ final class ObterDadosDashboardUseCase
             }
 
             $totais[$coluna] = array_sum(array_map(
-                static fn (LinhaAdvogadoDashboardOutput $l): int => (int) ($l->extras[$coluna] ?? 0),
+                static fn (LinhaAdvogadoDashboardOutput $l): int => (int) (($l->{$campo})[$coluna] ?? 0),
                 $linhas,
             ));
         }

@@ -13,7 +13,9 @@
    Tudo escapado: a resposta do modelo nunca é HTML (`|raw` proibido aqui). O
    motivo técnico de uma falha só aparece para quem administra a IA. As ações
    (lida · excluir · interna) são as rotas por id da fatia 1; sem JS os
-   formulários seguem por POST comum.
+   formulários seguem por POST comum. Na concluída, Copiar · Baixar .txt ·
+   Imprimir (IA-007) operam sobre o texto gravado: o .txt é
+   `inteligencia_analise_txt`, e copiar/imprimir buscam esse mesmo .txt.
 
    Contexto: `saida` (App\Inteligencia\DTO\AnalisesDoAgenteOutput), `pastaId` (int).
    ============================================================================ #}
@@ -44,6 +46,20 @@
                         <span class="ia-lido"><i class="bi bi-check2-all" aria-hidden="true"></i>lido</span>
                     {% endif %}
                     <span class="ia-cab-espaco"></span>
+                    {% if a.status == 'concluida' %}
+                        {# IA-007 (desenho, dc L1001-1003): Copiar · Baixar .txt · Imprimir, sobre a
+                           análise JÁ GRAVADA. Baixar é link comum (funciona sem JS); copiar e
+                           imprimir são do pasta-ia-agentes.js. #}
+                        <button type="button" class="ia-icone" data-ia-copiar title="Copiar" aria-label="Copiar">
+                            <i class="bi bi-copy" aria-hidden="true"></i>
+                        </button>
+                        <a class="ia-icone" data-ia-baixar href="{{ path('inteligencia_analise_txt', {id: pastaId, analiseId: a.id}) }}" download title="Baixar .txt" aria-label="Baixar">
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                        </a>
+                        <button type="button" class="ia-icone" data-ia-imprimir title="Imprimir ou salvar em PDF" aria-label="Imprimir">
+                            <i class="bi bi-printer" aria-hidden="true"></i>
+                        </button>
+                    {% endif %}
                     {% if a.terminal %}
                         {% set dicaInterna = a.internaDoEscritorio
                             ? 'Análise interna: não aparece no link compartilhado com o cliente. Clique para liberar.'
@@ -66,6 +82,12 @@
                                 <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="lida">
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                                     <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como lida</button>
+                                </form>
+                            {% elseif a.lida %}
+                                {# IA-011: mesmo par lido/não lido do cartão do Push (dc L5159-5160). #}
+                                <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="nao-lida">
+                                    <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                                    <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-envelope" aria-hidden="true"></i>Marcar como não lido</button>
                                 </form>
                             {% endif %}
                             {% if a.status == 'concluida' %}
@@ -137,6 +159,11 @@
                         <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="lida">
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                             <button type="submit" class="ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lida</button>
+                        </form>
+                    {% elseif a.lida %}
+                        <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="nao-lida">
+                            <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                            <button type="submit" class="ia-botao"><i class="bi bi-envelope" aria-hidden="true"></i> Marcar como não lido</button>
                         </form>
                     {% endif %}
                 </footer>

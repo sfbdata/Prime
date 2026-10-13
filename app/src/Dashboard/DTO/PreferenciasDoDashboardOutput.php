@@ -19,7 +19,11 @@ final class PreferenciasDoDashboardOutput
 {
     /**
      * @param list<string> $colunasOcultas
-     * @param list<string> $colunasExtras  métricas do "Adicionar coluna", na ordem da tabela
+     * @param list<string> $colunasExtras        métricas do "Adicionar coluna", na ordem da tabela
+     * @param bool         $iaAvancadoEscolhido  o usuário já gravou o Modo avançado (ligado ou
+     *                                           desligado)? Sem escolha gravada, ligar pede a
+     *                                           confirmação "Ativar Modo Avançado?" (README do
+     *                                           desenho: "Na primeira vez abre a confirmação")
      */
     public function __construct(
         public readonly string $densidade,
@@ -28,6 +32,8 @@ final class PreferenciasDoDashboardOutput
         public readonly array $colunasOcultas,
         public readonly string $sons,
         public readonly array $colunasExtras = [],
+        public readonly string $iaAvancado = Catalogo::IA_AVANCADO_DESLIGADO,
+        public readonly bool $iaAvancadoEscolhido = false,
     ) {
     }
 
@@ -60,7 +66,35 @@ final class PreferenciasDoDashboardOutput
             $valor(Catalogo::COLUNAS_OCULTAS),
             $valor(Catalogo::SONS),
             $valor(Catalogo::COLUNAS_EXTRAS),
+            $valor(Catalogo::IA_AVANCADO),
+            self::gravadoValido($gravados, Catalogo::IA_AVANCADO),
         );
+    }
+
+    /**
+     * A chave tem linha no banco com valor que o catálogo ainda aceita? Linha antiga com valor
+     * que saiu da lista conta como "sem escolha", igual ao padrão.
+     *
+     * @param array<string, mixed> $gravados
+     */
+    private static function gravadoValido(array $gravados, string $chave): bool
+    {
+        if (!array_key_exists($chave, $gravados)) {
+            return false;
+        }
+
+        try {
+            Catalogo::validar($chave, $gravados[$chave]);
+        } catch (PreferenciaInvalidaException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function iaAvancadoLigado(): bool
+    {
+        return $this->iaAvancado === Catalogo::IA_AVANCADO_LIGADO;
     }
 
     /**
@@ -77,6 +111,7 @@ final class PreferenciasDoDashboardOutput
             Catalogo::COLUNAS_OCULTAS => $this->colunasOcultas,
             Catalogo::SONS            => $this->sons,
             Catalogo::COLUNAS_EXTRAS  => $this->colunasExtras,
+            Catalogo::IA_AVANCADO     => $this->iaAvancado,
         ];
     }
 
@@ -85,6 +120,8 @@ final class PreferenciasDoDashboardOutput
      * exatamente a de antes do menu. O dashboard-preferencias.js monta as mesmas classes.
      * As colunas extras não viram classe: elas mudam o HTML da tabela (o servidor calcula a
      * coluna), por isso a tela recarrega o fragmento quando a lista muda.
+     * O Modo avançado ligado vira `db-page--ia-avancado`: mostra o bloco avançado do painel
+     * BlueJus Intelligence e alarga o painel para 600px (dashboard-inteligencia.css).
      */
     public function classesCss(): string
     {
@@ -101,6 +138,9 @@ final class PreferenciasDoDashboardOutput
         }
         if ($this->sons === Catalogo::SONS_DESLIGADOS) {
             $classes[] = 'db-page--sem-som';
+        }
+        if ($this->iaAvancadoLigado()) {
+            $classes[] = 'db-page--ia-avancado';
         }
         foreach ($this->colunasOcultas as $coluna) {
             $classes[] = 'db-oculta--' . $coluna;

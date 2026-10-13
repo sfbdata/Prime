@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\CriarPastaSecaoUseCase;
 use App\Pasta\UseCase\ExcluirPastaSecaoUseCase;
@@ -19,7 +21,6 @@ use App\Pasta\UseCase\ReordenarSecoesUseCase;
 use App\Pasta\UseCase\RenomearPastaSecaoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,7 +33,6 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 final class PastaSecaoController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
@@ -44,6 +44,7 @@ final class PastaSecaoController extends AbstractController
         private readonly ReordenarSecoesUseCase $reordenarSecoesUseCase,
         private readonly MoverPastaSecaoUseCase $moverPastaUseCase,
         private readonly PastaSecaoRepository $secaoRepository,
+        private readonly PastaDocumentoRepository $documentoRepository,
     ) {
     }
 
@@ -54,6 +55,10 @@ final class PastaSecaoController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
         $pastaId = (int) $pasta->getId();
+
+        if (!$this->pastaDoEscritorio($pasta, $tenant)) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
@@ -102,7 +107,9 @@ final class PastaSecaoController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        $secao = $this->em->find(PastaSecao::class, $secaoId);
+        // Busca escopada ao escritório (guard IDOR): seção de outro escritório responde o mesmo 404
+        // de id inexistente, sem depender do TenantFilter.
+        $secao = $tenant !== null ? $this->secaoRepository->findByIdAndTenant($secaoId, $tenant) : null;
         if ($secao === null) {
             return $this->json(['erro' => 'Seção não encontrada.'], Response::HTTP_NOT_FOUND);
         }
@@ -137,7 +144,9 @@ final class PastaSecaoController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        $secao = $this->em->find(PastaSecao::class, $secaoId);
+        // Busca escopada ao escritório (guard IDOR): seção de outro escritório responde o mesmo 404
+        // de id inexistente, sem depender do TenantFilter.
+        $secao = $tenant !== null ? $this->secaoRepository->findByIdAndTenant($secaoId, $tenant) : null;
         if ($secao === null) {
             return $this->json(['erro' => 'Seção não encontrada.'], Response::HTTP_NOT_FOUND);
         }
@@ -178,7 +187,7 @@ final class PastaSecaoController extends AbstractController
         $currentUser = $this->getUser();
         $tenant      = $this->tenantContext->getCurrentTenant();
 
-        $secao = $this->em->find(PastaSecao::class, $secaoId);
+        $secao = $tenant !== null ? $this->secaoRepository->findByIdAndTenant($secaoId, $tenant) : null;
         if ($secao === null) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         }
@@ -225,12 +234,13 @@ final class PastaSecaoController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        $documento = $this->em->find(PastaDocumento::class, $docId);
-        if ($documento === null) {
+        $documento = $tenant !== null ? $this->documentoRepository->findByIdAndTenant($docId, $tenant) : null;
+        $pastaDoDocumento = $documento?->getPasta();
+        if ($documento === null || $pastaDoDocumento === null) {
             return $this->json(['erro' => 'Documento não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
-        $pastaId = (int) $documento->getPasta()?->getId();
+        $pastaId = (int) $pastaDoDocumento->getId();
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
@@ -243,7 +253,9 @@ final class PastaSecaoController extends AbstractController
         $secaoDestino = null;
 
         if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
-            $secaoDestino = $this->em->find(PastaSecao::class, (int) $secaoIdRaw);
+            // Escopada à pasta do documento E ao escritório, como o destino do mover(): seção de
+            // outro escritório (ou de outra pasta) responde 404, sem confirmar que existe.
+            $secaoDestino = $this->secaoRepository->findByIdAndPastaAndTenant((int) $secaoIdRaw, $pastaDoDocumento, $tenant);
             if ($secaoDestino === null) {
                 return $this->json(['erro' => 'Seção de destino não encontrada.'], Response::HTTP_NOT_FOUND);
             }
@@ -267,6 +279,10 @@ final class PastaSecaoController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
         $pastaId = (int) $pasta->getId();
+
+        if (!$this->pastaDoEscritorio($pasta, $tenant)) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
@@ -293,6 +309,10 @@ final class PastaSecaoController extends AbstractController
         $tenant = $this->tenantContext->getCurrentTenant();
         $pastaId = (int) $pasta->getId();
 
+        if (!$this->pastaDoEscritorio($pasta, $tenant)) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
@@ -308,5 +328,18 @@ final class PastaSecaoController extends AbstractController
         $this->reordenarSecoesUseCase->executar($pasta, $tenant, $ids);
 
         return $this->json(['ok' => true]);
+    }
+
+    /**
+     * A pasta resolvida pela rota é deste escritório? O resolver busca por PK; a posse é provada
+     * aqui, explicitamente, para não depender só do TenantFilter. Sem escritório na sessão → não.
+     */
+    private function pastaDoEscritorio(Pasta $pasta, ?Tenant $tenant): bool
+    {
+        if ($tenant === null || $tenant->getId() === null) {
+            return false;
+        }
+
+        return $pasta->getTenant()?->getId() === $tenant->getId();
     }
 }

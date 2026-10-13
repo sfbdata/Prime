@@ -31,6 +31,14 @@
    não tem CPF/CNPJ para mostrar — é o estado de 1.152 das 1.201 pastas em produção. #}
 {% set documento = cliente ? (cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null)) : null %}
 {% set eAtiva = pasta.situacao == 'ativo' %}
+{# PAS-014: controle de escrita só para quem o servidor deixaria usar — a MESMA decisão do
+   `denyResourceAccessUnlessGranted` de cada rota (editar, prioridade, situação, responsável e
+   vincular processo pedem EDIT; excluir e restaurar pedem DELETE). O servidor continua
+   recusando: isto é só a tela não oferecer o que vai dar "sem permissão". Calculado uma vez:
+   o show já decide `podeEditarPasta` (PAS-047) e repassa; a função só roda se o parcial vier
+   sozinho. #}
+{% set podeEditarPasta  = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeExcluirPasta = can_access_resource('pasta', pasta.id, 'delete') %}
 
 <header class="ps-card ps-cabecalho">
 
@@ -49,6 +57,7 @@
             <div class="ps-cab-etiquetas">
             <div class="ps-cab-sep"></div>
 
+            {% if podeEditarPasta %}
             <div class="ps-pop-wrap">
                 <button type="button"
                         class="ps-prio ps-prio--{{ pasta.prioridade.value }} pasta-prioridade-btn"
@@ -72,6 +81,13 @@
                     {% endfor %}
                 </div>
             </div>
+            {% else %}
+            {# Sem EDIT: o selo mostra a prioridade, sem menu para trocá-la. #}
+            <span class="ps-prio ps-prio--{{ pasta.prioridade.value }}" title="Prioridade">
+                <i class="bi bi-flag-fill"></i>
+                <span class="ps-prio-label">{{ pasta.prioridadeLabel }}</span>
+            </span>
+            {% endif %}
 
             <div class="ps-cab-sep"></div>
 
@@ -142,6 +158,7 @@
                qualquer jeito (PastaSomenteLeituraListener), mas botão que existe e não funciona
                é pior que botão ausente. Ficam o caminho de volta e o histórico — é lá que está
                o registro de quem excluiu e quando. #}
+            {% if podeExcluirPasta %}
             <form method="post" action="{{ path('pasta_restaurar', {id: pasta.id}) }}"
                   onsubmit="return confirm('Restaurar a pasta {{ pasta.nup|e('js') }}?');">
                 <input type="hidden" name="_token" value="{{ csrf_token('restaurar_pasta_' ~ pasta.id) }}">
@@ -149,6 +166,7 @@
                     <i class="bi bi-arrow-counterclockwise"></i><span>Restaurar</span>
                 </button>
             </form>
+            {% endif %}
             <button type="button" class="ps-btn" id="psHistoricoAbrir"
                     title="Histórico do sistema"
                     aria-controls="psHistorico" aria-expanded="false">
@@ -165,11 +183,13 @@
 
                     {# Os atalhos E e H são do desenho; quem os escuta é o pasta-show.js
                        (`data-ps-atalho`), com o menu aberto. #}
+                    {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="e"
                             title="Editar dados (E)"
                             data-bs-toggle="modal" data-bs-target="#modalEditarPasta">
                         <i class="bi bi-pencil"></i><span>Editar dados</span><kbd class="ps-pop-atalho">E</kbd>
                     </button>
+                    {% endif %}
                     {# O histórico automático do sistema vive no drawer; o botão mantém o id
                        que o pasta-show.js procura. #}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="h"
@@ -198,6 +218,7 @@
                         </button>
                     </form>
                     {% endif %}
+                    {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem"
                             data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
                         <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
@@ -205,6 +226,7 @@
                     <button type="button" class="ps-pop-item" role="menuitem" id="psMenuTrocarResponsavel">
                         <i class="bi bi-person-gear"></i><span>Trocar responsável</span>
                     </button>
+                    {% endif %}
 
                     <div class="ps-pop-sep"></div>
                     <div class="ps-pop-secao">Compartilhar</div>
@@ -234,18 +256,23 @@
                         <span class="ps-pop-sw{{ eFavorita ? ' is-ligado' : '' }}" aria-hidden="true"><span class="ps-pop-sw-bola"></span></span>
                     </button>
 
+                    {% if podeEditarPasta or podeExcluirPasta %}
                     <div class="ps-pop-sep"></div>
+                    {% endif %}
+                    {% if podeEditarPasta %}
                     {# Mesma troca de situação da pílula ao lado das abas, por outro caminho. #}
                     <button type="button" class="ps-pop-item js-situacao-opt js-situacao-alternar" role="menuitem"
                             data-situacao="{{ eAtiva ? 'arquivado' : 'ativo' }}">
                         <i class="bi {{ eAtiva ? 'bi-archive' : 'bi-box-arrow-up' }}"></i>
                         <span class="js-situacao-alternar-rotulo">{{ eAtiva ? 'Arquivar' : 'Desarquivar' }} pasta</span>
                     </button>
+                    {% endif %}
                     {# Excluir pede o NÚMERO da pasta digitado (desenho, `menuPasta('excluir')`).
                        O prompt é só o primeiro filtro: o servidor confere `confirmar_nup` com o
                        número gravado e recusa se não bater. O texto não promete "lixeira por
                        30 dias" como o desenho: aqui a pasta vira lápide (ou some, se for a
                        última da sequência). Trocar o prompt() nativo por modal é frente própria. #}
+                    {% if podeExcluirPasta %}
                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
                           class="js-excluir-pasta" data-nup="{{ pasta.nup }}"
                           onsubmit="var n = this.dataset.nup, txt = window.prompt('Excluir a pasta ' + n + '?\nA exclusão fica registrada no histórico.\n\nPara confirmar, digite o número da pasta:'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { window.alert('Número não confere. A pasta não foi excluída.'); return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
@@ -255,6 +282,7 @@
                             <i class="bi bi-trash3"></i><span>Excluir pasta</span>
                         </button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -285,7 +313,11 @@
         <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
         <div class="ps-cab-cliente-corpo">
             <div class="ps-cab-cliente-linha">
-                <h1 class="ps-cab-titulo">
+                {# Com cliente cadastrado, o botão direito no nome abre a janela "Detalhes do
+                   cliente" (PAS-001; desenho dc L.1129, `abrirCli`) — a mesma do botão Cadastro e do
+                   trilho, pelo pasta-clientes.js (`data-cliente-id`). O clique comum não muda. #}
+                <h1 class="ps-cab-titulo"
+                    {%- if cliente %} data-cliente-id="{{ cliente.id }}" aria-describedby="psCabDicaCliente"{% endif %}>
                     {%- if cliente -%}
                         {{ cliente.nomeExibicao }}
                     {%- elseif pasta.nomeCliente -%}
@@ -314,6 +346,10 @@
                 <span class="ps-cab-doc ps-cab-doc--aviso">não vinculado ao cadastro de clientes</span>
             {% endif %}
         </div>
+        {# Dica do desenho (dc L.1135-1137, `tipVis`): aparece ao parar o mouse no nome. Só CSS. #}
+        {% if cliente %}
+            <span class="ps-cab-dica" id="psCabDicaCliente" role="tooltip"><i class="bi bi-mouse2" aria-hidden="true"></i>Detalhes: clique com o botão direito</span>
+        {% endif %}
 
         {# ── BlueJus Intelligence (desenho 1.2.3, dc L.1139): à direita da linha do cliente ──
            Abre o drawer dos agentes da BlueJus IA (spec inteligencia-agentes-da-pasta). Só para
@@ -352,7 +388,20 @@
             <span class="ps-cab-selo-faixa"><i class="bi bi-archive-fill" aria-hidden="true"></i>ARQUIVADO</span>
         </div>
     {% endset %}
-    <div class="ps-cab-dados" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}">
+    {# PAS-002: ao REATIVAR (arquivado → ativo pela pílula), o desenho carimba "ATIVO" por
+       3,3 s (`ativoSeloMostrar`) e o selo some sozinho. Nunca vem do servidor: só existe
+       como modelo, e o script do fim do parcial o põe e o tira. #}
+    {% set seloAtivo %}
+        <div class="ps-cab-selo ps-cab-selo--ativo" role="img" aria-label="Pasta ativa" title="Situação da pasta: Ativo">
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-aro" aria-hidden="true"></span>
+            <span class="ps-cab-selo-faixa"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>ATIVO</span>
+        </div>
+    {% endset %}
+    <div class="ps-cab-dados" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}"
+         data-ps-selo-ativo-modelo="{{ seloAtivo|e('html_attr') }}">
         {% if pasta.situacao == 'arquivado' %}{{ seloArquivado }}{% endif %}
         <div class="ps-cab-dado" data-campo="processo">
             <p class="ps-rotulo"><i class="bi bi-diagram-3"></i>Processo vinculado</p>
@@ -403,7 +452,9 @@
                 {% endif %}
             {% else %}
                 <p class="ps-dado ps-dado--vazio">Nenhum processo.
+                    {% if podeEditarPasta %}
                     <button type="button" class="ps-link-btn ps-link-btn--vincular" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">vincular</button>
+                    {% endif %}
                 </p>
             {% endif %}
         </div>
@@ -534,7 +585,8 @@
            de sempre (url, csrf, situação atual): o script da tela escuta as opções e
            dispara a mesma troca que o botão "Arquivar" fazia. Pasta excluída é
            somente-leitura: a pílula vira só um selo, sem menu. #}
-        {% if not pasta.estaExcluida %}
+        {# Sem EDIT a pílula vira só o selo, como na lápide: a troca seria recusada. #}
+        {% if not pasta.estaExcluida and podeEditarPasta %}
             <div class="ps-situacao-wrap ps-pop-wrap">
                 <button type="button"
                         id="btn-alternar-status"
@@ -588,6 +640,28 @@
 .ps-pop-sw.is-ligado { background: var(--ps-accent, #0a7aad); }
 .ps-pop-sw-bola { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(10,40,60,.3); transition: left .2s cubic-bezier(.22,.8,.3,1); }
 .ps-pop-sw.is-ligado .ps-pop-sw-bola { left: 15px; }
+
+/* PAS-001: o nome do cliente aceita o botão direito, e a dica do desenho (`tipVis`) aparece
+   350ms depois de o mouse parar nele. Medidas e cores do desenho (dc L.1136); fundo e texto
+   pelos tokens que já têm o par escuro. */
+.ps-cab-titulo[data-cliente-id] { cursor: context-menu; }
+.ps-cab-dica {
+    position: absolute; left: 50px; top: calc(100% + 6px); z-index: 20;
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    padding: 7px 11px; border-radius: 4px;
+    background: var(--ps-resp-ativa-bg, #e3f0f8); color: var(--ps-chip-text, #0b5f86);
+    font-size: 12.5px; font-weight: 700;
+    box-shadow: 0 8px 18px -10px rgba(12,90,130,.45);
+    pointer-events: none;
+    opacity: 0; visibility: hidden; transform: translateY(-3px);
+    transition: opacity .16s cubic-bezier(.22,.8,.3,1), transform .16s cubic-bezier(.22,.8,.3,1), visibility 0s linear .16s;
+}
+.ps-cab-dica i { font-size: 13px; }
+.ps-cab-cliente:has(.ps-cab-titulo[data-cliente-id]:hover) > .ps-cab-dica {
+    opacity: 1; visibility: visible; transform: none;
+    transition-delay: .35s, .35s, .35s;
+}
+@media (hover: none) { .ps-cab-dica { display: none; } }
 </style>
 <script>
 (function () {
@@ -629,19 +703,37 @@
 (function () {
     /* O selo ARQUIVADO acompanha a pílula de situação. Quem faz a troca é o script da
        tela (show.html.twig), que só alterna as classes da pílula; observar a classe evita
-       um segundo caminho de troca e mantém o selo fiel ao que o servidor respondeu. */
+       um segundo caminho de troca e mantém o selo fiel ao que o servidor respondeu.
+       PAS-002: na volta de arquivado para ativo, o carimbo ATIVO bate e some em 3,3 s
+       (desenho `ativoSeloMostrar`); o CSS faz o esmaecer, o timer tira o nó. */
     var pilula = document.getElementById('btn-alternar-status');
     var faixa  = document.querySelector('.ps-cabecalho .ps-cab-dados');
     if (!pilula || !faixa || !faixa.dataset.psSeloModelo || !window.MutationObserver) { return; }
 
+    var estavaArquivada = pilula.classList.contains('ps-situacao-pill--arquivado');
+    var tempoDoAtivo    = null;
+
+    function tirarSeloAtivo() {
+        clearTimeout(tempoDoAtivo);
+        var ativo = faixa.querySelector(':scope > .ps-cab-selo--ativo');
+        if (ativo) { ativo.remove(); }
+    }
+
     function sincronizarSelo() {
         var arquivada = pilula.classList.contains('ps-situacao-pill--arquivado');
-        var selo      = faixa.querySelector(':scope > .ps-cab-selo');
+        var selo      = faixa.querySelector(':scope > .ps-cab-selo--arquivado');
         if (arquivada && !selo) {
+            tirarSeloAtivo();
             faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloModelo);
         } else if (!arquivada && selo) {
             selo.remove();
         }
+        if (estavaArquivada && !arquivada && faixa.dataset.psSeloAtivoModelo) {
+            tirarSeloAtivo();
+            faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloAtivoModelo);
+            tempoDoAtivo = setTimeout(tirarSeloAtivo, 3300);
+        }
+        estavaArquivada = arquivada;
     }
 
     new MutationObserver(sincronizarSelo).observe(pilula, { attributes: true, attributeFilter: ['class'] });

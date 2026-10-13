@@ -62,7 +62,8 @@
 
    L8 (D5/D6, dc `baixar`/`clip`/`colar`, L4793-4853): "Baixar como .zip" por um <form
    target=_blank> montado por DOM com o csrfLote — os tetos (500 arquivos / 1 GB) são conferidos
-   AQUI antes de abrir a aba, porque o erro do servidor chegaria nela como JSON cru; Copiar
+   AQUI antes de abrir a aba, porque o erro do servidor chegaria numa aba nova (desde o DOC-140,
+   uma página curta com a mensagem e "Fechar", não mais o JSON); Copiar
    (Ctrl+C) guarda só ARQUIVOS (o servidor não copia pastas) e Colar distingue o recorte
    (mover-lote) da cópia (copiar), que insere as linhas de `copiados` sem recarregar.
    ========================================================================== */
@@ -107,6 +108,13 @@
         urlCopiar:           dados.urlCopiar || '',
         // Lápide da Pasta inteira: a lixeira dela só se olha — nada de Desfazer nem Restaurar.
         pastaExcluida:       raiz.dataset.pastaExcluida === '1',
+        // DOC-118: permissão de EDITAR a pasta (e pasta fora da lápide), decidida no servidor.
+        // Falsa (ou ausente), nenhuma ação de escrita é desenhada nem ligada.
+        podeEditar:          dados.podeEditar === true,
+        // DOC-118c: a permissão do GET da lixeira (EDITAR a pasta, mesmo na lápide), decidida no servidor.
+        podeVerLixeira:      dados.podeVerLixeira === true,
+        // DOC-120: a pasta_show desta pasta — base do "Copiar link" de uma subpasta.
+        urlPasta:            raiz.dataset.urlPasta || '',
     };
 
     const el = {
@@ -177,6 +185,24 @@
     };
     if (!el.lista) return;
 
+    /* DOC-118 — só leitura (quem só VÊ a pasta, ou a pasta na lápide): as peças de escrita saem do
+       DOM antes de qualquer `addEventListener`, então nada delas é ligado. Nova pasta e Anexar já
+       nem vêm do servidor; aqui saem também os botões de escrita da barra de seleção (Copiar,
+       Recortar, Renomear, Excluir — o Copiar só existe para o Colar) e a faixa de limpeza (a única
+       ação dela é excluir). Os atalhos (Del, F2, Ctrl+X/C/V), o menu, o arraste, o Sortable e o
+       upload por soltar conferem `cfg.podeEditar` onde são ligados. Leitura, busca, visualizar,
+       .zip e favoritos (preferência pessoal) seguem. O servidor recusa de qualquer jeito. */
+    if (!cfg.podeEditar) {
+        [el.btnNovaPasta, el.btnAnexar, el.fileInput, el.limpeza].forEach(function (n) { if (n) n.remove(); });
+        el.btnNovaPasta = el.btnAnexar = el.fileInput = el.limpeza = null;
+        if (el.selecao) {
+            el.selecao.querySelectorAll('[data-pex-sel="copiar"], [data-pex-sel="recortar"], [data-pex-sel="renomear"], [data-pex-sel="excluir"]').forEach(function (n) { n.remove(); });
+        }
+    }
+    // A lixeira só se oferece a quem o GET dela atende (EDITAR a pasta); na lápide, quem edita ainda
+    // a olha, quem só vê não (DOC-118c: antes via o botão e levava 403 sem aviso).
+    function veLixeira() { return !!cfg.urlLixeira && cfg.podeVerLixeira; }
+
     // ------------------------------------------------------------ estado ----
     const pastas   = dados.pastas;            // mutável em memória
     const arquivos = dados.arquivos;
@@ -219,7 +245,6 @@
     const TETO_LOTE      = 2000;
     const TOQUE_LONGO_MS = 500;     // toque longo abre o menu (convenção; o desenho é omisso)
     const TOAST_MS       = 4200;    // dc L4772
-    const DIAS_NA_LIXEIRA   = 30;   // S-10; o cron roda `app:documentos:purgar-lixeira --dias=30`
     const LACO_MARGEM_PX = 40;      // rola sozinho a 40px da borda (dc L4891)
     // Favoritar vários: no máximo 4 pedidos ao mesmo tempo (a rota é de um alvo por pedido).
     const FAVORITO_PARALELO = 4;
@@ -650,6 +675,7 @@
         caixasPorChave = new Map();
         itens.forEach(function (it) {
             const linha = it.tipo === 'pasta' ? linhaPasta(it.dado, buscando) : linhaArquivo(it.dado, buscando);
+            if (!cfg.podeEditar) linha.removeAttribute('draggable');   // DOC-118: nada a arrastar
             linhasPorChave.set(chaveDe(it), linha);
             const caixa = linha.querySelector('.pex-chk-in');
             if (caixa) caixasPorChave.set(chaveDe(it), caixa);
@@ -678,7 +704,9 @@
                     // O desenho é omisso: subindo pela trilha com o filtro ativo, uma pasta sem
                     // nada do tipo não pode parecer vazia — o chip "Mostrando somente" fica logo acima.
                     ? 'Nenhum item do tipo ' + rotuloFiltro(filtroTipo) + (caminho.length ? ' nesta pasta.' : ' aqui.')
-                    : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou clique em Anexar.' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.'));
+                    // DOC-118: só leitura não recebe convite para arrastar, colar nem anexar.
+                    : (!cfg.podeEditar ? (caminho.length ? 'Pasta vazia.' : 'Nenhum arquivo ainda.')
+                        : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.')));
             el.vazio.hidden = false;
         } else {
             el.vazio.hidden = true;
@@ -1272,13 +1300,18 @@
             if (limpezaDesmarcados.has(id)) limpezaDesmarcados.delete(id); else limpezaDesmarcados.add(id);
             renderizarLimpeza(false);
         });
-        /* Excluir (dc `limpExcluir`): vai pelo excluir-lote, com a MESMA confirmação do Excluir da
-           barra — nada é excluído sem o usuário confirmar. Fecha a lista depois do sucesso. */
+        /* Excluir (dc `limpExcluir`, L4952): vai pelo excluir-lote do Excluir da barra — nada é
+           excluído sem o usuário confirmar —, mas com a confirmação e o aviso do desenho. O prazo
+           da lixeira não entra: ela não tem purga automática. Fecha a lista depois do sucesso. */
         el.limpezaExcluir.addEventListener('click', function () {
-            const itens = sugestoesDeLimpeza().filter(function (x) { return !limpezaDesmarcados.has(x.a.id); }).map(function (x) {
+            const marcados = sugestoesDeLimpeza().filter(function (x) { return !limpezaDesmarcados.has(x.a.id); });
+            const itens = marcados.map(function (x) {
                 return { tipo: 'arquivo', id: x.a.id, nome: x.a.nome, dado: x.a };
             });
-            excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); });
+            excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); }, {
+                confirmacao: 'Excluir ' + itens.length + ' arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.',
+                aviso: itens.length + ' arquivo(s) excluído(s) · ' + formatarBytes(somaDaLimpeza(marcados)) + ' liberados',
+            });
         });
     }
 
@@ -1570,7 +1603,7 @@
                 const t = tipoDe(a.nome);
                 return {
                     id: a.id, nome: a.nome, mime: a.mime || '', viewUrl: a.viewUrl, downloadUrl: a.downloadUrl,
-                    icone: t[0], tipo: t[2], tamanho: a.tamanho ? formatarBytes(a.tamanho) : '', data: formatarData(a.carregadoEm),
+                    icone: t[0], tipo: t[2], tamanho: a.tamanho ? formatarBytes(a.tamanho) : '', data: formatarData(dataModificacao(a)),
                 };
             }),
             indice: i,
@@ -1608,7 +1641,7 @@
        próprios). Backspace / Alt+← / Alt+↑ sobem um nível de qualquer ponto do explorador (como
        no L2); os demais atalhos só com o foco NA LISTA ou numa linha — com o foco num botão da
        faixa, do Organizar, da barra ou de um popover, Enter/Espaço/setas são do navegador.
-       Ctrl+A tudo; Del exclui; F2 renomeia; Enter abre; Espaço visualiza; Esc limpa (ou, com um
+       Ctrl+A tudo; Del exclui; F2 renomeia; Enter abre; Espaço visualiza (só arquivo); Esc limpa (ou, com um
        popover aberto, só o fecha); Ctrl+X/Ctrl+C/Ctrl+V recortam/copiam/colam (o Colar segue o
        modo do que está guardado); setas, Home e End movem a seleção (Shift estende). */
     raiz.addEventListener('keydown', function (e) {
@@ -1656,6 +1689,8 @@
             return;
         }
         if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }
+        // DOC-118: só leitura — Del, F2 e Ctrl+X/C/V não fazem nada (o Ctrl+C fica com o navegador).
+        if (!cfg.podeEditar && (k === 'Delete' || k === 'F2' || (ctrl && (baixa === 'x' || baixa === 'c' || baixa === 'v')))) return;
         if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }
         if (k === 'F2') { if (sel.length === 1) { e.preventDefault(); iniciarRenomear(sel[0]); } return; }
         if (k === 'Enter') {
@@ -1665,7 +1700,8 @@
         }
         if (k === ' ') {
             const alvo = sel.length === 1 ? sel[0] : (linhaFocada ? itemPorChave(chaveDoElemento(linhaFocada)) : null);
-            if (alvo) { e.preventDefault(); if (alvo.tipo === 'arquivo') abrirPreviewDe(alvo.dado); else entrar(alvo.id); }
+            // dc L4911: o Espaço só visualiza ARQUIVO; numa pasta não faz nada (entrar é o Enter).
+            if (alvo && alvo.tipo === 'arquivo') { e.preventDefault(); abrirPreviewDe(alvo.dado); }
             return;
         }
         if (ctrl && baixa === 'x') { if (sel.length) { e.preventDefault(); recortar(sel); } return; }
@@ -1889,17 +1925,20 @@
        - "Editar…" (categoria, descrição, número) é função do sistema: o desenho é omisso. */
     const SEP = {};
     let menuAcoes = [];
+    /* DOC-118b: a ação que ESCREVE (cria, cola, recorta, copia, move, renomeia, edita, exclui) é
+       marcada aqui, na origem, com `{ escrita: true }`; o menu do só leitor tira as marcadas. Ação
+       de escrita nova sem a marca é pega pelo PastaExploradorSomenteLeituraJsTest, não pelo rótulo. */
     function op(rotulo, ico, acao, extra) {
         extra = extra || {};
-        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado, titulo: extra.titulo || '' };
+        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado, titulo: extra.titulo || '', escrita: extra.escrita === true };
     }
     function opcoesDoMenu(alvo) {
         const sel = itensSelecionados();
         const multi = !!alvo && sel.length > 1 && selecao.has(chaveDe(alvo));
         if (!alvo) {
             return [
-                op('Nova pasta', 'bi-folder-plus', novaPastaInline),
-                op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia }),
+                op('Nova pasta', 'bi-folder-plus', novaPastaInline, { escrita: true }),
+                op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true }),
                 op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' }),
                 SEP,
             ].concat([['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']].map(function (par) {
@@ -1907,7 +1946,7 @@
             }), [
                 SEP,
                 op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes', 'bi-layout-sidebar-reverse', alternarPainel),
-            ], cfg.urlLixeira ? [
+            ], veLixeira() ? [
                 // L7: a lixeira da pasta (o desenho é omisso — ver "lixeira" abaixo).
                 SEP,
                 op(rotuloLixeira(), 'bi-trash3', abrirLixeira),
@@ -1917,14 +1956,14 @@
             const arqs = sel.filter(ehArquivo);
             return [op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })].concat(arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : [], [
                 SEP,
-                op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),
+                op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true }),
                 opCopiar(sel),
             ], [
-                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }),
+                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true }),
                 op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
                 opFavorito(sel),
                 SEP,
-                op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true }),
+                op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true }),
                 SEP,
                 op('Propriedades', 'bi-info-square', mostrarPainel),
             ]);
@@ -1934,6 +1973,8 @@
         return [op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: 'Enter' })]
             .concat(ehPasta ? [
                 op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),
+                // DOC-120: a subpasta também tem link (o nível, por `?pex=`).
+                op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),
             ] : [
                 op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' }),
                 op('Baixar', 'bi-download', function () { baixar(a); }),
@@ -1941,21 +1982,21 @@
             ])
             .concat([
                 SEP,
-                op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' }),
+                op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true }),
             ])
             .concat([opCopiar([alvo])])
-            .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })] : [])
+            .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })] : [])
             .concat([
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
-                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }),
+                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true }),
                 op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),
                 opFavorito([alvo]),
                 SEP,
-                op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' }),
+                op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true }),
             ])
-            .concat(ehPasta ? [] : [op('Editar…', 'bi-pencil', function () { abrirEditar(a); })])
+            .concat(ehPasta ? [] : [op('Editar…', 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })])
             .concat([
-                op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true }),
+                op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true }),
                 SEP,
                 op('Propriedades', 'bi-info-square', mostrarPainel),
             ]);
@@ -1964,7 +2005,7 @@
     const COPIAR_SO_PASTAS = 'Pastas não são copiadas';
     function opCopiar(itens) {
         const soPastas = !itens.some(ehArquivo);
-        return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '' });
+        return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });
     }
     // Rótulos e ícones do desenho (dc L4820): desmarcado mostra a estrela cheia, marcado a vazia.
     // Com vários, "Tirar" só quando TODOS já são favoritos; senão marca os que faltam.
@@ -1981,7 +2022,7 @@
         const frag = document.createDocumentFragment();
         menuAcoes = [];
         let ultimoSep = true;
-        opcoesDoMenu(alvo).forEach(function (o) {
+        opcoesDoMenu(alvo).filter(function (o) { return cfg.podeEditar || o === SEP || !o.escrita; }).forEach(function (o) {
             if (o === SEP) {
                 if (!ultimoSep) { frag.appendChild(h('div', { class: 'pex-ctx-sep', role: 'separator' })); ultimoSep = true; }
                 return;
@@ -2117,12 +2158,25 @@
         return v == null ? null : Number(v);
     }
     function linkAbsoluto(a) { return new URL(a.viewUrl, window.location.href).href; }
-    // "Copiar link" (S-12): o link interno de visualização, que exige login e permissão na pasta.
+    /* DOC-120 (dc l.4813, "Compartilhar link" também para pasta): o link de uma SUBPASTA é a
+       pasta_show na aba Documentos com `?pex=<secaoId>` — ao abrir, o explorador entra nesse nível
+       (`pexDoLink`). Absoluto, como o do arquivo; exige login e permissão na pasta. */
+    function linkDaSubpasta(id) {
+        const u = new URL(cfg.urlPasta || window.location.pathname, window.location.href);
+        u.search = '';
+        u.searchParams.set('pex', String(Number(id)));
+        u.hash = 'documentos';
+        return u.href;
+    }
+    // "Copiar link" (S-12): o link interno de visualização, que exige login e permissão na pasta;
+    // de uma subpasta, o link do nível (DOC-120).
     function copiarLinks(itens) {
         const arqs = itens.filter(ehArquivo);
-        if (!arqs.length) return;
-        copiarTexto(arqs.map(function (it) { return linkAbsoluto(it.dado); }).join('\n')).then(function (ok) {
-            if (ok) toast(arqs.length === 1 ? 'Link copiado' : 'Links copiados'); else toastErro('Não foi possível copiar.');
+        const links = arqs.map(function (it) { return linkAbsoluto(it.dado); })
+            .concat(itens.filter(ehPastaItem).map(function (it) { return linkDaSubpasta(it.id); }));
+        if (!links.length) return;
+        copiarTexto(links.join('\n')).then(function (ok) {
+            if (ok) toast(links.length === 1 ? 'Link copiado' : 'Links copiados'); else toastErro('Não foi possível copiar.');
         });
     }
     // "Copiar caminho" (DOC-38): "BlueJus › Pasta <n> › Documentos › … › nome".
@@ -2302,7 +2356,8 @@
         });
     }
     /* O .zip (D5) é um POST de formulário com target=_blank: o navegador baixa em stream na aba
-       nova. Em erro, o servidor responde JSON cru NESSA aba — por isso os tetos (500 arquivos /
+       nova. Em erro, o servidor responde NESSA aba uma página curta com a mensagem e "Fechar"
+       (DOC-140; com XHR seria JSON) — mesmo assim os tetos (500 arquivos /
        1 GB pela soma de `tamanho`) e o "sem arquivos" são conferidos aqui, com toast, ANTES de
        abrir. O formulário nasce por DOM (createElement/value), nunca por HTML em string. */
     function baixarZip(itens) {
@@ -2324,13 +2379,47 @@
             formZip.appendChild(input);
         };
         campo('_token', cfg.csrfLote);
+        const confirmacao = novaConfirmacaoDoZip();
+        campo('confirmacao', confirmacao);
         lote.documentos.forEach(function (id) { campo('documentos[]', id); });
         lote.secoes.forEach(function (id) { campo('secoes[]', id); });
         document.body.appendChild(formZip);
         formZip.submit();
         formZip.remove();
-        toast('Preparando o .zip: ' + pluralizar(lista.length, 'arquivo', 'arquivos') + ' · ' + formatarBytes(somaDeBytes(lista)));
+        // dc l.3754 (DOC-116): o 1º aviso só diz o que a TELA sabe — quantos itens foram pedidos.
+        toast('Preparando ' + pluralizar(itens.length, 'item', 'itens') + ' para download…');
+        aguardarConfirmacaoDoZip(confirmacao);
         return true;
+    }
+    /* O 2º aviso do desenho (dc l.3758): "Baixando <nome> · N arquivos, M pastas". O nome e as
+       contagens são os do SERVIDOR, e só chegam quando o .zip começou a ser enviado: a resposta
+       traz o cookie `pex_zip_<confirmacao>` (60 s), que esta aba lê e apaga. Recusa (aba com a
+       página de erro) não traz cookie, e o aviso não aparece — nada é prometido antes da hora. */
+    const ZIP_CONFIRMACAO_MS = 500;
+    const ZIP_CONFIRMACAO_TETO_MS = 120000;
+    function novaConfirmacaoDoZip() {
+        const bytes = new Uint8Array(12);
+        if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+        else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+        return Array.prototype.map.call(bytes, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    }
+    function lerConfirmacaoDoZip(nome) {
+        const par = document.cookie.split('; ').find(function (c) { return c.indexOf(nome + '=') === 0; });
+        if (!par) return null;
+        document.cookie = nome + '=; Max-Age=0; path=/; SameSite=Strict';
+        try { return JSON.parse(decodeURIComponent(par.slice(nome.length + 1))); } catch (e) { return {}; }
+    }
+    function aguardarConfirmacaoDoZip(confirmacao) {
+        const nome = 'pex_zip_' + confirmacao;
+        const ate = Date.now() + ZIP_CONFIRMACAO_TETO_MS;
+        const olhar = function () {
+            const c = lerConfirmacaoDoZip(nome);
+            if (!c) { if (Date.now() < ate) setTimeout(olhar, ZIP_CONFIRMACAO_MS); return; }
+            const nArq = Number(c.arquivos) || 0, nPas = Number(c.pastas) || 0;
+            if (!c.nome) return;
+            toast('Baixando ' + c.nome + ' · ' + pluralizar(nArq, 'arquivo', 'arquivos') + (nPas ? ', ' + pluralizar(nPas, 'pasta', 'pastas') : ''));
+        };
+        setTimeout(olhar, ZIP_CONFIRMACAO_MS);
     }
 
     /* Favoritos (L6, D2, dc `expFavAlt` L4442). Otimista: a estrela e a posição mudam na hora,
@@ -2448,8 +2537,9 @@
     }
 
     // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
-    // Desde o L7 a exclusão vai para a LIXEIRA, e o aviso diz isso (e o prazo).
-    const AVISO_LIXEIRA = ' Os itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira e podem ser restaurados.';
+    // Desde o L7 a exclusão vai para a LIXEIRA, e o aviso diz isso. Sem prazo: a lixeira não tem purga
+    // automática (decisão D-DOC-RET de 07/10) e o prazo de retenção ainda não foi decidido.
+    const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';
     function avisoExclusao(p) {
         const c = contarArvore(p.id);
         if (c.subpastas === 0 && c.arquivos === 0) {
@@ -2480,11 +2570,14 @@
        Samuel decidir (S-3). Desde o L7 o servidor manda para a LIXEIRA e devolve `lixeira: true`
        e os `ids` — é o que o "Desfazer" do toast manda de volta a `urlRestaurar`. O que sai da
        memória é guardado (objetos inteiros, com tokens e URLs) para voltar sem recarregar. */
-    function excluirItens(itens, aoExcluir) {
+    /* `textos` (opcional): `confirmacao` e `aviso` próprios de quem chama (a limpeza, dc L4952);
+       sem eles, a confirmação e o toast genéricos do Excluir. */
+    function excluirItens(itens, aoExcluir, textos) {
         if (!itens.length) return;
+        const t = textos || {};
         const lote = separarChaves(itens.map(chaveDe));
         if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
-        if (!confirm(avisoExclusaoDoLote(itens))) return;
+        if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;
         postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
             if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
             // O back leva a ÁRVORE de cada pasta (mesmo carimbo): tira as filhas e os arquivos delas.
@@ -2503,7 +2596,7 @@
             if (aoExcluir) aoExcluir();
             if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
             invalidarContagemDaLixeira();
-            const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';
+            const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
             const desfazer = desfazerDe(res.j, saiu, itens.length);
             toast(texto, false, desfazer);
         }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
@@ -2594,7 +2687,7 @@
     }
     // Só a contagem, para o rótulo: em silêncio (sem permissão de editar o GET responde 403).
     function atualizarContagemDaLixeira() {
-        if (!cfg.urlLixeira || lixeiraContagem != null || lixeiraContando) return;
+        if (!veLixeira() || lixeiraContagem != null || lixeiraContando) return;
         lixeiraContando = lerLixeira().catch(function () { /* o rótulo fica sem número */ }).then(function () { lixeiraContando = null; });
     }
 
@@ -2603,7 +2696,7 @@
         const lista        = h('ul', { class: 'pex-lix-lista', 'aria-label': 'Itens na lixeira' });
         const vazio        = h('div', { class: 'pex-lix-vazio', hidden: true }, [icone('bi-trash3'), h('span', { text: 'A lixeira está vazia.' })]);
         const aviso        = h('p', { class: 'pex-lix-aviso', role: 'status', 'aria-live': 'polite', hidden: true });
-        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: 'Itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira. Depois disso são apagados de vez.' })]);
+        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: 'Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.' })]);
         const somenteVer   = h('p', { class: 'pex-lix-nota pex-lix-nota--lapide', hidden: !cfg.pastaExcluida }, [icone('bi-lock'), h('span', { text: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.' })]);
         const restaurarSel = h('button', { type: 'button', class: 'btn btn-primary', id: 'pexLixeiraRestaurarSel', disabled: true, hidden: !podeEscreverNaLixeira() }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' Restaurar selecionados' })]);
         const fechar       = h('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: 'Fechar' });
@@ -2786,7 +2879,7 @@
         });
     }
     if (el.btnLixeira) {
-        el.btnLixeira.hidden = !cfg.urlLixeira;
+        el.btnLixeira.hidden = !veLixeira();
         el.btnLixeira.addEventListener('click', abrirLixeira);
     }
     if (el.btnOrganizar) el.btnOrganizar.addEventListener('click', atualizarContagemDaLixeira);
@@ -3350,8 +3443,9 @@
             el.fileInput.value = '';
         });
     }
-    // Arrastar do computador para a pasta aberta (função só do sistema, DOC-42).
-    if (el.corpo) {
+    // Arrastar do computador para a pasta aberta (função só do sistema, DOC-42). Só leitura: não
+    // é ligado (DOC-118) — o navegador abriria o arquivo solto, como em qualquer página.
+    if (el.corpo && cfg.podeEditar) {
         const temArquivosDoSO = function (e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1; };
         ['dragenter', 'dragover'].forEach(function (ev) {
             el.corpo.addEventListener(ev, function (e) {
@@ -3491,6 +3585,7 @@
     }
     function ligarSortable() {
         if (sortable) { sortable.destroy(); sortable = null; }
+        if (!cfg.podeEditar) return;   // DOC-118: só leitura não reordena nem move
         if (!usaSortable()) return;
         sortable = new Sortable(el.lista, {
             draggable: '.pex-item',
@@ -3590,6 +3685,7 @@
     let arrasteChaves = null;
     el.lista.addEventListener('dragstart', function (e) {
         if (lacoVazio || pressaoNaCaixa) { e.preventDefault(); return; }
+        if (!cfg.podeEditar) { e.preventDefault(); return; }   // DOC-118: arrastar é mover
         if (sortable) return;
         const item = e.target.closest && e.target.closest('.pex-item');
         if (!item || item.dataset.pexTemp !== undefined || e.target.closest('.pex-ren')) { if (e.cancelable) e.preventDefault(); return; }
@@ -3628,12 +3724,37 @@
     }
 
     // ---------------------------------------------------- estado inicial ----
+    /* `?pex=<secaoId>` (DOC-120): o id de uma subpasta DESTA pasta, ou NULL. Lido uma vez e tirado
+       da barra de endereço (o resto da URL fica), para um recarregar depois de navegar não voltar
+       ao nível do link. Só vale o que está em `pastas` (o #pexDados): o servidor só põe ali as
+       seções vivas desta pasta e deste escritório. */
+    function pexDoLink() {
+        let valor = null;
+        try {
+            const url = new URL(window.location.href);
+            valor = url.searchParams.get('pex');
+            if (valor !== null) {
+                url.searchParams.delete('pex');
+                window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+            }
+        } catch (e) { return null; }
+        if (!valor || !/^[1-9]\d{0,17}$/.test(valor)) return null;
+        return pastaPorId(valor) ? Number(valor) : null;
+    }
     (function inicializar() {
         let salvo = null;
         try { salvo = JSON.parse(sessionStorage.getItem(CHAVE_CAMINHO) || 'null'); } catch (e) { /* formato inválido */ }
         // Só restaura se TODOS os níveis salvos ainda existirem — pasta excluída cai na raiz.
         if (Array.isArray(salvo) && salvo.length && salvo.every(function (id) { return pastaPorId(id); })) {
             caminho = cadeiaAte(salvo[salvo.length - 1]);
+        }
+        // DOC-120: o link de uma subpasta vence o nível salvo. Seção que não é desta pasta
+        // (outra pasta, outro escritório, lixeira, valor que não é id) não está no #pexDados e é
+        // ignorada em silêncio — fica o nível de sempre.
+        const doLink = pexDoLink();
+        if (doLink != null) {
+            caminho = cadeiaAte(doLink);
+            gravarCaminho();
         }
         atualizarBotaoLimpar();
         renderizar();

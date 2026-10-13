@@ -10,6 +10,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Repository\NotificacaoRepository;
@@ -46,6 +47,10 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *  - PRECEDÊNCIA: numa resposta, se o mencionado é o autor do comentário respondido, ele recebe só
  *    a notificação de RESPOSTA (mais específica: traz o comentário dele). A de menção é pulada —
  *    uma ação, um aviso. Quem é mencionado e não é o respondido recebe a de menção normalmente.
+ *
+ * COTA (SEC-008): os dois avisos (resposta e menção) gastam a mesma cota do autor
+ * ({@see CotaDeNotificacoesDoRegistro}). Estourada, o aviso é suprimido com `warning` no log e a
+ * mensagem é gravada do mesmo jeito — o envio nunca falha por causa do teto.
  */
 final class EnviarMensagemPastaUseCase
 {
@@ -68,6 +73,7 @@ final class EnviarMensagemPastaUseCase
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly MencoesDoRegistro $mencoes,
         private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
+        private readonly CotaDeNotificacoesDoRegistro $cota,
     ) {}
 
     /**
@@ -77,6 +83,13 @@ final class EnviarMensagemPastaUseCase
      */
     public function executar(Pasta $pasta, User $autor, string $conteudo, Tenant $tenant, ?PastaMensagem $respostaA = null): PastaMensagem
     {
+        // A pasta tem de ser DESTE escritório: a mensagem nasce com o tenant da sessão, e gravá-la
+        // numa pasta alheia misturaria os dois escritórios. O controller já responde 404 antes;
+        // aqui é a mesma prova, sem depender de quem chama nem do TenantFilter.
+        if (!self::mesmo($pasta->getTenant(), $tenant)) {
+            throw new \InvalidArgumentException('Só é possível registrar mensagem numa pasta deste escritório.');
+        }
+
         // Vem do editor rico (HTML): limpo ANTES de persistir. Texto puro atravessa intacto.
         $conteudo = $this->sanitizador->limpar(trim($conteudo)) ?? '';
 
@@ -165,6 +178,11 @@ final class EnviarMensagemPastaUseCase
             'url'     => $url,
         ]);
         if ($jaExiste !== null) {
+            return;
+        }
+
+        // Depois dos filtros: só aviso que de fato sairia gasta a cota de quem respondeu.
+        if (!$this->cota->permite($quemResponde, $destinatario, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO, $resposta)) {
             return;
         }
 

@@ -13,12 +13,19 @@ namespace App\Pasta\DTO;
  * `publicacoesLidas` é quantos teores do Push foram lidos por regras (`DeterminacoesDoJuizo`); 0 =
  * o processo não foi lido, e a tela diz isso. `prazosEmCurso` são as linhas "Prazos em curso" do
  * desenho (DOC-82): só prazos EXPLÍCITOS no teor que certamente ainda correm.
+ *
+ * `duplicados` (DOC-106, dc L2158) são os pares de arquivos da pasta com nomes ≥ 85% parecidos e
+ * normalizados diferentes, na ordem dos arquivos (`a` vem antes de `b`); `percentual` é a
+ * similaridade arredondada. Independe do catálogo: aparece também em `semCatalogo()`.
+ * São só os exibidos (DOC-106b: teto `SugestorDeDocumentos::MAXIMO_DE_DUPLICADOS_EXIBIDOS`, por
+ * percentual decrescente); `duplicadosAlem` é quantos pares ficaram de fora ("e mais N").
  */
 final class SugestaoDeDocumentosOutput
 {
     /**
      * @param list<DocumentoSugeridoOutput> $itens já ordenados: exigido pelo juízo, obrigatório, recomendável, opcional, existente, não aplicável
      * @param list<string>                  $prazosEmCurso
+     * @param list<array{a: string, b: string, percentual: int}> $duplicados
      */
     public function __construct(
         public readonly bool $temCatalogo,
@@ -31,6 +38,8 @@ final class SugestaoDeDocumentosOutput
         public readonly array $itens,
         public readonly int $publicacoesLidas = 0,
         public readonly array $prazosEmCurso = [],
+        public readonly array $duplicados = [],
+        public readonly int $duplicadosAlem = 0,
     ) {
     }
 
@@ -40,9 +49,16 @@ final class SugestaoDeDocumentosOutput
         return $this->publicacoesLidas > 0;
     }
 
-    public static function semCatalogo(): self
+    /** @param list<array{a: string, b: string, percentual: int}> $duplicados */
+    public static function semCatalogo(array $duplicados = [], int $duplicadosAlem = 0): self
     {
-        return new self(false, null, null, null, null, null, null, []);
+        return new self(false, null, null, null, null, null, null, [], duplicados: $duplicados, duplicadosAlem: $duplicadosAlem);
+    }
+
+    /** Há par de nomes parecidos — só então a seção "Possíveis arquivos duplicados" aparece. */
+    public function temDuplicados(): bool
+    {
+        return $this->duplicados !== [];
     }
 
     /** @return list<DocumentoSugeridoOutput> */

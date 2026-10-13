@@ -1,0 +1,220 @@
+/* =============================================================================
+   Janela "Imprimir" da pasta (templates/pasta/_impressao_modal.html.twig).
+   Valores do desenho "02 - EXPEDIENTES 1.2.3.dc.html", marcação `imp` (~L.195).
+   A folha em si traz o próprio estilo (resumo_impressao.html.twig, `.rp-*`).
+   ============================================================================= */
+
+.psi-fundo {
+    position: fixed;
+    inset: 0;
+    /* Acima dos modais do Bootstrap (1055) e abaixo do aviso `.ps-l7-aviso` (1070),
+       que precisa aparecer por cima da janela ("Texto copiado"). */
+    z-index: 1065;
+    background: rgba(16, 36, 48, .38);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.psi-fundo[hidden] { display: none; }
+
+.psi-janela {
+    width: min(980px, 100%);
+    height: min(88vh, 860px);
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 18px 50px rgba(16, 42, 58, .3);
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.psi-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #0b6a96;
+    color: #fff;
+}
+.psi-cab > .bi-printer { font-size: 17px; }
+.psi-cab-titulo {
+    flex: 1;
+    min-width: 0;
+    font-size: 14.5px;
+    font-weight: 700;
+}
+.psi-fechar {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.psi-corpo {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+}
+
+/* A mesa cinza com a folha no meio. */
+.psi-palco {
+    flex: 1 1 520px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #525659;
+    padding: 24px 16px;
+}
+.psi-palco .rp-folha {
+    width: min(620px, 100%);
+    margin: 0 auto;
+    min-height: 820px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+}
+.psi-palco-aviso {
+    color: #e6ecef;
+    font-size: 13px;
+    padding: 40px;
+    text-align: center;
+}
+
+.psi-lado {
+    flex: 0 1 260px;
+    min-width: 220px;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-left: 1px solid #eef2f5;
+    background: #fafcfd;
+}
+
+.psi-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #7b93a2;
+}
+.psi-rotulo--tamanho { margin-top: 4px; }
+
+.psi-opcao {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 4px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: #243845;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 4px;
+}
+.psi-opcao[hidden] { display: none; }
+.psi-opcao:hover { background: #eef5fa; }
+.psi-opcao > i {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    line-height: 1;
+    color: #9aabb6;
+}
+.psi-opcao[aria-pressed="true"] > i { color: #0a7aad; }
+
+.psi-tamanho {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.psi-tamanho-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    background: #eef2f5;
+    color: #34505f;
+    cursor: pointer;
+}
+.psi-tamanho-valor {
+    min-width: 56px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #12242f;
+}
+
+.psi-espaco { flex: 1; }
+
+.psi-nota {
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: #6b8494;
+}
+
+.psi-imprimir,
+.psi-baixar,
+.psi-copiar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.psi-imprimir {
+    height: 38px;
+    border: none;
+    background: #0a7aad;
+    color: #fff;
+    font-size: 13.5px;
+}
+.psi-imprimir:hover { background: #086a96; }
+.psi-baixar {
+    height: 34px;
+    border: 1px solid #c9dbe6;
+    background: #fff;
+    color: #0a7aad;
+    font-size: 12.5px;
+}
+.psi-baixar:hover { background: #eef5fa; }
+.psi-baixar[hidden] { display: none; }
+.psi-copiar {
+    height: 34px;
+    border: none;
+    background: #eef2f5;
+    color: #34505f;
+    font-size: 12.5px;
+}
+.psi-copiar:hover { background: #e3eaee; }
+.psi-imprimir:disabled,
+.psi-baixar:disabled,
+.psi-copiar:disabled { opacity: .55; cursor: default; }
+
+/* O iframe da impressão: fora da tela, com tamanho real (o Chrome pode não montar
+   um 0×0) — a mesma técnica do visor de arquivos (`.pex-visor-impressao`). */
+.psi-iframe-impressao {
+    position: fixed;
+    left: -10000px;
+    top: 0;
+    width: 800px;
+    height: 600px;
+    border: 0;
+    pointer-events: none;
+}

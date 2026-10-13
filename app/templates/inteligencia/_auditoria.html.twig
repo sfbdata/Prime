@@ -1,0 +1,45 @@
+{# ============================================================================
+   Rodapé "Registro de auditoria (N)" do drawer da BlueJus IA (IA-008).
+
+   Desenho 02 - EXPEDIENTES 1.2.3 (dc L1030-1035): faixa no pé do drawer, borda
+   de cima #e6edf2, fundo #fbfcfd; botão de largura total 11.5px/700 #5f7684 com
+   o ícone do diário, o rótulo e o chevron (para cima fechado, para baixo aberto);
+   aberto, uma lista de até 150px de altura com "hora + o quê" (hora 700 #0c7a9c).
+
+   O que é listado vem de `inteligencia_analise` desta pasta (tenant explícito):
+   quem pediu, o quê (agente ou Push), quando e o status. Nenhum texto do modelo
+   entra aqui. A excluída continua na trilha, marcada.
+
+   Renderizado em dois lugares: no drawer, sem dados (`auditoria = null`, rótulo
+   sem contagem, `data-ia-carregado="0"`), e sozinho por
+   `GET /pasta/{id}/ia/auditoria` (`inteligencia_auditoria_da_pasta`), que o
+   pasta-ia-agentes.js busca ao abrir o drawer e depois de cada ação.
+
+   Contexto: `auditoria` (App\Inteligencia\DTO\AuditoriaDaPastaOutput ou null), `pastaId` (int).
+   ============================================================================ #}
+<footer class="ia-drawer-audit" data-ia-auditoria
+        data-ia-auditoria-url="{{ path('inteligencia_auditoria_da_pasta', {id: pastaId}) }}"
+        data-ia-carregado="{{ auditoria is null ? '0' : '1' }}">
+    <button type="button" class="ia-audit-botao" data-ia-audit-alternar aria-expanded="false" aria-controls="psIaAuditLista">
+        <i class="bi bi-journal-check" aria-hidden="true"></i>
+        <span class="ia-audit-rotulo">Registro de auditoria{% if auditoria is not null %} ({{ auditoria.total }}){% endif %}</span>
+        <i class="bi bi-chevron-up ia-audit-seta" aria-hidden="true"></i>
+    </button>
+    <div class="ia-audit-lista" id="psIaAuditLista" hidden>
+        {% if auditoria is null %}
+            <p class="ia-audit-vazio" data-ia-carregando>Carregando o registro…</p>
+        {% else %}
+            {% for r in auditoria.registros %}
+                <div class="ia-audit-linha" data-ia-audit-analise="{{ r.analiseId }}">
+                    <time class="ia-audit-hora" datetime="{{ r.quando|date('c') }}">{{ r.quando|date('d/m H:i') }}</time>
+                    <span class="ia-audit-txt">{{ r.oQue }} · {{ r.statusRotulo }}{% if r.solicitanteNome %} · pedida por {{ r.solicitanteNome }}{% endif %}{% if r.excluida %} · excluída da tela{% endif %}</span>
+                </div>
+            {% else %}
+                <p class="ia-audit-vazio">Nenhuma ação da IA nesta pasta ainda.</p>
+            {% endfor %}
+            {% if auditoria.temMaisQueOsListados %}
+                <p class="ia-audit-vazio">Mostrando as {{ auditoria.registros|length }} mais recentes de {{ auditoria.total }}.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+</footer>

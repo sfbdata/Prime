@@ -41,6 +41,15 @@ final class EntregaDeArquivoTest extends TestCase
 
     private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
 
+    /** XML com elementos XHTML: aberto direto na aba, executaria o script na origem (SEC-003). */
+    private const XML_XHTML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        . "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><script>alert(document.cookie)</script></body></html>\n";
+
+    private const SVG = "<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\">"
+        . "<script>alert(1)</script></svg>\n";
+
+    private const HTML = "<!DOCTYPE html>\n<html><head><title>x</title></head><body><script>alert(1)</script></body></html>\n";
+
     private string $raiz;
     private ResolvedorDeCaminhoLocal $resolvedor;
     private ArmazenamentoLocal $local;
@@ -139,6 +148,99 @@ final class EntregaDeArquivoTest extends TestCase
             self::assertSame($antiga->headers->get($cabecalho), $nova->headers->get($cabecalho), $cabecalho);
         }
         self::assertSame($this->corpo($antiga), $this->corpo($nova));
+    }
+
+    // ================================================================ SEC-003
+
+    /** @return iterable<string, array{string, string}> */
+    public static function casosAtivos(): iterable
+    {
+        yield 'xml com XHTML' => ['x.xml', self::XML_XHTML];
+        yield 'kml (xml)'     => ['x.kml', self::XML_XHTML];
+        yield 'svg'           => ['x.svg', self::SVG];
+        yield 'html'          => ['x.html', self::HTML];
+        yield 'texto puro'    => ['x.txt', "linha 1\nlinha 2\n"];
+    }
+
+    #[DataProvider('casosAtivos')]
+    #[TestDox('inline de tipo ativo (XML, KML, SVG, HTML, texto) sai com CSP sandbox e nosniff — script não roda na origem (SEC-003)')]
+    public function testInlineAtivoSaiComSandbox(string $nomeNoDisco, string $conteudo): void
+    {
+        $resposta = $this->preparar($this->entrega->resposta($this->gravar($nomeNoDisco, $conteudo), $nomeNoDisco, inline: true));
+
+        self::assertSame(EntregaDeArquivo::CSP_SANDBOX, $resposta->headers->get('Content-Security-Policy'), (string) $resposta->headers->get('Content-Type'));
+        self::assertSame('nosniff', $resposta->headers->get('X-Content-Type-Options'));
+        self::assertStringStartsWith('inline;', (string) $resposta->headers->get('Content-Disposition'), 'continua inline: o visor lê por fetch e não muda');
+        self::assertSame($conteudo, $this->corpo($resposta), 'o corpo continua o arquivo, intacto');
+    }
+
+    #[TestDox('o XML continua com o MESMO Content-Type de antes — só ganha o cabeçalho (o visor não regride)')]
+    public function testSandboxNaoMudaOTipo(): void
+    {
+        $chave   = $this->gravar('y.xml', self::XML_XHTML);
+        $antiga  = $this->preparar((new ArquivoStorageService())->servir($this->resolvedor->caminhoDe($chave), 'y.xml', true));
+        $nova    = $this->preparar($this->entrega->resposta($chave, 'y.xml', inline: true));
+
+        self::assertSame($antiga->headers->get('Content-Type'), $nova->headers->get('Content-Type'));
+        self::assertNull($antiga->headers->get('Content-Security-Policy'), 'premissa: a entrega antiga não protegia');
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function casosSegurosInline(): iterable
+    {
+        yield 'pdf' => ['x.pdf', self::PDF];
+        yield 'png' => ['x.png', self::PNG];
+    }
+
+    #[DataProvider('casosSegurosInline')]
+    #[TestDox('PDF e imagem raster inline NÃO ganham sandbox — o leitor de PDF do navegador não abre sob sandbox')]
+    public function testInlineSeguroSemSandbox(string $nomeNoDisco, string $conteudo): void
+    {
+        $resposta = $this->preparar($this->entrega->resposta($this->gravar($nomeNoDisco, $conteudo), $nomeNoDisco, inline: true));
+
+        self::assertFalse($resposta->headers->has('Content-Security-Policy'), (string) $resposta->headers->get('Content-Security-Policy'));
+        self::assertSame('nosniff', $resposta->headers->get('X-Content-Type-Options'));
+    }
+
+    #[TestDox('download (attachment) não muda: sem CSP, mesmo de tipo ativo — o navegador não renderiza, salva')]
+    public function testAttachmentSemSandbox(): void
+    {
+        $resposta = $this->preparar($this->entrega->resposta($this->gravar('z.xml', self::XML_XHTML), 'z.xml', inline: false));
+
+        self::assertSame('attachment; filename=z.xml', $resposta->headers->get('Content-Disposition'));
+        self::assertFalse($resposta->headers->has('Content-Security-Policy'));
+        self::assertSame('nosniff', $resposta->headers->get('X-Content-Type-Options'));
+    }
+
+    /** @return iterable<string, array{string, bool}> */
+    public static function casosDeTipo(): iterable
+    {
+        yield 'pdf'                 => ['application/pdf', false];
+        yield 'png'                 => ['image/png', false];
+        yield 'jpeg'                => ['image/jpeg', false];
+        yield 'gif'                 => ['image/gif', false];
+        yield 'webp'                => ['image/webp', false];
+        yield 'bmp'                 => ['image/bmp', false];
+        yield 'bmp (finfo)'         => ['image/x-ms-bmp', false];
+        yield 'mp3'                 => ['audio/mpeg', false];
+        yield 'mp4'                 => ['video/mp4', false];
+        yield 'maiúscula + charset' => ['Application/PDF; charset=binary', false];
+        yield 'svg'                 => ['image/svg+xml', true];
+        yield 'xml'                 => ['text/xml', true];
+        yield 'xml (application)'   => ['application/xml', true];
+        yield 'kml'                 => ['application/vnd.google-earth.kml+xml', true];
+        yield 'html'                => ['text/html', true];
+        yield 'xhtml'               => ['application/xhtml+xml', true];
+        yield 'texto'               => ['text/plain', true];
+        yield 'desconhecido'        => ['application/octet-stream', true];
+        yield 'vazio'               => ['', true];
+    }
+
+    #[DataProvider('casosDeTipo')]
+    #[TestDox('a regra de tipo: só PDF, imagem raster, áudio e vídeo escapam do sandbox; o resto — inclusive o desconhecido — não')]
+    public function testRegraDeTipo(string $mimeType, bool $esperado): void
+    {
+        self::assertSame($esperado, EntregaDeArquivo::exigeSandbox($mimeType));
     }
 
     // ================================================================ Range

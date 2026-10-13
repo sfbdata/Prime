@@ -10,12 +10,30 @@
    `pasta-ia-agentes.js` busca ao abrir o drawer e troca inteiro.
 
    Contexto: `painel` (App\Inteligencia\DTO\PainelDeAgentesOutput ou null),
-   `pastaId` (int).
+   `sabe` (App\Inteligencia\DTO\OQueAIaSabeOutput, opcional), `pastaId` (int).
    ============================================================================ #}
 {% set ia = ia_disponibilidade() %}
 <div class="ia-agentes" data-ia-painel
      data-ia-carregado="{{ painel is null ? '0' : '1' }}"
      data-ia-em-andamento="{{ painel is not null and painel.temEmAndamento ? '1' : '0' }}">
+    {# IA-006: grade "O que a IA sabe desta pasta" (dc L861-864, `sabe`). Só vem com o
+       painel carregado (`sabe` do controller), porque cada número é uma consulta real.
+       Cada número é o que o contexto LEVA (teto da seção no montador), não o total da pasta.
+       Quatro dos cinco do desenho: "fontes" é heurística do protótipo e fica de fora. #}
+    {% if sabe|default(null) is not null %}
+        <div class="ia-sabe" title="O que a IA sabe desta pasta" data-ia-sabe>
+            {% for k in sabe.itens %}
+                <div class="ia-sabe-item" data-ia-sabe-item="{{ k.chave }}">
+                    <span class="ia-sabe-v">{{ k.valor }}</span>
+                    <span class="ia-sabe-l">{{ k.rotulo }}</span>
+                    {# IA-006b: o número é o que a IA recebe; se o teto da seção cortou, diz de quanto. #}
+                    {% if k.corte is not null %}
+                        <span class="ia-sabe-l ia-sabe-corte" data-ia-sabe-corte>{{ k.corte }}</span>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
     {% for agente in ia_agentes() %}
         {% set saida = painel is not null ? painel.de(agente) : null %}
         {% set emAndamento = saida is not null and saida.temEmAndamento %}

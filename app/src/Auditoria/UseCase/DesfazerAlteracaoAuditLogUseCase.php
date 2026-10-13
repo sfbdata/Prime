@@ -6,6 +6,9 @@ namespace App\Auditoria\UseCase;
 
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Cargo;
+use App\Entity\Tenant\Lotacao;
+use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Repository\AuditLogRepository;
 use App\Repository\UserTenantRepository;
@@ -403,6 +406,16 @@ final class DesfazerAlteracaoAuditLogUseCase
 
         if ($relacionado instanceof TenantAware) {
             return $relacionado->getTenant()?->getId() === $tenantId;
+        }
+
+        // Cadastros do escritório que têm dono (`getTenant()`) mas NÃO são `TenantAware` — de
+        // propósito: torná-los TenantAware os poria sob o TenantFilter e mudaria as consultas do
+        // admin (frente própria). Lista fechada, não "qualquer objeto com getTenant()": classe nova
+        // só entra aqui depois de conferida. Sem tenant (null) não prova posse e recusa.
+        if ($relacionado instanceof Cargo || $relacionado instanceof Sede || $relacionado instanceof Lotacao) {
+            $dono = $relacionado->getTenant()?->getId();
+
+            return $dono !== null && $dono === $tenantId;
         }
 
         if ($relacionado instanceof User) {

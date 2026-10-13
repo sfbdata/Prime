@@ -302,6 +302,78 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    /**
+     * FPN-009 é só REGISTRO. Os números abaixo foram fotografados com o código de ANTES da
+     * coluna `juros_mensal` (12 mil, entrada 2 mil, 10x a 1,5% a.m.): valores, vencimentos,
+     * descrições e o resumo do card têm de continuar EXATAMENTE iguais.
+     */
+    #[TestDox('FPN-009: com juros, cada parcela grava a taxa (a entrada não) e mostra o sufixo; valores, vencimentos e resumo idênticos aos de antes')]
+    public function testJurosSoRegistraEMostra(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['entrada' => '2.000,00', 'parcelas' => '10', 'juros' => '1', 'taxa' => '1,5']);
+
+        self::assertResponseStatusCodeSame(201);
+        $dados  = $this->json($client);
+        $resumo = $dados['resumo'];
+        $html   = $resumo['html'];
+        unset($resumo['html']);
+        self::assertSame(11, $dados['quantidade']);
+        self::assertSame(
+            ['total' => 11, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'previsto' => 'R$ 12.843,42', 'percentual' => 0],
+            $resumo,
+            'o resumo do card é o mesmo de antes da coluna',
+        );
+
+        $hoje     = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        $esperado = [['Entrada · honorários', '2000.00', $hoje, null, null]];
+        $datas    = ['2026-11-06', '2026-12-06', '2027-01-06', '2027-02-06', '2027-03-06', '2027-04-06', '2027-05-06', '2027-06-06', '2027-07-06', '2027-08-06'];
+        foreach ($datas as $k => $data) {
+            $esperado[] = [($k + 1) . 'ª parcela · honorários', $k === 9 ? '1084.36' : '1084.34', $data, null, '1.5000'];
+        }
+        $gravado = array_map(
+            static fn (array $l): array => [$l['descricao'], $l['valor'], $l['vencimento'], $l['pago_em'], $l['juros_mensal']],
+            $this->em()->getConnection()->fetchAllAssociative(
+                'SELECT descricao, valor, vencimento, pago_em, juros_mensal FROM pasta_pagamento WHERE pasta_id = :p ORDER BY id ASC',
+                ['p' => $pastaId],
+            ),
+        );
+        self::assertSame($esperado, $gravado);
+
+        // O sufixo: nas 10 parcelas, nunca na entrada (no card e no extrato, que repete a linha).
+        $crawler = new Crawler($html);
+        $comJuros = $crawler->filter('.ps-pag-linha > .ps-pag-corpo > .ps-pag-quando')->reduce(
+            static fn (Crawler $n): bool => str_ends_with($n->text(), ' · juros 1,5% a.m.'),
+        );
+        self::assertCount(10, $comJuros);
+        self::assertSame(10, substr_count($crawler->filter('#psExtratoFolha')->html(), ' · juros 1,5% a.m.'));
+        $entrada = $crawler->filter('.ps-pag-linha[data-descricao="Entrada · honorários"] .ps-pag-quando');
+        self::assertCount(1, $entrada);
+        self::assertStringNotContainsString('juros', $entrada->text());
+    }
+
+    #[TestDox('FPN-009: sem juros, nenhuma linha grava taxa nem mostra sufixo')]
+    public function testSemJurosNaoRegistraTaxa(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['entrada' => '2.000,00', 'parcelas' => '3', 'taxa' => '1,5']);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertStringNotContainsString('juros', $this->json($client)['resumo']['html']);
+        self::assertSame(
+            [null, null, null, null],
+            $this->em()->getConnection()->fetchFirstColumn('SELECT juros_mensal FROM pasta_pagamento WHERE pasta_id = :p ORDER BY id', ['p' => $pastaId]),
+        );
+    }
+
     #[TestDox('60 parcelas (o teto) gravam 60 linhas')]
     public function testTetoDe60(): void
     {

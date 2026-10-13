@@ -26,6 +26,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * autor respondido numa resposta), na mesma transação da edição. Quem já foi avisado por esta
  * mensagem (no envio ou numa edição anterior) não recebe de novo: a anti-duplicata é por
  * destinatário + escritório + tipo + link, e o link é o da mensagem.
+ *
+ * Antes e Depois (PAS-045): a edição guarda o texto anterior INTEIRO na própria mensagem
+ * (`conteudo_anterior`, só a última versão) — o `audit_log` corta em 500 caracteres.
  */
 final class EditarMensagemPastaUseCase
 {
@@ -68,8 +71,8 @@ final class EditarMensagemPastaUseCase
 
         [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
-        $mensagem->setConteudo($conteudo);
-        $mensagem->setEditadaEm(new \DateTimeImmutable());
+        // O texto de antes fica guardado INTEIRO (PAS-045, "Ver alteração" da Timeline).
+        $mensagem->editarConteudo($conteudo, new \DateTimeImmutable());
 
         $pasta = $mensagem->getPasta();
         if ($mencionados === [] || $pasta === null) {

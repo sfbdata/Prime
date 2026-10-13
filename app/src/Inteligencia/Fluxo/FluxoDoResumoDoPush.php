@@ -46,7 +46,8 @@ final class FluxoDoResumoDoPush implements FluxoDeAnalise
         $chavesAnteriores = $anterior?->getChavesAnalisadas() ?? [];
         $analise->registrarContexto($contexto->hash, $contexto->resumo($chavesAnteriores));
 
-        return $this->prompt->montar($contexto, $anterior?->getResumo(), $chavesAnteriores);
+        // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
+        return $this->prompt->montar($contexto, $this->montador->analiseAnterior($tenant, $anterior?->getResumo()), $chavesAnteriores);
     }
 
     public function motivoDeContextoVazio(): string

@@ -12,9 +12,12 @@ use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
+use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
+use App\Tarefa\UseCase\DesfazerReaberturaDaMetaUseCase;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
@@ -25,6 +28,8 @@ use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
+use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
+use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\Service\TarefaTimelineAssembler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -202,7 +207,14 @@ final class TarefaController extends AbstractController
 
         $this->notificacaoService->notificarTarefaCriada($tarefa);
 
-        return $this->json(['sucesso' => true, 'id' => $tarefa->getId()]);
+        // PMC-044: esta rota só é chamada pelo modal da pasta, então quem criou fica NA pasta — na
+        // aba Metas, com a meta nova realçada (`?meta=`, lido pelo pasta-metas.js). A criação pela
+        // tela /tarefas é outra rota e não muda.
+        return $this->json([
+            'sucesso' => true,
+            'id'      => $tarefa->getId(),
+            'destino' => $this->generateUrl('pasta_show', ['id' => $pasta->getId(), 'meta' => $tarefa->getId()]) . '#tarefas',
+        ]);
     }
 
     /**
@@ -417,8 +429,14 @@ final class TarefaController extends AbstractController
      * Conclui a tarefa (qualquer usuário com acesso pode concluir).
      */
     #[Route('/{id}/concluir', name: 'tarefa_concluir', methods: ['POST'])]
-    public function concluir(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): Response
-    {
+    public function concluir(
+        Tarefa $tarefa,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        ListaDeMetasDaPastaEmJson $listaEmJson,
+        ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
+        DesfazerReaberturaDaMetaUseCase $desfazerReabertura,
+    ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->assertAccess($usuario);
@@ -428,13 +446,57 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        $agora = new \DateTimeImmutable();
+
+        // PMC-061: "Desfazer" do aviso "Meta reaberta". A conclusão volta com a data ORIGINAL,
+        // que o servidor guardou na sessão no reabrir — o navegador só pede `desfazer=1`, não
+        // manda data. Sem data lembrada e válida, recusa (não conclui com "agora"). Sem
+        // notificação: a conclusão original já notificou, e o reabrir não avisou ninguém.
+        if ($request->request->getBoolean('desfazer')) {
+            $anterior = $reaberturaDesfazivel->consumir($request->getSession(), $tarefa, $tenant, $agora);
+
+            try {
+                $restaurou = $desfazerReabertura->executar($tarefa, $tenant, $anterior, $agora);
+            } catch (DesfazerReaberturaRecusadoException $e) {
+                if ($request->isXmlHttpRequest()) {
+                    return new JsonResponse(['sucesso' => false, 'mensagem' => $e->getMessage()], Response::HTTP_CONFLICT);
+                }
+                $this->addFlash('danger', $e->getMessage());
+
+                return $this->redirectToRoute('pasta_show', ['id' => $tarefa->getPasta()->getId(), '_fragment' => 'tarefas']);
+            }
+
+            if ($request->isXmlHttpRequest()) {
+                return $listaEmJson->responder($tarefa, $restaurou, $restaurou ? 'Meta concluída' : 'A meta já estava concluída');
+            }
+            if ($restaurou) {
+                $this->addFlash('success', 'Tarefa concluída.');
+            }
+
+            return $this->redirectToRoute('pasta_show', ['id' => $tarefa->getPasta()->getId(), '_fragment' => 'tarefas']);
+        }
+
+        // Concluir de verdade encerra qualquer "Desfazer" pendente desta meta.
+        $reaberturaDesfazivel->esquecer($request->getSession(), $tarefa, $tenant, $agora);
+
+        $concluiu = false;
         if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
             $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
-            $tarefa->setDataConclusao(new \DateTimeImmutable());
+            $tarefa->setDataConclusao($agora);
             $entityManager->flush();
+            $concluiu = true;
 
             $this->notificacaoService->notificarTarefaConcluida($tarefa);
+        }
 
+        // PMC-031: a lista da aba Metas conclui por XHR, sem recarregar. Mesma guarda e mesmo
+        // CSRF acima; a resposta traz a aba renderizada de novo pelo servidor (linha, filtros,
+        // trilho e drawer), para nada ser recontado no navegador. Sem JS, segue o POST + redirect.
+        if ($request->isXmlHttpRequest()) {
+            return $listaEmJson->responder($tarefa, $concluiu, $concluiu ? 'Meta concluída' : 'A meta já estava concluída');
+        }
+
+        if ($concluiu) {
             $this->addFlash('success', 'Tarefa concluída.');
         }
 
@@ -475,6 +537,17 @@ final class TarefaController extends AbstractController
 
     /**
      * Serve o arquivo de uma mensagem de tarefa inline (para preview).
+     *
+     * SEC-012: o upload do chat não tem lista de tipos, então um `.html` (ou SVG, XML…) enviado
+     * por alguém do escritório abria aqui como documento ativo na origem do BlueJus, com a sessão
+     * de quem clicasse. A resposta segue a MESMA política da `EntregaDeArquivo` (SEC-003): nosniff
+     * sempre e `CSP: sandbox` para todo tipo que não seja PDF, imagem raster, áudio ou vídeo.
+     *
+     * Por que não chama `EntregaDeArquivo::resposta()`: o anexo de tarefa guarda caminho público
+     * com `/`, que `ChaveDeArquivo` recusa, e a conversão para chave é a E2.7 (D5 da spec de
+     * storage). Até lá a decisão de sandbox vem de `EntregaDeArquivo::exigeSandbox()` — uma regra
+     * só, sem cópia — e o `Content-Type` é o palpite da própria `BinaryFileResponse` no
+     * `prepare()`, o mesmo tipo que a decisão de sandbox consultou.
      */
     #[Route('/mensagem/{id}/arquivo/visualizar', name: 'tarefa_mensagem_arquivo_view', methods: ['GET'])]
     public function viewArquivoMensagem(TarefaMensagem $mensagem): Response
@@ -492,8 +565,11 @@ final class TarefaController extends AbstractController
 
         $response = new BinaryFileResponse($caminho);
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, basename($caminho));
-        $mimeType = mime_content_type($caminho) ?: 'application/octet-stream';
-        $response->headers->set('Content-Type', $mimeType);
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        if (EntregaDeArquivo::exigeSandbox($response->getFile()->getMimeType() ?: 'application/octet-stream')) {
+            $response->headers->set('Content-Security-Policy', EntregaDeArquivo::CSP_SANDBOX);
+        }
 
         return $response;
     }
@@ -533,6 +609,14 @@ final class TarefaController extends AbstractController
 
     private function verificarAcessoTarefa(User $usuario, Tarefa $tarefa, Tenant $tenant): void
     {
+        // SEC-013: a posse vem ANTES do vínculo. Conferir só se o criador ou o responsável da
+        // pasta tem vínculo com o escritório da sessão deixa passar a meta de OUTRO escritório
+        // quando essa pessoa está nos dois (e o TenantFilter falhou). Fora do escritório: 404,
+        // como todo recurso cross-tenant — 403 confirmaria que o id existe em algum lugar.
+        if ($tarefa->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException('Meta não encontrada.');
+        }
+
         $pasta = $tarefa->getPasta();
         $criador = $pasta->getCriadoPor();
         $responsavel = $pasta->getResponsavel();

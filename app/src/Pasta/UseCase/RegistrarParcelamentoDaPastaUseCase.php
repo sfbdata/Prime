@@ -44,6 +44,11 @@ use Psr\Clock\ClockInterface;
  * com vencimento hoje, como todas as parcelas. O recebimento só acontece pelo
  * gesto explícito "Marcar como recebido" (`AlternarQuitacaoDoPagamentoUseCase`
  * via `pasta_pagamento_alternar_quitacao`).
+ *
+ * JUROS REGISTRADOS (FPN-009): no parcelamento COM juros, cada PARCELA guarda a
+ * taxa ao mês (`juros_mensal`) para a linha mostrar "· juros N% a.m."; a entrada
+ * não (desenho dc L.3490: `juros: i > 0 ? taxa : null`, só nas parcelas). É só
+ * registro — a conta é a mesma de antes e nenhum valor lê essa coluna.
  */
 final class RegistrarParcelamentoDaPastaUseCase
 {
@@ -113,6 +118,8 @@ final class RegistrarParcelamentoDaPastaUseCase
         $quantidade      = $this->lerQuantidade($input->parcelas);
         $primeiro        = $this->lerData($input->primeiroVencimento);
         $taxa            = $input->comJuros ? $this->lerTaxa($input->taxaMensal) : '0';
+        // Só para REGISTRAR na parcela (FPN-009); a conta acima segue com `$taxa`.
+        $jurosDaParcela  = $input->comJuros ? $taxa : null;
 
         $principal = $totalCentavos - $entradaCentavos;
         $valores   = $principal > 0 ? $this->calculadora->parcelas($principal, $quantidade, $taxa) : [];
@@ -145,7 +152,7 @@ final class RegistrarParcelamentoDaPastaUseCase
                 $quantidade === 1                             => self::DESCRICAO_UNICA[$tipo],
                 default                                       => sprintf('%dª parcela · %s', $k + 1, $rotulo),
             };
-            $lancados[] = $this->novo($pasta, $autor, $tenant, $descricao, $centavos, $datas[$k]);
+            $lancados[] = $this->novo($pasta, $autor, $tenant, $descricao, $centavos, $datas[$k], $jurosDaParcela);
         }
 
         foreach ($lancados as $pagamento) {
@@ -166,7 +173,7 @@ final class RegistrarParcelamentoDaPastaUseCase
         return new ParcelamentoRegistradoOutput($ids, count($lancados), ValorEmReais::deCentavos($soma));
     }
 
-    private function novo(Pasta $pasta, User $autor, Tenant $tenant, string $descricao, int $centavos, \DateTimeImmutable $vencimento): PastaPagamento
+    private function novo(Pasta $pasta, User $autor, Tenant $tenant, string $descricao, int $centavos, \DateTimeImmutable $vencimento, ?string $jurosMensal = null): PastaPagamento
     {
         $pagamento = new PastaPagamento();
         $pagamento->setPasta($pasta);
@@ -175,6 +182,7 @@ final class RegistrarParcelamentoDaPastaUseCase
         $pagamento->setDescricao($descricao);
         $pagamento->setValor(ValorEmReais::deCentavos($centavos));
         $pagamento->setVencimento($vencimento);
+        $pagamento->setJurosMensal($jurosMensal);
 
         return $pagamento;
     }

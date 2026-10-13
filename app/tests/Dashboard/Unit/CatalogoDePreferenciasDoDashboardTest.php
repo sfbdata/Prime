@@ -18,13 +18,24 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Catalogo::class)]
 final class CatalogoDePreferenciasDoDashboardTest extends TestCase
 {
-    #[TestDox('As chaves aceitas são exatamente as seis do menu (zerar fica de fora)')]
+    #[TestDox('As chaves aceitas são exatamente as seis do menu + o Modo avançado do painel (zerar fica de fora)')]
     public function testChavesFechadas(): void
     {
         self::assertSame(
-            ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons', 'dashboard.colunas_extras'],
+            ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons', 'dashboard.colunas_extras', 'dashboard.ia_avancado'],
             Catalogo::chaves(),
         );
+        self::assertSame(
+            ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons', 'dashboard.colunas_extras'],
+            Catalogo::chavesDoMenu(),
+            'o Restaurar da tabela não desliga o Modo avançado',
+        );
+    }
+
+    #[TestDox('Modo avançado nasce desligado')]
+    public function testModoAvancadoPadraoDesligado(): void
+    {
+        self::assertSame('desligado', Catalogo::padrao(Catalogo::IA_AVANCADO));
     }
 
     /** @return iterable<string, array{string, mixed}> */
@@ -43,6 +54,8 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
         yield 'nenhuma extra'         => [Catalogo::COLUNAS_EXTRAS, []];
         yield 'uma extra'             => [Catalogo::COLUNAS_EXTRAS, ['metas_concluidas']];
         yield 'extras na ordem do usuário' => [Catalogo::COLUNAS_EXTRAS, ['eventos_agenda', 'taxa_conclusao', 'tempo_medio']];
+        yield 'modo avançado ligado'    => [Catalogo::IA_AVANCADO, 'ligado'];
+        yield 'modo avançado desligado' => [Catalogo::IA_AVANCADO, 'desligado'];
         yield 'as seis extras'        => [Catalogo::COLUNAS_EXTRAS, ['metas_concluidas', 'taxa_conclusao', 'metas_revisao', 'tempo_medio', 'pastas_urgentes', 'eventos_agenda']];
     }
 
@@ -57,6 +70,9 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
     public static function valoresRecusados(): iterable
     {
         yield 'chave fora da lista'               => ['dashboard.zerar', true];
+        yield 'modo avançado booleano (protótipo)' => [Catalogo::IA_AVANCADO, true];
+        yield 'modo avançado "1" (localStorage)'  => [Catalogo::IA_AVANCADO, '1'];
+        yield 'modo avançado no plural'           => [Catalogo::IA_AVANCADO, 'ligados'];
         yield 'som do campeão (D-DASH)'           => ['dashboard.som_campeao', 'ligados'];
         yield 'sons booleano (protótipo)'         => [Catalogo::SONS, false];
         yield 'sons no feminino'                  => [Catalogo::SONS, 'ligadas'];

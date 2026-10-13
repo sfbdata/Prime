@@ -6,6 +6,7 @@ namespace App\Pasta\Service;
 
 use App\Pasta\DTO\EventoDaTimelineOutput;
 use App\Pasta\DTO\FiltroDaTimelineInput;
+use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 
 /**
  * As regras FIXAS da Timeline inteligente — sem modelo de linguagem (decisão D-IA da Trilha B:
@@ -15,11 +16,15 @@ use App\Pasta\DTO\FiltroDaTimelineInput;
  * que tem lastro no sistema:
  *  - prioridade do prazo da meta: vencida há mais de 30 dias = crítico; vencida = importante;
  *  - publicação do Push: "importante" quando o tipo fala em intimação, citação ou prazo;
- *  - "Precisa de atenção": pendente (publicação não lida, pagamento vencido) ou crítico;
+ *  - notificação: "importante" quando é o alerta de meta (o único tipo daqui que o desenho põe no
+ *    nível 3, `TIPOS.alerta`); pendente enquanto não lida;
+ *  - "Precisa de atenção": pendente (publicação ou notificação não lida, pagamento vencido) ou crítico;
  *  - marcos: criação da pasta, primeira publicação do Push (só com a lista completa), todas as
  *    metas concluídas, financeiro quitado;
  *  - filtros por categoria, período, pessoa e busca com sinônimos;
- *  - resumo da atividade por contagem.
+ *  - resumo da atividade por contagem;
+ *  - "Enquanto você estava fora" (`tlRender`, `novos`): o que aconteceu depois da visita anterior
+ *    do usuário, até agora, feito por OUTRA pessoa.
  *
  * Classe pura (sem banco, sem relógio próprio): o "agora" vem de fora, para o teste fixá-lo.
  */
@@ -33,6 +38,8 @@ final class RegrasDaTimelineInteligente
         'processo'   => ['Processos', 'bi-bank', '#34505f'],
         'financeiro' => ['Financeiro', 'bi-cash-coin', '#1e7b45'],
         'cadastro'   => ['Cadastro', 'bi-person-vcard', '#0b5f86'],
+        // As notificações DO USUÁRIO ligadas à pasta (PAS-047i) — `TLC.notificacao` do desenho.
+        'notificacao' => ['Notificações', 'bi-bell', '#c76a12'],
     ];
 
     /** `TLP` do desenho. */
@@ -72,6 +79,16 @@ final class RegrasDaTimelineInteligente
             $diasDeAtraso > 0  => 'importante',
             default            => 'info',
         };
+    }
+
+    /**
+     * Prioridade de uma notificação pelo TIPO (desenho: `TIPOS[n.tipo].nivel >= 3` = importante).
+     * Dos tipos que o sistema grava, só o alerta de meta é nível 3; "concluído" no desenho vem de
+     * uma demanda RESOLVIDA, estado que a notificação daqui não tem — então não há `ok`.
+     */
+    public function prioridadeDaNotificacao(string $tipo): string
+    {
+        return $tipo === AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO ? 'importante' : 'info';
     }
 
     public function prioridadeDaPublicacao(?string $tipo): string
@@ -293,6 +310,68 @@ final class RegrasDaTimelineInteligente
         }
 
         return $frases !== [] ? implode(' ', $frases) : 'Nenhuma atividade no período.';
+    }
+
+    /**
+     * "Enquanto você estava fora" (desenho `tlRender`: `E.filter(e => e.t > visto && e.t <= Date.now()
+     * && !(e.quem || []).every(u => u === meuId()))`): os acontecimentos DEPOIS da visita anterior,
+     * até agora, com alguém que não é o próprio usuário.
+     *
+     * Lido ao pé da letra, o `every` do desenho dá verdadeiro para lista vazia — então evento SEM
+     * pessoa (publicação do Push, notificação, vencimento) não conta como novo. Aqui também não:
+     * só entra o que tem autor, e autor que não sou eu. O autor é conferido pelo id quando a fonte
+     * o tem; senão (linha do audit_log), pelo nome ou e-mail que a timeline mostra.
+     *
+     * Sem visita anterior (primeira abertura), nada é novo.
+     *
+     * @param list<EventoDaTimelineOutput> $eventos
+     * @param list<string>                 $meusNomes nome e e-mail do usuário, como a timeline os mostra
+     * @return list<EventoDaTimelineOutput>
+     */
+    public function novosDesde(array $eventos, ?\DateTimeImmutable $desde, \DateTimeImmutable $agora, int $meuId, array $meusNomes): array
+    {
+        if ($desde === null) {
+            return [];
+        }
+
+        return array_values(array_filter($eventos, static function (EventoDaTimelineOutput $e) use ($desde, $agora, $meuId, $meusNomes): bool {
+            if ($e->quando <= $desde || $e->quando > $agora) {
+                return false;
+            }
+            if ($e->autorId !== null) {
+                return $e->autorId !== $meuId;
+            }
+
+            return $e->autor !== null && $e->autor !== '' && !in_array($e->autor, $meusNomes, true);
+        }));
+    }
+
+    /**
+     * Quantos de cada categoria (segunda linha do aviso: "2 registros · 1 documentos"), na ordem
+     * em que a categoria aparece na lista (a do desenho, `Object.entries` sobre os novos).
+     *
+     * @param list<EventoDaTimelineOutput> $eventos
+     * @return array<string, int>
+     */
+    public function contagemPorCategoria(array $eventos): array
+    {
+        $contagem = [];
+        foreach ($eventos as $e) {
+            $contagem[$e->categoria] = ($contagem[$e->categoria] ?? 0) + 1;
+        }
+
+        return $contagem;
+    }
+
+    /**
+     * Só o que aconteceu DEPOIS de `desde` (o "Ver resumo" do aviso: `tlResumo(…, visto)`).
+     *
+     * @param list<EventoDaTimelineOutput> $eventos
+     * @return list<EventoDaTimelineOutput>
+     */
+    public function depoisDe(array $eventos, \DateTimeImmutable $desde): array
+    {
+        return array_values(array_filter($eventos, static fn (EventoDaTimelineOutput $e) => $e->quando > $desde));
     }
 
     /**

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Entity\Notificacao;
 use App\Pasta\DTO\EventoDaTimelineOutput;
 use App\Pasta\DTO\FiltroDaTimelineInput;
 use App\Pasta\Service\RegrasDaTimelineInteligente;
+use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -86,6 +88,30 @@ final class RegrasDaTimelineInteligenteTest extends TestCase
         self::assertSame('importante', $this->regras->prioridadeDaPublicacao('CITAÇÃO'));
         self::assertSame('info', $this->regras->prioridadeDaPublicacao('Edital'));
         self::assertSame('info', $this->regras->prioridadeDaPublicacao(null));
+    }
+
+    #[TestDox('Notificação (PAS-047i): só o alerta de meta é importante; o resto é informativo, nunca "concluído"')]
+    public function testPrioridadeDaNotificacao(): void
+    {
+        self::assertSame('importante', $this->regras->prioridadeDaNotificacao(AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO));
+        self::assertSame('info', $this->regras->prioridadeDaNotificacao(Notificacao::TIPO_PASTA_MENCAO_REGISTRO));
+        self::assertSame('info', $this->regras->prioridadeDaNotificacao(Notificacao::TIPO_TAREFA_CONCLUIDA));
+        self::assertSame('info', $this->regras->prioridadeDaNotificacao('tipo_que_nao_existe'));
+    }
+
+    #[TestDox('Notificações têm chip próprio (desenho `TLC.notificacao`) e o filtro da categoria só devolve elas')]
+    public function testCategoriaDasNotificacoes(): void
+    {
+        self::assertSame(['Notificações', 'bi-bell', '#c76a12'], RegrasDaTimelineInteligente::CATEGORIAS['notificacao']);
+
+        $eventos = [
+            $this->evento('n1', '2026-10-05 10:00', 'notificacao', 'notificacao', 'Aviso', pendente: true),
+            $this->evento('m1', '2026-10-05 11:00'),
+        ];
+        $filtrados = $this->regras->filtrar($eventos, new FiltroDaTimelineInput(categoria: 'notificacao'), $this->agora);
+        self::assertSame(['n1'], $this->ids($filtrados));
+        self::assertSame(1, $this->regras->contagens($eventos)['notificacao']);
+        self::assertSame(['n1'], $this->ids($this->regras->atencao($eventos)), 'não lida = pendente = atenção');
     }
 
     // ── nenhum evento ─────────────────────────────────────────────────────
@@ -290,5 +316,64 @@ final class RegrasDaTimelineInteligenteTest extends TestCase
             '1 evento(s) de documentos. 1 registro(s) na pasta. 1 movimentação(ões) no processo. 1 meta(s) com prazo vencido há mais de 30 dias.',
             $this->regras->resumir($this->base()),
         );
+    }
+
+    // ── "Enquanto você estava fora" (PAS-043) ─────────────────────────────
+
+    private function deQuem(string $id, string $quando, ?int $autorId, ?string $autor, string $categoria = 'registro'): EventoDaTimelineOutput
+    {
+        return new EventoDaTimelineOutput(
+            id: $id,
+            tipo: 'registro',
+            categoria: $categoria,
+            quando: new \DateTimeImmutable($quando),
+            soData: false,
+            titulo: 'Registro',
+            autor: $autor,
+            autorId: $autorId,
+        );
+    }
+
+    #[TestDox('Novos: só depois da visita e até agora, de outra pessoa; o meu (por id ou, sem id, por nome/e-mail) e o sem autor ficam fora')]
+    public function testNovosDesdeAVisita(): void
+    {
+        $eventos = [
+            $this->deQuem('antes', '2026-10-01 09:00', 2, 'ANA'),
+            $this->deQuem('na-visita', '2026-10-02 10:00', 2, 'ANA'),
+            $this->deQuem('colega', '2026-10-03 10:00', 2, 'ANA'),
+            $this->deQuem('colega-sem-id', '2026-10-03 11:00', null, 'BRUNO'),
+            $this->deQuem('meu', '2026-10-04 10:00', 1, 'EU MESMO'),
+            $this->deQuem('meu-sem-id', '2026-10-04 11:00', null, 'EU MESMO'),
+            $this->deQuem('meu-email', '2026-10-04 12:00', null, 'eu@x.com'),
+            $this->deQuem('sem-autor', '2026-10-05 10:00', null, null, 'processo'),
+            $this->deQuem('futuro', '2026-10-09 10:00', 2, 'ANA', 'meta'),
+        ];
+
+        $novos = $this->regras->novosDesde($eventos, new \DateTimeImmutable('2026-10-02 10:00'), $this->agora, 1, ['EU MESMO', 'eu@x.com']);
+
+        self::assertSame(['colega', 'colega-sem-id'], $this->ids($novos));
+    }
+
+    #[TestDox('Sem visita anterior (primeira abertura): nada é novo')]
+    public function testSemVisitaAnteriorNadaENovo(): void
+    {
+        $eventos = [$this->deQuem('colega', '2026-10-03 10:00', 2, 'ANA')];
+
+        self::assertSame([], $this->regras->novosDesde($eventos, null, $this->agora, 1, ['EU']));
+    }
+
+    #[TestDox('Contagem por categoria na ordem em que aparecem; "depois de" corta pela data, sem olhar o autor')]
+    public function testContagemPorCategoriaEDepoisDe(): void
+    {
+        $eventos = [
+            $this->deQuem('d1', '2026-10-05 10:00', 2, 'ANA', 'documento'),
+            $this->deQuem('r1', '2026-10-04 10:00', 1, 'EU'),
+            $this->deQuem('d2', '2026-10-03 10:00', 2, 'ANA', 'documento'),
+            $this->deQuem('r0', '2026-10-01 10:00', 2, 'ANA'),
+        ];
+
+        self::assertSame(['documento' => 2, 'registro' => 2], $this->regras->contagemPorCategoria($eventos));
+        self::assertSame([], $this->regras->contagemPorCategoria([]));
+        self::assertSame(['d1', 'r1', 'd2'], $this->ids($this->regras->depoisDe($eventos, new \DateTimeImmutable('2026-10-01 10:00'))));
     }
 }

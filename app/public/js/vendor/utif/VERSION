@@ -1,0 +1,11 @@
+utif 3.1.0
+Origem: registry.npmjs.org, pacote utif@3.1.0 (UTIF.js da raiz do pacote, sem alteração)
+integrity (utif-3.1.0.tgz): sha512-WEo4D/xOvFW53K5f5QTaTbbiORcm2/pCL9P6qmJnup+17eYfKaEhDeX9PeQkuyEoIxlbGklDuGl8xwuXYMrrXQ==
+sha256 (UTIF.js): e3e76115f49571e39624c3316a76b3c4c5b2c5ca518dfec4b66a9f7af8c6d059
+Licença: MIT (LICENSE)
+
+pako 1.0.11 (dependência do utif: só o inflate, para TIFF com compressão Deflate)
+Origem: registry.npmjs.org, pacote pako@1.0.11 (dist/pako_inflate.min.js, sem alteração)
+integrity (pako-1.0.11.tgz): sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==
+sha256 (pako_inflate.min.js): 2ca27e9a8dae569cdeac42752ed1aed1afeff7f19282d3cc12c0aaa54a08bc04
+Licença: MIT (LICENSE-pako)

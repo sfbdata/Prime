@@ -38,12 +38,18 @@
    ============================================================================ #}
 <div class="ps-page">
 
+    {# PAS-047: a decisão "pode editar a pasta" é tomada UMA vez por página (cada chamada
+       consulta o banco) e repassada aos parciais que oferecem ação de escrita — hoje o
+       "Alertar" do ⋮ do prazo e o sino das Metas, que o servidor só aceita com edit. #}
+    {% set podeEditarPasta = can_access_resource('pasta', pasta.id, 'edit') %}
+
     {{ include('pasta/_cabecalho.html.twig', {
         pasta: pasta,
         fotosResponsaveis: fotosResponsaveis|default({}),
         push: push,
         vizinhas: vizinhas,
         unidadeCobrada: unidadeCobrada|default(null),
+        podeEditarPasta: podeEditarPasta,
     }) }}
 
 
@@ -214,6 +220,7 @@
                     {{ include('pasta/_dados_trilho.html.twig', {
                         pasta: pasta,
                         proximosPrazos: proximosPrazos,
+                        podeEditarPasta: podeEditarPasta,
                     }) }}
                 </div>
             </div>
@@ -244,6 +251,7 @@
                                     pasta: pasta,
                                     push: push,
                                     analisesIa: analisesIa,
+                                    podeEditarPasta: podeEditarPasta,
                                 } only %}
                             </div>
 
@@ -252,6 +260,7 @@
                                 {% include 'pasta/_metas.html.twig' with {
                                     pasta: pasta,
                                     metasResumo: metasResumo,
+                                    podeEditarPasta: podeEditarPasta,
                                 } only %}
                             </div>
 
@@ -264,6 +273,7 @@
                                     pasta: pasta,
                                     observacoesDetalhes: observacoesDetalhes,
                                     fotosResponsaveis: fotosResponsaveis|default({}),
+                                    podeEditarPasta: podeEditarPasta,
                                 } only %}
 
                                 <div class="ps-trilho">
@@ -315,330 +325,6 @@
 
                         </div>
 
-                    {# Coluna antiga de documentos — movida para a aba "Documentos". Desativada (mantida para referência; remover no cleanup). #}
-                    {% if false %}
-                    <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
-                        {# Card: Documentação #}
-                        {% set totalDocsGeral = 0 %}
-                        {% for tipo, docs in documentosPorTipo %}{% set totalDocsGeral = totalDocsGeral + docs|length %}{% endfor %}
-                        <div class="doc-folder-wrapper">
-                        <div class="card card-primary card-outline mb-3 doc-folder-card" data-secao-destino="geral">
-                            <div class="card-header d-flex align-items-center doc-folder-header">
-                                <h3 class="card-title me-auto"><i class="bi bi-folder-fill me-1"></i> Documentação <span class="badge text-bg-secondary ms-1 js-secao-contador" id="contadorSecaoGeral">{{ totalDocsGeral }} {{ totalDocsGeral == 1 ? 'arquivo' : 'arquivos' }}</span></h3>
-                                <button type="button" class="btn btn-tool" data-bs-toggle="collapse"
-                                        data-bs-target="#documentacaoBody" aria-expanded="false"
-                                        id="btnDocumentacaoToggle">
-                                    <i class="bi bi-chevron-down"></i>
-                                </button>
-                            </div>
-                            <div class="collapse" id="documentacaoBody">
-                            <div class="card-body">
-                                {# Checklist dinâmico #}
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="text-muted mb-0"><i class="bi bi-check2-square me-1"></i> Checklist de Documentação</h6>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span id="checklistBadge" class="badge {{ concluidosChecklist == totalChecklist and totalChecklist > 0 ? 'text-bg-success' : 'text-bg-warning' }}">
-                                            {{ concluidosChecklist }}/{{ totalChecklist }} itens
-                                        </span>
-                                        <button type="button" id="btnChecklistEditar" class="btn btn-sm btn-outline-secondary" title="Editar checklist">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button type="button" id="btnChecklistAdicionar" class="btn btn-sm btn-outline-primary" title="Adicionar item">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <ul id="checklistLista" class="list-unstyled mb-2">
-                                    {% for item in checklistItens %}
-                                    <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
-                                        data-item-id="{{ item.id }}"
-                                        data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
-                                        <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
-                                            <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
-                                        </button>
-                                        <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
-                                            <i class="bi bi-grip-vertical"></i>
-                                        </span>
-                                        <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
-                                            {{ item.titulo|e }}
-                                        </span>
-                                        <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
-                                               value="{{ item.titulo|e('html_attr') }}" maxlength="255">
-                                        <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </li>
-                                    {% else %}
-                                    <li id="checklistVazio" class="text-muted small py-2">
-                                        Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-
-                                <div id="checklistFormAdicionar" class="d-none mb-2">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Descrição do item..." maxlength="255">
-                                        <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
-                                        <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
-                                    </div>
-                                    <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
-                                </div>
-
-                                <hr>
-
-                                {# Arquivos por categoria #}
-                                <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Arquivos da Pasta</h6>
-
-                                {# Formulário de upload inline #}
-                                <form id="formAnexos" method="post" enctype="multipart/form-data"
-                                      action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
-
-                                    <div id="geralDropArea" class="rounded p-2 mb-2 text-center text-muted small"
-                                         style="border:2px dashed #ced4da;min-height:52px;transition:background .15s;">
-                                        <i class="bi bi-cloud-upload me-1"></i> Arraste arquivos do computador aqui
-                                    </div>
-
-                                    <div class="d-flex align-items-center gap-2 mb-3">
-                                        <button type="button" id="btnAdicionarAnexo" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
-                                        </button>
-                                        <button type="button" id="btnLimparAnexos" class="btn btn-sm btn-outline-secondary d-none">
-                                            <i class="bi bi-x-circle me-1"></i> Limpar
-                                        </button>
-                                        <input type="file" id="inputAnexoOculto" multiple
-                                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
-                                               class="d-none">
-                                    </div>
-
-                                    <div id="listaAnexos"></div>
-
-                                    <div id="areaEnviar" class="d-none mt-3">
-                                        <div class="form-check form-switch">
-                                            <input type="checkbox" class="form-check-input" id="reduzirTamanhoGeral" name="reduzir_tamanho" value="1">
-                                            <label class="form-check-label" for="reduzirTamanhoGeral">
-                                                Reduzir tamanho dos arquivos (economiza espaço)
-                                            </label>
-                                        </div>
-                                        <div class="form-text text-muted mb-2">
-                                            Mantenha desligado para preservar a qualidade original.
-                                            <span class="d-block text-warning-emphasis">
-                                                <i class="bi bi-exclamation-triangle me-1"></i>
-                                                PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
-                                            </span>
-                                        </div>
-                                        <div class="text-end">
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-
-                                {# Documentos já enviados #}
-                                {% set hasDocuments = false %}
-                                {% for tipo, docs in documentosPorTipo %}
-                                    {% if docs|length > 0 %}{% set hasDocuments = true %}{% endif %}
-                                {% endfor %}
-
-                                {% if hasDocuments %}<hr>{% endif %}
-                                <div class="mb-3 docs-list-scroll" id="documentosGerais" data-secao-destino="geral">
-                                    {% for tipo, docs in documentosPorTipo %}
-                                        {% if docs|length > 0 %}
-                                            {% set label = documentTypeOptions[tipo] ?? tipo %}
-                                            {% for doc in docs %}
-                                                <div class="d-flex align-items-center border rounded px-3 py-2 mb-2 gap-3 doc-item"
-                                                     data-doc-id="{{ doc.id }}"
-                                                     data-secao-id=""
-                                                     data-csrf-mover="{{ csrf_token('pasta_doc_mover_' ~ doc.id) }}"
-                                                     data-url-mover="{{ path('pasta_documento_mover_secao', {docId: doc.id}) }}">
-                                                    <i class="bi bi-grip-vertical text-muted flex-shrink-0 doc-grip" style="cursor:grab;"></i>
-                                                    <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
-                                                    <div class="flex-grow-1 overflow-hidden">
-                                                        <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="text-truncate d-block fw-semibold">
-                                                            {{ doc.nomeOriginal }}
-                                                        </a>
-                                                        <small class="text-muted">
-                                                            {{ label }}
-                                                            {% if doc.descricao %} · {{ doc.descricao }}{% endif %}
-                                                            {% if doc.numero %} · Nº {{ doc.numero }}{% endif %}
-                                                            · {{ doc.carregadoEm|date('d/m/Y') }}
-                                                            · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
-                                                        </small>
-                                                    </div>
-                                                    <div class="d-flex gap-1 flex-shrink-0 doc-acoes">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                                                title="Visualizar"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#previewDocModal"
-                                                                data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
-                                                                data-nome="{{ doc.nomeOriginal }}"
-                                                                data-mime="{{ doc.mimeType }}">
-                                                            <i class="bi bi-eye"></i>
-                                                        </button>
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                                title="Editar"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#editDocModal{{ doc.id }}">
-                                                            <i class="bi bi-pencil"></i>
-                                                        </button>
-                                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
-                                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            {% endfor %}
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            </div>{# /collapse show #}
-                        </div>{# /doc-folder-card #}
-                        </div>{# /doc-folder-wrapper #}
-
-                        {# Cards de seções de documentos #}
-                        {% for secao in secoes %}
-                        <div class="card card-outline card-secondary mb-3 pasta-secao-card"
-                             id="secaoCard{{ secao.id }}"
-                             data-secao-destino="{{ secao.id }}">
-                            <div class="card-header d-flex align-items-center py-2">
-                                <span class="pasta-secao-nome fw-semibold me-auto">{{ secao.nome|e }} <span class="badge text-bg-secondary ms-1 js-secao-contador">{{ secao.documentos|length }} {{ secao.documentos|length == 1 ? 'arquivo' : 'arquivos' }}</span></span>
-                                <div class="d-flex align-items-center gap-1 ms-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary js-secao-renomear-btn" title="Renomear seção"
-                                            data-secao-id="{{ secao.id }}"
-                                            data-nome-atual="{{ secao.nome|e('html_attr') }}"
-                                            data-csrf="{{ csrf_token('pasta_secao_renomear_' ~ secao.id) }}"
-                                            data-url="{{ path('pasta_secao_renomear', {secaoId: secao.id}) }}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger js-secao-excluir-btn" title="Excluir seção"
-                                            data-secao-id="{{ secao.id }}"
-                                            data-csrf="{{ csrf_token('pasta_secao_excluir_' ~ secao.id) }}"
-                                            data-url="{{ path('pasta_secao_excluir', {secaoId: secao.id}) }}"
-                                            data-nome="{{ secao.nome|e('html_attr') }}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-tool js-secao-toggle" data-bs-toggle="collapse"
-                                            data-bs-target="#secaoBody{{ secao.id }}" aria-expanded="false">
-                                        <i class="bi bi-chevron-down"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="collapse" id="secaoBody{{ secao.id }}">
-                                <div class="card-body secao-dropzone p-2" data-secao-destino="{{ secao.id }}">
-                                    <div class="secao-drop-area rounded p-2 mb-2 text-center text-muted small"
-                                         data-secao-destino="{{ secao.id }}"
-                                         style="border: 2px dashed #ced4da; min-height: 52px; transition: background .15s;">
-                                        <i class="bi bi-cloud-upload me-1"></i> Arraste arquivos do computador aqui
-                                    </div>
-                                    <form class="secao-upload-form" method="post" enctype="multipart/form-data"
-                                          action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
-                                        <input type="hidden" name="secao_id" value="{{ secao.id }}">
-                                        <div class="d-flex align-items-center gap-2 mb-2">
-                                            <button type="button" class="btn btn-sm btn-primary js-secao-add-file" data-secao="{{ secao.id }}">
-                                                <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary js-secao-limpar d-none" data-secao="{{ secao.id }}">
-                                                <i class="bi bi-x-circle me-1"></i> Limpar
-                                            </button>
-                                            <input type="file" class="js-secao-file-input d-none" multiple
-                                                   accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
-                                                   data-secao="{{ secao.id }}">
-                                        </div>
-                                        <div class="js-secao-lista-anexos" data-secao="{{ secao.id }}"></div>
-                                        <div class="js-secao-area-enviar d-none mt-2" data-secao="{{ secao.id }}">
-                                            <div class="form-check form-switch">
-                                                <input type="checkbox" class="form-check-input" id="reduzirTamanhoSecao{{ secao.id }}" name="reduzir_tamanho" value="1">
-                                                <label class="form-check-label small" for="reduzirTamanhoSecao{{ secao.id }}">
-                                                    Reduzir tamanho dos arquivos (economiza espaço)
-                                                </label>
-                                            </div>
-                                            <div class="form-text text-muted mb-2">
-                                                Mantenha desligado para preservar a qualidade original.
-                                                <span class="d-block text-warning-emphasis">
-                                                    <i class="bi bi-exclamation-triangle me-1"></i>
-                                                    PDFs assinados podem ter a assinatura invalidada ao reduzir o tamanho.
-                                                </span>
-                                            </div>
-                                            <div class="text-end">
-                                                <button type="submit" class="btn btn-sm btn-success">
-                                                    <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                    <div class="js-secao-docs docs-list-scroll" data-secao-destino="{{ secao.id }}">
-                                        {% for doc in secao.documentos %}
-                                            {% set label = documentTypeOptions[doc.categoria] ?? doc.categoria %}
-                                            <div class="d-flex align-items-center border rounded px-2 py-2 mb-2 gap-2 doc-item"
-                                                 data-doc-id="{{ doc.id }}"
-                                                 data-secao-id="{{ secao.id }}"
-                                                 data-csrf-mover="{{ csrf_token('pasta_doc_mover_' ~ doc.id) }}"
-                                                 data-url-mover="{{ path('pasta_documento_mover_secao', {docId: doc.id}) }}">
-                                                <i class="bi bi-grip-vertical text-muted flex-shrink-0 doc-grip" style="cursor:grab;"></i>
-                                                <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
-                                                <div class="flex-grow-1 overflow-hidden">
-                                                    <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="text-truncate d-block fw-semibold small">
-                                                        {{ doc.nomeOriginal }}
-                                                    </a>
-                                                    <small class="text-muted">
-                                                        {{ label }}{% if doc.descricao %} · {{ doc.descricao }}{% endif %}{% if doc.numero %} · Nº {{ doc.numero }}{% endif %} · {{ doc.carregadoEm|date('d/m/Y') }}
-                                                    </small>
-                                                </div>
-                                                <div class="d-flex gap-1 flex-shrink-0 doc-acoes">
-                                                    <button type="button" class="btn btn-sm btn-outline-primary" title="Visualizar"
-                                                            data-bs-toggle="modal" data-bs-target="#previewDocModal"
-                                                            data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
-                                                            data-nome="{{ doc.nomeOriginal }}"
-                                                            data-mime="{{ doc.mimeType }}">
-                                                        <i class="bi bi-eye"></i>
-                                                    </button>
-                                                    <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
-                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-
-                        {# Card "vazado" para criar nova seção #}
-                        <div class="card mb-3" id="cardNovaSecao"
-                             style="border: 2px dashed #ced4da; background: transparent;">
-                            <div class="card-body py-2">
-                                <div id="novaSecaoBotao" class="text-center">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnMostrarNovaSecao">
-                                        <i class="bi bi-folder-plus me-1"></i> Nova seção de documentos
-                                    </button>
-                                </div>
-                                <div id="novaSecaoForm" class="d-none">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" id="novaSecaoNome" class="form-control" placeholder="Nome da seção..." maxlength="255">
-                                        <button type="button" id="btnSalvarNovaSecao" class="btn btn-primary">
-                                            <i class="bi bi-check-lg"></i>
-                                        </button>
-                                        <button type="button" id="btnCancelarNovaSecao" class="btn btn-outline-secondary">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </div>
-                                    <div id="novaSecaoErro" class="text-danger small mt-1 d-none"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                    {% endif %}
 </div>{# /.ps-page #}
 
 {# ── Modal: Adicionar pagamento (desenho 1.2.3, dc L.1928-2012) ──────────────
@@ -782,6 +468,7 @@
 {# Timeline inteligente (menu ⋮, atalho T): painel fixo, fora de .ps-page como o
    drawer do histórico. Os eventos chegam por JSON (`pasta_timeline`). #}
 {{ include('pasta/_timeline_inteligente.html.twig', {pasta: pasta}) }}
+{{ include('pasta/_impressao_modal.html.twig', {pasta: pasta}) }}
 
 {# ── Modais do explorador de documentos ─────────────────────────────────────
    Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos. Modal é
@@ -2679,173 +2366,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     attachCopyButtons();
 
-    /* ── Anexos ── */
-    const documentTypeOptions = {{ documentTypeOptions|json_encode|raw }};
-
-    const btnAdicionar   = document.getElementById('btnAdicionarAnexo');
-    const inputOculto    = document.getElementById('inputAnexoOculto');
-    const listaAnexos    = document.getElementById('listaAnexos');
-    const areaEnviar     = document.getElementById('areaEnviar');
-
-    // Contador global para índices únicos
-    let indiceGlobal = 0;
-
-    function formatarTamanho(bytes) {
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / 1024 / 1024).toFixed(2) + ' MB';
-    }
-
-    // Upload geral migrado para a aba "Documentos"; opera só se o markup antigo existir.
-    if (btnAdicionar) {
-
-    function buildSelectOpcoes() {
-        let html = '<option value="">Selecione o tipo</option>';
-        for (const [valor, texto] of Object.entries(documentTypeOptions)) {
-            html += `<option value="${valor}"${valor === 'DEMAIS' ? ' selected' : ''}>${texto}</option>`;
-        }
-        return html;
-    }
-
-    function adicionarItem(file) {
-        const idx = indiceGlobal++;
-        const div = document.createElement('div');
-        div.className = 'anexo-item';
-        div.dataset.idx = idx;
-        div._file = file; // arquivo associado diretamente ao elemento
-
-        div.innerHTML = `
-            <div class="d-flex align-items-start gap-2">
-                <i class="bi bi-file-earmark-text fs-4 text-primary flex-shrink-0 mt-1"></i>
-
-                <div class="flex-grow-1 min-w-0">
-                    <div class="anexo-nome text-truncate">${file.name}</div>
-                    <div class="anexo-tamanho mb-2">${formatarTamanho(file.size)}</div>
-
-                    <div class="row g-2 align-items-end anexo-campos">
-                        <div class="col-12 col-sm-5 col-lg-4">
-                            <label class="form-label form-label-sm mb-1">Tipo de documento</label>
-                            <select name="categorias[${idx}]" class="form-select form-select-sm" required>
-                                ${buildSelectOpcoes()}
-                            </select>
-                        </div>
-                        <div class="col-12 col-sm-7 col-lg-5">
-                            <label class="form-label form-label-sm mb-1">Descrição</label>
-                            <input type="text" name="descricoes[${idx}]" class="form-control form-control-sm"
-                                   placeholder="Descrição (opcional)" maxlength="500">
-                        </div>
-                        <div class="col-12 col-sm-12 col-lg-3">
-                            <label class="form-label form-label-sm mb-1">Número <span class="text-muted fw-normal">(opcional)</span></label>
-                            <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
-                                   placeholder="Número" maxlength="255">
-                        </div>
-                    </div>
-
-                    <div class="anexo-progresso d-none mt-2">
-                        <div class="progress" style="height:6px;">
-                            <div class="progress-bar" role="progressbar" style="width:0%"></div>
-                        </div>
-                        <small class="anexo-status text-muted d-block mt-1"></small>
-                    </div>
-                </div>
-
-                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo"
-                        title="Remover">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
-        `;
-
-        div.querySelector('.btn-remover-anexo').addEventListener('click', function () {
-            div.remove();
-            atualizarVisibilidade();
-        });
-
-        listaAnexos.appendChild(div);
-    }
-
-    const btnLimpar = document.getElementById('btnLimparAnexos');
-
-    function atualizarVisibilidade() {
-        const temItens = listaAnexos.children.length > 0;
-        areaEnviar.classList.toggle('d-none', !temItens);
-        btnLimpar.classList.toggle('d-none', !temItens);
-    }
-
-    btnLimpar.addEventListener('click', function () {
-        listaAnexos.innerHTML = '';
-        inputOculto.value = '';
-        atualizarVisibilidade();
-    });
-
-    btnAdicionar.addEventListener('click', function () {
-        inputOculto.value = '';
-        inputOculto.click();
-    });
-
-    inputOculto.addEventListener('change', function () {
-        Array.from(this.files).forEach(function (file) {
-            adicionarItem(file);
-        });
-        atualizarVisibilidade();
-    });
-
-    // No submit: envia 1 arquivo por vez via AJAX, com barra de progresso por arquivo.
-    document.getElementById('formAnexos').addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        const itens = Array.from(listaAnexos.querySelectorAll('.anexo-item'))
-            .filter(function (it) { return it.dataset.enviado !== '1'; });
-        if (itens.length === 0) return;
-
-        const reduzir   = (document.getElementById('reduzirTamanhoGeral') || {}).checked || false;
-        const btnEnviar = this.querySelector('button[type="submit"]');
-        const aviso     = this.querySelector('.upload-lote-aviso');
-        if (aviso) aviso.remove();
-        if (btnEnviar) btnEnviar.disabled = true;
-        btnAdicionar.disabled = true;
-        btnLimpar.disabled = true;
-
-        let ok = 0, falhas = 0;
-        for (const item of itens) {
-            const sucesso = await window.processarItemUploadPeca(item, null, reduzir);
-            sucesso ? ok++ : falhas++;
-        }
-
-        btnAdicionar.disabled = false;
-        btnLimpar.disabled = false;
-        if (btnEnviar) btnEnviar.classList.add('d-none');
-
-        const classe = falhas === 0 ? 'alert-success' : 'alert-warning';
-        const msg = falhas === 0
-            ? `${ok} arquivo(s) enviado(s) com sucesso.`
-            : `${ok} enviado(s), ${falhas} com erro.`;
-        areaEnviar.insertAdjacentHTML('beforeend',
-            `<div class="alert ${classe} mt-2 mb-0 py-2 small upload-lote-aviso d-flex flex-wrap align-items-center justify-content-between gap-2">
-               <span>${msg} Confira os detalhes acima.</span>
-               <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">Atualizar lista</button>
-             </div>`);
-    });
-
-    /* ── Drop zone desktop no card geral ── */
-    const geralDropArea = document.getElementById('geralDropArea');
-    if (geralDropArea) {
-        geralDropArea.addEventListener('dragover', function (e) {
-            if (!e.dataTransfer.types.includes('Files')) return;
-            e.preventDefault();
-            geralDropArea.style.background = '#e8f4fd';
-        });
-        geralDropArea.addEventListener('dragleave', function () {
-            geralDropArea.style.background = '';
-        });
-        geralDropArea.addEventListener('drop', function (e) {
-            e.preventDefault();
-            geralDropArea.style.background = '';
-            if (e.dataTransfer.files.length === 0) return;
-            Array.from(e.dataTransfer.files).forEach(function (f) { adicionarItem(f); });
-            atualizarVisibilidade();
-        });
-    }
-    }  // fim do guard "if (btnAdicionar)" — upload geral legado
 
 });
 
@@ -2861,28 +2381,324 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlEnviar   = '{{ path("pasta_enviar_mensagem", {id: pasta.id}) }}';
     const urlEditarTpl  = '{{ path("pasta_editar_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
     const urlExcluirTpl = '{{ path("pasta_excluir_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
-    /* "Responder": o compositor de cima é o mesmo; a faixa "Respondendo a NOME · cancelar"
-       diz para quem vai, e o campo escondido leva o id da RAIZ ao servidor. */
-    const inputRespostaA   = document.getElementById('timelineRespostaA');
-    const faixaRespondendo = document.getElementById('timelineRespondendo');
-    const nomeRespondendo  = document.getElementById('timelineRespondendoNome');
-    const cancelarResposta = document.getElementById('timelineRespondendoCancelar');
     const ROTULO_ORFA      = 'Resposta a uma mensagem excluída';
 
-    function responderA(id, nome) {
-        if (!inputRespostaA || !faixaRespondendo) { return; }
-        inputRespostaA.value = String(id);
-        if (nomeRespondendo) { nomeRespondendo.textContent = nome || 'Autor desconhecido'; }
-        faixaRespondendo.classList.remove('d-none');
-        const quill = window.EditorRico && EditorRico.instancia ? EditorRico.instancia(textarea) : null;
-        if (quill) { quill.focus(); } else if (textarea) { textarea.focus(); }
-        if (form) { form.scrollIntoView({ block: 'nearest' }); }
+    /* PAS-034: a janela e o aviso da tela (pasta-dialogos.js), no lugar do confirm/alert. */
+    function avisarErroReg(msg) {
+        if (window.avisarPs) { avisarPs(msg, 'erro'); } else { alert(msg); }
     }
 
-    function pararDeResponder() {
-        if (inputRespostaA) { inputRespostaA.value = ''; }
-        if (faixaRespondendo) { faixaRespondendo.classList.add('d-none'); }
-        if (nomeRespondendo) { nomeRespondendo.textContent = ''; }
+    /* "Excluir o comentário de NOME?" com a data e o trecho (dc L.5906 `comExcluir`). */
+    function confirmarExclusaoReg(cartao) {
+        const autor = (cartao && cartao.querySelector('.ps-anotacao-autor') || {}).textContent || 'colaborador';
+        const data  = cartao ? cartao.querySelector('.ps-anotacao-data') : null;
+        const corpo = cartao ? cartao.querySelector('.pasta-msg-conteudo .ql-editor') : null;
+        const txt   = (corpo ? corpo.innerText : '').replace(/\s+/g, ' ').trim();
+        const opcoes = {
+            titulo: 'Excluir o comentário de ' + autor.trim() + '?',
+            texto: (data && data.title ? data.title + ' · ' : '') + '"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')
+                + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.',
+        };
+        return window.confirmarPs ? confirmarPs(opcoes) : Promise.resolve(confirm(opcoes.titulo));
+    }
+
+    /* ── Responder (PAS-030; dc L.1316-1322 `respOn`, L.5958) ───────────────
+       A caixa abre LOGO ABAIXO do cartão respondido (a raiz: responder a uma resposta
+       liga à raiz, um nível só): faixa "Respondendo a NOME", o campo "Escreva a
+       resposta…", Cancelar e Responder (apagado sem texto). Ctrl+Enter envia, Esc
+       fecha. Uma caixa por vez. O envio é o MESMO `pasta_enviar_mensagem`, com o CSRF
+       do compositor e `resposta_a` = id da raiz; a posse é conferida no servidor. O
+       texto vira parágrafos escapados aqui — o servidor sanitiza de novo. */
+    let caixaResp = null; // { el, raizId, campo }
+
+    function fecharCaixaResposta() {
+        if (!caixaResp) { return; }
+        caixaResp.el.remove();
+        caixaResp = null;
+    }
+
+    function paragrafosDe(texto) {
+        return String(texto).split(/\r?\n/).map(function (linha) {
+            const limpa = linha.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return '<p>' + (limpa.trim() === '' ? '<br>' : limpa) + '</p>';
+        }).join('');
+    }
+
+    function abrirCaixaResposta(botao) {
+        const raizId = String(botao.dataset.respostaA || '');
+        const raiz   = document.getElementById('pasta-msg-' + raizId);
+        if (!raiz) { return; }
+        fecharCaixaResposta();
+
+        const el = document.createElement('div');
+        el.className = 'ps-resp-caixa';
+        el.setAttribute('data-resp-caixa', raizId);
+
+        const faixa = document.createElement('div');
+        faixa.className = 'ps-resp-caixa-faixa';
+        const icone = document.createElement('i');
+        icone.className = 'bi bi-reply-fill';
+        icone.setAttribute('aria-hidden', 'true');
+        const para = document.createElement('span');
+        para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');
+        faixa.appendChild(icone);
+        faixa.appendChild(para);
+
+        const campo = document.createElement('textarea');
+        campo.className = 'ps-resp-caixa-campo';
+        campo.rows = 2;
+        campo.maxLength = 5000;
+        campo.placeholder = 'Escreva a resposta…';
+        campo.setAttribute('aria-label', para.textContent);
+
+        const erro = document.createElement('div');
+        erro.className = 'ps-resp-caixa-erro';
+        erro.hidden = true;
+
+        const cancelar = document.createElement('button');
+        cancelar.type = 'button';
+        cancelar.className = 'ps-resp-caixa-cancelar';
+        cancelar.textContent = 'Cancelar';
+
+        const enviar = document.createElement('button');
+        enviar.type = 'button';
+        enviar.className = 'ps-resp-caixa-enviar';
+        enviar.disabled = true;
+        const iEnviar = document.createElement('i');
+        iEnviar.className = 'bi bi-send';
+        iEnviar.setAttribute('aria-hidden', 'true');
+        enviar.appendChild(iEnviar);
+        enviar.appendChild(document.createTextNode('Responder'));
+
+        const acoes = document.createElement('div');
+        acoes.className = 'ps-resp-caixa-acoes';
+        acoes.appendChild(cancelar);
+        acoes.appendChild(enviar);
+
+        el.appendChild(faixa);
+        el.appendChild(campo);
+        el.appendChild(erro);
+        el.appendChild(acoes);
+        raiz.after(el);
+        caixaResp = { el: el, raizId: raizId, campo: campo };
+
+        campo.addEventListener('input', function () { enviar.disabled = campo.value.trim() === ''; });
+        campo.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviar.click(); }
+            else if (e.key === 'Escape') { e.preventDefault(); fecharCaixaResposta(); botao.focus(); }
+        });
+        cancelar.addEventListener('click', function () { fecharCaixaResposta(); });
+        enviar.addEventListener('click', async function () {
+            const texto = campo.value.trim();
+            const token = form ? form.querySelector('input[name="_token"]') : null;
+            if (texto === '' || !token) { return; }
+            enviar.disabled = true;
+            erro.hidden = true;
+            let html = paragrafosDe(texto);
+            if (window.PastaMencoes) { html = PastaMencoes.paraEnvio(campo, html); }
+            const fd = new FormData();
+            fd.append('_token', token.value);
+            fd.append('resposta_a', raizId);
+            fd.append('conteudo', html);
+            try {
+                const resp = await fetch(urlEnviar, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    erro.textContent = data.erro ?? 'Erro ao enviar a resposta.';
+                    erro.hidden = false;
+                    enviar.disabled = false;
+                    return;
+                }
+                fecharCaixaResposta();
+                const conta = inserirMensagem(data);
+                if (vazioMsg) { vazioMsg.remove(); }
+                if (countBadge && conta) { countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1; }
+            } catch (_) {
+                erro.textContent = 'Erro de rede. Tente novamente.';
+                erro.hidden = false;
+                enviar.disabled = false;
+            }
+        });
+
+        /* PAS-031: responder a uma resposta já começa com "@PrimeiroNome " do autor dela, e ela
+           vai como menção REAL: o mesmo registro de menções que o `PastaMencoes.ligar` guarda
+           na textarea (`_mencoes`), que o `paraEnvio` transforma no token `@[Nome](user:ID)`. */
+        const autorId = Number(botao.dataset.respostaAutorId || 0);
+        const primeiro = String(botao.dataset.respostaAutorNome || '').trim().split(/\s+/)[0] || '';
+        if (autorId > 0 && primeiro !== '') {
+            campo.value = '@' + primeiro + ' ';
+            campo._mencoes = [{ id: autorId, nome: primeiro }];
+            enviar.disabled = false;
+        }
+
+        campo.focus();
+        campo.setSelectionRange(campo.value.length, campo.value.length);
+        el.scrollIntoView({ block: 'nearest' });
+    }
+
+    /* ── Menu do registro (PAS-025; dc L.5958 `regsLinha`) ─────────────────
+       Botão direito no cartão — no ponto do clique — ou o ⋮ do cartão (teclado e
+       toque) abrem o MESMO #psRegMenu, preenchido com o cartão. Cada item clica o
+       botão que o cartão já tem: a ação, o CSRF e a URL são os de sempre. Editar e
+       Excluir levam os minutos que restam ("· N min"); sem os botões ou com a
+       janela vencida, ficam à vista e desabilitados, "· bloqueado" com cadeado e o
+       motivo na dica (o `comPerm` do desenho, sem a frase do usuário primário, que
+       aqui não tem a exceção — como o Financeiro). */
+    const menuReg = document.getElementById('psRegMenu');
+    const REG_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';
+    const REG_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';
+    let regAberto = null; // { cartao, gatilho }
+
+    function fecharMenuReg(devolverFoco) {
+        if (!regAberto) { return; }
+        menuReg.hidden = true;
+        if (regAberto.gatilho) {
+            regAberto.gatilho.setAttribute('aria-expanded', 'false');
+            if (devolverFoco) { regAberto.gatilho.focus(); }
+        }
+        regAberto = null;
+    }
+
+    function pintarItemReg(item, pode, rotulo, icone, motivo) {
+        item.disabled = !pode;
+        if (pode) { item.removeAttribute('aria-disabled'); item.removeAttribute('title'); } else { item.setAttribute('aria-disabled', 'true'); item.title = motivo; }
+        item.querySelector('i').className = 'bi ' + icone;
+        item.querySelector('span').textContent = rotulo;
+    }
+
+    /* Minutos que restam na janela, com a regra do servidor (`minutosRestantes`: teto,
+       de 1 a 15); 0 = vencida. */
+    function minutosRestantesReg(cartao) {
+        const ate = Number(cartao.dataset.janelaAte || 0) * 1000;
+        const ms  = ate - Date.now();
+        if (!ate || ms <= 0) { return 0; }
+        return Math.min({{ comentario_janela_minutos() }}, Math.max(1, Math.ceil(ms / 60000)));
+    }
+
+    function abrirMenuReg(cartao, gatilho, x, y) {
+        if (!menuReg || !cartao) { return; }
+        const porClique = typeof x === 'number';
+        if (!porClique && regAberto && regAberto.cartao === cartao) { fecharMenuReg(false); return; }
+        fecharMenuReg(false);
+        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+
+        const autorEl = cartao.querySelector('.ps-anotacao-autor');
+        const dataEl  = cartao.querySelector('.ps-anotacao-data');
+        menuReg.querySelector('.js-reg-menu-titulo').textContent =
+            (autorEl ? autorEl.textContent.trim() : '') + (dataEl && dataEl.title ? ' · ' + dataEl.title : '');
+
+        // PAS-025b: na pasta excluída o menu nasce sem Responder, Editar e Excluir.
+        const responder = menuReg.querySelector('.js-reg-responder');
+        if (responder) { responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta'); }
+
+        const resto = minutosRestantesReg(cartao);
+        const pode  = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0;
+        const motivo = cartao.dataset.doAutor === '1' ? REG_MOTIVO_PRAZO : REG_MOTIVO_AUTOR;
+        const editar  = menuReg.querySelector('.js-reg-editar');
+        const excluir = menuReg.querySelector('.js-reg-excluir');
+        if (!editar || !excluir) {
+            // lápide: sem itens de escrita para pintar
+        } else if (pode) {
+            pintarItemReg(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');
+            pintarItemReg(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');
+        } else {
+            pintarItemReg(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
+            pintarItemReg(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+        }
+
+        menuReg.hidden = false;
+        let left;
+        let top;
+        if (porClique) {
+            left = x;
+            top  = y;
+            if (top + menuReg.offsetHeight > window.innerHeight - 8) { top = y - menuReg.offsetHeight; }
+        } else {
+            const r = gatilho.getBoundingClientRect();
+            left = r.right - menuReg.offsetWidth;
+            top  = r.bottom + 4;
+            if (top + menuReg.offsetHeight > window.innerHeight - 8) { top = r.top - menuReg.offsetHeight - 4; }
+        }
+        menuReg.style.left = Math.max(8, Math.min(left, window.innerWidth - menuReg.offsetWidth - 8)) + 'px';
+        menuReg.style.top  = Math.max(8, top) + 'px';
+
+        const seta = gatilho || cartao.querySelector('.js-reg-menu');
+        if (seta) { seta.setAttribute('aria-expanded', 'true'); }
+        regAberto = { cartao: cartao, gatilho: seta };
+        const primeiro = menuReg.querySelector('.ps-processo-menu-item:not([disabled]):not([hidden])');
+        if (primeiro) { primeiro.focus(); }
+    }
+
+    function copiarTextoReg(item, cartao) {
+        const corpo  = cartao.querySelector('.pasta-msg-conteudo .ql-editor');
+        const texto  = corpo ? corpo.innerText.trim() : '';
+        const rotulo = item.querySelector('span');
+        const original = rotulo ? rotulo.textContent : '';
+        function avisar(msg) {
+            if (rotulo) { rotulo.textContent = msg; }
+            setTimeout(function () {
+                if (rotulo) { rotulo.textContent = original; }
+                if (regAberto && regAberto.cartao === cartao) { fecharMenuReg(false); }
+            }, 1200);
+        }
+        if (texto && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(
+                function () { avisar('Texto copiado'); },
+                function () { avisar('Não foi possível copiar'); }
+            );
+        } else {
+            avisar('Não foi possível copiar');
+        }
+    }
+
+    if (menuReg && list) {
+        // Botão direito no cartão. Links, botões, a caixa de edição e texto selecionado
+        // seguem com o menu do navegador.
+        list.addEventListener('contextmenu', function (e) {
+            const alvo   = e.target;
+            const cartao = alvo && alvo.closest ? alvo.closest('.ps-anotacao[id^="pasta-msg-"]') : null;
+            if (!cartao) { return; }
+            if (alvo.closest('a, button, input, textarea, select, [contenteditable="true"], .ps-anotacao-edicao')) { return; }
+            const selecao = window.getSelection ? String(window.getSelection()) : '';
+            if (selecao.trim() !== '') { return; }
+            e.preventDefault();
+            abrirMenuReg(cartao, null, e.clientX, e.clientY);
+        });
+
+        list.addEventListener('click', function (e) {
+            const gatilho = e.target.closest('.js-reg-menu');
+            if (!gatilho) { return; }
+            abrirMenuReg(gatilho.closest('.ps-anotacao'), gatilho);
+        });
+
+        menuReg.addEventListener('click', function (e) {
+            const item = e.target.closest('.ps-processo-menu-item');
+            if (!item || item.disabled || !regAberto) { return; }
+            const cartao = regAberto.cartao;
+            if (item.classList.contains('js-reg-copiar')) { copiarTextoReg(item, cartao); return; }
+            const seletor = item.classList.contains('js-reg-responder') ? '.btn-responder-msg-pasta'
+                : item.classList.contains('js-reg-editar') ? '.ps-anotacao-acoes .btn-editar-msg-pasta'
+                : item.classList.contains('js-reg-excluir') ? '.ps-anotacao-acoes .btn-excluir-msg-pasta'
+                : null;
+            fecharMenuReg(false);
+            const alvo = seletor ? cartao.querySelector(seletor) : null;
+            if (alvo) { alvo.click(); }
+        });
+
+        // Fora fecha (em captura); Esc fecha e devolve o foco; rolar/redimensionar fecha.
+        document.addEventListener('click', function (e) {
+            if (!regAberto) { return; }
+            if (menuReg.contains(e.target) || (regAberto.gatilho && regAberto.gatilho.contains(e.target))) { return; }
+            fecharMenuReg(false);
+        }, true);
+        document.addEventListener('keydown', function (e) {
+            if (regAberto && e.key === 'Escape') { fecharMenuReg(true); }
+        });
+        window.addEventListener('resize', function () { fecharMenuReg(false); });
+        window.addEventListener('scroll', function (e) {
+            if (regAberto && !(e.target instanceof Node && menuReg.contains(e.target))) { fecharMenuReg(false); }
+        }, true);
+        document.addEventListener('ps:fechar-popovers', function () { fecharMenuReg(false); });
     }
 
     {# Editar/excluir mensagem (autor, dentro da janela de 15 min — `JanelaDeEdicaoDeComentario`) — delegado na lista #}
@@ -2890,7 +2706,7 @@ document.addEventListener('DOMContentLoaded', function () {
         list.addEventListener('click', async function (e) {
             const btnResponder = e.target.closest('.btn-responder-msg-pasta');
             if (btnResponder) {
-                responderA(btnResponder.dataset.respostaA, btnResponder.dataset.respostaNome);
+                abrirCaixaResposta(btnResponder);
                 return;
             }
 
@@ -2909,31 +2725,49 @@ document.addEventListener('DOMContentLoaded', function () {
                     : { html: btnEditar.dataset.conteudo, mencoes: [] };
                 const conteudoAtual = edicao.html;
 
+                /* PAS-032 (dc L.1314; bj-editor.js L.355-358): a edição acontece no próprio editor,
+                   com o rodapé DENTRO da caixa — "Visível para a equipe" · espaço · Cancelar ·
+                   Salvar —, a mesma moldura que Detalhes usa (`.ps-anotacao-edicao-rodape`). */
                 const area = document.createElement('div');
-                area.className = 'pasta-msg-edit-area mt-1';
+                area.className = 'pasta-msg-edit-area ps-anotacao-texto ps-anotacao-edicao';
 
                 const textareaEd = document.createElement('textarea');
-                textareaEd.className = 'form-control form-control-sm mb-1';
+                textareaEd.className = 'form-control form-control-sm';
                 textareaEd.rows = 3;
                 textareaEd.maxLength = 5000;
                 textareaEd.value = conteudoAtual;
                 textareaEd.dataset.editorRicoPendente = '1';
 
-                const btnSalvar = document.createElement('button');
-                btnSalvar.type = 'button';
-                btnSalvar.className = 'btn btn-sm btn-success me-1';
-                btnSalvar.textContent = 'Salvar';
+                const nota = document.createElement('span');
+                nota.className = 'ps-compositor-nota';
+                nota.textContent = 'Visível para a equipe';
+
+                const espaco = document.createElement('span');
+                espaco.className = 'ps-cab-espaco';
 
                 const btnCancelar = document.createElement('button');
                 btnCancelar.type = 'button';
-                btnCancelar.className = 'btn btn-sm btn-outline-secondary';
+                btnCancelar.className = 'ps-anotacao-edicao-cancelar';
                 btnCancelar.textContent = 'Cancelar';
 
-                const acoes = document.createElement('div');
-                acoes.appendChild(btnSalvar);
-                acoes.appendChild(btnCancelar);
-                area.appendChild(textareaEd);
-                area.appendChild(acoes);
+                const btnSalvar = document.createElement('button');
+                btnSalvar.type = 'button';
+                btnSalvar.className = 'ps-btn ps-btn--primario';
+                btnSalvar.textContent = 'Salvar';
+
+                const rodape = document.createElement('div');
+                rodape.className = 'ps-anotacao-edicao-rodape';
+                rodape.appendChild(nota);
+                rodape.appendChild(espaco);
+                rodape.appendChild(btnCancelar);
+                rodape.appendChild(btnSalvar);
+
+                // A moldura é a do compositor: o editor monta antes da textarea, dentro dela.
+                const moldura = document.createElement('div');
+                moldura.className = 'ps-compositor-caixa';
+                moldura.appendChild(textareaEd);
+                moldura.appendChild(rodape);
+                area.appendChild(moldura);
 
                 conteudoDiv.classList.add('d-none');
                 conteudoDiv.after(area);
@@ -2957,7 +2791,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const vazio = window.EditorRico
                         ? EditorRico.estaVazio(textareaEd)
                         : textareaEd.value.trim() === '';
-                    if (vazio) { alert('A mensagem não pode ser vazia.'); return; }
+                    if (vazio) { avisarErroReg('A mensagem não pode ser vazia.'); return; }
 
                     btnSalvar.disabled = true;
                     const fd = new FormData();
@@ -2980,11 +2814,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             area.remove();
                             conteudoDiv.classList.remove('d-none');
                         } else {
-                            alert(data.erro ?? 'Erro ao editar.');
+                            avisarErroReg(data.erro ?? 'Erro ao editar.');
                             btnSalvar.disabled = false;
                         }
                     } catch (_) {
-                        alert('Erro de rede.');
+                        avisarErroReg('Erro de rede.');
                         btnSalvar.disabled = false;
                     }
                 });
@@ -2994,9 +2828,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const btnExcluir = e.target.closest('.btn-excluir-msg-pasta');
             if (btnExcluir) {
-                if (!confirm('Excluir esta mensagem? Esta ação não pode ser desfeita.')) { return; }
-
                 const msgId = btnExcluir.dataset.msgId;
+                if (!(await confirmarExclusaoReg(document.getElementById('pasta-msg-' + msgId)))) { return; }
+
                 const fd    = new FormData();
                 fd.append('_token', btnExcluir.dataset.csrf);
 
@@ -3034,7 +2868,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 });
                                 delta += minhas.querySelectorAll(':scope > .ps-anotacao').length;
                             }
-                            if (inputRespostaA && inputRespostaA.value === String(msgId)) { pararDeResponder(); }
+                            if (caixaResp && caixaResp.raizId === String(msgId)) { fecharCaixaResposta(); }
 
                             /* A pílula do dia existe para o PRIMEIRO registro do dia: se ele era o
                                único, a pílula sai junto; sem registro nenhum, a lista volta ao
@@ -3054,10 +2888,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     } else {
                         const data = await resp.json();
-                        alert(data.erro ?? 'Erro ao excluir.');
+                        avisarErroReg(data.erro ?? 'Erro ao excluir.');
                     }
                 } catch (_) {
-                    alert('Erro de rede.');
+                    avisarErroReg('Erro de rede.');
                 }
             }
         });
@@ -3072,14 +2906,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const marca = document.createElement('span');
         marca.className = 'ps-anotacao-editado pasta-msg-editado';
         marca.textContent = 'editado';
+        /* PAS-033: a mesma dica do Twig — a hora de publicação sai do title da hora do cartão
+           ("dd/mm/aaaa HH:MM"); a edição é agora. */
+        const publicado = ((item.querySelector('.ps-anotacao-data') || {}).title || '').slice(-5);
+        const agora = new Date();
+        marca.title = (publicado ? 'Publicado às ' + publicado + ' · ' : '') + 'última edição '
+            + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         if (autor && autor.nextSibling) { topo.insertBefore(marca, autor.nextSibling); } else { topo.appendChild(marca); }
     }
 
     if (!form) { return; }
-
-    if (cancelarResposta) {
-        cancelarResposta.addEventListener('click', pararDeResponder);
-    }
 
     textarea.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -3098,6 +2934,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         btnEnviar.disabled = true;
         btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+        if (window.EditorRico) { EditorRico.marcarEnvio(textarea, true); }
         esconderErro();
 
         try {
@@ -3121,7 +2958,6 @@ document.addEventListener('DOMContentLoaded', function () {
             // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
             if (window.EditorRico) { EditorRico.limpar(textarea); } else { textarea.value = ''; }
             if (window.PastaMencoes) { PastaMencoes.esquecer(textarea); }
-            pararDeResponder();
             if (vazioMsg) { vazioMsg.remove(); }
             // Resposta pendurada numa raiz não conta (desenho: a contagem é dos registros principais).
             if (countBadge && contaComoRegistro) {
@@ -3130,8 +2966,10 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (_) {
             mostrarErro('Erro de rede. Tente novamente.');
         } finally {
-            btnEnviar.disabled = false;
-            btnEnviar.innerHTML = '<i class="bi bi-send me-1"></i> Enviar';
+            // O rótulo volta ao do desenho e ao de antes do envio: só o texto "Enviar" (EDT-022).
+            btnEnviar.textContent = 'Enviar';
+            // O editor decide: depois de enviar ele está vazio, e vazio o Enviar fica apagado (EDT-021).
+            if (window.EditorRico) { EditorRico.marcarEnvio(textarea, false); } else { btnEnviar.disabled = false; }
         }
     });
 
@@ -3183,7 +3021,9 @@ document.addEventListener('DOMContentLoaded', function () {
            servidor: se divergirem, o registro recém-enviado aparece com outra
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
         const cartao = `
-        <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}">
+        <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
+                 data-janela-ate="${Math.floor(Number(data.criadaEmTs) / 1000) + {{ comentario_janela_minutos() }} * 60}"
+                 data-do-autor="1">
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -3193,29 +3033,33 @@ document.addEventListener('DOMContentLoaded', function () {
                 <span class="ps-cab-espaco"></span>
                 <span class="ps-anotacao-acoes">
                     <button type="button" class="ps-anotacao-acao btn-editar-msg-pasta"
-                            title="Editar registro" aria-label="Editar registro"
+                            title="Editável por mais {{ comentario_janela_minutos() }} minutos" aria-label="Editar registro"
                             data-msg-id="${data.id}"
                             data-conteudo="${esc(data.conteudo)}"
                             data-csrf="${esc(data.csrfEditar ?? '')}"
                             data-url="${esc(urlEditar)}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button type="button" class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
+                    <button type="button" hidden class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
                             title="Excluir registro" aria-label="Excluir registro"
                             data-msg-id="${data.id}"
                             data-csrf="${esc(data.csrfExcluir ?? '')}"
                             data-url="${esc(urlExcluir)}">
                         <i class="bi bi-trash3"></i>
                     </button>
-                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                 </span>
                 <button type="button" class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-msg-pasta"
                         title="Responder" aria-label="Responder"
                         data-resposta-a="${esc(alvoId)}"
-                        data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}">
+                        data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}"${ehResposta ? ` data-resposta-autor-id="{{ app.user ? app.user.id : '' }}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"` : ''}>
                     <i class="bi bi-reply-fill"></i>
                 </button>
                 <span class="ps-anotacao-data ps-num" title="${dataHora}">${horaRotulo}</span>
+                <button type="button" class="ps-reg-menu-btn js-reg-menu" title="Mais ações do registro"
+                        aria-label="Mais ações do registro" aria-haspopup="menu" aria-expanded="false"
+                        aria-controls="psRegMenu">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
             </div>
             <div class="ps-anotacao-corpo">
                 <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
@@ -3688,8 +3532,8 @@ document.addEventListener('DOMContentLoaded', function () {
    caixa alta; rodapé Fechar · Salvar. SÓ a moldura: os campos e o POST para
    `pasta_edit` são os de sempre (ids, names, CSRF). O que o desenho põe e aqui
    não entra, por ser decisão do dono ou função nova (D-META): "Ação" só leitura,
-   Tipo de documento/CPF, Responsável com "Trocar", a pílula "Alterações não
-   salvas" e o Salvar travado sem alteração.
+   Tipo de documento/CPF. Responsável com "Trocar" (PAS-021), a pílula de estado,
+   o Salvar travado e "Pendências" (PAS-020): abaixo.
 
    Abas de atalho e "Cadastro do cliente" (lote L2; dc L.570-572, 587, 4299-4301):
    são ATALHOS, não abas do form — ficam FORA do <form>, sem `name`, e nenhum campo
@@ -3698,8 +3542,37 @@ document.addEventListener('DOMContentLoaded', function () {
    Cadastro do cabeçalho (sem cliente cadastrado: levam à seção Clientes da aba
    Dados, onde se vincula um); Processo fecha e abre a aba Processo; Histórico
    fecha e abre o drawer do histórico. O desenho descarta o que foi digitado ao
-   trocar de aba; aqui, se o form foi alterado, pergunta antes (confirm) — sem a
-   pílula, que é D-META. #}
+   trocar de aba; aqui, se o form foi alterado, pergunta antes (confirm). #}
+<style>
+    /* PAS-021: a linha só leitura do desenho (dc L.581: 34px, fundo suave, "Trocar" 26px). */
+    .ps-pe-resp {
+        display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 10px;
+        border-radius: 4px; background: var(--ps-soft); box-shadow: inset 0 0 0 1px var(--ps-border);
+    }
+    .ps-pe-resp-nome { flex: 1; min-width: 0; font-size: 13.5px; color: var(--ps-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ps-pe-resp-trocar {
+        height: 26px; padding: 0 9px; border: none; border-radius: 3px; white-space: nowrap; cursor: pointer;
+        background: var(--ps-accent-bg); color: var(--ps-accent); font-size: 12px; font-weight: 700;
+    }
+    .ps-pe-resp-trocar:hover, .ps-pe-resp-trocar:focus-visible { background: var(--ps-hover); outline: none; }
+    /* PAS-020: pílula de estado, Salvar travado e "Pendências" (dc L.567, 584, 588; `peVals`). */
+    .ps-pe-estado {
+        display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 9px;
+        border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--ps-ok-bg); color: var(--ps-ok-text);
+    }
+    .ps-pe-estado-ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--ps-ok-dot); }
+    .ps-pe-estado.is-alterado { background: var(--ps-warn-bg); color: var(--ps-warn-text); }
+    .ps-pe-estado.is-alterado .ps-pe-estado-ponto { background: var(--ps-warn-dot); }
+    .ps-pe-pendencias {
+        display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 4px;
+        background: var(--ps-warn-bg); box-shadow: inset 0 0 0 1px var(--ps-warn-border);
+    }
+    .ps-pe-pendencias[hidden] { display: none; }
+    .ps-pe-pendencias-rot { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ps-warn-text); }
+    .ps-pe-pendencias-linha { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ps-warn-text); }
+    .ps-pe-pendencias-linha i { font-size: 12px; color: var(--ps-danger-dot); }
+    #modalEditarPasta .ps-modal-pasta-btn--salvar:disabled { opacity: 1; background: var(--ps-border-ctl); color: #fff; cursor: not-allowed; }
+</style>
 {% set editCliente = pasta.clientePrincipal %}
 {% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
 {% set editNomeSub = editCliente ? editCliente.nomeExibicao : pasta.nomeCliente %}
@@ -3710,15 +3583,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 <span class="ps-modal-pasta-cab-icone" aria-hidden="true"><i class="bi bi-folder2-open"></i></span>
                 <div class="ps-modal-pasta-cab-corpo">
                     <h2 class="ps-modal-pasta-titulo" id="modalEditarPastaLabel"><span class="visually-hidden">Editar dados da </span>Pasta {{ pasta.nup }}</h2>
-                    {% if editNomeSub or editDocumento %}
-                        <div class="ps-modal-pasta-sub">
-                            <span>
+                    {# PAS-020 (dc L.567, `pe.stTxt`): a pílula de estado fica na linha do subtítulo —
+                       "Dados da pasta" (verde) ou "Alterações não salvas" (âmbar); o script abaixo
+                       a alterna comparando o formulário com o que veio do servidor. #}
+                    <div class="ps-modal-pasta-sub">
+                        {% if editNomeSub or editDocumento %}
+                            <span class="ps-modal-pasta-sub-tx">
                                 {{- editNomeSub -}}
                                 {%- if editNomeSub and editDocumento %} · {% endif -%}
                                 {%- if editDocumento -%}{{ editDocumento|documento_br_rotulo }} {{ editDocumento|documento_br }}{%- endif -%}
                             </span>
-                        </div>
-                    {% endif %}
+                        {% endif %}
+                        <span class="ps-pe-estado" data-pe-estado><span class="ps-pe-estado-ponto" aria-hidden="true"></span><span data-pe-estado-txt>Dados da pasta</span></span>
+                    </div>
                 </div>
                 <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -3782,6 +3659,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     {# "Ação" continua EDITÁVEL: o desenho a põe só leitura ("vem do menu
                        Processo"), mas isso é decisão do dono (D-META). #}
                     <div class="ps-modal-pasta-linha ps-modal-pasta-linha--larga">
+                        {# PAS-021 (dc L.581, `pe.trocarResp`): Responsável só leitura com "Trocar", que
+                           fecha a janela e abre o menu de responsável do cabeçalho (o mesmo do ⋮
+                           "Trocar responsável", com o endpoint e o CSRF de sempre). Sem `name`, nada
+                           daqui vai no POST do formulário. O nome é relido do chip do cabeçalho ao
+                           abrir, porque a troca pode ter acontecido depois da carga. #}
+                        <div class="ps-modal-pasta-campo">
+                            <span class="ps-modal-pasta-rotulo" id="editRespRotulo">Responsável</span>
+                            <div class="ps-pe-resp" role="group" aria-labelledby="editRespRotulo">
+                                <span class="ps-pe-resp-nome" data-pe-resp-nome>{{ pasta.responsavel ? pasta.responsavel.fullName : 'Sem responsável' }}</span>
+                                {% if podeEditarPasta and not pasta.estaExcluida %}
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="responsavel">Trocar</button>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <div class="ps-modal-pasta-campo">
                             <label for="edit_nome_acao" class="ps-modal-pasta-rotulo">Ação</label>
                             <input type="text" id="edit_nome_acao" name="nome_acao"
@@ -3796,6 +3688,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <option value="arquivado" {{ pasta.situacao == 'arquivado' ? 'selected' : '' }}>Arquivado</option>
                             </select>
                         </div>
+                    </div>
+
+                    {# PAS-020 (dc L.584, `pe.temErro`): o que impede salvar, no bloco "Pendências".
+                       Aqui só o que a tela sabe sozinha (número vazio); número repetido e o resto
+                       continuam com o servidor, que responde no flash de sempre. #}
+                    <div class="ps-pe-pendencias" role="alert" data-pe-pendencias hidden>
+                        <span class="ps-pe-pendencias-rot">Pendências</span>
+                        <span class="ps-pe-pendencias-linha"><i class="bi bi-x-circle-fill" aria-hidden="true"></i><span data-pe-pendencias-txt></span></span>
                     </div>
 
                 </div>
@@ -3821,12 +3721,58 @@ document.addEventListener('DOMContentLoaded', function () {
     var modal = document.getElementById('modalEditarPasta');
     if (!modal || typeof bootstrap === 'undefined') { return; }
     var form = modal.querySelector('form');
-    var foto = null;
 
     function serializar() {
         return form ? new URLSearchParams(new FormData(form)).toString() : '';
     }
-    modal.addEventListener('shown.bs.modal', function () { foto = serializar(); });
+    // O retrato é o que veio do SERVIDOR (tirado ao carregar): fechar e reabrir com algo
+    // digitado continua "Alterações não salvas".
+    var foto = serializar();
+
+    /* PAS-020 (`peVals`: `mud`, `erro`, `naoSalvar`): a pílula diz se há alteração; o Salvar
+       só acende com alteração e sem pendência; a pendência aparece no bloco. */
+    var estado = modal.querySelector('[data-pe-estado]');
+    var estadoTxt = modal.querySelector('[data-pe-estado-txt]');
+    var pendencias = modal.querySelector('[data-pe-pendencias]');
+    var pendenciasTxt = modal.querySelector('[data-pe-pendencias-txt]');
+    var salvar = form ? form.querySelector('button[type="submit"]') : null;
+    var nup = document.getElementById('edit_nup');
+
+    function conferir() {
+        var mudou = serializar() !== foto;
+        var erro = nup && nup.value.trim() === '' ? 'Informe o número da pasta.' : '';
+        if (estado) {
+            estado.classList.toggle('is-alterado', mudou);
+            estadoTxt.textContent = mudou ? 'Alterações não salvas' : 'Dados da pasta';
+        }
+        if (pendencias) {
+            pendencias.hidden = !(mudou && erro);
+            pendenciasTxt.textContent = mudou ? erro : '';
+        }
+        if (salvar) {
+            salvar.disabled = !(mudou && !erro);
+            salvar.title = !mudou ? 'Nenhuma alteração para salvar' : (erro || '');
+        }
+    }
+    if (form) {
+        form.addEventListener('input', conferir);
+        form.addEventListener('change', conferir);
+    }
+    modal.addEventListener('show.bs.modal', conferir);
+    conferir();
+
+    /* PAS-019 (dc L.4287): trocar o NÚMERO pede confirmação antes de gravar, com o texto do
+       desenho — o número antigo é o que veio do servidor (`defaultValue`). */
+    if (form && nup) {
+        form.addEventListener('submit', function (e) {
+            var antes = nup.defaultValue.trim();
+            var depois = nup.value.trim();
+            if (depois !== '' && depois !== antes
+                && !window.confirm('Alterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.')) {
+                e.preventDefault();
+            }
+        });
+    }
 
     function irParaClientes() {
         var aba = document.getElementById('dados-tab');
@@ -3847,8 +3793,19 @@ document.addEventListener('DOMContentLoaded', function () {
         historico: function () {
             var abrir = document.getElementById('psHistoricoAbrir');
             if (abrir && abrir.getAttribute('aria-expanded') !== 'true') { abrir.click(); }
+        },
+        // PAS-021: o "Trocar responsável" do ⋮ (pasta-show.js), que abre o menu do chip.
+        responsavel: function () {
+            var trocar = document.getElementById('psMenuTrocarResponsavel');
+            if (trocar) { trocar.click(); }
         }
     };
+
+    modal.addEventListener('show.bs.modal', function () {
+        var nome = modal.querySelector('[data-pe-resp-nome]');
+        var doChip = document.querySelector('.ps-cab-dados .pasta-resp-chip .pasta-resp-nome');
+        if (nome && doChip) { nome.textContent = doChip.textContent.trim(); }
+    });
 
     modal.addEventListener('click', function (e) {
         var gatilho = e.target.closest('.js-pe-ir');
@@ -3856,9 +3813,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var destino = destinos[gatilho.getAttribute('data-pe-ir')];
         if (!destino) { return; }
 
-        if (foto !== null && serializar() !== foto) {
+        if (serializar() !== foto) {
             if (!window.confirm('Descartar as alterações não salvas dos dados da pasta?')) { return; }
             form.reset();
+            conferir();
         }
 
         modal.addEventListener('hidden.bs.modal', function aoFechar() {
@@ -3990,34 +3948,183 @@ document.addEventListener('DOMContentLoaded', function () {
 }) }}
 
 
-{# ── Modal: Criar Tarefa ── #}
+{# ── Modal: Nova meta ── #}
+{# PMC-038: a MOLDURA do desenho 1.2.3 (dc L.75-76, 189-192; `janSt`/`rodSt`/`salvarSt`): faixa azul
+   com a alça de arrastar, o ícone, "Nova meta", a pasta, Recolher e Fechar; rodapé cinza com
+   Cancelar e "Criar meta"; o botão fica desabilitado com "Preencha: …" enquanto falta campo
+   obrigatório. Os campos, os ids e os nomes são contrato (pasta-metas.js, pasta-push.js,
+   pasta-ia-*.js e os testes) e não mudam; o que depende de decisão (prazo e responsáveis
+   obrigatórios, "Ação" só leitura, Duplicar meta: D-META) fica como está — por isso o
+   "Preencha" só cobra título e descrição, que é a regra atual do servidor. Arrastar e
+   recolher: /js/pasta-metas.js (molduraDoModalDeMeta). #}
+{% import '_partials/_avatar_usuario.html.twig' as nmAvatar %}
+{# PMC-059: o CORPO do desenho (dc L.77-188, `nm.corpoSt` e os rótulos `font-size:13px;
+   font-weight:700;color:#243845`). O CSS mora aqui, junto do modal, para não tocar o
+   pasta-show.css (lote L7); as cores saem dos tokens `--ps-*`, que já têm o par escuro. #}
+<style>
+    #modalCriarTarefa .ps-modal-meta-corpo { display: flex; flex-direction: column; gap: 14px; }
+    #modalCriarTarefa .ps-modal-meta-corpo > .alert { margin: 0; }
+    #modalCriarTarefa .ps-nm-campo-bloco { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    #modalCriarTarefa .ps-nm-rotulo { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 13px; font-weight: 700; color: var(--ps-body); }
+    #modalCriarTarefa .ps-nm-obrig { color: var(--ps-danger-dot); }
+    #modalCriarTarefa .ps-nm-rotulo-espaco { flex: 1; }
+    #modalCriarTarefa .ps-nm-contador { font-size: 11px; font-weight: 600; color: var(--ps-faint); font-variant-numeric: tabular-nums; }
+    #modalCriarTarefa .ps-nm-campo {
+        height: 40px; padding: 0 12px; border: none; border-radius: 4px;
+        background: var(--ps-card); color: var(--ps-text); font-size: 14px;
+        box-shadow: inset 0 0 0 1px var(--ps-border-ctl); transition: box-shadow .15s;
+    }
+    #modalCriarTarefa .ps-nm-campo:focus { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-campo--texto { height: auto; min-height: 84px; padding: 10px 12px; line-height: 1.5; resize: vertical; }
+    #modalCriarTarefa .ps-nm-dica { font-size: 12px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-campo {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 40px;
+        padding: 5px 10px 5px 6px; border-radius: 4px; background: var(--ps-card); cursor: pointer;
+        box-shadow: inset 0 0 0 1px var(--ps-border-ctl);
+    }
+    #modalCriarTarefa .ps-nm-resp-campo:focus-visible,
+    #modalCriarTarefa .ps-nm-resp-campo[aria-expanded="true"] { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-resp-chips { display: contents; }
+    #modalCriarTarefa .ps-nm-resp-chip {
+        display: inline-flex; align-items: center; gap: 6px; height: 28px; max-width: 100%; min-width: 0;
+        padding: 0 4px 0 3px; border-radius: 2px; background: var(--ps-accent-bg); color: var(--ps-accent);
+        font-size: 12.5px; font-weight: 700; white-space: nowrap;
+    }
+    #modalCriarTarefa .ps-nm-resp-chip-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    #modalCriarTarefa .ps-nm-resp-chip-tirar {
+        width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        background: transparent; color: inherit; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-resp-chip-tirar:hover,
+    #modalCriarTarefa .ps-nm-resp-chip-tirar:focus-visible { background: var(--ps-hover); outline: none; }
+    #modalCriarTarefa .ps-nm-resp-chip-tirar i { font-size: 14px; }
+    #modalCriarTarefa .ps-nm-resp-vazio { display: flex; align-items: center; gap: 7px; color: var(--ps-faint); font-size: 13.5px; white-space: nowrap; }
+    #modalCriarTarefa .ps-nm-resp-vazio[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-vazio i { font-size: 15px; }
+    #modalCriarTarefa .ps-nm-resp-seta { font-size: 12px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-lista {
+        display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 2px;
+        background: var(--ps-card); box-shadow: var(--ps-shadow-gm);
+    }
+    #modalCriarTarefa .ps-nm-resp-lista[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-busca {
+        display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px;
+        border-radius: 4px; box-shadow: inset 0 0 0 2px var(--ps-accent);
+    }
+    #modalCriarTarefa .ps-nm-resp-busca i { font-size: 13px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-busca input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--ps-text); font-size: 13.5px; }
+    #modalCriarTarefa .ps-nm-resp-opcoes { max-height: 240px; overflow: auto; display: flex; flex-direction: column; gap: 1px; }
+    #modalCriarTarefa .ps-nm-resp-opcao {
+        display: flex; align-items: center; gap: 11px; width: 100%; min-height: 42px; padding: 6px 10px;
+        border: none; border-radius: 4px; background: transparent; color: var(--ps-body);
+        font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-resp-opcao[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-opcao:hover,
+    #modalCriarTarefa .ps-nm-resp-opcao:focus-visible { background: var(--ps-hover); outline: none; }
+    #modalCriarTarefa .ps-nm-resp-opcao[aria-selected="true"] { background: var(--ps-accent-bg); }
+    #modalCriarTarefa .ps-nm-resp-opcao .resp-avatar { flex-shrink: 0; }
+    #modalCriarTarefa .ps-nm-resp-opcao-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #modalCriarTarefa .ps-nm-resp-opcao-ok { width: 16px; font-size: 16px; color: var(--ps-accent); visibility: hidden; }
+    #modalCriarTarefa .ps-nm-resp-opcao[aria-selected="true"] .ps-nm-resp-opcao-ok { visibility: visible; }
+    #modalCriarTarefa .ps-nm-resp-nada { padding: 14px; text-align: center; font-size: 13px; color: var(--ps-label); }
+    #modalCriarTarefa .ps-nm-resp-nada[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-resp-rodape { display: flex; justify-content: flex-end; padding-top: 4px; border-top: 1px solid var(--ps-div-strong); }
+    #modalCriarTarefa .ps-nm-resp-concluir {
+        height: 28px; padding: 0 12px; border: none; border-radius: 4px;
+        background: var(--ps-accent-bg); color: var(--ps-accent); font-size: 12.5px; font-weight: 700; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-cal-campo {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0;
+        height: 40px; width: 138px; padding: 0 10px; border: none; border-radius: 2px;
+        background: var(--ps-card); color: var(--ps-faint); font-size: 14px; cursor: pointer;
+        box-shadow: inset 0 0 0 1px var(--ps-border-ctl);
+    }
+    #modalCriarTarefa .ps-nm-cal-campo.tem-valor { color: var(--ps-text); }
+    #modalCriarTarefa .ps-nm-cal-campo[aria-expanded="true"],
+    #modalCriarTarefa .ps-nm-cal-campo:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-campo i { font-size: 14px; color: var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-txt { font-variant-numeric: tabular-nums; }
+    #modalCriarTarefa .ps-nm-cal {
+        width: 280px; max-width: 100%; border-radius: 2px; overflow: hidden;
+        background: var(--ps-card); box-shadow: var(--ps-shadow-gm);
+    }
+    #modalCriarTarefa .ps-nm-cal[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-cal-cab { display: flex; align-items: center; gap: 4px; padding: 8px; background: var(--ps-accent); color: #fff; }
+    #modalCriarTarefa .ps-nm-cal-mes { flex: 1; text-align: center; font-size: 13.5px; font-weight: 700; letter-spacing: .02em; }
+    #modalCriarTarefa .ps-nm-cal-nav { width: 30px; height: 30px; border: none; border-radius: 2px; background: transparent; color: #fff; cursor: pointer; }
+    #modalCriarTarefa .ps-nm-cal-nav:hover,
+    #modalCriarTarefa .ps-nm-cal-nav:focus-visible { background: rgba(255,255,255,.16); outline: none; }
+    #modalCriarTarefa .ps-nm-cal-nav i { font-size: 13px; }
+    #modalCriarTarefa .ps-nm-cal-semana,
+    #modalCriarTarefa .ps-nm-cal-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 4px 8px 8px; }
+    #modalCriarTarefa .ps-nm-cal-semana { padding: 8px 8px 0; }
+    #modalCriarTarefa .ps-nm-cal-semana span {
+        height: 24px; display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ps-muted);
+    }
+    #modalCriarTarefa .ps-nm-cal-semana span.is-fds { color: var(--ps-placeholder); }
+    #modalCriarTarefa .ps-nm-cal-dia {
+        height: 34px; padding: 0; border: none; border-radius: 2px; background: transparent;
+        color: var(--ps-body); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer;
+        transition: background .14s, color .14s, transform .14s, box-shadow .14s;
+    }
+    #modalCriarTarefa .ps-nm-cal-dia.is-fds { color: var(--ps-faint); }
+    #modalCriarTarefa .ps-nm-cal-dia.is-fora { color: var(--ps-placeholder); }
+    #modalCriarTarefa .ps-nm-cal-dia.is-hoje { font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-dia:disabled { color: var(--ps-border-ctl); cursor: not-allowed; }
+    #modalCriarTarefa .ps-nm-cal-dia:not(:disabled):hover,
+    #modalCriarTarefa .ps-nm-cal-dia:not(:disabled):focus-visible { background: var(--ps-accent-bg); color: var(--ps-accent); transform: scale(1.12); outline: none; }
+    #modalCriarTarefa .ps-nm-cal-dia[aria-pressed="true"],
+    #modalCriarTarefa .ps-nm-cal-dia[aria-pressed="true"]:hover { background: var(--ps-accent); color: #fff; font-weight: 700; transform: none; }
+    #modalCriarTarefa .ps-nm-cal-rodape { display: flex; align-items: center; gap: 6px; padding: 8px; border-top: 1px solid var(--ps-div-strong); background: var(--ps-soft); }
+    #modalCriarTarefa .ps-nm-cal-hoje,
+    #modalCriarTarefa .ps-nm-cal-limpar { height: 28px; padding: 0 10px; border: none; border-radius: 2px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    #modalCriarTarefa .ps-nm-cal-hoje { background: var(--ps-accent-bg); color: var(--ps-accent); }
+    #modalCriarTarefa .ps-nm-cal-limpar { background: transparent; color: var(--ps-muted); }
+    #modalCriarTarefa .ps-nm-cal-hoje:hover,
+    #modalCriarTarefa .ps-nm-cal-limpar:hover { background: var(--ps-div-strong); }
+    #modalCriarTarefa .ps-nm-cal-legenda { font-size: 11px; color: var(--ps-faint); }
+    #modalCriarTarefa .ps-nm-resp-concluir:hover,
+    #modalCriarTarefa .ps-nm-resp-concluir:focus-visible { background: var(--ps-hover); outline: none; }
+</style>
 <div class="modal fade" id="modalCriarTarefa" tabindex="-1" aria-labelledby="modalCriarTarefaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered ps-modal-meta">
         <div class="modal-content">
-            <div class="modal-header">
-                <h6 class="modal-title" id="modalCriarTarefaLabel">
-                    <i class="bi bi-list-task me-2"></i>Nova Meta
-                </h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            <div class="ps-modal-meta-cab" data-ps-nm-alca title="Arraste para mover · duplo clique recolhe">
+                <i class="bi bi-grip-vertical ps-modal-meta-alca" aria-hidden="true"></i>
+                <i class="bi bi-list-check ps-modal-meta-icone" aria-hidden="true"></i>
+                <h2 class="ps-modal-meta-titulo" id="modalCriarTarefaLabel">Nova meta</h2>
+                <span class="ps-modal-meta-pasta">Pasta {{ pasta.nup }}</span>
+                <button type="button" class="ps-modal-meta-cab-btn" data-ps-nm-recolher
+                        aria-label="Recolher (continue vendo a lista)" title="Recolher (continue vendo a lista)">
+                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="ps-modal-meta-cab-btn" data-bs-dismiss="modal" aria-label="Fechar" title="Fechar (Esc)">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
             <form id="formCriarTarefa" method="post"
                   action="{{ path('tarefa_criar_para_pasta', {pastaId: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('tarefa_criar_' ~ pasta.id) }}">
-                <div class="modal-body">
+                <div class="modal-body ps-modal-meta-corpo">
 
                     <div id="tarefaErroMsg" class="alert alert-danger d-none py-2 small"></div>
 
-                    <div class="mb-3">
-                        <label for="tarefaTitulo" class="form-label form-label-sm fw-semibold">Título <span class="text-danger">*</span></label>
+                    <div class="ps-nm-campo-bloco">
+                        <label for="tarefaTitulo" class="ps-nm-rotulo">Título <span class="ps-nm-obrig">*</span></label>
                         <input type="text" id="tarefaTitulo" name="titulo"
-                               class="form-control form-control-sm" maxlength="255" required
+                               class="form-control ps-nm-campo" maxlength="255" required
                                placeholder="Resumo objetivo da meta">
                     </div>
 
-                    <div class="mb-3">
-                        <label for="tarefaDescricao" class="form-label form-label-sm fw-semibold">Descrição <span class="text-danger">*</span></label>
+                    {# PMC-039: o contador do desenho (`nm.descCont`) contra o limite que o servidor
+                       aplica hoje (5000). O 600 do desenho mudaria a regra — é decisão (C). #}
+                    <div class="ps-nm-campo-bloco">
+                        <label for="tarefaDescricao" class="ps-nm-rotulo">Descrição <span class="ps-nm-obrig">*</span><span class="ps-nm-rotulo-espaco"></span><span class="ps-nm-contador" id="tarefaDescricaoContador" data-ps-nm-contador="tarefaDescricao">0/5000</span></label>
                         <textarea id="tarefaDescricao" name="descricao"
-                                  class="form-control form-control-sm" rows="3" required maxlength="5000"
+                                  class="form-control ps-nm-campo ps-nm-campo--texto" rows="3" required maxlength="5000"
                                   placeholder="Descreva o que precisa ser feito…"></textarea>
                     </div>
 
@@ -4026,14 +4133,43 @@ document.addEventListener('DOMContentLoaded', function () {
                        pendente com o dono). O aviso de título repetido compara com as
                        metas abertas da própria pasta, já renderizadas na aba; não
                        bloqueia o envio. Comportamento em /js/pasta-metas.js. #}
-                    <div class="mb-3 ps-nm-prazo">
-                        <label for="tarefaPrazo" class="form-label form-label-sm fw-semibold">Prazo</label>
+                    <div class="ps-nm-campo-bloco ps-nm-prazo">
+                        <label for="tarefaPrazo" class="ps-nm-rotulo">Prazo</label>
+                        {# PMC-040 (dc L.81-112, `nm.cal`): o campo do desenho é um botão "dd/mm/aaaa" com o
+                           calendário próprio (mês, dias, Hoje, Limpar e a legenda). O <input type="date">
+                           continua sendo o campo ENVIADO (id, name e valor ISO são contrato com o servidor,
+                           os atalhos, o Push e a IA) — só sai da vista. Dias passados ficam indisponíveis,
+                           como no desenho. Comportamento em /js/pasta-dialogos.js (`calendarioDoPrazo`). #}
                         <div class="ps-nm-prazo-linha">
-                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control form-control-sm">
+                            <button type="button" class="ps-nm-cal-campo" data-ps-nm-cal-campo
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="tarefaPrazoCalendario"
+                                    aria-label="Escolher prazo">
+                                <span class="ps-nm-cal-txt" data-ps-nm-cal-txt>dd/mm/aaaa</span>
+                                <i class="bi bi-calendar3" aria-hidden="true"></i>
+                            </button>
+                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control ps-nm-campo visually-hidden"
+                                   tabindex="-1" aria-hidden="true">
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="hoje">Hoje</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="amanha">Amanhã</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis5">+5 úteis</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis15">+15 úteis</button>
+                        </div>
+                        <div class="ps-nm-cal" id="tarefaPrazoCalendario" role="dialog" aria-label="Escolher prazo" data-ps-nm-cal hidden>
+                            <div class="ps-nm-cal-cab">
+                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-ant aria-label="Mês anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                                <span class="ps-nm-cal-mes" data-ps-nm-cal-mes aria-live="polite"></span>
+                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-prox aria-label="Próximo mês"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="ps-nm-cal-semana" aria-hidden="true">
+                                <span class="is-fds">D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span class="is-fds">S</span>
+                            </div>
+                            <div class="ps-nm-cal-dias" data-ps-nm-cal-dias></div>
+                            <div class="ps-nm-cal-rodape">
+                                <button type="button" class="ps-nm-cal-hoje" data-ps-nm-cal-hoje>Hoje</button>
+                                <button type="button" class="ps-nm-cal-limpar" data-ps-nm-cal-limpar>Limpar</button>
+                                <span class="ps-nm-rotulo-espaco"></span>
+                                <span class="ps-nm-cal-legenda">Fim de semana em cinza</span>
+                            </div>
                         </div>
                         <div id="tarefaPrazoInfo" class="ps-nm-prazo-info" aria-live="polite">Escolha a data limite.</div>
                         <div id="tarefaTituloRepetido" class="ps-nm-dup" role="status" hidden>
@@ -4043,21 +4179,61 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
-                    <div>
-                        <label for="tarefaResponsavel" class="form-label form-label-sm fw-semibold">Responsáveis</label>
-                        <select id="tarefaResponsavel" name="responsaveis[]" class="form-select form-select-sm" multiple>
+                    {# PMC-041 (dc L.168-186, `nm.escolhidos`/`nm.opcoes`): chips com iniciais sobre o
+                       campo e a lista filtrável com "Concluir". O <select multiple> continua sendo a
+                       FONTE (name, id e valores são contrato com o servidor e os testes): os chips e a
+                       lista só marcam e desmarcam as <option> dele — o envio é o de sempre. A lista
+                       é desenhada aqui (nomes escapados pelo Twig); o JS só alterna classes e
+                       atributos e copia o avatar da opção para o chip. A função do colaborador,
+                       que o desenho mostra à direita do nome, não existe no cadastro: não entra.
+                       Responsáveis seguem opcionais (o "*" do desenho é D-META). Comportamento em
+                       /js/pasta-dialogos.js (`seletorDeResponsaveis`). #}
+                    <div class="ps-nm-campo-bloco ps-nm-resp" data-ps-nm-resp>
+                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">Responsáveis</span>
+                        <div class="ps-nm-resp-campo" role="button" tabindex="0"
+                             aria-labelledby="tarefaResponsavelRotulo" aria-haspopup="listbox"
+                             aria-expanded="false" aria-controls="tarefaResponsavelLista" data-ps-nm-resp-campo>
+                            <span class="ps-nm-resp-chips" data-ps-nm-resp-chips></span>
+                            <span class="ps-nm-resp-vazio" data-ps-nm-resp-vazio><i class="bi bi-person-plus" aria-hidden="true"></i>Selecionar responsáveis</span>
+                            <span class="ps-nm-rotulo-espaco"></span>
+                            <i class="bi bi-chevron-down ps-nm-resp-seta" aria-hidden="true"></i>
+                        </div>
+                        <div class="ps-nm-dica">Selecione um ou mais responsáveis pela meta.</div>
+                        <div class="ps-nm-resp-lista" id="tarefaResponsavelLista" data-ps-nm-resp-lista hidden>
+                            <div class="ps-nm-resp-busca">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="text" placeholder="Filtrar…" aria-label="Filtrar responsáveis"
+                                       autocomplete="off" spellcheck="false" data-ps-nm-resp-busca>
+                            </div>
+                            <div class="ps-nm-resp-opcoes" role="listbox" aria-multiselectable="true" aria-labelledby="tarefaResponsavelRotulo">
+                                {% for u in usuarios %}
+                                    <button type="button" class="ps-nm-resp-opcao" role="option" aria-selected="false"
+                                            data-ps-nm-resp-opcao="{{ u.id }}" data-nome="{{ u.fullName }}">
+                                        {{ nmAvatar.avatar(u.fullName, (fotosResponsaveis|default({}))[u.id]|default(null), 30) }}
+                                        <span class="ps-nm-resp-opcao-nome">{{ u.fullName|upper }}</span>
+                                        <i class="bi bi-check-circle-fill ps-nm-resp-opcao-ok" aria-hidden="true"></i>
+                                    </button>
+                                {% endfor %}
+                                <div class="ps-nm-resp-nada" data-ps-nm-resp-nada hidden>Ninguém encontrado</div>
+                            </div>
+                            <div class="ps-nm-resp-rodape">
+                                <button type="button" class="ps-nm-resp-concluir" data-ps-nm-resp-concluir>Concluir</button>
+                            </div>
+                        </div>
+                        <select id="tarefaResponsavel" name="responsaveis[]" class="visually-hidden" multiple
+                                tabindex="-1" aria-hidden="true">
                             {% for u in usuarios %}
                                 <option value="{{ u.id }}">{{ u.fullName }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Selecione um ou mais responsáveis pela meta.</div>
                     </div>
 
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" id="btnEnviarTarefa" class="btn btn-primary btn-sm">
-                        <i class="bi bi-send me-1"></i>Criar Tarefa
+                <div class="modal-footer ps-modal-meta-rodape">
+                    <button type="button" class="ps-modal-meta-btn ps-modal-meta-btn--cancelar" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnEnviarTarefa" class="ps-modal-meta-btn ps-modal-meta-btn--criar"
+                            title="Criar meta e notificar os responsáveis">
+                        <i class="bi bi-send" aria-hidden="true"></i>Criar meta
                     </button>
                 </div>
             </form>
@@ -4069,6 +4245,8 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
     var form = document.getElementById('formCriarTarefa');
     if (!form) return;
+    // O rótulo do desenho volta depois de um erro (o "Enviando…" o substitui durante o envio).
+    var ROTULO_CRIAR = '<i class="bi bi-send" aria-hidden="true"></i>Criar meta';
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -4089,20 +4267,20 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
             if (res.data.sucesso) {
-                // Redireciona para a tarefa criada
-                window.location.href = '/tarefas/' + res.data.id;
+                // PMC-044: fica na pasta, aba Metas, com a meta nova realçada (destino do servidor).
+                window.location.href = res.data.destino;
             } else {
                 erroBox.textContent = res.data.erro || res.data.mensagem || 'Erro ao criar meta.';
                 erroBox.classList.remove('d-none');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Meta';
+                btn.innerHTML = ROTULO_CRIAR;
             }
         })
         .catch(function () {
             erroBox.textContent = 'Erro de comunicação. Tente novamente.';
             erroBox.classList.remove('d-none');
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Tarefa';
+            btn.innerHTML = ROTULO_CRIAR;
         });
     });
 }());
@@ -4115,562 +4293,6 @@ document.addEventListener('DOMContentLoaded', function () {
    ids e data-* de #pexChecklist. Depois do SortableJS, que ele usa no modo de edição. #}
 <script src="{{ asset('js/pasta-checklist.js') }}"></script>
 
-<script>
-(function () {
-    'use strict';
-
-    // Markup de seções migrado para a aba "Documentos" (public/js/pasta-explorador.js).
-    // Este bloco legado só opera se o markup antigo existir; senão, no-op silencioso.
-    if (!document.getElementById('btnMostrarNovaSecao')) return;
-
-    const PASTA_ID     = {{ pasta.id }};
-    const CSRF_CRIAR   = '{{ csrf_token('pasta_secao_criar_' ~ pasta.id) }}';
-    const TIPOS_DOC    = {{ documentTypeOptions|json_encode|raw }};
-    let   indiceSecao  = 0;
-    const URL_CRIAR  = '{{ path('pasta_secao_criar', {id: pasta.id}) }}';
-
-    // ── Criar nova seção ─────────────────────────────────────────────────────
-
-    const btnMostrar   = document.getElementById('btnMostrarNovaSecao');
-    const novaSecaoBotao = document.getElementById('novaSecaoBotao');
-    const novaSecaoForm  = document.getElementById('novaSecaoForm');
-    const novaSecaoNome  = document.getElementById('novaSecaoNome');
-    const btnSalvar    = document.getElementById('btnSalvarNovaSecao');
-    const btnCancelar  = document.getElementById('btnCancelarNovaSecao');
-    const novaSecaoErro = document.getElementById('novaSecaoErro');
-    const cardNovaSecao = document.getElementById('cardNovaSecao');
-
-    if (btnMostrar) {
-        btnMostrar.addEventListener('click', () => {
-            novaSecaoBotao.classList.add('d-none');
-            novaSecaoForm.classList.remove('d-none');
-            novaSecaoNome.focus();
-        });
-    }
-
-    if (btnCancelar) {
-        btnCancelar.addEventListener('click', () => {
-            novaSecaoForm.classList.add('d-none');
-            novaSecaoBotao.classList.remove('d-none');
-            novaSecaoNome.value = '';
-            novaSecaoErro.classList.add('d-none');
-        });
-    }
-
-    if (novaSecaoNome) {
-        novaSecaoNome.addEventListener('keydown', e => {
-            if (e.key === 'Enter') btnSalvar.click();
-            if (e.key === 'Escape') btnCancelar.click();
-        });
-    }
-
-    if (btnSalvar) {
-        btnSalvar.addEventListener('click', async () => {
-            const nome = novaSecaoNome.value.trim();
-            if (!nome) {
-                novaSecaoErro.textContent = 'Informe o nome da seção.';
-                novaSecaoErro.classList.remove('d-none');
-                return;
-            }
-            novaSecaoErro.classList.add('d-none');
-            btnSalvar.disabled = true;
-
-            try {
-                const resp = await fetch(URL_CRIAR, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ _token: CSRF_CRIAR, nome }),
-                });
-                const data = await resp.json();
-                if (!resp.ok) {
-                    novaSecaoErro.textContent = data.erro ?? 'Erro ao criar seção.';
-                    novaSecaoErro.classList.remove('d-none');
-                    return;
-                }
-                const novoCard = criarCardSecaoDom(data);
-                cardNovaSecao.parentNode.insertBefore(novoCard, cardNovaSecao);
-                inicializarSecaoCard(novoCard);
-                novaSecaoNome.value = '';
-                novaSecaoForm.classList.add('d-none');
-                novaSecaoBotao.classList.remove('d-none');
-            } catch (e) {
-                novaSecaoErro.textContent = 'Erro de comunicação.';
-                novaSecaoErro.classList.remove('d-none');
-            } finally {
-                btnSalvar.disabled = false;
-            }
-        });
-    }
-
-    function criarCardSecaoDom(data) {
-        const id = data.id;
-        const div = document.createElement('div');
-        div.innerHTML = `
-<div class="card card-outline card-secondary mb-3 pasta-secao-card"
-     id="secaoCard${id}" data-secao-destino="${id}">
-  <div class="card-header d-flex align-items-center py-2">
-    <span class="pasta-secao-nome fw-semibold me-auto">${escapeHtml(data.nome)} <span class="badge text-bg-secondary ms-1 js-secao-contador">0 arquivos</span></span>
-    <div class="d-flex align-items-center gap-1 ms-2">
-      <button type="button" class="btn btn-sm btn-outline-secondary js-secao-renomear-btn" title="Renomear seção"
-              data-secao-id="${id}" data-nome-atual="${escapeAttr(data.nome)}"
-              data-csrf="${escapeAttr(data.csrfRenomear)}"
-              data-url="/pasta/secao/${id}/renomear">
-        <i class="bi bi-pencil"></i>
-      </button>
-      <button type="button" class="btn btn-sm btn-outline-danger js-secao-excluir-btn" title="Excluir seção"
-              data-secao-id="${id}" data-nome="${escapeAttr(data.nome)}"
-              data-csrf="${escapeAttr(data.csrfExcluir)}"
-              data-url="/pasta/secao/${id}/excluir">
-        <i class="bi bi-trash"></i>
-      </button>
-      <button type="button" class="btn btn-tool js-secao-toggle" data-bs-toggle="collapse"
-              data-bs-target="#secaoBody${id}" aria-expanded="false">
-        <i class="bi bi-chevron-down"></i>
-      </button>
-    </div>
-  </div>
-  <div class="collapse" id="secaoBody${id}">
-    <div class="card-body secao-dropzone p-2" data-secao-destino="${id}">
-      <div class="secao-drop-area rounded p-2 mb-2 text-center text-muted small"
-           data-secao-destino="${id}"
-           style="border:2px dashed #ced4da;min-height:52px;transition:background .15s;">
-        <i class="bi bi-cloud-upload me-1"></i> Arraste arquivos do computador aqui
-      </div>
-      <form class="secao-upload-form" method="post" enctype="multipart/form-data"
-            action="/pasta/${PASTA_ID}/documento/upload">
-        <input type="hidden" name="_token" value="${escapeAttr(data.csrfUpload)}">
-        <input type="hidden" name="secao_id" value="${id}">
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <button type="button" class="btn btn-sm btn-primary js-secao-add-file" data-secao="${id}">
-            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
-          </button>
-          <button type="button" class="btn btn-sm btn-outline-secondary js-secao-limpar d-none" data-secao="${id}">
-            <i class="bi bi-x-circle me-1"></i> Limpar
-          </button>
-          <input type="file" class="js-secao-file-input d-none" multiple
-                 accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
-                 data-secao="${id}">
-        </div>
-        <div class="js-secao-lista-anexos" data-secao="${id}"></div>
-        <div class="js-secao-area-enviar d-none mt-2" data-secao="${id}">
-          <div class="form-check form-switch">
-            <input type="checkbox" class="form-check-input" id="reduzirTamanhoSecao${id}" name="reduzir_tamanho" value="1">
-            <label class="form-check-label small" for="reduzirTamanhoSecao${id}">
-              Reduzir tamanho dos arquivos (economiza espaço)
-            </label>
-          </div>
-          <div class="form-text text-muted mb-2">
-            Mantenha desligado para preservar a qualidade original.
-            <span class="d-block text-warning-emphasis">
-              <i class="bi bi-exclamation-triangle me-1"></i>
-              PDFs assinados podem ter a assinatura invalidada ao reduzir o tamanho.
-            </span>
-          </div>
-          <div class="text-end">
-            <button type="submit" class="btn btn-sm btn-success">
-              <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-            </button>
-          </div>
-        </div>
-      </form>
-      <div class="js-secao-docs" data-secao-destino="${id}"></div>
-    </div>
-  </div>
-</div>`;
-        return div.firstElementChild;
-    }
-
-    // ── Renomear / Excluir seção ─────────────────────────────────────────────
-
-    function inicializarSecaoCard(card) {
-        const btnRenomear = card.querySelector('.js-secao-renomear-btn');
-        const btnExcluir  = card.querySelector('.js-secao-excluir-btn');
-        const toggleBtn   = card.querySelector('.js-secao-toggle');
-
-        if (btnRenomear) {
-            btnRenomear.addEventListener('click', () => iniciarRenomear(btnRenomear));
-        }
-        if (btnExcluir) {
-            btnExcluir.addEventListener('click', () => confirmarExcluir(btnExcluir));
-        }
-        if (toggleBtn) {
-            toggleBtn.addEventListener('shown.bs.collapse', () => toggleBtn.querySelector('i').className = 'bi bi-chevron-up');
-            toggleBtn.addEventListener('hidden.bs.collapse', () => toggleBtn.querySelector('i').className = 'bi bi-chevron-down');
-        }
-
-        const secaoHeader = card.querySelector('.card-header');
-        if (secaoHeader && toggleBtn) {
-            secaoHeader.addEventListener('click', function(e) {
-                if (!e.target.closest('.btn-tool') &&
-                    !e.target.closest('.js-secao-renomear-btn') &&
-                    !e.target.closest('.js-secao-excluir-btn')) {
-                    toggleBtn.click();
-                }
-            });
-        }
-
-        inicializarUploadSecao(card);
-        inicializarDropZone(card);
-        inicializarSortableDocs(card.querySelector('.js-secao-docs'));
-    }
-
-    function iniciarRenomear(btn) {
-        const secaoId  = btn.dataset.secaoId;
-        const nomeAtual = btn.dataset.nomeAtual;
-        const card = document.getElementById('secaoCard' + secaoId);
-        const nomeSpan = card.querySelector('.pasta-secao-nome');
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'form-control form-control-sm';
-        input.value = nomeAtual;
-        input.maxLength = 255;
-        input.style.maxWidth = '200px';
-
-        nomeSpan.replaceWith(input);
-        input.focus();
-        input.select();
-
-        const salvar = async () => {
-            const novo = input.value.trim();
-            if (!novo) { input.focus(); return; }
-
-            try {
-                const resp = await fetch(btn.dataset.url, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ _token: btn.dataset.csrf, nome: novo }),
-                });
-                const data = await resp.json();
-                if (!resp.ok) { alert(data.erro ?? 'Erro ao renomear.'); return; }
-
-                const span = document.createElement('span');
-                span.className = 'pasta-secao-nome fw-semibold me-auto';
-                span.textContent = data.nome;
-                input.replaceWith(span);
-                btn.dataset.nomeAtual = data.nome;
-            } catch (e) {
-                alert('Erro de comunicação.');
-            }
-        };
-
-        const cancelar = () => {
-            const span = document.createElement('span');
-            span.className = 'pasta-secao-nome fw-semibold me-auto';
-            span.textContent = nomeAtual;
-            input.replaceWith(span);
-        };
-
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') salvar();
-            if (e.key === 'Escape') cancelar();
-        });
-        input.addEventListener('blur', salvar);
-    }
-
-    async function confirmarExcluir(btn) {
-        const nome = btn.dataset.nome;
-        if (!confirm(`Excluir a seção "${nome}" e todos os seus documentos? Esta ação não pode ser desfeita.`)) return;
-
-        const secaoId = btn.dataset.secaoId;
-        const card = document.getElementById('secaoCard' + secaoId);
-        btn.disabled = true;
-
-        try {
-            const resp = await fetch(btn.dataset.url, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ _token: btn.dataset.csrf }),
-            });
-            const data = await resp.json();
-            if (!resp.ok) { alert(data.erro ?? 'Erro ao excluir.'); btn.disabled = false; return; }
-            card.remove();
-        } catch (e) {
-            alert('Erro de comunicação.');
-            btn.disabled = false;
-        }
-    }
-
-    // ── Upload de arquivos na seção ──────────────────────────────────────────
-
-    function formatarTamanhoSecao(bytes) {
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / 1024 / 1024).toFixed(2) + ' MB';
-    }
-
-    function buildOpcoesSecao() {
-        let html = '<option value="">Selecione o tipo</option>';
-        for (const [v, t] of Object.entries(TIPOS_DOC)) {
-            html += `<option value="${v}"${v === 'DEMAIS' ? ' selected' : ''}>${escapeHtml(t)}</option>`;
-        }
-        return html;
-    }
-
-    function adicionarItemSecao(file, listaDiv, atualizarFn) {
-        const idx = indiceSecao++;
-        const div = document.createElement('div');
-        div.className = 'anexo-item';
-        div.dataset.idx = idx;
-        div._file = file;
-
-        div.innerHTML = `
-            <div class="d-flex align-items-start gap-2">
-                <i class="bi bi-file-earmark-text fs-4 text-primary flex-shrink-0 mt-1"></i>
-                <div class="flex-grow-1 min-w-0">
-                    <div class="anexo-nome text-truncate">${escapeHtml(file.name)}</div>
-                    <div class="anexo-tamanho mb-2">${formatarTamanhoSecao(file.size)}</div>
-                    <div class="row g-2 align-items-end anexo-campos">
-                        <div class="col-12 col-sm-5 col-lg-4">
-                            <label class="form-label form-label-sm mb-1">Tipo de documento</label>
-                            <select name="categorias[${idx}]" class="form-select form-select-sm" required>
-                                ${buildOpcoesSecao()}
-                            </select>
-                        </div>
-                        <div class="col-12 col-sm-7 col-lg-5">
-                            <label class="form-label form-label-sm mb-1">Descrição</label>
-                            <input type="text" name="descricoes[${idx}]" class="form-control form-control-sm"
-                                   placeholder="Descrição (opcional)" maxlength="500">
-                        </div>
-                        <div class="col-12 col-sm-12 col-lg-3">
-                            <label class="form-label form-label-sm mb-1">Número <span class="text-muted fw-normal">(opcional)</span></label>
-                            <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
-                                   placeholder="Número" maxlength="255">
-                        </div>
-                    </div>
-                    <div class="anexo-progresso d-none mt-2">
-                        <div class="progress" style="height:6px;">
-                            <div class="progress-bar" role="progressbar" style="width:0%"></div>
-                        </div>
-                        <small class="anexo-status text-muted d-block mt-1"></small>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo" title="Remover">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>`;
-
-        div.querySelector('.btn-remover-anexo').addEventListener('click', function () {
-            div.remove();
-            atualizarFn();
-        });
-
-        listaDiv.appendChild(div);
-    }
-
-    function inicializarUploadSecao(card) {
-        const btnAdd     = card.querySelector('.js-secao-add-file');
-        const fileInput  = card.querySelector('.js-secao-file-input');
-        const btnLimpar  = card.querySelector('.js-secao-limpar');
-        const listaDiv   = card.querySelector('.js-secao-lista-anexos');
-        const areaEnviar = card.querySelector('.js-secao-area-enviar');
-        const form       = card.querySelector('.secao-upload-form');
-
-        if (!btnAdd || !fileInput || !form) return;
-
-        function atualizar() {
-            const tem = listaDiv.querySelectorAll('.anexo-item').length > 0;
-            areaEnviar.classList.toggle('d-none', !tem);
-            btnLimpar.classList.toggle('d-none', !tem);
-        }
-
-        btnAdd.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
-
-        fileInput.addEventListener('change', () => {
-            Array.from(fileInput.files).forEach(f => adicionarItemSecao(f, listaDiv, atualizar));
-            atualizar();
-        });
-
-        btnLimpar.addEventListener('click', () => {
-            listaDiv.innerHTML = '';
-            fileInput.value = '';
-            atualizar();
-        });
-
-        form.addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const itens = Array.from(listaDiv.querySelectorAll('.anexo-item'))
-                .filter(function (it) { return it.dataset.enviado !== '1'; });
-            if (itens.length === 0) return;
-
-            const secaoId   = (form.querySelector('input[name="secao_id"]') || {}).value || null;
-            const reduzir   = (card.querySelector('input[name="reduzir_tamanho"]') || {}).checked || false;
-            const btnEnviar = form.querySelector('button[type="submit"]');
-            const avisoOld  = areaEnviar.querySelector('.upload-lote-aviso');
-            if (avisoOld) avisoOld.remove();
-            if (btnEnviar) btnEnviar.disabled = true;
-            btnAdd.disabled = true;
-            btnLimpar.disabled = true;
-
-            let ok = 0, falhas = 0;
-            for (const item of itens) {
-                const sucesso = await window.processarItemUploadPeca(item, secaoId, reduzir);
-                sucesso ? ok++ : falhas++;
-            }
-
-            btnAdd.disabled = false;
-            btnLimpar.disabled = false;
-            if (btnEnviar) btnEnviar.classList.add('d-none');
-
-            const classe = falhas === 0 ? 'alert-success' : 'alert-warning';
-            const msg = falhas === 0
-                ? `${ok} arquivo(s) enviado(s) com sucesso.`
-                : `${ok} enviado(s), ${falhas} com erro.`;
-            areaEnviar.insertAdjacentHTML('beforeend',
-                `<div class="alert ${classe} mt-2 mb-0 py-2 small upload-lote-aviso d-flex flex-wrap align-items-center justify-content-between gap-2">
-                   <span>${msg} Confira os detalhes acima.</span>
-                   <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">Atualizar lista</button>
-                 </div>`);
-        });
-    }
-
-    // ── Drop zone — upload de arquivos do desktop ─────────────────────────────
-
-    function inicializarDropZone(card) {
-        const dropArea   = card.querySelector('.secao-drop-area');
-        const fileInput  = card.querySelector('.js-secao-file-input');
-        const listaDiv   = card.querySelector('.js-secao-lista-anexos');
-        const btnLimpar  = card.querySelector('.js-secao-limpar');
-        const areaEnviar = card.querySelector('.js-secao-area-enviar');
-
-        if (!dropArea || !fileInput) return;
-
-        function atualizar() {
-            const tem = listaDiv.querySelectorAll('.anexo-item').length > 0;
-            areaEnviar.classList.toggle('d-none', !tem);
-            btnLimpar.classList.toggle('d-none', !tem);
-        }
-
-        dropArea.addEventListener('dragover', e => {
-            if (!e.dataTransfer.types.includes('Files')) return;
-            e.preventDefault();
-            dropArea.style.background = '#e8f4fd';
-        });
-
-        dropArea.addEventListener('dragleave', () => { dropArea.style.background = ''; });
-
-        dropArea.addEventListener('drop', e => {
-            e.preventDefault();
-            dropArea.style.background = '';
-
-            if (e.dataTransfer.files.length > 0) {
-                Array.from(e.dataTransfer.files).forEach(f => adicionarItemSecao(f, listaDiv, atualizar));
-                atualizar();
-            }
-        });
-    }
-
-    // ── Reordenação e movimento de documentos via SortableJS ─────────────────
-
-    const URL_REORDENAR_DOCS  = '/pasta/' + PASTA_ID + '/documentos/reordenar';
-    const CSRF_REORDENAR_DOCS = '{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id) }}';
-
-    async function persistirOrdemDocumentos(container) {
-        const ids = Array.from(container.querySelectorAll('.doc-item'))
-            .map(el => parseInt(el.dataset.docId, 10));
-        try {
-            await fetch(URL_REORDENAR_DOCS, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ ids, _token: CSRF_REORDENAR_DOCS }),
-            });
-        } catch (e) {
-            console.error('Erro ao reordenar documentos:', e);
-        }
-    }
-
-    async function persistirMoverDocumento(docEl, toContainer) {
-        const secaoDestinoRaw = toContainer.dataset.secaoDestino ?? '';
-        const secaoId   = secaoDestinoRaw === 'geral' ? '' : secaoDestinoRaw;
-        const urlMover  = docEl.dataset.urlMover;
-        const csrfMover = docEl.dataset.csrfMover;
-
-        try {
-            const resp = await fetch(urlMover, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ _token: csrfMover, secao_id: secaoId }),
-            });
-            const data = await resp.json();
-            if (!resp.ok) { alert(data.erro ?? 'Erro ao mover documento.'); return; }
-            docEl.dataset.secaoId = secaoId;
-        } catch (e) {
-            alert('Erro de comunicação.');
-        }
-    }
-
-    function atualizarContadorSecao(docsContainer) {
-        const card = docsContainer.closest('.card');
-        if (!card) return;
-        const badge = card.querySelector('.js-secao-contador');
-        if (!badge) return;
-        const n = docsContainer.querySelectorAll('.doc-item').length;
-        badge.textContent = n + ' ' + (n === 1 ? 'arquivo' : 'arquivos');
-    }
-
-    function inicializarSortableDocs(container) {
-        if (!container || container._sortableDoc) return;
-        container._sortableDoc = new Sortable(container, {
-            group: 'docs-pasta',
-            handle: '.doc-grip',
-            animation: 150,
-            onEnd: async function (evt) {
-                if (evt.from === evt.to) {
-                    await persistirOrdemDocumentos(evt.to);
-                } else {
-                    await persistirMoverDocumento(evt.item, evt.to);
-                    await persistirOrdemDocumentos(evt.to);
-                    atualizarContadorSecao(evt.from);
-                    atualizarContadorSecao(evt.to);
-                }
-            },
-        });
-    }
-
-    // ── Toggle do card geral "Documentação" ──────────────────────────────────
-
-    const btnDocumentacaoToggle = document.getElementById('btnDocumentacaoToggle');
-    if (btnDocumentacaoToggle) {
-        const targetId = btnDocumentacaoToggle.dataset.bsTarget;
-        const collapseEl = document.querySelector(targetId);
-        if (collapseEl) {
-            collapseEl.addEventListener('shown.bs.collapse', () => {
-                btnDocumentacaoToggle.querySelector('i').className = 'bi bi-chevron-up';
-                btnDocumentacaoToggle.setAttribute('aria-expanded', 'true');
-            });
-            collapseEl.addEventListener('hidden.bs.collapse', () => {
-                btnDocumentacaoToggle.querySelector('i').className = 'bi bi-chevron-down';
-                btnDocumentacaoToggle.setAttribute('aria-expanded', 'false');
-            });
-        }
-    }
-
-    // Clique em qualquer parte do header expande/recolhe o card de Documentação
-    const docFolderHeader = document.querySelector('.doc-folder-header');
-    if (docFolderHeader && btnDocumentacaoToggle) {
-        docFolderHeader.addEventListener('click', function(e) {
-            if (!e.target.closest('.btn-tool')) {
-                btnDocumentacaoToggle.click();
-            }
-        });
-    }
-
-    // ── Inicializar cards existentes (seções sempre retraídas ao carregar) ────
-
-    document.querySelectorAll('.pasta-secao-card').forEach(card => inicializarSecaoCard(card));
-    inicializarSortableDocs(document.getElementById('documentosGerais'));
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    function escapeHtml(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-    function escapeAttr(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    }
-
-}());
-</script>
 
 {# ── Responsável: menu e comportamento do chip (mesmos do Expediente).
    O estilo NÃO vem mais daqui — subiu para o bloco `stylesheets`, no <head>. ── #}
@@ -4679,6 +4301,74 @@ document.addEventListener('DOMContentLoaded', function () {
     fotosResponsaveis: fotosResponsaveis|default({}),
 }) }}
 {{ include('pasta/_resp_script.html.twig') }}
+
+{# PAS-034 (dc L.280-288 `cf` e L.597 `edAviso`): a janela de confirmação e o aviso da tela, no
+   lugar do `confirm`/`alert` do navegador. Um de cada por página; /js/pasta-dialogos.js
+   (`confirmarPs`/`avisarPs`) só troca TEXTO e mostra/esconde. #}
+<style>
+    .ps-body { --ps-cf-cab: #0b6a96; --ps-cf-ok: #b3262e; --ps-cf-ok-hv: #921f26; --ps-aviso-bg: #12242f; --ps-aviso-ok: #5fd39a; --ps-aviso-erro: #ff8a80; }
+    [data-bs-theme="dark"] .ps-body { --ps-cf-cab: #0a5f86; --ps-cf-ok: #c0392f; --ps-cf-ok-hv: #a3232b; --ps-aviso-bg: #0b161d; }
+    .ps-cf-fundo {
+        position: fixed; inset: 0; z-index: 2147483500; padding: 16px;
+        display: flex; align-items: center; justify-content: center; background: rgba(16,36,48,.32);
+    }
+    .ps-cf-fundo[hidden] { display: none; }
+    .ps-cf {
+        width: min(420px, 100%); border-radius: 4px; overflow: hidden; outline: none;
+        background: var(--ps-card); box-shadow: 0 18px 50px rgba(16,42,58,.28);
+    }
+    .ps-cf-cab { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--ps-cf-cab); color: #fff; }
+    .ps-cf-cab > i { font-size: 16px; }
+    .ps-cf-titulo { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 700; color: #fff; }
+    .ps-cf-fechar {
+        width: 30px; height: 30px; border: none; border-radius: 4px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.16); color: #fff;
+    }
+    .ps-cf-texto { padding: 14px 16px; font-size: 13.5px; line-height: 1.55; color: var(--ps-body); overflow-wrap: anywhere; }
+    .ps-cf-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--ps-div-strong); background: var(--ps-soft); }
+    .ps-cf-btn { height: 34px; border: none; border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .ps-cf-btn--cancelar { padding: 0 14px; background: var(--ps-div-strong); color: var(--ps-text-2); }
+    .ps-cf-btn--ok { padding: 0 16px; background: var(--ps-cf-ok); color: #fff; }
+    .ps-cf-btn--ok:hover, .ps-cf-btn--ok:focus-visible { background: var(--ps-cf-ok-hv); }
+    .ps-aviso {
+        position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483400;
+        display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 10px 14px;
+        border-radius: 4px; background: var(--ps-aviso-bg); color: #fff; font-size: 13px;
+        box-shadow: 0 14px 30px -12px rgba(0,0,0,.5);
+    }
+    .ps-aviso[hidden] { display: none; }
+    .ps-aviso > i { color: var(--ps-aviso-ok); }
+    .ps-aviso.is-erro > i { color: var(--ps-aviso-erro); }
+</style>
+<div class="ps-cf-fundo" id="psConfirmar" hidden>
+    <div class="ps-cf" role="alertdialog" aria-modal="true" aria-labelledby="psConfirmarTitulo" aria-describedby="psConfirmarTexto" tabindex="-1">
+        <div class="ps-cf-cab">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            <h2 class="ps-cf-titulo" id="psConfirmarTitulo"></h2>
+            <button type="button" class="ps-cf-fechar" data-ps-cf-cancelar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="ps-cf-texto" id="psConfirmarTexto"></div>
+        <div class="ps-cf-rodape">
+            <button type="button" class="ps-cf-btn ps-cf-btn--cancelar" data-ps-cf-cancelar>Cancelar</button>
+            <button type="button" class="ps-cf-btn ps-cf-btn--ok" data-ps-cf-ok><i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir</span></button>
+        </div>
+    </div>
+</div>
+<div class="ps-aviso" id="psAviso" role="status" aria-live="polite" hidden><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span></span></div>
+
+{# EDT-014: a qualificação do cliente principal para o item "Inserir qualificação do cliente" do
+   menu do editor (editor-rico.js `inserirQualificacao`). É PII: só vai na página de quem pode VER
+   o cliente (a mesma regra do `cliente_resumo`). Sem cliente cadastrado, o texto vem vazio e o
+   editor só avisa "Cliente sem cadastro…". #}
+{% set qualCliente = pasta.clientePrincipal %}
+{% if qualCliente is null %}
+    <div hidden data-editor-qualificacao data-texto="" data-nome="" data-pendencias="0"></div>
+{% elseif can_access_resource('cliente', qualCliente.id, 'view') %}
+    <div hidden data-editor-qualificacao
+         data-texto="{{ cliente_qualificacao(qualCliente) }}"
+         data-nome="{{ qualCliente.nomeExibicao }}"
+         data-pendencias="{{ cliente_pendencias(qualCliente)|length }}"></div>
+{% endif %}
 {% endblock %}
 
 {% block javascripts %}
@@ -4689,20 +4379,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="/js/pasta-show.js"></script>
 {# Timeline inteligente: carrega os eventos sob demanda e desenha só com textContent. #}
 <script src="/js/pasta-timeline.js"></script>
-<script>
-// Select2 múltiplo para os responsáveis no modal "Nova Meta".
-// Roda neste bloco (após jQuery/Select2 do base) e usa dropdownParent para
-// funcionar dentro do modal Bootstrap.
-document.addEventListener('DOMContentLoaded', function () {
-    if (typeof $ === 'undefined' || typeof $.fn === 'undefined' || typeof $.fn.select2 === 'undefined') {
-        return;
-    }
-    $('#tarefaResponsavel').select2({
-        placeholder: 'Selecione os responsáveis…',
-        allowClear: true,
-        width: '100%',
-        dropdownParent: $('#modalCriarTarefa'),
-    });
-});
-</script>
+{# Diálogos da pasta: chips de responsáveis e contador do modal Nova meta (PMC-059/041). #}
+<script src="{{ asset('js/pasta-dialogos.js') }}"></script>
 {% endblock %}

@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Djen\DTO\PublicacaoDjenListaItem;
+use App\Djen\Entity\PublicacaoDjen;
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\Entity\Pasta;
+use App\Processo\Entity\NotaTecnica;
+use App\Processo\Entity\Processo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -122,6 +128,94 @@ final class PastaPushOutputTest extends TestCase
         $push = PastaPushOutput::montar([], ['07011111111111111111'], 100);
 
         self::assertSame([], array_filter($push->itens, $push->geraPrazo(...)));
+    }
+
+    #[TestDox('FPN-014c: aceita nota técnica quando o número da publicação (com máscara) é de um processo da pasta, em dígitos; senão não')]
+    public function testAceitaNotaTecnicaPeloNumeroEmDigitos(): void
+    {
+        $item = $this->item(1);
+
+        self::assertTrue(PastaPushOutput::montar([$item], ['07011111111111111111'], 100)->aceitaNotaTecnica($item));
+        self::assertTrue(PastaPushOutput::montar([$item], ['0701111-11.1111.1.11.1111'], 100)->aceitaNotaTecnica($item), 'máscara dos dois lados não importa');
+        self::assertFalse(PastaPushOutput::montar([$item], ['07022222222222222222'], 100)->aceitaNotaTecnica($item), 'processo de outra pasta: sem bloco de notas');
+        self::assertFalse(PastaPushOutput::montar([$item], [], 100)->aceitaNotaTecnica($item));
+    }
+
+    #[TestDox('FPN-020: agrupa as notas por publicação da lista, na ordem recebida; publicação fora da lista e nota sem publicação ficam de fora')]
+    public function testNotasPorPublicacao(): void
+    {
+        $item1 = $this->item(1);
+        $item2 = $this->item(2);
+        $item3 = $this->item(3);
+
+        $push = PastaPushOutput::montar(
+            [$item1, $item2, $item3],
+            ['07011111111111111111'],
+            100,
+            [
+                $this->nota(10, 1),
+                $this->nota(11, 2),
+                $this->nota(12, 1),
+                $this->nota(13, 99),   // publicação que não está na lista
+                $this->nota(14, null), // nota só do processo
+            ],
+        );
+
+        self::assertSame([10, 12], array_map(static fn ($n): int => $n->id, $push->notasDe($item1)));
+        self::assertSame([11], array_map(static fn ($n): int => $n->id, $push->notasDe($item2)));
+        self::assertSame([], $push->notasDe($item3));
+        self::assertSame(1, $push->notasDe($item1)[0]->publicacaoId);
+    }
+
+    #[TestDox('FPN-020: sem notas informadas (a folha impressa), nenhum cartão tem nota pendurada')]
+    public function testSemNotasInformadas(): void
+    {
+        $item = $this->item(1);
+
+        self::assertSame([], PastaPushOutput::montar([$item], ['07011111111111111111'], 100)->notasDe($item));
+    }
+
+    private function nota(int $id, ?int $publicacaoId): NotaTecnica
+    {
+        $tenant   = new Tenant();
+        $processo = new Processo();
+        (new \ReflectionProperty(Processo::class, 'id'))->setValue($processo, 7);
+        $autor = new User();
+        $autor->setFullName('Autora');
+
+        $publicacao = null;
+        if ($publicacaoId !== null) {
+            $publicacao = new PublicacaoDjen();
+            (new \ReflectionProperty(PublicacaoDjen::class, 'id'))->setValue($publicacao, $publicacaoId);
+        }
+
+        $nota = new NotaTecnica($tenant, $processo, $autor, '<p>Nota ' . $id . '</p>', $publicacao);
+        (new \ReflectionProperty(NotaTecnica::class, 'id'))->setValue($nota, $id);
+
+        return $nota;
+    }
+
+    #[TestDox('FPN-020b: o processo da publicação é o processo da pasta com o mesmo número em dígitos (máscara não importa); nenhum casando → null')]
+    public function testProcessoIdDaPublicacao(): void
+    {
+        $item  = $this->item(1);
+        $push  = PastaPushOutput::montar([$item], ['07011111111111111111'], 100);
+        $pasta = new Pasta();
+        $pasta->vincularProcesso($this->processo(10, '07022222222222222222'));
+
+        self::assertNull($push->processoIdDaPublicacao($item, $pasta), 'nenhum processo da pasta casa com o número');
+
+        $pasta->vincularProcesso($this->processo(20, '0701111-11.1111.1.11.1111'));
+        self::assertSame(20, $push->processoIdDaPublicacao($item, $pasta), 'o que casa, não o primeiro vinculado');
+    }
+
+    private function processo(int $id, string $numero): Processo
+    {
+        $processo = new Processo();
+        $processo->setNumeroProcesso($numero);
+        (new \ReflectionProperty(Processo::class, 'id'))->setValue($processo, $id);
+
+        return $processo;
     }
 
     private function item(int $id, bool $lida = false, ?string $tipo = 'Intimação'): PublicacaoDjenListaItem

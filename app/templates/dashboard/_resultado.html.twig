@@ -19,24 +19,34 @@
    `db-g-*` (o estilo mora em public/css/dashboard.css).
    O número final já vem no HTML e em `data-alvo`: funciona sem JS; com JS,
    dashboard.js conta de 0 até ele (desligado em prefers-reduced-motion).
-   Só o card Demandas urgentes traz "ver pastas" (Acervo geral do Expediente);
-   os "ver pastas"/"ver metas" dos outros cards ficam para outro lote. #}
+   Três cards trazem link para a lista que o número conta (DASH-006): Pastas
+   criadas ("ver pastas", Acervo geral filtrado pelo criador), Metas ativas
+   ("ver metas", /tarefas/equipe no escopo do card) e Demandas urgentes ("ver
+   pastas"). Cada link leva os filtros que o card usa — e só esses —, para a
+   lista bater com o número (DashboardCardsVerParidadeTest). #}
 {% import 'dashboard/_tendencia.html.twig' as tend %}
 {% import 'dashboard/_extras.html.twig' as extra %}
 {# Colunas extras ligadas pelo usuário ("Adicionar coluna"), na ordem da tabela: entram depois
    de Pastas criadas, no cabeçalho, em cada linha, no Total e no card do celular. #}
 {% set extras = dashboard.colunasExtras %}
 {% set extrasCatalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') %}
+{# Extras com tendência (DASH-010) => sentido do macro tend.tendencia: hoje só eventos ('fila').
+   Em revisão e Pastas urgentes são estoque; concluídas, taxa e tempo médio recortam por criação
+   e leem o status de hoje (DASH-010b): sem seta. Motivo em ColunasExtrasDoDashboard::TENDENCIA. #}
+{% set extrasTendencia = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::TENDENCIA') %}
 {# Período do painel para os links "ir para o serviço": some quando o painel está sem
    período (o destino então lista sem recorte de data, como as contagens). #}
 {% set periodoLink = { data_de: filtros.data_de|default(''), data_ate: filtros.data_ate|default('') }|filter(v => v != '') %}
 {% set pct = dashboard.metaGlobalPercent %}
 {# arco do alvo: circunferência de r=22 (2π·22 = 138,23) × percentual #}
 {% set arco = (138.23 * pct / 100)|number_format(2, '.', '') %}
+{# Botão direito num card abre a janela "Histórico" dele (DASH-017, public/js/dashboard-historico.js):
+   `data-historico-url` é o endpoint GET do card. Pastas criadas tem série; os outros três mostram
+   na janela por que ainda não têm (dependem da foto diária). #}
 <div class="db-cards-row">
 
     <div class="db-card-wrap db-card-wrap--esq">
-        <div class="db-stat-card db-stat-card--pastas">
+        <div class="db-stat-card db-stat-card--pastas" data-historico="pastas" data-historico-url="{{ path('dashboard_historico', { card: 'pastas' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -71,6 +81,24 @@
                 <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--1">Pastas criadas</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num" data-card="pastas" data-alvo="{{ dashboard.totalPastasCriadas }}">{{ dashboard.totalPastasCriadas }}</div>
+                    {# "ver pastas": o card soma a coluna Pastas criadas, isto é, as pastas abertas
+                       por colaborador ATIVO do escritório (e do cargo, se filtrado), sem lápide,
+                       no período. No Acervo isso é `criado_por=equipe` (`equipe:<cargo>` com
+                       cargo). Com responsável filtrado o card é a linha dele: `criado_por=<id>`,
+                       o mesmo destino do número da linha. Responsável que não vira linha (fora do
+                       cargo escolhido, ou id que não é número) deixa o card em 0 e a lista não
+                       bateria com ele: aí o link não sai. #}
+                    {% set respCard  = filtros.responsavel|default('') %}
+                    {% set cargoCard = filtros.cargo|default('')|trim %}
+                    {% set pastasQuery = null %}
+                    {% if respCard == '' %}
+                        {% set pastasQuery = { painel: 'acervo-geral', criado_por: cargoCard != '' ? 'equipe:' ~ cargoCard : 'equipe' }|merge(periodoLink) %}
+                    {% elseif respCard matches '/^[1-9][0-9]*$/' and dashboard.totalPastasCriadas > 0 %}
+                        {% set pastasQuery = { painel: 'acervo-geral', criado_por: respCard }|merge(periodoLink) %}
+                    {% endif %}
+                    {% if pastasQuery is not null %}
+                        <a class="db-card-ver" href="{{ path('expediente_index', pastasQuery) }}" title="Abrir: Expediente · pastas criadas">ver pastas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    {% endif %}
                 </div>
                 {# Sem legenda: o desenho mostra só o rótulo e o número neste card. #}
             </div>
@@ -78,7 +106,7 @@
     </div>
 
     <div class="db-card-wrap db-card-wrap--sobe1">
-        <div class="db-stat-card db-stat-card--metas">
+        <div class="db-stat-card db-stat-card--metas" data-historico="metas" data-historico-url="{{ path('dashboard_historico', { card: 'metas' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -118,6 +146,13 @@
                 <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--2">Metas ativas</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num" data-card="metas" data-alvo="{{ dashboard.totalMetasAtivas }}">{{ dashboard.totalMetasAtivas }}</div>
+                    {# "ver metas": /tarefas/equipe no escopo do CARD (`escopo=card`), que conta
+                       como countMetasAtivas — toda meta não concluída do escritório no período,
+                       com o responsável quando filtrado. O cargo não vai: o card não o usa. #}
+                    {% set metasQuery = { status: 'ativas', escopo: 'card' }
+                        |merge(filtros.responsavel|default('') != '' ? { responsavel: filtros.responsavel } : {})
+                        |merge(periodoLink) %}
+                    <a class="db-card-ver" href="{{ path('tarefa_equipe', metasQuery) }}" title="Abrir: Metas da equipe · metas ativas">ver metas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                 </div>
                 <div class="db-card-legenda db-card-legenda--hover">tarefas ainda não concluídas</div>
             </div>
@@ -125,7 +160,7 @@
     </div>
 
     <div class="db-card-wrap db-card-wrap--sobe2">
-        <div class="db-stat-card db-stat-card--urgentes">
+        <div class="db-stat-card db-stat-card--urgentes" data-historico="urgentes" data-historico-url="{{ path('dashboard_historico', { card: 'urgentes' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -171,7 +206,7 @@
     </div>
 
     <div class="db-card-wrap db-card-wrap--dir">
-        <div class="db-stat-card db-stat-card--global">
+        <div class="db-stat-card db-stat-card--global" data-historico="global" data-historico-url="{{ path('dashboard_historico', { card: 'global' }) }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -388,8 +423,28 @@
                         {%- endif -%}
                         {{- tend.tendencia(linha.pastasCriadas, linha.pastasCriadasAnterior, 'seta') -}}
                     </span></td>
+                    {# Extras com tendência: seta igual à das colunas fixas (período anterior de
+                       mesma duração, mesma fórmula). Sem o que medir num dos lados (taxa sem
+                       meta, tempo sem conclusão com data), espaço da seta reservado e vazio. #}
                     {% for k in extras %}
-                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}">{{ extra.valor(k, linha.extras[k] ?? null, linha.userId, quem, periodoLink) }}</td>
+                    {% set sentidoX = extrasTendencia[k] ?? null %}
+                    {% set comSetaX = sentidoX is not null and k in linha.extrasAnteriores|keys %}
+                    {% set atualX = linha.extras[k] ?? null %}
+                    {% set antX = linha.extrasAnteriores[k] ?? null %}
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}">
+                        {%- if comSetaX -%}
+                            <span class="db-cel db-cel--seta">
+                                {{- extra.valor(k, atualX, linha.userId, quem, periodoLink) -}}
+                                {%- if atualX is not null and antX is not null -%}
+                                    {{- tend.tendencia(atualX, antX, 'seta', sentidoX) -}}
+                                {%- else -%}
+                                    <span class="db-seta db-seta--vazia" aria-hidden="true"></span>
+                                {%- endif -%}
+                            </span>
+                        {%- else -%}
+                            {{- extra.valor(k, atualX, linha.userId, quem, periodoLink) -}}
+                        {%- endif -%}
+                    </td>
                     {% endfor %}
                 </tr>
                 {% endfor %}
@@ -431,11 +486,16 @@
                     <td class="text-center db-td-num" data-coluna="demandas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>
                     {# Extras: o Total vem pronto do servidor (soma; % e dias pela base inteira).
-                       Não é link, como os outros números do Total. Sem tendência ainda. #}
+                       Não é link, como os outros números do Total. As com tendência ganham a
+                       pílula (Total anterior pela mesma regra, sobre as mesmas linhas); as
+                       outras, o espaçador. #}
+                    {% set tAntX = dashboard.totaisExtrasAnteriores %}
                     {% for k in extras %}
                     {% set tx = dashboard.totaisExtras[k] ?? null %}
                     {% set tipoX = extrasCatalogo[k].tipo %}
-                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    {% set sentidoX = extrasTendencia[k] ?? null %}
+                    {% set antTx = tAntX is null ? null : (tAntX[k] ?? null) %}
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     {% endfor %}
                 </tr>
             </tfoot>

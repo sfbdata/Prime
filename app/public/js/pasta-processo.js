@@ -5,9 +5,13 @@
      `.ps-processo-detalhes` (aria-expanded + aria-controls no botão).
    - ⋮ do cartão: menu `.ps-processo-menu` (fixo, posicionado pelo gatilho), só
      com o que tem função hoje: nota técnica (nota-tecnica.js), alternar o
-     painel, ir à aba Push, copiar número, copiar resumo e Compartilhar — este
-     só aparece onde o navegador tem `navigator.share`. Tornar principal e
+     painel, ir à aba Push, copiar número, copiar resumo, Compartilhar — Web
+     Share onde existe; sem ele, copia o resumo e avisa — e Imprimir resumo, na
+     janela de impressão da pasta (pasta-impressao.js). Tornar principal e
      Desvincular também moram no ⋮, mas são forms `.js-ajax-*` do show.html.twig.
+   - Botão direito no cartão (PMC-001, desenho `onContextMenu={p.menu}`): abre o
+     MESMO ⋮ do cartão (`data-ps-menu-contexto`) no ponto do cursor. Teclado e
+     toque seguem pelo botão ⋮, que continua no cartão.
    - "Administrativo sem processo" (interruptor do cabeçalho, `admSPtoggle` do
      desenho): ver o bloco no fim do arquivo.
 
@@ -59,10 +63,6 @@
     }
 
     function preparar(menu) {
-        // Compartilhar só onde existe a função do navegador.
-        var compartilhar = menu.querySelector('.js-proc-compartilhar');
-        if (compartilhar) { compartilhar.hidden = typeof navigator.share !== 'function'; }
-
         // O item de alternar acompanha o estado do botão do cartão.
         var item = menu.querySelector('.js-proc-alternar-menu');
         if (item) {
@@ -75,13 +75,24 @@
         }
     }
 
-    function abrirMenu(menu, gatilho) {
+    // Botão direito: o canto do menu no cursor (desenho: gmAbrir com clientX/Y),
+    // empurrado para dentro da janela quando não cabe.
+    function posicionarNoPonto(menu, x, y) {
+        var largura = menu.offsetWidth;
+        var altura  = menu.offsetHeight;
+        if (x + largura > window.innerWidth - 8) { x = x - largura; }
+        if (y + altura > window.innerHeight - 8) { y = y - altura; }
+        menu.style.left = Math.max(8, Math.min(x, window.innerWidth - largura - 8)) + 'px';
+        menu.style.top  = Math.max(8, Math.min(y, window.innerHeight - altura - 8)) + 'px';
+    }
+
+    function abrirMenu(menu, gatilho, ponto) {
         fechar(false);
         // Um menu por vez: fecha os popovers do cabeçalho (pasta-show.js).
         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
         preparar(menu);
         menu.hidden = false;
-        posicionar(menu, gatilho);
+        if (ponto) { posicionarNoPonto(menu, ponto.x, ponto.y); } else { posicionar(menu, gatilho); }
         gatilho.setAttribute('aria-expanded', 'true');
         aberto = { menu: menu, gatilho: gatilho };
         var primeiro = menu.querySelector('.ps-processo-menu-item:not([hidden])');
@@ -123,13 +134,44 @@
         }
     }
 
+    /* Compartilhar (EDT-006/PMC-002; desenho procMenu dc L.2928): com Web Share, a folha do
+       próprio sistema; sem ele (Firefox e boa parte dos desktops), o item NÃO some — copia o
+       resumo e avisa "Resumo copiado para compartilhar", pelo mesmo caminho do "Copiar resumo". */
     function compartilhar(item) {
+        if (typeof navigator.share !== 'function') {
+            copiar(item);
+            return;
+        }
         fechar(false);
-        if (typeof navigator.share !== 'function') { return; }
         navigator.share({
             title: item.getAttribute('data-titulo') || '',
             text: linhasDoResumo(item),
         }).catch(function () { /* cancelado pelo usuário */ });
+    }
+
+    /* "Imprimir resumo" (EDT-005; desenho procMenu dc L.2930, `gmImprimir`): as MESMAS
+       linhas do "Copiar resumo" viram a tabela do desenho — rótulo em negrito à esquerda,
+       valor à direita, partido no primeiro ": " — e vão para a janela de impressão da
+       pasta (pasta-impressao.js). Tudo por DOM e textContent: o resumo é dado do cadastro. */
+    function imprimirResumo(item) {
+        fechar(false);
+        if (!window.PastaImpressao) { return; }
+        var tabela = document.createElement('table');
+        linhasDoResumo(item).split('\n').forEach(function (linha) {
+            if (linha === '') { return; }
+            var corte  = linha.indexOf(': ');
+            var tr     = document.createElement('tr');
+            var rotulo = document.createElement('td');
+            var forte  = document.createElement('strong');
+            var valor  = document.createElement('td');
+            forte.textContent = corte === -1 ? linha : linha.slice(0, corte);
+            valor.textContent = corte === -1 ? '' : linha.slice(corte + 2);
+            rotulo.appendChild(forte);
+            tr.appendChild(rotulo);
+            tr.appendChild(valor);
+            tabela.appendChild(tr);
+        });
+        window.PastaImpressao.conteudo({ titulo: item.getAttribute('data-titulo') || '', corpo: tabela });
     }
 
     function irParaAba(item) {
@@ -165,6 +207,7 @@
 
         if (item.classList.contains('js-proc-copiar'))         { copiar(item); return; }
         if (item.classList.contains('js-proc-compartilhar'))   { compartilhar(item); return; }
+        if (item.classList.contains('js-proc-imprimir'))       { imprimirResumo(item); return; }
         if (item.classList.contains('js-proc-ver-movimentacoes')) { irParaAba(item); return; }
         if (item.classList.contains('js-proc-alternar-menu')) {
             var botao = document.querySelector(item.getAttribute('data-botao') || '');
@@ -175,6 +218,33 @@
         // "Adicionar nota técnica": quem abre o compositor é o nota-tecnica.js
         // (`.js-nota-nova` + `data-notas`); aqui só fecha o menu.
         fechar(false);
+    });
+
+    /* ── Botão direito no cartão (PMC-001) ────────────────────────────────
+       O cartão diz qual é o seu ⋮ em `data-ps-menu-contexto`; o menu é o mesmo
+       elemento, com os mesmos itens — nada é duplicado aqui. Links, botões,
+       campos e o próprio menu ficam com o menu nativo do navegador (abrir em
+       nova aba, colar…), e também quem selecionou texto para copiar. Sem
+       coordenada (tecla de menu), o menu abre sob o ⋮, como no clique. */
+    document.addEventListener('contextmenu', function (e) {
+        var alvo = e.target;
+        if (!alvo || !alvo.closest) { return; }
+        // Botão direito em outro lugar fecha o menu aberto, como o clique fora.
+        if (aberto && !aberto.menu.contains(alvo)) { fechar(false); }
+
+        var cartao = alvo.closest('article.ps-processo[data-ps-menu-contexto]');
+        if (!cartao) { return; }
+        if (alvo.closest('a, button, input, textarea, select, [contenteditable="true"], .ps-processo-menu')) { return; }
+        var selecao = window.getSelection ? String(window.getSelection()) : '';
+        if (selecao.trim() !== '') { return; }
+
+        var menu    = document.getElementById(cartao.getAttribute('data-ps-menu-contexto'));
+        var gatilho = cartao.querySelector('.js-proc-menu-gatilho');
+        if (!menu || !gatilho) { return; }
+
+        e.preventDefault();
+        var temPonto = e.clientX > 0 || e.clientY > 0;
+        abrirMenu(menu, gatilho, temPonto ? { x: e.clientX, y: e.clientY } : null);
     });
 
     document.addEventListener('keydown', function (e) {

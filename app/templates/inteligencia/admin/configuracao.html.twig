@@ -71,10 +71,55 @@
                                 {{ form_widget(form.habilitada, {attr: {class: 'form-check-input', role: 'switch'}}) }}
                                 {{ form_label(form.habilitada, null, {label_attr: {class: 'form-check-label fw-semibold'}}) }}
                             </div>
-                            <div class="form-text text-muted">
-                                Ao ligar, o escritório aceita o envio de conteúdo processual (publicações e movimentações,
-                                com dados pessoais mascarados por padrão) a um provedor externo de IA, nos termos do Anexo I da
-                                Política de Privacidade. Processos em segredo de justiça nunca são enviados.
+                            {# O que sai do escritório, dito com honestidade (IA-001/IA-001b): a lista nunca
+                               descreve menos do que é enviado. Amarrada ao código por AvisoDeEnvioCobreOContextoTest:
+                               `data-ia-envio="pasta.<chave>"` = cada chave do cabeçalho do MontadorDeContextoDaPasta;
+                               `data-ia-envio="processo.*"` = cada campo da linha do processo vinculado;
+                               `data-ia-bloco` = cada bloco delimitado (<tag>) que os prompts enviam; as seções vêm
+                               do enum que o montador usa. Campo ou bloco novo no prompt = item novo aqui. #}
+                            <div class="form-text text-muted" id="ia-aviso-envio">
+                                Ao ligar, o escritório aceita enviar a um provedor externo de IA, nos termos do Anexo I da
+                                Política de Privacidade:
+                                <ul class="mb-1 ps-3">
+                                    <li id="ia-aviso-envio-pasta" data-ia-bloco="pasta equipe">
+                                        dados da pasta:
+                                        <span data-ia-envio="pasta.pasta">número</span>,
+                                        <span data-ia-envio="pasta.situacao">situação</span>,
+                                        <span data-ia-envio="pasta.prioridade">prioridade</span>,
+                                        <span data-ia-envio="pasta.abertura">data de abertura</span>,
+                                        <span data-ia-envio="pasta.acao">ação</span>,
+                                        <span data-ia-envio="pasta.responsavel">responsável</span> e
+                                        <span data-ia-envio="pasta.equipe">nomes da equipe</span>;
+                                    </li>
+                                    <li id="ia-aviso-envio-processos" data-ia-bloco="processos_vinculados processo">
+                                        processos vinculados:
+                                        <span data-ia-envio="processo.numero">número</span>,
+                                        <span data-ia-envio="processo.classe">classe</span>,
+                                        <span data-ia-envio="processo.assunto">assunto</span>,
+                                        <span data-ia-envio="processo.tribunal">tribunal</span>,
+                                        <span data-ia-envio="processo.orgao">órgão</span> e
+                                        <span data-ia-envio="processo.situacao">situação do processo</span>;
+                                    </li>
+                                    <li id="ia-aviso-envio-agentes">
+                                        o que os agentes leem da pasta:
+                                        <span id="ia-aviso-envio-secoes">
+                                            {%- for secao in enum_cases('App\\Inteligencia\\Enum\\SecaoDoContexto') -%}
+                                                <span data-ia-secao="{{ secao.value }}">{{ secao.rotuloCurto }}</span>
+                                                {{- loop.last ? '' : (loop.revindex == 2 ? ' e ' : ', ') -}}
+                                            {%- endfor -%}
+                                        </span>;
+                                    </li>
+                                    <li id="ia-aviso-envio-push" data-ia-bloco="movimentacoes">
+                                        no Resumir com IA do Push: as publicações do DJEN e as movimentações do Datajud dos
+                                        processos vinculados (data, tipo, tribunal, órgão e texto);
+                                    </li>
+                                    <li id="ia-aviso-envio-analise-anterior" data-ia-bloco="analise_anterior">
+                                        o resumo da análise anterior feita pela própria IA na mesma pasta, reenviado para que
+                                        ela não se repita.
+                                    </li>
+                                </ul>
+                                O financeiro só é enviado quando quem pede a análise pode vê-lo. Dados pessoais (CPF, CNPJ,
+                                telefone e e-mail) são mascarados por padrão. Processos em segredo de justiça nunca são enviados.
                             </div>
                             {% if configuracao.consentimentoEnvioExternoEm %}
                                 <div class="form-text" id="ia-consentimento">

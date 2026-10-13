@@ -15,7 +15,12 @@
      4. ações da análise (lida · excluir · interna) por XHR + recarga do agente;
      5. menu ⋮ do cartão;
      6. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
-        pré-preenchido, no mesmo contrato do pasta-ia-push.js.
+        pré-preenchido, no mesmo contrato do pasta-ia-push.js;
+     7. Copiar e Imprimir do cartão concluído, sobre o mesmo texto do "Baixar .txt"
+        (GET `inteligencia_analise_txt`);
+     8. rodapé "Registro de auditoria (N)": GET `inteligencia_auditoria_da_pasta`
+        a cada abertura do drawer e depois de cada recarga de agente; o chevron
+        abre e fecha a lista.
 
    Tudo por delegação no drawer: o painel e as listas são trocados inteiros.
    Sem JS, os formulários dos fragmentos seguem por POST comum.
@@ -87,6 +92,7 @@
             var fechar = drawer.querySelector('[data-ia-fechar]');
             if (fechar) { fechar.focus(); }
             carregarPainel();
+            recarregarAuditoria();
             retomar();
         }
 
@@ -111,6 +117,46 @@
             if (e.key !== 'Escape' || !aberto()) { return; }
             if (fecharMenus(null)) { return; }
             fechar();
+        });
+
+        /* ── 8. Registro de auditoria (IA-008) ─────────────────────────────── */
+        // O rodapé é trocado inteiro a cada recarga; o aberto/fechado sobrevive à troca.
+        var auditoriaAberta = false;
+        var carregandoAuditoria = false;
+
+        function rodape() { return drawer.querySelector('[data-ia-auditoria]'); }
+
+        function aplicarAuditoria(r) {
+            var botao = r ? r.querySelector('[data-ia-audit-alternar]') : null;
+            var lista = r ? r.querySelector('.ia-audit-lista') : null;
+            var seta = r ? r.querySelector('.ia-audit-seta') : null;
+            if (!botao || !lista) { return; }
+            lista.hidden = !auditoriaAberta;
+            botao.setAttribute('aria-expanded', auditoriaAberta ? 'true' : 'false');
+            if (seta) { seta.className = 'bi ia-audit-seta ' + (auditoriaAberta ? 'bi-chevron-down' : 'bi-chevron-up'); }
+        }
+
+        function recarregarAuditoria() {
+            var r = rodape();
+            if (!r || carregandoAuditoria) { return Promise.resolve(); }
+            carregandoAuditoria = true;
+
+            return buscarFragmento(r.getAttribute('data-ia-auditoria-url'))
+                .then(function (conteudo) {
+                    var novo = conteudo.querySelector('[data-ia-auditoria]');
+                    var atual = rodape();
+                    if (!novo || !atual) { return; }
+                    atual.replaceWith(novo);
+                    aplicarAuditoria(novo);
+                })
+                .catch(function () { /* o rodapé fica como estava; a lista principal avisa os erros */ })
+                .then(function () { carregandoAuditoria = false; });
+        }
+
+        drawer.addEventListener('click', function (e) {
+            if (!e.target.closest('[data-ia-audit-alternar]')) { return; }
+            auditoriaAberta = !auditoriaAberta;
+            aplicarAuditoria(rodape());
         });
 
         function carregarPainel() {
@@ -195,6 +241,7 @@
                     }
                     sincronizarBotao(secao);
                     acompanhar();
+                    recarregarAuditoria();
                 })
                 .catch(function (falha) {
                     avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar as análises.', true);
@@ -385,6 +432,90 @@
                 .catch(function (falha) {
                     avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar a análise.', true);
                     if (enviar) { enviar.disabled = false; }
+                });
+        });
+
+        /* ── 7. Copiar · Imprimir (IA-007) ────────────────────────────────── */
+        // As duas usam o MESMO texto do "Baixar .txt" (GET `inteligencia_analise_txt`): o que se
+        // copia, imprime e baixa é a análise gravada, montada num lugar só (o servidor).
+        function urlDoTexto(el) {
+            var cartao = el.closest('[data-ia-analise]');
+            var link = cartao ? cartao.querySelector('[data-ia-baixar]') : null;
+
+            return link ? link.getAttribute('href') : null;
+        }
+
+        function buscarTexto(url) {
+            return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('Não foi possível ler a análise.'); }
+                    return r.text();
+                });
+        }
+
+        function copiar(url) {
+            if (!navigator.clipboard) { return Promise.reject(new Error('Este navegador não deixa copiar daqui.')); }
+            // ClipboardItem com promessa preserva o gesto do clique enquanto o texto chega.
+            if (window.ClipboardItem && navigator.clipboard.write) {
+                var blob = buscarTexto(url).then(function (t) { return new Blob([t], { type: 'text/plain' }); });
+
+                return navigator.clipboard.write([new window.ClipboardItem({ 'text/plain': blob })]);
+            }
+
+            return buscarTexto(url).then(function (t) { return navigator.clipboard.writeText(t); });
+        }
+
+        drawer.addEventListener('click', function (e) {
+            var botao = e.target.closest('[data-ia-copiar]');
+            if (!botao) { return; }
+            var url = urlDoTexto(botao);
+            if (!url) { return; }
+            var icone = botao.querySelector('i');
+
+            copiar(url)
+                .then(function () {
+                    botao.classList.add('is-copiado');
+                    if (icone) { icone.className = 'bi bi-check2'; }
+                    setTimeout(function () {
+                        botao.classList.remove('is-copiado');
+                        if (icone) { icone.className = 'bi bi-copy'; }
+                    }, 1400);
+                })
+                .catch(function (falha) {
+                    avisar(falha && falha.message ? falha.message : 'Não foi possível copiar a análise.', true);
+                });
+        });
+
+        // A janela abre NO clique (senão o bloqueador de pop-up a recusa) e é preenchida por
+        // textContent: o texto do modelo nunca vira HTML, nem na impressão.
+        drawer.addEventListener('click', function (e) {
+            var botao = e.target.closest('[data-ia-imprimir]');
+            if (!botao) { return; }
+            var url = urlDoTexto(botao);
+            if (!url) { return; }
+
+            var janela = window.open('', '_blank');
+            if (!janela) {
+                avisar('O navegador bloqueou a janela de impressão. Libere as janelas pop-up deste site.', true);
+                return;
+            }
+
+            buscarTexto(url)
+                .then(function (texto) {
+                    var doc = janela.document;
+                    var linhas = texto.split('\n');
+                    doc.title = linhas[0] || 'BLUEJUS IA';
+                    doc.body.style.cssText = 'font-family:Arial,Helvetica,sans-serif;max-width:720px;margin:40px auto;color:#12242f';
+                    var corpo = doc.createElement('div');
+                    corpo.style.cssText = 'white-space:pre-wrap;line-height:1.6;font-size:13px';
+                    corpo.textContent = texto;
+                    doc.body.appendChild(corpo);
+                    janela.focus();
+                    setTimeout(function () { janela.print(); }, 300);
+                })
+                .catch(function (falha) {
+                    janela.close();
+                    avisar(falha && falha.message ? falha.message : 'Não foi possível imprimir a análise.', true);
                 });
         });
 

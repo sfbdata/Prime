@@ -9,6 +9,7 @@ use App\Pasta\DTO\PastaFinanceiroOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
 use App\Shared\Service\ValorEmReais;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -29,8 +30,21 @@ use Doctrine\ORM\EntityManagerInterface;
  * o lançamento, os dois não batem e nada é gravado — senão a segunda correção
  * passaria por cima da primeira, e o confirm teria mostrado um "de" falso.
  *
+ * CORRIDA (SEC-006): comparar com o getter não bastava. A entidade chega
+ * carregada no início do request, e uma consulta Doctrine NÃO relê entidade que
+ * já está no identity map — dois POST simultâneos com o mesmo valor exibido
+ * passavam os dois. Agora a comparação é feita numa transação, depois de
+ * `refresh(…, PESSIMISTIC_WRITE)`: um `SELECT … FOR UPDATE` que trava a linha
+ * e reidrata a entidade com o valor do BANCO. O segundo POST espera o commit
+ * do primeiro, relê o valor novo e cai no 409. Sem migration (sem `#[Version]`).
+ *
  * Mexe só no `valor` deste lançamento da pasta. Cobrança e contabilidade não
  * passam por aqui: aquele dinheiro é outra coisa, com outro dono.
+ *
+ * TAXA DA PARCELA (M7b): a `juros_mensal` de uma parcela Price é só rótulo
+ * ("· juros N% a.m."), gravado no parcelamento para o valor DAQUELE cálculo.
+ * Com o valor corrigido à mão, a taxa já não explica o valor — então é zerada
+ * (null) no mesmo flush e o sufixo some. Nenhum cálculo usa a taxa.
  */
 final class CorrigirValorDoPagamentoUseCase
 {
@@ -73,6 +87,31 @@ final class CorrigirValorDoPagamentoUseCase
             throw new \InvalidArgumentException('Valor anterior não informado. Recarregue a página e tente de novo.');
         }
 
+        // Daqui em diante a decisão depende do valor gravado: transação própria
+        // (sem `wrapInTransaction`, que FECHA o EntityManager na falha — o
+        // controller ainda relê o card para responder o 409).
+        $this->em->beginTransaction();
+
+        try {
+            // Trava a linha e relê do banco. Sem isto o getter devolveria o valor
+            // de quando a entidade foi carregada, antes de qualquer trava.
+            $this->em->refresh($pagamento, LockMode::PESSIMISTIC_WRITE);
+
+            $alterado = $this->aplicar($pagamento, $decimal, $exibido);
+
+            $this->em->commit();
+        } catch (\Throwable $e) {
+            $this->em->rollback();
+
+            throw $e;
+        }
+
+        return $alterado;
+    }
+
+    /** Já sob a trava: o valor do pagamento é o do banco. */
+    private function aplicar(PastaPagamento $pagamento, string $decimal, string $exibido): bool
+    {
         // Comparação em centavos: "1.300" e "1300,00" são o mesmo dinheiro.
         if (ValorEmReais::paraCentavos($exibido) !== ValorEmReais::paraCentavos($pagamento->getValor())) {
             throw new \UnexpectedValueException(sprintf(
@@ -86,6 +125,8 @@ final class CorrigirValorDoPagamentoUseCase
         }
 
         $pagamento->setValor($decimal);
+        // O rótulo de juros descrevia o valor antigo; com o valor à mão, deixa de valer.
+        $pagamento->setJurosMensal(null);
         $this->em->flush();
 
         return true;

@@ -145,7 +145,8 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
 
         self::assertSame(
             $pasta->getNomeCliente(),
-            trim($crawler->filter('#modalEditarPasta .ps-modal-pasta-cab-corpo > .ps-modal-pasta-sub')->text())
+            // PAS-020: a linha do subtítulo também leva a pílula de estado; o texto é o 1º filho.
+            trim($crawler->filter('#modalEditarPasta .ps-modal-pasta-cab-corpo > .ps-modal-pasta-sub > .ps-modal-pasta-sub-tx')->text())
         );
         self::assertSame($pasta->getNomeCliente(), $crawler->filter('#edit_nome_cliente')->attr('value'));
     }

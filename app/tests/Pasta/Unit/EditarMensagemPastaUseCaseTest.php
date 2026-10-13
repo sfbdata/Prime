@@ -12,12 +12,14 @@ use App\Pasta\Exception\MensagemPastaNaoEditavelException;
 use App\Entity\Notificacao;
 use App\Entity\Permission\AccessRequest;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
+use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,6 +27,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 #[CoversClass(EditarMensagemPastaUseCase::class)]
@@ -35,6 +38,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
 
     private EntityManagerInterface&MockObject $em;
     private UserRepository&MockObject $userRepository;
+    private CotaDeNotificacoesDoRegistro $cota;
     private PermissionChecker&MockObject $permissionChecker;
     private NotificacaoRepository&MockObject $notificacaoRepository;
     private NotificacaoService&MockObject $notificacaoService;
@@ -51,6 +55,8 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
         $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
         $this->notificacaoService    = $this->createMock(NotificacaoService::class);
         $this->mencoes               = new MencoesDoRegistro($this->criarSanitizadorTextoRico());
+        // Cota que aceita sempre: os casos daqui não são sobre o teto (SEC-008 tem os próprios).
+        $this->cota                  = new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(), new NullLogger());
 
         // Como o real: roda o callback.
         $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
@@ -71,6 +77,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
                 $this->notificacaoRepository,
                 $this->notificacaoService,
                 $urlGenerator,
+                $this->cota,
             ),
         );
         $this->tenant  = new Tenant();
@@ -95,6 +102,48 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
 
         self::assertSame('Corrigido', $mensagem->getConteudo());
         self::assertNotNull($mensagem->getEditadaEm());
+    }
+
+    #[TestDox('PAS-045: a edição guarda o texto anterior INTEIRO (acima dos 500 do audit_log); só a última versão')]
+    public function testGuardaOTextoAnteriorInteiro(): void
+    {
+        $longo    = str_repeat('Texto original longo. ', 200); // ~4400 caracteres
+        $mensagem = $this->novaMensagem($longo);
+        self::assertNull($mensagem->getConteudoAnterior());
+
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Primeira correção');
+        self::assertSame($longo, $mensagem->getConteudoAnterior());
+        self::assertGreaterThan(500, mb_strlen((string) $mensagem->getConteudoAnterior()));
+
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Segunda correção');
+        self::assertSame('Primeira correção', $mensagem->getConteudoAnterior());
+        self::assertSame('Segunda correção', $mensagem->getConteudo());
+    }
+
+    #[TestDox('PAS-045: salvar sem mudar o texto não apaga o "Antes" da edição real')]
+    public function testSalvarSemMudarMantemOAnterior(): void
+    {
+        $mensagem = $this->novaMensagem('Original');
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Corrigido');
+        $this->useCase->executar($mensagem, $this->autor, $this->tenant, 'Corrigido');
+
+        self::assertSame('Original', $mensagem->getConteudoAnterior());
+        self::assertSame('Corrigido', $mensagem->getConteudo());
+    }
+
+    #[TestDox('PAS-045: edição recusada não toca no texto anterior')]
+    public function testEdicaoRecusadaNaoMexeNoAnterior(): void
+    {
+        $mensagem = $this->novaMensagem('Original');
+        $outro    = (new User())->setEmail('outro@test.com');
+
+        try {
+            $this->useCase->executar($mensagem, $outro, $this->tenant, 'Invasor');
+        } catch (MensagemPastaNaoEditavelException) {
+        }
+
+        self::assertNull($mensagem->getConteudoAnterior());
+        self::assertSame('Original', $mensagem->getConteudo());
     }
 
     public function testNaoAutorLancaExcecao(): void

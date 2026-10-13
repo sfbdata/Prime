@@ -11,9 +11,11 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaMencaoController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use App\Pasta\UseCase\ListarMencionaveisDaPastaUseCase;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -30,6 +32,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(ListarMencionaveisDaPastaUseCase::class)]
 #[CoversClass(EnviarMensagemPastaUseCase::class)]
 #[CoversClass(MencoesDoRegistro::class)]
+#[CoversClass(CotaDeNotificacoesDoRegistro::class)]
 #[Group('pasta')]
 final class PastaMencaoTest extends JusPrimeWebTestCase
 {
@@ -233,6 +236,55 @@ final class PastaMencaoTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', (string) strtok((string) $doBruno[0]->getUrl(), '#'));
         self::assertResponseIsSuccessful();
         self::assertSame('@Bruno Lima', trim($crawler->filter('#pasta-msg-' . $msgId . ' .ps-mencao')->text()));
+    }
+
+    // ── Cota de avisos do autor (SEC-008) ────────────────────────────────────
+    //
+    // O pool `cache.rate_limiter` é ArrayAdapter em teste e o `services_resetter` o zera ao fim de
+    // cada pedido: a 31ª menção nunca estouraria por HTTP. O dublê no container torna observável
+    // o que importa — a recusa suprime o aviso sem derrubar o envio, e a chave é o autor.
+
+    #[TestDox('SEC-008: cota estourada — a mensagem é gravada (201) e o mencionado NÃO recebe aviso')]
+    public function testCotaEstouradaGravaMensagemSemAviso(): void
+    {
+        $client  = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $tenant = $this->criarTenant();
+        $eu     = $this->membro($tenant, 'Ana Paula Souza');
+        $bruno  = $this->membro($tenant, 'Bruno Lima');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $eu, $tenant);
+        static::getContainer()->set('limiter.pasta_registro_notificacao', new RateLimiterFactoryEspiao(aceita: false));
+        $dados = $this->enviar($client, $pasta, sprintf('<p>Veja @[Bru](user:%d)</p>', $bruno->getId()));
+
+        self::assertResponseStatusCodeSame(201);
+        $msg = $this->em()->find(PastaMensagem::class, (int) $dados['id']);
+        self::assertNotNull($msg, 'o envio não falha por causa do teto');
+        self::assertStringContainsString('@[Bruno Lima](user:' . $bruno->getId() . ')', $msg->getConteudo());
+        self::assertCount(0, $this->mencoesRecebidas($bruno), 'aviso suprimido');
+    }
+
+    #[TestDox('SEC-008: cota com folga — o mencionado recebe, e a cota consumida é a do AUTOR (chave = id dele)')]
+    public function testCotaComFolgaNotificaComAChaveDoAutor(): void
+    {
+        $client  = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $tenant = $this->criarTenant();
+        $eu     = $this->membro($tenant, 'Ana Paula Souza');
+        $bruno  = $this->membro($tenant, 'Bruno Lima');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $eu, $tenant);
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+        static::getContainer()->set('limiter.pasta_registro_notificacao', $espiao);
+        $this->enviar($client, $pasta, sprintf('<p>Veja @[Bru](user:%d)</p>', $bruno->getId()));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertCount(1, $this->mencoesRecebidas($bruno));
+        self::assertSame([(string) $eu->getId()], $espiao->chavesConsumidas);
     }
 
     #[TestDox('Ex-colaborador (vínculo inativo) mencionado não recebe e perde a marcação')]

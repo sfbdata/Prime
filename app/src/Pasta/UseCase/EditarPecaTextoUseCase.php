@@ -12,6 +12,7 @@ use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\Sha256DeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
 
 /**
  * Regrava o HTML de uma peça existente, na MESMA chave, e atualiza tamanho, título e `sha256`.
@@ -44,6 +45,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * O backend grava num vizinho e publica com `rename()` — a peça nunca fica truncada no meio da
  * gravação (antes, o `file_put_contents` truncava no lugar). Os campos da entidade só mudam
  * depois de o conteúdo novo estar publicado.
+ *
+ * ## Editar o texto é modificar o arquivo
+ *
+ * A coluna "Modificado" da aba Documentos é `modificado_em ?? carregado_em`: a peça editada
+ * marca `modificado_em` com o instante da edição (relógio injetado), junto com os demais campos.
  */
 final class EditarPecaTextoUseCase
 {
@@ -53,6 +59,7 @@ final class EditarPecaTextoUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly ClockInterface $clock,
     ) {}
 
     /**
@@ -78,6 +85,7 @@ final class EditarPecaTextoUseCase
         $armazenado = $this->armazenamento->gravar($chave, FonteDeConteudo::deTexto($conteudoHtml));
         $doc->setTamanhoBytes($armazenado->tamanhoBytes);
         $doc->setSha256(Sha256DeArquivo::deTexto($conteudoHtml));
+        $doc->marcarModificadoEm($this->clock->now());
 
         if ($novoTitulo !== null) {
             $doc->setTitulo($novoTitulo);

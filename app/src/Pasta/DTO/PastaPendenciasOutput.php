@@ -18,7 +18,9 @@ use App\Pasta\Entity\PastaPagamento;
  *  · Processo   → nenhum processo vinculado;
  *  · Financeiro → contrato pendente e sem pró-bono (regra primária do desenho:
  *                 contrato assinado OU pró-bono = pasta regularizada), somando os
- *                 pagamentos vencidos quando houver;
+ *                 pagamentos vencidos quando houver — e SÓ para quem vê o financeiro
+ *                 (`VisibilidadeDoFinanceiroDaPasta`): "N pagamentos vencidos" é dado
+ *                 financeiro, na linha da aba e no resumo impresso;
  *  · Documentos → item do checklist MARCADO como entregue sem nenhum arquivo
  *                 correspondente na pasta (`ConferenciaDeAnexosDoChecklist`, DOC-74/76);
  *  · Push       → publicação não lida.
@@ -44,6 +46,8 @@ final readonly class PastaPendenciasOutput
      *                                    `$pushNaoLidas` é `PastaPushOutput::naoLidas`.
      *                                    `$itensMarcadosSemAnexo` é
      *                                    `ConferenciaDeAnexosDoChecklist::totalMarcadosSemAnexo()`.
+     *                                    `$veFinanceiro` é `VisibilidadeDoFinanceiroDaPasta::podeVer()`;
+     *                                    o padrão é FECHADO: quem não diz, não vê.
      */
     public static function montar(
         Pasta $pasta,
@@ -51,6 +55,7 @@ final readonly class PastaPendenciasOutput
         array $pagamentos,
         ?\DateTimeImmutable $hoje = null,
         int $itensMarcadosSemAnexo = 0,
+        bool $veFinanceiro = false,
     ): self {
         $porAba = [];
 
@@ -74,7 +79,7 @@ final readonly class PastaPendenciasOutput
         // Contrato assinado ("REGULAR") ou pró-bono = regularizado: sem traço vermelho,
         // mesmo com pagamento vencido — é a regra primária do desenho.
         $regular = $pasta->getSituacaoContrato() !== 'PENDENTE' || $pasta->isProBono();
-        if (!$regular) {
+        if ($veFinanceiro && !$regular) {
             $vencidos = 0;
             foreach ($pagamentos as $pagamento) {
                 if ($pagamento->estaVencido($hoje)) {

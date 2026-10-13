@@ -13,6 +13,76 @@
 (function () {
     'use strict';
 
+    /* ── Arrastar janelinhas (PAS-023; README do pacote, "Janelinhas arrastáveis") ──
+       Utilitário único: o arraste que nasceu na janela "Detalhes do cliente"
+       (pasta-clientes.js) saiu de lá para cá e vale também para o modal Editar dados
+       e para as tarjas dos menus. Fica no `window` na carga do script (antes do
+       DOMContentLoaded): o pasta-clientes.js é `defer` e roda depois deste.
+         ligar({ cabecalho, janela(cab), posicionar(janela, x, y)? })
+       Com `posicionar`, a janela é movida pelo dono (left/top). Sem ele, o
+       utilitário desloca a janela pela propriedade CSS `translate` — que não briga
+       com o `transform` do Bootstrap no modal nem com o do próprio X — e `zerar`
+       a devolve à âncora. Botão, link e campo no cabeçalho continuam clicáveis. */
+    window.PsArrastar = (function () {
+        var NAO_ARRASTA = 'button, a, input, textarea, select, label, [contenteditable="true"]';
+
+        function zerar(janela) {
+            if (!janela) { return; }
+            delete janela.dataset.psArrasteX;
+            delete janela.dataset.psArrasteY;
+            janela.style.translate = '';
+        }
+
+        function ligar(opcoes) {
+            document.addEventListener('pointerdown', function (e) {
+                var cab = e.target.closest ? e.target.closest(opcoes.cabecalho) : null;
+                if (!cab || e.target.closest(NAO_ARRASTA)) { return; }
+                if (e.button !== undefined && e.button !== 0) { return; }
+                var janela = opcoes.janela(cab);
+                if (!janela) { return; }
+                e.preventDefault();
+
+                var x0 = e.clientX;
+                var y0 = e.clientY;
+                var base = opcoes.posicionar
+                    ? [janela.offsetLeft, janela.offsetTop]
+                    : [parseFloat(janela.dataset.psArrasteX) || 0, parseFloat(janela.dataset.psArrasteY) || 0];
+                var andou = false;
+                janela.classList.add('is-arrastando');
+
+                function mover(ev) {
+                    var x = base[0] + ev.clientX - x0;
+                    var y = base[1] + ev.clientY - y0;
+                    if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) > 3) { andou = true; }
+                    if (opcoes.posicionar) { opcoes.posicionar(janela, x, y); return; }
+                    janela.dataset.psArrasteX = String(x);
+                    janela.dataset.psArrasteY = String(y);
+                    janela.style.translate = x + 'px ' + y + 'px';
+                }
+                // PAS-022b: `pointercancel` (o navegador tomou o gesto: rolagem, toque
+                // interrompido) solta como o `pointerup` — senão o `pointermove` fica
+                // ligado e a janela segue o dedo/cursor no próximo movimento.
+                function soltar() {
+                    window.removeEventListener('pointermove', mover);
+                    window.removeEventListener('pointerup', soltar);
+                    window.removeEventListener('pointercancel', soltar);
+                    janela.classList.remove('is-arrastando');
+                    if (!andou) { return; }
+                    // Soltar fora do cabeçalho gera um clique no ancestral comum, que
+                    // os menus leem como "clique fora" e fechariam: engole só esse.
+                    var engolir = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+                    window.addEventListener('click', engolir, { capture: true, once: true });
+                    setTimeout(function () { window.removeEventListener('click', engolir, { capture: true }); }, 0);
+                }
+                window.addEventListener('pointermove', mover);
+                window.addEventListener('pointerup', soltar);
+                window.addEventListener('pointercancel', soltar);
+            });
+        }
+
+        return { ligar: ligar, zerar: zerar };
+    }());
+
     document.addEventListener('DOMContentLoaded', function () {
         var pagina = document.querySelector('.ps-page');
         if (!pagina) { return; }
@@ -20,6 +90,7 @@
         indicadorDeAbas();
         drawerDeHistorico();
         popovers();
+        arrasteDasJanelas();
         atalhosDeAba();
         verAnotacoesAnteriores();
         acoesDoMenu();
@@ -144,12 +215,20 @@
             var alvo = document.getElementById(gatilho.getAttribute('data-ps-pop'));
             if (!alvo) { return; }
 
+            botaoFechar(alvo, function () {
+                alvo.classList.remove('is-aberto');
+                gatilho.setAttribute('aria-expanded', 'false');
+                gatilho.focus();
+            });
+
             gatilho.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var vaiAbrir = !alvo.classList.contains('is-aberto');
                 // Abrir um fecha o outro — foi o pedido do desenho, e evita dois
                 // paineis sobrepostos no mesmo canto.
                 fecharTodos(vaiAbrir ? alvo : null);
+                // Menu arrastado volta a abrir junto do gatilho (PAS-023).
+                if (vaiAbrir) { window.PsArrastar.zerar(alvo); }
                 alvo.classList.toggle('is-aberto', vaiAbrir);
                 gatilho.setAttribute('aria-expanded', vaiAbrir ? 'true' : 'false');
             });
@@ -168,6 +247,72 @@
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { fecharTodos(null); }
+        });
+    }
+
+    /* X de fechar em toda janelinha (PAS-022; README do pacote, "X de fechar em toda
+       janelinha", e `bluejus-central.js`): canto superior direito, branco sobre a tarja
+       azul quando o menu tem uma, cinza no fundo claro quando não tem. Esc e clique fora
+       continuam fechando. `data-sem-x` no painel desliga; quem já tem o próprio X
+       (`.ps-pop-x`) não ganha outro. */
+    function botaoFechar(painel, fechar) {
+        if (painel.hasAttribute('data-sem-x') || painel.querySelector('.ps-pop-x')) { return; }
+
+        var tarja = painel.querySelector(':scope > .ps-pop-tarja');
+        var botao = document.createElement('button');
+        botao.type      = 'button';
+        botao.className = 'ps-pop-x' + (tarja ? ' ps-pop-x--tarja' : '');
+        botao.title     = 'Fechar (Esc)';
+        botao.setAttribute('aria-label', 'Fechar');
+        botao.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">'
+            + '<path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+        botao.addEventListener('click', function (e) {
+            // Sem propagar: o clique no corpo do painel não fecha (ver popovers), e o
+            // X não é um item com ação própria.
+            e.preventDefault();
+            e.stopPropagation();
+            fechar();
+        });
+
+        (tarja || painel).appendChild(botao);
+    }
+
+    /* PAS-022b: religar o X nos popovers que chegaram DEPOIS do carregamento (as linhas
+       das Metas trocadas pelo XHR do pasta-metas.js nascem sem ele, porque `popovers()`
+       liga cada `data-ps-pop` uma vez só). Mesmo X e mesmo fechar de `popovers()`; o
+       `botaoFechar` não duplica o X de quem já tem. Fica no `window` na carga do script:
+       o pasta-metas.js é carregado antes deste e só chama depois da troca. */
+    window.PsPopovers = {
+        religar: function (raiz) {
+            Array.prototype.forEach.call((raiz || document).querySelectorAll('[data-ps-pop]'), function (gatilho) {
+                var alvo = document.getElementById(gatilho.getAttribute('data-ps-pop'));
+                if (!alvo) { return; }
+                botaoFechar(alvo, function () {
+                    alvo.classList.remove('is-aberto');
+                    gatilho.setAttribute('aria-expanded', 'false');
+                    gatilho.focus();
+                });
+            });
+        }
+    };
+
+    /* Onde o arraste vale nesta tela (PAS-023): a tarja azul dos menus do
+       cabeçalho e o cabeçalho do modal Editar dados. O modal volta ao centro
+       quando fecha. */
+    function arrasteDasJanelas() {
+        window.PsArrastar.ligar({
+            cabecalho: '.ps-pop.is-aberto > .ps-pop-tarja',
+            janela: function (cab) { return cab.closest('.ps-pop'); }
+        });
+
+        var modal = document.getElementById('modalEditarPasta');
+        if (!modal) { return; }
+        window.PsArrastar.ligar({
+            cabecalho: '#modalEditarPasta .ps-modal-pasta-cab',
+            janela: function (cab) { return cab.closest('.modal-dialog'); }
+        });
+        modal.addEventListener('hidden.bs.modal', function () {
+            window.PsArrastar.zerar(modal.querySelector('.modal-dialog'));
         });
     }
 
@@ -209,29 +354,37 @@
         }
 
         // "Copiar link": real — a URL da pasta vai para a area de transferencia.
-        // O rotulo do item vira "Link copiado" por um instante e o menu fecha.
+        // Desenho (`mCopiar`): o rotulo vira "Link copiado", o icone troca de
+        // bi-link para bi-check2 e o menu fecha em 900 ms. Na falha o icone
+        // fica o bi-link: o check diria que copiou.
         var copiar = document.querySelector('.js-copiar-link');
         if (copiar) {
-            copiar.addEventListener('click', function () {
-                var rotulo   = copiar.querySelector('.js-copiar-link-rotulo');
-                var original = rotulo ? rotulo.textContent : '';
-                var link     = copiar.getAttribute('data-link') || window.location.href;
+            var rotuloCopiar   = copiar.querySelector('.js-copiar-link-rotulo');
+            var iconeCopiar    = copiar.querySelector('i.bi');
+            var originalCopiar = rotuloCopiar ? rotuloCopiar.textContent : '';
+            var esperaCopiar   = null;
 
-                function avisar(texto) {
-                    if (rotulo) { rotulo.textContent = texto; }
-                    setTimeout(function () {
-                        if (rotulo) { rotulo.textContent = original; }
+            copiar.addEventListener('click', function () {
+                var link = copiar.getAttribute('data-link') || window.location.href;
+
+                function avisar(texto, copiou) {
+                    if (rotuloCopiar) { rotuloCopiar.textContent = texto; }
+                    if (iconeCopiar && copiou) { iconeCopiar.classList.replace('bi-link', 'bi-check2'); }
+                    clearTimeout(esperaCopiar);
+                    esperaCopiar = setTimeout(function () {
+                        if (rotuloCopiar) { rotuloCopiar.textContent = originalCopiar; }
+                        if (iconeCopiar) { iconeCopiar.classList.replace('bi-check2', 'bi-link'); }
                         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
-                    }, 1600);
+                    }, 900);
                 }
 
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(link).then(
-                        function () { avisar('Link copiado'); },
-                        function () { avisar('Não foi possível copiar'); }
+                        function () { avisar('Link copiado', true); },
+                        function () { avisar('Não foi possível copiar', false); }
                     );
                 } else {
-                    avisar('Não foi possível copiar');
+                    avisar('Não foi possível copiar', false);
                 }
             });
         }

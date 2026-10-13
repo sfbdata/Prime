@@ -559,3 +559,20 @@
     color: var(--ds-link-hover);
     text-decoration: underline;
 }
+
+/* DOC-106 (dc L2158): "Possíveis arquivos duplicados" — coluna com gap de 4px, 12px no roxo
+   secundário; o título em negrito no roxo do texto, com o ícone bi-files. */
+.ds-sug-dup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--ds-roxo-texto2);
+}
+.ds-sug-dup-titulo {
+    font-weight: 700;
+    color: var(--ds-roxo-texto);
+}
+.ds-sug-dup-par {
+    overflow-wrap: anywhere;
+}

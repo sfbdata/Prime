@@ -95,6 +95,189 @@ final class MascaradorDeDadosPessoaisTest extends TestCase
     {
         self::assertSame('[CPF]', $this->mascarador->mascarar('123.456.789-09'));
         self::assertSame('[EMAIL]', $this->mascarador->mascarar('x@y.org'));
+        self::assertSame('[CPF]', $this->mascarador->mascarar('12345678909'));
+        self::assertSame('[CNPJ]', $this->mascarador->mascarar('11222333000181'));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function documentosSemPontuacao(): iterable
+    {
+        yield 'CPF válido' => ['Autor CPF 12345678909, residente', 'Autor CPF [CPF], residente'];
+        yield 'outro CPF válido' => ['cpf:52998224725.', 'cpf:[CPF].'];
+        yield 'CNPJ válido' => ['Ré ACME, CNPJ 11222333000181', 'Ré ACME, CNPJ [CNPJ]'];
+        yield 'outro CNPJ válido' => ['(11444777000161)', '([CNPJ])'];
+        yield 'formatado e sem pontuação juntos' => [
+            'CPF 123.456.789-09 e 52998224725; CNPJ 11.222.333/0001-81 e 11444777000161',
+            'CPF [CPF] e [CPF]; CNPJ [CNPJ] e [CNPJ]',
+        ];
+    }
+
+    #[DataProvider('documentosSemPontuacao')]
+    #[TestDox('mascara CPF/CNPJ sem pontuação com DV válido: $_dataName')]
+    public function testMascaraDocumentoSemPontuacao(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function digitosQueNaoSaoDocumento(): iterable
+    {
+        yield '11 dígitos com DV de CPF inválido' => ['protocolo 12345678900'];
+        yield '14 dígitos com DV de CNPJ inválido' => ['protocolo 11222333000180'];
+        yield '11 dígitos repetidos (passam no cálculo)' => ['código 00000000000'];
+        yield '14 dígitos repetidos (passam no cálculo)' => ['código 00000000000000'];
+        yield 'telefone sem pontuação que não passa no DV' => ['ligar 61999991234'];
+        yield '12 dígitos que começam com CPF válido' => ['ref 123456789091'];
+        yield '15 dígitos que começam com CNPJ válido' => ['ref 112223330001810'];
+        // CNJ sem pontuação (20 dígitos): começa com um CPF válido e termina com um CNPJ válido.
+        // Nenhum pedaço pode virar máscara.
+        yield 'CNJ sem pontuação com CPF válido no começo' => ['autos 12345678909250807000'];
+        yield 'CNJ sem pontuação com CNPJ válido no fim' => ['autos 00000011222333000181'];
+    }
+
+    #[DataProvider('digitosQueNaoSaoDocumento')]
+    #[TestDox('não mascara sequência de dígitos que não é CPF/CNPJ: $_dataName')]
+    public function testNaoMascaraDigitosQueNaoSaoDocumento(string $entrada): void
+    {
+        self::assertSame($entrada, $this->mascarador->mascarar($entrada));
+    }
+
+    #[TestDox('número CNJ formatado continua intacto ao lado de CPF e CNPJ sem pontuação')]
+    public function testCnjFormatadoIntactoComDocumentosSemPontuacao(): void
+    {
+        $entrada = 'Processo 0701134-57.2025.8.07.0007, autor 12345678909, ré 11222333000181.';
+
+        self::assertSame(
+            'Processo 0701134-57.2025.8.07.0007, autor [CPF], ré [CNPJ].',
+            $this->mascarador->mascarar($entrada),
+        );
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function cpfComPontuacaoParcial(): iterable
+    {
+        yield 'só o hífen' => ['Autor CPF 123456789-09.', 'Autor CPF [CPF].'];
+        yield 'pontos e espaço antes do DV' => ['CPF 123.456.789 09, residente', 'CPF [CPF], residente'];
+        yield 'só espaços' => ['CPF 123 456 789 09', 'CPF [CPF]'];
+        yield 'pontos sem o hífen' => ['cpf 529.982.24725', 'cpf [CPF]'];
+        yield 'um ponto só' => ['cpf 529982.247-25', 'cpf [CPF]'];
+    }
+
+    #[DataProvider('cpfComPontuacaoParcial')]
+    #[TestDox('mascara CPF com pontuação parcial ou espaços e DV válido: $_dataName')]
+    public function testMascaraCpfComPontuacaoParcial(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function cnpjAlfanumericoEVariantes(): iterable
+    {
+        // Exemplo oficial do manual do SERPRO/Receita: 12.ABC.345/01DE-35.
+        yield 'alfanumérico formatado (exemplo oficial)' => ['Ré CNPJ 12.ABC.345/01DE-35.', 'Ré CNPJ [CNPJ].'];
+        yield 'alfanumérico sem pontuação (exemplo oficial)' => ['Ré CNPJ 12ABC34501DE35', 'Ré CNPJ [CNPJ]'];
+        yield 'alfanumérico com pontuação parcial' => ['CNPJ 12ABC345/01DE-35', 'CNPJ [CNPJ]'];
+        yield 'outro alfanumérico formatado' => ['(ZZ.1XY.234/0001-90)', '([CNPJ])'];
+        yield 'alfanumérico só ele (remove tudo)' => ['A1B2C3D4E5F668', '[CNPJ]'];
+        yield 'numérico só com barra e hífen' => ['CNPJ 11222333/0001-81', 'CNPJ [CNPJ]'];
+        yield 'numérico só com os pontos' => ['CNPJ 11.222.333000181', 'CNPJ [CNPJ]'];
+        yield 'numérico com espaços' => ['CNPJ 11 222 333 0001 81', 'CNPJ [CNPJ]'];
+    }
+
+    #[DataProvider('cnpjAlfanumericoEVariantes')]
+    #[TestDox('mascara CNPJ alfanumérico e variantes de formato com DV válido: $_dataName')]
+    public function testMascaraCnpjAlfanumericoEVariantes(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function variantesQueNaoSaoDocumento(): iterable
+    {
+        yield 'CPF com hífen e DV inválido' => ['cpf 123456789-00'];
+        yield 'CPF com espaços e DV inválido' => ['cpf 123 456 789 00'];
+        yield 'CPF com espaços de um dígito só repetido' => ['código 111 111 111 11'];
+        yield 'CNPJ alfanumérico com DV inválido' => ['CNPJ 12.ABC.345/01DE-36'];
+        yield 'CNPJ alfanumérico sem pontuação com DV inválido' => ['CNPJ 12ABC34501DE36'];
+        yield 'CNPJ alfanumérico em minúsculas (fora da tabela oficial)' => ['código 12abc34501de35'];
+        yield 'CNPJ alfanumérico colado a letra antes' => ['código X12ABC34501DE35'];
+        yield 'CNPJ alfanumérico colado a dígito depois' => ['código 12ABC34501DE357'];
+        yield 'CNPJ numérico com espaços e DV inválido' => ['CNPJ 11 222 333 0001 80'];
+        yield 'palavras em caixa alta no formato 2-3-3-4 + 2 dígitos' => ['DE ANA LUZ RUAS 12'];
+        yield 'CPF válido no meio de uma lista de números com espaço' => ['valores 100 123 456 789 09 5'];
+        yield 'valor em reais com milhar no formato do CPF' => ['R$ 123.456.789,09'];
+        yield 'telefone fixo com espaços' => ['fone 61 3333 4444'];
+        yield 'telefone celular com espaços' => ['fone 61 9 9999 1234'];
+    }
+
+    #[DataProvider('variantesQueNaoSaoDocumento')]
+    #[TestDox('não mascara variante de formato que não é CPF/CNPJ: $_dataName')]
+    public function testNaoMascaraVarianteQueNaoEhDocumento(string $entrada): void
+    {
+        self::assertSame($entrada, $this->mascarador->mascarar($entrada));
+    }
+
+    #[TestDox('telefone continua [TEL], não vira CPF, com as variantes novas ativas')]
+    public function testTelefoneContinuaTelefone(): void
+    {
+        self::assertSame('Contato [TEL] ou [TEL]', $this->mascarador->mascarar('Contato (61) 99999-1234 ou 61 99999-1234'));
+    }
+
+    #[TestDox('número CNJ formatado continua intacto ao lado de CPF parcial e CNPJ alfanumérico')]
+    public function testCnjIntactoComVariantesNovas(): void
+    {
+        $entrada = 'Processo 0701134-57.2025.8.07.0007, autor 123 456 789 09, ré 12.ABC.345/01DE-35.';
+
+        self::assertSame(
+            'Processo 0701134-57.2025.8.07.0007, autor [CPF], ré [CNPJ].',
+            $this->mascarador->mascarar($entrada),
+        );
+    }
+
+    /**
+     * IA-033: o `&nbsp;` do HTML do DJEN vira U+00A0 no `html_entity_decode`. Onde as variantes
+     * aceitam espaço, aceitam NBSP — e o resto do texto volta byte a byte (o NBSP fora do documento
+     * NÃO é trocado por espaço).
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function comEspacoInquebravel(): iterable
+    {
+        $n = "\u{00A0}";
+        yield 'CPF só com NBSP' => ["CPF{$n}123{$n}456{$n}789{$n}09.", "CPF{$n}[CPF]."];
+        yield 'CPF com pontos e NBSP antes do DV' => ["CPF 123.456.789{$n}09", 'CPF [CPF]'];
+        yield 'CPF misturando espaço e NBSP' => ["CPF 123 456{$n}789 09", 'CPF [CPF]'];
+        yield 'CNPJ numérico com NBSP' => ["CNPJ 11{$n}222{$n}333{$n}0001{$n}81", 'CNPJ [CNPJ]'];
+        yield 'telefone com NBSP depois do DDD' => ["Tel (61){$n}99999-1234", 'Tel [TEL]'];
+        yield 'celular com DDD e NBSP' => ["WhatsApp 61{$n}99999-1234", 'WhatsApp [TEL]'];
+        yield 'CNJ ao lado, separado por NBSP' => [
+            "autos 0701134-57.2025.8.07.0007{$n}e CPF 123{$n}456{$n}789{$n}09",
+            "autos 0701134-57.2025.8.07.0007{$n}e CPF [CPF]",
+        ];
+    }
+
+    #[DataProvider('comEspacoInquebravel')]
+    #[TestDox('NBSP (U+00A0) vale como espaço nas variantes com separador: $_dataName')]
+    public function testMascaraComEspacoInquebravel(string $entrada, string $esperado): void
+    {
+        self::assertSame($esperado, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function comEspacoInquebravelQueNaoEhDocumento(): iterable
+    {
+        $n = "\u{00A0}";
+        yield 'CPF com NBSP e DV inválido' => ["cpf 123{$n}456{$n}789{$n}00"];
+        yield 'CPF válido no meio de lista separada por NBSP (borda)' => ["valores 100{$n}123{$n}456{$n}789{$n}09{$n}5"];
+        yield 'CNPJ com NBSP e DV inválido' => ["CNPJ 11{$n}222{$n}333{$n}0001{$n}80"];
+        yield 'texto sem PII com NBSP volta byte a byte' => ["Intime-se{$n}a{$n}parte{$n}autora."];
+    }
+
+    #[DataProvider('comEspacoInquebravelQueNaoEhDocumento')]
+    #[TestDox('NBSP não abre brecha para mascarar o que não é documento: $_dataName')]
+    public function testNaoMascaraComEspacoInquebravelQueNaoEhDocumento(string $entrada): void
+    {
+        self::assertSame($entrada, $this->mascarador->mascarar($entrada));
     }
 
     #[TestDox('string vazia continua vazia')]

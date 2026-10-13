@@ -17,6 +17,15 @@
    Contexto: `pasta`, `push` (App\Pasta\DTO\PastaPushOutput), `analisesIa`
    (App\Inteligencia\DTO\AnalisesDaPastaOutput, ou null sem `modules.inteligencia.view`).
    ============================================================================ #}
+{# FPN-014c: o menu do cartão só oferece a escrita que o servidor vai aceitar. Nota técnica e
+   Criar tarefa exigem EDIT da pasta e pasta viva (a lápide é recusada pelo
+   PastaSomenteLeituraListener); a nota ainda exige o processo da pasta (sem ele o teor não traz
+   o bloco de notas). "Marcar como (não) lida" é escrita que o `pasta_push_lida` aceita com VIEW,
+   mas é POST com a pasta: na lápide o mesmo listener a recusa, então ela some só ali. Leituras
+   (Abrir documento, Copiar texto) ficam sempre. `podeEditarPasta` vem do show (fallback: aqui). #}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set pushPastaViva = not pasta.estaExcluida %}
+{% set pushPodeEscrever = pushPastaViva and podeEditarPasta %}
 <section class="ps-card ps-push" data-aba="push">
     <div class="ps-card-cab ps-card-cab--faixa">
         <h2>Movimentações recebidas</h2>
@@ -76,14 +85,15 @@
            lidas, que é o mesmo dado do selo da aba. "Geram prazo" é a regra FIXA do desenho sobre o
            tipo da comunicação (dc L.5414, `/Intima|Decis/`; PastaPushOutput::tipoGeraPrazo) — não
            calcula prazo nenhum (D-PRAZOS segue fora). O filtro roda no navegador (pasta-push.js) —
-           a lista inteira já está na página. #}
-        {% if push.total > 0 %}
-            <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
-                <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
-                <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
-                <button type="button" class="ps-push-filtro" data-push-filtro="prazo" aria-pressed="false">Geram prazo</button>
-            </div>
-        {% endif %}
+           a lista inteira já está na página.
+           FPN-032: os filtros ficam à vista também com a lista vazia (dc L.2419-2421: o cabeçalho
+           não depende de `push.vazio`). Sem lista, o clique só troca o botão ativo — o
+           pasta-push.js não acha `.ps-push-lista` e o vazio da aba continua o que está na tela. #}
+        <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
+            <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
+            <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
+            <button type="button" class="ps-push-filtro" data-push-filtro="prazo" aria-pressed="false">Geram prazo</button>
+        </div>
     </div>
 
     {# Análises da BlueJus IA logo abaixo do cabeçalho, acima da linha do tempo (dc L.2427). O
@@ -129,6 +139,12 @@
            auditoria 2 U1): o ponto se mede pelo cartão, não pelo <li> que inclui a
            pílula do dia. O teor fica fora, irmão do wrapper, como sempre.
 
+           O título do cartão é o trecho curto do teor, em caixa alta (dc L.2514/5378,
+           `titulo: m.texto`; FPN-012): `textoResumo`, texto puro já cortado no DTO e
+           escapado aqui. Sem teor, cai no órgão e depois no tipo, como era. O desenho
+           não mostra o órgão no cartão; para não sumir com ele, o órgão fica na dica
+           (`title`) da linha da fonte.
+
            A cor da pílula do tipo vem de `tipoComunicacao` (dc L.5365 `TT`, U3):
            Intimação vermelho, Decisão/Despacho/Sentença azul, Citação verde, o
            resto cinza. Comparação sem acento e sem caixa, pelo começo da palavra
@@ -144,9 +160,12 @@
                 {% else %}
                     {% set diaPushTxt = diaPush ?: 'Sem data' %}
                 {% endif %}
+                {% set notasPush = push.notasDe(item) %}
                 <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
                     data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}"
-                    data-push-gera-prazo="{{ push.geraPrazo(item) ? '1' : '0' }}">
+                    data-push-lida-url="{{ path('pasta_push_lida', {id: pasta.id, publicacaoId: item.id}) }}"
+                    data-push-gera-prazo="{{ push.geraPrazo(item) ? '1' : '0' }}"
+                    data-push-aceita-nota="{{ pushPodeEscrever and push.aceitaNotaTecnica(item) ? '1' : '0' }}">
                     <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPushTxt }}</span></div>
                     {% set diaAnteriorPush = diaPush %}
                     {% set tipoPush = (item.tipoComunicacao ?? '')|lower|replace({'ç': 'c', 'ã': 'a', 'á': 'a', 'â': 'a', 'é': 'e', 'ê': 'e', 'í': 'i', 'ó': 'o', 'õ': 'o', 'ú': 'u'})|trim %}
@@ -159,20 +178,36 @@
                     {% else %}
                         {% set tipoPushMod = 'outro' %}
                     {% endif %}
+                    {# Cor do ponto por quem praticou o ato (dc L.5365 `COR`, L.5375; FPN-019). Juízo
+                       (decisão, despacho, sentença, mandado, acórdão) em azul; o resto é ato de
+                       cartório/servidor, em vermelho — no desenho, o que tem documento e não é do
+                       juízo cai em "cartório", e toda publicação do DJEN é um documento. Polo ativo
+                       (verde) e passivo (laranja) não se deduzem do tipo e ficam sem uso; o cinza
+                       ("movimentação sem documento") não existe no DJEN. #}
+                    {% if tipoPush starts with 'decis' or tipoPush starts with 'despacho' or tipoPush starts with 'senten' or tipoPush starts with 'mandado' or tipoPush starts with 'acordao' %}
+                        {% set pontoPushMod = 'juizo' %}
+                        {% set pontoPushDica = 'Ato do juízo (decisão, despacho, sentença, mandado)' %}
+                    {% else %}
+                        {% set pontoPushMod = 'cartorio' %}
+                        {% set pontoPushDica = 'Cartório / servidor (certidão, diligência, intimação)' %}
+                    {% endif %}
                     <div class="ps-push-cartao">
-                        <span class="ps-push-ponto" aria-hidden="true"></span>
+                        <span class="ps-push-ponto ps-push-ponto--{{ pontoPushMod }}" title="{{ pontoPushDica }}" aria-hidden="true"></span>
+                        {# A dica só onde o item existe (FPN-014c): prometer a nota e recusar depois de
+                           abrir o cartão (e marcá-lo como lido) era o defeito. #}
                         <button type="button" class="ps-push-cab"
+                                {% if pushPodeEscrever and push.aceitaNotaTecnica(item) %}title="Clique com o botão direito para adicionar uma nota técnica"{% endif %}
                                 aria-expanded="false"
                                 aria-controls="push-teor-{{ item.id }}"
-                                data-push-url="{{ path('pasta_push_teor', {id: pasta.id, publicacaoId: item.id}) }}">
+                                data-push-url="{{ path('pasta_push_teor', notasPush is empty ? {id: pasta.id, publicacaoId: item.id} : {id: pasta.id, publicacaoId: item.id, penduradas: 1}) }}">
                             <span class="ps-push-assunto">
                                 <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
-                                <span class="ps-push-assunto-txt">{{ item.nomeOrgao ?: (item.tipoComunicacao ?? 'Publicação') }}</span>
+                                <span class="ps-push-assunto-txt">{{ item.textoResumo ?: (item.nomeOrgao ?: (item.tipoComunicacao ?? 'Publicação')) }}</span>
                                 {% if not item.lida %}<span class="ps-push-novo" title="Não lida">Novo</span>{% endif %}
                             </span>
                             <span class="ps-push-corpo">
                                 <span class="ps-push-titulo ps-push-titulo--{{ tipoPushMod }}">{{ item.tipoComunicacao ?? 'Publicação' }}</span>
-                                <span class="ps-push-meta">
+                                <span class="ps-push-meta"{% if item.nomeOrgao and item.textoResumo %} title="{{ item.nomeOrgao }}"{% endif %}>
                                     {{- item.siglaTribunal -}}
                                     {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
                                 </span>
@@ -181,9 +216,70 @@
                         </button>
                     </div>
                     <div class="ps-push-teor" id="push-teor-{{ item.id }}" hidden></div>
+                    {# FPN-020 (dc L.2534-2551, `m.temNotas`): as notas técnicas desta movimentação
+                       penduradas sob o cartão, à vista com o teor FECHADO — ler a nota não abre o
+                       teor (que marcaria a publicação como lida). Fica depois do teor: aberto, ele é
+                       o corpo do cartão, e a nota segue pendurada no conjunto. É o mesmo bloco do teor
+                       e da aba Processo (`#notas-publicacao-<id>`, com o compositor para quem
+                       escreve), então o teor, avisado por `penduradas=1`, não o repete. Fora do
+                       `.ps-push-cartao` de propósito: o botão direito ali é o menu da movimentação,
+                       e aqui é o ⋮ da nota (nota-tecnica.js). O processo do compositor é o da
+                       PUBLICAÇÃO (FPN-020b), não o da primeira nota: a movimentação pode ter
+                       notas antigas de outro processo da pasta, e a nota nova iria para ele. Sem
+                       processo da pasta que case com o número, o bloco só mostra (sem compositor).
+                       A mesma nota também está na aba Processo: aqui os ids levam `-push` (o
+                       canônico fica lá, que é o destino da âncora da @menção). #}
+                    {% if notasPush is not empty %}
+                        {% set processoDoPush = push.processoIdDaPublicacao(item, pasta) %}
+                        {{ include('processo/_notas_tecnicas.html.twig', {
+                            notas: notasPush,
+                            processoId: processoDoPush ?? (notasPush|first).processoId,
+                            publicacaoId: item.id,
+                            pastaId: pasta.id,
+                            mostrarMovimentacao: false,
+                            podeEscreverNota: pushPodeEscrever and processoDoPush is not null,
+                            idSufixoNota: '-push',
+                        }) }}
+                    {% endif %}
                 </li>
             {% endfor %}
         </ul>
+        {# Botão direito no cartão (dc L.5394 `ctx`, README L.125-127; FPN-014). UM menu para a
+           lista inteira, preenchido pelo pasta-push.js com o cartão clicado. Cada item aciona o
+           que JÁ existe no teor: o "Adicionar nota técnica" do bloco de notas, o "Criar tarefa"
+           (modal de nova meta), o "Marcar como (não) lida" (POST `pasta_push_lida`, mesma URL e
+           mesmo CSRF do botão do teor; a URL vem no <li>, o token aqui) e o "Abrir documento"
+           (o link do PJe da linha do documento do teor), e a cópia do texto. Ordem do desenho
+           (dc L.5385): tarefa, lida, documento. Ficam de fora os itens do desenho sem lastro
+           aqui: "Encaminhar via Chat I.A" (FPN-016) e o link externo (FPN-015). Teclado e toque
+           seguem pelos botões do teor, como antes. #}
+        <div class="ps-push-menu" id="pushMenuContexto" role="menu" aria-label="Ações da movimentação"
+             data-lida-token="{{ csrf_token('pasta_push_lida_' ~ pasta.id) }}" hidden>
+            <div class="ps-push-menu-titulo"></div>
+            {% if pushPodeEscrever %}
+                {# Some por cartão (data-push-aceita-nota="0"), junto com o separador dele. #}
+                <button type="button" class="ps-push-menu-item js-push-menu-nota" role="menuitem">
+                    <i class="bi bi-journal-plus" aria-hidden="true"></i><span>Adicionar nota técnica</span>
+                </button>
+                <div class="ps-push-menu-sep js-push-menu-sep-nota" role="separator"></div>
+                <button type="button" class="ps-push-menu-item js-push-menu-tarefa" role="menuitem">
+                    <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+                </button>
+            {% endif %}
+            {% if pushPastaViva %}
+                {# Rótulo e ícone trocados pelo JS conforme a linha esteja nova ou lida. #}
+                <button type="button" class="ps-push-menu-item js-push-menu-lida" role="menuitem">
+                    <i class="bi bi-envelope-open" aria-hidden="true"></i><span class="js-push-menu-lida-rotulo">Marcar como lida</span>
+                </button>
+            {% endif %}
+            <button type="button" class="ps-push-menu-item js-push-menu-documento" role="menuitem">
+                <i class="bi bi-file-earmark-text" aria-hidden="true"></i><span>Abrir documento</span>
+            </button>
+            <div class="ps-push-menu-sep" role="separator"></div>
+            <button type="button" class="ps-push-menu-item js-push-menu-copiar" role="menuitem">
+                <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
+            </button>
+        </div>
         {# Texto do desenho para o filtro que não sobra nada (`vazioTxt`, dc L.5426). #}
         <div class="ps-push-vazio-linha ps-push-vazio-filtro" id="push-vazio-filtro" hidden>Nenhuma movimentação neste filtro.</div>
         {% if push.limiteAtingido %}
@@ -196,7 +292,8 @@
         {% endif %}
     {% endif %}
 </section>
-{# Filtro, selo da aba, copiar ID, marcar (não) lida e criar tarefa a partir da publicação. #}
+{# Filtro, selo da aba, copiar ID, marcar (não) lida, criar tarefa a partir da publicação e o
+   menu do botão direito no cartão. #}
 <script src="{{ asset('js/pasta-push.js') }}" defer></script>
 {% if analisesIa is not null %}
     {# BlueJus IA: pedir, acompanhar (polling 2 s), recarregar a lista e as ações de cada análise. #}

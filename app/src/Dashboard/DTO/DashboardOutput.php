@@ -64,5 +64,13 @@ final class DashboardOutput
          * @var array<string, int|null>
          */
         public readonly array  $totaisExtras = [],
+        /**
+         * Total de cada extra COM TENDÊNCIA no período anterior, pela mesma regra do
+         * `totaisExtras` e sobre as mesmas linhas visíveis. Null sem período completo; dentro,
+         * null por coluna quando não havia base (sem pílula).
+         *
+         * @var array<string, int|null>|null
+         */
+        public readonly ?array $totaisExtrasAnteriores = null,
     ) {}
 }

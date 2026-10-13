@@ -155,8 +155,8 @@ final class PastaExploradorZipCopiarTest extends TestCase
         self::assertLessThan($move, $copia, 'a cópia desvia antes do mover-lote');
         self::assertStringNotContainsString('areaDeTransferencia = null', $this->funcao('copiarLote'), 'a cópia cola quantas vezes se quiser');
         $js = $this->js();
-        self::assertStringContainsString("op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", $js);
-        self::assertStringContainsString("op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", $js);
+        self::assertStringContainsString("op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", $js);
+        self::assertStringContainsString("op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", $js);
         self::assertStringContainsString("if (ctrl && baixa === 'v') { if (areaDeTransferencia) { e.preventDefault(); colarAqui(); } return; }", $js);
     }
 
@@ -193,14 +193,40 @@ final class PastaExploradorZipCopiarTest extends TestCase
         $zipN = strpos($menu, "return [op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })]", $multi);
         self::assertNotFalse($zipN, 'primeiro item do menu de vários');
         self::assertLessThan(strpos($menu, "op('Copiar links'", $multi), $zipN);
-        self::assertStringContainsString("op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),\n                opCopiar(sel),", $menu);
+        self::assertStringContainsString("op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true }),\n                opCopiar(sel),", $menu);
         self::assertStringNotContainsString('arqs.length ? [op(\'Copiar\'', $menu, 'o Copiar não some sem arquivo');
-        self::assertStringContainsString(".concat(ehPasta ? [\n                op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),\n            ] : [", $menu);
+        // A pasta: "Baixar como .zip" no lugar do Baixar, e (DOC-120) o "Copiar link" do nível logo depois.
+        self::assertStringContainsString(".concat(ehPasta ? [\n                op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),\n                // DOC-120: a subpasta também tem link (o nível, por `?pex=`).\n                op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),\n            ] : [", $menu);
         self::assertStringContainsString(".concat([opCopiar([alvo])])", $menu, 'pasta e arquivo: o Copiar está sempre lá');
         $opCopiar = $this->funcao('opCopiar');
         self::assertStringContainsString('const soPastas = !itens.some(ehArquivo);', $opCopiar);
-        self::assertStringContainsString("return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '' });", $opCopiar);
+        self::assertStringContainsString("return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });", $opCopiar);
         self::assertStringContainsString("const COPIAR_SO_PASTAS = 'Pastas não são copiadas';", $this->js());
         self::assertStringContainsString("if (o.desabilitado) { n.disabled = true; n.setAttribute('aria-disabled', 'true'); }\n            if (o.titulo) n.title = o.titulo;", $this->js());
+    }
+
+    #[TestDox('zip (DOC-116): o 1º aviso é o do desenho e só fala dos itens pedidos; o "Baixando <nome> · N arquivos, M pastas" só sai depois do cookie de confirmação do servidor')]
+    public function testAvisosDoZip(): void
+    {
+        $zip = $this->funcao('baixarZip');
+
+        self::assertStringContainsString("toast('Preparando ' + pluralizar(itens.length, 'item', 'itens') + ' para download…');", $zip);
+        self::assertStringNotContainsString('Preparando o .zip', $this->js(), 'o texto antigo saiu');
+        self::assertStringNotContainsString('Baixando', $zip, 'nada de "Baixando" antes de o servidor confirmar');
+        // A confirmação vai no formulário e o aviso espera por ela DEPOIS do submit.
+        self::assertStringContainsString("campo('confirmacao', confirmacao);", $zip);
+        self::assertLessThan(strpos($zip, 'aguardarConfirmacaoDoZip(confirmacao);'), strpos($zip, 'formZip.submit();'));
+
+        $aguardar = $this->funcao('aguardarConfirmacaoDoZip');
+        self::assertStringContainsString("const nome = 'pex_zip_' + confirmacao;", $aguardar, 'o prefixo é o do controller (PREFIXO_DO_COOKIE_DE_CONFIRMACAO)');
+        self::assertSame('pex_zip_', \App\Pasta\Controller\PastaDocumentoController::PREFIXO_DO_COOKIE_DE_CONFIRMACAO);
+        self::assertStringContainsString("toast('Baixando ' + c.nome + ' · ' + pluralizar(nArq, 'arquivo', 'arquivos') + (nPas ? ', ' + pluralizar(nPas, 'pasta', 'pastas') : ''));", $aguardar);
+        self::assertStringContainsString('if (Date.now() < ate) setTimeout(olhar, ZIP_CONFIRMACAO_MS);', $aguardar, 'desiste depois do teto: recusa não traz cookie');
+
+        $ler = $this->funcao('lerConfirmacaoDoZip');
+        self::assertStringContainsString("document.cookie = nome + '=; Max-Age=0; path=/; SameSite=Strict';", $ler, 'o cookie é apagado ao ser lido');
+        self::assertStringContainsString('JSON.parse(decodeURIComponent(', $ler);
+        // A confirmação casa com a validação do servidor: [A-Za-z0-9]{8,40} — 12 bytes em hex = 24.
+        self::assertStringContainsString('const bytes = new Uint8Array(12);', $this->funcao('novaConfirmacaoDoZip'));
     }
 }

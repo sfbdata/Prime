@@ -29,6 +29,7 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
             'dashboard.colunas_ocultas' => [],
             'dashboard.sons'            => 'ligados',
             'dashboard.colunas_extras'  => [],
+            'dashboard.ia_avancado'     => 'desligado',
         ], $prefs->paraArray());
     }
 
@@ -88,5 +89,45 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
         ]);
 
         self::assertSame([], $prefs->colunasExtras);
+    }
+
+    #[TestDox('Modo avançado: sem escolha gravada nasce desligado e "não escolhido" (ligar pede a confirmação)')]
+    public function testModoAvancadoSemEscolha(): void
+    {
+        $prefs = PreferenciasDoDashboardOutput::padrao();
+
+        self::assertSame('desligado', $prefs->iaAvancado);
+        self::assertFalse($prefs->iaAvancadoLigado());
+        self::assertFalse($prefs->iaAvancadoEscolhido);
+        self::assertSame('desligado', $prefs->paraArray()['dashboard.ia_avancado']);
+    }
+
+    #[TestDox('Modo avançado ligado vira a classe db-page--ia-avancado (painel a 600px) e conta como escolhido')]
+    public function testModoAvancadoLigado(): void
+    {
+        $prefs = PreferenciasDoDashboardOutput::deValores(['dashboard.ia_avancado' => 'ligado']);
+
+        self::assertTrue($prefs->iaAvancadoLigado());
+        self::assertTrue($prefs->iaAvancadoEscolhido);
+        self::assertSame('db-page--ia-avancado', $prefs->classesCss());
+    }
+
+    #[TestDox('Modo avançado DESLIGADO gravado: sem classe, mas já escolhido (não pede confirmação de novo)')]
+    public function testModoAvancadoDesligadoGravado(): void
+    {
+        $prefs = PreferenciasDoDashboardOutput::deValores(['dashboard.ia_avancado' => 'desligado']);
+
+        self::assertFalse($prefs->iaAvancadoLigado());
+        self::assertTrue($prefs->iaAvancadoEscolhido);
+        self::assertSame('', $prefs->classesCss());
+    }
+
+    #[TestDox('Modo avançado gravado com valor fora da lista (o "1" do protótipo) cai no padrão e não conta como escolha')]
+    public function testModoAvancadoEstragado(): void
+    {
+        $prefs = PreferenciasDoDashboardOutput::deValores(['dashboard.ia_avancado' => '1']);
+
+        self::assertSame('desligado', $prefs->iaAvancado);
+        self::assertFalse($prefs->iaAvancadoEscolhido);
     }
 }

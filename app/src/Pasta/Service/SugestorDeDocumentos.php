@@ -42,12 +42,30 @@ use App\Pasta\DTO\SugestaoDeDocumentosOutput;
  *     PRIMEIRO, com o trecho da decisão no porquê e a origem; a determinação mais recente vence.
  *     Já localizado (na pasta ou no processo) vira "já existente", como no desenho. As regras de
  *     "não aplicável" (5) não rebaixam o que o juízo exigiu.
+ *  9. Possíveis arquivos duplicados (DOC-106, L107-109): pares de arquivos com nomes ≥ 0,85
+ *     parecidos ({@see SimilaridadeDeNomes}) e normalizados DIFERENTES (nome idêntico não é par), sobre
+ *     TODOS os arquivos recebidos — a pasta inteira, qualquer seção; a lixeira não chega aqui (o
+ *     `LixeiraFilter` a tira da coleção). O nome é o exibido no explorador (`nomeOriginal`, ou o
+ *     título quando ele falta). Independe do catálogo.
+ *     Teto de exibição (DOC-106b): só os {@see self::MAXIMO_DE_DUPLICADOS_EXIBIDOS} primeiros pares,
+ *     por percentual decrescente (empate: a ordem dos arquivos), e o resto vira a contagem
+ *     "e mais N pares parecidos". O desenho é omisso quanto ao volume; a regra dele descarta
+ *     números ("APTO - 101" ≈ "APTO - 102" = 100%), e a pasta 458 do saas_ux (1.112 arquivos)
+ *     dava 15.387 pares e ~2,7 MB de HTML. O teto é CONVENÇÃO DO SISTEMA, não do desenho:
+ *     precisa ser ratificado com o Samuel. A contagem exige a busca inteira (41-50 ms medidos
+ *     nessa pasta), então ela é calculada toda; só a lista exibida é cortada.
  *
  * Sem ação e sem classe processual não há base para escolher catálogo: devolve `semCatalogo()`.
  */
 final class SugestorDeDocumentos
 {
     private const SIMILARIDADE_MINIMA_NO_CHECKLIST = 0.6;
+
+    /** bj-docsug.js L108: `s >= .85`. */
+    public const SIMILARIDADE_MINIMA_DE_DUPLICADO = 0.85;
+
+    /** DOC-106b: teto de pares exibidos — convenção do sistema, a ratificar com o Samuel. */
+    public const MAXIMO_DE_DUPLICADOS_EXIBIDOS = 20;
 
     /** bj-docsug.js L116 (`ord`). */
     private const ORDEM = [
@@ -78,8 +96,12 @@ final class SugestorDeDocumentos
         $acao   = self::vazioParaNulo($acao);
         $classe = self::vazioParaNulo($classe);
 
+        $todosOsDuplicados = self::duplicados($arquivos);
+        $duplicados        = self::duplicadosExibidos($todosOsDuplicados);
+        $duplicadosAlem    = \count($todosOsDuplicados) - \count($duplicados);
+
         if ($acao === null && $classe === null) {
-            return SugestaoDeDocumentosOutput::semCatalogo();
+            return SugestaoDeDocumentosOutput::semCatalogo($duplicados, $duplicadosAlem);
         }
 
         $fase = $classe !== null && preg_match(CatalogoDeDocumentos::CLASSE_DE_CUMPRIMENTO, self::normalizar($classe)) === 1
@@ -185,6 +207,48 @@ final class SugestorDeDocumentos
             $itens,
             $leitura->publicacoesLidas,
             self::prazosEmCurso($leitura, $hoje),
+            $duplicados,
+            $duplicadosAlem,
+        );
+    }
+
+    /**
+     * DOC-106b: os pares que a tela mostra — percentual decrescente, empate na ordem dos arquivos
+     * (o `usort` do PHP 8 é estável), cortados no teto {@see self::MAXIMO_DE_DUPLICADOS_EXIBIDOS}.
+     *
+     * @param list<array{a: string, b: string, percentual: int}> $pares
+     *
+     * @return list<array{a: string, b: string, percentual: int}>
+     */
+    public static function duplicadosExibidos(array $pares): array
+    {
+        usort($pares, static fn (array $x, array $y): int => $y['percentual'] <=> $x['percentual']);
+
+        return \array_slice($pares, 0, self::MAXIMO_DE_DUPLICADOS_EXIBIDOS);
+    }
+
+    /**
+     * "Possíveis arquivos duplicados" (regra 9; bj-docsug.js L107-109): cada par de nomes ≥ 0,85
+     * parecidos e normalizados diferentes, `a` antes de `b` na ordem dos arquivos.
+     *
+     * @param list<array{titulo: string, nomeOriginal: string, categoria: string, data: string}> $arquivos
+     *
+     * @return list<array{a: string, b: string, percentual: int}>
+     */
+    public static function duplicados(array $arquivos): array
+    {
+        $nomes = [];
+        foreach (array_values($arquivos) as $i => $arquivo) {
+            $nomes[$i] = $arquivo['nomeOriginal'] !== '' ? $arquivo['nomeOriginal'] : $arquivo['titulo'];
+        }
+
+        return array_map(
+            static fn (array $par): array => [
+                'a'          => $nomes[$par['a']],
+                'b'          => $nomes[$par['b']],
+                'percentual' => (int) round($par['similaridade'] * 100),
+            ],
+            SimilaridadeDeNomes::paresParecidos($nomes, self::SIMILARIDADE_MINIMA_DE_DUPLICADO),
         );
     }
 

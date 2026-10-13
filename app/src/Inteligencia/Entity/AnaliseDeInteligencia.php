@@ -282,6 +282,16 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         $this->lidaPor = $por;
     }
 
+    /**
+     * "Marcar como não lido" (desenho, dc L5159-5160, `alternarLido`): zera quem leu e quando.
+     * Idempotente. A trilha da leitura anterior fica no audit_log (a entidade é Auditavel).
+     */
+    public function marcarNaoLida(): void
+    {
+        $this->lidaEm = null;
+        $this->lidaPor = null;
+    }
+
     /** Soft delete: some da tela, fica na trilha. Idempotente. */
     public function excluir(User $por): void
     {

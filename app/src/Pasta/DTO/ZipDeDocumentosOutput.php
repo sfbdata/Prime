@@ -19,6 +19,8 @@ final readonly class ZipDeDocumentosOutput
         public int $arquivos,
         public int $naoEncontrados,
         public int $bytes,
+        // Subpastas que entraram no .zip (com ou sem arquivo): o "M pastas" do aviso de download (DOC-116).
+        public int $pastas = 0,
     ) {
     }
 }

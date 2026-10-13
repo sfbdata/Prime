@@ -208,6 +208,55 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
         self::assertStringContainsString('já corrigido 1x', (string) $linha->filter('.ps-pag-valor-editar')->attr('title'));
     }
 
+    /**
+     * M7b: a taxa da parcela Price é rótulo do valor calculado. Corrigido o valor à mão, o
+     * rótulo deixa de valer — some da linha corrigida (e do banco), fica na parcela irmã, e o
+     * resumo é o do valor novo, sem nenhuma conta a mais.
+     */
+    #[TestDox('M7b: corrigir parcela com juros tira o "· juros N% a.m." só dela; o resumo é o esperado')]
+    public function testCorrigirParcelaComJurosTiraOSufixo(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pasta           = $this->criarPasta($tenant);
+        $corrigida       = $this->criarPagamento($pasta, $tenant, '1300.00', 'Parcela 1/2');
+        $irma            = $this->criarPagamento($pasta, $tenant, '700.00', 'Parcela 2/2');
+        $corrigida->setJurosMensal('1.5000');
+        $irma->setJurosMensal('1.5000');
+        $this->em()->flush();
+        $id     = (int) $corrigida->getId();
+        $irmaId = (int) $irma->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->corrigir($client, $pasta, $id, '1.450,50');
+
+        self::assertResponseIsSuccessful();
+        $dados = $this->json($client);
+        self::assertTrue($dados['alterado']);
+
+        $resumo = $dados['resumo'];
+        unset($resumo['html']);
+        self::assertSame(
+            ['total' => 2, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'previsto' => 'R$ 2.150,50', 'percentual' => 0],
+            $resumo,
+        );
+
+        $corpo = new Crawler((string) $dados['resumo']['html']);
+        $linha = $corpo->filter('.ps-pag-linha[data-pagamento-id="' . $id . '"]');
+        self::assertCount(1, $linha);
+        self::assertStringNotContainsString('juros', $linha->text());
+        self::assertStringContainsString(' · juros 1,5% a.m.', $corpo->filter('.ps-pag-linha[data-pagamento-id="' . $irmaId . '"]')->text());
+
+        $taxas = $this->em()->getConnection()->fetchAllKeyValue(
+            'SELECT id, juros_mensal FROM pasta_pagamento WHERE id IN (:a, :b)',
+            ['a' => $id, 'b' => $irmaId],
+        );
+        self::assertNull($taxas[$id]);
+        self::assertSame('1.5000', $taxas[$irmaId]);
+        self::assertSame('1450.50', $this->valorGravado($id));
+        self::assertSame('700.00', $this->valorGravado($irmaId));
+    }
+
     #[TestDox('a correção entra no audit_log com de/para, autor, escritório e rota')]
     public function testCorrecaoFicaNaAuditoria(): void
     {

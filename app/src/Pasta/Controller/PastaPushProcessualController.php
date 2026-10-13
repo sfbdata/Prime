@@ -57,7 +57,7 @@ final class PastaPushProcessualController extends AbstractController
         requirements: ['id' => '\d+', 'publicacaoId' => '\d+'],
         methods: ['GET'],
     )]
-    public function teor(Pasta $pasta, int $publicacaoId, FormatadorTeorDjen $formatadorTeor): Response
+    public function teor(Pasta $pasta, int $publicacaoId, Request $request, FormatadorTeorDjen $formatadorTeor): Response
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
@@ -92,6 +92,12 @@ final class PastaPushProcessualController extends AbstractController
         // saber QUAL processo da pasta é o da publicação para o compositor criar a nota nele.
         $processoDaPublicacao = $this->processoDaPublicacao($pasta, $publicacao);
 
+        // FPN-020: com nota pendurada, a aba já traz o bloco de notas da movimentação sob o cartão
+        // (PastaPushOutput::notasDe) e marca o link do teor com `penduradas=1`. Aí o teor não repete
+        // o bloco — nem as notas nem o compositor, que já moram lá (e o id do bloco é único).
+        // É só exibição: nenhuma guarda depende deste parâmetro.
+        $notasNaLista = $request->query->getBoolean('penduradas');
+
         // Teor externo (CNJ): sanitizado pelo mesmo formatador da tela do módulo antes de exibir.
         return $this->render('pasta/_push_teor.html.twig', [
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
@@ -103,7 +109,12 @@ final class PastaPushProcessualController extends AbstractController
             'voltarPara' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]) . '#push',
             'pastaId'        => (int) $pasta->getId(),
             'notaProcessoId' => $processoDaPublicacao?->getId(),
-            'notasTecnicas'  => array_map(
+            // FPN-040: os botões de escrita do teor seguem a regra do menu de contexto — Criar
+            // tarefa e nota com EDIT e pasta viva; "lida" (VIEW basta) só some na lápide.
+            'podeEditarPasta' => $this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit'),
+            'pastaExcluida'   => $pasta->estaExcluida(),
+            'notasNaLista'   => $notasNaLista,
+            'notasTecnicas'  => $notasNaLista ? [] : array_map(
                 static fn (NotaTecnica $nota): NotaTecnicaOutput => NotaTecnicaOutput::fromEntity($nota),
                 $this->notaTecnicaRepository->listarPorPublicacao($publicacao, $tenant),
             ),

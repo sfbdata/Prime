@@ -38,5 +38,11 @@ final class LinhaAdvogadoDashboardOutput
         // tempo médio (dias) são null quando não há o que medir — a tela mostra "—".
         /** @var array<string, int|null> */
         public readonly array  $extras = [],
+        // TENDÊNCIA DAS EXTRAS — o valor de cada extra com tendência
+        // (ColunasExtrasDoDashboard::TENDENCIA) no período anterior de mesma duração, pela
+        // MESMA fórmula (hoje só Eventos na agenda). Vazio sem período completo. Extra fora
+        // da TENDENCIA não tem chave aqui: sem seta, nada inventado.
+        /** @var array<string, int|null> */
+        public readonly array  $extrasAnteriores = [],
     ) {}
 }

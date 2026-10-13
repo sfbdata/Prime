@@ -134,7 +134,7 @@
                         </span>
                     </td>
                     <td class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
-                        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis}) }}
+                        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis, respContexto: 'expediente'}) }}
                     </td>
                     <td class="col-tarefas-tabela align-middle">
                         {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
@@ -208,11 +208,12 @@
 {# ── Modo lista (cartões) — desktop quando view=lista, e sempre no mobile ── #}
 <div class="pastas-lista">
     {% for pasta in pastas %}
-        {{ include('pasta/_card.html.twig', {pasta: pasta, fotos: fotosResponsaveis}) }}
+        {# respContexto desce do _card ao _resp_chip (include herda o contexto). #}
+        {{ include('pasta/_card.html.twig', {pasta: pasta, fotos: fotosResponsaveis, respContexto: 'expediente'}) }}
     {% endfor %}
 </div>
 
-{{ include('pasta/_resp_menu.html.twig', {usuarios: usuarios, fotosResponsaveis: fotosResponsaveis|default({})}) }}
+{{ include('pasta/_resp_menu.html.twig', {usuarios: usuarios, fotosResponsaveis: fotosResponsaveis|default({}), respContexto: 'expediente'}) }}
 </div>{# /#pastasView #}
 {% else %}
 <div class="alert alert-info mb-0">

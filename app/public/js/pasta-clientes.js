@@ -5,7 +5,7 @@
    cliente L.1381, ⋮ do prazo L.1348 e L.6150-6151).
 
    1. Janela "Detalhes do cliente": clique no icone de cadastro da linha ou botao
-      direito na linha. O conteudo e um fragmento do servidor (`cliente_resumo`),
+      direito na linha — ou no nome do cliente do cabecalho (PAS-001). O conteudo e um fragmento do servidor (`cliente_resumo`),
       que ja decide permissao e filtra as pastas — aqui so se posiciona, arrasta
       e fecha. Os contatos dela se editam inline (POST `cliente_contatos`).
    2. Copiar (nome, documento, contatos, qualificacao, prazo): `.js-ps-copiar`
@@ -199,27 +199,16 @@
             .catch(function () { avisar('Não foi possível abrir os detalhes do cliente'); });
     }
 
-    // Arrastar pelo cabecalho (desenho: "Arraste para mover").
-    document.addEventListener('pointerdown', function (e) {
-        var cab = e.target.closest('[data-ps-cli-arrastar]');
-        if (!cab || !janelaAberta || e.target.closest('button')) { return; }
-        if (e.button !== undefined && e.button !== 0) { return; }
-        e.preventDefault();
-
-        var janela = janelaAberta;
-        var ox = e.clientX - janela.offsetLeft;
-        var oy = e.clientY - janela.offsetTop;
-        janela.classList.add('is-arrastando');
-
-        function mover(ev) { posicionar(janela, ev.clientX - ox, ev.clientY - oy); }
-        function soltar() {
-            window.removeEventListener('pointermove', mover);
-            window.removeEventListener('pointerup', soltar);
-            janela.classList.remove('is-arrastando');
-        }
-        window.addEventListener('pointermove', mover);
-        window.addEventListener('pointerup', soltar);
-    });
+    // Arrastar pelo cabecalho (desenho: "Arraste para mover"). O arraste e o
+    // utilitario do pasta-show.js (PAS-023); aqui fica so o que e desta janela:
+    // qual e a janela aberta e o `posicionar`, que a mantem dentro da tela.
+    if (window.PsArrastar) {
+        window.PsArrastar.ligar({
+            cabecalho: '[data-ps-cli-arrastar]',
+            janela: function (cab) { return janelaAberta && janelaAberta.contains(cab) ? janelaAberta : null; },
+            posicionar: posicionar
+        });
+    }
 
     /* ── Contatos editaveis na janela (dc L.810-836, logica L.5748-5786) ────
        Lapis abre o campo (Enter salva, Esc cancela; o novo vazio some), lixeira
@@ -403,6 +392,18 @@
     });
 
     document.addEventListener('contextmenu', function (e) {
+        // Nome do cliente no cabeçalho (PAS-001; desenho `abrirCli`): a mesma janela, no
+        // cursor. Quem selecionou o nome para copiar fica com o menu do navegador.
+        var tituloCliente = e.target.closest('.ps-cabecalho h1.ps-cab-titulo[data-cliente-id]');
+        if (tituloCliente) {
+            var selecao = window.getSelection ? String(window.getSelection()) : '';
+            if (selecao.trim() !== '') { return; }
+            e.preventDefault();
+            abrirJanela(tituloCliente.getAttribute('data-cliente-id'), e.clientX + 4, e.clientY + 4);
+
+            return;
+        }
+
         var linhaCliente = e.target.closest('[data-trilho="clientes"] .cliente-linha[data-cliente-id]');
         if (linhaCliente) {
             e.preventDefault();

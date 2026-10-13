@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\DTO\EditarDocumentoDaPastaInput;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
+use App\Pasta\DTO\ZipDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -18,6 +19,7 @@ use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
+use App\Pasta\Service\VagasDeZipDoEscritorio;
 use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
 use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
@@ -31,9 +33,12 @@ use App\Service\Tenant\TenantContext;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Shared\Http\EntregaDeArquivoGerado;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
@@ -65,15 +70,18 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  *
  * `zip` (D5) é a outra exceção: quem pode VER a pasta pode baixar o que vê. Mesmo corpo e token
  * do lote (`{_token, documentos[], secoes[]}`), por `<form target=_blank>` — a resposta é o
- * próprio .zip (download em stream, apagado depois de enviado), ou JSON de erro como nas demais
- * rotas. `copiar` (D6) exige EDITAR: `{_token, documentos[], destinoId|null}`, só arquivos, e
- * responde `{ok, copiados: [<arquivo na forma do explorador>]}`.
+ * próprio .zip (download em stream, apagado depois de enviado); a recusa é JSON para XHR e, para o
+ * formulário da tela, uma página HTML curta no mesmo status (DOC-140). `copiar` (D6) exige
+ * EDITAR: `{_token, documentos[], destinoId|null}`, só arquivos, e responde `{ok, copiados: [<arquivo na forma do explorador>]}`.
  */
 #[Route('/pasta')]
 final class PastaDocumentoController extends AbstractController
 {
     /** Ids (documentos + subpastas) aceitos numa ação em lote; acima disso é 422 sem consulta. */
     public const TETO_DE_ITENS_POR_LOTE = 2000;
+
+    /** O cookie que confirma à aba da pasta que o .zip começou a ser enviado (DOC-116). */
+    public const PREFIXO_DO_COOKIE_DE_CONFIRMACAO = 'pex_zip_';
 
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
@@ -92,6 +100,12 @@ final class PastaDocumentoController extends AbstractController
         private readonly MontarZipDeDocumentosUseCase $montarZipUseCase,
         private readonly CopiarDocumentosDaPastaUseCase $copiarUseCase,
         private readonly EntregaDeArquivoGerado $entregaGerada,
+        // `limiter.pasta_documentos_zip` (SEC-004). Interface, não a classe concreta: a injeção
+        // de `RateLimiterFactory` por autowiring é deprecada no Symfony 7.4 (e deixa trocar por
+        // dublê em teste, como no AnaliseDaPastaController).
+        private readonly RateLimiterFactoryInterface $pastaDocumentosZipLimiter,
+        // SEC-004b: no máximo 2 .zips simultâneos por escritório (trava não bloqueante).
+        private readonly VagasDeZipDoEscritorio $vagasDeZip,
     ) {
     }
 
@@ -362,9 +376,57 @@ final class PastaDocumentoController extends AbstractController
      * a mensagem. Subpasta selecionada leva a subárvore viva; o que está na lixeira nunca entra. A
      * resposta é o arquivo em stream, apagado depois de enviado (`EntregaDeArquivoGerado`); o
      * registro no `audit_log` é do UseCase.
+     *
+     * SEC-004: cada .zip lê até 1 GB, grava um temporário do mesmo tamanho e prende um worker do
+     * PHP até o fim do envio — com o pool pequeno da VPS, um punhado de cliques derruba o sistema
+     * do escritório. Por isso há um limitador por USUÁRIO (`pasta_documentos_zip`, 3 por minuto),
+     * consumido DEPOIS dos guardas do lote (pedido recusado por CSRF, posse ou permissão não gasta
+     * a cota de ninguém) e ANTES do UseCase, que é a parte cara. Estourou → 429 em JSON, com
+     * `Retry-After` em segundos.
+     *
+     * SEC-004b: a cota é por usuário, então vários colegas juntos ainda prenderiam todos os
+     * workers. Depois do limitador, o pedido ocupa uma das 2 vagas de .zip do ESCRITÓRIO
+     * (`VagasDeZipDoEscritorio`, sem esperar). Sem vaga → 429 em JSON. Com vaga, ela é devolvida
+     * no `kernel.terminate` — depois de o .zip inteiro ter sido enviado — ou aqui mesmo, quando o
+     * UseCase recusa e não há .zip a enviar. Ordem: guardas → limitador → vaga → UseCase.
+     *
+     * DOC-140: a tela pede o .zip por `<form target=_blank>` — sem `X-Requested-With`. Para esse
+     * pedido, QUALQUER recusa (400/403/404/422/429) vira uma página HTML mínima em pt-BR, com a
+     * mensagem e um "Fechar", no MESMO status (e o mesmo `Retry-After`), em vez do JSON cru na aba
+     * nova. Pedido XHR continua recebendo o JSON de sempre. O download em stream não muda.
      */
     #[Route('/{id}/documentos/zip', name: 'pasta_documentos_zip', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function zip(Pasta $pasta, Request $request): Response
+    {
+        $resposta = $this->respostaDoZip($pasta, $request);
+        if ($resposta instanceof JsonResponse && $resposta->getStatusCode() >= 400 && !$request->isXmlHttpRequest()) {
+            return $this->paginaDeRecusaDoZip($resposta);
+        }
+
+        return $resposta;
+    }
+
+    /**
+     * A página da recusa do .zip (DOC-140): a mensagem que o JSON traria — escrita pelo próprio
+     * controller ou pelo UseCase, nunca dado do pedido —, escapada pelo Twig, com o status e o
+     * `Retry-After` do JSON. Não repete id, NUP nem nome de arquivo.
+     */
+    private function paginaDeRecusaDoZip(JsonResponse $json): Response
+    {
+        $dados    = json_decode((string) $json->getContent(), true);
+        $mensagem = is_array($dados) && is_string($dados['erro'] ?? null) && $dados['erro'] !== ''
+            ? $dados['erro']
+            : 'Não foi possível preparar o .zip.';
+
+        $pagina = $this->render('pasta/zip_recusado.html.twig', ['mensagem' => $mensagem], new Response('', $json->getStatusCode()));
+        if ($json->headers->has('Retry-After')) {
+            $pagina->headers->set('Retry-After', (string) $json->headers->get('Retry-After'));
+        }
+
+        return $pagina;
+    }
+
+    private function respostaDoZip(Pasta $pasta, Request $request): Response
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
@@ -376,15 +438,76 @@ final class PastaDocumentoController extends AbstractController
         }
         [$documentos, $secoes, , $tenant] = $lote;
 
+        $cota = $this->pastaDocumentosZipLimiter->create((string) $currentUser->getId())->consume();
+        if (!$cota->isAccepted()) {
+            $resposta = $this->json(
+                ['erro' => 'Muitos pedidos de .zip em sequência. Aguarde um minuto e tente de novo.'],
+                Response::HTTP_TOO_MANY_REQUESTS,
+            );
+            $resposta->headers->set('Retry-After', (string) max(1, $cota->getRetryAfter()->getTimestamp() - time()));
+
+            return $resposta;
+        }
+
+        $vaga = $this->vagasDeZip->ocupar($tenant);
+        if ($vaga === null) {
+            return $this->json(
+                ['erro' => 'Já há downloads em .zip em andamento neste escritório. Tente de novo em instantes.'],
+                Response::HTTP_TOO_MANY_REQUESTS,
+            );
+        }
+
         try {
             $saida = $this->montarZipUseCase->executar($pasta, $documentos, $secoes, $currentUser, $tenant);
         } catch (\InvalidArgumentException $e) {
+            $vaga->liberar();
+
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (AccessDeniedException) {
+            $vaga->liberar();
+
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        return $this->entregaGerada->resposta($saida->arquivo, $saida->nomeDoZip, 'application/zip');
+        $resposta = $this->entregaGerada->resposta($saida->arquivo, $saida->nomeDoZip, 'application/zip');
+        // DOC-116: o nome do desenho tem espaço e pode ter acento — `filename*` em UTF-8 e o
+        // `filename` ASCII transliterado ("Seção" → "Secao"), em vez do "_" que o Symfony poria.
+        $resposta->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+            $saida->nomeDoZip,
+            MontarZipDeDocumentosUseCase::nomeAsciiDoZip($saida->nomeDoZip),
+        );
+        $this->confirmarDownloadNaTela($resposta, $request, $saida);
+
+        return $resposta;
+    }
+
+    /**
+     * O "Baixando <nome> · N arquivos, M pastas" do desenho (DOC-116) só pode aparecer quando o
+     * SERVIDOR confirmou: o .zip sai por `<form target=_blank>` e a aba da pasta não vê a resposta.
+     * A tela manda um `confirmacao` aleatório; quando o .zip começa a ser enviado, vai junto um
+     * cookie de 60 s `pex_zip_<confirmacao>` com o nome e as contagens, que a aba da pasta lê e
+     * apaga. Sem `confirmacao` válido, nada é posto. O cookie não leva nada que o usuário já não
+     * veja (nome do arquivo e contagens) e é `SameSite=Strict`.
+     */
+    private function confirmarDownloadNaTela(Response $resposta, Request $request, ZipDeDocumentosOutput $saida): void
+    {
+        $confirmacao = $request->request->get('confirmacao');
+        if (!is_string($confirmacao) || preg_match('/^[A-Za-z0-9]{8,40}$/', $confirmacao) !== 1) {
+            return;
+        }
+
+        $resposta->headers->setCookie(Cookie::create(
+            self::PREFIXO_DO_COOKIE_DE_CONFIRMACAO . $confirmacao,
+            json_encode(['nome' => $saida->nomeDoZip, 'arquivos' => $saida->arquivos, 'pastas' => $saida->pastas], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            time() + 60,
+            '/',
+            null,
+            $request->isSecure(),
+            false, // a aba da pasta lê o cookie por JS
+            false,
+            Cookie::SAMESITE_STRICT,
+        ));
     }
 
     /**

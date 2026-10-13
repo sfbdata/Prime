@@ -9,6 +9,9 @@ use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tenant\Cargo;
+use App\Entity\Tenant\Lotacao;
+use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\Pasta;
@@ -23,6 +26,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\FieldMapping;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -634,5 +638,95 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertFalse($resultado->sucesso);
         self::assertSame('Registro não encontrado.', $resultado->erro);
         self::assertNull($pasta->getNomeAcao());
+    }
+
+    // ── SEC-005: Cargo/Sede/Lotacao têm dono, mas não são TenantAware ─────────
+
+    /**
+     * Hoje nenhuma entidade reversível tem associação a Cargo/Sede/Lotacao; a dublê é uma Pasta
+     * (classe reversível) com um setter a mais, para exercitar o `pertenceAoTenant()` pelo
+     * caminho público, como faria a primeira entidade reversível que ganhar esse vínculo.
+     *
+     * @param class-string<Cargo|Sede|Lotacao> $classeAlvo
+     */
+    private function cenarioDeCadastroDoEscritorio(string $classeAlvo, object $antigo): Pasta
+    {
+        $pasta = new class extends Pasta {
+            public ?object $cadastro = null;
+
+            public function setCadastro(Cargo|Sede|Lotacao|null $cadastro): static
+            {
+                $this->cadastro = $cadastro;
+
+                return $this;
+            }
+        };
+        $this->comId($pasta, 5);
+        $pasta->setNup('NUP-5');
+        $pasta->setTenant($this->tenant(1));
+
+        $log = $this->criarLog('update', Pasta::class, '5', ['cadastro' => ['from' => ['class' => $classeAlvo, 'id' => '4', 'label' => 'Antigo'], 'to' => null]]);
+        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
+        $this->em->method('find')->willReturnCallback(
+            static fn (string $classe, mixed $id): ?object => match ([$classe, (string) $id]) {
+                [Pasta::class, '5'] => $pasta,
+                [$classeAlvo, '4'] => $antigo,
+                default => null,
+            },
+        );
+        $this->em->method('getClassMetadata')->willReturn($this->metadata([], ['cadastro' => [$classeAlvo, true]]));
+
+        return $pasta;
+    }
+
+    /** @return iterable<string, array{0: class-string<Cargo|Sede|Lotacao>}> */
+    public static function cadastrosDoEscritorio(): iterable
+    {
+        yield 'cargo' => [Cargo::class];
+        yield 'sede' => [Sede::class];
+        yield 'lotação' => [Lotacao::class];
+    }
+
+    #[DataProvider('cadastrosDoEscritorio')]
+    #[TestDox('SEC-005: associação a $classeAlvo do MESMO escritório se desfaz (antes recusava sempre: não é TenantAware)')]
+    public function testAssociacaoACadastroDoMesmoEscritorioAplica(string $classeAlvo): void
+    {
+        $antigo = (new $classeAlvo())->setTenant($this->tenant(1));
+        $pasta = $this->cenarioDeCadastroDoEscritorio($classeAlvo, $antigo);
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertTrue($resultado->sucesso, (string) $resultado->erro);
+        self::assertSame($antigo, $pasta->cadastro);
+    }
+
+    #[DataProvider('cadastrosDoEscritorio')]
+    #[TestDox('SEC-005: associação a $classeAlvo de OUTRO escritório continua recusada, nada muda')]
+    public function testAssociacaoACadastroDeOutroEscritorioRecusa(string $classeAlvo): void
+    {
+        $alheio = (new $classeAlvo())->setTenant($this->tenant(2));
+        $pasta = $this->cenarioDeCadastroDoEscritorio($classeAlvo, $alheio);
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame(sprintf(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_ASSOCIACAO_INDISPONIVEL, 'cadastro'), $resultado->erro);
+        self::assertNull($pasta->cadastro);
+    }
+
+    #[DataProvider('cadastrosDoEscritorio')]
+    #[TestDox('SEC-005: $classeAlvo sem escritório (tenant nulo) não prova posse: recusa')]
+    public function testAssociacaoACadastroSemEscritorioRecusa(string $classeAlvo): void
+    {
+        $orfao = new $classeAlvo();
+        $pasta = $this->cenarioDeCadastroDoEscritorio($classeAlvo, $orfao);
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertNull($pasta->cadastro);
     }
 }

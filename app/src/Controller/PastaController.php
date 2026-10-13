@@ -20,9 +20,11 @@ use App\Cliente\Repository\ClientePJRepository;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Pasta\Repository\PastaMensagemRepository;
 use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
+use App\Processo\Repository\NotaTecnicaRepository;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Entity\Permission\AccessRequest;
@@ -62,6 +64,7 @@ use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\DTO\AnalisesDaPastaOutput;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\TimelineItemDTO;
@@ -100,13 +103,11 @@ use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
-use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
-use App\Shared\Service\SanitizadorTextoRico;
 use App\Pasta\Service\MencoesDoRegistro;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -126,7 +127,6 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * - GET  /pasta/{id}/editar                  → Formulário de edição
  * - POST /pasta/{id}/editar                  → Atualiza pasta
  * - POST /pasta/{id}/deletar                 → Remove pasta
- * - POST /pasta/{id}/documento/upload        → Faz upload de documento
  * - GET  /pasta/documento/{id}/download      → Faz download de documento
  * - POST /pasta/documento/{id}/deletar       → Remove documento
  */
@@ -166,8 +166,8 @@ class PastaController extends AbstractController
         private readonly PastaPagamentoRepository $pastaPagamentoRepository,
         // A MESMA formatação de tamanho que o filtro `formatar_bytes` do Twig usa:
         // a linha que o JS insere depois do upload fica ao lado das que o Twig
-        // desenhou, e o `formatarBytes` privado deste controller escreve
-        // "380.5 KB" onde o Twig escreve "380,5 KB".
+        // desenhou (um formatador próprio escreveria "380.5 KB" onde o Twig
+        // escreve "380,5 KB").
         private readonly ArquivoIconeExtension $arquivoIcone,
         private readonly EnviarObservacaoDetalhesUseCase $enviarObservacaoDetalhesUseCase,
         private readonly EditarObservacaoDetalhesUseCase $editarObservacaoDetalhesUseCase,
@@ -304,6 +304,8 @@ class PastaController extends AbstractController
         ListarAnalisesDaPastaUseCase $listarAnalisesIa,
         DisponibilidadeDeInteligencia $disponibilidadeIa,
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
+        VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
+        NotaTecnicaRepository $notaTecnicaRepository,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -385,6 +387,8 @@ class PastaController extends AbstractController
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
             $pastaId,
             $tenant !== null ? $favoritosDeDocumento->idsFavoritosDaPasta($currentUser, $pasta, $tenant) : [], // estrelas DO usuário logado (D2)
+            podeEditar: !$pasta->estaExcluida() && $this->podeEditarPasta($pasta), // DOC-118: só-leitor e lápide não veem escrita
+            podeVerLixeira: $this->podeEditarPasta($pasta), // DOC-118c: a permissão do GET da lixeira, mesmo na lápide
         );
 
         // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —
@@ -401,15 +405,27 @@ class PastaController extends AbstractController
         // gravada durante a sincronização, então publicação que chegou ANTES de o processo entrar
         // no cadastro nunca a recebe (em produção, 8 das 59 publicações de pastas estavam assim).
         $numerosDosProcessos = [];
+        $processosDaPasta    = [];
         foreach ($pasta->getPastaProcessos() as $vinculo) {
             $numerosDosProcessos[] = $vinculo->getProcesso()->getNumeroProcesso();
+            $processosDaPasta[]    = $vinculo->getProcesso();
         }
+        $itensDoPush = $tenant !== null
+            ? $this->publicacaoDjenRepository->listarItensPorNumerosDoTenant($tenant, $numerosDosProcessos, self::PUSH_LIMITE)
+            : [];
         $push = PastaPushOutput::montar(
-            $tenant !== null
-                ? $this->publicacaoDjenRepository->listarItensPorNumerosDoTenant($tenant, $numerosDosProcessos, self::PUSH_LIMITE)
-                : [],
+            $itensDoPush,
             $numerosDosProcessos,
             self::PUSH_LIMITE,
+            // FPN-020: as notas técnicas penduradas nos cartões, à vista sem abrir o teor. Uma
+            // consulta para a página inteira, recortada por escritório e pelos processos DESTA pasta.
+            $tenant !== null
+                ? $notaTecnicaRepository->listarPorPublicacoesDosProcessos(
+                    array_map(static fn (\App\Djen\DTO\PublicacaoDjenListaItem $item): int => $item->id, $itensDoPush),
+                    $processosDaPasta,
+                    $tenant,
+                )
+                : [],
         );
 
         // BlueJus IA na aba Push (spec inteligencia-resumo-do-push §3.6): sem `modules.inteligencia.view`
@@ -466,7 +482,14 @@ class PastaController extends AbstractController
             'push'                        => $push,
             'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
-            'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta, itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo()),
+            // A do Financeiro ("… e N pagamentos vencidos") só para quem vê o financeiro.
+            'pendencias'                  => PastaPendenciasOutput::montar(
+                $pasta,
+                $push->naoLidas,
+                $pagamentosDaPasta,
+                itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
+                veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
+            ),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
@@ -1018,6 +1041,10 @@ class PastaController extends AbstractController
 
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
@@ -1069,19 +1096,25 @@ class PastaController extends AbstractController
     // ── Editar mensagem do chat (autor, dentro de 24h) ────────────────────────
 
     #[Route('/{id}/mensagem/{msgId}/editar', name: 'pasta_editar_mensagem', methods: ['POST'])]
-    public function editarMensagem(Pasta $pasta, int $msgId, Request $request, MencoesDoRegistro $mencoes): JsonResponse
+    public function editarMensagem(Pasta $pasta, int $msgId, Request $request, MencoesDoRegistro $mencoes, PastaMensagemRepository $mensagemRepository): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
-        $mensagem = $this->em->find(PastaMensagem::class, $msgId);
-        if ($mensagem === null || $mensagem->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $mensagem = $mensagemRepository->findByIdAndPastaAndTenant($msgId, $pasta, $tenant);
+        if ($mensagem === null) {
             return $this->json(['erro' => 'Mensagem não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -1109,19 +1142,25 @@ class PastaController extends AbstractController
     // ── Excluir mensagem do chat (autor, dentro de 24h) ───────────────────────
 
     #[Route('/{id}/mensagem/{msgId}/excluir', name: 'pasta_excluir_mensagem', methods: ['POST'])]
-    public function excluirMensagem(Pasta $pasta, int $msgId, Request $request): JsonResponse
+    public function excluirMensagem(Pasta $pasta, int $msgId, Request $request, PastaMensagemRepository $mensagemRepository): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
-        $mensagem = $this->em->find(PastaMensagem::class, $msgId);
-        if ($mensagem === null || $mensagem->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $mensagem = $mensagemRepository->findByIdAndPastaAndTenant($msgId, $pasta, $tenant);
+        if ($mensagem === null) {
             return $this->json(['erro' => 'Mensagem não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -1293,8 +1332,21 @@ class PastaController extends AbstractController
     {
         return $this->json([
             'sucesso' => true,
-            'html'    => $this->renderView('pasta/_processos_vinculados.html.twig', ['pasta' => $pasta]),
+            'html'    => $this->renderView('pasta/_processos_vinculados.html.twig', [
+                'pasta'           => $pasta,
+                // PAS-049: a mesma decisão do show, para o cartão que volta pelo XHR esconder as
+                // ações de escrita de quem não tem EDIT na pasta.
+                'podeEditarPasta' => $this->podeEditarPasta($pasta),
+            ]),
         ]);
+    }
+
+    private function podeEditarPasta(Pasta $pasta): bool
+    {
+        $usuario = $this->getUser();
+
+        return $usuario instanceof \App\Entity\Auth\User
+            && $this->permissionChecker->canAccessResource($usuario, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT);
     }
 
     private function respostaErroProcesso(bool $isXhr, string $mensagem, int $pastaId, int $status): Response
@@ -1588,215 +1640,6 @@ class PastaController extends AbstractController
         'image/jpeg'                                                                         => 10 * 1024 * 1024,
         'image/png'                                                                          => 10 * 1024 * 1024,
     ];
-
-    private const MIME_LIMITS = [
-        // Imagens
-        'image/png'                          => 3 * 1024 * 1024,
-        'image/jpeg'                         => 3 * 1024 * 1024,
-        // Documentos
-        'application/pdf'                    => 10 * 1024 * 1024,
-        // Documentos Word
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 10 * 1024 * 1024, // .docx
-        'application/msword'                                                      => 10 * 1024 * 1024, // .doc
-        // KML — mimetypes alternativos que diferentes SOs podem detectar
-        'application/vnd.google-earth.kml+xml' => 5 * 1024 * 1024,
-        'application/xml'                    => 5 * 1024 * 1024,
-        'text/xml'                           => 5 * 1024 * 1024,
-        // Planilhas
-        'application/vnd.ms-excel'                                          => 10 * 1024 * 1024, // .xls
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 10 * 1024 * 1024, // .xlsx
-        // Áudio
-        'audio/x-opus+ogg'                   => 10 * 1024 * 1024,
-        'audio/vorbis'                        => 10 * 1024 * 1024,
-        'audio/opus'                          => 10 * 1024 * 1024,
-        'audio/mpeg'                          => 10 * 1024 * 1024,
-        'audio/ogg'                           => 10 * 1024 * 1024,
-        'audio/mp3'                           => 10 * 1024 * 1024,
-        'audio/wav'                           => 50 * 1024 * 1024,
-        'audio/x-wav'                         => 50 * 1024 * 1024,
-        'audio/mp4'                           => 10 * 1024 * 1024,
-        // Vídeo
-        'video/x-ms-wmv'                      => 50 * 1024 * 1024,
-        'video/mpeg'                          => 50 * 1024 * 1024,
-        'video/ogg'                           => 50 * 1024 * 1024,
-        'video/quicktime'                     => 50 * 1024 * 1024,
-        'video/mp4'                           => 50 * 1024 * 1024,
-    ];
-
-    #[Route('/{id}/documento/upload', name: 'pasta_documento_upload', methods: ['POST'])]
-    public function uploadDocumento(Pasta $pasta, Request $request): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para enviar documentos nesta pasta.');
-        }
-
-        if (!$this->isCsrfTokenValid('upload_documento_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        /** @var \Symfony\Component\HttpFoundation\File\UploadedFile[] $arquivos */
-        $arquivos = $request->files->get('arquivos', []);
-
-        if (empty($arquivos)) {
-            $this->addFlash('error', 'Nenhum arquivo enviado.');
-
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $categorias  = $request->request->all('categorias');
-        $descricoes  = $request->request->all('descricoes');
-        $numeros     = $request->request->all('numeros');
-        $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
-
-        $secaoIdRaw = $request->request->get('secao_id');
-        $secaoId    = null;
-        if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
-            $secaoEncontrada = $this->em->find(PastaSecao::class, (int) $secaoIdRaw);
-            if ($secaoEncontrada !== null && $secaoEncontrada->getPasta()?->getId() === $pasta->getId()) {
-                $secaoId = $secaoEncontrada;
-            }
-        }
-
-        $erros                = [];
-        $salvos               = 0;
-        $bytesEconomizados    = 0;
-        $assinadosComprimidos = 0;
-
-        foreach ($arquivos as $i => $file) {
-            if ($file === null) {
-                continue;
-            }
-
-            $mimeType = $file->getMimeType() ?? '';
-
-            if (!array_key_exists($mimeType, self::MIME_LIMITS)) {
-                $erros[] = sprintf('"%s": tipo não permitido (%s).', $file->getClientOriginalName(), $mimeType);
-                continue;
-            }
-
-            $tamanho = $file->getSize();
-            $limite  = self::MIME_LIMITS[$mimeType];
-
-            if ($tamanho > $limite) {
-                $erros[] = sprintf(
-                    '"%s": excede o limite de %d MB.',
-                    $file->getClientOriginalName(),
-                    intdiv($limite, 1024 * 1024)
-                );
-                continue;
-            }
-
-            $categoriaRaw = isset($categorias[$i]) ? strtoupper(trim((string) $categorias[$i])) : PastaDocumento::CATEGORIA_DEMAIS;
-            $categoria    = array_key_exists($categoriaRaw, self::DOCUMENT_TYPES) ? $categoriaRaw : PastaDocumento::CATEGORIA_DEMAIS;
-            $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
-            $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
-
-            // O escopo sai do próprio documento (R1), só persistido depois da gravação. A
-            // compressão é pela CHAVE (E2.6B), sobre cópia gravável fora do volume.
-            $doc = new PastaDocumento();
-            $doc->setTenant($tenant);
-
-            $upload = FonteDeUploadHttp::de($file);
-
-            // Hash do upload ANTES de mover (depois do gravarEm o caminho não existe mais). Sem
-            // compressão, são estes os bytes que o storage guarda (INV-7).
-            $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
-
-            $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
-            $nomeUnico  = $armazenado->chave->nome;
-
-            // D30: quem responde o tamanho é o storage (ver ClienteController).
-            $tamanhoFinal = $armazenado->tamanhoBytes;
-            if ($reduzirTamanho) {
-                $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
-                $tamanhoFinal = $compressao->tamanhoFinal;
-                $bytesEconomizados += $compressao->tamanhoOriginal - $compressao->tamanhoFinal;
-                if ($compressao->comprimido && $compressao->eraAssinado) {
-                    ++$assinadosComprimidos;
-                }
-                if ($compressao->comprimido) {
-                    // A chave foi regravada com outro binário: o hash é do que FICOU no storage.
-                    // Opcional: se a leitura falhar fica null e o upload segue.
-                    $sha256 = Sha256DeArquivo::deChaveOuNulo($this->armazenamento, $armazenado->chave, $this->logger);
-                }
-            }
-
-            $doc->setPasta($pasta);
-            $doc->setTitulo($file->getClientOriginalName());
-            $doc->setCategoria($categoria);
-            $doc->setDescricao($descricao !== '' ? $descricao : null);
-            $doc->setNumero($numero !== '' ? $numero : null);
-            $doc->setCaminhoArquivo($nomeUnico);
-            $doc->setNomeOriginal($file->getClientOriginalName());
-            $doc->setMimeType($mimeType);
-            $doc->setTamanhoBytes($tamanhoFinal);
-            $doc->setSha256($sha256);
-
-            if ($secaoId !== null) {
-                $doc->setSecao($secaoId);
-            }
-
-            $this->em->persist($doc);
-            ++$salvos;
-        }
-
-        $this->em->flush();
-
-        if ($salvos > 0 && $tenant !== null) {
-            $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
-        }
-
-        if ($erros) {
-            foreach ($erros as $erro) {
-                $this->addFlash('error', $erro);
-            }
-        }
-
-        if ($salvos > 0) {
-            $mensagem = sprintf(
-                '%d documento%s enviado%s com sucesso.',
-                $salvos,
-                $salvos > 1 ? 's' : '',
-                $salvos > 1 ? 's' : ''
-            );
-
-            if ($reduzirTamanho && $bytesEconomizados > 0) {
-                $mensagem .= sprintf(' Economia de %s.', $this->formatarBytes($bytesEconomizados));
-            }
-
-            $this->addFlash('success', $mensagem);
-
-            if ($reduzirTamanho && $bytesEconomizados <= 0) {
-                $this->addFlash('info', 'Não foi possível reduzir os arquivos; mantidos no tamanho original.');
-            }
-        }
-
-        if ($assinadosComprimidos > 0) {
-            $this->addFlash('warning', sprintf(
-                '%d PDF assinado%s foi comprimido — a assinatura pode ter sido invalidada.',
-                $assinadosComprimidos,
-                $assinadosComprimidos > 1 ? 's' : ''
-            ));
-        }
-
-        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-    }
-
-    private function formatarBytes(int $bytes): string
-    {
-        if ($bytes <= 0) {
-            return '0 B';
-        }
-
-        $unidades = ['B', 'KB', 'MB', 'GB'];
-        $i        = (int) floor(log($bytes) / log(1024));
-        $i        = min($i, count($unidades) - 1);
-
-        return sprintf('%.1f %s', $bytes / (1024 ** $i), $unidades[$i]);
-    }
 
     #[Route('/documento/{id}/visualizar', name: 'pasta_documento_view', methods: ['GET'])]
     public function viewDocumento(PastaDocumento $doc): Response
@@ -2202,7 +2045,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Enviar observação ─────────────────────────────────────────
 
     #[Route('/{id}/financeiro/observacao', name: 'pasta_financeiro_observacao_enviar', methods: ['POST'])]
-    public function financeiroEnviarObservacao(Pasta $pasta, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
+    public function financeiroEnviarObservacao(Pasta $pasta, Request $request, MencoesDoRegistro $mencoes): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2222,8 +2065,22 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'A observação não pode ser vazia.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // "Responder" (FPN-005): o id do registro respondido vem do navegador. A busca já é presa
+        // a ESTA pasta e a ESTE escritório (id de outra pasta ou de outro escritório = não achado,
+        // nada gravado); o UseCase repete a prova, inclusive para a raiz.
+        $respostaA   = null;
+        $respostaAId = (int) $request->request->get('resposta_a', 0);
+        if ($respostaAId > 0) {
+            $respostaA = $tenant !== null
+                ? $this->em->getRepository(PastaObservacaoFinanceira::class)->findOneBy(['id' => $respostaAId, 'pasta' => $pasta, 'tenant' => $tenant])
+                : null;
+            if ($respostaA === null) {
+                return $this->json(['erro' => 'O registro respondido não foi encontrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
         try {
-            $obs = $this->enviarObservacaoFinanceiraUseCase->executar($pasta, $currentUser, $conteudo, $tenant);
+            $obs = $this->enviarObservacaoFinanceiraUseCase->executar($pasta, $currentUser, $conteudo, $tenant, $respostaA);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -2231,19 +2088,23 @@ class PastaController extends AbstractController
         return $this->json([
             'id'         => $obs->getId(),
             'conteudo'   => $obs->getConteudo(),
-            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
+            'conteudoHtml' => $mencoes->exibir($obs->getConteudo()),
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs' => $obs->getCriadaEm()->format(\DateTimeInterface::ATOM),
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_financeiro_obs_editar_' . $obs->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_financeiro_obs_excluir_' . $obs->getId())->getValue(),
+            'autorId'     => $currentUser->getId(),
+            // A RAIZ respondida (já normalizada pelo UseCase): é sob ela que o JS pendura a resposta.
+            'respostaA'     => $obs->getRespostaA()?->getId(),
+            'respostaANome' => $obs->getRespostaA()?->getAutor()?->getFullName() ?? $obs->getRespostaA()?->getAutor()?->getEmail(),
         ], Response::HTTP_CREATED);
     }
 
     // ── Financeiro: Editar observação ─────────────────────────────────────────
 
     #[Route('/{id}/financeiro/observacao/{obsId}/editar', name: 'pasta_financeiro_observacao_editar', methods: ['POST'])]
-    public function financeiroEditarObservacao(Pasta $pasta, int $obsId, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
+    public function financeiroEditarObservacao(Pasta $pasta, int $obsId, Request $request, MencoesDoRegistro $mencoes): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2275,7 +2136,7 @@ class PastaController extends AbstractController
 
         return $this->json([
             'conteudo'     => $obs->getConteudo(),
-            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
+            'conteudoHtml' => $mencoes->exibir($obs->getConteudo()),
             'editadaEm'    => $obs->getEditadaEm()?->format('d/m/Y H:i'),
         ]);
     }
@@ -2315,7 +2176,7 @@ class PastaController extends AbstractController
     // ── Detalhes: Enviar observação ───────────────────────────────────────────
 
     #[Route('/{id}/detalhes/observacao', name: 'pasta_detalhes_observacao_enviar', methods: ['POST'])]
-    public function detalhesEnviarObservacao(Pasta $pasta, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
+    public function detalhesEnviarObservacao(Pasta $pasta, Request $request, MencoesDoRegistro $mencoes): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2335,8 +2196,22 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'A observação não pode ser vazia.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // "Responder" (PAS-039): o id da observação respondida vem do navegador. A busca já é presa
+        // a ESTA pasta e a ESTE escritório (id de outra pasta ou de outro escritório = não achado,
+        // nada gravado); o UseCase repete a prova, inclusive para a raiz.
+        $respostaA   = null;
+        $respostaAId = (int) $request->request->get('resposta_a', 0);
+        if ($respostaAId > 0) {
+            $respostaA = $tenant !== null
+                ? $this->em->getRepository(PastaObservacaoDetalhes::class)->findOneBy(['id' => $respostaAId, 'pasta' => $pasta, 'tenant' => $tenant])
+                : null;
+            if ($respostaA === null) {
+                return $this->json(['erro' => 'A observação respondida não foi encontrada.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
         try {
-            $obs = $this->enviarObservacaoDetalhesUseCase->executar($pasta, $currentUser, $conteudo, $tenant);
+            $obs = $this->enviarObservacaoDetalhesUseCase->executar($pasta, $currentUser, $conteudo, $tenant, $respostaA);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -2346,18 +2221,22 @@ class PastaController extends AbstractController
             // `conteudo` é o valor CRU (volta para dentro do editor ao editar); `conteudoHtml` é o
             // que a tela exibe — sanitizado aqui para o JS poder inserir como HTML com segurança.
             'conteudo'     => $obs->getConteudo(),
-            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
+            'conteudoHtml' => $mencoes->exibir($obs->getConteudo()),
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_detalhes_obs_editar_' . $obs->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_detalhes_obs_excluir_' . $obs->getId())->getValue(),
+            'autorId'     => $currentUser->getId(),
+            // A RAIZ respondida (já normalizada pelo UseCase): é sob ela que o JS pendura a resposta.
+            'respostaA'     => $obs->getRespostaA()?->getId(),
+            'respostaANome' => $obs->getRespostaA()?->getAutor()?->getFullName() ?? $obs->getRespostaA()?->getAutor()?->getEmail(),
         ], Response::HTTP_CREATED);
     }
 
     // ── Detalhes: Editar observação ───────────────────────────────────────────
 
     #[Route('/{id}/detalhes/observacao/{obsId}/editar', name: 'pasta_detalhes_observacao_editar', methods: ['POST'])]
-    public function detalhesEditarObservacao(Pasta $pasta, int $obsId, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
+    public function detalhesEditarObservacao(Pasta $pasta, int $obsId, Request $request, MencoesDoRegistro $mencoes): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2389,7 +2268,7 @@ class PastaController extends AbstractController
 
         return $this->json([
             'conteudo'     => $obs->getConteudo(),
-            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
+            'conteudoHtml' => $mencoes->exibir($obs->getConteudo()),
             'editadaEm'    => $obs->getEditadaEm()?->format('d/m/Y H:i'),
         ]);
     }

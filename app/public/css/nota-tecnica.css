@@ -63,6 +63,9 @@
 /* Dentro do teor do Push o bloco já está "dentro" do cartão: sem recuo nem conector. */
 .ps-page .ps-push-teor .ps-notas { margin: 12px 0 0; }
 .ps-page .ps-push-teor .ps-notas::before { display: none; }
+/* FPN-020: pendurado sob o cartão do Push, com o teor fechado — recuo e conector do desenho
+   (dc:2535-2536: `margin:6px 0 0 30px` e o mesmo "L"). */
+.ps-page .ps-push-item > .ps-notas { margin: 6px 0 0 30px; }
 
 .ps-page .ps-notas-cab {
     display: flex;
@@ -141,10 +144,49 @@
     color: var(--ps-muted);
 }
 .ps-page .ps-nota-mov i { font-size: 11px; transform: scaleX(-1); }
-/* Ações (lápis, lixeira, "· N min") sempre visíveis à direita, como o "⋯" do desenho —
-   a regra geral da pasta-show esconde até o hover; aqui não. */
-.ps-page .ps-nota .ps-anotacao-acoes { margin-left: auto; opacity: 1; }
-.ps-page .ps-nota .ps-anotacao-janela { color: var(--ps-label); }
+/* ⋮ da nota (PMC-017; dc:1700): 24×24 à direita, sem moldura, hover azul-claro. */
+.ps-page .ps-nota-menu-btn {
+    margin-left: auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ps-label);
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-page .ps-nota-menu-btn i { font-size: 13px; line-height: 1; }
+.ps-page .ps-nota-menu-btn:hover,
+.ps-page .ps-nota-menu-btn:focus-visible,
+.ps-page .ps-nota-menu-btn[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-nota-rotulo); outline: none; }
+/* O menu: fixo e posicionado pelo JS (o teor do Push corta o que transborda), o mesmo
+   corpo dos menus da pasta (`.ps-processo-menu-*`, pasta-show.css). */
+.ps-page .ps-nota-menu {
+    position: fixed;
+    z-index: 141;
+    width: 230px;
+    max-width: calc(100vw - 24px);
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-card);
+    border-radius: 4px;
+    box-shadow: var(--ps-shadow-gm);
+    animation: psProcEntra .14s var(--ps-ease) backwards;
+}
+.ps-page .ps-nota-menu[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-page .ps-nota-menu { animation: none; }
+}
+/* Editar/Excluir fora da janela (ou de outro autor): `bi-lock` e "· bloqueado", apagados. */
+.ps-page .ps-nota-menu .ps-nota-menu-bloqueado,
+.ps-page .ps-nota-menu .ps-nota-menu-bloqueado:hover { color: var(--ps-label); background: transparent; cursor: not-allowed; opacity: .7; }
 
 .ps-page .ps-nota-texto {
     margin-top: 5px;
@@ -155,6 +197,8 @@
     text-wrap: pretty;
 }
 .ps-page .ps-nota-texto .ql-editor { padding: 0; font-size: inherit; line-height: inherit; }
+/* @menção (PMC-019): o mesmo destaque do Registro (`.ps-anotacao-texto .ps-mencao`, pasta-show.css). */
+.ps-page .ps-nota-texto .ps-mencao { font-weight: 700; color: var(--ps-accent); }
 
 /* ── Compositor (nova) e caixa de edição (no lugar do texto) ──────────────── */
 .ps-page .ps-nota-editor {
@@ -244,4 +288,13 @@
 .ps-page .ps-nota-editor-acoes .ps-btn--primario { padding: 0 14px; border: none; transition: background .15s; }
 .ps-page .ps-nota-editor-acoes .ps-btn--primario:hover,
 .ps-page .ps-nota-editor-acoes .ps-btn--primario:focus-visible { border: none; background: var(--ps-env-hv); color: #fff; }
+/* EDT-021: "Salvar nota" apagado com o editor vazio — o mesmo estado do Enviar do compositor
+   (`.bjed-env:disabled`: fundo #a9c7e2, cursor padrão; editor-rico.css), aqui no rodapé da nota
+   e vencendo o :hover acima. */
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled,
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:hover,
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:focus-visible { background: #a9c7e2; color: #fff; cursor: default; }
+[data-bs-theme="dark"] .ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled,
+[data-bs-theme="dark"] .ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:hover,
+[data-bs-theme="dark"] .ps-page .ps-nota-editor-acoes .ps-btn--primario:disabled:focus-visible { background: rgba(47, 134, 208, .35); color: rgba(255, 255, 255, .7); }
 .ps-page .ps-nota-erro { font-size: 12.5px; color: var(--ps-danger-text); margin-top: 6px; }

@@ -23,15 +23,78 @@
    metas desta pasta" a partir das próprias linhas. Sem JS, a linha continua
    sendo o link para a meta.
 
-   O que não tem lastro NÃO aparece: número global, duplicar, encaminhar e
-   copiar link. #}
+   ⋮ também com "Copiar link" (PMC-028: a URL ABSOLUTA de `tarefa_show`, pelo
+   mesmo `.js-ps-copiar` do trilho da aba Dados, em pasta-clientes.js) e
+   "Excluir" (PMC-030: POST `tarefa_excluir`, token `excluir_tarefa_<id>`, com
+   confirm()). "Excluir" só aparece quando o `ExcluirTarefaUseCase::podeExcluir`
+   deixaria (criador, dentro da janela) e nunca na pasta excluída (lápide). O
+   desenho oferece "Desfazer" depois de excluir; aqui NÃO há: a exclusão é
+   física, e desfazer exigiria lápide de meta (decisão em aberto).
+
+   Concluir e Reabrir sem recarregar (PMC-031): com JS, o pasta-metas.js manda os
+   MESMOS formulários (⋮ e rodapé do drawer) por XHR; `tarefa_concluir` e
+   `tarefa_reabrir` respondem JSON com esta aba renderizada de novo
+   (`ListaDeMetasDaPastaEmJson`) e o aviso "Meta concluída" / "Meta reaberta" traz
+   "Desfazer", que manda o formulário oposto da linha nova (mesma guarda e CSRF).
+   Sem JS, continua o POST + redirect.
+
+   O que não tem lastro NÃO aparece: número global, duplicar e encaminhar. #}
+{# Aviso com "Desfazer" (dc L.1509-1510): fixo, centrado, 24px do rodapé, raio 4,
+   13px; "Desfazer" #7cc4ff/700. O `.ps-l7-aviso` da tela não serve: tem
+   `pointer-events: none` e o botão precisa de clique. Nasce no <body> pelo
+   pasta-metas.js; as cores seguem os tokens do aviso curto (tema escuro incluso). #}
+<style>
+    .ps-metas-aviso {
+        --ps-metas-aviso-acao: #7cc4ff;
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        z-index: 1070;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 4px;
+        background: var(--ps-l7-aviso-bg, #12242f);
+        color: var(--ps-l7-aviso-tx, #fff);
+        font-size: 13px;
+        box-shadow: 0 14px 30px -12px rgba(0, 0, 0, .5);
+        transform: translateX(-50%);
+        animation: psMetasAvisoEntra .25s both;
+    }
+    .ps-metas-aviso[hidden] { display: none; }
+    [data-bs-theme="dark"] .ps-metas-aviso { --ps-metas-aviso-acao: #0a7aad; }
+    .ps-metas-aviso-desfazer {
+        border: none;
+        padding: 0;
+        background: transparent;
+        color: var(--ps-metas-aviso-acao);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .ps-metas-aviso-desfazer[hidden] { display: none; }
+    @keyframes psMetasAvisoEntra { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    @media (prefers-reduced-motion: reduce) { .ps-metas-aviso { animation: none; } }
+</style>
 {% set statusLabelTarefa = {
     'pendente':   'Pendente',
     'em_revisao': 'Para Revisão',
     'concluida':  'Concluída',
 } %}
 {% set podeConcluir = can_access_module('tarefas') %}
-{% set ultimosAlertas = podeConcluir and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
+{# PMC-060: pasta excluída (lápide) é somente-leitura — o `PastaSomenteLeituraListener` recusa
+   concluir, reabrir, renomear e alertar a meta dela (a meta é filha da pasta). Então a tela não
+   os oferece: no ⋮ e no rodapé do drawer ficam só as leituras (Abrir relatório, Copiar link,
+   Abrir em Metas) e o sino some. Vale também para a aba devolvida por XHR
+   (`ListaDeMetasDaPastaEmJson`), que renderiza este mesmo template. #}
+{% set metaEditavel = podeConcluir and not pasta.estaExcluida %}
+{# PAS-047: o sino faz o POST `tarefa_alertar`, que exige EDITAR a pasta; quem só vê não o
+   recebe. `podeEditarPasta` vem calculado uma vez pelo show (fallback: calcula aqui). #}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeAlertar = metaEditavel and podeEditarPasta %}
+{% set ultimosAlertas = podeAlertar and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
 <div class="ps-grade">
 <section class="ps-card ps-metas" data-ps-metas>
     <div class="ps-card-cab ps-card-cab--painel">
@@ -50,10 +113,14 @@
             {% endfor %}
         </div>
         <span class="ps-cab-espaco"></span>
-        <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta para esta pasta" aria-label="Nova meta"
-                data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
-            <i class="bi bi-plus-lg"></i><span>Nova meta</span>
-        </button>
+        {# PMC-062: na lápide o servidor recusa criar meta na pasta (PastaSomenteLeituraListener);
+           o botão não é oferecido. #}
+        {% if not pasta.estaExcluida %}
+            <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta para esta pasta" aria-label="Nova meta"
+                    data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
+                <i class="bi bi-plus-lg"></i><span>Nova meta</span>
+            </button>
+        {% endif %}
     </div>
 
     {% if metasResumo.linhas|length > 0 %}
@@ -64,7 +131,10 @@
                 {% set concluida = linha.estado == 'concluida' %}
                 {% set atrasada = linha.estado == 'atrasada' %}
                 {% set tom = linha.estado %}
+                {# Botão direito na linha abre o ⋮ dela no cursor (PMC-027; desenho dc L.1430,
+                   `onContextMenu={m.menuCtx}`). Só quando o ⋮ existe; quem escuta é o pasta-metas.js. #}
                 <article class="ps-meta ps-meta--{{ tom }}"
+                         {%- if podeConcluir %} data-ps-menu-contexto="psMetaMenu{{ tarefa.id }}"{% endif %}
                          data-meta-id="{{ tarefa.id }}"
                          data-meta-estado="{{ tom }}"
                          data-meta-titulo="{{ tarefa.titulo }}"
@@ -79,9 +149,11 @@
                             </div>
                             <div class="ps-meta-linha">
                                 <span title="Autor"><i class="bi bi-person"></i>{{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}</span>
-                                <span title="{% if tarefa.responsaveis|length > 0 %}Responsáveis: {{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}Responsável{% endif %}">
+                                {# PMC-036: todos os responsáveis à vista (dc L.1442, `m.responsaveis`
+                                   = os nomes juntados por ", "), não o primeiro + "+N". #}
+                                <span class="ps-meta-resp" title="{{ tarefa.responsaveis|length > 1 ? 'Responsáveis' : 'Responsável' }}">
                                     <i class="bi bi-people"></i>
-                                    {%- if tarefa.responsaveis|length > 0 %}{{ (tarefa.responsaveis|first).fullName }}{% if tarefa.responsaveis|length > 1 %} +{{ tarefa.responsaveis|length - 1 }}{% endif %}{% else %}—{% endif -%}
+                                    {%- if tarefa.responsaveis|length > 0 %}{{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}—{% endif -%}
                                 </span>
                                 {% if concluida and linha.prazoConcluida %}
                                     <span class="ps-meta-prazo" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}{{ tarefa.dataConclusao ? ' · concluída em ' ~ tarefa.dataConclusao|date('d/m/Y') : '' }}"><i class="bi bi-calendar-event"></i>{{ linha.prazoConcluida }}</span>
@@ -112,7 +184,7 @@
                            responsáveis da meta, sem o próprio usuário. Sem ninguém a
                            alertar, o sino não é desenhado. #}
                         {% set alertaveis = tarefa.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id) %}
-                        {% if not concluida and alertaveis|length > 0 %}
+                        {% if podeAlertar and not concluida and alertaveis|length > 0 %}
                             {# Já alertada: sino cheio e laranja, título "Alertado: Nome às
                                HH:MM. Clique para alertar de novo"; logo depois do envio
                                (volta do POST) ele balança. #}
@@ -147,7 +219,9 @@
                                 <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-relatorio="{{ tarefa.id }}">
                                     <i class="bi bi-file-earmark-text"></i><span>Abrir relatório</span>
                                 </button>
-                                {% if concluida %}
+                                {% if not metaEditavel %}
+                                    {# Lápide: nada de concluir, reabrir nem editar o nome (PMC-060). #}
+                                {% elseif concluida %}
                                     <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
                                         <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
                                         <button type="submit" class="ps-pop-item" role="menuitem">
@@ -162,22 +236,48 @@
                                         </button>
                                     </form>
                                 {% endif %}
-                                <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
-                                    <i class="bi bi-pencil"></i><span>Editar nome</span>
+                                {% if metaEditavel %}
+                                    <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
+                                        <i class="bi bi-pencil"></i><span>Editar nome</span>
+                                    </button>
+                                {% endif %}
+                                <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
+                                        data-ps-copiar="{{ url('tarefa_show', {id: tarefa.id}) }}"
+                                        data-ps-copiado="Link da meta copiado">
+                                    <i class="bi bi-link-45deg"></i><span>Copiar link</span>
                                 </button>
+                                {# PMC-029: o mesmo "Abrir em Metas" do rodapé do drawer, aqui no ⋮
+                                   (dc L.3560, depois de "Copiar link"). Mesmo destino (`tarefa_show`);
+                                   o destino final segue a D-META-LINK (PMC-037). É leitura: continua
+                                   na pasta excluída. #}
+                                <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-pop-item" role="menuitem">
+                                    <i class="bi bi-box-arrow-up-right"></i><span>Abrir em Metas</span>
+                                </a>
+                                {% if not pasta.estaExcluida and meta_pode_excluir(tarefa) %}
+                                    <div class="ps-pop-sep"></div>
+                                    <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
+                                          onsubmit="return confirm('Excluir esta meta? Esta ação não pode ser desfeita.');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
+                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
+                                            <i class="bi bi-trash3"></i><span>Excluir</span>
+                                        </button>
+                                    </form>
+                                {% endif %}
                             </div>
                         </div>
                         {# Edição do nome no lugar do título (desenho: campo + Salvar +
                            Cancelar; Enter salva, Esc cancela). Fica FORA da âncora —
                            campo dentro de link não é HTML válido — e o pasta-metas.js o
                            posiciona sobre o título. #}
-                        <form method="post" action="{{ path('tarefa_renomear', {id: tarefa.id}) }}" class="ps-meta-renomear" hidden>
-                            <input type="hidden" name="_token" value="{{ csrf_token('renomear_tarefa_' ~ tarefa.id) }}">
-                            <input type="text" name="titulo" class="ps-meta-ren-campo" value="{{ tarefa.titulo }}"
-                                   aria-label="Nome da meta" maxlength="160" required autocomplete="off">
-                            <button type="submit" class="ps-meta-ren-salvar">Salvar</button>
-                            <button type="button" class="ps-meta-ren-cancelar">Cancelar</button>
-                        </form>
+                        {% if metaEditavel %}
+                            <form method="post" action="{{ path('tarefa_renomear', {id: tarefa.id}) }}" class="ps-meta-renomear" hidden>
+                                <input type="hidden" name="_token" value="{{ csrf_token('renomear_tarefa_' ~ tarefa.id) }}">
+                                <input type="text" name="titulo" class="ps-meta-ren-campo" value="{{ tarefa.titulo }}"
+                                       aria-label="Nome da meta" maxlength="160" required autocomplete="off">
+                                <button type="submit" class="ps-meta-ren-salvar">Salvar</button>
+                                <button type="button" class="ps-meta-ren-cancelar">Cancelar</button>
+                            </form>
+                        {% endif %}
                     {% endif %}
                 </article>
             {% endfor %}
@@ -307,8 +407,8 @@
                     </div>
                 </div>
                 <div class="ps-mrel-rodape">
-                    {# Mesmas rotas, tokens e guarda do ⋮ da linha. #}
-                    {% if podeConcluir %}
+                    {# Mesmas rotas, tokens e guarda do ⋮ da linha; na lápide, só "Abrir em Metas" (PMC-060). #}
+                    {% if metaEditavel %}
                         {% if rel.tom == 'concluida' %}
                             <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
                                 <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">

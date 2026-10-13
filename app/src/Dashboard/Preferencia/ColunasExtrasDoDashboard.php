@@ -86,6 +86,48 @@ final class ColunasExtrasDoDashboard
         ],
     ];
 
+    /**
+     * Extras com TENDÊNCIA (seta na célula, pílula no Total), com o sentido do macro
+     * `_tendencia.html.twig`. Só entra a extra que se reconstrói POR DATA no período anterior
+     * de mesma duração, com a mesma consulta trocando só as datas (DASH-010):
+     *   - eventos: a data de início do evento é um fato do passado; neutro, sempre cinza
+     *     ('fila'; desenho `neutra`).
+     *
+     * Ficam SEM tendência (DASH-010b), com o espaço da seta reservado como nas de estoque:
+     *   - Em revisão e Pastas urgentes: são estoque (o que está em revisão/urgente agora), não
+     *     se reconstroem do passado sem a foto diária;
+     *   - Metas concluídas, Taxa de conclusão e Tempo médio: recortam as metas pela data de
+     *     CRIAÇÃO, mas leem o status/conclusão de HOJE. As metas do período anterior tiveram
+     *     mais tempo para concluir, então a comparação nasce enviesada: concluídas e taxa
+     *     tenderiam a "cair" e o tempo médio anterior sairia maior, sem nada ter mudado no
+     *     trabalho. É o mesmo motivo pelo qual "ativas" nunca teve seta — o estado de hoje não
+     *     reconstrói o de ontem.
+     *
+     * PENDENTE (decisão do Samuel): o critério certo para comparar essas três — por exemplo,
+     * metas concluídas DENTRO da janela por `Tarefa.dataConclusao`, com o mesmo recorte no
+     * período anterior. Até lá, sem seta: o painel não mostra comparação que ele sabe torta.
+     *
+     * @var array<string, string>
+     */
+    public const TENDENCIA = [
+        self::EVENTOS_AGENDA => 'fila',
+    ];
+
+    /**
+     * As extras de $colunas que têm tendência, na ordem recebida.
+     *
+     * @param list<string> $colunas
+     *
+     * @return list<string>
+     */
+    public static function comTendencia(array $colunas): array
+    {
+        return array_values(array_filter(
+            $colunas,
+            static fn (string $coluna): bool => isset(self::TENDENCIA[$coluna]),
+        ));
+    }
+
     /** @return list<string> */
     public static function chaves(): array
     {

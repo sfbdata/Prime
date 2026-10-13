@@ -15,14 +15,20 @@
          Renderiza a pré-visualização em `conteudo` (padrão: #previewDocConteudo).
      VisualizadorDocumento.limpar(conteudo)
          Esvazia a área e cancela qualquer carregamento em andamento.
+     VisualizadorDocumento.paraImpressao(conteudo)
+         DOC-108: cópia inerte do que já está desenhado (DOCX, planilha, texto,
+         ODT, PPTX, ODP, RTF, EML, lista do ZIP) para o visor imprimir; null
+         enquanto carrega, se falhou ou se o tipo não passa por render.
 
    Tipos:
      PDF (iframe), imagem, áudio, vídeo — como sempre foi.
+     TIFF (UTIF.js, auto-hospedado): cada página num <canvas>, porque o Chrome
+     e o Firefox não abrem TIFF num <img>.
      DOCX (mammoth.js), planilhas XLSX/XLSM/XLS/ODS/CSV (SheetJS) e texto
      (TXT/JSON/XML/LOG/MD/text/*). Bibliotecas auto-hospedadas em
      /js/vendor/, carregadas só quando o tipo pede.
      ODT (texto do content.xml), PPTX/PPSX e ODP (só o texto dos slides), RTF
-     (só o texto), EML (cabeçalhos + corpo) e ZIP (lista das entradas, sem
+     e DOC do Word 97-2003 (só o texto), EML (cabeçalhos + corpo) e ZIP (lista das entradas, sem
      extrair) — sem biblioteca: o ZIP é lido aqui mesmo (diretório central,
      inclusive ZIP64) e descompactado com DecompressionStream('deflate-raw')
      nativo, com teto de bytes descompactados (zip bomb). XML vai por
@@ -33,7 +39,7 @@
        um <iframe sandbox=""> (sem scripts, origem opaca) via srcdoc, com CSP
        "default-src 'none'; img-src data:; style-src 'unsafe-inline'".
      - Texto puro vai por textContent num <pre>.
-     - Texto extraído de ODT/PPTX/ODP/RTF/EML e a lista do ZIP viram nós do DOM
+     - Texto extraído de ODT/PPTX/ODP/RTF/DOC/EML e a lista do ZIP viram nós do DOM
        montados com textContent — nenhuma string do arquivo vira HTML.
      - O HTML de um e-mail (quando não há text/plain) só entra pelo mesmo
        iframe sandbox + CSP; a CSP barra imagem remota (pixel de rastreio).
@@ -52,6 +58,10 @@
     const BIBLIOTECAS = {
         mammoth: { src: BASE_VENDOR + 'mammoth/mammoth.browser.min.js', global: 'mammoth' },
         xlsx:    { src: BASE_VENDOR + 'xlsx/xlsx.full.min.js',          global: 'XLSX' },
+        /* DOC-112: UTIF 3.1.0 (TIFF) e o pako 1.0.11 de que ele depende (só o inflate, para a
+           compressão Deflate). Versões e hashes em vendor/utif/VERSION. */
+        pako:    { src: BASE_VENDOR + 'utif/pako_inflate.min.js',       global: 'pako' },
+        utif:    { src: BASE_VENDOR + 'utif/UTIF.js',                   global: 'UTIF' },
     };
 
     /* Limites. O de bytes é o que de fato segura o navegador: mammoth e
@@ -63,6 +73,7 @@
     const LIMITE_COLUNAS_PLANILHA = 200;
     const LIMITE_BYTES_TEXTO      = 1024 * 1024;        // 1 MB exibidos
     const LIMITE_BYTES_DOCX       = 15 * 1024 * 1024;   // 15 MB
+    const LIMITE_BYTES_DOC        = 15 * 1024 * 1024;   // 15 MB (como o DOCX; o .doc não comprime)
     const LIMITE_BYTES_PLANILHA   = 5 * 1024 * 1024;    // 5 MB
     const LIMITE_BYTES_ODT        = 15 * 1024 * 1024;   // 15 MB (como o DOCX)
     const LIMITE_BYTES_PPTX       = 30 * 1024 * 1024;   // 30 MB (apresentação traz imagem)
@@ -70,6 +81,20 @@
     const LIMITE_BYTES_RTF        = 10 * 1024 * 1024;   // 10 MB lidos (RTF embute imagem em hexa)
     const LIMITE_BYTES_EML        = 10 * 1024 * 1024;   // 10 MB
     const LIMITE_BYTES_ZIP        = 30 * 1024 * 1024;   // 30 MB (o diretório central fica no fim)
+    const LIMITE_BYTES_TIFF       = 30 * 1024 * 1024;   // 30 MB (o índice das páginas pode estar no fim)
+    /* TIFF: o custo é o de DECODIFICAR (RGBA de 4 bytes por pixel na thread principal), não o de
+       baixar — uma página de poucos KB pode declarar 100 mil × 100 mil pixels. Por página, e a
+       página exibida é reduzida a LARGURA_MAX_TIFF (o canvas fica na tela enquanto o visor estiver
+       aberto). */
+    const LIMITE_PAGINAS_TIFF       = 50;
+    const LIMITE_PIXELS_PAGINA_TIFF = 50 * 1000 * 1000;  // 50 Mpx (A4 a 600 dpi tem ~35)
+    const LIMITE_BYTES_PAGINA_TIFF  = 200 * 1024 * 1024; // página descompactada (16 bits × 4 canais pesa o dobro do RGBA)
+    const LIMITE_LADO_TIFF          = 16384;             // lado máximo de um canvas
+    const LARGURA_MAX_TIFF          = 1700;              // px desenhados por página
+    /* DOC-112b: os canvas EXIBIDOS ficam todos na tela enquanto o visor estiver aberto — o teto por
+       página não basta (50 páginas de 1700 × 16384 somam ~5,5 GB de canvas). Somado entre as
+       páginas; passando dele, a lista para com o aviso "Aparecem as N primeiras de M páginas". */
+    const LIMITE_PIXELS_EXIBIDOS_TIFF = 150 * 1000 * 1000; // 150 Mpx somados (~600 MB de RGBA)
     /* Teto do que se DESCOMPACTA de dentro de um ZIP (content.xml, slides):
        um XML de poucos KB pode inflar para GB (zip bomb). Por entrada e, nos
        slides, somado. */
@@ -97,6 +122,8 @@
         'application/ld+json',
     ];
     const EXT_DOCX     = ['docx'];
+    const MIMES_DOC    = ['application/msword'];
+    const EXT_DOC      = ['doc', 'dot'];
     const EXT_PLANILHA = ['xlsx', 'xlsm', 'xls', 'ods', 'csv'];
     const EXT_TEXTO    = ['txt', 'json', 'xml', 'log', 'md'];
     const MIMES_ODT  = ['application/vnd.oasis.opendocument.text'];
@@ -108,12 +135,19 @@
     const MIMES_RTF  = ['application/rtf', 'application/x-rtf', 'text/rtf'];
     const MIMES_EML  = ['message/rfc822'];
     const MIMES_ZIP  = ['application/zip', 'application/x-zip-compressed', 'application/x-zip'];
+    const MIMES_ASSINATURA = [
+        'application/pkcs7-signature', 'application/x-pkcs7-signature',
+        'application/pkcs7-mime', 'application/x-pkcs7-mime',
+    ];
     const EXT_ODT  = ['odt'];
     const EXT_PPTX = ['pptx', 'ppsx'];
     const EXT_ODP  = ['odp'];
     const EXT_RTF  = ['rtf'];
     const EXT_EML  = ['eml'];
     const EXT_ZIP  = ['zip'];
+    const EXT_ASSINATURA = ['p7s', 'p7m'];
+    const MIMES_TIFF = ['image/tiff', 'image/tiff-fx', 'image/x-tiff'];
+    const EXT_TIFF   = ['tif', 'tiff'];
 
     /* ------------------------------------------------------------ util --- */
 
@@ -139,11 +173,15 @@
         const ext = extensao(nome);
 
         if (m === 'application/pdf')  { return 'pdf'; }
+        /* Antes da imagem: o Chrome e o Firefox não abrem TIFF num <img>. A extensão só decide
+           quando o MIME não diz que é outra imagem (um PNG chamado .tif segue como imagem). */
+        if (MIMES_TIFF.includes(m) || (EXT_TIFF.includes(ext) && !m.startsWith('image/'))) { return 'tiff'; }
         if (m.startsWith('image/'))   { return 'imagem'; }
         if (m.startsWith('audio/'))   { return 'audio'; }
         if (m.startsWith('video/'))   { return 'video'; }
         if (MIMES_DOCX.includes(m) || EXT_DOCX.includes(ext))         { return 'docx'; }
         if (MIMES_PLANILHA.includes(m) || EXT_PLANILHA.includes(ext)) { return 'planilha'; }
+        if (MIMES_DOC.includes(m) || EXT_DOC.includes(ext))           { return 'doc'; }
         /* Antes do texto: text/rtf começa com text/. Antes do ZIP: ODT/PPTX/ODP
            às vezes chegam com MIME application/zip — a extensão decide. */
         if (MIMES_ODT.includes(m) || EXT_ODT.includes(ext))           { return 'odt'; }
@@ -152,6 +190,7 @@
         if (MIMES_RTF.includes(m) || EXT_RTF.includes(ext))           { return 'rtf'; }
         if (MIMES_EML.includes(m) || EXT_EML.includes(ext))           { return 'eml'; }
         if (MIMES_ZIP.includes(m) || EXT_ZIP.includes(ext))           { return 'zip'; }
+        if (MIMES_ASSINATURA.includes(m) || EXT_ASSINATURA.includes(ext)) { return 'assinatura'; }
         if (m.startsWith('text/') || MIMES_TEXTO.includes(m) || m.endsWith('+xml') || EXT_TEXTO.includes(ext)) {
             return 'texto';
         }
@@ -182,6 +221,49 @@
             document.head.appendChild(s);
         });
         return carregando[chave];
+    }
+
+    /* DOC-112: o UTIF chama pako.inflate(tira) e usa o resultado inteiro — uma tira Deflate de
+       poucos KB pode inflar para GB. Ele guarda o `self.pako` que existe quando o UTIF.js
+       carrega: nesse instante o global é trocado por um envelope com teto e, carregado o UTIF,
+       volta a ser o pako original. O teto é o tamanho da página que está sendo decodificada
+       (`orcamentoInflateTiff`, posto pelo renderTiff antes de cada decodeImage). */
+    let orcamentoInflateTiff = 0;
+    const MSG_TIFF_GRANDE = 'Imagem grande demais para pré-visualizar. Baixe para abrir.';
+
+    function pakoComTeto(pako) {
+        return {
+            inflate: function (dados) {
+                const inf = new pako.Inflate();
+                const partes = [];
+                let total = 0;
+                inf.onData = function (pedaco) {
+                    total += pedaco.length;
+                    if (total > orcamentoInflateTiff) { throw falha(MSG_TIFF_GRANDE); }
+                    partes.push(pedaco);
+                };
+                inf.onEnd = function () { /* o resultado é o das partes */ };
+                inf.push(dados, true);
+                if (inf.err) { throw new Error('inflate'); }
+                orcamentoInflateTiff -= total;
+                const saida = new Uint8Array(total);
+                let pos = 0;
+                partes.forEach(function (p) { saida.set(p, pos); pos += p.length; });
+                return saida;
+            },
+        };
+    }
+
+    let carregandoUtif = null;
+    function carregarUtif() {
+        if (window.UTIF) { return Promise.resolve(window.UTIF); }
+        if (carregandoUtif) { return carregandoUtif; }
+        carregandoUtif = carregarBiblioteca('pako').then(function (pako) {
+            window.pako = pakoComTeto(pako);
+            return carregarBiblioteca('utif').finally(function () { window.pako = pako; });
+        });
+        carregandoUtif.catch(function () { carregandoUtif = null; });
+        return carregandoUtif;
     }
 
     /** Lê a resposta até `limite` bytes; cancela o resto do download. */
@@ -778,6 +860,225 @@
         };
     }
 
+    /* -------------------------------------------- DOC (Word 97-2003) - */
+
+    /* DOC-111 (bj-visualizar.js L68): o .doc antigo mostra só o TEXTO. O desenho varre os bytes
+       atrás de trechos legíveis; aqui o texto vem do lugar certo — o arquivo é um Compound File
+       (OLE2) e o texto do corpo está no stream WordDocument, nos pedaços que a tabela de peças
+       (Clx, no stream 0Table/1Table) aponta. Assim não entram nome de fonte, estilo nem
+       metadado. Nada é descompactado (o .doc não comprime o texto): o teto é o de bytes baixados
+       e o de caracteres exibidos; as cadeias de setores têm guarda de laço. */
+    const MSG_DOC_INVALIDO = 'O arquivo não parece ser um documento .doc válido (ou está corrompido).';
+    const FIM_DE_CADEIA    = 0xfffffffa; // daqui para cima: ENDOFCHAIN, FREESECT, FATSECT, DIFSECT
+
+    /**
+     * Compound File Binary ([MS-CFB]) → { stream(nome) } com os bytes do stream (ou null).
+     * Toda posição é conferida contra o tamanho do arquivo; cadeia mais longa que o número de
+     * setores é laço e vira "corrompido".
+     */
+    function lerCfb(bytes, invalido) {
+        if (bytes.length < 512 || lerU32(bytes, 0) !== 0xe011cfd0 || lerU32(bytes, 4) !== 0xe11ab1a1) { throw falha(invalido); }
+        const deslocamento = lerU16(bytes, 0x1e);
+        if ((deslocamento !== 9 && deslocamento !== 12) || lerU16(bytes, 0x20) !== 6) { throw falha(invalido); }
+        const tam = 1 << deslocamento;
+        const porSetor = tam / 4;
+        const totalSetores = Math.floor(bytes.length / tam) - 1; // o cabeçalho ocupa o 1º setor
+
+        function setor(n) {
+            if (n >= totalSetores) { throw falha(invalido); }
+            return (n + 1) * tam;
+        }
+
+        /* FAT: os setores dela vêm do DIFAT (109 no cabeçalho + a cadeia de setores DIFAT).
+           DOC-111b: o tamanho da FAT vem do cabeçalho e da cadeia DIFAT, e os dois são do
+           arquivo. Cada setor da FAT é um setor DESTE arquivo: mais setores de FAT que setores no
+           arquivo é corrompido — recusado ANTES de alocar (sem o teto, 15 MB pediam ~2 GB). O
+           DIFAT guarda só setores válidos e para de ler quando já tem os que a FAT declara. */
+        const qtdFat = lerU32(bytes, 0x2c);
+        if (qtdFat > totalSetores) { throw falha(invalido); }
+        const difat = [];
+        function anotarDifat(s) {
+            if (s >= FIM_DE_CADEIA || difat.length >= qtdFat) { return; }
+            difat.push(s);
+        }
+        for (let i = 0; i < 109; i++) { anotarDifat(lerU32(bytes, 0x4c + i * 4)); }
+        let proximo = lerU32(bytes, 0x44);
+        for (let k = 0; proximo < FIM_DE_CADEIA && difat.length < qtdFat; k++) {
+            if (k >= totalSetores) { throw falha(invalido); }
+            const p = setor(proximo);
+            for (let i = 0; i < porSetor - 1; i++) { anotarDifat(lerU32(bytes, p + i * 4)); }
+            proximo = lerU32(bytes, p + tam - 4);
+        }
+        const setoresFat = difat;
+        if (setoresFat.length > totalSetores) { throw falha(invalido); }
+        const fat = new Uint32Array(setoresFat.length * porSetor);
+        setoresFat.forEach(function (s, i) {
+            const p = setor(s);
+            for (let j = 0; j < porSetor; j++) { fat[i * porSetor + j] = lerU32(bytes, p + j * 4); }
+        });
+
+        function cadeia(inicio, tabela, teto) {
+            const lista = [];
+            for (let s = inicio; s < FIM_DE_CADEIA; s = tabela[s]) {
+                if (s >= tabela.length || lista.length >= teto) { throw falha(invalido); }
+                lista.push(s);
+            }
+            return lista;
+        }
+
+        /* Junta os setores da cadeia; `tamanho` null = a cadeia inteira (diretório, mini FAT). */
+        function juntar(lista, tamSetor, origem, posDe, tamanho) {
+            const total = tamanho == null ? lista.length * tamSetor : tamanho;
+            if (total > lista.length * tamSetor) { throw falha(invalido); }
+            const saida = new Uint8Array(total);
+            for (let i = 0, pos = 0; pos < total; i++) {
+                const p = posDe(lista[i]);
+                const n = Math.min(tamSetor, total - pos);
+                if (p + n > origem.length) { throw falha(invalido); }
+                saida.set(origem.subarray(p, p + n), pos);
+                pos += n;
+            }
+            return saida;
+        }
+
+        const dir = juntar(cadeia(lerU32(bytes, 0x30), fat, totalSetores), tam, bytes, setor, null);
+        const entradas = [];
+        for (let p = 0; p + 128 <= dir.length; p += 128) {
+            const tipo = dir[p + 0x42];
+            if (tipo !== 2 && tipo !== 5) { continue; } // só stream e raiz interessam
+            const lNome = Math.min(64, lerU16(dir, p + 0x40));
+            entradas.push({
+                nome: new TextDecoder('utf-16le').decode(dir.subarray(p, p + Math.max(0, lNome - 2))),
+                tipo: tipo,
+                inicio: lerU32(dir, p + 0x74),
+                tamanho: lerU32(dir, p + 0x78),
+                tamanhoAlto: tam === 512 ? 0 : lerU32(dir, p + 0x7c), // v3: a parte alta é lixo
+            });
+        }
+        const raiz = entradas.find(function (e) { return e.tipo === 5; });
+        if (!raiz) { throw falha(invalido); }
+        const corte = lerU32(bytes, 0x38);
+        let mini = null;
+
+        /* Stream pequeno mora no mini stream (setores de 64 bytes dentro do stream da raiz). */
+        function miniStream() {
+            if (mini) { return mini; }
+            if (raiz.tamanho > bytes.length) { throw falha(invalido); }
+            const dados = juntar(cadeia(raiz.inicio, fat, totalSetores), tam, bytes, setor, raiz.tamanho);
+            const brutoMiniFat = juntar(cadeia(lerU32(bytes, 0x3c), fat, totalSetores), tam, bytes, setor, null);
+            const tabela = new Uint32Array(brutoMiniFat.length / 4);
+            for (let i = 0; i < tabela.length; i++) { tabela[i] = lerU32(brutoMiniFat, i * 4); }
+            mini = { dados: dados, tabela: tabela };
+            return mini;
+        }
+
+        return {
+            stream: function (nome) {
+                const e = entradas.find(function (x) { return x.tipo === 2 && x.nome === nome; });
+                if (!e) { return null; }
+                if (e.tamanhoAlto !== 0 || e.tamanho > bytes.length) { throw falha(invalido); }
+                if (e.tamanho < corte) {
+                    const m = miniStream();
+                    const lista = cadeia(e.inicio, m.tabela, m.tabela.length);
+                    return juntar(lista, 64, m.dados, function (s) { return s * 64; }, e.tamanho);
+                }
+                return juntar(cadeia(e.inicio, fat, totalSetores), tam, bytes, setor, e.tamanho);
+            },
+        };
+    }
+
+    /**
+     * Texto do corpo de um .doc Word 97-2003 ([MS-DOC]: FIB → Clx → PlcPcd), até `limite`
+     * caracteres. → { texto, cortado }
+     */
+    function textoDoDoc(bytes, limite) {
+        const invalido = MSG_DOC_INVALIDO;
+        const cfb = lerCfb(bytes, invalido);
+        const wd = cfb.stream('WordDocument');
+        if (!wd || wd.length < 64 || lerU16(wd, 0) !== 0xa5ec) { throw falha(invalido); }
+        const flags = lerU16(wd, 0x0a);
+        if (flags & 0x0100) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }
+        if (lerU16(wd, 2) < 0xc1) {
+            throw falha('Este .doc é de uma versão do Word anterior à 97, que a pré-visualização não lê. Baixe para abrir.');
+        }
+
+        /* FIB: base (32 bytes) → fibRgW (csw × 2) → fibRgLw (cslw × 4) → fibRgFcLcb (pares fc/lcb). */
+        const csw = lerU16(wd, 32);
+        const pCslw = 34 + csw * 2;
+        if (pCslw + 2 > wd.length) { throw falha(invalido); }
+        const cslw = lerU16(wd, pCslw);
+        const rgLw = pCslw + 2;
+        const pCb = rgLw + cslw * 4;
+        if (cslw < 4 || pCb + 2 > wd.length) { throw falha(invalido); }
+        const ccpText = lerU32(wd, rgLw + 3 * 4); // caracteres do corpo (sem nota, cabeçalho, caixa de texto)
+        const rgFc = pCb + 2;
+        if (lerU16(wd, pCb) < 34 || rgFc + 34 * 8 > wd.length) { throw falha(invalido); }
+        const fcClx = lerU32(wd, rgFc + 33 * 8);
+        const lcbClx = lerU32(wd, rgFc + 33 * 8 + 4);
+
+        const tabela = cfb.stream(flags & 0x0200 ? '1Table' : '0Table');
+        if (!tabela || lcbClx === 0 || fcClx + lcbClx > tabela.length) { throw falha(invalido); }
+
+        /* Clx: zero ou mais Prc (0x01 + cbGrpprl + grpprl) e então o Pcdt (0x02 + lcb + PlcPcd). */
+        const fim = fcClx + lcbClx;
+        let p = fcClx;
+        while (p < fim && tabela[p] === 0x01) {
+            if (p + 3 > fim) { throw falha(invalido); }
+            p += 3 + lerU16(tabela, p + 1);
+        }
+        if (p + 5 > fim || tabela[p] !== 0x02) { throw falha(invalido); }
+        const lcb = lerU32(tabela, p + 1);
+        const plc = p + 5;
+        const pecas = (lcb - 4) / 12; // (n + 1) CPs de 4 bytes + n Pcd de 8 bytes
+        if (plc + lcb > fim || !Number.isInteger(pecas) || pecas < 1) { throw falha(invalido); }
+
+        const cp1252 = new TextDecoder('windows-1252');
+        const utf16 = new TextDecoder('utf-16le');
+        const partes = [];
+        let total = 0;
+        let cortado = false;
+        for (let i = 0; i < pecas && !cortado; i++) {
+            const cpIni = lerU32(tabela, plc + i * 4);
+            if (cpIni >= ccpText) { break; }
+            let qtd = Math.min(lerU32(tabela, plc + (i + 1) * 4), ccpText) - cpIni;
+            if (qtd <= 0) { continue; }
+            if (total + qtd > limite) { qtd = limite - total; cortado = true; }
+            const fcBruto = lerU32(tabela, plc + (pecas + 1) * 4 + i * 8 + 2);
+            const comprimido = (fcBruto & 0x40000000) !== 0;
+            const fc = fcBruto & 0x3fffffff;
+            const ini = comprimido ? fc / 2 : fc; // comprimido: 1 byte por caractere (CP1252)
+            const fimPeca = ini + qtd * (comprimido ? 1 : 2);
+            if (!Number.isInteger(ini) || fimPeca > wd.length) { throw falha(invalido); }
+            partes.push((comprimido ? cp1252 : utf16).decode(wd.subarray(ini, fimPeca)));
+            total += qtd;
+        }
+        return { texto: limparTextoDoc(partes.join('')), cortado: cortado };
+    }
+
+    /**
+     * Caracteres de controle do Word → texto: parágrafo, quebra e fim de célula viram linha; do
+     * campo (0x13 código 0x14 resultado 0x15) fica só o resultado; âncora de imagem/objeto e
+     * hífen opcional somem.
+     */
+    function limparTextoDoc(bruto) {
+        const saida = [];
+        const campos = []; // pilha: true = ainda no código do campo
+        for (let i = 0; i < bruto.length; i++) {
+            const c = bruto.charCodeAt(i);
+            if (c === 0x13) { campos.push(true); continue; }
+            if (c === 0x14) { if (campos.length) { campos[campos.length - 1] = false; } continue; }
+            if (c === 0x15) { campos.pop(); continue; }
+            if (campos.indexOf(true) !== -1) { continue; }
+            if (c === 0x0d || c === 0x0b || c === 0x07 || c === 0x0e || c === 0x0a) { saida.push('\n'); continue; }
+            if (c === 0x0c) { saida.push('\n\n'); continue; }
+            if (c === 0x1e) { saida.push('-'); continue; }
+            if (c === 0x09) { saida.push('\t'); continue; }
+            if (c < 0x20) { continue; }
+            saida.push(bruto[i]);
+        }
+        return saida.join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
     /* ------------------------------------------------------- EML ------- */
 
     /** Cabeçalho/corpo de uma mensagem ou parte MIME (string binária). */
@@ -900,18 +1201,29 @@
      */
     function neutralizar(html) {
         const doc = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html');
+        limparArvore(doc);
+        return doc.body.innerHTML;
+    }
+
+    /**
+     * A limpeza do `neutralizar`, sobre um documento já lido (também a releitura da impressão).
+     * DOC-108b: `poster` (vídeo) e `background` (body/table/td legados) também apontam para URL
+     * e saem como o `href` — a CSP `img-src data:` deixa de ser a única barreira contra o pixel
+     * remoto.
+     */
+    function limparArvore(doc) {
         doc.querySelectorAll('script,style,iframe,frame,object,embed,link,meta,base,form,svg,math').forEach(function (x) { x.remove(); });
         doc.querySelectorAll('*').forEach(function (n) {
             Array.from(n.attributes).forEach(function (a) {
                 const nome = a.name.toLowerCase();
-                if (nome.startsWith('on') || nome === 'href' || nome === 'srcset' || nome === 'action' || nome === 'formaction') {
+                if (nome.startsWith('on') || nome === 'href' || nome === 'srcset' || nome === 'action' || nome === 'formaction'
+                    || nome === 'poster' || nome === 'background') {
                     n.removeAttribute(a.name);
                 } else if (nome === 'src' && !/^data:image\//i.test(a.value)) {
                     n.removeAttribute(a.name);
                 }
             });
         });
-        return doc.body.innerHTML;
     }
 
     function montarSrcdoc(corpoHtml, css) {
@@ -946,8 +1258,30 @@
 
     function blocoNaoDisponivel(urlDownload, mensagem) {
         const div = el('div', 'p-5 text-center text-muted w-100');
+        div.setAttribute('data-vd-sem-conteudo', ''); // DOC-108: não há o que imprimir
         div.appendChild(el('i', 'bi bi-file-earmark display-1 d-block mb-3'));
         div.appendChild(el('p', null, mensagem || 'Pré-visualização não disponível para este tipo de arquivo.'));
+        const a = el('a', 'btn btn-primary');
+        a.href = urlDownload;
+        a.appendChild(el('i', 'bi bi-download me-1'));
+        a.appendChild(document.createTextNode(' Baixar arquivo'));
+        div.appendChild(a);
+        return div;
+    }
+
+    /* P7S/P7M (bj-visualizar.js L84): o envelope não tem o que mostrar no navegador. O aviso é o
+       do desenho SEM a frase "no sistema, o documento assinado aparece aqui junto com os dados do
+       certificado" — o sistema não abre o envelope nem valida a assinatura. Só textContent.
+       DOC-141: com o tamanho que quem abre já tem (`tamanho`: texto pronto, como o do explorador,
+       ou bytes), o aviso fica "(P7S, 12 KB)" como o desenho; sem ele, "(P7S)" — nada é baixado
+       só para medir. */
+    function blocoAssinatura(nome, urlDownload, tamanho) {
+        const ext = extensao(nome).toUpperCase() || 'P7S';
+        const tam = typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '') : String(tamanho == null ? '' : tamanho).trim();
+        const div = el('div', 'p-5 text-center text-muted w-100');
+        div.appendChild(el('i', 'bi bi-patch-check-fill display-1 d-block mb-3 text-success'));
+        div.appendChild(el('p', 'fw-bold mb-1', nome || 'Assinatura digital'));
+        div.appendChild(el('p', null, 'Envelope de assinatura digital (' + ext + (tam ? ', ' + tam : '') + '). Para conferir a assinatura, use o validador oficial do ITI.'));
         const a = el('a', 'btn btn-primary');
         a.href = urlDownload;
         a.appendChild(el('i', 'bi bi-download me-1'));
@@ -1289,6 +1623,206 @@
         trocar(alvo, wrap);
     }
 
+    /* Tamanho, em bytes, de cada tipo de campo do TIFF (TIFF 6.0 + 13 = IFD). */
+    const TIFF_TAMANHO_DO_TIPO = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8, 13: 4 };
+    const LIMITE_IFDS_TIFF = 2000;
+
+    /**
+     * Confere o índice do TIFF ANTES de entregá-lo ao UTIF.decode, que não tem guarda nenhuma: um
+     * IFD que aponta para si mesmo laça para sempre, e um campo que declara 4 bilhões de valores
+     * trava a aba. Percorre o que o UTIF vai percorrer — a cadeia de páginas, os sub-IFDs (330),
+     * o EXIF (34665) e a MakerNote em formato de IFD (37500) — com conjunto de visitados, teto de
+     * IFDs e de profundidade, e cada campo tem de caber no arquivo. O que o UTIF lê por outro
+     * caminho (MakerNote da Nikon, DNG privado 50740) é recusado. BigTIFF (43) o UTIF não lê.
+     */
+    function conferirTiff(bytes, invalido) {
+        if (bytes.length < 8) { throw falha(invalido); }
+        const le = bytes[0] === 0x49 && bytes[1] === 0x49;
+        if (!le && !(bytes[0] === 0x4d && bytes[1] === 0x4d)) { throw falha(invalido); }
+        const u16 = function (p) { return le ? lerU16(bytes, p) : ((bytes[p] << 8) | bytes[p + 1]); };
+        const u32 = function (p) {
+            return le ? lerU32(bytes, p) : (((bytes[p] << 24) | (bytes[p + 1] << 16) | (bytes[p + 2] << 8) | bytes[p + 3]) >>> 0);
+        };
+        if (u16(2) !== 42) { throw falha('Este TIFF usa um formato (BigTIFF) que a pré-visualização não lê. Baixe para abrir.'); }
+
+        const vistos = new Set();
+        function ifd(off, profundidade) {
+            if (vistos.has(off) || vistos.size >= LIMITE_IFDS_TIFF || profundidade > 8) { throw falha(invalido); }
+            vistos.add(off);
+            if (off + 2 > bytes.length) { throw falha(invalido); }
+            const n = u16(off);
+            if (off + 2 + n * 12 + 4 > bytes.length) { throw falha(invalido); }
+            for (let i = 0; i < n; i++) {
+                const e = off + 2 + i * 12;
+                const tag = u16(e);
+                const tipo = u16(e + 2);
+                const qtd = u32(e + 4);
+                const tamanho = (TIFF_TAMANHO_DO_TIPO[tipo] || 0) * qtd;
+                const valor = tamanho > 4 ? u32(e + 8) : e + 8;
+                if (valor + tamanho > bytes.length) { throw falha(invalido); }
+                if (tag === 50740 || (tag === 37500 && qtd >= 5 && String.fromCharCode.apply(null, bytes.subarray(valor, valor + 5)) === 'Nikon')) {
+                    throw falha('Este TIFF traz dados de câmera que a pré-visualização não lê. Baixe para abrir.');
+                }
+                if ((tag === 330 || tag === 34665) && (tipo === 3 || tipo === 4)) { // o UTIF só segue SHORT/LONG
+                    for (let j = 0; j < qtd; j++) {
+                        ifd(tipo === 3 ? u16(valor + j * 2) : u32(valor + j * 4), profundidade + 1);
+                    }
+                }
+                if (tag === 37500 && u32(e + 8) + 2 <= bytes.length && u16(u32(e + 8)) < 300) { ifd(u32(e + 8), profundidade + 1); }
+            }
+            return u32(off + 2 + n * 12);
+        }
+
+        let proximo = u32(4);
+        do { proximo = ifd(proximo, 0); } while (proximo !== 0);
+    }
+
+    /**
+     * Confere a ESTRUTURA da página antes do UTIF.decodeImage, que confia nela: tiras/blocos com
+     * deslocamento e tamanho dentro do arquivo, uma contagem para cada deslocamento, bloco
+     * (tile) de tamanho são e em número suficiente. Sem isso, uma contagem trocada faz o
+     * decodificador de fax ler `undefined` e laçar para sempre.
+     */
+    function conferirPaginaTiff(d, w, h, tamanhoArquivo, invalido) {
+        const cmpr = d.t259 ? d.t259[0] : 1;
+        const soff = d.t273 || d.t324;
+        let bcnt = d.t279 || d.t325;
+        if (!soff || !soff.length) { throw falha(invalido); }
+        if (cmpr === 1 && soff.length === 1 && !bcnt) { bcnt = [0]; } // o UTIF calcula sozinho
+        if (!bcnt || bcnt.length !== soff.length) { throw falha(invalido); }
+        for (let i = 0; i < soff.length; i++) {
+            if (!(soff[i] >= 0) || !(bcnt[i] >= 0) || soff[i] + bcnt[i] > tamanhoArquivo) { throw falha(invalido); }
+        }
+        if (d.t322) {
+            const tw = d.t322[0];
+            const th = d.t323 ? d.t323[0] : 0;
+            if (!(tw > 0 && th > 0) || tw > LIMITE_LADO_TIFF || th > LIMITE_LADO_TIFF || tw * th > LIMITE_PIXELS_PAGINA_TIFF) { throw falha(invalido); }
+            if (soff.length < Math.ceil(w / tw) * Math.ceil(h / th)) { throw falha(invalido); }
+        } else {
+            const rps = d.t278 ? Math.min(d.t278[0], h) : h;
+            if (!(rps >= 1) || soff.length > Math.ceil(h / rps)) { throw falha(invalido); }
+        }
+    }
+
+    /* Bytes que a página ocupa DESCOMPACTADA — o buffer que o UTIF aloca e o máximo que o inflate
+       pode entregar —, com a mesma conta de bits por pixel que o decodeImage faz. Mais de 64 bits
+       por pixel não é TIFF que o visor abra. */
+    function bytesDaPaginaTiff(d, w, h) {
+        const bits = d.t258 ? Math.min(32, d.t258[0]) * d.t258.length : ((d.t277 || [1])[0] || 1);
+        if (!(bits > 0) || bits > 64) { throw falha('Este TIFF usa um formato de cor que a pré-visualização não lê. Baixe para abrir.'); }
+        return (Math.ceil(w * bits / 8) + 8) * h;
+    }
+
+    /** Pixels do canvas que fica na tela: a mesma redução a LARGURA_MAX_TIFF do paginaTiffEmCanvas. */
+    function pixelsExibidosTiff(w, h) {
+        const escala = Math.min(1, LARGURA_MAX_TIFF / w);
+        return escala < 1 ? Math.max(1, Math.round(w * escala)) * Math.max(1, Math.round(h * escala)) : w * h;
+    }
+
+    /** RGBA → canvas, reduzido a LARGURA_MAX_TIFF (o original some depois de copiado). */
+    function paginaTiffEmCanvas(rgba, w, h, numero, total) {
+        if (!rgba || rgba.length < w * h * 4) { throw falha('O arquivo não parece ser uma imagem TIFF válida (ou está corrompido).'); }
+        let c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, w * h * 4), w, h), 0, 0);
+        const escala = Math.min(1, LARGURA_MAX_TIFF / w);
+        if (escala < 1) {
+            const r = document.createElement('canvas');
+            r.width = Math.max(1, Math.round(w * escala));
+            r.height = Math.max(1, Math.round(h * escala));
+            const ctx = r.getContext('2d');
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(c, 0, 0, r.width, r.height);
+            c.width = 0; // solta a memória do tamanho original
+            c = r;
+        }
+        c.className = 'vd-tiff-pagina';
+        c.title = 'Página ' + numero;
+        c.setAttribute('role', 'img');
+        c.setAttribute('aria-label', 'Página ' + numero + ' de ' + total);
+        // bj-visualizar.js L66: página branca com sombra, na largura disponível.
+        c.style.cssText = 'display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)';
+        return c;
+    }
+
+    /* DOC-112 (bj-visualizar.js L66): cada página do TIFF vira um canvas, uma embaixo da outra,
+       com 14 px entre elas. A 1ª página já entra na tela; as outras vêm em seguida, cedendo a
+       thread entre uma e outra. Página acima do teto encerra a lista com aviso. */
+    async function renderTiff(alvo, o, vivo) {
+        const [UTIF, arq] = await Promise.all([carregarUtif(), baixar(o.url, LIMITE_BYTES_TIFF, false, o.sinal)]);
+        if (!vivo()) { return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+
+        const invalido = 'O arquivo não parece ser uma imagem TIFF válida (ou está corrompido).';
+        const buf = arq.bytes.buffer.slice(arq.bytes.byteOffset, arq.bytes.byteOffset + arq.bytes.byteLength);
+        conferirTiff(arq.bytes, invalido);
+        let ifds;
+        try { ifds = UTIF.decode(buf); } catch (e) { throw falha(invalido); }
+        const paginas = (ifds || []).filter(function (d) { return d && d.t256 && d.t257; });
+        if (!paginas.length) { throw falha(invalido); }
+        const total = paginas.length;
+
+        const wrap = el('div', 'vd-documento w-100');
+        const lista = el('div', 'vd-folha-fundo vd-tiff');
+        lista.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px';
+        wrap.appendChild(lista);
+        let desenhadas = 0;
+        let pixelsExibidos = 0;
+        for (let i = 0; i < total && i < LIMITE_PAGINAS_TIFF; i++) {
+            const d = paginas[i];
+            const w = d.t256[0];
+            const h = d.t257[0];
+            if (!(w > 0 && h > 0) || w > LIMITE_LADO_TIFF || h > LIMITE_LADO_TIFF || w * h > LIMITE_PIXELS_PAGINA_TIFF) { break; }
+            // DOC-112b: antes de decodificar — a página que estouraria o teto somado nem é lida.
+            const exibidos = pixelsExibidosTiff(w, h);
+            if (pixelsExibidos + exibidos > LIMITE_PIXELS_EXIBIDOS_TIFF) { break; }
+            let pagina;
+            try {
+                conferirPaginaTiff(d, w, h, arq.bytes.length, invalido);
+                const bytesPagina = bytesDaPaginaTiff(d, w, h);
+                if (bytesPagina > LIMITE_BYTES_PAGINA_TIFF) { break; }
+                orcamentoInflateTiff = bytesPagina + 1024 * 1024; // folga de 1 MB
+                UTIF.decodeImage(buf, d);
+                pagina = paginaTiffEmCanvas(UTIF.toRGBA8(d), d.width, d.height, i + 1, total);
+            } catch (e) {
+                /* Da 2ª página em diante, a que falha encerra a lista (as de cima ficam na tela). */
+                if (desenhadas) { break; }
+                throw (e && e.vdMensagem) ? e : falha(invalido);
+            }
+            lista.appendChild(pagina);
+            pixelsExibidos += exibidos;
+            desenhadas++;
+            if (desenhadas === 1) { trocar(alvo, wrap); }
+            await new Promise(function (ok) { setTimeout(ok, 0); });
+            if (!vivo()) { return; }
+        }
+        if (!desenhadas) { throw falha(MSG_TIFF_GRANDE); }
+        if (desenhadas < total) {
+            wrap.insertBefore(aviso('Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'), lista);
+        }
+    }
+
+    /* DOC-111: a faixa do desenho (bj-visualizar.js L68) DENTRO da folha, com as cores dele. Sem a
+       2ª frase ("No sistema, o servidor converte para PDF…"): o sistema não converte. */
+    async function renderDoc(alvo, o, vivo) {
+        const arq = await baixar(o.url, LIMITE_BYTES_DOC, false, o.sinal);
+        if (!vivo()) { return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+
+        const r = textoDoDoc(arq.bytes, LIMITE_CARACTERES);
+        const wrap = el('div', 'vd-documento w-100');
+        const fl = folha();
+        const faixa = el('div', 'vd-faixa-doc', 'Formato antigo do Word (.doc): mostrando só o texto.'
+            + (r.cortado ? ' O documento é longo: só o começo aparece aqui. Baixe para ver tudo.' : ''));
+        faixa.setAttribute('role', 'note');
+        faixa.style.cssText = 'background:#fff7e6;color:#7a4b00;border-radius:4px;padding:8px 12px;margin-bottom:16px;font-size:12px';
+        fl.folha.appendChild(faixa);
+        fl.folha.appendChild(r.texto ? el('div', 'vd-folha-pre', r.texto) : el('p', 'vd-vazio', 'Documento sem texto.'));
+        wrap.appendChild(fl.fundo);
+        trocar(alvo, wrap);
+    }
+
     const CSS_EMAIL = 'html{background:#fff}body{margin:0;padding:16px 20px;font-family:Arial,Helvetica,sans-serif;'
         + 'font-size:14px;line-height:1.5;color:#1d1d1d;overflow-wrap:anywhere}img{max-width:100%;height:auto}'
         + 'table{max-width:100%}';
@@ -1394,6 +1928,69 @@
         alvo.replaceChildren(no);
     }
 
+    /* ---------------------------------------------------- impressão ---- */
+
+    /* DOC-108: estilo do documento de impressão — o do `BJImprimir` do desenho (bj-visualizar.js
+       L95-101) mais o mínimo das peças .vd-* (a folha da página não entra no iframe). */
+    const CSS_IMPRESSAO = '@page{size:A4;margin:18mm 16mm 18mm}'
+        + 'body{font-family:Arial,Helvetica,sans-serif;font-size:11.5pt;line-height:1.55;color:#12242f;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+        + 'img,canvas{max-width:100%;page-break-inside:avoid}table{border-collapse:collapse}h1,h2,h3{page-break-after:avoid}'
+        + 'blockquote{border-left:3px solid #c9d6de;margin:8px 0;padding:2px 12px;color:#4f6878}'
+        + 'td,th{border:1px solid #c9d6de;padding:3px 6px;vertical-align:top;text-align:left}p{margin:0 0 .6em}'
+        + 'pre,.vd-folha-pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;margin:0}'
+        + '.vd-aviso{font-size:9pt;color:#6b8494;margin:0 0 8px}.vd-nota{font-size:9.5pt;color:#4f6878}'
+        + '.vd-slide{page-break-inside:avoid;border:1px solid #c9d6de;padding:8px 12px;margin:0 0 10px}.vd-slide-numero{font-size:9pt;color:#6b8494}'
+        + '.vd-email-assunto{font-weight:700;font-size:13pt;margin:0 0 6px}.vd-email-campos{margin:0 0 10px}'
+        + '.vd-email-campos dt{font-weight:700;float:left;clear:left;margin-right:8px}.vd-email-campos dd{margin:0}';
+
+    /**
+     * DOC-108: o conteúdo que JÁ está desenhado em `conteudo`, pronto para imprimir — ou null se
+     * não há (carregando, falhou, PDF/imagem/mídia, que não passam por aqui).
+     *
+     * Nada é desenhado de novo e nenhuma string vira HTML: os nós (montados por textContent) são
+     * CLONADOS para um documento inerte; cada iframe sandbox (DOCX, planilha, e-mail em HTML) dá
+     * lugar ao corpo do srcdoc que o próprio módulo montou, relido por DOMParser e limpo de novo
+     * (`limparArvore`). Botões, abas, mídia e ícones saem (bj-visualizar.js `capturar`, L102).
+     * Quem imprime é o visor, num iframe oculto sem scripts, com a mesma CSP (`csp`).
+     *
+     * @returns {{nos: DocumentFragment, css: string, csp: string}|null}
+     */
+    function paraImpressao(conteudo) {
+        if (!conteudo || conteudo.__vdImprimivel == null || conteudo.__vdImprimivel !== conteudo.__vdToken) { return null; }
+
+        const inerte = document.implementation.createHTMLDocument('');
+        const copia = inerte.importNode(conteudo, true);
+        const originais = conteudo.querySelectorAll('iframe');
+        copia.querySelectorAll('iframe').forEach(function (fr, i) {
+            const quadro = inerte.createElement('div');
+            quadro.className = 'vd-impressao-quadro';
+            const original = originais[i];
+            if (original) {
+                const lido = new DOMParser().parseFromString(original.getAttribute('srcdoc') || '', 'text/html');
+                limparArvore(lido);
+                Array.from(lido.body.childNodes).forEach(function (n) { quadro.appendChild(inerte.importNode(n, true)); });
+            }
+            fr.replaceWith(quadro);
+        });
+        /* DOC-112: o canvas clonado nasce em branco — cada página do TIFF vira <img> com o PNG do
+           canvas original (bj-visualizar.js `capturar`, L102), uma por folha. */
+        const telas = conteudo.querySelectorAll('canvas');
+        copia.querySelectorAll('canvas').forEach(function (cv, i) {
+            const img = inerte.createElement('img');
+            try { img.src = telas[i].toDataURL('image/png'); } catch (e) { /* canvas ilegível: sai em branco */ }
+            img.alt = cv.getAttribute('aria-label') || '';
+            img.style.cssText = 'width:100%;display:block;margin:0 0 6mm;page-break-after:always';
+            cv.replaceWith(img);
+        });
+        copia.querySelectorAll('button,input,select,textarea,audio,video,.vd-abas,i.bi').forEach(function (x) { x.remove(); });
+
+        const nos = inerte.createDocumentFragment();
+        while (copia.firstChild) { nos.appendChild(copia.firstChild); }
+        if (!nos.textContent.trim() && !nos.querySelector('img')) { return null; }
+
+        return { nos: nos, css: CSS_IMPRESSAO, csp: CSP_SRCDOC };
+    }
+
     /* --------------------------------------------------------- API ------ */
 
     /** Esvazia a área e ABORTA o download em andamento (AbortController). */
@@ -1429,6 +2026,7 @@
         if (tipo === 'imagem') { renderImagem(alvo, o); return; }
         if (tipo === 'audio')  { renderAudio(alvo, o); return; }
         if (tipo === 'video')  { renderVideo(alvo, o); return; }
+        if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload, o.tamanho)); return; }
 
         const render = {
             docx: renderDocx,
@@ -1438,6 +2036,8 @@
             pptx: renderPptx,
             odp: renderOdp,
             rtf: renderRtf,
+            doc: renderDoc,
+            tiff: renderTiff,
             eml: renderEml,
             zip: renderZip,
         }[tipo];
@@ -1451,7 +2051,10 @@
         o.sinal = controle.signal;
 
         alvo.appendChild(blocoCarregando(o.nome));
-        render(alvo, o, vivo).catch(function (erro) {
+        render(alvo, o, vivo).then(function () {
+            // DOC-108: só o que terminou de desenhar, com conteúdo, pode ser impresso.
+            if (vivo() && !alvo.querySelector('[data-vd-sem-conteudo]')) { alvo.__vdImprimivel = token; }
+        }, function (erro) {
             if (ehAbort(erro) || !vivo()) { return; }
             /* Falha com mensagem própria (senha, corrompido, zip bomb…) vai
                para a tela; o resto fica com a genérica. */
@@ -1504,5 +2107,6 @@
         limpar: limpar,
         ligarModal: ligarModal,
         tipoDe: tipoDe,
+        paraImpressao: paraImpressao,
     };
 })();

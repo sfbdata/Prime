@@ -50,7 +50,8 @@ final class MontadorDeContextoDoPush
     public function para(Tenant $tenant, Pasta $pasta): ContextoDeAnalise
     {
         $processos = $this->processosDaPasta($tenant, $pasta);
-        $cabecalho = $this->cabecalho($tenant, $pasta, $processos);
+        $mascarar = $this->mascararNoTenant($tenant);
+        $cabecalho = $this->cabecalho($tenant, $pasta, $processos, $mascarar);
 
         if ($processos === []) {
             return new ContextoDeAnalise($cabecalho, [], ContextoDeAnalise::hashDe([]), []);
@@ -58,7 +59,6 @@ final class MontadorDeContextoDoPush
 
         $numeros = array_map(static fn (Processo $p): string => $p->getNumeroProcesso(), $processos);
         $ids = array_map(static fn (Processo $p): int => (int) $p->getId(), $processos);
-        $mascarar = $this->configuracoes->findDoTenant($tenant)?->isMascararDadosPessoais() ?? true;
 
         $candidatos = [];
         foreach ($this->fonte->publicacoesDoTenant($tenant, $numeros, self::LIMITE_PUBLICACOES) as $publicacao) {
@@ -132,6 +132,22 @@ final class MontadorDeContextoDoPush
     }
 
     /**
+     * A análise anterior (resposta do modelo) do jeito que pode voltar ao provedor como
+     * `<analise_anterior>`: neutralizada e com a PII mascarada pela preferência ATUAL do escritório
+     * (IA-033). Ela nasceu de outra chamada — talvez com a máscara desligada, talvez de outro
+     * provedor —, então não herda a garantia do contexto daquela vez. Sem análise → null.
+     */
+    public function analiseAnterior(Tenant $tenant, ?string $resumo): ?string
+    {
+        $resumo = NeutralizadorDeConteudo::neutralizar((string) $resumo);
+        if ($resumo === '') {
+            return null;
+        }
+
+        return $this->mascararNoTenant($tenant) ? $this->mascarador->mascarar($resumo) : $resumo;
+    }
+
+    /**
      * Chaves do que entraria no contexto hoje, sem carregar texto — para a tela contar o que ainda
      * não foi analisado. Pasta com processo sigiloso devolve lista vazia (não há o que contar: a
      * análise é recusada de qualquer forma).
@@ -188,7 +204,7 @@ final class MontadorDeContextoDoPush
      * @param list<Processo> $processos
      * @return array<string, string>
      */
-    private function cabecalho(Tenant $tenant, Pasta $pasta, array $processos): array
+    private function cabecalho(Tenant $tenant, Pasta $pasta, array $processos, bool $mascarar): array
     {
         $principal = $pasta->getProcessoPrincipal() ?? ($processos[0] ?? null);
         if ($principal !== null && !in_array($principal, $processos, true)) {
@@ -196,14 +212,17 @@ final class MontadorDeContextoDoPush
         }
 
         $equipe = $processos === [] ? [] : array_map(
-            fn (string $nome): string => $this->rotulo($nome, 'colaborador'),
+            fn (string $nome): string => $this->rotulo($nome, 'colaborador', $mascarar),
             $this->fonte->nomesDaEquipe($tenant),
         );
 
         // Nada aqui nasceu no código: NUP, classe, assunto, órgão e tribunal vêm do Datajud/cadastro,
         // nomes vêm do perfil. Tudo neutralizado — o prompt delimita, mas o dado não pode fechar a tag.
+        // Máscara de PII (IA-033) na MESMA política do cabeçalho do {@see MontadorDeContextoDaPasta}:
+        // o que é da pasta (NUP, responsável, equipe) passa pelo mascarador; o cadastro do processo
+        // (número CNJ, classe, assunto, tribunal, órgão) não — como na `linhaDoProcesso` dos agentes.
         return [
-            'pasta' => $this->rotulo($pasta->getNup(), 'sem número'),
+            'pasta' => $this->rotulo($pasta->getNup(), 'sem número', $mascarar),
             'processo' => $processos === []
                 ? 'sem processo vinculado'
                 : implode(', ', array_map(fn (Processo $p): string => $this->rotulo($p->getNumeroProcesso(), 'sem número'), $processos)),
@@ -211,22 +230,34 @@ final class MontadorDeContextoDoPush
             'assunto' => $this->rotulo($principal?->getAssuntoProcessual(), 'não informado'),
             'tribunal' => $this->rotulo($principal?->getSiglaTribunal(), 'não informado'),
             'orgao' => $this->rotulo($principal?->getOrgaoJulgador(), 'não informado'),
-            'responsavel' => $this->rotulo($pasta->getResponsavel()?->getFullName(), 'não definido'),
+            'responsavel' => $this->rotulo($pasta->getResponsavel()?->getFullName(), 'não definido', $mascarar),
             'equipe' => $equipe === [] ? 'não informada' : implode(', ', $equipe),
         ];
     }
 
-    /** Campo curto de origem externa: neutralizado e com teto; vazio vira o rótulo padrão. */
-    private function rotulo(?string $valor, string $padrao): string
+    /**
+     * Campo curto de origem externa: neutralizado, com teto e — quando `$mascarar` — com a PII
+     * mascarada (mesma ordem do rótulo dos agentes); vazio vira o rótulo padrão. Os rótulos do
+     * cadastro do processo e das movimentações (tribunal, órgão, tipo) chamam sem máscara, como o
+     * {@see MontadorDeContextoDaPasta} faz com o cadastro do processo.
+     */
+    private function rotulo(?string $valor, string $padrao, bool $mascarar = false): string
     {
         $valor = NeutralizadorDeConteudo::neutralizar((string) $valor);
         if ($valor === '') {
             return $padrao;
         }
+        if (mb_strlen($valor) > self::TAMANHO_MAXIMO_DO_ROTULO) {
+            $valor = mb_substr($valor, 0, self::TAMANHO_MAXIMO_DO_ROTULO) . '…';
+        }
 
-        return mb_strlen($valor) > self::TAMANHO_MAXIMO_DO_ROTULO
-            ? mb_substr($valor, 0, self::TAMANHO_MAXIMO_DO_ROTULO) . '…'
-            : $valor;
+        return $mascarar ? $this->mascarador->mascarar($valor) : $valor;
+    }
+
+    /** Preferência do escritório; sem configuração gravada, mascara (D4). */
+    private function mascararNoTenant(Tenant $tenant): bool
+    {
+        return $this->configuracoes->findDoTenant($tenant)?->isMascararDadosPessoais() ?? true;
     }
 
     /** HTML do DJEN → texto plano (quebras preservadas como espaço, entidades decodificadas). */

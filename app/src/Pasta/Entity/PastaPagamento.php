@@ -65,6 +65,18 @@ class PastaPagamento implements Auditavel, TenantAware
     #[ORM\Column(name: 'criado_em', type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
+    /**
+     * A taxa de juros ao mês, em percentual ("1.5000" = 1,5% a.m.), da parcela que nasceu de um
+     * parcelamento COM juros (Price) — FPN-009, o sufixo "· juros N% a.m." da linha.
+     *
+     * É só REGISTRO do que foi combinado: nenhuma conta lê esta coluna. O valor da parcela já
+     * nasce calculado (`CalculadoraDeParcelamento`) e é ele, e só ele, que soma no previsto e no
+     * recebido. Nulo na entrada, no lançamento avulso, no parcelamento sem juros e em todo
+     * lançamento anterior a esta coluna (sem backfill: a taxa de antes não foi guardada).
+     */
+    #[ORM\Column(name: 'juros_mensal', type: 'decimal', precision: 6, scale: 4, nullable: true)]
+    private ?string $jurosMensal = null;
+
     public function __construct()
     {
         $this->criadoEm   = new \DateTimeImmutable();
@@ -180,6 +192,19 @@ class PastaPagamento implements Auditavel, TenantAware
         $this->pagoEm = $this->pagoEm === null
             ? ($quando ?? new \DateTimeImmutable('today'))
             : null;
+
+        return $this;
+    }
+
+    public function getJurosMensal(): ?string
+    {
+        return $this->jurosMensal;
+    }
+
+    /** Percentual ao mês, decimal com ponto ("1.5000"); nulo = sem juros registrados. */
+    public function setJurosMensal(?string $jurosMensal): self
+    {
+        $this->jurosMensal = $jurosMensal;
 
         return $this;
     }

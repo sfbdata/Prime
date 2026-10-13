@@ -26,20 +26,34 @@ use App\Tarefa\Repository\TarefaRepository;
  * escritório corrente. Id de outro escritório (ou inexistente, ou desligado) dá lista vazia —
  * nem 500 nem o nome de quem quer que seja.
  *
+ * **Escopo do card (`escopo=card`, DASH-006):** o "ver metas" do CARD Metas ativas não conta o
+ * mesmo universo da tabela — o card (TarefaRepository::countMetasAtivas) conta TODA meta não
+ * concluída do escritório no período, inclusive sem responsável ou de quem já saiu, e ignora o
+ * cargo. Com `escopo=card` (só vale com `status=ativas`) a lista usa esse mesmo critério; o cargo
+ * é ignorado, como no card. A guarda continua a do controller (módulo `bi`): não muda quem vê.
+ *
  * **Erros:** não lança. Status desconhecido cai em `todas`; data inválida é ignorada (mesma
- * régua do Dashboard).
+ * régua do Dashboard). Escopo desconhecido (ou `card` com outro status) é ignorado.
  */
 final class ListarMetasDaEquipeUseCase
 {
     public const POR_PAGINA = 25;
 
-    /** status aceito na URL => rótulo do título */
+    /**
+     * status aceito na URL => rótulo do título. `concluidas` e `em_revisao` são o destino das
+     * colunas extras "Metas concluídas" e "Em revisão" da tabela Desempenho (DASH-008).
+     */
     public const STATUS = [
         'todas'         => 'Metas',
         'ativas'        => 'Metas ativas',
         'vencidas'      => 'Metas vencidas',
         'prazo_proximo' => 'Prazos próximos',
+        'concluidas'    => 'Metas concluídas',
+        'em_revisao'    => 'Metas em revisão',
     ];
+
+    /** Valor de `escopo` do "ver metas" do card Metas ativas. */
+    public const ESCOPO_CARD = 'card';
 
     /** Status medidos contra "agora", sem o recorte de período (como no Dashboard). */
     private const RELATIVOS_A_REFERENCIA = ['vencidas', 'prazo_proximo'];
@@ -51,7 +65,8 @@ final class ListarMetasDaEquipeUseCase
     }
 
     /**
-     * @param array<string, mixed> $filtros  status, responsavel (userId), cargo (nome), data_de, data_ate (Y-m-d)
+     * @param array<string, mixed> $filtros  status, responsavel (userId), cargo (nome), data_de, data_ate (Y-m-d),
+     *                                       escopo (`card` = critério do card Metas ativas)
      */
     public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, int $pagina = 1): MetasDaEquipeOutput
     {
@@ -62,6 +77,11 @@ final class ListarMetasDaEquipeUseCase
 
         $respId = (int) ($filtros['responsavel'] ?? 0);
         $cargo  = trim((string) ($filtros['cargo'] ?? ''));
+        $doCard = $status === 'ativas' && ($filtros['escopo'] ?? '') === self::ESCOPO_CARD;
+        if ($doCard) {
+            // O card não filtra por cargo: levá-lo à lista a faria contar menos que o número.
+            $cargo = '';
+        }
         $dataDe  = $this->parseData((string) ($filtros['data_de'] ?? ''));
         $dataAte = $this->parseData((string) ($filtros['data_ate'] ?? ''));
 
@@ -71,14 +91,18 @@ final class ListarMetasDaEquipeUseCase
         $periodo = ['data_de' => $dataDe?->format('Y-m-d') ?? '', 'data_ate' => $dataAte?->format('Y-m-d') ?? ''];
         $pagina  = max(1, $pagina);
 
-        $paginador = $this->tarefaRepository->findMetasDaEquipePaginado($tenant, $ids, $status, $periodo, $referencia, $pagina, self::POR_PAGINA);
+        $buscar = fn (int $p) => $doCard
+            ? $this->tarefaRepository->findMetasAtivasDoCardPaginado($tenant, $periodo + ['responsavel' => $respId > 0 ? (string) $respId : ''], $p, self::POR_PAGINA)
+            : $this->tarefaRepository->findMetasDaEquipePaginado($tenant, $ids, $status, $periodo, $referencia, $p, self::POR_PAGINA);
+
+        $paginador = $buscar($pagina);
         $total     = count($paginador);
         $totalPaginas = max(1, (int) ceil($total / self::POR_PAGINA));
 
         // Página além da última (link velho, filtro que encolheu): mostra a última, não um vazio falso.
         if ($pagina > $totalPaginas) {
             $pagina    = $totalPaginas;
-            $paginador = $this->tarefaRepository->findMetasDaEquipePaginado($tenant, $ids, $status, $periodo, $referencia, $pagina, self::POR_PAGINA);
+            $paginador = $buscar($pagina);
         }
 
         /** @var list<Tarefa> $metas */
@@ -89,7 +113,9 @@ final class ListarMetasDaEquipeUseCase
         return new MetasDaEquipeOutput(
             status:       $status,
             titulo:       $this->titulo($status, $respId, $cargo, $equipe, $relativo ? null : $dataDe, $relativo ? null : $dataAte, $referencia),
-            descricao:    $this->descricao($status),
+            descricao:    $doCard
+                ? 'Todas as metas não concluídas do escritório, criadas no período — o número do card Metas ativas.'
+                : $this->descricao($status),
             metas:        $metas,
             total:        $total,
             pagina:       $pagina,
@@ -101,6 +127,8 @@ final class ListarMetasDaEquipeUseCase
                 // Vencidas/prazos não usam período: não carregar data na URL que não filtra nada.
                 'data_de'     => $relativo ? '' : $periodo['data_de'],
                 'data_ate'    => $relativo ? '' : $periodo['data_ate'],
+                // A paginação remonta a URL a partir daqui: sem o escopo, a página 2 trocaria de lista.
+                'escopo'      => $doCard ? self::ESCOPO_CARD : '',
             ], static fn (string $v): bool => $v !== ''),
         );
     }
@@ -179,6 +207,8 @@ final class ListarMetasDaEquipeUseCase
             'ativas'        => 'Metas não concluídas, criadas no período.',
             'vencidas'      => 'Metas não concluídas com o prazo já vencido — contadas até agora, sem recorte de período.',
             'prazo_proximo' => 'Metas não concluídas com prazo nos próximos 7 dias — sem recorte de período.',
+            'concluidas'    => 'Metas concluídas, criadas no período.',
+            'em_revisao'    => 'Metas aguardando a revisão do gestor, criadas no período.',
             default         => 'Todas as metas criadas no período, em qualquer status.',
         };
     }

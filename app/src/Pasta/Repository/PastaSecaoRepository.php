@@ -130,6 +130,21 @@ class PastaSecaoRepository extends ServiceEntityRepository
         return $secoes;
     }
 
+    /**
+     * Uma seção pelo id, DENTRO do escritório — o guard IDOR das rotas que recebem só o id da
+     * seção na URL. Filtro explícito: não depende de o TenantFilter estar ligado.
+     */
+    public function findByIdAndTenant(int $id, Tenant $tenant): ?PastaSecao
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.id = :id')
+            ->andWhere('s.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?PastaSecao
     {
         return $this->createQueryBuilder('s')

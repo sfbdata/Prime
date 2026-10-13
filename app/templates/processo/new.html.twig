@@ -33,6 +33,7 @@
     <div class="container-fluid">
         <form method="POST" id="processoForm"
               action="{{ isEdit ? path('processo_edit', {id: processo.id}) : path('processo_new') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token(isEdit ? 'processo_edit_' ~ processo.id : 'processo_new') }}">
 
             {# ── Barra de abas do processo ── #}
             <div class="processo-tabs">

@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
+use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -17,6 +18,9 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Salvaguardas: só o autor da observação pode editá-la, e apenas dentro de uma
  * janela curta após a criação (`JanelaDeEdicaoDeComentario`, 15 minutos) — o suficiente para corrigir erros de escrita.
+ *
+ * @MENÇÕES (EDT-010r): a edição passa pela MESMA {@see ResolucaoDeMencoesDoRegistro} do envio e
+ * avisa quem PASSOU a ser mencionado, com as regras do Registro, na mesma transação.
  */
 final class EditarObservacaoDetalhesUseCase
 {
@@ -24,6 +28,7 @@ final class EditarObservacaoDetalhesUseCase
         private readonly EntityManagerInterface $em,
         private readonly SanitizadorTextoRico $sanitizador,
         private readonly JanelaDeEdicaoDeComentario $janela,
+        private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
     ) {}
 
     public function podeEditar(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant, ?\DateTimeImmutable $agora = null): bool
@@ -55,9 +60,31 @@ final class EditarObservacaoDetalhesUseCase
             throw new \InvalidArgumentException('Conteúdo inválido: deve ter entre 1 e 5000 caracteres.');
         }
 
+        [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
+
         $observacao->setConteudo($conteudo);
         $observacao->setEditadaEm(new \DateTimeImmutable());
 
-        $this->em->flush();
+        $pasta = $observacao->getPasta();
+        if ($mencionados === [] || $pasta === null) {
+            $this->em->flush();
+
+            return;
+        }
+
+        // Uma transação só: a edição e os avisos entram (ou não) juntos. Quem já foi avisado por
+        // esta observação não recebe de novo (anti-duplicata por link).
+        $this->em->wrapInTransaction(function () use ($mencionados, $observacao, $pasta, $usuario, $tenant): void {
+            $this->em->flush();
+
+            $this->resolucaoDeMencoes->notificarNaObservacao(
+                $mencionados,
+                $observacao,
+                $pasta,
+                $usuario,
+                $tenant,
+                $observacao->getRespostaA()?->getAutor(),
+            );
+        });
     }
 }

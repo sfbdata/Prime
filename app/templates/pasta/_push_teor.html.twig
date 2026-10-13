@@ -22,11 +22,24 @@
    publicação pertence; sem ele (não deveria acontecer — a publicação foi achada
    pelos números da pasta) o bloco não aparece, em vez de criar nota sem dono.
 
+   FPN-020: quando a aba já pendurou o bloco de notas sob o cartão (`notasNaLista`, o
+   `penduradas=1` do link), o teor não o repete.
+
    Contexto: `publicacao` (App\Djen\DTO\PublicacaoDjenOutput), `voltarPara`,
              `numeroComunicacao` (string|null),
              `pastaId` (int), `notaProcessoId` (int|null),
-             `notasTecnicas` (App\Processo\DTO\NotaTecnicaOutput[]).
+             `notasTecnicas` (App\Processo\DTO\NotaTecnicaOutput[]), `notasNaLista` (bool),
+             `podeEditarPasta` (bool), `pastaExcluida` (bool).
    ============================================================================ #}
+{# FPN-040: a mesma regra do menu de contexto (FPN-014c, _push_processual). Criar tarefa e a nota
+   técnica exigem EDIT da pasta e pasta viva (o PastaSomenteLeituraListener recusa POST na lápide);
+   a nota exige ainda o processo da pasta (`notaProcessoId`, o `aceitaNotaTecnica` do menu).
+   "Marcar como (não) lida" o `pasta_push_lida` aceita com VIEW, então só some na lápide.
+   O bloco de notas é leitura também: quem não escreve ainda vê as notas que existem, mas sem
+   nenhuma nota o bloco seria só o botão de criar, e não aparece. O botão "Adicionar nota técnica"
+   mora no `processo/_notas_tecnicas`, que recebe `podeEscreverNota` daqui (PMC-058). #}
+{% set teorPastaViva = not (pastaExcluida ?? false) %}
+{% set teorPodeEscrever = teorPastaViva and (podeEditarPasta ?? false) %}
 {% set linkDoc = (publicacao.link and (publicacao.link starts with 'https://' or publicacao.link starts with 'http://')) ? publicacao.link : null %}
 {% set tipoDoc = publicacao.tipoComunicacao ?: 'Publicação' %}
 <div class="ps-push-teor-corpo">
@@ -56,7 +69,9 @@
         </div>
     {% endif %}
 
+    {% if teorPastaViva %}
     <div class="ps-push-acoes">
+        {% if teorPodeEscrever %}
         <button type="button" class="ps-push-acao ps-push-acao--forte js-push-criar-meta"
                 data-meta-tipo="{{ tipoDoc }}"
                 data-meta-data="{{ publicacao.dataDisponibilizacao ?? '' }}"
@@ -66,6 +81,7 @@
                 data-meta-link="{{ linkDoc ?? '' }}">
             <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
         </button>
+        {% endif %}
         <button type="button" class="ps-push-acao js-push-lida"
                 data-url="{{ path('pasta_push_lida', {id: pastaId, publicacaoId: publicacao.id}) }}"
                 data-token="{{ csrf_token('pasta_push_lida_' ~ pastaId) }}"
@@ -75,6 +91,7 @@
         </button>
         <span class="ps-push-acao-erro" role="alert" hidden></span>
     </div>
+    {% endif %}
 
     {% if publicacao.textoHtml %}
         {# Sanitizado no controller pelo HtmlSanitizer 'djen' — o mesmo caminho da tela do módulo. #}
@@ -91,13 +108,14 @@
         </div>
     {% endif %}
 
-    {% if notaProcessoId is not null %}
+    {% if not (notasNaLista ?? false) and notaProcessoId is not null and (teorPodeEscrever or notasTecnicas|length > 0) %}
         {{ include('processo/_notas_tecnicas.html.twig', {
             notas: notasTecnicas,
             processoId: notaProcessoId,
             publicacaoId: publicacao.id,
             pastaId: pastaId,
             mostrarMovimentacao: false,
+            podeEscreverNota: teorPodeEscrever,
         }) }}
     {% endif %}
 </div>

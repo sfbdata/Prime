@@ -11,6 +11,10 @@
    quem deve agir, base; ações em linha. Edição e "enviar ao cliente" do desenho
    não existem no sistema e não são desenhadas.
 
+   Recolher/expandir (IA-010, dc L2440 e L2452): chevron no cabeçalho e, recolhida,
+   uma prévia de uma linha ("resumo · N ponto(s)") no lugar do conteúdo. A escolha
+   é do usuário e fica no servidor (`ia_push_recolhidas()`, `preferencia_usuario`).
+
    Tudo escapado: a resposta do modelo nunca é HTML (`|raw` proibido aqui).
    O motivo técnico de uma falha só aparece para quem administra a IA.
    O comportamento (POST por XHR, menu, criar meta) é do `pasta-ia-push.js`; sem
@@ -20,6 +24,8 @@
    ============================================================================ #}
 {% set podeVerMotivoTecnico = can_administer('admin.inteligencia.manage') %}
 {% set hojeIa = 'now'|date('Y-m-d') %}
+{# IA-010: as análises que ESTE usuário recolheu (preferência no servidor, `preferencia_usuario`). #}
+{% set recolhidasIa = ia_push_recolhidas() %}
 <div class="ps-ia-lista" id="ia-analises"
      data-ia-lista
      data-pasta-id="{{ pastaId }}"
@@ -32,7 +38,11 @@
         {% set csrfAnalise = csrf_token('inteligencia_analise_' ~ a.id) %}
         {% set ehHoje = a.criadaEm|date('Y-m-d') == hojeIa %}
         {% set pontoDeAcao = a.pontos|filter(p => p.tipo in ['prazo', 'providencia'])|first %}
-        <article class="ps-ia-cartao ps-ia-cartao--{{ a.status }}{{ a.lida ? ' ps-ia-cartao--lida' : '' }}"
+        {# Só a concluída recolhe: a prévia é o resumo (dc L5137, `previa`). #}
+        {% set recolhivel = a.status == 'concluida' %}
+        {% set aberta = not recolhivel or a.id not in recolhidasIa %}
+        {% set dicaAberta = aberta ? 'Recolher a análise' : 'Expandir a análise' %}
+        <article class="ps-ia-cartao ps-ia-cartao--{{ a.status }}{{ a.lida ? ' ps-ia-cartao--lida' : '' }}{{ aberta ? '' : ' ps-ia-cartao--recolhida' }}"
                  aria-label="Análise gerada por IA"
                  data-ia-analise="{{ a.id }}"
                  data-ia-status="{{ a.status }}"
@@ -63,6 +73,14 @@
                     {% elseif a.internaDoEscritorio %}
                         <span class="ps-ia-cadeado" title="Interna do escritório: não vai a links compartilhados"><i class="bi bi-lock-fill" aria-hidden="true"></i></span>
                     {% endif %}
+                    {% if recolhivel %}
+                        {# Chevron do desenho (dc L2440), entre o cadeado e o ⋮. Envia o formulário
+                           `ps-ia-recolher-{id}` do fim do cartão: funciona sem JS (POST comum). #}
+                        <button type="submit" form="ps-ia-recolher-{{ a.id }}" class="ps-ia-icone" data-ia-recolher
+                                aria-expanded="{{ aberta ? 'true' : 'false' }}" title="{{ dicaAberta }}" aria-label="{{ dicaAberta }}">
+                            <i class="bi {{ aberta ? 'bi-chevron-up' : 'bi-chevron-down' }}" aria-hidden="true"></i>
+                        </button>
+                    {% endif %}
                     <div class="ps-ia-menu-wrap">
                         <button type="button" class="ps-ia-icone" data-ia-menu aria-haspopup="menu" aria-expanded="false" aria-label="Mais opções da análise" title="Mais opções da análise">
                             <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
@@ -72,6 +90,12 @@
                                 <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="lida">
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                                     <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como lida</button>
+                                </form>
+                            {% elseif a.lida %}
+                                {# IA-011 (dc L5159-5160): lida, a opção vira "Marcar como não lido". #}
+                                <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="nao-lida">
+                                    <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                                    <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-envelope" aria-hidden="true"></i>Marcar como não lido</button>
                                 </form>
                             {% endif %}
                             {% if a.status == 'concluida' %}
@@ -94,6 +118,11 @@
                         </div>
                     </div>
                 </header>
+
+                {% if recolhivel %}
+                    {# Prévia de uma linha da análise recolhida (dc L2452-2454): clicar expande. #}
+                    <button type="submit" form="ps-ia-recolher-{{ a.id }}" class="ps-ia-previa" data-ia-previa{{ aberta ? ' hidden' : '' }}>{{ a.resumo }}{{ a.pontos is not empty ? ' · ' ~ a.pontos|length ~ ' ponto(s)' : '' }}</button>
+                {% endif %}
 
                 {% if a.emAndamento %}
                     <p class="ps-ia-andamento" role="status">
@@ -136,8 +165,22 @@
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                             <button type="submit" class="ps-ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lida</button>
                         </form>
+                    {% elseif a.lida %}
+                        <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="nao-lida">
+                            <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                            <button type="submit" class="ps-ia-botao"><i class="bi bi-envelope" aria-hidden="true"></i> Marcar como não lido</button>
+                        </form>
                     {% endif %}
                 </footer>
+                {% if recolhivel %}
+                    {# Alvo do chevron e da prévia. `recolhida` é o estado PEDIDO (o contrário do atual);
+                       o pasta-ia-push.js inverte o campo depois de cada troca. #}
+                    <form id="ps-ia-recolher-{{ a.id }}" method="post" action="{{ path('inteligencia_analise_recolher', {id: pastaId, analiseId: a.id}) }}"
+                          class="ps-ia-acao" data-ia-acao="recolher" hidden>
+                        <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                        <input type="hidden" name="recolhida" value="{{ aberta ? '1' : '0' }}">
+                    </form>
+                {% endif %}
             </div>
         </article>
     {% else %}

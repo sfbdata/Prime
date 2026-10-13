@@ -13,6 +13,8 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Exception\AlertaDeMetaRecusadoException;
 use App\Tarefa\Exception\TituloDeMetaInvalidoException;
+use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
+use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use App\Tarefa\UseCase\ReabrirMetaUseCase;
 use App\Tarefa\UseCase\RenomearMetaUseCase;
@@ -26,11 +28,13 @@ use Symfony\Component\Routing\Attribute\Route;
  * renomear ("Editar nome"), reabrir ("Reabrir meta") e o sino "Alertar para verificar".
  *
  * Os três são POST de formulário comum com CSRF e voltam para `pasta_show#tarefas`,
- * como o `tarefa_concluir` de sempre. A guarda é a MESMA do concluir
+ * como o `tarefa_concluir` de sempre. O reabrir também aceita XHR (PMC-031): responde JSON
+ * com a aba renderizada de novo (`ListaDeMetasDaPastaEmJson`), sem flash. A guarda é a MESMA do concluir
  * (`TarefaController::assertAccess` + `verificarAcessoTarefa`, reproduzidas aqui sem
- * mudança): módulo `tarefas` + pasta da meta pertencente ao escritório — e, além delas,
- * `canAccessResource('pasta', edit)` sobre a pasta da meta. Meta de outro
- * escritório nem chega aqui — o TenantFilter a esconde e o resolvedor responde 404.
+ * mudança): módulo `tarefas` + meta do escritório da sessão (SEC-013b: 404 se não for) +
+ * pasta da meta com vínculo no escritório — e, além delas, `canAccessResource('pasta', edit)`
+ * sobre a pasta da meta. Normalmente a meta de outro escritório nem chega aqui (o TenantFilter
+ * a esconde e o resolvedor responde 404); o guarda de posse cobre o filtro falhando.
  */
 #[Route('/tarefas')]
 final class MetaNaListaController extends AbstractController
@@ -67,8 +71,13 @@ final class MetaNaListaController extends AbstractController
     }
 
     #[Route('/{id}/reabrir', name: 'tarefa_reabrir', methods: ['POST'])]
-    public function reabrir(Tarefa $tarefa, Request $request, ReabrirMetaUseCase $useCase): Response
-    {
+    public function reabrir(
+        Tarefa $tarefa,
+        Request $request,
+        ReabrirMetaUseCase $useCase,
+        ListaDeMetasDaPastaEmJson $listaEmJson,
+        ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
+    ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
@@ -79,7 +88,27 @@ final class MetaNaListaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        if ($useCase->executar($tarefa, $tenant)) {
+        $anterior = $tarefa->getDataConclusao();
+        $reabriu  = $useCase->executar($tarefa, $tenant);
+
+        // PMC-061: o reabrir apaga a data de conclusão; ela fica lembrada no servidor (sessão de
+        // quem reabriu) para o "Desfazer" devolvê-la, em vez de concluir com a data de agora.
+        if ($reabriu && $anterior !== null) {
+            $reaberturaDesfazivel->guardar($request->getSession(), $tarefa, $tenant, $anterior, new \DateTimeImmutable());
+        }
+
+        // PMC-031: reabrir pela lista por XHR (e o "Desfazer" do concluir), sem recarregar —
+        // mesma guarda e mesmo CSRF acima; a aba volta renderizada pelo servidor.
+        if ($request->isXmlHttpRequest()) {
+            return $listaEmJson->responder(
+                $tarefa,
+                $reabriu,
+                $reabriu ? 'Meta reaberta' : 'A meta não estava concluída',
+                $reabriu ? $anterior : null,
+            );
+        }
+
+        if ($reabriu) {
             $this->addFlash('success', 'Meta reaberta.');
         }
 
@@ -145,6 +174,14 @@ final class MetaNaListaController extends AbstractController
     /** Igual a `TarefaController::verificarAcessoTarefa`. */
     private function verificarAcessoTarefa(Tarefa $tarefa, Tenant $tenant): void
     {
+        // SEC-013b: a posse vem ANTES do vínculo (mesma correção do TarefaController). Só o
+        // vínculo do criador/responsável da pasta deixa passar a meta de OUTRO escritório quando
+        // essa pessoa está nos dois (e o TenantFilter falhou). Fora do escritório: 404 — 403
+        // confirmaria que o id existe em algum lugar.
+        if ($tarefa->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException('Meta não encontrada.');
+        }
+
         $pasta       = $tarefa->getPasta();
         $criador     = $pasta->getCriadoPor();
         $responsavel = $pasta->getResponsavel();

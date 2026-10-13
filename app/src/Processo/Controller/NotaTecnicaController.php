@@ -8,7 +8,9 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\MencoesDoRegistro;
 use App\Processo\DTO\NotaTecnicaOutput;
 use App\Processo\Entity\NotaTecnica;
 use App\Processo\Entity\Processo;
@@ -22,7 +24,6 @@ use App\Processo\UseCase\EditarNotaTecnicaUseCase;
 use App\Processo\UseCase\ExcluirNotaTecnicaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Service\SanitizadorTextoRico;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -46,6 +47,10 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  *
  * A publicação (`publicacao_id`, opcional) também é resolvida tenant-safe; se não for deste
  * processo, o UseCase recusa e a resposta é 404 — o id na URL não vira gancho em publicação alheia.
+ *
+ * @menções (PMC-019): a pasta da camada 2 vai aos UseCases — é por ela que se decide quem recebe
+ * o aviso. O `conteudoHtml` sai por `MencoesDoRegistro::exibir()` (o `texto_rico` com o destaque
+ * das menções), o mesmo que o filtro `registro_texto` dá ao cartão na carga da página.
  */
 #[Route('/processos/{id}/nota-tecnica', requirements: ['id' => '\d+'])]
 final class NotaTecnicaController extends AbstractController
@@ -66,7 +71,7 @@ final class NotaTecnicaController extends AbstractController
     }
 
     #[Route('', name: 'processo_nota_tecnica_criar', methods: ['POST'])]
-    public function criar(int $id, Request $request, SanitizadorTextoRico $sanitizador, CsrfTokenManagerInterface $csrf): JsonResponse
+    public function criar(int $id, Request $request, MencoesDoRegistro $mencoes, CsrfTokenManagerInterface $csrf): JsonResponse
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
@@ -100,7 +105,7 @@ final class NotaTecnicaController extends AbstractController
         }
 
         try {
-            $nota = $this->criarUseCase->executar($processo, $currentUser, $tenant, $conteudo, $publicacao);
+            $nota = $this->criarUseCase->executar($processo, $currentUser, $tenant, $conteudo, $publicacao, $this->pastaDoPedido($request));
         } catch (NotaTecnicaForaDoEscopoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (\InvalidArgumentException $e) {
@@ -112,7 +117,7 @@ final class NotaTecnicaController extends AbstractController
             // `conteudo` é o valor CRU (volta para dentro do editor ao editar); `conteudoHtml` é o
             // que a tela exibe — sanitizado aqui para o JS poder inserir como HTML com segurança.
             'conteudo'           => $nota->conteudo,
-            'conteudoHtml'       => $sanitizador->paraExibicao($nota->conteudo),
+            'conteudoHtml'       => $mencoes->exibir($nota->conteudo),
             'autorNome'          => $nota->autorNome,
             'criadaEm'           => $nota->criadaEm->format('d/m/Y H:i'),
             'publicacaoId'       => $nota->publicacaoId,
@@ -130,7 +135,7 @@ final class NotaTecnicaController extends AbstractController
     }
 
     #[Route('/{notaId}/editar', name: 'processo_nota_tecnica_editar', requirements: ['notaId' => '\d+'], methods: ['POST'])]
-    public function editar(int $id, int $notaId, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
+    public function editar(int $id, int $notaId, Request $request, MencoesDoRegistro $mencoes): JsonResponse
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
@@ -155,16 +160,18 @@ final class NotaTecnicaController extends AbstractController
         }
 
         try {
-            $saida = $this->editarUseCase->executar($nota, $currentUser, $tenant, (string) $request->request->get('conteudo', ''));
+            $saida = $this->editarUseCase->executar($nota, $currentUser, $tenant, (string) $request->request->get('conteudo', ''), $this->pastaDoPedido($request));
         } catch (NotaTecnicaNaoEditavelException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (NotaTecnicaForaDoEscopoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json([
             'conteudo'     => $saida->conteudo,
-            'conteudoHtml' => $sanitizador->paraExibicao($saida->conteudo),
+            'conteudoHtml' => $mencoes->exibir($saida->conteudo),
             'editadaEm'    => $saida->editadaEm?->format('d/m/Y H:i'),
         ]);
     }
@@ -237,6 +244,18 @@ final class NotaTecnicaController extends AbstractController
         }
 
         return null;
+    }
+
+    /**
+     * A pasta do contexto (`pasta_id`), para os avisos de menção. Só é chamada DEPOIS da camada 2
+     * (`negarSeNaoPodeAgir`), que já provou que ela é do escritório e vincula o processo; o
+     * `find()` aqui sai do identity map, sem consulta nova. O UseCase ainda repete a prova.
+     */
+    private function pastaDoPedido(Request $request): ?Pasta
+    {
+        $pastaId = $request->request->getInt('pasta_id');
+
+        return $pastaId > 0 ? $this->pastaRepository->find($pastaId) : null;
     }
 
     /** A nota precisa ser do escritório E deste processo — o id na URL não abre nota de outro. */

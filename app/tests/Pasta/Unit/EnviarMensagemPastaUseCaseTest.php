@@ -13,17 +13,21 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
+use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 #[CoversClass(EnviarMensagemPastaUseCase::class)]
@@ -37,6 +41,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
     private UserTenantRepository&MockObject $userTenantRepository;
     private PermissionChecker&MockObject $permissionChecker;
     private UserRepository&MockObject $userRepository;
+    private CotaDeNotificacoesDoRegistro $cota;
     private EnviarMensagemPastaUseCase $useCase;
     private Pasta $pasta;
     private User $autor;
@@ -53,6 +58,8 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->userTenantRepository  = $this->createMock(UserTenantRepository::class);
         $this->permissionChecker     = $this->createMock(PermissionChecker::class);
         $this->userRepository        = $this->createMock(UserRepository::class);
+        // Cota que aceita sempre: os casos daqui não são sobre o teto (SEC-008 tem os próprios).
+        $this->cota                  = new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(), new NullLogger());
 
         // Como o real: roda o callback (o flush final e o commit não importam ao dublê).
         $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
@@ -90,12 +97,16 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
                 $this->notificacaoRepository,
                 $this->notificacaoService,
                 $urlGenerator,
+                $this->cota,
             ),
+            $this->cota,
         );
 
         $this->tenant = new Tenant();
         $this->autor  = (new User())->setEmail('autor@test.com');
         $this->pasta  = new Pasta();
+        // A pasta é do escritório da sessão — o UseCase passou a provar isso antes de gravar.
+        $this->pasta->setTenant($this->tenant);
     }
 
     public function testEnviarMensagemCriaEntidade(): void
@@ -109,6 +120,51 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         self::assertSame($this->pasta, $mensagem->getPasta());
         self::assertSame($this->autor, $mensagem->getAutor());
         self::assertSame($this->tenant, $mensagem->getTenant());
+    }
+
+    #[TestDox('Pasta de OUTRO escritório é recusada e nada é gravado')]
+    public function testPastaDeOutroEscritorioRecusa(): void
+    {
+        $alheia = (new Pasta())->setTenant(new Tenant());
+
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar($alheia, $this->autor, 'Invasão', $this->tenant);
+    }
+
+    #[TestDox('Pasta sem escritório é recusada: sem tenant não há como provar a posse')]
+    public function testPastaSemEscritorioRecusa(): void
+    {
+        $this->em->expects($this->never())->method('persist');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar(new Pasta(), $this->autor, 'Sem dono', $this->tenant);
+    }
+
+    #[TestDox('Ids de escritório diferentes recusam (proxies do ORM comparados por id)')]
+    public function testPastaDeOutroEscritorioPorIdRecusa(): void
+    {
+        $this->definirId($this->tenant, 7);
+        $alheia = (new Pasta())->setTenant($this->definirId(new Tenant(), 8));
+
+        $this->em->expects($this->never())->method('persist');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar($alheia, $this->autor, 'Invasão', $this->tenant);
+    }
+
+    #[TestDox('Mesmo escritório por id (outra instância) é aceito')]
+    public function testPastaDoMesmoEscritorioPorIdAceita(): void
+    {
+        $this->definirId($this->tenant, 7);
+        $pasta = (new Pasta())->setTenant($this->definirId(new Tenant(), 7));
+
+        $mensagem = $this->useCase->executar($pasta, $this->autor, 'Legítima', $this->tenant);
+
+        self::assertSame($pasta, $mensagem->getPasta());
     }
 
     public function testConteudoVazioLancaExcecao(): void
@@ -751,6 +807,93 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->userRepository->expects($this->never())->method('findColaboradoresAtivosPorTenant');
 
         $this->useCase->executar($this->pasta, $this->autor, 'Sem ninguém, nem ana@x.com', $this->tenant);
+    }
+
+    // ── Cota de avisos do autor (SEC-008) ────────────────────────────────────
+
+    /** O mesmo UseCase do setUp, com a cota trocada (a resolução de menções usa a MESMA cota). */
+    private function useCaseComCota(CotaDeNotificacoesDoRegistro $cota): EnviarMensagemPastaUseCase
+    {
+        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
+        $urlGenerator->method('generate')->willReturnCallback(
+            static fn (string $rota, array $params = []): string => '/pasta/' . $params['id'],
+        );
+        $mencoes = new MencoesDoRegistro($this->criarSanitizadorTextoRico());
+
+        return new EnviarMensagemPastaUseCase(
+            $this->em,
+            $this->criarSanitizadorTextoRico(),
+            $this->notificacaoService,
+            $this->notificacaoRepository,
+            $this->userTenantRepository,
+            $this->permissionChecker,
+            $urlGenerator,
+            $mencoes,
+            new ResolucaoDeMencoesDoRegistro($mencoes, $this->userRepository, $this->permissionChecker, $this->notificacaoRepository, $this->notificacaoService, $urlGenerator, $cota),
+            $cota,
+        );
+    }
+
+    /** Resposta ao comentário do Bruno (2) mencionando a Carla (3): dois avisos possíveis. */
+    private function cenarioDeRespostaComMencao(): PastaMensagem
+    {
+        $dono  = $this->dono();
+        $raiz  = $this->cenarioDeResposta($dono);
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$this->autor, $dono, $carla]);
+        $this->acessoAPasta([2 => true, 3 => true]);
+        $this->userTenantRepository->method('existeVinculoAtivo')->willReturn(true);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        return $raiz;
+    }
+
+    #[TestDox('SEC-008: cota estourada grava a mensagem e suprime os avisos (resposta e menção), com aviso no log e sem falhar o envio')]
+    public function testCotaEstouradaGravaAMensagemESuprimeOsAvisos(): void
+    {
+        $raiz   = $this->cenarioDeRespostaComMencao();
+        $logger = new LoggerEmMemoria();
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $msg = $this->useCaseComCota(new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(aceita: false), $logger))
+            ->executar($this->pasta, $this->autor, '<p>Feito, @[Carla](user:3)</p>', $this->tenant, $raiz);
+
+        self::assertSame($msg, $this->persistida, 'a mensagem foi gravada');
+        self::assertSame(950, $msg->getId());
+        self::assertStringContainsString('@[Carla Dias](user:3)', $msg->getConteudo(), 'a menção continua no texto');
+
+        $avisos = $logger->doNivel('warning');
+        self::assertCount(2, $avisos, 'um registro por aviso suprimido');
+        self::assertSame([Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO, Notificacao::TIPO_PASTA_MENCAO_REGISTRO], array_column(array_column($avisos, 'contexto'), 'tipo'));
+        self::assertSame([2, 3], array_column(array_column($avisos, 'contexto'), 'destinatario_id'));
+    }
+
+    #[TestDox('SEC-008: cota com folga cria os avisos, e cada um consome a cota com a chave = id do AUTOR')]
+    public function testCotaComFolgaCriaOsAvisosComAChaveDoAutor(): void
+    {
+        $raiz   = $this->cenarioDeRespostaComMencao();
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+        $this->notificacaoService->expects($this->exactly(2))->method('criar')->willReturnCallback(static fn (): Notificacao => new Notificacao());
+
+        $this->useCaseComCota(new CotaDeNotificacoesDoRegistro($espiao, new NullLogger()))
+            ->executar($this->pasta, $this->autor, '<p>Feito, @[Carla](user:3)</p>', $this->tenant, $raiz);
+
+        self::assertSame(['1', '1'], $espiao->chavesConsumidas, 'uma ficha por aviso criado, na cota de quem escreveu');
+    }
+
+    /** Aviso que não sairia (a si mesmo, sem acesso, já avisado) não gasta a cota. */
+    #[TestDox('SEC-008: aviso filtrado antes (mencionar a si mesmo) não consome a cota')]
+    public function testAvisoFiltradoNaoConsomeCota(): void
+    {
+        $this->cenarioDeMencao();
+        $this->colegasDoEscritorio([$this->autor]);
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $this->useCaseComCota(new CotaDeNotificacoesDoRegistro($espiao, new NullLogger()))
+            ->executar($this->pasta, $this->autor, '<p>Nota para @[Eu](user:1)</p>', $this->tenant);
+
+        self::assertSame([], $espiao->chavesConsumidas);
     }
 
     /**

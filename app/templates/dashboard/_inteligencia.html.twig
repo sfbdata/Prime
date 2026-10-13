@@ -6,10 +6,13 @@
 
    O conteúdo vem PRONTO do servidor (App\Dashboard\Inteligencia): regras fixas
    sobre os números do período. Não há modelo de linguagem — e o texto da tela
-   não diz que há. Sem JS: o painel abre pelo Popover API nativo (`popovertarget`),
-   fecha pelo X, por Esc ou clicando fora; o Modo avançado é um <details> sem
-   persistência (preferência por usuário não existe no sistema; nada de
-   localStorage). O que no desenho depende de função ou dado inexistente não é
+   não diz que há. O painel abre pelo Popover API nativo (`popovertarget`), sem JS,
+   e fecha pelo X, por Esc ou clicando fora. O Modo avançado é o interruptor
+   `role=switch` do topo (dc L872): a escolha é POR USUÁRIO, gravada no servidor
+   (`dashboard.ia_avancado`, PreferenciasDoDashboardOutput) pelo
+   dashboard-preferencias.js, nada guardado no navegador. Ligado, o `.db-page` ganha
+   `db-page--ia-avancado`: o bloco avançado aparece e o painel vai a 600px.
+   O que no desenho depende de função ou dado inexistente não é
    renderizado: plano "Aumentar o nível", Criar tarefa, Resolvido/Ignorar,
    feedback, simular dia, Inteligência de Desempenho (condição por pessoa).
    Estilo em public/css/dashboard-inteligencia.css (escopo .db-page).
@@ -32,6 +35,9 @@
 {# Dica do botão (dc L2706): a contagem de riscos, sem atribuir a leitura a ninguém. #}
 {% set dica = inteligencia.temAlerta ? pontos ~ (pontos == 1 ? ' ponto de atenção' : ' pontos de atenção') : 'Leitura do período' %}
 {% set hora = inteligencia.geradaEm|date('H:i') %}
+{# Estado do Modo avançado do usuário logado. `preferencias` chega no render completo e no XHR;
+   sem ela, o painel abre no modo básico, que é o padrão. #}
+{% set iaAvancado = preferencias is defined and preferencias.iaAvancadoLigado() %}
 
 <div class="db-ia">
     <button type="button" class="db-ia-abrir{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" popovertarget="dbIaPainel" aria-label="Abrir BlueJus Intelligence" aria-describedby="dbIaDica">
@@ -55,20 +61,44 @@
         </div>
         <div class="db-ia-sub">
             <span class="db-ia-titulo">Visão da equipe</span>
+            {# Interruptor do Modo avançado (dc L872): na linha do título, à direita. Grava pelo
+               dashboard-preferencias.js; o aria-checked sai do servidor no estado gravado. #}
+            <button type="button" class="db-ia-av-switch" role="switch" aria-checked="{{ iaAvancado ? 'true' : 'false' }}" aria-controls="dbIaAvancado" title="Análises ampliadas do escritório" data-ia-avancado-switch>Modo avançado<span class="db-ia-switch" aria-hidden="true"><span class="db-ia-switch-bola"></span></span></button>
+        </div>
+
+        {# Confirmação "Ativar Modo Avançado?" (dc L939-959): véu sobre o painel inteiro. Aparece na
+           PRIMEIRA ativação (README "Ativação": "Na primeira vez abre a confirmação"), isto é,
+           enquanto o usuário não tem `dashboard.ia_avancado` gravado. Quem abre é o
+           dashboard-preferencias.js; sem JS fica escondida.
+           "Poderá analisar": só o que o painel por regras lê de verdade. Do escopo do desenho
+           saíram Processos, Produtividade, Tendências e Histórico — o painel não lê processos,
+           não mede produtividade nem tendência e não tem histórico (MotorAvancado, MotorDeRitmo). #}
+        <div class="db-ia-confirma" hidden data-ia-confirma>
+            <div class="db-ia-confirma-caixa" role="alertdialog" aria-modal="true" aria-label="Ativar Modo Avançado" aria-describedby="dbIaConfirmaTexto">
+                <div class="db-ia-confirma-cab">
+                    <span class="db-ia-confirma-icone" aria-hidden="true"><i class="bi bi-cpu"></i></span>
+                    <div class="db-ia-confirma-titulo">Ativar Modo Avançado?</div>
+                </div>
+                <div class="db-ia-confirma-texto" id="dbIaConfirmaTexto">A BlueJus Intelligence passará a fazer análises ampliadas do escritório, usando apenas os dados disponíveis ao seu perfil de acesso.</div>
+                <div class="db-ia-confirma-rotulo">Poderá analisar</div>
+                <ul class="db-ia-confirma-escopo">
+                    {% for e in ['Tarefas', 'Prazos', 'Equipes', 'Gargalos', 'Indicadores', 'Riscos operacionais'] %}
+                        <li><i class="bi bi-check2" aria-hidden="true"></i>{{ e }}</li>
+                    {% endfor %}
+                </ul>
+                <div class="db-ia-confirma-acoes">
+                    <button type="button" class="db-ia-confirma-nao" data-ia-confirma-cancelar>Agora não</button>
+                    <button type="button" class="db-ia-confirma-sim" data-ia-confirma-ativar>Ativar Modo Avançado</button>
+                </div>
+            </div>
         </div>
 
         <div class="db-ia-corpo">
 
-            {# ── Modo avançado (dc L872 interruptor; L961-1278 conteúdo da aba Escritório).
-               Expansível, sem lembrar a escolha: o protótipo guardava em localStorage por
-               usuário e pedia confirmação num modal — nada disso existe aqui. #}
-            <details class="db-ia-av">
-                <summary class="db-ia-av-toggle" title="Análises ampliadas do escritório">
-                    <i class="bi bi-cpu" aria-hidden="true"></i>
-                    <span class="db-ia-av-toggle-texto">Modo avançado</span>
-                    <span class="db-ia-av-toggle-sub">visão estratégica, cockpit e alertas</span>
-                    <span class="db-ia-switch" aria-hidden="true"><span class="db-ia-switch-bola"></span></span>
-                </summary>
+            {# ── Modo avançado (dc L962-1279, conteúdo da aba Escritório), ANTES da leitura
+               básica como no desenho. Sempre no HTML; aparece só com `db-page--ia-avancado`
+               no `.db-page` (o interruptor do topo liga/desliga sem recarregar). #}
+            <div class="db-ia-av" id="dbIaAvancado">
                 <div class="db-ia-av-corpo">
                     <div class="db-ia-av-cab">
                         <div>
@@ -195,7 +225,7 @@
                         {% endfor %}
                     </section>
                 </div>
-            </details>
+            </div>
 
             {# ── Leitura básica ─────────────────────────────────────────────────
                s1 do desenho (dc L1281-1299) sem o selo de estado nem o "ritmo
@@ -264,6 +294,17 @@
                 <div class="db-ia-nota">Números: somas das linhas visíveis da tabela Desempenho (uma meta com vários responsáveis conta para cada um); vencidas e prazos próximos são relativos a hoje; urgentes vêm do card Demandas urgentes.</div>
             </section>
         </div>
+
+        {# Cartão "Conhecer o Modo avançado" (dc L1412-1418; README "Modo básico x Modo avançado"):
+           no rodapé, por 6 segundos cada vez que o painel abre com o modo desligado, e sai com
+           fade e recolhimento (0,5s). O tempo é do dashboard-preferencias.js; o fade, do CSS.
+           Clicar faz o mesmo que o interruptor. O subtítulo do desenho cita a "Inteligência de
+           Desempenho da equipe", que não existe aqui (fora por decisão do dono): saiu da frase. #}
+        <button type="button" class="db-ia-teaser" hidden data-ia-teaser aria-controls="dbIaAvancado">
+            <span class="db-ia-teaser-icone" aria-hidden="true"><i class="bi bi-cpu"></i></span>
+            <span class="db-ia-teaser-texto"><span class="db-ia-teaser-titulo">Conhecer o Modo avançado</span><span class="db-ia-teaser-sub">Visão estratégica, riscos e Central de Inteligência.</span></span>
+            <i class="bi bi-arrow-right db-ia-teaser-seta" aria-hidden="true"></i>
+        </button>
 
         <div class="db-ia-rodape"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Acompanhar novamente em 24 horas</div>
     </aside>

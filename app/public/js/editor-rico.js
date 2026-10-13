@@ -31,6 +31,11 @@
  *   EditorRico.estaVazio(textarea)               → bool (ignora marcação sem texto)
  *   EditorRico.desmontar(textarea)               → devolve a textarea ao estado original
  *   EditorRico.instancia(textarea)               → a instância Quill (ou null)
+ *   EditorRico.marcarEnvio(textarea, enviando)   → envio em curso: o Enviar fica desabilitado
+ *   EditorRico.inserirCitacao(textarea, html)    → "Citar no novo registro": o trecho entra como citação
+ *
+ * Botão Enviar do compositor: a textarea aponta o seu botão por `data-editor-rico-envio="<id>"`,
+ * e o editor o mantém desabilitado enquanto estiver vazio (desenho, `mudou`: `env.disabled = v`).
  */
 (function () {
     'use strict';
@@ -130,9 +135,17 @@
     /** Formatos de trecho (não de linha) — os que o substituir preserva no texto novo. */
     var FORMATOS_DE_TRECHO = ['bold', 'italic', 'underline', 'strike', 'color', 'background'];
 
+    /**
+     * EDT-018: "Citação" no seletor de estilo do parágrafo, como o `popEstilo` do desenho (Normal ·
+     * Título 1 · Título 2 · Citação). O seletor é o do formato `header`; este valor não é um nível
+     * de título — o handler `header` o traduz para o formato `blockquote` (já permitido pelo
+     * sanitizador), e nunca chega a virar `header` no texto.
+     */
+    var ESTILO_CITACAO = 'citacao';
+
     var BARRA = [
         ['undo', 'redo'],
-        [{ header: [2, 3, false] }],
+        [{ header: [false, 2, 3, ESTILO_CITACAO] }],
         ['bold', 'italic', 'underline', 'strike', { color: PALETA_TEXTO }, { background: PALETA_REALCE }],
         [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }, { align: [] }],
         ['blockquote', 'simbolo', 'data'],
@@ -156,6 +169,13 @@
 
     /** Palavras que só servem para reconhecer a forma acentuada / sugerir (`EXTRA` do desenho). */
     var VOCABULARIO_EXTRA = ['processo', 'processual', 'prazo', 'prazos', 'cliente', 'contrato', 'recurso', 'agravo', 'embargos', 'liminar', 'tutela', 'protocolo', 'protocolado', 'advogado', 'advogada', 'assinatura', 'assinado', 'comprovante', 'pagamento', 'parcela', 'acordo', 'atendimento', 'encaminhado', 'encaminhar', 'aguardando', 'solicitado', 'conforme', 'referente', 'mediante', 'expediente', 'expedientes', 'testemunha', 'depoimento', 'laudo', 'deferido', 'indeferido', 'julgado', 'julgamento', 'requerimento', 'requerente', 'requerido', 'executado', 'notificado', 'intimado', 'citado', 'cumprimento', 'embargante', 'embargado', 'agravante', 'agravado', 'apelante', 'apelado', 'reclamante', 'reclamada', 'TJDFT', 'PJe'];
+
+    /**
+     * Sinônimos do menu do botão direito (EDT-012): o dicionário local `SIN` do desenho
+     * (bj-editor.js l.166), copiado literalmente — chave sem acento e minúscula, como `dobrar()`
+     * devolve. Estático: nada sai do navegador nem vem de serviço externo.
+     */
+    var SINONIMOS = { urgente: ['prioritário', 'imediato', 'inadiável'], cliente: ['constituinte', 'contratante', 'assistido'], prazo: ['termo', 'período', 'limite'], processo: ['ação', 'feito', 'autos'], documento: ['arquivo', 'peça', 'registro'], solicitar: ['requerer', 'pedir', 'pleitear'], informar: ['comunicar', 'notificar', 'cientificar'], analisar: ['examinar', 'avaliar', 'verificar'], problema: ['questão', 'pendência', 'impasse'], importante: ['relevante', 'essencial', 'fundamental'], rapido: ['ágil', 'célere', 'breve'], resolver: ['solucionar', 'sanar', 'regularizar'], acordo: ['composição', 'ajuste', 'transação'], reuniao: ['encontro', 'conferência', 'atendimento'], enviar: ['encaminhar', 'remeter', 'despachar'], receber: ['obter', 'acolher'], verificar: ['conferir', 'checar', 'apurar'], pedido: ['requerimento', 'solicitação', 'pleito'], decisao: ['deliberação', 'despacho', 'julgamento'], necessario: ['indispensável', 'imprescindível', 'essencial'], possivel: ['viável', 'factível'], atraso: ['demora', 'morosidade'], pagamento: ['quitação', 'liquidação', 'adimplemento'], contrato: ['instrumento', 'ajuste', 'avença'], advogado: ['patrono', 'procurador', 'causídico'], juiz: ['magistrado', 'julgador'], informacao: ['dado', 'esclarecimento', 'comunicação'], providencia: ['medida', 'diligência', 'ação'], concluir: ['finalizar', 'encerrar', 'terminar'], iniciar: ['começar', 'instaurar', 'dar início'], aguardar: ['esperar', 'acompanhar'], atualizar: ['renovar', 'revisar', 'complementar'], ajuizar: ['propor', 'distribuir', 'protocolar'] };
 
     /** Tira acento e caixa: "Petição" → "peticao". */
     function dobrar(t) {
@@ -316,7 +336,7 @@
             if (porValor && porValor[valor]) {
                 item.setAttribute('title', porValor[valor]);
             } else if (classe === 'ql-header') {
-                item.setAttribute('title', { '': 'Normal', '2': 'Título 1', '3': 'Título 2' }[valor] || valor);
+                item.setAttribute('title', { '': 'Normal', '2': 'Título 1', '3': 'Título 2', citacao: 'Citação' }[valor] || valor);
             }
         });
     }
@@ -362,6 +382,39 @@
         // O seletor de estilo mostra o nome por CSS (`data-value` do rótulo); a seta é do desenho.
         var estilo = barra.querySelector('.ql-picker.ql-header .ql-picker-label');
         if (estilo) { estilo.innerHTML = icone('bi-chevron-expand'); }
+    }
+
+    /**
+     * Estilo do parágrafo escolhido no seletor (`bloco(t)` do desenho): Citação liga o
+     * `blockquote`; Normal desliga o que houver (título ou citação); Título 1/2 trocam o bloco —
+     * no Quill, título e citação são blocos excludentes, então o título substitui a citação.
+     */
+    function aplicarEstilo(quill, valor) {
+        if (valor === ESTILO_CITACAO) {
+            quill.format('blockquote', true, 'user');
+
+            return;
+        }
+        if (!valor) {
+            quill.format('blockquote', false, 'user');
+        }
+        quill.format('header', valor, 'user');
+    }
+
+    /**
+     * O Quill só sabe marcar no seletor o formato dele (`header`): com o cursor numa citação, o
+     * rótulo voltaria para "Normal". Depois de cada atualização da barra, se o bloco é citação, a
+     * opção Citação é marcada no seletor (e no rótulo, pelo `update` do próprio seletor do Quill).
+     */
+    function marcarCitacaoNoEstilo(refs) {
+        var seletor = refs.seletorEstilo;
+        var faixa = refs.quill.selection.getRange()[0];
+        if (!seletor || !faixa || !refs.quill.getFormat(faixa).blockquote) { return; }
+
+        var opcao = seletor.select.querySelector('option[value="' + ESTILO_CITACAO + '"]');
+        if (!opcao) { return; }
+        opcao.selected = true;
+        seletor.update();
     }
 
     function textoDoEditor(quill) {
@@ -496,6 +549,25 @@
         var formatos = formatosDoTrecho(quill, f.index, f.length);
         quill.updateContents(new Delta().retain(f.index).delete(f.length).insert(texto, formatos), 'user');
         quill.setSelection(Math.min(f.index + texto.length, quill.getLength() - 1), 0, 'user');
+    }
+
+    /** Tab fora de lista: 4 espaços não separáveis (`onKey` do desenho, bj-editor.js l.682-684). */
+    var TABULACAO = '\u00a0\u00a0\u00a0\u00a0';
+
+    /**
+     * Tecla Tab (sem Shift; Shift+Tab fora de lista segue para o navegador, como no desenho).
+     * Na lista, o desenho recua o item em qualquer posição do cursor — o Quill só recuava com o
+     * cursor no começo e, no meio da linha, inseria "\t".
+     */
+    function tabulacao(quill, faixa, contexto) {
+        if (contexto.format && contexto.format.list) {
+            quill.format('indent', '+1', 'user');
+
+            return false;
+        }
+        inserirTexto(quill, faixa, TABULACAO);
+
+        return false;
     }
 
     // ── Janelinhas da barra (`.bjed-pop`) ──────────────────────────────────────────────────
@@ -829,6 +901,770 @@
         }
     }
 
+    // ── Autoformatação ao digitar (`autoFormatar` do desenho, bj-editor.js l.618-626) ───────
+    //
+    // No começo de um parágrafo, "1." ou "1)" + espaço vira numeração, "-" ou "*" + espaço vira
+    // marcadores e "> " vira citação — e um chip avisa "Formatação automática aplicada", com
+    // Desfazer. As listas seguem com a conversão do próprio Quill (`list autofill`, que também
+    // aceita "2.", "[ ]" e "[x]"); a citação é feita aqui, do mesmo jeito: o espaço entra, o
+    // histórico é cortado e a conversão vira UM passo — Desfazer volta exatamente o "> " digitado.
+
+    /** Prefixos do `list autofill` do Quill, mais "1)" e ">" (este só no começo exato da linha). */
+    var PREFIXO_AUTOFORMATACAO = /^(?:\s*?(\d+\.|1\)|-|\*|\[ ?\]|\[x\])|>)$/;
+
+    var autopreencherLista = null;
+
+    /** O handler original do Quill para as listas (lido do próprio Quill, não copiado). */
+    function conversaoDeListaDoQuill() {
+        if (!autopreencherLista) {
+            autopreencherLista = Quill.import('modules/keyboard').DEFAULTS.bindings['list autofill'].handler;
+        }
+
+        return autopreencherLista;
+    }
+
+    function autoFormatar(refs, teclado, faixa, contexto) {
+        var quill = refs.quill;
+        var inicio = faixa.index - contexto.offset;
+        var convertido;
+
+        if (contexto.prefix === '>') {
+            convertido = citacaoAutomatica(quill, faixa, contexto);
+        } else {
+            convertido = conversaoDeListaDoQuill().call(teclado, faixa, contexto) === false;
+        }
+        if (!convertido) { return true; } // não converteu: o espaço segue como espaço
+
+        // "Desfazer" só volta a conversão se ela ainda for o último passo do histórico.
+        var pilha = quill.history && quill.history.stack;
+        var passos = pilha ? pilha.undo.length : -1;
+        mostrarChip(refs, inicio, textoDoChip('bi-magic', [{ texto: 'Formatação automática aplicada' }]), [
+            { rotulo: 'Desfazer', acao: function () {
+                if (pilha && pilha.undo.length === passos) { quill.history.undo(); }
+            } },
+        ], 3600);
+
+        return false;
+    }
+
+    /** "> " no começo de um parágrafo (fora de lista, como o desenho): vira citação. */
+    function citacaoAutomatica(quill, faixa, contexto) {
+        if (contexto.format.list || contexto.offset !== 1) { return false; }
+
+        var inicio = faixa.index - contexto.offset;
+        var Delta = Quill.import('delta');
+        quill.insertText(faixa.index, ' ', 'user');
+        if (quill.history) { quill.history.cutoff(); }
+        quill.updateContents(new Delta().retain(inicio).delete(contexto.offset + 1), 'user');
+        quill.formatLine(inicio, 1, 'blockquote', true, 'user');
+        if (quill.history) { quill.history.cutoff(); }
+        quill.setSelection(inicio, 0, 'silent');
+
+        return true;
+    }
+
+    // ── Menu do botão direito (`ctxMenu` do desenho, bj-editor.js l.693-762) ───────────────
+    //
+    // No padrão do Word: mini barra de formatação; Recortar, Copiar, Colar, Colar somente texto;
+    // Parágrafo (alinhar e recuar); Localizar e substituir, Revisar texto e Selecionar tudo. Cada
+    // item chama a MESMA função que a barra e os atalhos já usam (API do Quill: `format`,
+    // `removeFormat`, `setSelection`, a busca e a revisão) — o menu não grava marcação nova.
+    //
+    // Só o botão direito do MOUSE abre este menu. Shift + botão direito (como no desenho), o teclado
+    // (tecla de menu, Shift+F10) e o toque longo — casos que o desenho não cobre — seguem com o
+    // menu do navegador.
+    //
+    // Sinônimos (EDT-012): com a palavra sob o cursor no dicionário local `SINONIMOS`, o bloco
+    // "Sinônimos de "palavra"" entra antes de Localizar, e cada item troca a palavra (na caixa
+    // dela) num passo só do histórico. Como no desenho, o botão direito fora da seleção leva o
+    // cursor ao ponto do clique — a palavra é a que está sob o mouse.
+    //
+    // Fora deste menu, de propósito: "Sugestões de correção", "Definir", "Traduzir" e "Pesquisar
+    // na web", "Inserir qualificação do cliente" (EDT-014) e "Hiperlink…" (EDT-025: a barra não
+    // tem link).
+    //
+    // Área de transferência: Recortar e Copiar usam a Clipboard API quando ela existe (texto e
+    // HTML do próprio editor) e, sem ela, o comando do navegador, que o Quill trata como Ctrl+C/X.
+    // Colar só lê a área de transferência com a permissão do navegador; sem ela, o aviso do
+    // desenho ("Use Ctrl+V para colar…") — e nada é colado. O que vem colado passa pelo MESMO
+    // conversor da colagem do Quill (`clipboard.convert`), que só deixa os FORMATOS do editor.
+
+    /** Últimas cores usadas na barra (desenho: `corAtual` #c0392f e `realceAtual` #fff3a3 no início). */
+    var COR_INICIAL = 'vermelho';
+    var REALCE_INICIAL = 'amarelo';
+
+    function fecharMenuContexto(refs) {
+        var m = refs.menuContexto;
+        if (!m) { return; }
+        m.elemento.remove();
+        document.removeEventListener('mousedown', m.foraDele, true);
+        document.removeEventListener('keydown', m.tecla, true);
+        window.removeEventListener('scroll', m.rolagem, true);
+        window.removeEventListener('resize', m.redimensionar);
+        refs.menuContexto = null;
+    }
+
+    /** Aviso curto no chip do editor (o `chip(html)` do desenho, sem "Desfazer"). */
+    function avisar(refs, texto) {
+        var faixa = refs.quill.getSelection();
+        mostrarChip(refs, faixa ? faixa.index : 0, textoDoChip('bi-magic', [{ texto: texto }]), [], 3600);
+    }
+
+    /** "Limpar formatação" igual ao botão da barra (handler `clean` do Quill). */
+    function limparFormatacao(quill, faixa) {
+        if (!faixa) { return; }
+        if (faixa.length === 0) {
+            var formatos = quill.getFormat();
+            Object.keys(formatos).forEach(function (nome) {
+                if (FORMATOS_DE_TRECHO.indexOf(nome) !== -1) { quill.format(nome, false, 'user'); }
+            });
+
+            return;
+        }
+        quill.removeFormat(faixa.index, faixa.length, 'user');
+    }
+
+    /** Recuo igual ao botão da barra (handler `indent` do Quill: relativo ao recuo atual). */
+    function recuar(quill, passo) {
+        var atual = parseInt(quill.getFormat().indent || 0, 10);
+        quill.format('indent', atual + passo, 'user');
+    }
+
+    function copiarSelecao(refs, faixa, recortar) {
+        var quill = refs.quill;
+        if (!faixa || faixa.length === 0) { return; }
+        var falhou = function () {
+            avisar(refs, recortar
+                ? 'Use Ctrl+X para recortar (o navegador bloqueou o acesso direto)'
+                : 'Use Ctrl+C para copiar (o navegador bloqueou o acesso direto)');
+        };
+        var depois = function () {
+            if (!recortar) { return; }
+            quill.deleteText(faixa.index, faixa.length, 'user');
+            quill.setSelection(faixa.index, 0, 'user');
+        };
+        var texto = quill.getText(faixa.index, faixa.length);
+        var api = navigator.clipboard;
+
+        if (api && api.write && typeof ClipboardItem !== 'undefined') {
+            var html = quill.getSemanticHTML(faixa.index, faixa.length);
+            api.write([new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([texto], { type: 'text/plain' }),
+            })]).then(depois, function () {
+                // Sem permissão para HTML (alguns navegadores): tenta só o texto.
+                (api.writeText ? api.writeText(texto) : Promise.reject(new Error('sem writeText'))).then(depois, falhou);
+            });
+
+            return;
+        }
+        if (api && api.writeText) {
+            api.writeText(texto).then(depois, falhou);
+
+            return;
+        }
+        // Sem Clipboard API: o comando do navegador dispara o copiar/recortar do próprio Quill.
+        quill.setSelection(faixa.index, faixa.length, 'silent');
+        var ok = false;
+        try { ok = document.execCommand(recortar ? 'cut' : 'copy'); } catch (erro) { ok = false; }
+        if (!ok) { falhou(); }
+    }
+
+    /**
+     * Cola no lugar guardado. HTML vai pelo conversor da colagem do Quill (`clipboard.convert`):
+     * o mesmo filtro de formatos do Ctrl+V. Texto puro herda a formatação do ponto.
+     */
+    function colarConteudo(refs, faixa, html, texto) {
+        var quill = refs.quill;
+        if (!quill) { return; }
+        var f = faixa || { index: Math.max(quill.getLength() - 1, 0), length: 0 };
+        quill.focus();
+        if (!html) {
+            if (texto) { inserirTexto(quill, f, texto); }
+
+            return;
+        }
+        var Delta = Quill.import('delta');
+        var conteudo = quill.clipboard.convert({ html: html, text: texto || '' });
+        quill.updateContents(new Delta().retain(f.index).delete(f.length).concat(conteudo), 'user');
+        quill.setSelection(Math.min(f.index + conteudo.length(), quill.getLength() - 1), 0, 'user');
+    }
+
+    function colarDaAreaDeTransferencia(refs, faixa, somenteTexto) {
+        var api = navigator.clipboard;
+        var bloqueado = function () { avisar(refs, 'Use Ctrl+V para colar (o navegador bloqueou o acesso direto)'); };
+        if (!api || !api.readText) { bloqueado(); return; }
+
+        var soTexto = function () {
+            api.readText().then(function (t) { colarConteudo(refs, faixa, '', t); }, bloqueado);
+        };
+        if (somenteTexto || !api.read) { soTexto(); return; }
+
+        // Imagem colada fica para o EDT-026: aqui só HTML e texto.
+        api.read().then(function (itens) {
+            return Promise.all(itens.map(function (item) {
+                if (item.types.indexOf('text/html') !== -1) {
+                    return item.getType('text/html').then(function (b) { return b.text(); }).then(function (h) { return { html: h }; });
+                }
+                if (item.types.indexOf('text/plain') !== -1) {
+                    return item.getType('text/plain').then(function (b) { return b.text(); }).then(function (t) { return { texto: t }; });
+                }
+
+                return {};
+            }));
+        }).then(function (partes) {
+            var html = partes.map(function (p) { return p.html || ''; }).join('');
+            var texto = partes.map(function (p) { return p.texto || ''; }).join('');
+            colarConteudo(refs, faixa, html, texto);
+        }, soTexto);
+    }
+
+    function botaoDoMenu(iconeHtml, titulo, ativo, acao) {
+        var b = semRoubarFoco(el('button', 'editor-rico-menu-botao' + (ativo ? ' editor-rico-ativo' : '')));
+        b.type = 'button';
+        b.title = titulo;
+        b.setAttribute('aria-label', titulo);
+        b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        b.innerHTML = iconeHtml; // só ícone constante deste arquivo — nunca dado
+        b.addEventListener('click', acao);
+
+        return b;
+    }
+
+    function itemDoMenu(iconeNome, rotulo, atalho, desabilitado, acao) {
+        var b = semRoubarFoco(el('button', 'editor-rico-menu-item'));
+        b.type = 'button';
+        b.setAttribute('role', 'menuitem');
+        b.innerHTML = icone(iconeNome);
+        b.appendChild(el('span', '', rotulo));
+        if (atalho) { b.appendChild(el('span', 'editor-rico-menu-atalho', atalho)); }
+        if (desabilitado) { b.disabled = true; }
+        b.addEventListener('click', acao);
+
+        return b;
+    }
+
+    /** Ícone + barrinha da última cor (`.bjed-bar`); a cor é a variável CSS da paleta, por nome. */
+    function iconeComCor(nome, variavel) {
+        var caixa = el('span');
+        caixa.innerHTML = icone(nome);
+        var barra = el('span', 'editor-rico-menu-cor');
+        barra.setAttribute('aria-hidden', 'true');
+        barra.style.backgroundColor = 'var(' + variavel + ')';
+        caixa.appendChild(barra);
+
+        return caixa.innerHTML;
+    }
+
+    /** Nó e deslocamento do texto sob o ponto (padrão e WebKit). */
+    function pontoDoTexto(x, y) {
+        if (document.caretPositionFromPoint) {
+            var p = document.caretPositionFromPoint(x, y);
+
+            return p ? { no: p.offsetNode, deslocamento: p.offset } : null;
+        }
+        if (document.caretRangeFromPoint) {
+            var r = document.caretRangeFromPoint(x, y);
+
+            return r ? { no: r.startContainer, deslocamento: r.startOffset } : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Botão direito FORA da seleção leva o cursor ao ponto do clique (`ctxMenu` do desenho,
+     * `dentroSel`); dentro dela, a seleção fica. O índice sai do blot do Quill sob o ponto.
+     */
+    function moverCursorParaOClique(quill, x, y) {
+        var atual = quill.getSelection();
+        var nativa = window.getSelection();
+        if (atual && atual.length > 0 && nativa && nativa.rangeCount) {
+            var dentro = [].slice.call(nativa.getRangeAt(0).getClientRects()).some(function (q) {
+                return x >= q.left && x <= q.right && y >= q.top && y <= q.bottom;
+            });
+            if (dentro) { return; }
+        }
+
+        var ponto = pontoDoTexto(x, y);
+        if (!ponto || !ponto.no || !quill.root.contains(ponto.no)) { return; }
+        var blot = Quill.find(ponto.no, true);
+        if (!blot || typeof blot.offset !== 'function') { return; }
+
+        var indice = blot.offset(quill.scroll) + (ponto.no.nodeType === 3 ? ponto.deslocamento : 0);
+        quill.setSelection(Math.min(indice, Math.max(quill.getLength() - 1, 0)), 0, 'silent');
+    }
+
+    /**
+     * Palavra sob o cursor (ou que contém a seleção), em índices de `getText()`: a seleção é
+     * estendida às letras vizinhas. Seleção com mais de uma palavra não tem sinônimo — `null`.
+     */
+    function palavraDoMenu(quill, faixa) {
+        if (!faixa) { return null; }
+        var texto = quill.getText();
+        var letra = /[\p{L}\p{M}]/u;
+        var inicio = faixa.index;
+        var fim = faixa.index + faixa.length;
+        while (inicio > 0 && letra.test(texto.charAt(inicio - 1))) { inicio--; }
+        while (fim < texto.length && letra.test(texto.charAt(fim))) { fim++; }
+        var palavra = texto.slice(inicio, fim);
+
+        return /^[\p{L}\p{M}]+$/u.test(palavra) ? { inicio: inicio, texto: palavra } : null;
+    }
+
+    /** Sinônimos do dicionário local para a palavra (busca sem acento e sem caixa). */
+    function sinonimosDe(palavra) {
+        var lista = Object.prototype.hasOwnProperty.call(SINONIMOS, dobrar(palavra)) ? SINONIMOS[dobrar(palavra)] : null;
+
+        return Array.isArray(lista) ? lista : [];
+    }
+
+    /** Troca a palavra pelo sinônimo, na caixa dela, num passo só do histórico. */
+    function trocarPorSinonimo(quill, palavra, sinonimo) {
+        var para = mesmaCaixa(palavra.texto, sinonimo);
+        trocarTrechos(quill, [{ inicio: palavra.inicio, tamanho: palavra.texto.length, para: para }]);
+        quill.setSelection(palavra.inicio + para.length, 0, 'user');
+    }
+
+    /**
+     * "Inserir qualificação do cliente" (EDT-014): o texto já montado no servidor
+     * (`QualificacaoDoCliente`, o mesmo do "Copiar qualificação") entra como TEXTO no cursor, com
+     * um espaço depois, e o chip diz o que entrou — como o desenho. Sem cadastro, só o aviso.
+     * A fonte é um elemento da página com `data-editor-qualificacao` (`data-texto`, `data-nome`,
+     * `data-pendencias`).
+     */
+    function inserirQualificacao(refs, fonte) {
+        var quill = refs.quill;
+        var texto = fonte.getAttribute('data-texto') || '';
+        var faixa = quill.getSelection();
+        if (texto === '') {
+            mostrarChip(refs, faixa ? faixa.index : 0, textoDoChip('bi-person-vcard', [
+                { texto: 'Cliente sem cadastro. Abra a qualificação pelo botão ao lado do nome.' },
+            ]), [], 3600);
+
+            return;
+        }
+        inserirTexto(quill, faixa, texto + ' ');
+        var pendencias = Number(fonte.getAttribute('data-pendencias') || 0);
+        var primeiro = (fonte.getAttribute('data-nome') || '').trim().split(/\s+/)[0] || '';
+        var aviso = pendencias > 0
+            ? 'Qualificação inserida com ' + pendencias + ' pendência(s) no cadastro'
+            : 'Qualificação de ' + primeiro + ' inserida';
+        var depois = quill.getSelection();
+        mostrarChip(refs, depois ? depois.index : 0, textoDoChip('bi-person-vcard', [{ texto: aviso }]), [], 3600);
+    }
+
+    function abrirMenuContexto(refs, x, y) {
+        var quill = refs.quill;
+        fecharMenuContexto(refs);
+        fecharJanela(refs);
+        fecharChip(refs);
+        fecharSugestoes(refs);
+        fecharOpcoesDeColar(refs);
+        moverCursorParaOClique(quill, x, y);
+
+        var faixa = quill.getSelection() || quill.getSelection(true);
+        var formatos = faixa ? quill.getFormat(faixa) : {};
+        var temSelecao = !!(faixa && faixa.length > 0);
+        var cor = refs.ultimaCor || COR_INICIAL;
+        var realce = refs.ultimoRealce || REALCE_INICIAL;
+
+        // Toda ação fecha o menu e devolve o cursor/seleção de antes ao texto.
+        function executar(acao) {
+            return function () {
+                fecharMenuContexto(refs);
+                quill.focus();
+                if (faixa) { quill.setSelection(faixa.index, faixa.length, 'silent'); }
+                acao();
+            };
+        }
+
+        var menu = el('div', 'editor-rico-menu');
+        menu.setAttribute('role', 'menu');
+        menu.setAttribute('aria-label', 'Menu do editor');
+
+        var barra = el('div', 'editor-rico-menu-barra');
+        [
+            [icone('bi-type-bold'), 'Negrito', !!formatos.bold, function () { quill.format('bold', !formatos.bold, 'user'); }],
+            [icone('bi-type-italic'), 'Itálico', !!formatos.italic, function () { quill.format('italic', !formatos.italic, 'user'); }],
+            [icone('bi-type-underline'), 'Sublinhado', !!formatos.underline, function () { quill.format('underline', !formatos.underline, 'user'); }],
+            [icone('bi-type-strikethrough'), 'Tachado', !!formatos.strike, function () { quill.format('strike', !formatos.strike, 'user'); }],
+            [iconeComCor('bi-highlighter', '--er-realce-' + realce), 'Realçar com a última cor', false, function () { quill.format('background', realce, 'user'); }],
+            [iconeComCor('bi-fonts', '--er-cor-' + cor), 'Cor da fonte (última usada)', false, function () { quill.format('color', cor, 'user'); }],
+            [icone('bi-list-ul'), 'Marcadores', formatos.list === 'bullet', function () { quill.format('list', formatos.list === 'bullet' ? false : 'bullet', 'user'); }],
+            [icone('bi-list-ol'), 'Numeração', formatos.list === 'ordered', function () { quill.format('list', formatos.list === 'ordered' ? false : 'ordered', 'user'); }],
+            [icone('bi-type-h2'), 'Título', formatos.header === 2, function () { quill.format('header', formatos.header === 2 ? false : 2, 'user'); }],
+            [icone('bi-eraser'), 'Limpar formatação', false, function () { limparFormatacao(quill, quill.getSelection()); }],
+        ].forEach(function (b) { barra.appendChild(botaoDoMenu(b[0], b[1], b[2], executar(b[3]))); });
+        menu.appendChild(barra);
+
+        menu.appendChild(itemDoMenu('bi-scissors', 'Recortar', 'Ctrl+X', !temSelecao, executar(function () { copiarSelecao(refs, faixa, true); })));
+        menu.appendChild(itemDoMenu('bi-copy', 'Copiar', 'Ctrl+C', !temSelecao, executar(function () { copiarSelecao(refs, faixa, false); })));
+        menu.appendChild(itemDoMenu('bi-clipboard', 'Colar', 'Ctrl+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, false); })));
+        menu.appendChild(itemDoMenu('bi-clipboard-check', 'Colar somente texto', 'Ctrl+Shift+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, true); })));
+        menu.appendChild(el('div', 'editor-rico-menu-separador'));
+
+        menu.appendChild(cabecalhoDaJanela('Parágrafo'));
+        var paragrafo = el('div', 'editor-rico-menu-barra editor-rico-menu-barra-paragrafo');
+        [
+            ['bi-text-left', 'À esquerda', !formatos.align, function () { quill.format('align', false, 'user'); }],
+            ['bi-text-center', 'Centralizado', formatos.align === 'center', function () { quill.format('align', 'center', 'user'); }],
+            ['bi-text-right', 'À direita', formatos.align === 'right', function () { quill.format('align', 'right', 'user'); }],
+            ['bi-justify', 'Justificado', formatos.align === 'justify', function () { quill.format('align', 'justify', 'user'); }],
+            ['bi-text-indent-right', 'Diminuir recuo', false, function () { recuar(quill, -1); }],
+            ['bi-text-indent-left', 'Aumentar recuo', false, function () { recuar(quill, 1); }],
+        ].forEach(function (b) { paragrafo.appendChild(botaoDoMenu(icone(b[0]), b[1], b[2], executar(b[3]))); });
+        menu.appendChild(paragrafo);
+        menu.appendChild(el('div', 'editor-rico-menu-separador'));
+
+        var palavra = palavraDoMenu(quill, faixa);
+        var sinonimos = palavra ? sinonimosDe(palavra.texto) : [];
+        if (sinonimos.length) {
+            menu.appendChild(cabecalhoDaJanela('Sinônimos de "' + palavra.texto + '"'));
+            sinonimos.forEach(function (sinonimo) {
+                menu.appendChild(itemDoMenu('bi-arrow-left-right', sinonimo, '', false, executar(function () {
+                    trocarPorSinonimo(quill, palavra, sinonimo);
+                })));
+            });
+            menu.appendChild(el('div', 'editor-rico-menu-separador'));
+        }
+
+        // EDT-014 (bj-editor.js l.751, `__bjQualificacao`): só na página que traz a qualificação
+        // do cliente — e ela só vem para quem pode ver o cliente.
+        var qualificacao = document.querySelector('[data-editor-qualificacao]');
+        if (qualificacao) {
+            menu.appendChild(itemDoMenu('bi-person-vcard', 'Inserir qualificação do cliente', '', false, executar(function () {
+                inserirQualificacao(refs, qualificacao);
+            })));
+        }
+
+        menu.appendChild(itemDoMenu('bi-search', 'Localizar e substituir', 'Ctrl+H', false, executar(function () { refs.busca.abrir(); })));
+        menu.appendChild(itemDoMenu('bi-spellcheck', 'Revisar texto', '', false, executar(function () {
+            abrirJanela(refs, refs.botaoRevisar, conteudoDaRevisao(refs));
+        })));
+        menu.appendChild(itemDoMenu('bi-check2-all', 'Selecionar tudo', 'Ctrl+A', false, function () {
+            fecharMenuContexto(refs);
+            quill.focus();
+            quill.setSelection(0, Math.max(quill.getLength() - 1, 0), 'user');
+        }));
+
+        refs.casca.appendChild(menu);
+        var largura = menu.offsetWidth;
+        var altura = menu.offsetHeight;
+        menu.style.left = Math.max(8, Math.min(x, window.innerWidth - largura - 8)) + 'px';
+        menu.style.top = Math.max(8, Math.min(y, window.innerHeight - altura - 8)) + 'px';
+
+        var estado = {
+            elemento: menu,
+            foraDele: function (e) { if (!menu.contains(e.target)) { fecharMenuContexto(refs); } },
+            // Esc fecha o menu (e só ele: um modal em volta continua aberto).
+            tecla: function (e) {
+                if (e.key !== 'Escape') { return; }
+                e.preventDefault();
+                e.stopPropagation();
+                fecharMenuContexto(refs);
+                quill.focus();
+            },
+            rolagem: function (e) { if (!menu.contains(e.target)) { fecharMenuContexto(refs); } },
+            redimensionar: function () { fecharMenuContexto(refs); },
+        };
+        document.addEventListener('mousedown', estado.foraDele, true);
+        document.addEventListener('keydown', estado.tecla, true);
+        window.addEventListener('scroll', estado.rolagem, true);
+        window.addEventListener('resize', estado.redimensionar);
+        refs.menuContexto = estado;
+    }
+
+    /**
+     * Liga o menu ao editor. Só abre para o botão direito do MOUSE (lembrado no `pointerdown` logo
+     * antes): o `contextmenu` do teclado e do toque não tem esse `pointerdown` e fica com o menu
+     * do navegador. No Mac, Ctrl+clique é o botão direito.
+     */
+    function ligarMenuContexto(refs) {
+        var raiz = refs.quill.root;
+        raiz.addEventListener('pointerdown', function (e) {
+            var direito = e.button === 2 || (e.button === 0 && e.ctrlKey);
+            refs.botaoDireitoEm = e.pointerType === 'mouse' && direito ? Date.now() : 0;
+        });
+        raiz.addEventListener('contextmenu', function (e) {
+            var doMouse = refs.botaoDireitoEm && Date.now() - refs.botaoDireitoEm < 1500;
+            refs.botaoDireitoEm = 0;
+            if (e.shiftKey || !doMouse) { return; } // Shift + botão direito: menu do navegador
+            e.preventDefault();
+            abrirMenuContexto(refs, e.clientX, e.clientY);
+        });
+    }
+
+    // ── Colar com opções (`onPaste` + `opcoesColar` do desenho, bj-editor.js l.763-780, 948-957) ─
+    //
+    // Depois de colar HTML (de outro programa, de um e-mail, da web), aparece por 7 s a faixa
+    // "Colar · Manter formatação · Mesclar formatação · Somente texto". A colagem em si continua a
+    // do Quill: o HTML passa pelo conversor dele (`clipboard.convert`), que só deixa os FORMATOS do
+    // editor — é a sanitização do cliente, a mesma de sempre; o servidor sanitiza de novo ao salvar.
+    // As opções só reaproveitam o que já entrou, sem ler nem escrever HTML:
+    //  - Manter formatação  → fica como colou;
+    //  - Mesclar formatação → tira do trecho colado a cor e o realce (o "style" que o desenho
+    //    remove), mantendo ênfase, listas, títulos e alinhamento;
+    //  - Somente texto      → troca o trecho colado pelo texto puro da área de transferência, com
+    //    a formatação do ponto em que se colou.
+    // Texto puro colado não mostra a faixa (o desenho também não). Imagem colada é o EDT-026.
+
+    var DURACAO_OPCOES_DE_COLAR = 7000;
+
+    function fecharOpcoesDeColar(refs) {
+        var c = refs.colagem;
+        if (!c) { return; }
+        clearTimeout(c.temporizador);
+        c.elemento.remove();
+        refs.colagem = null;
+    }
+
+    /** Troca o trecho colado num passo só do histórico (um "desfazer" volta a troca inteira). */
+    function aplicarOpcaoDeColar(refs, opcao) {
+        var quill = refs.quill;
+        var c = refs.colagem;
+        if (!quill || !c) { return; }
+        var faixa = c.faixa;
+        fecharOpcoesDeColar(refs);
+        if (opcao === 'manter') { quill.focus(); return; }
+
+        if (quill.history) { quill.history.cutoff(); }
+        if (opcao === 'mesclar') {
+            quill.formatText(faixa.index, faixa.length, { color: false, background: false }, 'user');
+        } else {
+            var Delta = Quill.import('delta');
+            var troca = new Delta().retain(faixa.index).delete(faixa.length);
+            if (c.texto !== '') { troca.insert(c.texto, c.formatos); }
+            quill.updateContents(troca, 'user');
+        }
+        if (quill.history) { quill.history.cutoff(); }
+
+        var fim = opcao === 'mesclar' ? faixa.index + faixa.length : faixa.index + c.texto.length;
+        quill.focus();
+        quill.setSelection(Math.min(fim, quill.getLength() - 1), 0, 'user');
+    }
+
+    function mostrarOpcoesDeColar(refs, faixa, texto, formatos) {
+        var quill = refs.quill;
+        fecharOpcoesDeColar(refs);
+
+        var faixaDeOpcoes = el('div', 'editor-rico-colar');
+        faixaDeOpcoes.setAttribute('role', 'toolbar');
+        faixaDeOpcoes.setAttribute('aria-label', 'Opções de colagem');
+        var rotulo = el('span', 'editor-rico-colar-rotulo');
+        rotulo.innerHTML = icone('bi-clipboard editor-rico-colar-icone');
+        rotulo.appendChild(document.createTextNode('Colar'));
+        faixaDeOpcoes.appendChild(rotulo);
+
+        [['manter', 'Manter formatação'], ['mesclar', 'Mesclar formatação'], ['texto', 'Somente texto']].forEach(function (o) {
+            var b = semRoubarFoco(el('button', '', o[1]));
+            b.type = 'button';
+            b.addEventListener('click', function () { aplicarOpcaoDeColar(refs, o[0]); });
+            faixaDeOpcoes.appendChild(b);
+        });
+        refs.casca.appendChild(faixaDeOpcoes);
+
+        // Logo abaixo do fim do trecho colado (fixo na tela, como o `.bjed-paste`).
+        var caixa = quill.container.getBoundingClientRect();
+        var b = quill.getBounds(faixa.index + faixa.length, 0) || { left: 0, bottom: 0 };
+        var esquerda = caixa.left + b.left;
+        var base = caixa.top + b.bottom;
+        faixaDeOpcoes.style.left = Math.max(8, Math.min(esquerda, window.innerWidth - faixaDeOpcoes.offsetWidth - 8)) + 'px';
+        faixaDeOpcoes.style.top = Math.min(window.innerHeight - 40, base + 8) + 'px';
+
+        refs.colagem = {
+            elemento: faixaDeOpcoes,
+            faixa: faixa,
+            texto: texto,
+            formatos: formatos,
+            temporizador: setTimeout(function () { fecharOpcoesDeColar(refs); }, DURACAO_OPCOES_DE_COLAR),
+        };
+    }
+
+    /**
+     * Ouvido em CAPTURA na casca: roda antes da colagem do Quill (que é quem converte e insere).
+     * Guarda onde se colou e, terminada a colagem, mede o trecho que entrou — já aparado pelo
+     * limite de caracteres, se for o caso.
+     */
+    function aoColar(refs, evento) {
+        var quill = refs.quill;
+        if (!quill || !quill.root.contains(evento.target)) { return; } // campos da busca: colagem comum
+        var dados = evento.clipboardData;
+        var html = dados ? dados.getData('text/html') : '';
+        fecharOpcoesDeColar(refs);
+        if (!html) { return; }
+
+        var faixa = quill.getSelection(true);
+        if (!faixa) { return; }
+        var texto = dados.getData('text/plain') || '';
+        var formatos = formatosDoTrecho(quill, faixa.index, 0);
+        var tamanhoAntes = quill.getLength() - faixa.length;
+
+        setTimeout(function () {
+            if (!refs.quill) { return; }
+            var colado = quill.getLength() - tamanhoAntes;
+            if (colado <= 0) { return; }
+            mostrarOpcoesDeColar(refs, { index: faixa.index, length: colado }, texto, formatos);
+        }, 0);
+    }
+
+    // ── Sugestão de palavras ao digitar (`sugerir`/`onKey` do desenho, bj-editor.js l.640-680) ──
+    //
+    // A partir de 3 letras, até 4 palavras do vocabulário que começam pelo que foi digitado (sem
+    // acento e sem caixa), a parte digitada marcada. Tab aceita a escolhida (a 1ª, de início);
+    // ↑/↓ navegam e, depois de navegar, Enter também aceita; Esc fecha. Separador, colagem ou
+    // qualquer mudança que não seja digitar/apagar uma letra fecha a lista.
+    //
+    // O vocabulário é o do desenho (`VOCAB` = palavras do `AC` + `EXTRA`), o mesmo `VOCABULARIO`
+    // da autocorreção: um dicionário jurídico ESTÁTICO, sem nenhum dado de cliente ou de processo.
+    //
+    // Com a lista de @menção aberta (pasta-mencoes.js), ela tem prioridade sobre Tab, Enter e as
+    // setas: ouve em captura no contêiner (antes daqui) e, além disso, esta lista se recolhe quando
+    // vê a outra aberta. Palavra logo depois de "@" é o termo da menção: não ganha sugestão.
+
+    var MAX_SUGESTOES = 4;
+    var MIN_LETRAS_SUGESTAO = 3;
+
+    function mencaoAberta(quill) {
+        return !!(window.PastaMencoes && typeof window.PastaMencoes.listaAberta === 'function'
+            && window.PastaMencoes.listaAberta(quill));
+    }
+
+    /** O delta é "digitou UMA letra" ou "apagou UM caractere"? (`onInput` do desenho). */
+    function digitouOuApagouLetra(delta) {
+        var ops = delta.ops || [];
+        var i = ops[0] && typeof ops[0].retain === 'number' && !ops[0].attributes ? 1 : 0;
+        if (ops.length !== i + 1) { return false; }
+        var op = ops[i];
+
+        return (typeof op.insert === 'string' && /^[\p{L}\p{M}]$/u.test(op.insert)) || op.delete === 1;
+    }
+
+    /** A palavra que termina no cursor (cursor sem seleção, no fim da palavra). */
+    function palavraNoCursor(quill) {
+        var faixa = quill.getSelection();
+        if (!faixa || faixa.length > 0) { return null; }
+        var texto = quill.getText();
+        var inicioLinha = texto.lastIndexOf('\n', faixa.index - 1) + 1;
+        var m = texto.slice(inicioLinha, faixa.index).match(/[\p{L}\p{M}]+$/u);
+        if (!m) { return null; }
+        if (/[\p{L}\p{M}]/u.test(texto.charAt(faixa.index))) { return null; } // no meio da palavra
+        var inicio = faixa.index - m[0].length;
+        if (texto.charAt(inicio - 1) === '@') { return null; } // termo da @menção
+
+        return { inicio: inicio, palavra: m[0] };
+    }
+
+    function opcoesDeSugestao(palavra) {
+        var dobrada = dobrar(palavra);
+
+        return VOCABULARIO.filter(function (v) {
+            var vd = dobrar(v);
+
+            return vd.indexOf(dobrada) === 0 && vd !== dobrada;
+        }).slice(0, MAX_SUGESTOES);
+    }
+
+    function fecharSugestoes(refs) {
+        var s = refs.sugestao;
+        if (!s) { return; }
+        s.elemento.remove();
+        window.removeEventListener('scroll', s.rolagem, true);
+        refs.sugestao = null;
+    }
+
+    function marcarSugestao(refs) {
+        var s = refs.sugestao;
+        [].forEach.call(s.elemento.children, function (b, i) {
+            b.classList.toggle('editor-rico-ativo', i === s.i);
+            b.setAttribute('aria-selected', i === s.i ? 'true' : 'false');
+        });
+    }
+
+    function aceitarSugestao(refs, i) {
+        var quill = refs.quill;
+        var s = refs.sugestao;
+        var opcao = s && s.opcoes[i];
+        fecharSugestoes(refs);
+        var w = palavraNoCursor(quill);
+        if (!w || !opcao) { return; }
+        var para = mesmaCaixa(w.palavra, opcao);
+        quill.focus();
+        trocarTrechos(quill, [{ inicio: w.inicio, tamanho: w.palavra.length, para: para }]);
+        quill.setSelection(w.inicio + para.length, 0, 'user');
+    }
+
+    function sugerir(refs) {
+        var quill = refs.quill;
+        if (!quill || mencaoAberta(quill)) { fecharSugestoes(refs); return; }
+        var w = palavraNoCursor(quill);
+        if (!w || w.palavra.length < MIN_LETRAS_SUGESTAO) { fecharSugestoes(refs); return; }
+        var opcoes = opcoesDeSugestao(w.palavra);
+        if (opcoes.length === 0) { fecharSugestoes(refs); return; }
+
+        fecharSugestoes(refs);
+        var lista = el('div', 'editor-rico-sugestoes');
+        lista.setAttribute('role', 'listbox');
+        lista.setAttribute('aria-label', 'Sugestões de palavras');
+        opcoes.forEach(function (o, i) {
+            var palavra = mesmaCaixa(w.palavra, o);
+            var b = semRoubarFoco(el('button', 'editor-rico-sugestao'));
+            b.type = 'button';
+            b.setAttribute('role', 'option');
+            var corpo = el('span');
+            corpo.appendChild(el('mark', '', palavra.slice(0, w.palavra.length)));
+            corpo.appendChild(document.createTextNode(palavra.slice(w.palavra.length)));
+            b.appendChild(corpo);
+            if (i === 0) { b.appendChild(el('span', 'editor-rico-menu-atalho', 'Tab')); }
+            b.addEventListener('click', function () { aceitarSugestao(refs, i); });
+            lista.appendChild(b);
+        });
+        refs.casca.appendChild(lista);
+
+        // Fixa na tela, logo abaixo do cursor (acima, se não couber).
+        var caixa = quill.container.getBoundingClientRect();
+        var limites = quill.getBounds(w.inicio + w.palavra.length, 0) || { left: 0, top: 0, bottom: 0 };
+        var esquerda = caixa.left + limites.left;
+        var topo = caixa.top + limites.top;
+        var base = caixa.top + limites.bottom;
+        lista.style.left = Math.max(8, Math.min(esquerda, window.innerWidth - lista.offsetWidth - 8)) + 'px';
+        lista.style.top = (base + lista.offsetHeight + 8 > window.innerHeight ? topo - lista.offsetHeight - 6 : base + 6) + 'px';
+
+        var rolagem = function (e) { if (!lista.contains(e.target)) { fecharSugestoes(refs); } };
+        window.addEventListener('scroll', rolagem, true);
+        refs.sugestao = { elemento: lista, opcoes: opcoes, i: 0, nav: false, rolagem: rolagem };
+        marcarSugestao(refs);
+    }
+
+    /**
+     * Teclas da lista. Ouvido em CAPTURA na raiz do editor: roda antes do teclado do Quill (Tab
+     * não insere tabulação nem recua a lista com a sugestão aberta) e DEPOIS do da @menção, que
+     * ouve no contêiner e para a propagação quando a lista dela está aberta.
+     */
+    function teclaDaSugestao(refs, e) {
+        var s = refs.sugestao;
+        if (!s) { return; }
+        // A lista de @menção aberta tem prioridade: esta se recolhe e deixa a tecla para ela.
+        if (mencaoAberta(refs.quill)) { fecharSugestoes(refs); return; }
+        var ctrl = e.ctrlKey || e.metaKey;
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            s.nav = true;
+            s.i = (s.i + (e.key === 'ArrowDown' ? 1 : -1) + s.opcoes.length) % s.opcoes.length;
+            marcarSugestao(refs);
+        } else if (e.key === 'Tab' || (e.key === 'Enter' && s.nav && !ctrl)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            aceitarSugestao(refs, s.i);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            fecharSugestoes(refs);
+        }
+    }
+
     // ── Localizar e substituir ──────────────────────────────────────────────────────────────
     //
     // Tudo pela API do Quill (índices de `getText()`, que coincidem com os do documento porque o
@@ -1082,6 +1918,109 @@
         }
     }
 
+    // ── Citar no novo registro (desenho: evento `bj-editor-inserir` com
+    //    `<blockquote>…</blockquote><p><br></p>`, e o aviso "Citação inserida no editor") ──────
+    //
+    // O trecho citado NÃO entra como HTML no editor: passa pelo MESMO conversor da colagem
+    // (`clipboard.convert`), que só deixa sobreviver os FORMATOS do editor. Cada linha vira
+    // citação (formato de linha `blockquote`, que o sanitizador do servidor aceita) e o cursor
+    // fica numa linha normal logo abaixo, para a pessoa escrever. Entra pelo caminho do usuário
+    // ('user'): o limite de caracteres vale para a citação como vale para a digitação.
+
+    function deltaDaCitacao(quill, html) {
+        var Delta = Quill.import('delta');
+        var citado = quill.clipboard.convert({ html: String(html || ''), text: '' });
+        var saida = new Delta();
+        var temTexto = false;
+        (citado.ops || []).forEach(function (op) {
+            if (typeof op.insert !== 'string') { return; }
+            var trecho = {};
+            FORMATOS_DE_TRECHO.forEach(function (f) {
+                if (op.attributes && op.attributes[f] !== undefined) { trecho[f] = op.attributes[f]; }
+            });
+            op.insert.split(/(\n)/).forEach(function (parte) {
+                if (parte === '') { return; }
+                if (parte === '\n') { saida.insert('\n', { blockquote: true }); return; }
+                if (parte.trim() !== '') { temTexto = true; }
+                saida.insert(parte, trecho);
+            });
+        });
+        if (!temTexto) { return null; }
+
+        // A última linha também é citação (o conversor tira o "\n" final).
+        var ultimo = saida.ops[saida.ops.length - 1];
+        if (typeof ultimo.insert !== 'string' || ultimo.insert !== '\n') { saida.insert('\n', { blockquote: true }); }
+
+        return saida;
+    }
+
+    function inserirCitacao(textarea, html) {
+        var refs = textarea && textarea._editorRico;
+        var quill = refs && refs.quill;
+        if (!quill) { return false; }
+
+        var citacao = deltaDaCitacao(quill, html);
+        if (!citacao) { return false; }
+
+        // No cursor, se ele estiver no editor; senão, no fim (como o desenho).
+        var faixa = quill.hasFocus() ? quill.getSelection() : null;
+        var indice = faixa ? faixa.index : Math.max(quill.getLength() - 1, 0);
+        var Delta = Quill.import('delta');
+        var mudanca = new Delta().retain(indice);
+        if (faixa && faixa.length) { mudanca.delete(faixa.length); }
+        // Começa numa linha própria: no meio de uma linha, quebra antes.
+        var antes = indice > 0 ? quill.getText(indice - 1, 1) : '\n';
+        var quebra = antes !== '\n' ? 1 : 0;
+        if (quebra) { mudanca.insert('\n'); }
+        mudanca = mudanca.concat(citacao);
+        // A linha normal vazia depois da citação: no fim do texto ela já existe (o "\n" final).
+        var noFim = indice + (faixa ? faixa.length : 0) >= quill.getLength() - 1;
+        if (!noFim) { mudanca.insert('\n'); }
+
+        fecharJanela(refs);
+        fecharChip(refs);
+        if (quill.history) { quill.history.cutoff(); }
+        quill.updateContents(mudanca, 'user');
+        if (quill.history) { quill.history.cutoff(); }
+
+        var cursor = Math.min(indice + quebra + citacao.length(), quill.getLength() - 1);
+        quill.focus();
+        quill.setSelection(cursor, 0, 'user');
+        refs.casca.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        mostrarChip(refs, cursor, textoDoChip('bi-quote', [{ texto: 'Citação inserida no editor' }]), [], 3600);
+
+        return true;
+    }
+
+    // ── Botão Enviar do compositor (`mudou` do desenho: `this.env.disabled = v`) ─────────────
+    //
+    // O compositor aponta o seu botão por `data-editor-rico-envio="<id>"` na textarea. O botão
+    // fica desabilitado enquanto o editor estiver vazio — a regra é a de `vazio()`: só espaço, ou o
+    // `<p><br></p>` que o Quill deixa, conta como vazio — e enquanto um envio estiver em curso
+    // (`marcarEnvio`), senão digitar durante o envio reabilitaria o botão e permitiria envio em
+    // dobro. O id é procurado a cada atualização: tanto faz a tela marcar a textarea antes ou
+    // depois da montagem. Sem editor montado (Quill ausente), só o envio em curso desabilita — a
+    // textarea crua segue como antes e o servidor continua recusando o vazio.
+
+    function botaoDeEnvio(textarea) {
+        var id = textarea.getAttribute('data-editor-rico-envio');
+
+        return id ? document.getElementById(id) : null;
+    }
+
+    function atualizarEnvio(textarea) {
+        var botao = botaoDeEnvio(textarea);
+        if (!botao) { return; }
+        var quill = instancia(textarea);
+        botao.disabled = textarea._editorRicoEnviando === true || (quill ? vazio(quill) : false);
+    }
+
+    function marcarEnvio(textarea, enviando) {
+        if (!textarea) { return; }
+        textarea._editorRicoEnviando = !!enviando;
+        atualizarEnvio(textarea);
+    }
+
     function atualizarHistorico(refs) {
         var pilha = refs.quill.history && refs.quill.history.stack;
         if (!pilha) { return; }
@@ -1146,10 +2085,20 @@
                     handlers: {
                         undo: function () { this.quill.history.undo(); },
                         redo: function () { this.quill.history.redo(); },
+                        header: function (valor) { aplicarEstilo(this.quill, valor); },
                         localizar: function () { fecharJanela(refs); refs.busca.alternar(); },
                         simbolo: function () { abrirSimbolos(refs); },
                         data: function () { inserirDataDeHoje(refs); },
                         revisar: function () { abrirRevisao(refs); },
+                        // A cor/realce escolhidos ficam lembrados para a mini barra do botão direito.
+                        color: function (valor) {
+                            if (valor) { refs.ultimaCor = valor; }
+                            this.quill.format('color', valor, 'user');
+                        },
+                        background: function (valor) {
+                            if (valor) { refs.ultimoRealce = valor; }
+                            this.quill.format('background', valor, 'user');
+                        },
                     },
                 },
                 keyboard: {
@@ -1158,6 +2107,29 @@
                             key: 'h',
                             shortKey: true,
                             handler: function () { refs.busca.abrir(); return false; },
+                        },
+                        // EDT-019: a dica da barra promete Ctrl+Y, mas o Quill só liga esse atalho
+                        // no Windows. Aqui vale em todo sistema (Cmd+Y no macOS), como no desenho.
+                        refazer: {
+                            key: 'y',
+                            shortKey: true,
+                            handler: function () { this.quill.history.redo(); return false; },
+                        },
+                        // EDT-020: substitui o `tab` do Quill, que insere "\t" (some na exibição,
+                        // porque o espaço em branco colapsa). Fora de lista: 4 espaços não
+                        // separáveis, como o desenho; dentro de lista: aumenta o recuo.
+                        tab: {
+                            key: 'Tab',
+                            handler: function (faixa, contexto) { return tabulacao(this.quill, faixa, contexto); },
+                        },
+                        // EDT-016: substitui o `list autofill` do Quill (mesmo nome). Soma "1)" e
+                        // "> " ao que ele já convertia ("1.", "-", "*") e avisa com o chip do desenho.
+                        'list autofill': {
+                            key: ' ',
+                            shiftKey: null,
+                            collapsed: true,
+                            prefix: PREFIXO_AUTOFORMATACAO,
+                            handler: function (faixa, contexto) { return autoFormatar(refs, this, faixa, contexto); },
                         },
                     },
                 },
@@ -1177,11 +2149,29 @@
             refs.botaoRevisar = barraFerramentas.querySelector('button.ql-revisar');
         }
 
+        // Citação no seletor de estilo (EDT-018). Registrado DEPOIS da barra e do tema do Quill:
+        // roda após eles terem marcado o seletor pelo `header`, e só corrige o caso da citação.
+        refs.seletorEstilo = ((quill.theme && quill.theme.pickers) || []).find(function (p) {
+            return p.select && p.select.classList.contains('ql-header');
+        }) || null;
+        quill.on('editor-change', function () { marcarCitacaoNoEstilo(refs); });
+
         refs.busca = montarBusca(refs);
         casca.insertBefore(refs.busca.elemento, alvo);
 
         refs.rodape = montarRodape();
         casca.appendChild(refs.rodape.elemento);
+
+        refs.ultimaCor = COR_INICIAL;
+        refs.ultimoRealce = REALCE_INICIAL;
+        ligarMenuContexto(refs);
+        // Captura: chega antes da colagem do Quill, que segue sendo quem converte e insere.
+        casca.addEventListener('paste', function (evento) { aoColar(refs, evento); }, true);
+        // Sugestão de palavras: teclas antes do Quill; sair do editor fecha (como o `blur` do desenho).
+        quill.root.addEventListener('keydown', function (evento) { teclaDaSugestao(refs, evento); }, true);
+        quill.on('selection-change', function (faixa) {
+            if (!faixa) { setTimeout(function () { fecharSugestoes(refs); }, 120); }
+        });
 
         // Conteúdo pré-existente: HTML já sanitizado pelo servidor, ou legado em texto puro.
         if (conteudoInicial !== '') {
@@ -1209,7 +2199,17 @@
             sincronizar(textarea, quill);
             atualizarHistorico(refs);
             atualizarRodape(refs, cortou);
+            atualizarEnvio(textarea);
             refs.busca.aoMudarTexto();
+            // A faixa de opções vale para a colagem que acabou de entrar: mexeu depois, ela sai.
+            fecharOpcoesDeColar(refs);
+
+            // Sugestão de palavras: só ao digitar ou apagar uma letra; o resto fecha a lista.
+            if (origem === 'user' && !cortou && digitouOuApagouLetra(delta)) {
+                setTimeout(function () { if (refs.quill) { sugerir(refs); } }, 0);
+            } else {
+                fecharSugestoes(refs);
+            }
 
             // Autocorreção: depois do Quill terminar de aplicar a digitação (como o desenho).
             if (origem === 'user' && !cortou) {
@@ -1223,10 +2223,11 @@
 
         // Esc fecha a janelinha e o aviso de correção (sem fechar o modal em volta, se houver).
         casca.addEventListener('keydown', function (evento) {
-            if (evento.key === 'Escape' && (refs.janela || refs.chip)) {
+            if (evento.key === 'Escape' && (refs.janela || refs.chip || refs.colagem)) {
                 evento.stopPropagation();
                 fecharJanela(refs);
                 fecharChip(refs);
+                fecharOpcoesDeColar(refs);
             }
         });
 
@@ -1234,6 +2235,9 @@
         quill.root.addEventListener('keydown', function (evento) {
             if ((evento.ctrlKey || evento.metaKey) && evento.key === 'Enter') {
                 evento.preventDefault();
+                // Enviar apagado (vazio ou envio em curso): o atalho também não envia.
+                var envio = botaoDeEnvio(textarea);
+                if (envio && envio.disabled) { return; }
                 var formulario = textarea.closest('form');
                 if (formulario) { formulario.requestSubmit(); }
             }
@@ -1241,6 +2245,7 @@
 
         textarea.dataset.editorRicoMontado = '1';
         textarea._editorRico = refs;
+        atualizarEnvio(textarea);
 
         return quill;
     }
@@ -1263,6 +2268,7 @@
         sincronizar(textarea, quill);
         zerarHistorico(refs);
         atualizarRodape(refs, false);
+        atualizarEnvio(textarea);
         refs.busca.aoMudarTexto();
     }
 
@@ -1283,6 +2289,9 @@
         clearTimeout(refs.rodape && refs.rodape.temporizador);
         fecharJanela(refs);
         fecharChip(refs);
+        fecharMenuContexto(refs);
+        fecharOpcoesDeColar(refs);
+        fecharSugestoes(refs);
         refs.casca.remove();
         refs.quill = null;
         textarea.classList.remove('editor-rico-oculta');
@@ -1290,6 +2299,7 @@
         textarea.removeAttribute('tabindex');
         delete textarea.dataset.editorRicoMontado;
         delete textarea._editorRico;
+        atualizarEnvio(textarea);
     }
 
     function montarTodos(raiz) {
@@ -1304,6 +2314,8 @@
         estaVazio: estaVazio,
         desmontar: desmontar,
         instancia: instancia,
+        marcarEnvio: marcarEnvio,
+        inserirCitacao: inserirCitacao,
     };
 
     if (document.readyState === 'loading') {

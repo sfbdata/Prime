@@ -65,10 +65,13 @@ final class DashboardController extends AbstractController
         if ($request->isXmlHttpRequest()) {
             // `filtros` vai junto para o fragmento marcar a coluna ordenada — sem ele a seta
             // sumiria do cabeçalho a cada recarga por filtro.
+            // `preferencias` vai junto para o interruptor do Modo avançado (no painel, dentro do
+            // fragmento) sair no estado gravado do usuário também depois do filtro.
             $vars = [
                 'dashboard'    => $output,
                 'filtros'      => $filtros,
                 'inteligencia' => $leitura,
+                'preferencias' => $preferencias,
             ];
 
             // O XHR devolve o conteúdo de [data-filtro-resultado]: cards + tabela e, na mesma

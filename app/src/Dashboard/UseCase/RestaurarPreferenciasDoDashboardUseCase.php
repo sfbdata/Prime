@@ -14,6 +14,9 @@ use App\Entity\Tenant\Tenant;
  * "Restaurar padrão" do menu ⋮: volta SÓ o usuário logado, neste escritório, ao estilo padrão
  * (desenho: "volta só o usuário atual ao padrão"). Apaga as linhas em vez de gravar o padrão —
  * assim, se o padrão mudar um dia, quem restaurou acompanha.
+ *
+ * Só as chaves do menu ({@see CatalogoDePreferenciasDoDashboard::chavesDoMenu()}): o Modo avançado
+ * do painel Intelligence não é opção da tabela e continua como o usuário deixou.
  */
 final class RestaurarPreferenciasDoDashboardUseCase
 {
@@ -24,8 +27,10 @@ final class RestaurarPreferenciasDoDashboardUseCase
 
     public function executar(Tenant $tenant, User $usuario): PreferenciasDoDashboardOutput
     {
-        $this->repository->apagarDoUsuario($tenant, $usuario, CatalogoDePreferenciasDoDashboard::chaves());
+        $this->repository->apagarDoUsuario($tenant, $usuario, CatalogoDePreferenciasDoDashboard::chavesDoMenu());
 
-        return PreferenciasDoDashboardOutput::padrao();
+        return PreferenciasDoDashboardOutput::deValores(
+            $this->repository->valoresDoUsuario($tenant, $usuario, CatalogoDePreferenciasDoDashboard::chaves()),
+        );
     }
 }

@@ -71,6 +71,46 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * A trilha de IA de um alvo (rodapé "Registro de auditoria" do drawer): TODOS os tipos, todos
+     * os agentes e INCLUSIVE as excluídas — exclusão é só visual, a trilha fica. Mais recente
+     * primeiro, com o solicitante já carregado (sem N+1 no nome de quem pediu).
+     *
+     * @return AnaliseDeInteligencia[]
+     */
+    public function listarTrilhaDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, int $limite): array
+    {
+        return $this->createQueryBuilder('a')
+            ->leftJoin('a.solicitante', 's')
+            ->addSelect('s')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.alvoTipo = :alvoTipo')
+            ->andWhere('a.alvoId = :alvoId')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('alvoTipo', $alvoTipo)
+            ->setParameter('alvoId', $alvoId)
+            ->orderBy('a.criadaEm', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Quantas linhas a trilha do alvo tem ao todo (o N do "Registro de auditoria (N)"). */
+    public function contarTrilhaDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId): int
+    {
+        return (int) $this->createQueryBuilder('a')
+            ->select('COUNT(a.id)')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.alvoTipo = :alvoTipo')
+            ->andWhere('a.alvoId = :alvoId')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('alvoTipo', $alvoTipo)
+            ->setParameter('alvoId', $alvoId)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /** A análise em andamento (pendente ou processando) do alvo/tipo/agente, se houver — idempotência do pedido. */
     public function findPendenteDoAlvo(
         Tenant $tenant,
@@ -119,8 +159,18 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Quantas análises o escritório pediu desde um instante (cota diária/mensal). Conta TODAS —
-     * inclusive falhas e excluídas: a cota mede o que foi pedido, e a exclusão é só visual.
+     * Prefixo do motivo de quem o worker cancelou ANTES de chamar o provedor (IA-034L: a IA foi
+     * desligada — plataforma, escritório, permissão — ou quem pediu não existe mais). É a única
+     * marca que a linha guarda desse desfecho; `contarDesde` o usa para devolver a cota.
+     */
+    public const MOTIVO_CANCELADA_ANTES_DO_PROVEDOR = 'cancelada antes do provedor: ';
+
+    /**
+     * Quantas análises o escritório pediu desde um instante (cota diária/mensal). Conta quase
+     * TODAS — inclusive falhas e excluídas: a cota mede o que foi pedido, e a exclusão é só
+     * visual. A exceção é a cancelada antes do provedor (`indisponivel`/`falhou` com o motivo
+     * `MOTIVO_CANCELADA_ANTES_DO_PROVEDOR`): o provedor não foi chamado, não gastou nada.
+     * O `erroMotivo IS NULL` vem antes: sem ele o NOT LIKE de um NULL descartaria a linha.
      */
     public function contarDesde(Tenant $tenant, \DateTimeImmutable $desde): int
     {
@@ -128,8 +178,11 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->select('COUNT(a.id)')
             ->andWhere('a.tenant = :tenant')
             ->andWhere('a.criadaEm >= :desde')
+            ->andWhere('(a.status NOT IN (:semProvedor) OR a.erroMotivo IS NULL OR a.erroMotivo NOT LIKE :cancelada)')
             ->setParameter('tenant', $tenant)
             ->setParameter('desde', $desde)
+            ->setParameter('semProvedor', [StatusDaAnalise::Indisponivel->value, StatusDaAnalise::Falhou->value])
+            ->setParameter('cancelada', self::MOTIVO_CANCELADA_ANTES_DO_PROVEDOR . '%')
             ->getQuery()
             ->getSingleScalarResult();
     }

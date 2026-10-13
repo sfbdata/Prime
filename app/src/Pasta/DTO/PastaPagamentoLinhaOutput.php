@@ -93,8 +93,28 @@ final readonly class PastaPagamentoLinhaOutput
      * lá — nos termos do desenho (dc 3440-3441): "venceu … · há N dias" para o
      * vencido; "· hoje" e "· em N dia(s)" até 7 dias; além disso, só a data.
      * Pagamento quitado não fala mais de vencimento: fala de quando entrou.
+     *
+     * Parcela de parcelamento com juros leva, em qualquer estado, " · juros N% a.m."
+     * (dc 3442, FPN-009) — a taxa gravada, sem zeros à direita, com vírgula.
      */
     private static function quando(PastaPagamento $pagamento, \DateTimeImmutable $hoje): string
+    {
+        return self::quandoSemJuros($pagamento, $hoje) . self::sufixoDeJuros($pagamento->getJurosMensal());
+    }
+
+    /** " · juros 1,5% a.m."; vazio sem taxa (lançamento antigo, entrada, avulso, sem juros). */
+    private static function sufixoDeJuros(?string $taxa): string
+    {
+        if ($taxa === null || bccomp($taxa, '0', 4) <= 0) {
+            return '';
+        }
+
+        $texto = str_contains($taxa, '.') ? rtrim(rtrim($taxa, '0'), '.') : $taxa;
+
+        return ' · juros ' . str_replace('.', ',', $texto) . '% a.m.';
+    }
+
+    private static function quandoSemJuros(PastaPagamento $pagamento, \DateTimeImmutable $hoje): string
     {
         if ($pagamento->estaPago()) {
             return 'pago em ' . $pagamento->getPagoEm()?->format('d/m/Y');

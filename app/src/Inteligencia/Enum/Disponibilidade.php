@@ -15,7 +15,9 @@ enum Disponibilidade: string
     case NaoConfiguradaNaPlataforma = 'nao_configurada_na_plataforma';
     case DesligadaNoEscritorio = 'desligada_no_escritorio';
     case SemPermissao = 'sem_permissao';
+    /** Cota DIÁRIA estourada (o nome é anterior à separação dia × mês; o valor é contrato com o JS). */
     case LimiteAtingido = 'limite_atingido';
+    case LimiteMensalAtingido = 'limite_mensal_atingido';
 
     public function estaDisponivel(): bool
     {
@@ -28,9 +30,26 @@ enum Disponibilidade: string
         return match ($this) {
             self::Disponivel => 'BlueJus IA disponível',
             self::NaoConfiguradaNaPlataforma => 'IA não configurada nesta instalação',
-            self::DesligadaNoEscritorio => 'BlueJus IA desligada neste escritório — peça ao administrador',
+            self::DesligadaNoEscritorio => 'BlueJus IA desligada neste escritório. Peça ao administrador',
             self::SemPermissao => 'Sem permissão para usar a BlueJus IA',
             self::LimiteAtingido => 'Limite diário de análises atingido',
+            self::LimiteMensalAtingido => 'Limite mensal de análises atingido',
         };
+    }
+
+    /** Cota do escritório (dia ou mês) estourada: a recusa é 429, não 409. */
+    public function ehLimiteDeCota(): bool
+    {
+        return $this === self::LimiteAtingido || $this === self::LimiteMensalAtingido;
+    }
+
+    /**
+     * Código do campo `motivo` na recusa JSON. O JS da pasta (`pasta-ia-push.js`,
+     * `pasta-ia-agentes.js`) trava o botão quando o motivo está na lista dele, que só conhece
+     * `limite_atingido`: as duas cotas respondem com esse código e a `mensagem()` diz qual delas foi.
+     */
+    public function codigoDaRecusa(): string
+    {
+        return $this->ehLimiteDeCota() ? self::LimiteAtingido->value : $this->value;
     }
 }

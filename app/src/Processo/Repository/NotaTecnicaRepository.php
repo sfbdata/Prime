@@ -98,4 +98,45 @@ class NotaTecnicaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * As notas penduradas nas movimentações de UMA página da aba Push da pasta, numa consulta só
+     * (FPN-020: a nota aparece sob o cartão com o teor fechado). Mais recente primeiro, como no
+     * teor; quem agrupa por publicação é o `PastaPushOutput`.
+     *
+     * Três recortes, todos na consulta: o escritório (explícito — não depende do TenantFilter de
+     * sessão), as publicações da lista e os processos DA PASTA. O último importa porque a nota é do
+     * processo: uma nota da mesma publicação feita por outro processo (de outra pasta) não é desta
+     * pasta. Sem publicação ou sem processo, nem consulta.
+     *
+     * @param int[]      $publicacaoIds
+     * @param Processo[] $processos     os processos vinculados à pasta
+     *
+     * @return NotaTecnica[]
+     */
+    public function listarPorPublicacoesDosProcessos(array $publicacaoIds, array $processos, Tenant $tenant, int $limite = 500): array
+    {
+        $publicacaoIds = array_values(array_unique(array_filter(array_map('intval', $publicacaoIds), static fn (int $id): bool => $id > 0)));
+        if ($publicacaoIds === [] || $processos === []) {
+            return [];
+        }
+
+        // Fetch-join do autor e da publicação: o Output lê os dois (sem isso, duas consultas
+        // preguiçosas por nota da página).
+        return $this->createQueryBuilder('n')
+            ->addSelect('a', 'pub')
+            ->leftJoin('n.autor', 'a')
+            ->innerJoin('n.publicacaoDjen', 'pub')
+            ->andWhere('pub.id IN (:publicacoes)')
+            ->andWhere('n.processo IN (:processos)')
+            ->andWhere('n.tenant = :tenant')
+            ->setParameter('publicacoes', $publicacaoIds)
+            ->setParameter('processos', array_values($processos))
+            ->setParameter('tenant', $tenant)
+            ->orderBy('n.criadaEm', 'DESC')
+            ->addOrderBy('n.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
 }

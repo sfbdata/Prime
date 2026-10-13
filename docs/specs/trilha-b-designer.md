@@ -11,6 +11,12 @@ intermediária) · Risco: BAIXO nas telas; MÉDIO quando tocar permissão; ALTO 
 > Atualizado durante a execução. A Trilha A (`docs/specs/trilha-a-visual-pje.md`) continua valendo para as
 > regras absolutas (§1), o inventário de preservação (§2) e as decisões já tomadas (§5).
 
+> **📌 Documento mestre (07/10/2026):** o apanhado geral e confiável de toda a iniciativa — estado de produção,
+> inventário por área, fidelidade ao Designer, pendências, decisões e caminho para 100% — está em
+> [`docs/specs/estado-geral-claude-designer-bluejus.md`](estado-geral-claude-designer-bluejus.md). Ele prevalece sobre
+> os trechos de estado deste ledger que ficaram desatualizados (ex.: §10.1/§10.5 "nada publicado": a EI2 foi publicada
+> em `719de0e4` — deploy concluído, pós-deploy técnico OK, smoke visual de produção pendente).
+
 ## 0. Regras desta rodada (herdadas do dono, 05/10)
 
 1. O Designer define o comportamento; a engenharia acha a implementação. Desvio visual do desenho

@@ -223,6 +223,24 @@ final class AnalisePushControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(429);
         self::assertSame('limite_atingido', $this->json($client)['motivo']);
+        self::assertSame('Limite diário de análises atingido', $this->json($client)['mensagem']);
+        self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
+    }
+
+    #[TestDox('limite mensal atingido (com folga no dia) → 429 limite_atingido e a mensagem diz mensal')]
+    public function testLimiteMensal(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user, limiteDiario: 50, limiteMensal: 0);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitar($client, (int) $pasta->getId());
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('limite_atingido', $this->json($client)['motivo']);
+        self::assertSame('Limite mensal de análises atingido', $this->json($client)['mensagem']);
         self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
     }
 

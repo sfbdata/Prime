@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
  * L4634-4673). Teste de FOLHA (precedente: PastaExploradorContratoJsTest, PastaExploradorInteracaoTest):
  * não há harness de navegador na suíte, então o que se trava é o texto das peças — que o
  * conteúdo passa pelo VisualizadorDocumento (sandbox), que o visor percorre a lista VISÍVEL,
- * os limites do zoom, a impressão só de PDF/imagem, o teclado, o trap de foco e a ausência da
+ * os limites do zoom, a impressão (arquivo para PDF/imagem, conteúdo desenhado para o resto — DOC-108), o teclado, o trap de foco e a ausência da
  * área de soltar (S-7). Aparência e impressão de verdade são smoke do dono.
  */
 #[CoversNothing]
@@ -48,7 +48,8 @@ final class PastaExploradorVisorTest extends TestCase
         $js = $this->ler(self::VISOR);
 
         self::assertMatchesRegularExpression(
-            '/window\.VisualizadorDocumento\.abrir\(\{\s*url: a\.viewUrl,\s*nome: a\.nome,\s*mime: a\.mime \|\| \'\',\s*urlDownload: a\.downloadUrl,\s*conteudo: el\.alvo,\s*\}\);/',
+            // DOC-141: o tamanho que o explorador já tem vai junto (aviso do P7S); comentário entre as chaves é aceito.
+            '/window\.VisualizadorDocumento\.abrir\(\{\s*url: a\.viewUrl,\s*nome: a\.nome,\s*mime: a\.mime \|\| \'\',\s*urlDownload: a\.downloadUrl,\s*(?:\/\/[^\n]*\n\s*)?tamanho: a\.tamanho \|\| \'\',\s*conteudo: el\.alvo,\s*\}\);/',
             $this->funcao($js, 'renderizar'),
             'o visor não desenha o arquivo: quem desenha (e põe DOCX/planilha em iframe sandbox) é o módulo único'
         );
@@ -118,7 +119,7 @@ final class PastaExploradorVisorTest extends TestCase
         $js = $this->ler(self::VISOR);
 
         self::assertStringContainsString('const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_PASSO = 10;', $js);
-        self::assertStringContainsString("const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'rtf', 'eml'];", $js);
+        self::assertStringContainsString("const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'doc', 'tiff'];", $js, 'DOC-109: o ODP tem zoom (dc temZoom: pptx cobre ODP); DOC-111/112: .doc e TIFF também (dc L4655)');
         self::assertStringContainsString("el.alvo.style.setProperty('--pex-visor-zoom', String(zoom / 100));", $this->funcao($js, 'aplicarZoom'));
 
         $css = $this->ler(self::CSS);
@@ -126,19 +127,35 @@ final class PastaExploradorVisorTest extends TestCase
         self::assertMatchesRegularExpression('/\.pex-visor-alvo \{[^}]*margin: 0 auto;/s', $css, 'centralizar por justify-content cortaria a esquerda acima de 100%');
     }
 
-    #[TestDox('imprimir só para PDF e imagem, por iframe OCULTO; nos demais o botão fica desabilitado com o motivo no title')]
+    #[TestDox('DOC-110: a data da meta do visor é a Modificado da lista (modificadoEm ?? carregadoEm), não a do upload')]
+    public function testDataDoVisorEhAModificado(): void
+    {
+        $js  = $this->ler(self::EXPLORADOR);
+        $ini = strpos($js, 'return window.PexVisor.abrir({');
+        self::assertNotFalse($ini);
+        $abrir = substr($js, $ini, (int) strpos($js, 'indice: i,', $ini) - $ini);
+
+        self::assertStringContainsString('data: formatarData(dataModificacao(a)),', $abrir);
+        self::assertStringNotContainsString('formatarData(a.carregadoEm)', $abrir);
+        self::assertStringContainsString('function dataModificacao(a) { return a.modificadoEm || a.carregadoEm; }', $js);
+    }
+
+    #[TestDox('imprimir por iframe OCULTO: PDF/imagem pelo arquivo, os tipos desenhados pelo conteúdo (DOC-108); áudio, vídeo e "outro" ficam desabilitados com o motivo no title')]
     public function testImpressao(): void
     {
         $js = $this->ler(self::VISOR);
 
-        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS = ['pdf', 'imagem'];", $js);
+        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS_ARQUIVO = ['pdf', 'imagem'];", $js);
+        self::assertStringContainsString("const TIPOS_IMPRIMIVEIS_CONTEUDO = ['docx', 'planilha', 'texto', 'odt', 'pptx', 'odp', 'rtf', 'eml', 'zip', 'doc', 'tiff'];", $js);
         $render = $this->funcao($js, 'renderizar');
+        self::assertStringContainsString('const imprimivel = ehImprimivel(tipo);', $render);
         self::assertStringContainsString("el.imprimir.setAttribute('aria-disabled', imprimivel ? 'false' : 'true');", $render);
         self::assertStringContainsString("el.imprimir.title = imprimivel ? 'Imprimir' : MOTIVO_SEM_IMPRESSAO;", $render);
-        self::assertStringContainsString('PDF e imagem', $js);
 
         $imprimir = $this->funcao($js, 'imprimir');
-        self::assertStringContainsString("if (TIPOS_IMPRIMIVEIS.indexOf(tipo) === -1) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }", $imprimir);
+        self::assertStringContainsString('if (!ehImprimivel(tipo)) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }', $imprimir);
+        self::assertStringContainsString('if (!renderizado) { mostrarAviso(MSG_ABRA_O_CONTEUDO); return; }', $imprimir, 'conteúdo ainda carregando ou que falhou: só avisa');
+        self::assertStringContainsString("const MSG_ABRA_O_CONTEUDO = 'Abra o conteúdo do arquivo para imprimir';", $js, 'texto do dc L4659');
         self::assertStringContainsString("fr.className = 'pex-visor-impressao';", $imprimir);
         self::assertStringContainsString('fr.src = a.viewUrl;', $imprimir, 'PDF: o próprio arquivo, impresso pelo leitor do navegador');
         self::assertStringContainsString('w.print();', $imprimir);

@@ -251,7 +251,14 @@
         }
 
         if (alvo.dataset.acao === 'excluir') {
-            if (!confirm('Excluir este lançamento? Esta ação não pode ser desfeita.')) { return; }
+            // Texto do desenho (dc 3456, FPN-008): 'Excluir "<descrição>" (<valor>)?'. O nome
+            // e o valor vêm da LINHA (o botão pode ser a lixeira ou o item do menu).
+            const linhaEx = corpo.querySelector('.ps-pag-linha[data-pagamento-id="' + CSS.escape(id) + '"]');
+            const valorEx = linhaEx ? lerValor(linhaEx.dataset.valor || '').numero : NaN;
+            const perguntaEx = linhaEx && !Number.isNaN(valorEx)
+                ? 'Excluir "' + (linhaEx.dataset.descricao || '') + '" (' + brl(valorEx) + ')?'
+                : 'Excluir este lançamento?';
+            if (!confirm(perguntaEx)) { return; }
 
             const url = cartao.dataset.baseUrlExcluir.replace('__ID__', id);
             try {

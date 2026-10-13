@@ -78,7 +78,8 @@
         {% else %}
             <div class="ds-sug-contexto">
                 <div class="ds-sug-contexto-linha">
-                    <span class="ds-sug-rotulo">Contexto da pasta</span>
+                    {# DOC-107: o rótulo do desenho (dc L2132). #}
+                    <span class="ds-sug-rotulo">Contexto do processo</span>
                     <span class="ds-sug-fase">{{ sugestao.faseNome }}</span>
                     {% if sugestao.leuOProcesso %}
                         <span class="ds-sug-conf ds-sug-conf--media" title="Só o teor das publicações do Push foi lido, por regras; o PDF do processo não">Confiança média</span>
@@ -164,7 +165,27 @@
                     </div>
                 {% endif %}
             {% endfor %}
+        {% endif %}
 
+        {% if sugestao.temDuplicados %}
+            {# DOC-106 (dc L2157-2159; bj-docsug.js L107-109): pares de nomes ≥ 85% parecidos entre
+               TODOS os arquivos vivos da pasta. Só aparece quando há par — e não depende do
+               catálogo. É aviso: o painel não oferece excluir. #}
+            <div class="ds-sug-dup" id="documentosSugeridosDuplicados">
+                <span class="ds-sug-dup-titulo"><i class="bi bi-files" aria-hidden="true"></i> Possíveis arquivos duplicados</span>
+                {% for d in sugestao.duplicados %}
+                    <span class="ds-sug-dup-par">{{ d.a }}  ≈  {{ d.b }} ({{ d.percentual }}% parecido; confira se é o mesmo documento)</span>
+                {% endfor %}
+                {# DOC-106b: o servidor manda só os primeiros pares (maior % primeiro); o resto vira a
+                   contagem. Texto neutro: não há tela com a lista inteira, e não se promete uma.
+                   O teto é convenção do sistema (o desenho é omisso), a ratificar com o Samuel. #}
+                {% if sugestao.duplicadosAlem > 0 %}
+                    <span class="ds-sug-dup-mais">e mais {{ sugestao.duplicadosAlem }} {{ sugestao.duplicadosAlem == 1 ? 'par parecido' : 'pares parecidos' }}</span>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if sugestao.temCatalogo %}
             {% if pastasDaFase is not empty %}
                 {# DOC-80 (dc L2160-2161): lista fixa por fase. Só mostra — o desenho não tem
                    "criar estas pastas", e não se inventa aqui. #}

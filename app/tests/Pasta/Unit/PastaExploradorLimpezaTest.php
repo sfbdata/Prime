@@ -125,7 +125,7 @@ final class PastaExploradorLimpezaTest extends TestCase
         $l9 = $this->secaoDoL9();
         self::assertStringContainsString("role: 'checkbox', 'aria-checked': on ? 'true' : 'false'", $l9);
         self::assertStringContainsString("limpezaAberta = !limpezaAberta;\n            limpezaDesmarcados = new Set();", $l9, 'ao abrir, tudo marcado (dc `marc` = todos)');
-        self::assertStringContainsString("excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); });", $l9);
+        self::assertStringContainsString("excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); }, {", $l9);
         self::assertStringContainsString("return { tipo: 'arquivo', id: x.a.id, nome: x.a.nome, dado: x.a };", $l9, 'só arquivos — nunca uma pasta');
         self::assertStringNotContainsString('fetch(', $l9, 'nenhum pedido próprio: o lote é o excluir-lote');
         self::assertStringNotContainsString('postJson(', $l9);
@@ -134,9 +134,26 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertStringContainsString('el.limpezaExcluir.disabled = marcados.length === 0;', $l9);
 
         $excluir = $this->funcao('excluirItens');
-        self::assertStringContainsString('if (!confirm(avisoExclusaoDoLote(itens))) return;', $excluir);
+        self::assertStringContainsString('if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;', $excluir);
         self::assertStringContainsString('postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes })', $excluir);
         self::assertStringContainsString('if (aoExcluir) aoExcluir();', $excluir, 'o callback só roda no sucesso, depois de tirar os arquivos da memória');
+    }
+
+    #[TestDox('DOC-102/103: nota, confirmação e aviso da limpeza com o texto do desenho (dc L2235/L4952), sem prazo de lixeira; os demais Excluir seguem com o confirm e o toast genéricos')]
+    public function testTextosDaLimpezaDoDesenho(): void
+    {
+        self::assertStringContainsString('<span class="pex-limpeza-nota">Nada é excluído sem você confirmar. A exclusão pode ser desfeita.</span>', $this->twig());
+
+        $l9 = $this->secaoDoL9();
+        self::assertStringContainsString("confirmacao: 'Excluir ' + itens.length + ' arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.',", $l9);
+        self::assertStringContainsString("aviso: itens.length + ' arquivo(s) excluído(s) · ' + formatarBytes(somaDaLimpeza(marcados)) + ' liberados',", $l9);
+        self::assertDoesNotMatchRegularExpression('/\\d+ dias/u', $l9, 'a lixeira não tem purga automática: nada de prazo');
+
+        $excluir = $this->funcao('excluirItens');
+        self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');", $excluir);
+        // Os outros fluxos chamam sem textos: confirm e toast genéricos.
+        self::assertStringContainsString("case 'excluir':  excluirItens(sel); break;", $this->js());
+        self::assertStringContainsString("if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }", $this->js());
     }
 
     #[TestDox('faixa só na raiz, fora da busca, não dispensada e com alguma sugestão viva — o caso em que as regras não acham NADA esconde a faixa')]

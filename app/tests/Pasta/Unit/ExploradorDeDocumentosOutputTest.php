@@ -109,6 +109,18 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame('tok_pex_lote_9', $json['csrfLote'], 'restaurar não tem token próprio: é o do lote');
     }
 
+    #[TestDox('DOC-118: o JSON leva podeEditar — falso por padrão (o seguro), verdadeiro só quando quem monta decide')]
+    public function testPodeEditar(): void
+    {
+        $padrao = $this->montar([], []);
+        self::assertFalse($padrao->podeEditar);
+        self::assertFalse(json_decode($padrao->json(), true, 512, JSON_THROW_ON_ERROR)['podeEditar']);
+
+        $editor = ExploradorDeDocumentosOutput::montar([], [], self::ROTULOS, self::url(...), self::csrf(...), self::PASTA_ID, [], podeEditar: true);
+        self::assertTrue($editor->podeEditar);
+        self::assertTrue(json_decode($editor->json(), true, 512, JSON_THROW_ON_ERROR)['podeEditar']);
+    }
+
     #[TestDox('D5/D6: o JSON leva urlZip e urlCopiar — ambos com o MESMO token do lote (csrfLote)')]
     public function testZipECopiar(): void
     {
