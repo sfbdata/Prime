@@ -372,6 +372,18 @@ dono).
   S6-DASH, S6-MISC — implementadores Opus em worktrees `agent-*` saídas de `3ff6d9b0`; cada um entrega commit local
   na própria worktree. Integração: revisão Opus read-only → cherry-pick individual → testes direcionados.
 
+| Lote | Itens | Commits no master | Testes direcionados | Revisão | Resultado |
+|---|---|---|---|---|---|
+| S6-TL | C6-PAS-06, C6-PAS-08 | `b4077ad7` | 24/24 | Opus: aprovado c/ ressalvas menores | ✓ |
+| S6-EDT | C6-EDT-05 (+ metade de C6-EDT-09 em `editor-rico.js`) | `3e4bc262`, `1050971f` | 126/126 | Opus: 1 importante (teste não travava o fim sem sugestão) → corrigido | ✓ |
+| S6-CLI | C6-PMC-03, C6-PMC-06 | `64367e07`, `26296bcf`, `06592edd` | 65/65 | Opus: token CSRF e dica de trocar ainda saíam a quem não troca → corrigido | ✓ |
+| S6-DASH | DASH-008r | `39e32d63`, `4b463629` | 43/43 | Opus: 0% virava link e rótulo ≠ desenho (`celulaLink`: zero sem href; "Taxa de conclusão de X") → alinhado ao desenho; teste com meta fora da janela | ✓ |
+| S6-SHOW | C6-PAS-01 (regressão P1), C6-PAS-07 (Registro), C6-PMC-01, C6-PMC-02 | `64927a09`, `cccddbb5` | 79/79 | Opus: sem trava de foco o Esc não fechava e outras janelas ficavam por baixo → foco no título, Esc no documento, `aria-modal` fora, z-index 1049 | ✓ (smoke: Nova meta recolhida + outra janela) |
+| S6-DOC | C6-DOC-01, 02, 03 | `29fee857`, `775a7951`, `51c6b660` | 190/190 | Opus: ✎/+/Modelos do checklist ainda no Twig; Imprimir do HEIC ativo → completado; token do painel só p/ quem escreve | ✓ |
+| S6-MISC | C6-FPN-02, C6-IA-02 | `4baade61`, `bbb0deee`, `a0ef20d2` | 70/70 | Opus: aprovado | ✓ |
+| S6-MISC | C6-IA-01 | **não integrado** (`3260e87e` fica na worktree) | — | Opus: gravar auditoria num GET (sem CSRF) permite linhas falsas; tela e drawer não ligados | ⏳ refazer na onda 2 como POST + CSRF + drawer |
+| S6-SEC | C6-SEC-03 (P0), C6-SEC-01, C6-SEC-02 | `9a2b3801`, `03d1fda5`, `20217298` | 297/297; mutação: tirar posse ou VER derruba `CriarTarefaControllerTest` | Opus: aprovado c/ ressalvas | ✓ · pendente: mencionáveis do compositor financeiro (C6-SEC-02b), testes 404-antes-de-403 com não-editor e edição financeira |
+
 ## 5. Handoff
 
 **Se a sessão cair durante o Ciclo 6:** a consolidação (`engineering-loop/c6/consolidacao.md` §3) é a fila. Para
