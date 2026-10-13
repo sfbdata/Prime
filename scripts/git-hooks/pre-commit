@@ -81,4 +81,23 @@ FIM
     exit 1
 fi
 
+# --- Guarda de segredos -------------------------------------------------------------------
+# Recusa credencial nova no que esta sendo commitado (so as linhas ADICIONADAS e os arquivos
+# novos; remover um segredo nunca e barrado). Nunca imprime o valor. Mora ao lado deste hook,
+# e nao na raiz da worktree, porque o core.hooksPath aponta para o checkout PRINCIPAL: as duas
+# pecas sao sempre da mesma versao. Ausente ou sem python3 => RECUSA, pelo mesmo principio do
+# .frente: na duvida, parar e falar alto. Detalhes e falso positivo: cabecalho do script.
+guarda="$(cd "$(dirname "$0")" && pwd)/verificar-segredos.py"
+
+if [ ! -f "$guarda" ]; then
+    echo "pre-commit: guarda de segredos ausente ($guarda). Commit recusado." >&2
+    exit 1
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "pre-commit: python3 nao encontrado — a guarda de segredos nao pode rodar. Commit recusado." >&2
+    exit 1
+fi
+
+python3 -I "$guarda" || exit 1
+
 exit 0
