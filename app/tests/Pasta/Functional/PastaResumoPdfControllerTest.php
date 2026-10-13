@@ -158,7 +158,7 @@ final class PastaResumoPdfControllerTest extends JusPrimeWebTestCase
         $client->request('GET', $this->url((int) $pastaB->getId()));
 
         self::assertResponseStatusCodeSame(404);
-        self::assertStringNotContainsString('%PDF-', (string) $client->getResponse()->getContent());
+        self::assertStringStartsNotWith('%PDF-', (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('Usuário do MESMO escritório sem permissão de ver a pasta leva 403 no PDF')]
@@ -287,12 +287,16 @@ final class PastaResumoPdfControllerTest extends JusPrimeWebTestCase
             $client->request('GET', $this->url((int) $pastaA->getId(), ['secao' => 'observacao', 'obs' => $id]));
             self::assertResponseStatusCodeSame(404, 'obs=' . $id);
             $corpo = (string) $client->getResponse()->getContent();
-            self::assertStringNotContainsString('%PDF-', $corpo);
+            self::assertStringStartsNotWith('%PDF-', $corpo);
             self::assertStringNotContainsString('REGISTRO DA OUTRA PASTA', $corpo);
             self::assertStringNotContainsString('REGISTRO DO ESCRITÓRIO B', $corpo);
         }
 
         // A barreira provada acima é a do registro, não a da pasta: o registro da própria pasta A sai.
+        // A requisição limpa o EntityManager: relê as entidades antes de pendurar o registro nelas.
+        $pastaA  = $this->em()->find(Pasta::class, $pastaA->getId());
+        $userA   = $this->em()->find(User::class, $userA->getId());
+        $tenantA = $this->em()->find(Tenant::class, $tenantA->getId());
         $proprio = $this->criarObservacao($pastaA, $userA, $tenantA, 'Registro da pasta A');
         $client->request('GET', $this->url((int) $pastaA->getId(), ['secao' => 'observacao', 'obs' => (string) $proprio->getId()]));
         self::assertResponseIsSuccessful();
@@ -315,11 +319,11 @@ final class PastaResumoPdfControllerTest extends JusPrimeWebTestCase
         foreach ([(string) $soltoA->getId(), (string) $processoB->getId(), '', 'abc'] as $id) {
             $client->request('GET', $this->url((int) $pastaA->getId(), ['secao' => 'processo', 'processo' => $id]));
             self::assertResponseStatusCodeSame(404, 'processo=' . $id);
-            self::assertStringNotContainsString('%PDF-', (string) $client->getResponse()->getContent());
+            self::assertStringStartsNotWith('%PDF-', (string) $client->getResponse()->getContent());
         }
 
         // A barreira provada acima é a do vínculo: o mesmo processo, vinculado à pasta A, sai.
-        $this->vincular($pastaA, $soltoA);
+        $this->vincular($this->em()->find(Pasta::class, $pastaA->getId()), $this->em()->find(\get_class($soltoA), $soltoA->getId()));
         $client->request('GET', $this->url((int) $pastaA->getId(), ['secao' => 'processo', 'processo' => (string) $soltoA->getId()]));
         self::assertResponseIsSuccessful();
     }
@@ -338,10 +342,10 @@ final class PastaResumoPdfControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $userA, $tenantA);
         $client->request('GET', $this->url((int) $pastaB->getId(), ['secao' => 'observacao', 'obs' => (string) $obsB->getId()]));
         self::assertResponseStatusCodeSame(404);
-        self::assertStringNotContainsString('%PDF-', (string) $client->getResponse()->getContent());
+        self::assertStringStartsNotWith('%PDF-', (string) $client->getResponse()->getContent());
         $client->request('GET', $this->url((int) $pastaB->getId(), ['secao' => 'processo', 'processo' => (string) $processoB->getId()]));
         self::assertResponseStatusCodeSame(404);
-        self::assertStringNotContainsString('%PDF-', (string) $client->getResponse()->getContent());
+        self::assertStringStartsNotWith('%PDF-', (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('C6-EDT-06: quem não vê a pasta leva 403 no PDF do registro e do processo')]

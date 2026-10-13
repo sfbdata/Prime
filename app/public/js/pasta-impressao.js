@@ -415,31 +415,18 @@
         imprimirRegistro(item, item.closest('.ps-anotacao'));
     });
 
-    /* "Imprimir resumo" do ⋮ do processo: o pasta-processo.js monta a prévia e chama
-       `conteudo()` no MESMO clique, sem dizer qual é o processo. A captura guarda o id do
-       cartão (`data-processo-id`) antes disso — é ele que vai para o Baixar PDF. Todo
-       clique reescreve o valor, então não sobra id de um clique anterior. */
-    var processoDoClique = null;
-    document.addEventListener('click', function (e) {
-        var item = e.target && e.target.closest ? e.target.closest('.js-proc-imprimir') : null;
-        var cartao = item ? item.closest('[data-processo-id]') : null;
-        processoDoClique = cartao ? cartao.getAttribute('data-processo-id') : null;
-    }, true);
-
     window.PastaImpressao = {
         /** Imprimir resumo da pasta (⋮ do cabeçalho). */
         resumo: function () { return abrir({ secao: 'resumo' }); },
         /** Imprimir extrato (⋮ de Pagamentos, aba Financeiro). */
         extrato: function () { return abrir({ secao: 'extrato' }); },
         /**
-         * Folha com corpo montado pela tela (registro, processo). Sem `pdf`, vale o
-         * processo do clique em curso (ver acima); sem nenhum, não há Baixar PDF.
+         * Folha com corpo montado pela tela (registro, processo). Quem chama diz o alvo do
+         * Baixar PDF em `pdf` (o servidor remonta a folha pelo id); sem ele, não há Baixar PDF.
          * @param {{titulo: string, autor?: string, corpo: Node, pdf?: Object}} cfg
          */
         conteudo: function (cfg) {
-            var pdf = cfg.pdf || (processoDoClique ? { secao: 'processo', processo: processoDoClique } : null);
-
-            return abrir({ secao: 'moldura', titulo: cfg.titulo, autor: cfg.autor || '', corpo: cfg.corpo, pdf: pdf });
+            return abrir({ secao: 'moldura', titulo: cfg.titulo, autor: cfg.autor || '', corpo: cfg.corpo, pdf: cfg.pdf || null });
         },
         /**
          * "Imprimir" de um registro por um menu único da lista: o item com

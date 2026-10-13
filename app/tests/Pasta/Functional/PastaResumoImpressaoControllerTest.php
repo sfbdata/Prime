@@ -244,6 +244,24 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('C6-EDT-06: registro e processo só existem como PDF; a folha HTML (página e fragmento) responde 404 para essas seções')]
+    public function testRegistroEProcessoNaoTemFolhaHtml(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+
+        $this->logarComTenant($client, $user, $tenant);
+        foreach (['secao=processo&processo=' . $processo->getId(), 'secao=observacao&obs=1'] as $query) {
+            foreach (['', '&fragmento=1'] as $fragmento) {
+                $client->request('GET', $this->url((int) $pasta->getId()) . '?' . $query . $fragmento);
+                self::assertResponseStatusCodeSame(404, $query . $fragmento);
+            }
+        }
+    }
+
     #[TestDox('C6-EDT-02: "Dados da pasta" sem Prioridade e sem Abertura (o desenho não tem); Clientes e Processos ficam')]
     public function testDadosDaPastaSemPrioridadeNemAbertura(): void
     {

@@ -118,7 +118,7 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringNotContainsString('cfg.corpo', $f);
     }
 
-    #[TestDox('C6-EDT-06: o registro pede o PDF pelo id do cartão (secao=observacao&obs=…) e o processo pelo data-processo-id do cartão (secao=processo&processo=…)')]
+    #[TestDox('C6-EDT-06: o registro pede o PDF pelo id do cartão (secao=observacao&obs=…) e o processo pelo data-processo-id que o pasta-processo.js passa (secao=processo&processo=…)')]
     public function testAlvoDoPdfDoRegistroEDoProcesso(): void
     {
         $js = $this->js();
@@ -126,13 +126,12 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString('/^detalhes-obs-(\d+)$/.exec(artigo.id || \'\')', $js);
         self::assertStringContainsString("{ secao: 'observacao', obs: id[1] }", $js);
 
-        $inicio = strpos($js, 'var processoDoClique = null;');
-        self::assertNotFalse($inicio);
-        $bloco = substr($js, $inicio, 500);
-        self::assertStringContainsString("e.target.closest('.js-proc-imprimir')", $bloco);
-        self::assertStringContainsString("item.closest('[data-processo-id]')", $bloco);
-        self::assertStringContainsString('}, true);', $bloco, 'em captura: o id é guardado ANTES de o pasta-processo.js chamar conteudo()');
-        self::assertStringContainsString("{ secao: 'processo', processo: processoDoClique }", $js);
+        // O processo é dito por quem chama (pasta-processo.js), no mesmo clique: sem estado global
+        // que um chamador fora do clique herdaria.
+        self::assertStringNotContainsString('processoDoClique', $js);
+        $proc = (string) file_get_contents(\dirname(__DIR__, 3) . '/public/js/pasta-processo.js');
+        self::assertStringContainsString("var cartao = item.closest('[data-processo-id]');", $proc);
+        self::assertStringContainsString("pdf: cartao ? { secao: 'processo', processo: cartao.getAttribute('data-processo-id') } : null,", $proc);
     }
 
     #[TestDox('C6-EDT-07: o iframe imprime com 18 mm em cima e embaixo de toda página e 16 mm nos lados; a 1ª página sem margem de cima, para a faixa azul')]

@@ -98,7 +98,10 @@ final class PastaResumoController extends AbstractController
         $fragmento = $request->query->getBoolean('fragmento');
         $opcoes    = PastaImpressaoOpcoes::daQuery($request->query);
         // A moldura (corpo vazio) só tem sentido dentro da janela da tela.
-        $valida    = $opcoes->secao !== null && ($fragmento || $opcoes->secao !== PastaImpressaoOpcoes::SECAO_MOLDURA);
+        // Registro e processo têm prévia montada pela tela; aqui só existem como PDF (C6-EDT-06).
+        $valida    = $opcoes->secao !== null
+            && ($fragmento || $opcoes->secao !== PastaImpressaoOpcoes::SECAO_MOLDURA)
+            && !\in_array($opcoes->secao, [PastaImpressaoOpcoes::SECAO_OBSERVACAO, PastaImpressaoOpcoes::SECAO_PROCESSO], true);
 
         $contexto = $this->contexto($pasta, $opcoes, $valida, $request);
 

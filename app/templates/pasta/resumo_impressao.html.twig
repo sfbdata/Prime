@@ -122,7 +122,7 @@
            observação, o servidor — a mesma linha do `data-autor`/`data-quando`/`data-tipo` do ⋮
            (`_detalhes_obs.html.twig`), com o tipo "Atendimento" do desenho. #}
         {% if opcoes.autor and secao == 'observacao' and registro is not null %}
-            {%- set autorRegistro = registro.autor ? (registro.autor.fullName ?: registro.autor.email) : null -%}
+            {%- set autorRegistro = registro.autor ? (registro.autor.fullName ?? registro.autor.email) : null -%}
             <div class="rp-autor" data-rp-parte="autor">{{ autorRegistro ?: 'Autor desconhecido' }} · {{ registro.criadaEm|date('d/m/Y, H:i') }} · Atendimento</div>
         {% elseif opcoes.autor and modo == 'fragmento' %}<div class="rp-autor" data-rp-parte="autor"></div>{% endif %}
 
