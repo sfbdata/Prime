@@ -345,6 +345,13 @@ Chat I.A; ver `inventario-ia.md`).
   cliente" com cópia para uma Controladoria que não existe. **IA-032:** o botão do Dashboard usa o nome e a
   estrela da IA real sobre um painel por regras.
 - **DASH-028:** abertura animada de 2,65 s a cada carga do Dashboard (o auditor recomenda confirmar antes).
+- **PUB-SEC-01 (revisão da publicação do lote 1, 13/10; menor, latente):** a menção e a resposta num registro do
+  Financeiro avisam no sino quem VÊ a pasta, sem `VisibilidadeDoFinanceiroDaPasta`
+  (`ResolucaoDeMencoesDoRegistro.php` `avisar` e `notificarRespostaNaObservacao`); a Timeline já esconde essas
+  notificações de quem não vê o financeiro. Hoje não vaza (as duas regras são iguais). Mesmo padrão no .txt da análise
+  da IA. Alinhar quando ver o financeiro ganhar permissão própria (ligado ao C6-SEC-02b).
+- **PUB-SEC-02 (idem; menor):** `inteligencia_analise_nao_lida` exige só VER para mudar um estado do escritório inteiro
+  (`lida_em`/`lida_por`), como o `lida` que já existia. Decidir junto com a **SEC-009**.
 
 ### 3.5 Dependências externas (B)
 
@@ -495,3 +502,21 @@ O único commit fora do loop é `4a98cc6b` (e-mail institucional), patch idênti
   (`Version20260401000000`, `Version20260408180237`) seguem sem registro em prod **de propósito**: o `preUp` as pula
   (`sede` existe; `checklist_item_cliente` não). O `migrate` vai listá-las e pulá-las de novo; não é defeito do loop.
 - Merge no GitHub por **merge commit**, nunca squash/rebase: este ledger cita os hashes dos commits.
+
+**Validação do lote 1 (13/10), banco descartável `saas_testrbloop1`, sem dado de produção:**
+
+- Clone do `saas_test`. O `down` das 7 migrations (inclusive a do lote 2) e o registro reescrito com as 206 versões
+  de prod. Impressão digital (md5 por tabela de colunas, índices e constraints) comparada com prod pelo MCP, só
+  metadados: 85 de 106 tabelas idênticas, incluindo as 6 que o lote toca ou referencia como FK de dado
+  (`pasta_observacao_*`, `pasta_mensagem`, `pasta_pagamento`, `pasta`, `nota_tecnica`). As 21 restantes são drift antigo
+  do `saas_test` (nomes de FK, CHECKs de OAB); `user`/`tenant` têm PK `id` como em prod.
+- `migrations:status`: 206 executadas, 0 indisponíveis, 8 novas (as 2 puladas + as 6). `--dry-run` e `migrate` OK
+  (25 queries, 142 ms); 212 registradas no fim. `schema:validate --skip-sync` OK; `schema:update --dump-sql` só com o
+  falso positivo `DROP INDEX uniq_cobranca_obrigacao_ref_competencia` (índice funcional).
+- Reversibilidade: o `down` das 6 devolve as tabelas ao fingerprint exato de prod; o `up` repetido funciona.
+- Revisão Opus read-only (autorização e tenant): nenhum bloqueante; todas as rotas novas/alteradas com posse (404),
+  VER/EDITAR e CSRF. Menores viraram PUB-SEC-01 e PUB-SEC-02 (§3.4).
+- Revisão Opus read-only (migrations e rollback): nenhum bloqueante. **Rollback = só o código, mantendo o schema**
+  (o código `719de0e4` lê o schema novo; respostas aparecem soltas como registros comuns). **Nunca rodar o `down` em
+  prod**: apaga respostas, versões e juros sem volta. Rollback seguido de republicação deixa o "Antes" do "Ver
+  alteração" e as versões da nota técnica com buraco no intervalo. O deploy não faz backup: `pg_dump` manual antes.
