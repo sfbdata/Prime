@@ -2061,6 +2061,10 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
@@ -2120,13 +2124,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoFinanceira::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoFinanceira::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -2160,13 +2170,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoFinanceira::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoFinanceira::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -2192,6 +2208,10 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
@@ -2252,13 +2272,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoDetalhes::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoDetalhes::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -2292,13 +2318,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoDetalhes::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoDetalhes::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
