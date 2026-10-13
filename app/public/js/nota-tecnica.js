@@ -500,7 +500,7 @@
         if (itemBloqueado) {
             fecharMenu(true);
             var motivo = itemBloqueado.getAttribute('data-aviso') || itemBloqueado.getAttribute('title') || '';
-            if (window.avisarPs) { window.avisarPs(motivo, 'erro'); } else { window.alert(motivo); }
+            if (window.avisarPs) { window.avisarPs(motivo); /* neutro, como o gmAviso do desenho */ } else { window.alert(motivo); }
             return;
         }
 

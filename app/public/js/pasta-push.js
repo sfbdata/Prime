@@ -427,15 +427,20 @@
 
             if (window.ClipboardItem && navigator.clipboard.write) {
                 var conteudo = pedido.then(function (texto) { return new Blob([texto], { type: 'text/plain' }); });
-                navigator.clipboard.write([new window.ClipboardItem({ 'text/plain': conteudo })]).then(
-                    function () { avisar('Texto copiado'); },
-                    function () {
-                        pedido.then(copiarTexto, function (falha) {
-                            avisar(falha && falha.message ? falha.message : 'Não foi possível copiar');
-                        });
-                    }
-                );
-                return;
+                conteudo.catch(function () { /* a falha é avisada pelo `pedido` abaixo */ });
+                try {
+                    navigator.clipboard.write([new window.ClipboardItem({ 'text/plain': conteudo })]).then(
+                        function () { avisar('Texto copiado'); },
+                        function () {
+                            pedido.then(copiarTexto, function (falha) {
+                                avisar(falha && falha.message ? falha.message : 'Não foi possível copiar');
+                            });
+                        }
+                    );
+                    return;
+                } catch (e) {
+                    // Navegador sem ClipboardItem com valor-promessa: cai no writeText comum.
+                }
             }
             pedido.then(copiarTexto, function (falha) {
                 avisar(falha && falha.message ? falha.message : 'Não foi possível copiar');

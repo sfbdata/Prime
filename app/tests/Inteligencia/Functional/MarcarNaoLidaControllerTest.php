@@ -15,7 +15,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * IA-011: "Marcar como não lido". O estado de lida já existe (`lida_em`, `lida_por`); a ação o
- * zera. A opção alterna no menu: não lida → "Marcar como lida"; lida → "Marcar como não lido".
+ * zera. A opção alterna no menu: não lida → "Marcar como lido"; lida → "Marcar como não lido".
  */
 #[CoversClass(AnalisePushController::class)]
 final class MarcarNaoLidaControllerTest extends JusPrimeWebTestCase
@@ -70,7 +70,7 @@ final class MarcarNaoLidaControllerTest extends JusPrimeWebTestCase
         ) === 1;
     }
 
-    #[TestDox('lida → "não lido" zera lida_em/lida_por; o menu volta a oferecer "Marcar como lida"; e o ciclo repete')]
+    #[TestDox('lida → "não lido" zera lida_em/lida_por; o menu volta a oferecer "Marcar como lido"; e o ciclo repete')]
     public function testAlternaLidoENaoLido(): void
     {
         $client = $this->cliente();
