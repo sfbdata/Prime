@@ -161,8 +161,10 @@
                 <form id="formFinanceiroObservacao">
                     <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
                     {# @menção (EDT-010r): o pasta-mencoes.js (carregado pela pasta_show, em `_dados_anotacoes`)
-                       liga o "@" deste compositor e busca a lista nesta URL. #}
-                    <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id}) }}">
+                       liga o "@" deste compositor e busca a lista nesta URL. A `origem=financeiro`
+                       (C6-SEC-02b) deixa na lista só quem também vê o financeiro da pasta; o JS só
+                       acrescenta `&q=` (a mesma URL serve à caixa de edição, no _financeiro_obs_script). #}
+                    <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id, origem: 'financeiro'}) }}">
                         <textarea name="conteudo"
                                   id="financeiroObsConteudo"
                                   data-editor-rico

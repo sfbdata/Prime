@@ -7,7 +7,10 @@ namespace App\Tests\Pasta\Functional;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
+use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
@@ -31,6 +34,9 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * e editar/excluir no 403 do UseCase — confirmando que o registro existe em algum lugar.
  *
  * Os dois tipos de observação têm as mesmas três rotas; o provedor roda cada cenário nos dois.
+ *
+ * A exceção ao super-admin é o bloco "a posse vem ANTES da permissão": lá o usuário só VÊ pastas,
+ * para provar que a pasta alheia responde 404 (posse) e não o 403 do EDIT.
  */
 #[CoversClass(PastaController::class)]
 final class PastaObservacaoPosseDoEscritorioTest extends JusPrimeWebTestCase
@@ -183,7 +189,143 @@ final class PastaObservacaoPosseDoEscritorioTest extends JusPrimeWebTestCase
         self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM {$tabela} WHERE id = ?", [$idObs]));
     }
 
+    // ── a posse vem ANTES da permissão ───────────────────────────────────────
+    //
+    // Os cenários acima usam super-admin, que passa direto pelo `PermissionChecker`: não dizem se
+    // a posse é conferida antes ou depois do EDIT. Aqui o usuário só VÊ (sem `resources.pasta.edit`):
+    // se o guarda de posse viesse depois, a pasta alheia responderia 403 — e o 403 já confirma que
+    // o id existe em algum escritório.
+
+    /**
+     * @return iterable<string, array{class-string, string, string, string, string}>
+     *         [classe, tabela, segmento da rota, prefixo do token CSRF, ação]
+     */
+    public static function rotasDeObservacao(): iterable
+    {
+        foreach (self::tiposDeObservacao() as $tipo => $dados) {
+            foreach (['enviar', 'editar', 'excluir'] as $acao) {
+                yield $tipo . ' · ' . $acao => [...$dados, $acao];
+            }
+        }
+    }
+
+    /** @param class-string $classe */
+    #[DataProvider('rotasDeObservacao')]
+    #[TestDox('quem NÃO edita pastas, na pasta de OUTRO escritório (filtro desligado), recebe 404 e não 403: a posse vem antes da permissão')]
+    public function testSemEditarNaPastaDeOutroEscritorioRecebe404(string $classe, string $tabela, string $segmento, string $token, string $acao): void
+    {
+        [$client, , $tenantB, $leitor] = $this->prepararLeitorDoEscritorioA();
+        $pastaB  = $this->criarPasta($tenantB);
+        $idObs   = $this->criarObservacao($classe, $pastaB, $leitor, $tenantB);
+        $idPasta = (int) $pastaB->getId();
+        $antes   = $this->conteudo($tabela, $idObs);
+
+        $this->desligarTenantFilterNaProximaRequisicao();
+        $this->requisitar($client, $acao, $idPasta, $idObs, $segmento, $token);
+
+        $this->assertTenantFilterFoiDesligado();
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM {$tabela} WHERE pasta_id = ?", [$idPasta]), 'nada criado nem apagado');
+        self::assertSame($antes, $this->conteudo($tabela, $idObs), 'nada editado');
+    }
+
+    /** @param class-string $classe */
+    #[DataProvider('rotasDeObservacao')]
+    #[TestDox('controle: quem NÃO edita pastas, na PRÓPRIA pasta (filtro desligado), recebe 403 — o 404 acima é da posse, não da permissão')]
+    public function testSemEditarNaPropriaPastaRecebe403(string $classe, string $tabela, string $segmento, string $token, string $acao): void
+    {
+        [$client, $tenantA, , $leitor] = $this->prepararLeitorDoEscritorioA();
+        $pastaA  = $this->criarPasta($tenantA);
+        $idObs   = $this->criarObservacao($classe, $pastaA, $leitor, $tenantA);
+        $idPasta = (int) $pastaA->getId();
+        $antes   = $this->conteudo($tabela, $idObs);
+
+        $this->desligarTenantFilterNaProximaRequisicao();
+        $this->requisitar($client, $acao, $idPasta, $idObs, $segmento, $token);
+
+        $this->assertTenantFilterFoiDesligado();
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM {$tabela} WHERE pasta_id = ?", [$idPasta]));
+        self::assertSame($antes, $this->conteudo($tabela, $idObs));
+    }
+
     // ── apoio ────────────────────────────────────────────────────────────────
+
+    /**
+     * Cliente logado no escritório A com um usuário que só VÊ pastas (papel com
+     * `resources.pasta.view` e sem `resources.pasta.edit`), e um escritório B alheio.
+     *
+     * @return array{KernelBrowser, Tenant, Tenant, User} [cliente, tenantA, tenantB, leitor]
+     */
+    private function prepararLeitorDoEscritorioA(): array
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant('A');
+        $tenantB = $this->criarTenant('B');
+        $leitor  = $this->criarLeitor($tenantA);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $leitor, $tenantA);
+
+        return [$client, $tenantA, $tenantB, $leitor];
+    }
+
+    private function criarLeitor(Tenant $tenant): User
+    {
+        $em   = $this->em();
+        $perm = $em->getRepository(Permission::class)->findOneBy(['code' => 'resources.pasta.view']);
+        if ($perm === null) {
+            $perm = new Permission();
+            $perm->setCode('resources.pasta.view');
+            $perm->setDescription('Visualizar pasta específica');
+            $perm->setGroup('resources');
+            $em->persist($perm);
+            $em->flush();
+        }
+
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Só leitura ' . uniqid());
+        $role->setIsSystem(false);
+        $em->persist($role);
+
+        $vinculo = new TenantRolePermission();
+        $vinculo->setTenantRole($role);
+        $vinculo->setPermission($perm);
+        $em->persist($vinculo);
+        $role->getTenantRolePermissions()->add($vinculo);
+
+        $user = new User();
+        $user->setEmail('posse_obs_leitor_' . uniqid() . '@test.com');
+        $user->setFullName('Usuário leitor');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $em->persist($user);
+
+        $ut = new UserTenant($user, $tenant);
+        $ut->setTenantRole($role);
+        $em->persist($ut);
+        $em->flush();
+
+        return $user;
+    }
+
+    private function requisitar(KernelBrowser $client, string $acao, int $idPasta, int $idObs, string $segmento, string $token): void
+    {
+        match ($acao) {
+            'enviar' => $client->request('POST', "/pasta/{$idPasta}/{$segmento}/observacao", [
+                '_token'   => $this->csrf($token . $idPasta),
+                'conteudo' => 'Tentativa de quem só lê',
+            ]),
+            'editar' => $client->request('POST', "/pasta/{$idPasta}/{$segmento}/observacao/{$idObs}/editar", [
+                '_token'   => $this->csrf($token . 'editar_' . $idObs),
+                'conteudo' => 'Invadido',
+            ]),
+            'excluir' => $client->request('POST', "/pasta/{$idPasta}/{$segmento}/observacao/{$idObs}/excluir", [
+                '_token' => $this->csrf($token . 'excluir_' . $idObs),
+            ]),
+        };
+    }
 
     /**
      * Cliente logado como super-admin do escritório A (sessão em A) e um escritório B alheio.

@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\DTO\MencionavelOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
@@ -25,18 +26,32 @@ final class ListarMencionaveisDaPastaUseCaseTest extends TestCase
 {
     private UserRepository&MockObject $userRepository;
     private PermissionChecker&MockObject $permissionChecker;
+    private VisibilidadeDoFinanceiroDaPasta&MockObject $visibilidadeDoFinanceiro;
     private ListarMencionaveisDaPastaUseCase $useCase;
     private Tenant $tenant;
     private Pasta $pasta;
     private User $eu;
     /** @var array<int, bool> userId => pode ver a pasta 41 */
     private array $acesso = [];
+    /** @var list<int> ids de quem o dublê diz que NÃO vê o financeiro da pasta (C6-SEC-02b) */
+    private array $semVerOFinanceiro = [];
 
     protected function setUp(): void
     {
         $this->userRepository    = $this->createMock(UserRepository::class);
         $this->permissionChecker = $this->createMock(PermissionChecker::class);
-        $this->useCase           = new ListarMencionaveisDaPastaUseCase($this->userRepository, $this->permissionChecker);
+        // A regra de hoje do financeiro é a mesma do VER; o dublê diz "não" a quem estiver em
+        // `$semVerOFinanceiro`, sem mexer no guarda de leitura da pasta.
+        $this->visibilidadeDoFinanceiro = $this->createMock(VisibilidadeDoFinanceiroDaPasta::class);
+        $this->visibilidadeDoFinanceiro->method('podeVer')->willReturnCallback(
+            function (User $u, Tenant $t, Pasta $p): bool {
+                self::assertSame($this->tenant, $t);
+                self::assertSame($this->pasta, $p);
+
+                return !in_array((int) $u->getId(), $this->semVerOFinanceiro, true);
+            },
+        );
+        $this->useCase           = new ListarMencionaveisDaPastaUseCase($this->userRepository, $this->permissionChecker, $this->visibilidadeDoFinanceiro);
 
         $this->tenant = $this->definirId(new Tenant(), 7);
         $this->pasta  = $this->definirId(new Pasta(), 41);
@@ -139,6 +154,41 @@ final class ListarMencionaveisDaPastaUseCaseTest extends TestCase
         $this->colegas($colegas);
 
         self::assertCount(ListarMencionaveisDaPastaUseCase::LIMITE, $this->useCase->executar($this->pasta, $this->eu, $this->tenant, ''));
+    }
+
+    #[TestDox('C6-SEC-02b: com origem=financeiro, quem vê a pasta mas NÃO o financeiro fica de fora; sem origem, aparece')]
+    public function testOrigemFinanceiroFiltraQuemNaoVeOFinanceiro(): void
+    {
+        $this->colegas([
+            $this->usuario(2, 'Ana Paula Souza'),
+            $this->usuario(3, 'Bruno Lima'),
+            $this->usuario(4, 'Carla Sem Acesso'),
+        ]);
+        $this->acesso += [2 => true, 3 => true, 4 => false];
+        $this->semVerOFinanceiro = [3];
+
+        self::assertSame([2], self::ids($this->useCase->executar($this->pasta, $this->eu, $this->tenant, '', ListarMencionaveisDaPastaUseCase::ORIGEM_FINANCEIRO)));
+        self::assertSame([2, 3], self::ids($this->useCase->executar($this->pasta, $this->eu, $this->tenant, '')), 'Registro/Detalhes: basta ver a pasta');
+    }
+
+    #[TestDox('C6-SEC-02b: com origem=financeiro e ninguém vendo o financeiro, a lista sai VAZIA')]
+    public function testOrigemFinanceiroSemNinguemVendoDaVazio(): void
+    {
+        $this->colegas([$this->usuario(2, 'Ana Paula Souza'), $this->usuario(3, 'Bruno Lima')]);
+        $this->acesso += [2 => true, 3 => true];
+        $this->semVerOFinanceiro = [2, 3];
+
+        self::assertSame([], $this->useCase->executar($this->pasta, $this->eu, $this->tenant, '', ListarMencionaveisDaPastaUseCase::ORIGEM_FINANCEIRO));
+    }
+
+    #[TestDox('C6-SEC-02b: origem desconhecida não alarga nem aperta — fica a regra do VER, e o financeiro nem é consultado')]
+    public function testOrigemDesconhecidaFicaComOVer(): void
+    {
+        $this->colegas([$this->usuario(2, 'Ana Paula Souza'), $this->usuario(3, 'Bruno Lima')]);
+        $this->acesso += [2 => true, 3 => false];
+        $this->visibilidadeDoFinanceiro->expects($this->never())->method('podeVer');
+
+        self::assertSame([2], self::ids($this->useCase->executar($this->pasta, $this->eu, $this->tenant, '', 'qualquer')));
     }
 
     #[TestDox('Pasta de outro escritório: recusa (404) sem listar ninguém')]

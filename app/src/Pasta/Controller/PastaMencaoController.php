@@ -18,7 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Autocompletar do "@" no Registro da pasta (item 20b). GET de leitura, sem CSRF.
+ * Autocompletar do "@" no Registro da pasta (item 20b). GET de leitura, sem CSRF. O compositor do
+ * Relatório financeiro manda `?origem=financeiro` e a lista fica com quem também vê o financeiro.
  *
  * Guardas (no UseCase): pasta do escritório da sessão (404 — o resolver busca por PK e o
  * TenantFilter não se aplica a `find()`) e permissão de VER a pasta (403). A resposta traz id,
@@ -49,7 +50,15 @@ final class PastaMencaoController extends AbstractController
         }
 
         try {
-            $pessoas = $this->listarMencionaveis->executar($pasta, $usuario, $tenant, (string) $request->query->get('q', ''));
+            // `?origem=financeiro` (C6-SEC-02b): o compositor do Relatório financeiro só oferece quem
+            // também vê o financeiro da pasta. Sem origem (Registro, Detalhes), basta ver a pasta.
+            $pessoas = $this->listarMencionaveis->executar(
+                $pasta,
+                $usuario,
+                $tenant,
+                (string) $request->query->get('q', ''),
+                (string) $request->query->get('origem', ''),
+            );
         } catch (PastaDeOutroEscritorioException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (SemPermissaoParaVerPastaException $e) {

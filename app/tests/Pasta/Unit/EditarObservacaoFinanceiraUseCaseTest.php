@@ -146,6 +146,41 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
         self::assertSame('/pasta/77#financeiro-obs-40', $avisos[0]['notificacao']->getUrl());
     }
 
+    #[TestDox('C6-SEC-02: editar e mencionar no Relatório financeiro só avisa quem VÊ O FINANCEIRO — ver a pasta não basta')]
+    public function testEditarComMencaoAQuemNaoVeOFinanceiroNaoAvisa(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$this->autor, $bruno, $carla]);
+        // Os dois veem a pasta; só a Carla não vê o financeiro dela.
+        $this->acessoAPasta(77, [2 => true, 3 => true]);
+        $this->semVerOFinanceiro = [3];
+        $avisos = $this->capturarAvisos();
+        $obs    = $this->naPasta();
+
+        $this->useCase->executar($obs, $this->autor, $this->tenant, '<p>@[Bru](user:2) e @[Car](user:3)</p>');
+
+        // A marcação continua no texto (quem é mencionável não muda); só o sino é filtrado.
+        self::assertStringContainsString('@[Carla Dias](user:3)', $obs->getConteudo());
+        self::assertCount(1, $avisos, 'só o Bruno, que vê o financeiro, é avisado');
+        self::assertSame($bruno, $avisos[0]['usuario']);
+    }
+
+    #[TestDox('C6-SEC-02: editar mencionando SÓ quem não vê o financeiro não cria aviso nenhum')]
+    public function testEditarComMencaoSoAQuemNaoVeOFinanceiroNaoCriaAviso(): void
+    {
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$this->autor, $carla]);
+        $this->acessoAPasta(77, [3 => true]);
+        $this->semVerOFinanceiro = [3];
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $obs = $this->naPasta();
+
+        $this->useCase->executar($obs, $this->autor, $this->tenant, '<p>Veja @[Carla](user:3)</p>');
+
+        self::assertStringContainsString('@[Carla Dias](user:3)', $obs->getConteudo(), 'a edição é gravada normalmente');
+    }
+
     #[TestDox('EDT-010r: token de quem não é colega ativo deste escritório vira texto e não avisa')]
     public function testMencaoForjadaViraTexto(): void
     {

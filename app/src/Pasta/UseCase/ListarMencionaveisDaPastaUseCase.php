@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\DTO\MencionavelOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
@@ -16,7 +17,8 @@ use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 
 /**
- * Autocompletar do "@" no Registro da pasta (item 20b): quem pode ser mencionado.
+ * Autocompletar do "@" no Registro da pasta (item 20b) e nos demais compositores da pasta
+ * (Detalhes, Relatório financeiro): quem pode ser mencionado.
  *
  * Quem pergunta: alguém que VÊ a pasta (é quem escreve no Registro). O quê: os colegas que a
  * menção pode alcançar — e só eles, porque mencionar é notificar, e notificar quem não abre a
@@ -29,7 +31,11 @@ use App\Service\PermissionChecker;
  *  3. o nome casa com o termo: o nome inteiro ou qualquer palavra dele COMEÇA com o termo, sem
  *     acento e sem caixa (desenho `menAbrir`: `split(' ').some(p => p.startsWith(nq))`). Termo
  *     vazio (só "@") lista todo mundo;
- *  4. tem acesso de leitura a ESTA pasta (`canAccessResource` VIEW, a checagem da `pasta_show`).
+ *  4. tem acesso de leitura a ESTA pasta (`canAccessResource` VIEW, a checagem da `pasta_show`);
+ *  5. só quando a origem é o Relatório financeiro ({@see ORIGEM_FINANCEIRO}, C6-SEC-02b): VÊ O
+ *     FINANCEIRO desta pasta ({@see VisibilidadeDoFinanceiroDaPasta}, a regra única) — o sino
+ *     não avisa quem não vê o financeiro, então o compositor também não o oferece. Origem
+ *     ausente ou desconhecida fica só com o VER (nunca alarga a lista).
  * Ordem alfabética (a da consulta), no máximo {@see LIMITE} — o desenho mostra 7.
  *
  * Guardas antes de tudo: pasta do escritório da sessão (404) e quem pergunta pode vê-la (403).
@@ -38,16 +44,21 @@ final class ListarMencionaveisDaPastaUseCase
 {
     public const LIMITE = 7;
     public const TERMO_MAXIMO = 40;
+    /** Valor do `?origem=` que o compositor do Relatório financeiro manda. */
+    public const ORIGEM_FINANCEIRO = 'financeiro';
 
     public function __construct(
         private readonly UserRepository $userRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
     ) {
     }
 
     /** @return list<MencionavelOutput> */
-    public function executar(Pasta $pasta, User $solicitante, Tenant $tenant, string $termo): array
+    public function executar(Pasta $pasta, User $solicitante, Tenant $tenant, string $termo, string $origem = ''): array
     {
+        $doFinanceiro = $origem === self::ORIGEM_FINANCEIRO;
+
         if (!self::mesmoTenant($pasta->getTenant(), $tenant)) {
             throw new PastaDeOutroEscritorioException('Pasta não encontrada.');
         }
@@ -71,6 +82,10 @@ final class ListarMencionaveisDaPastaUseCase
             }
 
             if (!$this->permissionChecker->canAccessResource($colega, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW)) {
+                continue;
+            }
+
+            if ($doFinanceiro && !$this->visibilidadeDoFinanceiro->podeVer($colega, $tenant, $pasta)) {
                 continue;
             }
 

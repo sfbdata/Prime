@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Controller\PastaMencaoController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
@@ -162,6 +163,41 @@ final class PastaMencaoTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(404);
         self::assertStringNotContainsString('Bruno', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('C6-SEC-02b: com origem=financeiro, quem vê a pasta mas NÃO o financeiro não aparece; sem origem, aparece')]
+    public function testAutocompletarDoFinanceiroSoQuemVeOFinanceiro(): void
+    {
+        $client  = static::createClient();
+        $client->disableReboot();
+        $tenant  = $this->criarTenant();
+        $eu      = $this->membro($tenant, 'Eu Mesmo');
+        $ana     = $this->membro($tenant, 'Ana Paula Souza');
+        $bruno   = $this->membro($tenant, 'Bruno Lima');
+        $pasta   = $this->criarPasta($tenant);
+
+        // A regra de hoje do financeiro é a do VER da pasta; o dublê diz "não" ao Bruno sem mexer
+        // no guarda de leitura (que continua deixando o Bruno ver a pasta).
+        $idBruno = (int) $bruno->getId();
+        $duble   = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $duble->method('podeVer')->willReturnCallback(
+            static fn (User $u): bool => (int) $u->getId() !== $idBruno,
+        );
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $duble);
+
+        $this->logarComTenant($client, $eu, $tenant);
+
+        $client->request('GET', '/pasta/' . $pasta->getId() . '/mencionaveis', ['q' => '', 'origem' => 'financeiro']);
+        self::assertResponseIsSuccessful();
+        $doFinanceiro = array_column((array) json_decode((string) $client->getResponse()->getContent(), true), 'id');
+        self::assertContains($ana->getId(), $doFinanceiro);
+        self::assertNotContains($bruno->getId(), $doFinanceiro, 'não vê o financeiro: o compositor do financeiro não o oferece');
+
+        // Controle: no Registro/Detalhes (sem origem), ver a pasta basta.
+        $semOrigem = array_column($this->mencionaveis($client, $pasta), 'id');
+        self::assertResponseIsSuccessful();
+        self::assertContains($ana->getId(), $semOrigem);
+        self::assertContains($bruno->getId(), $semOrigem);
     }
 
     #[TestDox('Autocompletar sem acesso à pasta responde 403')]
