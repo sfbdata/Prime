@@ -16,10 +16,49 @@
 /app/vendor/
 
 # Arquivos de ambiente com credenciais
-/app/.env
+#
+# app/.env, app/.env.dev e app/.env.test SÃO versionados (convenção do Symfony) e só podem trazer
+# valores de desenvolvimento sem credencial real. Até 12/10/2026 havia aqui uma regra `/app/.env`:
+# ela não fazia nada (o arquivo já era rastreado, e ignore não desfaz rastreio) e dava a falsa
+# impressão de proteção — foi por baixo dela que uma senha real do Gmail ficou meses no repositório.
+# Segredo de verdade mora em app/.env.local (dev) ou no .env.prod da VPS (prod). Ignore não impede
+# `git add -f`: quem barra credencial em arquivo versionado é scripts/git-hooks/verificar-segredos.py.
+.env
+*.env
+!/app/.env
 .env.local
+.env.local.php
 .env.*.local
 .env.prod
+.env.prod.*
+!.env.prod.example
+
+# Chaves privadas, certificados e credenciais de serviço — nunca no git, nem uma vez
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ppk
+id_rsa*
+id_ecdsa*
+id_ed25519*
+.pgpass
+.htpasswd
+client_secret*.json
+*service-account*.json
+*service_account*.json
+rclone.conf
+.netrc
+# Token do GitHub do composer (o .composer-auth.json da raiz já está acima, na regra do build)
+/app/auth.json
+# Dumps compactados (o *.dump já está mais abaixo). *.sql cru NÃO entra: script SQL de consulta
+# é legítimo em docs/; quem barra dump é a guarda pelo nome e pelo conteúdo.
+*.sql.gz
+*.sql.zst
+*.sql.bz2
+*.sql.xz
 
 # Token do GitHub usado no build (composer install). Mora na VPS, nunca no git.
 # O modelo versionado é o .composer-auth.json.example.
