@@ -433,9 +433,37 @@ dono).
   pasta filtrados só por escritório (vai com o C6-SEC-03 parte C); C6-EDT-10 deve ser decidido junto com o C6-IA-01
   (a IA já grava download/impressão no `audit_log`).
 
+### Ciclo 8 — verificação final (13/10/2026)
+
+- 2 verificadores Opus (relatórios em `engineering-loop/c8/`) sobre os commits do Ciclo 7. **Financeiro: 5/5 ✓;
+  Pasta e Metas: 5/5 ✓. Regressões: 0.**
+- 1 A achado na verificação e corrigido: **C8-EDT-01** — o Financeiro do resumo impresso mostrava "Valor da causa: —" e
+  "Lançamentos: 0"; o `linha()` do desenho (dc L.4586) omite valor vazio (`a102af45`).
+- **Convergência atingida:** nenhuma divergência A autônoma restante nas 8 áreas. O que sobra é B, C ou D (§3.3–3.5,
+  decisões do Ciclo 6 e do Ciclo 7 acima).
+
 ## 5. Handoff
 
-**Se a sessão cair durante o Ciclo 6:** a consolidação (`engineering-loop/c6/consolidacao.md` §3) é a fila. Para
-saber o que já entrou, procure os IDs C6-* no `git log 3ff6d9b0..master`. Lote sem commit no master = refazer
-(as worktrees `agent-*` com commit do lote podem ser reaproveitadas: `git log` na branch `worktree-agent-*` e
-cherry-pick individual depois de revisar). Não integre lote sem revisão.
+**Estado em 13/10/2026 (fim do Ciclo 8):** master local `a102af45` (+ o commit deste registro), **51 commits locais desde
+`cceb7e48`**, nada publicado. Suíte completa **9172/9172** (51.533 asserções) em `a102af45`. Árvore com alterações de outra frente
+(`scripts/restore.sh`, `scripts/testar-restore.sh`) não tocadas.
+
+**Convergido:** não há divergência A autônoma pendente. Próximos passos dependem de pessoas:
+
+1. **Samuel — publicar** (push + deploy). Inclui **1 migration nova**: `Version20261012230000` (PAS-045b, ADD COLUMN NULL
+   em `pasta_observacao_detalhes` e `pasta_observacao_financeira`; metadado no PG15). Fora do minuto múltiplo de 15 (cron
+   do Sync) ou com `SET lock_timeout` (PUB-01).
+2. **Samuel — smoke** (o que nenhum teste vê): Nova meta recolhida + outra janela por cima + Esc; confirmação com a Nova
+   meta aberta; resumo impresso de 2+ páginas (margem 18 mm) e no tema escuro; aba Financeiro e Detalhes como usuário só
+   leitor e na lápide; "Adicionar nota" pelo botão direito sem abrir o teor; "Copiar texto" com o teor fechado; HEIC no
+   visor; X e arraste nos menus do Registro/observação/responsável; ⋮ aberto depois de 15 min sem recarregar.
+3. **Samuel — decisões** (lista consolidada): C6-SEC-03 parte C (criar meta: VER × EDITAR; responsáveis que não veem a
+   pasta) · C6-DASH-01 · C6-PAS-10 · C6-PMC-07 · C6-EDT-10 + C6-IA-01 (auditoria de leitura, mesmo critério) · Restaurar
+   com botão vermelho (variante neutra no `confirmarPs`?) · limitadores em `inteligencia_analise_registro` e
+   `pasta_resumo_pdf` · C7-DOC-01/02/03 · `alert`/`confirm` nativos fora da lista do PAS-034b · as da §3.4.
+4. **Farlei — especificação** dos itens D (§3.3, C6-DOC-04).
+
+**Se for retomar:** só há trabalho novo quando chegar decisão/especificação. Nesse caso: um lote por decisão, implementador
+Opus em worktree, revisão Opus read-only, cherry-pick individual, testes direcionados, suíte completa no fim. **No máximo 2
+agentes ao mesmo tempo e a suíte sempre sozinha** (o WSL travou em 12/10 com 11+ agentes). As worktrees `agent-*` deste
+ciclo podem ser apagadas pelo humano depois de conferir com `git cherry` (o conteúdo já está no master).
