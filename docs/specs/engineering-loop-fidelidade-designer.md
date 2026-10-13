@@ -387,6 +387,18 @@ dono).
 | S6-PUSH | C6-FPN-01, 03, 04, C6-IA-03, 04, C6-PMC-05 | `27cdae74`, `a15be1d5`, `85686de6` | 918/918 (PastaPush, NotaTecnica, Inteligencia) | Opus: ClipboardItem sem try; aviso vermelho ≠ `gmAviso` neutro → corrigidos | ✓ (smoke: Adicionar nota sem abrir teor; Copiar com teor fechado) |
 | S6-SEC | C6-SEC-03 (P0), C6-SEC-01, C6-SEC-02 | `9a2b3801`, `03d1fda5`, `20217298` | 297/297; mutação: tirar posse ou VER derruba `CriarTarefaControllerTest` | Opus: aprovado c/ ressalvas | ✓ · pendente: mencionáveis do compositor financeiro (C6-SEC-02b), testes 404-antes-de-403 com não-editor e edição financeira |
 
+- **Suíte completa após a onda 1:** **9095/9095** (50.745 asserções, 06:39), em `854cd6f8`.
+
+| Lote (onda 2) | Itens | Commits no master | Testes direcionados | Revisão | Resultado |
+|---|---|---|---|---|---|
+| S6-OBS | C6-SEC-02b, testes 404-antes-de-403 e edição financeira, C6-PAS-07 (Detalhes) | `720086bd`, `abda487d`, `260bbaaa` | 292/292 | Opus: aprovado; filtro do financeiro hoje idêntico ao VER (latente, preparado) | ✓ · novo **C6-FPN-05 (A, P5)**: minutos do ⋮ do Relatório financeiro fixos desde a carga (mesma classe do C6-PAS-05) |
+| S6-JS | PAS-022r, PAS-023r, PAS-034b, C6-PAS-09, C6-EDT-09 | `4c2a991c`, `242ac329` | 78/78 | Opus: arraste pelo fundo do painel inventado (desenho: só o 1º filho) → retirado; drawer/Timeline arrastados saíam com parte à vista → zera ao fechar; guarda no `insertBefore` | ✓ · C: Restaurar com botão vermelho (`confirmarPs` sem variante neutra; o desenho não tem esse diálogo) · registro: o X fecha por Esc sintético (como o desenho), `alert`/`confirm` nativos restantes fora da lista do PAS-034b (desvincular, situação/prioridade, `_resp_script`, explorador, checklist) |
+
+- **12/10 ~23h: o WSL travou e a máquina foi reiniciada** com 11 implementadores + revisores + a suíte rodando ao mesmo tempo
+  (cada processo Claude ~300 MB; WSL com 9,6 GB). Nada se perdeu: commits no master e nas worktrees intactos; containers
+  `jusprime_db_dev`/`jusprime_php_dev` religados à mão (`docker start`). **Regra a partir daqui: no máximo 2 agentes ao
+  mesmo tempo, e a suíte sempre sozinha.** Atenção: `ps` não existe no container — para saber se há suíte rodando,
+  olhe os `docker exec` no host (`ps aux | grep "docker exec jusprime_php_dev"`).
 - **Onda 2 (lançada 12/10):** S6-JS (PAS-022r, PAS-023r, PAS-034b, C6-PAS-09, C6-EDT-09 `_cabecalho`), S6-OBS
   (C6-SEC-02b mencionáveis do Financeiro, testes 404-antes-de-403 e edição financeira, C6-PAS-07 de Detalhes),
   S6-IA01 (C6-IA-01 como POST + CSRF + drawer). Depois: S6-M1 (PAS-045b, migration).
