@@ -148,6 +148,13 @@
     const EXT_ASSINATURA = ['p7s', 'p7m'];
     const MIMES_TIFF = ['image/tiff', 'image/tiff-fx', 'image/x-tiff'];
     const EXT_TIFF   = ['tif', 'tiff'];
+    /* C6-DOC-02: HEIC/HEIF (iPhone) é aceito no Anexar, mas só o Safari o abre num <img>. */
+    const MIMES_HEIC = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'];
+    const EXT_HEIC   = ['heic', 'heif'];
+    /* C6-DOC-03: os grupos sem visualização que o desenho avisa à parte (bj-visualizar.js L31,
+       `compactado`, e L28-29, `ppt` e `msg`). Só mudam o aviso: o tipo continua 'outro'. */
+    const EXT_COMPACTADO       = ['rar', '7z', 'tar', 'gz'];
+    const EXT_MICROSOFT_ANTIGO = ['ppt', 'pps', 'msg'];
 
     /* ------------------------------------------------------------ util --- */
 
@@ -1290,6 +1297,52 @@
         return div;
     }
 
+    /* Aviso no formato do `aviso(ic, cor, titulo, txt)` do desenho (bj-visualizar.js L41): ícone
+       grande na cor do grupo, o nome em negrito e o texto. Só textContent. Marca
+       `data-vd-sem-conteudo` (DOC-108): não há o que imprimir. */
+    function blocoAviso(icone, cor, nome, texto, urlDownload) {
+        const div = el('div', 'p-5 text-center text-muted w-100');
+        div.setAttribute('data-vd-sem-conteudo', '');
+        const ic = el('i', 'bi ' + icone + ' display-1 d-block mb-3');
+        ic.style.color = cor;
+        div.appendChild(ic);
+        if (nome) { div.appendChild(el('p', 'fw-bold mb-1', nome)); }
+        div.appendChild(el('p', null, texto));
+        const a = el('a', 'btn btn-primary');
+        a.href = urlDownload;
+        a.appendChild(el('i', 'bi bi-download me-1'));
+        a.appendChild(document.createTextNode(' Baixar arquivo'));
+        div.appendChild(a);
+        return div;
+    }
+
+    /* O tamanho que quem abre já tem (DOC-141: texto pronto, como o do explorador, ou bytes); sem
+       ele, ''. Nada é baixado só para medir. */
+    function textoDoTamanho(tamanho) {
+        return typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '') : String(tamanho == null ? '' : tamanho).trim();
+    }
+
+    /* C6-DOC-03: o tipo sem visualização (bj-visualizar.js L86, L88 e L90). Os textos são os do
+       desenho SEM a promessa de servidor ("o servidor lista o conteúdo", "o servidor converte
+       para PDF"): o sistema não faz nenhuma das duas, como no P7S (DOC-114). "(EXT, 12 KB)" como
+       o desenho; o que faltar sai e, sem nada, nem os parênteses. */
+    function blocoSemVisualizacao(o) {
+        const ext = extensao(o.nome);
+        const tam = textoDoTamanho(o.tamanho);
+        const partes = [ext.toUpperCase(), tam].filter(Boolean);
+        const rotulo = partes.length ? ' (' + partes.join(', ') + ')' : '';
+        if (EXT_COMPACTADO.includes(ext)) {
+            return blocoAviso('bi-file-earmark-zip-fill', '#b7791f', o.nome,
+                'Arquivo ' + ext.toUpperCase() + (tam ? ' (' + tam + ')' : '') + '. O navegador não abre este formato.', o.urlDownload);
+        }
+        if (EXT_MICROSOFT_ANTIGO.includes(ext)) {
+            return blocoAviso(ext === 'msg' ? 'bi-envelope-paper-fill' : 'bi-file-earmark-slides-fill', '#c0571d', o.nome,
+                'Formato antigo da Microsoft' + rotulo + '. O navegador não lê este formato.', o.urlDownload);
+        }
+        return blocoAviso('bi-file-earmark', '#6b8494', o.nome,
+            'Este tipo de arquivo' + rotulo + ' não tem visualização. Use Baixar.', o.urlDownload);
+    }
+
     function blocoCarregando(nome) {
         const div = el('div', 'vd-carregando p-5 text-center text-muted w-100');
         const sp = el('div', 'spinner-border spinner-border-sm me-2');
@@ -1315,8 +1368,20 @@
         alvo.appendChild(fr);
     }
 
-    function renderImagem(alvo, o) {
+    /* C6-DOC-02: imagem que o navegador não decodifica (HEIC fora do Safari, arquivo corrompido)
+       não fica como ícone quebrado: o `error` do <img> troca pelo aviso, que marca
+       `data-vd-sem-conteudo`. HEIC leva o aviso do desenho (bj-visualizar.js L62, grupo `heic`)
+       SEM a promessa de conversão no servidor — o sistema não converte. `vivo()`: abrir outro
+       arquivo antes do erro não troca a tela do novo. */
+    function renderImagem(alvo, o, vivo) {
         const img = document.createElement('img');
+        img.addEventListener('error', function () {
+            if (!vivo()) { return; }
+            const ehHeic = MIMES_HEIC.includes(o.mime.toLowerCase()) || EXT_HEIC.includes(extensao(o.nome));
+            trocar(alvo, ehHeic
+                ? blocoAviso('bi-image', '#7a4bb0', o.nome, 'Imagem HEIC (iPhone). Este navegador não abre esse formato. Use Baixar.', o.urlDownload)
+                : blocoNaoDisponivel(o.urlDownload, 'Não foi possível abrir a pré-visualização deste arquivo.'));
+        }, { once: true });
         img.src = o.url;
         img.className = 'img-fluid d-block mx-auto p-3';
         img.style.maxHeight = '75vh';
@@ -2023,7 +2088,7 @@
 
         const tipo = tipoDe(o.mime, o.nome);
         if (tipo === 'pdf')    { renderPdf(alvo, o); return; }
-        if (tipo === 'imagem') { renderImagem(alvo, o); return; }
+        if (tipo === 'imagem') { renderImagem(alvo, o, vivo); return; }
         if (tipo === 'audio')  { renderAudio(alvo, o); return; }
         if (tipo === 'video')  { renderVideo(alvo, o); return; }
         if (tipo === 'assinatura') { alvo.appendChild(blocoAssinatura(o.nome, o.urlDownload, o.tamanho)); return; }
@@ -2042,7 +2107,7 @@
             zip: renderZip,
         }[tipo];
         if (!render) {
-            alvo.appendChild(blocoNaoDisponivel(o.urlDownload));
+            alvo.appendChild(blocoSemVisualizacao(o)); // C6-DOC-03
             return;
         }
 
