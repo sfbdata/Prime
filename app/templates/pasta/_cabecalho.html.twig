@@ -276,12 +276,13 @@
                        número gravado e recusa se não bater. O texto não promete "lixeira por
                        30 dias" como o desenho: aqui a pasta vira lápide (ou some, se for a
                        última da sequência). Trocar o prompt() nativo por modal é frente própria.
-                       Número errado: o aviso da tela (`avisarPs`, PAS-034b), como o `gmAviso` do
-                       desenho (dc L.4337), e não o `alert` do navegador. #}
+                       Número errado: o aviso da tela (`avisarPs`, PAS-034b), neutro como o `gmAviso` do
+                       desenho (dc L.4337), e não o `alert` do navegador. O prompt leva o cliente entre
+                       parênteses, como o desenho (dc L.4336), o mesmo nome do título do cabeçalho. #}
                     {% if podeExcluirPasta %}
                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                          class="js-excluir-pasta" data-nup="{{ pasta.nup }}"
-                          onsubmit="var n = this.dataset.nup, txt = window.prompt('Excluir a pasta ' + n + '?\nA exclusão fica registrada no histórico.\n\nPara confirmar, digite o número da pasta:'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { if (window.avisarPs) { window.avisarPs('Número não confere. A pasta não foi excluída.', 'erro'); } return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
+                          class="js-excluir-pasta" data-nup="{{ pasta.nup }}" data-cliente="{{ cliente ? cliente.nomeExibicao : pasta.nomeCliente }}"
+                          onsubmit="var n = this.dataset.nup, c = this.dataset.cliente, txt = window.prompt('Excluir a pasta ' + n + (c ? ' (' + c + ')' : '') + '?\nA exclusão fica registrada no histórico.\n\nPara confirmar, digite o número da pasta:'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { if (window.avisarPs) { window.avisarPs('Número não confere. A pasta não foi excluída.'); } return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
                         <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
                         <input type="hidden" name="confirmar_nup" value="">
                         <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">

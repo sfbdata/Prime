@@ -60,8 +60,11 @@ final class PastaJanelasRestantesTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $onsubmit = (string) $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('onsubmit');
-        self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.', 'erro');", $onsubmit);
+        self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.');", $onsubmit);
         self::assertStringNotContainsString('alert(', $onsubmit);
+        // C7-PAS-03: "Excluir a pasta N (cliente)?" como o desenho (dc L.4336)
+        self::assertStringContainsString("'Excluir a pasta ' + n + (c ? ' (' + c + ')' : '') + '?", $onsubmit);
+        self::assertSame((string) $pasta->getNomeCliente(), $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('data-cliente'));
 
         self::assertCount(1, $crawler->filter('#psAviso.ps-aviso'));
         self::assertCount(1, $crawler->filter('#psConfirmar.ps-cf-fundo'));

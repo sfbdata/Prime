@@ -156,7 +156,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
 
         // Excluir: o prompt fica (é o do desenho); o número errado vira o aviso da tela.
         $excluir = self::trecho($cab, 'class="js-excluir-pasta"', '</form>');
-        self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.', 'erro');", $excluir);
+        self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.');", $excluir);
         self::assertStringNotContainsString('alert(', $excluir);
         self::assertStringContainsString('window.prompt(', $excluir, 'o prompt é o do desenho (dc L.4335) e fica');
 
@@ -186,7 +186,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
 
         $dlg = self::ler(self::DIALOGOS);
         $hospedar = self::trecho($dlg, 'function hospedarNoModalAberto(fundo) {', 'function confirmarPs(opcoes) {');
-        self::assertStringContainsString("var modal = document.querySelector('.modal.show');", $hospedar);
+        self::assertStringContainsString("var modal = document.querySelector('.modal.show:not([data-bs-focus=\"false\"])');", $hospedar, 'a Nova meta (sem trava, pointer-events: none) não hospeda a janela');
         self::assertStringContainsString('modal.appendChild(fundo);', $hospedar);
         self::assertStringContainsString('var lugar = hospedarNoModalAberto(fundo);', self::trecho($dlg, 'function confirmarPs(opcoes) {', 'function encerrarConfirmacao('));
         self::assertStringContainsString(

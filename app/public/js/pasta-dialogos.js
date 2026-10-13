@@ -347,7 +347,9 @@
        ao lugar dela ao fechar. O `.modal` não tem transform (quem tem é o `.modal-dialog`),
        então o `position: fixed` do fundo continua sendo da tela. Devolve o lugar original. */
     function hospedarNoModalAberto(fundo) {
-        var modal = document.querySelector('.modal.show');
+        // Só modal de verdade: a Nova meta (`data-bs-focus="false"`, C6-PMC-01) não prende o foco e
+        // tem `pointer-events: none`, que a janela herdaria — o clique atravessaria (C7-PAS-01).
+        var modal = document.querySelector('.modal.show:not([data-bs-focus="false"])');
         if (!modal || modal.contains(fundo)) { return null; }
         var lugar = { pai: fundo.parentNode, proximo: fundo.nextSibling };
         modal.appendChild(fundo);
