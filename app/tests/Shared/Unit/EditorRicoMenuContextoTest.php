@@ -75,6 +75,53 @@ final class EditorRicoMenuContextoTest extends TestCase
         self::assertSame($ordenadas, $posicoes);
     }
 
+    #[TestDox('C6-EDT-05: o bloco "Sugestões de correção" vem depois da mini barra e antes de Recortar')]
+    public function testSugestoesDeCorrecaoAntesDeRecortar(): void
+    {
+        $menu = $this->funcao('abrirMenuContexto');
+        $bloco = strpos($menu, "cabecalhoDaJanela('Sugestões de correção')");
+
+        self::assertNotFalse($bloco, 'bloco "Sugestões de correção" ausente do menu');
+        self::assertGreaterThan(strpos($menu, "'Limpar formatação'"), $bloco);
+        self::assertLessThan(strpos($menu, "'Recortar'"), $bloco);
+        self::assertStringContainsString('var correcoes = palavra ? correcoesDoMenu(palavra.texto) : [];', $menu);
+        self::assertStringContainsString('if (correcoes.length) {', $menu, 'só aparece quando há correção');
+    }
+
+    #[TestDox('C6-EDT-05: cada sugestão tem o ícone do desenho, fica verde e troca a palavra num passo do histórico')]
+    public function testSugestaoDeCorrecaoTrocaAPalavra(): void
+    {
+        $menu = $this->funcao('abrirMenuContexto');
+        $ini = (int) strpos($menu, "cabecalhoDaJanela('Sugestões de correção')");
+        $trecho = substr($menu, $ini, (int) strpos($menu, "'Recortar'") - $ini);
+
+        self::assertStringContainsString("itemDoMenu('bi-spellcheck', correcao, '', false, executar(function () {", $trecho);
+        self::assertStringContainsString('trocarPorSinonimo(quill, palavra, correcao);', $trecho);
+        self::assertStringContainsString("item.classList.add('editor-rico-menu-correcao');", $trecho);
+        self::assertStringContainsString('trocarTrechos(quill, [', $this->funcao('trocarPorSinonimo'));
+        self::assertMatchesRegularExpression(
+            '/\.editor-rico-menu-correcao,\s*\.editor-rico-menu-correcao i \{ color: var\(--er-revisao-ok, #186c47\); \}/',
+            (string) file_get_contents(self::CSS)
+        );
+        self::assertMatchesRegularExpression('/\.editor-rico-menu-correcao span \{ font-weight: 700; \}/', (string) file_get_contents(self::CSS));
+    }
+
+    #[TestDox('C6-EDT-05: as correções seguem a regra do desenho e só usam o dicionário local')]
+    public function testCorrecoesDoMenuSeguemODesenho(): void
+    {
+        $f = $this->funcao('correcoesDoMenu');
+
+        self::assertStringContainsString('Object.prototype.hasOwnProperty.call(AUTOCORRECAO, minuscula)', $f);
+        self::assertStringContainsString('VOCABULARIO_DOBRADO.get(dobrada)', $f);
+        self::assertStringContainsString('if (palavra.length < 5) { return []; }', $f);
+        self::assertStringContainsString('var teto = dobrada.length >= 9 ? 2 : 1;', $f);
+        self::assertStringContainsString('saida.length < 3 && vd[0] === dobrada[0] && distancia(dobrada, vd, teto) <= teto', $f);
+        // Nada sai do navegador: nem rede, nem janela externa.
+        foreach (['fetch(', 'XMLHttpRequest', 'window.open', 'http'] as $proibido) {
+            self::assertStringNotContainsString($proibido, $f);
+        }
+    }
+
     /** @return iterable<string, array{string, string}> rótulo, chamada real do editor */
     public static function acoesReais(): iterable
     {

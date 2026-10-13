@@ -979,9 +979,15 @@
     // dela) num passo só do histórico. Como no desenho, o botão direito fora da seleção leva o
     // cursor ao ponto do clique — a palavra é a que está sob o mouse.
     //
-    // Fora deste menu, de propósito: "Sugestões de correção", "Definir", "Traduzir" e "Pesquisar
-    // na web", "Inserir qualificação do cliente" (EDT-014) e "Hiperlink…" (EDT-025: a barra não
-    // tem link).
+    // Sugestões de correção (C6-EDT-05): com correção para a palavra sob o cursor no dicionário
+    // local (`correcoesDoMenu`), o bloco "Sugestões de correção" entra antes de Recortar, com até
+    // 3 palavras em verde, e cada uma troca a palavra como os sinônimos.
+    //
+    // "Inserir qualificação do cliente" (EDT-014) entra antes de Localizar, só na página que traz
+    // a qualificação do cliente.
+    //
+    // Fora deste menu: "Definir", "Traduzir" e "Pesquisar na web" (mandariam o texto a serviço de
+    // terceiros) e "Hiperlink…" (EDT-025: a barra não tem link).
     //
     // Área de transferência: Recortar e Copiar usam a Clipboard API quando ela existe (texto e
     // HTML do próprio editor) e, sem ela, o comando do navegador, que o Quill trata como Ctrl+C/X.
@@ -1219,6 +1225,35 @@
         return Array.isArray(lista) ? lista : [];
     }
 
+    /**
+     * "Sugestões de correção" do menu (C6-EDT-05, bj-editor.js l.719-724), pelas regras do
+     * desenho: a correção do dicionário (`AUTOCORRECAO`) ou a forma acentuada da palavra
+     * conhecida; sem ela, para palavra DESCONHECIDA de 5+ letras, até 3 palavras do vocabulário
+     * com a mesma inicial a 1 erro (2 a partir de 9 letras). Só o dicionário local — nada sai do
+     * navegador. Já vêm na caixa da palavra.
+     */
+    function correcoesDoMenu(palavra) {
+        var minuscula = palavra.toLowerCase();
+        var dobrada = dobrar(palavra);
+        if (Object.prototype.hasOwnProperty.call(AUTOCORRECAO, minuscula)) {
+            return [mesmaCaixa(palavra, AUTOCORRECAO[minuscula])];
+        }
+        var conhecida = VOCABULARIO_DOBRADO.get(dobrada);
+        if (conhecida !== undefined) {
+            return conhecida !== minuscula && conhecida !== palavra ? [mesmaCaixa(palavra, conhecida)] : [];
+        }
+        if (palavra.length < 5) { return []; }
+        var teto = dobrada.length >= 9 ? 2 : 1;
+        var saida = [];
+        VOCABULARIO_DOBRADO.forEach(function (v, vd) {
+            if (saida.length < 3 && vd[0] === dobrada[0] && distancia(dobrada, vd, teto) <= teto) {
+                saida.push(mesmaCaixa(palavra, v));
+            }
+        });
+
+        return saida;
+    }
+
     /** Troca a palavra pelo sinônimo, na caixa dela, num passo só do histórico. */
     function trocarPorSinonimo(quill, palavra, sinonimo) {
         var para = mesmaCaixa(palavra.texto, sinonimo);
@@ -1298,6 +1333,23 @@
         ].forEach(function (b) { barra.appendChild(botaoDoMenu(b[0], b[1], b[2], executar(b[3]))); });
         menu.appendChild(barra);
 
+        // C6-EDT-05: as correções da palavra sob o cursor vêm antes de Recortar, em verde e
+        // negrito, e trocam a palavra num passo só do histórico (a mesma troca dos sinônimos;
+        // a correção já está na caixa da palavra, então reaplicar a caixa não a altera).
+        var palavra = palavraDoMenu(quill, faixa);
+        var correcoes = palavra ? correcoesDoMenu(palavra.texto) : [];
+        if (correcoes.length) {
+            menu.appendChild(cabecalhoDaJanela('Sugestões de correção'));
+            correcoes.forEach(function (correcao) {
+                var item = itemDoMenu('bi-spellcheck', correcao, '', false, executar(function () {
+                    trocarPorSinonimo(quill, palavra, correcao);
+                }));
+                item.classList.add('editor-rico-menu-correcao');
+                menu.appendChild(item);
+            });
+            menu.appendChild(el('div', 'editor-rico-menu-separador'));
+        }
+
         menu.appendChild(itemDoMenu('bi-scissors', 'Recortar', 'Ctrl+X', !temSelecao, executar(function () { copiarSelecao(refs, faixa, true); })));
         menu.appendChild(itemDoMenu('bi-copy', 'Copiar', 'Ctrl+C', !temSelecao, executar(function () { copiarSelecao(refs, faixa, false); })));
         menu.appendChild(itemDoMenu('bi-clipboard', 'Colar', 'Ctrl+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, false); })));
@@ -1317,7 +1369,6 @@
         menu.appendChild(paragrafo);
         menu.appendChild(el('div', 'editor-rico-menu-separador'));
 
-        var palavra = palavraDoMenu(quill, faixa);
         var sinonimos = palavra ? sinonimosDe(palavra.texto) : [];
         if (sinonimos.length) {
             menu.appendChild(cabecalhoDaJanela('Sinônimos de "' + palavra.texto + '"'));

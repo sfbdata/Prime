@@ -790,6 +790,12 @@
 .editor-rico-menu-item:disabled { color: var(--er-menu-off); cursor: default; background: transparent; }
 .editor-rico-menu-item:disabled i { color: var(--er-menu-off-ic); }
 
+/* "Sugestões de correção" (C6-EDT-05): ícone e palavra em verde, a palavra em negrito, como no
+ * desenho (`#186c47`); no tema escuro, o verde claro da revisão. */
+.editor-rico-menu-correcao,
+.editor-rico-menu-correcao i { color: var(--er-revisao-ok, #186c47); }
+.editor-rico-menu-correcao span { font-weight: 700; }
+
 /* `.bjed-k` */
 .editor-rico-menu-atalho {
     margin-left: auto;
