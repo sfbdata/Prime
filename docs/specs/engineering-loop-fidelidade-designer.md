@@ -520,3 +520,18 @@ O único commit fora do loop é `4a98cc6b` (e-mail institucional), patch idênti
   (o código `719de0e4` lê o schema novo; respostas aparecem soltas como registros comuns). **Nunca rodar o `down` em
   prod**: apaga respostas, versões e juros sem volta. Rollback seguido de republicação deixa o "Antes" do "Ver
   alteração" e as versões da nota técnica com buraco no intervalo. O deploy não faz backup: `pg_dump` manual antes.
+
+**Integração do lote 1 (13/10), branch `publicacao-loop-1`, worktree isolada:**
+
+- Merge local feito pelo dono (o `block-git-writes.py` barra o merge do Claude): **`bbd9060b`**, pais `4a98cc6b` e
+  `4e898d0c`, árvore `7279c93c`, **igual à simulação do `merge-tree`**. Worktree limpa; master local intacto em `ea674409`.
+- `lint:yaml`, `lint:container`, `lint:twig` (205 arquivos), `schema:validate --skip-sync` e `composer validate`: OK.
+- Guarda da S1: 52 testes dos hooks OK; `verificar-segredos.py --intervalo origin/master..HEAD` saída 0; gitleaks
+  (config da própria branch) 200 commits, nenhum vazamento. Para o gitleaks enxergar uma worktree, o repositório tem
+  de ser montado no container no **mesmo caminho absoluto** do host.
+- Banco da frente `saas_testpublicacao-loop-1`: clone do `saas_test` com o `down` da `Version20261012230000` (lote 2),
+  então o schema é o do lote 1; `schema:update --dump-sql` só com o falso positivo do índice funcional.
+- Testes direcionados da integração com a S1 (os 10 do `ci.yml` + `CaminhoDeAnexoDeTarefaTest`): 50/50.
+- **Suíte completa, sozinha: 9007/9007 (50.022 asserções), 8 min 26 s**, a mesma contagem medida em `4a98cc6b`.
+- Ambiente: o `cache:clear` do `composer install` estoura os 128 MB do CLI do container; com `-d memory_limit=1G` passa.
+- **Apto para PR**, com merge commit no GitHub. O deploy pede antes o `pg_dump` manual e o horário fora do cron do Sync.
