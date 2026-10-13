@@ -236,7 +236,6 @@
                         <div class="rp-secao">Financeiro</div>
                         <table class="rp-tabela">
                             <tr><td class="rp-chave">Valor da causa</td><td class="rp-num">{{ resumo.financeiro.valorCausa }}</td></tr>
-                            <tr><td class="rp-chave">Contrato</td><td>{{ resumo.financeiro.contrato }}</td></tr>
                             {% if resumo.financeiro.lancamentos > 0 %}
                                 <tr><td class="rp-chave">Recebido</td><td class="rp-num">{{ resumo.financeiro.recebido }} de {{ resumo.financeiro.previsto }}</td></tr>
                             {% endif %}

@@ -82,6 +82,8 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
 
         self::assertStringContainsString('Intimação', $crawler->filter('[data-secao="movimentacoes"]')->text());
         self::assertStringContainsString('R$ 12.860,00', $crawler->filter('[data-secao="financeiro"]')->text());
+        // C7-EDT-01: o desenho (dc L.4590) tem só Valor da causa, Recebido e Lançamentos
+        self::assertSame(0, $crawler->filter('[data-secao="financeiro"] td.rp-chave')->reduce(static fn ($td): bool => trim($td->text()) === 'Contrato')->count());
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('window.print()', $html);
