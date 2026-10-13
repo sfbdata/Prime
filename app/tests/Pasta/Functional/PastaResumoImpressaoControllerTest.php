@@ -108,6 +108,23 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('[data-secao="financeiro"]'));
     }
 
+    #[TestDox('C8: Financeiro como o `linha()` do desenho — sem valor da causa nem lançamentos, essas linhas não saem')]
+    public function testFinanceiroSemValorVazio(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', $this->url((int) $pasta->getId()));
+
+        self::assertResponseIsSuccessful();
+        $chaves = $crawler->filter('[data-secao="financeiro"] td.rp-chave')->each(static fn ($td): string => trim($td->text()));
+        self::assertNotContains('Valor da causa', $chaves);
+        self::assertNotContains('Lançamentos', $chaves);
+        self::assertNotContains('Recebido', $chaves);
+    }
+
     #[TestDox('Usuário do MESMO escritório sem permissão de ver a pasta leva 403 e não vê nada dela')]
     public function testSemPermissaoDa403(): void
     {

@@ -235,11 +235,14 @@
                     <section class="rp-financeiro" data-secao="financeiro">
                         <div class="rp-secao">Financeiro</div>
                         <table class="rp-tabela">
-                            <tr><td class="rp-chave">Valor da causa</td><td class="rp-num">{{ resumo.financeiro.valorCausa }}</td></tr>
+                            {# Como o `linha()` do desenho (dc L.4586): valor vazio não vira linha. #}
+                            {% if resumo.financeiro.valorCausa != constant('App\\Pasta\\DTO\\PastaFinanceiroOutput::SEM_DADO') %}
+                                <tr><td class="rp-chave">Valor da causa</td><td class="rp-num">{{ resumo.financeiro.valorCausa }}</td></tr>
+                            {% endif %}
                             {% if resumo.financeiro.lancamentos > 0 %}
                                 <tr><td class="rp-chave">Recebido</td><td class="rp-num">{{ resumo.financeiro.recebido }} de {{ resumo.financeiro.previsto }}</td></tr>
+                                <tr><td class="rp-chave">Lançamentos</td><td class="rp-num">{{ resumo.financeiro.lancamentos }}</td></tr>
                             {% endif %}
-                            <tr><td class="rp-chave">Lançamentos</td><td class="rp-num">{{ resumo.financeiro.lancamentos }}</td></tr>
                         </table>
                     </section>
                 {% endif %}
