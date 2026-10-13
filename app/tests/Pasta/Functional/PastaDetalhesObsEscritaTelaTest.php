@@ -289,12 +289,75 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $acionar = substr($html, (int) strpos($html, 'function acionarDoCartao(item, seletor) {'), 300);
         self::assertStringContainsString('if (item.disabled) { return; }', $acionar);
 
-        // O cartão do JS nasce com epoch NUMÉRICO (nunca `Number()` de data formatada — o NaN do C6-PAS-01).
+        // O cartão do JS nasce com epoch NUMÉRICO (nunca `Number()` de data formatada — o NaN do
+        // C6-PAS-01), tirado do instante que o SERVIDOR gravou, não do relógio do navegador (C6-PAS-07).
         $montador = $this->montador($client);
-        self::assertStringContainsString('const janelaAte  = Math.floor(Date.now() / 1000) + 15 * 60;', $montador);
+        self::assertStringContainsString('const janelaAte  = Number(data.criadaEmEpoch) + 15 * 60;', $montador);
+        self::assertStringNotContainsString('Math.floor(Date.now() / 1000)', $montador);
         self::assertStringContainsString('data-janela-ate="${janelaAte}" data-do-autor="1"', $montador);
-        self::assertStringNotContainsString('Number(data.criadaEm', $montador);
+        self::assertStringNotContainsString('Number(data.criadaEm)', $montador);
+        self::assertStringNotContainsString('Number(data.criadaEmTs', $montador);
         self::assertStringContainsString('data-obs-janela="editar"', $montador);
         self::assertStringContainsString('data-obs-janela="excluir"', $montador);
+    }
+
+    /** @return array<string, mixed> o JSON do `pasta_detalhes_observacao_enviar` (201) */
+    private function enviarObs(KernelBrowser $client, Pasta $pasta): array
+    {
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        $token   = $crawler->filter('#formDetalhesObservacao input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/detalhes/observacao', [
+            '_token'   => $token,
+            'conteudo' => '<p>Observação nova</p>',
+        ], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+        self::assertResponseStatusCodeSame(201);
+
+        return json_decode((string) $client->getResponse()->getContent(), true);
+    }
+
+    #[TestDox('C6-PAS-07: o envio de Detalhes devolve `criadaEmEpoch` inteiro, o mesmo instante gravado, para o JS calcular a janela')]
+    public function testEnvioDevolveOEpochDaCriacao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $antes = time();
+        $data  = $this->enviarObs($client, $pasta);
+
+        self::assertIsInt($data['criadaEmEpoch']);
+        self::assertGreaterThanOrEqual($antes - 5, $data['criadaEmEpoch']);
+        self::assertLessThanOrEqual(time() + 5, $data['criadaEmEpoch']);
+
+        $obs = $this->em()->find(PastaObservacaoDetalhes::class, $data['id']);
+        self::assertNotNull($obs);
+        self::assertSame($obs->getCriadaEm()->getTimestamp(), $data['criadaEmEpoch'], 'a mesma base do `|date(\'U\')` do Twig');
+    }
+
+    #[TestDox('C6-PAS-07: o envio de Detalhes devolve a URL da foto do autor quando ele tem foto (rota da foto, como o Twig) e null quando não tem; o cartão do JS a usa escapada')]
+    public function testEnvioDevolveAFotoDoAutor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        self::assertNull($this->enviarObs($client, $pasta)['autorFotoUrl'], 'sem foto: o JS mostra as iniciais');
+
+        $profile = new \App\Profile\Entity\UserProfile($user);
+        $profile->setFotoUrl('foto-autor-det.jpg');
+        $this->em()->persist($profile);
+        $this->em()->flush();
+
+        self::assertSame('/perfil/foto/foto-autor-det.jpg', $this->enviarObs($client, $pasta)['autorFotoUrl']);
+
+        // O cartão montado em JS: com foto, a <img> (igual ao macro do Twig), com o src escapado; sem, as iniciais.
+        $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertStringContainsString(
+            '<span class="ps-avatar ps-avatar--24">${data.autorFotoUrl ? `<img src="${esc(data.autorFotoUrl)}" alt="">` : esc(iniciaisDe(data.autorNome))}</span>',
+            $this->montador($client),
+        );
     }
 }

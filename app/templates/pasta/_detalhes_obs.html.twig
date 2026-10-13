@@ -298,10 +298,11 @@
                 ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
                 : '';
 
-            /* C6-PAS-05: o fim da janela em epoch NUMÉRICO (segundos). O cartão acabou de ser
-               gravado, então a janela começa agora — `data.criadaEm` vem formatado ("d/m/Y H:i"),
-               e `Number()` dele daria NaN (o defeito do C6-PAS-01 no Registro). */
-            const janelaAte  = Math.floor(Date.now() / 1000) + {{ comentario_janela_minutos() }} * 60;
+            /* C6-PAS-05/07: o fim da janela em epoch NUMÉRICO (segundos), a partir do instante que o
+               SERVIDOR gravou (`criadaEmEpoch`), como o `|date('U')` do Twig — o relógio do navegador
+               pode estar adiantado ou atrasado. `data.criadaEm` vem formatado ("d/m/Y H:i"), e
+               `Number()` dele daria NaN (o defeito do C6-PAS-01 no Registro). */
+            const janelaAte  = Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60;
 
             return `
                 <article class="ps-anotacao detalhes-obs-item${ehResposta ? ' ps-anotacao--resposta' : ''}" id="detalhes-obs-${data.id}"
@@ -310,7 +311,7 @@
                     <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
                     <div class="ps-anotacao-topo">
-                        <span class="ps-avatar ps-avatar--24">${esc(iniciaisDe(data.autorNome))}</span>
+                        <span class="ps-avatar ps-avatar--24">${data.autorFotoUrl ? `<img src="${esc(data.autorFotoUrl)}" alt="">` : esc(iniciaisDe(data.autorNome))}</span>
                         <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
                         <span class="ps-cab-espaco"></span>{% if podeEscreverObs %}
                         <span class="ps-anotacao-acoes">

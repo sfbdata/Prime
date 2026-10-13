@@ -2246,6 +2246,10 @@ class PastaController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // Foto do autor no cartão montado em JS (C6-PAS-07): a MESMA regra do Registro e do macro
+        // do Twig — o mapa de fotos dos colaboradores ativos do escritório.
+        $fotoAutor = $this->userRepository->findFotoPorColaboradores($tenant)[(int) $currentUser->getId()] ?? null;
+
         return $this->json([
             'id'         => $obs->getId(),
             // `conteudo` é o valor CRU (volta para dentro do editor ao editar); `conteudoHtml` é o
@@ -2254,6 +2258,12 @@ class PastaController extends AbstractController
             'conteudoHtml' => $mencoes->exibir($obs->getConteudo()),
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
+            // Epoch (segundos) da criação: é dele que o JS tira `data-janela-ate`, igual ao Twig
+            // (`|date('U')`) — o relógio do navegador não entra na conta (C6-PAS-07).
+            'criadaEmEpoch' => $obs->getCriadaEm()->getTimestamp(),
+            'autorFotoUrl'  => $fotoAutor !== null && $fotoAutor !== ''
+                ? $this->generateUrl('app_profile_foto_serve', ['nome' => $fotoAutor])
+                : null,
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_detalhes_obs_editar_' . $obs->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_detalhes_obs_excluir_' . $obs->getId())->getValue(),
             'autorId'     => $currentUser->getId(),
