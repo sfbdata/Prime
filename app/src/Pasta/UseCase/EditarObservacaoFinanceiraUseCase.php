@@ -21,6 +21,9 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * @MENÇÕES (EDT-010r): a edição passa pela MESMA {@see ResolucaoDeMencoesDoRegistro} do envio e
  * avisa quem PASSOU a ser mencionado, com as regras do Registro, na mesma transação.
+ *
+ * Antes e Depois (PAS-045b): a edição guarda o texto anterior INTEIRO na própria observação
+ * (`conteudo_anterior`, só a última versão), como o registro de Dados da pasta (PAS-045).
  */
 final class EditarObservacaoFinanceiraUseCase
 {
@@ -63,8 +66,8 @@ final class EditarObservacaoFinanceiraUseCase
 
         [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
-        $observacao->setConteudo($conteudo);
-        $observacao->setEditadaEm(new \DateTimeImmutable());
+        // O texto de antes fica guardado INTEIRO (PAS-045b, "Ver alteração" da Timeline).
+        $observacao->editarConteudo($conteudo, new \DateTimeImmutable());
 
         $pasta = $observacao->getPasta();
         if ($mencionados === [] || $pasta === null) {

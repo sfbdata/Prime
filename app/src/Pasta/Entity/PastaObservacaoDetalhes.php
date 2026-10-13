@@ -47,6 +47,15 @@ class PastaObservacaoDetalhes implements Auditavel, TenantAware
     private ?\DateTimeImmutable $editadaEm = null;
 
     /**
+     * O texto INTEIRO de antes da última edição (PAS-045b, "Ver alteração" da Timeline: Antes e
+     * Depois) — o mesmo do registro de Dados da pasta (`PastaMensagem::$conteudoAnterior`). Só a
+     * última versão, como o desenho mostra; o `audit_log` corta texto em 500 caracteres e a
+     * observação vai até 5000. Nulo = nunca editada (ou editada antes desta coluna existir).
+     */
+    #[ORM\Column(name: 'conteudo_anterior', type: 'text', nullable: true)]
+    private ?string $conteudoAnterior = null;
+
+    /**
      * O registro RAIZ que este responde (PAS-039; desenho 1.2.3, "Resposta a X" — o mesmo
      * `regsLinha` do Registro da aba Dados).
      *
@@ -127,6 +136,26 @@ class PastaObservacaoDetalhes implements Auditavel, TenantAware
     public function getCriadaEm(): \DateTimeImmutable
     {
         return $this->criadaEm;
+    }
+
+    public function getConteudoAnterior(): ?string
+    {
+        return $this->conteudoAnterior;
+    }
+
+    /**
+     * Edição do texto: o atual vira o "Antes" (só quando muda de fato — salvar sem mudar não
+     * apaga o "Antes" de uma edição real) e a data da edição é gravada.
+     */
+    public function editarConteudo(string $novo, \DateTimeImmutable $em): self
+    {
+        if ($novo !== $this->conteudo) {
+            $this->conteudoAnterior = $this->conteudo;
+            $this->conteudo         = $novo;
+        }
+        $this->editadaEm = $em;
+
+        return $this;
     }
 
     public function getEditadaEm(): ?\DateTimeImmutable

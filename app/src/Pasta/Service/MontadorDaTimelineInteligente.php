@@ -320,6 +320,11 @@ final class MontadorDaTimelineInteligente
             fonte: $aba,
             editado: $observacao->getEditadaEm() !== null,
             autorId: $autor?->getId(),
+            // "Ver alteração" (PAS-045b): como no registro de Dados — o texto anterior inteiro,
+            // puro como o atual; sem edição (ou anterior à coluna), nulo e sem o botão. A do
+            // Financeiro só chega aqui para quem vê o financeiro (passo 5).
+            antes: $observacao->getEditadaEm() !== null ? $this->textoPuro($observacao->getConteudoAnterior()) : null,
+            alteradoEm: $observacao->getEditadaEm(),
         );
     }
 
