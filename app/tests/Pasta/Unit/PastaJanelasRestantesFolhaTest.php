@@ -68,7 +68,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         // O ⋮ da observação também nasce pelo JS (observação nova): o X entra na abertura.
         self::assertStringContainsString("attributeFilter: ['hidden', 'aria-hidden']", $bloco);
         self::assertStringContainsString('attributeOldValue: true', $bloco);
-        self::assertStringContainsString('if (janela.matches(MENUS_COM_X)) { botaoFechar(janela, fecharComoEsc); }', $bloco);
+        self::assertStringContainsString('if (abriu && janela.matches(MENUS_COM_X)) { botaoFechar(janela, fecharComoEsc); }', $bloco);
 
         // A faixa da busca do responsável é a tarja dele: X branco ali.
         $x = self::trecho($js, 'function botaoFechar(', 'window.PsPopovers = {');
@@ -114,7 +114,9 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         $uso = self::trecho($js, 'function arrasteDasJanelas()', '/* ── 4. Atalhos do trilho');
         self::assertStringContainsString("cabecalho: '.ps-pop.is-aberto',", $uso);
         self::assertStringContainsString("if (painel.querySelector(':scope > .ps-pop-tarja')) { return false; }", $uso, 'com tarja, a alça é a tarja (regra de antes)');
-        self::assertStringContainsString('return e.target === painel', $uso);
+        // Só o 1º filho (título de seção) arrasta, como o desenho; o fundo do painel não.
+        self::assertStringContainsString("return e.target === primeiro && primeiro.classList.contains('ps-pop-secao');", $uso);
+        self::assertStringNotContainsString('e.target === painel', $uso);
         self::assertStringContainsString("primeiro.classList.contains('ps-pop-secao')", $uso);
         self::assertStringContainsString("cabecalho: '#psRegMenu:not([hidden]) > .ps-processo-menu-titulo, .ps-obs-menu:not([hidden]) > .ps-processo-menu-titulo'", $uso);
         self::assertStringContainsString("cabecalho: '#pastaRespMenu:not([hidden]) > .pasta-resp-busca-wrap'", $uso);
@@ -125,12 +127,14 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         // Reabre junto do gatilho: a abertura observada zera o deslocamento das cinco janelas.
         self::assertStringContainsString("var JANELAS_OBSERVADAS = '#psRegMenu, .ps-obs-menu, #pastaRespMenu, #psHistorico, #psTimeline';", $js);
         $obs = self::trecho($js, 'function janelasSemPopover() {', '/* Onde o arraste vale nesta tela');
-        self::assertStringContainsString('if (m.oldValue === null || janela.hasAttribute(m.attributeName)) { return; }', $obs);
+        self::assertStringContainsString('var abriu = m.oldValue !== null && !janela.hasAttribute(m.attributeName);', $obs);
+        self::assertStringContainsString('var fechou = m.oldValue === null && janela.hasAttribute(m.attributeName);', $obs);
+        self::assertStringContainsString('if (!abriu && !fechou) { return; }', $obs, 'zera também ao fechar');
         self::assertStringContainsString('window.PsArrastar.zerar(janela);', $obs);
 
         $css = self::ler(self::CSS);
         self::assertStringContainsString('.ps-pop:not(:has(> .ps-pop-tarja)) > .ps-pop-secao:first-child { cursor: grab; touch-action: none; user-select: none; }', $css);
-        self::assertStringContainsString(':where(.ps-pop:not(:has(> .ps-pop-tarja)) > :not(.ps-pop-secao:first-child)) { cursor: auto; }', $css, 'os itens não viram alça');
+        self::assertStringNotContainsString('.ps-pop:not(:has(> .ps-pop-tarja)) { cursor: grab; }', $css, 'o fundo do painel não é alça');
         self::assertStringContainsString('.ps-body .pasta-resp-busca-wrap { cursor: grab; touch-action: none; }', $css);
     }
 
@@ -186,7 +190,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         self::assertStringContainsString('modal.appendChild(fundo);', $hospedar);
         self::assertStringContainsString('var lugar = hospedarNoModalAberto(fundo);', self::trecho($dlg, 'function confirmarPs(opcoes) {', 'function encerrarConfirmacao('));
         self::assertStringContainsString(
-            'if (aberta.lugar && aberta.lugar.pai) { aberta.lugar.pai.insertBefore(fundo, aberta.lugar.proximo); }',
+            'if (proximo && proximo.parentNode === aberta.lugar.pai) { aberta.lugar.pai.insertBefore(fundo, proximo); }',
             self::trecho($dlg, 'function encerrarConfirmacao(', 'function ligarConfirmacao('),
             'volta ao lugar ao fechar',
         );

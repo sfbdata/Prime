@@ -391,7 +391,12 @@
         var aberta = confirmacaoAberta;
         confirmacaoAberta = null;
         fundo.hidden = true;
-        if (aberta.lugar && aberta.lugar.pai) { aberta.lugar.pai.insertBefore(fundo, aberta.lugar.proximo); }
+        if (aberta.lugar && aberta.lugar.pai) {
+            // O vizinho pode ter saído do DOM enquanto a janela estava no modal: sem ele, vai ao fim.
+            var proximo = aberta.lugar.proximo;
+            if (proximo && proximo.parentNode === aberta.lugar.pai) { aberta.lugar.pai.insertBefore(fundo, proximo); }
+            else { aberta.lugar.pai.appendChild(fundo); }
+        }
         if (aberta.foco && aberta.foco.focus && document.contains(aberta.foco)) { aberta.foco.focus(); }
         aberta.resolver(resposta);
     }

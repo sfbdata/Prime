@@ -613,10 +613,8 @@
 .ps-drawer-cab,
 .ps-tl-cab,
 .ps-pop:not(:has(> .ps-pop-tarja)) > .ps-pop-secao:first-child { cursor: grab; touch-action: none; user-select: none; }
-.ps-pop:not(:has(> .ps-pop-tarja)) { cursor: grab; }
 /* Sem `user-select: none` aqui: o campo de busca mora dentro da faixa. */
 .ps-body .pasta-resp-busca-wrap { cursor: grab; touch-action: none; }
-:where(.ps-pop:not(:has(> .ps-pop-tarja)) > :not(.ps-pop-secao:first-child)) { cursor: auto; }
 .ps-reg-menu.is-arrastando > .ps-processo-menu-titulo,
 .ps-obs-menu.is-arrastando > .ps-processo-menu-titulo,
 .ps-body .pasta-resp-menu.is-arrastando > .pasta-resp-busca-wrap,

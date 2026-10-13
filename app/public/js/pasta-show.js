@@ -325,10 +325,14 @@
             mudancas.forEach(function (m) {
                 var janela = m.target;
                 if (janela.nodeType !== 1 || !janela.matches(JANELAS_OBSERVADAS)) { return; }
-                // Abriu = o atributo existia (valor antigo não nulo) e saiu.
-                if (m.oldValue === null || janela.hasAttribute(m.attributeName)) { return; }
+                // Abriu = o atributo existia (valor antigo não nulo) e saiu; fechou = o contrário.
+                var abriu = m.oldValue !== null && !janela.hasAttribute(m.attributeName);
+                var fechou = m.oldValue === null && janela.hasAttribute(m.attributeName);
+                if (!abriu && !fechou) { return; }
+                // Zera nos dois: aberta, volta à origem; fechando, o deslocamento do arraste não
+                // se soma ao transform da saída (drawer e Timeline sairiam com parte à vista).
                 window.PsArrastar.zerar(janela);
-                if (janela.matches(MENUS_COM_X)) { botaoFechar(janela, fecharComoEsc); }
+                if (abriu && janela.matches(MENUS_COM_X)) { botaoFechar(janela, fecharComoEsc); }
             });
         }).observe(document.body, {
             subtree: true,
@@ -348,16 +352,15 @@
             janela: function (cab) { return cab.closest('.ps-pop'); }
         });
 
-        // Menu sem tarja (prioridade, ⋮ do prazo, os das Metas): não há cabeçalho, então a
-        // alça é o fundo do próprio painel — a faixa do X — e o título de seção quando ele é o
-        // 1º filho. Os itens continuam itens (botão não arrasta).
+        // Menu sem tarja (prioridade, ⋮ do prazo, os das Metas): a alça é o 1º filho quando
+        // ele é o título de seção, como o desenho (bluejus-central.js: só o 1º filho arrasta).
+        // O fundo do painel não arrasta. Os itens continuam itens (botão não arrasta).
         window.PsArrastar.ligar({
             cabecalho: '.ps-pop.is-aberto',
             aceita: function (e, painel) {
                 if (painel.querySelector(':scope > .ps-pop-tarja')) { return false; }
                 var primeiro = painel.firstElementChild;
-                return e.target === painel
-                    || (e.target === primeiro && primeiro.classList.contains('ps-pop-secao'));
+                return e.target === primeiro && primeiro.classList.contains('ps-pop-secao');
             },
             janela: function (painel) { return painel; }
         });
