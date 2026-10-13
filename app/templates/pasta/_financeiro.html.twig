@@ -14,7 +14,7 @@
    #formFinanceiroObservacao · #financeiroObsLista · #psPagamentosCorpo
 
    Contexto: `pasta`, `financeiro`, `documentosContrato`, `observacoesFinanceiras`,
-   `pagamentos` (PastaPagamentosOutput).
+   `pagamentos` (PastaPagamentosOutput), `podeEditarPasta` (do show; fallback: aqui).
    ============================================================================ #}
 {# Editor rico (Quill auto-hospedado, sem CDN externo). #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
@@ -23,6 +23,16 @@
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 
 {% import _self as fin %}
+
+{# C7-FPN-01 (convenção PAS-014/PAS-025c: o que o servidor recusa não aparece): toda escrita
+   desta aba — selos de Contrato e Pró-bono, honorários, Relatório financeiro (enviar, responder,
+   editar, excluir), arquivos (adicionar, renomear, excluir) e Pagamentos (adicionar, corrigir,
+   quitar, excluir) — exige EDIT na pasta, e na lápide o `PastaSomenteLeituraListener` recusa
+   todo POST. Sem os dois, nada disso é montado; ficam ver, copiar, baixar e imprimir. Os selos
+   seguem à vista, como texto: eles também dizem o estado. #}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set finPastaLapide = pasta.estaExcluida %}
+{% set podeEscreverFin = podeEditarPasta and not finPastaLapide %}
 
 {% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' %}
 {% set arquivosVisiveis = 3 %}
@@ -53,6 +63,16 @@
             <span class="ps-fin-rotulo">Contrato</span>
         </div>
         <div class="ps-fin-corpo ps-fin-corpo--selo">
+            {% if not podeEscreverFin %}
+            {# Quem não escreve lê o estado: o mesmo selo, sem gesto (C7-FPN-01). #}
+            <span class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
+                  id="financeiro-situacao-selo"
+                  style="cursor: default;"
+                  title="{{ contratoAssinado ? 'Contrato assinado' : 'Contrato pendente' }}">
+                <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
+                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'Assinado' : 'Pendente' }}</span>
+            </span>
+            {% else %}
             <button type="button"
                     id="financeiro-situacao-btn"
                     class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
@@ -66,6 +86,7 @@
                 <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
                 <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'Assinado' : 'Pendente' }}</span>
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -75,6 +96,14 @@
             <span class="ps-fin-rotulo">Pró-bono</span>
         </div>
         <div class="ps-fin-corpo ps-fin-corpo--selo">
+            {% if not podeEscreverFin %}
+            <span class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
+                  id="financeiro-probono-selo"
+                  style="cursor: default;">
+                <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
+                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'Pró-bono ativo' : 'Não é pró-bono' }}</span>
+            </span>
+            {% else %}
             <button type="button"
                     id="financeiro-probono-btn"
                     class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
@@ -87,24 +116,33 @@
                 <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
                 <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'Pró-bono ativo' : 'Não é pró-bono' }}</span>
             </button>
+            {% endif %}
         </div>
     </div>
 
     {# Honorários contratuais — editável no lugar: clique no número, digite, Enter grava.
        O dado por trás segue sendo o `valor_causa` da pasta (rota, coluna e ids
-       inalterados); o dono renomeou só o que a tela mostra. #}
+       inalterados); o dono renomeou só o que a tela mostra.
+       Sem escrita (C7-FPN-01): o número fica, sem lápis, sem campo e sem cara de botão — sem o
+       `#financeiro-valor-causa-input` o JS da edição nem se liga. O `#financeiro-valor-causa`
+       continua: o modal de pagamento e a média leem dele. #}
     <div class="ps-fin-bloco"
          id="financeiro-valor-causa-bloco"
+         {%- if podeEscreverFin %}
          data-csrf="{{ csrf_token('pasta_valor_causa_' ~ pasta.id) }}"
-         data-url="{{ path('pasta_atualizar_valor_causa', {id: pasta.id}) }}">
+         data-url="{{ path('pasta_atualizar_valor_causa', {id: pasta.id}) }}"
+         {%- endif %}>
         <div class="ps-fin-rotulo-linha">
             <span class="ps-fin-rotulo">Honorários contratuais</span>
+            {% if podeEscreverFin %}
             <span class="ps-cab-espaco"></span>
             <button type="button" class="ps-fin-lapis" id="financeiro-valor-causa-lapis" title="Editar honorários contratuais">
                 <i class="bi bi-pencil"></i>
             </button>
+            {% endif %}
         </div>
         <div class="ps-fin-corpo">
+            {% if podeEscreverFin %}
             <div id="financeiro-valor-causa"
                  class="ps-fin-numero ps-num"
                  tabindex="0"
@@ -118,6 +156,11 @@
                    maxlength="20"
                    placeholder="0,00"
                    aria-label="Honorários contratuais">
+            {% else %}
+            <div id="financeiro-valor-causa"
+                 class="ps-fin-numero ps-num"
+                 data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</div>
+            {% endif %}
             <div class="ps-fin-sub">valor cadastrado na pasta</div>
             <div id="financeiro-valor-causa-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
         </div>
@@ -157,12 +200,22 @@
                 <span class="ps-contagem" id="financeiro-obs-count" title="Registros principais (respostas não contam)">{{ observacoesFinanceiras|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemFin)|length }}</span>
             </div>
 
+            {# C7-FPN-01: sem escrita, o compositor nem é montado. Na lápide entra a nota de só leitura
+               (a de Detalhes e do Registro, PAS-025c); para quem só vê a pasta viva, nada. O JS
+               (`_financeiro_obs_script`) já tolera a falta do #formFinanceiroObservacao. #}
+            {% if finPastaLapide %}
+            <div class="ps-compositor ps-compositor--leitura" id="financeiroObsSomenteLeitura">
+                <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Pasta excluída: o relatório financeiro fica só para leitura.</span>
+            </div>
+            {% elseif podeEscreverFin %}
             <div class="ps-compositor">
                 <form id="formFinanceiroObservacao">
                     <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
                     {# @menção (EDT-010r): o pasta-mencoes.js (carregado pela pasta_show, em `_dados_anotacoes`)
-                       liga o "@" deste compositor e busca a lista nesta URL. #}
-                    <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id}) }}">
+                       liga o "@" deste compositor e busca a lista nesta URL. A `origem=financeiro`
+                       (C6-SEC-02b) deixa na lista só quem também vê o financeiro da pasta; o JS só
+                       acrescenta `&q=` (a mesma URL serve à caixa de edição, no _financeiro_obs_script). #}
+                    <div class="ps-compositor-caixa" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: pasta.id, origem: 'financeiro'}) }}">
                         <textarea name="conteudo"
                                   id="financeiroObsConteudo"
                                   data-editor-rico
@@ -178,6 +231,7 @@
                     </div>
                 </form>
             </div>
+            {% endif %}
             <div id="financeiroObsErro" class="ps-compositor-erro d-none"></div>
 
             <div id="financeiroObsLista" class="ps-registro ps-fin-obs-rolagem{{ observacoesFinanceiras is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}">
@@ -185,7 +239,10 @@
                     <div class="ps-vazio" id="financeiroObsVazio">
                         <i class="bi bi-cash-coin"></i>
                         <div class="ps-vazio-titulo">Nada registrado ainda</div>
+                        {# O convite "Anote acima…" só para quem tem o compositor acima (C7-FPN-01). #}
+                        {% if podeEscreverFin %}
                         <div class="ps-vazio-nota">Anote acima o que foi combinado de honorário, custas ou reembolso.</div>
+                        {% endif %}
                     </div>
                 {% else %}
                     {% set mesesFin = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
@@ -207,13 +264,13 @@
                             {% set diaAnteriorFin = diaFin %}
                         {% endif %}
 
-                        {{ fin.registro(obs, null, pasta) }}
+                        {{ fin.registro(obs, null, pasta, podeEscreverFin) }}
 
                         {% set respostasFin = observacoesFinanceiras|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
                         {% if respostasFin|length > 0 %}
                             <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
                                 {% for resposta in respostasFin %}
-                                    {{ fin.registro(resposta, obs, pasta) }}
+                                    {{ fin.registro(resposta, obs, pasta, podeEscreverFin) }}
                                 {% endfor %}
                             </div>
                         {% endif %}
@@ -224,15 +281,18 @@
             {# Botão direito no registro (dc L.1795 `onContextMenu`, menu dc L.5958; FPN-006). UM menu
                para a lista, preenchido pelo script do fim deste arquivo com o registro clicado.
                "Editar" e "Excluir" clicam os botões da janela de 15 min que o cartão traz (autor,
-               dentro do prazo): o caminho é o de sempre. Sem eles, os dois itens ficam À VISTA e
-               desabilitados, "Editar · bloqueado" / "Excluir · bloqueado" com cadeado, como no
-               desenho (dc L.5958; FPN-006b). "Responder" (FPN-005) clica o
-               botão de responder do cartão; na lápide ele não existe e o item some (o servidor
-               recusa toda escrita, `PastaSomenteLeituraListener`). Fora do menu ficam "Encaminhar
-               via Chat I.A" (FPN-007) e "Destacar" (sem lastro). #}
+               dentro do prazo): o caminho é o de sempre. Sem eles — ou passada a janela com a página
+               aberta (C6-FPN-05) —, os dois itens ficam À VISTA, "Editar · bloqueado" /
+               "Excluir · bloqueado" com cadeado, e o clique diz o motivo num aviso neutro, como no
+               desenho (dc L.5958 `gmAviso(pm.motivo)`; FPN-006b, C7-FPN-02). "Responder" (FPN-005)
+               clica o botão de responder do cartão.
+               C7-FPN-01: quem não escreve (só vê a pasta, ou lápide) não recebe Responder, nem
+               Editar/Excluir, nem bloqueados — o motivo seria de permissão, não de prazo ou de
+               autoria (PAS-014/025c; igual a Detalhes). Fora do menu ficam "Encaminhar via Chat I.A"
+               (FPN-007) e "Destacar" (sem lastro). #}
             <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="Ações do registro" hidden>
                 <div class="ps-fin-menu-titulo"></div>
-                {% if not pasta.estaExcluida %}
+                {% if podeEscreverFin %}
                     <button type="button" class="ps-fin-menu-item js-fin-obs-responder" role="menuitem">
                         <i class="bi bi-reply-fill" aria-hidden="true"></i><span>Responder</span>
                     </button>
@@ -240,6 +300,7 @@
                 <button type="button" class="ps-fin-menu-item js-fin-obs-copiar" role="menuitem">
                     <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
                 </button>
+                {% if podeEscreverFin %}
                 <div class="ps-fin-menu-sep" role="separator"></div>
                 <button type="button" class="ps-fin-menu-item js-fin-obs-editar js-fin-obs-gerenciar" role="menuitem">
                     <i class="bi bi-pencil" aria-hidden="true"></i><span>Editar</span>
@@ -247,6 +308,7 @@
                 <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar" role="menuitem">
                     <i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir comentário</span>
                 </button>
+                {% endif %}
                 {# Sem "Imprimir": no desenho (dc L.6454-6466, menuObs/extrasObs) ele mora só no ⋮
                    da observação de Detalhes. #}
             </div>
@@ -266,6 +328,8 @@
                 <h2>Arquivos</h2>
                 {# Contagem SEMPRE à vista, inclusive 0 (dc 1831). #}
                 <span class="ps-contagem" id="financeiro-docs-contagem">{{ documentosContrato|length }}</span>
+                {# C7-FPN-01: enviar arquivo exige EDIT; quem não escreve não recebe o Adicionar. #}
+                {% if podeEscreverFin %}
                 <span class="ps-cab-espaco"></span>
                 <label class="ps-btn-mini ps-fin-adicionar"
                        title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
@@ -284,6 +348,7 @@
                            data-email-cliente="{{ emailCliente }}"
                            data-pasta-rotulo="{{ rotuloPastaEmail }}">
                 </label>
+                {% endif %}
             </div>
 
             <div id="financeiro-docs-lista">
@@ -343,6 +408,8 @@
                                             role="menuitem">
                                         <i class="bi bi-clipboard"></i><span>Copiar nome do arquivo</span>
                                     </button>
+                                    {# C7-FPN-01: Renomear e Excluir exigem EDIT; quem não escreve não os recebe. #}
+                                    {% if podeEscreverFin %}
                                     <button type="button"
                                             class="ps-fin-menu-item btn-renomear-doc"
                                             role="menuitem"
@@ -353,6 +420,7 @@
                                             data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
                                         <i class="bi bi-pencil"></i><span>Renomear</span>
                                     </button>
+                                    {% endif %}
                                     {% if emailCliente %}
                                         <a class="ps-fin-menu-item js-fin-doc-email"
                                            role="menuitem"
@@ -371,6 +439,7 @@
                                             role="menuitem">
                                         <i class="bi bi-folder2-open"></i><span>Ver em Documentos</span>
                                     </button>
+                                    {% if podeEscreverFin %}
                                     <div class="ps-fin-menu-sep" role="separator"></div>
                                     <button type="button"
                                             class="ps-fin-menu-item ps-fin-menu-item--perigo btn-excluir-doc"
@@ -381,6 +450,7 @@
                                             data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
                                         <i class="bi bi-trash3"></i><span>Excluir</span>
                                     </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -397,6 +467,8 @@
                 </div>
             {% endif %}
 
+            {# O rodapé é todo do envio (reduzir ao enviar, erro e "Enviando…"): só com o Adicionar. #}
+            {% if podeEscreverFin %}
             <div class="ps-fin-rodape">
                 <button type="button"
                         id="financeiro-reduzir-btn"
@@ -412,6 +484,7 @@
                     <span class="spinner-border spinner-border-sm me-1"></span>Enviando…
                 </div>
             </div>
+            {% endif %}
         </section>
 
         {# ── Pagamentos ───────────────────────────────────────────────────────
@@ -437,13 +510,19 @@
                    extrato somem quando não há lançamento: o JS confere, na abertura, se a
                    folha `#psExtratoFolha` existe no corpo.
                    "Concluir edição" também aparece como botão ao lado do ⋮ enquanto o modo
-                   está ligado (dc 1869). #}
+                   está ligado (dc 1869).
+                   C7-FPN-01: quem não escreve não recebe Adicionar, Editar ou corrigir, nem o
+                   "Concluir edição"; ficam Ver todos, Copiar resumo e Imprimir extrato. Sem
+                   lançamento nenhum esses três não têm o que mostrar, e o ⋮ não é montado. #}
+                {% if podeEscreverFin %}
                 <button type="button"
                         class="ps-pag-concluir js-pag-concluir-edicao"
                         id="psPagamentosConcluir"
                         hidden>
                     <i class="bi bi-check2"></i><span>Concluir edição</span>
                 </button>
+                {% endif %}
+                {% if podeEscreverFin or pagamentos.total > 0 %}
                 <button type="button"
                         class="ps-fin-menu-gatilho ps-fin-menu-gatilho--cab"
                         id="psPagamentosMenuBtn"
@@ -456,6 +535,7 @@
                 </button>
                 <div class="ps-fin-menu" id="psPagamentosMenu" role="menu" hidden>
                     <div class="ps-fin-menu-titulo">Pagamentos</div>
+                    {% if podeEscreverFin %}
                     <button type="button" class="ps-fin-menu-item" role="menuitem"
                             data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
                         <i class="bi bi-plus-lg"></i><span>Adicionar pagamento</span>
@@ -463,6 +543,7 @@
                     <button type="button" class="ps-fin-menu-item js-pag-editar" role="menuitem">
                         <i class="bi bi-pencil-square"></i><span>Editar ou corrigir valores</span>
                     </button>
+                    {% endif %}
                     <button type="button" class="ps-fin-menu-item js-pag-ver-todos" role="menuitem">
                         <i class="bi bi-list-ul"></i><span>Ver todos os lançamentos</span>
                     </button>
@@ -474,6 +555,7 @@
                         <i class="bi bi-printer"></i><span>Imprimir extrato</span>
                     </button>
                 </div>
+                {% endif %}
             </div>
 
             {# Cabeçalho da folha do extrato. Fica FORA de `#psPagamentosCorpo` porque
@@ -489,15 +571,17 @@
             </div>
 
             <div id="psPagamentosCorpo">
-                {{ include('pasta/_financeiro_pagamentos.html.twig', {pagamentos: pagamentos}) }}
+                {{ include('pasta/_financeiro_pagamentos.html.twig', {pagamentos: pagamentos, podeEscreverFin: podeEscreverFin}) }}
             </div>
 
+            {% if podeEscreverFin %}
             <div class="ps-fin-rodape">
                 <button type="button" class="ps-fin-btn-add"
                         data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
                     <i class="bi bi-plus-lg"></i><span>Adicionar pagamento</span>
                 </button>
             </div>
+            {% endif %}
         </section>
 
     </div>
@@ -1133,16 +1217,37 @@
        botões da janela de 15 min — o servidor só os põe para o autor, dentro do prazo —
        e levam os minutos que restam, como no desenho ("Editar · 12 min"). Sem os
        botões, o desenho os mostra bloqueados (FPN-006b): "Editar · bloqueado" e
-       "Excluir · bloqueado", cadeado, sem a cor de perigo; aqui também desabilitados,
-       com o motivo do desenho (`comPerm`) na dica — sem a frase do usuário primário,
-       que neste sistema não tem a exceção. */
+       "Excluir · bloqueado", cadeado, sem a cor de perigo, com o motivo do desenho
+       (`comPerm`) — sem a frase do usuário primário, que neste sistema não tem a exceção.
+       C7-FPN-02: o bloqueado é CLICÁVEL e diz o motivo num aviso neutro (dc 5958/5904,
+       `gmAviso(pm.motivo)`): `aria-disabled` + `data-aviso`, nunca `disabled`, que engolia
+       o clique e deixava o motivo só no `title` (invisível no toque e no teclado).
+       C6-FPN-05: os minutos saem do `data-janela-ate` do cartão (epoch do servidor) a CADA
+       abertura, como em Detalhes; passada a janela com a página aberta, os dois viram
+       "· bloqueado" com o motivo do prazo (o servidor recusaria). */
     const OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';
     const OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';
     function pintarItemObs(item, pode, rotulo, icone, motivo) {
-        item.disabled = !pode;
-        if (pode) { item.removeAttribute('aria-disabled'); item.removeAttribute('title'); } else { item.setAttribute('aria-disabled', 'true'); item.title = motivo; }
+        item.disabled = false;
+        if (pode) {
+            item.removeAttribute('aria-disabled');
+            item.removeAttribute('data-aviso');
+            item.removeAttribute('title');
+        } else {
+            item.setAttribute('aria-disabled', 'true');
+            item.setAttribute('data-aviso', motivo);
+            item.title = motivo;
+        }
         item.querySelector('i').className = 'bi ' + icone;
         item.querySelector('span').textContent = rotulo;
+    }
+    /* Os minutos que restam da janela, com a regra do servidor (`minutosRestantes`: teto,
+       de 1 a 15; 0 = vencida) — a mesma de Detalhes (`minutosRestantesObs`) e do Registro. */
+    function minutosRestantesObs(artigo) {
+        const ate = Number(artigo ? artigo.dataset.janelaAte : 0) * 1000;
+        const ms  = ate - Date.now();
+        if (!ate || ms <= 0) { return 0; }
+        return Math.min({{ comentario_janela_minutos() }}, Math.max(1, Math.ceil(ms / 60000)));
     }
     let obsAlvo = null;
     function prepararMenuObs(menu, registro) {
@@ -1152,13 +1257,20 @@
         const quando = data ? (data.getAttribute('title') || textoLimpo(data)) : '';
         menu.querySelector('.ps-fin-menu-titulo').textContent = autor + (quando ? ' · ' + quando : '');
 
-        // Responder (FPN-005): o item existe fora da lápide; vale se o cartão traz o botão.
+        // Responder (FPN-005): o item só existe para quem escreve; vale se o cartão traz o botão.
         const responder = menu.querySelector('.js-fin-obs-responder');
         if (responder) { responder.disabled = !registro.querySelector('.btn-responder-obs'); }
 
-        const podeGerenciar = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
+        // C7-FPN-01: quem não escreve não recebe Editar/Excluir no menu; nada a pintar.
         const editar  = menu.querySelector('.js-fin-obs-editar');
         const excluir = menu.querySelector('.js-fin-obs-excluir');
+        if (!editar || !excluir) { return; }
+
+        // Só o item que nasceu liberado (com os botões da janela no cartão) pode seguir liberado;
+        // o que nasceu bloqueado não reabre.
+        const nasceuLiberado = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
+        const resto = nasceuLiberado ? minutosRestantesObs(registro) : 0;
+        const podeGerenciar = resto > 0;
         excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);
 
         if (!podeGerenciar) {
@@ -1168,11 +1280,8 @@
             return;
         }
 
-        const janela = registro.querySelector('.ps-anotacao-janela');
-        const minutos = janela ? (textoLimpo(janela).match(/\d+/) || [''])[0] : '';
-        const resto = minutos ? ' · ' + minutos + ' min' : '';
-        pintarItemObs(editar, true, 'Editar' + resto, 'bi-pencil', '');
-        pintarItemObs(excluir, true, 'Excluir comentário' + resto, 'bi-trash3', '');
+        pintarItemObs(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');
+        pintarItemObs(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');
     }
 
     function menuDoGatilho(gatilho) {
@@ -1303,9 +1412,21 @@
         const item = e.target.closest('.ps-fin-menu-item');
         if (!item || !aberto.menu.contains(item) || item.disabled) { return; }
 
+        // C7-FPN-02: "Editar · bloqueado" / "Excluir · bloqueado" não agem — dizem POR QUE, num
+        // aviso neutro (o `gmAviso` do desenho), e o menu fecha. Vem antes de qualquer ação.
+        if (item.getAttribute('aria-disabled') === 'true') {
+            const motivo = item.getAttribute('data-aviso') || item.getAttribute('title') || '';
+            obsAlvo = null;
+            fechar(false);
+            if (window.avisarPs) { window.avisarPs(motivo); /* neutro, como o gmAviso do desenho */ } else { avisar(motivo); }
+            return;
+        }
+
         if (item.classList.contains('js-fin-doc-copiar-nome')) {
-            const ren = aberto.menu.querySelector('.btn-renomear-doc');
-            copiar(ren ? ren.dataset.titulo : '', item.querySelector('span'), 'Nome copiado');
+            // Sem Renomear (quem não escreve), o nome vem do título do próprio menu.
+            const ren    = aberto.menu.querySelector('.btn-renomear-doc');
+            const titulo = aberto.menu.querySelector('.ps-fin-menu-titulo');
+            copiar(ren ? ren.dataset.titulo : (titulo ? (titulo.getAttribute('title') || textoLimpo(titulo)) : ''), item.querySelector('span'), 'Nome copiado');
             return;
         }
         if (item.classList.contains('js-pag-copiar-resumo')) {
@@ -1415,8 +1536,10 @@
    excluída, ou a que responde a algo fora do limite). Mesma estrutura do Registro da aba Dados
    (`_dados_anotacoes`): faixa "Resposta a NOME", recuo em `.ps-respostas`, botão de responder
    que aparece com o cartão sob o mouse. O JS (`_financeiro_obs_script`) monta a MESMA marcação.
+   `podeEscrever` (C7-FPN-01): EDIT na pasta e pasta viva. Sem ele, nem lápis/lixeira nem
+   Responder — nem para o autor dentro da janela (a rota exige EDIT, a lápide recusa o POST).
 #}
-{% macro registro(obs, raiz, pasta) %}
+{% macro registro(obs, raiz, pasta, podeEscrever) %}
     {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
     {% set iniciais = partes|length > 0
@@ -1424,8 +1547,7 @@
         : '?' %}
     {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo
        vem do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
-    {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
-    {% set lapide = pasta.estaExcluida %}
+    {% set podeGerenciar = podeEscrever and obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
     {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
     {% set alvoId = raiz ? raiz.id : obs.id %}
     {% set alvoNome = raiz ? (raiz.autor.fullName ?? raiz.autor.email ?? '') : autor %}
@@ -1435,9 +1557,12 @@
         ? obs.criadaEm|date('d/m') ~ ' · ' ~ obs.criadaEm|date('H:i')
         : obs.criadaEm|date('H:i') %}
 
-    {# `data-obs-do-autor`: só para o motivo do "· bloqueado" do menu (FPN-006b). #}
+    {# `data-obs-do-autor`: só para o motivo do "· bloqueado" do menu (FPN-006b).
+       `data-janela-ate` (C6-FPN-05): o fim da janela de edição em epoch (segundos); o menu
+       recalcula os minutos por ele a cada abertura, como em Detalhes. #}
     <article class="ps-anotacao{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="financeiro-obs-{{ obs.id }}"
-             data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}">
+             data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}"
+             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}">
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
@@ -1478,7 +1603,7 @@
                     <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
                 </span>
             {% endif %}
-            {% if not lapide %}
+            {% if podeEscrever %}
                 {# Responder a uma RESPOSTA já começa com "@Nome " do autor dela (desenho `respTxt`). #}
                 <button type="button"
                         class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs"

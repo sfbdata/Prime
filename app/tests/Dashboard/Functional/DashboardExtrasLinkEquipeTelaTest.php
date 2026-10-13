@@ -207,6 +207,163 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
         self::assertSame('2024-02-29', $q['data_ate'] ?? null);
     }
 
+    // ─── DASH-008r: Taxa de conclusão e Tempo médio ─────────────────────
+
+    /**
+     * Gestora: 3 metas em fev/2024 (1 concluída COM data, 4 dias; 1 concluída do legado SEM data;
+     * 1 pendente) → taxa 67%, tempo médio 4d (só a que tem data), Metas concluídas 2.
+     * + 1 pendente da gestora em mar/2024, FORA da janela: sem período a gestora tem 4 metas e taxa 50%.
+     * Bruno: 1 pendente → taxa 0% (há meta, nenhuma concluída: sem link, como o desenho), tempo "—".
+     * Carla: nenhuma meta → taxa "—", tempo "—".
+     * Ruído no outro escritório com a própria gestora: concluídas com data e uma pendente.
+     *
+     * @return array{0: User, 1: Tenant}
+     */
+    private function semearTaxaETempo(KernelBrowser $client): array
+    {
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $bruno = $this->criarColaborador($tenant, 'Bruno Extra');
+        $this->criarColaborador($tenant, 'Carla Sem Meta');
+
+        $comData = $this->meta($tenant, [$gestora], Tarefa::STATUS_CONCLUIDA, '2024-02-10 09:00:00');
+        $comData->setDataConclusao(new \DateTimeImmutable('2024-02-14 09:00:00'));
+        $this->meta($tenant, [$gestora], Tarefa::STATUS_CONCLUIDA, '2024-02-11 09:00:00'); // legado: sem data de conclusão
+        $this->meta($tenant, [$gestora], Tarefa::STATUS_PENDENTE, '2024-02-12 09:00:00');
+        $this->meta($tenant, [$gestora], Tarefa::STATUS_PENDENTE, '2024-03-05 09:00:00'); // fora de fev/2024
+        $this->meta($tenant, [$bruno], Tarefa::STATUS_PENDENTE, '2024-02-13 09:00:00');
+
+        $outro = $this->criarTenant();
+        $this->em()->persist(new UserTenant($gestora, $outro));
+        $this->em()->flush();
+        foreach ([Tarefa::STATUS_CONCLUIDA, Tarefa::STATUS_CONCLUIDA, Tarefa::STATUS_PENDENTE] as $status) {
+            $alheia = $this->meta($outro, [$gestora], $status, '2024-02-10 09:00:00', 'Meta do outro escritório');
+            if ($status === Tarefa::STATUS_CONCLUIDA) {
+                $alheia->setDataConclusao(new \DateTimeImmutable('2024-02-25 09:00:00'));
+            }
+        }
+        $this->em()->flush();
+
+        static::getContainer()->get(PreferenciaDoUsuarioRepository::class)->gravar(
+            $tenant,
+            $gestora,
+            CatalogoDePreferenciasDoDashboard::COLUNAS_EXTRAS,
+            ['metas_concluidas', 'taxa_conclusao', 'tempo_medio'],
+        );
+
+        return [$gestora, $tenant];
+    }
+
+    /**
+     * Segue o link da extra $coluna na linha e confere: destino /tarefas/equipe com $status, a
+     * pessoa e o período da URL do Dashboard; total da lista = $denominador (o número da coluna-base
+     * da mesma linha). Devolve o texto da célula.
+     *
+     * @param array<string, string> $periodo
+     */
+    private function assertLinkDoDenominador(
+        KernelBrowser $client,
+        Crawler $linha,
+        string $nome,
+        string $coluna,
+        string $status,
+        string $rotulo,
+        string $tituloLista,
+        int $denominador,
+        array $periodo,
+    ): string {
+        $link = $linha->filter('td[data-coluna="' . $coluna . '"]')->filter(self::LINK);
+        self::assertCount(1, $link, sprintf('%s de %s é link', $coluna, $nome));
+        self::assertSame(sprintf('Abrir: %s de %s', $rotulo, $nome), $link->attr('aria-label'));
+        $texto = trim($link->text());
+
+        $href = (string) $link->attr('href');
+        self::assertSame('/tarefas/equipe', parse_url($href, PHP_URL_PATH));
+        parse_str((string) parse_url($href, PHP_URL_QUERY), $q);
+        self::assertSame($status, $q['status'] ?? null);
+        self::assertArrayHasKey('responsavel', $q);
+        foreach ($periodo as $chave => $valor) {
+            self::assertSame($valor, $q[$chave] ?? null, $chave . ' vai no link');
+        }
+
+        $lista = $client->request('GET', $href);
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            $denominador,
+            $lista->filter('[data-equipe-lista] > .mm-linha[data-equipe-meta]')->count(),
+            sprintf('%s de %s: denominador %d × lista', $coluna, $nome, $denominador),
+        );
+        self::assertStringStartsWith($tituloLista . ' — ' . $nome, trim($lista->filter('[data-equipe-titulo]')->text()));
+        self::assertStringNotContainsStringIgnoringCase('do outro escritório', (string) $client->getResponse()->getContent());
+
+        return $texto;
+    }
+
+    /** Número inteiro de uma célula da linha (Total metas, Metas concluídas). */
+    private function numeroDe(Crawler $linha, string $coluna): int
+    {
+        $num = $linha->filter('td[data-coluna="' . $coluna . '"]')->filter(self::NUMERO);
+        self::assertCount(1, $num, $coluna);
+
+        return (int) trim($num->text());
+    }
+
+    /**
+     * @param array<string, string> $periodo
+     */
+    private function assertTaxaETempo(KernelBrowser $client, array $periodo): void
+    {
+        $query = $periodo === [] ? '' : '?' . http_build_query($periodo);
+        $dash  = $client->request('GET', '/dashboard' . $query);
+        self::assertResponseIsSuccessful();
+
+        // Gestora: taxa → lista de TODAS (= Total metas); tempo → lista de CONCLUÍDAS (= Metas concluídas)
+        $gestora    = $this->linhaDe($dash, 'Gestora da Tela');
+        $totalMetas = $this->numeroDe($gestora, 'metas');
+        $concluidas = $this->numeroDe($gestora, 'metas_concluidas');
+        // A meta de março só conta sem período: prova que número e lista recortam pela janela
+        self::assertSame($periodo === [] ? 4 : 3, $totalMetas);
+        self::assertSame(2, $concluidas);
+
+        // Bruno e Carla lidos ANTES de seguir links (o crawler troca de página)
+        $bruno      = $this->linhaDe($dash, 'Bruno Extra');
+        $brunoTotal = $this->numeroDe($bruno, 'metas');
+        $carla      = $this->linhaDe($dash, 'Carla Sem Meta');
+
+        // "—" nunca é link
+        foreach ([[$bruno, 'Bruno Extra', 'tempo_medio'], [$carla, 'Carla Sem Meta', 'taxa_conclusao'], [$carla, 'Carla Sem Meta', 'tempo_medio']] as [$linha, $nome, $coluna]) {
+            $celula = $linha->filter('td[data-coluna="' . $coluna . '"]');
+            self::assertSame('—', trim($celula->text()), sprintf('%s de %s', $coluna, $nome));
+            self::assertCount(0, $celula->filter('a'), sprintf('"—" de %s em %s não é link', $nome, $coluna));
+        }
+
+        // 0% não é link, como o desenho (celulaLink: zero sem href), mesmo com meta no período
+        self::assertSame(1, $brunoTotal);
+        $taxaBruno = $bruno->filter('td[data-coluna="taxa_conclusao"]');
+        self::assertSame('0%', trim($taxaBruno->text()));
+        self::assertCount(0, $taxaBruno->filter('a'), '0% de Bruno não é link');
+
+        self::assertSame($periodo === [] ? '50%' : '67%', $this->assertLinkDoDenominador($client, $gestora, 'Gestora da Tela', 'taxa_conclusao', 'todas', 'Taxa de conclusão', 'Metas', $totalMetas, $periodo));
+        self::assertSame('4d', $this->assertLinkDoDenominador($client, $gestora, 'Gestora da Tela', 'tempo_medio', 'concluidas', 'Tempo médio', 'Metas concluídas', $concluidas, $periodo));
+    }
+
+    #[TestDox('DASH-008r sem período: Taxa de conclusão abre a lista de todas (= Total metas) e Tempo médio a de concluídas (= Metas concluídas); "—" não é link')]
+    public function testTaxaETempoMedioSemPeriodo(): void
+    {
+        $client = static::createClient();
+        $this->semearTaxaETempo($client);
+
+        $this->assertTaxaETempo($client, []);
+    }
+
+    #[TestDox('DASH-008r com período: os links de Taxa e Tempo médio levam data_de/data_ate e a lista bate com o denominador')]
+    public function testTaxaETempoMedioComPeriodo(): void
+    {
+        $client = static::createClient();
+        $this->semearTaxaETempo($client);
+
+        $this->assertTaxaETempo($client, ['data_de' => '2024-02-01', 'data_ate' => '2024-02-29']);
+    }
+
     #[TestDox('Responsável de OUTRO escritório na URL de concluidas/em_revisao: lista vazia, sem nome nem meta alheia')]
     public function testResponsavelDeOutroEscritorio(): void
     {
@@ -217,7 +374,8 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
         $this->meta($outro, [$estranho], Tarefa::STATUS_CONCLUIDA, '2024-02-10 09:00:00', 'Concluída do outro escritório');
         $this->meta($outro, [$estranho], Tarefa::STATUS_EM_REVISAO, '2024-02-10 09:00:00', 'Revisão do outro escritório');
 
-        foreach (['concluidas', 'em_revisao'] as $status) {
+        // `todas` é o destino da Taxa de conclusão (DASH-008r)
+        foreach (['concluidas', 'em_revisao', 'todas'] as $status) {
             $crawler = $client->request('GET', '/tarefas/equipe', ['status' => $status, 'responsavel' => $estranho->getId()]);
 
             self::assertResponseIsSuccessful();
@@ -236,7 +394,7 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
         $comum  = $this->criarColaborador($tenant, 'Sem BI');
         $this->logarComTenant($client, $comum, $tenant);
 
-        foreach (['concluidas', 'em_revisao'] as $status) {
+        foreach (['concluidas', 'em_revisao', 'todas'] as $status) {
             $client->request('GET', '/tarefas/equipe', ['status' => $status]);
             self::assertResponseStatusCodeSame(403, $status);
         }

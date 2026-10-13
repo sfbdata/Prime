@@ -10,6 +10,11 @@
    quem pediu, o quê (agente ou Push), quando e o status. Nenhum texto do modelo
    entra aqui. A excluída continua na trilha, marcada.
 
+   C6-IA-01 (dc L5742-5743): os downloads e as impressões das análises desta
+   pasta (gravados no `audit_log` pelo POST `inteligencia_analise_registro`)
+   entram na mesma lista, por data, como "Download: (análise)" e
+   "Impressão: (análise)", e somam no N. A cópia não é registrada.
+
    Renderizado em dois lugares: no drawer, sem dados (`auditoria = null`, rótulo
    sem contagem, `data-ia-carregado="0"`), e sozinho por
    `GET /pasta/{id}/ia/auditoria` (`inteligencia_auditoria_da_pasta`), que o
@@ -30,10 +35,17 @@
             <p class="ia-audit-vazio" data-ia-carregando>Carregando o registro…</p>
         {% else %}
             {% for r in auditoria.registros %}
-                <div class="ia-audit-linha" data-ia-audit-analise="{{ r.analiseId }}">
-                    <time class="ia-audit-hora" datetime="{{ r.quando|date('c') }}">{{ r.quando|date('d/m H:i') }}</time>
-                    <span class="ia-audit-txt">{{ r.oQue }} · {{ r.statusRotulo }}{% if r.solicitanteNome %} · pedida por {{ r.solicitanteNome }}{% endif %}{% if r.excluida %} · excluída da tela{% endif %}</span>
-                </div>
+                {% if r.ehDownload or r.ehImpressao %}
+                    <div class="ia-audit-linha" data-ia-audit-exportacao="{{ r.analiseId }}" data-ia-audit-acao="{{ r.acao }}">
+                        <time class="ia-audit-hora" datetime="{{ r.quando|date('c') }}">{{ r.quando|date('d/m H:i') }}</time>
+                        <span class="ia-audit-txt">{{ r.ehDownload ? 'Download' : 'Impressão' }}: {{ r.oQue }}</span>
+                    </div>
+                {% else %}
+                    <div class="ia-audit-linha" data-ia-audit-analise="{{ r.analiseId }}">
+                        <time class="ia-audit-hora" datetime="{{ r.quando|date('c') }}">{{ r.quando|date('d/m H:i') }}</time>
+                        <span class="ia-audit-txt">{{ r.oQue }} · {{ r.statusRotulo }}{% if r.solicitanteNome %} · pedida por {{ r.solicitanteNome }}{% endif %}{% if r.excluida %} · excluída da tela{% endif %}</span>
+                    </div>
+                {% endif %}
             {% else %}
                 <p class="ia-audit-vazio">Nenhuma ação da IA nesta pasta ainda.</p>
             {% endfor %}

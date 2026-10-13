@@ -9,6 +9,7 @@
    Contrato com o nota-tecnica.js (ids e classes não mudam):
    #nota-tecnica-<id> · .ps-nota · .ps-nota-texto · .ps-nota-quando ·
    .js-nota-menu (+ aria-controls) · .ps-nota-menu · .js-nota-responder · .js-nota-copiar ·
+   .js-nota-bloqueado (+ data-aviso) ·
    .js-nota-editar / .js-nota-excluir (+ data-nota-id, data-conteudo,
    data-conteudo-html, data-csrf, data-url).
 
@@ -22,7 +23,8 @@
    é a PMC-018.
    Editar/Excluir: do autor, dentro da janela de 15 min, com "· N min" (como o
    Financeiro do desenho, dc:5958); fora dela, ou para quem não é o autor, os dois
-   ficam desabilitados com `bi-lock` e "· bloqueado". Pasta excluída (lápide): só
+   ficam com `bi-lock` e "· bloqueado" e, clicados, só avisam o motivo (C6-PMC-05,
+   `.js-nota-bloqueado`). Pasta excluída (lápide): só
    leitura — o menu tem só "Copiar texto".
 
    A posse (autor == usuário logado) decide aqui; o PRAZO vem do mesmo serviço dos
@@ -103,13 +105,19 @@
                         <i class="bi bi-trash" aria-hidden="true"></i><span>Excluir · {{ minRest }} min</span>
                     </button>
                 {% else %}
-                    {# Desenho: o aviso do item bloqueado. Sem `data-url`/`data-csrf`: não há o que acionar. #}
-                    <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado" role="menuitem"
-                            disabled aria-disabled="true" title="Só o autor edita a nota, em até 15 minutos">
+                    {# Desenho (dc:5405-5406): o item bloqueado é CLICÁVEL e mostra o aviso
+                       (C6-PMC-05) — `aria-disabled` diz que não age, sem o `disabled` que engolia o
+                       clique e deixava o motivo só no `title`. O nota-tecnica.js mostra `data-aviso`
+                       no aviso da tela. Sem `data-url`/`data-csrf`: não há o que acionar. O
+                       "(o usuário primário não tem limite)" do desenho fica de fora (D-MASTER). #}
+                    <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado js-nota-bloqueado" role="menuitem"
+                            aria-disabled="true" title="Só o autor edita a nota, em até 15 minutos"
+                            data-aviso="Só o autor edita a nota, em até 15 minutos">
                         <i class="bi bi-lock" aria-hidden="true"></i><span>Editar · bloqueado</span>
                     </button>
-                    <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado" role="menuitem"
-                            disabled aria-disabled="true" title="Só o autor exclui a nota, em até 15 minutos">
+                    <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado js-nota-bloqueado" role="menuitem"
+                            aria-disabled="true" title="Só o autor exclui a nota, em até 15 minutos"
+                            data-aviso="Só o autor exclui a nota, em até 15 minutos">
                         <i class="bi bi-lock" aria-hidden="true"></i><span>Excluir · bloqueado</span>
                     </button>
                 {% endif %}

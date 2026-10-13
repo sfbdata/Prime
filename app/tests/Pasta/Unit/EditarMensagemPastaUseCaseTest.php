@@ -15,6 +15,7 @@ use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
@@ -78,6 +79,8 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
                 $this->notificacaoService,
                 $urlGenerator,
                 $this->cota,
+                // O Registro não é o financeiro: a visibilidade dele nunca é perguntada aqui.
+                $this->createStub(VisibilidadeDoFinanceiroDaPasta::class),
             ),
         );
         $this->tenant  = new Tenant();

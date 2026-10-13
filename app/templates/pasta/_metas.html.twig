@@ -273,7 +273,7 @@
                             <form method="post" action="{{ path('tarefa_renomear', {id: tarefa.id}) }}" class="ps-meta-renomear" hidden>
                                 <input type="hidden" name="_token" value="{{ csrf_token('renomear_tarefa_' ~ tarefa.id) }}">
                                 <input type="text" name="titulo" class="ps-meta-ren-campo" value="{{ tarefa.titulo }}"
-                                       aria-label="Nome da meta" maxlength="160" required autocomplete="off">
+                                       aria-label="Nome da meta" maxlength="{{ constant('App\\Tarefa\\UseCase\\RenomearMetaUseCase::TAMANHO_MAXIMO') }}" required autocomplete="off">
                                 <button type="submit" class="ps-meta-ren-salvar">Salvar</button>
                                 <button type="button" class="ps-meta-ren-cancelar">Cancelar</button>
                             </form>

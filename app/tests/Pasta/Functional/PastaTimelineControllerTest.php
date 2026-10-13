@@ -497,6 +497,42 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         self::assertContains('of' . $finOutra->getId(), $this->ids($b));
     }
 
+    #[TestDox('C6-PAS-06: a resposta em Detalhes ou no Financeiro sai "Resposta em <aba>" (também a órfã); a observação comum continua "Registro em <aba>"')]
+    public function testRespostasDeDetalhesEFinanceiroSaemComoResposta(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $det     = $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, 'ORIGINAL-DETALHES', '2026-08-10 09:00');
+        $detResp = $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, 'RESPOSTA-DETALHES', '2026-08-10 10:00');
+        $fin     = $this->observacao(PastaObservacaoFinanceira::class, $pasta, $user, $tenant, 'ORIGINAL-FINANCEIRO', '2026-08-11 09:00');
+        $finResp = $this->observacao(PastaObservacaoFinanceira::class, $pasta, $user, $tenant, 'RESPOSTA-FINANCEIRO', '2026-08-11 10:00');
+        $detResp->setRespostaA($det);
+        $finResp->setRespostaA($fin);
+        // Órfã: a original saiu e o vínculo caiu (SET NULL), mas a marca de resposta fica.
+        $orfa = $this->observacao(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, 'RESPOSTA-ORFA', '2026-08-12 10:00');
+        $orfa->setRespostaA($det);
+        $orfa->setRespostaA(null);
+        $this->em()->flush();
+        self::assertTrue($orfa->isRespostaOrfa());
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+
+        self::assertSame('Registro em Detalhes', $this->evento($dados, 'od' . $det->getId())['titulo'] ?? null);
+        self::assertSame('Resposta em Detalhes', $this->evento($dados, 'od' . $detResp->getId())['titulo'] ?? null);
+        self::assertSame('Resposta em Detalhes', $this->evento($dados, 'od' . $orfa->getId())['titulo'] ?? null);
+        self::assertSame('Registro em Financeiro', $this->evento($dados, 'of' . $fin->getId())['titulo'] ?? null);
+        self::assertSame('Resposta em Financeiro', $this->evento($dados, 'of' . $finResp->getId())['titulo'] ?? null);
+
+        // A resposta continua na categoria e na fonte da aba (só o título muda).
+        $eResp = $this->evento($dados, 'of' . $finResp->getId());
+        self::assertSame('registro', $eResp['categoria'] ?? null);
+        self::assertSame('Financeiro', $eResp['fonte'] ?? null);
+    }
+
     #[TestDox('Quem não vê o financeiro não recebe a observação financeira (nem o pagamento); a de Detalhes continua')]
     public function testObservacaoFinanceiraSoParaQuemVeOFinanceiro(): void
     {

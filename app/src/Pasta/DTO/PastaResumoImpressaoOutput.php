@@ -33,7 +33,7 @@ final readonly class PastaResumoImpressaoOutput
      * @param list<array{numero: string, classe: ?string, tribunal: ?string, orgao: ?string, principal: bool}>       $processos
      * @param list<string>                                                                                           $pendencias
      * @param list<array{titulo: string, responsaveis: string, prazo: ?string, atrasoDias: int}>                     $metasAbertas
-     * @param list<array{data: ?string, tipo: ?string, orgao: ?string, processo: ?string}>                           $movimentacoes
+     * @param list<array{data: ?string, tipo: ?string, texto: ?string, orgao: ?string, processo: ?string}>          $movimentacoes
      * @param array{valorCausa: string, contrato: string, recebido: string, previsto: string, lancamentos: int}|null $financeiro
      */
     private function __construct(
@@ -42,8 +42,6 @@ final readonly class PastaResumoImpressaoOutput
         public ?string $documento,
         public ?string $responsavel,
         public string $situacao,
-        public string $prioridade,
-        public string $abertura,
         public ?string $acao,
         public array $clientes,
         public array $processos,
@@ -111,6 +109,8 @@ final readonly class PastaResumoImpressaoOutput
             $movimentacoes[] = [
                 'data'     => $pub->dataDisponibilizacao,
                 'tipo'     => $pub->tipoComunicacao,
+                // O trecho do teor que a consulta da pasta já projeta (desenho dc:4591, `m.texto`).
+                'texto'    => $pub->textoResumo,
                 'orgao'    => $pub->nomeOrgao,
                 'processo' => $pub->numeroProcessoExibicao,
             ];
@@ -122,8 +122,6 @@ final readonly class PastaResumoImpressaoOutput
             documento: $principal !== null ? self::documento($principal) : null,
             responsavel: $pasta->getResponsavel()?->getFullName() ?: null,
             situacao: $pasta->getSituacao() === 'arquivado' ? 'Arquivado' : 'Ativo',
-            prioridade: $pasta->getPrioridadeLabel(),
-            abertura: $pasta->getDataAbertura()->format('d/m/Y'),
             acao: $acao ?: null,
             clientes: $clientes,
             processos: $processos,

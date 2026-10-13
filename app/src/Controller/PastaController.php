@@ -1076,6 +1076,10 @@ class PastaController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // Foto do autor no cartão montado em JS: a MESMA regra do cartão do Twig (o mapa de
+        // fotos dos colaboradores ativos do escritório, `fotosResponsaveis` do show).
+        $fotoAutor = $this->userRepository->findFotoPorColaboradores($tenant)[(int) $currentUser->getId()] ?? null;
+
         return $this->json([
             'id'          => $mensagem->getId(),
             // cru volta ao editor; conteudoHtml é o que a tela exibe (sanitizado, com as
@@ -1085,6 +1089,12 @@ class PastaController extends AbstractController
             'autorNome'   => $currentUser->getFullName(),
             'criadaEm'    => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs'  => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
+            // Epoch (segundos) da criação: é dele que o JS tira `data-janela-ate`, igual ao Twig
+            // (`|date('U')`). O ATOM acima não é número — `Number()` sobre ele dava NaN (C6-PAS-01).
+            'criadaEmEpoch' => $mensagem->getCriadaEm()->getTimestamp(),
+            'autorFotoUrl'  => $fotoAutor !== null && $fotoAutor !== ''
+                ? $this->generateUrl('app_profile_foto_serve', ['nome' => $fotoAutor])
+                : null,
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_mensagem_editar_' . $mensagem->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_mensagem_excluir_' . $mensagem->getId())->getValue(),
             // A RAIZ respondida (já normalizada pelo UseCase): é sob ela que o JS pendura a resposta.
@@ -2051,6 +2061,10 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
@@ -2092,6 +2106,9 @@ class PastaController extends AbstractController
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs' => $obs->getCriadaEm()->format(\DateTimeInterface::ATOM),
+            // Epoch (segundos) da criação: é dele que o JS tira `data-janela-ate` do cartão novo,
+            // igual ao `|date('U')` do Twig — o relógio do navegador não entra na conta (C6-FPN-05).
+            'criadaEmEpoch' => $obs->getCriadaEm()->getTimestamp(),
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_financeiro_obs_editar_' . $obs->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_financeiro_obs_excluir_' . $obs->getId())->getValue(),
             'autorId'     => $currentUser->getId(),
@@ -2110,13 +2127,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoFinanceira::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoFinanceira::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -2150,13 +2173,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoFinanceira::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoFinanceira::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -2182,6 +2211,10 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
@@ -2216,6 +2249,10 @@ class PastaController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // Foto do autor no cartão montado em JS (C6-PAS-07): a MESMA regra do Registro e do macro
+        // do Twig — o mapa de fotos dos colaboradores ativos do escritório.
+        $fotoAutor = $this->userRepository->findFotoPorColaboradores($tenant)[(int) $currentUser->getId()] ?? null;
+
         return $this->json([
             'id'         => $obs->getId(),
             // `conteudo` é o valor CRU (volta para dentro do editor ao editar); `conteudoHtml` é o
@@ -2224,6 +2261,12 @@ class PastaController extends AbstractController
             'conteudoHtml' => $mencoes->exibir($obs->getConteudo()),
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
+            // Epoch (segundos) da criação: é dele que o JS tira `data-janela-ate`, igual ao Twig
+            // (`|date('U')`) — o relógio do navegador não entra na conta (C6-PAS-07).
+            'criadaEmEpoch' => $obs->getCriadaEm()->getTimestamp(),
+            'autorFotoUrl'  => $fotoAutor !== null && $fotoAutor !== ''
+                ? $this->generateUrl('app_profile_foto_serve', ['nome' => $fotoAutor])
+                : null,
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_detalhes_obs_editar_' . $obs->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_detalhes_obs_excluir_' . $obs->getId())->getValue(),
             'autorId'     => $currentUser->getId(),
@@ -2242,13 +2285,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoDetalhes::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoDetalhes::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -2282,13 +2331,19 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
+        // Posse explícita (404, C6-SEC-01): a pasta veio do resolver por PK; não depende só do TenantFilter.
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $obs = $this->em->find(PastaObservacaoDetalhes::class, $obsId);
-        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+        // Escopada a esta pasta E a este escritório (guard IDOR): id de outra pasta ou de outro
+        // escritório responde o mesmo 404 de id inexistente.
+        $obs = $this->em->getRepository(PastaObservacaoDetalhes::class)->findOneBy(['id' => $obsId, 'pasta' => $pasta, 'tenant' => $tenant]);
+        if ($obs === null) {
             return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 

@@ -582,6 +582,45 @@
 .ps-pop-x--tarja { top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.14); color: #fff; }
 .ps-pop-x--tarja:hover,
 .ps-pop-x--tarja:focus-visible { background: rgba(255,255,255,.26); color: #fff; }
+/* PAS-022r: o mesmo X (botaoFechar) no menu do Registro, no ⋮ da observação de Detalhes e
+   na lista do responsável. Nos dois primeiros o fundo é claro: X cinza no canto, à altura do
+   título (autor · data), que abre espaço para ele. Na lista do responsável, X branco na faixa
+   azul da busca (a tarja dela), que estreita o campo para não ficar por baixo. */
+.ps-reg-menu,
+.ps-obs-menu {
+    --ps-pop-x-bg:     rgba(238,243,246,.95);
+    --ps-pop-x-tx:     #4f6878;
+    --ps-pop-x-hv-bg:  #fdeceb;
+    --ps-pop-x-hv-tx:  #a3232b;
+}
+[data-bs-theme="dark"] .ps-reg-menu,
+[data-bs-theme="dark"] .ps-obs-menu {
+    --ps-pop-x-bg:     rgba(255,255,255,.08);
+    --ps-pop-x-tx:     #b4c4ce;
+    --ps-pop-x-hv-bg:  rgba(220,53,69,.18);
+    --ps-pop-x-hv-tx:  #f1aeb5;
+}
+.ps-reg-menu:has(> .ps-pop-x) > .ps-processo-menu-titulo,
+.ps-obs-menu:has(> .ps-pop-x) > .ps-processo-menu-titulo { padding: 10px 40px 9px 10px; }
+.ps-body .pasta-resp-busca-wrap:has(> .ps-pop-x) { padding-right: 46px; }
+/* PAS-023r: as outras alças do PsArrastar — o título dos menus do Registro e da
+   observação, a faixa da busca do responsável, o cabeçalho do Histórico e o da Timeline e,
+   no menu sem tarja, o fundo do painel (a faixa do X) e o título de seção quando é o 1º
+   filho. Os itens do menu sem tarja voltam ao cursor deles (`:where`, sem peso: o
+   `cursor: pointer` dos botões continua valendo). */
+.ps-reg-menu > .ps-processo-menu-titulo,
+.ps-obs-menu > .ps-processo-menu-titulo,
+.ps-drawer-cab,
+.ps-tl-cab,
+.ps-pop:not(:has(> .ps-pop-tarja)) > .ps-pop-secao:first-child { cursor: grab; touch-action: none; user-select: none; }
+/* Sem `user-select: none` aqui: o campo de busca mora dentro da faixa. */
+.ps-body .pasta-resp-busca-wrap { cursor: grab; touch-action: none; }
+.ps-reg-menu.is-arrastando > .ps-processo-menu-titulo,
+.ps-obs-menu.is-arrastando > .ps-processo-menu-titulo,
+.ps-body .pasta-resp-menu.is-arrastando > .pasta-resp-busca-wrap,
+.ps-drawer.is-arrastando > .ps-drawer-cab,
+.ps-tl.is-arrastando > .ps-tl-cab,
+.ps-pop.is-arrastando:not(:has(> .ps-pop-tarja)) { cursor: grabbing; }
 .ps-pop-secao {
     padding: 8px 10px 3px;
     font-size: 10.5px;
@@ -2754,9 +2793,12 @@ span.ps-situacao-pill { cursor: default; }
 #financeiro .ps-fin-menu-item--perigo:focus-visible { color: var(--ps-danger-text); }
 #financeiro .ps-fin-menu-item--perigo:hover,
 #financeiro .ps-fin-menu-item--perigo:focus-visible { background: var(--ps-danger-hover); }
-/* "Editar · bloqueado" / "Excluir · bloqueado" (FPN-006b): a cara do item do desenho, sem clique. */
-#financeiro .ps-fin-menu-item:disabled { cursor: default; }
-#financeiro .ps-fin-menu-item:disabled:hover { background: transparent; }
+/* "Editar · bloqueado" / "Excluir · bloqueado" (FPN-006b): a cara do item do desenho. Desde o C7-FPN-02
+   o item é clicável (mostra o motivo), marcado por `aria-disabled`, não por `disabled`. */
+#financeiro .ps-fin-menu-item:disabled,
+#financeiro .ps-fin-menu-item[aria-disabled="true"] { cursor: default; }
+#financeiro .ps-fin-menu-item:disabled:hover,
+#financeiro .ps-fin-menu-item[aria-disabled="true"]:hover { background: transparent; }
 #financeiro .ps-fin-menu-sep,
 .ps-push .ps-push-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
 /* Item e separador que o pasta-push.js esconde por cartão (documento sem link, nota sem processo):

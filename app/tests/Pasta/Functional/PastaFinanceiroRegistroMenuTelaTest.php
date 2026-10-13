@@ -264,7 +264,8 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        $caixa = $crawler->filter('#formFinanceiroObservacao > .ps-compositor-caixa[data-mencionaveis-url="/pasta/' . $pasta->getId() . '/mencionaveis"] > textarea#financeiroObsConteudo');
+        // C6-SEC-02b: a URL do compositor do financeiro leva a origem — a lista fica com quem vê o financeiro.
+        $caixa = $crawler->filter('#formFinanceiroObservacao > .ps-compositor-caixa[data-mencionaveis-url="/pasta/' . $pasta->getId() . '/mencionaveis?origem=financeiro"] > textarea#financeiroObsConteudo');
         self::assertCount(1, $caixa);
         self::assertCount(1, $crawler->filter('#financeiro-obs-' . $obs->getId() . ' .obs-conteudo .ql-editor > p > span.ps-mencao[data-user-id="' . $user->getId() . '"]'));
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
@@ -153,20 +154,21 @@ final class TarefaController extends AbstractController
         $usuario = $this->getUser();
         $tenant = $this->assertAccess($usuario);
 
+        // C6-SEC-03: a POSSE da pasta, e não o vínculo do criador/responsável dela. Perguntar só se
+        // essa pessoa tem vínculo com o escritório da sessão deixava passar a pasta de OUTRO
+        // escritório quando ela está nos dois (e o TenantFilter falhou) — a meta nasceria com o
+        // meu tenant pendurada na pasta alheia. Mesma correção do SEC-013. Fora do escritório:
+        // 404, como todo recurso cross-tenant — 403 confirmaria que o id existe em algum lugar.
         $pasta = $pastaRepository->find($pastaId);
-        if ($pasta === null) {
+        if ($pasta === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
             return $this->json(['erro' => 'Pasta não encontrada.'], 404);
         }
 
-        $criadorPasta = $pasta->getCriadoPor();
-        $responsavelPasta = $pasta->getResponsavel();
-        $criadorPertence = $criadorPasta !== null
-            && $this->userTenantRepo->existeVinculoAtivo($criadorPasta, $tenant);
-        $responsavelPertence = $responsavelPasta !== null
-            && $this->userTenantRepo->existeVinculoAtivo($responsavelPasta, $tenant);
-
-        if (!$criadorPertence && !$responsavelPertence) {
-            return $this->json(['erro' => 'Pasta não encontrada.'], 404);
+        // A meta é conteúdo da pasta: quem não VÊ a pasta não cria meta nela (nem escolhe
+        // responsáveis, nem dispara o aviso de meta criada). VER é o mínimo; exigir EDITAR, como
+        // as ações irmãs do `MetaNaListaController`, é decisão em aberto (C6-SEC-03, parte C).
+        if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW)) {
+            return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], 403);
         }
 
         if (!$this->isCsrfTokenValid('tarefa_criar_'.$pastaId, (string) $request->request->get('_token'))) {

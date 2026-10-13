@@ -51,8 +51,13 @@ class NotaTecnicaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Todas as notas de um processo (inclusive as penduradas em publicações), mais recente
-     * primeiro — a nota recém-escrita é a que interessa ler. Uso exclusivo de exibição.
+     * Todas as notas de um processo (inclusive as penduradas em publicações), em ordem
+     * CRONOLÓGICA — a mais antiga primeiro, a nota nova no fim (C6-FPN-01; desenho dc:5395/5397,
+     * `A.push`): o bloco se lê como conversa, de cima para baixo, e o compositor fica embaixo.
+     * Uso exclusivo de exibição.
+     *
+     * O teto continua pegando as `$limite` MAIS RECENTES (a consulta ordena da mais nova e corta);
+     * só a página devolvida é invertida. Ordenar ASC no SQL com o teto esconderia as novas.
      *
      * @return NotaTecnica[]
      */
@@ -60,7 +65,7 @@ class NotaTecnicaRepository extends ServiceEntityRepository
     {
         // Fetch-join do autor e da publicação: o Output lê os dois, e sem isso cada nota da tela
         // disparava duas consultas preguiçosas.
-        return $this->createQueryBuilder('n')
+        return $this->emOrdemCronologica($this->createQueryBuilder('n')
             ->addSelect('a', 'pub')
             ->leftJoin('n.autor', 'a')
             ->leftJoin('n.publicacaoDjen', 'pub')
@@ -72,11 +77,12 @@ class NotaTecnicaRepository extends ServiceEntityRepository
             ->addOrderBy('n.id', 'DESC')
             ->setMaxResults($limite)
             ->getQuery()
-            ->getResult();
+            ->getResult());
     }
 
     /**
-     * Só as notas penduradas NESTA movimentação do Push Processual, mais recente primeiro.
+     * Só as notas penduradas NESTA movimentação do Push Processual, em ordem cronológica (a nova
+     * no fim, C6-FPN-01) — o mesmo bloco que a aba pendura sob o cartão.
      *
      * @return NotaTecnica[]
      */
@@ -84,7 +90,7 @@ class NotaTecnicaRepository extends ServiceEntityRepository
     {
         // Fetch-join do autor e da publicação: o Output lê os dois, e sem isso cada nota da tela
         // disparava duas consultas preguiçosas.
-        return $this->createQueryBuilder('n')
+        return $this->emOrdemCronologica($this->createQueryBuilder('n')
             ->addSelect('a', 'pub')
             ->leftJoin('n.autor', 'a')
             ->leftJoin('n.publicacaoDjen', 'pub')
@@ -96,13 +102,13 @@ class NotaTecnicaRepository extends ServiceEntityRepository
             ->addOrderBy('n.id', 'DESC')
             ->setMaxResults($limite)
             ->getQuery()
-            ->getResult();
+            ->getResult());
     }
 
     /**
      * As notas penduradas nas movimentações de UMA página da aba Push da pasta, numa consulta só
-     * (FPN-020: a nota aparece sob o cartão com o teor fechado). Mais recente primeiro, como no
-     * teor; quem agrupa por publicação é o `PastaPushOutput`.
+     * (FPN-020: a nota aparece sob o cartão com o teor fechado). Em ordem cronológica, como no
+     * teor (C6-FPN-01); quem agrupa por publicação é o `PastaPushOutput`, que mantém a ordem.
      *
      * Três recortes, todos na consulta: o escritório (explícito — não depende do TenantFilter de
      * sessão), as publicações da lista e os processos DA PASTA. O último importa porque a nota é do
@@ -123,7 +129,7 @@ class NotaTecnicaRepository extends ServiceEntityRepository
 
         // Fetch-join do autor e da publicação: o Output lê os dois (sem isso, duas consultas
         // preguiçosas por nota da página).
-        return $this->createQueryBuilder('n')
+        return $this->emOrdemCronologica($this->createQueryBuilder('n')
             ->addSelect('a', 'pub')
             ->leftJoin('n.autor', 'a')
             ->innerJoin('n.publicacaoDjen', 'pub')
@@ -137,6 +143,19 @@ class NotaTecnicaRepository extends ServiceEntityRepository
             ->addOrderBy('n.id', 'DESC')
             ->setMaxResults($limite)
             ->getQuery()
-            ->getResult();
+            ->getResult());
+    }
+
+    /**
+     * As consultas de exibição pedem da mais nova para a mais antiga (para o teto cortar as
+     * antigas) e a tela lê na ordem em que foram escritas: inverte a página.
+     *
+     * @param NotaTecnica[] $notas
+     *
+     * @return NotaTecnica[]
+     */
+    private function emOrdemCronologica(array $notas): array
+    {
+        return array_reverse(array_values($notas));
     }
 }

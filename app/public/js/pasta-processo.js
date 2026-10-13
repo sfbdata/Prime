@@ -171,7 +171,13 @@
             tr.appendChild(valor);
             tabela.appendChild(tr);
         });
-        window.PastaImpressao.conteudo({ titulo: item.getAttribute('data-titulo') || '', corpo: tabela });
+        // C6-EDT-06: o Baixar PDF leva só o id do cartão; o servidor remonta as linhas.
+        var cartao = item.closest('[data-processo-id]');
+        window.PastaImpressao.conteudo({
+            titulo: item.getAttribute('data-titulo') || '',
+            corpo: tabela,
+            pdf: cartao ? { secao: 'processo', processo: cartao.getAttribute('data-processo-id') } : null,
+        });
     }
 
     function irParaAba(item) {

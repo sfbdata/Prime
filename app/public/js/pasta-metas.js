@@ -896,6 +896,16 @@
         modal.addEventListener('shown.bs.modal', conferir);
         conferir();
 
+        // C6-PMC-01: a janela não é modal (sem fundo e sem trava de foco), então o Bootstrap não
+        // leva o foco para dentro. Foco no título ao abrir: o Esc dado DENTRO da janela o próprio
+        // Bootstrap trata (keydown no `.modal`), como o desenho (`nm.tecla`, só com o foco nela).
+        // Esc dado na lista atrás fecha o que é da lista, não a Nova meta (C7-PMC-01).
+        // `aria-modal` sai: a página atrás continua ativa.
+        modal.addEventListener('shown.bs.modal', function () {
+            modal.removeAttribute('aria-modal');
+            if (titulo) { titulo.focus(); }
+        });
+
         function alternarRecolhido() {
             var rec = !janela.classList.contains('is-recolhido');
             janela.classList.toggle('is-recolhido', rec);

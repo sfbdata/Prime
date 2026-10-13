@@ -83,9 +83,10 @@ final class PastaJanelaDeEdicaoTelaTest extends JusPrimeWebTestCase
             self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > ' . $editar . '[data-url][data-csrf]'), $cartao);
             self::assertCount(1, $acoes->filter('.ps-anotacao-acoes > ' . $excluir . '[data-url][data-csrf]'), $cartao);
             // Criado há 5 min: faltam um pouco menos de 10 → arredonda para cima, 10.
-            if (str_starts_with($cartao, '#pasta-msg-')) {
+            if (str_starts_with($cartao, '#pasta-msg-') || str_starts_with($cartao, '#detalhes-obs-')) {
                 // PAS-037: no Registro os minutos vão para a dica do lápis e a lixeira sai da linha
-                // (fica escondida, para o menu do botão direito clicá-la).
+                // (fica escondida, para o menu do botão direito clicá-la). C6-PAS-03: em Detalhes
+                // também (o ⋮ de Detalhes clica a lixeira escondida).
                 self::assertSame('Editável por mais 10 minutos', $acoes->filter($editar)->attr('title'));
                 self::assertNotNull($acoes->filter($excluir)->attr('hidden'));
                 self::assertCount(0, $acoes->filter('.ps-anotacao-janela'));
@@ -126,8 +127,10 @@ final class PastaJanelaDeEdicaoTelaTest extends JusPrimeWebTestCase
         $this->abrir($client, $pasta);
         $html = (string) $client->getResponse()->getContent();
 
-        // Detalhes e Financeiro carregam o rótulo; o Registro (PAS-037) leva os minutos na dica do lápis.
-        self::assertSame(2, substr_count($html, '>· 15 min</span>'));
+        // Financeiro carrega o rótulo; o Registro (PAS-037) e Detalhes (C6-PAS-03) levam os minutos
+        // na dica do lápis.
+        self::assertSame(1, substr_count($html, '>· 15 min</span>'));
         self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar registro"'));
+        self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar observação"'));
     }
 }

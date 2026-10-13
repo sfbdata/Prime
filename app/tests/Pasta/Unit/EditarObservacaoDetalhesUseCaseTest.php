@@ -56,6 +56,49 @@ final class EditarObservacaoDetalhesUseCaseTest extends TestCase
         self::assertNotNull($obs->getEditadaEm());
     }
 
+    #[TestDox('PAS-045b: a edição guarda o texto anterior INTEIRO (acima dos 500 do audit_log); só a última versão')]
+    public function testGuardaOTextoAnteriorInteiro(): void
+    {
+        $longo = str_repeat('Texto original longo. ', 200); // ~4400 caracteres
+        $obs   = $this->novaObservacao($longo);
+        self::assertNull($obs->getConteudoAnterior());
+
+        $this->useCase->executar($obs, $this->autor, $this->tenant, 'Primeira correção');
+        self::assertSame($longo, $obs->getConteudoAnterior());
+        self::assertGreaterThan(500, mb_strlen((string) $obs->getConteudoAnterior()));
+
+        $this->useCase->executar($obs, $this->autor, $this->tenant, 'Segunda correção');
+        self::assertSame('Primeira correção', $obs->getConteudoAnterior());
+        self::assertSame('Segunda correção', $obs->getConteudo());
+    }
+
+    #[TestDox('PAS-045b: salvar sem mudar o texto não apaga o "Antes" da edição real')]
+    public function testSalvarSemMudarMantemOAnterior(): void
+    {
+        $obs = $this->novaObservacao('Original');
+        $this->useCase->executar($obs, $this->autor, $this->tenant, 'Corrigido');
+        $this->useCase->executar($obs, $this->autor, $this->tenant, 'Corrigido');
+
+        self::assertSame('Original', $obs->getConteudoAnterior());
+        self::assertSame('Corrigido', $obs->getConteudo());
+    }
+
+    #[TestDox('PAS-045b: edição recusada não toca no texto anterior')]
+    public function testEdicaoRecusadaNaoMexeNoAnterior(): void
+    {
+        $obs   = $this->novaObservacao('Original');
+        $outro = (new User())->setEmail('outro@test.com');
+
+        try {
+            $this->useCase->executar($obs, $outro, $this->tenant, 'Invasor');
+            self::fail('o não autor devia ser recusado');
+        } catch (ObservacaoDetalhesNaoEditavelException) {
+        }
+
+        self::assertNull($obs->getConteudoAnterior());
+        self::assertSame('Original', $obs->getConteudo());
+    }
+
     public function testNaoAutorLancaExcecao(): void
     {
         $obs   = $this->novaObservacao();

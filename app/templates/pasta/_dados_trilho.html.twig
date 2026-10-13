@@ -133,7 +133,12 @@
    A busca é a mesma `pasta_clientes_buscar` (com `incluirVinculados=1`, para o
    selo "Já vinculado") e o vínculo é o mesmo `pasta_cliente_vincular`, com o
    MESMO id de token CSRF do modal. O documento chega MASCARADO do servidor; só
-   vem inteiro quando o que se digitou é o documento inteiro. #}
+   vem inteiro quando o que se digitou é o documento inteiro.
+   C6-PMC-03: o "+", a busca e as ações da linha (estrela, lixeira) só para quem o
+   servidor deixaria usá-las — vincular, tornar principal e desvincular pedem EDIT
+   na pasta (PastaController) e a lápide recusa todo POST. Mesma regra do PAS-049. #}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeMexerNoCliente = podeEditarPasta and not pasta.estaExcluida %}
 <section class="ps-card ps-clientes" data-trilho="clientes"
          data-resumo-url="{{ path('cliente_resumo', {id: 0}) }}"
          data-pasta-id="{{ pasta.id }}">
@@ -143,28 +148,32 @@
             <span class="ps-contagem">{{ pasta.clientes|length }}</span>
         {% endif %}
         <span class="ps-cab-espaco"></span>
-        <button type="button" class="ps-card-cab-add js-ps-vinc-abrir" title="Vincular cliente" aria-label="Vincular cliente"
-                aria-expanded="false" aria-controls="psVincCliente"><i class="bi bi-plus-lg"></i></button>
+        {% if podeMexerNoCliente %}
+            <button type="button" class="ps-card-cab-add js-ps-vinc-abrir" title="Vincular cliente" aria-label="Vincular cliente"
+                    aria-expanded="false" aria-controls="psVincCliente"><i class="bi bi-plus-lg"></i></button>
+        {% endif %}
     </div>
 
-    <div class="ps-vinc" id="psVincCliente" hidden
-         data-busca-url="{{ path('pasta_clientes_buscar', {id: pasta.id}) }}"
-         data-vincular-url="{{ path('pasta_cliente_vincular', {id: pasta.id}) }}"
-         data-vincular-token="{{ csrf_token('pasta_cliente_vincular_' ~ pasta.id) }}">
-        <div class="ps-vinc-campo">
-            <i class="bi bi-search" aria-hidden="true"></i>
-            <input type="search" class="ps-vinc-input" autocomplete="off"
-                   placeholder="Nome ou CPF do cliente" aria-label="Buscar cliente por nome ou CPF">
+    {% if podeMexerNoCliente %}
+        <div class="ps-vinc" id="psVincCliente" hidden
+             data-busca-url="{{ path('pasta_clientes_buscar', {id: pasta.id}) }}"
+             data-vincular-url="{{ path('pasta_cliente_vincular', {id: pasta.id}) }}"
+             data-vincular-token="{{ csrf_token('pasta_cliente_vincular_' ~ pasta.id) }}">
+            <div class="ps-vinc-campo">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search" class="ps-vinc-input" autocomplete="off"
+                       placeholder="Nome ou CPF do cliente" aria-label="Buscar cliente por nome ou CPF">
+            </div>
+            <div class="ps-vinc-resultados" role="listbox" aria-label="Clientes encontrados"></div>
+            <div class="ps-vinc-vazio" hidden>
+                <i class="bi bi-person-x" aria-hidden="true"></i>
+                <span class="ps-vinc-vazio-texto">Cliente ainda não cadastrado.</span>
+                <button type="button" class="ps-vinc-cadastrar js-ps-vinc-cadastrar"
+                        data-bs-toggle="modal" data-bs-target="#modalAdicionarCliente"><i class="bi bi-person-plus"></i>Cadastrar cliente</button>
+            </div>
+            <div class="ps-vinc-erro" role="alert" hidden></div>
         </div>
-        <div class="ps-vinc-resultados" role="listbox" aria-label="Clientes encontrados"></div>
-        <div class="ps-vinc-vazio" hidden>
-            <i class="bi bi-person-x" aria-hidden="true"></i>
-            <span class="ps-vinc-vazio-texto">Cliente ainda não cadastrado.</span>
-            <button type="button" class="ps-vinc-cadastrar js-ps-vinc-cadastrar"
-                    data-bs-toggle="modal" data-bs-target="#modalAdicionarCliente"><i class="bi bi-person-plus"></i>Cadastrar cliente</button>
-        </div>
-        <div class="ps-vinc-erro" role="alert" hidden></div>
-    </div>
+    {% endif %}
 
     {# `data-nome-cliente`: o JS do show remonta o vazio deste bloco (abaixo) ao desvincular o último cliente. #}
     <div id="clientesList" data-nome-cliente="{{ pasta.nomeCliente }}">
@@ -180,7 +189,7 @@
             {% if clientePrincipal %}
                 <div class="cliente-principal">
                     {{ include('pasta/_cliente_linha.html.twig', {
-                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true,
+                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente,
                     }) }}
                 </div>
             {% endif %}
@@ -189,7 +198,7 @@
                 <div class="clientes-outros ps-clientes-rolagem" id="clientesOutros">
                     {% for cliente in outros %}
                         {{ include('pasta/_cliente_linha.html.twig', {
-                            pasta: pasta, cliente: cliente, ehPrincipal: false,
+                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente,
                         }) }}
                     {% endfor %}
                 </div>

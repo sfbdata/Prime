@@ -69,8 +69,9 @@ final class NotificacaoIconeTest extends TestCase
     public function testTextOrangeTemCorNosDoisTemas(): void
     {
         $css = (string) file_get_contents(\dirname(__DIR__, 3) . '/public/css/app.css');
-        self::assertMatchesRegularExpression('/^\.notif-icon\.text-orange \{ color: #e8590c; \}$/m', $css);
-        self::assertMatchesRegularExpression('/^html\[data-bs-theme="dark"\] \.notif-icon\.text-orange \{ color: #[0-9a-f]{6}; \}$/m', $css);
-        self::assertGreaterThan(strpos($css, '.notif-icon  {'), strpos($css, '.notif-icon.text-orange'), 'depois do .notif-icon, para vencer a cor padrão');
+        // C6-FPN-02: regra geral (vale também no .notif-ico da página /notificacoes)
+        self::assertMatchesRegularExpression('/^\.text-orange \{ color: #e8590c; \}$/m', $css);
+        self::assertMatchesRegularExpression('/^html\[data-bs-theme="dark"\] \.text-orange \{ color: #[0-9a-f]{6}; \}$/m', $css);
+        self::assertGreaterThan(strpos($css, '.notif-icon  {'), strpos($css, "\n.text-orange {"), 'depois do .notif-icon, para vencer a cor padrão');
     }
 }

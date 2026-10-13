@@ -161,9 +161,17 @@
                     {% set diaPushTxt = diaPush ?: 'Sem data' %}
                 {% endif %}
                 {% set notasPush = push.notasDe(item) %}
+                {% set processoDoPush = push.processoIdDaPublicacao(item, pasta) %}
+                {# C6-FPN-04: o bloco de notas pende sob o cartão quando há nota (FPN-020) OU quando
+                   quem está aqui pode criar uma (aí nasce vazio e escondido) — o "Adicionar nota
+                   técnica" do botão direito abre o compositor ali, sem abrir o teor. #}
+                {% set penduraNotasPush = notasPush is not empty or (pushPodeEscrever and processoDoPush is not null) %}
                 <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
                     data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}"
                     data-push-lida-url="{{ path('pasta_push_lida', {id: pasta.id, publicacaoId: item.id}) }}"
+                    {#- C6-FPN-03: o texto inteiro do teor para o "Copiar texto" do menu, por uma rota
+                        que NÃO marca como lida (o cartão fica como está). #}
+                    data-push-texto-url="{{ path('pasta_push_texto', {id: pasta.id, publicacaoId: item.id}) }}"
                     data-push-gera-prazo="{{ push.geraPrazo(item) ? '1' : '0' }}"
                     data-push-aceita-nota="{{ pushPodeEscrever and push.aceitaNotaTecnica(item) ? '1' : '0' }}">
                     <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPushTxt }}</span></div>
@@ -199,7 +207,7 @@
                                 {% if pushPodeEscrever and push.aceitaNotaTecnica(item) %}title="Clique com o botão direito para adicionar uma nota técnica"{% endif %}
                                 aria-expanded="false"
                                 aria-controls="push-teor-{{ item.id }}"
-                                data-push-url="{{ path('pasta_push_teor', notasPush is empty ? {id: pasta.id, publicacaoId: item.id} : {id: pasta.id, publicacaoId: item.id, penduradas: 1}) }}">
+                                data-push-url="{{ path('pasta_push_teor', penduraNotasPush ? {id: pasta.id, publicacaoId: item.id, penduradas: 1} : {id: pasta.id, publicacaoId: item.id}) }}">
                             <span class="ps-push-assunto">
                                 <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
                                 <span class="ps-push-assunto-txt">{{ item.textoResumo ?: (item.nomeOrgao ?: (item.tipoComunicacao ?? 'Publicação')) }}</span>
@@ -228,9 +236,12 @@
                        notas antigas de outro processo da pasta, e a nota nova iria para ele. Sem
                        processo da pasta que case com o número, o bloco só mostra (sem compositor).
                        A mesma nota também está na aba Processo: aqui os ids levam `-push` (o
-                       canônico fica lá, que é o destino da âncora da @menção). #}
-                    {% if notasPush is not empty %}
-                        {% set processoDoPush = push.processoIdDaPublicacao(item, pasta) %}
+                       canônico fica lá, que é o destino da âncora da @menção).
+                       C6-FPN-04: sem nota, para quem escreve, o bloco vem vazio e escondido
+                       (`ocultoSeVazio`); o pasta-push.js o mostra com o teor aberto (onde o bloco do
+                       teor morava) ou com o compositor aberto, e o esconde de novo quando nada disso
+                       vale. O link do teor leva `penduradas=1` também nesse caso: o id é único. #}
+                    {% if penduraNotasPush %}
                         {{ include('processo/_notas_tecnicas.html.twig', {
                             notas: notasPush,
                             processoId: processoDoPush ?? (notasPush|first).processoId,
@@ -239,6 +250,7 @@
                             mostrarMovimentacao: false,
                             podeEscreverNota: pushPodeEscrever and processoDoPush is not null,
                             idSufixoNota: '-push',
+                            ocultoSeVazio: true,
                         }) }}
                     {% endif %}
                 </li>

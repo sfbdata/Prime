@@ -168,7 +168,7 @@ cada divergência A trabalhada e as filas B/C/D.
 | IA-010/011 | IA | Recolher com prévia (preferência no servidor); marcar como não lido | P3/P4 | **feito** | ✓ | ✓ | ✓ | `99cbb19a`, `856e83c6` | | |
 | IA-012/013 | IA | Runbook de ativação; worker opt-in no compose de dev | P2/P3 | **feito** | — | ✓ | ✓ | `6c68555a`, `97a8a0cf` | | Worker em `--profile worker`: o dev roda dado real e a fila também leva sync do Drive |
 | IA-014 | IA | Corpus de 67 ataques de injeção + homóglifos no neutralizador | P2 | **feito** | — | ✓ | ✓ | `9eccd415` | | |
-| FPN-040 | Push | Teor sem escrita para quem só vê e na lápide | P3 | **feito** | ✓ | ✓ | ✓ | `68c3c1f2` | (mutações: 5) | Ver PMC-058L |
+| FPN-040L | Push | Teor sem escrita para quem só vê e na lápide | P3 | **feito** | ✓ | ✓ | ✓ | `68c3c1f2` | (mutações: 5) | Ver PMC-058L |
 | DOC-106b | Documentos | Teto de 20 pares duplicados + "e mais N" | P1 | **feito** (ratificar teto) | ✓ | ✓ | ✓ | `4c438e1b` | (mutações: 5) | |
 | PMC-044 | Metas | Fica na aba Metas com a meta nova realçada | P3 | **feito** | ✓ | ✓ | ✓ | `27d3972b` | | Recarrega a página (o desenho atualiza no lugar) |
 | PMC-038 | Metas | Moldura do modal "Nova meta" | P3 | **parcial** | ✓ | ✓ | ✓ | `d8b7a015` | | Corpo do modal (rótulos, contador, chips) e janela não modal: PMC-059 |
@@ -335,9 +335,9 @@ Chat I.A; ver `inventario-ia.md`).
   processo; quem recebe o aviso de publicação nova.
 - **EDT:** Definir/Traduzir/Pesquisar na web (manda texto do cliente a terceiros); rascunho do editor em
   `localStorage`; dono do atalho Ctrl+K (link do editor × busca global), ligado a D-EDITOR e D-BARRA.
-- **Agenda (DASH-009):** o gestor vê na lista da pessoa eventos "Para Todos" de colegas dos quais não participa
-  (coerente com o contador e o `agenda_show`, não com o calendário). A lista sem filtro esconde "Para Todos" com
-  participantes (anterior).
+- **Agenda (DASH-009), atualizado após o SEC-016:** a lista da pessoa aplica a visibilidade da Agenda para quem olha
+  ("Para Todos" com participantes só para o criador e os participantes). A decisão aberta é a inversa: o número do
+  Dashboard (contagem agregada) pode ser MAIOR que a lista. Sigilo > paridade até o Samuel decidir.
 - **EDT-003r:** quer o "Imprimir" também nos menus do Registro e do Financeiro? (o desenho só o tem em Detalhes)
 - **FPN-020:** o bloco de notas pendurado sob o Push leva o cabeçalho "Notas técnicas · N", como na aba Processo; o
   desenho do Push (dc:2534) não o mostra.
@@ -345,6 +345,13 @@ Chat I.A; ver `inventario-ia.md`).
   cliente" com cópia para uma Controladoria que não existe. **IA-032:** o botão do Dashboard usa o nome e a
   estrela da IA real sobre um painel por regras.
 - **DASH-028:** abertura animada de 2,65 s a cada carga do Dashboard (o auditor recomenda confirmar antes).
+- **PUB-SEC-01 (revisão da publicação do lote 1, 13/10; menor, latente):** a menção e a resposta num registro do
+  Financeiro avisam no sino quem VÊ a pasta, sem `VisibilidadeDoFinanceiroDaPasta`
+  (`ResolucaoDeMencoesDoRegistro.php` `avisar` e `notificarRespostaNaObservacao`); a Timeline já esconde essas
+  notificações de quem não vê o financeiro. Hoje não vaza (as duas regras são iguais). Mesmo padrão no .txt da análise
+  da IA. Alinhar quando ver o financeiro ganhar permissão própria (ligado ao C6-SEC-02b).
+- **PUB-SEC-02 (idem; menor):** `inteligencia_analise_nao_lida` exige só VER para mudar um estado do escritório inteiro
+  (`lida_em`/`lida_por`), como o `lida` que já existia. Decidir junto com a **SEC-009**.
 
 ### 3.5 Dependências externas (B)
 
@@ -357,4 +364,174 @@ dono).
 
 (um registro por ciclo: o que foi auditado, implementado, testado e revisado)
 
+### Ciclo 6 — reauditoria de convergência (12/10/2026)
+
+- **Estado inicial:** master `4a98cc6b` (topo do loop `cceb7e48`; `4a98cc6b` é de outra frente). Suíte completa
+  **9007/9007** (50.022 asserções). Árvore com `scripts/restore.sh` e `scripts/testar-restore.sh` de outra frente
+  (não tocados).
+- **Auditoria:** 8 auditores Opus somente leitura. Relatórios em `engineering-loop/c6/reauditoria-*.md`,
+  consolidação em `engineering-loop/c6/consolidacao.md`.
+- **Resultado:** 162 feitos conferidos → 151 ✓, 11 ◐, **1 regressão** (C6-PAS-01, P1: cartão recém-enviado do
+  Registro com `data-janela-ate="NaN"`, vindo de `b1155da8`). 5 A pendentes do inventário, 37 A novos, 5 C/D novos.
+  1 P0 novo: **C6-SEC-03** (`tarefa_criar_para_pasta` sem posse nem permissão na pasta).
+- **Implementação:** lotes S6-* da consolidação §3 (registro de cada lote abaixo).
+- **Onda 1 lançada (12/10, noite):** S6-SEC, S6-SHOW, S6-DET, S6-CLI, S6-TL, S6-DOC, S6-PUSH, S6-IMP, S6-EDT,
+  S6-DASH, S6-MISC — implementadores Opus em worktrees `agent-*` saídas de `3ff6d9b0`; cada um entrega commit local
+  na própria worktree. Integração: revisão Opus read-only → cherry-pick individual → testes direcionados.
+
+| Lote | Itens | Commits no master | Testes direcionados | Revisão | Resultado |
+|---|---|---|---|---|---|
+| S6-TL | C6-PAS-06, C6-PAS-08 | `b4077ad7` | 24/24 | Opus: aprovado c/ ressalvas menores | ✓ |
+| S6-EDT | C6-EDT-05 (+ metade de C6-EDT-09 em `editor-rico.js`) | `3e4bc262`, `1050971f` | 126/126 | Opus: 1 importante (teste não travava o fim sem sugestão) → corrigido | ✓ |
+| S6-CLI | C6-PMC-03, C6-PMC-06 | `64367e07`, `26296bcf`, `06592edd` | 65/65 | Opus: token CSRF e dica de trocar ainda saíam a quem não troca → corrigido | ✓ |
+| S6-DASH | DASH-008r | `39e32d63`, `4b463629` | 43/43 | Opus: 0% virava link e rótulo ≠ desenho (`celulaLink`: zero sem href; "Taxa de conclusão de X") → alinhado ao desenho; teste com meta fora da janela | ✓ |
+| S6-SHOW | C6-PAS-01 (regressão P1), C6-PAS-07 (Registro), C6-PMC-01, C6-PMC-02 | `64927a09`, `cccddbb5` | 79/79 | Opus: sem trava de foco o Esc não fechava e outras janelas ficavam por baixo → foco no título, Esc no documento, `aria-modal` fora, z-index 1049 | ✓ (smoke: Nova meta recolhida + outra janela) |
+| S6-DOC | C6-DOC-01, 02, 03 | `29fee857`, `775a7951`, `51c6b660` | 190/190 | Opus: ✎/+/Modelos do checklist ainda no Twig; Imprimir do HEIC ativo → completado; token do painel só p/ quem escreve | ✓ |
+| S6-MISC | C6-FPN-02, C6-IA-02 | `4baade61`, `bbb0deee`, `a0ef20d2` | 70/70 | Opus: aprovado | ✓ |
+| S6-MISC | C6-IA-01 | **não integrado** (`3260e87e` fica na worktree) | — | Opus: gravar auditoria num GET (sem CSRF) permite linhas falsas; tela e drawer não ligados | ⏳ refazer na onda 2 como POST + CSRF + drawer |
+| S6-DET | C6-PAS-02, 03, 04, 05, C6-EDT-04 | `2c2bec4a`, `3dc0e749` | 138/138 | Opus: leitor via "Editar/Excluir · bloqueado" com motivo falso (prazo); nota de só leitura inventada → itens somem para quem não escreve (PAS-014/025c); nota só na lápide | ✓ · C6-PAS-07 de Detalhes vai no S6-OBS |
+| S6-IMP | C6-EDT-01, 02, 03 (= PMC-04), 06, 07, 08 | `7d3aa289`, `a011e330` | 112/112 (3 testes do lote com entidade desanexada/`%PDF-` no dump de erro, corrigidos) | Opus: id do processo por captura (frágil) → `pasta-processo.js` passa `pdf`; registro/processo só como PDF (folha HTML 404); autor `??` como o cartão | ✓ (smoke: resumo de 2+ páginas, tema escuro) |
+| S6-PUSH | C6-FPN-01, 03, 04, C6-IA-03, 04, C6-PMC-05 | `27cdae74`, `a15be1d5`, `85686de6` | 918/918 (PastaPush, NotaTecnica, Inteligencia) | Opus: ClipboardItem sem try; aviso vermelho ≠ `gmAviso` neutro → corrigidos | ✓ (smoke: Adicionar nota sem abrir teor; Copiar com teor fechado) |
+| S6-SEC | C6-SEC-03 (P0), C6-SEC-01, C6-SEC-02 | `9a2b3801`, `03d1fda5`, `20217298` | 297/297; mutação: tirar posse ou VER derruba `CriarTarefaControllerTest` | Opus: aprovado c/ ressalvas | ✓ · pendente: mencionáveis do compositor financeiro (C6-SEC-02b), testes 404-antes-de-403 com não-editor e edição financeira |
+
+- **Suíte completa após a onda 1:** **9095/9095** (50.745 asserções, 06:39), em `854cd6f8`.
+
+| Lote (onda 2) | Itens | Commits no master | Testes direcionados | Revisão | Resultado |
+|---|---|---|---|---|---|
+| S6-OBS | C6-SEC-02b, testes 404-antes-de-403 e edição financeira, C6-PAS-07 (Detalhes) | `720086bd`, `abda487d`, `260bbaaa` | 292/292 | Opus: aprovado; filtro do financeiro hoje idêntico ao VER (latente, preparado) | ✓ · novo **C6-FPN-05 (A, P5)**: minutos do ⋮ do Relatório financeiro fixos desde a carga (mesma classe do C6-PAS-05) |
+| S6-JS | PAS-022r, PAS-023r, PAS-034b, C6-PAS-09, C6-EDT-09 | `4c2a991c`, `242ac329` | 78/78 | Opus: arraste pelo fundo do painel inventado (desenho: só o 1º filho) → retirado; drawer/Timeline arrastados saíam com parte à vista → zera ao fechar; guarda no `insertBefore` | ✓ · C: Restaurar com botão vermelho (`confirmarPs` sem variante neutra; o desenho não tem esse diálogo) · registro: o X fecha por Esc sintético (como o desenho), `alert`/`confirm` nativos restantes fora da lista do PAS-034b (desvincular, situação/prioridade, `_resp_script`, explorador, checklist) |
+
+| S6-IA01 | C6-IA-01 (refeito) | `ca97a7e7`, `86709cfe` | 763/763 (Inteligencia + PastaSomenteLeitura) | Opus: lápide recusava o registro em silêncio → liberado como o .zip (`ROTAS_LIBERADAS`); impressão registrava antes do texto chegar → só depois; "· por Nome" fora (desvio do desenho) | ✓ · registro: a trilha é informativa (download e registro são pedidos separados; o .zip grava no mesmo POST) |
+| S6-M1 | PAS-045b (migration `Version20261012230000`) | `7265636b`, `3a6d3278` | 226/226 | Opus: aprovado; `schema:validate` OK; dump-sql só com as 6 linhas pré-existentes (cobrança) | ✓ · migration aplicada no dev (`saas_ux`) e no `saas_test` por `migrations:execute --up`; **em prod: o Samuel aplica no deploy** (ADD COLUMN NULL = metadado no PG15, lock curto) |
+
+- **12/10 ~23h: o WSL travou e a máquina foi reiniciada** com 11 implementadores + revisores + a suíte rodando ao mesmo tempo
+  (cada processo Claude ~300 MB; WSL com 9,6 GB). Nada se perdeu: commits no master e nas worktrees intactos; containers
+  `jusprime_db_dev`/`jusprime_php_dev` religados à mão (`docker start`). **Regra a partir daqui: no máximo 2 agentes ao
+  mesmo tempo, e a suíte sempre sozinha.** Atenção: `ps` não existe no container — para saber se há suíte rodando,
+  olhe os `docker exec` no host (`ps aux | grep "docker exec jusprime_php_dev"`).
+- **Onda 2 (lançada 12/10):** S6-JS (PAS-022r, PAS-023r, PAS-034b, C6-PAS-09, C6-EDT-09 `_cabecalho`), S6-OBS
+  (C6-SEC-02b mencionáveis do Financeiro, testes 404-antes-de-403 e edição financeira, C6-PAS-07 de Detalhes),
+  S6-IA01 (C6-IA-01 como POST + CSRF + drawer). Depois: S6-M1 (PAS-045b, migration).
+- **Decisões novas para o Samuel (Ciclo 6):** C6-SEC-03 parte C (criar meta exige VER ou EDITAR; com EDITAR o botão
+  "Nova meta" some de quem só vê e o responsável também deveria ver a pasta) · C6-DASH-01 (cargo no "ver metas") ·
+  C6-PAS-10 (visita da Timeline ao abrir × ao fechar) · C6-PMC-07 (limites 120/600 × 255/5000) · C6-EDT-10
+  (download do PDF na auditoria) · C6-DOC-04 (D: tarja no PDF impresso).
+- **Suíte completa após a onda 2:** **9159/9159** (51.334 asserções), em `d985225e`.
+
+### Ciclo 7 — reauditoria de convergência (13/10/2026)
+
+- 8 auditores Opus somente leitura, **dois por vez** (relatórios em `engineering-loop/c7/reauditoria-*.md`), sobre os
+  lotes do C6. **Resultado: 0 item do C6 ausente; 1 ◐ (C6-PMC-01, Esc); 2 regressões; 8 A novos/pendentes.**
+
+| Área | Itens C6 conferidos | Regressões | A acionáveis | Corrigido em |
+|---|---|---|---|---|
+| Pasta | 14 ✓ | C7-PAS-01 (P2: confirmação não clicável com a Nova meta aberta — `confirmarPs` entrava no modal com `pointer-events:none`) | C7-PAS-01, 02 (aviso neutro "Número não confere"), 03 (cliente no prompt de Excluir) | `81ed4da1` |
+| Processo/Metas/Clientes | 7 ✓, 1 ◐ | C7-PMC-01 (P4: Esc da Nova meta ligado na página inteira) | C7-PMC-01 | `4ba51e14` |
+| Financeiro/Push | 8 ✓ | — | C6-FPN-05 (minutos do ⋮), C7-FPN-01 (P3: escrita do Financeiro a quem só vê/lápide), C7-FPN-02 (bloqueado clicável com aviso, Financeiro e Detalhes) | S7-FIN `0fc196da`, `5b356986` (216/216; revisão Opus: estilo do bloqueado perdido → corrigido) |
+| Editor/Impressão | 9 ✓ | — | C7-EDT-01 (linha "Contrato" no resumo impresso, ausente do desenho dc L.4590) | `517900bc` |
+| Documentos | 4 ✓ | — | — (C7-DOC-01/02/03 classificados C) | — |
+| IA | 4 ✓ | — | — | — |
+| Dashboard | 1 ✓ | — | — | — |
+| Segurança | 4 ✓ (+ 5 rotas novas do C6 nas 5 checagens) | — | — (matriz corrigida: 505/512 em 77 rotas; a soma do C6 estava errada) | comentário `76671b8a` |
+
+- Notas antigas corrigidas no ledger: DASH-009 (§3.4, após o SEC-016) e FPN-040 → FPN-040L (`435ba9fc`).
+- **Observações sem classe A (Samuel):** `inteligencia_analise_registro` e `pasta_resumo_pdf` sem limitador; a lista do
+  "@" do Financeiro não exige que quem pergunta veja o financeiro (hoje igual a VER); responsáveis da meta criada pela
+  pasta filtrados só por escritório (vai com o C6-SEC-03 parte C); C6-EDT-10 deve ser decidido junto com o C6-IA-01
+  (a IA já grava download/impressão no `audit_log`).
+
+### Ciclo 8 — verificação final (13/10/2026)
+
+- 2 verificadores Opus (relatórios em `engineering-loop/c8/`) sobre os commits do Ciclo 7. **Financeiro: 5/5 ✓;
+  Pasta e Metas: 5/5 ✓. Regressões: 0.**
+- 1 A achado na verificação e corrigido: **C8-EDT-01** — o Financeiro do resumo impresso mostrava "Valor da causa: —" e
+  "Lançamentos: 0"; o `linha()` do desenho (dc L.4586) omite valor vazio (`a102af45`).
+- **Convergência atingida:** nenhuma divergência A autônoma restante nas 8 áreas. O que sobra é B, C ou D (§3.3–3.5,
+  decisões do Ciclo 6 e do Ciclo 7 acima).
+
 ## 5. Handoff
+
+**Estado em 13/10/2026 (fim do Ciclo 8):** master local `a102af45` (+ o commit deste registro), **51 commits locais desde
+`cceb7e48`**, nada publicado. Suíte completa **9172/9172** (51.533 asserções) em `a102af45`. Árvore com alterações de outra frente
+(`scripts/restore.sh`, `scripts/testar-restore.sh`) não tocadas.
+
+**Convergido:** não há divergência A autônoma pendente. Próximos passos dependem de pessoas:
+
+1. **Samuel — publicar** (push + deploy), em dois lotes (§5.1). **São 7 migrations novas, não 1** (corrigido em 13/10:
+   a produção está em `Version20261007020000` e não tem nenhuma das 6 de 07/10). Fora do minuto múltiplo de 15 (cron do
+   Sync) ou com `SET lock_timeout` (PUB-01).
+2. **Samuel — smoke** (o que nenhum teste vê): Nova meta recolhida + outra janela por cima + Esc; confirmação com a Nova
+   meta aberta; resumo impresso de 2+ páginas (margem 18 mm) e no tema escuro; aba Financeiro e Detalhes como usuário só
+   leitor e na lápide; "Adicionar nota" pelo botão direito sem abrir o teor; "Copiar texto" com o teor fechado; HEIC no
+   visor; X e arraste nos menus do Registro/observação/responsável; ⋮ aberto depois de 15 min sem recarregar.
+3. **Samuel — decisões** (lista consolidada): C6-SEC-03 parte C (criar meta: VER × EDITAR; responsáveis que não veem a
+   pasta) · C6-DASH-01 · C6-PAS-10 · C6-PMC-07 · C6-EDT-10 + C6-IA-01 (auditoria de leitura, mesmo critério) · Restaurar
+   com botão vermelho (variante neutra no `confirmarPs`?) · limitadores em `inteligencia_analise_registro` e
+   `pasta_resumo_pdf` · C7-DOC-01/02/03 · `alert`/`confirm` nativos fora da lista do PAS-034b · as da §3.4.
+4. **Farlei — especificação** dos itens D (§3.3, C6-DOC-04).
+
+**Se for retomar:** só há trabalho novo quando chegar decisão/especificação. Nesse caso: um lote por decisão, implementador
+Opus em worktree, revisão Opus read-only, cherry-pick individual, testes direcionados, suíte completa no fim. **No máximo 2
+agentes ao mesmo tempo e a suíte sempre sozinha** (o WSL travou em 12/10 com 11+ agentes). As worktrees `agent-*` deste
+ciclo podem ser apagadas pelo humano depois de conferir com `git cherry` (o conteúdo já está no master).
+
+### 5.1 Publicação em dois lotes e as 7 migrations (13/10/2026)
+
+Medido em 13/10 contra o GitHub (`origin/master` = `4e898d0c`, a S1) e a produção (MCP, só leitura). Base comum e
+produção: `719de0e4` (EI2). Master local 251 commits à frente, 7 atrás; `git merge-tree` sem conflito nos dois cortes.
+O único commit fora do loop é `4a98cc6b` (e-mail institucional), patch idêntico a `79ac1765` no remoto.
+
+| Lote | Corte (sem cherry-pick) | Commits | Suíte medida | Migrations |
+|---|---|---|---|---|
+| 1 | `719de0e4..4a98cc6b` | 200 | 9007/9007 em `4a98cc6b` | 6 |
+| 2 | `4a98cc6b..` topo do loop | 51 + este registro | 9172/9172 em `a102af45` | 1 |
+
+| Migration | Lote | O que faz | Origem |
+|---|---|---|---|
+| `Version20261007205740` | 1 | `pasta_observacao_financeira`: `eh_resposta` (bool, default false), `resposta_a_id` + FK própria + índice | `07ba1031` |
+| `Version20261007211757` | 1 | o mesmo em `pasta_observacao_detalhes` | `6576bc7a` |
+| `Version20261007215638` | 1 | cria `pasta_timeline_visita` (PAS-043) | `207dd2fd` |
+| `Version20261007220558` | 1 | `pasta_mensagem.conteudo_anterior` TEXT NULL (PAS-045) | `092338fd` |
+| `Version20261007221253` | 1 | cria `nota_tecnica_versao` (PMC-020) | `97b0bc45` |
+| `Version20261007221859` | 1 | `pasta_pagamento.juros_mensal` NUMERIC(6,4) NULL (FPN-009) | `be356e16` |
+| `Version20261012230000` | 2 | `conteudo_anterior` em `pasta_observacao_detalhes` e `_financeira` (PAS-045b) | `7265636b` |
+
+- Todas só acrescentam e têm `down()` simétrico. Tabelas afetadas pequenas em prod (89 a 653 linhas). Nenhum nome de
+  índice/FK novo colide em prod; as tabelas novas não existem; o código do lote 1 não usa as colunas da 7ª.
+- O deploy roda o `migrate` sozinho (entrypoint + `deploy-prod-tls.sh`). Duas migrations antigas
+  (`Version20260401000000`, `Version20260408180237`) seguem sem registro em prod **de propósito**: o `preUp` as pula
+  (`sede` existe; `checklist_item_cliente` não). O `migrate` vai listá-las e pulá-las de novo; não é defeito do loop.
+- Merge no GitHub por **merge commit**, nunca squash/rebase: este ledger cita os hashes dos commits.
+
+**Validação do lote 1 (13/10), banco descartável `saas_testrbloop1`, sem dado de produção:**
+
+- Clone do `saas_test`. O `down` das 7 migrations (inclusive a do lote 2) e o registro reescrito com as 206 versões
+  de prod. Impressão digital (md5 por tabela de colunas, índices e constraints) comparada com prod pelo MCP, só
+  metadados: 85 de 106 tabelas idênticas, incluindo as 6 que o lote toca ou referencia como FK de dado
+  (`pasta_observacao_*`, `pasta_mensagem`, `pasta_pagamento`, `pasta`, `nota_tecnica`). As 21 restantes são drift antigo
+  do `saas_test` (nomes de FK, CHECKs de OAB); `user`/`tenant` têm PK `id` como em prod.
+- `migrations:status`: 206 executadas, 0 indisponíveis, 8 novas (as 2 puladas + as 6). `--dry-run` e `migrate` OK
+  (25 queries, 142 ms); 212 registradas no fim. `schema:validate --skip-sync` OK; `schema:update --dump-sql` só com o
+  falso positivo `DROP INDEX uniq_cobranca_obrigacao_ref_competencia` (índice funcional).
+- Reversibilidade: o `down` das 6 devolve as tabelas ao fingerprint exato de prod; o `up` repetido funciona.
+- Revisão Opus read-only (autorização e tenant): nenhum bloqueante; todas as rotas novas/alteradas com posse (404),
+  VER/EDITAR e CSRF. Menores viraram PUB-SEC-01 e PUB-SEC-02 (§3.4).
+- Revisão Opus read-only (migrations e rollback): nenhum bloqueante. **Rollback = só o código, mantendo o schema**
+  (o código `719de0e4` lê o schema novo; respostas aparecem soltas como registros comuns). **Nunca rodar o `down` em
+  prod**: apaga respostas, versões e juros sem volta. Rollback seguido de republicação deixa o "Antes" do "Ver
+  alteração" e as versões da nota técnica com buraco no intervalo. O deploy não faz backup: `pg_dump` manual antes.
+
+**Integração do lote 1 (13/10), branch `publicacao-loop-1`, worktree isolada:**
+
+- Merge local feito pelo dono (o `block-git-writes.py` barra o merge do Claude): **`bbd9060b`**, pais `4a98cc6b` e
+  `4e898d0c`, árvore `7279c93c`, **igual à simulação do `merge-tree`**. Worktree limpa; master local intacto em `ea674409`.
+- `lint:yaml`, `lint:container`, `lint:twig` (205 arquivos), `schema:validate --skip-sync` e `composer validate`: OK.
+- Guarda da S1: 52 testes dos hooks OK; `verificar-segredos.py --intervalo origin/master..HEAD` saída 0; gitleaks
+  (config da própria branch) 200 commits, nenhum vazamento. Para o gitleaks enxergar uma worktree, o repositório tem
+  de ser montado no container no **mesmo caminho absoluto** do host.
+- Banco da frente `saas_testpublicacao-loop-1`: clone do `saas_test` com o `down` da `Version20261012230000` (lote 2),
+  então o schema é o do lote 1; `schema:update --dump-sql` só com o falso positivo do índice funcional.
+- Testes direcionados da integração com a S1 (os 10 do `ci.yml` + `CaminhoDeAnexoDeTarefaTest`): 50/50.
+- **Suíte completa, sozinha: 9007/9007 (50.022 asserções), 8 min 26 s**, a mesma contagem medida em `4a98cc6b`.
+- Ambiente: o `cache:clear` do `composer install` estoura os 128 MB do CLI do container; com `-d memory_limit=1G` passa.
+- **Apto para PR**, com merge commit no GitHub. O deploy pede antes o `pg_dump` manual e o horário fora do cron do Sync.

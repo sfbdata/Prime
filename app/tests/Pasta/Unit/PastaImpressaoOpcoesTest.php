@@ -52,6 +52,9 @@ final class PastaImpressaoOpcoesTest extends TestCase
         yield 'resumo' => ['resumo', 'resumo'];
         yield 'extrato' => ['extrato', 'extrato'];
         yield 'moldura' => ['moldura', 'moldura'];
+        // C6-EDT-06: as folhas do registro e do processo montadas pelo servidor (Baixar PDF).
+        yield 'observacao' => ['observacao', 'observacao'];
+        yield 'processo' => ['processo', 'processo'];
         yield 'desconhecida vira null (404)' => ['../segredo', null];
     }
 

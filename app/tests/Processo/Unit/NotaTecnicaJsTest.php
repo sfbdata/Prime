@@ -181,4 +181,52 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString('caixa.replaceWith(textoDaNota(html));', $editar);
         self::assertStringContainsString('<div class="ps-nota-texto">' . "\n" . '        <span class="editor-rico-conteudo"><span class="ql-editor">', $this->ler(self::ITEM));
     }
+
+    #[TestDox('C6-FPN-01: a nota recém-criada entra no FIM da lista (beforeend), como o A.push do desenho — a lista é cronológica')]
+    public function testNotaNovaEntraNoFim(): void
+    {
+        $nova = $this->funcao('salvarNova');
+        self::assertStringContainsString("lista.insertAdjacentHTML('beforeend', dados.html || '')", $nova);
+        self::assertStringNotContainsString("'afterbegin'", $this->ler(self::JS));
+    }
+
+    #[TestDox('C6-FPN-04: abrir o compositor mostra o bloco escondido (hidden + display); fechar, salvar e excluir avisam ps:notas-mudou')]
+    public function testCompositorMostraOBlocoEscondido(): void
+    {
+        $mostrar = $this->funcao('mostrarBloco');
+        self::assertStringContainsString('bloco.hidden = false;', $mostrar);
+        self::assertStringContainsString("bloco.style.display = '';", $mostrar, 'o display:flex do .ps-notas venceria o hidden');
+
+        $abrir = $this->funcao('abrirCompositor');
+        self::assertLessThan(strpos($abrir, 'editor.hidden = false;'), strpos($abrir, 'mostrarBloco(bloco);'));
+
+        self::assertStringContainsString("new CustomEvent('ps:notas-mudou', { bubbles: true })", $this->funcao('avisarMudanca'));
+        self::assertStringContainsString('avisarMudanca(bloco);', $this->funcao('fecharCompositor'), 'salvar fecha o compositor: o aviso sai por aqui também');
+        self::assertStringContainsString('avisarMudanca(blocoDaCopia);', $this->funcao('excluir'));
+
+        // Do lado do partial: o bloco pendurado nasce escondido só quando vazio, com a marca.
+        $bloco = $this->ler(self::APP . '/templates/processo/_notas_tecnicas.html.twig');
+        self::assertStringContainsString('{% set blocoOculto = ocultoSeVazio and notas is empty %}', $bloco);
+        self::assertStringContainsString('data-oculto-se-vazio', $bloco);
+        self::assertStringContainsString('hidden style="display: none"', $bloco);
+    }
+
+    #[TestDox('C6-PMC-05: "Editar · bloqueado"/"Excluir · bloqueado" clicados fecham o menu e mostram o aviso da tela (avisarPs), sem ação')]
+    public function testItemBloqueadoMostraOAviso(): void
+    {
+        $js  = $this->ler(self::JS);
+        $ini = strpos($js, "var itemBloqueado = alvo.closest('.js-nota-bloqueado');");
+        self::assertNotFalse($ini, 'sem o ouvinte do item bloqueado');
+        $bloco = substr($js, $ini, (int) strpos($js, 'return;', $ini) - $ini);
+
+        self::assertStringContainsString('fecharMenu(true)', $bloco);
+        self::assertStringContainsString("getAttribute('data-aviso')", $bloco);
+        self::assertStringContainsString('window.avisarPs(motivo', $bloco);
+        self::assertStringNotContainsString('fetch(', $bloco);
+
+        $item = $this->ler(self::ITEM);
+        self::assertStringContainsString('data-aviso="Só o autor edita a nota, em até 15 minutos"', $item);
+        self::assertStringContainsString('data-aviso="Só o autor exclui a nota, em até 15 minutos"', $item);
+        self::assertStringNotContainsString('disabled aria-disabled', $item, 'o `disabled` engolia o clique');
+    }
 }

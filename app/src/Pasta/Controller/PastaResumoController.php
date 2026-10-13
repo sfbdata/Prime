@@ -15,12 +15,16 @@ use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
 use App\Pasta\DTO\PastaResumoImpressaoOutput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Repository\PastaChecklistItemRepository;
+use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
+use App\Processo\Entity\Processo;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Twig\NumeroProcessoExtension;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -42,8 +46,14 @@ use Symfony\Component\Routing\Attribute\Route;
  *    "BlueJus · página k de n", baixada como anexo.
  *
  * As três obedecem às MESMAS opções (`PastaImpressaoOpcoes`): seção (resumo, extrato do
- * Financeiro ou só a moldura, para o registro e o processo que a tela monta), cabeçalho do
- * escritório, dados da pasta, autor, financeiro e tamanho do texto.
+ * Financeiro, só a moldura — a prévia do registro e do processo, cujo corpo a tela põe —, ou a
+ * observação e o processo montados aqui pelo id), cabeçalho do escritório, dados da pasta,
+ * autor, financeiro e tamanho do texto.
+ *
+ * Observação (`secao=observacao&obs=<id>`) e processo (`secao=processo&processo=<id>`) existem
+ * para o "Baixar PDF" dessas folhas (C6-EDT-06): o corpo sai do BANCO pelo id, nunca de HTML
+ * vindo da tela. A observação tem de ser de Detalhes desta pasta e deste escritório; o processo,
+ * vinculado a esta pasta. Qualquer outra coisa é 404 — depois dos guardas da pasta.
  *
  * Só leitura. O guarda é o MESMO da tela da pasta, em duas camadas explícitas:
  *   1. a pasta é do escritório da sessão — o resolver de entidade busca por PK e o TenantFilter
@@ -71,6 +81,7 @@ final class PastaResumoController extends AbstractController
         private readonly PastaPagamentoRepository $pastaPagamentoRepository,
         private readonly PastaChecklistItemRepository $checklistRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
+        private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
     ) {
@@ -87,9 +98,12 @@ final class PastaResumoController extends AbstractController
         $fragmento = $request->query->getBoolean('fragmento');
         $opcoes    = PastaImpressaoOpcoes::daQuery($request->query);
         // A moldura (corpo vazio) só tem sentido dentro da janela da tela.
-        $valida    = $opcoes->secao !== null && ($fragmento || $opcoes->secao !== PastaImpressaoOpcoes::SECAO_MOLDURA);
+        // Registro e processo têm prévia montada pela tela; aqui só existem como PDF (C6-EDT-06).
+        $valida    = $opcoes->secao !== null
+            && ($fragmento || $opcoes->secao !== PastaImpressaoOpcoes::SECAO_MOLDURA)
+            && !\in_array($opcoes->secao, [PastaImpressaoOpcoes::SECAO_OBSERVACAO, PastaImpressaoOpcoes::SECAO_PROCESSO], true);
 
-        $contexto = $this->contexto($pasta, $opcoes, $valida);
+        $contexto = $this->contexto($pasta, $opcoes, $valida, $request);
 
         $resposta = $this->render('pasta/resumo_impressao.html.twig', $contexto + [
             'modo' => $fragmento ? 'fragmento' : 'pagina',
@@ -108,7 +122,7 @@ final class PastaResumoController extends AbstractController
     public function pdf(Pasta $pasta, Request $request): Response
     {
         $opcoes   = PastaImpressaoOpcoes::daQuery($request->query);
-        $contexto = $this->contexto($pasta, $opcoes, $opcoes->secao !== null && $opcoes->secao !== PastaImpressaoOpcoes::SECAO_MOLDURA);
+        $contexto = $this->contexto($pasta, $opcoes, $opcoes->secao !== null && $opcoes->secao !== PastaImpressaoOpcoes::SECAO_MOLDURA, $request);
 
         $html = $this->renderView('pasta/resumo_impressao.html.twig', $contexto + [
             'modo' => 'pdf',
@@ -171,7 +185,7 @@ final class PastaResumoController extends AbstractController
      *
      * @return array<string, mixed>
      */
-    private function contexto(Pasta $pasta, PastaImpressaoOpcoes $opcoes, bool $valida): array
+    private function contexto(Pasta $pasta, PastaImpressaoOpcoes $opcoes, bool $valida, Request $request): array
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -186,10 +200,18 @@ final class PastaResumoController extends AbstractController
             throw $this->createAccessDeniedException('Sem permissão para ver o financeiro desta pasta.');
         }
 
+        // O alvo da observação e do processo, conferido ANTES de montar qualquer coisa.
+        $registro     = $opcoes->secao === PastaImpressaoOpcoes::SECAO_OBSERVACAO
+            ? $this->observacaoDaPasta($pasta, $tenant, self::idDaQuery($request, 'obs'))
+            : null;
+        $processoAlvo = $opcoes->secao === PastaImpressaoOpcoes::SECAO_PROCESSO
+            ? $this->processoDaPasta($pasta, $tenant, self::idDaQuery($request, 'processo'))
+            : null;
+
         $pagamentos = $this->pastaPagamentoRepository->findByPasta($pasta, $tenant);
         $resumo     = $opcoes->secao === PastaImpressaoOpcoes::SECAO_RESUMO
             ? $this->resumoCompleto($pasta, $tenant, $pagamentos, $veFinanceiro)
-            // Extrato e moldura só usam a faixa Pasta/Cliente/Processo: sem Push nem checklist.
+            // As outras folhas só usam a faixa Pasta/Cliente/Processo: sem Push nem checklist.
             : PastaResumoImpressaoOutput::montar(
                 $pasta,
                 PastaPendenciasOutput::montar($pasta, 0, $pagamentos, veFinanceiro: $veFinanceiro),
@@ -201,6 +223,9 @@ final class PastaResumoController extends AbstractController
         $titulo = match ($opcoes->secao) {
             PastaImpressaoOpcoes::SECAO_RESUMO  => 'Resumo da pasta ' . $resumo->numero,
             PastaImpressaoOpcoes::SECAO_EXTRATO => 'Extrato de pagamentos',
+            // Os mesmos títulos da prévia (pasta-impressao.js e o `data-titulo` do ⋮ do processo).
+            PastaImpressaoOpcoes::SECAO_OBSERVACAO => 'Registro do expediente',
+            PastaImpressaoOpcoes::SECAO_PROCESSO   => 'Processo ' . (new NumeroProcessoExtension())->numeroCnj($processoAlvo?->getNumeroProcesso()),
             default                             => '',
         };
 
@@ -213,7 +238,89 @@ final class PastaResumoController extends AbstractController
             'pastaId'      => $pasta->getId(),
             'impressoEm'   => new \DateTimeImmutable(),
             'impressoPor'  => $usuario->getFullName(),
+            // Só na folha da observação: a entidade, para o autor · data · tipo e o texto.
+            'registro'       => $registro,
+            // Só na folha do processo: as linhas rótulo/valor do "Copiar resumo".
+            'linhasProcesso' => $processoAlvo !== null ? self::linhasDoProcesso($pasta, $processoAlvo) : [],
         ];
+    }
+
+    /** Id positivo da query, ou `null` (vazio, texto, zero): `getInt` daria 400 em texto. */
+    private static function idDaQuery(Request $request, string $chave): ?int
+    {
+        $valor = (string) $request->query->get($chave, '');
+
+        return ctype_digit($valor) && (int) $valor > 0 ? (int) $valor : null;
+    }
+
+    /**
+     * A observação de Detalhes DESTA pasta e DESTE escritório. O Registro e o Financeiro não têm
+     * "Imprimir" (EDT-003r) e por isso não entram aqui: a observação financeira nem é procurada.
+     */
+    private function observacaoDaPasta(Pasta $pasta, Tenant $tenant, ?int $id): PastaObservacaoDetalhes
+    {
+        $obs = $id !== null
+            ? $this->observacaoDetalhesRepository->findOneBy(['id' => $id, 'pasta' => $pasta, 'tenant' => $tenant])
+            : null;
+
+        if ($obs === null) {
+            throw $this->createNotFoundException('Registro não encontrado nesta pasta.');
+        }
+
+        return $obs;
+    }
+
+    /** Um processo VINCULADO a esta pasta (e do escritório da sessão), pelo id. */
+    private function processoDaPasta(Pasta $pasta, Tenant $tenant, ?int $id): Processo
+    {
+        if ($id !== null) {
+            foreach ($pasta->getPastaProcessos() as $vinculo) {
+                $processo = $vinculo->getProcesso();
+                if ($processo->getId() === $id && $processo->getTenant() === $tenant) {
+                    return $processo;
+                }
+            }
+        }
+
+        throw $this->createNotFoundException('Processo não vinculado a esta pasta.');
+    }
+
+    /**
+     * As linhas do "Copiar resumo do processo" (`_processos_vinculados.html.twig`, `resumo`), na
+     * mesma ordem e com a mesma regra — linha sem valor não entra —, já partidas em rótulo e valor
+     * como a tabela que o pasta-processo.js monta para a prévia. A primeira e a última não têm
+     * valor: "Processo N" e "Pasta N · identificador".
+     *
+     * @return list<array{rotulo: string, valor: string}>
+     */
+    public static function linhasDoProcesso(Pasta $pasta, Processo $processo): array
+    {
+        $linhas = [['rotulo' => 'Processo ' . (new NumeroProcessoExtension())->numeroCnj($processo->getNumeroProcesso()), 'valor' => '']];
+        $valorCausa = $pasta->getValorCausa();
+
+        $campos = [
+            'Ação'           => $pasta->getNomeAcao(),
+            'Classe'         => $processo->getClasseProcessual(),
+            'Tribunal'       => $processo->getSiglaTribunal(),
+            'Situação'       => $processo->getSituacaoProcesso(),
+            'Órgão julgador' => $processo->getOrgaoJulgador(),
+            'Distribuição'   => $processo->getDataDistribuicao()?->format('d/m/Y'),
+            // Zero é dado (como na tela); só o nulo some.
+            'Valor da causa' => $valorCausa !== null ? 'R$ ' . number_format((float) $valorCausa, 2, ',', '.') : null,
+        ];
+        foreach ($campos as $rotulo => $valor) {
+            if ($valor !== null && $valor !== '' && $valor !== '0') {
+                $linhas[] = ['rotulo' => $rotulo, 'valor' => (string) $valor];
+            }
+        }
+
+        $nomeCliente = $pasta->getNomeCliente();
+        $linhas[]    = [
+            'rotulo' => 'Pasta ' . ($pasta->getNup() ?? ('#' . $pasta->getId())) . ($nomeCliente !== null && $nomeCliente !== '' && $nomeCliente !== '0' ? ' · ' . $nomeCliente : ''),
+            'valor'  => '',
+        ];
+
+        return $linhas;
     }
 
     private function guarda(Pasta $pasta, User $usuario): Tenant

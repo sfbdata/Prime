@@ -68,6 +68,11 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#psTimeline > .ps-tl-cab > button.ps-tl-fechar'));
 
         self::assertCount(1, $crawler->filter('#psTimeline > .ps-tl-barra > input.ps-tl-busca[data-tl-busca]'));
+        // C6-PAS-08: o texto exato do desenho (central:3408), com "telefone" — não "prazo".
+        self::assertSame(
+            'Buscar: "quando falaram sobre o contrato", "Jéssica", "telefone"…',
+            $crawler->filter('#psTimeline > .ps-tl-barra > input.ps-tl-busca')->attr('placeholder'),
+        );
         self::assertCount(1, $crawler->filter('#psTimeline > .ps-tl-barra > .ps-tl-chips[data-tl-chips]'));
         self::assertCount(1, $crawler->filter('#psTimeline > .ps-tl-barra > .ps-tl-linha > select[data-tl-periodo]'));
         self::assertSame(

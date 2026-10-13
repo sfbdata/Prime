@@ -78,26 +78,27 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
             'Copiar texto',
             'Citar no novo registro',
             'Criar meta a partir deste registro',
+            'Imprimir',
             'Editar · 10 min',
             'Excluir comentário · 10 min',
-            'Imprimir',
         ], $itens);
 
         $id = $obs->getId();
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-citar + .js-obs-criar-meta[role=\"menuitem\"] > i.bi-check2-square"));
-        self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-criar-meta + .ps-processo-menu-sep[role=\"separator\"] + .js-obs-editar"));
+        // C6-EDT-04 (dc L.5958): os extras (Citar, Criar meta, Imprimir) vêm antes do separador.
+        self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-criar-meta + .js-obs-imprimir + .ps-processo-menu-sep[role=\"separator\"] + .js-obs-editar"));
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-editar[data-obs-id=\"{$id}\"] > i.bi-pencil"));
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-excluir[data-obs-id=\"{$id}\"] > i.bi-trash3"));
         self::assertCount(0, $menu->filter('[disabled], .bi-lock'));
         // A ação real é o botão da janela do cartão, que o item aciona.
         self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} .ps-anotacao-acoes > .btn-editar-obs-det"));
-        self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} .ps-anotacao-acoes > .btn-excluir-obs-det"));
+        self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} .ps-anotacao-acoes > .btn-excluir-obs-det[hidden]"), 'C6-PAS-03: escondida, o ⋮ a clica');
         // PAS-039 (dc L.5958): Responder é o primeiro item e clica o botão do cartão.
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .ps-processo-menu-titulo + .js-obs-responder[role=\"menuitem\"] > i.bi-reply-fill"));
         self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} > .ps-anotacao-topo > .btn-responder-obs-det[data-resposta-a=\"{$id}\"]"));
     }
 
-    #[TestDox('PAS-041: autor passados 20 min — "Editar · bloqueado" e "Excluir · bloqueado", desabilitados, com bi-lock e o motivo do prazo')]
+    #[TestDox('PAS-041/C7-FPN-02: autor passados 20 min — "Editar · bloqueado" e "Excluir · bloqueado", aria-disabled e clicáveis, com bi-lock e o motivo do prazo no aviso')]
     public function testAutorForaDaJanela(): void
     {
         $client          = static::createClient();
@@ -109,12 +110,15 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Responder', 'Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Editar · bloqueado', 'Excluir · bloqueado', 'Imprimir'], $itens);
-        $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled][aria-disabled="true"]');
+        self::assertSame(['Responder', 'Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[aria-disabled="true"]');
         self::assertCount(2, $bloqueados);
         self::assertCount(2, $bloqueados->filter('i.bi-lock'));
+        // C7-FPN-02 (dc 5958): clicável — o `disabled` engolia o clique; o motivo vai no aviso.
+        self::assertCount(0, $menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled]'));
         foreach ($bloqueados as $b) {
             self::assertSame(self::MOTIVO_PRAZO, $b->getAttribute('title'));
+            self::assertSame(self::MOTIVO_PRAZO, $b->getAttribute('data-aviso'));
         }
         self::assertCount(0, $menu->filter('.js-obs-editar, .js-obs-excluir'), 'item bloqueado não aciona nada');
     }
@@ -132,9 +136,13 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Editar · bloqueado', 'Excluir · bloqueado', 'Imprimir'], array_slice($itens, -3));
-        foreach ($menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled]') as $b) {
+        self::assertSame(['Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], array_slice($itens, -3));
+        $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[aria-disabled="true"]');
+        self::assertCount(2, $bloqueados);
+        foreach ($bloqueados as $b) {
+            self::assertFalse($b->hasAttribute('disabled'), 'C7-FPN-02: bloqueado clicável');
             self::assertSame(self::MOTIVO_AUTOR, $b->getAttribute('title'));
+            self::assertSame(self::MOTIVO_AUTOR, $b->getAttribute('data-aviso'));
         }
     }
 
@@ -160,7 +168,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('js-obs-criar-meta', $montador, 'nem no cartão montado em JS');
     }
 
-    #[TestDox('PAS-041: na lápide o ⋮ é só leitura — Copiar e Citar; sem Criar meta, sem Editar/Excluir')]
+    #[TestDox('PAS-041: na lápide o ⋮ é só leitura — Copiar e Imprimir; sem Citar (C6-PAS-02: não há compositor), Criar meta, Editar/Excluir')]
     public function testLapide(): void
     {
         $client          = static::createClient();
@@ -175,7 +183,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Copiar texto', 'Citar no novo registro', 'Imprimir'], $itens, 'na lápide só leitura: Imprimir fica');
+        self::assertSame(['Copiar texto', 'Imprimir'], $itens, 'na lápide só leitura: Imprimir fica');
         self::assertCount(0, $menu->filter('.ps-processo-menu-sep'));
         // PAS-039: nem o item Responder nem o botão do cartão.
         self::assertCount(0, $crawler->filter('#detalhesObsLista .btn-responder-obs-det, #detalhesObsLista .js-obs-responder'));
@@ -195,7 +203,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $ini      = strpos($html, 'function inserirItem(data)');
         self::assertNotFalse($ini);
         $montador = substr($html, $ini, (int) strpos($html, 'obsLista.insertAdjacentHTML', $ini) - $ini);
-        $ordem    = ['js-obs-copiar', 'js-obs-citar', 'js-obs-criar-meta', 'ps-processo-menu-sep', 'js-obs-editar', 'js-obs-excluir'];
+        $ordem    = ['js-obs-copiar', 'js-obs-citar', 'js-obs-criar-meta', 'js-obs-imprimir', 'ps-processo-menu-sep', 'js-obs-editar', 'js-obs-excluir'];
         $pos      = array_map(static fn (string $c): int|false => strpos($montador, $c), $ordem);
         self::assertNotContains(false, $pos, 'falta item no cartão do JS');
         $ordenado = $pos;

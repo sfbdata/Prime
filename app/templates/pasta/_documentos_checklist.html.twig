@@ -63,6 +63,9 @@
                 <i class="bi bi-list-check" aria-hidden="true"></i>Sugerir documentos
             </button>
         {% endif %}
+        {# C6-DOC-01: escrita só para quem a teria (mesma flag do explorador: EDIT e fora da lápide);
+           o pasta-checklist.js ainda as remove como segunda barreira. #}
+        {% if explorador.podeEditar ?? false %}
         <button type="button" id="btnChecklistModelos" class="pex-ck-acao" title="Modelos de checklist"
                 aria-expanded="false" aria-controls="checklistModelosPainel">
             <i class="bi bi-bookmarks"></i>
@@ -75,6 +78,7 @@
                 aria-expanded="false" aria-controls="checklistFormAdicionar">
             <i class="bi bi-plus-lg"></i>
         </button>
+        {% endif %}
         {% endif %}
         {# Interruptor do desenho (L2093): "Ativo" verde / "Desativado" cinza. Ligado, abre a
            confirmação com o motivo; desligado, reativa direto (ckReativar, L4084). #}

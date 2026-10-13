@@ -203,8 +203,6 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         // PAS-041 acrescentou Criar meta e Editar/Excluir (PastaDetalhesObsMenuTelaTest); aqui, os dois primeiros.
         $itens = $menu->filter('[role="menuitem"]');
         self::assertGreaterThanOrEqual(3, count($itens));
-        // EDT-003: "Imprimir" é o último item do ⋮, como no desenho (dc L.6466).
-        self::assertSame('Imprimir', trim($itens->last()->text()));
         self::assertSame('Copiar texto', trim($menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar')->text()));
 
         // EDT-009 (dc L.6460): ordem do desenho — Citar vem depois de Copiar texto, com o ícone de aspas.
@@ -213,10 +211,12 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertSame('Citar no novo registro', trim($citar->text()));
         self::assertCount(1, $citar->filter('i.bi.bi-quote'));
 
-        // EDT-003 (dc L.6466): "Imprimir" fecha o menu (depois dos itens do PAS-041), com autor · data · tipo
-        // para a linha da folha ("Atendimento" é o tipo do relatório de Detalhes no desenho).
-        $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > button.js-obs-imprimir[role="menuitem"]:last-child');
-        self::assertCount(1, $imprimir, '"Imprimir" é o último item do ⋮');
+        // EDT-003 (dc L.6466) + C6-EDT-04 (dc L.5958): "Imprimir" fecha os extras — logo depois de
+        // "Criar meta…" e antes do separador de Editar/Excluir —, com autor · data · tipo para a
+        // linha da folha ("Atendimento" é o tipo do relatório de Detalhes no desenho).
+        $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-criar-meta + button.js-obs-imprimir[role="menuitem"]');
+        self::assertCount(1, $imprimir, '"Imprimir" vem logo depois de "Criar meta…"');
+        self::assertCount(1, $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-imprimir + .ps-processo-menu-sep[role="separator"]'), 'e logo antes do separador');
         self::assertSame('Imprimir', trim($imprimir->text()));
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
         self::assertSame($user->getFullName(), $imprimir->attr('data-autor'));

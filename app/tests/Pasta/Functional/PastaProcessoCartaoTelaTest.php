@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
+use App\Pasta\Controller\PastaResumoController;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
@@ -317,6 +318,10 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // Copiar número: o número cru (o mesmo do `data-copy` ao lado do número).
         self::assertSame(self::NUMERO, $menu->filter('.js-proc-copiar[data-copiar]')->attr('data-copiar'));
 
+        // C6-EDT-03 / C6-PMC-04 (dc:2926-2927): os avisos das duas cópias com o texto do desenho.
+        self::assertSame('Número do processo copiado', $menu->filter('.js-proc-copiar[data-copiar]')->attr('data-aviso'));
+        self::assertSame('Resumo do processo copiado', $menu->filter('.js-proc-copiar[data-resumo]')->attr('data-aviso'));
+
         // Compartilhar (EDT-006/PMC-002, dc L.2928): o item NÃO some sem Web Share — sem ele, copia
         // o resumo e avisa com o texto do desenho.
         $compartilhar = $menu->filter('.js-proc-compartilhar');
@@ -382,7 +387,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $pasta->setNomeAcao('Cobrança de taxas condominiais');
         $this->em()->flush();
-        $this->processoCompleto($pasta);
+        $processo = $this->processoCompleto($pasta);
 
         $this->logarComTenant($client, $user, $tenant);
         $menu = $this->cartao($this->abrir($client, $pasta))->filter('article.ps-processo > .ps-processo-menu');
@@ -414,6 +419,14 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertNull($imprimir->attr('hidden'));
         self::assertSame($menu->filter('.js-proc-copiar[data-resumo]')->attr('data-resumo'), $imprimir->attr('data-resumo'));
         self::assertSame('Processo ' . self::NUMERO_MASCARA, $imprimir->attr('data-titulo'));
+
+        // C6-EDT-06: o PDF do processo é montado no servidor com as MESMAS linhas do resumo da
+        // tela — juntando rótulo e valor como o "Copiar resumo", o texto é idêntico.
+        $doServidor = array_map(
+            static fn (array $l): string => $l['rotulo'] . ($l['valor'] !== '' ? ': ' . $l['valor'] : ''),
+            PastaResumoController::linhasDoProcesso($pasta, $processo),
+        );
+        self::assertSame($linhas, $doServidor);
     }
 
     #[TestDox('⋮ Copiar resumo: processo sem dados não ganha "Não informado" — só número e pasta')]

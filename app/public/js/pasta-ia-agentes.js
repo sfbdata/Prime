@@ -17,7 +17,9 @@
      6. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
         pré-preenchido, no mesmo contrato do pasta-ia-push.js;
      7. Copiar e Imprimir do cartão concluído, sobre o mesmo texto do "Baixar .txt"
-        (GET `inteligencia_analise_txt`);
+        (GET `inteligencia_analise_txt`); baixar e imprimir avisam o servidor
+        (POST `inteligencia_analise_registro`) para o registro de auditoria —
+        copiar, não (C6-IA-01);
      8. rodapé "Registro de auditoria (N)": GET `inteligencia_auditoria_da_pasta`
         a cada abertura do drawer e depois de cada recarga de agente; o chevron
         abre e fecha a lista.
@@ -486,6 +488,39 @@
                 });
         });
 
+        /* ── 7b. Registro de auditoria do download e da impressão (C6-IA-01) ── */
+        // Desenho, dc L5742-5743: baixar e imprimir entram no "Registro de auditoria"; copiar,
+        // não. POST com o token do cartão (`inteligencia_analise_registro`), disparado ao lado da
+        // ação e sem bloqueá-la: o download segue pelo link comum e a impressão pela janela. Se o
+        // registro falhar, a ação já aconteceu e nada é avisado; o rodapé recarrega quando dá certo.
+        function registrarExportacao(el, acao) {
+            var cartao = el.closest('[data-ia-analise]');
+            var url = cartao ? cartao.getAttribute('data-ia-registro-url') : null;
+            if (!url) { return; }
+
+            var dados = new FormData();
+            dados.append('_token', cartao.getAttribute('data-ia-registro-token') || '');
+            dados.append('acao', acao);
+
+            fetch(url, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+                // keepalive: o download por link pode trocar o documento antes da resposta.
+                keepalive: true,
+                body: dados
+            })
+                .then(function (r) { if (r.ok) { recarregarAuditoria(); } })
+                .catch(function () { /* a ação do usuário não depende do registro */ });
+        }
+
+        // Sem preventDefault: o link `download` continua baixando o .txt (GET puro).
+        drawer.addEventListener('click', function (e) {
+            var link = e.target.closest('[data-ia-baixar]');
+            if (!link) { return; }
+            registrarExportacao(link, 'download');
+        });
+
         // A janela abre NO clique (senão o bloqueador de pop-up a recusa) e é preenchida por
         // textContent: o texto do modelo nunca vira HTML, nem na impressão.
         drawer.addEventListener('click', function (e) {
@@ -499,9 +534,10 @@
                 avisar('O navegador bloqueou a janela de impressão. Libere as janelas pop-up deste site.', true);
                 return;
             }
-
             buscarTexto(url)
                 .then(function (texto) {
+                    // Registra só com o texto em mãos: falha ao buscar não deixa "Impressão" na trilha.
+                    registrarExportacao(botao, 'impressao');
                     var doc = janela.document;
                     var linhas = texto.split('\n');
                     doc.title = linhas[0] || 'BLUEJUS IA';

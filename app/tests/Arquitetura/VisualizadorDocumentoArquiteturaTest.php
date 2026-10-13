@@ -167,7 +167,61 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringNotContainsString('baixar(', $bloco, 'nada a ler: o envelope não é baixado para a tela');
     }
 
-        #[TestDox('text/rtf e ODT/PPTX com MIME application/zip não caem no texto nem no ZIP: a ordem do tipoDe decide')]
+        #[TestDox('C6-DOC-02: imagem que não carrega (HEIC fora do Safari) troca pelo aviso do desenho, marcado como sem conteúdo, sem prometer conversão no servidor')]
+    public function testImagemQueNaoCarregaViraAviso(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("const MIMES_HEIC = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'];", $js);
+        self::assertStringContainsString("const EXT_HEIC   = ['heic', 'heif'];", $js);
+        self::assertStringContainsString("if (tipo === 'imagem') { renderImagem(alvo, o, vivo); return; }", self::corpoDaFuncao($js, 'abrir'));
+
+        $render = self::corpoDaFuncao($js, 'renderImagem');
+        self::assertStringContainsString("img.addEventListener('error', function () {", $render);
+        self::assertLessThan(strpos($render, 'img.src = o.url;'), strpos($render, "img.addEventListener('error'"), 'o listener entra antes do src: o erro não escapa');
+        self::assertStringContainsString('if (!vivo()) { return; }', $render, 'abrir outro arquivo antes do erro não troca a tela do novo');
+        self::assertStringContainsString("'Imagem HEIC (iPhone). Este navegador não abre esse formato. Use Baixar.'", $render);
+        self::assertStringContainsString("blocoAviso('bi-image', '#7a4bb0',", $render, 'ícone e cor do grupo heic do desenho (bj-visualizar.js L62)');
+        self::assertStringContainsString('blocoNaoDisponivel(o.urlDownload,', $render, 'imagem comum que não carrega também sai do ícone quebrado');
+        self::assertStringNotContainsString('servidor', $render, 'o sistema não converte HEIC');
+        self::assertStringNotContainsString('JPG', $render);
+
+        // Os dois avisos marcam o "não há o que imprimir" (DOC-108).
+        self::assertStringContainsString("div.setAttribute('data-vd-sem-conteudo', '');", self::corpoDaFuncao($js, 'blocoAviso'));
+        self::assertStringContainsString("div.setAttribute('data-vd-sem-conteudo', '');", self::corpoDaFuncao($js, 'blocoNaoDisponivel'));
+        self::assertStringNotContainsString('innerHTML', self::corpoDaFuncao($js, 'blocoAviso'));
+    }
+
+    #[TestDox('C6-DOC-03: tipo sem visualização mostra extensão e tamanho; RAR/7Z/TAR/GZ e PPT/PPS/MSG têm aviso próprio, sem a promessa de servidor')]
+    public function testAvisoDeTipoSemVisualizacaoDoDesenho(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString("const EXT_COMPACTADO       = ['rar', '7z', 'tar', 'gz'];", $js);
+        self::assertStringContainsString("const EXT_MICROSOFT_ANTIGO = ['ppt', 'pps', 'msg'];", $js);
+        self::assertStringContainsString('alvo.appendChild(blocoSemVisualizacao(o));', self::corpoDaFuncao($js, 'abrir'));
+        self::assertStringNotContainsString('alvo.appendChild(blocoNaoDisponivel(o.urlDownload));', self::corpoDaFuncao($js, 'abrir'), 'o aviso genérico sem extensão saiu');
+
+        $bloco = self::corpoDaFuncao($js, 'blocoSemVisualizacao');
+        self::assertStringContainsString("const partes = [ext.toUpperCase(), tam].filter(Boolean);", $bloco);
+        self::assertStringContainsString("const tam = textoDoTamanho(o.tamanho);", $bloco, 'DOC-141: o tamanho que quem abre já tem');
+        // Textos do desenho (bj-visualizar.js L86, L88, L90) sem a frase do servidor.
+        self::assertStringContainsString("'Este tipo de arquivo' + rotulo + ' não tem visualização. Use Baixar.'", $bloco);
+        self::assertStringContainsString("'Arquivo ' + ext.toUpperCase() + (tam ? ' (' + tam + ')' : '') + '. O navegador não abre este formato.'", $bloco);
+        self::assertStringContainsString("'Formato antigo da Microsoft' + rotulo + '. O navegador não lê este formato.'", $bloco);
+        self::assertStringContainsString("blocoAviso('bi-file-earmark-zip-fill', '#b7791f',", $bloco);
+        self::assertStringContainsString("ext === 'msg' ? 'bi-envelope-paper-fill' : 'bi-file-earmark-slides-fill', '#c0571d'", $bloco);
+        self::assertStringContainsString("blocoAviso('bi-file-earmark', '#6b8494',", $bloco);
+        foreach (['servidor', 'converte', 'lista o conteúdo', 'No sistema', 'no sistema'] as $promessa) {
+            self::assertStringNotContainsString($promessa, $bloco, "nada de promessa que o sistema não cumpre ({$promessa})");
+        }
+        self::assertStringNotContainsString('baixar(', $bloco, 'nada é baixado só para medir');
+
+        $tamanho = self::corpoDaFuncao($js, 'textoDoTamanho');
+        self::assertStringContainsString("typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '')", $tamanho);
+    }
+
+    #[TestDox('text/rtf e ODT/PPTX com MIME application/zip não caem no texto nem no ZIP: a ordem do tipoDe decide')]
     public function testOrdemDoTipoDe(): void
     {
         $corpo = self::corpoDaFuncao(self::modulo(), 'tipoDe');

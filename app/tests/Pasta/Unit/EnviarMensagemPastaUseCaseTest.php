@@ -16,6 +16,7 @@ use App\Repository\UserTenantRepository;
 use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
@@ -98,6 +99,8 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
                 $this->notificacaoService,
                 $urlGenerator,
                 $this->cota,
+                // O Registro não é o financeiro: a visibilidade dele nunca é perguntada aqui.
+                $this->createStub(VisibilidadeDoFinanceiroDaPasta::class),
             ),
             $this->cota,
         );
@@ -829,7 +832,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             $this->permissionChecker,
             $urlGenerator,
             $mencoes,
-            new ResolucaoDeMencoesDoRegistro($mencoes, $this->userRepository, $this->permissionChecker, $this->notificacaoRepository, $this->notificacaoService, $urlGenerator, $cota),
+            new ResolucaoDeMencoesDoRegistro($mencoes, $this->userRepository, $this->permissionChecker, $this->notificacaoRepository, $this->notificacaoService, $urlGenerator, $cota, $this->createStub(VisibilidadeDoFinanceiroDaPasta::class)),
             $cota,
         );
     }

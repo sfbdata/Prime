@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Controller;
 
+use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\DTO\PublicacaoDjenOutput;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Djen\Repository\PublicacaoDjenRepository;
@@ -118,6 +119,56 @@ final class PastaPushProcessualController extends AbstractController
                 static fn (NotaTecnica $nota): NotaTecnicaOutput => NotaTecnicaOutput::fromEntity($nota),
                 $this->notaTecnicaRepository->listarPorPublicacao($publicacao, $tenant),
             ),
+        ]);
+    }
+
+    /**
+     * O texto inteiro do teor, PURO (sem marcação), para o "Copiar texto" do menu do cartão
+     * (C6-FPN-03; dc:5394 copia `m.texto`, o teor todo, sem abrir o cartão).
+     *
+     * Existe à parte do `pasta_push_teor` porque aquele GET marca a publicação como lida (abrir é
+     * ler): copiar pelo menu não é abrir, e o cartão "Novo" tem de continuar novo. Aqui NÃO há
+     * efeito colateral nenhum — nem `lida`, nem flush.
+     *
+     * Guarda idêntica à do teor (tenant da pasta → 404; VER a pasta → 403; publicação casada com
+     * um processo DESTA pasta na própria consulta → 404). A lápide lê, como no teor: é GET.
+     *
+     * O texto sai como o trecho do título (`PublicacaoDjenListaItem::resumirTexto`, sem teto):
+     * tags fora, entidades decodificadas, espaços colapsados — o mesmo que o JS copia do teor já
+     * aberto (`textContent` com os espaços colapsados). `texto: null` quando a publicação não tem teor.
+     */
+    #[Route(
+        '/{id}/push/{publicacaoId}/texto',
+        name: 'pasta_push_texto',
+        requirements: ['id' => '\d+', 'publicacaoId' => '\d+'],
+        methods: ['GET'],
+    )]
+    public function texto(Pasta $pasta, int $publicacaoId): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
+            return $this->json(['erro' => 'Sem permissão para ver esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $publicacao = $this->publicacaoRepository->findOneByIdENumerosDoTenant(
+            $publicacaoId,
+            $tenant,
+            $this->numerosDosProcessos($pasta),
+        );
+
+        if ($publicacao === null) {
+            return $this->json(['erro' => 'Publicação não encontrada nesta pasta.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json([
+            'texto' => PublicacaoDjenListaItem::resumirTexto($publicacao->getTexto(), PHP_INT_MAX),
         ]);
     }
 

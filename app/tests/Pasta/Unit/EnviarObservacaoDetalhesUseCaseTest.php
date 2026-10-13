@@ -135,6 +135,26 @@ final class EnviarObservacaoDetalhesUseCaseTest extends TestCase
         self::assertStringNotContainsString('(user:99)', $obs->getConteudo(), 'quem não é colega ativo vira texto');
     }
 
+    #[TestDox('C6-SEC-02 (controle): em Detalhes a visibilidade do financeiro não é perguntada — menção e resposta avisam')]
+    public function testDetalhesNaoDependeDaVisibilidadeDoFinanceiro(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$this->autor, $bruno, $carla]);
+        $this->acessoAPasta(77, [2 => true, 3 => true]);
+        // Mesmo dizendo que ninguém vê o financeiro, Detalhes segue avisando.
+        $this->semVerOFinanceiro = [2, 3];
+        $avisos = $this->capturarAvisos();
+
+        $this->useCase->executar($this->pasta, $this->autor, '<p>Ver com @[Carla](user:3)</p>', $this->tenant, $this->registro($bruno));
+
+        $porPessoa = [];
+        foreach ($avisos as $a) {
+            $porPessoa[] = [$a['usuario']->getId(), $a['tipo']];
+        }
+        self::assertSame([[2, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO], [3, Notificacao::TIPO_PASTA_MENCAO_REGISTRO]], $porPessoa);
+    }
+
     #[TestDox('EDT-010r: resposta que menciona o autor respondido gera UM aviso só — o de resposta')]
     public function testRespostaComMencaoAoRespondidoAvisaUmaVez(): void
     {
@@ -304,6 +324,7 @@ final class EnviarObservacaoDetalhesUseCaseTest extends TestCase
             $this->notificacaoService,
             $urlGenerator,
             new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(aceita: false), new NullLogger()),
+            $this->visibilidadeDoFinanceiro,
         );
         $useCase = new EnviarObservacaoDetalhesUseCase($this->em, $this->criarSanitizadorTextoRico(), $resolucao);
 

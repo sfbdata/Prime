@@ -80,7 +80,7 @@ final readonly class PastaPushOutput
     }
 
     /**
-     * Agrupa por publicação, na ordem em que vieram (mais recente primeiro). Nota de publicação que
+     * Agrupa por publicação, na ordem em que vieram (cronológica, a mais antiga primeiro: C6-FPN-01). Nota de publicação que
      * não está na lista fica de fora: só se pendura nota em cartão que existe.
      *
      * @param NotaTecnica[]             $notas

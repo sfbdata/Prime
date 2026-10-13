@@ -96,4 +96,22 @@ final class NotificacaoIconeDropdownTest extends JusPrimeWebTestCase
 
         self::assertStringNotContainsString('bi-bell text-secondary', (string) $dados['html'], 'nenhum dos dois cai mais no sino cinza');
     }
+
+    #[TestDox('C6-FPN-02: na página /notificacoes o alerta de meta leva o sino com text-orange, dentro do .notif-ico da linha')]
+    public function testIconeLaranjaNaPagina(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuario();
+        $this->notificar($user, $tenant, AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO, 'Alerta para verificar a meta');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/notificacoes');
+        self::assertResponseIsSuccessful();
+
+        $linha = $crawler->filter('.notif-row')->reduce(static fn (Crawler $r): bool => str_contains($r->text(), 'Alerta para verificar a meta'));
+        self::assertCount(1, $linha);
+        // Na página o <i> não tem `.notif-icon`: a cor vem da regra geral `.text-orange` do app.css
+        // (o `NotificacaoTextOrangeCssTest` trava que ela existe fora do escopo do dropdown).
+        self::assertCount(1, $linha->filter('.notif-row > span.notif-ico > i.bi.bi-bell-fill.text-orange'));
+    }
 }

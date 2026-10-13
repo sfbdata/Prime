@@ -237,13 +237,75 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
 
         $ini      = (int) strpos($html, 'function inserirMensagem(data)');
         $montador = substr($html, $ini, (int) strpos($html, 'list.classList.remove(\'ps-registro--vazio\')', $ini) - $ini);
-        self::assertStringContainsString('data-janela-ate="${Math.floor(Number(data.criadaEmTs) / 1000) + 15 * 60}"', $montador);
+        // C6-PAS-01: o fim da janela sai do epoch que o servidor manda; `criadaEmTs` é ATOM e
+        // `Number()` sobre ele dava NaN (menu "bloqueado" e lixeira inacessível até recarregar).
+        self::assertStringContainsString('data-janela-ate="${Number(data.criadaEmEpoch) + 15 * 60}"', $montador);
+        self::assertStringNotContainsString('Number(data.criadaEmTs)', $html);
         self::assertStringContainsString('data-do-autor="1"', $montador);
+        // C6-PAS-07: com foto, o avatar do cartão novo é a <img> (igual ao Twig); sem, as iniciais.
+        self::assertStringContainsString('<span class="ps-avatar ps-avatar--24">${data.autorFotoUrl ? `<img src="${esc(data.autorFotoUrl)}" alt="">` : esc(iniciaisDe(data.autorNome))}</span>', $montador);
         $data = strpos($montador, '<span class="ps-anotacao-data ps-num"');
         $btn  = strpos($montador, 'class="ps-reg-menu-btn js-reg-menu"');
         self::assertNotFalse($btn, 'o cartão do JS não tem o ⋮');
         self::assertLessThan($btn, (int) $data, 'a hora vem antes do ⋮, como no Twig');
         self::assertStringContainsString('aria-controls="psRegMenu"', $montador);
+    }
+
+    /** @return array<string, mixed> o JSON do `pasta_enviar_mensagem` (201) */
+    private function enviar(object $client, Pasta $pasta): array
+    {
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        $token   = $crawler->filter('#formTimelineMensagem input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/mensagem', [
+            '_token'   => $token,
+            'conteudo' => '<p>Registro novo</p>',
+        ], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+        self::assertResponseStatusCodeSame(201);
+
+        return json_decode((string) $client->getResponse()->getContent(), true);
+    }
+
+    #[TestDox('C6-PAS-01: o envio do Registro devolve `criadaEmEpoch` inteiro, o mesmo instante do ATOM, para o JS calcular a janela')]
+    public function testEnvioDevolveOEpochDaCriacao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $antes = time();
+        $data  = $this->enviar($client, $pasta);
+
+        self::assertIsInt($data['criadaEmEpoch']);
+        self::assertSame((new \DateTimeImmutable($data['criadaEmTs']))->getTimestamp(), $data['criadaEmEpoch']);
+        self::assertGreaterThanOrEqual($antes - 5, $data['criadaEmEpoch']);
+        self::assertLessThanOrEqual(time() + 5, $data['criadaEmEpoch']);
+
+        $msg = $this->em()->find(PastaMensagem::class, $data['id']);
+        self::assertNotNull($msg);
+        self::assertSame($msg->getCriadaEm()->getTimestamp(), $data['criadaEmEpoch'], 'a mesma base do `|date(\'U\')` do Twig');
+    }
+
+    #[TestDox('C6-PAS-07: o envio devolve a URL da foto do autor quando ele tem foto (rota da foto, como o Twig) e null quando não tem')]
+    public function testEnvioDevolveAFotoDoAutor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        self::assertNull($this->enviar($client, $pasta)['autorFotoUrl'], 'sem foto: o JS mostra as iniciais');
+
+        // A requisição limpa o EntityManager: relê o autor antes de pendurar o perfil nele
+        $autor   = $this->em()->find(\App\Entity\Auth\User::class, $user->getId());
+        $profile = new \App\Profile\Entity\UserProfile($autor);
+        $profile->setFotoUrl('foto-autor.jpg');
+        $this->em()->persist($profile);
+        $this->em()->flush();
+
+        $url = $this->enviar($client, $pasta)['autorFotoUrl'];
+        self::assertSame('/perfil/foto/foto-autor.jpg', $url);
     }
 
     #[TestDox('PAS-025: o botão direito abre o menu no ponto do clique, poupando links, botões, edição e texto selecionado; o ⋮ abre o mesmo menu')]

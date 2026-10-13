@@ -9,9 +9,10 @@
    ligações do chat, detecção de tarefa/telefone/e-mail/CNJ com
    "Criar tarefa"/"Validar" (o estado da sugestão não existe no servidor).
 
-   "Ver alteração" (PAS-045): o registro de Dados da pasta guarda o texto INTEIRO de antes
-   da última edição (`conteudo_anterior`); o cartão mostra Antes e Depois. Observações de
-   Detalhes e do Financeiro não guardam o anterior — nelas o botão não aparece.
+   "Ver alteração" (PAS-045 / PAS-045b): o registro de Dados da pasta e as observações de
+   Detalhes e do Financeiro guardam o texto INTEIRO de antes da última edição
+   (`conteudo_anterior`); o cartão mostra Antes e Depois. A do Financeiro só chega a quem
+   vê o financeiro.
 
    Notificações entram (PAS-047i): só as DO USUÁRIO LOGADO ligadas a esta pasta (pela meta
    ou pelo link), pendentes enquanto não lidas — chip "Notificações", `bi-bell`.
@@ -52,7 +53,7 @@
 
     <div class="ps-tl-barra">
         <input type="search" class="ps-tl-busca" data-tl-busca
-               placeholder="Buscar: &quot;quando falaram sobre o contrato&quot;, &quot;Jéssica&quot;, &quot;prazo&quot;…"
+               placeholder="Buscar: &quot;quando falaram sobre o contrato&quot;, &quot;Jéssica&quot;, &quot;telefone&quot;…"
                aria-label="Buscar na timeline" maxlength="200" autocomplete="off">
         <div class="ps-tl-chips" data-tl-chips role="group" aria-label="Filtrar por tipo"></div>
         <div class="ps-tl-linha">

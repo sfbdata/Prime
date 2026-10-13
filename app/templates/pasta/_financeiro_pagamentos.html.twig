@@ -25,15 +25,25 @@
    (só deste pagamento, deste escritório) no título. O menu da LINHA (clique
    direito, dc 3453-3456) tem Corrigir valor, quitar e excluir.
 
-   Contexto: `pagamentos` (PastaPagamentosOutput).
+   C7-FPN-01: sem escrita (só vê a pasta, ou lápide), nada que corrija, quite ou exclua é
+   montado: o número recebido e os selos ficam como texto, sem lápis, lixeira nem menu da linha.
+
+   Contexto: `pagamentos` (PastaPagamentosOutput), `podeEscreverFin` (do `_financeiro`). Sem
+   `podeEscreverFin`, vale escrita: o único outro chamador é o PastaPagamentoController, que
+   re-renderiza o corpo DEPOIS de uma escrita — e toda rota dele já exige EDIT na pasta viva.
    ============================================================================ #}
 {% set proximosVisiveis = 3 %}
+{% set podeEscreverPag = podeEscreverFin ?? true %}
 <div class="ps-pag-total">
     <div class="ps-pag-total-linha">
         {# O número recebido é a porta do modo de edição (dc 1876, `fin.edEntrar`). #}
+        {% if podeEscreverPag %}
         <button type="button"
                 class="ps-pag-recebido ps-num js-pag-entrar-edicao"
                 title="Editar ou corrigir os valores dos lançamentos">{{ pagamentos.recebidoFormatado }}</button>
+        {% else %}
+        <span class="ps-pag-recebido ps-num" style="cursor: default; background: transparent;">{{ pagamentos.recebidoFormatado }}</span>
+        {% endif %}
         <span class="ps-pag-previsto">recebidos de {{ pagamentos.previstoFormatado }}</span>
     </div>
     <div class="ps-pag-barra" role="progressbar"
@@ -56,7 +66,7 @@
 </div>
 
 {% if pagamentos.total == 0 %}
-    <div class="ps-pag-vazio-linha">Nenhum lançamento. Use Adicionar pagamento.</div>
+    <div class="ps-pag-vazio-linha">Nenhum lançamento.{% if podeEscreverPag %} Use Adicionar pagamento.{% endif %}</div>
 {% else %}
     {% if pagamentos.proximos is empty %}
         <div class="ps-pag-quitado">Tudo pago. Nada a vencer.</div>
@@ -65,19 +75,23 @@
     {% set linhasEmOrdem = pagamentos.proximos|merge(pagamentos.todos|filter(l => l.pago)) %}
     {% for linha in linhasEmOrdem %}
         {% set alem = not linha.pago and loop.index > proximosVisiveis %}
-        {% set csrfCorrigir = csrf_token('pasta_pagamento_corrigir_' ~ linha.id) %}
+        {# Sem escrita a linha não é gatilho de menu (sem `aria-controls`): o clique direito
+           fica com o navegador, e não há CSRF de correção a entregar. #}
         <div class="ps-pag-linha{{ linha.pago ? ' ps-pag-linha--pago' : '' }}{{ alem ? ' ps-pag-linha--alem' : '' }}{{ linha.foiCorrigido ? ' ps-pag-linha--corrigida' : '' }}"
              data-pagamento-id="{{ linha.id }}"
              data-descricao="{{ linha.descricao }}"
+             {%- if podeEscreverPag %}
              data-valor="{{ linha.valorEditavel }}"
-             data-csrf-corrigir="{{ csrfCorrigir }}"
-             aria-controls="psPagMenu-{{ linha.id }}">
+             data-csrf-corrigir="{{ csrf_token('pasta_pagamento_corrigir_' ~ linha.id) }}"
+             aria-controls="psPagMenu-{{ linha.id }}"
+             {%- endif %}>
             <div class="ps-pag-corpo">
                 <div class="ps-pag-descricao" title="{{ linha.descricao }}">{{ linha.descricao }}</div>
                 <div class="ps-pag-quando ps-num">{{ linha.quando }}</div>
             </div>
             <div class="ps-pag-direita">
                 <span class="ps-pag-valor ps-num">{{ linha.valorFormatado }}</span>
+                {% if podeEscreverPag %}
                 {# Só no modo de edição (CSS): o valor vira o botão de corrigir. #}
                 <button type="button"
                         class="ps-pag-valor-editar ps-num"
@@ -86,9 +100,11 @@
                         title="Clique para editar ou corrigir o valor{{ linha.foiCorrigido ? ' · já corrigido ' ~ linha.correcoes|length ~ 'x' : '' }}">
                     <span>{{ linha.valorFormatado }}</span><i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
+                {% endif %}
                 {% if linha.foiCorrigido %}
                     <span class="ps-pag-ajuste" title="{{ linha.historicoDeCorrecoes }}">corrigido · era {{ linha.valorOriginalFormatado }}</span>
                 {% endif %}
+                {% if podeEscreverPag %}
                 {# O selo é o botão de quitar, como o do Contrato na faixa. #}
                 <button type="button"
                         class="ps-selo ps-selo--{{ linha.tom }} ps-pag-selo"
@@ -96,7 +112,12 @@
                         data-pagamento-id="{{ linha.id }}"
                         data-csrf="{{ csrf_token('pasta_pagamento_quitacao_' ~ linha.id) }}"
                         title="{{ linha.pago ? 'Pago — clique para desfazer o recebimento' : 'Clique para marcar como recebido' }}">{{ linha.estado }}</button>
+                {% else %}
+                {# Sem escrita: o mesmo selo, só o estado. #}
+                <span class="ps-selo ps-selo--{{ linha.tom }} ps-pag-selo" style="cursor: default;">{{ linha.estado }}</span>
+                {% endif %}
             </div>
+            {% if podeEscreverPag %}
             {# Lixeira: só no modo de edição (dc 1913); fora dele, o menu da linha exclui. #}
             <button type="button"
                     class="ps-anotacao-acao ps-anotacao-acao--perigo ps-pag-excluir"
@@ -130,6 +151,7 @@
                     <i class="bi bi-trash3"></i><span>Excluir lançamento</span>
                 </button>
             </div>
+            {% endif %}
         </div>
     {% endfor %}
 

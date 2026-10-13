@@ -56,6 +56,10 @@ final class PastaSomenteLeituraListener
      *    subpastas) vai no corpo, com CSRF; a permissão exigida é a de VER e o único efeito é o
      *    registro no `audit_log`. A pasta riscada "abre e mostra tudo" — baixar o que ela mostra
      *    faz parte de consultar.
+     *  - `inteligencia_analise_registro` (C6-IA-01): o mesmo motivo do zip. Baixar ou imprimir a
+     *    análise da IA é leitura (GET puro do .txt); este POST só grava a linha no `audit_log`
+     *    ("Download"/"Impressão" do Registro de auditoria), com CSRF e a permissão de VER. Sem ele,
+     *    baixar na pasta riscada não deixaria rastro.
      *
      * Ficam de FORA de propósito (continuam recusadas): `pasta_favorito_alternar` e
      * `pasta_documentos_favorito`. Estrela é preferência pessoal, mas o precedente da casa é o
@@ -65,7 +69,7 @@ final class PastaSomenteLeituraListener
      *
      * @var list<string>
      */
-    public const ROTAS_LIBERADAS = ['pasta_restaurar', 'pasta_documentos_zip'];
+    public const ROTAS_LIBERADAS = ['pasta_restaurar', 'pasta_documentos_zip', 'inteligencia_analise_registro'];
 
     /**
      * Rotas de escrita `pasta_*` que não operam sobre uma pasta existente — não há lápide para

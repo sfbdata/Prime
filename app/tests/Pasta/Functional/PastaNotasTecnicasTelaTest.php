@@ -194,7 +194,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter("#nota-tecnica-{$recente->getId()} .ps-anotacao-acoes"));
     }
 
-    #[TestDox('⋮ do autor passados 20 min: Editar · bloqueado e Excluir · bloqueado, desabilitados com bi-lock e sem URL')]
+    #[TestDox('⋮ do autor passados 20 min: Editar · bloqueado e Excluir · bloqueado com bi-lock, sem URL, clicáveis com o aviso (C6-PMC-05)')]
     public function testMenuDoAutorForaDaJanela(): void
     {
         $client          = static::createClient();
@@ -209,7 +209,14 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
 
         [$menu, $itens] = $this->menuDaNota($crawler, $antiga);
         self::assertSame(['Responder com outra nota', 'Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
-        self::assertCount(2, $menu->filter('.ps-nota-menu > .ps-nota-menu-bloqueado[disabled][aria-disabled="true"] > i.bi-lock'));
+        self::assertCount(2, $menu->filter('.ps-nota-menu > .ps-nota-menu-bloqueado.js-nota-bloqueado[aria-disabled="true"] > i.bi-lock'));
+        // C6-PMC-05 (dc:5405-5406): clicável — sem `disabled`, que engolia o clique e deixava o
+        // motivo só no `title` —, com o aviso do desenho no `data-aviso`.
+        self::assertCount(0, $menu->filter('.ps-nota-menu-bloqueado[disabled]'));
+        self::assertSame(
+            ['Só o autor edita a nota, em até 15 minutos', 'Só o autor exclui a nota, em até 15 minutos'],
+            $menu->filter('.ps-nota-menu > .js-nota-bloqueado')->each(static fn ($b): string => (string) $b->attr('data-aviso')),
+        );
         self::assertCount(0, $menu->filter('.js-nota-editar, .js-nota-excluir, [data-url], [data-csrf]'), 'item bloqueado não carrega ação');
     }
 
@@ -381,7 +388,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $bloco->filter('.ps-nota-mov'));
     }
 
-    #[TestDox('FPN-020: a nota da movimentação fica pendurada sob o cartão do Push com o teor FECHADO, e o cartão sem nota não ganha bloco')]
+    #[TestDox('FPN-020: a nota da movimentação fica pendurada sob o cartão do Push com o teor FECHADO; o cartão sem nota ganha o bloco ESCONDIDO (C6-FPN-04)')]
     public function testNotaPenduradaSobOCartaoComOTeorFechado(): void
     {
         $client          = static::createClient();
@@ -408,9 +415,9 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertSame((string) $cid, $bloco->attr('data-publicacao-id'));
         self::assertSame((string) $pasta->getId(), $bloco->attr('data-pasta-id'));
         self::assertSame(
-            ["nota-tecnica-{$nova->getId()}-push", "nota-tecnica-{$antiga->getId()}-push"],
+            ["nota-tecnica-{$antiga->getId()}-push", "nota-tecnica-{$nova->getId()}-push"],
             $bloco->filter('.ps-notas > .ps-notas-lista > .ps-nota')->each(static fn ($n): string => (string) $n->attr('id')),
-            'só as notas DESTA movimentação, mais recente primeiro',
+            'só as notas DESTA movimentação, em ordem cronológica (C6-FPN-01: a mais antiga primeiro)',
         );
         self::assertSame('2', trim($bloco->filter('.ps-notas-contagem')->text()));
         self::assertStringContainsString('Prazo de 5 dias', $bloco->filter("#nota-tecnica-{$nova->getId()}-push > .ps-nota-texto")->text());
@@ -436,16 +443,21 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         // A nota que é só do processo não se pendura em movimentação nenhuma.
         self::assertCount(0, $crawler->filter("#push #nota-tecnica-{$soDoProcesso->getId()}, #nota-tecnica-{$soDoProcesso->getId()}-push"));
 
-        // O link do teor avisa que o bloco já está na página; o cartão sem nota segue como era.
+        // Com nota, o bloco está à vista (não nasce escondido).
+        self::assertNull($bloco->attr('hidden'));
+
+        // O link do teor avisa que o bloco já está na página — nos dois cartões: o sem nota agora
+        // também traz o bloco, escondido (C6-FPN-04), e o teor não pode repeti-lo (id único).
         self::assertSame(
             "/pasta/{$pasta->getId()}/push/{$cid}?penduradas=1",
             $crawler->filter("li[data-push-id=\"{$cid}\"] .ps-push-cab")->attr('data-push-url'),
         );
         self::assertSame(
-            "/pasta/{$pasta->getId()}/push/{$sid}",
+            "/pasta/{$pasta->getId()}/push/{$sid}?penduradas=1",
             $crawler->filter("li[data-push-id=\"{$sid}\"] .ps-push-cab")->attr('data-push-url'),
         );
-        self::assertCount(0, $crawler->filter("li[data-push-id=\"{$sid}\"] .ps-notas"));
+        self::assertCount(1, $crawler->filter("li[data-push-id=\"{$sid}\"] > .ps-push-teor + .ps-notas#notas-publicacao-{$sid}[hidden][data-oculto-se-vazio]"));
+        self::assertCount(0, $crawler->filter("li[data-push-id=\"{$sid}\"] .ps-nota"));
 
         // Mostrar a nota não é abrir o teor: a publicação continua não lida.
         $this->em()->clear();
@@ -495,7 +507,10 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         self::assertCount(1, $crawler->filter("#push li[data-push-id=\"{$pub->getId()}\"]"));
-        self::assertCount(0, $crawler->filter("#push li[data-push-id=\"{$pub->getId()}\"] > .ps-notas"));
+        // Para esta pasta a movimentação não tem nota: o bloco pendurado é o vazio, escondido
+        // (C6-FPN-04 — só existe para o "Adicionar nota técnica" do botão direito).
+        self::assertCount(1, $crawler->filter("#push li[data-push-id=\"{$pub->getId()}\"] > .ps-notas[hidden]"));
+        self::assertCount(0, $crawler->filter("#push li[data-push-id=\"{$pub->getId()}\"] > .ps-notas .ps-nota"));
         self::assertCount(0, $crawler->filter("#push #nota-tecnica-{$alheia->getId()}-push"));
     }
 
@@ -637,4 +652,119 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $bloco, 'o processo mascarado ficou sem o bloco de notas no teor');
         self::assertSame((string) $processo->getId(), $bloco->attr('data-processo-id'));
     }
+
+    #[TestDox('C6-FPN-01: as notas saem em ordem cronológica — a mais antiga primeiro — na aba Processo e no teor do Push')]
+    public function testNotasEmOrdemCronologica(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub     = $this->criarPublicacao($tenant, '60000090', self::NUMERO, '2026-08-20', $processo);
+        $antiga  = $this->criarNota($processo, $user, $tenant, '<p>Primeira</p>', $pub, '-40 minutes');
+        $meio    = $this->criarNota($processo, $user, $tenant, '<p>Segunda</p>', null, '-20 minutes');
+        $recente = $this->criarNota($processo, $user, $tenant, '<p>Terceira</p>', $pub);
+        $pid     = $processo->getId();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ["nota-tecnica-{$antiga->getId()}", "nota-tecnica-{$meio->getId()}", "nota-tecnica-{$recente->getId()}"],
+            $crawler->filter("#notas-processo-{$pid} > .ps-notas-lista > .ps-nota")->each(static fn ($n): string => (string) $n->attr('id')),
+            'aba Processo: de cima para baixo, como foram escritas (a nova logo acima do compositor)',
+        );
+
+        // O teor, sem o bloco pendurado (link sem `penduradas`), traz as da movimentação na mesma ordem.
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/push/{$pub->getId()}");
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ["nota-tecnica-{$antiga->getId()}", "nota-tecnica-{$recente->getId()}"],
+            $crawler->filter(".ps-push-teor-corpo > #notas-publicacao-{$pub->getId()} > .ps-notas-lista > .ps-nota")->each(static fn ($n): string => (string) $n->attr('id')),
+        );
+    }
+
+    #[TestDox('C6-FPN-04: para quem escreve, o cartão SEM nota traz o bloco escondido com o "Adicionar nota técnica" — o menu abre o compositor sem abrir o teor')]
+    public function testCartaoSemNotaTrazBlocoEscondidoParaQuemEscreve(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '60000091', self::NUMERO, '2026-08-20', $processo);
+        $id  = $pub->getId();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        // Filho direto do <li>, depois do teor fechado: o mesmo lugar do bloco com nota (FPN-020).
+        $bloco = $crawler->filter("#push .ps-push-lista > li[data-push-id=\"{$id}\"][data-push-aceita-nota=\"1\"] > .ps-push-cartao + .ps-push-teor[hidden] + .ps-notas#notas-publicacao-{$id}");
+        self::assertCount(1, $bloco);
+        self::assertNotNull($bloco->attr('hidden'), 'vazio, nasce escondido');
+        self::assertSame('display: none', $bloco->attr('style'), 'o display:flex do .ps-notas venceria o hidden');
+        self::assertNotNull($bloco->attr('data-oculto-se-vazio'));
+        self::assertSame((string) $processo->getId(), $bloco->attr('data-processo-id'));
+        self::assertSame('0', trim($bloco->filter('.ps-notas-contagem')->text()));
+        self::assertCount(0, $bloco->filter('.ps-nota'));
+        // É o que o menu clica (pasta-push.js: `:scope > #notas-publicacao-<id>` → `.js-nota-nova`).
+        self::assertCount(1, $bloco->filter('.ps-notas > .ps-notas-cab > .js-nota-nova'));
+        self::assertCount(1, $bloco->filter('.ps-notas > .ps-nota-editor[hidden]'));
+        // O teor não repete o bloco (id único).
+        self::assertSame(
+            "/pasta/{$pasta->getId()}/push/{$id}?penduradas=1",
+            $crawler->filter("li[data-push-id=\"{$id}\"] > .ps-push-cartao > .ps-push-cab")->attr('data-push-url'),
+        );
+        self::assertCount(1, $crawler->filter("#notas-publicacao-{$id}"));
+
+        // Renderizar o bloco não é ler: a publicação continua nova.
+        $this->em()->clear();
+        self::assertFalse($this->em()->find(PublicacaoDjen::class, $id)?->isLida());
+    }
+
+    #[TestDox('C6-FPN-04: quem só VÊ não recebe o bloco vazio (não há nota para criar) e o link do teor segue sem penduradas')]
+    public function testSemBlocoVazioParaLeitor(): void
+    {
+        $client           = static::createClient();
+        [, $tenant]       = $this->criarAdmin();
+        $leitor           = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+        $pasta            = $this->criarPasta($tenant);
+        $processo         = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '60000092', self::NUMERO, '2026-08-20', $processo);
+        $id  = $pub->getId();
+        $url = "/pasta/{$pasta->getId()}/push/{$id}";
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter("#push li[data-push-id=\"{$id}\"]"), 'o cartão está lá (recurso irmão)');
+        self::assertCount(0, $crawler->filter("#notas-publicacao-{$id}"));
+        self::assertSame($url, $crawler->filter("li[data-push-id=\"{$id}\"] .ps-push-cab")->attr('data-push-url'));
+    }
+
+    #[TestDox('C6-FPN-04: na lápide nem o admin recebe o bloco vazio, e o link do teor segue sem penduradas')]
+    public function testSemBlocoVazioNaLapide(): void
+    {
+        $client           = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $pasta            = $this->criarPasta($tenant);
+        $processo         = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '60000093', self::NUMERO, '2026-08-20', $processo);
+        $id  = $pub->getId();
+        $url = "/pasta/{$pasta->getId()}/push/{$id}";
+        $pasta->marcarExcluida($admin, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter("#push li[data-push-id=\"{$id}\"]"));
+        self::assertCount(0, $crawler->filter("#notas-publicacao-{$id}"), 'na lápide nem o admin escreve');
+        self::assertSame($url, $crawler->filter("li[data-push-id=\"{$id}\"] .ps-push-cab")->attr('data-push-url'));
+    }
 }
+
