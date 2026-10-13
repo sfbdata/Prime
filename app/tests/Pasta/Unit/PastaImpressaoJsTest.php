@@ -95,19 +95,59 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString('estado.fonte + 0.5', $js);
     }
 
-    #[TestDox('EDT-002: Baixar PDF leva as mesmas opções da janela à rota de PDF, e só para folha que o servidor monta inteira')]
+    #[TestDox('EDT-002/C6-EDT-06: Baixar PDF leva as mesmas opções à rota de PDF; na moldura, só com o alvo (id) que o servidor monta')]
     public function testBaixarPdf(): void
     {
         $js     = $this->js();
         $inicio = strpos($js, 'function baixarPdf()');
+        $fim    = strpos($js, 'function copiarTexto()');
         self::assertNotFalse($inicio);
-        $f = substr($js, $inicio, 800);
+        self::assertNotFalse($fim);
+        $f = substr($js, $inicio, $fim - $inicio);
 
-        self::assertStringContainsString("if (!estado || estado.secao === 'moldura') { return; }", $f);
+        self::assertStringContainsString("var alvo = estado.secao === 'moldura' ? estado.pdf : { secao: estado.secao };", $f);
+        self::assertStringContainsString('if (!alvo) { return; }', $f, 'moldura sem alvo do servidor não baixa nada');
         self::assertStringContainsString("raiz.getAttribute('data-url-pdf')", $f);
+        self::assertStringContainsString('u.searchParams.set(chave, String(alvo[chave]))', $f);
         self::assertStringContainsString("u.searchParams.set(parte, estado.opcoes[parte] ? '1' : '0')", $f);
         self::assertStringContainsString("u.searchParams.set('fonte', String(estado.fonte))", $f);
-        self::assertStringContainsString("raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura';", $js);
+        self::assertStringContainsString("raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura' && !cfg.pdf;", $js);
+        self::assertStringContainsString('pdf: cfg.pdf || null,', $js);
+        // O PDF nunca leva o corpo da tela: nem a folha nem o nó do corpo entram no pedido.
+        self::assertStringNotContainsString('estado.folha', $f);
+        self::assertStringNotContainsString('cfg.corpo', $f);
+    }
+
+    #[TestDox('C6-EDT-06: o registro pede o PDF pelo id do cartão (secao=observacao&obs=…) e o processo pelo data-processo-id do cartão (secao=processo&processo=…)')]
+    public function testAlvoDoPdfDoRegistroEDoProcesso(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString('/^detalhes-obs-(\d+)$/.exec(artigo.id || \'\')', $js);
+        self::assertStringContainsString("{ secao: 'observacao', obs: id[1] }", $js);
+
+        $inicio = strpos($js, 'var processoDoClique = null;');
+        self::assertNotFalse($inicio);
+        $bloco = substr($js, $inicio, 500);
+        self::assertStringContainsString("e.target.closest('.js-proc-imprimir')", $bloco);
+        self::assertStringContainsString("item.closest('[data-processo-id]')", $bloco);
+        self::assertStringContainsString('}, true);', $bloco, 'em captura: o id é guardado ANTES de o pasta-processo.js chamar conteudo()');
+        self::assertStringContainsString("{ secao: 'processo', processo: processoDoClique }", $js);
+    }
+
+    #[TestDox('C6-EDT-07: o iframe imprime com 18 mm em cima e embaixo de toda página e 16 mm nos lados; a 1ª página sem margem de cima, para a faixa azul')]
+    public function testMargemDeTodaPaginaNaImpressao(): void
+    {
+        $js = $this->js();
+        self::assertSame(1, preg_match('/var CSS_IMPRESSAO = (.*?);\n/s', $js, $m));
+        // Junta os pedaços concatenados ('a' + 'b') numa string só.
+        $css = (string) preg_replace("/'\s*\+\s*'/", '', $m[1]);
+
+        self::assertStringContainsString('@page{size:A4;margin:18mm 0}', $css);
+        self::assertStringContainsString('@page :first{margin-top:0}', $css);
+        self::assertStringNotContainsString('@page{size:A4;margin:0}', $css, 'nada de @page com margem zero em toda página');
+        self::assertStringContainsString('body .rp-folha{width:auto;min-height:0;margin:0;box-shadow:none;padding:18mm 16mm 0}', $css);
+        self::assertStringContainsString('body .rp-faixa{margin:-18mm -16mm 30px}', $css);
     }
 
     #[TestDox('EDT-003: "Imprimir" do registro abre a moldura com "Registro do expediente", a linha autor · data · tipo e o texto CLONADO do cartão')]
@@ -116,13 +156,13 @@ final class PastaImpressaoJsTest extends TestCase
         $js     = $this->js();
         $inicio = strpos($js, 'function imprimirRegistro(item, artigo) {');
         self::assertNotFalse($inicio);
-        $bloco = substr($js, $inicio, 900);
+        $bloco = substr($js, $inicio, 1300);
 
         self::assertStringContainsString("artigo.querySelector('.ps-anotacao-texto .ql-editor')", $bloco);
         self::assertStringContainsString('n.cloneNode(true)', $bloco, 'o HTML já sanitizado pelo servidor, copiado nó a nó');
         self::assertStringContainsString("[item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]", $bloco);
         self::assertStringContainsString(".join(' · ')", $bloco);
-        self::assertStringContainsString("abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo })", $bloco);
+        self::assertStringContainsString("abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo, pdf: pdf })", $bloco);
     }
 
     #[TestDox('EDT-003: na observação de Detalhes o cartão é o ancestral do item; a API registro(item, cartao) segue para um menu único da lista')]

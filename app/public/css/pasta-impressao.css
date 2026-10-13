@@ -2,7 +2,51 @@
    Janela "Imprimir" da pasta (templates/pasta/_impressao_modal.html.twig).
    Valores do desenho "02 - EXPEDIENTES 1.2.3.dc.html", marcação `imp` (~L.195).
    A folha em si traz o próprio estilo (resumo_impressao.html.twig, `.rp-*`).
+
+   Tema escuro (C6-EDT-08; o desenho é omisso, vale a convenção do sistema): as
+   cores da janela são tokens `--psi-*`, com o par escuro em
+   `[data-bs-theme="dark"]`. A folha continua branca — é papel — e a mesa cinza
+   e o cabeçalho azul já servem aos dois temas.
    ============================================================================= */
+
+.psi-fundo {
+    --psi-janela-bg:      #fff;
+    --psi-lado-bg:        #fafcfd;
+    --psi-lado-bd:        #eef2f5;
+    --psi-rotulo:         #7b93a2;
+    --psi-texto:          #243845;
+    --psi-texto-forte:    #12242f;
+    --psi-opcao-hover:    #eef5fa;
+    --psi-icone:          #9aabb6;
+    --psi-icone-on:       #0a7aad;
+    --psi-botao-bg:       #eef2f5;
+    --psi-botao-hover:    #e3eaee;
+    --psi-botao-tx:       #34505f;
+    --psi-nota:           #6b8494;
+    --psi-baixar-bg:      #fff;
+    --psi-baixar-bd:      #c9dbe6;
+    --psi-baixar-tx:      #0a7aad;
+    --psi-baixar-hover:   #eef5fa;
+}
+[data-bs-theme="dark"] .psi-fundo {
+    --psi-janela-bg:      var(--bs-body-bg);
+    --psi-lado-bg:        var(--bs-tertiary-bg);
+    --psi-lado-bd:        var(--bs-border-color-translucent);
+    --psi-rotulo:         var(--bs-secondary-color);
+    --psi-texto:          var(--bs-body-color);
+    --psi-texto-forte:    var(--bs-emphasis-color);
+    --psi-opcao-hover:    rgba(255, 255, 255, .06);
+    --psi-icone:          rgba(255, 255, 255, .38);
+    --psi-icone-on:       #45b0d6;
+    --psi-botao-bg:       rgba(255, 255, 255, .08);
+    --psi-botao-hover:    rgba(255, 255, 255, .14);
+    --psi-botao-tx:       var(--bs-body-color);
+    --psi-nota:           var(--bs-secondary-color);
+    --psi-baixar-bg:      transparent;
+    --psi-baixar-bd:      rgba(69, 176, 214, .45);
+    --psi-baixar-tx:      #45b0d6;
+    --psi-baixar-hover:   rgba(69, 176, 214, .12);
+}
 
 .psi-fundo {
     position: fixed;
@@ -23,7 +67,7 @@
     height: min(88vh, 860px);
     display: flex;
     flex-direction: column;
-    background: #fff;
+    background: var(--psi-janela-bg);
     border-radius: 4px;
     box-shadow: 0 18px 50px rgba(16, 42, 58, .3);
     overflow: hidden;
@@ -97,8 +141,8 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px;
-    border-left: 1px solid #eef2f5;
-    background: #fafcfd;
+    border-left: 1px solid var(--psi-lado-bd);
+    background: var(--psi-lado-bg);
 }
 
 .psi-rotulo {
@@ -106,7 +150,7 @@
     font-weight: 700;
     letter-spacing: .1em;
     text-transform: uppercase;
-    color: #7b93a2;
+    color: var(--psi-rotulo);
 }
 .psi-rotulo--tamanho { margin-top: 4px; }
 
@@ -119,21 +163,21 @@
     background: transparent;
     font-family: inherit;
     font-size: 13px;
-    color: #243845;
+    color: var(--psi-texto);
     cursor: pointer;
     text-align: left;
     border-radius: 4px;
 }
 .psi-opcao[hidden] { display: none; }
-.psi-opcao:hover { background: #eef5fa; }
+.psi-opcao:hover { background: var(--psi-opcao-hover); }
 .psi-opcao > i {
     width: 16px;
     height: 16px;
     font-size: 16px;
     line-height: 1;
-    color: #9aabb6;
+    color: var(--psi-icone);
 }
-.psi-opcao[aria-pressed="true"] > i { color: #0a7aad; }
+.psi-opcao[aria-pressed="true"] > i { color: var(--psi-icone-on); }
 
 .psi-tamanho {
     display: flex;
@@ -145,8 +189,8 @@
     height: 32px;
     border: none;
     border-radius: 4px;
-    background: #eef2f5;
-    color: #34505f;
+    background: var(--psi-botao-bg);
+    color: var(--psi-botao-tx);
     cursor: pointer;
 }
 .psi-tamanho-valor {
@@ -154,7 +198,7 @@
     text-align: center;
     font-size: 13px;
     font-weight: 700;
-    color: #12242f;
+    color: var(--psi-texto-forte);
 }
 
 .psi-espaco { flex: 1; }
@@ -162,7 +206,7 @@
 .psi-nota {
     font-size: 11.5px;
     line-height: 1.45;
-    color: #6b8494;
+    color: var(--psi-nota);
 }
 
 .psi-imprimir,
@@ -188,21 +232,21 @@
 .psi-imprimir:hover { background: #086a96; }
 .psi-baixar {
     height: 34px;
-    border: 1px solid #c9dbe6;
-    background: #fff;
-    color: #0a7aad;
+    border: 1px solid var(--psi-baixar-bd);
+    background: var(--psi-baixar-bg);
+    color: var(--psi-baixar-tx);
     font-size: 12.5px;
 }
-.psi-baixar:hover { background: #eef5fa; }
+.psi-baixar:hover { background: var(--psi-baixar-hover); }
 .psi-baixar[hidden] { display: none; }
 .psi-copiar {
     height: 34px;
     border: none;
-    background: #eef2f5;
-    color: #34505f;
+    background: var(--psi-botao-bg);
+    color: var(--psi-botao-tx);
     font-size: 12.5px;
 }
-.psi-copiar:hover { background: #e3eaee; }
+.psi-copiar:hover { background: var(--psi-botao-hover); }
 .psi-imprimir:disabled,
 .psi-baixar:disabled,
 .psi-copiar:disabled { opacity: .55; cursor: default; }

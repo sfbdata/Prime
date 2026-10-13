@@ -217,4 +217,72 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('marcado sem anexo', (string) $client->getResponse()->getContent());
     }
+
+    #[TestDox('C6-EDT-01: "Últimas movimentações" traz o texto da movimentação (data · tipo · texto), na página e no fragmento')]
+    public function testMovimentacaoComOTexto(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        // O fixture grava o teor "Teor da publicação <djenId>".
+        $this->criarPublicacao($tenant, '40000077', self::NUMERO, '2026-09-21', $processo);
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        foreach ([$this->url((int) $pasta->getId()), $this->url((int) $pasta->getId()) . '?fragmento=1'] as $url) {
+            $crawler = $client->request('GET', $url);
+            self::assertResponseIsSuccessful();
+
+            $linha = $crawler->filter('[data-secao="movimentacoes"] > table.rp-tabela tr')->first();
+            $colunas = $linha->filter('td');
+            self::assertCount(3, $colunas);
+            self::assertSame('21/09/2026', trim($colunas->eq(0)->text()));
+            self::assertSame('Intimação', trim($colunas->eq(1)->text()));
+            self::assertSame('Teor da publicação 40000077', trim($colunas->eq(2)->text()), 'a 3ª coluna é o texto, não o órgão');
+        }
+    }
+
+    #[TestDox('C6-EDT-02: "Dados da pasta" sem Prioridade e sem Abertura (o desenho não tem); Clientes e Processos ficam')]
+    public function testDadosDaPastaSemPrioridadeNemAbertura(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->vincular($pasta, $this->criarProcesso($tenant, self::NUMERO));
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', $this->url((int) $pasta->getId()));
+
+        self::assertResponseIsSuccessful();
+        $chaves = $crawler->filter('[data-secao="dados"] td.rp-chave')->each(static fn ($n): string => trim($n->text()));
+        self::assertNotContains('Prioridade', $chaves);
+        self::assertNotContains('Abertura', $chaves);
+        self::assertContains('Situação', $chaves);
+        self::assertContains('Processo', $chaves);
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('Prioridade', $html);
+        self::assertStringNotContainsString('Abertura', $html);
+        self::assertCount(1, $crawler->filter('[data-secao="processos"]'));
+    }
+
+    #[TestDox('C6-EDT-07: a página própria imprime com 18 mm em cima e embaixo de toda página; a 1ª sem margem de cima, para a faixa azul')]
+    public function testMargemDeTodaPagina(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', $this->url((int) $pasta->getId()));
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('@page { size: A4; margin: 18mm 0; }', $html);
+        self::assertStringContainsString('@page :first { margin-top: 0; }', $html);
+        self::assertStringNotContainsString('@page { size: A4; margin: 0; }', $html);
+        self::assertStringContainsString('.rp-folha { width: auto; min-height: 0; margin: 0; box-shadow: none; padding: 18mm 16mm 0; }', $html);
+        self::assertStringContainsString('.rp-faixa { margin: -18mm -16mm 30px; }', $html);
+    }
 }

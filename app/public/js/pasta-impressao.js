@@ -12,8 +12,10 @@
      `rp-sem-<parte>` e o font-size do corpo), sem ir ao servidor.
    - Imprimir: iframe OCULTO com `sandbox` SEM permissão de script (nada roda lá
      dentro) e CSP fechada; a folha entra por DOM. Funciona com pop-up bloqueado.
-   - Baixar PDF: o mesmo pedido, na rota `pasta_resumo_pdf` (Dompdf). Só para as
-     folhas que o servidor monta inteiras (resumo e extrato).
+   - Baixar PDF: o mesmo pedido, na rota `pasta_resumo_pdf` (Dompdf). O resumo e
+     o extrato vão pela seção; o registro e o processo (C6-EDT-06) pelo ID —
+     `secao=observacao&obs=<id>` e `secao=processo&processo=<id>` — e o servidor
+     monta o corpo do banco: nenhum HTML da tela vai para o PDF.
    - Copiar texto: o texto da folha como se lê (innerText).
 
    API para os outros scripts da pasta: window.PastaImpressao.
@@ -32,13 +34,18 @@
        ignorar o print() de um documento sandbox (mesma escolha do visor). */
     var SANDBOX_IMPRESSAO = 'allow-same-origin allow-modals';
     var CSP_IMPRESSAO = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'";
-    var CSS_IMPRESSAO = '@page{size:A4;margin:0}html,body{margin:0;background:#fff}'
-        + '.rp-folha{width:auto;min-height:0;margin:0;box-shadow:none}';
+    /* C6-EDT-07: 18 mm em cima e embaixo de TODA página, como o `@page` do BJImprimir
+       (bj-visualizar.js); os lados (16 mm) ficam no padding da folha. A 1ª página tem margem
+       de cima zero e a faixa azul sobe pelo padding da folha até a borda do papel. `body .x`
+       vence o estilo da folha, que entra DEPOIS no <head>. */
+    var CSS_IMPRESSAO = '@page{size:A4;margin:18mm 0}@page :first{margin-top:0}html,body{margin:0;background:#fff}'
+        + 'body .rp-folha{width:auto;min-height:0;margin:0;box-shadow:none;padding:18mm 16mm 0}'
+        + 'body .rp-faixa{margin:-18mm -16mm 30px}';
 
     var PARTES = ['cabecalho', 'dados', 'autor', 'financeiro'];
 
     var raiz = null;
-    var estado = null; // { secao, titulo, opcoes, fonte, folha, estilo, gatilho }
+    var estado = null; // { secao, titulo, opcoes, fonte, folha, estilo, gatilho, pdf }
     var pedido = 0;    // descarta resposta atrasada de uma abertura anterior
     var imprimindo = false;
 
@@ -133,9 +140,10 @@
     }
 
     /**
-     * @param {{secao: string, titulo?: string, autor?: string, corpo?: Node}} cfg
+     * @param {{secao: string, titulo?: string, autor?: string, corpo?: Node, pdf?: Object}} cfg
      *        `secao`: resumo | extrato | moldura. Na moldura, `titulo`, `autor`
-     *        (texto) e `corpo` (nó já clonado) vêm da tela.
+     *        (texto) e `corpo` (nó já clonado) vêm da tela; `pdf` é a folha que o
+     *        servidor monta pelo id para o Baixar PDF (sem ele, o botão some).
      */
     function abrir(cfg) {
         if (!raiz && !iniciar()) { return false; }
@@ -151,11 +159,12 @@
             folha: null,
             estilo: null,
             gatilho: document.activeElement,
+            pdf: cfg.pdf || null,
         };
 
         el('psImpressaoTitulo').textContent = 'Imprimir' + (estado.titulo ? ' · ' + estado.titulo : '');
-        // Baixar PDF: só as folhas que o servidor monta inteiras.
-        raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura';
+        // Baixar PDF: as folhas que o servidor monta — pela seção ou, na moldura, pelo id.
+        raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura' && !cfg.pdf;
         raiz.querySelector('.js-psi-opcao[data-opcao="financeiro"]').hidden = true;
         mensagemNoPalco('Montando a folha…');
         prontos(false);
@@ -311,9 +320,12 @@
 
     /* ── Baixar PDF ───────────────────────────────────────────────────── */
     function baixarPdf() {
-        if (!estado || estado.secao === 'moldura') { return; }
+        if (!estado) { return; }
+        // Na moldura, o pedido é o id do registro/processo: o servidor monta o corpo.
+        var alvo = estado.secao === 'moldura' ? estado.pdf : { secao: estado.secao };
+        if (!alvo) { return; }
         var u = new URL(raiz.getAttribute('data-url-pdf'), window.location.href);
-        u.searchParams.set('secao', estado.secao);
+        Object.keys(alvo).forEach(function (chave) { u.searchParams.set(chave, String(alvo[chave])); });
         PARTES.forEach(function (parte) { u.searchParams.set(parte, estado.opcoes[parte] ? '1' : '0'); });
         u.searchParams.set('fonte', String(estado.fonte));
         // Anexo (Content-Disposition: attachment): o navegador baixa e a tela fica onde está.
@@ -390,8 +402,11 @@
         }
         var linha = [item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]
             .filter(function (v) { return v; }).join(' · ');
+        // O id do registro vem do cartão (`id="detalhes-obs-<id>"`): é por ele que o PDF sai.
+        var id = artigo ? /^detalhes-obs-(\d+)$/.exec(artigo.id || '') : null;
+        var pdf = id ? { secao: 'observacao', obs: id[1] } : null;
 
-        return abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo });
+        return abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo, pdf: pdf });
     }
 
     document.addEventListener('click', function (e) {
@@ -400,17 +415,31 @@
         imprimirRegistro(item, item.closest('.ps-anotacao'));
     });
 
+    /* "Imprimir resumo" do ⋮ do processo: o pasta-processo.js monta a prévia e chama
+       `conteudo()` no MESMO clique, sem dizer qual é o processo. A captura guarda o id do
+       cartão (`data-processo-id`) antes disso — é ele que vai para o Baixar PDF. Todo
+       clique reescreve o valor, então não sobra id de um clique anterior. */
+    var processoDoClique = null;
+    document.addEventListener('click', function (e) {
+        var item = e.target && e.target.closest ? e.target.closest('.js-proc-imprimir') : null;
+        var cartao = item ? item.closest('[data-processo-id]') : null;
+        processoDoClique = cartao ? cartao.getAttribute('data-processo-id') : null;
+    }, true);
+
     window.PastaImpressao = {
         /** Imprimir resumo da pasta (⋮ do cabeçalho). */
         resumo: function () { return abrir({ secao: 'resumo' }); },
         /** Imprimir extrato (⋮ de Pagamentos, aba Financeiro). */
         extrato: function () { return abrir({ secao: 'extrato' }); },
         /**
-         * Folha com corpo montado pela tela (registro, processo).
-         * @param {{titulo: string, autor?: string, corpo: Node}} cfg
+         * Folha com corpo montado pela tela (registro, processo). Sem `pdf`, vale o
+         * processo do clique em curso (ver acima); sem nenhum, não há Baixar PDF.
+         * @param {{titulo: string, autor?: string, corpo: Node, pdf?: Object}} cfg
          */
         conteudo: function (cfg) {
-            return abrir({ secao: 'moldura', titulo: cfg.titulo, autor: cfg.autor || '', corpo: cfg.corpo });
+            var pdf = cfg.pdf || (processoDoClique ? { secao: 'processo', processo: processoDoClique } : null);
+
+            return abrir({ secao: 'moldura', titulo: cfg.titulo, autor: cfg.autor || '', corpo: cfg.corpo, pdf: pdf });
         },
         /**
          * "Imprimir" de um registro por um menu único da lista: o item com

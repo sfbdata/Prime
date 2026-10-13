@@ -231,11 +231,11 @@
                         </button>
                         <div class="ps-processo-menu-sep" role="separator"></div>
                         <button type="button" class="ps-processo-menu-item js-proc-copiar" role="menuitem"
-                                data-copiar="{{ proc.numeroProcesso }}" data-aviso="Número copiado">
+                                data-copiar="{{ proc.numeroProcesso }}" data-aviso="Número do processo copiado">
                             <i class="bi bi-copy"></i><span>Copiar número</span>
                         </button>
                         <button type="button" class="ps-processo-menu-item js-proc-copiar" role="menuitem"
-                                data-resumo="{{ resumo|json_encode|e('html_attr') }}" data-aviso="Resumo copiado">
+                                data-resumo="{{ resumo|json_encode|e('html_attr') }}" data-aviso="Resumo do processo copiado">
                             <i class="bi bi-clipboard"></i><span>Copiar resumo do processo</span>
                         </button>
                         {# Compartilhar (EDT-006/PMC-002, dc L.2928): Web Share do navegador onde existe;
