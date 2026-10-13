@@ -294,9 +294,12 @@ final class MontadorDaTimelineInteligente
     }
 
     /**
-     * Observação de Detalhes ou do Financeiro (desenho `tlEventos`: "Registro em <aba>", com a aba
-     * como fonte). Mesma categoria do registro de Dados — é o chip "Registros" do desenho —, e o
-     * texto sai puro como o dele (o conteúdo também vem do editor rico).
+     * Observação de Detalhes ou do Financeiro (desenho `tlEventos`: "Registro em <aba>" — ou
+     * "Resposta em <aba>" quando responde a outra, como no registro de Dados —, com a aba como
+     * fonte). A marca é `isResposta()`, não o vínculo `resposta_a`: a resposta cuja original foi
+     * excluída (vínculo caído pelo `SET NULL`) continua sendo resposta. Mesma categoria do registro
+     * de Dados — é o chip "Registros" do desenho —, e o texto sai puro como o dele (o conteúdo
+     * também vem do editor rico).
      */
     private function eventoDaObservacao(PastaObservacaoDetalhes|PastaObservacaoFinanceira $observacao): EventoDaTimelineOutput
     {
@@ -311,7 +314,7 @@ final class MontadorDaTimelineInteligente
             categoria: 'registro',
             quando: $observacao->getCriadaEm(),
             soData: false,
-            titulo: 'Registro em ' . $aba,
+            titulo: ($observacao->isResposta() ? 'Resposta' : 'Registro') . ' em ' . $aba,
             texto: $this->textoPuro($observacao->getConteudo()),
             autor: $nome !== null && $nome !== '' ? $nome : $autor?->getEmail(),
             fonte: $aba,
