@@ -368,5 +368,13 @@ dono).
   Registro com `data-janela-ate="NaN"`, vindo de `b1155da8`). 5 A pendentes do inventário, 37 A novos, 5 C/D novos.
   1 P0 novo: **C6-SEC-03** (`tarefa_criar_para_pasta` sem posse nem permissão na pasta).
 - **Implementação:** lotes S6-* da consolidação §3 (registro de cada lote abaixo).
+- **Onda 1 lançada (12/10, noite):** S6-SEC, S6-SHOW, S6-DET, S6-CLI, S6-TL, S6-DOC, S6-PUSH, S6-IMP, S6-EDT,
+  S6-DASH, S6-MISC — implementadores Opus em worktrees `agent-*` saídas de `3ff6d9b0`; cada um entrega commit local
+  na própria worktree. Integração: revisão Opus read-only → cherry-pick individual → testes direcionados.
 
 ## 5. Handoff
+
+**Se a sessão cair durante o Ciclo 6:** a consolidação (`engineering-loop/c6/consolidacao.md` §3) é a fila. Para
+saber o que já entrou, procure os IDs C6-* no `git log 3ff6d9b0..master`. Lote sem commit no master = refazer
+(as worktrees `agent-*` com commit do lote podem ser reaproveitadas: `git log` na branch `worktree-agent-*` e
+cherry-pick individual depois de revisar). Não integre lote sem revisão.
