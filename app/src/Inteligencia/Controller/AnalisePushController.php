@@ -316,7 +316,7 @@ final class AnalisePushController extends AbstractController
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        // O resolver busca por PK e o TenantFilter não se aplica a find(): a conferência é explícita.
+        // Conferência explícita da posse, sem depender só do TenantFilter (que pode estar desligado).
         if ($tenant === null || $pasta->getTenant() !== $tenant) {
             throw $this->createNotFoundException('Pasta não encontrada.');
         }

@@ -21,8 +21,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Autocompletar do "@" no Registro da pasta (item 20b). GET de leitura, sem CSRF. O compositor do
  * Relatório financeiro manda `?origem=financeiro` e a lista fica com quem também vê o financeiro.
  *
- * Guardas (no UseCase): pasta do escritório da sessão (404 — o resolver busca por PK e o
- * TenantFilter não se aplica a `find()`) e permissão de VER a pasta (403). A resposta traz id,
+ * Guardas (no UseCase): pasta do escritório da sessão (404 — conferida de forma explícita, sem
+ * depender só do TenantFilter, que pode estar desligado) e permissão de VER a pasta (403). A resposta traz id,
  * nome, iniciais, cargo e a URL da foto — nunca o e-mail.
  */
 #[Route('/pasta')]
