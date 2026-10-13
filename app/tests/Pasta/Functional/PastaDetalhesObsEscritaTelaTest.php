@@ -272,8 +272,10 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter("#psObsMenu{$id} > .js-obs-editar[data-obs-janela=\"editar\"]"));
         self::assertCount(1, $crawler->filter("#psObsMenu{$id} > .js-obs-excluir[data-obs-janela=\"excluir\"]"));
         $idAlheia = $alheia->getId();
-        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > [data-obs-janela=\"editar\"][disabled]"));
-        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > [data-obs-janela=\"excluir\"][disabled]"));
+        // C7-FPN-02: o bloqueado é `aria-disabled` (clicável, avisa), não `disabled`.
+        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > [data-obs-janela=\"editar\"][aria-disabled=\"true\"][data-aviso]"));
+        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > [data-obs-janela=\"excluir\"][aria-disabled=\"true\"][data-aviso]"));
+        self::assertCount(0, $crawler->filter("#psObsMenu{$idAlheia} > [disabled]"));
 
         $html = (string) $client->getResponse()->getContent();
         // A abertura do ⋮ repinta; o cálculo é o do Registro (teto, 1..15, 0 = vencida).
@@ -285,9 +287,9 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $pintar = substr($html, (int) strpos($html, 'function pintarJanelaObs(menu, artigo) {'), 2500);
         self::assertStringContainsString("'Editar · bloqueado', 'bi-lock', motivo", $pintar);
         self::assertStringContainsString("'Editar · ' + resto + ' min'", $pintar);
-        // Item que ficou bloqueado com a página aberta não aciona o botão do cartão.
-        $acionar = substr($html, (int) strpos($html, 'function acionarDoCartao(item, seletor) {'), 300);
-        self::assertStringContainsString('if (item.disabled) { return; }', $acionar);
+        // Item que ficou bloqueado com a página aberta não aciona o botão do cartão: avisa o motivo.
+        $acionar = substr($html, (int) strpos($html, 'function acionarDoCartao(item, seletor) {'), 400);
+        self::assertStringContainsString("if (item.getAttribute('aria-disabled') === 'true') { avisarBloqueadoObs(item); return; }", $acionar);
 
         // O cartão do JS nasce com epoch NUMÉRICO (nunca `Number()` de data formatada — o NaN do
         // C6-PAS-01), tirado do instante que o SERVIDOR gravou, não do relógio do navegador (C6-PAS-07).
@@ -299,6 +301,42 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Number(data.criadaEmTs', $montador);
         self::assertStringContainsString('data-obs-janela="editar"', $montador);
         self::assertStringContainsString('data-obs-janela="excluir"', $montador);
+    }
+
+    #[TestDox('C7-FPN-02: "Editar/Excluir · bloqueado" do ⋮ de Detalhes é clicável e diz o motivo num aviso neutro (dc 5958, gmAviso)')]
+    public function testBloqueadoClicavelAvisaOMotivo(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarObs($pasta, $tenant, $user, '-20 minutes');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+
+        // Repintar não desabilita: marca `aria-disabled` e `data-aviso` com o motivo.
+        $pintar = substr($html, (int) strpos($html, 'function pintarItemObs(item, pode, rotulo, icone, motivo) {'), 500);
+        self::assertStringContainsString('item.disabled = false;', $pintar);
+        self::assertStringNotContainsString('item.disabled = !pode', $pintar);
+        self::assertStringContainsString("item.setAttribute('data-aviso', motivo);", $pintar);
+
+        // O clique num item bloqueado fecha o menu e avisa o motivo, sem o tom de erro.
+        $avisar = substr($html, (int) strpos($html, 'function avisarBloqueadoObs(item) {'), 400);
+        self::assertStringContainsString("item.getAttribute('data-aviso')", $avisar);
+        self::assertStringContainsString('fecharMenuObs(false);', $avisar);
+        self::assertStringContainsString('window.avisarPs(motivo);', $avisar);
+        self::assertStringNotContainsString("'erro'", $avisar);
+
+        // A delegação atende o bloqueado ANTES de Editar/Excluir.
+        $clique = substr($html, (int) strpos($html, "obsLista.addEventListener('click', async function (e) {"), 3000);
+        $posBloq   = strpos($clique, "e.target.closest('.ps-obs-menu [aria-disabled=\"true\"]')");
+        $posEditar = strpos($clique, "e.target.closest('.js-obs-editar')");
+        self::assertNotFalse($posBloq);
+        self::assertNotFalse($posEditar);
+        self::assertStringContainsString('avisarBloqueadoObs(itemBloqueado); return;', $clique);
+        self::assertLessThan($posEditar, $posBloq);
     }
 
     /** @return array<string, mixed> o JSON do `pasta_detalhes_observacao_enviar` (201) */

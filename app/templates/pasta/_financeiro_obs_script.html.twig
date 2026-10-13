@@ -166,9 +166,14 @@
         const faixa = ehResposta
             ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
             : '';
+        /* C6-FPN-05: o fim da janela de 15 min em epoch NUMÉRICO (segundos), a partir do instante
+           que o SERVIDOR gravou (`criadaEmEpoch`), como o `|date('U')` do macro do Twig: o ⋮
+           recalcula os minutos por ele a cada abertura. `data.criadaEm` vem formatado ("d/m/Y H:i"). */
+        const janelaAte  = Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60;
 
         return `
-            <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="financeiro-obs-${data.id}" data-obs-do-autor="1">
+            <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="financeiro-obs-${data.id}" data-obs-do-autor="1"
+                     data-janela-ate="${janelaAte}">
                 ${faixa}
                 <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                 <span class="ps-anotacao-seta" aria-hidden="true"></span>

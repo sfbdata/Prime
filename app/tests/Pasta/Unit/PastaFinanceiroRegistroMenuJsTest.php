@@ -47,7 +47,7 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringContainsString('abrir(menuObs, registro, e.clientX, e.clientY)', $ramo);
     }
 
-    #[TestDox('FPN-006b: sem .btn-editar-obs/.btn-excluir-obs no cartão, Editar e Excluir ficam À VISTA, desabilitados, "· bloqueado" com cadeado (dc L.5958)')]
+    #[TestDox('FPN-006b: sem .btn-editar-obs/.btn-excluir-obs no cartão, Editar e Excluir ficam À VISTA, "· bloqueado" com cadeado (dc L.5958)')]
     public function testEditarExcluirBloqueadosSemOsBotoes(): void
     {
         $prep = $this->trecho('function prepararMenuObs(', 'function menuDoGatilho(');
@@ -57,23 +57,63 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringNotContainsString('.hidden', $prep, 'bloqueado não é escondido');
         self::assertStringContainsString("pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);", $prep);
         self::assertStringContainsString("pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);", $prep);
-        self::assertStringContainsString("pintarItemObs(editar, true, 'Editar' + resto, 'bi-pencil', '');", $prep);
-        self::assertStringContainsString("pintarItemObs(excluir, true, 'Excluir comentário' + resto, 'bi-trash3', '');", $prep);
+        self::assertStringContainsString("pintarItemObs(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');", $prep);
+        self::assertStringContainsString("pintarItemObs(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');", $prep);
         self::assertStringContainsString("excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);", $prep, 'bloqueado sem a cor de perigo (x[3] do desenho)');
         self::assertStringContainsString("registro.getAttribute('data-obs-do-autor') === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR", $prep);
-        self::assertStringContainsString("'.ps-anotacao-janela'", $prep);
         self::assertStringNotContainsString('innerHTML', $prep);
+        // C7-FPN-01: quem não escreve não recebe os itens; o preparo não tropeça na falta deles.
+        self::assertStringContainsString('if (!editar || !excluir) { return; }', $prep);
 
-        $pinta = $this->trecho('function pintarItemObs(', 'function prepararMenuObs(');
-        self::assertStringContainsString('item.disabled = !pode;', $pinta);
-        self::assertStringContainsString("item.setAttribute('aria-disabled', 'true')", $pinta);
-        self::assertStringContainsString('item.title = motivo;', $pinta);
-
-        // Item desabilitado não aciona nada, nem por clique sintético.
-        self::assertStringContainsString('!aberto.menu.contains(item) || item.disabled) { return; }', $this->fonte());
         self::assertStringContainsString("data-obs-do-autor=\"{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}\"", $this->fonte());
-        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/pasta-show.css');
-        self::assertStringContainsString('#financeiro .ps-fin-menu-item:disabled { cursor: default; }', $css);
+    }
+
+    #[TestDox('C6-FPN-05: os minutos de Editar/Excluir são recalculados a cada abertura pelo data-janela-ate do cartão, não lidos do texto fixo .ps-anotacao-janela')]
+    public function testMinutosRecalculadosAoAbrir(): void
+    {
+        $prep = $this->trecho('function prepararMenuObs(', 'function menuDoGatilho(');
+        self::assertStringContainsString('minutosRestantesObs(registro)', $prep);
+        self::assertStringNotContainsString('.ps-anotacao-janela', $prep, 'o texto do cartão para no tempo');
+        // Item que nasceu bloqueado não reabre; o que nasceu liberado bloqueia quando a janela fecha.
+        self::assertStringContainsString('const resto = nasceuLiberado ? minutosRestantesObs(registro) : 0;', $prep);
+        self::assertStringContainsString('const podeGerenciar = resto > 0;', $prep);
+
+        $minutos = $this->trecho('function minutosRestantesObs(', 'let obsAlvo');
+        self::assertStringContainsString('Number(artigo ? artigo.dataset.janelaAte : 0) * 1000', $minutos);
+        self::assertStringContainsString('Math.min({{ comentario_janela_minutos() }}, Math.max(1, Math.ceil(ms / 60000)))', $minutos);
+
+        // A abertura pelo botão direito chama o preparo — a cada vez.
+        $ramo = $this->trecho("const registro = e.target.closest('#financeiroObsLista .ps-anotacao');", 'const linhaPag');
+        self::assertStringContainsString('prepararMenuObs(menuObs, registro);', $ramo);
+
+        // As duas fontes do cartão levam o fim da janela em epoch do servidor.
+        self::assertStringContainsString("data-janela-ate=\"{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}\"", $this->fonte());
+        $obs = (string) file_get_contents(self::OBS_SCRIPT);
+        self::assertStringContainsString('const janelaAte  = Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60;', $obs);
+        self::assertStringContainsString('data-janela-ate="${janelaAte}"', $obs);
+        self::assertStringNotContainsString('Date.now() / 1000', $obs);
+    }
+
+    #[TestDox('C7-FPN-02: o item bloqueado é clicável (aria-disabled + data-aviso, sem disabled) e o clique avisa o motivo, neutro, antes de qualquer ação')]
+    public function testBloqueadoClicavelAvisaOMotivo(): void
+    {
+        $pinta = $this->trecho('function pintarItemObs(', 'function minutosRestantesObs(');
+        self::assertStringContainsString('item.disabled = false;', $pinta);
+        self::assertStringNotContainsString('item.disabled = !pode', $pinta);
+        self::assertStringContainsString("item.setAttribute('aria-disabled', 'true');", $pinta);
+        self::assertStringContainsString("item.setAttribute('data-aviso', motivo);", $pinta);
+        self::assertStringContainsString("item.removeAttribute('data-aviso');", $pinta);
+
+        $clique = $this->trecho("const item = e.target.closest('.ps-fin-menu-item');", "if (item.classList.contains('js-fin-doc-ver-documentos'))");
+        $posAviso = strpos($clique, "if (item.getAttribute('aria-disabled') === 'true') {");
+        self::assertNotFalse($posAviso);
+        self::assertLessThan((int) strpos($clique, "item.classList.contains('js-fin-obs-editar')"), $posAviso, 'o aviso vem antes de Editar/Excluir');
+        $ramo = substr($clique, $posAviso, 500);
+        self::assertStringContainsString("item.getAttribute('data-aviso')", $ramo);
+        self::assertStringContainsString('fechar(false);', $ramo);
+        self::assertStringContainsString('window.avisarPs(motivo);', $ramo);
+        self::assertStringNotContainsString("'erro'", $ramo, 'aviso neutro, como o gmAviso do desenho');
+        self::assertStringContainsString('return;', $ramo);
     }
 
     #[TestDox('FPN-006b: "Excluir comentário" confirma com o texto exato do desenho (dc comExcluir, L.5903)')]

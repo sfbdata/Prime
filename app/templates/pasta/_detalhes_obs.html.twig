@@ -61,8 +61,9 @@
 {% set OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.' %}
 {% set OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.' %}
 <style>
-    .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item:disabled,
-    .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item:disabled:hover { color: var(--ps-label); background: transparent; cursor: not-allowed; opacity: .7; }
+    {# C7-FPN-02: o bloqueado é `aria-disabled` (clicável, avisa o motivo), não mais `disabled`. #}
+    .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item[aria-disabled="true"],
+    .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item[aria-disabled="true"]:hover { color: var(--ps-label); background: transparent; cursor: not-allowed; opacity: .7; }
 </style>
 
 <section class="ps-card ps-anotacoes ps-detalhes-obs">
@@ -613,9 +614,18 @@
         return Math.min({{ comentario_janela_minutos() }}, Math.max(1, Math.ceil(ms / 60000)));
     }
 
+    /* C7-FPN-02: o bloqueado leva `aria-disabled` + `data-aviso` e continua clicável (o clique
+       diz o motivo, `avisarBloqueadoObs`); `disabled` engolia o clique e o motivo ficava só no
+       `title`, que não aparece no toque nem no teclado. */
     function pintarItemObs(item, pode, rotulo, icone, motivo) {
-        item.disabled = !pode;
-        if (pode) { item.removeAttribute('aria-disabled'); } else { item.setAttribute('aria-disabled', 'true'); }
+        item.disabled = false;
+        if (pode) {
+            item.removeAttribute('aria-disabled');
+            item.removeAttribute('data-aviso');
+        } else {
+            item.setAttribute('aria-disabled', 'true');
+            item.setAttribute('data-aviso', motivo);
+        }
         item.title = motivo;
         item.querySelector('i').className = 'bi ' + icone;
         item.querySelector('span').textContent = rotulo;
@@ -730,11 +740,20 @@
         window.bootstrap.Modal.getOrCreateInstance(modal).show();
     }
 
+    /* C7-FPN-02 (dc 5958/5904, `gmAviso(pm.motivo)`): "Editar · bloqueado" / "Excluir · bloqueado"
+       não agem — fecham o menu e dizem POR QUE, num aviso neutro (`avisarPs`, pasta-dialogos.js). */
+    function avisarBloqueadoObs(item) {
+        const motivo = item.getAttribute('data-aviso') || item.getAttribute('title') || '';
+        fecharMenuObs(false);
+        if (window.avisarPs) { window.avisarPs(motivo); /* neutro, como o gmAviso do desenho */ } else { alert(motivo); }
+    }
+
     /* Editar/Excluir do ⋮ (PAS-041): clicam os botões da janela de 15 min do próprio cartão —
        a mesma ação, o mesmo CSRF e a mesma URL. Sem o botão (janela fechada), nada acontece. */
     function acionarDoCartao(item, seletor) {
+        // A janela fechou enquanto a página estava aberta (C6-PAS-05): o item virou bloqueado.
+        if (item.getAttribute('aria-disabled') === 'true') { avisarBloqueadoObs(item); return; }
         fecharMenuObs(false);
-        if (item.disabled) { return; } // a janela fechou enquanto a página estava aberta (C6-PAS-05)
         const artigo = document.getElementById('detalhes-obs-' + item.dataset.obsId);
         const alvo   = artigo ? artigo.querySelector('.ps-anotacao-acoes ' + seletor) : null;
         if (alvo) { alvo.click(); }
@@ -772,6 +791,10 @@
         obsLista.addEventListener('click', async function (e) {
             const gatilhoMenu = e.target.closest('.js-obs-menu');
             if (gatilhoMenu) { abrirMenuObs(gatilhoMenu); return; }
+
+            // C7-FPN-02: item bloqueado do ⋮ (nasceu bloqueado ou a janela fechou) só avisa o motivo.
+            const itemBloqueado = e.target.closest('.ps-obs-menu [aria-disabled="true"]');
+            if (itemBloqueado) { avisarBloqueadoObs(itemBloqueado); return; }
 
             const itemCopiar = e.target.closest('.js-obs-copiar');
             if (itemCopiar) { copiarTextoObs(itemCopiar); return; }
@@ -1145,15 +1168,17 @@
                             <i class="bi bi-trash3"></i><span>Excluir comentário · {{ minRestMenu }} min</span>
                         </button>
                     {% else %}
+                        {# C7-FPN-02: clicável, diz o motivo num aviso neutro (dc 5958 `gmAviso(pm.motivo)`):
+                           `aria-disabled` + `data-aviso`, sem o `disabled` que engolia o clique. #}
                         {% set motivoObs = doAutor ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR %}
                         <button type="button" class="ps-processo-menu-item" role="menuitem"
                                 data-obs-janela="editar"
-                                disabled aria-disabled="true" title="{{ motivoObs }}">
+                                aria-disabled="true" data-aviso="{{ motivoObs }}" title="{{ motivoObs }}">
                             <i class="bi bi-lock"></i><span>Editar · bloqueado</span>
                         </button>
                         <button type="button" class="ps-processo-menu-item" role="menuitem"
                                 data-obs-janela="excluir"
-                                disabled aria-disabled="true" title="{{ motivoObs }}">
+                                aria-disabled="true" data-aviso="{{ motivoObs }}" title="{{ motivoObs }}">
                             <i class="bi bi-lock"></i><span>Excluir · bloqueado</span>
                         </button>
                     {% endif %}

@@ -242,6 +242,7 @@
                                     observacoesFinanceiras: observacoesFinanceiras,
                                     financeiro: financeiro,
                                     pagamentos: pagamentos,
+                                    podeEditarPasta: podeEditarPasta,
                                 } only %}
                             </div>
 
@@ -2775,6 +2776,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Transforma a textarea recem-criada em editor (o auto-init so pega o DOM inicial).
                 if (window.EditorRico) {
                     const quillEd = EditorRico.montar(textareaEd);
+                    // A lista do "@" é a do REGISTRO, dita aqui: sem isso o pasta-mencoes.js cairia no
+                    // primeiro `[data-mencionaveis-url]` da página, que pode ser o do Financeiro.
+                    textareaEd._mencoesUrl = '{{ path("pasta_mencionaveis", {id: pasta.id}) }}';
                     if (window.PastaMencoes) { PastaMencoes.ligar(textareaEd, edicao.mencoes); }
                     if (quillEd) { quillEd.focus(); } else { textareaEd.focus(); }
                 } else {

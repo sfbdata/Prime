@@ -98,7 +98,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter("#detalhes-obs-{$id} > .ps-anotacao-topo > .btn-responder-obs-det[data-resposta-a=\"{$id}\"]"));
     }
 
-    #[TestDox('PAS-041: autor passados 20 min — "Editar · bloqueado" e "Excluir · bloqueado", desabilitados, com bi-lock e o motivo do prazo')]
+    #[TestDox('PAS-041/C7-FPN-02: autor passados 20 min — "Editar · bloqueado" e "Excluir · bloqueado", aria-disabled e clicáveis, com bi-lock e o motivo do prazo no aviso')]
     public function testAutorForaDaJanela(): void
     {
         $client          = static::createClient();
@@ -111,11 +111,14 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
 
         [$menu, $itens] = $this->menu($crawler, $obs);
         self::assertSame(['Responder', 'Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
-        $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled][aria-disabled="true"]');
+        $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[aria-disabled="true"]');
         self::assertCount(2, $bloqueados);
         self::assertCount(2, $bloqueados->filter('i.bi-lock'));
+        // C7-FPN-02 (dc 5958): clicável — o `disabled` engolia o clique; o motivo vai no aviso.
+        self::assertCount(0, $menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled]'));
         foreach ($bloqueados as $b) {
             self::assertSame(self::MOTIVO_PRAZO, $b->getAttribute('title'));
+            self::assertSame(self::MOTIVO_PRAZO, $b->getAttribute('data-aviso'));
         }
         self::assertCount(0, $menu->filter('.js-obs-editar, .js-obs-excluir'), 'item bloqueado não aciona nada');
     }
@@ -134,8 +137,12 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
 
         [$menu, $itens] = $this->menu($crawler, $obs);
         self::assertSame(['Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], array_slice($itens, -3));
-        foreach ($menu->filter('.ps-obs-menu > .ps-processo-menu-item[disabled]') as $b) {
+        $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[aria-disabled="true"]');
+        self::assertCount(2, $bloqueados);
+        foreach ($bloqueados as $b) {
+            self::assertFalse($b->hasAttribute('disabled'), 'C7-FPN-02: bloqueado clicável');
             self::assertSame(self::MOTIVO_AUTOR, $b->getAttribute('title'));
+            self::assertSame(self::MOTIVO_AUTOR, $b->getAttribute('data-aviso'));
         }
     }
 

@@ -2106,6 +2106,9 @@ class PastaController extends AbstractController
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs' => $obs->getCriadaEm()->format(\DateTimeInterface::ATOM),
+            // Epoch (segundos) da criação: é dele que o JS tira `data-janela-ate` do cartão novo,
+            // igual ao `|date('U')` do Twig — o relógio do navegador não entra na conta (C6-FPN-05).
+            'criadaEmEpoch' => $obs->getCriadaEm()->getTimestamp(),
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_financeiro_obs_editar_' . $obs->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_financeiro_obs_excluir_' . $obs->getId())->getValue(),
             'autorId'     => $currentUser->getId(),
