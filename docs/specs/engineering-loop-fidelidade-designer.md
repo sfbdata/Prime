@@ -409,6 +409,29 @@ dono).
   "Nova meta" some de quem só vê e o responsável também deveria ver a pasta) · C6-DASH-01 (cargo no "ver metas") ·
   C6-PAS-10 (visita da Timeline ao abrir × ao fechar) · C6-PMC-07 (limites 120/600 × 255/5000) · C6-EDT-10
   (download do PDF na auditoria) · C6-DOC-04 (D: tarja no PDF impresso).
+- **Suíte completa após a onda 2:** **9159/9159** (51.334 asserções), em `d985225e`.
+
+### Ciclo 7 — reauditoria de convergência (13/10/2026)
+
+- 8 auditores Opus somente leitura, **dois por vez** (relatórios em `engineering-loop/c7/reauditoria-*.md`), sobre os
+  lotes do C6. **Resultado: 0 item do C6 ausente; 1 ◐ (C6-PMC-01, Esc); 2 regressões; 8 A novos/pendentes.**
+
+| Área | Itens C6 conferidos | Regressões | A acionáveis | Corrigido em |
+|---|---|---|---|---|
+| Pasta | 14 ✓ | C7-PAS-01 (P2: confirmação não clicável com a Nova meta aberta — `confirmarPs` entrava no modal com `pointer-events:none`) | C7-PAS-01, 02 (aviso neutro "Número não confere"), 03 (cliente no prompt de Excluir) | `81ed4da1` |
+| Processo/Metas/Clientes | 7 ✓, 1 ◐ | C7-PMC-01 (P4: Esc da Nova meta ligado na página inteira) | C7-PMC-01 | `4ba51e14` |
+| Financeiro/Push | 8 ✓ | — | C6-FPN-05 (minutos do ⋮), C7-FPN-01 (P3: escrita do Financeiro a quem só vê/lápide), C7-FPN-02 (bloqueado clicável com aviso, Financeiro e Detalhes) | S7-FIN `0fc196da`, `5b356986` (216/216; revisão Opus: estilo do bloqueado perdido → corrigido) |
+| Editor/Impressão | 9 ✓ | — | C7-EDT-01 (linha "Contrato" no resumo impresso, ausente do desenho dc L.4590) | `517900bc` |
+| Documentos | 4 ✓ | — | — (C7-DOC-01/02/03 classificados C) | — |
+| IA | 4 ✓ | — | — | — |
+| Dashboard | 1 ✓ | — | — | — |
+| Segurança | 4 ✓ (+ 5 rotas novas do C6 nas 5 checagens) | — | — (matriz corrigida: 505/512 em 77 rotas; a soma do C6 estava errada) | comentário `76671b8a` |
+
+- Notas antigas corrigidas no ledger: DASH-009 (§3.4, após o SEC-016) e FPN-040 → FPN-040L (`435ba9fc`).
+- **Observações sem classe A (Samuel):** `inteligencia_analise_registro` e `pasta_resumo_pdf` sem limitador; a lista do
+  "@" do Financeiro não exige que quem pergunta veja o financeiro (hoje igual a VER); responsáveis da meta criada pela
+  pasta filtrados só por escritório (vai com o C6-SEC-03 parte C); C6-EDT-10 deve ser decidido junto com o C6-IA-01
+  (a IA já grava download/impressão no `audit_log`).
 
 ## 5. Handoff
 
