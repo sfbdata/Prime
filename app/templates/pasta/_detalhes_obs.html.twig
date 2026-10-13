@@ -13,13 +13,16 @@
    com mais de 3 parágrafos → "continuar lendo"). Só exibição; o conteúdo não muda.
 
    ⋮ da observação (PAS-041; desenho dc L.5958 `regsLinha` + `extrasObs` L.6465): Copiar
-   texto · Citar no novo registro · Criar meta a partir deste registro · — · Editar ·
-   Excluir comentário. "Criar meta" abre o modal Nova meta (`#modalCriarTarefa`) com a
-   descrição preenchida e o prazo em 7 dias, como o desenho (`novaMetaForm`); só para
+   texto · Citar no novo registro · Criar meta a partir deste registro · Imprimir · — · Editar ·
+   Excluir comentário (C6-EDT-04: Imprimir entre os extras, antes do separador). "Criar
+   meta" abre o modal Nova meta (`#modalCriarTarefa`) com a descrição preenchida e o prazo em 7 dias, como o desenho (`novaMetaForm`); só para
    quem edita a pasta viva. Editar/Excluir clicam os botões da janela de 15 min do
    cartão (o caminho de sempre) e levam os minutos ("· N min"); fora da janela, ou para
    quem não é o autor, ficam à vista e desabilitados, "· bloqueado" com `bi-lock` e o
-   motivo na dica (como o Financeiro). Na lápide não há edição: os dois saem.
+   motivo na dica (como o Financeiro); os minutos são recalculados ao abrir o ⋮ (C6-PAS-05,
+   `data-janela-ate`). Na lápide não há edição: os dois saem. Na linha do cartão só o lápis,
+   com os minutos na dica; a lixeira fica escondida para o ⋮ clicá-la (C6-PAS-03). Quem só vê
+   a pasta, e a lápide, não recebem compositor, Responder, Citar, lápis nem lixeira (C6-PAS-02).
    Responder (PAS-039) é o primeiro item, como no desenho, e clica o botão de responder do
    cartão (`.btn-responder-obs-det`); a resposta fica recuada sob a raiz
    (`.ps-respostas[data-resposta-de]`) com a faixa "Resposta a NOME", um nível só. A caixa de
@@ -49,7 +52,12 @@
 {% set fotos = fotosResponsaveis|default({}) %}
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set obsPastaLapide = pasta.estaExcluida %}
-{% set obsPodeCriarMeta = podeEditarPasta and not obsPastaLapide %}
+{# C6-PAS-02 (convenção PAS-014/PAS-025c: o que o servidor recusa não aparece): enviar, responder,
+   editar e excluir exigem EDIT na pasta, e na lápide o `PastaSomenteLeituraListener` recusa todo
+   POST. Sem os dois, nem compositor, nem Responder, nem lápis/lixeira, nem Citar (que só escreve
+   no compositor). #}
+{% set podeEscreverObs = podeEditarPasta and not obsPastaLapide %}
+{% set obsPodeCriarMeta = podeEscreverObs %}
 {% set OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.' %}
 {% set OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.' %}
 <style>
@@ -64,6 +72,17 @@
         <span class="ps-contagem" id="detalhes-obs-count" title="Observações principais (respostas não contam)">{{ observacoesDetalhes|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemDet)|length }}</span>
     </div>
 
+    {# C6-PAS-02: sem escrita, o compositor nem é montado e entra a nota neutra de só leitura
+       (como o Registro, PAS-025c). O JS abaixo já tolera a falta do #formDetalhesObservacao. #}
+    {% if obsPastaLapide %}
+    <div class="ps-compositor ps-compositor--leitura" id="detalhesObsSomenteLeitura">
+        <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Pasta excluída: o relatório fica só para leitura.</span>
+    </div>
+    {% elseif not podeEscreverObs %}
+    <div class="ps-compositor ps-compositor--leitura" id="detalhesObsSomenteLeitura">
+        <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Só leitura: registrar observações exige permissão para editar a pasta.</span>
+    </div>
+    {% else %}
     <div class="ps-compositor">
         <form id="formDetalhesObservacao">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_detalhes_obs_' ~ pasta.id) }}">
@@ -85,6 +104,7 @@
             </div>
         </form>
     </div>
+    {% endif %}
     <div id="detalhesObsErro" class="ps-compositor-erro d-none"></div>
 
     <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det">
@@ -92,7 +112,9 @@
             <div class="ps-vazio" id="detalhesObsVazio">
                 <i class="bi bi-chat-left-text"></i>
                 <div class="ps-vazio-titulo">Nenhuma observação registrada</div>
-                <div class="ps-vazio-nota">Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.</div>
+                {% if podeEscreverObs %}
+                    <div class="ps-vazio-nota">Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.</div>
+                {% endif %}
             </div>
         {% else %}
             {% set diaAnterior = null %}
@@ -111,13 +133,13 @@
                     {% set diaAnterior = dia %}
                 {% endif %}
 
-                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR) }}
+                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) }}
 
                 {% set respostasDet = observacoesDetalhes|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
                 {% if respostasDet|length > 0 %}
                     <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
                         {% for resposta in respostasDet %}
-                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR) }}
+                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) }}
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -279,19 +301,25 @@
                 ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
                 : '';
 
+            /* C6-PAS-05: o fim da janela em epoch NUMÉRICO (segundos). O cartão acabou de ser
+               gravado, então a janela começa agora — `data.criadaEm` vem formatado ("d/m/Y H:i"),
+               e `Number()` dele daria NaN (o defeito do C6-PAS-01 no Registro). */
+            const janelaAte  = Math.floor(Date.now() / 1000) + {{ comentario_janela_minutos() }} * 60;
+
             return `
-                <article class="ps-anotacao detalhes-obs-item${ehResposta ? ' ps-anotacao--resposta' : ''}" id="detalhes-obs-${data.id}">
+                <article class="ps-anotacao detalhes-obs-item${ehResposta ? ' ps-anotacao--resposta' : ''}" id="detalhes-obs-${data.id}"
+                         data-janela-ate="${janelaAte}" data-do-autor="1">
                     ${faixa}
                     <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
                     <div class="ps-anotacao-topo">
                         <span class="ps-avatar ps-avatar--24">${esc(iniciaisDe(data.autorNome))}</span>
                         <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
-                        <span class="ps-cab-espaco"></span>
+                        <span class="ps-cab-espaco"></span>{% if podeEscreverObs %}
                         <span class="ps-anotacao-acoes">
                             <button type="button"
                                     class="ps-anotacao-acao btn-editar-obs-det"
-                                    title="Editar observação" aria-label="Editar observação"
+                                    title="Editável por mais {{ comentario_janela_minutos() }} {{ comentario_janela_minutos() == 1 ? 'minuto' : 'minutos' }}" aria-label="Editar observação"
                                     data-obs-id="${data.id}"
                                     data-conteudo="${esc(data.conteudo)}"
                                     data-conteudo-html="${esc(data.conteudoHtml ?? '')}"
@@ -299,7 +327,7 @@
                                     data-url="${esc(urlEditar)}">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button type="button"
+                            <button type="button" hidden
                                     class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs-det"
                                     title="Excluir observação" aria-label="Excluir observação"
                                     data-obs-id="${data.id}"
@@ -307,7 +335,6 @@
                                     data-url="${esc(urlExcluir)}">
                                 <i class="bi bi-trash3"></i>
                             </button>
-                            <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                         </span>
                         <button type="button"
                                 class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs-det"
@@ -315,7 +342,7 @@
                                 data-resposta-a="${esc(alvoId)}"
                                 data-resposta-nome="${esc(alvoNome)}"${autorResp}>
                             <i class="bi bi-reply-fill"></i>
-                        </button>
+                        </button>{% endif %}
                         <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(horaDaResposta(criadaEm, raiz))}</span>
                         <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
                                 aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
@@ -323,34 +350,36 @@
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
                         <div class="ps-obs-menu" id="psObsMenu${data.id}" role="menu" hidden>
-                            <div class="ps-processo-menu-titulo">${esc(data.autorNome ?? 'Autor desconhecido')} · ${esc(criadaEm.replace(' ', ', '))}</div>
+                            <div class="ps-processo-menu-titulo">${esc(data.autorNome ?? 'Autor desconhecido')} · ${esc(criadaEm.replace(' ', ', '))}</div>{% if podeEscreverObs %}
                             <button type="button" class="ps-processo-menu-item js-obs-responder" role="menuitem">
                                 <i class="bi bi-reply-fill"></i><span>Responder</span>
-                            </button>
+                            </button>{% endif %}
                             <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
                                 <i class="bi bi-clipboard"></i><span>Copiar texto</span>
-                            </button>
+                            </button>{% if podeEscreverObs %}
                             <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
                                 <i class="bi bi-quote"></i><span>Citar no novo registro</span>
-                            </button>{% if obsPodeCriarMeta %}
+                            </button>{% endif %}{% if obsPodeCriarMeta %}
                             <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
                                 <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
                             </button>{% endif %}
-                            <div class="ps-processo-menu-sep" role="separator"></div>
-                            <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
-                                    data-obs-id="${data.id}" title="Edição liberada por mais {{ comentario_janela_minutos() }} min">
-                                <i class="bi bi-pencil"></i><span>Editar · {{ comentario_janela_minutos() }} min</span>
-                            </button>
-                            <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
-                                    data-obs-id="${data.id}" title="Exclusão liberada por mais {{ comentario_janela_minutos() }} min">
-                                <i class="bi bi-trash3"></i><span>Excluir comentário · {{ comentario_janela_minutos() }} min</span>
-                            </button>
                             <button type="button" class="ps-processo-menu-item js-obs-imprimir" role="menuitem"
                                     data-autor="${esc(data.autorNome ?? 'Autor desconhecido')}"
                                     data-quando="${esc(criadaEm.replace(' ', ', '))}"
                                     data-tipo="Atendimento">
                                 <i class="bi bi-printer"></i><span>Imprimir</span>
+                            </button>{% if podeEscreverObs %}
+                            <div class="ps-processo-menu-sep" role="separator"></div>
+                            <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
+                                    data-obs-janela="editar"
+                                    data-obs-id="${data.id}" title="Edição liberada por mais {{ comentario_janela_minutos() }} min">
+                                <i class="bi bi-pencil"></i><span>Editar · {{ comentario_janela_minutos() }} min</span>
                             </button>
+                            <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
+                                    data-obs-janela="excluir"
+                                    data-obs-id="${data.id}" title="Exclusão liberada por mais {{ comentario_janela_minutos() }} min">
+                                <i class="bi bi-trash3"></i><span>Excluir comentário · {{ comentario_janela_minutos() }} min</span>
+                            </button>{% endif %}
                         </div>
                     </div>
                     <div class="ps-anotacao-corpo">
@@ -545,6 +574,8 @@
     /* ── ⋮ da observação (N7): menu fixo, posicionado pelo gatilho (o cartão tem
        `overflow: hidden`, um menu absoluto seria cortado na última observação). ── */
     let menuAberto = null; // { menu, gatilho }
+    const OBS_MOTIVO_PRAZO = '{{ OBS_MOTIVO_PRAZO|e('js') }}';
+    const OBS_MOTIVO_AUTOR = '{{ OBS_MOTIVO_AUTOR|e('js') }}';
 
     function fecharMenuObs(devolverFoco) {
         if (!menuAberto) { return; }
@@ -552,6 +583,63 @@
         menuAberto.gatilho.setAttribute('aria-expanded', 'false');
         if (devolverFoco) { menuAberto.gatilho.focus(); }
         menuAberto = null;
+    }
+
+    /* C6-PAS-04 (PAS-033): ao salvar uma edição, o "editado" entra (ou é atualizado) logo depois do
+       autor, com a MESMA dica do Twig. A hora de publicação sai do title da hora do cartão
+       ("dd/mm/aaaa HH:MM"); a edição é a `editadaEm` do servidor ("dd/mm/aaaa HH:MM"). */
+    function marcarEditadoObs(artigo, editadaEm) {
+        const topo = artigo ? artigo.querySelector(':scope > .ps-anotacao-topo') : null;
+        if (!topo) { return; }
+        let marca = topo.querySelector(':scope > .detalhes-obs-editado');
+        if (!marca) {
+            marca = document.createElement('span');
+            marca.className = 'ps-anotacao-editado detalhes-obs-editado';
+            marca.textContent = 'editado';
+            const autor = topo.querySelector(':scope > .ps-anotacao-autor');
+            if (autor) { autor.after(marca); } else { topo.appendChild(marca); }
+        }
+        const publicado = (((topo.querySelector(':scope > .ps-anotacao-data') || {}).title) || '').slice(-5);
+        const partes    = String(editadaEm || '').split(' ');
+        const edicao    = partes.length === 2 ? partes[0] + ' às ' + partes[1] : '';
+        marca.title = (publicado ? 'Publicado às ' + publicado + ' · ' : '') + 'última edição ' + edicao;
+    }
+
+    /* C6-PAS-05: os minutos de Editar/Excluir são recalculados a CADA abertura do ⋮, com a regra
+       do servidor (`minutosRestantes`: teto, de 1 a 15; 0 = vencida) — a mesma do Registro
+       (`minutosRestantesReg`). O fim da janela é o `data-janela-ate` do cartão, em segundos. */
+    function minutosRestantesObs(artigo) {
+        const ate = Number(artigo ? artigo.dataset.janelaAte : 0) * 1000;
+        const ms  = ate - Date.now();
+        if (!ate || ms <= 0) { return 0; }
+        return Math.min({{ comentario_janela_minutos() }}, Math.max(1, Math.ceil(ms / 60000)));
+    }
+
+    function pintarItemObs(item, pode, rotulo, icone, motivo) {
+        item.disabled = !pode;
+        if (pode) { item.removeAttribute('aria-disabled'); } else { item.setAttribute('aria-disabled', 'true'); }
+        item.title = motivo;
+        item.querySelector('i').className = 'bi ' + icone;
+        item.querySelector('span').textContent = rotulo;
+    }
+
+    /* Só um item que nasceu liberado (com o botão da janela no cartão) pode seguir liberado; o
+       que nasceu bloqueado não reabre. Passada a janela sem recarregar, os dois viram
+       "· bloqueado" com o motivo do prazo (o servidor recusaria). */
+    function pintarJanelaObs(menu, artigo) {
+        const editar  = menu.querySelector('[data-obs-janela="editar"]');
+        const excluir = menu.querySelector('[data-obs-janela="excluir"]');
+        if (!editar || !excluir || !artigo) { return; } // lápide: não há itens de escrita
+        if (!artigo.querySelector('.ps-anotacao-acoes .btn-editar-obs-det')) { return; } // nasceu bloqueado
+        const resto  = minutosRestantesObs(artigo);
+        const motivo = artigo.dataset.doAutor === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR;
+        if (resto > 0) {
+            pintarItemObs(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', 'Edição liberada por mais ' + resto + ' min');
+            pintarItemObs(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', 'Exclusão liberada por mais ' + resto + ' min');
+        } else {
+            pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
+            pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+        }
     }
 
     /* PAS-040 (dc L.2316 `onContextMenu`): o botão direito no cartão abre o MESMO menu do ⋮,
@@ -563,6 +651,7 @@
         if (!porClique && menuAberto && menuAberto.menu === menu) { fecharMenuObs(false); return; }
         fecharMenuObs(false);
         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+        pintarJanelaObs(menu, gatilho.closest('.detalhes-obs-item'));
         menu.hidden = false;
         const r = gatilho.getBoundingClientRect();
         let x = r.right - menu.offsetWidth;
@@ -647,6 +736,7 @@
        a mesma ação, o mesmo CSRF e a mesma URL. Sem o botão (janela fechada), nada acontece. */
     function acionarDoCartao(item, seletor) {
         fecharMenuObs(false);
+        if (item.disabled) { return; } // a janela fechou enquanto a página estava aberta (C6-PAS-05)
         const artigo = document.getElementById('detalhes-obs-' + item.dataset.obsId);
         const alvo   = artigo ? artigo.querySelector('.ps-anotacao-acoes ' + seletor) : null;
         if (alvo) { alvo.click(); }
@@ -823,6 +913,7 @@
                             restaurarExibicao(data.conteudoHtml);
                             btnEditar.dataset.conteudo     = data.conteudo;
                             btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
+                            marcarEditadoObs(item, data.editadaEm);
                         } else {
                             restaurarExibicao(htmlAtual);
                             avisarErroObs(data.erro ?? 'Erro ao editar.');
@@ -916,7 +1007,7 @@
    responde a algo fora do limite). Mesma estrutura do Registro da aba Dados. O JS deste arquivo
    (`htmlDoCartao`) monta a MESMA marcação.
 #}
-{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR) %}
+{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) %}
     {% set obsPastaLapide = pasta.estaExcluida %}
     {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
@@ -924,8 +1015,10 @@
         ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
         : '?' %}
     {% set foto = obs.autor and obs.autor.id ? fotos[obs.autor.id]|default(null) : null %}
-    {# Autor, dentro da janela de 15 min: o prazo vem do MESMO serviço do UseCase. #}
-    {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
+    {# Autor, dentro da janela de 15 min: o prazo vem do MESMO serviço do UseCase. C6-PAS-02: e
+       só para quem escreve na pasta viva (as rotas exigem EDIT; a lápide recusa todo POST). #}
+    {% set doAutor = obs.autor and app.user and obs.autor.id == app.user.id %}
+    {% set podeGerenciar = podeEscreverObs and doAutor and comentario_editavel(obs.criadaEm) %}
     {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
     {% set alvoId = raiz ? raiz.id : obs.id %}
     {% set alvoNome = raiz ? (raiz.autor.fullName ?? raiz.autor.email ?? '') : autor %}
@@ -934,7 +1027,11 @@
     {% set horaRotulo = (raiz and obs.criadaEm|date('Y-m-d') != raiz.criadaEm|date('Y-m-d'))
         ? obs.criadaEm|date('d/m') ~ ' · ' ~ obs.criadaEm|date('H:i')
         : obs.criadaEm|date('H:i') %}
-    <article class="ps-anotacao detalhes-obs-item{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="detalhes-obs-{{ obs.id }}">
+    {# C6-PAS-05: o fim da janela (epoch, em segundos) e se o cartão é de quem está logado — o ⋮
+       recalcula os minutos ao abrir, como o Registro (`data-janela-ate`/`data-do-autor`). #}
+    <article class="ps-anotacao detalhes-obs-item{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="detalhes-obs-{{ obs.id }}"
+             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
+             data-do-autor="{{ doAutor ? '1' : '0' }}">
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
@@ -948,14 +1045,19 @@
             <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ path('app_profile_foto_serve', {nome: foto}) }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
             <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
             {% if obs.editadaEm %}
-                <span class="ps-anotacao-editado" title="Editado em {{ obs.editadaEm|date('d/m/Y H:i') }}">editado</span>
+                {# C6-PAS-04 (PAS-033; dc L.5975 `editadoDica`): quando foi publicado e quando foi a última edição. #}
+                <span class="ps-anotacao-editado detalhes-obs-editado" title="Publicado às {{ obs.criadaEm|date('H:i') }} · última edição {{ obs.editadaEm|date('d/m/Y') }} às {{ obs.editadaEm|date('H:i') }}">editado</span>
             {% endif %}
             <span class="ps-cab-espaco"></span>
             {% if podeGerenciar %}
+                {# C6-PAS-03 (PAS-037; dc L.2323 `editDica`): na linha só o lápis, e os minutos que
+                   restam vão para a dica dele. Excluir mora no ⋮ (PAS-041), que clica o botão
+                   escondido abaixo — a ação, o CSRF e a URL de sempre. #}
+                {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
                 <span class="ps-anotacao-acoes">
                     <button type="button"
                             class="ps-anotacao-acao btn-editar-obs-det"
-                            title="Editar observação" aria-label="Editar observação"
+                            title="Editável por mais {{ minRest }} {{ minRest == 1 ? 'minuto' : 'minutos' }}" aria-label="Editar observação"
                             data-obs-id="{{ obs.id }}"
                             {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
                             data-conteudo="{{ obs.conteudo|e('html_attr') }}"
@@ -964,7 +1066,7 @@
                             data-url="{{ path('pasta_detalhes_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button type="button"
+                    <button type="button" hidden
                             class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs-det"
                             title="Excluir observação" aria-label="Excluir observação"
                             data-obs-id="{{ obs.id }}"
@@ -972,11 +1074,9 @@
                             data-url="{{ path('pasta_detalhes_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
                         <i class="bi bi-trash3"></i>
                     </button>
-                    {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
-                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
                 </span>
             {% endif %}
-            {% if not obsPastaLapide %}
+            {% if podeEscreverObs %}
                 {# Responder a uma RESPOSTA já começa com "@Nome " do autor dela (desenho `respTxt`). #}
                 <button type="button"
                         class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs-det"
@@ -989,8 +1089,9 @@
             {% endif %}
             <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>
             {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Itens: ver o
-               cabeçalho (PAS-041). "Imprimir" (EDT-003) é o último, como no desenho.
-               Encaminhar via Chat I.A não existe aqui. #}
+               cabeçalho (PAS-041). "Imprimir" (EDT-003) fecha os extras, logo depois de "Criar
+               meta…" e antes do separador de Editar/Excluir (C6-EDT-04; dc L.5958: `extras`
+               e só então '-'). Encaminhar via Chat I.A não existe aqui. #}
             <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
                     aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
                     aria-controls="psObsMenu{{ obs.id }}">
@@ -998,7 +1099,7 @@
             </button>
             <div class="ps-obs-menu" id="psObsMenu{{ obs.id }}" role="menu" hidden>
                 <div class="ps-processo-menu-titulo">{{ autor ?: 'Autor desconhecido' }} · {{ obs.criadaEm|date('d/m/Y, H:i') }}</div>
-                {% if not obsPastaLapide %}
+                {% if podeEscreverObs %}
                     <button type="button" class="ps-processo-menu-item js-obs-responder" role="menuitem">
                         <i class="bi bi-reply-fill"></i><span>Responder</span>
                     </button>
@@ -1006,37 +1107,16 @@
                 <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
                     <i class="bi bi-clipboard"></i><span>Copiar texto</span>
                 </button>
-                <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
-                    <i class="bi bi-quote"></i><span>Citar no novo registro</span>
-                </button>
+                {# Citar escreve no compositor: sem compositor (C6-PAS-02), não há onde citar. #}
+                {% if podeEscreverObs %}
+                    <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
+                        <i class="bi bi-quote"></i><span>Citar no novo registro</span>
+                    </button>
+                {% endif %}
                 {% if obsPodeCriarMeta %}
                     <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
                         <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
                     </button>
-                {% endif %}
-                {% if not obsPastaLapide %}
-                    <div class="ps-processo-menu-sep" role="separator"></div>
-                    {% if podeGerenciar %}
-                        {% set minRestMenu = comentario_minutos_restantes(obs.criadaEm) %}
-                        <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
-                                data-obs-id="{{ obs.id }}" title="Edição liberada por mais {{ minRestMenu }} min">
-                            <i class="bi bi-pencil"></i><span>Editar · {{ minRestMenu }} min</span>
-                        </button>
-                        <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
-                                data-obs-id="{{ obs.id }}" title="Exclusão liberada por mais {{ minRestMenu }} min">
-                            <i class="bi bi-trash3"></i><span>Excluir comentário · {{ minRestMenu }} min</span>
-                        </button>
-                    {% else %}
-                        {% set motivoObs = obs.autor and app.user and obs.autor.id == app.user.id ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR %}
-                        <button type="button" class="ps-processo-menu-item" role="menuitem"
-                                disabled aria-disabled="true" title="{{ motivoObs }}">
-                            <i class="bi bi-lock"></i><span>Editar · bloqueado</span>
-                        </button>
-                        <button type="button" class="ps-processo-menu-item" role="menuitem"
-                                disabled aria-disabled="true" title="{{ motivoObs }}">
-                            <i class="bi bi-lock"></i><span>Excluir · bloqueado</span>
-                        </button>
-                    {% endif %}
                 {% endif %}
                 {# EDT-003 (dc L.6466): "Imprimir" abre a janela de impressão (pasta-impressao.js)
                    com "Registro do expediente" e a linha autor · data · tipo — o tipo do
@@ -1047,6 +1127,37 @@
                         data-tipo="Atendimento">
                     <i class="bi bi-printer"></i><span>Imprimir</span>
                 </button>
+                {% if not obsPastaLapide %}
+                    <div class="ps-processo-menu-sep" role="separator"></div>
+                    {# C6-PAS-05: `data-obs-janela` marca os dois itens nos dois estados; ao abrir o ⋮,
+                       o JS (`pintarJanelaObs`) recalcula os minutos pelo `data-janela-ate` do cartão e
+                       bloqueia os itens quando a janela fecha sem recarregar a página. #}
+                    {% if podeGerenciar %}
+                        {% set minRestMenu = comentario_minutos_restantes(obs.criadaEm) %}
+                        <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
+                                data-obs-janela="editar"
+                                data-obs-id="{{ obs.id }}" title="Edição liberada por mais {{ minRestMenu }} min">
+                            <i class="bi bi-pencil"></i><span>Editar · {{ minRestMenu }} min</span>
+                        </button>
+                        <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
+                                data-obs-janela="excluir"
+                                data-obs-id="{{ obs.id }}" title="Exclusão liberada por mais {{ minRestMenu }} min">
+                            <i class="bi bi-trash3"></i><span>Excluir comentário · {{ minRestMenu }} min</span>
+                        </button>
+                    {% else %}
+                        {% set motivoObs = doAutor ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR %}
+                        <button type="button" class="ps-processo-menu-item" role="menuitem"
+                                data-obs-janela="editar"
+                                disabled aria-disabled="true" title="{{ motivoObs }}">
+                            <i class="bi bi-lock"></i><span>Editar · bloqueado</span>
+                        </button>
+                        <button type="button" class="ps-processo-menu-item" role="menuitem"
+                                data-obs-janela="excluir"
+                                disabled aria-disabled="true" title="{{ motivoObs }}">
+                            <i class="bi bi-lock"></i><span>Excluir · bloqueado</span>
+                        </button>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
         <div class="ps-anotacao-corpo">
