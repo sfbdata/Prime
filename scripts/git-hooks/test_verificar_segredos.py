@@ -177,6 +177,21 @@ class ConteudoTest(unittest.TestCase):
     def test_senha_real_ao_lado_de_printf_continua_pega(self):
         self.assertEqual(['url-com-credencial'], regras('app/X.php', "'pgsql://app:" + aleatorio(16) + "@db/%s'"))
 
+    # --- Exceção declarada do CI: só o literal exato, naquele arquivo, naquela chave ---
+    VALOR_CI = 'ci-' + 'test-only'  # valor fictício e público do job efêmero do .github/workflows/ci.yml
+
+    def test_app_secret_ficticio_do_ci_e_aceito_so_no_literal_exato(self):
+        self.assertEqual([], regras('.github/workflows/ci.yml', '      APP_SECRET: ' + self.VALOR_CI))
+
+    def test_outro_valor_na_mesma_chave_do_ci_e_pego(self):
+        self.assertEqual(['atribuicao-sensivel'], regras('.github/workflows/ci.yml', '      APP_SECRET: ' + aleatorio(20)))
+
+    def test_mesmo_valor_em_outro_arquivo_e_pego(self):
+        self.assertEqual(['atribuicao-sensivel'], regras('app/.env', 'APP_SECRET=' + self.VALOR_CI))
+
+    def test_mesmo_valor_em_outra_chave_do_ci_e_pego(self):
+        self.assertEqual(['atribuicao-sensivel'], regras('.github/workflows/ci.yml', '      API_TOKEN: ' + self.VALOR_CI))
+
     def test_marca_de_permissao_aceita_a_linha(self):
         linha = 'TOKEN_FIXO=' + aleatorio(30) + '  # segredo:permitido — valor público do fornecedor'
         self.assertEqual([], regras('config/x.yaml', linha))

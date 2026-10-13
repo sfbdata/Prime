@@ -123,6 +123,16 @@ CHAVES_DE_DESENVOLVIMENTO = {
     ('app/.env.test', 'SYNC_CRYPTO_KEY'),
 }
 
+# Valores FICTÍCIOS de teste já versionados, aceitos só na combinação EXATA (arquivo, chave, sha256 do
+# valor). Mudar o valor, a chave ou o arquivo faz a linha voltar a ser avaliada — não é uma exceção
+# para a chave nem para o arquivo, é para aquele literal ali.
+VALORES_DE_TESTE_DECLARADOS = {
+    # .github/workflows/ci.yml: APP_SECRET do job efêmero do GitHub Actions. Só existe dentro do runner
+    # do CI (banco postgres:15 descartável), nunca em ambiente real. Conferido em 12/10/2026.
+    ('.github/workflows/ci.yml', 'APP_SECRET',
+     'c5a5fc5f3ec2c639d6c947ae4994c86624a6b9bc1513f704c50ae2acd9b445c9'),
+}
+
 # Banco do container de DEV: usuário e senha são o padrão público do docker-compose.yml.
 CREDENCIAIS_DE_DEV = {('symfony', 'symfony')}
 
@@ -221,6 +231,8 @@ def verificar_linha(arquivo: str, texto: str) -> list[tuple[str, int | None]]:
                 continue  # montado em tempo de execução ($(grep ...), ${VAR}), não um literal
             compacto = valor.replace(' ', '')
             if len(compacto) < 8 or eh_placeholder(valor):
+                continue
+            if (arquivo, chave.upper(), hashlib.sha256(valor.encode()).hexdigest()) in VALORES_DE_TESTE_DECLARADOS:
                 continue
             achados.append(('atribuicao-sensivel', len(compacto)))
 
