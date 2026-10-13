@@ -2793,9 +2793,12 @@ span.ps-situacao-pill { cursor: default; }
 #financeiro .ps-fin-menu-item--perigo:focus-visible { color: var(--ps-danger-text); }
 #financeiro .ps-fin-menu-item--perigo:hover,
 #financeiro .ps-fin-menu-item--perigo:focus-visible { background: var(--ps-danger-hover); }
-/* "Editar · bloqueado" / "Excluir · bloqueado" (FPN-006b): a cara do item do desenho, sem clique. */
-#financeiro .ps-fin-menu-item:disabled { cursor: default; }
-#financeiro .ps-fin-menu-item:disabled:hover { background: transparent; }
+/* "Editar · bloqueado" / "Excluir · bloqueado" (FPN-006b): a cara do item do desenho. Desde o C7-FPN-02
+   o item é clicável (mostra o motivo), marcado por `aria-disabled`, não por `disabled`. */
+#financeiro .ps-fin-menu-item:disabled,
+#financeiro .ps-fin-menu-item[aria-disabled="true"] { cursor: default; }
+#financeiro .ps-fin-menu-item:disabled:hover,
+#financeiro .ps-fin-menu-item[aria-disabled="true"]:hover { background: transparent; }
 #financeiro .ps-fin-menu-sep,
 .ps-push .ps-push-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
 /* Item e separador que o pasta-push.js esconde por cartão (documento sem link, nota sem processo):

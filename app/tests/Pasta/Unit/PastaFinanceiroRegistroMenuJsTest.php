@@ -155,4 +155,12 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringNotContainsString('js-fin-obs-imprimir', (string) file_get_contents(self::TWIG));
         self::assertStringNotContainsString('PastaImpressao.registro(', (string) file_get_contents(self::TWIG));
     }
+
+    #[TestDox('C7-FPN-02: o bloqueado clicável (aria-disabled) mantém a cara de bloqueado: sem cursor de ação nem fundo no hover')]
+    public function testBloqueadoComCaraDeBloqueado(): void
+    {
+        $css = (string) file_get_contents(\dirname(__DIR__, 3) . '/public/css/pasta-show.css');
+        self::assertStringContainsString('#financeiro .ps-fin-menu-item[aria-disabled="true"] { cursor: default; }', $css);
+        self::assertStringContainsString('#financeiro .ps-fin-menu-item[aria-disabled="true"]:hover { background: transparent; }', $css);
+    }
 }

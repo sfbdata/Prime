@@ -330,7 +330,9 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString("'erro'", $avisar);
 
         // A delegação atende o bloqueado ANTES de Editar/Excluir.
-        $clique = substr($html, (int) strpos($html, "obsLista.addEventListener('click', async function (e) {"), 3000);
+        // O Financeiro tem uma delegação com a mesma assinatura e vem antes na página: ancora no bloco de Detalhes.
+        $inicioDet = (int) strpos($html, 'function avisarBloqueadoObs(item) {');
+        $clique = substr($html, (int) strpos($html, "obsLista.addEventListener('click', async function (e) {", $inicioDet), 3000);
         $posBloq   = strpos($clique, "e.target.closest('.ps-obs-menu [aria-disabled=\"true\"]')");
         $posEditar = strpos($clique, "e.target.closest('.js-obs-editar')");
         self::assertNotFalse($posBloq);
