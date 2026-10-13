@@ -346,7 +346,9 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         self::assertNull($this->enviarObs($client, $pasta)['autorFotoUrl'], 'sem foto: o JS mostra as iniciais');
 
-        $profile = new \App\Profile\Entity\UserProfile($user);
+        // A requisição limpa o EntityManager: relê o autor antes de pendurar o perfil nele
+        $autor   = $this->em()->find(\App\Entity\Auth\User::class, $user->getId());
+        $profile = new \App\Profile\Entity\UserProfile($autor);
         $profile->setFotoUrl('foto-autor-det.jpg');
         $this->em()->persist($profile);
         $this->em()->flush();
