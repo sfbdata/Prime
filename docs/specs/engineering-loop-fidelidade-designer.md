@@ -168,7 +168,7 @@ cada divergência A trabalhada e as filas B/C/D.
 | IA-010/011 | IA | Recolher com prévia (preferência no servidor); marcar como não lido | P3/P4 | **feito** | ✓ | ✓ | ✓ | `99cbb19a`, `856e83c6` | | |
 | IA-012/013 | IA | Runbook de ativação; worker opt-in no compose de dev | P2/P3 | **feito** | — | ✓ | ✓ | `6c68555a`, `97a8a0cf` | | Worker em `--profile worker`: o dev roda dado real e a fila também leva sync do Drive |
 | IA-014 | IA | Corpus de 67 ataques de injeção + homóglifos no neutralizador | P2 | **feito** | — | ✓ | ✓ | `9eccd415` | | |
-| FPN-040 | Push | Teor sem escrita para quem só vê e na lápide | P3 | **feito** | ✓ | ✓ | ✓ | `68c3c1f2` | (mutações: 5) | Ver PMC-058L |
+| FPN-040L | Push | Teor sem escrita para quem só vê e na lápide | P3 | **feito** | ✓ | ✓ | ✓ | `68c3c1f2` | (mutações: 5) | Ver PMC-058L |
 | DOC-106b | Documentos | Teto de 20 pares duplicados + "e mais N" | P1 | **feito** (ratificar teto) | ✓ | ✓ | ✓ | `4c438e1b` | (mutações: 5) | |
 | PMC-044 | Metas | Fica na aba Metas com a meta nova realçada | P3 | **feito** | ✓ | ✓ | ✓ | `27d3972b` | | Recarrega a página (o desenho atualiza no lugar) |
 | PMC-038 | Metas | Moldura do modal "Nova meta" | P3 | **parcial** | ✓ | ✓ | ✓ | `d8b7a015` | | Corpo do modal (rótulos, contador, chips) e janela não modal: PMC-059 |
@@ -335,9 +335,9 @@ Chat I.A; ver `inventario-ia.md`).
   processo; quem recebe o aviso de publicação nova.
 - **EDT:** Definir/Traduzir/Pesquisar na web (manda texto do cliente a terceiros); rascunho do editor em
   `localStorage`; dono do atalho Ctrl+K (link do editor × busca global), ligado a D-EDITOR e D-BARRA.
-- **Agenda (DASH-009):** o gestor vê na lista da pessoa eventos "Para Todos" de colegas dos quais não participa
-  (coerente com o contador e o `agenda_show`, não com o calendário). A lista sem filtro esconde "Para Todos" com
-  participantes (anterior).
+- **Agenda (DASH-009), atualizado após o SEC-016:** a lista da pessoa aplica a visibilidade da Agenda para quem olha
+  ("Para Todos" com participantes só para o criador e os participantes). A decisão aberta é a inversa: o número do
+  Dashboard (contagem agregada) pode ser MAIOR que a lista. Sigilo > paridade até o Samuel decidir.
 - **EDT-003r:** quer o "Imprimir" também nos menus do Registro e do Financeiro? (o desenho só o tem em Detalhes)
 - **FPN-020:** o bloco de notas pendurado sob o Push leva o cabeçalho "Notas técnicas · N", como na aba Processo; o
   desenho do Push (dc:2534) não o mostra.
