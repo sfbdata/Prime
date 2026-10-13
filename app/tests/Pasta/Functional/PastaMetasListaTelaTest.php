@@ -484,6 +484,15 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('#modalCriarTarefa { pointer-events: none; }', $html);
         self::assertStringContainsString('#modalCriarTarefa .modal-content { pointer-events: auto; }', $html);
         self::assertStringContainsString('body:has(#modalCriarTarefa.show) { overflow: auto !important; padding-right: 0 !important; }', $html);
+        // Outra janela aberta por cima cobre a Nova meta (fundo do Bootstrap = 1050)
+        self::assertStringContainsString('#modalCriarTarefa { z-index: 1049; }', $html);
+
+        // Sem a trava de foco do Bootstrap, o JS leva o foco ao título e fecha no Esc
+        $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/pasta-metas.js');
+        self::assertStringContainsString("modal.removeAttribute('aria-modal');", $js);
+        self::assertStringContainsString('if (titulo) { titulo.focus(); }', $js);
+        self::assertStringContainsString("if (e.key !== 'Escape' || !modal.classList.contains('show')) { return; }", $js);
+        self::assertStringContainsString("if (document.querySelector('.modal.show:not(#modalCriarTarefa)')) { return; }", $js);
     }
 
     #[TestDox('C6-PMC-02: pasta sem NUP mostra "Pasta #<id>" na faixa da Nova meta, nunca só "Pasta "')]

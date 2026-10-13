@@ -4096,6 +4096,8 @@ document.addEventListener('DOMContentLoaded', function () {
        O Bootstrap também trava a rolagem do body (`overflow:hidden` + `padding-right` inline);
        enquanto ESTA janela está aberta, a página volta a rolar. */
     #modalCriarTarefa { pointer-events: none; }
+    {# Abaixo do fundo (1050) das outras janelas: aberta outra por cima, a Nova meta fica atrás dela. #}
+    #modalCriarTarefa { z-index: 1049; }
     #modalCriarTarefa .modal-content { pointer-events: auto; }
     body:has(#modalCriarTarefa.show) { overflow: auto !important; padding-right: 0 !important; }
 </style>

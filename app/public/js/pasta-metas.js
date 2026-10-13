@@ -896,6 +896,20 @@
         modal.addEventListener('shown.bs.modal', conferir);
         conferir();
 
+        // C6-PMC-01: a janela não é modal (sem fundo e sem trava de foco), então o Bootstrap nem
+        // leva o foco para dentro nem ouve o Esc fora dela. Foco no título ao abrir; Esc no
+        // documento fecha (o desenho tem `nm.tecla`), salvo quando outra janela modal está aberta
+        // — essa trata o próprio Esc. `aria-modal` sai: a página atrás continua ativa.
+        modal.addEventListener('shown.bs.modal', function () {
+            modal.removeAttribute('aria-modal');
+            if (titulo) { titulo.focus(); }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' || !modal.classList.contains('show')) { return; }
+            if (document.querySelector('.modal.show:not(#modalCriarTarefa)')) { return; }
+            if (window.bootstrap) { window.bootstrap.Modal.getOrCreateInstance(modal).hide(); }
+        });
+
         function alternarRecolhido() {
             var rec = !janela.classList.contains('is-recolhido');
             janela.classList.toggle('is-recolhido', rec);
