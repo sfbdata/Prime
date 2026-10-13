@@ -92,7 +92,7 @@ final class PastaPushMenuContextoJsTest extends TestCase
         self::assertStringContainsString("include('processo/_notas_tecnicas.html.twig'", $twig);
     }
 
-    #[TestDox('o menu não lê o teor por conta própria: abre o cartão (o clique do pasta-show.js) e espera data-carregado')]
+    #[TestDox('o menu não lê o teor por conta própria: abre o cartão (o clique do pasta-show.js) e espera data-carregado; o texto do "Copiar" vem de buscarTextoDaPublicacao, fora do bloco')]
     public function testSemSegundoCaminhoDeLeitura(): void
     {
         $bloco = $this->blocoDoMenu();
@@ -106,18 +106,56 @@ final class PastaPushMenuContextoJsTest extends TestCase
         self::assertStringContainsString("painel.dataset.carregado = '1'", $show);
     }
 
-    #[TestDox('"Copiar texto" usa o teor carregado (.djen-teor) e, antes dele, o trecho do título — sem abrir o cartão')]
+    #[TestDox('C6-FPN-03: "Copiar texto" usa o teor carregado (.djen-teor) e, antes dele, o texto INTEIRO de pasta_push_texto — sem abrir o cartão e sem o trecho do título')]
     public function testCopiarSemAbrirOCartao(): void
     {
-        $bloco  = $this->blocoDoMenu();
-        $inicio = strpos($bloco, "contains('js-push-menu-copiar')");
-        self::assertNotFalse($inicio);
-        $ramo = substr($bloco, $inicio, (int) strpos($bloco, 'return;', $inicio) - $inicio);
+        $ramo = $this->ramo('js-push-menu-copiar');
 
         self::assertStringContainsString("'.djen-teor'", $ramo);
-        self::assertStringContainsString("'.ps-push-assunto-txt'", $ramo);
+        self::assertStringContainsString("if (teor) { copiarTexto(textoLimpo(teor)); return; }", $ramo);
+        self::assertStringContainsString("copiarTextoDaPublicacao(de.item.getAttribute('data-push-texto-url'))", $ramo);
+        // O defeito: sem o teor, copiava o trecho de 220 caracteres do título e dizia "Texto copiado".
+        self::assertStringNotContainsString("'.ps-push-assunto-txt'", $ramo);
         self::assertStringNotContainsString('comTeor(', $ramo, 'copiar não pode marcar como lida');
-        self::assertStringNotContainsString('innerHTML', $bloco);
+        self::assertStringNotContainsString('cab.click()', $ramo);
+        self::assertStringNotContainsString('innerHTML', $this->blocoDoMenu());
+
+        // A busca é um GET à rota sem efeito colateral, e quem não tem teor recebe o aviso certo.
+        $js    = (string) file_get_contents(self::JS);
+        $busca = substr($js, (int) strpos($js, 'function buscarTextoDaPublicacao('), 1200);
+        self::assertStringContainsString("method: 'GET'", $busca);
+        self::assertStringContainsString('res.dados.texto', $busca);
+        self::assertStringContainsString("'Esta publicação não trouxe teor textual.'", $busca);
+        $copia = substr($js, (int) strpos($js, 'function copiarTextoDaPublicacao('), 1400);
+        self::assertStringContainsString('buscarTextoDaPublicacao(url)', $copia);
+        self::assertStringContainsString('new window.ClipboardItem(', $copia, 'a promessa entra na escrita ainda no gesto (Safari)');
+
+        // Do lado do template, a URL vem no <li> e é a rota do texto, não a do teor.
+        $twig = (string) file_get_contents(__DIR__ . '/../../../templates/pasta/_push_processual.html.twig');
+        self::assertStringContainsString("data-push-texto-url=\"{{ path('pasta_push_texto', {id: pasta.id, publicacaoId: item.id}) }}\"", $twig);
+    }
+
+    #[TestDox('C6-FPN-04: o bloco pendurado vazio aparece com o teor aberto ou o compositor aberto, e some quando nada disso vale')]
+    public function testBlocoPenduradoVazio(): void
+    {
+        $js     = (string) file_get_contents(self::JS);
+        $inicio = strpos($js, '7. Bloco de notas pendurado vazio');
+        self::assertNotFalse($inicio, 'o bloco 7 existe');
+        $bloco = substr($js, $inicio);
+
+        self::assertStringContainsString("item.querySelector(':scope > .ps-notas[data-oculto-se-vazio]')", $bloco);
+        self::assertStringContainsString("bloco.querySelector('.ps-notas-lista > .ps-nota')", $bloco);
+        self::assertStringContainsString('!editor.hidden', $bloco);
+        self::assertStringContainsString("cab.getAttribute('aria-expanded') === 'true'", $bloco);
+        self::assertStringContainsString('var mostrar = temNota || compondo || teorAberto;', $bloco);
+        self::assertStringContainsString('bloco.hidden = !mostrar;', $bloco);
+        self::assertStringContainsString("bloco.style.display = mostrar ? '' : 'none';", $bloco, 'o display:flex do .ps-notas venceria o hidden');
+        self::assertStringContainsString("lista.addEventListener('ps:notas-mudou'", $bloco);
+        self::assertStringContainsString("attributeFilter: ['aria-expanded']", $bloco);
+
+        // O outro lado: o nota-tecnica.js mostra o bloco ao abrir o compositor e avisa as mudanças.
+        $notas = (string) file_get_contents(__DIR__ . '/../../../public/js/nota-tecnica.js');
+        self::assertStringContainsString("new CustomEvent('ps:notas-mudou', { bubbles: true })", $notas);
     }
 
     /** O trecho do ramo `contains('<classe>')` até o primeiro `if (opcao.classList` seguinte. */

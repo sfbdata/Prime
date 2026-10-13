@@ -72,7 +72,7 @@ final class NotaTecnicaRepositoryIsolamentoTest extends KernelTestCase
         self::assertSame($notaB->getId(), $this->repositorio()->findOneByIdDoTenant((int) $notaB->getId(), $tenantB)?->getId());
     }
 
-    #[TestDox('listarPorPublicacao filtra por escritório e devolve a mais recente primeiro')]
+    #[TestDox('C6-FPN-01: listarPorPublicacao filtra por escritório e devolve em ordem cronológica (a nova no fim)')]
     public function testListarPorPublicacaoFiltraEOrdena(): void
     {
         self::bootKernel();
@@ -94,12 +94,19 @@ final class NotaTecnicaRepositoryIsolamentoTest extends KernelTestCase
         self::assertSame([], $this->repositorio()->listarPorPublicacao($pubB, $tenantA));
 
         $deB = $this->repositorio()->listarPorPublicacao($pubB, $tenantB);
-        self::assertSame(['<p>Nova</p>', '<p>Antiga</p>'], array_map(static fn (NotaTecnica $n): string => $n->getConteudo(), $deB));
+        self::assertSame(['<p>Antiga</p>', '<p>Nova</p>'], array_map(static fn (NotaTecnica $n): string => $n->getConteudo(), $deB));
 
-        // Por processo entram as três, mais recente primeiro.
+        // Por processo entram as três, em ordem cronológica: a antiga abre a lista.
         $doProcesso = $this->repositorio()->listarPorProcesso($processoB, $tenantB);
         self::assertCount(3, $doProcesso);
-        self::assertSame('<p>Antiga</p>', end($doProcesso)->getConteudo());
+        self::assertSame('<p>Antiga</p>', $doProcesso[0]->getConteudo());
+
+        // O teto corta as ANTIGAS, não as novas: com limite 2 ficam as duas mais recentes, ainda
+        // em ordem cronológica (empate no instante desempata pelo id).
+        self::assertSame(
+            ['<p>Nova</p>', '<p>Só do processo</p>'],
+            array_map(static fn (NotaTecnica $n): string => $n->getConteudo(), $this->repositorio()->listarPorProcesso($processoB, $tenantB, 2)),
+        );
     }
 
     #[TestDox('FPN-020: listarPorPublicacoesDosProcessos recorta por escritório, pelas publicações pedidas e pelos processos da pasta')]
@@ -137,7 +144,8 @@ final class NotaTecnicaRepositoryIsolamentoTest extends KernelTestCase
         $ids       = [(int) $pub1->getId(), (int) $pub2->getId()];
 
         self::assertSame(
-            ['<p>Da 2</p>', '<p>Nova da 1</p>', '<p>Antiga da 1</p>'],
+            // C6-FPN-01: em ordem cronológica (empate no instante, a de id menor primeiro).
+            ['<p>Antiga da 1</p>', '<p>Nova da 1</p>', '<p>Da 2</p>'],
             $conteudos($this->repositorio()->listarPorPublicacoesDosProcessos($ids, [$processoA], $tenantA)),
         );
         // O escritório B, com o processo de B, só vê a sua — e nunca as de A.

@@ -10,7 +10,9 @@
      5. "Criar tarefa": abre o modal de nova meta da pasta pré-preenchido;
      6. botão direito no cartão (FPN-014): Adicionar nota técnica, Criar tarefa,
         Marcar como (não) lida, Abrir documento e Copiar texto — cada item usa a
-        ação que JÁ existe no teor ou no cartão.
+        ação que JÁ existe no teor ou no cartão;
+     7. o bloco de notas pendurado VAZIO (C6-FPN-04): aparece com o teor aberto
+        ou com o compositor aberto, e some de novo quando nada disso vale.
 
    O teor chega DEPOIS do carregamento da página, então tudo que é clique dentro
    dele é por delegação. E o estado "nova" de uma linha muda por dois caminhos —
@@ -195,6 +197,30 @@
                 });
         }
 
+        /* C6-FPN-03: o texto inteiro do teor, PURO, por `pasta_push_texto` — um GET sem efeito
+           colateral (não marca como lida, ao contrário do `pasta_push_teor`). Devolve uma
+           promessa do texto; sem texto (publicação sem teor) ou com erro, rejeita com a mensagem
+           que a tela mostra. */
+        function buscarTextoDaPublicacao(url) {
+            return fetch(url, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            })
+                .then(function (r) {
+                    return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, dados: d }; });
+                })
+                .then(function (res) {
+                    if (!res.ok) {
+                        throw new Error(res.dados.erro || 'Não foi possível copiar o texto.');
+                    }
+                    if (typeof res.dados.texto !== 'string' || res.dados.texto === '') {
+                        throw new Error('Esta publicação não trouxe teor textual.');
+                    }
+                    return res.dados.texto;
+                });
+        }
+
         secao.addEventListener('click', function (e) {
             var botao = e.target.closest('.js-push-lida');
             if (!botao || botao.disabled) { return; }
@@ -278,9 +304,10 @@
            `#notas-publicacao-<id>` e `.js-push-criar-meta`). O teor vem do
            servidor no primeiro clique do cartão (pasta-show.js), então, se ainda
            não veio, o menu abre o cartão como o clique faria e espera o teor
-           chegar. "Copiar texto" copia o teor inteiro quando ele já está na
-           página; antes disso, o trecho do título — sem abrir o cartão, que
-           marcaria a publicação como lida.
+           chegar. "Copiar texto" copia o teor inteiro: da página, quando ele já
+           veio; antes disso, de `pasta_push_texto` (a URL vem no <li>), que NÃO
+           marca como lida — sem abrir o cartão (C6-FPN-03; antes copiava só o
+           trecho de 220 caracteres do título e dizia "Texto copiado").
            "Marcar como (não) lida" também não abre o cartão (abrir já é ler, e
            desfaria o "não lida"): com o teor na página, clica o `.js-push-lida`
            dele; sem o teor, grava pelo mesmo `gravarLida` do bloco 4, com a URL
@@ -389,6 +416,32 @@
             }
         }
 
+        /* O teor ainda não está na página: busca o texto no servidor e copia. Com
+           `ClipboardItem`, a promessa do texto entra na escrita AINDA dentro do clique — o
+           Safari só aceita escrever na área de transferência no gesto do usuário, e a resposta
+           do servidor chega depois dele. Se essa escrita falhar com o texto em mãos, tenta o
+           `writeText` comum. */
+        function copiarTextoDaPublicacao(url) {
+            if (!url || !navigator.clipboard) { avisar('Não foi possível copiar'); return; }
+            var pedido = buscarTextoDaPublicacao(url);
+
+            if (window.ClipboardItem && navigator.clipboard.write) {
+                var conteudo = pedido.then(function (texto) { return new Blob([texto], { type: 'text/plain' }); });
+                navigator.clipboard.write([new window.ClipboardItem({ 'text/plain': conteudo })]).then(
+                    function () { avisar('Texto copiado'); },
+                    function () {
+                        pedido.then(copiarTexto, function (falha) {
+                            avisar(falha && falha.message ? falha.message : 'Não foi possível copiar');
+                        });
+                    }
+                );
+                return;
+            }
+            pedido.then(copiarTexto, function (falha) {
+                avisar(falha && falha.message ? falha.message : 'Não foi possível copiar');
+            });
+        }
+
         function painelDe(cab) {
             return document.getElementById(cab.getAttribute('aria-controls') || '');
         }
@@ -470,7 +523,8 @@
                 if (opcao.classList.contains('js-push-menu-copiar')) {
                     var painel = document.getElementById(de.cab.getAttribute('aria-controls') || '');
                     var teor = painel && painel.dataset.carregado === '1' ? painel.querySelector('.djen-teor') : null;
-                    copiarTexto(teor ? textoLimpo(teor) : textoLimpo(de.item.querySelector('.ps-push-assunto-txt')));
+                    if (teor) { copiarTexto(textoLimpo(teor)); return; }
+                    copiarTextoDaPublicacao(de.item.getAttribute('data-push-texto-url'));
                     return;
                 }
                 if (opcao.classList.contains('js-push-menu-lida')) {
@@ -519,6 +573,8 @@
                     var id = de.item.getAttribute('data-push-id');
                     // FPN-020: com nota pendurada o bloco já está sob o cartão (fora do teor) e
                     // traz o compositor — abre ali, sem abrir o teor (abrir marcaria como lida).
+                    // C6-FPN-04: sem nota, o bloco também está lá, escondido; o clique no
+                    // `.js-nota-nova` o mostra (nota-tecnica.js, `abrirCompositor`).
                     var pendurado = de.item.querySelector(':scope > #notas-publicacao-' + id);
                     var novaPendurada = pendurado ? pendurado.querySelector('.js-nota-nova') : null;
                     if (novaPendurada) {
@@ -553,6 +609,46 @@
                 if (!menu.hidden && !(e.target instanceof Node && menu.contains(e.target))) { fecharMenu(false); }
             }, true);
             window.addEventListener('resize', function () { fecharMenu(false); });
+        }
+
+        /* ── 7. Bloco de notas pendurado vazio (C6-FPN-04) ────────────────────
+           Para quem escreve, o cartão sem nota traz o bloco de notas escondido
+           (`data-oculto-se-vazio`), para o "Adicionar nota técnica" do menu abrir o
+           compositor sob o cartão sem abrir o teor (dc:5392 `abrirNova`). Ele fica
+           à vista quando: há nota, o compositor está aberto ou o teor está aberto —
+           este último é o lugar onde o bloco do teor morava (o teor, avisado por
+           `penduradas=1`, não o repete). O compositor abre pelo nota-tecnica.js,
+           que mostra o bloco; fechar, salvar ou excluir avisa com `ps:notas-mudou`.
+           O teor abre e fecha pelo pasta-show.js: o `aria-expanded` do cartão é a
+           fonte, observada como a classe "nova" das linhas. O `style` acompanha o
+           `hidden` porque o `display:flex` do `.ps-notas` venceria o atributo. */
+        function ajustarNotasPenduradas(item) {
+            var bloco = item.querySelector(':scope > .ps-notas[data-oculto-se-vazio]');
+            if (!bloco) { return; }
+            var temNota = !!bloco.querySelector('.ps-notas-lista > .ps-nota');
+            var editor = bloco.querySelector('.ps-nota-editor');
+            var compondo = !!editor && !editor.hidden;
+            var cab = item.querySelector('.ps-push-cartao > .ps-push-cab');
+            var teorAberto = !!cab && cab.getAttribute('aria-expanded') === 'true';
+            var mostrar = temNota || compondo || teorAberto;
+            bloco.hidden = !mostrar;
+            bloco.style.display = mostrar ? '' : 'none';
+        }
+
+        if (lista) {
+            lista.addEventListener('ps:notas-mudou', function (e) {
+                var item = e.target.closest ? e.target.closest('.ps-push-item') : null;
+                if (item) { ajustarNotasPenduradas(item); }
+            });
+            if (window.MutationObserver) {
+                new MutationObserver(function (mudancas) {
+                    mudancas.forEach(function (m) {
+                        if (m.attributeName !== 'aria-expanded' || !m.target.classList.contains('ps-push-cab')) { return; }
+                        var item = m.target.closest('.ps-push-item');
+                        if (item) { ajustarNotasPenduradas(item); }
+                    });
+                }).observe(lista, { subtree: true, attributes: true, attributeFilter: ['aria-expanded'] });
+            }
         }
     }
 

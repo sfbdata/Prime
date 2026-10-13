@@ -23,7 +23,9 @@
              `mostrarMovimentacao` (bool, repassado ao item),
              `podeEscreverNota` (bool, opcional — ver PMC-058 abaixo),
              `idSufixoNota` (string, opcional — sufixo dos ids dos cartões quando a mesma
-             nota também está em outro bloco da página; FPN-020, o Push pendurado).
+             nota também está em outro bloco da página; FPN-020, o Push pendurado),
+             `ocultoSeVazio` (bool, opcional — C6-FPN-04, só o Push pendurado: o bloco
+             nasce escondido quando não há nota e o JS o mostra ao abrir o compositor).
    ============================================================================ #}
 {% set blocoId = publicacaoId ? 'notas-publicacao-' ~ publicacaoId : 'notas-processo-' ~ processoId %}
 {# Pasta lápide: o ⋮ de cada nota fica só com a leitura (PMC-017). Vai aos itens pelo contexto. #}
@@ -37,7 +39,17 @@
 {% set podeEscreverNota = not somenteLeitura and (podeEscreverNota is defined
     ? podeEscreverNota
     : (podeEditarPasta ?? can_access_resource('pasta', pastaId, 'edit'))) %}
+{# C6-FPN-04: o bloco pendurado sob o cartão do Push existe também SEM nota, para o "Adicionar nota
+   técnica" do botão direito abrir o compositor sob o cartão sem abrir o teor (abrir marca como
+   lida; dc:5392 `abrirNova`). Vazio, ele nasce escondido — o `style` acompanha o `hidden` porque o
+   `display:flex` do `.ps-notas` venceria o atributo. `data-oculto-se-vazio` diz ao pasta-push.js
+   que pode escondê-lo de novo (sem nota, sem compositor aberto e com o teor fechado). Fora desse
+   uso o parâmetro não vem e nada muda. #}
+{% set ocultoSeVazio = ocultoSeVazio ?? false %}
+{% set blocoOculto = ocultoSeVazio and notas is empty %}
 <div class="ps-notas{{ publicacaoId ? ' ps-notas--publicacao' : '' }}" id="{{ blocoId }}"
+     {%- if ocultoSeVazio %} data-oculto-se-vazio{% endif %}
+     {%- if blocoOculto %} hidden style="display: none"{% endif %}
      data-url-criar="{{ path('processo_nota_tecnica_criar', {id: processoId}) }}"
      data-csrf-criar="{{ csrf_token('processo_nota_tecnica_' ~ processoId) }}"
      data-pasta-id="{{ pastaId }}"

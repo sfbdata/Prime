@@ -93,10 +93,26 @@
         }
     }
 
+    /* C6-FPN-04: o bloco pendurado sob o cartão do Push existe também sem nota, escondido
+       (`data-oculto-se-vazio`), para o "Adicionar nota técnica" do botão direito abrir o
+       compositor ali sem abrir o teor (abrir o teor marca a publicação como lida). O `style`
+       acompanha o `hidden` porque o `display:flex` do `.ps-notas` venceria o atributo. Quem
+       decide quando ele volta a se esconder é o pasta-push.js, avisado por `ps:notas-mudou`. */
+    function mostrarBloco(bloco) {
+        if (!bloco.hidden) { return; }
+        bloco.hidden = false;
+        bloco.style.display = '';
+    }
+
+    function avisarMudanca(bloco) {
+        bloco.dispatchEvent(new CustomEvent('ps:notas-mudou', { bubbles: true }));
+    }
+
     function abrirCompositor(bloco) {
         var editor   = bloco.querySelector('.ps-nota-editor');
         var textarea = editor && editor.querySelector('textarea');
         if (!editor || !textarea) { return; }
+        mostrarBloco(bloco);
         esconderErro(bloco);
         editor.hidden = false;
         var quill = montar(textarea);
@@ -112,6 +128,7 @@
         esquecerMencoes(textarea);
         esconderErro(bloco);
         editor.hidden = true;
+        avisarMudanca(bloco);
     }
 
     function salvarNova(bloco) {
@@ -143,8 +160,10 @@
                         mostrarErro(bloco, dados.erro || 'Erro ao salvar a nota.');
                         return;
                     }
+                    // C6-FPN-01: a nota nova vai para o FIM (desenho dc:5395, `A.push`), logo acima
+                    // do compositor — a lista é cronológica, como o servidor a entrega.
                     var lista = bloco.querySelector('.ps-notas-lista');
-                    if (lista) { lista.insertAdjacentHTML('afterbegin', dados.html || ''); }
+                    if (lista) { lista.insertAdjacentHTML('beforeend', dados.html || ''); }
                     atualizarContagem(bloco);
                     fecharCompositor(bloco);
                 });
@@ -338,7 +357,7 @@
                     Array.prototype.forEach.call(copias, function (copia) {
                         var blocoDaCopia = blocoDe(copia);
                         copia.remove();
-                        if (blocoDaCopia) { atualizarContagem(blocoDaCopia); }
+                        if (blocoDaCopia) { atualizarContagem(blocoDaCopia); avisarMudanca(blocoDaCopia); }
                     });
                     atualizarContagem(bloco);
                 });
@@ -473,6 +492,17 @@
 
         var itemCopiar = alvo.closest('.js-nota-copiar');
         if (itemCopiar) { copiar(itemCopiar); return; }
+
+        // C6-PMC-05 (dc:5405-5406): "Editar · bloqueado" / "Excluir · bloqueado" são clicáveis e
+        // dizem POR QUE não agem — o motivo só no `title` não aparece no toque nem no teclado.
+        // O aviso é o da tela (`avisarPs`, pasta-dialogos.js); o item não carrega ação nenhuma.
+        var itemBloqueado = alvo.closest('.js-nota-bloqueado');
+        if (itemBloqueado) {
+            fecharMenu(true);
+            var motivo = itemBloqueado.getAttribute('data-aviso') || itemBloqueado.getAttribute('title') || '';
+            if (window.avisarPs) { window.avisarPs(motivo, 'erro'); } else { window.alert(motivo); }
+            return;
+        }
 
         var nova = alvo.closest('.js-nota-nova');
         if (nova) {
