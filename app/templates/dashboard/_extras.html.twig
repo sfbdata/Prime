@@ -28,8 +28,9 @@
        tempo médio → `concluidas` (o total da lista = Metas concluídas da linha). A média em
        si exclui as concluídas do legado sem `dataConclusao` (ressalva no title do
        cabeçalho), então a lista pode trazer mais metas do que as que entraram na média.
-       Valor não nulo já garante lista não vazia (taxa só existe com meta; tempo só com
-       concluída), por isso 0% e 0d também são link. "—" (null) nunca é link.
+       Como no desenho (celulaLink: `zero ? sem href`), 0% e 0d não são link, ainda que a
+       lista não fosse vazia; o rótulo é o da coluna ("Taxa de conclusão de X"). "—" (null)
+       nunca é link.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% macro valor(chave, valor, userId = null, quem = '', periodoLink = {}) %}
 {%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
@@ -42,10 +43,10 @@
         <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', prioridade: 'urgente', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas urgentes de {{ quem }}" aria-label="Abrir: Expediente · pastas urgentes de {{ quem }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'metas_concluidas' and valor > 0 -%}
         <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas concluídas de {{ quem }}" aria-label="Abrir: Metas concluídas de {{ quem }}">{{ texto }}</a>
-    {%- elseif userId is not null and chave == 'taxa_conclusao' -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas de {{ quem }}" aria-label="Abrir: Metas de {{ quem }}">{{ texto }}</a>
-    {%- elseif userId is not null and chave == 'tempo_medio' -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas concluídas de {{ quem }}" aria-label="Abrir: Metas concluídas de {{ quem }}">{{ texto }}</a>
+    {%- elseif userId is not null and chave == 'taxa_conclusao' and valor > 0 -%}
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Taxa de conclusão de {{ quem }}" aria-label="Abrir: Taxa de conclusão de {{ quem }}">{{ texto }}</a>
+    {%- elseif userId is not null and chave == 'tempo_medio' and valor > 0 -%}
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Tempo médio de {{ quem }}" aria-label="Abrir: Tempo médio de {{ quem }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'metas_revisao' and valor > 0 -%}
         <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'em_revisao', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas em revisão de {{ quem }}" aria-label="Abrir: Metas em revisão de {{ quem }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'eventos_agenda' and valor > 0 and can_access_module('agenda') -%}
