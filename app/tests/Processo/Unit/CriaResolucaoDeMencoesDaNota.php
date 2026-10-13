@@ -8,6 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
@@ -38,6 +40,9 @@ trait CriaResolucaoDeMencoesDaNota
     private NotificacaoService&MockObject $notificacaoService;
     private RateLimiterFactoryEspiao $espiao;
     private ResolucaoDeMencoesDoRegistro $resolucao;
+    private VisibilidadeDoFinanceiroDaPasta&MockObject $visibilidadeDoFinanceiro;
+    /** @var list<int> ids de quem o dublê diz que NÃO vê o financeiro da pasta (C6-SEC-02) */
+    private array $semVerOFinanceiro = [];
 
     private function montarMencoes(): void
     {
@@ -47,6 +52,13 @@ trait CriaResolucaoDeMencoesDaNota
         $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
         $this->notificacaoService    = $this->createMock(NotificacaoService::class);
         $this->espiao                = new RateLimiterFactoryEspiao(aceita: true);
+
+        // Dublê da regra única do financeiro: por padrão todos veem (a regra de hoje é a mesma do
+        // VER da pasta, já coberta por `acessoAPasta()`); quem estiver em `$semVerOFinanceiro` não.
+        $this->visibilidadeDoFinanceiro = $this->createMock(VisibilidadeDoFinanceiroDaPasta::class);
+        $this->visibilidadeDoFinanceiro->method('podeVer')->willReturnCallback(
+            fn (User $u, Tenant $t, Pasta $p): bool => !in_array((int) $u->getId(), $this->semVerOFinanceiro, true),
+        );
 
         $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
 
@@ -63,6 +75,7 @@ trait CriaResolucaoDeMencoesDaNota
             $this->notificacaoService,
             $urlGenerator,
             new CotaDeNotificacoesDoRegistro($this->espiao, new NullLogger()),
+            $this->visibilidadeDoFinanceiro,
         );
     }
 

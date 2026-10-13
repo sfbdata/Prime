@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
@@ -51,6 +52,11 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * (FPN-005) e das observações de Detalhes (PAS-039), com as MESMAS regras do Registro (`EnviarMensagemPastaUseCase`): nunca quem
  * respondeu; só quem ainda tem vínculo ATIVO neste escritório e VÊ esta pasta; um aviso por
  * resposta (o link é o da resposta); a mesma cota do autor.
+ *
+ * Relatório financeiro (C6-SEC-02): menção e resposta só avisam quem, além de ver a pasta, VÊ O
+ * FINANCEIRO dela ({@see VisibilidadeDoFinanceiroDaPasta}) — a prévia no sino leva o texto do
+ * registro financeiro. Hoje as duas perguntas dão a mesma resposta; no dia em que o financeiro
+ * ganhar permissão própria, o aperto entra lá e o sino já obedece.
  */
 final class ResolucaoDeMencoesDoRegistro
 {
@@ -84,6 +90,7 @@ final class ResolucaoDeMencoesDoRegistro
         private readonly NotificacaoService $notificacaoService,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly CotaDeNotificacoesDoRegistro $cota,
+        private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
     ) {
     }
 
@@ -238,6 +245,12 @@ final class ResolucaoDeMencoesDoRegistro
             return;
         }
 
+        // C6-SEC-02: o texto da resposta e o do comentário vão para o sino — no Relatório
+        // financeiro, só para quem vê o financeiro desta pasta.
+        if ($raiz instanceof PastaObservacaoFinanceira && !$this->visibilidadeDoFinanceiro->podeVer($destinatario, $tenant, $pasta)) {
+            return;
+        }
+
         $tipo = Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO;
         $url  = $this->urlGenerator->generate('pasta_show', ['id' => $pastaId]) . self::ancoraDaObservacao($resposta);
 
@@ -352,7 +365,8 @@ final class ResolucaoDeMencoesDoRegistro
     /**
      * O núcleo comum às duas origens: título do desenho (`menNotificar`), prévia de 180 e, para
      * cada mencionado, os filtros na ordem — o autor e `$pular`, o acesso de leitura à pasta, a
-     * anti-duplicata e, por último, a cota (só aviso que de fato sairia gasta a cota do autor).
+     * visibilidade do financeiro (só no Relatório financeiro), a anti-duplicata e, por último, a
+     * cota (só aviso que de fato sairia gasta a cota do autor).
      *
      * @param list<User> $mencionados
      */
@@ -386,6 +400,12 @@ final class ResolucaoDeMencoesDoRegistro
             }
 
             if (!$this->permissionChecker->canAccessResource($pessoa, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW)) {
+                continue;
+            }
+
+            // C6-SEC-02: a prévia leva o texto do registro — no Relatório financeiro, só a quem
+            // vê o financeiro desta pasta.
+            if ($origem instanceof PastaObservacaoFinanceira && !$this->visibilidadeDoFinanceiro->podeVer($pessoa, $tenant, $pasta)) {
                 continue;
             }
 

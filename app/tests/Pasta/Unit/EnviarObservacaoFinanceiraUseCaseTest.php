@@ -134,6 +134,40 @@ final class EnviarObservacaoFinanceiraUseCaseTest extends TestCase
         self::assertStringNotContainsString('(user:99)', $obs->getConteudo(), 'quem não é colega ativo vira texto');
     }
 
+    #[TestDox('C6-SEC-02: menção no Relatório financeiro só avisa quem VÊ O FINANCEIRO — ver a pasta não basta')]
+    public function testMencaoAQuemNaoVeOFinanceiroNaoAvisa(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->colegasDoEscritorio([$this->autor, $bruno, $carla]);
+        // As duas veem a pasta; só a Carla não vê o financeiro dela.
+        $this->acessoAPasta(77, [2 => true, 3 => true]);
+        $this->semVerOFinanceiro = [3];
+        $avisos = $this->capturarAvisos();
+
+        $obs = $this->useCase->executar($this->pasta, $this->autor, '<p>@[Bruno](user:2) e @[Carla](user:3)</p>', $this->tenant);
+
+        // A marcação continua no texto (quem é mencionável não muda); só o sino é filtrado.
+        self::assertStringContainsString('@[Carla Dias](user:3)', $obs->getConteudo());
+        self::assertCount(1, $avisos);
+        self::assertSame($bruno, $avisos[0]['usuario']);
+    }
+
+    #[TestDox('C6-SEC-02: resposta no Relatório financeiro não avisa o autor da raiz que não vê o financeiro')]
+    public function testRespostaAQuemNaoVeOFinanceiroNaoAvisa(): void
+    {
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->colegasDoEscritorio([$this->autor, $bruno]);
+        $this->acessoAPasta(77, [2 => true]);
+        $this->semVerOFinanceiro = [2];
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $obs = $this->useCase->executar($this->pasta, $this->autor, '<p>Recibo emitido</p>', $this->tenant, $this->registro($bruno));
+
+        // A resposta é gravada normalmente; só o aviso não sai.
+        self::assertNotNull($obs->getRespostaA());
+    }
+
     #[TestDox('EDT-010r: resposta que menciona o autor respondido gera UM aviso só — o de resposta')]
     public function testRespostaComMencaoAoRespondidoAvisaUmaVez(): void
     {
@@ -319,6 +353,7 @@ final class EnviarObservacaoFinanceiraUseCaseTest extends TestCase
             $this->notificacaoService,
             $urlGenerator,
             new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(aceita: false), new NullLogger()),
+            $this->visibilidadeDoFinanceiro,
         );
         $useCase = new EnviarObservacaoFinanceiraUseCase($this->em, $this->criarSanitizadorTextoRico(), $resolucao);
 
