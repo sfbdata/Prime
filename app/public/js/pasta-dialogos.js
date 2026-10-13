@@ -339,7 +339,21 @@
     }
 
     /* ── 4. Confirmação e aviso ───────────────────────────────────────────── */
-    var confirmacaoAberta = null; // { resolver, foco }
+    var confirmacaoAberta = null; // { resolver, foco, lugar }
+
+    /* PAS-034b: perguntar com um modal do Bootstrap aberto (o "Descartar as alterações?" do
+       Editar dados). O focus trap do modal puxa de volta o foco que sai dele, e o Esc chegaria
+       ao modal: a janela de confirmação mora DENTRO do modal aberto enquanto pergunta e volta
+       ao lugar dela ao fechar. O `.modal` não tem transform (quem tem é o `.modal-dialog`),
+       então o `position: fixed` do fundo continua sendo da tela. Devolve o lugar original. */
+    function hospedarNoModalAberto(fundo) {
+        var modal = document.querySelector('.modal.show');
+        if (!modal || modal.contains(fundo)) { return null; }
+        var lugar = { pai: fundo.parentNode, proximo: fundo.nextSibling };
+        modal.appendChild(fundo);
+
+        return lugar;
+    }
 
     /**
      * Abre a janela de confirmação. `opcoes`: { titulo, texto, rotulo ('Excluir'), icone
@@ -358,6 +372,7 @@
         document.getElementById('psConfirmarTexto').textContent = o.texto || '';
         ok.querySelector('span').textContent = o.rotulo || 'Excluir';
         ok.querySelector('i').className = 'bi ' + (o.icone || 'bi-trash3');
+        var lugar = hospedarNoModalAberto(fundo);
         fundo.hidden = false;
 
         // PAS-034c: o foco inicial vai para o "Cancelar", não para a caixa — com a caixa focada, um
@@ -365,7 +380,7 @@
         var cancelar = fundo.querySelector('.ps-cf-rodape [data-ps-cf-cancelar]') || caixa;
 
         return new Promise(function (resolver) {
-            confirmacaoAberta = { resolver: resolver, foco: document.activeElement };
+            confirmacaoAberta = { resolver: resolver, foco: document.activeElement, lugar: lugar };
             setTimeout(function () { cancelar.focus(); }, 30);
         });
     }
@@ -376,6 +391,7 @@
         var aberta = confirmacaoAberta;
         confirmacaoAberta = null;
         fundo.hidden = true;
+        if (aberta.lugar && aberta.lugar.pai) { aberta.lugar.pai.insertBefore(fundo, aberta.lugar.proximo); }
         if (aberta.foco && aberta.foco.focus && document.contains(aberta.foco)) { aberta.foco.focus(); }
         aberta.resolver(resposta);
     }

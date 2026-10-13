@@ -18,10 +18,11 @@
        (pasta-clientes.js) saiu de lá para cá e vale também para o modal Editar dados
        e para as tarjas dos menus. Fica no `window` na carga do script (antes do
        DOMContentLoaded): o pasta-clientes.js é `defer` e roda depois deste.
-         ligar({ cabecalho, janela(cab), posicionar(janela, x, y)? })
-       Com `posicionar`, a janela é movida pelo dono (left/top). Sem ele, o
-       utilitário desloca a janela pela propriedade CSS `translate` — que não briga
-       com o `transform` do Bootstrap no modal nem com o do próprio X — e `zerar`
+         ligar({ cabecalho, janela(cab), posicionar(janela, x, y)?, aceita(evento, cab)? })
+       `aceita` (PAS-023r) restringe a alça quando o seletor sozinho não basta (o menu sem
+       tarja só arrasta pela faixa do X e pelo título). Com `posicionar`, a janela é
+       movida pelo dono (left/top). Sem ele, o utilitário desloca a janela pela
+       propriedade CSS `translate` — que não briga com o `transform` do Bootstrap no modal nem com o do próprio X — e `zerar`
        a devolve à âncora. Botão, link e campo no cabeçalho continuam clicáveis. */
     window.PsArrastar = (function () {
         var NAO_ARRASTA = 'button, a, input, textarea, select, label, [contenteditable="true"]';
@@ -38,6 +39,7 @@
                 var cab = e.target.closest ? e.target.closest(opcoes.cabecalho) : null;
                 if (!cab || e.target.closest(NAO_ARRASTA)) { return; }
                 if (e.button !== undefined && e.button !== 0) { return; }
+                if (opcoes.aceita && !opcoes.aceita(e, cab)) { return; }
                 var janela = opcoes.janela(cab);
                 if (!janela) { return; }
                 e.preventDefault();
@@ -90,6 +92,7 @@
         indicadorDeAbas();
         drawerDeHistorico();
         popovers();
+        janelasSemPopover();
         arrasteDasJanelas();
         atalhosDeAba();
         verAnotacoesAnteriores();
@@ -259,6 +262,8 @@
         if (painel.hasAttribute('data-sem-x') || painel.querySelector('.ps-pop-x')) { return; }
 
         var tarja = painel.querySelector(':scope > .ps-pop-tarja');
+        // PAS-022r: a faixa da busca do menu do responsável é a tarja dele (mesmo azul).
+        if (!tarja) { tarja = painel.querySelector(':scope > .pasta-resp-busca-wrap'); }
         var botao = document.createElement('button');
         botao.type      = 'button';
         botao.className = 'ps-pop-x' + (tarja ? ' ps-pop-x--tarja' : '');
@@ -296,13 +301,83 @@
         }
     };
 
+    /* PAS-022r / PAS-023r: as janelinhas que não são `.ps-pop` — o menu do Registro
+       (#psRegMenu), o ⋮ da observação de Detalhes (.ps-obs-menu, que também nasce pelo JS
+       quando a observação é criada), a lista do responsável (#pastaRespMenu), o drawer do
+       Histórico e o painel da Timeline. Cada uma abre e fecha pelo script dela (atributo
+       `hidden` ou `aria-hidden`); daqui só se observa a ABERTURA: volta à âncora se tinha sido
+       arrastada e, nos três menus, garante o X. O X fecha como o Esc: o script de cada menu
+       já fecha no Esc e devolve o foco ao gatilho (é a regra do desenho, `bluejus-central.js`,
+       "X de fechar em toda janelinha": "senão envia Esc"). O drawer e a Timeline já têm o
+       próprio X. */
+    var JANELAS_OBSERVADAS = '#psRegMenu, .ps-obs-menu, #pastaRespMenu, #psHistorico, #psTimeline';
+    var MENUS_COM_X = '#psRegMenu, .ps-obs-menu, #pastaRespMenu';
+
+    function fecharComoEsc() {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    }
+
+    function janelasSemPopover() {
+        document.querySelectorAll(MENUS_COM_X).forEach(function (menu) { botaoFechar(menu, fecharComoEsc); });
+        if (!window.MutationObserver) { return; }
+
+        new MutationObserver(function (mudancas) {
+            mudancas.forEach(function (m) {
+                var janela = m.target;
+                if (janela.nodeType !== 1 || !janela.matches(JANELAS_OBSERVADAS)) { return; }
+                // Abriu = o atributo existia (valor antigo não nulo) e saiu.
+                if (m.oldValue === null || janela.hasAttribute(m.attributeName)) { return; }
+                window.PsArrastar.zerar(janela);
+                if (janela.matches(MENUS_COM_X)) { botaoFechar(janela, fecharComoEsc); }
+            });
+        }).observe(document.body, {
+            subtree: true,
+            attributes: true,
+            attributeOldValue: true,
+            attributeFilter: ['hidden', 'aria-hidden']
+        });
+    }
+
     /* Onde o arraste vale nesta tela (PAS-023): a tarja azul dos menus do
        cabeçalho e o cabeçalho do modal Editar dados. O modal volta ao centro
-       quando fecha. */
+       quando fecha. PAS-023r: também os menus sem tarja, o do Registro, o da
+       observação, a lista do responsável, o Histórico e a Timeline (abaixo). */
     function arrasteDasJanelas() {
         window.PsArrastar.ligar({
             cabecalho: '.ps-pop.is-aberto > .ps-pop-tarja',
             janela: function (cab) { return cab.closest('.ps-pop'); }
+        });
+
+        // Menu sem tarja (prioridade, ⋮ do prazo, os das Metas): não há cabeçalho, então a
+        // alça é o fundo do próprio painel — a faixa do X — e o título de seção quando ele é o
+        // 1º filho. Os itens continuam itens (botão não arrasta).
+        window.PsArrastar.ligar({
+            cabecalho: '.ps-pop.is-aberto',
+            aceita: function (e, painel) {
+                if (painel.querySelector(':scope > .ps-pop-tarja')) { return false; }
+                var primeiro = painel.firstElementChild;
+                return e.target === painel
+                    || (e.target === primeiro && primeiro.classList.contains('ps-pop-secao'));
+            },
+            janela: function (painel) { return painel; }
+        });
+
+        // Menus do Registro e da observação: o título (autor · data) é a alça.
+        window.PsArrastar.ligar({
+            cabecalho: '#psRegMenu:not([hidden]) > .ps-processo-menu-titulo, .ps-obs-menu:not([hidden]) > .ps-processo-menu-titulo',
+            janela: function (cab) { return cab.parentElement; }
+        });
+
+        // Lista do responsável: a faixa da busca (o campo continua campo).
+        window.PsArrastar.ligar({
+            cabecalho: '#pastaRespMenu:not([hidden]) > .pasta-resp-busca-wrap',
+            janela: function (cab) { return cab.parentElement; }
+        });
+
+        // Drawer do Histórico e painel da Timeline: o cabeçalho de cada um.
+        window.PsArrastar.ligar({
+            cabecalho: '.ps-drawer.is-aberto > .ps-drawer-cab, .ps-tl.is-aberto > .ps-tl-cab',
+            janela: function (cab) { return cab.parentElement; }
         });
 
         var modal = document.getElementById('modalEditarPasta');

@@ -3813,17 +3813,31 @@ document.addEventListener('DOMContentLoaded', function () {
         var destino = destinos[gatilho.getAttribute('data-pe-ir')];
         if (!destino) { return; }
 
-        if (serializar() !== foto) {
-            if (!window.confirm('Descartar as alterações não salvas dos dados da pasta?')) { return; }
-            form.reset();
-            conferir();
+        function seguir() {
+            modal.addEventListener('hidden.bs.modal', function aoFechar() {
+                modal.removeEventListener('hidden.bs.modal', aoFechar);
+                destino();
+            });
+            bootstrap.Modal.getOrCreateInstance(modal).hide();
         }
 
-        modal.addEventListener('hidden.bs.modal', function aoFechar() {
-            modal.removeEventListener('hidden.bs.modal', aoFechar);
-            destino();
+        if (serializar() === foto) { seguir(); return; }
+
+        /* PAS-034b: com alteração não salva, pergunta na janela da tela (`confirmarPs`,
+           pasta-dialogos.js), não no `confirm` do navegador. Sem o "sim", o modal fica como
+           está, com as alterações. */
+        if (!window.confirmarPs) { return; }
+        window.confirmarPs({
+            titulo: 'Descartar as alterações?',
+            texto: 'As alterações não salvas dos dados da pasta serão perdidas.',
+            rotulo: 'Descartar',
+            icone: 'bi-x-circle'
+        }).then(function (sim) {
+            if (!sim) { return; }
+            form.reset();
+            conferir();
+            seguir();
         });
-        bootstrap.Modal.getOrCreateInstance(modal).hide();
     });
 }());
 </script>
