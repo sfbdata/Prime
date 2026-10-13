@@ -14,7 +14,11 @@ respondeu `535` (revogações de 27/08 a 23/09) é **o mesmo** que estava public
 provável das revogações, não provada.
 
 O histórico **não** foi reescrito (decisão de 12/10): a senha já estava pública, e reescrever não
-apaga cópias de terceiros. O remédio é revogar a senha; ver **Pendências do dono**.
+apaga cópias de terceiros. O remédio é revogar a senha.
+
+**Revogação confirmada pelo dono em 12/10/2026:** a conta Gmail antiga não é mais usada por nenhum
+sistema, e as senhas de aplicativo dela foram revogadas. É o relato do dono; a sessão que preparou
+esta etapa não tem acesso à conta e não verificou de forma independente.
 
 ## Onde mora cada valor
 
@@ -114,13 +118,18 @@ camadas aceitam a marca, e o revisor do commit a vê.
 Para valor público conhecido, prefira o allowlist por hash em `VALORES_PUBLICOS_SHA256`, como foi
 feito com a chave pública do DataJud.
 
+Para valor **fictício de teste** já versionado, use `VALORES_DE_TESTE_DECLARADOS`: a exceção vale só
+para a combinação exata (arquivo, chave, sha256 do valor), com o motivo comentado. Foi o caso do
+`APP_SECRET` do job efêmero em `.github/workflows/ci.yml`. Outro valor na mesma chave, ou o mesmo
+valor em outro arquivo ou chave, continua sendo acusado.
+
 Achados antigos do gitleaks já conferidos ficam no `.gitleaksignore`. A impressão digital é
 `commit:arquivo:regra:linha`, então só vale no modo `git`, não no modo `dir`.
 
 ## Comandos
 
 ```bash
-# testes da guarda, do hook e do intervalo do CI (48) — rodam também no CI
+# testes da guarda, do hook e do intervalo do CI (52) — rodam também no CI
 python3 -m unittest discover -s scripts/git-hooks -p 'test_*.py' -v
 
 # auditar a árvore atual inteira (só caminho/linha/regra)
@@ -133,11 +142,13 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/repo:ro" -w /r
   --gitleaks-ignore-path .gitleaksignore --redact --verbose --no-banner
 ```
 
-Estado medido em 12/10/2026, depois da revisão:
-- **Histórico inteiro (2.357 commits, gitleaks):** exatamente 2 achados, `3ee0082a app/.env:14` e
-  `:15`.
+Estado medido em 12/10/2026 na branch de publicação `seguranca-s1-publicacao`, base `origin/master`
+@ `ea71ad4e`:
+- **Histórico inteiro (gitleaks):** exatamente 2 achados, `3ee0082a app/.env:14` e `:15`, o vazamento
+  original. Eles ficam fora do `.gitleaksignore` até decisão do dono, agora que a revogação foi
+  confirmada.
 - **Árvore atual, camada 1:** limpa.
-- **Intervalo `origin/master..HEAD` (204 commits), nas duas camadas:** limpo.
+- **Intervalo `origin/master..HEAD` (só os commits da S1), nas duas camadas:** limpo.
 - **Casos da revisão:** os 9 de segredo são pegos pelas duas camadas, e os 11 legítimos passam.
 
 ## Limitações
@@ -172,9 +183,9 @@ Estado medido em 12/10/2026, depois da revisão:
 
 ## Pendências do dono
 
-1. **Revogar** na conta Google de envio toda senha de app que não seja a de 23/09. Revisar a atividade
-   de segurança e a pasta Enviados. Só depois disso as linhas `3ee0082a` podem entrar no
-   `.gitleaksignore`.
+1. ✅ **Revogação confirmada pelo dono em 12/10/2026.** Falta decidir se as linhas `3ee0082a` entram no
+   `.gitleaksignore`. A condição para isso era exatamente esta revogação. Se entrarem, a auditoria do
+   histórico inteiro passa a dar zero achados.
 2. Conferir na VPS, por hash, que `APP_SECRET`, a senha do banco e a `SYNC_CRYPTO_KEY` de produção
    **diferem** das versionadas.
 3. No GitHub: ligar *secret scanning* e *push protection* e exigir o check **Segredos** na proteção da
