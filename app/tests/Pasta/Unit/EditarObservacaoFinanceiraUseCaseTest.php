@@ -91,6 +91,7 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
 
         try {
             $this->useCase->executar($obs, $outro, $this->tenant, 'Invasor');
+            self::fail('o não autor devia ser recusado');
         } catch (ObservacaoFinanceiraNaoEditavelException) {
         }
 
