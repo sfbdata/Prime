@@ -209,7 +209,9 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 
         $campo = $form->filter('form > input[type="text"][name="titulo"].ps-meta-ren-campo');
         self::assertSame('Juntar "procuração" nova', $campo->attr('value'));
-        self::assertSame('160', $campo->attr('maxlength'), 'limite do desenho');
+        // C6-PMC-06: o mesmo limite da criação e do servidor (RenomearMetaUseCase::TAMANHO_MAXIMO);
+        // com 160, meta de título entre 161 e 255 não podia ser renomeada (o navegador recusava).
+        self::assertSame('255', $campo->attr('maxlength'));
         self::assertNotNull($campo->attr('required'));
         self::assertSame('Salvar', trim($form->filter('form > button[type="submit"].ps-meta-ren-salvar')->text()));
         self::assertSame('Cancelar', trim($form->filter('form > button[type="button"].ps-meta-ren-cancelar')->text()));
