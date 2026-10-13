@@ -382,7 +382,18 @@ dono).
 | S6-DOC | C6-DOC-01, 02, 03 | `29fee857`, `775a7951`, `51c6b660` | 190/190 | Opus: ✎/+/Modelos do checklist ainda no Twig; Imprimir do HEIC ativo → completado; token do painel só p/ quem escreve | ✓ |
 | S6-MISC | C6-FPN-02, C6-IA-02 | `4baade61`, `bbb0deee`, `a0ef20d2` | 70/70 | Opus: aprovado | ✓ |
 | S6-MISC | C6-IA-01 | **não integrado** (`3260e87e` fica na worktree) | — | Opus: gravar auditoria num GET (sem CSRF) permite linhas falsas; tela e drawer não ligados | ⏳ refazer na onda 2 como POST + CSRF + drawer |
+| S6-DET | C6-PAS-02, 03, 04, 05, C6-EDT-04 | `2c2bec4a`, `3dc0e749` | 138/138 | Opus: leitor via "Editar/Excluir · bloqueado" com motivo falso (prazo); nota de só leitura inventada → itens somem para quem não escreve (PAS-014/025c); nota só na lápide | ✓ · C6-PAS-07 de Detalhes vai no S6-OBS |
+| S6-IMP | C6-EDT-01, 02, 03 (= PMC-04), 06, 07, 08 | `7d3aa289`, `a011e330` | 112/112 (3 testes do lote com entidade desanexada/`%PDF-` no dump de erro, corrigidos) | Opus: id do processo por captura (frágil) → `pasta-processo.js` passa `pdf`; registro/processo só como PDF (folha HTML 404); autor `??` como o cartão | ✓ (smoke: resumo de 2+ páginas, tema escuro) |
+| S6-PUSH | C6-FPN-01, 03, 04, C6-IA-03, 04, C6-PMC-05 | `27cdae74`, `a15be1d5`, `85686de6` | 918/918 (PastaPush, NotaTecnica, Inteligencia) | Opus: ClipboardItem sem try; aviso vermelho ≠ `gmAviso` neutro → corrigidos | ✓ (smoke: Adicionar nota sem abrir teor; Copiar com teor fechado) |
 | S6-SEC | C6-SEC-03 (P0), C6-SEC-01, C6-SEC-02 | `9a2b3801`, `03d1fda5`, `20217298` | 297/297; mutação: tirar posse ou VER derruba `CriarTarefaControllerTest` | Opus: aprovado c/ ressalvas | ✓ · pendente: mencionáveis do compositor financeiro (C6-SEC-02b), testes 404-antes-de-403 com não-editor e edição financeira |
+
+- **Onda 2 (lançada 12/10):** S6-JS (PAS-022r, PAS-023r, PAS-034b, C6-PAS-09, C6-EDT-09 `_cabecalho`), S6-OBS
+  (C6-SEC-02b mencionáveis do Financeiro, testes 404-antes-de-403 e edição financeira, C6-PAS-07 de Detalhes),
+  S6-IA01 (C6-IA-01 como POST + CSRF + drawer). Depois: S6-M1 (PAS-045b, migration).
+- **Decisões novas para o Samuel (Ciclo 6):** C6-SEC-03 parte C (criar meta exige VER ou EDITAR; com EDITAR o botão
+  "Nova meta" some de quem só vê e o responsável também deveria ver a pasta) · C6-DASH-01 (cargo no "ver metas") ·
+  C6-PAS-10 (visita da Timeline ao abrir × ao fechar) · C6-PMC-07 (limites 120/600 × 255/5000) · C6-EDT-10
+  (download do PDF na auditoria) · C6-DOC-04 (D: tarja no PDF impresso).
 
 ## 5. Handoff
 
