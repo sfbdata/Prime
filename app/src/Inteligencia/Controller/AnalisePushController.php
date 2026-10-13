@@ -24,6 +24,7 @@ use App\Inteligencia\UseCase\ListarAuditoriaDaPastaUseCase;
 use App\Inteligencia\UseCase\MarcarAnaliseComoLidaUseCase;
 use App\Inteligencia\UseCase\MarcarAnaliseComoNaoLidaUseCase;
 use App\Inteligencia\UseCase\RecolherAnaliseUseCase;
+use App\Inteligencia\UseCase\RegistrarExportacaoDaAnaliseUseCase;
 use App\Inteligencia\UseCase\SolicitarResumoDoPushUseCase;
 use App\Pasta\Entity\Pasta;
 use App\Service\PermissionChecker;
@@ -48,10 +49,14 @@ use Symfony\Component\Routing\Attribute\Route;
  *   GET  /pasta/{id}/ia/push/analises           → fragmento `inteligencia/_analises_push.html.twig`
  *   GET  /pasta/{id}/ia/analises/{analiseId}    → {id, status, statusRotulo, emAndamento, terminal, mensagem, motivoTecnico}
  *   GET  /pasta/{id}/ia/auditoria               → fragmento `inteligencia/_auditoria.html.twig` (rodapé do drawer)
- *   GET  /pasta/{id}/ia/analises/{analiseId}.txt → a análise CONCLUÍDA em text/plain, como anexo (404 se não houver)
+ *   GET  /pasta/{id}/ia/analises/{analiseId}.txt → a análise CONCLUÍDA em text/plain, como anexo (404 se não houver).
+ *                                                 Leitura pura: não grava nada.
+ *   POST /pasta/{id}/ia/analises/{analiseId}/registro → `acao` = download | impressao (outra → 422): 1 linha no
+ *                                                 `audit_log` (C6-IA-01) · JSON {id, acao, registrado}
  *   POST …/{analiseId}/lida | /nao-lida | /excluir | /interna | /recolher → XHR: JSON · form comum: redirect para a pasta #push
  * CSRF: `_token` (campo ou header X-CSRF-Token); ids `inteligencia_push_{pastaId}` e
- * `inteligencia_analise_{analiseId}`.
+ * `inteligencia_analise_{analiseId}`; o registro de download/impressão usa
+ * `inteligencia_analise_registro_{analiseId}`.
  */
 #[Route('/pasta/{id}/ia', requirements: ['id' => '\d+'])]
 final class AnalisePushController extends AbstractController
@@ -71,6 +76,7 @@ final class AnalisePushController extends AbstractController
         private readonly ExportarAnaliseEmTextoUseCase $exportarTexto,
         private readonly ListarAuditoriaDaPastaUseCase $listarAuditoria,
         private readonly RecolherAnaliseUseCase $recolherAnalise,
+        private readonly RegistrarExportacaoDaAnaliseUseCase $registrarExportacao,
         // Interface (não a classe) pelo mesmo motivo do PoliticaPrivacidadeController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -185,6 +191,39 @@ final class AnalisePushController extends AbstractController
         $resposta->headers->addCacheControlDirective('no-store');
 
         return $resposta;
+    }
+
+    /**
+     * Registro de auditoria do download e da impressão (C6-IA-01; desenho, dc L5742-5743). O JS do
+     * drawer dispara este POST quando o usuário baixa ou imprime, sem esperar a resposta; a cópia
+     * não registra. POST + CSRF próprio da análise: o GET do .txt é puro, então uma navegação, um
+     * `<img>` ou um prefetch não deixam linha falsa no `audit_log`.
+     *
+     * Ordem: pasta de outro escritório 404 → sem ver a pasta 403 → sem o módulo 403 (guarda) →
+     * token 403 → ação fora de download|impressao 422 → análise de outra pasta/escritório,
+     * excluída ou sem resultado 404. Nada é gravado em nenhuma recusa.
+     */
+    #[Route('/analises/{analiseId}/registro', name: 'inteligencia_analise_registro', requirements: ['analiseId' => '\d+'], methods: ['POST'])]
+    public function registrarExportacao(Pasta $pasta, int $analiseId, Request $request): JsonResponse
+    {
+        [$user, $tenant] = $this->guardar($pasta);
+
+        if (!$this->isCsrfTokenValid('inteligencia_analise_registro_' . $analiseId, $this->tokenDe($request))) {
+            throw $this->createAccessDeniedException('Token inválido.');
+        }
+
+        $acao = $request->request->get('acao');
+        if (!is_string($acao) || !RegistrarExportacaoDaAnaliseUseCase::aceita($acao)) {
+            return $this->recusa('acao_invalida', 'Ação de registro desconhecida.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $this->registrarExportacao->executar($analiseId, $pasta, $tenant, $user, $acao);
+        } catch (AnaliseNaoEncontradaException $e) {
+            throw $this->createNotFoundException($e->getMessage());
+        }
+
+        return new JsonResponse(['id' => $analiseId, 'acao' => $acao, 'registrado' => true], Response::HTTP_CREATED);
     }
 
     #[Route('/analises/{analiseId}/lida', name: 'inteligencia_analise_lida', requirements: ['analiseId' => '\d+'], methods: ['POST'])]

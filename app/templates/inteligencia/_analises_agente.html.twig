@@ -15,7 +15,9 @@
    (lida · excluir · interna) são as rotas por id da fatia 1; sem JS os
    formulários seguem por POST comum. Na concluída, Copiar · Baixar .txt ·
    Imprimir (IA-007) operam sobre o texto gravado: o .txt é
-   `inteligencia_analise_txt`, e copiar/imprimir buscam esse mesmo .txt.
+   `inteligencia_analise_txt`, e copiar/imprimir buscam esse mesmo .txt. Baixar e
+   imprimir deixam linha no "Registro de auditoria" (C6-IA-01) pelo POST
+   `inteligencia_analise_registro` (url e token no cartão concluído); copiar não.
 
    Contexto: `saida` (App\Inteligencia\DTO\AnalisesDoAgenteOutput), `pastaId` (int).
    ============================================================================ #}
@@ -39,7 +41,11 @@
                  aria-label="Análise gerada por IA"
                  data-ia-analise="{{ a.id }}"
                  data-ia-status="{{ a.status }}"
-                 data-ia-status-url="{{ path('inteligencia_analise_status', {id: pastaId, analiseId: a.id}) }}">
+                 data-ia-status-url="{{ path('inteligencia_analise_status', {id: pastaId, analiseId: a.id}) }}"
+                 {%- if a.status == 'concluida' %}
+                 data-ia-registro-url="{{ path('inteligencia_analise_registro', {id: pastaId, analiseId: a.id}) }}"
+                 data-ia-registro-token="{{ csrf_token('inteligencia_analise_registro_' ~ a.id) }}"
+                 {%- endif %}>
             <div class="ia-marca" aria-hidden="true">
                 <span class="ia-marca-ico">✦</span>
                 <span class="ia-marca-dia">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m') }}</span>

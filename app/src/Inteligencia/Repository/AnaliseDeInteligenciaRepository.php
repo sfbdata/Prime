@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\Repository;
 
+use App\Entity\Audit\AuditLog;
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -107,6 +110,74 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->setParameter('alvoTipo', $alvoTipo)
             ->setParameter('alvoId', $alvoId)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Downloads e impressões das análises de um alvo (C6-IA-01), lidos do `audit_log`: só as
+     * `$acoes` pedidas, só `entity_class` = análise, só o `tenant_id` informado e só os ids das
+     * análises DESTE alvo deste escritório. A linha de outro escritório não entra nem se apontar
+     * para um id daqui. Mais recente primeiro, com o nome de quem fez e o rótulo da análise.
+     *
+     * A ligação com a análise é pelo id em texto (`entity_id` é VARCHAR): os ids do alvo são lidos
+     * antes, com tenant explícito, e entram como lista de strings — sem comparar texto com inteiro.
+     *
+     * @param list<string> $acoes
+     *
+     * @return list<array{acao: string, analiseId: int, quando: \DateTimeImmutable, autorNome: ?string, agente: ?Agente, tipo: TipoDeAnalise}>
+     */
+    public function listarExportacoesDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, array $acoes, int $limite): array
+    {
+        $analises = $this->analisesDoAlvoPorId($tenant, $alvoTipo, $alvoId);
+        if ($analises === [] || $acoes === []) {
+            return [];
+        }
+
+        $linhas = $this->qbDasExportacoes($tenant, array_map('strval', array_keys($analises)), $acoes)
+            ->select('l.action AS acao', 'l.entityId AS analiseId', 'l.createdAt AS quando', 'u.fullName AS autorNome', 'l.actorEmail AS autorEmail')
+            ->leftJoin(User::class, 'u', 'WITH', 'u.id = l.actorUserId')
+            ->orderBy('l.createdAt', 'DESC')
+            ->addOrderBy('l.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getArrayResult();
+
+        $saida = [];
+        foreach ($linhas as $linha) {
+            $analise = $analises[(string) $linha['analiseId']] ?? null;
+            if ($analise === null) {
+                continue;
+            }
+            $quando = $linha['quando'];
+            $saida[] = [
+                'acao' => (string) $linha['acao'],
+                'analiseId' => (int) $linha['analiseId'],
+                'quando' => $quando instanceof \DateTimeImmutable ? $quando : new \DateTimeImmutable((string) $quando),
+                'autorNome' => $linha['autorNome'] ?? $linha['autorEmail'] ?? null,
+                'agente' => $analise['agente'],
+                'tipo' => $analise['tipo'],
+            ];
+        }
+
+        return $saida;
+    }
+
+    /**
+     * Quantos downloads e impressões as análises do alvo têm ao todo (somam no N do "Registro de
+     * auditoria (N)"). Mesmos recortes de {@see self::listarExportacoesDoAlvo()}.
+     *
+     * @param list<string> $acoes
+     */
+    public function contarExportacoesDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, array $acoes): int
+    {
+        $analises = $this->analisesDoAlvoPorId($tenant, $alvoTipo, $alvoId);
+        if ($analises === [] || $acoes === []) {
+            return 0;
+        }
+
+        return (int) $this->qbDasExportacoes($tenant, array_map('strval', array_keys($analises)), $acoes)
+            ->select('COUNT(l.id)')
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -213,6 +284,58 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
                 'total' => (int) $linha['total'],
             ];
         }, $linhas);
+    }
+
+    /**
+     * As análises do alvo (inclusive excluídas: a trilha fica), indexadas pelo id em texto, com o
+     * que o rótulo do registro precisa. Tenant explícito.
+     *
+     * @return array<string, array{agente: ?Agente, tipo: TipoDeAnalise}>
+     */
+    private function analisesDoAlvoPorId(Tenant $tenant, string $alvoTipo, int $alvoId): array
+    {
+        $linhas = $this->createQueryBuilder('a')
+            ->select('a.id AS id', 'a.agente AS agente', 'a.tipo AS tipo')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.alvoTipo = :alvoTipo')
+            ->andWhere('a.alvoId = :alvoId')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('alvoTipo', $alvoTipo)
+            ->setParameter('alvoId', $alvoId)
+            ->getQuery()
+            ->getArrayResult();
+
+        $porId = [];
+        foreach ($linhas as $linha) {
+            $agente = $linha['agente'];
+            $tipo = $linha['tipo'];
+            $porId[(string) $linha['id']] = [
+                'agente' => $agente instanceof Agente ? $agente : ($agente === null ? null : Agente::tryFrom((string) $agente)),
+                'tipo' => $tipo instanceof TipoDeAnalise ? $tipo : TipoDeAnalise::from((string) $tipo),
+            ];
+        }
+
+        return $porId;
+    }
+
+    /**
+     * @param list<string> $idsDasAnalises
+     * @param list<string> $acoes
+     */
+    private function qbDasExportacoes(Tenant $tenant, array $idsDasAnalises, array $acoes): QueryBuilder
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->from(AuditLog::class, 'l')
+            ->andWhere('l.tenantId = :tenantId')
+            ->andWhere('l.entityClass = :classe')
+            ->andWhere('l.action IN (:acoes)')
+            ->andWhere('l.entityId IN (:ids)')
+            ->setParameter('tenantId', $tenant->getId())
+            ->setParameter('classe', AnaliseDeInteligencia::class)
+            ->setParameter('acoes', $acoes, ArrayParameterType::STRING)
+            // Chaves numéricas de array viram int no PHP: o tipo explícito mantém `entity_id` (texto)
+            // comparado com texto, e não com inteiro (o PostgreSQL recusaria varchar = integer).
+            ->setParameter('ids', $idsDasAnalises, ArrayParameterType::STRING);
     }
 
     private function qbDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, TipoDeAnalise $tipo, ?Agente $agente): QueryBuilder
