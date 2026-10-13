@@ -1076,6 +1076,10 @@ class PastaController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // Foto do autor no cartão montado em JS: a MESMA regra do cartão do Twig (o mapa de
+        // fotos dos colaboradores ativos do escritório, `fotosResponsaveis` do show).
+        $fotoAutor = $this->userRepository->findFotoPorColaboradores($tenant)[(int) $currentUser->getId()] ?? null;
+
         return $this->json([
             'id'          => $mensagem->getId(),
             // cru volta ao editor; conteudoHtml é o que a tela exibe (sanitizado, com as
@@ -1085,6 +1089,12 @@ class PastaController extends AbstractController
             'autorNome'   => $currentUser->getFullName(),
             'criadaEm'    => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs'  => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
+            // Epoch (segundos) da criação: é dele que o JS tira `data-janela-ate`, igual ao Twig
+            // (`|date('U')`). O ATOM acima não é número — `Number()` sobre ele dava NaN (C6-PAS-01).
+            'criadaEmEpoch' => $mensagem->getCriadaEm()->getTimestamp(),
+            'autorFotoUrl'  => $fotoAutor !== null && $fotoAutor !== ''
+                ? $this->generateUrl('app_profile_foto_serve', ['nome' => $fotoAutor])
+                : null,
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_mensagem_editar_' . $mensagem->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_mensagem_excluir_' . $mensagem->getId())->getValue(),
             // A RAIZ respondida (já normalizada pelo UseCase): é sob ela que o JS pendura a resposta.

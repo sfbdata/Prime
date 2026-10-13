@@ -3022,13 +3022,13 @@ document.addEventListener('DOMContentLoaded', function () {
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
         const cartao = `
         <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
-                 data-janela-ate="${Math.floor(Number(data.criadaEmTs) / 1000) + {{ comentario_janela_minutos() }} * 60}"
+                 data-janela-ate="${Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60}"
                  data-do-autor="1">
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
             <div class="ps-anotacao-topo">
-                <span class="ps-avatar ps-avatar--24">${esc(iniciaisDe(data.autorNome))}</span>
+                <span class="ps-avatar ps-avatar--24">${data.autorFotoUrl ? `<img src="${esc(data.autorFotoUrl)}" alt="">` : esc(iniciaisDe(data.autorNome))}</span>
                 <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
                 <span class="ps-cab-espaco"></span>
                 <span class="ps-anotacao-acoes">
@@ -4088,15 +4088,28 @@ document.addEventListener('DOMContentLoaded', function () {
     #modalCriarTarefa .ps-nm-cal-legenda { font-size: 11px; color: var(--ps-faint); }
     #modalCriarTarefa .ps-nm-resp-concluir:hover,
     #modalCriarTarefa .ps-nm-resp-concluir:focus-visible { background: var(--ps-hover); outline: none; }
+    /* C6-PMC-01: janela SEM fundo (dc L.75 e `janSt` L.3768: `position:fixed`, sem overlay) —
+       "Recolher (continue vendo a lista)" só cumpre se a lista seguir usável. Sem backdrop
+       (`data-bs-backdrop="false"`) e sem trava de foco (`data-bs-focus="false"`), o `.modal` de
+       tela cheia ainda engoliria os cliques: ele deixa passar, e só a janela recebe (o
+       `.modal-dialog` do Bootstrap já é `pointer-events:none` e o `.modal-content`, `auto`).
+       O Bootstrap também trava a rolagem do body (`overflow:hidden` + `padding-right` inline);
+       enquanto ESTA janela está aberta, a página volta a rolar. */
+    #modalCriarTarefa { pointer-events: none; }
+    #modalCriarTarefa .modal-content { pointer-events: auto; }
+    body:has(#modalCriarTarefa.show) { overflow: auto !important; padding-right: 0 !important; }
 </style>
-<div class="modal fade" id="modalCriarTarefa" tabindex="-1" aria-labelledby="modalCriarTarefaLabel" aria-hidden="true">
+<div class="modal fade" id="modalCriarTarefa" tabindex="-1" aria-labelledby="modalCriarTarefaLabel" aria-hidden="true"
+     data-bs-backdrop="false" data-bs-focus="false">
     <div class="modal-dialog modal-dialog-centered ps-modal-meta">
         <div class="modal-content">
             <div class="ps-modal-meta-cab" data-ps-nm-alca title="Arraste para mover · duplo clique recolhe">
                 <i class="bi bi-grip-vertical ps-modal-meta-alca" aria-hidden="true"></i>
                 <i class="bi bi-list-check ps-modal-meta-icone" aria-hidden="true"></i>
                 <h2 class="ps-modal-meta-titulo" id="modalCriarTarefaLabel">Nova meta</h2>
-                <span class="ps-modal-meta-pasta">Pasta {{ pasta.nup }}</span>
+                {# C6-PMC-02: o NUP é anulável; sem ele a faixa sairia só "Pasta ". O "#id" é o
+                   mesmo recurso de _processos_vinculados.html.twig (`?:` também pega o NUP vazio). #}
+                <span class="ps-modal-meta-pasta">Pasta {{ pasta.nup ?: ('#' ~ pasta.id) }}</span>
                 <button type="button" class="ps-modal-meta-cab-btn" data-ps-nm-recolher
                         aria-label="Recolher (continue vendo a lista)" title="Recolher (continue vendo a lista)">
                     <i class="bi bi-dash-lg" aria-hidden="true"></i>

@@ -465,6 +465,45 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($rodape->filter('.ps-modal-meta-btn--cancelar')->attr('data-bs-dismiss'));
     }
 
+    #[TestDox('C6-PMC-01: a "Nova meta" é janela SEM fundo (dc L.75, `janSt`): sem backdrop, sem trava de foco, o `.modal` deixa os cliques passarem e a página segue rolando')]
+    public function testNovaMetaEJanelaSemFundo(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $modal = $crawler->filter('#modalCriarTarefa');
+        self::assertSame('false', $modal->attr('data-bs-backdrop'), 'sem o fundo escurecido');
+        self::assertSame('false', $modal->attr('data-bs-focus'), 'o foco pode ir para a lista');
+
+        // CSS escopado ao próprio modal: o `.modal` de tela cheia não engole o clique na lista.
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('#modalCriarTarefa { pointer-events: none; }', $html);
+        self::assertStringContainsString('#modalCriarTarefa .modal-content { pointer-events: auto; }', $html);
+        self::assertStringContainsString('body:has(#modalCriarTarefa.show) { overflow: auto !important; padding-right: 0 !important; }', $html);
+    }
+
+    #[TestDox('C6-PMC-02: pasta sem NUP mostra "Pasta #<id>" na faixa da Nova meta, nunca só "Pasta "')]
+    public function testNovaMetaComPastaSemNup(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaDe($tenant, $user);
+        // A coluna `nup` é NOT NULL: a pasta "sem NUP" que existe de verdade é a de NUP vazio.
+        $pasta->setNup('');
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $faixa = $crawler->filter('#modalCriarTarefa .ps-modal-meta-cab > .ps-modal-meta-pasta');
+        self::assertCount(1, $faixa);
+        self::assertSame('Pasta #' . $pasta->getId(), trim($faixa->text()));
+    }
+
     // =========================================================================
     // Responsáveis na linha (PMC-036)
     // =========================================================================
