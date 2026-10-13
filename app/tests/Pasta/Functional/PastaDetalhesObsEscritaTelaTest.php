@@ -79,19 +79,20 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $painel = $crawler->filter('#detalhes > .ps-grade > .ps-detalhes-obs');
         self::assertCount(1, $painel);
         self::assertCount(0, $crawler->filter('#formDetalhesObservacao, #detalhesObsConteudo, #btnEnviarObsDetalhes'));
-        self::assertCount(1, $painel->filter('.ps-detalhes-obs > .ps-compositor--leitura#detalhesObsSomenteLeitura'), 'no lugar do compositor, a nota de só leitura');
+        self::assertCount(0, $crawler->filter('#detalhesObsSomenteLeitura'), 'pasta viva: sem nota inventada (a da lápide é outro caso)');
         self::assertCount(0, $crawler->filter('#detalhesObsLista .btn-responder-obs-det, #detalhesObsLista .js-obs-responder'));
         self::assertCount(0, $crawler->filter('#detalhesObsLista .js-obs-citar'), 'sem compositor, não há onde citar');
         self::assertCount(0, $crawler->filter('#detalhesObsLista .ps-anotacao-acoes, #detalhesObsLista .btn-editar-obs-det, #detalhesObsLista .btn-excluir-obs-det'));
         self::assertCount(0, $crawler->filter('#detalhesObsLista .js-obs-editar, #detalhesObsLista .js-obs-excluir'), 'nenhum Editar/Excluir que acione algo');
 
-        // O ⋮ fica com o que é só leitura; Editar/Excluir à vista e bloqueados (como no desenho).
+        // O ⋮ fica só com o que é leitura: sem Editar/Excluir, nem bloqueados (o motivo seria permissão).
         foreach ([$alheia, $propria] as $obs) {
             $id    = $obs->getId();
             $itens = $crawler->filter("#detalhes-obs-{$id} > .ps-anotacao-topo > #psObsMenu{$id} > .ps-processo-menu-item")->each(
                 static fn ($i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
             );
-            self::assertSame(['Copiar texto', 'Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+            self::assertSame(['Copiar texto', 'Imprimir'], $itens);
+            self::assertCount(0, $crawler->filter("#psObsMenu{$id} > .ps-processo-menu-sep"));
         }
 
         // O cartão montado em JS também nasce sem escrita.

@@ -72,17 +72,14 @@
         <span class="ps-contagem" id="detalhes-obs-count" title="Observações principais (respostas não contam)">{{ observacoesDetalhes|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemDet)|length }}</span>
     </div>
 
-    {# C6-PAS-02: sem escrita, o compositor nem é montado e entra a nota neutra de só leitura
-       (como o Registro, PAS-025c). O JS abaixo já tolera a falta do #formDetalhesObservacao. #}
+    {# C6-PAS-02: sem escrita, o compositor nem é montado. Na lápide entra a nota de só leitura
+       do Registro (PAS-025c); para quem só vê a pasta viva, nada (o desenho não tem nota para isso).
+       O JS abaixo já tolera a falta do #formDetalhesObservacao. #}
     {% if obsPastaLapide %}
     <div class="ps-compositor ps-compositor--leitura" id="detalhesObsSomenteLeitura">
         <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Pasta excluída: o relatório fica só para leitura.</span>
     </div>
-    {% elseif not podeEscreverObs %}
-    <div class="ps-compositor ps-compositor--leitura" id="detalhesObsSomenteLeitura">
-        <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Só leitura: registrar observações exige permissão para editar a pasta.</span>
-    </div>
-    {% else %}
+    {% elseif podeEscreverObs %}
     <div class="ps-compositor">
         <form id="formDetalhesObservacao">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_detalhes_obs_' ~ pasta.id) }}">
@@ -1127,7 +1124,9 @@
                         data-tipo="Atendimento">
                     <i class="bi bi-printer"></i><span>Imprimir</span>
                 </button>
-                {% if not obsPastaLapide %}
+                {# Quem não escreve (só vê a pasta, ou lápide) não recebe Editar/Excluir nem bloqueados:
+                   o motivo seria de permissão, não de prazo ou de autoria (PAS-014/025c; igual ao cartão do JS). #}
+                {% if podeEscreverObs %}
                     <div class="ps-processo-menu-sep" role="separator"></div>
                     {# C6-PAS-05: `data-obs-janela` marca os dois itens nos dois estados; ao abrir o ⋮,
                        o JS (`pintarJanelaObs`) recalcula os minutos pelo `data-janela-ate` do cartão e
