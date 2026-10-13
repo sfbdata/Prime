@@ -46,6 +46,7 @@ final class PastaDocumentosSugeridosSomenteLeituraTest extends JusPrimeWebTestCa
         self::assertGreaterThan(0, $painel->filter('.ds-sug-grupo[data-status="req"] .ds-sug-item')->count(), 'premissa: há faltantes');
         self::assertSame(0, $painel->filter('.ds-sug-add-um')->count());
         self::assertSame(0, $painel->filter('#btnDocumentosSugeridosFaltantes')->count());
+        $this->assertChecklistSemEscrita($crawler);
     }
 
     #[TestDox('pasta na lápide: nem o admin recebe "+ Checklist" e "Adicionar N faltante(s)"')]
@@ -64,6 +65,7 @@ final class PastaDocumentosSugeridosSomenteLeituraTest extends JusPrimeWebTestCa
         self::assertSame(1, $painel->count(), 'premissa: o painel é renderizado na lápide');
         self::assertSame(0, $painel->filter('.ds-sug-add-um')->count());
         self::assertSame(0, $painel->filter('#btnDocumentosSugeridosFaltantes')->count());
+        $this->assertChecklistSemEscrita($crawler);
     }
 
     #[TestDox('com EDIT: "+ Checklist" nos itens faltantes e "Adicionar N faltante(s)" no rodapé')]
@@ -80,6 +82,20 @@ final class PastaDocumentosSugeridosSomenteLeituraTest extends JusPrimeWebTestCa
 
         self::assertGreaterThan(0, $crawler->filter('#documentosSugeridosCorpo > .ds-sug-grupo > .ds-sug-item > .ds-sug-add-um')->count());
         self::assertSame(1, $crawler->filter('#documentosSugeridosCorpo > .ds-sug-rodape > #btnDocumentosSugeridosFaltantes')->count());
+        self::assertNotNull($crawler->filter('#documentosSugeridos')->attr('data-csrf'));
+        foreach (['btnChecklistModelos', 'btnChecklistEditar', 'btnChecklistAdicionar'] as $id) {
+            self::assertSame(1, $crawler->filter('#pexChecklist .pex-ck-cab > #' . $id)->count(), $id);
+        }
+    }
+
+    /** ✎, + e Modelos do checklist saem do servidor (não só do JS), e o painel não leva o token. */
+    private function assertChecklistSemEscrita(Crawler $crawler): void
+    {
+        self::assertSame(1, $crawler->filter('#pexChecklist')->count(), 'premissa: o checklist é renderizado');
+        foreach (['btnChecklistModelos', 'btnChecklistEditar', 'btnChecklistAdicionar'] as $id) {
+            self::assertSame(0, $crawler->filter('#' . $id)->count(), $id);
+        }
+        self::assertNull($crawler->filter('#documentosSugeridos')->attr('data-csrf'));
     }
 
     // ----------------------------------------------------------------- helpers

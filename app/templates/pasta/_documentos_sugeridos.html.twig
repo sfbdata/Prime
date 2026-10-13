@@ -40,7 +40,7 @@
 <section class="ds-sug d-none" id="documentosSugeridos"
          aria-labelledby="documentosSugeridosTitulo"
          data-url-adicionar="{{ path('pasta_checklist_adicionar', {id: pasta.id}) }}"
-         data-csrf="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}">
+         {%- if sugPodeEscrever %} data-csrf="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}"{% endif %}>
     <div class="ds-sug-cab">
         <i class="bi bi-list-check ds-sug-icone" aria-hidden="true"></i>
         <div class="ds-sug-titulos">

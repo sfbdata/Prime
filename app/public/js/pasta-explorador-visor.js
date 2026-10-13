@@ -284,6 +284,14 @@
         if (!a) return;
         const tipo = tipoDe(a);
         if (!ehImprimivel(tipo)) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }
+        // C6-DOC-02: imagem que o navegador não abriu (HEIC) virou aviso no visor
+        // (`data-vd-sem-conteudo`); imprimir daria página quebrada. O botão passa a indisponível.
+        if (tipo === 'imagem' && el.alvo.querySelector('[data-vd-sem-conteudo]')) {
+            el.imprimir.setAttribute('aria-disabled', 'true');
+            el.imprimir.title = MOTIVO_SEM_IMPRESSAO;
+            mostrarAviso(MOTIVO_SEM_IMPRESSAO);
+            return;
+        }
         if (imprimindo) { mostrarAviso(MSG_PREPARANDO); return; } // um de cada vez: não empilha iframes
 
         // Conteúdo desenhado: só depois que o visualizador terminou (dc: "Abra o conteúdo…").

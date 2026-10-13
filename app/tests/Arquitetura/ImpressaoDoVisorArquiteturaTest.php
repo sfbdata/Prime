@@ -138,4 +138,15 @@ final class ImpressaoDoVisorArquiteturaTest extends TestCase
         self::assertStringContainsString("div.setAttribute('data-vd-sem-conteudo', '');", self::funcao($js, 'blocoNaoDisponivel'));
         self::assertStringContainsString('paraImpressao: paraImpressao,', $js);
     }
+
+    #[TestDox('C6-DOC-02: imagem que virou aviso no visor (HEIC que o navegador não abre) não vai para a impressão; o botão passa a indisponível')]
+    public function testImagemSemConteudoNaoImprime(): void
+    {
+        $imprimir = self::funcao(self::ler(self::VISOR), 'imprimir');
+
+        $guarda = strpos($imprimir, "if (tipo === 'imagem' && el.alvo.querySelector('[data-vd-sem-conteudo]')) {");
+        self::assertNotFalse($guarda);
+        self::assertLessThan(strpos($imprimir, 'if (imprimindo)'), $guarda, 'antes de montar o iframe');
+        self::assertStringContainsString("el.imprimir.setAttribute('aria-disabled', 'true');", $imprimir);
+    }
 }
