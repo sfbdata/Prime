@@ -450,9 +450,9 @@ dono).
 
 **Convergido:** não há divergência A autônoma pendente. Próximos passos dependem de pessoas:
 
-1. **Samuel — publicar** (push + deploy). Inclui **1 migration nova**: `Version20261012230000` (PAS-045b, ADD COLUMN NULL
-   em `pasta_observacao_detalhes` e `pasta_observacao_financeira`; metadado no PG15). Fora do minuto múltiplo de 15 (cron
-   do Sync) ou com `SET lock_timeout` (PUB-01).
+1. **Samuel — publicar** (push + deploy), em dois lotes (§5.1). **São 7 migrations novas, não 1** (corrigido em 13/10:
+   a produção está em `Version20261007020000` e não tem nenhuma das 6 de 07/10). Fora do minuto múltiplo de 15 (cron do
+   Sync) ou com `SET lock_timeout` (PUB-01).
 2. **Samuel — smoke** (o que nenhum teste vê): Nova meta recolhida + outra janela por cima + Esc; confirmação com a Nova
    meta aberta; resumo impresso de 2+ páginas (margem 18 mm) e no tema escuro; aba Financeiro e Detalhes como usuário só
    leitor e na lápide; "Adicionar nota" pelo botão direito sem abrir o teor; "Copiar texto" com o teor fechado; HEIC no
@@ -467,3 +467,31 @@ dono).
 Opus em worktree, revisão Opus read-only, cherry-pick individual, testes direcionados, suíte completa no fim. **No máximo 2
 agentes ao mesmo tempo e a suíte sempre sozinha** (o WSL travou em 12/10 com 11+ agentes). As worktrees `agent-*` deste
 ciclo podem ser apagadas pelo humano depois de conferir com `git cherry` (o conteúdo já está no master).
+
+### 5.1 Publicação em dois lotes e as 7 migrations (13/10/2026)
+
+Medido em 13/10 contra o GitHub (`origin/master` = `4e898d0c`, a S1) e a produção (MCP, só leitura). Base comum e
+produção: `719de0e4` (EI2). Master local 251 commits à frente, 7 atrás; `git merge-tree` sem conflito nos dois cortes.
+O único commit fora do loop é `4a98cc6b` (e-mail institucional), patch idêntico a `79ac1765` no remoto.
+
+| Lote | Corte (sem cherry-pick) | Commits | Suíte medida | Migrations |
+|---|---|---|---|---|
+| 1 | `719de0e4..4a98cc6b` | 200 | 9007/9007 em `4a98cc6b` | 6 |
+| 2 | `4a98cc6b..` topo do loop | 51 + este registro | 9172/9172 em `a102af45` | 1 |
+
+| Migration | Lote | O que faz | Origem |
+|---|---|---|---|
+| `Version20261007205740` | 1 | `pasta_observacao_financeira`: `eh_resposta` (bool, default false), `resposta_a_id` + FK própria + índice | `07ba1031` |
+| `Version20261007211757` | 1 | o mesmo em `pasta_observacao_detalhes` | `6576bc7a` |
+| `Version20261007215638` | 1 | cria `pasta_timeline_visita` (PAS-043) | `207dd2fd` |
+| `Version20261007220558` | 1 | `pasta_mensagem.conteudo_anterior` TEXT NULL (PAS-045) | `092338fd` |
+| `Version20261007221253` | 1 | cria `nota_tecnica_versao` (PMC-020) | `97b0bc45` |
+| `Version20261007221859` | 1 | `pasta_pagamento.juros_mensal` NUMERIC(6,4) NULL (FPN-009) | `be356e16` |
+| `Version20261012230000` | 2 | `conteudo_anterior` em `pasta_observacao_detalhes` e `_financeira` (PAS-045b) | `7265636b` |
+
+- Todas só acrescentam e têm `down()` simétrico. Tabelas afetadas pequenas em prod (89 a 653 linhas). Nenhum nome de
+  índice/FK novo colide em prod; as tabelas novas não existem; o código do lote 1 não usa as colunas da 7ª.
+- O deploy roda o `migrate` sozinho (entrypoint + `deploy-prod-tls.sh`). Duas migrations antigas
+  (`Version20260401000000`, `Version20260408180237`) seguem sem registro em prod **de propósito**: o `preUp` as pula
+  (`sede` existe; `checklist_item_cliente` não). O `migrate` vai listá-las e pulá-las de novo; não é defeito do loop.
+- Merge no GitHub por **merge commit**, nunca squash/rebase: este ledger cita os hashes dos commits.
