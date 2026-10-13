@@ -38,7 +38,7 @@
                 {% if r.ehDownload or r.ehImpressao %}
                     <div class="ia-audit-linha" data-ia-audit-exportacao="{{ r.analiseId }}" data-ia-audit-acao="{{ r.acao }}">
                         <time class="ia-audit-hora" datetime="{{ r.quando|date('c') }}">{{ r.quando|date('d/m H:i') }}</time>
-                        <span class="ia-audit-txt">{{ r.ehDownload ? 'Download' : 'Impressão' }}: {{ r.oQue }}{% if r.solicitanteNome %} · por {{ r.solicitanteNome }}{% endif %}</span>
+                        <span class="ia-audit-txt">{{ r.ehDownload ? 'Download' : 'Impressão' }}: {{ r.oQue }}</span>
                     </div>
                 {% else %}
                     <div class="ia-audit-linha" data-ia-audit-analise="{{ r.analiseId }}">

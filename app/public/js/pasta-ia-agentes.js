@@ -534,10 +534,10 @@
                 avisar('O navegador bloqueou a janela de impressão. Libere as janelas pop-up deste site.', true);
                 return;
             }
-            registrarExportacao(botao, 'impressao');
-
             buscarTexto(url)
                 .then(function (texto) {
+                    // Registra só com o texto em mãos: falha ao buscar não deixa "Impressão" na trilha.
+                    registrarExportacao(botao, 'impressao');
                     var doc = janela.document;
                     var linhas = texto.split('\n');
                     doc.title = linhas[0] || 'BLUEJUS IA';

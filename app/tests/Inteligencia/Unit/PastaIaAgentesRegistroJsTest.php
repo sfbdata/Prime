@@ -64,7 +64,7 @@ final class PastaIaAgentesRegistroJsTest extends TestCase
         self::assertStringNotContainsString('preventDefault', $trecho, 'o .txt continua saindo pelo link comum');
     }
 
-    #[TestDox('imprimir dispara o registro "impressao" depois de abrir a janela (pop-up bloqueado não registra)')]
+    #[TestDox('imprimir dispara o registro "impressao" depois de abrir a janela e de o texto chegar (pop-up bloqueado ou falha não registram)')]
     public function testImprimirRegistra(): void
     {
         $trecho = $this->listenerDe('[data-ia-imprimir]');
@@ -76,6 +76,7 @@ final class PastaIaAgentesRegistroJsTest extends TestCase
         self::assertNotFalse($bloqueado);
         self::assertNotFalse($registra);
         self::assertGreaterThan($bloqueado, $registra);
+        self::assertGreaterThan(strpos($trecho, '.then(function (texto) {'), $registra, 'só depois de o texto chegar');
     }
 
     #[TestDox('copiar não registra nada')]

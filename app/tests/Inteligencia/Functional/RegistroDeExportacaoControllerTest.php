@@ -136,6 +136,20 @@ final class RegistroDeExportacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(['ia_baixar', 'ia_imprime'], array_column($this->registrosDaAnalise($analise), 'action'));
     }
 
+    #[TestDox('pasta riscada (lápide): o registro é liberado como o .zip — baixar a análise deixa a linha')]
+    public function testLapideRegistra(): void
+    {
+        $client = $this->cliente();
+        [$user, , $pasta, $analise] = $this->cenario($client);
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->registrar($client, $pasta, $analise, 'download');
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(['ia_baixar'], array_column($this->registrosDaAnalise($analise), 'action'));
+    }
+
     #[TestDox('o GET do .txt é puro: baixar o texto (com ou sem query) não grava linha de exportação')]
     public function testGetDoTxtNaoGrava(): void
     {
@@ -303,9 +317,9 @@ final class RegistroDeExportacaoControllerTest extends JusPrimeWebTestCase
         ksort($exportacoes);
         self::assertSame(['download', 'impressao'], array_keys($exportacoes));
         self::assertSame((string) $analise->getId(), $exportacoes['download'][0]);
-        self::assertSame('Download: Agente Gestor · por Ana Lima', $exportacoes['download'][1]);
+        self::assertSame('Download: Agente Gestor', $exportacoes['download'][1]);
         self::assertSame((string) $analise->getId(), $exportacoes['impressao'][0]);
-        self::assertSame('Impressão: Agente Gestor · por Ana Lima', $exportacoes['impressao'][1]);
+        self::assertSame('Impressão: Agente Gestor', $exportacoes['impressao'][1]);
         self::assertSame(1, $rodape->filter('.ia-audit-linha[data-ia-audit-analise="' . $analise->getId() . '"]')->count(), 'a linha da análise continua');
         self::assertStringNotContainsString(self::SIGILOSO, (string) $client->getResponse()->getContent());
     }
