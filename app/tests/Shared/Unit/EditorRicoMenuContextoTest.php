@@ -113,6 +113,9 @@ final class EditorRicoMenuContextoTest extends TestCase
 
         self::assertStringContainsString('Object.prototype.hasOwnProperty.call(AUTOCORRECAO, minuscula)', $f);
         self::assertStringContainsString('VOCABULARIO_DOBRADO.get(dobrada)', $f);
+        // Palavra conhecida e já certa encerra sem sugestão: sem o `: []` ela cairia na busca aproximada
+        // e se sugeriria a si mesma (distância 0) em toda palavra correta do vocabulário.
+        self::assertStringContainsString('return conhecida !== minuscula && conhecida !== palavra ? [mesmaCaixa(palavra, conhecida)] : [];', $f);
         self::assertStringContainsString('if (palavra.length < 5) { return []; }', $f);
         self::assertStringContainsString('var teto = dobrada.length >= 9 ? 2 : 1;', $f);
         self::assertStringContainsString('saida.length < 3 && vd[0] === dobrada[0] && distancia(dobrada, vd, teto) <= teto', $f);
