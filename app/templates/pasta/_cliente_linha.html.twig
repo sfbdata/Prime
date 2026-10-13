@@ -13,7 +13,15 @@
    `html` dele (PastaController::htmlLinhaCliente) e o JS do show so o insere —
    nao ha mais espelho JS, e a linha nova nasce com o icone como as demais.
 
-   Parametros: pasta, cliente, ehPrincipal (bool). #}
+   Parametros: pasta, cliente, ehPrincipal (bool); opcional podeMexerNoCliente (bool).
+   C6-PMC-03: a estrela vazia (tornar principal) e a lixeira (desvincular) so para
+   quem o servidor deixaria usa-las — EDIT na pasta e pasta fora da lapide. O
+   trilho repassa a decisao; o XHR (htmlLinhaCliente) nao, entao o fallback e aqui
+   (`can_access_resource` guarda a resposta por requisicao). A estrela cheia do
+   principal fica: e leitura, nao acao. #}
+{% set podeMexerNoCliente = podeMexerNoCliente is defined
+    ? podeMexerNoCliente
+    : (can_access_resource('pasta', pasta.id, 'edit') and not pasta.estaExcluida) %}
 {% set doc = cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null) %}
 {% set pendencias = cliente_pendencias(cliente) %}
 {% set cadCompleto = pendencias is empty %}
@@ -61,7 +69,7 @@
                   title="Cliente principal desta pasta — a Média por CPF é dele. Clique na estrela de outro para trocar">
                 <i class="bi bi-star-fill"></i>
             </span>
-        {% else %}
+        {% elseif podeMexerNoCliente %}
             <form method="post" action="{{ path('pasta_cliente_principal', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-cliente-principal m-0">
                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
                 <button type="submit" class="btn btn-xs btn-outline-secondary" title="Tornar cliente principal (a Média por CPF passa a ser dele)">
@@ -79,11 +87,13 @@
             <i class="bi bi-folder2-open ps-cli-abrir-aberta" aria-hidden="true"></i>
         </a>
 
-        <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
-            <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-            <button type="submit" class="btn btn-xs btn-outline-danger" title="Desvincular cliente da pasta">
-                <i class="bi bi-trash"></i>
-            </button>
-        </form>
+        {% if podeMexerNoCliente %}
+            <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
+                <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
+                <button type="submit" class="btn btn-xs btn-outline-danger" title="Desvincular cliente da pasta">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
+        {% endif %}
     </div>
 </div>
