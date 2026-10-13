@@ -491,8 +491,8 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/pasta-metas.js');
         self::assertStringContainsString("modal.removeAttribute('aria-modal');", $js);
         self::assertStringContainsString('if (titulo) { titulo.focus(); }', $js);
-        self::assertStringContainsString("if (e.key !== 'Escape' || !modal.classList.contains('show')) { return; }", $js);
-        self::assertStringContainsString("if (document.querySelector('.modal.show:not(#modalCriarTarefa)')) { return; }", $js);
+        // Esc só com o foco na janela (o Bootstrap ouve no `.modal`): nada de ouvinte no documento (C7-PMC-01)
+        self::assertStringNotContainsString("if (e.key !== 'Escape' || !modal.classList.contains('show'))", $js);
     }
 
     #[TestDox('C6-PMC-02: pasta sem NUP mostra "Pasta #<id>" na faixa da Nova meta, nunca só "Pasta "')]
