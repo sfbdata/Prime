@@ -97,9 +97,10 @@ ou manter um texto próprio para o usuário final, já que o CHANGELOG é escrit
    gh workflow run release.yml --repo sfbdata/Prime --ref master -f versao=X.Y.Z
    gh run watch --repo sfbdata/Prime "$(gh run list --repo sfbdata/Prime --workflow release.yml -L 1 --json databaseId -q '.[0].databaseId')"
    ```
-   Ele recusa se não for o master, se a constante ou o CHANGELOG não baterem, se a tag existir ou
-   se os checks não estiverem verdes **naquele commit**; e só então cria a tag `vX.Y.Z` e a
-   release com o texto do CHANGELOG.
+   O job roda no ambiente `release` e **espera a sua aprovação** na página da execução (Review
+   deployments → Approve). Ele recusa se não for o master, se a constante ou o CHANGELOG não
+   baterem, se a tag existir ou se os checks não estiverem verdes **naquele commit**; e só então o
+   GitHub App "BlueJus Release" cria a tag `vX.Y.Z` e a release com o texto do CHANGELOG.
 5. **Deploy** como hoje (`DEPLOY.md`). Antes, na VPS, conferir que o master que o script vai puxar
    é exatamente a tag; depois, que é ela que está no ar:
    ```bash
@@ -120,15 +121,12 @@ Correção urgente em produção: o mesmo fluxo com PATCH (`X.Y.Z+1`), PR pequen
 - O workflow Release só cria tag num commit em que esses dois checks estejam `success` (do app
   GitHub Actions) e com `[Não lançado]` vazio, para a tag não levar mudança de outro PR mergeado
   entre o PR de release e o disparo.
-- **Lacuna:** quem tem permissão de escrita ainda consegue criar tag `v*` à mão (`git push --tags`
-  ou pela interface), contornando o workflow. O fechamento é uma regra de tags no GitHub (Settings →
-  Rules → Rulesets → New tag ruleset para `v*`, restringindo criação, atualização e exclusão). A
-  regra precisa deixar o workflow passar; conferir, ao configurar, se o GitHub Actions pode constar
-  como exceção — se não puder, o workflow passa a criar a tag com o token de um GitHub App próprio.
-  É configuração do repositório, decisão do dono, e não foi aplicada.
-- **Lacuna:** a recusa de disparo fora do master está no próprio `release.yml`. Disparado de outra
-  branch, o GitHub roda o `release.yml` daquela branch, que pode não ter a recusa. A regra de tags
-  acima fecha isso também.
+- **Tags `v*` protegidas por ruleset** (criar, mover e apagar), com uma única exceção: o GitHub App
+  "BlueJus Release", cuja chave só existe no ambiente `release`, que só aceita jobs do master e
+  pede aprovação. Com o ruleset ligado, nem o admin cria tag `v*` à mão (ele pode desligar o
+  ruleset, o que fica registrado), e um `release.yml` alterado em outra branch não recebe a chave. Desenho, configuração, testes e reversão:
+  [runbooks/protecao-tags-versao.md](runbooks/protecao-tags-versao.md). **Até o ruleset ser
+  ligado pelo dono, quem tem escrita ainda consegue criar tag `v*` à mão.**
 - A suíte Functional (que depende do banco de dump) não roda no CI: antes do PR de release, a suíte
   completa no container continua obrigatória (`scripts/frente-testar.sh`).
 
@@ -178,6 +176,7 @@ Volta-se o sistema, e a correção sai como versão nova.
 ## 8. Pendências
 
 - [ ] Dono: confirmar **2.0.0** como primeira versão desta política (seção 2).
-- [ ] Dono: decidir a regra de tags `v*` no GitHub (seção 6).
+- [ ] Dono: configurar App, ambiente e ruleset das tags `v*` (seção 6 e
+      `runbooks/protecao-tags-versao.md`), nessa ordem, depois do merge do workflow novo.
 - [ ] Primeiro PR de release `release-2.0.0` e disparo do workflow — só com autorização.
 - [ ] Página de Novidades: decidir CHANGELOG na imagem × texto próprio (seção 4).
