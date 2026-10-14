@@ -5,6 +5,8 @@ arquitetura real do BlueJus (Symfony 7.4 + Twig + JS nativo) o que o pacote do C
 (`~/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/`) descreve em `bluejus-central.js`, `bj-agente.js`,
 `COMANDOS_CHAT_IA.md` e `ESPEC_AGENTE_PASTAS.md`.
 
+**Retomada:** `docs/specs/designer-central-ia/HANDOFF.md` (estado verificado, decisões, próxima tarefa).
+
 **Não é esta frente:** fidelidade visual das telas existentes (frente `fidelidade-designer`, E1–E11).
 Esta frente não toca Twig/CSS/JS das telas que aquela reivindica (Pasta, Expediente, Minhas Metas,
 Dashboard), nem `base.html.twig`/`app.css` sem decisão do dono (D6), nem `PastaRepository` (a E8 mexe no
