@@ -1,7 +1,7 @@
 # HANDOFF — Frente de fidelidade ao Claude Designer (pacote de 13/10/2026)
 
 > **Para quem:** a próxima sessão do Claude Code que vai continuar esta frente sem ter visto a conversa anterior.
-> **Escrito em:** 14/10/2026, ao fim da E5b; **atualizado ao fim da E5c e da E7** (mesmo dia). Fatos de git, caminhos e contagens conferidos no momento da escrita.
+> **Escrito em:** 14/10/2026, ao fim da E5b; **atualizado ao fim da E5c, da E7 e da E8** (mesmo dia). Fatos de git, caminhos e contagens conferidos no momento da escrita.
 > **Leia antes de qualquer coisa:** este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
 > depois o checklist da tela em que for trabalhar.
 
@@ -31,8 +31,8 @@ Regras que valem sempre (do dono, reafirmadas a cada entrega):
 | Worktree | `/home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer` |
 | Branch | `fidelidade-designer` (marcador `.frente` = `fidelidade-designer`) |
 | Base | `origin/master` @ `a9653e66` (= produção na abertura, Engineering Loop publicado) |
-| HEAD | `a5362fad` (E7) + o commit de docs da E7 |
-| Divergência | 18 commits à frente de `origin/master`; **13 atrás** (frentes `seg-runtime-argv`, `eng-ci-qualidade` e `eng-versionamento` da engenharia: `Dockerfile`, `.github/workflows/*`, CHANGELOG, fonte de versão, scripts e docs de release; **nenhuma interseção** com os arquivos desta frente, conferido com `comm` em 14/10) |
+| HEAD | `613eb619` (E8) + o commit de docs da E8 |
+| Divergência | 29 commits à frente de `origin/master`; **13 atrás** (frentes `seg-runtime-argv`, `eng-ci-qualidade` e `eng-versionamento`: `Dockerfile`, workflows, CHANGELOG, versão, scripts e docs de release — **nenhuma interseção** com esta frente, conferido em 14/10) |
 | Árvore | limpa (fora o que é gitignored: `app/.env.local`, `app/var/router-smoke.php`, `.frente`) |
 | Banco de teste | `saas_testfidelidade-designer` (clone do `saas_test`; existe) |
 | Banco de dev do smoke | `saas_ux` (via `app/.env.local` copiado do checkout principal) |
@@ -59,7 +59,16 @@ Commits da frente (mais antigo → mais novo):
 | `c0b28a7c` | docs: evidência E5c + checklist + handoff |
 | `3713fc04` | decisões do dono sobre a E5c: "em aberto" restaurado na legenda; decisões registradas |
 | `a5362fad` | E7 — janela de confirmação da Pasta com variante azul; 14 `confirm()` trocados; Editar dados destravado (estava morto) |
-| (seguinte) | docs: evidência E7 + checklist da Pasta + este handoff |
+| `8c019bca` | docs: evidência E7 + checklist da Pasta + handoff |
+| `3e82c7f5` | roteiro de smoke da E7 (`SMOKE-E7.md`) e decisões de encerramento |
+| `c807cfac` | investigação e plano da E8 (`E8-PLANO.md`) |
+| `1ad07b08` | `expediente-ux` arquivada no registro (branch e commits preservados) |
+| `7c418cae` | E8 — filtro "Sem responsável" (única regra nova, autorizada) |
+| `ad5e6932` | janela de confirmação da E7 num partial (Pasta e Expediente) |
+| `ebd8fe77` | E8 — Lista do Expediente no desenho (CSS, marcação, menus, exclusão de marcador) |
+| `35cbe3dc` | E8 — contagem e NUP vencendo os estilos antigos |
+| `613eb619` | E8 — correções da revisão |
+| (seguinte) | docs: evidência E8 + checklist da Lista + este handoff |
 
 ## 3. Onde está cada coisa
 
@@ -127,6 +136,8 @@ Decisões técnicas que a próxima sessão precisa respeitar:
 | **E5c (antes da revisão)** | — | **suíte completa: OK 9306/9306 (52.021 asserções, 07:35)** no `saas_testfidelidade-designer`, rodada sozinha em 14/10; depois das correções da revisão: `tests/Tarefa` 360/360 + rodada Tarefa+Pasta+Twig+Dashboard **3708/3708** | — |
 | E7 | ver commit `a5362fad` e `fidelidade-designer-1310.md` §12 | 38 novos + 13 reescritos; 4 mutações provadas; revisão read-only com 5 correções | ✓ Duplicar, Alterar número, Descartar e Desvincular exercitados com POST interceptado (0 antes do "sim", 1 depois); valores do `cf` medidos; escuro e 390px |
 | **HEAD `a5362fad`** | — | **suíte completa: OK 9345/9345 (52.136 asserções)** no `saas_testfidelidade-designer`, rodada sozinha em 14/10 | — |
+| E8 | ver `fidelidade-designer-1310.md` §13 e `E8-PLANO.md` | 23 novos + 4 do filtro; 2 mutações; revisão com 11 correções | ✓ medido; menus, teclado e exclusão com escrita interceptada; escuro e 390px |
+| **HEAD `613eb619`** | — | **suíte completa: OK 9372/9372 (52.442 asserções)** | — |
 
 **Limitações da validação** (não esconder):
 - O banco de dev (`saas_ux`) **não tem**: nota técnica, pagamentos na maioria das pastas, meta com prazo futuro, push com itens
@@ -158,6 +169,7 @@ azul-claro e letra azul-escura).
 |---|---|---|---|---|---|
 | Pasta | 220 | 49 | 113 | **382** | `fidelidade-designer-1310-checklist-pasta.md` |
 | Minhas Metas | 71 | 44 | 42 (38 do Chat I.A.) | **157** | `fidelidade-designer-1310-checklist-minhas-metas.md` |
+| Lista do Expediente | 36 | 22 | 13 | **71** | `fidelidade-designer-1310-checklist-lista.md` (novo na E8) |
 
 Minhas Metas: 119 linhas de tabela + 38 itens do Chat I.A. em texto (§10); o defeito do ⋮ (MM-MENU-06) não entra.
 Evolução de Minhas Metas: levantamento 25/72/57 → E5 27/72/56 → E5b 53/58/46 → E5c 72/43/42 → **decisões 71/44/42** ("em aberto" restaurado: TRI-06 ≈).
@@ -241,10 +253,20 @@ Evidência e inventário em `fidelidade-designer-1310.md` §12. Para quem contin
   futura, sem alterar a tela**; (3) sem push, PR, merge ou deploy; (4) **CHANGELOG intocado** — integração coordenada com a
   Engenharia. Roteiro de smoke e testes comportamentais candidatos: `SMOKE-E7.md` (nesta pasta).
 
+## 11a. E8 (Lista do Expediente) — ✅ feita em `7c418cae`…`613eb619`
+
+Plano, decisões e **smoke do dono** em `E8-PLANO.md`; evidência em `fidelidade-designer-1310.md` §13. Para quem continuar:
+- O visual da Lista mora em `public/css/expediente-lista.css`, todo sob `.exp-body` (classe do `<body>` do Expediente). O
+  CSS antigo inline de `expediente/index` usa `!important` em várias propriedades — medir na tela antes de crer no teste.
+- Menus de botão direito em `public/js/expediente-lista.js`: cada item aciona um controle que já existe, **depois** do
+  clique (senão o menu de responsável fecha no mesmo clique). Ação nova = decisão do dono.
+- `pasta/index.html.twig` está morto (`pasta_index` redireciona): `_tabela`, `_card`, `_filtros` só servem o Expediente.
+- Pendências da Lista: cabeçalho fixo da tabela, colunas 2:1.5, pops de filtro, moldura vermelha do dc na exclusão — e o
+  `.active` que o clique no marcador não deixa no link (anterior).
+
 ## 11b. Próximas entregas
 
-- **Pasta** (`fidelidade-designer-1310.md` §2): E8 (Lista do Expediente), E9 (Peticionar), E10 (Agenda), E11 (Perfis). E6
-  continua travada por P1.
+- **Pasta** (`fidelidade-designer-1310.md` §2): E9 (Peticionar), E10 (Agenda), E11 (Perfis). E6 continua travada por P1.
 - Reduzir os **113 ∅ da Pasta** pela §19 do checklist: primeiro os que não pedem dado (botão direito sobre os ⋮ de
   Processos e Pagamentos — PZ-CTX-08; "Encaminhar via Chat I.A" visível e desabilitado com dica nos ~15 menus; aviso
   estático "Integração com o PJe não configurada"; situação legível também no Peticionar e nas telas de Processo).

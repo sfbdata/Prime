@@ -54,3 +54,38 @@ e `_resp_chip` servem o **cabeçalho da Pasta** (lista "só com decisão" do HAN
    Copiar nome. Menu do marcador: Ver pastas · Novo · Editar · Excluir. "Editar nome rápido", Trancar e Destacar ficam ∅.
 6. Janela de confirmação no lugar do `confirm()` de excluir marcador (levar o componente da E7 ao Expediente).
 7. `_tabela`: escopar o visual novo ao Expediente para `/pasta` não mudar sem decisão.
+
+---
+
+## Decisões do dono (14/10) e resultado
+
+Decisões: `expediente-ux` arquivada sem integrar; só o filtro "Sem responsável" reimplementado; sem os 4 indicadores e os
+atalhos laterais da branch antiga; total de metas, cliente opcional, número no servidor, vários marcadores e hierarquia
+mantidos; nada de F2, sigilo, destaque persistente ou novos modos sem autorização; exclusão de marcador pela janela da E7,
+informando os sub-marcadores.
+
+**E8 feita** em `7c418cae`…`613eb619` — evidência em `fidelidade-designer-1310.md` §13; checklist em
+`fidelidade-designer-1310-checklist-lista.md` (36 ✓ · 22 ≈ · 13 ∅). Suíte 9372/9372.
+
+## Smoke manual da E8 (para o dono, ~15 min)
+
+Pasta de teste com responsável e sem; um marcador com sub-marcadores (no dev: "2. Distribuir"). Marque ✓/✗.
+
+| # | Faça | Esperado |
+|---|---|---|
+| S1 | Abra o Expediente | Título 40px com a pasta azul que abre; trilho e acervo em cartões brancos; Nova Pasta cinza |
+| S2 | Passe o mouse numa linha | Linha azul, faixa escura à esquerda, tudo branco; a lápide (pasta excluída) não fica azul |
+| S3 | Duplo clique na situação de uma pasta de teste | Alterna Ativo/Arquivado como antes; o ponto muda de cor (**volte depois**) |
+| S4 | Filtro Responsável → "Sem responsável" | Só pastas sem responsável; chip "Responsável: Sem responsável"; o mesmo dentro de um marcador |
+| S5 | Botão direito numa linha → Alterar responsável | Abre o menu de responsável **e ele fica aberto** (escolha ou Esc) |
+| S6 | … → Alterar marcador | Abre "Mover para" de sempre, com vários marcadores e hierarquia |
+| S7 | … → Copiar número / Copiar nome | Aviso no canto inferior direito; o texto colado é o número / o nome (sem "+N") |
+| S8 | … numa pasta excluída | Sem "Alterar responsável" nem "Alterar marcador" |
+| S9 | Botão direito num marcador → Excluir marcador → **Cancelar** | Janela vermelha sobre o modal Editar: "Excluir o marcador "X"?", quantas pastas, e os sub-marcadores pelo nome; nada excluído |
+| S10 | No marcador, Tab até ele e Shift+F10 (ou tecla de menu) | Menu abre; setas navegam; Esc e Tab devolvem o foco |
+| S11 | Clique num marcador com o mouse | O "+" e o lápis não ficam por cima da contagem (só no hover) |
+| S12 | Mais de 50 pastas no filtro | Paginação no topo e no rodapé; com 1 página, só a do topo |
+| S13 | Tema escuro e celular | Legível; no celular, cartões, sem rolagem lateral |
+
+**Não pode acontecer:** ação sem confirmação na exclusão; menu oferecer Trancar, Destacar, F2 ou Duplicar; mudança no que
+a tela grava fora do filtro "Sem responsável".

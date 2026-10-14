@@ -39,7 +39,7 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 | E5c | Minhas Metas: textos e cores do prazo, cores das abas, tipografia e legenda do trilho, "Título · Pasta NNN", ⋮ "Opções" com as ações que já existem (R118/R236) | M | ✅ `9d098c55` (§11) |
 | E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
 | E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | ✅ `a5362fad` (§12) — 14 `confirm()` trocados, + Restaurar para azul; achado e corrigido: Editar dados morto na tela |
-| E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | — |
+| E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | ✅ `7c418cae`…`613eb619` (§13) + filtro "Sem responsável" (decisão do dono) |
 | E9 | Peticionar: barra do documento selecionado, ⋮/botão direito, número de ordem — com as rotas existentes | M | — |
 | E10 | Agenda: tag de tipo (nome da `LegendaCor` pela cor) na lista e no detalhe | P | — |
 | E11 | Perfis do escritório: lista no padrão (hover, cantos, ícones) | P | — |
@@ -422,4 +422,62 @@ revisão; `lint:twig` OK.
 - Tema escuro: botão azul `rgb(20,121,173)` na caixa escura; celular 390px: caixa 16–374px, sem rolagem horizontal.
 - Não exercitados na tela por falta de dado no dev (provados pelo teste): excluir meta (só o criador, dentro da janela de
   tempo), checklist (a pasta 304 não tem itens), comentários e arquivos do Financeiro, análises da IA, nota técnica.
+
+## 13. E8 — evidência (Lista do Expediente)
+
+Plano, conflitos e decisões: `fidelidade-designer-1310/E8-PLANO.md`. Checklist novo: `fidelidade-designer-1310-checklist-lista.md`
+(**36 ✓ · 22 ≈ · 13 ∅ = 71**). A frente antiga `expediente-ux` foi **arquivada** no registro (`1ad07b08`), sem integrar.
+
+**Commits:** `7c418cae` filtro "Sem responsável" · `ad5e6932` janela da E7 num partial (`_partials/_janela_confirmacao.html.twig`,
+tokens no próprio fundo — na Pasta, medido igual à E7) · `ebd8fe77` Lista no desenho · `35cbe3dc` contagem e NUP vencendo
+estilos antigos com `!important` · `613eb619` correções da revisão.
+
+**Única mudança de regra (autorizada):** `PastaRepository::aplicarFiltrosPasta` — `responsavel=sem` → `p.responsavel IS NULL`
+(antes virava `(int) 0` e devolvia lista vazia). Os dois montadores de consulta já prendem `p.tenant`. Testes: acervo,
+painel do marcador, outro escritório e a opção na barra.
+
+**Visual** (`public/css/expediente-lista.css`, tudo sob `.exp-body`; `.exp-ctx`/`.exp-aviso` são o menu e o aviso que o JS
+põe no `<body>`): título 40px com a pasta que abre; trilho e acervo como cartões; rótulos, "+" tracejado, contagem 22×18,
+botão de recolher na borda; barra do acervo e "Nova Pasta" do desenho (mesmo modal: cliente opcional, número no servidor);
+filtros de 34px; paginação de 26px sempre visível no topo (a do rodapé, só do BlueJus, só com mais de 1 página); resumo
+"página de N · Total" (antes contava só a página); tabela com colunas, cabeçalho, linha, hover azul; chips de prioridade
+(rótulo do sistema, sem o pulso antigo) e de situação (ponto por `::before` ligado a `data-situacao`, duplo clique mantido);
+metas no visual do dc com o **total** (decisão) e a cor de alerta de antes; marcador com a pasta e os nomes no `title`;
+responsável com avatar de 28px; vazio do desenho; cartões com raio 4.
+
+**Menus de botão direito** (`public/js/expediente-lista.js`): linha — Abrir · Nova aba · Alterar responsável · Alterar marcador
+(acionam os controles de sempre; fora na lápide) · Copiar número · Copiar nome; marcador — Ver pastas · Novo · Novo
+sub-marcador · Editar · Excluir. Teclado: setas, Home/End, Esc e Tab devolvem o foco; tecla de menu/Shift+F10 no marcador.
+Fora (sem backend ou inferência): F2, Trancar, Destacar, Duplicar.
+
+**Excluir marcador:** janela da E7 dentro do modal Editar, vermelha, com o texto do dc ("Excluir o marcador "X"?", "Esta ação
+é irreversível…", "Excluir mesmo assim") e duas correções de verdade: a pasta "deixa de ter este marcador" (pode ter outros)
+e os sub-marcadores excluídos junto, com os nomes (cascata conferida no banco: `pai_id` e `pasta_marcador` com `ON DELETE
+CASCADE`). O DELETE só sai no "sim".
+
+**Revisão independente (feature-review-agent):** sem mudança de regra além da autorizada, sem furo de isolamento, DELETE só no
+"sim", contagem do DOM certa. Corrigidos: "Alterar responsável" abria e fechava no mesmo clique (médio); botões do
+marcador cobriam a contagem (médio); hover deles sem branco; corrida de foco no Excluir pelo menu; soma de pastas
+repetidas no texto; renomear deixava o nome velho na tela (bug anterior, `a span` pegava o ponto de cor); "Copiar nome"
+com "+N"; Tab sem devolver foco; aviso sem região viva; paginação duplicada com 1 página; chip refeito sem o ícone.
+Ficaram: testes de folha (a prova é a tela) e o teste de isolamento passa pelo TenantFilter e pelo `WHERE` juntos.
+
+**Testes:** `ExpedienteListaDesenhoTelaTest` (5), `ExpedienteListaDesenhoFolhaTest` (18), +4 em `ExpedienteFiltroPastasControllerTest`,
+`PastaConfirmacaoDoDesenhoJsTest` ajustado ao partial. Mutações: regra de CSS fora do escopo e DELETE sem esperar o "sim" —
+as duas derrubaram o teste. Suíte completa **OK 9372/9372** (52.442 asserções) no `saas_testfidelidade-designer`.
+
+**Tela (1440×900, POST/DELETE/PATCH interceptados):** cabeçalho `rgb(244,247,249)` 11px/700/1.3px `rgb(74,99,115)`; NUP
+14px/700 `rgb(10,111,160)`; cliente 14px/700 `rgb(18,36,47)`; prioridade normal `rgb(238,242,245)/rgb(31,54,68)` 24px raio
+3; situação ativo `rgb(30,123,69)` 12.5px/700 com ponto 7px `rgb(47,163,95)`; barra `rgb(247,249,251)` padding 22; título 17px
+/400; Nova Pasta `rgb(226,233,238)/rgb(36,56,69)` 36px; busca `rgb(237,242,246)` 34px sem borda; página ativa `rgb(10,111,160)`
+26×26 raio 3; contagem `rgb(233,239,243)/rgb(52,80,95)` 18px 11px/700 raio 3; trilho branco borda `rgb(214,224,231)` raio 4;
+hover da linha `rgb(59,143,194)` com faixa `rgb(31,111,156)` e texto branco. Todos os 8 cabeçalhos cabem nas colunas.
+"Sem responsável" pela tela: chip "Responsável: Sem responsável", 58 pastas, nenhuma com responsável. Menus, teclado e
+exclusão como descrito (0 escrita enviada). Escuro e celular (390px, sem rolagem lateral, cartões) conferidos.
+
+**Diferenças restantes (≈ no checklist):** cabeçalho da tabela não fixa ao rolar (pede reestruturar cabeçalho e corpo);
+Cliente e Ação dividem o resto meio a meio (o dc dá 2:1.5); filtros são selects nativos no visual do dc (o dc tem pops);
+moldura da janela de exclusão é a da E7 (o dc tem faixa vermelha e círculo); fundo pastel dos marcadores por decisão;
+"+" do trilho cria sub-marcador; clique no título do painel não zera filtros; modais de Nova Pasta e de marcador não mexidos.
+Anterior à E8, registrado: clicar num marcador não deixa o link com `.active` (o JS antigo).
 
