@@ -33,6 +33,7 @@
             <select name="responsavel" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
                     data-rotulo="Responsável" aria-label="Filtrar por responsável">
                 <option value="">Responsável</option>
+                <option value="sem" {% if filters.responsavel == 'sem' %}selected{% endif %}>Sem responsável</option>
                 {% for usuario in responsaveis %}
                     <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}>{{ usuario.fullName }}</option>
                 {% endfor %}

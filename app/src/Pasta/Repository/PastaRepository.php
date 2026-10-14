@@ -667,7 +667,12 @@ class PastaRepository extends ServiceEntityRepository
                ->setParameter('status', $filters['status']);
         }
 
-        if (!empty($filters['responsavel'])) {
+        // "Sem responsável" (E8 da fidelidade, decisão do dono 14/10; o desenho de 13/10 tem a opção no
+        // filtro de responsável): a pasta sem ninguém atribuído. Antes, `responsavel=sem` virava
+        // `(int) 0` e devolvia lista vazia — nenhum chamador dependia disso.
+        if (($filters['responsavel'] ?? '') === 'sem') {
+            $qb->andWhere('p.responsavel IS NULL');
+        } elseif (!empty($filters['responsavel'])) {
             $qb->join('p.responsavel', 'r')
                ->andWhere('r.id = :responsavel')
                ->setParameter('responsavel', (int) $filters['responsavel']);
