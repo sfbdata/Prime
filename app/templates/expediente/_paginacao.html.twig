@@ -1,4 +1,5 @@
-{% if pagination.total_pages > 1 %}
+{# Sempre visível quando há pastas, como no desenho (dc L.131-135); com 1 página, só o "1". #}
+{% if pagination.total_items > 0 %}
     {% set max_botoes = 8 %}
     {% set total = pagination.total_pages %}
     {% set atual = pagination.current_page %}
@@ -70,8 +71,5 @@
             </li>
 
         </ul>
-        <small class="text-muted ms-2">
-            {{ pagination.total_items }} resultado{{ pagination.total_items != 1 ? 's' : '' }}
-        </small>
     </nav>
 {% endif %}

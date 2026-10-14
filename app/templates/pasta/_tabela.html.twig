@@ -24,8 +24,15 @@
 {% if pastas|length > 0 %}
 <div class="pastas-view pastas-view--tabela" id="pastasView">
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
-    <span class="text-muted">
-        <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} resultado(s) encontrado(s)
+    {# Resumo do desenho (dc L.139): "página de N · Total: X pastas" — o total é o da consulta inteira,
+       não o da página (antes dizia "50 resultado(s)" contando só a página). #}
+    <span class="exp-resumo">
+        <i class="bi bi-list-ul" aria-hidden="true"></i>
+        {%- if pagination is defined and pagination is not null %}
+            {{ pagination.current_page }} de {{ max(pagination.total_pages, 1) }} · Total: {{ pagination.total_items|number_format(0, ',', '.') }} pasta{{ pagination.total_items != 1 ? 's' : '' }}
+        {%- else %}
+            {{ pastas|length }} pasta{{ pastas|length != 1 ? 's' : '' }}
+        {%- endif %}
     </span>
     <div class="d-flex align-items-center flex-wrap gap-2">
         {# "Ordenar por" — só no modo lista (no desktop) e no mobile (nenhum tem cabeçalho de coluna) #}
@@ -129,8 +136,9 @@
                         </span>
                     </td>
                     <td class="align-middle" data-sort="{{ pasta.prioridade.value == 'urgente' ? 3 : (pasta.prioridade.value == 'prioridade' ? 2 : 1) }}">
-                        <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.72rem;">
-                            {{ pasta.prioridadeLabel }}
+                        {# `exp-prio` + `data-prio`: chip do desenho (dc L.158), com o rótulo do sistema. #}
+                        <span class="badge exp-prio {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" data-prio="{{ pasta.prioridade.value }}" style="font-size:.72rem;">
+                            <i class="bi bi-flag-fill" aria-hidden="true"></i>{{ pasta.prioridadeLabel }}
                         </span>
                     </td>
                     <td class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
@@ -142,12 +150,13 @@
                         {% if totalTarefas > 0 %}
                             {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
                             <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                               class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                               class="badge exp-metas {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                               data-metas="{{ temRevisao ? 'revisao' : (tarefasAtivas|length > 0 ? 'abertas' : 'concluidas') }}"
                                title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
                                 <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
                             </a>
                         {% else %}
-                            <span class="text-muted" style="font-size:.8rem;">—</span>
+                            <span class="text-muted exp-sem-metas" style="font-size:.8rem;" title="Sem metas">–</span>
                         {% endif %}
                     </td>
                     <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">
@@ -155,8 +164,9 @@
                             {% if pasta.marcadores|length > 0 %}
                                 {% set primeiro = pasta.marcadores|first %}
                                 <span class="badge rounded-pill px-2 marcador-principal"
-                                      style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;">
-                                    {{ primeiro.nome }}
+                                      style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;"
+                                      title="{{ pasta.marcadores|map(m => m.nome)|join(', ') }}">
+                                    <i class="bi bi-folder-fill" aria-hidden="true"></i>{{ primeiro.nome }}
                                 </span>
                                 {% if pasta.marcadores|length > 1 %}
                                     <span class="badge rounded-pill px-2 marcadores-extra"
@@ -216,10 +226,11 @@
 {{ include('pasta/_resp_menu.html.twig', {usuarios: usuarios, fotosResponsaveis: fotosResponsaveis|default({}), respContexto: 'expediente'}) }}
 </div>{# /#pastasView #}
 {% else %}
-<div class="alert alert-info mb-0">
-    <i class="bi bi-info-circle me-1"></i>
+{# Vazio do desenho (dc L.214). #}
+<div class="exp-vazio">
+    <i class="bi bi-folder-x" aria-hidden="true"></i>
     {% if filters.busca or filters.status or filters.responsavel or filters.prioridade or filters.data_de or filters.data_ate %}
-        Nenhuma pasta encontrada com os filtros aplicados.
+        Nenhuma pasta encontrada com esses filtros.
     {% else %}
         Nenhuma pasta cadastrada.
     {% endif %}

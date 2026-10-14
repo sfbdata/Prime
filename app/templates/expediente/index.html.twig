@@ -19,10 +19,15 @@
 
 {% block title %}Expediente{% endblock %}
 
+{# E8 (fidelidade ao desenho de 13/10): o visual da Lista mora em /css/expediente-lista.css, todo sob
+   `.exp-body` — nenhuma regra vaza para outra tela. #}
+{% block body_class %}exp-body{% endblock %}
+
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-inbox-fill me-2"></i>Expediente</h1>
+        {# Título do desenho (dc L.57): 40px, pasta azul que fecha e abre ao carregar. #}
+        <h1 class="exp-titulo"><span class="exp-titulo-icone" aria-hidden="true"><i class="bi bi-folder-fill"></i><i class="bi bi-folder2-open"></i></span>Expediente</h1>
     </div>
 </section>
 
@@ -205,6 +210,9 @@
         </div>
     </div>
 </section>
+
+{# E8: a janela de confirmação da Pasta (E7) também aqui — exclusão de marcador. #}
+{{ include('_partials/_janela_confirmacao.html.twig') }}
 {% endblock %}
 
 {% block stylesheets %}
@@ -902,6 +910,8 @@ html[data-bs-theme="dark"] .btn-expediente-pull-tab.drawer-aberto {
     background: var(--bs-secondary-bg);
 }
 </style>
+{# E8: o visual do desenho de 13/10 vem por último, para ganhar dos estilos antigos acima. #}
+<link rel="stylesheet" href="{{ asset('css/expediente-lista.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -1455,15 +1465,49 @@ document.addEventListener('DOMContentLoaded', function () {
         var token = editarTokenExcluir.value;
         var item  = document.getElementById('item-pasta-' + id);
 
-        var temSubs = item && item.querySelector('.expediente-submenu li');
-        var msg = temSubs
-            ? 'Excluir o marcador "' + nome + '" removerá todos os seus sub-marcadores. Continuar?'
-            : 'Excluir o marcador "' + nome + '"?';
-
-        if (!confirm(msg)) return;
-
-        var url = urlExcluir.replace('/0', '/' + id);
         var btnExcluir = this;
+        var pergunta = perguntaDeExclusaoDoMarcador(item, nome);
+        var resposta = window.confirmarPs
+            ? window.confirmarPs(pergunta)
+            : Promise.resolve(window.confirm(pergunta.titulo + '\n\n' + pergunta.texto));
+        resposta.then(function (sim) {
+            if (sim) { excluirMarcadorConfirmado(id, token, btnExcluir); }
+        });
+    });
+
+    /* E8: a pergunta do desenho (dc 03 L.259-271, "Excluir o marcador "X"?" / "Esta ação é irreversível…" /
+       "Excluir mesmo assim") na janela da tela (E7), vermelha. Duas correções de verdade: a pasta pode ter
+       vários marcadores, então ela "deixa de ter este marcador" (o dc diz "fica sem marcador"); e os
+       sub-marcadores são excluídos junto (cascata no banco), com quantos e quais — decisão do dono 14/10. */
+    function perguntaDeExclusaoDoMarcador(item, nome) {
+        var contar = function (el) {
+            var c = el ? el.querySelector(':scope > a .js-contagem-marcador, :scope > .js-contagem-marcador') : null;
+            return c ? (parseInt(c.textContent, 10) || 0) : 0;
+        };
+        var subs = item ? Array.prototype.slice.call(item.querySelectorAll('.expediente-submenu > li')) : [];
+        var pastas = contar(item);
+        var texto = 'Esta ação é irreversível. ';
+        texto += pastas > 0
+            ? 'As ' + pastas + ' pasta(s) com este marcador continuam no sistema, porém deixam de ter este marcador.'
+            : 'Nenhuma pasta está com este marcador.';
+        if (subs.length > 0) {
+            var nomes = subs.map(function (li) {
+                var n = li.querySelector('.expediente-item-nome');
+                return n ? n.textContent.trim() : '';
+            }).filter(Boolean);
+            var pastasSubs = subs.reduce(function (t, li) {
+                var c = li.querySelector('.js-contagem-marcador');
+                return t + (c ? (parseInt(c.textContent, 10) || 0) : 0);
+            }, 0);
+            texto += ' Os ' + subs.length + ' sub-marcador(es) — ' + nomes.join(', ') + ' — também são excluídos'
+                + (pastasSubs > 0 ? ', e as ' + pastasSubs + ' pasta(s) deles deixam de tê-los.' : '.');
+        }
+
+        return { titulo: 'Excluir o marcador "' + nome + '"?', texto: texto, rotulo: 'Excluir mesmo assim', icone: 'bi-trash3' };
+    }
+
+    function excluirMarcadorConfirmado(id, token, btnExcluir) {
+        var url = urlExcluir.replace('/0', '/' + id);
         btnExcluir.disabled = true;
         editarErro.style.display = 'none';
 
@@ -1481,6 +1525,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             bootstrap.Modal.getInstance(modalEditar).hide();
+            var item = document.getElementById('item-pasta-' + id);
             if (item) item.remove();
         })
         .catch(function () {
@@ -1488,7 +1533,7 @@ document.addEventListener('DOMContentLoaded', function () {
             editarErro.textContent   = 'Erro de comunicação.';
             editarErro.style.display = '';
         });
-    });
+    }
 
     document.getElementById('btnSalvarMarcador').addEventListener('click', function () {
         var nome  = inputNome.value.trim();
@@ -2041,4 +2086,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
+<script src="{{ asset('js/pasta-dialogos.js') }}"></script>
+<script src="{{ asset('js/expediente-lista.js') }}"></script>
 {% endblock %}
