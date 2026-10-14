@@ -3,7 +3,7 @@
 > **Para quem:** o dono e quem continuar a frente `fidelidade-designer`. Plano e evidências em
 > `fidelidade-designer-1310.md` (§9 para a E5). Este arquivo é **acumulado**: cada entrega atualiza a marca
 > do elemento em vez de abrir lista nova. Levantado em 14/10/2026 (inventário read-only) e já atualizado com
-> a E5 (`e227183b`) e a E5b (`3b5e1bcd`). Marcas: ✓ conforme · ≈ diverge · ∅ ausente · **+** só o BlueJus tem (fora das contagens).
+> a E5 (`e227183b`), a E5b (`3b5e1bcd`) e a E5c. Marcas: ✓ conforme · ≈ diverge · ∅ ausente · **+** só o BlueJus tem (fora das contagens).
 >
 > **∅ não quer dizer "fora".** Elemento sem backend continua na lista; a coluna *Backend?* diz o que falta.
 >
@@ -63,11 +63,11 @@
 | ID | Elemento | Tipo | BlueJus | Onde | Backend? | Spec |
 |---|---|---|---|---|---|---|
 | MM-ABA-01 | Trilho segmentado #eef2f5, **raio 4**, padding 4, gap 2, **dentro do mesmo cartão da barra de filtros** | contêiner | **✓ E5b** — raio 4, sem borda, gap 2, **no mesmo cartão da barra de filtros** (dentro da raiz do filtro) | M:72; CSS:180 | não | — |
-| MM-ABA-02 | Aba inativa 34px, **raio 3**, #34505f, 13px normal | aba | ≈ **raio 3 ✓ (E5)**; padding/peso/cor diferem | CSS:189 | não | — |
-| MM-ABA-03 | Aba ativa #fff, **texto #0a6fa0**, negrito, sombra 0 1px 3px | estado | ≈ texto #12242f (só o ícone azul), borda | CSS:205 | não | — |
-| MM-ABA-04 | Ícone na cor do texto | ícone | ≈ ícone inativo #8496a3 | CSS:212 | não | — |
+| MM-ABA-02 | Aba inativa 34px, **raio 3**, #34505f, 13px normal | aba | **✓ E5c** — 34px, padding 0 12px, gap 7, 13px/400, #34505f (`--mm-aba-texto`), sem borda; raio 3 (E5) | CSS:189 | não | — |
+| MM-ABA-03 | Aba ativa #fff, **texto #0a6fa0**, negrito, sombra 0 1px 3px | estado | **✓ E5c** — fundo branco, texto #0a6fa0 700, sombra 0 1px 3px rgba(18,36,47,.12), sem borda | CSS:205 | não | — |
+| MM-ABA-04 | Ícone na cor do texto | ícone | **✓ E5c** — ícone herda a cor do texto (#34505f inativa, #0a6fa0 ativa) | CSS:212 | não | — |
 | MM-ABA-05..08 | Sou responsável · Criei · Em acompanhamento · Todas | aba | ✓ | M:63-66 | já existe | — |
-| MM-ABA-09 | Contador 11px negrito, **raio 3**; ativo #e5f1f7/#0a6fa0, inativo #dfe6eb/#4a6373 | badge | ≈ **raio 3 ✓ (E5)**; cores diferem | CSS:214 | já existe | — |
+| MM-ABA-09 | Contador 11px negrito, **raio 3**; ativo #e5f1f7/#0a6fa0, inativo #dfe6eb/#4a6373 | badge | **✓ E5c** — 11px/700, padding 1/6, raio 3; ativo #e5f1f7/#0a6fa0, inativo #dfe6eb/#4a6373 | CSS:214 | já existe | — |
 | MM-ABA-10 | Contador recalculado ao marcar acompanhamento | comportamento | ✓ | M:211 | já existe | — |
 | + | Hover da aba; alternância Cartões/Lista (E5: 4px/3px, seguindo as abas) | — | só BlueJus | CSS:204, 225 | — | — |
 
@@ -111,12 +111,12 @@
 | MM-LIS-17 | Título 14.5px negrito, **CAIXA ALTA**, uma linha com reticências | texto | **✓ E5b** — caixa alta 14.5px/700, .2px, uma linha com reticências; nome inteiro no `title` | CSS:349 | não | — |
 | MM-LIS-18 | Pasta: bi-folder2, **nº em negrito #0a6fa0** · CLIENTE | campo | ≈ bi-folder, nº sem negrito em #6b8494, cliente cortado em 38 | C:25 | não | — |
 | MM-LIS-19 | "de {criador}" (bi-person) | campo | ✓ (aba Sou responsável) | C:31 | já existe | — |
-| MM-LIS-20 | Prazo "vence em N dia(s) · dd/mm/aaaa" | campo | ≈ sem a data | ENT:306 | não | — |
-| MM-LIS-21 | Atrasado "N dia(s) atrasado" #a3232b negrito | estado | ✓ texto; ≈ cor | CSS:387 | não | — |
-| MM-LIS-22 | "vence hoje" | estado | ≈ "Vence hoje" | ENT:308 | não | — |
-| MM-LIS-23 | "sem prazo definido" | estado | ≈ "sem prazo" | C:45 | não | — |
-| MM-LIS-24 | Concluída: prazo mostra "concluída" | estado | ≈ "prazo dd/mm/aaaa" | C:46 | não | — |
-| MM-LIS-25 | Prazo não atrasado sempre #4a6373 normal | estado | ≈ 1–3 dias âmbar 600 | CSS:388 | não | — |
+| MM-LIS-20 | Prazo "vence em N dia(s) · dd/mm/aaaa" | campo | **✓ E5c** — "vence em N dia(s) · dd/mm/aaaa" (`TextoDoPrazoDaMeta`, regra do agrupador) | ENT:306 | não | — |
+| MM-LIS-21 | Atrasado "N dia(s) atrasado" #a3232b negrito | estado | **✓ E5c** — "N dia(s) atrasado" #a3232b 700 só no balde Atrasadas (em revisão vencida mostra os dias sem destaque, como o dc) | CSS:387 | não | — |
+| MM-LIS-22 | "vence hoje" | estado | **✓ E5c** — "vence hoje" | ENT:308 | não | — |
+| MM-LIS-23 | "sem prazo definido" | estado | **✓ E5c** — "sem prazo definido" | C:45 | não | — |
+| MM-LIS-24 | Concluída: prazo mostra "concluída" | estado | **✓ E5c** — "concluída"; a data do prazo fica no `title` | C:46 | não | — |
+| MM-LIS-25 | Prazo não atrasado sempre #4a6373 normal | estado | **✓ E5c** — #4a6373 normal (`--mm-prazo-texto`), 12.5px | CSS:388 | não | — |
 | MM-LIS-26 | Pílula de status 11px negrito, padding 3/9, **raio 3**, sem borda | pílula | **✓ E5b** — raio 3, sem borda, 11px/700/.6px, padding 3/9 | CSS:394 | não | — |
 | MM-LIS-27 | ATRASADA #a3232b/#fbe7e7 | status | ✓ rótulo; ≈ fundo | C:11 | não | — |
 | MM-LIS-28 | VENCE EM BREVE | status | **✓ E5b** — "Vence em breve" (warn), derivado do balde `proximas` do `AgrupadorDeMetas` | C:11 | não (vem do prazo) | — |
@@ -139,12 +139,12 @@
 | MM-MENU-02 | Dica "Acompanhar esta meta" / "Parar de acompanhar" | dica | ≈ "Acompanhar" / "Deixar de acompanhar" (title nativo) | C:72 | não | — |
 | MM-MENU-03 | Hover do marcador: só o branco do hover da linha | hover | ≈ BlueJus tem borda + cor própria (fora do hover da linha) | CSS:437 | não | — |
 | MM-MENU-04 | Clique alterna e grava | interação | ✓ (no servidor) | M:180 | já existe | — |
-| MM-MENU-05 | Botão ⋮ "Opções" 30×30, raio 4, #7d909d, hover #e5f1f7 | botão | ≈ trocado por bi-chevron-right "Abrir a meta" (**raio 4 ✓ E5**) — divergência já decidida antes | C:75 | não | ver MENU-08 |
+| MM-MENU-05 | Botão ⋮ "Opções" 30×30, raio 4, #7d909d, hover #e5f1f7 | botão | **✓ E5c** — ⋮ "Opções" 30×30, raio 4, #7d909d; fundo #e5f1f7 só no foco do teclado — no mouse a linha em hover pinta tudo de branco, como o dc (L18); substitui a seta (o acesso à meta segue em "Abrir relatório completo" e no título) | C:75 | não | ver MENU-08 |
 | MM-MENU-06 | Ação real do ⋮ no protótipo = `m.marcar` | defeito | não reproduzir | — | — | — |
-| MM-MENU-07 | Itens do menu ⋮: nenhum no protótipo | menu | ∅ | — | — | R118/R236/R223 |
-| MM-MENU-08 | "Abrir relatório completo" (R118) | item | ∅ aqui; existe no ⋮ da Pasta | — | já existe | R118 |
-| MM-MENU-09 | "Ir para a aba Metas da pasta" (R118) | item | ∅ | — | não | R118 |
-| MM-MENU-10 | "Editar nome" (R236) | item | ∅ aqui; existe na Pasta | — | já existe | R236 |
+| MM-MENU-07 | Itens do menu ⋮: nenhum no protótipo | menu | **✓ E5c** — menu Bootstrap (popper `fixed`, escapa do recorte do cartão) com os itens da especificação que já existem; resiste ao hover azul da linha | — | — | R118/R236/R223 |
+| MM-MENU-08 | "Abrir relatório completo" (R118) | item | **✓ E5c** — → `tarefa_show` (a página da meta, o relatório completo) | — | já existe | R118 |
+| MM-MENU-09 | "Ir para a aba Metas da pasta" (R118) | item | **✓ E5c** — → `/pasta/{id}?meta={id}#tarefas`: aba Metas aberta, meta realçada (realce do PMC-044; meta concluída abre no filtro "Concluídas") | — | não | R118 |
+| MM-MENU-10 | "Editar nome" (R236) | item | **✓ E5c** — → `…&acao=renomear#tarefas`: a pasta abre a edição de nome do próprio ⋮ dela (mesmo form, mesmo POST `tarefa_renomear`, volta para a aba Metas da pasta). Oculto em pasta excluída, como na pasta | — | já existe | R236 |
 | MM-MENU-11 | "Encaminhar via Chat I.A" (R223) | item | ∅ | — | **sim** | R223 |
 | MM-MENU-12 | Menu de botão direito: nenhum | menu | ✓ (ambos sem) | — | — | — |
 
@@ -154,16 +154,16 @@
 |---|---|---|---|---|---|---|
 | MM-TRI-01 | aside **sticky top 124px**, 340px | layout | ≈ **sticky ✓ E5b** (`top: calc(header + subnav + 16px)` = 118px; exigiu `overflow: visible` no `main` só nesta página — o AdminLTE prendia o sticky); largura 356 × 340 | CSS:251 | não | — |
 | MM-TRI-02 | "Seu andamento": padding 20, raio 4, **faixa inferior 3px #1e7b45** | cartão | **✓ E5b** — faixa inferior 3px #1e7b45 | R:76 | não | — |
-| MM-TRI-03 | Título 14px + "últimos 30 dias" | texto | ✓ texto; ≈ tamanho | R:78 | já existe | — |
-| MM-TRI-04 | "X de Y" 34px negrito + "concluídas" | número | ≈ 1.625rem/500 | CSS:455 | já existe | — |
-| MM-TRI-05 | Barra 7px: trilho #e6edf2 **raio 4**, preenchimento #1e7b45 **raio 4**, transição .4s | barra | ≈ **raios 4 ✓ (E5)**; verde #1f9d61, sem transição | CSS:462 | já existe | — |
-| MM-TRI-06 | Legenda sempre 3 itens com "(s)" | legenda | ≈ 4 fatias, esconde zeradas | OUT:99 | já existe | — |
+| MM-TRI-03 | Título 14px + "últimos 30 dias" | texto | **✓ E5c** — "Seu andamento" 14px/700 + "últimos 30 dias" 12px; cabeçalho de "Precisa de atenção" 14px/700, padding 13/16 | R:78 | já existe | — |
+| MM-TRI-04 | "X de Y" 34px negrito + "concluídas" | número | **✓ E5c** — 34px/700, -.5px; "concluídas" 13px | CSS:455 | já existe | — |
+| MM-TRI-05 | Barra 7px: trilho #e6edf2 **raio 4**, preenchimento #1e7b45 **raio 4**, transição .4s | barra | **✓ E5c** — preenchimento #1e7b45 (`--mm-faixa-andamento`), `transition: width .4s`; raios 4 (E5) | CSS:462 | já existe | — |
+| MM-TRI-06 | Legenda sempre 3 itens com "(s)" | legenda | **✓ E5c** — sempre os 3 itens do dc, inclusive zerados: "N concluída(s)" · "N atrasada(s)" (pela regra, em qualquer aba — inclusive na Criei, que não tem grupo de atrasadas) · "N em revisão", 12.5px, pontos 7px nas cores das faixas. **Saiu** a fatia "em aberto" (só do BlueJus; é o resto do "X de Y") | OUT:99 | já existe | — |
 | MM-TRI-07 | Base: todas as metas | regra | ≈ o que a aba exibe | OUT:121 | sim (regra) | — |
 | MM-TRI-08 | "Precisa de atenção": **faixa inferior 3px #a3232b** | cartão | **✓ E5b** — faixa inferior 3px #a3232b | R:103 | não | — |
 | MM-TRI-09 | Item = button de linha inteira, hover #eef6fb, abre a pasta | item | ≈ div, só o título é link, sem hover | R:109 | não | — |
-| MM-TRI-10 | bi-exclamation-triangle-fill #a3232b | ícone | ≈ #c0392f | R:110 | não | — |
-| MM-TRI-11 | "Título · Pasta NNN" | texto | ≈ sem "· Pasta" | R:112 | não | — |
-| MM-TRI-12 | "prazo dd/mm · N dia(s) atrasado · de X" | texto | ✓ texto; ≈ cor | R:113 | já existe | — |
+| MM-TRI-10 | bi-exclamation-triangle-fill #a3232b | ícone | **✓ E5c** — #a3232b (`--mm-faixa-atencao`) | R:110 | não | — |
+| MM-TRI-11 | "Título · Pasta NNN" | texto | **✓ E5c** — "Título · Pasta NNN", 13.5px/400 | R:112 | não | — |
+| MM-TRI-12 | "prazo dd/mm · N dia(s) atrasado · de X" | texto | **✓ E5c** — texto igual; 12px, line-height 1.4, #5b7383 (`--mm-atencao-desc`) | R:113 | já existe | — |
 | MM-TRI-13 | Máximo 4 itens | regra | ≈ máximo 5 | OUT:16 | não | — |
 | MM-TRI-14 | Cartão sempre visível | estado | ≈ some sem atrasadas | R:102 | não | — |
 | + | "Ver todas as N atrasadas"; cartão de pessoas | — | só BlueJus | R:121, 133 | — | — |
@@ -213,27 +213,29 @@ Casca visual possível (botão + janela vazia com "sem conexão com a Central") 
 |---|---|---|---|
 | Cabeçalho | 2 | 3 | 1 |
 | KPIs | 13 | 1 | 0 |
-| Abas | 6 | 4 | 0 |
+| Abas | 10 | 0 | 0 |
 | Filtros | 3 | 8 | 0 |
-| Lista | 16 | 20 | 1 |
-| Marcador e menus | 2 | 4 | 5 |
-| Trilho | 4 | 10 | 0 |
+| Lista | 21 | 15 | 1 |
+| Marcador e menus | 7 | 3 | 1 |
+| Trilho | 9 | 5 | 0 |
 | Modais e dicas | 3 | 0 | 1 |
 | Globais | 4 | 8 | 0 |
 | Chat I.A | 0 | 0 | 38 |
-| **Total** | **53** | **58** | **46** |
+| **Total** | **72** | **43** | **42** |
 
-Evolução: levantamento 25 ✓ · 72 ≈ · 57 ∅ (154) → E5 27 · 72 · 56 (155) → **E5b 53 · 58 · 46 (157)** (contado no arquivo; linhas "✓ texto; ≈ cor" contam ✓, como no levantamento). A E5b levou 11 itens
+Evolução: levantamento 25 ✓ · 72 ≈ · 57 ∅ (154) → E5 27 · 72 · 56 (155) → E5b 53 · 58 · 46 (157) → **E5c 72 · 43 · 42 (157)** (contado no arquivo; linhas "✓ texto; ≈ cor" contam ✓, como no levantamento). A E5b levou 11 itens
 de ∅ para ✓ e 13 de ≈ para ✓, e abriu 2 linhas: MM-LIS-37 (nº global, ∅, depende de backend) e MM-FIL-11 (≈).
 
 ## 12. Próximos candidatos (visuais, sem backend)
 
-KPIs (KPI-01/03/04/05/06/07/09) · abas dentro do cartão dos filtros (ABA-01/03/04, FIL-01/02) · cartão por grupo e
-cabeçalho (LIS-02/03/04) · faixa de 4px e fundo das atrasadas (LIS-13/14) · caixa alta e nº da pasta em negrito
-(LIS-17/18) · textos e cores de prazo e as pílulas VENCE EM BREVE / NO PRAZO / SEM PRAZO derivadas do prazo real
-(LIS-20..31) · trilho sticky com faixas de 3px e itens clicáveis (TRI-01/02/08/09/11/14) · "Atualizado às" (CAB-03)
-· menu ⋮ só com ações que já existem (MENU-08/09/10; "Encaminhar" fica de fora).
-**Não recomendados agora** (simulariam o que não existe): CAB-05 (Intelligence sem painel) e o bloco MM-IA.
+Depois da E5c sobram, sem pedir dado novo: cartão por grupo e cabeçalho do grupo (LIS-02/03/04), cores e nomes dos
+grupos (LIS-05/06; LIS-07/08 tocam a regra do agrupador — perguntar), nº da pasta em negrito azul com bi-folder2
+(LIS-18), linha inteira clicável (LIS-15 — o desenho abre a **pasta**; hoje o título abre a meta: decidir), "criada"
+sem "· mod." (LIS-33), vazio único (LIS-34), item de "Precisa de atenção" como botão de linha inteira com hover
+#eef6fb (TRI-09 — o desenho abre a pasta), cartão de atenção sempre visível (TRI-14), largura 340/gap 16 (LIS-01,
+TRI-01), marcador #98a9b4/#0a6fa0 e dicas "Acompanhar esta meta"/"Parar de acompanhar" (MENU-01/02/03), H1 36px
+(CAB-01), subtítulo (CAB-04), busca 36px (FIL-03 — componente compartilhado `filtro-tabela`).
+**Não recomendados agora** (simulariam o que não existe): CAB-05 (Intelligence sem painel), MENU-11 e o bloco MM-IA.
 
 ## 13. Pendências de especificação desta tela
 
@@ -256,3 +258,17 @@ cabeçalho (LIS-02/03/04) · faixa de 4px e fundo das atrasadas (LIS-13/14) · c
   cartões (o equivalente do desenho).
 - **Lição:** o teste de folha passou com as faixas do trilho erradas (a regra `.mm-cartao`, depois no arquivo, devolvia a
   borda de 1px) e com o sticky preso pelo AdminLTE. Os dois só apareceram medindo na tela.
+
+## 15. Notas da E5c
+
+- **Prazo da linha** vem de `TextoDoPrazoDaMeta` (novo), que só lê o balde de `AgrupadorDeMetas::classificar` e o prazo
+  real. `Tarefa::getPrazoInfo` não mudou: a tela da meta, a de Equipe e o modo lista (só do BlueJus) seguem com o
+  texto e as cores de antes — as regras `.mm-prazo.tom-*` ficaram para eles.
+- **Legenda de "Seu andamento"**: o desenho mostra 3 itens fixos; a fatia "em aberto" (só do BlueJus) saiu, e os itens
+  zerados passaram a aparecer. Se o dono quiser a fatia de volta, é uma linha em `MinhasMetasOutput::fatiasDoAndamento`.
+- **⋮ sem backend novo**: "Editar nome" não edita na própria Minhas Metas — leva à aba Metas da pasta com
+  `acao=renomear` e o `pasta-metas.js` aciona o "Editar nome" do ⋮ da linha (que só existe se a meta for editável).
+  Editar ali mesmo pediria que o `tarefa_renomear` voltasse para Minhas Metas (mudança no controller) — fica como
+  proposta, não feita.
+- **Modal do ponto no dev**: sem batida no dia, ele abre por cima e toma o foco do campo de nome na pasta. Na medição
+  foi removido do DOM (ponto é risco ALTO, sem interação); em uso normal só aparece até a primeira batida.

@@ -36,6 +36,7 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 | E4 | Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px); situação do processo legível. (Tirar "Como usar esta aba" **só com decisão** — P2) | P | ✅ `47662002` (§8) |
 | E5 | Minhas Metas: cantos ≤ 4px, hover azul da linha, numeração por grupo | P | ✅ `e227183b` (§9); a numeração foi substituída na E5b (P5 → R239) |
 | E5b | Minhas Metas: nº na pasta (R239), traço vermelho (R129), status de prazo derivados, linha atrasada, caixa alta, abas no cartão dos filtros, trilho fixo com faixas, indicadores com ícone e halo, "Atualizado às" | M | ✅ `3b5e1bcd` (§10) |
+| E5c | Minhas Metas: textos e cores do prazo, cores das abas, tipografia e legenda do trilho, "Título · Pasta NNN", ⋮ "Opções" com as ações que já existem (R118/R236) | M | ✅ `9d098c55` (§11) |
 | E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
 | E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | — |
 | E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | — |
@@ -290,3 +291,50 @@ andamento em fases (sem pedido).
   `rgb(138,90,18)/rgb(253,241,220)`, No prazo `rgb(24,108,71)/rgb(226,244,234)`, Sem prazo `rgb(91,115,131)/rgb(238,242,245)`;
   com dado real, provadas pelo teste funcional.
 - **Checklist de Minhas Metas:** 27 ✓ · 72 ≈ · 56 ∅ (E5) → **53 ✓ · 58 ≈ · 46 ∅** (157, contado no arquivo).
+
+## 11. E5c — evidência (Minhas Metas, textos de prazo, abas, trilho e ⋮)
+
+Escopo: §10 do `fidelidade-designer-1310/HANDOFF.md`. Só visual com dado que já existe; nenhuma rota, permissão,
+migration ou entidade. P1, P2 e P3 seguem **abertas**.
+
+- **Prazo da linha (LIS-20..25).** `TextoDoPrazoDaMeta` (novo) traduz o balde de `AgrupadorDeMetas::classificar` e o
+  prazo real nos textos do dc (`prazoTxt`): "vence em N dia(s) · dd/mm/aaaa", "vence hoje", "sem prazo definido",
+  "concluída", "N dia(s) atrasado"; só a do balde Atrasadas é #a3232b/700, o resto #4a6373 normal (em revisão vencida
+  mostra os dias sem destaque, como o dc). `Tarefa::getPrazoInfo` intocado (tela da meta, Equipe, modo lista).
+- **Abas (ABA-02/03/04/09).** Tokens `--mm-aba-*`: inativa 34px 13px/400 #34505f sem borda; ativa branca, #0a6fa0 700,
+  sombra 0 1px 3px; ícone herda a cor; contador 11px/700 #dfe6eb/#4a6373 e ativo #e5f1f7/#0a6fa0.
+- **Trilho (TRI-03/04/05/06/10/11/12).** Títulos 14px/700; "X de Y" 34px/700; barra #1e7b45 com `transition: width .4s`;
+  legenda fixa "concluída(s) · atrasada(s) · em revisão" (dc `andLeg`) — a fatia "em aberto" (só do BlueJus) saiu, e as
+  atrasadas contam pela regra, não pelo grupo (a aba Criei não tem grupo de atrasadas); "Título · Pasta NNN" 13.5px;
+  ícone #a3232b; descrição 12px #5b7383. TRI-07/09/13/14 (regras e destino do clique) não mexidos.
+- **⋮ "Opções" (MENU-05, 07..10).** Dropdown do Bootstrap (popper `fixed`, escapa do `overflow:hidden` do cartão) com
+  "Abrir relatório completo" (`tarefa_show` — mantém o acesso que a seta dava), "Ir para a aba Metas da pasta"
+  (`/pasta/{id}?meta={id}#tarefas`, realce do PMC-044) e "Editar nome" (`…&acao=renomear`: o `pasta-metas.js` aciona
+  o "Editar nome" do ⋮ da linha, que só existe se a meta for editável; oculto aqui em pasta excluída, a mesma regra).
+  O realce agora abre no filtro "Concluídas" quando a meta já foi concluída. Por que Bootstrap e não o `ps-pop`: o
+  `ps-pop` é aberto pelo `pasta-show.js`/`pasta-metas.js`, que não carregam em Minhas Metas — trazê-los seria carregar
+  a pasta inteira por um menu. "Encaminhar via Chat I.A" (R223) segue ∅, sem backend.
+- **Revisão read-only** (feature-review-agent) achou e foi corrigido: legenda "0 atrasada(s)" falsa na aba Criei
+  (médio); cor/hover novos do ⋮ vazando para a seta do modo lista e da Equipe; teste com saída por `skip`; comentário
+  e checklist prometendo fundo no ⋮ aberto (no mouse a linha em hover pinta tudo de branco, como o dc). Ficaram para
+  o smoke do dono: (a) o foco do campo de nome durante a rolagem suave do realce; (b) o "Precisa de atenção" ainda
+  conta dias por `getPrazoInfo` (não zera a hora do prazo) — no dev os 106 prazos são à meia-noite e as contas batem.
+- **Testes:** `TextoDoPrazoDaMetaTest` (11), `MinhasMetasAbasTrilhoPrazoCssTest` (15), `PastaMetaRealceVindoDeMinhasMetasJsTest`
+  (2), `TarefaMinhasControllerTest` +5 (textos de prazo; ⋮ e seus destinos; sem "Editar nome" em pasta excluída;
+  trilho; legenda na aba Criei), uma expectativa ajustada em `PastaMetaNovaRealceJsTest`. Prova por reintrodução: três
+  mutações (destaque por `dias < 0`; "Editar nome" sempre; atrasadas pelo grupo) — cada uma derrubou o teste dela.
+  Suíte completa antes da revisão: **OK 9306/9306**; depois das correções: `tests/Tarefa` 360/360 e a rodada
+  Tarefa+Pasta+Twig+Dashboard **3708/3708**; `lint:twig` e `lint:container` OK.
+- **Tela, 1440×900 (valores calculados), BlueJus × protótipo:** aba inativa `rgb(52,80,95)` 13px/400 34px, ícone na
+  mesma cor; contador `rgb(74,99,115)/rgb(223,230,235)` 11px/700 padding 1/6; ativa `rgb(10,111,160)`/700, fundo branco,
+  sombra `rgba(18,36,47,.12) 0 1px 3px`, contador `rgb(10,111,160)/rgb(229,241,247)`; prazo atrasado "75 dia(s)
+  atrasado" `rgb(163,35,43)`/700 (protótipo: o mesmo; "vence em 4 dia(s) · 15/10/2026" e "concluída" `rgb(74,99,115)`/400);
+  ⋮ `rgb(125,144,157)` 30×30 raio 4; "0 de 2" 34px/700/-.5px; barra `rgb(30,123,69)` `width .4s`; legenda 12.5px com
+  pontos `rgb(30,123,69)`/`rgb(163,35,43)`/`rgb(10,111,160)`; "DETALHAMENTO DA DEMANDA · Pasta 1160" 13.5px; ícone
+  `rgb(163,35,43)`; descrição `rgb(91,115,131)` 12px. Menu aberto: `position: fixed`, fundo branco, vai até 712px com o
+  cartão terminando em 691px (não recortado), itens com as cores de menu sobre a linha azul em hover. Pasta 304 com
+  `?meta=181&acao=renomear#tarefas`: aba Metas ativa, linha realçada, edição do nome aberta, URL limpa para
+  `/pasta/304#tarefas`; sem `acao`, só o realce. Celular 390px: sem rolagem horizontal, menu dentro da tela (102–345px).
+  O dev só tem 2 metas, ambas atrasadas: os outros textos de prazo estão provados pelo teste funcional.
+- **Checklist de Minhas Metas:** 53 ✓ · 58 ≈ · 46 ∅ (E5b) → **72 ✓ · 43 ≈ · 42 ∅** (157, contado no arquivo).
+

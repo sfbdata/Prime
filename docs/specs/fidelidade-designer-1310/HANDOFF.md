@@ -1,7 +1,7 @@
 # HANDOFF — Frente de fidelidade ao Claude Designer (pacote de 13/10/2026)
 
 > **Para quem:** a próxima sessão do Claude Code que vai continuar esta frente sem ter visto a conversa anterior.
-> **Escrito em:** 14/10/2026, ao fim da E5b. Fatos de git, caminhos e contagens conferidos no momento da escrita.
+> **Escrito em:** 14/10/2026, ao fim da E5b; **atualizado ao fim da E5c** (mesmo dia). Fatos de git, caminhos e contagens conferidos no momento da escrita.
 > **Leia antes de qualquer coisa:** este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
 > depois o checklist da tela em que for trabalhar.
 
@@ -31,8 +31,8 @@ Regras que valem sempre (do dono, reafirmadas a cada entrega):
 | Worktree | `/home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer` |
 | Branch | `fidelidade-designer` (marcador `.frente` = `fidelidade-designer`) |
 | Base | `origin/master` @ `a9653e66` (= produção na abertura, Engineering Loop publicado) |
-| HEAD | `f356a571` + o commit deste handoff |
-| Divergência | 12 commits à frente de `origin/master`; **4 atrás** (`179f360e`, `594810d6`, `9bf9755e`, `a530a73a` — frente `seg-runtime-argv` da engenharia: só `Dockerfile` e 2 scripts; **nenhuma interseção** com os arquivos desta frente) |
+| HEAD | `9d098c55` (E5c) + o commit de docs da E5c |
+| Divergência | 15 commits à frente de `origin/master`; **7 atrás** (frentes `seg-runtime-argv` e `eng-ci-qualidade` da engenharia: `Dockerfile`, `.github/workflows/qualidade.yml` e 2 scripts; **nenhuma interseção** com os arquivos desta frente) |
 | Árvore | limpa (fora o que é gitignored: `app/.env.local`, `app/var/router-smoke.php`, `.frente`) |
 | Banco de teste | `saas_testfidelidade-designer` (clone do `saas_test`; existe) |
 | Banco de dev do smoke | `saas_ux` (via `app/.env.local` copiado do checkout principal) |
@@ -54,6 +54,9 @@ Commits da frente (mais antigo → mais novo):
 | `dd985c0b` | docs: evidência E5 + checklist de Minhas Metas |
 | `3b5e1bcd` | E5b — Minhas Metas: nº na pasta (R239), traço vermelho (R129), status de prazo, linha atrasada, caixa alta, abas no cartão, trilho fixo, indicadores, "Atualizado às" |
 | `f356a571` | docs: evidência E5b + checklists |
+| `4a58a4a8` | docs: este handoff |
+| `9d098c55` | E5c — Minhas Metas: textos de prazo, cores das abas, tipografia e legenda do trilho, "Título · Pasta NNN", ⋮ "Opções" (relatório, aba Metas da pasta, Editar nome via `acao=renomear`) |
+| (seguinte) | docs: evidência E5c + checklist |
 
 ## 3. Onde está cada coisa
 
@@ -117,7 +120,8 @@ Decisões técnicas que a próxima sessão precisa respeitar:
 | E4 | Financeiro sem rolagem; responsável 170px no cabeçalho; "Em andamento" (cartão, painel, resumo, PDF) | 10 + 3 novos, +2 funcionais; Pasta+Processo+Inteligencia+Twig 3730/3730; lint:twig/container OK | ✓ os três; observações copiadas só no DOM |
 | E5 | Minhas Metas: cantos, hover #3b8fc2, numeração por grupo | 16 + 1 novos; Tarefa+Twig 344/344 | ✓ hover valor a valor; numeração depois trocada (P5) |
 | E5b | ver commit `3b5e1bcd` | 8 + 7 + 5 novos; mutação provada; Tarefa+Twig+Dashboard+aba Metas da Pasta 851/851; lint OK | ✓ medido; 3 defeitos achados só na tela e corrigidos (faixa, sticky, abas no celular) |
-| **HEAD `f356a571`** | — | **suíte completa: OK 9275/9275 (51.909 asserções, 06:49)** no `saas_testfidelidade-designer`, rodada sozinha em 14/10 | — |
+| E5c | ver commit `9d098c55` e `fidelidade-designer-1310.md` §11 | 11 + 15 + 2 novos, +5 funcionais; 3 mutações provadas; revisão read-only com 4 correções | ✓ medido valor a valor contra o protótipo; menu fora do recorte; `acao=renomear` abre a edição na pasta |
+| **E5c (antes da revisão)** | — | **suíte completa: OK 9306/9306 (52.021 asserções, 07:35)** no `saas_testfidelidade-designer`, rodada sozinha em 14/10; depois das correções da revisão: `tests/Tarefa` 360/360 + rodada Tarefa+Pasta+Twig+Dashboard **3708/3708** | — |
 
 **Limitações da validação** (não esconder):
 - O banco de dev (`saas_ux`) **não tem**: nota técnica, pagamentos na maioria das pastas, meta com prazo futuro, push com itens
@@ -148,10 +152,10 @@ azul-claro e letra azul-escura).
 | Tela | ✓ conforme | ≈ diverge | ∅ ausente | Total | Arquivo |
 |---|---|---|---|---|---|
 | Pasta | 218 | 49 | 113 | **380** | `fidelidade-designer-1310-checklist-pasta.md` |
-| Minhas Metas | 53 | 58 | 46 (38 do Chat I.A.) | **157** | `fidelidade-designer-1310-checklist-minhas-metas.md` |
+| Minhas Metas | 72 | 43 | 42 (38 do Chat I.A.) | **157** | `fidelidade-designer-1310-checklist-minhas-metas.md` |
 
 Minhas Metas: 119 linhas de tabela + 38 itens do Chat I.A. em texto (§10); o defeito do ⋮ (MM-MENU-06) não entra.
-Evolução de Minhas Metas: levantamento 25/72/57 → E5 27/72/56 → E5b 53/58/46.
+Evolução de Minhas Metas: levantamento 25/72/57 → E5 27/72/56 → E5b 53/58/46 → **E5c 72/43/42**.
 Telas ainda **sem checklist próprio**: Dashboard (só o delta de 13/10 foi tratado), Lista do Expediente 1.1, Perfis,
 Trabalho Externo, Peticionar, Agenda, Push Compartilhado — o inventário inicial delas está em `fidelidade-designer-1310.md` §1–§3.
 
@@ -181,7 +185,14 @@ Trabalho Externo, Peticionar, Agenda, Push Compartilhado — o inventário inici
   `public/css/filtro-tabela.css`, `templates/pasta/_resp_estilo.html.twig`.
 - Sem migration nesta frente. Publicação: push + `scripts/deploy-prod-tls.sh` + smoke são do dono.
 
-## 10. Próxima entrega — E5c (Minhas Metas)
+## 10. E5c (Minhas Metas) — ✅ feita em `9d098c55`
+
+Evidência em `fidelidade-designer-1310.md` §11; notas no checklist §15. Abaixo, o escopo como foi pedido (cumprido;
+desvios: menu é dropdown do Bootstrap, não `ps-pop` — o `ps-pop` depende do JS da pasta; "Editar nome" leva à pasta
+em vez de editar ali, para não mudar o `tarefa_renomear`; a legenda perdeu a fatia "em aberto", como o desenho).
+Sobra de Minhas Metas para uma E5d, se o dono quiser: §12 do checklist (cartão por grupo, nº da pasta em negrito,
+marcador, H1 36px…), com duas decisões antes: destino do clique na linha/no item de atenção (o desenho abre a
+**pasta**) e se "Editar nome" deve editar na própria Minhas Metas (exige o `tarefa_renomear` voltar para cá).
 
 Só visual, com dado que já existe; manter o padrão: teste antes (vermelho), implementação, suíte proporcional, **medir na
 tela** contra o protótipo, atualizar o checklist e a spec, commit local de código e de docs separados.
