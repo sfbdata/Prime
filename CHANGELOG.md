@@ -33,6 +33,10 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
   chave e modelo configurados no ambiente.
 - Central de Comunicação, A1: conversas individuais entre colegas do escritório, gravadas no servidor,
   com histórico, não lidas e atualização por polling, na página `/central`.
+- Central de Comunicação, A2: janela com o título "Central de Comunicação"; @menção de quem participa
+  da conversa, com aviso no sino (sem o texto da mensagem); responder citando a mensagem; marcar
+  conversa como não lida; menus de botão direito da conversa (abrir, lida/não lida) e da mensagem
+  (responder, copiar, mencionar).
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
 
