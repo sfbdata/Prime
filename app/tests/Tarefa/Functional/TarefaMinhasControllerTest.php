@@ -513,7 +513,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('E5c (dc L104-118): trilho com "X de Y", legenda de três itens com "(s)" e "Título · Pasta NNN" no "Precisa de atenção"')]
+    #[TestDox('E5c (dc L104-118): trilho com "X de Y", legenda fixa com "(s)" e "em aberto" (decisão do dono) e "Título · Pasta NNN" no "Precisa de atenção"')]
     public function testTrilhoComTextosDoDesenho(): void
     {
         $client             = static::createClient();
@@ -527,7 +527,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
 
         self::assertSame('0 de 1', trim($c->filter('.mm-trilho-andamento .mm-progresso-numero')->text()));
         self::assertSame(
-            ['0 concluída(s)', '1 atrasada(s)', '0 em revisão'],
+            ['0 concluída(s)', '0 em aberto', '1 atrasada(s)', '0 em revisão'],
             $c->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')),
         );
         self::assertSame(
@@ -536,7 +536,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('E5c (revisão): na aba Criei — que agrupa por etapa e não tem grupo "Atrasadas" — a legenda conta as delegadas atrasadas, como o desenho')]
+    #[TestDox('E5c (revisão): na aba Criei — que agrupa por etapa e não tem grupo "Atrasadas" — a legenda conta as delegadas atrasadas, como o desenho, e a folgada fica em "em aberto" sem contar duas vezes')]
     public function testLegendaDaAbaCrieiContaAsAtrasadas(): void
     {
         $client             = static::createClient();
@@ -549,7 +549,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/tarefas/minhas?aba=criei');
         self::assertResponseIsSuccessful();
         self::assertSame(
-            ['0 concluída(s)', '1 atrasada(s)', '0 em revisão'],
+            ['0 concluída(s)', '1 em aberto', '1 atrasada(s)', '0 em revisão'],
             $client->getCrawler()->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')),
         );
     }

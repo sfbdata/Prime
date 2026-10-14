@@ -157,7 +157,7 @@
 | MM-TRI-03 | Título 14px + "últimos 30 dias" | texto | **✓ E5c** — "Seu andamento" 14px/700 + "últimos 30 dias" 12px; cabeçalho de "Precisa de atenção" 14px/700, padding 13/16 | R:78 | já existe | — |
 | MM-TRI-04 | "X de Y" 34px negrito + "concluídas" | número | **✓ E5c** — 34px/700, -.5px; "concluídas" 13px | CSS:455 | já existe | — |
 | MM-TRI-05 | Barra 7px: trilho #e6edf2 **raio 4**, preenchimento #1e7b45 **raio 4**, transição .4s | barra | **✓ E5c** — preenchimento #1e7b45 (`--mm-faixa-andamento`), `transition: width .4s`; raios 4 (E5) | CSS:462 | já existe | — |
-| MM-TRI-06 | Legenda sempre 3 itens com "(s)" | legenda | **✓ E5c** — sempre os 3 itens do dc, inclusive zerados: "N concluída(s)" · "N atrasada(s)" (pela regra, em qualquer aba — inclusive na Criei, que não tem grupo de atrasadas) · "N em revisão", 12.5px, pontos 7px nas cores das faixas. **Saiu** a fatia "em aberto" (só do BlueJus; é o resto do "X de Y") | OUT:99 | já existe | — |
+| MM-TRI-06 | Legenda sempre 3 itens com "(s)" | legenda | **≈ E5c + decisão do dono (14/10)** — os 3 itens do dc sempre visíveis, inclusive zerados ("N concluída(s)" · "N atrasada(s)" pela regra, em qualquer aba · "N em revisão"), 12.5px, pontos 7px nas cores das faixas, **mais "N em aberto"** (só do BlueJus, mantido pelo dono): o resto do "X de Y", sem contar meta duas vezes | OUT:99 | já existe | — |
 | MM-TRI-07 | Base: todas as metas | regra | ≈ o que a aba exibe | OUT:121 | sim (regra) | — |
 | MM-TRI-08 | "Precisa de atenção": **faixa inferior 3px #a3232b** | cartão | **✓ E5b** — faixa inferior 3px #a3232b | R:103 | não | — |
 | MM-TRI-09 | Item = button de linha inteira, hover #eef6fb, abre a pasta | item | ≈ div, só o título é link, sem hover | R:109 | não | — |
@@ -217,13 +217,13 @@ Casca visual possível (botão + janela vazia com "sem conexão com a Central") 
 | Filtros | 3 | 8 | 0 |
 | Lista | 21 | 15 | 1 |
 | Marcador e menus | 7 | 3 | 1 |
-| Trilho | 9 | 5 | 0 |
+| Trilho | 8 | 6 | 0 |
 | Modais e dicas | 3 | 0 | 1 |
 | Globais | 4 | 8 | 0 |
 | Chat I.A | 0 | 0 | 38 |
-| **Total** | **72** | **43** | **42** |
+| **Total** | **71** | **44** | **42** |
 
-Evolução: levantamento 25 ✓ · 72 ≈ · 57 ∅ (154) → E5 27 · 72 · 56 (155) → E5b 53 · 58 · 46 (157) → **E5c 72 · 43 · 42 (157)** (contado no arquivo; linhas "✓ texto; ≈ cor" contam ✓, como no levantamento). A E5b levou 11 itens
+Evolução: levantamento 25 ✓ · 72 ≈ · 57 ∅ (154) → E5 27 · 72 · 56 (155) → E5b 53 · 58 · 46 (157) → E5c 72 · 43 · 42 (157) → **decisões de 14/10: 71 · 44 · 42 (157)** (TRI-06 volta a ≈ com "em aberto") (contado no arquivo; linhas "✓ texto; ≈ cor" contam ✓, como no levantamento). A E5b levou 11 itens
 de ∅ para ✓ e 13 de ≈ para ✓, e abriu 2 linhas: MM-LIS-37 (nº global, ∅, depende de backend) e MM-FIL-11 (≈).
 
 ## 12. Próximos candidatos (visuais, sem backend)
@@ -264,11 +264,23 @@ TRI-01), marcador #98a9b4/#0a6fa0 e dicas "Acompanhar esta meta"/"Parar de acomp
 - **Prazo da linha** vem de `TextoDoPrazoDaMeta` (novo), que só lê o balde de `AgrupadorDeMetas::classificar` e o prazo
   real. `Tarefa::getPrazoInfo` não mudou: a tela da meta, a de Equipe e o modo lista (só do BlueJus) seguem com o
   texto e as cores de antes — as regras `.mm-prazo.tom-*` ficaram para eles.
-- **Legenda de "Seu andamento"**: o desenho mostra 3 itens fixos; a fatia "em aberto" (só do BlueJus) saiu, e os itens
-  zerados passaram a aparecer. Se o dono quiser a fatia de volta, é uma linha em `MinhasMetasOutput::fatiasDoAndamento`.
+- **Legenda de "Seu andamento"**: o desenho mostra 3 itens fixos. Na E5c a fatia "em aberto" (só do BlueJus) saiu;
+  **o dono mandou restaurá-la (14/10)** — volta como "N em aberto" logo após as concluídas, calculada como o resto do
+  "X de Y" (as quatro fatias somam Y). TRI-06 volta a ≈ (o dc não tem esse item).
 - **⋮ sem backend novo**: "Editar nome" não edita na própria Minhas Metas — leva à aba Metas da pasta com
   `acao=renomear` e o `pasta-metas.js` aciona o "Editar nome" do ⋮ da linha (que só existe se a meta for editável).
   Editar ali mesmo pediria que o `tarefa_renomear` voltasse para Minhas Metas (mudança no controller) — fica como
   proposta, não feita.
 - **Modal do ponto no dev**: sem batida no dia, ele abre por cima e toma o foco do campo de nome na pasta. Na medição
   foi removido do DOM (ponto é risco ALTO, sem interação); em uso normal só aparece até a primeira batida.
+
+## 16. Decisões do dono sobre a E5c (14/10)
+
+| Assunto | Decisão |
+|---|---|
+| Clique na linha da meta (LIS-15) | **Manter** a abertura da página da meta (o desenho abre a pasta) — LIS-15 fica ≈ por decisão |
+| Clique no item de "Precisa de atenção" (TRI-09) | **Manter** a abertura da página da meta — TRI-09 fica ≈ por decisão |
+| "Editar nome" no ⋮ | **Manter** a edição existente na Pasta (`acao=renomear`), sem formulário duplicado |
+| Legenda "em aberto" | **Restaurar** (feito; TRI-06 ≈) |
+| Menu ⋮ em Bootstrap | **Aceito**, desde que acessível e funcional |
+| Cálculo de dias | **Pendência registrada:** a linha conta dias por `TextoDoPrazoDaMeta` (zera a hora do prazo); o "Precisa de atenção" ainda por `Tarefa::getPrazoInfo` (não zera). Com prazo que tenha hora, as duas podem discordar em 1 dia na mesma tela. Unificar exige decidir se `getPrazoInfo` (usado também na tela da meta e na Equipe) passa a zerar a hora — conferir os prazos de produção antes |

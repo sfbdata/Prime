@@ -190,6 +190,9 @@ Trabalho Externo, Peticionar, Agenda, Push Compartilhado — o inventário inici
 Evidência em `fidelidade-designer-1310.md` §11; notas no checklist §15. Abaixo, o escopo como foi pedido (cumprido;
 desvios: menu é dropdown do Bootstrap, não `ps-pop` — o `ps-pop` depende do JS da pasta; "Editar nome" leva à pasta
 em vez de editar ali, para não mudar o `tarefa_renomear`; a legenda perdeu a fatia "em aberto", como o desenho).
+**Decisões do dono sobre a E5c (14/10)** — checklist de Minhas Metas §16: clique na linha e no item de atenção seguem
+abrindo a página da meta; "Editar nome" fica na Pasta; "em aberto" restaurado na legenda; ⋮ em Bootstrap aceito;
+unificar o cálculo de dias entre linha e "Precisa de atenção" fica como pendência registrada.
 Sobra de Minhas Metas para uma E5d, se o dono quiser: §12 do checklist (cartão por grupo, nº da pasta em negrito,
 marcador, H1 36px…), com duas decisões antes: destino do clique na linha/no item de atenção (o desenho abre a
 **pasta**) e se "Editar nome" deve editar na própria Minhas Metas (exige o `tarefa_renomear` voltar para cá).

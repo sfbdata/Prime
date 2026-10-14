@@ -120,15 +120,21 @@ final class MinhasMetasOutput
      */
     public function fatiasDoAndamento(): array
     {
-        // Legenda do desenho de 13/10 (dc `andLeg`): sempre os mesmos três itens, na mesma ordem,
-        // inclusive zerados — o leitor procura o número no mesmo lugar toda vez. As abertas que não
-        // estão atrasadas nem em revisão não têm item próprio (o desenho também não as mostra).
+        // Legenda do desenho de 13/10 (dc `andLeg`): sempre os mesmos itens, na mesma ordem, inclusive
+        // zerados — o leitor procura o número no mesmo lugar toda vez. "em aberto" não está no desenho:
+        // é do BlueJus e foi mantido por decisão do dono (14/10). É o que sobra do "X de Y" depois de
+        // tirar concluídas, atrasadas e em revisão — cada meta conta numa fatia só, e as quatro somam Y.
         // Atrasadas pela regra, não pelo grupo: a aba Criei agrupa por etapa e não tem grupo
         // "Atrasadas", mas as delegadas atrasadas existem e o desenho as conta em qualquer aba.
+        $concluidas = $this->totalConcluidas();
+        $atrasadas  = $this->totalAtrasadas();
+        $emRevisao  = $this->totalEmRevisao();
+
         return [
-            ['rotulo' => 'concluída(s)', 'total' => $this->totalConcluidas(), 'tom' => 'ok'],
-            ['rotulo' => 'atrasada(s)', 'total' => $this->totalAtrasadas(), 'tom' => 'danger'],
-            ['rotulo' => 'em revisão', 'total' => $this->totalEmRevisao(), 'tom' => 'accent'],
+            ['rotulo' => 'concluída(s)', 'total' => $concluidas, 'tom' => 'ok'],
+            ['rotulo' => 'em aberto', 'total' => max(0, $this->totalExibido() - $concluidas - $atrasadas - $emRevisao), 'tom' => 'warn'],
+            ['rotulo' => 'atrasada(s)', 'total' => $atrasadas, 'tom' => 'danger'],
+            ['rotulo' => 'em revisão', 'total' => $emRevisao, 'tom' => 'accent'],
         ];
     }
 
