@@ -1,6 +1,7 @@
 {# Uma meta no modo cartões.
    `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral)
-   `num` = posição da meta no grupo (recomeça em 1 a cada grupo, como o desenho de 13/10) #}
+   O número antes do título é o da meta NA PASTA (R239, decisão do dono 14/10), o mesmo da aba Metas da
+   pasta; vem pré-carregado em `painel.numeroNaPasta`. Número global não existe por escritório: não aparece. #}
 {% set info = meta.prazoInfo %}
 {% set concluida = meta.status == 'concluida' %}
 {% set emRevisao = meta.status == 'em_revisao' %}
@@ -8,13 +9,14 @@
 {% set acompanhando = painel.estaAcompanhando(meta.id) %}
 
 {% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
-{% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : 'warn')) %}
-{% set rotuloStatus = concluida ? 'Concluída' : (emRevisao ? 'Em revisão' : (info.dias is not null and info.dias < 0 ? 'Atrasada' : 'Pendente')) %}
+{# Pílula do desenho de 13/10, derivada do dado real pela regra que escolhe o grupo (igual no modo lista). #}
+{% set status = painel.statusDaMeta(meta) %}
 
 <article class="mm-meta tom-{{ tom }}">
     <div class="mm-meta-corpo">
         <div class="mm-meta-topo">
-            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo">{% if num|default(null) %}<span class="mm-meta-num">{{ num }}.</span>{% endif %}{{ meta.titulo }}</a>
+            {% set numPasta = painel.numeroNaPasta(meta.id) %}
+            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="Meta {{ numPasta }} da pasta {{ meta.pasta.nup }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>
             {% if meta.pasta.prioridade.value != 'normal' %}
                 <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
                     <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}
@@ -58,7 +60,7 @@
     </div>
 
     <div class="mm-meta-lado">
-        <span class="mm-pilula tom-{{ tomStatus }}">{{ rotuloStatus }}</span>
+        <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span>
         <span class="mm-meta-datas">
             criada {{ meta.dataCriacao|date('d/m/Y') }}{% if meta.dataAlteracao %} · mod. {{ meta.dataAlteracao|date('d/m/Y') }}{% endif %}
         </span>

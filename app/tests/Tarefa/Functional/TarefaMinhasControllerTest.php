@@ -247,38 +247,174 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.mm-arranjo > .mm-coluna-lista > .mm-cartao'), 'A lista tem de ser a outra coluna do mesmo arranjo.');
     }
 
-    #[TestDox('E5 (dc de 13/10): no modo cartões cada meta tem número antes do título, e a numeração recomeça em 1 a cada grupo')]
-    public function testNumeracaoRecomecaPorGrupo(): void
+    #[TestDox('R239 (P5): antes do título vai o número da meta NA PASTA — o mesmo da aba Metas da pasta —, não a posição no grupo; número global não aparece (não existe por escritório)')]
+    public function testNumeroDaMetaNaPastaComoNaAbaMetas(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
         $em                 = static::getContainer()->get(EntityManagerInterface::class);
 
-        foreach (['Atrasada um', 'Atrasada dois'] as $titulo) {
-            $this->criarMeta($tenant, $usuario, $titulo)->setPrazo(new \DateTimeImmutable('-2 days'));
+        // Pasta A: a 1ª meta é de outra pessoa; o usuário responde pela 2ª e pela 3ª.
+        $outro = new User();
+        $outro->setEmail('outro_' . uniqid() . '@test.com');
+        $outro->setFullName('Outra Pessoa');
+        $outro->setRoles(['ROLE_USER']);
+        $outro->setIsActive(true);
+        $outro->setPassword('x');
+        $em->persist($outro);
+        $primeira = $this->criarMeta($tenant, $outro, 'Primeira da pasta');
+        $pastaA   = $primeira->getPasta();
+        $titulosA = ['Segunda da pasta' => '2.', 'Terceira da pasta' => '3.'];
+        foreach (array_keys($titulosA) as $titulo) {
+            $meta = new Tarefa();
+            $meta->setTitulo($titulo);
+            $meta->setDescricao('');
+            $meta->setPasta($pastaA);
+            $meta->setTenant($tenant);
+            $meta->addResponsavel($usuario);
+            $em->persist($meta);
+            $em->flush();
         }
-        $this->criarMeta($tenant, $usuario, 'Prazo longe')->setPrazo(new \DateTimeImmutable('+40 days'));
-        $em->flush();
+        // Pasta B: uma meta só.
+        $this->criarMeta($tenant, $usuario, 'Sozinha na pasta');
 
         $client->request('GET', '/tarefas/minhas');
         self::assertResponseIsSuccessful();
+        $naLista = [];
+        $client->getCrawler()->filter('.mm-cartao article.mm-meta .mm-meta-topo > .mm-meta-titulo')->each(
+            static function ($a) use (&$naLista): void {
+                $num = $a->filter('.mm-meta-num');
+                $naLista[mb_strtoupper(trim(str_replace($num->count() ? $num->text() : '', '', $a->text())))] = $num->count() ? trim($num->text()) : null;
+            },
+        );
 
-        // Percorre os filhos diretos do cartão na ordem do HTML: cada cabeçalho abre um grupo novo.
-        $grupos = [];
-        foreach ($client->getCrawler()->filter('.mm-cartao > *') as $no) {
-            $classe = (string) $no->getAttribute('class');
-            if (str_contains($classe, 'mm-grupo-cabeca')) {
-                $grupos[] = [];
-                continue;
-            }
-            if (str_contains($classe, 'mm-meta')) {
-                $num = (new \Symfony\Component\DomCrawler\Crawler($no))->filter('.mm-meta-topo > .mm-meta-titulo > .mm-meta-num');
-                self::assertCount(1, $num, 'o número fica dentro do título, antes do texto (como no desenho)');
-                $grupos[\count($grupos) - 1][] = trim($num->text());
-            }
+        self::assertSame('2.', $naLista['SEGUNDA DA PASTA'] ?? null);
+        self::assertSame('3.', $naLista['TERCEIRA DA PASTA'] ?? null);
+        self::assertSame('1.', $naLista['SOZINHA NA PASTA'] ?? null);
+        self::assertArrayNotHasKey('PRIMEIRA DA PASTA', $naLista, 'a meta da outra pessoa não é do usuário');
+        self::assertStringNotContainsString('Nº ', (string) $client->getResponse()->getContent(), 'sem número global: não existe sequência por escritório');
+
+        // O mesmo número que a aba Metas da pasta mostra (regra única: ordem de criação na pasta).
+        $client->request('GET', '/pasta/' . $pastaA->getId());
+        self::assertResponseIsSuccessful();
+        $naPasta = [];
+        $client->getCrawler()->filter('.ps-meta-titulo')->each(static function ($t) use (&$naPasta): void {
+            $naPasta[mb_strtoupper(trim($t->filter('.ps-meta-titulo-tx')->text()))] = trim($t->filter('.ps-meta-num')->text());
+        });
+        self::assertSame($naPasta['SEGUNDA DA PASTA'] ?? null, $naLista['SEGUNDA DA PASTA']);
+        self::assertSame($naPasta['TERCEIRA DA PASTA'] ?? null, $naLista['TERCEIRA DA PASTA']);
+    }
+
+    #[TestDox('Status de prazo derivados do dado real e iguais nos dois modos; a meta que vence hoje é "Vence em breve" (tom warn) em cartões e em lista')]
+    public function testStatusDePrazoIguaisNosDoisModos(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+
+        $esperado = [
+            'ATRASADA ONTEM' => ['-1 day', 'Atrasada', 'tom-danger'],
+            'VENCE HOJE'     => ['today', 'Vence em breve', 'tom-warn'],
+            'VENCE EM TRES'  => ['+3 days', 'Vence em breve', 'tom-warn'],
+            'VENCE EM VINTE' => ['+20 days', 'No prazo', 'tom-ok'],
+            'SEM DATA'       => [null, 'Sem prazo', 'tom-cinza'],
+        ];
+        foreach ($esperado as $titulo => [$prazo]) {
+            $meta = $this->criarMeta($tenant, $usuario, $titulo);
+            $meta->setPrazo($prazo === null ? null : new \DateTimeImmutable($prazo));
         }
+        $em->flush();
 
-        self::assertSame([['1.', '2.'], ['1.']], $grupos);
+        $pilulas = function (string $url, string $linha, string $titulo) use ($client): array {
+            $client->request('GET', $url);
+            self::assertResponseIsSuccessful();
+            $mapa = [];
+            $client->getCrawler()->filter($linha)->each(static function ($l) use (&$mapa, $titulo): void {
+                $t = trim(preg_replace('/^\d+\.\s*/', '', $l->filter($titulo)->text()) ?? '');
+                $p = $l->filter('.mm-pilula');
+                $mapa[mb_strtoupper($t)] = [trim($p->text()), preg_replace('/^.*(tom-[a-z]+).*$/', '$1', (string) $p->attr('class'))];
+            });
+
+            return $mapa;
+        };
+
+        $cartoes = $pilulas('/tarefas/minhas', '.mm-cartao article.mm-meta', '.mm-meta-titulo');
+        $lista   = $pilulas('/tarefas/minhas?modo=lista', '.mm-tabela .mm-linha:not(.mm-linha-cabeca)', '.mm-linha-titulo');
+
+        foreach ($esperado as $titulo => [, $rotulo, $tom]) {
+            self::assertSame([$rotulo, $tom], $cartoes[$titulo] ?? null, 'cartões: ' . $titulo);
+            self::assertSame([$rotulo, $tom], $lista[$titulo] ?? null, 'lista: ' . $titulo);
+        }
+    }
+
+    #[TestDox('E5b (dc de 13/10): abas no MESMO cartão da barra de filtros, com separador e a alternância de modo; a barra de filtros continua dentro da raiz do filtro')]
+    public function testAbasDentroDoCartaoDosFiltros(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Meta qualquer');
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $c = $client->getCrawler();
+
+        self::assertCount(1, $c->filter('[data-filtro-root] > .mm-barra-cartao > .mm-abas > a.mm-aba[data-aba="responsavel"]'));
+        self::assertCount(1, $c->filter('[data-filtro-root] > .mm-barra-cartao > .mm-abas + .mm-barra-sep + form[data-filtro-form]'));
+        self::assertCount(1, $c->filter('[data-filtro-root] > .mm-barra-cartao > .mm-modos'));
+        self::assertCount(1, $c->filter('[data-filtro-root] > [data-filtro-resultado]'), 'o resultado continua irmão da barra');
+        self::assertCount(0, $c->filter('.mm-barra-abas'), 'a faixa solta de abas saiu');
+    }
+
+    #[TestDox('E5b: indicadores com ícone, halo e faixa do desenho; o número das atrasadas fica em alerta só quando há atrasadas')]
+    public function testIndicadoresComIconeEHalo(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+
+        $client->request('GET', '/tarefas/minhas');
+        $kpis = $client->getCrawler()->filter('.mm-kpis > a.mm-kpi');
+        self::assertSame(
+            ['bi-exclamation-octagon', 'bi-hourglass-split', 'bi-clipboard2-check', 'bi-calendar-x'],
+            $kpis->each(static fn ($k): string => trim(str_replace('bi ', '', (string) $k->filter('.mm-kpi > .mm-kpi-icone > i.bi')->attr('class')))),
+        );
+        self::assertSame(4, $kpis->filter('.mm-kpi > .mm-kpi-halo')->count());
+        self::assertSame(4, $kpis->filter('.mm-kpi > .mm-kpi-faixa')->count());
+        self::assertStringNotContainsString('is-alerta', (string) $kpis->eq(0)->filter('.mm-kpi-valor')->attr('class'), 'zero atrasadas: número normal');
+
+        $this->criarMeta($tenant, $usuario, 'Atrasada')->setPrazo(new \DateTimeImmutable('-3 days'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $client->request('GET', '/tarefas/minhas');
+        self::assertStringContainsString('is-alerta', (string) $client->getCrawler()->filter('.mm-kpis > a.mm-kpi')->eq(0)->filter('.mm-kpi-valor')->attr('class'));
+    }
+
+    #[TestDox('E5b: "Atualizado às HH:MM" é a hora da leitura no servidor; o fragmento da recarga parcial traz a hora da nova leitura')]
+    public function testAtualizadoAsComAHoraDaLeitura(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Meta qualquer');
+
+        $client->request('GET', '/tarefas/minhas');
+        $c = $client->getCrawler();
+        self::assertMatchesRegularExpression('/^Atualizado às \d{2}:\d{2}$/', trim(preg_replace('/\s+/', ' ', $c->filter('.mm-atualizado')->text()) ?? ''));
+        self::assertMatchesRegularExpression('/^\d{2}:\d{2}$/', (string) $c->filter('[data-filtro-resultado] [data-mm-lido-as]')->attr('data-mm-lido-as'));
+
+        $client->xmlHttpRequest('GET', '/tarefas/minhas', ['busca' => 'Meta']);
+        self::assertMatchesRegularExpression('/data-mm-lido-as="\d{2}:\d{2}"/', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('E5b: trilho com "Seu andamento" e "Precisa de atenção" marcados para as faixas coloridas do desenho')]
+    public function testTrilhoComFaixas(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Atrasada')->setPrazo(new \DateTimeImmutable('-3 days'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas');
+        $c = $client->getCrawler();
+        self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-andamento'));
+        self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-atencao'));
     }
 
     #[TestDox('O modo lista troca os cartões pela tabela e dispensa o trilho')]

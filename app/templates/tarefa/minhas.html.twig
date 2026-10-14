@@ -18,7 +18,12 @@
     <div class="container-fluid">
         <div class="d-flex align-items-end gap-3 flex-wrap mb-2">
             <div class="min-w-0">
-                <h1 class="mm-titulo"><i class="bi bi-check2-square me-2"></i>Minhas Metas</h1>
+                <div class="d-flex align-items-center flex-wrap gap-3">
+                    <h1 class="mm-titulo"><i class="bi bi-check2-square me-2"></i>Minhas Metas</h1>
+                    {# Hora em que o servidor leu as metas — informação real; a recarga parcial do filtro
+                       traz a hora da nova leitura (`data-mm-lido-as` no fragmento) e o script abaixo a copia. #}
+                    <span class="mm-atualizado"><span class="mm-atualizado-ponto" aria-hidden="true"></span>Atualizado às <span data-mm-atualizado-hora>{{ 'now'|date('H:i') }}</span></span>
+                </div>
                 <p class="mm-subtitulo">O que está com você, o que você delegou, o que você marcou para acompanhar — ou tudo junto.</p>
             </div>
             <div class="flex-grow-1"></div>
@@ -36,23 +41,25 @@
         {# ── KPIs: atalhos, não resumo do filtro ── #}
         {% set kpis = painel.kpis %}
         {% set atalhos = [
-            { chave: 'atrasadas',  rotulo: 'Atrasadas',           valor: kpis.atrasadas,          sub: 'sob sua responsabilidade',      tom: 'danger', destino: { aba: 'responsavel', prazo: 'vencidas' } },
-            { chave: 'proximas',   rotulo: 'Vencem em 7 dias',    valor: kpis.proximas,           sub: 'ainda dá tempo',                tom: 'warn',   destino: { aba: 'responsavel', prazo: 'proximas' } },
-            { chave: 'revisao',    rotulo: 'Aguardando sua revisão', valor: kpis.aguardando_revisao, sub: 'criadas por você',           tom: 'accent', destino: { aba: 'criei' } },
-            { chave: 'sem_prazo',  rotulo: 'Sem prazo',           valor: kpis.sem_prazo,          sub: 'abertas sem data definida',     tom: 'cinza',  destino: { aba: 'responsavel', prazo: 'sem' } }
+            { chave: 'atrasadas',  rotulo: 'Atrasadas',           valor: kpis.atrasadas,          sub: 'sob sua responsabilidade',      tom: 'danger', icone: 'bi-exclamation-octagon', destino: { aba: 'responsavel', prazo: 'vencidas' } },
+            { chave: 'proximas',   rotulo: 'Vencem em 7 dias',    valor: kpis.proximas,           sub: 'ainda dá tempo',                tom: 'warn',   icone: 'bi-hourglass-split',     destino: { aba: 'responsavel', prazo: 'proximas' } },
+            { chave: 'revisao',    rotulo: 'Aguardando sua revisão', valor: kpis.aguardando_revisao, sub: 'criadas por você',           tom: 'accent', icone: 'bi-clipboard2-check',    destino: { aba: 'criei' } },
+            { chave: 'sem_prazo',  rotulo: 'Sem prazo',           valor: kpis.sem_prazo,          sub: 'abertas sem data definida',     tom: 'cinza',  icone: 'bi-calendar-x',          destino: { aba: 'responsavel', prazo: 'sem' } }
         ] %}
         <div class="mm-kpis mb-3">
             {% for k in atalhos %}
                 {% set ativo = (k.destino.aba == aba.value) and ((k.destino.prazo|default('')) == filtros.prazo) and (k.destino.prazo is defined or filtros.prazo == '') %}
                 <a href="{{ path('tarefa_minhas', k.destino) }}"
-                   class="mm-kpi {{ ativo and k.destino.prazo is defined ? 'is-ativo' : '' }}"
+                   class="mm-kpi tom-{{ k.tom }} {{ ativo and k.destino.prazo is defined ? 'is-ativo' : '' }}"
                    title="Ver {{ k.rotulo|lower }}">
-                    <span class="mm-kpi-rotulo">
-                        <span class="mm-dot mm-kpi-dot" style="background: var(--mm-{{ k.tom == 'accent' ? 'accent' : (k.tom == 'cinza' ? 'cinza-dot' : k.tom ~ '-dot') }})"></span>
-                        {{ k.rotulo }}
-                    </span>
-                    <span class="mm-kpi-valor">{{ k.valor }}</span>
+                    {# Indicador do desenho (dc L54-61): halo, ícone, rótulo sublinhado na cor, número
+                       grande e faixa inferior. O número das atrasadas só fica vermelho se houver atrasadas. #}
+                    <span class="mm-kpi-halo" aria-hidden="true"></span>
+                    <span class="mm-kpi-icone" aria-hidden="true"><i class="bi {{ k.icone }}"></i></span>
+                    <span class="mm-kpi-rotulo">{{ k.rotulo }}</span>
+                    <span class="mm-kpi-valor{{ k.chave == 'atrasadas' and k.valor > 0 ? ' is-alerta' : '' }}">{{ k.valor }}</span>
                     <span class="mm-kpi-sub">{{ k.sub }}</span>
+                    <span class="mm-kpi-faixa" aria-hidden="true"></span>
                 </a>
             {% endfor %}
         </div>
@@ -69,36 +76,24 @@
            e `modo` só aparece quando não é o padrão (cartões). #}
         {% set base = filtros|filter(v => v != '') %}
         {% set comModo = painel.modoLista ? base|merge({modo: 'lista'}) : base %}
-        <div class="mm-barra-abas mb-3">
-            <div class="mm-abas" role="tablist" aria-label="Papel nas metas">
-                {% for a in abas %}
-                    <a href="{{ path('tarefa_minhas', comModo|merge({aba: a.valor})) }}"
-                       class="mm-aba {{ aba.value == a.valor ? 'is-ativa' : '' }}"
-                       role="tab" aria-selected="{{ aba.value == a.valor ? 'true' : 'false' }}"
-                       data-aba="{{ a.valor }}">
-                        <i class="bi {{ a.icone }}"></i>
-                        <span>{{ a.rotulo }}</span>
-                        <span class="mm-aba-badge">{{ contagens[a.valor] ?? 0 }}</span>
-                    </a>
-                {% endfor %}
-            </div>
-
-            <div class="flex-grow-1"></div>
-
-            <div class="mm-modos" role="group" aria-label="Modo de exibição">
-                <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value})) }}"
-                   class="mm-modo {{ painel.modoLista ? '' : 'is-ativo' }}" title="Cartões" aria-label="Cartões">
-                    <i class="bi bi-grid-1x2"></i>
-                </a>
-                <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value, modo: 'lista'})) }}"
-                   class="mm-modo {{ painel.modoLista ? 'is-ativo' : '' }}" title="Lista" aria-label="Lista">
-                    <i class="bi bi-list-ul"></i>
-                </a>
-            </div>
-        </div>
-
-        {# ── Filtros + resultado ── #}
+        {# ── Abas + filtros + modo, num cartão só (dc L65-75), e o resultado ──
+           As abas moram dentro da raiz do filtro só pela caixa visual: o filtro-tabela.js reage a
+           campos e às classes `js-filtro-*`, não a elas. #}
         <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}">
+            <div class="mm-barra-cartao">
+                <div class="mm-abas" role="tablist" aria-label="Papel nas metas">
+                    {% for a in abas %}
+                        <a href="{{ path('tarefa_minhas', comModo|merge({aba: a.valor})) }}"
+                           class="mm-aba {{ aba.value == a.valor ? 'is-ativa' : '' }}"
+                           role="tab" aria-selected="{{ aba.value == a.valor ? 'true' : 'false' }}"
+                           data-aba="{{ a.valor }}">
+                            <i class="bi {{ a.icone }}"></i>
+                            <span>{{ a.rotulo }}</span>
+                            <span class="mm-aba-badge">{{ contagens[a.valor] ?? 0 }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+                <span class="mm-barra-sep" aria-hidden="true"></span>
             {{ include('_partials/_filtro_barra.html.twig', {
                 busca_placeholder: 'Buscar por título ou descrição da meta…',
                 filtros: filtros,
@@ -120,6 +115,17 @@
                     ] }
                 ]
             }) }}
+                <div class="mm-modos" role="group" aria-label="Modo de exibição">
+                    <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value})) }}"
+                       class="mm-modo {{ painel.modoLista ? '' : 'is-ativo' }}" title="Cartões" aria-label="Cartões">
+                        <i class="bi bi-grid-1x2"></i>
+                    </a>
+                    <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value, modo: 'lista'})) }}"
+                       class="mm-modo {{ painel.modoLista ? 'is-ativo' : '' }}" title="Lista" aria-label="Lista">
+                        <i class="bi bi-list-ul"></i>
+                    </a>
+                </div>
+            </div>
 
             <div data-filtro-resultado>
                 {{ include('tarefa/_resultado.html.twig') }}
@@ -153,6 +159,18 @@
             campo.value = par[1];
             form.appendChild(campo);
         });
+}());
+
+// "Atualizado às": o fragmento recarregado pelo filtro traz a hora da nova leitura em
+// `data-mm-lido-as`; o cabeçalho (que não recarrega) passa a mostrá-la.
+(function () {
+    var alvo    = document.querySelector('[data-filtro-resultado]');
+    var relogio = document.querySelector('[data-mm-atualizado-hora]');
+    if (!alvo || !relogio || !window.MutationObserver) { return; }
+    new MutationObserver(function () {
+        var lido = alvo.querySelector('[data-mm-lido-as]');
+        if (lido) { relogio.textContent = lido.getAttribute('data-mm-lido-as'); }
+    }).observe(alvo, { childList: true });
 }());
 
 // O modo (cartões/lista) é preferência de tela, não dado do escritório: fica no navegador de

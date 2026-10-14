@@ -8,6 +8,8 @@
 {% set aba = painel.aba %}
 {% set semTrilho = painel.modoLista or painel.estaVazia %}
 
+{# Hora desta leitura: o cabeçalho mostra "Atualizado às" e a atualiza a cada recarga parcial. #}
+<span hidden data-mm-lido-as="{{ 'now'|date('H:i') }}"></span>
 <div class="mm-arranjo {{ semTrilho ? 'mm-sem-trilho' : '' }}">
 
     <div class="mm-coluna-lista min-w-0">
@@ -50,7 +52,7 @@
                         </button>
                         <div class="collapse" id="grupo-{{ grupo.chave }}">
                             {% for meta in grupo.metas %}
-                                {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom, num: loop.index}) }}
+                                {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
                             {% endfor %}
                         </div>
                     {% else %}
@@ -61,7 +63,7 @@
                             {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
                         </div>
                         {% for meta in grupo.metas %}
-                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom, num: loop.index}) }}
+                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
                         {% endfor %}
                     {% endif %}
                 {% endfor %}
@@ -73,7 +75,7 @@
         <div class="mm-trilho">
 
             {# ── Andamento ── #}
-            <div class="mm-cartao mm-trilho-bloco">
+            <div class="mm-cartao mm-trilho-bloco mm-trilho-andamento">
                 <div class="d-flex align-items-baseline gap-2 mb-3">
                     <h2 class="mm-cartao-titulo">{{ aba.value == 'criei' ? 'O que você delegou' : 'Seu andamento' }}</h2>
                     <span class="mm-grupo-nota">últimos 30 dias</span>
@@ -100,7 +102,7 @@
             {# ── Precisa de atenção ── #}
             {% set atencao = painel.metasQuePrecisamDeAtencao %}
             {% if atencao|length > 0 %}
-                <div class="mm-cartao">
+                <div class="mm-cartao mm-trilho-atencao">
                     <div class="mm-cartao-cabeca">
                         <h2 class="mm-cartao-titulo">Precisa de atenção</h2>
                     </div>

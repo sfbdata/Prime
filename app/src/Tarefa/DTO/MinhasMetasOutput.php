@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tarefa\DTO;
 
+use App\Entity\Tarefa\Tarefa;
+
 use App\Tarefa\Enum\AbaMetas;
 
 /**
@@ -23,6 +25,7 @@ final class MinhasMetasOutput
      * @param PessoaNoTrilhoOutput[]                                                    $pessoas
      * @param int[]                                                                     $acompanhadas
      * @param array<int, int>                                                           $mensagensPorMeta
+     * @param array<int, int>                                                           $numerosNaPasta
      */
     public function __construct(
         public readonly AbaMetas $aba,
@@ -34,6 +37,7 @@ final class MinhasMetasOutput
         public readonly array $pessoas = [],
         public readonly array $acompanhadas = [],
         public readonly array $mensagensPorMeta = [],
+        public readonly array $numerosNaPasta = [],
     ) {
     }
 
@@ -45,6 +49,18 @@ final class MinhasMetasOutput
     public function estaAcompanhando(int $metaId): bool
     {
         return in_array($metaId, $this->acompanhadas, true);
+    }
+
+    /** Número da meta na sua pasta (R239); `null` se não veio pré-carregado — a tela não inventa. */
+    public function numeroNaPasta(int $metaId): ?int
+    {
+        return $this->numerosNaPasta[$metaId] ?? null;
+    }
+
+    /** Pílula de status derivada do dado real, pela mesma regra que escolhe o grupo. */
+    public function statusDaMeta(Tarefa $meta): StatusDoPrazoDaMeta
+    {
+        return StatusDoPrazoDaMeta::de($meta);
     }
 
     public function totalDeMensagens(int $metaId): int

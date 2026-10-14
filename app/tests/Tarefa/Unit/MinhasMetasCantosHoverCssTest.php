@@ -108,4 +108,74 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         self::assertMatchesRegularExpression('/--mm-num:\s*#0a6fa0;/', $this->css());
         self::assertMatchesRegularExpression('/margin-right:\s*10px;/', $regra);
     }
+
+    #[TestDox('E5b: linha com faixa de 4px; atrasada com fundo rosado #fdf3f3 (dc L84, FUNDO.atr); o hover continua vencendo')]
+    public function testLinhaAtrasadaEFaixa(): void
+    {
+        self::assertMatchesRegularExpression('/border-left:\s*4px solid transparent;/', $this->regras('.mm-meta'));
+        self::assertMatchesRegularExpression('/background:\s*var\(--mm-linha-atrasada-bg\)/', $this->regras('.mm-meta.tom-danger'));
+        self::assertMatchesRegularExpression('/--mm-linha-atrasada-bg:\s*#fdf3f3;/', $this->css());
+        self::assertGreaterThan(strpos($this->css(), '.mm-meta.tom-danger'), strpos($this->css(), '.mm-meta:hover {'), 'hover depois dos tons');
+    }
+
+    #[TestDox('E5b: título da meta em caixa alta, 14.5px negrito, uma linha com reticências (dc L86); concluída segue mais clara e riscada (R238)')]
+    public function testTituloEmCaixaAlta(): void
+    {
+        $regra = $this->regras('.mm-meta-titulo');
+        foreach (['/text-transform:\s*uppercase;/', '/font-size:\s*14\.5px;/', '/font-weight:\s*700;/', '/white-space:\s*nowrap;/', '/text-overflow:\s*ellipsis;/', '/overflow:\s*hidden;/'] as $re) {
+            self::assertMatchesRegularExpression($re, $regra);
+        }
+        $concluida = $this->regras('.mm-meta.tom-ok .mm-meta-titulo');
+        self::assertMatchesRegularExpression('/color:\s*var\(--mm-muted\)/', $concluida);
+        self::assertMatchesRegularExpression('/text-decoration:\s*line-through/', $concluida);
+    }
+
+    #[TestDox('E5b: pílula de status sem borda (dc L93) e com os tons novos (Sem prazo cinza)')]
+    public function testPilulaSemBordaETomCinza(): void
+    {
+        self::assertMatchesRegularExpression('/border:\s*0;/', $this->regras('.mm-pilula'));
+        self::assertMatchesRegularExpression('/background:\s*var\(--mm-sem-bg\)/', $this->regras('.mm-pilula.tom-cinza'));
+    }
+
+    #[TestDox('E5b: abas e filtros num cartão só, com separador de 1×28px (dc L65-67)')]
+    public function testCartaoDaBarra(): void
+    {
+        $cartao = $this->regras('.mm-barra-cartao');
+        self::assertMatchesRegularExpression('/border-radius:\s*4px;/', $cartao);
+        self::assertMatchesRegularExpression('/padding:\s*14px 18px;/', $cartao);
+        $sep = $this->regras('.mm-barra-sep');
+        self::assertMatchesRegularExpression('/width:\s*1px;/', $sep);
+        self::assertMatchesRegularExpression('/height:\s*28px;/', $sep);
+    }
+
+    #[TestDox('E5b: trilho fixo na rolagem abaixo do topo e faixas de 3px verde e vermelha (dc L104/L114)')]
+    public function testTrilhoFixoEFaixas(): void
+    {
+        $css = $this->css();
+        self::assertMatchesRegularExpression('/\.mm-trilho\s*\{[^}]*position:\s*sticky;[^}]*top:\s*calc\(var\(--header-height\) \+ var\(--subnav-height\) \+ 16px\)/', $css);
+        self::assertMatchesRegularExpression('/overflow:\s*visible;/', $this->regras('body.layout-fixed .app-main:has(.mm-page)'), 'sem isto o main do AdminLTE prende o sticky');
+        self::assertMatchesRegularExpression('/border-bottom:\s*3px solid var\(--mm-faixa-andamento\)/', $this->regras('.mm-cartao.mm-trilho-andamento'));
+        self::assertMatchesRegularExpression('/border-bottom:\s*3px solid var\(--mm-faixa-atencao\)/', $this->regras('.mm-cartao.mm-trilho-atencao'));
+    }
+
+    #[TestDox('E5b: indicador com halo, ícone 46px raio 12 e número 46px; vermelho só com atrasadas (dc L54-61)')]
+    public function testIndicadores(): void
+    {
+        self::assertMatchesRegularExpression('/width:\s*130px;/', $this->regras('.mm-kpi-halo'));
+        $icone = $this->regras('.mm-kpi-icone');
+        self::assertMatchesRegularExpression('/width:\s*46px;/', $icone);
+        self::assertMatchesRegularExpression('/border-radius:\s*12px;/', $icone);
+        self::assertMatchesRegularExpression('/font-size:\s*46px;/', $this->regras('.mm-kpi-valor'));
+        self::assertMatchesRegularExpression('/color:\s*var\(--mm-danger-text\)/', $this->regras('.mm-kpi-valor.is-alerta'));
+        self::assertMatchesRegularExpression('/height:\s*3px;/', $this->regras('.mm-kpi-faixa'));
+    }
+
+    #[TestDox('P6 / R129: traço VERMELHO discreto sob o título (34×3px, geometria do desenho, cor da especificação)')]
+    public function testTracoVermelhoSobOTitulo(): void
+    {
+        $traco = $this->regras('.mm-page .mm-titulo::after');
+        self::assertMatchesRegularExpression('/width:\s*34px;/', $traco);
+        self::assertMatchesRegularExpression('/height:\s*3px;/', $traco);
+        self::assertMatchesRegularExpression('/background:\s*var\(--mm-danger-dot\)/', $traco);
+    }
 }

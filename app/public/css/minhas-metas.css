@@ -28,6 +28,12 @@
     --mm-linha-hover-bg:    #3b8fc2;   /* hover da linha, dc 04 Minhas Metas L17 */
     --mm-linha-hover-barra: #1f6f9c;
     --mm-num:           #0a6fa0;   /* número da meta, dc L86 */
+    --mm-linha-atrasada-bg: #fdf3f3;  /* FUNDO.atr do dc */
+    --mm-sem-text:      #5b7383;   /* pílula "Sem prazo" (ST.sem do dc) */
+    --mm-sem-bg:        #eef2f5;
+    --mm-faixa-andamento: #1e7b45; /* faixas de 3px sob os cartões do trilho (dc L104/L114) */
+    --mm-faixa-atencao: #a3232b;
+    --mm-ponto-vivo:    #22a05a;   /* "Atualizado às" */
 
     --mm-text:          #12242f;
     --mm-body:          #243845;
@@ -79,6 +85,12 @@
     --mm-linha-hover-bg:    #3b8fc2;
     --mm-linha-hover-barra: #1f6f9c;
     --mm-num:           #4da3ea;
+    --mm-linha-atrasada-bg: rgba(224,103,92,.10);
+    --mm-sem-text:      var(--bs-secondary-color);
+    --mm-sem-bg:        rgba(255,255,255,.06);
+    --mm-faixa-andamento: #2fa36b;
+    --mm-faixa-atencao: #e0675c;
+    --mm-ponto-vivo:    #2fa36b;
 
     --mm-text:          var(--bs-body-color);
     --mm-body:          var(--bs-body-color);
@@ -118,6 +130,22 @@
     color: var(--mm-text);
     margin: 0;
 }
+/* P6 / R129 (especificação do Farlei): traço VERMELHO discreto sob o título. Geometria do dc
+   (34×3px, raio 2); a cor é a da linha de pendência das abas da pasta, que o R129 elogiou. */
+.mm-page .mm-titulo { position: relative; padding-bottom: 8px; }
+.mm-page .mm-titulo::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 34px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--mm-danger-dot);
+}
+/* "Atualizado às HH:MM" (dc L45): hora em que o servidor leu as metas. */
+.mm-atualizado { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--mm-muted); white-space: nowrap; }
+.mm-atualizado-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--mm-ponto-vivo); box-shadow: 0 0 0 3px rgba(34,160,90,.18); }
 .mm-page .mm-subtitulo {
     font-size: .845rem;
     color: var(--mm-muted);
@@ -127,68 +155,133 @@
 /* ── KPIs ─────────────────────────────────────────────────────────────────── */
 .mm-kpis {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .875rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
 }
+/* Cor, halo e fundo do ícone por indicador (dc L163, `VIS`). */
+.mm-kpi.tom-danger { --mm-kpi-cor: #a3232b; --mm-kpi-halo: rgba(163,35,43,.14);  --mm-kpi-icone-bg: #fbe7e7; }
+.mm-kpi.tom-warn   { --mm-kpi-cor: #c08a12; --mm-kpi-halo: rgba(192,138,18,.16); --mm-kpi-icone-bg: #fbf1dc; }
+.mm-kpi.tom-accent { --mm-kpi-cor: #0a6fa0; --mm-kpi-halo: rgba(10,111,160,.14);  --mm-kpi-icone-bg: #e5f1f7; }
+.mm-kpi.tom-cinza  { --mm-kpi-cor: #7d909d; --mm-kpi-halo: rgba(125,144,157,.16); --mm-kpi-icone-bg: #eef2f5; }
+[data-bs-theme="dark"] .mm-page .mm-kpi { --mm-kpi-icone-bg: var(--mm-kpi-halo); }
 .mm-kpi {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: .375rem;
     text-align: left;
+    position: relative;
+    overflow: hidden;
     background: var(--mm-card);
     border: 1px solid var(--mm-border);
     border-radius: 4px;
-    padding: .875rem 1.0625rem .9375rem;
-    box-shadow: var(--mm-shadow-card);
+    padding: 22px 22px 24px;
+    min-height: 160px;
+    box-shadow: 0 2px 10px rgba(18,36,47,.06);
     font-family: inherit;
     text-decoration: none;
-    transition: border-color .15s, box-shadow .15s, background .15s;
+    transition: transform .25s, box-shadow .25s, border-color .15s, background .15s;
     min-width: 0;
 }
 .mm-kpi:hover {
-    border-color: var(--mm-accent-border);
-    box-shadow: var(--mm-shadow-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 26px rgba(10,111,160,.14);
     text-decoration: none;
+}
+.mm-kpi-halo {
+    position: absolute;
+    right: -26px;
+    top: -26px;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--mm-kpi-halo) 0%, rgba(255,255,255,0) 70%);
+    border: 1px dashed var(--mm-kpi-halo);
+    pointer-events: none;
+}
+.mm-kpi-icone {
+    position: absolute;
+    right: 22px;
+    top: 20px;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--mm-kpi-icone-bg);
+    color: var(--mm-kpi-cor);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 6px 14px var(--mm-kpi-halo);
+}
+.mm-kpi-faixa {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--mm-kpi-cor), rgba(255,255,255,0));
 }
 .mm-kpi.is-ativo {
     border-color: var(--mm-accent);
     background: var(--mm-accent-bg);
 }
 .mm-kpi-rotulo {
-    display: flex;
-    align-items: center;
-    gap: .4375rem;
-    font-size: .656rem;
+    position: relative;
+    max-width: 70%;
+    padding-bottom: 6px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 1.6px;
     text-transform: uppercase;
-    color: var(--mm-label);
+    color: var(--mm-text-2);
+}
+.mm-kpi-rotulo::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 20px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--mm-kpi-cor);
 }
 .mm-kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .mm-kpi-valor {
     font-variant-numeric: tabular-nums;
-    font-size: 1.625rem;
-    font-weight: 500;
-    letter-spacing: -.01em;
+    font-size: 46px;
+    font-weight: 700;
+    letter-spacing: -1px;
     line-height: 1;
     color: var(--mm-text);
 }
-.mm-kpi-sub { font-size: .78rem; color: var(--mm-muted); }
+/* O número das atrasadas fica vermelho só quando há atrasadas (dc L163, `numCor`). */
+.mm-kpi-valor.is-alerta { color: var(--mm-danger-text); }
+.mm-kpi-sub { font-size: 13px; color: var(--mm-muted); }
 
 /* ── Abas (controle segmentado) + modo ────────────────────────────────────── */
-.mm-barra-abas {
+/* Abas, busca, facetas e modo num cartão só (dc L65-75). A barra de filtros é o componente
+   compartilhado `filtro-tabela`: aqui só se tira a margem dela e se deixa crescer. */
+.mm-barra-cartao {
     display: flex;
     align-items: center;
-    gap: .875rem;
+    gap: 14px;
     flex-wrap: wrap;
+    background: var(--mm-card);
+    border: 1px solid var(--mm-border);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(18,36,47,.05);
+    padding: 14px 18px;
+    margin-bottom: 16px;
 }
+.mm-barra-sep { width: 1px; height: 28px; background: var(--mm-div); flex-shrink: 0; }
+.mm-barra-cartao > .filtro-barra { flex: 1 1 360px; min-width: 0; margin: 0; }
 .mm-abas {
     position: relative;
     display: inline-flex;
-    gap: 3px;
+    gap: 2px;
     background: var(--mm-div);
-    border: 1px solid var(--mm-border);
+    border: 0;
     border-radius: 4px;
     padding: 4px;
 }
@@ -261,14 +354,28 @@
     align-items: start;
 }
 .mm-arranjo.mm-sem-trilho { grid-template-columns: minmax(0, 1fr); }
-.mm-trilho { display: flex; flex-direction: column; gap: .875rem; min-width: 0; }
+.mm-trilho { display: flex; flex-direction: column; gap: .875rem; min-width: 0; position: sticky; top: calc(var(--header-height) + var(--subnav-height) + 16px); align-self: start; }
+/* O AdminLTE põe `overflow: auto` no `main.app-main`, que nunca rola (quem rola é a janela) mas vira
+   o contêiner do `sticky` — e o trilho nunca grudava. Só nesta página, e só se o navegador souber
+   `:has()`; sem ele o trilho apenas não fica fixo. Medido: sem isto, topo do trilho em -697px após rolar. */
+/* A regra do AdminLTE é `@media (min-width:992px) { .sidebar-expand-lg.layout-fixed .app-main { overflow:auto } }`
+   (medida no navegador: o arquivo vem de CDN). `body.layout-fixed … :has()` fica mais específico que ela. */
+body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
+/* Faixas de 3px sob os cartões do trilho (dc L104 verde, L114 vermelha). Duas classes de propósito:
+   `.mm-cartao` vem depois no arquivo e, com a mesma especificidade, devolvia a borda de 1px. */
+.mm-cartao.mm-trilho-andamento { border-bottom: 3px solid var(--mm-faixa-andamento); }
+.mm-cartao.mm-trilho-atencao   { border-bottom: 3px solid var(--mm-faixa-atencao); }
 
 @media (max-width: 1199.98px) {
     .mm-arranjo { grid-template-columns: minmax(0, 1fr); }
+    .mm-trilho { position: static; }   /* uma coluna: o trilho vem depois da lista, sem fixar */
     .mm-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 575.98px) {
     .mm-kpis { grid-template-columns: minmax(0, 1fr); }
+    /* As quatro abas (725px) não cabem no cartão do celular: quebram linha dentro dele. */
+    .mm-abas { flex-wrap: wrap; width: 100%; }
+    .mm-barra-sep { display: none; }
 }
 
 /* ── Cartão contêiner ─────────────────────────────────────────────────────── */
@@ -339,11 +446,11 @@ button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(
     align-items: flex-start;
     padding: .875rem .75rem .875rem 1.25rem;
     border-bottom: 1px solid var(--mm-div-row);
-    border-left: 3px solid transparent;
+    border-left: 4px solid transparent;   /* faixa do grupo: 4px, como o `inset 4px` do dc */
     transition: background .2s;
 }
 .mm-meta:last-child { border-bottom: none; }
-.mm-meta.tom-danger { border-left-color: var(--mm-danger-dot); }
+.mm-meta.tom-danger { border-left-color: var(--mm-danger-dot); background: var(--mm-linha-atrasada-bg); }
 .mm-meta.tom-warn   { border-left-color: var(--mm-warn-dot); }
 .mm-meta.tom-accent { border-left-color: var(--mm-accent); }
 .mm-meta.tom-cinza  { border-left-color: var(--mm-cinza-dot); }
@@ -369,14 +476,21 @@ button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(
 .mm-meta-num { color: var(--mm-num); margin-right: 10px; font-variant-numeric: tabular-nums; }
 
 .mm-meta-corpo { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: .375rem; }
-.mm-meta-topo { display: flex; align-items: center; gap: .5625rem; min-width: 0; flex-wrap: wrap; }
+.mm-meta-topo { display: flex; align-items: center; gap: .5625rem; min-width: 0; flex-wrap: nowrap; }
+/* Título do desenho (dc L86): caixa alta, 14.5px negrito, uma linha com reticências. O texto
+   inteiro fica no DOM e no `title` do link. */
 .mm-meta-titulo {
-    font-size: .9rem;
-    font-weight: 600;
+    min-width: 0;
+    font-size: 14.5px;
+    font-weight: 700;
     line-height: 1.35;
+    letter-spacing: .2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--mm-text);
     text-decoration: none;
-    text-wrap: pretty;
 }
 a.mm-meta-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-meta.tom-ok .mm-meta-titulo {
@@ -416,19 +530,20 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 
 /* ── Pílulas de status e prioridade ───────────────────────────────────────── */
 .mm-pilula {
-    font-size: .6875rem;
-    font-weight: 600;
-    letter-spacing: .04em;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .6px;
     text-transform: uppercase;
     white-space: nowrap;
-    padding: .1875rem .5625rem;
+    padding: 3px 9px;
     border-radius: 3px;
-    border: 1px solid transparent;
+    border: 0;   /* sem borda, como o dc (L93) */
 }
 .mm-pilula.tom-ok     { color: var(--mm-ok-text);     background: var(--mm-ok-bg);     border-color: var(--mm-ok-border); }
 .mm-pilula.tom-warn   { color: var(--mm-warn-text);   background: var(--mm-warn-bg);   border-color: var(--mm-warn-border); }
 .mm-pilula.tom-danger { color: var(--mm-danger-text); background: var(--mm-danger-bg); border-color: var(--mm-danger-border); }
 .mm-pilula.tom-accent { color: var(--mm-accent);      background: var(--mm-accent-bg); border-color: var(--mm-accent-border); }
+.mm-pilula.tom-cinza  { color: var(--mm-sem-text);    background: var(--mm-sem-bg); }
 
 .mm-prioridade {
     display: inline-flex;

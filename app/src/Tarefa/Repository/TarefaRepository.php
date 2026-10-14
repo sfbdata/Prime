@@ -189,6 +189,45 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Número de cada meta DENTRO da sua pasta (R239: `{nº na pasta} Título`), pela mesma regra da aba
+     * Metas da pasta (`PastaMetasResumoOutput::emOrdemDeCriacao`): ordem de criação, id como desempate.
+     * Não há campo gravado — o número é a posição, e é a mesma nas duas telas.
+     *
+     * Raiz e junção em `Tarefa` (TenantAware): o TenantFilter prende as duas pontas ao escritório, e a
+     * junção só olha metas da MESMA pasta. Uma consulta para a lista inteira.
+     *
+     * @param int[] $metaIds
+     * @return array<int, int> id da meta => número na pasta
+     */
+    public function numerosNaPasta(array $metaIds): array
+    {
+        if ($metaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('t')
+            ->select('t.id AS id, COUNT(o.id) AS numero')
+            ->join(
+                Tarefa::class,
+                'o',
+                'WITH',
+                'o.pasta = t.pasta AND (o.dataCriacao < t.dataCriacao OR (o.dataCriacao = t.dataCriacao AND o.id <= t.id))',
+            )
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('ids', $metaIds)
+            ->groupBy('t.id')
+            ->getQuery()
+            ->getArrayResult();
+
+        $numeros = [];
+        foreach ($linhas as $linha) {
+            $numeros[(int) $linha['id']] = (int) $linha['numero'];
+        }
+
+        return $numeros;
+    }
+
+    /**
      * As pessoas do trilho lateral, com quantas metas em aberto e quantas atrasadas cada uma.
      *
      * A pergunta muda com a aba, e é essa a razão de o trilho existir:
