@@ -29,6 +29,8 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Fundação da BlueJus IA, ainda sem provedor de linguagem ligado (`f05bf1f8`).
 - Agente de Pastas, Fase 1: ferramentas de leitura em `/api/agente/*` (buscar e contar pastas com
   os filtros da Lista do Expediente, listar documentos de uma pasta, vocabulário do escritório).
+- BlueJus IA: adaptador da API da Anthropic (Claude) na porta de provedor existente, dormente até haver
+  chave e modelo configurados no ambiente.
 - Central de Comunicação, A1: conversas individuais entre colegas do escritório, gravadas no servidor,
   com histórico, não lidas e atualização por polling, na página `/central`.
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de

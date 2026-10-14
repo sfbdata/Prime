@@ -72,8 +72,16 @@ UseCases. Porta de entrada é o módulo **Expediente** (não o da IA): a busca d
   prova essa guarda (o filtro esconde antes) — quem prova é `ConsultaDePastasDoAgenteTest`.
 - **NUP não é chave** (não é único no escritório): rotas por id; `nups` pode devolver mais pastas que NUPs.
 
-## Ligar um provedor de verdade
+## Provedor: Anthropic (D1, 14/10/2026)
 
-Implementar `ProvedorDeLinguagem` com `HttpClientInterface` (classificar 4xx definitivo × 5xx/rede transitório
-em `FalhaDoProvedorException`), trocar o alias em `services.yaml`, definir `IA_HABILITADA=1` e as credenciais no
-`.env.prod`, rebuild (prod é imagem baked), atualizar o Anexo I da Política de Privacidade (D3).
+`ProvedorAnthropic` (HTTP direto pelo `symfony/http-client`, sem SDK) é o alias da porta. **Dormente** sem
+`ANTHROPIC_API_KEY` e `IA_MODELO` no ambiente. Proposta de modelo, custo, privacidade e o checklist de ativação:
+`docs/specs/inteligencia-provedor-anthropic.md`. Regras do adaptador:
+
+- **Nunca `temperature`/`top_p`/`top_k` nem prefill** — os modelos atuais respondem 400. A `temperatura` do pedido é
+  intenção do prompt; o último turno é sempre do usuário.
+- **Mensagem de exceção = status + tipo + `request-id`.** Ela vira motivo gravado da análise: nunca o corpo do erro
+  nem o texto do pedido. 429 do teto de gasto (`enforced_spend_limit_reached`) é definitivo.
+- **Nenhum id de escritório, usuário ou pasta em metadado** da requisição.
+- Testes só com `MockHttpClient`; a suíte usa o `ProvedorFalso`. Nunca uma chamada real em teste.
+- Não usar os "Covered Models" (Fable/Mythos): exigem retenção de 30 dias do lado da Anthropic.

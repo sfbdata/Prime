@@ -9,10 +9,9 @@ use App\Inteligencia\DTO\RespostaDeLinguagem;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 
 /**
- * Provedor dormente — o estado de dev/prod enquanto o dono não escolhe o fornecedor (decisão D1).
- * Mesmo padrão do `ClienteOabIndisponivel`: sempre sinaliza indisponibilidade, nunca inventa
- * resposta. Quando houver provedor real: implementar {@see ProvedorDeLinguagem} com
- * `HttpClientInterface` e trocar o alias em `services.yaml`.
+ * Provedor dormente para instalação SEM IA. Desde a D1 (14/10/2026) o alias aponta para o
+ * {@see ProvedorAnthropic}, que se comporta assim enquanto não tem chave e modelo — e usa o {@see NOME}
+ * daqui no `nome()`, para a coluna `provedor` não dizer que algo saiu. Nunca inventa resposta.
  */
 final class ProvedorNaoConfigurado implements ProvedorDeLinguagem
 {
