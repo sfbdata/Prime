@@ -110,15 +110,20 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     #[TestDox('janela: botão azul #0a6fa0 na variante (dc cfVals okBg), texto em pre-line, acessível (alertdialog, aria-modal, título e texto ligados)')]
     public function testMarcacaoECores(): void
     {
-        $show = self::ler('templates/pasta/show.html.twig');
-        self::assertMatchesRegularExpression('/\.ps-body \{[^}]*--ps-cf-ok-azul: #0a6fa0;/', $show);
-        self::assertMatchesRegularExpression('/\.ps-body \{[^}]*--ps-cf-ok: #b3262e;/', $show, 'o vermelho do desenho segue');
-        self::assertStringContainsString('.ps-cf.is-azul .ps-cf-btn--ok { background: var(--ps-cf-ok-azul); }', $show);
-        self::assertMatchesRegularExpression('/\.ps-body \{[^}]*--ps-cf-cancelar-tx: #34505f;/', $show, 'texto do Cancelar do dc');
-        self::assertStringContainsString('color: var(--ps-cf-cancelar-tx); }', $show);
-        self::assertStringContainsString('.ps-cf-texto { padding: 14px 16px; font-size: 13.5px; line-height: 1.55; color: var(--ps-body); overflow-wrap: anywhere; }', $show, 'como o dc: sem pre-line, caixa de texto sempre presente');
-        self::assertStringContainsString('<div class="ps-cf" role="alertdialog" aria-modal="true" aria-labelledby="psConfirmarTitulo" aria-describedby="psConfirmarTexto" tabindex="-1">', $show);
-        self::assertStringContainsString('.ps-cf-cab { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--ps-cf-cab); color: #fff; }', $show, 'cabeçalho #0b6a96 nas duas variantes, como o dc');
+        // Desde a E8 a janela mora num partial (Pasta e Expediente); os tokens ficam no próprio fundo.
+        $janela = self::ler('templates/_partials/_janela_confirmacao.html.twig');
+        self::assertMatchesRegularExpression('/\.ps-cf-fundo \{[^}]*--cf-ok-azul: #0a6fa0;/', $janela);
+        self::assertMatchesRegularExpression('/\.ps-cf-fundo \{[^}]*--cf-ok: #b3262e;/', $janela, 'o vermelho do desenho segue');
+        self::assertMatchesRegularExpression('/\.ps-cf-fundo \{[^}]*--cf-cab: #0b6a96;/', $janela, 'cabeçalho do dc nas duas variantes');
+        self::assertStringContainsString('.ps-cf.is-azul .ps-cf-btn--ok { background: var(--cf-ok-azul); }', $janela);
+        self::assertMatchesRegularExpression('/\.ps-cf-fundo \{[^}]*--cf-cancelar-tx: #34505f;/', $janela, 'texto do Cancelar do dc');
+        self::assertStringContainsString('color: var(--cf-cancelar-tx); }', $janela);
+        self::assertStringContainsString('--cf-card: var(--ps-card, #fff); --cf-texto: var(--ps-body, #243845);', $janela, 'na Pasta usa os tokens dela; fora, o valor do dc');
+        self::assertStringContainsString('.ps-cf-texto { padding: 14px 16px; font-size: 13.5px; line-height: 1.55; color: var(--cf-texto); overflow-wrap: anywhere; }', $janela, 'como o dc: sem pre-line');
+        self::assertStringContainsString('<div class="ps-cf" role="alertdialog" aria-modal="true" aria-labelledby="psConfirmarTitulo" aria-describedby="psConfirmarTexto" tabindex="-1">', $janela);
+
+        self::assertStringContainsString("{{ include('_partials/_janela_confirmacao.html.twig') }}", self::ler('templates/pasta/show.html.twig'));
+        self::assertStringNotContainsString('id="psConfirmar"', self::ler('templates/pasta/show.html.twig'), 'uma janela só por página');
     }
 
     #[TestDox('foco ao fechar: volta a quem abriu; se era item de um menu que já fechou, volta ao botão que abre o menu (não ao <body>) — achado na tela')]

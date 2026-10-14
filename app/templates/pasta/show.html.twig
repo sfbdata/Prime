@@ -4357,37 +4357,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
 {# PAS-034 (dc L.280-288 `cf` e L.597 `edAviso`): a janela de confirmação e o aviso da tela, no
    lugar do `confirm`/`alert` do navegador. Um de cada por página; /js/pasta-dialogos.js
-   (`confirmarPs`/`avisarPs`) só troca TEXTO e mostra/esconde. #}
+   (`confirmarPs`/`avisarPs`) só troca TEXTO e mostra/esconde. A janela mora num partial desde a E8
+   (o Expediente usa a mesma); o aviso continua só da Pasta. #}
+{{ include('_partials/_janela_confirmacao.html.twig') }}
 <style>
-    .ps-body { --ps-cf-cab: #0b6a96; --ps-cf-ok: #b3262e; --ps-cf-ok-hv: #921f26; --ps-cf-ok-azul: #0a6fa0; --ps-cf-ok-azul-hv: #085a82; --ps-cf-cancelar-tx: #34505f; --ps-aviso-bg: #12242f; --ps-aviso-ok: #5fd39a; --ps-aviso-erro: #ff8a80; }
-    [data-bs-theme="dark"] .ps-body { --ps-cf-cab: #0a5f86; --ps-cf-ok: #c0392f; --ps-cf-ok-hv: #a3232b; --ps-cf-ok-azul: #1479ad; --ps-cf-ok-azul-hv: #0a6fa0; --ps-cf-cancelar-tx: var(--ps-text-2); --ps-aviso-bg: #0b161d; }
-    .ps-cf-fundo {
-        position: fixed; inset: 0; z-index: 2147483500; padding: 16px; pointer-events: auto;
-        display: flex; align-items: center; justify-content: center; background: rgba(16,36,48,.32);
-    }
-    .ps-cf-fundo[hidden] { display: none; }
-    .ps-cf {
-        width: min(420px, 100%); border-radius: 4px; overflow: hidden; outline: none;
-        background: var(--ps-card); box-shadow: 0 18px 50px rgba(16,42,58,.28);
-    }
-    .ps-cf-cab { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--ps-cf-cab); color: #fff; }
-    .ps-cf-cab > i { font-size: 16px; }
-    .ps-cf-titulo { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 700; color: #fff; }
-    .ps-cf-fechar {
-        width: 30px; height: 30px; border: none; border-radius: 4px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.16); color: #fff;
-    }
-    .ps-cf-texto { padding: 14px 16px; font-size: 13.5px; line-height: 1.55; color: var(--ps-body); overflow-wrap: anywhere; }
-    .ps-cf-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--ps-div-strong); background: var(--ps-soft); }
-    .ps-cf-btn { height: 34px; border: none; border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    /* E7: texto do Cancelar #34505f, o do dc (`cf`, L.356); antes saía #455c6b (--ps-text-2). */
-    .ps-cf-btn--cancelar { padding: 0 14px; background: var(--ps-div-strong); color: var(--ps-cf-cancelar-tx); }
-    .ps-cf-btn--ok { padding: 0 16px; background: var(--ps-cf-ok); color: #fff; }
-    .ps-cf-btn--ok:hover, .ps-cf-btn--ok:focus-visible { background: var(--ps-cf-ok-hv); }
-    /* E7: variante azul do desenho (dc `cfVals`, okBg #0a6fa0) para ação sem perigo. O hover o desenho
-       não define: escurece como o vermelho. */
-    .ps-cf.is-azul .ps-cf-btn--ok { background: var(--ps-cf-ok-azul); }
-    .ps-cf.is-azul .ps-cf-btn--ok:hover, .ps-cf.is-azul .ps-cf-btn--ok:focus-visible { background: var(--ps-cf-ok-azul-hv); }
+    .ps-body { --ps-aviso-bg: #12242f; --ps-aviso-ok: #5fd39a; --ps-aviso-erro: #ff8a80; }
+    [data-bs-theme="dark"] .ps-body { --ps-aviso-bg: #0b161d; }
     .ps-aviso {
         position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483400;
         display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 10px 14px;
@@ -4398,20 +4373,6 @@ document.addEventListener('DOMContentLoaded', function () {
     .ps-aviso > i { color: var(--ps-aviso-ok); }
     .ps-aviso.is-erro > i { color: var(--ps-aviso-erro); }
 </style>
-<div class="ps-cf-fundo" id="psConfirmar" hidden>
-    <div class="ps-cf" role="alertdialog" aria-modal="true" aria-labelledby="psConfirmarTitulo" aria-describedby="psConfirmarTexto" tabindex="-1">
-        <div class="ps-cf-cab">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-            <h2 class="ps-cf-titulo" id="psConfirmarTitulo"></h2>
-            <button type="button" class="ps-cf-fechar" data-ps-cf-cancelar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-        </div>
-        <div class="ps-cf-texto" id="psConfirmarTexto"></div>
-        <div class="ps-cf-rodape">
-            <button type="button" class="ps-cf-btn ps-cf-btn--cancelar" data-ps-cf-cancelar>Cancelar</button>
-            <button type="button" class="ps-cf-btn ps-cf-btn--ok" data-ps-cf-ok><i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir</span></button>
-        </div>
-    </div>
-</div>
 <div class="ps-aviso" id="psAviso" role="status" aria-live="polite" hidden><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span></span></div>
 
 {# EDT-014: a qualificação do cliente principal para o item "Inserir qualificação do cliente" do
