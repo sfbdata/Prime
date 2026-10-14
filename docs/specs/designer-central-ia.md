@@ -100,8 +100,9 @@ repositório, que a Lista não usa e que não ignoram acento/caixa (`acao=cobran
 
 ## 4. Decisões do dono (abertas)
 
-- **D1 — Provedor de IA:** provedor/modelo, custo e cota, contrato zero-retention, LGPD (Anexo I da Política
-  de Privacidade), habilitação por escritório. Bloqueia Chat I.A, planejador do agente e comandos (b).
+- **D1 — Provedor de IA:** ✅ decidido em 14/10: **Anthropic** (Claude, API oficial). Adaptador pronto e dormente;
+  restam D1-a…D1-f em `inteligencia-provedor-anthropic.md` §6 (SDK, modelo/esforço, ZDR, base legal LGPD,
+  `inference_geo`, piloto). Ativação em produção só com aprovação.
 - **D2 — Tempo real da Central:** recomendação: polling com cursor (padrão da casa). SSE pelo próprio PHP-FPM
   prende um worker por aba aberta, então o passo seguinte real é um hub dedicado (Mercure), que é infra nova —
   só com medida que justifique. Ligações à parte (D-CONNECT). Proposta: `docs/specs/central-comunicacao-proposta.md`.
