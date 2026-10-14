@@ -142,6 +142,32 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Marca como lidas as notificações NÃO lidas do usuário, de um tipo, que apontam para um link exato (a
+     * conversa da Central lida lê as menções dela). Tenant explícito: o UPDATE em massa escapa o TenantFilter.
+     *
+     * @return int quantidade marcada
+     */
+    public function marcarComoLidasPelaUrl(User $usuario, Tenant $tenant, string $tipo, string $url): int
+    {
+        return $this->createQueryBuilder('n')
+            ->update()
+            ->set('n.lida', 'true')
+            ->set('n.lidaEm', ':agora')
+            ->where('n.usuario = :usuario')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.url = :url')
+            ->andWhere('n.lida = false')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('url', $url)
+            ->setParameter('agora', new \DateTimeImmutable())
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
      * Exclui as notificações informadas que pertençam ao usuário no escritório informado.
      * O filtro por usuário garante que IDs de outro usuário sejam ignorados; o filtro por
      * tenant (explícito, pois o DELETE em massa escapa o TenantFilter) impede excluir, por

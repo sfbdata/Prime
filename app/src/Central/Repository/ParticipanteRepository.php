@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Central\Repository;
 
+use App\Central\Entity\Conversa;
 use App\Central\Entity\Participante;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -36,6 +37,28 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Todos os participantes da conversa, com a pessoa carregada — a base de quem pode ser @mencionado.
+     *
+     * @return list<Participante>
+     */
+    public function daConversaInteira(Conversa $conversa, Tenant $tenant): array
+    {
+        /** @var list<Participante> $participantes */
+        $participantes = $this->createQueryBuilder('p')
+            ->addSelect('u')
+            ->join('p.usuario', 'u')
+            ->andWhere('p.conversa = :conversa')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('conversa', $conversa)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $participantes;
     }
 
     /**
@@ -88,6 +111,18 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->setParameter('id', $participante->getId())
             ->setParameter('tenant', $participante->getTenant())
             ->getSingleScalarResult();
+    }
+
+    /** Desliga o "marcar como não lida" — ler a conversa vale como abrir, mesmo sem o cursor precisar andar. */
+    public function desmarcarNaoLida(Participante $participante): void
+    {
+        $this->getEntityManager()->createQuery(
+            'UPDATE ' . Participante::class . ' p SET p.marcadaNaoLida = false
+             WHERE p.id = :id AND p.tenant = :tenant AND p.marcadaNaoLida = true'
+        )
+            ->setParameter('id', $participante->getId())
+            ->setParameter('tenant', $participante->getTenant())
+            ->execute();
     }
 
     public function salvar(Participante $participante): void

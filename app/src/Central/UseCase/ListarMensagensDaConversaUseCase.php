@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Central\UseCase;
 
+use App\Central\DTO\ContatoOutput;
 use App\Central\DTO\MensagemOutput;
 use App\Central\DTO\MensagensDaConversaOutput;
 use App\Central\Entity\Mensagem;
@@ -17,6 +18,8 @@ use App\Entity\Tenant\Tenant;
 /**
  * Uma página do histórico (50), só para participante. Ler não marca como lida: quem marca é a tela, quando
  * a conversa está de fato à vista — abrir em segundo plano não pode zerar o contador.
+ *
+ * Junto vai quem pode ser @mencionado nesta conversa (A2), para o autocomplete da tela.
  */
 final class ListarMensagensDaConversaUseCase
 {
@@ -44,11 +47,17 @@ final class ListarMensagensDaConversaUseCase
             array_shift($pagina);
         }
 
+        $mencionaveis = [];
+        foreach ($this->acesso->mencionaveis($participacao->getConversa(), $eu, $tenant) as $id => $pessoa) {
+            $mencionaveis[] = new ContatoOutput($id, (string) $pessoa->getFullName());
+        }
+
         return new MensagensDaConversaOutput(
             conversaId: $conversaId,
             mensagens: array_map(static fn (Mensagem $m): MensagemOutput => MensagemOutput::fromEntity($m, $eu), $pagina),
             temMais: $temMais,
             ultimaLidaId: $participacao->getUltimaLidaId(),
+            mencionaveis: $mencionaveis,
         );
     }
 }

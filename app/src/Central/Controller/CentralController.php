@@ -14,6 +14,7 @@ use App\Central\UseCase\ListarContatosDaCentralUseCase;
 use App\Central\UseCase\ListarConversasUseCase;
 use App\Central\UseCase\ListarMensagensDaConversaUseCase;
 use App\Central\UseCase\MarcarConversaComoLidaUseCase;
+use App\Central\UseCase\MarcarConversaComoNaoLidaUseCase;
 use App\Central\UseCase\ObterNovidadesDaCentralUseCase;
 use App\Entity\Auth\User;
 use App\Service\Tenant\TenantContext;
@@ -25,7 +26,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Central de Comunicação A1 — conversas 1:1 persistidas (`docs/specs/central-comunicacao-a1.md`).
+ * Central de Comunicação A1 — conversas 1:1 persistidas (`docs/specs/central-comunicacao-a1.md`) — e A2: @menção,
+ * responder, marcar como não lida (`docs/specs/central-comunicacao-a2.md`).
  *
  * Toda a regra de acesso mora nos UseCases (vínculo ativo + participação); aqui só HTTP: ler o pedido,
  * chamar, traduzir a exceção de domínio no status. Escrita exige o token CSRF `ajax` no cabeçalho
@@ -48,11 +50,12 @@ final class CentralController extends AbstractController
         private readonly EnviarMensagemUseCase $enviarMensagem,
         private readonly MarcarConversaComoLidaUseCase $marcarComoLida,
         private readonly ObterNovidadesDaCentralUseCase $obterNovidades,
+        private readonly MarcarConversaComoNaoLidaUseCase $marcarComoNaoLida,
     ) {
     }
 
     #[Route('', name: 'central_index', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         try {
             $this->listarContatos->executar($this->usuario(), $this->tenantContext->getCurrentTenant());
@@ -60,7 +63,12 @@ final class CentralController extends AbstractController
             throw $this->createAccessDeniedException('Sem acesso à Central neste escritório.');
         }
 
-        return $this->render('central/index.html.twig', ['eu' => $this->usuario()]);
+        // `?conversa=N` é o link da notificação de menção. Só um id bem formado chega à tela, e a tela só abre se
+        // a conversa estiver na MINHA lista — o id sozinho não abre nada.
+        return $this->render('central/index.html.twig', [
+            'eu' => $this->usuario(),
+            'abrirConversa' => self::idDaQuery($request, 'conversa'),
+        ]);
     }
 
     #[Route('/contatos', name: 'central_contatos', methods: ['GET'])]
@@ -96,13 +104,20 @@ final class CentralController extends AbstractController
     public function enviar(int $id, Request $request): JsonResponse
     {
         $this->validarCsrfAjax($request);
-        $conteudo = $this->corpo($request)['conteudo'] ?? null;
+        $corpo = $this->corpo($request);
+        $conteudo = $corpo['conteudo'] ?? null;
         if (!is_string($conteudo)) {
             return $this->json(['erro' => 'Mensagem inválida.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+        // Ausente/null = mensagem comum. Presente e torto (texto, zero, grande demais) vira 0, que nenhuma mensagem
+        // tem — o UseCase recusa com 422, em vez de mandar a mensagem sem a citação pedida.
+        $respostaAId = null;
+        if (($corpo['respostaAId'] ?? null) !== null) {
+            $respostaAId = $this->inteiroDoCorpo($request, 'respostaAId');
+        }
 
         return $this->responder(
-            fn () => ['mensagem' => $this->enviarMensagem->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, $conteudo)],
+            fn () => ['mensagem' => $this->enviarMensagem->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, $conteudo, $respostaAId)],
             Response::HTTP_CREATED,
         );
     }
@@ -114,6 +129,18 @@ final class CentralController extends AbstractController
         $ateId = $this->inteiroDoCorpo($request, 'ateId');
 
         return $this->responder(fn () => ['ultimaLidaId' => $this->marcarComoLida->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, $ateId)]);
+    }
+
+    #[Route('/conversas/{id}/nao-lida', name: 'central_conversa_nao_lida', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function naoLida(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->marcarComoNaoLida->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id);
+
+            return ['marcadaNaoLida' => true];
+        });
     }
 
     #[Route('/novidades', name: 'central_novidades', methods: ['GET'])]

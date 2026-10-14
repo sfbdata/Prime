@@ -7,7 +7,10 @@ namespace App\Central\DTO;
 use App\Central\Entity\Mensagem;
 use App\Entity\Auth\User;
 
-/** Uma mensagem como a tela a recebe. `minha` é do ponto de vista de quem pediu. */
+/**
+ * Uma mensagem como a tela a recebe. `minha` é do ponto de vista de quem pediu. `conteudo` vem com as menções no
+ * token `@[Nome](user:ID)` — a tela destaca; `respostaA` é a citação (A2), ou `null`.
+ */
 final class MensagemOutput
 {
     private function __construct(
@@ -18,6 +21,7 @@ final class MensagemOutput
         public readonly string $conteudo,
         public readonly string $criadaEm,
         public readonly bool $minha,
+        public readonly ?RespostaOutput $respostaA,
     ) {
     }
 
@@ -33,6 +37,7 @@ final class MensagemOutput
             conteudo: $mensagem->getConteudo(),
             criadaEm: $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
             minha: $autor->getId() === $eu->getId(),
+            respostaA: $mensagem->getRespostaA() !== null ? RespostaOutput::fromEntity($mensagem->getRespostaA()) : null,
         );
     }
 }

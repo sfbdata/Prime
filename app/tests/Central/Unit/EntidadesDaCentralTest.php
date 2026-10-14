@@ -92,4 +92,20 @@ final class EntidadesDaCentralTest extends TestCase
 
         self::assertSame(10, $participante->getUltimaLidaId());
     }
+
+    #[TestDox('Resposta só a mensagem da MESMA conversa (A2)')]
+    public function testRespostaSoNaMesmaConversa(): void
+    {
+        $tenant = new Tenant();
+        [$um, $dois, $tres] = [$this->usuario(1), $this->usuario(2), $this->usuario(3)];
+        $esta = Conversa::individual($tenant, $um, $dois, new \DateTimeImmutable());
+        $outra = Conversa::individual($tenant, $um, $tres, new \DateTimeImmutable());
+        $original = new Mensagem($tenant, $esta, $dois, 'pergunta', new \DateTimeImmutable());
+        $alheia = new Mensagem($tenant, $outra, $tres, 'de outra conversa', new \DateTimeImmutable());
+
+        self::assertSame($original, (new Mensagem($tenant, $esta, $um, 'resposta', new \DateTimeImmutable(), $original))->getRespostaA());
+
+        $this->expectException(\DomainException::class);
+        new Mensagem($tenant, $esta, $um, 'resposta', new \DateTimeImmutable(), $alheia);
+    }
 }

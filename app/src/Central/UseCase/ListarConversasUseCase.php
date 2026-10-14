@@ -55,6 +55,7 @@ final class ListarConversasUseCase
                 ultima: isset($ultimas[$id]) ? MensagemOutput::fromEntity($ultimas[$id], $eu) : null,
                 naoLidas: $naoLidas[$id] ?? 0,
                 outroAtivo: isset($ativos[(int) $outro->getId()]),
+                marcadaNaoLida: $participacao->isMarcadaNaoLida(),
             );
         }
 

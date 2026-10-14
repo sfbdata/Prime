@@ -6,6 +6,7 @@
          data-url-novidades="{{ path('central_novidades') }}"
          data-url-conversa-base="{{ path('central_conversas') }}"
          data-eu-nome="{{ eu.fullName }}"
+         {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
          aria-label="Central de Comunicação">
     <header class="bj-central-cab">
         <button type="button" class="bj-central-btn-ico" data-central-voltar hidden aria-label="Voltar para as conversas" title="Voltar">
@@ -13,7 +14,7 @@
         </button>
         <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-avatar aria-hidden="true"></span>
         <div class="bj-central-cab-textos">
-            <div class="bj-central-cab-titulo" data-central-cab-titulo>Chat I.A</div>
+            <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
             <div class="bj-central-cab-sub" data-central-cab-sub>{{ eu.fullName }}</div>
         </div>
     </header>

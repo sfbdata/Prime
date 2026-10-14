@@ -29,8 +29,10 @@ class MensagemRepository extends ServiceEntityRepository
     public function historico(Conversa $conversa, Tenant $tenant, ?int $antesDe, int $limite): array
     {
         $qb = $this->createQueryBuilder('m')
-            ->addSelect('a')
+            ->addSelect('a', 'r', 'ra')
             ->join('m.autor', 'a')
+            ->leftJoin('m.respostaA', 'r')
+            ->leftJoin('r.autor', 'ra')
             ->andWhere('m.conversa = :conversa')
             ->andWhere('m.tenant = :tenant')
             ->setParameter('conversa', $conversa)
@@ -62,7 +64,7 @@ class MensagemRepository extends ServiceEntityRepository
         }
 
         $ultimas = $this->getEntityManager()->createQuery(
-            'SELECT m, a FROM ' . Mensagem::class . ' m JOIN m.autor a
+            'SELECT m, a, r, ra FROM ' . Mensagem::class . ' m JOIN m.autor a LEFT JOIN m.respostaA r LEFT JOIN r.autor ra
              WHERE m.tenant = :tenant AND m.id IN (
                 SELECT MAX(m2.id) FROM ' . Mensagem::class . ' m2
                 WHERE m2.tenant = :tenant AND m2.conversa IN (:conversas)
@@ -118,8 +120,10 @@ class MensagemRepository extends ServiceEntityRepository
     {
         /** @var list<Mensagem> $mensagens */
         $mensagens = $this->getEntityManager()->createQuery(
-            'SELECT m, a FROM ' . Mensagem::class . ' m
+            'SELECT m, a, r, ra FROM ' . Mensagem::class . ' m
              JOIN m.autor a
+             LEFT JOIN m.respostaA r
+             LEFT JOIN r.autor ra
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
              WHERE m.tenant = :tenant AND m.id > :desde
              ORDER BY m.id ASC'
@@ -157,6 +161,25 @@ class MensagemRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * A mensagem `$id` SE for desta conversa e deste escritório — a única que pode ser respondida nela. De outra
+     * conversa ou de outro escritório dá o mesmo `null`: quem chama não distingue.
+     */
+    public function daConversa(int $id, Conversa $conversa, Tenant $tenant): ?Mensagem
+    {
+        return $this->createQueryBuilder('m')
+            ->addSelect('a')
+            ->join('m.autor', 'a')
+            ->andWhere('m.id = :id')
+            ->andWhere('m.conversa = :conversa')
+            ->andWhere('m.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('conversa', $conversa)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function salvar(Mensagem $mensagem): void

@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Central\Service;
+
+use App\Central\DTO\MencoesResolvidas;
+use App\Entity\Auth\User;
+
+/**
+ * @menção no texto da Central (`docs/specs/central-comunicacao-a2.md` §2), no token canônico da casa — o mesmo do
+ * Registro da pasta e da nota técnica: `@[Nome](user:ID)`. A mensagem é texto puro; o destaque é feito pela tela,
+ * que lê o mesmo padrão.
+ *
+ * Quem decide quem é mencionável é quem chama (participante, com vínculo ativo, não o autor). Aqui só se aplica:
+ * token de alguém mencionável tem o rótulo REESCRITO com o nome do banco (ninguém forja "@Diretor" com o id de
+ * outro); token de qualquer outro id — e o que passar do teto — vira texto comum `@Rótulo` e não notifica.
+ */
+final class MencoesDaCentral
+{
+    public const PADRAO = '/@\[([^\[\]<>]{1,120})\]\(user:(\d{1,10})\)/u';
+
+    /** Teto de tokens lidos por mensagem — o mesmo do Registro. */
+    public const MAXIMO_POR_MENSAGEM = 20;
+
+    /** @param array<int, User> $mencionaveis id → pessoa que pode ser mencionada nesta conversa */
+    public function resolver(string $conteudo, array $mencionaveis): MencoesResolvidas
+    {
+        $lidos = 0;
+        $mencionados = [];
+
+        $reescrito = preg_replace_callback(self::PADRAO, static function (array $token) use (&$lidos, &$mencionados, $mencionaveis): string {
+            ++$lidos;
+            $id = (int) $token[2];
+            $pessoa = $mencionaveis[$id] ?? null;
+            if ($pessoa === null || $lidos > self::MAXIMO_POR_MENSAGEM) {
+                return '@' . $token[1];
+            }
+
+            $mencionados[$id] = $pessoa;
+
+            return sprintf('@[%s](user:%d)', self::rotulo($pessoa), $id);
+        }, $conteudo);
+
+        return new MencoesResolvidas($reescrito ?? $conteudo, array_values($mencionados));
+    }
+
+    /** O texto com cada token trocado por `@Nome` — para prévia, citação e o que não pode carregar marcação. */
+    public static function comoTexto(string $conteudo): string
+    {
+        return preg_replace(self::PADRAO, '@$1', $conteudo) ?? $conteudo;
+    }
+
+    /** O nome do banco, sem os caracteres que o padrão não aceita no rótulo. */
+    private static function rotulo(User $pessoa): string
+    {
+        $nome = trim(str_replace(['[', ']', '<', '>'], '', (string) $pessoa->getFullName()));
+        $nome = $nome === '' ? 'colega' : $nome;
+
+        return mb_substr($nome, 0, 120);
+    }
+}

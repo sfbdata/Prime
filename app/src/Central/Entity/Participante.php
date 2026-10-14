@@ -33,6 +33,13 @@ class Participante implements TenantAware
     #[ORM\Column(name: 'ultima_lida_id', type: 'integer', options: ['default' => 0])]
     private int $ultimaLidaId = 0;
 
+    /**
+     * "Marcar como não lida" (A2): sinal do próprio participante, à parte do cursor — o cursor continua sem
+     * recuar. Desliga quando a conversa é lida.
+     */
+    #[ORM\Column(name: 'marcada_nao_lida', type: 'boolean', options: ['default' => false])]
+    private bool $marcadaNaoLida = false;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
@@ -54,6 +61,16 @@ class Participante implements TenantAware
         if ($mensagemId > $this->ultimaLidaId) {
             $this->ultimaLidaId = $mensagemId;
         }
+    }
+
+    public function marcarComoNaoLida(): void
+    {
+        $this->marcadaNaoLida = true;
+    }
+
+    public function isMarcadaNaoLida(): bool
+    {
+        return $this->marcadaNaoLida;
     }
 
     public function getId(): ?int

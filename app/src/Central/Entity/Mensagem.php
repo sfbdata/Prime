@@ -15,6 +15,9 @@ use Doctrine\ORM\Mapping as ORM;
  * (JS) — nunca HTML. O id é o cursor do polling e da leitura, por isso o índice `(conversa_id, id)`.
  *
  * Fora da auditoria de propósito, como a conversa (ver `Conversa`).
+ *
+ * A2: pode responder a outra mensagem — sempre da MESMA conversa (invariante do construtor). Apagar a original
+ * não apaga a resposta: a citação some (`ON DELETE SET NULL`).
  */
 #[ORM\Entity(repositoryClass: MensagemRepository::class)]
 #[ORM\Table(name: 'central_mensagem')]
@@ -45,7 +48,13 @@ class Mensagem implements TenantAware
         string $conteudo,
         #[ORM\Column(name: 'criada_em', type: 'datetime_immutable')]
         private \DateTimeImmutable $criadaEm,
+        #[ORM\ManyToOne(targetEntity: self::class)]
+        #[ORM\JoinColumn(name: 'resposta_a_id', nullable: true, onDelete: 'SET NULL')]
+        private ?Mensagem $respostaA = null,
     ) {
+        if ($respostaA !== null && $respostaA->getConversa() !== $conversa) {
+            throw new \DomainException('A mensagem respondida não é desta conversa.');
+        }
         $conteudo = trim($conteudo);
         if ($conteudo === '') {
             throw new \DomainException('A mensagem está vazia.');
@@ -85,5 +94,10 @@ class Mensagem implements TenantAware
     public function getCriadaEm(): \DateTimeImmutable
     {
         return $this->criadaEm;
+    }
+
+    public function getRespostaA(): ?Mensagem
+    {
+        return $this->respostaA;
     }
 }

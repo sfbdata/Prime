@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Central\Service;
 
+use App\Central\Entity\Conversa;
 use App\Central\Entity\Participante;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\SemAcessoACentralException;
@@ -61,6 +62,27 @@ final class AcessoACentral
         }
 
         return $ids;
+    }
+
+    /**
+     * Quem pode ser @mencionado na conversa (A2): participante dela, com vínculo ATIVO no escritório, menos quem
+     * escreve. Terceiro do mesmo escritório não entra — mencionar alguém não pode entregar a conversa a ele.
+     *
+     * @return array<int, User> id → pessoa
+     */
+    public function mencionaveis(Conversa $conversa, User $eu, Tenant $tenant): array
+    {
+        $ativos = $this->idsComVinculoAtivo($tenant);
+        $mencionaveis = [];
+        foreach ($this->participantes->daConversaInteira($conversa, $tenant) as $participante) {
+            $pessoa = $participante->getUsuario();
+            $id = (int) $pessoa->getId();
+            if ($id !== $eu->getId() && isset($ativos[$id])) {
+                $mencionaveis[$id] = $pessoa;
+            }
+        }
+
+        return $mencionaveis;
     }
 
     public function temVinculoAtivo(User $usuario, Tenant $tenant): bool
