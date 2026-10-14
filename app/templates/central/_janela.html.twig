@@ -1,0 +1,40 @@
+{# Janela da Central — componente isolado (D6). Todo o conteúdo dinâmico é montado por central.js com
+   textContent; nada de dado de conversa passa por este template. As URLs vêm do router, não do JS. #}
+<section class="bj-central" data-central
+         data-url-conversas="{{ path('central_conversas') }}"
+         data-url-contatos="{{ path('central_contatos') }}"
+         data-url-novidades="{{ path('central_novidades') }}"
+         data-url-conversa-base="{{ path('central_conversas') }}"
+         data-eu-nome="{{ eu.fullName }}"
+         aria-label="Central de Comunicação">
+    <header class="bj-central-cab">
+        <button type="button" class="bj-central-btn-ico" data-central-voltar hidden aria-label="Voltar para as conversas" title="Voltar">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        </button>
+        <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-avatar aria-hidden="true"></span>
+        <div class="bj-central-cab-textos">
+            <div class="bj-central-cab-titulo" data-central-cab-titulo>Chat I.A</div>
+            <div class="bj-central-cab-sub" data-central-cab-sub>{{ eu.fullName }}</div>
+        </div>
+    </header>
+
+    <div class="bj-central-lista-tela" data-central-tela-lista>
+        <div class="bj-central-busca">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input type="search" class="bj-central-busca-campo" data-central-busca
+                   placeholder="Pesquisar usuário..." aria-label="Pesquisar usuário" autocomplete="off">
+        </div>
+        <div class="bj-central-lista" data-central-lista role="list"></div>
+    </div>
+
+    <div class="bj-central-conversa-tela" data-central-tela-conversa hidden>
+        <div class="bj-central-corpo" data-central-corpo aria-live="polite"></div>
+        <form class="bj-central-compositor" data-central-compositor>
+            <textarea class="bj-central-campo" data-central-campo rows="1" maxlength="4000"
+                      placeholder="Digite uma mensagem…" aria-label="Mensagem"></textarea>
+            <button type="submit" class="bj-central-enviar" data-central-enviar aria-label="Enviar" title="Enviar (Enter)">
+                <i class="bi bi-send-fill" aria-hidden="true"></i>
+            </button>
+        </form>
+    </div>
+</section>

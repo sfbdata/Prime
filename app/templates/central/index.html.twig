@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Central de Comunicação{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/central.css') }}">
+{% endblock %}
+
+{% block body %}
+{# Central A1 (docs/specs/central-comunicacao-a1.md): a janela do desenho (bluejus-central.js, 380×580) montada
+   em linha. A janela flutuante global depende da D6 (base.html.twig), por isso esta página existe sozinha. #}
+<div class="bj-central-pagina">
+    {% include 'central/_janela.html.twig' %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/central.js') }}" defer></script>
+{% endblock %}

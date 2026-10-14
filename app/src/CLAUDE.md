@@ -16,6 +16,7 @@ Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository
 | Pastas | `src/Pasta/` | ativo |
 | Tarefas | `src/Tarefa/` | ativo |
 | Perfil do usuário | `src/Profile/` | ativo |
+| Central de Comunicação | `src/Central/` | ativo (A1: conversas 1:1) |
 | Compartilhado | `src/Shared/` | ativo |
 | Ponto | `src/Entity/Ponto/` | legado — migrar para `src/Ponto/` |
 | Agenda | `src/Entity/Agenda/` | legado — migração planejada (`src/Agenda/` ainda não criado) |
@@ -37,6 +38,7 @@ Dados específicos de cada domínio. Use ao criar/editar arquivos em
 | Pasta | `App\Pasta` | `pastas` | `app_pasta_` |
 | Tarefa | `App\Tarefa` | `tarefas` | `app_tarefa_` |
 | Profile | `App\Profile` | `profile` | `app_profile_` |
+| Central | `App\Central` | _(vínculo ativo, sem módulo)_ | `central_` |
 | Shared | `App\Shared` | _(transversal)_ | _(N/A)_ |
 
 ## Refatorando código legado
