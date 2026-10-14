@@ -124,6 +124,10 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         $this->em()->persist(new UserTenant($dupla, $tenant));
         $this->em()->flush();
 
+        // Carla participa de OUTRA conversa no mesmo escritório — participar de alguma não a torna mencionável nesta.
+        $this->logarComTenant($client, $carla, $tenant);
+        $this->abrir($client, $bruno);
+
         $this->logarComTenant($client, $ana, $tenant);
         $conversa = $this->abrir($client, $bruno);
         $texto = implode(' ', [self::token($carla, 'Carla'), self::token($estranho, 'Estranho'), self::token($dupla, 'Dupla'), self::token($ana, 'Eu')]);
