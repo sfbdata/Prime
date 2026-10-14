@@ -29,11 +29,11 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 | # | Entrega | Tamanho | Estado |
 |---|---|---|---|
 | E1 | Dashboard / Intelligence: cantos de 4px nos 6 elementos que existem no BlueJus | P | ✅ esta branch |
-| E2 | Pasta: cantos de 4px nos ~31 seletores cujo par mudou no 02 (lista em §3.2-a) | P | próxima |
-| E3 | Pasta: nota técnica (fundo `#f6fafd`, borda `#b9d6e8`, raio 4, conector 1.5px `#c9dfec`) e marca IA (10.5px/700/.12em `#0a6fa0`, "Intelligence" 14.5px) | P | — |
-| E4 | Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px); remover card "Como usar esta aba" | P | — |
+| E2 | Pasta: cantos de 4px nos 26 seletores cujo par mudou no 02 (§5) | P | ✅ `83d6724d` |
+| E3 | **próxima** — Pasta: nota técnica (fundo `#f6fafd`, borda `#b9d6e8`, raio 4, conector 1.5px `#c9dfec`) e marca IA (10.5px/700/.12em `#0a6fa0`, "Intelligence" 14.5px) | P | — |
+| E4 | Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px). (Tirar "Como usar esta aba" **só com decisão** — conflito com Farlei R215, §6) | P | — |
 | E5 | Minhas Metas: cantos 4px, hover azul da linha, numeração por grupo | P | — |
-| E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | — |
+| E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
 | E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | — |
 | E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | — |
 | E9 | Peticionar: barra do documento selecionado, ⋮/botão direito, número de ordem — com as rotas existentes | M | — |
@@ -59,9 +59,11 @@ Ordem: primeiro o que é só CSS e não toca arquivo compartilhado (E2–E5), de
 
 ### 3.2 Visuais puras ainda não feitas
 
-- (a) **Pasta, 49 pílulas restantes**: ~31 trocam para 4px (o par mudou no protótipo), 11 continuam
-  pílula (interruptores, selos de status montados em JS), 7 incertas
-  (`pasta-explorador.css:646,744`; `pasta-arquivos.css:335,539`; `pasta-ia-agentes.css:216,381,475`).
+- (a) **Pasta — cantos**: feito na E2 (§5). Ficaram de fora, de propósito: `fm-*` em `pasta-arquivos.css`
+  (gerenciador antigo, congelado para a Cobrança), `.pasta-contagem` (CSS sem uso), `.pasta-resp-chip`
+  (`_resp_estilo.html.twig`, compartilhado com a lista do Expediente → E8), `.ps-chip-vinc` (faixa do
+  cabeçalho que o desenho trocou pelo andamento em fases → depende de backend), o chip de cliente montado
+  em JS no modal de vínculo (`show.html.twig:1244`, sem par identificado no protótipo).
 - **Central (chat)**: 7 trocas de canto — só onde a janela existe no BlueJus.
 - **Dashboard × protótipo, fora dos cantos** (vistos na comparação de E1, não fazem parte do delta de
   13/10): o painel do protótipo tem a alternância "Escritório | Inteligência de Desempenho" e o KPI
@@ -98,3 +100,41 @@ cotas); módulo Trabalho Externo inteiro.
   removido do DOM para a captura, sem registrar nada.
 - **Não visto:** celular (o raio não tem regra de mídia) e tema escuro (as variáveis de tema não tocam
   no raio).
+
+## 5. E2 — evidência
+
+- **Desenho:** `02 - EXPEDIENTES 1.2.3.dc.html` de 13/10. Pareamento linha a linha contra o de 05/10:
+  48 trocas reais (44 de 999px→4px, 4 de 3px→4px — estas 4 são a nota técnica, que vai na E3). O
+  protótipo manteve 24 pílulas (interruptores, preenchimentos de barra, selos de status em JS, "9+").
+- **Mapa:** cada seletor do BlueJus pareado pela assinatura do estilo (padding, cor, altura) e pelo texto
+  do elemento. Duas correções sobre o inventário automático, conferidas no protótipo: `.ps-mrel-situacao`
+  **muda** (é o `pill` de `metaVals`, L3689), e os preenchimentos `.ps-pag-barra-cheia`,
+  `.ps-metas-barra-cheia`, `.pex-ck-barra-fill` **continuam** pílula (L3617, L6890, L6823) — só os trilhos
+  mudaram.
+- **Código:** 26 regras em `pasta-show.css` (14), `pasta-ia.css` (2), `pasta-ia-agentes.css` (3),
+  `pasta-documentos-sugeridos.css` (1), `pasta-explorador.css` (5), `pasta-checklist.css` (1). Só o valor do
+  raio; nenhum HTML, JS, rota ou dado.
+- **Teste:** `tests/Pasta/Unit/PastaCantosPjeCssTest.php` — 26 vermelhos antes, 38/38 depois (trava também
+  os 12 que continuam pílula). `tests/Pasta` + `tests/Inteligencia`: 3458/3458 no banco da frente.
+- **Tela, 1440×900, Pasta 297 (id 464) × protótipo (Pasta 1180), 7 abas:** raio calculado pelo navegador
+  nos 16 elementos visíveis com esses dados — 4px em todos os que mudaram, 999px nos 4 que ficam. Os
+  outros 22 dependem de estado que a pasta não tem (Push com itens, meta aberta, análise de IA, busca de
+  cliente, pagamentos); para eles vale o teste da folha.
+- **Estados:** filtro de metas em repouso/hover/foco = 4px; o protótipo também não define hover nem foco
+  próprio nesse filtro (só `transition`), então o contorno padrão do navegador no foco é igual nos dois.
+  Busca dos documentos: hover e foco = 4px; no foco, fundo branco e anel `0 0 0 2px rgba(15,111,196,.35)`,
+  idêntico ao `style-focus-within` do protótipo (L2133). Contador do filtro de metas já era 4px.
+- **Visto na comparação e fora da E2** (vai ao checklist §6): andamento em fases; Responsável na linha 1;
+  botão "Cadastro" ao lado das abas; botão flutuante do Chat I.A.; botão de marcador a mais no checklist
+  do BlueJus; caixas de seleção nas linhas de documentos; faixa "Ganhe espaço" (só com duplicados).
+- **Não visto:** celular e tema escuro (o raio não tem regra de mídia nem de tema nesses seletores).
+
+## 6. Checklist acumulado da Pasta
+
+`fidelidade-designer-1310-checklist-pasta.md` — 377 elementos da Pasta (cabeçalho, 7 abas, trilho,
+modais, menus ⋮ item a item, menus de botão direito, editor, visualizador, Chat I.A/Central, globais),
+cada um com ✓/≈/∅, onde mora no BlueJus, se precisa de backend e o ID do ledger anterior.
+Contagem inicial: **216 ✓ · 48 ≈ · 113 ∅**. A §19 dele separa os ausentes por natureza e diz o que dá para
+criar já como casca visual; e registra os 3 conflitos entre o desenho de 13/10 e a especificação do Farlei
+(que o README do pacote manda prevalecer): faixa do cabeçalho (R087), "Como usar esta aba" (R215) e
+andamento em fases (sem pedido).
