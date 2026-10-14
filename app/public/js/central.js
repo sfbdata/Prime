@@ -32,6 +32,7 @@
             base: raiz.dataset.urlConversaBase
         };
         var meuNome = raiz.dataset.euNome || '';
+        var tamanhoMaximo = Number(raiz.dataset.tamanhoMaximo) || 4000;   // Mensagem::TAMANHO_MAXIMO
         var el = {
             voltar: raiz.querySelector('[data-central-voltar]'),
             cabAvatar: raiz.querySelector('[data-central-cab-avatar]'),
@@ -470,9 +471,19 @@
             carregarConversas().catch(tratarFalha);
         }
 
+        // O que conta no teto é o texto VISÍVEL (a menção como "@Nome") — é o que está no campo — medido por
+        // caractere, como o mb_strlen do servidor (Mensagem::textoVisivel). Array.from conta emoji como 1.
+        function tamanhoVisivel(texto) {
+            return Array.from(texto).length;
+        }
+
         function enviar() {
             var texto = el.campo.value.trim();
             if (!estado.aberta || texto === '' || estado.enviando) { return; }
+            if (tamanhoVisivel(texto) > tamanhoMaximo) {
+                window.alert('A mensagem passa de ' + tamanhoMaximo + ' caracteres (tem ' + tamanhoVisivel(texto) + ').');
+                return;
+            }
             estado.enviando = true;
             el.enviar.disabled = true;
             var id = estado.aberta.id;

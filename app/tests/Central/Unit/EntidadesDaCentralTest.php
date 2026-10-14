@@ -93,6 +93,23 @@ final class EntidadesDaCentralTest extends TestCase
         self::assertSame(10, $participante->getUltimaLidaId());
     }
 
+    #[TestDox('O teto de 4.000 conta o texto VISÍVEL: a menção vale "@Nome", não os bytes do token')]
+    public function testTetoContaOTextoVisivel(): void
+    {
+        $tenant = new Tenant();
+        [$um, $dois] = [$this->usuario(1), $this->usuario(2)];
+        $conversa = Conversa::individual($tenant, $um, $dois, new \DateTimeImmutable());
+        $token = '@[Ana](user:2)';                       // visível: "@Ana" (4 caracteres), gravado: 14
+        $cheia = str_repeat('é', Mensagem::TAMANHO_MAXIMO - 4) . $token;
+
+        $mensagem = new Mensagem($tenant, $conversa, $um, $cheia, new \DateTimeImmutable());
+        self::assertSame(Mensagem::TAMANHO_MAXIMO, mb_strlen(Mensagem::textoVisivel($mensagem->getConteudo())));
+        self::assertGreaterThan(Mensagem::TAMANHO_MAXIMO, mb_strlen($mensagem->getConteudo()), 'o gravado passa de 4.000 e tudo bem');
+
+        $this->expectException(\DomainException::class);
+        new Mensagem($tenant, $conversa, $um, 'x' . $cheia, new \DateTimeImmutable());
+    }
+
     #[TestDox('Resposta só a mensagem da MESMA conversa (A2)')]
     public function testRespostaSoNaMesmaConversa(): void
     {

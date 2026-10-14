@@ -25,7 +25,11 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_central_mensagem_conversa_id', columns: ['conversa_id', 'id'])]
 class Mensagem implements TenantAware
 {
+    /** Teto do texto VISÍVEL: a menção conta como `@Nome`, não como o token gravado (A2, spec §2). */
     public const TAMANHO_MAXIMO = 4000;
+
+    /** Token canônico de menção `@[Nome](user:ID)` — o mesmo que a tela lê (`central.js`, PADRAO_MENCAO). */
+    public const PADRAO_MENCAO = '/@\[([^\[\]<>]{1,120})\]\(user:(\d{1,10})\)/u';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -59,11 +63,20 @@ class Mensagem implements TenantAware
         if ($conteudo === '') {
             throw new \DomainException('A mensagem está vazia.');
         }
-        if (mb_strlen($conteudo) > self::TAMANHO_MAXIMO) {
+        if (mb_strlen(self::textoVisivel($conteudo)) > self::TAMANHO_MAXIMO) {
             throw new \DomainException(sprintf('A mensagem passa de %d caracteres.', self::TAMANHO_MAXIMO));
         }
 
         $this->conteudo = $conteudo;
+    }
+
+    /**
+     * O texto como a pessoa o vê: cada token de menção vira `@Nome`. É o que conta no limite de tamanho — quem
+     * digita 4.000 caracteres com uma menção não pode ser recusado pelos bytes do `(user:ID)` que não vê.
+     */
+    public static function textoVisivel(string $conteudo): string
+    {
+        return preg_replace(self::PADRAO_MENCAO, '@$1', $conteudo) ?? $conteudo;
     }
 
     public function getId(): ?int

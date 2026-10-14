@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Central\Functional;
 
 use App\Central\Controller\CentralController;
+use App\Central\Entity\Mensagem;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
@@ -247,6 +248,30 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         $mensagens = $this->json($client)['mensagens'];
         self::assertSame([null, $original], array_map(static fn (array $m): ?int => $m['respostaA']['id'] ?? null, $mensagens));
         self::assertStringNotContainsString('NAO-GRAVAR', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('O teto de 4.000 conta o texto visível: com menção, exatamente 4.000 visíveis passa; 4.001 é 422')]
+    public function testTetoPeloTextoVisivel(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bruno = $this->colega($tenant, 'bruno');
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $conversa = $this->abrir($client, $bruno);
+        $client->request('GET', "/central/conversas/$conversa/mensagens");
+        $nome = $this->json($client)['mencionaveis'][0]['nome'];   // o rótulo que o servidor grava
+        $mencao = ' @' . $nome;
+        $resto = Mensagem::TAMANHO_MAXIMO - mb_strlen($mencao);
+
+        $ok = $this->enviarCom($client, $conversa, ['conteudo' => str_repeat('é', $resto) . ' ' . self::token($bruno, $nome)])['mensagem'];
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(Mensagem::TAMANHO_MAXIMO, mb_strlen(Mensagem::textoVisivel($ok['conteudo'])));
+        self::assertGreaterThan(Mensagem::TAMANHO_MAXIMO, mb_strlen($ok['conteudo']), 'o token gravado não conta');
+
+        $this->enviarCom($client, $conversa, ['conteudo' => str_repeat('é', $resto + 1) . ' ' . self::token($bruno, $nome)]);
+        self::assertResponseStatusCodeSame(422);
     }
 
     #[TestDox('Marcar como não lida: só o meu lado; ler desliga; conversa alheia é 404, vazia é 422, sem CSRF é 403')]

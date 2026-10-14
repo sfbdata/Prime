@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Central\Service;
 
 use App\Central\DTO\MencoesResolvidas;
+use App\Central\Entity\Mensagem;
 use App\Entity\Auth\User;
 
 /**
@@ -18,7 +19,7 @@ use App\Entity\Auth\User;
  */
 final class MencoesDaCentral
 {
-    public const PADRAO = '/@\[([^\[\]<>]{1,120})\]\(user:(\d{1,10})\)/u';
+    public const PADRAO = Mensagem::PADRAO_MENCAO;
 
     /** Teto de tokens lidos por mensagem — o mesmo do Registro. */
     public const MAXIMO_POR_MENSAGEM = 20;
@@ -62,7 +63,7 @@ final class MencoesDaCentral
     /** O texto com cada token trocado por `@Nome` — para prévia, citação e o que não pode carregar marcação. */
     public static function comoTexto(string $conteudo): string
     {
-        return preg_replace(self::PADRAO, '@$1', $conteudo) ?? $conteudo;
+        return Mensagem::textoVisivel($conteudo);
     }
 
     /** O nome do banco, sem os caracteres que o padrão não aceita no rótulo. */
