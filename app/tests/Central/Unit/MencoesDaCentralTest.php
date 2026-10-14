@@ -56,6 +56,27 @@ final class MencoesDaCentralTest extends TestCase
         self::assertStringContainsString('@[Ana](user:2) @Ana', $r->conteudo);
     }
 
+    #[TestDox('Token aninhado não forja rótulo: o token de dentro rebaixado não "fecha" o de fora com rótulo inventado')]
+    public function testTokenAninhadoNaoForjaRotulo(): void
+    {
+        $ana = $this->pessoa(5, 'Ana');
+        $mencoes = new MencoesDaCentral();
+
+        $forjados = [
+            '@[Dr. Diretor @[x](user:999) ](user:5)',
+            '@[@[Diretor](user:999)](user:5)',
+            '@[Diretor @[b @[c](user:9) ](user:9) ](user:5)',   // três níveis: uma verificação só não basta
+        ];
+        foreach ($forjados as $forjado) {
+            $r = $mencoes->resolver($forjado, [5 => $ana]);
+            preg_match_all(MencoesDaCentral::PADRAO, $r->conteudo, $tokens, PREG_SET_ORDER);
+            foreach ($tokens as $token) {
+                self::assertSame('Ana', $token[1], 'todo token que sobra tem o nome do banco: ' . $r->conteudo);
+            }
+            self::assertStringNotContainsString('Diretor](user', $r->conteudo);
+        }
+    }
+
     #[TestDox('comoTexto troca cada token por @Nome — prévia, citação, cópia')]
     public function testComoTexto(): void
     {

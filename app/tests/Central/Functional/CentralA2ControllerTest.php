@@ -82,6 +82,12 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         self::assertSame($tenant->getId(), $avisos[0]['tenant_id']);
         self::assertSame([], $this->mencoesDe($ana), 'quem escreve não se avisa');
 
+        // A prova só vale se a auditoria da notificação ESTÁ ligada: a linha existe, e não tem o texto.
+        $auditadas = $this->em()->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM audit_log WHERE entity_class = ? AND changes::text LIKE ?",
+            [Notificacao::class, '%' . Notificacao::TIPO_CENTRAL_MENCAO . '%'],
+        );
+        self::assertGreaterThan(0, (int) $auditadas, 'a criação da notificação é auditada');
         $vazou = $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM audit_log WHERE changes::text LIKE '%SEGREDO-A2%'");
         self::assertSame(0, (int) $vazou, 'o texto da conversa não pode chegar ao audit_log');
     }
@@ -108,6 +114,28 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $ana, $tenant);
         $this->enviarCom($client, $conversa, ['conteudo' => 'três ' . self::token($bruno, 'B')]);
         self::assertCount(2, $this->mencoesDe($bruno));
+    }
+
+    #[TestDox('Ler uma conversa lê só as menções DELA — a de outra conversa continua no sino')]
+    public function testLerUmaConversaNaoLeAOutra(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bruno = $this->colega($tenant, 'bruno');
+        $carla = $this->colega($tenant, 'carla');
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $comAna = $this->abrir($client, $bruno);
+        $daAna = $this->enviarCom($client, $comAna, ['conteudo' => 'a ' . self::token($bruno, 'B')])['mensagem']['id'];
+        $this->logarComTenant($client, $carla, $tenant);
+        $this->enviarCom($client, $this->abrir($client, $bruno), ['conteudo' => 'c ' . self::token($bruno, 'B')]);
+
+        $this->logarComTenant($client, $bruno, $tenant);
+        $this->post($client, "/central/conversas/$comAna/lida", ['ateId' => $daAna]);
+
+        $lidas = array_map(static fn (array $n): bool => (bool) $n['lida'], $this->mencoesDe($bruno));
+        self::assertSame([true, false], $lidas);
     }
 
     #[TestDox('Menção a quem não participa — colega do escritório, gente de outro escritório, quem está nos dois — vira texto e não avisa')]
@@ -204,6 +232,8 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         $resposta = $this->enviarCom($client, $conversa, ['conteudo' => 'resposta', 'respostaAId' => $original])['mensagem'];
         self::assertResponseStatusCodeSame(201);
         self::assertSame($original, $resposta['respostaA']['id']);
+        self::assertSame($bruno->getId(), $resposta['respostaA']['autorId']);
+        self::assertFalse($resposta['respostaA']['minha']);
         self::assertStringStartsWith('pergunta com @', $resposta['respostaA']['trecho']);
         self::assertStringNotContainsString('(user:', $resposta['respostaA']['trecho'], 'a citação vem como texto');
 

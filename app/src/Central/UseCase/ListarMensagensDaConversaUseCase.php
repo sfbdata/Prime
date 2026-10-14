@@ -19,7 +19,8 @@ use App\Entity\Tenant\Tenant;
  * Uma página do histórico (50), só para participante. Ler não marca como lida: quem marca é a tela, quando
  * a conversa está de fato à vista — abrir em segundo plano não pode zerar o contador.
  *
- * Junto vai quem pode ser @mencionado nesta conversa (A2), para o autocomplete da tela.
+ * Junto vai quem pode ser @mencionado nesta conversa (A2), para o autocomplete da tela — só na primeira página
+ * (`antesDe` nulo): a tela não relê a lista ao rolar o histórico.
  */
 final class ListarMensagensDaConversaUseCase
 {
@@ -48,7 +49,8 @@ final class ListarMensagensDaConversaUseCase
         }
 
         $mencionaveis = [];
-        foreach ($this->acesso->mencionaveis($participacao->getConversa(), $eu, $tenant) as $id => $pessoa) {
+        $pessoas = $antesDe === null ? $this->acesso->mencionaveis($participacao->getConversa(), $eu, $tenant) : [];
+        foreach ($pessoas as $id => $pessoa) {
             $mencionaveis[] = new ContatoOutput($id, (string) $pessoa->getFullName());
         }
 

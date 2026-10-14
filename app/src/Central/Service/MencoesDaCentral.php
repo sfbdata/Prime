@@ -42,7 +42,21 @@ final class MencoesDaCentral
             return sprintf('@[%s](user:%d)', self::rotulo($pessoa), $id);
         }, $conteudo);
 
-        return new MencoesResolvidas($reescrito ?? $conteudo, array_values($mencionados));
+        $reescrito ??= $conteudo;
+
+        // Uma passada só não basta: o token rebaixado a texto pode "fechar" um token de fora que não casou por ter
+        // `[` no rótulo (`@[Dr. @[x](user:9) ](user:5)` → `@[Dr. @x ](user:5)`). Repete até sobrar só token
+        // canônico — o que esta função escreveu, de quem foi mencionado. Termina: cada volta remove um token.
+        do {
+            $antes = $reescrito;
+            $reescrito = preg_replace_callback(self::PADRAO, static function (array $token) use ($mencionados): string {
+                $pessoa = $mencionados[(int) $token[2]] ?? null;
+
+                return $pessoa !== null && $token[1] === self::rotulo($pessoa) ? $token[0] : '@' . $token[1];
+            }, $reescrito) ?? $antes;
+        } while ($reescrito !== $antes);
+
+        return new MencoesResolvidas($reescrito, array_values($mencionados));
     }
 
     /** O texto com cada token trocado por `@Nome` — para prévia, citação e o que não pode carregar marcação. */

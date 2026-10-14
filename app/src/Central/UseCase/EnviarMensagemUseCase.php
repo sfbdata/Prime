@@ -59,7 +59,9 @@ final class EnviarMensagemUseCase
                 ?? throw new PedidoInvalidoNaCentralException('A mensagem respondida não está nesta conversa.');
         }
 
-        $resolvidas = $this->mencoes->resolver($conteudo, $this->acesso->mencionaveis($conversa, $eu, $tenant));
+        // Sem token no texto não há o que conferir — nem a consulta de quem é mencionável.
+        $mencionaveis = str_contains($conteudo, '@[') ? $this->acesso->mencionaveis($conversa, $eu, $tenant) : [];
+        $resolvidas = $this->mencoes->resolver($conteudo, $mencionaveis);
 
         $agora = $this->clock->now();
         try {

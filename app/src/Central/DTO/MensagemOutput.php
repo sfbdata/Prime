@@ -37,7 +37,7 @@ final class MensagemOutput
             conteudo: $mensagem->getConteudo(),
             criadaEm: $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
             minha: $autor->getId() === $eu->getId(),
-            respostaA: $mensagem->getRespostaA() !== null ? RespostaOutput::fromEntity($mensagem->getRespostaA()) : null,
+            respostaA: $mensagem->getRespostaA() !== null ? RespostaOutput::fromEntity($mensagem->getRespostaA(), $eu) : null,
         );
     }
 }
