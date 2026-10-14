@@ -1,5 +1,6 @@
 {# Uma meta no modo cartões.
-   `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral) #}
+   `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral)
+   `num` = posição da meta no grupo (recomeça em 1 a cada grupo, como o desenho de 13/10) #}
 {% set info = meta.prazoInfo %}
 {% set concluida = meta.status == 'concluida' %}
 {% set emRevisao = meta.status == 'em_revisao' %}
@@ -13,7 +14,7 @@
 <article class="mm-meta tom-{{ tom }}">
     <div class="mm-meta-corpo">
         <div class="mm-meta-topo">
-            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo">{{ meta.titulo }}</a>
+            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo">{% if num|default(null) %}<span class="mm-meta-num">{{ num }}.</span>{% endif %}{{ meta.titulo }}</a>
             {% if meta.pasta.prioridade.value != 'normal' %}
                 <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
                     <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}

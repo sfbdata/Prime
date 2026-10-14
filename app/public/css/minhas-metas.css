@@ -25,6 +25,9 @@
     --mm-div:           #eef2f5;
     --mm-div-row:       #f1f4f7;
     --mm-hover:         #f2f7fa;
+    --mm-linha-hover-bg:    #3b8fc2;   /* hover da linha, dc 04 Minhas Metas L17 */
+    --mm-linha-hover-barra: #1f6f9c;
+    --mm-num:           #0a6fa0;   /* número da meta, dc L86 */
 
     --mm-text:          #12242f;
     --mm-body:          #243845;
@@ -73,6 +76,9 @@
     --mm-div:           var(--bs-border-color-translucent);
     --mm-div-row:       var(--bs-border-color-translucent);
     --mm-hover:         rgba(255,255,255,.05);
+    --mm-linha-hover-bg:    #3b8fc2;
+    --mm-linha-hover-barra: #1f6f9c;
+    --mm-num:           #4da3ea;
 
     --mm-text:          var(--bs-body-color);
     --mm-body:          var(--bs-body-color);
@@ -132,7 +138,7 @@
     text-align: left;
     background: var(--mm-card);
     border: 1px solid var(--mm-border);
-    border-radius: 14px;
+    border-radius: 4px;
     padding: .875rem 1.0625rem .9375rem;
     box-shadow: var(--mm-shadow-card);
     font-family: inherit;
@@ -183,7 +189,7 @@
     gap: 3px;
     background: var(--mm-div);
     border: 1px solid var(--mm-border);
-    border-radius: 11px;
+    border-radius: 4px;
     padding: 4px;
 }
 .mm-aba {
@@ -196,7 +202,7 @@
     color: var(--mm-text-2);
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 9px;
+    border-radius: 3px;
     text-decoration: none;
     white-space: nowrap;
     transition: color .2s, background .2s;
@@ -216,7 +222,7 @@
     font-size: .656rem;
     font-weight: 600;
     padding: .0625rem .375rem;
-    border-radius: 5px;
+    border-radius: 3px;
     color: var(--mm-muted);
     background: var(--mm-border);
 }
@@ -227,7 +233,7 @@
     gap: 2px;
     background: var(--mm-div);
     border: 1px solid var(--mm-border);
-    border-radius: 10px;
+    border-radius: 4px;
     padding: 3px;
 }
 .mm-modo {
@@ -236,7 +242,7 @@
     border: 1px solid transparent;
     background: transparent;
     color: var(--mm-faint);
-    border-radius: 8px;
+    border-radius: 3px;
     text-decoration: none;
 }
 .mm-modo:hover { color: var(--mm-text-2); text-decoration: none; }
@@ -269,7 +275,7 @@
 .mm-cartao {
     background: var(--mm-card);
     border: 1px solid var(--mm-border);
-    border-radius: 14px;
+    border-radius: 4px;
     box-shadow: var(--mm-shadow-card);
     min-width: 0;
     overflow: hidden;
@@ -337,12 +343,30 @@ button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(
     transition: background .2s;
 }
 .mm-meta:last-child { border-bottom: none; }
-.mm-meta:hover { background: var(--mm-hover); }
 .mm-meta.tom-danger { border-left-color: var(--mm-danger-dot); }
 .mm-meta.tom-warn   { border-left-color: var(--mm-warn-dot); }
 .mm-meta.tom-accent { border-left-color: var(--mm-accent); }
 .mm-meta.tom-cinza  { border-left-color: var(--mm-cinza-dot); }
 .mm-meta.tom-ok     { border-left-color: var(--mm-ok-dot); background: var(--mm-soft); }
+/* Hover do desenho (dc 04 Minhas Metas L17-18): linha azul cheia, faixa escura à esquerda, sombra
+   que sobe por cima da vizinha, e todo o conteúdo em branco sem fundo nem borda própria. Vem DEPOIS
+   dos tons para vencer o fundo de `.tom-ok` e a cor de faixa de cada grupo. */
+.mm-meta:hover {
+    position: relative;
+    z-index: 1;
+    background: var(--mm-linha-hover-bg);
+    border-left-color: var(--mm-linha-hover-barra);
+    box-shadow: 0 4px 12px rgba(10,111,160,.16);
+}
+.mm-meta:hover .mm-meta-corpo *,
+.mm-meta:hover .mm-meta-lado *,
+.mm-meta:hover .mm-meta-acoes * {
+    color: #fff;
+    background: transparent;
+    border-color: transparent;
+}
+/* Número da meta dentro do título (dc L86): recomeça em 1 a cada grupo. */
+.mm-meta-num { color: var(--mm-num); margin-right: 10px; font-variant-numeric: tabular-nums; }
 
 .mm-meta-corpo { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: .375rem; }
 .mm-meta-topo { display: flex; align-items: center; gap: .5625rem; min-width: 0; flex-wrap: wrap; }
@@ -398,7 +422,7 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     text-transform: uppercase;
     white-space: nowrap;
     padding: .1875rem .5625rem;
-    border-radius: 999px;
+    border-radius: 3px;
     border: 1px solid transparent;
 }
 .mm-pilula.tom-ok     { color: var(--mm-ok-text);     background: var(--mm-ok-bg);     border-color: var(--mm-ok-border); }
@@ -415,7 +439,7 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     letter-spacing: .05em;
     text-transform: uppercase;
     padding: .125rem .5rem;
-    border-radius: 999px;
+    border-radius: 3px;
     border: 1px solid transparent;
     flex-shrink: 0;
 }
@@ -430,7 +454,7 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     border: 1px solid transparent;
     background: transparent;
     color: #b7c4cd;
-    border-radius: 7px;
+    border-radius: 4px;
     cursor: pointer;
     transition: color .15s, border-color .15s;
 }
@@ -445,7 +469,7 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     border: 1px solid transparent;
     background: transparent;
     color: var(--mm-faint);
-    border-radius: 7px;
+    border-radius: 4px;
     text-decoration: none;
 }
 .mm-acao-icone:hover { border-color: var(--mm-border-ctl); color: var(--mm-text-2); text-decoration: none; }
@@ -461,7 +485,7 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 }
 .mm-progresso-barra {
     height: 7px;
-    border-radius: 999px;
+    border-radius: 4px;
     background: var(--mm-div);
     margin-top: .75rem;
     overflow: hidden;
@@ -469,7 +493,7 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-progresso-barra > span {
     display: block;
     height: 100%;
-    border-radius: 999px;
+    border-radius: 4px;
     background: var(--mm-ok-dot);
 }
 .mm-fatias { display: flex; gap: 1rem; margin-top: .875rem; flex-wrap: wrap; }

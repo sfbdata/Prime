@@ -50,7 +50,7 @@
                         </button>
                         <div class="collapse" id="grupo-{{ grupo.chave }}">
                             {% for meta in grupo.metas %}
-                                {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
+                                {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom, num: loop.index}) }}
                             {% endfor %}
                         </div>
                     {% else %}
@@ -61,7 +61,7 @@
                             {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
                         </div>
                         {% for meta in grupo.metas %}
-                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
+                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom, num: loop.index}) }}
                         {% endfor %}
                     {% endif %}
                 {% endfor %}

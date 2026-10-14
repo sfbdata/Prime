@@ -247,6 +247,40 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.mm-arranjo > .mm-coluna-lista > .mm-cartao'), 'A lista tem de ser a outra coluna do mesmo arranjo.');
     }
 
+    #[TestDox('E5 (dc de 13/10): no modo cartões cada meta tem número antes do título, e a numeração recomeça em 1 a cada grupo')]
+    public function testNumeracaoRecomecaPorGrupo(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+
+        foreach (['Atrasada um', 'Atrasada dois'] as $titulo) {
+            $this->criarMeta($tenant, $usuario, $titulo)->setPrazo(new \DateTimeImmutable('-2 days'));
+        }
+        $this->criarMeta($tenant, $usuario, 'Prazo longe')->setPrazo(new \DateTimeImmutable('+40 days'));
+        $em->flush();
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+
+        // Percorre os filhos diretos do cartão na ordem do HTML: cada cabeçalho abre um grupo novo.
+        $grupos = [];
+        foreach ($client->getCrawler()->filter('.mm-cartao > *') as $no) {
+            $classe = (string) $no->getAttribute('class');
+            if (str_contains($classe, 'mm-grupo-cabeca')) {
+                $grupos[] = [];
+                continue;
+            }
+            if (str_contains($classe, 'mm-meta')) {
+                $num = (new \Symfony\Component\DomCrawler\Crawler($no))->filter('.mm-meta-topo > .mm-meta-titulo > .mm-meta-num');
+                self::assertCount(1, $num, 'o número fica dentro do título, antes do texto (como no desenho)');
+                $grupos[\count($grupos) - 1][] = trim($num->text());
+            }
+        }
+
+        self::assertSame([['1.', '2.'], ['1.']], $grupos);
+    }
+
     #[TestDox('O modo lista troca os cartões pela tabela e dispensa o trilho')]
     public function testModoLista(): void
     {
