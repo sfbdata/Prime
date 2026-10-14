@@ -32,7 +32,8 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 | E2 | Pasta: cantos de 4px nos 26 seletores cujo par mudou no 02 (§5) | P | ✅ `83d6724d` |
 | E3 | Pasta: nota técnica (fundo `#f6fafd`, borda `#b9d6e8`, raio 4, conector 1.5px `#c9dfec`) e marca IA (10.5px/700/.12em `#0a6fa0`, "Intelligence" 14.5px) | P | ✅ `53aa6163` (§7) |
 | E4 | Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px); situação do processo legível. (Tirar "Como usar esta aba" **só com decisão** — P2) | P | ✅ `47662002` (§8) |
-| E5 | Minhas Metas: cantos ≤ 4px, hover azul da linha, numeração por grupo | P | ✅ `e227183b` (§9) — numeração em conflito com R239 (P5, aberta) |
+| E5 | Minhas Metas: cantos ≤ 4px, hover azul da linha, numeração por grupo | P | ✅ `e227183b` (§9); a numeração foi substituída na E5b (P5 → R239) |
+| E5b | Minhas Metas: nº na pasta (R239), traço vermelho (R129), status de prazo derivados, linha atrasada, caixa alta, abas no cartão dos filtros, trilho fixo com faixas, indicadores com ícone e halo, "Atualizado às" | M | ✅ `3b5e1bcd` (§10) |
 | E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
 | E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | — |
 | E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | — |
@@ -247,3 +248,43 @@ andamento em fases (sem pedido).
   KPIs com ícone, halo e número de 46px; abas dentro do cartão dos filtros; "Atualizado às"; botão BLUEJUS
   Intelligence (sem painel — não recomendado); ⋮ no lugar da seta; Chat I.A.; defeito do BlueJus na pílula de quem
   vence hoje (MM-LIS-36).
+
+## 10. E5b — evidência (Minhas Metas, continuação)
+
+**Decisões do dono (14/10) aplicadas:** P5 → R239 · P6 → R129 · R238 preservado · ⋮ defeituoso do desenho não reproduzido
+· divergência de "vence hoje" corrigida pela regra existente. P1, P2, P3 seguem **abertas**.
+
+- **Número na pasta (R239).** Investigado: a meta não tem campo de número; a aba Metas da pasta já numera pela ordem de
+  criação na pasta (`PastaMetasResumoOutput::emOrdemDeCriacao`). `TarefaRepository::numerosNaPasta` aplica a mesma regra
+  em uma consulta de leitura para a lista inteira (raiz e junção em `Tarefa`, presas ao escritório pelo TenantFilter; só
+  metas da mesma pasta). **Número global: dependência de backend** — não existe sequência por escritório; o id é global
+  e revelaria volume de outros escritórios (PMC-035). Não exibido; registrado como MM-LIS-37.
+- **Status de prazo.** `AgrupadorDeMetas::classificar` (a regra que já escolhia o grupo, agora pública e pura) +
+  `StatusDoPrazoDaMeta` (só traduz o balde): Atrasada · Vence em breve · No prazo · Sem prazo · Em revisão · Concluída,
+  nos dois modos. Meta que vence hoje → "Vence em breve"/warn nos dois (antes: vermelho num, âmbar no outro).
+- **Visual** (`minhas-metas.css`, `minhas.html.twig`, `_resultado`, `_meta_cartao`, `_metas_lista`): linha atrasada
+  #fdf3f3 e faixa 4px; título caixa alta 14.5px/700 numa linha (nome inteiro no `title`); concluída segue apagada e
+  riscada (R238); pílula sem borda + tom cinza; abas, separador, filtros e modo no `.mm-barra-cartao` dentro da raiz do
+  filtro (o `filtro-tabela.js` compartilhado não mudou); trilho `sticky` a `calc(header + subnav + 16px)` com faixas
+  de 3px; indicadores com halo, ícone, rótulo sublinhado, número 46px (vermelho só com atrasadas) e faixa; traço
+  vermelho sob o título; "Atualizado às" = hora da leitura no servidor, atualizada a cada recarga parcial.
+- **Achados na tela que o teste não via (corrigidos):** (1) faixas do trilho saíam com 1px — `.mm-cartao`, depois no
+  arquivo, devolvia a borda → seletor de duas classes; (2) o sticky não grudava — o AdminLTE (CDN) tem
+  `@media (min-width:992px){ .sidebar-expand-lg.layout-fixed .app-main { overflow:auto } }`, que vira o contêiner do
+  sticky → `body.layout-fixed .app-main:has(.mm-page) { overflow: visible }`, só nesta página; (3) no celular as 4 abas
+  (725px) estouravam o cartão → quebram linha abaixo de 576px.
+- **Testes:** `StatusDoPrazoDaMetaTest` (8: 7 casos + agrupador e pílula concordam); `MinhasMetasCantosHoverCssTest`
+  (+7 → 23); `TarefaMinhasControllerTest` +5 (número na pasta = número da aba Metas da pasta, sem "Nº" global; status
+  iguais nos dois modos; abas no cartão; indicadores; "Atualizado às" na página e no XHR; faixas do trilho). Prova por
+  reintrodução: trocar o tom de "Vence em breve" derruba 2 testes unitários e 1 funcional. `tests/Tarefa` +
+  `tests/Twig` + `tests/Dashboard` + aba Metas da Pasta: 851/851; `lint:twig` e `lint:container` OK.
+- **Tela, 1440×900 (valores calculados):** linha atrasada `rgb(253,243,243)`, faixa 4px; hover sobre ela
+  `rgb(59,143,194)`; título 14.5px/700 uppercase nowrap ellipsis; pílula "Atrasada" sem borda, 3px; indicador 160px,
+  raio 4, número 46px/700 `rgb(163,35,43)` (há atrasadas), ícone 46px raio 12, halo 130px tracejado; cartão da barra
+  raio 4, padding 14/18; traço 34×3 `rgb(192,57,47)`; faixas `3px rgb(30,123,69)` e `3px rgb(163,35,43)`; trilho a
+  **118px** depois de rolar 1200px (lista alongada só no DOM); sem rolagem horizontal a 1440, 1100 e 390px.
+  "Atualizado às": forçado para 00:00 no navegador, voltou para a hora da nova leitura depois de filtrar.
+  Pílulas sem dado no dev (o dev não tem meta com prazo futuro): cores medidas em amostras só no DOM — Vence em breve
+  `rgb(138,90,18)/rgb(253,241,220)`, No prazo `rgb(24,108,71)/rgb(226,244,234)`, Sem prazo `rgb(91,115,131)/rgb(238,242,245)`;
+  com dado real, provadas pelo teste funcional.
+- **Checklist de Minhas Metas:** 27 ✓ · 72 ≈ · 56 ∅ (E5) → **53 ✓ · 58 ≈ · 46 ∅** (157, contado no arquivo).
