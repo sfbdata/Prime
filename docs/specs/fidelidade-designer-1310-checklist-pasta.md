@@ -595,13 +595,14 @@ O README do pacote manda: em conflito, vale a decisão mais recente do Farlei em
 | Entrega | Commit | Itens que mudaram de marca | Itens novos |
 |---|---|---|---|
 | E2 — cantos de 4px | `83d6724d` | PZ-GLB-16 continua ✓ (agora também nos 26 seletores do delta de 13/10) | — |
+| E5 — Minhas Metas | `e227183b` | nenhuma (a E5 não toca a Pasta) | — (Minhas Metas tem checklist próprio: `fidelidade-designer-1310-checklist-minhas-metas.md`) |
 | E4 — Financeiro, responsável, situação | `47662002` | PZ-PRO-41 ≈→✓; PZ-CAB-06 continua ≈ (corte feito, posição depende de P1); PZ-CAB-50 continua ≈, agora aceita | PZ-FIN-40 ✓ |
 | E3 — nota técnica e marca IA | `53aa6163` | PZ-PRO-31 ✓ (cores, raio, conector do dc de 13/10), PZ-CAB-31 ✓ (tipografia), PZ-PUSH-18/19 ✓ (mesmo CSS no teor do Push) | PZ-CAB-50 (foco da marca, decidir), PZ-PRO-41 (situação crua), aviso estático em PZ-PRO-15 |
 
 Contagem depois da E3: **216 ✓ · 50 ≈ · 113 ∅ = 379** (2 linhas novas ≈; as marcas ✓ das linhas que a E3
 tocou já eram ✓ — a E3 trouxe o valor novo do desenho para elas).
 
-Contagem depois da E4: **218 ✓ · 49 ≈ · 113 ∅ = 380**. Os 113 ausentes seguem na §19, por natureza;
+Contagem depois da E4 (inalterada na E5): **218 ✓ · 49 ≈ · 113 ∅ = 380**. Os 113 ausentes seguem na §19, por natureza;
 nenhum foi descartado por falta de backend.
 
 ### Pendências de especificação
@@ -611,6 +612,8 @@ nenhum foi descartado por falta de backend.
 | P1 | Faixa Processo · Ação · Responsável no cabeçalho (PZ-CAB-06/41/42, TRI-01/02) | tira a faixa | §3.2, R087: pede a faixa nessa ordem | **ABERTA** — E6 travada |
 | P2 | Caixa "Como usar esta aba" (PZ-DET-19) | tira | §3.3, R215: pede | **ABERTA** — caixa mantida |
 | P3 | Andamento da pasta em fases (PZ-CAB-38/39/40, DAD-14, FIN-09) | tem | sem pedido (§9: confirmar antes) | **ABERTA** — e depende de backend |
+| P5 | Numeração da meta em Minhas Metas (MM-LIS-12) | 1..n por grupo — implementado na E5 a pedido do dono | §3.5 R239: `{nº na pasta} Título {nº global}` | **ABERTA** |
+| P6 | Traço sob o título de Minhas Metas (MM-CAB-02) | azul | §3.5 R129: vermelho | **ABERTA** — não implementado |
 | P4 | Foco do botão BLUEJUS Intelligence (PZ-CAB-50) | declara anel, renderiza contorno | omissa | **DECIDIDA (14/10)** — preservar o indicador atual (contorno do navegador + fundo); divergência registrada |
 
 ### Fora da Pasta, mesmo defeito da PZ-PRO-41 (para a entrega de cada tela)

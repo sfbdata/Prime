@@ -32,7 +32,7 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 | E2 | Pasta: cantos de 4px nos 26 seletores cujo par mudou no 02 (§5) | P | ✅ `83d6724d` |
 | E3 | Pasta: nota técnica (fundo `#f6fafd`, borda `#b9d6e8`, raio 4, conector 1.5px `#c9dfec`) e marca IA (10.5px/700/.12em `#0a6fa0`, "Intelligence" 14.5px) | P | ✅ `53aa6163` (§7) |
 | E4 | Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px); situação do processo legível. (Tirar "Como usar esta aba" **só com decisão** — P2) | P | ✅ `47662002` (§8) |
-| E5 | **próxima** — Minhas Metas: cantos 4px, hover azul da linha, numeração por grupo | P | — |
+| E5 | Minhas Metas: cantos ≤ 4px, hover azul da linha, numeração por grupo | P | ✅ `e227183b` (§9) — numeração em conflito com R239 (P5, aberta) |
 | E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
 | E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | — |
 | E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | — |
@@ -210,3 +210,40 @@ andamento em fases (sem pedido).
 - **Visto e fora da E4:** a dica do chip no protótipo é "Responsável pela pasta: X · clique para alterar"
   (no BlueJus, só o nome) → PZ-CAB-06; "Honorários contratuais" × "Valor da causa" (PZ-FIN-03, C) e o
   placeholder do relatório (PZ-FIN-05, C) seguem como estavam.
+
+## 9. E5 — evidência (Minhas Metas)
+
+- **Desenho:** `04 - Minhas Metas 1.0.dc.html` de 13/10 — L17-18 (hover da linha), L54 (KPI 4px), L68-70 (abas
+  4px/3px), L81 (cartão de grupo 4px), L86 (número `{{ m.num }}.` #0a6fa0, margin-right 10px; JS L159:
+  `num: j + 1` dentro de cada grupo), L93 (status 3px), L96-98 (botões 4px), L108 (barra e preenchimento 4px).
+- **Código:** `minhas-metas.css` — raios de 13 regras; tokens `--mm-linha-hover-bg` #3b8fc2,
+  `--mm-linha-hover-barra` #1f6f9c, `--mm-num` #0a6fa0 (escuro: o hover igual, o número no azul do escuro);
+  `.mm-meta:hover` colocado **depois** das regras de tom (senão `.tom-ok` vencia o fundo) e o conteúdo da linha
+  em branco por especificidade, sem `!important`. `_resultado.html.twig` passa `num: loop.index` nos dois laços
+  (grupos abertos e recolhidos); `_meta_cartao.html.twig` põe `<span class="mm-meta-num">` dentro do link do
+  título, como o desenho põe dentro do título. Sem dado, rota ou JS novo.
+- **Escopo:** o modo **cartões** (padrão) é o equivalente do desenho e recebe hover e número; o modo **lista**
+  (tabela, só do BlueJus) recebe só os cantos. `/tarefas/equipe` reaproveita o CSS: lá muda só o canto do status
+  (999px→3px), coerente com o painel Equipe do Dashboard de 13/10, que também trocou pílula por 4px.
+- **Testes:** `tests/Tarefa/Unit/MinhasMetasCantosHoverCssTest.php` (16; todos vermelhos antes) e
+  `TarefaMinhasControllerTest::testNumeracaoRecomecaPorGrupo` (três metas em dois grupos → `[['1.','2.'],['1.']]`;
+  vermelho antes). `tests/Tarefa` + `tests/Twig`: 344/344; `lint:twig` OK.
+- **Tela, 1440×900, valores calculados, BlueJus × protótipo:**
+
+  | Ponto | BlueJus | Protótipo |
+  |---|---|---|
+  | KPI / grupo / abas / aba / botões / barra | 4 / 4 / 4 / 3 / 4 / 4px | 4 / 4 / 4 / 3 / 4 / 4px |
+  | Status | 3px | 3px |
+  | Número | "1." "2." `rgb(10,111,160)`, margin-right 10px | "1. 2. 3. 4." / "1." / "1." (recomeça por grupo) |
+  | Hover da linha | fundo `rgb(59,143,194)`, faixa `rgb(31,111,156)`, sombra `rgba(10,111,160,.16) 0 4px 12px`, z-index 1, filhos todos `rgb(255,255,255)`, status sem fundo | idem (a faixa é `inset 4px` no desenho; no BlueJus, border de 3px — MM-LIS-13) |
+  | Foco por teclado no título | contorno do navegador; a linha não muda | o desenho não define foco (linha é `div` sem tabindex) |
+  | `/tarefas/equipe` | status 3px nas 26 linhas | — |
+
+  Nesta conta de dev só o grupo "Atrasadas" vem aberto; o reinício por grupo está provado pelo teste funcional e
+  medido no protótipo.
+- **Inventário completo:** `fidelidade-designer-1310-checklist-minhas-metas.md` — 155 elementos, 27 ✓ · 72 ≈ ·
+  56 ∅ (38 deles do Chat I.A.), com os conflitos de especificação desta tela (P5, P6) e os próximos candidatos.
+- **Visto e fora da E5** (no checklist): fundo rosado e faixa de 4px da linha atrasada; caixa alta no título;
+  KPIs com ícone, halo e número de 46px; abas dentro do cartão dos filtros; "Atualizado às"; botão BLUEJUS
+  Intelligence (sem painel — não recomendado); ⋮ no lugar da seta; Chat I.A.; defeito do BlueJus na pílula de quem
+  vence hoje (MM-LIS-36).
