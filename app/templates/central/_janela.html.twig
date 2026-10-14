@@ -30,12 +30,27 @@
 
     <div class="bj-central-conversa-tela" data-central-tela-conversa hidden>
         <div class="bj-central-corpo" data-central-corpo aria-live="polite"></div>
-        <form class="bj-central-compositor" data-central-compositor>
-            <textarea class="bj-central-campo" data-central-campo rows="1" maxlength="4000"
-                      placeholder="Digite uma mensagem…" aria-label="Mensagem"></textarea>
-            <button type="submit" class="bj-central-enviar" data-central-enviar aria-label="Enviar" title="Enviar (Enter)">
-                <i class="bi bi-send-fill" aria-hidden="true"></i>
-            </button>
-        </form>
+        <div class="bj-central-rodape" data-central-rodape>
+            {# A2: lista de @menção (autocomplete) e faixa "Respondendo a…", preenchidas por central.js #}
+            <div class="bj-central-mencoes" data-central-mencoes role="listbox" aria-label="Mencionar" hidden></div>
+            <div class="bj-central-respondendo" data-central-respondendo hidden>
+                <span class="bj-central-respondendo-barra" aria-hidden="true"></span>
+                <div class="bj-central-respondendo-textos">
+                    <div class="bj-central-respondendo-rotulo" data-central-respondendo-rotulo></div>
+                    <div class="bj-central-respondendo-trecho" data-central-respondendo-trecho></div>
+                </div>
+                <button type="button" class="bj-central-respondendo-cancelar" data-central-respondendo-cancelar aria-label="Cancelar resposta" title="Cancelar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form class="bj-central-compositor" data-central-compositor>
+                <textarea class="bj-central-campo" data-central-campo rows="1" maxlength="4000"
+                          placeholder="Digite uma mensagem…" aria-label="Mensagem"
+                          aria-autocomplete="list" autocomplete="off"></textarea>
+                <button type="submit" class="bj-central-enviar" data-central-enviar aria-label="Enviar" title="Enviar (Enter)">
+                    <i class="bi bi-send-fill" aria-hidden="true"></i>
+                </button>
+            </form>
+        </div>
     </div>
 </section>

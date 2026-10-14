@@ -1,5 +1,5 @@
 /*
- * Central de Comunicação — A1 (docs/specs/central-comunicacao-a1.md).
+ * Central de Comunicação — A1 (docs/specs/central-comunicacao-a1.md) e A2 (central-comunicacao-a2.md).
  * Valores do desenho: bluejus-central.js do Designer 13/10 (número da linha ao lado). Tudo sob .bj-central,
  * sem !important e sem tocar estilo global; cores por variável para o tema escuro.
  */
@@ -22,6 +22,14 @@
     --bjc-separador-texto: #5f7684;
     --bjc-bolha-outro: #fff;
     --bjc-icone-vazio: #b5c2ca;
+    /* A2 — menu de contexto (menuCtxEl, L5697), citação (L6035/L6068), menção (L6094, pintarTexto L5856) */
+    --bjc-menu-texto: #243845;
+    --bjc-menu-icone: #5f7684;
+    --bjc-menu-hover: #eef5fa;
+    --bjc-citacao-fundo: #e6f0f6;
+    --bjc-citacao-texto: #33495a;
+    --bjc-citacao-borda: #b9d2e2;
+    --bjc-selecionado: #e5f1f7;
 
     display: flex;
     flex-direction: column;
@@ -52,6 +60,13 @@ html[data-bs-theme="dark"] .bj-central {
     --bjc-separador-texto: #b7c6cf;
     --bjc-bolha-outro: #26343d;
     --bjc-icone-vazio: #5c6f7b;
+    --bjc-menu-texto: #e3ebf0;
+    --bjc-menu-icone: #9fb1bc;
+    --bjc-menu-hover: #26343d;
+    --bjc-citacao-fundo: #22323c;
+    --bjc-citacao-texto: #c9d6de;
+    --bjc-citacao-borda: #3a5566;
+    --bjc-selecionado: #26343d;
 }
 
 .bj-central-pagina {
@@ -498,6 +513,250 @@ html[data-bs-theme="dark"] .bj-central {
 .bj-central-enviar:disabled {
     opacity: .5;
     cursor: default;
+}
+
+/* ── A2 ─────────────────────────────────────────────────────────────────────────── */
+
+/* Menção no balão — pintarTexto, L5856: negrito na cor AZUL; no balão próprio, branco */
+.bj-central-mencao {
+    font-weight: 700;
+    color: var(--bjc-azul);
+}
+
+.bj-central-msg--minha .bj-central-mencao {
+    color: #fff;
+}
+
+/* Linha marcada como não lida: selo sem número (só o ponto) */
+.bj-central-selo--marca {
+    min-width: 10px;
+    width: 10px;
+    height: 10px;
+    padding: 0;
+}
+
+/* Citação no balão — L6035 */
+.bj-central-citacao {
+    display: block;
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 4px 8px;
+    border: 0;
+    border-left: 3px solid var(--bjc-conv);
+    border-radius: 3px;
+    background: var(--bjc-citacao-fundo);
+    color: var(--bjc-citacao-texto);
+    box-shadow: inset 0 0 0 1px var(--bjc-citacao-borda);
+    font: inherit;
+    text-align: left;
+    white-space: normal;
+    cursor: pointer;
+}
+
+.bj-central-msg--minha .bj-central-citacao {
+    border-left-color: #fff;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35);
+}
+
+.bj-central-citacao-autor {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.bj-central-citacao-trecho {
+    display: block;
+    font-size: 12px;
+    opacity: .9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Piscar ao ir até a original — irParaMsg, L5871 */
+.bj-central-msg--destaque .bj-central-bolha {
+    box-shadow: 0 0 0 3px rgba(242, 169, 59, .9);
+    transition: box-shadow .2s;
+}
+
+/* Rodapé: faixa de resposta + autocomplete + compositor */
+.bj-central-rodape {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.bj-central-rodape[hidden] {
+    display: none;
+}
+
+/* Faixa "Respondendo a…" — L6068 */
+.bj-central-respondendo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 8px 0;
+    padding: 6px 10px 6px 12px;
+    border: 1px solid var(--bjc-citacao-borda);
+    border-radius: 4px 4px 0 0;
+    background: var(--bjc-citacao-fundo);
+}
+
+.bj-central-respondendo[hidden] {
+    display: none;
+}
+
+.bj-central-respondendo-barra {
+    align-self: stretch;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--bjc-conv);
+}
+
+.bj-central-respondendo-textos {
+    flex: 1;
+    min-width: 0;
+}
+
+.bj-central-respondendo-rotulo {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--bjc-azul);
+}
+
+.bj-central-respondendo-trecho {
+    font-size: 12px;
+    color: var(--bjc-texto-medio);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bj-central-respondendo-cancelar {
+    flex-shrink: 0;
+    padding: 2px 4px;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-menu-icone);
+    cursor: pointer;
+}
+
+.bj-central-respondendo:not([hidden]) + .bj-central-compositor {
+    border-top: 0;
+    padding-top: 0;
+}
+
+/* Autocomplete de @menção — L6094-6111 */
+.bj-central-mencoes {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc(100% + 4px);
+    z-index: 5;
+    max-height: 240px;
+    overflow-y: auto;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
+}
+
+.bj-central-mencoes[hidden] {
+    display: none;
+}
+
+.bj-central-mencoes-cab {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    color: var(--bjc-texto-fraco);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.bj-central-mencoes-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-mencoes-item[aria-selected="true"] {
+    background: var(--bjc-selecionado);
+}
+
+.bj-central-mencoes-item .bj-central-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 8.64px;
+}
+
+/* Menu de botão direito — menuCtxEl, L5697-5705 */
+.bj-central-ctx-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+}
+
+.bj-central-ctx {
+    position: fixed;
+    z-index: 1091;
+    width: 220px;
+    padding: 5px;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .24);
+    font-family: Arial, Helvetica, sans-serif;
+    animation: bjcIn .12s both;
+}
+
+.bj-central-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 33px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--bjc-menu-texto);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-ctx-item:hover,
+.bj-central-ctx-item:focus-visible {
+    background: var(--bjc-menu-hover);
+    outline: none;
+}
+
+.bj-central-ctx-item .bi {
+    width: 16px;
+    text-align: center;
+    color: var(--bjc-menu-icone);
+}
+
+@keyframes bjcIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bj-central-ctx {
+        animation: none;
+    }
 }
 
 @media (max-width: 420px) {
