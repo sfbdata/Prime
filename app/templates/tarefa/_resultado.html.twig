@@ -91,8 +91,8 @@
                 </div>
                 <div class="mm-fatias">
                     {% for fatia in painel.fatiasDoAndamento %}
-                        <span class="mm-fatia">
-                            <span class="mm-dot" style="background: var(--mm-{{ fatia.tom }}-dot, var(--mm-accent))"></span>
+                        <span class="mm-fatia tom-{{ fatia.tom }}">
+                            <span class="mm-dot"></span>
                             {{ fatia.total }} {{ fatia.rotulo }}
                         </span>
                     {% endfor %}
@@ -109,9 +109,10 @@
                     {% for meta in atencao %}
                         {% set info = meta.prazoInfo %}
                         <div class="mm-atencao-item">
-                            <i class="bi bi-exclamation-triangle-fill" style="color: var(--mm-danger-dot); margin-top: 2px;"></i>
+                            <i class="bi bi-exclamation-triangle-fill mm-atencao-icone"></i>
                             <div class="min-w-0 flex-grow-1">
-                                <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-atencao-titulo d-block">{{ meta.titulo }}</a>
+                                {# "Título · Pasta NNN" (dc `atencao`): a pasta da meta atrasada sem abrir nada. #}
+                                <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-atencao-titulo d-block">{{ meta.titulo }} · Pasta {{ meta.pasta.nup }}</a>
                                 <div class="mm-atencao-meta">
                                     prazo {{ meta.prazo ? meta.prazo|date('d/m/Y') : '—' }} · {{ info.texto }}
                                     {%- if aba.value == 'criei' and meta.responsaveis|length > 0 %} · {{ (meta.responsaveis|first).fullName }}

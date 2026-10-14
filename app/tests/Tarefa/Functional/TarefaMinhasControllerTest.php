@@ -417,6 +417,143 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-atencao'));
     }
 
+    #[TestDox('E5c: texto do prazo na linha como o desenho ("vence em N dia(s) · data", "vence hoje", "sem prazo definido", "concluída", "N dia(s) atrasado"); só a atrasada ganha destaque')]
+    public function testTextoDoPrazoComoODesenho(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+
+        $daqui3 = new \DateTimeImmutable('+3 days');
+        $esperado = [
+            'ATRASADA DOIS' => ['-2 days', Tarefa::STATUS_PENDENTE, '2 dia(s) atrasado', true],
+            'VENCE HOJE'    => ['today', Tarefa::STATUS_PENDENTE, 'vence hoje', false],
+            'VENCE EM TRES' => ['+3 days', Tarefa::STATUS_PENDENTE, 'vence em 3 dia(s) · ' . $daqui3->format('d/m/Y'), false],
+            'SEM DATA'      => [null, Tarefa::STATUS_PENDENTE, 'sem prazo definido', false],
+            'JA FEITA'      => ['-5 days', Tarefa::STATUS_CONCLUIDA, 'concluída', false],
+        ];
+        foreach ($esperado as $titulo => [$prazo, $status]) {
+            $meta = $this->criarMeta($tenant, $usuario, $titulo, $status);
+            $meta->setPrazo($prazo === null ? null : new \DateTimeImmutable($prazo));
+            if ($status === Tarefa::STATUS_CONCLUIDA) {
+                $meta->setDataConclusao(new \DateTimeImmutable());
+            }
+        }
+        $em->flush();
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $achado = [];
+        $client->getCrawler()->filter('.mm-cartao article.mm-meta')->each(static function ($l) use (&$achado): void {
+            $t = mb_strtoupper(trim(preg_replace('/^\d+\.\s*/', '', $l->filter('.mm-meta-titulo')->text()) ?? ''));
+            $p = $l->filter('.mm-meta-linha2 > .mm-prazo');
+            $achado[$t] = [trim(preg_replace('/\s+/', ' ', $p->text()) ?? ''), str_contains((string) $p->attr('class'), 'is-atrasado')];
+        });
+
+        foreach ($esperado as $titulo => [, , $texto, $atrasado]) {
+            self::assertSame([$texto, $atrasado], $achado[$titulo] ?? null, $titulo);
+        }
+    }
+
+    #[TestDox('E5c (R118/R236): ⋮ "Opções" no lugar da seta, só com ações que já existem — relatório completo, aba Metas da pasta com a meta realçada e Editar nome; "Encaminhar via Chat I.A" não aparece (sem backend)')]
+    public function testMenuDaMetaComAcoesQueJaExistem(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $meta               = $this->criarMeta($tenant, $usuario, 'Meta com menu');
+        $id                 = $meta->getId();
+        $pastaId            = $meta->getPasta()->getId();
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $acoes = $client->getCrawler()->filter('.mm-cartao article.mm-meta > .mm-meta-acoes');
+        self::assertCount(1, $acoes);
+
+        self::assertCount(0, $acoes->filter('.bi-chevron-right'), 'a seta "Abrir a meta" saiu');
+        $botao = $acoes->filter('.mm-menu > button.mm-acao-icone[data-bs-toggle="dropdown"]');
+        self::assertCount(1, $botao);
+        self::assertSame('Opções', $botao->attr('title'));
+        self::assertCount(1, $botao->filter('i.bi-three-dots-vertical'));
+        self::assertSame('false', $botao->attr('aria-expanded'));
+
+        $itens = $acoes->filter('.mm-menu > .dropdown-menu .mm-menu-item');
+        self::assertSame(
+            ['Abrir relatório completo', 'Ir para a aba Metas da pasta', 'Editar nome'],
+            $itens->each(static fn ($i): string => trim($i->text())),
+        );
+        self::assertSame(
+            [
+                '/tarefas/' . $id,
+                '/pasta/' . $pastaId . '?meta=' . $id . '#tarefas',
+                '/pasta/' . $pastaId . '?meta=' . $id . '&acao=renomear#tarefas',
+            ],
+            $itens->each(static fn ($i): string => (string) $i->attr('href')),
+        );
+        self::assertStringNotContainsString('Encaminhar', $acoes->text());
+    }
+
+    #[TestDox('E5c: meta de pasta excluída (somente leitura) não oferece "Editar nome" no ⋮ — mesma regra da aba Metas da pasta')]
+    public function testMenuSemEditarNomeNaPastaExcluida(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $meta               = $this->criarMeta($tenant, $usuario, 'Meta da pasta excluida');
+        $meta->getPasta()->marcarExcluida($usuario, new \DateTimeImmutable());
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas?aba=todas');
+        self::assertResponseIsSuccessful();
+        // Hoje Minhas Metas lista a meta de pasta excluída. Se um dia deixar de listar, este teste
+        // falha de propósito — para alguém decidir, e não para virar skip silencioso.
+        $menus = $client->getCrawler()->filter('.mm-cartao article.mm-meta .mm-menu');
+        self::assertCount(1, $menus, 'a meta da pasta excluída aparece na aba Todas');
+        self::assertSame(
+            ['Abrir relatório completo', 'Ir para a aba Metas da pasta'],
+            $menus->filter('.mm-menu-item')->each(static fn ($i): string => trim($i->text())),
+        );
+    }
+
+    #[TestDox('E5c (dc L104-118): trilho com "X de Y", legenda de três itens com "(s)" e "Título · Pasta NNN" no "Precisa de atenção"')]
+    public function testTrilhoComTextosDoDesenho(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $atrasada           = $this->criarMeta($tenant, $usuario, 'Atrasada');
+        $atrasada->setPrazo(new \DateTimeImmutable('-3 days'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas');
+        $c = $client->getCrawler();
+
+        self::assertSame('0 de 1', trim($c->filter('.mm-trilho-andamento .mm-progresso-numero')->text()));
+        self::assertSame(
+            ['0 concluída(s)', '1 atrasada(s)', '0 em revisão'],
+            $c->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')),
+        );
+        self::assertSame(
+            'Atrasada · Pasta ' . $atrasada->getPasta()->getNup(),
+            trim(preg_replace('/\s+/', ' ', $c->filter('.mm-trilho-atencao .mm-atencao-titulo')->text()) ?? ''),
+        );
+    }
+
+    #[TestDox('E5c (revisão): na aba Criei — que agrupa por etapa e não tem grupo "Atrasadas" — a legenda conta as delegadas atrasadas, como o desenho')]
+    public function testLegendaDaAbaCrieiContaAsAtrasadas(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $colega             = $this->criarColega($tenant);
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Delegada atrasada')->setPrazo(new \DateTimeImmutable('-2 days'));
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Delegada folgada')->setPrazo(new \DateTimeImmutable('+20 days'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas?aba=criei');
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['0 concluída(s)', '1 atrasada(s)', '0 em revisão'],
+            $client->getCrawler()->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')),
+        );
+    }
+
     #[TestDox('O modo lista troca os cartões pela tabela e dispensa o trilho')]
     public function testModoLista(): void
     {

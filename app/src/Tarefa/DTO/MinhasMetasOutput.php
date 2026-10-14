@@ -7,6 +7,7 @@ namespace App\Tarefa\DTO;
 use App\Entity\Tarefa\Tarefa;
 
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Service\AgrupadorDeMetas;
 
 /**
  * Tudo o que a tela "Minhas Metas" precisa para desenhar uma aba: os blocos da lista, o
@@ -63,6 +64,12 @@ final class MinhasMetasOutput
         return StatusDoPrazoDaMeta::de($meta);
     }
 
+    /** Texto do prazo da linha (desenho de 13/10), com o destaque só na atrasada — mesma regra do grupo. */
+    public function prazoDaMeta(Tarefa $meta): TextoDoPrazoDaMeta
+    {
+        return TextoDoPrazoDaMeta::de($meta);
+    }
+
     public function totalDeMensagens(int $metaId): int
     {
         return $this->mensagensPorMeta[$metaId] ?? 0;
@@ -106,27 +113,23 @@ final class MinhasMetasOutput
     }
 
     /**
-     * As quatro fatias da barra de andamento. Somam o total exibido — se não somarem, algum
-     * número está mentindo, e é por isso que saem todas do mesmo lugar (os grupos), e não de
-     * contagens independentes.
+     * Legenda de "Seu andamento". Sai das metas que a aba exibe, pela mesma regra que escolhe o grupo
+     * (`AgrupadorDeMetas::classificar`), e não de contagens independentes.
      *
      * @return array<int, array{rotulo: string, total: int, tom: string}>
      */
     public function fatiasDoAndamento(): array
     {
-        $noPrazo = ($this->grupo('proximas')?->total() ?? 0)
-            + ($this->grupo('depois')?->total() ?? 0)
-            + ($this->grupo('sem_prazo')?->total() ?? 0)
-            + ($this->grupo('andamento')?->total() ?? 0);
-
-        return array_values(array_filter([
-            ['rotulo' => 'concluídas', 'total' => $this->totalConcluidas(), 'tom' => 'ok'],
-            // "em aberto", e não "no prazo": este balde soma as que têm prazo folgado E as sem
-            // prazo nenhum. Chamar de "no prazo" o que não tem prazo seria mentir no rótulo.
-            ['rotulo' => 'em aberto', 'total' => $noPrazo, 'tom' => 'warn'],
-            ['rotulo' => 'atrasadas', 'total' => $this->grupo('atrasadas')?->total() ?? 0, 'tom' => 'danger'],
+        // Legenda do desenho de 13/10 (dc `andLeg`): sempre os mesmos três itens, na mesma ordem,
+        // inclusive zerados — o leitor procura o número no mesmo lugar toda vez. As abertas que não
+        // estão atrasadas nem em revisão não têm item próprio (o desenho também não as mostra).
+        // Atrasadas pela regra, não pelo grupo: a aba Criei agrupa por etapa e não tem grupo
+        // "Atrasadas", mas as delegadas atrasadas existem e o desenho as conta em qualquer aba.
+        return [
+            ['rotulo' => 'concluída(s)', 'total' => $this->totalConcluidas(), 'tom' => 'ok'],
+            ['rotulo' => 'atrasada(s)', 'total' => $this->totalAtrasadas(), 'tom' => 'danger'],
             ['rotulo' => 'em revisão', 'total' => $this->totalEmRevisao(), 'tom' => 'accent'],
-        ], static fn (array $f): bool => $f['total'] > 0));
+        ];
     }
 
     public function totalConcluidas(): int
@@ -139,6 +142,20 @@ final class MinhasMetasOutput
         $total = $this->totalExibido();
 
         return $total === 0 ? 0 : (int) round($this->totalConcluidas() / $total * 100);
+    }
+
+    private function totalAtrasadas(): int
+    {
+        $total = 0;
+        foreach ($this->grupos as $grupo) {
+            foreach ($grupo->metas as $meta) {
+                if (AgrupadorDeMetas::classificar($meta) === 'atrasadas') {
+                    ++$total;
+                }
+            }
+        }
+
+        return $total;
     }
 
     private function totalEmRevisao(): int

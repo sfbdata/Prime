@@ -34,6 +34,15 @@
     --mm-faixa-andamento: #1e7b45; /* faixas de 3px sob os cartões do trilho (dc L104/L114) */
     --mm-faixa-atencao: #a3232b;
     --mm-ponto-vivo:    #22a05a;   /* "Atualizado às" */
+    --mm-aba-texto:         #34505f;   /* abas (dc L70, JS `abas`) */
+    --mm-aba-ativa-texto:   #0a6fa0;
+    --mm-aba-badge-bg:      #dfe6eb;
+    --mm-aba-badge-texto:   #4a6373;
+    --mm-aba-badge-ativa-bg: #e5f1f7;
+    --mm-prazo-texto:       #4a6373;   /* prazo da linha (JS `prazoCor`) */
+    --mm-prazo-atrasado:    #a3232b;
+    --mm-atencao-desc:      #5b7383;   /* descrição do item de "Precisa de atenção" (dc L117) */
+    --mm-opcoes:            #7d909d;   /* botão ⋮ (dc L98) */
 
     --mm-text:          #12242f;
     --mm-body:          #243845;
@@ -91,6 +100,15 @@
     --mm-faixa-andamento: #2fa36b;
     --mm-faixa-atencao: #e0675c;
     --mm-ponto-vivo:    #2fa36b;
+    --mm-aba-texto:         var(--bs-secondary-color);
+    --mm-aba-ativa-texto:   #4da3ea;
+    --mm-aba-badge-bg:      rgba(255,255,255,.08);
+    --mm-aba-badge-texto:   var(--bs-secondary-color);
+    --mm-aba-badge-ativa-bg: rgba(77,163,234,.14);
+    --mm-prazo-texto:       var(--bs-secondary-color);
+    --mm-prazo-atrasado:    #f08a84;
+    --mm-atencao-desc:      var(--bs-secondary-color);
+    --mm-opcoes:            var(--bs-secondary-color);
 
     --mm-text:          var(--bs-body-color);
     --mm-body:          var(--bs-body-color);
@@ -285,41 +303,43 @@
     border-radius: 4px;
     padding: 4px;
 }
+/* Aba do desenho (dc L70, JS `abas`): 34px, 13px; inativa #34505f normal; ativa branca, texto #0a6fa0
+   negrito e sombra curta; o ícone acompanha a cor do texto. O hover (só do BlueJus) escurece o texto. */
 .mm-aba {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: .5625rem .9375rem;
-    font-size: .845rem;
-    font-weight: 500;
-    color: var(--mm-text-2);
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--mm-aba-texto);
     background: transparent;
-    border: 1px solid transparent;
+    border: 0;
     border-radius: 3px;
     text-decoration: none;
     white-space: nowrap;
-    transition: color .2s, background .2s;
+    transition: color .15s, background .15s;
 }
 .mm-aba:hover { color: var(--mm-text); text-decoration: none; }
 .mm-aba.is-ativa {
-    font-weight: 600;
-    color: var(--mm-text);
+    font-weight: 700;
+    color: var(--mm-aba-ativa-texto);
     background: var(--mm-card);
-    border-color: var(--mm-border-ctl);
-    box-shadow: var(--mm-shadow-pill);
+    box-shadow: 0 1px 3px rgba(18,36,47,.12);
 }
-.mm-aba .bi { font-size: .875rem; color: var(--mm-faint); }
-.mm-aba.is-ativa .bi { color: var(--mm-accent); }
+.mm-aba.is-ativa:hover { color: var(--mm-aba-ativa-texto); }
+.mm-aba .bi { color: inherit; }
 .mm-aba-badge {
     font-variant-numeric: tabular-nums;
-    font-size: .656rem;
-    font-weight: 600;
-    padding: .0625rem .375rem;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
     border-radius: 3px;
-    color: var(--mm-muted);
-    background: var(--mm-border);
+    color: var(--mm-aba-badge-texto);
+    background: var(--mm-aba-badge-bg);
 }
-.mm-aba.is-ativa .mm-aba-badge { color: var(--mm-accent); background: var(--mm-accent-bg); }
+.mm-aba.is-ativa .mm-aba-badge { color: var(--mm-aba-ativa-texto); background: var(--mm-aba-badge-ativa-bg); }
 
 .mm-modos {
     display: inline-flex;
@@ -472,6 +492,37 @@ button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(
     background: transparent;
     border-color: transparent;
 }
+/* Menu ⋮ (E5c): o branco do hover acima alcança tudo em `.mm-meta-acoes`, inclusive o menu aberto ali
+   dentro — que viraria texto branco sem fundo. Estas regras são mais específicas e devolvem o menu. */
+.mm-meta .mm-menu .dropdown-menu,
+.mm-meta:hover .mm-meta-acoes .mm-menu .dropdown-menu {
+    background: var(--mm-card);
+    border: 1px solid var(--mm-border);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(18,36,47,.14);
+    padding: 5px;
+    min-width: 240px;
+    font-size: 13px;
+}
+.mm-meta .mm-menu .mm-menu-item,
+.mm-meta:hover .mm-meta-acoes .mm-menu .mm-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 3px;
+    color: var(--mm-text);
+    background: transparent;
+}
+.mm-meta .mm-menu .mm-menu-item .bi,
+.mm-meta:hover .mm-meta-acoes .mm-menu .mm-menu-item .bi { color: var(--mm-muted); font-size: 14px; }
+.mm-meta .mm-menu .mm-menu-item:hover,
+.mm-meta .mm-menu .mm-menu-item:focus-visible,
+.mm-meta:hover .mm-meta-acoes .mm-menu .mm-menu-item:hover,
+.mm-meta:hover .mm-meta-acoes .mm-menu .mm-menu-item:focus-visible { background: var(--mm-aba-badge-ativa-bg); color: var(--mm-aba-ativa-texto); }
+.mm-meta .mm-menu .mm-menu-item:hover .bi,
+.mm-meta:hover .mm-meta-acoes .mm-menu .mm-menu-item:hover .bi { color: var(--mm-aba-ativa-texto); }
+
 /* Número da meta dentro do título (dc L86): recomeça em 1 a cada grupo. */
 .mm-meta-num { color: var(--mm-num); margin-right: 10px; font-variant-numeric: tabular-nums; }
 
@@ -521,7 +572,11 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-meta-acoes { display: flex; gap: 2px; flex-shrink: 0; }
 
 /* ── Prazo ────────────────────────────────────────────────────────────────── */
-.mm-prazo { display: flex; align-items: center; gap: .375rem; font-size: .78rem; }
+/* Prazo da linha (JS `prazoCor`/`prazoPeso`): cinza normal; só a atrasada em vermelho negrito. As
+   variantes `tom-*` ficam para o modo lista e a tela de Equipe, que ainda pintam pelo `getPrazoInfo`. */
+.mm-prazo { display: flex; align-items: center; gap: .375rem; font-size: 12.5px; color: var(--mm-prazo-texto); }
+.mm-meta-linha2 > .mm-prazo { gap: 5px; }
+.mm-prazo.is-atrasado { color: var(--mm-prazo-atrasado); font-weight: 700; }
 .mm-prazo.tom-danger { color: var(--mm-danger-dot); font-weight: 600; }
 .mm-prazo.tom-warn   { color: var(--mm-warn-text); font-weight: 600; }
 .mm-prazo.tom-cinza  { color: var(--mm-cinza-text); }
@@ -588,31 +643,47 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     text-decoration: none;
 }
 .mm-acao-icone:hover { border-color: var(--mm-border-ctl); color: var(--mm-text-2); text-decoration: none; }
+/* ⋮ "Opções" (dc L98): #7d909d e fundo azul-claro no foco do teclado. No mouse, a linha já está em hover
+   e pinta tudo de branco (dc L18, com `!important` lá) — o fundo do ⋮ não aparece, como no desenho.
+   Só o ⋮ dos cartões: a seta do modo lista e da Equipe segue como era. */
+.mm-menu > .mm-acao-icone { color: var(--mm-opcoes); cursor: pointer; }
+.mm-menu > .mm-acao-icone:hover,
+.mm-menu > .mm-acao-icone:focus-visible { border-color: transparent; background: var(--mm-aba-badge-ativa-bg); color: var(--mm-aba-ativa-texto); }
 
 /* ── Trilho ───────────────────────────────────────────────────────────────── */
-.mm-trilho-bloco { padding: 1rem 1.0625rem; }
+/* Trilho do desenho (dc L104-118): títulos 14px negrito, "X de Y" 34px negrito, barra verde #1e7b45
+   que cresce em .4s, legenda 12.5px com os pontos nas cores das faixas. */
+.mm-trilho-bloco { padding: 20px; }
+.mm-trilho .mm-cartao-titulo { font-size: 14px; font-weight: 700; }
+.mm-trilho .mm-cartao-cabeca { padding: 13px 16px; }
 .mm-progresso-numero {
     font-variant-numeric: tabular-nums;
-    font-size: 1.625rem;
-    font-weight: 500;
-    letter-spacing: -.01em;
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+    line-height: 1.15;
     color: var(--mm-text);
 }
 .mm-progresso-barra {
     height: 7px;
     border-radius: 4px;
     background: var(--mm-div);
-    margin-top: .75rem;
+    margin-top: 10px;
     overflow: hidden;
 }
 .mm-progresso-barra > span {
     display: block;
     height: 100%;
     border-radius: 4px;
-    background: var(--mm-ok-dot);
+    background: var(--mm-faixa-andamento);
+    transition: width .4s;
 }
-.mm-fatias { display: flex; gap: 1rem; margin-top: .875rem; flex-wrap: wrap; }
-.mm-fatia { display: flex; align-items: center; gap: .4375rem; font-size: .78rem; color: var(--mm-text-2); }
+.mm-fatias { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.mm-fatia { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--mm-text-2); }
+.mm-fatia .mm-dot { width: 7px; height: 7px; background: var(--mm-cinza-dot); }
+.mm-fatia.tom-ok .mm-dot     { background: var(--mm-faixa-andamento); }
+.mm-fatia.tom-danger .mm-dot { background: var(--mm-faixa-atencao); }
+.mm-fatia.tom-accent .mm-dot { background: var(--mm-aba-ativa-texto); }
 
 .mm-pessoa { display: flex; align-items: center; gap: .625rem; }
 .mm-pessoa-nome {
@@ -643,17 +714,17 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-avatar.mm-avatar-sm { width: 24px; height: 24px; font-size: .5625rem; }
 
 .mm-atencao-item {
-    padding: .75rem 1.0625rem;
-    border-bottom: 1px solid var(--mm-bg);
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--mm-div);
     display: flex;
     gap: .6875rem;
     align-items: flex-start;
 }
 .mm-atencao-item:last-of-type { border-bottom: none; }
-.mm-atencao-titulo { font-size: .845rem; font-weight: 500; line-height: 1.35; color: var(--mm-text); text-decoration: none; text-wrap: pretty; }
+.mm-atencao-icone { color: var(--mm-faixa-atencao); margin-top: 2px; }
+.mm-atencao-titulo { font-size: 13.5px; font-weight: 400; line-height: 1.35; color: var(--mm-text); text-decoration: none; text-wrap: pretty; }
 a.mm-atencao-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
-.mm-atencao-meta { font-size: .75rem; color: #7c4a48; margin-top: .125rem; }
-[data-bs-theme="dark"] .mm-page .mm-atencao-meta { color: var(--mm-danger-text); }
+.mm-atencao-meta { font-size: 12px; line-height: 1.4; color: var(--mm-atencao-desc); margin-top: 3px; }
 .mm-trilho-rodape { padding: .6875rem 1.0625rem; font-size: .78rem; color: var(--mm-muted); }
 
 /* ── Modo lista ───────────────────────────────────────────────────────────── */

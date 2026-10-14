@@ -215,8 +215,11 @@
     }
 
     function destacarNaLista(linha) {
+        // A linha aparece no filtro dela: "Abertas", ou "Concluídas" se a meta já foi concluída
+        // (o realce vindo do ⋮ de Minhas Metas pode apontar uma concluída).
         var cartao = document.querySelector('[data-ps-metas]');
-        if (cartao) { aplicarFiltro(cartao, 'abertas'); }
+        var filtro = passaNoFiltro(linha.getAttribute('data-meta-estado'), 'abertas') ? 'abertas' : 'concluidas';
+        if (cartao) { aplicarFiltro(cartao, filtro); }
 
         var aba = document.getElementById('tarefas-tab');
         if (aba && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(aba).show(); }
@@ -844,15 +847,26 @@
         var params = new URLSearchParams(window.location.search);
         var id = params.get('meta');
         if (!id || !/^\d+$/.test(id)) { return; }
+        var renomear = params.get('acao') === 'renomear';
 
         params.delete('meta');
+        params.delete('acao');
         if (window.history && window.history.replaceState) {
             var busca = params.toString();
             window.history.replaceState(null, '', window.location.pathname + (busca ? '?' + busca : '') + window.location.hash);
         }
 
         var linha = document.querySelector('[data-ps-metas] .ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
-        if (linha) { destacarNaLista(linha); }
+        if (!linha) { return; }
+        destacarNaLista(linha);
+
+        // "Editar nome" pedido pelo ⋮ de Minhas Metas (E5c): aciona o MESMO item do ⋮ desta linha,
+        // que só existe quando a meta é editável. Os ouvintes dele (renomearNaLista) ligam depois
+        // deste realce no iniciar() — o clique espera a vez.
+        var editar = renomear ? linha.querySelector('[data-ps-meta-renomear="' + id + '"]') : null;
+        if (editar) {
+            window.setTimeout(function () { editar.click(); }, 0);
+        }
     }
 
     /* ── 8. Moldura do modal "Nova meta" (PMC-038) ────────────────────────── */
