@@ -34,7 +34,12 @@ ativa); grupos, anexos, presença; botão global/link no menu (D6).
 - **No servidor, ao enviar:** cada token é conferido. Mencionável → o rótulo é **reescrito com o nome do banco**
   (ninguém forja "@Diretor" com o id de outro). Não mencionável (id de fora da conversa, de outro escritório,
   sem vínculo, o próprio autor) → o token vira texto comum `@Rótulo` e **não** notifica. No máximo 20 tokens lidos
-  por mensagem (mesmo teto do Registro).
+  por mensagem (mesmo teto do Registro). Repete-se a conferência até só sobrar token canônico (token aninhado não
+  forja rótulo — achado I1 da revisão).
+- **Teto de 4.000 = texto VISÍVEL** (decisão do dono, 14/10): a menção conta como `@Nome`, não pelo token gravado
+  (`Mensagem::textoVisivel`). O servidor mede por caractere (`mb_strlen`) e a tela pela mesma regra
+  (`Array.from(texto).length`, no envio); o campo não usa `maxlength`, que conta em UTF-16 e recusaria antes do
+  servidor quem usa emoji.
 - **Notificação** (uma por pessoa mencionada, gravada no mesmo `flush` da mensagem):
   - `tipo = central_mencao` (constante nova em `Notificacao`, ícone `bi-at text-primary` — o tipo "mencao" do
     desenho), categoria pessoal;
@@ -45,12 +50,17 @@ ativa); grupos, anexos, presença; botão global/link no menu (D6).
   - `url = /central?conversa=N`; `tenant` = o da conversa.
   - **Sem enxurrada:** se a pessoa já tem uma notificação `central_mencao` **não lida** com a mesma `url`, não se
     cria outra.
+  - **Sem duplicata na corrida** (decisão do dono, 14/10): a checagem e a gravação de cada destinatário acontecem sob
+    `pg_advisory_xact_lock(4714, id do destinatário)`, tomada antes da checagem, em ordem de id, numa transação que
+    envolve mensagem e avisos (`TravaDosAvisosDeMencao`). O segundo envio espera o primeiro commitar e vê o aviso
+    dele. Índice único foi descartado: a colisão derrubaria o flush inteiro — e a mensagem legítima junto.
   - Ao **ler a conversa** (`POST …/lida`), as notificações `central_mencao` não lidas daquela conversa, do próprio
     leitor, viram lidas.
-- **Exposição aceita e registrada (pendência para o dono):** o `audit_log` da criação da notificação registra
-  *quem* mencionou *quem* e em que conversa (ator, destinatário, título, url) — metadado, nunca o texto. É o mesmo
-  que já acontece com a menção do Registro. Tirar a `Notificacao` da auditoria é mudança em arquivo compartilhado
-  e fica para decisão do dono.
+- **Auditoria de metadado — decidida pelo dono (14/10): mantém.** O `audit_log` da criação da notificação registra
+  *quem* mencionou *quem* e em que conversa (ator, destinatário, título, url) — nunca o texto (provado em
+  `testMencaoAvisaSemTexto`, que exige a linha de audit E a ausência do texto).
+- **Ler a conversa lê todas as menções dela — decidido pelo dono (14/10): mantém** a semântica, inclusive a menção
+  que chegou entre o polling e o clique em "Marcar como lida".
 - **Exibição:** a menção válida aparece em negrito na cor do desenho (`#0a7aad`; branco no balão próprio). Na
   prévia da lista, na citação e no "Copiar" vira texto `@Nome`.
 - **Autocomplete:** ao digitar `@` (`/@([^\s@]{0,30})$/`), lista os mencionáveis da conversa aberta, que o
