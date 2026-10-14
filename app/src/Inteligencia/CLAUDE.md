@@ -55,6 +55,23 @@ Push nem vira "análise anterior" dele.
 Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor) → escritório (`inteligencia_configuracao`)
 → permissão de módulo → cota diária/mensal. A Twig `ia_disponibilidade()` devolve o enum para a tela.
 
+## Agente de Pastas (`/api/agente/*`)
+
+Spec: `docs/specs/designer-central-ia.md` §3 (origem: `ESPEC_AGENTE_PASTAS.md` do Designer 13/10). Fase 1 = só
+leitura, sem IA: `AgenteDePastasController` → `Buscar`/`Contar`/`ListarDocumentosDaPasta`/`ListarOpcoesDoAgente`
+UseCases. Porta de entrada é o módulo **Expediente** (não o da IA): a busca devolve o que a Lista já mostra.
+
+- **Uma consulta só, a da Lista.** `ConsultaDePastasDoAgente` chama `PastaRepository::findByFilters`/
+  `findByFiltrosEMarcador` (e as contagens) com as chaves de `FiltroDoAgenteInput::paraRepositorio()` — as MESMAS
+  de `ExpedienteController::filtrosDaRequest` (texto livre é `busca`). Não use os ramos `cliente`/`acao` do
+  repositório: a Lista não os usa e eles não ignoram acento nem caixa. A saída repete o texto da tela
+  (`ResolvedorIdentificadorDaPasta`, recuo da ação).
+- **Valor que o repositório ignoraria em silêncio é 422** (`FiltroDoAgenteInvalidoException` com o `campo`), senão o
+  agente recebe "todas as pastas" achando que filtrou. Marcador de outro escritório também é 422, nunca lista vazia.
+- **Tenant explícito mesmo com o `TenantFilter` ativo:** o conector MCP da Fase 4 roda sem sessão. O teste HTTP não
+  prova essa guarda (o filtro esconde antes) — quem prova é `ConsultaDePastasDoAgenteTest`.
+- **NUP não é chave** (não é único no escritório): rotas por id; `nups` pode devolver mais pastas que NUPs.
+
 ## Ligar um provedor de verdade
 
 Implementar `ProvedorDeLinguagem` com `HttpClientInterface` (classificar 4xx definitivo × 5xx/rede transitório

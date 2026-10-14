@@ -27,6 +27,8 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Atualização monetária por índices do Banco Central na simulação de acordo (`35475d00`).
 - Política de Privacidade como página própria e em PDF (`69e5da9c`).
 - Fundação da BlueJus IA, ainda sem provedor de linguagem ligado (`f05bf1f8`).
+- Agente de Pastas, Fase 1: ferramentas de leitura em `/api/agente/*` (buscar e contar pastas com
+  os filtros da Lista do Expediente, listar documentos de uma pasta, vocabulário do escritório).
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
 
