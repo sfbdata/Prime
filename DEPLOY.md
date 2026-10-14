@@ -314,7 +314,8 @@ O script valida:
 	- `SYMFONY_TRUSTED_HOSTS`
 - [ ] Build da aplicação concluído sem erro.
 - [ ] Backup recente do banco confirmado.
-- [ ] Plano de rollback definido (imagem/tag anterior + comando de retorno).
+- [ ] Se o deploy leva mudança de produto: versão lançada pelo workflow Release e conferida contra o master (`docs/versionamento.md`, seção 5). Só CI, testes ou documentação não geram versão.
+- [ ] Plano de rollback definido (imagem/tag anterior + comando de retorno — `docs/versionamento.md`, seção 7).
 - [ ] Janela de deploy alinhada (evitar horário de pico).
 
 ### Durante o deploy

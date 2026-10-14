@@ -6,6 +6,7 @@ que são dependências de terceiros). Links são relativos a esta pasta (`docs/`
 _Atualizado em 2026-07-01._
 
 ## Raiz do projeto
+- [CHANGELOG.md](../CHANGELOG.md) — registro das versões lançadas e do que ainda não foi lançado
 - [CLAUDE.md](../CLAUDE.md) — contexto geral (arquitetura, workflow, Docker, git)
 - [DASHBOARD.md](../DASHBOARD.md)
 - [DEPLOY.md](../DEPLOY.md)
@@ -19,6 +20,7 @@ _Atualizado em 2026-07-01._
 - [AUTORIZACAO.md](AUTORIZACAO.md) — modelo de autorização (4 camadas, bypasses, falhas)
 - [checklist-review.md](checklist-review.md)
 - [refatoracao-identidade-global.md](refatoracao-identidade-global.md)
+- [versionamento.md](versionamento.md) — política SemVer, fonte única da versão, release e rollback
 
 ### Etapas de refatoração (`docs/etapas/`)
 - [etapas/5b1-domain-layer.md](etapas/5b1-domain-layer.md)
