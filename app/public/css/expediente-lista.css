@@ -177,12 +177,13 @@
 .exp-body .expediente-submenu-link:focus-within .js-contagem-marcador { visibility: hidden; }
 
 /* Contagem (dc: 22×18, #e9eff3/#34505f, 11px negrito, raio 3) */
+/* `!important` porque a regra antiga (inline em expediente/index) também usa em cada propriedade. */
 .exp-body .js-contagem-marcador {
-    min-width: 22px; height: 18px; padding: 0 5px;
+    min-width: 22px; height: 18px !important; padding: 0 5px !important;
     display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 3px;
-    background: var(--ex-contagem-bg); color: var(--ex-contagem-tx);
-    font-size: 11px; font-weight: 700; line-height: 1;
+    border-radius: 3px !important;
+    background: var(--ex-contagem-bg) !important; color: var(--ex-contagem-tx) !important;
+    font-size: 11px !important; font-weight: 700 !important; line-height: 1 !important;
 }
 /* Botão de recolher (dc L.76): círculo 28px azul com sombra, na borda direita do cartão — fora do
    fluxo (antes ele ocupava o topo do trilho). */
@@ -332,7 +333,8 @@
     border-bottom: 1px solid var(--ex-div-linha);
     transition: background .15s, box-shadow .15s, color .15s;
 }
-.exp-body #tabelaPastas tbody td:first-child { padding-left: 20px; font-size: 14px; font-weight: 700; color: var(--ex-azul); }
+/* NUP: o `fw-semibold` do Bootstrap (600, com !important) cede ao negrito do desenho. */
+.exp-body #tabelaPastas tbody td:first-child { padding-left: 20px; font-size: 14px; font-weight: 700 !important; color: var(--ex-azul); }
 .exp-body #tabelaPastas tbody td:nth-child(2) { font-size: 14px; font-weight: 700; color: var(--ex-texto); }
 .exp-body #tabelaPastas tbody td:nth-child(4),
 .exp-body #tabelaPastas tbody td.col-marc-tabela,
