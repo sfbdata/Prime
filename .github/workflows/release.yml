@@ -1,0 +1,98 @@
+# Cria a tag vX.Y.Z e a release do GitHub — e SÓ num commit do master que passou no CI.
+#
+# Disparo manual (Actions → Release → Run workflow, a partir do master), depois que o PR de
+# release foi mergeado. Recusa, sem criar nada, quando:
+#   - não foi disparado a partir do master (configuração deste arquivo: disparado de outra branch,
+#     roda o release.yml DAQUELA branch — ver a lacuna em docs/versionamento.md, seção 6);
+#   - a seção [Não lançado] do CHANGELOG não está vazia (mudança que não é da versão);
+#   - a versão não é SemVer, ou VersaoDoSistema::ATUAL / CHANGELOG não batem com ela
+#     (scripts/release.sh validar — o mesmo contrato do VersaoDoSistemaTest);
+#   - a tag já existe;
+#   - os checks obrigatórios do master ("Segredos" e "Lints e testes unitários") não estão verdes
+#     NESTE commit.
+# A release leva como corpo a seção da versão no CHANGELOG. Procedimento: docs/versionamento.md.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versão a lançar, sem o v (exemplo: 2.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Criar tag e release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # criar a tag e a release
+      checks: read    # ler o resultado dos checks do commit
+
+    env:
+      VERSAO: ${{ inputs.versao }}
+      SHA: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Exigir disparo a partir do master
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [[ "$REF" != refs/heads/master ]]; then
+            echo "::error::Dispare o Release a partir do master (veio de $REF)."
+            exit 1
+          fi
+
+      - name: Baixar o codigo do commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Conferir versao, constante e CHANGELOG
+        run: bash scripts/release.sh validar "$VERSAO"
+
+      - name: Recusar tag que ja existe
+        run: |
+          # Só segue com 404 EXPLÍCITO: erro de rede ou limite de taxa não pode virar "não existe".
+          if resposta="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSAO" 2>&1)"; then
+            echo "::error::A tag v$VERSAO já existe."
+            exit 1
+          fi
+          if [[ "$resposta" != *"HTTP 404"* ]]; then
+            echo "::error::Não consegui confirmar que a tag v$VERSAO não existe: $resposta"
+            exit 1
+          fi
+
+      - name: Exigir os checks obrigatorios verdes neste commit
+        run: |
+          # app_id 15368 = GitHub Actions, o mesmo que a proteção do master exige: um check de outro
+          # app com o mesmo nome não conta.
+          for check in "Segredos" "Lints e testes unitários"; do
+            conclusao="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?app_id=15368&check_name=$(jq -rn --arg c "$check" '$c|@uri')" \
+              -q '[.check_runs[]] | sort_by(.completed_at // "") | last | .conclusion // "ausente"')"
+            if [[ "$conclusao" != success ]]; then
+              echo "::error::'$check' não está verde em $SHA (resultado: ${conclusao:-ausente})."
+              exit 1
+            fi
+            echo "ok: $check = success"
+          done
+
+      - name: Criar tag e release
+        run: |
+          bash scripts/release.sh notas "$VERSAO" > "$RUNNER_TEMP/notas.md"
+          gh release create "v$VERSAO" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --title "BlueJus v$VERSAO" \
+            --notes-file "$RUNNER_TEMP/notas.md"
+          echo "Release v$VERSAO criada em $SHA."
