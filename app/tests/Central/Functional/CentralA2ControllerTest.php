@@ -305,10 +305,10 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('[data-central][data-abrir-conversa="42"]');
         self::assertSelectorTextContains('[data-central-cab-titulo]', 'Central de Comunicação');
-        // Arranjo do rodapé (A2): autocomplete, faixa de resposta e compositor lado a lado, dentro da conversa.
-        self::assertSelectorExists('[data-central-tela-conversa] > [data-central-rodape] > [data-central-mencoes][hidden]');
+        // Arranjo do rodapé (A2, L6068-6075): faixa de resposta acima da caixa; a lista de @menção ancorada NA caixa.
         self::assertSelectorExists('[data-central-tela-conversa] > [data-central-rodape] > [data-central-respondendo][hidden]');
         self::assertSelectorExists('[data-central-rodape] > [data-central-respondendo] + [data-central-compositor]');
+        self::assertSelectorExists('[data-central-compositor] > [data-central-mencoes][hidden]');
 
         foreach (['abc', '0', '99999999999', '<x>'] as $invalido) {
             $client->request('GET', '/central?conversa=' . urlencode($invalido));

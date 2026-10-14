@@ -31,8 +31,7 @@
     <div class="bj-central-conversa-tela" data-central-tela-conversa hidden>
         <div class="bj-central-corpo" data-central-corpo aria-live="polite"></div>
         <div class="bj-central-rodape" data-central-rodape>
-            {# A2: lista de @menção (autocomplete) e faixa "Respondendo a…", preenchidas por central.js #}
-            <div class="bj-central-mencoes" data-central-mencoes role="listbox" aria-label="Mencionar" hidden></div>
+            {# A2: faixa "Respondendo a…" e, dentro do compositor, a lista de @menção — preenchidas por central.js #}
             <div class="bj-central-respondendo" data-central-respondendo hidden>
                 <span class="bj-central-respondendo-barra" aria-hidden="true"></span>
                 <div class="bj-central-respondendo-textos">
@@ -44,6 +43,7 @@
                 </button>
             </div>
             <form class="bj-central-compositor" data-central-compositor>
+                <div class="bj-central-mencoes" data-central-mencoes role="listbox" aria-label="Mencionar" hidden></div>
                 <textarea class="bj-central-campo" data-central-campo rows="1" maxlength="4000"
                           placeholder="Digite uma mensagem…" aria-label="Mensagem"
                           aria-autocomplete="list" autocomplete="off"></textarea>

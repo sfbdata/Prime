@@ -458,8 +458,9 @@ html[data-bs-theme="dark"] .bj-central {
     text-align: center;
 }
 
-/* Compositor — L6072-6157 */
+/* Compositor — L6072-6157 (posição relativa: a lista de @menção ancora nele, L6075) */
 .bj-central-compositor {
+    position: relative;
     display: flex;
     align-items: flex-end;
     gap: 4px;
@@ -575,6 +576,27 @@ html[data-bs-theme="dark"] .bj-central {
     text-overflow: ellipsis;
 }
 
+/* Aviso passageiro ("Mensagem copiada.") — aviso(), L5398; desenho L6410 */
+.bj-central-toast {
+    width: 380px;
+    max-width: 100%;
+    margin-bottom: 8px;
+    padding: 7px 12px;
+    border-radius: 4px;
+    background: #12242f;
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+    animation: bjcIn .2s ease-out;
+}
+
+.bj-central-toast .bi {
+    margin-right: 6px;
+    color: #ffb37a;
+}
+
 /* Piscar ao ir até a original — irParaMsg, L5871 */
 .bj-central-msg--destaque .bj-central-bolha {
     box-shadow: 0 0 0 3px rgba(242, 169, 59, .9);
@@ -591,12 +613,11 @@ html[data-bs-theme="dark"] .bj-central {
     display: none;
 }
 
-/* Faixa "Respondendo a…" — L6068 */
+/* Faixa "Respondendo a…" — L6068: largura toda, acima da caixa do compositor (que mantém a borda, L6072) */
 .bj-central-respondendo {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 8px 8px 0;
     padding: 6px 10px 6px 12px;
     border: 1px solid var(--bjc-citacao-borda);
     border-radius: 4px 4px 0 0;
@@ -611,7 +632,7 @@ html[data-bs-theme="dark"] .bj-central {
     align-self: stretch;
     width: 3px;
     border-radius: 2px;
-    background: var(--bjc-conv);
+    background: var(--bjc-conv);   /* a tela troca pela cor do autor (corNome, L5815) */
 }
 
 .bj-central-respondendo-textos {
@@ -640,11 +661,6 @@ html[data-bs-theme="dark"] .bj-central {
     background: transparent;
     color: var(--bjc-menu-icone);
     cursor: pointer;
-}
-
-.bj-central-respondendo:not([hidden]) + .bj-central-compositor {
-    border-top: 0;
-    padding-top: 0;
 }
 
 /* Autocomplete de @menção — L6094-6111 */

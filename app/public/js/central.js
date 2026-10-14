@@ -16,6 +16,13 @@
     var PADRAO_MENCAO = /@\[([^\[\]<>]{1,120})\]\(user:(\d{1,10})\)/g;
     var DIGITANDO_MENCAO = /@([^\s@]{0,30})$/;   // L6075
     var MAX_SUGESTOES = 6;                       // L6094
+    var CORES_NOME = ['#0a6fa8', '#8a4fb5', '#1e7b45', '#b4460a', '#a8326e', '#2f6f73'];   // L5814
+    var AVISO_MS = 2600;                         // aviso(), L5398
+
+    function corNome(id) {   // L5815 — a mesma cor para a mesma pessoa
+        var h = String(id).split('').reduce(function (t, ch) { return (t * 31 + ch.charCodeAt(0)) | 0; }, 7);
+        return CORES_NOME[Math.abs(h) % CORES_NOME.length];
+    }
 
     function iniciar(raiz) {
         var urls = {
@@ -300,7 +307,8 @@
             if (m.respostaA) {   // citação, L6035
                 var cit = criar('button', 'bj-central-citacao');
                 cit.type = 'button';
-                cit.appendChild(criar('span', 'bj-central-citacao-autor', '↩ ' + m.respostaA.autorNome));
+                if (!m.minha) { cit.style.borderLeftColor = corNome(m.respostaA.autorId); }   // no balão próprio: branca
+                cit.appendChild(criar('span', 'bj-central-citacao-autor', '↩ ' + (m.respostaA.minha ? 'Você' : m.respostaA.autorNome)));
                 cit.appendChild(criar('span', 'bj-central-citacao-trecho', m.respostaA.trecho));
                 cit.title = 'Ir para a mensagem respondida';
                 cit.addEventListener('click', function () { irParaMensagem(m.respostaA.id); });
@@ -527,7 +535,10 @@
             var digitando = antes.match(DIGITANDO_MENCAO);
             if (!lista.length || !digitando) { fecharSugestoes(); return; }
             var termo = semAcento(digitando[1]);
-            var itens = lista.filter(function (p) { return semAcento(p.nome).indexOf(termo) !== -1; }).slice(0, MAX_SUGESTOES);
+            var itens = lista.filter(function (p) {   // prefixo de alguma palavra do nome, L6101
+                var nome = semAcento(p.nome);
+                return termo === '' || nome.indexOf(termo) === 0 || nome.split(/\s+/).some(function (w) { return w.indexOf(termo) === 0; });
+            }).slice(0, MAX_SUGESTOES);
             if (itens.length === 0) { fecharSugestoes(); return; }
             var indice = estado.sugestoes ? Math.min(estado.sugestoes.indice, itens.length - 1) : 0;
             estado.sugestoes = { itens: itens, indice: indice, inicio: antes.length - digitando[0].length };
@@ -600,6 +611,7 @@
             estado.respondendo = { id: m.id, autorNome: m.autorNome, minha: m.minha };
             el.respondendoRotulo.textContent = 'Respondendo a ' + (m.minha ? 'você' : m.autorNome);
             el.respondendoTrecho.textContent = trecho.length > 120 ? trecho.slice(0, 120) + '…' : trecho;
+            el.respondendo.querySelector('.bj-central-respondendo-barra').style.background = corNome(m.autorId);
             el.respondendo.hidden = false;
             el.campo.focus();
         }
@@ -622,9 +634,24 @@
         function copiar(texto) {
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(texto).catch(function () { copiarSemClipboard(texto); });
-                return;
+            } else {
+                copiarSemClipboard(texto);
             }
-            copiarSemClipboard(texto);
+            avisar('Mensagem copiada.');
+        }
+
+        var avisoAtual = null;
+        function avisar(texto) {   // aviso(), L5398: acima da janela, some em 2,6 s
+            if (avisoAtual) { avisoAtual.remove(); }
+            var caixa = criar('div', 'bj-central-toast');
+            caixa.setAttribute('role', 'status');
+            var ic = criar('i', 'bi bi-bell-fill');
+            ic.setAttribute('aria-hidden', 'true');
+            caixa.appendChild(ic);
+            caixa.appendChild(document.createTextNode(texto));
+            raiz.parentNode.insertBefore(caixa, raiz);
+            avisoAtual = caixa;
+            window.setTimeout(function () { if (avisoAtual === caixa) { caixa.remove(); avisoAtual = null; } }, AVISO_MS);
         }
 
         function copiarSemClipboard(texto) {   // contexto sem HTTPS (dev): execCommand
@@ -833,6 +860,7 @@
             if (estado.aberta) { fecharConversa(); }
         });
         window.addEventListener('resize', function () { fecharMenu(false); });
+        window.addEventListener('scroll', function () { fecharMenu(false); }, true);
         el.lista.addEventListener('scroll', function () { fecharMenu(false); });
         el.corpo.addEventListener('scroll', function () {
             fecharMenu(false);
