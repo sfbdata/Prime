@@ -1,5 +1,7 @@
 # Frente 2 — Fidelidade visual ao Claude Designer (pacote de 13/10/2026)
 
+> **Retomando esta frente?** Comece por `fidelidade-designer-1310/HANDOFF.md` (estado, decisões, próxima entrega e comandos).
+
 > **Para quem:** o dono e qualquer sessão que continue esta frente sem ter visto a conversa.
 > **Escopo:** só a camada visual (Twig/CSS/JS). Banco, migrations, autenticação, permissões, APIs,
 > CI/CD e changelog estão fora — são da frente de engenharia, que corre em paralelo.
