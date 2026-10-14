@@ -31,8 +31,8 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 | E1 | Dashboard / Intelligence: cantos de 4px nos 6 elementos que existem no BlueJus | P | ✅ esta branch |
 | E2 | Pasta: cantos de 4px nos 26 seletores cujo par mudou no 02 (§5) | P | ✅ `83d6724d` |
 | E3 | Pasta: nota técnica (fundo `#f6fafd`, borda `#b9d6e8`, raio 4, conector 1.5px `#c9dfec`) e marca IA (10.5px/700/.12em `#0a6fa0`, "Intelligence" 14.5px) | P | ✅ `53aa6163` (§7) |
-| E4 | **próxima** — Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px). (Tirar "Como usar esta aba" **só com decisão** — conflito com Farlei R215, §6) | P | — |
-| E5 | Minhas Metas: cantos 4px, hover azul da linha, numeração por grupo | P | — |
+| E4 | Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px); situação do processo legível. (Tirar "Como usar esta aba" **só com decisão** — P2) | P | ✅ `47662002` (§8) |
+| E5 | **próxima** — Minhas Metas: cantos 4px, hover azul da linha, numeração por grupo | P | — |
 | E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
 | E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | — |
 | E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | — |
@@ -172,3 +172,41 @@ andamento em fases (sem pedido).
 - **Visto na comparação e fora da E3** (ao checklist): situação do processo impressa crua
   ("EM_ANDAMENTO", PZ-PRO-41); aviso "Integração com o PJe não configurada" do protótipo (PZ-PRO-15);
   faixa "Notas técnicas 0" do BlueJus (PZ-PRO-39, já C).
+
+## 8. E4 — evidência
+
+- **Desenho:** `02 - EXPEDIENTES 1.2.3.dc.html` de 13/10 — L1890 (relatório do Financeiro perdeu
+  `max-height:520px; overflow-y:auto; overscroll-behavior:contain`) e L3084 (`respNomeStyle` ganhou
+  `max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap`). Situação: o cartão do
+  processo do protótipo mostra "Em andamento".
+- **Código:**
+  - `pasta-show.css` — `.ps-fin-obs-rolagem` só com o canto de baixo (saíram altura máxima, rolagem e a
+    barra própria); `.ps-cab-dados .pasta-resp-chip .pasta-resp-nome` com 170px e reticências — só no
+    cabeçalho, porque o chip é o mesmo da lista do Expediente. O nome inteiro continua no DOM e no `title`.
+    O `scrollTop = 0` do JS das observações ficou inócuo; o `scrollIntoView` passa a rolar a página.
+  - `SituacaoProcessoRotulo` (domínio Processo): mapeamento explícito `EM_ANDAMENTO`→"Em andamento",
+    `ENCERRADO`→"Encerrado", `SUSPENSO`→"Suspenso", `PARALISADO`→"Paralisado" (os 4 valores dos selects de
+    cadastro); valor fora da lista volta exatamente como veio (o Datajud grava texto livre). Filtro Twig
+    `situacao_processo` e o resumo do PDF (`PastaResumoController`) usam a mesma classe, para tela,
+    Copiar/Compartilhar/Imprimir resumo e PDF dizerem o mesmo. A cor verde continua decidida pelo código.
+    **Nenhum dado gravado muda**; o contexto da IA (`MontadorDeContextoDaPasta`) segue com o código.
+  - Foco da marca BLUEJUS Intelligence: **sem mudança** — decisão do dono (P4). Teste trava que o
+    `:focus-visible` mantém o fundo e que nenhuma regra `.ps-cab-ia…` zera o `outline`.
+- **Testes:** `SituacaoProcessoRotuloTest` (10: 4 conhecidos, 4 desconhecidos, filtro); 
+  `PastaFinanceiroResponsavelFocoCssTest` (3; 2 vermelhos antes); `PastaProcessoCartaoTelaTest` +2 casos
+  (situação legível com o dado intacto no banco; desconhecida como veio) e a expectativa de "Copiar resumo"
+  atualizada para "Situação: Em andamento" (o mesmo teste prova que o PDF diz igual). `lint:twig` e
+  `lint:container` OK. `tests/Pasta` + `tests/Processo` + `tests/Inteligencia` + `tests/Twig`: 3730/3730.
+- **Tela, 1440×900, BlueJus × protótipo:**
+
+  | Ponto | BlueJus | Protótipo |
+  |---|---|---|
+  | Nome do responsável | 170px, reticências, 14.5px/700 ("THÂMARA THAYS S…"); `title` com o nome inteiro | `max-width` 170px, reticências, 14.5px/700 (o nome da demonstração é curto, 123px) |
+  | Hover / foco do chip | fundo de destaque; contorno do navegador; nome segue em 170px | — |
+  | Situação | "Em andamento", verde (`--ativa`) | "Em andamento", verde |
+  | Observações do Financeiro | 13 cartões (12 copiados **só no DOM**): lista 1528px, sem rolagem interna; página 1232→2564px | `max-height: none`, `overflow-y: visible`, sem rolagem interna |
+  | Foco da marca | contorno do navegador + fundo `#e5f1f7` | contorno do navegador (anel declarado não renderiza) — divergência aceita |
+
+- **Visto e fora da E4:** a dica do chip no protótipo é "Responsável pela pasta: X · clique para alterar"
+  (no BlueJus, só o nome) → PZ-CAB-06; "Honorários contratuais" × "Valor da causa" (PZ-FIN-03, C) e o
+  placeholder do relatório (PZ-FIN-05, C) seguem como estavam.

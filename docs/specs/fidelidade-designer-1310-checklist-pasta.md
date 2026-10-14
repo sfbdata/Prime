@@ -3,7 +3,7 @@
 > **Para quem:** o dono e quem continuar a frente `fidelidade-designer`. Plano e evidências em
 > `fidelidade-designer-1310.md`. Este arquivo é **acumulado**: cada entrega atualiza a marca do elemento
 > (✓/≈/∅) em vez de abrir lista nova. Levantado em 14/10/2026 sobre a branch em `b97719d4`. Atualizações por entrega na §20
-> (E2: raios, PZ-GLB-16; E3: nota técnica e marca IA).
+> (E2: raios, PZ-GLB-16; E3: nota técnica e marca IA; E4: Financeiro, responsável, situação).
 >
 > **∅ não quer dizer "fora".** Elemento sem backend continua na lista. A coluna *Backend?* diz o que
 > falta para ele funcionar de verdade; a §19 diz quais dá para criar já como casca visual que não
@@ -53,7 +53,7 @@
 | PZ-CAB-03 | Linha 1 | Pílula de prioridade `bi-flag-fill` + menu (Normal/Prioridade/Urgente, ✓) | botão+menu | ✓ | cab:63-80 | não | F |
 | PZ-CAB-04 | Linha 1 | Etiquetas `bi-tag-fill` que abrem Marcadores | chip | ✓ | cab:94-98 | não | F |
 | PZ-CAB-05 | Linha 1 | "+" Marcadores da pasta | botão | ✓ | cab:105 | não | F |
-| PZ-CAB-06 | Linha 1 | Chip do Responsável na linha 1 (avatar, nome, chevron; dica "Responsável pela pasta: X · clique para alterar") | chip | ≈ o BlueJus o mantém na faixa, campo "Responsável" | cab:481-488, `_resp_chip` | não | NOVO |
+| PZ-CAB-06 | Linha 1 | Chip do Responsável na linha 1 (avatar, nome 14.5px/700 cortado em 170px com reticências, chevron; dica "Responsável pela pasta: X · clique para alterar") | chip | ≈ corte em 170px ✓ (E4); continua na faixa (P1, aberta); a dica do BlueJus é só o nome | cab:481-488, `_resp_chip`; pasta-show.css `.ps-cab-dados … .pasta-resp-nome` | não | NOVO |
 | PZ-CAB-07 | Linha 1 | Menu do responsável ("Filtrar responsável", `bi-check2`, "Nenhum colaborador encontrado") | listbox | ✓ | `_resp_menu` | não | PAS-013/013b F |
 | PZ-CAB-08 | Linha 1 | ‹ `bi-chevron-left` · "N de M" · › | botão | ✓ | cab:127-150 | não | F |
 | PZ-CAB-09 | ⋮ | Botão "Mais ações" `bi-three-dots-vertical` | menu ⋮ | ✓ | cab:181 | não | F |
@@ -79,7 +79,7 @@
 | PZ-CAB-29 | Linha 2 | "Movimentado hoje, HH:MM" com ponto pulsante | texto | ✓ | cab:338 | não | F |
 | PZ-CAB-30 | Linha 2 | Documento "CPF …" | texto | ✓ | cab:350 | não | F |
 | PZ-CAB-31 | Linha 2 | BLUEJUS Intelligence (estrela SVG); tipografia do dc de 13/10 (BLUEJUS 10.5px/700/.12em #0a6fa0, Intelligence 14.5px) | botão | ✓ E3 (title trocado de propósito) | cab:366; pasta-ia-agentes.css:138 | não (a análise usa IA) | F |
-| PZ-CAB-50 | Linha 2 | Foco do botão BLUEJUS Intelligence: o dc declara anel `0 0 0 3px rgba(10,122,173,.14)` (`style-focus`), mas o protótipo renderiza só o contorno do navegador; o BlueJus mostra o contorno + fundo `#e5f1f7` | estado | ≈ decidir: declarado × renderizado | pasta-ia-agentes.css:134 | não | NOVO (E3) |
+| PZ-CAB-50 | Linha 2 | Foco do botão BLUEJUS Intelligence: o dc declara anel `0 0 0 3px rgba(10,122,173,.14)` (`style-focus`), mas o protótipo renderiza só o contorno do navegador; o BlueJus mostra o contorno + fundo `#e5f1f7` | estado | ≈ divergência registrada e **aceita** (dono, 14/10: preservar indicador visível e acessível); travada em teste | pasta-ia-agentes.css:134 | não | NOVO (E3) |
 | PZ-CAB-32 | Linha 2 | Faixa "Pasta trancada" (motivo, "Pedir acesso ao primário", aguardando, recusado) | painel | ∅ | — | sim | PAS-010 C |
 | PZ-CAB-33 | Linha 2 | Faixa "só visualizar" `bi-lock-fill` + "Pedir para editar" | painel | ∅ | — | sim | PAS-010 C |
 | PZ-CAB-34 | Linha 2 | Selo carimbado ARQUIVADO (ondas) | selo | ✓ | cab:387 | não | F |
@@ -175,7 +175,7 @@
 | PZ-PRO-29 | ⋮ processo | Imprimir resumo | item | ✓ | proc:255 | não | EDT-005 F |
 | PZ-PRO-30 | ⋮ processo | Desvincular da pasta (o BlueJus tem a mais "Tornar processo principal", proc:264) | item | ✓ | proc:274 | não | F |
 | PZ-PRO-31 | Notas | Nota técnica sob o cartão (autor, "hoje, HH:MM · editada"); caixa e editor #f6fafd, borda #b9d6e8, 4px; conector 1.5px #c9dfec; selo segue #0a5f86/3px | painel | ✓ E3 | nt; nota-tecnica.css | não | F |
-| PZ-PRO-41 | Cartão | Situação do processo legível ("Em andamento"); o BlueJus imprime o valor gravado cru ("EM_ANDAMENTO", 77 processos no dev) | texto | ≈ formatação de exibição | proc:301 | não | NOVO (E3) |
+| PZ-PRO-41 | Cartão | Situação do processo legível ("Em andamento") no cartão, no painel "Ver todas", no Copiar/Compartilhar/Imprimir resumo e no PDF; mapeamento explícito dos 4 valores do cadastro, desconhecido aparece como veio; dado gravado intacto | texto | ✓ E4 | proc:159/301/384; `SituacaoProcessoRotulo`; PastaResumoController | não | NOVO (E3) |
 | PZ-PRO-32 | ⋮ nota | Responder com outra nota | item | ✓ | nt | não | PMC-057 F |
 | PZ-PRO-33 | ⋮ nota | Copiar texto | item | ✓ | nt | não | PMC-017 F |
 | PZ-PRO-34 | ⋮ nota | Encaminhar via Chat I.A | item | ∅ | — | sim | PMC-018 C |
@@ -225,6 +225,7 @@
 | PZ-FIN-03 | Faixa | "Valor da causa" = soma dos pagamentos, só leitura ("total dos pagamentos · sincronizado") | painel | ≈ é "Honorários contratuais", editável | fin:136-164 | sim: regra | FPN-001 C (decidido no Farlei §3.9) |
 | PZ-FIN-04 | Faixa | Média por CPF | painel | ✓ | fin:169 | não | F |
 | PZ-FIN-05 | Relatório | Título, contador, compositor "Adicionar observação…" | painel | ≈ placeholder "Registrar combinado…" | fin:198,225 | não | FPN-004 C |
+| PZ-FIN-40 | Relatório | Lista de observações sem rolagem interna (cresce com a página) | painel | ✓ E4 | fin:237; pasta-show.css `.ps-fin-obs-rolagem` | não | NOVO (dc 13/10 L1890) |
 | PZ-FIN-06 | Cartão | editado, lápis, Responder e caixa de resposta | painel | ✓ | fin | não | M1 FPN-005 F |
 | PZ-FIN-07 | Cartão | Presença do autor | ícone | ∅ | — | sim | FPN-007 C |
 | PZ-FIN-08 | Cartão | Encaminhar (no hover) | botão | ∅ | — | sim | FPN-007 C |
@@ -594,16 +595,26 @@ O README do pacote manda: em conflito, vale a decisão mais recente do Farlei em
 | Entrega | Commit | Itens que mudaram de marca | Itens novos |
 |---|---|---|---|
 | E2 — cantos de 4px | `83d6724d` | PZ-GLB-16 continua ✓ (agora também nos 26 seletores do delta de 13/10) | — |
+| E4 — Financeiro, responsável, situação | `47662002` | PZ-PRO-41 ≈→✓; PZ-CAB-06 continua ≈ (corte feito, posição depende de P1); PZ-CAB-50 continua ≈, agora aceita | PZ-FIN-40 ✓ |
 | E3 — nota técnica e marca IA | `53aa6163` | PZ-PRO-31 ✓ (cores, raio, conector do dc de 13/10), PZ-CAB-31 ✓ (tipografia), PZ-PUSH-18/19 ✓ (mesmo CSS no teor do Push) | PZ-CAB-50 (foco da marca, decidir), PZ-PRO-41 (situação crua), aviso estático em PZ-PRO-15 |
 
 Contagem depois da E3: **216 ✓ · 50 ≈ · 113 ∅ = 379** (2 linhas novas ≈; as marcas ✓ das linhas que a E3
 tocou já eram ✓ — a E3 trouxe o valor novo do desenho para elas).
 
-### Pendências de especificação — ABERTAS (não concluídas)
+Contagem depois da E4: **218 ✓ · 49 ≈ · 113 ∅ = 380**. Os 113 ausentes seguem na §19, por natureza;
+nenhum foi descartado por falta de backend.
+
+### Pendências de especificação
 
 | # | Conflito | Desenho de 13/10 | Especificação do Farlei | Estado |
 |---|---|---|---|---|
 | P1 | Faixa Processo · Ação · Responsável no cabeçalho (PZ-CAB-06/41/42, TRI-01/02) | tira a faixa | §3.2, R087: pede a faixa nessa ordem | **ABERTA** — E6 travada |
 | P2 | Caixa "Como usar esta aba" (PZ-DET-19) | tira | §3.3, R215: pede | **ABERTA** — caixa mantida |
 | P3 | Andamento da pasta em fases (PZ-CAB-38/39/40, DAD-14, FIN-09) | tem | sem pedido (§9: confirmar antes) | **ABERTA** — e depende de backend |
-| P4 | Foco do botão BLUEJUS Intelligence (PZ-CAB-50) | declara anel, renderiza contorno | omissa | **ABERTA** — divergência pequena |
+| P4 | Foco do botão BLUEJUS Intelligence (PZ-CAB-50) | declara anel, renderiza contorno | omissa | **DECIDIDA (14/10)** — preservar o indicador atual (contorno do navegador + fundo); divergência registrada |
+
+### Fora da Pasta, mesmo defeito da PZ-PRO-41 (para a entrega de cada tela)
+
+- Peticionar (`layout_peticionar.html.twig:768`) imprime a situação crua → E9.
+- Processo show e lista (`processo/show.html.twig:56`, `processo/_resultado.html.twig:41`) trocam `_` por espaço
+  ("EM ANDAMENTO"). O filtro `situacao_processo` já serve; ficou fora da E4 por ser outra tela.
