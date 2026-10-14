@@ -1319,7 +1319,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-chip-text);
     background: var(--ps-accent-bg);
     padding: 1px 8px;
-    border-radius: 999px;
+    border-radius: 4px;
 }
 /* Espaçador: empurra o que vem depois para a DIREITA da linha. Não é escopado
    a nenhum pai — a regra vivia presa a `.ps-card-cab` e, nos dois lugares em que
@@ -1442,7 +1442,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-dia-text);
     background: var(--ps-dia-bg);
     padding: 5px 16px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
 }
 
@@ -1731,7 +1731,7 @@ span.ps-situacao-pill { cursor: default; }
     font-size: 11px;
     font-weight: 600;
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -1781,7 +1781,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-warn-text);
     background: var(--ps-warn-bg);
     padding: 2px 7px;
-    border-radius: 999px;
+    border-radius: 4px;
     flex-shrink: 0;
 }
 .ps-cliente-abrir { font-size: 12px; font-weight: 600; flex-shrink: 0; }
@@ -1870,7 +1870,7 @@ span.ps-situacao-pill { cursor: default; }
     font-weight: 700;
     white-space: nowrap;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: 4px;
     flex-shrink: 0;
 }
 .ps-vinc-selo--completo   { color: var(--ps-ok-text);   background: var(--ps-ok-bg); }
@@ -2522,7 +2522,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-previsto { font-size: 12.5px; color: var(--ps-muted); }
 .ps-pag-barra {
     height: 6px;
-    border-radius: 999px;
+    border-radius: 4px;
     background: var(--ps-div-fin);
     overflow: hidden;
     margin-top: 9px;
@@ -2858,7 +2858,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-push-dia-tx);
     background: var(--ps-push-dia-bg);
     padding: 5px 15px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-variant-numeric: tabular-nums;
 }
 /* Ponto de 16px centrado na linha (dc 5373, auditoria 2 U5). O verde de "nova"
@@ -2927,7 +2927,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-accent);
     background: var(--ps-accent-bg);
     padding: 2px 7px;
-    border-radius: 999px;
+    border-radius: 4px;
 }
 .ps-push-corpo { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .ps-push-meta { font-size: 11px; color: var(--ps-label); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3075,7 +3075,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 /* Cabecalho na faixa do trilho, mas fora do trilho (Push). */
 .ps-card-cab--faixa { min-height: 46px; padding: 8px 17px; gap: 8px; background: var(--ps-trilho-cab-bg); border-bottom: 1px solid var(--ps-trilho-cab-bd); }
 .ps-card-cab--faixa h2 { font-size: 13.5px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
-.ps-card-cab--faixa .ps-contagem { font-size: 11px; font-weight: 700; color: var(--ps-chip-text); background: var(--ps-accent-bg); padding: 1px 8px; border-radius: 999px; }
+.ps-card-cab--faixa .ps-contagem { font-size: 11px; font-weight: 700; color: var(--ps-chip-text); background: var(--ps-accent-bg); padding: 1px 8px; border-radius: 4px; }
 /* Atalho em texto ("ver no modulo") no cabecalho: nao e o chevron. */
 .ps-card-cab-link--texto { width: auto; height: auto; margin: 0; padding: 0 4px; font-size: 12.5px; font-weight: 500; color: var(--ps-accent); }
 .ps-card-cab-link--texto:hover,
@@ -3111,7 +3111,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
     background: var(--ps-principal-bg);
     border: 1px solid var(--ps-principal-bd);
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
 }
 .ps-processo-principal i { font-size: 9px; }
 .ps-processo-acoes { display: flex; align-items: center; gap: 4px; }
@@ -3383,7 +3383,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     font-size: 12.5px;
     font-weight: 500;
     padding: 5px 11px;
-    border-radius: 999px;
+    border-radius: 4px;
     cursor: pointer;
     border: 1px solid var(--ps-border);
     background: var(--ps-card);
@@ -3586,7 +3586,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     letter-spacing: .05em;
     text-transform: uppercase;
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
     color: var(--ps-warn-text);
     background: var(--ps-warn-bg);
@@ -3817,7 +3817,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-metas-progresso { display: flex; align-items: baseline; gap: 8px; }
 .ps-metas-progresso-num { font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
 .ps-metas-progresso-rot { font-size: 13px; color: var(--ps-muted); }
-.ps-metas-barra { height: 7px; border-radius: 999px; background: var(--ps-div-strong); margin-top: 12px; overflow: hidden; }
+.ps-metas-barra { height: 7px; border-radius: 4px; background: var(--ps-div-strong); margin-top: 12px; overflow: hidden; }
 .ps-metas-barra-cheia { height: 100%; border-radius: 999px; background: var(--ps-ok-dot); transition: width .6s var(--ps-ease); }
 .ps-metas-legenda { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
 .ps-metas-legenda > span { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ps-text-2); }
@@ -4166,7 +4166,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-cli-pasta > i { font-size: 14px; color: var(--ps-icone); }
 .ps-cli-pasta-num { font-weight: 700; font-size: 13px; color: var(--ps-text); }
 .ps-cli-pasta-acao { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ps-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ps-cli-tag { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+.ps-cli-tag { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; }
 .ps-cli-tag--atual     { color: var(--ps-accent); background: var(--ps-accent-bg); }
 .ps-cli-tag--ativa     { color: var(--ps-l7-tag-ativa-tx); background: var(--ps-l7-tag-ativa-bg); }
 .ps-cli-tag--arquivada { color: var(--ps-text-3); background: var(--ps-div-strong); }
