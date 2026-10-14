@@ -2154,6 +2154,9 @@ span.ps-situacao-pill { cursor: default; }
 /* Avatar do responsavel no desenho: degrade azul com sombra, iniciais 11/700. */
 .ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 11px; background: var(--ps-resp-grad); box-shadow: var(--ps-resp-sombra); }
 .ps-cab-dados .pasta-resp-caret { font-size: 11px; color: var(--ps-muted); }
+/* Nome longo corta em 170px com reticências (dc de 13/10, L3084). Só no cabeçalho: o chip da lista
+   do Expediente é o mesmo e não muda. O nome inteiro continua no DOM e no `title` do chip. */
+.ps-cab-dados .pasta-resp-chip .pasta-resp-nome { min-width: 0; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Lista de clientes no trilho ──
    `overflow: hidden` no cartão: ele tem raio de 14px, e sem isto qualquer linha
@@ -2402,10 +2405,10 @@ span.ps-situacao-pill { cursor: default; }
    ter dois filhos diretos, como na aba Dados. */
 .ps-coluna { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
-/* ── Relatório financeiro ── */
-.ps-fin-obs-rolagem { max-height: 520px; overflow-y: auto; overscroll-behavior: contain; border-radius: 0 0 4px 4px; }
-.ps-fin-obs-rolagem::-webkit-scrollbar { width: 5px; }
-.ps-fin-obs-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
+/* ── Relatório financeiro ──
+   Sem rolagem interna desde o dc de 13/10 (L1890 perdeu max-height/overflow-y): as observações
+   crescem com a página. A classe fica pelo canto de baixo e como gancho do JS. */
+.ps-fin-obs-rolagem { border-radius: 0 0 4px 4px; }
 
 /* ── Card Arquivos (trilho) ──
    Sem gerenciador: nada de busca, filtro por categoria, paginação ou dropzone.
