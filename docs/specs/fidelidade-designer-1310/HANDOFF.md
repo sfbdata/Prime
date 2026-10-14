@@ -236,8 +236,10 @@ Evidência e inventário em `fidelidade-designer-1310.md` §12. Para quem contin
 - **Smoke do dono:** os 4 atalhos do Editar dados que voltaram a funcionar (Cliente, Processo, Histórico, "Trocar"
   responsável), o Salvar que agora só acende com alteração, e as perguntas que o dev não tinha dado para exercitar
   (excluir meta, checklist, Financeiro, análises da IA, nota técnica).
-- **Decisão do dono:** a frase "O andamento passa para a via administrativa." do dc no "Administrativo sem processo"
-  ficou de fora (seria falsa sem o andamento em fases — P3).
+- **Decisões do dono no encerramento da E7 (14/10):** (1) a frase "O andamento passa para a via administrativa." do dc
+  fica **fora até P3**; (2) a suspeita em `pasta/demandas/_resultado.html.twig:173` fica **registrada para investigação
+  futura, sem alterar a tela**; (3) sem push, PR, merge ou deploy; (4) **CHANGELOG intocado** — integração coordenada com a
+  Engenharia. Roteiro de smoke e testes comportamentais candidatos: `SMOKE-E7.md` (nesta pasta).
 
 ## 11b. Próximas entregas
 
