@@ -30,8 +30,8 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 |---|---|---|---|
 | E1 | Dashboard / Intelligence: cantos de 4px nos 6 elementos que existem no BlueJus | P | ✅ esta branch |
 | E2 | Pasta: cantos de 4px nos 26 seletores cujo par mudou no 02 (§5) | P | ✅ `83d6724d` |
-| E3 | **próxima** — Pasta: nota técnica (fundo `#f6fafd`, borda `#b9d6e8`, raio 4, conector 1.5px `#c9dfec`) e marca IA (10.5px/700/.12em `#0a6fa0`, "Intelligence" 14.5px) | P | — |
-| E4 | Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px). (Tirar "Como usar esta aba" **só com decisão** — conflito com Farlei R215, §6) | P | — |
+| E3 | Pasta: nota técnica (fundo `#f6fafd`, borda `#b9d6e8`, raio 4, conector 1.5px `#c9dfec`) e marca IA (10.5px/700/.12em `#0a6fa0`, "Intelligence" 14.5px) | P | ✅ `53aa6163` (§7) |
+| E4 | **próxima** — Pasta: observações do Financeiro sem rolagem interna; nome do responsável com reticências (170px). (Tirar "Como usar esta aba" **só com decisão** — conflito com Farlei R215, §6) | P | — |
 | E5 | Minhas Metas: cantos 4px, hover azul da linha, numeração por grupo | P | — |
 | E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
 | E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | — |
@@ -138,3 +138,37 @@ Contagem inicial: **216 ✓ · 48 ≈ · 113 ∅**. A §19 dele separa os ausent
 criar já como casca visual; e registra os 3 conflitos entre o desenho de 13/10 e a especificação do Farlei
 (que o README do pacote manda prevalecer): faixa do cabeçalho (R087), "Como usar esta aba" (R215) e
 andamento em fases (sem pedido).
+
+## 7. E3 — evidência
+
+- **Desenho:** `02 - EXPEDIENTES 1.2.3.dc.html` de 13/10, pareado token a token com o de 05/10: L1246
+  (marca), L1796/1798/1812 (nota no Processo), L2638/2640/2654 (nota no teor do Push — mesmo CSS).
+- **Código:** `nota-tecnica.css` — tokens `--ps-nota-bg` `#f6fafd`, `--ps-nota-border` `#b9d6e8`,
+  `--ps-nota-conector` `#c9dfec` (tema claro); `.ps-nota` e `.ps-nota-editor` com 4px; conector 1.5px.
+  Selo, avatar, botões e campos da nota seguem com 3px, como no desenho. Os três tokens só são usados por
+  caixa, editor e conector (conferido). `pasta-ia-agentes.css` — token novo `--ia-marca-cab` (`#0a6fa0`;
+  no escuro, o mesmo `#6fc3e0` de antes), porque `--ia-azul-txt` também pinta o painel de agentes;
+  rótulo com `gap: 2px; line-height: 1.1`; BLUEJUS 10.5px/700/.12em; Intelligence 14.5px.
+- **Tema escuro:** o desenho não tem; os tokens do escuro ficaram como estavam (convenção do sistema).
+- **Teste:** `tests/Pasta/Unit/PastaNotaTecnicaEMarcaIaCssTest.php` — 5 vermelhos antes, 5/5 depois (41
+  asserções; trava também que o selo e `--ia-azul-txt` não mudaram). `tests/Pasta` + `tests/Inteligencia`
+  + `tests/Processo`: 3677/3677 no banco da frente.
+- **Tela, 1440×900, valores calculados pelo navegador, BlueJus × protótipo:**
+
+  | Elemento | BlueJus | Protótipo |
+  |---|---|---|
+  | Caixa da nota | `rgb(246,250,253)`, borda 1px `rgb(185,214,232)`, 4px | idem |
+  | Caixa do editor | idem | idem |
+  | Selo NOTA TÉCNICA | `rgb(10,95,134)`, 3px | idem |
+  | Conector | declarado 1.5px, calculado 1px `rgb(201,223,236)`, curva 6px | idem (o Chromium arredonda a borda para o pixel do dispositivo nos dois) |
+  | BLUEJUS | 10.5px/700, espaçamento 1.26px, `rgb(10,111,160)` | idem |
+  | Intelligence | 14.5px/700, `rgb(18,36,47)` | idem |
+  | Botão da marca: repouso / hover | transparente / `rgb(229,241,247)`, 4px | idem |
+  | Botão da marca: foco | contorno do navegador + fundo `#e5f1f7` | contorno do navegador, sem fundo (o anel declarado não renderiza) → PZ-CAB-50, aberto |
+
+  O dev não tem nenhuma nota técnica: o editor foi aberto pelo botão real ("Adicionar nota técnica", sem
+  salvar) e o cartão da nota foi inserido **só no DOM do navegador**, com a marcação do template. Nada
+  foi gravado. No protótipo a nota foi salva pelo próprio protótipo (localStorage do navegador de teste).
+- **Visto na comparação e fora da E3** (ao checklist): situação do processo impressa crua
+  ("EM_ANDAMENTO", PZ-PRO-41); aviso "Integração com o PJe não configurada" do protótipo (PZ-PRO-15);
+  faixa "Notas técnicas 0" do BlueJus (PZ-PRO-39, já C).
