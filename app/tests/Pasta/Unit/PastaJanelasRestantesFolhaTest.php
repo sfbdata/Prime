@@ -167,8 +167,11 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         self::assertStringContainsString(".catch(function () { avisarErro('Erro de comunicação. Tente novamente.'); })", $fav);
         self::assertStringNotContainsString('alert(', $fav);
 
-        // O Duplicar continua o confirm do desenho (dc L.4324): não era para trocar.
-        self::assertStringContainsString("onsubmit=\"return window.confirm('Duplicar a pasta '", $cab);
+        // O Duplicar era o confirm do desenho de 05/10 (L.4324); o de 13/10 o passou para a janela
+        // azul (`confirmarUI`, L.4511) — E7: `data-ps-cf`, com o confirm só de reserva.
+        self::assertStringContainsString('class="js-duplicar-pasta" data-nup="{{ pasta.nup }}"', $cab);
+        self::assertStringContainsString("data-ps-cf=\"{{ 'Duplicar a pasta ' ~ pasta.nup ~ '? A cópia leva", $cab);
+        self::assertStringContainsString('onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);"', $cab);
     }
 
     #[TestDox('PAS-034b: "Descartar alterações" do Editar dados pela janela da tela, e a janela mora no modal aberto enquanto pergunta (focus trap do Bootstrap)')]

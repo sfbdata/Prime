@@ -107,7 +107,7 @@ final class PastaDialogosJsTest extends TestCase
 
         $c = $this->funcao('confirmarPs');
         self::assertStringContainsString("Promise.resolve(window.confirm(", $c, 'sem a marcação, a pergunta continua sendo feita');
-        self::assertStringContainsString("o.rotulo || 'Excluir'", $c);
+        self::assertStringContainsString("o.rotulo || (azul ? 'Confirmar' : 'Excluir')", $c, 'sem rótulo: "Excluir" no perigo (o padrão de antes), "Confirmar" no azul');
         self::assertStringContainsString(".textContent = o.texto || ''", $c, 'o trecho entra como TEXTO');
     }
 

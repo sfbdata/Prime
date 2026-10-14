@@ -1109,7 +1109,15 @@
 
             const btnExc = e.target.closest('.btn-excluir-doc');
             if (btnExc) {
-                if (!confirm('Excluir este arquivo? Esta ação não pode ser desfeita.')) return;
+                // E7: janela vermelha da tela com o texto do dc (`confirmarUI(…, true)`, L.6839); o nome
+                // vem do título do próprio menu (textContent). Sem ele, a frase de antes.
+                const tituloArq = btnExc.closest('.ps-fin-menu')?.querySelector('.ps-fin-menu-titulo');
+                const nomeArq = tituloArq ? tituloArq.textContent.trim() : '';
+                const perguntaArq = nomeArq
+                    ? 'Excluir o arquivo "' + nomeArq + '" do Financeiro?'
+                    : 'Excluir este arquivo? Esta ação não pode ser desfeita.';
+                const excluirArq = window.confirmarUIPs ? await window.confirmarUIPs(perguntaArq, true) : confirm(perguntaArq);
+                if (!excluirArq) return;
 
                 const docId = btnExc.dataset.docId;
                 const fd    = new FormData();

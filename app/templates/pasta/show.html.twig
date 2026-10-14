@@ -1559,8 +1559,11 @@
         if (form.matches('form.js-ajax-desvincular-processo')) {
             event.preventDefault();
             // Texto do desenho (procMenu, dc L.2932) vem no `data-confirmar` do form, com o
-            // número do processo e a pasta; o genérico só se o atributo faltar.
-            if (!confirm(form.dataset.confirmar || 'Desvincular o processo desta pasta?')) {
+            // número do processo e a pasta; o genérico só se o atributo faltar. E7: na janela da
+            // tela, vermelha como no dc (`confirmarUI(…, true)`, L.3031) — o envio já foi segurado acima.
+            const perguntaDesv = form.dataset.confirmar || 'Desvincular o processo desta pasta?';
+            const desvincular = window.confirmarUIPs ? await window.confirmarUIPs(perguntaDesv, true) : confirm(perguntaDesv);
+            if (!desvincular) {
                 return;
             }
             const button = form.querySelector('button[type="submit"]');
@@ -3720,8 +3723,13 @@ document.addEventListener('DOMContentLoaded', function () {
    destino — abrir a janela ou o drawer com o modal ainda na tela deixaria o foco
    preso no modal (focus trap do Bootstrap) e o fundo escuro por cima. Os destinos
    são os gatilhos que a tela já tem: o botão Cadastro do cabeçalho (#psCadastroAbrir,
-   pasta-clientes.js), a aba #processo-tab e o #psHistoricoAbrir (pasta-show.js). */
-(function () {
+   pasta-clientes.js), a aba #processo-tab e o #psHistoricoAbrir (pasta-show.js).
+
+   E7: roda no DOMContentLoaded. Este script fica no corpo da página e o Bootstrap só carrega no
+   fim do base.html.twig: rodando na hora, o `typeof bootstrap === 'undefined'` saía cedo e o
+   bloco inteiro ficava morto — sem pergunta ao trocar o número (o POST saía direto), sem o
+   estado do Salvar e sem o "Descartar as alterações?". Medido no navegador (master e frente). */
+document.addEventListener('DOMContentLoaded', function () {
     var modal = document.getElementById('modalEditarPasta');
     if (!modal || typeof bootstrap === 'undefined') { return; }
     var form = modal.querySelector('form');
@@ -3765,17 +3773,29 @@ document.addEventListener('DOMContentLoaded', function () {
     modal.addEventListener('show.bs.modal', conferir);
     conferir();
 
-    /* PAS-019 (dc L.4287): trocar o NÚMERO pede confirmação antes de gravar, com o texto do
-       desenho — o número antigo é o que veio do servidor (`defaultValue`). */
+    /* PAS-019 (dc L.4287/4416): trocar o NÚMERO pede confirmação antes de gravar, com o texto do
+       desenho — o número antigo é o que veio do servidor (`defaultValue`). E7: na janela AZUL da tela
+       (dc `confirmarUI(…, false)`, título "Alterar número da pasta"), registrada no pasta-dialogos.js
+       (já carregado no DOMContentLoaded). Sem a janela, o `confirm` de sempre. */
     if (form && nup) {
-        form.addEventListener('submit', function (e) {
+        var perguntaDoNumero = function () {
             var antes = nup.defaultValue.trim();
             var depois = nup.value.trim();
-            if (depois !== '' && depois !== antes
-                && !window.confirm('Alterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.')) {
-                e.preventDefault();
-            }
-        });
+            if (depois === '' || depois === antes) { return null; }
+
+            return {
+                mensagem: 'Alterar número da pasta\nAlterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.',
+                perigo: false
+            };
+        };
+        if (window.psConfirmarEnvio) {
+            window.psConfirmarEnvio(form, perguntaDoNumero);
+        } else {
+            form.addEventListener('submit', function (e) {
+                var p = perguntaDoNumero();
+                if (p && !window.confirm(p.mensagem.replace('\n', '\n\n'))) { e.preventDefault(); }
+            });
+        }
     }
 
     function irParaClientes() {
@@ -3843,7 +3863,7 @@ document.addEventListener('DOMContentLoaded', function () {
             seguir();
         });
     });
-}());
+});
 </script>
 
 <script>
@@ -4339,8 +4359,8 @@ document.addEventListener('DOMContentLoaded', function () {
    lugar do `confirm`/`alert` do navegador. Um de cada por página; /js/pasta-dialogos.js
    (`confirmarPs`/`avisarPs`) só troca TEXTO e mostra/esconde. #}
 <style>
-    .ps-body { --ps-cf-cab: #0b6a96; --ps-cf-ok: #b3262e; --ps-cf-ok-hv: #921f26; --ps-aviso-bg: #12242f; --ps-aviso-ok: #5fd39a; --ps-aviso-erro: #ff8a80; }
-    [data-bs-theme="dark"] .ps-body { --ps-cf-cab: #0a5f86; --ps-cf-ok: #c0392f; --ps-cf-ok-hv: #a3232b; --ps-aviso-bg: #0b161d; }
+    .ps-body { --ps-cf-cab: #0b6a96; --ps-cf-ok: #b3262e; --ps-cf-ok-hv: #921f26; --ps-cf-ok-azul: #0a6fa0; --ps-cf-ok-azul-hv: #085a82; --ps-cf-cancelar-tx: #34505f; --ps-aviso-bg: #12242f; --ps-aviso-ok: #5fd39a; --ps-aviso-erro: #ff8a80; }
+    [data-bs-theme="dark"] .ps-body { --ps-cf-cab: #0a5f86; --ps-cf-ok: #c0392f; --ps-cf-ok-hv: #a3232b; --ps-cf-ok-azul: #1479ad; --ps-cf-ok-azul-hv: #0a6fa0; --ps-cf-cancelar-tx: var(--ps-text-2); --ps-aviso-bg: #0b161d; }
     .ps-cf-fundo {
         position: fixed; inset: 0; z-index: 2147483500; padding: 16px; pointer-events: auto;
         display: flex; align-items: center; justify-content: center; background: rgba(16,36,48,.32);
@@ -4360,9 +4380,14 @@ document.addEventListener('DOMContentLoaded', function () {
     .ps-cf-texto { padding: 14px 16px; font-size: 13.5px; line-height: 1.55; color: var(--ps-body); overflow-wrap: anywhere; }
     .ps-cf-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--ps-div-strong); background: var(--ps-soft); }
     .ps-cf-btn { height: 34px; border: none; border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .ps-cf-btn--cancelar { padding: 0 14px; background: var(--ps-div-strong); color: var(--ps-text-2); }
+    /* E7: texto do Cancelar #34505f, o do dc (`cf`, L.356); antes saía #455c6b (--ps-text-2). */
+    .ps-cf-btn--cancelar { padding: 0 14px; background: var(--ps-div-strong); color: var(--ps-cf-cancelar-tx); }
     .ps-cf-btn--ok { padding: 0 16px; background: var(--ps-cf-ok); color: #fff; }
     .ps-cf-btn--ok:hover, .ps-cf-btn--ok:focus-visible { background: var(--ps-cf-ok-hv); }
+    /* E7: variante azul do desenho (dc `cfVals`, okBg #0a6fa0) para ação sem perigo. O hover o desenho
+       não define: escurece como o vermelho. */
+    .ps-cf.is-azul .ps-cf-btn--ok { background: var(--ps-cf-ok-azul); }
+    .ps-cf.is-azul .ps-cf-btn--ok:hover, .ps-cf.is-azul .ps-cf-btn--ok:focus-visible { background: var(--ps-cf-ok-azul-hv); }
     .ps-aviso {
         position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483400;
         display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 10px 14px;

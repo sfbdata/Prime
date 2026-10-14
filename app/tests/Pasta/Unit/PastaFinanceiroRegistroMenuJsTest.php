@@ -121,7 +121,10 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
     {
         $obs = (string) file_get_contents(self::OBS_SCRIPT);
 
-        self::assertStringContainsString("if (!confirm(textoDeConfirmacaoExcluir(btnExcluir.closest('.ps-anotacao')))) return;", $obs);
+        // E7: na janela da tela, em duas partes (título e texto), como o modal do desenho.
+        self::assertStringContainsString("const perguntaObs = textoDeConfirmacaoExcluir(btnExcluir.closest('.ps-anotacao'));", $obs);
+        self::assertStringContainsString("await window.confirmarPs({ titulo: partesObs[0], texto: partesObs.slice(1).join('\\n\\n') })", $obs);
+        self::assertStringContainsString('if (!excluirObs) return;', $obs);
         self::assertStringNotContainsString('Excluir este registro? Esta ação não pode ser desfeita.', $obs);
         $f = substr($obs, (int) strpos($obs, 'function textoDeConfirmacaoExcluir('), 1200);
         self::assertStringContainsString("'Excluir o comentário de ' + (autor || 'colaborador') + '?", $f);

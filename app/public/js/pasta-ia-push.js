@@ -325,15 +325,28 @@
         });
 
         /* ── 3. Ações da análise ──────────────────────────────────────────── */
-        secao.addEventListener('submit', function (e) {
+        secao.addEventListener('submit', async function (e) {
             var form = e.target.closest('form[data-ia-acao]');
             if (!form || !secao.contains(form)) { return; }
             // Recolher/expandir tem tratamento próprio (troca na hora, sem recarregar a lista).
             if (form.getAttribute('data-ia-acao') === 'recolher') { return; }
             e.preventDefault();
 
+            // E7: janela vermelha da tela (dc `confirmarUI(…, true)`, L.5351); sem ela, o confirm.
+            // Enquanto pergunta, outro clique não abre segunda janela.
             var confirmar = form.getAttribute('data-ia-confirmar');
-            if (confirmar && !window.confirm(confirmar)) { return; }
+            if (confirmar) {
+                // Marca no formulário, não `disabled` no botão: o foco volta a ele ao fechar a janela,
+                // e botão desabilitado não recebe foco.
+                if (form.dataset.perguntando) { return; }
+                form.dataset.perguntando = '1';
+                // O menu fecha no clique, antes do envio: o foco volta explicitamente ao ⋮ da análise.
+                var envoltorio = form.closest('.ps-ia-menu-wrap');
+                var voltar = envoltorio ? envoltorio.querySelector('[aria-haspopup]') : null;
+                var sim = window.confirmarUIPs ? await window.confirmarUIPs(confirmar, true, voltar) : window.confirm(confirmar);
+                delete form.dataset.perguntando;
+                if (!sim || !document.contains(form)) { return; }
+            }
 
             var enviar = form.querySelector('button[type="submit"]');
             if (enviar) { enviar.disabled = true; }

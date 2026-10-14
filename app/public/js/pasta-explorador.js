@@ -36,9 +36,9 @@
    (Vazio / Ver no PJe / Muito grande), "Nome parecido" no painel (só informa) e a faixa de
    limpeza na raiz, com rótulo honesto: são REGRAS do servidor (`limpeza` do #pexDados,
    SugestoesDeLimpeza), não IA. Revisar abre a lista com caixas de marcar; excluir vai pelo
-   excluir-lote, com o mesmo confirm() do Excluir. Dispensar vale para a sessão, por pasta.
+   excluir-lote, com a mesma confirmação do Excluir. Dispensar vale para a sessão, por pasta.
 
-   L7 (UI): lixeira (D7, DOC-57/58). Excluir continua com o confirm() (S-3), mas agora manda
+   L7 (UI): lixeira (D7, DOC-57/58). Excluir continua com confirmação (S-3; janela da tela desde a E7), mas agora manda
    para a lixeira: o toast do desenho (dc L2277, `exp.desfazer` L4935) ganha "Desfazer", que
    chama `urlRestaurar` com o csrfLote e os `ids` DEVOLVIDOS pelo excluir-lote. Os itens saem da
    memória guardados (`exclusaoDesfazivel`) e voltam a partir dela quando o servidor confirma
@@ -2566,7 +2566,7 @@
         if (arquivosN > 0) partes.push(pluralizar(arquivosN, 'arquivo', 'arquivos'));
         return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;
     }
-    /* Excluir (DOC-57): um, vários ou pasta — sempre pelo excluir-lote. O `confirm()` fica até o
+    /* Excluir (DOC-57): um, vários ou pasta — sempre pelo excluir-lote. A confirmação (janela da tela desde a E7) fica até o
        Samuel decidir (S-3). Desde o L7 o servidor manda para a LIXEIRA e devolve `lixeira: true`
        e os `ids` — é o que o "Desfazer" do toast manda de volta a `urlRestaurar`. O que sai da
        memória é guardado (objetos inteiros, com tokens e URLs) para voltar sem recarregar. */
@@ -2577,29 +2577,36 @@
         const t = textos || {};
         const lote = separarChaves(itens.map(chaveDe));
         if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
-        if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;
-        postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
-            // O back leva a ÁRVORE de cada pasta (mesmo carimbo): tira as filhas e os arquivos delas.
-            let subarvore = [];
-            lote.secoes.forEach(function (id) { subarvore = subarvore.concat([id], descendentes(id)); });
-            const saiu = { arquivos: [], pastas: [] };
-            for (let i = arquivos.length - 1; i >= 0; i--) {
-                const a = arquivos[i];
-                if (lote.documentos.indexOf(a.id) !== -1 || (a.secaoId != null && subarvore.indexOf(Number(a.secaoId)) !== -1)) { saiu.arquivos.unshift(arquivos.splice(i, 1)[0]); totalArquivos--; }
-            }
-            for (let i = pastas.length - 1; i >= 0; i--) {
-                if (subarvore.indexOf(pastas[i].id) !== -1) saiu.pastas.unshift(pastas.splice(i, 1)[0]);
-            }
-            limparRecorteDoQueNaoExiste();
-            limparSelecao(true);
-            if (aoExcluir) aoExcluir();
-            if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
-            invalidarContagemDaLixeira();
-            const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
-            const desfazer = desfazerDe(res.j, saiu, itens.length);
-            toast(texto, false, desfazer);
-        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+        // E7: a pergunta (S-3 continua: há confirmação) sai na janela vermelha da tela (dc
+        // `confirmarUI(…, true)`, como o "Excluir N arquivo(s) sugerido(s)" L.5144); sem ela, o
+        // confirm do navegador. O pedido só sai depois do "sim".
+        const pergunta = t.confirmacao || avisoExclusaoDoLote(itens);
+        const resposta = window.confirmarUIPs ? window.confirmarUIPs(pergunta, true) : Promise.resolve(confirm(pergunta));
+        resposta.then(function (sim) { if (sim) excluirConfirmado(); });
+        function excluirConfirmado() {
+            postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
+                // O back leva a ÁRVORE de cada pasta (mesmo carimbo): tira as filhas e os arquivos delas.
+                let subarvore = [];
+                lote.secoes.forEach(function (id) { subarvore = subarvore.concat([id], descendentes(id)); });
+                const saiu = { arquivos: [], pastas: [] };
+                for (let i = arquivos.length - 1; i >= 0; i--) {
+                    const a = arquivos[i];
+                    if (lote.documentos.indexOf(a.id) !== -1 || (a.secaoId != null && subarvore.indexOf(Number(a.secaoId)) !== -1)) { saiu.arquivos.unshift(arquivos.splice(i, 1)[0]); totalArquivos--; }
+                }
+                for (let i = pastas.length - 1; i >= 0; i--) {
+                    if (subarvore.indexOf(pastas[i].id) !== -1) saiu.pastas.unshift(pastas.splice(i, 1)[0]);
+                }
+                limparRecorteDoQueNaoExiste();
+                limparSelecao(true);
+                if (aoExcluir) aoExcluir();
+                if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
+                invalidarContagemDaLixeira();
+                const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
+                const desfazer = desfazerDe(res.j, saiu, itens.length);
+                toast(texto, false, desfazer);
+            }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+        }
     }
 
     /* O "Desfazer" de UMA exclusão: os ids que o SERVIDOR devolveu (não os que a tela mandou) e

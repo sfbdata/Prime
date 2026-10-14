@@ -211,9 +211,12 @@
                        protótipo não existe aqui. Só aparece para quem pode criar pasta (a mesma
                        permissão do `pasta_new`); o servidor confere de novo. #}
                     {% if can_access_module('pastas') %}
+                    {# E7: janela azul do desenho (dc `confirmarUI(…, ok)` sem perigo, L.4511); o `onsubmit`
+                       só pergunta pelo navegador se a janela não carregou. #}
                     <form method="post" action="{{ path('pasta_duplicar', {id: pasta.id}) }}"
                           class="js-duplicar-pasta" data-nup="{{ pasta.nup }}"
-                          onsubmit="return window.confirm('Duplicar a pasta ' + this.dataset.nup + '? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.');">
+                          data-ps-cf="{{ 'Duplicar a pasta ' ~ pasta.nup ~ '? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.' }}"
+                          onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
                         <input type="hidden" name="_token" value="{{ csrf_token('pasta_duplicar_' ~ pasta.id) }}">
                         <button type="submit" class="ps-pop-item" role="menuitem">
                             <i class="bi bi-files"></i><span>Duplicar pasta</span>
@@ -681,10 +684,13 @@
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!window.confirmarPs) { return; }
+        // E7: restaurar não tem perigo → variante azul (regra do dc `confirmarUI`/`cfVals`; o
+        // desenho não tem esta pergunta — a convenção dele decide a cor).
         window.confirmarPs({
             titulo: 'Restaurar a pasta ' + form.dataset.nup + '?',
             rotulo: 'Restaurar',
-            icone: 'bi-arrow-counterclockwise'
+            icone: 'bi-arrow-counterclockwise',
+            variante: 'azul'
         }).then(function (sim) {
             // `form.submit()` não dispara outro `submit`: não volta a perguntar.
             if (sim) { form.submit(); }

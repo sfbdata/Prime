@@ -185,7 +185,9 @@
 
         const pergunta = 'Corrigir "' + (linha.dataset.descricao || '') + '" de ' + brl(atual) + ' para ' + brl(novo) + '?'
             + '\n\nA alteração fica registrada no histórico com seu nome, data e hora.';
-        if (!window.confirm(pergunta)) { return; }
+        // E7: janela AZUL da tela, como o dc (`confirmarUI(…)` sem perigo, L.3563).
+        const corrigir = window.confirmarUIPs ? await window.confirmarUIPs(pergunta, false) : window.confirm(pergunta);
+        if (!corrigir) { return; }
 
         const url = cartao.dataset.baseUrlCorrigir.replace('__ID__', linha.dataset.pagamentoId);
         botao.disabled = true;
@@ -258,7 +260,11 @@
             const perguntaEx = linhaEx && !Number.isNaN(valorEx)
                 ? 'Excluir "' + (linhaEx.dataset.descricao || '') + '" (' + brl(valorEx) + ')?'
                 : 'Excluir este lançamento?';
-            if (!confirm(perguntaEx)) { return; }
+            // E7: janela vermelha da tela com o título do dc ("Excluir lançamento", L.3573).
+            const excluirLanc = window.confirmarUIPs
+                ? await window.confirmarUIPs('Excluir lançamento\n' + perguntaEx, true)
+                : confirm(perguntaEx);
+            if (!excluirLanc) { return; }
 
             const url = cartao.dataset.baseUrlExcluir.replace('__ID__', id);
             try {

@@ -16,6 +16,14 @@
  *    tela, no lugar do `confirm`/`alert` do navegador. O anúncio do aviso sai por regiões vivas
  *    criadas na carga (PAS-034c). Sem a marcação na página (outra tela), caem no
  *    `confirm`/`alert` — nunca somem com a pergunta.
+ * 5. Variante azul e `confirmarUIPs` (E7 da fidelidade, dc 02 L.6185-6187 `confirmarUI`/`cfVals`): o
+ *    desenho pinta o botão de AZUL (#0a6fa0, ✓ "Confirmar") quando a ação não é perigo e de vermelho
+ *    (#b3262e, ⚠) quando é; a primeira linha da mensagem vira o título. `confirmarUIPs(msg, perigo)`
+ *    reproduz essa regra para quem tinha um `confirm(msg)`.
+ * 6. Envio de formulário com confirmação (E7): `<form data-ps-cf="Título\nTexto" [data-ps-cf-perigo]>`
+ *    ou `psConfirmarEnvio(form, fn)` (pergunta calculada na hora). Um ouvinte de `submit` em CAPTURA
+ *    segura o envio ANTES de qualquer outro ouvinte do formulário (XHR, `onsubmit`); só no "sim" o
+ *    formulário é reenviado com `requestSubmit` — e aí os ouvintes de sempre rodam, uma vez.
  *
  * Nada aqui escreve HTML com dado de usuário: os nomes vêm do Twig (escapados) e o JS só usa
  * textContent, atributos e cópia de nós já desenhados.
@@ -358,8 +366,10 @@
     }
 
     /**
-     * Abre a janela de confirmação. `opcoes`: { titulo, texto, rotulo ('Excluir'), icone
-     * ('bi-trash3') }. Devolve uma Promise que resolve `true` só se a pessoa confirmar.
+     * Abre a janela de confirmação. `opcoes`: { titulo, texto, rotulo, icone, variante, foco }.
+     * `foco`: para onde o foco volta ao fechar (padrão: o elemento focado ao abrir).
+     * `variante` 'azul' (ação sem perigo: botão #0a6fa0, padrão ✓ "Confirmar") ou 'perigo' (padrão:
+     * botão vermelho, 🗑 "Excluir"). Devolve uma Promise que resolve `true` só se a pessoa confirmar.
      */
     function confirmarPs(opcoes) {
         var o = opcoes || {};
@@ -370,10 +380,12 @@
         if (confirmacaoAberta) { encerrarConfirmacao(false); }
         var caixa = fundo.querySelector('.ps-cf');
         var ok = fundo.querySelector('[data-ps-cf-ok]');
+        var azul = o.variante === 'azul';
+        caixa.classList.toggle('is-azul', azul);
         document.getElementById('psConfirmarTitulo').textContent = o.titulo || 'Confirmar';
         document.getElementById('psConfirmarTexto').textContent = o.texto || '';
-        ok.querySelector('span').textContent = o.rotulo || 'Excluir';
-        ok.querySelector('i').className = 'bi ' + (o.icone || 'bi-trash3');
+        ok.querySelector('span').textContent = o.rotulo || (azul ? 'Confirmar' : 'Excluir');
+        ok.querySelector('i').className = 'bi ' + (o.icone || (azul ? 'bi-check2' : 'bi-trash3'));
         var lugar = hospedarNoModalAberto(fundo);
         fundo.hidden = false;
 
@@ -382,9 +394,28 @@
         var cancelar = fundo.querySelector('.ps-cf-rodape [data-ps-cf-cancelar]') || caixa;
 
         return new Promise(function (resolver) {
-            confirmacaoAberta = { resolver: resolver, foco: document.activeElement, lugar: lugar };
+            confirmacaoAberta = { resolver: resolver, foco: o.foco || document.activeElement, lugar: lugar };
             setTimeout(function () { cancelar.focus(); }, 30);
         });
+    }
+
+    /* E7: o foco volta para quem abriu a pergunta. Se quem abriu era um item de menu que já fechou
+       (Duplicar, Excluir meta: o ⋮ some ao clicar), o foco iria para o <body> e o teclado perderia o
+       lugar — volta então para o botão que abre aquele menu: `data-ps-pop="<id>"` (menus `.ps-pop`),
+       `aria-controls="<id>"` (menus `role="menu"`, como o ⋮ dos processos) ou, no menu sem id (análises
+       da IA), o `[aria-haspopup]` irmão dele no mesmo invólucro. */
+    function visivel(el) {
+        return !!(el && document.contains(el) && el.getClientRects().length > 0);
+    }
+
+    function devolverFoco(foco) {
+        if (!foco || !foco.focus) { return; }
+        if (visivel(foco)) { foco.focus(); return; }
+        var menu = foco.closest ? foco.closest('.ps-pop, [role="menu"]') : null;
+        var id = menu && menu.id ? menu.id.replace(/["\\]/g, '') : '';
+        var gatilho = id ? document.querySelector('[data-ps-pop="' + id + '"], [aria-controls="' + id + '"]') : null;
+        if (!gatilho && menu && menu.parentElement) { gatilho = menu.parentElement.querySelector(':scope > [aria-haspopup]'); }
+        if (visivel(gatilho)) { gatilho.focus(); }
     }
 
     function encerrarConfirmacao(resposta) {
@@ -399,7 +430,7 @@
             if (proximo && proximo.parentNode === aberta.lugar.pai) { aberta.lugar.pai.insertBefore(fundo, proximo); }
             else { aberta.lugar.pai.appendChild(fundo); }
         }
-        if (aberta.foco && aberta.foco.focus && document.contains(aberta.foco)) { aberta.foco.focus(); }
+        devolverFoco(aberta.foco);
         aberta.resolver(resposta);
     }
 
@@ -430,6 +461,86 @@
                 botoes[(i + (e.shiftKey ? -1 : 1) + botoes.length) % botoes.length].focus();
             }
         });
+    }
+
+    /* ── 5. A regra do desenho para uma mensagem de `confirm` ─────────────── */
+    /**
+     * dc `confirmarUI(msg, ok, perigo)`: se a mensagem tem quebra de linha nos primeiros 90 caracteres,
+     * o que vem antes é o título e o resto é o texto; senão o título é "Confirmar exclusão" (perigo) ou
+     * "Confirmar" e a mensagem inteira é o texto. Botão "Confirmar": vermelho com ⚠ no perigo, azul com
+     * ✓ fora dele. Sem a janela na página, cai no `confirm` do navegador com a mesma mensagem.
+     */
+    function opcoesDaMensagem(mensagem, perigo) {
+        var t = String(mensagem || '');
+        var i = t.indexOf('\n');
+        var temTitulo = i > 0 && i < 90;
+
+        return {
+            titulo: temTitulo ? t.slice(0, i).trim() : (perigo ? 'Confirmar exclusão' : 'Confirmar'),
+            texto: (temTitulo ? t.slice(i + 1) : t).trim(),
+            rotulo: 'Confirmar',
+            icone: perigo ? 'bi-exclamation-triangle' : 'bi-check2',
+            variante: perigo ? 'perigo' : 'azul'
+        };
+    }
+
+    function confirmarUIPs(mensagem, perigo, foco) {
+        if (!document.getElementById('psConfirmar')) {
+            return Promise.resolve(window.confirm(String(mensagem || '')));
+        }
+        var opcoes = opcoesDaMensagem(mensagem, !!perigo);
+        if (foco) { opcoes.foco = foco; }
+
+        return confirmarPs(opcoes);
+    }
+
+    /* ── 6. Envio de formulário com confirmação ─────────────────────────── */
+    var perguntasDeEnvio = new WeakMap(); // form → function (form, submitter) → { mensagem, perigo } | null
+    var envioConfirmado = new WeakSet();
+
+    function psConfirmarEnvio(form, perguntar) {
+        if (form && typeof perguntar === 'function') { perguntasDeEnvio.set(form, perguntar); }
+    }
+
+    function perguntaDoEnvio(form, submitter) {
+        if (perguntasDeEnvio.has(form)) { return perguntasDeEnvio.get(form)(form, submitter); }
+        if (form.hasAttribute('data-ps-cf')) {
+            return { mensagem: form.getAttribute('data-ps-cf'), perigo: form.hasAttribute('data-ps-cf-perigo') };
+        }
+
+        return null;
+    }
+
+    function ligarEnvioConfirmado() {
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!(form instanceof HTMLFormElement)) { return; }
+            // O reenvio depois do "sim": deixa passar uma vez, para os ouvintes de sempre.
+            if (envioConfirmado.has(form)) { envioConfirmado.delete(form); return; }
+            var pergunta = perguntaDoEnvio(form, e.submitter || null);
+            if (!pergunta) { return; }
+
+            // Nada do formulário roda antes da resposta: nem o envio, nem o XHR, nem o `onsubmit`.
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            var submitter = e.submitter && e.submitter.form === form ? e.submitter : null;
+            confirmarUIPs(pergunta.mensagem, pergunta.perigo).then(function (sim) {
+                if (!sim || !document.contains(form)) { return; }
+                // Navegador sem `requestSubmit` (Safari < 16): `submit()` envia sem disparar `submit` —
+                // os ouvintes do formulário não rodam. Os formulários com `data-ps-cf` são POST comuns.
+                if (typeof form.requestSubmit !== 'function') { form.submit(); return; }
+                // O botão pode ter saído do formulário enquanto a pessoa lia: aí o envio vai sem ele.
+                var botao = submitter && submitter.form === form && document.contains(submitter) ? submitter : null;
+                envioConfirmado.add(form);
+                try {
+                    if (botao) { form.requestSubmit(botao); } else { form.requestSubmit(); }
+                } finally {
+                    // `requestSubmit` dispara o `submit` na hora; se a validação o barrou ou ele lançou,
+                    // a marca não pode sobrar para liberar o PRÓXIMO envio sem pergunta.
+                    envioConfirmado.delete(form);
+                }
+            });
+        }, true);
     }
 
     var avisoTimer = 0;
@@ -489,10 +600,13 @@
     }
 
     window.confirmarPs = confirmarPs;
+    window.confirmarUIPs = confirmarUIPs;
+    window.psConfirmarEnvio = psConfirmarEnvio;
     window.avisarPs = avisarPs;
 
     contadores();
     seletorDeResponsaveis();
     calendarioDoPrazo();
     ligarConfirmacao();
+    ligarEnvioConfirmado();
 })();

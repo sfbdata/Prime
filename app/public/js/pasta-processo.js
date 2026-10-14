@@ -288,7 +288,17 @@
         botao.focus();
     }
 
-    document.addEventListener('submit', function (e) {
+    /* E7: a pergunta sai na janela da tela (pasta-dialogos.js `confirmarUIPs`), AZUL e com o título do
+       desenho ("Marcar como administrativo", dc L.6878 `admSPtoggle`); sem ela, o confirm do navegador. */
+    function perguntarAdministrativa(texto) {
+        if (window.confirmarUIPs) {
+            return window.confirmarUIPs('Marcar como administrativo\n' + texto.replace(/\s*\n\s*/g, ' '), false);
+        }
+
+        return Promise.resolve(window.confirm(texto));
+    }
+
+    document.addEventListener('submit', async function (e) {
         var form = e.target;
         if (!(form instanceof HTMLFormElement) || !form.matches('form.js-pasta-administrativa')) { return; }
         // Sem fetch, segue o caminho sem JS (POST + recarga).
@@ -298,7 +308,13 @@
         if (form.dataset.enviando) { return; }
 
         var confirmar = form.getAttribute('data-confirmar');
-        if (confirmar && !window.confirm(confirmar)) { return; }
+        if (confirmar) {
+            // Enquanto pergunta, outro clique não abre uma segunda janela nem envia.
+            form.dataset.enviando = '1';
+            var sim = await perguntarAdministrativa(confirmar);
+            delete form.dataset.enviando;
+            if (!sim || !document.contains(form)) { return; }
+        }
 
         var botao = form.querySelector('button[role="switch"]');
         if (!botao) { form.submit(); return; }

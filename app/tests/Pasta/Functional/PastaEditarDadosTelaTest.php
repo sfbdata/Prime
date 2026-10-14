@@ -119,11 +119,15 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         self::assertSame($pasta->getNup(), $crawler->filter('#edit_nup')->attr('value'), 'o defaultValue que o script compara');
 
         $html = (string) $client->getResponse()->getContent();
-        $ini  = strpos($html, "form.addEventListener('submit', function (e) {\n            var antes = nup.defaultValue.trim();");
+        // E7: a pergunta é calculada no envio e vai para a janela AZUL da tela (psConfirmarEnvio,
+        // dc `confirmarUI(…, false)` L.4416), que segura o envio até o "sim".
+        $ini  = strpos($html, 'var perguntaDoNumero = function () {');
         self::assertNotFalse($ini, 'a confirmação fica no envio do formulário');
-        $trecho = substr($html, $ini, 600);
-        self::assertStringContainsString("depois !== '' && depois !== antes", $trecho, 'só quando o número muda');
-        self::assertStringContainsString("window.confirm('Alterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.')", $trecho);
-        self::assertStringContainsString('e.preventDefault();', $trecho, 'Cancelar não envia');
+        $trecho = substr($html, $ini, 1200);
+        self::assertStringContainsString("if (depois === '' || depois === antes) { return null; }", $trecho, 'só quando o número muda');
+        self::assertStringContainsString("mensagem: 'Alterar número da pasta\\nAlterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.',", $trecho);
+        self::assertStringContainsString('perigo: false', $trecho);
+        self::assertStringContainsString('window.psConfirmarEnvio(form, perguntaDoNumero)', $trecho);
+        self::assertStringContainsString('e.preventDefault();', $trecho, 'sem a janela, Cancelar no confirm não envia');
     }
 }
