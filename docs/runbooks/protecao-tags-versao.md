@@ -13,7 +13,7 @@ Política de versões: [docs/versionamento.md](../versionamento.md).
 | Proteção do master | PR com "Segredos" e "Lints e testes unitários" (app 15368), `enforce_admins`, sem force push |
 | Permissão padrão dos workflows | leitura (`default_workflow_permissions: read`) |
 | Tags | `v1.0.0` (leve, `4940cc87cc833f084379124a97e38ce49e2052ed`) e `pre-refactor-identidade-global` |
-| Ambientes | só `copilot`, sem regra |
+| Ambientes | só `copilot`, sem regra (com a exceção de admin ligada, o padrão; não guarda segredo e não tem relação com o `release`) |
 | Deploy keys | uma: `deploy-prime-vps` (id 154375478), **com escrita** (`read_only: false`), usada pela VPS no `git pull` |
 
 Quem pode ser exceção (bypass) num ruleset, pela API (`POST /repos/{owner}/{repo}/rulesets`):
@@ -111,8 +111,22 @@ gh secret list --env release --repo sfbdata/Prime                               
 mantenedor: com `true`, nenhuma release seria aprovada. A aprovação vira um clique deliberado,
 não uma segunda pessoa.
 
-**Depois de gravar o segredo, apague o `.pem`** (`shred -u <arquivo>.pem`) **e não guarde cópia,
-nem em cofre de senhas.** Qualquer cópia da chave é um segundo caminho para criar tag `v*`, por
+**Autoaprovação (quem dispara aprova):** a documentação do GitHub trata "Prevent self-reviews"
+como opção a LIGAR, e diz que, ligada, quem iniciou o deployment não aprova "mesmo sendo revisor
+obrigatório" — ou seja, desligada, aprova. Vale em repositório público no plano Free. A prova
+prática é a primeira release: ao disparar, a execução para em "Waiting" e o botão **Review
+deployments** aparece para você. Se o GitHub recusar a autoaprovação, a alternativa que não
+enfraquece a proteção contra tag é tirar o revisor e manter o resto
+(`{"reviewers": [], "wait_timer": 5, ...}` no mesmo PUT): a política de branches, o ruleset e a
+proteção do master continuam fechando os caminhos da seção 2; o que se perde é o clique de
+confirmação, trocado por 5 minutos em que a execução pode ser cancelada.
+
+**Depois de gravar o segredo, apague o `.pem` e não guarde cópia, nem em cofre de senhas.** O
+navegador o baixa no **Windows** (`C:\Users\<você>\Downloads`, que no WSL é
+`/mnt/c/Users/<você>/Downloads`): o `gh secret set` do passo acima pode ler dali mesmo. Um `shred`
+sobre `/mnt/c` não garante nada (NTFS via WSL). Apague pelo Windows com **Shift+Delete** (sem
+passar pela lixeira) e confira que a pasta Downloads não está no OneDrive nem em outro serviço de
+sincronização — se estiver, apague também a versão na nuvem e na lixeira do serviço. Qualquer cópia da chave é um segundo caminho para criar tag `v*`, por
 fora do ambiente, da política de branches e da aprovação. Se o segredo se perder ou a chave
 vazar: gere uma chave nova no App, grave-a de novo no ambiente e apague a antiga na página do App
 (Private keys → Delete). Manter a cópia é decisão consciente do dono, e então o App deixa de ser
@@ -138,7 +152,15 @@ jq -n --argjson app "$APP_ID" '{
 }' | gh api -X POST repos/sfbdata/Prime/rulesets --input - -q '"ruleset id: \(.id)"'
 
 gh api repos/sfbdata/Prime/rulesets -q '.[]|{id,name,target,enforcement}'
+
+# Conferir a exceção: o admin NÃO pode passar (tem de dizer "never") e só o App está na lista
+RULESET_ID=$(gh api repos/sfbdata/Prime/rulesets -q '.[]|select(.name=="Tags de versão (v*)")|.id')
+gh api "repos/sfbdata/Prime/rulesets/$RULESET_ID" -q '{enforcement, current_user_can_bypass, bypass_actors, conditions, rules:[.rules[].type]}'
 ```
+
+Na interface (Settings → Rules → Rulesets → "Tags de versão (v*)"), a lista **Bypass list** tem de
+mostrar o App pelo nome. Se mostrar outra coisa — ou nada —, o `actor_id` não era o App ID:
+corrija pela própria interface (remova a entrada e adicione o App) antes dos testes.
 
 Não há modo de ensaio: o `evaluate` dos rulesets é só do GitHub Enterprise. O ruleset nasce ativo,
 e os testes abaixo são feitos com ele ativo.
@@ -181,9 +203,11 @@ rejeitado. Se por erro for aceito, a tag volta sem perda — ela é leve e o com
 desligue o ruleset (seção 5), `git push origin 4940cc87cc833f084379124a97e38ce49e2052ed:refs/tags/v1.0.0`
 e religue.
 
-**O caminho positivo** (o App cria a tag) só é exercido na primeira release de verdade. Se ali o
-passo "Criar tag e release" falhar, nada foi criado: confira App ID no ruleset, instalação do App
-no `Prime` e o segredo do ambiente; em último caso, desligue o ruleset e rode de novo.
+**O caminho positivo** (o App cria a tag, e você aprova a própria execução) só é exercido na
+primeira release de verdade. Se ali o passo "Criar tag e release" falhar, nada foi criado:
+confira a exceção do ruleset (seção 3.4), a instalação do App no `Prime` e o segredo do ambiente.
+Em último caso, desligue o ruleset, rode de novo e **religue logo em seguida** — enquanto ele
+estiver desligado, qualquer um com escrita cria tag `v*`.
 
 ## 5. Reversão
 
@@ -205,6 +229,16 @@ gh api -X DELETE repos/sfbdata/Prime/environments/release
 O App se desinstala em `https://github.com/settings/installations` e se apaga na página dele
 (Advanced → Delete). Voltar o workflow para o `GITHUB_TOKEN` é reverter o merge desta frente — e
 só funciona com o ruleset desligado.
+
+**Recuperação por incidente:**
+
+| Situação | O que fazer |
+|---|---|
+| Chave privada vazou (ou apareceu fora do segredo) | **1º suspenda a instalação** (`https://github.com/settings/installations` → o App → **Suspend**): isso invalida os tokens já emitidos, que valem até 1 hora mesmo depois de a chave ser apagada. 2º na página do App, **Generate a private key**, grave a nova no ambiente (`gh secret set RELEASE_APP_PRIVATE_KEY --env release ...`) e **Delete** na antiga. 3º reative a instalação. Confira as tags `v*` (`git ls-remote --tags origin 'v*'`), o histórico de releases **e as branches** (`git ls-remote --heads origin`): o token tem `contents: write` e empurra para qualquer branch sem proteção. |
+| App comprometido | Desinstale o App (`https://github.com/settings/installations`): o token deixa de ser emitido e a exceção do ruleset fica sem ninguém. Releases param até um App novo ser criado e posto no ruleset. |
+| Exceção com o ID errado | O Release falha em "Criar tag e release" sem criar nada. Corrija a exceção na interface do ruleset (seção 3.4) e rode de novo. |
+| Tag `v*` errada criada pelo próprio workflow | Tag publicada não se move: lance uma versão de correção (PATCH). Apagar exige desligar o ruleset, o que fica registrado. |
+| Release bloqueada e urgente | Desligue o ruleset, rode o Release, **religue**. Registre o motivo no PR de release. |
 
 ## 6. Limitações do plano e das permissões
 
