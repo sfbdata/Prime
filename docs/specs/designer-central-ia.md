@@ -32,7 +32,8 @@ Estado: ✅ existe · 🟡 parcial · ❌ não existe · ⛔ bloqueado por decis
 | Agente · planejador em linguagem natural | `planejar()` (`window.claude.complete`) | porta `ProvedorDeLinguagem` | ⛔ | D1 | Fluxo novo | ProvedorFalso |
 | Agente · janela lateral | `bj-agente.js` (Lista 1.1) | `templates/expediente/*` (frente fidelidade) | ⛔ | Fase 3 + coordenação | — | — |
 | Agente · conector MCP | Fase 4 | `app/src/Mcp/` (servidor MCP de leitura de PROD, outro propósito) | ❌ | D9 (token pessoal) | — | — |
-| Central · conversas 1:1 e grupos, histórico | `bluejus-central.js` l.295–376 | nada (`PastaMensagem` é o Registro da pasta) | ❌ | D2, D6, spec própria | entidades novas | — |
+| Central · conversas 1:1, histórico, não lidas, polling | `bluejus-central.js` l.295–376, 5991–6157 | `app/src/Central/` (A1) | ✅ **A1** (`central-comunicacao-a1.md`) | — | 3 entidades + migration + `/central` isolada | Unit + Functional |
+| Central · grupos | l.342–376 | — | ❌ | A1 | `tipo = grupo` | — |
 | Central · anexos | l.5895–5915 | storage E2 (`app/src/Shared/`) | ❌ | Central | — | — |
 | Central · notificações (15 tipos, grupos, baixa, encaminhar) | l.61–145 | `App\Entity\Notificacao` + `/notificacoes/*` | 🟡 | Central | ampliar tipos | — |
 | Central · @menção global | l.5916–5958 | só no Registro da pasta (`pasta-mencoes.js`) | 🟡 | Central | — | — |
@@ -116,7 +117,8 @@ repositório, que a Lista não usa e que não ignoram acento/caixa (`acao=cobran
 
 ## 5. Ordem
 
-1. ✅ Agente Fase 1 (leitura) — esta entrega.
+1. ✅ Agente Fase 1 (leitura).
+1b. ✅ Central A1 — conversas 1:1 persistidas, polling, página isolada (decisões D2/D3/D6 de 14/10).
 2. Agente Fase 3 núcleo determinístico (plano assinado, `agente_acao`, lote, desfazer) — D3/D4.
 3. Central A (conversas, mensagens, anexos, notificações, polling) — D2/D6 + spec própria.
 4. Comandos classe (a) em lotes.
