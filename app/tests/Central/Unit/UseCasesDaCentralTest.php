@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Central\Unit;
 
+use App\Central\Contract\TravaDosAvisosDeMencao;
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Participante;
 use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
@@ -66,6 +67,7 @@ final class UseCasesDaCentralTest extends TestCase
             $notificacoes ?? $this->createStub(NotificacaoService::class),
             $this->createStub(NotificacaoRepository::class),
             $this->createStub(UrlGeneratorInterface::class),
+            $this->createStub(TravaDosAvisosDeMencao::class),
         );
     }
 

@@ -70,10 +70,14 @@ final class EnviarMensagemUseCase
             throw new PedidoInvalidoNaCentralException($e->getMessage());
         }
 
-        $conversa->registrarMensagem($agora);
-        $this->mensagens->salvar($mensagem);
-        $this->aviso->avisar($conversa, $eu, $tenant, $resolvidas->mencionados);
-        $this->entityManager->flush();
+        // Uma transação explícita: a trava de cada mencionado (dentro do aviso) só segura até o commit, e a
+        // mensagem e os avisos entram juntos ou não entram.
+        $this->entityManager->wrapInTransaction(function () use ($conversa, $agora, $mensagem, $eu, $tenant, $resolvidas): void {
+            $conversa->registrarMensagem($agora);
+            $this->mensagens->salvar($mensagem);
+            $this->aviso->avisar($conversa, $eu, $tenant, $resolvidas->mencionados);
+            $this->entityManager->flush();
+        });
 
         return MensagemOutput::fromEntity($mensagem, $eu);
     }
