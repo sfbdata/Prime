@@ -365,13 +365,13 @@
 | PZ-MOD-06 | Imprimir | Prévia, Incluir na folha (4), tamanho −/+, Imprimir, Baixar PDF, Copiar texto | modal | ✓ | `_impressao_modal`; pasta-impressao.js | não | EDT-001/002 F |
 | PZ-MOD-07 | Destaque | "Destacar comentário": 15 cores + Sem cor | modal | ∅ | — | sim | D-DESTAQUE C |
 | PZ-MOD-08 | Vincular processo/apensado | Buscar existente, Cadastrar novo (CNJ), Informações/Partes/Movimentações, Buscar no CNJ, Tipo de apenso*, flags Sim/Não, Jurisdição | modal | ≈ existe em Bootstrap; faltam Tipo de apenso, flags e Jurisdição | show:1694 | sim (apenso, flags) | NOVO |
-| PZ-MOD-09 | Confirmação | Janela própria (título, texto, Cancelar, botão com ícone) | modal | ✓ | show:4376; pasta-dialogos.js:364 | não | PAS-034 F |
+| PZ-MOD-09 | Confirmação | Janela própria (título, texto, Cancelar, botão com ícone) | modal | ✓ **E7**: valores do dc `cf` medidos (fundo `rgba(16,36,48,.32)`, 420px raio 4, cabeçalho #0b6a96, texto 13.5/1.55 #243845, rodapé #fafcfd); texto do Cancelar corrigido para #34505f; foco volta ao gatilho do menu quando o item que abriu a pergunta sumiu | show (`#psConfirmar`); pasta-dialogos.js | não | PAS-034 F |
 | PZ-MOD-10 | Busca rápida | Ctrl+K "Buscar pasta, cliente, CPF ou processo" | modal | ∅ | — | sim: busca global | EDT-034 C |
 | PZ-MOD-11 | Marcadores | Busca, submarcadores, Cancelar/Salvar | modal | ✓ | show:3962; `_partials/modal_mover_marcador` | não | F |
 | PZ-MOD-12 | Cadeado | Por colaborador (Ocultar/Visualizar/Editar), Aplicar a todos | modal | ∅ | — | sim | PAS-010 C |
 | PZ-MOD-13 | Link externo | Acessos ao link | modal | ∅ | — | sim | D-LINK C |
 | PZ-MOD-14 | Link externo | Gerar, código, validade, lista, Ver como terceiro | modal | ∅ | — | sim | D-LINK C |
-| PZ-MOD-15 | Editar dados | Abas, pílula de estado, Salvar travado, Pendências, Responsável com "Trocar", confirmar troca de número | modal | ✓ | show:3583 | não | PAS-019/020/021 F |
+| PZ-MOD-15 | Editar dados | Abas, pílula de estado, Salvar travado, Pendências, Responsável com "Trocar", confirmar troca de número | modal | ✓ **corrigido na E7** — estava marcado ✓ pelo teste, mas na tela o bloco inteiro estava morto (script no corpo saía cedo por `typeof bootstrap === 'undefined'`: Salvar sempre ativo, troca de número **sem pergunta**, sem "Descartar"); agora roda no DOMContentLoaded e foi medido | show (Editar dados) | não | PAS-019/020/021 F |
 | PZ-MOD-16 | Editar dados | Ação só leitura, CPF/CNPJ, número único | regra | ≈ | show | sim | PAS-016/017 C, PAS-018 D |
 | PZ-MOD-17 | Cadastro | Cadastro e qualificação (abas, OCR, Histórico, Copiar qualificação, Salvar) | modal | ∅ | — | sim | PMC-047/048/049 C |
 | PZ-MOD-18 | Detalhes do cliente | Arrastável, copiar, pastas do mesmo CPF, contatos, Copiar qualificação | modal | ✓ | `cliente/_resumo`; pasta-clientes.js | não | F |
@@ -381,6 +381,8 @@
 | PZ-MOD-22 | Timeline | Detecção por regras (tarefa, cadastro, CNJ), conversas do Chat | painel | ∅ | — | sim | PAS-044 D/C, PAS-048 C |
 | PZ-MOD-23 | Adicionar pagamento | Tipos, base, campos, juros, prévia, "Gerar N lançamentos" | modal | ✓ | show:355 | não | F (Entrada hoje: D-FIN-ENTRADA fechada) |
 | PZ-MOD-24 | Adicionar pagamento | Êxito e Sucumbência | botão | ≈ desabilitados | show | sim | FPN-002 D |
+| PZ-MOD-25 | Confirmação | Variante **azul** para ação sem perigo (dc `cfVals`: botão #0a6fa0, ✓ "Confirmar"); vermelha #b3262e com ⚠ no perigo; título pela 1ª linha da mensagem (`confirmarUI`) | modal | ✓ **E7** (`confirmarUIPs`, `variante: 'azul'`) | pasta-dialogos.js; show | não | NOVO (dc 13/10) |
+| PZ-MOD-26 | Confirmação | Nenhum `confirm()` nativo (o dc de 13/10 tem 15 `confirmarUI` e zero `confirm`) | regra | ✓ **E7** — 18 perguntas na janela (inventário na spec §12); `confirm` só como reserva se a janela não carregar | ver §12 da spec | não | NOVO (dc 13/10) |
 
 ## 11. Menus de botão direito (PZ-CTX)
 
@@ -507,22 +509,22 @@ Cada linha da tabela conta uma vez; os itens de uma sub-lista não contam separa
 
 | Região | ✓ | ≈ | ∅ | Total |
 |---|---|---|---|---|
-| Cabeçalho (CAB) | 29 | 8 | 12 | 49 |
+| Cabeçalho (CAB) | 29 | 9 | 12 | 50 |
 | Trilho de Dados (TRI) | 8 | 4 | 2 | 14 |
 | Dados / Registro (DAD) | 12 | 0 | 5 | 17 |
-| Processo (PRO) | 23 | 5 | 12 | 40 |
+| Processo (PRO) | 24 | 5 | 12 | 41 |
 | Metas (MET) | 19 | 1 | 5 | 25 |
-| Financeiro (FIN) | 29 | 3 | 7 | 39 |
+| Financeiro (FIN) | 30 | 3 | 7 | 40 |
 | Documentos (DOC) | 19 | 3 | 3 | 25 |
 | Detalhes (DET) | 12 | 1 | 6 | 19 |
 | Push (PUSH) | 16 | 5 | 12 | 33 |
-| Modais (MOD) | 10 | 5 | 9 | 24 |
+| Modais (MOD) | 12 | 5 | 9 | 26 |
 | Menus de botão direito (CTX) | 9 | 7 | 2 | 18 |
 | Editor (EDT) | 8 | 1 | 9 | 18 |
 | Visualizador (VIS) | 5 | 0 | 2 | 7 |
 | IA e Chat I.A (IA) | 4 | 4 | 24 | 32 |
 | Globais (GLB) | 13 | 1 | 3 | 17 |
-| **Total** | **216** | **48** | **113** | **377** |
+| **Total** | **220** | **49** | **113** | **382** |
 
 Itens NOVOS em relação ao ledger: 17 linhas. São CAB-06, 38, 39, 40, 41, 42; TRI-01, 02; DAD-14; PRO-08, 11; FIN-09; DET-19; PUSH-04, 27 (parte dos apensos); MOD-08; GLB-09, 10, 11.
 
@@ -594,6 +596,7 @@ O README do pacote manda: em conflito, vale a decisão mais recente do Farlei em
 
 | Entrega | Commit | Itens que mudaram de marca | Itens novos |
 |---|---|---|---|
+| E7 — janela de confirmação | `a5362fad` | PZ-MOD-09 continua ✓ (Cancelar #34505f, foco); PZ-MOD-15 continua ✓, **agora de verdade** (estava morto na tela) | PZ-MOD-25 ✓ (variante azul), PZ-MOD-26 ✓ (zero `confirm` nativo) |
 | E2 — cantos de 4px | `83d6724d` | PZ-GLB-16 continua ✓ (agora também nos 26 seletores do delta de 13/10) | — |
 | E5b — Minhas Metas | `3b5e1bcd` | nenhuma (não toca a Pasta; a aba Metas da Pasta virou a referência do número R239 e segue igual) | — |
 | E5 — Minhas Metas | `e227183b` | nenhuma (a E5 não toca a Pasta) | — (Minhas Metas tem checklist próprio: `fidelidade-designer-1310-checklist-minhas-metas.md`) |
@@ -603,7 +606,8 @@ O README do pacote manda: em conflito, vale a decisão mais recente do Farlei em
 Contagem depois da E3: **216 ✓ · 50 ≈ · 113 ∅ = 379** (2 linhas novas ≈; as marcas ✓ das linhas que a E3
 tocou já eram ✓ — a E3 trouxe o valor novo do desenho para elas).
 
-Contagem depois da E4 (inalterada na E5 e na E5b): **218 ✓ · 49 ≈ · 113 ∅ = 380**. Os 113 ausentes seguem na §19, por natureza;
+Contagem depois da E4 (inalterada na E5, E5b e E5c): 218 ✓ · 49 ≈ · 113 ∅ = 380. **Depois da E7: 220 ✓ · 49 ≈ · 113 ∅ = 382**
+(as 2 linhas novas da E7). A §16 estava parada no levantamento (377) e foi recontada no arquivo na E7. Os 113 ausentes seguem na §19, por natureza;
 nenhum foi descartado por falta de backend.
 
 ### Pendências de especificação

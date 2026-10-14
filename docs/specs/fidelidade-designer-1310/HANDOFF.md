@@ -1,7 +1,7 @@
 # HANDOFF — Frente de fidelidade ao Claude Designer (pacote de 13/10/2026)
 
 > **Para quem:** a próxima sessão do Claude Code que vai continuar esta frente sem ter visto a conversa anterior.
-> **Escrito em:** 14/10/2026, ao fim da E5b; **atualizado ao fim da E5c** (mesmo dia). Fatos de git, caminhos e contagens conferidos no momento da escrita.
+> **Escrito em:** 14/10/2026, ao fim da E5b; **atualizado ao fim da E5c e da E7** (mesmo dia). Fatos de git, caminhos e contagens conferidos no momento da escrita.
 > **Leia antes de qualquer coisa:** este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
 > depois o checklist da tela em que for trabalhar.
 
@@ -31,8 +31,8 @@ Regras que valem sempre (do dono, reafirmadas a cada entrega):
 | Worktree | `/home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer` |
 | Branch | `fidelidade-designer` (marcador `.frente` = `fidelidade-designer`) |
 | Base | `origin/master` @ `a9653e66` (= produção na abertura, Engineering Loop publicado) |
-| HEAD | `9d098c55` (E5c) + o commit de docs da E5c |
-| Divergência | 15 commits à frente de `origin/master`; **7 atrás** (frentes `seg-runtime-argv` e `eng-ci-qualidade` da engenharia: `Dockerfile`, `.github/workflows/qualidade.yml` e 2 scripts; **nenhuma interseção** com os arquivos desta frente) |
+| HEAD | `a5362fad` (E7) + o commit de docs da E7 |
+| Divergência | 18 commits à frente de `origin/master`; **13 atrás** (frentes `seg-runtime-argv`, `eng-ci-qualidade` e `eng-versionamento` da engenharia: `Dockerfile`, `.github/workflows/*`, CHANGELOG, fonte de versão, scripts e docs de release; **nenhuma interseção** com os arquivos desta frente, conferido com `comm` em 14/10) |
 | Árvore | limpa (fora o que é gitignored: `app/.env.local`, `app/var/router-smoke.php`, `.frente`) |
 | Banco de teste | `saas_testfidelidade-designer` (clone do `saas_test`; existe) |
 | Banco de dev do smoke | `saas_ux` (via `app/.env.local` copiado do checkout principal) |
@@ -56,7 +56,10 @@ Commits da frente (mais antigo → mais novo):
 | `f356a571` | docs: evidência E5b + checklists |
 | `4a58a4a8` | docs: este handoff |
 | `9d098c55` | E5c — Minhas Metas: textos de prazo, cores das abas, tipografia e legenda do trilho, "Título · Pasta NNN", ⋮ "Opções" (relatório, aba Metas da pasta, Editar nome via `acao=renomear`) |
-| (seguinte) | docs: evidência E5c + checklist |
+| `c0b28a7c` | docs: evidência E5c + checklist + handoff |
+| `3713fc04` | decisões do dono sobre a E5c: "em aberto" restaurado na legenda; decisões registradas |
+| `a5362fad` | E7 — janela de confirmação da Pasta com variante azul; 14 `confirm()` trocados; Editar dados destravado (estava morto) |
+| (seguinte) | docs: evidência E7 + checklist da Pasta + este handoff |
 
 ## 3. Onde está cada coisa
 
@@ -122,6 +125,8 @@ Decisões técnicas que a próxima sessão precisa respeitar:
 | E5b | ver commit `3b5e1bcd` | 8 + 7 + 5 novos; mutação provada; Tarefa+Twig+Dashboard+aba Metas da Pasta 851/851; lint OK | ✓ medido; 3 defeitos achados só na tela e corrigidos (faixa, sticky, abas no celular) |
 | E5c | ver commit `9d098c55` e `fidelidade-designer-1310.md` §11 | 11 + 15 + 2 novos, +5 funcionais; 3 mutações provadas; revisão read-only com 4 correções | ✓ medido valor a valor contra o protótipo; menu fora do recorte; `acao=renomear` abre a edição na pasta |
 | **E5c (antes da revisão)** | — | **suíte completa: OK 9306/9306 (52.021 asserções, 07:35)** no `saas_testfidelidade-designer`, rodada sozinha em 14/10; depois das correções da revisão: `tests/Tarefa` 360/360 + rodada Tarefa+Pasta+Twig+Dashboard **3708/3708** | — |
+| E7 | ver commit `a5362fad` e `fidelidade-designer-1310.md` §12 | 38 novos + 13 reescritos; 4 mutações provadas; revisão read-only com 5 correções | ✓ Duplicar, Alterar número, Descartar e Desvincular exercitados com POST interceptado (0 antes do "sim", 1 depois); valores do `cf` medidos; escuro e 390px |
+| **HEAD `a5362fad`** | — | **suíte completa: OK 9345/9345 (52.136 asserções)** no `saas_testfidelidade-designer`, rodada sozinha em 14/10 | — |
 
 **Limitações da validação** (não esconder):
 - O banco de dev (`saas_ux`) **não tem**: nota técnica, pagamentos na maioria das pastas, meta com prazo futuro, push com itens
@@ -151,11 +156,12 @@ azul-claro e letra azul-escura).
 
 | Tela | ✓ conforme | ≈ diverge | ∅ ausente | Total | Arquivo |
 |---|---|---|---|---|---|
-| Pasta | 218 | 49 | 113 | **380** | `fidelidade-designer-1310-checklist-pasta.md` |
-| Minhas Metas | 72 | 43 | 42 (38 do Chat I.A.) | **157** | `fidelidade-designer-1310-checklist-minhas-metas.md` |
+| Pasta | 220 | 49 | 113 | **382** | `fidelidade-designer-1310-checklist-pasta.md` |
+| Minhas Metas | 71 | 44 | 42 (38 do Chat I.A.) | **157** | `fidelidade-designer-1310-checklist-minhas-metas.md` |
 
 Minhas Metas: 119 linhas de tabela + 38 itens do Chat I.A. em texto (§10); o defeito do ⋮ (MM-MENU-06) não entra.
-Evolução de Minhas Metas: levantamento 25/72/57 → E5 27/72/56 → E5b 53/58/46 → **E5c 72/43/42**.
+Evolução de Minhas Metas: levantamento 25/72/57 → E5 27/72/56 → E5b 53/58/46 → E5c 72/43/42 → **decisões 71/44/42** ("em aberto" restaurado: TRI-06 ≈).
+Evolução da Pasta: levantamento 377 → E3 379 → E4 218/49/113 (380) → **E7 220/49/113 (382)** (PZ-MOD-25/26 novos ✓; PZ-MOD-15 era ✓ no papel e morto na tela — agora de verdade).
 Telas ainda **sem checklist próprio**: Dashboard (só o delta de 13/10 foi tratado), Lista do Expediente 1.1, Perfis,
 Trabalho Externo, Peticionar, Agenda, Push Compartilhado — o inventário inicial delas está em `fidelidade-designer-1310.md` §1–§3.
 
@@ -174,12 +180,15 @@ Trabalho Externo, Peticionar, Agenda, Push Compartilhado — o inventário inici
 ## 9. Integração futura com a Engenharia
 
 - Integração em série, um piloto de git por vez; **antes** de integrar, trazer o `origin/master` para dentro da frente e rodar
-  de novo (`scripts/frente-fechar.sh fidelidade-designer` faz o ritual e para antes do merge). Hoje a frente está 4 atrás,
-  sem interseção de arquivos.
+  de novo (`scripts/frente-fechar.sh fidelidade-designer` faz o ritual e para antes do merge). Hoje a frente está 13 atrás,
+  sem interseção de arquivos. O master agora tem a política de versões/CHANGELOG (`eng-versionamento`): o PR desta frente
+  pode precisar de entrada no CHANGELOG — esta frente **não** mexe no changelog (regra do §1); combinar com a engenharia.
 - Arquivos desta frente que outras frentes também podem tocar (conferir antes de integrar): `public/css/pasta-show.css`,
   `templates/pasta/_processos_vinculados.html.twig`, `src/Pasta/Controller/PastaResumoController.php`,
   `src/Tarefa/Repository/TarefaRepository.php`, `src/Tarefa/Service/AgrupadorDeMetas.php`, `templates/tarefa/*`,
-  `docs/frentes-ativas.md` (só a linha desta frente).
+  `docs/frentes-ativas.md` (só a linha desta frente). Da E7: `public/js/pasta-dialogos.js`, `templates/pasta/show.html.twig`,
+  `_cabecalho`, `_metas`, `_financeiro*`, `pasta-processo.js`, `pasta-checklist.js`, `pasta-explorador.js`,
+  `pasta-ia-push.js`, `pasta-ia-agentes.js`, `nota-tecnica.js`.
 - Arquivos que esta frente **evitou** e que exigem combinar com o dono/engenharia: `templates/base.html.twig`,
   `public/css/app.css`, `templates/_partials/_filtro_barra.html.twig`, `public/js/filtro-tabela.js`,
   `public/css/filtro-tabela.css`, `templates/pasta/_resp_estilo.html.twig`.
@@ -213,16 +222,34 @@ tela** contra o protótipo, atualizar o checklist e a spec, commit local de cód
    "Encaminhar via Chat I.A" (R223) **fica ∅** (sem backend). Não reproduzir o defeito do ⋮ do protótipo.
    Atenção: hoje no lugar do ⋮ há a seta "Abrir a meta" (decisão antiga); trocar exige manter o acesso à meta.
 
-## 11. Depois da E5c
+## 11. E7 (janela de confirmação da Pasta) — ✅ feita em `a5362fad`
 
-- Voltar à **Pasta** (`fidelidade-designer-1310.md` §2): E7 (janela de confirmação própria com variante azul + troca dos
-  ~20 `confirm()` nativos), E8 (Lista do Expediente), E9 (Peticionar), E10 (Agenda), E11 (Perfis). E6 continua travada por P1.
+Evidência e inventário em `fidelidade-designer-1310.md` §12. Para quem continuar:
+
+- **Use `confirmarUIPs(msg, perigo[, foco])`** para qualquer pergunta nova na Pasta (regra do dc: 1ª linha = título;
+  `perigo` = vermelho; sem perigo = azul). Formulário comum: `data-ps-cf="Título\nTexto"` (+ `data-ps-cf-perigo`) e um
+  `onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);"` de reserva. Nunca `confirm()` direto:
+  o `PastaConfirmacaoDoDesenhoJsTest` derruba.
+- 🪤 **Script inline no corpo da página roda ANTES do Bootstrap** (o bundle carrega no fim do `base.html.twig`). Guarda
+  `typeof bootstrap === 'undefined'` no topo de um IIFE mata o bloco em silêncio — foi o que deixou o Editar dados morto.
+  Use `DOMContentLoaded`. Mesmo padrão suspeito em `pasta/demandas/_resultado.html.twig:173` (outra tela, não mexido).
+- **Smoke do dono:** os 4 atalhos do Editar dados que voltaram a funcionar (Cliente, Processo, Histórico, "Trocar"
+  responsável), o Salvar que agora só acende com alteração, e as perguntas que o dev não tinha dado para exercitar
+  (excluir meta, checklist, Financeiro, análises da IA, nota técnica).
+- **Decisão do dono:** a frase "O andamento passa para a via administrativa." do dc no "Administrativo sem processo"
+  ficou de fora (seria falsa sem o andamento em fases — P3).
+
+## 11b. Próximas entregas
+
+- **Pasta** (`fidelidade-designer-1310.md` §2): E8 (Lista do Expediente), E9 (Peticionar), E10 (Agenda), E11 (Perfis). E6
+  continua travada por P1.
 - Reduzir os **113 ∅ da Pasta** pela §19 do checklist: primeiro os que não pedem dado (botão direito sobre os ⋮ de
   Processos e Pagamentos — PZ-CTX-08; "Encaminhar via Chat I.A" visível e desabilitado com dica nos ~15 menus; aviso
   estático "Integração com o PJe não configurada"; situação legível também no Peticionar e nas telas de Processo).
 - **Chat I.A.:** casca visual possível (botão flutuante, janela arrastável/minimizável, abas vazias com estado "sem conexão
   com a Central") — **sem** respostas, conversas, contagens ou comandos simulados. Confirmar com o dono antes de começar.
-- Pendente de decisão do dono: P1, P2, P3; selo "9+"; `bj-dica.js`; tela de Equipe (status ainda com lógica própria).
+- Pendente de decisão do dono: P1, P2, P3; selo "9+"; `bj-dica.js`; tela de Equipe (status ainda com lógica própria);
+  unificar o cálculo de dias entre a linha de Minhas Metas e o "Precisa de atenção" (`getPrazoInfo` não zera a hora).
 
 ## 12. Comandos
 

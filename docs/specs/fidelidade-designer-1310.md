@@ -38,7 +38,7 @@ não versionado). Por isso o inventário desta frente é o **delta 05/10 → 13/
 | E5b | Minhas Metas: nº na pasta (R239), traço vermelho (R129), status de prazo derivados, linha atrasada, caixa alta, abas no cartão dos filtros, trilho fixo com faixas, indicadores com ícone e halo, "Atualizado às" | M | ✅ `3b5e1bcd` (§10) |
 | E5c | Minhas Metas: textos e cores do prazo, cores das abas, tipografia e legenda do trilho, "Título · Pasta NNN", ⋮ "Opções" com as ações que já existem (R118/R236) | M | ✅ `9d098c55` (§11) |
 | E6 | Pasta: Responsável na 1ª linha do cabeçalho; "Ação" e "Processo vinculado" como cards no trilho da aba Dados | M | ⛔ decisão — conflito com Farlei R087 (§6) |
-| E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | — |
+| E7 | Diálogo de confirmação próprio com variante azul + troca dos ~20 `confirm()` nativos da Pasta | M | ✅ `a5362fad` (§12) — 14 `confirm()` trocados, + Restaurar para azul; achado e corrigido: Editar dados morto na tela |
 | E8 | Lista do Expediente: hover azul, chips de prioridade/situação, menu de botão direito só com ações que já têm rota | M | — |
 | E9 | Peticionar: barra do documento selecionado, ⋮/botão direito, número de ordem — com as rotas existentes | M | — |
 | E10 | Agenda: tag de tipo (nome da `LegendaCor` pela cor) na lista e no detalhe | P | — |
@@ -337,4 +337,89 @@ migration ou entidade. P1, P2 e P3 seguem **abertas**.
   `/pasta/304#tarefas`; sem `acao`, só o realce. Celular 390px: sem rolagem horizontal, menu dentro da tela (102–345px).
   O dev só tem 2 metas, ambas atrasadas: os outros textos de prazo estão provados pelo teste funcional.
 - **Checklist de Minhas Metas:** 53 ✓ · 58 ≈ · 46 ∅ (E5b) → **72 ✓ · 43 ≈ · 42 ∅** (157, contado no arquivo).
+
+## 12. E7 — evidência (janela de confirmação da Pasta)
+
+**Ponto de partida.** A janela própria já existia (PAS-034: `confirmarPs` em `pasta-dialogos.js`, marcação `#psConfirmar`
+em `show.html.twig`, foco nascendo no Cancelar, Enter no Cancelar cancela, Esc, Tab preso, regiões vivas) — só com o
+botão vermelho, e 3 perguntas a usavam. O protótipo de **05/10** ainda tinha 14 `confirm()` nativos (o Duplicar
+inclusive, L.4324); o de **13/10** tem **zero** e 15 `confirmarUI` (L.6185-6187): título = 1ª linha da mensagem se a quebra
+vier antes de 90 caracteres, senão "Confirmar exclusão"/"Confirmar"; botão "Confirmar" **azul #0a6fa0 com ✓** quando não é
+perigo e **vermelho #b3262e com ⚠** quando é; cabeçalho #0b6a96 com ⚠ nas duas.
+
+**Componente** (`pasta-dialogos.js`, sem arquivo compartilhado): `variante: 'azul'` no `confirmarPs`; `confirmarUIPs(msg,
+perigo)` = a regra do desenho (sem a janela na página, o `confirm` do navegador com a mesma mensagem — a pergunta nunca
+some); envio de formulário confirmado por `<form data-ps-cf="Título\nTexto" [data-ps-cf-perigo]>` ou
+`psConfirmarEnvio(form, fn)`: um ouvinte de `submit` em **captura** faz `preventDefault` + `stopImmediatePropagation`
+**antes** de perguntar (nenhum ouvinte do formulário roda — XHR, `onsubmit`), e só no "sim" reenvia com
+`requestSubmit(submitter)`, deixando passar uma vez (a marca é apagada logo depois, mesmo se a validação barrar);
+`devolverFoco` (ao fechar, o foco volta a quem abriu — ou ao `foco` que quem pergunta indicar; se era item de um menu
+que já fechou, ao botão do menu: `data-ps-pop`, `aria-controls` ou o `[aria-haspopup]` irmão do menu sem id). CSS da
+variante e o texto do Cancelar (#34505f do dc; era #455c6b) no bloco da janela.
+
+### Inventário (14 `confirm()` nativos da Pasta + 3 que já usavam a janela)
+
+| # | Onde | Pergunta | Antes | Desenho (dc 13/10) | Agora |
+|---|---|---|---|---|---|
+| 1 | `_metas.html.twig` (⋮ da meta) | Excluir esta meta? | `onsubmit` confirm | — (sem par) → perigo | vermelha, `data-ps-cf` + `onsubmit` de reserva |
+| 2 | `_cabecalho.html.twig` (⋮ da pasta) | Duplicar a pasta N? … | `onsubmit` confirm | L.4511, azul | **azul**, `data-ps-cf` + reserva |
+| 3 | `show.html.twig` (Editar dados) | Alterar número da pasta de A para B? | `confirm` no submit (**morto**, ver abaixo) | L.4416, azul, título "Alterar número da pasta" | **azul**, `psConfirmarEnvio` |
+| 4 | `show.html.twig` (⋮ do processo) | Desvincular o processo N da Pasta X? / Os dados… | `confirm` no submit delegado (XHR) | L.3031, perigo | vermelha, `await confirmarUIPs` |
+| 5 | `pasta-processo.js` | Administrativo sem processo com processo vinculado | `confirm` no submit (XHR) | L.6878, azul, título "Marcar como administrativo" | **azul**, ouvinte `async`, uma pergunta por vez. Sem a frase "O andamento passa para a via administrativa" do dc: o andamento em fases não existe (P3) — seria falsa hoje |
+| 6 | `_financeiro_pagamentos_script` | Corrigir "X" de R$ a para R$ b? / A alteração fica… | `confirm` | L.3563, azul | **azul** |
+| 7 | `_financeiro_pagamentos_script` | Excluir "X" (R$ v)? | `confirm` | L.3573, perigo, título "Excluir lançamento" | vermelha com o título |
+| 8 | `_financeiro_obs_script` | Excluir o comentário de X? / trecho… | `confirm` | `comExcluir` (título + texto, 🗑 "Excluir") | vermelha "Excluir", em duas partes |
+| 9 | `_financeiro.html.twig` | Excluir o arquivo "X" do Financeiro? | `confirm` ("Excluir este arquivo?…") | L.6839, perigo | vermelha, **texto do dc** (nome tirado do título do menu) |
+| 10 | `pasta-checklist.js` | Excluir este item do checklist? | `confirm` | — → perigo | vermelha |
+| 11 | `pasta-checklist.js` | Já existe o modelo "X". Substituir…? (409) | `confirm` | — → perigo (sobrescreve) | vermelha, título "Substituir modelo" |
+| 12 | `pasta-checklist.js` | Excluir o modelo "X"? | `confirm` | — → perigo | vermelha |
+| 13 | `pasta-explorador.js` | Excluir N itens? … lixeira (S-3) | `confirm` | L.5144, perigo | vermelha; o teto de 2.000 itens continua antes |
+| 14 | `pasta-ia-push.js` / `pasta-ia-agentes.js` | Excluir esta análise da IA? | `confirm` no submit | L.5351, perigo | vermelha; uma pergunta por vez (marca no form, sem desabilitar o botão); o foco volta ao ⋮ da análise |
+| 15 | `nota-tecnica.js` | Excluir esta nota técnica? | `confirm` (com "Esta ação não pode ser desfeita.") | L.5603, perigo | vermelha, **texto do dc** (só carrega na Pasta) |
+| — | `_cabecalho` Restaurar · `show` Descartar alterações · comentários de Dados/Detalhes | — | já na janela | Restaurar não existe no dc | Restaurar → **azul** (convenção do dc); os outros seguem vermelhos |
+
+Fora, de propósito: `pasta-arquivos.js` (gerenciador antigo, **não carrega na Pasta**; congelado para a Cobrança); o
+`prompt()` do "Excluir a pasta" (digitar o número — frente própria, registrada no `_cabecalho`); `processo/show.html.twig`
+(outra tela).
+
+**Achado na tela, anterior à E7 (estava no master):** o bloco "Editar dados" de `show.html.twig` era um IIFE no corpo
+da página com `if (… typeof bootstrap === 'undefined') { return; }` — e o Bootstrap só carrega no fim do `base.html.twig`.
+O bloco **nunca rodava**: Salvar sempre ativo, trocar o número **gravava sem pergunta** (medido no master, porta 8080:
+POST direto, nenhum diálogo), sem pílula de alterações, sem "Descartar as alterações?", sem os atalhos. Os testes eram
+de folha e passavam. Agora roda no `DOMContentLoaded`; isso **reativa** o comportamento aprovado do PAS-019/020/034b
+(Salvar só acende com alteração). Outro guarda igual, em `pasta/demandas/_resultado.html.twig:173` (tooltips da tela de
+Demandas), fica registrado — é outra tela.
+
+**Revisão read-only (feature-review-agent):** sem envio antes do "sim" nem envio duplicado; variantes todas batem com o
+dc; XSS limpo. Corrigidos: (1) "Excluir análise" da IA perdia o foco (botão desabilitado ao receber o foco de volta;
+menu sem id) → marca no formulário + `foco` explícito no ⋮ — medido com gatilho criado só no DOM (o dev não tem
+análise); (2) a marca de reenvio podia sobrar se o `requestSubmit` lançasse → `try/finally` e o botão conferido; (3)
+ramo sem `requestSubmit` (Safari < 16) documentado; (5) `pre-line` e `:empty` que o dc não tem → tirados; textos do dc no
+arquivo do Financeiro e na nota técnica; (6) comentário falso ("telas de Processo") corrigido. Ficam com o dono: o
+smoke dos 4 atalhos do Editar dados que voltaram a funcionar (Cliente, Processo, Histórico, "Trocar" responsável), a
+frase do administrativo (acima) e o fato de os testes serem de folha — a prova de comportamento é a medição na tela.
+
+**Testes:** `PastaConfirmacaoDoDesenhoJsTest` (38: variante, regra da mensagem, envio seguro em captura com `finally`,
+exportação, cores/acessibilidade, foco no gatilho, Editar dados no DOMContentLoaded, IA sem desabilitar o botão, as 18
+perguntas com a variante do desenho, e nenhum `confirm` fora de reserva em 12 arquivos); 13 testes antigos que travavam o texto do `confirm()` reescritos para
+provar o mesmo (texto do desenho, pergunta antes do pedido) pela janela. Mutações: tirar o `stopImmediatePropagation`,
+um `confirm` direto no checklist, voltar o Editar dados para IIFE e tirar o `delete` do `finally` — cada uma derrubou o
+teste dela. Suíte completa **OK 9345/9345** (52.136 asserções) no `saas_testfidelidade-designer`, depois das correções da
+revisão; `lint:twig` OK.
+
+**Tela (Chromium, POSTs interceptados e abortados — nada gravado no dev):**
+- Duplicar (pasta 304): azul, título "Confirmar", ✓ "Confirmar" `rgb(10,111,160)`, cabeçalho `rgb(11,106,150)`, foco no
+  Cancelar; Esc, Enter no Cancelar e clique no fundo → **0 POST**; Tab circula Confirmar → Fechar → Cancelar; "sim" →
+  **1 POST**. Foco depois do Esc: voltava ao `<body>` (item do ⋮ fechado) → corrigido, volta ao ⋮.
+- Alterar número (Editar dados): Salvar desabilitado sem mudança e habilitado com; pergunta azul "Alterar número da
+  pasta" **dentro do modal**; Esc fecha só a pergunta (modal aberto, valor mantido, foco no Salvar); 0 POST até o "sim",
+  1 depois. "Descartar as alterações?" (vermelha) com Esc mantém o modal e o valor.
+- Desvincular (pasta 588): vermelha, título/texto do desenho, ⚠ "Confirmar" `rgb(179,38,46)`; X e Esc → 0 POST; foco
+  volta ao ⋮ do processo (`aria-controls`); Tab + Enter no Confirmar → 1 POST (`/pasta/588/processo/desvincular`).
+- Valores da caixa iguais ao `cf` do dc: fundo `rgba(16,36,48,.32)`, 420px, raio 4, sombra `0 18px 50px rgba(16,42,58,.28)`,
+  cabeçalho 12/14, título 14px/700 branco, texto 13.5px/1.55 `rgb(36,56,69)` 14/16, rodapé `rgb(250,252,253)` com borda
+  `rgb(238,242,245)` 10/14, Cancelar `rgb(238,242,245)`/`rgb(52,80,95)` 34px 13px/700.
+- Tema escuro: botão azul `rgb(20,121,173)` na caixa escura; celular 390px: caixa 16–374px, sem rolagem horizontal.
+- Não exercitados na tela por falta de dado no dev (provados pelo teste): excluir meta (só o criador, dentro da janela de
+  tempo), checklist (a pasta 304 não tem itens), comentários e arquivos do Financeiro, análises da IA, nota técnica.
 
