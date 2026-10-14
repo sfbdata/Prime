@@ -1,5 +1,6 @@
-{# Sempre visível quando há pastas, como no desenho (dc L.131-135); com 1 página, só o "1". #}
-{% if pagination.total_items > 0 %}
+{# A do topo: sempre visível quando há pastas, como no desenho (dc L.131-135); com 1 página, só o "1".
+   A do rodapé (`paginacaoRodape`, só do BlueJus): só com mais de uma página, como era antes. #}
+{% if pagination.total_items > 0 and (not (paginacaoRodape ?? false) or pagination.total_pages > 1) %}
     {% set max_botoes = 8 %}
     {% set total = pagination.total_pages %}
     {% set atual = pagination.current_page %}

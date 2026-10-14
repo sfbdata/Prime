@@ -23,6 +23,15 @@
     var aviso = null;
     var avisoTimer = 0;
 
+    /* Região viva criada na carga, vazia (lição da PAS-034c): leitor de tela só anuncia mudança de uma
+       região que já existia. O aviso visual fica `aria-hidden`, para não ser lido duas vezes. */
+    var vivo = document.createElement('div');
+    vivo.className = 'visually-hidden';
+    vivo.setAttribute('role', 'status');
+    vivo.setAttribute('aria-live', 'polite');
+    vivo.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(vivo);
+
     function fechar(devolverFoco) {
         if (!menu) { return; }
         menu.remove();
@@ -69,7 +78,9 @@
             b.appendChild(t);
             b.addEventListener('click', function () {
                 fechar(false);
-                it.acao();
+                // Depois que ESTE clique terminar de subir: o menu de responsável (e outros) fecham no
+                // clique do documento — acionado aqui dentro, abriria e fecharia no mesmo clique.
+                setTimeout(it.acao, 0);
             });
             menu.appendChild(b);
         });
@@ -89,8 +100,7 @@
         if (!aviso) {
             aviso = document.createElement('div');
             aviso.className = 'exp-aviso';
-            aviso.setAttribute('role', 'status');
-            aviso.setAttribute('aria-live', 'polite');
+            aviso.setAttribute('aria-hidden', 'true');
             var i = document.createElement('i');
             i.className = 'bi bi-check-circle-fill';
             i.setAttribute('aria-hidden', 'true');
@@ -100,6 +110,8 @@
         }
         aviso.querySelector('span').textContent = texto;
         aviso.hidden = false;
+        vivo.textContent = '';
+        setTimeout(function () { vivo.textContent = texto; }, 50);
         clearTimeout(avisoTimer);
         avisoTimer = setTimeout(function () { aviso.hidden = true; }, 2800);
     }
@@ -137,7 +149,12 @@
         var href = linha.getAttribute('data-href');
         if (!href) { return; }
         var nup = textoLimpo(linha.cells[0]);
-        var nome = textoLimpo(linha.cells[1]);
+        // O nome é o identificador da pasta ou o do cliente; com vários clientes, todos (sem o "+N").
+        var celula = linha.cells[1];
+        var resumo = celula ? celula.querySelector('[data-clientes]') : null;
+        var nome = resumo
+            ? resumo.getAttribute('data-clientes').split('||').join('; ')
+            : textoLimpo(celula ? (celula.querySelector('.text-truncate') || celula) : null);
         var excluida = linha.classList.contains('pasta-excluida');
         var chip = linha.querySelector('.pasta-resp-chip');
         var marcar = linha.querySelector('.js-mover-para');
@@ -184,7 +201,9 @@
         var modal = document.getElementById('modalEditarMarcador');
         var botao = document.getElementById('btnExcluirMarcadorModal');
         if (!modal || !botao) { editar.click(); return; }
-        modal.addEventListener('shown.bs.modal', function () { botao.click(); }, { once: true });
+        // O modal põe o foco no nome 300 ms depois de aberto (index.html.twig); a pergunta vem depois
+        // disso, senão o foco sai da janela de confirmação (com "reduzir movimento" o modal abre na hora).
+        modal.addEventListener('shown.bs.modal', function () { setTimeout(function () { botao.click(); }, 360); }, { once: true });
         editar.click();
     }
 
@@ -211,7 +230,7 @@
         var lista = itens();
         var i = lista.indexOf(document.activeElement);
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(true); return; }
-        if (e.key === 'Tab') { fechar(false); return; }
+        if (e.key === 'Tab') { e.preventDefault(); fechar(true); return; }
         if (e.key === 'ArrowDown') { e.preventDefault(); lista[(i + 1) % lista.length].focus(); return; }
         if (e.key === 'ArrowUp') { e.preventDefault(); lista[(i - 1 + lista.length) % lista.length].focus(); return; }
         if (e.key === 'Home') { e.preventDefault(); lista[0].focus(); return; }

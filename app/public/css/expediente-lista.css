@@ -7,7 +7,9 @@
    de metas, vários marcadores por pasta e sub-marcadores, duplo clique na situação.
 
    Tudo sob `.exp-body` (classe do <body> do Expediente): nenhuma regra vaza para outra tela, e
-   o seletor ganha das regras inline antigas de `expediente/index` e `pasta/_tabela`. Tokens com os
+   o seletor ganha das regras inline antigas de `expediente/index` e `pasta/_tabela`. As únicas
+   exceções são o menu de botão direito e o aviso (`.exp-ctx`, `.exp-aviso`), que o JS põe direto
+   no <body> — e esta folha só carrega no Expediente. Tokens com os
    hex do desenho no claro; o escuro aponta para o Bootstrap.
    ============================================================================= */
 
@@ -144,7 +146,8 @@
 .exp-body .expediente-menu-link.active .expediente-icon,
 .exp-body .expediente-submenu-link.active .expediente-sub-icon { color: var(--ex-azul); }
 /* "+" (sub-marcador) e lápis aparecem no hover sobre a contagem (dc L.73), sem ocupar espaço do nome
-   quando escondidos. Continuam focáveis: com o foco do teclado dentro do item, aparecem. */
+   quando escondidos. Continuam focáveis: com o foco DE TECLADO no item ou num botão dele, aparecem
+   (`:focus-visible` — depois de um clique de mouse o foco fica no link e não deve prendê-los à vista). */
 .exp-body .expediente-menu-link[data-marcador-id],
 .exp-body .expediente-submenu-link { position: relative; }
 .exp-body .expediente-menu-link[data-marcador-id] .expediente-item-nome,
@@ -163,18 +166,37 @@
 .exp-body .expediente-menu-link .expediente-btn-add-sub { right: 30px; }
 .exp-body .expediente-menu-link:hover .expediente-btn-add-sub,
 .exp-body .expediente-menu-link:hover .expediente-btn-acao,
-.exp-body .expediente-menu-link:focus-within .expediente-btn-add-sub,
-.exp-body .expediente-menu-link:focus-within .expediente-btn-acao,
+.exp-body .expediente-menu-link:focus-visible .expediente-btn-add-sub,
+.exp-body .expediente-menu-link:focus-visible .expediente-btn-acao,
+.exp-body .expediente-submenu-link:focus-visible .expediente-btn-acao,
+.exp-body .expediente-menu-link:has(:focus-visible) .expediente-btn-add-sub,
+.exp-body .expediente-menu-link:has(:focus-visible) .expediente-btn-acao,
 .exp-body .expediente-submenu-link:hover .expediente-btn-acao,
-.exp-body .expediente-submenu-link:focus-within .expediente-btn-acao { opacity: 1; }
+.exp-body .expediente-submenu-link:has(:focus-visible) .expediente-btn-acao { opacity: 1; }
 .exp-body .expediente-btn-add-sub:hover,
 .exp-body .expediente-btn-acao:hover,
 .exp-body .expediente-btn-add-sub:focus-visible,
-.exp-body .expediente-btn-acao:focus-visible { background: var(--ex-azul); color: #fff; transform: translateY(-50%) scale(1.1); }
+.exp-body .expediente-btn-acao:focus-visible { background: var(--ex-azul) !important; color: #fff !important; transform: translateY(-50%) scale(1.1); }
+/* O CSS antigo deixa os botões do marcador SELECIONADO sempre visíveis; aqui eles cobririam a contagem.
+   Com mouse: só no hover/foco, como nos outros. Sem hover (toque): visíveis, e a contagem sai. */
+@media (hover: hover) {
+    .exp-body .expediente-menu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-add-sub,
+    .exp-body .expediente-menu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-acao,
+    .exp-body .expediente-submenu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-acao { opacity: 0; }
+}
+@media (hover: none) {
+    .exp-body .expediente-menu-link.active .expediente-btn-add-sub,
+    .exp-body .expediente-menu-link.active .expediente-btn-acao,
+    .exp-body .expediente-submenu-link.active .expediente-btn-acao { opacity: 1; }
+    .exp-body .expediente-menu-link.active .js-contagem-marcador,
+    .exp-body .expediente-submenu-link.active .js-contagem-marcador { visibility: hidden; }
+}
 .exp-body .expediente-menu-link:hover .js-contagem-marcador,
-.exp-body .expediente-menu-link:focus-within .js-contagem-marcador,
+.exp-body .expediente-menu-link:focus-visible .js-contagem-marcador,
+.exp-body .expediente-submenu-link:focus-visible .js-contagem-marcador,
+.exp-body .expediente-menu-link:has(:focus-visible) .js-contagem-marcador,
 .exp-body .expediente-submenu-link:hover .js-contagem-marcador,
-.exp-body .expediente-submenu-link:focus-within .js-contagem-marcador { visibility: hidden; }
+.exp-body .expediente-submenu-link:has(:focus-visible) .js-contagem-marcador { visibility: hidden; }
 
 /* Contagem (dc: 22×18, #e9eff3/#34505f, 11px negrito, raio 3) */
 /* `!important` porque a regra antiga (inline em expediente/index) também usa em cada propriedade. */
@@ -250,7 +272,6 @@
 .exp-body #pastas-resultado,
 .exp-body .exp-painel .pasta-filtros { padding: 0 22px; }
 .exp-body .exp-painel .pasta-filtros { padding-top: 16px; }
-.exp-body #pastas-resultado > .mt-2:empty { display: none; }
 
 /* ── Filtros (dc L.98-110): campos de 34px, fundo cinza-azulado, sem borda ── */
 .exp-body .pasta-filtros-busca .form-control,
@@ -431,7 +452,8 @@
 .exp-body #tabelaPastas .pasta-resp-chip .pasta-resp-caret { font-size: 11px; color: var(--ex-apagado); }
 
 /* Hover da linha (dc L.28-35): azul cheio, faixa de 4px escura, sombra; tudo branco e sem fundo.
-   A lápide (pasta excluída) não ganha o azul: ela não abre por clique como as outras. */
+   A lápide (pasta excluída) não ganha o azul: continua apagada e riscada, para não parecer uma pasta
+   ativa (ela abre por clique, somente leitura). */
 .exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover > td {
     background: var(--ex-linha-hover) !important;
     color: #fff !important;

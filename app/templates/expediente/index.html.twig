@@ -1410,8 +1410,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             var item = document.getElementById('item-pasta-' + res.data.id);
             if (item) {
-                // Atualiza span do nome
-                var span = item.querySelector('a span');
+                // Atualiza o nome. E8 (revisão): `a span` pegava o ponto de cor do marcador colorido e o
+                // nome ficava velho na tela — o mesmo nome que a janela de exclusão lê.
+                var span = item.querySelector(':scope > a .expediente-item-nome, :scope > .expediente-item-nome') || item.querySelector('a span');
                 if (span) span.textContent = res.data.nome;
 
                 // Atualiza cor no link
@@ -1495,12 +1496,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 var n = li.querySelector('.expediente-item-nome');
                 return n ? n.textContent.trim() : '';
             }).filter(Boolean);
-            var pastasSubs = subs.reduce(function (t, li) {
-                var c = li.querySelector('.js-contagem-marcador');
-                return t + (c ? (parseInt(c.textContent, 10) || 0) : 0);
-            }, 0);
-            texto += ' Os ' + subs.length + ' sub-marcador(es) — ' + nomes.join(', ') + ' — também são excluídos'
-                + (pastasSubs > 0 ? ', e as ' + pastasSubs + ' pasta(s) deles deixam de tê-los.' : '.');
+            // Sem somar as pastas dos sub-marcadores: uma pasta pode estar em mais de um deles, e a soma
+            // contaria a mesma pasta duas vezes. Tudo o que estiver abaixo deles também sai (cascata).
+            texto += ' Os ' + subs.length + ' sub-marcador(es) — ' + nomes.join(', ') + ' — também são excluídos,'
+                + ' com o que houver abaixo deles, e as pastas marcadas com eles deixam de tê-los.';
         }
 
         return { titulo: 'Excluir o marcador "' + nome + '"?', texto: texto, rotulo: 'Excluir mesmo assim', icone: 'bi-trash3' };
@@ -2065,7 +2064,9 @@ document.addEventListener('DOMContentLoaded', function () {
             var bg0    = primeiro.cor || 'var(--bs-tertiary-bg)';
             var cor0   = primeiro.cor ? '#333' : 'var(--bs-body-color)';
             var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-            novosHtml += '<span class="badge rounded-pill px-2 marcador-principal" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
+            // E8: o mesmo chip do Twig (pasta cheia e o nome de todos no title).
+            var todos0 = data.marcadores.map(function (m) { return m.nome; }).join(', ');
+            novosHtml += '<span class="badge rounded-pill px-2 marcador-principal" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;" title="' + escHtml(todos0) + '"><i class="bi bi-folder-fill" aria-hidden="true"></i>' + escHtml(primeiro.nome) + '</span>';
             if (data.marcadores.length > 1) {
                 var extrasJson = JSON.stringify(data.marcadores.slice(1).map(function (m) { return { nome: m.nome, cor: m.cor || '' }; }));
                 novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>+' + (data.marcadores.length - 1) + '</span>';

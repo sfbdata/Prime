@@ -206,6 +206,32 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString($dali->getNup(), $body);
     }
 
+    #[TestDox('E8: "Sem responsável" vale também no painel de um marcador (mesmo filtro, mesmo escritório)')]
+    public function testFiltroSemResponsavelNoPainelDoMarcador(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Marc Sem', admin: true);
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+
+        $marcador = new \App\Expediente\Entity\Marcador('Marc ' . uniqid(), $tenant, $admin);
+        $em->persist($marcador);
+        $sufixo = strtoupper(uniqid());
+        $sem    = $this->criarPasta($tenant, 'MSEM-' . $sufixo);
+        $com    = $this->criarPasta($tenant, 'MCOM-' . $sufixo, responsavel: $admin);
+        $sem->addMarcador($marcador);
+        $com->addMarcador($marcador);
+        $em->flush();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->xmlHttpRequest('GET', '/expediente/marcador/' . $marcador->getId() . '/pastas?responsavel=sem');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString($sem->getNup(), $body);
+        self::assertStringNotContainsString($com->getNup(), $body);
+    }
+
     #[TestDox('E8: a barra de filtro oferece "Sem responsável" (value "sem") logo depois do rótulo, e a marca quando é o filtro ativo')]
     public function testOpcaoSemResponsavelNaBarra(): void
     {

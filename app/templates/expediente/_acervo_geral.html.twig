@@ -13,8 +13,10 @@
 
     <div id="pastas-resultado">
         {{ include('pasta/_tabela.html.twig') }}
+        {# A paginação do desenho é a do topo (dentro da tabela); esta, no rodapé, é só do BlueJus e só
+           aparece com mais de uma página. #}
         <div class="mt-2">
-            {{ include('expediente/_paginacao.html.twig') }}
+            {{ include('expediente/_paginacao.html.twig', {paginacaoRodape: true}) }}
         </div>
     </div>
 </div>

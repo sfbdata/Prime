@@ -63,9 +63,9 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('#modalNovaPasta', $nova->attr('data-bs-target'), 'o mesmo modal de sempre — cliente opcional, número no servidor');
         self::assertSame('modal', $nova->attr('data-bs-toggle'));
         self::assertMatchesRegularExpression('/^1 de 1 · Total: 2 pastas$/', trim((string) preg_replace('/\s+/', ' ', $crawler->filter('.exp-resumo')->text())));
-        // Com 1 página a paginação continua visível, como no desenho: no topo (a do desenho) e no rodapé
-        // (só do BlueJus — evita voltar ao topo depois de 50 linhas).
-        self::assertCount(2, $crawler->filter('nav[aria-label="Paginação"] .page-item.active'));
+        // Com 1 página a paginação do topo (a do desenho) continua visível; a do rodapé (só do BlueJus)
+        // só aparece com mais de uma página — uma só na tela.
+        self::assertCount(1, $crawler->filter('nav[aria-label="Paginação"] .page-item.active'));
     }
 
     #[TestDox('linha: prioridade com o rótulo do SISTEMA ("Prioridade", não "Alta") e bandeira; situação mantém o duplo clique; metas mostram o TOTAL')]

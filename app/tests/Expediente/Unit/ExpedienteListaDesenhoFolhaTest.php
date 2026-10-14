@@ -31,7 +31,8 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
     #[TestDox('escopo: toda regra do expediente-lista.css mora sob .exp-body (ou é o menu/aviso flutuante .exp-ctx/.exp-aviso, ou keyframes)')]
     public function testNadaVazaDaPagina(): void
     {
-        preg_match_all('/(?:^|\})\s*([^{}@]+)\{/', self::css(), $m);
+        // `[{}]` antes do seletor: pega também as regras de dentro de @media.
+        preg_match_all('/(?:^|[{}])\s*([^{}@]+)\{/', self::css(), $m);
         foreach ($m[1] as $grupo) {
             foreach (explode(',', $grupo) as $sel) {
                 $sel = trim($sel);
@@ -102,6 +103,28 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/innerHTML\s*=/', $js, 'só textContent');
     }
 
+    #[TestDox('revisão: a ação do item roda DEPOIS do clique (senão o menu de responsável abria e fechava no mesmo clique); aviso por região viva criada na carga; "Copiar nome" sem o "+N"')]
+    public function testCorrecoesDaRevisao(): void
+    {
+        $js = self::ler('public/js/expediente-lista.js');
+        self::assertStringContainsString("fechar(false);\n                // Depois que ESTE clique terminar de subir", $js);
+        self::assertStringContainsString('setTimeout(it.acao, 0);', $js);
+        self::assertStringNotContainsString("fechar(false);\n                it.acao();", $js);
+        self::assertStringContainsString("vivo.setAttribute('role', 'status');", $js);
+        self::assertStringContainsString("aviso.setAttribute('aria-hidden', 'true');", $js);
+        self::assertStringContainsString("resumo.getAttribute('data-clientes').split('||').join('; ')", $js);
+        self::assertStringContainsString("if (e.key === 'Tab') { e.preventDefault(); fechar(true); return; }", $js, 'Tab devolve o foco a quem abriu');
+
+        $css = self::css();
+        self::assertStringContainsString('.exp-body .expediente-menu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-acao', $css, 'selecionado: botões só no hover/foco');
+        self::assertStringContainsString('background: var(--ex-azul) !important; color: #fff !important;', $css, 'hover dos botões do trilho branco de fato');
+
+        $t = self::ler('templates/expediente/index.html.twig');
+        self::assertStringContainsString("item.querySelector(':scope > a .expediente-item-nome, :scope > .expediente-item-nome')", $t, 'renomear atualiza o nome, não o ponto de cor');
+        self::assertStringContainsString('<i class="bi bi-folder-fill" aria-hidden="true"></i>\' + escHtml(primeiro.nome)', $t, 'chip refeito igual ao do Twig');
+        self::assertStringNotContainsString('pastasSubs', $t, 'sem somar pastas que podem se repetir entre sub-marcadores');
+    }
+
     #[TestDox('menu: teclado (setas, Home/End, Esc devolve o foco, Tab fecha) e a tecla de menu abre junto do elemento')]
     public function testMenuTeclado(): void
     {
@@ -124,7 +147,8 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringContainsString("rotulo: 'Excluir mesmo assim'", $t);
         self::assertStringContainsString("'Esta ação é irreversível. '", $t);
         self::assertStringContainsString("deixam de ter este marcador", $t, 'vários marcadores por pasta: não "ficam sem marcador"');
-        self::assertStringContainsString("sub-marcador(es) — ' + nomes.join(', ') + ' — também são excluídos'", $t);
+        self::assertStringContainsString("sub-marcador(es) — ' + nomes.join(', ') + ' — também são excluídos,'", $t);
+        self::assertStringContainsString("' com o que houver abaixo deles, e as pastas marcadas com eles deixam de tê-los.'", $t, 'cascata inteira, sem somar pastas repetidas');
         self::assertDoesNotMatchRegularExpression('/if \(!confirm\(msg\)\)/', $t);
     }
 }
