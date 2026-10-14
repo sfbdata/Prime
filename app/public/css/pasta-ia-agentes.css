@@ -23,6 +23,7 @@
     --ia-azul-2:        #0d80a3;
     --ia-azul-claro:    #1597bd;
     --ia-azul-txt:      #0c7a9c;
+    --ia-marca-cab:     #0a6fa0;  /* BLUEJUS do cabeçalho, dc de 13/10 L1246 */
     --ia-azul-link:     #0a7aad;
     --ia-fundo:         #f7fafc;
     --ia-cartao:        #fff;
@@ -65,6 +66,7 @@
 [data-bs-theme="dark"] .ia-drawer,
 [data-bs-theme="dark"] .ia-drawer-fundo {
     --ia-azul-txt:      #6fc3e0;
+    --ia-marca-cab:     #6fc3e0;
     --ia-azul-link:     #6fc3e0;
     --ia-fundo:         var(--bs-body-bg);
     --ia-cartao:        var(--bs-secondary-bg);
@@ -134,9 +136,9 @@
 .ps-cab-ia-estrela-g { transform-box: fill-box; transform-origin: center; animation: iaEstrela 3.2s ease-in-out infinite; }
 .ps-cab-ia-estrela-p { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out .8s infinite; }
 .ps-cab-ia-estrela-c { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out 1.6s infinite; }
-.ps-cab-ia-rotulo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
-.ps-cab-ia-marca { font-size: 9px; font-weight: 800; letter-spacing: .16em; color: var(--ia-azul-txt); }
-.ps-cab-ia-nome { font-size: 13px; font-weight: 700; color: var(--ia-texto); }
+.ps-cab-ia-rotulo { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; line-height: 1.1; }
+.ps-cab-ia-marca { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: var(--ia-marca-cab); }
+.ps-cab-ia-nome { font-size: 14.5px; font-weight: 700; color: var(--ia-texto); }
 
 /* ── Drawer (dc L.843) ── */
 .ia-drawer-fundo {
