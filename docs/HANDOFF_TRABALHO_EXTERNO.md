@@ -69,7 +69,7 @@ docker run -d --rm --name smoke-trabalho-externo-proxy --network jusprime_saas_n
 9. **Ler o chat sem "Conversar no chat"**: hoje, com a permissão desligada, o Convidado não escreve,
    mas lê o chat, recebe a prévia e o contador. Alternativas: (a) manter (a permissão é de escrever,
    como o rótulo diz); (b) esconder a aba Chat, a prévia e o contador sem a permissão (o histórico e
-   o andamento continuam). (b) é uma linha na  mais testes;
+   o andamento continuam). (b) é uma linha na `PoliticaDaDemanda::mensagemVisivel` mais testes;
    muda o que o desenho mostra para esse caso.
 
 ## Diferenças em relação ao desenho
