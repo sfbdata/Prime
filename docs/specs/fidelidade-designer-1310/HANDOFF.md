@@ -6,12 +6,23 @@
 > **Leia antes de qualquer coisa:** este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
 > depois o checklist da tela em que for trabalhar.
 
-## 0. Estado de retomada (15/10/2026) — leia primeiro
+## 0. Estado de retomada (15/10/2026, fim da E8b) — leia primeiro
 
-- **Entregas feitas, todas só em commit local:** E1, E2, E3, E4, E5, E5b, E5c, E7 e E8. E6 travada por P1. Próxima
+- **E8b (15/10, tarde)** — `18cfe61a`, `8b0539f5`, `73578168`, `bb622309` + docs: moldura de alerta do dc na exclusão de
+  marcador; travessão da pergunta de exclusão **resolvido** (parênteses); Cliente/Ação 2:1.5; Período num bloco com "a"
+  (o "–" saiu); item aberto marcado no trilho (o `carregarPainel` apagava); botão direito no ⋮ de Processos
+  (PZ-CTX-08). Evidência e revisão em `../fidelidade-designer-1310.md` §14. Checklists: Lista **38 · 20 · 13**, Pasta
+  **221 · 48 · 113**. **Suíte completa no `bb622309`: OK 9382/9382 (52.511 asserções, 10:14)**, rodada sozinha.
+  - **O MCP `claude_design` não estava conectado** na sessão de 15/10: comparação feita contra o pacote local de 13/10
+    (mesmo arquivo `02 - EXPEDIENTES 1.2.3.dc.html` e scripts). Se o projeto online mudou depois, não foi visto.
+  - **Ambiente de smoke religado em 15/10**: `http://127.0.0.1:8000/expediente` (proxy `smoke-fidelidade-proxy` + `php -S`
+    da worktree; receita na §12). Protótipo servido em `http://127.0.0.1:8765/` (`python3 -m http.server`).
+  - Novas decisões para o dono: mínimos 220/190 das colunas (o próprio dc estoura a 1440px; LX-TAB-03); o "–" das
+    linhas sem meta (abaixo). Pendente técnico: cabeçalho fixo da tabela (LX-TAB-02, três contêineres de rolagem).
+- **Entregas feitas, todas só em commit local:** E1, E2, E3, E4, E5, E5b, E5c, E7, E8 e E8b. E6 travada por P1. Próxima
   recomendada: **E9 (Peticionar)**.
 - **Esperando o dono:**
-  1. **Smoke da E7** (`SMOKE-E7.md`) e **smoke da E8** (13 passos no fim de `E8-PLANO.md`). O ambiente foi preparado em
+  1. **Smoke da E7** (`SMOKE-E7.md`) e **smoke da E8** (13 passos no fim de `E8-PLANO.md`, mais S14 a S18 da E8b). O ambiente foi preparado em
      14/10 e **caiu** (o WSL reiniciou os containers): para religar, §12 "Smoke pelo navegador do Windows". Nada do
      smoke foi executado pelo Claude.
   2. Decisões abertas: P1, P2, P3; selo "9+"; `bj-dica.js`; tela de Equipe; unificar o cálculo de dias entre a linha de
@@ -20,10 +31,8 @@
 - 🔴 **Regra nova do dono (15/10, CLAUDE.md do projeto): sem travessão (— ou –) em texto que o usuário vê.** Texto da
   frente que viola e precisa de ajuste **antes de integrar** (não corrigido ainda: o pedido de 15/10 foi só salvar o
   handoff):
-  - `app/templates/expediente/index.html.twig` `perguntaDeExclusaoDoMarcador`: `' Os N sub-marcador(es) — nomes — também
-    são excluídos,'` → trocar os travessões por dois-pontos ou parênteses (ex.: "Os 6 sub-marcador(es) (A, B, C)
-    também são excluídos…"). O teste `ExpedienteListaDesenhoFolhaTest::testExclusaoDeMarcador` trava a frase atual e
-    muda junto.
+  - ~~`perguntaDeExclusaoDoMarcador` com travessões~~ → **resolvido na E8b** (`18cfe61a`, nomes entre parênteses; o
+    teste agora recusa travessão em qualquer literal da função). O "–" do Período também saiu (virou "a", do desenho).
   - `app/templates/pasta/_tabela.html.twig` `.exp-sem-metas` mostra `–` (o "–" do desenho, dc L.168) quando não há meta.
     **Conflito desenho × regra do dono**: o desenho mostra o traço; a regra proíbe. Perguntar ao dono (sugestão: célula
     vazia com `title="Sem metas"`, ou "0"). `ExpedienteListaDesenhoTelaTest::testChipsPreservamAsRegras` só confere a

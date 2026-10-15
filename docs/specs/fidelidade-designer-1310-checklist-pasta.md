@@ -397,7 +397,7 @@ Os itens de cada menu estão nas linhas das abas indicadas.
 | PZ-CTX-05 | Registro | Responder ✓ · Copiar texto ✓ · Encaminhar ∅ · Destacar ∅ · Remover destaque ∅ · Editar · N min/bloqueado ✓ · Excluir comentário · N min / "Excluir · permanente" ✓ | menu contexto | ≈ faltam 3 itens (C) | ano:202-214; show:2658 | sim (os 3 que faltam) | PAS-025 F, PAS-026/027 C |
 | PZ-CTX-06 | Metas | Linha da meta → ⋮ (PZ-MET-10 a 17) | menu contexto | ✓ | pasta-metas.js:818 | não | PMC-027 F |
 | PZ-CTX-07 | Processo | Cartão → ⋮ (PZ-PRO-18 a 30) | menu contexto | ✓ | pasta-processo.js:235 | não | PMC-001 F |
-| PZ-CTX-08 | Processo/Financeiro | Botão direito sobre o ⋮ dos Processos e dos Pagamentos | menu contexto | ≈ não abre | — | não | — |
+| PZ-CTX-08 | Processo/Financeiro | Botão direito sobre o ⋮ dos Processos e dos Pagamentos | menu contexto | ✓ E8b (15/10): Processos (cabeçalho e cartão) abre sob o ⋮; Pagamentos já abria (medido) | pasta-processo.js:241; fin:1477 | não | — |
 | PZ-CTX-09 | Processo/Push | Nota técnica (PZ-PRO-32 a 36) | menu contexto | ✓ | nota-tecnica.js:458 | não | PMC-017 F |
 | PZ-CTX-10 | Financeiro | Registro (PZ-FIN-10 a 15) | menu contexto | ≈ sem Encaminhar e Destacar | fin:1477 | sim (os que faltam) | FPN-006 F |
 | PZ-CTX-11 | Financeiro | Arquivo (+ duplo clique) | menu contexto | ✓ | fin:1477 | não | F |
@@ -519,12 +519,12 @@ Cada linha da tabela conta uma vez; os itens de uma sub-lista não contam separa
 | Detalhes (DET) | 12 | 1 | 6 | 19 |
 | Push (PUSH) | 16 | 5 | 12 | 33 |
 | Modais (MOD) | 12 | 5 | 9 | 26 |
-| Menus de botão direito (CTX) | 9 | 7 | 2 | 18 |
+| Menus de botão direito (CTX) | 10 | 6 | 2 | 18 |
 | Editor (EDT) | 8 | 1 | 9 | 18 |
 | Visualizador (VIS) | 5 | 0 | 2 | 7 |
 | IA e Chat I.A (IA) | 4 | 4 | 24 | 32 |
 | Globais (GLB) | 13 | 1 | 3 | 17 |
-| **Total** | **220** | **49** | **113** | **382** |
+| **Total** | **221** | **48** | **113** | **382** |
 
 Itens NOVOS em relação ao ledger: 17 linhas. São CAB-06, 38, 39, 40, 41, 42; TRI-01, 02; DAD-14; PRO-08, 11; FIN-09; DET-19; PUSH-04, 27 (parte dos apensos); MOD-08; GLB-09, 10, 11.
 
@@ -606,7 +606,7 @@ O README do pacote manda: em conflito, vale a decisão mais recente do Farlei em
 Contagem depois da E3: **216 ✓ · 50 ≈ · 113 ∅ = 379** (2 linhas novas ≈; as marcas ✓ das linhas que a E3
 tocou já eram ✓ — a E3 trouxe o valor novo do desenho para elas).
 
-Contagem depois da E4 (inalterada na E5, E5b e E5c): 218 ✓ · 49 ≈ · 113 ∅ = 380. **Depois da E7: 220 ✓ · 49 ≈ · 113 ∅ = 382**
+Contagem depois da E4 (inalterada na E5, E5b e E5c): 218 ✓ · 49 ≈ · 113 ∅ = 380. **Depois da E7: 220 ✓ · 49 ≈ · 113 ∅ = 382**; depois da E8b (15/10, PZ-CTX-08): **221 ✓ · 48 ≈ · 113 ∅**
 (as 2 linhas novas da E7). A §16 estava parada no levantamento (377) e foi recontada no arquivo na E7. Os 113 ausentes seguem na §19, por natureza;
 nenhum foi descartado por falta de backend.
 

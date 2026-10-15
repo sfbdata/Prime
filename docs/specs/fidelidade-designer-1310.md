@@ -481,3 +481,33 @@ moldura da janela de exclusão é a da E7 (o dc tem faixa vermelha e círculo); 
 "+" do trilho cria sub-marcador; clique no título do painel não zera filtros; modais de Nova Pasta e de marcador não mexidos.
 Anterior à E8, registrado: clicar num marcador não deixa o link com `.active` (o JS antigo).
 
+
+## 14. E8b — evidência (Lista do Expediente e Pasta, 15/10/2026)
+
+**Fonte do desenho.** O pedido de 15/10 mandava importar o projeto pelo MCP `claude_design`. Esse servidor **não estava
+conectado** na sessão (nenhuma ferramenta `claude_design` disponível; o `DesignSync` só serve ao `/design-sync` de
+design systems). A comparação foi feita contra o **pacote local de 13/10** (`REPOSITORIO_BLUEJUS/prototipo/`), que tem
+o mesmo `02 - EXPEDIENTES 1.2.3.dc.html` e todos os scripts pedidos (`bj-contas.js`, `bj-dica.js`, `bj-docsug.js`,
+`bj-editor.js`, `bj-link.js`, `bj-processo.js`, `bj-visualizar.js`, `bluejus-central.js`, logo da nav). Se o projeto
+online mudou depois de 13/10, essa diferença **não** foi vista.
+
+| Commit | O quê | Medido na tela (Chromium, 1440×900, escrita interceptada) |
+|---|---|---|
+| `18cfe61a` | Exclusão de marcador com a moldura de alerta do dc 03 L.259-271 (`confirmarPs({ moldura: 'alerta' })`; a Pasta segue com a janela da E7); sub-marcadores entre parênteses (sem travessão, regra de 15/10); Cliente/Ação 2:1.5; Período num bloco com "a" | moldura: 430px, faixa 5px #c0392b, círculo 64px #fbecec ⚠ 30px #c0392b, título 17px/700 #12242f centrado, texto 14px #34505f centrado, botões 38px (#c0392b / #e2e9ee #1f3644) no centro, sem X, fundo rgba(14,37,51,.38); foco nasce no Cancelar, Tab alterna só os 2 botões, Esc fecha; nenhum DELETE. Colunas 96·185·139·120·220·76·190·116 a 1440 e 96·161·121·… a 1100, sem rolagem lateral em 1440/1100/390. Período 250×34, fundo #edf2f6, "a" #7d909d; escuro legível |
+| `8b0539f5` | Item aberto fica marcado no trilho: `carregarPainel` apagava a marca posta por quem chamava; `marcarNoTrilho` limpa raiz e sub-marcador juntos. "Todas as pastas" no estilo do dc | sempre 1 item `.active` (início, raiz, sub-marcador, outra raiz, volta a Todas); Todas: #e8f3f9, #0a6fa0, 400, sem faixa, 36px — igual ao dc medido |
+| `73578168` | PZ-CTX-08: botão direito sobre o ⋮ de Processos (cabeçalho e cartão) abre o mesmo menu, sob o ⋮ (dc 02 L.1680) | pasta 588: os dois abrem, `aria-expanded=true`, Esc devolve o foco ao ⋮. Pagamentos (pasta 433) já abria — checklist estava defasado |
+
+Testes: `ExpedienteListaDesenhoFolhaTest` 19 → 26 (moldura, travessão na pergunta, colunas, período, separador,
+trilho), `PastaMenuBotaoDireitoJsTest` +1 (e a ordem das exceções agora medida no trecho do cartão). Cada teste novo
+rodou vermelho antes da implementação. `tests/Expediente` + `tests/Pasta` 2945/2945; `tests/Pasta/Unit` 1483/1483.
+
+**Revisão read-only (`feature-review-agent`, 15/10):** sem bloqueador; Pasta sem regressão (nunca passa `moldura`;
+`is-alerta` é recalculado a cada pergunta; Tab com `visivel` funciona com a janela hospedada no modal). Achados: (1)
+Período estourava o bloco: medido, o "Até" saía 3px a 1440px → corrigido em `bb622309` (datas flexíveis como o dc,
+base de 250px; medido em 1440/1100/390, datas inteiras e calendários dentro); (2) no toque, o marcador raiz
+selecionado agora troca a contagem por "+" e lápis: é a regra `@media (hover: none)` da E8, que antes nunca valia para
+a raiz porque a marca era apagada; mantida, conferir no smoke S13; (3) testes de folha leem texto, limitação conhecida.
+
+Divergências da Lista **examinadas e não feitas** (com o porquê): cabeçalho fixo (LX-TAB-02, três contêineres de
+rolagem; entrega própria); mínimos 220/190 das colunas (o próprio dc estoura a 1440px; decisão do dono); negrito
+dentro do texto da exclusão (a janela escreve texto puro).

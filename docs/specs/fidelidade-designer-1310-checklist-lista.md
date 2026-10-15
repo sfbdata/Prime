@@ -27,7 +27,7 @@
 | LX-TRI-02 | Rótulos PASTAS / MARCADORES 11px 700 1.6px #4a6373 (D:62, 68) | **✓ E8** | não |
 | LX-TRI-03 | "+" 26×26 tracejado #9fb6c5, azul; hover #e8f3f9 sólido (D:63, 69) | **✓ E8** | não |
 | LX-TRI-04 | "Todas as pastas" 36px, ativo #e8f3f9/#0a6fa0 (D:65) | **✓ E8** (ativo com borda interna de 3px) | não |
-| LX-TRI-05 | Item 34px 14px #243845; ícone na cor do marcador; selecionado: borda 3px + #eef6fb + negrito (D:73) | ≈ **decisão**: o fundo pastel do usuário fica; selecionado com borda 3px azul e negrito; ícone neutro (pastel como ícone ficaria ilegível) | não |
+| LX-TRI-05 | Item 34px 14px #243845; ícone na cor do marcador; selecionado: borda 3px + #eef6fb + negrito (D:73) | ≈ **decisão**: o fundo pastel do usuário fica; selecionado com borda 3px azul e negrito; ícone neutro (pastel como ícone ficaria ilegível). **E8b**: a marca agora aparece de fato (o `carregarPainel` a apagava); "Todas as pastas" selecionada como no dc (fundo #e8f3f9, texto azul, peso normal, sem faixa, 36px) | não |
 | LX-TRI-06 | Contagem 22×18 #e9eff3/#34505f 11px 700 raio 3 (D:73) | **✓ E8**; recolhido: escondida (antes também) | não |
 | LX-TRI-07 | Hover: "+" e lápis 22px sobre a contagem (D:73) | ≈ visual **✓ E8** (sem ocupar o nome; focáveis); o "+" cria **sub-marcador** (o do dc cria marcador de topo) — hierarquia mantida por decisão | não |
 | LX-TRI-08 | Botão de recolher: círculo 28 #0a6fa0, `right:-14px`, sombra (D:76) | **✓ E8** | não |
@@ -45,7 +45,7 @@
 | LX-BAR-06 | "Sem responsável" no filtro de responsável (D:102-107) | **✓ E8** — `responsavel=sem`, preso ao escritório, com testes (decisão do dono) | feito |
 | LX-BAR-07 | Responsável em pop com avatar, busca e cabeçalho azul (D:102-107) | ≈ select nativo no visual do dc | não |
 | LX-BAR-08 | Prioridade em pop com bandeiras, NORMAL/ALTA/URGENTE (D:108) | ≈ select; **rótulo do sistema** ("Prioridade") por decisão | não |
-| LX-BAR-09 | Período num bloco só, "a" entre as datas (D:109) | ≈ dois campos no visual do dc | não |
+| LX-BAR-09 | Período num bloco só, "a" entre as datas (D:109) | ✓ **E8b** — bloco de 34px no fundo do campo, "a" #7d909d (era "–") | não |
 | LX-BAR-10 | Limpar: ícone `bi-x-circle` (D:110) | ≈ chips de filtro + "limpar" (só BlueJus, mais informativo) | não |
 | LX-BAR-11 | Visualizar: 5 modos + "Pastas por página" 25/50/100 (D:112-129) | ≈ 2 modos (tabela/cartões) — novos modos não autorizados; 25/100 | **sim** (`PER_PAGE=50`) |
 | LX-BAR-12 | Paginação 26px sem borda, ativa #0a6fa0, hover cresce, sempre visível (D:131-135) | **✓ E8** (+ a de rodapé, só BlueJus) | não |
@@ -56,8 +56,8 @@
 | ID | Elemento (D:L) | BlueJus | Backend? |
 |---|---|---|---|
 | LX-TAB-01 | Cabeçalho #f4f7f9, 11px 700 1.3px #4a6373, ativo azul, sombra (D:146-150) | **✓ E8** | não |
-| LX-TAB-02 | Cabeçalho fixo (`sticky top:124px`) que rola junto na horizontal (D:145, `syncCab`) | ≈ não fixa — a tabela vive num contêiner com rolagem horizontal; pede reestruturar cabeçalho e corpo | não |
-| LX-TAB-03 | Colunas 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116, mín. 1100 (D:146) | ≈ **✓ E8** nas fixas; Cliente e Ação dividem o resto meio a meio (o dc dá 2:1.5) | não |
+| LX-TAB-02 | Cabeçalho fixo (`sticky top:124px`) que rola junto na horizontal (D:145, `syncCab`) | ≈ não fixa. Medido 15/10: três contêineres de rolagem entre o `<thead>` e a janela (`.table-responsive` x/y auto, `.expediente-content` auto, `main.app-main` auto do AdminLTE). Caminho: cabeçalho clonado com `scrollLeft` sincronizado, como o `syncCab` do dc — entrega própria, mexe em layout herdado | não |
+| LX-TAB-03 | Colunas 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116, mín. 1100 (D:146) | ≈ **✓ E8** nas fixas; **E8b**: Cliente e Ação em 2:1.5 da sobra (185/139 a 1440px). Fica ≈ por um ponto: os mínimos do dc (`minmax(220px…)`, `minmax(190px…)`) somam 1228px e estouram a tabela do próprio dc a 1440px (Situação cortada, medido), contra o `min-width:1100px` dele; aplicá-los traria rolagem lateral a 1440px. **Decisão do dono** | não |
 | LX-TAB-04 | Linha: padding 14, divisória #eef2f5 (D:154) | **✓ E8** | não |
 | LX-TAB-05 | Hover azul #3b8fc2, faixa 4px #1f6f9c, sombra, tudo branco (D:28-35) | **✓ E8** (a lápide fica de fora: não abre por clique) | não |
 | LX-TAB-06 | NUP 14px 700 #0a6fa0 (D:155) | **✓ E8** (+ estrela de favorito, só BlueJus) | não |
@@ -109,20 +109,20 @@
 | LX-MOD-01 | Nova Pasta 520px arrastável, cabeçalho azul (D:218-232) | ≈ modal Bootstrap de sempre (não mexido) | não |
 | LX-MOD-02 | … "PASTA {próximo NUP}" e cliente obrigatório com sugestões | ≈ **decisão**: número só no servidor, cliente opcional | — |
 | LX-MOD-03 | Novo/Editar marcador 420px: descrição, 10 cores saturadas, nome único (D:244-258) | ≈ modais de sempre; descrição, cores e unicidade | **sim** |
-| LX-MOD-04 | Excluir marcador: alertdialog vermelho, "Excluir mesmo assim" (D:259-271) | ≈ **✓ E8 no conteúdo** — texto do dc, "Excluir mesmo assim", e os sub-marcadores afetados (decisão); a moldura é a janela da E7 (cabeçalho azul), não a faixa vermelha com círculo do dc | não |
+| LX-MOD-04 | Excluir marcador: alertdialog vermelho, "Excluir mesmo assim" (D:259-271) | ✓ **E8b** — moldura do dc medida valor a valor (430px, faixa 5px #c0392b, círculo 64px #fbecec, título 17px centrado, botões 38px no centro, sem X, fundo rgba(14,37,51,.38)); conteúdo da E8 (sub-marcadores entre parênteses, sem travessão). O negrito em "irreversível" e "N pasta(s)" do dc não entra: a janela escreve texto puro (`textContent`) | não |
 | LX-MOD-05 | Sigilo: "Pasta N protegida", Entendi / Pedir acesso (D:294-310) | ∅ | **sim** |
 
-## 7. Contagens (contado no arquivo, 14/10, depois da E8)
+## 7. Contagens (contado no arquivo, 15/10, depois da E8b; depois da E8 era 36 · 22 · 13)
 
 | Região | ✓ | ≈ | ∅ | Total |
 |---|---|---|---|---|
 | Página e cabeçalho | 2 | 2 | 0 | 4 |
 | Trilho | 5 | 3 | 0 | 8 |
-| Barra, filtros, paginação | 6 | 7 | 0 | 13 |
+| Barra, filtros, paginação | 7 | 6 | 0 | 13 |
 | Tabela | 10 | 6 | 5 | 21 |
 | Estados e avisos | 3 | 0 | 3 | 6 |
 | Menus de botão direito | 10 | 0 | 4 | 14 |
-| Modais | 0 | 4 | 1 | 5 |
-| **Total** | **36** | **22** | **13** | **71** |
+| Modais | 1 | 3 | 1 | 5 |
+| **Total** | **38** | **20** | **13** | **71** |
 
 Antes da E8 (o mesmo inventário, sem as marcas da E8): ver `E8-PLANO.md`. Os ∅ seguem na lista com a dependência — nenhum foi descartado.

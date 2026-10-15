@@ -89,3 +89,13 @@ Pasta de teste com responsável e sem; um marcador com sub-marcadores (no dev: "
 
 **Não pode acontecer:** ação sem confirmação na exclusão; menu oferecer Trancar, Destacar, F2 ou Duplicar; mudança no que
 a tela grava fora do filtro "Sem responsável".
+
+### Smoke da E8b (15/10, +5 passos, ~5 min)
+
+| # | Faça | Esperado |
+|---|---|---|
+| S14 | Botão direito num marcador → Excluir marcador → **Cancelar** | Janela branca com faixa vermelha no topo, círculo rosado com ⚠, título e texto centralizados, "Cancelar" e "Excluir mesmo assim" no centro, sem X; sub-marcadores entre parênteses; nada excluído |
+| S15 | Preencha as duas datas do Período | Um bloco cinza só, "a" no meio, os dois calendários dentro do bloco |
+| S16 | Clique em "Todas as pastas", num marcador, num sub-marcador e de novo em "Todas" | Sempre um único item marcado (marcador: faixa azul e negrito; "Todas": fundo azul-claro, peso normal) |
+| S17 | Na Pasta (aba Processo), botão direito sobre o ⋮ do cabeçalho e sobre o ⋮ de um cartão | Abre o mesmo menu do clique, sob o ⋮; Esc fecha e devolve o foco |
+| S18 | No celular, toque num marcador raiz | Abre as pastas dele; o número some e aparecem "+" e lápis (regra de toque da E8, agora valendo também para a raiz) |
