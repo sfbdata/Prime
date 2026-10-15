@@ -64,9 +64,21 @@ final class ChavesDeTarefa
      */
     public static function temAnexoEnderecavel(TarefaMensagem $mensagem): bool
     {
-        $valor = $mensagem->getArquivoAnexo();
+        return self::nomeDoValorDaColuna($mensagem->getArquivoAnexo()) !== null;
+    }
 
-        return $valor !== null && preg_match(self::VALOR, $valor) === 1;
+    /**
+     * O `<nome>` de um valor da coluna, ou null quando o valor não está no formato endereçável.
+     * Público para quem lê a coluna sem a entidade (a reconciliação do espelho, por DBAL) — a mesma
+     * regra, sem cópia.
+     */
+    public static function nomeDoValorDaColuna(?string $valor): ?string
+    {
+        if ($valor === null || preg_match(self::VALOR, $valor, $partes) !== 1) {
+            return null;
+        }
+
+        return $partes[1];
     }
 
     /**
@@ -74,8 +86,8 @@ final class ChavesDeTarefa
      */
     public static function anexoDeMensagem(TarefaMensagem $mensagem): ChaveDeArquivo
     {
-        $valor = $mensagem->getArquivoAnexo();
-        if ($valor === null || preg_match(self::VALOR, $valor, $partes) !== 1) {
+        $nome = self::nomeDoValorDaColuna($mensagem->getArquivoAnexo());
+        if ($nome === null) {
             throw new ChaveDeArquivoInvalida(
                 'O anexo desta mensagem não está no formato /uploads/tarefas/chat/<nome>; não há chave a montar.',
             );
@@ -84,7 +96,7 @@ final class ChavesDeTarefa
         return new ChaveDeArquivo(
             self::escopoDe($mensagem->getTenant(), 'anexo de mensagem de tarefa'),
             CategoriaDeArquivo::TAREFA_ANEXO,
-            $partes[1],
+            $nome,
         );
     }
 

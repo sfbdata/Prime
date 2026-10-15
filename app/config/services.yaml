@@ -178,6 +178,26 @@ services:
             $debug: '%kernel.debug%'
             $ambiente: '%kernel.environment%'
 
+    # Espelho no R2 (P2.3, spec docs/specs/p2-gravacao-dupla.md §14). O armazenamento ativo é o
+    # decorador, por cima do disco local. Com ARMAZENAMENTO_ESPELHO_CATEGORIAS vazia — o padrão —
+    # ele é repasse puro: nenhuma linha na outbox, nenhuma chamada ao R2. Leitura é sempre do disco.
+    App\Shared\EspelhoRemoto\ArmazenamentoEspelhado:
+        arguments:
+            $interno: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+    App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
+    App\Shared\Armazenamento\MaterializadorDeArquivo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
+    App\Shared\Armazenamento\ArmazenamentoComPrefixo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
+    App\Shared\EspelhoRemoto\PoliticaDeEspelhamento:
+        arguments: ['%env(string:default::ARMAZENAMENTO_ESPELHO_CATEGORIAS)%']
+    # Só o worker e a reconciliação montam o cliente R2; sem estas variáveis eles recusam, e o resto
+    # da aplicação nem percebe. Valores só em variável de ambiente de produção, nunca no repositório.
+    App\Shared\EspelhoRemoto\FabricaDoEspelhoRemoto:
+        arguments:
+            $endpoint: '%env(string:default::ESPELHO_R2_ENDPOINT)%'
+            $bucket: '%env(string:default::ESPELHO_R2_BUCKET)%'
+            $chaveDeAcesso: '%env(string:default::ESPELHO_R2_CHAVE)%'
+            $segredo: '%env(string:default::ESPELHO_R2_SEGREDO)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 

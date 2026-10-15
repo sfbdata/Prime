@@ -15,9 +15,10 @@ use PHPUnit\Framework\TestCase;
  *  - **Nenhuma exclusão remota** (regra 0): o contrato não tem o verbo, e nenhum arquivo de `src/`
  *    chama exclusão do S3.
  *  - **O SDK fica no adaptador**: só `src/Shared/EspelhoRemoto/R2/` conhece o `async-aws`.
- *  - **Nada ligado na P2.2**: o espelho não tem consumidor nem configuração — quem o liga é a P2.3,
- *    com autorização própria. Este teste cai no dia em que alguém o ligar; quem ligar atualiza a
- *    lista e a spec juntos.
+ *  - **Ligado só pela configuração, e desligado por padrão (P2.3)**: nenhum arquivo de `src/` fora
+ *    do diretório do espelho o usa; a única ligação é o `services.yaml` (o decorador por cima do
+ *    disco) e o `doctrine.yaml` (a tabela da outbox). Credencial só como NOME de variável de
+ *    ambiente, dentro de `%env(...)%`, nunca valor.
  */
 #[CoversNothing]
 final class EspelhoRemotoArquiteturaTest extends TestCase
@@ -86,7 +87,7 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/\b(?:Symfony|Doctrine|AsyncAws|getenv|\$_(?:ENV|SERVER)|EntityManager|Connection)\b/', $codigo);
     }
 
-    #[TestDox('P2.2: o espelho não tem consumidor em src/ — a gravação dupla não está ligada')]
+    #[TestDox('o espelho não tem consumidor em src/ fora do próprio diretório — a ligação é só de configuração')]
     public function testEspelhoNaoEstaLigado(): void
     {
         $fora = array_filter(
@@ -94,23 +95,38 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
             static fn (string $arquivo): bool => !str_starts_with($arquivo, self::DIRETORIO_DO_ESPELHO),
         );
 
-        self::assertSame([], array_values($fora), 'ligar o espelho é a P2.3, com autorização própria');
+        self::assertSame([], array_values($fora), 'a ligação do espelho é só pela configuração (services.yaml)');
     }
 
-    #[TestDox('P2.2: nenhuma configuração liga o espelho nem declara credencial do R2')]
-    public function testNadaNaConfiguracao(): void
+    #[TestDox('configuração: o espelho só aparece no services.yaml e no doctrine.yaml, e nenhum valor de R2 fica no repositório')]
+    public function testConfiguracaoSoNosLugaresCertos(): void
     {
         $raiz    = \dirname(__DIR__, 2);
         $achados = [];
 
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($raiz . '/config', \FilesystemIterator::SKIP_DOTS)) as $arquivo) {
             /** @var \SplFileInfo $arquivo */
-            if (preg_match('/EspelhoRemoto|ClienteR2|AsyncAws|\bR2_[A-Z_]+|r2\.cloudflarestorage/i', (string) file_get_contents($arquivo->getPathname())) === 1) {
+            $conteudo = (string) file_get_contents($arquivo->getPathname());
+            if (preg_match('/EspelhoRemoto|ClienteR2|AsyncAws|ESPELHO_R2_|r2\.cloudflarestorage/i', $conteudo) === 1) {
                 $achados[] = substr($arquivo->getPathname(), \strlen($raiz) + 1);
             }
+            self::assertDoesNotMatchRegularExpression('/r2\.cloudflarestorage\.com|bluejus-(?:arquivos|backup-uploads)/i', $conteudo, 'endpoint e bucket reais são de variável de ambiente');
         }
+        sort($achados);
 
-        self::assertSame([], $achados);
+        self::assertSame(['config/packages/doctrine.yaml', 'config/services.yaml'], $achados);
+    }
+
+    #[TestDox('as variáveis ESPELHO_R2_* só aparecem como nome dentro de %env(...)%, com padrão vazio')]
+    public function testCredencialSoComoVariavelDeAmbiente(): void
+    {
+        $servicos = (string) file_get_contents(\dirname(__DIR__, 2) . '/config/services.yaml');
+        preg_match_all('/ESPELHO_R2_[A-Z_]+/', $servicos, $todas);
+        preg_match_all('/%env\(string:default::(ESPELHO_R2_[A-Z_]+)\)%/', $servicos, $comoEnv);
+
+        self::assertCount(4, $comoEnv[1], 'endpoint, bucket, chave e segredo');
+        self::assertSame(\count($todas[0]), \count($comoEnv[1]), 'toda menção é leitura de variável de ambiente');
+        self::assertMatchesRegularExpression('/%env\(string:default::ARMAZENAMENTO_ESPELHO_CATEGORIAS\)%/', $servicos, 'a política vem de variável vazia por padrão');
     }
 
     /** @return list<string> */

@@ -80,6 +80,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Djen/Command/SincronizarDjenCommand.php'              => 'lock file do DJEN',
         'src/Sync/Command/BackfillPastasCommand.php'               => 'lock/arquivo do operador',
         'src/Sync/Command/ReconciliarCommand.php'                  => 'lock file do sync',
+        'src/Shared/EspelhoRemoto/Command/ReconciliarEspelhoCommand.php' => 'grava o relatório JSON pedido em --saida (P2.3)',
     ];
 
     /** Os oito diretórios de upload e os binds: só o resolvedor os conhece. */

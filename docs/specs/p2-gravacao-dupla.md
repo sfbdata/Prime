@@ -501,6 +501,33 @@ idempotente (HEAD confere antes).
 categoria, tenant e o resumo do erro com a chave substituída por `<chave #id>`. O cliente S3 recebe
 `NullLogger` (o log do `async-aws` carrega a URL).
 
+**Implementado (15/10/2026, só local):**
+- migration aditiva `Version20261015180000` (tabela `armazenamento_replicacao` + 2 índices), gerada
+  pelo `--dump-sql` com o `DROP INDEX uniq_cobranca_obrigacao_ref_competencia` (índice funcional único,
+  divergência antiga) deixado de fora; aplicada SÓ no banco da frente;
+- fiação no `services.yaml`: as três interfaces do armazenamento apontam para o decorador, que envolve
+  o `ArmazenamentoLocal`; política e credenciais por `%env(string:default::…)%`, vazias por padrão;
+  mapeamento da entidade no `doctrine.yaml`;
+- todas as datas da outbox em **UTC** (a revisão por mutação mostrou que um teste de fuso mal escrito
+  passaria sem a normalização; reescrito, ele cai);
+- a outbox é **isenta do `TenantFilter`** (`TenantAwareCoberturaTest`, teto 8 → 9): lida só pelo worker e
+  por comandos, por DBAL, sem rota — decisão a ratificar;
+- comandos `armazenamento:replicar-espelho [--limite]` e `armazenamento:reconciliar-espelho [--sem-sha]
+  [--limite] [--saida]` — sem `ESPELHO_R2_*` configurado, ambos recusam com falha.
+
+**Para o dono, antes de qualquer deploy com esta frente:**
+1. aplicar a migration em produção ANTES ou JUNTO do deploy. Com a política vazia o decorador não
+   toca a tabela, então a ordem não quebra nada — mas a P2.5 exige a tabela;
+2. no dev compartilhado, depois do merge: `doctrine:migrations:execute --up
+   "DoctrineMigrations\Version20261015180000"` no `saas_test` (env=test) e no `saas_ux`, como manda a
+   lição de 14/09 — eu não toquei bancos compartilhados;
+3. NÃO definir `ARMAZENAMENTO_ESPELHO_CATEGORIAS` nem `ESPELHO_R2_*` em produção até a P2.4/P2.5.
+
+**Limites honestos dos testes:** concorrência entre PROCESSOS (dois workers em conexões diferentes) não
+cabe no rollback por teste do DAMA — o que se prova é a regra (uma chave por vez; a mais nova supera),
+que a trava consultiva + `SKIP LOCKED` aplicam; a reconciliação não cobre imagens do editor (sem linha
+no banco); o custo do SHA da reconciliação sobre 26 GB não foi medido.
+
 ## 15. Fora de escopo da P2 inteira
 
 Leitura pelo R2 · URL pré-assinada · `X-Accel-Redirect` · coluna `storage_backend`/`storage_key` ·

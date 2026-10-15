@@ -35,6 +35,9 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      */
     private const QUEM_ESCREVE_CRU = [
         'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
+        // P2.3: grava o RELATÓRIO da reconciliação (JSON de contagens, ids e classes) no caminho que
+        // o operador pediu com `--saida` — não é arquivo do usuário nem passa pelo armazenamento.
+        'src/Shared/EspelhoRemoto/Command/ReconciliarEspelhoCommand.php',
     ];
 
     /**

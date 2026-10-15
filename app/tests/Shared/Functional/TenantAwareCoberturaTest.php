@@ -26,6 +26,7 @@ use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\TenantAware;
+use App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo;
 use App\Termo\Entity\AceiteTermo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -78,6 +79,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Medido em 12/08/2026: 13 linhas para 13 usuários distintos — o perfil é do USUÁRIO,
         // não do escritório. Quem atua em dois escritórios tem um perfil só.
         UserProfile::class,
+
+        // Outbox da réplica do espelho (P2.3, docs/specs/p2-gravacao-dupla.md §14). Infraestrutura:
+        // lida e escrita SÓ pelo worker e pelos comandos de operador, por DBAL (que o TenantFilter
+        // nem alcança), sem escritório na sessão e sem rota HTTP. O tenant de cada linha está em
+        // `escopo_tenant_id`; filtrar aqui faria o worker não ver a fila.
+        ReplicacaoDeArquivo::class,
     ];
 
     /**
@@ -89,7 +96,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * aí é decisão visível em vez de descuido.
      */
     private const MAX_PENDENTE = 14;
-    private const MAX_FORA_DO_ESCOPO = 8;
+    private const MAX_FORA_DO_ESCOPO = 9;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

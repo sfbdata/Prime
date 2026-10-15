@@ -104,6 +104,9 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
         // documento entra EMPRESTADO (`paraLeitura`, cópia zero) e o empréstimo vive até o
         // `close()`. Nada é apagado nem reescrito; o .zip nasce numa área temporária própria.
         'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php',
+        // O decorador da gravação dupla (P2.3) É um armazenamento: só repassa ao disco local, que é
+        // quem materializa. Não pede caminho para si — repassa o pedido de quem chamou.
+        'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php',
         'src/Shared/Http/EntregaDeArquivo.php',
         'src/Shared/Service/CompressaoDeArquivoArmazenado.php',
         'src/Sync/Service/ReconciliadorDePasta.php',
