@@ -48,7 +48,9 @@ final class AvisoDeMencaoNaCentral
         }
 
         $url = $this->urlDa($conversa);
-        $titulo = sprintf('%s mencionou você na Central de Comunicação', self::primeiroNome($autor));
+        $titulo = $conversa->isGrupo()
+            ? mb_substr(sprintf('%s mencionou você no grupo %s', PrimeiroNome::de($autor), (string) $conversa->getNome()), 0, 255)
+            : sprintf('%s mencionou você na Central de Comunicação', PrimeiroNome::de($autor));
 
         usort($mencionados, static fn (User $a, User $b): int => (int) $a->getId() <=> (int) $b->getId());
         foreach ($mencionados as $pessoa) {
@@ -68,21 +70,19 @@ final class AvisoDeMencaoNaCentral
         }
     }
 
-    /** As menções não lidas de `$leitor` nesta conversa viram lidas — quem leu a conversa já viu a menção. */
+    /**
+     * Os avisos não lidos de `$leitor` sobre esta conversa viram lidos — quem leu a conversa já viu a menção (e, no
+     * grupo, já sabe que foi adicionado).
+     */
     public function marcarComoLidas(Conversa $conversa, User $leitor, Tenant $tenant): void
     {
-        $this->repositorio->marcarComoLidasPelaUrl($leitor, $tenant, Notificacao::TIPO_CENTRAL_MENCAO, $this->urlDa($conversa));
+        foreach ([Notificacao::TIPO_CENTRAL_MENCAO, Notificacao::TIPO_CENTRAL_GRUPO_ADICIONADO] as $tipo) {
+            $this->repositorio->marcarComoLidasPelaUrl($leitor, $tenant, $tipo, $this->urlDa($conversa));
+        }
     }
 
     private function urlDa(Conversa $conversa): string
     {
         return $this->urls->generate('central_index', ['conversa' => $conversa->getId()]);
-    }
-
-    private static function primeiroNome(User $autor): string
-    {
-        $nome = trim((string) $autor->getFullName());
-
-        return $nome === '' ? 'Um colega' : explode(' ', $nome)[0];
     }
 }

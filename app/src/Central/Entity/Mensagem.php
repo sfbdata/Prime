@@ -23,6 +23,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'central_mensagem')]
 #[ORM\Index(name: 'idx_central_mensagem_tenant', columns: ['tenant_id'])]
 #[ORM\Index(name: 'idx_central_mensagem_conversa_id', columns: ['conversa_id', 'id'])]
+#[ORM\Index(name: 'idx_central_mensagem_tenant_criada', columns: ['tenant_id', 'criada_em'])]
 class Mensagem implements TenantAware
 {
     /** Teto do texto VISÍVEL: a menção conta como `@Nome`, não como o token gravado (A2, spec §2). */
@@ -38,6 +39,13 @@ class Mensagem implements TenantAware
 
     #[ORM\Column(type: 'text')]
     private string $conteudo;
+
+    /**
+     * Mensagem de sistema do grupo (B): "Ana adicionou Bruno". O texto é montado pelo servidor, o autor é quem fez;
+     * não conta como não lida, não pode ser respondida e não menciona ninguém.
+     */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $sistema = false;
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
@@ -68,6 +76,19 @@ class Mensagem implements TenantAware
         }
 
         $this->conteudo = $conteudo;
+    }
+
+    public static function deSistema(Tenant $tenant, Conversa $conversa, User $autor, string $texto, \DateTimeImmutable $em): self
+    {
+        $mensagem = new self($tenant, $conversa, $autor, $texto, $em);
+        $mensagem->sistema = true;
+
+        return $mensagem;
+    }
+
+    public function isSistema(): bool
+    {
+        return $this->sistema;
     }
 
     /**

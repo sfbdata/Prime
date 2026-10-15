@@ -47,16 +47,21 @@ final class EnviarMensagemUseCase
     public function executar(User $eu, ?Tenant $tenant, int $conversaId, string $conteudo, ?int $respostaAId = null): MensagemOutput
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
-        $conversa = $this->acesso->participacao($conversaId, $eu, $tenant)->getConversa();
+        $participacao = $this->acesso->participacao($conversaId, $eu, $tenant);
+        $conversa = $participacao->getConversa();
 
-        if (!$this->acesso->temVinculoAtivo($conversa->outroAlemDe($eu), $tenant)) {
+        // Individual: o par é fixo, e falar com quem saiu do escritório não leva a lugar nenhum. Grupo (B): segue
+        // valendo para quem ficou — quem saiu do escritório só deixa de ler.
+        if (!$conversa->isGrupo() && !$this->acesso->temVinculoAtivo($conversa->outroAlemDe($eu), $tenant)) {
             throw new PedidoInvalidoNaCentralException('Este colega não faz mais parte do escritório.');
         }
 
         $respostaA = null;
         if ($respostaAId !== null) {
-            $respostaA = $this->mensagens->daConversa($respostaAId, $conversa, $tenant)
-                ?? throw new PedidoInvalidoNaCentralException('A mensagem respondida não está nesta conversa.');
+            $respostaA = $this->mensagens->daConversa($respostaAId, $conversa, $tenant);
+            if ($respostaA === null || $respostaA->isSistema()) {
+                throw new PedidoInvalidoNaCentralException('A mensagem respondida não está nesta conversa.');
+            }
         }
 
         // Sem token no texto não há o que conferir — nem a consulta de quem é mencionável.
@@ -72,7 +77,8 @@ final class EnviarMensagemUseCase
 
         // Uma transação explícita: a trava de cada mencionado (dentro do aviso) só segura até o commit, e a
         // mensagem e os avisos entram juntos ou não entram.
-        $this->entityManager->wrapInTransaction(function () use ($conversa, $agora, $mensagem, $eu, $tenant, $resolvidas): void {
+        $this->entityManager->wrapInTransaction(function () use ($conversa, $participacao, $agora, $mensagem, $eu, $tenant, $resolvidas): void {
+            $participacao->arquivar(false);   // desenho L382: quem envia desarquiva a conversa — só para si
             $conversa->registrarMensagem($agora);
             $this->mensagens->salvar($mensagem);
             $this->aviso->avisar($conversa, $eu, $tenant, $resolvidas->mencionados);

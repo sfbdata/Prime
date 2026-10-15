@@ -22,6 +22,7 @@ final class MensagemOutput
         public readonly string $criadaEm,
         public readonly bool $minha,
         public readonly ?RespostaOutput $respostaA,
+        public readonly bool $sistema,
     ) {
     }
 
@@ -38,6 +39,7 @@ final class MensagemOutput
             criadaEm: $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
             minha: $autor->getId() === $eu->getId(),
             respostaA: $mensagem->getRespostaA() !== null ? RespostaOutput::fromEntity($mensagem->getRespostaA(), $eu) : null,
+            sistema: $mensagem->isSistema(),
         );
     }
 }

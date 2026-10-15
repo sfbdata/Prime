@@ -40,6 +40,23 @@ class Participante implements TenantAware
     #[ORM\Column(name: 'marcada_nao_lida', type: 'boolean', options: ['default' => false])]
     private bool $marcadaNaoLida = false;
 
+    /**
+     * Saiu ou foi removido do grupo (B). Participação inativa não lê nada — toda consulta da Central filtra
+     * `saiu_em IS NULL`. Readmitido, a mesma linha volta (o único `(conversa, usuario)` não deixa duplicar).
+     */
+    #[ORM\Column(name: 'saiu_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $saiuEm = null;
+
+    /** Preferências SÓ deste participante (B): não mexem na de ninguém. */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $fixada = false;
+
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $silenciada = false;
+
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $arquivada = false;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
@@ -61,6 +78,62 @@ class Participante implements TenantAware
         if ($mensagemId > $this->ultimaLidaId) {
             $this->ultimaLidaId = $mensagemId;
         }
+    }
+
+    public function sair(\DateTimeImmutable $em): void
+    {
+        $this->saiuEm = $em;
+    }
+
+    /**
+     * Volta ao grupo. O histórico anterior fica visível, mas não chega como não lido: o cursor vai até a última
+     * mensagem que já existe (e, como sempre, nunca recua).
+     */
+    public function voltar(\DateTimeImmutable $em, int $ultimaMensagemId): void
+    {
+        $this->saiuEm = null;
+        $this->entrouEm = $em;
+        $this->marcarLidaAte($ultimaMensagemId);
+    }
+
+    public function isAtivo(): bool
+    {
+        return $this->saiuEm === null;
+    }
+
+    public function getSaiuEm(): ?\DateTimeImmutable
+    {
+        return $this->saiuEm;
+    }
+
+    public function fixar(bool $fixada): void
+    {
+        $this->fixada = $fixada;
+    }
+
+    public function silenciar(bool $silenciada): void
+    {
+        $this->silenciada = $silenciada;
+    }
+
+    public function arquivar(bool $arquivada): void
+    {
+        $this->arquivada = $arquivada;
+    }
+
+    public function isFixada(): bool
+    {
+        return $this->fixada;
+    }
+
+    public function isSilenciada(): bool
+    {
+        return $this->silenciada;
+    }
+
+    public function isArquivada(): bool
+    {
+        return $this->arquivada;
     }
 
     public function marcarComoNaoLida(): void

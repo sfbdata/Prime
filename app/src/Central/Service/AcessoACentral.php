@@ -56,12 +56,22 @@ final class AcessoACentral
      */
     public function idsComVinculoAtivo(Tenant $tenant): array
     {
-        $ids = [];
+        return array_map(static fn (): bool => true, $this->colaboradoresAtivos($tenant));
+    }
+
+    /**
+     * Quem tem vínculo ativo no escritório, por id — o universo de quem pode entrar num grupo (B).
+     *
+     * @return array<int, User>
+     */
+    public function colaboradoresAtivos(Tenant $tenant): array
+    {
+        $porId = [];
         foreach ($this->usuarios->findColaboradoresAtivosPorTenant($tenant) as $colega) {
-            $ids[(int) $colega->getId()] = true;
+            $porId[(int) $colega->getId()] = $colega;
         }
 
-        return $ids;
+        return $porId;
     }
 
     /**

@@ -6,8 +6,17 @@ namespace App\Central\Controller;
 
 use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
 use App\Central\Exception\ConversaNaoEncontradaException;
+use App\Central\Exception\ParticipacaoAlteradaAoMesmoTempoException;
 use App\Central\Exception\PedidoInvalidoNaCentralException;
 use App\Central\Exception\SemAcessoACentralException;
+use App\Central\Exception\SemPermissaoNoGrupoException;
+use App\Central\UseCase\AdicionarParticipanteUseCase;
+use App\Central\UseCase\CriarGrupoUseCase;
+use App\Central\UseCase\DefinirPreferenciasDaConversaUseCase;
+use App\Central\UseCase\ListarParticipantesUseCase;
+use App\Central\UseCase\RemoverParticipanteUseCase;
+use App\Central\UseCase\RenomearGrupoUseCase;
+use App\Central\UseCase\SairDoGrupoUseCase;
 use App\Central\UseCase\AbrirConversaUseCase;
 use App\Central\UseCase\EnviarMensagemUseCase;
 use App\Central\UseCase\ListarContatosDaCentralUseCase;
@@ -27,7 +36,8 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Central de Comunicação A1 — conversas 1:1 persistidas (`docs/specs/central-comunicacao-a1.md`) — e A2: @menção,
- * responder, marcar como não lida (`docs/specs/central-comunicacao-a2.md`).
+ * responder, marcar como não lida (`docs/specs/central-comunicacao-a2.md`) — e B: grupos e preferências individuais
+ * (`docs/specs/central-comunicacao-b.md`).
  *
  * Toda a regra de acesso mora nos UseCases (vínculo ativo + participação); aqui só HTTP: ler o pedido,
  * chamar, traduzir a exceção de domínio no status. Escrita exige o token CSRF `ajax` no cabeçalho
@@ -51,6 +61,13 @@ final class CentralController extends AbstractController
         private readonly MarcarConversaComoLidaUseCase $marcarComoLida,
         private readonly ObterNovidadesDaCentralUseCase $obterNovidades,
         private readonly MarcarConversaComoNaoLidaUseCase $marcarComoNaoLida,
+        private readonly CriarGrupoUseCase $criarGrupo,
+        private readonly ListarParticipantesUseCase $listarParticipantes,
+        private readonly AdicionarParticipanteUseCase $adicionarParticipante,
+        private readonly RemoverParticipanteUseCase $removerParticipante,
+        private readonly SairDoGrupoUseCase $sairDoGrupo,
+        private readonly RenomearGrupoUseCase $renomearGrupo,
+        private readonly DefinirPreferenciasDaConversaUseCase $definirPreferencias,
     ) {
     }
 
@@ -143,6 +160,98 @@ final class CentralController extends AbstractController
         });
     }
 
+    #[Route('/grupos', name: 'central_grupo_criar', methods: ['POST'])]
+    public function criarGrupo(Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+        $corpo = $this->corpo($request);
+        $nome = $corpo['nome'] ?? null;
+        $ids = $corpo['participantes'] ?? null;
+        if (!is_string($nome) || !is_array($ids) || count($ids) > 200) {
+            return $this->json(['erro' => 'Pedido inválido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        // Id torto (texto, negativo, acima do int do banco) vira 0, que o UseCase descarta — nunca chega ao banco.
+        $ids = array_values(array_map(static fn (mixed $id): int => is_int($id) && $id > 0 && $id <= self::MAIOR_ID ? $id : 0, $ids));
+
+        return $this->responder(
+            fn () => ['grupo' => $this->criarGrupo->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $nome, $ids)],
+            Response::HTTP_CREATED,
+        );
+    }
+
+    #[Route('/conversas/{id}/participantes', name: 'central_participantes', requirements: ['id' => '\d{1,9}'], methods: ['GET'])]
+    public function participantes(int $id): JsonResponse
+    {
+        return $this->responder(fn () => $this->listarParticipantes->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id));
+    }
+
+    #[Route('/conversas/{id}/participantes', name: 'central_participante_adicionar', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function adicionarParticipante(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+        $usuarioId = $this->inteiroDoCorpo($request, 'usuarioId');
+
+        return $this->responder(
+            fn () => ['participante' => $this->adicionarParticipante->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, $usuarioId)],
+            Response::HTTP_CREATED,
+        );
+    }
+
+    #[Route('/conversas/{id}/participantes/{usuarioId}', name: 'central_participante_remover', requirements: ['id' => '\d{1,9}', 'usuarioId' => '\d{1,9}'], methods: ['DELETE'])]
+    public function removerParticipante(int $id, int $usuarioId, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id, $usuarioId): array {
+            $this->removerParticipante->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, $usuarioId);
+
+            return ['removido' => $usuarioId];
+        });
+    }
+
+    #[Route('/conversas/{id}/sair', name: 'central_grupo_sair', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function sair(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->sairDoGrupo->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id);
+
+            return ['saiu' => true];
+        });
+    }
+
+    #[Route('/conversas/{id}/renomear', name: 'central_grupo_renomear', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function renomear(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+        $nome = $this->corpo($request)['nome'] ?? null;
+        if (!is_string($nome)) {
+            return $this->json(['erro' => 'Nome inválido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->responder(fn () => ['grupo' => $this->renomearGrupo->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, $nome)]);
+    }
+
+    #[Route('/conversas/{id}/preferencias', name: 'central_preferencias', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function preferencias(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+        $corpo = $this->corpo($request);
+        $valor = static function (string $chave) use ($corpo): ?bool {
+            return isset($corpo[$chave]) && is_bool($corpo[$chave]) ? $corpo[$chave] : null;
+        };
+
+        return $this->responder(fn () => ['preferencias' => $this->definirPreferencias->executar(
+            $this->usuario(),
+            $this->tenantContext->getCurrentTenant(),
+            $id,
+            $valor('fixada'),
+            $valor('silenciada'),
+            $valor('arquivada'),
+        )]);
+    }
+
     #[Route('/novidades', name: 'central_novidades', methods: ['GET'])]
     public function novidades(Request $request): JsonResponse
     {
@@ -164,7 +273,10 @@ final class CentralController extends AbstractController
             return $this->json(['erro' => 'Conversa não encontrada.'], Response::HTTP_NOT_FOUND);
         } catch (PedidoInvalidoNaCentralException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
-        } catch (ConversaCriadaAoMesmoTempoException $e) {
+        } catch (SemPermissaoNoGrupoException $e) {
+            // 403 de regra do grupo, não de sessão: o `codigo` diz à tela para não tratar como "sessão encerrada".
+            return $this->json(['erro' => $e->getMessage(), 'codigo' => 'sem_permissao_no_grupo'], Response::HTTP_FORBIDDEN);
+        } catch (ConversaCriadaAoMesmoTempoException|ParticipacaoAlteradaAoMesmoTempoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_CONFLICT);
         }
     }

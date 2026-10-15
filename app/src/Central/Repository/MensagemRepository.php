@@ -84,18 +84,20 @@ class MensagemRepository extends ServiceEntityRepository
     }
 
     /**
-     * Não lidas do usuário por conversa: mensagens de OUTRA pessoa acima do cursor de leitura dele. A
-     * própria mensagem nunca conta — por isso enviar não precisa mexer no cursor.
+     * Não lidas do usuário por conversa: mensagens de OUTRA pessoa acima do cursor de leitura dele, nas conversas
+     * de que participa ATIVAMENTE. A própria mensagem nunca conta (por isso enviar não precisa mexer no cursor), nem
+     * a de sistema do grupo (B). `$semSilenciadas` = para o total do cabeçalho: conversa silenciada fica de fora.
      *
      * @return array<int, int> id da conversa → quantidade (só as que têm alguma)
      */
-    public function naoLidasPorConversa(User $usuario, Tenant $tenant): array
+    public function naoLidasPorConversa(User $usuario, Tenant $tenant, bool $semSilenciadas = false): array
     {
         $linhas = $this->getEntityManager()->createQuery(
             'SELECT IDENTITY(m.conversa) AS conversa, COUNT(m.id) AS total
              FROM ' . Mensagem::class . ' m
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
-             WHERE m.tenant = :tenant AND m.autor <> :usuario AND m.id > p.ultimaLidaId
+                AND p.saiuEm IS NULL' . ($semSilenciadas ? ' AND p.silenciada = false' : '') . '
+             WHERE m.tenant = :tenant AND m.autor <> :usuario AND m.sistema = false AND m.id > p.ultimaLidaId
              GROUP BY m.conversa'
         )
             ->setParameter('usuario', $usuario)
@@ -111,12 +113,16 @@ class MensagemRepository extends ServiceEntityRepository
     }
 
     /**
-     * Mensagens novas (id acima do cursor) nas conversas de que o usuário participa, em ordem — o que o
-     * polling entrega. Conversa de que ele não participa nunca entra, mesmo no mesmo escritório.
+     * Mensagens novas nas conversas de que o usuário participa ATIVAMENTE, em ordem — o que o polling entrega.
+     * Conversa de que ele não participa (ou de que saiu) nunca entra, mesmo no mesmo escritório.
+     *
+     * "Nova" = id acima do cursor **ou** criada a partir de `$janela` (B, spec §6): o id é reservado no INSERT e pode
+     * ser confirmado fora de ordem (a 100 depois da 101); só o cursor perderia a 100. A janela repete as recentes e a
+     * tela descarta as que já viu.
      *
      * @return list<Mensagem>
      */
-    public function novidades(User $usuario, Tenant $tenant, int $desde, int $limite): array
+    public function novidades(User $usuario, Tenant $tenant, int $desde, int $limite, ?\DateTimeImmutable $janela = null): array
     {
         /** @var list<Mensagem> $mensagens */
         $mensagens = $this->getEntityManager()->createQuery(
@@ -125,12 +131,14 @@ class MensagemRepository extends ServiceEntityRepository
              LEFT JOIN m.respostaA r
              LEFT JOIN r.autor ra
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
-             WHERE m.tenant = :tenant AND m.id > :desde
+                AND p.saiuEm IS NULL
+             WHERE m.tenant = :tenant AND (m.id > :desde OR m.criadaEm >= :janela)
              ORDER BY m.id ASC'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
             ->setParameter('desde', $desde)
+            ->setParameter('janela', $janela ?? new \DateTimeImmutable('9999-12-31'))
             ->setMaxResults($limite)
             ->getResult();
 
@@ -143,6 +151,7 @@ class MensagemRepository extends ServiceEntityRepository
         return (int) $this->getEntityManager()->createQuery(
             'SELECT MAX(m.id) FROM ' . Mensagem::class . ' m
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
+                AND p.saiuEm IS NULL
              WHERE m.tenant = :tenant'
         )
             ->setParameter('usuario', $usuario)

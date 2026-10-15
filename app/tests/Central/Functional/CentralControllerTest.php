@@ -239,7 +239,10 @@ final class CentralControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $bruno, $tenant);
         $client->request('GET', '/central/novidades?desde=' . $inicio['cursor']);
         $corpo = $this->json($client);
-        self::assertSame([$nova], array_column($corpo['mensagens'], 'id'));
+        // B (spec §6): a janela de 30 s repete as recentes (aqui, a "antiga" também) — a tela descarta as já vistas.
+        $ids = array_column($corpo['mensagens'], 'id');
+        self::assertContains($nova, $ids);
+        self::assertSame($nova, max($ids));
         self::assertSame($nova, $corpo['cursor']);
         self::assertSame(2, $corpo['naoLidas']);
         self::assertTrue($corpo['completo']);

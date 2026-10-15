@@ -12,6 +12,7 @@ use App\Central\Repository\MensagemRepository;
 use App\Central\Service\AcessoACentral;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use Psr\Clock\ClockInterface;
 
 /**
  * O polling da Central (D2): as mensagens acima do cursor nas conversas de quem pede, mais o total de não
@@ -26,9 +27,13 @@ final class ObterNovidadesDaCentralUseCase
 {
     public const TETO = 200;
 
+    /** Janela de sobreposição do polling (B, spec §6): repete as mensagens dos últimos 30 s; a tela descarta as vistas. */
+    public const JANELA_SEGUNDOS = 30;
+
     public function __construct(
         private readonly AcessoACentral $acesso,
         private readonly MensagemRepository $mensagens,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -36,13 +41,15 @@ final class ObterNovidadesDaCentralUseCase
     public function executar(User $eu, ?Tenant $tenant, ?int $desde): NovidadesOutput
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
-        $naoLidas = array_sum($this->mensagens->naoLidasPorConversa($eu, $tenant));
+        // O total do cabeçalho deixa de fora as conversas silenciadas (B, spec §4); a conversa segue com as dela.
+        $naoLidas = array_sum($this->mensagens->naoLidasPorConversa($eu, $tenant, semSilenciadas: true));
 
         if ($desde === null) {
             return new NovidadesOutput([], $this->mensagens->ultimoIdVisivelPara($eu, $tenant), $naoLidas, true);
         }
 
-        $novas = $this->mensagens->novidades($eu, $tenant, $desde, self::TETO);
+        $janela = $this->clock->now()->modify(sprintf('-%d seconds', self::JANELA_SEGUNDOS));
+        $novas = $this->mensagens->novidades($eu, $tenant, $desde, self::TETO, $janela);
 
         $cursor = $desde;
         foreach ($novas as $mensagem) {

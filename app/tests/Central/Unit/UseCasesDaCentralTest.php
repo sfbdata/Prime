@@ -273,7 +273,7 @@ final class UseCasesDaCentralTest extends TestCase
         $mensagens->method('ultimoIdVisivelPara')->willReturn(77);
         $mensagens->method('naoLidasPorConversa')->willReturn([3 => 2, 5 => 1]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens))
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio()))
             ->executar($this->usuario(1), new Tenant(), null);
 
         self::assertSame([], $saida->mensagens);
@@ -287,11 +287,11 @@ final class UseCasesDaCentralTest extends TestCase
         $tenant = new Tenant();
         $eu = $this->usuario(1);
         $mensagens = $this->createMock(MensagemRepository::class);
-        $mensagens->expects(self::once())->method('novidades')->with($eu, $tenant, 0, ObterNovidadesDaCentralUseCase::TETO)->willReturn([]);
+        $mensagens->expects(self::once())->method('novidades')->with($eu, $tenant, 0, ObterNovidadesDaCentralUseCase::TETO, new \DateTimeImmutable('2026-10-14 09:59:30'))->willReturn([]);
         $mensagens->expects(self::never())->method('ultimoIdVisivelPara');
         $mensagens->method('naoLidasPorConversa')->willReturn([]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens))->executar($eu, $tenant, 0);
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio()))->executar($eu, $tenant, 0);
 
         self::assertSame(0, $saida->cursor);
         self::assertTrue($saida->completo);

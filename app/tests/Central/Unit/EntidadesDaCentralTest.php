@@ -125,4 +125,63 @@ final class EntidadesDaCentralTest extends TestCase
         $this->expectException(\DomainException::class);
         new Mensagem($tenant, $esta, $um, 'resposta', new \DateTimeImmutable(), $alheia);
     }
+
+    #[TestDox('Grupo (B): nome aparado e de 1 a 60; quem cria administra; não tem "o outro"; individual não tem nome nem administrador')]
+    public function testGrupo(): void
+    {
+        $tenant = new Tenant();
+        [$ana, $bruno] = [$this->usuario(1), $this->usuario(2)];
+        $grupo = Conversa::grupo($tenant, $ana, "  Equipe \n Cível ", new \DateTimeImmutable());
+
+        self::assertTrue($grupo->isGrupo());
+        self::assertSame('Equipe Cível', $grupo->getNome());
+        self::assertTrue($grupo->isAdministradaPor($ana));
+        self::assertFalse($grupo->isAdministradaPor($bruno));
+        $grupo->passarAdministracaoPara($bruno);
+        self::assertTrue($grupo->isAdministradaPor($bruno));
+
+        foreach (['   ', str_repeat('x', 61)] as $invalido) {
+            try {
+                $grupo->renomear($invalido);
+                self::fail('nome inválido aceito: ' . $invalido);
+            } catch (\DomainException) {
+                self::assertSame('Equipe Cível', $grupo->getNome());
+            }
+        }
+
+        $individual = Conversa::individual($tenant, $ana, $bruno, new \DateTimeImmutable());
+        self::assertFalse($individual->isAdministradaPor($ana));
+        try {
+            $individual->renomear('X');
+            self::fail('individual não tem nome');
+        } catch (\DomainException) {
+            self::assertNull($individual->getNome());
+        }
+
+        $this->expectException(\LogicException::class);
+        $grupo->outroAlemDe($ana);
+    }
+
+    #[TestDox('Participante (B): sair desativa; voltar reativa sem o cursor recuar; preferências são da própria linha')]
+    public function testParticipanteSaiEVolta(): void
+    {
+        $tenant = new Tenant();
+        $ana = $this->usuario(1);
+        $grupo = Conversa::grupo($tenant, $ana, 'G', new \DateTimeImmutable());
+        $p = new Participante($tenant, $grupo, $ana, new \DateTimeImmutable('2026-10-01'));
+        $p->marcarLidaAte(50);
+
+        $p->sair(new \DateTimeImmutable());
+        self::assertFalse($p->isAtivo());
+
+        $p->voltar(new \DateTimeImmutable('2026-10-15'), 30);
+        self::assertTrue($p->isAtivo());
+        self::assertSame(50, $p->getUltimaLidaId(), 'o cursor nunca recua');
+        self::assertEquals(new \DateTimeImmutable('2026-10-15'), $p->getEntrouEm());
+
+        $p->fixar(true);
+        $p->silenciar(true);
+        $p->arquivar(true);
+        self::assertTrue($p->isFixada() && $p->isSilenciada() && $p->isArquivada());
+    }
 }

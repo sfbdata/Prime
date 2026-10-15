@@ -19,6 +19,8 @@ use App\Entity\Tenant\Tenant;
  * Quatro consultas para a lista inteira (participações, últimas, contagem, quem segue no escritório), nenhuma
  * por conversa.
  * `outroAtivo = false` quando o colega saiu do escritório: a conversa segue legível, sem envio.
+ * B: grupos entram na mesma lista (participação ativa), fixadas primeiro; as arquivadas vêm marcadas e a tela decide
+ * mostrar ou não ("Ver conversas arquivadas").
  */
 final class ListarConversasUseCase
 {
@@ -43,19 +45,27 @@ final class ListarConversasUseCase
         $ultimas = $this->mensagens->ultimaDeCada($ids, $tenant);
         $naoLidas = $this->mensagens->naoLidasPorConversa($eu, $tenant);
         $ativos = $this->acesso->idsComVinculoAtivo($tenant);
+        $pessoasPorConversa = $this->participantes->ativosPorConversa($ids, $tenant);
 
         $lista = [];
         foreach ($participacoes as $participacao) {
             $conversa = $participacao->getConversa();
             $id = (int) $conversa->getId();
-            $outro = $conversa->outroAlemDe($eu);
+            $outro = $conversa->isGrupo() ? null : $conversa->outroAlemDe($eu);
             $lista[] = new ConversaResumoOutput(
                 id: $id,
-                outro: new ContatoOutput((int) $outro->getId(), (string) $outro->getFullName()),
+                outro: $outro !== null ? new ContatoOutput((int) $outro->getId(), (string) $outro->getFullName()) : null,
                 ultima: isset($ultimas[$id]) ? MensagemOutput::fromEntity($ultimas[$id], $eu) : null,
                 naoLidas: $naoLidas[$id] ?? 0,
-                outroAtivo: isset($ativos[(int) $outro->getId()]),
+                outroAtivo: $outro === null || isset($ativos[(int) $outro->getId()]),
                 marcadaNaoLida: $participacao->isMarcadaNaoLida(),
+                tipo: $conversa->getTipo()->value,
+                nome: $conversa->getNome(),
+                participantes: $pessoasPorConversa[$id] ?? 0,
+                souAdministrador: $conversa->isAdministradaPor($eu),
+                fixada: $participacao->isFixada(),
+                silenciada: $participacao->isSilenciada(),
+                arquivada: $participacao->isArquivada(),
             );
         }
 

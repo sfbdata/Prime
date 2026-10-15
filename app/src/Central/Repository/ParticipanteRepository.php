@@ -20,8 +20,8 @@ class ParticipanteRepository extends ServiceEntityRepository
     }
 
     /**
-     * A participação do usuário na conversa — é ELA que dá acesso. Conversa inexistente, de outro escritório
-     * ou de que o usuário não participa dão o mesmo `null`: quem chama responde 404 sem distinguir os casos.
+     * A participação ATIVA do usuário na conversa — é ELA que dá acesso. Conversa inexistente, de outro escritório,
+     * de que o usuário não participa ou de que saiu (B) dão o mesmo `null`: quem chama responde 404 sem distinguir.
      */
     public function daConversa(int $conversaId, User $usuario, Tenant $tenant): ?Participante
     {
@@ -30,6 +30,7 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->join('p.conversa', 'c')
             ->andWhere('c.id = :conversa')
             ->andWhere('p.usuario = :usuario')
+            ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
             ->setParameter('conversa', $conversaId)
@@ -40,7 +41,8 @@ class ParticipanteRepository extends ServiceEntityRepository
     }
 
     /**
-     * Todos os participantes da conversa, com a pessoa carregada — a base de quem pode ser @mencionado.
+     * Os participantes ATIVOS da conversa (não saíram nem foram removidos), com a pessoa carregada, do mais antigo
+     * para o mais novo — a base de quem pode ser @mencionado e de quem herda a administração do grupo.
      *
      * @return list<Participante>
      */
@@ -51,10 +53,12 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->addSelect('u')
             ->join('p.usuario', 'u')
             ->andWhere('p.conversa = :conversa')
+            ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('conversa', $conversa)
             ->setParameter('tenant', $tenant)
-            ->orderBy('p.id', 'ASC')
+            ->orderBy('p.entrouEm', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
             ->getQuery()
             ->getResult();
 
@@ -74,14 +78,16 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->addSelect('c', 'menor', 'maior')
             ->addSelect('COALESCE(c.ultimaMensagemEm, c.criadaEm) AS HIDDEN ordem')
             ->join('p.conversa', 'c')
-            ->join('c.usuarioMenor', 'menor')
-            ->join('c.usuarioMaior', 'maior')
+            ->leftJoin('c.usuarioMenor', 'menor')
+            ->leftJoin('c.usuarioMaior', 'maior')
             ->andWhere('p.usuario = :usuario')
+            ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->orderBy('ordem', 'DESC')
+            ->orderBy('p.fixada', 'DESC')
+            ->addOrderBy('ordem', 'DESC')
             ->addOrderBy('c.id', 'DESC')
             ->getQuery()
             ->getResult();
@@ -111,6 +117,55 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->setParameter('id', $participante->getId())
             ->setParameter('tenant', $participante->getTenant())
             ->getSingleScalarResult();
+    }
+
+    /**
+     * A participação do usuário na conversa, ATIVA OU NÃO — para readmitir quem saiu na mesma linha (o único
+     * `(conversa, usuario)` não deixa criar outra). Só para quem já passou pela guarda da conversa.
+     */
+    public function deQualquerSituacao(Conversa $conversa, User $usuario, Tenant $tenant): ?Participante
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.conversa = :conversa')
+            ->andWhere('p.usuario = :usuario')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('conversa', $conversa)
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Quantos participantes ATIVOS cada conversa tem (para a lista: "N participantes").
+     *
+     * @param list<int> $conversaIds
+     *
+     * @return array<int, int>
+     */
+    public function ativosPorConversa(array $conversaIds, Tenant $tenant): array
+    {
+        if ($conversaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.conversa) AS conversa, COUNT(p.id) AS total')
+            ->andWhere('p.conversa IN (:conversas)')
+            ->andWhere('p.saiuEm IS NULL')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('conversas', $conversaIds)
+            ->setParameter('tenant', $tenant)
+            ->groupBy('p.conversa')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porConversa = [];
+        foreach ($linhas as $linha) {
+            $porConversa[(int) $linha['conversa']] = (int) $linha['total'];
+        }
+
+        return $porConversa;
     }
 
     /** Desliga o "marcar como não lida" — ler a conversa vale como abrir, mesmo sem o cursor precisar andar. */
