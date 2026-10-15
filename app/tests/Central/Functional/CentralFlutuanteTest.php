@@ -52,6 +52,8 @@ final class CentralFlutuanteTest extends JusPrimeWebTestCase
         self::assertCount(1, $client->getCrawler()->filter('[data-central]'), 'uma Central só na página');
         self::assertCount(1, $client->getCrawler()->filter('script[src$="/js/central.js"]'));
         self::assertCount(1, $client->getCrawler()->filter('script[src$="/js/central-flutuante.js"]'));
+        // Balão de dica do Designer (bj-dica.js), só na Central: um script próprio, carregado uma vez.
+        self::assertCount(1, $client->getCrawler()->filter('script[src$="/js/central-dica.js"]'));
     }
 
     #[TestDox('Na própria /central não há lançador: a página já é a janela (modo página, sem botões de janela)')]
@@ -69,6 +71,7 @@ final class CentralFlutuanteTest extends JusPrimeWebTestCase
         self::assertSelectorExists('[data-central][data-modo="pagina"]');
         self::assertSelectorNotExists('.bj-central-janela-acoes');
         self::assertCount(1, $client->getCrawler()->filter('[data-central]'));
+        self::assertCount(1, $client->getCrawler()->filter('script[src$="/js/central-dica.js"]'));
     }
 
     #[TestDox('central_disponivel() sem usuário logado é false — e não lança (roda em toda página do layout)')]

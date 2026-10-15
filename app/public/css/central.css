@@ -1161,3 +1161,26 @@ html[data-bs-theme="dark"] .bj-central {
         border-radius: 0;
     }
 }
+
+/* Balão de dica da Central: bj-dica.js do Designer (L9), só dentro da Central (central-dica.js). Cores fixas, como no
+   desenho (que não tem tema escuro). left/top/opacity/transform são do JS. */
+.bj-central-dica {
+    position: fixed;
+    z-index: 2147483647;
+    left: 0;
+    top: 0;
+    max-width: min(300px, calc(100vw - 16px));
+    padding: 6px 10px;
+    border: 1px solid #b9d6e8;
+    border-radius: 4px;
+    background: #e5f1f7;
+    color: #0b4f73;
+    font: 600 12px/1.4 Arial, Helvetica, sans-serif;
+    box-shadow: 0 4px 14px rgba(10, 60, 90, .14);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity .12s, transform .12s;
+}
