@@ -15,6 +15,10 @@ Se um código só é usado por um domínio, ele vai no próprio domínio — nã
   `tests/Arquitetura/NucleoDeArmazenamentoArquiteturaTest`).
 - `Http/` — a borda HTTP do armazenamento: `EntregaDeArquivo` (download e visualização) e
   `FonteDeUploadHttp` (upload → armazenamento).
+- `EspelhoRemoto/` — o destino da réplica no R2 (spec `docs/specs/p2-gravacao-dupla.md`):
+  `LayoutDeChaveRemota` (chave `core/t/{tenant}/uploads/…`, pura), o contrato `EspelhoRemoto` (só
+  `enviar`/`consultar`/`existe` — **nenhuma exclusão remota**) e, em `R2/`, o único lugar que conhece o
+  `async-aws`. **Ainda não ligado a nada** (P2.2); quem liga é a P2.3.
 - `Doctrine/Transacao/` — `TransacaoComArquivoNovo`: confirma no banco uma operação que acabou de
   gravar arquivo e decide, se ela falhar, se o arquivo pode sair (só com a ausência de COMMIT
   PROVADA — ver "Arquivo novo + transação que pode falhar" abaixo).

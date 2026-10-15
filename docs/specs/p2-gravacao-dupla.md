@@ -155,23 +155,32 @@ Idempotente (passo 1 do worker), com limite de banda e de concorrência, retomá
 Os 73 sem rastro, os 5 só no `audit_log` e os 18 de lápide também vão (espelho fiel do volume); os
 90 suspeitos vão **como estão**, marcados na reconciliação — nem apagados, nem tratados como válidos.
 
-## 4. Contratos novos (P2.2–P2.3; nenhum existe ainda)
+## 4. Contratos (P2.2 entregou; P2.3 consome)
 
 ```
-LayoutDeChaveRemota::chaveDe(ChaveDeArquivo): string        // pura; §2
-EspelhoRemoto (interface):
-    enviar(string $chaveRemota, FonteDeConteudo, string $sha256, int $tamanho, string $mime): void
-    consultar(string $chaveRemota): ?MetadadosRemotos       // HEAD
-    listar(string $prefixo): iterable<MetadadosRemotos>     // só para a reconciliação
+App\Shared\EspelhoRemoto\LayoutDeChaveRemota::chaveDe(ChaveDeArquivo): string   // pura; §2
+App\Shared\EspelhoRemoto\EspelhoRemoto (interface):
+    enviar(ChaveDeArquivo, resource $conteudo, int $tamanho, string $sha256, string $mime): void
+    consultar(ChaveDeArquivo): ?MetadadosRemotos           // HEAD; null = não existe
+    existe(ChaveDeArquivo): bool
+App\Shared\EspelhoRemoto\R2\EspelhoRemotoR2               // async-aws/s3: só PutObject e HeadObject
+App\Shared\EspelhoRemoto\R2\ClienteR2::criar(endpoint, chave, segredo, ?http, ?logger): S3Client
 ```
+
+**Mudança em relação ao rascunho da P2.0:** o espelho recebe `ChaveDeArquivo`, não a chave remota
+em string — quem chama não escolhe a chave, e não há como gravar fora de `core/` nem no prefixo de
+outro escritório por engano. O conteúdo é um **stream** (o worker da P2.3 o obtém por
+`ArmazenamentoDeArquivos::abrir()`), então o adaptador nunca abre arquivo do disco. `listar()` não
+entrou na P2.2 (não foi pedido); a reconciliação da P2.3 decide se precisa dele.
 
 **`EspelhoRemoto` não tem método de exclusão.** É a primeira barreira contra a regra 0: não há o
 que chamar. A segunda é um teste de arquitetura que proíbe `DeleteObject`, `deleteObject`,
 `DeleteObjects` e `->delete(` em todo `src/`. A terceira é o token (§5).
 
 O núcleo (`App\Shared\Armazenamento`) continua sem saber que o R2 existe (teste
-`testNucleoNaoConheceOBackendRemoto`). O adaptador mora fora dele (`App\Shared\Armazenamento\R2\`
-ou `App\Infra\R2\`, decidido na P2.2).
+`testNucleoNaoConheceOBackendRemoto`). O adaptador mora fora dele, em `App\Shared\EspelhoRemoto\`
+(decidido na P2.2); o SDK fica confinado a `App\Shared\EspelhoRemoto\R2\`
+(`EspelhoRemotoArquiteturaTest`).
 
 **Biblioteca:** candidata `async-aws/s3`, sujeita à validação na P2.2 de: endpoint customizado do
 R2 com path-style, SigV4 com chave UTF-8 (as 19 com Unicode e as 160 terminadas em `.`), metadados
@@ -384,13 +393,45 @@ revisão de quem entra nela — não o tipo nem o regex sozinhos.
 2. Prazo de retenção antes de qualquer exclusão remota futura (fora da P2).
 3. Purga passar a apagar anexos de Tarefa (DP-12) — e, junto, corrigir os textos da purga que ainda dizem "até a E2.7".
 4. Destino dos 90 suspeitos e dos 73 sem rastro (retenção/LGPD).
-5. Pasta do adaptador R2 (`Shared/Armazenamento/R2` × `Infra/R2`), na P2.2.
 6. Endurecimento geral: o backend local recusar symlink na leitura (as 9 categorias).
 7. **Antes de qualquer leitura remota (E4):** provar R1 de Tarefa pela rota com o dublê
    `ArmazenamentoEmMemoria` (que materializa o escopo) — a escrita usa o escritório da tarefa e a
    leitura o da mensagem; no disco local isso é invisível, em `core/t/{tenant}` não.
 
-## 13. Fora de escopo da P2 inteira
+## 13. P2.2 — adaptador R2 (entregue em 15/10/2026, sem ligar nada)
+
+**Biblioteca validada:** `async-aws/s3` 3.5.0 + `async-aws/core` 1.30.0 (MIT) — PHP ^8.2,
+`symfony/http-client` ^7 (o projeto tem 7.4.5), extensões `dom`/`filter`/`hash`/`simplexml` presentes
+na imagem `php:8.2-fpm` de dev e de produção; 2 pacotes novos, sem conflito; `composer audit` sem
+advisory nesses pacotes. Configuração toda explícita (`ClienteR2`): endpoint, `region=auto`,
+`pathStyleEndpoint`, `sendChunkedBody=false` — nada lido de `AWS_*` nem de `~/.aws` (provado em teste).
+
+**O que está provado (sem rede, contra `tests/Shared/Doubles/S3Simulado`):**
+- layout das 9 categorias = caminho relativo do disco de produção, categoria a categoria;
+- os **326 nomes fora do padrão da P1** atravessam o cliente S3 e chegam ao destino com a chave
+  byte a byte do layout — Unicode, espaço nas bordas e `／`, sem `‛`;
+- só `PUT` e `HEAD` saem pelo fio; nenhuma exclusão;
+- o PUT leva `x-amz-checksum-sha256`, o SHA como metadado e o MIME; o envio só conta depois que o
+  HEAD confere tamanho e SHA;
+- 404 do HEAD é "não existe"; 5xx, recusa e rede viram `FalhaNoEspelhoRemoto`, com status e código
+  S3, sem credencial, assinatura nem corpo;
+- o dublê `EspelhoRemotoEmMemoria` cumpre o mesmo contrato (para a P2.3).
+
+**O fixture dos 326 é anonimizado na origem** (`app/tests/Shared/Unit/EspelhoRemoto/legados-p1-anonimizados.json`,
+gerado na VPS a partir do banco de auditoria isolado): os nomes reais contêm nome de pessoa (LGPD) e
+os hashes reais são chaves de produção (D8). Mesma forma — mesmo comprimento em caracteres e em
+bytes, mesmas classes (maiúsculas, Unicode de 2/3 bytes, espaço, pontuação, `／`) —, conteúdo
+trocado. Como o layout é concatenação de bytes, a forma é o que importa.
+
+**O que só se prova contra o R2 de verdade (P2.4, bucket de teste, com autorização):**
+assinatura SigV4 aceita para chave com Unicode, espaço e `／`; R2 aceitar `x-amz-checksum-sha256`
+(se recusar, cai para conferência só pelo HEAD); 404 (e não 403) no HEAD de chave ausente com o
+escopo do token; metadado `x-amz-meta-sha256` devolvido intacto.
+
+**Nada ligado:** nenhum consumidor em `src/`, nenhuma linha em `config/`, alias de armazenamento
+inalterado (`EspelhoRemotoArquiteturaTest` cai no dia em que alguém ligar).
+
+## 14. Fora de escopo da P2 inteira
 
 Leitura pelo R2 · URL pré-assinada · `X-Accel-Redirect` · coluna `storage_backend`/`storage_key` ·
 exclusão, expiração ou lifecycle no R2 · deduplicação · normalização de chave · correção dos 90
