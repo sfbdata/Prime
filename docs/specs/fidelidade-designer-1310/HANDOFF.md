@@ -1,9 +1,40 @@
 # HANDOFF — Frente de fidelidade ao Claude Designer (pacote de 13/10/2026)
 
 > **Para quem:** a próxima sessão do Claude Code que vai continuar esta frente sem ter visto a conversa anterior.
-> **Escrito em:** 14/10/2026, ao fim da E5b; **atualizado ao fim da E5c, da E7 e da E8** (mesmo dia). Fatos de git, caminhos e contagens conferidos no momento da escrita.
+> **Escrito em:** 14/10/2026, ao fim da E5b; atualizado ao fim da E5c, da E7 e da E8 (mesmo dia) e **salvo inteiro em
+> 15/10/2026** (estado de retomada na §0). Fatos de git, caminhos e contagens conferidos no momento da escrita.
 > **Leia antes de qualquer coisa:** este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
 > depois o checklist da tela em que for trabalhar.
+
+## 0. Estado de retomada (15/10/2026) — leia primeiro
+
+- **Entregas feitas, todas só em commit local:** E1, E2, E3, E4, E5, E5b, E5c, E7 e E8. E6 travada por P1. Próxima
+  recomendada: **E9 (Peticionar)**.
+- **Esperando o dono:**
+  1. **Smoke da E7** (`SMOKE-E7.md`) e **smoke da E8** (13 passos no fim de `E8-PLANO.md`). O ambiente foi preparado em
+     14/10 e **caiu** (o WSL reiniciou os containers): para religar, §12 "Smoke pelo navegador do Windows". Nada do
+     smoke foi executado pelo Claude.
+  2. Decisões abertas: P1, P2, P3; selo "9+"; `bj-dica.js`; tela de Equipe; unificar o cálculo de dias entre a linha de
+     Minhas Metas e o "Precisa de atenção"; suspeita em `pasta/demandas/_resultado.html.twig:173` (só registrar).
+  3. Push, PR, merge, deploy e CHANGELOG: do dono, coordenados com a Engenharia (decisão de 14/10).
+- 🔴 **Regra nova do dono (15/10, CLAUDE.md do projeto): sem travessão (— ou –) em texto que o usuário vê.** Texto da
+  frente que viola e precisa de ajuste **antes de integrar** (não corrigido ainda: o pedido de 15/10 foi só salvar o
+  handoff):
+  - `app/templates/expediente/index.html.twig` `perguntaDeExclusaoDoMarcador`: `' Os N sub-marcador(es) — nomes — também
+    são excluídos,'` → trocar os travessões por dois-pontos ou parênteses (ex.: "Os 6 sub-marcador(es) (A, B, C)
+    também são excluídos…"). O teste `ExpedienteListaDesenhoFolhaTest::testExclusaoDeMarcador` trava a frase atual e
+    muda junto.
+  - `app/templates/pasta/_tabela.html.twig` `.exp-sem-metas` mostra `–` (o "–" do desenho, dc L.168) quando não há meta.
+    **Conflito desenho × regra do dono**: o desenho mostra o traço; a regra proíbe. Perguntar ao dono (sugestão: célula
+    vazia com `title="Sem metas"`, ou "0"). `ExpedienteListaDesenhoTelaTest::testChipsPreservamAsRegras` só confere a
+    classe `.exp-sem-metas`.
+  - Não violam: o `'—'` em `expediente-lista.js` (só compara com o placeholder antigo), comentários e docs.
+  - Legado com travessão (ex.: `—` de cliente/ação vazios no `_tabela`) só sai por varredura autorizada.
+- **Git:** HEAD `2467352e` + o commit deste handoff; árvore limpa; **27 à frente e 17 atrás** de `origin/master` — os 17 são
+  da Engenharia (CI, versão/CHANGELOG, release, proteção de tags, `register_argc_argv`) e **não tocam nenhum arquivo desta
+  frente** (conferido com `comm` em 15/10).
+- **Suíte completa no HEAD do código (`613eb619`): OK 9372/9372 (52.442 asserções)** no `saas_testfidelidade-designer`.
+- **Checklists:** Pasta 220 ✓ · 49 ≈ · 113 ∅ (382) · Minhas Metas 71 · 44 · 42 (157) · Lista do Expediente 36 · 22 · 13 (71).
 
 ## 1. Objetivo
 
@@ -24,18 +55,20 @@ Regras que valem sempre (do dono, reafirmadas a cada entrega):
 - O smoke funcional é do dono. A captura de tela com Playwright, **só para comparar com o protótipo**, foi autorizada nesta
   frente (o dono pede "compare visualmente com o Designer" em cada entrega).
 
-## 2. Git e ambiente isolado (estado real em 14/10/2026)
+## 2. Git e ambiente isolado (estado real em 15/10/2026)
 
 | Item | Valor |
 |---|---|
 | Worktree | `/home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer` |
 | Branch | `fidelidade-designer` (marcador `.frente` = `fidelidade-designer`) |
 | Base | `origin/master` @ `a9653e66` (= produção na abertura, Engineering Loop publicado) |
-| HEAD | `613eb619` (E8) + o commit de docs da E8 |
-| Divergência | 29 commits à frente de `origin/master`; **13 atrás** (frentes `seg-runtime-argv`, `eng-ci-qualidade` e `eng-versionamento`: `Dockerfile`, workflows, CHANGELOG, versão, scripts e docs de release — **nenhuma interseção** com esta frente, conferido em 14/10) |
+| HEAD | `2467352e` (docs da E8) + o commit deste handoff; último commit de código: `613eb619` |
+| Divergência | 27 commits à frente de `origin/master`; **17 atrás** (frentes da Engenharia `seg-runtime-argv`, `eng-ci-qualidade`, `eng-versionamento` e `eng-protecao-tags`: `Dockerfile`, `.github/workflows/*`, `CHANGELOG.md`, `DEPLOY.md`, `app/src/Shared/VersaoDoSistema.php` + teste, scripts e docs de release — **nenhuma interseção** com esta frente, conferido em 15/10) |
 | Árvore | limpa (fora o que é gitignored: `app/.env.local`, `app/var/router-smoke.php`, `.frente`) |
 | Banco de teste | `saas_testfidelidade-designer` (clone do `saas_test`; existe) |
 | Banco de dev do smoke | `saas_ux` (via `app/.env.local` copiado do checkout principal) |
+| Ambiente de smoke | **desligado** em 15/10 (containers reiniciados pelo WSL; proxy `smoke-fidelidade-proxy` e `php -S :8000` não existem mais) — religar pela §12 |
+| Frente arquivada | `expediente-ux` (registro em `docs/frentes-ativas.md`; branch, worktree e commits `f96a044b`/`15555eb1` preservados só como referência — **não integrar**) |
 | Registro da frente | linha `fidelidade-designer` em `docs/frentes-ativas.md` (nesta branch) |
 
 Commits da frente (mais antigo → mais novo):
@@ -103,6 +136,22 @@ expectativa mudada), `tests/Tarefa/Unit/MinhasMetasCantosHoverCssTest.php`, `tes
 `tests/Tarefa/Functional/TarefaMinhasControllerTest.php` (+6).
 **Docs:** os três de `docs/specs/fidelidade-designer-1310*` e a linha em `docs/frentes-ativas.md`.
 Nenhuma migration, rota, permissão, entidade ou config.
+
+**E5c / decisões (Minhas Metas):** `src/Tarefa/DTO/TextoDoPrazoDaMeta.php` (novo), `MinhasMetasOutput.php`
+(`prazoDaMeta`, `fatiasDoAndamento` com "em aberto", `totalAtrasadas`), `minhas-metas.css`, `_meta_cartao.html.twig`
+(menu ⋮ Bootstrap), `_resultado.html.twig`, `public/js/pasta-metas.js` (`acao=renomear` e filtro do realce); testes
+`TextoDoPrazoDaMetaTest`, `MinhasMetasAbasTrilhoPrazoCssTest`, `PastaMetaRealceVindoDeMinhasMetasJsTest`, +funcionais em
+`TarefaMinhasControllerTest`.
+**E7 (Pasta):** `public/js/pasta-dialogos.js` (variante azul, `confirmarUIPs`, `psConfirmarEnvio`, envio segurado em captura,
+`devolverFoco`), `templates/_partials/_janela_confirmacao.html.twig` (desde a E8; antes no `pasta/show`), `pasta/show.html.twig`
+(Editar dados no `DOMContentLoaded`, desvincular, número), `_cabecalho`, `_metas`, `_financeiro*`, `pasta-processo.js`,
+`pasta-checklist.js`, `pasta-explorador.js`, `pasta-ia-push.js`, `pasta-ia-agentes.js`, `nota-tecnica.js`; teste
+`PastaConfirmacaoDoDesenhoJsTest` + 13 testes antigos reescritos.
+**E8 (Expediente):** `src/Pasta/Repository/PastaRepository.php` (filtro `responsavel=sem` — **única regra nova**, autorizada),
+`pasta/_filtros.html.twig`, `public/css/expediente-lista.css` e `public/js/expediente-lista.js` (novos), `expediente/index.html.twig`,
+`_acervo_geral`, `_painel_marcador`, `_paginacao`, `pasta/_tabela.html.twig`; testes `ExpedienteListaDesenhoTelaTest`,
+`ExpedienteListaDesenhoFolhaTest`, +4 em `ExpedienteFiltroPastasControllerTest`. `pasta/index.html.twig` está morto
+(`pasta_index` redireciona): `_tabela`, `_card`, `_filtros` só servem o Expediente.
 
 Decisões técnicas que a próxima sessão precisa respeitar:
 
@@ -192,8 +241,8 @@ Trabalho Externo, Peticionar, Agenda, Push Compartilhado — o inventário inici
 ## 9. Integração futura com a Engenharia
 
 - Integração em série, um piloto de git por vez; **antes** de integrar, trazer o `origin/master` para dentro da frente e rodar
-  de novo (`scripts/frente-fechar.sh fidelidade-designer` faz o ritual e para antes do merge). Hoje a frente está 13 atrás,
-  sem interseção de arquivos. O master agora tem a política de versões/CHANGELOG (`eng-versionamento`): o PR desta frente
+  de novo (`scripts/frente-fechar.sh fidelidade-designer` faz o ritual e para antes do merge). Em 15/10 a frente está 17
+  atrás, sem interseção de arquivos. O master agora tem a política de versões/CHANGELOG (`eng-versionamento`): o PR desta frente
   pode precisar de entrada no CHANGELOG — esta frente **não** mexe no changelog (regra do §1); combinar com a engenharia.
 - Arquivos desta frente que outras frentes também podem tocar (conferir antes de integrar): `public/css/pasta-show.css`,
   `templates/pasta/_processos_vinculados.html.twig`, `src/Pasta/Controller/PastaResumoController.php`,
@@ -309,6 +358,37 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory /home/prime/projetos/bl
 #   Playwright sem navegador → npx @playwright/mcp install-browser chrome-for-testing
 # Encerrar depois: matar o php -S pelo /proc no container; parar o http.server; fechar o navegador.
 ```
+
+
+### Smoke pelo navegador do Windows (receita usada em 14/10 — o dono executa, o Claude só prepara)
+
+O nginx `:8080` serve o **checkout principal** (sem esta frente). O servidor da worktree roda dentro do container e o
+Windows não alcança a rede do Docker: um proxy descartável publica só em `127.0.0.1:8000`.
+
+```bash
+docker start jusprime_db_dev jusprime_php_dev jusprime_nginx_dev            # se o WSL reiniciou
+docker exec jusprime_php_dev bash -c 'cd /var/www/.claude/worktrees/fidelidade-designer/app && APP_ENV=dev php -d memory_limit=1G bin/console cache:clear'
+docker exec -d -e APP_ENV=dev -e PHP_CLI_SERVER_WORKERS=4 jusprime_php_dev bash -c \
+  'cd /var/www/.claude/worktrees/fidelidade-designer/app && php -d memory_limit=512M -d upload_max_filesize=70M -d post_max_size=70M -S 0.0.0.0:8000 -t public var/router-smoke.php > /tmp/smoke-fidelidade.log 2>&1'
+docker run -d --rm --name smoke-fidelidade-proxy --network jusprime_saas_net -p 127.0.0.1:8000:8000 \
+  alpine/socat tcp-listen:8000,fork,reuseaddr tcp-connect:jusprime_php_dev:8000
+# conferir do Windows: deve dar 200 na 8000 e 404 na 8080 (prova de que a 8000 é a frente)
+/mnt/c/Windows/System32/curl.exe -s -o NUL -w '%{http_code}\n' http://127.0.0.1:8000/css/expediente-lista.css
+/mnt/c/Windows/System32/curl.exe -s -o NUL -w '%{http_code}\n' http://127.0.0.1:8080/css/expediente-lista.css
+# desligar depois
+docker exec jusprime_php_dev bash -c 'for p in /proc/[0-9]*; do c=$(tr "\0" " " < $p/cmdline 2>/dev/null); case "$c" in "php -d memory_limit=512M"*) kill ${p#/proc/};; esac; done; true'
+docker rm -f smoke-fidelidade-proxy
+```
+
+- URL para o dono: **`http://127.0.0.1:8000/expediente`** (não `localhost`: no Windows resolve para IPv6 e trava).
+- Login de dev: `farlei.rocha@gmail.com` / `Prime123!`, escritório "Farlei Assis da Rocha Sociedade Individual de Advocacia".
+  O aviso "Você ainda não registrou sua entrada hoje" aparece: fechar sem registrar (gravaria batida no `saas_ux`).
+- Dados do `saas_ux` úteis (14/10): 1.060 pastas no escritório, 57 sem responsável, 1 excluída (NUP 1214); pasta 304
+  (Duplicar, Editar dados), 588 (processo vinculado), 1170/1171 (itens de checklist), 433 (comentário do Financeiro);
+  marcador "2. Distribuir" (id 7) com 6 sub-marcadores.
+- 🪤 Matar processo no container: `pkill`/`ps` não existem, e um laço que casa `-S 0.0.0.0:8000` mata o próprio shell
+  (o comando contém o padrão) — case pelo início da linha (`"php -d memory_limit=512M"*`). No host, `pkill -f "http.server 8765"`
+  também se mata: use `kill $(pgrep -f "http.server 876[5]")`.
 
 Armadilhas já pagas: `frente-abrir.sh` aborta no `cache:clear` do composer (128 MB) — completar à mão; `cd app` relativo
 pode cair no checkout principal (use caminho absoluto); o hook confunde `-n` de `grep`/`head` com `--no-verify` e bloqueia
