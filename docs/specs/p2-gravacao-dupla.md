@@ -452,7 +452,56 @@ igualdade do layout (agora lido do `services.yaml`). Registrados, para a P2.3:
 **Nada ligado:** nenhum consumidor em `src/`, nenhuma linha em `config/`, alias de armazenamento
 inalterado (`EspelhoRemotoArquiteturaTest` cai no dia em que alguém ligar).
 
-## 14. Fora de escopo da P2 inteira
+## 14. P2.3 — outbox, fila e reconciliação (desenho, autorizado em 15/10/2026, só local)
+
+**Revisa duas decisões do rascunho da P2.0, com o porquê:**
+
+- **A outbox É a fila (sem Messenger).** O worker é um comando
+  (`armazenamento:replicar-espelho`) que reivindica linhas direto da tabela, sob
+  `pg_advisory_xact_lock` + `FOR UPDATE SKIP LOCKED`. Com Messenger haveria duas contabilidades da
+  mesma pendência (a mensagem e a linha), e a mensagem perdida exigiria reconciliação de qualquer
+  jeito. Roda por cron (ou laço) na P2.5, fora da requisição HTTP.
+- **DP-10 refinada — a linha da outbox usa a MESMA conexão do domínio.** Se há transação aberta, a
+  inserção entra nela como **savepoint** (DBAL 4): transação desfeita leva a linha junto
+  ("consistência transacional quando aplicável"), e uma falha da própria outbox volta só o savepoint
+  — a operação do usuário segue. Sem transação aberta (o caso comum: o arquivo é gravado antes do
+  `flush`), a linha é confirmada na hora; se o domínio falhar depois, o arquivo vira órfão local e a
+  linha replica um órfão — a reconciliação classifica.
+
+**Peças (`App\Shared\EspelhoRemoto\`):**
+
+| Peça | Papel |
+|---|---|
+| `PoliticaDeEspelhamento` | lê `ARMAZENAMENTO_ESPELHO_CATEGORIAS` (vazia por padrão = **desligado**); entrada inválida é ignorada e reportada, nunca liga nada |
+| `ArmazenamentoEspelhado` | decorador das 3 interfaces; com a política desligada é repasse puro. Gravar → linha `enviar` (com SHA medido no disco); excluir → linha `exclusao_registrada`; leituras → **só local** |
+| `OutboxDeReplicacao` | a tabela `armazenamento_replicacao` (1 migration aditiva) por DBAL; reivindicação, reagendamento, estados |
+| `ReplicadorDeArquivos` | processa itens: idempotência por HEAD, ordem por chave, backoff, falha permanente × transitória |
+| `ReconciliadorDoEspelho` | **só dry-run**: banco (8 fontes) × disco × R2 — presença, tamanho e SHA-256; relatório sem nomes |
+| `FabricaDoEspelhoRemoto` | monta o `EspelhoRemotoR2` só quando o worker pede; sem configuração, recusa com mensagem clara |
+
+**Estados:** `pendente` → `processando` (com prazo de posse) → `verificado` | `pendente` (reagendado
+com backoff) | `falhou` (permanente ou tentativas esgotadas) | `superado` (há linha mais nova da
+mesma chave, ou o conteúdo local já mudou) | `descartado` (o arquivo local não existe mais).
+`exclusao_registrada` nasce e fica `registrado` — **nunca** vira chamada ao R2.
+
+**Ordem por chave (nenhuma tarefa antiga sobrescreve nem recria):**
+1. a reivindicação, sob trava global curta, só entrega uma linha se não houver OUTRA da mesma chave
+   em `processando` com prazo válido;
+2. ao reivindicar, se existe linha MAIS NOVA da mesma chave (`enviar` ou exclusão), a antiga vira
+   `superado` e não é enviada;
+3. antes do PUT, o worker relê o disco: arquivo ausente → `descartado`; SHA diferente do da linha →
+   `superado` (a linha nova do mesmo arquivo é que vale).
+Assim um envio velho não cai por cima de um novo, e uma exclusão registrada não é desfeita por um
+envio pendente anterior a ela.
+
+**Queda do worker:** a linha em `processando` com prazo vencido volta a ser reivindicável; o PUT é
+idempotente (HEAD confere antes).
+
+**Logs:** nunca o nome do arquivo, a chave remota, credencial ou corpo — só id da linha,
+categoria, tenant e o resumo do erro com a chave substituída por `<chave #id>`. O cliente S3 recebe
+`NullLogger` (o log do `async-aws` carrega a URL).
+
+## 15. Fora de escopo da P2 inteira
 
 Leitura pelo R2 · URL pré-assinada · `X-Accel-Redirect` · coluna `storage_backend`/`storage_key` ·
 exclusão, expiração ou lifecycle no R2 · deduplicação · normalização de chave · correção dos 90
