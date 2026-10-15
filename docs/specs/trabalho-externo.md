@@ -28,7 +28,7 @@ O seletor "Simula o acesso de cada perfil" do protótipo **não** existe no sist
 | Solicitante | usuário de qualquer outro escritório com a permissão do módulo | as demandas do **escritório atual** (inclusive rascunhos) |
 | Convidado (F3) | usuário com convite aceito e vigente | só a(s) demanda(s) do convite, nas situações aceita, em execução, validação e concluída |
 
-Sem a permissão `modules.trabalho_externo.view` (e sem ser Master ou Convidado): 403. Os administradores de
+Sem a permissão `modules.trabalho_externo.view` (e sem ser Master ou Convidado): a tela redireciona com aviso e a API responde 403. Os administradores de
 escritório (`TenantRole::isSystem`) já passam pelo bypass existente do `PermissionChecker`.
 
 Enquanto o Master não definir a sede, ninguém é Equipe.
@@ -38,10 +38,11 @@ Enquanto o Master não definir a sede, ninguém é Equipe.
 A demanda é a **única** entidade do sistema lida entre escritórios, e só pela Central. Por isso ela **não**
 implementa `TenantAware` (o `TenantFilter` a esconderia do Master). Em compensação:
 
-- ela guarda `tenantSolicitante` (não nulo);
+- ela guarda o escritório solicitante em `tenant` (coluna `tenant_id`, não nula);
 - todo acesso passa pelo `DemandaExternaRepository`, que só tem consultas explicitamente escopadas:
-  `daCentral()` (Master e Equipe), `doEscritorio(Tenant)` (Solicitante) e `doConvidado(User)` (F3);
-- busca por código **sempre** passa pela verificação `AcessoDemanda::podeVer($perfil, $demanda)`;
+  `daCentral()`/`daCentralPorId()` (Master e Equipe) e `doEscritorio()`/`doEscritorioPorId()` (Solicitante);
+  o Convidado chega pela demanda do próprio convite (`ConviteDemandaRepository::vigentesDo`);
+- busca por código **sempre** passa pelo `LocalizadorDeDemanda`, que confere `PoliticaDaDemanda::podeVer`;
   demanda de outro escritório responde **404** (não 403, para não confirmar que existe);
 - filhos (histórico, mensagens, propostas, documentos, contatos) só são lidos a partir da demanda;
 - teste funcional de isolamento: Solicitante do escritório B não lista, não abre, não age e não baixa
@@ -82,7 +83,8 @@ Fechadas (contam como encerradas no prazo e nos KPIs): `concluida, arquivada, re
 Convidar/revogar (F3): Master; Equipe com `equipe.convidar`; em aceita e execucao.
 
 Toda ação confirmada grava histórico (de, para, quem, quando, motivo) e uma mensagem `sistema` no chat
-("Demanda recusada: <motivo>"), como no protótipo. Transição fora da tabela: 409 com mensagem.
+("Demanda recusada: <motivo>"), como no protótipo. Ação fora da situação de origem: 409 ("recarregue a
+tela"), conferida ANTES da permissão; ação que o perfil não tem: 403; motivo em branco: 409.
 
 ## 5. Regras de tela vindas do desenho
 
@@ -115,6 +117,19 @@ Toda ação confirmada grava histórico (de, para, quem, quando, motivo) e uma m
 - Avisos em tempo real entre abas (`storage` do protótipo): o aviso de não lidas aparece ao carregar e ao abrir a demanda; sem push.
 - "Salvar edição" e "Novo escritório" do bloco Solicitante gravariam dados do escritório (Tenant) a partir da solicitação: **decisão pendente do dono**; na F1 o seletor lista os escritórios reais da conta e só preenche a solicitação.
 - Texto sem travessão (regra do dono de 15/10): o "—" do protótipo para vazio vira "Não informado" ou some.
+- Aba bloqueada para externos também barra no servidor a criação de solicitação e de rascunho (o
+  protótipo só escondia a tela).
+- "Avisar fase atual" com a demanda numa situação sem fase de WhatsApp (aguardando informações,
+  recusada, cancelada, arquivada): o botão não aparece e o servidor responde 409. O protótipo caía em
+  "Solicitação recebida".
+- A mensagem de boas-vindas do WhatsApp não é de fase: na fila aparece sem fase e, nas enviadas, como
+  "Conexão" (o protótipo usava a situação do momento).
+- O responsável é mascarado para externos ("Profissional designado pela Central") também na lista,
+  não só no Resumo, quando a privacidade "nome de quem atende" está desligada.
+- O nome do escritório na solicitação é texto do formulário (o dono real é o `tenant`): pode diferir
+  do cadastro do escritório. Ligado à decisão pendente de "Salvar edição"/"Novo escritório".
+- Concorrência: duas versões de proposta ao mesmo tempo dão 409; duas leituras do chat ao mesmo tempo
+  são idempotentes. A configuração da Central é uma linha só por convenção (só o Master a grava).
 
 ## 8. F3: Convidado (risco ALTO, identidade User/Tenant)
 
