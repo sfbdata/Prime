@@ -131,6 +131,14 @@ final class AuditavelCoberturaTest extends KernelTestCase
         RelatorioImportado::class,
         RelatorioLinha::class,
         RelatorioTotalizador::class,
+
+        // Outbox da réplica do espelho no R2 (P2.3, spec `p2-gravacao-dupla.md` §3.2/§14): o mapeamento
+        // existe só para o Doctrine conhecer a tabela. Toda escrita é por DBAL (`OutboxDeReplicacao`),
+        // então o listener do ORM nunca a veria: `Auditavel` seria promessa vazia. Auditar ainda
+        // copiaria `nome`/`chave_remota` (nome de pessoa nos legados) para o audit_log, o oposto da
+        // retenção pedida na decisão I4. O próprio estado da linha (tentativas, erro sem dado pessoal)
+        // é o registro da réplica.
+        \App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo::class,
     ];
 
     private EntityManagerInterface $em;

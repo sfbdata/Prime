@@ -516,6 +516,9 @@ categoria, tenant e o resumo do erro com a chave substituída por `<chave #id>`.
   passaria sem a normalização; reescrito, ele cai);
 - a outbox é **isenta do `TenantFilter`** (`TenantAwareCoberturaTest`, teto 8 → 9): lida só pelo worker e
   por comandos, por DBAL, sem rota — decisão a ratificar;
+- a outbox também está em `NAO_AUDITAVEIS` (`AuditavelCoberturaTest`): mapeamento só para o Doctrine
+  conhecer a tabela, escrita por DBAL (o listener do ORM nunca a veria), e auditar copiaria `nome`/
+  `chave_remota` para o audit_log, contra a I4. Pega só pela suíte completa de 15/10 (1 falha);
 - comandos `armazenamento:replicar-espelho [--limite]` e `armazenamento:reconciliar-espelho [--sem-sha]
   [--limite] [--saida]` — sem `ESPELHO_R2_*` configurado, ambos recusam com falha.
 
