@@ -40,6 +40,8 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Central de Comunicação, B: conversas em grupo (criar, adicionar e remover participantes pelo administrador do
   grupo, sair, renomear, linhas de sistema, menção e aviso de "adicionou você"); fixar, silenciar e arquivar por
   pessoa; polling que não perde mensagem confirmada fora de ordem.
+- Central de Comunicação: ícone flutuante em todas as telas (contador de não lidas, menções, animações do desenho) com
+  a janela de conversas, que se move, encaixa, redimensiona, minimiza e maximiza.
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
 

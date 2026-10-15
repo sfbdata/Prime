@@ -1,4 +1,4 @@
-# HANDOFF — frente `designer-central-ia` (atualizado em 15/10/2026: Central B e demo integrada)
+# HANDOFF — frente `designer-central-ia` (atualizado em 15/10/2026: Central B, demo integrada e lançador flutuante)
 
 Continuidade da integração do pacote do Claude Designer de 13/10 (Central de Comunicação, Chat I.A, Agente de Pastas,
 comandos) à arquitetura real do BlueJus. **Nada publicado.** Este documento resume e aponta; o detalhe mora nas specs
@@ -237,4 +237,51 @@ Branch `designer-central-ia`, 14 commits locais à frente de `origin/master` @ `
   Para um grupo de 3+, os demais colegas ativos do escritório 1 aparecem na escolha (não há senha conhecida deles).
 - **Desligar:** `docker rm -f smoke-demo-proxy` e matar o `php -S 0.0.0.0:8001` no container. **Retomar:** comandos no
   relatório de 15/10 (servidor embutido na worktree da demo + `alpine/socat` publicando `127.0.0.1:8001`).
+
+## 16. Lançador flutuante da Central (15/10/2026)
+
+- **Fonte do desenho:** o MCP `claude_design` (api.anthropic.com/v1/design/mcp) **não estava disponível** na sessão (só
+  a `DesignSync`, que é para design system). Usada a cópia local do pacote aprovado de 13/10
+  (`/home/prime/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/prototipo/`: `02 - EXPEDIENTES 1.2.3.dc.html` +
+  `bluejus-central.js`). Se o projeto online mudou depois de 13/10, a diferença não foi vista.
+- **Entregue:** lançador (3 SVGs do desenho: calmo, aberto, com não lidas; contador laranja; "@n" de menções; hover;
+  salto ao chegar mensagem; pontos animados; arraste com 64 px sempre à vista; reduced-motion); janela 380×580
+  independente do lançador (abre com bjcIn; minimizar animado até o lançador; maximizar/restaurar; fechar; mover pelo
+  cabeçalho com ímã de 14 px; encaixe em meia tela ou tela cheia com guia; duplo clique; setas; 8 alças com mínimo
+  320); abas Caixa de entrada/Painel; filtros Tudo/Menções; Painel com cartões Menções/Mensagens; ⋮ com som (WebAudio),
+  alertas visuais, não perturbe por 1 hora, texto grande, restaurar posição/tamanho. Preferências por usuário no
+  localStorage (como no desenho); a janela sempre começa fechada.
+- **Integração (sem segundo backend):** é a MESMA janela da `/central` (`_janela.html.twig` em modo flutuante), o
+  mesmo `central.js`. Servidor só ganhou `conversasComMencao` no polling. Com a janela fechada **nada vira lido** e o
+  polling cai para 30 s; aberta, 5 s. Layout: **uma** inclusão condicional no `base.html.twig`
+  (`central_disponivel()`, nunca lança; fora da `/central`). Coordenação: nenhuma frente mexeu no `base.html.twig`
+  desde `a9653e66`; aviso enviado à sessão vizinha.
+- **Fora (D5, sem dado real):** presença/"N on-line", status, lista "Todos", "Equipe · em aberto", cartões
+  Urgente/Atenção/Metas, filtros Conversas/Urgente/Atenção/Metas/Para revisar, notificações de outros módulos na Caixa,
+  "Destacar" (Picture-in-Picture), som de "toque". Título "Central de Comunicação" (decisão do dono), não "Chat I.A".
+- **Desvio para o dono aprovar:** em tela estreita a janela é presa a 8 px da borda quando não há posição salva (a
+  fórmula do desenho dá x = -2 e corta 2 px).
+- **Teste visual (pedido do dono), em `http://127.0.0.1:8002`:** lançador e janela medidos iguais ao protótipo servido
+  no mesmo navegador (lançador 1282,728 66×54; janela 968,136 380×580; cabeçalho 52 px `#0a7aad`); maximizar,
+  restaurar, encaixe à esquerda, soltar, mínimo 320, minimizar, persistência após recarregar, menção real Samuel →
+  Farlei com contador e "@1", leitura só com a janela aberta, Painel, filtro, ⋮, texto grande, celular 375 px sem
+  rolagem horizontal. Três defeitos achados no teste visual e corrigidos (`007c7876`): "@n" só aparecia no polling
+  seguinte; "@" não saía ao ler; tamanho salvo errado ao redimensionar.
+- **Testes:** `tests/Central` 82/82; **suíte completa 9339/9339** (52.314 asserções), sozinha, sobre `04ced658`.
+- **Revisão read-only (feature-review-agent):** nenhum bloqueante. Corrigidos (`04ced658`): conversa silenciada fazia o
+  lançador saltar e tocar (agora o alerta segue o total de não lidas do servidor, que exclui silenciadas, como o
+  desenho L137); carga em toda página reduzida a 1 requisição (lista e contatos só na primeira abertura); som com o
+  envelope literal do desenho (L91-104); alerta repetido ao trocar de página; `role="dialog"`; captura de ponteiro e
+  `pointercancel` no arraste; include com `only`; menu fechado junto com a janela. Testes novos: vínculo inativo sem
+  lançador, leitura do id no link das menções, menção nos dois escritórios. Prova por reintrodução: 3/4 derrubaram; a
+  4ª (tirar o filtro de escritório da busca de avisos) é barrada por outra camada (interseção com as conversas ativas
+  do escritório) — correto por defesa em camadas.
+- **Aceitos/abertos (para o dono):** foco não vai para a janela ao abrir e Esc não a fecha (o desenho também não);
+  com um modal Bootstrap aberto o foco do modal prende o teclado; o lançador pode cobrir avisos de canto de outras
+  telas (o z-index é o do desenho); "Para revisar"/urgência/presença dependem de dado que o BlueJus não tem; o polling
+  de 30 s por aba com a janela fechada é carga real (1 requisição por aba a cada 30 s).
+- **Incorporar à demo (porta 8001):** cherry-pick individual, na `demo-expediente-central`, dos commits da frente
+  posteriores a `2096554a` (`26712dcb` em diante, ver `git log demo-expediente-central..designer-central-ia`); sem
+  migration nova (a do lançador não existe: só código e template); limpar o cache de dev da demo; o lançador aparece em
+  toda página (exceto `/central`).
 

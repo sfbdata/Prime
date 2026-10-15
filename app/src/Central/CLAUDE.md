@@ -46,6 +46,13 @@ do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabe
 
 ## Tela
 
-`templates/central/_janela.html.twig` é o componente isolado (D6); `/central` o monta em linha. Telas da janela:
-lista, conversa, novo grupo, informações do grupo (`central.js`, `mostrarTela`). Para virar a janela
-flutuante global, basta incluí-lo no layout — decisão do dono, junto com a frente `fidelidade-designer`.
+`templates/central/_janela.html.twig` é o componente isolado (D6); `/central` o monta em linha (modo `pagina`). Telas
+da janela: lista (abas Caixa de entrada/Painel, filtros), conversa, novo grupo, informações do grupo (`central.js`,
+`mostrarTela`).
+
+**Lançador flutuante** (`_flutuante.html.twig` + `central-flutuante.js`/`.css`): a MESMA janela em modo `flutuante`,
+incluída no `base.html.twig` por uma linha (`central_disponivel()`, nunca lança; fora da `/central`). Regras: com a
+janela fechada **nada vira lido** (`marcarLida` exige `janelaAberta`), o polling cai para 30 s e só o contador anda
+(lista e contatos carregam na primeira abertura); alerta (salto/som) só quando o total de não lidas do servidor sobe
+(silenciadas não contam); preferências de tela no localStorage por usuário. Geometria e animações são cópia do desenho
+(linhas citadas no JS/CSS); presença, urgência e "Destacar" ficaram fora por não haver dado real (D5).
