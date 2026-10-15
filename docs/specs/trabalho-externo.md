@@ -115,3 +115,42 @@ Toda ação confirmada grava histórico (de, para, quem, quando, motivo) e uma m
 - Avisos em tempo real entre abas (`storage` do protótipo): o aviso de não lidas aparece ao carregar e ao abrir a demanda; sem push.
 - "Salvar edição" e "Novo escritório" do bloco Solicitante gravariam dados do escritório (Tenant) a partir da solicitação: **decisão pendente do dono**; na F1 o seletor lista os escritórios reais da conta e só preenche a solicitação.
 - Texto sem travessão (regra do dono de 15/10): o "—" do protótipo para vazio vira "Não informado" ou some.
+
+## 8. F3: Convidado (risco ALTO, identidade User/Tenant)
+
+D3 do dono: o link do convite só dá acesso com conta; quem não tem conta cria uma.
+
+**Convite** (`trabalho_externo_convite`): demanda, nome, e-mail, função, validade (padrão hoje + 15 dias),
+as 6 permissões do desenho (ver instruções e documentos, baixar documentos, enviar arquivos, conversar,
+registrar andamento, marcar como concluída), situação (enviado, aceito, revogado), o usuário que aceitou
+e o **hash** (SHA-256) do token. O token em claro só existe no e-mail.
+
+- Quem convida/revoga/reenvia: Master, ou Equipe com `equipe.convidar`, em demanda aceita ou em execução.
+- Convidar revoga o convite ativo anterior da mesma demanda (o desenho tem um executor por vez) e põe o
+  nome do convidado como responsável. Revogar corta o acesso na hora e limpa o responsável. Tudo deixa
+  registro no chat. Reenviar manda o mesmo link de novo (até 3 vezes).
+- O convite NÃO cria vínculo (`UserTenant`) com escritório nenhum. Acesso de convidado nunca dá acesso a
+  outro módulo.
+
+**Aceite** (`/trabalho-externo/convite/{token}`, público):
+
+| Quem abre | O que acontece |
+|---|---|
+| token inexistente, revogado ou vencido | página de aviso, sem dizer de que demanda é |
+| anônimo, e-mail do convite sem conta | formulário: nome, senha (mín. 8), aceite dos Termos; cria a conta (sem escritório), registra o aceite do termo, aceita o convite, entra e abre a demanda |
+| anônimo, e-mail com conta | pede para entrar e abrir o link de novo (o login do sistema não volta sozinho para a página; não mexemos no autenticador) |
+| logado com outro e-mail | "este convite é para outro e-mail" |
+| logado com o e-mail do convite | botão "Aceitar convite" (POST com CSRF) e abre a demanda |
+
+**Acesso como Convidado**: o perfil é **por demanda**. Quem tem convite aceito, vigente e não revogado
+vê aquela demanda como Convidado (mesmo que seja Solicitante no próprio escritório) e só nas situações
+aceita, em execução, validação e concluída. Sem escritório escolhido, as rotas do Trabalho Externo
+passam pela guarda de escritório (allowlist do `TenantContextValidatorListener`), e só o perfil
+Convidado resolve nesse caso. Aba bloqueada para externos (visibilidade ≠ todos) vale para ele também.
+
+Permissões do Convidado: documentos listados com "ver"; download com "ver" e "baixar"; anexar com
+"enviar"; chat com "conversar"; checklist e andamento com "registrar andamento"; "Marcar como
+concluída" (vai para validação) com "concluir"; "Informar impedimento" e "Solicitar prorrogação"
+sempre em execução. Sem abas Proposta e WhatsApp; contato do solicitante só com `priv.contatoConv`.
+
+E-mail: `TrabalhoExternoMailer`, remetente da casa (`IdentidadeDeEmail`). Em dev o `MAILER_DSN` é nulo.
