@@ -23,13 +23,11 @@
                        autocomplete="off" value="{{ filters.busca ?? '' }}">
             </div>
 
-            <select name="status" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
-                    data-rotulo="Status" aria-label="Filtrar por status">
-                <option value="">Status</option>
-                <option value="ativo" {% if filters.status == 'ativo' %}selected{% endif %}>Ativo</option>
-                <option value="arquivado" {% if filters.status == 'arquivado' %}selected{% endif %}>Arquivado</option>
-            </select>
+            {# A situação ("Status") foi para a barra do acervo, como o desenho (pasta/_filtro_situacao, AUD-08). #}
 
+            {# Responsável e Prioridade com a cara de botão do desenho (dc L.102-108, AUD-09): seta pequena e, na
+               prioridade, a bandeira na cor do valor. Seguem <select> nativos (teclado e leitor de tela de graça). #}
+            <span class="exp-filtro exp-filtro--resp">
             <select name="responsavel" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
                     data-rotulo="Responsável" aria-label="Filtrar por responsável">
                 <option value="">Responsável</option>
@@ -38,7 +36,11 @@
                     <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}>{{ usuario.fullName }}</option>
                 {% endfor %}
             </select>
+            <i class="bi bi-chevron-down exp-filtro-seta" aria-hidden="true"></i>
+            </span>
 
+            <span class="exp-filtro exp-filtro--prio" data-valor="{{ filters.prioridade ?? '' }}">
+            <i class="bi bi-flag-fill exp-filtro-bandeira" aria-hidden="true"></i>
             <select name="prioridade" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
                     data-rotulo="Prioridade" aria-label="Filtrar por prioridade">
                 <option value="">Prioridade</option>
@@ -46,6 +48,8 @@
                 <option value="prioridade" {% if filters.prioridade == 'prioridade' %}selected{% endif %}>Prioridade</option>
                 <option value="urgente" {% if filters.prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
             </select>
+            <i class="bi bi-chevron-down exp-filtro-seta" aria-hidden="true"></i>
+            </span>
 
             <div class="pasta-filtros-periodo" title="Período de abertura">
                 <span class="pasta-data-campo">

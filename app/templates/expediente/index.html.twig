@@ -85,7 +85,7 @@
                                 <a href="#"
                                    class="expediente-menu-link"
                                    data-painel="{{ path('expediente_acervo_geral') }}">
-                                    <i class="bi bi-folder2-open expediente-icon expediente-icon--no-chevron"></i>
+                                    <i class="bi bi-folder2 expediente-icon expediente-icon--no-chevron"></i>
                                     <span>Todas as pastas</span>
                                 </a>
                             </li>
@@ -1720,7 +1720,9 @@ document.addEventListener('DOMContentLoaded', function () {
             chips.push({ campo: 'busca', rotulo: 'Busca', valor: busca.value.trim() });
         }
 
-        form.querySelectorAll('select.js-pasta-filtro').forEach(function (sel) {
+        // `form.elements` e não querySelectorAll: o filtro de situação mora na barra do acervo, fora do <form>,
+        // associado por `form="formFiltrosPasta"` (pasta/_filtro_situacao).
+        Array.prototype.filter.call(form.elements, function (el) { return el.matches('select.js-pasta-filtro'); }).forEach(function (sel) {
             if (sel.value !== '') {
                 var opt = sel.options[sel.selectedIndex];
                 chips.push({
@@ -1893,7 +1895,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (remover) {
             e.preventDefault();
             var form = document.getElementById('formFiltrosPasta');
-            var alvo = form && form.querySelector('[name="' + remover.dataset.campo + '"]');
+            var alvo = form && form.elements.namedItem(remover.dataset.campo);
             if (alvo) alvo.value = '';
             aplicarFiltrosPastas();
 
@@ -1906,7 +1908,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var f = document.getElementById('formFiltrosPasta');
             // Limpa só os filtros (busca + dropdowns + datas); a ordenação da tabela
             // é outra dimensão e é preservada (os hidden ordenar/direcao ficam intactos).
-            if (f) f.querySelectorAll('.js-pasta-busca, .js-pasta-filtro').forEach(function (el) { el.value = ''; });
+            if (f) Array.prototype.filter.call(f.elements, function (el) { return el.matches('.js-pasta-busca, .js-pasta-filtro'); }).forEach(function (el) { el.value = ''; });
             aplicarFiltrosPastas();
 
             return;

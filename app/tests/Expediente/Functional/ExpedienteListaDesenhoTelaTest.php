@@ -46,7 +46,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Expediente', trim($crawler->filter('h1.exp-titulo')->text()));
     }
 
-    #[TestDox('acervo: barra do desenho (título + Nova Pasta que abre o modal de sempre) e resumo "página de N · Total: X pastas" contando a consulta inteira')]
+    #[TestDox('acervo: barra do desenho (título + Nova Pasta que abre o modal de sempre) e resumo "1 de 2 · Total: 2 pastas" (intervalo de pastas da página, AUD-14) contando a consulta inteira')]
     public function testBarraEResumo(): void
     {
         $client = static::createClient();
@@ -62,7 +62,8 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         $nova = $crawler->filter('.exp-barra > button.exp-nova-pasta');
         self::assertSame('#modalNovaPasta', $nova->attr('data-bs-target'), 'o mesmo modal de sempre — cliente opcional, número no servidor');
         self::assertSame('modal', $nova->attr('data-bs-toggle'));
-        self::assertMatchesRegularExpression('/^1 de 1 · Total: 2 pastas$/', trim((string) preg_replace('/\s+/', ' ', $crawler->filter('.exp-resumo')->text())));
+        // "1 de 2" é o INTERVALO de pastas desta página (dc L.455), não "página 1 de 1"; espaços largos em volta do ponto.
+        self::assertSame("1 de 2\u{2003}·\u{2003}Total: 2 pastas", trim((string) preg_replace('/[ \t\n\r]+/', ' ', $crawler->filter('.exp-resumo')->text())));
         // Com 1 página a paginação do topo (a do desenho) continua visível; a do rodapé (só do BlueJus)
         // só aparece com mais de uma página — uma só na tela.
         self::assertCount(1, $crawler->filter('nav[aria-label="Paginação"] .page-item.active'));
@@ -139,6 +140,106 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('0 pastas', trim($crawler->filter('.exp-barra-total')->text()));
         self::assertStringContainsString('Nenhuma pasta', trim($crawler->filter('.exp-vazio')->text()));
         self::assertCount(1, $crawler->filter('.exp-vazio > i.bi-folder-x'));
+    }
+
+    #[TestDox('E8d, AUD-17/18/19: cabeçalho com os ícones do dc; sem ordenação escolhida, NUP aparece ordenando (decrescente, aria-sort) e as outras com bi-chevron-expand')]
+    public function testCabecalhoDoDesenho11(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->entrar($client);
+        $this->criarPasta($tenant, 'CAB-' . uniqid());
+
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+        $ths = $crawler->filter('#tabelaPastas thead th');
+        self::assertCount(8, $ths);
+        $icones = $ths->each(static fn ($th): string => (string) $th->filter('i')->first()->attr('class'));
+        self::assertSame(['bi bi-upc me-1', 'bi bi-person me-1', 'bi bi-bank me-1', 'bi bi-flag me-1', 'bi bi-person-badge me-1', 'bi bi-check2-square me-1', 'bi bi-tags me-1', 'bi bi-circle-half me-1'], $icones);
+
+        $nup = $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"]');
+        self::assertSame('descending', $nup->attr('aria-sort'), 'a ordem padrão do repositório é NUP decrescente');
+        self::assertStringContainsString('desc', (string) $nup->attr('class'));
+        self::assertCount(1, $nup->filter('i.sort-icon.bi-caret-down-fill'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead [aria-sort]'));
+        self::assertCount(6, $crawler->filter('#tabelaPastas thead th[data-ordenar] > i.sort-icon.bi-chevron-expand'));
+        self::assertCount(0, $crawler->filter('#tabelaPastas .bi-arrow-down-up, #tabelaPastas .ps-3'));
+
+        // Ordenação escolhida: a seta vai para a coluna, crescente.
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?ordenar=cliente&direcao=asc');
+        self::assertSame('ascending', $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"]')->attr('aria-sort'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"] > i.bi-caret-up-fill'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"] > i.bi-chevron-expand'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas tbody td.col-marc-tabela .js-mover-para > i.bi-tag'), 'AUD-24: ícone do dc');
+    }
+
+    #[TestDox('E8d, AUD-08/11/12/13: situação na barra (associada ao form), Visualizar e paginação nos controles, resumo embaixo, filtros com cara de botão, setas em ícone')]
+    public function testFaixaDoDesenho11(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->entrar($client);
+        $this->criarPasta($tenant, 'FAIXA-' . uniqid(), PrioridadePasta::Urgente);   // casa com o filtro abaixo
+
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?status=ativo&prioridade=urgente');
+        self::assertResponseIsSuccessful();
+
+        // Situação: na barra, à direita de "Nova Pasta", fora do <form> mas associada a ele.
+        $sit = $crawler->filter('#acervo-geral-wrapper > .exp-barra > .exp-situacao > select.exp-situacao-select[name="status"][form="formFiltrosPasta"]');
+        self::assertCount(1, $sit);
+        self::assertSame(['Todas', 'Ativo', 'Arquivado'], $sit->filter('option')->each(static fn ($o): string => trim($o->text())));
+        self::assertSame('ativo', $sit->filter('option[selected]')->attr('value'));
+        self::assertSame('ativo', $crawler->filter('.exp-situacao')->attr('data-valor'));
+        self::assertSame('Situação', $sit->attr('data-rotulo'));
+        self::assertCount(0, $crawler->filter('#formFiltrosPasta select[name="status"]'), 'a situação saiu da linha dos filtros');
+        self::assertCount(1, $crawler->filter('.exp-barra > .exp-nova-pasta + .exp-situacao'));
+
+        // Responsável e prioridade: <select> nativos com a seta e a bandeira do dc.
+        self::assertCount(1, $crawler->filter('#formFiltrosPasta .pasta-filtros-linha > .exp-filtro--resp > select[name="responsavel"]'));
+        self::assertCount(1, $crawler->filter('.exp-filtro--resp > i.exp-filtro-seta.bi-chevron-down'));
+        $prio = $crawler->filter('#formFiltrosPasta .pasta-filtros-linha > .exp-filtro--prio');
+        self::assertSame('urgente', $prio->attr('data-valor'));
+        self::assertCount(1, $prio->filter('i.exp-filtro-bandeira.bi-flag-fill'));
+
+        // Controles na mesma faixa: Visualizar (2 modos + painel) e a paginação; resumo depois.
+        $controles = $crawler->filter('#pastasView > .exp-topo > .exp-controles');
+        self::assertCount(1, $controles);
+        $botao = $controles->filter('.exp-visualizar.pasta-view-toggle > button.js-visualizar');
+        self::assertSame('menu', $botao->attr('aria-haspopup'));
+        self::assertSame('false', $botao->attr('aria-expanded'));
+        self::assertSame('Visualizar', trim($botao->text()));
+        $menu = $controles->filter('#expVisualizarMenu[role="menu"]');
+        self::assertNotNull($menu->attr('hidden'));
+        self::assertSame(['tabela', 'lista'], $menu->filter('.js-view-toggle[role="menuitemradio"]')->each(static fn ($b): string => (string) $b->attr('data-view')));
+        self::assertSame(['Detalhes', 'Cartões'], $menu->filter('.js-view-toggle')->each(static fn ($b): string => trim($b->text())));
+        self::assertCount(1, $menu->filter('.js-vis-painel[role="menuitemcheckbox"]'));
+        self::assertStringNotContainsString('por página', mb_strtolower($menu->text()), 'sem backend para pastas por página');
+        self::assertCount(1, $controles->filter('nav[aria-label="Paginação"]'));
+        self::assertCount(1, $crawler->filter('#pastasView > .exp-topo > .exp-controles + .exp-resumo'));
+
+        // Setas em ícone.
+        $pag = $controles->filter('nav[aria-label="Paginação"]');
+        foreach (['bi-chevron-double-left', 'bi-chevron-left', 'bi-chevron-right', 'bi-chevron-double-right'] as $seta) {
+            self::assertCount(1, $pag->filter('i.' . $seta), $seta);
+        }
+        self::assertDoesNotMatchRegularExpression('/[«‹›»]/u', $pag->text());
+    }
+
+    #[TestDox('E8d: o painel do marcador também traz a situação na barra e o Visualizar; "Todas as pastas" com bi-folder2 (AUD-07)')]
+    public function testMarcadorETrilhoDoDesenho11(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->entrar($client);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $m = new Marcador('Delta ' . uniqid(), $tenant, $admin);
+        $em->persist($m);
+        $pasta = $this->criarPasta($tenant, 'MDELTA-' . uniqid());
+        $pasta->addMarcador($m);
+        $em->flush();
+
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/marcador/' . $m->getId() . '/pastas');
+        self::assertCount(1, $crawler->filter('#painel-marcador-wrapper > .exp-barra > .exp-situacao > select[name="status"][form="formFiltrosPasta"]'));
+        self::assertCount(1, $crawler->filter('#pastasView > .exp-topo > .exp-controles > .exp-visualizar'));
+
+        $crawler = $client->request('GET', '/expediente');
+        self::assertCount(1, $crawler->filter('.expediente-menu-link[data-painel] > i.bi-folder2.expediente-icon--no-chevron'));
     }
 
     /** @return array{0: User, 1: Tenant} */

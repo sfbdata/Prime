@@ -44,11 +44,11 @@
         return menu ? Array.prototype.slice.call(menu.querySelectorAll('.exp-ctx-item')) : [];
     }
 
-    function abrir(titulo, lista, x, y, quem) {
+    function abrir(titulo, lista, x, y, quem, variante) {
         fechar(false);
         origem = quem || document.activeElement;
         menu = document.createElement('div');
-        menu.className = 'exp-ctx';
+        menu.className = 'exp-ctx' + (variante ? ' exp-ctx--' + variante : '');
         menu.setAttribute('role', 'menu');
         menu.setAttribute('aria-label', titulo);
 
@@ -159,20 +159,19 @@
         var chip = linha.querySelector('.pasta-resp-chip');
         var marcar = linha.querySelector('.js-mover-para');
 
+        // Rótulos, ícones e ordem do dc L.276-282, sem separadores (no dc o primeiro separador vem antes de
+        // Trancar, que não existe aqui). Título como o dc L.274: "Pasta 1365 · NOME".
+        var temNome = nome && nome !== '—';
         var lista = [
             { rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { window.location.href = href; } },
             { rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { window.open(href, '_blank', 'noopener'); } }
         ];
-        if (!excluida && (chip || marcar)) {
-            lista.push('-');
-            if (chip) { lista.push({ rotulo: 'Alterar responsável', icone: 'bi-person-gear', acao: function () { chip.click(); } }); }
-            if (marcar) { lista.push({ rotulo: 'Alterar marcador', icone: 'bi-tags', acao: function () { marcar.click(); } }); }
-        }
-        lista.push('-');
-        if (nup) { lista.push({ rotulo: 'Copiar número', icone: 'bi-hash', acao: function () { copiar(nup, 'Número ' + nup + ' copiado'); } }); }
-        if (nome && nome !== '—') { lista.push({ rotulo: 'Copiar nome', icone: 'bi-clipboard', acao: function () { copiar(nome, 'Nome copiado'); } }); }
+        if (!excluida && chip) { lista.push({ rotulo: 'Alterar responsável', icone: 'bi-person-badge', acao: function () { chip.click(); } }); }
+        if (!excluida && marcar) { lista.push({ rotulo: 'Alterar marcador', icone: 'bi-tags', acao: function () { marcar.click(); } }); }
+        if (nup) { lista.push({ rotulo: 'Copiar número da pasta', icone: 'bi-hash', acao: function () { copiar(nup, 'Número ' + nup + ' copiado'); } }); }
+        if (temNome) { lista.push({ rotulo: 'Copiar nome do cliente', icone: 'bi-clipboard', acao: function () { copiar(nome, 'Nome do cliente copiado'); } }); }
 
-        abrir('Pasta ' + nup, lista, x, y, linha);
+        abrir('Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha);
     }
 
     /* ── Marcador do trilho ─────────────────────────────────────────────── */
@@ -182,10 +181,11 @@
         var addSub = link.querySelector('.expediente-btn-add-sub');
         var novo = document.querySelector('.js-abrir-modal-marcador[data-pai-id=""]');
 
+        // Ícones do dc L.236-241 (bi-funnel, bi-plus-lg); "Novo sub-marcador" é só do BlueJus (hierarquia).
         var lista = [
-            { rotulo: 'Ver pastas do marcador', icone: 'bi-folder2', acao: function () { link.click(); } }
+            { rotulo: 'Ver pastas do marcador', icone: 'bi-funnel', acao: function () { link.click(); } }
         ];
-        if (novo) { lista.push({ rotulo: 'Novo marcador', icone: 'bi-folder-plus', acao: function () { novo.click(); } }); }
+        if (novo) { lista.push({ rotulo: 'Novo marcador', icone: 'bi-plus-lg', acao: function () { novo.click(); } }); }
         if (addSub) { lista.push({ rotulo: 'Novo sub-marcador', icone: 'bi-node-plus', acao: function () { addSub.click(); } }); }
         if (editar) {
             lista.push({ rotulo: 'Editar', icone: 'bi-pencil', acao: function () { editar.click(); } });
@@ -193,7 +193,9 @@
             lista.push({ rotulo: 'Excluir marcador', icone: 'bi-trash3', perigo: true, acao: function () { excluirPeloModal(editar); } });
         }
 
-        abrir('Marcador ' + nome, lista, x, y, link);
+        // Título como o dc L.235: "1. Despachar · 122 pasta(s)" (a contagem é a do trilho; sem ela, nenhuma).
+        var contagem = textoLimpo(link.querySelector('.js-contagem-marcador')) || '0';
+        abrir(nome + ' · ' + contagem + ' pasta(s)', lista, x, y, link, 'marcador');
     }
 
     /* Excluir passa pelo modal Editar de sempre (mesmo token, mesma rota) e pergunta na janela da tela. */
@@ -287,5 +289,150 @@
     new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true });
     // Alternar tabela/cartões só troca classes; observar atributos entraria em laço com o próprio transform.
     document.addEventListener('click', agendar, true);
+    agendar();
+}());
+
+/* =============================================================================
+   E8d. Faixa de filtros, "Visualizar" e responsável no desenho 1.1 (dc L.98-128, L.159-160).
+
+   - "Visualizar" (AUD-12): abre o menu com os dois modos que existem e o "Painel de marcadores". Quem troca
+     o modo é o handler de sempre (`.js-view-toggle`, pasta/_tabela); o painel é o botão de recolher do trilho.
+   - Filtro com valor (AUD-10): a caixa fica azul-clara com o texto azul (dc `onBg`/`onCor`), também o da
+     situação, que mora na barra do acervo fora do <form> (por isso `form.elements`).
+   - Responsável (AUD-25/26), SÓ na Lista, por decisão do dono: iniciais pelas duas primeiras palavras (dc
+     `ini2`: THÂMARA THAYS → TT) e "?" no lugar do ícone quando não há responsável. O chip e o avatar são
+     parciais compartilhados com a Pasta (`pasta/_resp_chip`, `_partials/_avatar_usuario`): ficam como estão,
+     e o ajuste é feito aqui, nos chips do #pastasView, depois de cada desenho (servidor, AJAX ou troca).
+   ============================================================================= */
+(function () {
+    'use strict';
+
+    /* ── Visualizar ─────────────────────────────────────────────────────── */
+    function menuVis() { return document.getElementById('expVisualizarMenu'); }
+    function botaoVis() { return document.querySelector('.js-visualizar'); }
+    function itensVis() {
+        var m = menuVis();
+        return m ? Array.prototype.slice.call(m.querySelectorAll('.exp-vis-item')) : [];
+    }
+    function painelAberto() {
+        var s = document.getElementById('expedienteSidebar');
+        return !!s && !s.classList.contains('sidebar-collapsed');
+    }
+    function fecharVis(devolverFoco) {
+        var m = menuVis();
+        var b = botaoVis();
+        if (!m || m.hidden) { return; }
+        m.hidden = true;
+        if (b) {
+            b.setAttribute('aria-expanded', 'false');
+            if (devolverFoco) { b.focus(); }
+        }
+    }
+    function abrirVis() {
+        var m = menuVis();
+        var b = botaoVis();
+        if (!m || !b) { return; }
+        var painel = m.querySelector('.js-vis-painel');
+        if (painel) { painel.setAttribute('aria-checked', painelAberto() ? 'true' : 'false'); }
+        m.hidden = false;
+        b.setAttribute('aria-expanded', 'true');
+        var marcado = m.querySelector('.js-view-toggle[aria-checked="true"]') || itensVis()[0];
+        if (marcado) { marcado.focus(); }
+    }
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.js-visualizar')) {
+            var m = menuVis();
+            if (m && m.hidden) { abrirVis(); } else { fecharVis(false); }
+            return;
+        }
+        if (e.target.closest('.js-vis-painel')) {
+            var recolher = document.getElementById('expedienteSidebarToggleBtn');
+            if (recolher) { recolher.click(); }
+            fecharVis(true);
+            return;
+        }
+        if (e.target.closest('.exp-vis-item')) { fecharVis(true); return; }
+        if (!e.target.closest('.exp-visualizar')) { fecharVis(false); }
+    });
+    // Botão direito (ou qualquer pressão) fora dele também fecha: senão o menu de contexto abria com o
+    // Visualizar aberto e os dois disputavam as setas do teclado.
+    document.addEventListener('mousedown', function (e) {
+        if (!e.target.closest('.exp-visualizar')) { fecharVis(false); }
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+        var m = menuVis();
+        if (!m || m.hidden) { return; }
+        var lista = itensVis();
+        var i = lista.indexOf(document.activeElement);
+        if (e.key === 'Escape') { e.preventDefault(); fecharVis(true); return; }
+        if (e.key === 'Tab') { fecharVis(false); return; }
+        if (e.key === 'ArrowDown') { e.preventDefault(); lista[(i + 1) % lista.length].focus(); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); lista[(i - 1 + lista.length) % lista.length].focus(); return; }
+        if (e.key === 'Home') { e.preventDefault(); lista[0].focus(); return; }
+        if (e.key === 'End') { e.preventDefault(); lista[lista.length - 1].focus(); }
+    });
+
+    /* ── Filtro com valor ───────────────────────────────────────────────── */
+    function marcarFiltros() {
+        var form = document.getElementById('formFiltrosPasta');
+        if (!form) { return; }
+        Array.prototype.forEach.call(form.elements, function (el) {
+            if (el.matches('.js-pasta-busca')) {
+                var caixa = el.closest('.pasta-filtros-busca');
+                if (caixa) { caixa.classList.toggle('is-ativo', el.value.trim() !== ''); }
+            } else if (el.matches('select.js-pasta-filtro')) {
+                var envolto = el.closest('.exp-filtro, .exp-situacao');
+                if (envolto) {
+                    envolto.classList.toggle('is-ativo', el.value !== '');
+                    envolto.setAttribute('data-valor', el.value);
+                }
+            }
+        });
+        var periodo = form.querySelector('.pasta-filtros-periodo');
+        if (periodo) {
+            periodo.classList.toggle('is-ativo', Array.prototype.some.call(
+                periodo.querySelectorAll('input[type="date"]'), function (d) { return d.value !== ''; }));
+        }
+    }
+    document.addEventListener('input', marcarFiltros, true);
+    document.addEventListener('change', marcarFiltros, true);
+
+    /* ── Responsável na Lista ───────────────────────────────────────────── */
+    function iniciaisDoDesenho(nome) {
+        return nome.trim().split(/\s+/).slice(0, 2).map(function (p) { return p.charAt(0); }).join('').toUpperCase();
+    }
+    function ajustarResponsaveis() {
+        document.querySelectorAll('#pastasView .pasta-resp-chip').forEach(function (chip) {
+            var nomeEl = chip.querySelector('.pasta-resp-nome');
+            var nome = chip.dataset.respId && nomeEl ? nomeEl.textContent : '';
+            if (nome) {
+                var ini = iniciaisDoDesenho(nome);
+                var comIniciais = chip.querySelector('.resp-avatar-ini');
+                if (comIniciais && comIniciais.textContent !== ini) { comIniciais.textContent = ini; }
+                var comFoto = chip.querySelector('.resp-avatar-img');
+                if (comFoto) { comFoto.setAttribute('data-ini', ini); }   // se a foto falhar, cai nestas iniciais
+            }
+            var vazio = chip.querySelector('.resp-avatar-vazio:not(.exp-resp-vazio)');
+            if (vazio) {
+                vazio.classList.add('exp-resp-vazio');
+                vazio.textContent = '?';
+            }
+        });
+    }
+
+    /* Depois de cada desenho: servidor, troca por AJAX (filtro, página, marcador) e o redesenho do chip
+       ao escolher um responsável (_resp_script). Só lista de filhos: as mudanças daqui não realimentam. */
+    var agendado = 0;
+    function aplicar() {
+        agendado = 0;
+        marcarFiltros();
+        ajustarResponsaveis();
+    }
+    function agendar() {
+        if (!agendado) { agendado = window.requestAnimationFrame(aplicar); }
+    }
+    new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true });
     agendar();
 }());

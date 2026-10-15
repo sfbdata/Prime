@@ -1,4 +1,5 @@
 {# A do topo: sempre visível quando há pastas, como no desenho (dc L.131-135); com 1 página, só o "1".
+   Setas em ícone (bi-chevron-double-left/left/right/double-right), como o dc L.428-430 (AUD-13).
    A do rodapé (`paginacaoRodape`, só do BlueJus): só com mais de uma página, como era antes. #}
 {% if pagination.total_items > 0 and (not (paginacaoRodape ?? false) or pagination.total_pages > 1) %}
     {% set max_botoes = 8 %}
@@ -25,7 +26,7 @@
                         data-page="1"
                         aria-label="Primeira página"
                         {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &laquo;
+                    <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
                 </button>
             </li>
 
@@ -35,7 +36,7 @@
                         data-page="{{ pagination.current_page - 1 }}"
                         aria-label="Página anterior"
                         {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &lsaquo;
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
                 </button>
             </li>
 
@@ -57,7 +58,7 @@
                         data-page="{{ pagination.current_page + 1 }}"
                         aria-label="Próxima página"
                         {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &rsaquo;
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
                 </button>
             </li>
 
@@ -67,7 +68,7 @@
                         data-page="{{ pagination.total_pages }}"
                         aria-label="Última página"
                         {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &raquo;
+                    <i class="bi bi-chevron-double-right" aria-hidden="true"></i>
                 </button>
             </li>
 

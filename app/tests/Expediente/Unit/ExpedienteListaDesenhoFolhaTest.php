@@ -63,7 +63,7 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         yield 'Cliente 2fr (dc L.146)' => ['col:nth-child(2) { width: 40% !important; }'];
         yield 'Ação 1.5fr (dc L.146)' => ['col:nth-child(3) { width: 30% !important; }'];
         yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { flex: 0 1 250px; height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
-        yield '"Todas as pastas" selecionado: só fundo e texto azul, peso normal, sem faixa (dc, medido)' => [".exp-body .expediente-menu-link[data-painel] { min-height: 36px; }\n.exp-body .expediente-menu-link[data-painel].active { font-weight: 400; box-shadow: none; }"];
+        yield '"Todas as pastas" selecionado: só fundo e texto azul, peso normal, sem faixa (dc, medido)' => [".exp-body .expediente-menu-link[data-painel] { min-height: 36px; }\n.exp-body .expediente-menu-link[data-painel].active { font-weight: 400; color: var(--ex-azul); border-left-color: transparent !important; }"];
         yield 'datas do período encolhem dentro do bloco (dc L.109)' => ['.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { flex: 1 1 0; min-width: 0; width: 0; }'];
         yield '"a" entre as datas #7d909d (dc L.109)' => ['--ex-periodo-sep:  #7d909d;'];
     }
@@ -98,14 +98,15 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
     public function testMenusSoComAcoesExistentes(): void
     {
         $js = self::ler('public/js/expediente-lista.js');
-        foreach (["'Abrir pasta'", "'Abrir em nova aba'", "'Alterar responsável'", "'Alterar marcador'", "'Copiar número'", "'Copiar nome'",
+        foreach (["'Abrir pasta'", "'Abrir em nova aba'", "'Alterar responsável'", "'Alterar marcador'", "'Copiar número da pasta'", "'Copiar nome do cliente'",
                   "'Ver pastas do marcador'", "'Novo marcador'", "'Novo sub-marcador'", "'Editar'", "'Excluir marcador'"] as $item) {
             self::assertStringContainsString("rotulo: " . $item, $js);
         }
         foreach (['Trancar', 'Destacar', 'Duplicar', 'F2', 'localStorage'] as $fora) {
             self::assertDoesNotMatchRegularExpression('/rotulo: \'[^\']*' . $fora . '/', $js, $fora . ' não tem backend: fica fora');
         }
-        self::assertStringContainsString("if (!excluida && (chip || marcar))", $js, 'lápide é somente leitura: sem "Alterar"');
+        self::assertStringContainsString("if (!excluida && chip) {", $js, 'lápide é somente leitura: sem "Alterar responsável"');
+        self::assertStringContainsString("if (!excluida && marcar) {", $js, 'lápide é somente leitura: sem "Alterar marcador"');
         self::assertStringContainsString('chip.click()', $js, 'Alterar responsável aciona o chip de sempre');
         self::assertStringContainsString('marcar.click()', $js, 'Alterar marcador aciona o botão de sempre');
         self::assertDoesNotMatchRegularExpression('/innerHTML\s*=/', $js, 'só textContent');
@@ -201,7 +202,7 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringNotContainsString('minmax(', $css, 'os mínimos 220/190 do dc não entram');
         // Célula escondida sai da grade e a seguinte herdava o <col> dela (a 900px a Situação ficava com os 220px
         // do Responsável): quem sai é o próprio <col>, e o piso desce junto.
-        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 642px; } .exp-body #tabelaPastas colgroup col:nth-child(3), .exp-body #tabelaPastas colgroup col:nth-child(5), .exp-body #tabelaPastas colgroup col:nth-child(6) { display: none; } }', $css);
+        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas colgroup col:nth-child(3), .exp-body #tabelaPastas colgroup col:nth-child(5), .exp-body #tabelaPastas colgroup col:nth-child(6) { display: none; } }', $css);
         self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas colgroup col:nth-child(7) { display: none; } }', $css);
 
         // Os cortes são os mesmos em que o `_tabela` esconde as células.
