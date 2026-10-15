@@ -35,6 +35,7 @@ use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\Auditavel;
+use App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo;
 use App\Termo\Entity\AceiteTermo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -136,9 +137,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // existe só para o Doctrine conhecer a tabela. Toda escrita é por DBAL (`OutboxDeReplicacao`),
         // então o listener do ORM nunca a veria: `Auditavel` seria promessa vazia. Auditar ainda
         // copiaria `nome`/`chave_remota` (nome de pessoa nos legados) para o audit_log, o oposto da
-        // retenção pedida na decisão I4. O próprio estado da linha (tentativas, erro sem dado pessoal)
-        // é o registro da réplica.
-        \App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo::class,
+        // retenção pedida na decisão I4. O próprio estado da linha (tentativas, erro com nome e chave
+        // mascarados quando aparecem literais) é o registro da réplica.
+        ReplicacaoDeArquivo::class,
     ];
 
     private EntityManagerInterface $em;
