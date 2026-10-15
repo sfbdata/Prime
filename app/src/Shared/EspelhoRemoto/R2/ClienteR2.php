@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace App\Shared\EspelhoRemoto\R2;
 
+use AsyncAws\Core\Credentials\Credentials;
 use AsyncAws\S3\S3Client;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * Monta o `S3Client` do R2 com tudo explícito — nada lido de `AWS_*` do ambiente nem de `~/.aws`.
+ * Monta o `S3Client` do R2 com tudo explícito.
  *
- * O `async-aws` cai para `AWS_ACCESS_KEY_ID`/`AWS_REGION`/perfis quando a opção não vem. Passando
- * credencial, endpoint e região sempre, um ambiente com variáveis da AWS sobrando não muda o
- * destino nem a identidade sem ninguém perceber.
+ * **A credencial vai como provedor FIXO** (`Credentials`), e não como opção de configuração. Com
+ * provedor nulo, o `async-aws` monta a cadeia padrão — configuração, WebIdentity, `~/.aws`, contêiner
+ * e IMDS — e lê do ambiente, em grupos separados, `AWS_ROLE_ARN`/`AWS_WEB_IDENTITY_TOKEN_FILE`: com
+ * eles presentes, faria `AssumeRole` no STS da AWS usando a chave do R2, e depois cairia para os
+ * outros provedores. Com o provedor fixo, nenhuma dessas buscas acontece. Endpoint e região também
+ * vêm sempre, então `AWS_REGION`/`AWS_PROFILE` sobrando não mudam destino nem assinatura.
  *
  *  - `region = auto`: o R2 assina com essa região;
  *  - `pathStyleEndpoint`: `https://<conta>.r2.cloudflarestorage.com/<bucket>/<chave>` — sem
@@ -47,10 +51,8 @@ final class ClienteR2
         return new S3Client([
             'endpoint'          => $endpoint,
             'region'            => 'auto',
-            'accessKeyId'       => $chaveDeAcesso,
-            'accessKeySecret'   => $segredo,
             'pathStyleEndpoint' => 'true',
             'sendChunkedBody'   => 'false',
-        ], null, $http, $logger);
+        ], new Credentials($chaveDeAcesso, $segredo), $http, $logger);
     }
 }

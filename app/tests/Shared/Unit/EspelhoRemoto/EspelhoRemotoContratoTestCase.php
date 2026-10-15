@@ -129,6 +129,37 @@ abstract class EspelhoRemotoContratoTestCase extends TestCase
         self::assertFalse($this->espelho()->existe($chave));
     }
 
+    #[TestDox('stream não rebobinável é recusado antes de qualquer envio — erro de quem chama, não falha transitória')]
+    public function testStreamNaoRebobinavelEhRecusado(): void
+    {
+        $par = stream_socket_pair(\STREAM_PF_UNIX, \STREAM_SOCK_STREAM, \STREAM_IPPROTO_IP);
+        self::assertIsArray($par);
+        fwrite($par[1], 'x');
+
+        try {
+            $this->espelho()->enviar($this->chave('socket.bin'), $par[0], 1, hash('sha256', 'x'), 'application/octet-stream');
+            self::fail('stream sem seek devia ser recusado');
+        } catch (\InvalidArgumentException) {
+            $this->addToAssertionCount(1);
+        } finally {
+            fclose($par[0]);
+            fclose($par[1]);
+        }
+
+        self::assertFalse($this->espelho()->existe($this->chave('socket.bin')));
+    }
+
+    #[TestDox('stream entregue fora do início é rebobinado: vai o conteúdo inteiro')]
+    public function testStreamForaDoInicioEhRebobinado(): void
+    {
+        $stream = $this->stream('conteúdo inteiro');
+        fseek($stream, 0, \SEEK_END);
+
+        $this->espelho()->enviar($this->chave('fim.txt'), $stream, \strlen('conteúdo inteiro'), hash('sha256', 'conteúdo inteiro'), 'text/plain');
+
+        self::assertTrue($this->espelho()->consultar($this->chave('fim.txt'))?->confereCom(\strlen('conteúdo inteiro'), hash('sha256', 'conteúdo inteiro')));
+    }
+
     protected function chave(string $nome): ChaveDeArquivo
     {
         return new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, $nome);

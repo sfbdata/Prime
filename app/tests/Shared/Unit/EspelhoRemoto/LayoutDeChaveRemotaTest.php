@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * A chave remota de cada arquivo (spec P2 §2, DP-1, DP-8).
@@ -22,8 +23,8 @@ use PHPUnit\Framework\TestCase;
  *  1. a tabela literal por categoria — o formato que o dono ratificou;
  *  2. a IGUALDADE com o caminho relativo do disco: para as nove categorias, o que vem depois de
  *     `uploads/` é exatamente o que o `ResolvedorDeCaminhoLocal` monta abaixo de `public/uploads/`
- *     com os parâmetros de produção. Se alguém mudar um dos dois sozinho, cai aqui — e o espelho
- *     deixaria de ser conferível contra o inventário da P0;
+ *     com os parâmetros de produção LIDOS DO `config/services.yaml`. Se alguém mudar um diretório lá,
+ *     ou o layout aqui, sozinho, cai — e o espelho deixaria de ser conferível contra a P0;
  *  3. os 326 nomes fora do padrão medidos na P1, byte a byte.
  */
 #[CoversClass(LayoutDeChaveRemota::class)]
@@ -156,6 +157,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
         self::assertCount(2, array_filter($nomes, static fn (string $n): bool => str_contains($n, '／')), 'os dois com barra de largura total');
         self::assertCount(6, array_filter($nomes, static fn (string $n): bool => preg_match('/[^\x00-\x7F]/', $n) === 1), 'os seis com Unicode');
         self::assertCount(3, array_filter($nomes, static fn (string $n): bool => $n !== trim($n)), 'os três com espaço na borda');
+        self::assertSame(67, max(array_map('strlen', $nomes)), 'o maior nome medido na P1, em bytes — longe do teto de 1024');
     }
 
     /** @return array{total: int, classes: array<string, int>, nomes: list<string>} */
@@ -167,19 +169,22 @@ final class LayoutDeChaveRemotaTest extends TestCase
         return $dados;
     }
 
+    /** O resolvedor com os oito diretórios de PRODUÇÃO, lidos do `services.yaml` (não do `when@test`). */
     private function resolvedorDeProducao(): ResolvedorDeCaminhoLocal
     {
-        $raiz = self::RAIZ_DE_PRODUCAO;
+        /** @var array{parameters: array<string, string>} $config */
+        $config = Yaml::parseFile(\dirname(__DIR__, 4) . '/config/services.yaml', Yaml::PARSE_CUSTOM_TAGS);
+        $p      = static fn (string $nome): string => str_replace('%kernel.project_dir%', '/var/www/app', $config['parameters'][$nome]);
 
         return new ResolvedorDeCaminhoLocal(
-            uploadsDir: $raiz . '/pastas',
-            clientesUploadsDir: $raiz . '/clientes',
-            chamadosUploadsDir: $raiz . '/chamados',
-            justificativasUploadsDir: $raiz . '/justificativas',
-            fotosPerfilDir: $raiz . '/perfil',
-            cobrancasUploadsDir: $raiz . '/cobrancas',
-            kanbanUploadsDir: $raiz . '/kanban',
-            tarefasUploadsDir: $raiz . '/tarefas',
+            uploadsDir: $p('uploads_dir'),
+            clientesUploadsDir: $p('clientes_uploads_dir'),
+            chamadosUploadsDir: $p('chamados_uploads_dir'),
+            justificativasUploadsDir: $p('justificativas_uploads_dir'),
+            fotosPerfilDir: $p('fotos_perfil_dir'),
+            cobrancasUploadsDir: $p('cobrancas_uploads_dir'),
+            kanbanUploadsDir: $p('kanban_uploads_dir'),
+            tarefasUploadsDir: $p('tarefas_uploads_dir'),
         );
     }
 }

@@ -37,10 +37,23 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         self::assertSame(['consultar', 'enviar', 'existe'], $metodos);
     }
 
-    #[TestDox('nenhum arquivo de src/ chama exclusão do S3 (deleteObject, deleteObjects, DeleteObject*)')]
-    public function testNinguemChamaExclusaoRemota(): void
+    #[TestDox('nenhum arquivo de src/ chama exclusão, expiração, cópia ou retenção do S3')]
+    public function testNinguemChamaOperacaoDestrutivaRemota(): void
     {
-        self::assertSame([], $this->arquivosQueCasam('/\bdeleteObjects?\s*\(|\bDeleteObjects?(?:Request|Input)\b|\bdeleteBucket\w*\s*\(/i'));
+        self::assertSame([], $this->arquivosQueCasam('/\b(?:deleteObjects?|deleteBucket\w*|putBucketLifecycle\w*|abortMultipartUpload|copyObject|putObjectRetention|putObjectLegalHold|putBucket\w*)\s*\(|\bDeleteObjects?(?:Request|Input)\b/i'));
+    }
+
+    /** Lista PERMITIDA, não proibida: o adaptador só pode chamar estas duas operações no cliente. */
+    #[TestDox('o adaptador R2 só chama putObject e headObject no cliente S3')]
+    public function testAdaptadorSoChamaPutEHead(): void
+    {
+        $codigo = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php'));
+        preg_match_all('/->cliente->(\w+)\s*\(/', $codigo, $chamadas);
+        $operacoes = array_values(array_unique($chamadas[1]));
+        sort($operacoes);
+
+        self::assertSame(['headObject', 'putObject'], $operacoes);
+        self::assertSame(0, preg_match('/\$cliente\b(?!->)|->cliente\b(?!->)/', str_replace(['private readonly S3Client $cliente', 'S3Client $cliente'], '', $codigo)), 'o cliente não pode ser repassado para fora');
     }
 
     #[TestDox('dentro do adaptador R2 não existe a palavra delete fora de comentário')]

@@ -20,7 +20,7 @@ use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
  * (o que o `ResolvedorDeCaminhoLocal` monta abaixo de `public/uploads/`). Por isso o tenant aparece
  * duas vezes nas duas categorias que já isolam o escritório em disco — `pastas/{t}/` e
  * `cobrancas/{t}/`: o espelho fica conferível linha a linha contra o inventário da P0.
- * `MapaDeChaveRemotaTest` prova a igualdade categoria a categoria.
+ * `LayoutDeChaveRemotaTest` prova a igualdade categoria a categoria, contra o `services.yaml`.
  *
  * ## O nome vai byte a byte (DP-8)
  *

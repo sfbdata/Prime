@@ -22,13 +22,21 @@ final class EspelhoRemotoEmMemoria implements EspelhoRemoto
 
     public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
     {
-        if (!\is_resource($conteudo)) {
-            throw new \InvalidArgumentException('O conteúdo tem de ser um stream aberto.');
+        // As mesmas recusas do adaptador real — o dublê não pode aceitar o que o real recusa.
+        if (!\is_resource($conteudo) || (stream_get_meta_data($conteudo)['seekable'] ?? false) !== true) {
+            throw new \InvalidArgumentException('O conteúdo tem de ser um stream aberto e rebobinável.');
+        }
+        if ($tamanhoBytes < 0) {
+            throw new \InvalidArgumentException('Tamanho negativo.');
         }
         if (preg_match('/\A[0-9a-f]{64}\z/', $sha256) !== 1) {
             throw new \InvalidArgumentException('O SHA-256 tem de vir em hex minúsculo de 64 caracteres.');
         }
+        if (preg_match('/\A[!-~][ -~]{0,254}\z/', $mimeType) !== 1) {
+            throw new \InvalidArgumentException('MIME inválido para cabeçalho HTTP.');
+        }
 
+        rewind($conteudo);
         $corpo = (string) stream_get_contents($conteudo);
         if (\strlen($corpo) !== $tamanhoBytes || !hash_equals(hash('sha256', $corpo), $sha256)) {
             throw new FalhaNoEspelhoRemoto('O conteúdo não confere com o tamanho/SHA declarados; nada foi gravado.');

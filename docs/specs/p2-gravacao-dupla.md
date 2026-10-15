@@ -2,8 +2,9 @@
 
 > **Risco: ALTO** — guarda dos documentos de todos os escritórios, em todos os módulos.
 > **Frente:** `r2-gravacao-dupla` (worktree própria, base `origin/master` @ `a3919b5c`).
-> **Autorizado em 15/10/2026:** só **P2.0** (esta spec) e **P2.1** (E2.7 + E2.8). Da P2.2 em diante,
-> cada etapa exige autorização explícita do dono.
+> **Autorizado em 15/10/2026:** **P2.0** (esta spec), **P2.1** (E2.7 + E2.8) e, na sequência,
+> **P2.2** (adaptador R2, sem ligar nada). Da P2.3 em diante, cada etapa exige autorização explícita
+> do dono.
 
 ## 0. A regra que não se negocia nesta fase
 
@@ -72,8 +73,8 @@ temporários privados fora do volume (`jusprime-upload-*`, `-copia-*`, `-gs-*`, 
 - o nome entra **byte a byte** (UTF-8 como está no banco; sem NFC/NFD, sem `trim`, sem escapar
   `／`, sem remover ponto final); a única transformação é a de transporte (percent-encoding da
   requisição, feito pelo cliente S3);
-- teto do S3: 1.024 bytes de chave — o maior nome medido tem 57 caracteres (Tarefa); a P2.2 mede
-  o maior do acervo e trava em teste;
+- teto do S3: 1.024 bytes de chave — o maior nome fora do padrão medido na P1 tem 67 bytes (o
+  fixture trava isso) e o teto exato de 1.024 bytes está travado em teste;
 - o tenant vem do **escopo da chave** (nunca do request, nunca do caminho). R1 da E2: no disco o
   tenant errado é invisível; no R2 vira 404 ou cruzamento. A prova de isolamento continua nos
   testes das fábricas de chave contra a entidade.
@@ -174,8 +175,11 @@ outro escritório por engano. O conteúdo é um **stream** (o worker da P2.3 o o
 entrou na P2.2 (não foi pedido); a reconciliação da P2.3 decide se precisa dele.
 
 **`EspelhoRemoto` não tem método de exclusão.** É a primeira barreira contra a regra 0: não há o
-que chamar. A segunda é um teste de arquitetura que proíbe `DeleteObject`, `deleteObject`,
-`DeleteObjects` e `->delete(` em todo `src/`. A terceira é o token (§5).
+que chamar. A segunda é o `EspelhoRemotoArquiteturaTest`: o adaptador só pode chamar `putObject` e
+`headObject` no cliente (lista PERMITIDA), nenhum arquivo de `src/` chama exclusão, expiração
+(lifecycle), cópia, retenção ou configuração de bucket do S3, e dentro de `EspelhoRemoto/` não existe
+a palavra `delete` fora de comentário. (`->delete(` em todo `src/` não é proibível: repositórios e
+controllers o usam.) A terceira é o token (§5).
 
 O núcleo (`App\Shared\Armazenamento`) continua sem saber que o R2 existe (teste
 `testNucleoNaoConheceOBackendRemoto`). O adaptador mora fora dele, em `App\Shared\EspelhoRemoto\`
@@ -393,8 +397,8 @@ revisão de quem entra nela — não o tipo nem o regex sozinhos.
 2. Prazo de retenção antes de qualquer exclusão remota futura (fora da P2).
 3. Purga passar a apagar anexos de Tarefa (DP-12) — e, junto, corrigir os textos da purga que ainda dizem "até a E2.7".
 4. Destino dos 90 suspeitos e dos 73 sem rastro (retenção/LGPD).
-6. Endurecimento geral: o backend local recusar symlink na leitura (as 9 categorias).
-7. **Antes de qualquer leitura remota (E4):** provar R1 de Tarefa pela rota com o dublê
+5. Endurecimento geral: o backend local recusar symlink na leitura (as 9 categorias).
+6. **Antes de qualquer leitura remota (E4):** provar R1 de Tarefa pela rota com o dublê
    `ArmazenamentoEmMemoria` (que materializa o escopo) — a escrita usa o escritório da tarefa e a
    leitura o da mensagem; no disco local isso é invisível, em `core/t/{tenant}` não.
 
@@ -424,9 +428,26 @@ bytes, mesmas classes (maiúsculas, Unicode de 2/3 bytes, espaço, pontuação, 
 trocado. Como o layout é concatenação de bytes, a forma é o que importa.
 
 **O que só se prova contra o R2 de verdade (P2.4, bucket de teste, com autorização):**
-assinatura SigV4 aceita para chave com Unicode, espaço e `／`; R2 aceitar `x-amz-checksum-sha256`
-(se recusar, cai para conferência só pelo HEAD); 404 (e não 403) no HEAD de chave ausente com o
-escopo do token; metadado `x-amz-meta-sha256` devolvido intacto.
+assinatura SigV4 aceita para chave com Unicode, espaço e `／`; **R2 recusar PUT com
+`x-amz-checksum-sha256` divergente** (obrigatório: é a única camada que protege o TRAJETO — a do
+adaptador, que relê o stream antes de enviar, protege o que sai daqui; o HEAD pós-envio confere
+tamanho e o metadado que o próprio PUT gravou, **não os bytes**); 404 (e não 403) no HEAD de chave
+ausente com o escopo do token; metadado `x-amz-meta-sha256` devolvido intacto; memória estável no
+envio de um vídeo de ~100 MB (pela leitura do vendor o envio é em streaming — hash por
+`hash_update_stream`, corpo em blocos —, mas não há teste que meça).
+
+**Revisão independente da P2.2 (15/10):** sem bloqueante; corrigidos o provedor de credencial
+(agora FIXO — antes, `AWS_ROLE_ARN` no ambiente levaria a um `AssumeRole` no STS da AWS), a
+conferência de conteúdo no adaptador (antes, só o simulador recusava SHA errado) e o teste de
+igualdade do layout (agora lido do `services.yaml`). Registrados, para a P2.3:
+- **bucket errado parece "ausente":** o HEAD com 404 sem corpo vira "não existe" mesmo se o bucket
+  não existir; a P2.3 precisa de uma checagem do bucket ao subir o worker (ou de um objeto-sentinela)
+  antes de confiar em "ausente";
+- **o log do `async-aws` carrega URL e chave remota:** nos 19 legados de texto livre a chave contém
+  nome de pessoa; o logger passado ao `ClienteR2` deve registrar em nível que não vá a log
+  compartilhado, e o `ultimo_erro` da outbox guarda a chave (que o banco já tem);
+- **regravar sobrescreve** (sem `IfNoneMatch`): é o previsto no §3.3 para edição de peça e compressão;
+  sem versionamento no R2, o histórico está na P0/P0b/P0c. Decisão do dono se quiser o contrário.
 
 **Nada ligado:** nenhum consumidor em `src/`, nenhuma linha em `config/`, alias de armazenamento
 inalterado (`EspelhoRemotoArquiteturaTest` cai no dia em que alguém ligar).

@@ -20,12 +20,16 @@ use AsyncAws\S3\S3Client;
  * **Só `PutObject` e `HeadObject`.** Não existe chamada de exclusão nesta classe nem em nenhum outro
  * lugar de `src/` (regra 0 da P2) — `EspelhoRemotoArquiteturaTest` trava.
  *
- * ## Integridade, em duas camadas
+ * ## Integridade, em três camadas — e o que cada uma prova
  *
- *  1. o PUT leva `x-amz-checksum-sha256`: o destino recalcula o SHA-256 do que recebeu e recusa
- *     o objeto se não bater — conteúdo corrompido no caminho não chega a ser gravado;
- *  2. depois do PUT, um HEAD confere tamanho e o metadado `sha256` do que ficou lá. Só então a
- *     gravação conta como feita.
+ *  1. **antes do PUT, o próprio adaptador relê o stream** e calcula o SHA-256 e o tamanho; se não
+ *     baterem com o declarado, nada é enviado. É ESTA camada que garante o contrato "conteúdo que
+ *     não confere não é gravado", independentemente do destino (o stream precisa ser rebobinável);
+ *  2. o PUT leva `x-amz-checksum-sha256`: o destino recalcula o SHA do que RECEBEU e recusa o objeto
+ *     se não bater — protege o trajeto. Que o R2 respeita esse cabeçalho só se prova na P2.4;
+ *  3. depois do PUT, um HEAD confere tamanho e o metadado `sha256`. Isso prova que o objeto existe
+ *     com o tamanho certo e com o metadado que a idempotência usa — **não** prova os bytes (o
+ *     metadado é o que este mesmo PUT gravou); quem prova os bytes são as camadas 1 e 2.
  *
  * O SHA vem do chamador, medido no disco local, e vai também como metadado (`x-amz-meta-sha256`):
  * é com ele que a réplica da P2.3 sabe, com um HEAD e sem baixar nada, se o objeto já está certo
@@ -54,7 +58,7 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
 
     public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
     {
-        self::exigirStreamLegivel($conteudo);
+        self::exigirStreamLegivelERebobinavel($conteudo);
         if ($tamanhoBytes < 0) {
             throw new \InvalidArgumentException('Tamanho negativo.');
         }
@@ -66,6 +70,7 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
         }
 
         $chaveRemota = LayoutDeChaveRemota::chaveDe($chave);
+        self::exigirConteudoQueConfere($conteudo, $tamanhoBytes, $sha256, $chaveRemota);
 
         try {
             $this->cliente->putObject([
@@ -122,15 +127,51 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
         return $this->consultar($chave) !== null;
     }
 
-    private static function exigirStreamLegivel(mixed $conteudo): void
+    /**
+     * Rebobinável é exigência do contrato: o adaptador lê o stream duas vezes (o SHA e o envio), e o
+     * cliente S3 recusaria um stream sem `seek` com um erro que pareceria de rede. Erro de quem chama
+     * não pode virar falha "transitória" que a réplica repete com backoff.
+     */
+    private static function exigirStreamLegivelERebobinavel(mixed $conteudo): void
     {
         if (!\is_resource($conteudo) || get_resource_type($conteudo) !== 'stream') {
             throw new \InvalidArgumentException('O conteúdo tem de ser um stream aberto.');
         }
 
-        $modo = (string) (stream_get_meta_data($conteudo)['mode'] ?? '');
+        $meta = stream_get_meta_data($conteudo);
+        $modo = (string) ($meta['mode'] ?? '');
         if (!str_contains($modo, 'r') && !str_contains($modo, '+')) {
             throw new \InvalidArgumentException('O stream do conteúdo não é legível.');
+        }
+        if (($meta['seekable'] ?? false) !== true) {
+            throw new \InvalidArgumentException('O stream do conteúdo tem de ser rebobinável.');
+        }
+    }
+
+    /** Camada 1: o que vai ser enviado é o que o chamador disse que é. Lê em blocos, sem carregar tudo. */
+    private static function exigirConteudoQueConfere(mixed $conteudo, int $tamanhoBytes, string $sha256, string $chaveRemota): void
+    {
+        if (!rewind($conteudo)) {
+            throw new \InvalidArgumentException('Não foi possível rebobinar o stream do conteúdo.');
+        }
+
+        $contexto = hash_init('sha256');
+        $lidos    = hash_update_stream($contexto, $conteudo);
+        $medido   = hash_final($contexto);
+
+        if (!rewind($conteudo)) {
+            throw new \InvalidArgumentException('Não foi possível rebobinar o stream do conteúdo.');
+        }
+
+        if ($lidos !== $tamanhoBytes || !hash_equals($medido, $sha256)) {
+            throw new FalhaNoEspelhoRemoto(sprintf(
+                'O conteúdo de %s não confere com o declarado (declarado %d bytes / %s; lido %d bytes / %s); nada foi enviado.',
+                $chaveRemota,
+                $tamanhoBytes,
+                $sha256,
+                $lidos,
+                $medido,
+            ));
         }
     }
 

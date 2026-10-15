@@ -15,6 +15,8 @@ use App\Tests\Shared\Doubles\S3Simulado;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use AsyncAws\Core\AbstractApi;
+use AsyncAws\Core\Credentials\Credentials;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 /**
@@ -114,6 +116,81 @@ final class EspelhoRemotoR2Test extends TestCase
         self::assertSame('application/pdf', $put['cabecalhos']['content-type']);
         self::assertSame((string) \strlen('íntegro'), $put['cabecalhos']['content-length']);
         self::assertArrayNotHasKey('content-encoding', $put['cabecalhos'], 'sem aws-chunked');
+    }
+
+    #[TestDox('SHA declarado que não bate com o stream: o ADAPTADOR recusa e nenhum PUT sai pelo fio (não depende do destino)')]
+    public function testShaErradoNaoSaiPeloFio(): void
+    {
+        $stream = fopen('php://temp', 'r+');
+        self::assertIsResource($stream);
+        fwrite($stream, 'conteúdo real');
+        rewind($stream);
+
+        try {
+            $this->espelho->enviar(new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 's.pdf'), $stream, \strlen('conteúdo real'), hash('sha256', 'outro'), 'application/pdf');
+            self::fail('SHA errado tinha de falhar');
+        } catch (FalhaNoEspelhoRemoto $e) {
+            self::assertStringContainsString('nada foi enviado', $e->getMessage());
+        }
+
+        self::assertSame([], $this->s3->requisicoes(), 'a recusa é do adaptador, antes de qualquer requisição');
+    }
+
+    #[TestDox('tamanho declarado que não bate com o stream: recusa e nenhum PUT sai')]
+    public function testTamanhoErradoNaoSaiPeloFio(): void
+    {
+        $stream = fopen('php://temp', 'r+');
+        self::assertIsResource($stream);
+        fwrite($stream, 'abc');
+        rewind($stream);
+
+        $this->expectException(FalhaNoEspelhoRemoto::class);
+        try {
+            $this->espelho->enviar(new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 't.pdf'), $stream, 4, hash('sha256', 'abc'), 'application/pdf');
+        } finally {
+            self::assertSame([], $this->s3->requisicoes());
+        }
+    }
+
+    #[TestDox('o provedor de credencial é FIXO — a cadeia padrão (WebIdentity, ~/.aws, contêiner, IMDS) nunca é montada')]
+    public function testProvedorDeCredencialFixo(): void
+    {
+        $cliente  = ClienteR2::criar($this->s3->endpoint, $this->s3->chaveDeAcesso, self::SEGREDO, $this->s3->cliente());
+        $provedor = (new \ReflectionProperty(AbstractApi::class, 'credentialProvider'))->getValue($cliente);
+
+        self::assertInstanceOf(Credentials::class, $provedor);
+    }
+
+    #[TestDox('com AWS_ROLE_ARN e token de WebIdentity no ambiente, nada sai além do endpoint do R2 (sem STS)')]
+    public function testWebIdentityDoAmbienteNaoEhUsada(): void
+    {
+        $token = tempnam(sys_get_temp_dir(), 'token-');
+        file_put_contents((string) $token, 'token-falso');
+        $nomes = ['AWS_ROLE_ARN' => 'arn:aws:iam::123456789012:role/falsa', 'AWS_WEB_IDENTITY_TOKEN_FILE' => (string) $token, 'AWS_ROLE_SESSION_NAME' => 'teste', 'AWS_PROFILE' => 'perfil-falso'];
+        $antes = [];
+        foreach ($nomes as $nome => $valor) {
+            $antes[$nome] = getenv($nome);
+            putenv($nome . '=' . $valor);
+            $_SERVER[$nome] = $valor;
+        }
+
+        try {
+            $s3      = new S3Simulado();
+            $espelho = new EspelhoRemotoR2(ClienteR2::criar($s3->endpoint, $s3->chaveDeAcesso, self::SEGREDO, $s3->cliente()), $s3->bucket);
+            $espelho->existe(new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 'w.pdf'));
+
+            self::assertNotEmpty($s3->requisicoes());
+            foreach ($s3->requisicoes() as $requisicao) {
+                self::assertStringStartsWith($s3->endpoint . '/', $requisicao['url'], 'nenhuma requisição a outro host (STS, IMDS)');
+            }
+            self::assertStringContainsString('Credential=' . $s3->chaveDeAcesso . '/', $s3->requisicoes()[0]['cabecalhos']['authorization']);
+        } finally {
+            foreach ($antes as $nome => $valor) {
+                putenv($valor === false ? $nome : $nome . '=' . $valor);
+                unset($_SERVER[$nome]);
+            }
+            @unlink((string) $token);
+        }
     }
 
     #[TestDox('o PUT conta como feito só depois que o HEAD confere: objeto que volta diferente é falha')]
