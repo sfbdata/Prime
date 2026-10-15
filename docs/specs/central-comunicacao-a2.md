@@ -61,6 +61,10 @@ ativa); grupos, anexos, presença; botão global/link no menu (D6).
   `testMencaoAvisaSemTexto`, que exige a linha de audit E a ausência do texto).
 - **Ler a conversa lê todas as menções dela — decidido pelo dono (14/10): mantém** a semântica, inclusive a menção
   que chegou entre o polling e o clique em "Marcar como lida".
+- **Risco residual registrado (revisão de 15/10):** a trava protege envio × envio, não envio × leitura. Se o envio T1
+  vê o aviso antigo ainda não lido (e por isso não cria outro) e, antes de T1 confirmar, o destinatário marca a conversa
+  como lida, a menção nova fica sem aviso no sino — a mensagem chega e conta como não lida normalmente. Fechar isso
+  exige o aviso guardar a mensagem que o gerou; fica para quando o dono quiser.
 - **Exibição:** a menção válida aparece em negrito na cor do desenho (`#0a7aad`; branco no balão próprio). Na
   prévia da lista, na citação e no "Copiar" vira texto `@Nome`.
 - **Autocomplete:** ao digitar `@` (`/@([^\s@]{0,30})$/`), lista os mencionáveis da conversa aberta, que o

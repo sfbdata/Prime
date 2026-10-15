@@ -12,6 +12,7 @@ use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\MencoesDaCentral;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
@@ -51,7 +52,8 @@ final class ListarMensagensDaConversaUseCase
         $mencionaveis = [];
         $pessoas = $antesDe === null ? $this->acesso->mencionaveis($participacao->getConversa(), $eu, $tenant) : [];
         foreach ($pessoas as $id => $pessoa) {
-            $mencionaveis[] = new ContatoOutput($id, (string) $pessoa->getFullName());
+            // O rótulo que o servidor grava no token, não o nome cru: a conta do teto de 4.000 na tela fica igual à daqui.
+            $mencionaveis[] = new ContatoOutput($id, MencoesDaCentral::rotulo($pessoa));
         }
 
         return new MensagensDaConversaOutput(

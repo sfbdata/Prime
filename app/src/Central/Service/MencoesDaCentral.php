@@ -66,8 +66,11 @@ final class MencoesDaCentral
         return Mensagem::textoVisivel($conteudo);
     }
 
-    /** O nome do banco, sem os caracteres que o padrão não aceita no rótulo. */
-    private static function rotulo(User $pessoa): string
+    /**
+     * O nome do banco, sem os caracteres que o padrão não aceita no rótulo e cortado em 120 — é o que a tela recebe
+     * em `mencionaveis` e mostra como "@Nome", para o tamanho visível dela bater com o do servidor.
+     */
+    public static function rotulo(User $pessoa): string
     {
         $nome = trim(str_replace(['[', ']', '<', '>'], '', (string) $pessoa->getFullName()));
         $nome = $nome === '' ? 'colega' : $nome;

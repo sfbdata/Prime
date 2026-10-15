@@ -15,6 +15,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * voltaria calada (dois avisos). Por isso recusa trabalhar fora de `wrapInTransaction`. A chave é só o id da
  * pessoa: duas conversas avisando a mesma pessoa esperam uma pela outra por milissegundos, o que é inofensivo,
  * e não há colisão de chave entre pessoas.
+ *
+ * Depende do isolamento READ COMMITTED (o padrão do projeto): a checagem que vem DEPOIS da espera tira um retrato novo
+ * e enxerga o aviso que a outra transação acabou de commitar. Em REPEATABLE READ o retrato seria o de antes da espera
+ * e a duplicata voltaria. Classes de trava em uso: 4713 (numeração de pasta), 4714 (esta).
  */
 final class TravaPostgresDosAvisosDeMencao implements TravaDosAvisosDeMencao
 {

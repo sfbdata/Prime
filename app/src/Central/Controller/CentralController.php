@@ -51,6 +51,12 @@ final class CentralController extends AbstractController
     /** Maior valor de uma coluna `int` do PostgreSQL — o tipo dos ids da Central. */
     private const MAIOR_ID = 2_147_483_647;
 
+    /**
+     * Teto do corpo BRUTO da mensagem, antes de resolver as menções: o visível é 4.000 (`Mensagem::TAMANHO_MAXIMO`) e
+     * 20 tokens somam poucas centenas a mais; um corpo muito maior só faria o resolvedor trabalhar à toa.
+     */
+    private const TAMANHO_BRUTO_MAXIMO = 16_000;
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly ListarContatosDaCentralUseCase $listarContatos,
@@ -125,6 +131,9 @@ final class CentralController extends AbstractController
         $conteudo = $corpo['conteudo'] ?? null;
         if (!is_string($conteudo)) {
             return $this->json(['erro' => 'Mensagem inválida.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if (strlen($conteudo) > self::TAMANHO_BRUTO_MAXIMO * 4) {   // bytes: 4 por caractere no pior caso UTF-8
+            return $this->json(['erro' => 'A mensagem é longa demais.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         // Ausente/null = mensagem comum. Presente e torto (texto, zero, grande demais) vira 0, que nenhuma mensagem
         // tem — o UseCase recusa com 422, em vez de mandar a mensagem sem a citação pedida.

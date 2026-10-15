@@ -274,6 +274,20 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
+    #[TestDox('Corpo bruto absurdo é 422 (o corte bruto existe por custo; o teto visível também recusaria)')]
+    public function testCorpoBrutoAbsurdo(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bruno = $this->colega($tenant, 'bruno');
+        $this->logarComTenant($client, $ana, $tenant);
+        $conversa = $this->abrir($client, $bruno);
+
+        $this->enviarCom($client, $conversa, ['conteudo' => str_repeat('@[x](user:1)', 6000)]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
     #[TestDox('Marcar como não lida: só o meu lado; ler desliga; conversa alheia é 404, vazia é 422, sem CSRF é 403')]
     public function testMarcarNaoLida(): void
     {
