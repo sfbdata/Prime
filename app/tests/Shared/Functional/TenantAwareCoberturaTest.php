@@ -27,6 +27,13 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\TenantAware;
 use App\Termo\Entity\AceiteTermo;
+use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
+use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\HistoricoDemanda;
+use App\TrabalhoExterno\Entity\LeituraDemanda;
+use App\TrabalhoExterno\Entity\MensagemDemanda;
+use App\TrabalhoExterno\Entity\PropostaDemanda;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -78,6 +85,19 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Medido em 12/08/2026: 13 linhas para 13 usuários distintos — o perfil é do USUÁRIO,
         // não do escritório. Quem atua em dois escritórios tem um perfil só.
         UserProfile::class,
+
+        // Trabalho Externo (spec docs/specs/trabalho-externo.md §3): a Central do Master global lê
+        // as demandas de TODOS os escritórios, por desenho. O TenantFilter as esconderia dela. O
+        // isolamento é do DemandaExternaRepository (só consultas escopadas: Central ou escritório)
+        // e da PoliticaDaDemanda, provado em TrabalhoExternoControllerTest (outro escritório é
+        // 404). Os filhos só são lidos a partir da demanda; a configuração é única e global.
+        DemandaExterna::class,
+        HistoricoDemanda::class,
+        MensagemDemanda::class,
+        LeituraDemanda::class,
+        PropostaDemanda::class,
+        DocumentoDemanda::class,
+        ConfiguracaoCentral::class,
     ];
 
     /**
@@ -89,7 +109,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * aí é decisão visível em vez de descuido.
      */
     private const MAX_PENDENTE = 14;
-    private const MAX_FORA_DO_ESCOPO = 8;
+    // 8 → 15 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 15;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

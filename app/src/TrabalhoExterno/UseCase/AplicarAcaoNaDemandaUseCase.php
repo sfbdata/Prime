@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
-use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
@@ -13,7 +13,6 @@ use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
-use Psr\Log\LoggerInterface;
 
 /**
  * Uma ação do fluxo da demanda (spec §4): iniciar análise, recusar, aceitar proposta, concluir…
@@ -31,8 +30,7 @@ final class AplicarAcaoNaDemandaUseCase
         private readonly LocalizadorDeDemanda $localizador,
         private readonly PoliticaDaDemanda $politica,
         private readonly DemandaExternaRepository $repositorio,
-        private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly LoggerInterface $logger,
+        private readonly RemocaoAposTransacao $remocao,
     ) {
     }
 
@@ -60,15 +58,9 @@ final class AplicarAcaoNaDemandaUseCase
     private function excluirRascunho(DemandaExterna $demanda): void
     {
         $chaves = array_map(ChavesDeTrabalhoExterno::documento(...), $demanda->getDocumentos());
+        $contexto = 'rascunho excluído do Trabalho Externo ' . $demanda->getCodigo();
 
         $this->repositorio->remover($demanda, flush: true);
-
-        foreach ($chaves as $chave) {
-            try {
-                $this->armazenamento->excluir($chave);
-            } catch (\Throwable $e) {
-                $this->logger->warning('Trabalho Externo: arquivo de rascunho excluído ficou no disco.', ['arquivo' => $chave->nome, 'erro' => $e->getMessage()]);
-            }
-        }
+        $this->remocao->remover($chaves, $contexto);
     }
 }
