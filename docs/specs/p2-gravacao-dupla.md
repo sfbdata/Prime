@@ -279,13 +279,35 @@ todas em `/uploads/tarefas/chat/`; `tarefas/admin/` tem 2 arquivos e **nenhuma r
   leitura do backend local é endurecimento **geral** (as 9 categorias), registrado como pendência —
   fazê-lo aqui mudaria o núcleo para todos os módulos.
 
+**D10 em Tarefa — onde a E2 e a Tarefa diferem, e por quê.** A E2 registrou que, nas rotas em que o
+nome vem do banco, chave recusada **propaga (500)**. A Tarefa separa dois casos:
+- **valor fora do formato** (`admin/`, prefixo desconhecido, travessia) → **404**. É o que a rota
+  já respondia antes (o `CaminhoDeAnexoDeTarefa` devolvia `null` e a rota dava 404), e é o que a
+  DP-9 pede para `admin/`. A pergunta é `ChavesDeTarefa::temAnexoEnderecavel()`, feita antes de
+  montar a chave;
+- **valor no formato mas sem escritório** (dado corrompido) → a `ChaveDeArquivoInvalida` **propaga
+  (500)**, como na E2 — não é "arquivo ausente".
+`FalhaDeArmazenamento` nunca vira 404 (a entrega só converte `ArquivoNaoEncontrado`).
+
 **Decisão tomada pela medição (ratificar):** valor legado em `/uploads/tarefas/admin/` deixa de ser
 servível (404). Hoje ele seria servido; em produção não existe nenhum. A alternativa — uma décima
 categoria só para isso — alargaria o contrato e o layout remoto por zero referências.
 
 **O que NÃO muda na P2.1:** a purga continua só **listando** os anexos de Tarefa, sem apagá-los
 (passar a apagá-los é mudança de comportamento com perda de arquivo, e a purga é tocada por outra
-frente). Fica registrado como pendência.
+frente). Fica registrado como pendência — e com ela um texto que ficou **falso**:
+`PurgarEscritorioUseCase.php` (docblocks nas linhas ~70, ~292, ~656 e a mensagem de log da linha
+~412, que sai no log de produção) e `PurgarDadosExpiradosCommand.php:150-153` dizem "fora da
+abstração até a E2.7". A E2.7 aconteceu; o que mantém a Tarefa fora da purga agora é a DP-12.
+Corrigir esses textos vai junto com a decisão da DP-12.
+
+**Modo do diretório:** o `uploadFiles()` antigo criava `chat/` com `0775`; o backend local cria
+com `0755`. Só pesa num volume novo em que `chat/` ainda não exista (homologação) — em produção o
+diretório existe.
+
+**Histórico de commits:** o commit da E2.7 (`e625774c`) sozinho deixa
+`FabricasDeArquivoNovoTest::testInventarioDasFabricas` vermelho; o commit seguinte (`6d886343`) o
+corrige. Integrar os dois juntos (ou juntá-los, decisão do dono — é reescrita de histórico).
 
 ### 10.2 E2.8 — remover o shim
 
@@ -306,7 +328,13 @@ saem; os docblocks que citam o shim (DT-5) são atualizados.
   visualizar (HTML em sandbox, PDF sem) e baixar (attachment + nosniff); outro escritório → 404;
   arquivo ausente → 404;
 - arquitetura: nenhuma referência ao shim; `TarefaController` sem `BinaryFileResponse`, sem
-  `->move(` e sem `mkdir`.
+  `->move(` e sem `mkdir`; acesso direto ao disco (funções de arquivo, `Filesystem`, `ZipArchive`,
+  `Process`, `exec`, GD gravando em caminho, `->save(` de PhpWord/PhpSpreadsheet) só nos arquivos
+  da lista justificada.
+
+**Limite honesto do teste de arquitetura:** regex não faz análise de fluxo. Um arquivo da lista
+pode, em tese, escrever no caminho emprestado por `paraLeitura()`; o que barra isso é o tipo
+(`ArquivoEmprestado` não oferece escrita, D9) e a revisão — não o regex.
 
 ## 11. Coordenação com outras frentes
 
@@ -349,9 +377,10 @@ saem; os docblocks que citam o shim (DT-5) são atualizados.
 
 1. N dias de reconciliação limpa para sair da P2 (§9).
 2. Prazo de retenção antes de qualquer exclusão remota futura (fora da P2).
-3. Purga passar a apagar anexos de Tarefa (DP-12).
+3. Purga passar a apagar anexos de Tarefa (DP-12) — e, junto, corrigir os textos da purga que ainda dizem "até a E2.7".
 4. Destino dos 90 suspeitos e dos 73 sem rastro (retenção/LGPD).
 5. Pasta do adaptador R2 (`Shared/Armazenamento/R2` × `Infra/R2`), na P2.2.
+6. Endurecimento geral: o backend local recusar symlink na leitura (as 9 categorias).
 
 ## 13. Fora de escopo da P2 inteira
 

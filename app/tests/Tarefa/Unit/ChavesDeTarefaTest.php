@@ -80,6 +80,23 @@ final class ChavesDeTarefaTest extends TestCase
         ChavesDeTarefa::anexoDeMensagem($this->mensagem($this->tenant(7), $valor));
     }
 
+    #[DataProvider('valoresRecusados')]
+    #[TestDox('temAnexoEnderecavel(): falso para todo valor que anexoDeMensagem() recusa pelo formato')]
+    public function testTemAnexoEnderecavelRecusaOMesmoFormato(?string $valor): void
+    {
+        self::assertFalse(ChavesDeTarefa::temAnexoEnderecavel($this->mensagem($this->tenant(7), $valor)));
+    }
+
+    #[TestDox('temAnexoEnderecavel(): só olha o formato — sem escritório continua verdadeiro, e a chave é que recusa (D10: dado corrompido propaga)')]
+    public function testTemAnexoEnderecavelNaoDecideOEscritorio(): void
+    {
+        $mensagem = $this->mensagem(null, '/uploads/tarefas/chat/x.pdf');
+
+        self::assertTrue(ChavesDeTarefa::temAnexoEnderecavel($mensagem));
+        $this->expectException(ChaveDeArquivoInvalida::class);
+        ChavesDeTarefa::anexoDeMensagem($mensagem);
+    }
+
     #[TestDox('anexoDeMensagem(): sem tenant na mensagem, recusa — não há fallback para a sessão')]
     public function testMensagemSemTenantLanca(): void
     {

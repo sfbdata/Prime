@@ -196,10 +196,11 @@ Regras que acompanham os exemplos:
   imagens da peça (e é o `chroot` que o Dompdf recebe) e onde o Ghostscript escreve os temporários
   dele.
 - ~~`Service\ArquivoStorageInterface` / `ArquivoStorageService`~~ — o shim de D2 **saiu na E2.8**
-  (spec P2 §10.2). Não existe mais caminho de arquivo fora da chave: gravar, ler, excluir, entregar e
-  comprimir são todos por `ChaveDeArquivo`, e `tests/Arquitetura/AcessoDiretoAoDiscoArquiteturaTest`
-  barra acesso novo ao disco fora da lista justificada — escrita que contorna o armazenamento escapa
-  do espelho no R2 (P2).
+  (spec P2 §10.2). Arquivo do usuário é gravado, lido, excluído, entregue e comprimido por
+  `ChaveDeArquivo`; as exceções são temporárias e estão listadas, com o motivo, em
+  `tests/Arquitetura/AcessoDiretoAoDiscoArquiteturaTest` (o `import-tmp` da cobrança, o temporário do
+  Drive, os temporários privados, os Commands de operador). Acesso novo ao disco fora da lista
+  derruba o teste — escrita que contorna o armazenamento escapa do espelho no R2 (P2).
 
 ## Traits
 

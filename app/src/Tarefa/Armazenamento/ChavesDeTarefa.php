@@ -54,6 +54,21 @@ final class ChavesDeTarefa
     }
 
     /**
+     * O valor da coluna está no único formato endereçável? Só o FORMATO — o escritório é conferido
+     * por {@see anexoDeMensagem()}.
+     *
+     * Existe para a rota separar os dois casos de D10 (spec P2 §10.1): valor fora do formato
+     * (`admin/`, prefixo desconhecido, travessia) é, para quem pede, arquivo que não existe — 404,
+     * como sempre foi; valor no formato sem escritório é dado corrompido e propaga.
+     */
+    public static function temAnexoEnderecavel(TarefaMensagem $mensagem): bool
+    {
+        $valor = $mensagem->getArquivoAnexo();
+
+        return $valor !== null && preg_match(self::VALOR, $valor) === 1;
+    }
+
+    /**
      * @throws ChaveDeArquivoInvalida quando a mensagem não tem anexo, o valor foge do formato ou falta o escritório
      */
     public static function anexoDeMensagem(TarefaMensagem $mensagem): ChaveDeArquivo

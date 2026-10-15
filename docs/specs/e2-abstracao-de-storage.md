@@ -599,8 +599,8 @@ integrar.
 | **E2.6A** — ✅ **entregue em 17/09** | **D4 cumprido** (modos de falha, timeout injetável, `finally`, validação da saída — D27, D28); `DiretorioTemporarioPrivado` no núcleo (D29); `MaterializadorDeArquivo::copiaGravavel()` no Local e nos dublês; `CompressaoDeArquivoArmazenado` (D26, D30, D31) | `CompressorArquivo`, núcleo, `FonteDeUploadHttp`, serviço novo, dublês | modos de falha verdes **antes** de qualquer consumidor; contrato da cópia (INV-9 #4 real); serviço contra dublê e contra o disco |
 | **E2.6B** — ✅ **entregue em 17/09** | as **5 chamadas** do compressor (`ClienteController`, `PastaController` ×2, `UploadPecaUseCase`, `EnviarDocumentoUseCase`) pelo serviço; tamanho medido (D30) | 4 arquivos de produção + testes | funcional de cada rota com `reduzir_tamanho`; persistido íntegro e tamanho = arquivo real em sucesso e em falha |
 | **E2.6C** — ✅ **entregue em 17/09** | export por chave + escritório com diretório temporário privado e aleatório, fechando SSRF e leitura entre escritórios (D32, provados **antes**); Via A do Drive por `paraLeitura()`; o shim perde o último consumidor e os testes que dependiam dele migram (D33); `Shared/CLAUDE.md` (D34) | `ExportarPecaTextoUseCase`, `ReferenciasDePecaHtml`, `ReconciliadorDePasta` + testes | provas locais das vulnerabilidades antes do conserto; DOCX/ODT/PDF com imagem, ausente, de outro escritório e maliciosa |
-| **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
-| **E2.8** | remoção de `caminho()`/`servir()`; docblocks de DT-5; teste de arquitetura | limpeza | suíte + arch test |
+| **E2.7** — ✅ **entregue em 15/10** (frente `r2-gravacao-dupla`, spec `docs/specs/p2-gravacao-dupla.md` §10.1) | Tarefa entrou na abstração **sem migration e sem relaxar a chave**: `ChavesDeTarefa` traduz `/uploads/tarefas/chat/<nome>`; `admin/` não endereçável (DP-9) | `TarefaController`, `ChavesDeTarefa` (novo), `ResolvedorDeCaminhoLocal`; `CaminhoDeAnexoDeTarefa` removido | travessia atacando a fábrica, não a rota |
+| **E2.8** — ✅ **entregue em 15/10** (spec P2 §10.2) | shim removido; DT-5 atualizado; `AcessoDiretoAoDiscoArquiteturaTest` (§11.3) | limpeza | suíte + arch test |
 
 **E2.2 — entregue em 15/09/2026.** O que foi decidido e feito ao executar:
 
@@ -1711,10 +1711,9 @@ dois formatos, e provar que o construtor **não aplica `trim()`** — um `trim()
 - **`MapaDeChaveParaCaminhoLocalTest`** — para as 9 categorias, o caminho resolvido é idêntico ao
   que o código produz hoje, **com os parâmetros de produção fixados no próprio teste** (em
   `APP_ENV=test` eles apontam para `var/uploads-test/*`, `services.yaml:161-169`). São **8
-  categorias resolvidas**; `TAREFA_ANEXO` é a nona e o teste afirma que ela **lança** com
-  mensagem apontando para a E2.7 — a coluna guarda caminho público com `/`, que `ChaveDeArquivo`
-  recusa por D5, então não existe chave a resolver. Deixar a categoria no enum, lançando, mantém
-  o buraco visível; tirá-la do enum o esconderia.
+  categorias resolvidas**; `TAREFA_ANEXO` é a nona e o teste afirmava que ela **lança** com
+  mensagem apontando para a E2.7. **Desde a E2.7 (15/10) as nove resolvem**: `TAREFA_ANEXO` vai
+  para `%tarefas_uploads_dir%/chat/<nome>` (spec P2 §10.1).
 - **Golden de download** — um PDF e uma imagem por rota-tipo: status, `Content-Type`,
   `Content-Disposition` (inline e attachment), `Accept-Ranges`; e `Range: bytes=0-99` → **206** com
   `Content-Range` correto.

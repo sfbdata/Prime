@@ -18,10 +18,7 @@ use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
 use App\Tarefa\UseCase\DesfazerReaberturaDaMetaUseCase;
-use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Http\EntregaDeArquivo;
-use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
@@ -31,6 +28,8 @@ use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Tarefa\Armazenamento\ChavesDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
@@ -613,19 +612,21 @@ final class TarefaController extends AbstractController
     }
 
     /**
-     * Visualizar e baixar entregam pela chave, depois da autorização (INV-5). Valor que a fábrica
-     * recusa (formato desconhecido, `admin/` legado, travessia) é, para quem pede, o mesmo que não
-     * existir: 404. Ausência também é 404 (`EntregaDeArquivo`); pane do storage sobe (D10).
+     * Visualizar e baixar entregam pela chave, depois da autorização (INV-5). D10 em Tarefa (spec P2
+     * §10.1): valor fora do formato (`admin/` legado, prefixo desconhecido, travessia) é, para quem
+     * pede, o mesmo que não existir — 404, como a rota sempre respondeu; valor no formato sem
+     * escritório é dado corrompido e a `ChaveDeArquivoInvalida` propaga. Ausência também é 404
+     * (`EntregaDeArquivo`); pane do storage sobe.
      *
      * O nome para download é o de sempre: o último segmento do valor guardado na coluna.
      */
     private function entregarAnexo(TarefaMensagem $mensagem, bool $inline): Response
     {
-        try {
-            $chave = ChavesDeTarefa::anexoDeMensagem($mensagem);
-        } catch (ChaveDeArquivoInvalida) {
+        if (!ChavesDeTarefa::temAnexoEnderecavel($mensagem)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
+
+        $chave = ChavesDeTarefa::anexoDeMensagem($mensagem);
 
         return $this->entrega->resposta($chave, $chave->nome, $inline);
     }

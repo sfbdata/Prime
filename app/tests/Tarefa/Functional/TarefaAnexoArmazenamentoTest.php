@@ -98,6 +98,26 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
         self::assertFileExists(end($this->arquivos));
     }
 
+    #[TestDox('upload inválido (UPLOAD_ERR_*) continua sendo ignorado em silêncio: a mensagem sai sem anexo')]
+    public function testUploadInvalidoEhIgnorado(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarGestor();
+        $tarefaId        = $this->criarTarefa($tenant, $user);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $origem          = tempnam(sys_get_temp_dir(), 'tarefa-upload-');
+        $this->arquivos[] = $origem;
+
+        $client->request('POST', '/tarefas/' . $tarefaId . '/mensagem', [
+            '_token'   => 'TOKEN_mensagem_tarefa_' . $tarefaId,
+            'mensagem' => 'Texto com anexo que falhou',
+        ], ['arquivo_mensagem' => new UploadedFile($origem, 'grande.pdf', 'application/pdf', \UPLOAD_ERR_INI_SIZE, true)]);
+
+        self::assertResponseRedirects();
+        self::assertNull($this->ultimaMensagem($tarefaId)->getArquivoAnexo());
+    }
+
     #[TestDox('o anexo enviado pela rota abre de volta pela rota de visualização (ida e volta pela chave)')]
     public function testAnexoEnviadoAbreDeVolta(): void
     {
@@ -173,8 +193,9 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
     }
 
     /**
-     * O arquivo existe de verdade no caminho que o valor sugere — sem isso o 404 viria da ausência,
-     * e o teste provaria outra barreira.
+     * O arquivo existe de verdade no caminho que o valor sugere E em `chat/` com o mesmo nome — o
+     * lugar para onde uma fábrica afrouxada (que aceitasse `admin/` ou só o último segmento)
+     * resolveria. Sem isso o 404 viria da ausência, e o teste provaria outra barreira.
      */
     #[DataProvider('valoresRecusados')]
     #[TestDox('valor que a fábrica recusa → 404, mesmo com o arquivo presente em disco, nunca 500')]
@@ -184,6 +205,9 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarGestor();
         if (str_starts_with($valor, '/uploads/tarefas/admin/')) {
             $this->gravarEm(\dirname($this->diretorioDeChat()) . '/admin', 'arquivo_legado.pdf', self::PDF);
+        }
+        if (basename($valor) !== '.env') {
+            $this->gravarEm($this->diretorioDeChat(), basename($valor), self::PDF);
         }
         $mensagem = $this->criarMensagem($tenant, $user, $valor);
         $this->limparIdentityMap();

@@ -23,7 +23,14 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
 {
-    private const FUNCOES_DE_DISCO = '/\b(?:file_get_contents|file_put_contents|fopen|filesize|unlink|rename|copy|glob|scandir|realpath|is_file|file_exists|is_dir|mkdir|rmdir|move_uploaded_file|tempnam)\s*\(|\bSplFileObject\b|->move\s*\(/';
+    /**
+     * Funções de arquivo do PHP, mais as outras portas de escrita que existem neste código: GD
+     * gravando em caminho, `ZipArchive`, `Symfony\Component\Filesystem`, processo externo
+     * (`Process`, `exec` e família — o Ghostscript escreve arquivo), o `openFile()` do
+     * `SplFileInfo`, e os escritores de PhpWord/PhpSpreadsheet. `->save(` sozinho fica de fora:
+     * casaria com os repositórios Doctrine; o escritor é pego pela criação (`createWriter`, `new Xlsx`).
+     */
+    private const FUNCOES_DE_DISCO = '/\\b(?:file_get_contents|file_put_contents|fopen|filesize|unlink|rename|copy|glob|scandir|opendir|realpath|is_file|file_exists|is_dir|mkdir|rmdir|move_uploaded_file|tempnam|tmpfile|touch|chmod|chown|symlink|link|fwrite|fputcsv|stream_copy_to_stream|imagepng|imagejpeg|imagegif|imagewebp|imagebmp|exec|shell_exec|passthru|system|proc_open|popen)\\s*\\(|\\bSplFileObject\\b|->openFile\\s*\\(|->move\\s*\\(|\\bZipArchive\\b|Symfony\\\\Component\\\\Filesystem|\\bnew\\s+Process\\b|\\bProcess::fromShellCommandline\\b|IOFactory::createWriter|\\bnew\\s+Xlsx\\s*\\(/';
 
     /**
      * Quem pode chamar função de disco, e por quê.
@@ -44,10 +51,15 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         // Compressão: só sobre a cópia gravável e os temporários do Ghostscript (D4, D26-D28).
         'src/Shared/Service/CompressorArquivo.php'                 => 'trabalha no temporário que recebe',
         'src/Shared/Service/ValidadorDeArquivoComprimido.php'      => 'lê o resultado da compressão no temporário',
+        'src/Shared/Service/ExecucaoDoGhostscript.php'             => 'processo do Ghostscript: escreve só no TMPDIR privado e na cópia gravável',
         'src/Pasta/Service/ContadorDePaginasPorGhostscript.php'    => 'só lê: confere o upload em trânsito ou o materializado antes do Ghostscript',
         // Zip da aba Documentos: lock por escritório e o tamanho do .zip gerado.
         'src/Pasta/Service/VagasDeZipDoEscritorio.php'             => 'lock files das vagas de zip',
-        'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php'       => 'tamanho do .zip gerado',
+        'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php'       => 'monta e mede o .zip gerado (ZipArchive), na área temporária',
+        'src/Pasta/UseCase/UploadPecaUseCase.php'                  => 'só lê: abre o upload em trânsito com ZipArchive para conferir o DOCX',
+        // Export: PhpWord/PhpSpreadsheet escrevem em php://output, nunca no acervo.
+        'src/Pasta/UseCase/ExportarPecaTextoUseCase.php'           => 'escritor do PhpWord para php://output (imagens só pela AreaTemporariaPrivada)',
+        'src/Ponto/Service/FolhaPontoXlsxExporter.php'             => 'escritor Xlsx para php://output',
         // Drive: o temporário do download e do upload em blocos (DT-8: descarte do download que falhou).
         'src/Sync/Service/GoogleDriveClient.php'                   => 'temporário do download/upload do Drive',
         'src/Sync/Service/ReconciliadorDePasta.php'                => 'cria e descarta o temporário do download',

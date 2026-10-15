@@ -83,7 +83,9 @@ public function criar(Request $request): Response
 Em forms com upload de arquivo:
 - Validar mimetype + extensão + tamanho antes de persistir (no UseCase ou via `#[Assert\File]` no DTO)
 - Nunca salvar o arquivo diretamente no controller
-- Usar `ArquivoStorageService` (ou `ArquivoStorageInterface`) para persistência do arquivo
+- Persistir pelo armazenamento por chave: `FonteDeUploadHttp::de($arquivo)->gravarEm($armazenamento, ChavesDe<Dominio>::novo…(...))`
+  (padrão completo em `app/src/Shared/CLAUDE.md`, seção "Arquivos — endereçados por CHAVE"). O antigo
+  `ArquivoStorageService` saiu na E2.8
 
 ## `make:form` — não use
 
