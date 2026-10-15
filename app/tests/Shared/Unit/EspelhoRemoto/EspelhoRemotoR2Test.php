@@ -167,9 +167,11 @@ final class EspelhoRemotoR2Test extends TestCase
         $token = tempnam(sys_get_temp_dir(), 'token-');
         file_put_contents((string) $token, 'token-falso');
         $nomes = ['AWS_ROLE_ARN' => 'arn:aws:iam::123456789012:role/falsa', 'AWS_WEB_IDENTITY_TOKEN_FILE' => (string) $token, 'AWS_ROLE_SESSION_NAME' => 'teste', 'AWS_PROFILE' => 'perfil-falso'];
-        $antes = [];
+        $antes         = [];
+        $antesNoServer = [];
         foreach ($nomes as $nome => $valor) {
-            $antes[$nome] = getenv($nome);
+            $antes[$nome]         = getenv($nome);
+            $antesNoServer[$nome] = $_SERVER[$nome] ?? null;
             putenv($nome . '=' . $valor);
             $_SERVER[$nome] = $valor;
         }
@@ -187,7 +189,11 @@ final class EspelhoRemotoR2Test extends TestCase
         } finally {
             foreach ($antes as $nome => $valor) {
                 putenv($valor === false ? $nome : $nome . '=' . $valor);
-                unset($_SERVER[$nome]);
+                if ($antesNoServer[$nome] === null) {
+                    unset($_SERVER[$nome]);
+                } else {
+                    $_SERVER[$nome] = $antesNoServer[$nome];
+                }
             }
             @unlink((string) $token);
         }
