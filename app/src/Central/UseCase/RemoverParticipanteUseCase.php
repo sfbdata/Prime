@@ -10,6 +10,7 @@ use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Exception\SemPermissaoNoGrupoException;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\AvisoDeMencaoNaCentral;
 use App\Central\Service\MensagensDeSistemaDoGrupo;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -29,6 +30,7 @@ final class RemoverParticipanteUseCase
         private readonly MensagensDeSistemaDoGrupo $sistema,
         private readonly EntityManagerInterface $entityManager,
         private readonly ClockInterface $clock,
+        private readonly AvisoDeMencaoNaCentral $avisos,
     ) {
     }
 
@@ -45,8 +47,11 @@ final class RemoverParticipanteUseCase
         if (!$grupo->isGrupo()) {
             throw new PedidoInvalidoNaCentralException('Só se remove participante de um grupo.');
         }
-        if (!$grupo->isAdministradaPor($eu)) {
+        if ($this->acesso->administradorEfetivo($grupo, $tenant)?->getId() !== $eu->getId()) {
             throw new SemPermissaoNoGrupoException();
+        }
+        if (!$grupo->isAdministradaPor($eu)) {
+            $grupo->passarAdministracaoPara($eu);   // administração vaga: quem age a assume
         }
         if ($usuarioId === $eu->getId()) {
             throw new PedidoInvalidoNaCentralException('Para deixar o grupo, use "Sair do grupo".');
@@ -65,6 +70,8 @@ final class RemoverParticipanteUseCase
         $agora = $this->clock->now();
         $alvo->sair($agora);
         $this->sistema->removeu($grupo, $eu, $alvo->getUsuario(), $tenant, $agora);
+        // Os avisos do grupo que ficaram no sino de quem saiu apontam para algo que ele não abre mais: viram lidos.
+        $this->avisos->marcarComoLidas($grupo, $alvo->getUsuario(), $tenant);
         $this->entityManager->flush();
     }
 }

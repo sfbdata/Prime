@@ -133,8 +133,10 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
             $this->criarGrupo($client, $nome, $com);
             self::assertResponseStatusCodeSame(422);
         }
-        $this->post($client, '/central/grupos', ['nome' => 'Grupo', 'participantes' => ['abc', 99999999999]]);
-        self::assertResponseStatusCodeSame(422);
+        foreach ([['abc', 99999999999], [$bruno->getId(), 'abc'], [$bruno->getId(), -3]] as $ids) {
+            $this->post($client, '/central/grupos', ['nome' => 'Grupo', 'participantes' => $ids]);
+            self::assertResponseStatusCodeSame(422, 'id torto recusa o pedido inteiro, não some calado');
+        }
 
         $client->request('POST', '/central/grupos', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['nome' => 'G', 'participantes' => [$bruno->getId()]]));
         self::assertResponseStatusCodeSame(403);
@@ -210,6 +212,9 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         [$tenant, $ana, $bruno, $carla] = $this->equipe();
         $this->logarComTenant($client, $ana, $tenant);
         $id = $this->criarGrupo($client, 'Equipe', [$bruno, $carla])['grupo']['id'];
+        $this->post($client, "/central/conversas/$id/mensagens", ['conteudo' => sprintf('oi @[C](user:%d)', $carla->getId())]);
+        $this->logarComTenant($client, $carla, $tenant);
+        $this->post($client, "/central/conversas/$id/preferencias", ['arquivada' => true]);
 
         $this->logarComTenant($client, $bruno, $tenant);
         $client->request('DELETE', "/central/conversas/$id/participantes/{$carla->getId()}", [], [], self::CSRF);
@@ -232,13 +237,19 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('SEGREDO-DEPOIS', (string) $client->getResponse()->getContent());
         $this->post($client, "/central/conversas/$id/mensagens", ['conteudo' => 'ainda estou aqui?']);
         self::assertResponseStatusCodeSame(404);
-        self::assertSame([], $this->avisos($carla, Notificacao::TIPO_CENTRAL_MENCAO), 'removida não é mencionável');
+        $mencoes = $this->avisos($carla, Notificacao::TIPO_CENTRAL_MENCAO);
+        self::assertCount(1, $mencoes, 'só a de antes da remoção — removida não é mencionável');
+        self::assertTrue((bool) $mencoes[0]['lida'], 'o aviso que apontava para o grupo vira lido: ela não o abre mais');
+        self::assertTrue((bool) $this->avisos($carla, Notificacao::TIPO_CENTRAL_GRUPO_ADICIONADO)[0]['lida']);
 
         $this->logarComTenant($client, $ana, $tenant);
         $this->post($client, "/central/conversas/$id/participantes", ['usuarioId' => $carla->getId()]);
         self::assertResponseStatusCodeSame(201, 'readmitida na mesma participação');
         $this->logarComTenant($client, $carla, $tenant);
-        self::assertNotNull($this->naLista($client, $id));
+        $linha = $this->naLista($client, $id);
+        self::assertNotNull($linha);
+        self::assertSame(0, $linha['naoLidas'], 'o que foi dito enquanto estava fora não chega como não lido');
+        self::assertFalse($linha['arquivada'], 'readmitida recomeça sem as preferências de antes');
     }
 
     #[TestDox('Sair: quem sai perde o acesso; se é o administrador, a administração passa ao participante mais antigo; individual não tem "sair"')]
@@ -426,5 +437,51 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         self::assertSelectorExists('[data-central-tela-lista] > [data-central-faixa-arquivadas][hidden] + [data-central-lista]');
         self::assertSelectorExists('[data-central] > [data-central-tela-novo-grupo][hidden]');
         self::assertSelectorExists('[data-central] > [data-central-tela-info][hidden]');
+    }
+
+    #[TestDox('Administração vaga: se o administrador perde o vínculo, o participante mais antigo COM vínculo administra; quem sai passa a administração a quem tem vínculo')]
+    public function testAdministracaoNaoTrava(): void
+    {
+        $client = $this->cliente();
+        [$tenant, $ana, $bruno, $carla, $dora] = $this->equipe();
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->criarGrupo($client, 'Equipe', [$bruno, $carla])['grupo']['id'];
+        $this->sairDoEscritorio($ana, $tenant);
+
+        $this->logarComTenant($client, $carla, $tenant);
+        $this->post($client, "/central/conversas/$id/participantes", ['usuarioId' => $dora->getId()]);
+        self::assertResponseStatusCodeSame(403, 'Carla não é a mais antiga');
+
+        $this->logarComTenant($client, $bruno, $tenant);
+        $client->request('GET', "/central/conversas/$id/participantes");
+        self::assertTrue($this->json($client)['souAdministrador']);
+        $this->post($client, "/central/conversas/$id/participantes", ['usuarioId' => $dora->getId()]);
+        self::assertResponseStatusCodeSame(201, 'Bruno assume a administração vaga');
+
+        // Agora o administrador é o Bruno; o mais antigo depois dele é a Carla — mas ela sai do escritório.
+        $this->sairDoEscritorio($carla, $tenant);
+        $this->post($client, "/central/conversas/$id/sair", []);
+        $this->logarComTenant($client, $dora, $tenant);
+        $client->request('GET', "/central/conversas/$id/participantes");
+        self::assertTrue($this->json($client)['souAdministrador'], 'o sucessor precisa ter vínculo: passou da Carla para a Dora');
+    }
+
+    #[TestDox('O administrador do ESCRITÓRIO que não participa do grupo não lê nem administra (404)')]
+    public function testAdminDoEscritorioNaoAdministraGrupo(): void
+    {
+        $client = $this->cliente();
+        [$admin, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bruno = $this->colega($tenant, 'bruno');
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->criarGrupo($client, 'Equipe', [$bruno])['grupo']['id'];
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', "/central/conversas/$id/participantes");
+        self::assertResponseStatusCodeSame(404);
+        $this->post($client, "/central/conversas/$id/participantes", ['usuarioId' => $admin->getId()]);
+        self::assertResponseStatusCodeSame(404);
+        $client->request('DELETE', "/central/conversas/$id/participantes/{$bruno->getId()}", [], [], self::CSRF);
+        self::assertResponseStatusCodeSame(404);
     }
 }

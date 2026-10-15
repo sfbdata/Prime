@@ -834,7 +834,7 @@
 
         // Fixar, silenciar, arquivar (B): preferências SÓ minhas, gravadas no servidor.
         function preferir(c, corpo, aviso) {
-            pedir(urls.base + '/' + c.id + '/preferencias', { metodo: 'POST', corpo: corpo })
+            return pedir(urls.base + '/' + c.id + '/preferencias', { metodo: 'POST', corpo: corpo })
                 .then(function () { avisar(aviso); return carregarConversas(); })
                 .catch(falhaDeAcao);
         }
@@ -1051,12 +1051,12 @@
             p.appendChild(criar('div', 'bj-central-info-secao', 'Configurações'));
             var conf = criar('div', 'bj-central-painel-acoes bj-central-painel-acoes--coluna');
             conf.appendChild(botao('bj-central-btn', atual.silenciada ? 'Reativar notificações' : 'Silenciar conversa', function () {
-                preferir(atual, { silenciada: !atual.silenciada }, atual.silenciada ? 'Notificações reativadas.' : 'Conversa silenciada.');
-                window.setTimeout(function () { abrirInfo(atual, false); }, 300);
+                preferir(atual, { silenciada: !atual.silenciada }, atual.silenciada ? 'Notificações reativadas.' : 'Conversa silenciada.')
+                    .then(function () { abrirInfo(atual, false); });
             }));
             conf.appendChild(botao('bj-central-btn', atual.fixada ? 'Desafixar conversa' : 'Fixar conversa', function () {
-                preferir(atual, { fixada: !atual.fixada }, atual.fixada ? 'Conversa desafixada.' : 'Conversa fixada.');
-                window.setTimeout(function () { abrirInfo(atual, false); }, 300);
+                preferir(atual, { fixada: !atual.fixada }, atual.fixada ? 'Conversa desafixada.' : 'Conversa fixada.')
+                    .then(function () { abrirInfo(atual, false); });
             }));
             conf.appendChild(botao('bj-central-btn bj-central-btn--perigo', 'Sair do grupo', function () {
                 if (!window.confirm('Sair do grupo "' + dados.nome + '"? Você deixará de ver o grupo e de receber as mensagens.')) { return; }
@@ -1115,7 +1115,9 @@
                 var novas = (Array.isArray(dados.mensagens) ? dados.mensagens : []).filter(function (m) { return !estado.vistas.has(m.id); });
                 novas.forEach(function (m) { estado.vistas.add(m.id); });
                 if (estado.vistas.size > 5000) { estado.vistas = new Set(novas.map(function (m) { return m.id; })); }
-                var daAberta = estado.aberta && estado.tela === 'conversa' ? novas.filter(function (m) { return m.conversaId === estado.aberta.id; }) : [];
+                // A conversa aberta recebe as novas mesmo com a tela de informações por cima — senão elas iriam para
+                // `vistas` e nunca apareceriam ao voltar.
+                var daAberta = estado.aberta ? novas.filter(function (m) { return m.conversaId === estado.aberta.id; }) : [];
                 if (daAberta.length > 0) {
                     anexarAoFim(daAberta);
                     marcarLida();

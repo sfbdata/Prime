@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Central\UseCase;
 
 use App\Central\DTO\ParticipanteOutput;
+use App\Central\Contract\TravaDoGrupo;
 use App\Central\Entity\Participante;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\ParticipacaoAlteradaAoMesmoTempoException;
@@ -25,8 +26,10 @@ use Psr\Clock\ClockInterface;
 /**
  * Adicionar alguém ao grupo — só o administrador do grupo (`docs/specs/central-comunicacao-b.md` §2). A pessoa
  * precisa de vínculo ativo no escritório. Quem tinha saído volta na mesma participação. O histórico anterior fica
- * visível, mas não chega como não lido (o cursor começa na última mensagem). Duas adições simultâneas da mesma
- * pessoa: a segunda esbarra no único `(conversa, usuario)` e vira 409.
+ * visível, mas não chega como não lido (o cursor começa na última mensagem), e as preferências antigas não voltam.
+ * A checagem "já participa?" e o teto correm sob a trava do grupo: duas adições simultâneas não duplicam linha,
+ * aviso nem passam do teto. Quem administra é o administrador EFETIVO (`AcessoACentral::administradorEfetivo`); se
+ * a administração estava vaga, quem age a assume.
  */
 final class AdicionarParticipanteUseCase
 {
@@ -40,6 +43,7 @@ final class AdicionarParticipanteUseCase
         private readonly AvisoDeGrupoNaCentral $aviso,
         private readonly EntityManagerInterface $entityManager,
         private readonly ClockInterface $clock,
+        private readonly TravaDoGrupo $trava,
     ) {
     }
 
@@ -57,26 +61,29 @@ final class AdicionarParticipanteUseCase
         if (!$grupo->isGrupo()) {
             throw new PedidoInvalidoNaCentralException('Só se adiciona participante a um grupo.');
         }
-        if (!$grupo->isAdministradaPor($eu)) {
-            throw new SemPermissaoNoGrupoException();
-        }
-
         $pessoa = $this->acesso->colaboradoresAtivos($tenant)[$usuarioId]
             ?? throw new PedidoInvalidoNaCentralException('Colega não encontrado neste escritório.');
 
-        $existente = $this->participantes->deQualquerSituacao($grupo, $pessoa, $tenant);
-        if ($existente !== null && $existente->isAtivo()) {
-            throw new PedidoInvalidoNaCentralException('Esta pessoa já participa do grupo.');
-        }
-        if (count($this->participantes->daConversaInteira($grupo, $tenant)) >= self::MAXIMO_DE_PARTICIPANTES) {
-            throw new PedidoInvalidoNaCentralException(sprintf('O grupo já tem %d participantes.', self::MAXIMO_DE_PARTICIPANTES));
-        }
-
-        $agora = $this->clock->now();
-        $ultima = $this->mensagens->ultimoIdDa($grupo, $tenant);
-
         try {
-            $this->entityManager->wrapInTransaction(function () use ($existente, $grupo, $pessoa, $eu, $tenant, $agora, $ultima): void {
+            $this->entityManager->wrapInTransaction(function () use ($grupo, $pessoa, $eu, $tenant): void {
+                $this->trava->travar($grupo);
+
+                if ($this->acesso->administradorEfetivo($grupo, $tenant)?->getId() !== $eu->getId()) {
+                    throw new SemPermissaoNoGrupoException();
+                }
+                if (!$grupo->isAdministradaPor($eu)) {
+                    $grupo->passarAdministracaoPara($eu);   // administração vaga: quem age a assume
+                }
+                $existente = $this->participantes->deQualquerSituacao($grupo, $pessoa, $tenant);
+                if ($existente !== null && $existente->isAtivo()) {
+                    throw new PedidoInvalidoNaCentralException('Esta pessoa já participa do grupo.');
+                }
+                if (count($this->participantes->daConversaInteira($grupo, $tenant)) >= self::MAXIMO_DE_PARTICIPANTES) {
+                    throw new PedidoInvalidoNaCentralException(sprintf('O grupo já tem %d participantes.', self::MAXIMO_DE_PARTICIPANTES));
+                }
+
+                $agora = $this->clock->now();
+                $ultima = $this->mensagens->ultimoIdDa($grupo, $tenant);
                 if ($existente !== null) {
                     $existente->voltar($agora, $ultima);
                 } else {

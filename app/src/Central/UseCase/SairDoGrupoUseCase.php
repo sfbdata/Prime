@@ -9,6 +9,7 @@ use App\Central\Exception\PedidoInvalidoNaCentralException;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\AvisoDeMencaoNaCentral;
 use App\Central\Service\MensagensDeSistemaDoGrupo;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -17,7 +18,8 @@ use Psr\Clock\ClockInterface;
 
 /**
  * Sair do grupo (qualquer participante ativo). Quem sai perde o acesso ao grupo. Se quem sai é o administrador, a
- * administração passa ao participante ativo mais antigo; sem ninguém, o grupo fica sem administrador
+ * administração passa ao participante ativo mais antigo COM vínculo ativo no escritório (um sucessor sem vínculo não
+ * conseguiria agir); sem ninguém, o grupo fica sem administrador
  * (`docs/specs/central-comunicacao-b.md` §2 — o desenho, L6200, passa ao primeiro membro).
  */
 final class SairDoGrupoUseCase
@@ -28,6 +30,7 @@ final class SairDoGrupoUseCase
         private readonly MensagensDeSistemaDoGrupo $sistema,
         private readonly EntityManagerInterface $entityManager,
         private readonly ClockInterface $clock,
+        private readonly AvisoDeMencaoNaCentral $avisos,
     ) {
     }
 
@@ -48,8 +51,9 @@ final class SairDoGrupoUseCase
         $agora = $this->clock->now();
         if ($grupo->isAdministradaPor($eu)) {
             $sucessor = null;
+            $ativos = $this->acesso->idsComVinculoAtivo($tenant);
             foreach ($this->participantes->daConversaInteira($grupo, $tenant) as $outro) {
-                if ($outro->getUsuario()->getId() !== $eu->getId()) {
+                if ($outro->getUsuario()->getId() !== $eu->getId() && isset($ativos[(int) $outro->getUsuario()->getId()])) {
                     $sucessor = $outro->getUsuario();
                     break;
                 }
@@ -59,6 +63,7 @@ final class SairDoGrupoUseCase
 
         $participacao->sair($agora);
         $this->sistema->saiu($grupo, $eu, $tenant, $agora);
+        $this->avisos->marcarComoLidas($grupo, $eu, $tenant);
         $this->entityManager->flush();
     }
 }

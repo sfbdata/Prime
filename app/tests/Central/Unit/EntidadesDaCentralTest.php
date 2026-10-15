@@ -174,14 +174,20 @@ final class EntidadesDaCentralTest extends TestCase
         $p->sair(new \DateTimeImmutable());
         self::assertFalse($p->isAtivo());
 
-        $p->voltar(new \DateTimeImmutable('2026-10-15'), 30);
-        self::assertTrue($p->isAtivo());
-        self::assertSame(50, $p->getUltimaLidaId(), 'o cursor nunca recua');
-        self::assertEquals(new \DateTimeImmutable('2026-10-15'), $p->getEntrouEm());
-
         $p->fixar(true);
         $p->silenciar(true);
         $p->arquivar(true);
+        $p->marcarComoNaoLida();
         self::assertTrue($p->isFixada() && $p->isSilenciada() && $p->isArquivada());
+
+        // Caso real: o grupo andou enquanto ela estava fora (última 80 > cursor 50).
+        $p->voltar(new \DateTimeImmutable('2026-10-15'), 80);
+        self::assertTrue($p->isAtivo());
+        self::assertSame(80, $p->getUltimaLidaId(), 'o que passou enquanto estava fora não chega como não lido');
+        self::assertEquals(new \DateTimeImmutable('2026-10-15'), $p->getEntrouEm());
+        self::assertFalse($p->isFixada() || $p->isSilenciada() || $p->isArquivada() || $p->isMarcadaNaoLida(), 'recomeça sem as preferências de antes');
+
+        $p->voltar(new \DateTimeImmutable('2026-10-16'), 10);
+        self::assertSame(80, $p->getUltimaLidaId(), 'e o cursor nunca recua');
     }
 }

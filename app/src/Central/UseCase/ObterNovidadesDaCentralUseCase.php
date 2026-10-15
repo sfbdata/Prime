@@ -48,16 +48,18 @@ final class ObterNovidadesDaCentralUseCase
             return new NovidadesOutput([], $this->mensagens->ultimoIdVisivelPara($eu, $tenant), $naoLidas, true);
         }
 
+        $novas = $this->mensagens->novidades($eu, $tenant, $desde, self::TETO);
         $janela = $this->clock->now()->modify(sprintf('-%d seconds', self::JANELA_SEGUNDOS));
-        $novas = $this->mensagens->novidades($eu, $tenant, $desde, self::TETO, $janela);
+        $repetidas = $this->mensagens->recentesAbaixoDoCursor($eu, $tenant, $desde, $janela, self::TETO);
 
         $cursor = $desde;
         foreach ($novas as $mensagem) {
             $cursor = max($cursor, (int) $mensagem->getId());
         }
 
+        // `completo` conta só as NOVAS: a janela repete, não é motivo para a tela pedir de novo.
         return new NovidadesOutput(
-            mensagens: array_map(static fn (Mensagem $m): MensagemOutput => MensagemOutput::fromEntity($m, $eu), $novas),
+            mensagens: array_map(static fn (Mensagem $m): MensagemOutput => MensagemOutput::fromEntity($m, $eu), array_merge($repetidas, $novas)),
             cursor: $cursor,
             naoLidas: $naoLidas,
             completo: count($novas) < self::TETO,

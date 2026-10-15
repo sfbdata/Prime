@@ -19,7 +19,9 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
    quem prova a guarda das consultas é `IsolamentoDosRepositoriosDaCentralTest` (filtro DESLIGADO); o
    `AcessoACentralTest` usa stubs e não exercita a consulta.
 5. **Texto puro.** Twig escapa; `central.js` monta o DOM só com `textContent`/`createElement`. Nunca `innerHTML`.
-6. **Polling, não tempo real (D2).** `GET /central/novidades?desde=` com cursor por id; `desde=0` só devolve o cursor.
+6. **Polling, não tempo real (D2).** `GET /central/novidades?desde=` com cursor por id. SEM `desde` (primeira
+   chamada) devolve só o cursor; `desde=0` é cursor como outro. Além das novas (`id > desde`, que contam para o teto e
+   o `completo`), vêm à parte as dos últimos 30 s abaixo do cursor (janela, B) — a tela descarta as que já viu.
 7. **Menção só a participante ativo.** `AcessoACentral::mencionaveis` (participante DESTA conversa, vínculo ativo,
    não o autor) + `MencoesDaCentral` (token `@[Nome](user:ID)`, rótulo reescrito pelo nome do banco, laço até só
    sobrar token canônico). O aviso (`AvisoDeMencaoNaCentral`) leva `mensagem = null`: a `Notificacao` é auditada.

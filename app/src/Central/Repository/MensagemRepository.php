@@ -113,34 +113,55 @@ class MensagemRepository extends ServiceEntityRepository
     }
 
     /**
-     * Mensagens novas nas conversas de que o usuário participa ATIVAMENTE, em ordem — o que o polling entrega.
-     * Conversa de que ele não participa (ou de que saiu) nunca entra, mesmo no mesmo escritório.
-     *
-     * "Nova" = id acima do cursor **ou** criada a partir de `$janela` (B, spec §6): o id é reservado no INSERT e pode
-     * ser confirmado fora de ordem (a 100 depois da 101); só o cursor perderia a 100. A janela repete as recentes e a
-     * tela descarta as que já viu.
+     * Mensagens novas (id acima do cursor) nas conversas de que o usuário participa ATIVAMENTE, em ordem — o que o
+     * polling entrega. Conversa de que ele não participa (ou de que saiu) nunca entra, mesmo no mesmo escritório.
      *
      * @return list<Mensagem>
      */
-    public function novidades(User $usuario, Tenant $tenant, int $desde, int $limite, ?\DateTimeImmutable $janela = null): array
+    public function novidades(User $usuario, Tenant $tenant, int $desde, int $limite): array
     {
-        /** @var list<Mensagem> $mensagens */
-        $mensagens = $this->getEntityManager()->createQuery(
+        return $this->doPolling($usuario, $tenant, 'm.id > :desde', ['desde' => $desde], $limite);
+    }
+
+    /**
+     * As mensagens recentes (criadas a partir de `$janela`) que ficam ABAIXO do cursor — a janela de sobreposição do
+     * polling (B, spec §6). O id é reservado no INSERT e pode ser confirmado fora de ordem (a 100 depois da 101): só o
+     * cursor perderia a 100. Consulta à parte das novidades de propósito: a janela nunca ocupa o teto das novas nem
+     * faz a tela pedir de novo sem fim; a tela descarta as que já viu.
+     *
+     * @return list<Mensagem>
+     */
+    public function recentesAbaixoDoCursor(User $usuario, Tenant $tenant, int $desde, \DateTimeImmutable $janela, int $limite): array
+    {
+        return $this->doPolling($usuario, $tenant, 'm.id <= :desde AND m.criadaEm >= :janela', ['desde' => $desde, 'janela' => $janela], $limite);
+    }
+
+    /**
+     * @param array<string, mixed> $parametros
+     *
+     * @return list<Mensagem>
+     */
+    private function doPolling(User $usuario, Tenant $tenant, string $condicao, array $parametros, int $limite): array
+    {
+        $query = $this->getEntityManager()->createQuery(
             'SELECT m, a, r, ra FROM ' . Mensagem::class . ' m
              JOIN m.autor a
              LEFT JOIN m.respostaA r
              LEFT JOIN r.autor ra
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant AND (m.id > :desde OR m.criadaEm >= :janela)
+             WHERE m.tenant = :tenant AND ' . $condicao . '
              ORDER BY m.id ASC'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->setParameter('desde', $desde)
-            ->setParameter('janela', $janela ?? new \DateTimeImmutable('9999-12-31'))
-            ->setMaxResults($limite)
-            ->getResult();
+            ->setMaxResults($limite);
+        foreach ($parametros as $nome => $valor) {
+            $query->setParameter($nome, $valor);
+        }
+
+        /** @var list<Mensagem> $mensagens */
+        $mensagens = $query->getResult();
 
         return $mensagens;
     }

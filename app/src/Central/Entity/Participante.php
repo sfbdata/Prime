@@ -87,13 +87,18 @@ class Participante implements TenantAware
 
     /**
      * Volta ao grupo. O histórico anterior fica visível, mas não chega como não lido: o cursor vai até a última
-     * mensagem que já existe (e, como sempre, nunca recua).
+     * mensagem que já existe (e, como sempre, nunca recua). As preferências de antes não voltam — quem é readmitido
+     * recomeça como quem entra pela primeira vez (sem arquivada escondendo o grupo, sem marca de não lida).
      */
     public function voltar(\DateTimeImmutable $em, int $ultimaMensagemId): void
     {
         $this->saiuEm = null;
         $this->entrouEm = $em;
         $this->marcarLidaAte($ultimaMensagemId);
+        $this->fixada = false;
+        $this->silenciada = false;
+        $this->arquivada = false;
+        $this->marcadaNaoLida = false;
     }
 
     public function isAtivo(): bool

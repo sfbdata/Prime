@@ -31,6 +31,7 @@ final class ListarParticipantesUseCase
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         $conversa = $this->acesso->participacao($conversaId, $eu, $tenant)->getConversa();
         $ativos = $this->acesso->idsComVinculoAtivo($tenant);
+        $administrador = $this->acesso->administradorEfetivo($conversa, $tenant);
 
         $lista = [];
         foreach ($this->participantes->daConversaInteira($conversa, $tenant) as $participante) {
@@ -38,12 +39,12 @@ final class ListarParticipantesUseCase
             $lista[] = new ParticipanteOutput(
                 id: (int) $pessoa->getId(),
                 nome: (string) $pessoa->getFullName(),
-                administrador: $conversa->isAdministradaPor($pessoa),
+                administrador: $administrador !== null && $administrador->getId() === $pessoa->getId(),
                 ativoNoEscritorio: isset($ativos[(int) $pessoa->getId()]),
                 eu: $pessoa->getId() === $eu->getId(),
             );
         }
 
-        return new ParticipantesOutput($conversaId, $conversa->isGrupo(), $conversa->getNome(), $conversa->isAdministradaPor($eu), $lista);
+        return new ParticipantesOutput($conversaId, $conversa->isGrupo(), $conversa->getNome(), $administrador !== null && $administrador->getId() === $eu->getId(), $lista);
     }
 }

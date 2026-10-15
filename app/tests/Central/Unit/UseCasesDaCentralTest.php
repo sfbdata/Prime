@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Central\Unit;
 
+use App\Central\Contract\TravaDoGrupo;
 use App\Central\Contract\TravaDosAvisosDeMencao;
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Participante;
@@ -38,6 +39,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /** Regras dos UseCases da Central (A1 e A2) que o teste HTTP não isola. */
 #[CoversClass(AbrirConversaUseCase::class)]
 #[CoversClass(MarcarConversaComoNaoLidaUseCase::class)]
+#[CoversClass(\App\Central\UseCase\AdicionarParticipanteUseCase::class)]
 #[CoversClass(EnviarMensagemUseCase::class)]
 #[CoversClass(MarcarConversaComoLidaUseCase::class)]
 #[CoversClass(ObterNovidadesDaCentralUseCase::class)]
@@ -287,7 +289,7 @@ final class UseCasesDaCentralTest extends TestCase
         $tenant = new Tenant();
         $eu = $this->usuario(1);
         $mensagens = $this->createMock(MensagemRepository::class);
-        $mensagens->expects(self::once())->method('novidades')->with($eu, $tenant, 0, ObterNovidadesDaCentralUseCase::TETO, new \DateTimeImmutable('2026-10-14 09:59:30'))->willReturn([]);
+        $mensagens->expects(self::once())->method('novidades')->with($eu, $tenant, 0, ObterNovidadesDaCentralUseCase::TETO)->willReturn([]);
         $mensagens->expects(self::never())->method('ultimoIdVisivelPara');
         $mensagens->method('naoLidasPorConversa')->willReturn([]);
 
@@ -295,5 +297,72 @@ final class UseCasesDaCentralTest extends TestCase
 
         self::assertSame(0, $saida->cursor);
         self::assertTrue($saida->completo);
+    }
+
+    #[TestDox('Novidades (B): a janela cheia não marca "incompleto" — só as novas contam para o teto, e o cursor não volta')]
+    public function testJanelaCheiaNaoPedeDeNovo(): void
+    {
+        $tenant = new Tenant();
+        [$eu, $outro] = [$this->usuario(1), $this->usuario(2)];
+        $conversa = Conversa::individual($tenant, $eu, $outro, new \DateTimeImmutable());
+        DefineId::em($conversa, 9);
+        $repetidas = [];
+        for ($i = 1; $i <= ObterNovidadesDaCentralUseCase::TETO; ++$i) {
+            $m = new \App\Central\Entity\Mensagem($tenant, $conversa, $outro, 'm' . $i, new \DateTimeImmutable());
+            DefineId::em($m, $i);
+            $repetidas[] = $m;
+        }
+        $mensagens = $this->createStub(MensagemRepository::class);
+        $mensagens->method('novidades')->willReturn([]);
+        $mensagens->method('recentesAbaixoDoCursor')->willReturn($repetidas);
+        $mensagens->method('naoLidasPorConversa')->willReturn([]);
+
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio()))
+            ->executar($eu, $tenant, 500);
+
+        self::assertTrue($saida->completo);
+        self::assertSame(500, $saida->cursor);
+        self::assertCount(ObterNovidadesDaCentralUseCase::TETO, $saida->mensagens);
+    }
+
+    #[TestDox('Adicionar (B): a trava do grupo vem ANTES de olhar se a pessoa já participa — readmissões simultâneas não duplicam')]
+    public function testAdicionarTravaAntesDaChecagem(): void
+    {
+        $tenant = new Tenant();
+        [$ana, $bruno] = [$this->usuario(1), $this->usuario(2)];
+        $grupo = Conversa::grupo($tenant, $ana, 'G', new \DateTimeImmutable());
+        DefineId::em($grupo, 7);
+        $passos = [];
+
+        $minha = new Participante($tenant, $grupo, $ana, new \DateTimeImmutable());
+        $participantes = $this->createStub(ParticipanteRepository::class);
+        $participantes->method('daConversa')->willReturn($minha);
+        $participantes->method('daConversaInteira')->willReturn([$minha]);
+        $participantes->method('deQualquerSituacao')->willReturnCallback(function () use (&$passos): ?Participante {
+            $passos[] = 'confere';
+
+            return null;
+        });
+        $vinculos = $this->createStub(UserTenantRepository::class);
+        $vinculos->method('existeVinculoAtivo')->willReturn(true);
+        $usuarios = $this->createStub(UserRepository::class);
+        $usuarios->method('findColaboradoresAtivosPorTenant')->willReturn([$ana, $bruno]);
+        $acesso = new AcessoACentral($vinculos, $participantes, $usuarios);
+
+        $trava = $this->createMock(TravaDoGrupo::class);
+        $trava->expects(self::once())->method('travar')->with($grupo)->willReturnCallback(function () use (&$passos): void {
+            $passos[] = 'trava';
+        });
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $f): mixed => $f());
+
+        (new \App\Central\UseCase\AdicionarParticipanteUseCase(
+            $acesso, $participantes, $this->createStub(MensagemRepository::class),
+            new \App\Central\Service\MensagensDeSistemaDoGrupo($this->createStub(MensagemRepository::class)),
+            new \App\Central\Service\AvisoDeGrupoNaCentral($this->createStub(NotificacaoService::class), $this->createStub(UrlGeneratorInterface::class)),
+            $em, $this->relogio(), $trava,
+        ))->executar($ana, $tenant, 7, 2);
+
+        self::assertSame(['trava', 'confere'], $passos);
     }
 }

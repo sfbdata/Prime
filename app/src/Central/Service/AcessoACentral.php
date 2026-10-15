@@ -95,6 +95,31 @@ final class AcessoACentral
         return $mencionaveis;
     }
 
+    /**
+     * Quem administra o grupo DE FATO (`docs/specs/central-comunicacao-b.md` §2): o administrador gravado, se ainda
+     * participa e tem vínculo ativo; senão, o participante ativo mais antigo com vínculo ativo (sem isso, um
+     * administrador que saiu do escritório travaria o grupo para sempre — D3 não tem bypass). `null` = ninguém.
+     */
+    public function administradorEfetivo(Conversa $grupo, Tenant $tenant): ?User
+    {
+        if (!$grupo->isGrupo()) {
+            return null;
+        }
+
+        $ativos = $this->colaboradoresAtivos($tenant);
+        $candidatos = array_values(array_filter(
+            array_map(static fn (Participante $p): User => $p->getUsuario(), $this->participantes->daConversaInteira($grupo, $tenant)),
+            static fn (User $u): bool => isset($ativos[(int) $u->getId()]),
+        ));
+        foreach ($candidatos as $pessoa) {
+            if ($grupo->isAdministradaPor($pessoa)) {
+                return $pessoa;
+            }
+        }
+
+        return $candidatos[0] ?? null;
+    }
+
     public function temVinculoAtivo(User $usuario, Tenant $tenant): bool
     {
         return $this->vinculos->existeVinculoAtivo($usuario, $tenant);

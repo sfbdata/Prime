@@ -57,6 +57,8 @@ final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
         self::assertSame([], $participantes->doUsuario($ana, $escritorioA));
         self::assertSame([], $mensagens->naoLidasPorConversa($ana, $escritorioA));
         self::assertSame([], $mensagens->novidades($ana, $escritorioA, 0, 200));
+        self::assertSame([], $mensagens->recentesAbaixoDoCursor($ana, $escritorioA, PHP_INT_MAX >> 33, new \DateTimeImmutable('-1 day'), 200));
+        self::assertCount(1, $mensagens->recentesAbaixoDoCursor($ana, $escritorioB, PHP_INT_MAX >> 33, new \DateTimeImmutable('-1 day'), 200), 'controle: no B a janela a vê');
         self::assertSame(0, $mensagens->ultimoIdVisivelPara($ana, $escritorioA));
         self::assertSame([], $participantes->daConversaInteira($grupo, $escritorioA));
     }

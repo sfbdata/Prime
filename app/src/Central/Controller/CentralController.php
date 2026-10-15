@@ -179,8 +179,14 @@ final class CentralController extends AbstractController
         if (!is_string($nome) || !is_array($ids) || count($ids) > 200) {
             return $this->json(['erro' => 'Pedido inválido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
-        // Id torto (texto, negativo, acima do int do banco) vira 0, que o UseCase descarta — nunca chega ao banco.
-        $ids = array_values(array_map(static fn (mixed $id): int => is_int($id) && $id > 0 && $id <= self::MAIOR_ID ? $id : 0, $ids));
+        // Id torto (texto, negativo, acima do int do banco) recusa o pedido inteiro, como o id de outro escritório —
+        // criar o grupo calado sem a pessoa pedida seria pior.
+        foreach ($ids as $id) {
+            if (!is_int($id) || $id <= 0 || $id > self::MAIOR_ID) {
+                return $this->json(['erro' => 'Participante inválido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+        $ids = array_values($ids);
 
         return $this->responder(
             fn () => ['grupo' => $this->criarGrupo->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $nome, $ids)],
