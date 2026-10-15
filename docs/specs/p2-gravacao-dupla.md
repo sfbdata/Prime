@@ -502,9 +502,13 @@ categoria, tenant e o resumo do erro com a chave substituída por `<chave #id>`.
 `NullLogger` (o log do `async-aws` carrega a URL).
 
 **Implementado (15/10/2026, só local):**
-- migration aditiva `Version20261015180000` (tabela `armazenamento_replicacao` + 2 índices), gerada
+- migration aditiva `Version20261015213000` (tabela `armazenamento_replicacao` + 2 índices), gerada
   pelo `--dump-sql` com o `DROP INDEX uniq_cobranca_obrigacao_ref_competencia` (índice funcional único,
   divergência antiga) deixado de fora; aplicada SÓ no banco da frente;
+  *(nasceu `Version20261015180000`; a re-revisão achou a mesma versão na Central B, frente
+  `designer-central-ia`, já registrada no `saas_ux`. Em banco onde uma rodasse, a outra seria dada
+  como executada e nunca rodaria. Renomeada a da P2.3, que não saiu da frente; a da Central B ficou
+  intocada. O registro no banco da frente foi renomeado junto, sem recriar a tabela)*
 - fiação no `services.yaml`: as três interfaces do armazenamento apontam para o decorador, que envolve
   o `ArmazenamentoLocal`; política e credenciais por `%env(string:default::…)%`, vazias por padrão;
   mapeamento da entidade no `doctrine.yaml`;
@@ -519,7 +523,7 @@ categoria, tenant e o resumo do erro com a chave substituída por `<chave #id>`.
 1. aplicar a migration em produção ANTES ou JUNTO do deploy. Com a política vazia o decorador não
    toca a tabela, então a ordem não quebra nada — mas a P2.5 exige a tabela;
 2. no dev compartilhado, depois do merge: `doctrine:migrations:execute --up
-   "DoctrineMigrations\Version20261015180000"` no `saas_test` (env=test) e no `saas_ux`, como manda a
+   "DoctrineMigrations\Version20261015213000"` no `saas_test` (env=test) e no `saas_ux`, como manda a
    lição de 14/09 — eu não toquei bancos compartilhados;
 3. NÃO definir `ARMAZENAMENTO_ESPELHO_CATEGORIAS` nem `ESPELHO_R2_*` em produção até a P2.4/P2.5.
 
@@ -548,6 +552,15 @@ exclusão de LINHA LOCAL, não de objeto remoto. Nada implementado; decidir ante
 quando a outbox tentar o savepoint, o DBAL incrementa o nível de aninhamento antes de falhar; o domínio
 já estava falhando, e o decorador captura o erro — mas a conexão fica com o contador desalinhado até o
 fim da requisição. Sem reprodução.
+
+**Restrição para a P2.5 (banda):** o teto de 600 s por PUT (`ClienteR2::DURACAO_MAXIMA_DA_REQUISICAO`)
+exige ~170 kB/s para um arquivo de 100 MB. Se a P2.5 limitar a banda do worker abaixo disso, os
+arquivos grandes esgotam as 6 tentativas e caem em `falhou`. Subir o teto exige subir a posse junto
+(posse ≥ teto + 120 s, travado por teste). O teste `ClienteR2Test` prova que o cliente montado sem
+`$http` carrega de fato `timeout`/`max_duration` (cai se as opções saírem do `HttpClient::create()`).
+
+**Re-revisão da P2.3 (15/10):** I1, I2 e I3 fechados; I4 e M1 seguem como decisão do dono. Bloqueante
+novo B1 (colisão de versão com a Central B), corrigido pela renomeação para `Version20261015213000`.
 
 **Limites honestos dos testes:** concorrência entre PROCESSOS (dois workers em conexões diferentes) não
 cabe no rollback por teste do DAMA — o que se prova é a regra (uma chave por vez; a mais nova supera),

@@ -18,7 +18,7 @@ use Doctrine\Migrations\AbstractMigration;
  * índice funcional único que o Doctrine não sabe representar (divergência antiga, não desta mudança;
  * aceitá-lo deixaria entrar duplicata).
  */
-final class Version20261015180000 extends AbstractMigration
+final class Version20261015213000 extends AbstractMigration
 {
     public function getDescription(): string
     {
