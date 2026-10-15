@@ -158,7 +158,7 @@ e o **hash** (SHA-256) do token. O token em claro só existe no e-mail.
 | logado com o e-mail do convite | botão "Aceitar convite" (POST com CSRF) e abre a demanda |
 
 **Acesso como Convidado**: o perfil é **por demanda**. Quem tem convite aceito, vigente e não revogado
-vê aquela demanda como Convidado (mesmo que seja Solicitante no próprio escritório) e só nas situações
+vê aquela demanda como Convidado (mesmo que seja Solicitante em outro escritório, que não o da demanda) e só nas situações
 aceita, em execução, validação e concluída. Sem escritório escolhido, as rotas do Trabalho Externo
 passam pela guarda de escritório (allowlist do `TenantContextValidatorListener`), e só o perfil
 Convidado resolve nesse caso. Aba bloqueada para externos (visibilidade ≠ todos) vale para ele também.
@@ -185,7 +185,7 @@ segurança). Tudo é filtrado no servidor, antes do JSON, por uma regra só, em 
 - Andamento (8 marcos): os marcos da negociação alcançados antes do aceite (Em análise, Proposta,
   Pago) aparecem como feitos, sem data.
 - O título "Nova versão da proposta (vN)" não sai (denuncia quantas propostas houve).
-- Sem "ver": a lista não traz a descrição e o painel não diz se há documentos.
+- Sem "ver": a lista não traz a descrição e o painel não diz se há documentos (nem "Nenhum documento").
 - As datas são gravadas em segundos: evento no mesmo segundo do aceite conta como anterior.
 
 E-mail: `TrabalhoExternoMailer`, remetente da casa (`IdentidadeDeEmail`). Em dev o `MAILER_DSN` é nulo.

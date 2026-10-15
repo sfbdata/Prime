@@ -115,7 +115,8 @@ final class ApresentadorDeDemanda
             'documentos' => $this->politica->podeVerDocumentos($ctx, $d)
                 ? array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $d->getDocumentos())
                 : [],
-            'semDocumentos' => !$this->politica->podeVerDocumentos($ctx, $d) || $d->getDocumentos() === [],
+            // Sem "ver": nem lista nem "Nenhum documento anexado." (seria falso e diria se há algum).
+            'semDocumentos' => $this->politica->podeVerDocumentos($ctx, $d) && $d->getDocumentos() === [],
             'podeAnexar' => $this->politica->podeAnexar($ctx, $d),
             // O Convidado não tem a aba Proposta: valores e condições NÃO saem para ele, nem no JSON.
             'propostas' => $ctx->perfil === Perfil::Convidado ? [] : $this->propostas($ctx, $d),

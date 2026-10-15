@@ -282,6 +282,13 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
     {
         [$client, $codigo, $master, $central, , , $token] = $this->demandaComNegociacao();
         $convidado = $this->contaDoConvidado($client, $token, 'negocio@test.com');
+        // Determinístico: todo o histórico no MESMO segundo do aceite (a coluna guarda segundos).
+        // Com o corte inclusivo, isso é "anterior"; com '<', tudo vazaria.
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE trabalho_externo_historico h SET em = c.aceito_em FROM trabalho_externo_convite c WHERE c.demanda_id = h.demanda_id AND h.demanda_id = ?',
+            [\App\TrabalhoExterno\Entity\DemandaExterna::idDoCodigo($codigo)],
+        );
+        $this->em()->clear();
 
         $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
         $conteudo = (string) $client->getResponse()->getContent();
@@ -300,9 +307,9 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         }
         self::assertNotSame('', $datas['Aceite']);
         self::assertSame('', $d['propostaTitulo'], 'nem o número de versões da proposta');
-        self::assertTrue($d['semDocumentos'], 'sem "ver", nem a existência de documentos');
+        self::assertFalse($d['semDocumentos'], 'sem "ver", não afirma nem nega que haja documentos');
 
-        // Até aqui tudo caiu no mesmo segundo do aceite e foi tratado como anterior (a dúvida
+        // Até aqui tudo estava no mesmo segundo do aceite e foi tratado como anterior (a dúvida
         // esconde). Agora a negociação fica duas horas antes e o aceite uma hora antes: o que vier
         // depois é posterior ao aceite e volta a ter autor e motivo.
         $conexao = $this->em()->getConnection();
@@ -365,6 +372,26 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
             self::assertStringNotContainsString('DEPOIS-DA-REVOGACAO', (string) $client->getResponse()->getContent());
             self::assertStringNotContainsString('SEGREDO', (string) $client->getResponse()->getContent());
         }
+
+        // Revogado que AINDA tem perfil (convite vigente em outra demanda): o painel abre, mas só
+        // com a outra; a revogada some e o detalhe dela é 404. Aqui a barreira é o recorte por
+        // demanda, não a conta sem perfil.
+        $outra = $this->demandaEmExecucaoNoMesmoCliente($client);
+        $tokenOutra = $this->convidar($client, $outra, 'negocio@test.com');
+        $this->logarComoConvidado($client, $convidado);
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$tokenOutra");
+        $client->request('POST', "/trabalho-externo/convite/$tokenOutra/aceitar", ['_token' => $crawler->filter('form[action$="/aceitar"] input[name="_token"]')->attr('value')]);
+        self::assertResponseRedirects("/trabalho-externo?te=$outra");
+
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertResponseIsSuccessful();
+        $conteudo = (string) $client->getResponse()->getContent();
+        self::assertSame([$outra], array_column($this->json($client)['painel']['demandas'], 'codigo'));
+        foreach (['SEGREDO', 'DEPOIS-DA-REVOGACAO', $codigo] as $proibido) {
+            self::assertStringNotContainsString($proibido, $conteudo, $proibido);
+        }
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertResponseStatusCodeSame(404, 'a demanda do convite revogado não abre, mesmo com perfil');
     }
 
     /**
