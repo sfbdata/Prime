@@ -304,10 +304,12 @@
 
 /* E8b: Período num bloco só (dc L.109): um campo cinza de 34px com as duas datas e "a" no meio. O foco
    fica no bloco (o desenho tira; aqui ele segue visível, como nos outros filtros). */
-.exp-body .pasta-filtros-periodo { height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }
+.exp-body .pasta-filtros-periodo { flex: 0 1 250px; height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }
 .exp-body .pasta-filtros-periodo:hover { background: var(--ex-campo-hover); }
 .exp-body .pasta-filtros-periodo:focus-within { box-shadow: 0 0 0 2px rgba(10,111,160,.35); }
-.exp-body .pasta-filtros-periodo .pasta-data-campo { min-height: 0; gap: 2px; padding: 0 2px; border: 0; background: transparent; }
+/* As datas encolhem como no dc (`flex:1 1 0; min-width:0; width:0`): com os 96px fixos o "Até" saía 3px do bloco. */
+.exp-body .pasta-filtros-periodo .pasta-data-campo { flex: 1 1 0; min-width: 0; min-height: 0; gap: 2px; padding: 0 2px; border: 0; background: transparent; }
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { flex: 1 1 0; min-width: 0; width: 0; }
 .exp-body .pasta-filtros-periodo .pasta-data-campo .form-control,
 .exp-body .pasta-filtros-periodo .pasta-data-campo .form-control:hover,
 .exp-body .pasta-filtros-periodo .pasta-data-campo .form-control:focus { height: 32px; padding: 0 2px; background-color: transparent; box-shadow: none; }

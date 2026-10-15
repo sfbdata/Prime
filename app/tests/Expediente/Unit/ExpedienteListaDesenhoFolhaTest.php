@@ -62,8 +62,9 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         // das colunas fixas na razão 40:30 (= 2:1.5), medido na tela.
         yield 'Cliente 2fr (dc L.146)' => ['col:nth-child(2) { width: 40% !important; }'];
         yield 'Ação 1.5fr (dc L.146)' => ['col:nth-child(3) { width: 30% !important; }'];
-        yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
+        yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { flex: 0 1 250px; height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
         yield '"Todas as pastas" selecionado: só fundo e texto azul, peso normal, sem faixa (dc, medido)' => [".exp-body .expediente-menu-link[data-painel] { min-height: 36px; }\n.exp-body .expediente-menu-link[data-painel].active { font-weight: 400; box-shadow: none; }"];
+        yield 'datas do período encolhem dentro do bloco (dc L.109)' => ['.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { flex: 1 1 0; min-width: 0; width: 0; }'];
         yield '"a" entre as datas #7d909d (dc L.109)' => ['--ex-periodo-sep:  #7d909d;'];
     }
 
