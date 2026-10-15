@@ -995,6 +995,161 @@ html[data-bs-theme="dark"] .bj-central {
     text-transform: uppercase;
 }
 
+/* ── Lançador flutuante: abas, filtros e Painel (desenho L6366, L5776, L5632) ──────── */
+
+.bj-central-abas {
+    display: flex;
+    flex-shrink: 0;
+    margin-top: 6px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--bjc-borda-suave);
+}
+
+.bj-central-aba {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-menu-icone);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.bj-central-aba[aria-selected="true"] {
+    color: var(--bjc-azul);
+    box-shadow: inset 0 -2.5px 0 var(--bjc-azul);
+}
+
+.bj-central-aba-contador {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--bjc-azul);
+    color: #fff;
+    font-size: 10.5px;
+    letter-spacing: 0;
+}
+
+.bj-central-aba-contador[hidden] {
+    display: none;
+}
+
+.bj-central-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: var(--bjc-fundo-corpo);
+}
+
+.bj-central-filtros[hidden] {
+    display: none;
+}
+
+.bj-central-filtro {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--bjc-filtro);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .15s, box-shadow .15s, transform .15s;
+}
+
+.bj-central-filtro:hover {
+    transform: scale(1.12);
+}
+
+.bj-central-filtro[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--bjc-filtro) 12%, transparent);
+    box-shadow: inset 0 0 0 2px var(--bjc-filtro);
+}
+
+.bj-central-filtro-bola {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--bjc-filtro);
+}
+
+/* Painel — grade de cards por grupo (L5636): só os grupos que têm dado no BlueJus */
+.bj-central-painel-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: var(--bjc-fundo-corpo);
+}
+
+.bj-central-painel-grade[hidden] {
+    display: none;
+}
+
+.bj-central-painel-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border: 0;
+    border-left: 3px solid #dfe4e8;
+    border-radius: 3px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+}
+
+.bj-central-painel-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .12);
+}
+
+.bj-central-painel-rotulo {
+    color: #9aabb6;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.bj-central-painel-valor {
+    color: #b5c2ca;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.bj-central-painel-card--ativo .bj-central-painel-valor {
+    color: var(--bjc-texto);
+}
+
+/* Linha com menção por ver: "@" azul (o "@n" do lançador, por conversa) */
+.bj-central-marca--mencao {
+    color: var(--bjc-azul);
+    font-size: 11px;
+    font-weight: 700;
+}
+
 @media (max-width: 420px) {
     .bj-central-pagina {
         padding: 0;

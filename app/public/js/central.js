@@ -11,6 +11,7 @@
     'use strict';
 
     var POLLING_MS = 5000;
+    var POLLING_FECHADA_MS = 30000;   // lançador flutuante com a janela fechada: só o contador precisa andar
     var TITULO = 'Central de Comunicação';
     // Token canônico de menção (o mesmo de MencoesDaCentral::PADRAO): @[Nome](user:ID).
     var PADRAO_MENCAO = /@\[([^\[\]<>]{1,120})\]\(user:(\d{1,10})\)/g;
@@ -58,8 +59,15 @@
             faixaArquivadas: raiz.querySelector('[data-central-faixa-arquivadas]'),
             ocultarArquivadas: raiz.querySelector('[data-central-ocultar-arquivadas]'),
             telaNovoGrupo: raiz.querySelector('[data-central-tela-novo-grupo]'),
-            telaInfo: raiz.querySelector('[data-central-tela-info]')
+            telaInfo: raiz.querySelector('[data-central-tela-info]'),
+            abas: raiz.querySelectorAll('[data-central-aba]'),
+            abaContador: raiz.querySelector('[data-central-aba-contador]'),
+            filtros: raiz.querySelector('[data-central-filtros]'),
+            botoesFiltro: raiz.querySelectorAll('[data-central-filtro]'),
+            painel: raiz.querySelector('[data-central-painel]')
         };
+        // Página /central: a janela está sempre à vista. Flutuante: começa fechada (o desenho não lembra "aberto").
+        var flutuante = raiz.dataset.modo === 'flutuante';
         var estado = {
             conversas: [],
             contatos: [],
@@ -76,7 +84,11 @@
             menu: null,            // {fundo, caixa, origem} quando um menu de contexto está aberto
             tela: 'lista',         // B: 'lista' | 'conversa' | 'novoGrupo' | 'info'
             verArquivadas: false,  // B: "Ver conversas arquivadas" (desenho L6260)
-            vistas: new Set()      // B: ids já entregues — a janela do polling repete as recentes (spec B §6)
+            vistas: new Set(),     // B: ids já entregues — a janela do polling repete as recentes (spec B §6)
+            aba: 'entrada',        // lançador: 'entrada' | 'painel' (desenho L6366)
+            filtro: '',            // lançador: '' (tudo) | 'mencoes' (L5776)
+            comMencao: new Set(),  // conversas com menção por ver (servidor: conversasComMencao)
+            janelaAberta: !flutuante
         };
         var abrirAoCarregar = Number(raiz.dataset.abrirConversa) || null;   // ?conversa=N (link da menção)
 
@@ -254,6 +266,12 @@
                 ic.setAttribute('aria-label', m[2]);
                 topo.appendChild(ic);
             });
+            if (estado.comMencao.has(c.id)) {
+                var arroba = criar('span', 'bj-central-marca bj-central-marca--mencao', '@');
+                arroba.title = 'Menção por ver';
+                arroba.setAttribute('aria-label', 'Menção por ver');
+                topo.appendChild(arroba);
+            }
             if (c.ultima) { topo.appendChild(criar('span', 'bj-central-hora', quando(c.ultima.criadaEm))); }
             textos.appendChild(topo);
             textos.appendChild(criar('span', 'bj-central-nome d-block', nomeDaConversa(c)));
@@ -330,9 +348,21 @@
                 achados.forEach(function (c) { el.lista.appendChild(linhaDoContato(c)); });
                 return;
             }
+            atualizarAbas();
+            if (estado.aba === 'painel') {
+                el.faixaArquivadas.hidden = true;
+                desenharPainel();
+                return;
+            }
             // Arquivada some da lista principal (L320) e volta com "Ver conversas arquivadas".
             el.faixaArquivadas.hidden = !estado.verArquivadas;
-            var visiveis = estado.conversas.filter(function (c) { return estado.verArquivadas || !c.arquivada; });
+            var visiveis = estado.conversas.filter(function (c) {
+                return (estado.verArquivadas || !c.arquivada) && (estado.filtro !== 'mencoes' || estado.comMencao.has(c.id));
+            });
+            if (visiveis.length === 0 && estado.filtro === 'mencoes') {
+                el.lista.appendChild(vazio('bi-at', 'Nenhuma menção por ver', 'Quando alguém mencionar você, a conversa aparece aqui.'));
+                return;
+            }
             if (visiveis.length === 0) {
                 el.lista.appendChild(estado.verArquivadas || estado.conversas.length > 0
                     ? vazio('bi-archive', 'Nenhuma conversa aqui', estado.verArquivadas ? '' : 'As arquivadas aparecem em ⋮ → Ver conversas arquivadas.')
@@ -340,6 +370,54 @@
                 return;
             }
             visiveis.forEach(function (c) { el.lista.appendChild(linhaDaConversa(c)); });
+        }
+
+        // ── abas, filtros e Painel (desenho L6366, L5776, L5632) ─────────────────────
+        function totalMensagens() {
+            return estado.naoLidas;
+        }
+
+        function atualizarAbas() {
+            if (!el.abas.length) { return; }
+            el.abas.forEach(function (b) { b.setAttribute('aria-selected', b.dataset.centralAba === estado.aba ? 'true' : 'false'); });
+            el.abaContador.hidden = totalMensagens() === 0;
+            el.abaContador.textContent = String(totalMensagens());
+            el.filtros.hidden = estado.aba !== 'entrada';
+            el.botoesFiltro.forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.centralFiltro === estado.filtro ? 'true' : 'false'); });
+            el.painel.hidden = estado.aba !== 'painel';
+            el.lista.hidden = estado.aba === 'painel';
+        }
+
+        function desenharPainel() {   // telaPrioridades, L5632 — só os grupos que têm dado no BlueJus
+            el.painel.replaceChildren();
+            [['mencoes', 'Menções', '#0a7aad', estado.comMencao.size],
+             ['mensagens', 'Mensagens', '#0b5f86', totalMensagens()]].forEach(function (g) {
+                var card = criar('button', 'bj-central-painel-card' + (g[3] ? ' bj-central-painel-card--ativo' : ''));
+                card.type = 'button';
+                card.title = 'Ver ' + g[1].toLowerCase() + ' na Caixa de entrada';
+                if (g[3]) { card.style.borderLeftColor = g[2]; }
+                var rotulo = criar('span', 'bj-central-painel-rotulo', g[1]);
+                if (g[3]) { rotulo.style.color = g[2]; }
+                card.appendChild(rotulo);
+                card.appendChild(criar('span', 'bj-central-painel-valor', String(g[3])));
+                card.addEventListener('click', function () {
+                    estado.aba = 'entrada';
+                    estado.filtro = g[0] === 'mencoes' ? 'mencoes' : '';
+                    desenharLista();
+                });
+                el.painel.appendChild(card);
+            });
+        }
+
+        function emitirContadores(chegaram) {   // para o lançador flutuante: badge, "@n", salto e som
+            raiz.dispatchEvent(new CustomEvent('bj-central:contadores', {
+                bubbles: true,
+                detail: { naoLidas: estado.naoLidas, mencoes: estado.comMencao.size, chegaram: chegaram || 0 }
+            }));
+        }
+
+        function lerMencoes(dados) {
+            if (Array.isArray(dados.conversasComMencao)) { estado.comMencao = new Set(dados.conversasComMencao); }
         }
 
         function carregarConversas() {
@@ -351,6 +429,7 @@
                 sincronizarAberta();
                 if (estado.tela === 'lista') { desenharLista(); }
                 atualizarCabecalho();
+                emitirContadores(0);
             });
         }
 
@@ -466,7 +545,8 @@
         }
 
         function marcarLida() {
-            if (!estado.aberta || document.hidden || estado.aberta.ultimaId === 0) { return; }
+            // Janela flutuante fechada não "lê": a conversa só vira lida quando está de fato à vista.
+            if (!estado.aberta || document.hidden || !estado.janelaAberta || estado.aberta.ultimaId === 0) { return; }
             pedir(urls.base + '/' + estado.aberta.id + '/lida', { metodo: 'POST', corpo: { ateId: estado.aberta.ultimaId } })
                 .then(carregarConversas)
                 .catch(function () { /* a próxima volta do polling tenta de novo */ });
@@ -753,6 +833,10 @@
 
         var avisoAtual = null;
         function avisar(texto) {   // aviso(), L5398: acima da janela, some em 2,6 s
+            if (flutuante) {   // no flutuante, o aviso sai acima do lançador (L6410)
+                raiz.dispatchEvent(new CustomEvent('bj-central:aviso', { bubbles: true, detail: { texto: texto } }));
+                return;
+            }
             if (avisoAtual) { avisoAtual.remove(); }
             var caixa = criar('div', 'bj-central-toast');
             caixa.setAttribute('role', 'status');
@@ -870,13 +954,16 @@
 
         function menuDoCabecalho() {   // ⋮ da lista, L6259-6260
             var r = el.mais.getBoundingClientRect();
-            abrirMenu([
+            var itens = [
                 { icone: 'bi-people', rotulo: 'Novo grupo', acao: abrirNovoGrupo },
                 { icone: 'bi-archive', rotulo: estado.verArquivadas ? 'Ocultar arquivadas' : 'Ver conversas arquivadas', acao: function () {
                     estado.verArquivadas = !estado.verArquivadas;
                     desenharLista();
                 } }
-            ], r.right - 220, r.bottom + 4, el.mais);
+            ];
+            // O lançador flutuante acrescenta as preferências da janela (som, alertas, texto, posição — L6244-6296).
+            if (typeof raiz.bjItensExtras === 'function') { itens = itens.concat(raiz.bjItensExtras()); }
+            abrirMenu(itens, r.right - 220, r.bottom + 4, el.mais);
         }
 
         // ── grupos (B) ───────────────────────────────────────────────────────────────
@@ -1098,6 +1185,7 @@
         function inicializarCursor() {
             return pedir(urls.novidades).then(function (d) {
                 if (Number.isFinite(d.cursor)) { estado.cursor = d.cursor; }
+                lerMencoes(d);
             });
         }
 
@@ -1112,7 +1200,10 @@
                 estado.erro = false;
                 if (Number.isFinite(dados.cursor)) { estado.cursor = Math.max(estado.cursor, dados.cursor); }
                 // A janela do servidor (spec B §6) repete as recentes: só o que ainda não foi visto é novidade.
+                var mencoesAntes = estado.comMencao.size;
+                lerMencoes(dados);
                 var novas = (Array.isArray(dados.mensagens) ? dados.mensagens : []).filter(function (m) { return !estado.vistas.has(m.id); });
+                var chegaram = novas.filter(function (m) { return !m.minha && !m.sistema; }).length;
                 novas.forEach(function (m) { estado.vistas.add(m.id); });
                 if (estado.vistas.size > 5000) { estado.vistas = new Set(novas.map(function (m) { return m.id; })); }
                 // A conversa aberta recebe as novas mesmo com a tela de informações por cima — senão elas iriam para
@@ -1122,8 +1213,9 @@
                     anexarAoFim(daAberta);
                     marcarLida();
                 }
-                if (novas.length > 0 || dados.naoLidas !== estado.naoLidas || estavaComErro) {
+                if (novas.length > 0 || dados.naoLidas !== estado.naoLidas || estavaComErro || estado.comMencao.size !== mencoesAntes) {
                     return carregarConversas().then(function () {
+                        if (chegaram > 0) { emitirContadores(chegaram); }
                         if (!dados.completo) { return verificarNovidades(); }
                     });
                 }
@@ -1152,7 +1244,7 @@
         function iniciarPolling() {
             pararPolling();
             if (document.hidden || estado.semSessao) { return; }   // aba aberta em segundo plano não consulta
-            estado.timer = window.setInterval(verificarNovidades, POLLING_MS);
+            estado.timer = window.setInterval(verificarNovidades, flutuante && !estado.janelaAberta ? POLLING_FECHADA_MS : POLLING_MS);
         }
 
         function pararPolling() {
@@ -1164,6 +1256,19 @@
 
         // ── eventos ──────────────────────────────────────────────────────────────────
         el.voltar.addEventListener('click', voltar);
+        el.abas.forEach(function (b) {
+            b.addEventListener('click', function () { estado.aba = b.dataset.centralAba; estado.filtro = ''; desenharLista(); });
+        });
+        el.botoesFiltro.forEach(function (b) {
+            b.addEventListener('click', function () { estado.filtro = b.dataset.centralFiltro; desenharLista(); });
+        });
+        // O lançador avisa quando a janela abre ou fecha: polling rápido só com ela à vista, e só então "lê".
+        raiz.addEventListener('bj-central:visibilidade', function (ev) {
+            estado.janelaAberta = !!(ev.detail && ev.detail.aberta);
+            if (estado.semSessao) { return; }
+            iniciarPolling();
+            if (estado.janelaAberta) { verificarNovidades().then(marcarLida); }
+        });
         el.mais.addEventListener('click', menuDoCabecalho);
         el.info.addEventListener('click', function () {
             var c = estado.aberta ? estado.conversas.filter(function (x) { return x.id === estado.aberta.id; })[0] : null;

@@ -9,6 +9,7 @@
          data-eu-nome="{{ eu.fullName }}"
          data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
          {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
+         data-modo="{{ modo|default('pagina') }}"
          aria-label="Central de Comunicação">
     <header class="bj-central-cab">
         <button type="button" class="bj-central-btn-ico" data-central-voltar hidden aria-label="Voltar para as conversas" title="Voltar">
@@ -26,6 +27,21 @@
         <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-mais aria-label="Mais opções" title="Mais opções" aria-haspopup="menu">
             <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
         </button>
+        {% if modo|default('pagina') == 'flutuante' %}
+            {# Botões de janela do desenho (L6340-6345): minimizar, maximizar/restaurar, fechar. O "destacar" (janela
+               separada do navegador) fica fora: depende de Picture-in-Picture e não tem regra no BlueJus. #}
+            <div class="bj-central-janela-acoes">
+                <button type="button" class="bj-central-btn-ico" data-flutuante-minimizar title="Minimizar: recolher para o ícone de conversas" aria-label="Minimizar">
+                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="bj-central-btn-ico" data-flutuante-maximizar title="Maximizar" aria-label="Maximizar">
+                    <i class="bi bi-square" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="bj-central-btn-ico" data-flutuante-fechar title="Fechar" aria-label="Fechar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+        {% endif %}
     </header>
 
     <div class="bj-central-lista-tela" data-central-tela-lista>
@@ -34,6 +50,23 @@
             <input type="search" class="bj-central-busca-campo" data-central-busca
                    placeholder="Pesquisar usuário..." aria-label="Pesquisar usuário" autocomplete="off">
         </div>
+        {# Abas do desenho (L6366): Caixa de entrada (com o total) e Painel #}
+        <div class="bj-central-abas" role="tablist">
+            <button type="button" class="bj-central-aba" role="tab" data-central-aba="entrada" aria-selected="true">
+                Caixa de entrada <span class="bj-central-aba-contador" data-central-aba-contador hidden></span>
+            </button>
+            <button type="button" class="bj-central-aba" role="tab" data-central-aba="painel" aria-selected="false">Painel</button>
+        </div>
+        {# Filtros da Caixa (L5776) — só os que têm dado no BlueJus: Tudo e Menções #}
+        <div class="bj-central-filtros" data-central-filtros>
+            <button type="button" class="bj-central-filtro" data-central-filtro="" aria-pressed="true" title="Tudo" aria-label="Filtrar: Tudo" style="--bjc-filtro: #4f6878">
+                <i class="bi bi-inbox" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="bj-central-filtro" data-central-filtro="mencoes" aria-pressed="false" title="Menções" aria-label="Filtrar: Menções" style="--bjc-filtro: #0a7aad">
+                <span class="bj-central-filtro-bola" aria-hidden="true"></span>
+            </button>
+        </div>
+        <div class="bj-central-painel-grade" data-central-painel hidden></div>
         <div class="bj-central-faixa-arquivadas" data-central-faixa-arquivadas hidden>
             <span><i class="bi bi-archive" aria-hidden="true"></i> Mostrando arquivadas</span>
             <button type="button" data-central-ocultar-arquivadas>Ocultar</button>

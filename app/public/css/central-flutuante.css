@@ -1,0 +1,260 @@
+/*
+ * Central de Comunicação — lançador flutuante e janela (bluejus-central.js do Designer 13/10; linha ao lado).
+ * Só a geometria e os estados do componente flutuante; o conteúdo da janela é o mesmo da página /central
+ * (central.css). Cores do lançador fixas, como no desenho (que não tem tema escuro); a janela segue as variáveis
+ * de tema da Central.
+ */
+
+/* Raiz — L5412: canto inferior direito, acima de tudo */
+.bj-flutuante {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 2147483000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #12242f;
+}
+
+/* Lançador — L6399 */
+.bj-flutuante-lancador {
+    position: relative;
+    width: 66px;
+    height: 54px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    filter: drop-shadow(0 3px 6px rgba(11, 95, 134, .35));
+    transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), filter .25s;
+    touch-action: none;
+}
+
+.bj-flutuante-lancador:hover,
+.bj-flutuante-lancador:focus-visible {
+    transform: translateY(-3px) scale(1.06);
+    filter: drop-shadow(0 8px 12px rgba(11, 95, 134, .42));
+}
+
+.bj-flutuante-lancador:focus-visible {
+    outline: 2px solid #0a7aad;
+    outline-offset: 2px;
+}
+
+.bj-flutuante-lancador.bj-flutuante--salto {
+    animation: bjfSalto .9s cubic-bezier(.34, 1.56, .64, 1) 2;
+}
+
+.bj-flutuante-icone {
+    display: block;
+    width: 66px;
+    height: 54px;
+}
+
+.bj-flutuante-icone svg {
+    display: none;
+}
+
+/* Três desenhos (L6403-6408): calmo (check), aberto (chevron), com não lidas (dois balões e três pontos) */
+.bj-flutuante-lancador[data-estado="calmo"] .bj-flutuante-svg-calmo,
+.bj-flutuante-lancador[data-estado="aberto"] .bj-flutuante-svg-aberto,
+.bj-flutuante-lancador[data-estado="novas"] .bj-flutuante-svg-novas {
+    display: block;
+}
+
+.bj-flutuante-ponto {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.bj-flutuante-lancador.bj-flutuante--anim .bj-flutuante-ponto {
+    animation: bjfPonto 1.5s ease-in-out infinite;
+}
+
+.bj-flutuante-lancador.bj-flutuante--anim .bj-flutuante-ponto:nth-of-type(2) {
+    animation-delay: .2s;
+}
+
+.bj-flutuante-lancador.bj-flutuante--anim .bj-flutuante-ponto:nth-of-type(3) {
+    animation-delay: .4s;
+}
+
+/* Contador de não lidas — L6409 (laranja; o vermelho "urgente" do desenho não tem fonte no BlueJus) */
+.bj-flutuante-badge {
+    position: absolute;
+    top: -6px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #e8590c;
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+/* Menções por ver, só com a janela fechada — L6411 */
+.bj-flutuante-mencoes {
+    position: absolute;
+    bottom: 4px;
+    left: -4px;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #fff;
+    color: #0a7aad;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+}
+
+.bj-flutuante-badge[hidden],
+.bj-flutuante-mencoes[hidden] {
+    display: none;
+}
+
+/* Aviso passageiro acima do lançador — L6410 */
+.bj-flutuante-aviso {
+    padding: 7px 12px;
+    border-radius: 4px;
+    background: #12242f;
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+    animation: bjfIn .2s ease-out;
+}
+
+.bj-flutuante-aviso .bi {
+    margin-right: 6px;
+    color: #ffb37a;
+}
+
+/* Janela — L6326: independente do lançador (posição livre), abre com bjcIn */
+.bj-flutuante-janela {
+    position: fixed;
+    z-index: 2147483000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2), 0 12px 36px rgba(0, 0, 0, .22);
+    transition: width .18s ease, height .18s ease;
+}
+
+.bj-flutuante-janela[hidden] {
+    display: none;
+}
+
+.bj-flutuante-janela.bj-flutuante--abrindo {
+    animation: bjfIn .2s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+.bj-flutuante-janela.bj-flutuante--movendo {
+    transition: none;
+}
+
+/* A janela da Central ocupa a janela flutuante inteira (na página /central ela tem 380×580 própria). */
+.bj-flutuante-janela > .bj-central {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.bj-flutuante-janela .bj-central-cab {
+    cursor: grab;
+    touch-action: none;
+}
+
+.bj-flutuante-janela.bj-flutuante--movendo .bj-central-cab {
+    cursor: grabbing;
+}
+
+/* Botões de janela no cabeçalho — L6340: 25×25, 12.5px, raio 3 */
+.bj-central-janela-acoes {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    flex-shrink: 0;
+}
+
+.bj-central-janela-acoes .bj-central-btn-ico {
+    width: 25px;
+    height: 25px;
+    font-size: 12.5px;
+}
+
+/* Alças de redimensionar — L6358 (só no tamanho normal) */
+.bj-flutuante-alca {
+    position: absolute;
+    z-index: 6;
+}
+
+.bj-flutuante-janela[data-modo="max"] .bj-flutuante-alca,
+.bj-flutuante-janela[data-modo="encaixe"] .bj-flutuante-alca {
+    display: none;
+}
+
+/* Guia de encaixe enquanto move — L6436 */
+.bj-flutuante-guia {
+    position: fixed;
+    z-index: 2147482999;
+    pointer-events: none;
+    border-radius: 6px;
+    background: rgba(10, 122, 173, .14);
+    box-shadow: inset 0 0 0 2px #0a7aad;
+    transition: all .12s;
+}
+
+/* Texto grande (menu): só a bolha da mensagem passa a 15px — L6040 */
+.bj-central--texto-grande .bj-central-bolha {
+    font-size: 15px;
+}
+
+/* Keyframes — L5414 */
+@keyframes bjfIn {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes bjfPonto {
+    0%, 55%, 100% { transform: scale(1); opacity: .8; }
+    25% { transform: scale(1.6); opacity: 1; }
+}
+
+@keyframes bjfSalto {
+    0%, 100% { transform: none; }
+    30% { transform: translateY(-6px) scale(1.05); }
+    60% { transform: translateY(1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bj-flutuante-lancador,
+    .bj-flutuante-lancador .bj-flutuante-ponto,
+    .bj-flutuante-janela,
+    .bj-flutuante-aviso {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media print {
+    .bj-flutuante,
+    .bj-flutuante-janela {
+        display: none !important;
+    }
+}
