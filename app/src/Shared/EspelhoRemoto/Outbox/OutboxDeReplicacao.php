@@ -27,7 +27,16 @@ use Psr\Clock\ClockInterface;
  * regras de ordem por chave remota:
  *  - não entrega linha cuja chave tenha OUTRA em `processando` com posse válida;
  *  - linha com outra MAIS NOVA da mesma chave (envio ou exclusão) vira `superado` e não sai.
- * Posse vencida (worker morto) volta a ser reivindicável.
+ * Posse vencida (worker morto) volta a ser reivindicável — mas só até o teto de tentativas: a linha que
+ * derruba o worker toda vez vira `falhou` em vez de "veneno" eterno no topo da fila.
+ *
+ * ## Posse com token
+ *
+ * Cada reivindicação grava um token aleatório em `posse`. Concluir, reagendar e renovar só valem com
+ * ele: um worker que perdeu a posse (demorou além do prazo) não reescreve o estado de quem a pegou
+ * depois, e fica sabendo (o método devolve `false`). O worker RENOVA a posse imediatamente antes do
+ * PUT e não envia se não conseguir — com o teto de duração do HTTP menor que a posse, um envio velho
+ * não termina depois de outro worker ter enviado a versão nova.
  */
 final class OutboxDeReplicacao
 {
@@ -64,9 +73,9 @@ final class OutboxDeReplicacao
         return $this->registrar($chave, self::OPERACAO_EXCLUSAO, self::ESTADO_REGISTRADO, null, null, null);
     }
 
-    public function reivindicarProxima(int $posseEmSegundos): ?ItemDeReplicacao
+    public function reivindicarProxima(int $posseEmSegundos, int $maximoDeTentativas): ?ItemDeReplicacao
     {
-        return $this->conexao->transactional(function (Connection $c) use ($posseEmSegundos): ?ItemDeReplicacao {
+        return $this->conexao->transactional(function (Connection $c) use ($posseEmSegundos, $maximoDeTentativas): ?ItemDeReplicacao {
             $c->executeStatement('SELECT pg_advisory_xact_lock(?)', [self::TRAVA_DA_REIVINDICACAO]);
             $agora = $this->agora();
 
@@ -100,17 +109,25 @@ final class OutboxDeReplicacao
                     continue;
                 }
 
-                try {
-                    $chave = self::chaveDaLinha($linha);
-                } catch (ChaveDeArquivoInvalida $e) {
-                    $this->mudar($c, $id, self::ESTADO_FALHOU, 'linha sem chave válida: ' . $e->getMessage());
+                if ((int) $linha['tentativas'] >= $maximoDeTentativas) {
+                    $this->mudar($c, $id, self::ESTADO_FALHOU, sprintf('posse vencida depois de %d tentativas (o worker caiu ou o item derruba o worker)', (int) $linha['tentativas']));
 
                     continue;
                 }
 
+                try {
+                    $chave = self::chaveDaLinha($linha);
+                } catch (ChaveDeArquivoInvalida $e) {
+                    // A mensagem da chave traz o nome cru; aqui vai só a classe.
+                    $this->mudar($c, $id, self::ESTADO_FALHOU, 'linha sem chave válida (' . $e::class . ')');
+
+                    continue;
+                }
+
+                $posse = bin2hex(random_bytes(16));
                 $c->executeStatement(
-                    'UPDATE ' . self::TABELA . ' SET estado = :processando, processando_ate = :ate, tentativas = tentativas + 1, atualizado_em = :agora WHERE id = :id',
-                    ['processando' => self::ESTADO_PROCESSANDO, 'ate' => $this->agora($posseEmSegundos), 'agora' => $agora, 'id' => $id],
+                    'UPDATE ' . self::TABELA . ' SET estado = :processando, processando_ate = :ate, posse = :posse, tentativas = tentativas + 1, atualizado_em = :agora WHERE id = :id',
+                    ['processando' => self::ESTADO_PROCESSANDO, 'ate' => $this->agora($posseEmSegundos), 'posse' => $posse, 'agora' => $agora, 'id' => $id],
                 );
 
                 return new ItemDeReplicacao(
@@ -121,38 +138,62 @@ final class OutboxDeReplicacao
                     (int) $linha['tamanho_bytes'],
                     (string) ($linha['mime_type'] ?? 'application/octet-stream'),
                     (int) $linha['tentativas'] + 1,
+                    $posse,
                 );
             }
         });
     }
 
-    public function marcarVerificado(ItemDeReplicacao $item): void
+    /** Cada `marcar*`/`reagendar`/`renovarPosse` devolve false quando a posse já não era deste item. */
+    public function marcarVerificado(ItemDeReplicacao $item): bool
     {
-        $this->concluir($item, self::ESTADO_VERIFICADO, null);
+        return $this->concluir($item, self::ESTADO_VERIFICADO, null);
     }
 
-    public function marcarSuperado(ItemDeReplicacao $item, string $motivo): void
+    public function marcarSuperado(ItemDeReplicacao $item, string $motivo): bool
     {
-        $this->concluir($item, self::ESTADO_SUPERADO, $motivo);
+        return $this->concluir($item, self::ESTADO_SUPERADO, $motivo);
     }
 
-    public function marcarDescartado(ItemDeReplicacao $item, string $motivo): void
+    public function marcarDescartado(ItemDeReplicacao $item, string $motivo): bool
     {
-        $this->concluir($item, self::ESTADO_DESCARTADO, $motivo);
+        return $this->concluir($item, self::ESTADO_DESCARTADO, $motivo);
     }
 
-    public function marcarFalhou(ItemDeReplicacao $item, string $erroSemDadosPessoais): void
+    public function marcarFalhou(ItemDeReplicacao $item, string $erroSemDadosPessoais): bool
     {
-        $this->concluir($item, self::ESTADO_FALHOU, $erroSemDadosPessoais);
+        return $this->concluir($item, self::ESTADO_FALHOU, $erroSemDadosPessoais);
     }
 
-    public function reagendar(ItemDeReplicacao $item, string $erroSemDadosPessoais, int $emSegundos): void
+    public function reagendar(ItemDeReplicacao $item, string $erroSemDadosPessoais, int $emSegundos): bool
     {
-        $this->conexao->executeStatement(
-            'UPDATE ' . self::TABELA . ' SET estado = :pendente, processando_ate = NULL, proxima_tentativa_em = :quando, ultimo_erro = :erro, atualizado_em = :agora
-              WHERE id = :id AND estado = :processando',
-            ['pendente' => self::ESTADO_PENDENTE, 'quando' => $this->agora($emSegundos), 'erro' => $erroSemDadosPessoais, 'agora' => $this->agora(), 'id' => $item->id, 'processando' => self::ESTADO_PROCESSANDO],
-        );
+        return $this->conexao->executeStatement(
+            'UPDATE ' . self::TABELA . ' SET estado = :pendente, processando_ate = NULL, posse = NULL, proxima_tentativa_em = :quando, ultimo_erro = :erro, atualizado_em = :agora
+              WHERE id = :id AND estado = :processando AND posse = :posse',
+            ['pendente' => self::ESTADO_PENDENTE, 'quando' => $this->agora($emSegundos), 'erro' => $erroSemDadosPessoais, 'agora' => $this->agora(), 'id' => $item->id, 'processando' => self::ESTADO_PROCESSANDO, 'posse' => $item->posse],
+        ) === 1;
+    }
+
+    /**
+     * Estende a posse deste item por mais N segundos a partir de agora — só se ela ainda for dele e
+     * ainda não tiver vencido. O worker chama logo antes do PUT; `false` = não envie.
+     */
+    public function renovarPosse(ItemDeReplicacao $item, int $porSegundos): bool
+    {
+        return $this->conexao->executeStatement(
+            'UPDATE ' . self::TABELA . ' SET processando_ate = :ate, atualizado_em = :agora
+              WHERE id = :id AND estado = :processando AND posse = :posse AND processando_ate >= :agora',
+            ['ate' => $this->agora($porSegundos), 'agora' => $this->agora(), 'id' => $item->id, 'processando' => self::ESTADO_PROCESSANDO, 'posse' => $item->posse],
+        ) === 1;
+    }
+
+    /** Existe registro (envio ou exclusão) mais novo que este para a mesma chave remota? */
+    public function existeRegistroMaisNovo(ItemDeReplicacao $item): bool
+    {
+        return $this->conexao->fetchOne(
+            'SELECT 1 FROM ' . self::TABELA . ' WHERE chave_remota = ? AND id > ? LIMIT 1',
+            [$item->chaveRemota, $item->id],
+        ) !== false;
     }
 
     /** @return array<string, int> estado => quantidade, das linhas de envio */
@@ -204,19 +245,19 @@ final class OutboxDeReplicacao
         return (int) $id;
     }
 
-    private function concluir(ItemDeReplicacao $item, string $estado, ?string $motivo): void
+    private function concluir(ItemDeReplicacao $item, string $estado, ?string $motivo): bool
     {
-        $this->conexao->executeStatement(
-            'UPDATE ' . self::TABELA . ' SET estado = :estado, processando_ate = NULL, ultimo_erro = :motivo, atualizado_em = :agora
-              WHERE id = :id AND estado = :processando',
-            ['estado' => $estado, 'motivo' => $motivo, 'agora' => $this->agora(), 'id' => $item->id, 'processando' => self::ESTADO_PROCESSANDO],
-        );
+        return $this->conexao->executeStatement(
+            'UPDATE ' . self::TABELA . ' SET estado = :estado, processando_ate = NULL, posse = NULL, ultimo_erro = :motivo, atualizado_em = :agora
+              WHERE id = :id AND estado = :processando AND posse = :posse',
+            ['estado' => $estado, 'motivo' => $motivo, 'agora' => $this->agora(), 'id' => $item->id, 'processando' => self::ESTADO_PROCESSANDO, 'posse' => $item->posse],
+        ) === 1;
     }
 
     private function mudar(Connection $c, int $id, string $estado, string $motivo): void
     {
         $c->executeStatement(
-            'UPDATE ' . self::TABELA . ' SET estado = :estado, processando_ate = NULL, ultimo_erro = :motivo, atualizado_em = :agora WHERE id = :id',
+            'UPDATE ' . self::TABELA . ' SET estado = :estado, processando_ate = NULL, posse = NULL, ultimo_erro = :motivo, atualizado_em = :agora WHERE id = :id',
             ['estado' => $estado, 'motivo' => $motivo, 'agora' => $this->agora(), 'id' => $id],
         );
     }

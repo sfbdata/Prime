@@ -476,7 +476,7 @@ inalterado (`EspelhoRemotoArquiteturaTest` cai no dia em que alguém ligar).
 | `ArmazenamentoEspelhado` | decorador das 3 interfaces; com a política desligada é repasse puro. Gravar → linha `enviar` (com SHA medido no disco); excluir → linha `exclusao_registrada`; leituras → **só local** |
 | `OutboxDeReplicacao` | a tabela `armazenamento_replicacao` (1 migration aditiva) por DBAL; reivindicação, reagendamento, estados |
 | `ReplicadorDeArquivos` | processa itens: idempotência por HEAD, ordem por chave, backoff, falha permanente × transitória |
-| `ReconciliadorDoEspelho` | **só dry-run**: banco (8 fontes) × disco × R2 — presença, tamanho e SHA-256; relatório sem nomes |
+| `ReconciliadorDoEspelho` | **só dry-run**: banco (10 fontes) × disco × R2 — presença, tamanho e SHA-256; relatório sem nomes |
 | `FabricaDoEspelhoRemoto` | monta o `EspelhoRemotoR2` só quando o worker pede; sem configuração, recusa com mensagem clara |
 
 **Estados:** `pendente` → `processando` (com prazo de posse) → `verificado` | `pendente` (reagendado
@@ -522,6 +522,32 @@ categoria, tenant e o resumo do erro com a chave substituída por `<chave #id>`.
    "DoctrineMigrations\Version20261015180000"` no `saas_test` (env=test) e no `saas_ux`, como manda a
    lição de 14/09 — eu não toquei bancos compartilhados;
 3. NÃO definir `ARMAZENAMENTO_ESPELHO_CATEGORIAS` nem `ESPELHO_R2_*` em produção até a P2.4/P2.5.
+
+**Revisão independente da P2.3 (15/10) — não aprovou a primeira versão; corrigido:**
+- **I1, envio velho por cima do novo:** cada reivindicação grava um **token de posse**; concluir,
+  reagendar e renovar só valem com ele. O worker **renova a posse imediatamente antes do PUT** e não
+  envia se não conseguir; o cliente HTTP do R2 tem teto de duração (600 s) **menor que a posse**
+  (900 s) — um PUT nunca termina depois de outro worker poder pegar a mesma chave (teste trava a
+  relação; teste reproduz a corrida com outro worker roubando a linha durante a consulta);
+- **I2, retry sem teto na queda:** a reivindicação marca `falhou` a linha de posse vencida que já
+  esgotou as tentativas; qualquer erro inesperado (inclusive `TypeError` e do DBAL) é transitório; uma
+  falha ao marcar estado não derruba a rodada;
+- **I3, lacuna permanente:** se o disco mudou e NÃO há registro mais novo, o worker registra um envio
+  com o conteúdo atual antes de superar o velho; o decorador mede SHA e tamanho na MESMA leitura;
+- menores: reconciliação com captura geral; `--sem-sha` nunca classifica como `igual`
+  (`presente_sem_sha_conferido`, DP-7); erro de linha sem nome; marcações devolvem se valeram; Shared
+  não importa Tarefa (interface `TradutorDeAnexoDeTarefa`); `--limite` validado.
+
+**Decisão pendente do dono (I4, LGPD):** a outbox guarda `nome` e `chave_remota` em claro — nos
+legados de texto livre, nome de pessoa —, sem retenção, e sobrevive à purga do escritório (a coluna é
+`escopo_tenant_id`, e a purga não a enxerga). Proposta: (a) apagar linhas `verificado`/`superado`/
+`descartado` com mais de N dias; (b) a purga do escritório apagar as linhas do escopo dele. As duas são
+exclusão de LINHA LOCAL, não de objeto remoto. Nada implementado; decidir antes da P2.5.
+
+**Risco residual conhecido (M1, raro):** se a transação do domínio já estiver ABORTADA no Postgres
+quando a outbox tentar o savepoint, o DBAL incrementa o nível de aninhamento antes de falhar; o domínio
+já estava falhando, e o decorador captura o erro — mas a conexão fica com o contador desalinhado até o
+fim da requisição. Sem reprodução.
 
 **Limites honestos dos testes:** concorrência entre PROCESSOS (dois workers em conexões diferentes) não
 cabe no rollback por teste do DAMA — o que se prova é a regra (uma chave por vez; a mais nova supera),

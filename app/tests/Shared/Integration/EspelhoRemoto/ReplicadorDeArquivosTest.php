@@ -113,7 +113,7 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
     public function testSobrescritaDuranteOProcessamento(): void
     {
         $chave = $this->gravar('a.pdf', 'versão 1');
-        $velho = $this->outbox->reivindicarProxima(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS) ?? self::fail('sem item');
+        $velho = $this->outbox->reivindicarProxima(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS, ReplicadorDeArquivos::MAXIMO_DE_TENTATIVAS) ?? self::fail('sem item');
 
         // Enquanto o worker A segura o v1, o usuário regrava: v2 entra na fila e no disco.
         $this->espelhado->gravar($chave, FonteDeConteudo::deTexto('versão 2'));
@@ -125,18 +125,98 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
         self::assertSame(1, $this->puts(), 'o v1 nunca sai');
     }
 
-    #[TestDox('o item velho reivindicado ANTES da regravação também não sai: o disco mudou, ele vira "superado"')]
-    public function testItemVelhoVeODiscoMudado(): void
+    #[TestDox('disco mudou SEM registro mais novo (outbox falhou, política desligada, transação desfeita): o velho vira "superado" e um envio com o conteúdo atual é registrado — a fila converge')]
+    public function testDiscoMudouSemRegistroNovoReRegistra(): void
     {
         $chave = $this->gravar('a.pdf', 'versão 1');
-        $item  = $this->outbox->reivindicarProxima(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS) ?? self::fail('sem item');
         $this->local->gravar($chave, FonteDeConteudo::deTexto('versão 2 sem passar pelo decorador'));
-        $this->conexao->executeStatement('UPDATE armazenamento_replicacao SET estado = :p, processando_ate = NULL WHERE id = :id', ['p' => 'pendente', 'id' => $item->id]);
 
         $resumo = $this->replicador->processar($this->espelho, 10);
 
         self::assertSame(1, $resumo->superados);
-        self::assertSame(0, $this->puts());
+        self::assertSame(1, $resumo->enviados, 'o envio re-registrado sai na mesma rodada');
+        self::assertSame('versão 2 sem passar pelo decorador', $this->s3->conteudoDe(LayoutDeChaveRemota::chaveDe($chave)));
+        self::assertSame(1, $this->puts(), 'a versão 1 nunca sai');
+    }
+
+    #[TestDox('posse perdida antes do PUT (outro worker pegou a chave enquanto este consultava): este NÃO envia — o envio velho não cai por cima do novo')]
+    public function testPossePerdidaAntesDoPutNaoEnvia(): void
+    {
+        $chave   = $this->gravar('corrida.pdf', 'versão 1');
+        $outro   = new OutboxDeReplicacao($this->conexao, $this->relogio);
+        $relogio = $this->relogio;
+        $espiao  = new class ($this->espelho, $relogio, $outro) implements \App\Shared\EspelhoRemoto\EspelhoRemoto {
+            public int $envios = 0;
+            private bool $jaRoubou = false;
+
+            public function __construct(private readonly \App\Shared\EspelhoRemoto\EspelhoRemoto $real, private readonly MockClock $relogio, private readonly OutboxDeReplicacao $outro)
+            {
+            }
+
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+                $this->envios++;
+                $this->real->enviar($chave, $conteudo, $tamanhoBytes, $sha256, $mimeType);
+            }
+
+            public function consultar(ChaveDeArquivo $chave): ?\App\Shared\EspelhoRemoto\MetadadosRemotos
+            {
+                if (!$this->jaRoubou) {
+                    // Este worker "travou" além da posse; outro worker pega a mesma linha.
+                    $this->jaRoubou = true;
+                    $this->relogio->sleep(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS + 1);
+                    $this->outro->reivindicarProxima(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS, ReplicadorDeArquivos::MAXIMO_DE_TENTATIVAS);
+                }
+
+                return $this->real->consultar($chave);
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return $this->consultar($chave) !== null;
+            }
+        };
+
+        $resumo = $this->replicador->processar($espiao, 1);
+
+        self::assertSame(1, $resumo->possesPerdidas);
+        self::assertSame(0, $espiao->envios, 'sem posse renovada, nada sai');
+        self::assertSame('processando', $this->conexao->fetchOne('SELECT estado FROM armazenamento_replicacao'), 'a linha é do outro worker agora');
+        self::assertNull($this->s3->conteudoDe(LayoutDeChaveRemota::chaveDe($chave)));
+    }
+
+    #[TestDox('erro inesperado (TypeError, erro do banco) é transitório: reagenda com backoff, não derruba a rodada')]
+    public function testErroInesperadoEhTransitorio(): void
+    {
+        $this->gravar('b.pdf', 'x');
+        $this->gravar('c.pdf', 'y');
+        $quebrado = new class implements \App\Shared\EspelhoRemoto\EspelhoRemoto {
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+            }
+
+            public function consultar(ChaveDeArquivo $chave): ?\App\Shared\EspelhoRemoto\MetadadosRemotos
+            {
+                throw new \TypeError('bug simulado');
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return false;
+            }
+        };
+
+        $resumo = $this->replicador->processar($quebrado, 10);
+
+        self::assertSame(2, $resumo->reivindicados, 'a rodada seguiu para o segundo item');
+        self::assertSame(2, $resumo->reagendados);
+        self::assertSame(['pendente' => 2], $this->outbox->contarPorEstado());
+    }
+
+    #[TestDox('a posse é maior que a duração máxima de uma requisição ao R2, com folga para reler o arquivo')]
+    public function testPosseMaiorQueADuracaoDoHttp(): void
+    {
+        self::assertGreaterThanOrEqual(ClienteR2::DURACAO_MAXIMA_DA_REQUISICAO + 120, ReplicadorDeArquivos::POSSE_EM_SEGUNDOS);
     }
 
     #[TestDox('excluído depois do envio pendente: nada é enviado e nada é apagado — o excluído não volta')]
@@ -194,7 +274,7 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
     public function testQuedaDoWorker(): void
     {
         $chave = $this->gravar('a.pdf', 'conteúdo');
-        $this->outbox->reivindicarProxima(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS);
+        $this->outbox->reivindicarProxima(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS, ReplicadorDeArquivos::MAXIMO_DE_TENTATIVAS);
 
         self::assertSame(0, $this->replicador->processar($this->espelho, 10)->reivindicados, 'com a posse do morto ainda válida, ninguém pega');
 

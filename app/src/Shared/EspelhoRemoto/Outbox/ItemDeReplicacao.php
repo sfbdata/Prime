@@ -17,6 +17,8 @@ final readonly class ItemDeReplicacao
         public int $tamanhoBytes,
         public string $mimeType,
         public int $tentativas,
+        /** Token da posse desta reivindicação: só ele conclui, reagenda ou renova a linha. */
+        public string $posse,
     ) {
     }
 }

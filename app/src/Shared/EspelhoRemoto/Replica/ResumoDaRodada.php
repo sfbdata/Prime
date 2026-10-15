@@ -14,6 +14,7 @@ final class ResumoDaRodada
     public int $descartados = 0;
     public int $reagendados = 0;
     public int $falharam = 0;
+    public int $possesPerdidas = 0;
 
     /** @return array<string, int> */
     public function comoLista(): array
@@ -26,6 +27,7 @@ final class ResumoDaRodada
             'descartados'           => $this->descartados,
             'reagendados'           => $this->reagendados,
             'falharam'              => $this->falharam,
+            'posses perdidas'       => $this->possesPerdidas,
         ];
     }
 }

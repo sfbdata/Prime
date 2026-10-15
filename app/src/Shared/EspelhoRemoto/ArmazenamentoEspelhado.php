@@ -17,7 +17,6 @@ use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\Armazenamento\ResultadoDaRemocao;
-use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use Psr\Log\LoggerInterface;
 
@@ -35,7 +34,8 @@ use Psr\Log\LoggerInterface;
  * ## Falha da réplica nunca é falha do usuário (regra 4)
  *
  * Qualquer erro ao medir ou registrar vira `logger->error` e a operação local segue com o resultado
- * dela. O que se perde é recuperado pela reconciliação. O log leva só categoria, escritório e a
+ * dela. O que se perde fica sem linha na outbox: a reconciliação o DETECTA (`ausente_no_espelho`), e
+ * o reenvio é do backfill (P2.6) — a reconciliação desta etapa só relata. O log leva só categoria, escritório e a
  * classe do erro — nunca o nome do arquivo nem a mensagem crua (a do DBAL inclui os parâmetros SQL).
  *
  * Com a política desligada (o padrão), este decorador é um repasse sem efeito colateral nenhum.
@@ -56,8 +56,8 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
 
         if ($this->politica->espelha($armazenado->chave->categoria)) {
             try {
-                $sha256 = Sha256DeArquivo::deChave($this->interno, $armazenado->chave);
-                $this->outbox->registrarEnvio($armazenado->chave, $sha256, $armazenado->tamanhoBytes, $armazenado->mimeType);
+                $medida = MedidaDeConteudo::de($this->interno, $armazenado->chave);
+                $this->outbox->registrarEnvio($armazenado->chave, $medida->sha256, $medida->tamanhoBytes, $armazenado->mimeType);
             } catch (\Throwable $e) {
                 $this->registrarFalha('envio', $armazenado->chave, $e);
             }
@@ -159,7 +159,7 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
     private function registrarFalha(string $oQue, ChaveDeArquivo $chave, \Throwable $e): void
     {
         $this->logger->error(sprintf(
-            'Espelho: não foi possível registrar o evento de %s na outbox (categoria=%s, escritório=%s, erro=%s). A operação local seguiu; a reconciliação recupera.',
+            'Espelho: não foi possível registrar o evento de %s na outbox (categoria=%s, escritório=%s, erro=%s). A operação local seguiu; a reconciliação vai acusar a falta.',
             $oQue,
             $chave->categoria->value,
             $chave->escopo->comoTexto(),

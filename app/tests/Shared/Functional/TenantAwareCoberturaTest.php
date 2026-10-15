@@ -81,9 +81,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         UserProfile::class,
 
         // Outbox da réplica do espelho (P2.3, docs/specs/p2-gravacao-dupla.md §14). Infraestrutura:
-        // lida e escrita SÓ pelo worker e pelos comandos de operador, por DBAL (que o TenantFilter
-        // nem alcança), sem escritório na sessão e sem rota HTTP. O tenant de cada linha está em
-        // `escopo_tenant_id`; filtrar aqui faria o worker não ver a fila.
+        // ESCRITA pelo decorador do armazenamento (na requisição do usuário, com o escopo da chave) e
+        // LIDA só pelo worker e pelos comandos de operador — sempre por DBAL (que o TenantFilter nem
+        // alcança), sem rota HTTP. O tenant de cada linha está em `escopo_tenant_id`; filtrar aqui
+        // faria o worker, que roda sem escritório na sessão, não ver a fila.
         ReplicacaoDeArquivo::class,
     ];
 

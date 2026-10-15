@@ -8,6 +8,8 @@ namespace App\Shared\EspelhoRemoto\Reconciliacao;
 enum ClasseDeReconciliacao: string
 {
     case IGUAL                    = 'igual';
+    /** Presente com o mesmo tamanho, mas SEM conferir o SHA (`--sem-sha`): nunca conta como igual (DP-7). */
+    case PRESENTE_SEM_SHA_CONFERIDO = 'presente_sem_sha_conferido';
     case AUSENTE_NO_ESPELHO       = 'ausente_no_espelho';
     case AUSENTE_PENDENTE_OUTBOX  = 'ausente_pendente_na_outbox';
     case TAMANHO_DIVERGENTE       = 'tamanho_divergente';

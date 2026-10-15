@@ -65,6 +65,10 @@ class ReplicacaoDeArquivo
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $processandoAte = null;
 
+    /** Token de quem detém a posse agora; só ele conclui, reagenda ou renova (revisão da P2.3, I1). */
+    #[ORM\Column(length: 32, nullable: true)]
+    private ?string $posse = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 

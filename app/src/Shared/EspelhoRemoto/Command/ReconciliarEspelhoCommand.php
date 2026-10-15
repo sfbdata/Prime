@@ -46,6 +46,14 @@ final class ReconciliarEspelhoCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
+        $limite = $input->getOption('limite');
+        if ($limite !== null && (!ctype_digit((string) $limite) || (int) $limite < 1)) {
+            $io->error('--limite precisa ser um inteiro maior que zero.');
+
+            return Command::INVALID;
+        }
+        $limite = $limite === null ? null : (int) $limite;
+
         try {
             $espelho = $this->fabrica->criar();
         } catch (EspelhoRemotoNaoConfigurado $e) {
@@ -54,7 +62,6 @@ final class ReconciliarEspelhoCommand extends Command
             return Command::FAILURE;
         }
 
-        $limite    = $input->getOption('limite') === null ? null : max(1, (int) $input->getOption('limite'));
         $relatorio = $this->reconciliador->reconciliar($espelho, !$input->getOption('sem-sha'), $limite);
 
         $io->title('Reconciliação do espelho (somente leitura)');

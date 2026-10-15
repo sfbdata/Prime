@@ -68,23 +68,23 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
     public function testReivindicar(): void
     {
         $id   = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
-        $item = $this->outbox->reivindicarProxima(900);
+        $item = $this->outbox->reivindicarProxima(900, 6);
 
         self::assertNotNull($item);
         self::assertSame($id, $item->id);
         self::assertSame(1, $item->tentativas);
         self::assertSame('processando', $this->linha($id)['estado']);
-        self::assertNull($this->outbox->reivindicarProxima(900), 'com posse válida a linha não sai para outro worker');
+        self::assertNull($this->outbox->reivindicarProxima(900, 6), 'com posse válida a linha não sai para outro worker');
     }
 
     #[TestDox('queda do worker: posse vencida devolve a linha à fila, como 2ª tentativa')]
     public function testPosseVencida(): void
     {
         $id = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
-        $this->outbox->reivindicarProxima(900);
+        $this->outbox->reivindicarProxima(900, 6);
 
         $this->relogio->sleep(901);
-        $item = $this->outbox->reivindicarProxima(900);
+        $item = $this->outbox->reivindicarProxima(900, 6);
 
         self::assertNotNull($item);
         self::assertSame($id, $item->id);
@@ -97,7 +97,7 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         $velha = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('v1'), 2, 'application/pdf');
         $nova  = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('v2'), 2, 'application/pdf');
 
-        $item = $this->outbox->reivindicarProxima(900);
+        $item = $this->outbox->reivindicarProxima(900, 6);
 
         self::assertSame($nova, $item?->id);
         self::assertSame('superado', $this->linha($velha)['estado']);
@@ -110,7 +110,7 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         $envio = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
         $this->outbox->registrarExclusao($this->chave('a.pdf'));
 
-        self::assertNull($this->outbox->reivindicarProxima(900));
+        self::assertNull($this->outbox->reivindicarProxima(900, 6));
         self::assertSame('superado', $this->linha($envio)['estado']);
     }
 
@@ -120,45 +120,103 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         $this->outbox->registrarExclusao($this->chave('a.pdf'));
         $envio = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
 
-        self::assertSame($envio, $this->outbox->reivindicarProxima(900)?->id);
+        self::assertSame($envio, $this->outbox->reivindicarProxima(900, 6)?->id);
     }
 
     #[TestDox('mesma chave em processamento: a linha nova espera a posse da velha acabar; chave diferente sai')]
     public function testUmaChaveDeCadaVez(): void
     {
         $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('v1'), 2, 'application/pdf');
-        $this->outbox->reivindicarProxima(900);
+        $this->outbox->reivindicarProxima(900, 6);
         $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('v2'), 2, 'application/pdf');
         $outra = $this->outbox->registrarEnvio($this->chave('b.pdf'), $this->sha('b'), 1, 'application/pdf');
 
-        self::assertSame($outra, $this->outbox->reivindicarProxima(900)?->id, 'só a de outra chave pode sair agora');
-        self::assertNull($this->outbox->reivindicarProxima(900));
+        self::assertSame($outra, $this->outbox->reivindicarProxima(900, 6)?->id, 'só a de outra chave pode sair agora');
+        self::assertNull($this->outbox->reivindicarProxima(900, 6));
     }
 
     #[TestDox('reagendar: volta a "pendente" com erro guardado e só sai depois da espera')]
     public function testReagendar(): void
     {
         $id = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
-        $this->outbox->reagendar($this->outbox->reivindicarProxima(900) ?? self::fail('sem item'), 'espelho fora', 300);
+        $this->outbox->reagendar($this->outbox->reivindicarProxima(900, 6) ?? self::fail('sem item'), 'espelho fora', 300);
 
         self::assertSame('pendente', $this->linha($id)['estado']);
         self::assertSame('espelho fora', $this->linha($id)['ultimo_erro']);
-        self::assertNull($this->outbox->reivindicarProxima(900), 'antes da espera não sai');
+        self::assertNull($this->outbox->reivindicarProxima(900, 6), 'antes da espera não sai');
 
         $this->relogio->sleep(301);
-        self::assertSame($id, $this->outbox->reivindicarProxima(900)?->id);
+        self::assertSame($id, $this->outbox->reivindicarProxima(900, 6)?->id);
     }
 
     #[TestDox('concluir só vale para linha em "processando" — uma marcação atrasada não reescreve o estado')]
     public function testConcluirSoEmProcessamento(): void
     {
         $id   = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
-        $item = $this->outbox->reivindicarProxima(900) ?? self::fail('sem item');
+        $item = $this->outbox->reivindicarProxima(900, 6) ?? self::fail('sem item');
         $this->outbox->marcarVerificado($item);
         $this->outbox->marcarFalhou($item, 'tarde demais');
 
         self::assertSame('verificado', $this->linha($id)['estado']);
         self::assertNull($this->linha($id)['ultimo_erro']);
+    }
+
+    #[TestDox('posse com token: quem perdeu a posse não conclui nem reagenda — e fica sabendo (false)')]
+    public function testTokenDePosse(): void
+    {
+        $id     = $this->outbox->registrarEnvio($this->chave('t.pdf'), $this->sha('t'), 1, 'application/pdf');
+        $velho  = $this->outbox->reivindicarProxima(900, 6) ?? self::fail('sem item');
+        $this->relogio->sleep(901);
+        $novo   = $this->outbox->reivindicarProxima(900, 6) ?? self::fail('sem item');
+
+        self::assertSame($id, $novo->id);
+        self::assertNotSame($velho->posse, $novo->posse);
+        self::assertFalse($this->outbox->renovarPosse($velho, 900), 'o velho não renova');
+        self::assertFalse($this->outbox->marcarVerificado($velho), 'o velho não conclui');
+        self::assertFalse($this->outbox->reagendar($velho, 'x', 60), 'o velho não reagenda');
+        self::assertSame('processando', $this->linha($id)['estado'], 'o estado de quem tem a posse ficou');
+        self::assertTrue($this->outbox->renovarPosse($novo, 900));
+        self::assertTrue($this->outbox->marcarVerificado($novo));
+    }
+
+    #[TestDox('renovar a posse só vale enquanto ela não venceu')]
+    public function testRenovarPosseVencida(): void
+    {
+        $this->outbox->registrarEnvio($this->chave('r.pdf'), $this->sha('r'), 1, 'application/pdf');
+        $item = $this->outbox->reivindicarProxima(900, 6) ?? self::fail('sem item');
+
+        self::assertTrue($this->outbox->renovarPosse($item, 900));
+        $this->relogio->sleep(901);
+        self::assertFalse($this->outbox->renovarPosse($item, 900), 'posse vencida não se renova: outro worker pode já ter pego');
+    }
+
+    #[TestDox('linha "veneno" (posse vence toda vez): no teto de tentativas vira "falhou" e sai da fila')]
+    public function testVenenoChegaAFalhou(): void
+    {
+        $id = $this->outbox->registrarEnvio($this->chave('veneno.pdf'), $this->sha('v'), 1, 'application/pdf');
+        for ($i = 1; $i <= 6; $i++) {
+            self::assertSame($id, $this->outbox->reivindicarProxima(900, 6)?->id, 'tentativa ' . $i);
+            $this->relogio->sleep(901);
+        }
+
+        self::assertNull($this->outbox->reivindicarProxima(900, 6));
+        self::assertSame('falhou', $this->linha($id)['estado']);
+        self::assertStringContainsString('posse vencida', (string) $this->linha($id)['ultimo_erro']);
+    }
+
+    #[TestDox('linha sem chave válida vira "falhou" sem guardar o nome cru no erro')]
+    public function testLinhaInvalidaSemNome(): void
+    {
+        $this->conexao->executeStatement(
+            "INSERT INTO armazenamento_replicacao (operacao, escopo_tenant_id, categoria, nome, chave_remota, sha256, tamanho_bytes, mime_type, estado, tentativas, proxima_tentativa_em, criado_em, atualizado_em)
+             VALUES ('enviar', 1, 'pasta_documento', 'RG - Antônio/../x', 'core/t/1/uploads/pastas/x', :sha, 1, 'application/pdf', 'pendente', 0, '2026-10-15 12:00:00', '2026-10-15 12:00:00', '2026-10-15 12:00:00')",
+            ['sha' => $this->sha('x')],
+        );
+
+        self::assertNull($this->outbox->reivindicarProxima(900, 6));
+        $erro = (string) $this->conexao->fetchOne("SELECT ultimo_erro FROM armazenamento_replicacao WHERE nome = 'RG - Antônio/../x'");
+        self::assertStringContainsString('linha sem chave válida', $erro);
+        self::assertStringNotContainsString('Antônio', $erro);
     }
 
     #[TestDox('transação do domínio desfeita leva a linha da outbox junto')]
@@ -210,8 +268,8 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         $emUtc      = new OutboxDeReplicacao($this->conexao, new MockClock('2026-10-15 12:00:00', 'UTC'));
         $id         = $emUtc->registrarEnvio($this->chave('fuso-posse.pdf'), $this->sha('f'), 1, 'application/pdf');
 
-        self::assertSame($id, $emSaoPaulo->reivindicarProxima(900)?->id);
-        self::assertNull($emUtc->reivindicarProxima(900), 'sem UTC a posse pareceria vencida há 3 h e a linha sairia duas vezes');
+        self::assertSame($id, $emSaoPaulo->reivindicarProxima(900, 6)?->id);
+        self::assertNull($emUtc->reivindicarProxima(900, 6), 'sem UTC a posse pareceria vencida há 3 h e a linha sairia duas vezes');
     }
 
     #[TestDox('fuso do processo não prende a fila: linha registrada em UTC sai para um worker em São Paulo no mesmo instante')]
@@ -221,7 +279,7 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         $emSaoPaulo = new OutboxDeReplicacao($this->conexao, new MockClock('2026-10-15 09:00:00', 'America/Sao_Paulo'));
         $id         = $emUtc->registrarEnvio($this->chave('fuso-fila.pdf'), $this->sha('g'), 1, 'application/pdf');
 
-        self::assertSame($id, $emSaoPaulo->reivindicarProxima(900)?->id, 'sem UTC a linha só sairia 3 h depois');
+        self::assertSame($id, $emSaoPaulo->reivindicarProxima(900, 6)?->id, 'sem UTC a linha só sairia 3 h depois');
     }
 
     #[TestDox('contar por estado agrupa as linhas')]

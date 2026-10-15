@@ -8,11 +8,11 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
-use App\Tarefa\Armazenamento\ChavesDeTarefa;
 use Doctrine\DBAL\Connection;
 
 /**
- * Os arquivos que o BANCO diz que existem — as oito fontes que a P1 mediu (spec P2 §3.4).
+ * Os arquivos que o BANCO diz que existem — as dez fontes (oito colunas da P1, mais os documentos de
+ * acordo e de carteira da cobrança, hoje vazios em produção) (spec P2 §3.4).
  *
  * Por DBAL, sem filtro de escritório nem de lixeira: a reconciliação olha o acervo inteiro, de todos
  * os escritórios, inclusive documento na lixeira (o arquivo existe no disco e tem de existir no
@@ -40,6 +40,7 @@ final class FontesDeReferencia implements FonteDeReferencias
 
     public function __construct(
         private readonly Connection $conexao,
+        private readonly TradutorDeAnexoDeTarefa $tarefa,
     ) {
     }
 
@@ -60,7 +61,7 @@ final class FontesDeReferencia implements FonteDeReferencias
         $valor = (string) $linha['valor'];
 
         try {
-            $nome = $categoria === CategoriaDeArquivo::TAREFA_ANEXO ? ChavesDeTarefa::nomeDoValorDaColuna($valor) : $valor;
+            $nome = $categoria === CategoriaDeArquivo::TAREFA_ANEXO ? $this->tarefa->nomeDoValorDaColuna($valor) : $valor;
             if ($nome === null) {
                 throw new ChaveDeArquivoInvalida('valor de anexo de tarefa fora do formato');
             }

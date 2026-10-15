@@ -92,7 +92,9 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
     {
         $fora = array_filter(
             $this->arquivosQueCasam('/\bApp\\\\Shared\\\\EspelhoRemoto\b|\bEspelhoRemoto(?:R2)?\b|\bClienteR2\b/'),
-            static fn (string $arquivo): bool => !str_starts_with($arquivo, self::DIRETORIO_DO_ESPELHO),
+            static fn (string $arquivo): bool => !str_starts_with($arquivo, self::DIRETORIO_DO_ESPELHO)
+                // A regra de Tarefa oferecida à reconciliação (Shared não importa domínio).
+                && $arquivo !== 'src/Tarefa/Armazenamento/TradutorDeAnexoDeTarefaPelaFabrica.php',
         );
 
         self::assertSame([], array_values($fora), 'a ligação do espelho é só pela configuração (services.yaml)');

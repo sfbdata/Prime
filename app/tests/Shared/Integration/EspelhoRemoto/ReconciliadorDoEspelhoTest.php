@@ -89,14 +89,39 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
         self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::ERRO_DE_CONSULTA));
     }
 
-    #[TestDox('sem SHA (--sem-sha): confere presença e tamanho; tamanho igual conta como igual')]
+    #[TestDox('sem SHA (--sem-sha): presença e tamanho batendo saem como "presente_sem_sha_conferido", NUNCA como igual (DP-7: os suspeitos do Drive não passam por válidos)')]
     public function testSemSha(): void
     {
-        $ref = $this->comLocal('s.pdf', 'x', remoto: ['y', hash('sha256', 'y')]);
+        $refs = [$this->comLocal('s.pdf', 'x', remoto: ['y', hash('sha256', 'y')]), $this->comLocal('drive.pdf', $this->conteudoDoErro401(), remoto: [$this->conteudoDoErro401(), hash('sha256', $this->conteudoDoErro401())])];
 
-        $relatorio = $this->reconciliador([$ref])->reconciliar($this->espelho, conferirSha: false);
+        $relatorio = $this->reconciliador($refs)->reconciliar($this->espelho, conferirSha: false);
 
-        self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::IGUAL));
+        self::assertSame(2, $relatorio->quantos(ClasseDeReconciliacao::PRESENTE_SEM_SHA_CONFERIDO));
+        self::assertSame(0, $relatorio->quantos(ClasseDeReconciliacao::IGUAL));
+    }
+
+    #[TestDox('pane fora do espelho (exceção inesperada) também é "erro_de_consulta" — a rodada não aborta')]
+    public function testPaneInesperadaNaoAbortaARodada(): void
+    {
+        $quebrado = new class implements \App\Shared\EspelhoRemoto\EspelhoRemoto {
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+            }
+
+            public function consultar(ChaveDeArquivo $chave): ?\App\Shared\EspelhoRemoto\MetadadosRemotos
+            {
+                throw new \TypeError('bug simulado');
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return false;
+            }
+        };
+
+        $relatorio = $this->reconciliador([$this->comLocal('1.pdf', '1'), $this->comLocal('2.pdf', '2')])->reconciliar($quebrado);
+
+        self::assertSame(2, $relatorio->quantos(ClasseDeReconciliacao::ERRO_DE_CONSULTA));
     }
 
     #[TestDox('dry-run de verdade: não cria linha na outbox, não envia nada ao espelho (só HEAD)')]

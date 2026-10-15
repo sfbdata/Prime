@@ -7,6 +7,7 @@ namespace App\Shared\EspelhoRemoto\R2;
 use AsyncAws\Core\Credentials\Credentials;
 use AsyncAws\S3\S3Client;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -30,6 +31,16 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final class ClienteR2
 {
+    /**
+     * Teto de duração de UMA requisição ao R2, em segundos (inclui o upload do corpo). Menor que a
+     * posse do worker (`ReplicadorDeArquivos::POSSE_EM_SEGUNDOS`): um PUT nunca termina depois de a
+     * posse vencer. 600 s cobrem um vídeo de 100 MB a ~170 kB/s.
+     */
+    public const DURACAO_MAXIMA_DA_REQUISICAO = 600;
+
+    /** Sem bytes por este tempo, a requisição é abandonada. */
+    public const OCIOSIDADE_MAXIMA = 60;
+
     private function __construct()
     {
     }
@@ -53,6 +64,9 @@ final class ClienteR2
             'region'            => 'auto',
             'pathStyleEndpoint' => 'true',
             'sendChunkedBody'   => 'false',
-        ], new Credentials($chaveDeAcesso, $segredo), $http, $logger);
+        ], new Credentials($chaveDeAcesso, $segredo), $http ?? HttpClient::create([
+            'timeout'      => self::OCIOSIDADE_MAXIMA,
+            'max_duration' => self::DURACAO_MAXIMA_DA_REQUISICAO,
+        ]), $logger);
     }
 }

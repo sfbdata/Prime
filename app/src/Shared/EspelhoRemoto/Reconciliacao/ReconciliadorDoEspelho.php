@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Shared\EspelhoRemoto\Reconciliacao;
 
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
-use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
-use App\Shared\EspelhoRemoto\FalhaNoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 
@@ -62,23 +62,31 @@ final class ReconciliadorDoEspelho
         }
 
         try {
-            $noDisco = $this->local->metadados($chave);
-            if ($noDisco === null) {
-                return ClasseDeReconciliacao::LOCAL_AUSENTE;
-            }
-
-            $shaNoDisco = $conferirSha ? Sha256DeArquivo::deChave($this->local, $chave) : null;
-            if ($shaNoDisco !== null && hash_equals($this->shaSuspeito, $shaNoDisco)) {
-                return ClasseDeReconciliacao::SUSPEITO_ERRO_DO_DRIVE;
-            }
-
-            $remoto = $espelho->consultar($chave);
+            return $this->comparar($espelho, $chave, $conferirSha);
         } catch (ArquivoNaoEncontrado) {
             return ClasseDeReconciliacao::LOCAL_AUSENTE;
-        } catch (FalhaNoEspelhoRemoto|FalhaDeArmazenamento) {
+        } catch (ChaveDeArquivoInvalida) {
+            return ClasseDeReconciliacao::CHAVE_INVALIDA;
+        } catch (\Throwable) {
+            // Pane de qualquer lado (espelho, disco, banco da outbox): registra e segue — o relatório
+            // parcial vale mais que a rodada abortada. Pane ≠ ausência (D10).
             return ClasseDeReconciliacao::ERRO_DE_CONSULTA;
         }
+    }
 
+    private function comparar(EspelhoRemoto $espelho, ChaveDeArquivo $chave, bool $conferirSha): ClasseDeReconciliacao
+    {
+        $noDisco = $this->local->metadados($chave);
+        if ($noDisco === null) {
+            return ClasseDeReconciliacao::LOCAL_AUSENTE;
+        }
+
+        $shaNoDisco = $conferirSha ? Sha256DeArquivo::deChave($this->local, $chave) : null;
+        if ($shaNoDisco !== null && hash_equals($this->shaSuspeito, $shaNoDisco)) {
+            return ClasseDeReconciliacao::SUSPEITO_ERRO_DO_DRIVE;
+        }
+
+        $remoto = $espelho->consultar($chave);
         if ($remoto === null) {
             $estado = $this->outbox->ultimoEstadoDe(LayoutDeChaveRemota::chaveDe($chave));
 
@@ -91,7 +99,7 @@ final class ReconciliadorDoEspelho
             return ClasseDeReconciliacao::TAMANHO_DIVERGENTE;
         }
         if ($shaNoDisco === null) {
-            return ClasseDeReconciliacao::IGUAL;
+            return ClasseDeReconciliacao::PRESENTE_SEM_SHA_CONFERIDO;
         }
         if ($remoto->sha256 === null) {
             return ClasseDeReconciliacao::SEM_SHA_NO_ESPELHO;
