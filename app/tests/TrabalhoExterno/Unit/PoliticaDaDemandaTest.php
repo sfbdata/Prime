@@ -32,8 +32,8 @@ final class PoliticaDaDemandaTest extends TestCase
         yield 'Master, análise' => [Perfil::Master, Situacao::Analise, ['proposta', 'info', 'recusar']];
         yield 'Master, info' => [Perfil::Master, Situacao::Info, ['retomar']];
         yield 'Master, proposta' => [Perfil::Master, Situacao::Proposta, ['proposta', 'cancelar']];
-        yield 'Master, aceita' => [Perfil::Master, Situacao::Aceita, ['iniciar', 'pagamento']];
-        yield 'Master, execução' => [Perfil::Master, Situacao::Execucao, ['validar', 'pagamento']];
+        yield 'Master, aceita' => [Perfil::Master, Situacao::Aceita, ['iniciar', 'convidar', 'pagamento']];
+        yield 'Master, execução' => [Perfil::Master, Situacao::Execucao, ['convidar', 'validar', 'pagamento']];
         yield 'Master, validação' => [Perfil::Master, Situacao::Validacao, ['concluir', 'devolver', 'pagamento']];
         yield 'Master, concluída' => [Perfil::Master, Situacao::Concluida, ['pagamento', 'arquivar', 'reabrir']];
         yield 'Master, arquivada' => [Perfil::Master, Situacao::Arquivada, ['reabrir']];

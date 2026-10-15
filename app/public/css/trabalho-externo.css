@@ -494,3 +494,22 @@ select.te-ctl { padding: 0 7px; }
 [data-bs-theme="dark"] .te-page .te-wa-intro { background: #12301f; border-color: #1f5537; color: #bfe8cd; }
 [data-bs-theme="dark"] .te-page .te-wa-msg { background: #10261a; border-color: #1f5537; }
 [data-bs-theme="dark"] .te-page .te-wa-balao { background: #18402a; color: #e6f5ea; }
+
+/* ---------------------------------------------------------------- PROFISSIONAIS CONVIDADOS (F3), medidas do desenho */
+.te-conv { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--te-div); border-radius: 3px; margin-bottom: 6px; font-size: 13px; }
+.te-conv-ini { width: 30px; height: 30px; flex: none; border-radius: 50%; background: #e5f1f7; color: #0a6fa0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; }
+.te-conv-nome { font-weight: bold; }
+.te-conv-info { color: var(--te-muted); font-size: 12px; }
+.te-conv-st { font-size: 12px; font-weight: bold; }
+.te-conv-btn { width: 28px; height: 28px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); cursor: pointer; }
+.te-conv-btn:hover { background: #e5f1f7; color: #0a6fa0; }
+.te-conv-btn--perigo { color: #a3232b; }
+.te-conv-btn--perigo:hover { background: #fdecec; color: #a3232b; }
+.te-conv-form { border: 1px solid var(--te-border); border-radius: 4px; padding: 14px; margin-top: 12px; }
+.te-conv-form-tit { font-size: 13px; font-weight: bold; color: var(--te-text-2); margin-bottom: 4px; }
+.te-conv-form-txt { font-size: 12.5px; color: var(--te-muted); margin-bottom: 10px; }
+.te-conv-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.te-conv-perms { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.te-conv-perm { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--te-text-2); cursor: pointer; margin: 0; font-weight: normal; }
+.te-conv-perm input { accent-color: #0a6fa0; }
+.te-conv-rodape { display: flex; align-items: center; gap: 10px; margin-top: 12px; }

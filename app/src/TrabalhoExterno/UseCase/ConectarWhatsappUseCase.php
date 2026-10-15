@@ -40,7 +40,7 @@ final class ConectarWhatsappUseCase
             throw new DadosInvalidos('Confirme que o contato autorizou receber mensagens.');
         }
 
-        $demanda = $this->guarda->demanda($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $demanda->conectarWhatsapp($nome, $digitos, $ctx->autor());
         $this->repositorio->salvar($demanda, flush: true);
 

@@ -37,7 +37,7 @@ final class AnexarDocumentosUseCase
             throw new DadosInvalidos('Nenhum arquivo enviado.');
         }
 
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         if (!$this->politica->podeAnexar($ctx, $demanda)) {
             throw new AcaoNaoPermitida('Você não pode anexar documentos nesta demanda.');
         }

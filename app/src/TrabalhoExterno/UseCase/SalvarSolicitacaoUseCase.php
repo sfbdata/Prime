@@ -14,6 +14,7 @@ use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\ArmazenadorDeDocumentos;
 use App\TrabalhoExterno\Service\Contexto;
+use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -25,7 +26,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * Pré-condições: escritório escolhido; para continuar um rascunho, ele é do mesmo escritório.
  * Fluxo: valida (no envio, também os obrigatórios *), grava o formulário e os documentos; no envio
  * a demanda vira "Nova solicitação" e entra no histórico.
- * Alternativos: central suspensa com "aceitar só rascunhos" bloqueia o envio; rascunho de outro
+ * Alternativos: aba bloqueada para externos recusa tudo (403); central suspensa com "aceitar só
+ * rascunhos" bloqueia o envio; rascunho de outro
  * escritório é "não encontrado"; demanda já enviada não é editável.
  * Pós-condição: a demanda pertence ao escritório ATUAL (o seletor de escritório do modal só
  * preenche os dados do solicitante).
@@ -36,6 +38,7 @@ final class SalvarSolicitacaoUseCase
         private readonly DemandaExternaRepository $repositorio,
         private readonly ArmazenadorDeDocumentos $documentos,
         private readonly ValidatorInterface $validator,
+        private readonly PoliticaDaDemanda $politica,
     ) {
     }
 
@@ -46,6 +49,10 @@ final class SalvarSolicitacaoUseCase
     {
         if ($ctx->perfil !== Perfil::Solicitante || $ctx->tenant === null) {
             throw new AcaoNaoPermitida('Só o escritório solicitante abre solicitações.');
+        }
+        // Aba bloqueada para externos (só equipe, ou suspensa e oculta): nem rascunho nem envio.
+        if ($this->politica->abaBloqueada($ctx)) {
+            throw new AcaoNaoPermitida('O Trabalho Externo não está disponível para o seu escritório no momento.');
         }
 
         $grupos = $enviar ? ['Default', 'envio'] : ['Default'];

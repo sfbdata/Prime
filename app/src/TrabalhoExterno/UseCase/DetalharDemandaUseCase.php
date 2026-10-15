@@ -22,7 +22,7 @@ final class DetalharDemandaUseCase
     /** @return array<string, mixed> */
     public function executar(Contexto $ctx, string $codigo): array
     {
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         $naoLidas = $this->mensagens->naoLidasPorDemanda([$demanda], $ctx->usuario, $ctx->ehInterno());
 
         return $this->apresentador->detalhe($ctx, $demanda, $naoLidas[(int) $demanda->getId()] ?? 0);

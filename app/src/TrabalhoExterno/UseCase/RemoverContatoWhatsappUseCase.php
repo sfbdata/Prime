@@ -20,7 +20,7 @@ final class RemoverContatoWhatsappUseCase
 
     public function executar(Contexto $ctx, string $codigo, int $contato): DemandaExterna
     {
-        $demanda = $this->guarda->demanda($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $demanda->desconectarWhatsapp($this->guarda->contato($demanda, $contato));
         $this->repositorio->salvar($demanda, flush: true);
 

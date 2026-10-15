@@ -149,6 +149,7 @@
         andamento: function (c) { return comCodigo(D.urlAndamento, c); },
         anexar: function (c) { return comCodigo(D.urlAnexar, c); },
         documento: function (c, id) { return comCodigo(D.urlDocumento, c).replace(/\/0$/, '/' + id); },
+        convites: function (c, resto) { return comCodigo(D.urlConvites, c) + resto; },
         whatsapp: function (c, resto) { return comCodigo(D.urlWhatsapp, c).replace(/\/avisar-fase-atual$/, '') + resto; }
     };
 
@@ -541,6 +542,10 @@
             editarRascunho(codigo);
             return;
         }
+        if (b.k === 'convidar') {
+            abrir(codigo, 'exec');
+            return;
+        }
         if (b.atalho) {
             return;
         }
@@ -721,7 +726,7 @@
 
     function renderCorpo() {
         var dz = S.dz, alvo = limpar($('teDzCorpo'));
-        var botoes = (dz.botoes || []).filter(function (b) { return !(b.k === 'proposta' && S.aba === 'proposta'); });
+        var botoes = (dz.botoes || []).filter(function (b) { return !(b.k === 'proposta' && S.aba === 'proposta') && !(b.k === 'convidar' && S.aba === 'exec'); });
         if (botoes.length) {
             alvo.appendChild(el('div', { class: 'te-acoes' }, botoes.map(function (b) {
                 return el('button', {
@@ -760,7 +765,7 @@
                 el('span', { class: 'te-doc-info', text: d.info })
             ]));
         });
-        if (!(dz.documentos || []).length) {
+        if (dz.semDocumentos !== undefined ? dz.semDocumentos : !(dz.documentos || []).length) {
             alvo.appendChild(el('div', { class: 'te-nada', text: 'Nenhum documento anexado.' }));
         }
     }
@@ -888,16 +893,98 @@
             alvo.appendChild(el('div', { class: 'te-secao-rot te-conv-rot', text: 'PROFISSIONAIS CONVIDADOS' }));
             var convites = dz.convites || [];
             convites.forEach(function (c) {
-                alvo.appendChild(el('div', { class: 'te-doc' }, [
-                    el('span', { class: 'te-doc-nome', text: [c.nome, c.email].filter(Boolean).join(' · ') }),
-                    c.st ? el('span', { class: 'te-doc-info', style: c.stCor ? { color: c.stCor } : null, text: c.st }) : null
+                alvo.appendChild(el('div', { class: 'te-conv' }, [
+                    el('span', { class: 'te-conv-ini', text: c.ini }),
+                    el('div', { class: 'te-flex1 te-min0' }, [
+                        el('div', { class: 'te-conv-nome', text: c.nome }),
+                        el('div', { class: 'te-conv-info te-reticencias', text: c.email + ' · ' + c.funcao + ' · válido até ' + c.validade })
+                    ]),
+                    el('span', { class: 'te-conv-st', style: { color: c.stCor }, text: c.st }),
+                    c.gerir ? el('button', {
+                        type: 'button', class: 'te-conv-btn', title: 'Reenviar convite',
+                        onclick: function (e) { gerirConvite(dz.codigo, c, 'reenviar', e.currentTarget); }
+                    }, ic('bi-arrow-repeat')) : null,
+                    c.gerir ? el('button', {
+                        type: 'button', class: 'te-conv-btn te-conv-btn--perigo', title: 'Revogar acesso',
+                        onclick: function () {
+                            abrirConf(dz.codigo, {
+                                k: '__revogar__', confirmacao: { titulo: 'Revogar acesso', texto: c.nome + ' perde o acesso a esta demanda imediatamente. O histórico e os arquivos enviados são preservados.', botao: 'Revogar', motivo: false, perigo: true },
+                                executar: function () { return gerirConvite(dz.codigo, c, 'revogar'); }
+                            });
+                        }
+                    }, ic('bi-person-x')) : null
                 ]));
             });
             if (!convites.length) {
                 alvo.appendChild(el('div', { class: 'te-nada', text: 'Nenhum profissional convidado.' }));
             }
+            if (dz.podeConvidar) {
+                alvo.appendChild(formularioDeConvite(dz));
+            }
         }
     }
+
+    function gerirConvite(codigo, c, operacao, botao) {
+        if (botao) { botao.disabled = true; }
+        return pedir('POST', ROTA.convites(codigo, '/' + c.id + '/' + operacao), {}).then(function (r) {
+            if (botao) { botao.disabled = false; }
+            if (!r.ok) { toastErro(r.mensagem); return r; }
+            aplicarDemanda(r);
+            if (operacao === 'reenviar') {
+                mostrarToast({ tit: 'Convite reenviado', txt: 'Novo e-mail enviado para ' + c.email + '.', hora: '' });
+            }
+            return r;
+        });
+    }
+
+    /** "Convidar profissional por e-mail" (desenho, aba Execução). As permissões começam todas ligadas. */
+    function formularioDeConvite(dz) {
+        if (!S.permsConvite) {
+            S.permsConvite = {};
+            (dz.permissoesDeConvite || []).forEach(function (p) { S.permsConvite[p.k] = true; });
+        }
+        var erro = el('span', { class: 'te-erro', text: '' });
+        var rot = function (texto, controle) { return el('label', { class: 'te-rot' }, [texto, controle]); };
+
+        return el('div', { class: 'te-caixa te-conv-form' }, [
+            el('div', { class: 'te-conv-form-tit', text: 'Convidar profissional por e-mail' }),
+            el('div', { class: 'te-conv-form-txt', text: 'O convidado acessa somente esta demanda: instruções, documentos autorizados, checklist e chat.' }),
+            el('div', { class: 'te-conv-grade' }, [
+                rot('Nome completo *', ctl('input', 'cNome')),
+                rot('E-mail *', ctl('input', 'cEmail', { type: 'email' })),
+                rot('Função', ctl('input', 'cFuncao', { placeholder: 'Advogado correspondente' })),
+                rot('Validade do convite', ctl('input', 'cValidade', { type: 'date', min: painelHoje() }))
+            ]),
+            el('div', { class: 'te-conv-perms' }, (dz.permissoesDeConvite || []).map(function (p) {
+                return el('label', { class: 'te-conv-perm' }, [
+                    el('input', { type: 'checkbox', checked: !!S.permsConvite[p.k], onchange: function (e) { S.permsConvite[p.k] = e.target.checked; } }),
+                    p.rot
+                ]);
+            })),
+            el('div', { class: 'te-conv-rodape' }, [
+                erro,
+                el('button', {
+                    type: 'button', class: 'te-btn-pri',
+                    onclick: function (e) {
+                        var nome = String(S.f.cNome || '').trim(), email = String(S.f.cEmail || '').trim();
+                        if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { erro.textContent = 'Informe nome e um e-mail válido.'; return; }
+                        var botao = e.currentTarget;
+                        botao.disabled = true;
+                        pedir('POST', ROTA.convites(dz.codigo, ''), { nome: nome, email: email, funcao: S.f.cFuncao || '', validade: S.f.cValidade || '', permissoes: S.permsConvite }).then(function (r) {
+                            botao.disabled = false;
+                            if (!r.ok) { erro.textContent = r.mensagem; return; }
+                            ['cNome', 'cEmail', 'cFuncao', 'cValidade'].forEach(function (k) { S.f[k] = ''; });
+                            S.permsConvite = null;
+                            aplicarDemanda(r);
+                            mostrarToast({ tit: 'Convite enviado', txt: nome + ' recebe o link de acesso somente a esta demanda.', hora: '' });
+                        });
+                    }
+                }, [ic('bi-envelope'), 'Enviar convite'])
+            ])
+        ]);
+    }
+
+    function painelHoje() { return (S.painel && S.painel.hoje) || ''; }
 
     function registrarAndamento(codigo, botao) {
         var t = String(S.f.andamento || '').trim();
@@ -1406,6 +1493,11 @@
                     return;
                 }
                 ok.disabled = true;
+                if (b.executar) {
+                    // Confirmação que não é ação de fluxo (ex.: revogar convite): fecha ao concluir.
+                    b.executar().then(function (r) { ok.disabled = false; if (r && r.ok) { fecharConf(); } });
+                    return;
+                }
                 aplicarAcao(codigo, b.k, m || null).then(function () { ok.disabled = false; });
             }
         });

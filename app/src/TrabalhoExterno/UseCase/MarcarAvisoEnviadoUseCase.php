@@ -20,7 +20,7 @@ final class MarcarAvisoEnviadoUseCase
 
     public function executar(Contexto $ctx, string $codigo, int $aviso): DemandaExterna
     {
-        $demanda = $this->guarda->demanda($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $this->guarda->aviso($demanda, $aviso)->marcarEnviado($ctx->autor());
         $this->repositorio->salvar($demanda, flush: true);
 

@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\Service;
 
 use App\TrabalhoExterno\Entity\AvisoWhatsapp;
 use App\TrabalhoExterno\Entity\ContatoWhatsapp;
+use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
@@ -14,6 +15,7 @@ use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Enum\FaseWhatsapp;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\Situacao;
+use App\TrabalhoExterno\Enum\SituacaoConvite;
 use App\TrabalhoExterno\Enum\SituacaoProposta;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -108,7 +110,10 @@ final class ApresentadorDeDemanda
                 ['OBJETIVO DA DILIGÊNCIA', (string) $d->getObjetivo()],
                 ['INSTRUÇÕES ESPECÍFICAS', (string) $d->getInstrucoes()],
             ]),
-            'documentos' => array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $d->getDocumentos()),
+            'documentos' => $this->politica->podeVerDocumentos($ctx, $d)
+                ? array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $d->getDocumentos())
+                : [],
+            'semDocumentos' => $d->getDocumentos() === [],
             'podeAnexar' => $this->politica->podeAnexar($ctx, $d),
             'propostas' => $this->propostas($ctx, $d),
             'podePropor' => $this->politica->podePropor($ctx, $d),
@@ -116,7 +121,10 @@ final class ApresentadorDeDemanda
             'checklist' => array_map(static fn (array $i): array => ['t' => $i['t'], 'ok' => $i['ok']], $d->getChecklist()),
             'podeAndamento' => $this->politica->podeRegistrarAndamento($ctx, $d),
             'mostraConvites' => $ctx->ehInterno(),
-            'convites' => [],
+            'convites' => $ctx->ehInterno() ? $this->convites($ctx, $d) : [],
+            'podeConvidar' => $this->politica->podeConvidar($ctx, $d),
+            'permissoesDeConvite' => array_map(static fn (string $k, string $rot): array => ['k' => $k, 'rot' => $rot], array_keys(ConviteDemanda::PERMISSOES), ConviteDemanda::PERMISSOES),
+            'validadePadraoConvite' => (new \DateTimeImmutable('today +15 days'))->format('Y-m-d'),
             'mensagens' => $this->mensagens($ctx, $d),
             'naoLidas' => $naoLidas,
             'podeConversar' => $this->politica->podeConversar($ctx, $d),
@@ -172,6 +180,28 @@ final class ApresentadorDeDemanda
             'nome' => $doc->getNomeOriginal(),
             'info' => sprintf('%d KB · %s · %s', $kb, $this->politica->nomeVisivel($ctx, $doc->getNomeAutor(), $doc->getPerfilAutor()), $this->dataHora($doc->getEm())),
         ];
+    }
+
+    /** "PROFISSIONAIS CONVIDADOS" (só a Central vê). @return list<array<string, mixed>> */
+    private function convites(Contexto $ctx, DemandaExterna $d): array
+    {
+        $gerir = $this->politica->podeGerirConvites($ctx, $d);
+
+        return array_map(static function (ConviteDemanda $c) use ($gerir): array {
+            $iniciais = implode('', array_map(static fn (string $p): string => mb_strtoupper(mb_substr($p, 0, 1)), array_slice(array_values(array_filter(explode(' ', $c->getNome()))), 0, 2)));
+
+            return [
+                'id' => $c->getId(),
+                'nome' => $c->getNome(),
+                'email' => $c->getEmail(),
+                'funcao' => $c->getFuncao() ?? 'Profissional',
+                'validade' => $c->getValidade()->format('d/m/Y'),
+                'ini' => $iniciais,
+                'st' => $c->getSituacao()->rotulo(),
+                'stCor' => $c->getSituacao()->cor(),
+                'gerir' => $gerir && $c->getSituacao() !== SituacaoConvite::Revogado,
+            ];
+        }, $d->getConvites());
     }
 
     /** @return list<array<string, mixed>> */

@@ -8,6 +8,7 @@ use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Repository\LeituraDemandaRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 
 /** Abrir a aba Chat marca a conversa como lida até a última mensagem (`marcarLido` do desenho). */
 final class MarcarConversaLidaUseCase
@@ -20,12 +21,16 @@ final class MarcarConversaLidaUseCase
 
     public function executar(Contexto $ctx, string $codigo): void
     {
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         $mensagens = $demanda->getMensagens();
         $ultima = $mensagens === [] ? 0 : (int) end($mensagens)->getId();
 
         $leitura = $this->leituras->daDemanda($demanda, $ctx->usuario) ?? new LeituraDemanda($demanda, $ctx->usuario);
         $leitura->marcarAte($ultima);
-        $this->leituras->salvar($leitura, flush: true);
+        try {
+            $this->leituras->salvar($leitura, flush: true);
+        } catch (UniqueConstraintViolationException) {
+            // Duas abas abrindo o chat ao mesmo tempo: a outra já gravou a leitura. Idempotente.
+        }
     }
 }

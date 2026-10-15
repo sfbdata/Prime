@@ -110,7 +110,7 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(409);
 
         $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/concluir");
-        self::assertResponseStatusCodeSame(403, 'concluir não está entre os botões de uma demanda nova');
+        self::assertResponseStatusCodeSame(409, 'concluir não se aplica a uma demanda nova (estado, não permissão)');
 
         $d = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/recusar", ['motivo' => 'Fora da área atendida'])['demanda'];
         self::assertSame('recusada', $d['situacao']);
@@ -231,7 +231,7 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         self::assertSame($codigo, $this->json($client)['codigo'], 'o envio usa o mesmo rascunho');
 
         $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/excluirRasc");
-        self::assertResponseStatusCodeSame(403, 'enviada, não é mais rascunho');
+        self::assertResponseStatusCodeSame(409, 'enviada, não é mais rascunho');
     }
 
     #[TestDox('excluir rascunho apaga a demanda e, depois do COMMIT, o arquivo dela')]
@@ -299,6 +299,11 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $painel['demandas']);
         $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
         self::assertResponseStatusCodeSame(404);
+
+        $this->solicitar($client, self::solicitacaoValida());
+        self::assertResponseStatusCodeSame(403, 'com a aba só para a equipe, o Solicitante não envia pelo servidor');
+        $this->solicitar($client, self::solicitacaoValida(), false);
+        self::assertResponseStatusCodeSame(403, 'nem salva rascunho');
     }
 
     #[TestDox('Equipe: colaborador da sede vê a Central, mas só muda a situação se o Master liberar')]

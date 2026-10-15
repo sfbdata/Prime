@@ -42,8 +42,8 @@ final class MontarPainelUseCase
     {
         $cfg = $ctx->configuracao;
         $bloqueada = $this->politica->abaBloqueada($ctx);
-        $demandas = $this->localizador->visiveis($ctx);
-        $naoLidas = $this->mensagens->naoLidasPorDemanda($demandas, $ctx->usuario, $ctx->ehInterno());
+        $pares = $this->localizador->visiveis($ctx);
+        $naoLidas = $this->naoLidas($pares);
 
         return [
             'perfil' => [
@@ -61,12 +61,35 @@ final class MontarPainelUseCase
             'envioBloqueado' => $cfg->envioBloqueado(),
             'hoje' => (new \DateTimeImmutable('today'))->format('Y-m-d'),
             'demandas' => array_map(
-                fn (DemandaExterna $d): array => $this->apresentador->linha($ctx, $d, $naoLidas[(int) $d->getId()] ?? 0),
-                $demandas,
+                fn (array $par): array => $this->apresentador->linha($par[1], $par[0], $naoLidas[(int) $par[0]->getId()] ?? 0),
+                $pares,
             ),
-            'avisoDeMensagem' => $this->avisoDeMensagem($ctx, $demandas, $naoLidas),
+            'avisoDeMensagem' => $this->avisoDeMensagem($pares, $naoLidas),
             'novaSolicitacao' => $ctx->perfil === Perfil::Solicitante ? $this->dadosDoModal($ctx) : null,
         ];
+    }
+
+    /**
+     * Não lidas numa consulta por "lado" (Central/externo), porque nota interna só conta para a Central.
+     *
+     * @param list<array{0: DemandaExterna, 1: Contexto}> $pares
+     *
+     * @return array<int, int>
+     */
+    private function naoLidas(array $pares): array
+    {
+        $porLado = [true => [], false => []];
+        $usuario = null;
+        foreach ($pares as [$d, $c]) {
+            $porLado[$c->ehInterno()][] = $d;
+            $usuario = $c->usuario;
+        }
+        if ($usuario === null) {
+            return [];
+        }
+
+        return $this->mensagens->naoLidasPorDemanda($porLado[true], $usuario, true)
+            + $this->mensagens->naoLidasPorDemanda($porLado[false], $usuario, false);
     }
 
     /** @return array<string, mixed> */
@@ -126,14 +149,14 @@ final class MontarPainelUseCase
      * O aviso no canto ao entrar: a mensagem mais recente, de outra pessoa, na primeira demanda
      * com não lidas (`setPerfil` do desenho).
      *
-     * @param list<DemandaExterna> $demandas
-     * @param array<int, int>      $naoLidas
+     * @param list<array{0: DemandaExterna, 1: Contexto}> $pares
+     * @param array<int, int>                             $naoLidas
      *
      * @return array{codigo: string, titulo: string, texto: string, hora: string}|null
      */
-    private function avisoDeMensagem(Contexto $ctx, array $demandas, array $naoLidas): ?array
+    private function avisoDeMensagem(array $pares, array $naoLidas): ?array
     {
-        foreach ($demandas as $d) {
+        foreach ($pares as [$d, $ctx]) {
             if (($naoLidas[(int) $d->getId()] ?? 0) === 0) {
                 continue;
             }

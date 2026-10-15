@@ -24,7 +24,7 @@ final class AlternarItemDoChecklistUseCase
 
     public function executar(Contexto $ctx, string $codigo, int $indice): DemandaExterna
     {
-        $demanda = $this->guarda->demandaEmExecucao($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demandaEmExecucao($ctx, $codigo);
         $demanda->alternarItemDoChecklist($indice, $ctx->autor());
         $this->repositorio->salvar($demanda, flush: true);
 

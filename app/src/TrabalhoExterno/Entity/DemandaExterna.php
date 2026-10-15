@@ -11,6 +11,7 @@ use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Enum\FaseWhatsapp;
 use App\TrabalhoExterno\Enum\Situacao;
+use App\TrabalhoExterno\Enum\SituacaoConvite;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
@@ -158,6 +159,11 @@ class DemandaExterna
     #[ORM\OrderBy(['em' => 'ASC', 'id' => 'ASC'])]
     private Collection $documentos;
 
+    /** @var Collection<int, ConviteDemanda> */
+    #[ORM\OneToMany(targetEntity: ConviteDemanda::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $convites;
+
     /** @var Collection<int, ContatoWhatsapp> */
     #[ORM\OneToMany(targetEntity: ContatoWhatsapp::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
     #[ORM\OrderBy(['id' => 'ASC'])]
@@ -183,6 +189,7 @@ class DemandaExterna
         $this->mensagens = new ArrayCollection();
         $this->propostas = new ArrayCollection();
         $this->documentos = new ArrayCollection();
+        $this->convites = new ArrayCollection();
         $this->contatosWhatsapp = new ArrayCollection();
         $this->avisosWhatsapp = new ArrayCollection();
     }
@@ -367,6 +374,36 @@ class DemandaExterna
         if ($fase !== null) {
             $this->enfileirarAvisos($fase);
         }
+    }
+
+    /**
+     * Convida um profissional (spec §8). Um executor por vez, como no desenho: o convite que ainda
+     * não foi revogado é revogado; o novo convidado passa a ser o responsável.
+     */
+    public function convidar(ConviteDemanda $convite, Autor $autor): void
+    {
+        if (!in_array($this->situacao, [Situacao::Aceita, Situacao::Execucao], true)) {
+            throw new TransicaoInvalida('Só é possível convidar com a demanda aceita ou em execução.');
+        }
+        foreach ($this->convites as $anterior) {
+            $anterior->revogar();
+        }
+        $this->convites->add($convite);
+        $this->responsavel = $convite->getNome();
+        $this->registrar($autor, sprintf('Convite enviado para %s (%s).', $convite->getNome(), $convite->getEmail()), TipoMensagem::Sistema);
+    }
+
+    /** O convidado perde o acesso; o histórico e os arquivos dele ficam. */
+    public function revogarConvite(ConviteDemanda $convite, Autor $autor): void
+    {
+        if ($convite->getSituacao() === SituacaoConvite::Revogado) {
+            throw new TransicaoInvalida('Este acesso já foi revogado.');
+        }
+        $convite->revogar();
+        if ($this->responsavel === $convite->getNome()) {
+            $this->responsavel = null;
+        }
+        $this->registrar($autor, sprintf('Acesso de %s revogado.', $convite->getNome()), TipoMensagem::Sistema);
     }
 
     /**
@@ -633,6 +670,12 @@ class DemandaExterna
     public function getDocumentos(): array
     {
         return array_values($this->documentos->toArray());
+    }
+
+    /** @return list<ConviteDemanda> */
+    public function getConvites(): array
+    {
+        return array_values($this->convites->toArray());
     }
 
     /** @return list<ContatoWhatsapp> */

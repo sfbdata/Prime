@@ -22,7 +22,7 @@ final class AlternarFaseDoContatoUseCase
 
     public function executar(Contexto $ctx, string $codigo, int $contato, string $fase): DemandaExterna
     {
-        $demanda = $this->guarda->demanda($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $faseWhatsapp = FaseWhatsapp::tryFrom($fase) ?? throw new DadosInvalidos('Fase desconhecida.');
         $this->guarda->contato($demanda, $contato)->alternarFase($faseWhatsapp);
         $this->repositorio->salvar($demanda, flush: true);

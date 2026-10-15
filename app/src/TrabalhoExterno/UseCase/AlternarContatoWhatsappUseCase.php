@@ -20,7 +20,7 @@ final class AlternarContatoWhatsappUseCase
 
     public function executar(Contexto $ctx, string $codigo, int $contato): DemandaExterna
     {
-        $demanda = $this->guarda->demanda($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $this->guarda->contato($demanda, $contato)->alternarAtivo();
         $this->repositorio->salvar($demanda, flush: true);
 

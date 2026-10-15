@@ -20,7 +20,7 @@ final class AvisarFaseAtualUseCase
 
     public function executar(Contexto $ctx, string $codigo): DemandaExterna
     {
-        $demanda = $this->guarda->demanda($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $demanda->avisarFaseAtual();
         $this->repositorio->salvar($demanda, flush: true);
 

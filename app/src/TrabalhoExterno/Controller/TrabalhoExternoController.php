@@ -80,7 +80,7 @@ final class TrabalhoExternoController extends AbstractController
         }
 
         try {
-            $demanda = $this->localizador->localizar($ctx, $codigo);
+            [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         } catch (DemandaNaoEncontrada) {
             throw $this->createNotFoundException();
         }

@@ -8,10 +8,12 @@ use App\TrabalhoExterno\DTO\DadosDaProposta;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
+use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 
 /**
  * Enviar a proposta comercial (v1) ou uma nova versão.
@@ -32,7 +34,7 @@ final class EnviarPropostaUseCase
 
     public function executar(Contexto $ctx, string $codigo, DadosDaProposta $dados): DemandaExterna
     {
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         if (!$this->politica->podePropor($ctx, $demanda)) {
             throw new AcaoNaoPermitida('Você não pode enviar proposta nesta demanda.');
         }
@@ -51,7 +53,11 @@ final class EnviarPropostaUseCase
             $autor,
         );
         $demanda->enviarProposta($proposta, $autor);
-        $this->repositorio->salvar($demanda, flush: true);
+        try {
+            $this->repositorio->salvar($demanda, flush: true);
+        } catch (UniqueConstraintViolationException) {
+            throw new TransicaoInvalida('Outra versão da proposta foi enviada ao mesmo tempo. Recarregue a tela.');
+        }
 
         return $demanda;
     }

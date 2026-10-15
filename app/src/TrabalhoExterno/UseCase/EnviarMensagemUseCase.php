@@ -41,7 +41,7 @@ final class EnviarMensagemUseCase
             throw new DadosInvalidos(sprintf('A mensagem passa de %d caracteres.', self::MAX_CARACTERES));
         }
 
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         if (!$this->politica->podeConversar($ctx, $demanda)) {
             throw new AcaoNaoPermitida('Você não pode conversar nesta demanda.');
         }

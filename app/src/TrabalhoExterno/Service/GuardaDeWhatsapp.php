@@ -22,14 +22,15 @@ final class GuardaDeWhatsapp
     ) {
     }
 
-    public function demanda(Contexto $ctx, string $codigo): DemandaExterna
+    /** @return array{0: DemandaExterna, 1: Contexto} a demanda e o contexto efetivo (Convidado, se o acesso vem do convite) */
+    public function demanda(Contexto $ctx, string $codigo): array
     {
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         if (!$this->politica->podeUsarWhatsapp($ctx, $demanda)) {
             throw new AcaoNaoPermitida('Você não pode usar o WhatsApp desta demanda.');
         }
 
-        return $demanda;
+        return [$demanda, $ctx];
     }
 
     public function contato(DemandaExterna $demanda, int $id): ContatoWhatsapp

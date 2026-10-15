@@ -27,7 +27,7 @@ final class RegistrarAndamentoUseCase
             throw new DadosInvalidos('Descreva o andamento (até 5000 caracteres).');
         }
 
-        $demanda = $this->guarda->demandaEmExecucao($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demandaEmExecucao($ctx, $codigo);
         $demanda->registrar($ctx->autor(), $texto, TipoMensagem::Andamento);
         $this->repositorio->salvar($demanda, flush: true);
 

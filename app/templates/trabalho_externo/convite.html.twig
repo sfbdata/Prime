@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+
+{# Aceite do convite do Trabalho Externo (spec §8). `estado`: indisponivel · criar_conta · entrar ·
+   outro_email · aceitar. A página não diz de que escritório é a demanda: só o serviço e o local. #}
+
+{% block title %}Convite · Trabalho Externo{% endblock %}
+
+{% block head_meta %}<meta name="referrer" content="no-referrer">{% endblock %}
+
+{% block body %}
+<div class="login-wrapper">
+    <div class="login-container">
+        {% if estado == 'indisponivel' %}
+            <h1>Convite indisponível</h1>
+            <p>Este convite não existe, foi revogado ou passou da validade. Peça um novo convite a quem enviou.</p>
+        {% else %}
+            <h1>Convite para trabalho externo</h1>
+            <p>Você foi convidado para executar <strong>{{ convite.servico }}</strong> em <strong>{{ convite.local }}</strong>.
+                O acesso é somente a esta demanda: instruções, documentos autorizados, checklist e chat.</p>
+            <p class="text-muted small">Convite para {{ convite.email }}, válido até {{ convite.validade }}.</p>
+
+            {% for message in app.flashes('erro') %}
+                <div class="alert alert-danger">{{ message }}</div>
+            {% endfor %}
+
+            {% if estado == 'criar_conta' %}
+                <form method="post" action="{{ path('trabalho_externo_convite_criar_conta', {token: token}) }}">
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">Nome completo</label>
+                        <input type="text" id="full_name" name="full_name" class="form-control" value="{{ convite.nome }}" required autocomplete="name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="senha" class="form-label">Senha (mínimo de 8 caracteres)</label>
+                        <input type="password" id="senha" name="senha" class="form-control" minlength="8" required autocomplete="new-password">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="aceite_termos" name="aceite_termos" value="1" required>
+                        <label class="form-check-label" for="aceite_termos">
+                            Li e aceito os
+                            <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">Termos e Condições Gerais de Uso</a>.
+                        </label>
+                    </div>
+                    <p class="form-text mb-3">
+                        Ao criar a conta você declara ciência da
+                        <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">Política de Privacidade</a>.
+                    </p>
+                    <input type="hidden" name="_token" value="{{ csrf_token('te_convite_' ~ token) }}">
+                    <button class="btn-login" type="submit">Criar conta e aceitar</button>
+                </form>
+            {% elseif estado == 'entrar' %}
+                <p>Já existe uma conta no BlueJus para este e-mail. Entre com ela e depois abra este link de novo para aceitar o convite.</p>
+                <a class="btn-login d-inline-block text-center text-decoration-none" href="{{ path('app_login') }}">Entrar</a>
+            {% elseif estado == 'outro_email' %}
+                <div class="alert alert-warning">Este convite é para outro e-mail. Saia da conta atual e entre com {{ convite.email }}.</div>
+                <a class="btn-login d-inline-block text-center text-decoration-none" href="{{ path('app_logout') }}">Sair</a>
+            {% elseif estado == 'aceitar' %}
+                <form method="post" action="{{ path('trabalho_externo_convite_aceitar', {token: token}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('te_convite_' ~ token) }}">
+                    <button class="btn-login" type="submit">Aceitar convite</button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

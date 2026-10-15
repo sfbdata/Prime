@@ -20,7 +20,7 @@ final class DescartarAvisoWhatsappUseCase
 
     public function executar(Contexto $ctx, string $codigo, int $aviso): DemandaExterna
     {
-        $demanda = $this->guarda->demanda($ctx, $codigo);
+        [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $demanda->descartarAviso($this->guarda->aviso($demanda, $aviso));
         $this->repositorio->salvar($demanda, flush: true);
 

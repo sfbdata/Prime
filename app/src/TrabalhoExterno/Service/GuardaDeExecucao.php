@@ -21,9 +21,10 @@ final class GuardaDeExecucao
     ) {
     }
 
-    public function demandaEmExecucao(Contexto $ctx, string $codigo): DemandaExterna
+    /** @return array{0: DemandaExterna, 1: Contexto} a demanda e o contexto efetivo (Convidado, se o acesso vem do convite) */
+    public function demandaEmExecucao(Contexto $ctx, string $codigo): array
     {
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         if ($demanda->getSituacao() !== Situacao::Execucao) {
             throw new TransicaoInvalida('O andamento só pode ser registrado durante a execução.');
         }
@@ -31,6 +32,6 @@ final class GuardaDeExecucao
             throw new AcaoNaoPermitida('Você não pode registrar andamento nesta demanda.');
         }
 
-        return $demanda;
+        return [$demanda, $ctx];
     }
 }

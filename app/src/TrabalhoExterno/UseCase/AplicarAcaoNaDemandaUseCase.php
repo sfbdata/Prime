@@ -9,6 +9,7 @@ use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
+use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
@@ -36,8 +37,12 @@ final class AplicarAcaoNaDemandaUseCase
 
     public function executar(Contexto $ctx, string $codigo, AcaoDemanda $acao, ?string $motivo): ?DemandaExterna
     {
-        $demanda = $this->localizador->localizar($ctx, $codigo);
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
 
+        // Estado antes de permissão: com a tela velha aberta, "já mudou de situação" é 409, não 403.
+        if (!in_array($demanda->getSituacao(), $acao->origens(), true)) {
+            throw new TransicaoInvalida(sprintf('A demanda está %s: a ação não se aplica mais. Recarregue a tela.', mb_strtolower($demanda->getSituacao()->rotulo())));
+        }
         if (!$this->politica->podeExecutar($ctx, $demanda, $acao)) {
             throw new AcaoNaoPermitida('Você não pode executar esta ação nesta demanda.');
         }

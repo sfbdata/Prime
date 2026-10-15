@@ -47,7 +47,20 @@ final class PoliticaDaDemanda
             return $ctx->tenant !== null && $d->getTenant()->getId() === $ctx->tenant->getId();
         }
 
-        return false;
+        // Convidado: só a demanda do PRÓPRIO convite, vigente, e só da aceitação em diante.
+        $convite = $ctx->convite;
+
+        return $convite !== null
+            && $convite->getDemanda()->getId() === $d->getId()
+            && $convite->getConvidado()?->getId() === $ctx->usuario->getId()
+            && $convite->vigente(new \DateTimeImmutable('today'))
+            && $d->getSituacao()->ehDeExecucao();
+    }
+
+    /** A permissão do convite (sempre falsa fora do perfil Convidado). */
+    private function convidadoPode(Contexto $ctx, string $permissao): bool
+    {
+        return $ctx->perfil === Perfil::Convidado && $ctx->convite !== null && $ctx->convite->pode($permissao);
     }
 
     /** O Master sempre; a Equipe conforme a chave de "EQUIPE DO MASTER" (`Component.pode`). */
@@ -96,8 +109,10 @@ final class PoliticaDaDemanda
                     break;
                 case Situacao::Aceita:
                     $acao(AcaoDemanda::IniciarExecucao, 'pri');
+                    $atalho('convidar', 'Convidar profissional', 'bi-envelope', '', 'convidar');
                     break;
                 case Situacao::Execucao:
+                    $atalho('convidar', 'Convidar profissional', 'bi-envelope', '', 'convidar');
                     $acao(AcaoDemanda::EnviarParaValidacao);
                     break;
                 case Situacao::Validacao:
@@ -137,6 +152,14 @@ final class PoliticaDaDemanda
             if (in_array($s, [Situacao::Nova, Situacao::Analise, Situacao::Info], true)) {
                 $acao(AcaoDemanda::Cancelar, 'perigo');
             }
+        }
+
+        if ($p === Perfil::Convidado && $s === Situacao::Execucao) {
+            if ($this->convidadoPode($ctx, 'concluir')) {
+                $acao(AcaoDemanda::EnviarParaValidacao, 'pri');
+            }
+            $acao(AcaoDemanda::InformarImpedimento);
+            $acao(AcaoDemanda::SolicitarProrrogacao);
         }
 
         return array_map(static function (array $b): array {
@@ -187,7 +210,11 @@ final class PoliticaDaDemanda
             return false;
         }
 
-        return $ctx->perfil !== Perfil::Equipe || $ctx->configuracao->equipePode('chat');
+        return match ($ctx->perfil) {
+            Perfil::Equipe => $ctx->configuracao->equipePode('chat'),
+            Perfil::Convidado => $this->convidadoPode($ctx, 'chat'),
+            default => true,
+        };
     }
 
     public function podeEscreverNotaInterna(Contexto $ctx, DemandaExterna $d): bool
@@ -195,22 +222,42 @@ final class PoliticaDaDemanda
         return $ctx->ehInterno() && $this->podeConversar($ctx, $d);
     }
 
-    /** Checklist e "Registrar andamento": só em execução, pela Central (ou convidado com permissão, F3). */
+    /** Checklist e "Registrar andamento": só em execução, pela Central ou pelo Convidado com "andamento". */
     public function podeRegistrarAndamento(Contexto $ctx, DemandaExterna $d): bool
     {
         return $this->podeVer($ctx, $d)
             && $d->getSituacao() === Situacao::Execucao
-            && $ctx->ehInterno();
+            && ($ctx->ehInterno() || $this->convidadoPode($ctx, 'andamento'));
     }
 
     public function podeAnexar(Contexto $ctx, DemandaExterna $d): bool
     {
-        return $this->podeVer($ctx, $d) && $d->getSituacao() !== Situacao::Rascunho;
+        return $this->podeVer($ctx, $d)
+            && $d->getSituacao() !== Situacao::Rascunho
+            && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'enviar'));
+    }
+
+    /** A lista de documentos: o Convidado só a vê com "Ver instruções" (`cp.ver` do desenho). */
+    public function podeVerDocumentos(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $this->podeVer($ctx, $d) && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'ver'));
     }
 
     public function podeBaixar(Contexto $ctx, DemandaExterna $d): bool
     {
-        return $this->podeVer($ctx, $d);
+        return $this->podeVerDocumentos($ctx, $d) && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'baixar'));
+    }
+
+    /** Novo convite: Master, ou Equipe com "convidar", em demanda aceita ou em execução. */
+    public function podeConvidar(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $this->podeGerirConvites($ctx, $d) && in_array($d->getSituacao(), [Situacao::Aceita, Situacao::Execucao], true);
+    }
+
+    /** Reenviar e revogar: a mesma permissão, em qualquer situação (`c.gerir` do desenho). */
+    public function podeGerirConvites(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $this->podeVer($ctx, $d) && $this->pode($ctx, 'convidar');
     }
 
     /** Aba WhatsApp: quem vê a demanda, menos o Convidado (o desenho tira a aba dele). */
