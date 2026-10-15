@@ -279,7 +279,8 @@ todas em `/uploads/tarefas/chat/`; `tarefas/admin/` tem 2 arquivos e **nenhuma r
   leitura do backend local é endurecimento **geral** (as 9 categorias), registrado como pendência —
   fazê-lo aqui mudaria o núcleo para todos os módulos.
 
-**D10 em Tarefa — onde a E2 e a Tarefa diferem, e por quê.** A E2 registrou que, nas rotas em que o
+**D10 em Tarefa — onde a E2 e a Tarefa diferem, e por quê.** (Nome com `..` em qualquer posição
+conta como "fora do formato": 404, não 500.) A E2 registrou que, nas rotas em que o
 nome vem do banco, chave recusada **propaga (500)**. A Tarefa separa dois casos:
 - **valor fora do formato** (`admin/`, prefixo desconhecido, travessia) → **404**. É o que a rota
   já respondia antes (o `CaminhoDeAnexoDeTarefa` devolvia `null` e a rota dava 404), e é o que a
@@ -329,12 +330,16 @@ saem; os docblocks que citam o shim (DT-5) são atualizados.
   arquivo ausente → 404;
 - arquitetura: nenhuma referência ao shim; `TarefaController` sem `BinaryFileResponse`, sem
   `->move(` e sem `mkdir`; acesso direto ao disco (funções de arquivo, `Filesystem`, `ZipArchive`,
-  `Process`, `exec`, GD gravando em caminho, `->save(` de PhpWord/PhpSpreadsheet) só nos arquivos
-  da lista justificada.
+  `Process`, `exec`, GD gravando em caminho, `->openFile(`, e a criação dos escritores de
+  PhpWord/PhpSpreadsheet por `IOFactory::createWriter` ou `new Xlsx(`) só nos arquivos da lista
+  justificada. `->save(` sozinho fica fora (casaria com repositórios Doctrine): um escritor criado
+  de outro jeito (`new Word2007(`, `new Csv(`, `Imagick::writeImage`) escapa do regex.
 
 **Limite honesto do teste de arquitetura:** regex não faz análise de fluxo. Um arquivo da lista
-pode, em tese, escrever no caminho emprestado por `paraLeitura()`; o que barra isso é o tipo
-(`ArquivoEmprestado` não oferece escrita, D9) e a revisão — não o regex.
+pode, em tese, escrever no caminho emprestado por `paraLeitura()` — `ArquivoEmprestado` entrega
+`caminho()`, uma string que qualquer primitivo de escrita aceita; o tipo só impede que **ele**
+apague (D9). O que barra a escrita é a lista exata (arquivo novo que toca disco derruba o teste) e a
+revisão de quem entra nela — não o tipo nem o regex sozinhos.
 
 ## 11. Coordenação com outras frentes
 
@@ -381,6 +386,9 @@ pode, em tese, escrever no caminho emprestado por `paraLeitura()`; o que barra i
 4. Destino dos 90 suspeitos e dos 73 sem rastro (retenção/LGPD).
 5. Pasta do adaptador R2 (`Shared/Armazenamento/R2` × `Infra/R2`), na P2.2.
 6. Endurecimento geral: o backend local recusar symlink na leitura (as 9 categorias).
+7. **Antes de qualquer leitura remota (E4):** provar R1 de Tarefa pela rota com o dublê
+   `ArmazenamentoEmMemoria` (que materializa o escopo) — a escrita usa o escritório da tarefa e a
+   leitura o da mensagem; no disco local isso é invisível, em `core/t/{tenant}` não.
 
 ## 13. Fora de escopo da P2 inteira
 

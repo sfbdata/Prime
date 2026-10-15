@@ -59,6 +59,7 @@ final class ChavesDeTarefaTest extends TestCase
         yield 'subdiretório extra'           => ['/uploads/tarefas/chat/sub/x.pdf'];
         yield 'nome começando por ponto'     => ['/uploads/tarefas/chat/.htaccess'];
         yield 'só ponto ponto'               => ['/uploads/tarefas/chat/..'];
+        yield 'ponto ponto no meio'          => ['/uploads/tarefas/chat/a..b.pdf'];
         yield 'byte nulo'                    => ["/uploads/tarefas/chat/x.pdf\0.php"];
         yield 'quebra de linha no fim'       => ["/uploads/tarefas/chat/x.pdf\n"];
         yield 'espaço'                       => ['/uploads/tarefas/chat/x y.pdf'];

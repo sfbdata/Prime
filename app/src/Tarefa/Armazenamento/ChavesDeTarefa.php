@@ -26,7 +26,8 @@ use App\Shared\Armazenamento\NovoArquivo;
  *
  * O valor vem do banco, mas era concatenado em caminho de disco (E1). A regra é a mesma allowlist
  * que o `CaminhoDeAnexoDeTarefa` aplicava — `<nome>` começa por alfanumérico (descarta `.` e `..`)
- * e só tem `[A-Za-z0-9._-]` (descarta `/`, `\`, espaço, `%`, byte nulo) —, com `\z` no fim: o `$`
+ * e só tem `[A-Za-z0-9._-]` (descarta `/`, `\`, espaço, `%`, byte nulo), sem `..` em lugar nenhum (que
+ * `ChaveDeArquivo` recusaria com exceção — aqui vira "não endereçável", 404) —, com `\z` no fim: o `$`
  * do PCRE casaria antes de um `\n` final. Por cima disso, `ChaveDeArquivo` ainda recusa os cinco
  * casos da fronteira do storage.
  *
@@ -47,7 +48,7 @@ final class ChavesDeTarefa
     /** O que a coluna guarda antes do nome. Lido também pelo template (`|split('/')|last`). */
     public const PREFIXO_DA_COLUNA = '/uploads/tarefas/chat/';
 
-    private const VALOR = '#^/uploads/tarefas/chat/([A-Za-z0-9][A-Za-z0-9._-]*)\z#';
+    private const VALOR = '#^/uploads/tarefas/chat/(?!.*\.\.)([A-Za-z0-9][A-Za-z0-9._-]*)\z#';
 
     private function __construct()
     {
