@@ -1,4 +1,4 @@
-# HANDOFF — frente `designer-central-ia` (14/10/2026, atualizado com a Central A2)
+# HANDOFF — frente `designer-central-ia` (atualizado em 15/10/2026 com a Central B)
 
 Continuidade da integração do pacote do Claude Designer de 13/10 (Central de Comunicação, Chat I.A, Agente de Pastas,
 comandos) à arquitetura real do BlueJus. **Nada publicado.** Este documento resume e aponta; o detalhe mora nas specs
@@ -8,7 +8,9 @@ referenciadas — não duplique.
 
 Quatro entregas implementadas e commitadas localmente: **Agente de Pastas Fase 1** (API de leitura), **Central A1**
 (conversas 1:1 persistidas, polling, página `/central`), **adaptador Anthropic dormente** (D1) e **Central A2**
-(título "Central de Comunicação", @menção com aviso no sino, responder, marcar como não lida, menus de botão direito). A IA continua desligada,
+(título "Central de Comunicação", @menção com aviso no sino, responder, marcar como não lida, menus de botão direito).
+Em 15/10: correções da A2 (trava contra aviso duplicado, teto pelo texto visível) e **Central B** (grupos,
+participação, preferências individuais, polling com janela) — §14. A IA continua desligada,
 sem credencial, sem chamada real. O resto (Chat I.A, comandos, grupos/anexos da Central, Agente Fase 3) está pendente ou bloqueado
 por decisão do dono.
 
@@ -75,8 +77,9 @@ Detalhe: `docs/specs/designer-central-ia.md` §1.
 | Central A1 — conversa 1:1, histórico, não lidas, polling, `/central` | **CONCLUÍDO** | spec `central-comunicacao-a1.md`; 31 testes; 2 rodadas de revisão |
 | Central — título da janela | **CONCLUÍDO** | "Central de Comunicação" em `_janela.html.twig` e `central.js` |
 | Central A2 — @menção → `Notificacao`, responder, não lida, menus (conversa: abrir, lida/não lida; mensagem: responder, copiar, mencionar) | **CONCLUÍDO** | spec `central-comunicacao-a2.md`; 49 testes em `tests/Central`; 13 guardas provadas por reintrodução; revisão sem bloqueante, I1 corrigido |
-| Central — fixar, silenciar, arquivar, ocultar, excluir conversa; editar/excluir/fixar/favoritar/encaminhar mensagem; reações | **PENDENTE (D5)** | sem regra aprovada; nenhum item aparece no menu |
-| Central — grupos, anexos, presença | **PENDENTE** | grupos exigem antes a janela de sobreposição no cursor (limitação na spec A1 §5) |
+| Central B — grupos (criar, adicionar/remover pelo administrador, sair, renomear, linhas de sistema, menção e aviso), fixar/silenciar/arquivar por pessoa, janela do polling | **CONCLUÍDO** | spec `central-comunicacao-b.md`; §14 |
+| Central — ocultar, excluir conversa; editar/excluir/fixar/favoritar/encaminhar mensagem; reações; `@Todos`; foto do grupo | **PENDENTE (D5)** | sem regra aprovada; nenhum item aparece no menu |
+| Central — anexos, presença | **PENDENTE** | anexos pelo storage E2; presença exige tempo real (D2) |
 | Central — botão global / link no menu | **BLOQUEADO** | D6: `base.html.twig` e `_sidebar.html.twig` só com coordenação com a `fidelidade-designer` |
 | Ligações (BlueJus Connect) | **BLOQUEADO** | D-CONNECT: servidor de sinalização/TURN, frente própria |
 | Adaptador Anthropic | **CONCLUÍDO (dormente)** | sem `ANTHROPIC_API_KEY`+`IA_MODELO` válidos não sai chamada e `nome()` = `nao_configurado` |
@@ -89,8 +92,8 @@ Detalhe: `docs/specs/designer-central-ia.md` §1.
 
 ## 6. Testes (todos no banco da frente, via `scripts/frente-testar.sh`)
 
-- Última suíte completa: **9306/9306** (52.102 asserções), rodada sozinha, sobre `dbee6e4e` (Central A2).
-- `tests/Central`: 49/49 (A1 + A2) · `tests/Inteligencia`: 713/713 · `ProvedorAnthropicTest`: 21+ casos, só `MockHttpClient`.
+- Última suíte completa: **9333/9333**, sobre `cc6d8ae4` (Central B) — §14.
+- `tests/Central`: 76/76 (A1 + A2 + B) · `tests/Inteligencia`: 713/713 · `ProvedorAnthropicTest`: 21+ casos, só `MockHttpClient`.
 - Prova por reintrodução de defeito em todas as guardas (~30 mutações: tenant, participação, CSRF, cursor, polling, ids
   int4, ordem da lista, chave/segredo, redirect, temperature, 429 do teto). Cada uma derrubou o teste certo.
 - Arquitetura: `AuditavelCoberturaTest`, `TenantAwareCoberturaTest`, `PurgaCoberturaSchemaTest` verdes;
@@ -133,7 +136,8 @@ Central = vínculo ativo + participação, sem `PermissionChecker`; entidades da
 - Modelos 5.5: `temperature`/`top_p`/`top_k`, prefill e `thinking` desligado dão 400; raciocínio conta no `max_tokens`
   (margem 8.000); **não usar Fable/Mythos** (retenção obrigatória de 30 dias); Batch fica fora do ZDR.
 - A plataforma redireciona quem não tem vínculo **antes** do controller (302 → `/escritorio/selecionar`): o teste HTTP
-  prova essa barreira, não a da Central — a guarda da Central é provada em `AcessoACentralTest`. Idem `TenantFilter`
+  prova essa barreira, não a da Central — a guarda das consultas é provada em `IsolamentoDosRepositoriosDaCentralTest`
+  (TenantFilter desligado); o `AcessoACentralTest` usa stubs e NÃO a provava (achado de 15/10). Idem `TenantFilter`
   × guarda explícita do agente (`ConsultaDePastasDoAgenteTest`).
 - Remover colaborador **apaga** o `user_tenant` (hard delete) e reatribui/anula o responsável das pastas.
 - O banco de dev (`saas_ux`) está muito atrás do mapeamento: **nunca** `make:migration` puro — filtrar o `--dump-sql`.
@@ -151,20 +155,12 @@ Central = vínculo ativo + participação, sem `PermissionChecker`; entidades da
 
 ## 10. Próxima tarefa recomendada
 
-A Central A2 está entregue. Pendências que ficaram dela, para o dono decidir (nenhuma bloqueia):
-- **Metadado no `audit_log`:** a criação do aviso de menção registra quem mencionou quem, e em qual conversa
-  (nunca o texto). Tirar a `Notificacao` da auditoria é mudança compartilhada.
-- **"Marcar como lida" lê todas as menções da conversa,** inclusive a que chegou entre o polling e o clique
-  (spec §2, ao pé da letra).
-- **Aviso duplicado em envio simultâneo:** a checagem de duplicata não tem trava no banco, então dois envios no
-  mesmo instante podem gerar dois avisos.
-- **Mensagem longa com menções:** perto de 4.000 caracteres, o token pode passar do limite e a mensagem volta
-  com 422.
-- **Teclado:** cada balão é focável (`Shift+F10` abre o menu), o que dá uma parada de Tab por mensagem.
+Central B entregue (§14). Decisões que ficam com o dono — o padrão em vigor é reversível
+(`central-comunicacao-b.md` §8): histórico visível a quem entra; silenciar mantém o aviso de menção; renomear por
+qualquer participante; administração vaga ao mais antigo com vínculo; `@Todos` fora.
 
-Próxima entrega sugerida: **Central B — grupos**. Antes dela vem a janela de sobreposição no cursor do polling
-(limitação da A1 §6). Também é preciso que o dono aprove as regras de fixar, silenciar e arquivar para elas
-entrarem nos menus (D5).
+Próxima entrega sugerida: **aplicar as migrations da A2/B no `saas_ux` (com backup) e o smoke do dono na tela**; depois,
+**anexos da Central** (storage E2) ou o **link da Central no menu** (D6, com a `fidelidade-designer`).
 
 ## 11. Comandos para retomar
 
@@ -190,6 +186,32 @@ cd /home/prime/projetos/jusprime && scripts/frente-testar.sh designer-central-ia
 - Revisão do `feature-review-agent`: nenhum bloqueante; o I1 foi corrigido e provado; os menores estão no §10.
 - **Visual: é o dono quem confere.** Antes disso, é preciso aplicar as duas migrations no `saas_ux`.
 
-## 13. Estado final do Git
+## 13. Estado do Git (A2)
 
 Branch `designer-central-ia`, 14 commits locais à frente de `origin/master` @ `a3919b5c` (HEAD = o commit que registra a A2 neste HANDOFF). Nada publicado.
+
+## 14. Central B (15/10/2026)
+
+- **Entregue:** grupos (criar com nome e colegas do mesmo escritório; administrador do grupo = coluna, não papel;
+  adicionar/remover pelo administrador efetivo; sair com passagem da administração a quem tem vínculo; renomear por
+  participante; linhas de sistema; menção e aviso "adicionou você", sem conteúdo); fixar, silenciar e arquivar por
+  pessoa; polling com janela de 30 s em consulta à parte; tela com lista mista, ⋮ (novo grupo, arquivadas), telas de
+  novo grupo e informações. Correções da revisão da A2 (rótulo dos mencionáveis, corte bruto, READ COMMITTED
+  registrado, risco residual envio × leitura na spec A2).
+- **Migration:** `Version20261015180000` (só acrescenta; dois `DROP NOT NULL` no par, seguros; `down` aborta se houver
+  grupo). Aplicada no banco de teste da frente. **Não** aplicada no `saas_ux` (A1/A2 estão lá desde 14/10, com backup
+  em `/home/prime/backups-dev/`).
+- **Testes:** suíte completa **9333/9333** (52.284 asserções), sozinha, sobre `cc6d8ae4`; `tests/Central` 76/76; prova por reintrodução: 17/18 guardas da B derrubaram o teste certo na primeira
+  rodada — a 18ª (tenant explícito da participação) revelou que nenhum teste provava a guarda das consultas sem o
+  TenantFilter, desde a A1; criado `IsolamentoDosRepositoriosDaCentralTest`, que derruba as 4 mutações de tenant.
+  Correções da revisão: 9/10 mutações derrubaram; a 10ª (sucessor sem vínculo) é coberta por outra guarda (a
+  administração efetiva), comportamento correto.
+- **Revisões:** A2/Etapa 2 sem bloqueante (menores corrigidos). Central B sem bloqueante; 3 importantes corrigidos
+  (laço do polling com janela cheia, mensagem perdida com a tela de informações aberta, administração presa em quem
+  perdeu o vínculo) e menores (readmissão concorrente, preferências antigas na readmissão, id inválido, avisos de
+  quem saiu, rótulo da tela de informações, regra 6 do CLAUDE.md).
+- **Limites conhecidos:** transação que demore > 30 s para confirmar uma mensagem escapa ao polling (aparece ao
+  reabrir); JS sem teste automatizado (o smoke é do dono); confirmações usam `window.confirm` (a janela de
+  confirmação do desenho mora na `fidelidade-designer`, E7).
+- **Git:** branch `designer-central-ia`, commits locais à frente de `origin/master` @ `a3919b5c`; nada publicado. A
+  demo integrada (`demo-expediente-central`, porta 8001) é anterior à B e não a contém.

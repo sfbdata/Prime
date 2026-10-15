@@ -27,10 +27,20 @@ ocultar, excluir conversa, "marcar para revisar"; mensagem fixada e favoritas; a
 | Ler e escrever | participante **ativo** (não saiu nem foi removido) com vínculo ativo | como na A1: alheio é 404 |
 | Adicionar participante | só o **administrador do grupo** | o novo precisa de vínculo ativo no escritório; quem já está ativo → 422; quem tinha saído **volta** (a mesma participação é reativada) |
 | Remover participante | só o administrador | não remove a si mesmo (usa "Sair"); não-administrador → 403 (é participante: saber que o grupo existe não é vazamento) |
-| Sair do grupo | qualquer participante ativo | se o administrador sai, a administração passa ao participante ativo mais antigo; se não sobrar ninguém, o grupo fica sem administrador e sem leitores |
+| Sair do grupo | qualquer participante ativo | se o administrador sai, a administração passa ao participante ativo mais antigo **com vínculo ativo**; se não sobrar ninguém, o grupo fica sem administrador e sem leitores |
 | Renomear | qualquer participante ativo | como no desenho (L6191, L5768) |
 | Fixar / silenciar / arquivar | cada participante, só para si | em grupo e em individual |
 
+- **Administração efetiva (correção da revisão, 15/10):** se o administrador gravado saiu do grupo ou perdeu o vínculo
+  com o escritório, quem administra é o participante ativo mais antigo com vínculo ativo — e a troca é gravada na
+  primeira ação dele. Sem isso, um administrador desligado travaria o grupo para sempre (D3 não tem bypass).
+  ⚠️ Proposta ao dono (§8).
+- **Readmissão** recomeça limpa: cursor na última mensagem, sem as preferências de antes (fixada, silenciada,
+  arquivada, marcada como não lida). Adicionar e readmitir correm sob a trava do grupo (`pg_advisory_xact_lock(4715,
+  grupo)`): duas adições simultâneas não duplicam linha de sistema, aviso nem passam do teto.
+- **Quem sai ou é removido** tem os avisos daquele grupo marcados como lidos (apontavam para algo que não abre mais).
+- **Id inválido** na criação (texto, negativo, grande demais) recusa o pedido inteiro (422), como o id de outro
+  escritório.
 - **Administrador do grupo não é papel do sistema (D3):** é uma coluna da conversa (`administrador_id`), não passa pelo
   `PermissionChecker`; nem o administrador do escritório nem o super admin administram grupo de que não participam.
 - **Histórico de quem entra:** vê as mensagens anteriores do grupo, como no desenho (L308) — mas elas **não contam como
@@ -76,8 +86,10 @@ Na tela: pílula centralizada (L6029: fundo `#e8eef2`, texto `#5f7684`, 11.5px/6
 ## 6. Polling (correção da limitação A1 §6)
 
 O cursor por id perde a mensagem confirmada fora de ordem (id 100 confirma depois do 101). Correção: `GET
-/central/novidades?desde=N` devolve as mensagens com `id > N` **e também** as das minhas conversas criadas nos últimos
-**30 s** (janela de sobreposição); a tela descarta as que já viu (conjunto de ids vistos). Uma transação que demore mais
+/central/novidades?desde=N` devolve as mensagens com `id > N` **e também**, em consulta à parte, as das minhas
+conversas criadas nos últimos **30 s** com id ≤ N (janela de sobreposição); a tela descarta as que já viu (conjunto de
+ids vistos). Só as novas contam para o teto e para `completo` — a janela cheia nunca faz a tela pedir de novo sem fim
+(achado da revisão). Uma transação que demore mais
 de 30 s para confirmar uma mensagem ainda escaparia ao polling (aparece ao reabrir a conversa) — limite registrado.
 
 ## 7. Rotas novas
@@ -102,6 +114,8 @@ ganha `tipo`, `nome`, `participantes` (contagem), `fixada`, `silenciada`, `arqui
 2. Silenciar mantém o aviso de menção (desenho) × silenciar cala também a menção.
 3. Renomear por qualquer participante (desenho) × só o administrador.
 4. `@Todos` em grupo — fora desta entrega.
+5. Administração vaga vai ao participante mais antigo com vínculo (em vigor) × outra regra (ex.: o mais antigo de
+   todos, ou exigir indicação).
 
 ## 9. Modelo e migration
 
