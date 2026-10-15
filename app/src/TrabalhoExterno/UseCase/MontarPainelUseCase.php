@@ -11,10 +11,9 @@ use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Enum\Disponibilidade;
 use App\TrabalhoExterno\Enum\Perfil;
-use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Enum\Visibilidade;
-use App\TrabalhoExterno\Repository\MensagemDemandaRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeDemanda;
+use App\TrabalhoExterno\Service\ContadorDeNaoLidas;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
@@ -32,7 +31,7 @@ final class MontarPainelUseCase
         private readonly LocalizadorDeDemanda $localizador,
         private readonly PoliticaDaDemanda $politica,
         private readonly ApresentadorDeDemanda $apresentador,
-        private readonly MensagemDemandaRepository $mensagens,
+        private readonly ContadorDeNaoLidas $contador,
         private readonly UserTenantRepository $vinculos,
     ) {
     }
@@ -43,7 +42,7 @@ final class MontarPainelUseCase
         $cfg = $ctx->configuracao;
         $bloqueada = $this->politica->abaBloqueada($ctx);
         $pares = $this->localizador->visiveis($ctx);
-        $naoLidas = $this->naoLidas($pares);
+        $naoLidas = $this->contador->porDemanda($pares);
 
         return [
             'perfil' => [
@@ -67,29 +66,6 @@ final class MontarPainelUseCase
             'avisoDeMensagem' => $this->avisoDeMensagem($pares, $naoLidas),
             'novaSolicitacao' => $ctx->perfil === Perfil::Solicitante ? $this->dadosDoModal($ctx) : null,
         ];
-    }
-
-    /**
-     * Não lidas numa consulta por "lado" (Central/externo), porque nota interna só conta para a Central.
-     *
-     * @param list<array{0: DemandaExterna, 1: Contexto}> $pares
-     *
-     * @return array<int, int>
-     */
-    private function naoLidas(array $pares): array
-    {
-        $porLado = [true => [], false => []];
-        $usuario = null;
-        foreach ($pares as [$d, $c]) {
-            $porLado[$c->ehInterno()][] = $d;
-            $usuario = $c->usuario;
-        }
-        if ($usuario === null) {
-            return [];
-        }
-
-        return $this->mensagens->naoLidasPorDemanda($porLado[true], $usuario, true)
-            + $this->mensagens->naoLidasPorDemanda($porLado[false], $usuario, false);
     }
 
     /** @return array<string, mixed> */
@@ -162,8 +138,9 @@ final class MontarPainelUseCase
             }
             $deOutros = array_filter(
                 $d->getMensagens(),
-                static fn (MensagemDemanda $m): bool => $m->getAutor()?->getId() !== $ctx->usuario->getId()
-                    && ($ctx->ehInterno() || $m->getTipo() !== TipoMensagem::Interna),
+                // A mesma regra do chat: o aviso não pode mostrar o que a conversa esconde.
+                fn (MensagemDemanda $m): bool => $m->getAutor()?->getId() !== $ctx->usuario->getId()
+                    && $this->politica->mensagemVisivel($ctx, $d, $m),
             );
             $ultima = end($deOutros);
             if ($ultima === false) {

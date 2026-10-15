@@ -140,4 +140,24 @@ final class PoliticaDaDemandaTest extends TestCase
         $cfg->definirEquipe('chat', false);
         self::assertFalse($this->politica->podeConversar($equipe, $d));
     }
+
+    #[TestDox('corte do aceite: só vale para o Convidado e, sem convite aceito, tudo é anterior')]
+    public function testAnteriorAoAceiteFalhaFechado(): void
+    {
+        $agora = new \DateTimeImmutable();
+
+        foreach ([Perfil::Master, Perfil::Equipe, Perfil::Solicitante] as $perfil) {
+            self::assertFalse($this->politica->anteriorAoAceite(Apoio::contexto($perfil), $agora), $perfil->value);
+            self::assertFalse($this->politica->marcoReservado(Apoio::contexto($perfil), 'proposta', $agora), $perfil->value);
+        }
+
+        $semConvite = Apoio::contexto(Perfil::Convidado);
+        self::assertTrue($this->politica->anteriorAoAceite($semConvite, $agora));
+        foreach (['analise', 'info', 'proposta', 'pago', 'validacao', 'recusada'] as $marco) {
+            self::assertTrue($this->politica->marcoReservado($semConvite, $marco, $agora), $marco);
+        }
+        foreach (['nova', 'aceita', 'execucao'] as $marco) {
+            self::assertFalse($this->politica->marcoReservado($semConvite, $marco, $agora), $marco);
+        }
+    }
 }

@@ -64,7 +64,8 @@ final class ApresentadorDeDemanda
             'situacaoIcone' => $s->icone(),
             'fechada' => $s->ehFechada(),
             'tipo' => $d->getTipoServico(),
-            'descricao' => $d->getDescricao(),
+            // Como no painel lateral: sem "Ver instruções", o Convidado não recebe a descrição.
+            'descricao' => $this->politica->podeVerDocumentos($ctx, $d) ? $d->getDescricao() : '',
             'escritorio' => $d->getEscritorio(),
             'cidadeOrigem' => (string) $d->getCidadeOrigem(),
             'ufOrigem' => $d->getUfOrigem(),
@@ -114,12 +115,13 @@ final class ApresentadorDeDemanda
             'documentos' => $this->politica->podeVerDocumentos($ctx, $d)
                 ? array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $d->getDocumentos())
                 : [],
-            'semDocumentos' => $d->getDocumentos() === [],
+            'semDocumentos' => !$this->politica->podeVerDocumentos($ctx, $d) || $d->getDocumentos() === [],
             'podeAnexar' => $this->politica->podeAnexar($ctx, $d),
             // O Convidado não tem a aba Proposta: valores e condições NÃO saem para ele, nem no JSON.
             'propostas' => $ctx->perfil === Perfil::Convidado ? [] : $this->propostas($ctx, $d),
             'podePropor' => $this->politica->podePropor($ctx, $d),
-            'propostaTitulo' => $d->getPropostas() !== [] ? sprintf('Nova versão da proposta (v%d)', $d->proximaVersaoDeProposta()) : 'Proposta comercial',
+            // A versão denuncia quantas propostas houve: nem isso sai para o Convidado.
+            'propostaTitulo' => $ctx->perfil === Perfil::Convidado ? '' : ($d->getPropostas() !== [] ? sprintf('Nova versão da proposta (v%d)', $d->proximaVersaoDeProposta()) : 'Proposta comercial'),
             'checklist' => array_map(static fn (array $i): array => ['t' => $i['t'], 'ok' => $i['ok']], $d->getChecklist()),
             'podeAndamento' => $this->politica->podeRegistrarAndamento($ctx, $d),
             'mostraConvites' => $ctx->ehInterno(),
@@ -132,7 +134,7 @@ final class ApresentadorDeDemanda
             'podeConversar' => $this->politica->podeConversar($ctx, $d),
             'podeNotaInterna' => $this->politica->podeEscreverNotaInterna($ctx, $d),
             'historico' => $this->historico($ctx, $d),
-            'etapas' => $this->etapas($d, $fim),
+            'etapas' => $this->etapas($ctx, $d, $fim),
             'progresso' => $this->progresso($d),
             'encerrada' => $fim,
             'encerradaTexto' => $fim ? $s->rotulo() . ' · ' . $this->dataHora($ultimoDaSituacao) : '',
@@ -250,7 +252,7 @@ final class ApresentadorDeDemanda
     {
         $visiveis = array_filter(
             $d->getMensagens(),
-            fn (MensagemDemanda $m): bool => $this->mensagemVisivel($ctx, $d, $m),
+            fn (MensagemDemanda $m): bool => $this->politica->mensagemVisivel($ctx, $d, $m),
         );
 
         return array_values(array_map(function (MensagemDemanda $m) use ($ctx): array {
@@ -280,31 +282,23 @@ final class ApresentadorDeDemanda
     }
 
     /**
-     * Nota interna nunca sai da Central. O Convidado lê o chat só da aceitação do convite em diante
-     * (o que veio antes, inclusive o registro da proposta com o valor, é da Central com o cliente), e
-     * sem "Ver instruções" não lê os registros de arquivo (eles nomeiam os documentos).
+     * De antes do aceite, o Convidado recebe só os marcos administrativos, sem origem, autor nem
+     * motivo ({@see PoliticaDaDemanda::marcoReservado}); o resto nem entra no JSON.
+     *
+     * @return list<array<string, mixed>>
      */
-    private function mensagemVisivel(Contexto $ctx, DemandaExterna $d, MensagemDemanda $m): bool
-    {
-        if ($ctx->ehInterno()) {
-            return true;
-        }
-        if ($m->getTipo() === TipoMensagem::Interna) {
-            return false;
-        }
-        if ($ctx->perfil !== Perfil::Convidado) {
-            return true;
-        }
-        return $ctx->convite !== null
-            && $ctx->convite->mensagemVisivel($m)
-            && ($m->getTipo() !== TipoMensagem::Arquivo || $this->politica->podeVerDocumentos($ctx, $d));
-    }
-
-    /** @return list<array<string, mixed>> */
     private function historico(Contexto $ctx, DemandaExterna $d): array
     {
-        return array_map(function (HistoricoDemanda $h) use ($ctx): array {
+        $visiveis = array_filter(
+            array_reverse($d->getHistorico()),
+            fn (HistoricoDemanda $h): bool => !$this->politica->marcoReservado($ctx, $h->getPara(), $h->getEm()),
+        );
+
+        return array_values(array_map(function (HistoricoDemanda $h) use ($ctx): array {
             [$rotulo, $cor, $icone] = $this->marco($h->getPara());
+            if ($this->politica->anteriorAoAceite($ctx, $h->getEm())) {
+                return ['para' => $rotulo, 'de' => '', 'quem' => '', 'em' => $this->dataHora($h->getEm()), 'motivo' => '', 'cor' => $cor, 'ic' => $icone];
+            }
 
             return [
                 'para' => $rotulo,
@@ -315,7 +309,7 @@ final class ApresentadorDeDemanda
                 'cor' => $cor,
                 'ic' => $icone,
             ];
-        }, array_reverse($d->getHistorico()));
+        }, $visiveis));
     }
 
     /**
@@ -380,7 +374,7 @@ final class ApresentadorDeDemanda
     }
 
     /** @return list<array<string, mixed>> */
-    private function etapas(DemandaExterna $d, bool $fim): array
+    private function etapas(Contexto $ctx, DemandaExterna $d, bool $fim): array
     {
         $alcancadoEm = [];
         foreach ($d->getHistorico() as $h) {
@@ -401,10 +395,16 @@ final class ApresentadorDeDemanda
         $etapas = [];
         foreach (self::ETAPAS as $i => [$chave, $rotulo, $icone]) {
             $feito = isset($alcancadoEm[$chave]);
+            // Marco da negociação alcançado antes do aceite: o Convidado vê que passou, não quando.
+            $reservado = $feito && $this->politica->marcoReservado($ctx, $chave, $alcancadoEm[$chave]);
             $etapas[] = [
                 'rot' => $rotulo,
                 'ic' => $icone,
-                'dt' => $feito ? $this->dataHora($alcancadoEm[$chave]) : 'pendente',
+                'dt' => match (true) {
+                    $reservado => '',
+                    $feito => $this->dataHora($alcancadoEm[$chave]),
+                    default => 'pendente',
+                },
                 'feito' => $feito,
                 'atual' => $feito && $i === $ultimo && !$fim && !$encerrouBem,
             ];

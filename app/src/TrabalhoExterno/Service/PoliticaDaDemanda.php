@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\TrabalhoExterno\Service;
 
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\Situacao;
+use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Enum\Visibilidade;
 
 /**
@@ -20,6 +22,9 @@ use App\TrabalhoExterno\Enum\Visibilidade;
  */
 final class PoliticaDaDemanda
 {
+    /** Marcos de antes do aceite que o Convidado pode ver (só o marco e a data). */
+    private const MARCOS_ADMINISTRATIVOS = ['nova', 'aceita', 'execucao'];
+
     /** A aba inteira fica bloqueada para este perfil (tela "Acesso restrito"/"indisponível"). */
     public function abaBloqueada(Contexto $ctx): bool
     {
@@ -266,6 +271,55 @@ final class PoliticaDaDemanda
         return $this->podeVer($ctx, $d)
             && $ctx->perfil !== Perfil::Convidado
             && $d->getSituacao() !== Situacao::Rascunho;
+    }
+
+    /**
+     * O leitor lê esta mensagem no chat? É a regra ÚNICA: o chat, o contador de não lidas e o aviso
+     * "Abrir conversa" passam todos por aqui. Nota interna nunca sai da Central. O Convidado lê só
+     * da aceitação do convite em diante (o que veio antes, inclusive o registro da proposta com o
+     * valor, é da Central com o cliente) e, sem "Ver instruções", não lê os registros de arquivo
+     * (eles nomeiam os documentos).
+     */
+    public function mensagemVisivel(Contexto $ctx, DemandaExterna $d, MensagemDemanda $m): bool
+    {
+        if ($ctx->ehInterno()) {
+            return true;
+        }
+        if ($m->getTipo() === TipoMensagem::Interna) {
+            return false;
+        }
+        if ($ctx->perfil !== Perfil::Convidado) {
+            return true;
+        }
+
+        return $ctx->convite !== null
+            && $ctx->convite->mensagemVisivel($m)
+            && ($m->getTipo() !== TipoMensagem::Arquivo || $this->podeVerDocumentos($ctx, $d));
+    }
+
+    /**
+     * O evento é anterior ao aceite do convite de quem lê (só vale para o Convidado). As datas
+     * são gravadas em segundos: o que caiu no MESMO segundo do aceite conta como anterior, para
+     * a dúvida esconder em vez de mostrar.
+     */
+    public function anteriorAoAceite(Contexto $ctx, \DateTimeImmutable $em): bool
+    {
+        if ($ctx->perfil !== Perfil::Convidado) {
+            return false;
+        }
+        $aceitoEm = $ctx->convite?->getAceitoEm();
+
+        return $aceitoEm === null || $em <= $aceitoEm;
+    }
+
+    /**
+     * De antes do aceite, o Convidado vê só os marcos administrativos (solicitada, aceita, em
+     * execução), sem autor nem motivo. Análise, pedido de informação, propostas, ajustes e
+     * pagamento são a negociação da Central com o cliente e não chegam a ele.
+     */
+    public function marcoReservado(Contexto $ctx, string $marco, \DateTimeImmutable $em): bool
+    {
+        return $this->anteriorAoAceite($ctx, $em) && !in_array($marco, self::MARCOS_ADMINISTRATIVOS, true);
     }
 
     /** E-mail e telefone do solicitante: escondidos do Convidado sem `priv.contatoConv`. */

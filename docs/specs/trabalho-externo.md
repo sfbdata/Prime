@@ -173,4 +173,19 @@ de segurança a confirmar pelo dono). Registros de arquivo só com "ver". O regi
 para Fulano." não leva o e-mail (o desenho promete que convites não aparecem a externos).
 Quem já é Solicitante do PRÓPRIO escritório da demanda continua vendo-a como Solicitante, mesmo convidado.
 
+**O passado da demanda ao Convidado** (decisão do dono, 15/10/2026, achados A, B e C da revisão de
+segurança). Tudo é filtrado no servidor, antes do JSON, por uma regra só, em `PoliticaDaDemanda`:
+
+- Chat, contador de não lidas e aviso "Abrir conversa" usam a mesma `mensagemVisivel`: corte do
+  aceite, sem nota interna, registro de arquivo só com "ver" (`ContadorDeNaoLidas` conta o
+  Convidado por essa regra, não por SQL).
+- Histórico: de antes do aceite, só os marcos administrativos (nova, aceita, em execução), com a
+  data e **sem** origem, autor nem motivo. Análise, pedido de informação, propostas, ajustes e
+  pagamento anteriores não saem. Do aceite em diante, o histórico vem completo.
+- Andamento (8 marcos): os marcos da negociação alcançados antes do aceite (Em análise, Proposta,
+  Pago) aparecem como feitos, sem data.
+- O título "Nova versão da proposta (vN)" não sai (denuncia quantas propostas houve).
+- Sem "ver": a lista não traz a descrição e o painel não diz se há documentos.
+- As datas são gravadas em segundos: evento no mesmo segundo do aceite conta como anterior.
+
 E-mail: `TrabalhoExternoMailer`, remetente da casa (`IdentidadeDeEmail`). Em dev o `MAILER_DSN` é nulo.

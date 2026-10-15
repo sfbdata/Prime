@@ -237,6 +237,218 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(0, count($this->mensagensDeEmail()));
     }
 
+    #[TestDox('A: o aviso "Abrir conversa" e as não lidas do convidado só contam o que ele pode ler no chat')]
+    public function testAvisoENaoLidasRespeitamOCorteDoAceite(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio, $token] = $this->demandaComNegociacao();
+        $convidado = $this->contaDoConvidado($client, $token, 'negocio@test.com');
+
+        $client->request('GET', '/trabalho-externo/api/painel');
+        $conteudo = (string) $client->getResponse()->getContent();
+        $painel = $this->json($client)['painel'];
+        self::assertStringNotContainsString('SEGREDO', $conteudo, 'nada da conversa anterior ao aceite chega no painel');
+        self::assertNull($painel['avisoDeMensagem'], 'sem mensagem visível nova, não há aviso');
+        self::assertSame(0, $painel['demandas'][0]['naoLidas'], 'mensagens anteriores ao aceite não contam como não lidas');
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertSame(0, $this->json($client)['demanda']['naoLidas']);
+
+        // Nota interna e registro de arquivo (sem "ver") depois do aceite também não contam.
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'NOTA-INTERNA-POS', 'interna' => true]);
+        $this->anexar($client, $codigo, 'laudo-pos.pdf');
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', '/trabalho-externo/api/painel');
+        $painel = $this->json($client)['painel'];
+        self::assertNull($painel['avisoDeMensagem']);
+        self::assertSame(0, $painel['demandas'][0]['naoLidas']);
+        self::assertStringNotContainsString('NOTA-INTERNA-POS', (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString('laudo-pos.pdf', (string) $client->getResponse()->getContent());
+
+        // Mensagem comum depois do aceite: conta e aparece no aviso.
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'Pode confirmar o horário?']);
+        // Depois dela, um registro de arquivo que ele não lê (sem "ver"): o aviso pula esse registro.
+        $this->logarComTenant($client, $master, $central);
+        $this->anexar($client, $codigo, 'laudo-final.pdf');
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', '/trabalho-externo/api/painel');
+        $painel = $this->json($client)['painel'];
+        self::assertSame(1, $painel['demandas'][0]['naoLidas']);
+        self::assertSame('Pode confirmar o horário?', $painel['avisoDeMensagem']['texto'] ?? null);
+    }
+
+    #[TestDox('B: no histórico e no andamento, o convidado vê só marcos administrativos de antes do aceite, sem motivo nem autor')]
+    public function testHistoricoAnteriorAoAceiteNaoVazaNegociacao(): void
+    {
+        [$client, $codigo, $master, $central, , , $token] = $this->demandaComNegociacao();
+        $convidado = $this->contaDoConvidado($client, $token, 'negocio@test.com');
+
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $conteudo = (string) $client->getResponse()->getContent();
+        $d = $this->json($client)['demanda'];
+        self::assertStringNotContainsString('SEGREDO', $conteudo, 'nenhum motivo de antes do aceite sai no JSON');
+        self::assertStringNotContainsString('250,00', $conteudo, 'nenhum valor de proposta sai no JSON');
+        self::assertSame(['Em execução', 'Aceita', 'Nova solicitação'], array_column($d['historico'], 'para'), 'só os marcos administrativos');
+        foreach ($d['historico'] as $h) {
+            self::assertSame('', $h['motivo']);
+            self::assertSame('', $h['quem'], 'sem autor nos eventos anteriores ao aceite');
+            self::assertSame('', $h['de']);
+        }
+        $datas = array_column($d['etapas'], 'dt', 'rot');
+        foreach (['Em análise', 'Proposta', 'Pago'] as $reservado) {
+            self::assertSame('', $datas[$reservado], "a data de \"$reservado\" é da Central com o cliente");
+        }
+        self::assertNotSame('', $datas['Aceite']);
+        self::assertSame('', $d['propostaTitulo'], 'nem o número de versões da proposta');
+        self::assertTrue($d['semDocumentos'], 'sem "ver", nem a existência de documentos');
+
+        // Até aqui tudo caiu no mesmo segundo do aceite e foi tratado como anterior (a dúvida
+        // esconde). Agora a negociação fica duas horas antes e o aceite uma hora antes: o que vier
+        // depois é posterior ao aceite e volta a ter autor e motivo.
+        $conexao = $this->em()->getConnection();
+        $id = \App\TrabalhoExterno\Entity\DemandaExterna::idDoCodigo($codigo);
+        $conexao->executeStatement("UPDATE trabalho_externo_historico SET em = em - INTERVAL '2 hours' WHERE demanda_id = ?", [$id]);
+        $conexao->executeStatement("UPDATE trabalho_externo_convite SET aceito_em = aceito_em - INTERVAL '1 hour' WHERE demanda_id = ?", [$id]);
+        $this->em()->clear();
+
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/validar");
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/devolver", ['motivo' => 'Faltou a ata assinada']);
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $conteudo = (string) $client->getResponse()->getContent();
+        $topo = $this->json($client)['demanda']['historico'][0];
+        self::assertSame('Faltou a ata assinada', $topo['motivo']);
+        self::assertNotSame('', $topo['quem']);
+        self::assertStringNotContainsString('SEGREDO', $conteudo, 'o passado continua reservado');
+
+        // A Central continua vendo tudo.
+        $this->logarComTenant($client, $master, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertStringContainsString('SEGREDO-AJUSTE', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('C: sem "ver", a lista não entrega a descrição da atividade ao convidado')]
+    public function testListaSemVerNaoEntregaDescricao(): void
+    {
+        [$client, $codigo] = $this->demandaEmExecucao();
+        $token = $this->convidar($client, $codigo, 'semdesc@test.com', ['ver' => false, 'baixar' => false, 'enviar' => false, 'chat' => true, 'andamento' => false, 'concluir' => false]);
+        $this->contaDoConvidado($client, $token, 'semdesc@test.com');
+
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertSame('', $this->json($client)['painel']['demandas'][0]['descricao']);
+        self::assertStringNotContainsString('Comparecer à audiência', (string) $client->getResponse()->getContent());
+
+        [$client2, $codigo2] = [$client, $this->demandaEmExecucaoNoMesmoCliente($client)];
+        $token2 = $this->convidar($client2, $codigo2, 'comdesc@test.com');
+        $this->contaDoConvidado($client2, $token2, 'comdesc@test.com');
+        $client2->request('GET', '/trabalho-externo/api/painel');
+        self::assertSame('Comparecer à audiência de conciliação.', $this->json($client2)['painel']['demandas'][0]['descricao'], 'com "ver", a descrição vem');
+    }
+
+    #[TestDox('revogado ou sem convite: nada da demanda, nem prévia de mensagem')]
+    public function testRevogadoNaoRecebeNada(): void
+    {
+        [$client, $codigo, $master, $central, , , $token] = $this->demandaComNegociacao();
+        $convidado = $this->contaDoConvidado($client, $token, 'negocio@test.com');
+
+        $this->logarComTenant($client, $master, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $id = $this->json($client)['demanda']['convites'][0]['id'];
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites/$id/revogar");
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'DEPOIS-DA-REVOGACAO']);
+
+        $this->logarComoConvidado($client, $convidado);
+        foreach (['/trabalho-externo/api/painel', "/trabalho-externo/api/demandas/$codigo"] as $url) {
+            $client->request('GET', $url);
+            self::assertResponseStatusCodeSame(403, $url);
+            self::assertStringNotContainsString('DEPOIS-DA-REVOGACAO', (string) $client->getResponse()->getContent());
+            self::assertStringNotContainsString('SEGREDO', (string) $client->getResponse()->getContent());
+        }
+    }
+
+    /**
+     * Demanda em execução cuja história antes do convite tem negociação: pedido de informação,
+     * resposta, ajuste com valor, duas propostas, pagamento, conversa e uma mensagem do cliente
+     * DEPOIS do convite e ANTES do aceite (a última de outra pessoa que o convidado veria).
+     *
+     * @return array{0: KernelBrowser, 1: string, 2: User, 3: \App\Entity\Tenant\Tenant, 4: User, 5: \App\Entity\Tenant\Tenant, 6: string}
+     */
+    private function demandaComNegociacao(): array
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $escritorio = $this->criarTenant('Solicitante');
+        $central = $this->criarTenant('Central');
+        $solicitante = $this->criarUsuario($escritorio);
+        $master = $this->criarMaster($central);
+        $url = static fn (string $acao): string => "/trabalho-externo/api/demandas/%s/acoes/$acao";
+
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $codigo = $this->solicitar($client, self::solicitacaoValida())['codigo'];
+        $passos = [
+            [$master, $central, sprintf($url('analise'), $codigo), []],
+            [$master, $central, sprintf($url('info'), $codigo), ['motivo' => 'SEGREDO-INFO quanto o cliente paga?']],
+            [$solicitante, $escritorio, sprintf($url('responderInfo'), $codigo), ['motivo' => 'SEGREDO-RESPOSTA orçamento apertado']],
+            [$master, $central, "/trabalho-externo/api/demandas/$codigo/propostas", ['valor' => '300']],
+            [$solicitante, $escritorio, sprintf($url('ajustes'), $codigo), ['motivo' => 'SEGREDO-AJUSTE baixar para 250,00']],
+            [$master, $central, "/trabalho-externo/api/demandas/$codigo/propostas", ['valor' => '250']],
+            [$solicitante, $escritorio, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'SEGREDO-CHAT fechamos em 250,00']],
+            [$solicitante, $escritorio, sprintf($url('aceitar'), $codigo), []],
+            [$master, $central, sprintf($url('pagamento'), $codigo), []],
+            [$master, $central, sprintf($url('iniciar'), $codigo), []],
+        ];
+        foreach ($passos as [$quem, $onde, $endereco, $corpo]) {
+            $this->logarComTenant($client, $quem, $onde);
+            $this->postarJson($client, $endereco, $corpo);
+            self::assertResponseIsSuccessful($endereco);
+        }
+
+        $this->logarComTenant($client, $master, $central);
+        $token = $this->convidar($client, $codigo, 'negocio@test.com', ['ver' => false, 'baixar' => false, 'enviar' => false, 'chat' => true, 'andamento' => true, 'concluir' => false]);
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'SEGREDO-ULTIMA o desconto fica entre nós']);
+        self::assertResponseIsSuccessful();
+
+        return [$client, $codigo, $master, $central, $solicitante, $escritorio, $token];
+    }
+
+    private function logarComoConvidado(KernelBrowser $client, User $convidado): void
+    {
+        $client->getCookieJar()->clear();
+        $client->loginUser($convidado);
+        $this->marcarTermosAceitos($client);
+    }
+
+    private function anexar(KernelBrowser $client, string $codigo, string $nome): void
+    {
+        $arquivo = tempnam(sys_get_temp_dir(), 'te');
+        file_put_contents($arquivo, '%PDF-1.4 x');
+        $client->request('POST', "/trabalho-externo/api/demandas/$codigo/documentos", [], ['documentos' => [new \Symfony\Component\HttpFoundation\File\UploadedFile($arquivo, $nome, 'application/pdf', null, true)]], ['HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax']);
+        self::assertResponseIsSuccessful();
+    }
+
+    /** Uma segunda demanda em execução, no mesmo cliente (o kernel não reinicia entre requisições). */
+    private function demandaEmExecucaoNoMesmoCliente(KernelBrowser $client): string
+    {
+        $escritorio = $this->criarTenant('Solicitante 2');
+        $central = $this->criarTenant('Central 2');
+        $solicitante = $this->criarUsuario($escritorio);
+        $master = $this->criarMaster($central);
+
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $codigo = $this->solicitar($client, self::solicitacaoValida())['codigo'];
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/analise");
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/propostas", ['valor' => '300']);
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/aceitar");
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/iniciar");
+
+        return $codigo;
+    }
+
     /** @return array{0: KernelBrowser, 1: string, 2: User, 3: \App\Entity\Tenant\Tenant, 4: User, 5: \App\Entity\Tenant\Tenant} */
     private function demandaEmExecucao(): array
     {

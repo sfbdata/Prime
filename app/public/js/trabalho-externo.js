@@ -701,7 +701,7 @@
         (dz.etapas || []).forEach(function (e) {
             marcos.appendChild(el('div', {
                 class: 'te-marco' + (e.feito ? ' is-feito' : '') + (e.atual ? ' is-atual' : ''),
-                title: e.rot + ' · ' + e.dt
+                title: e.dt ? e.rot + ' · ' + e.dt : e.rot
             }, [
                 el('span', { class: 'te-marco-bola' }, ic(e.ic)),
                 el('span', { class: 'te-marco-rot', text: e.rot }),
@@ -1075,7 +1075,7 @@
                 ]),
                 el('div', { class: 'te-hist-corpo' }, [
                     el('div', null, [el('b', { style: { color: h.cor }, text: h.para }), ' ', el('span', { class: 'te-hist-de', text: h.de })]),
-                    el('div', { class: 'te-hist-quem', text: h.quem + ' · ' + h.em }),
+                    el('div', { class: 'te-hist-quem', text: h.quem ? h.quem + ' · ' + h.em : h.em }),
                     !vazio(h.motivo) ? el('div', { class: 'te-hist-motivo', text: h.motivo }) : null
                 ])
             ]));
