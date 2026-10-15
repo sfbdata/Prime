@@ -390,7 +390,9 @@ class DemandaExterna
         }
         $this->convites->add($convite);
         $this->responsavel = $convite->getNome();
-        $this->registrar($autor, sprintf('Convite enviado para %s (%s).', $convite->getNome(), $convite->getEmail()), TipoMensagem::Sistema);
+        // Sem o e-mail: o registro é visto por externos, e "convites nunca aparecem para solicitantes
+        // ou convidados" (caixa "Sempre protegido" do desenho).
+        $this->registrar($autor, sprintf('Convite enviado para %s.', $convite->getNome()), TipoMensagem::Sistema);
     }
 
     /** O convidado perde o acesso; o histórico e os arquivos dele ficam. */

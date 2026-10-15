@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\GuardaDeConvites;
@@ -32,7 +33,13 @@ final class ReenviarConviteUseCase
         $convite->reenviar(ConviteDemanda::hashDoToken($token));
         $this->repositorio->salvar($demanda, flush: true);
 
-        $this->mailer->enviarConvite($convite, $token);
+        try {
+            $this->mailer->enviarConvite($convite, $token);
+        } catch (\RuntimeException) {
+            // O banco já está decidido (o e-mail sai depois do COMMIT): a pessoa precisa saber que o
+            // link não chegou, e o caminho para corrigir é reenviar (que gera um link novo).
+            throw new DadosInvalidos('O e-mail do convite não saiu. Tente reenviar de novo.');
+        }
 
         return $demanda;
     }

@@ -105,7 +105,8 @@ final class ApresentadorDeDemanda
             'botoes' => $this->politica->botoes($ctx, $d),
             'abas' => $this->abas($ctx),
             'campos' => $this->campos($ctx, $d),
-            'textos' => $this->filtrar([
+            // "Ver instruções" do convite: sem ele, o Convidado não lê descrição, objetivo nem instruções.
+            'textos' => !$this->politica->podeVerDocumentos($ctx, $d) ? [] : $this->filtrar([
                 ['DESCRIÇÃO DA ATIVIDADE', $d->getDescricao()],
                 ['OBJETIVO DA DILIGÊNCIA', (string) $d->getObjetivo()],
                 ['INSTRUÇÕES ESPECÍFICAS', (string) $d->getInstrucoes()],
@@ -115,7 +116,8 @@ final class ApresentadorDeDemanda
                 : [],
             'semDocumentos' => $d->getDocumentos() === [],
             'podeAnexar' => $this->politica->podeAnexar($ctx, $d),
-            'propostas' => $this->propostas($ctx, $d),
+            // O Convidado não tem a aba Proposta: valores e condições NÃO saem para ele, nem no JSON.
+            'propostas' => $ctx->perfil === Perfil::Convidado ? [] : $this->propostas($ctx, $d),
             'podePropor' => $this->politica->podePropor($ctx, $d),
             'propostaTitulo' => $d->getPropostas() !== [] ? sprintf('Nova versão da proposta (v%d)', $d->proximaVersaoDeProposta()) : 'Proposta comercial',
             'checklist' => array_map(static fn (array $i): array => ['t' => $i['t'], 'ok' => $i['ok']], $d->getChecklist()),
@@ -248,7 +250,7 @@ final class ApresentadorDeDemanda
     {
         $visiveis = array_filter(
             $d->getMensagens(),
-            static fn (MensagemDemanda $m): bool => $ctx->ehInterno() || $m->getTipo() !== TipoMensagem::Interna,
+            fn (MensagemDemanda $m): bool => $this->mensagemVisivel($ctx, $d, $m),
         );
 
         return array_values(array_map(function (MensagemDemanda $m) use ($ctx): array {
@@ -275,6 +277,27 @@ final class ApresentadorDeDemanda
                 },
             ];
         }, $visiveis));
+    }
+
+    /**
+     * Nota interna nunca sai da Central. O Convidado lê o chat só da aceitação do convite em diante
+     * (o que veio antes, inclusive o registro da proposta com o valor, é da Central com o cliente), e
+     * sem "Ver instruções" não lê os registros de arquivo (eles nomeiam os documentos).
+     */
+    private function mensagemVisivel(Contexto $ctx, DemandaExterna $d, MensagemDemanda $m): bool
+    {
+        if ($ctx->ehInterno()) {
+            return true;
+        }
+        if ($m->getTipo() === TipoMensagem::Interna) {
+            return false;
+        }
+        if ($ctx->perfil !== Perfil::Convidado) {
+            return true;
+        }
+        return $ctx->convite !== null
+            && $ctx->convite->mensagemVisivel($m)
+            && ($m->getTipo() !== TipoMensagem::Arquivo || $this->politica->podeVerDocumentos($ctx, $d));
     }
 
     /** @return list<array<string, mixed>> */

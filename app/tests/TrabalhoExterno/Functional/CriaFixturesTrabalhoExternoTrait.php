@@ -45,6 +45,8 @@ trait CriaFixturesTrabalhoExternoTrait
     {
         $em = $this->em();
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        // O EntityManager é trocado entre requisições: o escritório tem de vir do EM atual.
+        $tenant = $em->contains($tenant) ? $tenant : $em->find(Tenant::class, $tenant->getId());
 
         $role = new TenantRole();
         $role->setTenant($tenant);

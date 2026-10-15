@@ -143,7 +143,7 @@ e o **hash** (SHA-256) do token. O token em claro só existe no e-mail.
 - Quem convida/revoga/reenvia: Master, ou Equipe com `equipe.convidar`, em demanda aceita ou em execução.
 - Convidar revoga o convite ativo anterior da mesma demanda (o desenho tem um executor por vez) e põe o
   nome do convidado como responsável. Revogar corta o acesso na hora e limpa o responsável. Tudo deixa
-  registro no chat. Reenviar manda o mesmo link de novo (até 3 vezes).
+  registro no chat. Reenviar gera um link NOVO (o banco só guarda o hash; o antigo deixa de valer), até 3 vezes, e não vale para convite vencido. Reenviar e revogar valem em qualquer situação (`c.gerir` do desenho); convidar, só em aceita ou em execução. Se o e-mail não sair, o convite fica registrado e a tela pede para reenviar.
 - O convite NÃO cria vínculo (`UserTenant`) com escritório nenhum. Acesso de convidado nunca dá acesso a
   outro módulo.
 
@@ -163,9 +163,14 @@ aceita, em execução, validação e concluída. Sem escritório escolhido, as r
 passam pela guarda de escritório (allowlist do `TenantContextValidatorListener`), e só o perfil
 Convidado resolve nesse caso. Aba bloqueada para externos (visibilidade ≠ todos) vale para ele também.
 
-Permissões do Convidado: documentos listados com "ver"; download com "ver" e "baixar"; anexar com
+Permissões do Convidado: descrição, objetivo, instruções e documentos listados com "ver"; download com "ver" e "baixar"; anexar com
 "enviar"; chat com "conversar"; checklist e andamento com "registrar andamento"; "Marcar como
 concluída" (vai para validação) com "concluir"; "Informar impedimento" e "Solicitar prorrogação"
-sempre em execução. Sem abas Proposta e WhatsApp; contato do solicitante só com `priv.contatoConv`.
+sempre em execução. Sem abas Proposta e WhatsApp, e as propostas não saem nem no JSON; contato do
+solicitante só com `priv.contatoConv`. **O chat aparece para ele só da aceitação do convite em diante**
+(o que veio antes, inclusive o registro da proposta com o valor, é da Central com o cliente; decisão
+de segurança a confirmar pelo dono). Registros de arquivo só com "ver". O registro "Convite enviado
+para Fulano." não leva o e-mail (o desenho promete que convites não aparecem a externos).
+Quem já é Solicitante do PRÓPRIO escritório da demanda continua vendo-a como Solicitante, mesmo convidado.
 
 E-mail: `TrabalhoExternoMailer`, remetente da casa (`IdentidadeDeEmail`). Em dev o `MAILER_DSN` é nulo.

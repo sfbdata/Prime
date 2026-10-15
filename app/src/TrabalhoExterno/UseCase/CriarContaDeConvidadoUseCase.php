@@ -11,6 +11,7 @@ use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
 use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -68,7 +69,11 @@ final class CriarContaDeConvidadoUseCase
         $this->em->persist($usuario);
 
         $convite->aceitar($usuario, $hoje);
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException) {
+            throw new DadosInvalidos('Já existe uma conta com este e-mail. Entre com ela para aceitar o convite.');
+        }
 
         $this->registrarAceite->executar(new RegistrarAceiteTermoInput(user: $usuario, ip: $ip ?? '', userAgent: $userAgent, tenant: null));
 

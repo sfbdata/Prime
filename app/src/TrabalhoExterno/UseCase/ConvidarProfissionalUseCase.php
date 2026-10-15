@@ -55,7 +55,13 @@ final class ConvidarProfissionalUseCase
         $demanda->convidar($convite, $ctx->autor());
         $this->repositorio->salvar($demanda, flush: true);
 
-        $this->mailer->enviarConvite($convite, $token);
+        try {
+            $this->mailer->enviarConvite($convite, $token);
+        } catch (\RuntimeException) {
+            // O banco já está decidido (o e-mail sai depois do COMMIT): a pessoa precisa saber que o
+            // link não chegou, e o caminho para corrigir é reenviar (que gera um link novo).
+            throw new DadosInvalidos('O convite foi registrado, mas o e-mail não saiu. Use "Reenviar convite".');
+        }
 
         return $demanda;
     }

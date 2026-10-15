@@ -66,6 +66,14 @@ class ConviteDemanda
     #[ORM\Column]
     private int $reenvios = 0;
 
+    /**
+     * Id da última mensagem do chat no momento do aceite: o Convidado lê só as POSTERIORES. Por id e
+     * não por horário, porque as datas são gravadas sem fração de segundo (um registro do mesmo
+     * segundo do aceite passaria).
+     */
+    #[ORM\Column]
+    private int $ultimaMensagemAntesDoAceite = 0;
+
     /** @param array<string, bool> $permissoes */
     public function __construct(
         #[ORM\ManyToOne(targetEntity: DemandaExterna::class, inversedBy: 'convites')]
@@ -128,6 +136,9 @@ class ConviteDemanda
         }
         $this->situacao = SituacaoConvite::Aceito;
         $this->convidado = $usuario;
+        foreach ($this->demanda->getMensagens() as $m) {
+            $this->ultimaMensagemAntesDoAceite = max($this->ultimaMensagemAntesDoAceite, (int) $m->getId());
+        }
         $this->aceitoEm = new \DateTimeImmutable();
     }
 
@@ -144,6 +155,9 @@ class ConviteDemanda
     {
         if ($this->situacao === SituacaoConvite::Revogado) {
             throw new TransicaoInvalida('Convite revogado não pode ser reenviado.');
+        }
+        if ($this->validade < new \DateTimeImmutable('today')) {
+            throw new TransicaoInvalida('Convite vencido: envie um novo convite.');
         }
         if ($this->reenvios >= self::MAX_REENVIOS) {
             throw new TransicaoInvalida(sprintf('O convite já foi reenviado %d vezes.', self::MAX_REENVIOS));
@@ -201,6 +215,17 @@ class ConviteDemanda
     public function getConvidado(): ?User
     {
         return $this->convidado;
+    }
+
+    public function getAceitoEm(): ?\DateTimeImmutable
+    {
+        return $this->aceitoEm;
+    }
+
+    /** O Convidado lê esta mensagem? (só as posteriores ao aceite; ainda não gravada = nova) */
+    public function mensagemVisivel(MensagemDemanda $m): bool
+    {
+        return $this->aceitoEm !== null && ($m->getId() === null || $m->getId() > $this->ultimaMensagemAntesDoAceite);
     }
 
     public function getNomeAutor(): string
