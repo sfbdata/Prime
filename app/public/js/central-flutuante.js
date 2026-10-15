@@ -167,6 +167,9 @@
                 if (q.y + d.h > window.innerHeight - 8) { q.y = Math.max(8, window.innerHeight - d.h - 8); }
                 if (q.x + d.w < 160) { q.x = 8; }
                 if (q.x > window.innerWidth - 160) { q.x = Math.max(8, window.innerWidth - d.w - 8); }
+                // Tela estreita: o desenho reduz a largura a innerWidth-16 (margem de 8px), mas a posição padrão
+                // (innerWidth-18-w) dá -2 e corta 2px. Quando cabe, prende a 8px — desvio registrado no HANDOFF.
+                if (!prefs.win && q.x < 8 && d.w <= window.innerWidth - 16) { q.x = 8; }
                 st.left = q.x + 'px'; st.top = q.y + 'px'; st.width = d.w + 'px'; st.height = d.h + 'px';
             }
             var max = prefs.janela === 'max';
@@ -335,10 +338,10 @@
                 cab.removeEventListener('pointerup', up);
                 cab.removeEventListener('pointercancel', up);
                 document.body.style.userSelect = '';
+                var r = janela.getBoundingClientRect();   // antes de devolver a transição (ver as alças)
                 janela.classList.remove('bj-flutuante--movendo');
                 if (guia) { guia.remove(); }
                 if (!moveu) { return; }
-                var r = janela.getBoundingClientRect();
                 if (alvo === 'max') {
                     prefs.janela = 'max';
                     prefs.snap = null;
@@ -396,8 +399,9 @@
                     g.removeEventListener('pointerup', up);
                     g.removeEventListener('pointercancel', up);
                     document.body.style.userSelect = '';
-                    janela.classList.remove('bj-flutuante--movendo');
+                    // Mede ANTES de devolver a transição de largura/altura: depois dela a medida sai a do tamanho antigo.
                     var r = janela.getBoundingClientRect();
+                    janela.classList.remove('bj-flutuante--movendo');
                     prefs.tam = { w: Math.round(r.width), h: Math.round(r.height) };
                     prefs.win = { x: Math.round(r.left), y: Math.round(r.top) };
                     prefs.snap = null;

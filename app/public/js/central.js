@@ -547,8 +547,13 @@
         function marcarLida() {
             // Janela flutuante fechada não "lê": a conversa só vira lida quando está de fato à vista.
             if (!estado.aberta || document.hidden || !estado.janelaAberta || estado.aberta.ultimaId === 0) { return; }
-            pedir(urls.base + '/' + estado.aberta.id + '/lida', { metodo: 'POST', corpo: { ateId: estado.aberta.ultimaId } })
-                .then(carregarConversas)
+            var id = estado.aberta.id;
+            pedir(urls.base + '/' + id + '/lida', { metodo: 'POST', corpo: { ateId: estado.aberta.ultimaId } })
+                .then(function () {
+                    // Ler a conversa lê as menções dela (regra do servidor): o "@" sai já, sem esperar o polling.
+                    estado.comMencao.delete(id);
+                    return carregarConversas();
+                })
                 .catch(function () { /* a próxima volta do polling tenta de novo */ });
         }
 
@@ -1337,6 +1342,10 @@
             pedir(urls.contatos).then(function (d) { estado.contatos = d.contatos || []; }),
             inicializarCursor()
         ]).then(function () {
+            // As menções chegam pela primeira chamada do polling, que pode responder DEPOIS da lista: refaz a lista e o
+            // lançador com elas (sem isto o "@n" só apareceria no próximo polling, 30 s depois com a janela fechada).
+            if (estado.tela === 'lista') { desenharLista(); }
+            emitirContadores(0);
             // ?conversa=N (link da notificação de menção): só abre se a conversa estiver na MINHA lista.
             var alvo = abrirAoCarregar ? estado.conversas.filter(function (c) { return c.id === abrirAoCarregar; })[0] : null;
             if (alvo) { abrirConversa(alvo); }
