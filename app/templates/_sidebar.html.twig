@@ -67,6 +67,21 @@
                     </li>
                 {% endif %}
 
+                {# Trabalho Externo: logo abaixo do Push Processual, com o selo "NOVO" do desenho
+                   (`06 - Trabalho Externo 1.0`, menu lateral). O Master global passa pelo bypass de
+                   super admin; a tela decide o resto (aba suspensa, só equipe etc.). #}
+                {% if can_access_module('trabalho_externo') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('trabalho_externo_index') }}"
+                           data-busca-alias="correspondente diligência demanda externa"
+                           class="pje-menu-link {{ currentRoute starts with 'trabalho_externo_' ? 'active' : '' }}">
+                            <i class="bi bi-geo-alt pje-nav-icon"></i>
+                            <span>Trabalho Externo</span>
+                            <span class="pje-menu-novo" style="margin-left:auto; font-size:10px; font-weight:bold; color:#0a6fa0; background:#e5f1f7; padding:1px 6px; border-radius:3px;">NOVO</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if can_access_module('cobrancas') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('cobranca_carteira_index') }}"
