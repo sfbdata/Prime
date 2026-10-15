@@ -46,6 +46,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             fotosPerfilDir: $raiz . '/perfil',
             cobrancasUploadsDir: $raiz . '/cobrancas',
             kanbanUploadsDir: $raiz . '/kanban',
+            trabalhoExternoUploadsDir: $raiz . '/trabalho-externo',
         );
     }
 
@@ -86,6 +87,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'kanban_anexo (plano)' => [
             CategoriaDeArquivo::KANBAN_ANEXO, $tenant, 'a1b2.pdf',
             $raiz . '/kanban/a1b2.pdf',
+        ];
+        yield 'trabalho_externo_documento (plano)' => [
+            CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO, $tenant, 'a1b2.pdf',
+            $raiz . '/trabalho-externo/a1b2.pdf',
         ];
     }
 
@@ -157,7 +162,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         $this->resolvedorDeProducao()->caminhoDe($chave);
     }
 
-    #[TestDox('as 9 categorias do enum estão cobertas: 8 resolvem, 1 lança')]
+    #[TestDox('as 10 categorias do enum estão cobertas: 9 resolvem, 1 lança')]
     public function testTodasAsCategoriasEstaoCobertas(): void
     {
         $cobertas = [];
@@ -191,6 +196,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             'fotos_perfil_dir'           => '%kernel.project_dir%/public/uploads/perfil',
             'cobrancas_uploads_dir'      => '%kernel.project_dir%/public/uploads/cobrancas',
             'kanban_uploads_dir'         => '%kernel.project_dir%/public/uploads/kanban',
+            'trabalho_externo_uploads_dir' => '%kernel.project_dir%/public/uploads/trabalho-externo',
         ];
 
         foreach ($esperados as $parametro => $valor) {

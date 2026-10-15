@@ -28,6 +28,7 @@ class PermissionFixture extends Fixture
         ['code' => 'modules.bi.view',            'description' => 'Acesso ao módulo BI (futuro)',                'group' => 'modules'],
         ['code' => 'modules.cobrancas.view',     'description' => 'Acesso ao módulo Gestão de Cobranças',        'group' => 'modules'],
         ['code' => 'modules.inteligencia.view',  'description' => 'Usar a BlueJus IA',                          'group' => 'modules'],
+        ['code' => 'modules.trabalho_externo.view', 'description' => 'Acesso ao módulo Trabalho Externo (solicitar e acompanhar demandas)', 'group' => 'modules'],
 
         // --- recursos ---
         ['code' => 'resources.pasta.view',       'description' => 'Visualizar pasta específica',                 'group' => 'resources'],
