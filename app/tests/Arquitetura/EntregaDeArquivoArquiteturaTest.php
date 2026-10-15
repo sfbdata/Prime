@@ -23,7 +23,6 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      * Quem ainda pode montar `BinaryFileResponse` com as próprias mãos.
      *
      *  - `EntregaDeArquivo` — é quem deve;
-     *  - `ArquivoStorageService` — o shim de D2, com o `servir()` que ninguém mais chama; sai na E2.8;
      *  - `EntregaDeArquivoGerado` (aba Documentos, D5 do .zip) — entrega arquivo GERADO pela
      *    aplicação, nunca persistido: o tipo do parâmetro (`ArquivoGeradoParaEntrega`) só nasce de
      *    uma `AreaTemporariaPrivada`, e é o único lugar que liga `deleteFileAfterSend` — o .zip
@@ -32,7 +31,6 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
     private const QUEM_MONTA_RESPOSTA_DE_ARQUIVO = [
         'src/Shared/Http/EntregaDeArquivo.php',
         'src/Shared/Http/EntregaDeArquivoGerado.php',
-        'src/Shared/Service/ArquivoStorageService.php',
     ];
 
     #[TestDox('ninguém em src/ chama mais o servir() antigo — as 15 rotas passam pela EntregaDeArquivo')]
@@ -47,7 +45,7 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      * `StreamedResponse` montado à mão — hoje o único do sistema é exportação gerada (folha de
      * ponto), não arquivo persistido.
      */
-    #[TestDox('só a EntregaDeArquivo despeja arquivo: BinaryFileResponse, file(), readfile(), fpassthru() (fora a exceção datada do shim)')]
+    #[TestDox('só a EntregaDeArquivo despeja arquivo: BinaryFileResponse, file(), readfile(), fpassthru() (e a entrega de arquivo gerado)')]
     public function testSoAEntregaMontaRespostaDeArquivo(): void
     {
         $achados = $this->arquivosQueCasam('/\bnew\s+\\\\?(?:Symfony\\\\Component\\\\HttpFoundation\\\\)?BinaryFileResponse\b|\$this->file\s*\(|\b(?:readfile|fpassthru)\s*\(/');

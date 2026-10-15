@@ -18,7 +18,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * e alguns documentos pertencem à operação como um todo, não a um caso específico). Lista simples
  * e cronológica (sem drill-down), exibida logo abaixo da configuração da carteira.
  *
- * A mecânica de arquivo é 100% reusada de `EnviarDocumentoUseCase`/`ArquivoStorageInterface`: o
+ * A mecânica de arquivo é 100% reusada de `EnviarDocumentoUseCase`/`ArmazenamentoDeArquivos`: o
  * arquivo físico mora no MESMO diretório flat dos documentos de caso — `<cobrancasUploadsDir>/
  * <tenantId>/<hash>` (decisão deliberada: a purga apaga `cobrancas/<tenantId>` inteiro, por prefixo
  * — `ArmazenamentoComPrefixo::excluirPrefixo`, desde a E2.5 —; um diretório fora dele deixaria PII

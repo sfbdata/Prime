@@ -14,7 +14,7 @@ use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
  *
  * Conviveu de propósito com `ArquivoStorageService` — o shim de D2 — enquanto os 33 consumidores do
  * início da E2 migravam fatia a fatia: os dois escrevem no mesmo disco, pelo mesmo layout. **Desde a
- * E2.6C o shim não atende mais ninguém em produção** (o último era o envio ao Drive) e sai na E2.8.
+ * E2.6C o shim não atendia mais ninguém em produção** (o último era o envio ao Drive), e saiu na E2.8.
  * Esta classe
  * **não** implementa a interface antiga — duas implementações da mesma interface quebrariam o
  * autowiring por interface e derrubariam todos de uma vez.
@@ -22,7 +22,7 @@ use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
  * ## O que ele faz melhor que o antigo, sem mudar nenhum caminho
  *
  *  - **escrita atômica**: grava num temporário no MESMO diretório e faz `rename()` para o lugar.
- *    O antigo usa `file_put_contents` direto e sem checar retorno (`ArquivoStorageService.php:28`) —
+ *    O antigo usava `file_put_contents` direto e sem checar retorno —
  *    disco cheio no meio deixava arquivo parcial, e em silêncio;
  *  - **erro não some**: toda falha de I/O vira `FalhaDeArmazenamento`;
  *  - **metadados no retorno**: tamanho e MIME medidos DEPOIS da escrita, o que remove o motivo de
