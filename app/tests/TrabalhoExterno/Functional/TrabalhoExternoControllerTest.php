@@ -21,19 +21,46 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
 {
     use CriaFixturesTrabalhoExternoTrait;
 
-    #[TestDox('sem a permissão do módulo: a tela redireciona e a API responde 403')]
+    #[TestDox('sem a permissão do módulo: aviso amigável na própria tela (403), sem mandar para módulo que também está fechado; a API responde 403')]
     public function testSemPermissao(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
+        // Sem permissão NENHUMA: antes, o redirect para "/" levava ao Expediente, que também é
+        // fechado para ele, e a pessoa via a página técnica 403 do Symfony.
         $user = $this->criarUsuario($tenant, []);
         $this->logarComTenant($client, $user, $tenant);
 
         $client->request('GET', '/trabalho-externo');
-        self::assertResponseRedirects('/');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextContains('.te-sem-acesso h1', 'Você não tem acesso ao Trabalho Externo');
+        self::assertSelectorTextContains('.te-sem-acesso', 'administrador do seu escritório');
+        self::assertSelectorNotExists('#tePagina', 'a tela do módulo não é montada');
+        self::assertStringNotContainsString('data-painel', (string) $client->getResponse()->getContent());
 
         $client->request('GET', '/trabalho-externo/api/painel');
         self::assertResponseStatusCodeSame(403);
+        self::assertSame(false, $this->json($client)['ok'] ?? null, 'a API continua em JSON');
+    }
+
+    #[TestDox('sem escritório e sem convite: o mesmo aviso, com a dica do link do convite')]
+    public function testSemEscritorioESemConvite(): void
+    {
+        $client = static::createClient();
+        $avulso = new \App\Entity\Auth\User();
+        $avulso->setEmail('avulso_' . uniqid() . '@test.com');
+        $avulso->setFullName('Conta avulsa');
+        $avulso->setRoles(['ROLE_USER']);
+        $avulso->setIsActive(true);
+        $avulso->setPassword('x');
+        $this->em()->persist($avulso);
+        $this->em()->flush();
+        $client->loginUser($avulso);
+        $this->marcarTermosAceitos($client);
+
+        $client->request('GET', '/trabalho-externo');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextContains('.te-sem-acesso', 'abra o link do convite');
     }
 
     #[TestDox('o super admin é o Master em qualquer escritório, mesmo sem a permissão do módulo')]

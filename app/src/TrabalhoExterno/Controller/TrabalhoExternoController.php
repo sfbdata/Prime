@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\TrabalhoExterno\Controller;
 
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Service\Tenant\TenantContext;
 use App\Shared\Http\EntregaDeArquivo;
 use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
@@ -21,8 +22,9 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Módulo Trabalho Externo: a tela (uma página que o `trabalho-externo.js` desenha) e as leituras.
  *
- * Toda rota passa pelo perfil resolvido no servidor (`FabricaDeContexto`); sem perfil, a tela
- * redireciona com aviso e a API responde 403. Demanda de outro escritório é 404.
+ * Toda rota passa pelo perfil resolvido no servidor (`FabricaDeContexto`); sem perfil, a tela e o
+ * link de documento mostram o aviso de acesso negado (403, página do módulo) e a API responde 403
+ * em JSON. Demanda de outro escritório é 404.
  */
 #[Route('/trabalho-externo')]
 final class TrabalhoExternoController extends AbstractController
@@ -37,6 +39,7 @@ final class TrabalhoExternoController extends AbstractController
         private readonly PoliticaDaDemanda $politica,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly EntregaDeArquivo $entrega,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -45,9 +48,7 @@ final class TrabalhoExternoController extends AbstractController
     {
         $ctx = $this->contextoOuNulo();
         if ($ctx === null) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo Trabalho Externo.');
-
-            return $this->redirectToRoute('homepage');
+            return $this->paginaSemAcesso();
         }
 
         return $this->render('trabalho_externo/index.html.twig', [
@@ -76,7 +77,7 @@ final class TrabalhoExternoController extends AbstractController
     {
         $ctx = $this->contextoOuNulo();
         if ($ctx === null) {
-            throw $this->createAccessDeniedException();
+            return $this->paginaSemAcesso();
         }
 
         try {
@@ -100,5 +101,17 @@ final class TrabalhoExternoController extends AbstractController
         }
 
         throw $this->createNotFoundException();
+    }
+
+    /**
+     * O aviso de acesso negado, na própria página do módulo. NÃO redireciona para "/": de lá a
+     * pessoa ia ao Expediente, que pode estar fechado para ela também, e caía na página técnica
+     * 403 do Symfony sem ver aviso nenhum.
+     */
+    private function paginaSemAcesso(): Response
+    {
+        return $this->render('trabalho_externo/sem_acesso.html.twig', [
+            'semEscritorio' => $this->tenantContext->getCurrentTenant() === null,
+        ], new Response('', Response::HTTP_FORBIDDEN));
     }
 }
