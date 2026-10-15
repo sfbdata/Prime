@@ -143,6 +143,10 @@
 }
 .exp-body .expediente-menu-link.active:not(.com-cor),
 .exp-body .expediente-submenu-link.active:not(.com-cor) { background: var(--ex-azul-claro) !important; }
+/* E8b: "Todas as pastas" selecionada é outra coisa no dc (medido): fundo #e8f3f9 e texto azul, peso normal,
+   sem a faixa — a faixa e o negrito são dos marcadores. */
+.exp-body .expediente-menu-link[data-painel] { min-height: 36px; }
+.exp-body .expediente-menu-link[data-painel].active { font-weight: 400; box-shadow: none; }
 .exp-body .expediente-icon,
 .exp-body .expediente-sub-icon { color: var(--ex-rotulo); }
 .exp-body .expediente-menu-link.active .expediente-icon,

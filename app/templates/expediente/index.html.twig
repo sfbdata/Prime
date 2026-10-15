@@ -1239,7 +1239,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var linkTodasPastas = document.querySelector('.expediente-menu-link[data-painel]');
         if (linkTodasPastas) {
-            linkTodasPastas.classList.add('active');
+            marcarNoTrilho(linkTodasPastas);
             carregarPainel(linkTodasPastas.dataset.painel, 'Todas as pastas');
         }
     })();
@@ -1248,8 +1248,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.expediente-menu-link[data-painel]').forEach(function (link) {
         link.addEventListener('click', function (e) {
             e.preventDefault();
-            document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
-            this.classList.add('active');
+            marcarNoTrilho(this);
             carregarPainel(this.dataset.painel, 'Todas as pastas');
         });
     });
@@ -1261,8 +1260,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (subLink) {
             e.preventDefault();
             e.stopPropagation();
-            document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link').forEach(function (l) { l.classList.remove('active'); });
-            subLink.classList.add('active');
+            marcarNoTrilho(subLink);
             var url = urlPainelMarcador.replace('/0/', '/' + subLink.dataset.marcadorId + '/');
             var nomeSubLink = subLink.querySelector('span') ? subLink.querySelector('span').textContent.trim() : '';
             carregarPainel(url, nomeSubLink);
@@ -1658,8 +1656,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /* E8b: o item aberto fica marcado no trilho (LX-TRI-05). Quem chama marca ANTES do carregarPainel; ele
+       apagava a marca (só da raiz) logo em seguida, e o selecionado do desenho nunca aparecia. Raiz e
+       sub-marcador saem juntos: abrir um marcador raiz deixava marcado o sub-marcador aberto antes. */
+    function marcarNoTrilho(link) {
+        document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link').forEach(function (l) { l.classList.remove('active'); });
+        if (link) link.classList.add('active');
+    }
+
     function carregarPainel(url, nomeAtivo) {
-        document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
         painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
         if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -1920,10 +1925,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var submenu = document.getElementById('grupo-' + grupo);
         var chevron = this.querySelector('.expediente-chevron');
 
-        document.querySelectorAll('.expediente-menu-link').forEach(function (l) {
-            l.classList.remove('active');
-        });
-        this.classList.add('active');
+        marcarNoTrilho(this);
 
         // Extrai o id do marcador a partir do grupo ("pasta-{id}")
         var marcadorId = grupo ? grupo.replace('pasta-', '') : null;

@@ -63,6 +63,7 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         yield 'Cliente 2fr (dc L.146)' => ['col:nth-child(2) { width: 40% !important; }'];
         yield 'Ação 1.5fr (dc L.146)' => ['col:nth-child(3) { width: 30% !important; }'];
         yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
+        yield '"Todas as pastas" selecionado: só fundo e texto azul, peso normal, sem faixa (dc, medido)' => [".exp-body .expediente-menu-link[data-painel] { min-height: 36px; }\n.exp-body .expediente-menu-link[data-painel].active { font-weight: 400; box-shadow: none; }"];
         yield '"a" entre as datas #7d909d (dc L.109)' => ['--ex-periodo-sep:  #7d909d;'];
     }
 
@@ -165,6 +166,20 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
             self::assertDoesNotMatchRegularExpression('/[—–]/u', $literal, 'travessão em texto da pergunta: ' . $literal);
         }
         self::assertStringContainsString("moldura: 'alerta'", $m[0], 'a exclusão usa a moldura de alerta do desenho');
+    }
+
+    #[TestDox('trilho: o item aberto fica marcado (LX-TRI-05); carregarPainel não apaga a marca que quem chamou acabou de pôr')]
+    public function testItemAbertoFicaMarcadoNoTrilho(): void
+    {
+        $t = self::ler('templates/expediente/index.html.twig');
+        preg_match('/function carregarPainel\(url, nomeAtivo\) \{.*?\n    \}/s', $t, $m);
+        self::assertNotEmpty($m);
+        self::assertStringNotContainsString("classList.remove('active')", $m[0], 'apagava a marca do item recém-clicado');
+
+        self::assertStringContainsString("function marcarNoTrilho(link) {\n        document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link')", $t, 'limpa raiz e sub-marcador juntos');
+        self::assertSame(5, substr_count($t, 'marcarNoTrilho('), 'definição + Todas as pastas (início e clique) + sub-marcador + marcador raiz');
+        self::assertStringContainsString('marcarNoTrilho(subLink);', $t);
+        self::assertStringContainsString('marcarNoTrilho(this);', $t);
     }
 
     #[TestDox('período: "a" entre as datas, como o desenho (dc L.109), sem travessão (regra do dono de 15/10)')]
