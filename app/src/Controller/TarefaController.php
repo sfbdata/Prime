@@ -18,7 +18,10 @@ use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
 use App\Tarefa\UseCase\DesfazerReaberturaDaMetaUseCase;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
@@ -28,27 +31,24 @@ use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
+use App\Tarefa\Armazenamento\ChavesDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\Service\TarefaTimelineAssembler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 #[Route('/tarefas')]
 final class TarefaController extends AbstractController
 {
     public function __construct(
-        private readonly ParameterBagInterface $parameterBag,
-        private readonly CaminhoDeAnexoDeTarefa $caminhoDeAnexo,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TarefaTimelineAssembler $timelineAssembler,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
@@ -352,9 +352,12 @@ final class TarefaController extends AbstractController
         $arquivoMensagem = $request->files->get('arquivo_mensagem');
         $arquivoAnexoPath = null;
 
+        // E2.7: o storage cunha o nome (D8) e a coluna guarda o mesmo formato de sempre,
+        // `/uploads/tarefas/chat/<nome>`. Upload inválido continua sendo ignorado em silêncio.
         if ($arquivoMensagem instanceof UploadedFile && $arquivoMensagem->isValid()) {
-            $uploaded = $this->uploadFiles([$arquivoMensagem], 'public/uploads/tarefas/chat');
-            $arquivoAnexoPath = $uploaded[0] ?? null;
+            $upload           = FonteDeUploadHttp::de($arquivoMensagem);
+            $armazenado       = $upload->gravarEm($this->armazenamento, ChavesDeTarefa::novoAnexo($tarefa, $upload->extensao));
+            $arquivoAnexoPath = ChavesDeTarefa::valorDaColuna($armazenado->chave);
         }
 
         // `estaVazio` e não `!== ''`: o editor entrega `<p><br></p>` quando nada foi digitado.
@@ -545,11 +548,8 @@ final class TarefaController extends AbstractController
      * de quem clicasse. A resposta segue a MESMA política da `EntregaDeArquivo` (SEC-003): nosniff
      * sempre e `CSP: sandbox` para todo tipo que não seja PDF, imagem raster, áudio ou vídeo.
      *
-     * Por que não chama `EntregaDeArquivo::resposta()`: o anexo de tarefa guarda caminho público
-     * com `/`, que `ChaveDeArquivo` recusa, e a conversão para chave é a E2.7 (D5 da spec de
-     * storage). Até lá a decisão de sandbox vem de `EntregaDeArquivo::exigeSandbox()` — uma regra
-     * só, sem cópia — e o `Content-Type` é o palpite da própria `BinaryFileResponse` no
-     * `prepare()`, o mesmo tipo que a decisão de sandbox consultou.
+     * Desde a E2.7 a resposta é a própria `EntregaDeArquivo`: a chave sai de `ChavesDeTarefa`, que
+     * traduz o caminho público da coluna sem relaxar `ChaveDeArquivo` (D5).
      */
     #[Route('/mensagem/{id}/arquivo/visualizar', name: 'tarefa_mensagem_arquivo_view', methods: ['GET'])]
     public function viewArquivoMensagem(TarefaMensagem $mensagem): Response
@@ -559,21 +559,7 @@ final class TarefaController extends AbstractController
         $tenant = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
 
-        $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
-
-        if ($caminho === null || !file_exists($caminho)) {
-            throw $this->createNotFoundException('Arquivo não encontrado.');
-        }
-
-        $response = new BinaryFileResponse($caminho);
-        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, basename($caminho));
-        $response->headers->set('X-Content-Type-Options', 'nosniff');
-
-        if (EntregaDeArquivo::exigeSandbox($response->getFile()->getMimeType() ?: 'application/octet-stream')) {
-            $response->headers->set('Content-Security-Policy', EntregaDeArquivo::CSP_SANDBOX);
-        }
-
-        return $response;
+        return $this->entregarAnexo($mensagem, inline: true);
     }
 
     /**
@@ -587,13 +573,7 @@ final class TarefaController extends AbstractController
         $tenant = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
 
-        $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
-
-        if ($caminho === null || !file_exists($caminho)) {
-            throw $this->createNotFoundException('Arquivo não encontrado.');
-        }
-
-        return $this->file($caminho, basename($caminho), ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+        return $this->entregarAnexo($mensagem, inline: false);
     }
 
     private function assertAccess(User $user): Tenant
@@ -633,46 +613,20 @@ final class TarefaController extends AbstractController
     }
 
     /**
-     * Delegado a `CaminhoDeAnexoDeTarefa`, que aplica allowlist + normalização + confinamento.
-     * A lógica vive num serviço porque a guarda contra travessia não é testável pela rota: o
-     * roteador do Symfony normaliza `../..` antes do controller (ver o comentário em
-     * `ServirFotoControllerTest::testServirFotoComPathTraversalRetorna404`).
+     * Visualizar e baixar entregam pela chave, depois da autorização (INV-5). Valor que a fábrica
+     * recusa (formato desconhecido, `admin/` legado, travessia) é, para quem pede, o mesmo que não
+     * existir: 404. Ausência também é 404 (`EntregaDeArquivo`); pane do storage sobe (D10).
+     *
+     * O nome para download é o de sempre: o último segmento do valor guardado na coluna.
      */
-    private function resolverCaminhoArquivo(string $caminhoPublico): ?string
+    private function entregarAnexo(TarefaMensagem $mensagem, bool $inline): Response
     {
-        return $this->caminhoDeAnexo->resolver($caminhoPublico);
-    }
-
-    /**
-     * @param mixed[] $files
-     * @return string[]
-     */
-    private function uploadFiles(array $files, string $relativeTargetDir): array
-    {
-        $projectDir = rtrim((string) $this->parameterBag->get('kernel.project_dir'), '/');
-        $relativeTargetDir = ltrim($relativeTargetDir, '/');
-        $targetDir = $projectDir . '/' . $relativeTargetDir;
-
-        if (!is_dir($targetDir)) {
-            if (!mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-                throw new \RuntimeException('Não foi possível criar o diretório de upload: ' . $targetDir);
-            }
+        try {
+            $chave = ChavesDeTarefa::anexoDeMensagem($mensagem);
+        } catch (ChaveDeArquivoInvalida) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        $paths = [];
-
-        foreach ($files as $file) {
-            if (!$file instanceof UploadedFile || !$file->isValid()) {
-                continue;
-            }
-
-            $extension = $file->guessExtension() ?: 'bin';
-            $filename  = uniqid('arquivo_', true) . '.' . $extension;
-            $file->move($targetDir, $filename);
-            $publicBase = $projectDir . '/public';
-            $paths[] = str_replace($publicBase, '', $targetDir) . '/' . $filename;
-        }
-
-        return $paths;
+        return $this->entrega->resposta($chave, $chave->nome, $inline);
     }
 }

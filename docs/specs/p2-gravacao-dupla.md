@@ -256,8 +256,9 @@ todas em `/uploads/tarefas/chat/`; `tarefas/admin/` tem 2 arquivos e **nenhuma r
 
 - **`ChavesDeTarefa`** (fábrica do domínio, `App\Tarefa\Armazenamento\`) traduz o valor da coluna
   na chave. Aceita só `^/uploads/tarefas/chat/<nome>$`, com `<nome>` começando por alfanumérico e
-  sem `/`; o `<nome>` vira o `nome` da chave. O escopo é o tenant **da mensagem** (fallback: o da
-  tarefa), nunca o da sessão. Valor fora do formato → `ChaveDeArquivoInvalida`.
+  sem `/`; o `<nome>` vira o `nome` da chave. O escopo é o tenant **da mensagem** (a coluna é
+  `NOT NULL`; sem ele a fábrica recusa, sem fallback), nunca o da sessão. Arquivo novo: escopo da
+  **tarefa**, de quem a mensagem copia o escritório. Valor fora do formato → `ChaveDeArquivoInvalida`.
 - O formato da coluna **não muda**: continua `/uploads/tarefas/chat/<nome>`, porque é o que a
   timeline e o template leem (`item.arquivoAnexo|split('/')|last`).
 - **`ResolvedorDeCaminhoLocal`** ganha o oitavo diretório (`tarefas_uploads_dir`,
@@ -271,6 +272,12 @@ todas em `/uploads/tarefas/chat/`; `tarefas/admin/` tem 2 arquivos e **nenhuma r
   `exigeSandbox()`); o download ganha `X-Content-Type-Options: nosniff`, que hoje não mandava.
 - `CaminhoDeAnexoDeTarefa` sai: seus testes de travessia migram para a fábrica (o ataque é ao
   valor, não à rota — o roteador normaliza `../` antes do controller).
+- ⚠️ **Perda consciente:** o `CaminhoDeAnexoDeTarefa` confinava por `realpath()` e recusava um
+  **symlink dentro de `chat/`** apontando para fora. O `ArmazenamentoLocal` segue link, como nas
+  outras oito categorias — Tarefa passa a valer a regra comum. Explorar exige escrever no volume de
+  uploads (o mesmo pré-requisito da DT-12 da E2); em 24/09 o volume tinha 0 links. Recusar link na
+  leitura do backend local é endurecimento **geral** (as 9 categorias), registrado como pendência —
+  fazê-lo aqui mudaria o núcleo para todos os módulos.
 
 **Decisão tomada pela medição (ratificar):** valor legado em `/uploads/tarefas/admin/` deixa de ser
 servível (404). Hoje ele seria servido; em produção não existe nenhum. A alternativa — uma décima

@@ -50,6 +50,7 @@ final class CopiaGravavelLocalTest extends TestCase
             fotosPerfilDir: $this->raiz . '/perfil',
             cobrancasUploadsDir: $this->raiz . '/cobrancas',
             kanbanUploadsDir: $this->raiz . '/kanban',
+            tarefasUploadsDir: $this->raiz . '/tarefas',
         );
         $this->local = new ArmazenamentoLocal($this->resolvedor, DiretorioTemporarioPrivado::existente($this->privado));
     }
@@ -230,7 +231,7 @@ final class CopiaGravavelLocalTest extends TestCase
             use App\Shared\Armazenamento\{ArmazenamentoLocal, CategoriaDeArquivo, ChaveDeArquivo, DiretorioTemporarioPrivado, EscopoDeArquivo, ResolvedorDeCaminhoLocal};
             $raiz = $argv[2];
             $local = new ArmazenamentoLocal(
-                new ResolvedorDeCaminhoLocal($raiz . '/pastas', $raiz . '/clientes', $raiz . '/chamados', $raiz . '/justificativas', $raiz . '/perfil', $raiz . '/cobrancas', $raiz . '/kanban'),
+                new ResolvedorDeCaminhoLocal($raiz . '/pastas', $raiz . '/clientes', $raiz . '/chamados', $raiz . '/justificativas', $raiz . '/perfil', $raiz . '/cobrancas', $raiz . '/kanban', $raiz . '/tarefas'),
                 DiretorioTemporarioPrivado::existente($raiz . '/privado'),
             );
             try {

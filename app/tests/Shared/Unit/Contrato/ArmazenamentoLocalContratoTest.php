@@ -39,6 +39,7 @@ final class ArmazenamentoLocalContratoTest extends ArmazenamentoContratoTestCase
             fotosPerfilDir: $this->raiz . '/perfil',
             cobrancasUploadsDir: $this->raiz . '/cobrancas',
             kanbanUploadsDir: $this->raiz . '/kanban',
+            tarefasUploadsDir: $this->raiz . '/tarefas',
         ));
     }
 
@@ -284,6 +285,7 @@ final class ArmazenamentoLocalContratoTest extends ArmazenamentoContratoTestCase
                 fotosPerfilDir: $raizEmOutroDisco . '/perfil',
                 cobrancasUploadsDir: $raizEmOutroDisco . '/cobrancas',
                 kanbanUploadsDir: $raizEmOutroDisco . '/kanban',
+                tarefasUploadsDir: $raizEmOutroDisco . '/tarefas',
             ));
 
             $chave = $this->chave('publicado.pdf');

@@ -303,6 +303,7 @@ final class EditarPecaTextoUseCaseTest extends TestCase
             fotosPerfilDir: $raiz . '/perfil',
             cobrancasUploadsDir: $raiz . '/cobrancas',
             kanbanUploadsDir: $raiz . '/kanban',
+            tarefasUploadsDir: $raiz . '/tarefas',
         ));
     }
 }

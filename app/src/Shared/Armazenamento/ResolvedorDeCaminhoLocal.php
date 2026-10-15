@@ -4,24 +4,23 @@ declare(strict_types=1);
 
 namespace App\Shared\Armazenamento;
 
-use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
-
 /**
  * Traduz chave em caminho de disco — **exatamente o caminho que o sistema já usa hoje**.
  *
  * Esta classe é a razão de a E2 não precisar de migration. Todo o layout irregular do acervo fica
- * aqui dentro, e o contrato lá fora fica regular: sete categorias em diretório plano, duas em
- * subpasta por tenant, uma sem parâmetro próprio. O dia em que o R2 entrar, é um resolvedor
+ * aqui dentro, e o contrato lá fora fica regular: sete categorias em diretório plano (Tarefa numa
+ * subpasta fixa, `chat/`, do seu), duas em subpasta por tenant. O dia em que o R2 entrar, é um resolvedor
  * IRMÃO que traduz a mesma chave no layout de objeto — nenhum arquivo se move na E2, nenhum
  * registro muda (INV-1, INV-2).
  *
- * ## Depois da E2 este é o ÚNICO lugar que conhece os sete parâmetros
+ * ## Depois da E2 este é o ÚNICO lugar que conhece os oito parâmetros
  *
  * `%uploads_dir%`, `%clientes_uploads_dir%`, `%chamados_uploads_dir%`,
- * `%justificativas_uploads_dir%`, `%fotos_perfil_dir%`, `%cobrancas_uploads_dir%` e
- * `%kanban_uploads_dir%` eram injetados em 33 arquivos de domínio no início da E2; a E2.3 tirou o
- * diretório de cinco controllers de download, e os demais saem nas fatias seguintes. Ao fim da E2
- * nenhum domínio os recebe, e o teste de arquitetura da E2.8 cobra isso.
+ * `%justificativas_uploads_dir%`, `%fotos_perfil_dir%`, `%cobrancas_uploads_dir%`,
+ * `%kanban_uploads_dir%` e — desde a E2.7 — `%tarefas_uploads_dir%`. Os sete primeiros eram
+ * injetados em 33 arquivos de domínio no início da E2; a E2.3 tirou o diretório de cinco
+ * controllers de download, e os demais saíram nas fatias seguintes. Nenhum domínio os recebe, e o
+ * teste de arquitetura da E2.8 cobra isso.
  *
  * ## O escopo é ignorado em sete das nove categorias — e isso é deliberado
  *
@@ -32,6 +31,14 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  */
 final readonly class ResolvedorDeCaminhoLocal
 {
+    /**
+     * Onde moram os anexos de mensagem de tarefa, dentro de `%tarefas_uploads_dir%` (E2.7). É a
+     * subpasta que o `TarefaController` sempre usou; a coluna guarda
+     * `/uploads/tarefas/chat/<nome>` e `ChavesDeTarefa` tira o prefixo. A outra subpasta que
+     * existe em disco, `admin/`, não tem referência no banco e não é endereçável (DP-9).
+     */
+    private const SUBPASTA_DE_TAREFA = 'chat';
+
     public function __construct(
         private string $uploadsDir,
         private string $clientesUploadsDir,
@@ -40,6 +47,7 @@ final readonly class ResolvedorDeCaminhoLocal
         private string $fotosPerfilDir,
         private string $cobrancasUploadsDir,
         private string $kanbanUploadsDir,
+        private string $tarefasUploadsDir,
     ) {
     }
 
@@ -71,7 +79,7 @@ final readonly class ResolvedorDeCaminhoLocal
     }
 
     /**
-     * As sete raízes configuradas, sem escopo.
+     * As oito raízes configuradas, sem escopo.
      *
      * Existe para o backend recusar um prefixo que coincida com alguma delas ou as contenha — o
      * acidente de configuração em que `cobrancas/5` fosse, na verdade, o diretório de outra
@@ -89,6 +97,7 @@ final readonly class ResolvedorDeCaminhoLocal
             $this->fotosPerfilDir,
             $this->cobrancasUploadsDir,
             $this->kanbanUploadsDir,
+            $this->tarefasUploadsDir,
         ]);
     }
 
@@ -118,35 +127,11 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::JUSTIFICATIVA_ANEXO => $this->raiz($this->justificativasUploadsDir),
             CategoriaDeArquivo::FOTO_PERFIL         => $this->raiz($this->fotosPerfilDir),
             CategoriaDeArquivo::KANBAN_ANEXO        => $this->raiz($this->kanbanUploadsDir),
+            CategoriaDeArquivo::TAREFA_ANEXO        => $this->raiz($this->tarefasUploadsDir) . '/' . self::SUBPASTA_DE_TAREFA,
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
-
-            CategoriaDeArquivo::TAREFA_ANEXO        => throw $this->tarefaAindaNaoResolvivel(),
         };
-    }
-
-    /**
-     * Anexo de tarefa não é resolvível nesta fatia, e falhar alto é a resposta certa.
-     *
-     * A coluna `tarefa_mensagem.arquivo_anexo` guarda um **caminho público**
-     * (`/uploads/tarefas/<sub>/<arquivo>`), não um nome — e um valor com `/` é recusado por
-     * `ChaveDeArquivo`, como D5 exige. Relaxar a chave para acomodar o legado está proibido: a
-     * fronteira de storage vale mais que a conveniência de uma categoria.
-     *
-     * A categoria continua no enum de propósito. Tirá-la esconderia o problema; deixá-la
-     * lançando mantém o buraco visível até a E2.7 decidir entre adapter seguro ou normalização
-     * de dados na E3. Enquanto isso, `CaminhoDeAnexoDeTarefa` segue guardando esse fluxo, com a
-     * allowlist e o confinamento por `realpath()` que a E1 lhe deu.
-     */
-    private function tarefaAindaNaoResolvivel(): FalhaDeArmazenamento
-    {
-        return new FalhaDeArmazenamento(
-            'TAREFA_ANEXO ainda não é endereçável por chave: a coluna guarda caminho público '
-            . '(/uploads/tarefas/<sub>/<arquivo>), que ChaveDeArquivo recusa por conter "/". '
-            . 'A decisão está reservada à fatia E2.7 (D5); até lá o fluxo continua em '
-            . 'CaminhoDeAnexoDeTarefa.',
-        );
     }
 
     private function raiz(string $diretorio): string
