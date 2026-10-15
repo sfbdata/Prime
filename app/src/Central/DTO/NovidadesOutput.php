@@ -10,12 +10,16 @@ namespace App\Central\DTO;
  */
 final class NovidadesOutput
 {
-    /** @param list<MensagemOutput> $mensagens */
+    /**
+     * @param list<MensagemOutput> $mensagens
+     * @param list<int>            $conversasComMencao conversas com menção não lida (lançador flutuante: "@n" e filtro)
+     */
     public function __construct(
         public readonly array $mensagens,
         public readonly int $cursor,
         public readonly int $naoLidas,
         public readonly bool $completo,
+        public readonly array $conversasComMencao = [],
     ) {
     }
 }

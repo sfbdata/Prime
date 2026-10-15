@@ -275,7 +275,7 @@ final class UseCasesDaCentralTest extends TestCase
         $mensagens->method('ultimoIdVisivelPara')->willReturn(77);
         $mensagens->method('naoLidasPorConversa')->willReturn([3 => 2, 5 => 1]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio()))
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso()))
             ->executar($this->usuario(1), new Tenant(), null);
 
         self::assertSame([], $saida->mensagens);
@@ -293,7 +293,7 @@ final class UseCasesDaCentralTest extends TestCase
         $mensagens->expects(self::never())->method('ultimoIdVisivelPara');
         $mensagens->method('naoLidasPorConversa')->willReturn([]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio()))->executar($eu, $tenant, 0);
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso()))->executar($eu, $tenant, 0);
 
         self::assertSame(0, $saida->cursor);
         self::assertTrue($saida->completo);
@@ -317,7 +317,7 @@ final class UseCasesDaCentralTest extends TestCase
         $mensagens->method('recentesAbaixoDoCursor')->willReturn($repetidas);
         $mensagens->method('naoLidasPorConversa')->willReturn([]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio()))
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso()))
             ->executar($eu, $tenant, 500);
 
         self::assertTrue($saida->completo);

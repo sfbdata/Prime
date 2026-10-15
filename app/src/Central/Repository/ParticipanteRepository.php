@@ -137,6 +137,26 @@ class ParticipanteRepository extends ServiceEntityRepository
     }
 
     /**
+     * Os ids das conversas de que o usuário participa ATIVAMENTE no escritório (consulta leve, sem carregar entidades).
+     *
+     * @return array<int, true>
+     */
+    public function idsDasConversasAtivas(User $usuario, Tenant $tenant): array
+    {
+        $ids = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.conversa) AS conversa')
+            ->andWhere('p.usuario = :usuario')
+            ->andWhere('p.saiuEm IS NULL')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_fill_keys(array_map('intval', $ids), true);
+    }
+
+    /**
      * Quantos participantes ATIVOS cada conversa tem (para a lista: "N participantes").
      *
      * @param list<int> $conversaIds

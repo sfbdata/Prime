@@ -484,4 +484,36 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         $client->request('DELETE', "/central/conversas/$id/participantes/{$bruno->getId()}", [], [], self::CSRF);
         self::assertResponseStatusCodeSame(404);
     }
+
+    #[TestDox('Lançador: as conversas com menção por ver vêm no polling — só do mencionado, somem ao ler, não atravessam escritório')]
+    public function testConversasComMencaoNoPolling(): void
+    {
+        $client = $this->cliente();
+        [$tenant, $ana, $bruno, $carla] = $this->equipe();
+        [, $outro] = $this->criarAdmin();
+        $this->em()->persist(new UserTenant($bruno, $outro));
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->criarGrupo($client, 'Equipe', [$bruno, $carla])['grupo']['id'];
+        $this->post($client, "/central/conversas/$id/mensagens", ['conteudo' => sprintf('oi @[B](user:%d)', $bruno->getId())]);
+        $ultima = $this->json($client)['mensagem']['id'];
+
+        $this->logarComTenant($client, $bruno, $tenant);
+        $client->request('GET', '/central/novidades');
+        self::assertSame([$id], $this->json($client)['conversasComMencao']);
+
+        $this->logarComTenant($client, $carla, $tenant);
+        $client->request('GET', '/central/novidades');
+        self::assertSame([], $this->json($client)['conversasComMencao'], 'quem não foi mencionado não vê marcador');
+
+        $this->logarComTenant($client, $bruno, $outro);
+        $client->request('GET', '/central/novidades');
+        self::assertSame([], $this->json($client)['conversasComMencao'], 'do outro escritório, nada');
+
+        $this->logarComTenant($client, $bruno, $tenant);
+        $this->post($client, "/central/conversas/$id/lida", ['ateId' => $ultima]);
+        $client->request('GET', '/central/novidades?desde=0');
+        self::assertSame([], $this->json($client)['conversasComMencao'], 'ler a conversa lê a menção');
+    }
 }

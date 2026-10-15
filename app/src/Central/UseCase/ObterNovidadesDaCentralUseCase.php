@@ -9,7 +9,9 @@ use App\Central\DTO\NovidadesOutput;
 use App\Central\Entity\Mensagem;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\MensagemRepository;
+use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\AvisoDeMencaoNaCentral;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Psr\Clock\ClockInterface;
@@ -34,6 +36,8 @@ final class ObterNovidadesDaCentralUseCase
         private readonly AcessoACentral $acesso,
         private readonly MensagemRepository $mensagens,
         private readonly ClockInterface $clock,
+        private readonly ParticipanteRepository $participantes,
+        private readonly AvisoDeMencaoNaCentral $avisos,
     ) {
     }
 
@@ -43,9 +47,11 @@ final class ObterNovidadesDaCentralUseCase
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         // O total do cabeçalho deixa de fora as conversas silenciadas (B, spec §4); a conversa segue com as dela.
         $naoLidas = array_sum($this->mensagens->naoLidasPorConversa($eu, $tenant, semSilenciadas: true));
+        // Lançador flutuante: em que conversas há menção por ver ("@n", marcador da linha, filtro "Menções").
+        $comMencao = $this->avisos->conversasComMencaoNaoLida($eu, $tenant, $this->participantes->idsDasConversasAtivas($eu, $tenant));
 
         if ($desde === null) {
-            return new NovidadesOutput([], $this->mensagens->ultimoIdVisivelPara($eu, $tenant), $naoLidas, true);
+            return new NovidadesOutput([], $this->mensagens->ultimoIdVisivelPara($eu, $tenant), $naoLidas, true, $comMencao);
         }
 
         $novas = $this->mensagens->novidades($eu, $tenant, $desde, self::TETO);
@@ -63,6 +69,7 @@ final class ObterNovidadesDaCentralUseCase
             cursor: $cursor,
             naoLidas: $naoLidas,
             completo: count($novas) < self::TETO,
+            conversasComMencao: $comMencao,
         );
     }
 }

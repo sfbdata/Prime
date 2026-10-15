@@ -81,6 +81,26 @@ final class AvisoDeMencaoNaCentral
         }
     }
 
+    /**
+     * As conversas em que `$usuario` tem menção por ver (aviso não lido) — o "@n" do lançador, o marcador da linha e o
+     * filtro "Menções". Só conversas de que ele participa ATIVAMENTE: quem saiu não vê marcador de grupo alheio.
+     *
+     * @param array<int, true> $minhasConversas ids das conversas ativas dele
+     *
+     * @return list<int>
+     */
+    public function conversasComMencaoNaoLida(User $usuario, Tenant $tenant, array $minhasConversas): array
+    {
+        $ids = [];
+        foreach ($this->repositorio->urlsNaoLidasDoTipo($usuario, $tenant, Notificacao::TIPO_CENTRAL_MENCAO) as $url) {
+            if (preg_match('/[?&]conversa=(\d{1,10})\b/', $url, $m) === 1 && isset($minhasConversas[(int) $m[1]])) {
+                $ids[(int) $m[1]] = (int) $m[1];
+            }
+        }
+
+        return array_values($ids);
+    }
+
     private function urlDa(Conversa $conversa): string
     {
         return $this->urls->generate('central_index', ['conversa' => $conversa->getId()]);
