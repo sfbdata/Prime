@@ -187,6 +187,16 @@
             janela.classList.remove('bj-flutuante--abrindo');
             void janela.offsetWidth;
             janela.classList.add('bj-flutuante--abrindo');   // bjcIn .2s, L6326
+            // Terminou, sai: no desenho o render seguinte já não traz a animação (ui._anim, L6320); presa com
+            // `both`, ela seguiria compondo com a de minimizar.
+            function fim(e) {
+                if (e.target !== janela) { return; }
+                janela.classList.remove('bj-flutuante--abrindo');
+                janela.removeEventListener('animationend', fim);
+                janela.removeEventListener('animationcancel', fim);
+            }
+            janela.addEventListener('animationend', fim);
+            janela.addEventListener('animationcancel', fim);
             desenharLancador();
             posicionarLancador();
             avisarVisibilidade();
