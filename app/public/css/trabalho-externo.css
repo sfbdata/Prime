@@ -445,3 +445,52 @@ select.te-ctl { padding: 0 7px; }
 .te-toast-fechar { border: none; background: transparent; color: var(--te-faint); cursor: pointer; padding: 0 2px; }
 .te-toast-txt { font-size: 13.5px; margin: 6px 0 9px; color: var(--te-body); }
 .te-toast-abrir { height: 28px; padding: 0 11px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font-size: 12.5px; font-weight: bold; cursor: pointer; }
+
+/* ---------------------------------------------------------------- aba WhatsApp (F2), cores do desenho */
+.te-flex1 { flex: 1; }
+.te-min0 { min-width: 0; }
+.te-reticencias { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.te-wa-intro { display: flex; align-items: flex-start; gap: 12px; background: #f0faf3; border: 1px solid #cdebd6; border-radius: 4px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #1d4d32; line-height: 1.5; }
+.te-wa-intro > .bi { font-size: 24px; color: #1e9e55; }
+.te-wa-intro b { font-size: 14px; }
+.te-wa-tit { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.te-wa-tit--log { margin: 16px 0 6px; }
+.te-wa-agora { height: 28px; padding: 0 10px; border: 1px solid #bfe3cc; border-radius: 3px; background: var(--te-card); color: #1e7b45; font-size: 12px; font-weight: bold; cursor: pointer; letter-spacing: 0; }
+.te-wa-agora:hover { background: #f0faf3; }
+.te-wa-contato { border: 1px solid var(--te-div); border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; }
+.te-wa-contato-topo { display: flex; align-items: center; gap: 10px; }
+.te-wa-contato-topo > .bi { font-size: 20px; color: #1e9e55; }
+.te-wa-contato-topo b { font-size: 13.5px; }
+.te-wa-tel { font-size: 12px; color: var(--te-muted); }
+.te-wa-st { font-size: 12px; font-weight: bold; color: #8496a3; }
+.te-wa-st.is-ativo { color: #1e7b45; }
+.te-wa-tg { height: 26px; padding: 0 9px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 12px; cursor: pointer; }
+.te-wa-rem { width: 26px; height: 26px; border: none; border-radius: 3px; background: transparent; color: #a3232b; cursor: pointer; }
+.te-wa-rem:hover { background: #fdecec; }
+.te-wa-fases { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 9px; }
+.te-wa-fase { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--te-text-2); cursor: pointer; margin: 0; font-weight: normal; }
+.te-wa-fase input, .te-wa-ok input { accent-color: #1e9e55; }
+.te-wa-sem { font-size: 13px; color: var(--te-muted); margin-bottom: 8px; }
+.te-wa-novo { border: 1px solid var(--te-border); border-radius: 4px; padding: 12px; margin: 8px 0 18px; }
+.te-wa-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.te-wa-ok { display: flex; align-items: flex-start; gap: 7px; font-size: 12.5px; color: var(--te-text-2); margin-top: 10px; cursor: pointer; font-weight: normal; }
+.te-wa-ok input { margin-top: 2px; }
+.te-wa-rodape { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.te-wa-conectar { height: 34px; padding: 0 14px; border: none; border-radius: 3px; background: #1e9e55; color: #fff; font-size: 13.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+.te-wa-conectar:hover { background: #178548; }
+.te-wa-msg { border: 1px solid #cdebd6; border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; background: #fbfefc; animation: teUp .25s ease; }
+.te-wa-msg-topo { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--te-muted); margin-bottom: 6px; }
+.te-wa-msg-topo b { color: #1e7b45; }
+.te-wa-balao { font-size: 13px; white-space: pre-wrap; background: #e7f7ec; border-radius: 6px 6px 6px 0; padding: 8px 10px; color: #12242f; line-height: 1.45; }
+.te-wa-msg-botoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.te-wa-descartar { height: 28px; padding: 0 10px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-muted); font-size: 12px; cursor: pointer; }
+.te-wa-enviar { height: 28px; padding: 0 11px; border-radius: 3px; background: #1e9e55; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 6px; text-decoration: none; }
+.te-wa-enviar:hover { background: #178548; color: #fff; text-decoration: none; }
+.te-wa-log { display: flex; gap: 8px; font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid var(--te-div); color: var(--te-text-2); }
+.te-wa-log > .bi { color: #1e9e55; }
+.te-wa-log-em { color: #8496a3; }
+.te-wa-link { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 12.5px; color: var(--te-muted); }
+.te-wa-copiar { height: 26px; padding: 0 9px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: #0a6fa0; font-size: 12px; cursor: pointer; }
+[data-bs-theme="dark"] .te-page .te-wa-intro { background: #12301f; border-color: #1f5537; color: #bfe8cd; }
+[data-bs-theme="dark"] .te-page .te-wa-msg { background: #10261a; border-color: #1f5537; }
+[data-bs-theme="dark"] .te-page .te-wa-balao { background: #18402a; color: #e6f5ea; }

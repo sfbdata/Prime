@@ -36,7 +36,7 @@
         ['arquivada', 'Arquivadas', ['arquivada']],
         ['rascunho', 'Rascunhos', ['rascunho']]
     ];
-    var ABAS = { resumo: 'Resumo', proposta: 'Proposta', exec: 'Execução', chat: 'Chat', hist: 'Histórico' };
+    var ABAS = { resumo: 'Resumo', proposta: 'Proposta', exec: 'Execução', chat: 'Chat', hist: 'Histórico', whats: 'WhatsApp' };
     var OBRIGATORIOS = ['escritorio', 'email', 'advogado', 'oab', 'cidadeExecucao', 'descricao', 'prazoFinal'];
 
     var painelInicial;
@@ -148,7 +148,8 @@
         checklist: function (c, i) { return comCodigo(D.urlChecklist, c).replace(/\/0$/, '/' + i); },
         andamento: function (c) { return comCodigo(D.urlAndamento, c); },
         anexar: function (c) { return comCodigo(D.urlAnexar, c); },
-        documento: function (c, id) { return comCodigo(D.urlDocumento, c).replace(/\/0$/, '/' + id); }
+        documento: function (c, id) { return comCodigo(D.urlDocumento, c).replace(/\/0$/, '/' + id); },
+        whatsapp: function (c, resto) { return comCodigo(D.urlWhatsapp, c).replace(/\/avisar-fase-atual$/, '') + resto; }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -681,7 +682,7 @@
     function renderAbas() {
         var dz = S.dz, alvo = limpar($('teDzAbas'));
         (dz.abas || []).forEach(function (a) {
-            var n = a === 'chat' ? (+dz.naoLidas || 0) : 0;
+            var n = a === 'chat' ? (+dz.naoLidas || 0) : a === 'whats' && dz.whatsapp ? dz.whatsapp.fila.length : 0;
             alvo.appendChild(el('button', {
                 type: 'button', class: 'te-dz-aba' + (S.aba === a ? ' is-ativa' : ''),
                 onclick: function () { trocarAba(a); }
@@ -730,7 +731,7 @@
                 }, [ic(b.ic), b.rot]);
             })));
         }
-        var abas = { resumo: abaResumo, proposta: abaProposta, exec: abaExecucao, chat: abaChat, hist: abaHistorico };
+        var abas = { resumo: abaResumo, proposta: abaProposta, exec: abaExecucao, chat: abaChat, hist: abaHistorico, whats: abaWhatsapp };
         (abas[S.aba] || abaResumo)(alvo, dz);
     }
 
@@ -992,6 +993,136 @@
                 ])
             ]));
         });
+    }
+
+    /* ---------------------------------------------------------------- aba WhatsApp (F2) */
+
+    /** Escrita da aba WhatsApp: a resposta traz a demanda inteira, que redesenha o painel. */
+    function whats(codigo, resto, corpo, botao) {
+        if (botao) { botao.disabled = true; }
+        return pedir('POST', ROTA.whatsapp(codigo, resto), corpo || {}).then(function (r) {
+            if (botao) { botao.disabled = false; }
+            if (!r.ok) { return r; }
+            aplicarDemanda(r);
+            return r;
+        });
+    }
+
+    function abaWhatsapp(alvo, dz) {
+        var wa = dz.whatsapp;
+        if (!wa) { return; }
+        var cod = dz.codigo;
+
+        alvo.appendChild(el('div', { class: 'te-wa-intro' }, [
+            ic('bi-whatsapp'),
+            el('div', null, [
+                el('b', { text: 'Avisos de andamento pelo WhatsApp' }), el('br'),
+                'A cada fase, o BlueJus prepara uma mensagem pronta com o link da demanda. O cliente toca no link e vê o andamento sem precisar procurar.'
+            ])
+        ]));
+
+        alvo.appendChild(el('div', { class: 'te-secao-rot te-wa-tit' }, [
+            'CONTATOS CONECTADOS', el('span', { class: 'te-flex1' }),
+            wa.temAtivos ? el('button', {
+                type: 'button', class: 'te-wa-agora',
+                onclick: function (e) { whats(cod, '/avisar-fase-atual', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
+            }, 'Avisar fase atual: ' + wa.faseAtual) : null
+        ]));
+
+        (wa.contatos || []).forEach(function (ct) {
+            alvo.appendChild(el('div', { class: 'te-wa-contato' }, [
+                el('div', { class: 'te-wa-contato-topo' }, [
+                    ic('bi-person-circle'),
+                    el('div', { class: 'te-flex1 te-min0' }, [el('b', { text: ct.nome }), el('div', { class: 'te-wa-tel', text: ct.tel })]),
+                    el('span', { class: 'te-wa-st' + (ct.ativo ? ' is-ativo' : ''), text: ct.ativo ? 'Conectado' : 'Pausado' }),
+                    el('button', {
+                        type: 'button', class: 'te-wa-tg',
+                        onclick: function (e) { whats(cod, '/contatos/' + ct.id + '/alternar', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
+                    }, ct.ativo ? 'Pausar' : 'Reativar'),
+                    el('button', {
+                        type: 'button', class: 'te-wa-rem', title: 'Desconectar',
+                        onclick: function (e) { whats(cod, '/contatos/' + ct.id + '/remover', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
+                    }, ic('bi-trash'))
+                ]),
+                el('div', { class: 'te-wa-fases' }, (ct.fases || []).map(function (fa) {
+                    return el('label', { class: 'te-wa-fase' }, [
+                        el('input', {
+                            type: 'checkbox', checked: !!fa.ok,
+                            onchange: function () { whats(cod, '/contatos/' + ct.id + '/fases/' + fa.k).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
+                        }),
+                        fa.rot
+                    ]);
+                }))
+            ]));
+        });
+        if (!(wa.contatos || []).length) {
+            alvo.appendChild(el('div', { class: 'te-wa-sem', text: 'Nenhum contato conectado a esta demanda.' }));
+        }
+
+        var erro = el('span', { class: 'te-erro te-flex1', text: S.erroWa || '' });
+        var nome = ctl('input', 'waNome', { placeholder: 'Ex.: Dr. Teste' });
+        var tel = ctl('input', 'waTel', { type: 'tel', placeholder: '(82) 99999-0000' });
+        var ok = el('input', { type: 'checkbox', checked: !!S.f.waOk, onchange: function (e) { S.f.waOk = e.target.checked; } });
+        alvo.appendChild(el('div', { class: 'te-wa-novo' }, [
+            el('div', { class: 'te-wa-grade' }, [
+                el('label', { class: 'te-rot' }, ['Nome do contato', nome]),
+                el('label', { class: 'te-rot' }, ['Celular com DDD', tel])
+            ]),
+            el('label', { class: 'te-wa-ok' }, [ok, 'O contato autorizou receber avisos desta demanda pelo WhatsApp.']),
+            el('div', { class: 'te-wa-rodape' }, [
+                erro,
+                el('button', {
+                    type: 'button', class: 'te-wa-conectar',
+                    onclick: function (e) {
+                        var n = String(S.f.waNome || '').trim(), t = String(S.f.waTel || '').replace(/\D/g, '');
+                        if (!n || t.length < 10) { erro.textContent = 'Informe o nome e um celular com DDD.'; return; }
+                        if (!S.f.waOk) { erro.textContent = 'Confirme que o contato autorizou receber mensagens.'; return; }
+                        whats(cod, '/contatos', { nome: n, telefone: t, autorizou: true }, e.currentTarget).then(function (r) {
+                            if (!r.ok) { erro.textContent = r.mensagem; return; }
+                            S.f.waNome = ''; S.f.waTel = ''; S.f.waOk = false; S.erroWa = '';
+                            renderDrawerConteudo();
+                        });
+                    }
+                }, [ic('bi-whatsapp'), 'Conectar WhatsApp'])
+            ])
+        ]));
+
+        alvo.appendChild(el('div', { class: 'te-secao-rot te-wa-tit', text: 'MENSAGENS PRONTAS PARA ENVIAR' }));
+        (wa.fila || []).forEach(function (m) {
+            alvo.appendChild(el('div', { class: 'te-wa-msg' }, [
+                el('div', { class: 'te-wa-msg-topo' }, [el('b', { text: m.fase }), el('span', { text: 'para ' + m.para }), el('span', { class: 'te-flex1' }), m.em]),
+                el('div', { class: 'te-wa-balao', text: m.txt }),
+                el('div', { class: 'te-wa-msg-botoes' }, [
+                    el('button', {
+                        type: 'button', class: 'te-wa-descartar',
+                        onclick: function (e) { whats(cod, '/avisos/' + m.id + '/descartar', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
+                    }, 'Descartar'),
+                    el('a', {
+                        href: m.href, target: '_blank', rel: 'noopener', class: 'te-wa-enviar',
+                        onclick: function () { whats(cod, '/avisos/' + m.id + '/enviado').then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
+                    }, [ic('bi-whatsapp'), 'Enviar pelo WhatsApp'])
+                ])
+            ]));
+        });
+        if (!(wa.fila || []).length) {
+            alvo.appendChild(el('div', { class: 'te-wa-sem', text: 'Nenhuma mensagem pendente. Quando a demanda mudar de fase, a mensagem aparece aqui.' }));
+        }
+
+        if ((wa.enviadas || []).length) {
+            alvo.appendChild(el('div', { class: 'te-secao-rot te-wa-tit te-wa-tit--log', text: 'ENVIADAS' }));
+            wa.enviadas.forEach(function (l) {
+                alvo.appendChild(el('div', { class: 'te-wa-log' }, [ic('bi-check2-all'), el('b', { text: l.fase }), el('span', { class: 'te-flex1', text: 'para ' + l.para }), el('span', { class: 'te-wa-log-em', text: l.em })]));
+            });
+        }
+
+        alvo.appendChild(el('div', { class: 'te-wa-link' }, [
+            ic('bi-link-45deg'),
+            el('span', { class: 'te-flex1 te-min0 te-reticencias', text: wa.link }),
+            el('button', {
+                type: 'button', class: 'te-wa-copiar',
+                onclick: function () { copiar(wa.link); mostrarToast({ tit: 'Link copiado', txt: 'Envie o link para o cliente acompanhar a demanda.', hora: '' }); }
+            }, 'Copiar link')
+        ]));
     }
 
     /* ---------------------------------------------------------------- modal "Nova solicitação" */
