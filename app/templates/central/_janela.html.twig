@@ -5,6 +5,7 @@
          data-url-contatos="{{ path('central_contatos') }}"
          data-url-novidades="{{ path('central_novidades') }}"
          data-url-conversa-base="{{ path('central_conversas') }}"
+         data-url-grupos="{{ path('central_grupo_criar') }}"
          data-eu-nome="{{ eu.fullName }}"
          data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
          {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
@@ -18,6 +19,13 @@
             <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
             <div class="bj-central-cab-sub" data-central-cab-sub>{{ eu.fullName }}</div>
         </div>
+        {# B: informações do grupo (só com grupo aberto) e o ⋮ da lista (novo grupo, arquivadas — desenho L6259) #}
+        <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-info hidden aria-label="Informações do grupo" title="Ver informações">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-mais aria-label="Mais opções" title="Mais opções" aria-haspopup="menu">
+            <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+        </button>
     </header>
 
     <div class="bj-central-lista-tela" data-central-tela-lista>
@@ -26,8 +34,16 @@
             <input type="search" class="bj-central-busca-campo" data-central-busca
                    placeholder="Pesquisar usuário..." aria-label="Pesquisar usuário" autocomplete="off">
         </div>
+        <div class="bj-central-faixa-arquivadas" data-central-faixa-arquivadas hidden>
+            <span><i class="bi bi-archive" aria-hidden="true"></i> Mostrando arquivadas</span>
+            <button type="button" data-central-ocultar-arquivadas>Ocultar</button>
+        </div>
         <div class="bj-central-lista" data-central-lista role="list"></div>
     </div>
+
+    {# B: telas de "Novo grupo" (L6202) e "Ver informações" (L6164) — montadas por central.js #}
+    <div class="bj-central-painel" data-central-tela-novo-grupo hidden></div>
+    <div class="bj-central-painel" data-central-tela-info hidden></div>
 
     <div class="bj-central-conversa-tela" data-central-tela-conversa hidden>
         <div class="bj-central-corpo" data-central-corpo aria-live="polite"></div>

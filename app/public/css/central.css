@@ -30,6 +30,11 @@
     --bjc-citacao-texto: #33495a;
     --bjc-citacao-borda: #b9d2e2;
     --bjc-selecionado: #e5f1f7;
+    /* B — grupos e preferências (desenho L5676, L5693, L6029) */
+    --bjc-sistema-fundo: #e8eef2;
+    --bjc-sistema-texto: #5f7684;
+    --bjc-selo-mudo: #9fb1bc;
+    --bjc-perigo: #c0392b;
 
     display: flex;
     flex-direction: column;
@@ -67,6 +72,10 @@ html[data-bs-theme="dark"] .bj-central {
     --bjc-citacao-texto: #c9d6de;
     --bjc-citacao-borda: #3a5566;
     --bjc-selecionado: #26343d;
+    --bjc-sistema-fundo: #26343d;
+    --bjc-sistema-texto: #b7c6cf;
+    --bjc-selo-mudo: #5c6f7b;
+    --bjc-perigo: #e3685c;
 }
 
 .bj-central-pagina {
@@ -86,6 +95,7 @@ html[data-bs-theme="dark"] .bj-central {
 }
 
 .bj-central-cab-textos {
+    flex: 1;
     min-width: 0;
 }
 
@@ -773,6 +783,216 @@ html[data-bs-theme="dark"] .bj-central {
     .bj-central-ctx {
         animation: none;
     }
+}
+
+/* ── B: grupos e preferências ────────────────────────────────────────────────────── */
+
+/* Marcas da linha — L5676: fixada (azul), silenciada e arquivada (cinza), 11px */
+.bj-central-marca {
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+}
+
+.bj-central-marca--fixada {
+    color: var(--bjc-azul);
+}
+
+/* Silenciada: selo cinza — L5693 */
+.bj-central-selo--mudo {
+    background: var(--bjc-selo-mudo);
+}
+
+.bj-central-avatar--grupo {
+    background: var(--bjc-conv);
+}
+
+.bj-central-avatar--grande {
+    width: 64px;
+    height: 64px;
+    font-size: 23px;
+}
+
+/* Linha de sistema do grupo — pílula centralizada, L6029 */
+.bj-central-msg--sistema {
+    align-items: center;
+}
+
+.bj-central-sistema {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--bjc-sistema-fundo);
+    color: var(--bjc-sistema-texto);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Em grupo, o nome de quem escreveu no topo do balão (cor por pessoa, L5814) */
+.bj-central-msg-autor {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.bj-central-faixa-arquivadas {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 12px 0;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: var(--bjc-citacao-fundo);
+    color: var(--bjc-texto-medio);
+    font-size: 12px;
+}
+
+.bj-central-faixa-arquivadas[hidden] {
+    display: none;
+}
+
+.bj-central-faixa-arquivadas button {
+    border: 0;
+    background: transparent;
+    color: var(--bjc-azul);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Telas "Novo grupo" e "Informações" */
+.bj-central-painel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.bj-central-painel[hidden] {
+    display: none;
+}
+
+.bj-central-campo-linha {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--bjc-borda);
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto);
+    font: inherit;
+    font-size: 13px;
+}
+
+.bj-central-campo-linha:focus {
+    outline: 2px solid var(--bjc-azul);
+    outline-offset: -1px;
+}
+
+.bj-central-painel-sub {
+    color: var(--bjc-texto-suave);
+    font-size: 12px;
+}
+
+.bj-central-escolha {
+    flex: 1;
+    min-height: 120px;
+    overflow-y: auto;
+    border-top: 1px solid var(--bjc-borda-linha);
+}
+
+.bj-central-escolha-item,
+.bj-central-info-pessoa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.bj-central-info-pessoa {
+    cursor: default;
+}
+
+.bj-central-escolha-item input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--bjc-azul);   /* caixa marcada #0a7aad, L6206 */
+}
+
+.bj-central-painel-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bj-central-painel-acoes--coluna {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.bj-central-btn {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--bjc-borda);
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto-forte);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bj-central-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.bj-central-btn--primario {
+    border-color: var(--bjc-azul);
+    background: var(--bjc-azul);
+    color: #fff;
+}
+
+.bj-central-btn--perigo {
+    border-color: transparent;
+    background: transparent;
+    color: var(--bjc-perigo);
+}
+
+.bj-central-info-topo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 4px;
+}
+
+.bj-central-info-nome {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--bjc-texto-forte);
+    text-align: center;
+}
+
+.bj-central-info-linha {
+    display: flex;
+    gap: 6px;
+}
+
+.bj-central-info-secao {
+    margin-top: 6px;
+    color: var(--bjc-texto-fraco);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
 }
 
 @media (max-width: 420px) {

@@ -411,4 +411,20 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         self::assertNotContains($antiga, $ids);
         self::assertSame($depois, $this->json($client)['cursor']);
     }
+
+    #[TestDox('A janela traz o ⋮ (novo grupo, arquivadas), o botão de informações e as telas de grupo, escondidas')]
+    public function testArranjoDaJanela(): void
+    {
+        $client = $this->cliente();
+        [$tenant, $ana] = $this->equipe();
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', '/central');
+
+        self::assertSelectorExists('[data-central][data-url-grupos="/central/grupos"]');
+        self::assertSelectorExists('.bj-central-cab > [data-central-mais]');
+        self::assertSelectorExists('.bj-central-cab > [data-central-info][hidden]');
+        self::assertSelectorExists('[data-central-tela-lista] > [data-central-faixa-arquivadas][hidden] + [data-central-lista]');
+        self::assertSelectorExists('[data-central] > [data-central-tela-novo-grupo][hidden]');
+        self::assertSelectorExists('[data-central] > [data-central-tela-info][hidden]');
+    }
 }
