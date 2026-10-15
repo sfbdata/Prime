@@ -238,6 +238,17 @@
         // Botão direito em outro lugar fecha o menu aberto, como o clique fora.
         if (aberto && !aberto.menu.contains(alvo)) { fechar(false); }
 
+        // PZ-CTX-08: botão direito sobre o próprio ⋮ (cabeçalho ou cartão) abre o mesmo menu do clique,
+        // sob o ⋮ — o dc liga os dois eventos ao mesmo handler (L.1680 `procHdMenu`).
+        var gatilhoProprio = alvo.closest('.js-proc-menu-gatilho');
+        if (gatilhoProprio) {
+            var menuProprio = document.getElementById(gatilhoProprio.getAttribute('aria-controls') || '');
+            if (!menuProprio) { return; }
+            e.preventDefault();
+            abrirMenu(menuProprio, gatilhoProprio, null);
+            return;
+        }
+
         var cartao = alvo.closest('article.ps-processo[data-ps-menu-contexto]');
         if (!cartao) { return; }
         if (alvo.closest('a, button, input, textarea, select, [contenteditable="true"], .ps-processo-menu')) { return; }
