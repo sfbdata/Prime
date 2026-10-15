@@ -1,4 +1,4 @@
-# HANDOFF — frente `designer-central-ia` (atualizado em 15/10/2026 com a Central B)
+# HANDOFF — frente `designer-central-ia` (atualizado em 15/10/2026: Central B e demo integrada)
 
 Continuidade da integração do pacote do Claude Designer de 13/10 (Central de Comunicação, Chat I.A, Agente de Pastas,
 comandos) à arquitetura real do BlueJus. **Nada publicado.** Este documento resume e aponta; o detalhe mora nas specs
@@ -159,7 +159,7 @@ Central B entregue (§14). Decisões que ficam com o dono — o padrão em vigor
 (`central-comunicacao-b.md` §8): histórico visível a quem entra; silenciar mantém o aviso de menção; renomear por
 qualquer participante; administração vaga ao mais antigo com vínculo; `@Todos` fora.
 
-Próxima entrega sugerida: **aplicar as migrations da A2/B no `saas_ux` (com backup) e o smoke do dono na tela**; depois,
+Próxima entrega sugerida: **o smoke do dono na demo (§15)** — as migrations A1/A2/B já estão no `saas_ux`; depois,
 **anexos da Central** (storage E2) ou o **link da Central no menu** (D6, com a `fidelidade-designer`).
 
 ## 11. Comandos para retomar
@@ -199,8 +199,7 @@ Branch `designer-central-ia`, 14 commits locais à frente de `origin/master` @ `
   novo grupo e informações. Correções da revisão da A2 (rótulo dos mencionáveis, corte bruto, READ COMMITTED
   registrado, risco residual envio × leitura na spec A2).
 - **Migration:** `Version20261015180000` (só acrescenta; dois `DROP NOT NULL` no par, seguros; `down` aborta se houver
-  grupo). Aplicada no banco de teste da frente. **Não** aplicada no `saas_ux` (A1/A2 estão lá desde 14/10, com backup
-  em `/home/prime/backups-dev/`).
+  grupo). Aplicada no banco de teste da frente e, em 15/10, no `saas_ux` (§15).
 - **Testes:** suíte completa **9333/9333** (52.284 asserções), sozinha, sobre `cc6d8ae4`; `tests/Central` 76/76; prova por reintrodução: 17/18 guardas da B derrubaram o teste certo na primeira
   rodada — a 18ª (tenant explícito da participação) revelou que nenhum teste provava a guarda das consultas sem o
   TenantFilter, desde a A1; criado `IsolamentoDosRepositoriosDaCentralTest`, que derruba as 4 mutações de tenant.
@@ -213,5 +212,29 @@ Branch `designer-central-ia`, 14 commits locais à frente de `origin/master` @ `
 - **Limites conhecidos:** transação que demore > 30 s para confirmar uma mensagem escapa ao polling (aparece ao
   reabrir); JS sem teste automatizado (o smoke é do dono); confirmações usam `window.confirm` (a janela de
   confirmação do desenho mora na `fidelidade-designer`, E7).
-- **Git:** branch `designer-central-ia`, commits locais à frente de `origin/master` @ `a3919b5c`; nada publicado. A
-  demo integrada (`demo-expediente-central`, porta 8001) é anterior à B e não a contém.
+- **Git:** branch `designer-central-ia`, commits locais à frente de `origin/master` @ `a3919b5c`; nada publicado.
+
+## 15. Demo integrada com a Central B (15/10/2026)
+
+- **Onde:** branch local `demo-expediente-central` (worktree `.claude/worktrees/demo-expediente-central`), servida em
+  **http://127.0.0.1:8001** (servidor embutido do PHP no container + proxy `smoke-demo-proxy`; o `:8080` segue servindo o
+  master, sem a Central). Composição: `designer-central-ia` até `a45b5d29` + 27 commits da `fidelidade-designer`
+  (E2–E8) + os 8 da Central B (`a123a8f4`…`2fdf46a2`), todos por cherry-pick individual, sem conflito (só
+  `docs/frentes-ativas.md` combinou as duas linhas). Conferido por conteúdo: cada arquivo das duas frentes é idêntico ao
+  da frente; `designer-central-ia`, `fidelidade-designer`, `master` e `origin/master` intactos. **Não** é publicação: é
+  só para avaliação local.
+- **Banco `saas_ux`** (local, container `db`, rede privada do Docker; só a sessão de dev conectada): backup
+  `/home/prime/backups-dev/saas_ux_antes_central_b_20261015_113906.dump` (sha256 `d3d7603b…`), restaurado num banco
+  descartável com as mesmas contagens nas 111 tabelas e apagado em seguida. Aplicada só a `Version20261015180000`
+  (`execute --up`; o `migrate` arrastaria 2 migrations antigas de abril cujo schema já veio no dump). Antes × depois:
+  nenhuma linha de dado mudou (só +1 em `doctrine_migration_versions`); o schema só ganhou colunas/índices em
+  `central_*`; mapeamento e banco em dia. As tabelas da Central estavam vazias.
+- **Testes sobre o código integrado** (banco de teste da frente): `tests/Central` + `tests/Expediente` 141/141;
+  notificação, telas da Pasta/Lista e coberturas de arquitetura 176/176; **suíte completa 9533/9533** — master +
+  Central A1/A2/B + Expediente E2–E8 juntos pela primeira vez.
+- **Contas de dev** (cópia de dados reais, local): `farlei.rocha@gmail.com` e `jusprime.samuel@gmail.com`, senha
+  `Prime123!` (conferida pelo hash, sem alterar nada), ambas no escritório 1; a primeira também no escritório 2.
+  Para um grupo de 3+, os demais colegas ativos do escritório 1 aparecem na escolha (não há senha conhecida deles).
+- **Desligar:** `docker rm -f smoke-demo-proxy` e matar o `php -S 0.0.0.0:8001` no container. **Retomar:** comandos no
+  relatório de 15/10 (servidor embutido na worktree da demo + `alpine/socat` publicando `127.0.0.1:8001`).
+
