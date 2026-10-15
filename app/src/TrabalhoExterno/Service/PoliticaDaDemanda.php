@@ -62,7 +62,7 @@ final class PoliticaDaDemanda
      * que só abrem uma aba ou o modal: `proposta` ("Elaborar proposta"/"Nova versão da proposta")
      * e `editar` ("Continuar rascunho").
      *
-     * @return list<array{k: string, rot: string, ic: string, tipo: string}>
+     * @return list<array{k: string, rot: string, ic: string, tipo: string, atalho: bool, confirmacao: ?array<string, mixed>}>
      */
     public function botoes(Contexto $ctx, DemandaExterna $d): array
     {
@@ -139,7 +139,23 @@ final class PoliticaDaDemanda
             }
         }
 
-        return array_map(static fn (array $b): array => ['k' => $b['k'], 'rot' => $b['rot'], 'ic' => $b['ic'], 'tipo' => $b['tipo']], $botoes);
+        return array_map(static function (array $b): array {
+            $acao = AcaoDemanda::tryFrom($b['k']);
+            $confirmacao = $acao?->confirma() ? $acao->confirmacao() : null;
+
+            return [
+                'k' => $b['k'],
+                'rot' => $b['rot'],
+                'ic' => $b['ic'],
+                'tipo' => $b['tipo'],
+                // Atalho (abre aba ou modal) não tem confirmação; ação de clique direto também não.
+                'atalho' => $acao === null,
+                'confirmacao' => $confirmacao === null ? null : $confirmacao + [
+                    'motivo' => $acao->exigeMotivo(),
+                    'perigo' => $acao->perigosa(),
+                ],
+            ];
+        }, $botoes);
     }
 
     /** A ação está entre os botões que este perfil vê agora: é a mesma regra que desenhou a tela. */
