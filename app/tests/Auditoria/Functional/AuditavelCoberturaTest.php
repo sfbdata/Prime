@@ -131,6 +131,21 @@ final class AuditavelCoberturaTest extends KernelTestCase
         RelatorioImportado::class,
         RelatorioLinha::class,
         RelatorioTotalizador::class,
+
+        // Trabalho Externo (spec docs/specs/trabalho-externo.md): domínio novo, mesma decisão de
+        // Processo/Cliente/DJEN. A demanda já tem o LOG DE DOMÍNIO próprio (HistoricoDemanda: de, para,
+        // quem, quando, motivo; e os registros de sistema no chat), visível a quem atende, como o
+        // EventoHistorico da Cobrança. Auditar seria log de log. Expandir é decisão do dono.
+        \App\TrabalhoExterno\Entity\DemandaExterna::class,
+        \App\TrabalhoExterno\Entity\HistoricoDemanda::class,
+        \App\TrabalhoExterno\Entity\MensagemDemanda::class,
+        \App\TrabalhoExterno\Entity\LeituraDemanda::class,
+        \App\TrabalhoExterno\Entity\PropostaDemanda::class,
+        \App\TrabalhoExterno\Entity\DocumentoDemanda::class,
+        \App\TrabalhoExterno\Entity\ConviteDemanda::class,
+        \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
+        \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,
+        \App\TrabalhoExterno\Entity\ConfiguracaoCentral::class,
     ];
 
     private EntityManagerInterface $em;

@@ -49,7 +49,11 @@ docker run -d --rm --name smoke-trabalho-externo-proxy --network jusprime_saas_n
    a `Notificacao`, que a frente `designer-central-ia` também altera.
 4. Link "Trabalho Externo" na barra lateral para quem é só Convidado (sem escritório): hoje ele entra
    pelo link do e-mail; a barra lateral não mostra o módulo para ele.
-5. Valores iniciais do formulário: o protótipo trazia "Brasília" como município de execução; aqui
+5. Auditoria técnica (`audit_log`): o módulo entrou como "não auditável" (domínio novo, como
+   Processo/Cliente/DJEN); a demanda tem o próprio histórico de domínio. Expandir é decisão sua.
+6. O Convidado lê o chat só a partir do aceite do convite (o anterior, com o valor da proposta, fica
+   oculto). Confirmar se é isso, ou se ele deve ler a conversa inteira.
+7. Valores iniciais do formulário: o protótipo trazia "Brasília" como município de execução; aqui
    nasce vazio (é obrigatório).
 
 ## Diferenças em relação ao desenho
@@ -63,7 +67,7 @@ quem já tem conta precisa abrir o link de novo depois de entrar.
 
 `tests/TrabalhoExterno/` (unit: política, entidade, valores em reais; functional: fluxo completo,
 isolamento entre escritórios, perfis, CSRF, rascunho, central suspensa, Equipe, chat, execução, WhatsApp,
-convite). Afetados fora do domínio e verdes: `TenantAwareCoberturaTest` (teto de FORA_DO_ESCOPO 8 → 18,
+convite). Suíte completa da frente: 9.247 testes, a única falha (`AuditavelCoberturaTest`) foi corrigida e conferida. Afetados fora do domínio e verdes: `TenantAwareCoberturaTest` (teto de FORA_DO_ESCOPO 8 → 18,
 justificado), `MapaDeChaveParaCaminhoLocalTest`, `NucleoDeArmazenamentoArquiteturaTest`,
 `FabricasDeArquivoNovoTest`, `PurgaCoberturaSchemaTest`, `PurgarEscritorioUseCaseTest`.
 
