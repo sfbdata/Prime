@@ -213,6 +213,14 @@ final class PoliticaDaDemanda
         return $this->podeVer($ctx, $d);
     }
 
+    /** Aba WhatsApp: quem vê a demanda, menos o Convidado (o desenho tira a aba dele). */
+    public function podeUsarWhatsapp(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $this->podeVer($ctx, $d)
+            && $ctx->perfil !== Perfil::Convidado
+            && $d->getSituacao() !== Situacao::Rascunho;
+    }
+
     /** E-mail e telefone do solicitante: escondidos do Convidado sem `priv.contatoConv`. */
     public function veContato(Contexto $ctx): bool
     {

@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\TrabalhoExterno\DTO\Autor;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
+use App\TrabalhoExterno\Enum\FaseWhatsapp;
 use App\TrabalhoExterno\Enum\Situacao;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
@@ -157,6 +158,16 @@ class DemandaExterna
     #[ORM\OrderBy(['em' => 'ASC', 'id' => 'ASC'])]
     private Collection $documentos;
 
+    /** @var Collection<int, ContatoWhatsapp> */
+    #[ORM\OneToMany(targetEntity: ContatoWhatsapp::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $contatosWhatsapp;
+
+    /** @var Collection<int, AvisoWhatsapp> */
+    #[ORM\OneToMany(targetEntity: AvisoWhatsapp::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $avisosWhatsapp;
+
     public function __construct(
         /** Escritório solicitante, dono da demanda. */
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
@@ -172,6 +183,8 @@ class DemandaExterna
         $this->mensagens = new ArrayCollection();
         $this->propostas = new ArrayCollection();
         $this->documentos = new ArrayCollection();
+        $this->contatosWhatsapp = new ArrayCollection();
+        $this->avisosWhatsapp = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -272,6 +285,7 @@ class DemandaExterna
             }
             $this->pagoEm = new \DateTimeImmutable();
             $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_PAGO, $autor, null));
+            $this->enfileirarAvisos(FaseWhatsapp::Pago);
         }
 
         $destino = $acao->destino();
@@ -348,6 +362,92 @@ class DemandaExterna
     {
         $this->historico->add(new HistoricoDemanda($this, $this->situacao->value, $para->value, $autor, $motivo));
         $this->situacao = $para;
+
+        $fase = FaseWhatsapp::tryFrom($para->value);
+        if ($fase !== null) {
+            $this->enfileirarAvisos($fase);
+        }
+    }
+
+    /**
+     * Conecta um contato ao WhatsApp da demanda e já prepara a mensagem de boas-vindas
+     * (`wa.adicionar` do desenho). O consentimento é pré-condição, conferida pelo UseCase.
+     */
+    public function conectarWhatsapp(string $nome, string $telefone, Autor $autor): ContatoWhatsapp
+    {
+        $contato = new ContatoWhatsapp($this, $nome, $telefone, $autor);
+        $this->contatosWhatsapp->add($contato);
+        $this->avisosWhatsapp->add(new AvisoWhatsapp(
+            $this,
+            null,
+            $nome,
+            $telefone,
+            sprintf("BlueJus · %s\nOlá, %s! A partir de agora você recebe por aqui as atualizações de %s em %s/%s.", $this->getCodigo(), self::primeiroNome($nome), $this->tipoServico, $this->cidadeExecucao, $this->ufExecucao),
+        ));
+
+        return $contato;
+    }
+
+    public function desconectarWhatsapp(ContatoWhatsapp $contato): void
+    {
+        $this->contatosWhatsapp->removeElement($contato);
+    }
+
+    public function descartarAviso(AvisoWhatsapp $aviso): void
+    {
+        $this->avisosWhatsapp->removeElement($aviso);
+    }
+
+    /** "Avisar fase atual": refaz a mensagem da fase em que a demanda está, para os contatos ativos. */
+    public function avisarFaseAtual(): void
+    {
+        $fase = $this->faseDeWhatsapp() ?? throw new TransicaoInvalida('A situação atual não tem aviso de fase.');
+
+        foreach ($this->contatosWhatsapp as $contato) {
+            if ($contato->isAtivo()) {
+                $this->avisosWhatsapp->add($this->avisoDaFase($fase, $contato));
+            }
+        }
+    }
+
+    /** A fase que o WhatsApp anuncia agora (aceita e paga anuncia "Pagamento confirmado"). */
+    public function faseDeWhatsapp(): ?FaseWhatsapp
+    {
+        if ($this->pagoEm !== null && $this->situacao === Situacao::Aceita) {
+            return FaseWhatsapp::Pago;
+        }
+
+        return FaseWhatsapp::tryFrom($this->situacao->value);
+    }
+
+    private function enfileirarAvisos(FaseWhatsapp $fase): void
+    {
+        foreach ($this->contatosWhatsapp as $contato) {
+            if ($contato->querAviso($fase)) {
+                $this->avisosWhatsapp->add($this->avisoDaFase($fase, $contato));
+            }
+        }
+    }
+
+    private function avisoDaFase(FaseWhatsapp $fase, ContatoWhatsapp $contato): AvisoWhatsapp
+    {
+        $texto = sprintf(
+            "BlueJus · %s · %s\nOlá, %s! %s em %s/%s: %s",
+            $this->getCodigo(),
+            $fase->rotulo(),
+            self::primeiroNome($contato->getNome()),
+            $this->tipoServico,
+            $this->cidadeExecucao,
+            $this->ufExecucao,
+            $fase->frase(),
+        );
+
+        return new AvisoWhatsapp($this, $fase, $contato->getNome(), $contato->getTelefone(), $texto);
+    }
+
+    private static function primeiroNome(string $nome): string
+    {
+        return explode(' ', trim($nome))[0];
     }
 
     public function getId(): ?int
@@ -533,5 +633,17 @@ class DemandaExterna
     public function getDocumentos(): array
     {
         return array_values($this->documentos->toArray());
+    }
+
+    /** @return list<ContatoWhatsapp> */
+    public function getContatosWhatsapp(): array
+    {
+        return array_values($this->contatosWhatsapp->toArray());
+    }
+
+    /** @return list<AvisoWhatsapp> */
+    public function getAvisosWhatsapp(): array
+    {
+        return array_values($this->avisosWhatsapp->toArray());
     }
 }

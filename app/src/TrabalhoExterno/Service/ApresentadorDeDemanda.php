@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Service;
 
+use App\TrabalhoExterno\Entity\AvisoWhatsapp;
+use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
+use App\TrabalhoExterno\Enum\FaseWhatsapp;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\Situacao;
 use App\TrabalhoExterno\Enum\SituacaoProposta;
 use App\TrabalhoExterno\Enum\TipoMensagem;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Converte a demanda no que a tela desenha, já com o recorte do perfil: notas internas fora para
@@ -37,6 +41,7 @@ final class ApresentadorDeDemanda
 
     public function __construct(
         private readonly PoliticaDaDemanda $politica,
+        private readonly UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -121,6 +126,7 @@ final class ApresentadorDeDemanda
             'progresso' => $this->progresso($d),
             'encerrada' => $fim,
             'encerradaTexto' => $fim ? $s->rotulo() . ' · ' . $this->dataHora($ultimoDaSituacao) : '',
+            'whatsapp' => $this->politica->podeUsarWhatsapp($ctx, $d) ? $this->whatsapp($d) : null,
             'rascunho' => $ctx->perfil === Perfil::Solicitante && $s === Situacao::Rascunho ? $this->formulario($d) : null,
         ];
     }
@@ -128,9 +134,9 @@ final class ApresentadorDeDemanda
     /** @return list<string> */
     private function abas(Contexto $ctx): array
     {
-        $abas = ['resumo', 'proposta', 'exec', 'chat', 'hist'];
+        $abas = ['resumo', 'proposta', 'exec', 'chat', 'hist', 'whats'];
 
-        return $ctx->perfil === Perfil::Convidado ? array_values(array_diff($abas, ['proposta'])) : $abas;
+        return $ctx->perfil === Perfil::Convidado ? array_values(array_diff($abas, ['proposta', 'whats'])) : $abas;
     }
 
     /** @return list<array{r: string, v: string}> */
@@ -257,6 +263,56 @@ final class ApresentadorDeDemanda
                 'ic' => $icone,
             ];
         }, array_reverse($d->getHistorico()));
+    }
+
+    /**
+     * A aba WhatsApp (`dz.wa` do desenho). O link da demanda é absoluto e exige login (D4).
+     *
+     * @return array<string, mixed>
+     */
+    private function whatsapp(DemandaExterna $d): array
+    {
+        $link = $this->urls->generate('trabalho_externo_index', ['te' => $d->getCodigo()], UrlGeneratorInterface::ABSOLUTE_URL);
+        $comLink = static fn (string $texto): string => $texto . "\n\nAcompanhe pelo BlueJus: " . $link;
+        $avisos = $d->getAvisosWhatsapp();
+        $fila = array_values(array_filter($avisos, static fn (AvisoWhatsapp $a): bool => $a->getEnviadoEm() === null));
+        $enviadas = array_reverse(array_values(array_filter($avisos, static fn (AvisoWhatsapp $a): bool => $a->getEnviadoEm() !== null)));
+        $contatos = $d->getContatosWhatsapp();
+        $fase = $d->faseDeWhatsapp();
+
+        return [
+            'contatos' => array_map(fn (ContatoWhatsapp $c): array => [
+                'id' => $c->getId(),
+                'nome' => $c->getNome(),
+                'tel' => self::telefone($c->getTelefone()),
+                'ativo' => $c->isAtivo(),
+                'fases' => array_map(static fn (FaseWhatsapp $f): array => ['k' => $f->value, 'rot' => $f->rotulo(), 'ok' => (bool) ($c->getFases()[$f->value] ?? false)], FaseWhatsapp::cases()),
+            ], $contatos),
+            'fila' => array_map(fn (AvisoWhatsapp $a): array => [
+                'id' => $a->getId(),
+                'fase' => $a->getFase()?->rotulo() ?? '',
+                'para' => $a->getNomeContato() . ' · ' . self::telefone($a->getTelefone()),
+                'txt' => $comLink($a->getTexto()),
+                'em' => $this->dataHora($a->getCriadoEm()),
+                'href' => 'https://wa.me/55' . $a->getTelefone() . '?text=' . rawurlencode($comLink($a->getTexto())),
+            ], $fila),
+            'enviadas' => array_map(fn (AvisoWhatsapp $a): array => [
+                'fase' => $a->getFase()?->rotulo() ?? 'Conexão',
+                'para' => $a->getNomeContato(),
+                'em' => $this->dataHora($a->getEnviadoEm()),
+            ], array_slice($enviadas, 0, 15)),
+            'faseAtual' => $fase?->rotulo(),
+            'temAtivos' => $fase !== null && array_filter($contatos, static fn (ContatoWhatsapp $c): bool => $c->isAtivo()) !== [],
+            'link' => $link,
+        ];
+    }
+
+    /** "61999990000" → "(61) 99999-0000" (`fmtTel` do desenho). */
+    private static function telefone(string $digitos): string
+    {
+        return strlen($digitos) >= 10
+            ? sprintf('(%s) %s-%s', substr($digitos, 0, 2), substr($digitos, 2, -4), substr($digitos, -4))
+            : $digitos;
     }
 
     /** @return array{0: string, 1: string, 2: string} rótulo, cor e ícone de uma situação ou do marco "pago" */
