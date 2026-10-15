@@ -164,7 +164,7 @@ D7 `semMetas`; D8 extrator de texto; D9 token do MCP; link da Central no menu la
 
 | Frente | HEAD / base | Sobreposição com a Central | Risco |
 |---|---|---|---|
-| `r2-gravacao-dupla` | `89aaaad8` / `a3919b5c` | **migration com o MESMO nome de versão `Version20261015180000`** (a dela cria `armazenamento_replicacao`); `doctrine.yaml` (mapping novo ao lado do `AppCentral`), `services.yaml`, `docs/frentes-ativas.md` | 🔴 **ALTO.** No `saas_ux` a versão registrada é a da Central (aplicada 15/10 11:39); um `migrate` da R2 no dev **pularia a tabela dela em silêncio**, e o mesmo aconteceria na produção para quem integrar por último. **Uma das duas precisa renomear a versão (arquivo e classe) antes de integrar** — recomendação: a R2, porque a da Central já está registrada no `saas_ux`; decisão do dono/integrador. Não alterado aqui. |
+| `r2-gravacao-dupla` | `89aaaad8` / `a3919b5c` | **migration com o MESMO nome de versão `Version20261015180000`** (a dela cria `armazenamento_replicacao`); `doctrine.yaml` (mapping novo ao lado do `AppCentral`), `services.yaml`, `docs/frentes-ativas.md` | 🔴 **Decidido pelo dono (15/10):** a Central **mantém** `Version20261015180000` sem alteração; a R2 renomeia **só a dela** para `Version20261015213000` (arquivo e classe), reconfirmando que o identificador está livre (conferido aqui em 15/10: nenhuma branch local ou remota o usa). A sessão R2 recebeu a instrução e cuida da correção, dos testes e da revisão. **Nenhuma das duas frentes é integrada antes de a correção da R2 estar concluída e validada.** A Central não altera código da R2. |
 | `modulo-trabalho-externo` | `430847f3` / `a3919b5c` | `app/templates/base.html.twig` (link no menu do topo; a Central acrescenta a linha do lançador perto do modal do ponto — trechos diferentes), `PurgarEscritorioUseCase` (linhas novas em listas vizinhas), `doctrine.yaml` (mapping ao lado), `services.yaml`, `docs/frentes-ativas.md`; migration `Version20261015210000` (posterior, sem colisão) | 🟡 conflitos textuais simples; atenção ao vocabulário: o Trabalho Externo tem uma "Central" própria (sede da central de demandas), sem relação com a Central de Comunicação |
 | `fidelidade-designer` | `5fe26dfc` / `a9653e66` (17 atrás do master) | só `docs/frentes-ativas.md`; não toca `base.html.twig`, `_sidebar`, `app.css` | 🟢 baixo; a janela de confirmação do desenho (E7) está lá — a Central usa `window.confirm` até integrar |
 
@@ -190,8 +190,9 @@ docker run -d --rm --name smoke-demo-proxy --network jusprime_saas_net -p 127.0.
 ```
 (Para ver o lançador sem mexer na demo: o mesmo par de comandos com a worktree `designer-central-ia` e a porta 8002.)
 
-**Primeira ação recomendada:** resolver com o dono a **colisão de versão com a R2** (§9) antes de qualquer
-integração. Em seguida, conforme o dono pedir: (a) avaliação visual do lançador (incorporar à demo os commits
+**Primeira ação recomendada:** conferir se a R2 já concluiu e validou a renomeação para `Version20261015213000`
+(§9: `git ls-tree --name-only -r r2-gravacao-dupla -- app/migrations | grep 20261015`). **Até lá, não integrar a
+Central** (nem ao master, nem a outra branch de integração). Em paralelo, conforme o dono pedir: (a) avaliação visual do lançador (incorporar à demo os commits
 `f118f3c7`, `66b67c9c`, `7de93350`, `007c7876`, `04ced658` por cherry-pick individual na `demo-expediente-central`,
 limpar o cache de dev dela e religar a 8001); (b) conferir o projeto online do Claude Designer via
 `mcp__claude_design__*` contra o pacote local de 13/10 e registrar diferenças; (c) decisões §3 itens 1–5.
