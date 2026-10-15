@@ -6,7 +6,18 @@
 > **Leia antes de qualquer coisa:** este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
 > depois o checklist da tela em que for trabalhar.
 
-## 0. Estado de retomada (15/10/2026, fim da E8b) — leia primeiro
+## 0. Estado de retomada (15/10/2026, fim da E8c) — leia primeiro
+
+- **E8c (15/10, noite)**: pendências técnicas da Lista, por decisão do dono do mesmo dia. (1) Sem meta: célula vazia,
+  sem o "–" (`title` no `<td>`, "Sem metas" para leitor de tela). (2) Responsividade primeiro: sem os mínimos 220/190;
+  piso 1100 → 1028px; `<col>` sai junto da célula nos cortes 900/768 (a seguinte herdava a largura errada). (3)
+  **Cabeçalho fixo LX-TAB-02 feito**: o thead desce (translateY) sob o `.app-header`, medido em Chromium e Firefox de
+  1440 a 768px. Evidência, medidas e revisão em `../fidelidade-designer-1310.md` §15. Checklist da Lista **39 · 19 · 13**.
+  - **Comparação online feita** (MCP `claude_design` conectado, só leitura): o `02 - EXPEDIENTES 1.2.3.dc.html` e os
+    scripts dele são idênticos ao pacote local de 13/10 (SHA-256). Aprovada pelo dono.
+  - **Para o dono:** decidir a faixa 901–~1330px (8 colunas ainda rolam, até 302px a 1024px); no smoke, olhar a
+    rolagem rápida (o cabeçalho pode tremer), a borda do cabeçalho e o foco por teclado sob ele (§15).
+  - E9 **não** iniciada (pedido do dono: fechar a E8 antes).
 
 - **E8b (15/10, tarde)** — `18cfe61a`, `8b0539f5`, `73578168`, `bb622309` + docs: moldura de alerta do dc na exclusão de
   marcador; travessão da pergunta de exclusão **resolvido** (parênteses); Cliente/Ação 2:1.5; Período num bloco com "a"
@@ -17,12 +28,12 @@
     (mesmo arquivo `02 - EXPEDIENTES 1.2.3.dc.html` e scripts). Se o projeto online mudou depois, não foi visto.
   - **Ambiente de smoke religado em 15/10**: `http://127.0.0.1:8000/expediente` (proxy `smoke-fidelidade-proxy` + `php -S`
     da worktree; receita na §12). Protótipo servido em `http://127.0.0.1:8765/` (`python3 -m http.server`).
-  - Novas decisões para o dono: mínimos 220/190 das colunas (o próprio dc estoura a 1440px; LX-TAB-03); o "–" das
-    linhas sem meta (abaixo). Pendente técnico: cabeçalho fixo da tabela (LX-TAB-02, três contêineres de rolagem).
-- **Entregas feitas, todas só em commit local:** E1, E2, E3, E4, E5, E5b, E5c, E7, E8 e E8b. E6 travada por P1. Próxima
+  - ~~Decisões: mínimos 220/190 (LX-TAB-03); o "–" sem meta. Pendente técnico: cabeçalho fixo (LX-TAB-02)~~ →
+    **resolvidos na E8c**.
+- **Entregas feitas, todas só em commit local:** E1, E2, E3, E4, E5, E5b, E5c, E7, E8, E8b e E8c. E6 travada por P1. Próxima
   recomendada: **E9 (Peticionar)**.
 - **Esperando o dono:**
-  1. **Smoke da E7** (`SMOKE-E7.md`) e **smoke da E8** (13 passos no fim de `E8-PLANO.md`, mais S14 a S18 da E8b). O ambiente foi preparado em
+  1. **Smoke da E7** (`SMOKE-E7.md`) e **smoke da E8** (13 passos no fim de `E8-PLANO.md`, mais S14 a S18 da E8b e S19 a S21 da E8c). O ambiente foi preparado em
      14/10 e **caiu** (o WSL reiniciou os containers): para religar, §12 "Smoke pelo navegador do Windows". Nada do
      smoke foi executado pelo Claude.
   2. Decisões abertas: P1, P2, P3; selo "9+"; `bj-dica.js`; tela de Equipe; unificar o cálculo de dias entre a linha de
@@ -33,10 +44,8 @@
   handoff):
   - ~~`perguntaDeExclusaoDoMarcador` com travessões~~ → **resolvido na E8b** (`18cfe61a`, nomes entre parênteses; o
     teste agora recusa travessão em qualquer literal da função). O "–" do Período também saiu (virou "a", do desenho).
-  - `app/templates/pasta/_tabela.html.twig` `.exp-sem-metas` mostra `–` (o "–" do desenho, dc L.168) quando não há meta.
-    **Conflito desenho × regra do dono**: o desenho mostra o traço; a regra proíbe. Perguntar ao dono (sugestão: célula
-    vazia com `title="Sem metas"`, ou "0"). `ExpedienteListaDesenhoTelaTest::testChipsPreservamAsRegras` só confere a
-    classe `.exp-sem-metas`.
+  - ~~`_tabela` `.exp-sem-metas` com o "–" do desenho~~ → **resolvido na E8c** (decisão do dono: célula vazia; o teste
+    recusa `[–—]` na célula).
   - Não violam: o `'—'` em `expediente-lista.js` (só compara com o placeholder antigo), comentários e docs.
   - Legado com travessão (ex.: `—` de cliente/ação vazios no `_tabela`) só sai por varredura autorizada.
 - **Git:** HEAD `2467352e` + o commit deste handoff; árvore limpa; **27 à frente e 17 atrás** de `origin/master` — os 17 são

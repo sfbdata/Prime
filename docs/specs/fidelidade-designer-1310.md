@@ -511,3 +511,39 @@ a raiz porque a marca era apagada; mantida, conferir no smoke S13; (3) testes de
 Divergências da Lista **examinadas e não feitas** (com o porquê): cabeçalho fixo (LX-TAB-02, três contêineres de
 rolagem; entrega própria); mínimos 220/190 das colunas (o próprio dc estoura a 1440px; decisão do dono); negrito
 dentro do texto da exclusão (a janela escreve texto puro).
+
+## 15. E8c — evidência (pendências técnicas da Lista, 15/10/2026)
+
+**Comparação online feita antes:** com o MCP `claude_design` conectado, o projeto `4f6a5f61-…` ("Redesign de pasta
+jurídica") foi lido em modo só leitura. `02 - EXPEDIENTES 1.2.3.dc.html` e os 9 scripts que ele carrega (`support.js`,
+`bj-contas/dica/docsug/editor/link/processo/visualizar.js`, `bluejus-central.js`) são **idênticos** ao pacote local de
+13/10, por SHA-256, nas duas cópias online (raiz e `REPOSITORIO_BLUEJUS/prototipo/`). A única diferença do HTML servido
+são 3 linhas injetadas pela pré-visualização (`data-omelette-injected`). Nenhum comentário no projeto. Aprovado pelo dono.
+
+**Decisões do dono (15/10) e o que foi feito:**
+
+| # | Decisão | Feito | Medido / provado |
+|---|---|---|---|
+| 1 | Linhas sem meta sem travessão | `_tabela`: célula vazia; `title="Sem metas"` no `<td>`, texto "Sem metas" só para leitor de tela; regra `.exp-sem-metas` do CSS removida | `ExpedienteListaDesenhoTelaTest::testChipsPreservamAsRegras` recusa `[–—]` na célula (vermelho antes) |
+| 2 | Responsividade primeiro; nada de mínimo que corte coluna ou cause rolagem lateral desnecessária | Sem os mínimos 220/190 do dc; piso 1100 → **1028px** (818 fixas + Cliente 120 + Ação 90); nos cortes ≤900/≤768 do `_tabela` o `<col>` sai junto com a célula (antes a seguinte herdava o `<col>`: a 900px a Situação tinha 220px) e o piso desce (642/452px) | Rolagem lateral antes→depois: 1440 0→0 · 1366 32→**0** · 1280 118→46 · 1024 374→302 · 900 498→40 · 800 598→140 · 768 630→**0**; 390 sem rolagem (cartões) |
+| 3 | Cabeçalho fixo LX-TAB-02, desktop e mobile | `expediente-lista.js` desce o próprio thead (translateY) sob o `.app-header` fixo, limitado ao fim da tabela; rAF em scroll (passive, captura), resize, `MutationObserver` (AJAX) e clique (cartões↔tabela). CSS: thead `relative`/z 3; sem transform na impressão | Chromium e Firefox, 1440/1366/1280/1024/900/800/768 e 820×1180: thead a **102px** após rolar; colunas alinhadas com as linhas também com `scrollLeft` 200; para e sai com o fim da tabela (espaçador só no DOM); segue preso após ordenar (AJAX) e após cartões→tabela; 390px: tabela escondida, nada aplicado; sem erro de JS |
+
+Técnica: o `.table-responsive` rola nos dois eixos e prende `sticky`; clonar o cabeçalho (como o `syncCab` do dc)
+duplicaria ordenação, estilos `#tabelaPastas` e semântica. Com o thead original transladado, a rolagem horizontal
+acompanha por estar no mesmo contêiner. Medição com Playwright headless contra o servidor da worktree (`saas_ux`), só
+leitura: login, escolha de escritório, rolagem e ordenação (GET); autorizada pelo dono em 15/10.
+
+Testes: `ExpedienteListaDesenhoFolhaTest` +2 (`testLargurasSemRolagemLateralDesnecessaria`, `testCabecalhoFixo`, ambos
+de folha: travam a forma, não o comportamento) e o assert de metas do teste de tela; os 3 rodaram vermelhos antes.
+`tests/Expediente` + `tests/Pasta` 2951/2951; lint:twig OK.
+
+**Revisão read-only (`feature-review-agent`, 15/10):** sem bloqueante. Confirmou: sem laço no observador (só
+`childList`; o transform é atributo), camadas certas (menus acima do thead, linha em hover abaixo), tema escuro opaco,
+impressão, `display:none` nos `<col>` só sob `.exp-body`, sem conflito com o CSS inline do `_tabela`, nenhum travessão
+novo. Achados aplicados: `title` passou do span (largura 0, a dica nunca aparecia) para o `<td>`; comentário do piso
+corrigido. Registrados para o dono:
+- **Decisão:** entre 901 e ~1330px as 8 colunas ainda rolam (até 302px a 1024px). Acabar com isso pede esconder
+  colunas antes de 900px ou estreitar as do desenho.
+- **Smoke:** (a) tremor do cabeçalho na rolagem rápida (trackpad, toque com inércia): a posição é recalculada no
+  quadro seguinte, diferente de um `sticky` nativo; (b) a borda inferior do cabeçalho (tabela com bordas colapsadas)
+  descendo junto; (c) foco por teclado subindo com Shift+Tab pode ficar sob o cabeçalho (não há `scroll-padding-top`).

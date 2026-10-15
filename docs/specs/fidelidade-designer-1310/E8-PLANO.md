@@ -99,3 +99,11 @@ a tela grava fora do filtro "Sem responsável".
 | S16 | Clique em "Todas as pastas", num marcador, num sub-marcador e de novo em "Todas" | Sempre um único item marcado (marcador: faixa azul e negrito; "Todas": fundo azul-claro, peso normal) |
 | S17 | Na Pasta (aba Processo), botão direito sobre o ⋮ do cabeçalho e sobre o ⋮ de um cartão | Abre o mesmo menu do clique, sob o ⋮; Esc fecha e devolve o foco |
 | S18 | No celular, toque num marcador raiz | Abre as pastas dele; o número some e aparecem "+" e lápis (regra de toque da E8, agora valendo também para a raiz) |
+
+### Smoke da E8c (15/10, +3 passos, ~5 min)
+
+| # | Faça | Deve ver |
+|---|---|---|
+| S19 | Role a Lista para baixo, devagar e depois rápido (roda do mouse, trackpad; num tablet, arraste com inércia) | O cabeçalho da tabela fica preso logo abaixo do topo azul e das abas, sem tremer nem ficar para trás; a linha de baixo dele acompanha; no fim da tabela ele sai junto com a última linha |
+| S20 | Numa janela de ~1024 a 1280px, role a tabela para o lado | O cabeçalho rola junto com as colunas; com a página rolada para baixo, continua preso. **Decida**: essa faixa ainda rola (até ~300px a 1024px); aceitar, ou esconder colunas mais cedo? |
+| S21 | Pasta sem metas; Shift+Tab subindo pela tabela | Coluna Metas vazia (sem "–"), dica "Sem metas" ao parar o mouse na célula; o item com foco não fica escondido sob o cabeçalho |

@@ -56,8 +56,8 @@
 | ID | Elemento (D:L) | BlueJus | Backend? |
 |---|---|---|---|
 | LX-TAB-01 | Cabeçalho #f4f7f9, 11px 700 1.3px #4a6373, ativo azul, sombra (D:146-150) | **✓ E8** | não |
-| LX-TAB-02 | Cabeçalho fixo (`sticky top:124px`) que rola junto na horizontal (D:145, `syncCab`) | ≈ não fixa. Medido 15/10: três contêineres de rolagem entre o `<thead>` e a janela (`.table-responsive` x/y auto, `.expediente-content` auto, `main.app-main` auto do AdminLTE). Caminho: cabeçalho clonado com `scrollLeft` sincronizado, como o `syncCab` do dc — entrega própria, mexe em layout herdado | não |
-| LX-TAB-03 | Colunas 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116, mín. 1100 (D:146) | ≈ **✓ E8** nas fixas; **E8b**: Cliente e Ação em 2:1.5 da sobra (185/139 a 1440px). Fica ≈ por um ponto: os mínimos do dc (`minmax(220px…)`, `minmax(190px…)`) somam 1228px e estouram a tabela do próprio dc a 1440px (Situação cortada, medido), contra o `min-width:1100px` dele; aplicá-los traria rolagem lateral a 1440px. **Decisão do dono** | não |
+| LX-TAB-02 | Cabeçalho fixo (`sticky top:124px`) que rola junto na horizontal (D:145, `syncCab`) | **✓ E8c** (15/10). O `.table-responsive` rola nos dois eixos e prende `sticky`; o `expediente-lista.js` desce o próprio thead (translateY) sob o topo fixo do sistema (`.app-header`, 102px; o 124px do dc é a barra dele). Um cabeçalho só: ordenação, estilos e leitor de tela intactos; na horizontal rola junto com as linhas. Medido em Chromium e Firefox de 1440 a 768px: preso a 102px, alinhado coluna a coluna com `scrollLeft` 200, para no fim da tabela, segue preso após ordenar (AJAX) e após cartões→tabela; a 390px a tabela não existe (cartões) | não |
+| LX-TAB-03 | Colunas 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116, mín. 1100 (D:146) | ≈ **decidido (dono, 15/10: responsividade primeiro)**. Fixas e 2:1.5 do desenho (E8/E8b); sem os mínimos 220/190; piso 1028px (fixas + Cliente 120 + Ação 90) em vez de 1100. **E8c**: nos cortes em que o `_tabela` esconde células (≤900, ≤768) o `<col>` sai junto (a Situação herdava os 220px do Responsável). Rolagem lateral medida, antes→depois: 1366 32→0 · 1280 118→46 · 1024 374→302 · 900 498→40 · 768 630→0 | não |
 | LX-TAB-04 | Linha: padding 14, divisória #eef2f5 (D:154) | **✓ E8** | não |
 | LX-TAB-05 | Hover azul #3b8fc2, faixa 4px #1f6f9c, sombra, tudo branco (D:28-35) | **✓ E8** (a lápide fica de fora: não abre por clique) | não |
 | LX-TAB-06 | NUP 14px 700 #0a6fa0 (D:155) | **✓ E8** (+ estrela de favorito, só BlueJus) | não |
@@ -68,7 +68,7 @@
 | LX-TAB-11 | Prioridade: chip 24px raio 3, bandeira, cores do `PRIO` (D:158, 431) | **✓ E8** (rótulo do sistema; sem o pulso antigo do urgente) | não |
 | LX-TAB-12 | Responsável: botão 34px, avatar 28, hover branco com borda #cfe0ea (D:159-160) | **✓ E8** | não |
 | LX-TAB-13 | Menu de responsável 300px, cabeçalho azul e busca (D:161-166) | ≈ menu compartilhado com a Pasta (`_resp_menu`), não mexido | não |
-| LX-TAB-14 | Metas: ícone + nº de metas **abertas** em azul; "–" (D:168) | ≈ **decisão**: nº = **total**; visual do dc (azul, sem fundo), com cor de alerta para revisão/todas concluídas | não |
+| LX-TAB-14 | Metas: ícone + nº de metas **abertas** em azul; "–" (D:168) | ≈ **decidido**: nº = **total**; visual do dc (azul, sem fundo), com cor de alerta para revisão/todas concluídas. **E8c**: sem metas, a célula fica vazia, sem o "–" (decisão do dono de 15/10, regra sem travessão); `title` e texto para leitor de tela "Sem metas" | não |
 | LX-TAB-15 | Marcador: chip 24px, pasta cheia, 11px 700, máx 150px (D:169) | **✓ E8** (fundo = pastel do usuário; nomes de todos no `title`) | não |
 | LX-TAB-16 | Pop "MARCADOR" de um só marcador + "Remover marcador" (D:170-181) | ≈ **decisão**: vários marcadores e hierarquia — o modal "Mover para" de sempre | não |
 | LX-TAB-17 | Situação: ponto 7px pulsante + rótulo 12.5px 700 na cor (D:182, 432) | **✓ E8** (Ativo/Arquivado; lápide "Excluída" em vermelho; duplo clique mantido) | não |
@@ -112,17 +112,17 @@
 | LX-MOD-04 | Excluir marcador: alertdialog vermelho, "Excluir mesmo assim" (D:259-271) | ✓ **E8b** — moldura do dc medida valor a valor (430px, faixa 5px #c0392b, círculo 64px #fbecec, título 17px centrado, botões 38px no centro, sem X, fundo rgba(14,37,51,.38)); conteúdo da E8 (sub-marcadores entre parênteses, sem travessão). O negrito em "irreversível" e "N pasta(s)" do dc não entra: a janela escreve texto puro (`textContent`) | não |
 | LX-MOD-05 | Sigilo: "Pasta N protegida", Entendi / Pedir acesso (D:294-310) | ∅ | **sim** |
 
-## 7. Contagens (contado no arquivo, 15/10, depois da E8b; depois da E8 era 36 · 22 · 13)
+## 7. Contagens (contado no arquivo, 15/10, depois da E8c; depois da E8b era 38 · 20 · 13; depois da E8, 36 · 22 · 13)
 
 | Região | ✓ | ≈ | ∅ | Total |
 |---|---|---|---|---|
 | Página e cabeçalho | 2 | 2 | 0 | 4 |
 | Trilho | 5 | 3 | 0 | 8 |
 | Barra, filtros, paginação | 7 | 6 | 0 | 13 |
-| Tabela | 10 | 6 | 5 | 21 |
+| Tabela | 11 | 5 | 5 | 21 |
 | Estados e avisos | 3 | 0 | 3 | 6 |
 | Menus de botão direito | 10 | 0 | 4 | 14 |
 | Modais | 1 | 3 | 1 | 5 |
-| **Total** | **38** | **20** | **13** | **71** |
+| **Total** | **39** | **19** | **13** | **71** |
 
 Antes da E8 (o mesmo inventário, sem as marcas da E8): ver `E8-PLANO.md`. Os ∅ seguem na lista com a dependência — nenhum foi descartado.
