@@ -1,37 +1,49 @@
 # src/Central/ — Central de Comunicação
 
 Specs: `docs/specs/central-comunicacao-a1.md` (A1: conversas 1:1) · `docs/specs/central-comunicacao-a2.md` (A2:
-@menção, responder, não lida, menus) · proposta das próximas fases:
+@menção, responder, não lida, menus) · `docs/specs/central-comunicacao-b.md` (B: grupos e preferências por pessoa) ·
+proposta das próximas fases:
 `docs/specs/central-comunicacao-proposta.md`. Namespace `App\Central` · prefixo de rota `central_` · **sem
 permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 
 ## Regras inegociáveis
 
 1. **Acesso é posse, não permissão.** `AcessoACentral::exigirVinculoAtivo` (vínculo ativo no escritório da
-   sessão) + `AcessoACentral::participacao` (ser participante da conversa). Não use `PermissionChecker` aqui: ele
+   sessão) + `AcessoACentral::participacao` (ser participante ATIVO da conversa — `saiu_em IS NULL`). Não use `PermissionChecker` aqui: ele
    tem bypass de super admin e de papel de sistema, e ninguém lê conversa alheia — nem o administrador.
 2. **Conversa alheia é 404**, nunca 403 (`ConversaNaoEncontradaException`): não confirma que existe.
 3. **Fora da auditoria.** `Conversa`, `Participante` e `Mensagem` não são `Auditavel`: o `audit_log` grava o estado
    inteiro e é lido por quem administra o escritório. Não ponha o texto da mensagem em log, notificação nem audit.
 4. **Tenant explícito em toda consulta**, além do `TenantFilter`. A barreira de vínculo da plataforma
-   (redireciona para `/escritorio/selecionar`) esconde a guarda da Central no teste HTTP — quem prova a guarda é
-   `AcessoACentralTest`.
+   (redireciona para `/escritorio/selecionar`) e o próprio `TenantFilter` escondem a guarda da Central no teste HTTP —
+   quem prova a guarda das consultas é `IsolamentoDosRepositoriosDaCentralTest` (filtro DESLIGADO); o
+   `AcessoACentralTest` usa stubs e não exercita a consulta.
 5. **Texto puro.** Twig escapa; `central.js` monta o DOM só com `textContent`/`createElement`. Nunca `innerHTML`.
 6. **Polling, não tempo real (D2).** `GET /central/novidades?desde=` com cursor por id; `desde=0` só devolve o cursor.
 7. **Menção só a participante ativo.** `AcessoACentral::mencionaveis` (participante DESTA conversa, vínculo ativo,
    não o autor) + `MencoesDaCentral` (token `@[Nome](user:ID)`, rótulo reescrito pelo nome do banco, laço até só
    sobrar token canônico). O aviso (`AvisoDeMencaoNaCentral`) leva `mensagem = null`: a `Notificacao` é auditada.
-8. **Menu só com ação real (D5).** Conversa: abrir, lida/não lida. Mensagem: responder, copiar, mencionar. Item
-   novo no menu exige regra aprovada e rota no servidor antes.
+8. **Menu só com ação real (D5).** Conversa: abrir, lida/não lida, fixar, silenciar, arquivar; grupo: renomear,
+   informações. Mensagem: responder, copiar, mencionar (a de sistema não tem menu). Item novo exige regra e rota antes.
+9. **Participação ativa em TODA consulta (B).** Quem saiu ou foi removido não lê, não escreve, não aparece na lista
+   nem nas novidades, não é mencionável. Esquecer `p.saiuEm IS NULL` numa consulta nova reabre o grupo a ex-membro.
+10. **Administrador do grupo é coluna, não papel (D3).** `Conversa::isAdministradaPor` — só ele adiciona/remove;
+    participante sem permissão = 403 com `codigo: sem_permissao_no_grupo` (a tela não o confunde com sessão
+    encerrada); de fora = 404. Quem sai passa a administração ao participante ativo mais antigo.
+11. **Preferências são da participação de quem pede** (`fixada`, `silenciada`, `arquivada`): nunca mexer na de
+    outro. Silenciada sai do total do cabeçalho (servidor e tela); arquivada volta quando EU envio.
 
 ## Modelo
 
-`central_conversa` (par ordenado `usuario_menor`/`usuario_maior`, único por escritório) → `central_participante`
-(cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida` é sinal à parte, que ler desliga) → `central_mensagem`
-(índice `(conversa_id, id)`; `resposta_a_id` só da MESMA conversa, `ON DELETE SET NULL`). Não lida = mensagem de
-OUTRA pessoa acima do cursor; a própria nunca conta. As três tabelas estão na purga de escritório.
+`central_conversa` (individual: par ordenado `usuario_menor`/`usuario_maior`, único por escritório; grupo: par nulo,
+`nome` 1–60 e `administrador_id`) → `central_participante` (cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida`
+à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa) → `central_mensagem` (índices `(conversa_id, id)` e
+`(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
+Bruno", montada pelo servidor). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
+do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.
 
 ## Tela
 
-`templates/central/_janela.html.twig` é o componente isolado (D6); `/central` o monta em linha. Para virar a janela
+`templates/central/_janela.html.twig` é o componente isolado (D6); `/central` o monta em linha. Telas da janela:
+lista, conversa, novo grupo, informações do grupo (`central.js`, `mostrarTela`). Para virar a janela
 flutuante global, basta incluí-lo no layout — decisão do dono, junto com a frente `fidelidade-designer`.

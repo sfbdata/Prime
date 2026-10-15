@@ -37,6 +37,9 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
   da conversa, com aviso no sino (sem o texto da mensagem); responder citando a mensagem; marcar
   conversa como não lida; menus de botão direito da conversa (abrir, lida/não lida) e da mensagem
   (responder, copiar, mencionar).
+- Central de Comunicação, B: conversas em grupo (criar, adicionar e remover participantes pelo administrador do
+  grupo, sair, renomear, linhas de sistema, menção e aviso de "adicionou você"); fixar, silenciar e arquivar por
+  pessoa; polling que não perde mensagem confirmada fora de ordem.
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
 

@@ -16,7 +16,7 @@ Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository
 | Pastas | `src/Pasta/` | ativo |
 | Tarefas | `src/Tarefa/` | ativo |
 | Perfil do usuário | `src/Profile/` | ativo |
-| Central de Comunicação | `src/Central/` | ativo (A1: conversas 1:1 · A2: menção, resposta, menus) |
+| Central de Comunicação | `src/Central/` | ativo (A1: conversas 1:1 · A2: menção, resposta, menus · B: grupos, preferências) |
 | Compartilhado | `src/Shared/` | ativo |
 | Ponto | `src/Entity/Ponto/` | legado — migrar para `src/Ponto/` |
 | Agenda | `src/Entity/Agenda/` | legado — migração planejada (`src/Agenda/` ainda não criado) |
