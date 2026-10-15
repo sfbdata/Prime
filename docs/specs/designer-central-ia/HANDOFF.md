@@ -65,12 +65,15 @@ Commits da frente, em ordem (os mais relevantes):
 - B: fixar, silenciar e arquivar são **por pessoa**; silenciar não impede receber; arquivar não apaga e reabre.
 - **Sem travessão (— ou –) em texto que o usuário vê** (regra global de 15/10; varrido na Central, nada a corrigir).
 
-**Em vigor como padrão, aguardando confirmação do dono** (reversíveis; `central-comunicacao-b.md` §8):
-1. Quem entra no grupo vê o histórico anterior (como no desenho).
+**Aprovadas pelo dono em 15/10/2026** (eram o padrão em vigor; nenhuma mudança de código; `central-comunicacao-b.md` §8):
+1. Quem entra no grupo vê o histórico anterior (como no desenho). **Ressalva expressa:** o acesso ao histórico
+   respeita as permissões e o isolamento dos escritórios, inclusive para participantes novos (só entra colaborador
+   ativo do mesmo escritório; cada leitura exige vínculo ativo, participação ativa e o mesmo `tenant`; detalhe e
+   evidência na spec B §8).
 2. Silenciar mantém o aviso de menção no sino (o desenho só tira o som).
 3. Qualquer participante renomeia o grupo (como no desenho).
 4. Administração vaga (administrador sem vínculo ou fora do grupo) passa ao participante ativo mais antigo com vínculo.
-5. Lançador: janela presa a 8 px da borda em tela estreita (o desenho dá x = −2 e corta 2 px).
+5. Lançador: janela presa a 8 px da borda em tela estreita (o desenho dá x = −2 e corta 2 px). Desvio aprovado.
 
 **Pendentes (não aprovadas):** D1-a…f da IA (SDK × HTTP, modelo, ZDR, LGPD art. 33, região, piloto e orçamento);
 D7 `semMetas`; D8 extrator de texto; D9 token do MCP; link da Central no menu lateral.
@@ -97,7 +100,13 @@ D7 `semMetas`; D8 extrator de texto; D9 token do MCP; link da Central no menu la
 - **Divergências reais (fora por falta de dado real, D5):** presença e "N on-line", ponto de status, lista "Todos",
   "Equipe · em aberto", cartões Urgente/Atenção/Metas, filtros Conversas/Urgente/Atenção/Metas/Para revisar,
   notificações de outros módulos dentro da Caixa, botão "Destacar" (Picture-in-Picture), som de "toque", avatar do
-  usuário no cabeçalho da lista. Título "Central de Comunicação" (decisão do dono). Desvio de 8 px (§3 item 5).
+  usuário no cabeçalho da lista. Título "Central de Comunicação" (decisão do dono). Desvio de 8 px (§3 item 5,
+  aprovado em 15/10).
+- **Conferência com o projeto online (15/10, só leitura):** o projeto "Redesign de pasta jurídica" do Claude Designer
+  tem `bluejus-central.js` e `02 - EXPEDIENTES 1.2.3.dc.html` **idênticos** ao pacote local de 13/10 (última edição
+  online em 12/10; sem comentários). Nenhuma divergência vem de mudança no desenho. Inventário desenho × implementado
+  apresentado ao dono na mesma data (prioridades: P1 decidir notificações dos módulos na Caixa × sino; P2 pacote
+  "só trabalho" e API `BJCentral.abrir/conversar`; P3 ações de mensagem e anexos).
 - **Aceitas/abertas:** abrir não leva o foco para a janela e Esc não a fecha (o desenho também não); com modal
   Bootstrap aberto o foco do modal prende o teclado; o ícone pode cobrir avisos de canto de outras telas (z-index do
   desenho, 2147483000). JS sem teste automatizado (cobertura por arranjo HTML + teste visual).

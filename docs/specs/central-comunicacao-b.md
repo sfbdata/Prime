@@ -108,14 +108,27 @@ Todas as de escrita com CSRF `ajax`. Ações de grupo em conversa individual →
 ganha `tipo`, `nome`, `participantes` (contagem), `fixada`, `silenciada`, `arquivada`, `souAdministrador`; `outro` fica
 `null` em grupo; e a `Mensagem` ganha `sistema`.
 
-## 8. Decisões que ficam com o dono (o padrão escolhido está em vigor e é reversível)
+## 8. Decisões do dono
 
-1. Quem entra no grupo vê o histórico anterior (desenho) × só dali para frente.
-2. Silenciar mantém o aviso de menção (desenho) × silenciar cala também a menção.
-3. Renomear por qualquer participante (desenho) × só o administrador.
-4. `@Todos` em grupo — fora desta entrega.
-5. Administração vaga vai ao participante mais antigo com vínculo (em vigor) × outra regra (ex.: o mais antigo de
-   todos, ou exigir indicação).
+**Aprovadas pelo dono em 15/10/2026** (eram o padrão em vigor; o código já as cumpre, nada muda):
+
+1. **Quem entra no grupo vê o histórico anterior** (como no desenho), e não só dali para frente. **Ressalva
+   expressa do dono:** o acesso ao histórico respeita as permissões e o isolamento dos escritórios, inclusive para
+   participantes novos. Isso vale como regra, não só como estado do código, e já é cumprido assim:
+   - só entra no grupo quem é colaborador **ativo do mesmo escritório** (`AdicionarParticipanteUseCase` busca a pessoa
+     em `AcessoACentral::colaboradoresAtivos($tenant)`);
+   - cada página do histórico exige **vínculo ativo** com o escritório (`exigirVinculoAtivo`) e **participação
+     ativa** na conversa (`saiuEm IS NULL`), com `tenant` conferido na conversa, no participante e na mensagem
+     (`ParticipanteRepository::daConversa`, `MensagemRepository::historico`);
+   - quem sai do grupo ou perde o vínculo deixa de ler na hora; quem é readmitido volta a ver (§3, readmissão).
+   Qualquer mudança futura no histórico (busca, anexos, encaminhar) herda essa regra.
+2. **Silenciar mantém o aviso de menção** no sino (como no desenho); silenciar só tira o som e o contador.
+3. **Qualquer participante renomeia o grupo** (como no desenho); a linha de sistema registra quem renomeou.
+4. `@Todos` em grupo: fora desta entrega (sem decisão; continua pendente, D5).
+5. **Administração vaga vai ao participante ativo mais antigo com vínculo**, e não ao mais antigo de todos nem por
+   indicação obrigatória.
+
+A margem de 8 px do lançador em tela estreita (o desenho dá x = −2) também foi aprovada nessa data (HANDOFF §3).
 
 ## 9. Modelo e migration
 
