@@ -36,8 +36,18 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Escritório Solicitante', (string) $client->getResponse()->getContent(), 'a página não revela o escritório');
 
         $csrf = $crawler->filter('form[action$="/criar-conta"] input[name="_token"]')->attr('value');
-        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Novo Correspondente', 'senha' => 'curta', 'aceite_termos' => '1', '_token' => $csrf]);
-        self::assertResponseRedirects("/trabalho-externo/convite/$token");
+        // O erro aparece DENTRO do formulário (antes ele ia num aviso que o layout consumia e
+        // a pessoa via a página de novo, sem saber o que errou), e o nome digitado é mantido.
+        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Nome Digitado', 'senha' => 'curta', 'aceite_termos' => '1', '_token' => $csrf]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('.login-container form[action$="/criar-conta"] .alert-danger', 'A senha precisa ter pelo menos 8 caracteres');
+        self::assertSelectorCount(1, '.alert-danger', 'o erro aparece uma vez só');
+        self::assertInputValueSame('full_name', 'Nome Digitado');
+        self::assertSelectorTextContains('button', 'Criar conta e aceitar', 'o formulário continua lá para corrigir');
+
+        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Novo Correspondente', 'senha' => 'senha-forte-1', '_token' => $csrf]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('.login-container form .alert-danger', 'sem o aceite dos Termos, o erro também aparece');
 
         $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Novo Correspondente', 'senha' => 'senha-forte-1', 'aceite_termos' => '1', '_token' => $csrf]);
         self::assertResponseRedirects("/trabalho-externo?te=$codigo");
@@ -372,6 +382,10 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
             self::assertStringNotContainsString('DEPOIS-DA-REVOGACAO', (string) $client->getResponse()->getContent());
             self::assertStringNotContainsString('SEGREDO', (string) $client->getResponse()->getContent());
         }
+        // O link antigo de um documento também dá o aviso amigável, não a página técnica 403.
+        $client->request('GET', "/trabalho-externo/demandas/$codigo/documentos/1");
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextContains('.te-sem-acesso h1', 'Você não tem acesso ao Trabalho Externo');
 
         // Revogado que AINDA tem perfil (convite vigente em outra demanda): o painel abre, mas só
         // com a outra; a revogada some e o detalhe dela é 404. Aqui a barreira é o recorte por
@@ -392,6 +406,43 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         }
         $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
         self::assertResponseStatusCodeSame(404, 'a demanda do convite revogado não abre, mesmo com perfil');
+    }
+
+    #[TestDox('depois do login, o convidado sem escritório entra direto no Trabalho Externo; os demais seguem como antes')]
+    public function testEntradaDoConvidadoAposLogin(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante] = $this->demandaEmExecucao();
+        $token = $this->convidar($client, $codigo, 'entrada@test.com');
+        $this->contaDoConvidado($client, $token, 'entrada@test.com');
+
+        // Antes: ia para "selecionar escritório", sem escritório nenhum para escolher.
+        $this->entrarPeloFormulario($client, 'entrada@test.com', 'senha-forte-1');
+        self::assertResponseRedirects('/trabalho-externo');
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('#tePagina');
+
+        // Quem tem escritório: o destino de sempre (o Expediente), sem mudança.
+        $this->entrarPeloFormulario($client, (string) $solicitante->getEmail(), 'senha123');
+        self::assertResponseRedirects('/expediente');
+
+        // Convite revogado: sem convite vigente, volta ao caminho de sempre (selecionar escritório).
+        $this->logarComTenant($client, $master, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $id = $this->json($client)['demanda']['convites'][0]['id'];
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites/$id/revogar");
+        $this->entrarPeloFormulario($client, 'entrada@test.com', 'senha-forte-1');
+        self::assertResponseRedirects('/escritorio/selecionar');
+    }
+
+    private function entrarPeloFormulario(KernelBrowser $client, string $email, string $senha): void
+    {
+        $client->getCookieJar()->clear();
+        $crawler = $client->request('GET', '/login');
+        $form = $crawler->selectButton('Entrar')->form();
+        $form['email'] = $email;
+        $form['password'] = $senha;
+        $client->submit($form);
     }
 
     /**

@@ -38,10 +38,7 @@ final class ConviteController extends AbstractController
     #[Route('', name: 'trabalho_externo_convite', methods: ['GET'])]
     public function ver(string $token): Response
     {
-        $usuario = $this->getUser();
-        $pagina = $this->abrir->executar($token, $usuario instanceof User ? $usuario : null);
-
-        return $this->render('trabalho_externo/convite.html.twig', $pagina + ['token' => $token]);
+        return $this->pagina($token);
     }
 
     #[Route('/criar-conta', name: 'trabalho_externo_convite_criar_conta', methods: ['POST'])]
@@ -73,9 +70,7 @@ final class ConviteController extends AbstractController
                 $request->headers->get('User-Agent'),
             );
         } catch (DadosInvalidos|DemandaNaoEncontrada $e) {
-            $this->addFlash('erro', $e->getMessage());
-
-            return $this->redirectToRoute('trabalho_externo_convite', ['token' => $token]);
+            return $this->pagina($token, $e->getMessage(), (string) $request->request->get('full_name', ''));
         }
 
         // Entra direto: a resposta do autenticador (que mandaria escolher escritório) é ignorada,
@@ -104,11 +99,28 @@ final class ConviteController extends AbstractController
         try {
             $convite = $aceitar->executar($token, $usuario);
         } catch (TransicaoInvalida|DemandaNaoEncontrada $e) {
-            $this->addFlash('erro', $e->getMessage());
-
-            return $this->redirectToRoute('trabalho_externo_convite', ['token' => $token]);
+            return $this->pagina($token, $e->getMessage());
         }
 
         return $this->redirectToRoute('trabalho_externo_index', ['te' => $convite->getDemanda()->getCodigo()]);
+    }
+
+    /**
+     * A página do convite. Com erro, ela é desenhada de novo NA MESMA resposta (422), com a
+     * mensagem dentro do formulário e o nome digitado: um aviso de sessão seria consumido pelo
+     * layout antes do formulário e a pessoa veria a página sem saber o que errou.
+     */
+    private function pagina(string $token, ?string $erro = null, ?string $nomeDigitado = null): Response
+    {
+        $usuario = $this->getUser();
+        $pagina = $this->abrir->executar($token, $usuario instanceof User ? $usuario : null);
+        if ($nomeDigitado !== null && $nomeDigitado !== '' && is_array($pagina['convite'])) {
+            $pagina['convite']['nome'] = $nomeDigitado;
+        }
+
+        return $this->render('trabalho_externo/convite.html.twig', $pagina + ['token' => $token, 'erro' => $erro], new Response(
+            '',
+            $erro !== null ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK,
+        ));
     }
 }
