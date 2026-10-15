@@ -56,3 +56,11 @@ janela fechada **nada vira lido** (`marcarLida` exige `janelaAberta`), o polling
 (lista e contatos carregam na primeira abertura); alerta (salto/som) só quando o total de não lidas do servidor sobe
 (silenciadas não contam); preferências de tela no localStorage por usuário. Geometria e animações são cópia do desenho
 (linhas citadas no JS/CSS); presença, urgência e "Destacar" ficaram fora por não haver dado real (D5).
+
+**Fidelidade ao Designer (desde a Fase A, 15/10).** O código do protótipo (`bluejus-central.js` e `bj-dica.js` do
+pacote de 13/10) é a referência visual e de comportamento: porte o estilo inline como classe 1:1, citando a linha, em vez
+de reinterpretar. A prova é o Playwright comparativo `e2e/tests/central-fidelidade.spec.js` (protótipo × sistema no
+mesmo estado; geometria, estilo computado, keyframes e tempos), não o PHPUnit, que é cego a aparência. Balão de dica:
+`central-dica.js` (só nas raízes `[data-central]`, `[data-central-flutuante]`, `[data-flutuante-janela]`; o resto do
+sistema segue com a dica do navegador, por decisão do dono). Demonstração da worktree: `scripts/central-demo.sh <frente>
+<porta>` (sem a barra do Symfony e sem o lembrete do ponto, só naquele servidor).

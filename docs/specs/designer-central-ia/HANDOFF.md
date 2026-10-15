@@ -118,6 +118,32 @@ D7 `semMetas`; D8 extrator de texto; D9 token do MCP; link da Central no menu la
 
 ---
 
+## 4.1 Fidelidade ao Designer: diagnóstico e Fase A (15/10, fim do dia)
+
+- **O dono reprovou a fidelidade visual da demo 8001.** Diagnóstico (só leitura, Playwright lado a lado com o protótipo
+  servido localmente): lançador e moldura já eram cópia quase 1:1 (mesmos SVGs, medidas, keyframes; geometria igual em
+  1366×800 e 375×740); as TELAS INTERNAS foram reinterpretadas com componentes próprios do `central.css` (menu ⋮,
+  confirmação nativa, Informações e Novo grupo, avatar de grupo, ações no hover da bolha, Painel vazio) e faltava o
+  balão de dica (`bj-dica.js`). Na demo, a conta sem não lidas deixava o ícone sempre "calmo", e a barra do Symfony e o
+  modal do Ponto cobriam a Central. Estratégia aprovada: **portar o código do protótipo, não reinterpretar**.
+- **Decisões do dono para a Fase A:** balão só dentro da Central; nomes como estão cadastrados; sem "Destacar" nesta
+  etapa; estados demonstrados com dados fictícios isolados de conversas reais.
+- **Fase A entregue (lançador e ambiente):**
+  - balão de dica fiel ao `bj-dica.js`, restrito às raízes da Central (`central-dica.js` + `.bj-central-dica`); o title
+    só sai no hover (como no desenho) e vai para `aria-description` quando o elemento não tem nome próprio;
+  - a animação de abertura não fica mais presa na janela (o teste comparativo pegou: ela compunha com a de minimizar);
+  - demonstração por worktree: `scripts/central-demo.sh <frente> <porta>` + `scripts/central-demo-router.php` (sem a
+    barra do Symfony e sem o lembrete do ponto, só naquele servidor; recusa porta de outra frente);
+  - estados calmo, com não lidas e com menção: SEM gravar no banco. No Playwright toda chamada `/central/*` é
+    interceptada com dados fictícios (cada teste exige zero escritas). O `saas_ux` não foi tocado;
+  - `e2e/tests/central-fidelidade.spec.js` (projeto `central-fidelidade`, só com `CENTRAL_E2E_EMAIL` no comando):
+    7 testes protótipo × sistema (geometria, formas do SVG, estilo computado, keyframes e tempos de pontos, salto,
+    abrir e minimizar, hover, balão, celular). Provado por mutação: cor do balão e animação presa derrubam o teste certo.
+- **Pendente (fases B a E, ver o diagnóstico):** B moldura (menu ⋮ em painel, confirmação na janela, avisos no lugar de
+  `alert`, avatar no cabeçalho da lista); C lista e Painel (avatar de grupo, linha, vazios, `bjcIn` do `central.css`);
+  D conversa (ações no hover, cabeçalho clicável com Pesquisar, compositor, "Novas mensagens", recibo "Visualizada");
+  E grupo (Informações e Novo grupo). Cada uma ganha seus testes no mesmo spec.
+
 ## 5. Limitações conhecidas
 
 - Polling: transação que demore > 30 s para confirmar uma mensagem escapa ao polling (aparece ao reabrir).
@@ -198,6 +224,11 @@ docker exec -d -e APP_ENV=dev -e PHP_CLI_SERVER_WORKERS=4 jusprime_php_dev bash 
 docker run -d --rm --name smoke-demo-proxy --network jusprime_saas_net -p 127.0.0.1:8001:8001 alpine/socat tcp-listen:8001,fork,reuseaddr tcp-connect:jusprime_php_dev:8001
 ```
 (Para ver o lançador sem mexer na demo: o mesmo par de comandos com a worktree `designer-central-ia` e a porta 8002.)
+
+**Demonstração da frente (Fase A):** `scripts/central-demo.sh designer-central-ia 8002` (porta 8002; a 8001 é da
+demo integrada e não foi alterada). Testes comparativos: `cd e2e && npm ci && CENTRAL_E2E_EMAIL=... CENTRAL_E2E_SENHA=...
+CENTRAL_E2E_ESCRITORIO="..." npx playwright test --project=central-fidelidade` (protótipo em
+`/home/prime/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/prototipo`, servido pelo próprio teste).
 
 **Primeira ação recomendada:** conferir se a R2 já concluiu e validou a renomeação para `Version20261015213000`
 (§9: `git ls-tree --name-only -r r2-gravacao-dupla -- app/migrations | grep 20261015`). **Até lá, não integrar a

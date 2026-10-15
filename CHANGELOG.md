@@ -42,6 +42,7 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
   pessoa; polling que não perde mensagem confirmada fora de ordem.
 - Central de Comunicação: ícone flutuante em todas as telas (contador de não lidas, menções, animações do desenho) com
   a janela de conversas, que se move, encaixa, redimensiona, minimiza e maximiza.
+- Central de Comunicação: balão de dica no padrão do desenho (azul-claro) em todos os botões da Central.
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
 
