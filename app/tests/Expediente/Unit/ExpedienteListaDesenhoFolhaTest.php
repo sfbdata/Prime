@@ -58,6 +58,12 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         yield 'barra do acervo #f7f9fb' => ['--ex-barra:        #f7f9fb;'];
         yield 'Nova Pasta #e2e9ee' => ['--ex-botao:        #e2e9ee;'];
         yield 'colunas do desenho (96 · 120 · 220 · 76 · 190 · 116)' => ['col:nth-child(5) { width: 220px !important; }'];
+        // E8b: Cliente e Ação em 2fr:1.5fr. `calc` com % é ignorado no <col>; em percentual, as duas dividem a sobra
+        // das colunas fixas na razão 40:30 (= 2:1.5), medido na tela.
+        yield 'Cliente 2fr (dc L.146)' => ['col:nth-child(2) { width: 40% !important; }'];
+        yield 'Ação 1.5fr (dc L.146)' => ['col:nth-child(3) { width: 30% !important; }'];
+        yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
+        yield '"a" entre as datas #7d909d (dc L.109)' => ['--ex-periodo-sep:  #7d909d;'];
     }
 
     #[DataProvider('valores')]
@@ -147,8 +153,48 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringContainsString("rotulo: 'Excluir mesmo assim'", $t);
         self::assertStringContainsString("'Esta ação é irreversível. '", $t);
         self::assertStringContainsString("deixam de ter este marcador", $t, 'vários marcadores por pasta: não "ficam sem marcador"');
-        self::assertStringContainsString("sub-marcador(es) — ' + nomes.join(', ') + ' — também são excluídos,'", $t);
+        // Regra do dono (15/10): sem travessão em texto que o usuário vê; os nomes vão entre parênteses.
+        self::assertStringContainsString("sub-marcador(es) (' + nomes.join(', ') + ') também são excluídos,'", $t);
         self::assertStringContainsString("' com o que houver abaixo deles, e as pastas marcadas com eles deixam de tê-los.'", $t, 'cascata inteira, sem somar pastas repetidas');
         self::assertDoesNotMatchRegularExpression('/if \(!confirm\(msg\)\)/', $t);
+
+        preg_match('/function perguntaDeExclusaoDoMarcador\(item, nome\) \{.*?\n    \}/s', $t, $m);
+        self::assertNotEmpty($m, 'a função da pergunta existe');
+        preg_match_all("/'[^'\\n]*'/", $m[0], $literais);
+        foreach ($literais[0] as $literal) {
+            self::assertDoesNotMatchRegularExpression('/[—–]/u', $literal, 'travessão em texto da pergunta: ' . $literal);
+        }
+        self::assertStringContainsString("moldura: 'alerta'", $m[0], 'a exclusão usa a moldura de alerta do desenho');
+    }
+
+    #[TestDox('período: "a" entre as datas, como o desenho (dc L.109), sem travessão (regra do dono de 15/10)')]
+    public function testSeparadorDoPeriodo(): void
+    {
+        $f = self::ler('templates/pasta/_filtros.html.twig');
+        self::assertStringContainsString('<span class="pasta-filtros-periodo-sep" aria-hidden="true">a</span>', $f);
+        self::assertStringNotContainsString('pasta-filtros-periodo-sep">–', $f);
+    }
+
+    #[TestDox('moldura de alerta (dc 03 L.259-271): faixa vermelha, círculo com ⚠, título e botões centralizados; só quando pedida')]
+    public function testMolduraDeAlertaDaExclusao(): void
+    {
+        $js = self::ler('public/js/pasta-dialogos.js');
+        self::assertStringContainsString("fundo.classList.toggle('is-alerta', o.moldura === 'alerta');", $js, 'opcional: a Pasta segue com a janela da E7');
+        self::assertStringContainsString('.filter(visivel)', $js, 'o Tab não para no X escondido da moldura de alerta');
+
+        $j = (string) preg_replace('/\s+/', ' ', self::ler('templates/_partials/_janela_confirmacao.html.twig'));
+        foreach ([
+            '--cf-al-faixa: #c0392b;', '--cf-al-circulo: #fbecec;', '--cf-al-titulo: #12242f;', '--cf-al-texto: #34505f;',
+            '--cf-al-ok-hv: #a3232b;', '--cf-al-cancelar: #e2e9ee;', '--cf-al-cancelar-tx: #1f3644;', '--cf-al-cancelar-hv: #d3dde4;',
+            '.ps-cf-fundo.is-alerta { background: rgba(14,37,51,.38); }',
+            'width: min(430px, 100%); box-shadow: 0 26px 60px -20px rgba(12,48,72,.45);',
+            'border-top: 5px solid var(--cf-al-faixa);',
+            'width: 64px; height: 64px; border-radius: 50%; background: var(--cf-al-circulo);',
+            'font-size: 17px; font-weight: 700; color: var(--cf-al-titulo); text-align: center;',
+            '.ps-cf-fundo.is-alerta .ps-cf-fechar { display: none; }',
+            'height: 38px; padding: 0 18px; font-size: 14px;',
+        ] as $trecho) {
+            self::assertStringContainsString($trecho, $j);
+        }
     }
 }

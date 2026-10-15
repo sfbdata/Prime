@@ -369,7 +369,8 @@
      * Abre a janela de confirmação. `opcoes`: { titulo, texto, rotulo, icone, variante, foco }.
      * `foco`: para onde o foco volta ao fechar (padrão: o elemento focado ao abrir).
      * `variante` 'azul' (ação sem perigo: botão #0a6fa0, padrão ✓ "Confirmar") ou 'perigo' (padrão:
-     * botão vermelho, 🗑 "Excluir"). Devolve uma Promise que resolve `true` só se a pessoa confirmar.
+     * botão vermelho, 🗑 "Excluir"). `moldura` 'alerta': a janela do dc 03 L.259-271 (faixa vermelha, círculo
+     * com ⚠, tudo centralizado, sem o X), usada na exclusão de marcador do Expediente. Devolve uma Promise que resolve `true` só se a pessoa confirmar.
      */
     function confirmarPs(opcoes) {
         var o = opcoes || {};
@@ -382,6 +383,7 @@
         var ok = fundo.querySelector('[data-ps-cf-ok]');
         var azul = o.variante === 'azul';
         caixa.classList.toggle('is-azul', azul);
+        fundo.classList.toggle('is-alerta', o.moldura === 'alerta');
         document.getElementById('psConfirmarTitulo').textContent = o.titulo || 'Confirmar';
         document.getElementById('psConfirmarTexto').textContent = o.texto || '';
         ok.querySelector('span').textContent = o.rotulo || (azul ? 'Confirmar' : 'Excluir');
@@ -455,7 +457,7 @@
                 encerrarConfirmacao(true);
             } else if (e.key === 'Tab') {
                 // O foco não sai da janela enquanto ela está aberta.
-                var botoes = Array.prototype.slice.call(fundo.querySelectorAll('button'));
+                var botoes = Array.prototype.slice.call(fundo.querySelectorAll('button')).filter(visivel);
                 var i = botoes.indexOf(document.activeElement);
                 e.preventDefault();
                 botoes[(i + (e.shiftKey ? -1 : 1) + botoes.length) % botoes.length].focus();

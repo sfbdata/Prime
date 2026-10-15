@@ -43,6 +43,46 @@
        não define: escurece como o vermelho. */
     .ps-cf.is-azul .ps-cf-btn--ok { background: var(--cf-ok-azul); }
     .ps-cf.is-azul .ps-cf-btn--ok:hover, .ps-cf.is-azul .ps-cf-btn--ok:focus-visible { background: var(--cf-ok-azul-hv); }
+
+    /* E8b: moldura de alerta do dc 03 (L.259-271, exclusão de marcador): faixa vermelha de 5px, círculo de 64px
+       com ⚠, título 17px e texto 14px centralizados, botões de 38px no centro, sem o X (Esc e Cancelar fecham).
+       Só quando pedida (`moldura: 'alerta'` no confirmarPs): a Pasta segue com a janela da E7. O escuro o
+       desenho não tem: segue a convenção (tokens do Bootstrap). */
+    .ps-cf-fundo {
+        --cf-al-faixa: #c0392b; --cf-al-circulo: #fbecec; --cf-al-titulo: #12242f; --cf-al-texto: #34505f;
+        --cf-al-ok: #c0392b; --cf-al-ok-hv: #a3232b;
+        --cf-al-cancelar: #e2e9ee; --cf-al-cancelar-tx: #1f3644; --cf-al-cancelar-hv: #d3dde4;
+    }
+    [data-bs-theme="dark"] .ps-cf-fundo {
+        --cf-al-circulo: rgba(192,57,43,.18); --cf-al-titulo: var(--bs-emphasis-color); --cf-al-texto: var(--bs-body-color);
+        --cf-al-cancelar: var(--bs-secondary-bg); --cf-al-cancelar-tx: var(--bs-body-color); --cf-al-cancelar-hv: var(--bs-tertiary-bg);
+    }
+    @keyframes psCfAlerta { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    .ps-cf-fundo.is-alerta { background: rgba(14,37,51,.38); }
+    .ps-cf-fundo.is-alerta .ps-cf {
+        width: min(430px, 100%); box-shadow: 0 26px 60px -20px rgba(12,48,72,.45);
+        border-top: 5px solid var(--cf-al-faixa); animation: psCfAlerta .18s ease-out;
+    }
+    .ps-cf-fundo.is-alerta .ps-cf-cab {
+        flex-direction: column; gap: 11px; padding: 24px 24px 0; background: transparent; text-align: center;
+    }
+    .ps-cf-fundo.is-alerta .ps-cf-cab > i {
+        width: 64px; height: 64px; border-radius: 50%; background: var(--cf-al-circulo);
+        display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--cf-al-faixa);
+    }
+    .ps-cf-fundo.is-alerta .ps-cf-titulo { flex: none; font-size: 17px; font-weight: 700; color: var(--cf-al-titulo); text-align: center; }
+    .ps-cf-fundo.is-alerta .ps-cf-fechar { display: none; }
+    .ps-cf-fundo.is-alerta .ps-cf-texto { padding: 11px 24px 18px; font-size: 14px; line-height: 1.5; color: var(--cf-al-texto); text-align: center; text-wrap: pretty; }
+    .ps-cf-fundo.is-alerta .ps-cf-rodape { justify-content: center; gap: 10px; padding: 0 24px 22px; border-top: 0; background: transparent; }
+    .ps-cf-fundo.is-alerta .ps-cf-btn { height: 38px; padding: 0 18px; font-size: 14px; }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--ok { gap: 8px; background: var(--cf-al-ok); transition: transform .15s; }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--ok:hover, .ps-cf-fundo.is-alerta .ps-cf-btn--ok:focus-visible { background: var(--cf-al-ok-hv); transform: scale(1.03); }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--cancelar { background: var(--cf-al-cancelar); color: var(--cf-al-cancelar-tx); }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--cancelar:hover { background: var(--cf-al-cancelar-hv); }
+    @media (prefers-reduced-motion: reduce) {
+        .ps-cf-fundo.is-alerta .ps-cf { animation: none; }
+        .ps-cf-fundo.is-alerta .ps-cf-btn--ok:hover, .ps-cf-fundo.is-alerta .ps-cf-btn--ok:focus-visible { transform: none; }
+    }
 </style>
 <div class="ps-cf-fundo" id="psConfirmar" hidden>
     <div class="ps-cf" role="alertdialog" aria-modal="true" aria-labelledby="psConfirmarTitulo" aria-describedby="psConfirmarTexto" tabindex="-1">

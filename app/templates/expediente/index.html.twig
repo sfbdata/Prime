@@ -1479,7 +1479,8 @@ document.addEventListener('DOMContentLoaded', function () {
     /* E8: a pergunta do desenho (dc 03 L.259-271, "Excluir o marcador "X"?" / "Esta ação é irreversível…" /
        "Excluir mesmo assim") na janela da tela (E7), vermelha. Duas correções de verdade: a pasta pode ter
        vários marcadores, então ela "deixa de ter este marcador" (o dc diz "fica sem marcador"); e os
-       sub-marcadores são excluídos junto (cascata no banco), com quantos e quais — decisão do dono 14/10. */
+       sub-marcadores são excluídos junto (cascata no banco), com quantos e quais — decisão do dono 14/10.
+       E8b: moldura de alerta do dc (faixa vermelha, círculo com ⚠); nomes entre parênteses (sem travessão, 15/10). */
     function perguntaDeExclusaoDoMarcador(item, nome) {
         var contar = function (el) {
             var c = el ? el.querySelector(':scope > a .js-contagem-marcador, :scope > .js-contagem-marcador') : null;
@@ -1498,11 +1499,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }).filter(Boolean);
             // Sem somar as pastas dos sub-marcadores: uma pasta pode estar em mais de um deles, e a soma
             // contaria a mesma pasta duas vezes. Tudo o que estiver abaixo deles também sai (cascata).
-            texto += ' Os ' + subs.length + ' sub-marcador(es) — ' + nomes.join(', ') + ' — também são excluídos,'
+            texto += ' Os ' + subs.length + ' sub-marcador(es) (' + nomes.join(', ') + ') também são excluídos,'
                 + ' com o que houver abaixo deles, e as pastas marcadas com eles deixam de tê-los.';
         }
 
-        return { titulo: 'Excluir o marcador "' + nome + '"?', texto: texto, rotulo: 'Excluir mesmo assim', icone: 'bi-trash3' };
+        return { titulo: 'Excluir o marcador "' + nome + '"?', texto: texto, rotulo: 'Excluir mesmo assim', icone: 'bi-trash3', moldura: 'alerta' };
     }
 
     function excluirMarcadorConfirmado(id, token, btnExcluir) {

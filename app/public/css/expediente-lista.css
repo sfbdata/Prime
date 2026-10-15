@@ -32,6 +32,7 @@
     --ex-azul-hover:   #eef6fb;
     --ex-campo:        #edf2f6;   /* busca e filtros, dc L.100 */
     --ex-campo-hover:  #e9f0f4;
+    --ex-periodo-sep:  #7d909d;   /* "a" entre as datas, dc L.109 */
     --ex-botao:        #e2e9ee;   /* Nova Pasta, dc L.82 */
     --ex-contagem-bg:  #e9eff3;
     --ex-contagem-tx:  #34505f;
@@ -68,6 +69,7 @@
     --ex-azul-hover:   rgba(77,163,234,.10);
     --ex-campo:        var(--bs-secondary-bg);
     --ex-campo-hover:  var(--bs-tertiary-bg);
+    --ex-periodo-sep:  var(--bs-secondary-color);
     --ex-botao:        var(--bs-secondary-bg);
     --ex-contagem-bg:  rgba(255,255,255,.08);
     --ex-contagem-tx:  var(--bs-secondary-color);
@@ -296,6 +298,17 @@
 }
 .exp-body .pasta-filtros-busca .bi-search { color: var(--ex-muted); }
 
+/* E8b: Período num bloco só (dc L.109): um campo cinza de 34px com as duas datas e "a" no meio. O foco
+   fica no bloco (o desenho tira; aqui ele segue visível, como nos outros filtros). */
+.exp-body .pasta-filtros-periodo { height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }
+.exp-body .pasta-filtros-periodo:hover { background: var(--ex-campo-hover); }
+.exp-body .pasta-filtros-periodo:focus-within { box-shadow: 0 0 0 2px rgba(10,111,160,.35); }
+.exp-body .pasta-filtros-periodo .pasta-data-campo { min-height: 0; gap: 2px; padding: 0 2px; border: 0; background: transparent; }
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control,
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control:hover,
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control:focus { height: 32px; padding: 0 2px; background-color: transparent; box-shadow: none; }
+.exp-body .pasta-filtros-periodo-sep { padding: 0 2px; color: var(--ex-periodo-sep); }
+
 /* ── Resumo e paginação (dc L.131-139) ─────────────────────────────────── */
 .exp-body .exp-resumo { color: var(--ex-contagem-tx); font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
 .exp-body .pagination .page-link {
@@ -315,10 +328,14 @@
 /* ── Tabela (dc L.143-182) ─────────────────────────────────────────────── */
 .exp-body .pastas-tabela-wrap.card { border: 0; border-top: 1px solid var(--ex-div); border-radius: 0; box-shadow: none; margin: 0 -22px; background: transparent; }
 .exp-body #tabelaPastas { min-width: 1100px; }
-/* Colunas do desenho: 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116 (Cliente e Ação dividem o resto). */
+/* Colunas do desenho: 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116. E8b: Cliente e Ação dividem o resto em
+   2:1.5. `calc` com % é ignorado no <col>; em percentual (40:30) o navegador mantém as fixas e reparte a sobra
+   nessa razão enquanto a tabela tiver menos de ~2700px (medido: 185/139 a 1440px). Os mínimos do dc
+   (minmax 220/190) não entram: somam 1228px e fazem a tabela do próprio dc estourar a 1440px (Situação
+   cortada), contra o `min-width: 1100px` dele. Divergência registrada no checklist (LX-TAB-03). */
 .exp-body #tabelaPastas colgroup col:nth-child(1) { width: 96px !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(2) { width: auto !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(3) { width: auto !important; }
+.exp-body #tabelaPastas colgroup col:nth-child(2) { width: 40% !important; }
+.exp-body #tabelaPastas colgroup col:nth-child(3) { width: 30% !important; }
 .exp-body #tabelaPastas colgroup col:nth-child(4) { width: 120px !important; }
 .exp-body #tabelaPastas colgroup col:nth-child(5) { width: 220px !important; }
 .exp-body #tabelaPastas colgroup col:nth-child(6) { width: 76px !important; }
