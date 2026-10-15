@@ -191,6 +191,42 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringNotContainsString('pasta-filtros-periodo-sep">–', $f);
     }
 
+    #[TestDox('LX-TAB-03 (decisão do dono, 15/10: responsividade primeiro): sem os mínimos 220/190 do dc; piso de 1028px em vez de 1100; coluna escondida não reserva largura')]
+    public function testLargurasSemRolagemLateralDesnecessaria(): void
+    {
+        $css = (string) preg_replace('/\s+/', ' ', self::css());
+        // 818px das colunas fixas + Cliente 120 e Ação 90 (2:1.5). Medido: a 1366px cabe sem rolagem (com 1100, rolava 32px).
+        self::assertStringContainsString('.exp-body #tabelaPastas { min-width: 1028px; }', $css);
+        self::assertStringNotContainsString('min-width: 1100px', $css);
+        self::assertStringNotContainsString('minmax(', $css, 'os mínimos 220/190 do dc não entram');
+        // Célula escondida sai da grade e a seguinte herdava o <col> dela (a 900px a Situação ficava com os 220px
+        // do Responsável): quem sai é o próprio <col>, e o piso desce junto.
+        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 642px; } .exp-body #tabelaPastas colgroup col:nth-child(3), .exp-body #tabelaPastas colgroup col:nth-child(5), .exp-body #tabelaPastas colgroup col:nth-child(6) { display: none; } }', $css);
+        self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas colgroup col:nth-child(7) { display: none; } }', $css);
+
+        // Os cortes são os mesmos em que o `_tabela` esconde as células.
+        $t = (string) preg_replace('/\s+/', ' ', self::ler('templates/pasta/_tabela.html.twig'));
+        self::assertStringContainsString('@media (max-width: 900px) { .col-acao-tabela, .col-resp-tabela, .col-tarefas-tabela { display: none; } }', $t);
+        self::assertStringContainsString('@media (max-width: 768px) { .col-marc-tabela { display: none; } }', $t);
+    }
+
+    #[TestDox('LX-TAB-02 (dc L.145 + syncCab): cabeçalho fixo sob o topo da página e rolando junto na horizontal; o próprio thead desce, sem clone')]
+    public function testCabecalhoFixo(): void
+    {
+        $css = (string) preg_replace('/\s+/', ' ', self::css());
+        self::assertStringContainsString('.exp-body #tabelaPastas thead { position: relative; z-index: 3; }', $css, 'por cima das linhas');
+        self::assertStringContainsString('@media print { .exp-body #tabelaPastas thead { transform: none !important; } }', $css);
+
+        $js = self::ler('public/js/expediente-lista.js');
+        self::assertStringContainsString("document.getElementById('tabelaPastas')", $js);
+        self::assertStringContainsString("document.querySelector('.app-header')", $js, 'para logo abaixo do topo fixo do sistema');
+        self::assertStringContainsString("'translateY(' + desce + 'px)'", $js);
+        self::assertStringContainsString('Math.max(0, r.height - cab.offsetHeight)', $js, 'não passa do fim da tabela');
+        self::assertStringContainsString('{ passive: true, capture: true }', $js, 'rolagem da janela ou de qualquer contêiner');
+        self::assertStringContainsString('new MutationObserver(agendar)', $js, 'a tabela chega por AJAX (filtro, página, marcador)');
+        self::assertStringNotContainsString('cloneNode', $js, 'um cabeçalho só: ordenação, estilos e leitor de tela seguem no original');
+    }
+
     #[TestDox('moldura de alerta (dc 03 L.259-271): faixa vermelha, círculo com ⚠, título e botões centralizados; só quando pedida')]
     public function testMolduraDeAlertaDaExclusao(): void
     {

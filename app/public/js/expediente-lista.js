@@ -243,3 +243,49 @@
     window.addEventListener('scroll', function () { fechar(false); }, true);
     window.addEventListener('resize', function () { fechar(false); });
 }());
+
+/* =============================================================================
+   Cabeçalho fixo da tabela (LX-TAB-02; dc L.145 `sticky top:124px` + `syncCab` L.475).
+
+   O `.table-responsive` rola nos dois eixos e prende qualquer `position: sticky` do thead. Em vez de
+   clonar o cabeçalho, como o dc, o próprio thead desce (translateY) enquanto a tabela passa sob o topo fixo
+   do sistema. Um cabeçalho só: a ordenação, os estilos de #tabelaPastas e o leitor de tela continuam
+   valendo, e na horizontal ele rola junto com as linhas por estar no mesmo contêiner.
+   ============================================================================= */
+(function () {
+    'use strict';
+
+    var agendado = 0;
+
+    // Fundo do topo do sistema (cabeçalho azul + abas), que é fixo; se um dia deixar de ser, o topo é 0.
+    function topoFixo() {
+        var topo = document.querySelector('.app-header');
+        if (!topo) { return 0; }
+        var pos = window.getComputedStyle(topo).position;
+        return (pos === 'fixed' || pos === 'sticky') ? Math.max(0, topo.getBoundingClientRect().bottom) : 0;
+    }
+
+    function posicionar() {
+        agendado = 0;
+        var t = document.getElementById('tabelaPastas');
+        var cab = t && t.tHead;
+        if (!cab) { return; }
+        // Tabela escondida (cartões, celular): nada a fixar.
+        if (!t.offsetParent) { cab.style.transform = ''; return; }
+        var r = t.getBoundingClientRect();
+        var desce = Math.min(Math.max(0, topoFixo() - r.top), Math.max(0, r.height - cab.offsetHeight));
+        cab.style.transform = desce > 0 ? 'translateY(' + desce + 'px)' : '';
+    }
+
+    function agendar() {
+        if (!agendado) { agendado = window.requestAnimationFrame(posicionar); }
+    }
+
+    window.addEventListener('scroll', agendar, { passive: true, capture: true });
+    window.addEventListener('resize', agendar);
+    // A tabela chega e é trocada por AJAX (filtro, página, marcador, modo de visualização).
+    new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true });
+    // Alternar tabela/cartões só troca classes; observar atributos entraria em laço com o próprio transform.
+    document.addEventListener('click', agendar, true);
+    agendar();
+}());

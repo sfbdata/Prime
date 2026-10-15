@@ -89,7 +89,13 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertNotEmpty($sit->attr('data-url'), 'duplo clique preservado');
         self::assertNotEmpty($sit->attr('data-csrf'));
 
-        self::assertCount(1, $linha->filter('.exp-sem-metas'), 'sem metas: o traço do desenho');
+        // Decisão do dono (15/10): sem o "–" do desenho (dc L.168), pela regra sem travessão. A célula fica
+        // vazia na tela, mas o leitor de tela ainda ouve que não há metas.
+        $semMetas = $linha->filter('td.col-tarefas-tabela .exp-sem-metas');
+        self::assertCount(1, $semMetas, 'sem metas: a célula continua marcada');
+        self::assertDoesNotMatchRegularExpression('/[–—]/u', $linha->filter('td.col-tarefas-tabela')->text(), 'sem travessão na célula de metas');
+        self::assertSame('Sem metas', trim($semMetas->filter('.visually-hidden')->text()));
+        self::assertSame('Sem metas', $linha->filter('td.col-tarefas-tabela')->attr('title'), 'a dica fica na célula (o span não tem largura)');
     }
 
     #[TestDox('marcadores: vários por pasta continuam (chip + "+N" + botão), o chip ganha a pasta do desenho e o nome de todos no title')]

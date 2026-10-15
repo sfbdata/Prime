@@ -144,7 +144,7 @@
                     <td class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
                         {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis, respContexto: 'expediente'}) }}
                     </td>
-                    <td class="col-tarefas-tabela align-middle">
+                    <td class="col-tarefas-tabela align-middle"{% if pasta.tarefas is empty %} title="Sem metas"{% endif %}>
                         {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
                         {% set totalTarefas = pasta.tarefas|length %}
                         {% if totalTarefas > 0 %}
@@ -156,7 +156,9 @@
                                 <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
                             </a>
                         {% else %}
-                            <span class="text-muted exp-sem-metas" style="font-size:.8rem;" title="Sem metas">–</span>
+                            {# Sem o "–" do desenho (dc L.168): regra do dono sem travessão, decidida para a E8 em 15/10. #}
+                            {# O title fica no <td>: este span não tem largura, e a dica nunca aparecia. #}
+                            <span class="exp-sem-metas"><span class="visually-hidden">Sem metas</span></span>
                         {% endif %}
                     </td>
                     <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">

@@ -333,12 +333,17 @@
 
 /* ── Tabela (dc L.143-182) ─────────────────────────────────────────────── */
 .exp-body .pastas-tabela-wrap.card { border: 0; border-top: 1px solid var(--ex-div); border-radius: 0; box-shadow: none; margin: 0 -22px; background: transparent; }
-.exp-body #tabelaPastas { min-width: 1100px; }
+/* LX-TAB-03, decisão do dono (15/10): responsividade primeiro. O piso não é o 1100px do dc: é a soma das
+   colunas fixas (818px) mais um mínimo legível para Cliente (120) e Ação (90), 1028px. Medido: a 1366px a
+   tabela cabe sem rolagem lateral (com 1100 rolava 32px). Entre 901 e ~1330px as 8 colunas ainda rolam (até
+   302px a 1024px): acabar com isso pede esconder colunas antes de 900px ou estreitar as do desenho, decisão
+   do dono ainda em aberto. */
+.exp-body #tabelaPastas { min-width: 1028px; }
 /* Colunas do desenho: 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116. E8b: Cliente e Ação dividem o resto em
    2:1.5. `calc` com % é ignorado no <col>; em percentual (40:30) o navegador mantém as fixas e reparte a sobra
    nessa razão enquanto a tabela tiver menos de ~2700px (medido: 185/139 a 1440px). Os mínimos do dc
-   (minmax 220/190) não entram: somam 1228px e fazem a tabela do próprio dc estourar a 1440px (Situação
-   cortada), contra o `min-width: 1100px` dele. Divergência registrada no checklist (LX-TAB-03). */
+   (minmax 220/190) não entram, por decisão do dono: somam 1228px e fazem a tabela do próprio dc estourar
+   a 1440px (Situação cortada). */
 .exp-body #tabelaPastas colgroup col:nth-child(1) { width: 96px !important; }
 .exp-body #tabelaPastas colgroup col:nth-child(2) { width: 40% !important; }
 .exp-body #tabelaPastas colgroup col:nth-child(3) { width: 30% !important; }
@@ -347,6 +352,24 @@
 .exp-body #tabelaPastas colgroup col:nth-child(6) { width: 76px !important; }
 .exp-body #tabelaPastas colgroup col:nth-child(7) { width: 190px !important; }
 .exp-body #tabelaPastas colgroup col:nth-child(8) { width: 116px !important; }
+/* Nos mesmos cortes em que o `_tabela` esconde células (≤900px: Ação, Responsável, Metas; ≤768px: Marcadores),
+   sai também o <col>. Célula escondida sai da grade e a seguinte herdava o <col> dela (medido: a 900px a
+   Situação ficava com os 220px do Responsável), e o piso de 1100px deixava um vazio de ~600px a 768px. */
+@media (max-width: 900px) {
+    .exp-body #tabelaPastas { min-width: 642px; }
+    .exp-body #tabelaPastas colgroup col:nth-child(3),
+    .exp-body #tabelaPastas colgroup col:nth-child(5),
+    .exp-body #tabelaPastas colgroup col:nth-child(6) { display: none; }
+}
+@media (max-width: 768px) {
+    .exp-body #tabelaPastas { min-width: 452px; }
+    .exp-body #tabelaPastas colgroup col:nth-child(7) { display: none; }
+}
+/* LX-TAB-02 (dc L.145): o cabeçalho fica sob o topo fixo do sistema enquanto a tabela passa. O
+   `.table-responsive` rola nos dois eixos e prende qualquer `sticky`; por isso o `expediente-lista.js`
+   desce o próprio thead (translateY). Na horizontal ele rola junto com as linhas, como o `syncCab` do dc. */
+.exp-body #tabelaPastas thead { position: relative; z-index: 3; }
+@media print { .exp-body #tabelaPastas thead { transform: none !important; } }
 .exp-body #tabelaPastas thead th {
     background: var(--ex-cab-tabela);
     border-bottom: 1px solid var(--ex-borda);
@@ -434,7 +457,6 @@
 .exp-body .exp-metas[data-metas="revisao"]    { color: var(--ex-prio-alta-tx) !important; }
 .exp-body .exp-metas[data-metas="concluidas"] { color: var(--ex-sit-ativo-tx) !important; }
 .exp-body .exp-metas .bi { margin: 0 !important; }
-.exp-body .exp-sem-metas { color: var(--ex-apagado) !important; font-size: 13px !important; }
 
 /* Marcadores (dc L.169-181): chip de 24px, raio 3, pasta cheia, 11px negrito; o pastel do usuário
    como fundo (decisão 14/10); +N e o botão de marcar no mesmo tamanho. */
