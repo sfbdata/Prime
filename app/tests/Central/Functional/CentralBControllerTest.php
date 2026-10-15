@@ -493,11 +493,17 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         [, $outro] = $this->criarAdmin();
         $this->em()->persist(new UserTenant($bruno, $outro));
         $this->em()->flush();
+        $dora = $this->colega($outro, 'dora');
 
         $this->logarComTenant($client, $ana, $tenant);
         $id = $this->criarGrupo($client, 'Equipe', [$bruno, $carla])['grupo']['id'];
         $this->post($client, "/central/conversas/$id/mensagens", ['conteudo' => sprintf('oi @[B](user:%d)', $bruno->getId())]);
         $ultima = $this->json($client)['mensagem']['id'];
+
+        // No OUTRO escritório também há menção ao Bruno: cada escritório só vê a sua (prova o filtro de tenant).
+        $this->logarComTenant($client, $dora, $outro);
+        $idOutro = $this->criarGrupo($client, 'Do outro', [$bruno])['grupo']['id'];
+        $this->post($client, "/central/conversas/$idOutro/mensagens", ['conteudo' => sprintf('ei @[B](user:%d)', $bruno->getId())]);
 
         $this->logarComTenant($client, $bruno, $tenant);
         $client->request('GET', '/central/novidades');
@@ -509,7 +515,7 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $bruno, $outro);
         $client->request('GET', '/central/novidades');
-        self::assertSame([], $this->json($client)['conversasComMencao'], 'do outro escritório, nada');
+        self::assertSame([$idOutro], $this->json($client)['conversasComMencao'], 'no outro escritório, só a menção de lá');
 
         $this->logarComTenant($client, $bruno, $tenant);
         $this->post($client, "/central/conversas/$id/lida", ['ateId' => $ultima]);

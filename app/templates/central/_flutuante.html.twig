@@ -5,8 +5,9 @@
 <link rel="stylesheet" href="{{ asset('css/central.css') }}">
 <link rel="stylesheet" href="{{ asset('css/central-flutuante.css') }}">
 
-<div class="bj-flutuante-janela" data-flutuante-janela data-modo="normal" hidden>
-    {% include 'central/_janela.html.twig' with {eu: app.user, modo: 'flutuante'} %}
+<div class="bj-flutuante-janela" data-flutuante-janela data-modo="normal" role="dialog" aria-label="Central de Comunicação" hidden>
+    {# `only`: a janela flutuante não herda nada da página (ex.: um `abrirConversa` que só vale na /central). #}
+    {% include 'central/_janela.html.twig' with {eu: app.user, modo: 'flutuante'} only %}
 </div>
 
 <div class="bj-flutuante" data-central-flutuante data-eu-id="{{ app.user.id }}" data-print="hide">

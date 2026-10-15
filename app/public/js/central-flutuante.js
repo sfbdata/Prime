@@ -96,28 +96,26 @@
             ui.timerSalto = window.setTimeout(function () { lancador.classList.remove('bj-flutuante--salto'); }, SALTO_MS);
         }
 
-        var ultimoToque = 0;
-        function tocar() {   // L91-118: sine 880 Hz e 1320 Hz, no mínimo 2,5 s entre toques
+        var ultimoToque = 0, audio = null;
+        function tocar() {   // tocar(), L91-104: seno 880 Hz e 1320 Hz (+0,11 s), no mínimo 2,5 s entre toques
             if (!prefs.som || silencio() || Date.now() - ultimoToque < 2500) { return; }
-            var Ctx = window.AudioContext || window.webkitAudioContext;
-            if (!Ctx) { return; }
+            ultimoToque = Date.now();
             try {
-                var ctx = new Ctx(), t = ctx.currentTime;
+                audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+                if (audio.state === 'suspended') { audio.resume().catch(function () { /* sem gesto do usuário ainda */ }); }
                 [[880, 0], [1320, 0.11]].forEach(function (n) {
-                    var o = ctx.createOscillator(), g = ctx.createGain();
+                    var o = audio.createOscillator(), g = audio.createGain(), t0 = audio.currentTime + n[1];
                     o.type = 'sine';
                     o.frequency.value = n[0];
-                    g.gain.setValueAtTime(0.0001, t + n[1]);
-                    g.gain.exponentialRampToValueAtTime(0.08, t + n[1] + 0.02);
-                    g.gain.exponentialRampToValueAtTime(0.0001, t + n[1] + 0.22);
                     o.connect(g);
-                    g.connect(ctx.destination);
-                    o.start(t + n[1]);
-                    o.stop(t + n[1] + 0.25);
+                    g.connect(audio.destination);
+                    g.gain.setValueAtTime(0, t0);
+                    g.gain.linearRampToValueAtTime(0.12, t0 + 0.015);   // volume "médio" do desenho (VOL.medio = 1)
+                    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+                    o.start(t0);
+                    o.stop(t0 + 0.3);
                 });
-                ultimoToque = Date.now();
-                window.setTimeout(function () { ctx.close(); }, 600);
-            } catch (e) { /* navegador sem áudio liberado: segue calado */ }
+            } catch (e) { /* navegador bloqueou o áudio: segue só com o aviso visual (como no desenho) */ }
         }
 
         var avisoAtual = null;
@@ -232,6 +230,7 @@
             var num = function (v, d) { var n = parseFloat(v); return Number.isFinite(n) ? n : d; };
             var ini = { x: e.clientX, y: e.clientY, r: num(raizLancador.style.right, 18), b: num(raizLancador.style.bottom, 18) };
             var moveu = false;
+            try { lancador.setPointerCapture(e.pointerId); } catch (x) { /* sem captura: os eventos da janela bastam */ }
             function mv(ev) {
                 var dx = ev.clientX - ini.x, dy = ev.clientY - ini.y;
                 if (!moveu && Math.hypot(dx, dy) < 5) { return; }
@@ -245,6 +244,7 @@
             function up() {
                 window.removeEventListener('pointermove', mv);
                 window.removeEventListener('pointerup', up);
+                window.removeEventListener('pointercancel', up);
                 document.body.style.userSelect = '';
                 lancador.style.cursor = '';
                 if (!moveu) { return; }
@@ -255,6 +255,7 @@
             }
             window.addEventListener('pointermove', mv);
             window.addEventListener('pointerup', up);
+            window.addEventListener('pointercancel', up);
         });
         lancador.addEventListener('click', function () {
             if (cliqueBloqueado) { return; }

@@ -88,7 +88,8 @@
             aba: 'entrada',        // lançador: 'entrada' | 'painel' (desenho L6366)
             filtro: '',            // lançador: '' (tudo) | 'mencoes' (L5776)
             comMencao: new Set(),  // conversas com menção por ver (servidor: conversasComMencao)
-            janelaAberta: !flutuante
+            janelaAberta: !flutuante,
+            listaCarregada: false  // flutuante: lista e contatos só carregam na primeira abertura (carga por página)
         };
         var abrirAoCarregar = Number(raiz.dataset.abrirConversa) || null;   // ?conversa=N (link da menção)
 
@@ -423,6 +424,7 @@
         function carregarConversas() {
             return pedir(urls.conversas).then(function (dados) {
                 estado.conversas = dados.conversas || [];
+                estado.listaCarregada = true;
                 // O total do cabeçalho deixa de fora as silenciadas — a mesma regra do servidor (spec B §4).
                 estado.naoLidas = estado.conversas.reduce(function (t, c) { return t + (c.silenciada ? 0 : c.naoLidas); }, 0);
                 estado.erro = false;
@@ -1190,6 +1192,7 @@
         function inicializarCursor() {
             return pedir(urls.novidades).then(function (d) {
                 if (Number.isFinite(d.cursor)) { estado.cursor = d.cursor; }
+                if (Number.isFinite(d.naoLidas)) { estado.naoLidas = d.naoLidas; }
                 lerMencoes(d);
             });
         }
@@ -1208,7 +1211,9 @@
                 var mencoesAntes = estado.comMencao.size;
                 lerMencoes(dados);
                 var novas = (Array.isArray(dados.mensagens) ? dados.mensagens : []).filter(function (m) { return !estado.vistas.has(m.id); });
-                var chegaram = novas.filter(function (m) { return !m.minha && !m.sistema; }).length;
+                // Alerta (salto/som do lançador) só quando o total de não lidas SOBE: o servidor já deixa de fora as
+                // conversas silenciadas (spec B §4; desenho L137) e as repetições da janela não somam.
+                var chegaram = Number.isFinite(dados.naoLidas) ? Math.max(0, dados.naoLidas - estado.naoLidas) : 0;
                 novas.forEach(function (m) { estado.vistas.add(m.id); });
                 if (estado.vistas.size > 5000) { estado.vistas = new Set(novas.map(function (m) { return m.id; })); }
                 // A conversa aberta recebe as novas mesmo com a tela de informações por cima — senão elas iriam para
@@ -1217,6 +1222,13 @@
                 if (daAberta.length > 0) {
                     anexarAoFim(daAberta);
                     marcarLida();
+                }
+                // Lançador com a janela fechada: só o contador anda — a lista é carregada quando a janela abrir.
+                if (flutuante && !estado.janelaAberta) {
+                    if (Number.isFinite(dados.naoLidas)) { estado.naoLidas = dados.naoLidas; }
+                    emitirContadores(chegaram);
+                    if (!dados.completo) { return verificarNovidades(); }
+                    return;
                 }
                 if (novas.length > 0 || dados.naoLidas !== estado.naoLidas || estavaComErro || estado.comMencao.size !== mencoesAntes) {
                     return carregarConversas().then(function () {
@@ -1270,9 +1282,12 @@
         // O lançador avisa quando a janela abre ou fecha: polling rápido só com ela à vista, e só então "lê".
         raiz.addEventListener('bj-central:visibilidade', function (ev) {
             estado.janelaAberta = !!(ev.detail && ev.detail.aberta);
+            if (!estado.janelaAberta) { fecharMenu(false); fecharSugestoes(); }
             if (estado.semSessao) { return; }
             iniciarPolling();
-            if (estado.janelaAberta) { verificarNovidades().then(marcarLida); }
+            if (!estado.janelaAberta) { return; }
+            var primeira = estado.listaCarregada ? Promise.resolve() : Promise.all([carregarConversas(), carregarContatos()]);
+            primeira.then(function () { return verificarNovidades(); }).then(marcarLida).catch(tratarFalha);
         });
         el.mais.addEventListener('click', menuDoCabecalho);
         el.info.addEventListener('click', function () {
@@ -1336,12 +1351,14 @@
             iniciarPolling();
         });
 
+        function carregarContatos() {
+            return pedir(urls.contatos).then(function (d) { estado.contatos = d.contatos || []; });
+        }
+
         atualizarCabecalho();
-        Promise.all([
-            carregarConversas(),
-            pedir(urls.contatos).then(function (d) { estado.contatos = d.contatos || []; }),
-            inicializarCursor()
-        ]).then(function () {
+        // Página /central: tudo na hora. Lançador (em TODA página do layout): só o cursor e os contadores — a lista e
+        // os contatos esperam a primeira abertura da janela.
+        Promise.all(flutuante ? [inicializarCursor()] : [carregarConversas(), carregarContatos(), inicializarCursor()]).then(function () {
             // As menções chegam pela primeira chamada do polling, que pode responder DEPOIS da lista: refaz a lista e o
             // lançador com elas (sem isto o "@n" só apareceria no próximo polling, 30 s depois com a janela fechada).
             if (estado.tela === 'lista') { desenharLista(); }

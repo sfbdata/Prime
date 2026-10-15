@@ -84,4 +84,27 @@ final class AvisoDeMencaoNaCentralTest extends TestCase
         (new AvisoDeMencaoNaCentral($notificacoes, $repositorio, $this->createStub(UrlGeneratorInterface::class), $trava))
             ->avisar($conversa, $this->pessoa(1), $tenant, [$this->pessoa(2)]);
     }
+
+    #[TestDox('Menções por ver: o id sai do link exato (12 não é 123, parâmetro extra não atrapalha) e só de conversa ATIVA minha')]
+    public function testConversasComMencaoNaoLida(): void
+    {
+        $repositorio = $this->createStub(NotificacaoRepository::class);
+        $repositorio->method('urlsNaoLidasDoTipo')->willReturn([
+            '/central?conversa=12',
+            '/central?conversa=123&x=1',
+            '/central?x=1&conversa=7',
+            '/central?conversa=99',        // não é conversa ativa minha (saí ou nunca participei)
+            '/central?conversa=12',        // repetida: conta uma vez
+            '/central?conversaX=12',
+            '/outra?conversa=abc',
+        ]);
+        $aviso = new AvisoDeMencaoNaCentral(
+            $this->createStub(NotificacaoService::class), $repositorio,
+            $this->createStub(UrlGeneratorInterface::class), $this->createStub(TravaDosAvisosDeMencao::class),
+        );
+
+        $ids = $aviso->conversasComMencaoNaoLida($this->pessoa(1), new Tenant(), [12 => true, 123 => true, 7 => true]);
+
+        self::assertSame([12, 123, 7], $ids);
+    }
 }

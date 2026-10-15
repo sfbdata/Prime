@@ -80,4 +80,24 @@ final class CentralFlutuanteTest extends JusPrimeWebTestCase
 
         self::assertFalse($extensao->disponivel());
     }
+
+    #[TestDox('Vínculo inativo no escritório da sessão: nenhuma página traz o lançador (o portão é o vínculo ATIVO)')]
+    public function testSemLancadorComVinculoInativo(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?',
+            [$ana->getId(), $tenant->getId()],
+        );
+
+        $client->request('GET', '/notificacoes');
+        if ($client->getResponse()->isRedirect()) {
+            $client->followRedirect();
+        }
+        self::assertSelectorNotExists('[data-central-flutuante]');
+        self::assertSelectorNotExists('[data-flutuante-janela]');
+    }
 }
