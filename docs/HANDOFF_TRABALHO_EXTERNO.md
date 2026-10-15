@@ -55,6 +55,22 @@ docker run -d --rm --name smoke-trabalho-externo-proxy --network jusprime_saas_n
    oculto). Confirmar se é isso, ou se ele deve ler a conversa inteira.
 7. Valores iniciais do formulário: o protótipo trazia "Brasília" como município de execução; aqui
    nasce vazio (é obrigatório).
+8. **Reabrir depois do aceite do convite** (achado da revisão de segurança de 15/10, NÃO implementado).
+   Hoje, se a Central reabre uma demanda concluída e renegocia, o convite continua vigente e o
+   Convidado lê a renegociação (motivos, "Proposta v2 enviada: R$ ..."), porque ela é posterior ao
+   aceite. Alternativas:
+   - (a) **revogar os convites ao reabrir**: corte limpo, o profissional some da demanda e precisa de
+     convite novo (com corte novo). Mais seguro; custo: reconvidar quem vai continuar.
+   - (b) **suspender o convite enquanto a demanda estiver fora de execução** e recalcular o corte na
+     volta (o que aconteceu entre a reabertura e o novo aceite fica reservado). Preserva o vínculo;
+     exige um marco novo no convite (coluna e migration).
+   - (c) **aceitar o comportamento**: o Convidado já é da casa depois do aceite. Sem custo; contraria
+     a regra "negociação é da Central com o cliente".
+9. **Ler o chat sem "Conversar no chat"**: hoje, com a permissão desligada, o Convidado não escreve,
+   mas lê o chat, recebe a prévia e o contador. Alternativas: (a) manter (a permissão é de escrever,
+   como o rótulo diz); (b) esconder a aba Chat, a prévia e o contador sem a permissão (o histórico e
+   o andamento continuam). (b) é uma linha na  mais testes;
+   muda o que o desenho mostra para esse caso.
 
 ## Diferenças em relação ao desenho
 
@@ -67,7 +83,9 @@ quem já tem conta precisa abrir o link de novo depois de entrar.
 
 `tests/TrabalhoExterno/` (unit: política, entidade, valores em reais; functional: fluxo completo,
 isolamento entre escritórios, perfis, CSRF, rascunho, central suspensa, Equipe, chat, execução, WhatsApp,
-convite). Suíte completa da frente: 9.247 testes, a única falha (`AuditavelCoberturaTest`) foi corrigida e conferida. Afetados fora do domínio e verdes: `TenantAwareCoberturaTest` (teto de FORA_DO_ESCOPO 8 → 18,
+convite). Suíte completa da frente no `85c3b650`: 9.247 testes, 51.867 asserções, OK. Depois dela, `e14ec9ef` e
+`e0869114` (passado da demanda filtrado para o Convidado, achados A, B e C): `tests/TrabalhoExterno`
+69 testes OK; a suíte completa ainda não rodou sobre eles. Afetados fora do domínio e verdes: `TenantAwareCoberturaTest` (teto de FORA_DO_ESCOPO 8 → 18,
 justificado), `MapaDeChaveParaCaminhoLocalTest`, `NucleoDeArmazenamentoArquiteturaTest`,
 `FabricasDeArquivoNovoTest`, `PurgaCoberturaSchemaTest`, `PurgarEscritorioUseCaseTest`.
 
@@ -83,3 +101,18 @@ Rodar: `scripts/frente-testar.sh modulo-trabalho-externo tests/TrabalhoExterno`.
 ## Como testar localmente
 
 Ver o fim da mensagem de entrega da frente (passo a passo por perfil). O smoke no navegador é do dono.
+
+## Demonstração local isolada (15/10)
+
+Banco próprio `saas_demo_trabalho_externo` (clone do banco de teste da frente, que já tem a migration;
+nenhum banco existente é tocado), servidor embutido da worktree na porta **8020** e o proxy
+`smoke-trabalho-externo-proxy`. Andaime fora do git em `app/var/demo-trabalho-externo/` (`env.sh`,
+`seed.php`, `verificar.php`): o seed passa pelos UseCases do módulo e só aceita banco sem demandas.
+Dados 100% fictícios, senha `Demo1234!`. Desmontar:
+
+```bash
+# Execute manualmente no terminal externo
+docker rm -f smoke-trabalho-externo-proxy
+# parar o php -S da porta 8020 (sem ps no container: localizar por /proc/*/cmdline e kill)
+docker exec jusprime_db_dev psql -U symfony -d postgres -c 'DROP DATABASE "saas_demo_trabalho_externo"'
+```
