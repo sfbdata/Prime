@@ -557,7 +557,8 @@ fim da requisição. Sem reprodução.
 exige ~170 kB/s para um arquivo de 100 MB. Se a P2.5 limitar a banda do worker abaixo disso, os
 arquivos grandes esgotam as 6 tentativas e caem em `falhou`. Subir o teto exige subir a posse junto
 (posse ≥ teto + 120 s, travado por teste). O teste `ClienteR2Test` prova que o cliente montado sem
-`$http` carrega de fato `timeout`/`max_duration` (cai se as opções saírem do `HttpClient::create()`).
+`$http` carrega de fato `timeout`/`max_duration` (cai se qualquer uma das duas sair do
+`HttpClient::create()`; o teste troca o `default_socket_timeout` do PHP para o ini não mascarar o `timeout`).
 
 **Re-revisão da P2.3 (15/10):** I1, I2 e I3 fechados; I4 e M1 seguem como decisão do dono. Bloqueante
 novo B1 (colisão de versão com a Central B), corrigido pela renomeação para `Version20261015213000`.

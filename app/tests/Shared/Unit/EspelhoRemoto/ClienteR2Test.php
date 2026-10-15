@@ -22,7 +22,14 @@ final class ClienteR2Test extends TestCase
     #[TestDox('sem cliente HTTP injetado, o S3Client sai com ociosidade e duração máxima definidas')]
     public function testClientePadraoCarregaOTetoDeDuracao(): void
     {
-        $s3 = ClienteR2::criar('https://conta.r2.cloudflarestorage.com', 'CHAVE', 'SEGREDO');
+        // Sem `timeout`, o HttpClient herda o `default_socket_timeout` do PHP — que no container é 60,
+        // o mesmo valor da constante, e esconderia a falta da opção. Um ini diferente desmascara.
+        $iniAnterior = ini_set('default_socket_timeout', '7');
+        try {
+            $s3 = ClienteR2::criar('https://conta.r2.cloudflarestorage.com', 'CHAVE', 'SEGREDO');
+        } finally {
+            ini_set('default_socket_timeout', (string) $iniAnterior);
+        }
 
         $http = (new \ReflectionProperty(AbstractApi::class, 'httpClient'))->getValue($s3);
         $opcoes = (new \ReflectionProperty($http, 'defaultOptions'))->getValue($http);
