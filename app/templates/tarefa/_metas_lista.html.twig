@@ -31,8 +31,7 @@
                     {# Vem pré-carregado do UseCase: perguntar à entidade custaria uma consulta por linha. #}
 {% set acompanhando = painel.estaAcompanhando(meta.id) %}
                     {% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
-                    {% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.dias is not null and info.dias < 0 ? 'danger' : 'warn')) %}
-                    {% set rotuloStatus = concluida ? 'Concluída' : (emRevisao ? 'Em revisão' : (info.dias is not null and info.dias < 0 ? 'Atrasada' : 'Pendente')) %}
+                    {% set status = painel.statusDaMeta(meta) %}
                     {% set quem = aba.value == 'responsavel' ? meta.criadoPor : (meta.responsaveis|length > 0 ? meta.responsaveis|first : null) %}
 
                     <div class="mm-linha">
@@ -68,7 +67,7 @@
                             {%- else %}{{ info.texto }}{% endif %}
                         </span>
 
-                        <div><span class="mm-pilula tom-{{ tomStatus }}">{{ rotuloStatus }}</span></div>
+                        <div><span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span></div>
 
                         <span class="mm-linha-atualizada">{{ (meta.dataAlteracao ?: meta.dataCriacao)|date('d/m/Y') }}</span>
 

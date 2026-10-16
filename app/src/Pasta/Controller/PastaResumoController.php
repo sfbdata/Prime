@@ -22,6 +22,7 @@ use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Processo\Entity\Processo;
+use App\Processo\Service\SituacaoProcessoRotulo;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Twig\NumeroProcessoExtension;
@@ -302,7 +303,7 @@ final class PastaResumoController extends AbstractController
             'Ação'           => $pasta->getNomeAcao(),
             'Classe'         => $processo->getClasseProcessual(),
             'Tribunal'       => $processo->getSiglaTribunal(),
-            'Situação'       => $processo->getSituacaoProcesso(),
+            'Situação'       => SituacaoProcessoRotulo::de($processo->getSituacaoProcesso()),
             'Órgão julgador' => $processo->getOrgaoJulgador(),
             'Distribuição'   => $processo->getDataDistribuicao()?->format('d/m/Y'),
             // Zero é dado (como na tela); só o nulo some.

@@ -216,7 +216,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString('if (n <= TETO_LOTE) return false;', $js);
         self::assertStringContainsString("toastErro('Seleção acima do limite de ' + TETO_LOTE.toLocaleString('pt-BR') + ' itens por ação. Selecione menos itens.');", $js);
         $excluir = $this->funcao('excluirItens');
-        self::assertLessThan(strpos($excluir, 'confirm('), strpos($excluir, 'acimaDoTeto('), 'o teto vem antes do confirm');
+        self::assertLessThan(strpos($excluir, 'confirmarUIPs('), strpos($excluir, 'acimaDoTeto('), 'o teto vem antes da confirmação');
         $mover = $this->funcao('moverLote');
         self::assertLessThan(strpos($mover, 'postJson('), strpos($mover, 'acimaDoTeto('), 'o teto vem antes do pedido');
     }
@@ -226,7 +226,9 @@ final class PastaExploradorInteracaoTest extends TestCase
     {
         $js = $this->js();
 
-        self::assertStringContainsString('if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;', $js);
+        // E7: a confirmação (S-3) continua, na janela vermelha da tela.
+        self::assertStringContainsString('const pergunta = t.confirmacao || avisoExclusaoDoLote(itens);', $js);
+        self::assertStringContainsString('window.confirmarUIPs(pergunta, true)', $js);
         self::assertStringContainsString("return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;", $js);
         self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';", $js);
         self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');

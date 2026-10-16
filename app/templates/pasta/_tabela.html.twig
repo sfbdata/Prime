@@ -7,6 +7,12 @@
 {% set fotosResponsaveis = fotosResponsaveis ?? {} %}
 {% set ordCol = ordenar ?? '' %}
 {% set ordDir = (direcao ?? '') == 'asc' ? 'asc' : 'desc' %}
+{# O que o cabeçalho mostra: sem ordenação escolhida vale a padrão do repositório, NUP decrescente. #}
+{% set ordColVis = ordCol ?: 'nup' %}
+{% set ordDirVis = ordCol ? ordDir : 'desc' %}
+{% import _self as tab %}
+{% macro seta(col, atual, dir) %}<i class="bi {{ col == atual ? (dir == 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill') : 'bi-chevron-expand' }} sort-icon" aria-hidden="true"></i>{% endmacro %}
+{% macro ariaSort(col, atual, dir) %}{% if col == atual %} aria-sort="{{ dir == 'asc' ? 'ascending' : 'descending' }}"{% endif %}{% endmacro %}
 {# Favoritas do usuário logado (menu ⋮ da pasta → "Fixar nos favoritos"): uma consulta só,
    e a linha ganha a estrela. Quem as põe no topo é a ordenação do repositório. #}
 {% set favoritasIds = pastas_favoritas_ids() %}
@@ -23,40 +29,66 @@
 
 {% if pastas|length > 0 %}
 <div class="pastas-view pastas-view--tabela" id="pastasView">
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
-    <span class="text-muted">
-        <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} resultado(s) encontrado(s)
-    </span>
-    <div class="d-flex align-items-center flex-wrap gap-2">
+{# Topo do resultado no desenho 1.1 (dc L.112-139, AUD-11/12): "Visualizar" e a paginação ficam na MESMA linha
+   dos filtros, à direita, e o resumo vem sozinho embaixo. Os filtros moram fora desta área trocável
+   (pasta/_filtros); no desktop o `.exp-topo` some da caixa (display: contents, expediente-lista.css) e os
+   controles entram na faixa dos filtros. No celular (sem "Visualizar": sempre cartões) fica empilhado. #}
+<div class="exp-topo">
+    <div class="exp-controles">
         {# "Ordenar por" — só no modo lista (no desktop) e no mobile (nenhum tem cabeçalho de coluna) #}
-        {% set ordAtual = (ordCol ?: '') ~ '|' ~ ordDir %}
+        {# Mesma ordem que o cabeçalho mostra: sem escolha, a padrão (NUP decrescente). #}
+        {% set ordAtual = ordColVis ~ '|' ~ ordDirVis %}
         <div class="pasta-ordenar-wrap">
             <select class="form-select form-select-sm js-pasta-ordenar" aria-label="Ordenar por" title="Ordenar por">
-                <option value="" {% if ordCol == '' %}selected{% endif %} disabled>Ordenar por…</option>
+                <option value="" disabled>Ordenar por…</option>
                 <option value="nup|asc"          {% if ordAtual == 'nup|asc' %}selected{% endif %}>NUP (crescente)</option>
                 <option value="nup|desc"         {% if ordAtual == 'nup|desc' %}selected{% endif %}>NUP (decrescente)</option>
-                <option value="cliente|asc"      {% if ordAtual == 'cliente|asc' %}selected{% endif %}>Cliente (A–Z)</option>
-                <option value="cliente|desc"     {% if ordAtual == 'cliente|desc' %}selected{% endif %}>Cliente (Z–A)</option>
+                <option value="cliente|asc"      {% if ordAtual == 'cliente|asc' %}selected{% endif %}>Cliente (A-Z)</option>
+                <option value="cliente|desc"     {% if ordAtual == 'cliente|desc' %}selected{% endif %}>Cliente (Z-A)</option>
                 <option value="prioridade|desc"  {% if ordAtual == 'prioridade|desc' %}selected{% endif %}>Prioridade (maior primeiro)</option>
                 <option value="prioridade|asc"   {% if ordAtual == 'prioridade|asc' %}selected{% endif %}>Prioridade (menor primeiro)</option>
-                <option value="acao|asc"         {% if ordAtual == 'acao|asc' %}selected{% endif %}>Ação (A–Z)</option>
-                <option value="responsavel|asc"  {% if ordAtual == 'responsavel|asc' %}selected{% endif %}>Responsável (A–Z)</option>
+                <option value="acao|asc"         {% if ordAtual == 'acao|asc' %}selected{% endif %}>Ação (A-Z)</option>
+                <option value="responsavel|asc"  {% if ordAtual == 'responsavel|asc' %}selected{% endif %}>Responsável (A-Z)</option>
                 <option value="situacao|asc"     {% if ordAtual == 'situacao|asc' %}selected{% endif %}>Situação</option>
             </select>
         </div>
-        {# Toggle Tabela | Lista — só desktop (mobile é sempre cartão) #}
-        <div class="btn-group btn-group-sm pasta-view-toggle d-none d-md-inline-flex" role="group" aria-label="Alternar visual">
-            <button type="button" class="btn btn-outline-secondary js-view-toggle" data-view="tabela" title="Ver em tabela">
-                <i class="bi bi-table"></i>
+        {# "Visualizar" (dc L.113-128) com os DOIS modos que existem (decisão do dono, LX-BAR-11): Detalhes
+           (tabela) e Cartões. "Pastas por página" fica de fora (sem backend, `PER_PAGE`); "Painel de
+           marcadores" recolhe e abre o trilho pelo mesmo botão de sempre. #}
+        <div class="exp-visualizar pasta-view-toggle d-none d-md-block">
+            <button type="button" class="exp-visualizar-botao js-visualizar" aria-haspopup="menu" aria-expanded="false"
+                    aria-controls="expVisualizarMenu" title="Escolher como exibir as pastas">
+                <i class="bi bi-list-columns-reverse js-visualizar-icone" aria-hidden="true"></i>Visualizar<i class="bi bi-chevron-down exp-visualizar-seta" aria-hidden="true"></i>
             </button>
-            <button type="button" class="btn btn-outline-secondary js-view-toggle" data-view="lista" title="Ver em lista">
-                <i class="bi bi-card-list"></i>
-            </button>
+            <div class="exp-visualizar-menu" id="expVisualizarMenu" role="menu" aria-label="Visualizar" hidden>
+                <button type="button" class="exp-vis-item js-view-toggle" data-view="tabela" role="menuitemradio" aria-checked="true" title="Tabela com todas as colunas">
+                    <span class="exp-vis-ponto" aria-hidden="true"></span><i class="bi bi-list-columns-reverse" aria-hidden="true"></i>Detalhes
+                </button>
+                <button type="button" class="exp-vis-item js-view-toggle" data-view="lista" role="menuitemradio" aria-checked="false" title="Pastas em cartões">
+                    <span class="exp-vis-ponto" aria-hidden="true"></span><i class="bi bi-grid" aria-hidden="true"></i>Cartões
+                </button>
+                <div class="exp-vis-sep" role="separator"></div>
+                <button type="button" class="exp-vis-item js-vis-painel" role="menuitemcheckbox" aria-checked="true">
+                    <span class="exp-vis-ponto" aria-hidden="true"></span><i class="bi bi-layout-sidebar-inset-reverse" aria-hidden="true"></i>Painel de marcadores
+                </button>
+            </div>
         </div>
         {% if pagination is defined and pagination is not null %}
             {{ include('expediente/_paginacao.html.twig') }}
         {% endif %}
     </div>
+    {# Resumo do desenho (dc L.139, `resumo` em L.455): o INTERVALO de pastas desta página ("1 de 50"; na
+       segunda, "51 de 100") e o total da consulta inteira, separados por espaços largos (U+2003). A E8 lia
+       "página de N" (AUD-14). #}
+    <span class="exp-resumo">
+        <i class="bi bi-list-ul" aria-hidden="true"></i>
+        {%- if pagination is defined and pagination is not null %}
+            {%- set primeiraDaPagina = (pagination.current_page - 1) * pagination.per_page + 1 %}
+            {{ primeiraDaPagina|number_format(0, ',', '.') }} de {{ (primeiraDaPagina + pastas|length - 1)|number_format(0, ',', '.') }}&#8195;·&#8195;Total: {{ pagination.total_items|number_format(0, ',', '.') }} pasta{{ pagination.total_items != 1 ? 's' : '' }}
+        {%- else %}
+            {{ pastas|length }} pasta{{ pastas|length != 1 ? 's' : '' }}
+        {%- endif %}
+    </span>
 </div>
 
 {# ── Tabela desktop ─────────────────────────────────────────────── #}
@@ -75,14 +107,18 @@
             </colgroup>
             <thead class="table-light">
                 <tr>
-                    <th class="sortable ps-3 {{ ordCol == 'nup' ? ordDir : '' }}" data-ordenar="nup"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable {{ ordCol == 'cliente' ? ordDir : '' }}" data-ordenar="cliente"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-acao-tabela {{ ordCol == 'acao' ? ordDir : '' }}" data-ordenar="acao"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable {{ ordCol == 'prioridade' ? ordDir : '' }}" data-ordenar="prioridade"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-resp-tabela {{ ordCol == 'responsavel' ? ordDir : '' }}" data-ordenar="responsavel"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    {# Cabeçalho do desenho (dc L.148, `cols` em L.435): ícones bi-upc, bi-person, bi-bank, bi-flag,
+                       bi-person-badge, bi-check2-square, bi-tags, bi-circle-half; seta bi-chevron-expand em repouso e
+                       triângulo cheio na coluna que ordena. Sem ordenação escolhida, a ordem é a padrão do repositório
+                       (NUP decrescente), e o cabeçalho a mostra, como o dc (AUD-17/18/19). #}
+                    <th class="sortable {{ ordColVis == 'nup' ? ordDirVis }}" data-ordenar="nup"{{ tab.ariaSort('nup', ordColVis, ordDirVis) }}><i class="bi bi-upc me-1"></i>NUP {{ tab.seta('nup', ordColVis, ordDirVis) }}</th>
+                    <th class="sortable {{ ordColVis == 'cliente' ? ordDirVis }}" data-ordenar="cliente"{{ tab.ariaSort('cliente', ordColVis, ordDirVis) }}><i class="bi bi-person me-1"></i>Cliente {{ tab.seta('cliente', ordColVis, ordDirVis) }}</th>
+                    <th class="sortable col-acao-tabela {{ ordColVis == 'acao' ? ordDirVis }}" data-ordenar="acao"{{ tab.ariaSort('acao', ordColVis, ordDirVis) }}><i class="bi bi-bank me-1"></i>Ação {{ tab.seta('acao', ordColVis, ordDirVis) }}</th>
+                    <th class="sortable {{ ordColVis == 'prioridade' ? ordDirVis }}" data-ordenar="prioridade"{{ tab.ariaSort('prioridade', ordColVis, ordDirVis) }}><i class="bi bi-flag me-1"></i>Prioridade {{ tab.seta('prioridade', ordColVis, ordDirVis) }}</th>
+                    <th class="sortable col-resp-tabela {{ ordColVis == 'responsavel' ? ordDirVis }}" data-ordenar="responsavel"{{ tab.ariaSort('responsavel', ordColVis, ordDirVis) }}><i class="bi bi-person-badge me-1"></i>Responsável {{ tab.seta('responsavel', ordColVis, ordDirVis) }}</th>
                     <th class="col-tarefas-tabela"><i class="bi bi-check2-square me-1"></i>Metas</th>
-                    <th class="sortable col-marc-tabela {{ ordCol == 'marcadores' ? ordDir : '' }}" data-ordenar="marcadores"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable {{ ordCol == 'situacao' ? ordDir : '' }}" data-ordenar="situacao"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-marc-tabela {{ ordColVis == 'marcadores' ? ordDirVis }}" data-ordenar="marcadores"{{ tab.ariaSort('marcadores', ordColVis, ordDirVis) }}><i class="bi bi-tags me-1"></i>Marcadores {{ tab.seta('marcadores', ordColVis, ordDirVis) }}</th>
+                    <th class="sortable {{ ordColVis == 'situacao' ? ordDirVis }}" data-ordenar="situacao"{{ tab.ariaSort('situacao', ordColVis, ordDirVis) }}><i class="bi bi-circle-half me-1"></i>Situação {{ tab.seta('situacao', ordColVis, ordDirVis) }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,7 +127,7 @@
                 <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if pasta.estaExcluida %} pasta-excluida{% endif %}" style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}">
                     {# `data-favorito-celula` / `data-pasta-id`: a estrela do cartão (abaixo, no script) acende
                        ou apaga este indicador quando alterna — tabela e cartão coexistem no DOM. #}
-                    <td class="fw-semibold ps-3 align-middle" data-favorito-celula="{{ pasta.id }}">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}{{ pasta.nup }}</td>
+                    <td class="fw-semibold align-middle" data-favorito-celula="{{ pasta.id }}">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}{{ pasta.nup }}</td>
                     <td class="align-middle">
                         {# O NOME DA PASTA vem primeiro; o cliente cadastrado é o fallback. A ordem
                            era a inversa e escondia o padrão do escritório (`CREDOR - DEVEDOR`)
@@ -129,25 +165,29 @@
                         </span>
                     </td>
                     <td class="align-middle" data-sort="{{ pasta.prioridade.value == 'urgente' ? 3 : (pasta.prioridade.value == 'prioridade' ? 2 : 1) }}">
-                        <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.72rem;">
-                            {{ pasta.prioridadeLabel }}
+                        {# `exp-prio` + `data-prio`: chip do desenho (dc L.158), com o rótulo do sistema. #}
+                        <span class="badge exp-prio {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" data-prio="{{ pasta.prioridade.value }}" style="font-size:.72rem;">
+                            <i class="bi bi-flag-fill" aria-hidden="true"></i>{{ pasta.prioridadeLabel }}
                         </span>
                     </td>
                     <td class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
                         {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis, respContexto: 'expediente'}) }}
                     </td>
-                    <td class="col-tarefas-tabela align-middle">
+                    <td class="col-tarefas-tabela align-middle"{% if pasta.tarefas is empty %} title="Sem metas"{% endif %}>
                         {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
                         {% set totalTarefas = pasta.tarefas|length %}
                         {% if totalTarefas > 0 %}
                             {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
                             <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                               class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                               class="badge exp-metas {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                               data-metas="{{ temRevisao ? 'revisao' : (tarefasAtivas|length > 0 ? 'abertas' : 'concluidas') }}"
                                title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
                                 <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
                             </a>
                         {% else %}
-                            <span class="text-muted" style="font-size:.8rem;">—</span>
+                            {# Sem o "–" do desenho (dc L.168): regra do dono sem travessão, decidida para a E8 em 15/10. #}
+                            {# O title fica no <td>: este span não tem largura, e a dica nunca aparecia. #}
+                            <span class="exp-sem-metas"><span class="visually-hidden">Sem metas</span></span>
                         {% endif %}
                     </td>
                     <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">
@@ -155,8 +195,9 @@
                             {% if pasta.marcadores|length > 0 %}
                                 {% set primeiro = pasta.marcadores|first %}
                                 <span class="badge rounded-pill px-2 marcador-principal"
-                                      style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;">
-                                    {{ primeiro.nome }}
+                                      style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;"
+                                      title="{{ pasta.marcadores|map(m => m.nome)|join(', ') }}">
+                                    <i class="bi bi-folder-fill" aria-hidden="true"></i>{{ primeiro.nome }}
                                 </span>
                                 {% if pasta.marcadores|length > 1 %}
                                     <span class="badge rounded-pill px-2 marcadores-extra"
@@ -174,7 +215,7 @@
                                     data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
                                     data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
                                     title="Mover para…">
-                                <i class="bi bi-tags"></i>
+                                <i class="bi bi-tag" aria-hidden="true"></i>
                             </button>
                         </div>
                     </td>
@@ -187,7 +228,7 @@
                                   title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}{% if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}">
                                 Excluída
                             </span>
-                        {% else %}
+                        {% elseif pasta.situacao in ['ativo', 'arquivado'] %}
                         <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
                               style="cursor:pointer;user-select:none;"
                               data-situacao="{{ pasta.situacao }}"
@@ -196,6 +237,10 @@
                               title="Dê duplo-clique para alternar entre ativo e arquivado">
                             {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
                         </span>
+                        {% else %}
+                        {# Suspenso e Cancelado: selo fixo, como na Lista do Expediente. O duplo clique alternava para
+                           Ativo/Arquivado e apagava a situação escolhida na pasta. #}
+                        <span class="badge {{ pasta.situacao == 'cancelado' ? 'text-bg-danger' : 'text-bg-warning' }}" data-situacao="{{ pasta.situacao }}">{{ pasta.situacaoRotulo }}</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -216,10 +261,11 @@
 {{ include('pasta/_resp_menu.html.twig', {usuarios: usuarios, fotosResponsaveis: fotosResponsaveis|default({}), respContexto: 'expediente'}) }}
 </div>{# /#pastasView #}
 {% else %}
-<div class="alert alert-info mb-0">
-    <i class="bi bi-info-circle me-1"></i>
+{# Vazio do desenho (dc L.214). #}
+<div class="exp-vazio">
+    <i class="bi bi-folder-x" aria-hidden="true"></i>
     {% if filters.busca or filters.status or filters.responsavel or filters.prioridade or filters.data_de or filters.data_ate %}
-        Nenhuma pasta encontrada com os filtros aplicados.
+        Nenhuma pasta encontrada com esses filtros.
     {% else %}
         Nenhuma pasta cadastrada.
     {% endif %}
@@ -285,8 +331,6 @@
 .sortable:hover { background-color: rgba(0,0,0,0.04); }
 .sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
 .sortable.asc .sort-icon, .sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
-.sortable.asc .sort-icon::before { content: "\F148"; }
-.sortable.desc .sort-icon::before { content: "\F128"; }
 
 /* Telas médias: Cliente e Ação cedem mais antes do scroll entrar */
 @media (max-width: 1300px) and (min-width: 901px) {
@@ -559,7 +603,11 @@
         wrap.classList.toggle('pastas-view--tabela', !lista);
         wrap.querySelectorAll('.js-view-toggle').forEach(function (b) {
             b.classList.toggle('active', b.dataset.view === view);
+            b.setAttribute('aria-checked', b.dataset.view === view ? 'true' : 'false');
         });
+        /* O botão "Visualizar" mostra o ícone do modo atual (dc L.506 `visIcone`). */
+        var icone = wrap.querySelector('.js-visualizar-icone');
+        if (icone) { icone.className = 'bi ' + (lista ? 'bi-grid' : 'bi-list-columns-reverse') + ' js-visualizar-icone'; }
     }
 
     /* Reaplica a view salva a cada injeção do fragmento (idempotente). */

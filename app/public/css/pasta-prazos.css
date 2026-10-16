@@ -1,0 +1,33 @@
+/* "Próximos prazos" e a janela "Novo prazo ou audiência" da Pasta, desenho 1.2.3 (dc L.1453-1474, L.2908-2926), E12b. */
+.ps-card-cab-mais { color: #0a7aad; font-size: 16px; }
+.ps-prazos-vazio { padding: 16px 17px; font-size: 12.5px; color: #7b93a2; }
+.ps-pz-fundo { position: fixed; inset: 0; z-index: 9700; background: rgba(14,37,51,.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ps-pz-fundo[hidden] { display: none; }
+.ps-pz { width: min(420px, 100%); background: #fff; border-radius: 4px; box-shadow: 0 26px 60px -20px rgba(12,48,72,.45); overflow: hidden; color: #12242f; }
+.ps-pz-cab { background: #0a6fa0; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+.ps-pz-cab b { flex: 1; font-size: 14.5px; }
+.ps-pz-x { width: 28px; height: 28px; border: 0; border-radius: 3px; background: rgba(255,255,255,.15); color: #fff; cursor: pointer; }
+.ps-pz-corpo { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.ps-pz-tipos { display: flex; gap: 6px; }
+.ps-pz-tipo { flex: 1; height: 34px; border: 1px solid #c9d6df; border-radius: 4px; background: #fff; color: #34505f; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.ps-pz-tipo.is-ativo { background: #0a6fa0; color: #fff; border-color: #0a6fa0; }
+.ps-pz-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .5px; color: #4a6373; }
+.ps-pz-campo input { height: 36px; border: 1px solid #c9d6df; border-radius: 4px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: 400; letter-spacing: 0; color: #12242f; box-sizing: border-box; width: 100%; }
+.ps-pz-campo input:focus { outline: 0; border-color: #0a6fa0; box-shadow: 0 0 0 3px rgba(10,111,160,.12); }
+.ps-pz-linha { display: flex; gap: 10px; }
+.ps-pz-campo--data { flex: 1; }
+.ps-pz-campo--hora { width: 120px; }
+.ps-pz-nota { font-size: 12px; color: #7b93a2; line-height: 1.45; }
+.ps-pz-erro { font-size: 12.5px; color: #a3232b; min-height: 0; }
+.ps-pz-erro:empty { display: none; }
+.ps-pz-rodape { display: flex; justify-content: flex-end; gap: 8px; }
+.ps-pz-btn { height: 34px; padding: 0 14px; border: 0; border-radius: 4px; font: inherit; font-weight: 700; cursor: pointer; }
+.ps-pz-btn--cinza { background: #e6edf2; color: #243845; }
+.ps-pz-btn--azul { background: #0a6fa0; color: #fff; padding: 0 16px; }
+.ps-pz-btn--azul:hover { background: #0b5f86; }
+.ps-pz-btn:disabled { opacity: .6; cursor: progress; }
+[data-bs-theme="dark"] .ps-pz { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] .ps-pz-campo input, [data-bs-theme="dark"] .ps-pz-tipo:not(.is-ativo) { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
+/* Cartão do sistema no Registro (andamento, prazo): mesmo cartão, ícone do tipo e fundo levemente azulado. */
+.ps-anotacao--sistema .ps-anotacao-texto { color: #34505f; }
+.ps-anotacao--sistema .ps-anotacao-icone { color: #0a6fa0; }

@@ -1,19 +1,19 @@
 {# Uma meta no modo cartões.
-   `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral) #}
-{% set info = meta.prazoInfo %}
-{% set concluida = meta.status == 'concluida' %}
-{% set emRevisao = meta.status == 'em_revisao' %}
+   `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral)
+   O número antes do título é o da meta NA PASTA (R239, decisão do dono 14/10), o mesmo da aba Metas da
+   pasta; vem pré-carregado em `painel.numeroNaPasta`. Número global não existe por escritório: não aparece. #}
 {# Vem pré-carregado do UseCase: perguntar à entidade custaria uma consulta por linha. #}
 {% set acompanhando = painel.estaAcompanhando(meta.id) %}
 
-{% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
-{% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : 'warn')) %}
-{% set rotuloStatus = concluida ? 'Concluída' : (emRevisao ? 'Em revisão' : (info.dias is not null and info.dias < 0 ? 'Atrasada' : 'Pendente')) %}
+{# Pílula e texto do prazo do desenho de 13/10, derivados do dado real pela regra que escolhe o grupo. #}
+{% set status = painel.statusDaMeta(meta) %}
+{% set prazo = painel.prazoDaMeta(meta) %}
 
 <article class="mm-meta tom-{{ tom }}">
     <div class="mm-meta-corpo">
         <div class="mm-meta-topo">
-            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo">{{ meta.titulo }}</a>
+            {% set numPasta = painel.numeroNaPasta(meta.id) %}
+            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="Meta {{ numPasta }} da pasta {{ meta.pasta.nup }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>
             {% if meta.pasta.prioridade.value != 'normal' %}
                 <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
                     <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}
@@ -40,11 +40,8 @@
                 <span class="mm-meta-info"><i class="bi bi-people"></i>sem responsável</span>
             {% endif %}
 
-            <span class="mm-prazo tom-{{ tomPrazo }}">
-                <i class="bi bi-calendar-event"></i>
-                {%- if meta.prazo is null %}sem prazo
-                {%- elseif concluida %}prazo {{ meta.prazo|date('d/m/Y') }}
-                {%- else %}{{ info.texto }}{% endif %}
+            <span class="mm-prazo{{ prazo.atrasado ? ' is-atrasado' : '' }}"{% if meta.prazo %} title="Prazo: {{ meta.prazo|date('d/m/Y') }}"{% endif %}>
+                <i class="bi bi-calendar-event"></i>{{ prazo.texto }}
             </span>
 
             {% set comentarios = painel.totalDeMensagens(meta.id) %}
@@ -57,7 +54,7 @@
     </div>
 
     <div class="mm-meta-lado">
-        <span class="mm-pilula tom-{{ tomStatus }}">{{ rotuloStatus }}</span>
+        <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span>
         <span class="mm-meta-datas">
             criada {{ meta.dataCriacao|date('d/m/Y') }}{% if meta.dataAlteracao %} · mod. {{ meta.dataAlteracao|date('d/m/Y') }}{% endif %}
         </span>
@@ -72,8 +69,26 @@
                 title="{{ acompanhando ? 'Deixar de acompanhar' : 'Acompanhar' }}">
             <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
         </button>
-        <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-acao-icone" title="Abrir a meta">
-            <i class="bi bi-chevron-right"></i>
-        </a>
+        {# ⋮ "Opções" do desenho (dc L98) com os itens que a especificação pede (R118, R236) e que já
+           existem no sistema — o ⋮ do protótipo só alternava o marcador, defeito não reproduzido.
+           "Abrir relatório completo" mantém o acesso à meta que a antiga seta dava. Os outros dois
+           levam à aba Metas da pasta com a meta realçada (PMC-044); "Editar nome" abre ali a edição
+           que já existe no ⋮ da pasta (pasta-metas.js, `acao=renomear`), com a mesma regra de
+           exibição: pasta excluída é somente leitura. "Encaminhar via Chat I.A" (R223) não tem
+           backend: fica fora, registrado no checklist (MM-MENU-11).
+           `strategy: fixed` tira o menu do recorte do cartão (`overflow: hidden`). #}
+        <div class="dropdown mm-menu">
+            <button type="button" class="mm-acao-icone" title="Opções" aria-label="Opções da meta"
+                    data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                <i class="bi bi-three-dots-vertical"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item mm-menu-item" href="{{ path('tarefa_show', {id: meta.id}) }}"><i class="bi bi-file-earmark-text"></i>Abrir relatório completo</a></li>
+                <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id}) }}#tarefas"><i class="bi bi-folder2-open"></i>Ir para a aba Metas da pasta</a></li>
+                {% if not meta.pasta.estaExcluida %}
+                    <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id, acao: 'renomear'}) }}#tarefas"><i class="bi bi-pencil"></i>Editar nome</a></li>
+                {% endif %}
+            </ul>
+        </div>
     </div>
 </article>

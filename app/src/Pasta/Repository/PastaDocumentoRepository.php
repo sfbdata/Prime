@@ -164,6 +164,20 @@ class PastaDocumentoRepository extends ServiceEntityRepository
      * Um documento pelo id, DENTRO do escritório — o guard IDOR das rotas que recebem só o id do
      * documento na URL. Filtro explícito: não depende de o TenantFilter estar ligado.
      */
+    /** Documentos vivos (fora da lixeira) da pasta: a sugestão "Documentação" do andamento conta por eles. */
+    public function contarVivosDaPasta(Pasta $pasta, Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.excluidoEm IS NULL')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function findByIdAndTenant(int $id, Tenant $tenant): ?PastaDocumento
     {
         return $this->createQueryBuilder('d')

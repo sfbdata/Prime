@@ -52,10 +52,8 @@ final class ListarMinhasMetasUseCase
     ): MinhasMetasOutput {
         $metas = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros);
 
-        $marcadores = $this->repository->carregarMarcadoresDaLista(
-            $usuario,
-            array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas),
-        );
+        $ids        = array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas);
+        $marcadores = $this->repository->carregarMarcadoresDaLista($usuario, $ids);
 
         return new MinhasMetasOutput(
             aba: $aba,
@@ -68,6 +66,7 @@ final class ListarMinhasMetasUseCase
             pessoas: $modoLista ? [] : $this->repository->contarPessoasDoTrilho($usuario, $aba),
             acompanhadas: $marcadores['acompanhadas'],
             mensagensPorMeta: $marcadores['mensagens'],
+            numerosNaPasta: $this->repository->numerosNaPasta($ids),
         );
     }
 }

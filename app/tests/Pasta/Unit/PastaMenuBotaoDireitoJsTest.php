@@ -61,7 +61,9 @@ final class PastaMenuBotaoDireitoJsTest extends TestCase
     #[TestDox('processo: links, botões, campos, o próprio menu e texto selecionado ficam com o menu nativo — antes do preventDefault')]
     public function testProcessoExcecoesAntesDoPreventDefault(): void
     {
+        // A ordem vale no trecho do CARTÃO (o ⋮ em si tem ramificação própria, antes dele).
         $bloco   = $this->blocoProcesso();
+        $bloco   = substr($bloco, (int) strpos($bloco, "var cartao = alvo.closest("));
         $excecao = strpos($bloco, "alvo.closest('a, button, input, textarea, select, [contenteditable=\"true\"], .ps-processo-menu')");
         $selecao = strpos($bloco, 'window.getSelection');
         $achou   = strpos($bloco, 'if (!menu || !gatilho) { return; }');
@@ -73,6 +75,19 @@ final class PastaMenuBotaoDireitoJsTest extends TestCase
         self::assertLessThan($prevent, $excecao);
         self::assertLessThan($prevent, $selecao);
         self::assertLessThan($prevent, $achou, 'sem menu, o navegador mostra o dele');
+    }
+
+    #[TestDox('PZ-CTX-08: botão direito sobre o ⋮ (cabeçalho e cartão de Processos) abre o mesmo menu do clique, sob o ⋮ (dc L.1680 `onContextMenu="{{ procHdMenu }}"`)')]
+    public function testProcessoBotaoDireitoNoProprioGatilho(): void
+    {
+        $bloco   = $this->blocoProcesso();
+        $proprio = strpos($bloco, "var gatilhoProprio = alvo.closest('.js-proc-menu-gatilho');");
+        $cartao  = strpos($bloco, 'var cartao = alvo.closest(');
+        self::assertNotFalse($proprio);
+        self::assertNotFalse($cartao);
+        self::assertLessThan($cartao, $proprio, 'antes da exceção de botões do cartão, que devolveria o menu nativo');
+        self::assertStringContainsString("var menuProprio = document.getElementById(gatilhoProprio.getAttribute('aria-controls') || '');", $bloco);
+        self::assertStringContainsString("if (!menuProprio) { return; }\n            e.preventDefault();\n            abrirMenu(menuProprio, gatilhoProprio, null);", $bloco, 'sem menu, o nativo; com menu, sob o ⋮, como o clique');
     }
 
     #[TestDox('metas: a linha é achada pelo gancho; o ⋮ da linha é acionado (pasta-show.js abre) e o painel vai ao cursor')]

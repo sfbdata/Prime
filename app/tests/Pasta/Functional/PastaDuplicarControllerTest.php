@@ -353,10 +353,14 @@ final class PastaDuplicarControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $form->filter('form > button.ps-pop-item[type="submit"]'));
         self::assertSame('Duplicar pasta', trim($form->filter('button.ps-pop-item > span')->text()));
         self::assertNotSame('', (string) $form->filter('input[name="_token"]')->attr('value'));
-        self::assertStringContainsString(
-            'A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.',
-            (string) $form->attr('onsubmit'),
+        // E7: a pergunta do desenho mora no `data-ps-cf` (janela azul da tela, dc L.4511); o `onsubmit`
+        // só pergunta pelo navegador se a janela não carregou.
+        self::assertSame(
+            'Duplicar a pasta 3010? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.',
+            (string) $form->attr('data-ps-cf'),
         );
+        self::assertNull($form->attr('data-ps-cf-perigo'), 'duplicar não é perigo: janela azul');
+        self::assertSame('return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);', (string) $form->attr('onsubmit'));
 
         $itens = $crawler->filter('#psMenuAcoes .ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         $pos   = array_search('Duplicar pasta', $itens, true);

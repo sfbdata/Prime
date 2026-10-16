@@ -1,0 +1,56 @@
+{# Modais da Lista do Expediente no desenho 1.1 (E12). Abertos e preenchidos por expediente-trilho.js (marcador)
+   e expediente-lista.js (sigilo). Sem Bootstrap Modal: a moldura é a do desenho (fundo rgba(14,37,51,.35),
+   caixa branca de raio 4 com cabeçalho azul). Esc e clique fora fecham. #}
+{% set coresDesenho = ['#0a6fa0', '#5b4fb5', '#c0392b', '#d18a12', '#3a7bb8', '#4a6373', '#1f8a4c', '#c2457a', '#0f8b8d', '#8a5a12'] %}
+
+{# Novo / editar marcador e submarcador (dc L.317-332) #}
+<div class="exp-modal-fundo" id="expMkModal" hidden>
+    <div class="exp-modal exp-modal--marcador" role="dialog" aria-modal="true" aria-labelledby="expMkTitulo">
+        <div class="exp-modal-cab">
+            <i class="bi bi-tags" aria-hidden="true"></i>
+            <b id="expMkTitulo">Novo marcador</b>
+            <button type="button" class="exp-modal-x js-mk-fechar" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="exp-modal-corpo">
+            <label class="exp-campo">NOME
+                <input type="text" id="expMkNome" maxlength="100" autocomplete="off" placeholder="Ex.: 7. Revisar">
+            </label>
+            <label class="exp-campo">DESCRIÇÃO (OPCIONAL)
+                <input type="text" id="expMkDescricao" maxlength="255" autocomplete="off" placeholder="Para que serve este marcador">
+            </label>
+            <label class="exp-campo">DENTRO DE (SUBMARCADOR)
+                <select id="expMkPai"><option value="">Nenhum · marcador principal</option></select>
+            </label>
+            <div class="exp-campo">COR
+                <div class="exp-mk-cores" role="radiogroup" aria-label="Cor">
+                    {% for cor in coresDesenho %}
+                        <button type="button" class="exp-mk-cor" role="radio" aria-checked="false" aria-label="Cor" data-cor="{{ cor }}" style="background: {{ cor }};"><i class="bi" aria-hidden="true"></i></button>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="exp-mk-previa-linha">Prévia<span class="exp-mk-previa" id="expMkPrevia"><i class="bi bi-folder-fill" aria-hidden="true"></i><span>Nome do marcador</span></span></div>
+            <div class="exp-modal-erro" id="expMkErro" role="alert"></div>
+        </div>
+        <div class="exp-modal-rodape">
+            <button type="button" class="exp-btn exp-btn--cinza js-mk-fechar">Cancelar</button>
+            <button type="button" class="exp-btn exp-btn--azul" id="expMkSalvar">Salvar</button>
+        </div>
+    </div>
+</div>
+
+{# Pasta trancada aberta por quem não é administrador (dc L.368-384) #}
+<div class="exp-modal-fundo" id="expSigilo" hidden data-url-pedir="{{ path('expediente_pasta_pedir_acesso', {id: 0}) }}">
+    <div class="exp-modal exp-modal--sigilo" role="alertdialog" aria-modal="true" aria-labelledby="expSigiloTitulo" aria-describedby="expSigiloTexto">
+        <div class="exp-modal-faixa"></div>
+        <div class="exp-sigilo-corpo">
+            <div class="exp-sigilo-circulo"><i class="bi bi-lock" aria-hidden="true"></i></div>
+            <div class="exp-sigilo-titulo" id="expSigiloTitulo">Pasta <span class="js-sigilo-nup"></span> protegida</div>
+            <div class="exp-sigilo-texto" id="expSigiloTexto">Esta pasta contém <b>documentos sigilosos</b>. O acesso não é recomendado no momento.</div>
+            <div class="exp-sigilo-nota">Somente o usuário primário pode liberar o acesso.</div>
+        </div>
+        <div class="exp-modal-rodape exp-modal-rodape--centro">
+            <button type="button" class="exp-btn exp-btn--cinza js-sigilo-fechar">Entendi</button>
+            <button type="button" class="exp-btn exp-btn--azul js-sigilo-pedir"><i class="bi bi-key" aria-hidden="true"></i>Pedir acesso</button>
+        </div>
+    </div>
+</div>

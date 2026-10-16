@@ -103,6 +103,47 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $resumo->filter('.ps-dado--vazio'), 'com dado, nada de vazio');
     }
 
+    #[TestDox('E4 (dc de 13/10): a situação aparece "Em andamento" no cartão e no painel; o valor gravado continua EM_ANDAMENTO e o ponto verde continua')]
+    public function testSituacaoLegivelSemMudarODado(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->processoCompleto($pasta);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $cartao = $this->cartao($this->abrir($client, $pasta));
+
+        $situacao = $cartao->filter('article.ps-processo .ps-processo-dado > .ps-processo-situacao');
+        self::assertCount(1, $situacao);
+        self::assertSame('Em andamento', trim($situacao->text()));
+        self::assertStringContainsString('ps-processo-situacao--ativa', (string) $situacao->attr('class'), 'a cor verde segue o código, não o rótulo');
+        self::assertSame(
+            'Em andamento',
+            trim($cartao->filter('article.ps-processo > .ps-processo-detalhes > [data-proc-campo="situacao"] > .ps-processo-campo-valor')->text()),
+        );
+
+        $this->em()->clear();
+        $gravado = $this->em()->find(Processo::class, $processo->getId());
+        self::assertSame('EM_ANDAMENTO', $gravado?->getSituacaoProcesso(), 'é apresentação: o dado persistido não muda');
+    }
+
+    #[TestDox('E4: situação fora da lista conhecida aparece exatamente como foi gravada (sem rótulo inventado)')]
+    public function testSituacaoDesconhecidaApareceComoVeio(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->processoCompleto($pasta);
+        $processo->setSituacaoProcesso('Em grau de recurso');
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $cartao = $this->cartao($this->abrir($client, $pasta));
+
+        self::assertSame('EM GRAU DE RECURSO', trim($cartao->filter('article.ps-processo .ps-processo-dado > .ps-processo-situacao')->text()));
+    }
+
     #[TestDox('PMC-007: sem órgão, distribuição nem valor da causa, o resumo mostra os três com "Não informado" em itálico; a Instância vazia some')]
     public function testResumoSemDadoDizNaoInformado(): void
     {
@@ -398,7 +439,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             'Ação: ' . $pasta->getNomeAcao(),
             'Classe: PROCEDIMENTO COMUM',
             'Tribunal: TJDFT',
-            'Situação: EM_ANDAMENTO',
+            'Situação: Em andamento',   // E4: rótulo legível, mesmo do PDF (SituacaoProcessoRotulo)
             'Órgão julgador: 1ª VARA CÍVEL DE BRASÍLIA',
             'Distribuição: 14/03/2025',
             'Valor da causa: R$ 15.234,50',

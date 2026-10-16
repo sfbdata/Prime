@@ -46,6 +46,16 @@ abstract class Cliente implements TenantAware
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $complemento = null;
 
+    /** Número do endereço (Cadastro do desenho 1.2.3, aba Endereço). `endereco` é o logradouro. */
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $numero = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $bairro = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $whatsapp = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $criadoAt = null;
 
@@ -238,4 +248,43 @@ abstract class Cliente implements TenantAware
         return $this;
     }
 
+
+    public function getNumero(): ?string
+    {
+        return $this->numero;
+    }
+
+    public function setNumero(?string $numero): self
+    {
+        $numero = $numero !== null ? mb_strtoupper(trim($numero)) : null;
+        $this->numero = $numero !== '' ? $numero : null;
+
+        return $this;
+    }
+
+    public function getBairro(): ?string
+    {
+        return $this->bairro;
+    }
+
+    public function setBairro(?string $bairro): self
+    {
+        $bairro = $bairro !== null ? mb_strtoupper(trim($bairro)) : null;
+        $this->bairro = $bairro !== '' ? $bairro : null;
+
+        return $this;
+    }
+
+    public function getWhatsapp(): ?string
+    {
+        return $this->whatsapp;
+    }
+
+    public function setWhatsapp(?string $whatsapp): self
+    {
+        $whatsapp = $whatsapp !== null ? trim($whatsapp) : null;
+        $this->whatsapp = $whatsapp !== '' ? $whatsapp : null;
+
+        return $this;
+    }
 }

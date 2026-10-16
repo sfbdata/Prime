@@ -188,9 +188,9 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
     #[TestDox('desvincular processo: o submit delegado do show lê o texto do desenho no data-confirmar do form')]
     public function testConfirmacaoDeDesvincularLeOAtributo(): void
     {
-        self::assertStringContainsString(
-            "if (!confirm(form.dataset.confirmar || 'Desvincular o processo desta pasta?')) {",
-            self::ler(self::SHOW)
-        );
+        $show = self::ler(self::SHOW);
+        self::assertStringContainsString("const perguntaDesv = form.dataset.confirmar || 'Desvincular o processo desta pasta?';", $show);
+        // E7: janela vermelha da tela, como o dc (`confirmarUI(…, true)`, L.3031), esperada antes do fetch.
+        self::assertStringContainsString('await window.confirmarUIPs(perguntaDesv, true)', $show);
     }
 }

@@ -35,6 +35,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_PASTA_MENCAO_REGISTRO = 'pasta_mencao_registro';
     /** Alguém @mencionou o destinatário numa nota técnica de processo (escrita numa pasta). */
     public const TIPO_NOTA_TECNICA_MENCAO = 'nota_tecnica_mencao';
+    // Pedido de acesso a pasta trancada (Lista do Expediente, E12): vai para os administradores.
+    public const TIPO_PASTA_PEDIDO_ACESSO = 'pasta_pedido_acesso';
     /** Alguém @mencionou o destinatário numa conversa da Central de Comunicação (sem o texto: é auditada). */
     public const TIPO_CENTRAL_MENCAO = 'central_mencao';
     /** Alguém adicionou o destinatário a um grupo da Central de Comunicação. */
@@ -49,6 +51,7 @@ class Notificacao implements Auditavel, TenantAware
         self::TIPO_PONTO_JUSTIFICATIVA_ENVIADA,
         self::TIPO_SERVICEDESK_NOVO,
         self::TIPO_SERVICEDESK_ATRIBUICAO,
+        self::TIPO_PASTA_PEDIDO_ACESSO,
     ];
 
     #[ORM\Id]

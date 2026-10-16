@@ -73,7 +73,7 @@ final class PastaChecklistJsExtraidoTest extends TestCase
         }
         self::assertStringContainsString('new window.Sortable(lista', $js, 'reordenar arrastando');
         self::assertStringContainsString("'dblclick'", $js, 'renomear inline');
-        self::assertStringContainsString("confirm('Excluir este item do checklist?')", $js);
+        self::assertStringContainsString("perguntar('Excluir este item do checklist?', true)", $js, 'E7: janela vermelha da tela');
     }
 
     #[TestDox('renomear tem guarda de requisição em voo: Enter + blur não salvam duas vezes')]

@@ -156,7 +156,7 @@
                 {% if pasta.nomeAcao %}{% set resumo = resumo|merge(['Ação: ' ~ pasta.nomeAcao]) %}{% endif %}
                 {% if proc.classeProcessual %}{% set resumo = resumo|merge(['Classe: ' ~ proc.classeProcessual]) %}{% endif %}
                 {% if proc.siglaTribunal %}{% set resumo = resumo|merge(['Tribunal: ' ~ proc.siglaTribunal]) %}{% endif %}
-                {% if proc.situacaoProcesso %}{% set resumo = resumo|merge(['Situação: ' ~ proc.situacaoProcesso]) %}{% endif %}
+                {% if proc.situacaoProcesso %}{% set resumo = resumo|merge(['Situação: ' ~ proc.situacaoProcesso|situacao_processo]) %}{% endif %}
                 {% if proc.orgaoJulgador %}{% set resumo = resumo|merge(['Órgão julgador: ' ~ proc.orgaoJulgador]) %}{% endif %}
                 {% if distribuicao %}{% set resumo = resumo|merge(['Distribuição: ' ~ distribuicao]) %}{% endif %}
                 {% if valorCausa %}{% set resumo = resumo|merge(['Valor da causa: ' ~ valorCausa]) %}{% endif %}
@@ -295,10 +295,11 @@
                         </div>
                         <div class="ps-processo-dado">
                             <div class="ps-rotulo">Situação</div>
-                            {# O cadastro (Datajud) usa EM_ANDAMENTO / ENCERRADO: só "em andamento" fica verde. #}
+                            {# O cadastro (Datajud) usa EM_ANDAMENTO / ENCERRADO: só "em andamento" fica verde — a cor
+                               segue o CÓDIGO; o texto mostra o rótulo (`situacao_processo`, dc de 13/10: "Em andamento"). #}
                             {% set sitAtiva = 'ANDAMENTO' in proc.situacaoProcesso|upper %}
                             <div class="ps-processo-valor ps-processo-situacao{{ sitAtiva ? ' ps-processo-situacao--ativa' : '' }}{{ proc.situacaoProcesso ? '' : ' ps-dado--vazio' }}">
-                                <span class="ps-processo-sit-ponto" aria-hidden="true"></span>{{ proc.situacaoProcesso ?: 'Não informada' }}
+                                <span class="ps-processo-sit-ponto" aria-hidden="true"></span>{{ proc.situacaoProcesso ? proc.situacaoProcesso|situacao_processo : 'Não informada' }}
                             </div>
                         </div>
                     </div>
@@ -381,7 +382,7 @@
                             {% if proc.situacaoProcesso %}
                                 <div class="ps-processo-campo" data-proc-campo="situacao">
                                     <div class="ps-rotulo">Situação</div>
-                                    <div class="ps-processo-campo-valor">{{ proc.situacaoProcesso }}</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.situacaoProcesso|situacao_processo }}</div>
                                 </div>
                             {% endif %}
                             {% if proc.dataBaixa %}

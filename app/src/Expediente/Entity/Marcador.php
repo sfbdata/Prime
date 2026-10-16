@@ -44,6 +44,10 @@ class Marcador implements TenantAware
     #[ORM\Column(length: 7, nullable: true)]
     private ?string $cor = null;
 
+    /** "Para que serve este marcador" (desenho 1.1, E12): aparece como dica no trilho e no chip da linha. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $descricao = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private ?\DateTimeImmutable $criadoAt = null;
 
@@ -131,6 +135,19 @@ class Marcador implements TenantAware
     public function setCor(?string $cor): static
     {
         $this->cor = $cor;
+
+        return $this;
+    }
+
+    public function getDescricao(): ?string
+    {
+        return $this->descricao;
+    }
+
+    public function setDescricao(?string $descricao): static
+    {
+        $descricao = $descricao === null ? null : trim($descricao);
+        $this->descricao = $descricao === '' ? null : $descricao;
 
         return $this;
     }

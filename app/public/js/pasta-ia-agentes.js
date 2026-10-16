@@ -405,13 +405,26 @@
         });
 
         /* ── 4. Ações da análise ──────────────────────────────────────────── */
-        drawer.addEventListener('submit', function (e) {
+        drawer.addEventListener('submit', async function (e) {
             var form = e.target.closest('form[data-ia-acao]');
             if (!form || !drawer.contains(form)) { return; }
             e.preventDefault();
 
+            // E7: janela vermelha da tela quando ela existe (Pasta; dc `confirmarUI(…, true)`,
+            // L.5351); sem ela, o confirm do navegador. Uma pergunta por vez.
             var confirmar = form.getAttribute('data-ia-confirmar');
-            if (confirmar && !window.confirm(confirmar)) { return; }
+            if (confirmar) {
+                // Marca no formulário, não `disabled` no botão: o foco volta a ele ao fechar a janela,
+                // e botão desabilitado não recebe foco.
+                if (form.dataset.perguntando) { return; }
+                form.dataset.perguntando = '1';
+                // O menu fecha no clique, antes do envio: o foco volta explicitamente ao ⋮ da análise.
+                var envoltorio = form.closest('.ia-menu-wrap');
+                var voltar = envoltorio ? envoltorio.querySelector('[aria-haspopup]') : null;
+                var sim = window.confirmarUIPs ? await window.confirmarUIPs(confirmar, true, voltar) : window.confirm(confirmar);
+                delete form.dataset.perguntando;
+                if (!sim || !document.contains(form)) { return; }
+            }
 
             var secao = secaoDe(form);
             var enviar = form.querySelector('button[type="submit"]');

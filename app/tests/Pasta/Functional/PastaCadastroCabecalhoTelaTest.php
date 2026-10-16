@@ -53,6 +53,7 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
         $cliente->setEndereco('SQS 110 Bloco A');
         $cliente->setCidade('Brasília');
         $cliente->setEstado('DF');
+        $cliente->setNumero('101')->setBairro('Asa Sul');
         $cliente->setNomeCompleto($nome);
         $cliente->setCpf($cpf);
         $cliente->setRg('1234567');
@@ -112,9 +113,10 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Cadastro completo · abrir qualificação do cliente', $botao->attr('title'));
         self::assertSame($botao->attr('title'), $botao->attr('aria-label'));
 
-        // O clique abre a janela "Detalhes do cliente" (pasta-clientes.js): o gancho é a
-        // classe + o id do cliente no próprio botão, e a URL do resumo vem do trilho.
-        self::assertStringContainsString('js-ps-cli-detalhes', (string) $botao->attr('class'));
+        // E12f: o clique abre a janela "Cadastro e qualificação do cliente" do desenho
+        // (cliente-cadastro.js pela classe js-cad-abrir + data-url).
+        self::assertStringContainsString('js-cad-abrir', (string) $botao->attr('class'));
+        self::assertStringContainsString('/clientes/' . $cliente->getId() . '/cadastro', (string) $botao->attr('data-url'));
         self::assertSame((string) $cliente->getId(), $botao->attr('data-cliente-id'));
         self::assertCount(1, $crawler->filter('[data-trilho="clientes"][data-resumo-url]'));
     }

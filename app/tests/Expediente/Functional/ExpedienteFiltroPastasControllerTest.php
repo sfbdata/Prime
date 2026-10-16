@@ -165,6 +165,91 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
 
     // ----------------------------------------------------------------- helpers
 
+    #[TestDox('E8 (decisão do dono 14/10): responsavel=sem traz só as pastas SEM responsável; quem tem responsável fica de fora')]
+    public function testFiltroSemResponsavel(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Sem Resp', admin: true);
+
+        $sufixo = strtoupper(uniqid());
+        $sem    = $this->criarPasta($tenant, 'SEMRESP-' . $sufixo);
+        $com    = $this->criarPasta($tenant, 'COMRESP-' . $sufixo, responsavel: $admin);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?responsavel=sem');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString($sem->getNup(), $body);
+        self::assertStringNotContainsString($com->getNup(), $body);
+    }
+
+    #[TestDox('E8: o filtro "Sem responsável" continua preso ao escritório — pasta sem responsável de OUTRO escritório não aparece')]
+    public function testFiltroSemResponsavelNaoVazaOutroEscritorio(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $admin   = $this->criarUsuario($tenantA, 'Admin A Sem Resp', admin: true);
+
+        $sufixo = strtoupper(uniqid());
+        $daqui  = $this->criarPasta($tenantA, 'SEMRESP-A-' . $sufixo);
+        $dali   = $this->criarPasta($tenantB, 'SEMRESP-B-' . $sufixo);
+
+        $this->logarComTenant($client, $admin, $tenantA);
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?responsavel=sem');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString($daqui->getNup(), $body);
+        self::assertStringNotContainsString($dali->getNup(), $body);
+    }
+
+    #[TestDox('E8: "Sem responsável" vale também no painel de um marcador (mesmo filtro, mesmo escritório)')]
+    public function testFiltroSemResponsavelNoPainelDoMarcador(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Marc Sem', admin: true);
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+
+        $marcador = new \App\Expediente\Entity\Marcador('Marc ' . uniqid(), $tenant, $admin);
+        $em->persist($marcador);
+        $sufixo = strtoupper(uniqid());
+        $sem    = $this->criarPasta($tenant, 'MSEM-' . $sufixo);
+        $com    = $this->criarPasta($tenant, 'MCOM-' . $sufixo, responsavel: $admin);
+        $sem->addMarcador($marcador);
+        $com->addMarcador($marcador);
+        $em->flush();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->xmlHttpRequest('GET', '/expediente/marcador/' . $marcador->getId() . '/pastas?responsavel=sem');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString($sem->getNup(), $body);
+        self::assertStringNotContainsString($com->getNup(), $body);
+    }
+
+    #[TestDox('E8: a barra de filtro oferece "Sem responsável" (value "sem") logo depois do rótulo, e a marca quando é o filtro ativo')]
+    public function testOpcaoSemResponsavelNaBarra(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Opcao Sem', admin: true);
+        $this->criarPasta($tenant, 'OPCAO-' . strtoupper(uniqid()));
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?responsavel=sem');
+        self::assertResponseIsSuccessful();
+
+        $opcoes = $crawler->filter('select[name="responsavel"] option');
+        self::assertSame(['', 'sem'], [(string) $opcoes->eq(0)->attr('value'), (string) $opcoes->eq(1)->attr('value')]);
+        self::assertSame('Sem responsável', trim($opcoes->eq(1)->text()));
+        self::assertNotNull($opcoes->eq(1)->attr('selected'));
+    }
+
     private function criarTenant(): Tenant
     {
         $em     = static::getContainer()->get(EntityManagerInterface::class);
@@ -243,7 +328,7 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
 
         self::assertSame(
             'APLC TOP LIFE 1 - JOAO BATISTA FERREIRA GOMES',
-            trim($crawler->filter('.pasta-card-cliente')->first()->text()),
+            trim($crawler->filter('.exp-cartao-cli')->first()->text()),
             'o CARTÃO (modo lista) mostra o mesmo — os dois modos da tela não podem divergir',
         );
     }

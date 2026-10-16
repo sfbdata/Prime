@@ -518,8 +518,14 @@
             const btnExcluir = e.target.closest('.btn-excluir-obs');
             if (btnExcluir) {
                 // Confirmação do desenho (dc `comExcluir`, L.5903): título e texto exatos, em
-                // duas partes como o modal de lá (aqui, no confirm do navegador).
-                if (!confirm(textoDeConfirmacaoExcluir(btnExcluir.closest('.ps-anotacao')))) return;
+                // duas partes como o modal de lá. E7: na janela da tela (vermelha, "Excluir"),
+                // como os comentários da aba Dados; sem ela, o confirm do navegador.
+                const perguntaObs = textoDeConfirmacaoExcluir(btnExcluir.closest('.ps-anotacao'));
+                const partesObs = perguntaObs.split('\n\n');
+                const excluirObs = window.confirmarPs
+                    ? await window.confirmarPs({ titulo: partesObs[0], texto: partesObs.slice(1).join('\n\n') })
+                    : confirm(perguntaObs);
+                if (!excluirObs) return;
 
                 const obsId = btnExcluir.dataset.obsId;
                 const fd    = new FormData();

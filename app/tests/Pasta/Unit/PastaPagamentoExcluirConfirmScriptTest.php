@@ -26,7 +26,9 @@ final class PastaPagamentoExcluirConfirmScriptTest extends TestCase
 
         self::assertStringContainsString("'Excluir \"' + (linhaEx.dataset.descricao || '') + '\" (' + brl(valorEx) + ')?'", $js);
         self::assertStringContainsString("lerValor(linhaEx.dataset.valor || '').numero", $js);
-        self::assertStringContainsString("if (!confirm(perguntaEx)) { return; }", $js);
+        // E7: janela vermelha da tela, com o título do desenho ("Excluir lançamento", dc L.3573).
+        self::assertStringContainsString("await window.confirmarUIPs('Excluir lançamento\\n' + perguntaEx, true)", $js);
+        self::assertStringContainsString('if (!excluirLanc) { return; }', $js);
         self::assertStringNotContainsString('Excluir este lançamento? Esta ação não pode ser desfeita.', $js);
     }
 

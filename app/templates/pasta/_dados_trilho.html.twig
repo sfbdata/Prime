@@ -17,65 +17,72 @@
    ============================================================================ #}
 
 {# ── Próximos prazos ──────────────────────────────────────────────────────
-   Resumo das metas ABERTAS ordenadas pelo prazo mais próximo (PastaPrazoOutput).
-   Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
-<section class="ps-card" data-trilho="prazos">
+   Prazos e audiências registrados à mão e metas abertas com prazo, do mais próximo ao mais distante
+   (PastaPrazoOutput::daPasta, E12b). Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeRegistrarPrazo = podeEditarPasta and not pasta.estaExcluida %}
+<section class="ps-card" data-trilho="prazos"
+         data-url-prazos="{{ path('pasta_prazo_salvar', {id: pasta.id}) }}"
+         data-csrf-prazos="{{ csrf_token('pasta_prazos_' ~ pasta.id) }}">
     <div class="ps-card-cab">
         <h2>Próximos prazos</h2>
-        {% if proximosPrazos|length > 0 %}
-            <span class="ps-contagem">{{ proximosPrazos|length }}</span>
-        {% endif %}
+        {# Contagem = todos os itens (dc `prazosN`), a lista mostra os 8 primeiros. #}
+        <span class="ps-contagem">{{ proximosPrazos|length }}</span>
         <span class="ps-cab-espaco"></span>
+        {% if podeRegistrarPrazo %}
+            <button type="button" class="ps-card-cab-link ps-card-cab-mais js-prazo-novo"
+                    title="Adicionar prazo ou audiência" aria-label="Adicionar prazo ou audiência"><i class="bi bi-plus-lg"></i></button>
+        {% endif %}
         <button type="button" class="ps-card-cab-link" data-ps-ir-aba="tarefas-tab"
-                title="Abrir as metas" aria-label="Abrir as metas"><i class="bi bi-chevron-right"></i></button>
+                title="Abrir metas em aberto" aria-label="Abrir metas em aberto"><i class="bi bi-chevron-right"></i></button>
     </div>
     {% if proximosPrazos|length == 0 %}
-        <div class="ps-vazio">
-            <i class="bi bi-calendar-check"></i>
-            <div class="ps-vazio-titulo">Nenhum prazo aberto</div>
-            <div class="ps-vazio-nota">Metas com prazo aparecem aqui, da mais próxima para a mais distante.</div>
-        </div>
+        <div class="ps-prazos-vazio">Nenhum prazo ou audiência. Use + para registrar ou aguarde a leitura do Push processual.</div>
     {% else %}
-        {# ⋮ por prazo (L7, desenho dc L.1348 e L.6150-6151): "Ver nas metas",
-           "Alertar <primeiro nome>", "Adicionar à agenda (.ics)" e "Copiar"; o
-           botão direito na linha abre o mesmo menu.
-           "Alertar" (PAS-038) é o MESMO POST do sino das Metas (`tarefa_alertar`,
-           token `alertar_tarefa_<id>`, 1 alerta por hora por destinatário, volta
-           para #tarefas) e a mesma guarda de tela (módulo Tarefas). Um item por
-           responsável da meta, sem o próprio usuário — o desenho mostra um só
-           porque a meta dele tem um só. Pasta excluída (lápide) é somente leitura:
-           o item some (o servidor recusaria o POST de qualquer jeito).
-           "Encaminhar via Chat I.A" segue fora: não há back-end, e item inerte
-           ensina o usuário a desconfiar do menu.
-           A data do .ics vem da META (dia inteiro, Y-m-d com ano) — o
-           `PastaPrazoOutput.meta` só tem "dd/mm", e o desenho chutava o ano
-           corrente, o que erra todo prazo de dezembro visto em janeiro.
-           PAS-047: o POST exige EDITAR a pasta (MetaNaListaController::verificarAcessoPasta);
-           quem só vê não recebe o item. `podeEditarPasta` vem calculado uma vez pelo show. #}
-        {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+        {# ⋮ por prazo (dc L.6557-6559): nos prazos registrados à mão, "Marcar como cumprido", "Editar" e "Excluir"
+           primeiro; depois "Ver nas metas", "Alertar <primeiro nome>" (só metas: o responsável do prazo manual é texto
+           livre, sem colaborador para alertar), "Adicionar à agenda (.ics)" e "Copiar". O botão direito na linha
+           abre o mesmo menu. "Alertar" é o MESMO POST do sino das Metas (`tarefa_alertar`), com a mesma guarda.
+           "Encaminhar via Chat I.A" segue fora: o Chat I.A. não existe no sistema. #}
         {% set podeAlertarPrazo = can_access_module('tarefas') and podeEditarPasta and not pasta.estaExcluida %}
-        {% for prazo in proximosPrazos %}
-            {% set tarefaDoPrazo = pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first %}
-            {% set prazoDia = tarefaDoPrazo and tarefaDoPrazo.prazo ? tarefaDoPrazo.prazo.format('Ymd') : '' %}
-            {% set prazoResp = tarefaDoPrazo and tarefaDoPrazo.responsavel ? tarefaDoPrazo.responsavel.fullName : '' %}
+        {% for prazo in proximosPrazos|slice(0, 8) %}
+            {% set tarefaDoPrazo = prazo.tarefaId ? pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first : null %}
             {% set alertaveisDoPrazo = podeAlertarPrazo and tarefaDoPrazo
                 ? tarefaDoPrazo.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id)
                 : [] %}
-            <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}">
+            {% set chave = prazo.prazoId ? 'm' ~ prazo.prazoId : prazo.tarefaId %}
+            <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}"{% if prazo.prazoId and prazo.manual %} data-prazo-manual="{{ prazo.prazoId }}"{% endif %}>
                 <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
                 <div class="ps-linha-corpo">
                     <div class="ps-linha-titulo">
-                        <a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>
+                        {% if prazo.tarefaId %}<a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>{% else %}{{ prazo.titulo }}{% endif %}
                     </div>
                     <div class="ps-linha-meta">{{ prazo.meta }}</div>
                 </div>
                 <span class="ps-selo ps-selo--{{ prazo.tom }}">{{ prazo.selo }}</span>
                 <div class="ps-pop-wrap ps-prazo-mais-wrap">
-                    <button type="button" class="ps-prazo-mais" data-ps-pop="psPrazoMenu{{ prazo.tarefaId }}"
-                            aria-haspopup="menu" aria-expanded="false" aria-controls="psPrazoMenu{{ prazo.tarefaId }}"
+                    <button type="button" class="ps-prazo-mais" data-ps-pop="psPrazoMenu{{ chave }}"
+                            aria-haspopup="menu" aria-expanded="false" aria-controls="psPrazoMenu{{ chave }}"
                             title="Mais opções" aria-label="Mais opções do prazo"><i class="bi bi-three-dots-vertical"></i></button>
-                    <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ prazo.tarefaId }}" role="menu">
+                    <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ chave }}" role="menu">
                         <div class="ps-pop-secao ps-prazo-menu-titulo" title="{{ prazo.titulo }}">{{ prazo.titulo }}</div>
+                        {% if prazo.prazoId and prazo.manual and podeRegistrarPrazo %}
+                            <button type="button" class="ps-pop-item js-prazo-cumprir" role="menuitem"
+                                    data-url="{{ path('pasta_prazo_cumprir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
+                                <i class="bi bi-check2-circle"></i><span>Marcar como cumprido</span>
+                            </button>
+                            <button type="button" class="ps-pop-item js-prazo-editar" role="menuitem"
+                                    data-prazo-id="{{ prazo.prazoId }}" data-tipo="{{ prazo.tipo }}"
+                                    data-titulo="{{ prazo.descricao }}" data-data="{{ prazo.dataIso }}"
+                                    data-hora="{{ prazo.hora }}" data-responsavel="{{ prazo.responsavel }}">
+                                <i class="bi bi-pencil"></i><span>Editar</span>
+                            </button>
+                            <button type="button" class="ps-pop-item js-prazo-excluir" role="menuitem"
+                                    data-url="{{ path('pasta_prazo_excluir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
+                                <i class="bi bi-trash3"></i><span>Excluir</span>
+                            </button>
+                            <div class="ps-pop-sep"></div>
+                        {% endif %}
                         <button type="button" class="ps-pop-item" role="menuitem" data-ps-ir-aba="tarefas-tab">
                             <i class="bi bi-check2-square"></i><span>Ver nas metas</span>
                         </button>
@@ -89,12 +96,12 @@
                             </form>
                         {% endfor %}
                         <div class="ps-pop-sep"></div>
-                        {% if prazoDia %}
+                        {% if prazo.dataIso %}
                             <button type="button" class="ps-pop-item js-prazo-ics" role="menuitem"
-                                    data-ics-uid="meta-{{ prazo.tarefaId }}"
-                                    data-ics-dia="{{ prazoDia }}"
+                                    data-ics-uid="{{ prazo.prazoId ? 'prazo-' ~ prazo.prazoId : 'meta-' ~ prazo.tarefaId }}"
+                                    data-ics-dia="{{ prazo.dataIso|replace({'-': ''}) }}"
                                     data-ics-titulo="{{ prazo.titulo|e('html_attr') }}"
-                                    data-ics-responsavel="{{ prazoResp|e('html_attr') }}"
+                                    data-ics-responsavel="{{ (prazo.responsavel ?? '')|e('html_attr') }}"
                                     data-ics-pasta="{{ pasta.nup|e('html_attr') }}">
                                 <i class="bi bi-calendar-plus"></i><span>Adicionar à agenda (.ics)</span>
                             </button>
@@ -110,6 +117,35 @@
         {% endfor %}
     {% endif %}
 </section>
+
+{# Janela "Novo prazo ou audiência" / "Editar prazo" (dc L.2908-2926): 420px, cabeçalho azul, Prazo ou Audiência,
+   descrição, data, hora, responsável. pasta-prazos.js abre, preenche e envia. #}
+{% if podeRegistrarPrazo %}
+<div class="ps-pz-fundo" id="psPrazoJanela" hidden>
+    <div class="ps-pz" role="dialog" aria-modal="true" aria-labelledby="psPrazoTitulo">
+        <div class="ps-pz-cab"><i class="bi bi-calendar-event" aria-hidden="true"></i><b id="psPrazoTitulo">Novo prazo ou audiência</b>
+            <button type="button" class="ps-pz-x js-pz-fechar" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="ps-pz-corpo">
+            <div class="ps-pz-tipos" role="radiogroup" aria-label="Tipo">
+                <button type="button" class="ps-pz-tipo js-pz-tipo" data-tipo="prazo" role="radio"><i class="bi bi-hourglass-split" aria-hidden="true"></i>Prazo</button>
+                <button type="button" class="ps-pz-tipo js-pz-tipo" data-tipo="audiencia" role="radio"><i class="bi bi-people" aria-hidden="true"></i>Audiência</button>
+            </div>
+            <label class="ps-pz-campo">DESCRIÇÃO<input type="text" id="psPzTitulo" maxlength="255" placeholder="Ex.: Protocolar contestação" autocomplete="off"></label>
+            <div class="ps-pz-linha">
+                <label class="ps-pz-campo ps-pz-campo--data">DATA<input type="date" id="psPzData"></label>
+                <label class="ps-pz-campo ps-pz-campo--hora">HORA<span class="js-pz-hora-opc"> (opcional)</span><input type="time" id="psPzHora"></label>
+            </div>
+            <label class="ps-pz-campo">RESPONSÁVEL<input type="text" id="psPzResp" maxlength="120" placeholder="Nome do responsável" autocomplete="off"></label>
+            <div class="ps-pz-nota"><i class="bi bi-info-circle" aria-hidden="true"></i> Prazos do Push processual e das Metas entram sozinhos nesta lista.</div>
+            <div class="ps-pz-erro" id="psPzErro" role="alert"></div>
+            <div class="ps-pz-rodape">
+                <button type="button" class="ps-pz-btn ps-pz-btn--cinza js-pz-fechar">Cancelar</button>
+                <button type="button" class="ps-pz-btn ps-pz-btn--azul js-pz-salvar">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {# ── Clientes ─────────────────────────────────────────────────────────────
    O miolo (#clientesList, .cliente-linha, o bloco #clientesOutros dos "outros") é o mesmo

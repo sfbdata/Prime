@@ -134,7 +134,8 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertStringContainsString('el.limpezaExcluir.disabled = marcados.length === 0;', $l9);
 
         $excluir = $this->funcao('excluirItens');
-        self::assertStringContainsString('if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;', $excluir);
+        self::assertStringContainsString('const pergunta = t.confirmacao || avisoExclusaoDoLote(itens);', $excluir);
+        self::assertStringContainsString('resposta.then(function (sim) { if (sim) excluirConfirmado(); });', $excluir, 'E7: o pedido só depois do "sim"');
         self::assertStringContainsString('postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes })', $excluir);
         self::assertStringContainsString('if (aoExcluir) aoExcluir();', $excluir, 'o callback só roda no sucesso, depois de tirar os arquivos da memória');
     }

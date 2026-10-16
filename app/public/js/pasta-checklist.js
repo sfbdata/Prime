@@ -24,9 +24,19 @@
    regra no navegador (duas cópias da mesma regra divergem).
 
    Nenhum estado guardado no navegador: tudo é gravado no servidor.
+
+   E7: as perguntas (excluir item, substituir e excluir modelo) saem na janela da tela
+   (pasta-dialogos.js `confirmarUIPs`, regra do desenho: vermelha para perigo). Sem ela, o
+   confirm do navegador com o mesmo texto. Nada é enviado antes do "sim".
    ============================================================================= */
 (function () {
     'use strict';
+
+    function perguntar(mensagem, perigo) {
+        return window.confirmarUIPs
+            ? window.confirmarUIPs(mensagem, perigo)
+            : Promise.resolve(window.confirm(mensagem.replace(/^[^\n]*\n/, '')));
+    }
 
     var raiz  = document.getElementById('pexChecklist');
     var lista = document.getElementById('checklistLista');
@@ -289,8 +299,12 @@
         var btn = e.target.closest('.js-checklist-excluir');
         if (!btn || !lista.contains(btn)) { return; }
 
-        if (!confirm('Excluir este item do checklist?')) { return; }
+        perguntar('Excluir este item do checklist?', true).then(function (sim) {
+            if (sim && document.contains(btn)) { excluirItem(btn); }
+        });
+    });
 
+    function excluirItem(btn) {
         var li = btn.closest('.checklist-item');
         var fd = new FormData();
         fd.append('_token', li.dataset.csrfItem);
@@ -308,7 +322,7 @@
             mostrarVazio();
         })
         .catch(function (err) { console.error('Erro ao excluir item:', err); });
-    });
+    }
 
     // ── Adicionar ────────────────────────────────────────────────────────────
 
@@ -569,9 +583,9 @@
             // um modelo salvo errado, só excluir e refazer.
             if (r.status === 409) {
                 return r.json().then(function (data) {
-                    if (confirm('Já existe o modelo "' + data.nome + '". Substituir os itens dele pelo checklist desta pasta?')) {
-                        salvarModelo(true);
-                    }
+                    // Substituir apaga os itens do modelo existente: janela vermelha, com título próprio.
+                    perguntar('Substituir modelo\nJá existe o modelo "' + data.nome + '". Substituir os itens dele pelo checklist desta pasta?', true)
+                        .then(function (sim) { if (sim) { salvarModelo(true); } });
                     return null;
                 });
             }
@@ -702,8 +716,12 @@
     function excluirModelo(li) {
         var nome = li.querySelector('.pex-modelo-nome').textContent.trim();
 
-        if (!confirm('Excluir o modelo "' + nome + '"? Os checklists já aplicados nas pastas não mudam.')) { return; }
+        perguntar('Excluir o modelo "' + nome + '"? Os checklists já aplicados nas pastas não mudam.', true).then(function (sim) {
+            if (sim && document.contains(li)) { excluirModeloConfirmado(li); }
+        });
+    }
 
+    function excluirModeloConfirmado(li) {
         limparRecados();
 
         var fd = new FormData();
