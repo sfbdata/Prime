@@ -583,12 +583,10 @@
            ícone com o ponto VERDE (cadastro completo) ou ÂMBAR (falta algo). A regra é
            a do `PendenciasDoCadastro` (`cliente_pendencias`), a mesma do ícone do
            trilho — a tela não decide o que é completo.
-           Destino: o desenho abre um modal próprio de cadastro (dc L.602-743), que não
-           existe aqui; o clique abre a janela "Detalhes do cliente" (`cliente_resumo`,
-           pasta-clientes.js pela classe `js-ps-cli-detalhes` + `data-cliente-id`), que
-           mostra a qualificação e o "Editar cadastro" — e decide a permissão no
-           servidor. Pasta sem cliente cadastrado não tem cadastro para mostrar: o
-           botão não é desenhado. #}
+           Destino (E12f): a janela "Cadastro e qualificação do cliente" do desenho
+           (`cliente_cadastro`, cliente-cadastro.js pela classe `js-cad-abrir`). O botão
+           direito no nome segue abrindo "Detalhes do cliente". Pasta sem cliente
+           cadastrado não tem cadastro para mostrar: o botão não é desenhado. #}
         {% if cliente %}
             {% set cadPendencias = cliente_pendencias(cliente) %}
             {% set cadCompleto = cadPendencias is empty %}
@@ -596,8 +594,9 @@
                 ? 'Cadastro completo · abrir qualificação do cliente'
                 : 'Cadastro incompleto: ' ~ cadPendencias|length ~ (cadPendencias|length == 1 ? ' pendência' : ' pendências') ~ ' · clique para completar' %}
             <button type="button" id="psCadastroAbrir"
-                    class="ps-cad-btn js-ps-cli-detalhes"
+                    class="ps-cad-btn js-cad-abrir"
                     data-cliente-id="{{ cliente.id }}"
+                    data-url="{{ path('cliente_cadastro', {id: cliente.id, pasta: pasta.id}) }}"
                     data-pendencias="{{ cadPendencias|length }}"
                     title="{{ cadDica }}" aria-label="{{ cadDica }}">
                 <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--{{ cadCompleto ? 'completo' : 'pendente' }}"></span></span>

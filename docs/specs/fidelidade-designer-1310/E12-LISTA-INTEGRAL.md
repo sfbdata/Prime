@@ -277,3 +277,34 @@ aprovado: Situação, depois ajustes da linha do tempo, depois Cadastro em 4 fat
   servidor foi descartado: uma linha de andamento só para isso mudaria o filtro Protocolar da Lista, que decide
   pela existência da linha.
 - Testes: `SugestoesDoAndamentoTest` (3; mutação em cada fonte nova derruba o seu).
+
+## 13. E12f: Cadastro do cliente, fatia 3a (16/10/2026)
+
+Decisões do dono: RG e Órgão emissor em dois campos lado a lado; Contato = Telefone (o `telefone_celular`),
+WhatsApp (novo) e E-mail, com o fixo gravado mas fora da janela; empresa usa a mesma janela adaptada (aba "Empresa":
+razão social, CNPJ, nome fantasia, inscrições, representante, CPF, RG e cargo dele).
+
+- Migration `Version20261016234500` (renomeada de 233000, que colidia com a Central no origin/master): `numero`,
+  `bairro`, `whatsapp` em cliente; `nacionalidade`, `genero` em cliente_pf; `nome_completo` de 50 para 150.
+- `DigitoVerificador` (CPF/CNPJ). `PendenciasDoCadastro::porAba` com os textos e abas do desenho (Logradouro,
+  Número, Bairro; PJ cobra representante e o CPF dele). `QualificacaoDoCliente` no modelo do desenho
+  (nacionalidade, número, bairro, WhatsApp diferente do telefone, órgão do RG, concordância por gênero corrigida:
+  masculino tira "(a)", feminino "o(a)" vira "a").
+- `SalvarCadastroDoClienteUseCase`: tenant + EDIT do cliente; só o campo enviado muda; nome vazio, CPF/CNPJ inválido,
+  data impossível, campo maior que a coluna e e-mail malformado são recusados (422 com a aba); CPF/CNPJ de outro
+  cadastro dá 409 e só diz de quem é a quem pode ver; CEP e e-mail não viram "alteração" por formato; estado civil
+  antigo fora da lista não trava. Cartão "Cadastro do cliente: {NOME}: {campos} alterado(s)." na pasta de origem.
+- `ClienteCadastroController` (`cliente_cadastro`, `cliente_cadastro_salvar`, `cliente_cadastro_documento`).
+  Janela `cliente/_cadastro.html.twig` + `cliente-cadastro.js` + `cliente-cadastro.css`: abas Cliente/Empresa,
+  Endereço, Contato, Qualificação; pendências ao vivo com ponto laranja por aba; máscaras; aviso de CPF inválido
+  e de e-mail; busca de CEP no ViaCEP (autorizada); "Este CPF já possui cadastro no sistema." com Abrir cadastro e
+  Utilizar cadastro existente (vincula e torna principal pelas rotas que já existem); Salvar desligado sem
+  alteração (defeito do desenho não copiado); Fechar com alteração pede segundo clique; Ctrl/Cmd+S e Esc.
+  O botão Cadastro do cabeçalho abre esta janela; o botão direito no nome segue em "Detalhes do cliente".
+- Impacto visível: todo cliente passa a cobrar Número e Bairro (colunas novas), então o ponto do Cadastro fica
+  laranja até alguém completar; empresa passa a cobrar o representante.
+- Fica para o dono: "brasileiro(a)" vem preenchido como no desenho e é gravado no primeiro Salvar da pessoa.
+- Revisão read-only: 2 bloqueios (CEP só com dígitos e e-mail com maiúsculas viravam "alteração"; nacionalidade
+  gravada junto) e 6 "deveria" aplicados. Testes: `ClienteCadastroControllerTest` (13; mutação na permissão e na
+  normalização do CEP derrubam o seu), `DigitoVerificadorTest`, pendências e qualificação atualizados.
+- Próximas fatias: 3b Documentos, 3c Réu, 3d Histórico.

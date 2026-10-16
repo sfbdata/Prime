@@ -318,7 +318,7 @@
             {% endif %}
         </div>
         <div class="ps-anotacao-corpo">
-            <i class="bi {{ {fase: 'bi-signpost-split', prazo: 'bi-calendar-event', contrato: 'bi-pen'}[doSistema] ?? 'bi-megaphone-fill' }} ps-anotacao-icone" aria-hidden="true"></i>
+            <i class="bi {{ {fase: 'bi-signpost-split', prazo: 'bi-calendar-event', contrato: 'bi-pen', situacao: 'bi-flag', cadastro: 'bi-person-vcard'}[doSistema] ?? 'bi-megaphone-fill' }} ps-anotacao-icone" aria-hidden="true"></i>
             <div class="ps-anotacao-texto pasta-msg-conteudo">
                 {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. O
                    `registro_texto` é o `texto_rico` com as @menções (`@[Nome](user:ID)`) em

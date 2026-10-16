@@ -1,0 +1,197 @@
+{# ============================================================================
+   Janela "Cadastro e qualificação do cliente" (desenho 1.2.3, `cadAbrir`/`cadVals`; E12f fatia 3a).
+   Fragmento devolvido por `cliente_cadastro`; quem monta e controla é public/js/cliente-cadastro.js.
+
+   Abas desta fatia: Cliente, Endereço, Contato, Qualificação. Réu, Documentos e Histórico entram nas fatias
+   3b a 3d (spec E12, §13). Pessoa jurídica usa a mesma janela adaptada (decisão do dono, sem desenho próprio).
+   As regras de pendência vêm do servidor (`PendenciasDoCadastro`): cada campo obrigatório leva o texto e a aba
+   da pendência dele em data-*, para o JS recalcular a cada tecla como o desenho; as de documento chegam prontas.
+   Sem permissão de EDITAR o cliente, os campos vêm travados e não há Salvar.
+
+   Contexto: cliente, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis.
+   ============================================================================ #}
+{% set travado = not podeEditar %}
+{% set documento = pf ? cliente.cpf : cliente.cnpj %}
+{% set ROTULO_CIVIL = {SOLTEIRO: 'Solteiro(a)', CASADO: 'Casado(a)', DIVORCIADO: 'Divorciado(a)', SEPARADO: 'Separado(a)', VIUVO: 'Viúvo(a)', UNIAO_ESTAVEL: 'União estável'} %}
+{% set UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'] %}
+{% macro campo(rotulo, nome, valor, larg, opcoes = {}) %}
+    {% set o = {obrig: null, aba: 'pessoais', tipo: 'text', placeholder: '', mascara: null, travado: false, inputmode: null, maxlength: 100}|merge(opcoes) %}
+    <label class="cad-campo cad-campo--{{ larg }}">
+        <span class="cad-rotulo">{{ rotulo }}{% if o.obrig %} <b aria-hidden="true">*</b>{% endif %}</span>
+        <input type="{{ o.tipo }}" name="{{ nome }}" value="{{ valor }}" class="cad-input" autocomplete="off"
+               {% if o.placeholder %}placeholder="{{ o.placeholder }}"{% endif %}
+               {% if o.mascara %}data-mascara="{{ o.mascara }}"{% endif %}
+               {% if o.inputmode %}inputmode="{{ o.inputmode }}"{% endif %}
+               {% if o.maxlength %}maxlength="{{ o.maxlength }}"{% endif %}
+               {% if o.obrig %}data-obrig="{{ o.obrig }}" data-aba="{{ o.aba }}"{% endif %}
+               {% if o.travado %}disabled{% endif %}>
+    </label>
+{% endmacro %}
+{% import _self as f %}
+<div class="cad-veu" data-cad-janela
+     data-url-salvar="{{ path('cliente_cadastro_salvar', {id: cliente.id}) }}"
+     data-url-documento="{{ path('cliente_cadastro_documento', {id: cliente.id}) }}"
+     data-url-cadastro="{{ path('cliente_cadastro', {id: 0}) }}"
+     data-csrf="{{ csrf_token('cliente_cadastro_' ~ cliente.id) }}"
+     data-cliente-id="{{ cliente.id }}"
+     data-tipo="{{ pf ? 'pf' : 'pj' }}"
+     data-pasta="{{ pasta ? pasta.id : '' }}"
+     data-tem-fixo="{{ cliente.telefoneFixo ? '1' : '' }}"
+     data-fixo="{{ cliente.telefoneFixo }}"
+     {% if podeVincular %}
+     data-url-vincular="{{ path('pasta_cliente_vincular', {id: pasta.id}) }}"
+     data-csrf-vincular="{{ csrf_token('pasta_cliente_vincular_' ~ pasta.id) }}"
+     data-url-principal="{{ path('pasta_cliente_principal', {id: pasta.id, cliente: 0}) }}"
+     {% endif %}
+     data-pend-docs="{{ pendenciasDocs|json_encode|e('html_attr') }}">
+    <div class="cad-janela" role="dialog" aria-modal="true" aria-label="Cadastro e qualificação do cliente">
+        <header class="cad-topo">
+            <span class="cad-topo-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i></span>
+            <div class="cad-topo-texto">
+                <div class="cad-topo-nome js-cad-nome">{{ cliente.nomeExibicao|upper }}</div>
+                <div class="cad-topo-sub">
+                    <span class="js-cad-doc">{{ documento ? documento|documento_br_rotulo : (pf ? 'CPF não informado' : 'CNPJ não informado') }}</span>
+                    <span class="cad-status js-cad-status"><span class="cad-status-ponto" aria-hidden="true"></span><span class="js-cad-status-texto"></span></span>
+                </div>
+            </div>
+            <button type="button" class="cad-fechar js-cad-fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+        </header>
+
+        <nav class="cad-abas" role="tablist">
+            {% for aba in [
+                {k: 'pessoais', rotulo: pf ? 'Cliente' : 'Empresa', icone: 'bi-person'},
+                {k: 'endereco', rotulo: 'Endereço', icone: 'bi-geo-alt'},
+                {k: 'contato',  rotulo: 'Contato',  icone: 'bi-telephone'},
+                {k: 'qual',     rotulo: 'Qualificação', icone: 'bi-file-text'},
+            ] %}
+                <button type="button" class="cad-aba{{ loop.first ? ' is-ativa' : '' }}" role="tab" data-cad-aba="{{ aba.k }}"
+                        aria-selected="{{ loop.first ? 'true' : 'false' }}">
+                    <i class="bi {{ aba.icone }}" aria-hidden="true"></i>{{ aba.rotulo }}<span class="cad-aba-ponto" aria-hidden="true" hidden></span>
+                </button>
+            {% endfor %}
+        </nav>
+
+        <form class="cad-corpo" novalidate>
+            <section class="cad-painel cad-grade" data-cad-painel="pessoais">
+                {% if pf %}
+                    {{ f.campo('Nome completo', 'nome', cliente.nomeCompleto, 6, {obrig: 'Nome completo não informado', travado: travado, maxlength: 150}) }}
+                    <label class="cad-campo cad-campo--2">
+                        <span class="cad-rotulo">CPF <b aria-hidden="true">*</b></span>
+                        <input type="text" name="cpf" value="{{ cliente.cpf|documento_br }}" class="cad-input js-cad-cpf" autocomplete="off"
+                               inputmode="numeric" placeholder="000.000.000-00" data-mascara="cpf" data-obrig="CPF não informado" data-aba="pessoais"
+                               {% if travado %}disabled{% endif %}>
+                        <span class="cad-aviso js-cad-cpf-aviso" hidden>CPF inválido: confira os dígitos.</span>
+                    </label>
+                    <div class="cad-campo cad-campo--2 cad-campo--par">
+                        <label class="cad-sub">
+                            <span class="cad-rotulo">RG <b aria-hidden="true">*</b></span>
+                            <input type="text" name="rg" value="{{ cliente.rg }}" class="cad-input" autocomplete="off" placeholder="Número" maxlength="20"
+                                   data-obrig="RG não informado" data-aba="pessoais" {% if travado %}disabled{% endif %}>
+                        </label>
+                        <label class="cad-sub">
+                            <span class="cad-rotulo">Órgão</span>
+                            <input type="text" name="rg_orgao" value="{{ cliente.rgOrgaoExpedidor }}" class="cad-input" autocomplete="off" placeholder="SSP/DF"
+                                   {% if travado %}disabled{% endif %}>
+                        </label>
+                    </div>
+                    {{ f.campo('Nascimento', 'nascimento', cliente.dataNascimento ? cliente.dataNascimento|date('Y-m-d') : '', 2, {tipo: 'date', travado: travado}) }}
+                    <label class="cad-campo cad-campo--2">
+                        <span class="cad-rotulo">Estado civil <b aria-hidden="true">*</b></span>
+                        <select name="estado_civil" class="cad-input" data-obrig="Estado civil não informado" data-aba="pessoais" {% if travado %}disabled{% endif %}>
+                            <option value=""></option>
+                            {% for codigo in estadosCivis %}
+                                <option value="{{ codigo }}" {{ cliente.estadoCivil == codigo ? 'selected' : '' }}>{{ ROTULO_CIVIL[codigo] }}</option>
+                            {% endfor %}
+                            {% if cliente.estadoCivil and cliente.estadoCivil not in estadosCivis %}
+                                <option value="{{ cliente.estadoCivil }}" selected>{{ cliente.estadoCivil|capitalize }}</option>
+                            {% endif %}
+                        </select>
+                    </label>
+                    {{ f.campo('Profissão', 'profissao', cliente.profissao|capitalize, 2, {obrig: 'Profissão não informada', travado: travado}) }}
+                    {{ f.campo('Nacionalidade', 'nacionalidade', cliente.nacionalidade ?? 'brasileiro(a)', 1, {travado: travado, maxlength: 50}) }}
+                    <label class="cad-campo cad-campo--1">
+                        <span class="cad-rotulo">Gênero</span>
+                        <select name="genero" class="cad-input" {% if travado %}disabled{% endif %}>
+                            <option value=""></option>
+                            <option value="MASCULINO" {{ cliente.genero == 'MASCULINO' ? 'selected' : '' }}>Masculino</option>
+                            <option value="FEMININO" {{ cliente.genero == 'FEMININO' ? 'selected' : '' }}>Feminino</option>
+                        </select>
+                    </label>
+                {% else %}
+                    {{ f.campo('Razão social', 'razao_social', cliente.razaoSocial, 6, {obrig: 'Razão social não informada', travado: travado}) }}
+                    <label class="cad-campo cad-campo--2">
+                        <span class="cad-rotulo">CNPJ <b aria-hidden="true">*</b></span>
+                        <input type="text" name="cnpj" value="{{ cliente.cnpj|documento_br }}" class="cad-input js-cad-cpf" autocomplete="off"
+                               inputmode="numeric" placeholder="00.000.000/0000-00" data-mascara="cnpj" data-obrig="CNPJ não informado" data-aba="pessoais"
+                               {% if travado %}disabled{% endif %}>
+                        <span class="cad-aviso js-cad-cpf-aviso" hidden>CNPJ inválido: confira os dígitos.</span>
+                    </label>
+                    {{ f.campo('Nome fantasia', 'nome_fantasia', cliente.nomeFantasia, 4, {travado: travado}) }}
+                    {{ f.campo('Inscrição estadual', 'inscricao_estadual', cliente.inscricaoEstadual, 2, {travado: travado}) }}
+                    {{ f.campo('Inscrição municipal', 'inscricao_municipal', cliente.inscricaoMunicipal, 2, {travado: travado}) }}
+                    {{ f.campo('Cargo do representante', 'representante_cargo', cliente.representanteCargo, 2, {travado: travado}) }}
+                    {{ f.campo('Representante legal', 'representante_legal', cliente.representanteLegal, 4, {obrig: 'Representante legal não informado', travado: travado}) }}
+                    {{ f.campo('CPF do representante', 'representante_cpf', cliente.representanteCpf|documento_br, 2, {obrig: 'CPF do representante não informado', mascara: 'cpf', inputmode: 'numeric', placeholder: '000.000.000-00', travado: travado}) }}
+                    {{ f.campo('RG do representante', 'representante_rg', cliente.representanteRg, 2, {travado: travado}) }}
+                {% endif %}
+            </section>
+
+            <section class="cad-painel cad-grade" data-cad-painel="endereco" hidden>
+                {{ f.campo('CEP', 'cep', cliente.cep|length == 8 ? cliente.cep|slice(0, 5) ~ '-' ~ cliente.cep|slice(5) : cliente.cep, 2, {obrig: 'CEP não informado', aba: 'endereco', mascara: 'cep', inputmode: 'numeric', placeholder: '00000-000', travado: travado, maxlength: 9}) }}
+                {{ f.campo('Logradouro', 'logradouro', cliente.endereco, 4, {obrig: 'Logradouro não informado', aba: 'endereco', travado: travado}) }}
+                {{ f.campo('Número', 'numero', cliente.numero, 1, {obrig: 'Número não informado', aba: 'endereco', travado: travado, maxlength: 20}) }}
+                {{ f.campo('Complemento', 'complemento', cliente.complemento, 2, {travado: travado}) }}
+                {{ f.campo('Bairro', 'bairro', cliente.bairro, 3, {obrig: 'Bairro não informado', aba: 'endereco', travado: travado}) }}
+                {{ f.campo('Cidade', 'cidade', cliente.cidade, 4, {obrig: 'Cidade não informada', aba: 'endereco', travado: travado}) }}
+                <label class="cad-campo cad-campo--2">
+                    <span class="cad-rotulo">UF <b aria-hidden="true">*</b></span>
+                    <select name="uf" class="cad-input" data-obrig="UF não informada" data-aba="endereco" {% if travado %}disabled{% endif %}>
+                        <option value=""></option>
+                        {% for uf in UFS %}<option value="{{ uf }}" {{ cliente.estado|upper == uf ? 'selected' : '' }}>{{ uf }}</option>{% endfor %}
+                    </select>
+                </label>
+                <p class="cad-nota js-cad-cep-nota" hidden>Endereço preenchido pelo CEP. Confira e informe o número.</p>
+            </section>
+
+            <section class="cad-painel cad-grade js-cad-contatos" data-cad-painel="contato" hidden>
+                {{ f.campo('Telefone', 'telefone', cliente.telefoneCelular, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
+                {{ f.campo('WhatsApp', 'whatsapp', cliente.whatsapp, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
+                <label class="cad-campo cad-campo--2">
+                    <span class="cad-rotulo">E-mail</span>
+                    <input type="email" name="email" value="{{ cliente.email }}" class="cad-input js-cad-email" autocomplete="off" placeholder="nome@email.com"
+                           {% if travado %}disabled{% endif %}>
+                    <span class="cad-aviso js-cad-email-aviso" hidden>E-mail em formato inválido.</span>
+                </label>
+            </section>
+
+            <section class="cad-painel" data-cad-painel="qual" hidden>
+                <div class="cad-qual js-cad-qual">{{ qualificacao }}</div>
+                <p class="cad-nota">Texto gerado com os campos preenchidos, pronto para contratos, procurações e petições. Documentos já gerados não mudam quando o cadastro é atualizado.</p>
+            </section>
+
+            <div class="cad-existente js-cad-existente" role="alert" hidden>
+                <div class="cad-existente-titulo"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Este {{ pf ? 'CPF' : 'CNPJ' }} já possui cadastro no sistema.</div>
+                <div class="cad-existente-quem js-cad-existente-quem"></div>
+                <div class="cad-existente-acoes">
+                    <button type="button" class="cad-btn cad-btn--sec js-cad-existente-abrir">Abrir cadastro</button>
+                    {% if podeVincular %}<button type="button" class="cad-btn cad-btn--pri js-cad-existente-usar">Utilizar cadastro existente</button>{% endif %}
+                    <button type="button" class="cad-btn cad-btn--link js-cad-existente-cancelar">Cancelar</button>
+                </div>
+            </div>
+
+            <div class="cad-pend js-cad-pend" hidden>
+                <div class="cad-pend-titulo">Pendências</div>
+                <div class="cad-pend-lista js-cad-pend-lista"></div>
+            </div>
+        </form>
+
+        <footer class="cad-rodape">
+            <span class="cad-msg js-cad-msg" aria-live="polite"></span>
+            <button type="button" class="cad-btn cad-btn--sec js-cad-fechar">Fechar</button>
+            <button type="button" class="cad-btn cad-btn--sec js-cad-copiar"><i class="bi bi-clipboard" aria-hidden="true"></i>Copiar qualificação</button>
+            {% if podeEditar %}
+                <button type="button" class="cad-btn cad-btn--pri js-cad-salvar"><i class="bi bi-check2" aria-hidden="true"></i>Salvar</button>
+            {% endif %}
+        </footer>
+    </div>
+</div>

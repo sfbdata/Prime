@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Regra `cliPend` do desenho 1.2.3 adaptada aos campos reais. Cada pendência tem
+ * Regra `cliPend` do desenho 1.2.3, com os textos dele (E12f: logradouro, número e bairro). Cada pendência tem
  * um caso que a acende SOZINHA a partir de um cadastro completo — assim o teste
  * prova que o serviço olha aquele campo, e não que "algo" falta.
  */
@@ -47,7 +47,9 @@ final class PendenciasDoCadastroTest extends TestCase
         yield 'profissão'    => [static fn (ClientePF $c) => $c->setProfissao(''), 'Profissão não informada'];
         yield 'RG'           => [static fn (ClientePF $c) => $c->setRg(''), 'RG não informado'];
         yield 'CPF'          => [static fn (ClientePF $c) => $c->setCpf(''), 'CPF não informado'];
-        yield 'endereço'     => [static fn (ClientePF $c) => $c->setEndereco(' '), 'Endereço não informado'];
+        yield 'logradouro'   => [static fn (ClientePF $c) => $c->setEndereco(' '), 'Logradouro não informado'];
+        yield 'número'       => [static fn (ClientePF $c) => $c->setNumero(null), 'Número não informado'];
+        yield 'bairro'       => [static fn (ClientePF $c) => $c->setBairro(''), 'Bairro não informado'];
         yield 'cidade'       => [static fn (ClientePF $c) => $c->setCidade(''), 'Cidade não informada'];
         yield 'UF'           => [static fn (ClientePF $c) => $c->setEstado(''), 'UF não informada'];
         yield 'CEP'          => [static fn (ClientePF $c) => $c->setCep(''), 'CEP não informado'];
@@ -136,7 +138,9 @@ final class PendenciasDoCadastroTest extends TestCase
             'Profissão não informada',
             'RG não informado',
             'CPF não informado',
-            'Endereço não informado',
+            'Logradouro não informado',
+            'Número não informado',
+            'Bairro não informado',
             'Cidade não informada',
             'UF não informada',
             'CEP não informado',
@@ -154,7 +158,7 @@ final class PendenciasDoCadastroTest extends TestCase
         self::assertSame([], $this->sut->de($cliente));
     }
 
-    #[TestDox('PJ vazio acende razão social, CNPJ, endereço, contato e anexos — nada de PF')]
+    #[TestDox('PJ vazio acende razão social, CNPJ, representante, endereço, contato e anexos; nada de PF')]
     public function testPjVazioAcendeSoOQueSeAplica(): void
     {
         $cliente = new ClientePJ();
@@ -165,7 +169,11 @@ final class PendenciasDoCadastroTest extends TestCase
         self::assertSame([
             'Razão social não informada',
             'CNPJ não informado',
-            'Endereço não informado',
+            'Representante legal não informado',
+            'CPF do representante não informado',
+            'Logradouro não informado',
+            'Número não informado',
+            'Bairro não informado',
             'Cidade não informada',
             'UF não informada',
             'CEP não informado',
@@ -173,6 +181,33 @@ final class PendenciasDoCadastroTest extends TestCase
             'Documento de identificação não anexado',
             'Comprovante de residência não anexado',
         ], $this->sut->de($cliente));
+    }
+
+    #[TestDox('cada pendência diz a aba onde se resolve: Cliente, Endereço, Contato ou Documentos')]
+    public function testAbaDeCadaPendencia(): void
+    {
+        $cliente = new ClientePF();
+        $cliente->setNomeCompleto('')->setCpf('1')->setRg('1')->setRgOrgaoExpedidor('SSP')->setEstadoCivil('CASADO')->setProfissao('x');
+        $cliente->setEmail('')->setCep('1')->setEndereco('')->setCidade('x')->setEstado('DF');
+        $cliente->setNumero('1')->setBairro('x');
+
+        self::assertSame([
+            ['texto' => 'Nome completo não informado', 'aba' => 'pessoais'],
+            ['texto' => 'Logradouro não informado', 'aba' => 'endereco'],
+            ['texto' => 'Nenhum contato informado', 'aba' => 'contato'],
+            ['texto' => 'Documento de identificação não anexado', 'aba' => 'docs'],
+            ['texto' => 'Comprovante de residência não anexado', 'aba' => 'docs'],
+        ], $this->sut->porAba($cliente));
+    }
+
+    #[TestDox('WhatsApp sozinho basta como contato')]
+    public function testWhatsappBasta(): void
+    {
+        $cliente = $this->pfCompleto();
+        $cliente->setEmail('')->setTelefoneCelular(null);
+        $cliente->setWhatsapp('(61) 98888-0000');
+
+        self::assertSame([], $this->sut->de($cliente));
     }
 
     // ----------------------------------------------------------------- helpers
@@ -198,9 +233,10 @@ final class PendenciasDoCadastroTest extends TestCase
         $cliente->setEmail('maria@exemplo.com')
             ->setTelefoneCelular('(61) 99999-0000')
             ->setCep('70000-000')
-            ->setEndereco('SQS 110 Bloco A, 101')
+            ->setEndereco('SQS 110 Bloco A')
             ->setCidade('Brasília')
             ->setEstado('DF');
+        $cliente->setNumero('101')->setBairro('Asa Sul');
 
         foreach ($categorias as $categoria) {
             $cliente->addDocumento($this->anexo($categoria));
@@ -221,9 +257,10 @@ final class PendenciasDoCadastroTest extends TestCase
             ->setRepresentanteCargo('Síndico');
         $cliente->setEmail('adm@sol.com.br')
             ->setCep('70000-000')
-            ->setEndereco('Rua A, 1')
+            ->setEndereco('Rua A')
             ->setCidade('Brasília')
             ->setEstado('DF');
+        $cliente->setNumero('1')->setBairro('Centro');
         $cliente->addDocumento($this->anexo(ClienteDocumento::CATEGORIA_IDENTIFICACAO));
         $cliente->addDocumento($this->anexo(ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA));
 

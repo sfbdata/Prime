@@ -68,6 +68,7 @@ final class PastaClientesCadastroTelaTest extends JusPrimeWebTestCase
         $cliente->setEndereco('SQS 110 Bloco A');
         $cliente->setCidade('Brasília');
         $cliente->setEstado('DF');
+        $cliente->setNumero('101')->setBairro('Asa Sul');
         $cliente->setTenant($tenant);
         $cliente->setNomeCompleto($nome);
         $cliente->setCpf($cpf);

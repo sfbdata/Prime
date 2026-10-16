@@ -22,6 +22,7 @@ final class RegistroDoSistemaNaPasta
         'prazo'    => 'Prazo',
         'contrato' => 'Contrato',
         'situacao' => 'Situação da pasta',
+        'cadastro' => 'Cadastro do cliente',
     ];
 
     public function __construct(

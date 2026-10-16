@@ -24,7 +24,7 @@ class ClientePF extends Cliente
     #[ORM\Column(type: 'date_immutable', nullable: true)]
     private ?\DateTimeImmutable $dataNascimento = null;
 
-    #[ORM\Column(length: 50)]
+    #[ORM\Column(length: 150)]
     private string $nomeCompleto;
 
     #[ORM\Column(length: 50, nullable: true)]
@@ -32,6 +32,14 @@ class ClientePF extends Cliente
 
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $profissao = null;
+
+    /** "brasileiro(a)" por padrão na tela (desenho 1.2.3); guardado como escrito. */
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $nacionalidade = null;
+
+    /** MASCULINO | FEMININO | null: decide a concordância da qualificação ("nascido", "nascida", "nascido(a)"). */
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $genero = null;
 
     public function getNomeExibicao(): string
     {
@@ -123,6 +131,34 @@ class ClientePF extends Cliente
     public function setProfissao(?string $profissao): self
     {
         $this->profissao = $profissao !== null ? mb_strtoupper(trim($profissao)) : null;
+        return $this;
+    }
+
+    public const GENEROS = ['MASCULINO', 'FEMININO'];
+
+    public function getNacionalidade(): ?string
+    {
+        return $this->nacionalidade;
+    }
+
+    public function setNacionalidade(?string $nacionalidade): self
+    {
+        $nacionalidade = $nacionalidade !== null ? mb_strtolower(trim($nacionalidade)) : null;
+        $this->nacionalidade = $nacionalidade !== '' ? $nacionalidade : null;
+
+        return $this;
+    }
+
+    public function getGenero(): ?string
+    {
+        return $this->genero;
+    }
+
+    public function setGenero(?string $genero): self
+    {
+        $genero = $genero !== null ? mb_strtoupper(trim($genero)) : null;
+        $this->genero = in_array($genero, self::GENEROS, true) ? $genero : null;
+
         return $this;
     }
 }
