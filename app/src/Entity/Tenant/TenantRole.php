@@ -86,6 +86,19 @@ class TenantRole implements Auditavel
         return $this;
     }
 
+    /**
+     * Nome EXIBIDO do perfil: o de sistema aparece como "Usuário Primário" (desenho "05 - Perfis
+     * 1.0", spec perfis-master). Ponto único de verdade para telas, selects e Twig
+     * (`role.nomeExibido`). O nome gravado do perfil de sistema continua "Administrador do
+     * Escritório": o TenantBootstrapService acha o perfil pelo nome.
+     */
+    public const NOME_EXIBIDO_PRIMARIO = 'Usuário Primário';
+
+    public function getNomeExibido(): string
+    {
+        return $this->isSystem ? self::NOME_EXIBIDO_PRIMARIO : (string) $this->name;
+    }
+
     public function getDescription(): ?string
     {
         return $this->description;

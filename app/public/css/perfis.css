@@ -1,0 +1,241 @@
+/* =============================================================================
+   perfis.css: "Perfis do Escritório", lista e edição de perfil.
+
+   Desenho aprovado: docs/design/perfis-1.0/05 - Perfis 1.0.dc.html (linhas 30-66 lista,
+   229-311 edição, 330-338 confirmação). Cada estilo inline do desenho virou uma classe aqui,
+   com os mesmos valores; a fonte herda do app.css (Arial, decisão do dono).
+
+   Tudo vive sob `.pf-page`; nenhum seletor global. Os hex do desenho ficam no tema CLARO;
+   o ESCURO redefine os tokens em cima de var(--bs-*).
+   ============================================================================= */
+
+.pf-page {
+    --pf-texto:         #12242f;
+    --pf-corpo:         #243845;
+    --pf-rotulo:        #34505f;
+    --pf-suave:         #4a6373;
+    --pf-mudo:          #5b7383;
+    --pf-card:          #fff;
+    --pf-borda:         #dfe7ed;
+    --pf-borda-ctl:     #d6e0e7;
+    --pf-div:           #eef2f5;
+    --pf-div-item:      #f0f4f7;
+    --pf-cab:           #f5f8fa;
+    --pf-cab-borda:     #e2e9ee;
+    --pf-cab-card-borda:#e6edf2;
+    --pf-cinza:         #e2e9ee;
+    --pf-cinza-hover:   #d3dde4;
+    --pf-item-hover:    #f3f8fb;
+    --pf-sombra:        0 2px 10px rgba(18,36,47,.05);
+
+    --pf-azul:          #0a6fa0;
+    --pf-azul-hover:    #0b5f86;
+    --pf-azul-escuro:   #0b4f75;
+    --pf-azul-bg:       #e5f1f7;
+    --pf-azul-borda:    #cfe3ef;
+    --pf-azul-promo:    #f5f9fc;
+    --pf-socio:         #5c9ec7;
+
+    --pf-linha-hover:   #3b8fc2;
+    --pf-linha-barra:   #1f6f9c;
+
+    --pf-perigo:        #a3232b;
+    --pf-perigo-bg:     #fbe7e7;
+    --pf-cadeado:       #c08a12;
+    --pf-cadeado-aberto:#98a9b4;
+
+    --pf-master:        #7a3e8f;
+    --pf-master-bg:     #f3e9f7;
+    --pf-sec:           #4a6373;
+    --pf-sec-bg:        #eef2f5;
+
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 26px 10px 40px;
+    max-width: 1600px;
+    margin: 0 auto;
+    color: var(--pf-texto);
+}
+
+[data-bs-theme="dark"] .pf-page {
+    --pf-texto:         var(--bs-body-color);
+    --pf-corpo:         var(--bs-body-color);
+    --pf-rotulo:        var(--bs-secondary-color);
+    --pf-suave:         var(--bs-secondary-color);
+    --pf-mudo:          var(--bs-secondary-color);
+    --pf-card:          var(--bs-tertiary-bg);
+    --pf-borda:         var(--bs-border-color);
+    --pf-borda-ctl:     var(--bs-border-color);
+    --pf-div:           var(--bs-border-color-translucent);
+    --pf-div-item:      var(--bs-border-color-translucent);
+    --pf-cab:           var(--bs-secondary-bg);
+    --pf-cab-borda:     var(--bs-border-color);
+    --pf-cab-card-borda:var(--bs-border-color);
+    --pf-cinza:         var(--bs-secondary-bg);
+    --pf-cinza-hover:   rgba(255,255,255,.12);
+    --pf-item-hover:    rgba(255,255,255,.05);
+    --pf-azul-bg:       rgba(77,163,234,.14);
+    --pf-azul-borda:    rgba(77,163,234,.38);
+    --pf-azul-escuro:   #9fd0f5;
+    --pf-azul-promo:    var(--bs-secondary-bg);
+    --pf-master-bg:     rgba(122,62,143,.22);
+    --pf-sec-bg:        var(--bs-secondary-bg);
+    --pf-perigo-bg:     rgba(163,35,43,.18);
+}
+
+/* ── Cabeçalho (linhas 47-52) ─────────────────────────────────────────────── */
+.pf-page .pf-cabecalho { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pf-page .pf-titulo {
+    margin: 0; flex: 1; min-width: 260px; font-size: 34px; font-weight: bold; letter-spacing: -.5px;
+    position: relative; padding-bottom: 8px; display: flex; align-items: center; gap: 12px; color: var(--pf-texto);
+}
+.pf-page .pf-titulo > .bi { font-size: 30px; color: var(--pf-azul); }
+.pf-page .pf-titulo-barra { position: absolute; left: 0; bottom: 0; width: 34px; height: 3px; border-radius: 2px; background: var(--pf-azul); }
+.pf-page .pf-selo-titulo { font-size: 12px; font-weight: bold; letter-spacing: 1px; padding: 5px 10px; border-radius: 3px; }
+
+.pf-page .pf-btn-cinza {
+    height: 38px; display: flex; align-items: center; gap: 8px; border: none; border-radius: 4px;
+    background: var(--pf-cinza); color: var(--pf-corpo); font: inherit; font-size: 14px; font-weight: bold;
+    padding: 0 16px; cursor: pointer; transition: all .18s; text-decoration: none;
+}
+.pf-page .pf-btn-cinza:hover { background: var(--pf-azul); color: #fff; transform: scale(1.04); text-decoration: none; }
+
+/* "Ver como" (linha 50) */
+.pf-page .pf-ver-como { display: flex; align-items: center; gap: 2px; background: var(--pf-cinza); border-radius: 4px; padding: 3px; font-size: 12px; }
+.pf-page .pf-ver-como-rotulo { padding: 0 8px; color: var(--pf-suave); }
+.pf-page .pf-ver-como-btn {
+    height: 30px; border: none; border-radius: 3px; background: transparent; color: var(--pf-suave);
+    font: inherit; font-size: 12.5px; font-weight: bold; padding: 0 10px; cursor: pointer;
+}
+.pf-page .pf-ver-como-btn.is-ativo { background: #fff; color: var(--pf-azul); }
+
+/* ── Lista (linhas 55-71) ─────────────────────────────────────────────────── */
+.pf-page .pf-tabela { background: var(--pf-card); border: 1px solid var(--pf-borda); border-radius: 4px; box-shadow: var(--pf-sombra); overflow-x: auto; }
+.pf-page .pf-tabela-miolo { min-width: 980px; }
+.pf-page .pf-grade { display: grid; grid-template-columns: minmax(220px,1.3fr) 150px minmax(200px,2fr) 120px 100px 90px 100px; }
+.pf-page .pf-tabela-cab {
+    background: var(--pf-cab); border-bottom: 2px solid var(--pf-cab-borda);
+    font-size: 12px; font-weight: bold; letter-spacing: 1.2px; color: var(--pf-rotulo);
+}
+.pf-page .pf-tabela-cab > div { padding: 13px 10px; }
+.pf-page .pf-tabela-cab > div:first-child { padding: 13px 20px; }
+.pf-page .pf-tabela-cab > .pf-centro { text-align: center; }
+
+.pf-page .pf-linha { align-items: center; border-bottom: 1px solid var(--pf-div); cursor: pointer; transition: background .15s; }
+.pf-page .pf-linha:hover { background: var(--pf-linha-hover); box-shadow: inset 4px 0 0 var(--pf-linha-barra); }
+.pf-page .pf-linha:hover > div,
+.pf-page .pf-linha:hover > div * { color: #fff !important; background: transparent !important; border-color: transparent !important; }
+.pf-page .pf-linha.is-oculta { display: none; }
+
+.pf-page .pf-col-nome { padding: 14px 20px; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.pf-page .pf-col-classe { padding: 14px 10px; }
+.pf-page .pf-col-desc { padding: 14px 10px; font-size: 13px; color: var(--pf-suave); }
+.pf-page .pf-col-num { text-align: center; font-weight: bold; font-size: 14px; }
+.pf-page .pf-col-cadeado { text-align: center; }
+.pf-page .pf-col-cadeado .bi { font-size: 16px; }
+.pf-page .pf-col-cadeado .bi-lock-fill { color: var(--pf-cadeado); }
+.pf-page .pf-col-cadeado .bi-unlock { color: var(--pf-cadeado-aberto); }
+.pf-page .pf-col-acoes { display: flex; justify-content: center; gap: 6px; }
+
+.pf-page .pf-selo { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: bold; letter-spacing: .6px; padding: 4px 9px; border-radius: 3px; }
+.pf-page .pf-selo-master   { color: var(--pf-master); background: var(--pf-master-bg); }
+.pf-page .pf-selo-primario { color: var(--pf-azul);   background: var(--pf-azul-bg); }
+.pf-page .pf-selo-secundario { color: var(--pf-sec);  background: var(--pf-sec-bg); }
+
+.pf-page .pf-acao {
+    width: 30px; height: 30px; border: none; background: transparent; border-radius: 4px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 0;
+}
+.pf-page .pf-acao-editar  { color: var(--pf-azul); }
+.pf-page .pf-acao-excluir { color: var(--pf-perigo); }
+.pf-page .pf-acao-excluir:hover { background: var(--pf-perigo-bg); }
+
+/* ── Edição (linhas 229-311) ──────────────────────────────────────────────── */
+.pf-page .pf-faixa { display: flex; align-items: center; gap: 10px; background: var(--pf-azul-bg); color: var(--pf-azul-escuro); border-radius: 4px; padding: 11px 16px; font-size: 13.5px; }
+
+.pf-page .pf-card { background: var(--pf-card); border: 1px solid var(--pf-borda); border-radius: 4px; box-shadow: var(--pf-sombra); }
+.pf-page .pf-card-campos { padding: 18px 20px; display: grid; grid-template-columns: minmax(220px,1fr) minmax(260px,2fr); gap: 16px; }
+.pf-page .pf-campo { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.pf-page .pf-campo-rotulo { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: var(--pf-suave); }
+.pf-page .pf-campo input {
+    height: 38px; border: 1px solid var(--pf-borda-ctl); border-radius: 4px; padding: 0 12px; font: inherit; font-size: 14px;
+    background: var(--pf-card); color: var(--pf-texto);
+}
+.pf-page .pf-campo input.is-invalido { border-color: var(--pf-perigo); }
+.pf-page .pf-campo-erro { font-size: 12px; color: var(--pf-perigo); }
+
+/* Primários do escritório (linhas 276-296) */
+.pf-page .pf-card-primarios { overflow: hidden; }
+.pf-page .pf-primarios-cab { display: flex; align-items: center; gap: 9px; padding: 13px 18px; background: var(--pf-azul-bg); border-bottom: 1px solid var(--pf-azul-borda); }
+.pf-page .pf-primarios-cab > .bi { color: var(--pf-azul); }
+.pf-page .pf-primarios-cab > b { flex: 1; font-size: 14.5px; color: var(--pf-azul-escuro); }
+.pf-page .pf-primarios-cab > span { font-size: 12px; color: var(--pf-azul); }
+.pf-page .pf-primario { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--pf-div); }
+.pf-page .pf-avatar { width: 34px; height: 34px; flex: none; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
+.pf-page .pf-avatar-titular { background: var(--pf-azul); }
+.pf-page .pf-avatar-socio   { background: var(--pf-socio); }
+.pf-page .pf-primario-quem { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pf-page .pf-primario-quem > b { font-size: 13.5px; }
+.pf-page .pf-primario-quem > span { font-size: 12px; color: var(--pf-mudo); }
+.pf-page .pf-tag { font-size: 11px; font-weight: bold; letter-spacing: .6px; padding: 3px 8px; border-radius: 3px; }
+.pf-page .pf-tag-titular { color: #fff; background: var(--pf-azul); }
+.pf-page .pf-tag-socio   { color: var(--pf-azul); background: var(--pf-azul-bg); }
+.pf-page .pf-cadeado-titular { width: 30px; text-align: center; color: var(--pf-azul); }
+
+.pf-page .pf-promover { padding: 14px 18px; background: var(--pf-azul-promo); display: flex; flex-direction: column; gap: 10px; }
+.pf-page .pf-promover > b { font-size: 13px; color: var(--pf-azul-escuro); }
+.pf-page .pf-promover-grade { display: grid; grid-template-columns: minmax(160px,1.2fr) minmax(180px,1.3fr) minmax(120px,.8fr) auto; gap: 10px; align-items: center; }
+.pf-page .pf-promover-grade select {
+    height: 36px; border: 1px solid var(--pf-borda-ctl); border-radius: 4px; padding: 0 10px; font: inherit; font-size: 13.5px;
+    min-width: 0; background: var(--pf-card); color: var(--pf-texto); grid-column: span 2;
+}
+.pf-page .pf-promover-info { font-size: 12.5px; color: var(--pf-suave); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-page .pf-promover-msg { font-size: 12px; color: var(--pf-mudo); }
+.pf-page .pf-promover-msg.is-erro { color: var(--pf-perigo); }
+
+.pf-page .pf-btn-azul {
+    height: 36px; display: flex; align-items: center; gap: 7px; border: none; border-radius: 4px; background: var(--pf-azul);
+    color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; padding: 0 14px; cursor: pointer; white-space: nowrap; transition: all .18s;
+}
+.pf-page .pf-btn-azul:hover { background: var(--pf-azul-hover); transform: scale(1.03); }
+
+/* Cartões de permissão (linhas 299-309) */
+.pf-page .pf-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.pf-page .pf-cartao { overflow: hidden; }
+.pf-page .pf-cartao-cab { display: flex; align-items: center; gap: 9px; padding: 13px 18px; background: var(--pf-cab); border-bottom: 1px solid var(--pf-cab-card-borda); }
+.pf-page .pf-cartao-cab > .bi { color: var(--pf-azul); }
+.pf-page .pf-cartao-cab > b { flex: 1; font-size: 14.5px; }
+.pf-page .pf-marcar-todos { border: none; background: transparent; color: var(--pf-azul); font: inherit; font-size: 13px; cursor: pointer; padding: 0; }
+.pf-page .pf-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--pf-div-item); font-size: 13.5px; cursor: pointer; margin: 0; font-weight: normal; }
+.pf-page .pf-item:hover { background: var(--pf-item-hover); }
+.pf-page .pf-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--pf-azul); margin: 0; flex: none; }
+.pf-page .pf-item.is-travado { cursor: default; }
+.pf-page .pf-item.is-travado:hover { background: transparent; }
+
+.pf-page .pf-rodape { display: flex; justify-content: flex-end; gap: 10px; }
+.pf-page .pf-resumo { flex: 1; align-self: center; font-size: 13px; color: var(--pf-mudo); }
+.pf-page .pf-resumo.is-erro { color: var(--pf-perigo); }
+.pf-page .pf-btn-cancelar {
+    height: 38px; border: none; border-radius: 4px; background: var(--pf-cinza); color: var(--pf-corpo); font: inherit; font-size: 14px;
+    font-weight: bold; padding: 0 16px; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none;
+}
+.pf-page .pf-btn-cancelar:hover { background: var(--pf-cinza-hover); color: var(--pf-corpo); text-decoration: none; }
+.pf-page .pf-btn-salvar {
+    height: 38px; display: flex; align-items: center; gap: 8px; border: none; border-radius: 4px; background: var(--pf-azul);
+    color: #fff; font: inherit; font-size: 14px; font-weight: bold; padding: 0 18px; cursor: pointer; transition: all .18s;
+}
+.pf-page .pf-btn-salvar:hover { background: var(--pf-azul-hover); transform: scale(1.03); }
+
+/* ── Confirmação interna (linhas 330-338) ─────────────────────────────────── */
+.pf-page .pf-conf-fundo { position: fixed; inset: 0; z-index: 1060; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.pf-page .pf-conf-fundo[hidden] { display: none; }
+.pf-page .pf-conf { width: 100%; max-width: 440px; background: var(--pf-card); border-radius: 4px; box-shadow: 0 20px 50px -12px rgba(13,27,42,.45); overflow: hidden; }
+.pf-page .pf-conf-cab { color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+.pf-page .pf-conf-texto { padding: 18px 20px; font-size: 13.5px; line-height: 1.55; color: var(--pf-rotulo); display: flex; flex-direction: column; gap: 12px; }
+.pf-page .pf-conf-texto select { height: 36px; border: 1px solid var(--pf-borda-ctl); border-radius: 4px; padding: 0 10px; font: inherit; font-size: 13.5px; background: var(--pf-card); color: var(--pf-texto); }
+.pf-page .pf-conf-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: var(--pf-cab); }
+.pf-page .pf-conf-cancelar { height: 34px; border: none; background: transparent; font: inherit; font-size: 13.5px; padding: 0 14px; cursor: pointer; border-radius: 4px; color: var(--pf-texto); }
+.pf-page .pf-conf-cancelar:hover { background: var(--pf-cinza); }
+.pf-page .pf-conf-ok { height: 34px; border: none; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; padding: 0 16px; cursor: pointer; border-radius: 4px; }
+.pf-page .pf-conf-ok[hidden] { display: none; }

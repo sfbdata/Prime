@@ -1,0 +1,13 @@
+Malhas usadas pelo mapa do Painel do Master (copiadas do desenho docs/design/perfis-1.0/).
+
+brasil-uf.geojson
+  Malha das 27 UFs do IBGE (API de malhas v3, qualidade mínima, intrarregião UF):
+  https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima
+  Propriedade "codarea" = código IBGE da UF.
+
+mundo-110m.json
+  TopoJSON dos países, escala 1:110m (world-atlas 2.0.2, dados Natural Earth, domínio público):
+  https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json
+
+O navegador só lê estes arquivos locais. Malhas municipais e população vêm do IBGE pelo servidor
+(rotas /master/ibge/*, com cache), nunca direto do navegador.

@@ -47,6 +47,9 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *  - `ArmazenamentoLocal` — é o backend: é aqui que a leitura por chave vira disco;
      *  - `MapearAcervoCommand`, `ParsearAcervoCommand` — leem arquivos do operador (JSON e
      *    planilhas do acervo), fora do armazenamento;
+     *  - `FontesPublicasController` (perfis-master E2, 16/10) — lê a planilha CSV que o Master envia
+     *    (população IBGE / Quadro da Advocacia) do upload ainda temporário, com teto de 2 MB checado
+     *    antes; vira retrato no armazém de fontes do Master, nunca arquivo do armazenamento;
      *  - `PastaResumoController` (EDT-002, 07/10) — lê o LOGO estático da aplicação
      *    (`public/images/logo/bluejus_simbolo.svg`) para embutir no PDF do resumo; não é arquivo do
      *    usuário nem passa pelo armazenamento (o Dompdf roda sem recurso remoto).
@@ -55,6 +58,7 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
         'src/Command/MapearAcervoCommand.php',
         'src/Command/ParsearAcervoCommand.php',
+        'src/Master/Controller/FontesPublicasController.php',
         'src/Pasta/Controller/PastaResumoController.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
     ];

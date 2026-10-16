@@ -233,6 +233,8 @@ nav.app-header.navtop {
 
 .navtop-user-info { display: flex !important; flex-direction: column !important; align-items: flex-end !important; justify-content: center !important; line-height: 1.3; gap: 1px; }
 .navtop-username   { display: block !important; font-size: 0.9rem; font-weight: 700; color: #fff !important; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+/* Papel do usuário sob o nome (desenho "05 - Perfis 1.0", linha 37): MASTER · USUÁRIO PRIMÁRIO */
+.navtop-user-papel { display: block; font-size: 10px; letter-spacing: .6px; opacity: .85; color: #fff; line-height: 1.1; white-space: nowrap; }
 .navtop-last-access { display: block !important; font-size: 0.7rem; color: rgba(255,255,255,0.8) !important; white-space: nowrap; line-height: 1.2; }
 
 .navtop-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--header-avatar-bg); color: var(--header-avatar-fg); font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.5); position: relative; }

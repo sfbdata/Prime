@@ -7,6 +7,11 @@ SaaS jurídico multi-tenant. PHP 8.2+, Symfony 7.4, Doctrine ORM 3.x, PostgreSQL
 Código, comentários, explicações pensamentos e commits em **português brasileiro**.
 `camelCase` métodos/variáveis · `PascalCase` classes · `snake_case` rotas/templates/colunas DB.
 
+**Sem travessão (— ou –) em texto que o usuário vê**: mensagens, flashes, rótulos, templates, JS.
+Regra do dono (15/10/2026). Reescreva com ponto, dois-pontos, vírgula ou parênteses. Vale para
+todo texto novo ou tocado; o legado ainda tem centenas de ocorrências, que só saem por varredura
+autorizada.
+
 ## Arquitetura em uma frase
 
 Cada domínio em `app/src/<Dominio>/` com `Controller/ UseCase/ Entity/ Repository/ DTO/ Form/`.

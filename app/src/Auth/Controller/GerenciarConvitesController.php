@@ -16,6 +16,7 @@ use App\Repository\InvitationRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,6 +39,7 @@ final class GerenciarConvitesController extends AbstractController
         private readonly ReenviarConviteUseCase $reenviarUseCase,
         private readonly ConviteMailer $mailer,
         private readonly RateLimiterFactory $conviteCriarLimiter,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     #[Route('', name: 'auth_gerenciar_convites', methods: ['GET'])]
@@ -47,6 +49,11 @@ final class GerenciarConvitesController extends AbstractController
 
         $tenant = $this->tenantContext->getCurrentTenant();
         $roles = $this->tenantRoleRepository->findByTenantId($tenant->getId());
+        // Convidar já como primário é dar o perfil de sistema: só primário ou Master (spec D4).
+        // O UseCase revalida; aqui só tira a opção de quem não pode.
+        if (!$this->regraDosPrimarios->podeGerirPrimarios($this->getUser(), $tenant)) {
+            $roles = array_values(array_filter($roles, static fn ($r): bool => !$r->isSystem()));
+        }
         $convites = array_map(
             ConviteAdminOutput::fromInvitation(...),
             $this->invitationRepository->listarPorTenant($tenant)

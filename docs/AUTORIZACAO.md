@@ -50,15 +50,33 @@ qualquer checagem, independente de tenant ou permissão. É uma role
 atribuída diretamente no `User` (campo `roles`, JSONB), fora do
 sistema de `TenantRole`.
 
-**Onde é atribuída:** manualmente via comando CLI
-`app/src/Command/CreateSuperAdminCommand.php` (~l. 46):
+**Master = `ROLE_SUPER_ADMIN`, único** (spec `docs/specs/perfis-master-1.0.md`, D2). Na interface
+o papel se chama só "Master" (Painel do Master, selo MASTER). Atribuição só por CLI:
 
-```php
-$user->setRoles(['ROLE_SUPER_ADMIN']);
-```
+- `app:master:definir <email> [--confirmar]` (`app/src/Command/DefinirMasterCommand.php`): deixa
+  EXATAMENTE um `ROLE_SUPER_ADMIN`, o do e-mail. Sem `--confirmar` só mostra quem ganha e quem perde;
+  com `--confirmar` aplica numa transação. É o caminho para TROCAR o Master.
+- `app:create-super-admin` (`app/src/Command/CreateSuperAdminCommand.php`): só cria o Master quando
+  ainda não existe nenhum; havendo um, falha e aponta o `app:master:definir`.
 
-Não é atribuída automaticamente no bootstrap de tenant — só por
-comando manual. Além do `PermissionChecker`, essa role é verificada
+Não é atribuída automaticamente no bootstrap de tenant.
+
+**A conta do Master só o próprio Master mexe** (`RegraDosPrimarios::podeAlterarConta()`). Nenhum
+outro usuário, nem o primário do escritório onde o Master tem vínculo (como sócio ou secundário), pode,
+sobre um usuário Master:
+
+- trocar o perfil no escritório (edit-role: o select só oferece o perfil atual);
+- trocar a senha (edit-role);
+- editar o nome (`edit-name`) ou os dados pessoais (`TenantUserProfileController`);
+- removê-lo do escritório (`RemoverColaboradorDoEscritorioUseCase`);
+- promovê-lo a primário ou rebaixá-lo pela tela de Perfis (`PromoverPrimarioSocioUseCase` /
+  `RemoverPrimarioSocioUseCase`, que recebem o ator no Input). Na edição do primário o Master aparece
+  sem lixeira para os outros e não entra no select de promover.
+
+Vale também em escritório com `criado_por` nulo. **Não** é garantido o resto: os dados do VÍNCULO do
+Master com o escritório (código do colaborador, cargo, lotação, data de admissão, ponto, jornada e
+acessos item a item) continuam editáveis por quem administra usuários daquele escritório
+(`admin.users.manage`), como os de qualquer colaborador. Além do `PermissionChecker`, essa role é verificada
 em outros pontos:
 
 - `app/src/Security/UserAuthenticator.php` (l. 72): usuário sem tenant
@@ -97,6 +115,51 @@ $this->attachAllPermissions($adminRole); // recebe TODAS as permissões do catá
 O role resultante recebe todas as permissões cadastradas via
 `attachAllPermissions()`. Qualquer usuário vinculado a esse role
 bypassa todas as verificações dentro do tenant.
+
+O nome gravado ("Administrador do Escritório") não pode mudar: o `TenantBootstrapService` acha o
+perfil pelo nome. Na tela ele aparece como **"Usuário Primário"** (só exibição), por um ponto único:
+`TenantRole::getNomeExibido()` (`role.nomeExibido` no Twig), usado na lista e edição de perfis, no
+select do edit-role, no select de convite e na lista de convites pendentes (`ConviteAdminOutput`), na
+lista de colaboradores, no seletor de escritório e na
+tela de seleção de escritório.
+
+#### Primários: titular e sócios (spec perfis-master, D3/D4/D5)
+
+- **Primário** = vínculo ativo, de usuário ativo, com o perfil `isSystem`. As caixas de permissão
+  desse perfil aparecem marcadas e travadas: o bypass acima ignora as caixas (D5).
+- **Titular** = `Tenant.criadoPor`, quem abriu a conta. **Sócio** = qualquer outro primário.
+- **Só primário ou Master gere primários.** A regra mora num lugar só,
+  `App\Tenant\Service\RegraDosPrimarios::podeGerirPrimarios()` / `garantirQuePodeGerirPrimarios()`,
+  e vale em todas as portas que dão ou tiram o perfil de sistema:
+  - Perfis (`TenantRoleController`): promover sócio (`PromoverPrimarioSocioUseCase`) e remover sócio
+    (`RemoverPrimarioSocioUseCase`, que exige um perfil secundário de destino);
+  - edit-role (`TenantController::editUserRole`): para quem não gere primários, o perfil de sistema
+    não aparece no select e o POST forjado é recusado, tanto para promover quanto para rebaixar;
+  - convite (`GerenciarConvitesController` + `CriarConviteEscritorioUseCase`): convidar com o perfil
+    de sistema. No ACEITE (`AceitarConviteEscritorioComContaUseCase` / `SemContaUseCase`) a regra é
+    revalidada (`garantirQueConviteDePrimarioSegueValido()`): se quem convidou já não pode gerir
+    primários naquele escritório (rebaixado, desligado ou com conta desativada), o aceite é recusado
+    e nenhum vínculo é criado;
+  - remover colaborador (`RemoverColaboradorDoEscritorioUseCase`, porta do painel): tirar um
+    primário (sócio) do escritório também é gerir primários;
+  - senha (`editUserRole`, campo `newPassword`): senha de sócio só por primário ou Master; senha do
+    titular só pelo próprio titular ou pelo Master (`RegraDosPrimarios::podeTrocarSenhaDe()`).
+
+  Uma permissão de secundário (`admin.roles.manage`, `admin.users.manage`, `admin.users.invite`) NÃO
+  basta: com ela um secundário se promoveria, ou promoveria um cúmplice, ao acesso total.
+- **Guarda do titular e do último primário** (`RegraDosPrimarios::garantirQuePodeDeixarDeSerPrimario()`):
+  o titular nunca deixa de ser primário e o escritório nunca fica sem primário ativo. Vale na remoção
+  de sócio, no edit-role e na remoção de colaborador. **Conta desativada** (`User.isActive=false`) não
+  é contada como primário: a trava do último primário não se aplica a ela, que pode ser rebaixada ou
+  removida por primário/Master. O titular segue intocável mesmo com a conta desativada.
+- **O titular não sai do escritório** pela porta "Sair do escritório" (`OrigemRemocao::Saida` no
+  `RemoverColaboradorDoEscritorioUseCase`): "O titular do escritório não pode sair. Fale com o suporte
+  do BlueJus." (D4: o titular nunca é rebaixado nem removido). A barra superior nem mostra o botão
+  "Sair deste escritório" para o titular do escritório atual (`base.html.twig`).
+- **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
+  (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
+  `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só
+  continuam valendo os acessos item a item (`ResourceAccess`) já concedidos à pessoa. Perfil `isSystem` não pode ser excluído.
 
 ---
 

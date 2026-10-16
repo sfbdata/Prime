@@ -1,104 +1,89 @@
 {% extends 'base.html.twig' %}
 
+{#
+   Lista "Perfis do Escritório" (desenho "05 - Perfis 1.0", linhas 47-71; spec perfis-master §4.1).
+   A linha Master e o seletor "Ver como" só existem no HTML de quem é Master (D2/D7): a prévia
+   "Primário" esconde a linha no navegador, sem trocar de usuário.
+#}
+
 {% block title %}Perfis do Escritório{% endblock %}
 
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/perfis.css') }}">
+{% endblock %}
+
 {% block body %}
-<section class="content-header">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-shield-lock me-2"></i>Perfis do Escritório</h1>
-        <div class="d-flex gap-2">
-            <a href="{{ path('app_tenant_show', {tenantId: tenantId}) }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Voltar
-            </a>
-            <a href="{{ path('app_tenant_role_new', {tenantId: tenantId}) }}" class="btn btn-primary">
-                <i class="bi bi-plus-lg me-1"></i> Novo Perfil
-            </a>
-        </div>
-    </div>
-</section>
-
-<section class="content">
-    <div class="container-fluid">
-
-        {% for label, messages in app.flashes %}
-            {% for message in messages %}
-                <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'error' ? 'danger' : 'warning') }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endfor %}
-
-        <div class="card">
-            <div class="card-body table-responsive p-0">
-                <table class="table table-striped table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th><i class="bi bi-shield-check me-1"></i> Nome</th>
-                            <th><i class="bi bi-card-text me-1"></i> Descrição</th>
-                            <th class="text-center"><i class="bi bi-key me-1"></i> Permissões</th>
-                            <th class="text-center"><i class="bi bi-people me-1"></i> Usuários</th>
-                            <th class="text-center"><i class="bi bi-lock me-1"></i> Sistema</th>
-                            <th><i class="bi bi-gear me-1"></i> Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for role in roles %}
-                            <tr>
-                                <td>
-                                    <strong>{{ role.name }}</strong>
-                                    {% if role.isSystem %}
-                                        <span class="badge text-bg-info ms-1" title="Perfil protegido">Sistema</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-muted small">{{ role.description ?? '—' }}</td>
-                                <td class="text-center">
-                                    <span class="badge text-bg-secondary">{{ role.tenantRolePermissions|length }}</span>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge text-bg-secondary">{{ role.userTenants|length }}</span>
-                                </td>
-                                <td class="text-center">
-                                    {% if role.isSystem %}
-                                        <i class="bi bi-lock-fill text-warning" title="Não pode ser excluído"></i>
-                                    {% else %}
-                                        <i class="bi bi-unlock text-muted"></i>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="acoes-grupo">
-                                        <a href="{{ path('app_tenant_role_edit', {tenantId: tenantId, id: role.id}) }}"
-                                           class="btn-action btn-action-edit"
-                                           title="Editar perfil"
-                                           aria-label="Editar perfil">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        {% if not role.isSystem %}
-                                            <form method="post"
-                                                  action="{{ path('app_tenant_role_delete', {tenantId: tenantId, id: role.id}) }}"
-                                                  class="d-inline"
-                                                  onsubmit="return confirm('Excluir o perfil \'{{ role.name }}\'? Usuários vinculados perderão o perfil.');">
-                                                <input type="hidden" name="_token" value="{{ csrf_token('delete_role_' ~ role.id) }}">
-                                                <button class="btn-action btn-action-delete"
-                                                        title="Excluir perfil"
-                                                        aria-label="Excluir perfil">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-3">Nenhum perfil encontrado.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+<div class="pf-page" data-pf-lista>
+    <div class="pf-cabecalho">
+        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>Perfis do Escritório<span class="pf-titulo-barra"></span></h1>
+        {% if master %}
+            <div class="pf-ver-como" title="Simulação: o perfil Master só aparece para o Master" data-pf-ver-como>
+                <span class="pf-ver-como-rotulo">Ver como</span>
+                <button type="button" class="pf-ver-como-btn is-ativo" data-pf-visao="master">Master</button>
+                <button type="button" class="pf-ver-como-btn" data-pf-visao="primario">Primário</button>
             </div>
-        </div>
-
+        {% endif %}
+        <a href="{{ path('app_tenant_role_new', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-plus-lg"></i>Novo Perfil</a>
     </div>
-</section>
+
+    <div class="pf-tabela">
+        <div class="pf-tabela-miolo">
+            <div class="pf-grade pf-tabela-cab">
+                <div>NOME</div><div>CLASSIFICAÇÃO</div><div>DESCRIÇÃO</div><div class="pf-centro">PERMISSÕES</div><div class="pf-centro">USUÁRIOS</div><div class="pf-centro">SISTEMA</div><div class="pf-centro">AÇÕES</div>
+            </div>
+
+            {% if master %}
+                <div class="pf-grade pf-linha" data-pf-linha data-pf-linha-master data-href="{{ path('master_painel') }}">
+                    <div class="pf-col-nome">{{ master.nome }}</div>
+                    <div class="pf-col-classe"><span class="pf-selo pf-selo-master"><i class="bi bi-stars"></i>MASTER</span></div>
+                    <div class="pf-col-desc">{{ master.descricao }}</div>
+                    <div class="pf-col-num">Total</div>
+                    <div class="pf-col-num">{{ master.usuarios }}</div>
+                    <div class="pf-col-cadeado"><i class="bi bi-lock-fill"></i></div>
+                    <div class="pf-col-acoes">
+                        <a href="{{ path('master_painel') }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% for perfil in perfis %}
+                {% set urlEditar = path('app_tenant_role_edit', {tenantId: tenantId, id: perfil.id}) %}
+                <div class="pf-grade pf-linha" data-pf-linha data-href="{{ urlEditar }}">
+                    <div class="pf-col-nome">{{ perfil.nome }}</div>
+                    <div class="pf-col-classe">
+                        {% if perfil.classificacao == 'primario' %}
+                            <span class="pf-selo pf-selo-primario"><i class="bi bi-person-badge"></i>PRIMÁRIO</span>
+                        {% else %}
+                            <span class="pf-selo pf-selo-secundario"><i class="bi bi-person"></i>SECUNDÁRIO</span>
+                        {% endif %}
+                    </div>
+                    <div class="pf-col-desc">{{ perfil.descricao }}</div>
+                    <div class="pf-col-num">{{ perfil.permissoes }}</div>
+                    <div class="pf-col-num">{{ perfil.usuarios }}</div>
+                    <div class="pf-col-cadeado">
+                        {% if perfil.podeExcluir %}<i class="bi bi-unlock"></i>{% else %}<i class="bi bi-lock-fill" title="Não pode ser excluído"></i>{% endif %}
+                    </div>
+                    <div class="pf-col-acoes">
+                        <a href="{{ urlEditar }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                        {% if perfil.podeExcluir %}
+                            <form method="post" action="{{ path('app_tenant_role_delete', {tenantId: tenantId, id: perfil.id}) }}" class="d-inline" data-pf-form-excluir>
+                                <input type="hidden" name="_token" value="{{ csrf_token('delete_role_' ~ perfil.id) }}">
+                                <button type="button" class="pf-acao pf-acao-excluir" title="Excluir perfil" aria-label="Excluir perfil"
+                                        data-pf-excluir data-nome="{{ perfil.nome }}" data-usuarios="{{ perfil.vinculos }}"><i class="bi bi-trash3"></i></button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="pf-col-desc text-center py-3">Nenhum perfil encontrado.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% include 'tenant_role/_confirmacao.html.twig' %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/perfis.js') }}" defer></script>
 {% endblock %}
