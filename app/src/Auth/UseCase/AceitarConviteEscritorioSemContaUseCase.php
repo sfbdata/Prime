@@ -11,6 +11,7 @@ use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -22,6 +23,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     public function executar(AceitarConviteEscritorioSemContaInput $input): User
@@ -55,6 +57,9 @@ final class AceitarConviteEscritorioSemContaUseCase
         if ($tenant === null) {
             throw new \DomainException('Convite inválido: escritório não encontrado.');
         }
+
+        // Convite de primário: quem convidou ainda pode dar esse acesso? (spec perfis-master D4)
+        $this->regraDosPrimarios->garantirQueConviteDePrimarioSegueValido($invitation);
 
         if (!$input->aceiteTermos) {
             throw new \DomainException('É necessário aceitar os Termos de Uso para criar a conta.');

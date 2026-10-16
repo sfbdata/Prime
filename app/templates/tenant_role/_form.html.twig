@@ -1,226 +1,57 @@
 {#
-  Partial reutilizável para formulário de TenantRole.
-  Variáveis esperadas:
-    - form: FormView
-    - allPermissions: array<group, Permission[]>
-    - currentCodes: string[] (apenas no edit)
-    - role: TenantRole (apenas no edit)
+   Formulário do perfil SECUNDÁRIO (novo e edição). Desenho "05 - Perfis 1.0", linhas 229-233
+   (faixa + NOME DO PERFIL/DESCRIÇÃO) e 299-309 (cartões, "Marcar todos", rodapé).
+   Variáveis: form, cartoes (GruposDePermissaoDoPerfil), total, salvarRotulo, tenantId.
+
+   Todo checkbox do form é desenhado aqui: os cartões cobrem o catálogo inteiro (código que o
+   desenho não conhece cai no cartão do grupo). Sobrar campo faria o form_end re-renderizar o
+   widget e quebrar com "Field already rendered" (regressão do 0c2a780d).
 #}
+{{ form_start(form, {attr: {novalidate: 'novalidate', 'data-pf-form-perfil': ''}}) }}
 
-{{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+<div class="pf-faixa"><i class="bi bi-info-circle"></i>Perfil de usuário secundário (colaborador). Defina o que ele pode acessar.</div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="mb-3">
-            {{ form_label(form.name, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
-            {{ form_widget(form.name, {attr: {class: 'form-control' ~ (form.name.vars.errors|length ? ' is-invalid' : '')}}) }}
-            {% if form.name.vars.errors|length %}
-                <div class="invalid-feedback">
-                    {% for error in form.name.vars.errors %}{{ error.message }}{% endfor %}
-                </div>
-            {% endif %}
-        </div>
-        <div class="mb-3">
-            {{ form_label(form.description, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
-            {{ form_widget(form.description, {attr: {class: 'form-control'}}) }}
-        </div>
-    </div>
+{% set errosNome = form.name.vars.errors %}
+<div class="pf-card pf-card-campos">
+    <label class="pf-campo" for="{{ form.name.vars.id }}">
+        <span class="pf-campo-rotulo">NOME DO PERFIL</span>
+        {{ form_widget(form.name, {attr: form.name.vars.attr|merge({class: errosNome|length ? 'is-invalido' : ''})}) }}
+    </label>
+    <label class="pf-campo" for="{{ form.description.vars.id }}">
+        <span class="pf-campo-rotulo">DESCRIÇÃO</span>
+        {{ form_widget(form.description) }}
+        {% for erro in form.description.vars.errors %}<span class="pf-campo-erro">{{ erro.message }}</span>{% endfor %}
+    </label>
 </div>
 
-<hr>
-<h5 class="mb-3"><i class="bi bi-key me-2"></i>Permissões</h5>
-
-{# ── Ícones por código de permissão ───────────────────────────────────── #}
-{% set permIcons = {
-    'admin.roles.manage':              'bi-shield-lock',
-    'admin.users.manage':              'bi-people-fill',
-    'admin.users.invite':              'bi-envelope',
-    'admin.access_requests.approve':   'bi-key',
-    'admin.tenant.settings.manage':    'bi-building-gear',
-    'admin.tarefas.manage':            'bi-kanban',
-    'admin.servicedesk.manage':        'bi-headset',
-    'admin.audit.view':                'bi-shield-check',
-    'modules.pastas.view':             'bi-folder',
-    'modules.clientes.view':           'bi-people',
-    'modules.processos.view':          'bi-briefcase',
-    'modules.tarefas.view':            'bi-list-check',
-    'modules.agenda.view':             'bi-calendar3',
-    'modules.servicedesk.view':        'bi-headset',
-    'modules.financeiro.view':         'bi-cash-coin',
-    'modules.bi.view':                 'bi-bar-chart-line'
-} %}
-{% set groupIcons = {
-    'modules':   'bi-layout-sidebar',
-    'admin':     'bi-shield-lock'
-} %}
-{% set groupLabels = {
-    'modules':   'Módulos',
-    'admin':     'Administração'
-} %}
-
-<div class="row g-3 mb-3">
-    {% for group, permissions in allPermissions %}
-        {% if group != 'resources' %}
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header py-2 d-flex align-items-center justify-content-between">
-                    <strong>
-                        <i class="bi {{ groupIcons[group] ?? 'bi-list' }} me-1"></i>
-                        {{ groupLabels[group] ?? group|capitalize }}
-                    </strong>
-                    <button type="button" class="btn btn-link btn-sm py-0 check-all-btn"
-                            data-group="{{ group }}">
-                        Marcar todos
-                    </button>
-                </div>
-                <div class="card-body p-0 pt-1">
-                    <div class="row g-0">
-                    {% for child in form.permissions %}
-                        {% set code = child.vars.value %}
-                        {% set belongs = false %}
-                        {% for perm in permissions %}
-                            {% if perm.code == code %}{% set belongs = true %}{% endif %}
-                        {% endfor %}
-                        {% if belongs %}
-                            <div class="col-12">
-                                <div class="perm-check perm-group-{{ group }} perm-item d-flex align-items-center gap-2 px-3 py-2 rounded">
-                                    {{ form_widget(child, {attr: {class: 'form-check-input flex-shrink-0 mt-0 ms-0'}}) }}
-                                    <label class="small mb-0 d-flex align-items-center gap-1 w-100" for="{{ child.vars.id }}">
-                                        <i class="bi {{ permIcons[code] ?? 'bi-dot' }} text-secondary flex-shrink-0"></i>
-                                        <span>{{ child.vars.label }}</span>
-                                    </label>
-                                </div>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                    </div>
-                </div>
+<div class="pf-cartoes">
+    {% for cartao in cartoes %}
+        <div class="pf-card pf-cartao" data-pf-cartao>
+            <div class="pf-cartao-cab">
+                <i class="bi {{ cartao.icone }}"></i><b>{{ cartao.rotulo }}</b>
+                <button type="button" class="pf-marcar-todos" data-pf-todos>Marcar todos</button>
             </div>
+            {% for item in cartao.itens %}
+                {% for child in form.permissions %}
+                    {% if child.vars.value == item.codigo %}
+                        <label class="pf-item" for="{{ child.vars.id }}">
+                            {{ form_widget(child, {attr: child.vars.attr|merge({'data-pf-permissao': ''})}) }}{{ item.rotulo }}
+                        </label>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
         </div>
-        {% endif %}
     {% endfor %}
 </div>
 
-{# ── Bloco Recursos ───────────────────────────────────────────────────── #}
-{% if allPermissions.resources is defined %}
-<div class="card mb-3">
-    <div class="card-header py-2">
-        <strong>
-            <i class="bi bi-folder2-open me-1"></i>
-            Recursos
-        </strong>
-        <button type="button" class="btn btn-link btn-sm py-0 float-end check-all-btn"
-                data-group="resources">
-            Marcar todos
-        </button>
-    </div>
-    <div class="card-body">
-
-        {# Monta um map code -> child para lookup rápido #}
-        {% set resourceSubgroups = {
-            'cliente': {label: 'Cliente',  icon: 'bi-people'},
-            'pasta':   {label: 'Pasta',    icon: 'bi-folder'},
-            'processo':{label: 'Processo', icon: 'bi-briefcase'}
-        } %}
-        {% set actionLabels = {
-            'view':   'Visualizar',
-            'edit':   'Editar',
-            'delete': 'Excluir'
-        } %}
-        {% set actionIcons = {
-            'view':   'bi-eye',
-            'edit':   'bi-pencil',
-            'delete': 'bi-trash'
-        } %}
-
-        <div class="row g-3">
-            {% for subkey, subinfo in resourceSubgroups %}
-            <div class="col-md-4">
-                <div class="card border-secondary h-100">
-                    <div class="card-header py-2 bg-body-tertiary">
-                        <strong class="small">
-                            <i class="bi {{ subinfo.icon }} me-1"></i>
-                            {{ subinfo.label }}
-                        </strong>
-                    </div>
-                    <div class="card-body p-2 d-flex flex-column gap-1">
-                        {% for action, actionLabel in actionLabels %}
-                            {% set targetCode = 'resources.' ~ subkey ~ '.' ~ action %}
-                            {% for child in form.permissions %}
-                                {% if child.vars.value == targetCode %}
-                                    <div class="perm-check perm-group-resources d-flex align-items-center gap-2">
-                                        {{ form_widget(child, {attr: {class: 'form-check-input flex-shrink-0 mt-0 ms-0'}}) }}
-                                        <label class="small mb-0" for="{{ child.vars.id }}">
-                                            <i class="bi {{ actionIcons[action] }} me-1 text-muted"></i>
-                                            {{ actionLabel }}
-                                        </label>
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        {# Fallback: permissões de 'resources' fora dos subgrupos hardcoded (ex.: Cobranças). Sem isto elas
-           ficam SEM render → form.permissions parcial → o form_rest (do form_end) re-renderiza o widget
-           inteiro e quebra com "Field 0 has already been rendered". Aqui garantimos que TODA permissão de
-           recurso seja renderizada (e portanto concedível), robusto a novos módulos. #}
-        {% set knownResourceCodes = [] %}
-        {% for subkey in resourceSubgroups|keys %}
-            {% for action in actionLabels|keys %}
-                {% set knownResourceCodes = knownResourceCodes|merge(['resources.' ~ subkey ~ '.' ~ action]) %}
-            {% endfor %}
-        {% endfor %}
-        {% set outrosCodes = [] %}
-        {% for perm in allPermissions.resources %}
-            {% if perm.code not in knownResourceCodes %}{% set outrosCodes = outrosCodes|merge([perm.code]) %}{% endif %}
-        {% endfor %}
-        {% if outrosCodes|length %}
-        <div class="row g-3 mt-1">
-            <div class="col-12">
-                <div class="card border-secondary">
-                    <div class="card-header py-2 bg-body-tertiary">
-                        <strong class="small"><i class="bi bi-grid me-1"></i>Outros recursos</strong>
-                    </div>
-                    <div class="card-body p-2 d-flex flex-column gap-1">
-                        {% for child in form.permissions %}
-                            {% if child.vars.value in outrosCodes %}
-                                <div class="perm-check perm-group-resources d-flex align-items-center gap-2">
-                                    {{ form_widget(child, {attr: {class: 'form-check-input flex-shrink-0 mt-0 ms-0'}}) }}
-                                    <label class="small mb-0" for="{{ child.vars.id }}">
-                                        <i class="bi bi-dot me-1 text-muted"></i>{{ child.vars.label }}
-                                    </label>
-                                </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-    </div>
+<div class="pf-rodape">
+    {% if errosNome|length %}
+        <span class="pf-resumo is-erro" data-pf-resumo-erro>{{ errosNome|first.message }}</span>
+    {% else %}
+        <span class="pf-resumo" data-pf-resumo data-total="{{ total }}">{{ form.permissions.vars.value|length }} de {{ total }} permissões ativas</span>
+    {% endif %}
+    <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cancelar">Cancelar</a>
+    <button type="submit" class="pf-btn-salvar"><i class="bi bi-check2"></i>{{ salvarRotulo }}</button>
 </div>
-{% endif %}
 
-<style>
-.perm-item { transition: background .15s; cursor: pointer; }
-.perm-item:hover { background: rgba(0,0,0,.04); }
-.perm-item input[type=checkbox] { cursor: pointer; }
-.perm-item label { cursor: pointer; }
-</style>
-
-<script>
-document.querySelectorAll('.check-all-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        var group = btn.dataset.group;
-        var checks = document.querySelectorAll('.perm-group-' + group + ' input[type=checkbox]');
-        var allChecked = Array.from(checks).every(function(c) { return c.checked; });
-        checks.forEach(function(c) { c.checked = !allChecked; });
-        btn.textContent = allChecked ? 'Marcar todos' : 'Desmarcar todos';
-    });
-});
-</script>
+{{ form_end(form) }}

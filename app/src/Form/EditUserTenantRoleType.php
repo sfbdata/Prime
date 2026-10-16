@@ -29,7 +29,7 @@ class EditUserTenantRoleType extends AbstractType
                 'class'        => TenantRole::class,
                 'label'        => 'Perfil',
                 'choices'      => $options['tenant_roles'],
-                'choice_label' => 'name',
+                'choice_label' => 'nomeExibido',
                 'placeholder'  => 'Selecione um perfil',
                 'required'     => true,
                 'attr'         => ['class' => 'form-select'],

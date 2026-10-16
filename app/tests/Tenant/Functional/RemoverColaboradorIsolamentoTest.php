@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Functional;
 
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -445,6 +446,7 @@ final class RemoverColaboradorIsolamentoTest extends JusPrimeWebTestCase
         return new RemoverColaboradorDoEscritorioUseCase(
             $em,
             static::getContainer()->get(UserTenantRepository::class),
+            static::getContainer()->get(RegraDosPrimarios::class),
         );
     }
 

@@ -5,10 +5,11 @@ namespace App\Form;
 use App\Entity\Tenant\TenantRole;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Length;
+use Symfony\Component\Validator\Constraints\NotBlank;
 
 class TenantRoleType extends AbstractType
 {
@@ -35,13 +36,21 @@ class TenantRoleType extends AbstractType
 
         $builder
             ->add('name', TextType::class, [
-                'label' => 'Nome do Perfil',
-                'attr'  => ['maxlength' => 100, 'placeholder' => 'Ex.: Advogado Sênior'],
+                'label'       => 'Nome do perfil',
+                // Sem empty_data o campo vazio vira null e o setName(string) estoura TypeError.
+                'empty_data'  => '',
+                'constraints' => [
+                    new NotBlank(message: 'Informe o nome do perfil.'),
+                    new Length(max: 100),
+                ],
+                'attr'        => ['maxlength' => 100, 'placeholder' => 'Ex.: Advogado Sênior'],
             ])
-            ->add('description', TextareaType::class, [
-                'label'    => 'Descrição',
-                'required' => false,
-                'attr'     => ['rows' => 2, 'placeholder' => 'Descrição opcional do perfil'],
+            // Desenho "05 - Perfis 1.0": DESCRIÇÃO é campo de uma linha (input), não textarea.
+            ->add('description', TextType::class, [
+                'label'       => 'Descrição',
+                'required'    => false,
+                'constraints' => [new Length(max: 255)],
+                'attr'        => ['maxlength' => 255, 'placeholder' => 'Descrição opcional do perfil'],
             ])
             ->add('permissions', ChoiceType::class, [
                 'label'    => false,

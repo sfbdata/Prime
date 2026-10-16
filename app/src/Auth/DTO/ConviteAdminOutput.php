@@ -30,7 +30,8 @@ readonly class ConviteAdminOutput
             email: $invitation->getEmail(),
             nomeConvidado: $invitation->getFullName(),
             tenantNome: $invitation->getTenant()?->getName(),
-            roleName: $invitation->getTenantRole()?->getName(),
+            // Nome EXIBIDO (TenantRole::getNomeExibido): o perfil de sistema aparece como "Usuário Primário".
+            roleName: $invitation->getTenantRole()?->getNomeExibido(),
             status: $invitation->getStatus(),
             createdAt: $invitation->getCreatedAt(),
             expiresAt: $invitation->getExpiresAt(),

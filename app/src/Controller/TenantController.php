@@ -42,6 +42,8 @@ use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
@@ -476,7 +478,8 @@ final class TenantController extends AbstractController
         GerarCodigoFuncionario $gerarCodigo,
         ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        RegraDosPrimarios $regraDosPrimarios
     ): Response {
         $currentUser = $this->getUser();
 
@@ -512,6 +515,25 @@ final class TenantController extends AbstractController
             $userTenant->setCodigoFuncionario($gerarCodigo->executar($tenant));
         }
 
+        // Perfil ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
+        // precisa saber se a troca põe ou tira alguém do perfil de sistema.
+        $perfilAnterior = $userTenant->getTenantRole();
+
+        // Spec perfis-master D4 (RegraDosPrimarios): só primário ou Master dá ou tira o perfil de
+        // sistema e troca senha de primário. Para os demais o perfil de sistema nem é opção; se o
+        // alvo já é primário, o único perfil oferecido é o atual (não dá para rebaixar).
+        $podeGerirPrimarios = $regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
+        $podeTrocarSenha    = $regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant);
+        // Conta do Master: o perfil dele só ele mesmo troca (A1). O único perfil oferecido é o atual.
+        $podeAlterarConta   = $regraDosPrimarios->podeAlterarConta($currentUser, $user);
+        if (!$podeAlterarConta && $perfilAnterior !== null) {
+            $tenantRoles = [$perfilAnterior];
+        } elseif (!$podeGerirPrimarios) {
+            $tenantRoles = $perfilAnterior?->isSystem() === true
+                ? [$perfilAnterior]
+                : array_values(array_filter($tenantRoles, static fn ($r): bool => !$r->isSystem()));
+        }
+
         $form = $this->createForm(EditUserTenantRoleType::class, $userTenant, [
             'tenant_roles'    => $tenantRoles,
             'tenant_cargos'   => $cargos,
@@ -519,6 +541,43 @@ final class TenantController extends AbstractController
             'data_admissao'   => $userTenant->getDataAdmissao(),
         ]);
         $form->handleRequest($request);
+
+        if ($form->isSubmitted()) {
+            $eraPrimario  = $perfilAnterior?->isSystem() === true;
+            $seraPrimario = $userTenant->getTenantRole()?->isSystem() === true;
+            $erroDePerfil = null;
+
+            if (!$podeAlterarConta && $userTenant->getTenantRole() !== $perfilAnterior) {
+                $erroDePerfil = 'A conta do Master só pode ser alterada pelo próprio Master.';
+            } elseif ($eraPrimario !== $seraPrimario && !$podeGerirPrimarios) {
+                // Cinto do select: um POST forjado com o id do perfil de sistema cai aqui.
+                $erroDePerfil = 'Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.';
+            } elseif ($eraPrimario && !$seraPrimario) {
+                // Spec §5 E1: esta porta não rebaixa o titular nem o último primário.
+                try {
+                    $regraDosPrimarios->garantirQuePodeDeixarDeSerPrimario($userTenant);
+                } catch (OperacaoDePrimarioRecusada $e) {
+                    $erroDePerfil = $e->getMessage();
+                }
+            }
+
+            if ($erroDePerfil !== null) {
+                $form->get('tenantRole')->addError(new FormError($erroDePerfil));
+                // Desfaz a troca em memória: mais abaixo o ObterOuCriarPerfilUseCase pode dar
+                // flush (perfil pessoal ausente) e levaria a troca recusada junto.
+                $userTenant->setTenantRole($perfilAnterior);
+            }
+
+            $senhaPedida = $form->get('newPassword')->getData();
+            if (is_string($senhaPedida) && trim($senhaPedida) !== '' && !$podeTrocarSenha) {
+                $form->get('newPassword')->addError(new FormError(
+                    $podeAlterarConta
+                        ? 'A senha de um primário só pode ser trocada por um primário ou pelo Master; '
+                            . 'a do primário titular, só por ele mesmo ou pelo Master.'
+                        : 'A conta do Master só pode ser alterada pelo próprio Master.'
+                ));
+            }
+        }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $newPassword = $form->get('newPassword')->getData();
@@ -690,7 +749,8 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        RegraDosPrimarios $regraDosPrimarios
     ): Response {
         $currentUser = $this->getUser();
 
@@ -712,6 +772,10 @@ final class TenantController extends AbstractController
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar nomes de usuário.');
+        }
+
+        if (!$regraDosPrimarios->podeAlterarConta($currentUser, $user)) {
+            throw $this->createAccessDeniedException('A conta do Master só pode ser alterada pelo próprio Master.');
         }
 
         if (!$this->isCsrfTokenValid('edit_user_name_' . $user->getId(), $request->request->get('_token'))) {

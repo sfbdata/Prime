@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -40,7 +41,7 @@ final class SairDoEscritorioUseCaseTest extends TestCase
         $this->userTenantRepository = $this->createMock(UserTenantRepository::class);
         $this->em->method('getConnection')->willReturn($this->conn);
 
-        $remover        = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository);
+        $remover        = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository, new RegraDosPrimarios($this->userTenantRepository));
         $this->useCase  = new SairDoEscritorioUseCase($remover);
     }
 
@@ -119,6 +120,24 @@ final class SairDoEscritorioUseCaseTest extends TestCase
         $this->em->expects($this->never())->method('flush');
 
         $this->expectException(\InvalidArgumentException::class);
+        $this->useCase->executar($usuario, $tenant);
+    }
+
+    #[TestDox('O titular do escritório não sai, mesmo havendo outros primários (D4)')]
+    public function testTitularNaoSai(): void
+    {
+        $tenant  = new Tenant();
+        $usuario = $this->criarUsuario();
+        $tenant->setCriadoPor($usuario);
+        $vinculo = $this->vinculoAdmin($usuario, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(3);
+        $this->em->expects($this->never())->method('remove');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('O titular do escritório não pode sair. Fale com o suporte do BlueJus.');
+
         $this->useCase->executar($usuario, $tenant);
     }
 }

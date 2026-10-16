@@ -13,8 +13,11 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -37,6 +40,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
             $this->invitationRepo,
             $this->userTenantRepo,
             $this->em,
+            new RegraDosPrimarios($this->userTenantRepo),
         );
         $this->tenant  = new Tenant();
         $this->usuario = (new User())->setEmail('usuario@example.com');
@@ -295,5 +299,45 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         $this->expectExceptionMessage('escritório não encontrado');
 
         $this->useCase->executar(new AceitarConviteEscritorioComContaInput('tok123', $this->usuario));
+    }
+
+    #[TestDox('convite de primário: recusado se quem convidou não pode mais gerir primários; nenhum vínculo criado')]
+    public function testConviteDePrimarioDeQuemPerdeuOPoder(): void
+    {
+        $sistema = (new TenantRole())->setIsSystem(true);
+        $quemConvidou = (new User())->setEmail('ex-primario@example.com');
+        $invitation = $this->makePendingOfficeInvitation('usuario@example.com', role: $sistema);
+        $invitation->setCreatedBy($quemConvidou);
+
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        // Hoje quem convidou é secundário no escritório.
+        $this->userTenantRepo->method('findAtivoPorUserETenant')
+            ->willReturn((new UserTenant($quemConvidou, $this->tenant))->setTenantRole(new TenantRole()));
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(OperacaoDePrimarioRecusada::class);
+        $this->expectExceptionMessageMatches('/Peça um novo convite/');
+
+        $this->useCase->executar(new AceitarConviteEscritorioComContaInput(token: 'tok123', usuarioAtual: $this->usuario));
+    }
+
+    #[TestDox('convite de primário: aceito quando quem convidou segue primário ativo')]
+    public function testConviteDePrimarioDePrimarioAtivo(): void
+    {
+        $sistema = (new TenantRole())->setIsSystem(true);
+        $quemConvidou = (new User())->setEmail('primario@example.com');
+        $invitation = $this->makePendingOfficeInvitation('usuario@example.com', role: $sistema);
+        $invitation->setCreatedBy($quemConvidou);
+
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userTenantRepo->method('findAtivoPorUserETenant')
+            ->willReturn((new UserTenant($quemConvidou, $this->tenant))->setTenantRole($sistema));
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn(null);
+        $this->em->expects($this->once())->method('flush');
+
+        $vinculo = $this->useCase->executar(new AceitarConviteEscritorioComContaInput(token: 'tok123', usuarioAtual: $this->usuario));
+
+        self::assertSame($sistema, $vinculo->getTenantRole());
     }
 }

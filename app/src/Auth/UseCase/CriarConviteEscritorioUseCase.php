@@ -9,6 +9,7 @@ use App\Entity\Auth\Invitation;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class CriarConviteEscritorioUseCase
@@ -18,10 +19,17 @@ final class CriarConviteEscritorioUseCase
         private readonly UserRepository $userRepository,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     public function executar(CriarConviteEscritorioInput $input): Invitation
     {
+        // Convite com o perfil de sistema faz do convidado um primário: só primário ou Master
+        // (spec perfis-master D4). OperacaoDePrimarioRecusada é DomainException: vira flash.
+        if ($input->tenantRole->isSystem()) {
+            $this->regraDosPrimarios->garantirQuePodeGerirPrimarios($input->criadoPor, $input->tenant);
+        }
+
         $email = strtolower(trim($input->email));
 
         $existingUser = $this->userRepository->findOneBy(['email' => $email]);
