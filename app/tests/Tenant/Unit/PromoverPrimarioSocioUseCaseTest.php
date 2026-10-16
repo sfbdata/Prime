@@ -11,6 +11,7 @@ use App\Repository\TenantRoleRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\PromoverPrimarioSocioInput;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\PromoverPrimarioSocioUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -25,6 +26,7 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
     private TenantRoleRepository&MockObject $tenantRoleRepository;
     private EntityManagerInterface&MockObject $em;
     private PromoverPrimarioSocioUseCase $useCase;
+    private User $ator;
 
     protected function setUp(): void
     {
@@ -35,7 +37,9 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
             $this->userTenantRepository,
             $this->tenantRoleRepository,
             $this->em,
+            new RegraDosPrimarios($this->userTenantRepository),
         );
+        $this->ator = $this->usuario();
     }
 
     private function usuario(bool $ativo = true): User
@@ -70,7 +74,7 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
         $this->tenantRoleRepository->method('findPerfilDoPrimario')->with($tenant)->willReturn($sistema);
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo));
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo, $this->ator));
 
         self::assertSame($sistema, $vinculo->getTenantRole());
     }
@@ -88,7 +92,7 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/ativos desta conta/');
 
-        $this->useCase->executar(new PromoverPrimarioSocioInput($tenantA, $alvo));
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenantA, $alvo, $this->ator));
     }
 
     #[TestDox('recusa vínculo devolvido de outro escritório (cinto: o repositório não é a única barreira)')]
@@ -104,7 +108,7 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
 
         $this->expectException(OperacaoDePrimarioRecusada::class);
 
-        $this->useCase->executar(new PromoverPrimarioSocioInput($tenantA, $alvo));
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenantA, $alvo, $this->ator));
     }
 
     #[TestDox('recusa vínculo inativo')]
@@ -121,7 +125,7 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/ativos desta conta/');
 
-        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo));
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo, $this->ator));
     }
 
     #[TestDox('recusa conta de usuário desativada')]
@@ -137,7 +141,7 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/desativada/');
 
-        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo));
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo, $this->ator));
     }
 
     #[TestDox('recusa quem já é primário')]
@@ -153,7 +157,7 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/já é primário/');
 
-        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo));
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $alvo, $this->ator));
     }
 
     #[TestDox('recusa perfil de sistema de OUTRO escritório')]
@@ -171,12 +175,27 @@ final class PromoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/perfil de usuário primário/');
 
-        $this->useCase->executar(new PromoverPrimarioSocioInput($tenantA, $alvo));
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenantA, $alvo, $this->ator));
     }
 
     /** UserTenant não tem desativação pública (o vínculo inativo é legado de antes do hard delete). */
     private function desativar(UserTenant $vinculo): void
     {
         (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($vinculo, false);
+    }
+
+    #[TestDox('ninguém além do próprio Master promove um usuário Master')]
+    public function testNaoPromoveMasterPorOutro(): void
+    {
+        $tenant = new Tenant();
+        $master = $this->usuario();
+        $master->setRoles(['ROLE_SUPER_ADMIN']);
+
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(OperacaoDePrimarioRecusada::class);
+        $this->expectExceptionMessageMatches('/próprio Master/');
+
+        $this->useCase->executar(new PromoverPrimarioSocioInput($tenant, $master, $this->ator));
     }
 }

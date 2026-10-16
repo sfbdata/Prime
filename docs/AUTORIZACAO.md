@@ -61,11 +61,22 @@ o papel se chama só "Master" (Painel do Master, selo MASTER). Atribuição só 
 
 Não é atribuída automaticamente no bootstrap de tenant.
 
-**A conta do Master só o próprio Master mexe** (`RegraDosPrimarios::podeAlterarConta()`): nenhum
-outro usuário, nem o primário do escritório onde o Master tem vínculo (como sócio ou secundário),
-troca o perfil dele (edit-role: o select só oferece o perfil atual), a senha (edit-role), o remove do
-escritório (`RemoverColaboradorDoEscritorioUseCase`), nem edita o nome (`edit-name`) ou os dados
-pessoais (`TenantUserProfileController`). Vale também em escritório com `criado_por` nulo. Além do `PermissionChecker`, essa role é verificada
+**A conta do Master só o próprio Master mexe** (`RegraDosPrimarios::podeAlterarConta()`). Nenhum
+outro usuário, nem o primário do escritório onde o Master tem vínculo (como sócio ou secundário), pode,
+sobre um usuário Master:
+
+- trocar o perfil no escritório (edit-role: o select só oferece o perfil atual);
+- trocar a senha (edit-role);
+- editar o nome (`edit-name`) ou os dados pessoais (`TenantUserProfileController`);
+- removê-lo do escritório (`RemoverColaboradorDoEscritorioUseCase`);
+- promovê-lo a primário ou rebaixá-lo pela tela de Perfis (`PromoverPrimarioSocioUseCase` /
+  `RemoverPrimarioSocioUseCase`, que recebem o ator no Input). Na edição do primário o Master aparece
+  sem lixeira para os outros e não entra no select de promover.
+
+Vale também em escritório com `criado_por` nulo. **Não** é garantido o resto: os dados do VÍNCULO do
+Master com o escritório (código do colaborador, cargo, lotação, data de admissão, ponto, jornada e
+acessos item a item) continuam editáveis por quem administra usuários daquele escritório
+(`admin.users.manage`), como os de qualquer colaborador. Além do `PermissionChecker`, essa role é verificada
 em outros pontos:
 
 - `app/src/Security/UserAuthenticator.php` (l. 72): usuário sem tenant

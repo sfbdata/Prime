@@ -8,6 +8,7 @@ use App\Repository\TenantRoleRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\PromoverPrimarioSocioInput;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -35,10 +36,14 @@ final class PromoverPrimarioSocioUseCase
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantRoleRepository $tenantRoleRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     public function executar(PromoverPrimarioSocioInput $input): void
     {
+        // A conta do Master só o próprio Master mexe (spec D2), inclusive o perfil dele aqui.
+        $this->regraDosPrimarios->garantirQuePodeAlterarConta($input->ator, $input->alvo);
+
         $vinculo = $this->userTenantRepository->findAtivoPorUserETenant($input->alvo, $input->tenant);
         if ($vinculo === null || !$vinculo->isActive() || !$this->mesmoEscritorio($vinculo->getTenant(), $input->tenant)) {
             throw new OperacaoDePrimarioRecusada(

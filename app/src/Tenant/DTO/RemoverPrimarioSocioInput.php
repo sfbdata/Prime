@@ -14,6 +14,8 @@ final readonly class RemoverPrimarioSocioInput
         public User $alvo,
         /** Perfil secundário que o sócio passa a ter. Nulo é recusado com mensagem. */
         public ?TenantRole $perfilDestino,
+        /** Quem remove: a conta do Master só o próprio Master mexe (RegraDosPrimarios). */
+        public User $ator,
     ) {
     }
 }

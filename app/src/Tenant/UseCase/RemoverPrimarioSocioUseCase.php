@@ -38,6 +38,9 @@ final class RemoverPrimarioSocioUseCase
 
     public function executar(RemoverPrimarioSocioInput $input): void
     {
+        // A conta do Master só o próprio Master mexe (spec D2), inclusive rebaixá-lo aqui.
+        $this->regraDosPrimarios->garantirQuePodeAlterarConta($input->ator, $input->alvo);
+
         $vinculo = $this->userTenantRepository->findAtivoPorUserETenant($input->alvo, $input->tenant);
         if ($vinculo === null || !$vinculo->isActive() || !$this->mesmoEscritorio($vinculo->getTenant(), $input->tenant)) {
             throw new OperacaoDePrimarioRecusada('Este usuário não é primário ativo desta conta.');

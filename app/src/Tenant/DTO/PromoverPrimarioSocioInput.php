@@ -11,6 +11,8 @@ final readonly class PromoverPrimarioSocioInput
     public function __construct(
         public Tenant $tenant,
         public User $alvo,
+        /** Quem promove: a conta do Master só o próprio Master mexe (RegraDosPrimarios). */
+        public User $ator,
     ) {
     }
 }

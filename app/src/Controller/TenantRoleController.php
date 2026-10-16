@@ -269,7 +269,7 @@ final class TenantRoleController extends AbstractController
         PermissionChecker $checker
     ): Response {
         $tenant = $this->assertAccess($tenantId, $checker);
-        $this->assertPrimarioOuMaster($tenant);
+        $ator   = $this->assertPrimarioOuMaster($tenant);
 
         if (!$this->isCsrfTokenValid('promover_primario_' . $tenant->getId(), $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -285,7 +285,7 @@ final class TenantRoleController extends AbstractController
         }
 
         try {
-            $promover->executar(new PromoverPrimarioSocioInput($tenant, $alvo));
+            $promover->executar(new PromoverPrimarioSocioInput($tenant, $alvo, $ator));
             $this->addFlash('success', sprintf('"%s" agora é primário sócio do escritório.', $alvo->getFullName()));
         } catch (OperacaoDePrimarioRecusada $e) {
             $this->addFlash('error', $e->getMessage());
@@ -305,7 +305,7 @@ final class TenantRoleController extends AbstractController
         PermissionChecker $checker
     ): Response {
         $tenant = $this->assertAccess($tenantId, $checker);
-        $this->assertPrimarioOuMaster($tenant);
+        $ator   = $this->assertPrimarioOuMaster($tenant);
 
         if (!$this->isCsrfTokenValid('remover_primario_' . $userId, $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -323,7 +323,7 @@ final class TenantRoleController extends AbstractController
             : null;
 
         try {
-            $remover->executar(new RemoverPrimarioSocioInput($tenant, $alvo, $destino));
+            $remover->executar(new RemoverPrimarioSocioInput($tenant, $alvo, $destino, $ator));
             $this->addFlash('success', sprintf('"%s" deixou de ser primário e voltou a ser secundário.', $alvo->getFullName()));
         } catch (OperacaoDePrimarioRecusada $e) {
             $this->addFlash('error', $e->getMessage());
@@ -383,16 +383,24 @@ final class TenantRoleController extends AbstractController
         TenantRoleRepository $roleRepository,
         UserTenantRepository $userTenantRepository
     ): Response {
+        $ator        = $this->getUser();
         $primarios   = [];
         $secundarios = [];
         foreach ($userTenantRepository->findAtivosComPerfilPorTenant($tenant) as $vinculo) {
+            // Conta do Master: para os outros, sem lixeira e fora do select de promover (D2).
+            $protegido = !$ator instanceof User
+                || !$this->regraDosPrimarios->podeAlterarConta($ator, $vinculo->getUser());
+
             if ($this->regraDosPrimarios->ehPrimario($vinculo)) {
-                $primarios[] = $this->pessoa($vinculo) + ['titular' => $this->regraDosPrimarios->ehTitular($vinculo)];
+                $primarios[] = $this->pessoa($vinculo) + [
+                    'titular'   => $this->regraDosPrimarios->ehTitular($vinculo),
+                    'protegido' => $protegido,
+                ];
 
                 continue;
             }
 
-            if ($vinculo->getUser()->isActive()) {
+            if ($vinculo->getUser()->isActive() && !$protegido) {
                 $secundarios[] = $this->pessoa($vinculo) + [
                     'perfil' => $vinculo->getTenantRole()?->getName() ?? 'sem perfil',
                 ];
@@ -406,8 +414,6 @@ final class TenantRoleController extends AbstractController
             static fn (TenantRole $r): array => ['id' => $r->getId(), 'nome' => $r->getName()],
             $roleRepository->findSecundarios($tenant)
         );
-
-        $ator = $this->getUser();
 
         return $this->render('tenant_role/edit.html.twig', [
             'tenantId'          => $tenant->getId(),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Tenant\Functional;
 
 use App\Controller\TenantController;
+use App\Controller\TenantRoleController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -31,6 +32,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 #[CoversClass(TenantController::class)]
 #[CoversClass(TenantUserProfileController::class)]
+#[CoversClass(TenantRoleController::class)]
 #[CoversClass(RegraDosPrimarios::class)]
 final class ContaDoMasterProtegidaTest extends JusPrimeWebTestCase
 {
@@ -147,6 +149,53 @@ final class ContaDoMasterProtegidaTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertTrue($this->senhaConfere($master, 'SenhaNova#2026'));
+    }
+
+    #[TestDox('Perfis: o primário não promove a primário um Master secundário')]
+    public function testPerfisNaoPromoveMaster(): void
+    {
+        $master = $this->criarMaster(false);
+
+        $this->logarComTenant($this->client, $this->primario, $this->tenant);
+        $this->client->request('POST', sprintf('/tenant/%d/roles/primarios/promover', $this->tenant->getId()), [
+            'usuario' => $master->getId(),
+            '_token'  => $this->tokenCsrf('promover_primario_' . $this->tenant->getId()),
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertFalse($this->vinculo($master)?->getTenantRole()?->isSystem());
+    }
+
+    #[TestDox('Perfis: o primário não rebaixa um Master sócio')]
+    public function testPerfisNaoRebaixaMaster(): void
+    {
+        $master = $this->criarMaster(true);
+
+        $this->logarComTenant($this->client, $this->primario, $this->tenant);
+        $this->client->request('POST', sprintf('/tenant/%d/roles/primarios/%d/remover', $this->tenant->getId(), $master->getId()), [
+            'perfil_destino' => $this->perfilSecundario->getId(),
+            '_token'         => $this->tokenCsrf('remover_primario_' . $master->getId()),
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertTrue($this->vinculo($master)?->getTenantRole()?->isSystem());
+    }
+
+    #[DataProvider('vinculoDoMaster')]
+    #[TestDox('Perfis: na edição do primário, o Master não tem lixeira nem entra no select de promover')]
+    public function testPerfisEscondeAcoesSobreOMaster(bool $comoSocio): void
+    {
+        $master = $this->criarMaster($comoSocio);
+
+        $this->logarComTenant($this->client, $this->primario, $this->tenant);
+        $crawler = $this->client->request('GET', sprintf('/tenant/%d/roles/%d/edit', $this->tenant->getId(), $this->perfilPrimario->getId()));
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(0, $crawler->filter(sprintf('select[name=usuario] > option[value="%d"]', $master->getId())));
+        self::assertCount(0, $crawler->filter(sprintf('form[action$="/primarios/%d/remover"]', $master->getId())));
+        if ($comoSocio) {
+            self::assertCount(1, $crawler->filter('[data-pf-primarios] > [data-pf-primario]:contains("Master do Sistema")'));
+        }
     }
 
     // ── apoio ──────────────────────────────────────────────────────────────

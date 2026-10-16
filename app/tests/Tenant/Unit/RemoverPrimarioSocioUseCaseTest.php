@@ -25,6 +25,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
     private UserTenantRepository&MockObject $userTenantRepository;
     private EntityManagerInterface&MockObject $em;
     private RemoverPrimarioSocioUseCase $useCase;
+    private User $ator;
 
     protected function setUp(): void
     {
@@ -35,6 +36,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
             new RegraDosPrimarios($this->userTenantRepository),
             $this->em,
         );
+        $this->ator = $this->usuario('Primário que age');
     }
 
     private function usuario(string $nome): User
@@ -78,7 +80,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(2);
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
 
         self::assertSame($destino, $vinculo->getTenantRole());
     }
@@ -99,7 +101,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectExceptionMessageMatches('/titular/');
 
         try {
-            $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $titular, $destino));
+            $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $titular, $destino, $this->ator));
         } finally {
             self::assertTrue($vinculoTitular->getTenantRole()?->isSystem());
         }
@@ -117,7 +119,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/último primário/');
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
     }
 
     #[TestDox('recusa usuário sem vínculo ativo neste escritório (outro escritório não atravessa)')]
@@ -131,7 +133,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/primário ativo desta conta/');
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
     }
 
     #[TestDox('recusa vínculo inativo')]
@@ -145,7 +147,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
 
         $this->expectException(OperacaoDePrimarioRecusada::class);
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
     }
 
     #[TestDox('recusa quem não é primário')]
@@ -160,7 +162,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/não é primário/');
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
     }
 
     #[TestDox('exige perfil de destino; recusa destino de sistema ou de outro escritório')]
@@ -179,7 +181,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
 
         foreach ($destinosInvalidos as $caso => $destino) {
             try {
-                $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+                $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
                 self::fail('deveria recusar destino: ' . $caso);
             } catch (OperacaoDePrimarioRecusada) {
                 self::assertTrue($vinculo->getTenantRole()?->isSystem(), 'o vínculo não pode mudar: ' . $caso);
@@ -197,7 +199,7 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(1);
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
 
         self::assertSame($destino, $vinculo->getTenantRole());
     }
@@ -217,7 +219,23 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         $this->expectException(OperacaoDePrimarioRecusada::class);
         $this->expectExceptionMessageMatches('/titular/');
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $titular, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $titular, $destino, $this->ator));
+    }
+
+    #[TestDox('ninguém além do próprio Master rebaixa um usuário Master')]
+    public function testNaoRebaixaMasterPorOutro(): void
+    {
+        [$tenant, $socio, $vinculo, $destino] = $this->cenario();
+        $socio->setRoles(['ROLE_SUPER_ADMIN']);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(3);
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(OperacaoDePrimarioRecusada::class);
+        $this->expectExceptionMessageMatches('/próprio Master/');
+
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino, $this->ator));
     }
 
     /** UserTenant não tem desativação pública (o vínculo inativo é legado de antes do hard delete). */

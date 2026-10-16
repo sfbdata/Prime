@@ -36,7 +36,7 @@
                         <i class="bi bi-lock-fill pf-cadeado-titular" title="O primário titular (quem abriu a conta) não pode ser excluído"></i>
                     {% else %}
                         <span class="pf-tag pf-tag-socio">PRIMÁRIO SÓCIO</span>
-                        {% if podeGerirPrimarios %}
+                        {% if podeGerirPrimarios and not p.protegido %}
                         <form method="post" action="{{ path('app_tenant_role_primario_remover', {tenantId: tenantId, userId: p.userId}) }}" class="d-inline" data-pf-form-remover-primario>
                             <input type="hidden" name="_token" value="{{ csrf_token('remover_primario_' ~ p.userId) }}">
                             <input type="hidden" name="perfil_destino" value="" data-pf-destino>
