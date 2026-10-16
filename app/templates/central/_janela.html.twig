@@ -1,0 +1,142 @@
+{# Janela da Central — componente isolado (D6). Todo o conteúdo dinâmico é montado por central.js com
+   textContent; nada de dado de conversa passa por este template. As URLs vêm do router, não do JS. #}
+<section class="bj-central" data-central
+         data-url-conversas="{{ path('central_conversas') }}"
+         data-url-contatos="{{ path('central_contatos') }}"
+         data-url-novidades="{{ path('central_novidades') }}"
+         data-url-conversa-base="{{ path('central_conversas') }}"
+         data-url-grupos="{{ path('central_grupo_criar') }}"
+         data-url-equipe="{{ path('central_equipe') }}"
+         data-url-avisos="{{ path('central_avisos') }}"
+         data-url-ler-tudo="{{ path('central_ler_tudo') }}"
+         data-url-limpar-lidos="{{ path('central_avisos_limpar') }}"
+         data-url-presenca="{{ path('central_presenca') }}"
+         data-eu-nome="{{ eu.fullName }}"
+         data-eu-id="{{ eu.id }}"
+         data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
+         {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
+         data-modo="{{ modo|default('pagina') }}"
+         aria-label="Central de Comunicação">
+    <header class="bj-central-cab">
+        <button type="button" class="bj-central-btn-ico" data-central-voltar hidden aria-label="Voltar para as conversas" title="Voltar">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        </button>
+        {# Na lista, o avatar de quem está usando, com o anel do desenho (L6337) e o ponto do MEU status (F2). Foto do
+           perfil quando houver; senão as iniciais (avatarU, L5409). #}
+        <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-eu aria-hidden="true">
+            {%- if fotoPerfilUrl|default(null) -%}
+                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}" alt="">
+            {%- else -%}
+                {{ eu.fullName|split(' ')|filter(p => p is not empty)|slice(0, 2)|map(p => p|first|upper)|join('') }}
+            {%- endif -%}
+            <span class="bj-central-cab-ponto" data-central-cab-ponto></span>
+        </span>
+        <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-avatar aria-hidden="true" hidden></span>
+        <div class="bj-central-cab-textos">
+            <div class="bj-central-cab-linha">
+                <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
+                {# F2: "N on-line" (L6337); abre a lista de quem está on-line #}
+                <button type="button" class="bj-central-online" data-central-online hidden aria-expanded="false">
+                    <span class="bj-central-online-ponto" aria-hidden="true"></span><span data-central-online-texto></span>
+                </button>
+            </div>
+            <div class="bj-central-cab-sub" data-central-cab-sub>{{ eu.fullName }}</div>
+        </div>
+        {# B: informações do grupo (só com grupo aberto) e o ⋮ da lista (novo grupo, arquivadas — desenho L6259) #}
+        <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-info hidden aria-label="Informações do grupo" title="Ver informações">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-mais aria-label="Mais opções" title="Mais opções" aria-haspopup="menu" aria-expanded="false">
+            <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+        </button>
+        {% if modo|default('pagina') == 'flutuante' %}
+            {# Botões de janela do desenho (L6340-6345), na ordem dele: destacar (B2: janela própria, Picture-in-Picture
+               ou pop-up), minimizar, maximizar/restaurar, fechar. #}
+            <div class="bj-central-janela-acoes">
+                <button type="button" class="bj-central-btn-ico" data-flutuante-destacar title="Destacar: levar o chat para qualquer lugar da tela" aria-label="Destacar">
+                    <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="bj-central-btn-ico" data-flutuante-minimizar title="Minimizar: recolher para o ícone de conversas" aria-label="Minimizar">
+                    <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="bj-central-btn-ico" data-flutuante-maximizar title="Maximizar" aria-label="Maximizar">
+                    <i class="bi bi-square" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="bj-central-btn-ico" data-flutuante-fechar title="Fechar" aria-label="Fechar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+        {% endif %}
+    </header>
+
+    <div class="bj-central-lista-tela" data-central-tela-lista>
+        <div class="bj-central-busca">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input type="search" class="bj-central-busca-campo" data-central-busca
+                   placeholder="Pesquisar usuário..." aria-label="Pesquisar usuário" autocomplete="off">
+        </div>
+        {# Abas do desenho (L6366): Caixa de entrada (com o total) e Painel #}
+        <div class="bj-central-abas" role="tablist">
+            <button type="button" class="bj-central-aba" role="tab" data-central-aba="entrada" aria-selected="true">
+                Caixa de entrada <span class="bj-central-aba-contador" data-central-aba-contador hidden></span>
+            </button>
+            <button type="button" class="bj-central-aba" role="tab" data-central-aba="painel" aria-selected="false">Painel</button>
+        </div>
+        {# Filtros da Caixa (L5776), na ordem do desenho. F1: Urgente, Atenção e Metas com os avisos do sino; "Para
+           revisar" fica fora (não há marcação de revisão no BlueJus). #}
+        <div class="bj-central-filtros" data-central-filtros>
+            <button type="button" class="bj-central-filtro" data-central-filtro="" aria-pressed="true" title="Tudo" aria-label="Filtrar: Tudo" style="--bjc-filtro: #4f6878">
+                <i class="bi bi-inbox" aria-hidden="true"></i>
+            </button>
+            {% for f in [
+                {chave: 'conversas', rotulo: 'Conversas', cor: '#3b6e8f'},
+                {chave: 'urgente', rotulo: 'Urgente', cor: '#c0392f'},
+                {chave: 'atencao', rotulo: 'Atenção', cor: '#c8952a'},
+                {chave: 'mencoes', rotulo: 'Menções', cor: '#0a7aad'},
+                {chave: 'metas', rotulo: 'Metas', cor: '#1f9d61'},
+            ] %}
+                <button type="button" class="bj-central-filtro" data-central-filtro="{{ f.chave }}" aria-pressed="false" title="{{ f.rotulo }}" aria-label="Filtrar: {{ f.rotulo }}" style="--bjc-filtro: {{ f.cor }}">
+                    <span class="bj-central-filtro-bola" aria-hidden="true"></span>
+                </button>
+            {% endfor %}
+        </div>
+        <div class="bj-central-painel-grade" data-central-painel hidden></div>
+        <div class="bj-central-faixa-arquivadas" data-central-faixa-arquivadas hidden>
+            <span><i class="bi bi-archive" aria-hidden="true"></i> Mostrando arquivadas</span>
+            <button type="button" data-central-ocultar-arquivadas>Ocultar</button>
+        </div>
+        <div class="bj-central-lista" data-central-lista role="list"></div>
+    </div>
+
+    {# B: telas de "Novo grupo" (L6202) e "Ver informações" (L6164) — montadas por central.js #}
+    <div class="bj-central-painel" data-central-tela-novo-grupo hidden></div>
+    <div class="bj-central-painel" data-central-tela-info hidden></div>
+
+    <div class="bj-central-conversa-tela" data-central-tela-conversa hidden>
+        <div class="bj-central-corpo" data-central-corpo aria-live="polite"></div>
+        <div class="bj-central-rodape" data-central-rodape>
+            {# A2: faixa "Respondendo a…" e, dentro do compositor, a lista de @menção — preenchidas por central.js #}
+            <div class="bj-central-respondendo" data-central-respondendo hidden>
+                <span class="bj-central-respondendo-barra" aria-hidden="true"></span>
+                <div class="bj-central-respondendo-textos">
+                    <div class="bj-central-respondendo-rotulo" data-central-respondendo-rotulo></div>
+                    <div class="bj-central-respondendo-trecho" data-central-respondendo-trecho></div>
+                </div>
+                <button type="button" class="bj-central-respondendo-cancelar" data-central-respondendo-cancelar aria-label="Cancelar resposta" title="Cancelar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form class="bj-central-compositor" data-central-compositor>
+                <div class="bj-central-mencoes" data-central-mencoes role="listbox" aria-label="Mencionar" hidden></div>
+                {# Sem maxlength: ele conta em UTF-16 (emoji = 2) e o servidor conta o texto visível por caractere —
+                   o teto é conferido no envio, pela mesma regra do servidor (central.js, tamanhoVisivel). #}
+                <textarea class="bj-central-campo" data-central-campo rows="1"
+                          placeholder="Digite uma mensagem…" aria-label="Mensagem"
+                          aria-autocomplete="list" autocomplete="off"></textarea>
+                <button type="submit" class="bj-central-enviar" data-central-enviar aria-label="Enviar" title="Enviar (Enter)">
+                    <i class="bi bi-send-fill" aria-hidden="true"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</section>

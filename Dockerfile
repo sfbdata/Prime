@@ -43,6 +43,15 @@ RUN { \
     echo "post_max_size = 70M"; \
 } > /usr/local/etc/php/conf.d/limits.ini
 
+# register_argc_argv DESLIGADO no PHP-FPM. A imagem oficial não traz php.ini e o padrão do PHP é
+# On: aí uma requisição como `/?=+--env=xyz` chega com $_GET vazio e argv = ['=', '--env=xyz'],
+# e o SymfonyRuntime troca o APP_ENV antes do roteamento e do login (CVE-2026-47767, que fura
+# a correção da CVE-2024-50340). php_admin_flag no POOL, e não um .ini em conf.d: vale só para
+# o FPM, não pode ser religado por ini_set, e a CLI (bin/console, worker, entrypoint) continua
+# recebendo argumentos. Prova: scripts/testar-register-argc-argv.sh.
+RUN printf '[www]\nphp_admin_flag[register_argc_argv] = off\n' \
+    > /usr/local/etc/php-fpm.d/zz-seguranca.conf
+
 # -----------------------------------------------
 # DEV
 # -----------------------------------------------

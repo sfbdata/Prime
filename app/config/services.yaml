@@ -28,6 +28,8 @@ parameters:
     # (/var/www/app em prod), portanto FORA do volume uploads_prod: o arquivo sobrevivia só até
     # o próximo deploy. Agora é absoluto e explícito, como os outros seis.
     kanban_uploads_dir: '%kernel.project_dir%/public/uploads/kanban'
+    # Documentos das demandas do Trabalho Externo (categoria plana, nome opaco cunhado pelo storage).
+    trabalho_externo_uploads_dir: '%kernel.project_dir%/public/uploads/trabalho-externo'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -70,6 +72,16 @@ parameters:
     # no alias abaixo + Anexo I da Política de Privacidade (decisões D1/D3 da spec).
     ia_habilitada: '%env(default:default_ia_habilitada:bool:IA_HABILITADA)%'
     default_ia_habilitada: false
+    # Provedor da BlueJus IA = Anthropic (decisão D1, 14/10/2026). Chave e modelo SÓ por ambiente (.env.prod na
+    # VPS, nunca no repositório); vazios = provedor dormente, mesmo com IA_HABILITADA=1. Proposta de modelo e
+    # cotas: docs/specs/inteligencia-provedor-anthropic.md.
+    ia_anthropic_chave: '%env(string:default::ANTHROPIC_API_KEY)%'
+    ia_anthropic_modelo: '%env(string:default::IA_MODELO)%'
+    # Esforço (output_config.effort): vazio = padrão do modelo. É a alavanca de custo — ver a proposta.
+    ia_anthropic_esforco: '%env(string:default::IA_ESFORCO)%'
+    # Folga somada ao max_tokens de cada prompt: o raciocínio adaptativo dos modelos atuais conta no max_tokens.
+    ia_anthropic_margem_raciocinio: '%env(int:default:default_ia_anthropic_margem_raciocinio:IA_MARGEM_RACIOCINIO)%'
+    default_ia_anthropic_margem_raciocinio: 8000
 
 services:
     # default configuration for services in *this* file
@@ -89,6 +101,7 @@ services:
             string $fotosPerfilDir: '%fotos_perfil_dir%'
             string $cobrancasUploadsDir: '%cobrancas_uploads_dir%'
             string $kanbanUploadsDir: '%kanban_uploads_dir%'
+            string $trabalhoExternoUploadsDir: '%trabalho_externo_uploads_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
             string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
@@ -115,11 +128,17 @@ services:
     # web service oficial. Trocar aqui quando houver backend real.
     App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'
 
-    # BlueJus IA: provedor de linguagem DORMENTE (mesmo padrão do OAB) enquanto o dono não escolhe o
-    # fornecedor (D1). Nunca devolve texto que não veio do modelo: sem provedor é exceção → status
-    # `indisponivel`. Quando houver provedor real, trocar este alias. Em `when@test` vira o
-    # ProvedorFalso (abaixo).
-    App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorNaoConfigurado'
+    # BlueJus IA: o provedor é a Anthropic (D1, 14/10/2026). DORMENTE até haver ANTHROPIC_API_KEY e IA_MODELO no
+    # ambiente — sem os dois, `estaConfigurado()` é falso e nenhuma chamada sai (igual ao ProvedorNaoConfigurado,
+    # que fica para instalação sem IA). Nunca devolve texto que não veio do modelo. Em `when@test` vira o
+    # ProvedorFalso (abaixo): a suíte nunca chama a API.
+    App\Inteligencia\Service\ProvedorAnthropic:
+        arguments:
+            $chave: '%ia_anthropic_chave%'
+            $modelo: '%ia_anthropic_modelo%'
+            $esforco: '%ia_anthropic_esforco%'
+            $margemDeRaciocinio: '%ia_anthropic_margem_raciocinio%'
+    App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorAnthropic'
     # Leitura das movimentações para o contexto da IA (publicações + Datajud), tenant explícito.
     App\Inteligencia\Contexto\FonteDeMovimentacoesDoPush: '@App\Inteligencia\Contexto\FonteDeMovimentacoesDoPushDoctrine'
 
@@ -190,6 +209,7 @@ when@test:
         fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
         cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test/cobrancas'
         kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test/kanban'
+        trabalho_externo_uploads_dir: '%kernel.project_dir%/var/uploads-test/trabalho-externo'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true

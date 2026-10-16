@@ -1,0 +1,121 @@
+# Portão de qualidade de todo PR para o master: o que roda em segundos e pega quebra de
+# configuração, template, mapeamento ou regra de negócio isolada antes do merge.
+#
+# O que roda e por quê:
+#   - lint:yaml / lint:twig / lint:container — erro de sintaxe ou de injeção que só apareceria
+#     no deploy (o container de prod faz cache:warmup no build).
+#   - doctrine:schema:validate --skip-sync — mapeamento Doctrine são. Não compara com banco:
+#     a sincronia é conferida no ritual de migration (scripts/frente-fechar.sh).
+#   - tests/*/Unit + tests/Arquitetura + tests/Twig — 5216 testes, ~40 s, zero skip (medido em
+#     14/10/2026). Os Unit não tocam banco; dois testes de Arquitetura/Twig sobem o kernel e rodam
+#     contra o banco que este job monta só com `schema:create` — que, de quebra, prova que o
+#     mapeamento gera DDL válido no PostgreSQL 15.
+#   - --fail-on-skipped: vários testes se pulam sozinhos quando falta algo do ambiente (gs,
+#     posix, /proc). Sem a flag, um runner divergente ficaria verde com menos cobertura.
+#
+# O que NÃO roda, de propósito:
+#   - Functional/Integration: parte deles precisa da extensão `unaccent`, das funções do schema
+#     public e de índices que vêm de SQL cru das migrations — que, por sua vez, supõem dados de
+#     um dump (ver scripts/frente-abrir.sh). Em banco de `schema:create` dão falso vermelho.
+#     A suíte completa continua sendo a do container, antes do merge.
+#   - composer audit: hoje acusa dezenas de advisories herdados; como portão, travaria todo PR.
+#
+# O ambiente replica do Dockerfile (stage base) o que os testes usam: Ghostscript (compressão e
+# contagem de páginas de PDF), bcmath (atualização monetária), gd com freetype/jpeg, intl e o
+# fuso America/Sao_Paulo. sodium (CifradorDeSegredo) e posix vêm embutidos na imagem php:8.2;
+# aqui ficam explícitos.
+
+name: Qualidade
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # PR: o run novo cancela o anterior (ele valida o PR inteiro de novo). Push no master: um
+  # grupo por run, para nenhum commit do master ficar sem validação.
+  group: qualidade-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  qualidade:
+    name: Lints e testes unitários
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: saas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d saas"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: app
+
+    env:
+      APP_ENV: test
+      TZ: America/Sao_Paulo
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/saas?serverVersion=15&charset=utf8"
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Instalar Ghostscript
+        working-directory: .
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ghostscript
+          gs --version
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.2"
+          extensions: bcmath, ctype, dom, fileinfo, gd, iconv, intl, libxml, mbstring, pdo_pgsql, posix, simplexml, sodium, xml, xmlreader, xmlwriter, zip, zlib
+          ini-values: date.timezone=America/Sao_Paulo, memory_limit=1G
+          tools: composer:v2
+          coverage: none
+
+      - name: Validar Composer
+        run: composer validate --no-check-publish
+
+      - name: Instalar dependencias
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Lint de YAML, Twig e container
+        run: |
+          php bin/console lint:yaml config --parse-tags
+          php bin/console lint:twig templates
+          php bin/console lint:container
+
+      - name: Validar mapeamento Doctrine
+        run: php bin/console doctrine:schema:validate --skip-sync
+
+      - name: Preparar banco de teste
+        run: |
+          php bin/console doctrine:database:create --if-not-exists
+          php bin/console doctrine:schema:create
+
+      - name: Testes unitarios e de arquitetura
+        run: php bin/phpunit --fail-on-skipped tests/*/Unit tests/Arquitetura tests/Twig

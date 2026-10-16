@@ -23,6 +23,8 @@ use App\ServiceDesk\Armazenamento\ChavesDeServiceDesk;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\NovoArquivo;
+use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
+use App\TrabalhoExterno\Entity\DemandaExterna;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -101,6 +103,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ChavesDePonto::class . '::novoAnexoDeJustificativa',
             static fn (?Tenant $t): object => self::comTenant(new JustificativaPonto(), $t),
             CategoriaDeArquivo::JUSTIFICATIVA_ANEXO,
+        ];
+        yield ChavesDeTrabalhoExterno::class . '::novoDocumento' => [
+            ChavesDeTrabalhoExterno::class . '::novoDocumento',
+            static fn (?Tenant $t): object => new DemandaExterna($t ?? new Tenant(), null),
+            CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO,
         ];
         yield ChavesDePonto::class . '::novoAnexoDeLote' => [
             ChavesDePonto::class . '::novoAnexoDeLote',

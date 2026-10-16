@@ -35,3 +35,16 @@ dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github
 dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:178
 dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:188
 dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:202
+
+# e2e/tests/central-fidelidade.spec.js (Central, 16/10/2026): o evento storage do teste citava, entre aspas, o NOME
+# da chave de localStorage do protótipo do Designer (bj-central-v1), não um segredo; a regra generic-api-key confunde.
+# Conferido no PR #12; a linha atual usa a constante CHAVE_DB_PROTOTIPO e não dispara mais.
+42dd165e417cc9da261cea7fcfaf586da1f8fad7:e2e/tests/central-fidelidade.spec.js:generic-api-key:153
+0499001eb8421f37204538e7a8b464f81a6f0773:e2e/tests/central-fidelidade.spec.js:generic-api-key:174
+
+# docs/design/trabalho-externo/bluejus-central.js (Trabalho Externo, 16/10/2026): cópia fiel do protótipo do Designer.
+# As linhas citam, entre aspas, NOMES de chaves de localStorage (bj-central-v1, bj-pasta-acesso-pedidos-v1), não
+# segredos; a regra generic-api-key confunde (mesmo caso do PR #12). Conferido no PR #13; o arquivo é referência de
+# desenho e não deve ser editado.
+74a9dcc46ef501f1294436f2cb9f09dde0e6e1d8:docs/design/trabalho-externo/bluejus-central.js:generic-api-key:11
+74a9dcc46ef501f1294436f2cb9f09dde0e6e1d8:docs/design/trabalho-externo/bluejus-central.js:generic-api-key:150

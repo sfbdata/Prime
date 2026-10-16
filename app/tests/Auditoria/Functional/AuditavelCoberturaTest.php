@@ -68,6 +68,17 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Última visita do usuário à Timeline da pasta (M4/PAS-043, 07/10): marcador pessoal de leitura,
         // regravado a cada abertura, como os favoritos e as preferências. Não é ato sobre dado do escritório.
         \App\Pasta\Entity\PastaTimelineVisita::class,
+        // Central de Comunicação (A1, 14/10): a conversa é das duas pessoas. O AuditLogSubscriber grava o estado
+        // inteiro da entidade, e o audit_log é lido por quem administra o escritório — auditar entregaria a
+        // conversa privada a terceiros (spec central-comunicacao-a1 §3). O participante é cursor de leitura.
+        \App\Central\Entity\Conversa::class,
+        \App\Central\Entity\Participante::class,
+        \App\Central\Entity\Mensagem::class,
+        // Presença na Central (F2, 16/10): batimento a cada 20 s por pessoa. É atividade, não dado de negócio; auditar
+        // cada batimento inundaria o audit_log e exporia a rotina de cada um a quem administra.
+        \App\Central\Entity\Presenca::class,
+        // Baixa de aviso na Central (F3): preferência de leitura da pessoa, como "lida" no sino (que não é auditada).
+        \App\Central\Entity\AvisoResolvido::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
@@ -133,6 +144,21 @@ final class AuditavelCoberturaTest extends KernelTestCase
         RelatorioImportado::class,
         RelatorioLinha::class,
         RelatorioTotalizador::class,
+
+        // Trabalho Externo (spec docs/specs/trabalho-externo.md): domínio novo, mesma decisão de
+        // Processo/Cliente/DJEN. A demanda já tem o LOG DE DOMÍNIO próprio (HistoricoDemanda: de, para,
+        // quem, quando, motivo; e os registros de sistema no chat), visível a quem atende, como o
+        // EventoHistorico da Cobrança. Auditar seria log de log. Expandir é decisão do dono.
+        \App\TrabalhoExterno\Entity\DemandaExterna::class,
+        \App\TrabalhoExterno\Entity\HistoricoDemanda::class,
+        \App\TrabalhoExterno\Entity\MensagemDemanda::class,
+        \App\TrabalhoExterno\Entity\LeituraDemanda::class,
+        \App\TrabalhoExterno\Entity\PropostaDemanda::class,
+        \App\TrabalhoExterno\Entity\DocumentoDemanda::class,
+        \App\TrabalhoExterno\Entity\ConviteDemanda::class,
+        \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
+        \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,
+        \App\TrabalhoExterno\Entity\ConfiguracaoCentral::class,
     ];
 
     private EntityManagerInterface $em;

@@ -1,0 +1,161 @@
+# Cria a tag vX.Y.Z e a release do GitHub — e SÓ num commit do master que passou no CI.
+#
+# Disparo manual (Actions → Release → Run workflow, a partir do master), depois que o PR de
+# release foi mergeado. Recusa, sem criar nada, quando:
+#   - não foi disparado a partir do master (este arquivo e, acima dele, a política de branches do
+#     ambiente `release`: job de outra branch não entra no ambiente nem recebe a chave do App);
+#   - a seção [Não lançado] do CHANGELOG não está vazia (mudança que não é da versão);
+#   - a versão não é SemVer, ou VersaoDoSistema::ATUAL / CHANGELOG não batem com ela
+#     (scripts/release.sh validar — o mesmo contrato do VersaoDoSistemaTest);
+#   - a tag já existe;
+#   - os checks obrigatórios do master ("Segredos" e "Lints e testes unitários") não estão verdes
+#     NESTE commit.
+#
+# Quem cria a tag é o GitHub App "BlueJus Release", a ÚNICA exceção do ruleset que protege as tags
+# v* (o GITHUB_TOKEN não está disponível como exceção de ruleset). A chave do App existe só no
+# ambiente `release` — nenhuma cópia fora dele — e o token é gerado no último passo, depois de
+# todas as recusas, válido só para este repositório e só com contents:write.
+# Configuração, testes e reversão: docs/runbooks/protecao-tags-versao.md.
+# A release leva como corpo a seção da versão no CHANGELOG. Procedimento: docs/versionamento.md.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versão a lançar, sem o v (exemplo: 2.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Criar tag e release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Só jobs do master entram (política de branches do ambiente) e, se houver revisor
+    # configurado, o job espera a aprovação ANTES de receber a chave do App.
+    environment: release
+    permissions:
+      contents: read # o GITHUB_TOKEN só lê: quem escreve a tag é o App
+      checks: read   # ler o resultado dos checks do commit
+
+    # `shell: bash` explícito liga o pipefail (o padrão do Actions sem ele é só `bash -e`).
+    defaults:
+      run:
+        shell: bash
+
+    # Nenhum token aqui: cada passo recebe só o que usa. O código do repositório
+    # (scripts/release.sh) roda sem token nenhum.
+    env:
+      VERSAO: ${{ inputs.versao }}
+      SHA: ${{ github.sha }}
+
+    steps:
+      - name: Exigir disparo a partir do master e versao no formato SemVer
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [[ "$REF" != refs/heads/master ]]; then
+            echo "::error::Dispare o Release a partir do master (veio de $REF)."
+            exit 1
+          fi
+          if [[ ! "$VERSAO" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Versão fora do formato X.Y.Z (sem o v)."
+            exit 1
+          fi
+
+      - name: Exigir o App de release configurado no ambiente
+        env:
+          CLIENT_ID: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          TEM_CHAVE: ${{ secrets.RELEASE_APP_PRIVATE_KEY != '' }}
+        run: |
+          if [[ -z "$CLIENT_ID" || "$TEM_CHAVE" != true ]]; then
+            echo "::error::Ambiente 'release' sem RELEASE_APP_CLIENT_ID ou RELEASE_APP_PRIVATE_KEY (docs/runbooks/protecao-tags-versao.md)."
+            exit 1
+          fi
+
+      - name: Baixar o codigo do commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Conferir versao, constante e CHANGELOG
+        run: bash scripts/release.sh validar "$VERSAO"
+
+      - name: Recusar tag que ja existe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Só segue com 404 EXPLÍCITO: erro de rede ou limite de taxa não pode virar "não existe".
+          if resposta="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSAO" 2>&1)"; then
+            echo "::error::A tag v$VERSAO já existe."
+            exit 1
+          fi
+          if [[ "$resposta" != *"HTTP 404"* ]]; then
+            echo "::error::Não consegui confirmar que a tag v$VERSAO não existe: $resposta"
+            exit 1
+          fi
+
+      - name: Exigir os checks obrigatorios verdes neste commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # app_id 15368 = GitHub Actions, o mesmo que a proteção do master exige: um check de outro
+          # app com o mesmo nome não conta. Vale a tentativa MAIS RECENTE (re-run incluído), e só
+          # concluída: um re-run em andamento não deixa um "success" antigo passar por ele.
+          for check in "Segredos" "Lints e testes unitários"; do
+            # Nome vazio faria a API devolver TODOS os checks: confere antes de perguntar.
+            nome="$(jq -rn --arg c "$check" '$c|@uri')"
+            if [[ -z "$nome" ]]; then
+              echo "::error::Não consegui codificar o nome do check '$check'."
+              exit 1
+            fi
+            conclusao="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?app_id=15368&check_name=$nome" \
+              -q '[.check_runs[]] | sort_by(.started_at // "") | last
+                  | if . == null then "ausente" elif .status != "completed" then "em andamento" else .conclusion end')"
+            if [[ "$conclusao" != success ]]; then
+              echo "::error::'$check' não está verde em $SHA (resultado: ${conclusao:-ausente})."
+              exit 1
+            fi
+            echo "ok: $check = success"
+          done
+
+      - name: Extrair as notas do CHANGELOG
+        run: bash scripts/release.sh notas "$VERSAO" > "$RUNNER_TEMP/notas.md"
+
+      # Daqui para baixo, só o App. O token sai depois de TODAS as recusas, vale só para este
+      # repositório e só para contents:write, e a action o revoga no fim do job.
+      - name: Gerar o token do App de release
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Criar tag e release
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh release create "v$VERSAO" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --title "BlueJus v$VERSAO" \
+            --notes-file "$RUNNER_TEMP/notas.md"
+          # Se a tag tivesse surgido em outro commit nesse meio-tempo, a API penduraria a release
+          # nela e ignoraria o --target: confere que a tag aponta para o commit validado.
+          alvo="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSAO" -q .object.sha)"
+          if [[ "$alvo" != "$SHA" ]]; then
+            echo "::error::A tag v$VERSAO aponta para $alvo, não para $SHA. Confira a release antes de qualquer deploy."
+            exit 1
+          fi
+          echo "Release v$VERSAO criada em $SHA."

@@ -37,11 +37,19 @@ module.exports = defineConfig({
         },
         {
             name: 'chromium',
+            testIgnore: '**/central-fidelidade.spec.js',
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: 'storage/auth.json',
             },
             dependencies: ['setup'],
         },
+        // Central × protótipo do Designer: login próprio e servidor da worktree (ver o cabeçalho do spec). Só entra
+        // quando as credenciais vêm no comando, para o `npm test` comum não depender da demo de pé.
+        ...(process.env.CENTRAL_E2E_EMAIL ? [{
+            name: 'central-fidelidade',
+            testMatch: '**/central-fidelidade.spec.js',
+            use: { ...devices['Desktop Chrome'] },
+        }] : []),
     ],
 });
