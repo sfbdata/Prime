@@ -51,16 +51,32 @@ final class MontarPainelUseCase
      */
     public function executarPrevia(Contexto $master, Perfil $como): array
     {
-        return $this->montar($this->previa->contexto($master, $como), $this->previa->pares($master, $como));
+        return $this->montar($this->previa->contexto($master, $como), $this->previa->pares($master, $como), $master);
     }
 
     /**
+     * `$master`: na prévia, o Master real (dono dos escritórios do "+ Nova solicitação", spec §9.1).
+     *
      * @param list<array{0: DemandaExterna, 1: Contexto}> $pares
      *
      * @return array<string, mixed>
      */
-    private function montar(Contexto $ctx, array $pares): array
+    private function montar(Contexto $ctx, array $pares, ?Contexto $master = null): array
     {
+        // Quem abre solicitação (decisão do dono, 16/10): o Solicitante, no próprio escritório; e o
+        // Master, na visão dele ou na prévia de Solicitante, em nome de um dos escritórios dele.
+        $novaSolicitacao = match (true) {
+            $ctx->perfil === Perfil::Master && !$ctx->previa => $this->dadosDoModal($ctx) + ['peloMaster' => true],
+            $ctx->perfil !== Perfil::Solicitante => null,
+            !$ctx->previa => $this->dadosDoModal($ctx),
+            $master !== null => $this->dadosDoModal($master) + ['peloMaster' => true],
+            default => null,
+        };
+        // Pelo Master, só com algum escritório vinculado para escolher.
+        if (($novaSolicitacao['peloMaster'] ?? false) && $novaSolicitacao['escritorios'] === []) {
+            $novaSolicitacao = null;
+        }
+
         $cfg = $ctx->configuracao;
         $bloqueada = $this->politica->abaBloqueada($ctx);
         $naoLidas = $this->contador->porDemanda($pares);
@@ -73,7 +89,7 @@ final class MontarPainelUseCase
                 'nome' => trim((string) $ctx->usuario->getFullName()) ?: (string) $ctx->usuario->getEmail(),
                 'interno' => $ctx->ehInterno(),
                 'master' => $ctx->perfil === Perfil::Master,
-                'podeSolicitar' => $ctx->perfil === Perfil::Solicitante && !$ctx->previa,
+                'podeSolicitar' => $novaSolicitacao !== null,
             ],
             // Só o Master real tem o seletor; na prévia, qual perfil está sendo mostrado.
             'podePrever' => $ctx->previa || $ctx->perfil === Perfil::Master,
@@ -88,7 +104,7 @@ final class MontarPainelUseCase
                 $pares,
             ),
             'avisoDeMensagem' => $ctx->previa ? null : $this->avisoDeMensagem($pares, $naoLidas),
-            'novaSolicitacao' => $ctx->perfil === Perfil::Solicitante && !$ctx->previa ? $this->dadosDoModal($ctx) : null,
+            'novaSolicitacao' => $novaSolicitacao,
         ];
     }
 

@@ -216,3 +216,18 @@ troca de identidade: a sessão, o usuário e as permissões continuam os do Mast
   com "Voltar ao Master" (o protótipo não precisava dela, porque lá a troca é de identidade); na
   prévia não aparecem "Nova solicitação", o ⋮ nem formulários; a escolha não persiste ao recarregar a
   página (volta ao Master).
+
+### 9.1 Quem abre e quem recebe solicitação (decisão do dono, 16/10/2026)
+
+- **Quem recebe**: só a Central, isto é, o Master (gerenciador do sistema), com a Equipe (colaboradores
+  da sede) ajudando conforme as chaves de "Equipe do Master". Nenhum escritório recebe solicitação.
+- **Quem abre**: o Solicitante (usuário de qualquer escritório com a permissão do módulo), no próprio
+  escritório; e o Master, que na mesma conta é também o **usuário primário** do(s) escritório(s) dele.
+  Os dois papéis não se confundem: ao abrir, ele age como usuário do escritório escolhido (perfil do
+  autor "Solicitante"); ao receber e tratar, age como Master.
+- **Regras do "+ Nova solicitação" pelo Master** (na visão do Master e na prévia de Solicitante):
+  escolhe só entre os escritórios aos quais está vinculado (conferido no servidor; escritório de
+  terceiro é 403); a solicitação sai ENVIADA (sem rascunho, que ficaria órfão porque o Master não vê
+  rascunhos); valem as mesmas travas do escritório (aba bloqueada, central suspensa). Sem escritório
+  vinculado, o botão não aparece. Para os demais perfis, o campo `escritorioId` é ignorado.
+- A Equipe (secundários da sede) não abre solicitação: continua como no desenho.

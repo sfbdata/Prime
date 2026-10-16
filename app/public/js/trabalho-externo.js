@@ -1391,6 +1391,7 @@
         var resumoPerfil = (U.nome || '') + (vazio(U.oab) ? '' : ' · OAB ' + U.oab + '/' + (U.oabUf || ''));
         var blocoPerfil = el('div', { class: 'te-perfil' }, [
             el('span', { class: 'te-perfil-rot' }, [ic('bi-person-check'), 'Preenchido do seu perfil']),
+            P.peloMaster ? el('span', { class: 'te-perfil-dica', text: 'Você abre como usuário do escritório escolhido; a solicitação chega à Central para análise.' }) : null,
             el('select', {
                 title: 'Escritórios da sua conta',
                 value: String(nf.escId),
@@ -1422,7 +1423,8 @@
         var listaArq = el('div', { class: 'te-nova-arq-lista', hidden: !N.arqs.length, text: N.arqs.map(function (a) { return a.name; }).join(' · ') });
         var bloqueado = !!S.painel.envioBloqueado;
         var erro = el('span', { class: 'te-erro', id: 'teNovaErro', text: N.erro || (bloqueado ? 'Central suspensa: salve como rascunho para enviar depois.' : '') });
-        var btnRasc = el('button', { type: 'button', class: 'te-btn-sec', text: 'Salvar rascunho', onclick: function () { criar(false); } });
+        // Pelo Master a solicitação sai enviada direto: o Master não vê rascunhos de escritório (spec §9.1).
+        var btnRasc = el('button', { type: 'button', class: 'te-btn-sec', text: 'Salvar rascunho', hidden: !!P.peloMaster, onclick: function () { criar(false); } });
         var btnEnviar = el('button', { type: 'button', class: 'te-btn-pri', disabled: bloqueado, onclick: function () { if (!bloqueado) { criar(true); } } }, [ic('bi-send'), 'Enviar solicitação']);
         N.botoes = [btnRasc, btnEnviar];
 
@@ -1514,6 +1516,9 @@
         fd.append('dados', JSON.stringify(dados));
         fd.append('enviar', enviar ? '1' : '0');
         fd.append('rascunho', N.rascId || '');
+        if (dadosNova().peloMaster) {
+            fd.append('escritorioId', String(N.nf.escId || ''));
+        }
         N.arqs.forEach(function (a) { fd.append('documentos[]', a, a.name); });
 
         N.enviando = true;

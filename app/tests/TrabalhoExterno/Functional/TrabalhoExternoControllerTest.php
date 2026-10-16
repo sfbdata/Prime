@@ -77,8 +77,86 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/trabalho-externo/api/painel');
         $painel = $this->json($client)['painel'];
         self::assertSame('master', $painel['perfil']['chave']);
-        self::assertFalse($painel['perfil']['podeSolicitar']);
+        self::assertTrue($painel['perfil']['podeSolicitar'], 'o Master também abre solicitação (16/10)');
+        self::assertTrue($painel['novaSolicitacao']['peloMaster']);
+        self::assertSame([$tenant->getId()], array_column($painel['novaSolicitacao']['escritorios'], 'id'), 'só os escritórios dele');
         self::assertArrayHasKey('equipe', $painel['configuracao'], 'o Master recebe a configuração completa');
+    }
+
+    #[TestDox('o Master abre solicitação em nome de um escritório DELE, já enviada; escritório de terceiro e rascunho são recusados')]
+    public function testMasterSolicitaPeloProprioEscritorio(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $central = $this->criarTenant('Central');
+        $alheio = $this->criarTenant('Alheio');
+        $master = $this->criarMaster($central);
+        $this->criarUsuario($alheio);
+        $this->logarComTenant($client, $master, $central);
+        $total = fn (): int => (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM trabalho_externo_demanda');
+        $antes = $total();
+
+        // Escritório de terceiro: recusado, nada gravado.
+        $this->solicitarComo($client, $alheio->getId(), true);
+        self::assertResponseStatusCodeSame(403);
+        // Sem escolher escritório: recusado.
+        $this->solicitarComo($client, null, true);
+        self::assertResponseStatusCodeSame(403);
+        // Rascunho pelo Master: recusado (ficaria órfão).
+        $this->solicitarComo($client, $central->getId(), false);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame($antes, $total());
+
+        // O escritório dele: enviada, com ele como autor e o escritório como dono.
+        $r = $this->solicitarComo($client, $central->getId(), true);
+        self::assertResponseIsSuccessful();
+        $codigo = $r['codigo'];
+        $linha = $this->em()->getConnection()->fetchAssociative('SELECT tenant_id, situacao FROM trabalho_externo_demanda WHERE id = ?', [(int) substr($codigo, 3)]);
+        self::assertSame($central->getId(), (int) $linha['tenant_id']);
+        self::assertSame('nova', $linha['situacao']);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $hist = $this->json($client)['demanda']['historico'];
+        self::assertSame('Nova solicitação', end($hist)['para']);
+        self::assertStringContainsString('Master', end($hist)['quem'], 'o Master é o autor');
+
+        // Na prévia de Solicitante, o mesmo botão.
+        $client->request('GET', '/trabalho-externo/api/painel?como=solicitante');
+        $p = $this->json($client)['painel'];
+        self::assertTrue($p['perfil']['podeSolicitar']);
+        self::assertTrue($p['novaSolicitacao']['peloMaster']);
+    }
+
+    #[TestDox('o Solicitante segue abrindo no próprio escritório: o escritorioId enviado é ignorado')]
+    public function testSolicitanteIgnoraEscritorioId(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $meu = $this->criarTenant('Meu');
+        $outro = $this->criarTenant('Outro');
+        $solicitante = $this->criarUsuario($meu);
+        $this->logarComTenant($client, $solicitante, $meu);
+
+        $client->request('GET', '/trabalho-externo/api/painel');
+        $p = $this->json($client)['painel'];
+        self::assertTrue($p['perfil']['podeSolicitar']);
+        self::assertArrayNotHasKey('peloMaster', $p['novaSolicitacao']);
+
+        $r = $this->solicitarComo($client, $outro->getId(), true);
+        self::assertResponseIsSuccessful();
+        $tenant = (int) $this->em()->getConnection()->fetchOne('SELECT tenant_id FROM trabalho_externo_demanda WHERE id = ?', [(int) substr($r['codigo'], 3)]);
+        self::assertSame($meu->getId(), $tenant);
+    }
+
+    /** @return array<string, mixed> */
+    private function solicitarComo(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, ?int $escritorioId, bool $enviar): array
+    {
+        $corpo = ['dados' => json_encode(self::solicitacaoValida(), JSON_THROW_ON_ERROR), 'enviar' => $enviar ? '1' : '0', 'rascunho' => ''];
+        if ($escritorioId !== null) {
+            $corpo['escritorioId'] = (string) $escritorioId;
+        }
+        $client->request('POST', '/trabalho-externo/api/solicitacoes', $corpo, [], ['HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax']);
+
+        return $this->json($client);
     }
 
     #[TestDox('fluxo completo: envio, análise, proposta, aceite, execução, validação, conclusão, pagamento e arquivo')]

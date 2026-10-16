@@ -7,6 +7,7 @@ namespace App\TrabalhoExterno\Controller;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\DadosDaProposta;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
+use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Service\Contexto;
@@ -21,6 +22,7 @@ use App\TrabalhoExterno\UseCase\EnviarPropostaUseCase;
 use App\TrabalhoExterno\UseCase\MarcarConversaLidaUseCase;
 use App\TrabalhoExterno\UseCase\RegistrarAndamentoUseCase;
 use App\TrabalhoExterno\UseCase\SalvarSolicitacaoUseCase;
+use App\TrabalhoExterno\UseCase\SolicitarPeloMasterUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -49,20 +51,19 @@ final class DemandaExternaController extends AbstractController
     }
 
     #[Route('/solicitacoes', name: 'trabalho_externo_solicitacao', methods: ['POST'])]
-    public function salvarSolicitacao(Request $request, SalvarSolicitacaoUseCase $salvar): JsonResponse
+    public function salvarSolicitacao(Request $request, SalvarSolicitacaoUseCase $salvar, SolicitarPeloMasterUseCase $peloMaster): JsonResponse
     {
-        return $this->escrever($request, function (Contexto $ctx) use ($request, $salvar): array {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $salvar, $peloMaster): array {
             $dados = json_decode((string) $request->request->get('dados', '{}'), true);
+            $dados = DadosDaSolicitacao::deArray(is_array($dados) ? $dados : []);
             $enviar = $request->request->getBoolean('enviar');
             $rascunho = trim((string) $request->request->get('rascunho', ''));
 
-            $demanda = $salvar->executar(
-                $ctx,
-                DadosDaSolicitacao::deArray(is_array($dados) ? $dados : []),
-                $enviar,
-                $rascunho !== '' ? $rascunho : null,
-                $this->arquivos($request),
-            );
+            // O Master só abre solicitação em nome de um escritório dele (spec §9.1); os demais
+            // perfis seguem no próprio escritório, e o campo `escritorioId` é ignorado para eles.
+            $demanda = $ctx->perfil === Perfil::Master
+                ? $peloMaster->executar($ctx, $request->request->getInt('escritorioId'), $dados, $enviar, $this->arquivos($request))
+                : $salvar->executar($ctx, $dados, $enviar, $rascunho !== '' ? $rascunho : null, $this->arquivos($request));
 
             return [
                 'codigo' => $demanda->getCodigo(),

@@ -521,8 +521,10 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(['chave' => 'solicitante', 'rotulo' => 'Solicitante'], $p['previa']);
         self::assertSame('solicitante', $p['perfil']['chave']);
         self::assertTrue($p['podePrever'], 'o seletor continua para voltar ao Master');
-        self::assertFalse($p['perfil']['podeSolicitar']);
-        self::assertNull($p['novaSolicitacao']);
+        // "+ Nova solicitação" pelo Master, como usuário primário de um escritório DELE (spec §9.1).
+        self::assertTrue($p['perfil']['podeSolicitar']);
+        self::assertTrue($p['novaSolicitacao']['peloMaster']);
+        self::assertSame([$central->getId()], array_column($p['novaSolicitacao']['escritorios'], 'id'), 'nunca o escritório de outro');
         self::assertSame([$codigo], array_column($p['demandas'], 'codigo'), 'nunca o rascunho do escritório');
         self::assertStringNotContainsString('RASCUNHO-PRIVADO', (string) $client->getResponse()->getContent());
         $d = $detalhe('solicitante');

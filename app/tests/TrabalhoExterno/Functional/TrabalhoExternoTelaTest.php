@@ -79,9 +79,9 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
         }
         self::assertSame('master', $painel['perfil']['chave']);
         self::assertTrue($painel['perfil']['master']);
-        self::assertFalse($painel['perfil']['podeSolicitar'], 'o Master não solicita: o botão "Nova solicitação" não aparece');
+        self::assertTrue($painel['perfil']['podeSolicitar'], 'o Master, como usuário primário do escritório dele, também abre solicitação (16/10)');
         self::assertNull($painel['bloqueio'], 'o Master nunca vê a tela de bloqueio');
-        self::assertNull($painel['novaSolicitacao']);
+        self::assertTrue($painel['novaSolicitacao']['peloMaster'], 'o formulário vem no modo "pelo Master"');
         self::assertSame((new \DateTimeImmutable('today'))->format('Y-m-d'), $painel['hoje']);
     }
 
