@@ -6,11 +6,11 @@ const COD={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'P
 const UFCOD=Object.fromEntries(Object.entries(COD).map(([k,v])=>[v,k]));
 const NOME={RO:'Rondônia',AC:'Acre',AM:'Amazonas',RR:'Roraima',PA:'Pará',AP:'Amapá',TO:'Tocantins',MA:'Maranhão',PI:'Piauí',CE:'Ceará',RN:'Rio Grande do Norte',PB:'Paraíba',PE:'Pernambuco',AL:'Alagoas',SE:'Sergipe',BA:'Bahia',MG:'Minas Gerais',ES:'Espírito Santo',RJ:'Rio de Janeiro',SP:'São Paulo',PR:'Paraná',SC:'Santa Catarina',RS:'Rio Grande do Sul',MS:'Mato Grosso do Sul',MT:'Mato Grosso',GO:'Goiás',DF:'Distrito Federal'};
 const REG={N:'Norte',NE:'Nordeste',CO:'Centro-Oeste',SE:'Sudeste',S:'Sul'},RUF={RO:'N',AC:'N',AM:'N',RR:'N',PA:'N',AP:'N',TO:'N',MA:'NE',PI:'NE',CE:'NE',RN:'NE',PB:'NE',PE:'NE',AL:'NE',SE:'NE',BA:'NE',MG:'SE',ES:'SE',RJ:'SE',SP:'SE',PR:'S',SC:'S',RS:'S',MS:'CO',MT:'CO',GO:'CO',DF:'CO'};
-const qs=new URLSearchParams(location.search),dados={};let UFD={},CID={},RG={};
-const J=v=>{try{return JSON.parse(v)}catch(e){return {}}};
-qs.forEach((v,k)=>{if(k==='uf')UFD=J(v);else if(k==='cid')CID=J(v);else if(k==='reg')RG=J(v);else dados[k.padStart(3,'0')]=+v||0});
+const escH=window.BJAgregado.escH,dados={};let UFD={},CID={},RG={};
 const escala=(n,mx)=>!n?'#f7f9fb':d3.interpolateRgb('#9cc7e2','#0a4f7a')(Math.sqrt(n/Math.max(1,mx)));
-const maxP=Math.max(1,...Object.values(dados)),maxU=Math.max(1,...Object.values(UFD));
+let maxP=1,maxU=1;
+// Contagens validadas vindas do servidor (/master/dados/mapa). Brasil = total das UFs; outros países: dado não existe ainda.
+const AGREGADO=window.BJAgregado.carregar(CFG.dadosMapa).then(g=>{UFD=g.A;CID=g.C;dados['076']=Object.values(UFD).reduce((a,b)=>a+b,0);maxP=Math.max(1,...Object.values(dados));maxU=Math.max(1,...Object.values(UFD))});
 const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const inv=f=>{if(d3.geoArea(f)>2*Math.PI){const g=f.geometry;if(g.type==='Polygon')g.coordinates.forEach(r=>r.reverse());else g.coordinates.forEach(p=>p.forEach(r=>r.reverse()));}};
 const svg=d3.select('#m'),tip=document.getElementById('tip'),painel=document.getElementById('painel'),lista=document.getElementById('lista'),carreg=document.getElementById('carreg'),trilha=document.getElementById('trilha');
@@ -22,11 +22,11 @@ const showTip=(e,t)=>{tip.textContent=t;tip.style.opacity=1;window.__tipE={x:e.c
 const rot=(x,y,t,d)=>{const k=K,w=(t.length*7+12)/k,h=18/k,g=labG.append('g').attr('transform','translate('+x+','+y+')').style('opacity',0);g.append('rect').attr('x',-w/2).attr('y',-h/2).attr('width',w).attr('height',h).attr('rx',3/k).attr('fill','#12242f');g.append('text').attr('text-anchor','middle').attr('y',4/k).attr('fill','#fff').attr('font-size',11.5/k).attr('font-weight','bold').text(t);g.transition().delay(d||0).duration(300).style('opacity',1)};
 function zoom(b,lim){const [[x0,y0],[x1,y1]]=b,k=Math.min(lim,.8/Math.max((x1-x0)/W,(y1-y0)/H));K=k;d3.select('#sombra feDropShadow').attr('dy',2/k).attr('stdDeviation',4/k);zG.transition().duration(850).ease(d3.easeCubicInOut).attr('transform','translate('+(W/2-k*(x0+x1)/2)+','+(H/2-k*(y0+y1)/2)+') scale('+k+')');return k}
 function rotPaises(){labG.selectAll('*').remove();paises.filter(f=>dados[f.id]).forEach(f=>{let c=path.centroid(f);if(f.id==='840')c=pr([-98,39]);if(f.id==='620')c=pr([-8.2,39.6]);if(f.id==='250')c=pr([2.5,46.5]);rot(c[0],c[1],String(dados[f.id]))})}
-function linhas(arr,tot,click){const mx=Math.max(1,...arr.map(a=>a[1])),soma=arr.reduce((a,c)=>a+c[1],0);let h=arr.map(([n,v,k])=>'<div'+(click?' class="cl" data-k="'+k+'"':'')+'><i style="width:'+(v/mx*100)+'%"></i><span>'+n+'</span><span><b>'+v+'</b></span></div>').join('');if(tot>soma)h+='<div class="ins"><span>Local não informado</span><span>'+(tot-soma)+'</span></div>';return h}
-function setTrilha(){const p=['<a data-n="0">Mundo</a>'];if(paisSel)p.push(nivel>1?'<a data-n="1">'+nomeP(paisSel)+'</a>':nomeP(paisSel));if(ufSel)p.push(NOME[ufSel]);trilha.innerHTML=p.join(' › ');trilha.querySelectorAll('a').forEach(a=>a.onclick=()=>irPara(+a.dataset.n))}
+function linhas(arr,tot,click){const mx=Math.max(1,...arr.map(a=>a[1])),soma=arr.reduce((a,c)=>a+c[1],0);let h=arr.map(([n,v,k])=>'<div'+(click?' class="cl" data-k="'+escH(k)+'"':'')+'><i style="width:'+(v/mx*100)+'%"></i><span>'+escH(n)+'</span><span><b>'+(+v)+'</b></span></div>').join('');if(tot>soma)h+='<div class="ins"><span>Local não informado</span><span>'+(tot-soma)+'</span></div>';return h}
+function setTrilha(){const p=['<a data-n="0">Mundo</a>'];if(paisSel)p.push(nivel>1?'<a data-n="1">'+escH(nomeP(paisSel))+'</a>':escH(nomeP(paisSel)));if(ufSel)p.push(escH(NOME[ufSel]));trilha.innerHTML=p.join(' › ');trilha.querySelectorAll('a').forEach(a=>a.onclick=()=>irPara(+a.dataset.n))}
 function painelPais(f){const n=dados[f.id]||0;painel.classList.add('on');
-  if(f.id==='076'){document.getElementById('pNome').innerHTML=nomeP(f)+'<span>'+n+' usuário(s) · por estado</span>';const arr=Object.entries(UFD).sort((a,b)=>b[1]-a[1]).map(([u,v])=>[NOME[u]||u,v,u]);lista.innerHTML=arr.length?linhas(arr,n,true):'<div class="vazio">Estados ainda não informados.</div>';lista.querySelectorAll('.cl').forEach(d=>d.onclick=()=>{const g=ufGeo&&ufGeo.features.find(x=>COD[+String(x.properties.codarea).slice(0,2)]===d.dataset.k);if(g)abrirUF(g)})}
-  else{document.getElementById('pNome').innerHTML=nomeP(f)+'<span>'+(n?n+' usuário(s) · por região':'sem usuários')+'</span>';const arr=Object.entries(RG[f.id]||{}).sort((a,b)=>b[1]-a[1]);lista.innerHTML=arr.length?linhas(arr,n):'<div class="vazio">'+(n?'Regiões ainda não informadas no cadastro.':'Nenhum usuário neste país. Oportunidade de expansão.')+'</div>'}
+  if(f.id==='076'){document.getElementById('pNome').innerHTML=escH(nomeP(f))+'<span>'+(+n)+' usuário(s) · por estado</span>';const arr=Object.entries(UFD).sort((a,b)=>b[1]-a[1]).map(([u,v])=>[NOME[u]||u,v,u]);lista.innerHTML=arr.length?linhas(arr,n,true):'<div class="vazio">Estados ainda não informados.</div>';lista.querySelectorAll('.cl').forEach(d=>d.onclick=()=>{const g=ufGeo&&ufGeo.features.find(x=>COD[+String(x.properties.codarea).slice(0,2)]===d.dataset.k);if(g)abrirUF(g)})}
+  else{document.getElementById('pNome').innerHTML=escH(nomeP(f))+'<span>'+(n?(+n)+' usuário(s) · por região':'sem usuários')+'</span>';const arr=Object.entries(RG[f.id]||{}).sort((a,b)=>b[1]-a[1]);lista.innerHTML=arr.length?linhas(arr,n):'<div class="vazio">'+(n?'Regiões ainda não informadas no cadastro.':'Nenhum usuário neste país. Oportunidade de expansão.')+'</div>'}
   setTrilha()}
 async function abrirPais(f){window.__zReset&&window.__zReset();window.__zReset&&window.__zReset();if(nivel>=1&&paisSel===f)return;nivel=1;paisSel=f;ufSel=null;tip.style.opacity=0;munG.selectAll('*').remove();ufG.selectAll('*').remove();labG.selectAll('*').remove();
   const k=zoom(path.bounds(f),f.id==='840'?4:14);
@@ -49,7 +49,7 @@ async function abrirUF(g){window.__zReset&&window.__zReset();window.__zReset&&wi
   const k=zoom(path.bounds(g),90);
   ufG.selectAll('path').attr('filter',d=>d===g?'url(#sombra)':null).style('opacity',d=>d===g?1:.12).attr('stroke-width',.7/k);ufG.selectAll('path').filter(d=>d===g).raise();
   const tot=UFD[u]||0,cs=Object.entries(CID[u]||{}).sort((a,b)=>b[1]-a[1]);
-  document.getElementById('pNome').innerHTML=NOME[u]+'<span>Região '+REG[RUF[u]]+' · '+tot+' usuário(s)</span>';
+  document.getElementById('pNome').innerHTML=escH(NOME[u])+'<span>Região '+escH(REG[RUF[u]])+' · '+(+tot)+' usuário(s)</span>';
   lista.innerHTML=cs.length?linhas(cs,tot):'<div class="vazio">'+(tot?'Cidades ainda não informadas no cadastro.':'Nenhum usuário neste estado. Oportunidade de expansão.')+'</div>';setTrilha();
   carreg.style.opacity=1;
   try{let m=cacheMun[u];if(!m){const c=UFCOD[u];const rr=await fetch(CFG.municipios.replace(/XX$/,u),{credentials:'same-origin',headers:{Accept:'application/json'}});if(!rr.ok||!c)throw 0;const {geo,nomes}=await rr.json();if(!geo||!geo.features)throw 0;geo.features.forEach(inv);const nm=Object.assign({},nomes||{});m=cacheMun[u]={geo,nm}}
@@ -59,7 +59,7 @@ async function abrirUF(g){window.__zReset&&window.__zReset();window.__zReset&&wi
       .on('mousemove',(e,x)=>showTip(e,nome(x)+': '+(val(x)?val(x)+' usuário(s)':'sem usuários'))).on('mouseleave',()=>tip.style.opacity=0)
       .transition().delay(350).duration(500).style('opacity',1);
     m.geo.features.filter(val).forEach(x=>{const [px,py]=path.centroid(x);rot(px,py,String(val(x)),650)});
-    document.getElementById('pNome').innerHTML=NOME[u]+'<span>Região '+REG[RUF[u]]+' · '+tot+' usuário(s) · '+m.geo.features.length+' municípios</span>';
+    document.getElementById('pNome').innerHTML=escH(NOME[u])+'<span>Região '+escH(REG[RUF[u]])+' · '+(+tot)+' usuário(s) · '+(+m.geo.features.length)+' municípios</span>';
   }catch(e){if(ufSel===u)lista.insertAdjacentHTML('beforeend','<div class="vazio">Não foi possível carregar os municípios do IBGE agora.</div>')}
   carreg.style.opacity=0}
 function irPara(n){window.__zReset&&window.__zReset();tip.style.opacity=0;carreg.style.opacity=0;
@@ -67,7 +67,7 @@ function irPara(n){window.__zReset&&window.__zReset();tip.style.opacity=0;carreg
   if(n===1&&nivel===2){const f=paisSel;nivel=0;paisSel=null;abrirPais(f)}}
 document.getElementById('voltar').onclick=()=>irPara(nivel-1);
 addEventListener('keydown',e=>{if(e.key==='Escape')irPara(nivel-1)});
-fetch(CFG.malhaMundo)
+AGREGADO.then(()=>fetch(CFG.malhaMundo))
 .then(r=>{if(!r.ok)throw 0;return r.json()}).then(topo=>{
   const geo=topojson.feature(topo,topo.objects.countries);geo.features=geo.features.filter(f=>f.id!=='010');paises=geo.features;
   document.getElementById('msg').remove();

@@ -12,6 +12,15 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(MapaDeAtuacao::class)]
 final class MapaDeAtuacaoTest extends TestCase
 {
+    #[TestDox('Cidade do escritório com HTML sai sem < > " \' `')]
+    public function testCidadeDoEscritorioSegura(): void
+    {
+        $mapa = MapaDeAtuacao::montar([], [['id' => 1, 'cidade' => '"><script>alert(1)</script>', 'estado' => 'DF']], new \DateTimeImmutable());
+
+        $cidades = array_keys($mapa['escritorios']['C']['DF']);
+        self::assertSame(['scriptalert(1)/script'], $cidades);
+    }
+
     #[TestDox('Pessoas contam uma vez; "Só primários" filtra; tendência compara entradas de 30 e 60 dias; escritórios sem estado vão à parte')]
     public function testAgrega(): void
     {

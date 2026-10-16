@@ -112,7 +112,7 @@ final class MapaDeAtuacao
             }
 
             $porUf[$uf] = ($porUf[$uf] ?? 0) + 1;
-            $cidade = trim((string) $e['cidade']);
+            $cidade = LocalizacaoDaPessoa::nomeDeLugar($e['cidade']);
             if ($cidade !== '') {
                 $porCidade[$uf][$cidade] = ($porCidade[$uf][$cidade] ?? 0) + 1;
             }

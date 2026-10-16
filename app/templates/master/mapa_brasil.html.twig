@@ -5,6 +5,7 @@
     malhaMundo: asset('js/master/geo/mundo-110m.json'),
     municipios: path('master_ibge_municipios', {uf: 'XX'}),
     populacao: path('master_ibge_populacao', {uf: 'XX'}),
+    dadosMapa: path('master_dados_mapa'),
     fontes: path('master_fontes_resumo'),
     atualizar: path('master_fontes_atualizar'),
     tabela: path('master_fontes_tabela'),
@@ -48,6 +49,7 @@ html,body{margin:0;height:100%;font-family:Arial,Helvetica,sans-serif;background
 <div id="tip"></div><div class="msg" id="msg">Carregando mapa…</div><div id="carreg">Carregando municípios…</div>
 <div id="painel"><div class="top"><button id="voltar" title="Voltar ao mapa do Brasil" aria-label="Voltar ao mapa do Brasil">&#8592;</button><b id="pNome"></b></div><div id="lista"></div></div>
 <div id="mk"></div>
+<script src="{{ asset('js/master/mapa-agregado.js') }}"></script>
 <script src="{{ asset('js/master/mapa-brasil.js') }}"></script>
 <script src="{{ asset('js/master/mapa-dados.js') }}"></script>
 </body></html>

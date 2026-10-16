@@ -27,6 +27,12 @@ final class PainelMasterDadosController extends AbstractController
         return $this->json($useCase->executar());
     }
 
+    #[Route('/mapa', name: 'master_dados_mapa', methods: ['GET'])]
+    public function mapa(ConsultarVisaoGeralUseCase $useCase): JsonResponse
+    {
+        return $this->json($useCase->mapa());
+    }
+
     #[Route('/contas', name: 'master_dados_contas', methods: ['GET'])]
     public function contas(ConsultarContasUseCase $useCase): JsonResponse
     {

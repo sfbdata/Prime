@@ -26,6 +26,20 @@ final class LocalizacaoDaPessoaTest extends TestCase
         self::assertSame($esperado, LocalizacaoDaPessoa::localizar(['oabUf' => $oabUf, 'vinculos' => $vinculos], self::ESTADOS));
     }
 
+    #[TestDox('Lotação com HTML não sai com < > " \' ` e o nome é cortado em 80 caracteres')]
+    public function testNomeDeLugarSeguro(): void
+    {
+        $local = LocalizacaoDaPessoa::localizar(['oabUf' => null, 'vinculos' => [
+            ['tenantId' => 1, 'lotacao' => '<img src=x onerror=alert(1)>/SP', 'primario' => true, 'ultimoAcesso' => ''],
+        ]], self::ESTADOS);
+
+        self::assertSame('SP', $local['uf'] ?? null);
+        self::assertDoesNotMatchRegularExpression('/[<>"\'`]/', $local['cidade']);
+        self::assertSame('img src=x onerror=alert(1)', $local['cidade']);
+        self::assertSame(80, mb_strlen(LocalizacaoDaPessoa::nomeDeLugar(str_repeat('á', 200))));
+        self::assertSame('São Paulo', LocalizacaoDaPessoa::nomeDeLugar("  São\n\t \"Paulo\"  "));
+    }
+
     /**
      * @return iterable<string, array{0: ?string, 1: list<array<string, mixed>>, 2: ?array<string, string>}>
      */

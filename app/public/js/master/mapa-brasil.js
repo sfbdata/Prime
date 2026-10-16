@@ -6,9 +6,9 @@ const COD={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'P
 const UFCOD=Object.fromEntries(Object.entries(COD).map(([k,v])=>[v,k]));
 const NOME={RO:'Rondônia',AC:'Acre',AM:'Amazonas',RR:'Roraima',PA:'Pará',AP:'Amapá',TO:'Tocantins',MA:'Maranhão',PI:'Piauí',CE:'Ceará',RN:'Rio Grande do Norte',PB:'Paraíba',PE:'Pernambuco',AL:'Alagoas',SE:'Sergipe',BA:'Bahia',MG:'Minas Gerais',ES:'Espírito Santo',RJ:'Rio de Janeiro',SP:'São Paulo',PR:'Paraná',SC:'Santa Catarina',RS:'Rio Grande do Sul',MS:'Mato Grosso do Sul',MT:'Mato Grosso',GO:'Goiás',DF:'Distrito Federal'};
 const REG={N:'Norte',NE:'Nordeste',CO:'Centro-Oeste',SE:'Sudeste',S:'Sul'},RUF={RO:'N',AC:'N',AM:'N',RR:'N',PA:'N',AP:'N',TO:'N',MA:'NE',PI:'NE',CE:'NE',RN:'NE',PB:'NE',PE:'NE',AL:'NE',SE:'NE',BA:'NE',MG:'SE',ES:'SE',RJ:'SE',SP:'SE',PR:'S',SC:'S',RS:'S',MS:'CO',MT:'CO',GO:'CO',DF:'CO'};
-const qs=new URLSearchParams(location.search),dados={};let CID={};
-qs.forEach((v,k)=>{if(k==='cid'){try{CID=JSON.parse(v)}catch(e){}}else dados[k.toUpperCase()]=+v||0});
-const max=Math.max(1,...Object.values(dados));
+const escH=window.BJAgregado.escH,dados={};let CID={},max=1;
+// Contagens validadas vindas do servidor (/master/dados/mapa); a query string só escolhe a visão.
+const AGREGADO=window.BJAgregado.carregar(CFG.dadosMapa).then(g=>{Object.assign(dados,g.A);CID=g.C;max=Math.max(1,...Object.values(dados))});
 const cor=n=>!n?'#f7f9fb':d3.interpolateRgb('#9cc7e2','#0a4f7a')(Math.sqrt(n/max));
 const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const svg=d3.select('#m'),tip=document.getElementById('tip'),painel=document.getElementById('painel'),lista=document.getElementById('lista'),carreg=document.getElementById('carreg');
@@ -21,8 +21,8 @@ const rotEstados=()=>{labG.selectAll('*').remove();features.filter(f=>dados[uf(f
 const uf=f=>COD[+String(f.properties.codarea).slice(0,2)];
 function painelEstado(u,munNomes){
   const tot=dados[u]||0,cs=Object.entries(CID[u]||{}).sort((a,b)=>b[1]-a[1]),mx=Math.max(1,...cs.map(c=>c[1]));
-  document.getElementById('pNome').innerHTML=NOME[u]+'<span class="sub">Região '+REG[RUF[u]]+' · '+tot+' usuário(s)'+(munNomes?' · '+munNomes+' municípios':'')+'</span>';
-  lista.innerHTML=cs.length?cs.map(([n,v])=>'<div><i style="width:'+(v/mx*100)+'%"></i><span>'+n+'</span><span><b>'+v+'</b></span></div>').join('')+(tot&&cs.reduce((a,c)=>a+c[1],0)<tot?'<div class="ins"><span>Cidade não informada</span><span>'+(tot-cs.reduce((a,c)=>a+c[1],0))+'</span></div>':''):'<div class="vazio">'+(tot?'Cidades ainda não informadas no cadastro.':'Nenhum usuário neste estado. Oportunidade de expansão.')+'</div>';
+  document.getElementById('pNome').innerHTML=escH(NOME[u])+'<span class="sub">Região '+escH(REG[RUF[u]])+' · '+(+tot)+' usuário(s)'+(munNomes?' · '+(+munNomes)+' municípios':'')+'</span>';
+  lista.innerHTML=cs.length?cs.map(([n,v])=>'<div><i style="width:'+(v/mx*100)+'%"></i><span>'+escH(n)+'</span><span><b>'+(+v)+'</b></span></div>').join('')+(tot&&cs.reduce((a,c)=>a+c[1],0)<tot?'<div class="ins"><span>Cidade não informada</span><span>'+(tot-cs.reduce((a,c)=>a+c[1],0))+'</span></div>':''):'<div class="vazio">'+(tot?'Cidades ainda não informadas no cadastro.':'Nenhum usuário neste estado. Oportunidade de expansão.')+'</div>';
   painel.classList.add('on');
 }
 async function municipios(u){
@@ -69,7 +69,7 @@ function voltar(){window.__zReset&&window.__zReset();
 }
 document.getElementById('voltar').onclick=voltar;
 addEventListener('keydown',e=>{if(e.key==='Escape')voltar()});
-fetch(CFG.malhaUf)
+AGREGADO.then(()=>fetch(CFG.malhaUf))
 .then(r=>{if(!r.ok)throw 0;return r.json()}).then(geo=>{
   if(!geo||!geo.features||!geo.features.length)throw 0;
   geo.features.forEach(f=>{if(d3.geoArea(f)>2*Math.PI){const g=f.geometry;if(g.type==='Polygon')g.coordinates.forEach(r=>r.reverse());else g.coordinates.forEach(p=>p.forEach(r=>r.reverse()));}});
@@ -124,7 +124,7 @@ const fechar=()=>mk.style.display='none';
 document.addEventListener('contextmenu',e=>{const p=e.target.closest&&e.target.closest('path.uf,path.mun');if(!p)return;e.preventDefault();e.stopPropagation();tip.style.opacity=0;
  const d=d3.select(p).datum(),ehMun=p.classList.contains('mun'),chave=ehMun?String(d.properties.codarea):uf(d),grupo=ehMun?'mun':'uf';
  const nome=ehMun?((cache[atual]&&cache[atual].nm[chave])||'Município'):NOME[chave],atualCor=M[grupo][chave];
- mk.innerHTML='<div class="t">'+nome+'</div><div class="s">'+(ehMun?'MARCAR MUNICÍPIO':'MARCAR ESTADO')+'</div><div class="g">'+CORES.map(c=>'<button data-c="'+c+'" title="'+c+'" class="'+(c===atualCor?'on':'')+'" style="background:'+c+'"></button>').join('')+'</div>'+(atualCor?'<button class="x" data-c="">Remover marcação</button>':'');
+ mk.innerHTML='<div class="t">'+escH(nome)+'</div><div class="s">'+(ehMun?'MARCAR MUNICÍPIO':'MARCAR ESTADO')+'</div><div class="g">'+CORES.map(c=>'<button data-c="'+c+'" title="'+c+'" class="'+(c===atualCor?'on':'')+'" style="background:'+c+'"></button>').join('')+'</div>'+(atualCor?'<button class="x" data-c="">Remover marcação</button>':'');
  mk.querySelectorAll('button').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const c=b.dataset.c;if(c)M[grupo][chave]=c;else delete M[grupo][chave];salvar();aplicarTudo();fechar()});
  mk.style.display='block';const w=mk.offsetWidth,hh=mk.offsetHeight;mk.style.left=Math.max(6,Math.min(innerWidth-w-6,e.clientX))+'px';mk.style.top=Math.max(6,Math.min(innerHeight-hh-6,e.clientY))+'px'},true);
 document.addEventListener('pointerdown',e=>{if(!mk.contains(e.target))fechar()});addEventListener('keydown',e=>{if(e.key==='Escape')fechar()});addEventListener('wheel',fechar,{passive:true});

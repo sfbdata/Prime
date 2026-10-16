@@ -59,7 +59,7 @@ final class LocalizacaoDaPessoa
         if ($escolhido !== null && preg_match(self::CIDADE_E_UF, $escolhido['lotacao'], $m) === 1) {
             $uf = strtoupper($m[2]);
             if (in_array($uf, self::UFS, true)) {
-                return ['uf' => $uf, 'cidade' => $m[1], 'fonte' => 'lotação'];
+                return ['uf' => $uf, 'cidade' => self::nomeDeLugar($m[1]), 'fonte' => 'lotação'];
             }
         }
 
@@ -74,6 +74,20 @@ final class LocalizacaoDaPessoa
         }
 
         return null;
+    }
+
+    public const TAMANHO_MAXIMO_DO_NOME = 80;
+
+    /**
+     * Nome de cidade seguro para sair do servidor (defesa em profundidade contra XSS armazenado: a
+     * lotação e o `Tenant.cidade` são texto livre digitado em escritório). Remove `< > " ' \``,
+     * caracteres de controle e espaços repetidos, e corta em {@see TAMANHO_MAXIMO_DO_NOME}.
+     */
+    public static function nomeDeLugar(?string $valor): string
+    {
+        $limpo = preg_replace(['/\s+/u', '/[<>"\'`]/u', '/[\p{Cc}\p{Cf}]/u', '/ {2,}/'], [' ', '', '', ' '], (string) $valor) ?? '';
+
+        return mb_substr(trim($limpo), 0, self::TAMANHO_MAXIMO_DO_NOME);
     }
 
     /** Sigla válida em maiúsculas, ou nulo. */

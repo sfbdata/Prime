@@ -211,9 +211,8 @@
         + '</div><div class="mp-faltam-rod">Oportunidades de expansão</div></div>' : '');
 
     // iframe: só troca o endereço quando os dados do mapa mudam (evita recarregar o mapa a cada clique).
-    const qs = br
-      ? Object.entries(ATUA).map(([k, v]) => k + '=' + v).concat('cid=' + encodeURIComponent(JSON.stringify(G.C))).join('&')
-      : [['076', totBr]].concat(paisesExt.map(p => [p[0], p[2]])).map(p => p[0] + '=' + p[1]).concat('uf=' + encodeURIComponent(JSON.stringify(ATUA)), 'cid=' + encodeURIComponent(JSON.stringify(G.C)), 'reg=' + encodeURIComponent('{}')).join('&');
+    // O iframe busca as contagens no servidor (/master/dados/mapa) e as valida; a query string só escolhe a visão.
+    const qs = 'quem=' + (S.mapaQuem === 'esc' ? 'esc' : 'pes') + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral');
     const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?' + qs, fr = document.getElementById('mp-mapa-iframe');
     fr.style.setProperty('--ratio', br ? '1.75' : '2.05');
     fr.title = br ? 'Mapa do Brasil por estado' : 'Mapa mundial por país';

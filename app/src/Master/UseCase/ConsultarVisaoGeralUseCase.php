@@ -46,6 +46,16 @@ final class ConsultarVisaoGeralUseCase
     }
 
     /**
+     * Só o agregado do mapa (para o iframe, que não confia em query string).
+     *
+     * @return array<string, mixed>
+     */
+    public function mapa(): array
+    {
+        return MapaDeAtuacao::montar($this->repositorio->pessoas(), $this->repositorio->escritorios(), $this->relogio->now());
+    }
+
+    /**
      * @param list<array{ativo: bool}>                                         $escritorios
      * @param list<array{primario: bool, oabNumero: ?string, oabUf: ?string}> $pessoas
      * @param array<int, array{documentos: int, bytes: int, bytesRecentes: int}> $consumo
