@@ -149,6 +149,45 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         self::assertTrue($p['novaSolicitacao']['peloMaster']);
     }
 
+    #[TestDox('dois papéis (spec §9.2): nas demandas do escritório dele, o Master também age como Solicitante, registrado como tal; nas de outro escritório, não')]
+    public function testMasterAgeDosDoisLados(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $central = $this->criarTenant('Central');
+        $alheio = $this->criarTenant('Alheio');
+        $master = $this->criarMaster($central);
+        $deFora = $this->criarUsuario($alheio);
+        $this->definirSede($central);  // como na demo: o escritório do Master é a própria sede
+        $this->logarComTenant($client, $master, $central);
+        $botoes = function (string $codigo) use ($client): array {
+            $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+
+            return array_column($this->json($client)['demanda']['botoes'], 'rot', 'k');
+        };
+
+        $meu = $this->solicitarComo($client, $central->getId(), true)['codigo'];
+        self::assertSame('Cancelar solicitação', $botoes($meu)['cancelar'] ?? null, 'nova: cancela como Solicitante');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$meu/acoes/analise");
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$meu/propostas", ['valor' => '300']);
+        self::assertArrayHasKey('aceitar', $botoes($meu), 'proposta: o Master aceita pelo escritório dele');
+        self::assertArrayHasKey('proposta', $botoes($meu), 'e continua com as ações de Master');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$meu/acoes/aceitar");
+        self::assertResponseIsSuccessful();
+        $papeis = $this->em()->getConnection()->fetchAllKeyValue('SELECT para, perfil_autor FROM trabalho_externo_historico WHERE demanda_id = ? AND para IN (\'analise\', \'aceita\')', [(int) substr($meu, 3)]);
+        self::assertSame(['analise' => 'master', 'aceita' => 'solicitante'], $papeis, 'cada ação no papel em que foi feita');
+
+        // Demanda de um escritório ao qual o Master NÃO pertence: só as ações de Master.
+        $this->logarComTenant($client, $deFora, $alheio);
+        $dele = $this->solicitar($client, self::solicitacaoValida())['codigo'];
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$dele/acoes/analise");
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$dele/propostas", ['valor' => '300']);
+        self::assertArrayNotHasKey('aceitar', $botoes($dele));
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$dele/acoes/aceitar");
+        self::assertResponseStatusCodeSame(403, 'o Master não aceita proposta pelo escritório de outro');
+    }
+
     #[TestDox('o Solicitante segue abrindo no próprio escritório: o escritorioId enviado é ignorado')]
     public function testSolicitanteIgnoraEscritorioId(): void
     {

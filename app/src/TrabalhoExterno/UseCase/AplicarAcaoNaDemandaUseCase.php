@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
+use App\TrabalhoExterno\DTO\Autor;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
@@ -53,7 +54,8 @@ final class AplicarAcaoNaDemandaUseCase
             return null;
         }
 
-        $demanda->aplicar($acao, $ctx->autor(), $motivo);
+        // O papel da autoria: o Master que age pelo escritório dele fica registrado como Solicitante.
+        $demanda->aplicar($acao, Autor::de($ctx->usuario, $this->politica->papelNaAcao($ctx, $demanda, $acao)), $motivo);
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;

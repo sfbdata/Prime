@@ -232,3 +232,13 @@ troca de identidade: a sessão, o usuário e as permissões continuam os do Mast
   rascunhos); valem as mesmas travas do escritório (aba bloqueada, central suspensa). Sem escritório
   vinculado, o botão não aparece. Para os demais perfis, o campo `escritorioId` é ignorado.
 - A Equipe (secundários da sede) não abre solicitação: continua como no desenho.
+
+### 9.2 Dois papéis do Master (decisão do dono, 16/10/2026)
+
+Nas demandas cujo escritório solicitante é um dos escritórios do Master (vínculo ativo), ele age
+**também** como o Solicitante: "Cancelar solicitação" (nova, análise, informações), "Enviar
+informações", "Aceitar proposta", "Solicitar ajustes", "Recusar proposta", além das ações de Master.
+Cada ação fica registrada no papel em que foi feita (histórico e "aceita por": Solicitante para as do
+lado do escritório, Master para as da Central). Nas demandas de escritórios aos quais não pertence,
+só as ações de Master. Nunca na pré-visualização. Resolve a demanda aberta pelo Master na própria sede,
+que antes ficaria sem ninguém do lado do solicitante.

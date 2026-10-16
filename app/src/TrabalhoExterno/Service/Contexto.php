@@ -31,6 +31,13 @@ final readonly class Contexto
          * SÓ para leitura. A política nega toda escrita quando isto está ligado.
          */
         public bool $previa = false,
+        /**
+         * Só no perfil Master: os escritórios (ids) em que ele é usuário com vínculo ativo. Nas
+         * demandas deles o Master age TAMBÉM como Solicitante (spec §9.2, "dois papéis").
+         *
+         * @var list<int>
+         */
+        public array $escritoriosDoPrimario = [],
     ) {
     }
 

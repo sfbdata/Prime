@@ -144,21 +144,15 @@ final class PoliticaDaDemanda
             }
         }
 
-        if ($p === Perfil::Solicitante) {
-            if ($s === Situacao::Rascunho) {
-                $atalho('editar', 'Continuar rascunho', 'bi-pencil', 'pri', '');
-                $acao(AcaoDemanda::ExcluirRascunho, 'perigo');
-            }
-            if ($s === Situacao::Info) {
-                $acao(AcaoDemanda::ResponderInformacoes, 'pri');
-            }
-            if ($s === Situacao::Proposta) {
-                $acao(AcaoDemanda::AceitarProposta, 'pri');
-                $acao(AcaoDemanda::SolicitarAjustes);
-                $acao(AcaoDemanda::RecusarProposta, 'perigo');
-            }
-            if (in_array($s, [Situacao::Nova, Situacao::Analise, Situacao::Info], true)) {
-                $acao(AcaoDemanda::Cancelar, 'perigo');
+        if ($p === Perfil::Solicitante && $s === Situacao::Rascunho) {
+            $atalho('editar', 'Continuar rascunho', 'bi-pencil', 'pri', '');
+            $acao(AcaoDemanda::ExcluirRascunho, 'perigo');
+        }
+        // O Solicitante; e o Master nas demandas de um escritório DELE (dois papéis, spec §9.2),
+        // com o rótulo de Solicitante ("Cancelar solicitação").
+        if ($p === Perfil::Solicitante || $this->agePeloEscritorio($ctx, $d)) {
+            foreach (self::acoesDoSolicitante($s) as [$a, $tipo]) {
+                $botoes[] = ['k' => $a->value, 'rot' => $a->rotulo(Perfil::Solicitante), 'ic' => $a->icone(Perfil::Solicitante), 'tipo' => $tipo, 'equipe' => ''];
             }
         }
 
@@ -187,6 +181,50 @@ final class PoliticaDaDemanda
                 ],
             ];
         }, $botoes);
+    }
+
+    /**
+     * O lado do Solicitante numa demanda, por situação (o rascunho fica à parte: só o próprio
+     * escritório o vê).
+     *
+     * @return list<array{0: AcaoDemanda, 1: string}>
+     */
+    private static function acoesDoSolicitante(Situacao $s): array
+    {
+        return match ($s) {
+            Situacao::Nova, Situacao::Analise => [[AcaoDemanda::Cancelar, 'perigo']],
+            Situacao::Info => [[AcaoDemanda::ResponderInformacoes, 'pri'], [AcaoDemanda::Cancelar, 'perigo']],
+            Situacao::Proposta => [[AcaoDemanda::AceitarProposta, 'pri'], [AcaoDemanda::SolicitarAjustes, ''], [AcaoDemanda::RecusarProposta, 'perigo']],
+            default => [],
+        };
+    }
+
+    /**
+     * Dois papéis (spec §9.2): o Master que é usuário (vínculo ativo) do escritório solicitante da
+     * demanda age também como o Solicitante dela. Nunca na pré-visualização.
+     */
+    public function agePeloEscritorio(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Master
+            && !$ctx->previa
+            && in_array((int) $d->getTenant()->getId(), $ctx->escritoriosDoPrimario, true);
+    }
+
+    /**
+     * Em que papel a ação é registrada: a do lado do Solicitante, feita pelo Master num escritório
+     * dele, fica como Solicitante (é assim que o histórico e o "aceita por" devem contar).
+     */
+    public function papelNaAcao(Contexto $ctx, DemandaExterna $d, AcaoDemanda $acao): Perfil
+    {
+        if ($this->agePeloEscritorio($ctx, $d)) {
+            foreach (self::acoesDoSolicitante($d->getSituacao()) as [$a]) {
+                if ($a === $acao) {
+                    return Perfil::Solicitante;
+                }
+            }
+        }
+
+        return $ctx->perfil;
     }
 
     /** A ação está entre os botões que este perfil vê agora: é a mesma regra que desenhou a tela. */

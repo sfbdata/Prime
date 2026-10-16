@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\TrabalhoExterno\Service;
 
 use App\Entity\Auth\User;
+use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Repository\ConfiguracaoCentralRepository;
@@ -18,6 +19,7 @@ final class FabricaDeContexto
         private readonly ResolvedorDePerfil $resolvedor,
         private readonly ConfiguracaoCentralRepository $configuracoes,
         private readonly ConviteDemandaRepository $convites,
+        private readonly UserTenantRepository $vinculos,
     ) {
     }
 
@@ -32,6 +34,16 @@ final class FabricaDeContexto
         $configuracao = $this->configuracoes->atual();
         $perfil = $this->resolvedor->resolver($usuario, $tenant, $configuracao);
 
+        if ($perfil === Perfil::Master) {
+            $escritorios = [];
+            foreach ($this->vinculos->findActiveByUser($usuario) as $vinculo) {
+                if ($vinculo->getTenant()?->getId() !== null) {
+                    $escritorios[] = (int) $vinculo->getTenant()->getId();
+                }
+            }
+
+            return new Contexto($usuario, $tenant, $perfil, $configuracao, escritoriosDoPrimario: $escritorios);
+        }
         if ($perfil !== null) {
             return new Contexto($usuario, $tenant, $perfil, $configuracao);
         }
