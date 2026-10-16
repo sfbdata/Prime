@@ -46,7 +46,9 @@ final class ImportarArquivoDeFontesUseCase
     {
         self::validar($conteudo);
 
-        return $this->fontes->gravarQuadroOabEnviado($this->leitor->quadroOab($conteudo), $nomeArquivo);
+        $lido = $this->leitor->quadroOab($conteudo);
+
+        return $this->fontes->gravarQuadroOabEnviado($lido['uf'], $nomeArquivo, $lido['totais']);
     }
 
     private static function validar(string $conteudo): void

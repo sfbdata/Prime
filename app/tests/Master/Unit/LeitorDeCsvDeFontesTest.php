@@ -7,6 +7,7 @@ namespace App\Tests\Master\Unit;
 use App\Master\Fontes\ArquivoNaoReconhecido;
 use App\Master\Fontes\LeitorDeCsvDeFontes;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -45,9 +46,55 @@ final class LeitorDeCsvDeFontesTest extends TestCase
 
         $q = (new LeitorDeCsvDeFontes())->quadroOab($csv);
 
-        self::assertSame(['SP'], array_keys($q));
-        self::assertSame([396761, 1770, 17786, 237, 208797, 187964], array_slice($q['SP'], 0, 6));
-        self::assertNull($q['SP'][6]);
+        self::assertSame(['SP'], array_keys($q['uf']));
+        self::assertSame([396761, 1770, 17786, 237, 208797, 187964], array_slice($q['uf']['SP'], 0, 6));
+        self::assertNull($q['uf']['SP'][6]);
+        self::assertSame([], $q['totais']);
+
+        $comTotal = (new LeitorDeCsvDeFontes())->quadroOab("SECCIONAL;Advogado(a)\nSP;10\nTOTAL;1.512.836\n");
+        self::assertSame(1512836, $comTotal['totais'][0]);
+    }
+
+    /**
+     * @return iterable<string, array{string, ?int}>
+     */
+    public static function numeros(): iterable
+    {
+        yield 'inteiro' => ['4250', 4250];
+        yield 'milhar com ponto' => ['4.250', 4250];
+        yield 'milhar com vírgula' => ['46,024,937', 46024937];
+        yield 'Excel cru com decimal' => ['17223547.5', 17223547];
+        yield 'milhar com ponto e decimal com vírgula' => ['17.223.547,50', 17223547];
+        yield 'milhar com vírgula e decimal com ponto' => ['46,024,937.25', 46024937];
+        yield 'vazio' => ['  ', null];
+    }
+
+    #[DataProvider('numeros')]
+    #[TestDox('Número da planilha "$texto" vira $esperado')]
+    public function testNumero(string $texto, ?int $esperado): void
+    {
+        self::assertSame($esperado, LeitorDeCsvDeFontes::numero($texto));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function ambiguos(): iterable
+    {
+        yield 'três decimais depois de 4 dígitos' => ['1234.567'];
+        yield 'grupos irregulares' => ['1.23.456'];
+        yield 'separadores trocados de lugar' => ['1,234.567,8'];
+        yield 'texto' => ['abc'];
+        yield 'negativo' => ['-10'];
+    }
+
+    #[DataProvider('ambiguos')]
+    #[TestDox('Número ambíguo "$texto" recusa o arquivo')]
+    public function testNumeroAmbiguo(string $texto): void
+    {
+        $this->expectException(ArquivoNaoReconhecido::class);
+
+        LeitorDeCsvDeFontes::numero($texto);
     }
 
     #[TestDox('Arquivo fora do modelo é recusado com a mensagem do desenho')]

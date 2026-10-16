@@ -83,39 +83,22 @@ final class LeitorQuadroOab
      */
     private static function validar(\DOMXPath $xpath, array $saida): void
     {
-        $siglas = array_keys($saida);
-        sort($siglas);
-        $esperadas = array_keys(ClienteIbge::CODIGO_UF);
-        sort($esperadas);
-        if ($siglas !== $esperadas) {
-            throw new FonteIndisponivel('Quadro da Advocacia com seccionais diferentes das 27 UFs: ' . implode(',', array_diff($siglas, $esperadas) ?: array_diff($esperadas, $siglas)));
-        }
-
-        foreach ($saida as $uf => $valores) {
-            if ($valores[0] === null || $valores[0] <= 0) {
-                throw new FonteIndisponivel(sprintf('Quadro da Advocacia sem advogados em %s.', $uf));
+        $totais = array_fill(0, 14, null);
+        foreach (self::numerosDoRodape($xpath, "//div[@id='divTotal']//tfoot/tr") as $i => $n) {
+            if ($i < 4) {
+                $totais[$i] = $n;
             }
         }
+        $obrigatorias = [0, 1, 2, 3];
 
-        $soma = static fn (int $posicao): int => array_sum(array_map(static fn (array $v): int => (int) $v[$posicao], $saida));
-        $conferir = static function (string $tabela, array $posicoes, array $totais) use ($soma): void {
-            foreach ($posicoes as $i => $posicao) {
-                if (!array_key_exists($i, $totais) || $totais[$i] === null || $soma($posicao) !== $totais[$i]) {
-                    throw new FonteIndisponivel(sprintf('Quadro da Advocacia: a soma da tabela %s (coluna %d) não fecha com o TOTAL.', $tabela, $i + 1));
-                }
-            }
-        };
-
-        $conferir('quantitativo', [0, 1, 2, 3], self::numerosDoRodape($xpath, "//div[@id='divTotal']//tfoot/tr"));
-
-        $temGenero = array_filter($saida, static fn (array $v): bool => $v[4] !== null) !== [];
-        if ($temGenero) {
-            $conferir('gênero', [4, 5], self::numerosDoRodape($xpath, "//div[@id='divTotalPorSexo']//tfoot/tr"));
+        if (array_filter($saida, static fn (array $v): bool => $v[4] !== null) !== []) {
+            $genero = self::numerosDoRodape($xpath, "//div[@id='divTotalPorSexo']//tfoot/tr");
+            $totais[4] = $genero[0] ?? null;
+            $totais[5] = $genero[1] ?? null;
+            $obrigatorias = array_merge($obrigatorias, [4, 5]);
         }
 
-        $temFaixa = array_filter($saida, static fn (array $v): bool => $v[6] !== null) !== [];
-        if ($temFaixa) {
-            $totais = array_fill(0, 8, null);
+        if (array_filter($saida, static fn (array $v): bool => $v[6] !== null) !== []) {
             foreach ($xpath->query("//div[@id='divTotalFaixaEtaria']//tfoot/tr") ?: [] as $tr) {
                 $tds = $xpath->query('./td', $tr);
                 if ($tds === false || $tds->length < 3) {
@@ -123,11 +106,16 @@ final class LeitorQuadroOab
                 }
                 $faixa = self::indiceDaFaixa((string) $tds->item(0)?->textContent);
                 if ($faixa !== null) {
-                    $totais[$faixa * 2] = self::numero((string) $tds->item(1)?->textContent);
-                    $totais[$faixa * 2 + 1] = self::numero((string) $tds->item(2)?->textContent);
+                    $totais[6 + $faixa * 2] = self::numero((string) $tds->item(1)?->textContent);
+                    $totais[7 + $faixa * 2] = self::numero((string) $tds->item(2)?->textContent);
                 }
             }
-            $conferir('faixa etária', [6, 7, 8, 9, 10, 11, 12, 13], $totais);
+            $obrigatorias = array_merge($obrigatorias, range(6, 13));
+        }
+
+        $problema = ValidadorQuadroOab::problema($saida, $totais, $obrigatorias);
+        if ($problema !== null) {
+            throw new FonteIndisponivel('Quadro da Advocacia recusado: ' . $problema . '.');
         }
     }
 

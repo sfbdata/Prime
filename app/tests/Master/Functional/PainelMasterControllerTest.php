@@ -271,6 +271,14 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(SementeQuadroOab::UF['SP'][1], $resposta['resumo']['oab']['uf']['SP'][1], 'coluna ausente mantém o anterior');
         self::assertSame('16/10/2026', $resposta['resumo']['oab']['data']);
 
+        $client->request('POST', '/master/fontes/oab', ['_token' => $cfg['csrf']], ['arquivo' => $this->csv("SECCIONAL;Advogado(a)\nSP;0\n")]);
+        self::assertResponseStatusCodeSame(422, 'advogados zerados: planilha recusada');
+        $client->request('POST', '/master/fontes/oab', ['_token' => $cfg['csrf']], ['arquivo' => $this->csv("SECCIONAL;Advogado(a)\nSP;500000\nTOTAL;123\n")]);
+        self::assertResponseStatusCodeSame(422, 'TOTAL que não fecha: planilha recusada');
+        self::assertStringContainsString('retrato anterior foi mantido', (string) $client->getResponse()->getContent());
+        $client->request('GET', '/master/fontes');
+        self::assertSame(400000, json_decode((string) $client->getResponse()->getContent(), true)['oab']['uf']['SP'][0], 'retrato anterior mantido');
+
         $client->request('POST', '/master/fontes/oab', ['_token' => $cfg['csrf']], ['arquivo' => $this->csv("SECCIONAL;Advogado(a)\n" . str_repeat("SP;1\n", 450000))]);
         self::assertResponseStatusCodeSame(422, 'arquivo acima de 2 MB é recusado antes de ser lido');
 

@@ -136,6 +136,8 @@
       const o = oab().uf, S = Object.keys(o).sort();
       const L = ['SECCIONAL;Advogado(a);Estagiário(a);Suplementar;Consultor Estrangeiro;Advogados Feminino;Advogados Masculino;Até 25 anos Feminino;Até 25 anos Masculino;26 a 40 anos Feminino;26 a 40 anos Masculino;41 a 59 anos Feminino;41 a 59 anos Masculino;60 anos ou mais Feminino;60 anos ou mais Masculino'];
       S.forEach(s => L.push([s].concat(o[s].map(x => (x == null ? '' : x))).join(';')));
+      // Linha TOTAL: o servidor confere a soma de cada coluna ao receber a planilha de volta.
+      L.push(['TOTAL'].concat(Array.from({ length: 14 }, (_, i) => (S.every(s => o[s][i] != null) ? S.reduce((a, s) => a + o[s][i], 0) : ''))).join(';'));
       baixarCsv(L, 'quadro-advocacia-oab-' + String(oab().data).replace(/\//g, '-') + '.csv');
       avisar('Planilha OAB baixada (' + oab().data + ').');
     }
@@ -146,7 +148,7 @@
   const comoCsv = async f => {
     if (!/\.xlsx?$/i.test(f.name)) return f;
     const X = await carregarXlsx(), wb = X.read(await f.arrayBuffer(), { type: 'array' }), ws = wb.Sheets[wb.SheetNames[0]];
-    return new File([X.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })], f.name.replace(/\.xlsx?$/i, '') + '.csv', { type: 'text/csv' });
+    return new File([X.utils.sheet_to_csv(ws, { FS: ';', blankrows: false, rawNumbers: true })], f.name.replace(/\.xlsx?$/i, '') + '.csv', { type: 'text/csv' });
   };
   file.onchange = async () => {
     const f = file.files[0]; file.value = ''; if (!f) return;

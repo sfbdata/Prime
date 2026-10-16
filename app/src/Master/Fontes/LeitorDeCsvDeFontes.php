@@ -12,7 +12,7 @@ namespace App\Master\Fontes;
  *  - Quadro da Advocacia: `SECCIONAL` seguido das 14 colunas na ordem de {@see LeitorQuadroOab}
  *    ("Baixar planilha OAB (CSV)" / "Atualizar OAB por arquivo (CSV)").
  *
- * Separador `;` ou `,`; números aceitam ponto de milhar.
+ * Separador `;` ou `,`; números nos formatos de {@see numero()}.
  */
 final class LeitorDeCsvDeFontes
 {
@@ -89,7 +89,8 @@ final class LeitorDeCsvDeFontes
     }
 
     /**
-     * @return array<string, list<int|null>> UF => 14 posições (nula = não veio no arquivo)
+     * @return array{uf: array<string, list<int|null>>, totais: array<int, int|null>} UF => 14 posições
+     *         (nula = não veio no arquivo) e, se a planilha tiver a linha TOTAL, os totais por posição
      *
      * @throws ArquivoNaoReconhecido
      */
@@ -101,14 +102,19 @@ final class LeitorDeCsvDeFontes
         }
 
         $saida = [];
+        $totais = [];
         foreach ($linhas as $c) {
             $sigla = strtoupper(trim($c[0] ?? ''));
-            if (!isset(self::UF_POR_SIGLA[$sigla])) {
+            if (!isset(self::UF_POR_SIGLA[$sigla]) && $sigla !== 'TOTAL') {
                 continue;
             }
             $valores = [];
             for ($i = 1; $i <= 14; $i++) {
                 $valores[] = self::numero($c[$i] ?? '');
+            }
+            if ($sigla === 'TOTAL') {
+                $totais = $valores;
+                continue;
             }
             $saida[$sigla] = $valores;
         }
@@ -117,7 +123,7 @@ final class LeitorDeCsvDeFontes
             throw new ArquivoNaoReconhecido('Não encontrei a tabela da OAB no arquivo. Use o modelo baixado pelo menu.');
         }
 
-        return $saida;
+        return ['uf' => $saida, 'totais' => $totais];
     }
 
     /**
@@ -138,14 +144,42 @@ final class LeitorDeCsvDeFontes
         return [$cabecalho, array_map($quebrar, array_slice($brutas, 1))];
     }
 
-    private static function numero(string $texto): ?int
+    /**
+     * Número da planilha, em qualquer dos formatos comuns, sempre como inteiro (decimal descartado):
+     * "4250", "4.250", "46,024,937" (milhar com . ou , em grupos de 3), "17223547.5" (Excel cru),
+     * "17.223.547,50" e "46,024,937.25". Vazio = nulo. Qualquer outra forma (grupos irregulares,
+     * "1234.567", separadores misturados fora do padrão) é AMBÍGUA e recusa o arquivo inteiro: um
+     * número mal lido mudaria o mapa sem ninguém perceber.
+     *
+     * @throws ArquivoNaoReconhecido
+     */
+    public static function numero(string $texto): ?int
     {
-        $limpo = str_replace(['.', ' '], '', trim($texto));
-        $limpo = explode(',', $limpo)[0];
-        if ($limpo === '' || preg_match('/^\d+$/', $limpo) !== 1) {
+        $t = str_replace([' ', "\u{00A0}"], '', trim($texto));
+        if ($t === '') {
             return null;
         }
 
-        return (int) $limpo;
+        $padroes = [
+            '/^(\d+)$/'                                   => static fn (array $m): string => $m[1],
+            '/^(\d{1,3}(?:\.\d{3})+)$/'                     => static fn (array $m): string => str_replace('.', '', $m[1]),
+            '/^(\d{1,3}(?:,\d{3})+)$/'                      => static fn (array $m): string => str_replace(',', '', $m[1]),
+            '/^(\d{1,3}(?:\.\d{3})+),\d+$/'                 => static fn (array $m): string => str_replace('.', '', $m[1]),
+            '/^(\d{1,3}(?:,\d{3})+)\.\d+$/'                 => static fn (array $m): string => str_replace(',', '', $m[1]),
+            '/^(\d+)[.,](\d{1,2}|\d{4,})$/'                => static fn (array $m): string => $m[1],
+            '/^(\d{4,})[.,]\d{3}$/'                        => null,
+        ];
+
+        foreach ($padroes as $regex => $converter) {
+            if (preg_match($regex, $t, $m) === 1) {
+                if ($converter === null) {
+                    break;
+                }
+
+                return (int) $converter($m);
+            }
+        }
+
+        throw new ArquivoNaoReconhecido(sprintf('Número ambíguo na planilha: "%s". Use números inteiros, como no modelo baixado pelo menu.', mb_substr($t, 0, 30)));
     }
 }

@@ -207,15 +207,19 @@ final class FontesPublicas
 
     /**
      * Grava um novo retrato da OAB a partir do CSV do modelo ("Baixar planilha OAB"). Posições
-     * vazias no arquivo mantêm o valor do retrato anterior, como no protótipo.
+     * vazias no arquivo mantêm o valor do retrato anterior, como no protótipo. O resultado passa
+     * pela {@see ValidadorQuadroOab} (27 UFs, advogados > 0, totais da linha TOTAL se houver).
      *
      * @param array<string, list<int|null>> $porUf
+     * @param array<int, int|null>          $totais
+     *
+     * @throws ArquivoNaoReconhecido
      *
      * @return array{data: string, seccionais: int}
      */
-    public function gravarQuadroOabEnviado(array $porUf, string $nomeArquivo): array
+    public function gravarQuadroOabEnviado(array $porUf, string $nomeArquivo, array $totais = []): array
     {
-        return $this->armazem->comTrava('armazem', fn (): array => $this->mesclarQuadroOab($porUf, $nomeArquivo))[1];
+        return $this->armazem->comTrava('armazem', fn (): array => $this->mesclarQuadroOab($porUf, $nomeArquivo, $totais))[1];
     }
 
     /**
@@ -223,7 +227,7 @@ final class FontesPublicas
      *
      * @return array{data: string, seccionais: int}
      */
-    private function mesclarQuadroOab(array $porUf, string $nomeArquivo): array
+    private function mesclarQuadroOab(array $porUf, string $nomeArquivo, array $totais): array
     {
         $atual = $this->quadroOab()['uf'];
         foreach ($porUf as $sigla => $valores) {
@@ -236,6 +240,12 @@ final class FontesPublicas
             $atual[$sigla] = $base;
         }
         ksort($atual);
+
+        // Mesma validação estrutural da página da OAB: recusa = nada gravado, retrato anterior mantido.
+        $problema = ValidadorQuadroOab::problema($atual, $totais);
+        if ($problema !== null) {
+            throw new ArquivoNaoReconhecido('Planilha da OAB recusada: ' . $problema . '. O retrato anterior foi mantido.');
+        }
 
         $data = $this->relogio->now()->format('d/m/Y');
         $this->armazem->gravar(self::CHAVE_OAB, ['data' => $data, 'uf' => $atual], 'arquivo ' . $nomeArquivo . ' (cópia do site da OAB)');
