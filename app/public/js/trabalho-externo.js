@@ -142,7 +142,8 @@
     function comCodigo(base, codigo) { return base.replace(MARCADOR, encodeURIComponent(codigo)); }
     /** Pré-visualização do Master (spec §9): só as LEITURAS levam `?como=`; escrita nunca. */
     function comComo(url) { return S.como ? url + (url.indexOf('?') >= 0 ? '&' : '?') + 'como=' + encodeURIComponent(S.como) : url; }
-    function previa() { return !!S.painel.previa; }
+    /** Vale desde o clique no seletor (S.como), antes mesmo de o painel da prévia chegar. */
+    function previa() { return !!S.como || !!S.painel.previa; }
     var ROTA = {
         detalhe: function (c) { return comComo(comCodigo(D.urlDetalhe, c)); },
         acao: function (c, a) { return comCodigo(D.urlAcao, c).replace('__acao__', encodeURIComponent(a)); },

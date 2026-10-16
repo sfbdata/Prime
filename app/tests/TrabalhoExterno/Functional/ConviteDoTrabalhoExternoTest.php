@@ -485,6 +485,8 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->contaDoConvidado($client, $token, 'negocio@test.com');
         $this->logarComTenant($client, $master, $central);
         $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'NOTA-DO-MASTER', 'interna' => true]);
+        // Mensagem visível ao convidado, que ele ainda não leu: sem a regra da prévia, contaria 1.
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'Bom dia, pode confirmar?']);
         $this->logarComTenant($client, $solicitante, $escritorio);
         $rascunho = $this->solicitar($client, self::solicitacaoValida(['descricao' => 'RASCUNHO-PRIVADO']), false)['codigo'];
 
@@ -549,9 +551,20 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertNull($painel('master')['previa']);
         self::assertNull($painel('qualquer')['previa']);
 
-        // Escrita nunca é "como" outro perfil: a ação de convidado com ?como=convidado é do Master, que não a tem.
-        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/impedimento?como=convidado", ['motivo' => 'x']);
-        self::assertResponseStatusCodeSame(403);
+        // Na prévia não há leitura de outra pessoa: nem contagem, nem aviso de mensagem.
+        $p = $painel('convidado');
+        self::assertSame(0, $p['demandas'][0]['naoLidas']);
+        self::assertNull($p['avisoDeMensagem']);
+        self::assertSame(0, $detalhe('convidado')['naoLidas']);
+
+        // Escrita nunca é "como" outro perfil: uma nota interna (que o Solicitante não pode escrever)
+        // com ?como=solicitante grava normalmente, como o Master real.
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens?como=solicitante", ['texto' => 'NOTA-COM-COMO', 'interna' => true]);
+        self::assertResponseIsSuccessful();
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $nota = array_values(array_filter($this->json($client)['demanda']['mensagens'], static fn (array $m): bool => $m['txt'] === 'NOTA-COM-COMO'));
+        self::assertSame('interna', $nota[0]['estilo'] ?? null, 'gravada como nota interna do Master');
+        self::assertTrue($nota[0]['meu'] ?? false);
 
         // Aba só para a equipe: a prévia de Solicitante mostra o bloqueio dele, não as demandas.
         $this->postarJson($client, '/trabalho-externo/api/configuracao', ['visibilidade' => 'interno']);

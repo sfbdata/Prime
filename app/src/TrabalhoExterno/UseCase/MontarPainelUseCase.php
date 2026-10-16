@@ -87,7 +87,7 @@ final class MontarPainelUseCase
                 fn (array $par): array => $this->apresentador->linha($par[1], $par[0], $naoLidas[(int) $par[0]->getId()] ?? 0),
                 $pares,
             ),
-            'avisoDeMensagem' => $this->avisoDeMensagem($pares, $naoLidas),
+            'avisoDeMensagem' => $ctx->previa ? null : $this->avisoDeMensagem($pares, $naoLidas),
             'novaSolicitacao' => $ctx->perfil === Perfil::Solicitante && !$ctx->previa ? $this->dadosDoModal($ctx) : null,
         ];
     }

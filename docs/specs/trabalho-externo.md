@@ -210,6 +210,8 @@ troca de identidade: a sessão, o usuário e as permissões continuam os do Mast
   - Equipe: como um colaborador da sede veria, com as chaves de "Equipe do Master" (sem `ver`, bloqueio).
   - Convidado: só as demandas com convite aceito e vigente, cada uma como AQUELE convidado a veria
     (permissões do convite, corte do aceite). Sem convite aceito, a lista fica vazia.
+- **Sem estado de leitura de outra pessoa**: na prévia não há contagem de não lidas nem o aviso
+  "Abrir conversa" (seriam a leitura do convidado ou do escritório, que o Master não vê).
 - **Diferenças assumidas em relação ao desenho**: uma faixa "Pré-visualizando como X: somente leitura"
   com "Voltar ao Master" (o protótipo não precisava dela, porque lá a troca é de identidade); na
   prévia não aparecem "Nova solicitação", o ⋮ nem formulários; a escolha não persiste ao recarregar a

@@ -37,6 +37,12 @@ final class ContadorDeNaoLidas
         $mapa = [];
         foreach ($pares as [$d, $ctx]) {
             $usuario = $ctx->usuario;
+            // Pré-visualização do Master: a leitura é de OUTRA pessoa (o convidado, o escritório),
+            // dado que o Master não vê na tela real. Na prévia não há contagem.
+            if ($ctx->previa) {
+                $mapa[(int) $d->getId()] = 0;
+                continue;
+            }
             if ($ctx->perfil === Perfil::Convidado) {
                 $mapa[(int) $d->getId()] = $this->doConvidado($ctx, $d);
                 continue;
