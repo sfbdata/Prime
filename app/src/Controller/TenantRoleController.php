@@ -44,11 +44,6 @@ final class TenantRoleController extends AbstractController
     private const DESCRICAO_PRIMARIO = 'Quem abriu a conta. Gestor do escritório; cadastra e administra os secundários. Não pode ser excluído.';
     private const DESCRICAO_SECUNDARIO_VAZIA = 'Usuário secundário';
 
-    /**
-     * Nome EXIBIDO do perfil isSystem (desenho). O gravado continua "Administrador do Escritório":
-     * o TenantBootstrapService acha o perfil pelo nome.
-     */
-    public const NOME_EXIBIDO_PRIMARIO = 'Usuário Primário';
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -124,7 +119,7 @@ final class TenantRoleController extends AbstractController
             $descricao = trim((string) $role->getDescription());
             $perfis[] = [
                 'id'            => $role->getId(),
-                'nome'          => $role->isSystem() ? self::NOME_EXIBIDO_PRIMARIO : $role->getName(),
+                'nome'          => $role->getNomeExibido(),
                 'classificacao' => $role->isSystem() ? 'primario' : 'secundario',
                 'descricao'     => $role->isSystem()
                     ? self::DESCRICAO_PRIMARIO
@@ -417,7 +412,6 @@ final class TenantRoleController extends AbstractController
         return $this->render('tenant_role/edit.html.twig', [
             'tenantId'          => $tenant->getId(),
             'role'              => $role,
-            'nomeExibido'       => self::NOME_EXIBIDO_PRIMARIO,
             'podeGerirPrimarios' => $ator instanceof User && $this->regraDosPrimarios->podeGerirPrimarios($ator, $tenant),
             'form'              => null,
             'cartoes'           => $cartoes,

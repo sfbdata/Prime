@@ -593,6 +593,22 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         return sprintf('/tenant/%d/user/%d/remover', $this->tenant->getId(), $alvo->getId());
     }
 
+    #[TestDox('M6b: o perfil de sistema aparece como "Usuário Primário" na lista de colaboradores, no select do edit-role e no seletor de escritório')]
+    public function testNomeExibidoDoPrimarioNasOutrasTelas(): void
+    {
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+
+        $crawler = $this->client->request('GET', sprintf('/tenant/%d/users', $this->tenant->getId()));
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Usuário Primário', $html);
+        self::assertStringNotContainsString('Administrador do Escritório', $html);
+
+        $crawler = $this->client->request('GET', $this->urlEditRole($this->advogado));
+        $opcao = $crawler->filter(sprintf('select[name="edit_user_tenant_role[tenantRole]"] > option[value="%d"]', $this->perfilPrimario->getId()));
+        self::assertSame('Usuário Primário', trim($opcao->text()));
+    }
+
     // ── excluir perfil em uso ──────────────────────────────────────────────
 
     #[TestDox('excluir perfil em uso deixa os usuários sem perfil, como o desenho promete (sem erro de integridade)')]

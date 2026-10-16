@@ -185,7 +185,7 @@
                                                             class="dropdown-item d-flex align-items-center gap-2{{ ut.tenant.id == current_tenant().id ? ' active' : '' }}">
                                                         <i class="bi {{ ut.tenant.id == current_tenant().id ? 'bi-check-circle-fill text-success' : 'bi-building' }}"></i>
                                                         <span class="flex-grow-1 text-truncate">{{ ut.tenant.name }}</span>
-                                                        {% if ut.tenantRole %}<small class="text-muted">{{ ut.tenantRole.name }}</small>{% endif %}
+                                                        {% if ut.tenantRole %}<small class="text-muted">{{ ut.tenantRole.nomeExibido }}</small>{% endif %}
                                                     </button>
                                                 </form>
                                             </li>

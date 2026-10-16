@@ -48,7 +48,7 @@
                                 <td class="align-middle">{{ user.email }}</td>
                                 <td class="align-middle">
                                     {% if ut and ut.tenantRole %}
-                                        <span class="badge text-bg-secondary">{{ ut.tenantRole.name }}</span>
+                                        <span class="badge text-bg-secondary">{{ ut.tenantRole.nomeExibido }}</span>
                                     {% else %}
                                         <span class="text-muted">—</span>
                                     {% endif %}

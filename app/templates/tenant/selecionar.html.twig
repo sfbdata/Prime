@@ -32,7 +32,7 @@
                         <div class="flex-grow-1">
                             <div class="fw-semibold">{{ convite.tenant.name }}</div>
                             {% if convite.tenantRole %}
-                                <small class="text-muted">{{ convite.tenantRole.name }}</small>
+                                <small class="text-muted">{{ convite.tenantRole.nomeExibido }}</small>
                             {% endif %}
                         </div>
                         <span class="btn btn-sm btn-outline-primary">Ver convite</span>
@@ -54,7 +54,7 @@
                 <button type="submit" class="btn btn-outline-primary w-100 text-start p-3">
                     <strong>{{ vinculo.tenant.name }}</strong>
                     {% if vinculo.tenantRole %}
-                        <br><small class="text-muted">{{ vinculo.tenantRole.name }}</small>
+                        <br><small class="text-muted">{{ vinculo.tenantRole.nomeExibido }}</small>
                     {% endif %}
                 </button>
             </form>

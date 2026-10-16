@@ -34,7 +34,7 @@
                         <select id="tenant_role_id" name="tenant_role_id" class="form-select" required>
                             <option value="">Selecione...</option>
                             {% for role in roles %}
-                                <option value="{{ role.id }}">{{ role.name }}</option>
+                                <option value="{{ role.id }}">{{ role.nomeExibido }}</option>
                             {% endfor %}
                         </select>
                     </div>

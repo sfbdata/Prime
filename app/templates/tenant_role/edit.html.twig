@@ -6,7 +6,7 @@
    promoção de sócio e as caixas marcadas e travadas (D5), sem campos de nome.
 #}
 
-{% block title %}Editar Perfil: {{ role.isSystem ? nomeExibido : role.name }}{% endblock %}
+{% block title %}Editar Perfil: {{ role.nomeExibido }}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/perfis.css') }}">
@@ -16,7 +16,7 @@
 {% set ehPrimario = role.isSystem %}
 <div class="pf-page">
     <div class="pf-cabecalho">
-        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>Editar Perfil: {{ ehPrimario ? nomeExibido : role.name }}
+        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>Editar Perfil: {{ role.nomeExibido }}
             {%- if ehPrimario %}<span class="pf-selo-titulo pf-selo-primario">PRIMÁRIO</span>{% else %}<span class="pf-selo-titulo pf-selo-secundario">SECUNDÁRIO</span>{% endif -%}
             <span class="pf-titulo-barra"></span></h1>
         <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-arrow-left"></i>Voltar</a>
