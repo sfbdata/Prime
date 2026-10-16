@@ -89,6 +89,14 @@
     --ps-sit-ativo-tx:  #186c47;
     --ps-sit-arq-bg:    #eef2f5;
     --ps-sit-arq-tx:    #4f6878;
+    --ps-sit-sus-bg:    #fdf3e1;
+    --ps-sit-sus-tx:    #8a5a00;
+    --ps-sit-sus-dot:   #d08a12;
+    --ps-sit-sus-halo:  rgba(208,138,18,.18);
+    --ps-sit-can-bg:    #fdecea;
+    --ps-sit-can-tx:    #a3232b;
+    --ps-sit-can-dot:   #c0392b;
+    --ps-sit-can-halo:  rgba(192,57,43,.16);
     --ps-cliente-bg:    linear-gradient(135deg,#e3f1f7,#cfe6f0);
     --ps-vinc-borda:    #d7e6ef;
     /* Aba Dados (A4): linha do tempo do registro e cabecalho dos cartoes do trilho. */
@@ -263,6 +271,14 @@
     --ps-sit-ativo-tx:  #6ddaa2;
     --ps-sit-arq-bg:    var(--bs-border-color-translucent);
     --ps-sit-arq-tx:    var(--bs-secondary-color);
+    --ps-sit-sus-bg:    rgba(208,138,18,.18);
+    --ps-sit-sus-tx:    #f0bd62;
+    --ps-sit-sus-dot:   #d08a12;
+    --ps-sit-sus-halo:  rgba(208,138,18,.24);
+    --ps-sit-can-bg:    rgba(192,57,43,.18);
+    --ps-sit-can-tx:    #f08a80;
+    --ps-sit-can-dot:   #c0392b;
+    --ps-sit-can-halo:  rgba(192,57,43,.24);
     --ps-cliente-bg:    rgba(69,176,214,.18);
     --ps-vinc-borda:    var(--bs-border-color);
     --ps-linha-tempo:   var(--bs-border-color);
@@ -960,6 +976,11 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     animation: psSeloBate .55s cubic-bezier(.2,.9,.3,1.2) both, psSeloSai 2.6s ease-in-out .55s forwards;
 }
 .ps-cab-selo--ativo .ps-cab-selo-faixa { font-size: 12.8px; }
+/* Carimbos permanentes de Suspenso e Cancelado (desenho `seloEl`); o de Arquivado usa a cor base. */
+.ps-cab-selo--suspenso  { --selo-cor: #c27c0e; }
+.ps-cab-selo--cancelado { --selo-cor: #c62828; }
+.ps-cab-selo--suspenso .ps-cab-selo-faixa,
+.ps-cab-selo--cancelado .ps-cab-selo-faixa { font-size: 11px; }
 @keyframes psSeloSai {
     0%, 78% { opacity: .9; }
     100%    { opacity: 0; transform: translateY(-50%) rotate(-14deg) scale(.96); }
@@ -1084,12 +1105,18 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
 .ps-situacao-pill i { font-size: 10px; opacity: .7; }
 .ps-situacao-pill--ativo     { background: var(--ps-sit-ativo-bg); color: var(--ps-sit-ativo-tx); }
 .ps-situacao-pill--arquivado { background: var(--ps-sit-arq-bg);   color: var(--ps-sit-arq-tx); }
+.ps-situacao-pill--suspenso  { background: var(--ps-sit-sus-bg);   color: var(--ps-sit-sus-tx); }
+.ps-situacao-pill--cancelado { background: var(--ps-sit-can-bg);   color: var(--ps-sit-can-tx); }
 span.ps-situacao-pill { cursor: default; }
 .ps-situacao-ponto { position: relative; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .ps-situacao-pill--ativo .ps-situacao-ponto,
 .ps-situacao-ponto--ativo     { background: var(--ps-ok-dot); box-shadow: 0 0 0 3px var(--ps-ok-halo); }
 .ps-situacao-pill--arquivado .ps-situacao-ponto,
 .ps-situacao-ponto--arquivado { background: var(--ps-faint);  box-shadow: 0 0 0 3px var(--ps-arq-halo); }
+.ps-situacao-pill--suspenso .ps-situacao-ponto,
+.ps-situacao-ponto--suspenso  { background: var(--ps-sit-sus-dot); box-shadow: 0 0 0 3px var(--ps-sit-sus-halo); }
+.ps-situacao-pill--cancelado .ps-situacao-ponto,
+.ps-situacao-ponto--cancelado { background: var(--ps-sit-can-dot); box-shadow: 0 0 0 3px var(--ps-sit-can-halo); }
 /* Ondas do ponto verde da pilula ativa (desenho). */
 @keyframes psSitOnda { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(3.2); opacity: 0; } }
 .ps-situacao-pill--ativo .ps-situacao-ponto::before,

@@ -74,7 +74,7 @@ final class PastaCabecalhoSeloTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.ps-cab-selo--ativo'), 'o ATIVO só aparece na troca ao vivo');
+        self::assertCount(0, $crawler->filter('.ps-cab-selo--ativo'), 'o ATIVO não vem do servidor: o script o carimba ao abrir a pasta ativa');
         self::assertCount(1, $crawler->filter(self::SELO . '.ps-cab-selo--arquivado'));
 
         $modelo = (string) $crawler->filter('.ps-cabecalho > .ps-cab-dados')->attr('data-ps-selo-ativo-modelo');

@@ -27,7 +27,9 @@ final class EditarPastaUseCase
         $pasta->setNomeCliente($dto->nomeCliente);
         $pasta->setNomeAcao($dto->nomeAcao);
 
-        if (in_array($dto->situacao, [Pasta::SITUACAO_ATIVA, Pasta::SITUACAO_ARQUIVADA], true)) {
+        // As 4 situações do desenho: aceitar só Ativo/Arquivado fazia o modal (que não tinha Suspenso nem Cancelado)
+        // mandar "ativo" e reativar a pasta suspensa sem ninguém pedir.
+        if (in_array($dto->situacao, Pasta::SITUACOES, true)) {
             $pasta->setSituacao($dto->situacao);
         }
 

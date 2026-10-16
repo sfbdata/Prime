@@ -79,4 +79,17 @@ final class EditarPastaUseCaseTest extends TestCase
 
         self::assertSame(Pasta::SITUACAO_ARQUIVADA, $pasta->getSituacao());
     }
+
+    #[TestDox('Suspenso e Cancelado do modal "Editar dados" são gravados (antes viravam ativo sem ninguém pedir)')]
+    public function testSuspensoECanceladoSaoAceitos(): void
+    {
+        foreach ([Pasta::SITUACAO_SUSPENSA, Pasta::SITUACAO_CANCELADA] as $situacao) {
+            $pasta = new Pasta();
+            $pasta->setSituacao(Pasta::SITUACAO_ATIVA);
+
+            $this->useCase->executar(new EditarPastaDTO(nup: 'NUP-004', situacao: $situacao), $pasta);
+
+            self::assertSame($situacao, $pasta->getSituacao());
+        }
+    }
 }

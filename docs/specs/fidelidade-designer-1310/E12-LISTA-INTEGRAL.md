@@ -234,3 +234,34 @@ manual do "+", metas).
   138 pastas lidas, 31 prazos criados. Em produção é do dono, depois da migration.
 - Como o desenho, data lida que já passou aparece como "Vencido há N dias" (registros antigos trazem datas antigas).
 - Testes: `LeitorDeDatasTest` (18), `PrazosDosRegistrosTest` (6, prova por mutação: sem a releitura os 6 falham).
+
+## 11. E12d: Situação da pasta com as 4 opções do desenho (16/10/2026)
+
+Pedido do dono (capturas do 1.2.3): pílula Ativo, Suspenso, Cancelado, Arquivado "com toda a programação". Plano
+aprovado: Situação, depois ajustes da linha do tempo, depois Cadastro em 4 fatias. Decisões: igual ao desenho
+(Suspenso e Cancelado não travam nem saem das listas); réu cadastrado na pasta manda na coluna Réu; CEP pelo ViaCEP.
+
+- `DefinirSituacaoDaPastaUseCase`: tenant + EDIT, situação dentro de `Pasta::SITUACOES`, lápide recusada; mesma
+  situação não grava nada. Cartão do sistema "Situação da pasta: alterada de "X" para "Y"." (rótulo `situacao`).
+  Arquivar chama `AndamentoDaPasta::finalizarPorArquivamento` (vai a Finalizada sem pular, "Motivo: pasta
+  arquivada."); desarquivar não reverte a fase (como o desenho).
+- Rota `pasta_alternar_situacao`: com `situacao` (pílula) define; sem ela (menu ⋮) alterna arquivada para Ativo e
+  qualquer outra para Arquivado.
+- Fechados os caminhos que devolviam Suspenso/Cancelado a Ativo: toggle antigo da rota; modal "Editar dados" (4
+  opções com a atual marcada; `EditarPastaUseCase` aceita as 4); selo da tela Pastas (`_tabela`, `_card`) fixo
+  para Suspenso/Cancelado, como a Lista do Expediente.
+- Cabeçalho: pílula e menu das 4 situações com as cores do desenho (claro e escuro); carimbos permanentes
+  ARQUIVADO, SUSPENSO, CANCELADO; ATIVO passageiro 1,4 s depois de abrir a pasta ativa (desenho
+  `ativoSeloMostrar`; antes só na reativação). Trocar a situação recarrega a tela (cartão e fase aparecem).
+- Rótulo real na impressão, no contexto da IA e na linha do tempo do Histórico (antes suspensa aparecia como
+  arquivada).
+- Testes: `PastaSituacaoControllerTest` (7; mutação no toggle e no arquivar→Finalizada derrubam um cada),
+  `EditarPastaUseCaseTest` (+1); três testes antigos que registravam "só 2 situações" e "ATIVO só na troca"
+  atualizados para a regra do desenho.
+- Revisão (interrompida a meio, achados medidos aplicados): a tela manda sempre o destino (menu ⋮ e duplo clique
+  da Lista), então tela desatualizada não inverte a situação; "Editar dados" passa a situação pelo mesmo caso de uso
+  (cartão e arquivar→Finalizada) e campo ausente não mexe; escritório nulo dá 404. `_tabela`/`_card` da antiga
+  tela Pastas não são mais desenhados por rota nenhuma (a tela virou a Lista na E12): a correção fica, sem teste
+  de tela. Ficou para o dono: Push indisponível em pasta cancelada/arquivada (regra implícita do protótipo,
+  PZ-CAB-48) e o carimbo ATIVO aparecer 1,4 s depois da recarga em vez de na hora.
+- Testes: `PastaSituacaoControllerTest` com 10 casos (outro escritório, tela desatualizada, Editar dados).

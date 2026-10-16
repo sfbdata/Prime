@@ -34,6 +34,14 @@ class Pasta implements Auditavel, TenantAware
     public const SITUACAO_CANCELADA = 'cancelado';
     public const SITUACOES = [self::SITUACAO_ATIVA, self::SITUACAO_SUSPENSA, self::SITUACAO_CANCELADA, self::SITUACAO_ARQUIVADA];
 
+    /** Rótulos do desenho 1.2.3 (`sitMap`): o que a pílula, os cartões e as listas mostram. */
+    public const ROTULOS_SITUACAO = [
+        self::SITUACAO_ATIVA     => 'Ativo',
+        self::SITUACAO_SUSPENSA  => 'Suspenso',
+        self::SITUACAO_CANCELADA => 'Cancelado',
+        self::SITUACAO_ARQUIVADA => 'Arquivado',
+    ];
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -267,6 +275,11 @@ $this->documentos = new ArrayCollection();
     public function getSituacao(): string
     {
         return $this->situacao;
+    }
+
+    public function getSituacaoRotulo(): string
+    {
+        return self::ROTULOS_SITUACAO[$this->situacao] ?? 'Ativo';
     }
 
     public function setSituacao(string $situacao): self

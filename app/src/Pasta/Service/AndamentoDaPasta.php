@@ -172,6 +172,21 @@ final class AndamentoDaPasta
     }
 
     /**
+     * Pasta arquivada (desenho `faseAuto('Finalizada', 'pasta arquivada')`): o andamento vai direto a Finalizada, sem
+     * marcar as intermediárias como puladas. Já finalizada, nada (clicar em Finalizada reativaria).
+     */
+    public function finalizarPorArquivamento(Pasta $pasta, User $usuario, Tenant $tenant): ?string
+    {
+        $e = $this->estado($pasta, $tenant);
+        $ult = count($e['fases']) - 1;
+        if ($e['atual'] >= $ult) {
+            return null;
+        }
+
+        return $this->marcar($pasta, $usuario, $tenant, $ult, true, 'pasta arquivada');
+    }
+
+    /**
      * O contrato marcado no Financeiro (desenho `contratoFase`): regular leva o andamento até Contrato (ou só
      * registra a data dela, se já passou); pendente volta de Contrato para a anterior, ou marca Contrato como
      * pulada se o andamento já foi além.

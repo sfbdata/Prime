@@ -202,8 +202,8 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         self::assertSame('psSituacao', $pill->attr('data-ps-pop'));
 
         $opcoes = $crawler->filter('#psSituacao > button.js-situacao-opt[role="menuitemradio"]');
-        self::assertCount(2, $opcoes, 'só as duas situações que o sistema tem: Suspenso e Cancelado são função nova');
-        self::assertSame(['ativo', 'arquivado'], $opcoes->each(fn ($n) => $n->attr('data-situacao')));
+        self::assertCount(4, $opcoes, 'as 4 situações do desenho (`situacaoVals`)');
+        self::assertSame(['ativo', 'suspenso', 'cancelado', 'arquivado'], $opcoes->each(fn ($n) => $n->attr('data-situacao')));
         self::assertSame('ativo', $crawler->filter('#psSituacao > button[aria-checked="true"]')->attr('data-situacao'));
 
         self::assertCount(0, $crawler->filter('.ps-cab-dados [data-campo="situacao"]'), 'a situação saiu da faixa de dados');

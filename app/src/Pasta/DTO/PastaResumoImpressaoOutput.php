@@ -121,7 +121,7 @@ final readonly class PastaResumoImpressaoOutput
             titulo: $titulo,
             documento: $principal !== null ? self::documento($principal) : null,
             responsavel: $pasta->getResponsavel()?->getFullName() ?: null,
-            situacao: $pasta->getSituacao() === 'arquivado' ? 'Arquivado' : 'Ativo',
+            situacao: $pasta->getSituacaoRotulo(),
             acao: $acao ?: null,
             clientes: $clientes,
             processos: $processos,

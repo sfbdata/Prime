@@ -228,7 +228,7 @@
                                   title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}{% if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}">
                                 Excluída
                             </span>
-                        {% else %}
+                        {% elseif pasta.situacao in ['ativo', 'arquivado'] %}
                         <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
                               style="cursor:pointer;user-select:none;"
                               data-situacao="{{ pasta.situacao }}"
@@ -237,6 +237,10 @@
                               title="Dê duplo-clique para alternar entre ativo e arquivado">
                             {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
                         </span>
+                        {% else %}
+                        {# Suspenso e Cancelado: selo fixo, como na Lista do Expediente. O duplo clique alternava para
+                           Ativo/Arquivado e apagava a situação escolhida na pasta. #}
+                        <span class="badge {{ pasta.situacao == 'cancelado' ? 'text-bg-danger' : 'text-bg-warning' }}" data-situacao="{{ pasta.situacao }}">{{ pasta.situacaoRotulo }}</span>
                         {% endif %}
                     </td>
                 </tr>

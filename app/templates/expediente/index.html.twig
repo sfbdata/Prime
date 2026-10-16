@@ -247,7 +247,8 @@ document.addEventListener('dblclick', function (e) {
     fetch(badge.dataset.url, {
         method: 'POST',
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: '_token=' + encodeURIComponent(badge.dataset.csrf),
+        // Manda o destino que a tela mostra: se a pasta mudou em outra aba, não vira o contrário.
+        body: '_token=' + encodeURIComponent(badge.dataset.csrf) + '&situacao=' + (badge.dataset.situacao === 'ativo' ? 'arquivado' : 'ativo'),
     })
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
     .then(function (res) {
