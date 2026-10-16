@@ -6,6 +6,7 @@ namespace App\Tests\Master\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\Controller\FontesPublicasController;
@@ -30,6 +31,7 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Guarda e contrato HTTP do Painel do Master (spec perfis-master §6): tudo em /master/* é só do
@@ -48,6 +50,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         '/master/dados/contas',
         '/master/dados/usuarios-oab',
         '/master/dados/auditoria',
+        '/master/dados/mapa',
         '/master/mapa/brasil',
         '/master/mapa/mundo',
         '/master/fontes',
@@ -92,7 +95,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
     public function testPrimarioRecebe403(string $metodo, string $url): void
     {
         $client = $this->clienteDeEscritorio(true);
-        $client->request($metodo, $url);
+        $this->requisitarComCsrfValido($client, $metodo, $url);
 
         self::assertResponseStatusCodeSame(403);
     }
@@ -102,9 +105,69 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
     public function testSecundarioRecebe403(string $metodo, string $url): void
     {
         $client = $this->clienteDeEscritorio(false);
-        $client->request($metodo, $url);
+        $this->requisitarComCsrfValido($client, $metodo, $url);
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('O token usado nos 403 é válido: com ele o Master passa no CSRF de todos os POST')]
+    public function testTokenDosTestesEhValido(): void
+    {
+        $client = $this->clienteMaster();
+
+        foreach (self::POST as $url) {
+            $this->requisitarComCsrfValido($client, 'POST', $url);
+            self::assertNotSame(403, $client->getResponse()->getStatusCode(), $url . ' recusou o token: o 403 de primário/secundário provaria só o CSRF');
+        }
+    }
+
+    #[TestDox('Lotação e cidade do escritório com HTML não saem com < no agregado do mapa')]
+    public function testMapaSemHtml(): void
+    {
+        $client = $this->clienteMaster();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant = (new Tenant())->setName('Escritório XSS ' . uniqid())->setEstado('DF')->setCidade('"><script>alert(1)</script>');
+        $em->persist($tenant);
+        $lotacao = (new Lotacao())->setNome('<img src=x onerror=alert(1)>/SP')->setTenant($tenant);
+        $em->persist($lotacao);
+        $pessoa = $this->usuario(['ROLE_USER']);
+        $vinculo = new UserTenant($pessoa, $tenant);
+        $vinculo->setLotacao($lotacao);
+        $em->persist($vinculo);
+        $em->flush();
+
+        $client->request('GET', '/master/dados/mapa');
+        self::assertResponseIsSuccessful();
+        $mapa = json_decode((string) $client->getResponse()->getContent(), true);
+        $nomes = array_merge(
+            ...array_map('array_keys', array_values($mapa['pessoas']['geral']['C'])),
+            ...array_map('array_keys', array_values($mapa['escritorios']['C'])),
+        );
+        self::assertNotEmpty($nomes);
+        foreach ($nomes as $nome) {
+            self::assertDoesNotMatchRegularExpression('/[<>"\'`]/', (string) $nome);
+        }
+    }
+
+    #[TestDox('Painel e mapas saem com Content-Security-Policy; os mapas sem script inline')]
+    public function testCsp(): void
+    {
+        $client = $this->clienteMaster();
+
+        $client->request('GET', '/master');
+        self::assertStringContainsString("object-src 'none'", (string) $client->getResponse()->headers->get('Content-Security-Policy'));
+        self::assertStringContainsString("connect-src 'self'", (string) $client->getResponse()->headers->get('Content-Security-Policy'));
+
+        foreach (['/master/mapa/brasil', '/master/mapa/mundo'] as $url) {
+            $client->request('GET', $url);
+            $csp = (string) $client->getResponse()->headers->get('Content-Security-Policy');
+            self::assertStringContainsString("script-src 'self';", $csp, $url);
+            self::assertStringNotContainsString('unsafe-inline\' https', $csp);
+            self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\ssrc=)[^>]*>/i', (string) $client->getResponse()->getContent(), $url . ' tem script inline');
+        }
+
+        $client->request('GET', '/master/dados/visao-geral');
+        self::assertSame('nosniff', $client->getResponse()->headers->get('X-Content-Type-Options'));
     }
 
     #[TestDox('Anônimo vai para o login')]
@@ -213,6 +276,17 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('Tabela não reconhecida. Use o modelo baixado pelo menu.', json_decode((string) $client->getResponse()->getContent(), true)['erro']);
     }
 
+    private function requisitarComCsrfValido(KernelBrowser $client, string $metodo, string $url): void
+    {
+        if ($metodo !== 'POST') {
+            $client->request($metodo, $url);
+
+            return;
+        }
+
+        $client->request('POST', $url, ['_token' => 'TOKEN_' . FontesPublicasController::CSRF], ['arquivo' => $this->csv("SECCIONAL;Advogado(a)\nSP;400000\n")]);
+    }
+
     private function clienteMaster(?User &$master = null): KernelBrowser
     {
         $client = static::createClient();
@@ -284,6 +358,16 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
             return new MockResponse('', ['http_code' => 404]);
         });
         $relogio = new MockClock('2026-10-16 10:00:00');
+
+        // Armazém de CSRF fixo (padrão dos testes do projeto): o token 'TOKEN_<id>' é sempre válido,
+        // então os 403 de primário/secundário vêm do IsGranted, não do CSRF.
+        static::getContainer()->set('security.csrf.token_storage', new class implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string { return 'TOKEN_' . $tokenId; }
+            public function setToken(string $tokenId, string $token): void {}
+            public function removeToken(string $tokenId): ?string { return null; }
+            public function hasToken(string $tokenId): bool { return true; }
+            public function clear(): void {}
+        });
 
         static::getContainer()->set(FontesPublicas::class, new FontesPublicas(
             new ArmazemDeFontes(new ArrayAdapter(0, false), $relogio),
