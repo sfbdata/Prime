@@ -142,7 +142,7 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
             'o banco zera: +6000 (anterior) + 0 (agosto na jornada exata) - 6000 (pago) = 0',
         );
         self::assertSame(
-            'Sem dado',
+            '0:00',
             $dados['horasACompensar'],
             'o colaborador NÃO pode ser cobrado a compensar as horas que acabou de receber em dinheiro',
         );
@@ -179,9 +179,9 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
     public static function saldosSemLancamento(): array
     {
         return [
-            'saldo do mes positivo'   => [120, '+2:00', 'Sem dado'],
+            'saldo do mes positivo'   => [120, '+2:00', '0:00'],
             'saldo do mes negativo'   => [-600, '-10:00', '10:00'],
-            'saldo do mes zerado'     => [0, '+0:00', 'Sem dado'],
+            'saldo do mes zerado'     => [0, '+0:00', '0:00'],
             'mes sem saldo apurado'   => [null, 'Sem dado', 'Sem dado'],
         ];
     }

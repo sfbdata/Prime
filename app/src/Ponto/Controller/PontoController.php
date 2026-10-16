@@ -1062,7 +1062,7 @@ final class PontoController extends AbstractController
 
         foreach ($folhaRows as $row) {
             $row['horasTrabalhadas'] = $this->formatarMinutos($row['minutosTrabalhadosDia'] ?? null);
-            $row['horasExtras']      = ($row['saldoDia'] ?? 0) > 0 ? $this->formatarMinutos($row['saldoDia']) : 'Sem dado';
+            $row['horasExtras']      = ($row['saldoDia'] ?? 0) > 0 ? $this->formatarMinutos($row['saldoDia']) : '0:00';
             $row['bancoHoras']       = $this->formatarSaldo($row['saldoAcumulado'] ?? null);
             $rowsProcessados[]       = $row;
 
@@ -1225,9 +1225,11 @@ final class PontoController extends AbstractController
             'totalHorasExtras'        => $this->formatarMinutos($totalMinutosExtras ?: null),
             'saldoBancoAnterior'      => $this->formatarSaldo($saldoBancoAnteriorMinutos),
             'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
-            'horasACompensar'         => ($saldoBancoAtualMinutos !== null && $saldoBancoAtualMinutos < 0)
-                ? $this->formatarMinutos(abs($saldoBancoAtualMinutos))
-                : 'Sem dado',
+            'horasACompensar'         => match (true) {
+                $saldoBancoAtualMinutos === null => 'Sem dado',
+                $saldoBancoAtualMinutos < 0      => $this->formatarMinutos(abs($saldoBancoAtualMinutos)),
+                default                          => '0:00',
+            },
             'feriadosTrabalhados'     => $feriadosTrabalhados,
             'finaisSemanasTrabalhados' => $finaisSemanasTrabalhados,
             'intrajornadaConforme'    => $intrajornadaConforme,
@@ -1259,8 +1261,9 @@ final class PontoController extends AbstractController
 
     private function formatarMinutos(int|null $minutos): string
     {
+        // Zero hora é dado (nada a compensar, nenhuma extra), não ausência: sai como 0:00 na folha.
         if ($minutos === null || $minutos === 0) {
-            return 'Sem dado';
+            return '0:00';
         }
 
         $abs = abs($minutos);

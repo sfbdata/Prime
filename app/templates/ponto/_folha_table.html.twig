@@ -269,7 +269,7 @@
                                         {% elseif linha.saldoDia < 0 %}
                                             <span class="text-danger">-{{ (absSaldo // 60) }}h{{ '%02d'|format(absSaldo % 60) }}m</span>
                                         {% else %}
-                                            <span class="text-muted">Sem saldo</span>
+                                            <span class="text-muted">0:00</span>
                                         {% endif %}
                                     {% endif %}
                                 </td>
