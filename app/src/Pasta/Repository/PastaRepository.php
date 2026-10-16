@@ -13,6 +13,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaFavorita;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaPrazo;
+use App\Pasta\Entity\PastaAndamento;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Entity\Tarefa\Tarefa;
@@ -47,7 +48,7 @@ class PastaRepository extends ServiceEntityRepository
      * Filtros do sistema da seção EXPEDIENTES do trilho (desenho 1.1 da Lista, E12/E12b). Os prazos vêm das metas
      * e dos prazos e audiências registrados à mão na pasta; Protocolar vem do andamento da pasta.
      */
-    public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'aud', 'prazo', 'metas'];
+    public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'aud', 'prazo', 'metas', 'protocolar'];
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -837,6 +838,7 @@ class PastaRepository extends ServiceEntityRepository
      * - metas: meta não concluída sem nenhuma resposta.
      *
      * - aud: audiência registrada na pasta, não cumprida, de hoje em diante.
+     * - protocolar: pasta ativa, não administrativa, que ainda não passou pela fase Protocolo do andamento.
      * Prazo = meta com prazo ou prazo/audiência registrado à mão. O prazo calculado do Push ainda não existe.
      */
     private function aplicarFiltroDoExpediente(QueryBuilder $qb, string $filtro): void
@@ -899,6 +901,22 @@ class PastaRepository extends ServiceEntityRepository
                 ))
                    ->setParameter('exp_audiencia', PastaPrazo::TIPO_AUDIENCIA)
                    ->setParameter('exp_hoje', $hoje);
+                break;
+            case 'protocolar':
+                // Desenho 1.1 (`pzAll`): pasta ativa (nem arquivada nem cancelada), que não é "Administrativo sem
+                // processo" e que não passou pela fase Protocolo do andamento. Sem andamento gravado, vale a fase
+                // estimada: com processo vinculado a pasta já está em "Em andamento", depois de Protocolo.
+                $qb->andWhere('p.situacao NOT IN (:exp_sit_fora)')
+                   ->andWhere('p.administrativa = false')
+                   ->andWhere(sprintf(
+                       'NOT EXISTS (SELECT 1 FROM %1$s a_pr WHERE a_pr.pasta = p AND a_pr.via = :exp_via AND a_pr.passouProtocolo = true)'
+                       . ' AND NOT (NOT EXISTS (SELECT 1 FROM %1$s a_pr2 WHERE a_pr2.pasta = p AND a_pr2.via = :exp_via)'
+                       . ' AND EXISTS (SELECT 1 FROM %2$s pp_pr WHERE pp_pr.pasta = p))',
+                       PastaAndamento::class,
+                       PastaProcesso::class,
+                   ))
+                   ->setParameter('exp_sit_fora', [Pasta::SITUACAO_ARQUIVADA, Pasta::SITUACAO_CANCELADA])
+                   ->setParameter('exp_via', PastaAndamento::VIA_JUDICIAL);
                 break;
             case 'metas':
                 $qb->andWhere(sprintf(

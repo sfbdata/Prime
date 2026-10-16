@@ -11,6 +11,7 @@
 {# Redesenho da tela de pasta — desenho aprovado em docs/design/pasta-show/. #}
 <link rel="stylesheet" href="/css/pasta-show.css">
 <link rel="stylesheet" href="{{ asset('css/pasta-prazos.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -4403,4 +4404,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-dialogos.js') }}"></script>
 {# "Próximos prazos" (E12b): novo, editar, cumprir e excluir prazo ou audiência. #}
 <script src="{{ asset('js/pasta-prazos.js') }}"></script>
+{# Andamento da pasta em fases (E12b). #}
+<script src="{{ asset('js/pasta-andamento.js') }}"></script>
 {% endblock %}

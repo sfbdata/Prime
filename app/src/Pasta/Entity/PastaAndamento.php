@@ -45,6 +45,13 @@ class PastaAndamento implements TenantAware, Auditavel
     #[ORM\Column(name: 'atualizado_em', type: 'datetime_immutable')]
     private \DateTimeImmutable $atualizadoEm;
 
+    /**
+     * A pasta alcançou a fase Protocolo e ela não ficou pulada (desenho `protocolado`: `atual >= 4 && !pul[4]`).
+     * Copiado do JSON a cada gravação para a Lista poder filtrar "Protocolar" por consulta.
+     */
+    #[ORM\Column(name: 'passou_protocolo', type: 'boolean', options: ['default' => false])]
+    private bool $passouProtocolo = false;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
@@ -64,6 +71,7 @@ class PastaAndamento implements TenantAware, Auditavel
     public function getVia(): string { return $this->via; }
     public function getAtual(): int { return $this->atual; }
     public function getAtualizadoEm(): \DateTimeImmutable { return $this->atualizadoEm; }
+    public function passouProtocolo(): bool { return $this->passouProtocolo; }
 
     /** @return array{em: array<int, string>, pul: list<int>, extra: list<array{0: string, 1: string}>} */
     public function getMarcos(): array
@@ -81,6 +89,7 @@ class PastaAndamento implements TenantAware, Auditavel
     {
         $this->atual = $atual;
         $this->marcos = ['em' => (object) $marcos['em'], 'pul' => array_values(array_unique($marcos['pul'])), 'extra' => array_values($marcos['extra'])];
+        $this->passouProtocolo = $atual >= \App\Pasta\Service\AndamentoDaPasta::IDX_PROTOCOLO && !in_array(\App\Pasta\Service\AndamentoDaPasta::IDX_PROTOCOLO, $marcos['pul'], true);
         $this->atualizadoEm = new \DateTimeImmutable();
     }
 }

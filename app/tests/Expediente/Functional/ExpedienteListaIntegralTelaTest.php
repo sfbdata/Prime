@@ -39,7 +39,7 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         $this->client->disableReboot();
     }
 
-    #[TestDox('trilho do 1.1: Todas as pastas com ↻, EXPEDIENTES com cadeado e 6 filtros (Audiência e Protocolar em breve), MARCADORES com ⋮ e recolher')]
+    #[TestDox('trilho do 1.1: Todas as pastas com ↻, EXPEDIENTES com cadeado e 6 filtros, MARCADORES com ⋮ e recolher')]
     public function testTrilho(): void
     {
         [$user, $tenant] = $this->entrar();
@@ -63,7 +63,7 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $c->filter('#expTrilho > .exp-tri-cab--sistema > i.bi-lock.exp-tri-cadeado'));
         $filtros = $c->filter('#expTrilho > .exp-tri-cab--sistema + .exp-tri-lista > [role="listitem"] > .exp-tri-sistema');
         self::assertSame(['resp10', 'findou', 'aud', 'prazo', 'metas', 'protocolar'], $filtros->each(static fn ($f): string => (string) $f->attr('data-expediente')));
-        self::assertSame(['protocolar'], $c->filter('.exp-tri-sistema.is-em-breve[aria-disabled="true"]')->each(static fn ($f): string => (string) $f->attr('data-expediente')), 'E12b: Audiência funciona (prazos registrados na pasta)');
+        self::assertCount(0, $c->filter('.exp-tri-sistema.is-em-breve'), 'E12b: Audiência (prazos da pasta) e Protocolar (andamento) funcionam');
         self::assertSame('1', trim($c->filter('.exp-tri-sistema[data-expediente="metas"] .exp-tri-n')->text()));
         self::assertNotEmpty($c->filter('.exp-tri-sistema[data-expediente="findou"]')->attr('data-nota'), 'o botão direito abre a nota');
 

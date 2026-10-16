@@ -67,6 +67,8 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
+use App\Pasta\DTO\AndamentoDaPastaOutput;
+use App\Pasta\Service\AndamentoDaPasta;
 use App\Pasta\Repository\PastaPrazoRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -195,6 +197,7 @@ class PastaController extends AbstractController
         private readonly PublicacaoDjenRepository $publicacaoDjenRepository,
         private readonly LoggerInterface $logger,
         private readonly PastaPrazoRepository $pastaPrazoRepository,
+        private readonly AndamentoDaPasta $andamentoDaPasta,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -464,6 +467,12 @@ class PastaController extends AbstractController
             'anotacoes'                   => $anotacoes,
             'eventosHistorico'            => $eventosHistorico,
             'proximosPrazos'              => $proximosPrazos,
+            // Andamento da pasta em fases (desenho 1.2.3, E12b): a trilha sob o nome.
+            'andamento'                   => $tenant !== null ? AndamentoDaPastaOutput::de(
+                $this->andamentoDaPasta->estado($pasta, $tenant),
+                $pasta->getMensagens(),
+                $this->andamentoDaPasta->sugestoes($pasta, $tenant),
+            ) : null,
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
             'fotosResponsaveis'           => $fotosResponsaveis,
@@ -1754,7 +1763,7 @@ class PastaController extends AbstractController
         $situacao = strtoupper(trim((string) $request->request->get('situacao', '')));
 
         try {
-            $this->alterarSituacaoContratoUseCase->executar($pasta, $situacao);
+            $this->alterarSituacaoContratoUseCase->executar($pasta, $situacao, $currentUser, $this->tenantContext->getCurrentTenant());
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
