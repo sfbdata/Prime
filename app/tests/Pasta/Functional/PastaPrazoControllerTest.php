@@ -222,6 +222,43 @@ final class PastaPrazoControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $art->filter('.btn-editar-msg-pasta, .btn-excluir-msg-pasta, .btn-responder-msg-pasta'));
     }
 
+    #[TestDox('cartão do sistema: o servidor recusa editar, excluir e responder, mesmo vindo do autor')]
+    public function testCartaoDoSistemaRecusadoNoServidor(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->salvar($pasta, ['tipo' => 'prazo', 'titulo' => 'Original', 'data' => '2030-01-01']);
+        $id = (int) $this->em()->getConnection()->fetchOne("SELECT id FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'prazo'", [$pasta->getId()]);
+        $base = '/pasta/' . $pasta->getId() . '/mensagem';
+
+        $this->client->xmlHttpRequest('POST', $base . '/' . $id . '/editar', ['_token' => 'TOKEN_pasta_mensagem_editar_' . $id, 'conteudo' => 'Adulterado']);
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+        $this->client->xmlHttpRequest('POST', $base . '/' . $id . '/excluir', ['_token' => 'TOKEN_pasta_mensagem_excluir_' . $id]);
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+        $this->client->xmlHttpRequest('POST', $base, ['_token' => 'TOKEN_pasta_mensagem_' . $pasta->getId(), 'conteudo' => 'Resposta', 'resposta_a' => (string) $id]);
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+
+        $conn = $this->em()->getConnection();
+        self::assertStringContainsString('Original', (string) $conn->fetchOne('SELECT conteudo FROM pasta_mensagem WHERE id = ?', [$id]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM pasta_mensagem WHERE resposta_a_id = ?', [$id]));
+    }
+
+    #[TestDox('prazo já cumprido não se edita pelo servidor')]
+    public function testCumpridoNaoSeEdita(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->salvar($pasta, ['tipo' => 'prazo', 'titulo' => 'X', 'data' => '2030-01-01']);
+        $id = $this->resposta()['id'];
+        $this->post('/pasta/' . $pasta->getId() . '/prazos/' . $id . '/cumprir');
+
+        $this->salvar($pasta, ['prazo_id' => (string) $id, 'tipo' => 'prazo', 'titulo' => 'Mudado', 'data' => '2030-01-02']);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private function em(): EntityManagerInterface

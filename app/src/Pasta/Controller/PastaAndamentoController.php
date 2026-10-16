@@ -10,6 +10,7 @@ use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\MudarFaseDaPastaUseCase;
 use App\Service\Tenant\TenantContext;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,6 +61,9 @@ final class PastaAndamentoController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (\DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (UniqueConstraintViolationException) {
+            // Dois cliques ao mesmo tempo na primeira mudança: a outra requisição já gravou.
+            return $this->json(['erro' => 'A fase acabou de ser alterada. Recarregue a página.'], Response::HTTP_CONFLICT);
         }
 
         return $this->json(['ok' => true, 'mudou' => $texto !== null, 'texto' => $texto]);

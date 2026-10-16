@@ -165,7 +165,7 @@ final class AndamentoDaPasta
 
         $this->registro->registrar($pasta, $usuario, 'fase', $texto);
         if ($sincronizarContrato) {
-            $this->sincronizarContrato($pasta, $usuario, $andamento);
+            $this->sincronizarContrato($pasta, $usuario, $andamento, $e['atual']);
         }
 
         return $texto;
@@ -309,16 +309,27 @@ final class AndamentoDaPasta
         $andamento->gravar($alvo, ['em' => $em, 'pul' => array_map('intval', array_keys($pul)), 'extra' => $extra]);
     }
 
-    private function sincronizarContrato(Pasta $pasta, User $usuario, PastaAndamento $andamento): void
+    /**
+     * Contrato acompanha o andamento. Só REABRE quando o andamento recuou de Contrato (ou de depois dela) para antes:
+     * pasta antiga com contrato já regular e fase estimada em Abertura não perde o contrato ao avançar para
+     * Documentação. E com o contrato regular, saltar por cima de Contrato não a deixa "pulada": ela ganha a data.
+     */
+    private function sincronizarContrato(Pasta $pasta, User $usuario, PastaAndamento $andamento, int $antes): void
     {
         $ic = self::IDX_CONTRATO;
         $m = $andamento->getMarcos();
+        if ($pasta->getSituacaoContrato() === self::CONTRATO_ASSINADO && $andamento->getAtual() > $ic && in_array($ic, $m['pul'], true)) {
+            $m['em'][$ic] = (new \DateTimeImmutable())->format(\DATE_ATOM);
+            $m['pul'] = array_values(array_diff($m['pul'], [$ic]));
+            ksort($m['em']);
+            $andamento->gravar($andamento->getAtual(), $m);
+        }
         $alcancou = $andamento->getAtual() >= $ic && isset($m['em'][$ic]) && !in_array($ic, $m['pul'], true);
         $contrato = $pasta->getSituacaoContrato();
         if ($alcancou && $contrato !== self::CONTRATO_ASSINADO) {
             $pasta->setSituacaoContrato(self::CONTRATO_ASSINADO);
             $this->registro->registrar($pasta, $usuario, 'contrato', 'marcado como assinado (fase Contrato concluída no andamento).');
-        } elseif ($andamento->getAtual() < $ic && $contrato === self::CONTRATO_ASSINADO) {
+        } elseif ($andamento->getAtual() < $ic && $antes >= $ic && $contrato === self::CONTRATO_ASSINADO) {
             $pasta->setSituacaoContrato(self::CONTRATO_PENDENTE);
             $this->registro->registrar($pasta, $usuario, 'contrato', 'reaberto como pendente (andamento voltou para antes de Contrato).');
         }

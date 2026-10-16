@@ -17,8 +17,8 @@
    ============================================================================ #}
 
 {# ── Próximos prazos ──────────────────────────────────────────────────────
-   Resumo das metas ABERTAS ordenadas pelo prazo mais próximo (PastaPrazoOutput).
-   Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
+   Prazos e audiências registrados à mão e metas abertas com prazo, do mais próximo ao mais distante
+   (PastaPrazoOutput::daPasta, E12b). Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set podeRegistrarPrazo = podeEditarPasta and not pasta.estaExcluida %}
 <section class="ps-card" data-trilho="prazos"

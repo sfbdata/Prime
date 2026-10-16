@@ -848,7 +848,7 @@ class PastaRepository extends ServiceEntityRepository
         $qb->andWhere('p.excluidaEm IS NULL');
 
         $atividadeDepois = static fn (string $limite, string $sufixo): string => sprintf(
-            '(EXISTS (SELECT 1 FROM %1$s m_%6$s WHERE m_%6$s.pasta = p AND m_%6$s.criadaEm > %7$s)'
+            '(EXISTS (SELECT 1 FROM %1$s m_%6$s WHERE m_%6$s.pasta = p AND m_%6$s.sistema IS NULL AND m_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %2$s od_%6$s WHERE od_%6$s.pasta = p AND od_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %3$s of_%6$s WHERE of_%6$s.pasta = p AND of_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %4$s t_%6$s WHERE t_%6$s.pasta = p AND (t_%6$s.dataCriacao > %7$s OR t_%6$s.dataConclusao > %7$s))'

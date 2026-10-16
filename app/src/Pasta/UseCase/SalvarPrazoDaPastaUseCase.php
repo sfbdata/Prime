@@ -62,6 +62,9 @@ final class SalvarPrazoDaPastaUseCase
             if ($prazo === null) {
                 throw new \DomainException('Prazo não encontrado.');
             }
+            if ($prazo->estaCumprido()) {
+                throw new \DomainException('Prazo já cumprido não se edita.');
+            }
         } else {
             $prazo = new PastaPrazo($tenant, $pasta, $usuario);
             $this->em->persist($prazo);

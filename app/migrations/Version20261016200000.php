@@ -9,8 +9,8 @@ use Doctrine\Migrations\AbstractMigration;
 
 /**
  * E12b (Audiência e Protocolar da Lista, a partir do desenho 1.2.3 da Pasta): prazos e audiências registrados à
- * mão (`pasta_prazo`), andamento da pasta em fases (`pasta_andamento`, uma linha por pasta e via), a marca
- * "Administrativo sem processo" na pasta e o cartão do sistema no Registro (`pasta_mensagem.sistema`).
+ * mão (`pasta_prazo`), andamento da pasta em fases (`pasta_andamento`, uma linha por pasta e via) e o cartão do
+ * sistema no Registro (`pasta_mensagem.sistema`). A via administrativa usa `pasta.administrativa`, que já existia.
  *
  * SQL do `doctrine:schema:update --dump-sql`, sem o `DROP INDEX uniq_cobranca_obrigacao_ref_competencia` que o
  * comando propõe e que não é desta entrega (índice funcional criado por SQL cru).

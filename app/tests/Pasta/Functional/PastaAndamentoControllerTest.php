@@ -99,6 +99,41 @@ final class PastaAndamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame([0, 1], array_keys($this->andamento($pasta)->getMarcos()['em']));
     }
 
+    #[TestDox('contrato já regular de antes não é reaberto ao AVANÇAR de Abertura para Documentação, e saltar Contrato não a deixa pulada')]
+    public function testContratoRegularAntigoNaoReabreAoAvancar(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $pasta->setSituacaoContrato('REGULAR');
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->mudar($pasta, 1);
+        self::assertSame('REGULAR', $this->contrato($pasta));
+        self::assertSame('', $this->ultimoCartao($pasta, 'contrato'), 'nenhum cartão falso de "voltou para antes de Contrato"');
+
+        $this->mudar($pasta, 4);
+        $m = $this->andamento($pasta)->getMarcos();
+        self::assertSame([3], $m['pul'], 'Contrato ganha a data; só Distribuído fica pulada');
+        self::assertArrayHasKey(2, $m['em']);
+    }
+
+    #[TestDox('voltar à via judicial sem andamento judicial anterior não diz que "restaurou"')]
+    public function testViaJudicialSemAnterior(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $pasta->setAdministrativa(true);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->request('POST', '/pasta/' . $pasta->getId() . '/administrativa', ['_token' => 'TOKEN_pasta_administrativa_' . $pasta->getId(), 'administrativa' => '0']);
+
+        $cartao = $this->ultimoCartao($pasta, 'fase');
+        self::assertStringContainsString('pasta voltou para a via judicial.', $cartao);
+        self::assertStringNotContainsString('restaurado', $cartao);
+    }
+
     #[TestDox('finalizar e clicar de novo em Finalizada reativa: entram Reativada, Em andamento e um novo Finalizada')]
     public function testFinalizarEReativar(): void
     {

@@ -109,6 +109,10 @@ final class EnviarMensagemPastaUseCase
                     throw new \InvalidArgumentException('Só é possível responder a um registro desta pasta.');
                 }
             }
+            // Cartão do sistema (andamento, prazo) não se responde (E12b).
+            if ($raiz->isDoSistema()) {
+                throw new \InvalidArgumentException('Registros automáticos do sistema não podem ser respondidos.');
+            }
         }
 
         [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
