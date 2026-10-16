@@ -46,6 +46,65 @@ class DatajudClient
 
         $numeroProcesso = $this->normalizeNumeroProcessoCnj($numeroProcesso);
 
+        return $this->consultar($tribunalAlias, [
+            'query' => [
+                'match' => [
+                    'numeroProcesso' => $numeroProcesso,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Conta quantos processos do MESMO foro e ano, com sequencial maior que o informado, já estão
+     * na base pública. É o que separa as causas de "não encontrado" com número válido: se a base
+     * já tem processos mais novos do foro, o atraso de publicação não explica a ausência (o processo
+     * é sigiloso ou foi arquivado); se não tem nenhum, ele simplesmente ainda não foi publicado.
+     *
+     * A contagem para em $limite: só interessa saber se passa da margem, não o total.
+     *
+     * @throws ConsultaDatajudException nas mesmas falhas de searchByNumeroProcesso()
+     */
+    public function contarPosterioresNoForo(string $numeroProcesso, int $limite): int
+    {
+        if (trim($this->apiKey) === '') {
+            throw new ConsultaDatajudException(MotivoFalhaDatajud::NaoConfigurado, 'DATAJUD_API_KEY nao configurada.');
+        }
+
+        $tribunalAlias = $this->tribunalResolver->resolverAlias($numeroProcesso);
+        $numeroProcesso = $this->normalizeNumeroProcessoCnj($numeroProcesso);
+
+        // NNNNNNN DD | AAAA J TR OOOO: os 11 dígitos finais identificam ano + justiça + tribunal + foro.
+        $anoEForo = substr($numeroProcesso, 9);
+
+        $resposta = $this->consultar($tribunalAlias, [
+            'size' => 0,
+            'track_total_hits' => $limite,
+            'query' => [
+                'bool' => [
+                    'filter' => [
+                        ['wildcard' => ['numeroProcesso' => '*' . $anoEForo]],
+                        // O sequencial abre o número: comparar a string inteira compara o sequencial.
+                        ['range' => ['numeroProcesso' => ['gt' => $numeroProcesso]]],
+                    ],
+                ],
+            ],
+        ]);
+
+        $total = $resposta['hits']['total']['value'] ?? null;
+        if (!is_int($total)) {
+            throw new ConsultaDatajudException(MotivoFalhaDatajud::RespostaInvalida, 'hits.total ausente na contagem.');
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param array<string, mixed> $corpo
+     * @return array<string, mixed>
+     */
+    private function consultar(string $tribunalAlias, array $corpo): array
+    {
         $url = $this->baseUrl . '/api_publica_' . $tribunalAlias . '/_search';
 
         try {
@@ -54,16 +113,10 @@ class DatajudClient
                     'Authorization' => 'APIKey ' . $this->apiKey,
                     'Content-Type' => 'application/json; charset=utf-8',
                 ],
-                'json' => [
-                    'query' => [
-                        'match' => [
-                            'numeroProcesso' => $numeroProcesso,
-                        ],
-                    ],
-                ],
+                'json' => $corpo,
             ]);
 
-            // getStatusCode() aguarda os headers sem lançar em 4xx/5xx — permite classificar o motivo.
+            // getStatusCode() aguarda os headers sem lançar em 4xx/5xx, o que permite classificar o motivo.
             $status = $response->getStatusCode();
             $this->garantirStatusOk($status);
 
