@@ -312,6 +312,8 @@
                                    aria-label="Menu do usuário">
                                     <div class="navtop-user-info d-none d-md-flex">
                                         <span class="navtop-username">{{ app.user.fullName }}</span>
+                                        {% set papelNaBarra = papel_na_barra() %}
+                                        {% if papelNaBarra %}<span class="navtop-user-papel">{{ papelNaBarra }}</span>{% endif %}
                                     </div>
                                     <span class="navtop-avatar" id="navtopAvatar">
                                         {% if fotoPerfilUrl %}
@@ -355,7 +357,7 @@
                                     {% if is_granted('ROLE_SUPER_ADMIN') %}
                                         <li>
                                             <a href="{{ path('admin_platform_dashboard') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                                <i class="bi bi-shield-lock"></i> Painel da Plataforma
+                                                <i class="bi bi-shield-lock"></i> Painel do Master
                                             </a>
                                         </li>
                                     {% endif %}
