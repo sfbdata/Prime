@@ -45,6 +45,19 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Central de Comunicação: balão de dica no padrão do desenho (azul-claro) em todos os botões da Central.
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
+- Trabalho Externo: central nacional de advocacia correspondente. Escritórios abrem solicitações
+  (com rascunho e documentos) e só a Central recebe: análise, pedido de informações, propostas com
+  versões, aceite, execução com checklist e andamento, validação, conclusão, pagamento, arquivamento e
+  reabertura, com chat próprio e histórico. Configuração do Master (visibilidade, disponibilidade,
+  equipe e privacidade). Uma migration (`Version20261015210000`, só cria tabelas).
+- Trabalho Externo: aba WhatsApp com contatos que autorizaram, mensagens prontas por fase e envio
+  manual pelo `wa.me` (sem API externa).
+- Trabalho Externo: profissional Convidado por e-mail (conta sem escritório, acesso só à demanda do
+  convite e com as permissões dele, reenviar e revogar). O convidado não recebe nada da negociação
+  anterior ao aceite.
+- Trabalho Externo: pré-visualização de perfil para o Master (Solicitante, Equipe, Convidado), só
+  leitura; o Master abre solicitação como usuário de um escritório dele e age como Solicitante nas
+  demandas desses escritórios.
 
 ### Alterado
 

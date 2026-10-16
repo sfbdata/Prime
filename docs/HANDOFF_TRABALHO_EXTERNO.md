@@ -116,3 +116,34 @@ docker rm -f smoke-trabalho-externo-proxy
 # parar o php -S da porta 8020 (sem ps no container: localizar por /proc/*/cmdline e kill)
 docker exec jusprime_db_dev psql -U symfony -d postgres -c 'DROP DATABASE "saas_demo_trabalho_externo"'
 ```
+
+## Subida para produção (16/10/2026)
+
+Smoke aprovado pelo dono em 16/10. A frente trouxe o `origin/master` (já com a Central, PR #12) para
+dentro (`d30e9e11`, um conflito só, em `doctrine.yaml`, resolvido somando os dois mapeamentos) e a
+suíte completa rodou depois disso: 9.424 testes, 52.966 asserções, 1 falha, a intermitente conhecida do
+`CompressorArquivoModosDeFalhaTest` (o `/tmp` do Ghostscript é por UID e outra suíte, da Central, rodou
+ao mesmo tempo); a classe sozinha passou 3 de 3 vezes (19/19).
+
+**O que sobe**: o módulo inteiro (F1, F2, F3, segurança do Convidado, P1 da auditoria, prévia de perfil
+e Master solicitante, spec §9) e **uma migration** (`Version20261015210000`, só cria tabelas). O
+`scripts/deploy-prod-tls.sh` já roda o `doctrine:migrations:migrate`; a pasta
+`public/uploads/trabalho-externo` é criada pelo armazenamento no primeiro anexo.
+
+**Depois do deploy (dono)**:
+1. Definir a sede da Central (a Equipe sai dela): `php bin/console trabalho-externo:definir-sede <id do escritório>`
+   dentro do container php de produção.
+2. Master global: hoje o `ROLE_SUPER_ADMIN` está com `jusprime.samuel@gmail.com` e o Farlei só tem
+   `ROLE_USER`. Sem a troca (dado de produção, decisão do dono), o Farlei não vê o seletor de perfis
+   nem as funções de Master.
+3. Liberar a permissão `modules.trabalho_externo.view` para os perfis dos escritórios que vão solicitar.
+4. Smoke rápido: entrar como Master, abrir `/trabalho-externo`, conferir os 4 botões e "+ Nova solicitação".
+
+**Frentes que integram depois**: a `r2-gravacao-dupla` terá conflito em 8 arquivos (armazenamento,
+`doctrine.yaml`, `services.yaml` e testes de cobertura): é soma, as duas acrescentam categoria e
+entradas. Teto do `TenantAwareCoberturaTest` somado: 18 desta frente + o acréscimo da R2. A
+`fidelidade-designer` só toca `docs/frentes-ativas.md`.
+
+**Decisões ainda abertas** (não bloqueiam a subida): itens 1 a 9 acima; com a aba bloqueada para o
+escritório, o Master continua agindo como Solicitante nas demandas dele (hoje sim); a página técnica
+403 depois do login para quem não tem o Expediente (fora deste módulo).
