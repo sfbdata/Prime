@@ -72,8 +72,8 @@ final class PastaPrazoOutputTest extends TestCase
     /** @return iterable<string, array{0: string, 1: string}> */
     public static function textosDoSelo(): iterable
     {
-        yield 'hoje'            => ['today',    'Vence hoje'];
-        yield 'singular'        => ['+1 day',   'Falta 1 dia'];
+        yield 'hoje'            => ['today',    'Hoje'];
+        yield 'singular'        => ['+1 day',   'Faltam 1 dia'];
         yield 'plural'          => ['+5 days',  'Faltam 5 dias'];
         yield 'atraso singular' => ['-1 day',   'Vencido há 1 dia'];
         yield 'atraso plural'   => ['-4 days',  'Vencido há 4 dias'];
@@ -87,7 +87,7 @@ final class PastaPrazoOutputTest extends TestCase
            defeito que só aparece depois do primeiro minuto do dia. */
         $saida = PastaPrazoOutput::deTarefa($this->tarefa('Meta', 'today 00:00'));
 
-        self::assertSame('Vence hoje', $saida->selo);
+        self::assertSame('Hoje', $saida->selo, 'texto do desenho 1.2.3 (E12b)');
         self::assertSame(PastaPrazoOutput::TOM_URGENTE, $saida->tom);
     }
 
@@ -97,10 +97,10 @@ final class PastaPrazoOutputTest extends TestCase
         $prazo = new \DateTimeImmutable('+4 days');
 
         $comResp = PastaPrazoOutput::deTarefa($this->tarefa('Meta', '+4 days', responsavel: 'Jessica Martins'));
-        self::assertSame('Jessica Martins · ' . $prazo->format('d/m'), $comResp->meta);
+        self::assertSame('Jessica Martins · ' . $prazo->format('d/m') . ' · Meta', $comResp->meta, 'E12b: com a origem, como o desenho');
 
         $semResp = PastaPrazoOutput::deTarefa($this->tarefa('Meta', '+4 days'));
-        self::assertSame($prazo->format('d/m'), $semResp->meta);
+        self::assertSame('Sem responsável · ' . $prazo->format('d/m') . ' · Meta', $semResp->meta);
     }
 
     #[TestDox('a lista traz as N metas abertas mais próximas, em ordem de prazo')]

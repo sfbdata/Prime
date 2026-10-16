@@ -28,6 +28,8 @@ parameters:
     # (/var/www/app em prod), portanto FORA do volume uploads_prod: o arquivo sobrevivia só até
     # o próximo deploy. Agora é absoluto e explícito, como os outros seis.
     kanban_uploads_dir: '%kernel.project_dir%/public/uploads/kanban'
+    # Documentos das demandas do Trabalho Externo (categoria plana, nome opaco cunhado pelo storage).
+    trabalho_externo_uploads_dir: '%kernel.project_dir%/public/uploads/trabalho-externo'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -99,6 +101,7 @@ services:
             string $fotosPerfilDir: '%fotos_perfil_dir%'
             string $cobrancasUploadsDir: '%cobrancas_uploads_dir%'
             string $kanbanUploadsDir: '%kanban_uploads_dir%'
+            string $trabalhoExternoUploadsDir: '%trabalho_externo_uploads_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
             string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
@@ -206,6 +209,7 @@ when@test:
         fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
         cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test/cobrancas'
         kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test/kanban'
+        trabalho_externo_uploads_dir: '%kernel.project_dir%/var/uploads-test/trabalho-externo'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true

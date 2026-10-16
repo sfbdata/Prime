@@ -26,7 +26,7 @@
    ⋮ também com "Copiar link" (PMC-028: a URL ABSOLUTA de `tarefa_show`, pelo
    mesmo `.js-ps-copiar` do trilho da aba Dados, em pasta-clientes.js) e
    "Excluir" (PMC-030: POST `tarefa_excluir`, token `excluir_tarefa_<id>`, com
-   confirm()). "Excluir" só aparece quando o `ExcluirTarefaUseCase::podeExcluir`
+   confirmação na janela da tela — E7). "Excluir" só aparece quando o `ExcluirTarefaUseCase::podeExcluir`
    deixaria (criador, dentro da janela) e nunca na pasta excluída (lápide). O
    desenho oferece "Desfazer" depois de excluir; aqui NÃO há: a exclusão é
    física, e desfazer exigiria lápide de meta (decisão em aberto).
@@ -255,8 +255,11 @@
                                 </a>
                                 {% if not pasta.estaExcluida and meta_pode_excluir(tarefa) %}
                                     <div class="ps-pop-sep"></div>
+                                    {# E7: pergunta na janela da tela (pasta-dialogos.js, `data-ps-cf`), vermelha por
+                                       ser exclusão. O `onsubmit` só pergunta pelo navegador se a janela não carregou. #}
                                     <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
-                                          onsubmit="return confirm('Excluir esta meta? Esta ação não pode ser desfeita.');">
+                                          data-ps-cf="Excluir esta meta? Esta ação não pode ser desfeita." data-ps-cf-perigo
+                                          onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
                                         <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
                                         <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
                                             <i class="bi bi-trash3"></i><span>Excluir</span>

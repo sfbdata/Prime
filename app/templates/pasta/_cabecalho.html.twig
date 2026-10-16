@@ -20,8 +20,8 @@
    "Fixar nos favoritos" (seção Preferências) é real: POST
    `pasta_favorito_alternar`.
 
-   Pasta arquivada ganha o selo carimbado ARQUIVADO sobre a faixa de dados
-   (desenho, `seloEl`). Suspenso e Cancelado não existem no sistema e não têm selo.
+   Pasta arquivada, suspensa ou cancelada ganha o selo carimbado da situação sobre a
+   faixa de dados (desenho, `seloEl`); o ATIVO bate e some ao abrir a pasta ativa.
 
    Contexto: `pasta`, `fotosResponsaveis`, `vizinhas`, `push`, `unidadeCobrada`.
    ============================================================================ #}
@@ -31,6 +31,7 @@
    não tem CPF/CNPJ para mostrar — é o estado de 1.152 das 1.201 pastas em produção. #}
 {% set documento = cliente ? (cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null)) : null %}
 {% set eAtiva = pasta.situacao == 'ativo' %}
+{% set eArquivada = pasta.situacao == 'arquivado' %}
 {# PAS-014: controle de escrita só para quem o servidor deixaria usar — a MESMA decisão do
    `denyResourceAccessUnlessGranted` de cada rota (editar, prioridade, situação, responsável e
    vincular processo pedem EDIT; excluir e restaurar pedem DELETE). O servidor continua
@@ -211,9 +212,12 @@
                        protótipo não existe aqui. Só aparece para quem pode criar pasta (a mesma
                        permissão do `pasta_new`); o servidor confere de novo. #}
                     {% if can_access_module('pastas') %}
+                    {# E7: janela azul do desenho (dc `confirmarUI(…, ok)` sem perigo, L.4511); o `onsubmit`
+                       só pergunta pelo navegador se a janela não carregou. #}
                     <form method="post" action="{{ path('pasta_duplicar', {id: pasta.id}) }}"
                           class="js-duplicar-pasta" data-nup="{{ pasta.nup }}"
-                          onsubmit="return window.confirm('Duplicar a pasta ' + this.dataset.nup + '? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.');">
+                          data-ps-cf="{{ 'Duplicar a pasta ' ~ pasta.nup ~ '? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.' }}"
+                          onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
                         <input type="hidden" name="_token" value="{{ csrf_token('pasta_duplicar_' ~ pasta.id) }}">
                         <button type="submit" class="ps-pop-item" role="menuitem">
                             <i class="bi bi-files"></i><span>Duplicar pasta</span>
@@ -264,11 +268,11 @@
                     <div class="ps-pop-sep"></div>
                     {% endif %}
                     {% if podeEditarPasta %}
-                    {# Mesma troca de situação da pílula ao lado das abas, por outro caminho. #}
+                    {# Atalho do desenho (`menuPasta`): arquivada volta a Ativo; qualquer outra vai a Arquivado. #}
                     <button type="button" class="ps-pop-item js-situacao-opt js-situacao-alternar" role="menuitem"
-                            data-situacao="{{ eAtiva ? 'arquivado' : 'ativo' }}">
-                        <i class="bi {{ eAtiva ? 'bi-archive' : 'bi-box-arrow-up' }}"></i>
-                        <span class="js-situacao-alternar-rotulo">{{ eAtiva ? 'Arquivar' : 'Desarquivar' }} pasta</span>
+                            data-situacao="{{ eArquivada ? 'ativo' : 'arquivado' }}">
+                        <i class="bi {{ eArquivada ? 'bi-box-arrow-up' : 'bi-archive' }}"></i>
+                        <span class="js-situacao-alternar-rotulo">{{ eArquivada ? 'Desarquivar' : 'Arquivar' }} pasta</span>
                     </button>
                     {% endif %}
                     {# Excluir pede o NÚMERO da pasta digitado (desenho, `menuPasta('excluir')`).
@@ -380,12 +384,18 @@
         {% endif %}
     </div>
 
+    {{ include('pasta/_andamento.html.twig') }}
+
     {# ── Faixa de dados: Processo vinculado · Ação · Responsável [· Cobrança] ── #}
-    {# Selo carimbado (desenho, `seloEl`): só para a situação REAL `arquivado` — inclusive a
-       lápide, que o sistema arquiva ao excluir. Fica por cima da faixa sem roubar clique.
-       Quem troca a situação pela pílula vê o selo entrar e sair sem recarregar: o script no
-       fim deste parcial acompanha a classe da pílula. A marcação existe UMA vez, aqui; o
-       script usa a cópia de `data-ps-selo-modelo` em vez de repeti-la em JS. #}
+    {# Selo carimbado (desenho, `seloEl`): permanente para Arquivado (inclusive a lápide, que o
+       sistema arquiva ao excluir), Suspenso e Cancelado. Fica por cima da faixa sem roubar
+       clique. Trocar a situação recarrega a tela (o Registro ganha o cartão e, ao arquivar, o
+       andamento vai a Finalizada), então o selo sai sempre do servidor. #}
+    {% set selosPermanentes = {
+        arquivado: {texto: 'ARQUIVADO', icone: 'bi-archive-fill',      aria: 'Pasta arquivada', titulo: 'Arquivado'},
+        suspenso:  {texto: 'SUSPENSO',  icone: 'bi-pause-circle-fill', aria: 'Pasta suspensa',  titulo: 'Suspenso'},
+        cancelado: {texto: 'CANCELADO', icone: 'bi-x-octagon-fill',    aria: 'Pasta cancelada', titulo: 'Cancelado'},
+    } %}
     {% set seloArquivado %}
         <div class="ps-cab-selo ps-cab-selo--arquivado" role="img" aria-label="Pasta arquivada" title="Situação da pasta: Arquivado">
             <span class="ps-cab-selo-onda" aria-hidden="true"></span>
@@ -409,7 +419,16 @@
     {% endset %}
     <div class="ps-cab-dados" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}"
          data-ps-selo-ativo-modelo="{{ seloAtivo|e('html_attr') }}">
-        {% if pasta.situacao == 'arquivado' %}{{ seloArquivado }}{% endif %}
+        {% if eArquivada %}{{ seloArquivado }}{% elseif selosPermanentes[pasta.situacao] is defined %}
+            {% set sp = selosPermanentes[pasta.situacao] %}
+            <div class="ps-cab-selo ps-cab-selo--{{ pasta.situacao }}" role="img" aria-label="{{ sp.aria }}" title="Situação da pasta: {{ sp.titulo }}">
+                <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+                <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+                <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+                <span class="ps-cab-selo-aro" aria-hidden="true"></span>
+                <span class="ps-cab-selo-faixa"><i class="bi {{ sp.icone }}" aria-hidden="true"></i>{{ sp.texto }}</span>
+            </div>
+        {% endif %}
         <div class="ps-cab-dado" data-campo="processo">
             <p class="ps-rotulo"><i class="bi bi-diagram-3"></i>Processo vinculado</p>
             {% if proc %}
@@ -564,12 +583,10 @@
            ícone com o ponto VERDE (cadastro completo) ou ÂMBAR (falta algo). A regra é
            a do `PendenciasDoCadastro` (`cliente_pendencias`), a mesma do ícone do
            trilho — a tela não decide o que é completo.
-           Destino: o desenho abre um modal próprio de cadastro (dc L.602-743), que não
-           existe aqui; o clique abre a janela "Detalhes do cliente" (`cliente_resumo`,
-           pasta-clientes.js pela classe `js-ps-cli-detalhes` + `data-cliente-id`), que
-           mostra a qualificação e o "Editar cadastro" — e decide a permissão no
-           servidor. Pasta sem cliente cadastrado não tem cadastro para mostrar: o
-           botão não é desenhado. #}
+           Destino (E12f): a janela "Cadastro e qualificação do cliente" do desenho
+           (`cliente_cadastro`, cliente-cadastro.js pela classe `js-cad-abrir`). O botão
+           direito no nome segue abrindo "Detalhes do cliente". Pasta sem cliente
+           cadastrado não tem cadastro para mostrar: o botão não é desenhado. #}
         {% if cliente %}
             {% set cadPendencias = cliente_pendencias(cliente) %}
             {% set cadCompleto = cadPendencias is empty %}
@@ -577,8 +594,9 @@
                 ? 'Cadastro completo · abrir qualificação do cliente'
                 : 'Cadastro incompleto: ' ~ cadPendencias|length ~ (cadPendencias|length == 1 ? ' pendência' : ' pendências') ~ ' · clique para completar' %}
             <button type="button" id="psCadastroAbrir"
-                    class="ps-cad-btn js-ps-cli-detalhes"
+                    class="ps-cad-btn js-cad-abrir"
                     data-cliente-id="{{ cliente.id }}"
+                    data-url="{{ path('cliente_cadastro', {id: cliente.id, pasta: pasta.id}) }}"
                     data-pendencias="{{ cadPendencias|length }}"
                     title="{{ cadDica }}" aria-label="{{ cadDica }}">
                 <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--{{ cadCompleto ? 'completo' : 'pendente' }}"></span></span>
@@ -587,18 +605,16 @@
         {% endif %}
 
         {# ── Situação: pílula à direita das abas ──
-           Menu com as duas situações que o sistema tem (Ativo, Arquivado); Suspenso e
-           Cancelado são função nova e não aparecem. A pílula é o `#btn-alternar-status`
-           de sempre (url, csrf, situação atual): o script da tela escuta as opções e
-           dispara a mesma troca que o botão "Arquivar" fazia. Pasta excluída é
-           somente-leitura: a pílula vira só um selo, sem menu. #}
+           As 4 situações do desenho (`situacaoVals`), sem confirmação nem motivo. A pílula é o
+           `#btn-alternar-status` de sempre (url, csrf, situação atual): o script da tela manda a
+           opção escolhida. Pasta excluída é somente-leitura: a pílula vira só um selo, sem menu. #}
         {# Sem EDIT a pílula vira só o selo, como na lápide: a troca seria recusada. #}
         {% if not pasta.estaExcluida and podeEditarPasta %}
             <div class="ps-situacao-wrap ps-pop-wrap">
                 <button type="button"
                         id="btn-alternar-status"
-                        class="ps-situacao-pill ps-situacao-pill--{{ eAtiva ? 'ativo' : 'arquivado' }}"
-                        title="Situação da pasta: {{ eAtiva ? 'Ativo' : 'Arquivado' }}"
+                        class="ps-situacao-pill ps-situacao-pill--{{ pasta.situacao }}"
+                        title="Situação da pasta: {{ pasta.situacaoRotulo }}"
                         data-ps-pop="psSituacao"
                         aria-haspopup="menu" aria-expanded="false"
                         data-pasta-id="{{ pasta.id }}"
@@ -606,13 +622,15 @@
                         data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
                         data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}">
                     <span class="ps-situacao-ponto" aria-hidden="true"></span>
-                    <span class="ps-situacao-label">{{ eAtiva ? 'Ativo' : 'Arquivado' }}</span>
+                    <span class="ps-situacao-label">{{ pasta.situacaoRotulo }}</span>
                     <i class="bi bi-chevron-down"></i>
                 </button>
                 <div class="ps-pop ps-pop--situacao" id="psSituacao" role="menu">
                     <div class="ps-pop-tarja"><i class="bi bi-toggles"></i>Situação da pasta</div>
                     {% for opcao in [
                         {v: 'ativo',     rotulo: 'Ativo',     desc: 'Pasta em andamento'},
+                        {v: 'suspenso',  rotulo: 'Suspenso',  desc: 'Pausada temporariamente'},
+                        {v: 'cancelado', rotulo: 'Cancelado', desc: 'Encerrada sem conclusão'},
                         {v: 'arquivado', rotulo: 'Arquivado', desc: 'Sai das listas de trabalho'},
                     ] %}
                         <button type="button" class="ps-pop-item ps-pop-item--situacao js-situacao-opt"
@@ -630,9 +648,9 @@
             </div>
         {% else %}
             <div class="ps-situacao-wrap">
-                <span class="ps-situacao-pill ps-situacao-pill--{{ eAtiva ? 'ativo' : 'arquivado' }}" title="Situação da pasta">
+                <span class="ps-situacao-pill ps-situacao-pill--{{ pasta.situacao }}" title="Situação da pasta">
                     <span class="ps-situacao-ponto" aria-hidden="true"></span>
-                    <span class="ps-situacao-label">{{ eAtiva ? 'Ativo' : 'Arquivado' }}</span>
+                    <span class="ps-situacao-label">{{ pasta.situacaoRotulo }}</span>
                 </span>
             </div>
         {% endif %}
@@ -681,10 +699,13 @@
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!window.confirmarPs) { return; }
+        // E7: restaurar não tem perigo → variante azul (regra do dc `confirmarUI`/`cfVals`; o
+        // desenho não tem esta pergunta — a convenção dele decide a cor).
         window.confirmarPs({
             titulo: 'Restaurar a pasta ' + form.dataset.nup + '?',
             rotulo: 'Restaurar',
-            icone: 'bi-arrow-counterclockwise'
+            icone: 'bi-arrow-counterclockwise',
+            variante: 'azul'
         }).then(function (sim) {
             // `form.submit()` não dispara outro `submit`: não volta a perguntar.
             if (sim) { form.submit(); }
@@ -734,41 +755,19 @@
 })();
 
 (function () {
-    /* O selo ARQUIVADO acompanha a pílula de situação. Quem faz a troca é o script da
-       tela (show.html.twig), que só alterna as classes da pílula; observar a classe evita
-       um segundo caminho de troca e mantém o selo fiel ao que o servidor respondeu.
-       PAS-002: na volta de arquivado para ativo, o carimbo ATIVO bate e some em 3,3 s
-       (desenho `ativoSeloMostrar`); o CSS faz o esmaecer, o timer tira o nó. */
-    var pilula = document.getElementById('btn-alternar-status');
-    var faixa  = document.querySelector('.ps-cabecalho .ps-cab-dados');
-    if (!pilula || !faixa || !faixa.dataset.psSeloModelo || !window.MutationObserver) { return; }
-
-    var estavaArquivada = pilula.classList.contains('ps-situacao-pill--arquivado');
-    var tempoDoAtivo    = null;
-
-    function tirarSeloAtivo() {
-        clearTimeout(tempoDoAtivo);
-        var ativo = faixa.querySelector(':scope > .ps-cab-selo--ativo');
-        if (ativo) { ativo.remove(); }
-    }
-
-    function sincronizarSelo() {
-        var arquivada = pilula.classList.contains('ps-situacao-pill--arquivado');
-        var selo      = faixa.querySelector(':scope > .ps-cab-selo--arquivado');
-        if (arquivada && !selo) {
-            tirarSeloAtivo();
-            faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloModelo);
-        } else if (!arquivada && selo) {
-            selo.remove();
-        }
-        if (estavaArquivada && !arquivada && faixa.dataset.psSeloAtivoModelo) {
-            tirarSeloAtivo();
-            faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloAtivoModelo);
-            tempoDoAtivo = setTimeout(tirarSeloAtivo, 3300);
-        }
-        estavaArquivada = arquivada;
-    }
-
-    new MutationObserver(sincronizarSelo).observe(pilula, { attributes: true, attributeFilter: ['class'] });
+    /* Carimbo ATIVO passageiro (desenho `ativoSeloMostrar`): pasta ativa ganha o carimbo 1,4 s
+       depois de abrir, ele bate e some em 3,3 s (o CSS faz o esmaecer, o timer tira o nó). Trocar
+       para Ativo recarrega a tela, então este é o único caminho do carimbo. Os permanentes
+       (Arquivado, Suspenso, Cancelado) vêm do servidor. */
+    var faixa = document.querySelector('.ps-cabecalho .ps-cab-dados');
+    var pilula = document.querySelector('.ps-cabecalho .ps-situacao-pill');
+    if (!faixa || !pilula || !faixa.dataset.psSeloAtivoModelo || !pilula.classList.contains('ps-situacao-pill--ativo')) { return; }
+    setTimeout(function () {
+        faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloAtivoModelo);
+        setTimeout(function () {
+            var ativo = faixa.querySelector(':scope > .ps-cab-selo--ativo');
+            if (ativo) { ativo.remove(); }
+        }, 3300);
+    }, 1400);
 })();
 </script>

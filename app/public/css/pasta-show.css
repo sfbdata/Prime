@@ -89,6 +89,14 @@
     --ps-sit-ativo-tx:  #186c47;
     --ps-sit-arq-bg:    #eef2f5;
     --ps-sit-arq-tx:    #4f6878;
+    --ps-sit-sus-bg:    #fdf3e1;
+    --ps-sit-sus-tx:    #8a5a00;
+    --ps-sit-sus-dot:   #d08a12;
+    --ps-sit-sus-halo:  rgba(208,138,18,.18);
+    --ps-sit-can-bg:    #fdecea;
+    --ps-sit-can-tx:    #a3232b;
+    --ps-sit-can-dot:   #c0392b;
+    --ps-sit-can-halo:  rgba(192,57,43,.16);
     --ps-cliente-bg:    linear-gradient(135deg,#e3f1f7,#cfe6f0);
     --ps-vinc-borda:    #d7e6ef;
     /* Aba Dados (A4): linha do tempo do registro e cabecalho dos cartoes do trilho. */
@@ -263,6 +271,14 @@
     --ps-sit-ativo-tx:  #6ddaa2;
     --ps-sit-arq-bg:    var(--bs-border-color-translucent);
     --ps-sit-arq-tx:    var(--bs-secondary-color);
+    --ps-sit-sus-bg:    rgba(208,138,18,.18);
+    --ps-sit-sus-tx:    #f0bd62;
+    --ps-sit-sus-dot:   #d08a12;
+    --ps-sit-sus-halo:  rgba(208,138,18,.24);
+    --ps-sit-can-bg:    rgba(192,57,43,.18);
+    --ps-sit-can-tx:    #f08a80;
+    --ps-sit-can-dot:   #c0392b;
+    --ps-sit-can-halo:  rgba(192,57,43,.24);
     --ps-cliente-bg:    rgba(69,176,214,.18);
     --ps-vinc-borda:    var(--bs-border-color);
     --ps-linha-tempo:   var(--bs-border-color);
@@ -960,6 +976,11 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     animation: psSeloBate .55s cubic-bezier(.2,.9,.3,1.2) both, psSeloSai 2.6s ease-in-out .55s forwards;
 }
 .ps-cab-selo--ativo .ps-cab-selo-faixa { font-size: 12.8px; }
+/* Carimbos permanentes de Suspenso e Cancelado (desenho `seloEl`); o de Arquivado usa a cor base. */
+.ps-cab-selo--suspenso  { --selo-cor: #c27c0e; }
+.ps-cab-selo--cancelado { --selo-cor: #c62828; }
+.ps-cab-selo--suspenso .ps-cab-selo-faixa,
+.ps-cab-selo--cancelado .ps-cab-selo-faixa { font-size: 11px; }
 @keyframes psSeloSai {
     0%, 78% { opacity: .9; }
     100%    { opacity: 0; transform: translateY(-50%) rotate(-14deg) scale(.96); }
@@ -1084,12 +1105,18 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
 .ps-situacao-pill i { font-size: 10px; opacity: .7; }
 .ps-situacao-pill--ativo     { background: var(--ps-sit-ativo-bg); color: var(--ps-sit-ativo-tx); }
 .ps-situacao-pill--arquivado { background: var(--ps-sit-arq-bg);   color: var(--ps-sit-arq-tx); }
+.ps-situacao-pill--suspenso  { background: var(--ps-sit-sus-bg);   color: var(--ps-sit-sus-tx); }
+.ps-situacao-pill--cancelado { background: var(--ps-sit-can-bg);   color: var(--ps-sit-can-tx); }
 span.ps-situacao-pill { cursor: default; }
 .ps-situacao-ponto { position: relative; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .ps-situacao-pill--ativo .ps-situacao-ponto,
 .ps-situacao-ponto--ativo     { background: var(--ps-ok-dot); box-shadow: 0 0 0 3px var(--ps-ok-halo); }
 .ps-situacao-pill--arquivado .ps-situacao-ponto,
 .ps-situacao-ponto--arquivado { background: var(--ps-faint);  box-shadow: 0 0 0 3px var(--ps-arq-halo); }
+.ps-situacao-pill--suspenso .ps-situacao-ponto,
+.ps-situacao-ponto--suspenso  { background: var(--ps-sit-sus-dot); box-shadow: 0 0 0 3px var(--ps-sit-sus-halo); }
+.ps-situacao-pill--cancelado .ps-situacao-ponto,
+.ps-situacao-ponto--cancelado { background: var(--ps-sit-can-dot); box-shadow: 0 0 0 3px var(--ps-sit-can-halo); }
 /* Ondas do ponto verde da pilula ativa (desenho). */
 @keyframes psSitOnda { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(3.2); opacity: 0; } }
 .ps-situacao-pill--ativo .ps-situacao-ponto::before,
@@ -1319,7 +1346,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-chip-text);
     background: var(--ps-accent-bg);
     padding: 1px 8px;
-    border-radius: 999px;
+    border-radius: 4px;
 }
 /* Espaçador: empurra o que vem depois para a DIREITA da linha. Não é escopado
    a nenhum pai — a regra vivia presa a `.ps-card-cab` e, nos dois lugares em que
@@ -1442,7 +1469,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-dia-text);
     background: var(--ps-dia-bg);
     padding: 5px 16px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
 }
 
@@ -1731,7 +1758,7 @@ span.ps-situacao-pill { cursor: default; }
     font-size: 11px;
     font-weight: 600;
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -1781,7 +1808,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-warn-text);
     background: var(--ps-warn-bg);
     padding: 2px 7px;
-    border-radius: 999px;
+    border-radius: 4px;
     flex-shrink: 0;
 }
 .ps-cliente-abrir { font-size: 12px; font-weight: 600; flex-shrink: 0; }
@@ -1870,7 +1897,7 @@ span.ps-situacao-pill { cursor: default; }
     font-weight: 700;
     white-space: nowrap;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: 4px;
     flex-shrink: 0;
 }
 .ps-vinc-selo--completo   { color: var(--ps-ok-text);   background: var(--ps-ok-bg); }
@@ -2154,6 +2181,9 @@ span.ps-situacao-pill { cursor: default; }
 /* Avatar do responsavel no desenho: degrade azul com sombra, iniciais 11/700. */
 .ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 11px; background: var(--ps-resp-grad); box-shadow: var(--ps-resp-sombra); }
 .ps-cab-dados .pasta-resp-caret { font-size: 11px; color: var(--ps-muted); }
+/* Nome longo corta em 170px com reticências (dc de 13/10, L3084). Só no cabeçalho: o chip da lista
+   do Expediente é o mesmo e não muda. O nome inteiro continua no DOM e no `title` do chip. */
+.ps-cab-dados .pasta-resp-chip .pasta-resp-nome { min-width: 0; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Lista de clientes no trilho ──
    `overflow: hidden` no cartão: ele tem raio de 14px, e sem isto qualquer linha
@@ -2402,10 +2432,10 @@ span.ps-situacao-pill { cursor: default; }
    ter dois filhos diretos, como na aba Dados. */
 .ps-coluna { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
-/* ── Relatório financeiro ── */
-.ps-fin-obs-rolagem { max-height: 520px; overflow-y: auto; overscroll-behavior: contain; border-radius: 0 0 4px 4px; }
-.ps-fin-obs-rolagem::-webkit-scrollbar { width: 5px; }
-.ps-fin-obs-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
+/* ── Relatório financeiro ──
+   Sem rolagem interna desde o dc de 13/10 (L1890 perdeu max-height/overflow-y): as observações
+   crescem com a página. A classe fica pelo canto de baixo e como gancho do JS. */
+.ps-fin-obs-rolagem { border-radius: 0 0 4px 4px; }
 
 /* ── Card Arquivos (trilho) ──
    Sem gerenciador: nada de busca, filtro por categoria, paginação ou dropzone.
@@ -2522,7 +2552,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-previsto { font-size: 12.5px; color: var(--ps-muted); }
 .ps-pag-barra {
     height: 6px;
-    border-radius: 999px;
+    border-radius: 4px;
     background: var(--ps-div-fin);
     overflow: hidden;
     margin-top: 9px;
@@ -2858,7 +2888,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-push-dia-tx);
     background: var(--ps-push-dia-bg);
     padding: 5px 15px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-variant-numeric: tabular-nums;
 }
 /* Ponto de 16px centrado na linha (dc 5373, auditoria 2 U5). O verde de "nova"
@@ -2927,7 +2957,7 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-accent);
     background: var(--ps-accent-bg);
     padding: 2px 7px;
-    border-radius: 999px;
+    border-radius: 4px;
 }
 .ps-push-corpo { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .ps-push-meta { font-size: 11px; color: var(--ps-label); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3075,7 +3105,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 /* Cabecalho na faixa do trilho, mas fora do trilho (Push). */
 .ps-card-cab--faixa { min-height: 46px; padding: 8px 17px; gap: 8px; background: var(--ps-trilho-cab-bg); border-bottom: 1px solid var(--ps-trilho-cab-bd); }
 .ps-card-cab--faixa h2 { font-size: 13.5px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
-.ps-card-cab--faixa .ps-contagem { font-size: 11px; font-weight: 700; color: var(--ps-chip-text); background: var(--ps-accent-bg); padding: 1px 8px; border-radius: 999px; }
+.ps-card-cab--faixa .ps-contagem { font-size: 11px; font-weight: 700; color: var(--ps-chip-text); background: var(--ps-accent-bg); padding: 1px 8px; border-radius: 4px; }
 /* Atalho em texto ("ver no modulo") no cabecalho: nao e o chevron. */
 .ps-card-cab-link--texto { width: auto; height: auto; margin: 0; padding: 0 4px; font-size: 12.5px; font-weight: 500; color: var(--ps-accent); }
 .ps-card-cab-link--texto:hover,
@@ -3111,7 +3141,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
     background: var(--ps-principal-bg);
     border: 1px solid var(--ps-principal-bd);
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
 }
 .ps-processo-principal i { font-size: 9px; }
 .ps-processo-acoes { display: flex; align-items: center; gap: 4px; }
@@ -3383,7 +3413,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     font-size: 12.5px;
     font-weight: 500;
     padding: 5px 11px;
-    border-radius: 999px;
+    border-radius: 4px;
     cursor: pointer;
     border: 1px solid var(--ps-border);
     background: var(--ps-card);
@@ -3586,7 +3616,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     letter-spacing: .05em;
     text-transform: uppercase;
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
     color: var(--ps-warn-text);
     background: var(--ps-warn-bg);
@@ -3817,7 +3847,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-metas-progresso { display: flex; align-items: baseline; gap: 8px; }
 .ps-metas-progresso-num { font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
 .ps-metas-progresso-rot { font-size: 13px; color: var(--ps-muted); }
-.ps-metas-barra { height: 7px; border-radius: 999px; background: var(--ps-div-strong); margin-top: 12px; overflow: hidden; }
+.ps-metas-barra { height: 7px; border-radius: 4px; background: var(--ps-div-strong); margin-top: 12px; overflow: hidden; }
 .ps-metas-barra-cheia { height: 100%; border-radius: 999px; background: var(--ps-ok-dot); transition: width .6s var(--ps-ease); }
 .ps-metas-legenda { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
 .ps-metas-legenda > span { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ps-text-2); }
@@ -4166,7 +4196,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-cli-pasta > i { font-size: 14px; color: var(--ps-icone); }
 .ps-cli-pasta-num { font-weight: 700; font-size: 13px; color: var(--ps-text); }
 .ps-cli-pasta-acao { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ps-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ps-cli-tag { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+.ps-cli-tag { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; }
 .ps-cli-tag--atual     { color: var(--ps-accent); background: var(--ps-accent-bg); }
 .ps-cli-tag--ativa     { color: var(--ps-l7-tag-ativa-tx); background: var(--ps-l7-tag-ativa-bg); }
 .ps-cli-tag--arquivada { color: var(--ps-text-3); background: var(--ps-div-strong); }

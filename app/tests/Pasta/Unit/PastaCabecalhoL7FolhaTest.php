@@ -136,18 +136,16 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         self::assertStringNotContainsString('#b4460a', $escuro);
     }
 
-    #[TestDox('PAS-002: o observador da pílula carimba ATIVO só na volta de arquivado para ativo e tira o selo em 3,3 s')]
+    #[TestDox('PAS-002 (E12d): pasta ativa ganha o carimbo ATIVO 1,4 s depois de abrir (desenho `ativoSeloMostrar`) e ele sai em 3,3 s')]
     public function testSeloAtivoPassageiro(): void
     {
-        $script = self::trecho(self::ler(self::CABECALHO), 'O selo ARQUIVADO acompanha a pílula');
+        $script = self::trecho(self::ler(self::CABECALHO), 'Carimbo ATIVO passageiro');
 
-        self::assertStringContainsString("var estavaArquivada = pilula.classList.contains('ps-situacao-pill--arquivado');", $script);
-        self::assertStringContainsString('if (estavaArquivada && !arquivada && faixa.dataset.psSeloAtivoModelo)', $script, 'só na reativação');
+        self::assertStringContainsString("pilula.classList.contains('ps-situacao-pill--ativo')", $script, 'só na pasta ativa');
         self::assertStringContainsString("insertAdjacentHTML('afterbegin', faixa.dataset.psSeloAtivoModelo)", $script);
-        self::assertStringContainsString('setTimeout(tirarSeloAtivo, 3300)', $script);
-        self::assertStringContainsString('estavaArquivada = arquivada;', $script);
-        // O ARQUIVADO é procurado pela própria classe: o ATIVO na tela não pode passar por ele.
-        self::assertStringContainsString("faixa.querySelector(':scope > .ps-cab-selo--arquivado')", $script);
+        self::assertStringContainsString('}, 3300);', $script);
+        self::assertStringContainsString('}, 1400);', $script);
+        self::assertStringContainsString("faixa.querySelector(':scope > .ps-cab-selo--ativo')", $script);
 
         $css = self::ler(self::CSS);
         $ativo = self::regra($css, '.ps-cab-selo--ativo');

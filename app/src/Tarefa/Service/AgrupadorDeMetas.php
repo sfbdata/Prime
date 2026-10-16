@@ -44,12 +44,10 @@ final class AgrupadorDeMetas
      */
     private function porUrgencia(array $metas, \DateTimeImmutable $hoje): array
     {
-        $limite = $hoje->modify('+' . self::JANELA_PROXIMOS_DIAS . ' days');
-
         $baldes = ['atrasadas' => [], 'proximas' => [], 'depois' => [], 'sem_prazo' => [], 'em_revisao' => [], 'concluidas' => []];
 
         foreach ($metas as $meta) {
-            $baldes[$this->baldeDaUrgencia($meta, $hoje, $limite)][] = $meta;
+            $baldes[self::classificar($meta, $hoje)][] = $meta;
         }
 
         foreach (['atrasadas', 'proximas', 'depois'] as $chave) {
@@ -121,8 +119,18 @@ final class AgrupadorDeMetas
         ];
     }
 
-    private function baldeDaUrgencia(Tarefa $meta, \DateTimeImmutable $hoje, \DateTimeImmutable $limite): string
+    /**
+     * Em que balde de urgência a meta cai — a regra única que decide o grupo da lista e, desde a
+     * fidelidade de 13/10, também a pílula de status da linha (`StatusDoPrazoDaMeta`). Pública e pura
+     * para que grupo e pílula nunca discordem.
+     *
+     * @return 'atrasadas'|'proximas'|'depois'|'sem_prazo'|'em_revisao'|'concluidas'
+     */
+    public static function classificar(Tarefa $meta, ?\DateTimeImmutable $hoje = null): string
     {
+        $hoje   = ($hoje ?? new \DateTimeImmutable())->setTime(0, 0);
+        $limite = $hoje->modify('+' . self::JANELA_PROXIMOS_DIAS . ' days');
+
         if ($meta->getStatus() === Tarefa::STATUS_CONCLUIDA) {
             return 'concluidas';
         }

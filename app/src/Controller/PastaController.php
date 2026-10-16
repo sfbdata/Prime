@@ -10,6 +10,9 @@ use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
+use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
 use App\Pasta\Entity\PastaDocumento;
 use App\Processo\Entity\Processo;
 use App\Processo\Entity\ParteProcesso;
@@ -67,6 +70,9 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
+use App\Pasta\DTO\AndamentoDaPastaOutput;
+use App\Pasta\Service\AndamentoDaPasta;
+use App\Pasta\Repository\PastaPrazoRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
@@ -193,6 +199,9 @@ class PastaController extends AbstractController
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
         private readonly PublicacaoDjenRepository $publicacaoDjenRepository,
         private readonly LoggerInterface $logger,
+        private readonly PastaPrazoRepository $pastaPrazoRepository,
+        private readonly AndamentoDaPasta $andamentoDaPasta,
+        private readonly DefinirSituacaoDaPastaUseCase $definirSituacao,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -337,10 +346,13 @@ class PastaController extends AbstractController
             static fn (TimelineItemDTO $i) => $i->tipo === TimelineItemType::EVENTO,
         ));
 
-        // Cartão "Próximos prazos" do trilho: as metas abertas mais perto do
-        // vencimento. Sai da coleção que a aba Metas já carrega — nenhuma
-        // consulta a mais por causa deste cartão.
-        $proximosPrazos = PastaPrazoOutput::proximas($pasta->getTarefas());
+        // Cartão "Próximos prazos" do trilho (desenho 1.2.3, E12b): prazos e audiências registrados à mão e as
+        // metas abertas com prazo, do mais próximo ao mais distante. As metas saem da coleção que a aba Metas já
+        // carrega; os prazos manuais são uma consulta.
+        $proximosPrazos = PastaPrazoOutput::daPasta(
+            $pasta->getTarefas(),
+            $tenant !== null ? $this->pastaPrazoRepository->abertosDaPasta($pasta, $tenant) : [],
+        );
 
         $usuarios = $tenant !== null
             ? $this->userRepository->findColaboradoresAtivosPorTenant($tenant)
@@ -459,6 +471,12 @@ class PastaController extends AbstractController
             'anotacoes'                   => $anotacoes,
             'eventosHistorico'            => $eventosHistorico,
             'proximosPrazos'              => $proximosPrazos,
+            // Andamento da pasta em fases (desenho 1.2.3, E12b): a trilha sob o nome.
+            'andamento'                   => $tenant !== null ? AndamentoDaPastaOutput::de(
+                $this->andamentoDaPasta->estado($pasta, $tenant),
+                $pasta->getMensagens(),
+                $this->andamentoDaPasta->sugestoes($pasta, $tenant),
+            ) : null,
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
             'fotosResponsaveis'           => $fotosResponsaveis,
@@ -1427,13 +1445,25 @@ class PastaController extends AbstractController
             nup: (string) $request->request->get('nup', ''),
             nomeCliente: $this->textoOuMantemAtual($request, 'nome_cliente', $pasta->getNomeCliente()),
             nomeAcao: $this->textoOuMantemAtual($request, 'nome_acao', $pasta->getNomeAcao()),
-            situacao: (string) $request->request->get('situacao', Pasta::SITUACAO_ATIVA),
+            // A situação NÃO muda por aqui: vai ao mesmo caso de uso da pílula logo abaixo, para sair o
+            // cartão "Situação da pasta" e, ao arquivar, o andamento ir a Finalizada.
+            situacao: $pasta->getSituacao(),
         );
         try {
             $this->editarPastaUseCase->executar($dto, $pasta);
         } catch (\InvalidArgumentException $e) {
             $this->addFlash('error', $e->getMessage());
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
+
+        // Campo ausente = não mexe (antes o padrão era "ativo" e reativava a pasta suspensa).
+        $situacaoPedida = (string) $request->request->get('situacao', '');
+        if ($situacaoPedida !== '' && $situacaoPedida !== $pasta->getSituacao() && $this->tenantContext->getCurrentTenant() !== null) {
+            try {
+                $this->definirSituacao->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant(), $situacaoPedida);
+            } catch (\DomainException $e) {
+                $this->addFlash('error', $e->getMessage());
+            }
         }
 
         // 6º ponto de gatilho do sync (R3): renomear no sistema passa a renomear no Drive. Só
@@ -1501,16 +1531,33 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $novaSituacao = $pasta->getSituacao() === Pasta::SITUACAO_ATIVA
-            ? Pasta::SITUACAO_ARQUIVADA
-            : Pasta::SITUACAO_ATIVA;
-
-        $pasta->setSituacao($novaSituacao);
-        $this->em->flush();
+        // A tela manda a situação que quer (pílula, menu ⋮, duplo clique das listas): se o estado mudou em
+        // outra aba, o pedido não vira o contrário. Sem ela, compatibilidade: arquivada volta a Ativo, o resto
+        // vai a Arquivado.
+        $pedida = (string) $request->request->get('situacao', '');
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+        try {
+            $novaSituacao = $this->definirSituacao->executar(
+                $pasta,
+                $currentUser,
+                $tenant,
+                $pedida !== '' ? $pedida : DefinirSituacaoDaPastaUseCase::alternada($pasta->getSituacao()),
+            );
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaEditarPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return $this->json([
             'sucesso'      => true,
             'novaSituacao' => $novaSituacao,
+            'rotulo'       => Pasta::ROTULOS_SITUACAO[$novaSituacao],
         ]);
     }
 
@@ -1749,7 +1796,7 @@ class PastaController extends AbstractController
         $situacao = strtoupper(trim((string) $request->request->get('situacao', '')));
 
         try {
-            $this->alterarSituacaoContratoUseCase->executar($pasta, $situacao);
+            $this->alterarSituacaoContratoUseCase->executar($pasta, $situacao, $currentUser, $this->tenantContext->getCurrentTenant());
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

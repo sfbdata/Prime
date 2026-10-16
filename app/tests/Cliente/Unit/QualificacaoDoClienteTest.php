@@ -40,7 +40,7 @@ final class QualificacaoDoClienteTest extends TestCase
             ->setEstado('df');
 
         self::assertSame(
-            'MARIA DAS DORES, casado(a), professora, nascido(a) em 09/03/1980, portador(a) do RG nº 1234567, '
+            'MARIA DAS DORES, casado(a), professora, nascido(a) em 09/03/1980, portador(a) do RG nº 1234567 SSP/DF, '
             . 'inscrito(a) no CPF nº 123.456.789-01, residente e domiciliado(a) na SQS 110 BLOCO A, APTO 101, '
             . 'BRASÍLIA/DF, CEP 70000-000, telefone (61) 99999-0000, telefone (61) 3333-0000, e-mail maria@exemplo.com.',
             (new QualificacaoDoCliente())->de($cliente)
@@ -93,5 +93,48 @@ final class QualificacaoDoClienteTest extends TestCase
             $texto
         );
         self::assertStringNotContainsString('direito privado', $texto);
+    }
+
+    #[TestDox('modelo do desenho: nacionalidade, número, bairro, WhatsApp diferente do telefone e concordância feminina')]
+    public function testModeloDoDesenhoFeminino(): void
+    {
+        $cliente = $this->pfDoDesenho();
+        $cliente->setGenero('FEMININO');
+
+        self::assertSame(
+            'MARIA DAS DORES, brasileira, casada, professora, nascida em 09/03/1980, portadora do RG nº 1234567 SSP/DF, '
+            . 'inscrita no CPF nº 529.982.247-25, residente e domiciliada na SQS 110 BLOCO A, nº 101, APTO 3, Bairro ASA SUL, '
+            . 'BRASÍLIA/DF, CEP 70000-000, telefone (61) 99999-0000, WhatsApp (61) 98888-0000, e-mail maria@exemplo.com.',
+            (new QualificacaoDoCliente())->de($cliente)
+        );
+    }
+
+    #[TestDox('masculino tira o "(a)"; WhatsApp igual ao telefone não se repete')]
+    public function testMasculinoEWhatsappIgual(): void
+    {
+        $cliente = $this->pfDoDesenho();
+        $cliente->setGenero('MASCULINO');
+        $cliente->setWhatsapp('(61) 99999-0000');
+
+        $texto = (new QualificacaoDoCliente())->de($cliente);
+
+        self::assertStringContainsString('brasileiro, casado, professora, nascido em', $texto);
+        self::assertStringContainsString('portador do RG', $texto);
+        self::assertStringContainsString('residente e domiciliado na', $texto);
+        self::assertStringNotContainsString('WhatsApp', $texto);
+        self::assertStringNotContainsString('(a)', $texto);
+    }
+
+    private function pfDoDesenho(): ClientePF
+    {
+        $cliente = new ClientePF();
+        $cliente->setNomeCompleto('Maria das Dores')->setCpf('52998224725')->setRg('1234567')->setRgOrgaoExpedidor('SSP/DF')
+            ->setEstadoCivil('CASADO')->setProfissao('Professora')->setDataNascimento(new \DateTimeImmutable('1980-03-09'))
+            ->setNacionalidade('brasileiro(a)');
+        $cliente->setEmail('maria@exemplo.com')->setTelefoneCelular('(61) 99999-0000')->setCep('70000-000')
+            ->setEndereco('SQS 110 Bloco A')->setComplemento('Apto 3')->setCidade('Brasília')->setEstado('DF');
+        $cliente->setNumero('101')->setBairro('Asa Sul')->setWhatsapp('(61) 98888-0000');
+
+        return $cliente;
     }
 }

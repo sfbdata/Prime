@@ -53,8 +53,10 @@ final class PastaExploradorLixeiraTest extends TestCase
     public function testDesfazerUsaOsIdsDaResposta(): void
     {
         $excluir = $this->funcao('excluirItens');
-        // confirm() mantido (S-3), ANTES do pedido.
-        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'if (!confirm(t.confirmacao || avisoExclusaoDoLote(itens))) return;'));
+        // Confirmação mantida (S-3; janela da tela desde a E7), ANTES do pedido: o pedido mora na
+        // função que só roda no "sim".
+        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'window.confirmarUIPs(pergunta, true)'));
+        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'function excluirConfirmado() {'));
         // O que sai da memória é guardado (o objeto inteiro), não recriado depois.
         self::assertStringContainsString('saiu.arquivos.unshift(arquivos.splice(i, 1)[0]);', $excluir);
         self::assertStringContainsString('saiu.pastas.unshift(pastas.splice(i, 1)[0]);', $excluir);

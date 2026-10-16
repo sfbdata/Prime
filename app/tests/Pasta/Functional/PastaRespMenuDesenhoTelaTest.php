@@ -168,18 +168,17 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
             'o <style> do ✓ não vai para o Expediente'
         );
 
-        // Tabela E cartão: os dois incluem o chip, por caminhos diferentes.
+        // A tabela inclui o chip; o cartão do desenho 1.1 (E12) mostra o responsável só como avatar e nome.
         $chipTabela = $crawler->filter('#tabelaPastas .pasta-resp-chip');
         self::assertCount(1, $chipTabela);
         self::assertCount(1, $chipTabela->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person'));
         self::assertCount(1, $chipTabela->filter('.pasta-resp-chip > .pasta-resp-nome.text-muted'));
         self::assertSame('expediente', $chipTabela->attr('data-contexto'));
 
-        $chipCartao = $crawler->filter('.pastas-lista .pasta-card .pasta-resp-chip');
-        self::assertCount(1, $chipCartao);
-        self::assertCount(1, $chipCartao->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person'));
-        self::assertCount(1, $chipCartao->filter('.pasta-resp-chip > .pasta-resp-nome.text-muted'));
-        self::assertSame('expediente', $chipCartao->attr('data-contexto'));
+        $peCartao = $crawler->filter('.pastas-lista > .exp-cartao > .exp-cartao-pe');
+        self::assertCount(1, $peCartao);
+        self::assertSame('?', trim($peCartao->filter('.exp-simples-av.is-vazio')->text()));
+        self::assertSame('Sem responsável', trim($peCartao->filter('.exp-cartao-resp')->text()));
 
         self::assertCount(0, $crawler->filter('.pasta-resp-chip i.bi-person-dash'), 'o ícone do desenho é só da pasta');
     }

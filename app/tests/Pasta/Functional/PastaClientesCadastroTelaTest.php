@@ -68,6 +68,7 @@ final class PastaClientesCadastroTelaTest extends JusPrimeWebTestCase
         $cliente->setEndereco('SQS 110 Bloco A');
         $cliente->setCidade('Brasília');
         $cliente->setEstado('DF');
+        $cliente->setNumero('101')->setBairro('Asa Sul');
         $cliente->setTenant($tenant);
         $cliente->setNomeCompleto($nome);
         $cliente->setCpf($cpf);
@@ -214,7 +215,7 @@ final class PastaClientesCadastroTelaTest extends JusPrimeWebTestCase
         self::assertSame($pasta->getNup(), $ics->attr('data-ics-pasta'));
 
         self::assertSame(
-            'Juntar documentos · Faltam 20 dias · Admin Tela · ' . $prazo->format('d/m') . ' · Pasta ' . $pasta->getNup(),
+            'Juntar documentos · Faltam 20 dias · Admin Tela · ' . $prazo->format('d/m') . ' · Meta · Pasta ' . $pasta->getNup(),
             $menu->filter('.js-ps-copiar')->attr('data-ps-copiar'),
             'Copiar = "título · selo · meta · Pasta N", como o desenho'
         );

@@ -1,0 +1,98 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Trabalho Externo: central nacional de advocacia correspondente.
+    Desenho aprovado: docs/design/trabalho-externo/06 - Trabalho Externo 1.0.dc.html (spec em
+    docs/specs/trabalho-externo.md). O cabeçalho azul, a subnav e a barra lateral do protótipo
+    são a moldura do sistema (base.html.twig); o seletor "Simula o acesso de cada perfil" não
+    existe aqui, porque o perfil vem do servidor.
+
+    O template só monta o esqueleto fixo. Lista, KPIs, chips, painel lateral, modais e avisos são
+    desenhados pelo public/js/trabalho-externo.js a partir de `data-painel` (MontarPainelUseCase).
+    Rotas com {codigo} vão com o marcador TE-0, trocado no JS pelo código real.
+#}
+
+{% block title %}Trabalho Externo · BlueJus{% endblock %}
+
+{% block body_class %}te-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/trabalho-externo.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set marcador = 'TE-0' %}
+<div class="te-page" id="tePagina"
+     data-painel="{{ painel|json_encode|e('html_attr') }}"
+     data-codigo-marcador="{{ marcador }}"
+     data-url-index="{{ path('trabalho_externo_index') }}"
+     data-url-painel="{{ path('trabalho_externo_painel') }}"
+     data-url-detalhe="{{ path('trabalho_externo_detalhe', {codigo: marcador}) }}"
+     data-url-solicitacao="{{ path('trabalho_externo_solicitacao') }}"
+     data-url-acao="{{ path('trabalho_externo_acao', {codigo: marcador, acao: '__acao__'}) }}"
+     data-url-proposta="{{ path('trabalho_externo_proposta', {codigo: marcador}) }}"
+     data-url-mensagem="{{ path('trabalho_externo_mensagem', {codigo: marcador}) }}"
+     data-url-lida="{{ path('trabalho_externo_lida', {codigo: marcador}) }}"
+     data-url-checklist="{{ path('trabalho_externo_checklist', {codigo: marcador, indice: 0}) }}"
+     data-url-andamento="{{ path('trabalho_externo_andamento', {codigo: marcador}) }}"
+     data-url-anexar="{{ path('trabalho_externo_anexar', {codigo: marcador}) }}"
+     data-url-documento="{{ path('trabalho_externo_documento', {codigo: marcador, id: 0}) }}"
+     data-url-convites="{{ path('trabalho_externo_convidar', {codigo: marcador}) }}"
+     data-url-whatsapp="{{ path('trabalho_externo_whatsapp_avisar', {codigo: marcador}) }}"
+     data-url-configuracao="{{ path('trabalho_externo_configuracao') }}">
+
+    <div class="te-titulo-linha">
+        <h1 class="te-titulo">
+            <i class="bi bi-geo-alt"></i>
+            <span class="te-titulo-textos">
+                <span class="te-titulo-nome">Trabalho Externo</span>
+                <span class="te-titulo-sub">Central nacional de advocacia correspondente</span>
+            </span>
+        </h1>
+        <div class="te-titulo-acoes" id="teTituloAcoes"></div>
+    </div>
+
+    {# Faixa da pré-visualização do Master (spec §9): fora de #teLiberado, aparece também no bloqueio. #}
+    <div id="tePrevia"></div>
+
+    <div id="teBloqueio"></div>
+
+    <div id="teLiberado">
+        <div id="teAviso"></div>
+
+        <div class="te-periodo" id="tePeriodo"></div>
+        <div class="te-kpis" id="teKpis"></div>
+
+        <div class="te-filtros">
+            <div class="te-chips" id="teChips"></div>
+            <label class="te-busca">
+                <i class="bi bi-search"></i>
+                <input type="text" id="teBusca" placeholder="Buscar demanda, cidade, processo" autocomplete="off">
+            </label>
+        </div>
+
+        <div class="te-tabela-caixa">
+            <div class="te-tabela">
+                <div class="te-grade te-grade--cab">
+                    <div>ID</div><div>SERVIÇO</div><div>ORIGEM → EXECUÇÃO</div><div>PRAZO</div><div>RESPONSÁVEL</div><div>SITUAÇÃO</div><div class="te-centro">CHAT</div><div></div>
+                </div>
+                <div id="teLinhas"></div>
+            </div>
+        </div>
+    </div>
+
+    {# Camadas sobrepostas: o JS preenche e mostra. Ficam dentro do .te-page para herdar os tokens do tema. #}
+    <div id="teMenu"></div>
+    <div id="teDrawer"></div>
+    <div id="teNova"></div>
+    <div id="teCfg"></div>
+    <div id="teConf"></div>
+    <div id="teToast"></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/trabalho-externo.js') }}" defer></script>
+{% endblock %}

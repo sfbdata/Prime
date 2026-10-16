@@ -1,0 +1,181 @@
+3a4,5
+> 
+> 
+698a701,722
+>           <sc-if value="{{ cq.isReu }}" hint-placeholder-val="{{ false }}">
+>             <div style="display:flex;flex-direction:column;gap:10px">
+>               <div style="font-size:12.5px;color:#4f6878">Parte adversa desta pasta. O primeiro réu aparece na coluna <b>Réu</b> da lista do Expediente; havendo mais de um, aparece "e outros".</div>
+>               <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:10px;align-items:end">
+>                 <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b8494">Nome / razão social <span style="color:#c0392b">*</span></span><input value="{{ cq.reuNome }}" onChange="{{ cq.reuOnNome }}" placeholder="Ex.: Banco do Brasil S.A." style="height:36px;box-sizing:border-box;padding:0 10px;border:1px solid #d3dde4;border-radius:4px;background:#fff;font-family:inherit;font-size:13.5px;color:#12242f;outline:none" style-focus="border-color:#0a7aad;box-shadow:0 0 0 3px rgba(10,122,173,.14)"></label>
+>                 <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b8494">CPF / CNPJ</span><input value="{{ cq.reuDoc }}" onChange="{{ cq.reuOnDoc }}" placeholder="Opcional" style="height:36px;box-sizing:border-box;padding:0 10px;border:1px solid #d3dde4;border-radius:4px;background:#fff;font-family:inherit;font-size:13.5px;color:#12242f;outline:none;font-variant-numeric:tabular-nums" style-focus="border-color:#0a7aad;box-shadow:0 0 0 3px rgba(10,122,173,.14)"></label>
+>                 <button onClick="{{ cq.reuAdd }}" style="height:36px;padding:0 14px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap" style-hover="background:#0b6f9a"><i class="bi bi-plus-lg"></i>Adicionar réu</button>
+>               </div>
+>               <sc-if value="{{ cq.temReuDocErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#b03a2e">{{ cq.reuDocErr }}</div></sc-if>
+>               <div style="border:1px solid #e3eaef;border-radius:4px;overflow:hidden">
+>                 <sc-for list="{{ cq.reus }}" as="r" hint-placeholder-count="1">
+>                   <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #eef2f5">
+>                     <span style="width:30px;height:30px;border-radius:50%;background:#fbeceb;color:#b03a2e;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">{{ r.ini }}</span>
+>                     <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:#12242f;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.nome }}</span><sc-if value="{{ r.prim }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;padding:2px 7px;border-radius:4px;flex-shrink:0">{{ r.tag }}</span></sc-if></span><span style="font-size:11.5px;color:#7b93a2;font-variant-numeric:tabular-nums">{{ r.doc }}</span></span>
+>                     <button onClick="{{ r.subir }}" title="Tornar principal / subir" style="width:28px;height:28px;border:none;background:transparent;color:#5f7684;border-radius:4px;cursor:pointer" style-hover="background:#e5f1f7;color:#0a7aad"><i class="bi bi-arrow-up"></i></button>
+>                     <button onClick="{{ r.tirar }}" title="Remover réu" style="width:28px;height:28px;border:none;background:transparent;color:#5f7684;border-radius:4px;cursor:pointer" style-hover="background:#fbeceb;color:#b03a2e"><i class="bi bi-trash3"></i></button>
+>                   </div>
+>                 </sc-for>
+>                 <sc-if value="{{ cq.reuVazio }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;text-align:center;font-size:13px;color:#7b93a2">Nenhum réu cadastrado nesta pasta.</div></sc-if>
+>               </div>
+>             </div>
+>           </sc-if>
+1435a1460
+>             <button onClick="{{ pzAbrirNovo }}" title="Adicionar prazo ou audiência" aria-label="Adicionar prazo ou audiência" style="width:30px;height:28px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#0a7aad;font-size:16px;border-radius:4px;cursor:pointer;transition:background .18s" style-hover="background:#e5f1f7"><i class="bi bi-plus-lg"></i></button>
+1437a1463
+>           <sc-if value="{{ pzVazio }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 17px;font-size:12.5px;color:#7b93a2">Nenhum prazo ou audiência. Use + para registrar ou aguarde a leitura do Push processual.</div></sc-if>
+1454c1480
+<             <span style="font-variant-numeric:tabular-nums;font-size:11px;font-weight:700;color:#0b5f86;background:#e5f1f7;padding:1px 8px;border-radius:4px">4</span>
+---
+>             <span style="font-variant-numeric:tabular-nums;font-size:11px;font-weight:700;color:#0b5f86;background:#e5f1f7;padding:1px 8px;border-radius:4px">{{ cliN }}</span>
+2883a2910,2925
+>   <sc-if value="{{ pzOn }}" hint-placeholder-val="{{ false }}">
+>     <div onClick="{{ pzFechar }}" style="position:fixed;inset:0;z-index:9700;background:rgba(14,37,51,.35);display:flex;align-items:center;justify-content:center;padding:16px">
+>       <div role="dialog" onClick="{{ pzParar }}" style="width:min(420px,100%);background:#fff;border-radius:4px;box-shadow:0 26px 60px -20px rgba(12,48,72,.45);overflow:hidden">
+>         <div style="background:#0a6fa0;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px"><i class="bi bi-calendar-event"></i><b style="flex:1;font-size:14.5px">{{ pzTit }}</b><button onClick="{{ pzFechar }}" style="width:28px;height:28px;border:none;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;cursor:pointer"><i class="bi bi-x-lg"></i></button></div>
+>         <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+>           <div style="display:flex;gap:6px"><sc-for list="{{ pzTipos }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.ir }}" style="flex:1;height:34px;border:1px solid #c9d6df;border-radius:4px;background:{{ t.bg }};color:{{ t.cor }};font:inherit;font-size:13px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px"><i class="bi {{ t.ic }}"></i>{{ t.rot }}</button></sc-for></div>
+>           <label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:bold;letter-spacing:.5px;color:#4a6373">DESCRIÇÃO<input value="{{ pzF.titulo }}" onInput="{{ pzSetTit }}" placeholder="Ex.: Protocolar contestação" style="height:36px;border:1px solid #c9d6df;border-radius:4px;padding:0 10px;font:inherit;font-size:14px;color:#12242f;box-sizing:border-box;width:100%"></label>
+>           <div style="display:flex;gap:10px"><label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:bold;letter-spacing:.5px;color:#4a6373;flex:1">DATA<input type="date" value="{{ pzF.data }}" onInput="{{ pzSetData }}" style="height:36px;border:1px solid #c9d6df;border-radius:4px;padding:0 10px;font:inherit;font-size:14px;color:#12242f;box-sizing:border-box;width:100%"></label><label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:bold;letter-spacing:.5px;color:#4a6373;width:120px">HORA{{ pzHoraOpc }}<input type="time" value="{{ pzF.hora }}" onInput="{{ pzSetHora }}" style="height:36px;border:1px solid #c9d6df;border-radius:4px;padding:0 10px;font:inherit;font-size:14px;color:#12242f;box-sizing:border-box;width:100%"></label></div>
+>           <label style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;font-weight:bold;letter-spacing:.5px;color:#4a6373">RESPONSÁVEL<input value="{{ pzF.resp }}" onInput="{{ pzSetResp }}" placeholder="Nome do responsável" style="height:36px;border:1px solid #c9d6df;border-radius:4px;padding:0 10px;font:inherit;font-size:14px;color:#12242f;box-sizing:border-box;width:100%"></label>
+>           <div style="font-size:12px;color:#7b93a2;line-height:1.45"><i class="bi bi-info-circle"></i> Prazos do Push processual e das Metas entram sozinhos nesta lista.</div>
+>           <sc-if value="{{ pzErro }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:#a3232b">{{ pzErro }}</div></sc-if>
+>           <div style="display:flex;justify-content:flex-end;gap:8px"><button onClick="{{ pzFechar }}" style="height:34px;padding:0 14px;border:none;border-radius:4px;background:#e6edf2;color:#243845;font:inherit;font-weight:bold;cursor:pointer">Cancelar</button><button onClick="{{ pzSalvar }}" style="height:34px;padding:0 16px;border:none;border-radius:4px;background:#0a6fa0;color:#fff;font:inherit;font-weight:bold;cursor:pointer" style-hover="background:#0b5f86">Salvar</button></div>
+>         </div>
+>       </div>
+>     </div>
+>   </sc-if>
+3427c3469
+<     const ABAS = [['pessoais', 'Dados pessoais', 'bi bi-person'], ['endereco', 'Endereço', 'bi bi-geo-alt'], ['contato', 'Contato', 'bi bi-telephone'], ['docs', 'Documentos', 'bi bi-paperclip'], ['qual', 'Qualificação', 'bi bi-file-text'], ['hist', 'Histórico', 'bi bi-clock-history']];
+---
+>     const ABAS = [['pessoais', 'Cliente', 'bi bi-person'], ['reu', 'Réu', 'bi bi-person-x'], ['endereco', 'Endereço', 'bi bi-geo-alt'], ['contato', 'Contato', 'bi bi-telephone'], ['docs', 'Documentos', 'bi bi-paperclip'], ['qual', 'Qualificação', 'bi bi-file-text'], ['hist', 'Histórico', 'bi bi-clock-history']];
+3457c3499
+<       const ndb = { ...db }; if (c.key && c.key !== k) delete ndb[c.key];
+---
+>       const ndb = { ...db }; if (c.key && c.key !== k) { delete ndb[c.key]; try { const al = JSON.parse(localStorage.getItem('bj-cli-alias') || '{}'); al[c.key] = k; Object.keys(al).forEach(x => { if (al[x] === c.key) al[x] = k; }); localStorage.setItem('bj-cli-alias', JSON.stringify(al)); } catch (e) {} }
+3474c3516
+<       isCampos: !!C[cad.aba], campos, isDocs: cad.aba === 'docs', docs, ii: cad.aba === 'docs' ? this.iiVals(cad, f, set) : { on: false }, isQual: cad.aba === 'qual', qualTxt: Component.qualificacao(f), isHist: cad.aba === 'hist',
+---
+>       isCampos: !!C[cad.aba], campos, isReu: cad.aba === 'reu', ...this.reuVals(cad), isDocs: cad.aba === 'docs', docs, ii: cad.aba === 'docs' ? this.iiVals(cad, f, set) : { on: false }, isQual: cad.aba === 'qual', qualTxt: Component.qualificacao(f), isHist: cad.aba === 'hist',
+3491a3534,3548
+>   reusLer() { try { return JSON.parse(localStorage.getItem('bj-reus')) || {}; } catch (e) { return {}; } }
+>   reuVals(cad) {
+>     const num = Component.PASTAS[this.state.pastaI][0], R = this.reusLer(), L = R[num] || [], fr = cad.reu || { nome: '', doc: '' }, soD = x => String(x || '').replace(/\D/g, '');
+>     const setR = p => this.setState(st => ({ cad: { ...st.cad, reu: { ...(st.cad.reu || { nome: '', doc: '' }), ...p } } }));
+>     const fmt = d => d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d;
+>     const grava = nl => { const o = this.reusLer(); o[num] = nl; localStorage.setItem('bj-reus', JSON.stringify(o)); this.forceUpdate(); };
+>     const d = soD(fr.doc), docErr = d && d.length !== 11 && d.length !== 14 ? 'CPF com 11 ou CNPJ com 14 dígitos' : '';
+>     return { reus: L.map((r, i) => ({ nome: r.nome, doc: r.doc ? (soD(r.doc).length === 14 ? 'CNPJ ' : 'CPF ') + fmt(soD(r.doc)) : 'Documento não informado', ini: String(r.nome).split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase(), prim: i === 0, tag: i === 0 ? 'Principal' : '',
+>         tirar: () => { if (confirm('Remover ' + r.nome + ' dos réus desta pasta?')) grava(L.filter((_, j) => j !== i)); },
+>         subir: () => { if (!i) return; const nl = L.slice(); [nl[i - 1], nl[i]] = [nl[i], nl[i - 1]]; grava(nl); } })),
+>       reuVazio: !L.length, reuN: L.length, reuNome: fr.nome, reuDoc: fr.doc, reuDocErr: docErr, temReuDocErr: !!docErr,
+>       reuOnNome: ev => setR({ nome: ev.target.value }), reuOnDoc: ev => setR({ doc: ev.target.value }),
+>       reuAdd: () => { const nome = String(fr.nome || '').trim().replace(/\s+/g, ' ').toUpperCase(); if (!nome || docErr) return; if (L.some(x => x.nome === nome || (d && soD(x.doc) === d))) { setR({ nome: '', doc: '' }); return; } grava(L.concat({ nome, doc: d })); setR({ nome: '', doc: '' }); },
+>       reuTecla: ev => { if (ev.key === 'Enter') { ev.preventDefault(); ev.currentTarget.form ? null : null; } } };
+>   }
+6289c6346
+<   componentDidMount() {
+---
+>   componentDidMount() { window.BJDatas = { ler: Component.lerDatas, somarDias: Component.somarDias, diaUtil: Component.diaUtil };
+6302,6303c6359,6424
+<     this.peAplicar(); this._mTec = e => { const v = this._mTecFn; v && v(e); }; window.addEventListener('keydown', this._mTec); try { const sv = JSON.parse(localStorage.getItem('bj-metas-pasta-v1') || 'null'); if (sv && Array.isArray(sv.metas) && sv.metas.length) { const ids = new Set(this.state.metasData.map(m => m.id)); const extra = sv.metas.filter(m => !ids.has(m.id)); const upd = this.state.metasData.map(m => sv.metas.find(x => x.id === m.id) || m); this.setState({ metasData: extra.concat(upd) }); } } catch (e) {} this._metasCarregadas = true; window.addEventListener('bj-ck-previsao', () => this.forceUpdate()); window.addEventListener('bj-navegar', this.onNavegar); setTimeout(() => this.centralSync(), 400); window.addEventListener('keydown', this.onBuscaG); window.addEventListener('bj-enviar', this.onEditorEnviar); window.addEventListener('bj-cancelar', this.onEditorCancelar); { const it = this.ckCfg().itens; if (it && it.length) this.setState({ checklistData: it }); } this._regT = setInterval(() => { if (this.regsItens('expedientes').concat(this.regsItens('financeiro'), this.regsItens('observacoes')).some(r => r.editavel || r.editando)) this.forceUpdate(); }, 20000); this.componentDidMount2(); this.measure(); window.addEventListener('resize', this.onResize); }
+<   componentDidUpdate(pp, ps) { if (ps && ps.pastaI !== this.state.pastaI && this.state.situacao === 'ativo') this.ativoSeloMostrar(); if (ps && ps.metasData !== this.state.metasData) { try { localStorage.setItem('bj-metas-pasta-v1', JSON.stringify({ metas: this.state.metasData, em: Date.now() })); } catch (e) {} } this.measure(); clearTimeout(this._evT); this._evT = setTimeout(() => window.dispatchEvent(new Event('bj-evidencia')), 1500); }
+---
+>     this.peAplicar(); this._mTec = e => { const v = this._mTecFn; v && v(e); }; window.addEventListener('keydown', this._mTec); try { const sv = JSON.parse(localStorage.getItem('bj-metas-pasta-v1') || 'null'); if (sv && Array.isArray(sv.metas) && sv.metas.length) { const ids = new Set(this.state.metasData.map(m => m.id)); const extra = sv.metas.filter(m => !ids.has(m.id)); const upd = this.state.metasData.map(m => sv.metas.find(x => x.id === m.id) || m); this.setState({ metasData: extra.concat(upd) }); } } catch (e) {} this._metasCarregadas = true; window.addEventListener('bj-ck-previsao', () => this.forceUpdate()); setTimeout(() => this.pzPublicar(), 1200); window.addEventListener('bj-navegar', this.onNavegar); setTimeout(() => this.centralSync(), 400); window.addEventListener('keydown', this.onBuscaG); window.addEventListener('bj-enviar', this.onEditorEnviar); window.addEventListener('bj-cancelar', this.onEditorCancelar); { const it = this.ckCfg().itens; if (it && it.length) this.setState({ checklistData: it }); } this._regT = setInterval(() => { if (this.regsItens('expedientes').concat(this.regsItens('financeiro'), this.regsItens('observacoes')).some(r => r.editavel || r.editando)) this.forceUpdate(); }, 20000); this.componentDidMount2(); this.measure(); window.addEventListener('resize', this.onResize); }
+>   static PZ_KEY = 'bj-pz-manual-v1';
+>   pzManLer() { try { const S = JSON.parse(localStorage.getItem(Component.PZ_KEY) || '{}'); if (!S._seed) { const h = new Date(); h.setHours(12, 0, 0, 0); const iso = d => { const x = new Date(h); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); }; S['1180'] = [['Protocolar contestação', 'Jéssica Martins', 2], ['Reunião de alinhamento com o cliente', 'Samuel Freitas', 8], ['Juntada de documentos complementares', 'Jéssica Martins', 20]].map(([t, r, d], i) => ({ id: 'pz' + i, tipo: 'prazo', titulo: t, resp: r, data: iso(d), hora: '', criadoEm: Date.now(), cumprido: null })); S._seed = 1; localStorage.setItem(Component.PZ_KEY, JSON.stringify(S)); } return S; } catch (x) { return {}; } }
+>   pzManGravar(nup, fn) { const S = this.pzManLer(); S[nup] = fn((S[nup] || []).slice()); try { localStorage.setItem(Component.PZ_KEY, JSON.stringify(S)); } catch (x) {} this.setState({ pzTick: (this.state.pzTick || 0) + 1 }); }
+>   /* Leitor central de datas e prazos (advocacia). Usado em todos os registros; exposto como window.BJDatas.ler. */
+>   static MESES = { jan: 1, janeiro: 1, fev: 2, fevereiro: 2, mar: 3, marco: 3, abr: 4, abril: 4, mai: 5, maio: 5, jun: 6, junho: 6, jul: 7, julho: 7, ago: 8, agosto: 8, set: 9, setembro: 9, out: 10, outubro: 10, nov: 11, novembro: 11, dez: 12, dezembro: 12 };
+>   static FERIADOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'];
+>   static diaUtil(d) { const w = d.getDay(), md = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), m = d.getMonth() + 1, dd = d.getDate(), recesso = (m === 12 && dd >= 20) || (m === 1 && dd <= 20); return w !== 0 && w !== 6 && !Component.FERIADOS.includes(md) && !recesso; }
+>   static somarDias(base, n, uteis) { const d = new Date(base); d.setHours(0, 0, 0, 0); if (!uteis) { d.setDate(d.getDate() + n); return d; } let c = 0; while (c < n) { d.setDate(d.getDate() + 1); if (Component.diaUtil(d)) c++; } return d; }
+>   static lerDatas(txt, baseEm) {
+>     const N = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), T = String(txt || ''), t = N(T), base = baseEm ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(baseEm)) ? baseEm + 'T00:00' : baseEm) : new Date(); if (isNaN(base)) base.setTime(Date.now()); base.setHours(0, 0, 0, 0);
+>     const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+>     const valida = (y, m, d) => { const x = new Date(y, m - 1, d); return x.getFullYear() === y && x.getMonth() === m - 1 && x.getDate() === d ? x : null; };
+>     const TIPOS = [[/audiencia/, 'audiencia', 'Audiência'], [/pericia/, 'prazo', 'Perícia'], [/sessao de julgamento|julgamento|pauta/, 'prazo', 'Sessão de julgamento'], [/sustentacao oral/, 'prazo', 'Sustentação oral'], [/contestacao|contestar/, 'prazo', 'Prazo para contestação'], [/recurso|apelacao|agravo|embargos/, 'prazo', 'Prazo recursal'], [/manifestacao|manifestar|impugna/, 'prazo', 'Prazo para manifestação'], [/protocol/, 'prazo', 'Protocolo'], [/pagamento|boleto|parcela|deposito|custas|guia/, 'prazo', 'Vencimento de pagamento'], [/reuniao|atendimento/, 'prazo', 'Reunião'], [/prazo|vencimento|vence|ate o dia|data limite|limite/, 'prazo', '']];
+>     const PASSADO = /(realizad|ocorrid|cumprid|cancelad|protocolad[oa] em|juntad[oa] em|pag[oa] em|quitad|encerrad|decorrid)/;
+>     const frases = T.split(/(?<=[.;!?\n])\s+/), out = []; let pos = 0;
+>     frases.forEach(F => { const f = N(F); pos += F.length + 1; const tp = TIPOS.find(x => x[0].test(f)); if (!tp) return;
+>       const achados = [];
+>       const reNum = /(\d{1,2})\s*[\/.-]\s*(\d{1,2})(?:\s*[\/.-]\s*(\d{2,4}))?/g; let m;
+>       while ((m = reNum.exec(f))) { const d = +m[1], mo = +m[2]; if (d < 1 || d > 31 || mo < 1 || mo > 12) continue; if (/\d/.test(f[m.index - 1] || '') || /^\d/.test(f.slice(m.index + m[0].length))) continue; let y = m[3] ? +(m[3].length === 2 ? '20' + m[3] : m[3]) : base.getFullYear(); let x = valida(y, mo, d); if (x && !m[3] && x < base) x = valida(y + 1, mo, d); if (x) achados.push({ x, i: m.index }); }
+>       const reExt = /(\d{1,2})\s*(?:de\s+)?(jan(?:eiro)?|fev(?:ereiro)?|mar(?:co)?|abr(?:il)?|mai(?:o)?|jun(?:ho)?|jul(?:ho)?|ago(?:sto)?|set(?:embro)?|out(?:ubro)?|nov(?:embro)?|dez(?:embro)?)\.?(?:\s*(?:de\s+)?(\d{4}))?/g;
+>       while ((m = reExt.exec(f))) { const mo = Component.MESES[m[2]]; let y = m[3] ? +m[3] : base.getFullYear(), x = valida(y, mo, +m[1]); if (x && !m[3] && x < base) x = valida(y + 1, mo, +m[1]); if (x) achados.push({ x, i: m.index }); }
+>       let estimado = false;
+>       if (!achados.length) { const r = f.match(/(?:prazo de|em|no prazo de|dentro de)\s*(\d{1,3})\s*(?:\(\w+\)\s*)?dias?\s*(uteis|corridos)?/); if (r) { const uteis = r[2] !== 'corridos'; achados.push({ x: Component.somarDias(base, +r[1], uteis), i: r.index }); estimado = true; }
+>         else if (/\bamanha\b/.test(f)) { achados.push({ x: Component.somarDias(base, 1, false), i: f.indexOf('amanha') }); }
+>         else if (/\bhoje\b/.test(f)) { achados.push({ x: new Date(base), i: f.indexOf('hoje') }); } }
+>       if (!achados.length) return;
+>       let usar = achados; if (/(redesignad|remarcad|adiad|transferid|nova data|alterad[oa] para)/.test(f)) { const p = f.search(/\bpara\b/); const dep = achados.filter(a => a.i > p); usar = [ (dep.length ? dep : achados)[ (dep.length ? dep : achados).length - 1 ] ]; }
+>       usar.forEach(a => { const ctx = f.slice(Math.max(0, a.i - 40), a.i); if (PASSADO.test(ctx)) return; const h = f.slice(a.i, a.i + 40).match(/(?:as|a partir das|horario)?\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\b/); const hora = h && +h[1] < 24 && /(:|h)/.test(h[0]) ? String(h[1]).padStart(2, '0') + ':' + (h[2] || '00') : '';
+>         const fr = F.trim().replace(/^./, c => c.toUpperCase()); out.push({ tipo: tp[1], titulo: tp[2] || (fr.length > 60 ? fr.slice(0, 57) + '…' : fr), data: iso(a.x), hora, estimado, frase: fr }); }); });
+>     return out;
+>   }
+>   pzLista() {
+>     const cur = Component.PASTAS[this.state.pastaI], nup = String(cur[0]), hoje = new Date(); hoje.setHours(0, 0, 0, 0); const dias = s => Math.round((new Date(s + 'T00:00') - hoje) / 864e5); const L = [];
+>     (this.pzManLer()[nup] || []).filter(p => !p.cumprido).forEach(p => L.push(Object.assign({}, p, { origem: 'Manual', manual: true })));
+>     try { const P = cur[4] || {}; let an = this.procAtual && this.procAtual(); if (!an && window.BJProcesso && P.numero) an = window.BJProcesso.analisar({ docs: window.BJProcesso.deMovimentacoes(this.pushDaPasta()), capa: { numero: P.numero, tribunal: P.tribunal, classe: (P.pje && P.pje.classe) || P.classe || '' } }, { cliente: cur[1] }); ((an && an.prazos) || []).filter(p => p.fim && !/(cumprid|encerrad|decorrid)/i.test(p.status || '')).forEach(p => { const [d, mo, y] = p.fim.split('/'); L.push({ id: 'push-' + p.fim + p.ato, tipo: /audi[eê]ncia/i.test(p.ato || '') ? 'audiencia' : 'prazo', titulo: (p.ato || 'Prazo processual') + (p.n ? ' · ' + p.n + ' dias' + (p.corridos ? ' corridos' : ' úteis') : ''), resp: p.resp || '', data: y + '-' + mo + '-' + d, origem: 'Push processual' + (p.estimado ? ' (estimado)' : '') }); }); } catch (x) {}
+>     try { const ABA = { expedientes: 'Registro dos expedientes', dados: 'Dados da pasta', financeiro: 'Financeiro', detalhes: 'Detalhes' }, vr = new Set();
+>       (this.regsLer()[cur[0]] || []).filter(r => !r.excluido && !r.sistema).forEach(r => { const tx = String(r.texto || r.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+>         Component.lerDatas(tx, r.em || r.data || r.criadoEm).forEach(d => { const k = d.tipo + d.data; if (vr.has(k)) return; vr.add(k);
+>           L.push({ id: 'reg-' + r.id + k, tipo: d.tipo, titulo: d.titulo, resp: r.autor || '', data: d.data, hora: d.hora, origem: (ABA[r.ctx] || 'Registro') + (d.estimado ? ' (estimado: conferir)' : ''), reg: r.id, estimado: d.estimado }); }); });
+>     } catch (x) {}
+>     const vis = new Set(); (this.state.metasData || []).filter(m => !m.concluida && /^\d{2}\/\d{2}\/\d{4}$/.test(m.prazo || '')).forEach(m => { const [d, mo, y] = m.prazo.split('/'), k = m.titulo + m.prazo; if (vis.has(k)) return; vis.add(k); L.push({ id: 'meta-' + m.id, tipo: 'prazo', titulo: m.titulo, resp: m.responsaveis || '', data: y + '-' + mo + '-' + d, origem: 'Meta' }); });
+>     return L.map(p => Object.assign(p, { dias: dias(p.data) })).sort((x, y) => x.dias - y.dias);
+>   }
+>   pzCumprir(id) { const nup = String(Component.PASTAS[this.state.pastaI][0]); let t = ''; this.pzManGravar(nup, L => L.map(p => p.id === id ? (t = p.titulo, Object.assign({}, p, { cumprido: Date.now() })) : p)); this.autoReg('prazo', 'Prazo cumprido: ' + t); this.gmAviso('Prazo marcado como cumprido'); }
+>   pzExcluir(id) { const nup = String(Component.PASTAS[this.state.pastaI][0]); let t = ''; this.pzManGravar(nup, L => L.filter(p => p.id === id ? (t = p.titulo, false) : true)); this.autoReg('prazo', 'Prazo excluído: ' + t); this.gmAviso('Prazo excluído'); }
+>   pzSalvar() {
+>     const s = this.state, f = s.pzNovo || {}, tit = String(f.titulo || '').trim(); if (!tit || !f.data) return this.setState({ pzNovo: Object.assign({}, f, { erro: 'Informe a descrição e a data' }) });
+>     const nup = String(Component.PASTAS[s.pastaI][0]), item = { id: f.id || 'pz' + Date.now(), tipo: f.tipo || 'prazo', titulo: tit, resp: f.resp || '', data: f.data, hora: f.hora || '', criadoEm: f.criadoEm || Date.now(), cumprido: null };
+>     this.pzManGravar(nup, L => f.id ? L.map(p => p.id === f.id ? item : p) : L.concat([item]));
+>     this.autoReg('prazo', (f.id ? 'Prazo editado: ' : (item.tipo === 'audiencia' ? 'Audiência agendada: ' : 'Prazo adicionado: ')) + tit + ' · ' + item.data.split('-').reverse().join('/') + (item.hora ? ' ' + item.hora : ''));
+>     this.setState({ pzNovo: null }); this.gmAviso(item.tipo === 'audiencia' ? 'Audiência registrada' : 'Prazo registrado');
+>   }
+>   pzPublicar() { try {
+>     const pasta = Component.PASTAS[this.state.pastaI], nup = pasta && String(pasta[0]); if (!nup) return;
+>     const L = this.pzLista().map(p => ({ tipo: p.tipo, titulo: p.titulo, resp: p.resp, data: p.data, hora: p.hora || '', origem: p.origem }));
+>     const S = JSON.parse(localStorage.getItem('bj-prazos-pasta-v1') || '{}'); S[nup] = L;
+>     const at = new Set(), dia = t => { const d = new Date(t); return isNaN(d) ? null : d.toISOString().slice(0, 10); };
+>     (this.regsLer()[pasta[0]] || []).forEach(r => { [r.criado, r.editado].forEach(t => { const d = t && dia(t); if (d) at.add(d); }); });
+>     (this.state.metasData || []).forEach(m => [m.mod, m.criadoEm].forEach(x => { if (/^\d{2}\/\d{2}\/\d{4}$/.test(x || '')) at.add(x.split('/').reverse().join('-')); else if (typeof x === 'number') { const d = dia(x); d && at.add(d); } }));
+>     (this.pzManLer()[nup] || []).forEach(p => [p.criadoEm, p.cumprido].forEach(t => { const d = t && dia(t); if (d) at.add(d); }));
+>     const A = JSON.parse(localStorage.getItem('bj-ativ-pasta-v1') || '{}'); A[nup] = [...at].sort();
+>     const nv = JSON.stringify(S) + JSON.stringify(A); if (this._pzUlt === nv) return; this._pzUlt = nv; S._em = A._em = Date.now();
+>     localStorage.setItem('bj-prazos-pasta-v1', JSON.stringify(S)); localStorage.setItem('bj-ativ-pasta-v1', JSON.stringify(A));
+>   } catch (x) {} }
+>   componentDidUpdate(pp, ps) { if (ps && (ps.pastaI !== this.state.pastaI || ps.metasData !== this.state.metasData || ps.procAnTick !== this.state.procAnTick || ps.pzTick !== this.state.pzTick)) this.pzPublicar(); else { clearTimeout(this._pzT); this._pzT = setTimeout(() => this.pzPublicar(), 2000); } if (ps && ps.pastaI !== this.state.pastaI && this.state.situacao === 'ativo') this.ativoSeloMostrar(); if (ps && ps.metasData !== this.state.metasData) { try { localStorage.setItem('bj-metas-pasta-v1', JSON.stringify({ metas: this.state.metasData, em: Date.now() })); } catch (e) {} } this.measure(); clearTimeout(this._evT); this._evT = setTimeout(() => window.dispatchEvent(new Event('bj-evidencia')), 1500); }
+6411c6532
+<     const clients = cliBase.map(([name, cpf, primary], ci) => { const ab = this.state.cliAbrirH === ci, rec = this.cliDe(cpf), comp = rec && !this.cliPend(rec).length; return {
+---
+>     let AL = {}; try { AL = JSON.parse(localStorage.getItem('bj-cli-alias') || '{}'); } catch (e) {} const clients = cliBase.map(([name, cpf0, primary], ci) => { const k0 = Component.soDig(cpf0), cpf = AL[k0] ? 'CPF ' + Component.fmtCPF(AL[k0]) : cpf0; const ab = this.state.cliAbrirH === ci, rec = this.cliDe(cpf), comp = rec && !this.cliPend(rec).length; return {
+6432,6436c6553,6554
+<     const deadlines = [
+<       ['Protocolar contestação', 'Jéssica Martins · 28/08', '2 dias', 'red'],
+<       ['Reunião de alinhamento com o cliente', 'Samuel Freitas · 03/09', '8 dias', 'amber'],
+<       ['Juntada de documentos complementares', 'Jéssica Martins · 15/09', '20 dias', 'grey'],
+<     ].map(([title, meta, badge]) => {
+---
+>     const pzLista = this.pzLista();
+>     const deadlines = pzLista.slice(0, 8).map(pz => { let title = (pz.tipo === 'audiencia' ? 'Audiência · ' : '') + pz.titulo, meta = (pz.resp || 'Sem responsável') + ' · ' + pz.data.split('-').reverse().slice(0, 2).join('/') + (pz.hora ? ' ' + pz.hora : '') + ' · ' + pz.origem, badge = pz.dias + ' dias';
+6438c6556
+<       badge = dd < 0 ? 'Vencido há ' + Math.abs(dd) + (Math.abs(dd) === 1 ? ' dia' : ' dias') : 'Faltam ' + dd + (dd === 1 ? ' dia' : ' dias');
+---
+>       badge = dd < 0 ? 'Vencido há ' + Math.abs(dd) + (Math.abs(dd) === 1 ? ' dia' : ' dias') : dd === 0 ? 'Hoje' : 'Faltam ' + dd + (dd === 1 ? ' dia' : ' dias');
+6441c6559
+<         this.gmAbrir(e, title, [['Ver nas metas', 'bi bi-check2-square', () => this.setState({ tab: 'metas' })], ['Encaminhar via Chat I.A', 'bi bi-send', () => this.despachar({ tipo: 'meta', titulo: title, sub: badge + ' · ' + meta + ' · Pasta ' + pasta[0] })], ['Alertar ' + String(resp || 'responsável').split(' ')[0], 'bi bi-bell', () => { const C = window.BJCentral; try { const u = C && C.porNome && C.porNome(resp); if (u && C.notificar) { C.notificar({ tipo: 'toque', para: u.id, de: C.eu().id, titulo: 'Alerta de prazo · Pasta ' + pasta[0], texto: title + ' · ' + badge, ctx: { pasta: pasta[0], aba: 'metas' } }); this.gmAviso('Alerta enviado para ' + resp); } else this.gmAviso('Responsável não encontrado'); } catch (x) { this.gmAviso('Não consegui enviar o alerta'); } }], '-', ['Adicionar à agenda (.ics)', 'bi bi-calendar-plus', ics], ['Copiar', 'bi bi-clipboard', () => { try { navigator.clipboard.writeText(txt).catch(() => {}); } catch (x) {} this.gmAviso('Prazo copiado'); }]]); };
+---
+>         this.gmAbrir(e, title, (pz.manual ? [['Marcar como cumprido', 'bi bi-check2-circle', () => this.pzCumprir(pz.id)], ['Editar', 'bi bi-pencil', () => this.setState({ pzNovo: Object.assign({}, pz) })], ['Excluir', 'bi bi-trash3', () => this.pzExcluir(pz.id)], '-'] : []).concat([['Ver nas metas', 'bi bi-check2-square', () => this.setState({ tab: 'metas' })], ['Encaminhar via Chat I.A', 'bi bi-send', () => this.despachar({ tipo: 'meta', titulo: title, sub: badge + ' · ' + meta + ' · Pasta ' + pasta[0] })], ['Alertar ' + String(resp || 'responsável').split(' ')[0], 'bi bi-bell', () => { const C = window.BJCentral; try { const u = C && C.porNome && C.porNome(resp); if (u && C.notificar) { C.notificar({ tipo: 'toque', para: u.id, de: C.eu().id, titulo: 'Alerta de prazo · Pasta ' + pasta[0], texto: title + ' · ' + badge, ctx: { pasta: pasta[0], aba: 'metas' } }); this.gmAviso('Alerta enviado para ' + resp); } else this.gmAviso('Responsável não encontrado'); } catch (x) { this.gmAviso('Não consegui enviar o alerta'); } }], '-', ['Adicionar à agenda (.ics)', 'bi bi-calendar-plus', ics], ['Copiar', 'bi bi-clipboard', () => { try { navigator.clipboard.writeText(txt).catch(() => {}); } catch (x) {} this.gmAviso('Prazo copiado'); }]])); };
+6782c6900,6903
+<       cm: this.mailVals(), ckc: this.ckcVals(), tabs, toolbar, clients, deadlines, prazosN: deadlines.length, notes: this.regsLinha(this.regsItens('expedientes').concat(notes.map(this.semRico))), notesN: (this._regsPrincipais || {}).dados || 0, docs, history, tags,
+---
+>       cm: this.mailVals(), ckc: this.ckcVals(), tabs, toolbar, clients, cliN: clients.length, deadlines, prazosN: pzLista.length, pzVazio: !pzLista.length, pzAbrirNovo: () => this.setState({ pzNovo: { tipo: 'prazo', titulo: '', data: '', hora: '', resp: (Component.PASTAS[this.state.pastaI] || [])[2] || '' } }),
+>       pzOn: !!this.state.pzNovo, pzF: this.state.pzNovo || {}, pzTit: this.state.pzNovo && this.state.pzNovo.id ? 'Editar prazo' : 'Novo prazo ou audiência', pzEhAud: !!(this.state.pzNovo && this.state.pzNovo.tipo === 'audiencia'), pzErro: (this.state.pzNovo || {}).erro || '',
+>       pzTipos: [['prazo', 'Prazo', 'bi-hourglass-split'], ['audiencia', 'Audiência', 'bi-people']].map(([k, r, ic]) => ({ rot: r, ic, ir: () => this.setState({ pzNovo: Object.assign({}, this.state.pzNovo, { tipo: k }) }), bg: (this.state.pzNovo || {}).tipo === k ? '#0a6fa0' : '#fff', cor: (this.state.pzNovo || {}).tipo === k ? '#fff' : '#34505f' })),
+>       pzSetTit: ev => this.setState({ pzNovo: Object.assign({}, this.state.pzNovo, { titulo: ev.target.value, erro: '' }) }), pzSetData: ev => this.setState({ pzNovo: Object.assign({}, this.state.pzNovo, { data: ev.target.value, erro: '' }) }), pzSetHora: ev => this.setState({ pzNovo: Object.assign({}, this.state.pzNovo, { hora: ev.target.value }) }), pzSetResp: ev => this.setState({ pzNovo: Object.assign({}, this.state.pzNovo, { resp: ev.target.value }) }), pzHoraOpc: this.state.pzNovo && this.state.pzNovo.tipo === 'audiencia' ? '' : ' (opcional)', pzSet: k => ev => this.setState({ pzNovo: Object.assign({}, this.state.pzNovo, { [k]: ev.target.value, erro: '' }) }), pzFechar: () => this.setState({ pzNovo: null }), pzSalvar: () => this.pzSalvar(), pzParar: ev => ev.stopPropagation(), notes: this.regsLinha(this.regsItens('expedientes').concat(notes.map(this.semRico))), notesN: (this._regsPrincipais || {}).dados || 0, docs, history, tags,

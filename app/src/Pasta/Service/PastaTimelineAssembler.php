@@ -164,6 +164,7 @@ class PastaTimelineAssembler
             respostaAId:   $raiz?->getId(),
             respostaANome: $raiz !== null ? ($raiz->getAutor()?->getFullName() ?? $raiz->getAutor()?->getEmail()) : null,
             conteudoAnterior: $msg->getConteudoAnterior(),
+            sistema:       $msg->getSistema(),
         );
     }
 

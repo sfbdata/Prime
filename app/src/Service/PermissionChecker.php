@@ -116,6 +116,24 @@ class PermissionChecker
     // Helpers internos
     // -------------------------------------------------------------------------
 
+    /**
+     * Administrador do escritório: vínculo ativo com o perfil de sistema (o mesmo bypass das checagens
+     * acima), ou o super admin global. É o "usuário primário" do desenho 1.1 da Lista (E12): só ele tranca
+     * e destranca pasta.
+     */
+    public function isAdministradorDoEscritorio(User $user, ?Tenant $tenant): bool
+    {
+        if ($this->isGlobalSuperAdmin($user)) {
+            return true;
+        }
+
+        if ($tenant === null) {
+            return false;
+        }
+
+        return $this->resolveUserTenant($user, $tenant)?->getTenantRole()?->isSystem() === true;
+    }
+
     private function isGlobalSuperAdmin(User $user): bool
     {
         return in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);

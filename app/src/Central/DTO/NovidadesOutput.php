@@ -20,6 +20,11 @@ final class NovidadesOutput
         public readonly int $naoLidas,
         public readonly bool $completo,
         public readonly array $conversasComMencao = [],
+        /** F1: avisos do sino na Caixa — não lidos, urgentes não lidos e o maior id (a tela recarrega a lista quando muda). */
+        public readonly int $avisosNaoLidos = 0,
+        public readonly int $avisosUrgentes = 0,
+        public readonly int $ultimoAviso = 0,
+        public readonly int $avisosImportantes = 0,
     ) {
     }
 }

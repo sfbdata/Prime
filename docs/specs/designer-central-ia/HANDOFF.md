@@ -432,3 +432,38 @@ aqui ou que é defeito do protótipo. Foram implementados do jeito abaixo e são
 
 Smoke do dono na demo `http://127.0.0.1:8002` (`scripts/central-demo.sh designer-central-ia 8002`) e decisão dos três
 desvios de 12.2. Fases C, D, E e F seguem não autorizadas.
+
+---
+
+## 13. Depois do merge do PR #12 (16/10, tarde): Painel/presença (F2), avisos na Caixa (F1) e ⋮ completo (F3)
+
+**PR #12 mergeado** no `master` (`1b08bc89`; suíte 9342/9342 sobre o conteúdo final). Depois dele, na mesma branch e
+**sem publicar** (o dono aprova na demo antes do próximo merge):
+
+| Entrega | Commits | Spec |
+|---|---|---|
+| F2 Painel "Equipe · em aberto" + presença | `e79b3422`, `750ea055` (revisão) | `docs/specs/central-comunicacao-painel-presenca.md` |
+| F1 avisos do sino na Caixa | `e9dcc943` + correções da revisão no commit do F3 | `docs/specs/central-comunicacao-f1-avisos.md` |
+| F3 ⋮ completo (só comandos reais) + baixa de aviso | commit do F3 | `docs/specs/central-comunicacao-f3-menu.md` |
+
+**Migrations novas (só tabelas da Central):** `Version20261016190000` (`central_presenca`) e `Version20261016233000`
+(`central_aviso_resolvido`). Aplicadas no banco de teste da frente e no `saas_ux` (backups validados em
+`/home/prime/backups-dev/saas_ux_antes_central_presenca_20261016_151043.dump` e
+`saas_ux_antes_central_baixa_20261016_161415.dump`).
+
+🔴 **Colisão de versão evitada (16/10):** a frente `fidelidade-designer` criou `Version20261016220000` (E12c, prazos da
+pasta) e já a aplicou no `saas_ux`; a da Central tinha o mesmo número e ainda não estava commitada. A da Central foi
+renomeada para `Version20261016233000` (arquivo e classe); a da outra frente não foi tocada. Na integração, conferir de
+novo os números de versão das duas frentes.
+
+**Decisões tomadas na implementação, à espera do aval do dono:**
+1. "Em aberto" de cada colega visível a todos (decisão do dono, 16/10) e sem contar duas vezes a menção da Central.
+2. Presença: batimento só com o BlueJus à vista (aba oculta não fica "on-line" nem mantém a sessão viva).
+3. Avisos de gestão (justificativa de ponto, chamados) ficam só no sino, fora da Caixa e do contador vermelho.
+4. Abrir um aviso com a Central destacada abre o item numa aba nova (navegar a aba de origem fecharia a destacada).
+5. Fora do ⋮ por não terem dado real: Central de Atenção, Governança e acessos, Ocorrências do controller, Receber
+   toques, Receber ligações, Excluir todas as conversas.
+
+**Próximos itens do levantamento (sem LLM), em ordem:** aviso diário de metas atrasadas/vencendo (job + linha no cron
+da VPS), comandos "/" de consulta na conversa BlueJus IA, "Meu dia", despachar/encaminhar, toque, @Todos, lembrete de
+agenda D-1.

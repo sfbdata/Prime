@@ -1368,3 +1368,558 @@ html[data-bs-theme="dark"] .bj-central {
         animation: none;
     }
 }
+
+/* ── F2: presença e "Equipe · em aberto" (docs/specs/central-comunicacao-painel-presenca.md) ───────────────── */
+/* Ponto do MEU status no avatar do cabeçalho — L6337 */
+.bj-central-avatar--cab {
+    position: relative;
+}
+
+.bj-central-cab-ponto {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--bjc-azul);
+}
+
+.bj-central-cab-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* Pílula "N on-line" — L6337 */
+.bj-central-online {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    height: 22px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: normal;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.bj-central-online:hover,
+.bj-central-online:focus-visible {
+    background: rgba(255, 255, 255, .14);
+    outline: none;
+}
+
+.bj-central-online[hidden] {
+    display: none;
+}
+
+.bj-central-online-ponto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3fd17f;
+    box-shadow: 0 0 0 2px rgba(63, 209, 127, .3);
+}
+
+/* Painel: Equipe · em aberto — L5643-5652 */
+.bj-central-equipe {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px 10px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    line-height: normal;
+}
+
+.bj-central-equipe-titulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 2px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--bjc-texto-suave);
+}
+
+.bj-central-equipe-total {
+    margin-left: auto;
+    white-space: nowrap;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--bjc-texto-medio);
+}
+
+.bj-central-equipe-linha {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 38px;
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.bj-central-equipe-linha:hover,
+.bj-central-equipe-linha:focus-visible {
+    background: var(--bjc-menu-hover);
+    outline: none;
+}
+
+.bj-central-equipe-linha--eu {
+    cursor: default;
+}
+
+.bj-central-equipe-linha--eu:hover {
+    background: transparent;
+}
+
+.bj-central-equipe-av {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.bj-central-avatar--equipe {
+    width: 26px;
+    height: 26px;
+    font-size: 9px;                 /* Math.round(26 × .36) */
+}
+
+.bj-central-equipe-ponto {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--bjc-fundo);
+}
+
+.bj-central-equipe-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.bj-central-equipe-nome {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bjc-texto);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.bj-central-equipe-sub {
+    overflow: hidden;
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.bj-central-equipe-contador {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.bj-central-equipe-contador--alto {
+    background: #fdeceb;
+    color: #a3232b;
+}
+
+.bj-central-equipe-contador--algum {
+    background: #e5f1f7;
+    color: #0a7aad;
+}
+
+.bj-central-equipe-contador--zero {
+    background: #eef2f5;
+    color: #9aabb6;
+}
+
+.bj-central-equipe-conversar {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: #8aa0ad;
+}
+
+/* Lista "on-line agora / off-line" — verOnline L6380-6386, linhaUsuario L5803 */
+.bj-central-online-faixa {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: #f5f6f7;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    line-height: normal;
+    text-transform: uppercase;
+}
+
+.bj-central-online-faixa-ponto {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.bj-central-online-voltar {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-azul);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+}
+
+.bj-central-pessoa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: var(--bjc-fundo);
+    font-family: inherit;
+    line-height: normal;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-pessoa:hover,
+.bj-central-pessoa:focus-visible {
+    background: var(--bjc-fundo-hover-usuario);
+    outline: none;
+}
+
+.bj-central-pessoa--off {
+    opacity: .62;
+}
+
+.bj-central-pessoa-ponto {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #3fd17f;
+    box-shadow: 0 0 0 2px var(--bjc-fundo);
+}
+
+.bj-central-pessoa-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.bj-central-pessoa-nome {
+    overflow: hidden;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--bjc-texto-forte);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.bj-central-pessoa-sub {
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--bjc-texto-suave);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* ⋮ "Status": ponto + valor — L6264 */
+.bj-central-menu-valor-ponto {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bj-central-menu-ponto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* ── F1: avisos do sino na Caixa — cartaoNotif, L5603-5630 (sem "dar baixa": o sino só tem lida) ─────────────── */
+.bj-central-aviso-cartao {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px 10px 14px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    font-family: inherit;
+    line-height: normal;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.bj-central-aviso-cartao:focus-visible {
+    outline: 2px solid var(--bjc-azul);
+    outline-offset: -2px;
+}
+
+.bj-central-aviso-faixa {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: var(--bjc-aviso);
+}
+
+.bj-central-aviso-cartao--lido .bj-central-aviso-faixa {
+    opacity: .35;
+}
+
+.bj-central-aviso-icone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 3px;
+    color: var(--bjc-aviso);
+    font-size: 15px;
+}
+
+.bj-central-aviso-corpo {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.bj-central-aviso-topo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bj-central-aviso-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--bjc-aviso);
+}
+
+.bj-central-aviso-hora {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+    white-space: nowrap;
+}
+
+.bj-central-aviso-titulo {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--bjc-texto-forte);
+}
+
+.bj-central-aviso-cartao--lido .bj-central-aviso-titulo {
+    font-weight: 500;
+}
+
+.bj-central-aviso-texto {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--bjc-texto-medio);
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* ── F3: baixa do aviso (cartaoNotif resolvido, L5607-5630), resolvidas antigas (L5785), Ajuda (L6372) ─────────── */
+.bj-central-aviso-cartao {
+    transition: background .15s, opacity .6s;
+}
+
+.bj-central-aviso-cartao--resolvido .bj-central-aviso-faixa {
+    opacity: 1;
+}
+
+.bj-central-aviso-icone--ok {
+    border-radius: 50%;
+    background: #1e8a4c;
+    color: #fff;
+    font-size: 16px;
+    box-shadow: 0 2px 6px -2px rgba(30, 138, 76, .6);
+}
+
+.bj-central-aviso-cartao--resolvido .bj-central-aviso-corpo {
+    opacity: .82;
+}
+
+.bj-central-aviso-cartao--resolvido .bj-central-aviso-rotulo {
+    color: #5f7684;
+}
+
+.bj-central-aviso-cartao--resolvido .bj-central-aviso-titulo {
+    font-weight: 500;
+    text-decoration: line-through;
+    text-decoration-color: rgba(30, 138, 76, .5);
+}
+
+.bj-central-aviso-selo-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 6px;
+    border-radius: 2px;
+    background: #dff1e6;
+    color: #1e8a4c;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .05em;
+}
+
+.bj-central-aviso-baixa {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #1e8a4c;
+}
+
+.bj-central-aviso-bx {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    color: #1e8a4c;
+    font-size: 14px;
+    box-shadow: 0 0 0 1.5px #1e8a4c;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, transform .15s, background .15s;
+}
+
+.bj-central-aviso-cartao:hover .bj-central-aviso-bx,
+.bj-central-aviso-cartao:focus-within .bj-central-aviso-bx {
+    opacity: 1;
+}
+
+.bj-central-aviso-bx:hover,
+.bj-central-aviso-bx:focus-visible {
+    transform: scale(1.1);
+    background: #1e8a4c;
+    color: #fff;
+    outline: none;
+}
+
+.bj-central-aviso-bx--ok {
+    color: #5f7684;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+}
+
+.bj-central-aviso-bx--ok:hover,
+.bj-central-aviso-bx--ok:focus-visible {
+    background: #fff;
+    color: #5f7684;
+}
+
+.bj-central-faixa-resolvidas {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-bottom: 1px solid #e3efe7;
+    background: #f1f8f3;
+    color: #1e8a4c;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: normal;
+}
+
+.bj-central-faixa-resolvidas-ocultar {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-azul);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.bj-central-ajuda {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    color: #33495a;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.bj-central-ajuda-titulo {
+    font-size: 14px;
+    color: var(--bjc-texto);
+}
+
+.bj-central-ajuda-ok {
+    align-self: flex-start;
+    height: 32px;
+    margin-top: 4px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 3px;
+    background: var(--bjc-azul);
+    color: #fff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    cursor: pointer;
+}

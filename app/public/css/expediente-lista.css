@@ -1,0 +1,654 @@
+/* =============================================================================
+   expediente-lista.css — Lista do Expediente no desenho do Claude Designer de 13/10
+   (`03 - EXPEDIENTE Lista 1.1.dc.html`, "dc L.n"). E8 da frente `fidelidade-designer`.
+
+   SÓ VISUAL. Dados, rotas, permissões e regras seguem os de sempre (E8-PLANO.md): prioridade
+   com o rótulo do sistema ("Prioridade", não "Alta"), situação ativo/arquivado (+ lápide), total
+   de metas, vários marcadores por pasta e sub-marcadores, duplo clique na situação.
+
+   Tudo sob `.exp-body` (classe do <body> do Expediente): nenhuma regra vaza para outra tela, e
+   o seletor ganha das regras inline antigas de `expediente/index` e `pasta/_tabela`. As únicas
+   exceções são o menu de botão direito e o aviso (`.exp-ctx`, `.exp-aviso`), que o JS põe direto
+   no <body> — e esta folha só carrega no Expediente. Tokens com os
+   hex do desenho no claro; o escuro aponta para o Bootstrap.
+   ============================================================================= */
+
+.exp-body {
+    --ex-fundo:        #eef2f5;   /* dc L.17 */
+    --ex-card:         #fff;
+    --ex-borda:        #d6e0e7;
+    --ex-div:          #e6edf2;
+    --ex-div-linha:    #eef2f5;
+    --ex-barra:        #f7f9fb;   /* barra do acervo, dc L.80 */
+    --ex-cab-tabela:   #f4f7f9;   /* cabeçalho da tabela, dc L.146 */
+    --ex-texto:        #12242f;
+    --ex-texto-2:      #1f3644;
+    --ex-corpo:        #243845;
+    --ex-rotulo:       #4a6373;
+    --ex-muted:        #5b7383;
+    --ex-apagado:      #98a9b4;
+    --ex-azul:         #0a6fa0;
+    --ex-azul-claro:   #e8f3f9;
+    --ex-azul-hover:   #eef6fb;
+    --ex-campo:        #edf2f6;   /* busca e filtros, dc L.100 */
+    --ex-campo-hover:  #e9f0f4;
+    --ex-periodo-sep:  #7d909d;   /* "a" entre as datas, dc L.109 */
+    --ex-botao:        #e2e9ee;   /* Nova Pasta, dc L.82 */
+    --ex-contagem-bg:  #e9eff3;
+    --ex-contagem-tx:  #34505f;
+    --ex-mais-borda:   #9fb6c5;
+    --ex-seta-ordem:   #a7b6c0;   /* seta de ordenar em repouso e paginação desligada, dc L.515-516 */
+    --ex-borda-tag:    #d8e1e7;   /* botão de marcador vazio, dc L.171 */
+    --ex-borda-menu:   #d3dde4;   /* menu de botão direito, dc L.234/273 */
+    --ex-filtro-tx:    #34505f;   /* texto dos filtros sem valor, dc L.439 `onCor` */
+    --ex-campo-ativo:  #e3f1f8;   /* filtro com valor, dc L.439 `onBg` */
+    --ex-bandeira:     #7d909d;   /* bandeira do filtro de prioridade, dc L.504 `fPrioFlag` */
+    --ex-sit-ativo-bg: #e4f4ea;  --ex-sit-arq-bg: #eef2f5;   /* filtro de situação com valor, dc L.432 */
+    --ex-avatar:       #0a6fa0;   /* avatar com iniciais na Lista, dc L.330 `avBg` */
+    --ex-avatar-vazio-bg: #eef2f5; --ex-avatar-vazio-tx: #62798a;   /* "?" sem responsável, dc L.330/524 */
+    --ex-menu-titulo:  #62798a;
+    --ex-menu-hover:   #e6f2fa;  --ex-menu-hover-tx: #0b4f75;
+    --ex-perigo-hover: #fbecec;  --ex-perigo-hover-tx: #8a1d24;
+    /* Hover da linha (dc L.28-35) */
+    --ex-linha-hover:  #3b8fc2;
+    --ex-linha-barra:  #1f6f9c;
+    /* Prioridade (dc L.431 `PRIO`) — o rótulo é o do sistema */
+    --ex-prio-normal-bg: #eef2f5;  --ex-prio-normal-tx: #1f3644;
+    --ex-prio-alta-bg:   #fdf0e1;  --ex-prio-alta-tx:   #9a5208;
+    --ex-prio-urg-bg:    #fbe7e7;  --ex-prio-urg-tx:    #a3232b;
+    /* Situação (dc L.432 `SIT`): texto e ponto */
+    --ex-sit-ativo-tx:   #1e7b45;  --ex-sit-ativo-pt:   #2fa35f;
+    --ex-sit-arq-tx:     #34505f;  --ex-sit-arq-pt:     #62798a;
+    --ex-sit-exc-tx:     #a3232b;  --ex-sit-exc-pt:     #c0392b;   /* lápide: cores do "Cancelado" do dc */
+    --ex-toast:          #0f202b;  --ex-toast-ok:       #4fd18a;   /* dc L.311 */
+}
+[data-bs-theme="dark"] .exp-body {
+    --ex-fundo:        var(--bs-body-bg);
+    --ex-card:         var(--bs-tertiary-bg);
+    --ex-borda:        var(--bs-border-color);
+    --ex-div:          var(--bs-border-color-translucent);
+    --ex-div-linha:    var(--bs-border-color-translucent);
+    --ex-barra:        var(--bs-secondary-bg);
+    --ex-cab-tabela:   var(--bs-secondary-bg);
+    --ex-texto:        var(--bs-body-color);
+    --ex-texto-2:      var(--bs-body-color);
+    --ex-corpo:        var(--bs-body-color);
+    --ex-rotulo:       var(--bs-secondary-color);
+    --ex-muted:        var(--bs-secondary-color);
+    --ex-apagado:      var(--bs-secondary-color);
+    --ex-azul:         #4da3ea;
+    --ex-azul-claro:   rgba(77,163,234,.14);
+    --ex-azul-hover:   rgba(77,163,234,.10);
+    --ex-campo:        var(--bs-secondary-bg);
+    --ex-campo-hover:  var(--bs-tertiary-bg);
+    --ex-periodo-sep:  var(--bs-secondary-color);
+    --ex-botao:        var(--bs-secondary-bg);
+    --ex-contagem-bg:  rgba(255,255,255,.08);
+    --ex-contagem-tx:  var(--bs-secondary-color);
+    --ex-seta-ordem:   var(--bs-secondary-color);
+    --ex-borda-tag:    var(--bs-border-color);
+    --ex-borda-menu:   var(--bs-border-color);
+    --ex-filtro-tx:    var(--bs-secondary-color);
+    --ex-campo-ativo:  rgba(77,163,234,.16);
+    --ex-bandeira:     var(--bs-secondary-color);
+    --ex-sit-ativo-bg: rgba(47,163,95,.18);  --ex-sit-arq-bg: rgba(255,255,255,.08);
+    --ex-avatar:       #2b7fb8;
+    --ex-avatar-vazio-bg: rgba(255,255,255,.08); --ex-avatar-vazio-tx: var(--bs-secondary-color);
+    --ex-menu-titulo:  var(--bs-secondary-color);
+    --ex-menu-hover:   rgba(77,163,234,.14);  --ex-menu-hover-tx: #8cc4f0;
+    --ex-perigo-hover: rgba(192,57,47,.20);   --ex-perigo-hover-tx: #f08a84;
+    --ex-prio-normal-bg: rgba(255,255,255,.08); --ex-prio-normal-tx: var(--bs-body-color);
+    --ex-prio-alta-bg:   rgba(200,149,42,.18);  --ex-prio-alta-tx:   #e9be6c;
+    --ex-prio-urg-bg:    rgba(192,57,47,.20);   --ex-prio-urg-tx:    #f08a84;
+    --ex-sit-ativo-tx:   #6ddaa2; --ex-sit-arq-tx: var(--bs-secondary-color); --ex-sit-exc-tx: #f08a84;
+}
+
+/* ── Página e título (dc L.17, L.57) ───────────────────────────────────── */
+.exp-body .app-main { background: var(--ex-fundo); }
+/* E8d (AUD-01/02, dc L.56-59): 26px do topo fixo até o título, 18px do título até o trilho e o acervo, 28px nas
+   laterais e 32px no pé. O cabeçalho de avisos do sistema só some quando está vazio (com aviso, fica). No celular
+   (o dc não tem) vale a margem de sempre. */
+.exp-body .app-content-header:not(:has(.alert)) { padding: 0; }
+.exp-body section.content-header > .container-fluid { padding: 0; }
+.exp-body section.content-header { padding-top: 26px; }
+.exp-body section.content { padding-top: 18px; }
+@media (min-width: 768px) {
+    .exp-body .app-content,
+    .exp-body .app-content-header { padding-left: 28px; padding-right: 28px; }
+    .exp-body .app-content { padding-bottom: 32px; }
+}
+/* AUD-30: o rótulo do painel no celular repetia o título da barra do acervo ("Todas as pastas" solto sob o H1). */
+.exp-body section.content > .container-fluid > .d-md-none:has(> #labelPainelAtivo) { display: none !important; }
+.exp-body .exp-titulo {
+    margin: 0;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 40px; font-weight: 400; line-height: 1.15;
+    color: var(--ex-texto);
+}
+/* Pasta que fecha e abre ao carregar (dc `bjPastaFecha`/`bjPastaAbre`). */
+.exp-body .exp-titulo-icone { position: relative; width: 44px; height: 40px; flex: none; color: var(--ex-azul); }
+.exp-body .exp-titulo-icone .bi { position: absolute; left: 0; top: 0; font-size: 40px; line-height: 1; transform-origin: 50% 90%; }
+.exp-body .exp-titulo-icone .bi-folder-fill { animation: exPastaFecha 1.1s ease-in-out .25s both; }
+.exp-body .exp-titulo-icone .bi-folder2-open { animation: exPastaAbre 1.1s ease-in-out .25s both; }
+@keyframes exPastaFecha { 0%,45% { opacity: 1; transform: none; } 60% { opacity: 0; transform: scaleY(.9) translateY(2px); } 100% { opacity: 0; } }
+@keyframes exPastaAbre { 0%,45% { opacity: 0; transform: scaleY(.85) rotate(-6deg); } 70% { opacity: 1; transform: scaleY(1.06) rotate(2deg); } 100% { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .exp-body .exp-titulo-icone .bi-folder-fill { animation: none; opacity: 0; }
+    .exp-body .exp-titulo-icone .bi-folder2-open { animation: none; opacity: 1; }
+}
+
+/* O trilho do desenho 1.1 (E12) mora em expediente-lista-12.css. */
+
+/* ── Painel do acervo: cartão branco + barra (dc L.79-82) ───────────────── */
+.exp-body .expediente-content > #acervo-geral-wrapper,
+.exp-body .expediente-content > #painel-marcador-wrapper,
+.exp-body .exp-painel {
+    background: var(--ex-card);
+    border: 1px solid var(--ex-borda);
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(18,36,47,.05);
+    padding: 0 !important;
+    overflow: clip;
+}
+.exp-body .exp-barra {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--ex-barra);
+    border-bottom: 1px solid var(--ex-div);
+    padding: 12px 22px;
+    margin: 0 !important;
+}
+.exp-body .exp-barra-titulo {
+    flex: 1; min-width: 200px;
+    margin: 0; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+    font-size: 17px; font-weight: 400; color: var(--ex-texto);
+}
+.exp-body .exp-barra-titulo > .bi { color: var(--ex-texto-2); }
+.exp-body .exp-barra-total { font-size: 13px; color: var(--ex-muted); }
+/* Marcador no título do painel: o pastel do usuário como fundo, como no trilho. */
+.exp-body .exp-barra-marcador {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 10px; border-radius: 3px;
+    background: var(--ex-contagem-bg); color: var(--ex-texto);
+}
+/* Nova Pasta (dc L.82): cinza, negrito; hover azul, cresce e ganha sombra. */
+.exp-body .exp-nova-pasta {
+    height: 36px;
+    display: inline-flex; align-items: center; gap: 9px;
+    border: 0; border-radius: 4px;
+    background: var(--ex-botao); color: var(--ex-corpo);
+    font-size: 14px; font-weight: 700; letter-spacing: .2px;
+    padding: 0 16px;
+    transition: background .18s, color .18s, transform .18s, box-shadow .18s;
+}
+.exp-body .exp-nova-pasta .bi { font-size: 17px; }
+.exp-body .exp-nova-pasta:hover,
+.exp-body .exp-nova-pasta:focus-visible {
+    background: var(--ex-azul); color: #fff;
+    transform: scale(1.04);
+    box-shadow: 0 4px 12px rgba(10,111,160,.28);
+}
+.exp-body #pastas-resultado,
+.exp-body .exp-painel .pasta-filtros { padding: 0 22px; }
+.exp-body .exp-painel .pasta-filtros { padding-top: 16px; }
+
+/* ── Filtros (dc L.98-110): campos de 34px, fundo cinza-azulado, sem borda ── */
+.exp-body .pasta-filtros-busca .form-control,
+.exp-body .pasta-filtros-select,
+.exp-body .pasta-data-campo .form-control {
+    height: 34px;
+    border: 0 !important;
+    border-radius: 4px !important;
+    background-color: var(--ex-campo);
+    font-size: 13px;
+    color: var(--ex-texto);
+    box-shadow: none;
+}
+.exp-body .pasta-filtros-busca .form-control:hover,
+.exp-body .pasta-filtros-select:hover,
+.exp-body .pasta-data-campo .form-control:hover { background-color: var(--ex-campo-hover); }
+.exp-body .pasta-filtros-busca .form-control:focus,
+.exp-body .pasta-filtros-select:focus,
+.exp-body .pasta-data-campo .form-control:focus {
+    background-color: var(--ex-campo);
+    box-shadow: 0 0 0 2px rgba(10,111,160,.35);   /* o desenho tira o foco; aqui ele fica visível */
+}
+.exp-body .pasta-filtros-busca .bi-search { color: var(--ex-muted); }
+
+/* E8b: Período num bloco só (dc L.109): um campo cinza de 34px com as duas datas e "a" no meio. O foco
+   fica no bloco (o desenho tira; aqui ele segue visível, como nos outros filtros). */
+.exp-body .pasta-filtros-periodo { flex: 0 1 250px; height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }
+.exp-body .pasta-filtros-periodo:hover { background: var(--ex-campo-hover); }
+.exp-body .pasta-filtros-periodo:focus-within { box-shadow: 0 0 0 2px rgba(10,111,160,.35); }
+/* As datas encolhem como no dc (`flex:1 1 0; min-width:0; width:0`): com os 96px fixos o "Até" saía 3px do bloco. */
+.exp-body .pasta-filtros-periodo .pasta-data-campo { flex: 1 1 0; min-width: 0; min-height: 0; gap: 2px; padding: 0 2px; border: 0; background: transparent; }
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { flex: 1 1 0; min-width: 0; width: 0; }
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control,
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control:hover,
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control:focus { height: 32px; padding: 0 2px; background-color: transparent; box-shadow: none; }
+.exp-body .pasta-filtros-periodo-sep { padding: 0 2px; color: var(--ex-periodo-sep); }
+/* AUD-16: as datas no corpo do dc (L.109): 11 a 13px conforme a largura, #34505f. */
+.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { font-size: clamp(11px, .75vw, 13px); color: var(--ex-filtro-tx); }
+
+/* ── Resumo e paginação (dc L.131-139) ─────────────────────────────────── */
+.exp-body .exp-resumo { color: var(--ex-contagem-tx); font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
+.exp-body .pagination .page-link {
+    min-width: 26px; height: 26px; padding: 0 4px;
+    display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 3px !important;
+    background: transparent; color: var(--ex-texto-2);
+    font-size: 13px;
+    transition: background .18s, color .18s, transform .18s;
+}
+.exp-body .pagination .page-item { margin: 0 1px; }
+.exp-body .pagination .page-item.active .page-link { background: var(--ex-azul); color: #fff; font-weight: 700; }
+.exp-body .pagination .page-item:not(.disabled):not(.active) .page-link:hover { background: var(--ex-azul); color: #fff; transform: scale(1.1); }
+.exp-body .pagination .page-item.disabled .page-link { color: var(--ex-seta-ordem); background: transparent; cursor: default; }
+.exp-body .paginacao-total { font-size: 13px; color: var(--ex-contagem-tx); }
+
+/* ── E8d: faixa de filtros e "Visualizar" no 1.1 (dc L.98-139; AUD-08 a AUD-13) ─────────────────────
+   Disposição: no dc os filtros e, à direita, "Visualizar" + paginação dividem uma linha que quebra (flex-wrap,
+   filtros `flex:1 1 460px`); o resumo vem sozinho embaixo. Aqui os filtros moram fora da área trocável por
+   AJAX (#pastas-resultado) e os controles dentro; no desktop as caixas do meio (#pastas-resultado, #pastasView,
+   .exp-topo) somem (`display: contents`) e tudo vira item da mesma faixa flexível do painel. No celular (o dc
+   não tem; sempre cartões) a ordem de antes: resumo e, embaixo, ordenar e paginação. */
+@media (min-width: 768px) {
+    /* `flex-end` + recuo negativo dos controles: na mesma linha dos filtros o vão é o do dc (10px); quando os
+       controles descem (larguras médias), os filtros guardam os 22px da borda e os controles vão para a direita. */
+    .exp-body .exp-painel { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: flex-end; }
+    .exp-body .exp-painel > * { flex: 0 0 100%; min-width: 0; }
+    .exp-body .exp-painel > .pasta-filtros { flex: 1 1 504px; padding: 16px 22px 0; margin: 0 !important; }   /* 460 do dc + 44 de recuo */
+    .exp-body .exp-painel > #pastas-resultado,
+    .exp-body #pastas-resultado > #pastasView,
+    .exp-body #pastasView > .exp-topo { display: contents; }
+    .exp-body #pastas-resultado > *,
+    .exp-body #pastasView > * { flex: 0 0 100%; min-width: 0; }
+    .exp-body .exp-topo > .exp-controles { flex: 0 1 auto; margin-left: -12px; padding: 16px 22px 0 0; flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+    .exp-body .exp-topo > .exp-resumo { flex: 0 0 100%; padding: 12px 22px; }
+    .exp-body .exp-painel .pastas-tabela-wrap.card { margin: 0; }
+    .exp-body .exp-painel .pastas-lista { padding: 4px 22px 22px; }
+    .exp-body #pastas-resultado > .mt-2 { padding: 0 22px 16px; }
+    /* Sem caixa, o #pastas-resultado não esmaece mais sozinho enquanto recarrega: esmaecem os filhos. */
+    .exp-body #pastas-resultado.pastas-carregando .exp-controles,
+    .exp-body #pastas-resultado.pastas-carregando .exp-resumo,
+    .exp-body #pastas-resultado.pastas-carregando .pastas-tabela-wrap,
+    .exp-body #pastas-resultado.pastas-carregando .pastas-lista,
+    .exp-body #pastas-resultado.pastas-carregando > .mt-2 { opacity: .55; pointer-events: none; transition: opacity .12s ease; }
+}
+.exp-body .exp-controles { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+@media (max-width: 767.98px) {
+    /* No celular os filtros quebram como antes; o invólucro (seta/bandeira) é quem divide a linha. */
+    .exp-body .exp-filtro { flex: 1 1 calc(50% - 4px); min-width: 0; }
+    .exp-body .exp-topo { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+    .exp-body .exp-topo > .exp-resumo { order: -1; }
+    .exp-body .exp-controles { flex-wrap: wrap; }
+}
+/* A linha dos filtros não quebra no dc: os campos encolhem nas proporções dele (busca 2.2, responsável 1.3,
+   prioridade 1, período 1.8 até 250px), com os mínimos de 70/70/60/120px. */
+@media (min-width: 768px) {
+    .exp-body .pasta-filtros-linha { flex-wrap: nowrap; }
+    .exp-body .pasta-filtros-busca { flex: 2.2 1 0; min-width: 70px; max-width: none; }
+    .exp-body .exp-filtro--resp { flex: 1.3 1 0; min-width: 70px; }
+    .exp-body .exp-filtro--prio { flex: 1 1 0; min-width: 60px; }
+    .exp-body .pasta-filtros-periodo { flex: 1.8 1 0; }
+}
+/* Responsável e Prioridade com cara de botão (dc L.102, L.108): seta de 10px, texto #34505f, bandeira na cor
+   do valor. Continuam <select> nativos. */
+.exp-body .exp-filtro { position: relative; display: flex; align-items: center; color: var(--ex-filtro-tx); }
+.exp-body .exp-filtro .pasta-filtros-select {
+    width: 100%; min-width: 0; max-width: none;
+    appearance: none; -webkit-appearance: none; background-image: none;
+    padding: 0 24px 0 8px;
+    color: inherit;
+    text-overflow: ellipsis;
+}
+.exp-body .exp-filtro--prio .pasta-filtros-select { padding-left: 26px; }
+.exp-body .exp-filtro-seta { position: absolute; right: 8px; font-size: 10px; opacity: .7; pointer-events: none; }
+.exp-body .exp-filtro-bandeira { position: absolute; left: 8px; font-size: 11px; color: var(--ex-bandeira); pointer-events: none; }
+.exp-body .exp-filtro--prio[data-valor="normal"] .exp-filtro-bandeira { color: #5f7684; }
+.exp-body .exp-filtro--prio[data-valor="prioridade"] .exp-filtro-bandeira { color: #d18a12; }
+.exp-body .exp-filtro--prio[data-valor="urgente"] .exp-filtro-bandeira { color: #c0392b; }
+/* AUD-10: filtro com valor fica azul-claro com o texto azul (dc L.439 `onBg`/`onCor`). */
+.exp-body .exp-filtro.is-ativo { color: var(--ex-azul); }
+.exp-body .exp-filtro.is-ativo .pasta-filtros-select,
+.exp-body .pasta-filtros-busca.is-ativo .form-control,
+.exp-body .pasta-filtros-periodo.is-ativo { background-color: var(--ex-campo-ativo); }
+.exp-body .pasta-filtros-periodo.is-ativo .pasta-data-campo .form-control { color: var(--ex-azul); }
+
+/* Situação na barra do acervo (dc L.84, L.458; AUD-08): 36px, negrito, ponto que pulsa e seta; "Todas" em
+   cinza como "Nova Pasta"; com filtro, as cores da situação. Hover azul como os botões da barra. */
+.exp-body .exp-situacao {
+    position: relative; display: inline-flex; align-items: center;
+    color: var(--ex-corpo);
+    transition: transform .18s;
+}
+.exp-body .exp-situacao-select {
+    height: 36px; border: 0; border-radius: 4px;
+    appearance: none; -webkit-appearance: none; background-image: none;
+    field-sizing: content; min-width: 96px;
+    padding: 0 30px 0 33px;
+    background-color: var(--ex-botao); color: inherit;
+    font: inherit; font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    transition: background .18s, color .18s, box-shadow .18s;
+}
+.exp-body .exp-situacao-ponto {
+    position: absolute; left: 14px; top: 50%; margin-top: -5px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--ex-azul); color: var(--ex-azul);
+    animation: exOnda 2s ease-out infinite; pointer-events: none;
+}
+.exp-body .exp-situacao-seta { position: absolute; right: 13px; font-size: 11px; opacity: .7; pointer-events: none; }
+.exp-body .exp-situacao[data-valor="ativo"] { color: var(--ex-sit-ativo-tx); }
+.exp-body .exp-situacao[data-valor="ativo"] .exp-situacao-select { background-color: var(--ex-sit-ativo-bg); }
+.exp-body .exp-situacao[data-valor="ativo"] .exp-situacao-ponto { background: var(--ex-sit-ativo-pt); color: var(--ex-sit-ativo-pt); }
+.exp-body .exp-situacao[data-valor="arquivado"] { color: var(--ex-sit-arq-tx); }
+.exp-body .exp-situacao[data-valor="arquivado"] .exp-situacao-select { background-color: var(--ex-sit-arq-bg); }
+.exp-body .exp-situacao[data-valor="arquivado"] .exp-situacao-ponto { background: var(--ex-sit-arq-pt); color: var(--ex-sit-arq-pt); }
+.exp-body .exp-situacao:hover { color: #fff; transform: scale(1.04); }
+.exp-body .exp-situacao:hover .exp-situacao-select { background-color: var(--ex-azul); box-shadow: 0 4px 12px rgba(10,111,160,.28); }
+.exp-body .exp-situacao-select:focus-visible { outline: 0; box-shadow: 0 0 0 2px rgba(10,111,160,.35); }
+@media (prefers-reduced-motion: reduce) { .exp-body .exp-situacao-ponto { animation: none; } .exp-body .exp-situacao:hover { transform: none; } }
+
+/* "Visualizar" (dc L.113-128; AUD-12): botão azul negrito com o ícone do modo e o menu de 230px. */
+.exp-body .exp-visualizar { position: relative; }
+.exp-body .exp-visualizar-botao {
+    height: 34px; display: flex; align-items: center; gap: 7px;
+    border: 0; border-radius: 4px;
+    background: var(--ex-campo); color: var(--ex-azul);
+    font: inherit; font-size: 13px; font-weight: 700;
+    padding: 0 12px; cursor: pointer;
+    transition: background .18s, color .18s, transform .18s, box-shadow .18s;
+}
+.exp-body .exp-visualizar-botao .js-visualizar-icone { font-size: 15px; }
+.exp-body .exp-visualizar-seta { font-size: 10px; }
+.exp-body .exp-visualizar-botao[aria-expanded="true"] { background: var(--ex-campo-ativo); }
+.exp-body .exp-visualizar-botao:hover,
+.exp-body .exp-visualizar-botao:focus-visible { background: var(--ex-azul); color: #fff; transform: scale(1.04); box-shadow: 0 4px 12px rgba(10,111,160,.28); outline: 0; }
+.exp-body .exp-visualizar-menu {
+    position: absolute; z-index: 65; top: 40px; right: 0; width: 230px;
+    background: var(--ex-card); border: 1px solid var(--ex-borda); border-radius: 4px;
+    box-shadow: 0 10px 28px rgba(18,36,47,.14);
+    padding: 6px 0;
+}
+.exp-body .exp-visualizar-menu[hidden] { display: none; }
+.exp-body .exp-vis-item {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    border: 0; background: var(--ex-card);
+    padding: 9px 14px 9px 10px;
+    font: inherit; font-size: 14px; line-height: normal; color: var(--ex-corpo); text-align: left; cursor: pointer;
+}
+.exp-body .exp-vis-item .bi { font-size: 16px; color: var(--ex-contagem-tx); }
+.exp-body .exp-vis-item:hover,
+.exp-body .exp-vis-item:focus-visible { background: var(--ex-azul-hover); outline: 0; }
+.exp-body .exp-vis-ponto { width: 6px; height: 6px; border-radius: 50%; flex: none; background: transparent; }
+.exp-body .exp-vis-item[aria-checked="true"] .exp-vis-ponto { background: var(--ex-azul); }
+.exp-body .exp-vis-sep { height: 1px; background: var(--ex-div-linha); margin: 6px 10px; }
+
+/* ── Tabela (dc L.143-182) ─────────────────────────────────────────────── */
+.exp-body .pastas-tabela-wrap.card { border: 0; border-top: 1px solid var(--ex-div); border-radius: 0; box-shadow: none; margin: 0 -22px; background: transparent; }
+/* LX-TAB-03, decisão do dono (15/10): responsividade primeiro. O piso não é o 1100px do dc: é a soma das
+   colunas fixas (818px) mais um mínimo legível para Cliente (120) e Ação (90), 1028px. Medido: a 1366px a
+   tabela cabe sem rolagem lateral (com 1100 rolava 32px). De 901 a 1280px vale o piso maior (AUD-29, abaixo):
+   nomes legíveis e a rolagem só dentro da tabela. */
+.exp-body #tabelaPastas { min-width: 1148px; }   /* E12: + Réu (mínimo 120px) */
+/* Colunas do desenho: 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116. E8b: Cliente e Ação dividem o resto em
+   2:1.5. `calc` com % é ignorado no <col>; em percentual (40:30) o navegador mantém as fixas e reparte a sobra
+   nessa razão enquanto a tabela tiver menos de ~2700px (medido: 185/139 a 1440px). Os mínimos do dc
+   (minmax 220/190) não entram, por decisão do dono: somam 1228px e fazem a tabela do próprio dc estourar
+   a 1440px (Situação cortada). */
+.exp-body #tabelaPastas col[data-col="nup"]     { width: 96px !important; }
+.exp-body #tabelaPastas col[data-col="cliente"] { width: 40% !important; }
+.exp-body #tabelaPastas col[data-col="reu"]     { width: 30% !important; }   /* E12: Réu (dc 1.5fr) */
+.exp-body #tabelaPastas col[data-col="acao"]    { width: 28% !important; }
+.exp-body #tabelaPastas col[data-col="prio"]    { width: 120px !important; }
+.exp-body #tabelaPastas col[data-col="resp"]    { width: 200px !important; }
+.exp-body #tabelaPastas col[data-col="metas"]   { width: 76px !important; }
+.exp-body #tabelaPastas col[data-col="marc"]    { width: 170px !important; }
+.exp-body #tabelaPastas col[data-col="sit"]     { width: 116px !important; }
+/* Nos mesmos cortes em que o `_tabela` esconde células (≤900px: Ação, Responsável, Metas; ≤768px: Marcadores),
+   sai também o <col>. Célula escondida sai da grade e a seguinte herdava o <col> dela (medido: a 900px a
+   Situação ficava com os 220px do Responsável), e o piso de 1100px deixava um vazio de ~600px a 768px. */
+/* AUD-29, decisão do dono (15/10): de 901 a 1280px, nomes e colunas legíveis, com a rolagem lateral só dentro
+   da tabela. Piso = fixas (818px) + Ação 190 (o mínimo do dc) + Cliente 254 (2:1.5 da sobra) = 1262px (com 1261 a divisão dava 189,86px). Até
+   900px (Ação, Responsável e Metas escondidas) o Cliente fica com os 220px do mínimo do dc: 522 + 220 = 742px. */
+@media (min-width: 901px) and (max-width: 1280px) {
+    .exp-body #tabelaPastas { min-width: 1262px; }
+    .exp-body #tabelaPastas [data-col="reu"] { display: none; }   /* E12: o Réu cede primeiro (dc esconde colunas no container ≤960) */
+}
+@media (max-width: 900px) {
+    .exp-body #tabelaPastas { min-width: 742px; }
+    .exp-body #tabelaPastas col[data-col="acao"],
+    .exp-body #tabelaPastas col[data-col="resp"],
+    .exp-body #tabelaPastas col[data-col="metas"] { display: none; }
+}
+@media (max-width: 768px) {
+    .exp-body #tabelaPastas { min-width: 452px; }
+    .exp-body #tabelaPastas col[data-col="marc"] { display: none; }
+}
+/* LX-TAB-02 (dc L.145): o cabeçalho fica sob o topo fixo do sistema enquanto a tabela passa. O
+   `.table-responsive` rola nos dois eixos e prende qualquer `sticky`; por isso o `expediente-lista.js`
+   desce o próprio thead (translateY). Na horizontal ele rola junto com as linhas, como o `syncCab` do dc. */
+.exp-body #tabelaPastas thead { position: relative; z-index: 3; }
+@media print { .exp-body #tabelaPastas thead { transform: none !important; } }
+.exp-body #tabelaPastas thead th {
+    background: var(--ex-cab-tabela);
+    border-bottom: 1px solid var(--ex-borda);
+    box-shadow: 0 2px 6px -2px rgba(15,32,43,.14);
+    padding: 12px 14px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.3px; line-height: 14px;   /* 12 + 14 + 12 + borda = 40px, dc L.146 */
+    color: var(--ex-rotulo);
+    overflow: visible;
+}
+/* AUD-21: SITUAÇÃO centralizada como as células (dc `just` center); a regra antiga mirava um data-col que sumiu. */
+.exp-body #tabelaPastas thead th:last-child { text-align: center; }
+/* AUD-18 (dc L.148, L.516): seta bi-chevron-expand de 10px em #a7b6c0, a 6px do rótulo; na coluna que ordena,
+   o triângulo cheio em azul (a classe vem do servidor). */
+.exp-body #tabelaPastas thead .sort-icon { font-size: 10px; opacity: 1; margin-left: 6px; color: var(--ex-seta-ordem); vertical-align: 1px; }
+/* Colunas estreitas (Prioridade, Metas, Situação): como no dc, o rótulo inteiro e a seta só quando a
+   coluna ordena ou está sob o mouse — senão a seta empurra o rótulo para cima da coluna vizinha. */
+.exp-body #tabelaPastas thead th[data-col="prio"],
+.exp-body #tabelaPastas thead th[data-col="metas"],
+.exp-body #tabelaPastas thead th[data-col="sit"] { padding-left: 10px; padding-right: 6px; }
+.exp-body #tabelaPastas thead th[data-col="prio"]:not(.asc):not(.desc):not(:hover) .sort-icon,
+.exp-body #tabelaPastas thead th[data-col="sit"]:not(.asc):not(.desc):not(:hover) .sort-icon { display: none; }
+.exp-body #tabelaPastas thead th .bi:not(.sort-icon) { font-size: 13px; }
+.exp-body #tabelaPastas thead th.sortable:hover,
+.exp-body #tabelaPastas thead th.asc,
+.exp-body #tabelaPastas thead th.desc { color: var(--ex-azul); background: var(--ex-cab-tabela); }
+.exp-body #tabelaPastas .sortable.asc .sort-icon,
+.exp-body #tabelaPastas .sortable.desc .sort-icon { color: var(--ex-azul); }
+.exp-body #tabelaPastas tbody td {
+    padding: 14px;
+    font-size: 13px;
+    color: var(--ex-texto-2);
+    border-bottom: 1px solid var(--ex-div-linha);
+    transition: background .15s, box-shadow .15s, color .15s;
+}
+/* NUP: o `fw-semibold` do Bootstrap (600, com !important) cede ao negrito do desenho. */
+.exp-body #tabelaPastas tbody td:first-child { padding-left: 20px; font-size: 14px; font-weight: 700 !important; color: var(--ex-azul); }
+/* AUD-23: o marcador aparece como foi cadastrado ("1. Despachar"); a caixa alta vinha da regra antiga das células. */
+.exp-body #tabelaPastas tbody .marcador-principal,
+.exp-body #tabelaPastas tbody .marcadores-extra { text-transform: none; }
+.exp-body #tabelaPastas tbody td[data-col="cliente"] { font-size: 14px; font-weight: 700; color: var(--ex-texto); }
+.exp-body #tabelaPastas tbody td[data-col="prio"],
+.exp-body #tabelaPastas tbody td.col-marc-tabela,
+.exp-body #tabelaPastas tbody td:last-child { padding-top: 10px; padding-bottom: 10px; }
+.exp-body #tabelaPastas tbody td.col-resp-tabela { padding-top: 8px; padding-bottom: 8px; }
+
+/* Prioridade (dc L.158): 24px, raio 3, bandeira, 11px negrito — rótulo do sistema; sem pulsar. */
+.exp-body .exp-prio {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 8px;
+    border-radius: 3px;
+    font-size: 11px !important; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+    animation: none !important;
+}
+.exp-body .exp-prio .bi { font-size: 10px; }
+.exp-body .exp-prio[data-prio="normal"]     { background: var(--ex-prio-normal-bg) !important; color: var(--ex-prio-normal-tx) !important; }
+.exp-body .exp-prio[data-prio="prioridade"] { background: var(--ex-prio-alta-bg) !important;   color: var(--ex-prio-alta-tx) !important; }
+.exp-body .exp-prio[data-prio="urgente"]    { background: var(--ex-prio-urg-bg) !important;    color: var(--ex-prio-urg-tx) !important; }
+
+/* Situação (dc L.182): ponto de 7px que pulsa + rótulo negrito na cor, sem fundo. O ponto é um
+   ::before porque o duplo clique reescreve o texto do selo (index.html.twig). */
+.exp-body .js-toggle-situacao,
+.exp-body .pasta-badge-excluida {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 24px; padding: 0 4px;
+    background: transparent !important;
+    font-size: 12.5px; font-weight: 700; text-transform: none; letter-spacing: 0;
+}
+.exp-body .js-toggle-situacao::before,
+.exp-body .pasta-badge-excluida::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%; flex: none;
+    background: currentColor;
+    animation: exOnda 2.4s ease-out infinite;
+}
+.exp-body .js-toggle-situacao[data-situacao="ativo"]     { color: var(--ex-sit-ativo-tx) !important; }
+.exp-body .js-toggle-situacao[data-situacao="ativo"]::before     { background: var(--ex-sit-ativo-pt); color: var(--ex-sit-ativo-pt); }
+.exp-body .js-toggle-situacao[data-situacao="arquivado"] { color: var(--ex-sit-arq-tx) !important; }
+.exp-body .js-toggle-situacao[data-situacao="arquivado"]::before { background: var(--ex-sit-arq-pt); color: var(--ex-sit-arq-pt); }
+.exp-body .pasta-badge-excluida { color: var(--ex-sit-exc-tx) !important; }
+.exp-body .pasta-badge-excluida::before { background: var(--ex-sit-exc-pt); color: var(--ex-sit-exc-pt); animation: none; }
+@keyframes exOnda { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .exp-body .js-toggle-situacao::before { animation: none; } }
+
+/* Metas (dc L.168): ícone e número em azul, sem fundo. O número é o TOTAL (decisão do dono); a
+   cor ainda avisa revisão pendente e todas concluídas, como antes. */
+.exp-body .exp-metas {
+    display: inline-flex; align-items: center; gap: 4px;
+    height: 22px; padding: 0 7px; border-radius: 3px;
+    background: transparent !important;
+    color: var(--ex-azul) !important;
+    font-size: 12px; font-weight: 700;
+}
+.exp-body .exp-metas[data-metas="revisao"]    { color: var(--ex-prio-alta-tx) !important; }
+.exp-body .exp-metas[data-metas="concluidas"] { color: var(--ex-sit-ativo-tx) !important; }
+.exp-body .exp-metas .bi { margin: 0 !important; }
+
+/* Marcadores (dc L.169-181): chip de 24px, raio 3, pasta cheia, 11px negrito; o pastel do usuário
+   como fundo (decisão 14/10); +N e o botão de marcar no mesmo tamanho. */
+.exp-body .marcador-principal,
+.exp-body .marcadores-extra {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 8px !important;
+    border-radius: 3px !important;
+    border: 0 !important;
+    font-size: 11px !important; font-weight: 700; letter-spacing: .3px;
+    max-width: 150px;
+    color: var(--ex-corpo) !important;
+}
+.exp-body .marcador-principal:not([style*="background:#"]) { background: var(--ex-contagem-bg) !important; }
+.exp-body .marcador-principal .bi { font-size: 11px; }
+.exp-body .js-mover-para {
+    width: 24px; height: 24px; padding: 0 !important;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--ex-borda-tag) !important; border-radius: 3px !important;
+    background: var(--ex-card) !important; color: var(--ex-rotulo) !important;
+    box-shadow: none !important; font-size: 11px !important;   /* AUD-24: dc L.171 */
+}
+.exp-body .js-mover-para:hover { border-color: var(--ex-azul) !important; color: var(--ex-azul) !important; }
+
+/* Responsável (dc L.159-166): botão de 34px sem fundo, avatar 28, nome 13px; hover branco com borda. */
+.exp-body #tabelaPastas .pasta-resp-chip {
+    width: 100%; max-width: 100%; height: 34px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 6px 0 2px;
+    border: 1px solid transparent; border-radius: 4px;
+    background: transparent; box-shadow: none;
+    font-size: 13px; font-weight: 400; color: var(--ex-texto-2);
+    transition: background .15s, border-color .15s;
+}
+.exp-body #tabelaPastas .pasta-resp-chip:hover,
+.exp-body #tabelaPastas .pasta-resp-chip:focus-visible { background: var(--ex-card); border-color: #cfe0ea; }
+.exp-body #tabelaPastas .pasta-resp-chip .resp-avatar { width: 28px !important; height: 28px !important; flex: none; font-size: 10px; }
+.exp-body #tabelaPastas .pasta-resp-chip .pasta-resp-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.exp-body #tabelaPastas .pasta-resp-chip .pasta-resp-caret { font-size: 11px; color: var(--ex-apagado); }
+
+/* AUD-25/27, só na Lista (decisão do dono): avatar azul sólido com as iniciais do dc; sem responsável, "?" em
+   #eef2f5 e o nome em #62798a; seta #7d909d de 10px; nome do responsável em #243845 (dc L.160, L.524). */
+.exp-body #pastasView .pasta-resp-chip .resp-avatar-ini,
+.exp-body #pastasView .pasta-resp-chip .resp-avatar-img { background: var(--ex-avatar); font-size: 10px; }   /* com foto: a foto sobre o azul, dc `avBg` */
+.exp-body #pastasView .pasta-resp-chip .resp-avatar-vazio { background: var(--ex-avatar-vazio-bg); color: var(--ex-avatar-vazio-tx); font-size: 10px; font-weight: 700; }
+.exp-body #pastasView .pasta-resp-chip .pasta-resp-nome.text-muted { color: var(--ex-avatar-vazio-tx) !important; }
+.exp-body #tabelaPastas .pasta-resp-chip { color: var(--ex-corpo); }
+.exp-body #tabelaPastas .pasta-resp-chip .pasta-resp-caret { font-size: 10px; color: var(--ex-periodo-sep); opacity: 1; }
+
+/* Hover da linha (dc L.28-35): azul cheio, faixa de 4px escura, sombra; tudo branco e sem fundo.
+   A lápide (pasta excluída) não ganha o azul: continua apagada e riscada, para não parecer uma pasta
+   ativa (ela abre por clique, somente leitura). */
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover > td {
+    background: var(--ex-linha-hover) !important;
+    color: #fff !important;
+    border-bottom-color: var(--ex-linha-hover);
+}
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover {
+    position: relative; z-index: 1;
+    box-shadow: inset 4px 0 0 var(--ex-linha-barra), 0 4px 12px rgba(10,111,160,.16);
+}
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover > td *:not(.resp-avatar):not(.resp-avatar *):not(.pasta-favorita-estrela) {
+    color: #fff !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .js-toggle-situacao::before { background: #fff; color: #fff; }
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .resp-avatar { background: transparent !important; color: #fff !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.7); }
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .js-mover-para { border-color: rgba(255,255,255,.6) !important; }
+/* O hover antigo (cinza) sai. */
+.exp-body #tabelaPastas tbody tr:hover { background: transparent; }
+
+/* ── Estado vazio (dc L.214) ───────────────────────────────────────────── */
+.exp-body .exp-vazio { padding: 48px; text-align: center; color: var(--ex-rotulo); font-size: 14px; }
+.exp-body .exp-vazio .bi { font-size: 28px; display: block; margin-bottom: 8px; }
+
+/* ── Menu de botão direito (dc L.233-243 marcador, L.272-293 linha) e aviso (dc L.311) ──
+   E8d (AUD-28): o visual é o do menu de contexto do dc, não o dos menus suspensos (faixa azul): título
+   cinza de 12px com divisória, itens de 14px com 8px×14px, sem raio; 250px na linha e 220px no marcador. */
+.exp-ctx {
+    position: fixed; z-index: 2147483000;
+    width: 250px; max-width: calc(100vw - 16px);
+    background: var(--ex-card, #fff);
+    border: 1px solid var(--ex-borda-menu, #d3dde4);
+    border-radius: 4px;
+    box-shadow: 0 10px 28px rgba(15,32,43,.18);
+    padding: 5px 0;
+    font-size: 14px; color: var(--ex-texto-2, #1f3644);
+    animation: exTip .14s ease-out;
+}
+.exp-ctx--marcador { width: 220px; }
+.exp-ctx[hidden] { display: none; }
+@keyframes exTip { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .exp-ctx { animation: none; } }
+.exp-ctx-titulo {
+    margin: 0 0 4px; padding: 7px 14px 8px;
+    border-bottom: 1px solid var(--ex-div-linha, #eef2f5);
+    font-size: 12px; color: var(--ex-menu-titulo, #62798a);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.exp-ctx-item {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; border: 0; border-radius: 0;
+    background: transparent; color: inherit;
+    font: inherit; line-height: normal; text-align: left; cursor: pointer; text-decoration: none;
+}
+.exp-ctx-item .bi { width: 16px; color: inherit; }
+.exp-ctx-item:hover,
+.exp-ctx-item:focus-visible { background: var(--ex-menu-hover, #e6f2fa); color: var(--ex-menu-hover-tx, #0b4f75); outline: none; text-decoration: none; }
+.exp-ctx-item--perigo { color: var(--ex-prio-urg-tx, #a3232b); }
+.exp-ctx-item--perigo:hover,
+.exp-ctx-item--perigo:focus-visible { background: var(--ex-perigo-hover, #fbecec); color: var(--ex-perigo-hover-tx, #8a1d24); }
+.exp-ctx-sep { height: 1px; margin: 4px 0; background: var(--ex-div-linha, #eef2f5); }
+
+.exp-aviso {
+    position: fixed; right: 24px; bottom: 24px; z-index: 2147483400;
+    display: flex; align-items: center; gap: 8px;
+    max-width: calc(100vw - 48px);
+    padding: 10px 14px; border-radius: 4px;
+    background: var(--ex-toast, #0f202b); color: #fff; font-size: 13px;
+    box-shadow: 0 14px 30px -12px rgba(0,0,0,.5);
+}
+.exp-aviso[hidden] { display: none; }
+.exp-aviso .bi { color: var(--ex-toast-ok, #4fd18a); }
+
+/* ── Cartões (modo lista e celular; dc L.202-213): raio 4 como o resto do desenho. ── */
+.exp-body .pasta-card { border-radius: 4px; border-color: var(--ex-borda); }

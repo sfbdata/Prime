@@ -28,6 +28,9 @@ enum CategoriaDeArquivo: string
     case COBRANCA_DOCUMENTO   = 'cobranca_documento';
     case KANBAN_ANEXO         = 'kanban_anexo';
     case TAREFA_ANEXO         = 'tarefa_anexo';
+    // Documentos de demanda do Trabalho Externo. Plana como o Kanban: o escopo é o escritório
+    // solicitante, dono da demanda (`ChavesDeTrabalhoExterno`).
+    case TRABALHO_EXTERNO_DOCUMENTO = 'trabalho_externo_documento';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

@@ -47,7 +47,7 @@ final class EditarMensagemPastaUseCase
             return false;
         }
 
-        if (!$mensagem->pertenceAo($usuario)) {
+        if ($mensagem->isDoSistema() || !$mensagem->pertenceAo($usuario)) {
             return false;
         }
 

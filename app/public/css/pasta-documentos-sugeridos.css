@@ -298,7 +298,7 @@
     color: var(--ds-roxo);
     background: var(--ds-fase-bg);
     padding: 1px 8px;
-    border-radius: 999px;
+    border-radius: 4px;
 }
 
 .ds-sug-conf {

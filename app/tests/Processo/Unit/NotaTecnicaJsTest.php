@@ -133,7 +133,8 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString("botaoEditar.closest('.ps-nota')", $editar);
         self::assertStringNotContainsString("getElementById('nota-tecnica-'", $editar, 'o id acharia a cópia da outra aba');
 
-        $excluir = $this->funcao('excluir');
+        // E7: o pedido e a remoção moram em `excluirConfirmado`, que só roda no "sim" da janela.
+        $excluir = $this->funcao('excluirConfirmado');
         self::assertStringContainsString(".ps-nota[data-nota-id=\"' + botaoExcluir.getAttribute('data-nota-id') + '\"]", $excluir);
         self::assertStringContainsString('copia.remove()', $excluir);
         self::assertStringContainsString('atualizarContagem(blocoDaCopia)', $excluir);
@@ -202,7 +203,7 @@ final class NotaTecnicaJsTest extends TestCase
 
         self::assertStringContainsString("new CustomEvent('ps:notas-mudou', { bubbles: true })", $this->funcao('avisarMudanca'));
         self::assertStringContainsString('avisarMudanca(bloco);', $this->funcao('fecharCompositor'), 'salvar fecha o compositor: o aviso sai por aqui também');
-        self::assertStringContainsString('avisarMudanca(blocoDaCopia);', $this->funcao('excluir'));
+        self::assertStringContainsString('avisarMudanca(blocoDaCopia);', $this->funcao('excluirConfirmado'));
 
         // Do lado do partial: o bloco pendurado nasce escondido só quando vazio, com a marca.
         $bloco = $this->ler(self::APP . '/templates/processo/_notas_tecnicas.html.twig');

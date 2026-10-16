@@ -431,7 +431,7 @@ final class MontadorDeContextoDaPasta
 
         return [
             'pasta' => $this->rotulo($pasta->getNup(), 'sem número', $mascarar),
-            'situacao' => $pasta->getSituacao() === 'arquivado' ? 'arquivada' : 'ativa',
+            'situacao' => ['arquivado' => 'arquivada', 'suspenso' => 'suspensa', 'cancelado' => 'cancelada'][$pasta->getSituacao()] ?? 'ativa',
             'prioridade' => $this->rotulo($pasta->getPrioridadeLabel(), 'normal', $mascarar),
             'acao' => $this->rotulo($pasta->getNomeAcao(), 'não informada', $mascarar),
             'abertura' => $pasta->getDataAbertura()->format('d/m/Y'),

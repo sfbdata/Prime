@@ -8,7 +8,11 @@ use App\Central\Entity\Conversa;
 use App\Central\Entity\Mensagem;
 use App\Central\Entity\Participante;
 use App\Central\Repository\MensagemRepository;
+use App\Central\Entity\Presenca;
 use App\Central\Repository\ParticipanteRepository;
+use App\Central\Repository\PresencaRepository;
+use App\Entity\Notificacao;
+use App\Repository\NotificacaoRepository;
 use App\Entity\Auth\UserTenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
@@ -22,6 +26,8 @@ use PHPUnit\Framework\Attributes\TestDox;
  */
 #[CoversClass(ParticipanteRepository::class)]
 #[CoversClass(MensagemRepository::class)]
+#[CoversClass(PresencaRepository::class)]
+#[CoversClass(NotificacaoRepository::class)]
 final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
@@ -42,6 +48,8 @@ final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
         $this->em()->persist(new Participante($escritorioB, $grupo, $dora, $agora));
         $this->em()->persist(new Participante($escritorioB, $grupo, $ana, $agora));
         $this->em()->persist(new Mensagem($escritorioB, $grupo, $dora, 'SEGREDO-DO-B', $agora));
+        $this->em()->persist((new Notificacao())->setUsuario($ana)->setTenant($escritorioB)->setTipo('teste')->setTitulo('Aviso do B'));
+        $this->em()->persist(new Presenca($escritorioB, $ana, $agora));
         $this->em()->flush();
 
         if ($this->em()->getFilters()->isEnabled('tenant')) {
@@ -56,6 +64,17 @@ final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
         self::assertNull($participantes->daConversa((int) $grupo->getId(), $ana, $escritorioA));
         self::assertSame([], $participantes->doUsuario($ana, $escritorioA));
         self::assertSame([], $mensagens->naoLidasPorConversa($ana, $escritorioA));
+        // Equipe (F2): as não lidas da Ana no grupo do B não contam no A; no B contam (controle).
+        self::assertSame([], $mensagens->naoLidasPorUsuario($escritorioA, [(int) $ana->getId()]));
+        self::assertSame([(int) $ana->getId() => 1], $mensagens->naoLidasPorUsuario($escritorioB, [(int) $ana->getId()]));
+        /** @var NotificacaoRepository $notificacoes */
+        $notificacoes = $this->em()->getRepository(Notificacao::class);
+        self::assertSame([], $notificacoes->contarNaoLidasPorUsuarios($escritorioA, [(int) $ana->getId()]));
+        self::assertSame([(int) $ana->getId() => 1], $notificacoes->contarNaoLidasPorUsuarios($escritorioB, [(int) $ana->getId()]));
+        /** @var PresencaRepository $presencas */
+        $presencas = $this->em()->getRepository(Presenca::class);
+        self::assertSame([], $presencas->doEscritorio($escritorioA, [(int) $ana->getId()]));
+        self::assertArrayHasKey((int) $ana->getId(), $presencas->doEscritorio($escritorioB, [(int) $ana->getId()]));
         self::assertSame([], $mensagens->novidades($ana, $escritorioA, 0, 200));
         self::assertSame([], $mensagens->recentesAbaixoDoCursor($ana, $escritorioA, PHP_INT_MAX >> 33, new \DateTimeImmutable('-1 day'), 200));
         self::assertCount(1, $mensagens->recentesAbaixoDoCursor($ana, $escritorioB, PHP_INT_MAX >> 33, new \DateTimeImmutable('-1 day'), 200), 'controle: no B a janela a vê');

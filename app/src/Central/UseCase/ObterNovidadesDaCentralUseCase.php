@@ -12,6 +12,8 @@ use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\AvisoDeMencaoNaCentral;
+use App\Central\DTO\ContagemDeAvisos;
+use App\Central\Service\ContadorDeAvisos;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Psr\Clock\ClockInterface;
@@ -38,6 +40,9 @@ final class ObterNovidadesDaCentralUseCase
         private readonly ClockInterface $clock,
         private readonly ParticipanteRepository $participantes,
         private readonly AvisoDeMencaoNaCentral $avisos,
+        // Opcional só para não mexer nos testes unitários antigos do polling; no container o autowiring sempre injeta
+        // (provado pelo teste funcional das contagens).
+        private readonly ?ContadorDeAvisos $contadorDeAvisos = null,
     ) {
     }
 
@@ -50,8 +55,12 @@ final class ObterNovidadesDaCentralUseCase
         // Lançador flutuante: em que conversas há menção por ver ("@n", marcador da linha, filtro "Menções").
         $comMencao = $this->avisos->conversasComMencaoNaoLida($eu, $tenant, $this->participantes->idsDasConversasAtivas($eu, $tenant));
 
+        // F1: os avisos do sino na Caixa, só contados (com a rechecagem de acesso): o lançador anda sem a lista.
+        $avisos = $this->contadorDeAvisos?->contar($eu, $tenant) ?? new ContagemDeAvisos(0, 0, 0);
+
         if ($desde === null) {
-            return new NovidadesOutput([], $this->mensagens->ultimoIdVisivelPara($eu, $tenant), $naoLidas, true, $comMencao);
+            return new NovidadesOutput([], $this->mensagens->ultimoIdVisivelPara($eu, $tenant), $naoLidas, true, $comMencao,
+                $avisos->naoLidos, $avisos->urgentes, $avisos->ultimo, $avisos->importantes);
         }
 
         $novas = $this->mensagens->novidades($eu, $tenant, $desde, self::TETO);
@@ -70,6 +79,10 @@ final class ObterNovidadesDaCentralUseCase
             naoLidas: $naoLidas,
             completo: count($novas) < self::TETO,
             conversasComMencao: $comMencao,
+            avisosNaoLidos: $avisos->naoLidos,
+            avisosUrgentes: $avisos->urgentes,
+            ultimoAviso: $avisos->ultimo,
+            avisosImportantes: $avisos->importantes,
         );
     }
 }

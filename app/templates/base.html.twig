@@ -418,6 +418,12 @@
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'processo_' ? 'active' : '' }}">
                             Processos
                         </a>
+                        {% if can_access_module('trabalho_externo') %}
+                            <a href="{{ path('trabalho_externo_index') }}"
+                               class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'trabalho_externo_' ? 'active' : '' }}">
+                                Trabalho Externo
+                            </a>
+                        {% endif %}
                     </div>
 
                 </nav>
