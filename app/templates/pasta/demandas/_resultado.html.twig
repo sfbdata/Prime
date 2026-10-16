@@ -52,7 +52,7 @@
                                     </span>
                                 {% endif %}
                             {% else %}
-                                <span class="text-muted">—</span>
+                                <span class="text-muted">Não informado</span>
                             {% endif %}
                         </td>
                         <td class="col-acao-tabela align-middle">
@@ -61,7 +61,7 @@
                             {% elseif pasta.nomeAcao %}
                                 {{ pasta.nomeAcao }}
                             {% else %}
-                                <span class="text-muted">—</span>
+                                <span class="text-muted">Não informado</span>
                             {% endif %}
                         </td>
                         <td class="align-middle">
@@ -80,11 +80,11 @@
                                     <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
                                 </a>
                             {% else %}
-                                <span class="text-muted" style="font-size:.8rem;">—</span>
+                                <span class="text-muted" style="font-size:.8rem;">Nenhuma</span>
                             {% endif %}
                         </td>
                         <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
-                            {% if dias is null %}—
+                            {% if dias is null %}Sem registro
                             {% elseif dias == 0 %}Hoje
                             {% elseif dias == 1 %}1 dia atrás
                             {% else %}{{ dias }}d atrás{% endif %}
@@ -123,7 +123,7 @@
                         {% elseif pasta.nomeCliente %}
                             {{ pasta.nomeCliente }}
                         {% else %}
-                            <span class="text-muted">—</span>
+                            <span class="text-muted">Não informado</span>
                         {% endif %}
                     </span>
                 </div>
@@ -139,7 +139,7 @@
                 <div class="pasta-card-row">
                     <span class="pasta-card-label"><i class="bi bi-clock-history"></i></span>
                     <span class="pasta-card-value text-muted" style="font-size:.8rem;">
-                        {% if dias is null %}—{% elseif dias == 0 %}Hoje{% elseif dias == 1 %}1 dia atrás{% else %}{{ dias }}d atrás{% endif %}
+                        {% if dias is null %}Sem registro{% elseif dias == 0 %}Hoje{% elseif dias == 1 %}1 dia atrás{% else %}{{ dias }}d atrás{% endif %}
                     </span>
                 </div>
             </div>

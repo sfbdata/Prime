@@ -5,7 +5,7 @@
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-shield-lock me-2"></i>Editar Permissões — {{ user.fullName }}</h1>
+        <h1 class="m-0"><i class="bi bi-shield-lock me-2"></i>Editar Permissões: {{ user.fullName }}</h1>
     </div>
 </section>
 
@@ -230,7 +230,7 @@
                                                         {% if ra.grantedBy %}
                                                             {{ ra.grantedBy.fullName }}
                                                         {% else %}
-                                                            —
+                                                            Não informado
                                                         {% endif %}
                                                     </td>
                                                     <td class="align-middle text-end">
@@ -406,7 +406,7 @@
                         <div>
                             Ao remover <strong>{{ user.fullName }}</strong>, ela perde o acesso a este escritório e
                             sai da sua lista de colaboradores. A conta dela continua existindo, e ela pode ser
-                            convidada de volta — voltando sem os acessos de antes.
+                            convidada de volta, voltando sem os acessos de antes.
                         </div>
                     </div>
                     <div class="mb-1">
@@ -415,7 +415,7 @@
                             <span class="text-muted fw-normal">(opcional)</span>
                         </label>
                         <select name="substituto_id" id="substitutoSelect" class="form-select">
-                            <option value="">— Deixar sem responsável —</option>
+                            <option value="">Deixar sem responsável</option>
                             {% for colega in colegas %}
                                 <option value="{{ colega.user.id }}">
                                     {% if colega.codigoFuncionario %}[{{ colega.codigoFuncionario }}] {% endif %}{{ colega.user.fullName }}

@@ -290,7 +290,7 @@
                                             </div>
                                             <div>
                                                 <div class="ps-rotulo">Modificada em</div>
-                                                <div class="ps-registro-pasta-valor ps-num">{% if pasta.modificadoEm %}{# N9 (dc L.6431): "hoje, 26/08/2026 14:58" no dia. #}{% if pasta.modificadoEm|date('Y-m-d') == 'now'|date('Y-m-d') %}hoje, {% endif %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}<span class="ps-dado--vazio">—</span>{% endif %}</div>
+                                                <div class="ps-registro-pasta-valor ps-num">{% if pasta.modificadoEm %}{# N9 (dc L.6431): "hoje, 26/08/2026 14:58" no dia. #}{% if pasta.modificadoEm|date('Y-m-d') == 'now'|date('Y-m-d') %}hoje, {% endif %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}<span class="ps-dado--vazio">Sem registro</span>{% endif %}</div>
                                             </div>
                                             <div>
                                                 <div class="ps-rotulo">Criada por</div>
@@ -301,7 +301,7 @@
                                                         <span class="ps-registro-pasta-valor">{{ pasta.criadoPor.fullName }}</span>
                                                     </div>
                                                 {% else %}
-                                                    <div class="ps-registro-pasta-valor ps-dado--vazio">—</div>
+                                                    <div class="ps-registro-pasta-valor ps-dado--vazio">Não informado</div>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -675,7 +675,7 @@
                                     <div class="col-6">
                                         <label class="form-label form-label-sm mb-1">Estado Civil</label>
                                         <select name="estadoCivil" class="form-select form-select-sm">
-                                            <option value="">— selecione —</option>
+                                            <option value="">Selecione</option>
                                             <option value="SOLTEIRO">Solteiro(a)</option>
                                             <option value="CASADO">Casado(a)</option>
                                             <option value="DIVORCIADO">Divorciado(a)</option>
@@ -1375,7 +1375,7 @@
             const marca = document.createElement('span');
             marca.className = 'btn btn-xs btn-primary disabled js-cliente-principal-estrela';
             marca.dataset.clienteId = clienteId;
-            marca.title = 'Cliente principal desta pasta — a Média por CPF é dele. Clique na estrela de outro para trocar';
+            marca.title = 'Cliente principal desta pasta. A Média por CPF é dele. Clique na estrela de outro para trocar';
             marca.innerHTML = '<i class="bi bi-star-fill"></i>';
             return marca;
         }
@@ -1550,7 +1550,7 @@
                 // Sem este catch, queda de rede reabilitava o botão em silêncio e o usuário
                 // achava que tinha marcado. A rejeição não tratada não aparece na tela.
                 console.error('[clientePrincipal]', err);
-                alert('Erro de comunicação. A marcação pode não ter sido salva — recarregue a página.');
+                alert('Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.');
                 return;
             } finally {
                 if (button) {
@@ -2295,11 +2295,11 @@
                 status.className = 'anexo-status text-success d-block mt-1';
                 status.textContent = 'Reduzido de ' + formatBytesPeca(c.tamanhoOriginal)
                     + ' para ' + formatBytesPeca(c.tamanhoFinal) + '.'
-                    + (c.eraAssinado ? ' Atenção: PDF assinado — a assinatura pode ter sido invalidada.' : '');
+                    + (c.eraAssinado ? ' Atenção: PDF assinado. A assinatura pode ter sido invalidada.' : '');
             } else if (reduzir) {
                 bar.classList.add('bg-warning');
                 status.className = 'anexo-status text-warning-emphasis d-block mt-1';
-                status.textContent = 'Não foi possível reduzir — enviado no tamanho original.';
+                status.textContent = 'Não foi possível reduzir. Enviado no tamanho original.';
             } else {
                 bar.classList.add('bg-success');
                 status.className = 'anexo-status text-success d-block mt-1';

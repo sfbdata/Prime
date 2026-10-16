@@ -47,7 +47,7 @@ final class ObterHistoricoDoCardUseCase
 
     /** Texto honesto dos cards sem série reconstruível. */
     private const NOTA_SEM_FOTO = '%s é um retrato do momento: o valor de um mês que já passou não se recupera pelas datas gravadas. '
-        . 'O histórico depende da foto diária do painel, que ainda não está ativada — por isso nenhum número é mostrado aqui.';
+        . 'O histórico depende da foto diária do painel, que ainda não está ativada. Por isso nenhum número é mostrado aqui.';
 
     private const SUBTITULO = 'Histórico mensal';
 
@@ -228,7 +228,7 @@ final class ObterHistoricoDoCardUseCase
                     'tom'    => 'neutro',
                 ],
                 $idx === false
-                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => '—', 'tom' => 'neutro']
+                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => 'Sem dado', 'tom' => 'neutro']
                     : ['rotulo' => 'Melhor', 'valor' => (string) $max, 'sub' => self::MES_CURTO[(int) $idx] . '/' . $ano, 'tom' => 'ouro'],
                 $comp,
             ],
@@ -276,7 +276,7 @@ final class ObterHistoricoDoCardUseCase
                     'tom'    => 'neutro',
                 ],
                 $idx === false
-                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => '—', 'tom' => 'neutro']
+                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => 'Sem dado', 'tom' => 'neutro']
                     : ['rotulo' => 'Melhor', 'valor' => (string) $max, 'sub' => $rotulos[(int) $idx], 'tom' => 'ouro'],
                 [
                     'rotulo' => 'Variação',

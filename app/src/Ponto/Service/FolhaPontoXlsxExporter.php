@@ -69,7 +69,7 @@ final class FolhaPontoXlsxExporter
     {
         $mes = $c['mes'] ?? '';
         $ano = $c['ano'] ?? '';
-        $titulo = sprintf('FOLHA DE PONTO – %02d/%d', (int)$mes, (int)$ano);
+        $titulo = sprintf('FOLHA DE PONTO: %02d/%d', (int)$mes, (int)$ano);
 
         $sheet->mergeCells('A1:J1');
         $sheet->setCellValue('A1', $titulo);
@@ -304,27 +304,27 @@ final class FolhaPontoXlsxExporter
                 $sF->getFont()->setBold(true);
                 $sF->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             } else {
-                $sheet->setCellValue("C{$lin}", $row['entrada'] ? substr($row['entrada'], 0, 5) : '–');
-                $sheet->setCellValue("D{$lin}", $row['repouso'] ? substr($row['repouso'], 0, 5) : '–');
-                $sheet->setCellValue("E{$lin}", $row['retorno'] ? substr($row['retorno'], 0, 5) : '–');
-                $sheet->setCellValue("F{$lin}", $row['saida']   ? substr($row['saida'], 0, 5) : '–');
+                $sheet->setCellValue("C{$lin}", $row['entrada'] ? substr($row['entrada'], 0, 5) : 'Sem registro');
+                $sheet->setCellValue("D{$lin}", $row['repouso'] ? substr($row['repouso'], 0, 5) : 'Sem registro');
+                $sheet->setCellValue("E{$lin}", $row['retorno'] ? substr($row['retorno'], 0, 5) : 'Sem registro');
+                $sheet->setCellValue("F{$lin}", $row['saida']   ? substr($row['saida'], 0, 5) : 'Sem registro');
             }
 
             // Colunas calculadas
-            $sheet->setCellValue("G{$lin}", $row['horasTrabalhadas'] ?? '–');
-            $sheet->setCellValue("H{$lin}", $row['horasExtras'] ?? '–');
-            $sheet->setCellValue("I{$lin}", $row['bancoHoras'] ?? '–');
+            $sheet->setCellValue("G{$lin}", $row['horasTrabalhadas'] ?? 'Sem dado');
+            $sheet->setCellValue("H{$lin}", $row['horasExtras'] ?? 'Sem dado');
+            $sheet->setCellValue("I{$lin}", $row['bancoHoras'] ?? 'Sem dado');
 
             // Justificativa
             $justText = '';
             if ($isFeriado && !empty($row['nomeFeriado'])) {
-                $justText = 'Feriado – ' . $row['nomeFeriado'];
+                $justText = 'Feriado: ' . $row['nomeFeriado'];
             } elseif (!empty($row['justificativa'])) {
                 $j = $row['justificativa'];
                 if ($j->getStatus() === 'abonado') {
                     $justText = $j->getLabelTipo() ?? '';
                     if ($j->isAbonoParcial() && $j->getHoraInicioAbono() && $j->getHoraFimAbono()) {
-                        $justText .= sprintf(' (Parcial: %s–%s)', $j->getHoraInicioAbono()->format('H:i'), $j->getHoraFimAbono()->format('H:i'));
+                        $justText .= sprintf(' (Parcial: %s às %s)', $j->getHoraInicioAbono()->format('H:i'), $j->getHoraFimAbono()->format('H:i'));
                     }
                 } elseif ($j->getStatus() === 'pendente') {
                     $justText = ($j->getLabelTipo() ?? '') . ' (pendente)';
@@ -384,11 +384,11 @@ final class FolhaPontoXlsxExporter
         // competência já está DENTRO do "Saldo do Banco de Horas Atual", que é o banco acumulado
         // (anterior + mês + horas pagas). Decisão do dono em 2026-07-31 — ver spec §7.
         $resumo = [
-            'Detalhe de Horas Trabalhadas no Mês:  ' . ($c['totalHorasTrabalhadas'] ?? '–'),
-            'Total de Horas Extras no Mês:  '         . ($c['totalHorasExtras'] ?? '–'),
-            'Saldo do Banco de Horas Anterior:  '     . ($c['saldoBancoAnterior'] ?? '–'),
-            'Saldo do Banco de Horas Atual:  '        . ($c['saldoBancoAtual'] ?? '–'),
-            'Horas a Compensar:  '                    . ($c['horasACompensar'] ?? '–'),
+            'Detalhe de Horas Trabalhadas no Mês:  ' . ($c['totalHorasTrabalhadas'] ?? 'Sem dado'),
+            'Total de Horas Extras no Mês:  '         . ($c['totalHorasExtras'] ?? 'Sem dado'),
+            'Saldo do Banco de Horas Anterior:  '     . ($c['saldoBancoAnterior'] ?? 'Sem dado'),
+            'Saldo do Banco de Horas Atual:  '        . ($c['saldoBancoAtual'] ?? 'Sem dado'),
+            'Horas a Compensar:  '                    . ($c['horasACompensar'] ?? 'Sem dado'),
         ];
 
         $conformeRepouso      = ($c['intrajornadaConforme'] ?? true);

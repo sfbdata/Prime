@@ -77,7 +77,7 @@
                                 <div class="tarefa-meta-box">
                                     <span class="tarefa-meta-label">Autor</span>
                                     <span class="tarefa-meta-value text-truncate">
-                                        {{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}
+                                        {% if tarefa.criadoPor %}{{ tarefa.criadoPor.fullName }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}
                                     </span>
                                 </div>
                             </div>
@@ -95,7 +95,7 @@
                                                 <div class="text-truncate">{{ resp.fullName }}</div>
                                             {% endfor %}
                                         {% else %}
-                                            —
+                                            <span class="text-muted small">Não informado</span>
                                         {% endif %}
                                     </span>
                                 </div>
@@ -118,7 +118,7 @@
                                             <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
                                             <small class="d-block text-muted" style="font-size:.7em;">{{ tarefa.prazo|date('d/m/Y') }}</small>
                                         {% else %}
-                                            —
+                                            <span class="text-muted small">Sem prazo</span>
                                         {% endif %}
                                     </span>
                                 </div>

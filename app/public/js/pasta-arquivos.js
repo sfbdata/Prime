@@ -692,7 +692,7 @@
             }).catch(function (err) {
                 houveErro = true;
                 uploadProg.classList.add('bg-danger');
-                uploadNome.textContent = '✗ ' + file.name + ' — ' + err.message;
+                uploadNome.textContent = '✗ ' + file.name + ': ' + err.message;
             }).then(function () { i++; proximo(); });
         }
         proximo();

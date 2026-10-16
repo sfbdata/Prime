@@ -1959,7 +1959,7 @@
 
         clearTimeout(r.temporizador);
         if (acima) {
-            r.aviso.textContent = 'Acima do limite de ' + formatarNumero(MAX_CARACTERES) + ' caracteres — reduza '
+            r.aviso.textContent = 'Acima do limite de ' + formatarNumero(MAX_CARACTERES) + ' caracteres. Reduza '
                 + formatarNumero(n - MAX_CARACTERES) + ' para salvar.';
         } else if (cortou) {
             r.aviso.textContent = 'Limite de ' + formatarNumero(MAX_CARACTERES) + ' caracteres atingido: o excedente não foi inserido.';

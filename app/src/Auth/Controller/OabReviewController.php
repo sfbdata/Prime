@@ -115,7 +115,7 @@ final class OabReviewController extends AbstractController
         if ($resultado === null) {
             $this->addFlash('erro', 'Usuário sem número de OAB para verificar.');
         } else {
-            $this->addFlash('info', 'Verificação executada. Backend automático indisponível — status permanece não verificado.');
+            $this->addFlash('info', 'Verificação executada. Backend automático indisponível, o status permanece não verificado.');
         }
 
         return $this->redirectParaLista($request);

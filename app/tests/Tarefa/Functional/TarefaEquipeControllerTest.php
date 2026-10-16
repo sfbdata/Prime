@@ -169,7 +169,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/tarefas/equipe', ['status' => 'ativas', 'responsavel' => $fulano->getId()]);
 
         self::assertEqualsCanonicalizing(['Meta pendente', 'Meta em revisão'], $this->titulos($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas ativas — Fulano de Tal');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas ativas: Fulano de Tal');
     }
 
     #[TestDox('status=vencidas lista ativas com prazo passado e IGNORA o período')]
@@ -196,7 +196,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
 
         self::assertEqualsCanonicalizing(['Vencida antiga', 'Vencida recente'], $this->titulos($crawler));
         $titulo = $crawler->filter('[data-equipe-titulo]')->text();
-        self::assertStringContainsString('Metas vencidas — Fulano de Tal', $titulo);
+        self::assertStringContainsString('Metas vencidas: Fulano de Tal', $titulo);
         self::assertStringNotContainsString('·', $titulo, 'Vencidas não têm recorte de período, o título não pode sugerir um.');
     }
 
@@ -253,7 +253,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         ]);
 
         self::assertSame(['Criada em 2020'], $this->titulos($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas — Fulano de Tal · 01/01/2020–31/01/2020');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas: Fulano de Tal · 01/01/2020 a 31/01/2020');
     }
 
     #[TestDox('Sem responsável, a lista cobre a equipe toda e cada meta aparece uma vez')]

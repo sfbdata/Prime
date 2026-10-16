@@ -550,7 +550,7 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         self::assertSame('Responsáveis', $resp($dupla)->attr('title'));
         self::assertSame((string) $user->getFullName(), trim($resp($sozinha)->text()));
         self::assertSame('Responsável', $resp($sozinha)->attr('title'));
-        self::assertSame('—', trim($resp($semNinguem)->text()), 'sem responsável, o traço de sempre');
+        self::assertSame('Não informado', trim($resp($semNinguem)->text()), 'sem responsável, o texto discreto');
     }
 
     #[TestDox('PMC-036 cross-tenant: na pasta de B, os nomes dos responsáveis das metas de A não aparecem')]

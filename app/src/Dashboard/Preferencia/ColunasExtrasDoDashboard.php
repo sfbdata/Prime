@@ -58,7 +58,7 @@ final class ColunasExtrasDoDashboard
             'rotulo' => 'Taxa de conclusão',
             'ajuda'  => 'Concluídas ÷ total de metas',
             'tipo'   => self::TIPO_PCT,
-            'nota'   => 'Sem meta no período, não há taxa (—).',
+            'nota'   => 'Sem meta no período, não há taxa (aparece como Sem dado).',
         ],
         self::METAS_REVISAO => [
             'rotulo' => 'Em revisão',

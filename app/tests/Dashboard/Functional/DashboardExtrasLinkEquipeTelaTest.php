@@ -332,8 +332,8 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
         // "—" nunca é link
         foreach ([[$bruno, 'Bruno Extra', 'tempo_medio'], [$carla, 'Carla Sem Meta', 'taxa_conclusao'], [$carla, 'Carla Sem Meta', 'tempo_medio']] as [$linha, $nome, $coluna]) {
             $celula = $linha->filter('td[data-coluna="' . $coluna . '"]');
-            self::assertSame('—', trim($celula->text()), sprintf('%s de %s', $coluna, $nome));
-            self::assertCount(0, $celula->filter('a'), sprintf('"—" de %s em %s não é link', $nome, $coluna));
+            self::assertSame('Sem dado', trim($celula->text()), sprintf('%s de %s', $coluna, $nome));
+            self::assertCount(0, $celula->filter('a'), sprintf('"Sem dado" de %s em %s não é link', $nome, $coluna));
         }
 
         // 0% não é link, como o desenho (celulaLink: zero sem href), mesmo com meta no período

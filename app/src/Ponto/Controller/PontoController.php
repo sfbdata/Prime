@@ -1062,7 +1062,7 @@ final class PontoController extends AbstractController
 
         foreach ($folhaRows as $row) {
             $row['horasTrabalhadas'] = $this->formatarMinutos($row['minutosTrabalhadosDia'] ?? null);
-            $row['horasExtras']      = ($row['saldoDia'] ?? 0) > 0 ? $this->formatarMinutos($row['saldoDia']) : '–';
+            $row['horasExtras']      = ($row['saldoDia'] ?? 0) > 0 ? $this->formatarMinutos($row['saldoDia']) : 'Sem dado';
             $row['bancoHoras']       = $this->formatarSaldo($row['saldoAcumulado'] ?? null);
             $rowsProcessados[]       = $row;
 
@@ -1181,12 +1181,12 @@ final class PontoController extends AbstractController
         $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),
             $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
-            $tenant?->getComplemento() ? ' – ' . $tenant->getComplemento() : null,
+            $tenant?->getComplemento() ? ', ' . $tenant->getComplemento() : null,
         ]);
         $cidadeEstado = trim(
-            ($tenant?->getBairro() ? $tenant->getBairro() . ' – ' : '')
+            ($tenant?->getBairro() ? $tenant->getBairro() . ', ' : '')
             . ($tenant?->getCidade() ?? '')
-            . ($tenant?->getEstado() ? ' – ' . $tenant->getEstado() : '')
+            . ($tenant?->getEstado() ? '/' . $tenant->getEstado() : '')
         );
         $cep = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
 
@@ -1227,7 +1227,7 @@ final class PontoController extends AbstractController
             'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
             'horasACompensar'         => ($saldoBancoAtualMinutos !== null && $saldoBancoAtualMinutos < 0)
                 ? $this->formatarMinutos(abs($saldoBancoAtualMinutos))
-                : '–',
+                : 'Sem dado',
             'feriadosTrabalhados'     => $feriadosTrabalhados,
             'finaisSemanasTrabalhados' => $finaisSemanasTrabalhados,
             'intrajornadaConforme'    => $intrajornadaConforme,
@@ -1260,7 +1260,7 @@ final class PontoController extends AbstractController
     private function formatarMinutos(int|null $minutos): string
     {
         if ($minutos === null || $minutos === 0) {
-            return '–';
+            return 'Sem dado';
         }
 
         $abs = abs($minutos);
@@ -1271,7 +1271,7 @@ final class PontoController extends AbstractController
     private function formatarSaldo(int|null $minutos): string
     {
         if ($minutos === null) {
-            return '–';
+            return 'Sem dado';
         }
 
         $abs  = abs($minutos);

@@ -95,11 +95,11 @@ final class ListarMetasDaEquipeUseCaseTest extends TestCase
         self::assertSame($this->referencia, $capturado['ref']);
         self::assertSame(3, $out->total);
         // Vencidas não usam período: nem no título, nem nos links.
-        self::assertSame('Metas vencidas — Fulano de Tal', $out->titulo);
+        self::assertSame('Metas vencidas: Fulano de Tal', $out->titulo);
         self::assertSame(['status' => 'vencidas', 'responsavel' => '7'], $out->filtros);
     }
 
-    #[TestDox('Título com período no ano corrente usa dd/mm (ex.: "Metas ativas — Fulano · 01/09–30/09")')]
+    #[TestDox('Título com período no ano corrente usa dd/mm (ex.: "Metas ativas: Fulano · 01/09 a 30/09")')]
     public function testTituloComPeriodo(): void
     {
         $capturado = [];
@@ -112,7 +112,7 @@ final class ListarMetasDaEquipeUseCaseTest extends TestCase
             'status' => 'ativas', 'responsavel' => '7', 'data_de' => '2026-09-01', 'data_ate' => '2026-09-30',
         ]);
 
-        self::assertSame('Metas ativas — Fulano · 01/09–30/09', $out->titulo);
+        self::assertSame('Metas ativas: Fulano · 01/09 a 30/09', $out->titulo);
         self::assertSame(['data_de' => '2026-09-01', 'data_ate' => '2026-09-30'], $capturado['filtros']);
     }
 

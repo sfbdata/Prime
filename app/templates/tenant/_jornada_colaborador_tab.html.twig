@@ -279,8 +279,8 @@
         const linhas = jornada.blocos.map(b => {
             const dias = (b.diasSemana || []).map(d => diasNomes[d] || d).join(', ');
             const horario = b.repouso
-                ? `${b.entrada}–${b.repouso} / ${b.retorno}–${b.saida}`
-                : `${b.entrada}–${b.saida}`;
+                ? `${b.entrada} às ${b.repouso} / ${b.retorno} às ${b.saida}`
+                : `${b.entrada} às ${b.saida}`;
             return `${dias}: ${horario} (${toHHMM(b.minutosBloco)}/dia)`;
         });
 

@@ -59,7 +59,7 @@ final class PastaExploradorLimpezaTest extends TestCase
         return substr($js, $ini, $fim - $ini);
     }
 
-    #[TestDox('rótulo honesto (S-4): "Sugestões de limpeza — por regras", sem bi-stars, sem ✦, sem "IA" — nem no HTML da faixa nem no JS')]
+    #[TestDox('rótulo honesto (S-4): "Sugestões de limpeza (por regras)", sem bi-stars, sem ✦, sem "IA" — nem no HTML da faixa nem no JS')]
     public function testRotuloHonesto(): void
     {
         $twig = $this->twig();
@@ -67,7 +67,7 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertNotFalse($ini);
         $faixa = substr($twig, $ini, strpos($twig, '{# A lista é o alvo do teclado', $ini) - $ini);
 
-        self::assertStringContainsString('Sugestões de limpeza — por regras', $faixa);
+        self::assertStringContainsString('Sugestões de limpeza (por regras)', $faixa);
         self::assertStringContainsString('aria-label="Sugestões de limpeza por regras"', $faixa);
         self::assertStringContainsString('Não é inteligência artificial.', $faixa, 'o título explica que são regras');
         self::assertStringNotContainsString('bi-stars', $faixa);

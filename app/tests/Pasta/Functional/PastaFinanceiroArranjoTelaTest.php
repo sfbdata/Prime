@@ -316,7 +316,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        self::assertSame('—', trim($crawler->filter('#financeiro-media-cpf')->text()));
+        self::assertSame('Sem dado', trim($crawler->filter('#financeiro-media-cpf')->text()));
         self::assertStringContainsString(
             'Vincule o cliente',
             $crawler->filter('.ps-fin-faixa')->text(),
@@ -454,7 +454,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        self::assertSame('—', trim($crawler->filter('#financeiro-valor-causa')->text()));
+        self::assertSame('Sem dado', trim($crawler->filter('#financeiro-valor-causa')->text()));
     }
 
     #[TestDox('Os honorários contratuais são editáveis na própria tela, com token CSRF e rota de gravação')]

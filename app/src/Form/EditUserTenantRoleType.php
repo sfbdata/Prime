@@ -39,7 +39,7 @@ class EditUserTenantRoleType extends AbstractType
                 'label'        => 'Cargo',
                 'choices'      => $options['tenant_cargos'],
                 'choice_label' => 'nome',
-                'placeholder'  => '— Nenhum —',
+                'placeholder'  => 'Nenhum',
                 'required'     => false,
                 'attr'         => ['class' => 'form-select'],
             ])
@@ -48,7 +48,7 @@ class EditUserTenantRoleType extends AbstractType
                 'label'        => 'Lotação',
                 'choices'      => $options['tenant_lotacoes'],
                 'choice_label' => 'nome',
-                'placeholder'  => '— Nenhuma —',
+                'placeholder'  => 'Nenhuma',
                 'required'     => false,
                 'attr'         => ['class' => 'form-select'],
             ])

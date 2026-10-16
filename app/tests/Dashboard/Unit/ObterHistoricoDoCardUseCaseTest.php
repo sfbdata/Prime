@@ -148,7 +148,7 @@ final class ObterHistoricoDoCardUseCaseTest extends TestCase
         $o = $this->opcao($useCase->executar($this->tenant, 'pastas', $this->referencia)->opcoes, '2024');
 
         self::assertNotContains(true, array_column($o['barras'], 'melhor'));
-        self::assertSame(['rotulo' => 'Melhor', 'valor' => '0', 'sub' => '—', 'tom' => 'neutro'], $o['stats'][1]);
+        self::assertSame(['rotulo' => 'Melhor', 'valor' => '0', 'sub' => 'Sem dado', 'tom' => 'neutro'], $o['stats'][1]);
         self::assertSame('N/D', $o['stats'][2]['valor']);
         self::assertSame('0', $o['stats'][0]['valor']);
     }

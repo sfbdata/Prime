@@ -111,7 +111,7 @@
                         data-acao="quitacao"
                         data-pagamento-id="{{ linha.id }}"
                         data-csrf="{{ csrf_token('pasta_pagamento_quitacao_' ~ linha.id) }}"
-                        title="{{ linha.pago ? 'Pago — clique para desfazer o recebimento' : 'Clique para marcar como recebido' }}">{{ linha.estado }}</button>
+                        title="{{ linha.pago ? 'Pago. Clique para desfazer o recebimento' : 'Clique para marcar como recebido' }}">{{ linha.estado }}</button>
                 {% else %}
                 {# Sem escrita: o mesmo selo, só o estado. #}
                 <span class="ps-selo ps-selo--{{ linha.tom }} ps-pag-selo" style="cursor: default;">{{ linha.estado }}</span>

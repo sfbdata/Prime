@@ -34,7 +34,7 @@ final class PastaTimelineAssemblerZipTest extends TestCase
 
         self::assertCount(1, $itens);
         self::assertSame('Documentos baixados em .zip', $itens[0]->titulo);
-        self::assertSame('3 arquivo(s) — 1 não encontrado(s) no armazenamento', $itens[0]->detalhe);
+        self::assertSame('3 arquivo(s) (1 não encontrado(s) no armazenamento)', $itens[0]->detalhe);
         self::assertSame('bi-file-earmark-zip', $itens[0]->icone);
         self::assertSame('text-bg-secondary', $itens[0]->badgeCss);
         self::assertSame('ana@escritorio.com', $itens[0]->autorEmail);
