@@ -148,8 +148,8 @@ ainda precisa do smoke do dono** (a suíte não vê cor, fonte nem posição fin
 | 1 | Trilho 290px, recolhido 64px | ✓ |
 | 2 | "Todas as pastas" 42px com ↻ que gira, efeito de busca e aviso "Lista atualizada" | ✓ |
 | 3 | EXPEDIENTES com cadeado e 6 filtros com contagem; ativo azul; "Prazo findou" vermelho com pasta | ✓ |
-| 4 | Audiência | ≈ desativado "em breve" (sem dado de audiência ligado à pasta) |
-| 5 | Protocolar | ≈ desativado "em breve" (decisão do dono) |
+| 4 | Audiência | ✓ E12b: conta as audiências registradas em "Próximos prazos" da pasta (§9) |
+| 5 | Protocolar | ✓ E12b: conta pela fase Protocolo do andamento da pasta (§9) |
 | 6 | Botão direito no filtro do sistema abre a nota | ✓ (texto conta o que a regra realmente faz) |
 | 7 | ⋮ de MARCADORES: Novo, Ver todas, Recolher/Expandir; recolher no meio do cabeçalho | ✓ |
 | 8 | Marcador: seta dos submarcadores, pasta na cor, ⋮ no hover, contagem do pai somando os filhos | ✓ (pastas distintas: a pasta pode ter vários marcadores) |
@@ -187,3 +187,28 @@ filtros do sistema com contagem, menus de Situação/Responsável/Prioridade, Vi
 colunas e CSV, botão direito da linha (F2, trancar como administrador e como colaborador, destacar), janela de
 sigilo e Pedir acesso (o sino do administrador), Nova Pasta. O teste visual de Playwright da E8d
 (`e2e/tests/expediente-lista-visual.spec.js`) mirava o trilho antigo e precisa ser revisto junto com o smoke.
+
+## 9. E12b (16/10): Audiência e Protocolar de verdade
+
+Pedido do dono: "faça e deixe tudo pronto". No desenho da Lista os dois filtros leem o que a tela da Pasta grava
+(desenho 02, `bj-pz-manual-v1` e `bj-pasta-fases`). Então entraram, na Pasta, as duas funções do desenho de onde
+eles vêm. Feito nesta sessão, com a outra sessão (auditoria da pasta_show, plano P1-4) fora desses itens.
+
+**Prazos e audiências** (`13aa6645`): entidade `PastaPrazo`; painel "Próximos prazos" junta prazos manuais (origem
+Manual) e metas abertas com prazo (origem Meta), mostra 8 e conta todos; "+" abre "Novo prazo ou audiência"
+(Prazo/Audiência, descrição, data, hora opcional, responsável em texto livre); no ⋮ dos manuais, Marcar como
+cumprido, Editar e Excluir (sem confirmação, como o desenho); textos do selo do desenho ("Hoje", "Faltam N dias",
+"Vencido há N dias"); cartão do sistema no Registro ("Prazo: Audiência agendada: …"). Filtros da Lista: Audiência,
+Com prazo, Prazo findou e Respondidos passam a contar os prazos manuais.
+
+**Andamento da pasta** (`66f1a1cd`): entidade `PastaAndamento` (uma linha por pasta e via); trilha de 10 fases sob o
+nome (judicial ou administrativa); fase estimada quando não há andamento; clique pergunta na janela da tela com os
+textos do desenho e grava (avançar, voltar, pular em vermelho, finalizar, reativar); faixa "Avançar para X?" com
+Avançar e Ignorar; cartão "Andamento: …" no Registro; contrato: alcançar Contrato marca o contrato como regular,
+voltar o reabre, e marcar regular no Financeiro leva a pasta até Contrato. "Administrativo sem processo" já existia
+(campo `administrativa`): agora troca a trilha e registra no Registro. Filtro Protocolar: pasta ativa, não
+administrativa, que não passou por Protocolo (com processo vinculado e sem andamento, conta como já protocolada).
+
+**Fora, sem lastro hoje:** prazos lidos do Push e das datas escritas nos registros (o desenho tem um leitor de
+datas com dias úteis; o servidor não tem); sugestão de fase por "documentos novos anexados"; "Encaminhar via Chat
+I.A." e "Alertar" no prazo manual (o responsável é texto livre, não colaborador).
