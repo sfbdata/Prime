@@ -17,6 +17,7 @@ use App\Processo\Service\DatajudClient;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -166,42 +167,75 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('TJSP', $payload['error'], 'a mensagem cita o tribunal detectado');
     }
 
-    #[TestDox('Zero resultados com DV VÁLIDO não culpa o usuário: explica o atraso da base do CNJ')]
-    public function testNaoEncontradoComDigitoVerificadorValidoExplicaAtrasoDaBase(): void
+    #[TestDox('DV válido sem nenhum processo mais novo do foro na base: explica o atraso e manda preencher à mão')]
+    public function testNaoEncontradoSemPosterioresExplicaAtrasoDaBase(): void
     {
-        $client = static::createClient();
-        $client->disableReboot();
-        $tenant = $this->criarTenant();
-        $gestor = $this->criarGestor($tenant, 'gestorDvOk_' . uniqid() . '@test.com');
-        $this->limparIdentityMap();
-        $this->logarComTenant($client, $gestor, $tenant);
+        // Caso real de 15/10/2026: distribuído em 01/10, base carregada até 16/09.
+        $erro = $this->erroDeBuscaNaoEncontrada('0709212-73.2026.8.07.0017', posteriores: 0);
 
-        $mock = $this->createMock(DatajudClient::class);
-        $mock->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => []]]);
-        static::getContainer()->set(DatajudClient::class, $mock);
-
-        $client->request(
-            'POST',
-            '/processos/api/search',
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            // Caso real que originou esta distinção: número do TJDFT com DV correto (84) que a
-            // base pública do CNJ ainda não tinha publicado.
-            (string) json_encode(['numeroProcesso' => '0782731-84.2026.8.07.0016']),
-        );
-
-        self::assertResponseStatusCodeSame(404);
-        $erro = json_decode((string) $client->getResponse()->getContent(), true)['error'];
         self::assertStringContainsString('TJDFT', $erro, 'a mensagem cita o tribunal detectado');
         self::assertStringContainsString('válido', $erro, 'precisa dizer que o número está certo');
         self::assertStringContainsString('atraso', $erro, 'precisa explicar o atraso da base pública');
-        self::assertStringContainsString('segredo de justiça', $erro, 'precisa citar a outra causa possível');
-        self::assertStringNotContainsString(
-            'Confira o número digitado',
-            $erro,
-            'número com DV correto NÃO pode mandar o usuário conferir a digitação'
+        self::assertStringContainsString('preencha os dados manualmente', $erro);
+        self::assertStringNotContainsString('segredo de justiça', $erro, 'com zero posteriores a causa é o atraso, não o sigilo');
+        self::assertStringNotContainsString('Confira o número digitado', $erro);
+    }
+
+    #[TestDox('DV válido com muitos processos mais novos do foro na base: sigilo ou arquivamento, não adianta esperar')]
+    public function testNaoEncontradoComMuitosPosterioresApontaSigiloOuArquivamento(): void
+    {
+        // Caso real de 15/10/2026: vara de família do Guará, 466 posteriores na base.
+        $erro = $this->erroDeBuscaNaoEncontrada('0708037-58.2023.8.07.0014', posteriores: 50);
+
+        self::assertStringContainsString('TJDFT', $erro);
+        self::assertStringContainsString('segredo de justiça', $erro);
+        self::assertStringContainsString('arquivados', $erro);
+        self::assertStringContainsString('não vai aparecer', $erro, 'precisa dizer que esperar não resolve');
+        self::assertStringContainsString('preencha os dados manualmente', $erro);
+        self::assertStringNotContainsString('tente', $erro, 'mandar tentar de novo seria conselho errado aqui');
+    }
+
+    #[TestDox('DV válido com poucos posteriores (borda do corte) usa a mensagem que cobre as duas causas')]
+    public function testNaoEncontradoComPoucosPosterioresCobreAsDuasCausas(): void
+    {
+        // Caso real: em 15/10/2026 o 0782731 tinha 1 posterior na base, abaixo da margem.
+        $erro = $this->erroDeBuscaNaoEncontrada('0782731-84.2026.8.07.0016', posteriores: 1);
+
+        self::assertStringContainsString('atraso', $erro);
+        self::assertStringContainsString('segredo de justiça', $erro);
+        self::assertStringContainsString('Preencha os dados manualmente', $erro);
+    }
+
+    #[TestDox('Se a contagem de posteriores falhar, a busca não quebra: cai na mensagem que cobre as duas causas')]
+    public function testNaoEncontradoComFalhaNaContagemCobreAsDuasCausas(): void
+    {
+        $erro = $this->erroDeBuscaNaoEncontrada(
+            '0708037-58.2023.8.07.0014',
+            posteriores: new ConsultaDatajudException(MotivoFalhaDatajud::Timeout, 'timeout'),
         );
+
+        self::assertStringContainsString('atraso', $erro);
+        self::assertStringContainsString('segredo de justiça', $erro);
+        self::assertStringContainsString('Preencha os dados manualmente', $erro);
+    }
+
+    /** @return iterable<string, array{string, int}> */
+    public static function casosDeNaoEncontrado(): iterable
+    {
+        yield 'atraso da base' => ['0709212-73.2026.8.07.0017', 0];
+        yield 'sigilo ou arquivamento' => ['0708037-58.2023.8.07.0014', 50];
+        yield 'borda do corte' => ['0782731-84.2026.8.07.0016', 1];
+        yield 'DV inválido' => ['0782731-85.2026.8.07.0016', 0];
+    }
+
+    #[DataProvider('casosDeNaoEncontrado')]
+    #[TestDox('Nenhuma mensagem de "não encontrado" usa travessão ($_dataName)')]
+    public function testMensagensDeNaoEncontradoNaoUsamTravessao(string $numero, int $posteriores): void
+    {
+        $erro = $this->erroDeBuscaNaoEncontrada($numero, $posteriores);
+
+        self::assertStringNotContainsString('—', $erro);
+        self::assertStringNotContainsString('–', $erro);
     }
 
     #[TestDox('Zero resultados com DV INVÁLIDO aponta o erro de digitação (e diz que o DV não confere)')]
@@ -216,6 +250,8 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
 
         $mock = $this->createMock(DatajudClient::class);
         $mock->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => []]]);
+        // DV errado já explica a ausência: não gasta a segunda consulta ao CNJ.
+        $mock->expects(self::never())->method('contarPosterioresNoForo');
         static::getContainer()->set(DatajudClient::class, $mock);
 
         $client->request(
@@ -233,6 +269,7 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('TJDFT', $erro, 'a mensagem cita o tribunal detectado');
         self::assertStringContainsString('Confira o número digitado', $erro);
         self::assertStringContainsString('dígito verificador', $erro, 'precisa dizer POR QUE suspeitamos da digitação');
+        self::assertStringContainsString('preencha os dados manualmente', $erro, 'se o número estiver certo, há saída');
         self::assertStringNotContainsString(
             'atraso',
             $erro,
@@ -874,5 +911,39 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $processo;
+    }
+
+    /**
+     * Busca um número que o CNJ não encontra e devolve a mensagem de erro (status 404 garantido).
+     *
+     * @param int|\Throwable $posteriores resposta simulada da contagem de processos mais novos do foro
+     */
+    private function erroDeBuscaNaoEncontrada(string $numero, int|\Throwable $posteriores): string
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorNaoEnc_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $mock = $this->createMock(DatajudClient::class);
+        $mock->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => []]]);
+        $contagem = $mock->method('contarPosterioresNoForo');
+        $posteriores instanceof \Throwable ? $contagem->willThrowException($posteriores) : $contagem->willReturn($posteriores);
+        static::getContainer()->set(DatajudClient::class, $mock);
+
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['numeroProcesso' => $numero]),
+        );
+
+        self::assertResponseStatusCodeSame(404);
+
+        return json_decode((string) $client->getResponse()->getContent(), true)['error'];
     }
 }

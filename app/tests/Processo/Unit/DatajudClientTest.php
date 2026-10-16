@@ -179,4 +179,51 @@ final class DatajudClientTest extends TestCase
             self::assertSame(MotivoFalhaDatajud::RespostaInvalida, $e->getMotivo());
         }
     }
+
+    #[TestDox('A contagem de posteriores filtra pelo mesmo ano e foro e pelo sequencial maior, parando no limite')]
+    public function testContarPosterioresFiltraMesmoForoESequencialMaior(): void
+    {
+        $capturado = ['url' => null, 'body' => null];
+        $mockClient = new MockHttpClient(function (string $method, string $url, array $options) use (&$capturado): MockResponse {
+            $capturado['url'] = $url;
+            $capturado['body'] = $options['body'] ?? null;
+
+            return new MockResponse((string) json_encode(['hits' => ['total' => ['value' => 50, 'relation' => 'gte'], 'hits' => []]]));
+        });
+        $client = new DatajudClient($mockClient, 'chave-fake', self::BASE_URL, new TribunalCnjResolver());
+
+        // Caso real de 15/10/2026: vara de família do Guará (foro 0014), segredo de justiça.
+        $total = $client->contarPosterioresNoForo('0708037-58.2023.8.07.0014', 50);
+
+        self::assertSame(50, $total);
+        self::assertSame(self::BASE_URL . '/api_publica_tjdft/_search', $capturado['url']);
+
+        $payload = json_decode((string) $capturado['body'], true);
+        self::assertSame(0, $payload['size'], 'só a contagem interessa, não os documentos');
+        self::assertSame(50, $payload['track_total_hits'], 'a contagem para no limite');
+        self::assertSame(
+            [
+                ['wildcard' => ['numeroProcesso' => '*20238070014']],
+                ['range' => ['numeroProcesso' => ['gt' => '07080375820238070014']]],
+            ],
+            $payload['query']['bool']['filter'],
+            'mesmo ano + justiça + tribunal + foro, e sequencial maior que o procurado'
+        );
+    }
+
+    #[TestDox('Contagem sem hits.total na resposta vira RespostaInvalida (não zero, que mudaria a mensagem)')]
+    public function testContarPosterioresSemTotalViraRespostaInvalida(): void
+    {
+        $mockClient = new MockHttpClient(
+            fn (): MockResponse => new MockResponse((string) json_encode(['hits' => ['hits' => []]]))
+        );
+        $client = new DatajudClient($mockClient, 'chave-fake', self::BASE_URL, new TribunalCnjResolver());
+
+        try {
+            $client->contarPosterioresNoForo('0708037-58.2023.8.07.0014', 50);
+            self::fail('deveria ter lançado ConsultaDatajudException');
+        } catch (ConsultaDatajudException $e) {
+            self::assertSame(MotivoFalhaDatajud::RespostaInvalida, $e->getMotivo());
+        }
+    }
 }
