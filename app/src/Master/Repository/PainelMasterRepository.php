@@ -35,11 +35,13 @@ final class PainelMasterRepository
     /**
      * Tabelas com tamanho de arquivo no banco: [tabela, coluna do tamanho, coluna da data, SQL do tenant, filtro extra].
      * Justificativa de ponto e anexo de tarefa NÃO têm tamanho gravado: ficam fora (o painel diz "não medido").
+     * `documento_processo` também fica fora: a tabela não tem escritor (vazia em produção) e citar ela
+     * derruba `DocumentoProcessoSemEscritorTest`, a guarda que obriga rever a purga no dia em que
+     * alguém passar a gravar nela. Quando isso acontecer, ela entra aqui junto.
      */
     private const TABELAS_DE_ARQUIVO = [
         ['pasta_documento', 'tamanho_bytes', 'uploaded_at', 'x.tenant_id', 'x.excluido_em IS NULL'],
         ['cliente_documento', 'tamanho_bytes', 'uploaded_at', 'x.tenant_id', null],
-        ['documento_processo', 'tamanho', 'criado_em', 'x.tenant_id', null],
         ['cobranca_documento', 'tamanho_bytes', 'uploaded_at', 'x.tenant_id', null],
         ['cobranca_carteira_documento', 'tamanho_bytes', 'uploaded_at', 'x.tenant_id', null],
         ['cobranca_acordo_documento', 'tamanho_bytes', 'uploaded_at', 'x.tenant_id', null],

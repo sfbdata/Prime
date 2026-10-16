@@ -54,7 +54,7 @@ poder global do Master, suspensão e exclusão de conta) · aberta em 16/10/2026
   `UserTenant.lotacao/lastLoginAt/isActive/createdAt`, `Tenant.cidade/estado/createdAt/isActive/criadoPor`,
   pastas, `audit_log` (cross-tenant, sem filtro de tenant).
 - Bytes armazenados: `pasta_documento.tamanho_bytes` (fora da lixeira), `cliente_documento.tamanho_bytes`,
-  `documento_processo.tamanho`, `cobranca_documento` / `cobranca_carteira_documento` /
+  `cobranca_documento` / `cobranca_carteira_documento` /
   `cobranca_acordo_documento.tamanho_bytes`, `chamado_anexo.tamanho` (via `chamado.tenant_id`),
   `kanban_anexo.tamanho` (via card → coluna → board). **Sem tamanho no banco:** justificativa de ponto e
   anexo de tarefa: entram como "não medido".
