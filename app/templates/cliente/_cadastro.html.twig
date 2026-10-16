@@ -8,9 +8,11 @@
    da pendência dele em data-*, para o JS recalcular a cada tecla como o desenho; as de documento chegam prontas.
    Sem permissão de EDITAR o cliente, os campos vêm travados e não há Salvar.
 
-   Contexto: cliente, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
+   Contexto: cliente, novo (Novo cliente: sem id, pela pasta), autores, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
    abaInicial, mostrarOcr, reus (null sem pasta de contexto).
    ============================================================================ #}
+{% set novo = novo ?? false %}
+{% set autores = autores ?? [] %}
 {% set travado = not podeEditar %}
 {% set documento = pf ? cliente.cpf : cliente.cnpj %}
 {% set ROTULO_CIVIL = {SOLTEIRO: 'Solteiro(a)', CASADO: 'Casado(a)', DIVORCIADO: 'Divorciado(a)', SEPARADO: 'Separado(a)', VIUVO: 'Viúvo(a)', UNIAO_ESTAVEL: 'União estável'} %}
@@ -30,14 +32,22 @@
 {% endmacro %}
 {% import _self as f %}
 <div class="cad-veu" data-cad-janela
+     data-url-cadastro="{{ path('cliente_cadastro', {id: 0}) }}"
+     {% if novo %}
+     data-novo="1"
+     data-url-salvar="{{ path('pasta_cadastro_novo_salvar', {id: pasta.id}) }}"
+     data-url-documento="{{ path('pasta_cadastro_novo_documento', {id: pasta.id}) }}"
+     data-csrf="{{ csrf_token('pasta_cadastro_novo_' ~ pasta.id) }}"
+     data-url-janela="{{ path('pasta_cadastro_novo', {id: pasta.id}) }}"
+     {% else %}
      data-url-salvar="{{ path('cliente_cadastro_salvar', {id: cliente.id}) }}"
      data-url-documento="{{ path('cliente_cadastro_documento', {id: cliente.id}) }}"
-     data-url-cadastro="{{ path('cliente_cadastro', {id: 0}) }}"
      data-csrf="{{ csrf_token('cliente_cadastro_' ~ cliente.id) }}"
      data-cliente-id="{{ cliente.id }}"
      data-url-upload="{{ path('cliente_documento_upload', {id: cliente.id}) }}"
      data-csrf-upload="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}"
      data-url-janela="{{ path('cliente_cadastro', {id: cliente.id, pasta: pasta ? pasta.id : null}) }}"
+     {% endif %}
      data-tipo="{{ pf ? 'pf' : 'pj' }}"
      data-pasta="{{ pasta ? pasta.id : '' }}"
      data-tem-fixo="{{ cliente.telefoneFixo ? '1' : '' }}"
@@ -52,7 +62,7 @@
         <header class="cad-topo">
             <span class="cad-topo-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i></span>
             <div class="cad-topo-texto">
-                <div class="cad-topo-nome js-cad-nome">{{ cliente.nomeExibicao|upper }}</div>
+                <div class="cad-topo-nome js-cad-nome">{{ cliente.nomeExibicao ? cliente.nomeExibicao|upper : 'Novo cliente' }}</div>
                 <div class="cad-topo-sub">
                     <span class="js-cad-doc">{{ documento ? documento|documento_br_rotulo ~ ' ' ~ documento|documento_br : (pf ? 'CPF não informado' : 'CNPJ não informado') }}</span>
                     <span class="cad-status js-cad-status"><span class="cad-status-ponto" aria-hidden="true"></span><span class="js-cad-status-texto"></span></span>
@@ -61,13 +71,32 @@
             <button type="button" class="cad-fechar js-cad-fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
         </header>
 
+        {# Seletor de autores (decisão do dono, E12i): os clientes da pasta; clicar troca de cadastro sem fechar a
+           janela (com alteração não salva, pede para salvar antes). "Novo autor" abre um cadastro novo ligado à pasta. #}
+        {% if pasta and (autores|length > 1 or (podeVincular and autores is not empty)) %}
+            <div class="cad-autores" role="group" aria-label="Autores da pasta">
+                <span class="cad-autores-rotulo">Autores</span>
+                {% for a in autores %}
+                    <button type="button" class="cad-autor js-cad-autor{{ not novo and a.id == cliente.id ? ' is-ativo' : '' }}"
+                            data-url="{{ path('cliente_cadastro', {id: a.id, pasta: pasta.id}) }}"
+                            {% if not novo and a.id == cliente.id %}aria-current="true"{% endif %}>
+                        {{ a.nome|upper }}{% if a.principal %}<span class="cad-autor-tag">Principal</span>{% endif %}
+                    </button>
+                {% endfor %}
+                {% if podeVincular %}
+                    <button type="button" class="cad-autor cad-autor--novo js-cad-autor{{ novo ? ' is-ativo' : '' }}"
+                            data-url="{{ path('pasta_cadastro_novo', {id: pasta.id, autor: 1}) }}"><i class="bi bi-plus-lg" aria-hidden="true"></i>Novo autor</button>
+                {% endif %}
+            </div>
+        {% endif %}
+
         <nav class="cad-abas" role="tablist">
             {% for aba in [
                 {k: 'pessoais', rotulo: pf ? 'Cliente' : 'Empresa', icone: 'bi-person'},
                 {k: 'reu',      rotulo: 'Réu',      icone: 'bi-person-x', so: reus is not null},
                 {k: 'endereco', rotulo: 'Endereço', icone: 'bi-geo-alt'},
                 {k: 'contato',  rotulo: 'Contato',  icone: 'bi-telephone'},
-                {k: 'docs',     rotulo: 'Documentos', icone: 'bi-paperclip'},
+                {k: 'docs',     rotulo: 'Documentos', icone: 'bi-paperclip', so: not novo},
                 {k: 'qual',     rotulo: 'Qualificação', icone: 'bi-file-text'},
             ]|filter(a => a.so ?? true) %}
                 <button type="button" class="cad-aba{{ aba.k == abaInicial ? ' is-ativa' : '' }}" role="tab" data-cad-aba="{{ aba.k }}"
@@ -79,6 +108,16 @@
 
         <form class="cad-corpo" novalidate>
             <section class="cad-painel cad-grade" data-cad-painel="pessoais"{{ abaInicial != 'pessoais' ? ' hidden' : '' }}>
+                {% if novo and podeEditar %}
+                    {# Novo cadastro: pessoa física ou empresa (a janela adaptada para PJ, decisão do dono). #}
+                    <div class="cad-campo cad-campo--6 cad-tipo" role="radiogroup" aria-label="Tipo de cliente">
+                        {% for t in [{v: 'pf', rotulo: 'Pessoa física'}, {v: 'pj', rotulo: 'Empresa'}] %}
+                            <button type="button" class="cad-tipo-op js-cad-tipo{{ (t.v == 'pf') == pf ? ' is-ativo' : '' }}" role="radio"
+                                    aria-checked="{{ (t.v == 'pf') == pf ? 'true' : 'false' }}"
+                                    data-url="{{ path('pasta_cadastro_novo', {id: pasta.id, tipo: t.v, autor: app.request.query.get('autor')}) }}">{{ t.rotulo }}</button>
+                        {% endfor %}
+                    </div>
+                {% endif %}
                 {% if pf %}
                     {{ f.campo('Nome completo', 'nome', cliente.nomeCompleto, 6, {obrig: 'Nome completo não informado', travado: travado, maxlength: 150}) }}
                     <label class="cad-campo cad-campo--2">
@@ -202,6 +241,7 @@
             {# Aba Documentos (desenho 1.2.3, L.736-810; E12f fatia 3b): os dois anexos que o cadastro cobra. As ações
                usam as rotas de documento de cliente que já existem (enviar, ver, baixar, excluir), que conferem a
                permissão de EDITAR o cliente e o CSRF. "Substituir" envia o novo e só depois exclui o antigo. #}
+            {% if not novo %}
             <section class="cad-painel" data-cad-painel="docs"{{ abaInicial != 'docs' ? ' hidden' : '' }}>
                 {% for cat, info in {
                     IDENTIFICACAO: {titulo: 'Documento de identificação', sub: 'CNH ou RG', icone: 'bi-person-badge'},
@@ -247,6 +287,8 @@
                     <input type="file" class="js-cad-doc-arquivo" accept="image/*,.pdf" hidden>
                 {% endif %}
             </section>
+
+            {% endif %}
 
             <section class="cad-painel" data-cad-painel="qual"{{ abaInicial != 'qual' ? ' hidden' : '' }}>
                 <div class="cad-qual js-cad-qual">{{ qualificacao }}</div>
