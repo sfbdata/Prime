@@ -126,3 +126,49 @@
 | **Total** | **39** | **19** | **13** | **71** |
 
 Antes da E8 (o mesmo inventário, sem as marcas da E8): ver `E8-PLANO.md`. Os ∅ seguem na lista com a dependência — nenhum foi descartado.
+
+## 8. Auditoria contra o 1.1 e E8d (15/10/2026)
+
+Auditoria medida no navegador (1.1 lido pelo MCP `claude_design`, idêntico ao pacote local; Playwright a 1440, 1280,
+1024, 768 e 390px). Achou 30 divergências (AUD-01 a AUD-30), 24 delas fora deste checklist. Três ✓ acima estavam
+**errados no papel** e foram corrigidos de fato na E8d: LX-TRI-08 (recolher no topo, não no meio), LX-BAR-13 (o resumo
+mostrava "página de N", não o intervalo) e LX-TAB-01 (ícones e setas do cabeçalho). Decisões do dono de 15/10: faixa de
+filtros e Visualizar no layout 1.1; avatar e responsável do 1.1 **só na Lista**; de 1024 a 1280px nomes legíveis com a
+rolagem só dentro da tabela. Evidência e medidas: `fidelidade-designer-1310.md` §16.
+
+| ID | Divergência | Estado |
+|---|---|---|
+| AUD-01 | Margens laterais 28px (eram 8) | ✓ E8d |
+| AUD-02 | 26px até o título, 18px até o conteúdo (era 0) | ✓ E8d |
+| AUD-03 | Recolher no meio do trilho (top 50%; 172px recolhido) | ✓ E8d |
+| AUD-04 | Itens sem a borda escura de 3px | ✓ E8d |
+| AUD-05 | Itens de peso normal, #243845 | ✓ E8d |
+| AUD-06 | "+" e lápis do dc no hover | ✓ E8d |
+| AUD-07 | "Todas as pastas" bi-folder2, recuos e contagem sem borda | ✓ E8d |
+| AUD-08 | Situação na barra do acervo, com ponto e cores | ✓ E8d (só Ativo/Arquivado, LX-TAB-18) |
+| AUD-09 | Responsável/Prioridade com cara de botão (seta, bandeira, #34505f) | ≈ fechado ✓; a lista aberta é a nativa (o dc abre um pop com avatar e busca) |
+| AUD-10 | Filtro com valor azul-claro | ✓ E8d |
+| AUD-11 | Filtros, Visualizar e paginação na mesma linha; resumo embaixo | ✓ E8d |
+| AUD-12 | "Visualizar" com menu | ✓ E8d (2 modos + painel; "pastas por página" ∅ sem backend) |
+| AUD-13 | Setas da paginação em ícone | ✓ E8d |
+| AUD-14 | Resumo com o intervalo ("1 de 50", "51 de 100") | ✓ E8d |
+| AUD-15 | Título do acervo clicável (volta ao acervo zerado) | ≈ LX-BAR-02: comportamento novo, não pedido |
+| AUD-16 | Datas do período 11 a 13px, #34505f | ✓ E8d |
+| AUD-17 | Ícones do cabeçalho (bi-bank, bi-flag, bi-circle-half) | ✓ E8d |
+| AUD-18 | Setas bi-chevron-expand / caret cheio | ✓ E8d (colunas estreitas: seta só ordenando ou no hover, decisão da E8) |
+| AUD-19 | Ordem padrão (NUP decrescente) marcada | ✓ E8d (+ `aria-sort`) |
+| AUD-20 | Cabeçalho de 40px | ✓ E8d |
+| AUD-21 | SITUAÇÃO centralizada | ✓ E8d |
+| AUD-22 | NUP com 20px | ✓ E8d |
+| AUD-23 | Marcador como cadastrado (sem caixa alta) | ✓ E8d |
+| AUD-24 | Botão de marcador bi-tag branco | ✓ E8d (presente também com marcador: vários marcadores, decisão) |
+| AUD-25 | "Sem responsável": "?" em #eef2f5, nome #62798a | ✓ E8d (só na Lista) |
+| AUD-26 | Iniciais pelas duas primeiras palavras | ✓ E8d (só na Lista) |
+| AUD-27 | Avatar azul sólido | ✓ E8d (só na Lista) |
+| AUD-28 | Menu de botão direito no visual do dc | ✓ E8d (só ações que existem, decisão) |
+| AUD-29 | 1024 a 1280px: nomes legíveis | ✓ E8d (piso 1262px, rolagem só na tabela) |
+| AUD-30 | Rótulo solto no celular | ✓ E8d |
+
+**Placar da auditoria: 28 ✓ · 2 ≈ · 0 em aberto.** As contagens da §7 não mudam (39 · 19 · 13): os itens de lá que
+mexeram eram ✓ no papel (agora de fato) ou seguem ≈ por decisão (LX-BAR-04, LX-BAR-07, LX-BAR-11, LX-TRI-01: o
+trilho aberto passou a 250px, o recolhido segue 52).

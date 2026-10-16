@@ -3,10 +3,156 @@
 > **Para quem:** a próxima sessão do Claude Code que vai continuar esta frente sem ter visto a conversa anterior.
 > **Escrito em:** 14/10/2026, ao fim da E5b; atualizado ao fim da E5c, da E7 e da E8 (mesmo dia) e **salvo inteiro em
 > 15/10/2026** (estado de retomada na §0). Fatos de git, caminhos e contagens conferidos no momento da escrita.
-> **Leia antes de qualquer coisa:** este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
+> **Leia antes de qualquer coisa:** a §R (retomada de 16/10); depois este arquivo; depois `../fidelidade-designer-1310.md` (plano + evidências por entrega);
 > depois o checklist da tela em que for trabalhar.
 
-## 0. Estado de retomada (15/10/2026, fim da E8c) — leia primeiro
+## R. RETOMADA (16/10/2026): leia esta seção primeiro
+
+> Escrita no fim da sessão de 15 e 16/10, ao bater no limite de contexto. Fatos conferidos no momento da escrita.
+> As seções 0 a 12 abaixo continuam válidas (histórico, decisões, comandos); esta seção diz onde parou e o que vem.
+
+### R.1 Estado exato do Git
+
+| Item | Valor |
+|---|---|
+| Worktree | `/home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer` |
+| Branch / HEAD | `fidelidade-designer` @ `9c081725` (37 à frente e 17 atrás de `origin/master`; os 17 são da Engenharia, sem interseção de arquivos conferida em 15/10) |
+| Commits da E8d | `ea60dae2` (7 grupos de correção + PHPUnit) e `9c081725` (Playwright) |
+| **Sem commit (aguarda autorização do dono)** | `docs/specs/fidelidade-designer-1310-checklist-lista.md` (§8 placar AUD), `docs/specs/fidelidade-designer-1310.md` (§16 evidência E8d), `docs/specs/fidelidade-designer-1310/E8-PLANO.md` (smoke S22 a S27), este `HANDOFF.md` (§R e §0) e a pasta nova `docs/specs/fidelidade-designer-1310/evidencias/` (3 PNG lado a lado 1.1 × BlueJus: 1440, 1024, 390) |
+| Nada publicado | push, merge, deploy, tag e CHANGELOG são do dono |
+
+Conferir com `git status --short && git log --oneline -3`. **Não descartar** os docs pendentes: são a evidência da
+E8d. Quando o dono autorizar, um único commit de docs ("Registra a evidência da E8d, o placar da auditoria e o handoff").
+
+### R.2 Entregas E1 a E8d
+
+| Etapa | Tela | Estado | Testado |
+|---|---|---|---|
+| E1 | Dashboard (painel Intelligence) | ✓ feita | suíte + tela |
+| E2, E3, E4 | Pasta (cantos 4px, nota técnica, Financeiro, responsável 170px, situação legível) | ✓ feitas | suíte + tela |
+| E5, E5b, E5c | Minhas Metas | ✓ feitas | suíte + tela |
+| E6 | Pasta (reorganizar cabeçalho) | ⛔ travada por P1 | — |
+| E7 | Pasta (janela de confirmação; Editar dados destravado) | ✓ feita | suíte + tela; **smoke do dono pendente** (`SMOKE-E7.md`) |
+| E8, E8b, E8c | Lista do Expediente | ✓ feitas | suíte completa 9384/9384 no fim da E8c; **smoke do dono pendente** (S1 a S21) |
+| E8d | Lista do Expediente contra o 1.1 (30 divergências AUD; 28 ✓ · 2 ≈) | ✓ feita, código no commit | PHPUnit direcionado 2963/2963 (Expediente + Pasta), Playwright 8/8, 3 mutações pegas, revisão read-only sem bloqueante; **suíte completa ainda não rodada** (interrompida por reinício do WSL); **smoke do dono pendente** (S22 a S27) |
+| E9 Peticionar, E10 Agenda, E11 Perfis | — | não iniciadas; **E9 só com autorização do dono** | — |
+
+### R.3 Ambiente de demonstração (no ar em 16/10, ao escrever)
+
+- `http://127.0.0.1:8000/expediente` (Windows): `php -S` da worktree dentro de `jusprime_php_dev` (porta 8000,
+  `APP_ENV=dev`, banco `saas_ux`) + proxy `smoke-fidelidade-proxy` (alpine/socat) em `127.0.0.1:8000`. IP do
+  container `172.20.0.3`.
+- `http://127.0.0.1:8765/`: protótipo (`python3 -m http.server` em `/home/prime/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/prototipo`).
+- Login de dev `farlei.rocha@gmail.com` / `Prime123!`, escritório "Farlei Assis da Rocha Sociedade Individual de
+  Advocacia"; o aviso do ponto aparece: fechar **sem registrar**.
+- **O WSL reiniciou 3 vezes nesta sessão** e derrubou tudo (containers não sobem sozinhos). Religar: §12 "Smoke pelo
+  navegador do Windows". Outras sessões usam `smoke-demo-proxy` (8001) e demos 8002: **não tocar**. Há outros `php -S`
+  no container que são de outras frentes: ao derrubar o desta, casar o comando completo
+  (`"php -d memory_limit=512M -d upload_max_filesize"*`), não só o prefixo.
+- **Não interromper** a demonstração sem pedido do dono (ele pode estar testando).
+
+### R.4 Testes
+
+- PHPUnit sempre pelo script da frente: `cd /home/prime/projetos/jusprime && scripts/frente-testar.sh fidelidade-designer <alvo>`
+  (o `php bin/phpunit` do container testa o checkout PRINCIPAL). Banco `saas_testfidelidade-designer`.
+- Novos ou alterados na E8d: `app/tests/Expediente/Unit/ExpedienteListaDesenho11FolhaTest.php` (novo, folha),
+  `app/tests/Expediente/Functional/ExpedienteListaDesenhoTelaTest.php` (+3 de disposição),
+  `ExpedienteListaDesenhoFolhaTest.php` (4 atualizados).
+- Playwright da Lista (`e2e/tests/expediente-lista-visual.spec.js`), contra o servidor da worktree, um worker:
+  ```bash
+  cd /home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer/e2e && \
+  NODE_PATH=/home/prime/projetos/jusprime/e2e/node_modules E2E_VISUAL_BASE=http://172.20.0.3:8000 \
+  E2E_VISUAL_EMAIL=farlei.rocha@gmail.com E2E_VISUAL_SENHA='Prime123!' E2E_VISUAL_ESCRITORIO='Farlei Assis da Rocha Sociedade' \
+  /home/prime/projetos/jusprime/e2e/node_modules/.bin/playwright test tests/expediente-lista-visual.spec.js --project=chromium --no-deps --workers=1
+  ```
+  O login do `php -S` às vezes demora (intermitente); o spec entra uma vez só (`beforeAll`). A worktree não tem
+  `node_modules`: usa o do checkout principal por `NODE_PATH` (só leitura).
+- **Pendente:** suíte completa da E8d, **rodada sozinha** (sem Playwright nem outra suíte junto: o WSL trava). Não
+  rodar enquanto o dono estiver testando na demonstração.
+
+### R.5 Decisões aprovadas (não reabrir)
+
+- Desenho manda onde mostra algo; convenção do sistema onde é omisso; desviar exige perguntar.
+- Sem travessão (— ou –) em texto visível novo ou tocado.
+- E8c: célula sem meta vazia (sem "–"); responsividade primeiro; cabeçalho fixo da Lista por translateY.
+- E8d (15/10): faixa de filtros e Visualizar no layout 1.1 com os 2 modos existentes; avatar, iniciais e responsável
+  do 1.1 **só na Lista** (parciais globais `_avatar_usuario`, `_resp_chip`, `_resp_estilo` intocados); 1024 a 1280px
+  com nomes legíveis e rolagem só dentro da tabela.
+- Provisórias do dono (15/10): P1 preservar a faixa Processo · Ação · Responsável (E6 não executa até decisão
+  definitiva); P2 manter "Como usar esta aba"; P3 não implementar "Andamento da pasta".
+- Anteriores: fundo pastel do usuário e ícone neutro no trilho; hierarquia de sub-marcadores; rótulo de prioridade do
+  sistema; só Ativo/Arquivado (+ lápide); vários marcadores com +N e "Mover para"; Metas = total; chips de filtro +
+  "Limpar tudo"; foco visível; menus só com ações que existem (sem F2, Trancar, Destacar, Duplicar).
+
+### R.6 Não refazer · Não alterar
+
+- **Não refazer:** a conferência online do Designer (02, 03 e dependências idênticos ao pacote local de 13/10 por
+  SHA-256); a auditoria da Lista 1.1 (resultado no checklist §8 e na spec §16); E1 a E8d.
+- **Não alterar** sem decisão do dono: `templates/base.html.twig`, `public/css/app.css`, `_partials/_filtro_barra`,
+  `filtro-tabela.js/css`, `_partials/_avatar_usuario.html.twig`, `pasta/_resp_chip.html.twig`,
+  `pasta/_resp_estilo.html.twig`; banco, migrations, autenticação, permissões, APIs, CI/CD, CHANGELOG, arquivos da
+  Engenharia; outras worktrees (Central, Trabalho Externo, R2 e demais); o `master` (tem alterações de outra frente).
+
+### R.7 Pendências por prioridade
+
+1. **Próxima prioridade: auditoria integral da `pasta_show`** contra
+   `https://claude.ai/design/p/4f6a5f61-fa47-40a0-9630-6744f1bb1cac?file=02+-+EXPEDIENTES+1.2.3.dc.html`.
+   **Não iniciar sem o prompt específico do dono.** Escopo pedido: tudo o que é visível e oculto (menus ⋮, botão
+   direito, duplo clique, atalhos, modais, permissões, processos, cadastro, situação da pasta, metas, financeiro,
+   documentos, integrações). Método que funcionou na Lista (§16 da spec): ler o 02 e os scripts dele pelo MCP
+   `claude_design` (`render_preview` + download para o scratchpad; conferir SHA-256 com o local); Playwright nas
+   mesmas larguras contra o protótipo na 8765 e a worktree na 8000; comparação de valores calculados par a par e de
+   estados; separar divergência visual × dado × decisão aprovada × backend; e conferir se algum ✓ do checklist da
+   Pasta (221 · 48 · 113) está certo só no papel (na Lista eram 3). O `02` tem cerca de 1 MB e usa `bj-processo.js`,
+   `bj-docsug.js`, `bj-editor.js`, `bj-visualizar.js`, `bj-link.js`, `bj-contas.js`, `bj-dica.js`, `bluejus-central.js`.
+   Pastas de dev úteis: 304 (Duplicar, Editar dados), 588 (processo vinculado), 1170/1171 (checklist), 433
+   (comentário do Financeiro). Ao exercitar, ações que gravam no `saas_ux` só até o Cancelar.
+2. Dono: smoke da E7 (`SMOKE-E7.md`), da E8 (S1 a S21) e da E8d (S22 a S27) no `E8-PLANO.md`.
+3. Dono: decidir o **degrau de 1281px** (o piso maior vale até 1280; a 1366 o Cliente volta a cerca de 120px).
+4. Com autorização: commit dos docs da E8d (R.1) e suíte completa rodada sozinha.
+5. Dono: P1, P2, P3 definitivos; selo "9+" e `bj-dica.js` (globais); tela de Equipe.
+6. Registrados, sem ação: opções do `#pastaRespMenu` (global) seguem primeira + última inicial; faixa do marcador
+   selecionado azul (o dc usa a cor do marcador); o "voltar" do navegador não restaura os filtros (só o link da pasta,
+   comportamento anterior); título do acervo clicável (AUD-15) e lista aberta nativa dos filtros (AUD-09) ficam ≈.
+7. Depois: E9 Peticionar (só com autorização), E10 Agenda, E11 Perfis; integração em série com a Engenharia.
+
+### R.8 Comandos seguros (só leitura)
+
+```bash
+cd /home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer
+git status --short && git log --oneline -5 && git branch -vv | grep '^\*'
+docker ps --format '{{.Names}} {{.Status}}' | grep -E 'jusprime|smoke-fidelidade'
+/mnt/c/Windows/System32/curl.exe -s -o NUL -w '8000:%{http_code}\n' http://127.0.0.1:8000/login
+curl -s -o /dev/null -w '8765:%{http_code}\n' http://127.0.0.1:8765/
+/mnt/c/Windows/System32/curl.exe -s http://127.0.0.1:8000/js/expediente-lista.js | grep -c iniciaisDoDesenho   # 2 = a 8000 serve a E8d
+```
+
+### R.9 Referências
+
+- Plano e evidências por entrega: `docs/specs/fidelidade-designer-1310.md` (§13 E8, §14 E8b, §15 E8c, **§16 E8d**).
+- Checklists: Pasta `docs/specs/fidelidade-designer-1310-checklist-pasta.md`; Minhas Metas
+  `…-checklist-minhas-metas.md`; Lista `…-checklist-lista.md` (**§8 placar AUD**).
+- Smoke: `docs/specs/fidelidade-designer-1310/SMOKE-E7.md`; `E8-PLANO.md` (S1 a S27).
+- Evidência visual: `docs/specs/fidelidade-designer-1310/evidencias/e8d-lista-1.1-x-bluejus-{1440,1024,390}.png`.
+- Memória: `~/.claude/projects/-home-prime-projetos-jusprime/memory/project_fidelidade_designer_1310.md`.
+
+### R.10 Próxima ação recomendada
+
+Verificar o estado real (R.8); se o dono autorizar, fazer o commit dos docs da E8d e rodar a suíte completa
+sozinha; depois aguardar o prompt específico da **auditoria integral da `pasta_show`** (R.7 item 1). Não iniciar a E9.
+
+## 0. Estado de retomada (15/10/2026, fim da E8d): histórico da E8d e anteriores
+
+- **E8d (15/10, noite)**: `ea60dae2` (7 grupos + PHPUnit) e `9c081725` (Playwright) + docs. Auditoria da Lista contra
+  o 1.1 (lido pelo MCP `claude_design`, idêntico ao local): 30 divergências AUD-01..30; **28 ✓ · 2 ≈ · 0 em aberto**
+  (checklist da Lista §8; evidência, medidas e revisão em `../fidelidade-designer-1310.md` §16; imagens em
+  `evidencias/`). Decisões do dono: faixa de filtros e Visualizar do 1.1; avatar/iniciais do 1.1 só na Lista;
+  1024 a 1280px com nomes legíveis e rolagem só na tabela.
+  - **Regressão visual em Playwright** (`e2e/tests/expediente-lista-visual.spec.js`, 8 testes): roda contra o servidor
+    da worktree com `E2E_VISUAL_BASE`, `E2E_VISUAL_EMAIL`, `E2E_VISUAL_SENHA`, `E2E_VISUAL_ESCRITORIO` e
+    `--project=chromium --no-deps` (receita no cabeçalho do arquivo). Sem as variáveis, é pulado.
+  - **Para o dono:** decidir o degrau de 1281px (a 1366 o Cliente volta a ~120px); smoke S22 a S27 do `E8-PLANO.md`.
+  - E9 **não** iniciada.
 
 - **E8c (15/10, noite)**: pendências técnicas da Lista, por decisão do dono do mesmo dia. (1) Sem meta: célula vazia,
   sem o "–" (`title` no `<td>`, "Sem metas" para leitor de tela). (2) Responsividade primeiro: sem os mínimos 220/190;

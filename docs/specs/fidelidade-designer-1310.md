@@ -547,3 +547,62 @@ corrigido. Registrados para o dono:
 - **Smoke:** (a) tremor do cabeçalho na rolagem rápida (trackpad, toque com inércia): a posição é recalculada no
   quadro seguinte, diferente de um `sticky` nativo; (b) a borda inferior do cabeçalho (tabela com bordas colapsadas)
   descendo junto; (c) foco por teclado subindo com Shift+Tab pode ficar sob o cabeçalho (não há `scroll-padding-top`).
+
+## 16. E8d: auditoria contra o 1.1 e correções (15/10/2026)
+
+**Fonte:** `03 - EXPEDIENTE Lista 1.1.dc.html` e dependências (`bj-agente.js`, `bj-contas.js`, `bj-dica.js`,
+`bluejus-central.js`, logo da nav) lidos pelo MCP `claude_design`: idênticos ao pacote local de 13/10 (SHA-256),
+salvo o bloco que a pré-visualização injeta. O 1.0 só existe online; nenhuma etapa da frente usou o 1.0, mas o
+esqueleto da faixa de filtros do BlueJus (selects "Status/Responsável/Prioridade", resumo + 2 ícones + paginação «‹›»)
+é anterior aos dois desenhos (maio a julho de 2026) e coincide com o 1.0; a E8 mexeu nos valores e manteve o esqueleto.
+
+**Auditoria:** Playwright nas mesmas larguras (1440, 1280, 1024, 768, 390) contra o protótipo servido localmente,
+comparando valores calculados par a par e estados (hover, foco, filtro com valor, menus, vazio). 30 divergências,
+24 fora do checklist; três ✓ estavam errados no papel (LX-TRI-08, LX-BAR-13, LX-TAB-01). Lista e placar no checklist §8.
+
+**Decisões do dono (15/10):** (1) faixa de filtros e Visualizar no layout 1.1, com os dois modos que existem;
+(2) avatar, iniciais e responsável do 1.1 **só na Lista**; (3) de 1024 a 1280px nomes legíveis, rolagem só na tabela.
+
+| Commit | Conteúdo |
+|---|---|
+| `ea60dae2` | Os 7 grupos (CSS, JS, Twig) + testes PHPUnit |
+| `9c081725` | Regressão visual em Playwright (`e2e/tests/expediente-lista-visual.spec.js`) |
+
+**Como cada grupo foi feito (o que não é óbvio no diff):**
+- Faixa (AUD-08/11/12): os filtros moram fora da área trocável por AJAX e os controles dentro; no desktop
+  `#pastas-resultado`, `#pastasView` e `.exp-topo` viram `display: contents` e tudo entra na mesma faixa flexível do
+  painel, que quebra como a do dc. A situação foi para a barra (`pasta/_filtro_situacao`) com `form="formFiltrosPasta"`;
+  o JS do index passou a usar `form.elements` (chips, remover chip, "Limpar tudo"); o `FormData` já incluía.
+- "Visualizar": os dois modos pelo `.js-view-toggle` de sempre; "Painel de marcadores" clica no botão de recolher;
+  "Pastas por página" fica de fora (sem backend). Fecha no clique/botão direito fora, Esc devolve o foco.
+- Responsável só na Lista (AUD-25/26): os parciais compartilhados (`_avatar_usuario`, `_resp_chip`, `_resp_estilo`)
+  ficam como estão; o `expediente-lista.js` reescreve as iniciais (duas primeiras palavras) e põe "?" nos chips de
+  `#pastasView` depois de cada desenho; o CSS é escopado a `#pastasView`.
+- Ordem padrão (AUD-19): o repositório ordena por NUP decrescente quando nada é escolhido (`PastaRepository`
+  `aplicarOrdenacao`); o cabeçalho e o "Ordenar por" mostram isso.
+- AUD-29: piso de 1262px de 901 a 1280px (Ação 190, Cliente 254); 742px até 900.
+- Tema escuro: todo token novo tem par; sobre o pastel (claro nos dois temas) as cores são as do claro (contagem,
+  "+", lápis, chip e nome do marcador; o chip e a barra já estavam ilegíveis no escuro desde a E8).
+
+**Medido na tela (Playwright, Chromium):** posições relativas do 1.1 batem a 1440px (título e trilho a 28px, 18px até
+o conteúdo, acervo a 28px da borda, itens do trilho a cada 38px, recolher no meio, cabeçalho de 40px, NUP a 20px,
+Visualizar e paginação na linha dos filtros, resumo embaixo); sem estouro da página em 1440/1280/1024/768/390;
+estados (Visualizar por teclado, Cartões, Painel, filtros com valor, chips, "Limpar tudo", volta da pasta com a
+situação salva, menu de contexto, linha sob o mouse, iniciais depois de AJAX) e tema escuro. Imagens lado a lado em
+`fidelidade-designer-1310/evidencias/e8d-lista-1.1-x-bluejus-{1440,1024,390}.png`.
+
+**Testes:** `ExpedienteListaDesenho11FolhaTest` (9, novo, de folha: trava valores e que os parciais globais não
+mudaram); `ExpedienteListaDesenhoTelaTest` +3 (disposição por filho direto: situação na barra, controles, cabeçalho e
+`aria-sort`); 4 testes antigos atualizados (resumo, "Todas as pastas", rótulos do menu, larguras); Playwright 8/8.
+Três mutações reintroduzidas foram pegas (recolher no topo, resumo "página de N", situação sem `form=`).
+`tests/Expediente` + `tests/Pasta` 2963/2963; lint Twig (207) e container OK.
+
+**Revisão read-only (`feature-review-agent`):** sem bloqueante. Aplicados: Visualizar fecha no botão direito fora
+(os dois menus disputavam o teclado); "Ordenar por" mostra a ordem padrão; comentário do piso atualizado; Playwright
+ampliado com os caminhos de `form.elements`, volta da pasta, modos, teclado e iniciais depois de AJAX. Registrados:
+- **Decisão do dono:** degrau em 1281px. O piso maior vale até 1280 (como pedido); a 1366px a tabela volta ao piso
+  de 1028 (Cliente ~120px), menos legível que a 1280. Estender o piso traz rolagem lateral a 1366.
+- As opções do menu de responsável (`#pastaRespMenu`, global) seguem com primeira+última inicial.
+- A faixa do marcador selecionado é azul (o dc usa a cor do marcador): herança da decisão do pastel.
+- A volta da pasta é reconhecida pelo referrer (`voltouDePastaShow`), não pelo "voltar" do navegador: comportamento
+  anterior, não mudou.

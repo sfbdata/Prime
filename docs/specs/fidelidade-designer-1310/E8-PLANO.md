@@ -107,3 +107,14 @@ a tela grava fora do filtro "Sem responsável".
 | S19 | Role a Lista para baixo, devagar e depois rápido (roda do mouse, trackpad; num tablet, arraste com inércia) | O cabeçalho da tabela fica preso logo abaixo do topo azul e das abas, sem tremer nem ficar para trás; a linha de baixo dele acompanha; no fim da tabela ele sai junto com a última linha |
 | S20 | Numa janela de ~1024 a 1280px, role a tabela para o lado | O cabeçalho rola junto com as colunas; com a página rolada para baixo, continua preso. **Decida**: essa faixa ainda rola (até ~300px a 1024px); aceitar, ou esconder colunas mais cedo? |
 | S21 | Pasta sem metas; Shift+Tab subindo pela tabela | Coluna Metas vazia (sem "–"), dica "Sem metas" ao parar o mouse na célula; o item com foco não fica escondido sob o cabeçalho |
+
+### Smoke da E8d (15/10, +6 passos, ~10 min; compare com o protótipo em http://127.0.0.1:8765/03%20-%20EXPEDIENTE%20Lista%201.1.dc.html)
+
+| # | Faça | Deve ver |
+|---|---|---|
+| S22 | Abra o Expediente a 1440 e o protótipo lado a lado | Mesmas margens (28px), título, trilho com o botão de recolher no meio, filtros + Visualizar + paginação numa linha, resumo "1 de 50 · Total" embaixo |
+| S23 | Escolha Situação "Ativo" na barra, depois "Arquivado", depois "Todas" | Botão muda de cor (verde, cinza) e volta ao cinza; chip "Situação: …"; "Limpar tudo" zera a situação |
+| S24 | Visualizar → Cartões; depois Detalhes; depois Painel de marcadores | Troca de modo; o trilho recolhe e volta; o menu fecha e o foco volta ao botão |
+| S25 | Botão direito numa linha e num marcador | Menu branco com título cinza ("Pasta N · NOME" / "Marcador · N pasta(s)"), sem faixa azul |
+| S26 | Olhe responsáveis e "Sem responsável" na tabela e nos cartões | Iniciais pelas duas primeiras palavras, avatar azul, "?" para quem não tem; na Pasta, nada mudou |
+| S27 | Estreite a janela para 1280, 1024 e 1366 | Até 1280 o Cliente fica legível e a tabela rola por dentro; **a 1366 o Cliente volta a ~120px (decida se aceita)** |
