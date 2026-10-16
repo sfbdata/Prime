@@ -51,7 +51,7 @@ const S = {
     dica: '.bj-central-dica',
 };
 
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: 'serial', timeout: 120000 });   // servidor embutido de dev: a 1ª página de cada contexto é lenta
 test.use({ viewport: { width: 1366, height: 800 }, reducedMotion: 'no-preference', locale: 'pt-BR' });
 
 const pular = !fs.existsSync(path.join(PROTOTIPO_DIR, PAGINA_PROTOTIPO)) || !EMAIL || !SENHA;
@@ -81,20 +81,35 @@ function servirPrototipo() {
 }
 
 // ── sistema: dados fictícios no lugar de /central/* ────────────────────────────────────────────────────────────
-function cenario(naoLidas = 0, mencoes = []) {
-    return { naoLidas, mencoes, escritas: [] };
+function cenario(naoLidas = 0, mencoes = [], extra = {}) {
+    return { naoLidas, mencoes, escritas: [], conversas: [], ...extra };
 }
+
+// Um grupo fictício (id 77) em que eu sou administrador, com uma colega: chega às confirmações de Remover e Sair.
+const GRUPO = { id: 77, tipo: 'grupo', nome: 'Grupo fictício de teste', participantes: 2, naoLidas: 0, marcadaNaoLida: false,
+    fixada: false, silenciada: false, arquivada: false, ultima: null, outro: null, outroAtivo: true };
+const PARTICIPANTES = { conversaId: 77, nome: GRUPO.nome, souAdministrador: true, participantes: [
+    { id: 1, nome: 'Pessoa Teste', eu: true, administrador: true, ativoNoEscritorio: true },
+    { id: 2, nome: 'Colega Fictícia', eu: false, administrador: false, ativoNoEscritorio: true },
+] };
 
 async function isolar(contexto, c) {
     await contexto.route((url) => url.pathname === '/ponto/alerta-horario', (r) => r.fulfill({ json: { alertar: false } }));
     await contexto.route((url) => url.pathname.startsWith('/central/'), (r) => {
         const req = r.request();
         const caminho = new URL(req.url()).pathname;
-        if (req.method() !== 'GET') { c.escritas.push(req.method() + ' ' + caminho); return r.fulfill({ json: {} }); }
+        if (req.method() !== 'GET') {
+            c.escritas.push(req.method() + ' ' + caminho);
+            // Escrita "recusada" pelo servidor: prova que o erro vira aviso na janela (não window.alert).
+            if (c.recusar) { return r.fulfill({ status: 422, json: { erro: c.recusar } }); }
+            return r.fulfill({ json: {} });
+        }
         if (caminho === '/central/novidades') {
             return r.fulfill({ json: { mensagens: [], cursor: 1000 + c.naoLidas, naoLidas: c.naoLidas, completo: true, conversasComMencao: c.mencoes } });
         }
-        if (caminho === '/central/conversas') { return r.fulfill({ json: { conversas: [], conversasComMencao: c.mencoes } }); }
+        if (caminho === '/central/conversas') { return r.fulfill({ json: { conversas: c.conversas, conversasComMencao: c.mencoes } }); }
+        if (/^\/central\/conversas\/\d+\/participantes$/.test(caminho)) { return r.fulfill({ json: PARTICIPANTES }); }
+        if (/^\/central\/conversas\/\d+\/mensagens$/.test(caminho)) { return r.fulfill({ json: { mensagens: [], temMais: false, mencionaveis: [] } }); }
         if (caminho === '/central/contatos') { return r.fulfill({ json: { contatos: [] } }); }
         return r.fulfill({ json: {} });
     });
@@ -145,14 +160,22 @@ async function abrirPrototipo(browser, opcoes = {}) {
     const page = await contexto.newPage();
     await page.goto(PROTO);
     await page.waitForFunction((sel) => !!(window.BJCentral && document.querySelector(sel)), P.lancador);
-    await page.evaluate(() => {   // tudo lido: o protótipo relê o armazenamento no evento storage (L263)
-        const db = JSON.parse(localStorage.getItem('bj-central-v1') || '{"notifs":[],"msgs":[]}');
-        (db.notifs || []).forEach((n) => { n.lida = true; });
-        (db.msgs || []).forEach((m) => { m.lida = true; m.lidaPor = ['farlei', 'samuel', 'jessica', 'mariana', 'rafael', 'thamara', 'rodrigo', 'helena']; });
-        localStorage.setItem('bj-central-v1', JSON.stringify(db));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'bj-central-v1' }));
-    });
-    await expect(page.locator(P.lancador)).toHaveAttribute('aria-label', /tudo em dia/);
+    // Tudo lido: o protótipo relê o armazenamento no evento storage (L263). Ele também GERA avisos sozinho logo depois
+    // de montar (centralSync, E:4314; resumos da IA): o que chegar depois da limpeza é limpo de novo, até firmar.
+    await expect.poll(async () => {
+        await page.evaluate(() => {
+            // Só o banco que o próprio protótipo gravou: um banco inventado ({notifs, msgs}) quebra o render dele.
+            const salvo = localStorage.getItem('bj-central-v1');
+            if (!salvo) { return; }
+            const db = JSON.parse(salvo);
+            (db.notifs || []).forEach((n) => { n.lida = true; });
+            (db.msgs || []).forEach((m) => { m.lida = true; m.lidaPor = ['farlei', 'samuel', 'jessica', 'mariana', 'rafael', 'thamara', 'rodrigo', 'helena']; });
+            localStorage.setItem('bj-central-v1', JSON.stringify(db));
+            window.dispatchEvent(new StorageEvent('storage', { key: 'bj-central-v1' }));
+        });
+        await page.waitForTimeout(500);
+        return page.evaluate((sel) => { const b = document.querySelector(sel); return b ? b.getAttribute('aria-label') : 'sem lançador'; }, P.lancador);
+    }, { timeout: 20000, intervals: [100] }).toMatch(/tudo em dia/);
     return page;
 }
 
@@ -426,8 +449,11 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await evidencia(testInfo, 'aberto-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
 
         const saidaP = await clicarEMedir(p, P.minimizar, P.janela), saidaS = await clicarEMedir(s, S.minimizar, S.janela);
-        expect(saidaP).toHaveLength(1);
-        expect(saidaS).toEqual(saidaP);
+        // O protótipo às vezes se redesenha no meio (aviso gerado por ele, L6321) e soma um bjcIn: compara o VOO.
+        const voo = (l) => l.filter((a) => a.keyframes.some((k) => /scale\(0\.08\)/.test(k.transform || '')));
+        expect(voo(saidaP)).toHaveLength(1);
+        expect(saidaS).toHaveLength(1);
+        expect(saidaS).toEqual(voo(saidaP));
         await expect(js).toBeHidden();
         await expect(jp).toHaveCount(0);
         expect(c.escritas).toEqual([]);   // fechar/minimizar não marca nada como lido
@@ -450,6 +476,207 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         expect(await s.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
         await evidencia(testInfo, 'celular-prototipo', p, { x: 0, y: 0, width: 375, height: 740 });
         await evidencia(testInfo, 'celular-sistema', s, { x: 0, y: 0, width: 375, height: 740 });
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+    // ── B1 Moldura (16/10): restaurar, cabeçalho, menu ⋮, confirmação e avisos ──────────────────────────────────
+    test('B1 restaurar depois de maximizar: volta na hora, sem quadro intermediário', async ({ browser }, testInfo) => {
+        const c = cenario();
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        await p.locator(P.lancador).click();
+        await s.locator(S.lancador).click();
+        await p.waitForTimeout(300);
+        await s.waitForTimeout(300);
+        const normal = await caixa(p, P.janela);
+        expect(await caixa(s, S.janela)).toEqual(normal);
+
+        // Clica e mede no MESMO passo (o quadro logo depois do clique) e de novo 100 ms depois.
+        const clicarEMedirCaixa = (pg, botao, janela) => pg.evaluate(({ b, j }) => {
+            document.querySelector(b).click();
+            const r = document.querySelector(j).getBoundingClientRect();
+            return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+        }, { b: botao, j: janela });
+        const maxP = await clicarEMedirCaixa(p, 'button[aria-label="Maximizar"]', P.janela);
+        const maxS = await clicarEMedirCaixa(s, '[data-flutuante-maximizar]', S.janela);
+        expect(maxS).toEqual(maxP);
+        expect(maxP).toEqual({ x: 12, y: 12, w: 1342, h: 776 });
+        await p.waitForTimeout(300);
+        await s.waitForTimeout(300);
+
+        const jaP = await clicarEMedirCaixa(p, 'button[aria-label="Restaurar tamanho"]', P.janela);
+        const jaS = await clicarEMedirCaixa(s, '[data-flutuante-maximizar]', S.janela);
+        expect(jaP).toEqual(normal);
+        expect(jaS).toEqual(normal);   // antes: 1342×776 a partir de x = 968 por ~1 s
+        await s.waitForTimeout(100);
+        expect(await caixa(s, S.janela)).toEqual(normal);
+        await evidencia(testInfo, 'restaurar-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
+        expect(c.escritas).toEqual([]);
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+
+    test('B1 cabeçalho da lista: avatar com anel, sem ponto de status nem "on-line"; subtítulo do desenho', async ({ browser }, testInfo) => {
+        const c = cenario();
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        await p.locator(P.lancador).click();
+        await s.locator(S.lancador).click();
+        await p.waitForTimeout(300);
+        await s.waitForTimeout(300);
+        const AV_P = '[data-bjc-cab] > span:first-child > span:first-child';
+        const AV_S = '[data-flutuante-janela] [data-central-cab-eu]';
+        expect(await caixa(s, AV_S)).toEqual(await caixa(p, AV_P));
+        const props = ['width', 'height', 'border-radius', 'box-shadow', 'color', 'font-size', 'font-weight'];
+        expect(await estilos(s, AV_S, props)).toEqual(await estilos(p, AV_P, props));
+        // Presença não autorizada: nada de ponto de status ao lado do avatar nem de pílula "N on-line".
+        expect(await s.locator('[data-flutuante-janela] .bj-central-cab').textContent()).not.toMatch(/on-line/);
+        expect(await s.locator(AV_S).evaluate((n) => n.parentElement.classList.contains('bj-central-cab'))).toBe(true);
+        // Subtítulo: "nome · em dia" (L6338), mesma fonte e opacidade.
+        const SUB_P = '[data-bjc-cab] > div > div:last-child';
+        const SUB_S = '[data-flutuante-janela] [data-central-cab-sub]';
+        await expect(s.locator(SUB_S)).toHaveText(/ · em dia$/);
+        // O protótipo gera avisos ao abrir (resumos da IA, L6321): a regra é a mesma, "nome · N não lidas | em dia".
+        await expect(p.locator(SUB_P)).toHaveText(/ · (em dia|1 não lida|\d+ não lidas)$/);
+        const sub = ['font-size', 'opacity', 'white-space', 'color'];
+        expect(await estilos(s, SUB_S, sub)).toEqual(await estilos(p, SUB_P, sub));
+        await evidencia(testInfo, 'cabecalho-prototipo', p, { x: 960, y: 130, width: 400, height: 70 });
+        await evidencia(testInfo, 'cabecalho-sistema', s, { x: 960, y: 130, width: 400, height: 70 });
+        expect(c.escritas).toEqual([]);
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+
+    test('B1 menu ⋮: painel do desenho, seções, chaves e valores; só comandos reais', async ({ browser }, testInfo) => {
+        const c = cenario();
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        await p.locator(P.lancador).click();
+        await s.locator(S.lancador).click();
+        await p.waitForTimeout(300);
+        await s.waitForTimeout(300);
+        const MENU_P = P.janela + ' [role="menu"]', MENU_S = S.janela + ' .bj-central-menu';
+        const entradaP = await clicarEMedir(p, P.janela + ' button[aria-label="Mais opções"]', MENU_P);
+        const entradaS = await clicarEMedir(s, S.janela + ' [data-central-mais]', MENU_S);
+        expect(entradaP).toHaveLength(1);
+        expect(entradaS).toEqual(entradaP);   // bjcIn .14s
+        await p.waitForTimeout(250);
+        await s.waitForTimeout(250);
+
+        const painel = ['position', 'top', 'right', 'width', 'max-height', 'overflow-y', 'padding-top', 'padding-left',
+            'border-radius', 'background-color', 'box-shadow', 'color', 'z-index'];
+        expect(await estilos(s, MENU_S, painel)).toEqual(await estilos(p, MENU_P, painel));
+        // Caixa de LAYOUT, relativa à janela (sem transform): o protótipo recria o menu a cada redesenho, com a entrada
+        // de novo, e a caixa visual pode sair no meio da animação (scale .98).
+        const layout = (pg, sel) => medir(pg, sel, `return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, direita: el.offsetParent.clientWidth - el.offsetLeft - el.offsetWidth };`);
+        expect(await layout(s, MENU_S)).toEqual(await layout(p, MENU_P));
+
+        // Seção, item, ícone, separador, chave e valor: mesmo estilo computado.
+        const SEC_P = { sel: MENU_P + ' > div', texto: /^Conversas$/ }, SEC_S = { sel: MENU_S + ' > .bj-central-menu-secao', texto: /^Conversas$/ };
+        const sec = ['padding-top', 'padding-left', 'padding-bottom', 'font-size', 'font-weight', 'letter-spacing', 'text-transform', 'color'];
+        expect(await estilos(s, SEC_S, sec)).toEqual(await estilos(p, SEC_P, sec));
+        const IT_P = { sel: MENU_P + ' > button', texto: /^Novo grupo$/ }, IT_S = { sel: MENU_S + ' > button', texto: /^Novo grupo$/ };
+        const item = ['display', 'gap', 'padding-top', 'padding-left', 'border-radius', 'font-size', 'color', 'text-align', 'cursor', 'background-color'];
+        expect(await estilos(s, IT_S, item)).toEqual(await estilos(p, IT_P, item));
+        expect((await caixa(s, IT_S)).h).toBe((await caixa(p, IT_P)).h);
+        const ico = ['width', 'color', 'text-align'];
+        const icoDe = (pg, alvo) => medir(pg, alvo, `const cs = getComputedStyle(el.querySelector('i')), o = {}; arg.forEach((k) => { o[k] = cs.getPropertyValue(k); }); return o;`, ico);
+        expect(await icoDe(s, IT_S)).toEqual(await icoDe(p, IT_P));
+        const sep = ['height', 'margin-top', 'margin-left', 'background-color'];
+        const SEP_P = MENU_P + ' > div[style*="height: 1px"]';
+        expect(await estilos(s, MENU_S + ' > .bj-central-menu-sep', sep)).toEqual(await estilos(p, SEP_P, sep));
+
+        // Chave desligada e ligada ("Não perturbe", desligado nos dois ao abrir); o painel continua aberto ao mudar.
+        const chaveDe = (pg, sel, rot) => medir(pg, { sel: sel + ' > button', texto: rot }, `
+            const k = [...el.children].find((n) => n.tagName === 'SPAN' && getComputedStyle(n).width === '30px');
+            if (!k) { return 'sem chave'; }
+            const b = k.firstElementChild, a = getComputedStyle(k), z = getComputedStyle(b);
+            return { w: a.width, h: a.height, raio: a.borderRadius, fundo: a.backgroundColor, bola: [z.width, z.height, z.top, z.left, z.borderRadius, z.backgroundColor, z.boxShadow] };`);
+        expect(await chaveDe(s, MENU_S, /^Não perturbe por 1 hora/)).toEqual(await chaveDe(p, MENU_P, /^Não perturbe por 1 hora/));
+        await p.locator(MENU_P + ' > button', { hasText: 'Não perturbe por 1 hora' }).click();
+        await s.locator(MENU_S + ' > button', { hasText: 'Não perturbe por 1 hora' }).click();
+        await expect(s.locator(MENU_S)).toBeVisible();
+        await expect(p.locator(MENU_P)).toBeVisible();
+        const ligadaS = await chaveDe(s, MENU_S, /^Não perturbe até \d\d:\d\d/);
+        expect(ligadaS).toEqual(await chaveDe(p, MENU_P, /^Não perturbe até \d\d:\d\d/));
+        expect(ligadaS.fundo).toBe('rgb(10, 122, 173)');
+        await expect(s.locator(S.janela + ' [data-central-cab-sub]')).toHaveText(/ · não perturbe$/);
+        await expect(s.locator(MENU_S + ' > button', { hasText: /^Não perturbe até/ })).toHaveAttribute('aria-checked', 'true');
+
+        const VAL = ['font-size', 'font-weight', 'color', 'white-space'];
+        const valorDe = (pg, sel) => medir(pg, { sel: sel + ' > button', texto: /^Tamanho do texto/ }, `
+            const v = el.lastElementChild, cs = getComputedStyle(v), o = { texto: v.textContent };
+            arg.forEach((k) => { o[k] = cs.getPropertyValue(k); }); return o;`, VAL);
+        expect(await valorDe(s, MENU_S)).toEqual(await valorDe(p, MENU_P));
+        await evidencia(testInfo, 'menu-prototipo', p, { x: 940, y: 120, width: 426, height: 680 });
+        await evidencia(testInfo, 'menu-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
+
+        // Só comandos com comportamento real, e todos existem no desenho.
+        const rotulos = async (pg, sel) => (await pg.locator(sel + ' > button').allTextContents()).map((t) => t.replace(/(Normal|Grande)$/, '').trim());
+        const doSistema = await rotulos(s, MENU_S), doDesenho = await rotulos(p, MENU_P);
+        expect(doSistema).toEqual(['Novo grupo', 'Ver conversas arquivadas', expect.stringMatching(/^Não perturbe até \d\d:\d\d$/),
+            'Som de notificações', 'Alertas visuais', 'Tamanho do texto']);
+        doSistema.forEach((r) => expect(doDesenho.some((d) => d === r || (/^Não perturbe/.test(r) && /^Não perturbe/.test(d)))).toBe(true));
+        // Seções: as do desenho que têm comando real ("Tamanho do texto" vai para Mensagens, ver o HANDOFF).
+        expect(await s.locator(MENU_S + ' > .bj-central-menu-secao').allTextContents()).toEqual(['Conversas', 'Meu status', 'Notificações', 'Mensagens']);
+
+        // Esc fecha e devolve o foco ao ⋮; nada foi gravado no servidor.
+        await s.keyboard.press('Escape');
+        await expect(s.locator(MENU_S)).toHaveCount(0);
+        await expect(s.locator(S.janela + ' [data-central-mais]')).toBeFocused();
+        expect(c.escritas).toEqual([]);
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+
+    test('B1 confirmação dentro da janela e avisos no lugar de window.confirm/alert', async ({ browser }, testInfo) => {
+        const c = cenario(0, [], { conversas: [GRUPO] });
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        const dialogos = [];
+        s.on('dialog', (d) => { dialogos.push(d.type()); d.dismiss(); });
+
+        // Protótipo: botão direito no grupo de demonstração dele → "Excluir conversa" pede confirmação (ação
+        // "Excluir", vermelha; L5771).
+        await p.locator(P.lancador).click();
+        await p.waitForTimeout(300);
+        await p.locator(P.janela + ' button', { hasText: 'Equipe Pasta' }).first().click({ button: 'right' });
+        await p.locator('button', { hasText: 'Excluir conversa' }).click();
+        const CF_P = P.janela + ' [role="alertdialog"]';
+        await expect(p.locator(CF_P)).toBeVisible();
+
+        // Sistema: Informações do grupo fictício → Remover a colega.
+        await s.locator(S.lancador).click();
+        await s.locator(S.janela + ' .bj-central-linha', { hasText: GRUPO.nome }).click();
+        await s.locator(S.janela + ' [data-central-info]').click();
+        await s.locator(S.janela + ' .bj-central-info-pessoa', { hasText: 'Colega Fictícia' }).getByRole('button', { name: 'Remover' }).click();
+        const CF_S = S.janela + ' [role="alertdialog"]';
+        await expect(s.locator(CF_S)).toBeVisible();
+        await expect(s.locator(CF_S)).toContainText('Remover Colega Fictícia do grupo');
+
+        const fundo = ['position', 'z-index', 'display', 'align-items', 'justify-content', 'padding-top', 'background-color'];
+        const pai = (pg, sel) => medir(pg, sel, `const cs = getComputedStyle(el.parentElement), o = {}; arg.forEach((k) => { o[k] = cs.getPropertyValue(k); }); return o;`, fundo);
+        expect(await pai(s, CF_S)).toEqual(await pai(p, CF_P));
+        const caixaCf = ['max-width', 'padding-top', 'padding-left', 'border-radius', 'background-color', 'box-shadow', 'display', 'flex-direction', 'row-gap'];
+        expect(await estilos(s, CF_S, caixaCf)).toEqual(await estilos(p, CF_P, caixaCf));
+        expect((await caixa(s, CF_S)).w).toBe((await caixa(p, CF_P)).w);
+        const txt = ['font-size', 'line-height', 'color'];
+        expect(await estilos(s, CF_S + ' > span', txt)).toEqual(await estilos(p, CF_P + ' > span', txt));
+        const btn = ['height', 'padding-left', 'border-top-width', 'border-radius', 'background-color', 'color', 'font-size', 'font-weight'];
+        const botaoDe = (pg, sel, rot) => estilos(pg, { sel: sel + ' button', texto: rot }, btn);
+        expect(await botaoDe(s, CF_S, /^Cancelar$/)).toEqual(await botaoDe(p, CF_P, /^Cancelar$/));
+        expect(await botaoDe(s, CF_S, /^Remover$/)).toEqual(await botaoDe(p, CF_P, /^Excluir$/));   // vermelha nos dois
+        await evidencia(testInfo, 'confirmar-prototipo', p, { x: 940, y: 120, width: 426, height: 680 });
+        await evidencia(testInfo, 'confirmar-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
+
+        // Cancelar não grava; Esc também fecha; a ação confirma e chama o servidor (simulado).
+        await s.locator(CF_S).getByRole('button', { name: 'Cancelar' }).click();
+        await expect(s.locator(CF_S)).toHaveCount(0);
+        expect(c.escritas).toEqual([]);
+        await s.locator(S.janela + ' .bj-central-info-pessoa', { hasText: 'Colega Fictícia' }).getByRole('button', { name: 'Remover' }).click();
+        await s.keyboard.press('Escape');
+        await expect(s.locator(CF_S)).toHaveCount(0);
+        expect(c.escritas).toEqual([]);
+        await s.getByRole('button', { name: 'Sair do grupo' }).click();
+        await expect(s.locator(CF_S)).toContainText('Sair do grupo "' + GRUPO.nome + '"?');
+        c.recusar = 'Recusado pelo teste.';
+        await s.locator(CF_S).getByRole('button', { name: 'Sair' }).click();
+        expect(c.escritas).toEqual(['POST /central/conversas/77/sair']);
+        // O erro do servidor sai como o aviso escuro do desenho, acima do lançador (não window.alert).
+        await expect(s.locator('.bj-flutuante-aviso')).toHaveText('Recusado pelo teste.');
+        expect(dialogos).toEqual([]);
         await Promise.all([p.context().close(), s.context().close()]);
     });
 });

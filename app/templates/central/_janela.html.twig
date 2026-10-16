@@ -15,7 +15,16 @@
         <button type="button" class="bj-central-btn-ico" data-central-voltar hidden aria-label="Voltar para as conversas" title="Voltar">
             <i class="bi bi-arrow-left" aria-hidden="true"></i>
         </button>
-        <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-avatar aria-hidden="true"></span>
+        {# B1: na lista, o avatar de quem está usando, com o anel do desenho (L6337). Sem o ponto de status: presença
+           não existe no BlueJus (D5). Foto do perfil quando houver; senão as iniciais (avatarU, L5409). #}
+        <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-eu aria-hidden="true">
+            {%- if fotoPerfilUrl|default(null) -%}
+                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}" alt="">
+            {%- else -%}
+                {{ eu.fullName|split(' ')|filter(p => p is not empty)|slice(0, 2)|map(p => p|first|upper)|join('') }}
+            {%- endif -%}
+        </span>
+        <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-avatar aria-hidden="true" hidden></span>
         <div class="bj-central-cab-textos">
             <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
             <div class="bj-central-cab-sub" data-central-cab-sub>{{ eu.fullName }}</div>
@@ -24,7 +33,7 @@
         <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-info hidden aria-label="Informações do grupo" title="Ver informações">
             <i class="bi bi-info-circle" aria-hidden="true"></i>
         </button>
-        <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-mais aria-label="Mais opções" title="Mais opções" aria-haspopup="menu">
+        <button type="button" class="bj-central-btn-ico bj-central-cab-acao" data-central-mais aria-label="Mais opções" title="Mais opções" aria-haspopup="menu" aria-expanded="false">
             <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
         </button>
         {% if modo|default('pagina') == 'flutuante' %}

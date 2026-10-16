@@ -47,6 +47,10 @@ final class CentralFlutuanteTest extends JusPrimeWebTestCase
         foreach (['minimizar', 'maximizar', 'fechar'] as $botao) {
             self::assertSelectorExists('[data-central][data-modo="flutuante"] > .bj-central-cab > .bj-central-janela-acoes > [data-flutuante-' . $botao . ']');
         }
+        // B1: cabeçalho da lista com o avatar de quem usa, ANTES dos textos, e o ⋮ como botão de painel (fechado).
+        self::assertSelectorExists('[data-central][data-modo="flutuante"] > .bj-central-cab > [data-central-cab-eu].bj-central-avatar--cab + [data-central-cab-avatar][hidden] + .bj-central-cab-textos');
+        self::assertSelectorTextContains('[data-central-cab-eu]', 'A');
+        self::assertSelectorExists('.bj-central-cab > [data-central-mais][aria-haspopup="menu"][aria-expanded="false"]');
         self::assertSelectorExists('[data-central-tela-lista] > .bj-central-abas > [data-central-aba="entrada"] + [data-central-aba="painel"]');
         self::assertSelectorExists('[data-central-tela-lista] > [data-central-filtros] > [data-central-filtro="mencoes"]');
         self::assertCount(1, $client->getCrawler()->filter('[data-central]'), 'uma Central só na página');

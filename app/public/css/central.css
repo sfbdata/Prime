@@ -36,6 +36,7 @@
     --bjc-selo-mudo: #9fb1bc;
     --bjc-perigo: #c0392b;
 
+    position: relative;              /* âncora do ⋮ e da confirmação (B1, L6252/L6394) */
     display: flex;
     flex-direction: column;
     width: 380px;                    /* tw, L6325 */
@@ -136,7 +137,7 @@ html[data-bs-theme="dark"] .bj-central {
     background: rgba(255, 255, 255, .16);
 }
 
-/* Avatar — L5409: iniciais 0.36 × tamanho, peso 700 */
+/* Avatar — L5409: iniciais Math.round(0.36 × tamanho) px, peso 700 (30 → 11, 34 → 12, 24 → 9) */
 .bj-central-avatar {
     display: inline-flex;
     align-items: center;
@@ -147,7 +148,7 @@ html[data-bs-theme="dark"] .bj-central {
     border-radius: 50%;
     background: var(--bjc-petroleo);
     color: #fff;
-    font-size: 10.8px;
+    font-size: 11px;
     font-weight: 700;
 }
 
@@ -155,10 +156,22 @@ html[data-bs-theme="dark"] .bj-central {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, .5);
 }
 
+/* Foto do perfil no avatar (avatarU, L5409: "url(foto) center/cover") */
+.bj-central-avatar > img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.bj-central-avatar[hidden] {
+    display: none;
+}
+
 .bj-central-avatar--contato {
     width: 34px;
     height: 34px;
-    font-size: 12.24px;
+    font-size: 12px;
 }
 
 /* Busca — L6361 */
@@ -723,7 +736,7 @@ html[data-bs-theme="dark"] .bj-central {
 .bj-central-mencoes-item .bj-central-avatar {
     width: 24px;
     height: 24px;
-    font-size: 8.64px;
+    font-size: 9px;
 }
 
 /* Menu de botão direito — menuCtxEl, L5697-5705 */
@@ -1183,4 +1196,175 @@ html[data-bs-theme="dark"] .bj-central {
     opacity: 0;
     transform: translateY(2px);
     transition: opacity .12s, transform .12s;
+}
+
+/* ── B1: menu ⋮ em painel (menu(), L6244-6252) ─────────────────────────────────────── */
+.bj-central-menu {
+    position: absolute;
+    top: 52px;
+    right: 8px;
+    z-index: 3;
+    width: 272px;
+    max-height: calc(100% - 64px);
+    overflow-y: auto;
+    padding: 5px;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .22);
+    color: var(--bjc-menu-texto);
+    line-height: normal;            /* o desenho não herda o 1.5 do Bootstrap: item de 31 px */
+    animation: bjcInDesenho .14s both;
+}
+
+.bj-central-menu-secao {        /* sec, L6247 */
+    padding: 8px 10px 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--bjc-texto-fraco);
+}
+
+.bj-central-menu-sep {          /* sep, L6246 */
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--bjc-borda-linha);
+}
+
+.bj-central-menu-item {         /* op, L6244 */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--bjc-menu-texto);
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-menu-item:hover,
+.bj-central-menu-item:focus-visible {
+    background: var(--bjc-menu-hover);
+    outline: none;
+}
+
+.bj-central-menu-item > .bi {
+    width: 16px;
+    text-align: center;
+    color: var(--bjc-menu-icone);
+}
+
+.bj-central-menu-rotulo {
+    flex: 1;
+}
+
+.bj-central-menu-chave {        /* chave, L6245 */
+    position: relative;
+    flex-shrink: 0;
+    width: 30px;
+    height: 17px;
+    border-radius: 999px;
+    background: #cfd9e0;
+}
+
+.bj-central-menu-chave[data-ligada] {
+    background: var(--bjc-azul);
+}
+
+.bj-central-menu-chave-bola {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+}
+
+.bj-central-menu-chave[data-ligada] .bj-central-menu-chave-bola {
+    left: 15px;
+}
+
+.bj-central-menu-valor {        /* val, L6248 */
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--bjc-azul);
+    white-space: nowrap;
+}
+
+/* ── B1: confirmação dentro da janela (ui.confirma, L6394) ──────────────────────────── */
+.bj-central-confirma {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(18, 36, 47, .38);
+}
+
+.bj-central-confirma-caixa {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 300px;
+    padding: 16px;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+}
+
+.bj-central-confirma-texto {
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--bjc-texto-forte);
+}
+
+.bj-central-confirma-botoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bj-central-confirma-btn {
+    height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 3px;
+    background: #eef1f3;
+    color: #243845;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.bj-central-confirma-btn--perigo {
+    background: #c0392b;
+    color: #fff;
+}
+
+.bj-central-confirma-btn--acao {
+    background: #0a7aad;
+    color: #fff;
+}
+
+/* bjcIn do desenho (L5414). O bjcIn deste arquivo é o de antes da Fase B (menu de botão direito); fica até a fase C. */
+@keyframes bjcInDesenho {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bj-central-menu {
+        animation: none;
+    }
 }

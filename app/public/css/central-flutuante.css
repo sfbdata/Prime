@@ -162,7 +162,8 @@
     animation: bjfIn .2s cubic-bezier(.22, .8, .3, 1) both;
 }
 
-.bj-flutuante-janela.bj-flutuante--movendo {
+.bj-flutuante-janela.bj-flutuante--movendo,
+.bj-flutuante-janela.bj-flutuante--instantaneo {   /* B1: maximizar/restaurar/encaixar sem pulo (o desenho recria a janela) */
     transition: none;
 }
 

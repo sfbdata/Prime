@@ -148,6 +148,10 @@
         }
 
         function aplicarJanela() {
+            // Sem transição: o desenho recria a janela a cada render, então maximizar, restaurar e encaixar são
+            // instantâneos lá (L6326; a transition declarada nunca chega a correr). Aqui o elemento é o mesmo e a
+            // transição de largura/altura deixava a janela ~1 s no tamanho máximo, fora da tela, ao restaurar.
+            janela.classList.add('bj-flutuante--instantaneo');
             var st = janela.style;
             if (prefs.janela === 'max') {
                 janela.dataset.modo = 'max';
@@ -174,6 +178,8 @@
             btnMaximizar.title = max ? 'Restaurar tamanho' : 'Maximizar';
             btnMaximizar.setAttribute('aria-label', btnMaximizar.title);
             btnMaximizar.querySelector('.bi').className = 'bi ' + (max ? 'bi-window-stack' : 'bi-square');
+            void janela.offsetWidth;   // aplica o tamanho novo antes de devolver a transição
+            janela.classList.remove('bj-flutuante--instantaneo');
         }
 
         function avisarVisibilidade() {
@@ -425,29 +431,55 @@
             janela.appendChild(g);
         });
 
-        // ── preferências no ⋮ da janela (L6244-6296) — só o que tem efeito real ────────
-        central.bjItensExtras = function () {
-            var itens = [
-                { icone: prefs.som ? 'bi-volume-mute' : 'bi-volume-up', rotulo: prefs.som ? 'Desligar som' : 'Ligar som', acao: function () {
-                    prefs.som = !prefs.som; salvarPrefs(); avisar(prefs.som ? 'Som ligado.' : 'Som desligado.');
-                } },
-                { icone: 'bi-stars', rotulo: prefs.alertas ? 'Desligar alertas visuais' : 'Ligar alertas visuais', acao: function () {
-                    prefs.alertas = !prefs.alertas; salvarPrefs(); desenharLancador(); avisar(prefs.alertas ? 'Alertas visuais ligados.' : 'Alertas visuais desligados.');
-                } },
-                silencio()
-                    ? { icone: 'bi-bell', rotulo: 'Desligar não perturbe', acao: function () { prefs.dnd = 0; salvarPrefs(); desenharLancador(); avisar('Não perturbe desligado.'); } }
-                    : { icone: 'bi-moon', rotulo: 'Não perturbe por 1 hora', acao: function () { prefs.dnd = Date.now() + 3600000; salvarPrefs(); desenharLancador(); avisar('Não perturbe por 1 hora.'); } },
-                { icone: 'bi-fonts', rotulo: prefs.texto === 'grande' ? 'Texto normal' : 'Texto grande', acao: function () {
-                    prefs.texto = prefs.texto === 'grande' ? 'normal' : 'grande'; salvarPrefs(); aplicarTexto();
-                } },
-                { icone: 'bi-arrows-move', rotulo: 'Restaurar posição do chat', acao: function () {
-                    prefs.pos = null; prefs.win = null; prefs.snap = null; prefs.janela = 'normal'; salvarPrefs(); aplicarJanela(); posicionarLancador();
-                } },
-                { icone: 'bi-aspect-ratio', rotulo: 'Restaurar tamanho do chat', acao: function () {
-                    prefs.tam = null; prefs.snap = null; prefs.janela = 'normal'; salvarPrefs(); aplicarJanela(); posicionarLancador();
-                } }
+        // ── preferências no ⋮ da janela (menu(), L6244-6293) — só o que tem efeito real ───
+        // O central.js desenha o painel; daqui vêm as seções da janela. Chaves e valores redesenham o painel aberto.
+        function hhmm(t) {
+            var d = new Date(t);
+            return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        function avisarPreferencias() {
+            central.dispatchEvent(new CustomEvent('bj-central:preferencias'));
+        }
+
+        central.bjSilencio = silencio;
+        central.bjMenuJanela = function () {
+            var dnd = silencio();
+            var final = [];
+            if (prefs.pos || prefs.win || prefs.snap) {   // L6288: só quando há o que restaurar
+                final.push({ icone: 'bi-arrows-move', rotulo: 'Restaurar posição do chat', acao: function () {
+                    prefs.pos = null; prefs.win = null; prefs.snap = null; salvarPrefs(); aplicarJanela(); posicionarLancador();
+                } });
+            }
+            if (prefs.tam) {                                // L6289
+                final.push({ icone: 'bi-aspect-ratio', rotulo: 'Restaurar tamanho do chat', acao: function () {
+                    prefs.tam = null; prefs.janela = 'normal'; salvarPrefs(); aplicarJanela(); posicionarLancador();
+                } });
+            }
+            return [
+                { titulo: 'Meu status', itens: [   // L6266 (o "Status" manual depende de presença: fora)
+                    { icone: dnd ? 'bi-moon-fill' : 'bi-moon', rotulo: dnd ? 'Não perturbe até ' + hhmm(prefs.dnd) : 'Não perturbe por 1 hora', chave: dnd, acao: function () {
+                        prefs.dnd = dnd ? 0 : Date.now() + 3600000; salvarPrefs(); desenharLancador(); avisarPreferencias();
+                    } }
+                ] },
+                { titulo: 'Notificações', itens: [   // L6268-6272 (Volume, Toques e Avisar não têm efeito aqui: fora)
+                    { icone: prefs.som ? 'bi-volume-up' : 'bi-volume-mute', rotulo: 'Som de notificações', chave: !!prefs.som, acao: function () {
+                        prefs.som = !prefs.som; salvarPrefs();
+                        if (prefs.som) { ultimoToque = 0; tocar(); }   // L6268: ligar toca uma vez, para ouvir
+                    } },
+                    { icone: 'bi-lightning', rotulo: 'Alertas visuais', chave: !!prefs.alertas, acao: function () {
+                        prefs.alertas = !prefs.alertas; salvarPrefs(); desenharLancador();
+                    } }
+                ] },
+                // No desenho o "Tamanho do texto" mora na seção "Ligações · BlueJus Connect" (L6278), que não existe
+                // aqui (ligações não autorizadas); vai para "Mensagens", a seção de leitura das conversas.
+                { titulo: 'Mensagens', itens: [
+                    { icone: 'bi-fonts', rotulo: 'Tamanho do texto', valor: prefs.texto === 'grande' ? 'Grande' : 'Normal', acao: function () {
+                        prefs.texto = prefs.texto === 'grande' ? 'normal' : 'grande'; salvarPrefs(); aplicarTexto();
+                    } }
+                ] },
+                { titulo: null, itens: final }
             ];
-            return itens;
         };
 
         function aplicarTexto() {

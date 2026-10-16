@@ -38,6 +38,7 @@
         var el = {
             voltar: raiz.querySelector('[data-central-voltar]'),
             cabAvatar: raiz.querySelector('[data-central-cab-avatar]'),
+            cabEu: raiz.querySelector('[data-central-cab-eu]'),
             cabTitulo: raiz.querySelector('[data-central-cab-titulo]'),
             cabSub: raiz.querySelector('[data-central-cab-sub]'),
             telaLista: raiz.querySelector('[data-central-tela-lista]'),
@@ -82,6 +83,8 @@
             escolhidas: [],        // menções escolhidas no autocomplete: [{id, nome}]
             sugestoes: null,       // {itens, indice, inicio} quando o autocomplete está aberto
             menu: null,            // {fundo, caixa, origem} quando um menu de contexto está aberto
+            painelMenu: null,      // B1: {caixa} quando o ⋮ está aberto (menu(), L6244)
+            confirma: null,        // B1: {fundo, origem} quando a confirmação da janela está aberta (L6394)
             tela: 'lista',         // B: 'lista' | 'conversa' | 'novoGrupo' | 'info'
             verArquivadas: false,  // B: "Ver conversas arquivadas" (desenho L6260)
             vistas: new Set(),     // B: ids já entregues — a janela do polling repete as recentes (spec B §6)
@@ -215,7 +218,9 @@
         }
 
         function atualizarCabecalho() {
-            el.mais.hidden = estado.tela !== 'lista';
+            // O ⋮ fica no cabeçalho da lista e da conversa, como no desenho (L6339); some nas telas de grupo.
+            el.mais.hidden = estado.tela !== 'lista' && estado.tela !== 'conversa';
+            el.cabEu.hidden = !(estado.tela === 'lista' && !estado.aberta);
             el.info.hidden = !(estado.tela === 'conversa' && estado.aberta && estado.aberta.grupo && !estado.aberta.fora);
             if (estado.tela === 'novoGrupo' || estado.tela === 'info') {
                 el.voltar.hidden = false;
@@ -238,7 +243,9 @@
             el.voltar.hidden = true;
             el.cabAvatar.hidden = true;
             el.cabTitulo.textContent = TITULO;
-            el.cabSub.textContent = meuNome + ' · ' + (estado.naoLidas > 0
+            // Subtítulo do desenho (L6338): "nome · N não lidas | em dia | não perturbe". Status manual não existe aqui.
+            var silencio = typeof raiz.bjSilencio === 'function' && raiz.bjSilencio();
+            el.cabSub.textContent = meuNome + ' · ' + (silencio ? 'não perturbe' : estado.naoLidas > 0
                 ? (estado.naoLidas === 1 ? '1 não lida' : estado.naoLidas + ' não lidas')
                 : 'em dia');
         }
@@ -641,7 +648,7 @@
             }).catch(function (e) {
                 if (e.status === 409 && !tentativa) { iniciarConversaCom(contato, true); return; }
                 if (e.sessao) { tratarFalha(e); return; }
-                window.alert(e.message);
+                avisar(e.message);
             });
         }
 
@@ -668,7 +675,7 @@
             var texto = el.campo.value.trim();
             if (!estado.aberta || texto === '' || estado.enviando) { return; }
             if (tamanhoVisivel(texto) > tamanhoMaximo) {
-                window.alert('A mensagem passa de ' + tamanhoMaximo + ' caracteres (tem ' + tamanhoVisivel(texto) + ').');
+                avisar('A mensagem passa de ' + tamanhoMaximo + ' caracteres (tem ' + tamanhoVisivel(texto) + ').');
                 return;
             }
             estado.enviando = true;
@@ -686,7 +693,7 @@
                 carregarConversas().catch(tratarFalha);
             }).catch(function (e) {
                 if (e.sessao) { tratarFalha(e); return; }
-                window.alert(e.message);
+                avisar(e.message);
             }).finally(function () {
                 estado.enviando = false;
                 el.enviar.disabled = false;
@@ -959,18 +966,146 @@
             abrirMenu(itens, x, y, origem);
         }
 
-        function menuDoCabecalho() {   // ⋮ da lista, L6259-6260
-            var r = el.mais.getBoundingClientRect();
-            var itens = [
-                { icone: 'bi-people', rotulo: 'Novo grupo', acao: abrirNovoGrupo },
+        // ── menu ⋮ em painel (menu(), L6244-6293) ─────────────────────────────────────
+        // Painel preso ao canto da janela, com seções, chaves e valores. SÓ comandos que funcionam de verdade (D5): as
+        // conversas daqui e, no lançador, as preferências da janela (raiz.bjMenuJanela). Chaves e valores mudam sem
+        // fechar o painel, como no desenho; os demais itens fecham.
+        function secoesDoMenu() {
+            var secoes = [{ titulo: 'Conversas', itens: [
+                { icone: 'bi-people', rotulo: 'Novo grupo', acao: function () {
+                    if (estado.aberta) { fecharConversa(); }
+                    abrirNovoGrupo();
+                } },
                 { icone: 'bi-archive', rotulo: estado.verArquivadas ? 'Ocultar arquivadas' : 'Ver conversas arquivadas', acao: function () {
                     estado.verArquivadas = !estado.verArquivadas;
                     desenharLista();
                 } }
-            ];
-            // O lançador flutuante acrescenta as preferências da janela (som, alertas, texto, posição — L6244-6296).
-            if (typeof raiz.bjItensExtras === 'function') { itens = itens.concat(raiz.bjItensExtras()); }
-            abrirMenu(itens, r.right - 220, r.bottom + 4, el.mais);
+            ] }];
+            if (typeof raiz.bjMenuJanela === 'function') { secoes = secoes.concat(raiz.bjMenuJanela()); }
+            return secoes.filter(function (sc) { return sc.itens.length > 0; });
+        }
+
+        function itemDoMenu(it) {
+            var b = criar('button', 'bj-central-menu-item');
+            b.type = 'button';
+            b.setAttribute('role', it.chave === undefined ? 'menuitem' : 'menuitemcheckbox');
+            if (it.chave !== undefined) { b.setAttribute('aria-checked', String(!!it.chave)); }
+            var ic = criar('i', 'bi ' + it.icone);
+            ic.setAttribute('aria-hidden', 'true');
+            b.appendChild(ic);
+            b.appendChild(criar('span', 'bj-central-menu-rotulo', it.rotulo));
+            if (it.chave !== undefined) {
+                var chave = criar('span', 'bj-central-menu-chave');
+                chave.setAttribute('aria-hidden', 'true');
+                if (it.chave) { chave.dataset.ligada = ''; }
+                chave.appendChild(criar('span', 'bj-central-menu-chave-bola'));
+                b.appendChild(chave);
+            } else if (it.valor) {
+                b.appendChild(criar('span', 'bj-central-menu-valor', it.valor));
+            }
+            b.addEventListener('click', function () {
+                var manter = it.chave !== undefined || it.valor !== undefined;
+                if (!manter) { fecharPainelMenu(false); }
+                it.acao();
+                if (manter && estado.painelMenu) { desenharPainelMenu(it.rotulo); }
+            });
+            return b;
+        }
+
+        function desenharPainelMenu(focarRotulo) {
+            var caixa = estado.painelMenu ? estado.painelMenu.caixa : criar('div', 'bj-central-menu');
+            caixa.replaceChildren();
+            caixa.setAttribute('role', 'menu');
+            caixa.setAttribute('aria-label', 'Mais opções');
+            secoesDoMenu().forEach(function (sc, i) {
+                if (i > 0) { caixa.appendChild(criar('div', 'bj-central-menu-sep')); }
+                if (sc.titulo) { caixa.appendChild(criar('div', 'bj-central-menu-secao', sc.titulo)); }
+                sc.itens.forEach(function (it) { caixa.appendChild(itemDoMenu(it)); });
+            });
+            if (!estado.painelMenu) {
+                caixa.addEventListener('keydown', function (ev) {
+                    var botoes = Array.prototype.slice.call(caixa.querySelectorAll('.bj-central-menu-item'));
+                    var atual = botoes.indexOf(caixa.ownerDocument.activeElement);
+                    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                        ev.preventDefault();
+                        botoes[(atual + (ev.key === 'ArrowDown' ? 1 : -1) + botoes.length) % botoes.length].focus();
+                    } else if (ev.key === 'Escape' || ev.key === 'Tab') {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        fecharPainelMenu(true);
+                    }
+                });
+                raiz.appendChild(caixa);
+                estado.painelMenu = { caixa: caixa };
+                el.mais.setAttribute('aria-expanded', 'true');
+            }
+            var alvo = Array.prototype.slice.call(caixa.querySelectorAll('.bj-central-menu-item')).filter(function (b) {
+                return !focarRotulo || b.querySelector('.bj-central-menu-rotulo').textContent === focarRotulo;
+            })[0] || caixa.querySelector('.bj-central-menu-item');
+            if (alvo) { alvo.focus(); }
+        }
+
+        function fecharPainelMenu(devolverFoco) {
+            if (!estado.painelMenu) { return; }
+            estado.painelMenu.caixa.remove();
+            estado.painelMenu = null;
+            el.mais.setAttribute('aria-expanded', 'false');
+            if (devolverFoco && !el.mais.hidden) { el.mais.focus(); }
+        }
+
+        function alternarPainelMenu() {
+            if (estado.painelMenu) { fecharPainelMenu(true); return; }
+            fecharMenu(false);
+            desenharPainelMenu(null);
+        }
+
+        // ── confirmação dentro da janela (ui.confirma, L6394) ────────────────────────
+        // No lugar da confirmação nativa do navegador: sobreposição na própria janela, Cancelar e a ação (vermelha quando destrói).
+        function confirmar(texto, rotulo, acao) {
+            fecharConfirmacao(false);
+            fecharPainelMenu(false);
+            fecharMenu(false);
+            var fundo = criar('div', 'bj-central-confirma');
+            var caixa = criar('div', 'bj-central-confirma-caixa');
+            caixa.setAttribute('role', 'alertdialog');
+            caixa.setAttribute('aria-modal', 'true');
+            var frase = criar('span', 'bj-central-confirma-texto', texto);
+            frase.id = 'bj-central-confirma-' + Date.now();
+            caixa.setAttribute('aria-describedby', frase.id);
+            caixa.setAttribute('aria-label', rotulo);
+            var botoes = criar('div', 'bj-central-confirma-botoes');
+            var cancelar = botao('bj-central-confirma-btn', 'Cancelar', function () { fecharConfirmacao(true); });
+            var ok = botao('bj-central-confirma-btn bj-central-confirma-btn--' + (/^(Excluir|Remover|Apagar|Revogar|Sair)/.test(rotulo) ? 'perigo' : 'acao'), rotulo, function () {
+                fecharConfirmacao(true);
+                acao();
+            });
+            botoes.appendChild(cancelar);
+            botoes.appendChild(ok);
+            caixa.appendChild(frase);
+            caixa.appendChild(botoes);
+            fundo.appendChild(caixa);
+            fundo.addEventListener('click', function (ev) { if (ev.target === fundo) { fecharConfirmacao(true); } });
+            fundo.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Escape') {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    fecharConfirmacao(true);
+                } else if (ev.key === 'Tab') {   // o foco fica nos dois botões enquanto a pergunta está aberta
+                    ev.preventDefault();
+                    (caixa.ownerDocument.activeElement === cancelar ? ok : cancelar).focus();
+                }
+            });
+            raiz.appendChild(fundo);
+            estado.confirma = { fundo: fundo, origem: raiz.ownerDocument.activeElement };
+            cancelar.focus();
+        }
+
+        function fecharConfirmacao(devolverFoco) {
+            if (!estado.confirma) { return; }
+            var origem = estado.confirma.origem;
+            estado.confirma.fundo.remove();
+            estado.confirma = null;
+            if (devolverFoco && origem && raiz.contains(origem)) { origem.focus(); }
         }
 
         // ── grupos (B) ───────────────────────────────────────────────────────────────
@@ -1112,10 +1247,11 @@
                 linha.appendChild(textos);
                 if (dados.souAdministrador && !pp.eu) {
                     linha.appendChild(botao('bj-central-btn bj-central-btn--perigo', 'Remover', function () {
-                        if (!window.confirm('Remover ' + pp.nome + ' do grupo "' + dados.nome + '"? A pessoa deixará de ver o grupo e de receber as mensagens.')) { return; }
-                        pedir(urls.base + '/' + id + '/participantes/' + pp.id, { metodo: 'DELETE' })
-                            .then(function () { return carregarConversas().then(function () { abrirInfo(c, false); }); })
-                            .catch(falhaDeAcao);
+                        confirmar('Remover ' + pp.nome + ' do grupo "' + dados.nome + '"? A pessoa deixará de ver o grupo e de receber as mensagens.', 'Remover', function () {
+                            pedir(urls.base + '/' + id + '/participantes/' + pp.id, { metodo: 'DELETE' })
+                                .then(function () { return carregarConversas().then(function () { abrirInfo(c, false); }); })
+                                .catch(falhaDeAcao);
+                        });
                     }));
                 }
                 p.appendChild(linha);
@@ -1153,11 +1289,12 @@
                     .then(function () { abrirInfo(atual, false); });
             }));
             conf.appendChild(botao('bj-central-btn bj-central-btn--perigo', 'Sair do grupo', function () {
-                if (!window.confirm('Sair do grupo "' + dados.nome + '"? Você deixará de ver o grupo e de receber as mensagens.')) { return; }
-                pedir(urls.base + '/' + id + '/sair', { metodo: 'POST', corpo: {} }).then(function () {
-                    avisar('Você saiu do grupo.');
-                    fecharConversa();
-                }).catch(falhaDeAcao);
+                confirmar('Sair do grupo "' + dados.nome + '"? Você deixará de ver o grupo e de receber as mensagens.', 'Sair', function () {
+                    pedir(urls.base + '/' + id + '/sair', { metodo: 'POST', corpo: {} }).then(function () {
+                        avisar('Você saiu do grupo.');
+                        fecharConversa();
+                    }).catch(falhaDeAcao);
+                });
             }));
             p.appendChild(conf);
             if (focarNome) { nome.focus(); nome.select(); }
@@ -1185,7 +1322,7 @@
 
         function falhaDeAcao(e) {
             if (e && e.sessao) { tratarFalha(e); return; }
-            window.alert(e && e.message ? e.message : 'Falha na Central.');
+            avisar(e && e.message ? e.message : 'Falha na Central.');
         }
 
         // ── polling (D2) ─────────────────────────────────────────────────────────────
@@ -1282,14 +1419,20 @@
         // O lançador avisa quando a janela abre ou fecha: polling rápido só com ela à vista, e só então "lê".
         raiz.addEventListener('bj-central:visibilidade', function (ev) {
             estado.janelaAberta = !!(ev.detail && ev.detail.aberta);
-            if (!estado.janelaAberta) { fecharMenu(false); fecharSugestoes(); }
+            if (!estado.janelaAberta) { fecharMenu(false); fecharSugestoes(); fecharPainelMenu(false); fecharConfirmacao(false); }
             if (estado.semSessao) { return; }
             iniciarPolling();
             if (!estado.janelaAberta) { return; }
             var primeira = estado.listaCarregada ? Promise.resolve() : Promise.all([carregarConversas(), carregarContatos()]);
             primeira.then(function () { return verificarNovidades(); }).then(marcarLida).catch(tratarFalha);
         });
-        el.mais.addEventListener('click', menuDoCabecalho);
+        el.mais.addEventListener('click', alternarPainelMenu);
+        // Clique fora do ⋮ fecha o painel (no documento em que a Central estiver: a página ou a janela destacada).
+        raiz.addEventListener('pointerdown', function (ev) {
+            if (estado.painelMenu && !estado.painelMenu.caixa.contains(ev.target) && !el.mais.contains(ev.target)) { fecharPainelMenu(false); }
+        });
+        // O lançador avisa quando muda uma preferência que aparece no cabeçalho (não perturbe).
+        raiz.addEventListener('bj-central:preferencias', atualizarCabecalho);
         el.info.addEventListener('click', function () {
             var c = estado.aberta ? estado.conversas.filter(function (x) { return x.id === estado.aberta.id; })[0] : null;
             if (c) { abrirInfo(c, false); }
@@ -1330,6 +1473,8 @@
         raiz.addEventListener('keydown', function (ev) {
             if (ev.key !== 'Escape') { return; }
             // Esc desfaz uma camada por vez: menu → resposta em andamento → conversa aberta (L6129).
+            if (estado.confirma) { fecharConfirmacao(true); return; }
+            if (estado.painelMenu) { fecharPainelMenu(true); return; }
             if (estado.menu) { fecharMenu(true); return; }
             if (estado.respondendo) { cancelarResposta(); return; }
             if (estado.tela === 'info' || estado.tela === 'novoGrupo' || estado.aberta) { voltar(); }
