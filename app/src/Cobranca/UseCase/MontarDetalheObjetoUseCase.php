@@ -54,7 +54,7 @@ final class MontarDetalheObjetoUseCase
             descricao: $objeto->getDescricao(),
             referenciaExterna: $objeto->getReferenciaExterna(),
             carteiraId: $carteira?->getId() ?? 0,
-            carteiraNome: $carteira?->getNome() ?? '—',
+            carteiraNome: $carteira?->getNome() ?? 'Não informado',
             caso: $casoDetalhe,
             temCobradaAtual: $pessoaCobradaId !== null,
             vinculos: $vinculos,

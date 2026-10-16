@@ -495,8 +495,8 @@ final class CentralControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
         $linha = $crawler->filter('.js-linha-pessoa[data-chave="' . $user->getId() . '"] td');
-        self::assertSame('—', trim($linha->eq(4)->text()), 'importar planilha nao e cobrar ninguem');
-        self::assertSame('—', trim($crawler->filter('.cobranca-central-total td')->eq(4)->text()));
+        self::assertSame('Sem registro', trim($linha->eq(4)->text()), 'importar planilha nao e cobrar ninguem');
+        self::assertSame('Sem registro', trim($crawler->filter('.cobranca-central-total td')->eq(4)->text()));
     }
 
     #[TestDox('§5.1: período só de importação NÃO diz "nenhum registro" — diz nenhum trabalho')]

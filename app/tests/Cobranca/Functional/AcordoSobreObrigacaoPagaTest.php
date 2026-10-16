@@ -105,7 +105,7 @@ final class AcordoSobreObrigacaoPagaTest extends CobrancaWebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('R$ 800,00 (R$ 400,00 já recebidos)', $html);
         // O valor cheio não pode ser oferecido como se fosse o devido.
-        self::assertStringNotContainsString('Abril/2026 — venc 10/04/2026 — R$ 1.200,00', $html);
+        self::assertStringNotContainsString('Abril/2026 · venc 10/04/2026 · R$ 1.200,00', $html);
     }
 
     #[TestDox('T6: o modal carrega o gatilho do aviso (alocado) e ele nasce escondido')]

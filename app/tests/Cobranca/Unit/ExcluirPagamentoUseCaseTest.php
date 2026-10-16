@@ -238,7 +238,7 @@ final class ExcluirPagamentoUseCaseTest extends TestCase
         self::assertInstanceOf(EventoHistorico::class, $capturado);
         self::assertSame(TipoEventoHistorico::PagamentoExcluido, $capturado->getTipo());
         self::assertSame(
-            'Recebimento excluído: R$ 50,00 de 15/06/2026 — Lançamento em duplicidade',
+            'Recebimento excluído: R$ 50,00 de 15/06/2026. Motivo: Lançamento em duplicidade',
             $capturado->getDescricao(),
             'a timeline não exibe o payload JSON: a descrição tem de bastar',
         );

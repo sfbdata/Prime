@@ -91,7 +91,7 @@
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="cob-cab-sobretitulo">Unidade</span>
                         <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
-                        {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
+                        {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado: o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
                     </div>
 
                     <h1 class="m-0 mt-2 mb-1">{{ objeto.identificacao }}</h1>
@@ -133,12 +133,12 @@
                             <i class="bi bi-telephone me-1"></i>Registrar contato
                         </button>
                         {% endif %}
-                        <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
+                        <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função. Será definida com o gestor.">
                             <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="simular-acordo" disabled>
                                 <i class="bi bi-calculator me-1"></i>Simular acordo
                             </button>
                         </span>
-                        <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
+                        <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função. Será definida com o gestor.">
                             <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="planilha-atualizada" disabled>
                                 <i class="bi bi-file-earmark-spreadsheet me-1"></i>Planilha atualizada
                             </button>
@@ -789,7 +789,7 @@
                         <div class="tab-pane fade" id="paneNovaEnd" role="tabpanel" aria-labelledby="abaNovaEnd" tabindex="0">
                             {# Um endereço, opcional COMO BLOCO (`validarEnderecoCompleto` no Input): ou vem
                                vazio, ou vem inteiro. O aviso diz isso antes de o gestor descobrir pelo erro. #}
-                            <p class="text-secondary small">Opcional. Se preencher, informe o endereço completo — ele entra como o endereço atual da pessoa.</p>
+                            <p class="text-secondary small">Opcional. Se preencher, informe o endereço completo: ele entra como o endereço atual da pessoa.</p>
                             <div class="row g-2">
                                 <div class="col-md-8">{{ form_row(formNovaPessoa.enderecoLogradouro) }}</div>
                                 <div class="col-md-4">{{ form_row(formNovaPessoa.enderecoNumero) }}</div>
@@ -1862,7 +1862,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 fechamentoBox.classList.toggle('text-success', fecha);
                 fechamentoBox.textContent = fecha
                     ? 'Entrada + parcelas fecham em ' + fmtReais(total) + '.'
-                    : 'Entrada + parcelas somam ' + fmtReais(soma) + ' — deve fechar em ' + fmtReais(total) + '.';
+                    : 'Entrada + parcelas somam ' + fmtReais(soma) + ', mas deve fechar em ' + fmtReais(total) + '.';
             }
             if (submitBtn) { submitBtn.disabled = !fecha; }
         }
@@ -2102,7 +2102,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     ul.className = 'mb-0 ps-3 text-muted';
                     d.alocacoes.forEach(function (a) {
                         var li = document.createElement('li');
-                        li.textContent = (a.descricao || 'Obrigação') + ' — ' + fmtReais(a.valor);
+                        li.textContent = (a.descricao || 'Obrigação') + ' · ' + fmtReais(a.valor);
                         ul.appendChild(li);
                     });
                     box.appendChild(ul);

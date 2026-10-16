@@ -51,7 +51,7 @@ final class RegistrarTentativaCobrancaUseCase
         // A descrição embute canal/data/resultado porque a timeline só exibe o texto (o payload `dados`
         // não é renderizado). A observação, quando houver, entra como sufixo.
         $descricao = sprintf(
-            'Contato por %s em %s — %s.',
+            'Contato por %s em %s: %s.',
             $input->canal->label(),
             $input->dataContato->format('d/m/Y H:i'),
             $input->resultado->label(),

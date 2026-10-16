@@ -38,7 +38,7 @@ enum FormaHonorarios: string
         return match ($this) {
             self::AcrescidoDivida => 'O percentual é somado à dívida do devedor. Em cada pagamento, o valor recebido é dividido proporcionalmente entre a dívida do credor e os honorários do escritório.',
             self::RetidoRecuperado => 'O percentual é retido do valor recuperado. A cada recuperação, os honorários saem do que foi recebido.',
-            self::CobradoSeparado => 'Os honorários são cobrados à parte, direto do cliente credor — não saem do valor pago pelo devedor.',
+            self::CobradoSeparado => 'Os honorários são cobrados à parte, direto do cliente credor. Não saem do valor pago pelo devedor.',
             self::SemPercentual => 'Não há cálculo de honorários percentuais nesta carteira. O campo de percentual não se aplica.',
         };
     }

@@ -43,7 +43,7 @@ final class EditarConfiguracaoObjetoType extends AbstractType
         $taxa = new TaxaBpParaTextoTransformer();
         $porcento = static fn (?int $bp): string => $daCarteira === null || $bp === null ? '' : $taxa->transform($bp);
         $dias = static fn (?int $d): string => $daCarteira === null || $d === null ? '' : (string) $d;
-        $opcao = static fn (?string $rotulo): string => $daCarteira === null || $rotulo === null ? '—' : $rotulo;
+        $opcao = static fn (?string $rotulo): string => $daCarteira === null || $rotulo === null ? 'Nenhum' : $rotulo;
 
         $builder
             ->add('taxaJurosMensalBp', TaxaBpType::class, [

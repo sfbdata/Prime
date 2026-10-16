@@ -22,7 +22,7 @@ final class DataDoAcordoObrigatoriaException extends \DomainException
     public function __construct()
     {
         parent::__construct(
-            'Acordo lavrado na tela exige a data do acordo — só a importação grava acordo sem data, '
+            'Acordo lavrado na tela exige a data do acordo. Só a importação grava acordo sem data, '
             . 'quando a própria contabilidade não a informa.',
         );
     }

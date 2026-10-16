@@ -40,7 +40,7 @@ final class VinculoPessoaOutput
         return new self(
             vinculoId: $vinculo->getId() ?? 0,
             pessoaId: $pessoaId ?? 0,
-            nome: $pessoa?->getNome() ?? '—',
+            nome: $pessoa?->getNome() ?? 'Não informado',
             cpf: $pessoa?->getCpf(),
             cnpj: $pessoa?->getCnpj(),
             email: $pessoa?->getEmail(),

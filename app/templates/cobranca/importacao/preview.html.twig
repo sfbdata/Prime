@@ -27,7 +27,7 @@
         {% if not confirmado %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle me-1"></i>
-            Esta é uma <strong>prévia</strong> — nada foi gravado ainda. Confira os números e confirme para importar de verdade.
+            Esta é uma <strong>prévia</strong>. Nada foi gravado ainda. Confira os números e confirme para importar de verdade.
         </div>
         {% endif %}
 
@@ -68,15 +68,15 @@
         <div class="alert alert-warning d-flex gap-2 align-items-start" role="alert">
             <i class="bi bi-receipt-cutoff mt-1"></i>
             <div>
-                <strong>Dívida que nunca teve boleto</strong> — {{ sem_boleto }} obrigação(ões)
+                <strong>Dívida que nunca teve boleto</strong>: {{ sem_boleto }} obrigação(ões)
                 ({{ resultado.totalSemBoleto }} {{ confirmado ? 'criada(s)' : 'a criar' }},
                 {{ resultado.totalSemBoletoAtualizadas }} atualizada(s)), somando
                 <strong>R$ {{ (resultado.centavosSemBoleto / 100)|number_format(2, ',', '.') }}</strong>
                 de principal e encargos.
                 <div class="small mt-1">
                     São lançamentos antigos que a contabilidade nunca emitiu em boleto. Entram pela chave
-                    substituta <code>SNN:&lt;vencimento&gt;</code>, e o valor acima é o da planilha —
-                    em obrigação que já existia, o valor lançado é preservado.
+                    substituta <code>SNN:&lt;vencimento&gt;</code>, e o valor acima é o da planilha.
+                    Em obrigação que já existia, o valor lançado é preservado.
                 </div>
             </div>
         </div>
@@ -92,7 +92,7 @@
         <div class="alert alert-warning">
             <i class="bi bi-123 me-1"></i>
             <strong>Nosso Número reutilizado</strong> em {{ resultado.referenciasReutilizadas|length }} boleto(s):
-            a contábil repetiu um número que já existe neste caso, mas em <strong>outra competência</strong> —
+            a contábil repetiu um número que já existe neste caso, mas em <strong>outra competência</strong>:
             é <strong>outra dívida</strong>, e {{ confirmado ? 'nasceu separada' : 'vai nascer separada' }},
             sem sobrescrever a anterior. Confira se é mesmo cobrança nova.
             <div class="small mt-1">Nossos Números: {{ resultado.referenciasReutilizadas|join(', ') }}.</div>
@@ -103,7 +103,7 @@
         <div class="alert alert-info">
             <i class="bi bi-calendar-event me-1"></i>
             <strong>Vencimento alterado</strong> em {{ resultado.vencimentosAlterados|length }} boleto(s):
-            mesma dívida (mesma competência) com data nova no relatório — o padrão do <strong>boleto reemitido</strong>.
+            mesma dívida (mesma competência) com data nova no relatório, o padrão do <strong>boleto reemitido</strong>.
             O vencimento lançado <strong>não é sobrescrito</strong>; só os encargos são recalculados.
             <div class="small mt-1">Nossos Números: {{ resultado.vencimentosAlterados|join(', ') }}.</div>
         </div>
@@ -150,11 +150,11 @@
                     <div class="card-body">
                         <div class="mb-2">
                             <span class="badge text-bg-success">{{ confirmado ? 'Importadas' : 'A importar' }}</span>
-                            <span class="small text-muted">{{ resultado.obrigacoesCriadas|length > 0 ? (resultado.obrigacoesCriadas|join(', ')) : '—' }}</span>
+                            <span class="small text-muted">{{ resultado.obrigacoesCriadas|length > 0 ? (resultado.obrigacoesCriadas|join(', ')) : 'Nenhuma' }}</span>
                         </div>
                         <div>
                             <span class="badge text-bg-secondary">{{ confirmado ? 'Atualizadas' : 'A atualizar' }}</span>
-                            <span class="small text-muted">{{ resultado.obrigacoesAtualizadas|length > 0 ? (resultado.obrigacoesAtualizadas|join(', ')) : '—' }}</span>
+                            <span class="small text-muted">{{ resultado.obrigacoesAtualizadas|length > 0 ? (resultado.obrigacoesAtualizadas|join(', ')) : 'Nenhuma' }}</span>
                         </div>
                     </div>
                 </div>
