@@ -214,7 +214,8 @@ troca de identidade: a sessão, o usuário e as permissões continuam os do Mast
   "Abrir conversa" (seriam a leitura do convidado ou do escritório, que o Master não vê).
 - **Diferenças assumidas em relação ao desenho**: uma faixa "Pré-visualizando como X: somente leitura"
   com "Voltar ao Master" (o protótipo não precisava dela, porque lá a troca é de identidade); na
-  prévia não aparecem "Nova solicitação", o ⋮ nem formulários; a escolha não persiste ao recarregar a
+  prévia não aparecem o ⋮ nem formulários de escrita (o "+ Nova solicitação" da prévia de Solicitante
+  é a exceção da §9.1: grava como o Master real); a escolha não persiste ao recarregar a
   página (volta ao Master).
 
 ### 9.1 Quem abre e quem recebe solicitação (decisão do dono, 16/10/2026)

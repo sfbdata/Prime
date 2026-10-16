@@ -90,8 +90,15 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrf($client);
         $central = $this->criarTenant('Central');
         $alheio = $this->criarTenant('Alheio');
+        $antigo = $this->criarTenant('Vínculo inativo');
         $master = $this->criarMaster($central);
-        $this->criarUsuario($alheio);
+        $colega = $this->criarUsuario($central, nome: 'Colega');
+        $deFora = $this->criarUsuario($alheio);
+        // Um vínculo que o Master teve e foi desativado não vale.
+        $this->em()->persist(new \App\Entity\Auth\UserTenant($this->em()->find(\App\Entity\Auth\User::class, $master->getId()), $this->em()->find(\App\Entity\Tenant\Tenant::class, $antigo->getId())));
+        $this->em()->flush();
+        $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$master->getId(), $antigo->getId()]);
+        $this->em()->clear();
         $this->logarComTenant($client, $master, $central);
         $total = fn (): int => (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM trabalho_externo_demanda');
         $antes = $total();
@@ -99,6 +106,10 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         // Escritório de terceiro: recusado, nada gravado.
         $this->solicitarComo($client, $alheio->getId(), true);
         self::assertResponseStatusCodeSame(403);
+        $this->solicitarComo($client, $antigo->getId(), true);
+        self::assertResponseStatusCodeSame(403, 'vínculo inativo não conta');
+        $this->solicitarComo($client, 999999999, true);
+        self::assertResponseStatusCodeSame(403, 'id inexistente');
         // Sem escolher escritório: recusado.
         $this->solicitarComo($client, null, true);
         self::assertResponseStatusCodeSame(403);
@@ -118,6 +129,18 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         $hist = $this->json($client)['demanda']['historico'];
         self::assertSame('Nova solicitação', end($hist)['para']);
         self::assertStringContainsString('Master', end($hist)['quem'], 'o Master é o autor');
+
+        // O colega do escritório escolhido (Solicitante) vê a demanda e o autor pelo NOME: gravado
+        // como Solicitante, não é mascarado como "Central BlueJus". Outro escritório não a vê.
+        $this->logarComTenant($client, $colega, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertResponseIsSuccessful();
+        $hist = $this->json($client)['demanda']['historico'];
+        self::assertSame((string) $master->getFullName(), end($hist)['quem']);
+        $this->logarComTenant($client, $deFora, $alheio);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertResponseStatusCodeSame(404);
+        $this->logarComTenant($client, $master, $central);
 
         // Na prévia de Solicitante, o mesmo botão.
         $client->request('GET', '/trabalho-externo/api/painel?como=solicitante');
