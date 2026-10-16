@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./bj-dica.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<script src="./bluejus-central.js"></script>
+<style>
+body { margin:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#12242f; -webkit-font-smoothing:antialiased; }
+a { color:#0a6fa0; text-decoration:none; } a:hover { color:#0b5f86; text-decoration:underline; }
+input, select, textarea, button { font-family:inherit; }
+@keyframes teIn { from { transform:translateX(24px); opacity:0; } to { transform:none; opacity:1; } }
+@keyframes teP { 0% { box-shadow:0 0 0 0 rgba(10,111,160,.45); } 70% { box-shadow:0 0 0 9px rgba(10,111,160,0); } 100% { box-shadow:0 0 0 0 rgba(10,111,160,0); } }
+@keyframes teUp { from { transform:translateY(10px); opacity:0; } to { transform:none; opacity:1; } }
+</style>
+</helmet>
+<div style="min-height:100vh; display:flex; flex-direction:column;">
+  <header style="background:#0a6fa0; color:#fff; height:58px; display:flex; align-items:center; gap:14px; padding:0 22px;">
+    <button onClick="{{ navAbrir }}" title="Menu" style="width:34px; height:34px; border:none; border-radius:3px; background:transparent; color:#fff; font-size:22px; cursor:pointer; display:flex; align-items:center; justify-content:center;" style-hover="background:rgba(255,255,255,.15);"><i class="bi bi-list"></i></button>
+    <img src="./bluejus-favicons/bluejus-logo-nav-branco.png" alt="BlueJus" style="height:28px; display:block;">
+    <span style="width:1px; height:22px; background:rgba(255,255,255,.4);"></span>
+    <span style="font-size:16px;">Trabalho Externo</span>
+    <div style="flex:1;"></div>
+    <span style="font-size:13px; opacity:.85;">{{ perfilPapel }}</span>
+    <span style="font-weight:bold; font-size:14px; white-space:nowrap;">{{ perfilNome }}</span>
+  </header>
+  <nav style="background:#fff; display:flex; gap:4px; padding:0 20px; box-shadow:0 1px 3px rgba(18,36,47,.08); overflow-x:auto;">
+    <a href="./03 - EXPEDIENTE Lista 1.0.dc.html" style="padding:15px 14px 12px; font-size:13.5px; font-weight:bold; color:#34505f; border-bottom:3px solid transparent; text-decoration:none; white-space:nowrap;">EXPEDIENTE</a>
+    <a href="#" style="padding:15px 14px 12px; font-size:13.5px; font-weight:bold; color:#34505f; border-bottom:3px solid transparent; text-decoration:none; white-space:nowrap;">DEMANDAS</a>
+    <a href="#" style="padding:15px 14px 12px; font-size:13.5px; font-weight:bold; color:#34505f; border-bottom:3px solid transparent; text-decoration:none; white-space:nowrap;">PROCESSOS</a>
+    <a href="#" style="padding:15px 14px 12px; font-size:13.5px; font-weight:bold; color:#0a6fa0; border-bottom:3px solid #0a6fa0; text-decoration:none; white-space:nowrap;">TRABALHO EXTERNO</a>
+  </nav>
+
+  <main style="flex:1; padding:22px 26px 40px; max-width:1500px; width:100%; box-sizing:border-box; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+      <h1 style="margin:0; font-size:30px; font-weight:normal; display:flex; align-items:center; gap:12px; flex:1 1 auto; min-width:0;"><i class="bi bi-geo-alt" style="color:#0a6fa0;"></i><span style="display:flex; flex-direction:column; gap:2px; min-width:0;"><span style="white-space:nowrap;">Trabalho Externo</span><span style="font-size:13px; color:#5b7383; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Central nacional de advocacia correspondente</span></span></h1>
+      <div title="Simula o acesso de cada perfil" style="display:flex; background:#e6edf2; border-radius:4px; padding:3px; gap:2px;">
+        <sc-for list="{{ perfis }}" as="p" hint-placeholder-count="3"><button onClick="{{ p.ir }}" style="height:30px; padding:0 12px; border:none; border-radius:3px; background:{{ p.bg }}; color:{{ p.cor }}; font-size:12.5px; font-weight:bold; cursor:pointer; box-shadow:{{ p.sh }}; display:flex; align-items:center; gap:6px;"><i class="bi {{ p.ic }}"></i>{{ p.rot }}</button></sc-for>
+      </div>
+      <sc-if value="{{ visBadgeTem }}" hint-placeholder-val="{{ false }}"><span style="display:flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:3px; background:#fdf1f2; color:#a3232b; font-size:12px; font-weight:bold;"><i class="bi bi-eye-slash"></i>{{ visBadge }}</span></sc-if>
+      <sc-if value="{{ ehMaster }}" hint-placeholder-val="{{ true }}">
+        <span style="display:flex; align-items:center; gap:7px; height:28px; padding:0 10px; border-radius:3px; background:#fff; border:1px solid #dde5eb; font-size:12.5px; color:#34505f;"><i class="bi bi-circle-fill" style="font-size:8px; color:{{ dispCor }};"></i>Central {{ dispTxt }}</span>
+        <div style="position:relative;">
+          <button onClick="{{ abrirHm }}" title="Opções do Master" style="width:36px; height:36px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; cursor:pointer; font-size:16px;" style-hover="border-color:#0a6fa0; color:#0a6fa0; background:#e5f1f7;"><i class="bi bi-three-dots-vertical"></i></button>
+          <sc-if value="{{ hm }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ fecharHm }}" style="position:fixed; inset:0; z-index:44;"></div>
+            <div style="position:absolute; z-index:45; right:0; top:42px; width:270px; background:#fff; border:1px solid #d3dde4; border-radius:4px; box-shadow:0 10px 28px rgba(18,36,47,.18); padding:4px 0; animation:teUp .14s ease;">
+              <sc-for list="{{ hmItens }}" as="h" hint-placeholder-count="8">
+                <sc-if value="{{ h.temSec }}" hint-placeholder-val="{{ false }}"><div style="padding:9px 14px 4px; font-size:10.5px; font-weight:bold; color:#5b7383; letter-spacing:.5px; border-top:1px solid #eef2f5;">{{ h.sec }}</div></sc-if>
+                <sc-if value="{{ h.item }}" hint-placeholder-val="{{ true }}"><button onClick="{{ h.ir }}" style="width:100%; display:flex; align-items:center; gap:10px; border:none; background:#fff; padding:7px 14px; font-size:13px; color:#243845; cursor:pointer; text-align:left;" style-hover="background:#eef5fa;"><i class="bi {{ h.ic }}" style="width:16px; color:#5b7383;"></i><span style="flex:1;">{{ h.rot }}</span><i class="bi {{ h.okIc }}" style="color:#0a6fa0;"></i></button></sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ podeSolicitar }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ novaAbrir }}" style="height:36px; background:#0a6fa0; color:#fff; border:none; border-radius:3px; padding:0 14px; font-size:14px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .15s, transform .15s;" style-hover="background:#0b5f86; transform:translateY(-1px);"><i class="bi bi-plus-lg"></i>Nova solicitação</button>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ bloqueado }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:520px; margin:60px auto; background:#fff; border:1px solid #dde5eb; border-radius:4px; padding:34px 28px; text-align:center;"><i class="bi bi-shield-lock" style="font-size:40px; color:#0a6fa0;"></i><div style="font-size:18px; font-weight:bold; margin:12px 0 8px;">{{ bloqTit }}</div><div style="font-size:14px; color:#5b7383; line-height:1.55;">{{ bloqTxt }}</div></div>
+    </sc-if>
+    <sc-if value="{{ liberado }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ avisoDisp }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; align-items:center; gap:10px; background:#fff7e6; border:1px solid #f1e2bf; color:#7a5200; border-radius:3px; padding:9px 12px; font-size:13.5px; margin-bottom:14px;"><i class="bi bi-exclamation-triangle"></i>{{ avisoDisp }}</div>
+    </sc-if>
+
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+      <span style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px;">PERÍODO</span>
+      <div style="display:flex; background:#e6edf2; border-radius:4px; padding:3px; gap:2px;"><sc-for list="{{ perModos }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.ir }}" style="height:26px; padding:0 11px; border:none; border-radius:3px; background:{{ m.bg }}; color:{{ m.cor }}; font-size:12.5px; font-weight:bold; cursor:pointer; box-shadow:{{ m.sh }};">{{ m.rot }}</button></sc-for></div>
+      <sc-if value="{{ perMes }}" hint-placeholder-val="{{ false }}"><input type="month" value="{{ perMesV }}" onChange="{{ onPerMes }}" style="height:30px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font-size:13px; color:#12242f; background:#fff;"></sc-if>
+      <sc-if value="{{ perAno }}" hint-placeholder-val="{{ false }}"><select value="{{ perAnoV }}" onChange="{{ onPerAno }}" style="height:30px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font-size:13px; color:#12242f; background:#fff;"><sc-for list="{{ anos }}" as="a" hint-placeholder-count="3"><option value="{{ a }}">{{ a }}</option></sc-for></select></sc-if>
+      <span style="font-size:12.5px; color:#5b7383;">{{ perTxt }}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:16px;">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+        <button onClick="{{ k.ir }}" style="text-align:left; background:#fff; border:1px solid #dde5eb; border-radius:4px; padding:12px 14px; cursor:pointer; display:flex; align-items:center; gap:12px; box-shadow:0 1px 2px rgba(18,36,47,.04); transition:transform .15s, box-shadow .15s;" style-hover="transform:translateY(-2px); box-shadow:0 6px 16px rgba(18,36,47,.08);">
+          <i class="bi {{ k.ic }}" style="font-size:20px; color:{{ k.cor }};"></i>
+          <span style="display:flex; flex-direction:column; gap:2px;"><b style="font-size:22px; color:#12242f;">{{ k.n }}</b><span style="font-size:12.5px; color:#5b7383;">{{ k.rot }}</span></span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+      <div style="display:flex; gap:6px; flex-wrap:wrap; flex:1;">
+        <sc-for list="{{ chips }}" as="c" hint-placeholder-count="8"><button onClick="{{ c.ir }}" style="height:30px; padding:0 11px; border:1px solid {{ c.bd }}; border-radius:3px; background:{{ c.bg }}; color:{{ c.cor }}; font-size:13px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:7px;">{{ c.rot }}<span style="font-size:11.5px; font-weight:normal; opacity:.8;">{{ c.n }}</span></button></sc-for>
+      </div>
+      <label style="width:280px; max-width:100%; height:34px; display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; box-sizing:border-box;"><i class="bi bi-search" style="color:#5f7684;"></i><input value="{{ busca }}" onInput="{{ onBusca }}" placeholder="Buscar demanda, cidade, processo" style="border:none; outline:none; flex:1; min-width:0; font-size:14px; background:transparent;"></label>
+    </div>
+
+    <div style="background:#fff; border:1px solid #dde5eb; border-radius:4px; overflow-x:auto;">
+      <div style="min-width:1040px;">
+        <div style="display:grid; grid-template-columns:96px minmax(220px,2fr) minmax(190px,1.3fr) 150px 170px 190px 60px 44px; align-items:center; background:#f7f9fb; border-bottom:2px solid #dde5eb; font-size:12px; font-weight:bold; letter-spacing:.4px; color:#34505f;">
+          <div style="padding:11px 14px;">ID</div><div style="padding:11px 14px;">SERVIÇO</div><div style="padding:11px 14px;">ORIGEM → EXECUÇÃO</div><div style="padding:11px 14px;">PRAZO</div><div style="padding:11px 14px;">RESPONSÁVEL</div><div style="padding:11px 14px;">SITUAÇÃO</div><div style="padding:11px 6px; text-align:center;">CHAT</div><div></div>
+        </div>
+        <sc-for list="{{ linhas }}" as="l" hint-placeholder-count="4">
+          <div onClick="{{ l.abrir }}" onContextMenu="{{ l.ctx }}" style="display:grid; grid-template-columns:96px minmax(220px,2fr) minmax(190px,1.3fr) 150px 170px 190px 60px 44px; align-items:center; border-bottom:1px solid #e6edf2; cursor:pointer; background:{{ l.bg }}; transition:background .12s;" style-hover="background:#eef5fa;">
+            <div style="padding:12px 14px; font-weight:bold; font-size:13.5px; color:#0a6fa0;">{{ l.id }}</div>
+            <div style="padding:10px 14px; min-width:0;"><div style="font-weight:bold; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ l.tipo }}</div><div style="font-size:12.5px; color:#5b7383; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ l.desc }}</div></div>
+            <div style="padding:10px 14px; font-size:13px; color:#34505f; min-width:0;"><div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ l.origem }}</div><div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:bold; color:#12242f;"><i class="bi bi-arrow-return-right" style="color:#8496a3;"></i> {{ l.destino }}</div></div>
+            <div style="padding:10px 14px; font-size:13px;"><div>{{ l.prazo }}</div><div style="font-size:12px; color:{{ l.prazoCor }}; display:flex; align-items:center; gap:4px;"><i class="bi {{ l.prazoIc }}"></i>{{ l.prazoTxt }}</div></div>
+            <div style="padding:10px 14px; font-size:13px; color:{{ l.respCor }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ l.resp }}</div>
+            <div style="padding:10px 14px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:bold; color:{{ l.stCor }};"><i class="bi {{ l.stIc }}"></i>{{ l.st }}</span></div>
+            <div style="text-align:center;"><sc-if value="{{ l.temNaoLidas }}" hint-placeholder-val="{{ false }}"><span style="background:#0a6fa0; color:#fff; font-size:11px; font-weight:bold; padding:2px 7px; border-radius:9px;">{{ l.naoLidas }}</span></sc-if><sc-if value="{{ l.semNaoLidas }}" hint-placeholder-val="{{ true }}"><i class="bi bi-chat" style="color:#b5c3cc;"></i></sc-if></div>
+            <div style="text-align:center;"><button onClick="{{ l.menu }}" title="Mais opções" style="width:30px; height:30px; border:none; border-radius:3px; background:transparent; color:#5b7383; cursor:pointer;" style-hover="background:#e5f1f7; color:#0a6fa0;"><i class="bi bi-three-dots-vertical"></i></button></div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ vazio }}" hint-placeholder-val="{{ false }}"><div style="padding:40px; text-align:center; color:#5b7383; font-size:14px;">{{ vazioTxt }}</div></sc-if>
+      </div>
+    </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ nav }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ navFechar }}" style="position:fixed; inset:0; z-index:80; background:rgba(18,36,47,.35);"></div>
+    <aside style="position:fixed; z-index:81; top:0; left:0; bottom:0; width:250px; background:#fff; box-shadow:6px 0 24px rgba(18,36,47,.18); display:flex; flex-direction:column; animation:teIn .2s ease reverse;">
+      <div style="padding:12px;"><label style="display:flex; align-items:center; gap:8px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; font-size:13px; color:#5b7383;"><i class="bi bi-search"></i><input value="{{ navBusca }}" onInput="{{ onNavBusca }}" placeholder="Acesso rápido" style="border:none; outline:none; flex:1; min-width:0; font-size:13px; background:transparent;"></label></div>
+      <div style="flex:1; overflow:auto; border-top:1px solid #eef2f5;">
+        <sc-for list="{{ navItens }}" as="n" hint-placeholder-count="12">
+          <sc-if value="{{ n.titulo }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px 6px; font-size:11px; font-weight:bold; color:#34505f; letter-spacing:.5px; border-top:1px solid #eef2f5;">{{ n.rot }}</div></sc-if>
+          <sc-if value="{{ n.item }}" hint-placeholder-val="{{ true }}"><a href="{{ n.href }}" style="display:flex; align-items:center; gap:10px; padding:8px 16px; font-size:13px; color:{{ n.cor }}; background:{{ n.bg }}; font-weight:{{ n.peso }}; border-left:3px solid {{ n.bd }}; text-decoration:none;" style-hover="background:#eef5fa; text-decoration:none;"><i class="bi {{ n.ic }}" style="width:16px;"></i>{{ n.rot }}<sc-if value="{{ n.novo }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto; font-size:10px; font-weight:bold; color:#0a6fa0; background:#e5f1f7; padding:1px 6px; border-radius:3px;">NOVO</span></sc-if></a></sc-if>
+        </sc-for>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ menuAberto }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ fecharMenu }}" onContextMenu="{{ fecharMenu }}" style="position:fixed; inset:0; z-index:40;"></div>
+    <div style="position:fixed; z-index:41; left:{{ menuX }}; top:{{ menuY }}; width:250px; background:#fff; border:1px solid #d3dde4; border-radius:4px; box-shadow:0 10px 28px rgba(18,36,47,.18); padding:4px 0; animation:teUp .14s ease;">
+      <sc-for list="{{ menuItens }}" as="m" hint-placeholder-count="5">
+        <button onClick="{{ m.ir }}" style="width:100%; display:flex; align-items:center; gap:10px; border:none; border-top:1px solid {{ m.sep }}; background:#fff; padding:8px 14px; font-size:13.5px; color:{{ m.cor }}; cursor:pointer; text-align:left;" style-hover="background:#eef5fa;"><i class="bi {{ m.ic }}" style="width:16px;"></i>{{ m.rot }}</button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ drawer }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ fecharDrawer }}" style="position:fixed; inset:0; z-index:30; background:rgba(18,36,47,.28);"></div>
+    <aside style="position:fixed; z-index:31; top:0; right:0; bottom:0; width:min(640px, 100vw); background:#fff; box-shadow:-10px 0 30px rgba(18,36,47,.18); display:flex; flex-direction:column; animation:teIn .22s ease;">
+      <div style="background:#0a6fa0; color:#fff; padding:14px 18px; display:flex; align-items:flex-start; gap:12px;">
+        <div style="flex:1; min-width:0;"><div style="font-size:12px; opacity:.85; letter-spacing:.4px;">{{ dz.id }} · {{ dz.st }}</div><div style="font-size:18px; font-weight:bold; margin-top:3px;">{{ dz.tipo }}</div><div style="font-size:13px; opacity:.9; margin-top:3px;">{{ dz.destino }}</div></div>
+        <button onClick="{{ dz.menu }}" title="Mais opções" style="width:32px; height:32px; border:none; border-radius:3px; background:rgba(255,255,255,.15); color:#fff; cursor:pointer;"><i class="bi bi-three-dots-vertical"></i></button>
+        <button onClick="{{ fecharDrawer }}" title="Fechar" style="width:32px; height:32px; border:none; border-radius:3px; background:rgba(255,255,255,.15); color:#fff; cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div style="display:flex; gap:2px; padding:0 12px; border-bottom:1px solid #dde5eb; overflow-x:auto;">
+        <sc-for list="{{ abas }}" as="a" hint-placeholder-count="5"><button onClick="{{ a.ir }}" style="padding:12px 12px 10px; border:none; border-bottom:3px solid {{ a.bd }}; background:transparent; color:{{ a.cor }}; font-size:13px; font-weight:bold; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:6px;">{{ a.rot }}<sc-if value="{{ a.temN }}" hint-placeholder-val="{{ false }}"><span style="background:#0a6fa0; color:#fff; font-size:10.5px; padding:1px 6px; border-radius:8px;">{{ a.n }}</span></sc-if></button></sc-for>
+      </div>
+      <div style="border-bottom:1px solid #dde5eb; padding:12px 16px 10px; background:#fbfcfd; flex:none;">
+            <div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin-bottom:10px;">ANDAMENTO DA DEMANDA</div>
+            <div style="position:relative; overflow-x:auto;">
+              <div style="position:relative; min-width:520px;">
+                <div style="position:absolute; left:6%; right:6%; top:15px; height:3px; background:#e1e9ef; border-radius:2px;"></div>
+                <div style="position:absolute; left:6%; top:15px; height:3px; width:calc(88% * {{ dz.etapaPctNum }}); background:linear-gradient(90deg, #1e7b45, #0a6fa0); border-radius:2px; transition:width .6s ease;"></div>
+                <div style="position:relative; display:grid; grid-template-columns:repeat(8, minmax(0, 1fr));">
+                  <sc-for list="{{ dz.etapas }}" as="e" hint-placeholder-count="8">
+                    <div title="{{ e.rot }} · {{ e.dt }}" style="display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; cursor:default;">
+                      <span style="width:32px; height:32px; border-radius:50%; background:{{ e.bg }}; border:2px solid {{ e.bd }}; color:{{ e.cor }}; display:flex; align-items:center; justify-content:center; font-size:14px; box-sizing:border-box; animation:{{ e.anim }}; transition:transform .15s;" style-hover="transform:scale(1.12);"><i class="bi {{ e.ic }}"></i></span>
+                      <span style="font-size:11.5px; color:{{ e.rotCor }}; font-weight:{{ e.peso }}; line-height:1.2;">{{ e.rot }}</span>
+                      <span style="font-size:10.5px; color:#8496a3; line-height:1.2;">{{ e.dt }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ dz.encerrada }}" hint-placeholder-val="{{ false }}"><div style="margin-top:12px; display:flex; align-items:center; gap:8px; font-size:13px; color:#a3232b; background:#fdf1f2; border:1px solid #f0c9cc; border-radius:3px; padding:7px 10px;"><i class="bi bi-x-circle"></i>{{ dz.encerradaTxt }}</div></sc-if>
+          </div>
+      <div style="flex:1; overflow:auto; padding:18px;">
+        <sc-if value="{{ dz.acoesTem }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+            <sc-for list="{{ dz.acoes }}" as="b" hint-placeholder-count="2"><button onClick="{{ b.ir }}" style="height:34px; padding:0 13px; border:1px solid {{ b.bd }}; border-radius:3px; background:{{ b.bg }}; color:{{ b.cor }}; font-size:13px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:7px; transition:transform .12s;" style-hover="transform:translateY(-1px);"><i class="bi {{ b.ic }}"></i>{{ b.rot }}</button></sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ abaResumo }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px 18px; margin-bottom:16px;">
+            <sc-for list="{{ dz.campos }}" as="c" hint-placeholder-count="8"><div><div style="font-size:11.5px; color:#5b7383; letter-spacing:.4px; margin-bottom:2px;">{{ c.r }}</div><div style="font-size:14px; color:#12242f;">{{ c.v }}</div></div></sc-for>
+          </div>
+          <sc-for list="{{ dz.textos }}" as="t" hint-placeholder-count="2"><div style="margin-bottom:14px;"><div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin-bottom:5px;">{{ t.r }}</div><div style="font-size:14px; line-height:1.5; white-space:pre-wrap; background:#f7f9fb; border:1px solid #e6edf2; border-radius:3px; padding:10px 12px;">{{ t.v }}</div></div></sc-for>
+          <div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin:6px 0 8px; display:flex; align-items:center; gap:8px;">DOCUMENTOS<span style="flex:1;"></span><label style="font-size:12.5px; color:#0a6fa0; cursor:pointer; display:flex; align-items:center; gap:5px; letter-spacing:0;"><i class="bi bi-paperclip"></i>Anexar<input type="file" multiple onChange="{{ dz.anexar }}" style="display:none;"></label></div>
+          <sc-for list="{{ dz.docs }}" as="d" hint-placeholder-count="1"><div style="display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #e6edf2; border-radius:3px; margin-bottom:6px; font-size:13px;"><i class="bi bi-file-earmark-text" style="color:#0a6fa0; font-size:16px;"></i><span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ d.nome }}</span><span style="color:#5b7383; font-size:12px;">{{ d.info }}</span></div></sc-for>
+          <sc-if value="{{ dz.semDocs }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px; color:#5b7383;">Nenhum documento anexado.</div></sc-if>
+        </sc-if>
+
+        <sc-if value="{{ abaProposta }}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{ dz.propostas }}" as="p" hint-placeholder-count="1">
+            <div style="border:1px solid {{ p.bd }}; border-radius:4px; padding:12px 14px; margin-bottom:10px; background:{{ p.bg }};">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><b style="font-size:14px;">Proposta v{{ p.v }}</b><span style="font-size:12px; color:#5b7383;">{{ p.em }}</span><span style="flex:1;"></span><span style="font-size:12px; font-weight:bold; color:{{ p.stCor }};">{{ p.st }}</span></div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px 14px; font-size:13px;"><sc-for list="{{ p.campos }}" as="c" hint-placeholder-count="4"><div><div style="font-size:11.5px; color:#5b7383;">{{ c.r }}</div><div>{{ c.v }}</div></div></sc-for></div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ dz.semProp }}" hint-placeholder-val="{{ false }}"><div style="font-size:13.5px; color:#5b7383; margin-bottom:14px;">Nenhuma proposta enviada ainda.</div></sc-if>
+          <sc-if value="{{ dz.podePropor }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid #dde5eb; border-radius:4px; padding:14px;">
+              <div style="font-size:13px; font-weight:bold; color:#34505f; margin-bottom:10px;">{{ dz.propTitulo }}</div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+                <label style="font-size:12px; color:#5b7383;">Valor do serviço (R$) *<input value="{{ f.valor }}" onInput="{{ on.valor }}" inputmode="decimal" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+                <label style="font-size:12px; color:#5b7383;">Despesas previstas (R$)<input value="{{ f.despesas }}" onInput="{{ on.despesas }}" inputmode="decimal" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+                <label style="font-size:12px; color:#5b7383;">Prazo estimado<input value="{{ f.prazoEst }}" onInput="{{ on.prazoEst }}" placeholder="Ex.: 2 dias úteis" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+                <label style="font-size:12px; color:#5b7383;">Validade da proposta<input type="date" value="{{ f.validade }}" onInput="{{ on.validade }}" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+              </div>
+              <label style="display:block; font-size:12px; color:#5b7383; margin-top:10px;">Condições de pagamento<input value="{{ f.pagamento }}" onInput="{{ on.pagamento }}" placeholder="Ex.: 50% no aceite, 50% na entrega" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+              <label style="display:block; font-size:12px; color:#5b7383; margin-top:10px;">Escopo e atividades incluídas<textarea value="{{ f.escopo }}" onInput="{{ on.escopo }}" rows="3" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; border:1px solid #d3dde4; border-radius:3px; padding:8px 9px; font-size:14px; color:#12242f; resize:vertical;"></textarea></label>
+              <label style="display:block; font-size:12px; color:#5b7383; margin-top:10px;">Não incluído / responsabilidades<textarea value="{{ f.naoInclui }}" onInput="{{ on.naoInclui }}" rows="2" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; border:1px solid #d3dde4; border-radius:3px; padding:8px 9px; font-size:14px; color:#12242f; resize:vertical;"></textarea></label>
+              <div style="display:flex; align-items:center; gap:10px; margin-top:12px;"><span style="flex:1; font-size:12.5px; color:#a3232b;">{{ erroProp }}</span><button onClick="{{ enviarProposta }}" style="height:34px; padding:0 14px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font-size:13.5px; font-weight:bold; cursor:pointer;" style-hover="background:#0b5f86;"><i class="bi bi-send" style="margin-right:6px;"></i>Enviar proposta</button></div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ abaExec }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin-bottom:8px;">CHECKLIST DE EXECUÇÃO</div>
+          <sc-for list="{{ dz.check }}" as="c" hint-placeholder-count="4"><label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #e6edf2; border-radius:3px; margin-bottom:6px; font-size:13.5px; cursor:{{ c.cur }}; color:{{ c.cor }};"><input type="checkbox" checked="{{ c.ok }}" disabled="{{ c.off }}" onChange="{{ c.tg }}" style="width:16px; height:16px; accent-color:#0a6fa0;"><span style="text-decoration:{{ c.td }};">{{ c.t }}</span></label></sc-for>
+          <sc-if value="{{ dz.podeAndamento }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; gap:8px; margin:12px 0 18px;"><input value="{{ f.andamento }}" onInput="{{ on.andamento }}" placeholder="Registrar andamento da execução" style="flex:1; min-width:0; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px;"><button onClick="{{ registrarAnd }}" style="height:34px; padding:0 12px; border:1px solid #0a6fa0; border-radius:3px; background:#fff; color:#0a6fa0; font-size:13px; font-weight:bold; cursor:pointer;" style-hover="background:#e5f1f7;">Registrar</button></div>
+          </sc-if>
+          <div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin:16px 0 8px;">PROFISSIONAIS CONVIDADOS</div>
+          <sc-for list="{{ dz.convites }}" as="c" hint-placeholder-count="1">
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 10px; border:1px solid #e6edf2; border-radius:3px; margin-bottom:6px; font-size:13px;">
+              <span style="width:30px; height:30px; flex:none; border-radius:50%; background:#e5f1f7; color:#0a6fa0; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px;">{{ c.ini }}</span>
+              <div style="flex:1; min-width:0;"><div style="font-weight:bold;">{{ c.nome }}</div><div style="color:#5b7383; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.email }} · {{ c.funcao }} · válido até {{ c.validade }}</div></div>
+              <span style="font-size:12px; font-weight:bold; color:{{ c.stCor }};">{{ c.st }}</span>
+              <sc-if value="{{ c.gerir }}" hint-placeholder-val="{{ false }}"><button onClick="{{ c.reenviar }}" title="Reenviar convite" style="width:28px; height:28px; border:none; border-radius:3px; background:transparent; color:#5b7383; cursor:pointer;" style-hover="background:#e5f1f7; color:#0a6fa0;"><i class="bi bi-arrow-repeat"></i></button><button onClick="{{ c.revogar }}" title="Revogar acesso" style="width:28px; height:28px; border:none; border-radius:3px; background:transparent; color:#a3232b; cursor:pointer;" style-hover="background:#fdecec;"><i class="bi bi-person-x"></i></button></sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ dz.semConv }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px; color:#5b7383;">Nenhum profissional convidado.</div></sc-if>
+          <sc-if value="{{ dz.podeConvidar }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid #dde5eb; border-radius:4px; padding:14px; margin-top:12px;">
+              <div style="font-size:13px; font-weight:bold; color:#34505f; margin-bottom:4px;">Convidar profissional por e-mail</div>
+              <div style="font-size:12.5px; color:#5b7383; margin-bottom:10px;">O convidado acessa somente esta demanda: instruções, documentos autorizados, checklist e chat.</div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+                <label style="font-size:12px; color:#5b7383;">Nome completo *<input value="{{ f.cNome }}" onInput="{{ on.cNome }}" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+                <label style="font-size:12px; color:#5b7383;">E-mail *<input type="email" value="{{ f.cEmail }}" onInput="{{ on.cEmail }}" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+                <label style="font-size:12px; color:#5b7383;">Função<input value="{{ f.cFuncao }}" onInput="{{ on.cFuncao }}" placeholder="Advogado correspondente" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+                <label style="font-size:12px; color:#5b7383;">Validade do convite<input type="date" value="{{ f.cValidade }}" onInput="{{ on.cValidade }}" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></label>
+              </div>
+              <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:10px;"><sc-for list="{{ permsLista }}" as="p" hint-placeholder-count="4"><label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:#34505f; cursor:pointer;"><input type="checkbox" checked="{{ p.ok }}" onChange="{{ p.tg }}" style="accent-color:#0a6fa0;">{{ p.rot }}</label></sc-for></div>
+              <div style="display:flex; align-items:center; gap:10px; margin-top:12px;"><span style="flex:1; font-size:12.5px; color:#a3232b;">{{ erroConv }}</span><button onClick="{{ enviarConvite }}" style="height:34px; padding:0 14px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font-size:13.5px; font-weight:bold; cursor:pointer;" style-hover="background:#0b5f86;"><i class="bi bi-envelope" style="margin-right:6px;"></i>Enviar convite</button></div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ abaChat }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
+            <sc-for list="{{ dz.msgs }}" as="m" hint-placeholder-count="2">
+              <div style="align-self:{{ m.lado }}; max-width:82%; background:{{ m.bg }}; border:1px solid {{ m.bd }}; border-radius:4px; padding:8px 11px;">
+                <div style="font-size:11.5px; color:#5b7383; margin-bottom:3px; display:flex; gap:8px;"><b style="color:{{ m.nomeCor }};">{{ m.de }}</b><span>{{ m.em }}</span><span>{{ m.tipo }}</span></div>
+                <div style="font-size:14px; line-height:1.45; white-space:pre-wrap;">{{ m.txt }}</div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ dz.semMsgs }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px; color:#5b7383; text-align:center; padding:20px 0;">Nenhuma mensagem nesta demanda.</div></sc-if>
+          </div>
+          <sc-if value="{{ dz.podeNota }}" hint-placeholder-val="{{ false }}"><label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#7a5200; cursor:pointer; margin-bottom:4px;"><input type="checkbox" checked="{{ fInterna }}" onChange="{{ tgInterna }}" style="accent-color:#c76a12;"><i class="bi bi-lock"></i>Nota interna: só o Master e a equipe veem</label></sc-if>
+          <sc-if value="{{ dz.podeChat }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; gap:8px; position:sticky; bottom:-18px; background:#fff; padding:10px 0;"><textarea value="{{ f.msg }}" onInput="{{ on.msg }}" onKeyDown="{{ msgKey }}" rows="2" placeholder="Escreva uma mensagem (Enter envia)" style="flex:1; min-width:0; border:1px solid #d3dde4; border-radius:3px; padding:8px 9px; font-size:14px; resize:none;"></textarea><button onClick="{{ enviarMsg }}" title="Enviar" style="width:42px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; cursor:pointer;" style-hover="background:#0b5f86;"><i class="bi bi-send"></i></button></div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ abaWhats }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-start; gap:12px; background:#f0faf3; border:1px solid #cdebd6; border-radius:4px; padding:12px 14px; margin-bottom:16px;"><i class="bi bi-whatsapp" style="font-size:24px; color:#1e9e55;"></i><div style="flex:1; font-size:13px; color:#1d4d32; line-height:1.5;"><b style="font-size:14px;">Avisos de andamento pelo WhatsApp</b><br>A cada fase, o BlueJus prepara uma mensagem pronta com o link da demanda. O cliente toca no link e vê o andamento sem precisar procurar.</div></div>
+          <div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin-bottom:8px; display:flex; align-items:center; gap:8px;">CONTATOS CONECTADOS<span style="flex:1;"></span><sc-if value="{{ dz.wa.temAtivos }}" hint-placeholder-val="{{ false }}"><button onClick="{{ dz.wa.agora }}" style="height:28px; padding:0 10px; border:1px solid #bfe3cc; border-radius:3px; background:#fff; color:#1e7b45; font-size:12px; font-weight:bold; cursor:pointer; letter-spacing:0;" style-hover="background:#f0faf3;">Avisar fase atual: {{ dz.wa.atual }}</button></sc-if></div>
+          <sc-for list="{{ dz.wa.contatos }}" as="ct" hint-placeholder-count="1">
+            <div style="border:1px solid #e6edf2; border-radius:4px; padding:10px 12px; margin-bottom:8px;">
+              <div style="display:flex; align-items:center; gap:10px;"><i class="bi bi-person-circle" style="font-size:20px; color:#1e9e55;"></i><div style="flex:1; min-width:0;"><b style="font-size:13.5px;">{{ ct.nome }}</b><div style="font-size:12px; color:#5b7383;">{{ ct.tel }}</div></div><span style="font-size:12px; font-weight:bold; color:{{ ct.stCor }};">{{ ct.stTxt }}</span><button onClick="{{ ct.tg }}" style="height:26px; padding:0 9px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font-size:12px; cursor:pointer;">{{ ct.tgRot }}</button><button onClick="{{ ct.rem }}" title="Desconectar" style="width:26px; height:26px; border:none; border-radius:3px; background:transparent; color:#a3232b; cursor:pointer;" style-hover="background:#fdecec;"><i class="bi bi-trash"></i></button></div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:9px;"><sc-for list="{{ ct.fases }}" as="fa" hint-placeholder-count="8"><label style="display:flex; align-items:center; gap:5px; font-size:12px; color:#34505f; cursor:pointer;"><input type="checkbox" checked="{{ fa.ok }}" onChange="{{ fa.tg }}" style="accent-color:#1e9e55;">{{ fa.rot }}</label></sc-for></div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ dz.wa.semContatos }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px; color:#5b7383; margin-bottom:8px;">Nenhum contato conectado a esta demanda.</div></sc-if>
+          <div style="border:1px solid #dde5eb; border-radius:4px; padding:12px; margin:8px 0 18px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
+              <label style="font-size:12px; color:#5b7383;">Nome do contato<input value="{{ f.waNome }}" onInput="{{ on.waNome }}" placeholder="Ex.: Dr. Teste" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px;"></label>
+              <label style="font-size:12px; color:#5b7383;">Celular com DDD<input type="tel" value="{{ f.waTel }}" onInput="{{ on.waTel }}" placeholder="(82) 99999-0000" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:14px;"></label>
+            </div>
+            <label style="display:flex; align-items:flex-start; gap:7px; font-size:12.5px; color:#34505f; margin-top:10px; cursor:pointer;"><input type="checkbox" checked="{{ waOk }}" onChange="{{ tgWaOk }}" style="accent-color:#1e9e55; margin-top:2px;">O contato autorizou receber avisos desta demanda pelo WhatsApp.</label>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:10px;"><span style="flex:1; font-size:12.5px; color:#a3232b;">{{ erroWa }}</span><button onClick="{{ dz.wa.adicionar }}" style="height:34px; padding:0 14px; border:none; border-radius:3px; background:#1e9e55; color:#fff; font-size:13.5px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:7px;" style-hover="background:#178548;"><i class="bi bi-whatsapp"></i>Conectar WhatsApp</button></div>
+          </div>
+          <div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin-bottom:8px;">MENSAGENS PRONTAS PARA ENVIAR</div>
+          <sc-for list="{{ dz.wa.fila }}" as="m" hint-placeholder-count="1">
+            <div style="border:1px solid #cdebd6; border-radius:4px; padding:10px 12px; margin-bottom:8px; background:#fbfefc; animation:teUp .25s ease;">
+              <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#5b7383; margin-bottom:6px;"><b style="color:#1e7b45;">{{ m.fase }}</b><span>para {{ m.para }}</span><span style="flex:1;"></span>{{ m.em }}</div>
+              <div style="font-size:13px; white-space:pre-wrap; background:#e7f7ec; border-radius:6px 6px 6px 0; padding:8px 10px; color:#12242f; line-height:1.45;">{{ m.txt }}</div>
+              <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;"><button onClick="{{ m.descartar }}" style="height:28px; padding:0 10px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#5b7383; font-size:12px; cursor:pointer;">Descartar</button><a href="{{ m.href }}" target="_blank" rel="noopener" onClick="{{ m.enviar }}" style="height:28px; padding:0 11px; border-radius:3px; background:#1e9e55; color:#fff; font-size:12px; font-weight:bold; display:flex; align-items:center; gap:6px; text-decoration:none;" style-hover="background:#178548; color:#fff; text-decoration:none;"><i class="bi bi-whatsapp"></i>Enviar pelo WhatsApp</a></div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ dz.wa.semFila }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px; color:#5b7383; margin-bottom:12px;">Nenhuma mensagem pendente. Quando a demanda mudar de fase, a mensagem aparece aqui.</div></sc-if>
+          <sc-if value="{{ dz.wa.temLog }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin:16px 0 6px;">ENVIADAS</div><sc-for list="{{ dz.wa.log }}" as="l" hint-placeholder-count="2"><div style="display:flex; gap:8px; font-size:12.5px; padding:6px 0; border-bottom:1px solid #eef2f5; color:#34505f;"><i class="bi bi-check2-all" style="color:#1e9e55;"></i><b>{{ l.fase }}</b><span style="flex:1;">para {{ l.para }}</span><span style="color:#8496a3;">{{ l.em }}</span></div></sc-for></sc-if>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:16px; font-size:12.5px; color:#5b7383;"><i class="bi bi-link-45deg"></i><span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ dz.wa.link }}</span><button onClick="{{ dz.wa.copiar }}" style="height:26px; padding:0 9px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#0a6fa0; font-size:12px; cursor:pointer;">Copiar link</button></div>
+        </sc-if>
+        <sc-if value="{{ abaHist }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px; font-weight:bold; color:#34505f; letter-spacing:.4px; margin-bottom:6px;">REGISTRO COMPLETO</div>
+          <sc-for list="{{ dz.hist }}" as="h" hint-placeholder-count="3">
+            <div style="display:flex; gap:12px; font-size:13px; animation:{{ h.anim }};">
+              <div style="display:flex; flex-direction:column; align-items:center; flex:none; width:26px;"><span style="width:26px; height:26px; border-radius:50%; background:#fff; border:2px solid {{ h.cor }}; color:{{ h.cor }}; display:flex; align-items:center; justify-content:center; font-size:12px; box-sizing:border-box;"><i class="bi {{ h.ic }}"></i></span><span style="flex:1; width:2px; background:{{ h.linha }}; min-height:14px;"></span></div>
+              <div style="flex:1; padding:3px 0 14px;"><div><b style="color:{{ h.cor }};">{{ h.para }}</b> <span style="color:#5b7383;">{{ h.de }}</span></div><div style="color:#5b7383; font-size:12px; margin-top:2px;">{{ h.quem }} · {{ h.em }}</div><sc-if value="{{ h.temMotivo }}" hint-placeholder-val="{{ false }}"><div style="margin-top:5px; color:#34505f; background:#f7f9fb; border:1px solid #e6edf2; border-radius:3px; padding:6px 9px;">{{ h.motivo }}</div></sc-if></div>
+            </div>
+          </sc-for>
+        </sc-if>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ nova }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:50; background:rgba(18,36,47,.35); display:flex; align-items:center; justify-content:center; padding:16px;">
+      <div style="width:min(760px, 100%); max-height:92vh; display:flex; flex-direction:column; background:#fff; border-radius:4px; box-shadow:0 20px 50px rgba(18,36,47,.25); animation:teUp .18s ease;">
+        <div style="background:#0a6fa0; color:#fff; padding:13px 18px; display:flex; align-items:center; gap:10px; border-radius:4px 4px 0 0;"><i class="bi bi-plus-square"></i><b style="flex:1; font-size:15px;">Nova solicitação de trabalho externo</b><button onClick="{{ novaFechar }}" style="width:30px; height:30px; border:none; border-radius:3px; background:rgba(255,255,255,.15); color:#fff; cursor:pointer;"><i class="bi bi-x-lg"></i></button></div>
+        <div style="padding:16px 18px; overflow:auto; display:flex; flex-direction:column; gap:16px;">
+          <sc-for list="{{ secoes }}" as="s" hint-placeholder-count="3">
+            <div>
+              <div style="font-size:12px; font-weight:bold; color:#0a6fa0; letter-spacing:.5px; margin-bottom:8px;">{{ s.titulo }}</div>
+              <sc-if value="{{ s.ehSolic }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; background:#f2f8fc; border:1px solid #d6e7f2; border-radius:4px; padding:9px 10px; margin-bottom:10px;">
+                  <span style="display:flex; align-items:center; gap:6px; font-size:12px; color:#0a5a85; font-weight:bold; white-space:nowrap;"><i class="bi bi-person-check"></i>Preenchido do seu perfil</span>
+                  <select value="{{ escSel }}" onChange="{{ escTrocar }}" title="Escritórios da sua conta" style="flex:1 1 220px; min-width:0; height:30px; border:1px solid #c9dbe7; border-radius:3px; background:#fff; font-size:13px; color:#12242f; padding:0 6px;"><sc-for list="{{ escOps }}" as="o" hint-placeholder-count="2"><option value="{{ o.v }}">{{ o.r }}</option></sc-for></select>
+                  <sc-if value="{{ escMudou }}" hint-placeholder-val="{{ false }}"><button onClick="{{ escAtualizar }}" title="Gravar as alterações neste escritório" style="height:30px; padding:0 10px; border:1px solid #c9dbe7; border-radius:3px; background:#fff; color:#0a6fa0; font-size:12.5px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px;" style-hover="background:#0a6fa0; color:#fff;"><i class="bi bi-pencil"></i>Salvar edição</button></sc-if>
+                  <button onClick="{{ escNovo }}" title="Guardar os dados digitados como um novo escritório" style="height:30px; padding:0 10px; border:1px solid #c9dbe7; border-radius:3px; background:#fff; color:#0a6fa0; font-size:12.5px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px;" style-hover="background:#0a6fa0; color:#fff;"><i class="bi bi-plus-lg"></i>Novo escritório</button>
+                  <label style="flex-basis:100%; display:flex; align-items:center; gap:7px; font-size:12.5px; color:#34505f; cursor:pointer; padding-top:2px;"><input type="checkbox" checked="{{ emNome }}" onChange="{{ tgEmNome }}" style="width:15px; height:15px; accent-color:#0a6fa0;">Estou solicitando em nome de outro advogado<span style="color:#7b93a2;">(desmarcado: {{ perfilResumo }})</span></label>
+                </div>
+              </sc-if>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+                <sc-for list="{{ s.campos }}" as="c" hint-placeholder-count="3">
+                  <label style="font-size:12px; color:#5b7383; grid-column:{{ c.col }};">{{ c.rot }}
+                    <sc-if value="{{ c.ehTexto }}" hint-placeholder-val="{{ true }}"><input type="{{ c.tipo }}" value="{{ c.v }}" onInput="{{ c.on }}" placeholder="{{ c.ph }}" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid {{ c.bd }}; border-radius:3px; padding:0 9px; font-size:14px; color:#12242f;"></sc-if>
+                    <sc-if value="{{ c.ehArea }}" hint-placeholder-val="{{ false }}"><textarea value="{{ c.v }}" onInput="{{ c.on }}" rows="3" placeholder="{{ c.ph }}" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; border:1px solid {{ c.bd }}; border-radius:3px; padding:8px 9px; font-size:14px; color:#12242f; resize:vertical;"></textarea></sc-if>
+                    <sc-if value="{{ c.ehSel }}" hint-placeholder-val="{{ false }}"><select value="{{ c.v }}" onChange="{{ c.on }}" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; height:34px; border:1px solid {{ c.bd }}; border-radius:3px; padding:0 7px; font-size:14px; color:#12242f; background:#fff;"><sc-for list="{{ c.ops }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}">{{ o.r }}</option></sc-for></select></sc-if>
+                  </label>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#34505f; cursor:pointer;"><input type="checkbox" checked="{{ nf.urgente }}" onChange="{{ nUrg }}" style="accent-color:#a3232b;">Há risco de perda de prazo (urgente)</label>
+          <label style="font-size:12px; color:#5b7383;">Documentos<input type="file" multiple onChange="{{ nArq }}" style="display:block; margin-top:6px; font-size:13px;"></label>
+          <sc-if value="{{ nArqTem }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px; color:#34505f;">{{ nArqTxt }}</div></sc-if>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding:12px 18px; border-top:1px solid #e6edf2;">
+          <span style="flex:1; font-size:12.5px; color:#a3232b;">{{ erroNova }}</span>
+          <button onClick="{{ salvarRascunho }}" style="height:34px; padding:0 13px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font-size:13px; font-weight:bold; cursor:pointer;" style-hover="background:#f3f6f8;">Salvar rascunho</button>
+          <button onClick="{{ enviarNova }}" disabled="{{ envioBloq }}" style="height:34px; padding:0 14px; border:none; border-radius:3px; background:{{ envioBg }}; color:#fff; font-size:13.5px; font-weight:bold; cursor:pointer;"><i class="bi bi-send" style="margin-right:6px;"></i>Enviar solicitação</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ conf }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:60; background:rgba(18,36,47,.35); display:flex; align-items:center; justify-content:center; padding:16px;">
+      <div style="width:min(420px, 100%); background:#fff; border-radius:4px; box-shadow:0 20px 50px rgba(18,36,47,.25); padding:18px; animation:teUp .16s ease;">
+        <div style="font-size:16px; font-weight:bold; margin-bottom:6px;">{{ confTitulo }}</div>
+        <div style="font-size:13.5px; color:#34505f; line-height:1.5; margin-bottom:12px;">{{ confTexto }}</div>
+        <sc-if value="{{ confMotivo }}" hint-placeholder-val="{{ false }}"><textarea value="{{ f.motivo }}" onInput="{{ on.motivo }}" rows="3" placeholder="{{ confPh }}" style="width:100%; box-sizing:border-box; border:1px solid #d3dde4; border-radius:3px; padding:8px 9px; font-size:14px; resize:vertical; margin-bottom:12px;"></textarea></sc-if>
+        <div style="display:flex; justify-content:flex-end; gap:8px;"><button onClick="{{ confCancelar }}" style="height:34px; padding:0 13px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font-size:13px; font-weight:bold; cursor:pointer;">Cancelar</button><button onClick="{{ confOk }}" style="height:34px; padding:0 14px; border:none; border-radius:3px; background:{{ confBg }}; color:#fff; font-size:13px; font-weight:bold; cursor:pointer;">{{ confRot }}</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ cfgOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ fecharCfg }}" style="position:fixed; inset:0; z-index:55; background:rgba(18,36,47,.35);"></div>
+    <div style="position:fixed; z-index:56; top:50%; left:50%; transform:translate(-50%,-50%); width:min(600px, calc(100vw - 24px)); max-height:90vh; display:flex; flex-direction:column; background:#fff; border-radius:4px; box-shadow:0 20px 50px rgba(18,36,47,.25);">
+      <div style="background:#0a6fa0; color:#fff; padding:13px 18px; display:flex; align-items:center; gap:10px; border-radius:4px 4px 0 0;"><i class="bi bi-shield-lock"></i><b style="flex:1; font-size:15px;">Equipe e privacidade · Trabalho Externo</b><button onClick="{{ fecharCfg }}" style="width:30px; height:30px; border:none; border-radius:3px; background:rgba(255,255,255,.15); color:#fff; cursor:pointer;"><i class="bi bi-x-lg"></i></button></div>
+      <div style="padding:16px 18px; overflow:auto; display:flex; flex-direction:column; gap:18px;">
+        <sc-if value="{{ ehOculta }}" hint-placeholder-val="{{ false }}"><div><div style="font-size:12px; font-weight:bold; color:#a3232b; letter-spacing:.5px; margin-bottom:6px;">ABA SUSPENSA · MOTIVO EXIBIDO AOS USUÁRIOS</div><input value="{{ motivoCfg }}" onInput="{{ onMotivoCfg }}" placeholder="Opcional" style="width:100%; box-sizing:border-box; height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font-size:13.5px;"></div></sc-if>
+        <div><div style="font-size:12px; font-weight:bold; color:#0a6fa0; letter-spacing:.5px; margin-bottom:4px;">EQUIPE DO MASTER (SECUNDÁRIOS)</div><div style="font-size:12.5px; color:#5b7383; margin-bottom:8px;">O que os colaboradores da sua conta podem fazer nesta aba.</div>
+          <sc-for list="{{ eqOps }}" as="e" hint-placeholder-count="5"><label style="display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid #eef2f5; font-size:13.5px; cursor:pointer;"><input type="checkbox" checked="{{ e.ok }}" onChange="{{ e.tg }}" style="width:16px; height:16px; accent-color:#0a6fa0;">{{ e.rot }}</label></sc-for>
+        </div>
+        <div><div style="font-size:12px; font-weight:bold; color:#0a6fa0; letter-spacing:.5px; margin-bottom:8px;">PRIVACIDADE PARA CONTAS EXTERNAS</div>
+          <sc-for list="{{ privOps }}" as="v" hint-placeholder-count="2"><label style="display:flex; align-items:flex-start; gap:9px; padding:7px 0; border-bottom:1px solid #eef2f5; cursor:pointer;"><input type="checkbox" checked="{{ v.ok }}" onChange="{{ v.tg }}" style="width:16px; height:16px; accent-color:#0a6fa0; margin-top:1px;"><span><span style="font-size:13.5px;">{{ v.rot }}</span><span style="display:block; font-size:12px; color:#5b7383;">{{ v.txt }}</span></span></label></sc-for>
+          <div style="font-size:12.5px; color:#34505f; background:#f7f9fb; border:1px solid #e6edf2; border-radius:3px; padding:9px 11px; margin-top:10px; line-height:1.5;"><i class="bi bi-lock" style="margin-right:5px;"></i>Sempre protegido: notas internas, convites, permissões e dados de outras contas nunca aparecem para solicitantes ou convidados.</div>
+        </div>
+        <label style="display:flex; align-items:center; gap:9px; font-size:13.5px; cursor:pointer;"><input type="checkbox" checked="{{ bloqSusp }}" onChange="{{ tgBloqSusp }}" style="width:16px; height:16px; accent-color:#0a6fa0;">Com a central suspensa, aceitar só rascunhos de novas solicitações</label>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; z-index:70; right:20px; bottom:20px; width:min(340px, calc(100vw - 40px)); background:#fff; border:1px solid #d3dde4; border-left:4px solid #0a6fa0; border-radius:4px; box-shadow:0 12px 30px rgba(18,36,47,.2); padding:12px 14px; animation:teUp .2s ease;">
+      <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#5b7383;"><i class="bi bi-chat-dots-fill" style="color:#0a6fa0;"></i><b style="color:#12242f; flex:1;">{{ toastTit }}</b>{{ toastHora }}<button onClick="{{ toastFechar }}" title="Dispensar" style="border:none; background:transparent; color:#8496a3; cursor:pointer; padding:0 2px;"><i class="bi bi-x-lg"></i></button></div>
+      <div style="font-size:13.5px; margin:6px 0 9px; color:#243845;">{{ toastTxt }}</div>
+      <sc-if value="{{ toastAbrirTem }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toastAbrir }}" style="height:28px; padding:0 11px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font-size:12.5px; font-weight:bold; cursor:pointer;">Abrir conversa</button></sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  static K = 'bj-trabalho-externo-v1';
+  static ST = { rascunho: ['Rascunho', '#6b8494', 'bi-pencil'], nova: ['Nova solicitação', '#0a6fa0', 'bi-inbox'], analise: ['Em análise', '#7a5200', 'bi-search'], info: ['Aguardando informações', '#9a5b00', 'bi-question-circle'], proposta: ['Aguardando aceite', '#5b3f9e', 'bi-file-earmark-text'], aceita: ['Aceita', '#1e7b45', 'bi-check2-circle'], execucao: ['Em execução', '#0b5f86', 'bi-briefcase'], validacao: ['Aguardando validação', '#7a5200', 'bi-hourglass-split'], concluida: ['Concluída', '#1e7b45', 'bi-check2-all'], arquivada: ['Arquivada', '#6b8494', 'bi-archive'], recusada: ['Recusada', '#a3232b', 'bi-x-circle'], cancelada: ['Cancelada', '#a3232b', 'bi-slash-circle'], pago: ['Pagamento registrado', '#1e7b45', 'bi-cash-coin'] };
+  static GRUPOS = [['todas', 'Todas', null], ['nova', 'Novas', ['nova']], ['analise', 'Em análise', ['analise', 'info']], ['proposta', 'Aguardando aceite', ['proposta']], ['execucao', 'Em execução', ['aceita', 'execucao', 'validacao']], ['concluida', 'Concluídas', ['concluida']], ['encerradas', 'Recusadas e canceladas', ['recusada', 'cancelada']], ['arquivada', 'Arquivadas', ['arquivada']], ['rascunho', 'Rascunhos', ['rascunho']]];
+  static FECHADAS = ['concluida', 'arquivada', 'recusada', 'cancelada', 'rascunho'];
+  static TIPOS = ['Advocacia correspondente presencial', 'Audiência', 'Diligência em fórum ou tribunal', 'Protocolo e acompanhamento processual', 'Cópias e digitalização de autos', 'Despacho e contato institucional', 'Diligência em delegacia', 'Acompanhamento de procedimento policial', 'Sustentação oral', 'Carta precatória', 'Elaboração ou revisão de peça', 'Parecer e análise jurídica', 'Consulta processual presencial', 'Retirada e entrega de documentos', 'Atividade administrativa processual', 'Outro serviço'];
+  static UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+  static PERFIS = { master: ['Master', 'bi-shield-check', 'Farlei Assis da Rocha', 'Master BlueJus'], solicitante: ['Solicitante', 'bi-building', 'Escritório solicitante', 'Solicitante'], equipe: ['Equipe', 'bi-people', 'Colaborador do Master', 'Secundário do Master'], convidado: ['Convidado', 'bi-person-badge', 'Profissional convidado', 'Correspondente convidado'] };
+  static CFG = { disp: 'on', bloquearSuspenso: true, vis: 'todos', motivo: '', equipe: { ver: true, chat: true, proposta: false, convidar: false, situacao: false }, priv: { nomeResp: false, contatoConv: false } };
+  cfg() { const b = this.state.db.cfg || {}; return Object.assign({}, Component.CFG, b, { equipe: Object.assign({}, Component.CFG.equipe, b.equipe), priv: Object.assign({}, Component.CFG.priv, b.priv) }); }
+  interno(p) { p = p || this.state.perfil; return p === 'master' || p === 'equipe'; }
+  pode(k) { const p = this.state.perfil; return p === 'master' || (p === 'equipe' && !!this.cfg().equipe[k]); }
+  static PERMS = [['ver', 'Ver instruções'], ['baixar', 'Baixar documentos'], ['enviar', 'Enviar arquivos'], ['chat', 'Conversar no chat'], ['andamento', 'Registrar andamento'], ['concluir', 'Marcar como concluída']];
+  static CHECK = ['Conferir documentos e instruções', 'Executar a atividade solicitada', 'Anexar comprovantes da diligência', 'Registrar relatório de execução'];
+  static WAF = [['nova', 'Solicitação recebida', 'recebemos a sua solicitação e ela já está na fila de análise.'], ['analise', 'Em análise', 'a sua demanda está em análise pela nossa equipe.'], ['proposta', 'Proposta enviada', 'a proposta comercial está pronta. Entre no BlueJus para conferir e aceitar.'], ['aceita', 'Proposta aceita', 'a proposta foi aceita. Vamos preparar a execução.'], ['pago', 'Pagamento confirmado', 'confirmamos o pagamento. Obrigado!'], ['execucao', 'Em execução', 'a diligência está em execução. Acompanhe o andamento em tempo real.'], ['validacao', 'Em validação', 'a execução foi concluída e está em conferência final.'], ['concluida', 'Finalizada', 'o serviço foi finalizado. Os comprovantes estão disponíveis no BlueJus.']];
+  static link(id) { return location.href.split('?')[0].split('#')[0] + '?te=' + encodeURIComponent(id); }
+  static waTxt(d, f, nome) { const F = Component.WAF.find(x => x[0] === f) || Component.WAF[0]; return 'BlueJus · ' + d.id + ' · ' + F[1] + '\n' + 'Olá' + (nome ? ', ' + nome.split(' ')[0] : '') + '! ' + d.form.tipo + ' em ' + d.form.cidD + '/' + d.form.ufD + ': ' + F[2] + '\n\nAcompanhe pelo BlueJus: ' + Component.link(d.id); }
+  static waNum(t) { let n = String(t || '').replace(/\D/g, ''); if (n.length <= 11) n = '55' + n; return n; }
+  waFila(d, fase) { const w = d.wa; if (!w) return; (w.contatos || []).forEach(ct => { if (ct.ativo && ct.fases[fase]) w.fila.push({ fase, tel: ct.tel, nome: ct.nome, txt: Component.waTxt(d, fase, ct.nome), em: Component.agora() }); }); }
+  static hoje() { return new Date().toISOString().slice(0, 10); }
+  static mais(d) { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); }
+  static agora() { return new Date().toISOString(); }
+  static dt(s) { if (!s) return '—'; const d = new Date(s.length === 10 ? s + 'T12:00' : s); return d.toLocaleDateString('pt-BR') + (s.length > 10 ? ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''); }
+  static brl(v) { const n = parseFloat(String(v || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  static base() { return { cfg: { disp: 'on', bloquearSuspenso: true }, seq: 0, itens: [] }; }
+  state = (() => { let db; try { db = JSON.parse(localStorage.getItem(Component.K)); } catch (e) {} db = db || Component.base(); return { db, perfil: localStorage.getItem(Component.K + '-perfil') || 'master', grupo: 'todas', busca: '', aberta: null, aba: 'resumo', menu: null, nova: false, nf: this.nfVazio(), nArqs: [], conf: null, toast: null, f: {}, perms: { ver: true, baixar: true, enviar: true, chat: true, andamento: true, concluir: true }, erroProp: '', erroConv: '', erroNova: '' }; })();
+  /* Usuário logado (Meu Perfil) e escritórios da conta (Tenant). No sistema real: GET /perfil e GET /perfil/escritorios. */
+  static USUARIO = { nome: 'Farlei Assis da Rocha', email: 'farlei.rocha@gmail.com', tel: '(69) 98256-9322', oab: '49613', oabUf: 'DF', lotacao: 'Maceió/AL' };
+  static ESC_PADRAO = [{ id: 'e1', nome: 'Farlei Assis da Rocha Sociedade Individual de Advocacia', email: 'farlei.rocha@gmail.com', tel: '(69) 98256-9322', uf: 'DF', cid: 'Brasília' }, { id: 'e2', nome: 'Prime Cobranças Administrativas', email: 'farlei.rocha@gmail.com', tel: '(69) 98256-9322', uf: '', cid: '' }];
+  escritorios() { const db = (this.state && this.state.db) || {}; return (db.escritorios && db.escritorios.length) ? db.escritorios : Component.ESC_PADRAO; }
+  doEsc(e, base) { const U = Component.USUARIO, l = (U.lotacao.match(/^(.+?)\/([A-Z]{2})$/) || []); return Object.assign(base, { escId: e.id, escritorio: e.nome, email: e.email || U.email, tel: e.tel || U.tel, ufO: e.uf || l[2] || 'DF', cidO: e.cid || (e.uf && e.uf !== l[2] ? '' : l[1] || '') }); }
+  nfVazio() { const U = Component.USUARIO, b = { emNome: false, adv: U.nome, oab: U.oab, oabUf: U.oabUf }; this.doEsc(this.escritorios()[0], b); return Object.assign({ escritorio: '', email: '', tel: '', ufO: 'AL', cidO: 'Maceió', ufD: 'DF', cidD: 'Brasília', orgao: '', processo: '', partes: '', tipo: Component.TIPOS[0], desc: '', objetivo: '', instrucoes: '', prazo: Component.mais(7), data: '', prio: 'Normal', urgente: false }, b); }
+  salvar(db) { localStorage.setItem(Component.K, JSON.stringify(db)); this.setState({ db }); }
+  quem() { return Component.PERFIS[this.state.perfil][2]; }
+  mexer(id, fn) { const db = JSON.parse(JSON.stringify(this.state.db)), d = db.itens.find(x => x.id === id); if (!d) return; fn(d, db); this.salvar(db); }
+  mudar(d, para, motivo) { d.hist.push({ de: d.status, para, quem: this.quem(), em: Component.agora(), motivo: motivo || '' }); d.status = para; this.waFila(d, para); }
+  msgSis(d, txt, tipo) { d.msgs.push({ de: this.quem(), perfil: this.state.perfil, txt, em: Component.agora(), tipo: tipo || '' }); d.lido[this.state.perfil] = d.msgs.length; }
+  conviteAtivo(d) { return d.convites.find(c => c.status !== 'revogado'); }
+  visiveis() { const p = this.state.perfil; if (p === 'equipe' && !this.cfg().equipe.ver) return []; return this.state.db.itens.filter(d => this.interno(p) ? d.status !== 'rascunho' : p === 'solicitante' ? true : !!this.conviteAtivo(d) && ['aceita', 'execucao', 'validacao', 'concluida'].includes(d.status)); }
+  naoLidas(d, p) { p = p || this.state.perfil; return d.msgs.slice(d.lido[p] || 0).filter(m => m.perfil !== p && (this.interno(p) || m.tipo !== 'interna')).length; }
+  setPerfil(p) {
+    localStorage.setItem(Component.K + '-perfil', p);
+    this.setState({ perfil: p, aberta: null, menu: null }, () => { const d = this.visiveis().find(x => this.naoLidas(x) > 0); if (d) { const m = d.msgs.slice(d.lido[p] || 0).filter(x => x.perfil !== p).pop(); this.setState({ toast: { id: d.id, tit: m.de + ' · ' + d.id, txt: m.txt.slice(0, 110), hora: Component.dt(m.em).slice(11) } }); } });
+  }
+  abrir(id, aba) { this.setState({ aberta: id, aba: aba || 'resumo', menu: null, erroProp: '', erroConv: '', f: {} }, () => { if ((aba || 'resumo') === 'chat') this.marcarLido(id); }); }
+  marcarLido(id) { const d = this.state.db.itens.find(x => x.id === id); if (d && this.naoLidas(d)) this.mexer(id, x => { x.lido[this.state.perfil] = x.msgs.length; }); if (this.state.toast && this.state.toast.id === id) this.setState({ toast: null }); }
+  confirmar(id, k, titulo, texto, rot, motivo, perigo) { this.setState({ conf: { id, k, titulo, texto, rot, motivo, perigo }, menu: null, f: Object.assign({}, this.state.f, { motivo: '' }) }); }
+  acoes(d) {
+    const p = this.state.perfil, s = d.status, A = [];
+    const a = (k, rot, ic, tipo) => A.push({ k, rot, ic, tipo: tipo || '' });
+    if (this.interno(p)) {
+      if (s === 'nova') { a('analise', 'Iniciar análise', 'bi-search', 'pri'); a('recusar', 'Recusar demanda', 'bi-x-circle', 'perigo'); }
+      if (s === 'analise') { a('proposta', 'Elaborar proposta', 'bi-file-earmark-text', 'pri'); a('info', 'Solicitar informações', 'bi-question-circle'); a('recusar', 'Recusar demanda', 'bi-x-circle', 'perigo'); }
+      if (s === 'info') a('retomar', 'Retomar análise', 'bi-arrow-counterclockwise');
+      if (s === 'proposta') { a('proposta', 'Nova versão da proposta', 'bi-file-earmark-plus'); a('cancelar', 'Cancelar demanda', 'bi-slash-circle', 'perigo'); }
+      if (s === 'aceita') { a('iniciar', 'Iniciar execução', 'bi-play-circle', 'pri'); a('convidar', 'Convidar profissional', 'bi-envelope'); }
+      if (s === 'execucao') { a('convidar', 'Convidar profissional', 'bi-envelope'); a('validar', 'Enviar para validação', 'bi-hourglass-split'); }
+      if (s === 'validacao') { a('concluir', 'Concluir serviço', 'bi-check2-all', 'pri'); a('devolver', 'Devolver para execução', 'bi-arrow-return-left'); }
+      if (['aceita', 'execucao', 'validacao', 'concluida'].includes(s) && !d.pagoEm) a('pagamento', 'Registrar pagamento', 'bi-cash-coin');
+      if (s === 'concluida') a('arquivar', 'Arquivar demanda', 'bi-archive');
+      if (['concluida', 'arquivada', 'recusada', 'cancelada'].includes(s)) a('reabrir', 'Reabrir demanda', 'bi-arrow-counterclockwise');
+    }
+    if (p === 'equipe') { const E = this.cfg().equipe, need = { proposta: 'proposta', convidar: 'convidar' }; return A.filter(x => E[need[x.k] || 'situacao']); }
+    if (p === 'solicitante') {
+      if (s === 'rascunho') { a('editar', 'Continuar rascunho', 'bi-pencil', 'pri'); a('excluirRasc', 'Excluir rascunho', 'bi-trash', 'perigo'); }
+      if (s === 'info') a('responderInfo', 'Enviar informações', 'bi-reply', 'pri');
+      if (s === 'proposta') { a('aceitar', 'Aceitar proposta', 'bi-check2-circle', 'pri'); a('ajustes', 'Solicitar ajustes', 'bi-pencil-square'); a('recusarProp', 'Recusar proposta', 'bi-x-circle', 'perigo'); }
+      if (['nova', 'analise', 'info'].includes(s)) a('cancelar', 'Cancelar solicitação', 'bi-slash-circle', 'perigo');
+    }
+    if (p === 'convidado' && s === 'execucao') { const c = this.conviteAtivo(d) || {}; if ((c.perms || {}).concluir) a('validar', 'Marcar como concluída', 'bi-check2-circle', 'pri'); a('impedimento', 'Informar impedimento', 'bi-exclamation-triangle'); a('prorrogar', 'Solicitar prorrogação', 'bi-calendar-plus'); }
+    return A;
+  }
+  exec(d, k) {
+    const id = d.id, C = (t, x, r, m, pg) => this.confirmar(id, k, t, x, r, m, pg);
+    const M = { abrir: () => this.abrir(id), chat: () => this.abrir(id, 'chat'), hist: () => this.abrir(id, 'hist'), proposta: () => this.abrir(id, 'proposta'), convidar: () => this.abrir(id, 'exec'),
+      analise: () => this.mexer(id, x => this.mudar(x, 'analise')), retomar: () => this.mexer(id, x => this.mudar(x, 'analise')), iniciar: () => this.mexer(id, x => this.mudar(x, 'execucao')),
+      info: () => C('Solicitar informações', 'A mensagem vai para o chat da demanda e o solicitante é notificado.', 'Solicitar', true),
+      responderInfo: () => C('Enviar informações', 'Descreva as informações solicitadas. A demanda volta para análise.', 'Enviar', true),
+      recusar: () => C('Recusar demanda', 'A recusa é registrada no histórico e pode ser revertida com "Reabrir".', 'Recusar', true, true),
+      cancelar: () => C('Cancelar demanda', 'O cancelamento é registrado no histórico.', 'Cancelar demanda', true, true),
+      aceitar: () => C('Aceitar proposta', 'Ao aceitar, você autoriza a execução nas condições da proposta mais recente.', 'Aceitar proposta', false),
+      ajustes: () => C('Solicitar ajustes', 'Explique o que precisa ser ajustado na proposta.', 'Solicitar ajustes', true),
+      recusarProp: () => C('Recusar proposta', 'A demanda será encerrada como recusada.', 'Recusar', true, true),
+      validar: () => C('Enviar para validação', 'O Master confere a execução antes de concluir.', 'Confirmar', false),
+      concluir: () => C('Concluir serviço', 'O responsável e o horário da conclusão ficam registrados.', 'Concluir', false),
+      devolver: () => C('Devolver para execução', 'Informe o que precisa ser complementado.', 'Devolver', true),
+      pagamento: () => C('Registrar pagamento', 'Confirma o recebimento do pagamento desta demanda? A data fica registrada no histórico.', 'Registrar', false),
+      arquivar: () => C('Arquivar demanda', 'A demanda sai das listas ativas, sem perder o histórico.', 'Arquivar', false),
+      reabrir: () => C('Reabrir demanda', 'A demanda volta para análise. Informe o motivo.', 'Reabrir', true),
+      impedimento: () => C('Informar impedimento', 'Descreva o que está impedindo a execução.', 'Informar', true),
+      prorrogar: () => C('Solicitar prorrogação', 'Informe o novo prazo pretendido e o motivo.', 'Solicitar', true),
+      excluirRasc: () => C('Excluir rascunho', 'O rascunho será removido definitivamente.', 'Excluir', false, true),
+      editar: () => this.setState({ nova: true, nf: Object.assign(this.nfVazio(), d.form || {}), rascId: id, menu: null, erroNova: '' }) };
+    (M[k] || (() => {}))();
+  }
+  aplicarConf() {
+    const c = this.state.conf, mot = (this.state.f.motivo || '').trim();
+    if (c.motivo && !mot) return;
+    if (c.k === 'excluirRasc') { const db = JSON.parse(JSON.stringify(this.state.db)); db.itens = db.itens.filter(x => x.id !== c.id); this.salvar(db); return this.setState({ conf: null, aberta: null }); }
+    this.mexer(c.id, d => {
+      const P = d.propostas[d.propostas.length - 1];
+      const T = { info: ['info', 'Informações solicitadas'], responderInfo: ['analise', 'Informações enviadas'], recusar: ['recusada', 'Demanda recusada'], cancelar: ['cancelada', 'Demanda cancelada'], aceitar: ['aceita', 'Proposta aceita'], ajustes: ['analise', 'Ajustes solicitados na proposta'], recusarProp: ['recusada', 'Proposta recusada'], validar: ['validacao', 'Execução enviada para validação'], concluir: ['concluida', 'Serviço concluído'], devolver: ['execucao', 'Devolvido para complementação'], arquivar: ['arquivada', 'Demanda arquivada'], reabrir: ['analise', 'Demanda reaberta'], impedimento: [null, 'Impedimento informado'], pagamento: [null, 'Pagamento registrado'], prorrogar: [null, 'Prorrogação solicitada'] }[c.k];
+      if (P && c.k === 'aceitar') { P.status = 'aceita'; P.aceitaEm = Component.agora(); P.aceitaPor = this.quem(); }
+      if (P && c.k === 'ajustes') P.status = 'ajustes';
+      if (P && c.k === 'recusarProp') P.status = 'recusada';
+      if (c.k === 'pagamento') { d.pagoEm = Component.agora(); d.hist.push({ de: '', para: 'pago', quem: this.quem(), em: d.pagoEm, motivo: '' }); this.waFila(d, 'pago'); }
+      if (T[0]) this.mudar(d, T[0], mot);
+      this.msgSis(d, T[1] + (mot ? ': ' + mot : '.'), 'sistema');
+    });
+    this.setState({ conf: null });
+  }
+  campoNova(k, rot, extra) { const nf = this.state.nf, e = extra || {}; const bd = this.state.erroNova && e.req && !String(nf[k] || '').trim() ? '#a3232b' : '#d3dde4'; return Object.assign({ rot: rot + (e.req ? ' *' : ''), v: nf[k], bd, tipo: e.tipo || 'text', ph: e.ph || '', col: e.full ? '1 / -1' : 'auto', ehTexto: !e.area && !e.ops, ehArea: !!e.area, ehSel: !!e.ops, ops: (e.ops || []).map(o => ({ v: o, r: o })), on: ev => this.setState({ nf: Object.assign({}, this.state.nf, { [k]: ev.target.value }) }) }); }
+  criar(status) {
+    const nf = this.state.nf, req = ['escritorio', 'adv', 'oab', 'email', 'cidD', 'desc', 'prazo'];
+    if (status === 'nova' && req.some(k => !String(nf[k] || '').trim())) return this.setState({ erroNova: 'Preencha os campos obrigatórios marcados com *.' });
+    const db = JSON.parse(JSON.stringify(this.state.db)), docs = this.state.nArqs.map(f => ({ nome: f.nome, tam: f.tam, por: this.quem(), em: Component.agora() }));
+    let d = this.state.rascId && db.itens.find(x => x.id === this.state.rascId);
+    if (!d) { db.seq++; d = { id: 'TE-' + String(db.seq).padStart(4, '0'), criada: Component.agora(), status: 'rascunho', hist: [], msgs: [], lido: {}, propostas: [], convites: [], docs: [], check: Component.CHECK.map(t => ({ t, ok: false })), resp: '' }; db.itens.unshift(d); }
+    d.form = Object.assign({}, nf); d.docs = d.docs.concat(docs);
+    if (status === 'nova') { d.hist.push({ de: d.status, para: 'nova', quem: this.quem(), em: Component.agora(), motivo: '' }); d.status = 'nova'; d.criada = Component.agora(); }
+    this.salvar(db);
+    this.setState({ nova: false, nf: this.nfVazio(), nArqs: [], rascId: null, erroNova: '', toast: { tit: status === 'nova' ? 'Solicitação enviada' : 'Rascunho salvo', txt: status === 'nova' ? d.id + ' foi enviada ao Master para análise.' : d.id + ' ficou salva como rascunho.', hora: '' } });
+  }
+  renderVals() {
+    const s = this.state, db = s.db, p = s.perfil, ST = Component.ST, V = this.visiveis(), q = s.busca.trim().toLowerCase(), hoje = Component.hoje();
+    const G = Component.GRUPOS.find(g => g[0] === s.grupo) || Component.GRUPOS[0];
+    const L = V.filter(d => (!G[2] || G[2].includes(d.status)) && (s.grupo === 'todas' ? d.status !== 'rascunho' || p === 'solicitante' : true) && (!q || [d.id, d.form.tipo, d.form.desc, d.form.cidD, d.form.ufD, d.form.cidO, d.form.processo, d.form.escritorio].join(' ').toLowerCase().includes(q)));
+    const dias = d => Math.round((new Date(d.form.prazo + 'T12:00') - new Date(hoje + 'T12:00')) / 864e5);
+    const pm = s.perModo || 'tudo', hj = new Date(), mesV = s.perMesV || hj.toISOString().slice(0, 7), anoV = s.perAnoV || String(hj.getFullYear());
+    const noPer = d => pm === 'tudo' || (d.criada || '').slice(0, pm === 'mes' ? 7 : 4) === (pm === 'mes' ? mesV : anoV);
+    const VP = V.filter(noPer);
+    const abertas = VP.filter(d => !Component.FECHADAS.includes(d.status));
+    const menuDe = (d, x, y) => this.setState({ menu: { id: d.id, x: Math.min(x, innerWidth - 260), y: Math.min(y, innerHeight - 360) } });
+    const cur = s.aberta && db.itens.find(x => x.id === s.aberta);
+    const disp = this.cfg().disp, susp = disp === 'off' && this.cfg().bloquearSuspenso;
+    const inp = k => ev => this.setState({ f: Object.assign({}, this.state.f, { [k]: ev.target.value }) });
+    const on = {}; ['valor', 'despesas', 'prazoEst', 'validade', 'pagamento', 'escopo', 'naoInclui', 'cNome', 'cEmail', 'cFuncao', 'cValidade', 'waNome', 'waTel', 'msg', 'andamento', 'motivo'].forEach(k => on[k] = inp(k));
+    const enviarMsg = () => { const t = (s.f.msg || '').trim(); if (!t || !cur) return; this.mexer(cur.id, d => this.msgSis(d, t, s.f.interna && this.interno() ? 'interna' : '')); this.setState({ f: Object.assign({}, s.f, { msg: '' }) }); };
+    let dz = {}, menuItens = [];
+    const ac = d => this.acoes(d).filter(a => !(a.k === 'proposta' && s.aba === 'proposta') && !(a.k === 'convidar' && s.aba === 'exec')).map(a => ({ rot: a.rot, ic: a.ic, ir: () => this.exec(d, a.k), bg: a.tipo === 'pri' ? '#0a6fa0' : '#fff', cor: a.tipo === 'pri' ? '#fff' : a.tipo === 'perigo' ? '#a3232b' : '#0a6fa0', bd: a.tipo === 'pri' ? '#0a6fa0' : a.tipo === 'perigo' ? '#f0c9cc' : '#bcd6e6' }));
+    if (s.menu) { const d = db.itens.find(x => x.id === s.menu.id); if (d) { const base = [['abrir', 'Abrir demanda', 'bi-box-arrow-up-right'], ['chat', 'Abrir chat', 'bi-chat-dots']]; if (d.status !== 'rascunho') base.push(['hist', 'Histórico', 'bi-clock-history']); menuItens = base.map((b, i) => ({ rot: b[1], ic: b[2], cor: '#243845', sep: i ? '#fff' : '#fff', ir: () => this.exec(d, b[0]) })).concat(this.acoes(d).map((a, i) => ({ rot: a.rot, ic: a.ic, cor: a.tipo === 'perigo' ? '#a3232b' : '#243845', sep: i === 0 ? '#e6edf2' : '#fff', ir: () => this.exec(d, a.k) }))); } }
+    if (cur) {
+      const F = cur.form, conv = this.conviteAtivo(cur), cp = (conv || {}).perms || {}, P = cur.propostas, fechado = Component.FECHADAS.includes(cur.status);
+      const CF = this.cfg(), ext = !this.interno(), mask = n => ext && !CF.priv.nomeResp && (n === Component.PERFIS.master[2] || n === Component.PERFIS.equipe[2]) ? 'Central BlueJus' : n; const podeChat = p === 'equipe' ? CF.equipe.chat : p !== 'convidado' || cp.chat;
+      dz = {
+        id: cur.id, st: ST[cur.status][0], tipo: F.tipo, destino: (F.cidD || '—') + '/' + F.ufD + (F.orgao ? ' · ' + F.orgao : ''), menu: e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); menuDe(cur, r.left - 220, r.bottom + 4); },
+        acoes: ac(cur), acoesTem: ac(cur).length > 0,
+        campos: [['ESCRITÓRIO SOLICITANTE', F.escritorio], ['ADVOGADO RESPONSÁVEL', F.adv + (F.oab ? ' · OAB ' + F.oab + '/' + (F.oabUf || '') : '')], ['CONTATO', p === 'convidado' && !CF.priv.contatoConv ? '' : [F.email, F.tel].filter(Boolean).join(' · ')], ['ORIGEM', F.cidO + '/' + F.ufO], ['LOCAL DE EXECUÇÃO', F.cidD + '/' + F.ufD], ['ÓRGÃO', F.orgao], ['PROCESSO', F.processo], ['PARTES', F.partes], ['PRAZO FINAL', Component.dt(F.prazo)], ['DATA E HORÁRIO PRETENDIDOS', F.data ? Component.dt(F.data.replace('T', ' ').length > 10 ? F.data : F.data) : ''], ['PRIORIDADE', F.prio + (F.urgente ? ' · risco de perda de prazo' : '')], ['RESPONSÁVEL PELA EXECUÇÃO', ext && !CF.priv.nomeResp ? (cur.resp ? 'Profissional designado pela Central' : '') : cur.resp]].filter(c => c[1]).map(c => ({ r: c[0], v: c[1] })),
+        textos: [['DESCRIÇÃO DA ATIVIDADE', F.desc], ['OBJETIVO DA DILIGÊNCIA', F.objetivo], ['INSTRUÇÕES ESPECÍFICAS', F.instrucoes]].filter(t => t[1]).map(t => ({ r: t[0], v: t[1] })),
+        docs: (p !== 'convidado' || cp.ver ? cur.docs : []).map(d => ({ nome: d.nome, info: (d.tam ? Math.max(1, Math.round(d.tam / 1024)) + ' KB · ' : '') + d.por + ' · ' + Component.dt(d.em) })), semDocs: !cur.docs.length,
+        anexar: ev => { const fs = [...ev.target.files]; if (!fs.length) return; if (p === 'convidado' && !cp.enviar) return; this.mexer(cur.id, d => { fs.forEach(f => d.docs.push({ nome: f.name, tam: f.size, por: this.quem(), em: Component.agora() })); this.msgSis(d, fs.length + ' documento(s) anexado(s): ' + fs.map(f => f.name).join(', '), 'arquivo'); }); ev.target.value = ''; },
+        propostas: P.slice().reverse().map((x, i) => ({ v: x.v, em: Component.dt(x.em), st: { enviada: 'Aguardando aceite', aceita: 'Aceita em ' + Component.dt(x.aceitaEm) + (x.aceitaPor ? ' por ' + mask(x.aceitaPor) : ''), ajustes: 'Ajustes solicitados', recusada: 'Recusada', substituida: 'Substituída' }[x.status], stCor: x.status === 'aceita' ? '#1e7b45' : x.status === 'recusada' ? '#a3232b' : '#5b3f9e', bd: i === 0 ? '#bcd6e6' : '#e6edf2', bg: i === 0 ? '#f6fafd' : '#fff', campos: [['Valor', Component.brl(x.valor)], ['Despesas previstas', Component.brl(x.despesas)], ['Prazo estimado', x.prazoEst || '—'], ['Validade', Component.dt(x.validade)], ['Pagamento', x.pagamento || '—'], ['Escopo', x.escopo || '—'], ['Não incluído', x.naoInclui || '—']].map(c => ({ r: c[0], v: c[1] })) })),
+        semProp: !P.length, podePropor: this.pode('proposta') && ['analise', 'proposta'].includes(cur.status), propTitulo: P.length ? 'Nova versão da proposta (v' + (P.length + 1) + ')' : 'Proposta comercial',
+        check: cur.check.map((c, i) => { const pode = !fechado && cur.status === 'execucao' && (this.interno() || (p === 'convidado' && cp.andamento)); return { t: c.t, ok: c.ok, off: !pode, cur: pode ? 'pointer' : 'default', cor: c.ok ? '#5b7383' : '#12242f', td: c.ok ? 'line-through' : 'none', tg: () => this.mexer(cur.id, d => { d.check[i].ok = !d.check[i].ok; this.msgSis(d, (d.check[i].ok ? 'Etapa concluída: ' : 'Etapa reaberta: ') + c.t, 'andamento'); }) }; }),
+        podeAndamento: cur.status === 'execucao' && (this.interno() || (p === 'convidado' && cp.andamento)),
+        convites: (this.interno() ? cur.convites : []).map((c, i) => ({ nome: c.nome, email: c.email, funcao: c.funcao || 'Profissional', validade: Component.dt(c.validade), ini: c.nome.split(' ').filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase(), st: c.status === 'revogado' ? 'Acesso revogado' : c.status === 'aceito' ? 'Convite aceito' : 'Convite enviado', stCor: c.status === 'revogado' ? '#a3232b' : c.status === 'aceito' ? '#1e7b45' : '#7a5200', gerir: this.pode('convidar') && c.status !== 'revogado',
+          reenviar: () => { this.mexer(cur.id, d => { d.convites[i].reenviadoEm = Component.agora(); }); this.setState({ toast: { tit: 'Convite reenviado', txt: 'Novo e-mail enviado para ' + c.email + '.', hora: '' } }); },
+          revogar: () => this.setState({ conf: { id: cur.id, k: 'revogar', i, titulo: 'Revogar acesso', texto: c.nome + ' perde o acesso a esta demanda imediatamente. O histórico e os arquivos enviados são preservados.', rot: 'Revogar', perigo: true } }) })),
+        semConv: this.interno() && !cur.convites.length, podeConvidar: this.pode('convidar') && ['aceita', 'execucao'].includes(cur.status),
+        msgs: cur.msgs.filter(m => !ext || m.tipo !== 'interna').map(m => { const meu = m.perfil === p, sis = m.tipo === 'sistema'; const int = m.tipo === 'interna'; return { de: mask(m.de), em: Component.dt(m.em), txt: m.txt, tipo: int ? '· nota interna (só equipe)' : sis ? '· registro' : m.tipo === 'andamento' ? '· andamento' : m.tipo === 'arquivo' ? '· arquivo' : '', lado: sis ? 'center' : meu ? 'flex-end' : 'flex-start', bg: int ? '#fff8e6' : sis ? '#f7f9fb' : meu ? '#e5f1f7' : '#fff', bd: int ? '#f1e2bf' : sis ? '#e6edf2' : meu ? '#bcd6e6' : '#dde5eb', nomeCor: m.perfil === 'master' ? '#0a6fa0' : m.perfil === 'convidado' ? '#1e7b45' : '#5b3f9e' }; }),
+        semMsgs: !cur.msgs.filter(m => !ext || m.tipo !== 'interna').length, podeNota: !ext, podeChat: podeChat && cur.status !== 'rascunho',
+        wa: (() => { const w = cur.wa || { contatos: [], fila: [], log: [] }; const upd = fn => this.mexer(cur.id, d => { d.wa = d.wa || { contatos: [], fila: [], log: [] }; fn(d.wa, d); });
+          const fmtTel = t => { const n = String(t).replace(/\D/g, '').replace(/^55/, ''); return n.length >= 10 ? '(' + n.slice(0, 2) + ') ' + n.slice(2, -4) + '-' + n.slice(-4) : t; };
+          return { contatos: w.contatos.map((ct, i) => ({ nome: ct.nome, tel: fmtTel(ct.tel), ativo: ct.ativo, stTxt: ct.ativo ? 'Conectado' : 'Pausado', stCor: ct.ativo ? '#1e7b45' : '#8496a3', tgRot: ct.ativo ? 'Pausar' : 'Reativar', tg: () => upd(x => { x.contatos[i].ativo = !x.contatos[i].ativo; }), rem: () => upd(x => { x.contatos.splice(i, 1); }),
+              fases: Component.WAF.map(f => ({ rot: f[1], ok: !!ct.fases[f[0]], tg: () => upd(x => { x.contatos[i].fases[f[0]] = !x.contatos[i].fases[f[0]]; }) })) })),
+            semContatos: !w.contatos.length,
+            fila: w.fila.map((m, i) => ({ fase: (Component.WAF.find(f => f[0] === m.fase) || [, ''])[1], para: m.nome + ' · ' + fmtTel(m.tel), txt: m.txt, em: Component.dt(m.em), href: 'https://wa.me/' + Component.waNum(m.tel) + '?text=' + encodeURIComponent(m.txt), enviar: () => upd(x => { const it = x.fila.splice(i, 1)[0]; x.log.unshift(Object.assign(it, { enviadaEm: Component.agora(), por: this.quem() })); }), descartar: () => upd(x => { x.fila.splice(i, 1); }) })),
+            temFila: w.fila.length > 0, semFila: !w.fila.length,
+            log: w.log.slice(0, 15).map(m => ({ fase: (Component.WAF.find(f => f[0] === m.fase) || [, ''])[1], para: m.nome, em: Component.dt(m.enviadaEm) })), temLog: w.log.length > 0,
+            atual: (Component.WAF.find(f => f[0] === (cur.pagoEm && cur.status === 'aceita' ? 'pago' : cur.status)) || [, 'Fase atual'])[1],
+            adicionar: () => { const nome = String(s.f.waNome || '').trim(), tel = String(s.f.waTel || '').replace(/\D/g, ''); if (!nome || tel.length < 10) return this.setState({ erroWa: 'Informe o nome e um celular com DDD.' }); if (!s.f.waOk) return this.setState({ erroWa: 'Confirme que o contato autorizou receber mensagens.' }); upd((x, d) => { const fs = {}; Component.WAF.forEach(f => fs[f[0]] = true); x.contatos.push({ nome, tel, ativo: true, fases: fs, consentEm: Component.agora(), por: this.quem() }); x.fila.push({ fase: d.status, tel, nome, txt: 'BlueJus · ' + d.id + '\nOlá, ' + nome.split(' ')[0] + '! A partir de agora você recebe por aqui as atualizações de ' + d.form.tipo + ' em ' + d.form.cidD + '/' + d.form.ufD + '.\n\nAcompanhe pelo BlueJus: ' + Component.link(d.id), em: Component.agora() }); }); this.setState({ f: Object.assign({}, s.f, { waNome: '', waTel: '', waOk: false }), erroWa: '' }); },
+            agora: () => upd((x, d) => { const f = d.pagoEm && d.status === 'aceita' ? 'pago' : d.status; x.contatos.filter(ct => ct.ativo).forEach(ct => x.fila.push({ fase: f, tel: ct.tel, nome: ct.nome, txt: Component.waTxt(d, f, ct.nome), em: Component.agora() })); }),
+            temAtivos: w.contatos.some(ct => ct.ativo), link: Component.link(cur.id), copiar: () => { navigator.clipboard && navigator.clipboard.writeText(Component.link(cur.id)); this.setState({ toast: { tit: 'Link copiado', txt: 'Envie o link para o cliente acompanhar a demanda.', hora: '' } }); } }; })(),
+        etapas: (() => { const E = [['nova', 'Solicitada', 'bi-inbox'], ['analise', 'Em análise', 'bi-search'], ['proposta', 'Proposta', 'bi-file-earmark-text'], ['aceita', 'Aceite', 'bi-check2-circle'], ['pago', 'Pago', 'bi-cash-coin'], ['execucao', 'Em execução', 'bi-briefcase'], ['validacao', 'Validação', 'bi-hourglass-split'], ['concluida', 'Finalizada', 'bi-flag']], qd = k => { const h = cur.hist.find(x => x.para === k); return h ? h.em : (k === 'pago' ? cur.pagoEm : ''); };
+          const feito = E.map(e => !!qd(e[0])); let ult = -1; feito.forEach((f, i) => { if (f) ult = i; }); const fim = ['recusada', 'cancelada'].includes(cur.status);
+          return E.map((e, i) => { const ok = feito[i], atual = i === ult && !fim && cur.status !== 'concluida' && cur.status !== 'arquivada'; return { rot: e[1], ic: e[2], dt: ok ? Component.dt(qd(e[0])) : 'pendente', bg: ok ? (atual ? '#0a6fa0' : '#1e7b45') : '#fff', cor: ok ? '#fff' : '#9fb3c0', bd: ok ? (atual ? '#0a6fa0' : '#1e7b45') : '#cfdbe3', anim: atual ? 'teP 1.8s ease-out infinite' : 'none', rotCor: ok ? '#12242f' : '#8496a3', peso: atual ? 'bold' : 'normal' }; }); })(),
+        etapaPctNum: (() => { const E = ['nova', 'analise', 'proposta', 'aceita', 'pago', 'execucao', 'validacao', 'concluida']; let u = 0; E.forEach((k, i) => { if (cur.hist.some(x => x.para === k) || (k === 'pago' && cur.pagoEm)) u = i; }); return (u / (E.length - 1)).toFixed(3); })(),
+        etapaPct: (() => { const E = ['nova', 'analise', 'proposta', 'aceita', 'pago', 'execucao', 'validacao', 'concluida']; let u = 0; E.forEach((k, i) => { if (cur.hist.some(x => x.para === k) || (k === 'pago' && cur.pagoEm)) u = i; }); return Math.round(u / (E.length - 1) * 100) + '%'; })(),
+        encerrada: ['recusada', 'cancelada'].includes(cur.status), encerradaTxt: ST[cur.status][0] + ' · ' + Component.dt((cur.hist.slice().reverse().find(h => h.para === cur.status) || {}).em),
+        hist: cur.hist.slice().reverse().map((h, i, arr) => ({ para: ST[h.para][0], de: h.de ? 'de ' + ST[h.de][0] : '', quem: mask(h.quem), em: Component.dt(h.em), motivo: h.motivo, temMotivo: !!h.motivo, ic: ST[h.para][2], cor: ST[h.para][1], linha: i === arr.length - 1 ? 'transparent' : '#dde5eb', anim: 'teUp .3s ease ' + (i * 0.05) + 's both' }))
+      };
+    }
+    const abas = [['resumo', 'Resumo'], ['proposta', 'Proposta'], ['exec', 'Execução'], ['chat', 'Chat'], ['hist', 'Histórico'], ['whats', 'WhatsApp']].filter(a => p !== 'convidado' || (a[0] !== 'proposta' && a[0] !== 'whats'));
+    const CFG = this.cfg(), bloq = (!this.interno() && CFG.vis !== 'todos') || (p === 'equipe' && (CFG.vis === 'oculta' || !CFG.equipe.ver)), upCfg = fn => { const db2 = JSON.parse(JSON.stringify(db)); db2.cfg = this.cfg(); fn(db2.cfg); this.salvar(db2); };
+    const hmItens = [{ sec: 'VISIBILIDADE DA ABA' }].concat([['todos', 'Visível para todos', 'bi-eye'], ['interno', 'Somente Master e equipe', 'bi-person-lock'], ['oculta', 'Suspensa e oculta para todos', 'bi-eye-slash']].map(([k, r, ic]) => ({ rot: r, ic, on: CFG.vis === k, ir: () => { upCfg(x => { x.vis = k; }); this.setState({ hm: false }); } })), [{ sec: 'CENTRAL DE SOLICITAÇÕES' }], [['on', 'Disponível', 'bi-circle-fill'], ['rest', 'Disponível com restrições', 'bi-circle-half'], ['off', 'Temporariamente suspensa', 'bi-pause-circle']].map(([k, r, ic]) => ({ rot: r, ic, on: CFG.disp === k, ir: () => { upCfg(x => { x.disp = k; }); this.setState({ hm: false }); } })), [{ sec: 'CONFIGURAÇÕES' }, { rot: 'Equipe e privacidade…', ic: 'bi-shield-lock', ir: () => this.setState({ hm: false, cfgOpen: true }) }, { rot: 'Copiar link da aba', ic: 'bi-link-45deg', ir: () => { navigator.clipboard && navigator.clipboard.writeText(location.href.split('?')[0]); this.setState({ hm: false, toast: { tit: 'Link copiado', txt: 'Link da aba Trabalho Externo copiado.', hora: '' } }); } }]).map(x => Object.assign({ sec: '', temSec: !!x.sec, item: !x.sec, on: false, okIc: x.on ? 'bi-check2' : '' }, x, { okIc: x.on ? 'bi-check2' : '' }));
+    const conf = s.conf;
+    const NAV = [['Dashboard', 'bi-bar-chart-line', './01 - Dashboard 1.2.2.dc.html'], ['Expediente', 'bi-inbox', './03 - EXPEDIENTE Lista 1.0.dc.html'], ['Processos', 'bi-folder2'], ['Push Processual', 'bi-newspaper'], ['Cobranças', 'bi-cash-stack'], ['Minhas Metas', 'bi-list-check'], ['Demandas', 'bi-inboxes'], ['Trabalho Externo', 'bi-geo-alt', '#', 1], ['Agenda', 'bi-calendar3', './Agenda 1A.dc.html'], ['Kanban', 'bi-kanban'], ['Service Desk', 'bi-headset'], ['Ponto Eletrônico', 'bi-fingerprint'], ['ADMIN'], ['Convidar Usuários', 'bi-envelope'], ['Colaboradores', 'bi-people-fill'], ['Meu Escritório', 'bi-building'], ['Perfis', 'bi-shield', './05 - Perfis 1.0.dc.html'], ['Solicitações de Acesso', 'bi-key'], ['Service Desk (TI)', 'bi-headset'], ['Sedes (Ponto)', 'bi-geo'], ['Feriados e Folgas', 'bi-calendar-x'], ['BlueJus IA', 'bi-stars'], ['Trilha de Auditoria', 'bi-shield-check']], nq = (s.navBusca || '').trim().toLowerCase();
+    const anosSet = new Set([String(hj.getFullYear())]); db.itens.forEach(d => d.criada && anosSet.add(d.criada.slice(0, 4)));
+    const MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    return {
+      perModos: [['tudo', 'Tudo'], ['mes', 'Mês'], ['ano', 'Ano']].map(([k, r]) => ({ rot: r, ir: () => this.setState({ perModo: k }), bg: pm === k ? '#fff' : 'transparent', cor: pm === k ? '#0a6fa0' : '#5b7383', sh: pm === k ? '0 1px 3px rgba(18,36,47,.12)' : 'none' })),
+      perMes: pm === 'mes', perAno: pm === 'ano', perMesV: mesV, perAnoV: anoV, anos: [...anosSet].sort().reverse(),
+      onPerMes: e => this.setState({ perMesV: e.target.value }), onPerAno: e => this.setState({ perAnoV: e.target.value }),
+      perTxt: pm === 'tudo' ? 'Todas as demandas' : pm === 'mes' ? 'Demandas criadas em ' + MES[+mesV.slice(5, 7) - 1] + ' de ' + mesV.slice(0, 4) : 'Demandas criadas em ' + anoV,
+      nav: !!s.nav, navAbrir: () => this.setState({ nav: true, navBusca: '' }), navFechar: () => this.setState({ nav: false }), navBusca: s.navBusca || '', onNavBusca: e => this.setState({ navBusca: e.target.value }),
+      navItens: NAV.filter(n => !nq || (n.length > 1 && n[0].toLowerCase().includes(nq))).map(n => { const at = n[3] === 1; return n.length === 1 ? { titulo: true, item: false, rot: n[0] } : { titulo: false, item: true, rot: n[0], ic: n[1], href: n[2] || '#', novo: at, cor: at ? '#0a6fa0' : '#243845', bg: at ? '#e5f1f7' : '#fff', peso: at ? 'bold' : 'normal', bd: at ? '#0a6fa0' : 'transparent' }; }),
+      liberado: !bloq, bloqueado: bloq, bloqTit: CFG.vis === 'oculta' ? 'Trabalho Externo temporariamente indisponível' : 'Acesso restrito', bloqTxt: (CFG.vis === 'oculta' ? 'O serviço foi suspenso pelo administrador do BlueJus.' : p === 'equipe' ? 'O Master ainda não liberou esta aba para a equipe.' : 'Esta área está disponível apenas para a equipe interna no momento.') + (CFG.motivo && CFG.vis === 'oculta' ? ' Motivo: ' + CFG.motivo : ''),
+      fInterna: !!s.f.interna, tgInterna: () => this.setState({ f: Object.assign({}, s.f, { interna: !s.f.interna }) }),
+      hm: !!s.hm, hmItens, abrirHm: () => this.setState({ hm: !s.hm }), fecharHm: () => this.setState({ hm: false }),
+      cfgOpen: !!s.cfgOpen, fecharCfg: () => this.setState({ cfgOpen: false }),
+      motivoCfg: CFG.motivo, onMotivoCfg: e => upCfg(x => { x.motivo = e.target.value; }), ehOculta: CFG.vis === 'oculta',
+      bloqSusp: CFG.bloquearSuspenso, tgBloqSusp: () => upCfg(x => { x.bloquearSuspenso = !x.bloquearSuspenso; }),
+      eqOps: [['ver', 'Ver as demandas'], ['chat', 'Responder no chat'], ['proposta', 'Elaborar e enviar propostas'], ['convidar', 'Convidar e revogar profissionais'], ['situacao', 'Alterar a situação das demandas']].map(([k, r]) => ({ rot: r, ok: !!CFG.equipe[k], tg: () => upCfg(x => { x.equipe[k] = !x.equipe[k]; }) })),
+      privOps: [['nomeResp', 'Mostrar aos externos o nome de quem atende', 'Desligado: aparece "Central BlueJus".'], ['contatoConv', 'Mostrar ao convidado o contato do solicitante', 'Desligado: o convidado fala só pelo chat.']].map(([k, r, t]) => ({ rot: r, txt: t, ok: !!CFG.priv[k], tg: () => upCfg(x => { x.priv[k] = !x.priv[k]; }) })),
+      visBadge: CFG.vis === 'interno' ? 'Somente equipe' : 'Aba suspensa', visBadgeTem: CFG.vis !== 'todos' && this.interno(),
+      perfilNome: Component.PERFIS[p][2], perfilPapel: Component.PERFIS[p][3], ehMaster: p === 'master', ehInterno: this.interno(), podeSolicitar: p === 'solicitante',
+      perfis: Object.entries(Component.PERFIS).map(([k, v]) => ({ rot: v[0], ic: v[1], ir: () => this.setPerfil(k), bg: p === k ? '#fff' : 'transparent', cor: p === k ? '#0a6fa0' : '#5b7383', sh: p === k ? '0 1px 3px rgba(18,36,47,.12)' : 'none' })),
+      disp, dispTxt: disp === 'on' ? 'disponível' : disp === 'rest' ? 'com restrições' : 'suspensa', dispCor: disp === 'on' ? '#1e7b45' : disp === 'rest' ? '#c76a12' : '#a3232b', onDisp: e => { const db2 = JSON.parse(JSON.stringify(db)); db2.cfg.disp = e.target.value; this.salvar(db2); },
+      avisoDisp: disp === 'off' ? (this.interno() ? 'A central está suspensa: novas solicitações ficam só como rascunho. Demandas já aceitas continuam normalmente.' : 'A central está temporariamente suspensa. Você pode salvar a solicitação como rascunho e enviar quando ela for reativada.') : disp === 'rest' && p === 'solicitante' ? 'A central está disponível com restrições: o prazo de análise pode ser maior.' : '',
+      kpis: [['Abertas', abertas.length, 'bi-folder2-open', '#0a6fa0', 'todas'], ['Aguardando aceite', VP.filter(d => d.status === 'proposta').length, 'bi-file-earmark-text', '#5b3f9e', 'proposta'], ['Em execução', VP.filter(d => ['aceita', 'execucao', 'validacao'].includes(d.status)).length, 'bi-briefcase', '#0b5f86', 'execucao'], ['Prazo em até 3 dias', abertas.filter(d => dias(d) <= 3).length, 'bi-alarm', '#a3232b', 'todas'], ['Concluídas', VP.filter(d => d.status === 'concluida').length, 'bi-check2-all', '#1e7b45', 'concluida']].map(k => ({ rot: k[0], n: k[1], ic: k[2], cor: k[3], ir: () => this.setState({ grupo: k[4] }) })),
+      chips: Component.GRUPOS.filter(g => g[0] !== 'rascunho' || p === 'solicitante').map(g => { const at = s.grupo === g[0]; return { rot: g[1], n: V.filter(d => (!g[2] ? d.status !== 'rascunho' : g[2].includes(d.status))).length, ir: () => this.setState({ grupo: g[0] }), bg: at ? '#0a6fa0' : '#fff', cor: at ? '#fff' : '#34505f', bd: at ? '#0a6fa0' : '#d3dde4' }; }),
+      busca: s.busca, onBusca: e => this.setState({ busca: e.target.value }),
+      vazio: !L.length, vazioTxt: !V.length ? (this.interno() ? 'Nenhuma demanda recebida ainda. As solicitações enviadas pelos escritórios aparecem aqui.' : p === 'solicitante' ? 'Você ainda não fez solicitações. Use "Nova solicitação" para pedir um serviço em outra localidade.' : 'Nenhuma demanda atribuída a você.') : 'Nenhuma demanda neste filtro.',
+      linhas: L.map(d => { const n = dias(d), fech = Component.FECHADAS.includes(d.status), nl = this.naoLidas(d); return { id: d.id, tipo: d.form.tipo, desc: d.form.desc || '—', origem: (d.form.escritorio || 'Escritório') + ' · ' + d.form.cidO + '/' + d.form.ufO, destino: (d.form.cidD || '—') + '/' + d.form.ufD, prazo: Component.dt(d.form.prazo), prazoTxt: fech ? 'encerrado' : n < 0 ? 'atrasada ' + (-n) + ' dia(s)' : n === 0 ? 'vence hoje' : 'em ' + n + ' dia(s)', prazoCor: fech ? '#8496a3' : n < 0 ? '#a3232b' : n <= 3 ? '#c76a12' : '#5b7383', prazoIc: fech ? 'bi-dash' : n <= 3 ? 'bi-alarm' : 'bi-calendar3', resp: d.resp || (this.conviteAtivo(d) || {}).nome || 'A definir', respCor: d.resp || this.conviteAtivo(d) ? '#243845' : '#8496a3', st: Component.ST[d.status][0], stCor: Component.ST[d.status][1], stIc: Component.ST[d.status][2], naoLidas: nl, temNaoLidas: nl > 0, semNaoLidas: !nl, bg: d.form.urgente && !fech ? '#fffaf3' : '#fff', abrir: () => d.status === 'rascunho' ? this.exec(d, 'editar') : this.abrir(d.id), ctx: e => { e.preventDefault(); menuDe(d, e.clientX, e.clientY); }, menu: e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); menuDe(d, r.left - 220, r.bottom + 4); } }; }),
+      menuAberto: !!s.menu && menuItens.length > 0, menuX: s.menu ? s.menu.x + 'px' : '0', menuY: s.menu ? s.menu.y + 'px' : '0', menuItens, fecharMenu: e => { e.preventDefault(); this.setState({ menu: null }); },
+      drawer: !!cur, dz, f: s.f, on, fecharDrawer: () => this.setState({ aberta: null }),
+      abas: abas.map(a => { const n = a[0] === 'chat' && cur ? this.naoLidas(cur) : a[0] === 'whats' && cur && cur.wa ? cur.wa.fila.length : 0; return { rot: a[1], n, temN: n > 0, ir: () => { this.setState({ aba: a[0] }); if (a[0] === 'chat') this.marcarLido(cur.id); }, bd: s.aba === a[0] ? '#0a6fa0' : 'transparent', cor: s.aba === a[0] ? '#0a6fa0' : '#5b7383' }; }),
+      abaResumo: s.aba === 'resumo', abaProposta: s.aba === 'proposta', abaExec: s.aba === 'exec', abaChat: s.aba === 'chat', abaHist: s.aba === 'hist', abaWhats: s.aba === 'whats',
+      erroProp: s.erroProp, erroConv: s.erroConv, erroWa: s.erroWa || '', waOk: !!s.f.waOk, tgWaOk: () => this.setState({ f: Object.assign({}, s.f, { waOk: !s.f.waOk }) }),
+      enviarProposta: () => { const f = s.f; if (!String(f.valor || '').trim()) return this.setState({ erroProp: 'Informe o valor do serviço.' }); this.mexer(cur.id, d => { d.propostas.forEach(x => { if (x.status === 'enviada' || x.status === 'ajustes') x.status = 'substituida'; }); d.propostas.push({ v: d.propostas.length + 1, valor: f.valor, despesas: f.despesas || '', prazoEst: f.prazoEst || '', validade: f.validade || Component.mais(5), pagamento: f.pagamento || '', escopo: f.escopo || '', naoInclui: f.naoInclui || '', em: Component.agora(), por: this.quem(), status: 'enviada' }); if (d.status !== 'proposta') this.mudar(d, 'proposta'); this.msgSis(d, 'Proposta v' + d.propostas.length + ' enviada: ' + Component.brl(f.valor) + '.', 'sistema'); }); this.setState({ f: {}, erroProp: '' }); },
+      permsLista: Component.PERMS.map(([k, r]) => ({ rot: r, ok: !!s.perms[k], tg: () => this.setState({ perms: Object.assign({}, s.perms, { [k]: !s.perms[k] }) }) })),
+      enviarConvite: () => { const f = s.f, em = String(f.cEmail || '').trim(); if (!String(f.cNome || '').trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return this.setState({ erroConv: 'Informe nome e um e-mail válido.' }); this.mexer(cur.id, d => { d.convites.forEach(c => { if (c.status !== 'revogado') c.status = 'revogado'; }); d.convites.push({ nome: f.cNome.trim(), email: em, funcao: f.cFuncao || '', validade: f.cValidade || Component.mais(15), status: 'enviado', em: Component.agora(), perms: Object.assign({}, s.perms) }); d.resp = f.cNome.trim(); this.msgSis(d, 'Convite enviado para ' + f.cNome.trim() + ' (' + em + ').', 'sistema'); }); this.setState({ f: {}, erroConv: '', toast: { tit: 'Convite enviado', txt: f.cNome.trim() + ' recebe o link de acesso somente a esta demanda.', hora: '' } }); },
+      registrarAnd: () => { const t = (s.f.andamento || '').trim(); if (!t) return; this.mexer(cur.id, d => this.msgSis(d, t, 'andamento')); this.setState({ f: Object.assign({}, s.f, { andamento: '' }) }); },
+      enviarMsg, msgKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMsg(); } },
+      nova: s.nova, nf: s.nf, novaAbrir: () => this.setState({ nova: true, nf: this.nfVazio(), nArqs: [], rascId: null, erroNova: '' }), novaFechar: () => this.setState({ nova: false }),
+      escOps: this.escritorios().map(e => ({ v: e.id, r: e.nome })), escSel: s.nf.escId || '',
+      escTrocar: e => { const x = this.escritorios().find(o => o.id === e.target.value); if (x) this.setState({ nf: this.doEsc(x, Object.assign({}, s.nf)) }); },
+      escMudou: (() => { const x = this.escritorios().find(o => o.id === s.nf.escId); return !!x && (x.nome !== s.nf.escritorio || (x.email || '') !== s.nf.email || (x.tel || '') !== s.nf.tel || (x.uf || '') !== s.nf.ufO || (x.cid || '') !== s.nf.cidO); })(),
+      escAtualizar: () => { const db2 = JSON.parse(JSON.stringify(db)); db2.escritorios = this.escritorios().map(o => o.id === s.nf.escId ? Object.assign({}, o, { nome: s.nf.escritorio.trim(), email: s.nf.email, tel: s.nf.tel, uf: s.nf.ufO, cid: s.nf.cidO }) : o); this.salvar(db2); this.setState({ toast: { tit: 'Escritório atualizado', txt: s.nf.escritorio, hora: '' } }); },
+      escNovo: () => { const nome = s.nf.escritorio.trim(); if (!nome) return this.setState({ erroNova: 'Informe o nome do escritório para salvar.' }); const db2 = JSON.parse(JSON.stringify(db)), id = 'e' + Date.now(); db2.escritorios = this.escritorios().concat({ id, nome, email: s.nf.email, tel: s.nf.tel, uf: s.nf.ufO, cid: s.nf.cidO }); this.salvar(db2); this.setState({ nf: Object.assign({}, s.nf, { escId: id }), toast: { tit: 'Escritório salvo', txt: nome + ' fica disponível nas próximas solicitações.', hora: '' } }); },
+      emNome: !!s.nf.emNome, tgEmNome: () => { const U = Component.USUARIO, on = !s.nf.emNome; this.setState({ nf: Object.assign({}, s.nf, on ? { emNome: true, adv: '', oab: '', oabUf: s.nf.ufO || U.oabUf } : { emNome: false, adv: U.nome, oab: U.oab, oabUf: U.oabUf }) }); },
+      perfilResumo: Component.USUARIO.nome + ' · OAB ' + Component.USUARIO.oab + '/' + Component.USUARIO.oabUf,
+      secoes: [{ titulo: 'SOLICITANTE', ehSolic: true, campos: [this.campoNova('escritorio', 'Escritório', { req: 1 }), this.campoNova('email', 'E-mail', { req: 1, tipo: 'email' }), this.campoNova('tel', 'Telefone', { tipo: 'tel' }), this.campoNova('ufO', 'UF de origem', { ops: Component.UFS }), this.campoNova('cidO', 'Município de origem'), this.campoNova('adv', s.nf.emNome ? 'Advogado solicitante' : 'Advogado responsável', { req: 1, ph: 'Nome completo' }), this.campoNova('oab', 'OAB nº', { req: 1, ph: '00000' }), this.campoNova('oabUf', 'UF da OAB', { ops: Component.UFS })] },
+        { titulo: 'LOCAL E PROCESSO', campos: [this.campoNova('ufD', 'UF de execução', { ops: Component.UFS }), this.campoNova('cidD', 'Município de execução', { req: 1 }), this.campoNova('orgao', 'Comarca, tribunal, delegacia ou órgão'), this.campoNova('processo', 'Número do processo', { ph: '0000000-00.0000.0.00.0000' }), this.campoNova('partes', 'Partes', { full: 1 })] },
+        { titulo: 'SERVIÇO', campos: [this.campoNova('tipo', 'Tipo de serviço', { ops: Component.TIPOS }), this.campoNova('prio', 'Prioridade', { ops: ['Normal', 'Alta', 'Urgente'] }), this.campoNova('prazo', 'Prazo final', { req: 1, tipo: 'date' }), this.campoNova('data', 'Data e horário pretendidos', { tipo: 'datetime-local' }), this.campoNova('desc', 'Descrição detalhada da atividade', { req: 1, area: 1, full: 1 }), this.campoNova('objetivo', 'Objetivo da diligência', { area: 1, full: 1 }), this.campoNova('instrucoes', 'Instruções e observações', { area: 1, full: 1 })] }],
+      nUrg: () => this.setState({ nf: Object.assign({}, s.nf, { urgente: !s.nf.urgente }) }),
+      nArq: ev => this.setState({ nArqs: s.nArqs.concat([...ev.target.files].map(f => ({ nome: f.name, tam: f.size }))) }), nArqTem: s.nArqs.length > 0, nArqTxt: s.nArqs.map(f => f.nome).join(' · '),
+      erroNova: s.erroNova || (susp ? 'Central suspensa: salve como rascunho para enviar depois.' : ''), envioBloq: susp, envioBg: susp ? '#9fb3c0' : '#0a6fa0',
+      salvarRascunho: () => this.criar('rascunho'), enviarNova: () => { if (!susp) this.criar('nova'); },
+      conf: !!conf, confTitulo: conf ? conf.titulo : '', confTexto: conf ? conf.texto : '', confRot: conf ? conf.rot : '', confMotivo: conf ? !!conf.motivo : false, confPh: 'Descreva (obrigatório)', confBg: conf && conf.perigo ? '#a3232b' : '#0a6fa0',
+      confCancelar: () => this.setState({ conf: null }),
+      confOk: () => { if (conf.k === 'revogar') { this.mexer(conf.id, d => { d.convites[conf.i].status = 'revogado'; d.convites[conf.i].revogadoEm = Component.agora(); if (d.resp === d.convites[conf.i].nome) d.resp = ''; this.msgSis(d, 'Acesso de ' + d.convites[conf.i].nome + ' revogado.', 'sistema'); }); return this.setState({ conf: null }); } this.aplicarConf(); },
+      toast: !!s.toast, toastTit: s.toast ? s.toast.tit : '', toastTxt: s.toast ? s.toast.txt : '', toastHora: s.toast ? s.toast.hora : '', toastAbrirTem: !!(s.toast && s.toast.id), toastFechar: () => this.setState({ toast: null }), toastAbrir: () => this.abrir(s.toast.id, 'chat')
+    };
+  }
+  componentDidMount() { const te = new URLSearchParams(location.search).get('te'); if (te && this.state.db.itens.some(x => x.id === te)) setTimeout(() => this.abrir(te), 50); this._st = e => { if (e.key === Component.K && e.newValue) { const db = JSON.parse(e.newValue), p = this.state.perfil, antes = this.state.db; this.setState({ db }); const d = db.itens.find(x => { const a = antes.itens.find(y => y.id === x.id); return a && x.msgs.length > a.msgs.length && x.msgs[x.msgs.length - 1].perfil !== p; }); if (d) { const m = d.msgs[d.msgs.length - 1]; this.setState({ toast: { id: d.id, tit: m.de + ' · ' + d.id, txt: m.txt.slice(0, 110), hora: Component.dt(m.em).slice(11) } }); } } }; addEventListener('storage', this._st); this._tt = setInterval(() => { if (this.state.toast && !this.state.toast.id) this.setState({ toast: null }); }, 4500); }
+  componentWillUnmount() { removeEventListener('storage', this._st); clearInterval(this._tt); }
+}
+</script>
+</body>
+</html>

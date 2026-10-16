@@ -40,6 +40,10 @@ final readonly class ResolvedorDeCaminhoLocal
         private string $fotosPerfilDir,
         private string $cobrancasUploadsDir,
         private string $kanbanUploadsDir,
+        // Último e com padrão vazio: entrou com o Trabalho Externo, depois das outras sete, e os
+        // testes que montam o resolvedor à mão continuam valendo. Vazio NUNCA vira caminho
+        // (ver `trabalhoExternoRaiz()`): falha alto em vez de gravar na raiz do disco.
+        private string $trabalhoExternoUploadsDir = '',
     ) {
     }
 
@@ -89,6 +93,7 @@ final readonly class ResolvedorDeCaminhoLocal
             $this->fotosPerfilDir,
             $this->cobrancasUploadsDir,
             $this->kanbanUploadsDir,
+            ...($this->trabalhoExternoUploadsDir !== '' ? [$this->trabalhoExternoUploadsDir] : []),
         ]);
     }
 
@@ -118,6 +123,7 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::JUSTIFICATIVA_ANEXO => $this->raiz($this->justificativasUploadsDir),
             CategoriaDeArquivo::FOTO_PERFIL         => $this->raiz($this->fotosPerfilDir),
             CategoriaDeArquivo::KANBAN_ANEXO        => $this->raiz($this->kanbanUploadsDir),
+            CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => $this->trabalhoExternoRaiz(),
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
@@ -147,6 +153,15 @@ final readonly class ResolvedorDeCaminhoLocal
             . 'A decisão está reservada à fatia E2.7 (D5); até lá o fluxo continua em '
             . 'CaminhoDeAnexoDeTarefa.',
         );
+    }
+
+    private function trabalhoExternoRaiz(): string
+    {
+        if ($this->trabalhoExternoUploadsDir === '') {
+            throw new \LogicException('Diretório dos documentos do Trabalho Externo não configurado (trabalho_externo_uploads_dir).');
+        }
+
+        return $this->raiz($this->trabalhoExternoUploadsDir);
     }
 
     private function raiz(string $diretorio): string
