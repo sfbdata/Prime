@@ -516,8 +516,19 @@ final class TenantController extends AbstractController
         }
 
         // Perfil ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
-        // precisa saber se a troca tira alguém do perfil de sistema.
+        // precisa saber se a troca põe ou tira alguém do perfil de sistema.
         $perfilAnterior = $userTenant->getTenantRole();
+
+        // Spec perfis-master D4 (RegraDosPrimarios): só primário ou Master dá ou tira o perfil de
+        // sistema e troca senha de primário. Para os demais o perfil de sistema nem é opção; se o
+        // alvo já é primário, o único perfil oferecido é o atual (não dá para rebaixar).
+        $podeGerirPrimarios = $regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
+        $podeTrocarSenha    = $regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant);
+        if (!$podeGerirPrimarios) {
+            $tenantRoles = $perfilAnterior?->isSystem() === true
+                ? [$perfilAnterior]
+                : array_values(array_filter($tenantRoles, static fn ($r): bool => !$r->isSystem()));
+        }
 
         $form = $this->createForm(EditUserTenantRoleType::class, $userTenant, [
             'tenant_roles'    => $tenantRoles,
@@ -527,20 +538,36 @@ final class TenantController extends AbstractController
         ]);
         $form->handleRequest($request);
 
-        // Spec perfis-master §5 E1: esta porta não rebaixa o titular nem o último primário.
-        // Mesma regra da remoção de sócio (RegraDosPrimarios), checada antes do flush.
-        if (
-            $form->isSubmitted()
-            && $perfilAnterior?->isSystem() === true
-            && $userTenant->getTenantRole()?->isSystem() !== true
-        ) {
-            try {
-                $regraDosPrimarios->garantirQuePodeDeixarDeSerPrimario($userTenant);
-            } catch (OperacaoDePrimarioRecusada $e) {
-                $form->get('tenantRole')->addError(new FormError($e->getMessage()));
+        if ($form->isSubmitted()) {
+            $eraPrimario  = $perfilAnterior?->isSystem() === true;
+            $seraPrimario = $userTenant->getTenantRole()?->isSystem() === true;
+            $erroDePerfil = null;
+
+            if ($eraPrimario !== $seraPrimario && !$podeGerirPrimarios) {
+                // Cinto do select: um POST forjado com o id do perfil de sistema cai aqui.
+                $erroDePerfil = 'Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.';
+            } elseif ($eraPrimario && !$seraPrimario) {
+                // Spec §5 E1: esta porta não rebaixa o titular nem o último primário.
+                try {
+                    $regraDosPrimarios->garantirQuePodeDeixarDeSerPrimario($userTenant);
+                } catch (OperacaoDePrimarioRecusada $e) {
+                    $erroDePerfil = $e->getMessage();
+                }
+            }
+
+            if ($erroDePerfil !== null) {
+                $form->get('tenantRole')->addError(new FormError($erroDePerfil));
                 // Desfaz a troca em memória: mais abaixo o ObterOuCriarPerfilUseCase pode dar
-                // flush (perfil pessoal ausente) e levaria o rebaixamento recusado junto.
+                // flush (perfil pessoal ausente) e levaria a troca recusada junto.
                 $userTenant->setTenantRole($perfilAnterior);
+            }
+
+            $senhaPedida = $form->get('newPassword')->getData();
+            if (is_string($senhaPedida) && trim($senhaPedida) !== '' && !$podeTrocarSenha) {
+                $form->get('newPassword')->addError(new FormError(
+                    'A senha de um primário só pode ser trocada por um primário ou pelo Master; '
+                    . 'a do primário titular, só por ele mesmo ou pelo Master.'
+                ));
             }
         }
 

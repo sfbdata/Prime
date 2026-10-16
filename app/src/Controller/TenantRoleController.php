@@ -76,19 +76,14 @@ final class TenantRoleController extends AbstractController
      * `admin.roles.manage`: senão um secundário com essa permissão poderia se promover a primário
      * e ganhar o acesso total que o perfil de sistema dá (spec D4: "o primário promove").
      */
-    private function assertPrimarioOuMaster(Tenant $tenant, UserTenantRepository $userTenantRepository): User
+    private function assertPrimarioOuMaster(Tenant $tenant): User
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
-        if ($this->isGranted('ROLE_SUPER_ADMIN')) {
-            return $user;
-        }
-
-        $vinculo = $userTenantRepository->findAtivoPorUserETenant($user, $tenant);
-        if ($vinculo === null || !$this->regraDosPrimarios->ehPrimario($vinculo)) {
+        if (!$this->regraDosPrimarios->podeGerirPrimarios($user, $tenant)) {
             throw $this->createAccessDeniedException('Só o primário do escritório pode promover ou remover primários.');
         }
 
@@ -265,13 +260,12 @@ final class TenantRoleController extends AbstractController
         int $tenantId,
         Request $request,
         UserRepository $userRepository,
-        UserTenantRepository $userTenantRepository,
         TenantRoleRepository $roleRepository,
         PromoverPrimarioSocioUseCase $promover,
         PermissionChecker $checker
     ): Response {
         $tenant = $this->assertAccess($tenantId, $checker);
-        $this->assertPrimarioOuMaster($tenant, $userTenantRepository);
+        $this->assertPrimarioOuMaster($tenant);
 
         if (!$this->isCsrfTokenValid('promover_primario_' . $tenant->getId(), $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -302,13 +296,12 @@ final class TenantRoleController extends AbstractController
         int $userId,
         Request $request,
         UserRepository $userRepository,
-        UserTenantRepository $userTenantRepository,
         TenantRoleRepository $roleRepository,
         RemoverPrimarioSocioUseCase $remover,
         PermissionChecker $checker
     ): Response {
         $tenant = $this->assertAccess($tenantId, $checker);
-        $this->assertPrimarioOuMaster($tenant, $userTenantRepository);
+        $this->assertPrimarioOuMaster($tenant);
 
         if (!$this->isCsrfTokenValid('remover_primario_' . $userId, $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');

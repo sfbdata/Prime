@@ -6,6 +6,7 @@ namespace App\Tests\Tenant\Functional;
 
 use App\Controller\TenantRoleController;
 use App\Entity\Audit\AuditLog;
+use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
@@ -405,6 +406,117 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame($this->perfilAdvogado->getId(), $this->recarregarVinculo($this->socio)->getTenantRole()?->getId());
     }
 
+    // ── B1/I1/I2: só primário ou Master gere primários ─────────────────────
+
+    #[TestDox('edit-role: secundário com admin.users.manage não se autopromove (opção escondida e POST forjado recusado)')]
+    public function testEditRoleSecundarioNaoSeAutopromove(): void
+    {
+        $this->darPermissao($this->perfilAdvogado, 'admin.users.manage');
+        $this->logarComTenant($this->client, $this->advogado, $this->tenant);
+
+        $crawler = $this->client->request('GET', $this->urlEditRole($this->advogado));
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter(sprintf('select[name="edit_user_tenant_role[tenantRole]"] > option[value="%d"]', $this->perfilPrimario->getId())));
+
+        $this->submeterEditRole($this->advogado, $this->perfilPrimario);
+
+        self::assertFalse($this->recarregarVinculo($this->advogado)->getTenantRole()?->isSystem());
+    }
+
+    #[TestDox('edit-role: secundário com admin.users.manage não promove outro colaborador a primário')]
+    public function testEditRoleSecundarioNaoPromoveOutro(): void
+    {
+        $this->darPermissao($this->perfilAdvogado, 'admin.users.manage');
+        $estagiario = $this->criarUsuario('Estagiária', $this->tenant, $this->perfilAdvogado);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->advogado, $this->tenant);
+
+        $this->submeterEditRole($estagiario, $this->perfilPrimario);
+
+        self::assertFalse($this->recarregarVinculo($estagiario)->getTenantRole()?->isSystem());
+    }
+
+    #[TestDox('edit-role: secundário com admin.users.manage não rebaixa um sócio primário')]
+    public function testEditRoleSecundarioNaoRebaixaSocio(): void
+    {
+        $this->darPermissao($this->perfilAdvogado, 'admin.users.manage');
+        $this->logarComTenant($this->client, $this->advogado, $this->tenant);
+
+        $this->submeterEditRole($this->socio, $this->perfilAdvogado);
+
+        self::assertTrue($this->recarregarVinculo($this->socio)->getTenantRole()?->isSystem());
+    }
+
+    #[TestDox('edit-role: o primário promove um secundário a primário')]
+    public function testEditRolePrimarioPromove(): void
+    {
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+
+        $this->submeterEditRole($this->advogado, $this->perfilPrimario);
+
+        self::assertResponseRedirects();
+        self::assertTrue($this->recarregarVinculo($this->advogado)->getTenantRole()?->isSystem());
+    }
+
+    #[TestDox('edit-role: secundário com admin.users.manage não troca a senha de um primário')]
+    public function testSecundarioNaoTrocaSenhaDePrimario(): void
+    {
+        $this->darPermissao($this->perfilAdvogado, 'admin.users.manage');
+        $this->logarComTenant($this->client, $this->advogado, $this->tenant);
+
+        $this->submeterEditRole($this->socio, $this->perfilPrimario, 'SenhaNova#2026');
+
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->senhaConfere($this->socio, 'SenhaNova#2026'));
+        self::assertTrue($this->senhaConfere($this->socio, 'senha123'));
+    }
+
+    #[TestDox('edit-role: o sócio não troca a senha do titular; o titular troca a do sócio')]
+    public function testSenhaDoTitularSoPeloTitular(): void
+    {
+        $this->logarComTenant($this->client, $this->socio, $this->tenant);
+        $this->submeterEditRole($this->titular, $this->perfilPrimario, 'SenhaNova#2026');
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->senhaConfere($this->titular, 'SenhaNova#2026'));
+
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $this->submeterEditRole($this->socio, $this->perfilPrimario, 'SenhaNova#2026');
+        self::assertResponseRedirects();
+        self::assertTrue($this->senhaConfere($this->socio, 'SenhaNova#2026'));
+    }
+
+    #[TestDox('convite: secundário com admin.users.invite não vê nem forja convite com o perfil primário; o primário convida')]
+    public function testConviteComoPrimarioSoParaPrimario(): void
+    {
+        $this->darPermissao($this->perfilAdvogado, 'admin.users.invite');
+        $this->logarComTenant($this->client, $this->advogado, $this->tenant);
+
+        $crawler = $this->client->request('GET', '/escritorio/convites');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter(sprintf('select[name=tenant_role_id] > option[value="%d"]', $this->perfilPrimario->getId())));
+        self::assertCount(1, $crawler->filter(sprintf('select[name=tenant_role_id] > option[value="%d"]', $this->perfilAdvogado->getId())));
+
+        $emailForjado = uniqid('forjado_') . '@test.com';
+        $this->client->request('POST', '/escritorio/convites/novo', [
+            '_token'         => (string) $crawler->filter('form[action$="/escritorio/convites/novo"] input[name=_token]')->attr('value'),
+            'email'          => $emailForjado,
+            'tenant_role_id' => $this->perfilPrimario->getId(),
+        ]);
+        self::assertResponseRedirects('/escritorio/convites');
+        self::assertNull($this->em->getRepository(Invitation::class)->findOneBy(['email' => $emailForjado]));
+
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $crawler = $this->client->request('GET', '/escritorio/convites');
+        self::assertCount(1, $crawler->filter(sprintf('select[name=tenant_role_id] > option[value="%d"]', $this->perfilPrimario->getId())));
+        $emailOk = uniqid('socio_') . '@test.com';
+        $this->client->request('POST', '/escritorio/convites/novo', [
+            '_token'         => (string) $crawler->filter('form[action$="/escritorio/convites/novo"] input[name=_token]')->attr('value'),
+            'email'          => $emailOk,
+            'tenant_role_id' => $this->perfilPrimario->getId(),
+        ]);
+        self::assertNotNull($this->em->getRepository(Invitation::class)->findOneBy(['email' => $emailOk]));
+    }
+
     // ── excluir perfil em uso ──────────────────────────────────────────────
 
     #[TestDox('excluir perfil em uso deixa os usuários sem perfil, como o desenho promete (sem erro de integridade)')]
@@ -440,23 +552,40 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
 
     // ── apoio ──────────────────────────────────────────────────────────────
 
-    private function submeterEditRole(User $alvo, TenantRole $novoPerfil): void
+    private function submeterEditRole(User $alvo, TenantRole $novoPerfil, ?string $novaSenha = null): void
     {
-        $url     = sprintf('/tenant/%d/user/%d/edit-role', $this->tenant->getId(), $alvo->getId());
+        $url     = $this->urlEditRole($alvo);
         $crawler = $this->client->request('GET', $url);
         self::assertResponseIsSuccessful();
 
-        $form = $crawler->filter('form[name=edit_user_tenant_role]')->form();
-        $form['edit_user_tenant_role[tenantRole]']->select((string) $novoPerfil->getId());
-
         // O form_end do edit_user_role fica fora do <div> que abriu o form: o parser do crawler
         // fecha o <form> antes e o _token fica de fora de form()->getValues(). O valor vem da
-        // própria página; o Referer satisfaz o CSRF stateless (mesma origem).
+        // própria página; o Referer satisfaz o CSRF stateless (mesma origem). O perfil entra
+        // CRU no POST (não por select()): assim o teste também forja opção que a tela escondeu.
+        $form    = $crawler->filter('form[name=edit_user_tenant_role]')->form();
         $valores = $form->getPhpValues();
+        $valores['edit_user_tenant_role']['tenantRole'] = (string) $novoPerfil->getId();
         $valores['edit_user_tenant_role']['_token'] = (string) $crawler
             ->filter('input[name="edit_user_tenant_role[_token]"]')->attr('value');
+        if ($novaSenha !== null) {
+            $valores['edit_user_tenant_role']['newPassword'] = ['first' => $novaSenha, 'second' => $novaSenha];
+        }
 
         $this->client->request('POST', $url, $valores, [], ['HTTP_REFERER' => 'http://localhost' . $url]);
+    }
+
+    private function urlEditRole(User $alvo): string
+    {
+        return sprintf('/tenant/%d/user/%d/edit-role', $this->tenant->getId(), $alvo->getId());
+    }
+
+    private function senhaConfere(User $user, string $senha): bool
+    {
+        $this->em->clear();
+        $recarregado = $this->em->find(User::class, $user->getId());
+        self::assertNotNull($recarregado);
+
+        return static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($recarregado, $senha);
     }
 
     private function urlLista(): string

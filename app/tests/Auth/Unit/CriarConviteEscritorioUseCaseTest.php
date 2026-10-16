@@ -7,13 +7,17 @@ namespace App\Tests\Auth\Unit;
 use App\Auth\DTO\CriarConviteEscritorioInput;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -40,6 +44,7 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
             $this->userRepo,
             $this->userTenantRepo,
             $this->em,
+            new RegraDosPrimarios($this->userTenantRepo),
         );
         $this->tenant    = new Tenant();
         $this->role      = new TenantRole();
@@ -132,5 +137,42 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         self::assertSame($this->tenant, $resultado->getTenant());
         self::assertSame($this->role, $resultado->getTenantRole());
         self::assertSame('Maria', $resultado->getFullName());
+    }
+
+    #[TestDox('convite com o perfil de sistema (primário) é recusado para quem não é primário nem Master')]
+    public function testConviteComoPrimarioRecusadoParaSecundario(): void
+    {
+        $this->role->setIsSystem(true);
+        $this->userTenantRepo->method('findAtivoPorUserETenant')->willReturn(
+            (new UserTenant($this->criadoPor, $this->tenant))->setTenantRole(new TenantRole())
+        );
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(OperacaoDePrimarioRecusada::class);
+
+        $this->useCase->executar($this->input('novo@escritorio.com'));
+    }
+
+    #[TestDox('convite com o perfil de sistema é aceito quando quem convida é primário ativo')]
+    public function testConviteComoPrimarioAceitoParaPrimario(): void
+    {
+        $this->role->setIsSystem(true);
+        $this->criadoPor->setIsActive(true);
+        $this->userTenantRepo->method('findAtivoPorUserETenant')->willReturn(
+            (new UserTenant($this->criadoPor, $this->tenant))->setTenantRole($this->role)
+        );
+        $this->em->expects($this->once())->method('persist');
+
+        $this->useCase->executar($this->input('novo@escritorio.com'));
+    }
+
+    #[TestDox('convite com o perfil de sistema é aceito para o Master')]
+    public function testConviteComoPrimarioAceitoParaMaster(): void
+    {
+        $this->role->setIsSystem(true);
+        $this->criadoPor->setRoles(['ROLE_SUPER_ADMIN']);
+        $this->em->expects($this->once())->method('persist');
+
+        $this->useCase->executar($this->input('novo@escritorio.com'));
     }
 }
