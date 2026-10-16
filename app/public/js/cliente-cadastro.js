@@ -333,6 +333,82 @@
             });
         });
 
+        /* Aba Réu: lista da pasta, grava na hora (rotas pasta_reu_*); a resposta traz a lista inteira. */
+        var painelReu = veu.querySelector('[data-cad-painel="reu"]');
+        if (painelReu) {
+            var ulReus = painelReu.querySelector('.js-cad-reus');
+            var podeReu = painelReu.dataset.podeReu === '1';
+            var avisoReu = painelReu.querySelector('.js-cad-reu-aviso');
+            var iniciais = function (n) { return n.split(/\s+/).filter(Boolean).slice(0, 2).map(function (p) { return p[0]; }).join(''); };
+            var el = function (tag, cls, txt) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (txt !== undefined) { e.textContent = txt; } return e; };
+            var desenharReus = function (lista) {
+                ulReus.textContent = '';
+                if (!lista.length) { ulReus.appendChild(el('li', 'cad-reus-vazio', 'Nenhum réu cadastrado nesta pasta.')); return; }
+                lista.forEach(function (r, i) {
+                    var li = el('li', 'cad-reu');
+                    li.appendChild(el('span', 'cad-reu-ini', iniciais(r.nome)));
+                    var corpo = el('div', 'cad-reu-corpo');
+                    var nome = el('div', 'cad-reu-nome', r.nome);
+                    if (i === 0) { nome.appendChild(el('span', 'cad-reu-principal', 'Principal')); }
+                    corpo.appendChild(nome);
+                    corpo.appendChild(el('div', 'cad-reu-doc', r.documento));
+                    li.appendChild(corpo);
+                    if (podeReu) {
+                        var acoes = el('div', 'cad-reu-acoes');
+                        if (i > 0) {
+                            var up = el('button', 'cad-reu-btn'); up.type = 'button'; up.title = 'Tornar principal / subir'; up.setAttribute('aria-label', 'Tornar principal / subir');
+                            up.innerHTML = '<i class="bi bi-arrow-up" aria-hidden="true"></i>';
+                            up.addEventListener('click', function () { acaoReu(painelReu.dataset.urlReu + '/' + r.id + '/subir', {}); });
+                            acoes.appendChild(up);
+                        }
+                        var lixo = el('button', 'cad-reu-btn'); lixo.type = 'button'; lixo.title = 'Remover réu'; lixo.setAttribute('aria-label', 'Remover réu');
+                        lixo.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
+                        acoes.appendChild(lixo);
+                        li.appendChild(acoes);
+                        var conf = el('div', 'cad-reu-confirma'); conf.hidden = true;
+                        conf.appendChild(el('span', '', 'Remover ' + r.nome + ' dos réus desta pasta?'));
+                        var sim = el('button', 'cad-btn cad-btn--perigo', 'Remover'); sim.type = 'button';
+                        var nao = el('button', 'cad-btn cad-btn--link', 'Cancelar'); nao.type = 'button';
+                        sim.addEventListener('click', function () { acaoReu(painelReu.dataset.urlReu + '/' + r.id + '/remover', {}); });
+                        nao.addEventListener('click', function () { conf.hidden = true; });
+                        lixo.addEventListener('click', function () { conf.hidden = false; });
+                        conf.appendChild(sim); conf.appendChild(nao);
+                        li.appendChild(conf);
+                    }
+                    ulReus.appendChild(li);
+                });
+            };
+            var acaoReu = function (url, dados) {
+                var corpo = new URLSearchParams(dados); corpo.set('_token', painelReu.dataset.csrfReu);
+                return fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: corpo })
+                    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                    .then(function (res) {
+                        if (!res.ok) { if (avisoReu) { avisoReu.textContent = res.j.erro || res.j.mensagem || 'Não foi possível alterar os réus.'; avisoReu.hidden = false; } return false; }
+                        if (avisoReu) { avisoReu.hidden = true; }
+                        desenharReus(res.j.reus);
+                        return true;
+                    })
+                    .catch(function () { if (avisoReu) { avisoReu.textContent = 'Erro de comunicação com o servidor.'; avisoReu.hidden = false; } return false; });
+            };
+            var inNome = painelReu.querySelector('.js-cad-reu-nome'), inDoc = painelReu.querySelector('.js-cad-reu-doc');
+            var bAddReu = painelReu.querySelector('.js-cad-reu-add'), adicionando = false;
+            var adicionarReu = function () {
+                if (adicionando) { return; }
+                adicionando = true; bAddReu.disabled = true;
+                acaoReu(painelReu.dataset.urlReu, { nome: inNome.value, documento: inDoc.value }).then(function (ok) {
+                    adicionando = false; bAddReu.disabled = false;
+                    if (ok) { inNome.value = ''; inDoc.value = ''; inNome.focus(); }
+                });
+            };
+            if (inNome) {
+                bAddReu.addEventListener('click', adicionarReu);
+                inNome.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); adicionarReu(); } });
+                inDoc.addEventListener('input', function () { inDoc.value = mascarar(so(inDoc.value).length > 11 ? 'cnpj' : 'cpf', inDoc.value); });
+            }
+            var listaInicial = []; try { listaInicial = JSON.parse(painelReu.dataset.reus || '[]'); } catch (x) { listaInicial = []; }
+            desenharReus(listaInicial);
+        }
+
         /* Copiar qualificação. */
         veu.querySelector('.js-cad-copiar').addEventListener('click', function () {
             var t = qualificacao();

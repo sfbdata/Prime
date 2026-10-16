@@ -20,7 +20,9 @@ use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Controller\PastaReuController;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Repository\PastaReuRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Service\DigitoVerificador;
@@ -55,6 +57,7 @@ final class ClienteCadastroController extends AbstractController
         private readonly PendenciasDoCadastro $pendencias,
         private readonly QualificacaoDoCliente $qualificacao,
         private readonly SalvarCadastroDoClienteUseCase $salvar,
+        private readonly PastaReuRepository $reuRepository,
     ) {}
 
     #[Route('/clientes/{id}/cadastro', name: 'cliente_cadastro', requirements: ['id' => '\d+'], methods: ['GET'])]
@@ -68,6 +71,10 @@ final class ClienteCadastroController extends AbstractController
         }
 
         $pasta = $this->pastaDoContexto($request->query->get('pasta'), $tenant);
+        // A pasta de contexto só vale para quem pode VÊ-la: senão, nem aba Réu nem "usar outro cadastro" nela.
+        if ($pasta !== null && !$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW)) {
+            $pasta = null;
+        }
 
         return $this->render('cliente/_cadastro.html.twig', [
             'cliente'      => $cliente,
@@ -78,10 +85,12 @@ final class ClienteCadastroController extends AbstractController
             'qualificacao' => $this->qualificacao->de($cliente),
             'podeEditar'   => $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT),
             'pasta'        => $pasta,
-            'podeVincular' => $pasta !== null && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
+            'podeVincular' => $pasta !== null && !$pasta->estaExcluida() && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
             'estadosCivis' => SalvarCadastroDoClienteUseCase::ESTADOS_CIVIS,
             'docs'         => $this->documentosDoCadastro($cliente),
-            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'endereco', 'contato', 'docs', 'qual'], true) ? $request->query->get('aba') : 'pessoais',
+            // Aba Réu (E12h): só com a pasta de contexto, porque o réu é da pasta, não do cliente.
+            'reus'         => $pasta !== null ? PastaReuController::paraTela($this->reuRepository->daPasta($pasta, $tenant)) : null,
+            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual'], true) ? $request->query->get('aba') : 'pessoais',
             'mostrarOcr'   => $request->query->get('ocr') === '1',
         ]);
     }
@@ -195,7 +204,7 @@ final class ClienteCadastroController extends AbstractController
         return [
             'id'        => (int) $c->getId(),
             'nome'      => $c->getNomeExibicao(),
-            'documento' => (new DocumentoBrExtension())->documentoBrRotulo($doc),
+            'documento' => trim((new DocumentoBrExtension())->documentoBrRotulo($doc) . ' ' . (new DocumentoBrExtension())->documentoBr($doc)),
             'completo'  => $this->pendencias->estaCompleto($c),
         ];
     }

@@ -158,3 +158,19 @@
 [data-bs-theme="dark"] .cad-doc-icone { background: rgba(211,146,34,.2); color: #f0bd62; }
 [data-bs-theme="dark"] .cad-doc.is-anexado .cad-doc-icone { background: rgba(31,157,97,.2); color: #6ddaa2; }
 @media (max-width: 560px) { .cad-doc { grid-template-columns: auto 1fr; } .cad-doc-acoes { grid-column: 1 / -1; justify-content: flex-start; } }
+
+/* Aba Réu (desenho 1.2.3, L.699-720). */
+.cad-nota--topo { margin: 0 0 12px; }
+.cad-reu-form { margin-bottom: 12px; }
+.cad-reu-linha-acao { flex-direction: row; align-items: center; justify-content: flex-end; gap: 10px; }
+.cad-reus { list-style: none; margin: 0; padding: 0; }
+.cad-reus-vazio { padding: 14px 0; font-size: 12.5px; color: var(--cad-rotulo); }
+.cad-reu { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--cad-borda); }
+.cad-reu-ini { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--cad-btn-sec-bg); color: var(--cad-btn-sec-tx); font-size: 12px; font-weight: 700; }
+.cad-reu-nome { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+.cad-reu-principal { padding: 1px 7px; border-radius: 999px; background: var(--cad-st-ok-bg); color: var(--cad-st-ok-tx); font-size: 10.5px; font-weight: 700; }
+.cad-reu-doc { font-size: 12px; color: var(--cad-rotulo); }
+.cad-reu-acoes { display: flex; gap: 4px; }
+.cad-reu-btn { width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--cad-rotulo); cursor: pointer; }
+.cad-reu-btn:hover { background: var(--cad-btn-sec-bg); color: var(--cad-btn-sec-tx); }
+.cad-reu-confirma { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; }

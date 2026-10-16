@@ -326,3 +326,25 @@ razão social, CNPJ, nome fantasia, inscrições, representante, CPF, RG e cargo
   quem só vê derruba o seu). O JS de envio/substituição não tem teste automático (smoke do dono).
 - 🔎 Visto e não mexido: as rotas antigas de enviar/excluir documento de cliente não conferem o escritório do cliente
   além do `PermissionChecker` (mesma família do achado da revisão da E12d).
+
+## 15. E12h: Cadastro, fatia 3c, aba Réu (16/10/2026)
+
+- Tabela `pasta_reu` (migration `Version20261017090000`): nome (maiúsculas), documento só com dígitos ou nulo,
+  ordem. Some com a pasta (CASCADE) e entra na purga do escritório.
+- `GerenciarReusDaPastaUseCase` (tenant + EDIT da pasta): adicionar, subir (o de cima vira Principal), remover com
+  renumeração. Recusas: sem nome; documento de tamanho errado ("CPF com 11 ou CNPJ com 14 dígitos", texto do
+  desenho); dígito errado; repetido (o desenho descartava em silêncio: aqui avisa). Limite de 50 por pasta.
+- Rotas `pasta_reu_adicionar|subir|remover` (JSON com a lista inteira), CSRF `pasta_reus_{id}`.
+- Aba Réu na janela do Cadastro, logo depois de Cliente, só quando aberta de uma pasta (o réu é da pasta). Texto do
+  desenho, campos sem `name` (não entram no Salvar do cliente), lista com iniciais, "Principal", documento
+  formatado, seta para subir e lixeira com confirmação na linha. Quem não edita a pasta só vê a lista.
+- Lista do Expediente e CSV: o réu cadastrado manda ("NOME e outros"); sem cadastro, as partes do Datajud.
+- Corrigido de passagem (3a): subtítulo da janela e aviso de CPF repetido mostravam só "CPF", sem o número.
+- Testes: `PastaReuControllerTest` (6; mutação na preferência da Lista derruba o seu), janela com e sem pasta.
+- Próxima: 3d Histórico.
+- Revisão read-only (nada bloqueava), aplicado: a pasta de contexto da janela só vale para quem pode VER a pasta
+  (sem isso, quem via só o cliente lia os réus); pasta excluída mostra a lista sem formulário e a recusa da lápide
+  aparece com a mensagem dela; botão Adicionar trava durante o envio; teste novo prova "cadastro manda, Datajud de
+  reserva" com partes reais (`testCadastroMandaDatajudDeReserva`). Mantido: "CPF com 11 ou CNPJ com 14 dígitos" é o
+  texto literal do desenho. Corrida na ordem entre dois envios simultâneos fica cosmética (o próximo subir/remover
+  renumera) e sem índice único.

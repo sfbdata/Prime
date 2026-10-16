@@ -63,8 +63,9 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Cadastro e qualificação do cliente', $c->filter('.cad-janela')->attr('aria-label'));
-        self::assertSame(['pessoais', 'endereco', 'contato', 'docs', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame('GLEISSON BRUNO GABRIEL', trim($c->filter('.js-cad-nome')->text()));
+        self::assertSame('CPF ' . $cliente->getCpf(), trim($c->filter('.js-cad-doc')->text()), 'subtítulo com o número, não só o rótulo');
         self::assertSame('Número não informado', $c->filter('input[name="numero"]')->attr('data-obrig'));
         self::assertSame('brasileiro(a)', $c->filter('input[name="nacionalidade"]')->attr('value'));
         self::assertCount(1, $c->filter('input[name="rg"]'));
@@ -145,6 +146,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(409);
         self::assertSame('Este CPF já possui cadastro no sistema.', $this->json()['erro']);
         self::assertSame($outro->getId(), $this->json()['existente']['id']);
+        self::assertSame('CPF ' . $outro->getCpf(), $this->json()['existente']['documento']);
 
         $this->client->xmlHttpRequest('GET', '/clientes/' . $cliente->getId() . '/cadastro/documento?doc=' . preg_replace('/\D/', '', $outro->getCpf()));
         self::assertSame('BEATRIZ SOUZA', $this->json()['existente']['nome']);
@@ -359,6 +361,24 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
 
         self::assertCount(0, $c->filter('.js-cad-doc-anexar, .js-cad-doc-excluir, .js-cad-doc-arquivo'));
         self::assertSame(['Visualizar', 'Baixar'], $c->filter('[data-cad-doc="COMPROVANTE_RESIDENCIA"] .cad-doc-acoes .cad-btn')->each(fn ($b) => trim($b->text())));
+    }
+
+    #[TestDox('quem vê o cliente mas não a pasta: a janela abre sem a aba Réu e sem usar outro cadastro naquela pasta')]
+    public function testPastaQueNaoVe(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $cliente = $this->criarClientePF($tenant, 'Ana');
+        $pasta = $this->criarPasta($tenant, $gestor, $cliente);
+        $leitor = $this->criarColaborador($tenant, []);
+        $this->conceder($leitor, $tenant, 'cliente', (int) $cliente->getId());
+        $this->logarComTenant($this->client, $leitor, $tenant);
+
+        $c = $this->client->request('GET', '/clientes/' . $cliente->getId() . '/cadastro?pasta=' . $pasta->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $c->filter('[data-cad-aba="reu"]'));
+        self::assertSame('', (string) $c->filter('[data-cad-janela]')->attr('data-pasta'));
     }
 
     // ----------------------------------------------------------------- helpers

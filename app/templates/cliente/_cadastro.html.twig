@@ -9,7 +9,7 @@
    Sem permissão de EDITAR o cliente, os campos vêm travados e não há Salvar.
 
    Contexto: cliente, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
-   abaInicial, mostrarOcr.
+   abaInicial, mostrarOcr, reus (null sem pasta de contexto).
    ============================================================================ #}
 {% set travado = not podeEditar %}
 {% set documento = pf ? cliente.cpf : cliente.cnpj %}
@@ -54,7 +54,7 @@
             <div class="cad-topo-texto">
                 <div class="cad-topo-nome js-cad-nome">{{ cliente.nomeExibicao|upper }}</div>
                 <div class="cad-topo-sub">
-                    <span class="js-cad-doc">{{ documento ? documento|documento_br_rotulo : (pf ? 'CPF não informado' : 'CNPJ não informado') }}</span>
+                    <span class="js-cad-doc">{{ documento ? documento|documento_br_rotulo ~ ' ' ~ documento|documento_br : (pf ? 'CPF não informado' : 'CNPJ não informado') }}</span>
                     <span class="cad-status js-cad-status"><span class="cad-status-ponto" aria-hidden="true"></span><span class="js-cad-status-texto"></span></span>
                 </div>
             </div>
@@ -64,11 +64,12 @@
         <nav class="cad-abas" role="tablist">
             {% for aba in [
                 {k: 'pessoais', rotulo: pf ? 'Cliente' : 'Empresa', icone: 'bi-person'},
+                {k: 'reu',      rotulo: 'Réu',      icone: 'bi-person-x', so: reus is not null},
                 {k: 'endereco', rotulo: 'Endereço', icone: 'bi-geo-alt'},
                 {k: 'contato',  rotulo: 'Contato',  icone: 'bi-telephone'},
                 {k: 'docs',     rotulo: 'Documentos', icone: 'bi-paperclip'},
                 {k: 'qual',     rotulo: 'Qualificação', icone: 'bi-file-text'},
-            ] %}
+            ]|filter(a => a.so ?? true) %}
                 <button type="button" class="cad-aba{{ aba.k == abaInicial ? ' is-ativa' : '' }}" role="tab" data-cad-aba="{{ aba.k }}"
                         aria-selected="{{ aba.k == abaInicial ? 'true' : 'false' }}">
                     <i class="bi {{ aba.icone }}" aria-hidden="true"></i>{{ aba.rotulo }}<span class="cad-aba-ponto" aria-hidden="true" hidden></span>
@@ -140,6 +141,35 @@
                     {{ f.campo('RG do representante', 'representante_rg', cliente.representanteRg, 2, {travado: travado}) }}
                 {% endif %}
             </section>
+
+            {% if reus is not null %}
+                {# Aba Réu (desenho 1.2.3, L.699-720; E12h): grava na hora, pelas rotas pasta_reu_*. Os campos não têm
+                   `name` de propósito: não entram no Salvar do cliente nem no "há alterações". #}
+                <section class="cad-painel" data-cad-painel="reu"{{ abaInicial != 'reu' ? ' hidden' : '' }}
+                         data-reus="{{ reus|json_encode|e('html_attr') }}"
+                         data-url-reu="{{ path('pasta_reu_adicionar', {id: pasta.id}) }}"
+                         data-csrf-reu="{{ csrf_token('pasta_reus_' ~ pasta.id) }}"
+                         data-pode-reu="{{ podeVincular ? '1' : '' }}">
+                    <p class="cad-nota cad-nota--topo">Parte adversa desta pasta. O primeiro réu aparece na coluna <strong>Réu</strong> da lista do Expediente; havendo mais de um, aparece "e outros".</p>
+                    {% if podeVincular %}
+                        <div class="cad-grade cad-reu-form">
+                            <label class="cad-campo cad-campo--4">
+                                <span class="cad-rotulo">Nome / razão social <b aria-hidden="true">*</b></span>
+                                <input type="text" class="cad-input js-cad-reu-nome" placeholder="Ex.: Banco do Brasil S.A." maxlength="255" autocomplete="off">
+                            </label>
+                            <label class="cad-campo cad-campo--2">
+                                <span class="cad-rotulo">CPF / CNPJ</span>
+                                <input type="text" class="cad-input js-cad-reu-doc" placeholder="Opcional" inputmode="numeric" maxlength="18" autocomplete="off">
+                            </label>
+                            <div class="cad-campo cad-campo--6 cad-reu-linha-acao">
+                                <span class="cad-aviso js-cad-reu-aviso" hidden></span>
+                                <button type="button" class="cad-btn cad-btn--pri is-pronto js-cad-reu-add"><i class="bi bi-plus-lg" aria-hidden="true"></i>Adicionar réu</button>
+                            </div>
+                        </div>
+                    {% endif %}
+                    <ul class="cad-reus js-cad-reus"></ul>
+                </section>
+            {% endif %}
 
             <section class="cad-painel cad-grade" data-cad-painel="endereco"{{ abaInicial != 'endereco' ? ' hidden' : '' }}>
                 {{ f.campo('CEP', 'cep', cliente.cep|length == 8 ? cliente.cep|slice(0, 5) ~ '-' ~ cliente.cep|slice(5) : cliente.cep, 2, {obrig: 'CEP não informado', aba: 'endereco', mascara: 'cep', inputmode: 'numeric', placeholder: '00000-000', travado: travado, maxlength: 9}) }}

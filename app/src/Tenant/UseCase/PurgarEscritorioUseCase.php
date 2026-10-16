@@ -179,6 +179,8 @@ final class PurgarEscritorioUseCase
         ['pasta_prazo', 'tenant_id = :tenant'],
         // Andamento da pasta em fases (E12b): mesmo caso.
         ['pasta_andamento', 'tenant_id = :tenant'],
+        // Réus cadastrados na pasta (E12h): mesmo caso.
+        ['pasta_reu', 'tenant_id = :tenant'],
         // Visitas à Timeline inteligente (por usuário, PAS-043): mesmo caso do favorito — cairiam
         // pela CASCADE de `pasta`, mas a FK de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_timeline_visita', 'tenant_id = :tenant'],

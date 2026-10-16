@@ -977,9 +977,15 @@ class PastaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
 
-        $reus = [];
+        // E12h (decisão do dono): o réu cadastrado na pasta (aba Réu do Cadastro) manda; o Datajud só vale para a
+        // pasta que não tem nenhum cadastrado.
+        $reus = $this->getEntityManager()->getRepository(\App\Pasta\Entity\PastaReu::class)->nomesPorPasta($pastaIds, $tenant);
+        $cadastrados = array_keys($reus);
         foreach ($linhas as $l) {
             $id   = (int) $l['pasta_id'];
+            if (in_array($id, $cadastrados, true)) {
+                continue;
+            }
             $nome = trim((string) $l['nome']);
             if ($nome !== '' && !in_array($nome, $reus[$id] ?? [], true)) {
                 $reus[$id][] = $nome;
