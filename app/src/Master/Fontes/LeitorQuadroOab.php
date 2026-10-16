@@ -13,7 +13,8 @@ namespace App\Master\Fontes;
  *   0 advogados · 1 estagiários · 2 suplementares · 3 consultores estrangeiros ·
  *   4 advogadas · 5 advogados (masculino) ·
  *   6/7 até 25 anos F/M · 8/9 26 a 40 F/M · 10/11 41 a 59 F/M · 12/13 60 ou mais F/M
- * Posição que a página não trouxe fica nula.
+ * Posição que a página não trouxe fica nula. O retrato só é aceito se fechar com os totais da
+ * própria página (ver {@see validar()}).
  */
 final class LeitorQuadroOab
 {
@@ -65,14 +66,87 @@ final class LeitorQuadroOab
             $saida[$ufAtual][7 + $faixa * 2] = self::numero((string) $tds->item(2)?->textContent);
         }
 
-        $comQuantitativo = array_filter($saida, static fn (array $v): bool => $v[0] !== null);
-        if (count($comQuantitativo) < 27) {
-            throw new FonteIndisponivel(sprintf('Quadro da Advocacia com %d seccionais no quantitativo (esperado 27).', count($comQuantitativo)));
-        }
-
+        self::validar($xpath, $saida);
         ksort($saida);
 
         return ['uf' => $saida, 'totalAdvogados' => self::totalAdvogados($xpath)];
+    }
+
+    /**
+     * Só aceita o retrato se ele fecha com a própria página: exatamente as 27 seccionais conhecidas,
+     * advogados > 0 em todas, e a soma de cada coluna igual ao TOTAL do rodapé de cada tabela. Uma
+     * coluna deslocada ou um layout novo da OAB faz a conta não fechar, e o retrato anterior fica.
+     *
+     * @param array<string, list<int|null>> $saida
+     *
+     * @throws FonteIndisponivel
+     */
+    private static function validar(\DOMXPath $xpath, array $saida): void
+    {
+        $siglas = array_keys($saida);
+        sort($siglas);
+        $esperadas = array_keys(ClienteIbge::CODIGO_UF);
+        sort($esperadas);
+        if ($siglas !== $esperadas) {
+            throw new FonteIndisponivel('Quadro da Advocacia com seccionais diferentes das 27 UFs: ' . implode(',', array_diff($siglas, $esperadas) ?: array_diff($esperadas, $siglas)));
+        }
+
+        foreach ($saida as $uf => $valores) {
+            if ($valores[0] === null || $valores[0] <= 0) {
+                throw new FonteIndisponivel(sprintf('Quadro da Advocacia sem advogados em %s.', $uf));
+            }
+        }
+
+        $soma = static fn (int $posicao): int => array_sum(array_map(static fn (array $v): int => (int) $v[$posicao], $saida));
+        $conferir = static function (string $tabela, array $posicoes, array $totais) use ($soma): void {
+            foreach ($posicoes as $i => $posicao) {
+                if (!array_key_exists($i, $totais) || $totais[$i] === null || $soma($posicao) !== $totais[$i]) {
+                    throw new FonteIndisponivel(sprintf('Quadro da Advocacia: a soma da tabela %s (coluna %d) não fecha com o TOTAL.', $tabela, $i + 1));
+                }
+            }
+        };
+
+        $conferir('quantitativo', [0, 1, 2, 3], self::numerosDoRodape($xpath, "//div[@id='divTotal']//tfoot/tr"));
+
+        $temGenero = array_filter($saida, static fn (array $v): bool => $v[4] !== null) !== [];
+        if ($temGenero) {
+            $conferir('gênero', [4, 5], self::numerosDoRodape($xpath, "//div[@id='divTotalPorSexo']//tfoot/tr"));
+        }
+
+        $temFaixa = array_filter($saida, static fn (array $v): bool => $v[6] !== null) !== [];
+        if ($temFaixa) {
+            $totais = array_fill(0, 8, null);
+            foreach ($xpath->query("//div[@id='divTotalFaixaEtaria']//tfoot/tr") ?: [] as $tr) {
+                $tds = $xpath->query('./td', $tr);
+                if ($tds === false || $tds->length < 3) {
+                    continue;
+                }
+                $faixa = self::indiceDaFaixa((string) $tds->item(0)?->textContent);
+                if ($faixa !== null) {
+                    $totais[$faixa * 2] = self::numero((string) $tds->item(1)?->textContent);
+                    $totais[$faixa * 2 + 1] = self::numero((string) $tds->item(2)?->textContent);
+                }
+            }
+            $conferir('faixa etária', [6, 7, 8, 9, 10, 11, 12, 13], $totais);
+        }
+    }
+
+    /**
+     * @return list<int|null> números do rodapé (sem a célula do rótulo TOTAL)
+     */
+    private static function numerosDoRodape(\DOMXPath $xpath, string $caminho): array
+    {
+        $tr = $xpath->query($caminho)?->item(0);
+        if ($tr === null) {
+            return [];
+        }
+
+        $numeros = [];
+        foreach ($xpath->query('./th', $tr) ?: [] as $celula) {
+            $numeros[] = self::numero($celula->textContent);
+        }
+
+        return $numeros;
     }
 
     private static function xpath(string $html): \DOMXPath
