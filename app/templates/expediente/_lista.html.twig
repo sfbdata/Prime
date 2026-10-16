@@ -201,19 +201,17 @@
                     <td data-col="resp" class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
                         {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis, respContexto: 'expediente'}) }}
                     </td>
-                    <td data-col="metas" class="col-tarefas-tabela align-middle"{% if pasta.tarefas is empty %} title="Sem metas"{% endif %}>
-                        {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
-                        {% set totalTarefas = pasta.tarefas|length %}
-                        {% if totalTarefas > 0 %}
-                            {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
-                            <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                               class="badge exp-metas {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
-                               data-metas="{{ temRevisao ? 'revisao' : (tarefasAtivas|length > 0 ? 'abertas' : 'concluidas') }}"
-                               data-tip="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} aberta(s) nesta pasta">
-                                <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
+                    {# Metas (dc L.215, E12): número de metas ABERTAS, em azul, com a dica do desenho. Sem meta aberta, a
+                       célula fica vazia: o dc mostra "–", e a regra do dono proíbe travessão em texto do sistema. #}
+                    {% set metasAbertas = pasta.tarefas|filter(t => t.status != 'concluida')|length %}
+                    <td data-col="metas" class="col-tarefas-tabela align-middle"{% if metasAbertas == 0 %} title="Sem metas abertas"{% endif %}>
+                        {% if metasAbertas > 0 %}
+                            <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas" class="badge exp-metas text-decoration-none"
+                               data-metas="abertas" data-tip="{{ metasAbertas }} meta(s) aberta(s) nesta pasta">
+                                <i class="bi bi-check2-square me-1"></i>{{ metasAbertas }}
                             </a>
                         {% else %}
-                            <span class="exp-sem-metas"><span class="visually-hidden">Sem metas</span></span>
+                            <span class="exp-sem-metas"><span class="visually-hidden">Sem metas abertas</span></span>
                         {% endif %}
                     </td>
                     <td data-col="marc" class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">

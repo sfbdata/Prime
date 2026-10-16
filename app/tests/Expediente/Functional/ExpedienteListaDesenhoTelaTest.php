@@ -69,7 +69,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('nav[aria-label="Paginação"] .page-item.active'));
     }
 
-    #[TestDox('linha: prioridade com o rótulo do desenho 1.1 ("Alta", E12) e bandeira; situação mantém o duplo clique; metas mostram o TOTAL')]
+    #[TestDox('linha: prioridade com o rótulo do desenho 1.1 ("Alta", E12) e bandeira; situação mantém o duplo clique; metas mostram as ABERTAS (desenho, regra do dono 16/10)')]
     public function testChipsPreservamAsRegras(): void
     {
         $client = static::createClient();
@@ -95,8 +95,8 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         $semMetas = $linha->filter('td.col-tarefas-tabela .exp-sem-metas');
         self::assertCount(1, $semMetas, 'sem metas: a célula continua marcada');
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $linha->filter('td.col-tarefas-tabela')->text(), 'sem travessão na célula de metas');
-        self::assertSame('Sem metas', trim($semMetas->filter('.visually-hidden')->text()));
-        self::assertSame('Sem metas', $linha->filter('td.col-tarefas-tabela')->attr('title'), 'a dica fica na célula (o span não tem largura)');
+        self::assertSame('Sem metas abertas', trim($semMetas->filter('.visually-hidden')->text()));
+        self::assertSame('Sem metas abertas', $linha->filter('td.col-tarefas-tabela')->attr('title'), 'a dica fica na célula (o span não tem largura)');
     }
 
     #[TestDox('marcadores: vários por pasta continuam (chip + "+N"); o chip abre o menu MARCADOR do 1.1 e traz o nome de todos na dica')]

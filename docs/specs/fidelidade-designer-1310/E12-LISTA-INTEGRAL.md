@@ -167,7 +167,7 @@ ainda precisa do smoke do dono** (a suíte não vê cor, fonte nem posição fin
 | 20 | Colunas (clique e botão direito), Mostrar todas, Só as essenciais, Restaurar, CSV | ✓ (CSV no servidor, todas as páginas) |
 | 21 | Cabeçalho sem ícones abaixo de 1180px | ✓ |
 | 22 | Tabela com Réu, selo Nx, cadeado com quem trancou | ✓ |
-| 23 | Metas | ≈ número = total de metas (decisão do dono de 15/10); o desenho conta só as abertas. **Confirmar** |
+| 23 | Metas | ✓ número de metas abertas, como o desenho (regra do dono de 16/10: "tudo é sempre como está no desenho"); sem meta aberta a célula fica vazia, sem o "–" (regra sem travessão) |
 | 24 | Chip do marcador e menu MARCADOR com "Remover marcador" | ✓ (escolher liga/desliga, porque a pasta pode ter vários) |
 | 25 | Situação com 4 rótulos e cores | ✓ |
 | 26 | Hover azul e destaque em 6 cores | ✓ |

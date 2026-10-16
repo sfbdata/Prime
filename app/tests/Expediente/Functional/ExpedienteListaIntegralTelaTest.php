@@ -139,6 +139,28 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         self::assertNotEmpty($c->filter('#tabelaPastas')->attr('data-csrf-lista'));
     }
 
+    #[TestDox('Metas conta só as abertas, como o desenho; com todas concluídas, a célula fica vazia, sem travessão')]
+    public function testMetasAbertas(): void
+    {
+        [$user, $tenant] = $this->entrar();
+        $mista = $this->pasta($tenant, 'MISTA');
+        $this->meta($mista, $user);
+        $this->meta($mista, $user, Tarefa::STATUS_CONCLUIDA);
+        $concluida = $this->pasta($tenant, 'FEITA');
+        $this->meta($concluida, $user, Tarefa::STATUS_CONCLUIDA);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+
+        $celMista = $c->filter('tr[data-pasta-id="' . $mista->getId() . '"] > td[data-col="metas"]');
+        self::assertSame('1', trim($celMista->filter('a.exp-metas')->text()));
+        self::assertSame('1 meta(s) aberta(s) nesta pasta', $celMista->filter('a.exp-metas')->attr('data-tip'));
+        $celFeita = $c->filter('tr[data-pasta-id="' . $concluida->getId() . '"] > td[data-col="metas"]');
+        self::assertCount(0, $celFeita->filter('a.exp-metas'));
+        self::assertDoesNotMatchRegularExpression('/[–—]/u', $celFeita->text());
+    }
+
     #[TestDox('filtro do sistema: o título da barra é o do filtro e o formulário leva expediente e por_pagina escondidos')]
     public function testTituloEFormularioDoFiltroDoSistema(): void
     {
@@ -253,9 +275,10 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         return $m;
     }
 
-    private function meta(Pasta $pasta, User $user): void
+    private function meta(Pasta $pasta, User $user, string $status = Tarefa::STATUS_PENDENTE): void
     {
         $meta = new Tarefa();
+        $meta->setStatus($status);
         $meta->setTitulo('Meta');
         $meta->setDescricao('');
         $meta->setPasta($pasta);
