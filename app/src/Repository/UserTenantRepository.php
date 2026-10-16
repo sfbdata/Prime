@@ -100,4 +100,50 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Vínculos ativos do escritório, com usuário e perfil já carregados, em ordem de nome.
+     * Base da tela de edição do perfil primário (primários e secundários promovíveis).
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosComPerfilPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u', 'r')
+            ->join('ut.user', 'u')
+            ->leftJoin('ut.tenantRole', 'r')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Vínculos ativos por perfil no escritório: [id do perfil => quantidade].
+     *
+     * @return array<int, int>
+     */
+    public function contarAtivosPorPerfil(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('ut')
+            ->select('IDENTITY(ut.tenantRole) AS perfil', 'COUNT(ut.id) AS total')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('ut.tenantRole IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('ut.tenantRole')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPerfil = [];
+        foreach ($linhas as $linha) {
+            $porPerfil[(int) $linha['perfil']] = (int) $linha['total'];
+        }
+
+        return $porPerfil;
+    }
 }

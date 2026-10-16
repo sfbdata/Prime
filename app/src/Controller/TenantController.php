@@ -42,6 +42,8 @@ use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
@@ -476,7 +478,8 @@ final class TenantController extends AbstractController
         GerarCodigoFuncionario $gerarCodigo,
         ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        RegraDosPrimarios $regraDosPrimarios
     ): Response {
         $currentUser = $this->getUser();
 
@@ -512,6 +515,10 @@ final class TenantController extends AbstractController
             $userTenant->setCodigoFuncionario($gerarCodigo->executar($tenant));
         }
 
+        // Perfil ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
+        // precisa saber se a troca tira alguém do perfil de sistema.
+        $perfilAnterior = $userTenant->getTenantRole();
+
         $form = $this->createForm(EditUserTenantRoleType::class, $userTenant, [
             'tenant_roles'    => $tenantRoles,
             'tenant_cargos'   => $cargos,
@@ -519,6 +526,23 @@ final class TenantController extends AbstractController
             'data_admissao'   => $userTenant->getDataAdmissao(),
         ]);
         $form->handleRequest($request);
+
+        // Spec perfis-master §5 E1: esta porta não rebaixa o titular nem o último primário.
+        // Mesma regra da remoção de sócio (RegraDosPrimarios), checada antes do flush.
+        if (
+            $form->isSubmitted()
+            && $perfilAnterior?->isSystem() === true
+            && $userTenant->getTenantRole()?->isSystem() !== true
+        ) {
+            try {
+                $regraDosPrimarios->garantirQuePodeDeixarDeSerPrimario($userTenant);
+            } catch (OperacaoDePrimarioRecusada $e) {
+                $form->get('tenantRole')->addError(new FormError($e->getMessage()));
+                // Desfaz a troca em memória: mais abaixo o ObterOuCriarPerfilUseCase pode dar
+                // flush (perfil pessoal ausente) e levaria o rebaixamento recusado junto.
+                $userTenant->setTenantRole($perfilAnterior);
+            }
+        }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $newPassword = $form->get('newPassword')->getData();

@@ -1,0 +1,179 @@
+/*
+ * perfis.js: comportamento da lista e da edição de perfis (desenho "05 - Perfis 1.0").
+ *
+ * - linha inteira clicável abre a edição (o lápis e a lixeira têm o próprio clique);
+ * - "Ver como Master / Primário" (só no HTML do Master): prévia que esconde a linha Master (D7);
+ * - confirmação interna do desenho no lugar do window.confirm (excluir perfil, promover e
+ *   remover primário);
+ * - "Marcar todos / Desmarcar todos" por cartão e o rodapé "N de M permissões ativas".
+ *
+ * Nenhum texto de decisão mora só aqui: o servidor revalida tudo (CSRF, posse, regras).
+ */
+(function () {
+    'use strict';
+
+    var COR_PERIGO = '#a3232b';
+    var COR_AZUL = '#0a6fa0';
+
+    function qs(sel, raiz) { return (raiz || document).querySelector(sel); }
+    function qsa(sel, raiz) { return Array.prototype.slice.call((raiz || document).querySelectorAll(sel)); }
+
+    // ── Confirmação interna ────────────────────────────────────────────────
+    var conf = qs('[data-pf-conf]');
+    var aoConfirmar = null;
+
+    function fecharConf() {
+        if (!conf) { return; }
+        conf.hidden = true;
+        aoConfirmar = null;
+        qs('[data-pf-conf-extra]', conf).innerHTML = '';
+    }
+
+    /**
+     * @param {{titulo:string, icone:string, cor:string, texto:string, botao:string, extra?:Node, semBotao?:boolean, aoConfirmar:function}} op
+     */
+    function abrirConf(op) {
+        if (!conf) { return; }
+        qs('[data-pf-conf-titulo]', conf).textContent = op.titulo;
+        qs('[data-pf-conf-icone]', conf).className = 'bi ' + op.icone;
+        qs('[data-pf-conf-cab]', conf).style.background = op.cor;
+        qs('[data-pf-conf-texto]', conf).textContent = op.texto;
+        var extra = qs('[data-pf-conf-extra]', conf);
+        extra.innerHTML = '';
+        if (op.extra) { extra.appendChild(op.extra); }
+        var ok = qs('[data-pf-conf-ok]', conf);
+        ok.textContent = op.botao;
+        ok.style.background = op.cor;
+        ok.hidden = !!op.semBotao;
+        aoConfirmar = op.aoConfirmar;
+        conf.hidden = false;
+        (op.semBotao ? qs('[data-pf-conf-cancelar]', conf) : ok).focus();
+    }
+
+    if (conf) {
+        conf.addEventListener('click', function (e) { if (e.target === conf) { fecharConf(); } });
+        qs('[data-pf-conf-cancelar]', conf).addEventListener('click', fecharConf);
+        qs('[data-pf-conf-ok]', conf).addEventListener('click', function () {
+            var acao = aoConfirmar;
+            if (acao) { acao(); }
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !conf.hidden) { fecharConf(); } });
+    }
+
+    // ── Lista: linha clicável ──────────────────────────────────────────────
+    qsa('[data-pf-linha]').forEach(function (linha) {
+        linha.addEventListener('click', function (e) {
+            if (e.target.closest('a, button, form, input, select')) { return; }
+            window.location.href = linha.getAttribute('data-href');
+        });
+    });
+
+    // ── Lista: Ver como (D7) ───────────────────────────────────────────────
+    var verComo = qs('[data-pf-ver-como]');
+    if (verComo) {
+        qsa('[data-pf-visao]', verComo).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var souMaster = btn.getAttribute('data-pf-visao') === 'master';
+                qsa('[data-pf-visao]', verComo).forEach(function (b) { b.classList.toggle('is-ativo', b === btn); });
+                qsa('[data-pf-linha-master]').forEach(function (l) { l.classList.toggle('is-oculta', !souMaster); });
+            });
+        });
+    }
+
+    // ── Lista: excluir perfil ──────────────────────────────────────────────
+    qsa('[data-pf-excluir]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var nome = btn.getAttribute('data-nome');
+            var usu = parseInt(btn.getAttribute('data-usuarios') || '0', 10);
+            var texto = 'O perfil "' + nome + '" será excluído.'
+                + (usu ? ' Os ' + usu + ' usuário(s) com este perfil ficam sem perfil até você atribuir outro.' : '');
+            abrirConf({
+                titulo: 'Excluir perfil', icone: 'bi-trash3', cor: COR_PERIGO, texto: texto, botao: 'Excluir perfil',
+                aoConfirmar: function () { btn.closest('form').submit(); }
+            });
+        });
+    });
+
+    // ── Edição: Marcar todos / resumo ──────────────────────────────────────
+    var resumo = qs('[data-pf-resumo]');
+    function atualizarResumo() {
+        if (!resumo) { return; }
+        var ativos = qsa('[data-pf-permissao]').filter(function (c) { return c.checked; }).length;
+        resumo.textContent = ativos + ' de ' + resumo.getAttribute('data-total') + ' permissões ativas';
+    }
+    function atualizarCartao(cartao) {
+        var caixas = qsa('[data-pf-permissao]', cartao);
+        var todos = caixas.length > 0 && caixas.every(function (c) { return c.checked; });
+        var btn = qs('[data-pf-todos]', cartao);
+        if (btn) { btn.textContent = todos ? 'Desmarcar todos' : 'Marcar todos'; }
+    }
+    qsa('[data-pf-cartao]').forEach(function (cartao) {
+        atualizarCartao(cartao);
+        var btn = qs('[data-pf-todos]', cartao);
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var caixas = qsa('[data-pf-permissao]', cartao);
+                var todos = caixas.every(function (c) { return c.checked; });
+                caixas.forEach(function (c) { c.checked = !todos; });
+                atualizarCartao(cartao);
+                atualizarResumo();
+            });
+        }
+        qsa('[data-pf-permissao]', cartao).forEach(function (c) {
+            c.addEventListener('change', function () { atualizarCartao(cartao); atualizarResumo(); });
+        });
+    });
+
+    // ── Edição do primário: promover sócio ─────────────────────────────────
+    var formPromover = qs('[data-pf-form-promover]');
+    if (formPromover) {
+        var sel = qs('[data-pf-promover-select]', formPromover);
+        var info = qs('[data-pf-promover-info]', formPromover);
+        var msg = qs('[data-pf-promover-msg]', formPromover);
+        sel.addEventListener('change', function () {
+            var op = sel.options[sel.selectedIndex];
+            info.textContent = sel.value ? op.getAttribute('data-info') : info.getAttribute('data-padrao');
+            msg.textContent = msg.getAttribute('data-padrao');
+            msg.classList.remove('is-erro');
+        });
+        qs('[data-pf-promover]', formPromover).addEventListener('click', function () {
+            if (!sel.value) {
+                msg.textContent = 'Escolha um usuário secundário da conta.';
+                msg.classList.add('is-erro');
+
+                return;
+            }
+            var nome = sel.options[sel.selectedIndex].getAttribute('data-nome');
+            abrirConf({
+                titulo: 'Promover a primário', icone: 'bi-person-badge', cor: COR_AZUL,
+                texto: '"' + nome + '" passará a gerir o escritório como primário sócio: secundários, perfis, permissões e módulos. Ele não poderá excluir o primário titular.',
+                botao: 'Confirmar promoção',
+                aoConfirmar: function () { formPromover.submit(); }
+            });
+        });
+    }
+
+    // ── Edição do primário: remover sócio (pede o perfil de destino) ───────
+    var modeloDestino = qs('template[data-pf-perfis-destino]');
+    qsa('[data-pf-remover-primario]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form = btn.closest('form');
+            var extra = modeloDestino ? modeloDestino.content.cloneNode(true) : document.createDocumentFragment();
+            var semDestino = !!extra.querySelector('[data-pf-sem-destino]');
+            abrirConf({
+                titulo: 'Remover primário', icone: 'bi-person-dash', cor: COR_PERIGO,
+                texto: '"' + btn.getAttribute('data-nome') + '" deixa de ser primário e volta a ser secundário. A remoção fica na auditoria da conta.',
+                botao: 'Remover primário',
+                extra: extra,
+                semBotao: semDestino,
+                aoConfirmar: function () {
+                    var escolha = qs('[data-pf-conf-extra] [data-pf-destino-select]', conf);
+                    if (!escolha || !escolha.value) { return; }
+                    qs('[data-pf-destino]', form).value = escolha.value;
+                    form.submit();
+                }
+            });
+        });
+    });
+})();
