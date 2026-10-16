@@ -27,6 +27,22 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Atualização monetária por índices do Banco Central na simulação de acordo (`35475d00`).
 - Política de Privacidade como página própria e em PDF (`69e5da9c`).
 - Fundação da BlueJus IA, ainda sem provedor de linguagem ligado (`f05bf1f8`).
+- Agente de Pastas, Fase 1: ferramentas de leitura em `/api/agente/*` (buscar e contar pastas com
+  os filtros da Lista do Expediente, listar documentos de uma pasta, vocabulário do escritório).
+- BlueJus IA: adaptador da API da Anthropic (Claude) na porta de provedor existente, dormente até haver
+  chave e modelo configurados no ambiente.
+- Central de Comunicação, A1: conversas individuais entre colegas do escritório, gravadas no servidor,
+  com histórico, não lidas e atualização por polling, na página `/central`.
+- Central de Comunicação, A2: janela com o título "Central de Comunicação"; @menção de quem participa
+  da conversa, com aviso no sino (sem o texto da mensagem); responder citando a mensagem; marcar
+  conversa como não lida; menus de botão direito da conversa (abrir, lida/não lida) e da mensagem
+  (responder, copiar, mencionar).
+- Central de Comunicação, B: conversas em grupo (criar, adicionar e remover participantes pelo administrador do
+  grupo, sair, renomear, linhas de sistema, menção e aviso de "adicionou você"); fixar, silenciar e arquivar por
+  pessoa; polling que não perde mensagem confirmada fora de ordem.
+- Central de Comunicação: ícone flutuante em todas as telas (contador de não lidas, menções, animações do desenho) com
+  a janela de conversas, que se move, encaixa, redimensiona, minimiza e maximiza.
+- Central de Comunicação: balão de dica no padrão do desenho (azul-claro) em todos os botões da Central.
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
 

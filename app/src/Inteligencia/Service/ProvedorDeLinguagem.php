@@ -11,8 +11,8 @@ use App\Inteligencia\Exception\ProvedorIndisponivelException;
 
 /**
  * A porta para o modelo de linguagem. O alias em `services.yaml` decide a implementação:
- * {@see ProvedorNaoConfigurado} em dev/prod enquanto o dono não escolhe o fornecedor (D1), e o
- * `ProvedorFalso` de `app/tests/` em `when@test`.
+ * {@see ProvedorAnthropic} em dev/prod (D1, 14/10/2026 — dormente sem chave e modelo no ambiente) e o
+ * `ProvedorFalso` de `app/tests/` em `when@test`. {@see ProvedorNaoConfigurado} fica para instalação sem IA.
  *
  * REGRA DE OURO: nenhuma implementação devolve texto que não veio do modelo. Sem provedor é exceção,
  * nunca resposta simulada.

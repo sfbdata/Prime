@@ -1,0 +1,50 @@
+{# Central de Comunicação flutuante — lançador + janela do bluejus-central.js do Designer 13/10 (L5412, L6399-6466).
+   Incluído pelo layout em toda página de quem tem vínculo ativo no escritório (central_disponivel()), exceto em
+   /central. A janela é a MESMA da página /central (_janela.html.twig), em modo flutuante: o mesmo central.js cuida
+   das conversas; central-flutuante.js só da geometria (abrir, minimizar, maximizar, mover, encaixar, redimensionar). #}
+<link rel="stylesheet" href="{{ asset('css/central.css') }}">
+<link rel="stylesheet" href="{{ asset('css/central-flutuante.css') }}">
+
+<div class="bj-flutuante-janela" data-flutuante-janela data-modo="normal" role="dialog" aria-label="Central de Comunicação" hidden>
+    {# `only`: a janela flutuante não herda nada da página (ex.: um `abrirConversa` que só vale na /central). #}
+    {% include 'central/_janela.html.twig' with {eu: app.user, modo: 'flutuante'} only %}
+</div>
+
+<div class="bj-flutuante" data-central-flutuante data-eu-id="{{ app.user.id }}" data-print="hide">
+    <button type="button" class="bj-flutuante-lancador" data-flutuante-lancador data-estado="calmo"
+            aria-expanded="false" aria-label="Central de Comunicação, tudo em dia"
+            title="Central de Comunicação · tudo em dia">
+        <span class="bj-flutuante-icone" aria-hidden="true">
+            {# calmo: um balão com check (L6404) #}
+            <svg class="bj-flutuante-svg-calmo" viewBox="0 0 66 54" width="66" height="54" focusable="false">
+                <rect x="4" y="4" width="44" height="29" rx="7" fill="#0b5f86"></rect>
+                <polygon points="11,32 7,43 22,32" fill="#0b5f86"></polygon>
+                <path d="M17.5 18.5l6 6 11-12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            {# aberto: o mesmo balão com chevron para baixo (L6406) #}
+            <svg class="bj-flutuante-svg-aberto" viewBox="0 0 66 54" width="66" height="54" focusable="false">
+                <rect x="4" y="4" width="44" height="29" rx="7" fill="#0b5f86"></rect>
+                <polygon points="11,32 7,43 22,32" fill="#0b5f86"></polygon>
+                <path d="M17 15l9 8 9-8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            {# com não lidas: dois balões e três pontos (L6407) #}
+            <svg class="bj-flutuante-svg-novas" viewBox="0 0 66 54" width="66" height="54" focusable="false">
+                <rect x="20" y="15" width="42" height="27" rx="7" fill="#6fb2d9"></rect>
+                <polygon points="50,41 60,51 43,41" fill="#6fb2d9"></polygon>
+                <rect x="4" y="4" width="44" height="29" rx="7" fill="#0a7aad" stroke="#fff" stroke-width="2"></rect>
+                <polygon points="11,32 7,43 22,32" fill="#0a7aad"></polygon>
+                <path d="M11.6 31.2 L7 43 L22 32" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"></path>
+                <rect x="9" y="29" width="14" height="3.5" fill="#0a7aad"></rect>
+                <circle class="bj-flutuante-ponto" cx="16" cy="18" r="3.4" fill="#fff"></circle>
+                <circle class="bj-flutuante-ponto" cx="26" cy="18" r="3.4" fill="#fff"></circle>
+                <circle class="bj-flutuante-ponto" cx="36" cy="18" r="3.4" fill="#fff"></circle>
+            </svg>
+        </span>
+        <span class="bj-flutuante-badge" data-flutuante-badge hidden></span>
+        <span class="bj-flutuante-mencoes" data-flutuante-mencoes hidden></span>
+    </button>
+</div>
+
+<script src="{{ asset('js/central.js') }}" defer></script>
+<script src="{{ asset('js/central-flutuante.js') }}" defer></script>
+<script src="{{ asset('js/central-dica.js') }}" defer></script>
