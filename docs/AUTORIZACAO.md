@@ -134,6 +134,9 @@ perfil pelo nome. Na tela ele aparece como **"Usuário Primário"** (só exibiç
   de sócio, no edit-role e na remoção de colaborador. **Conta desativada** (`User.isActive=false`) não
   é contada como primário: a trava do último primário não se aplica a ela, que pode ser rebaixada ou
   removida por primário/Master. O titular segue intocável mesmo com a conta desativada.
+- **O titular não sai do escritório** pela porta "Sair do escritório" (`OrigemRemocao::Saida` no
+  `RemoverColaboradorDoEscritorioUseCase`): "O titular do escritório não pode sair. Fale com o suporte
+  do BlueJus." (D4: o titular nunca é rebaixado nem removido).
 - **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
   (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
   `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só

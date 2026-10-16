@@ -66,6 +66,14 @@ final class RemoverColaboradorDoEscritorioUseCase
 
     private function validar(RemoverColaboradorInput $input, UserTenant $vinculo): void
     {
+        // Decisão D4 do dono: "o titular nunca é rebaixado nem removido". Sair por conta própria
+        // é uma remoção: deixaria o escritório sem o titular que abriu a conta.
+        if ($input->origem === OrigemRemocao::Saida && $this->regraDosPrimarios->ehTitular($vinculo)) {
+            throw new \InvalidArgumentException(
+                'O titular do escritório não pode sair. Fale com o suporte do BlueJus.'
+            );
+        }
+
         if ($input->origem === OrigemRemocao::Painel) {
             if ($input->executor === $input->colaborador) {
                 throw new \InvalidArgumentException(

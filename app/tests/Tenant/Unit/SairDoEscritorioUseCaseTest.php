@@ -122,4 +122,22 @@ final class SairDoEscritorioUseCaseTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->useCase->executar($usuario, $tenant);
     }
+
+    #[TestDox('O titular do escritório não sai, mesmo havendo outros primários (D4)')]
+    public function testTitularNaoSai(): void
+    {
+        $tenant  = new Tenant();
+        $usuario = $this->criarUsuario();
+        $tenant->setCriadoPor($usuario);
+        $vinculo = $this->vinculoAdmin($usuario, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(3);
+        $this->em->expects($this->never())->method('remove');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('O titular do escritório não pode sair. Fale com o suporte do BlueJus.');
+
+        $this->useCase->executar($usuario, $tenant);
+    }
 }
