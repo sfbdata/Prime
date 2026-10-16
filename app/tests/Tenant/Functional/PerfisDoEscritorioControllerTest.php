@@ -542,6 +542,57 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($this->em->getRepository(Invitation::class)->findOneBy(['email' => $emailOk]));
     }
 
+    // ── A2/M-b: remover colaborador primário ───────────────────────────────
+
+    #[TestDox('remover colaborador: secundário com admin.users.manage não remove um sócio primário')]
+    public function testSecundarioNaoRemoveSocio(): void
+    {
+        $this->darPermissao($this->perfilAdvogado, 'admin.users.manage');
+        $this->logarComTenant($this->client, $this->advogado, $this->tenant);
+
+        $this->client->request('POST', $this->urlRemover($this->socio), [
+            '_token' => $this->tokenCsrf('remover_' . $this->socio->getId()),
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertTrue($this->recarregarVinculo($this->socio)->getTenantRole()?->isSystem());
+    }
+
+    #[TestDox('remover colaborador: o primário remove o sócio')]
+    public function testPrimarioRemoveSocio(): void
+    {
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+
+        $this->client->request('POST', $this->urlRemover($this->socio), [
+            '_token' => $this->tokenCsrf('remover_' . $this->socio->getId()),
+        ]);
+
+        self::assertResponseRedirects();
+        $this->em->clear();
+        self::assertNull($this->em->getRepository(UserTenant::class)->findOneBy(['user' => $this->socio->getId(), 'tenant' => $this->tenant->getId()]));
+    }
+
+    #[TestDox('remover colaborador: sócio com conta desativada não segura a trava do último primário')]
+    public function testSocioDesativadoPodeSerRemovido(): void
+    {
+        $this->socio->setIsActive(false);
+        $this->em->flush();
+
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $this->client->request('POST', $this->urlRemover($this->socio), [
+            '_token' => $this->tokenCsrf('remover_' . $this->socio->getId()),
+        ]);
+
+        self::assertResponseRedirects();
+        $this->em->clear();
+        self::assertNull($this->em->getRepository(UserTenant::class)->findOneBy(['user' => $this->socio->getId(), 'tenant' => $this->tenant->getId()]));
+    }
+
+    private function urlRemover(User $alvo): string
+    {
+        return sprintf('/tenant/%d/user/%d/remover', $this->tenant->getId(), $alvo->getId());
+    }
+
     // ── excluir perfil em uso ──────────────────────────────────────────────
 
     #[TestDox('excluir perfil em uso deixa os usuários sem perfil, como o desenho promete (sem erro de integridade)')]

@@ -187,19 +187,37 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         }
     }
 
-    #[TestDox('conta desativada não é primário: não pode ser "removida" como sócio')]
-    public function testContaDesativadaNaoEPrimario(): void
+    #[TestDox('conta desativada com perfil primário pode ser rebaixada: não é contada, a trava do último não se aplica')]
+    public function testContaDesativadaPodeSerRebaixada(): void
     {
         [$tenant, $socio, $vinculo, $destino] = $this->cenario();
         $socio->setIsActive(false);
 
         $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(1);
+        $this->em->expects($this->once())->method('flush');
+
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+
+        self::assertSame($destino, $vinculo->getTenantRole());
+    }
+
+    #[TestDox('titular com conta desativada continua intocável')]
+    public function testTitularDesativadoContinuaIntocavel(): void
+    {
+        [$tenant, , , $destino] = $this->cenario();
+        $titular = $tenant->getCriadoPor();
+        self::assertNotNull($titular);
+        $titular->setIsActive(false);
+        $vinculo = (new UserTenant($titular, $tenant))->setTenantRole($this->perfil($tenant, true));
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
         $this->em->expects($this->never())->method('flush');
 
         $this->expectException(OperacaoDePrimarioRecusada::class);
-        $this->expectExceptionMessageMatches('/não é primário/');
+        $this->expectExceptionMessageMatches('/titular/');
 
-        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $titular, $destino));
     }
 
     /** UserTenant não tem desativação pública (o vínculo inativo é legado de antes do hard delete). */

@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\OrigemRemocao;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -82,6 +83,16 @@ final class RemoverColaboradorDoEscritorioUseCase
             if (!$this->regraDosPrimarios->podeAlterarConta($input->executor, $input->colaborador)) {
                 throw new \InvalidArgumentException('A conta do Master só pode ser alterada pelo próprio Master.');
             }
+
+            // Spec perfis-master D4: tirar um primário (sócio) do escritório é gerir primários,
+            // coisa de primário ou Master. Um secundário com admin.users.manage não remove sócio.
+            if ($vinculo->getTenantRole()?->isSystem() === true) {
+                try {
+                    $this->regraDosPrimarios->garantirQuePodeGerirPrimarios($input->executor, $input->tenant);
+                } catch (OperacaoDePrimarioRecusada $e) {
+                    throw new \InvalidArgumentException($e->getMessage(), 0, $e);
+                }
+            }
         }
 
         if ($this->ehUltimoAdmin($vinculo, $input->tenant)) {
@@ -116,8 +127,9 @@ final class RemoverColaboradorDoEscritorioUseCase
 
     private function ehUltimoAdmin(UserTenant $vinculo, Tenant $tenant): bool
     {
-        $role = $vinculo->getTenantRole();
-        if ($role === null || !$role->isSystem()) {
+        // Só quem é CONTADO como primário (vínculo ativo, conta ativa, perfil de sistema) pode ser
+        // "o último": conta desativada não entra na contagem, logo não segura a trava (spec M-b).
+        if (!$this->regraDosPrimarios->ehPrimario($vinculo)) {
             return false;
         }
 

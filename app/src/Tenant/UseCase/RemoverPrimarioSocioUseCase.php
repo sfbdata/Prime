@@ -43,7 +43,9 @@ final class RemoverPrimarioSocioUseCase
             throw new OperacaoDePrimarioRecusada('Este usuário não é primário ativo desta conta.');
         }
 
-        if (!$this->regraDosPrimarios->ehPrimario($vinculo)) {
+        // Perfil de sistema no vínculo ativo basta: conta desativada com perfil primário também
+        // pode ser rebaixada (ela não conta como primário, então não segura a trava do último).
+        if ($vinculo->getTenantRole()?->isSystem() !== true) {
             throw new OperacaoDePrimarioRecusada('Este usuário não é primário do escritório.');
         }
 

@@ -122,6 +122,8 @@ perfil pelo nome. Na tela ele aparece como **"Usuário Primário"** (só exibiç
     não aparece no select e o POST forjado é recusado, tanto para promover quanto para rebaixar;
   - convite (`GerenciarConvitesController` + `CriarConviteEscritorioUseCase`): convidar com o perfil
     de sistema;
+  - remover colaborador (`RemoverColaboradorDoEscritorioUseCase`, porta do painel): tirar um
+    primário (sócio) do escritório também é gerir primários;
   - senha (`editUserRole`, campo `newPassword`): senha de sócio só por primário ou Master; senha do
     titular só pelo próprio titular ou pelo Master (`RegraDosPrimarios::podeTrocarSenhaDe()`).
 
@@ -129,7 +131,9 @@ perfil pelo nome. Na tela ele aparece como **"Usuário Primário"** (só exibiç
   basta: com ela um secundário se promoveria, ou promoveria um cúmplice, ao acesso total.
 - **Guarda do titular e do último primário** (`RegraDosPrimarios::garantirQuePodeDeixarDeSerPrimario()`):
   o titular nunca deixa de ser primário e o escritório nunca fica sem primário ativo. Vale na remoção
-  de sócio e no edit-role.
+  de sócio, no edit-role e na remoção de colaborador. **Conta desativada** (`User.isActive=false`) não
+  é contada como primário: a trava do último primário não se aplica a ela, que pode ser rebaixada ou
+  removida por primário/Master. O titular segue intocável mesmo com a conta desativada.
 - **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
   (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
   `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só

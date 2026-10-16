@@ -149,7 +149,11 @@ final class RegraDosPrimarios
             );
         }
 
-        if ($this->userTenantRepository->contarAdminsAtivos($vinculo->getTenant()) <= 1) {
+        // Conta desativada não é contada como primário: rebaixá-la não diminui a contagem, então a
+        // trava do último primário não se aplica a ela. O titular, acima, sim. Não usa ehPrimario():
+        // no edit-role o form já trocou o perfil em memória antes desta checagem.
+        $contaComoPrimario = $vinculo->isActive() && $vinculo->getUser()->isActive();
+        if ($contaComoPrimario && $this->userTenantRepository->contarAdminsAtivos($vinculo->getTenant()) <= 1) {
             throw new OperacaoDePrimarioRecusada(
                 'Este é o último primário do escritório. Promova outro primário antes de removê-lo.'
             );
