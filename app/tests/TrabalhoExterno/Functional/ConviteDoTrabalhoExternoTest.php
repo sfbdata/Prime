@@ -411,7 +411,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
     #[TestDox('depois do login, o convidado sem escritório entra direto no Trabalho Externo; os demais seguem como antes')]
     public function testEntradaDoConvidadoAposLogin(): void
     {
-        [$client, $codigo, $master, $central, $solicitante] = $this->demandaEmExecucao();
+        [$client, $codigo, $master, $central] = $this->demandaEmExecucao();
         $token = $this->convidar($client, $codigo, 'entrada@test.com');
         $this->contaDoConvidado($client, $token, 'entrada@test.com');
 
@@ -422,9 +422,29 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('#tePagina');
 
-        // Quem tem escritório: o destino de sempre (o Expediente), sem mudança.
-        $this->entrarPeloFormulario($client, (string) $solicitante->getEmail(), 'senha123');
+        // Quem tem escritório E convite vigente: o destino de sempre (o Expediente), sem mudança.
+        $outroEscritorio = $this->criarTenant('Correspondente com escritório');
+        $comEscritorio = $this->criarUsuario($outroEscritorio);
+        $this->logarComTenant($client, $master, $central);
+        $tokenComEscritorio = $this->convidar($client, $codigo, (string) $comEscritorio->getEmail());
+        $this->aceitarLogado($client, $comEscritorio, $tokenComEscritorio);
+        $this->entrarPeloFormulario($client, (string) $comEscritorio->getEmail(), 'senha123');
         self::assertResponseRedirects('/expediente');
+
+        // Super admin sem escritório e com convite vigente: segue para o painel da plataforma.
+        $admin = new User();
+        $admin->setEmail('admin_' . uniqid() . '@test.com');
+        $admin->setFullName('Super admin sem escritório');
+        $admin->setRoles(['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $admin->setIsActive(true);
+        $admin->setPassword(static::getContainer()->get(\Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface::class)->hashPassword($admin, 'senha123'));
+        $this->em()->persist($admin);
+        $this->em()->flush();
+        $this->logarComTenant($client, $master, $central);
+        $tokenAdmin = $this->convidar($client, $codigo, (string) $admin->getEmail());
+        $this->aceitarLogado($client, $admin, $tokenAdmin);
+        $this->entrarPeloFormulario($client, (string) $admin->getEmail(), 'senha123');
+        self::assertResponseRedirects('/admin/platform');
 
         // Convite revogado: sem convite vigente, volta ao caminho de sempre (selecionar escritório).
         $this->logarComTenant($client, $master, $central);
@@ -435,13 +455,49 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/escritorio/selecionar');
     }
 
-    private function entrarPeloFormulario(KernelBrowser $client, string $email, string $senha): void
+    #[TestDox('o login automático pelo "manter conectado" deixa a requisição do convidado seguir, sem redirecionar')]
+    public function testManterConectadoNaoDesviaARequisicao(): void
+    {
+        [$client, $codigo] = $this->demandaEmExecucao();
+        $token = $this->convidar($client, $codigo, 'lembrar@test.com');
+        $this->contaDoConvidado($client, $token, 'lembrar@test.com');
+
+        // O cookie é "secure": o navegador simulado só o manda em HTTPS.
+        $client->setServerParameter('HTTPS', 'on');
+        $this->entrarPeloFormulario($client, 'lembrar@test.com', 'senha-forte-1', lembrar: true);
+        self::assertResponseRedirects('/trabalho-externo');
+        $lembrar = $client->getCookieJar()->get('REMEMBERME');
+        self::assertNotNull($lembrar, 'o login com "manter conectado" grava o cookie');
+
+        // Sessão expirada: só o cookie. A primeira chamada da API autentica pelo cookie e tem
+        // de responder a ela mesma, não um redirect para a tela.
+        $client->getCookieJar()->clear();
+        $client->getCookieJar()->set($lembrar);
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertResponseIsSuccessful();
+        self::assertSame('convidado', $this->json($client)['painel']['perfil']['chave'] ?? null);
+    }
+
+    private function aceitarLogado(KernelBrowser $client, User $usuario, string $token): void
+    {
+        $client->getCookieJar()->clear();
+        $client->loginUser($usuario);
+        $this->marcarTermosAceitos($client);
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$token");
+        $client->request('POST', "/trabalho-externo/convite/$token/aceitar", ['_token' => $crawler->filter('form[action$="/aceitar"] input[name="_token"]')->attr('value')]);
+        self::assertResponseRedirects("/trabalho-externo?te=" . $this->em()->getRepository(\App\TrabalhoExterno\Entity\ConviteDemanda::class)->peloToken($token)?->getDemanda()->getCodigo());
+    }
+
+    private function entrarPeloFormulario(KernelBrowser $client, string $email, string $senha, bool $lembrar = false): void
     {
         $client->getCookieJar()->clear();
         $crawler = $client->request('GET', '/login');
         $form = $crawler->selectButton('Entrar')->form();
         $form['email'] = $email;
         $form['password'] = $senha;
+        if ($lembrar) {
+            $form['_remember_me']->tick();
+        }
         $client->submit($form);
     }
 
