@@ -265,3 +265,15 @@ aprovado: Situação, depois ajustes da linha do tempo, depois Cadastro em 4 fat
   de tela. Ficou para o dono: Push indisponível em pasta cancelada/arquivada (regra implícita do protótipo,
   PZ-CAB-48) e o carimbo ATIVO aparecer 1,4 s depois da recarga em vez de na hora.
 - Testes: `PastaSituacaoControllerTest` com 10 casos (outro escritório, tela desatualizada, Editar dados).
+
+## 12. E12e: ajustes da linha do tempo (16/10/2026)
+
+- Sugestão "Avançar para X?": o Push lê também o `tipoDocumento` da publicação (a comunicação costuma vir como
+  "Intimação"; quem diz Sentença/Decisão é o documento). `PublicacaoDjenListaItem` ganhou o campo, projetado só por
+  `listarItensPorNumerosDoTenant`.
+- Nova fonte do desenho: documentos vivos (fora da lixeira) na aba Documentos sugerem "Documentação" com "N
+  documento(s) anexado(s) na aba Documentos" (`PastaDocumentoRepository::contarVivosDaPasta`).
+- "Ignorar" passa de sessionStorage para localStorage por pasta (lembra depois de fechar o navegador). Guardar no
+  servidor foi descartado: uma linha de andamento só para isso mudaria o filtro Protocolar da Lista, que decide
+  pela existência da linha.
+- Testes: `SugestoesDoAndamentoTest` (3; mutação em cada fonte nova derruba o seu).

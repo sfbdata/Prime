@@ -76,7 +76,7 @@
     if (!faixa) { return; }
     var lista = [];
     try { lista = JSON.parse(faixa.getAttribute('data-sugestoes')) || []; } catch (x) { lista = []; }
-    function ignoradas() { try { return JSON.parse(sessionStorage.getItem(CHAVE_IGN) || '{}') || {}; } catch (x) { return {}; } }
+    function ignoradas() { try { return JSON.parse(localStorage.getItem(CHAVE_IGN) || '{}') || {}; } catch (x) { return {}; } }
     function mostrar() {
         var ign = ignoradas();
         var s = lista.filter(function (x) { return !ign[x.nome]; })[0];
@@ -94,7 +94,7 @@
         if (e.target.closest('.js-and-sug-ign')) {
             var ign = ignoradas();
             ign[s.nome] = true;
-            try { sessionStorage.setItem(CHAVE_IGN, JSON.stringify(ign)); } catch (x) { /* só não lembra */ }
+            try { localStorage.setItem(CHAVE_IGN, JSON.stringify(ign)); } catch (x) { /* só não lembra */ }
             mostrar();
         }
     });

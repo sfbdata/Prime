@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Service;
 
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
@@ -53,6 +54,7 @@ final class AndamentoDaPasta
         private readonly PastaAndamentoRepository $repository,
         private readonly PastaRepository $pastaRepository,
         private readonly PublicacaoDjenRepository $publicacoes,
+        private readonly PastaDocumentoRepository $documentos,
         private readonly RegistroDoSistemaNaPasta $registro,
         private readonly EntityManagerInterface $em,
     ) {
@@ -222,7 +224,9 @@ final class AndamentoDaPasta
 
     /**
      * Fases à frente que os dados da pasta sugerem (desenho `faseSugestao`), da mais próxima à mais distante: Push
-     * (sentença, trânsito/cumprimento, decisão, distribuição), processo vinculado e contrato regular.
+     * (sentença, trânsito/cumprimento, decisão, distribuição), documentos anexados, processo vinculado e contrato
+     * regular. No Push vale também o TIPO DO DOCUMENTO da publicação: a comunicação costuma vir como "Intimação" e
+     * quem diz "Sentença" ou "Decisão" é o documento.
      *
      * @return list<array{nome: string, indice: int, motivo: string, icone: string}>
      */
@@ -244,8 +248,8 @@ final class AndamentoDaPasta
 
         $numeros = $this->pastaRepository->numerosDosProcessosVinculados($pasta, $tenant);
         foreach ($this->publicacoes->listarItensPorNumerosDoTenant($tenant, $numeros, 50) as $pub) {
-            $t = mb_strtolower(($pub->tipoComunicacao ?? '') . ' ' . ($pub->textoResumo ?? ''));
-            $tipo = mb_strtolower($pub->tipoComunicacao ?? '');
+            $t = mb_strtolower(($pub->tipoComunicacao ?? '') . ' ' . ($pub->tipoDocumento ?? '') . ' ' . ($pub->textoResumo ?? ''));
+            $tipo = mb_strtolower(($pub->tipoComunicacao ?? '') . ' ' . ($pub->tipoDocumento ?? ''));
             $dia = $pub->dataDisponibilizacao ?? '';
             if (preg_match('/senten[cç]a/u', $t) === 1 && preg_match('/cumprimento de senten/u', $t) !== 1) {
                 $add('Sentença', 'Push: sentença em ' . $dia, 'bi-broadcast');
@@ -256,6 +260,10 @@ final class AndamentoDaPasta
             } elseif (preg_match('/distribu/u', $t) === 1) {
                 $add('Distribuído', 'Push: distribuição em ' . $dia, 'bi-broadcast');
             }
+        }
+        $docs = $this->documentos->contarVivosDaPasta($pasta, $tenant);
+        if ($docs > 0) {
+            $add('Documentação', $docs . ' documento(s) anexado(s) na aba Documentos', 'bi-paperclip');
         }
         $proc = $pasta->getProcessoPrincipal();
         if ($proc !== null && $proc->getNumeroProcesso() !== '') {

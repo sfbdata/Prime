@@ -190,6 +190,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                 'p.id AS id',
                 'p.siglaTribunal AS siglaTribunal',
                 'p.tipoComunicacao AS tipoComunicacao',
+                'p.tipoDocumento AS tipoDocumento',
                 'p.numeroProcessoComMascara AS numeroProcessoComMascara',
                 'p.numeroProcesso AS numeroProcesso',
                 'p.dataDisponibilizacao AS dataDisponibilizacao',
