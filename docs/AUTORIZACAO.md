@@ -119,7 +119,8 @@ bypassa todas as verificações dentro do tenant.
 O nome gravado ("Administrador do Escritório") não pode mudar: o `TenantBootstrapService` acha o
 perfil pelo nome. Na tela ele aparece como **"Usuário Primário"** (só exibição), por um ponto único:
 `TenantRole::getNomeExibido()` (`role.nomeExibido` no Twig), usado na lista e edição de perfis, no
-select do edit-role, no select de convite, na lista de colaboradores, no seletor de escritório e na
+select do edit-role, no select de convite e na lista de convites pendentes (`ConviteAdminOutput`), na
+lista de colaboradores, no seletor de escritório e na
 tela de seleção de escritório.
 
 #### Primários: titular e sócios (spec perfis-master, D3/D4/D5)

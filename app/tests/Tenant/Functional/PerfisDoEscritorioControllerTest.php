@@ -540,6 +540,13 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
             'tenant_role_id' => $this->perfilPrimario->getId(),
         ]);
         self::assertNotNull($this->em->getRepository(Invitation::class)->findOneBy(['email' => $emailOk]));
+
+        // M6b: na lista de convites pendentes o perfil de sistema aparece como "Usuário Primário".
+        $crawler = $this->client->request('GET', '/escritorio/convites');
+        $linha = $crawler->filter('tr')->reduce(static fn ($tr): bool => str_contains($tr->text(), $emailOk));
+        self::assertCount(1, $linha);
+        self::assertStringContainsString('Usuário Primário', $linha->text());
+        self::assertStringNotContainsString('Administrador do Escritório', $linha->text());
     }
 
     // ── A2/M-b: remover colaborador primário ───────────────────────────────
