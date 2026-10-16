@@ -474,6 +474,31 @@ class PastaRepository extends ServiceEntityRepository
         return $counts;
     }
 
+    /**
+     * Pastas distintas de cada marcador de topo somando as dos seus submarcadores: a contagem do trilho no
+     * desenho 1.1 (E12). Distinta porque a pasta pode ter o marcador e um submarcador dele ao mesmo tempo.
+     *
+     * @return array<int, int> marcadorDeTopoId => total
+     */
+    public function countPorMarcadoresDeTopoComFilhos(Tenant $tenant): array
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('COALESCE(IDENTITY(m.pai), m.id) AS raiz, COUNT(DISTINCT p.id) AS total')
+            ->join('p.marcadores', 'm')
+            ->where('m.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('raiz')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['raiz']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
     public function countAtivas(Tenant $tenant): int
     {
         return (int) $this->createQueryBuilder('p')
@@ -646,9 +671,10 @@ class PastaRepository extends ServiceEntityRepository
         Marcador $marcador,
         Tenant $tenant
     ): QueryBuilder {
+        // Marcador de topo traz também as pastas dos submarcadores (desenho 1.1, dc `filtrados`, E12).
         $qb = $this->createQueryBuilder('p')
             ->join('p.marcadores', 'm')
-            ->where('m = :marcador')
+            ->where('m = :marcador OR m.pai = :marcador')
             ->setParameter('marcador', $marcador)
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);

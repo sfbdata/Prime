@@ -88,19 +88,36 @@ final class ExpedienteController extends AbstractController
         $user   = $this->getUser();
         $tenant = $this->assertAccess($user);
 
-        $marcadores      = $this->marcadorRepository->findRaizPorTenant($tenant);
-        $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
-        $contagemPastas  = $this->pastaRepository->countPorMarcadores($tenant);
-
-        return $this->render('expediente/index.html.twig', [
-            'pastas'          => $marcadores,
-            'todosMarcadores' => $todosMarcadores,
-            'contagemPastas'  => $contagemPastas,
-            'painelInicial'   => $this->painelInicialDoDeepLink($request),
-            'contagensExpediente' => $this->pastaRepository->contagensDosFiltrosDoExpediente($tenant),
-            'totalPastas'     => $this->pastaRepository->countByFilters([], $tenant),
+        return $this->render('expediente/index.html.twig', $this->dadosDoTrilho($tenant) + [
+            'painelInicial'    => $this->painelInicialDoDeepLink($request),
             'souAdministrador' => $this->permissionChecker->isAdministradorDoEscritorio($user, $tenant),
         ]);
+    }
+
+    /**
+     * Só o trilho, para a tela redesenhá-lo depois de criar, editar, excluir ou reordenar um marcador (E12).
+     * Também devolve, no cabeçalho, a lista de marcadores para o modal "Mover para".
+     */
+    #[Route('/expediente/trilho', name: 'expediente_trilho', methods: ['GET'])]
+    public function trilho(): Response
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        return $this->render('expediente/_trilho.html.twig', $this->dadosDoTrilho($tenant));
+    }
+
+    /** @return array<string, mixed> */
+    private function dadosDoTrilho(Tenant $tenant): array
+    {
+        return [
+            'pastas'              => $this->marcadorRepository->findRaizPorTenant($tenant),
+            'contagemPastas'      => $this->pastaRepository->countPorMarcadores($tenant),
+            'contagemRaiz'        => $this->pastaRepository->countPorMarcadoresDeTopoComFilhos($tenant),
+            'contagensExpediente' => $this->pastaRepository->contagensDosFiltrosDoExpediente($tenant),
+            'totalPastas'         => $this->pastaRepository->countByFilters([], $tenant),
+        ];
     }
 
     /**

@@ -15,6 +15,10 @@
     <form method="GET" action="{{ formAction }}" id="formFiltrosPasta" class="pasta-filtros-form">
         <input type="hidden" name="ordenar" value="{{ ordenar ?? '' }}">
         <input type="hidden" name="direcao" value="{{ direcao ?? '' }}">
+        {# E12: filtro do sistema escolhido no trilho e "Pastas por página" viajam com o formulário (página, ordem,
+           estado salvo), mas não são zerados pelo "Limpar", como no desenho. #}
+        <input type="hidden" name="expediente" value="{{ filters.expediente ?? '' }}">
+        <input type="hidden" name="por_pagina" value="{{ pagination.per_page ?? '' }}">
         <div class="pasta-filtros-linha">
             <div class="pasta-filtros-busca">
                 <i class="bi bi-search"></i>
@@ -27,9 +31,9 @@
 
             {# Responsável e Prioridade com a cara de botão do desenho (dc L.102-108, AUD-09): seta pequena e, na
                prioridade, a bandeira na cor do valor. Seguem <select> nativos (teclado e leitor de tela de graça). #}
-            <span class="exp-filtro exp-filtro--resp">
+            <span class="exp-filtro exp-filtro--resp" role="button" tabindex="0" aria-haspopup="dialog" data-tip="Filtrar pelo responsável da pasta">
             <select name="responsavel" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
-                    data-rotulo="Responsável" aria-label="Filtrar por responsável">
+                    data-rotulo="Responsável" aria-label="Filtrar por responsável" tabindex="-1">
                 <option value="">Responsável</option>
                 <option value="sem" {% if filters.responsavel == 'sem' %}selected{% endif %}>Sem responsável</option>
                 {% for usuario in responsaveis %}
@@ -39,19 +43,19 @@
             <i class="bi bi-chevron-down exp-filtro-seta" aria-hidden="true"></i>
             </span>
 
-            <span class="exp-filtro exp-filtro--prio" data-valor="{{ filters.prioridade ?? '' }}">
+            <span class="exp-filtro exp-filtro--prio" data-valor="{{ filters.prioridade ?? '' }}" role="button" tabindex="0" aria-haspopup="dialog" data-tip="Prioridade: Normal, Alta ou Urgente">
             <i class="bi bi-flag-fill exp-filtro-bandeira" aria-hidden="true"></i>
             <select name="prioridade" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
-                    data-rotulo="Prioridade" aria-label="Filtrar por prioridade">
+                    data-rotulo="Prioridade" aria-label="Filtrar por prioridade" tabindex="-1">
                 <option value="">Prioridade</option>
                 <option value="normal" {% if filters.prioridade == 'normal' %}selected{% endif %}>Normal</option>
-                <option value="prioridade" {% if filters.prioridade == 'prioridade' %}selected{% endif %}>Prioridade</option>
+                <option value="prioridade" {% if filters.prioridade == 'prioridade' %}selected{% endif %}>Alta</option>
                 <option value="urgente" {% if filters.prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
             </select>
             <i class="bi bi-chevron-down exp-filtro-seta" aria-hidden="true"></i>
             </span>
 
-            <div class="pasta-filtros-periodo" title="Período de abertura">
+            <div class="pasta-filtros-periodo" data-tip="Período de abertura da pasta">
                 <span class="pasta-data-campo">
                     <input type="date" name="data_de" class="form-control form-control-sm js-pasta-filtro"
                            data-rotulo="De" aria-label="Aberta a partir de" value="{{ filters.data_de ?? '' }}">
@@ -66,6 +70,10 @@
                             aria-label="Abrir calendário"><i class="bi bi-calendar3"></i></button>
                 </span>
             </div>
+            {# "Limpar todos os filtros" em ícone (dc L.149): só aparece com algum filtro (expediente-lista.js). #}
+            <button type="button" class="exp-limpar js-pasta-limpar" data-tip="Limpar todos os filtros" aria-label="Limpar todos os filtros" hidden>
+                <i class="bi bi-x-circle" aria-hidden="true"></i>
+            </button>
         </div>
 
         {# Chips dos filtros ativos — montados por JS a partir do estado do form #}

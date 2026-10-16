@@ -1,14 +1,47 @@
 {# ── Modal: nova pasta ── #}
-<div class="modal fade" id="modalNovaPasta" tabindex="-1" aria-labelledby="modalNovaPastaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+{# `desenho11` (só o Expediente, E12): a Nova Pasta do desenho 1.1 (dc L.265-279): 520px, cabeçalho azul que
+   arrasta, o próximo número (só informativo; o servidor numera de novo ao salvar), cliente obrigatório com
+   sugestões e a ação liberada depois do cliente. O envio é o mesmo nas duas variantes (script abaixo). #}
+{% set desenho11 = desenho11 ?? false %}
+<div class="modal fade{{ desenho11 ? ' exp-nova' }}" id="modalNovaPasta" tabindex="-1" aria-labelledby="modalNovaPastaLabel" aria-hidden="true"
+     {% if desenho11 %}data-url-sugestoes="{{ path('expediente_nova_pasta_sugestoes') }}"{% endif %}>
+    <div class="modal-dialog modal-dialog-centered" style="max-width:{{ desenho11 ? 'min(520px, calc(100vw - 32px))' : '480px' }};">
         <div class="modal-content">
+            {% if desenho11 %}
+            <div class="exp-nova-cab js-nova-arrastar">
+                <i class="bi bi-folder-plus" aria-hidden="true"></i>
+                <span class="exp-nova-titulo" id="modalNovaPastaLabel">Nova Pasta</span>
+                <button type="button" class="exp-nova-x" data-bs-dismiss="modal" aria-label="Fechar" data-tip="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            {% else %}
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalNovaPastaLabel">
                     <i class="bi bi-folder-plus me-1"></i> Nova Pasta
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
+            {% endif %}
             <form method="post" action="{{ path('pasta_new') }}" id="form-nova-pasta-modal">
+                {% if desenho11 %}
+                <div class="exp-nova-corpo">
+                    <div class="exp-nova-info"><i class="bi bi-info-circle" aria-hidden="true"></i><span>O número da pasta é gerado automaticamente pelo sistema.</span><span class="exp-nova-prox js-nova-prox"></span></div>
+                    <label class="exp-nova-campo">
+                        <span>NOME DO CLIENTE <span class="exp-nova-obrig">*</span></span>
+                        <input type="text" id="modal_nome_cliente" name="nome_cliente" list="expNovaClientes" autocomplete="off" required placeholder="Digite o nome do cliente">
+                        <datalist id="expNovaClientes"></datalist>
+                        <span class="exp-nova-existe js-nova-existe" hidden><i class="bi bi-people" aria-hidden="true"></i> <span></span></span>
+                    </label>
+                    <label class="exp-nova-campo exp-nova-campo--acao">
+                        <span>NOME DA AÇÃO</span>
+                        <input type="text" id="modal_nome_acao" name="nome_acao" autocomplete="off" disabled placeholder="Informe primeiro o nome do cliente">
+                    </label>
+                    <div id="modalNovaPastaErro" class="text-danger small" style="display:none;"></div>
+                </div>
+                <div class="exp-nova-rodape">
+                    <button type="button" class="exp-btn exp-btn--cinza" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="exp-btn exp-btn--azul js-nova-salvar" disabled><i class="bi bi-check-lg" aria-hidden="true"></i>Salvar</button>
+                </div>
+                {% else %}
                 <div class="modal-body py-3">
 
                     {# O número da pasta saiu daqui de propósito (R1): é sequência interna do
@@ -39,6 +72,7 @@
                         <i class="bi bi-check-lg me-1"></i> Salvar
                     </button>
                 </div>
+                {% endif %}
             </form>
         </div>
     </div>

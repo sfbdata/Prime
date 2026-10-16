@@ -231,6 +231,8 @@
     var todosMarcadores    = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor, paiId: m.pai ? m.pai.id : null})|json_encode|raw }};
     var delegateSelector   = {{ delegateSelector is defined ? delegateSelector|json_encode|raw : 'null' }};
     var callbackNome       = {{ onSucessoCallback is defined ? onSucessoCallback|json_encode|raw : 'null' }};
+    // E12: o trilho do Expediente avisa quando a lista de marcadores mudou (criar, editar, excluir, reordenar).
+    window.atualizarMarcadoresDoMoverPara = function (lista) { todosMarcadores = lista; };
 
     var modalEl        = document.getElementById('modalMoverPara');
     var inputPastaId   = document.getElementById('moverParaPastaId');

@@ -57,13 +57,12 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         yield 'cabeçalho da tabela #f4f7f9' => ['--ex-cab-tabela:   #f4f7f9;'];
         yield 'barra do acervo #f7f9fb' => ['--ex-barra:        #f7f9fb;'];
         yield 'Nova Pasta #e2e9ee' => ['--ex-botao:        #e2e9ee;'];
-        yield 'colunas do desenho (96 · 120 · 220 · 76 · 190 · 116)' => ['col:nth-child(5) { width: 220px !important; }'];
+        yield 'colunas do desenho (96 · 120 · 220 · 76 · 190 · 116)' => ['col[data-col="resp"]    { width: 200px !important; }'];
         // E8b: Cliente e Ação em 2fr:1.5fr. `calc` com % é ignorado no <col>; em percentual, as duas dividem a sobra
         // das colunas fixas na razão 40:30 (= 2:1.5), medido na tela.
-        yield 'Cliente 2fr (dc L.146)' => ['col:nth-child(2) { width: 40% !important; }'];
-        yield 'Ação 1.5fr (dc L.146)' => ['col:nth-child(3) { width: 30% !important; }'];
+        yield 'Cliente 2fr (dc L.146)' => ['col[data-col="cliente"] { width: 40% !important; }'];
+        yield 'Ação 1.5fr (dc L.146)' => ['col[data-col="acao"]    { width: 28% !important; }'];
         yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { flex: 0 1 250px; height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
-        yield '"Todas as pastas" selecionado: só fundo e texto azul, peso normal, sem faixa (dc, medido)' => [".exp-body .expediente-menu-link[data-painel] { min-height: 36px; }\n.exp-body .expediente-menu-link[data-painel].active { font-weight: 400; color: var(--ex-azul); border-left-color: transparent !important; }"];
         yield 'datas do período encolhem dentro do bloco (dc L.109)' => ['.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { flex: 1 1 0; min-width: 0; width: 0; }'];
         yield '"a" entre as datas #7d909d (dc L.109)' => ['--ex-periodo-sep:  #7d909d;'];
     }
@@ -94,24 +93,6 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringContainsString("badge.dataset.situacao = res.data.novaSituacao;", $js, 'premissa: o duplo clique atualiza o atributo');
     }
 
-    #[TestDox('menu da linha e do marcador: só ações que já existem; nada de F2, Trancar, Destacar nem Duplicar')]
-    public function testMenusSoComAcoesExistentes(): void
-    {
-        $js = self::ler('public/js/expediente-lista.js');
-        foreach (["'Abrir pasta'", "'Abrir em nova aba'", "'Alterar responsável'", "'Alterar marcador'", "'Copiar número da pasta'", "'Copiar nome do cliente'",
-                  "'Ver pastas do marcador'", "'Novo marcador'", "'Novo sub-marcador'", "'Editar'", "'Excluir marcador'"] as $item) {
-            self::assertStringContainsString("rotulo: " . $item, $js);
-        }
-        foreach (['Trancar', 'Destacar', 'Duplicar', 'F2', 'localStorage'] as $fora) {
-            self::assertDoesNotMatchRegularExpression('/rotulo: \'[^\']*' . $fora . '/', $js, $fora . ' não tem backend: fica fora');
-        }
-        self::assertStringContainsString("if (!excluida && chip) {", $js, 'lápide é somente leitura: sem "Alterar responsável"');
-        self::assertStringContainsString("if (!excluida && marcar) {", $js, 'lápide é somente leitura: sem "Alterar marcador"');
-        self::assertStringContainsString('chip.click()', $js, 'Alterar responsável aciona o chip de sempre');
-        self::assertStringContainsString('marcar.click()', $js, 'Alterar marcador aciona o botão de sempre');
-        self::assertDoesNotMatchRegularExpression('/innerHTML\s*=/', $js, 'só textContent');
-    }
-
     #[TestDox('revisão: a ação do item roda DEPOIS do clique (senão o menu de responsável abria e fechava no mesmo clique); aviso por região viva criada na carga; "Copiar nome" sem o "+N"')]
     public function testCorrecoesDaRevisao(): void
     {
@@ -121,17 +102,9 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringNotContainsString("fechar(false);\n                it.acao();", $js);
         self::assertStringContainsString("vivo.setAttribute('role', 'status');", $js);
         self::assertStringContainsString("aviso.setAttribute('aria-hidden', 'true');", $js);
-        self::assertStringContainsString("resumo.getAttribute('data-clientes').split('||').join('; ')", $js);
+        self::assertStringContainsString("var nome = linha.getAttribute('data-nome') || '';", $js, 'E12: o nome vem pronto da linha (vários clientes juntos por "; ", sem o "+N")');
         self::assertStringContainsString("if (e.key === 'Tab') { e.preventDefault(); fechar(true); return; }", $js, 'Tab devolve o foco a quem abriu');
 
-        $css = self::css();
-        self::assertStringContainsString('.exp-body .expediente-menu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-acao', $css, 'selecionado: botões só no hover/foco');
-        self::assertStringContainsString('background: var(--ex-azul) !important; color: #fff !important;', $css, 'hover dos botões do trilho branco de fato');
-
-        $t = self::ler('templates/expediente/index.html.twig');
-        self::assertStringContainsString("item.querySelector(':scope > a .expediente-item-nome, :scope > .expediente-item-nome')", $t, 'renomear atualiza o nome, não o ponto de cor');
-        self::assertStringContainsString('<i class="bi bi-folder-fill" aria-hidden="true"></i>\' + escHtml(primeiro.nome)', $t, 'chip refeito igual ao do Twig');
-        self::assertStringNotContainsString('pastasSubs', $t, 'sem somar pastas que podem se repetir entre sub-marcadores');
     }
 
     #[TestDox('menu: teclado (setas, Home/End, Esc devolve o foco, Tab fecha) e a tecla de menu abre junto do elemento')]
@@ -142,46 +115,7 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
             self::assertStringContainsString($tecla, $js);
         }
         self::assertStringContainsString("if (!x && !y) {", $js);
-        self::assertStringContainsString("b.setAttribute('role', 'menuitem');", $js);
-    }
-
-    #[TestDox('excluir marcador: janela da E7 (confirmarPs), texto do desenho, "Excluir mesmo assim", e os sub-marcadores afetados (decisão do dono)')]
-    public function testExclusaoDeMarcador(): void
-    {
-        $t = self::ler('templates/expediente/index.html.twig');
-        self::assertStringContainsString("var pergunta = perguntaDeExclusaoDoMarcador(item, nome);", $t);
-        self::assertStringContainsString("? window.confirmarPs(pergunta)", $t);
-        self::assertStringContainsString("resposta.then(function (sim) {\n            if (sim) { excluirMarcadorConfirmado(id, token, btnExcluir); }", $t, 'o DELETE só no "sim"');
-        self::assertStringContainsString("titulo: 'Excluir o marcador \"' + nome + '\"?'", $t);
-        self::assertStringContainsString("rotulo: 'Excluir mesmo assim'", $t);
-        self::assertStringContainsString("'Esta ação é irreversível. '", $t);
-        self::assertStringContainsString("deixam de ter este marcador", $t, 'vários marcadores por pasta: não "ficam sem marcador"');
-        // Regra do dono (15/10): sem travessão em texto que o usuário vê; os nomes vão entre parênteses.
-        self::assertStringContainsString("sub-marcador(es) (' + nomes.join(', ') + ') também são excluídos,'", $t);
-        self::assertStringContainsString("' com o que houver abaixo deles, e as pastas marcadas com eles deixam de tê-los.'", $t, 'cascata inteira, sem somar pastas repetidas');
-        self::assertDoesNotMatchRegularExpression('/if \(!confirm\(msg\)\)/', $t);
-
-        preg_match('/function perguntaDeExclusaoDoMarcador\(item, nome\) \{.*?\n    \}/s', $t, $m);
-        self::assertNotEmpty($m, 'a função da pergunta existe');
-        preg_match_all("/'[^'\\n]*'/", $m[0], $literais);
-        foreach ($literais[0] as $literal) {
-            self::assertDoesNotMatchRegularExpression('/[—–]/u', $literal, 'travessão em texto da pergunta: ' . $literal);
-        }
-        self::assertStringContainsString("moldura: 'alerta'", $m[0], 'a exclusão usa a moldura de alerta do desenho');
-    }
-
-    #[TestDox('trilho: o item aberto fica marcado (LX-TRI-05); carregarPainel não apaga a marca que quem chamou acabou de pôr')]
-    public function testItemAbertoFicaMarcadoNoTrilho(): void
-    {
-        $t = self::ler('templates/expediente/index.html.twig');
-        preg_match('/function carregarPainel\(url, nomeAtivo\) \{.*?\n    \}/s', $t, $m);
-        self::assertNotEmpty($m);
-        self::assertStringNotContainsString("classList.remove('active')", $m[0], 'apagava a marca do item recém-clicado');
-
-        self::assertStringContainsString("function marcarNoTrilho(link) {\n        document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link')", $t, 'limpa raiz e sub-marcador juntos');
-        self::assertSame(5, substr_count($t, 'marcarNoTrilho('), 'definição + Todas as pastas (início e clique) + sub-marcador + marcador raiz');
-        self::assertStringContainsString('marcarNoTrilho(subLink);', $t);
-        self::assertStringContainsString('marcarNoTrilho(this);', $t);
+        self::assertStringContainsString("b.setAttribute('role', it.marcado === undefined ? 'menuitem' : 'menuitemcheckbox');", $js);
     }
 
     #[TestDox('período: "a" entre as datas, como o desenho (dc L.109), sem travessão (regra do dono de 15/10)')]
@@ -197,17 +131,17 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
     {
         $css = (string) preg_replace('/\s+/', ' ', self::css());
         // 818px das colunas fixas + Cliente 120 e Ação 90 (2:1.5). Medido: a 1366px cabe sem rolagem (com 1100, rolava 32px).
-        self::assertStringContainsString('.exp-body #tabelaPastas { min-width: 1028px; }', $css);
+        self::assertStringContainsString('.exp-body #tabelaPastas { min-width: 1148px; }', $css, 'E12: + Réu');
         self::assertStringNotContainsString('min-width: 1100px', $css);
         self::assertStringNotContainsString('minmax(', $css, 'os mínimos 220/190 do dc não entram');
         // Célula escondida sai da grade e a seguinte herdava o <col> dela (a 900px a Situação ficava com os 220px
         // do Responsável): quem sai é o próprio <col>, e o piso desce junto.
-        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas colgroup col:nth-child(3), .exp-body #tabelaPastas colgroup col:nth-child(5), .exp-body #tabelaPastas colgroup col:nth-child(6) { display: none; } }', $css);
-        self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas colgroup col:nth-child(7) { display: none; } }', $css);
+        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="acao"], .exp-body #tabelaPastas col[data-col="resp"], .exp-body #tabelaPastas col[data-col="metas"] { display: none; } }', $css);
+        self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas col[data-col="marc"] { display: none; } }', $css);
 
         // Os cortes são os mesmos em que o `_tabela` esconde as células.
-        $t = (string) preg_replace('/\s+/', ' ', self::ler('templates/pasta/_tabela.html.twig'));
-        self::assertStringContainsString('@media (max-width: 900px) { .col-acao-tabela, .col-resp-tabela, .col-tarefas-tabela { display: none; } }', $t);
+        $t = (string) preg_replace('/\s+/', ' ', self::ler('templates/expediente/_lista.html.twig'));
+        self::assertStringContainsString('@media (max-width: 900px) { .col-acao-tabela, .col-resp-tabela, .col-tarefas-tabela, .col-reu-tabela { display: none; } }', $t);
         self::assertStringContainsString('@media (max-width: 768px) { .col-marc-tabela { display: none; } }', $t);
     }
 

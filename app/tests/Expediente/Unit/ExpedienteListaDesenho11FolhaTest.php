@@ -81,21 +81,6 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringNotContainsString('{{ pagination.current_page }} de {{ max(pagination.total_pages, 1) }}', $tabela);
     }
 
-    #[TestDox('AUD-03 a AUD-07: trilho com o recolher no meio, itens de peso normal sem a borda escura, "+" e lápis do dc, contagem sem borda, "Todas as pastas" com bi-folder2')]
-    public function testTrilho(): void
-    {
-        $css = self::css();
-        self::assertStringContainsString('.exp-body .expediente-sidebar-toggle-btn { position: absolute !important; top: 50% !important;', $css);
-        self::assertStringContainsString('.exp-body .expediente-sidebar.sidebar-collapsed .expediente-sidebar-toggle-btn { top: 172px !important; }', $css);
-        self::assertStringContainsString('.exp-body .expediente-menu-link, .exp-body .expediente-submenu-link { gap: 9px; padding: 0 6px 0 9px; font-weight: 400; border-left: 3px solid transparent !important; }', $css);
-        self::assertStringContainsString('.exp-body .expediente-menu-link.active, .exp-body .expediente-submenu-link.active { font-weight: 700; border-left-color: var(--ex-azul) !important; }', $css);
-        self::assertStringContainsString('.exp-body .expediente-nav > .expediente-menu-list { padding: 0; display: flex; flex-direction: column; gap: 4px; }', $css);
-        self::assertStringContainsString('.exp-body .expediente-menu-link .expediente-btn-add-sub { background: var(--ex-botao) !important; color: var(--ex-corpo) !important; }', $css);
-        self::assertStringContainsString('.exp-body .expediente-submenu-link .expediente-btn-acao { background: transparent !important; color: var(--ex-azul) !important; }', $css);
-        self::assertStringContainsString('border-radius: 3px !important; border: 0 !important;', self::bloco($css, '.exp-body .js-contagem-marcador'));
-        self::assertStringContainsString('<i class="bi bi-folder2 expediente-icon expediente-icon--no-chevron"></i>', self::ler('templates/expediente/index.html.twig'));
-    }
-
     #[TestDox('AUD-28: menu de botão direito do dc (título cinza de 12px com divisória, sem faixa azul, itens 8×14px, 250/220px) e os rótulos e ícones dele, sem separadores na linha')]
     public function testMenusDeContexto(): void
     {
@@ -109,14 +94,15 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('padding: 8px 14px; border: 0; border-radius: 0;', self::bloco($css, '.exp-ctx-item'));
 
         $js = self::js();
-        self::assertStringContainsString("abrir('Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha);", $js);
-        self::assertStringContainsString("abrir(nome + ' · ' + contagem + ' pasta(s)', lista, x, y, link, 'marcador');", $js);
+        self::assertStringContainsString("abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha, editando ? 'editando' : null);", $js);
+        self::assertStringContainsString("window.ExpMenu.abrir(el.dataset.nome + ' · ' + (el.dataset.n || '0') + ' pasta(s)', lista, x, y, el, 'marcador');", self::ler('public/js/expediente-trilho.js'));
         foreach (["icone: 'bi-person-badge'", "icone: 'bi-funnel'", "icone: 'bi-plus-lg'", "rotulo: 'Copiar número da pasta'", "rotulo: 'Copiar nome do cliente'"] as $trecho) {
-            self::assertStringContainsString($trecho, $js);
+            self::assertStringContainsString($trecho, $js . self::ler('public/js/expediente-trilho.js'));
         }
         self::assertStringNotContainsString('bi-person-gear', $js);
-        $linha = substr($js, (int) strpos($js, 'function menuDaLinha'), (int) strpos($js, 'function menuDoMarcador') - (int) strpos($js, 'function menuDaLinha'));
-        self::assertStringNotContainsString("lista.push('-')", $linha, 'no dc o menu da linha não tem separador antes de Trancar');
+        // E12: com Trancar e Destacar, o menu da linha tem os separadores do dc (L.357 e L.359).
+        $linha = substr($js, (int) strpos($js, 'function menuDaLinha'), 4000);
+        self::assertSame(2, substr_count($linha, "lista.push('-');"));
     }
 
     #[TestDox('AUD-01/02/30: 28px nas laterais, 26px até o título, 18px até o conteúdo; avisos do sistema preservados; o rótulo solto do celular sai')]
@@ -202,11 +188,11 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     public function testResponsividade(): void
     {
         $css = self::css();
-        self::assertStringContainsString('@media (min-width: 901px) and (max-width: 1280px) { .exp-body #tabelaPastas { min-width: 1262px; } }', $css);
+        self::assertStringContainsString('@media (min-width: 901px) and (max-width: 1280px) { .exp-body #tabelaPastas { min-width: 1262px; } .exp-body #tabelaPastas [data-col="reu"] { display: none; } }', $css);
         self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; }', $css);
     }
 
-    #[TestDox('tema escuro: todo token novo da rodada tem par no escuro, e sobre o pastel (claro nos dois temas) as cores são as do claro')]
+    #[TestDox('tema escuro: todo token novo da rodada tem par no escuro')]
     public function testTemaEscuro(): void
     {
         $css = self::css();
@@ -214,7 +200,6 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         foreach (['--ex-seta-ordem', '--ex-borda-tag', '--ex-borda-menu', '--ex-menu-titulo', '--ex-menu-hover', '--ex-perigo-hover', '--ex-filtro-tx', '--ex-campo-ativo', '--ex-bandeira', '--ex-sit-ativo-bg', '--ex-avatar', '--ex-avatar-vazio-bg'] as $token) {
             self::assertStringContainsString($token . ':', $escuro, 'sem par no escuro: ' . $token);
         }
-        self::assertStringContainsString('.exp-body .expediente-menu-link.com-cor .js-contagem-marcador, .exp-body .expediente-submenu-link.com-cor .js-contagem-marcador { background: #e9eff3 !important; color: #34505f !important; }', $css);
-        self::assertStringContainsString('.exp-body .marcador-principal[style*="background:#"], .exp-body .exp-barra-marcador[style*="background:#"] { color: #243845 !important; }', $css);
+        // E12: o chip do marcador usa a cor do marcador (texto) sobre ela a 10% (`--mk-cor`), não mais o pastel de fundo.
     }
 }

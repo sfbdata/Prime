@@ -1,22 +1,5 @@
 {% extends 'base.html.twig' %}
 
-{% macro paletaCores(containerId) %}
-<div class="marcador-cores" id="{{ containerId }}">
-    <button type="button" class="marcador-cor-btn" data-cor="" title="Sem cor">
-        <i class="bi bi-slash-circle text-muted" style="font-size:1rem;"></i>
-    </button>
-    <button type="button" class="marcador-cor-btn" data-cor="#fde8e8" style="background:#fde8e8;" title="Rosa"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#fde8f5" style="background:#fde8f5;" title="Lilás rosa"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#ede8fd" style="background:#ede8fd;" title="Lavanda"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#e8eafd" style="background:#e8eafd;" title="Azul lavanda"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#e8f4fd" style="background:#e8f4fd;" title="Azul claro"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#e8fdf0" style="background:#e8fdf0;" title="Verde menta"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#fdf6e8" style="background:#fdf6e8;" title="Amarelo creme"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#fde8d0" style="background:#fde8d0;" title="Pêssego"></button>
-    <button type="button" class="marcador-cor-btn" data-cor="#f0f0f0" style="background:#f0f0f0;" title="Cinza claro"></button>
-</div>
-{% endmacro %}
-
 {% block title %}Expediente{% endblock %}
 
 {# E8 (fidelidade ao desenho de 13/10): o visual da Lista mora em /css/expediente-lista.css, todo sob
@@ -59,140 +42,14 @@
                     </button>
                 </div>
 
-                {# Botão de colapsar — visível apenas em desktop #}
-                <button type="button" class="expediente-sidebar-toggle-btn d-none d-md-flex" id="expedienteSidebarToggleBtn"
-                        title="Retrair menu" aria-label="Retrair/expandir menu lateral">
-                    <i class="bi bi-chevron-left" id="expedienteSidebarToggleIcon"></i>
-                </button>
-
-                <div class="expediente-menu">
-
-                    <nav class="expediente-nav">
-
-                        {# ── Pastas ── #}
-                        <div class="expediente-marcadores-header">
-                            <span class="expediente-marcadores-titulo">Pastas</span>
-                            <button type="button"
-                                    class="expediente-marcadores-add"
-                                    title="Nova Pasta"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modalNovaPasta">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
-                        <ul class="expediente-menu-list">
-                            <li class="expediente-menu-item">
-                                <a href="#"
-                                   class="expediente-menu-link"
-                                   data-painel="{{ path('expediente_acervo_geral') }}">
-                                    <i class="bi bi-folder2 expediente-icon expediente-icon--no-chevron"></i>
-                                    <span>Todas as pastas</span>
-                                </a>
-                            </li>
-                        </ul>
-
-                        {# ── Marcadores (pastas organizadoras) ── #}
-                        <div class="expediente-marcadores-header">
-                            <span class="expediente-marcadores-titulo">Marcadores</span>
-                            <button type="button" class="expediente-marcadores-add js-abrir-modal-marcador"
-                                    data-pai-id="" title="Novo marcador">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
-                        <ul class="expediente-menu-list" id="lista-marcadores">
-
-                            {# Marcadores do banco #}
-                            {% for marcador in pastas %}
-                                {% include 'expediente/_pasta_item.html.twig' with { marcador: marcador } %}
-                            {% endfor %}
-
-                        </ul>
-
-                    </nav>
-                </div>
+                {{ include('expediente/_trilho.html.twig') }}
             </div>
 
-            {{ include('_partials/modal_nova_pasta.html.twig') }}
+            {{ include('_partials/modal_nova_pasta.html.twig', {desenho11: true}) }}
 
-            {# ── Modal: novo marcador / sub-marcador ── #}
-            <div class="modal fade" id="modalNovoMarcador" tabindex="-1" aria-labelledby="modalNovoMarcadorLabel" aria-hidden="true">
-                <div class="modal-dialog modal-sm modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header py-2">
-                            <h6 class="modal-title" id="modalNovoMarcadorLabel">
-                                <i class="bi bi-tag me-1"></i> <span id="modalMarcadorTitulo">Novo marcador</span>
-                            </h6>
-                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body py-3">
-                            <input type="hidden" id="marcadorPaiId">
-                            <input type="hidden" id="marcadorPaiNome">
-                            <div id="marcadorContexto" class="text-muted small mb-2" style="display:none;">
-                                Sub-marcador de: <strong id="marcadorPaiNomeExibir"></strong>
-                            </div>
-                            <label for="nomeMarcador" class="form-label form-label-sm">Nome</label>
-                            <input type="text" id="nomeMarcador" class="form-control form-control-sm mb-3"
-                                   placeholder="Ex.: Em andamento, Aguardando…" maxlength="100" autocomplete="off">
-                            <label class="form-label form-label-sm d-block mb-1">Cor do marcador</label>
-                            {{ _self.paletaCores('criarCoresMarcador') }}
-                            <div id="marcadorErro" class="text-danger small mt-2" style="display:none;"></div>
-                        </div>
-                        <div class="modal-footer py-2">
-                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMarcador">
-                                <i class="bi bi-check-lg me-1"></i> Salvar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {{ include('expediente/_modais_lista.html.twig') }}
 
-            {# ── Modal: editar marcador ── #}
-            <div class="modal fade" id="modalEditarMarcador" tabindex="-1" aria-labelledby="modalEditarMarcadorLabel" aria-hidden="true">
-                <div class="modal-dialog modal-sm modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header py-2">
-                            <h6 class="modal-title" id="modalEditarMarcadorLabel">
-                                <i class="bi bi-pencil me-1"></i> Editar marcador
-                            </h6>
-                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body py-3">
-                            <input type="hidden" id="editarMarcadorId">
-                            <input type="hidden" id="editarMarcadorToken">
-                            <input type="hidden" id="editarMarcadorTokenExcluir">
-
-                            <label for="editarNomeMarcador" class="form-label form-label-sm">Nome</label>
-                            <input type="text" id="editarNomeMarcador" class="form-control form-control-sm mb-3"
-                                   maxlength="100" autocomplete="off">
-
-                            <label class="form-label form-label-sm d-block mb-1">Cor do marcador</label>
-                            {{ _self.paletaCores('editarCoresMarcador') }}
-
-                            <div id="editarMarcadorErro" class="text-danger small mt-2" style="display:none;"></div>
-                        </div>
-                        <div class="modal-footer py-2 d-flex justify-content-between">
-                            <button type="button" class="btn btn-outline-danger btn-sm" id="btnExcluirMarcadorModal">
-                                <i class="bi bi-trash3 me-1"></i> Excluir
-                            </button>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEdicaoMarcador">
-                                    <i class="bi bi-check-lg me-1"></i> Salvar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {# ── Modal: mover pasta para marcadores ── #}
-            {{ include('_partials/modal_mover_marcador.html.twig', {
-                todosMarcadores: todosMarcadores,
-                urlPastaMarcadores: path('expediente_pasta_marcadores', {id: 0}),
-                delegateSelector: '#expediente-painel',
-                onSucessoCallback: 'moverParaAtualizarBadgesTabela'
-            }) }}
+            {# E12: "Alterar marcador" é o menu MARCADOR do desenho, na própria linha (expediente-lista.js). #}
 
             {# ── Área de conteúdo principal ── #}
             <div class="col expediente-content">
@@ -234,112 +91,11 @@ section.content-header > .container-fluid {
     padding-right: 1rem;
 }
 
-/* ── Layout geral ─────────────────────────────────────────────── */
+/* ── Layout geral: o trilho do desenho 1.1 mora em _trilho.html.twig e expediente-lista.css (E12). ── */
 .expediente-sidebar {
-    width: 260px;
-    min-width: 260px;
-    border-right: 1px solid var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
-    overflow: visible; /* visível para o botão de toggle não ser cortado */
-    transition: width 0.22s cubic-bezier(.4,0,.2,1), min-width 0.22s cubic-bezier(.4,0,.2,1);
     position: relative;
-    z-index: 10; /* garante que o botão de toggle fique na frente do conteúdo */
+    z-index: 10;
     flex-shrink: 0;
-}
-
-/* O scroll fica no menu interno, não na sidebar (para botão de toggle não ser cortado) */
-.expediente-menu {
-    overflow-y: auto;
-    overflow-x: hidden;
-    height: 100%;
-    max-height: calc(100vh - 160px);
-    position: relative;
-    z-index: 0; /* fica abaixo do botão de toggle que usa z-index: 20 */
-}
-
-/* ── Estado retraído (collapsed) ─────────────────────────────── */
-.expediente-sidebar.sidebar-collapsed {
-    width: 52px;
-    min-width: 52px;
-}
-
-.expediente-sidebar.sidebar-collapsed .expediente-menu-link span:not(.marcador-cor-dot),
-.expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo,
-.expediente-sidebar.sidebar-collapsed .expediente-btn-add-sub,
-.expediente-sidebar.sidebar-collapsed .expediente-btn-acao,
-.expediente-sidebar.sidebar-collapsed .expediente-chevron,
-.expediente-sidebar.sidebar-collapsed .expediente-submenu,
-.expediente-sidebar.sidebar-collapsed .expediente-icon--no-chevron ~ span {
-    display: none !important;
-}
-
-.expediente-sidebar.sidebar-collapsed .js-contagem-marcador {
-    display: none !important;
-}
-
-.expediente-sidebar.sidebar-collapsed .expediente-marcadores-header {
-    justify-content: center;
-    padding: 8px 4px;
-}
-
-.expediente-sidebar.sidebar-collapsed .expediente-marcadores-add {
-    display: flex !important;
-}
-
-.expediente-sidebar.sidebar-collapsed .expediente-menu-link {
-    justify-content: center;
-    padding: 10px 4px;
-}
-
-.expediente-sidebar.sidebar-collapsed .expediente-icon {
-    margin-left: 0 !important;
-    font-size: 1.05rem;
-}
-
-.expediente-sidebar.sidebar-collapsed .expediente-icon--no-chevron {
-    margin-left: 0 !important;
-}
-
-/* Dot colorido no estado collapsed — reposicionado como círculo sobre o ícone */
-.expediente-sidebar.sidebar-collapsed .marcador-cor-dot {
-    display: inline-block !important;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-top: -12px;
-    margin-left: -4px;
-    border: 1.5px solid rgba(0,0,0,0.12);
-    position: relative;
-    top: -6px;
-    left: 2px;
-}
-
-/* ── Botão de toggle da sidebar ───────────────────────────────── */
-.expediente-sidebar-toggle-btn {
-    position: sticky;
-    top: 500px; /* posição vertical sticky ajustada visualmente — não é cálculo geométrico */
-    margin-left: calc(100% - 13px); /* mantém o botão na borda direita com sidebar expandida e retraída */
-    z-index: 20;
-    width: 26px;
-    height: 26px;
-    background: #0069a0;
-    border: none;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
-    transition: background 0.15s, box-shadow 0.15s;
-    color: #fff;
-    font-size: 0.7rem;
-    padding: 0;
-}
-
-.expediente-sidebar-toggle-btn:hover {
-    background: #005580;
-    color: #fff;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.14);
 }
 
 /* ── Botão pull-tab mobile (fixo na borda esquerda) ────────────── */
@@ -410,36 +166,8 @@ section.content-header > .container-fluid {
     .expediente-sidebar.drawer-open {
         transform: translateX(0);
     }
-    /* Cancela o collapsed no mobile */
-    .expediente-sidebar.sidebar-collapsed {
-        width: 280px !important;
-        min-width: 280px !important;
-    }
-    .expediente-sidebar.sidebar-collapsed .expediente-menu-link span,
-    .expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo,
-    .expediente-sidebar.sidebar-collapsed .expediente-btn-add-sub,
-    .expediente-sidebar.sidebar-collapsed .expediente-btn-acao,
-    .expediente-sidebar.sidebar-collapsed .expediente-chevron,
-    .expediente-sidebar.sidebar-collapsed .js-contagem-marcador {
-        display: flex !important;
-    }
-    .expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo { display: inline !important; }
-    .expediente-sidebar.sidebar-collapsed .expediente-menu-link span { display: inline !important; }
-    .expediente-sidebar.sidebar-collapsed .js-contagem-marcador { display: inline-flex !important; }
-    .expediente-sidebar.sidebar-collapsed .expediente-menu-link {
-        justify-content: flex-start;
-        padding: 6px 8px;
-    }
-    /* Restaura o swatch como quadrado (não círculo) no drawer mobile */
-    .expediente-sidebar.sidebar-collapsed .marcador-cor-dot {
-        border-radius: 3px !important;
-        top: 0 !important;
-        left: 0 !important;
-        margin-top: 0 !important;
-        margin-left: 0 !important;
-        position: static !important;
-    }
-    .expediente-sidebar-toggle-btn { display: none !important; }
+    .expediente-sidebar.sidebar-collapsed { width: 280px !important; min-width: 280px !important; }
+    .exp-tri-recolher { display: none !important; }
     .btn-expediente-pull-tab { display: flex !important; }
 
     /* Header do drawer mobile */
@@ -490,428 +218,10 @@ section.content-header > .container-fluid {
     min-height: 300px;
 }
 
-/* ── Lista do menu ────────────────────────────────────────────── */
-.expediente-menu-list {
-    list-style: none;
-    margin: 0;
-    padding: 2px 8px 6px;
-}
-
-.expediente-menu-item {
-    border-bottom: none;
-}
-
-/* ── Links do menu principal ──────────────────────────────────── */
-.expediente-menu-link {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    color: var(--bs-body-color);
-    text-decoration: none;
-    font-size: 0.82rem;
-    font-weight: 500;
-    border-radius: 6px;
-    transition: background 0.12s, color 0.12s;
-    cursor: pointer;
-}
-
-.expediente-menu-link:hover {
-    background: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
-}
-
-.expediente-menu-link.active {
-    background: var(--bs-secondary-bg);
-    color: #1a56db;
-    font-weight: 600;
-}
-
-.expediente-menu-link.active .expediente-icon,
-.expediente-menu-link.active .expediente-chevron {
-    color: #1a56db;
-}
-
-.expediente-chevron {
-    font-size: 0.7rem;
-    width: 12px;
-    flex-shrink: 0;
-    transition: transform 0.2s;
-    color: var(--bs-secondary-color);
-}
-
-.expediente-icon {
-    font-size: 0.9rem;
-    flex-shrink: 0;
-    color: var(--bs-secondary-color);
-}
-
-.expediente-icon--no-chevron {
-    margin-left: 18px;
-}
-
-/* ── Nome do item: truncamento com ellipsis ───────────────────── */
-.expediente-item-nome {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-/* ── Swatch de cor (visível apenas no estado colapsado) ──────── */
-.marcador-cor-dot {
-    display: none;
-}
-
-/* ── Badge de contagem ──────────────────────────────────────────── */
-.js-contagem-marcador {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.64rem !important;
-    font-weight: 700 !important;
-    line-height: 1 !important;
-    padding: 1px 6px !important;
-    background: rgba(0,0,0,0.06) !important;
-    border: 1px solid rgba(0,0,0,0.09) !important;
-    border-radius: 999px !important;
-    color: var(--bs-secondary-color) !important;
-    vertical-align: middle !important;
-}
-
-/* ── Submenus ─────────────────────────────────────────────────── */
-.expediente-submenu {
-    list-style: none;
-    margin: 2px 8px 2px 26px;
-    padding: 0 0 0 8px;
-    display: none;
-    border-top: none;
-    border-left: 2px solid var(--bs-border-color);
-}
-
-.expediente-submenu.show {
-    display: block;
-}
-
-.expediente-submenu li {
-    border-bottom: none;
-}
-
-.expediente-submenu-link {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 8px;
-    color: var(--bs-secondary-color);
-    text-decoration: none;
-    font-size: 0.79rem;
-    border-radius: 5px;
-    transition: background 0.12s, color 0.12s;
-}
-
-.expediente-submenu-link:hover {
-    background: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
-}
-
-.expediente-submenu-link.active {
-    background: var(--bs-secondary-bg);
-    color: #1a56db;
-    font-weight: 600;
-}
-
-/* No escuro, o azul fixo (#1a56db/#0d6efd) sobre fundo escuro fica de baixo
-   contraste. Clareia o item ATIVO sem cor e os hovers do pull-tab para um azul
-   legível. Marcadores COM cor mantêm texto escuro via .com-cor (!important). */
-html[data-bs-theme="dark"] .expediente-menu-link.active,
-html[data-bs-theme="dark"] .expediente-menu-link.active .expediente-icon,
-html[data-bs-theme="dark"] .expediente-menu-link.active .expediente-chevron,
-html[data-bs-theme="dark"] .expediente-submenu-link.active,
-html[data-bs-theme="dark"] .btn-expediente-pull-tab:hover,
-html[data-bs-theme="dark"] .btn-expediente-pull-tab.drawer-aberto {
-    color: #6ea8fe;
-}
-
-.expediente-sub-icon {
-    font-size: 0.78rem;
-    color: var(--bs-secondary-color);
-    flex-shrink: 0;
-}
-
-/* ── Botão + inline no marcador pai ──────────────────────────── */
-.expediente-btn-add-sub {
-    background: none;
-    border: none;
-    padding: 2px 5px;
-    color: var(--bs-secondary-color);
-    font-size: 0.72rem;
-    cursor: pointer;
-    border-radius: 4px;
-    line-height: 1;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 0.12s, color 0.12s, background 0.12s;
-}
-
-.expediente-menu-link:hover .expediente-btn-add-sub,
-.expediente-menu-link.active .expediente-btn-add-sub {
-    opacity: 1;
-}
-
-.expediente-btn-add-sub:hover {
-    background: rgba(0,0,0,0.07);
-    color: var(--bs-body-color) !important;
-}
-
-/* ── Modal "Mover para" — árvore hierárquica ──────────────────── */
-.mover-para-item {
-    display: flex;
-    align-items: stretch;
-    position: relative;
-    border-bottom: 1px solid var(--bs-border-color);
-}
-.mover-para-item:last-child { border-bottom: none; }
-
-.mover-para-cb {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-.mover-para-label {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    width: 100%;
-    padding: 9px 12px 9px 0;
-    cursor: pointer;
-    user-select: none;
-    transition: background .12s;
-    border-radius: 0;
-}
-.mover-para-label:hover { background: var(--bs-secondary-bg); }
-
-.mover-para-cb:checked + .mover-para-label {
-    background: var(--bs-secondary-bg);
-}
-
-.mover-para-stripe {
-    flex-shrink: 0;
-    width: 4px;
-    align-self: stretch;
-    border-radius: 0;
-    margin-right: 4px;
-}
-
-.mover-para-chevron {
-    flex-shrink: 0;
-    width: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--bs-secondary-color);
-    font-size: .72rem;
-    cursor: pointer;
-    padding: 2px;
-    border-radius: 3px;
-    transition: background .1s;
-}
-.mover-para-chevron:hover { background: rgba(0,0,0,.07); color: var(--bs-body-color); }
-
-.mover-para-icon {
-    flex-shrink: 0;
-    font-size: .78rem;
-    opacity: .85;
-}
-
-.mover-para-nome {
-    flex: 1;
-    font-size: .85rem;
-    font-weight: 500;
-    color: var(--bs-body-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.mover-para-count {
-    flex-shrink: 0;
-    font-size: .7rem;
-    color: var(--bs-secondary-color);
-    background: var(--bs-tertiary-bg);
-    border-radius: 10px;
-    padding: 1px 6px;
-    margin-left: auto;
-}
-
-/* Filhos */
-.mover-para-grupo { overflow: hidden; }
-.mover-para-grupo-oculto { display: none; }
-
-.mover-para-filho .mover-para-label {
-    padding-left: 0;
-    background: var(--bs-tertiary-bg);
-}
-.mover-para-filho .mover-para-label:hover { background: var(--bs-secondary-bg); }
-.mover-para-filho .mover-para-cb:checked + .mover-para-label { background: var(--bs-secondary-bg); }
-
-.mover-para-indent {
-    flex-shrink: 0;
-    width: 26px;
-}
-
-/* Scroll com barra estilizada */
-#moverParaLista::-webkit-scrollbar { width: 4px; }
-#moverParaLista::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 4px; }
-
-/* ── Paleta de cores do modal de edição ──────────────────────── */
-.marcador-cores {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.marcador-cor-btn {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: border-color 0.15s, transform 0.12s;
-    background: var(--bs-body-bg);
-    outline: none;
-}
-
-.marcador-cor-btn:hover {
-    transform: scale(1.15);
-    border-color: var(--bs-secondary-color);
-}
-
-.marcador-cor-btn.ativo {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 2px rgba(13,110,253,.25);
-}
-
-/* ── Fundo colorido no item do menu ──────────────────────────── */
-.expediente-menu-link.com-cor {
-    border-left: 3px solid transparent;
-}
-/* O fundo do marcador é sempre um pastel CLARO (nos dois temas) → texto/ícone
-   escuros para contraste, senão somem no modo escuro (texto do tema é claro). */
-.expediente-menu-link.com-cor,
-.expediente-menu-link.com-cor .expediente-icon,
-.expediente-menu-link.com-cor .expediente-chevron,
-.expediente-menu-link.com-cor .expediente-btn-add-sub,
-.expediente-menu-link.com-cor .expediente-btn-acao,
-.expediente-submenu-link.com-cor,
-.expediente-submenu-link.com-cor .expediente-sub-icon {
-    color: #212529 !important;
-}
-
-/* ── Botões de ação inline (editar / excluir) ─────────────────── */
-.expediente-btn-acao {
-    background: none;
-    border: none;
-    padding: 2px 5px;
-    color: var(--bs-secondary-color);
-    font-size: 0.72rem;
-    cursor: pointer;
-    border-radius: 4px;
-    line-height: 1;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 0.12s, color 0.12s, background 0.12s;
-}
-
-.expediente-menu-link:hover .expediente-btn-acao,
-.expediente-menu-link.active .expediente-btn-acao {
-    opacity: 1;
-}
-
-.expediente-btn-acao:hover {
-    background: rgba(0,0,0,0.07);
-    color: var(--bs-body-color) !important;
-}
-
-.expediente-btn-acao.js-excluir-marcador:hover {
-    background: rgba(220,53,69,0.10);
-    color: #dc3545 !important;
-}
-
-.expediente-btn-acao-sub {
-    color: var(--bs-secondary-color);
-    font-size: 0.72rem;
-}
-
-.expediente-submenu-link:hover .expediente-btn-acao-sub {
-    opacity: 1;
-}
-
-.expediente-btn-acao-sub:hover {
-    background: rgba(0,0,0,0.07);
-    color: var(--bs-body-color) !important;
-}
-
-.expediente-btn-acao-sub.js-excluir-marcador:hover {
-    background: rgba(220,53,69,0.10);
-    color: #dc3545 !important;
-}
-
-/* ── Header de marcadores ─────────────────────────────────────── */
-.expediente-marcadores-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 14px 5px;
-    border-top: 1px solid var(--bs-border-color);
-}
-
-.expediente-nav > .expediente-marcadores-header:first-child {
-    border-top: none;
-    padding-top: 8px;
-}
-
-.expediente-marcadores-titulo {
-    font-size: 0.615rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.10em;
-    color: var(--bs-secondary-color);
-}
-
-.expediente-marcadores-add {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    background: none;
-    border: 1.5px dashed #0069a0;
-    border-radius: 5px;
-    color: #0069a0;
-    font-size: 0.7rem;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0;
-    transition: border-color 0.15s, color 0.15s, background 0.15s, border-style 0.15s;
-}
-
-.expediente-marcadores-add:hover {
-    border-color: #004d78;
-    border-style: solid;
-    color: #004d78;
-    background: var(--bs-secondary-bg);
-}
 </style>
 {# E8: o visual do desenho de 13/10 vem por último, para ganhar dos estilos antigos acima. #}
 <link rel="stylesheet" href="{{ asset('css/expediente-lista.css') }}">
+<link rel="stylesheet" href="{{ asset('css/expediente-lista-12.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -959,51 +269,9 @@ document.addEventListener('dblclick', function (e) {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
-    // ── Toggle sidebar (desktop) ──────────────────────────────────
+    // O recolher do trilho, os menus e os cliques nos itens moram em expediente-trilho.js (E12).
     var sidebar         = document.getElementById('expedienteSidebar');
-    var toggleBtn       = document.getElementById('expedienteSidebarToggleBtn');
-    var toggleIcon      = document.getElementById('expedienteSidebarToggleIcon');
     var labelPainel     = document.getElementById('labelPainelAtivo');
-    var collapsed       = localStorage.getItem('expediente_sidebar_collapsed') === '1';
-
-    function aplicarEstadoSidebar() {
-        if (collapsed) {
-            sidebar.classList.add('sidebar-collapsed');
-            toggleIcon.className = 'bi bi-chevron-right';
-            if (toggleBtn) toggleBtn.title = 'Expandir menu';
-        } else {
-            sidebar.classList.remove('sidebar-collapsed');
-            toggleIcon.className = 'bi bi-chevron-left';
-            if (toggleBtn) toggleBtn.title = 'Retrair menu';
-        }
-    }
-    aplicarEstadoSidebar();
-
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', function () {
-            collapsed = !collapsed;
-            localStorage.setItem('expediente_sidebar_collapsed', collapsed ? '1' : '0');
-            aplicarEstadoSidebar();
-            // Reposicionar tooltips
-            atualizarTooltipsSidebar();
-        });
-    }
-
-    // Tooltips nos links da sidebar quando colapsada
-    function atualizarTooltipsSidebar() {
-        sidebar.querySelectorAll('.expediente-menu-link[data-painel], .expediente-menu-link[data-grupo]').forEach(function (link) {
-            var nomeTip = link.querySelector('span') ? link.querySelector('span').textContent.trim() : '';
-            var inst = bootstrap.Tooltip.getInstance(link);
-            if (collapsed) {
-                if (!inst) {
-                    new bootstrap.Tooltip(link, { title: nomeTip, placement: 'right', trigger: 'hover' });
-                }
-            } else {
-                if (inst) inst.dispose();
-            }
-        });
-    }
-    atualizarTooltipsSidebar();
 
     // ── Drawer mobile ─────────────────────────────────────────────
     var overlay         = document.getElementById('expedienteOverlay');
@@ -1046,21 +314,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Fechar drawer ao selecionar item no mobile
     document.addEventListener('click', function (e) {
         if (window.innerWidth < 768 && sidebar.classList.contains('drawer-open')) {
-            var link = e.target.closest('.expediente-menu-link[data-painel], .expediente-submenu-link[data-marcador-id], .expediente-menu-link[data-grupo]');
+            var link = e.target.closest('.exp-tri-todas, .exp-tri-item:not(.is-em-breve)');
             if (link) setTimeout(fecharDrawer, 180);
         }
     });
 
     var painel           = document.getElementById('expediente-painel');
-    var urlCriar         = '{{ path('expediente_marcador_criar') }}';
-    var urlExcluir       = '{{ path('expediente_marcador_excluir', {'id': 0}) }}';
-    var urlEditar        = '{{ path('expediente_marcador_editar', {'id': 0}) }}';
     var urlPainelMarcador = '{{ path('expediente_marcador_pastas', {'id': 0}) }}';
-    var urlPastaMarcadores = '{{ path('expediente_pasta_marcadores', {'id': 0}) }}';
-    var csrfToken        = '{{ csrf_token('marcador') }}';
-
-    // Marcadores disponíveis no tenant (para o modal "Mover para")
-    var todosMarcadores = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor, paiId: m.pai ? m.pai.id : null})|json_encode|raw }};
 
     // ── Persistência do estado do painel (sessionStorage) ───────────
     // Grava filtros + página atuais a cada recarregamento do painel para
@@ -1095,6 +355,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     data_de:     fd.get('data_de')     || '',
                     data_ate:    fd.get('data_ate')    || '',
                     criado_por:  fd.get('criado_por')  || '', // só existe quando veio por deep-link
+                    expediente:  fd.get('expediente')  || '', // filtro do sistema do trilho (E12)
+                    por_pagina:  fd.get('por_pagina')  || '',
                     ordenar:     fd.get('ordenar')     || '',
                     direcao:     fd.get('direcao')     || ''
                 },
@@ -1117,33 +379,10 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) { return false; }
     }
 
-    function reacenderSidebarPainel(painelUrl) {
-        document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link')
-            .forEach(function (l) { l.classList.remove('active'); });
-
-        var acervo = document.querySelector('.expediente-menu-link[data-painel]');
-        if (acervo && acervo.dataset.painel === painelUrl) {
-            acervo.classList.add('active');
-            if (labelPainel) labelPainel.textContent = 'Todas as pastas';
-            return;
-        }
-
-        var m = painelUrl ? painelUrl.match(/\/marcador\/([^\/]+)\/pastas/) : null;
-        if (!m) return;
-        var id = m[1];
-        var link = document.querySelector(
-            '.expediente-submenu-link[data-marcador-id="' + id + '"], ' +
-            '.expediente-menu-link[data-marcador-id="' + id + '"]'
-        );
-        if (!link) return;
-        link.classList.add('active');
-        // Sub-marcador: abre o grupo pai para o item ficar visível
-        var submenuPai = link.closest('.expediente-submenu');
-        if (submenuPai) submenuPai.classList.add('show');
-        if (labelPainel) {
-            var span = link.querySelector('span');
-            if (span) labelPainel.textContent = span.textContent.trim();
-        }
+    // O trilho (expediente-trilho.js) sabe marcar o item do painel: Todas, um filtro do sistema ou um marcador.
+    function reacenderSidebarPainel(painelUrl, expediente) {
+        var nome = window.ExpTrilho ? window.ExpTrilho.marcarPorPainel(painelUrl, expediente || '') : '';
+        if (labelPainel && nome) labelPainel.textContent = nome;
     }
 
     function tentarRestaurarEstadoPainel() {
@@ -1161,7 +400,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var params = new URLSearchParams();
         var f = estado.filtros || {};
-        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao'].forEach(function (k) {
+        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'expediente', 'por_pagina', 'ordenar', 'direcao'].forEach(function (k) {
             if (f[k]) params.set(k, f[k]);
         });
         if (estado.page && estado.page > 1) params.set('page', estado.page);
@@ -1173,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // O servidor re-renderiza o form com selected/value, então os filtros voltam
         // preenchidos visualmente pelo próprio fetch.
         carregarPainel(url, null);
-        reacenderSidebarPainel(estado.painelUrl);
+        reacenderSidebarPainel(estado.painelUrl, f.expediente || '');
         return true;
     }
 
@@ -1184,12 +423,17 @@ document.addEventListener('DOMContentLoaded', function () {
         var url = painel.dataset.painelInicial;
         if (!url) return false;
 
-        var linkAcervo = document.querySelector('.expediente-menu-link[data-painel]');
+        var linkAcervo = document.querySelector('.exp-tri-todas[data-painel]');
         carregarPainel(url, 'Todas as pastas');
-        if (linkAcervo) reacenderSidebarPainel(linkAcervo.dataset.painel);
+        if (linkAcervo) reacenderSidebarPainel(linkAcervo.dataset.painel, filtroDoSistemaNaUrl(url));
         consumirParametrosDoDeepLink();
 
         return true;
+    }
+
+    // Filtro do sistema (EXPEDIENTES do trilho, E12) que veio no deep-link, para o trilho marcar o item.
+    function filtroDoSistemaNaUrl(url) {
+        try { return new URL(url, window.location.origin).searchParams.get('expediente') || ''; } catch (e) { return ''; }
     }
 
     // Deep-link consumido: tira `painel` e os filtros que ele repassou da barra de endereço
@@ -1200,7 +444,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!window.history || typeof window.history.replaceState !== 'function') return;
         var atual;
         try { atual = new URL(window.location.href); } catch (e) { return; }
-        ['painel', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao', 'page']
+        ['painel', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'expediente', 'por_pagina', 'ordenar', 'direcao', 'page']
             .forEach(function (chave) { atual.searchParams.delete(chave); });
         window.history.replaceState(window.history.state, '', atual.pathname + atual.search + atual.hash);
     }
@@ -1237,412 +481,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (tentarAbrirPainelDoDeepLink()) return;
         if (tentarRestaurarEstadoPainel()) return;
 
-        var linkTodasPastas = document.querySelector('.expediente-menu-link[data-painel]');
+        var linkTodasPastas = document.querySelector('.exp-tri-todas[data-painel]');
         if (linkTodasPastas) {
             marcarNoTrilho(linkTodasPastas);
             carregarPainel(linkTodasPastas.dataset.painel, 'Todas as pastas');
         }
     })();
-
-    // ── Carrega painel via AJAX — "Todas as pastas" ──
-    document.querySelectorAll('.expediente-menu-link[data-painel]').forEach(function (link) {
-        link.addEventListener('click', function (e) {
-            e.preventDefault();
-            marcarNoTrilho(this);
-            carregarPainel(this.dataset.painel, 'Todas as pastas');
-        });
-    });
-
-    // ── Clicar em marcador raiz ou sub-marcador: carrega painel (delegado) ──
-    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
-        // Sub-marcador
-        var subLink = e.target.closest('.expediente-submenu-link[data-marcador-id]');
-        if (subLink) {
-            e.preventDefault();
-            e.stopPropagation();
-            marcarNoTrilho(subLink);
-            var url = urlPainelMarcador.replace('/0/', '/' + subLink.dataset.marcadorId + '/');
-            var nomeSubLink = subLink.querySelector('span') ? subLink.querySelector('span').textContent.trim() : '';
-            carregarPainel(url, nomeSubLink);
-            return;
-        }
-
-        // Marcador raiz (link com data-grupo e data-marcador-id)
-        var rootLink = e.target.closest('.expediente-menu-link[data-grupo]');
-        if (rootLink && !e.target.closest('button')) {
-            toggleSubmenu.call(rootLink, e);
-        }
-    });
-
-    // ── Paleta de cores compartilhada ──
-    function inicializarPaletaCores(containerId) {
-        var container = document.getElementById(containerId);
-        var corAtiva  = '';
-
-        container.addEventListener('click', function (e) {
-            var btn = e.target.closest('.marcador-cor-btn');
-            if (!btn) return;
-            corAtiva = btn.dataset.cor;
-            container.querySelectorAll('.marcador-cor-btn').forEach(function (b) { b.classList.remove('ativo'); });
-            btn.classList.add('ativo');
-        });
-
-        return {
-            getCor:   function ()    { return corAtiva; },
-            definir:  function (cor) {
-                corAtiva = cor || '';
-                container.querySelectorAll('.marcador-cor-btn').forEach(function (b) {
-                    b.classList.toggle('ativo', b.dataset.cor === corAtiva);
-                });
-            },
-        };
-    }
-
-    // ── Modal novo marcador ──
-    var modal        = document.getElementById('modalNovoMarcador');
-    var inputNome    = document.getElementById('nomeMarcador');
-    var inputPaiId   = document.getElementById('marcadorPaiId');
-    var inputPaiNome = document.getElementById('marcadorPaiNome');
-    var divContexto  = document.getElementById('marcadorContexto');
-    var spanPaiNome  = document.getElementById('marcadorPaiNomeExibir');
-    var divErro      = document.getElementById('marcadorErro');
-    var tituloModal  = document.getElementById('modalMarcadorTitulo');
-    var paletaCriar  = inicializarPaletaCores('criarCoresMarcador');
-
-    function abrirModal(paiId, paiNome) {
-        inputPaiId.value   = paiId   || '';
-        inputPaiNome.value = paiNome || '';
-        inputNome.value    = '';
-        divErro.style.display = 'none';
-        paletaCriar.definir('');
-
-        if (paiId) {
-            tituloModal.textContent   = 'Novo sub-marcador';
-            spanPaiNome.textContent   = paiNome;
-            divContexto.style.display = '';
-        } else {
-            tituloModal.textContent   = 'Novo marcador';
-            divContexto.style.display = 'none';
-        }
-
-        bootstrap.Modal.getOrCreateInstance(modal).show();
-        setTimeout(function () { inputNome.focus(); }, 300);
-    }
-
-    // Botão + do header de marcadores
-    document.querySelectorAll('.js-abrir-modal-marcador').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            abrirModal(this.dataset.paiId || '', this.dataset.paiNome || '');
-        });
-    });
-
-    // Botão + sub-marcador (delegado — funciona para itens inseridos via JS também)
-    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
-        var btn = e.target.closest('.expediente-btn-add-sub');
-        if (!btn) return;
-        e.preventDefault();
-        e.stopPropagation();
-        abrirModal(btn.dataset.paiId, btn.dataset.paiNome);
-    });
-
-    // ── Modal editar marcador ──
-    var modalEditar        = document.getElementById('modalEditarMarcador');
-    var editarId           = document.getElementById('editarMarcadorId');
-    var editarToken        = document.getElementById('editarMarcadorToken');
-    var editarTokenExcluir = document.getElementById('editarMarcadorTokenExcluir');
-    var editarNome         = document.getElementById('editarNomeMarcador');
-    var editarErro         = document.getElementById('editarMarcadorErro');
-    var paletaEditar       = inicializarPaletaCores('editarCoresMarcador');
-
-    function abrirModalEditar(id, nomeAtual, corAtual, token, tokenExcluir) {
-        editarId.value           = id;
-        editarToken.value        = token;
-        editarTokenExcluir.value = tokenExcluir || '';
-        editarNome.value         = nomeAtual;
-        editarErro.style.display = 'none';
-        paletaEditar.definir(corAtual);
-
-        bootstrap.Modal.getOrCreateInstance(modalEditar).show();
-        setTimeout(function () { editarNome.focus(); editarNome.select(); }, 300);
-    }
-
-    // Botão editar (delegado)
-    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
-        var btn = e.target.closest('.js-editar-marcador');
-        if (!btn) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        var item = document.getElementById('item-pasta-' + btn.dataset.id);
-        var link = item ? item.querySelector('.expediente-menu-link, .expediente-submenu-link') : null;
-        var corAtual = link ? (link.dataset.cor || '') : '';
-
-        abrirModalEditar(btn.dataset.id, btn.dataset.nome, corAtual, btn.dataset.token, btn.dataset.tokenExcluir);
-    });
-
-    document.getElementById('btnSalvarEdicaoMarcador').addEventListener('click', function () {
-        var nome = editarNome.value.trim();
-        if (!nome) { editarNome.focus(); return; }
-
-        var btn = this;
-        btn.disabled = true;
-        editarErro.style.display = 'none';
-
-        var id  = editarId.value;
-        var url = urlEditar.replace('/0', '/' + id);
-
-        fetch(url, {
-            method: 'PATCH',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: '_token=' + encodeURIComponent(editarToken.value) +
-                  '&nome='  + encodeURIComponent(nome) +
-                  '&cor='   + encodeURIComponent(paletaEditar.getCor()),
-        })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-        .then(function (res) {
-            btn.disabled = false;
-            if (!res.ok) {
-                editarErro.textContent   = res.data.erro || res.data.mensagem || 'Erro ao salvar.';
-                editarErro.style.display = '';
-                return;
-            }
-            var item = document.getElementById('item-pasta-' + res.data.id);
-            if (item) {
-                // Atualiza o nome. E8 (revisão): `a span` pegava o ponto de cor do marcador colorido e o
-                // nome ficava velho na tela — o mesmo nome que a janela de exclusão lê.
-                var span = item.querySelector(':scope > a .expediente-item-nome, :scope > .expediente-item-nome') || item.querySelector('a span');
-                if (span) span.textContent = res.data.nome;
-
-                // Atualiza cor no link
-                var link = item.querySelector('.expediente-menu-link, .expediente-submenu-link');
-                if (link) {
-                    link.dataset.cor = res.data.cor || '';
-                    aplicarCorNoLink(link, res.data.cor);
-                }
-
-                // Atualiza data-nome nos botões do item
-                item.querySelectorAll('[data-id="' + res.data.id + '"]').forEach(function (b) {
-                    b.dataset.nome = res.data.nome;
-                });
-                // Atualiza data-pai-nome nos botões de sub-marcador
-                item.querySelectorAll('[data-pai-id="' + res.data.id + '"]').forEach(function (b) {
-                    b.dataset.paiNome = res.data.nome;
-                });
-            }
-            bootstrap.Modal.getInstance(modalEditar).hide();
-        })
-        .catch(function () {
-            btn.disabled = false;
-            editarErro.textContent   = 'Erro de comunicação.';
-            editarErro.style.display = '';
-        });
-    });
-
-    function aplicarCorNoLink(link, cor) {
-        if (cor) {
-            link.style.backgroundColor = cor;
-            link.style.borderLeft = '3px solid rgba(0,0,0,0.15)';
-            link.classList.add('com-cor');
-        } else {
-            link.style.backgroundColor = '';
-            link.style.borderLeft = '';
-            link.classList.remove('com-cor');
-        }
-    }
-
-    function escurecer(hex) {
-        var r = parseInt(hex.slice(1,3),16) - 30;
-        var g = parseInt(hex.slice(3,5),16) - 30;
-        var b = parseInt(hex.slice(5,7),16) - 30;
-        return 'rgb(' + Math.max(0,r) + ',' + Math.max(0,g) + ',' + Math.max(0,b) + ')';
-    }
-
-    // Botão excluir dentro do modal de edição
-    document.getElementById('btnExcluirMarcadorModal').addEventListener('click', function () {
-        var id    = editarId.value;
-        var nome  = editarNome.value.trim() || '?';
-        var token = editarTokenExcluir.value;
-        var item  = document.getElementById('item-pasta-' + id);
-
-        var btnExcluir = this;
-        var pergunta = perguntaDeExclusaoDoMarcador(item, nome);
-        var resposta = window.confirmarPs
-            ? window.confirmarPs(pergunta)
-            : Promise.resolve(window.confirm(pergunta.titulo + '\n\n' + pergunta.texto));
-        resposta.then(function (sim) {
-            if (sim) { excluirMarcadorConfirmado(id, token, btnExcluir); }
-        });
-    });
-
-    /* E8: a pergunta do desenho (dc 03 L.259-271, "Excluir o marcador "X"?" / "Esta ação é irreversível…" /
-       "Excluir mesmo assim") na janela da tela (E7), vermelha. Duas correções de verdade: a pasta pode ter
-       vários marcadores, então ela "deixa de ter este marcador" (o dc diz "fica sem marcador"); e os
-       sub-marcadores são excluídos junto (cascata no banco), com quantos e quais — decisão do dono 14/10.
-       E8b: moldura de alerta do dc (faixa vermelha, círculo com ⚠); nomes entre parênteses (sem travessão, 15/10). */
-    function perguntaDeExclusaoDoMarcador(item, nome) {
-        var contar = function (el) {
-            var c = el ? el.querySelector(':scope > a .js-contagem-marcador, :scope > .js-contagem-marcador') : null;
-            return c ? (parseInt(c.textContent, 10) || 0) : 0;
-        };
-        var subs = item ? Array.prototype.slice.call(item.querySelectorAll('.expediente-submenu > li')) : [];
-        var pastas = contar(item);
-        var texto = 'Esta ação é irreversível. ';
-        texto += pastas > 0
-            ? 'As ' + pastas + ' pasta(s) com este marcador continuam no sistema, porém deixam de ter este marcador.'
-            : 'Nenhuma pasta está com este marcador.';
-        if (subs.length > 0) {
-            var nomes = subs.map(function (li) {
-                var n = li.querySelector('.expediente-item-nome');
-                return n ? n.textContent.trim() : '';
-            }).filter(Boolean);
-            // Sem somar as pastas dos sub-marcadores: uma pasta pode estar em mais de um deles, e a soma
-            // contaria a mesma pasta duas vezes. Tudo o que estiver abaixo deles também sai (cascata).
-            texto += ' Os ' + subs.length + ' sub-marcador(es) (' + nomes.join(', ') + ') também são excluídos,'
-                + ' com o que houver abaixo deles, e as pastas marcadas com eles deixam de tê-los.';
-        }
-
-        return { titulo: 'Excluir o marcador "' + nome + '"?', texto: texto, rotulo: 'Excluir mesmo assim', icone: 'bi-trash3', moldura: 'alerta' };
-    }
-
-    function excluirMarcadorConfirmado(id, token, btnExcluir) {
-        var url = urlExcluir.replace('/0', '/' + id);
-        btnExcluir.disabled = true;
-        editarErro.style.display = 'none';
-
-        fetch(url, {
-            method: 'DELETE',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: '_token=' + encodeURIComponent(token),
-        })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-        .then(function (res) {
-            btnExcluir.disabled = false;
-            if (!res.ok) {
-                editarErro.textContent   = res.data.erro || 'Erro ao excluir.';
-                editarErro.style.display = '';
-                return;
-            }
-            bootstrap.Modal.getInstance(modalEditar).hide();
-            var item = document.getElementById('item-pasta-' + id);
-            if (item) item.remove();
-        })
-        .catch(function () {
-            btnExcluir.disabled = false;
-            editarErro.textContent   = 'Erro de comunicação.';
-            editarErro.style.display = '';
-        });
-    }
-
-    document.getElementById('btnSalvarMarcador').addEventListener('click', function () {
-        var nome  = inputNome.value.trim();
-        var paiId = inputPaiId.value;
-
-        if (!nome) { inputNome.focus(); return; }
-
-        var btn = this;
-        btn.disabled = true;
-
-        var body = new URLSearchParams({ nome: nome, _token: csrfToken, cor: paletaCriar.getCor() });
-        if (paiId) body.append('pai_id', paiId);
-
-        fetch(urlCriar, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
-        })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-        .then(function (res) {
-            if (!res.ok) {
-                divErro.textContent   = res.data.erro || res.data.mensagem || 'Erro ao salvar.';
-                divErro.style.display = '';
-                btn.disabled = false;
-                return;
-            }
-            inserirNoMenu(res.data);
-            bootstrap.Modal.getInstance(modal).hide();
-            btn.disabled = false;
-        })
-        .catch(function () {
-            divErro.textContent   = 'Erro de comunicação.';
-            divErro.style.display = '';
-            btn.disabled = false;
-        });
-    });
-
-    function inserirNoMenu(marcador) {
-        if (marcador.paiId) {
-            // Sub-marcador: adiciona dentro do submenu do pai
-            var submenu = document.getElementById('grupo-pasta-' + marcador.paiId);
-            if (!submenu) return;
-
-            var li = document.createElement('li');
-            li.id        = 'item-pasta-' + marcador.id;
-            li.innerHTML = criarHtmlSub(marcador);
-            // Insere antes do botão "Novo sub-marcador"
-            var btnNovo = submenu.querySelector('.js-abrir-modal-marcador');
-            submenu.insertBefore(li, btnNovo ? btnNovo.parentElement : null);
-            submenu.classList.add('show');
-
-            var chevron = submenu.previousElementSibling
-                ? submenu.previousElementSibling.querySelector('.expediente-chevron')
-                : null;
-            if (chevron) {
-                chevron.classList.remove('bi-chevron-right');
-                chevron.classList.add('bi-chevron-down');
-            }
-        } else {
-            // Marcador raiz
-            var lista = document.getElementById('lista-marcadores');
-            var li = document.createElement('li');
-            li.id        = 'item-pasta-' + marcador.id;
-            li.className = 'expediente-menu-item';
-            li.innerHTML = criarHtmlRaiz(marcador);
-            lista.appendChild(li);
-
-            // delegação cuida do click — sem listener manual necessário
-        }
-    }
-
-    function criarHtmlRaiz(marcador) {
-        var grupoId     = 'pasta-' + marcador.id;
-        var csrfExcluir = marcador.csrfExcluir || '';
-        var csrfEditar  = marcador.csrfEditar  || '';
-        var cor         = marcador.cor         || '';
-        var classeLink  = 'expediente-menu-link' + (cor ? ' com-cor' : '');
-        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid rgba(0,0,0,0.15);"' : '';
-        var dotCor = cor ? '<span class="marcador-cor-dot" style="background:' + escHtml(cor) + ';" title="' + escHtml(marcador.nome) + '"></span>' : '';
-        return '<a href="#" class="' + classeLink + '" data-grupo="' + grupoId + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
-               '<i class="bi bi-chevron-right expediente-chevron"></i>' +
-               '<i class="bi bi-folder2 expediente-icon"></i>' +
-               dotCor +
-               '<span class="expediente-item-nome" title="' + escHtml(marcador.nome) + '">' + escHtml(marcador.nome) + '</span>' +
-               '<button type="button" class="expediente-btn-add-sub ms-auto"' +
-               ' data-pai-id="' + marcador.id + '" data-pai-nome="' + escHtml(marcador.nome) + '"' +
-               ' title="Novo sub-marcador"><i class="bi bi-plus-lg"></i></button>' +
-               '<button type="button" class="expediente-btn-acao js-editar-marcador"' +
-               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '" data-token-excluir="' + escHtml(csrfExcluir) + '"' +
-               ' title="Editar marcador"><i class="bi bi-pencil"></i></button>' +
-               '</a>' +
-               '<ul class="expediente-submenu" id="grupo-pasta-' + marcador.id + '">' +
-               '</ul>';
-    }
-
-    function criarHtmlSub(marcador) {
-        var csrfExcluir = marcador.csrfExcluir || '';
-        var csrfEditar  = marcador.csrfEditar  || '';
-        var cor         = marcador.cor         || '';
-        var classeLink  = 'expediente-submenu-link' + (cor ? ' com-cor' : '');
-        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid rgba(0,0,0,0.15);"' : '';
-        var dotCor = cor ? '<span class="marcador-cor-dot" style="background:' + escHtml(cor) + ';"></span>' : '';
-        return '<a href="#" class="' + classeLink + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
-               '<i class="bi bi-folder2 expediente-sub-icon"></i>' +
-               dotCor +
-               '<span class="expediente-item-nome" title="' + escHtml(marcador.nome) + '">' + escHtml(marcador.nome) + '</span>' +
-               '<button type="button" class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"' +
-               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '" data-token-excluir="' + escHtml(csrfExcluir) + '"' +
-               ' title="Editar sub-marcador"><i class="bi bi-pencil"></i></button>' +
-               '</a>';
-    }
 
     function injetarHtmlComScripts(container, html) {
         container.innerHTML = html;
@@ -1660,18 +504,32 @@ document.addEventListener('DOMContentLoaded', function () {
        apagava a marca (só da raiz) logo em seguida, e o selecionado do desenho nunca aparecia. Raiz e
        sub-marcador saem juntos: abrir um marcador raiz deixava marcado o sub-marcador aberto antes. */
     function marcarNoTrilho(link) {
-        document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link').forEach(function (l) { l.classList.remove('active'); });
-        if (link) link.classList.add('active');
+        document.querySelectorAll('.exp-tri-todas, .exp-tri-item').forEach(function (l) { l.classList.remove('active'); l.removeAttribute('aria-current'); });
+        if (link) { link.classList.add('active'); link.setAttribute('aria-current', 'true'); }
     }
 
-    function carregarPainel(url, nomeAtivo) {
-        painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+    /* E12: com `opcoes.efeito`, o efeito do desenho (dc `bxFx`, 1,3 s) "Só um instante, estamos buscando em todo
+       o sistema…" fica no lugar da tabela até o tempo dele passar, mesmo que a resposta chegue antes. */
+    var EFEITO_BUSCA = '<div class="exp-busca-efeito" role="status"><span class="exp-busca-efeito-txt"><i class="bi bi-stars" aria-hidden="true"></i>Só um instante, estamos buscando em todo o sistema…</span><span class="exp-busca-efeito-barra" aria-hidden="true"><span></span></span></div>';
+
+    function carregarPainel(url, nomeAtivo, opcoes) {
+        var efeito = !!(opcoes && opcoes.efeito);
+        // "Pastas por página" escolhido no Visualizar vale para todo painel (dc `porPag`, guardado no navegador).
+        var pp = null;
+        try { pp = localStorage.getItem('expediente_por_pagina'); } catch (e) { /* indisponível */ }
+        if (pp && url.indexOf('por_pagina=') === -1) url += (url.indexOf('?') === -1 ? '?' : '&') + 'por_pagina=' + encodeURIComponent(pp);
+        var inicio = Date.now();
+        painel.innerHTML = efeito ? EFEITO_BUSCA : '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
         if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
 
                 return r.text();
+            })
+            .then(function (html) {
+                var falta = efeito ? 1300 - (Date.now() - inicio) : 0;
+                return falta > 0 ? new Promise(function (ok) { setTimeout(function () { ok(html); }, falta); }) : html;
             })
             .then(function (html) {
                 injetarHtmlComScripts(painel, html);
@@ -1702,12 +560,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/"/g, '&quot;');
     }
 
-    function formatarDataFiltro(iso) {
-        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-
-        return m ? (m[3] + '/' + m[2] + '/' + m[1]) : iso;
-    }
-
     function construirChipsPastas() {
         var form = document.getElementById('formFiltrosPasta');
         var box  = document.getElementById('pasta-chips');
@@ -1715,23 +567,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var chips = [];
 
-        var busca = form.querySelector('.js-pasta-busca');
-        if (busca && busca.value.trim() !== '') {
-            chips.push({ campo: 'busca', rotulo: 'Busca', valor: busca.value.trim() });
-        }
-
-        // `form.elements` e não querySelectorAll: o filtro de situação mora na barra do acervo, fora do <form>,
-        // associado por `form="formFiltrosPasta"` (pasta/_filtro_situacao).
-        Array.prototype.filter.call(form.elements, function (el) { return el.matches('select.js-pasta-filtro'); }).forEach(function (sel) {
-            if (sel.value !== '') {
-                var opt = sel.options[sel.selectedIndex];
-                chips.push({
-                    campo: sel.name,
-                    rotulo: sel.dataset.rotulo || '',
-                    valor: opt ? opt.textContent.trim() : sel.value
-                });
-            }
-        });
+        // E12: no desenho 1.1 os filtros aparecem nos próprios campos (azul-claros quando valem) e o "Limpar" é
+        // o ícone da faixa. Chip só para o "Criado por", que não tem campo (chega pelo deep-link do Dashboard).
 
         // "Criado por" (hidden, só via deep-link): o nome vem do próprio select de
         // responsável, que lista os mesmos colaboradores ativos do Dashboard.
@@ -1756,17 +593,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 valor: valorCriador
             });
         }
-
-        ['data_de', 'data_ate'].forEach(function (campo) {
-            var input = form.querySelector('[name="' + campo + '"]');
-            if (input && input.value !== '') {
-                chips.push({
-                    campo: campo,
-                    rotulo: input.dataset.rotulo || '',
-                    valor: formatarDataFiltro(input.value)
-                });
-            }
-        });
 
         if (chips.length === 0) { box.innerHTML = ''; return; }
 
@@ -1921,36 +747,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    function toggleSubmenu(e) {
-        e.preventDefault();
-        var grupo   = this.dataset.grupo;
-        var submenu = document.getElementById('grupo-' + grupo);
-        var chevron = this.querySelector('.expediente-chevron');
-
-        marcarNoTrilho(this);
-
-        // Extrai o id do marcador a partir do grupo ("pasta-{id}")
-        var marcadorId = grupo ? grupo.replace('pasta-', '') : null;
-        if (marcadorId) {
-            var url = urlPainelMarcador.replace('/0/', '/' + marcadorId + '/');
-            var nomeMarcador = this.querySelector('span') ? this.querySelector('span').textContent.trim() : '';
-            carregarPainel(url, nomeMarcador);
-        }
-
-        if (!submenu) return;
-        var aberto = submenu.classList.contains('show');
-        var folderIcon = this.querySelector('.expediente-icon');
-        if (aberto) {
-            submenu.classList.remove('show');
-            if (chevron) { chevron.classList.remove('bi-chevron-down'); chevron.classList.add('bi-chevron-right'); }
-            if (folderIcon) { folderIcon.classList.remove('bi-folder2-open'); folderIcon.classList.add('bi-folder2'); }
-        } else {
-            submenu.classList.add('show');
-            if (chevron) { chevron.classList.remove('bi-chevron-right'); chevron.classList.add('bi-chevron-down'); }
-            if (folderIcon) { folderIcon.classList.remove('bi-folder2'); folderIcon.classList.add('bi-folder2-open'); }
-        }
-    }
-
     // ── Popover customizado dos marcadores extras (delegado — funciona para conteúdo AJAX) ──
     (function () {
         if (document.__marcadoresPopoverInit) return;
@@ -2015,83 +811,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }, true);
     })();
 
-    // ── Atualização em tempo real dos contadores da sidebar ──────────────────
-    function alterarContagemSidebar(marcadorId, delta) {
-        var item = document.getElementById('item-pasta-' + marcadorId);
-        if (!item) return;
-        var link  = item.querySelector('.expediente-menu-link, .expediente-submenu-link');
-        if (!link) return;
-        var badge = link.querySelector('.js-contagem-marcador');
-        var count = badge ? parseInt(badge.textContent, 10) : 0;
-        count += delta;
-        if (count <= 0) {
-            if (badge) badge.remove();
-            return;
-        }
-        if (badge) {
-            badge.textContent = count;
-            badge.title = count + ' pasta(s)';
-        } else {
-            var novoBadge = document.createElement('span');
-            novoBadge.className  = 'js-contagem-marcador ms-1';
-            novoBadge.title      = count + ' pasta(s)';
-            novoBadge.textContent = count;
-            link.appendChild(novoBadge);
-        }
-    }
-
-    function atualizarContadoresSidebar(oldIds, newIds) {
-        oldIds.forEach(function (id) {
-            if (newIds.indexOf(id) === -1) alterarContagemSidebar(id, -1);
-        });
-        newIds.forEach(function (id) {
-            if (oldIds.indexOf(id) === -1) alterarContagemSidebar(id, +1);
-        });
-    }
-
     // ── Callback pós-salvar do modal "Mover para": atualiza badges na tabela E no cartão ──
-    window.moverParaAtualizarBadgesTabela = function (data, escHtml) {
-        var cols = document.querySelectorAll('.pasta-marcadores-col[data-pasta-id="' + data.pastaId + '"]');
-        if (!cols.length) return;
-
-        // Contadores da sidebar: computa o delta UMA vez (a partir do primeiro botão)
-        var primeiroBtn = document.querySelector('.js-mover-para[data-pasta-id="' + data.pastaId + '"]');
-        var oldIds = primeiroBtn && primeiroBtn.dataset.marcadoresAtivos
-            ? primeiroBtn.dataset.marcadoresAtivos.split(',').filter(Boolean).map(Number)
-            : [];
-        var newIds = data.marcadores.map(function (m) { return m.id; });
-        atualizarContadoresSidebar(oldIds, newIds);
-
-        // Monta o HTML dos badges uma vez
-        var novosHtml = '';
-        if (data.marcadores.length > 0) {
-            var primeiro = data.marcadores[0];
-            var bg0    = primeiro.cor || 'var(--bs-tertiary-bg)';
-            var cor0   = primeiro.cor ? '#333' : 'var(--bs-body-color)';
-            var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-            // E8: o mesmo chip do Twig (pasta cheia e o nome de todos no title).
-            var todos0 = data.marcadores.map(function (m) { return m.nome; }).join(', ');
-            novosHtml += '<span class="badge rounded-pill px-2 marcador-principal" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;" title="' + escHtml(todos0) + '"><i class="bi bi-folder-fill" aria-hidden="true"></i>' + escHtml(primeiro.nome) + '</span>';
-            if (data.marcadores.length > 1) {
-                var extrasJson = JSON.stringify(data.marcadores.slice(1).map(function (m) { return { nome: m.nome, cor: m.cor || '' }; }));
-                novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>+' + (data.marcadores.length - 1) + '</span>';
-            }
-        }
-
-        // Aplica em TODAS as colunas da pasta (td da tabela + div do cartão)
-        cols.forEach(function (col) {
-            var wrapper = col.querySelector('.d-flex');
-            if (wrapper) {
-                wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
-                wrapper.insertAdjacentHTML('afterbegin', novosHtml);
-            }
-            var btn = col.querySelector('.js-mover-para');
-            if (btn) btn.dataset.marcadoresAtivos = newIds.join(',');
-        });
+    // Ponte para o trilho e a Lista (expediente-trilho.js, expediente-lista.js): abrir painel, marcar item,
+    // recarregar só os resultados com parâmetros extras.
+    window.ExpPainel = {
+        carregar: carregarPainel,
+        marcar: marcarNoTrilho,
+        recarregarResultados: recarregarResultadosPastas,
+        paginaAtual: lerPaginaAtualDoPainel,
+        urlMarcador: function (id) { return urlPainelMarcador.replace('/0/', '/' + id + '/'); }
     };
+
 
 });
 </script>
 <script src="{{ asset('js/pasta-dialogos.js') }}"></script>
 <script src="{{ asset('js/expediente-lista.js') }}"></script>
+<script src="{{ asset('js/expediente-trilho.js') }}"></script>
 {% endblock %}

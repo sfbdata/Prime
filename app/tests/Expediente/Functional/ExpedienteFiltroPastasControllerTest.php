@@ -328,7 +328,7 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
 
         self::assertSame(
             'APLC TOP LIFE 1 - JOAO BATISTA FERREIRA GOMES',
-            trim($crawler->filter('.pasta-card-cliente')->first()->text()),
+            trim($crawler->filter('.exp-cartao-cli')->first()->text()),
             'o CARTÃO (modo lista) mostra o mesmo — os dois modos da tela não podem divergir',
         );
     }

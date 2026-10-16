@@ -137,193 +137,7 @@
     .exp-body .exp-titulo-icone .bi-folder2-open { animation: none; opacity: 1; }
 }
 
-/* ── Trilho de pastas e marcadores (dc L.60-76) ─────────────────────────── */
-/* Mantém a hierarquia (sub-marcadores), os vários marcadores por pasta e as cores pastéis de fundo
-   (decisão do dono 14/10). O desenho é um cartão branco; aqui, o mesmo cartão. */
-@media (min-width: 768px) {
-    .exp-body .expediente-sidebar {
-        background: var(--ex-card);
-        border: 1px solid var(--ex-borda);
-        border-radius: 4px;
-        box-shadow: 0 1px 2px rgba(18,36,47,.05);
-        padding: 16px 10px;
-        margin-right: 20px;
-        align-self: flex-start;
-    }
-}
-.exp-body .expediente-marcadores-titulo {
-    font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--ex-rotulo);
-}
-.exp-body .expediente-marcadores-add {
-    width: 26px; height: 26px; padding: 0; font-size: 13px;
-    border: 1px dashed var(--ex-mais-borda); border-radius: 3px;
-    background: var(--ex-card); color: var(--ex-azul);
-}
-.exp-body .expediente-marcadores-add:hover,
-.exp-body .expediente-marcadores-add:focus-visible { background: var(--ex-azul-claro); border-style: solid; color: var(--ex-azul); }
-.exp-body .expediente-menu-link,
-.exp-body .expediente-submenu-link {
-    min-height: 34px;
-    font-size: 14px;
-    color: var(--ex-corpo);
-    border-radius: 3px;
-    transition: background .15s;
-}
-.exp-body .expediente-menu-link:not(.com-cor):hover,
-.exp-body .expediente-submenu-link:not(.com-cor):hover { background: var(--ex-azul-hover); }
-/* Selecionado (dc: borda esquerda de 3px, fundo azul-claro, negrito). Nos marcadores com cor o fundo
-   pastel é o do usuário e fica; só a borda e o peso mudam. `!important` só porque a cor vem inline. */
-.exp-body .expediente-menu-link.active,
-.exp-body .expediente-submenu-link.active {
-    font-weight: 700;
-    border-left-color: var(--ex-azul) !important;
-}
-.exp-body .expediente-menu-link.active:not(.com-cor),
-.exp-body .expediente-submenu-link.active:not(.com-cor) { background: var(--ex-azul-claro) !important; }
-/* E8b: "Todas as pastas" selecionada é outra coisa no dc (medido): fundo #e8f3f9 e texto azul, peso normal,
-   sem a faixa — a faixa e o negrito são dos marcadores. */
-.exp-body .expediente-menu-link[data-painel] { min-height: 36px; }
-.exp-body .expediente-menu-link[data-painel].active { font-weight: 400; color: var(--ex-azul); border-left-color: transparent !important; }
-.exp-body .expediente-icon,
-.exp-body .expediente-sub-icon { color: var(--ex-rotulo); }
-.exp-body .expediente-menu-link.active .expediente-icon,
-.exp-body .expediente-submenu-link.active .expediente-sub-icon { color: var(--ex-azul); }
-/* "+" (sub-marcador) e lápis aparecem no hover sobre a contagem (dc L.73), sem ocupar espaço do nome
-   quando escondidos. Continuam focáveis: com o foco DE TECLADO no item ou num botão dele, aparecem
-   (`:focus-visible` — depois de um clique de mouse o foco fica no link e não deve prendê-los à vista). */
-.exp-body .expediente-menu-link[data-marcador-id],
-.exp-body .expediente-submenu-link { position: relative; }
-.exp-body .expediente-menu-link[data-marcador-id] .expediente-item-nome,
-.exp-body .expediente-submenu-link .expediente-item-nome { flex: 1 1 auto; min-width: 0; }
-.exp-body .expediente-btn-add-sub,
-.exp-body .expediente-btn-acao {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    width: 22px; height: 22px; margin: 0 !important;
-    opacity: 0;
-    border-radius: 3px;
-    background: var(--ex-contagem-bg); color: var(--ex-azul);
-    transition: opacity .12s, background .12s, color .12s, transform .12s;
-}
-.exp-body .expediente-menu-link .expediente-btn-acao,
-.exp-body .expediente-submenu-link .expediente-btn-acao { right: 4px; }
-.exp-body .expediente-menu-link .expediente-btn-add-sub { right: 30px; }
-.exp-body .expediente-menu-link:hover .expediente-btn-add-sub,
-.exp-body .expediente-menu-link:hover .expediente-btn-acao,
-.exp-body .expediente-menu-link:focus-visible .expediente-btn-add-sub,
-.exp-body .expediente-menu-link:focus-visible .expediente-btn-acao,
-.exp-body .expediente-submenu-link:focus-visible .expediente-btn-acao,
-.exp-body .expediente-menu-link:has(:focus-visible) .expediente-btn-add-sub,
-.exp-body .expediente-menu-link:has(:focus-visible) .expediente-btn-acao,
-.exp-body .expediente-submenu-link:hover .expediente-btn-acao,
-.exp-body .expediente-submenu-link:has(:focus-visible) .expediente-btn-acao { opacity: 1; }
-.exp-body .expediente-btn-add-sub:hover,
-.exp-body .expediente-btn-acao:hover,
-.exp-body .expediente-btn-add-sub:focus-visible,
-.exp-body .expediente-btn-acao:focus-visible { background: var(--ex-azul) !important; color: #fff !important; transform: translateY(-50%) scale(1.1); }
-/* O CSS antigo deixa os botões do marcador SELECIONADO sempre visíveis; aqui eles cobririam a contagem.
-   Com mouse: só no hover/foco, como nos outros. Sem hover (toque): visíveis, e a contagem sai. */
-@media (hover: hover) {
-    .exp-body .expediente-menu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-add-sub,
-    .exp-body .expediente-menu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-acao,
-    .exp-body .expediente-submenu-link.active:not(:hover):not(:focus-visible):not(:has(:focus-visible)) .expediente-btn-acao { opacity: 0; }
-}
-@media (hover: none) {
-    .exp-body .expediente-menu-link.active .expediente-btn-add-sub,
-    .exp-body .expediente-menu-link.active .expediente-btn-acao,
-    .exp-body .expediente-submenu-link.active .expediente-btn-acao { opacity: 1; }
-    .exp-body .expediente-menu-link.active .js-contagem-marcador,
-    .exp-body .expediente-submenu-link.active .js-contagem-marcador { visibility: hidden; }
-}
-.exp-body .expediente-menu-link:hover .js-contagem-marcador,
-.exp-body .expediente-menu-link:focus-visible .js-contagem-marcador,
-.exp-body .expediente-submenu-link:focus-visible .js-contagem-marcador,
-.exp-body .expediente-menu-link:has(:focus-visible) .js-contagem-marcador,
-.exp-body .expediente-submenu-link:hover .js-contagem-marcador,
-.exp-body .expediente-submenu-link:has(:focus-visible) .js-contagem-marcador { visibility: hidden; }
-
-/* ── E8d: trilho no 1.1 (AUD-04 a AUD-07) ──────────────────────────────────
-   Itens de peso normal e cor #243845 (dc L.73); a borda de 3px é transparente e só pinta no selecionado (o
-   estilo em linha antigo punha rgba(0,0,0,.15) em todo marcador com cor). Recuo de 9px depois da borda,
-   9px entre os ícones e o nome, 4px entre os itens. O fundo pastel, o ícone neutro e a seta dos
-   sub-marcadores ficam (decisão do dono, LX-TRI-05). */
-@media (min-width: 768px) {
-    .exp-body .expediente-sidebar:not(.sidebar-collapsed) { width: 250px; min-width: 250px; }
-    .exp-body .expediente-sidebar { padding-bottom: 18px; }
-}
-.exp-body .expediente-nav > .expediente-menu-list { padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.exp-body .expediente-menu-link,
-.exp-body .expediente-submenu-link {
-    gap: 9px; padding: 0 6px 0 9px;
-    font-weight: 400;
-    border-left: 3px solid transparent !important;
-}
-.exp-body .expediente-menu-link[data-painel] { padding-left: 9px; }
-.exp-body .expediente-icon--no-chevron { margin-left: 0; }
-.exp-body .expediente-menu-link.com-cor,
-.exp-body .expediente-menu-link.com-cor .expediente-icon,
-.exp-body .expediente-menu-link.com-cor .expediente-chevron,
-.exp-body .expediente-submenu-link.com-cor,
-.exp-body .expediente-submenu-link.com-cor .expediente-sub-icon { color: #243845 !important; }   /* o pastel é claro também no escuro */
-/* Cabeçalhos PASTAS e MARCADORES (dc L.61-69): rótulo a 6px da borda, 10px até o primeiro item; a divisória
-   #e6edf2 fica 14px abaixo de "Todas as pastas" e 14px acima de MARCADORES, recuada 4px dos lados. */
-.exp-body .expediente-marcadores-header { padding: 0 6px 10px !important; border-top: 0 !important; margin: 0; }
-.exp-body .expediente-marcadores-header ~ .expediente-marcadores-header { margin: 14px 4px 0; padding: 14px 2px 10px !important; border-top: 1px solid var(--ex-div) !important; }
-/* "+" e lápis no hover (dc L.73): "+" cinza #e2e9ee com o ícone escuro; lápis azul sem fundo; 13px. */
-.exp-body .expediente-menu-link .expediente-btn-add-sub { background: var(--ex-botao) !important; color: var(--ex-corpo) !important; }
-.exp-body .expediente-menu-link .expediente-btn-acao,
-.exp-body .expediente-submenu-link .expediente-btn-acao { background: transparent !important; color: var(--ex-azul) !important; }
-.exp-body .expediente-btn-add-sub,
-.exp-body .expediente-btn-acao,
-.exp-body .expediente-btn-add-sub .bi,
-.exp-body .expediente-btn-acao .bi { font-size: 13px; }
-.exp-body .expediente-btn-add-sub,
-.exp-body .expediente-btn-acao { padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; }
-.exp-body .expediente-menu-link .expediente-btn-add-sub:hover,
-.exp-body .expediente-menu-link .expediente-btn-add-sub:focus-visible,
-.exp-body .expediente-menu-link .expediente-btn-acao:hover,
-.exp-body .expediente-menu-link .expediente-btn-acao:focus-visible,
-.exp-body .expediente-submenu-link .expediente-btn-acao:hover,
-.exp-body .expediente-submenu-link .expediente-btn-acao:focus-visible { background: var(--ex-azul) !important; color: #fff !important; }
-
-/* Sobre o fundo pastel (claro nos dois temas) as cores do claro valem também no escuro: "+", lápis, contagem,
-   chip da tabela e nome do marcador na barra (no escuro o texto do tema é claro e sumia no pastel). */
-.exp-body .expediente-menu-link.com-cor .expediente-btn-add-sub { background: #e2e9ee !important; color: #243845 !important; }
-.exp-body .expediente-menu-link.com-cor .expediente-btn-acao,
-.exp-body .expediente-submenu-link.com-cor .expediente-btn-acao { color: #0a6fa0 !important; }
-.exp-body .expediente-menu-link.com-cor .js-contagem-marcador,
-.exp-body .expediente-submenu-link.com-cor .js-contagem-marcador { background: #e9eff3 !important; color: #34505f !important; }
-.exp-body .expediente-menu-link.com-cor .expediente-btn-add-sub:hover,
-.exp-body .expediente-menu-link.com-cor .expediente-btn-add-sub:focus-visible,
-.exp-body .expediente-menu-link.com-cor .expediente-btn-acao:hover,
-.exp-body .expediente-menu-link.com-cor .expediente-btn-acao:focus-visible,
-.exp-body .expediente-submenu-link.com-cor .expediente-btn-acao:hover,
-.exp-body .expediente-submenu-link.com-cor .expediente-btn-acao:focus-visible { background: #0a6fa0 !important; color: #fff !important; }
-.exp-body .marcador-principal[style*="background:#"],
-.exp-body .exp-barra-marcador[style*="background:#"] { color: #243845 !important; }
-
-/* Contagem (dc: 22×18, #e9eff3/#34505f, 11px negrito, raio 3, sem borda) */
-/* `!important` porque a regra antiga (inline em expediente/index) também usa em cada propriedade. */
-.exp-body .js-contagem-marcador {
-    min-width: 22px; height: 18px !important; padding: 0 5px !important;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 3px !important; border: 0 !important;
-    background: var(--ex-contagem-bg) !important; color: var(--ex-contagem-tx) !important;
-    font-size: 11px !important; font-weight: 700 !important; line-height: 1 !important;
-}
-/* Botão de recolher (dc L.76): círculo 28px azul com sombra, na borda direita do cartão — fora do
-   fluxo (antes ele ocupava o topo do trilho). */
-@media (min-width: 768px) {
-    .exp-body .expediente-sidebar { position: relative; overflow: visible; }
-    .exp-body .expediente-sidebar-toggle-btn { position: absolute !important; top: 50% !important; right: -14px; margin: 0 !important; z-index: 5; }
-    .exp-body .expediente-sidebar.sidebar-collapsed .expediente-sidebar-toggle-btn { top: 172px !important; }
-}
-.exp-body .expediente-sidebar-toggle-btn {
-    width: 28px; height: 28px; font-size: 13px;
-    background: var(--ex-azul); color: #fff; border: 0;
-    box-shadow: 0 2px 6px rgba(10,111,160,.35);
-    transition: transform .15s;
-}
-.exp-body .expediente-sidebar-toggle-btn:hover { transform: scale(1.08); background: var(--ex-azul); color: #fff; }
+/* O trilho do desenho 1.1 (E12) mora em expediente-lista-12.css. */
 
 /* ── Painel do acervo: cartão branco + barra (dc L.79-82) ───────────────── */
 .exp-body .expediente-content > #acervo-geral-wrapper,
@@ -576,20 +390,21 @@
    colunas fixas (818px) mais um mínimo legível para Cliente (120) e Ação (90), 1028px. Medido: a 1366px a
    tabela cabe sem rolagem lateral (com 1100 rolava 32px). De 901 a 1280px vale o piso maior (AUD-29, abaixo):
    nomes legíveis e a rolagem só dentro da tabela. */
-.exp-body #tabelaPastas { min-width: 1028px; }
+.exp-body #tabelaPastas { min-width: 1148px; }   /* E12: + Réu (mínimo 120px) */
 /* Colunas do desenho: 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116. E8b: Cliente e Ação dividem o resto em
    2:1.5. `calc` com % é ignorado no <col>; em percentual (40:30) o navegador mantém as fixas e reparte a sobra
    nessa razão enquanto a tabela tiver menos de ~2700px (medido: 185/139 a 1440px). Os mínimos do dc
    (minmax 220/190) não entram, por decisão do dono: somam 1228px e fazem a tabela do próprio dc estourar
    a 1440px (Situação cortada). */
-.exp-body #tabelaPastas colgroup col:nth-child(1) { width: 96px !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(2) { width: 40% !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(3) { width: 30% !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(4) { width: 120px !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(5) { width: 220px !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(6) { width: 76px !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(7) { width: 190px !important; }
-.exp-body #tabelaPastas colgroup col:nth-child(8) { width: 116px !important; }
+.exp-body #tabelaPastas col[data-col="nup"]     { width: 96px !important; }
+.exp-body #tabelaPastas col[data-col="cliente"] { width: 40% !important; }
+.exp-body #tabelaPastas col[data-col="reu"]     { width: 30% !important; }   /* E12: Réu (dc 1.5fr) */
+.exp-body #tabelaPastas col[data-col="acao"]    { width: 28% !important; }
+.exp-body #tabelaPastas col[data-col="prio"]    { width: 120px !important; }
+.exp-body #tabelaPastas col[data-col="resp"]    { width: 200px !important; }
+.exp-body #tabelaPastas col[data-col="metas"]   { width: 76px !important; }
+.exp-body #tabelaPastas col[data-col="marc"]    { width: 170px !important; }
+.exp-body #tabelaPastas col[data-col="sit"]     { width: 116px !important; }
 /* Nos mesmos cortes em que o `_tabela` esconde células (≤900px: Ação, Responsável, Metas; ≤768px: Marcadores),
    sai também o <col>. Célula escondida sai da grade e a seguinte herdava o <col> dela (medido: a 900px a
    Situação ficava com os 220px do Responsável), e o piso de 1100px deixava um vazio de ~600px a 768px. */
@@ -598,16 +413,17 @@
    900px (Ação, Responsável e Metas escondidas) o Cliente fica com os 220px do mínimo do dc: 522 + 220 = 742px. */
 @media (min-width: 901px) and (max-width: 1280px) {
     .exp-body #tabelaPastas { min-width: 1262px; }
+    .exp-body #tabelaPastas [data-col="reu"] { display: none; }   /* E12: o Réu cede primeiro (dc esconde colunas no container ≤960) */
 }
 @media (max-width: 900px) {
     .exp-body #tabelaPastas { min-width: 742px; }
-    .exp-body #tabelaPastas colgroup col:nth-child(3),
-    .exp-body #tabelaPastas colgroup col:nth-child(5),
-    .exp-body #tabelaPastas colgroup col:nth-child(6) { display: none; }
+    .exp-body #tabelaPastas col[data-col="acao"],
+    .exp-body #tabelaPastas col[data-col="resp"],
+    .exp-body #tabelaPastas col[data-col="metas"] { display: none; }
 }
 @media (max-width: 768px) {
     .exp-body #tabelaPastas { min-width: 452px; }
-    .exp-body #tabelaPastas colgroup col:nth-child(7) { display: none; }
+    .exp-body #tabelaPastas col[data-col="marc"] { display: none; }
 }
 /* LX-TAB-02 (dc L.145): o cabeçalho fica sob o topo fixo do sistema enquanto a tabela passa. O
    `.table-responsive` rola nos dois eixos e prende qualquer `sticky`; por isso o `expediente-lista.js`
@@ -630,11 +446,11 @@
 .exp-body #tabelaPastas thead .sort-icon { font-size: 10px; opacity: 1; margin-left: 6px; color: var(--ex-seta-ordem); vertical-align: 1px; }
 /* Colunas estreitas (Prioridade, Metas, Situação): como no dc, o rótulo inteiro e a seta só quando a
    coluna ordena ou está sob o mouse — senão a seta empurra o rótulo para cima da coluna vizinha. */
-.exp-body #tabelaPastas thead th:nth-child(4),
-.exp-body #tabelaPastas thead th:nth-child(6),
-.exp-body #tabelaPastas thead th:nth-child(8) { padding-left: 10px; padding-right: 6px; }
-.exp-body #tabelaPastas thead th:nth-child(4):not(.asc):not(.desc):not(:hover) .sort-icon,
-.exp-body #tabelaPastas thead th:nth-child(8):not(.asc):not(.desc):not(:hover) .sort-icon { display: none; }
+.exp-body #tabelaPastas thead th[data-col="prio"],
+.exp-body #tabelaPastas thead th[data-col="metas"],
+.exp-body #tabelaPastas thead th[data-col="sit"] { padding-left: 10px; padding-right: 6px; }
+.exp-body #tabelaPastas thead th[data-col="prio"]:not(.asc):not(.desc):not(:hover) .sort-icon,
+.exp-body #tabelaPastas thead th[data-col="sit"]:not(.asc):not(.desc):not(:hover) .sort-icon { display: none; }
 .exp-body #tabelaPastas thead th .bi:not(.sort-icon) { font-size: 13px; }
 .exp-body #tabelaPastas thead th.sortable:hover,
 .exp-body #tabelaPastas thead th.asc,
@@ -653,8 +469,8 @@
 /* AUD-23: o marcador aparece como foi cadastrado ("1. Despachar"); a caixa alta vinha da regra antiga das células. */
 .exp-body #tabelaPastas tbody .marcador-principal,
 .exp-body #tabelaPastas tbody .marcadores-extra { text-transform: none; }
-.exp-body #tabelaPastas tbody td:nth-child(2) { font-size: 14px; font-weight: 700; color: var(--ex-texto); }
-.exp-body #tabelaPastas tbody td:nth-child(4),
+.exp-body #tabelaPastas tbody td[data-col="cliente"] { font-size: 14px; font-weight: 700; color: var(--ex-texto); }
+.exp-body #tabelaPastas tbody td[data-col="prio"],
 .exp-body #tabelaPastas tbody td.col-marc-tabela,
 .exp-body #tabelaPastas tbody td:last-child { padding-top: 10px; padding-bottom: 10px; }
 .exp-body #tabelaPastas tbody td.col-resp-tabela { padding-top: 8px; padding-bottom: 8px; }

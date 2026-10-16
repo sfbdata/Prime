@@ -69,7 +69,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('nav[aria-label="Paginação"] .page-item.active'));
     }
 
-    #[TestDox('linha: prioridade com o rótulo do SISTEMA ("Prioridade", não "Alta") e bandeira; situação mantém o duplo clique; metas mostram o TOTAL')]
+    #[TestDox('linha: prioridade com o rótulo do desenho 1.1 ("Alta", E12) e bandeira; situação mantém o duplo clique; metas mostram o TOTAL')]
     public function testChipsPreservamAsRegras(): void
     {
         $client = static::createClient();
@@ -82,7 +82,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
 
         $prio = $linha->filter('span.exp-prio');
         self::assertSame('prioridade', $prio->attr('data-prio'));
-        self::assertSame('Prioridade', trim($prio->text()));
+        self::assertSame('Alta', trim($prio->text()));
         self::assertCount(1, $prio->filter('i.bi-flag-fill'));
 
         $sit = $linha->filter('.js-toggle-situacao');
@@ -99,7 +99,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Sem metas', $linha->filter('td.col-tarefas-tabela')->attr('title'), 'a dica fica na célula (o span não tem largura)');
     }
 
-    #[TestDox('marcadores: vários por pasta continuam (chip + "+N" + botão), o chip ganha a pasta do desenho e o nome de todos no title')]
+    #[TestDox('marcadores: vários por pasta continuam (chip + "+N"); o chip abre o menu MARCADOR do 1.1 e traz o nome de todos na dica')]
     public function testVariosMarcadores(): void
     {
         $client = static::createClient();
@@ -118,13 +118,14 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         $col = $crawler->filter('td.pasta-marcadores-col[data-pasta-id="' . $pasta->getId() . '"]');
         self::assertCount(1, $col->filter('.marcador-principal > i.bi-folder-fill'));
         self::assertSame('+1', trim($col->filter('.marcadores-extra')->text()));
-        self::assertCount(1, $col->filter('button.js-mover-para'));
-        $title = (string) $col->filter('.marcador-principal')->attr('title');
+        self::assertCount(1, $col->filter('button.marcador-principal.js-marc-pop'));
+        self::assertCount(1, $col->filter('button.exp-tag-vazio.js-marc-pop.is-escondido'), 'com marcador, o botão de etiqueta fica escondido como no dc');
+        $title = (string) $col->filter('.marcador-principal')->attr('data-tip');
         self::assertStringContainsString($a->getNome(), $title);
         self::assertStringContainsString($b->getNome(), $title);
     }
 
-    #[TestDox('painel do marcador: a barra traz o nome do marcador e o total dele; vazio no texto do desenho')]
+    #[TestDox('painel do marcador: o título da barra é o nome do marcador (dc `titulo`, E12); vazio no texto do desenho')]
     public function testPainelDoMarcadorEVazio(): void
     {
         $client = static::createClient();
@@ -136,8 +137,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->xmlHttpRequest('GET', '/expediente/marcador/' . $m->getId() . '/pastas');
         self::assertResponseIsSuccessful();
-        self::assertSame($m->getNome(), trim($crawler->filter('#painel-marcador-wrapper.exp-painel .exp-barra-marcador')->text()));
-        self::assertSame('0 pastas', trim($crawler->filter('.exp-barra-total')->text()));
+        self::assertSame($m->getNome(), trim($crawler->filter('#painel-marcador-wrapper.exp-painel .exp-barra-titulo')->text()));
         self::assertStringContainsString('Nenhuma pasta', trim($crawler->filter('.exp-vazio')->text()));
         self::assertCount(1, $crawler->filter('.exp-vazio > i.bi-folder-x'));
     }
@@ -151,9 +151,9 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
         $ths = $crawler->filter('#tabelaPastas thead th');
-        self::assertCount(8, $ths);
+        self::assertCount(9, $ths, 'E12: com a coluna Réu do 1.1');
         $icones = $ths->each(static fn ($th): string => (string) $th->filter('i')->first()->attr('class'));
-        self::assertSame(['bi bi-upc me-1', 'bi bi-person me-1', 'bi bi-bank me-1', 'bi bi-flag me-1', 'bi bi-person-badge me-1', 'bi bi-check2-square me-1', 'bi bi-tags me-1', 'bi bi-circle-half me-1'], $icones);
+        self::assertSame(['bi bi-upc me-1', 'bi bi-person me-1', 'bi bi-person-x me-1', 'bi bi-bank me-1', 'bi bi-flag me-1', 'bi bi-person-badge me-1', 'bi bi-check2-square me-1', 'bi bi-tags me-1', 'bi bi-circle-half me-1'], $icones);
 
         $nup = $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"]');
         self::assertSame('descending', $nup->attr('aria-sort'), 'a ordem padrão do repositório é NUP decrescente');
@@ -168,7 +168,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('ascending', $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"]')->attr('aria-sort'));
         self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"] > i.bi-caret-up-fill'));
         self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"] > i.bi-chevron-expand'));
-        self::assertCount(1, $crawler->filter('#tabelaPastas tbody td.col-marc-tabela .js-mover-para > i.bi-tag'), 'AUD-24: ícone do dc');
+        self::assertCount(1, $crawler->filter('#tabelaPastas tbody td.col-marc-tabela .exp-tag-vazio > i.bi-tag'), 'AUD-24: ícone do dc');
     }
 
     #[TestDox('E8d, AUD-08/11/12/13: situação na barra (associada ao form), Visualizar e paginação nos controles, resumo embaixo, filtros com cara de botão, setas em ícone')]
@@ -184,7 +184,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         // Situação: na barra, à direita de "Nova Pasta", fora do <form> mas associada a ele.
         $sit = $crawler->filter('#acervo-geral-wrapper > .exp-barra > .exp-situacao > select.exp-situacao-select[name="status"][form="formFiltrosPasta"]');
         self::assertCount(1, $sit);
-        self::assertSame(['Todas', 'Ativo', 'Arquivado'], $sit->filter('option')->each(static fn ($o): string => trim($o->text())));
+        self::assertSame(['Todas', 'Ativo', 'Suspenso', 'Cancelado', 'Arquivado'], $sit->filter('option')->each(static fn ($o): string => trim($o->text())));
         self::assertSame('ativo', $sit->filter('option[selected]')->attr('value'));
         self::assertSame('ativo', $crawler->filter('.exp-situacao')->attr('data-valor'));
         self::assertSame('Situação', $sit->attr('data-rotulo'));
@@ -198,7 +198,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('urgente', $prio->attr('data-valor'));
         self::assertCount(1, $prio->filter('i.exp-filtro-bandeira.bi-flag-fill'));
 
-        // Controles na mesma faixa: Visualizar (2 modos + painel) e a paginação; resumo depois.
+        // Controles na mesma faixa: Visualizar (5 modos, pastas por página e painel, E12) e a paginação; resumo depois.
         $controles = $crawler->filter('#pastasView > .exp-topo > .exp-controles');
         self::assertCount(1, $controles);
         $botao = $controles->filter('.exp-visualizar.pasta-view-toggle > button.js-visualizar');
@@ -207,10 +207,11 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Visualizar', trim($botao->text()));
         $menu = $controles->filter('#expVisualizarMenu[role="menu"]');
         self::assertNotNull($menu->attr('hidden'));
-        self::assertSame(['tabela', 'lista'], $menu->filter('.js-view-toggle[role="menuitemradio"]')->each(static fn ($b): string => (string) $b->attr('data-view')));
-        self::assertSame(['Detalhes', 'Cartões'], $menu->filter('.js-view-toggle')->each(static fn ($b): string => trim($b->text())));
+        self::assertSame(['tabela', 'compacto', 'simples', 'lista', 'grandes'], $menu->filter('.js-view-toggle[role="menuitemradio"]')->each(static fn ($b): string => (string) $b->attr('data-view')));
+        self::assertSame(['Detalhes', 'Detalhes compactos', 'Lista', 'Cartões', 'Cartões grandes'], $menu->filter('.js-view-toggle')->each(static fn ($b): string => trim($b->text())));
         self::assertCount(1, $menu->filter('.js-vis-painel[role="menuitemcheckbox"]'));
-        self::assertStringNotContainsString('por página', mb_strtolower($menu->text()), 'sem backend para pastas por página');
+        self::assertSame(['25', '50', '100'], $menu->filter('.js-por-pagina')->each(static fn ($b): string => trim($b->text())));
+        self::assertSame('50', trim($menu->filter('.js-por-pagina.is-atual')->text()), 'o padrão continua 50');
         self::assertCount(1, $controles->filter('nav[aria-label="Paginação"]'));
         self::assertCount(1, $crawler->filter('#pastasView > .exp-topo > .exp-controles + .exp-resumo'));
 
@@ -239,7 +240,8 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#pastasView > .exp-topo > .exp-controles > .exp-visualizar'));
 
         $crawler = $client->request('GET', '/expediente');
-        self::assertCount(1, $crawler->filter('.expediente-menu-link[data-painel] > i.bi-folder2.expediente-icon--no-chevron'));
+        // E12: "Todas as pastas" é o primeiro item do trilho do 1.1, com bi-folder2 e o ↻.
+        self::assertCount(1, $crawler->filter('#expTrilho > .exp-tri-todas[data-painel] > i.bi-folder2'));
     }
 
     /** @return array{0: User, 1: Tenant} */

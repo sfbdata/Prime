@@ -1,10 +1,13 @@
 {# Barra do acervo do desenho (dc L.79-82): faixa clara, título 17px e "Nova Pasta" cinza que fica azul. #}
 <div class="exp-painel" id="acervo-geral-wrapper">
     <div class="exp-barra">
-        <h2 class="exp-barra-titulo"><i class="bi bi-folder2" aria-hidden="true"></i>Acervo geral</h2>
+        {# Título (dc `titulo`, L.120, E12): o filtro do sistema aberto no trilho, ou "Acervo geral"; clicar volta
+           ao acervo geral sem filtros. #}
+        {% set TITULOS = {resp10: 'Respondidos nos últimos 10 dias', findou: 'Prazo findou sem resposta', prazo: 'Expediente com prazo', metas: 'Metas não respondidas'} %}
+        <h2 class="exp-barra-titulo" role="button" tabindex="0" data-tip="Voltar ao acervo geral (ordem padrão)"><i class="bi bi-folder2" aria-hidden="true"></i>{{ TITULOS[filters.expediente ?? ''] ?? 'Acervo geral' }}</h2>
         <button type="button" class="exp-nova-pasta"
                 data-bs-toggle="modal" data-bs-target="#modalNovaPasta"
-                title="Abrir uma nova pasta (o número é gerado automaticamente)">
+                data-tip="Abrir uma nova pasta (o número é gerado automaticamente)">
             <i class="bi bi-folder-plus" aria-hidden="true"></i>Nova Pasta
         </button>
         {{ include('pasta/_filtro_situacao.html.twig') }}
@@ -13,7 +16,7 @@
     {{ include('pasta/_filtros.html.twig') }}
 
     <div id="pastas-resultado">
-        {{ include('pasta/_tabela.html.twig') }}
+        {{ include('expediente/_lista.html.twig') }}
         {# A paginação do desenho é a do topo (dentro da tabela); esta, no rodapé, é só do BlueJus e só
            aparece com mais de uma página. #}
         <div class="mt-2">

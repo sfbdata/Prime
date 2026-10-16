@@ -1,0 +1,770 @@
+{# Só os RESULTADOS da listagem de pastas. A barra de filtro fica em
+   pasta/_filtros.html.twig (fora da área trocável). #}
+{% import '_partials/_avatar_usuario.html.twig' as av %}
+{% set filters = filters ?? {} %}
+{% set responsaveis = responsaveis ?? [] %}
+{% set usuarios = usuarios ?? responsaveis %}
+{% set fotosResponsaveis = fotosResponsaveis ?? {} %}
+{% set ordCol = ordenar ?? '' %}
+{% set ordDir = (direcao ?? '') == 'asc' ? 'asc' : 'desc' %}
+{# O que o cabeçalho mostra: sem ordenação escolhida vale a padrão do repositório, NUP decrescente. #}
+{% set ordColVis = ordCol ?: 'nup' %}
+{% set ordDirVis = ordCol ? ordDir : 'desc' %}
+{% import _self as tab %}
+{% macro seta(col, atual, dir) %}<i class="bi {{ col == atual ? (dir == 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill') : 'bi-chevron-expand' }} sort-icon" aria-hidden="true"></i>{% endmacro %}
+{% macro ariaSort(col, atual, dir) %}{% if col == atual %} aria-sort="{{ dir == 'asc' ? 'ascending' : 'descending' }}"{% endif %}{% endmacro %}
+{# Favoritas do usuário logado (menu ⋮ da pasta → "Fixar nos favoritos"): uma consulta só,
+   e a linha ganha a estrela. Quem as põe no topo é a ordenação do repositório. #}
+{% set favoritasIds = pastas_favoritas_ids() %}
+
+<style>
+@keyframes urgente-pulso {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .35; }
+}
+.badge-urgente-pulso {
+    animation: urgente-pulso 1.2s ease-in-out infinite;
+}
+</style>
+
+{% if pastas|length > 0 %}
+<div class="pastas-view pastas-view--tabela" id="pastasView">
+{# Topo do resultado no desenho 1.1 (dc L.112-139, AUD-11/12): "Visualizar" e a paginação ficam na MESMA linha
+   dos filtros, à direita, e o resumo vem sozinho embaixo. Os filtros moram fora desta área trocável
+   (pasta/_filtros); no desktop o `.exp-topo` some da caixa (display: contents, expediente-lista.css) e os
+   controles entram na faixa dos filtros. No celular (sem "Visualizar": sempre cartões) fica empilhado. #}
+<div class="exp-topo">
+    <div class="exp-controles">
+        {# "Ordenar por" — só no modo lista (no desktop) e no mobile (nenhum tem cabeçalho de coluna) #}
+        {# Mesma ordem que o cabeçalho mostra: sem escolha, a padrão (NUP decrescente). #}
+        {% set ordAtual = ordColVis ~ '|' ~ ordDirVis %}
+        <div class="pasta-ordenar-wrap">
+            <select class="form-select form-select-sm js-pasta-ordenar" aria-label="Ordenar por" title="Ordenar por">
+                <option value="" disabled>Ordenar por…</option>
+                <option value="nup|asc"          {% if ordAtual == 'nup|asc' %}selected{% endif %}>NUP (crescente)</option>
+                <option value="nup|desc"         {% if ordAtual == 'nup|desc' %}selected{% endif %}>NUP (decrescente)</option>
+                <option value="cliente|asc"      {% if ordAtual == 'cliente|asc' %}selected{% endif %}>Cliente (A-Z)</option>
+                <option value="cliente|desc"     {% if ordAtual == 'cliente|desc' %}selected{% endif %}>Cliente (Z-A)</option>
+                <option value="prioridade|desc"  {% if ordAtual == 'prioridade|desc' %}selected{% endif %}>Prioridade (maior primeiro)</option>
+                <option value="prioridade|asc"   {% if ordAtual == 'prioridade|asc' %}selected{% endif %}>Prioridade (menor primeiro)</option>
+                <option value="acao|asc"         {% if ordAtual == 'acao|asc' %}selected{% endif %}>Ação (A-Z)</option>
+                <option value="responsavel|asc"  {% if ordAtual == 'responsavel|asc' %}selected{% endif %}>Responsável (A-Z)</option>
+                <option value="situacao|asc"     {% if ordAtual == 'situacao|asc' %}selected{% endif %}>Situação</option>
+            </select>
+        </div>
+        {# "Visualizar" (dc L.151-169, E12): os 5 modos, "Pastas por página" e "Painel de marcadores". #}
+        {% set porPaginaAtual = pagination.per_page ?? 50 %}
+        <div class="exp-visualizar pasta-view-toggle d-none d-md-block">
+            <button type="button" class="exp-visualizar-botao js-visualizar" aria-haspopup="menu" aria-expanded="false"
+                    aria-controls="expVisualizarMenu" data-tip="Escolher como exibir as pastas">
+                <i class="bi bi-list-columns-reverse js-visualizar-icone" aria-hidden="true"></i>Visualizar<i class="bi bi-chevron-down exp-visualizar-seta" aria-hidden="true"></i>
+            </button>
+            <div class="exp-visualizar-menu" id="expVisualizarMenu" role="menu" aria-label="Visualizar" hidden>
+                {% for m in [
+                    ['tabela', 'Detalhes', 'bi-list-columns-reverse', 'Tabela com todas as colunas'],
+                    ['compacto', 'Detalhes compactos', 'bi-list-columns', 'Tabela com linhas mais baixas'],
+                    ['simples', 'Lista', 'bi-list', 'Uma linha por pasta'],
+                    ['lista', 'Cartões', 'bi-grid', 'Pastas em cartões'],
+                    ['grandes', 'Cartões grandes', 'bi-grid-1x2', 'Cartões maiores, mais legíveis']
+                ] %}
+                <button type="button" class="exp-vis-item js-view-toggle" data-view="{{ m[0] }}" data-icone="{{ m[2] }}" role="menuitemradio" aria-checked="{{ m[0] == 'tabela' ? 'true' : 'false' }}" data-tip="{{ m[3] }}">
+                    <span class="exp-vis-ponto" aria-hidden="true"></span><i class="bi {{ m[2] }}" aria-hidden="true"></i>{{ m[1] }}
+                </button>
+                {% endfor %}
+                <div class="exp-vis-sep" role="separator"></div>
+                <div class="exp-vis-titulo">Pastas por página</div>
+                <div class="exp-vis-porpag" role="group" aria-label="Pastas por página">
+                    {% for n in [25, 50, 100] %}
+                        <button type="button" class="exp-vis-pp js-por-pagina{{ n == porPaginaAtual ? ' is-atual' }}" data-n="{{ n }}" aria-pressed="{{ n == porPaginaAtual ? 'true' : 'false' }}">{{ n }}</button>
+                    {% endfor %}
+                </div>
+                <div class="exp-vis-sep" role="separator"></div>
+                <button type="button" class="exp-vis-item js-vis-painel" role="menuitemcheckbox" aria-checked="true">
+                    <span class="exp-vis-ponto" aria-hidden="true"></span><i class="bi bi-layout-sidebar-inset-reverse" aria-hidden="true"></i>Painel de marcadores
+                </button>
+            </div>
+        </div>
+        {% if pagination is defined and pagination is not null %}
+            {{ include('expediente/_paginacao.html.twig') }}
+        {% endif %}
+    </div>
+    {# Resumo do desenho (dc L.139, `resumo` em L.455): o INTERVALO de pastas desta página ("1 de 50"; na
+       segunda, "51 de 100") e o total da consulta inteira, separados por espaços largos (U+2003). A E8 lia
+       "página de N" (AUD-14). #}
+    {# Linha do resumo (dc L.178-182): botão de colunas (clique e botão direito) e o resumo. #}
+    <span class="exp-resumo">
+        <button type="button" class="exp-colunas js-colunas" data-url-csv="{{ path('expediente_exportar_csv') }}" data-tip="Colunas da tabela" aria-label="Colunas da tabela" aria-haspopup="menu"><i class="bi bi-layout-three-columns" aria-hidden="true"></i></button>
+        <i class="bi bi-list-ul" aria-hidden="true"></i>
+        {%- if pagination is defined and pagination is not null %}
+            {%- set primeiraDaPagina = (pagination.current_page - 1) * pagination.per_page + 1 %}
+            {{ primeiraDaPagina|number_format(0, ',', '.') }} de {{ (primeiraDaPagina + pastas|length - 1)|number_format(0, ',', '.') }}&#8195;·&#8195;Total: {{ pagination.total_items|number_format(0, ',', '.') }} pasta{{ pagination.total_items != 1 ? 's' : '' }}
+        {%- else %}
+            {{ pastas|length }} pasta{{ pastas|length != 1 ? 's' : '' }}
+        {%- endif %}
+    </span>
+</div>
+
+{# ── Tabela (dc L.190-234, E12) ─────────────────────────────────────────
+   Colunas do 1.1: NUP · Cliente · Réu · Ação · Prioridade · Responsável · Metas · Marcadores · Situação. Cada
+   <col>, <th> e <td> leva `data-col`: o menu de colunas esconde por ele (expediente-lista.js). A linha leva o que
+   o menu de botão direito precisa (id, número, nome, trancada, destaque) e as cores do destaque do usuário. #}
+{% set PRIO = {normal: 'Normal', prioridade: 'Alta', urgente: 'Urgente'} %}
+{% set PRIO_TIP = {normal: 'Prioridade normal: segue o fluxo padrão', prioridade: 'Prioridade alta: tratar antes das demais', urgente: 'Urgente: exige providência imediata'} %}
+{% set SIT = {ativo: ['Ativo', 'Pasta em andamento'], suspenso: ['Suspenso', 'Andamento suspenso temporariamente'], cancelado: ['Cancelado', 'Pasta cancelada'], arquivado: ['Arquivado', 'Pasta encerrada e arquivada']} %}
+{% set reusPorPasta = reusPorPasta ?? {} %}
+{% set pastasPorCliente = pastasPorCliente ?? {} %}
+{% set destaques = destaques ?? {} %}
+<div class="pastas-tabela-wrap card">
+    <div class="card-body table-responsive p-0">
+        <table class="table table-hover mb-0" id="tabelaPastas" data-csrf-lista="{{ csrfLista ?? '' }}" data-sou-admin="{{ (souAdministrador ?? false) ? '1' : '0' }}">
+            <colgroup>
+                <col data-col="nup"><col data-col="cliente"><col data-col="reu"><col data-col="acao"><col data-col="prio">
+                <col data-col="resp"><col data-col="metas"><col data-col="marc"><col data-col="sit">
+            </colgroup>
+            <thead class="table-light">
+                <tr>
+                    <th data-col="nup" class="sortable {{ ordColVis == 'nup' ? ordDirVis }}" data-ordenar="nup" title="Número único da pasta"{{ tab.ariaSort('nup', ordColVis, ordDirVis) }}><i class="bi bi-upc me-1"></i>NUP {{ tab.seta('nup', ordColVis, ordDirVis) }}</th>
+                    <th data-col="cliente" class="sortable {{ ordColVis == 'cliente' ? ordDirVis }}" data-ordenar="cliente" title="Ordenar por cliente"{{ tab.ariaSort('cliente', ordColVis, ordDirVis) }}><i class="bi bi-person me-1"></i>Cliente {{ tab.seta('cliente', ordColVis, ordDirVis) }}</th>
+                    <th data-col="reu" class="col-reu-tabela" title="Parte adversa (polo passivo dos processos da pasta)"><i class="bi bi-person-x me-1"></i>Réu</th>
+                    <th data-col="acao" class="sortable col-acao-tabela {{ ordColVis == 'acao' ? ordDirVis }}" data-ordenar="acao" title="Ordenar por ação"{{ tab.ariaSort('acao', ordColVis, ordDirVis) }}><i class="bi bi-bank me-1"></i>Ação {{ tab.seta('acao', ordColVis, ordDirVis) }}</th>
+                    <th data-col="prio" class="sortable {{ ordColVis == 'prioridade' ? ordDirVis }}" data-ordenar="prioridade" title="Ordenar por prioridade"{{ tab.ariaSort('prioridade', ordColVis, ordDirVis) }}><i class="bi bi-flag me-1"></i>Prioridade {{ tab.seta('prioridade', ordColVis, ordDirVis) }}</th>
+                    <th data-col="resp" class="sortable col-resp-tabela {{ ordColVis == 'responsavel' ? ordDirVis }}" data-ordenar="responsavel" title="Ordenar por responsável"{{ tab.ariaSort('responsavel', ordColVis, ordDirVis) }}><i class="bi bi-person-badge me-1"></i>Responsável {{ tab.seta('responsavel', ordColVis, ordDirVis) }}</th>
+                    <th data-col="metas" class="col-tarefas-tabela" title="Metas da pasta"><i class="bi bi-check2-square me-1"></i>Metas</th>
+                    <th data-col="marc" class="sortable col-marc-tabela {{ ordColVis == 'marcadores' ? ordDirVis }}" data-ordenar="marcadores" title="Ordenar por marcador"{{ tab.ariaSort('marcadores', ordColVis, ordDirVis) }}><i class="bi bi-tags me-1"></i>Marcadores {{ tab.seta('marcadores', ordColVis, ordDirVis) }}</th>
+                    <th data-col="sit" class="sortable {{ ordColVis == 'situacao' ? ordDirVis }}" data-ordenar="situacao" title="Ordenar por situação"{{ tab.ariaSort('situacao', ordColVis, ordDirVis) }}><i class="bi bi-circle-half me-1"></i>Situação {{ tab.seta('situacao', ordColVis, ordDirVis) }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pasta in pastas %}
+                {% set identificador = identificador_pasta(pasta) %}
+                {% set nomeLinha = identificador ?: (pasta.clientes|length > 0 ? pasta.clientes|map(c => c.nomeExibicao)|join('; ') : '') %}
+                {% set reus = reusPorPasta[pasta.id] ?? [] %}
+                {% set cliPrin = pasta.clientePrincipal %}
+                {% set rep = cliPrin ? (pastasPorCliente[cliPrin.id] ?? 0) : 0 %}
+                {% set dest = destaques[pasta.id] ?? '' %}
+                {% set sit = pasta.estaExcluida ? null : (SIT[pasta.situacao] ?? [pasta.situacao, '']) %}
+                <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if pasta.estaExcluida %} pasta-excluida{% endif %}"
+                    style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}"
+                    data-pasta-id="{{ pasta.id }}" data-nup="{{ pasta.nup }}" data-nome="{{ nomeLinha }}"
+                    data-url-nome="{{ path('expediente_pasta_nome', {id: pasta.id}) }}"
+                    data-url-trancar="{{ path('expediente_pasta_trancar', {id: pasta.id}) }}"
+                    data-url-destaque="{{ path('expediente_pasta_destaque', {id: pasta.id}) }}"
+                    data-trancada="{{ pasta.estaTrancada ? '1' : '0' }}"
+                    {% if dest %}data-dest="{{ dest }}"{% endif %}>
+                    <td data-col="nup" class="fw-semibold align-middle" data-favorito-celula="{{ pasta.id }}">
+                        <span class="exp-nup">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}{{ pasta.nup }}</span>
+                        {%- if pasta.estaTrancada %}
+                            <i class="bi bi-lock exp-cadeado js-cadeado" aria-label="Pasta trancada"
+                               data-tip="Documentos sigilosos · pasta trancada{{ pasta.trancadaPor ? ' por ' ~ pasta.trancadaPor.fullName : ' pelo usuário primário' }}{{ pasta.trancadaEm ? ' em ' ~ pasta.trancadaEm|date('d/m/Y') }}"></i>
+                        {%- endif %}
+                    </td>
+                    <td data-col="cliente" class="align-middle exp-cel-cliente">
+                        {# O NOME DA PASTA vem primeiro; o cliente cadastrado é o fallback (a ordenação por cliente usa a
+                           mesma precedência, ver PastaRepository). #}
+                        <span class="exp-cliente-linha">
+                        {% if identificador %}
+                            <span class="text-truncate js-nome-cliente" data-tip="{{ identificador }}">{{ identificador }}</span>
+                        {% elseif pasta.clientes|length > 0 %}
+                            {% if pasta.clientes|length == 1 %}
+                                <span class="text-truncate js-nome-cliente" data-tip="{{ pasta.clientes[0].nomeExibicao }}">{{ pasta.clientes[0].nomeExibicao }}</span>
+                            {% else %}
+                                <span class="clientes-resumo text-truncate js-nome-cliente"
+                                      data-bs-placement="right"
+                                      data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
+                                    {{ pasta.clientes[0].nomeExibicao }}&hellip;
+                                    <span class="badge text-bg-secondary ms-1" style="font-size:.65rem;">+{{ pasta.clientes|length - 1 }}</span>
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted js-nome-cliente">Sem cliente</span>
+                        {% endif %}
+                        {% if rep > 1 %}<span class="exp-rep" data-tip="{{ rep }} pastas com o mesmo nome e CPF">{{ rep }}x</span>{% endif %}
+                        </span>
+                    </td>
+                    <td data-col="reu" class="align-middle col-reu-tabela">
+                        {% if reus is not empty %}
+                            <span class="text-truncate d-block exp-reu" data-tip="{{ reus|length > 1 ? 'Réus: ' ~ reus|join(' · ') : reus[0] }}">{{ reus[0] }}{{ reus|length > 1 ? ' e outros' }}</span>
+                        {% else %}
+                            <span class="text-truncate d-block exp-reu exp-reu--vazio" data-tip="Réu não informado no cadastro da pasta">Não informado</span>
+                        {% endif %}
+                    </td>
+                    <td data-col="acao" class="col-acao-tabela align-middle">
+                        {% set acao = pasta.nomeAcao ?: (pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso) : '') %}
+                        <span class="text-truncate d-block" {% if acao %}data-tip="{{ acao }}"{% endif %}>{% if acao %}{{ acao }}{% else %}<span class="text-muted">Não informada</span>{% endif %}</span>
+                    </td>
+                    <td data-col="prio" class="align-middle" data-sort="{{ pasta.prioridade.value == 'urgente' ? 3 : (pasta.prioridade.value == 'prioridade' ? 2 : 1) }}">
+                        <span class="badge exp-prio" data-prio="{{ pasta.prioridade.value }}" data-tip="{{ PRIO_TIP[pasta.prioridade.value] }}">
+                            <i class="bi bi-flag-fill" aria-hidden="true"></i>{{ PRIO[pasta.prioridade.value] }}
+                        </span>
+                    </td>
+                    <td data-col="resp" class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
+                        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis, respContexto: 'expediente'}) }}
+                    </td>
+                    <td data-col="metas" class="col-tarefas-tabela align-middle"{% if pasta.tarefas is empty %} title="Sem metas"{% endif %}>
+                        {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
+                        {% set totalTarefas = pasta.tarefas|length %}
+                        {% if totalTarefas > 0 %}
+                            {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
+                            <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
+                               class="badge exp-metas {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                               data-metas="{{ temRevisao ? 'revisao' : (tarefasAtivas|length > 0 ? 'abertas' : 'concluidas') }}"
+                               data-tip="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} aberta(s) nesta pasta">
+                                <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
+                            </a>
+                        {% else %}
+                            <span class="exp-sem-metas"><span class="visually-hidden">Sem metas</span></span>
+                        {% endif %}
+                    </td>
+                    <td data-col="marc" class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">
+                        <div class="d-flex flex-nowrap gap-1 align-items-center">
+                            {% if pasta.marcadores|length > 0 %}
+                                {% set primeiro = pasta.marcadores|first %}
+                                {% set corChip = primeiro.cor|cor_marcador %}
+                                <button type="button" class="exp-chip-marc marcador-principal js-marc-pop" data-chip="1" style="--mk-cor: {{ corChip }};"
+                                        data-tip="{{ primeiro.descricao ?: pasta.marcadores|map(m => m.nome)|join(', ') }}">
+                                    <i class="bi bi-folder-fill" aria-hidden="true"></i><span>{{ primeiro.nome }}</span>
+                                </button>
+                                {% if pasta.marcadores|length > 1 %}
+                                    <span class="badge rounded-pill px-2 marcadores-extra"
+                                          data-marcadores-json="{{ pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor|cor_marcador})|json_encode }}">
+                                        +{{ pasta.marcadores|length - 1 }}
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                            <button type="button"
+                                    class="exp-tag-vazio js-marc-pop{% if pasta.marcadores|length > 0 %} is-escondido{% endif %}"
+                                    data-tagvazio="1"
+                                    data-pasta-id="{{ pasta.id }}"
+                                    data-pasta-nome="{{ pasta.nup }}"
+                                    data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                                    data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
+                                    data-url="{{ path('expediente_pasta_marcadores', {id: pasta.id}) }}"
+                                    data-tip="Adicionar marcador" aria-label="Adicionar marcador">
+                                <i class="bi bi-tag" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td data-col="sit" class="align-middle">
+                        {% if pasta.estaExcluida %}
+                            {# Sem js-toggle-situacao de propósito: o duplo-clique não pode ressuscitar uma pasta excluída. #}
+                            <span class="badge text-bg-danger pasta-badge-excluida"
+                                  title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}{% if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}">
+                                Excluída
+                            </span>
+                        {% elseif pasta.situacao in ['ativo', 'arquivado'] %}
+                        <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
+                              style="cursor:pointer;user-select:none;"
+                              data-situacao="{{ pasta.situacao }}"
+                              data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}"
+                              data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
+                              data-tip="{{ sit[1] }} · aberta em {{ pasta.dataAbertura|date('d/m/Y') }} · duplo clique alterna entre ativo e arquivado">
+                            {{ sit[0] }}
+                        </span>
+                        {% else %}
+                        <span class="badge exp-sit-fixa" data-situacao="{{ pasta.situacao }}" data-tip="{{ sit[1] }} · aberta em {{ pasta.dataAbertura|date('d/m/Y') }}">{{ sit[0] }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Lista (dc L.236-248): uma linha por pasta ── #}
+<div class="exp-simples">
+    {% for pasta in pastas %}
+        {% set nomeLinha = identificador_pasta(pasta) ?: (pasta.clientes|length > 0 ? pasta.clientes[0].nomeExibicao : 'Sem cliente') %}
+        {% set acao = pasta.nomeAcao ?: (pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.numeroProcesso) : '') %}
+        {% set sitS = pasta.estaExcluida ? 'excluida' : pasta.situacao %}
+        <a class="exp-simples-linha{% if pasta.estaExcluida %} pasta-excluida{% endif %}" href="{{ path('pasta_show', {id: pasta.id}) }}" data-pasta-id="{{ pasta.id }}" data-trancada="{{ pasta.estaTrancada ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
+            <span class="exp-simples-ponto" data-situacao="{{ sitS }}" data-tip="{{ pasta.estaExcluida ? 'Excluída' : (SIT[pasta.situacao][1] ?? '') }}"></span>
+            <span class="exp-simples-nup">{{ pasta.nup }}</span>
+            <span class="exp-simples-cli" data-tip="{{ nomeLinha }}">{{ nomeLinha }}</span>
+            <span class="exp-simples-acao" data-tip="{{ acao }}">{{ acao }}</span>
+            {% set r = pasta.responsavel %}
+            <span class="exp-simples-av{{ r ? '' : ' is-vazio' }}" data-tip="{{ r ? r.fullName : 'Sem responsável' }}">{{ r ? (r.fullName|split(' ')|filter(p => p != '')|slice(0, 2)|map(p => p|first)|join|upper) : '?' }}</span>
+        </a>
+    {% endfor %}
+</div>
+
+{# ── Cartões e cartões grandes (dc L.249-260) — desktop nos modos de cartão, e sempre no celular ── #}
+<div class="pastas-lista exp-cartoes">
+    {% for pasta in pastas %}
+        {% set nomeLinha = identificador_pasta(pasta) ?: (pasta.clientes|length > 0 ? pasta.clientes[0].nomeExibicao : 'Sem cliente') %}
+        {% set acao = pasta.nomeAcao ?: (pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.numeroProcesso) : '') %}
+        {% set r = pasta.responsavel %}
+        {% set eFavorita = favoritasIds[pasta.id] is defined %}
+        {# `div` com data-href (como a linha da tabela): o cartão tem o botão da estrela dentro, e botão não vai em link.
+           A estrela de favorito é só do BlueJus (o desenho não tem); lápide mostra só o indicador. #}
+        <div class="exp-cartao pasta-card pasta-row-link{% if pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" data-pasta-id="{{ pasta.id }}" data-trancada="{{ pasta.estaTrancada ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
+            <span class="exp-cartao-topo pasta-card-topo">
+                <span class="pasta-card-ident">
+                    {% if pasta.estaExcluida %}
+                        {% if eFavorita %}<i class="bi bi-star-fill pasta-favorita-estrela" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}
+                    {% else %}
+                        <button type="button" class="pasta-card-fav js-pasta-card-favorito{{ eFavorita ? ' is-favorita' : '' }}"
+                                aria-pressed="{{ eFavorita ? 'true' : 'false' }}"
+                                aria-label="{{ eFavorita ? 'Tirar dos favoritos' : 'Marcar como favorito' }}"
+                                title="{{ eFavorita ? 'Tirar dos favoritos' : 'Marcar como favorito' }}"
+                                data-pasta-id="{{ pasta.id }}"
+                                data-url="{{ path('pasta_favorito_alternar', {id: pasta.id}) }}"
+                                data-csrf="{{ csrf_token('pasta_favorito_' ~ pasta.id) }}">
+                            <i class="bi {{ eFavorita ? 'bi-star-fill' : 'bi-star' }}" aria-hidden="true"></i>
+                        </button>
+                    {% endif %}
+                    <span class="exp-cartao-nup pasta-card-nup">PASTA {{ pasta.nup }}{% if pasta.estaTrancada %} <i class="bi bi-lock exp-cadeado" aria-label="Pasta trancada"></i>{% endif %}</span>
+                </span>
+                <span class="exp-cartao-vao"></span>
+                <span class="exp-prio exp-prio--cartao" data-prio="{{ pasta.prioridade.value }}"><i class="bi bi-flag-fill" aria-hidden="true"></i>{{ PRIO[pasta.prioridade.value] }}</span>
+                {% if pasta.estaExcluida %}
+                    <span class="exp-sit-chip" data-situacao="excluida"><span class="exp-sit-chip-ponto"></span>Excluída</span>
+                {% else %}
+                    <span class="exp-sit-chip" data-situacao="{{ pasta.situacao }}"><span class="exp-sit-chip-ponto"></span>{{ SIT[pasta.situacao][0] ?? pasta.situacao }}</span>
+                {% endif %}
+            </span>
+            <span class="exp-cartao-cli" data-tip="{{ nomeLinha }}">{{ nomeLinha }}</span>
+            <span class="exp-cartao-acao" data-tip="{{ acao }}">{{ acao ?: 'Não informada' }}</span>
+            <span class="exp-cartao-pe">
+                <span class="exp-simples-av{{ r ? '' : ' is-vazio' }}">{{ r ? (r.fullName|split(' ')|filter(p => p != '')|slice(0, 2)|map(p => p|first)|join|upper) : '?' }}</span>
+                <span class="exp-cartao-resp">{{ r ? r.fullName : 'Sem responsável' }}</span>
+                <span class="exp-cartao-vao"></span>
+                {% if pasta.marcadores|length > 0 %}
+                    {% set primeiro = pasta.marcadores|first %}
+                    <span class="exp-chip-marc exp-chip-marc--cartao" style="--mk-cor: {{ primeiro.cor|cor_marcador }};">{{ primeiro.nome }}{% if pasta.marcadores|length > 1 %} +{{ pasta.marcadores|length - 1 }}{% endif %}</span>
+                {% endif %}
+            </span>
+        </div>
+    {% endfor %}
+</div>
+
+{{ include('pasta/_resp_menu.html.twig', {usuarios: usuarios, fotosResponsaveis: fotosResponsaveis|default({}), respContexto: 'expediente'}) }}
+</div>{# /#pastasView #}
+{% else %}
+{# Vazio do desenho (dc L.214). #}
+<div class="exp-vazio">
+    <i class="bi bi-folder-x" aria-hidden="true"></i>
+    {% if filters.busca or filters.status or filters.responsavel or filters.prioridade or filters.data_de or filters.data_ate %}
+        Nenhuma pasta encontrada com esses filtros.
+    {% else %}
+        Nenhuma pasta cadastrada.
+    {% endif %}
+</div>
+{% endif %}
+
+<style>
+/* ── Tabela desktop ──────────────────────────────────────────── */
+#tabelaPastas { table-layout: fixed; width: 100%; min-width: 920px; }
+#tabelaPastas thead th {
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+    border-bottom: 2px solid var(--bs-border-color);
+    padding: 10px 10px;
+}
+#tabelaPastas tbody td {
+    vertical-align: middle;
+    font-size: 0.75rem;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--bs-border-color);
+    text-transform: uppercase;
+}
+/* Respiro extra à direita da coluna Prioridade (rótulo encosta no vizinho) */
+#tabelaPastas thead th[data-col="prio"],
+#tabelaPastas tbody td[data-col="prio"] {
+    padding-right: 14px;
+}
+
+/* Colunas centralizadas: Metas, Marcadores, Situação */
+#tabelaPastas thead th.col-tarefas-tabela,
+#tabelaPastas tbody td.col-tarefas-tabela,
+#tabelaPastas thead th.col-marc-tabela,
+#tabelaPastas tbody td.col-marc-tabela,
+#tabelaPastas thead th[data-col="sit"],
+#tabelaPastas tbody td:last-child {
+    text-align: center;
+}
+#tabelaPastas tbody td.col-marc-tabela .d-flex {
+    justify-content: center;
+}
+/* Marcadores numa só linha: chip principal trunca, badge +N e botão não encolhem */
+#tabelaPastas tbody td.col-marc-tabela .marcador-principal {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#tabelaPastas tbody td.col-marc-tabela .marcadores-extra,
+#tabelaPastas tbody td.col-marc-tabela .js-mover-para {
+    flex-shrink: 0;
+}
+/* Respiro simétrico na última coluna (Situação) sem desalinhar o centro */
+#tabelaPastas thead th:last-child,
+#tabelaPastas tbody td:last-child { padding-left: 14px; padding-right: 14px; }
+#tabelaPastas tbody tr:last-child td { border-bottom: none; }
+#tabelaPastas tbody tr:hover { background: var(--bs-secondary-bg); }
+.clientes-resumo { cursor: default; white-space: nowrap; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { background-color: rgba(0,0,0,0.04); }
+.sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
+.sortable.asc .sort-icon, .sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
+
+/* Ocultar colunas secundárias em telas médias */
+@media (max-width: 900px) {
+    .col-acao-tabela, .col-resp-tabela, .col-tarefas-tabela, .col-reu-tabela { display: none; }
+}
+@media (max-width: 768px) {
+    .col-marc-tabela { display: none; }
+}
+
+/* ── Modo lista: cartões (desktop view=lista + mobile) ─────────── */
+.pastas-lista { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+
+.pasta-card {
+    position: relative;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    padding: 12px 16px 12px 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    transition: box-shadow .15s, transform .05s;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.pasta-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.10); }
+.pasta-card:active { transform: scale(.998); }
+/* Barra lateral colorida pela prioridade */
+.pasta-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+    background: var(--bs-secondary-color);
+}
+.pasta-card.pasta-prio-prioridade::before { background: var(--bs-warning); }
+.pasta-card.pasta-prio-urgente::before {
+    background: var(--bs-danger);
+    animation: urgente-pulso 1.2s ease-in-out infinite;
+}
+
+.pasta-card-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pasta-card-ident { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.pasta-favorita-estrela { color: #f0b400; font-size: .8rem; }
+/* Estrela de favorito do cartão: convenção da estrela de linha do explorador (dc L.4743) —
+   ligada #f0b400, desligada apagada, hover #e0a400. Área de toque de 32px no celular. */
+.pasta-card-fav {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 24px; height: 24px; margin: -4px -6px -4px -4px; padding: 0; align-self: center;
+    border: 0; border-radius: 4px; background: transparent; cursor: pointer;
+    font-size: 13px; line-height: 1; color: #b4c2cc; opacity: .55;
+    transition: color .15s, opacity .15s;
+}
+.pasta-card-fav:hover, .pasta-card-fav:focus-visible { color: #e0a400; opacity: 1; }
+.pasta-card-fav:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
+.pasta-card-fav.is-favorita { color: #f0b400; opacity: 1; }
+.pasta-card-fav[aria-busy="true"] { cursor: progress; opacity: .4; }
+[data-bs-theme="dark"] .pasta-card-fav:not(.is-favorita) { color: #7d8f9b; }
+@media (max-width: 767.98px) {
+    .pasta-card-fav { width: 32px; height: 32px; margin: -8px -8px -8px -8px; font-size: 15px; }
+}
+.pasta-card-nup { font-weight: 600; font-size: .78rem; color: var(--bs-secondary-color); white-space: nowrap; }
+.pasta-card-cliente {
+    font-size: .95rem; font-weight: 600; color: var(--bs-body-color); text-transform: uppercase;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Pasta excluída (lápide): continua na lista, riscada, para o número dela não sumir sem
+   explicação. O risco vai no TEXTO das células, não na linha inteira, senão ele atravessa
+   badge e foto de responsável — que não são texto e ficam ilegíveis. */
+.pasta-excluida { opacity: .65; }
+.pasta-excluida td:first-child,
+.pasta-excluida td .text-truncate,
+.pasta-excluida .pasta-card-cliente,
+.pasta-excluida .pasta-card-nup { text-decoration: line-through; }
+.pasta-badge-excluida { cursor: default; user-select: none; }
+
+.pasta-card-flags { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.pasta-card-flags .badge { font-size: .72rem; }
+
+.pasta-card-acao {
+    font-size: .82rem; color: var(--bs-secondary-color); text-transform: uppercase;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.pasta-card-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pasta-card-marc .d-flex { flex-wrap: wrap; }
+.pasta-card-dias { font-size: .75rem; flex-shrink: 0; }
+
+/* Toggle de view + "Ordenar por" */
+.pasta-view-toggle .btn.active {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+.pasta-ordenar-wrap .js-pasta-ordenar { width: auto; min-width: 168px; border-radius: 20px; }
+
+/* ── Alternância de layout ─────────────────────────────────────── */
+/* Desktop: respeita a view escolhida */
+@media (min-width: 768px) {
+    .pastas-view--tabela .pastas-lista { display: none; }
+    .pastas-view--lista  .pastas-tabela-wrap { display: none; }
+    .pastas-view--tabela .pasta-ordenar-wrap { display: none; } /* ordena por cabeçalho na tabela */
+}
+/* Mobile: sempre cartões, nunca tabela; toggle escondido pelo d-none */
+@media (max-width: 767.98px) {
+    .pastas-tabela-wrap { display: none; }
+}
+
+
+
+/* Filtros responsivos */
+@media (max-width: 575.98px) {
+    #filtrosPasta .row > div { flex: 0 0 100%; max-width: 100%; }
+}
+
+/* ── Popover de marcadores extras ── */
+.marcadores-popover-box {
+    position: absolute;
+    z-index: 9999;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 8px 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 120px;
+    max-width: 240px;
+    pointer-events: none;
+}
+.marcadores-popover-badge {
+    display: inline-block;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: .72rem;
+    font-weight: 500;
+    color: var(--bs-body-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+</style>
+
+{{ include('pasta/_resp_estilo.html.twig') }}
+<script>
+(function () {
+    /* ── Tooltips dos clientes ── */
+    function iniciarTooltipsClientes() {
+        document.querySelectorAll('.clientes-resumo[data-clientes]').forEach(function (el) {
+            if (bootstrap.Tooltip.getInstance(el)) return;
+            var nomes = el.dataset.clientes.split('||');
+            var html = nomes.map(function (n) { return '<div>' + n + '</div>'; }).join('');
+            new bootstrap.Tooltip(el, {
+                html: true,
+                trigger: 'hover',
+                placement: el.dataset.bsPlacement || 'right',
+                title: function () { return html; }
+            });
+        });
+    }
+
+    /* ── Popover customizado dos marcadores extras ── */
+    function iniciarTooltipsMarcadores() {
+        if (!document.getElementById('marcadores-popover')) {
+            var div = document.createElement('div');
+            div.id = 'marcadores-popover';
+            div.className = 'marcadores-popover-box';
+            div.style.display = 'none';
+            document.body.appendChild(div);
+        }
+
+        if (document.__marcadoresPopoverInit) return;
+        document.__marcadoresPopoverInit = true;
+
+        document.addEventListener('mouseover', function (e) {
+            var badge = e.target.closest('.marcadores-extra[data-marcadores-json]');
+            if (!badge) return;
+
+            var marcadores;
+            try { marcadores = JSON.parse(badge.dataset.marcadoresJson); } catch (err) { return; }
+            if (!marcadores || marcadores.length === 0) return;
+
+            var el = document.getElementById('marcadores-popover');
+            if (!el) return;
+
+            el.innerHTML = marcadores.map(function (m) {
+                var bg    = m.cor || 'var(--bs-tertiary-bg)';
+                var cor   = m.cor ? 'color:#333;' : '';
+                var borda = m.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
+                return '<span class="marcadores-popover-badge" style="background:' + bg + ';' + cor + borda + '">' +
+                       escHtmlSimples(m.nome) +
+                       '</span>';
+            }).join('');
+
+            posicionarPopover(badge);
+            el.style.display = '';
+        });
+
+        document.addEventListener('mouseout', function (e) {
+            var badge = e.target.closest('.marcadores-extra[data-marcadores-json]');
+            if (!badge) return;
+            var el = document.getElementById('marcadores-popover');
+            if (el) el.style.display = 'none';
+        });
+
+        document.addEventListener('scroll', function () {
+            var el = document.getElementById('marcadores-popover');
+            if (el && el.style.display !== 'none') el.style.display = 'none';
+        }, true);
+    }
+
+    function posicionarPopover(anchor) {
+        var popoverEl = document.getElementById('marcadores-popover');
+        if (!popoverEl) return;
+        var rect = anchor.getBoundingClientRect();
+        popoverEl.style.visibility = 'hidden';
+        popoverEl.style.display = '';
+        var popRect = popoverEl.getBoundingClientRect();
+        var top  = rect.top + window.scrollY - popRect.height - 8;
+        var left = rect.left + window.scrollX + (rect.width / 2) - (popRect.width / 2);
+        if (left < 8) left = 8;
+        if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - 8 - popRect.width;
+        if (top < window.scrollY + 8) top = rect.bottom + window.scrollY + 8;
+        popoverEl.style.top  = top  + 'px';
+        popoverEl.style.left = left + 'px';
+        popoverEl.style.visibility = '';
+    }
+
+    function escHtmlSimples(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            iniciarTooltipsClientes();
+            iniciarTooltipsMarcadores();
+        });
+    } else {
+        iniciarTooltipsClientes();
+        iniciarTooltipsMarcadores();
+    }
+
+    /* A ordenação por coluna é feita no servidor (ordena o acervo inteiro, não só
+       esta página). O clique no cabeçalho é tratado por delegação no shell do
+       Expediente (#expediente-painel); aqui a seta ativa já vem renderizada. */
+})();
+</script>
+
+{{ include('pasta/_resp_script.html.twig') }}
+
+<script>
+(function () {
+    /* E12: os 5 modos do desenho (dc `visOpcoes`), com chave própria (a tela Pastas segue com `pastasView`).
+       tabela e compacto são a tabela (compacto com linhas baixas); simples é a lista de uma linha; lista e
+       grandes são os cartões. Quem vinha do `pastasView` = 'lista' continua nos cartões. */
+    var STORAGE_KEY = 'expediente_modo';
+    var MODOS = { tabela: 'bi-list-columns-reverse', compacto: 'bi-list-columns', simples: 'bi-list', lista: 'bi-grid', grandes: 'bi-grid-1x2' };
+    function aplicarView(view) {
+        var wrap = document.getElementById('pastasView');
+        if (!wrap) return;
+        if (!MODOS[view]) view = 'tabela';
+        var cartoes = view === 'lista' || view === 'grandes';
+        wrap.classList.toggle('pastas-view--lista', cartoes);
+        wrap.classList.toggle('pastas-view--tabela', view === 'tabela' || view === 'compacto');
+        wrap.classList.toggle('pastas-view--simples', view === 'simples');
+        wrap.classList.toggle('pastas-view--compacto', view === 'compacto');
+        wrap.classList.toggle('pastas-view--grandes', view === 'grandes');
+        wrap.setAttribute('data-modo', view);
+        wrap.querySelectorAll('.js-view-toggle').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.view === view);
+            b.setAttribute('aria-checked', b.dataset.view === view ? 'true' : 'false');
+        });
+        var icone = wrap.querySelector('.js-visualizar-icone');
+        if (icone) { icone.className = 'bi ' + MODOS[view] + ' js-visualizar-icone'; }
+    }
+    var salvo = null;
+    try { salvo = localStorage.getItem(STORAGE_KEY) || (localStorage.getItem('pastasView') === 'lista' ? 'lista' : null); } catch (e) { /* indisponível */ }
+    aplicarView(salvo || 'tabela');
+    /* Estrela de favorito do cartão: mesmo endpoint e mesmo contrato do menu ⋮ da pasta
+       (`pasta_favorito_alternar` → `{favorita: bool}`). O estado mostrado espelha a RESPOSTA,
+       não o clique — se o POST falhar, fica o gravado. Delegado no document uma vez só. */
+    if (!document.__pastaCardFavoritoBound) {
+        document.__pastaCardFavoritoBound = true;
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-pasta-card-favorito');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (btn.getAttribute('aria-busy') === 'true') return;
+            btn.setAttribute('aria-busy', 'true');
+
+            var corpo = new FormData();
+            corpo.append('_token', btn.dataset.csrf);
+
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                body: corpo,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+                .then(function (r) {
+                    return r.json().then(function (d) { return { ok: r.ok, dados: d }; });
+                })
+                .then(function (r) {
+                    if (!r.ok || typeof r.dados.favorita !== 'boolean') {
+                        window.alert((r.dados && (r.dados.erro || r.dados.mensagem)) || 'Não foi possível alterar os favoritos.');
+                        return;
+                    }
+                    var on = r.dados.favorita;
+                    var rotulo = on ? 'Tirar dos favoritos' : 'Marcar como favorito';
+                    document.querySelectorAll('.js-pasta-card-favorito[data-pasta-id="' + btn.dataset.pastaId + '"]').forEach(function (b) {
+                        b.classList.toggle('is-favorita', on);
+                        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                        b.setAttribute('aria-label', rotulo);
+                        b.title = rotulo;
+                        var ic = b.querySelector('i');
+                        if (ic) { ic.className = 'bi ' + (on ? 'bi-star-fill' : 'bi-star'); }
+                    });
+                    /* O indicador da linha da TABELA (mesma pasta) acompanha: nasce ao ligar,
+                       sai ao desligar — como o servidor o renderiza (só na favorita). */
+                    document.querySelectorAll('td[data-favorito-celula="' + btn.dataset.pastaId + '"]').forEach(function (celula) {
+                        var ind = celula.querySelector('.js-pasta-tabela-favorita');
+                        if (on && !ind) {
+                            ind = document.createElement('i');
+                            ind.className = 'bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita';
+                            ind.dataset.pastaId = btn.dataset.pastaId;
+                            ind.title = 'Fixada nos favoritos';
+                            ind.setAttribute('aria-label', 'Fixada nos favoritos');
+                            celula.insertBefore(ind, celula.firstChild);
+                        } else if (!on && ind) {
+                            ind.remove();
+                        }
+                    });
+                })
+                .catch(function () { window.alert('Erro de comunicação. Tente novamente.'); })
+                .then(function () { btn.removeAttribute('aria-busy'); });
+        });
+    }
+
+    /* Handler do toggle ligado uma única vez no document (guarda evita empilhar,
+       já que este script re-executa a cada troca de resultados). */
+    if (!document.__expModoBound) {
+        document.__expModoBound = true;
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-view-toggle');
+            if (!btn) return;
+            var view = MODOS[btn.dataset.view] ? btn.dataset.view : 'tabela';
+            try { localStorage.setItem(STORAGE_KEY, view); } catch (err) { /* ignora */ }
+            aplicarView(view);
+        });
+    }
+}());
+</script>

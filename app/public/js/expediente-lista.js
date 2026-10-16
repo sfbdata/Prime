@@ -1,19 +1,14 @@
 /* =============================================================================
-   expediente-lista.js — menus de botão direito da Lista do Expediente (E8 da frente
-   `fidelidade-designer`; desenho `03 - EXPEDIENTE Lista 1.1.dc.html`, dc L.233-243 e L.272-293).
+   expediente-lista.js: menus de botão direito, menus suspensos e comportamentos da Lista do Expediente no
+   desenho `03 - EXPEDIENTE Lista 1.1.dc.html` (E8 a E8d e E12 da frente `fidelidade-designer`).
 
-   SÓ ações que já existem (decisão do dono, 14/10). Cada item aciona o MESMO controle que a tela
-   já tem — nada de rota nova, nada de permissão nova:
-   - linha da pasta: Abrir · Abrir em nova aba · Alterar responsável (o chip da linha) · Alterar
-     marcador (o botão de marcadores da linha) · Copiar número · Copiar nome. Na pasta excluída
-     (lápide, somente leitura) os dois "Alterar" não aparecem.
-   - marcador do trilho: Ver pastas · Novo marcador · Novo sub-marcador (só no de topo) · Editar ·
-     Excluir (pelo modal Editar, que pergunta na janela da tela — E7).
-   Fora, por falta de backend ou por serem inferência do protótipo: Editar nome rápido (F2), Trancar,
-   Destacar linha, Duplicar marcador.
+   E12 (16/10, pedido do dono: o desenho na íntegra) trouxe o que antes ficava de fora por falta de backend:
+   Editar nome rápido (F2), Trancar/Destrancar (só o administrador do escritório), Destacar linha, menu de
+   colunas com CSV, pastas por página e os menus próprios de Situação, Responsável, Prioridade e Marcador.
+   O trilho (marcadores e filtros do sistema) mora em expediente-trilho.js.
 
-   Teclado: o menu abre também pela tecla de menu (ou Shift+F10) num marcador; setas, Home/End
-   navegam, Esc fecha e devolve o foco, Tab fecha. Nada aqui monta HTML com dado: só textContent.
+   Teclado: o menu abre também pela tecla de menu (ou Shift+F10); setas, Home/End navegam, Esc fecha e devolve
+   o foco, Tab fecha. Nada aqui monta HTML com dado: só textContent.
    ============================================================================= */
 (function () {
     'use strict';
@@ -50,12 +45,14 @@
         menu = document.createElement('div');
         menu.className = 'exp-ctx' + (variante ? ' exp-ctx--' + variante : '');
         menu.setAttribute('role', 'menu');
-        menu.setAttribute('aria-label', titulo);
+        menu.setAttribute('aria-label', titulo || 'Editar nome rápido');
 
-        var cab = document.createElement('div');
-        cab.className = 'exp-ctx-titulo';
-        cab.textContent = titulo;
-        menu.appendChild(cab);
+        if (titulo) {
+            var cab = document.createElement('div');
+            cab.className = 'exp-ctx-titulo';
+            cab.textContent = titulo;
+            menu.appendChild(cab);
+        }
 
         lista.forEach(function (it) {
             if (it === '-') {
@@ -65,18 +62,45 @@
                 menu.appendChild(sep);
                 return;
             }
+            // E12: um nó pronto (editor do F2, amostras de cor do "Destacar linha"), ou um cabeçalho de seção.
+            if (it.no) { menu.appendChild(it.no); return; }
+            if (it.secao) {
+                var sec = document.createElement('div');
+                sec.className = 'exp-ctx-secao';
+                if (it.icone) {
+                    var si = document.createElement('i');
+                    si.className = 'bi ' + it.icone;
+                    si.setAttribute('aria-hidden', 'true');
+                    sec.appendChild(si);
+                }
+                sec.appendChild(document.createTextNode(it.secao));
+                menu.appendChild(sec);
+                return;
+            }
             var b = document.createElement('button');
             b.type = 'button';
-            b.className = 'exp-ctx-item' + (it.perigo ? ' exp-ctx-item--perigo' : '');
-            b.setAttribute('role', 'menuitem');
+            b.className = 'exp-ctx-item' + (it.perigo ? ' exp-ctx-item--perigo' : '') + (it.apagado ? ' exp-ctx-item--apagado' : '');
+            b.setAttribute('role', it.marcado === undefined ? 'menuitem' : 'menuitemcheckbox');
+            if (it.marcado !== undefined) { b.setAttribute('aria-checked', it.marcado ? 'true' : 'false'); }
+            if (it.dica) { b.setAttribute('data-tip', it.dica); }
             var i = document.createElement('i');
             i.className = 'bi ' + it.icone;
             i.setAttribute('aria-hidden', 'true');
+            if (it.corIcone) { i.style.color = it.corIcone; }
             var t = document.createElement('span');
+            t.className = 'exp-ctx-rotulo';
             t.textContent = it.rotulo;
             b.appendChild(i);
             b.appendChild(t);
-            b.addEventListener('click', function () {
+            if (it.atalho || it.extra) {
+                var k = document.createElement('span');
+                k.className = 'exp-ctx-atalho';
+                k.textContent = it.atalho || it.extra;
+                b.appendChild(k);
+            }
+            b.addEventListener('click', function (ev) {
+                // `manter`: o menu continua aberto (liga e desliga colunas, como o dc).
+                if (it.manter) { ev.stopPropagation(); it.acao(b); return; }
                 fechar(false);
                 // Depois que ESTE clique terminar de subir: o menu de responsável (e outros) fecham no
                 // clique do documento — acionado aqui dentro, abriria e fecharia no mesmo clique.
@@ -94,6 +118,8 @@
 
         var primeiro = itens()[0];
         if (primeiro) { primeiro.focus(); }
+
+        return menu;
     }
 
     function avisar(texto) {
@@ -144,91 +170,231 @@
         return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
     }
 
-    /* ── Linha da pasta ─────────────────────────────────────────────────── */
-    function menuDaLinha(linha, x, y) {
+    /* ── Linha da pasta (dc L.346-367, E12) ────────────────────────────────
+       Abrir pasta · Abrir em nova aba · Editar nome rápido (F2) · Alterar responsável · Alterar marcador ·
+       Copiar número · Copiar nome · Trancar/Destrancar (só o administrador, o "primário" do desenho) ·
+       Destacar linha (6 cores e sem destaque). Na lápide (somente leitura) só abrir e copiar. */
+    var DESTAQUES = [['amarelo', 'Amarelo'], ['verde', 'Verde'], ['azul', 'Azul'], ['rosa', 'Rosa'], ['laranja', 'Laranja'], ['lilas', 'Lilás']];
+    var linhaDoMenu = null;
+
+    function tabela() { return document.getElementById('tabelaPastas'); }
+    function souAdmin() { var t = tabela(); return !!t && t.getAttribute('data-sou-admin') === '1'; }
+    function tokenLista() { var t = tabela(); return t ? t.getAttribute('data-csrf-lista') : ''; }
+
+    function postar(url, dados) {
+        var corpo = new URLSearchParams(dados || {});
+        corpo.append('_token', tokenLista());
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: corpo.toString()
+        }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); });
+    }
+
+    /* Pasta trancada aberta por quem não é administrador: a janela de sigilo (dc L.368-384) no lugar da pasta. */
+    function abrirOuAvisar(trancada, nup, pastaId, abrirDeFato) {
+        if (trancada && !souAdmin()) { mostrarSigilo(nup, pastaId); return; }
+        abrirDeFato();
+    }
+    function mostrarSigilo(nup, pastaId) {
+        var j = document.getElementById('expSigilo');
+        if (!j) { return; }
+        j.querySelector('.js-sigilo-nup').textContent = nup;
+        j.setAttribute('data-pasta-id', pastaId);
+        j.hidden = false;
+        var b = j.querySelector('.js-sigilo-fechar');
+        if (b) { b.focus(); }
+    }
+    document.addEventListener('click', function (e) {
+        var j = document.getElementById('expSigilo');
+        if (!j || j.hidden) { return; }
+        if (e.target === j || e.target.closest('.js-sigilo-fechar')) { j.hidden = true; return; }
+        if (e.target.closest('.js-sigilo-pedir')) {
+            var id = j.getAttribute('data-pasta-id');
+            j.hidden = true;
+            postar(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/')).then(function (r) {
+                avisar(r.ok ? 'Pedido de acesso enviado ao administrador do escritório' : (r.j.erro || 'Não foi possível pedir acesso'));
+            }, function () { avisar('Falha de conexão ao pedir acesso'); });
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        var j = document.getElementById('expSigilo');
+        if (e.key === 'Escape' && j && !j.hidden) { e.preventDefault(); j.hidden = true; }
+    });
+    /* Clique na linha, no cartão ou na linha simples de pasta trancada: antes do handler que navega. */
+    document.addEventListener('click', function (e) {
+        var alvo = e.target.closest('#tabelaPastas tr.pasta-row-link[data-trancada="1"], .exp-simples-linha[data-trancada="1"], .exp-cartao[data-trancada="1"]');
+        if (!alvo || souAdmin()) { return; }
+        if (e.target.closest('button, input, select, .js-toggle-situacao, .exp-metas')) { return; }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        mostrarSigilo(alvo.getAttribute('data-nup'), alvo.getAttribute('data-pasta-id'));
+    }, true);
+
+    function editorDoNome(linha, nup, nome) {
+        var box = document.createElement('div');
+        box.className = 'exp-ctx-editor';
+        var rot = document.createElement('span');
+        rot.className = 'exp-ctx-editor-rotulo';
+        rot.textContent = 'NOME DO CLIENTE · PASTA ' + nup;
+        var campo = document.createElement('input');
+        campo.type = 'text';
+        campo.value = nome;
+        campo.maxLength = 255;
+        campo.setAttribute('aria-label', 'Nome do cliente');
+        var acoes = document.createElement('div');
+        acoes.className = 'exp-ctx-editor-acoes';
+        var cancelar = document.createElement('button');
+        cancelar.type = 'button';
+        cancelar.className = 'exp-ctx-editor-cancelar';
+        cancelar.textContent = 'Cancelar';
+        var salvar = document.createElement('button');
+        salvar.type = 'button';
+        salvar.className = 'exp-ctx-editor-salvar';
+        salvar.textContent = 'Salvar';
+        acoes.appendChild(cancelar);
+        acoes.appendChild(salvar);
+        box.appendChild(rot); box.appendChild(campo); box.appendChild(acoes);
+
+        var gravar = function () {
+            var v = campo.value.replace(/\s+/g, ' ').trim();
+            if (!v) { avisar('O nome do cliente não pode ficar vazio'); campo.focus(); return; }
+            fechar(false);
+            postar(linha.getAttribute('data-url-nome'), { nome: v }).then(function (r) {
+                if (!r.ok) { avisar(r.j.erro || 'Não foi possível salvar o nome'); return; }
+                linha.setAttribute('data-nome', r.j.nome);
+                var el = linha.querySelector('.js-nome-cliente');
+                if (el) { el.textContent = r.j.nome; el.setAttribute('data-tip', r.j.nome); }
+                avisar('Nome do cliente da pasta ' + nup + ' atualizado');
+            }, function () { avisar('Falha de conexão ao salvar o nome'); });
+        };
+        cancelar.addEventListener('click', function (e) { e.stopPropagation(); menuDaLinha(linha, parseInt(menu.style.left, 10), parseInt(menu.style.top, 10)); });
+        salvar.addEventListener('click', function (e) { e.stopPropagation(); gravar(); });
+        campo.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); gravar(); }
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelar.click(); }
+        });
+        setTimeout(function () { campo.focus(); campo.select(); }, 0);
+
+        return box;
+    }
+
+    function amostrasDeDestaque(linha, nup) {
+        var atual = linha.getAttribute('data-dest') || '';
+        var box = document.createElement('div');
+        box.className = 'exp-ctx-cores';
+        DESTAQUES.concat([['', 'Sem destaque']]).forEach(function (c) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'exp-ctx-cor';
+            b.setAttribute('data-dest', c[0]);
+            b.setAttribute('aria-label', c[1]);
+            b.setAttribute('data-tip', c[1]);
+            var i = document.createElement('i');
+            i.className = 'bi ' + (c[0] === '' ? 'bi-slash-circle' : (atual === c[0] ? 'bi-check-lg' : ''));
+            i.setAttribute('aria-hidden', 'true');
+            b.appendChild(i);
+            b.addEventListener('click', function () {
+                fechar(false);
+                postar(linha.getAttribute('data-url-destaque'), { cor: c[0] }).then(function (r) {
+                    if (!r.ok) { avisar(r.j.erro || 'Não foi possível destacar'); return; }
+                    if (r.j.cor) { linha.setAttribute('data-dest', r.j.cor); } else { linha.removeAttribute('data-dest'); }
+                    avisar(r.j.cor ? 'Pasta ' + nup + ' destacada em ' + c[1].toLowerCase() : 'Destaque removido da pasta ' + nup);
+                }, function () { avisar('Falha de conexão ao destacar'); });
+            });
+            box.appendChild(b);
+        });
+
+        return box;
+    }
+
+    function trancar(linha, nup) {
+        if (!souAdmin()) { avisar('Somente o usuário primário pode trancar ou destrancar pastas'); return; }
+        postar(linha.getAttribute('data-url-trancar')).then(function (r) {
+            if (!r.ok) { avisar(r.j.erro || 'Não foi possível trancar a pasta'); return; }
+            linha.setAttribute('data-trancada', r.j.trancada ? '1' : '0');
+            var cel = linha.querySelector('td[data-col="nup"]');
+            var cad = cel ? cel.querySelector('.js-cadeado') : null;
+            if (r.j.trancada && cel && !cad) {
+                cad = document.createElement('i');
+                cad.className = 'bi bi-lock exp-cadeado js-cadeado';
+                cad.setAttribute('aria-label', 'Pasta trancada');
+                cel.appendChild(cad);
+            }
+            if (cad) {
+                if (r.j.trancada) { cad.setAttribute('data-tip', 'Documentos sigilosos · pasta trancada' + (r.j.por ? ' por ' + r.j.por : '') + (r.j.em ? ' em ' + r.j.em : '')); } else { cad.remove(); }
+            }
+            avisar(r.j.trancada ? 'Pasta ' + nup + ' trancada · documentos sigilosos protegidos' : 'Pasta ' + nup + ' destrancada');
+        }, function () { avisar('Falha de conexão ao trancar a pasta'); });
+    }
+
+    function menuDaLinha(linha, x, y, editando) {
         var href = linha.getAttribute('data-href');
         if (!href) { return; }
-        var nup = textoLimpo(linha.cells[0]);
-        // O nome é o identificador da pasta ou o do cliente; com vários clientes, todos (sem o "+N").
-        var celula = linha.cells[1];
-        var resumo = celula ? celula.querySelector('[data-clientes]') : null;
-        var nome = resumo
-            ? resumo.getAttribute('data-clientes').split('||').join('; ')
-            : textoLimpo(celula ? (celula.querySelector('.text-truncate') || celula) : null);
+        var nup = linha.getAttribute('data-nup') || textoLimpo(linha.cells[0]);
+        var nome = linha.getAttribute('data-nome') || '';
         var excluida = linha.classList.contains('pasta-excluida');
+        var trancada = linha.getAttribute('data-trancada') === '1';
+        var pastaId = linha.getAttribute('data-pasta-id');
         var chip = linha.querySelector('.pasta-resp-chip');
-        var marcar = linha.querySelector('.js-mover-para');
+        var marcar = linha.querySelector('.js-marc-pop');
+        var temNome = nome !== '';
+        linhaDoMenu = linha;
 
-        // Rótulos, ícones e ordem do dc L.276-282, sem separadores (no dc o primeiro separador vem antes de
-        // Trancar, que não existe aqui). Título como o dc L.274: "Pasta 1365 · NOME".
-        var temNome = nome && nome !== '—';
-        var lista = [
-            { rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { window.location.href = href; } },
-            { rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { window.open(href, '_blank', 'noopener'); } }
-        ];
-        if (!excluida && chip) { lista.push({ rotulo: 'Alterar responsável', icone: 'bi-person-badge', acao: function () { chip.click(); } }); }
-        if (!excluida && marcar) { lista.push({ rotulo: 'Alterar marcador', icone: 'bi-tags', acao: function () { marcar.click(); } }); }
+        var lista = [];
+        if (editando) { lista.push({ no: editorDoNome(linha, nup, nome) }); }
+        lista.push({ rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.location.href = href; }); } });
+        lista.push({ rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
+        if (!excluida) {
+            lista.push({ rotulo: 'Editar nome rápido', icone: 'bi-pencil', atalho: 'F2', acao: function () { menuDaLinha(linha, x, y, true); } });
+            if (chip) { lista.push({ rotulo: 'Alterar responsável', icone: 'bi-person-badge', acao: function () { chip.click(); } }); }
+            if (marcar) { lista.push({ rotulo: 'Alterar marcador', icone: 'bi-tags', acao: function () { marcar.click(); } }); }
+        }
         if (nup) { lista.push({ rotulo: 'Copiar número da pasta', icone: 'bi-hash', acao: function () { copiar(nup, 'Número ' + nup + ' copiado'); } }); }
         if (temNome) { lista.push({ rotulo: 'Copiar nome do cliente', icone: 'bi-clipboard', acao: function () { copiar(nome, 'Nome do cliente copiado'); } }); }
-
-        abrir('Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha);
-    }
-
-    /* ── Marcador do trilho ─────────────────────────────────────────────── */
-    function menuDoMarcador(link, x, y) {
-        var nome = textoLimpo(link.querySelector('.expediente-item-nome'));
-        var editar = link.querySelector('.js-editar-marcador');
-        var addSub = link.querySelector('.expediente-btn-add-sub');
-        var novo = document.querySelector('.js-abrir-modal-marcador[data-pai-id=""]');
-
-        // Ícones do dc L.236-241 (bi-funnel, bi-plus-lg); "Novo sub-marcador" é só do BlueJus (hierarquia).
-        var lista = [
-            { rotulo: 'Ver pastas do marcador', icone: 'bi-funnel', acao: function () { link.click(); } }
-        ];
-        if (novo) { lista.push({ rotulo: 'Novo marcador', icone: 'bi-plus-lg', acao: function () { novo.click(); } }); }
-        if (addSub) { lista.push({ rotulo: 'Novo sub-marcador', icone: 'bi-node-plus', acao: function () { addSub.click(); } }); }
-        if (editar) {
-            lista.push({ rotulo: 'Editar', icone: 'bi-pencil', acao: function () { editar.click(); } });
+        if (!excluida) {
             lista.push('-');
-            lista.push({ rotulo: 'Excluir marcador', icone: 'bi-trash3', perigo: true, acao: function () { excluirPeloModal(editar); } });
+            lista.push({ rotulo: trancada ? 'Destrancar pasta' : 'Trancar pasta', icone: trancada ? 'bi-unlock' : 'bi-lock', corIcone: '#141e5c',
+                extra: souAdmin() ? '' : 'só primário', apagado: !souAdmin(), acao: function () { trancar(linha, nup); } });
+            lista.push('-');
+            lista.push({ secao: 'DESTACAR LINHA', icone: 'bi-highlighter' });
+            lista.push({ no: amostrasDeDestaque(linha, nup) });
         }
 
-        // Título como o dc L.235: "1. Despachar · 122 pasta(s)" (a contagem é a do trilho; sem ela, nenhuma).
-        var contagem = textoLimpo(link.querySelector('.js-contagem-marcador')) || '0';
-        abrir(nome + ' · ' + contagem + ' pasta(s)', lista, x, y, link, 'marcador');
+        abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha, editando ? 'editando' : null);
     }
 
-    /* Excluir passa pelo modal Editar de sempre (mesmo token, mesma rota) e pergunta na janela da tela. */
-    function excluirPeloModal(editar) {
-        var modal = document.getElementById('modalEditarMarcador');
-        var botao = document.getElementById('btnExcluirMarcadorModal');
-        if (!modal || !botao) { editar.click(); return; }
-        // O modal põe o foco no nome 300 ms depois de aberto (index.html.twig); a pergunta vem depois
-        // disso, senão o foco sai da janela de confirmação (com "reduzir movimento" o modal abre na hora).
-        modal.addEventListener('shown.bs.modal', function () { setTimeout(function () { botao.click(); }, 360); }, { once: true });
-        editar.click();
-    }
+    /* F2 com o menu da linha aberto: o editor do nome no próprio menu (dc `_esc`). */
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'F2' || !menu || !linhaDoMenu || menu.classList.contains('exp-ctx--editando') || !document.contains(linhaDoMenu)) { return; }
+        if (linhaDoMenu.classList.contains('pasta-excluida')) { return; }
+        e.preventDefault();
+        menuDaLinha(linhaDoMenu, parseInt(menu.style.left, 10), parseInt(menu.style.top, 10), true);
+    });
+
+    /* O menu do marcador do trilho mora em expediente-trilho.js (E12). */
 
     /* ── Ligações ───────────────────────────────────────────────────────── */
     document.addEventListener('contextmenu', function (e) {
         var linha = e.target.closest('#tabelaPastas tbody tr.pasta-row-link');
-        var marcador = e.target.closest('.expediente-menu-link[data-marcador-id], .expediente-submenu-link[data-marcador-id]');
-        if (!linha && !marcador) { return; }
+        if (!linha) { return; }
         // Dentro de campo de texto, o menu do navegador (colar, corretor) continua.
         if (e.target.closest('input, textarea, [contenteditable="true"]')) { return; }
         e.preventDefault();
         var x = e.clientX;
         var y = e.clientY;
         if (!x && !y) {   // pela tecla de menu: abre junto do elemento
-            var r = (linha || marcador).getBoundingClientRect();
+            var r = linha.getBoundingClientRect();
             x = r.left + 24;
             y = r.top + r.height;
         }
-        if (linha) { menuDaLinha(linha, x, y); } else { menuDoMarcador(marcador, x, y); }
+        menuDaLinha(linha, x, y);
     });
 
     document.addEventListener('keydown', function (e) {
         if (!menu) { return; }
+        // No editor do F2 as teclas são do campo (Enter salva, Esc volta ao menu, setas andam no texto).
+        if (e.target.closest && e.target.closest('.exp-ctx-editor')) { return; }
         var lista = itens();
         var i = lista.indexOf(document.activeElement);
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(true); return; }
@@ -244,6 +410,11 @@
     }, true);
     window.addEventListener('scroll', function () { fechar(false); }, true);
     window.addEventListener('resize', function () { fechar(false); });
+
+    // E12: o trilho (expediente-trilho.js) usa o mesmo menu e o mesmo aviso.
+    window.ExpMenu = { abrir: abrir, fechar: fechar, aberto: function () { return menu; } };
+    window.ExpCopiar = copiar;
+    window.ExpAviso = avisar;
 }());
 
 /* =============================================================================
@@ -435,4 +606,520 @@
     }
     new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true });
     agendar();
+}());
+
+/* =============================================================================
+   E12. O resto do desenho 1.1 online (spec E12-LISTA-INTEGRAL.md):
+   - dicas do desenho (dc L.386, `_ov`): azul-claras, só quando o texto está cortado ou não está escrito;
+   - Situação, Responsável e Prioridade em menus próprios (dc L.123-147). O <select> continua sendo o campo do
+     formulário (FormData, estado salvo, "Limpar"); o menu só escolhe o valor e avisa com `change`;
+   - "Limpar todos os filtros" em ícone (dc L.149), título do acervo que volta ao início (dc L.120);
+   - "Pastas por página" (dc L.159-164); menu de colunas com CSV (dc L.179, L.280-293);
+   - menu MARCADOR da linha (dc L.216-227); sobreposição da BlueJus I.A. (dc L.102-117, evento `bj-ai-fx`).
+   ============================================================================= */
+(function () {
+    'use strict';
+
+    function aviso(t) { if (window.ExpAviso) { window.ExpAviso(t); } }
+    function form() { return document.getElementById('formFiltrosPasta'); }
+    function ini2(nome) { return String(nome || '').trim().split(/\s+/).slice(0, 2).map(function (p) { return p.charAt(0); }).join('').toUpperCase(); }
+    function el(tag, classe, texto) {
+        var e = document.createElement(tag);
+        if (classe) { e.className = classe; }
+        if (texto !== undefined && texto !== null) { e.textContent = texto; }
+        return e;
+    }
+    function icone(classe) { var i = el('i', 'bi ' + classe); i.setAttribute('aria-hidden', 'true'); return i; }
+
+    /* ── Dicas ─────────────────────────────────────────────────────────── */
+    var dica = null;
+    function fecharDica() { if (dica) { dica.remove(); dica = null; } }
+    function cortado(alvo) {
+        return [alvo].concat(Array.prototype.slice.call(alvo.querySelectorAll('*'))).some(function (n) { return n.scrollWidth > n.clientWidth + 1; });
+    }
+    document.addEventListener('mouseover', function (e) {
+        if (!document.body.classList.contains('exp-body')) { return; }
+        var alvo = e.target.closest && e.target.closest('[data-tip]');
+        var menuAberto = window.ExpMenu && window.ExpMenu.aberto();
+        if (!alvo || (menuAberto && !menuAberto.contains(alvo)) || document.querySelector('.exp-pop')) { fecharDica(); return; }
+        var t = alvo.getAttribute('data-tip');
+        if (!t) { fecharDica(); return; }
+        var texto = (alvo.textContent || '').replace(/\s+\d+x$/, '').replace(/\s+/g, ' ').trim();
+        if (texto && texto.indexOf(t.trim()) === 0 && !cortado(alvo)) { fecharDica(); return; }
+        if (dica && dica.textContent === t) { return; }
+        fecharDica();
+        dica = el('div', 'exp-dica', t);
+        dica.setAttribute('role', 'tooltip');
+        document.body.appendChild(dica);
+        var r = alvo.getBoundingClientRect();
+        dica.style.left = Math.min(window.innerWidth - 330, Math.max(8, r.left)) + 'px';
+        dica.style.top = (r.bottom + 8 > window.innerHeight - 60 ? r.top - dica.offsetHeight - 8 : r.bottom + 8) + 'px';
+    });
+    document.addEventListener('scroll', fecharDica, true);
+    document.addEventListener('mousedown', fecharDica, true);
+
+    /* ── Menus suspensos do desenho (Situação, Responsável, Prioridade, Marcador) ── */
+    var pop = null;
+    var popAncora = null;
+    function fecharPop(devolver) {
+        if (!pop) { return; }
+        pop.remove();
+        pop = null;
+        if (devolver && popAncora && popAncora.focus) { popAncora.focus(); }
+        popAncora = null;
+    }
+    /* o: { titulo, icone, largura, busca (placeholder), itens: [{ rotulo, desc, ponto, bandeira, avatar, pasta, nivel, marcado, acao }],
+       rodape: { rotulo, icone, acao }, vazio } */
+    function abrirPop(ancora, o) {
+        fecharPop(false);
+        popAncora = ancora;
+        pop = el('div', 'exp-pop' + (o.busca ? ' exp-pop--busca' : ''));
+        pop.setAttribute('role', 'dialog');
+        pop.setAttribute('aria-label', o.titulo || o.busca);
+        pop.style.width = (o.largura || 290) + 'px';
+        var cab = el('div', 'exp-pop-cab');
+        var fecharB = el('button', 'exp-pop-x');
+        fecharB.type = 'button';
+        fecharB.setAttribute('aria-label', 'Fechar');
+        fecharB.setAttribute('data-tip', 'Fechar');
+        fecharB.appendChild(icone('bi-x-lg'));
+        fecharB.addEventListener('click', function () { fecharPop(true); });
+        var campo = null;
+        if (o.busca) {
+            var rot = el('label', 'exp-pop-busca');
+            rot.appendChild(icone('bi-search'));
+            campo = el('input');
+            campo.type = 'text';
+            campo.placeholder = o.busca;
+            campo.setAttribute('aria-label', o.busca);
+            rot.appendChild(campo);
+            cab.appendChild(rot);
+        } else {
+            cab.appendChild(icone(o.icone));
+            cab.appendChild(el('span', 'exp-pop-titulo', o.titulo));
+        }
+        cab.appendChild(fecharB);
+        pop.appendChild(cab);
+        var corpo = el('div', 'exp-pop-corpo');
+        corpo.setAttribute('role', 'listbox');
+        pop.appendChild(corpo);
+        var vazio = el('div', 'exp-pop-vazio', o.vazio || 'Nada encontrado');
+        vazio.hidden = true;
+
+        o.itens.forEach(function (it) {
+            var b = el('button', 'exp-pop-item' + (it.marcado ? ' is-marcado' : '') + (it.nivel ? ' is-sub' : ''));
+            b.type = 'button';
+            b.setAttribute('role', 'option');
+            b.setAttribute('aria-selected', it.marcado ? 'true' : 'false');
+            b.setAttribute('data-busca', (it.rotulo || '').toLowerCase());
+            if (it.ponto) {
+                var p = el('span', 'exp-pop-ponto');
+                p.style.background = it.ponto; p.style.color = it.ponto;
+                if (it.atraso) { p.style.animationDelay = it.atraso; }
+                b.appendChild(p);
+            }
+            if (it.bandeira) { var f = icone('bi-flag-fill exp-pop-bandeira'); f.style.color = it.bandeira; b.appendChild(f); }
+            if (it.pasta) { var pa = icone('bi-folder-fill'); pa.style.color = it.pasta; b.appendChild(pa); }
+            if (it.avatar !== undefined) {
+                var av = el('span', 'exp-pop-av' + (it.avatar === null ? ' is-vazio' : ''));
+                if (it.avatar === null) { av.appendChild(icone('bi-person-dash')); } else { av.textContent = it.avatar; }
+                b.appendChild(av);
+            }
+            var tx = el('span', 'exp-pop-texto');
+            tx.appendChild(el('span', 'exp-pop-rotulo', it.rotulo));
+            if (it.desc) { tx.appendChild(el('span', 'exp-pop-desc', it.desc)); }
+            b.appendChild(tx);
+            b.appendChild(icone(it.marcado ? 'bi-check-lg exp-pop-check' : 'exp-pop-check'));
+            b.addEventListener('click', function (e) { e.stopPropagation(); fecharPop(false); it.acao(); });
+            corpo.appendChild(b);
+        });
+        corpo.appendChild(vazio);
+        if (o.rodape) {
+            pop.appendChild(el('div', 'exp-pop-sep'));
+            var rb = el('button', 'exp-pop-rodape');
+            rb.type = 'button';
+            rb.appendChild(icone(o.rodape.icone));
+            rb.appendChild(document.createTextNode(o.rodape.rotulo));
+            rb.addEventListener('click', function (e) { e.stopPropagation(); fecharPop(false); o.rodape.acao(); });
+            pop.appendChild(rb);
+        }
+        if (campo) {
+            campo.addEventListener('input', function () {
+                var q = campo.value.trim().toLowerCase();
+                var algum = false;
+                corpo.querySelectorAll('.exp-pop-item').forEach(function (b) {
+                    var sim = !q || b.getAttribute('data-busca').indexOf(q) !== -1;
+                    b.hidden = !sim;
+                    algum = algum || sim;
+                });
+                vazio.hidden = algum;
+            });
+        }
+        document.body.appendChild(pop);
+        var r = ancora.getBoundingClientRect();
+        var largura = pop.offsetWidth;
+        var esq = o.alinhar === 'direita' ? r.right - largura : (o.alinhar === 'centro' ? r.left + r.width / 2 - largura / 2 : r.left);
+        pop.style.left = Math.max(8, Math.min(esq, window.innerWidth - largura - 8)) + 'px';
+        var topo = r.bottom + 6;
+        if (topo + pop.offsetHeight > window.innerHeight - 8) { topo = Math.max(8, r.top - pop.offsetHeight - 6); }
+        pop.style.top = topo + 'px';
+        var foco = campo || corpo.querySelector('.is-marcado') || corpo.querySelector('.exp-pop-item');
+        if (foco) { foco.focus(); }
+    }
+    document.addEventListener('mousedown', function (e) {
+        if (pop && !pop.contains(e.target) && !(popAncora && popAncora.contains(e.target))) { fecharPop(false); }
+    }, true);
+    document.addEventListener('keydown', function (e) {
+        if (!pop) { return; }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fecharPop(true); return; }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            var lista = Array.prototype.filter.call(pop.querySelectorAll('.exp-pop-item, .exp-pop-rodape'), function (b) { return !b.hidden; });
+            if (!lista.length) { return; }
+            e.preventDefault();
+            var i = lista.indexOf(document.activeElement);
+            lista[(i + (e.key === 'ArrowDown' ? 1 : -1) + lista.length) % lista.length].focus();
+        }
+    }, true);
+    window.addEventListener('resize', function () { fecharPop(false); });
+
+    function escolherNoSelect(select, valor) {
+        select.value = valor;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    var SITUACOES = [['', 'Todas', 'Todas as situações', '#0a6fa0'], ['ativo', 'Ativo', 'Pasta em andamento', '#2fa35f'], ['suspenso', 'Suspenso', 'Pausada temporariamente', '#d18a12'],
+        ['cancelado', 'Cancelado', 'Encerrada sem conclusão', '#c0392b'], ['arquivado', 'Arquivado', 'Sai das listas de trabalho', '#62798a']];
+    var PRIORIDADES = [['', 'Todas', 'Todas as prioridades', '#0a6fa0'], ['normal', 'Normal', 'Segue o fluxo padrão', '#5f7684'],
+        ['prioridade', 'Alta', 'Tratar antes das demais', '#d18a12'], ['urgente', 'Urgente', 'Exige providência imediata', '#c0392b']];
+
+    function popSituacao(caixa) {
+        var sel = caixa.querySelector('select');
+        abrirPop(caixa, { titulo: 'SITUAÇÃO DA PASTA', icone: 'bi-toggles', largura: 290, alinhar: 'direita',
+            itens: SITUACOES.map(function (s, i) {
+                return { rotulo: s[1], desc: s[2], ponto: s[3], atraso: (i * 0.25) + 's', marcado: sel.value === s[0], acao: function () { escolherNoSelect(sel, s[0]); } };
+            }) });
+    }
+    function popPrioridade(caixa) {
+        var sel = caixa.querySelector('select');
+        abrirPop(caixa, { titulo: 'PRIORIDADE', icone: 'bi-flag', largura: 250,
+            itens: PRIORIDADES.map(function (p) {
+                return { rotulo: p[1], desc: p[2], bandeira: p[3], marcado: sel.value === p[0], acao: function () { escolherNoSelect(sel, p[0]); } };
+            }) });
+    }
+    function popResponsavel(caixa) {
+        var sel = caixa.querySelector('select');
+        var itens = Array.prototype.filter.call(sel.options, function (op) { return op.value !== ''; }).map(function (op) {
+            var sem = op.value === 'sem';
+            return { rotulo: op.textContent.trim(), avatar: sem ? null : ini2(op.textContent), marcado: sel.value === op.value,
+                acao: function () { escolherNoSelect(sel, sel.value === op.value ? '' : op.value); } };
+        });
+        abrirPop(caixa, { busca: 'Filtrar responsável', largura: 300, itens: itens, vazio: 'Nenhum responsável encontrado' });
+    }
+
+    /* Rótulos dos campos como o desenho: Responsável com as duas primeiras palavras e avatar; Prioridade "Alta". */
+    function pintarCampos() {
+        var f = form();
+        if (!f) { return; }
+        var resp = f.querySelector('select[name="responsavel"]');
+        var caixaR = resp ? resp.closest('.exp-filtro') : null;
+        if (caixaR) {
+            var rot = caixaR.querySelector('.exp-filtro-rotulo');
+            if (!rot) { rot = el('span', 'exp-filtro-rotulo'); caixaR.insertBefore(rot, resp); }
+            var op = resp.options[resp.selectedIndex];
+            var nome = resp.value === '' ? 'Responsável' : (resp.value === 'sem' ? 'Sem responsável' : op.textContent.trim().split(/\s+/).slice(0, 2).join(' '));
+            rot.textContent = '';
+            if (resp.value !== '' && resp.value !== 'sem') { rot.appendChild(el('span', 'exp-filtro-av', ini2(op.textContent))); }
+            rot.appendChild(el('span', 'exp-filtro-nome', nome));
+        }
+        var prio = f.querySelector('select[name="prioridade"]');
+        var caixaP = prio ? prio.closest('.exp-filtro') : null;
+        if (caixaP) {
+            var rp = caixaP.querySelector('.exp-filtro-rotulo');
+            if (!rp) { rp = el('span', 'exp-filtro-rotulo'); caixaP.insertBefore(rp, prio); }
+            var achado = PRIORIDADES.filter(function (p) { return p[0] === prio.value; })[0];
+            rp.textContent = prio.value === '' ? 'Prioridade' : achado[1];
+        }
+        var sit = document.querySelector('.exp-situacao select[name="status"]');
+        var caixaS = sit ? sit.closest('.exp-situacao') : null;
+        if (caixaS) {
+            var rs = caixaS.querySelector('.exp-situacao-rotulo');
+            if (!rs) { rs = el('span', 'exp-situacao-rotulo'); caixaS.insertBefore(rs, sit); }
+            var s = SITUACOES.filter(function (x) { return x[0] === sit.value; })[0] || SITUACOES[0];
+            rs.textContent = s[1];
+        }
+        // "Limpar todos os filtros" só aparece com algum filtro (dc `temFiltro`: busca, responsável, prioridade, datas).
+        var limpar = f.querySelector('.exp-limpar');
+        if (limpar) {
+            var tem = ['busca', 'responsavel', 'prioridade', 'data_de', 'data_ate'].some(function (n) { var c = f.elements.namedItem(n); return c && c.value.trim() !== ''; });
+            limpar.hidden = !tem;
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        var caixa = e.target.closest('.exp-body .exp-filtro--resp, .exp-body .exp-filtro--prio, .exp-body .exp-situacao');
+        if (caixa && !e.target.closest('.exp-pop')) {
+            e.preventDefault();
+            if (pop && popAncora === caixa) { fecharPop(true); return; }
+            if (caixa.classList.contains('exp-situacao')) { popSituacao(caixa); } else if (caixa.classList.contains('exp-filtro--resp')) { popResponsavel(caixa); } else { popPrioridade(caixa); }
+            return;
+        }
+        // Título do acervo: volta ao acervo geral, sem filtros (dc `irPadrao`).
+        if (e.target.closest('.exp-body .exp-barra-titulo')) {
+            if (window.ExpTrilho) { window.ExpTrilho.abrirTodas(true); }
+            return;
+        }
+        var pp = e.target.closest('.js-por-pagina');
+        if (pp) {
+            e.preventDefault();
+            var f = form();
+            var campo = f ? f.querySelector('input[name="por_pagina"]') : null;
+            if (campo && window.ExpPainel) {
+                campo.value = pp.getAttribute('data-n');
+                try { localStorage.setItem('expediente_por_pagina', campo.value); } catch (x) { /* só não lembra */ }
+                window.ExpPainel.recarregarResultados({ page: 1 });
+            }
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        var caixa = e.target.closest && e.target.closest('.exp-body .exp-filtro--resp, .exp-body .exp-filtro--prio, .exp-body .exp-situacao');
+        if (caixa && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown')) { e.preventDefault(); caixa.click(); }
+        var titulo = e.target.closest && e.target.closest('.exp-body .exp-barra-titulo');
+        if (titulo && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); titulo.click(); }
+    });
+
+    /* ── Colunas da tabela (dc `colVis`, `colItens`, `colCsv`) ─────────── */
+    var COLUNAS = [['nup', 'NUP'], ['cliente', 'Cliente'], ['reu', 'Réu'], ['acao', 'Ação'], ['prio', 'Prioridade'], ['resp', 'Responsável'], ['metas', 'Metas'], ['marc', 'Marcadores'], ['sit', 'Situação']];
+    var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true };
+    var CHAVE_COLUNAS = 'expediente_colunas';
+    function colunasVisiveis() {
+        var v = {};
+        try { v = JSON.parse(localStorage.getItem(CHAVE_COLUNAS) || '{}') || {}; } catch (x) { v = {}; }
+        var out = {};
+        COLUNAS.forEach(function (c) { out[c[0]] = v[c[0]] !== false; });
+        out.nup = true;
+        return out;
+    }
+    function gravarColunas(v) {
+        try { if (v) { localStorage.setItem(CHAVE_COLUNAS, JSON.stringify(v)); } else { localStorage.removeItem(CHAVE_COLUNAS); } } catch (x) { /* só não lembra */ }
+        aplicarColunas();
+    }
+    function aplicarColunas() {
+        var v = colunasVisiveis();
+        var estilo = document.getElementById('expColunasEstilo');
+        if (!estilo) { estilo = el('style'); estilo.id = 'expColunasEstilo'; document.head.appendChild(estilo); }
+        estilo.textContent = COLUNAS.filter(function (c) { return !v[c[0]]; })
+            .map(function (c) { return '.exp-body #tabelaPastas [data-col="' + c[0] + '"] { display: none !important; }'; }).join('\n');
+    }
+    function urlCsv(botao) {
+        var f = form();
+        var params = new URLSearchParams(f ? new FormData(f) : undefined);
+        params.delete('page');
+        var v = colunasVisiveis();
+        params.set('colunas', COLUNAS.filter(function (c) { return v[c[0]] && c[0] !== 'metas'; }).map(function (c) { return c[0]; }).join(','));
+        var painel = document.getElementById('painel-marcador-wrapper');
+        if (painel) { params.set('marcador', painel.getAttribute('data-marcador-id')); }
+
+        return botao.getAttribute('data-url-csv') + '?' + params.toString();
+    }
+    function menuColunas(botao, x, y) {
+        var v = colunasVisiveis();
+        var n = COLUNAS.filter(function (c) { return v[c[0]]; }).length;
+        var lista = COLUNAS.map(function (c) {
+            var fixo = c[0] === 'nup';
+            return { rotulo: c[1], icone: v[c[0]] ? 'bi-check-square-fill' : 'bi-square', corIcone: fixo ? '#9aabb7' : (v[c[0]] ? '#0a6fa0' : '#8aa0ae'),
+                dica: fixo ? 'O NUP fica sempre visível' : '', marcado: v[c[0]], manter: true, acao: function () {
+                    if (fixo) { return; }
+                    var atual = colunasVisiveis();
+                    atual[c[0]] = !atual[c[0]];
+                    if (!COLUNAS.some(function (k) { return k[0] !== 'nup' && atual[k[0]]; })) { return; }
+                    gravarColunas(atual);
+                    menuColunas(botao, x, y);
+                } };
+        });
+        lista.push('-');
+        lista.push({ rotulo: 'Mostrar todas', icone: 'bi-eye', manter: true, acao: function () { gravarColunas({}); menuColunas(botao, x, y); } });
+        lista.push({ rotulo: 'Só as essenciais', icone: 'bi-funnel', manter: true, acao: function () { gravarColunas(ESSENCIAIS); menuColunas(botao, x, y); } });
+        lista.push({ rotulo: 'Restaurar padrão', icone: 'bi-arrow-counterclockwise', acao: function () { gravarColunas(null); } });
+        lista.push({ rotulo: 'Exportar colunas visíveis (CSV)', icone: 'bi-filetype-csv', acao: function () { window.location.href = urlCsv(botao); } });
+        window.ExpMenu.abrir('Colunas da tabela · ' + n + ' visíveis', lista, x, y, botao);
+    }
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('.js-colunas');
+        if (!b) { return; }
+        e.preventDefault();
+        var r = b.getBoundingClientRect();
+        menuColunas(b, r.left, r.bottom + 4);
+    });
+    document.addEventListener('contextmenu', function (e) {
+        var b = e.target.closest('.js-colunas');
+        if (!b) { return; }
+        e.preventDefault();
+        var r = b.getBoundingClientRect();
+        menuColunas(b, r.left, r.bottom + 4);
+    });
+
+    /* ── MARCADOR da linha (dc L.216-227): lista dos marcadores do trilho com a marca nos da pasta. Como a pasta
+       pode ter vários, escolher liga ou desliga aquele marcador; "Remover marcador" tira todos. ── */
+    function popMarcador(botao) {
+        var cel = botao.closest('.pasta-marcadores-col');
+        var dados = cel ? cel.querySelector('[data-csrf-token]') : null;
+        if (!dados) { return; }
+        var ativos = (dados.getAttribute('data-marcadores-ativos') || '').split(',').filter(Boolean);
+        var gravarMarc = function (ids) {
+            var corpo = new URLSearchParams({ _token: dados.getAttribute('data-csrf-token') });
+            ids.forEach(function (id) { corpo.append('marcadores[]', id); });
+            fetch(dados.getAttribute('data-url'), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: corpo.toString()
+            })
+                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+                .then(function (res) {
+                    if (!res.ok) { aviso(res.j.erro || 'Não foi possível alterar o marcador'); return; }
+                    if (window.ExpPainel) { window.ExpPainel.recarregarResultados({ page: window.ExpPainel.paginaAtual ? window.ExpPainel.paginaAtual() : 1 }); }
+                    if (window.ExpTrilho) { window.ExpTrilho.recarregar(); }
+                })
+                .catch(function () { aviso('Falha de conexão ao alterar o marcador'); });
+        };
+        var itens = Array.prototype.map.call(document.querySelectorAll('#expTrilho .exp-tri-marcador'), function (m) {
+            var id = m.getAttribute('data-marcador-id');
+            var tem = ativos.indexOf(id) !== -1;
+            return { rotulo: m.getAttribute('data-nome'), pasta: m.getAttribute('data-cor-tela'), nivel: m.getAttribute('data-pai-id') ? 1 : 0, marcado: tem,
+                acao: function () { gravarMarc(tem ? ativos.filter(function (x) { return x !== id; }) : ativos.concat([id])); } };
+        });
+        abrirPop(botao, { titulo: 'MARCADOR', icone: 'bi-tags', largura: 220, alinhar: 'centro', itens: itens, vazio: 'Nenhum marcador',
+            rodape: ativos.length ? { rotulo: 'Remover marcador', icone: 'bi-x-circle', acao: function () { gravarMarc([]); } } : null });
+        if (pop) { pop.classList.add('exp-pop--marcador'); }
+    }
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('.js-marc-pop');
+        if (!b) { return; }
+        e.preventDefault();
+        e.stopPropagation();
+        if (pop && popAncora === b) { fecharPop(true); return; }
+        popMarcador(b);
+    });
+
+    /* ── BlueJus I.A. (dc `aiFx`): quem chama dispara `bj-ai-fx` com { nome, manter }; `bj-ai-fx-fim` encerra. ── */
+    var fx = null;
+    var fxTimer = 0;
+    function fimFx() { clearTimeout(fxTimer); if (fx) { fx.remove(); fx = null; } }
+    window.addEventListener('bj-ai-fx', function (ev) {
+        var d = ev.detail || {};
+        fimFx();
+        fx = el('div', 'exp-ai-fx' + (d.manter ? ' is-manter' : ''));
+        fx.setAttribute('aria-hidden', 'true');
+        fx.appendChild(el('div', 'exp-ai-fx-luz'));
+        var orbe = el('div', 'exp-ai-fx-orbe');
+        [0, 1, 2, 3].forEach(function () { orbe.appendChild(el('i')); });
+        var nucleo = el('div', 'exp-ai-fx-nucleo');
+        nucleo.appendChild(icone('bi-stars'));
+        orbe.appendChild(nucleo);
+        fx.appendChild(orbe);
+        var rot = el('div', 'exp-ai-fx-rotulo');
+        rot.appendChild(el('span', null, 'BlueJus I.A. · ' + (d.nome || 'Assistente de pastas')));
+        var barra = el('span', 'exp-ai-barra');
+        barra.appendChild(el('span'));
+        rot.appendChild(barra);
+        fx.appendChild(rot);
+        document.body.appendChild(fx);
+        if (!d.manter) { fxTimer = setTimeout(fimFx, 1500); }
+    });
+    window.addEventListener('bj-ai-fx-fim', fimFx);
+
+    /* Reaplica depois de cada desenho do painel (servidor, filtro, página, marcador). */
+    var agendado = 0;
+    function aplicar() { agendado = 0; pintarCampos(); aplicarColunas(); }
+    function agendar() { if (!agendado) { agendado = window.requestAnimationFrame(aplicar); } }
+    new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('change', agendar, true);
+    document.addEventListener('input', agendar, true);
+    agendar();
+}());
+
+/* =============================================================================
+   E12. Nova Pasta do desenho 1.1 (dc L.265-279, `abrirNovaFn`/`salvarNovaFn`): o próximo número (só
+   informativo), sugestões de cliente com "já cadastrado em N pasta(s)", a ação liberada depois do cliente, o
+   Salvar só com cliente e o arrastar pelo cabeçalho. O envio é o do modal de sempre (modal_nova_pasta).
+   ============================================================================= */
+(function () {
+    'use strict';
+
+    var modal = document.querySelector('#modalNovaPasta.exp-nova');
+    if (!modal) { return; }
+    var cliente = modal.querySelector('#modal_nome_cliente');
+    var acao = modal.querySelector('#modal_nome_acao');
+    var salvar = modal.querySelector('.js-nova-salvar');
+    var prox = modal.querySelector('.js-nova-prox');
+    var existe = modal.querySelector('.js-nova-existe');
+    var lista = modal.querySelector('#expNovaClientes');
+    var timer = 0;
+    var ultimos = {};
+
+    function buscar(q) {
+        return fetch(modal.getAttribute('data-url-sugestoes') + '?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function pintar() {
+        var v = cliente.value.trim();
+        var tem = v !== '';
+        acao.disabled = !tem;
+        acao.placeholder = tem ? 'Ex.: Revisional de alimentos' : 'Informe primeiro o nome do cliente';
+        acao.closest('.exp-nova-campo').classList.toggle('is-desligado', !tem);
+        salvar.disabled = !tem;
+        cliente.classList.toggle('is-preenchido', tem);
+        var n = ultimos[v.toUpperCase()];
+        existe.hidden = !n;
+        if (n) { existe.querySelector('span').textContent = 'Cliente já cadastrado em ' + n + ' pasta(s).'; }
+    }
+
+    modal.addEventListener('show.bs.modal', function () {
+        cliente.value = '';
+        acao.value = '';
+        ultimos = {};
+        while (lista.firstChild) { lista.removeChild(lista.firstChild); }
+        var dlg = modal.querySelector('.modal-dialog');
+        dlg.style.transform = '';
+        prox.textContent = '';
+        pintar();
+        buscar('').then(function (d) { if (d && d.proximoNumero) { prox.textContent = 'PASTA ' + d.proximoNumero; } });
+    });
+    modal.addEventListener('shown.bs.modal', function () { cliente.focus(); });
+
+    cliente.addEventListener('input', function () {
+        pintar();
+        clearTimeout(timer);
+        var q = cliente.value.trim();
+        if (q.length < 2) { return; }
+        timer = setTimeout(function () {
+            buscar(q).then(function (d) {
+                if (!d) { return; }
+                while (lista.firstChild) { lista.removeChild(lista.firstChild); }
+                d.clientes.forEach(function (c) {
+                    ultimos[c.nome.toUpperCase()] = c.total;
+                    var op = document.createElement('option');
+                    op.value = c.nome;
+                    lista.appendChild(op);
+                });
+                pintar();
+            });
+        }, 250);
+    });
+
+    /* Arrastar pelo cabeçalho (dc `arrastarNova`), sem sair da tela. */
+    var cab = modal.querySelector('.js-nova-arrastar');
+    cab.addEventListener('mousedown', function (e) {
+        if (e.button !== 0 || e.target.closest('button')) { return; }
+        var dlg = modal.querySelector('.modal-dialog');
+        var m = /translate\((-?\d+)px, (-?\d+)px\)/.exec(dlg.style.transform || '') || [0, 0, 0];
+        var x0 = e.clientX - (+m[1]);
+        var y0 = e.clientY - (+m[2]);
+        e.preventDefault();
+        var mover = function (ev) { dlg.style.transform = 'translate(' + (ev.clientX - x0) + 'px, ' + (ev.clientY - y0) + 'px)'; };
+        var soltar = function () { document.removeEventListener('mousemove', mover); document.removeEventListener('mouseup', soltar); };
+        document.addEventListener('mousemove', mover);
+        document.addEventListener('mouseup', soltar);
+    });
 }());
