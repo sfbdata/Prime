@@ -44,6 +44,29 @@ class UserRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Usuários que carregam um papel GLOBAL na coluna `roles` (ex.: ROLE_SUPER_ADMIN, o Master).
+     *
+     * `roles` é `json` (não `jsonb`) no PostgreSQL: não aceita LIKE nem o operador `?` direto
+     * (e `?` colidiria com o placeholder do DBAL). Por isso o CAST para texto e a busca pelo
+     * nome entre aspas, que não casa prefixo de outro papel.
+     *
+     * @return User[]
+     */
+    public function findComPapelGlobal(string $papel): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT id FROM "user" WHERE CAST(roles AS TEXT) LIKE :papel ORDER BY id',
+            ['papel' => '%"' . $papel . '"%'],
+        );
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->findBy(['id' => array_map('intval', $ids)], ['id' => 'ASC']);
+    }
+
     public function salvar(User $user, bool $flush = false): void
     {
         $this->getEntityManager()->persist($user);
