@@ -111,7 +111,8 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertCount(3, $linhas);
 
         $primario = $linhas->eq(0);
-        self::assertSame('Administrador do Escritório', trim($primario->filter('.pf-col-nome')->text()));
+        // M6: exibe "Usuário Primário"; o nome gravado não muda (o bootstrap busca por ele).
+        self::assertSame('Usuário Primário', trim($primario->filter('.pf-col-nome')->text()));
         self::assertCount(1, $primario->filter('.pf-col-classe > .pf-selo-primario'));
         self::assertStringContainsString('Quem abriu a conta.', $primario->filter('.pf-col-desc')->text());
         $totalCatalogo = count($this->em->getRepository(Permission::class)->findAll());
@@ -123,6 +124,24 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame('Usuário secundário', trim($nivel->filter('.pf-col-desc')->text()));
         self::assertCount(1, $nivel->filter('.pf-col-classe > .pf-selo-secundario'));
         self::assertCount(1, $nivel->filter('.pf-col-acoes [data-pf-excluir]'));
+    }
+
+    #[TestDox('lista: a confirmação de exclusão conta todos os vínculos que serão soltos, inativos inclusive; a coluna USUÁRIOS só os ativos')]
+    public function testExclusaoContaVinculosInativos(): void
+    {
+        $antigo = $this->criarUsuario('Ex-colaborador', $this->tenant, $this->perfilAdvogado);
+        $this->em->flush();
+        $this->em->getConnection()->executeStatement(
+            'UPDATE user_tenant SET is_active = false WHERE user_id = :u',
+            ['u' => $antigo->getId()]
+        );
+
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $crawler = $this->client->request('GET', $this->urlLista());
+
+        $linha = $crawler->filter(sprintf('.pf-linha[data-href$="/roles/%d/edit"]', $this->perfilAdvogado->getId()));
+        self::assertSame('1', trim($linha->filter('.pf-col-num')->eq(1)->text()));
+        self::assertSame('2', $linha->filter('[data-pf-excluir]')->attr('data-usuarios'));
     }
 
     #[TestDox('secundário sem admin.roles.manage recebe 403 na lista e na promoção')]
@@ -147,20 +166,23 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         $this->darPermissao($this->perfilAdvogado, 'admin.roles.manage');
         $this->logarComTenant($this->client, $this->advogado, $this->tenant);
 
-        $this->client->request('GET', $this->urlLista());
-        self::assertResponseIsSuccessful();
-
-        // Token legítimo, tirado da própria tela: a recusa tem de vir da autorização, não do CSRF.
-        $crawler = $this->client->request('GET', $this->urlEdicao($this->perfilPrimario));
-        self::assertResponseIsSuccessful();
-        $token = (string) $crawler->filter('[data-pf-form-promover] input[name=_token]')->attr('value');
-
+        // Token válido (primeira requisição do cliente): a recusa tem de vir da autorização.
         $this->client->request('POST', $this->urlLista() . '/primarios/promover', [
             'usuario' => $this->advogado->getId(),
-            '_token'  => $token,
+            '_token'  => $this->tokenCsrf('promover_primario_' . $this->tenant->getId()),
         ]);
         self::assertResponseStatusCodeSame(403);
         self::assertFalse($this->recarregarVinculo($this->advogado)->getTenantRole()?->isSystem());
+
+        $this->client->request('GET', $this->urlLista());
+        self::assertResponseIsSuccessful();
+
+        // M3: ele vê os primários, mas sem promover nem lixeira.
+        $crawler = $this->client->request('GET', $this->urlEdicao($this->perfilPrimario));
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('[data-pf-primarios] > [data-pf-primario]'));
+        self::assertCount(0, $crawler->filter('[data-pf-form-promover]'));
+        self::assertCount(0, $crawler->filter('[data-pf-remover-primario]'));
     }
 
     // ── §4.2 Edição ────────────────────────────────────────────────────────
@@ -172,8 +194,11 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', $this->urlEdicao($this->perfilPrimario));
         self::assertResponseIsSuccessful();
 
+        self::assertStringContainsString('Editar Perfil: Usuário Primário', $crawler->filter('.pf-cabecalho > .pf-titulo')->text());
+
         $primarios = $crawler->filter('[data-pf-primarios] > [data-pf-primario]');
         self::assertCount(2, $primarios);
+        self::assertCount(1, $crawler->filter('[data-pf-primarios] > [data-pf-form-promover]'), 'o primário vê o promover');
         self::assertStringContainsString('Titular Primário', $primarios->eq(0)->text(), 'o titular abre o bloco');
         self::assertCount(1, $primarios->eq(0)->filter('.pf-tag-titular'));
         self::assertCount(1, $primarios->eq(0)->filter('.bi-lock-fill'));

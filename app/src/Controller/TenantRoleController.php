@@ -44,6 +44,12 @@ final class TenantRoleController extends AbstractController
     private const DESCRICAO_PRIMARIO = 'Quem abriu a conta. Gestor do escritório; cadastra e administra os secundários. Não pode ser excluído.';
     private const DESCRICAO_SECUNDARIO_VAZIA = 'Usuário secundário';
 
+    /**
+     * Nome EXIBIDO do perfil isSystem (desenho). O gravado continua "Administrador do Escritório":
+     * o TenantBootstrapService acha o perfil pelo nome.
+     */
+    public const NOME_EXIBIDO_PRIMARIO = 'Usuário Primário';
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly GruposDePermissaoDoPerfil $gruposDePermissao,
@@ -108,6 +114,8 @@ final class TenantRoleController extends AbstractController
         // Contagem no banco, não no lado inverso da associação (TenantRole::userTenants), que em
         // memória pode estar desatualizado.
         $usuariosPorPerfil = $userTenantRepository->contarAtivosPorPerfil($tenant);
+        // A confirmação de exclusão fala de TODOS os vínculos que o delete solta, inativos inclusive.
+        $vinculosPorPerfil = $userTenantRepository->contarVinculosPorPerfil($tenant);
 
         $perfis = [];
         foreach ($roleRepository->findByTenantId((int) $tenant->getId()) as $role) {
@@ -116,13 +124,14 @@ final class TenantRoleController extends AbstractController
             $descricao = trim((string) $role->getDescription());
             $perfis[] = [
                 'id'            => $role->getId(),
-                'nome'          => $role->getName(),
+                'nome'          => $role->isSystem() ? self::NOME_EXIBIDO_PRIMARIO : $role->getName(),
                 'classificacao' => $role->isSystem() ? 'primario' : 'secundario',
                 'descricao'     => $role->isSystem()
                     ? self::DESCRICAO_PRIMARIO
                     : ($descricao !== '' ? $descricao : self::DESCRICAO_SECUNDARIO_VAZIA),
                 'permissoes'    => $role->isSystem() ? $totalDoCatalogo : $role->getTenantRolePermissions()->count(),
                 'usuarios'      => $usuarios,
+                'vinculos'      => $vinculosPorPerfil[(int) $role->getId()] ?? 0,
                 'podeExcluir'   => !$role->isSystem(),
             ];
         }
@@ -403,9 +412,13 @@ final class TenantRoleController extends AbstractController
             $roleRepository->findSecundarios($tenant)
         );
 
+        $ator = $this->getUser();
+
         return $this->render('tenant_role/edit.html.twig', [
             'tenantId'          => $tenant->getId(),
             'role'              => $role,
+            'nomeExibido'       => self::NOME_EXIBIDO_PRIMARIO,
+            'podeGerirPrimarios' => $ator instanceof User && $this->regraDosPrimarios->podeGerirPrimarios($ator, $tenant),
             'form'              => null,
             'cartoes'           => $cartoes,
             'total'             => $this->gruposDePermissao->total($cartoes),

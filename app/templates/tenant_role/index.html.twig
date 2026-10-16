@@ -69,7 +69,7 @@
                             <form method="post" action="{{ path('app_tenant_role_delete', {tenantId: tenantId, id: perfil.id}) }}" class="d-inline" data-pf-form-excluir>
                                 <input type="hidden" name="_token" value="{{ csrf_token('delete_role_' ~ perfil.id) }}">
                                 <button type="button" class="pf-acao pf-acao-excluir" title="Excluir perfil" aria-label="Excluir perfil"
-                                        data-pf-excluir data-nome="{{ perfil.nome }}" data-usuarios="{{ perfil.usuarios }}"><i class="bi bi-trash3"></i></button>
+                                        data-pf-excluir data-nome="{{ perfil.nome }}" data-usuarios="{{ perfil.vinculos }}"><i class="bi bi-trash3"></i></button>
                             </form>
                         {% endif %}
                     </div>

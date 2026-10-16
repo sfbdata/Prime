@@ -56,7 +56,7 @@
                 {% for convite in convites %}
                     <tr>
                         <td>{{ convite.email }}</td>
-                        <td>{{ convite.nomeConvidado ?? '—' }}</td>
+                        <td>{{ convite.nomeConvidado ?? 'sem informação' }}</td>
                         <td>
                             {% if convite.status == 'pending' %}
                                 <span class="badge bg-warning text-dark">Pendente</span>

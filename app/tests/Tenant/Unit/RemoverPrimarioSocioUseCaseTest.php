@@ -187,6 +187,21 @@ final class RemoverPrimarioSocioUseCaseTest extends TestCase
         }
     }
 
+    #[TestDox('conta desativada não é primário: não pode ser "removida" como sócio')]
+    public function testContaDesativadaNaoEPrimario(): void
+    {
+        [$tenant, $socio, $vinculo, $destino] = $this->cenario();
+        $socio->setIsActive(false);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(OperacaoDePrimarioRecusada::class);
+        $this->expectExceptionMessageMatches('/não é primário/');
+
+        $this->useCase->executar(new RemoverPrimarioSocioInput($tenant, $socio, $destino));
+    }
+
     /** UserTenant não tem desativação pública (o vínculo inativo é legado de antes do hard delete). */
     private function desativar(UserTenant $vinculo): void
     {

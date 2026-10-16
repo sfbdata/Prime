@@ -82,7 +82,11 @@ final class RegraDosPrimarios
 
     public function ehPrimario(UserTenant $vinculo): bool
     {
-        return $vinculo->isActive() && $vinculo->getTenantRole()?->isSystem() === true;
+        // Conta desativada não é primário (não loga), mesmo com vínculo ativo: contá-la faria o
+        // "último primário" passar com um primário que ninguém consegue usar.
+        return $vinculo->isActive()
+            && $vinculo->getUser()->isActive()
+            && $vinculo->getTenantRole()?->isSystem() === true;
     }
 
     public function ehTitular(UserTenant $vinculo): bool

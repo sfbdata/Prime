@@ -6,7 +6,7 @@
    promoção de sócio e as caixas marcadas e travadas (D5), sem campos de nome.
 #}
 
-{% block title %}Editar Perfil: {{ role.name }}{% endblock %}
+{% block title %}Editar Perfil: {{ role.isSystem ? nomeExibido : role.name }}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/perfis.css') }}">
@@ -16,7 +16,7 @@
 {% set ehPrimario = role.isSystem %}
 <div class="pf-page">
     <div class="pf-cabecalho">
-        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>Editar Perfil: {{ role.name }}
+        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>Editar Perfil: {{ ehPrimario ? nomeExibido : role.name }}
             {%- if ehPrimario %}<span class="pf-selo-titulo pf-selo-primario">PRIMÁRIO</span>{% else %}<span class="pf-selo-titulo pf-selo-secundario">SECUNDÁRIO</span>{% endif -%}
             <span class="pf-titulo-barra"></span></h1>
         <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-arrow-left"></i>Voltar</a>
@@ -36,16 +36,21 @@
                         <i class="bi bi-lock-fill pf-cadeado-titular" title="O primário titular (quem abriu a conta) não pode ser excluído"></i>
                     {% else %}
                         <span class="pf-tag pf-tag-socio">PRIMÁRIO SÓCIO</span>
+                        {% if podeGerirPrimarios %}
                         <form method="post" action="{{ path('app_tenant_role_primario_remover', {tenantId: tenantId, userId: p.userId}) }}" class="d-inline" data-pf-form-remover-primario>
                             <input type="hidden" name="_token" value="{{ csrf_token('remover_primario_' ~ p.userId) }}">
                             <input type="hidden" name="perfil_destino" value="" data-pf-destino>
                             <button type="button" class="pf-acao pf-acao-excluir" title="Remover este primário" aria-label="Remover este primário"
                                     data-pf-remover-primario data-nome="{{ p.nome }}"><i class="bi bi-trash3"></i></button>
                         </form>
+                        {% endif %}
                     {% endif %}
                 </div>
             {% endfor %}
 
+            {# Promover e remover sócios é só do primário ou do Master (RegraDosPrimarios); os
+               demais veem a lista sem ações. #}
+            {% if podeGerirPrimarios %}
             <form method="post" action="{{ path('app_tenant_role_primario_promover', {tenantId: tenantId}) }}" class="pf-promover" data-pf-form-promover>
                 <input type="hidden" name="_token" value="{{ csrf_token('promover_primario_' ~ tenantId) }}">
                 <b>Promover a primário (sócio do escritório)</b>
@@ -61,6 +66,7 @@
                 </div>
                 <span class="pf-promover-msg" data-pf-promover-msg data-padrao="O sócio promovido tem as mesmas competências de gestão do escritório, mas não pode excluir o primário titular. Promoções e remoções vão para a auditoria da conta.">O sócio promovido tem as mesmas competências de gestão do escritório, mas não pode excluir o primário titular. Promoções e remoções vão para a auditoria da conta.</span>
             </form>
+            {% endif %}
         </div>
 
         <template data-pf-perfis-destino>
