@@ -6,6 +6,9 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Permission\AccessRequest;
+use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Service\PermissionChecker;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
@@ -18,13 +21,14 @@ use App\Service\NotificacaoService;
  * História: o colaborador clica numa pasta trancada, lê que ela tem documentos sigilosos e pede acesso.
  * Cada administrador ativo do escritório recebe uma notificação no sino, com link para a pasta. O desenho
  * fala em Chat I.A., que não existe no sistema: a notificação é o canal real. Pasta que não está trancada
- * não gera pedido. Devolve quantos administradores foram avisados.
+ * não gera pedido; quem não pode ver a pasta não pede. Devolve quantos administradores foram avisados.
  */
 final class PedirAcessoAPastaTrancadaUseCase
 {
     public function __construct(
         private readonly UserTenantRepository $userTenantRepository,
         private readonly NotificacaoService $notificacaoService,
+        private readonly PermissionChecker $permissionChecker,
     ) {
     }
 
@@ -32,6 +36,10 @@ final class PedirAcessoAPastaTrancadaUseCase
     {
         if ($pasta->getTenant() !== $tenant) {
             throw new PastaDeOutroEscritorioException('Pasta não encontrada.');
+        }
+
+        if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW)) {
+            throw new SemPermissaoParaVerPastaException('Sem permissão para ver esta pasta.');
         }
 
         if (!$pasta->estaTrancada()) {

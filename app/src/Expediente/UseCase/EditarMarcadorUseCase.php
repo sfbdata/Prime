@@ -51,7 +51,10 @@ class EditarMarcadorUseCase
 
         $marcador->setNome($nome);
         $marcador->setCor($cor);
-        $marcador->setDescricao($descricao);
+        // Sem o campo (chamador antigo), a descrição fica como está; vazio apaga.
+        if ($descricao !== null) {
+            $marcador->setDescricao($descricao);
+        }
         $this->em->flush();
 
         return $marcador;

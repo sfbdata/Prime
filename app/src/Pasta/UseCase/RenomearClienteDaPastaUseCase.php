@@ -6,6 +6,7 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
@@ -21,12 +22,15 @@ use Doctrine\ORM\EntityManagerInterface;
  * é tocado), em caixa alta como o resto do sistema, com espaços repetidos tirados. Nome vazio é recusado.
  * Não mexe na situação: pasta arquivada continua arquivada (o caminho do formulário completo reativaria).
  * Pasta excluída (lápide) é somente leitura e é recusada pelo PastaSomenteLeituraListener no flush.
+ * Pasta judicializada pela cobrança mostra um identificador MONTADO do credor e do devedor, que vence o texto
+ * gravado: como na tela da pasta (pasta/show, "Montado a partir do credor da carteira"), aqui não se edita.
  */
 final class RenomearClienteDaPastaUseCase
 {
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly EntityManagerInterface $em,
+        private readonly ResolvedorIdentificadorDaPasta $identificador,
     ) {
     }
 
@@ -38,6 +42,11 @@ final class RenomearClienteDaPastaUseCase
 
         if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT)) {
             throw new SemPermissaoParaEditarPastaException('Sem permissão para editar esta pasta.');
+        }
+
+        $derivado = $this->identificador->para($pasta);
+        if ($derivado !== null && $derivado !== $pasta->getNomeCliente()) {
+            throw new \DomainException('O nome desta pasta é montado a partir do credor da carteira e não se edita aqui');
         }
 
         $nome = mb_strtoupper(trim((string) preg_replace('/\s+/u', ' ', $nome)));

@@ -21,6 +21,7 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -269,7 +270,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
     public function testPedirAcessoNotificaAdministrador(): void
     {
         [$admin, $tenant] = $this->criarAdmin();
-        $colaborador = $this->criarColaborador($tenant);
+        $colaborador = $this->criarColaborador($tenant, ['resources.pasta.view']);
         $pasta = $this->criarPasta($tenant);
         $pasta->trancar($admin, new \DateTimeImmutable());
         $this->em()->flush();
@@ -291,11 +292,175 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
     public function testPedirAcessoPastaAberta(): void
     {
         [, $tenant] = $this->criarAdmin();
-        $colaborador = $this->criarColaborador($tenant);
+        $colaborador = $this->criarColaborador($tenant, ['resources.pasta.view']);
         $pasta = $this->criarPasta($tenant);
         $this->logarComTenant($this->client, $colaborador, $tenant);
 
         $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    // ── Recusas: CSRF, isolamento e permissão nas rotas da pasta ───────
+
+    /** @return iterable<string, array{0: string, 1: array<string, string>}> */
+    public static function rotasDaPasta(): iterable
+    {
+        yield 'F2' => ['nome', ['nome' => 'NOVO']];
+        yield 'trancar' => ['trancar', []];
+        yield 'destaque' => ['destaque', ['cor' => 'azul']];
+        yield 'pedir acesso' => ['pedir-acesso', []];
+    }
+
+    #[DataProvider('rotasDaPasta')]
+    #[TestDox('rota da pasta sem o token da Lista é recusada')]
+    public function testRotaDaPastaSemToken(string $acao, array $dados): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $pasta->trancar($user, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/' . $acao, $dados, 'errado');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[DataProvider('rotasDaPasta')]
+    #[TestDox('rota da pasta com pasta de outro escritório não encontra e não grava')]
+    public function testRotaDaPastaOutroEscritorio(string $acao, array $dados): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        [$outroAdmin, $outroTenant] = $this->criarAdmin();
+        $dele = $this->criarPasta($outroTenant);
+        $dele->trancar($outroAdmin, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->post('/expediente/pasta/' . $dele->getId() . '/' . $acao, $dados);
+
+        self::assertResponseStatusCodeSame(404);
+        $conn = $this->em()->getConnection();
+        self::assertNotNull($conn->fetchOne('SELECT trancada_em FROM pasta WHERE id = ?', [$dele->getId()]), 'continua trancada');
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM pasta_destaque WHERE pasta_id = ?', [$dele->getId()]));
+        self::assertSame(0, (int) $conn->fetchOne("SELECT COUNT(*) FROM notificacao WHERE tipo = 'pasta_pedido_acesso' AND usuario_id = ?", [$outroAdmin->getId()]));
+    }
+
+    #[TestDox('colaborador que só VÊ a pasta não usa o F2 (precisa editar), mas destaca e pede acesso')]
+    public function testColaboradorSoVe(): void
+    {
+        [$admin, $tenant] = $this->criarAdmin();
+        $leitor = $this->criarColaborador($tenant, ['resources.pasta.view']);
+        $pasta = $this->criarPasta($tenant);
+        $pasta->trancar($admin, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $leitor, $tenant);
+
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/nome', ['nome' => 'NAO PODE']);
+        self::assertResponseStatusCodeSame(403);
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/destaque', ['cor' => 'rosa']);
+        self::assertResponseIsSuccessful();
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('colaborador que nem vê a pasta não destaca nem pede acesso')]
+    public function testColaboradorSemVer(): void
+    {
+        [$admin, $tenant] = $this->criarAdmin();
+        $estranho = $this->criarColaborador($tenant);
+        $pasta = $this->criarPasta($tenant);
+        $pasta->trancar($admin, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $estranho, $tenant);
+
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/destaque', ['cor' => 'rosa']);
+        self::assertResponseStatusCodeSame(403);
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('CSV com marcador de outro escritório não encontra')]
+    public function testCsvMarcadorDeOutroEscritorio(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        [$outro, $outroTenant] = $this->criarAdmin();
+        $dele = $this->criarMarcador($outroTenant, $outro, 'Dele');
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->request('GET', '/expediente/exportar.csv?marcador=' . $dele->getId());
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('CSV neutraliza texto que viraria fórmula na planilha')]
+    public function testCsvSemFormula(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant, 'FORM');
+        $pasta->setNomeCliente('=HYPERLINK("http://x";"abrir")');
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->request('GET', '/expediente/exportar.csv?colunas=cliente');
+
+        self::assertStringContainsString('"\'=HYPERLINK(""HTTP://X"";""ABRIR"")"', (string) $this->client->getResponse()->getContent(), 'o setter grava em maiúsculas');
+    }
+
+    #[TestDox('painel de um marcador de topo traz também as pastas dos submarcadores, sem repetir')]
+    public function testPainelDoMarcadorDeTopoTrazOsSubs(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pai = $this->criarMarcador($tenant, $user, 'Pai');
+        $sub = $this->criarMarcador($tenant, $user, 'Sub', $pai);
+        $soPai = $this->criarPasta($tenant, 'SOPAI');
+        $soSub = $this->criarPasta($tenant, 'SOSUB');
+        $nosDois = $this->criarPasta($tenant, 'DOIS');
+        $fora = $this->criarPasta($tenant, 'FORA');
+        $soPai->addMarcador($pai);
+        $soSub->addMarcador($sub);
+        $nosDois->addMarcador($pai);
+        $nosDois->addMarcador($sub);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->xmlHttpRequest('GET', '/expediente/marcador/' . $pai->getId() . '/pastas');
+        $html = (string) $this->client->getResponse()->getContent();
+
+        foreach ([$soPai, $soSub, $nosDois] as $p) {
+            self::assertSame(1, substr_count($html, 'data-pasta-id="' . $p->getId() . '" data-nup='), $p->getNup());
+        }
+        self::assertStringNotContainsString($fora->getNup(), $html);
+
+        $this->client->xmlHttpRequest('GET', '/expediente/marcador/' . $sub->getId() . '/pastas');
+        self::assertStringNotContainsString($soPai->getNup(), (string) $this->client->getResponse()->getContent(), 'o sub não traz as do pai');
+    }
+
+    #[TestDox('sugestões da Nova Pasta não trazem clientes de outro escritório')]
+    public function testSugestoesIsolamento(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        [, $outroTenant] = $this->criarAdmin();
+        $dele = $this->criarPasta($outroTenant);
+        $dele->setNomeCliente('ZEFERINO SIGILOSO');
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->request('GET', '/expediente/nova-pasta/sugestoes?q=zeferino');
+
+        self::assertSame([], $this->resposta()['clientes']);
+    }
+
+    #[TestDox('criar submarcador dentro de submarcador é recusado (o trilho tem dois níveis)')]
+    public function testSubDeSubRecusado(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pai = $this->criarMarcador($tenant, $user, 'Pai');
+        $sub = $this->criarMarcador($tenant, $user, 'Sub', $pai);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->post('/expediente/marcador', ['nome' => 'Neto ' . uniqid(), 'pai_id' => (string) $sub->getId()], 'TOKEN_marcador');
 
         self::assertResponseStatusCodeSame(422);
     }
@@ -497,8 +662,13 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         return [$user, $tenant];
     }
 
-    /** Colaborador que entra no Expediente, mas não é administrador. */
-    private function criarColaborador(Tenant $tenant): User
+    /**
+     * Colaborador que entra no Expediente, mas não é administrador. `$extras`: outras permissões do perfil
+     * (ex.: `resources.pasta.view`).
+     *
+     * @param string[] $extras
+     */
+    private function criarColaborador(Tenant $tenant, array $extras = []): User
     {
         $em   = $this->em();
         $user = $this->novoUsuario('Colaborador E12');
@@ -509,19 +679,21 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         $role->setIsSystem(false);
         $em->persist($role);
 
-        $perm = $em->getRepository(Permission::class)->findOneBy(['code' => 'modules.expediente.view']);
-        if ($perm === null) {
-            $perm = new Permission();
-            $perm->setCode('modules.expediente.view');
-            $perm->setDescription('modules.expediente.view');
-            $perm->setGroup('modules');
-            $em->persist($perm);
+        foreach (array_merge(['modules.expediente.view'], $extras) as $codigo) {
+            $perm = $em->getRepository(Permission::class)->findOneBy(['code' => $codigo]);
+            if ($perm === null) {
+                $perm = new Permission();
+                $perm->setCode($codigo);
+                $perm->setDescription($codigo);
+                $perm->setGroup(explode('.', $codigo)[0]);
+                $em->persist($perm);
+            }
+            $vinculo = new TenantRolePermission();
+            $vinculo->setTenantRole($role);
+            $vinculo->setPermission($perm);
+            $em->persist($vinculo);
+            $role->getTenantRolePermissions()->add($vinculo);
         }
-        $vinculo = new TenantRolePermission();
-        $vinculo->setTenantRole($role);
-        $vinculo->setPermission($perm);
-        $em->persist($vinculo);
-        $role->getTenantRolePermissions()->add($vinculo);
 
         $ut = new UserTenant($user, $tenant);
         $ut->setTenantRole($role);

@@ -31,6 +31,10 @@ class CriarMarcadorUseCase
             if ($pai === null) {
                 throw new NotFoundHttpException('Marcador pai não encontrado.');
             }
+            // O trilho tem dois níveis: submarcador só de marcador principal.
+            if (!$pai->isRaiz()) {
+                throw new \DomainException('Escolha um marcador principal.');
+            }
         }
 
         if ($this->repository->existeNomeNoTenant($dto->nome, $tenant)) {

@@ -613,3 +613,9 @@
 .exp-nova-rodape .exp-btn--azul:disabled { background: #9fbccd; cursor: not-allowed; opacity: 1; transform: none; }
 .exp-body .exp-cartao .pasta-card-ident { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .exp-body .exp-cartao .pasta-card-nup { font-size: 13px; }
+
+/* Abaixo de 1180px (dc L.34): o cabeçalho perde os ícones e as setas das colunas que não ordenam. */
+@media (max-width: 1180px) {
+    .exp-body #tabelaPastas thead th > .bi:not(.sort-icon) { display: none; }
+    .exp-body #tabelaPastas thead th:not(.asc):not(.desc) > .sort-icon { display: none; }
+}

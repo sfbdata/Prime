@@ -137,3 +137,53 @@ combinador de filho direto. Suíte completa no fim, rodada sozinha.
 
 Bloqueio real de acesso à pasta trancada no servidor; marcar Suspenso/Cancelado na Pasta; prazo manual,
 prazo do Push e audiência (sem dado); Protocolar (sem fase); Chat I.A. e Assistente de pastas.
+
+## 7. Conferência item a item (16/10, depois de `02fb00fd`)
+
+✓ igual ao desenho · ≈ diferente, com o motivo. Conferido no código e nos testes de arranjo; **a aparência
+ainda precisa do smoke do dono** (a suíte não vê cor, fonte nem posição fina).
+
+| # | Item do desenho | Estado |
+|---|---|---|
+| 1 | Trilho 290px, recolhido 64px | ✓ |
+| 2 | "Todas as pastas" 42px com ↻ que gira, efeito de busca e aviso "Lista atualizada" | ✓ |
+| 3 | EXPEDIENTES com cadeado e 6 filtros com contagem; ativo azul; "Prazo findou" vermelho com pasta | ✓ |
+| 4 | Audiência | ≈ desativado "em breve" (sem dado de audiência ligado à pasta) |
+| 5 | Protocolar | ≈ desativado "em breve" (decisão do dono) |
+| 6 | Botão direito no filtro do sistema abre a nota | ✓ (texto conta o que a regra realmente faz) |
+| 7 | ⋮ de MARCADORES: Novo, Ver todas, Recolher/Expandir; recolher no meio do cabeçalho | ✓ |
+| 8 | Marcador: seta dos submarcadores, pasta na cor, ⋮ no hover, contagem do pai somando os filhos | ✓ (pastas distintas: a pasta pode ter vários marcadores) |
+| 9 | Arrastar e soltar com a linha azul; Mover para cima/baixo | ✓ |
+| 10 | Menu do marcador (Ver, Novo, Novo submarcador, Cima, Baixo, Editar, Duplicar, Excluir) | ✓ |
+| 11 | Modal do marcador: nome, descrição, "Dentro de", 10 cores, prévia, "Já existe um marcador com esse nome" | ✓ (marcador antigo pastel abre com a cor equivalente do desenho) |
+| 12 | Excluir com a janela de alerta | ✓ (texto "ficam sem este marcador": a pasta pode ter outros) |
+| 13 | Título da barra = filtro, marcador ou "Acervo geral"; clique volta ao início | ✓ |
+| 14 | Nova Pasta 520px, arrasta, "PASTA {próximo}", cliente obrigatório, sugestões | ✓ |
+| 15 | "A nova pasta será vinculada ao mesmo cadastro" | ≈ omitido: o sistema só grava o nome, a frase seria falsa |
+| 16 | Situação em menu com 5 opções e ponto pulsante | ✓ (marcar Suspenso/Cancelado é da tela da Pasta, fora) |
+| 17 | Responsável em menu com busca e avatar; Prioridade em menu (Normal, Alta, Urgente) | ✓ (avatar só com iniciais; o filtro não tem a foto) |
+| 18 | Limpar em ícone, só com filtro | ✓ (chip só para "Criado por", que vem do Dashboard e não tem campo) |
+| 19 | Visualizar: 5 modos, Pastas por página 25/50/100, Painel de marcadores | ✓ |
+| 20 | Colunas (clique e botão direito), Mostrar todas, Só as essenciais, Restaurar, CSV | ✓ (CSV no servidor, todas as páginas) |
+| 21 | Cabeçalho sem ícones abaixo de 1180px | ✓ |
+| 22 | Tabela com Réu, selo Nx, cadeado com quem trancou | ✓ |
+| 23 | Metas | ≈ número = total de metas (decisão do dono de 15/10); o desenho conta só as abertas. **Confirmar** |
+| 24 | Chip do marcador e menu MARCADOR com "Remover marcador" | ✓ (escolher liga/desliga, porque a pasta pode ter vários) |
+| 25 | Situação com 4 rótulos e cores | ✓ |
+| 26 | Hover azul e destaque em 6 cores | ✓ |
+| 27 | Detalhes compactos, Lista, Cartões, Cartões grandes | ✓ |
+| 28 | Botão direito da linha completo, F2 no próprio menu, Trancar "só primário", Destacar | ✓ |
+| 29 | Janela "Pasta N protegida" e Pedir acesso | ✓ (vai como notificação aos administradores; texto diz isso, não "Chat I.A.") |
+| 30 | Dicas azul-claras só quando o texto está cortado | ✓ |
+| 31 | Sobreposição BlueJus I.A. | ≈ pronta e ligada ao evento `bj-ai-fx`, mas nada no sistema dispara (não há Assistente) |
+
+Só do BlueJus, mantidos: estrela de favorito (tabela e cartão), "+N" de vários marcadores, duplo clique na situação
+(ativo/arquivado), lápide da pasta excluída, chip "Criado por".
+
+## 8. Para o smoke do dono (o que olhar na tela)
+
+Claro e escuro, 1440, 1280, 1024 e celular: trilho (aberto, recolhido, arrastar, menus, modal do marcador),
+filtros do sistema com contagem, menus de Situação/Responsável/Prioridade, Visualizar nos 5 modos e por página,
+colunas e CSV, botão direito da linha (F2, trancar como administrador e como colaborador, destacar), janela de
+sigilo e Pedir acesso (o sino do administrador), Nova Pasta. O teste visual de Playwright da E8d
+(`e2e/tests/expediente-lista-visual.spec.js`) mirava o trilho antigo e precisa ser revisto junto com o smoke.

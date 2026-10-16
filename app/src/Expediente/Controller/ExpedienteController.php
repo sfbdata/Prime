@@ -466,6 +466,8 @@ final class ExpedienteController extends AbstractController
             $avisados = $this->pedirAcessoUseCase->executar($pasta, $user, $tenant, $this->generateUrl('pasta_show', ['id' => $pasta->getId()]));
         } catch (PastaDeOutroEscritorioException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaVerPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (\DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

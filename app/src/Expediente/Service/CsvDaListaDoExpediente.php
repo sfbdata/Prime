@@ -54,15 +54,25 @@ final class CsvDaListaDoExpediente
             static fn (string $k): bool => $k === 'nup' || in_array($k, $colunas, true),
         ));
 
+        $this->identificador->primeParaPastas($pastas);
         $linhas = [implode(';', array_map(static fn (string $k): string => self::COLUNAS[$k], $ks))];
         foreach ($pastas as $pasta) {
             $linhas[] = implode(';', array_map(
-                fn (string $k): string => '"' . str_replace('"', '""', $this->valor($pasta, $k, $reusPorPasta)) . '"',
+                fn (string $k): string => '"' . str_replace('"', '""', self::semFormula($this->valor($pasta, $k, $reusPorPasta))) . '"',
                 $ks,
             ));
         }
 
         return "\u{FEFF}" . implode("\r\n", $linhas);
+    }
+
+    /**
+     * Texto que começa com = + - @ (ou tabulação/retorno) vira fórmula no Excel: o nome da pasta é texto livre e
+     * os réus vêm de importação. Um apóstrofo na frente faz a planilha mostrar o texto como texto.
+     */
+    private static function semFormula(string $valor): string
+    {
+        return $valor !== '' && str_contains("=+-@\t\r", $valor[0]) ? "'" . $valor : $valor;
     }
 
     /** @param array<int, string[]> $reusPorPasta */

@@ -252,7 +252,7 @@
     }
 
     /* ── Modal do marcador ────────────────────────────────────────────── */
-    var modal = { dados: null, cor: CORES[0] };
+    var modal = { dados: null, cor: CORES[0], corOriginal: null, corTocada: false };
 
     function elModal() { return document.getElementById('expMkModal'); }
 
@@ -303,6 +303,9 @@
 
         var cor = el ? el.dataset.corTela : (o.cor || CORES[n % CORES.length]);
         pintarCor(CORES.indexOf(cor) >= 0 ? cor : CORES[n % CORES.length]);
+        // Marcador antigo de cor pastel: a tela mostra a equivalente do desenho, mas só grava outra cor se escolherem.
+        modal.corOriginal = el ? (el.dataset.cor || '') : null;
+        modal.corTocada = false;
         m.hidden = false;
         setTimeout(function () { var nome = document.getElementById('expMkNome'); nome.focus(); nome.select(); }, 30);
     }
@@ -317,7 +320,7 @@
         if (!nome) { erro.textContent = 'Informe o nome do marcador'; return; }
         var corpo = new URLSearchParams({
             nome: nome,
-            cor: modal.cor,
+            cor: (d.id && !modal.corTocada) ? modal.corOriginal : modal.cor,
             descricao: document.getElementById('expMkDescricao').value.trim(),
             pai_id: document.getElementById('expMkPai').value
         });
@@ -492,7 +495,7 @@
         if (!m || m.hidden) { return; }
         if (e.target === m || e.target.closest('.js-mk-fechar')) { fecharModal(); return; }
         var cor = e.target.closest('.exp-mk-cor');
-        if (cor) { pintarCor(cor.dataset.cor); return; }
+        if (cor) { modal.corTocada = true; pintarCor(cor.dataset.cor); return; }
         if (e.target.closest('#expMkSalvar')) { salvarModal(); }
     });
     document.addEventListener('input', function (e) {

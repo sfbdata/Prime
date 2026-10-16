@@ -125,10 +125,11 @@ test.describe('Lista do Expediente no desenho 1.1', () => {
         expect((await medir(page, '#tabelaPastas thead th:last-child')).alinhar).toBe('center');
         expect((await medir(page, '#tabelaPastas tbody tr.pasta-row-link td:first-child')).paddingEsq).toBe('20px');
 
-        // AUD-03/04/05: recolher no meio do trilho; itens de peso normal sem a borda escura.
+        // E12 (1.1 online): o recolher fica no meio da altura do cabeçalho MARCADORES; itens de peso normal sem a borda.
         const recolher = await medir(page, '#expedienteSidebarToggleBtn');
-        expect(Math.abs(recolher.y - (trilho.y + trilho.h / 2))).toBeLessThanOrEqual(1);
-        const item = await medir(page, '#lista-marcadores > li > .expediente-menu-link:not(.active)');
+        const cabMarc = await medir(page, '.exp-tri-cab--marcadores');
+        expect(Math.abs(recolher.y - (cabMarc.y + cabMarc.h / 2))).toBeLessThanOrEqual(1);
+        const item = await medir(page, '#lista-marcadores > .exp-tri-grupo > .exp-tri-marcador:not(.active)');
         expect(item.peso).toBe('400');
         expect(item.bordaEsq).toBe('rgba(0, 0, 0, 0)');
     });
@@ -223,10 +224,10 @@ test.describe('Lista do Expediente no desenho 1.1', () => {
         await page.evaluate(() => document.querySelectorAll('.modal.show, .modal-backdrop, .sf-toolbar').forEach(n => n.remove()));
         await Promise.all([resposta(), page.click('.js-pasta-limpar')]);
 
-        // Visualizar pelo teclado: seta até "Cartões", Enter troca o modo e devolve o foco.
+        // Visualizar pelo teclado: seta até "Cartões" (E12: Detalhes, Detalhes compactos, Lista, Cartões), Enter troca o modo.
         await page.click('.js-visualizar');
         await expect(page.locator('.exp-vis-item[data-view="tabela"]')).toBeFocused();
-        await page.keyboard.press('ArrowDown');
+        for (let i = 0; i < 3; i++) { await page.keyboard.press('ArrowDown'); }
         await expect(page.locator('.exp-vis-item[data-view="lista"]')).toBeFocused();
         await page.keyboard.press('Enter');
         await expect(page.locator('#pastasView')).toHaveClass(/pastas-view--lista/);
@@ -271,16 +272,14 @@ test.describe('Lista do Expediente no desenho 1.1', () => {
         }
     });
 
-    test('tema escuro: texto escuro sobre o pastel (claro nos dois temas)', async ({ browser }) => {
+    test('tema escuro: o chip do marcador usa a cor do marcador (E12) e nada estoura', async ({ browser }) => {
         const page = await abrirLista(browser, 1440);
         await page.evaluate(() => document.documentElement.setAttribute('data-bs-theme', 'dark'));
-        const contagem = page.locator('.expediente-menu-link.com-cor .js-contagem-marcador').first();
-        if (await contagem.count()) {
-            expect(await contagem.evaluate(el => getComputedStyle(el).color)).toBe('rgb(52, 80, 95)');
-        }
-        const chip = page.locator('#tabelaPastas .marcador-principal[style*="background:#"]').first();
+        const chip = page.locator('#tabelaPastas .exp-chip-marc').first();
         if (await chip.count()) {
-            expect(await chip.evaluate(el => getComputedStyle(el).color)).toBe('rgb(36, 56, 69)');
+            const [cor, mk] = await chip.evaluate(el => [getComputedStyle(el).color, getComputedStyle(el).getPropertyValue('--mk-cor').trim()]);
+            expect(mk).not.toBe('');
+            expect(cor).not.toBe('rgba(0, 0, 0, 0)');
         }
         expect(await semEstouro(page)).toBe(true);
     });

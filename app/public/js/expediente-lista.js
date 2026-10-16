@@ -213,7 +213,8 @@
             var id = j.getAttribute('data-pasta-id');
             j.hidden = true;
             postar(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/')).then(function (r) {
-                avisar(r.ok ? 'Pedido de acesso enviado ao administrador do escritório' : (r.j.erro || 'Não foi possível pedir acesso'));
+                if (!r.ok) { avisar(r.j.erro || 'Não foi possível pedir acesso'); return; }
+                avisar(r.j.avisados > 0 ? 'Pedido de acesso enviado ao administrador do escritório' : 'Nenhum administrador ativo no escritório para receber o pedido');
             }, function () { avisar('Falha de conexão ao pedir acesso'); });
         }
     });
@@ -225,7 +226,7 @@
     document.addEventListener('click', function (e) {
         var alvo = e.target.closest('#tabelaPastas tr.pasta-row-link[data-trancada="1"], .exp-simples-linha[data-trancada="1"], .exp-cartao[data-trancada="1"]');
         if (!alvo || souAdmin()) { return; }
-        if (e.target.closest('button, input, select, .js-toggle-situacao, .exp-metas')) { return; }
+        if (e.target.closest('button, input, select, .js-toggle-situacao')) { return; }
         e.preventDefault();
         e.stopImmediatePropagation();
         mostrarSigilo(alvo.getAttribute('data-nup'), alvo.getAttribute('data-pasta-id'));
@@ -346,7 +347,13 @@
         lista.push({ rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.location.href = href; }); } });
         lista.push({ rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
         if (!excluida) {
-            lista.push({ rotulo: 'Editar nome rápido', icone: 'bi-pencil', atalho: 'F2', acao: function () { menuDaLinha(linha, x, y, true); } });
+            // Nome montado pela cobrança (credor e devedor) não se edita, como na tela da pasta.
+            if (linha.getAttribute('data-nome-editavel') === '0') {
+                lista.push({ rotulo: 'Editar nome rápido', icone: 'bi-pencil', extra: 'da cobrança', apagado: true,
+                    acao: function () { avisar('O nome desta pasta é montado a partir do credor da carteira e não se edita aqui'); } });
+            } else {
+                lista.push({ rotulo: 'Editar nome rápido', icone: 'bi-pencil', atalho: 'F2', acao: function () { menuDaLinha(linha, x, y, true); } });
+            }
             if (chip) { lista.push({ rotulo: 'Alterar responsável', icone: 'bi-person-badge', acao: function () { chip.click(); } }); }
             if (marcar) { lista.push({ rotulo: 'Alterar marcador', icone: 'bi-tags', acao: function () { marcar.click(); } }); }
         }
@@ -364,10 +371,16 @@
         abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha, editando ? 'editando' : null);
     }
 
+    /* Linha simples (div com data-href): Enter abre, como um link. */
+    document.addEventListener('keydown', function (e) {
+        var l = e.key === 'Enter' && e.target.closest && e.target.closest('.exp-simples-linha[data-href]');
+        if (l && e.target === l) { e.preventDefault(); l.click(); }
+    });
+
     /* F2 com o menu da linha aberto: o editor do nome no próprio menu (dc `_esc`). */
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'F2' || !menu || !linhaDoMenu || menu.classList.contains('exp-ctx--editando') || !document.contains(linhaDoMenu)) { return; }
-        if (linhaDoMenu.classList.contains('pasta-excluida')) { return; }
+        if (linhaDoMenu.classList.contains('pasta-excluida') || linhaDoMenu.getAttribute('data-nome-editavel') === '0') { return; }
         e.preventDefault();
         menuDaLinha(linhaDoMenu, parseInt(menu.style.left, 10), parseInt(menu.style.top, 10), true);
     });
