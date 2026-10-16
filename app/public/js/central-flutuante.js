@@ -36,7 +36,7 @@
 
         var chave = 'bj-central-prefs:' + (raizLancador.dataset.euId || '0');
         var prefs = lerPrefs();
-        var ui = { aberto: false, naoLidas: 0, mencoes: 0, timerSalto: null };
+        var ui = { aberto: false, naoLidas: 0, mencoes: 0, urgentes: 0, timerSalto: null };
         var separada = null;   // B2: { janela, tipo: 'flutuante' | 'janela', pai, prox } enquanto destacada
         var pedindo = false;   // B2: a janela Picture-in-Picture foi pedida e ainda não chegou
 
@@ -70,6 +70,9 @@
             lancador.classList.toggle('bj-flutuante--anim', !!(prefs.alertas && !silencio() && !ui.aberto && nl));
             badge.hidden = !nl;
             badge.textContent = nl > 99 ? '99+' : String(nl);
+            // F1 (L6409): vermelho e pulsando quando há aviso urgente não lido; o pulso só com os alertas visuais ligados.
+            badge.classList.toggle('bj-flutuante-badge--urgente', ui.urgentes > 0);
+            badge.classList.toggle('bj-flutuante-badge--pulsa', ui.urgentes > 0 && !!prefs.alertas);
             badgeMencoes.hidden = !(ui.mencoes && !ui.aberto);
             badgeMencoes.textContent = '@' + ui.mencoes;
             badgeMencoes.title = ui.mencoes + (ui.mencoes === 1 ? ' menção' : ' menções');
@@ -634,6 +637,7 @@
             var d = ev.detail || {};
             ui.naoLidas = d.naoLidas || 0;
             ui.mencoes = d.mencoes || 0;
+            ui.urgentes = d.urgentes || 0;
             desenharLancador();
             if (d.chegaram > 0) {
                 saltar();

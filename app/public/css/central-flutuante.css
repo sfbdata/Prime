@@ -101,6 +101,20 @@
     box-shadow: 0 0 0 2px #fff;
 }
 
+/* F1: aviso urgente não lido — VERM e bjcUrg 1,6 s (L6409, keyframes L5414) */
+.bj-flutuante-badge.bj-flutuante-badge--urgente {
+    background: #c0392f;
+}
+
+.bj-flutuante-badge.bj-flutuante-badge--pulsa {
+    animation: bjfUrg 1.6s ease-in-out infinite;
+}
+
+@keyframes bjfUrg {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+}
+
 /* Menções por ver, só com a janela fechada — L6411 */
 .bj-flutuante-mencoes {
     position: absolute;

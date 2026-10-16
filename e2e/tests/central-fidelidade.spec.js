@@ -98,6 +98,13 @@ const EQUIPE = { online: 3, total: 30, equipe: [
     { id: 1, nome: 'Pessoa Teste', cargo: 'Advogado', foto: null, eu: true, emAberto: 3, status: 'disponivel', online: true, desde: null, vistoEm: null },
     { id: 3, nome: 'Outra Pessoa', cargo: 'Estagiária', foto: null, eu: false, emAberto: 0, status: 'offline', online: false, desde: null, vistoEm: null },
 ] };
+// Avisos fictícios do sino (F1), já no vocabulário do desenho (o servidor faz o mapa).
+const AGORA = new Date().toISOString();
+const AVISOS = [
+    { id: 501, tipo: 'tarefa_alerta_verificar', grupo: 'urgente', rotulo: 'Alerta', icone: 'bi-bell-fill', cor: '#e8590c', nivel: 3, titulo: 'Verifique a meta Petição inicial', texto: 'Pasta 1180', url: '/tarefas/1', lido: false, criadoEm: AGORA },
+    { id: 502, tipo: 'pasta_resposta_registro', grupo: 'atencao', rotulo: 'Para você', icone: 'bi-person-check', cor: '#c8952a', nivel: 2, titulo: 'Responderam o seu comentário', texto: 'Texto de exemplo do aviso fictício, longo o bastante para quebrar em duas linhas na largura da janela da Central.', url: '/pasta/1180', lido: false, criadoEm: AGORA },
+    { id: 503, tipo: 'tarefa_criada', grupo: 'metas', rotulo: 'Nova meta', icone: 'bi-clipboard2-plus', cor: '#0a7aad', nivel: 2, titulo: 'Nova meta para você', texto: null, url: '/tarefas/2', lido: true, criadoEm: AGORA },
+];
 const PARTICIPANTES = { conversaId: 77, nome: GRUPO.nome, souAdministrador: true, participantes: [
     { id: 1, nome: 'Pessoa Teste', eu: true, administrador: true, ativoNoEscritorio: true },
     { id: 2, nome: 'Colega Fictícia', eu: false, administrador: false, ativoNoEscritorio: true },
@@ -110,6 +117,7 @@ function respostaSimulada(c, metodo, caminho) {
     // Batimento de presença (F2): toda página com a Central bate a cada 20 s. Anotado à parte (c.batimentos): as
     // demais escritas continuam exigidas em zero.
     if (metodo === 'POST' && caminho === '/central/presenca') { c.batimentos = (c.batimentos || 0) + 1; return { status: 200, json: { status: 'disponivel' } }; }
+    if (caminho === '/central/avisos') { return { status: 200, json: { avisos: c.avisos || [] } }; }
     if (caminho === '/central/equipe') { return { status: 200, json: c.equipe || { equipe: [], online: 0, total: 0 } }; }
     if (metodo !== 'GET') {
         c.escritas.push(metodo + ' ' + caminho);
@@ -122,7 +130,10 @@ function respostaSimulada(c, metodo, caminho) {
         return { status: 200, json: {} };
     }
     if (caminho === '/central/novidades') {
-        return { status: 200, json: { mensagens: [], cursor: 1000 + c.naoLidas, naoLidas: c.naoLidas, completo: true, conversasComMencao: c.mencoes } };
+        const av = c.avisos || [];
+        return { status: 200, json: { mensagens: [], cursor: 1000 + c.naoLidas, naoLidas: c.naoLidas, completo: true, conversasComMencao: c.mencoes,
+            avisosNaoLidos: av.filter((a) => !a.lido).length, avisosUrgentes: av.filter((a) => !a.lido && a.nivel === 3).length,
+            ultimoAviso: av.reduce((m, a) => Math.max(m, a.id), 0) } };
     }
     if (caminho === '/central/conversas') { return { status: 200, json: { conversas: c.conversas, conversasComMencao: c.mencoes } }; }
     if (/^\/central\/conversas\/\d+\/participantes$/.test(caminho)) { return { status: 200, json: PARTICIPANTES }; }
@@ -199,7 +210,8 @@ async function abrirSistema(browser, c, opcoes = {}) {
     await page.goto(APP + PAGINA_APP);
     await page.waitForSelector(S.lancador);
     if (primeiraLeitura) { await primeiraLeitura; }
-    await expect(page.locator(S.lancador)).toHaveAttribute('aria-label', c.naoLidas ? /não lida/ : /tudo em dia/);
+    const pendentes = c.naoLidas + (c.avisos || []).filter((x) => !x.lido).length;   // mensagens + avisos (F1)
+    await expect(page.locator(S.lancador)).toHaveAttribute('aria-label', pendentes ? /não lida/ : /tudo em dia/);
     return page;
 }
 
@@ -562,7 +574,7 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await Promise.all([p.context().close(), s.context().close()]);
     });
 
-    test('B1 cabeçalho da lista: avatar com anel, sem ponto de status nem "on-line"; subtítulo do desenho', async ({ browser }, testInfo) => {
+    test('B1 cabeçalho da lista: avatar com anel e o ponto de status; subtítulo do desenho', async ({ browser }, testInfo) => {
         const c = cenario();
         const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
         await p.locator(P.lancador).click();
@@ -574,8 +586,8 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         expect(await caixa(s, AV_S)).toEqual(await caixa(p, AV_P));
         const props = ['width', 'height', 'border-radius', 'box-shadow', 'color', 'font-size', 'font-weight'];
         expect(await estilos(s, AV_S, props)).toEqual(await estilos(p, AV_P, props));
-        // Presença não autorizada: nada de ponto de status ao lado do avatar nem de pílula "N on-line".
-        expect(await s.locator('[data-flutuante-janela] .bj-central-cab').textContent()).not.toMatch(/on-line/);
+        // Presença autorizada depois (F2, 16/10): o ponto do meu status mora no avatar (a pílula é coberta no teste F2).
+        await expect(s.locator(AV_S + ' > [data-central-cab-ponto]')).toHaveCount(1);
         expect(await s.locator(AV_S).evaluate((n) => n.parentElement.classList.contains('bj-central-cab'))).toBe(true);
         // Subtítulo: "nome · em dia" (L6338), mesma fonte e opacidade.
         const SUB_P = '[data-bjc-cab] > div > div:last-child';
@@ -655,9 +667,9 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await evidencia(testInfo, 'menu-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
 
         // Só comandos com comportamento real, e todos existem no desenho.
-        const rotulos = async (pg, sel) => (await pg.locator(sel + ' > button').allTextContents()).map((t) => t.replace(/(Normal|Grande)$/, '').trim());
+        const rotulos = async (pg, sel) => (await pg.locator(sel + ' > button').allTextContents()).map((t) => t.replace(/(Normal|Grande|Disponível|Ocupado|Ausente)$/, '').trim());
         const doSistema = await rotulos(s, MENU_S), doDesenho = await rotulos(p, MENU_P);
-        expect(doSistema).toEqual(['Novo grupo', 'Ver conversas arquivadas', expect.stringMatching(/^Não perturbe até \d\d:\d\d$/),
+        expect(doSistema).toEqual(['Novo grupo', 'Ver conversas arquivadas', 'Status', expect.stringMatching(/^Não perturbe até \d\d:\d\d$/),
             'Som de notificações', 'Alertas visuais', 'Tamanho do texto', 'Abrir em janela separada']);
         doSistema.forEach((r) => expect(doDesenho.some((d) => d === r || (/^Não perturbe/.test(r) && /^Não perturbe/.test(d)))).toBe(true));
         // Seções: as do desenho que têm comando real ("Tamanho do texto" vai para Mensagens: desvio levado ao dono, HANDOFF §12).
@@ -1050,6 +1062,80 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         });
         await expect.poll(() => (c.batimentos || 0) - oculta).toBeGreaterThanOrEqual(1);
         expect(c.escritas).toEqual([]);
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+    // ── F1: avisos do sino na Caixa (16/10) ─────────────────────────────────────────────────────────────────────
+    test('F1 avisos na Caixa: cartão, filtros e Painel do desenho; contador vermelho pulsando com urgente', async ({ browser }, testInfo) => {
+        const c = cenario(0, [], { avisos: AVISOS.map((a) => ({ ...a })) });
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        // Protótipo no mesmo estado: um "alerta" (nível 3) não lido, pela API dele (C:123).
+        await p.evaluate(() => window.BJCentral.notificar({ tipo: 'alerta', de: 'jessica', titulo: 'Verifique a meta', texto: 'Teste de fidelidade' }));
+        // Lançador: com aviso urgente não lido, contador vermelho com bjcUrg 1,6 s (L6409) — no protótipo, a meta
+        // atrasada que ele mesmo gera.
+        const BADGE_S = S.badge;
+        await expect(s.locator(BADGE_S)).toHaveText('2');
+        await expect(s.locator(BADGE_S)).toHaveCSS('background-color', 'rgb(192, 57, 47)');
+        const pulsoS = (await animacoes(s, BADGE_S)).filter((a) => a.iteracoes === Infinity);
+        expect(pulsoS).toHaveLength(1);
+        const BADGE_P = { sel: P.lancador + ' > span', texto: /^\d+$/ };
+        const pulsoP = await expect.poll(async () => (await animacoes(p, BADGE_P)).filter((a) => a.iteracoes === Infinity).length, { timeout: 15000 }).toBe(1)
+            .then(async () => (await animacoes(p, BADGE_P)).filter((a) => a.iteracoes === Infinity));
+        expect(pulsoS).toEqual(pulsoP);
+        expect(await estilos(s, BADGE_S, ['background-color'])).toEqual(await estilos(p, BADGE_P, ['background-color']));
+
+        await p.locator(P.lancador).click();
+        await s.locator(S.lancador).click();
+        await p.waitForTimeout(400);
+        const CART_S = S.janela + ' .bj-central-aviso-cartao';
+        await expect(s.locator(CART_S)).toHaveCount(3);
+        await expect(s.locator(S.janela + ' [data-central-aba-contador]')).toHaveText('2');
+
+        // Cartão: mesma estrutura e estilo do cartaoNotif (L5603), comparando o de "Alerta" (mesma cor e estado nos dois).
+        const cartao = (pg, sel) => pg.evaluate((q) => {
+            const cards = [...document.querySelectorAll(q)].filter((n) => n.getAttribute('role') === 'button'
+                && [...n.querySelectorAll('span')].some((x) => x.textContent === 'Alerta'));
+            const el = cards[0];
+            if (!el) { return 'sem cartão'; }
+            const cs = (n, ks) => { const c = getComputedStyle(n), o = {}; ks.forEach((k) => { o[k] = c.getPropertyValue(k); }); return o; };
+            const faixa = el.firstElementChild, icone = el.children[1], corpo = el.children[2];
+            const rotulo = [...corpo.querySelectorAll('span')].find((x) => x.textContent === 'Alerta');
+            const titulo = corpo.children[1], texto = corpo.children[2];
+            return {
+                raiz: cs(el, ['display', 'column-gap', 'padding-top', 'padding-left', 'padding-right', 'border-bottom-width', 'border-bottom-color', 'background-color', 'cursor', 'position']),
+                faixa: cs(faixa, ['position', 'width', 'background-color', 'opacity']),
+                icone: cs(icone, ['width', 'height', 'border-radius', 'font-size', 'color', 'background-color']),
+                rotulo: cs(rotulo, ['font-size', 'font-weight', 'letter-spacing', 'text-transform', 'color']),
+                titulo: cs(titulo, ['font-size', 'font-weight', 'line-height', 'color']),
+                texto: texto ? cs(texto, ['font-size', 'line-height', 'color', '-webkit-line-clamp']) : null,
+            };
+        }, sel);
+        const doDesenho = await cartao(p, P.janela + ' [role="button"]');
+        expect(doDesenho).not.toBe('sem cartão');   // o "alerta" criado acima
+        expect(await cartao(s, CART_S)).toEqual(doDesenho);
+        await evidencia(testInfo, 'avisos-prototipo', p, { x: 940, y: 120, width: 426, height: 680 });
+        await evidencia(testInfo, 'avisos-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
+
+        // Filtros do desenho na ordem (sem "Para revisar"); Urgente mostra só o alerta; Conversas, nenhum aviso.
+        expect(await s.locator(S.janela + ' [data-central-filtro]').evaluateAll((bs) => bs.map((b) => b.title)))
+            .toEqual(['Tudo', 'Conversas', 'Urgente', 'Atenção', 'Menções', 'Metas']);
+        await s.locator(S.janela + ' [data-central-filtro="urgente"]').click();
+        await expect(s.locator(CART_S)).toHaveCount(1);
+        await expect(s.locator(CART_S)).toContainText('Verifique a meta');
+        await s.locator(S.janela + ' [data-central-filtro="conversas"]').click();
+        await expect(s.locator(CART_S)).toHaveCount(0);
+        await s.locator(S.janela + ' [data-central-filtro=""]').click();
+
+        // Painel: os 5 cartões do desenho (GRUPOS, L84), com as contagens dos avisos não lidos.
+        await s.locator(S.janela + ' [data-central-aba="painel"]').click();
+        const cards = await s.locator(S.janela + ' .bj-central-painel-card').evaluateAll((bs) => bs.map((b) => b.textContent.trim()));
+        expect(cards).toEqual(['Urgente1', 'Atenção1', 'Menções0', 'Mensagens0', 'Metas0']);
+        await s.locator(S.janela + ' .bj-central-painel-card', { hasText: 'Urgente' }).click();
+        await expect(s.locator(S.janela + ' [data-central-filtro="urgente"]')).toHaveAttribute('aria-pressed', 'true');
+
+        // Botão direito: Abrir e Marcar como lida (o servidor simulado recebe a marcação).
+        await s.locator(CART_S).first().click({ button: 'right' });
+        await s.locator('.bj-central-ctx-item', { hasText: 'Marcar como lida' }).click();
+        await expect.poll(() => c.escritas).toEqual(['POST /central/avisos/501/lido']);
         await Promise.all([p.context().close(), s.context().close()]);
     });
 });

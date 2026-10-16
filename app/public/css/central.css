@@ -1677,3 +1677,98 @@ html[data-bs-theme="dark"] .bj-central {
     height: 8px;
     border-radius: 50%;
 }
+
+/* ── F1: avisos do sino na Caixa — cartaoNotif, L5603-5630 (sem "dar baixa": o sino só tem lida) ─────────────── */
+.bj-central-aviso-cartao {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px 10px 14px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    font-family: inherit;
+    line-height: normal;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.bj-central-aviso-cartao:focus-visible {
+    outline: 2px solid var(--bjc-azul);
+    outline-offset: -2px;
+}
+
+.bj-central-aviso-faixa {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: var(--bjc-aviso);
+}
+
+.bj-central-aviso-cartao--lido .bj-central-aviso-faixa {
+    opacity: .35;
+}
+
+.bj-central-aviso-icone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 3px;
+    color: var(--bjc-aviso);
+    font-size: 15px;
+}
+
+.bj-central-aviso-corpo {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.bj-central-aviso-topo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bj-central-aviso-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--bjc-aviso);
+}
+
+.bj-central-aviso-hora {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+    white-space: nowrap;
+}
+
+.bj-central-aviso-titulo {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--bjc-texto-forte);
+}
+
+.bj-central-aviso-cartao--lido .bj-central-aviso-titulo {
+    font-weight: 500;
+}
+
+.bj-central-aviso-texto {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--bjc-texto-medio);
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}

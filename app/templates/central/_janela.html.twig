@@ -7,6 +7,7 @@
          data-url-conversa-base="{{ path('central_conversas') }}"
          data-url-grupos="{{ path('central_grupo_criar') }}"
          data-url-equipe="{{ path('central_equipe') }}"
+         data-url-avisos="{{ path('central_avisos') }}"
          data-url-presenca="{{ path('central_presenca') }}"
          data-eu-nome="{{ eu.fullName }}"
          data-eu-id="{{ eu.id }}"
@@ -79,14 +80,23 @@
             </button>
             <button type="button" class="bj-central-aba" role="tab" data-central-aba="painel" aria-selected="false">Painel</button>
         </div>
-        {# Filtros da Caixa (L5776) — só os que têm dado no BlueJus: Tudo e Menções #}
+        {# Filtros da Caixa (L5776), na ordem do desenho. F1: Urgente, Atenção e Metas com os avisos do sino; "Para
+           revisar" fica fora (não há marcação de revisão no BlueJus). #}
         <div class="bj-central-filtros" data-central-filtros>
             <button type="button" class="bj-central-filtro" data-central-filtro="" aria-pressed="true" title="Tudo" aria-label="Filtrar: Tudo" style="--bjc-filtro: #4f6878">
                 <i class="bi bi-inbox" aria-hidden="true"></i>
             </button>
-            <button type="button" class="bj-central-filtro" data-central-filtro="mencoes" aria-pressed="false" title="Menções" aria-label="Filtrar: Menções" style="--bjc-filtro: #0a7aad">
-                <span class="bj-central-filtro-bola" aria-hidden="true"></span>
-            </button>
+            {% for f in [
+                {chave: 'conversas', rotulo: 'Conversas', cor: '#3b6e8f'},
+                {chave: 'urgente', rotulo: 'Urgente', cor: '#c0392f'},
+                {chave: 'atencao', rotulo: 'Atenção', cor: '#c8952a'},
+                {chave: 'mencoes', rotulo: 'Menções', cor: '#0a7aad'},
+                {chave: 'metas', rotulo: 'Metas', cor: '#1f9d61'},
+            ] %}
+                <button type="button" class="bj-central-filtro" data-central-filtro="{{ f.chave }}" aria-pressed="false" title="{{ f.rotulo }}" aria-label="Filtrar: {{ f.rotulo }}" style="--bjc-filtro: {{ f.cor }}">
+                    <span class="bj-central-filtro-bola" aria-hidden="true"></span>
+                </button>
+            {% endfor %}
         </div>
         <div class="bj-central-painel-grade" data-central-painel hidden></div>
         <div class="bj-central-faixa-arquivadas" data-central-faixa-arquivadas hidden>

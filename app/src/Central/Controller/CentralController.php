@@ -28,6 +28,9 @@ use App\Central\UseCase\ObterNovidadesDaCentralUseCase;
 use App\Central\DTO\MembroDaEquipeOutput;
 use App\Central\UseCase\ListarEquipeDaCentralUseCase;
 use App\Central\UseCase\RegistrarPresencaUseCase;
+use App\Central\UseCase\ListarAvisosDaCentralUseCase;
+use App\Central\UseCase\MarcarAvisoUseCase;
+use App\Central\Exception\AvisoNaoEncontradoException;
 use App\Entity\Auth\User;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -79,6 +82,8 @@ final class CentralController extends AbstractController
         private readonly DefinirPreferenciasDaConversaUseCase $definirPreferencias,
         private readonly ListarEquipeDaCentralUseCase $listarEquipe,
         private readonly RegistrarPresencaUseCase $registrarPresenca,
+        private readonly ListarAvisosDaCentralUseCase $listarAvisos,
+        private readonly MarcarAvisoUseCase $marcarAviso,
     ) {
     }
 
@@ -311,6 +316,37 @@ final class CentralController extends AbstractController
         });
     }
 
+    /** Avisos do sino na Caixa (F1, `docs/specs/central-comunicacao-f1-avisos.md`). */
+    #[Route('/avisos', name: 'central_avisos', methods: ['GET'])]
+    public function avisos(): JsonResponse
+    {
+        return $this->responder(fn () => ['avisos' => $this->listarAvisos->executar($this->usuario(), $this->tenantContext->getCurrentTenant())]);
+    }
+
+    #[Route('/avisos/{id}/lido', name: 'central_aviso_lido', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function avisoLido(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->marcarAviso->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, true);
+
+            return ['ok' => true];
+        });
+    }
+
+    #[Route('/avisos/{id}/nao-lido', name: 'central_aviso_nao_lido', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function avisoNaoLido(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->marcarAviso->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, false);
+
+            return ['ok' => true];
+        });
+    }
+
     /** Batimento de presença (F2): a cada 20 s e quando o status muda. */
     #[Route('/presenca', name: 'central_presenca', methods: ['POST'])]
     public function presenca(Request $request): JsonResponse
@@ -331,6 +367,8 @@ final class CentralController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (ConversaNaoEncontradaException) {
             return $this->json(['erro' => 'Conversa não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (AvisoNaoEncontradoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (PedidoInvalidoNaCentralException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (SemPermissaoNoGrupoException $e) {
