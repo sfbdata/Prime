@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\OrigemRemocao;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -24,6 +25,7 @@ final class RemoverColaboradorDoEscritorioUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     public function executar(RemoverColaboradorInput $input): void
@@ -73,6 +75,12 @@ final class RemoverColaboradorDoEscritorioUseCase
             // Cinto secundário: sabidamente inerte onde tenant.criado_por é nulo (spec §4).
             if ($input->tenant->getCriadoPor() === $input->colaborador) {
                 throw new \InvalidArgumentException('Não é permitido remover o criador do escritório.');
+            }
+
+            // Spec perfis-master D2: a conta do Master só o próprio Master mexe, inclusive tirá-la
+            // de um escritório. Vale mesmo onde criado_por é nulo.
+            if (!$this->regraDosPrimarios->podeAlterarConta($input->executor, $input->colaborador)) {
+                throw new \InvalidArgumentException('A conta do Master só pode ser alterada pelo próprio Master.');
             }
         }
 

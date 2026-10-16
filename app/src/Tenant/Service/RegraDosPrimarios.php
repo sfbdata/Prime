@@ -64,11 +64,36 @@ final class RegraDosPrimarios
     }
 
     /**
+     * A conta do Master (ROLE_SUPER_ADMIN) só o próprio Master mexe: perfil no escritório, senha,
+     * remoção do escritório, nome e dados pessoais. Vale mesmo para o primário do escritório onde
+     * o Master tem vínculo (como sócio ou secundário): senão o primário tomaria a conta que tem
+     * poder sobre todos os escritórios.
+     */
+    public function podeAlterarConta(User $ator, User $alvo): bool
+    {
+        return !$this->ehMaster($alvo) || $this->mesmoUsuario($ator, $alvo);
+    }
+
+    /**
+     * @throws OperacaoDePrimarioRecusada
+     */
+    public function garantirQuePodeAlterarConta(User $ator, User $alvo): void
+    {
+        if (!$this->podeAlterarConta($ator, $alvo)) {
+            throw new OperacaoDePrimarioRecusada('A conta do Master só pode ser alterada pelo próprio Master.');
+        }
+    }
+
+    /**
      * Trocar a senha de alguém pelo painel: de secundário, quem já tem acesso ao painel; de
      * primário sócio, só primário ou Master; do titular, só o próprio titular ou o Master.
      */
     public function podeTrocarSenhaDe(User $ator, UserTenant $alvo): bool
     {
+        if (!$this->podeAlterarConta($ator, $alvo->getUser())) {
+            return false;
+        }
+
         if ($alvo->getTenantRole()?->isSystem() !== true) {
             return true;
         }

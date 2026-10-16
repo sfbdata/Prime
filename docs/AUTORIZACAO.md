@@ -59,7 +59,13 @@ o papel se chama só "Master" (Painel do Master, selo MASTER). Atribuição só 
 - `app:create-super-admin` (`app/src/Command/CreateSuperAdminCommand.php`): só cria o Master quando
   ainda não existe nenhum; havendo um, falha e aponta o `app:master:definir`.
 
-Não é atribuída automaticamente no bootstrap de tenant. Além do `PermissionChecker`, essa role é verificada
+Não é atribuída automaticamente no bootstrap de tenant.
+
+**A conta do Master só o próprio Master mexe** (`RegraDosPrimarios::podeAlterarConta()`): nenhum
+outro usuário, nem o primário do escritório onde o Master tem vínculo (como sócio ou secundário),
+troca o perfil dele (edit-role: o select só oferece o perfil atual), a senha (edit-role), o remove do
+escritório (`RemoverColaboradorDoEscritorioUseCase`), nem edita o nome (`edit-name`) ou os dados
+pessoais (`TenantUserProfileController`). Vale também em escritório com `criado_por` nulo. Além do `PermissionChecker`, essa role é verificada
 em outros pontos:
 
 - `app/src/Security/UserAuthenticator.php` (l. 72): usuário sem tenant
