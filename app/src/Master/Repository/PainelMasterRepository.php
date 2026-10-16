@@ -200,13 +200,15 @@ final class PainelMasterRepository
 
     /**
      * Documentos e bytes por escritório, com os bytes enviados desde `$desde` (coluna "30 DIAS").
+     * Documento de pasta em lápide (`pasta.excluida_em`) não conta como documento, mas os bytes contam:
+     * o arquivo continua guardado.
      *
      * @return array<int, array{documentos: int, bytes: int, bytesRecentes: int}>
      */
     public function consumoPorEscritorio(\DateTimeImmutable $desde): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
-            'SELECT a.tenant_id, COUNT(*) AS documentos, COALESCE(SUM(a.bytes), 0) AS bytes,
+            'SELECT a.tenant_id, COALESCE(SUM(a.conta), 0) AS documentos, COALESCE(SUM(a.bytes), 0) AS bytes,
                     COALESCE(SUM(CASE WHEN a.criado >= :desde THEN a.bytes ELSE 0 END), 0) AS bytes_recentes
                FROM (' . self::arquivosComTamanho() . ') a
                JOIN tenant t ON t.id = a.tenant_id AND t.excluido_em IS NULL
@@ -300,27 +302,31 @@ final class PainelMasterRepository
     /**
      * Trilha administrativa do `audit_log` (cross-tenant), mais recente primeiro.
      *
+     * Janela `$desde` (o painel usa 12 meses) para a varredura pelo índice de `created_at` parar cedo
+     * mesmo quando há menos de `$limite` linhas administrativas no período.
+     *
      * Fica de fora a atualização de vínculo que só mexe em `lastLoginAt`/`updatedAt`: é o carimbo de
      * acesso gravado a cada login, não uma alteração administrativa (e afogaria a trilha).
      *
-     * @return list<array{id: int, acao: string, entidade: string, entidadeId: ?string, mudancas: ?string, tenantId: ?int, conta: ?string, responsavel: ?string, responsavelEmail: ?string, criadoEm: string}>
+     * @return list<array{id: int, acao: string, entidade: string, entidadeId: ?string, mudancas: ?string, tenantId: ?int, conta: ?string, responsavel: ?string, responsavelId: ?int, criadoEm: string}>
      */
-    public function trilhaAdministrativa(int $limite): array
+    public function trilhaAdministrativa(int $limite, \DateTimeImmutable $desde): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
             "SELECT a.id, a.action, a.entity_class, a.entity_id, a.changes::text AS changes, a.tenant_id,
-                    t.name AS conta, u.full_name AS responsavel, a.actor_email, a.created_at
+                    t.name AS conta, u.full_name AS responsavel, a.actor_user_id, a.created_at
                FROM audit_log a
           LEFT JOIN tenant t ON t.id = a.tenant_id
           LEFT JOIN \"user\" u ON u.id = a.actor_user_id
               WHERE (a.entity_class IN (:entidades) OR a.action = 'purge')
+                AND a.created_at >= :desde
                 AND NOT (
                     a.entity_class = :vinculo AND a.action = 'update'
                     AND COALESCE(((a.changes::jsonb #> '{diff,changes}') - 'lastLoginAt' - 'updatedAt') = '{}'::jsonb, FALSE)
                 )
            ORDER BY a.created_at DESC, a.id DESC
               LIMIT :limite",
-            ['entidades' => self::ENTIDADES_AUDITADAS, 'vinculo' => UserTenant::class, 'limite' => $limite],
+            ['entidades' => self::ENTIDADES_AUDITADAS, 'vinculo' => UserTenant::class, 'limite' => $limite, 'desde' => $desde->format('Y-m-d H:i:s')],
             ['entidades' => ArrayParameterType::STRING, 'limite' => ParameterType::INTEGER],
         );
 
@@ -333,7 +339,7 @@ final class PainelMasterRepository
             'tenantId'         => $l['tenant_id'] !== null ? (int) $l['tenant_id'] : null,
             'conta'            => self::textoOuNulo($l['conta']),
             'responsavel'      => self::textoOuNulo($l['responsavel']),
-            'responsavelEmail' => self::textoOuNulo($l['actor_email']),
+            'responsavelId'    => $l['actor_user_id'] !== null ? (int) $l['actor_user_id'] : null,
             'criadoEm'         => (string) $l['created_at'],
         ], $linhas);
     }
@@ -346,10 +352,11 @@ final class PainelMasterRepository
         $partes = [];
         foreach (self::TABELAS_DE_ARQUIVO as [$tabela, $tamanho, $data, $tenant, $filtro]) {
             $partes[] = sprintf(
-                'SELECT %s AS tenant_id, COALESCE(x.%s, 0)::bigint AS bytes, x.%s AS criado FROM %s x%s',
+                'SELECT %s AS tenant_id, COALESCE(x.%s, 0)::bigint AS bytes, x.%s AS criado, %s AS conta FROM %s x%s',
                 $tenant,
                 $tamanho,
                 $data,
+                $tabela === 'pasta_documento' ? 'CASE WHEN EXISTS (SELECT 1 FROM pasta p WHERE p.id = x.pasta_id AND p.excluida_em IS NOT NULL) THEN 0 ELSE 1 END' : '1',
                 $tabela,
                 $filtro !== null ? ' WHERE ' . $filtro : '',
             );

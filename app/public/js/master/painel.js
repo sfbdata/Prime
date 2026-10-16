@@ -223,7 +223,8 @@
     const I = D.visao.idades, F = I.faixas, tot = F.reduce((a, x) => a + x.n, 0), mx = Math.max(1, ...F.map(x => x.n));
     document.getElementById('mp-idades').innerHTML = '<div class="mp-idades-topo"><b>Faixa etária dos usuários</b><span>idade média ' + (I.media === null ? 'sem informação' : I.media + ' anos') + '</span></div>'
       + '<div class="mp-idades-lista">' + F.map(x => '<div class="mp-idade"><span>' + esc(x.rot) + '</span><div class="mp-idade-trilho"><div style="--w:' + pct(x.n, mx) + '"></div></div><b>' + num(x.n) + '</b><span>' + pct(x.n, tot) + '</span></div>').join('') + '</div>'
-      + '<span class="mp-idades-nota">Calculada pela data de nascimento do Meu Perfil. ' + num(I.semData) + ' usuário(s) sem data não entram na conta.</span>';
+      + '<span class="mp-idades-nota">Calculada pela data de nascimento do Meu Perfil. ' + num(I.semData) + ' usuário(s) sem data não entram na conta.'
+      + (I.menores > 0 ? ' ' + num(I.menores) + ' com menos de 18 anos não entram nas faixas.' : '') + '</span>';
   }
 
   /* ================= CONTAS E ESCRITÓRIOS ================= */
@@ -307,7 +308,7 @@
   function montarAudit() {
     const A = D.audit, audF = audFiltrada(), tipos = [...new Set(A.registros.map(r => r.acao))].sort((a, b) => a.localeCompare(b));
     const resumo = [['Limites', 'bi-hdd', '#0a6fa0', '#e5f1f7', r => /Limite/.test(r.acao)], ['Contas', 'bi-buildings', '#8a5a12', '#fbf1dc', r => /Conta/.test(r.acao)], ['Masters e primários', 'bi-stars', '#7a3e8f', '#f3e9f7', r => /Master|primário/i.test(r.acao)], ['Alertas', 'bi-exclamation-triangle', '#a3232b', '#fbe7e7', r => /Alerta/.test(r.acao)]];
-    elSecao.innerHTML = '<div class="mp-card mp-audit"><div class="mp-audit-cab"><b>Trilha de auditoria <span>' + num(audF.length) + ' registro(s)' + (A.truncado ? ' · mostrando os ' + num(A.limite) + ' mais recentes' : '') + '</span></b>'
+    elSecao.innerHTML = '<div class="mp-card mp-audit"><div class="mp-audit-cab"><b>Trilha de auditoria <span>' + num(audF.length) + ' registro(s) · últimos ' + A.meses + ' meses' + (A.truncado ? ' · mostrando os ' + num(A.limite) + ' mais recentes' : '') + '</span></b>'
       + '<select class="mp-select" data-aud-tipo><option value="">Todas as ações</option>' + tipos.map(t => '<option value="' + esc(t) + '"' + (S.audTipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>'
       + '<button type="button" class="mp-btn-cinza" data-pdf><i class="bi bi-file-earmark-pdf"></i>Gerar PDF</button>'
       + (S.audConta !== null ? '<button type="button" class="mp-btn-link" data-aud-todas>Mostrar todas as contas</button>' : '') + '</div>'
@@ -371,5 +372,5 @@
 
   renderSecs();
   renderSecao();
-  carregar('audit', URLS.auditoria);
+  // A trilha de auditoria só é carregada quando a seção é aberta (o contador aparece a partir daí).
 })();

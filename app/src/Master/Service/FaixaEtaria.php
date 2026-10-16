@@ -7,7 +7,8 @@ namespace App\Master\Service;
 /**
  * Faixa etária dos usuários (desenho 05 - Perfis 1.0, `Component.IDADES`), calculada pela data de
  * nascimento do Meu Perfil (`UserProfile.dataNascimento`). Quem não tem data não entra na conta e é
- * contado à parte. A idade média é a média das idades reais, não um ponto médio de faixa.
+ * contado à parte, e quem tem menos de 18 anos também (fica fora das faixas, mas na nota da tela,
+ * para a conta fechar). A idade média é a média das idades reais, não um ponto médio de faixa.
  */
 final class FaixaEtaria
 {
@@ -23,13 +24,14 @@ final class FaixaEtaria
     /**
      * @param list<?string> $nascimentos datas 'Y-m-d' (ou nulas)
      *
-     * @return array{faixas: list<array{rot: string, n: int}>, media: ?int, semData: int}
+     * @return array{faixas: list<array{rot: string, n: int}>, media: ?int, semData: int, menores: int}
      */
     public static function distribuir(array $nascimentos, \DateTimeImmutable $hoje): array
     {
         $contagem = array_fill(0, count(self::FAIXAS), 0);
         $idades   = [];
         $semData  = 0;
+        $menores  = 0;
 
         foreach ($nascimentos as $nascimento) {
             $idade = self::idade($nascimento, $hoje);
@@ -39,6 +41,9 @@ final class FaixaEtaria
             }
 
             $idades[] = $idade;
+            if ($idade < self::FAIXAS[0][1]) {
+                $menores++;
+            }
             foreach (self::FAIXAS as $i => [, $min, $max]) {
                 if ($idade >= $min && $idade <= $max) {
                     $contagem[$i]++;
@@ -56,6 +61,7 @@ final class FaixaEtaria
             'faixas'  => $faixas,
             'media'   => $idades === [] ? null : (int) round(array_sum($idades) / count($idades)),
             'semData' => $semData,
+            'menores' => $menores,
         ];
     }
 

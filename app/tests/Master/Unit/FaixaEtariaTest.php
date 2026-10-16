@@ -35,6 +35,7 @@ final class FaixaEtariaTest extends TestCase
             ['rot' => '55 ou +', 'n' => 1],
         ], $r['faixas']);
         self::assertSame(2, $r['semData']);
+        self::assertSame(1, $r['menores'], 'quem tem menos de 18 anos é contado à parte');
         self::assertSame((int) round((40 + 25 + 26 + 55 + 16) / 5), $r['media']);
     }
 

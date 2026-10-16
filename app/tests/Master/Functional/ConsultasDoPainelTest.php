@@ -71,8 +71,8 @@ final class ConsultasDoPainelTest extends KernelTestCase
         self::assertSame(2, $delta('oabUnicas'));
         self::assertSame(2, $delta('pastas'), 'pasta na lixeira e pasta da quarentena ficam fora');
         self::assertSame(2, $delta('documentos'));
-        self::assertSame(self::GB + self::GB / 2, $delta('bytes'));
-        self::assertEqualsWithDelta(1.5, $delta('gb'), 0.0001);
+        self::assertSame(self::GB + self::GB / 2 + 1024, $delta('bytes'), 'bytes do documento da pasta em lápide contam');
+        self::assertEqualsWithDelta(1.5, $delta('gb'), 0.001);
     }
 
     #[TestDox('Mapa e faixa etária: lotação Cidade/UF, OAB, sem localização; escritório sem estado à parte')]
@@ -126,8 +126,8 @@ final class ConsultasDoPainelTest extends KernelTestCase
         self::assertSame(2, $a['usuarios']);
         self::assertSame(2, $a['pastas']);
         self::assertSame(2, $a['documentos']);
-        self::assertSame(self::GB + self::GB / 2, $a['bytes']);
-        self::assertSame(self::GB + self::GB / 2, $a['bytesRecentes']);
+        self::assertSame(self::GB + self::GB / 2 + 1024, $a['bytes']);
+        self::assertSame(self::GB + self::GB / 2 + 1024, $a['bytesRecentes']);
         self::assertSame('Ativa', $a['situacao']);
 
         $b = $contas[$this->cenario['b']->getId()];
@@ -162,11 +162,11 @@ final class ConsultasDoPainelTest extends KernelTestCase
     {
         $conexao = self::getContainer()->get(Connection::class);
         $agora = (new \DateTimeImmutable('+1 hour'))->format('Y-m-d H:i:s');
-        $inserir = static fn (string $acao, string $entidade, string $mudancas, ?int $tenant) => $conexao->insert('audit_log', [
+        $inserir = static fn (string $acao, string $entidade, string $mudancas, ?int $tenant, ?int $ator = null) => $conexao->insert('audit_log', [
             'action' => $acao, 'entity_class' => $entidade, 'entity_id' => '1', 'changes' => $mudancas, 'tenant_id' => $tenant,
-            'actor_email' => 'quem@teste.com', 'created_at' => $agora,
+            'actor_email' => 'quem@teste.com', 'actor_user_id' => $ator, 'created_at' => $agora,
         ]);
-        $inserir('update', User::class, '{"diff":{"changes":{"password":{"from":"x","to":"$2y$segredo"}}}}', null);
+        $inserir('update', User::class, '{"diff":{"changes":{"password":{"from":"x","to":"$2y$segredo"}}}}', null, 999999999);
         $inserir('update', UserTenant::class, '{"diff":{"changes":{"lastLoginAt":{"from":"a","to":"b"}}}}', null);
         $inserir('purge', Tenant::class, '{"nome":"Escritório Purgado Teste","motivo":"quarentena_expirada"}', 999999999);
         $inserir('update', 'App\Pasta\Entity\Pasta', '{"diff":{"changes":{"nup":{"from":"1","to":"2"}}}}', null);
@@ -175,13 +175,16 @@ final class ConsultasDoPainelTest extends KernelTestCase
         $json = json_encode($r, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
 
         self::assertStringNotContainsString('$2y$segredo', $json);
+        self::assertStringNotContainsString('quem@teste.com', $json, 'o e-mail do ator nunca aparece');
         $topo = array_slice($r['registros'], 0, 2);
         $acoes = array_column($topo, 'acao');
         sort($acoes);
         self::assertSame(['Conta excluída definitivamente', 'Usuário alterado'], $acoes, 'só entidades administrativas; carimbo de login e Pasta fora');
         $purga = array_values(array_filter($topo, static fn (array $l): bool => $l['acao'] === 'Conta excluída definitivamente'))[0];
         self::assertSame('Escritório Purgado Teste', $purga['conta']);
-        self::assertSame('quem@teste.com', $purga['quem']);
+        self::assertSame('Sistema', $purga['quem'], 'sem ator: Sistema');
+        $usuario = array_values(array_filter($topo, static fn (array $l): bool => $l['acao'] === 'Usuário alterado'))[0];
+        self::assertSame('Usuário sem nome (nº 999999999)', $usuario['quem']);
     }
 
     /**
@@ -242,6 +245,9 @@ final class ConsultasDoPainelTest extends KernelTestCase
         $lixeira = PastaFactory::createOne(['tenant' => $a]);
         $lixeira->_real()->marcarExcluida($titular, new \DateTimeImmutable());
         $lixeira->_save();
+        // Documento de pasta em lápide: não conta como documento, mas os bytes contam (arquivo guardado).
+        $conexao = self::getContainer()->get(Connection::class);
+        $conexao->insert('pasta_documento', $this->linhaDeDocumentoDePasta($conexao, $lixeira->_real()->getId(), $a->getId(), 1024));
 
         $carteira = CarteiraFactory::createOne(['tenant' => $a, 'cliente' => ClientePFFactory::createOne(['tenant' => $a])]);
         CarteiraDocumentoFactory::createOne(['tenant' => $a, 'carteira' => $carteira, 'tamanhoBytes' => self::GB]);
@@ -250,6 +256,19 @@ final class ConsultasDoPainelTest extends KernelTestCase
         CarteiraDocumentoFactory::createOne(['tenant' => $q, 'carteira' => $carteiraQ, 'tamanhoBytes' => self::GB]);
 
         $this->cenario = ['a' => $a, 'b' => $b, 'q' => $q];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function linhaDeDocumentoDePasta(Connection $conexao, int $pastaId, int $tenantId, int $bytes): array
+    {
+        return [
+            'id' => (int) $conexao->fetchOne("SELECT nextval('pasta_documento_id_seq')"),
+            'titulo' => 'Documento da lápide', 'categoria' => 'outros', 'caminho_arquivo' => 'x/' . uniqid() . '.pdf',
+            'nome_original' => 'x.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => $bytes,
+            'uploaded_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'), 'ordem' => 0, 'pasta_id' => $pastaId, 'tenant_id' => $tenantId,
+        ];
     }
 
     private function tenant(string $nome, ?string $estado, ?string $cidade): Tenant
