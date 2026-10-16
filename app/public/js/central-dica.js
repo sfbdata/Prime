@@ -31,11 +31,11 @@
         return !!(el && el.closest && el.closest(RAIZES));
     }
 
-    function criar() {
-        tip = document.createElement('div');
+    function criar(doc) {   // no documento do alvo: a página ou a janela destacada (B2)
+        tip = doc.createElement('div');
         tip.className = 'bj-central-dica';
         tip.setAttribute('role', 'tooltip');
-        document.body.appendChild(tip);
+        doc.body.appendChild(tip);
     }
 
     function mover(el) {   // title → data-bj-tip, como o texto() do bj-dica.js
@@ -57,10 +57,11 @@
     function posicionar() {
         if (!alvo || !tip) { return; }
         var r = alvo.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+        var vista = alvo.ownerDocument.defaultView || window;
         var x = r.left + r.width / 2 - w / 2, y = r.bottom + 8;
-        if (y + h > window.innerHeight - MARGEM) { y = r.top - h - 8; }
-        if (y < MARGEM) { y = Math.min(window.innerHeight - h - MARGEM, r.bottom + 8); }
-        x = Math.max(MARGEM, Math.min(window.innerWidth - w - MARGEM, x));
+        if (y + h > vista.innerHeight - MARGEM) { y = r.top - h - 8; }
+        if (y < MARGEM) { y = Math.min(vista.innerHeight - h - MARGEM, r.bottom + 8); }
+        x = Math.max(MARGEM, Math.min(vista.innerWidth - w - MARGEM, x));
         tip.style.left = x + 'px';
         tip.style.top = y + 'px';
     }
@@ -68,7 +69,8 @@
     function mostrar(el) {
         var t = texto(el);
         if (!t || !el.isConnected) { return; }
-        if (!tip) { criar(); }
+        if (tip && tip.ownerDocument !== el.ownerDocument) { tip.remove(); tip = null; }
+        if (!tip) { criar(el.ownerDocument); }
         alvo = el;
         tip.textContent = t;
         tip.style.opacity = '0';
@@ -89,7 +91,7 @@
         }
     }
 
-    document.addEventListener('mouseover', function (e) {
+    function aoEntrar(e) {
         var el = e.target.closest && e.target.closest('[title],[data-bj-tip]');
         if (!el || el === alvo || !naCentral(el)) { return; }
         if (el.tagName.toLowerCase() === 'title') { return; }   // <title> de SVG
@@ -97,21 +99,31 @@
         window.clearTimeout(timer);
         texto(el);
         timer = window.setTimeout(function () { mostrar(el); }, ATRASO_MS);
-    }, true);
+    }
 
-    document.addEventListener('mouseout', function (e) {
+    function aoSair(e) {
         if (!alvo && !timer) { return; }
         var para = e.relatedTarget;
         if (alvo && para && alvo.contains(para)) { return; }
         var el = e.target.closest && e.target.closest('[data-bj-tip]');
         if (el && para && el.contains(para)) { return; }
         esconder();
-    }, true);
+    }
 
-    ['mousedown', 'keydown', 'wheel', 'scroll'].forEach(function (ev) {
-        window.addEventListener(ev, esconder, { capture: true, passive: true });
-    });
-    document.addEventListener('contextmenu', esconder, true);
+    // Os ouvintes moram no documento: o da página e, quando a Central é destacada (B2), o da janela de fora.
+    var ligados = [];
+    function ligar(doc) {
+        if (!doc || ligados.indexOf(doc) !== -1) { return; }
+        ligados = ligados.filter(function (d) { return d.defaultView && !d.defaultView.closed; }).concat([doc]);
+        doc.addEventListener('mouseover', aoEntrar, true);
+        doc.addEventListener('mouseout', aoSair, true);
+        ['mousedown', 'keydown', 'wheel', 'scroll'].forEach(function (ev) {
+            doc.defaultView.addEventListener(ev, esconder, { capture: true, passive: true });
+        });
+        doc.addEventListener('contextmenu', esconder, true);
+    }
+    ligar(document);
+    window.bjCentralDicaLigar = ligar;
 
     // A Central reescreve title de quem já virou dica (contadores, rótulos de maximizar...): move o novo na hora.
     function vigiar(raiz) {

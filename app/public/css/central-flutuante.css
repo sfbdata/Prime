@@ -199,12 +199,31 @@
     font-size: 12.5px;
 }
 
+/* B2: destacada (Picture-in-Picture ou pop-up) — a janela de fora inteira; quem move é o sistema operacional */
+.bj-flutuante-janela[data-modo="separada"] .bj-central-cab {
+    cursor: default;
+}
+
+.bj-central-janela-acoes .bj-central-btn-ico[hidden] {
+    display: none;
+}
+
+/* Aviso na janela destacada: no desenho a raiz (lançador e aviso) vai junto, presa a 12 px do canto */
+.bj-flutuante-aviso--separada {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    z-index: 2147483001;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
 /* Alças de redimensionar — L6358 (só no tamanho normal) */
 .bj-flutuante-alca {
     position: absolute;
     z-index: 6;
 }
 
+.bj-flutuante-janela[data-modo="separada"] .bj-flutuante-alca,
 .bj-flutuante-janela[data-modo="max"] .bj-flutuante-alca,
 .bj-flutuante-janela[data-modo="encaixe"] .bj-flutuante-alca {
     display: none;

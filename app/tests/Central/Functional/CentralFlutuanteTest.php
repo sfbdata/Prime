@@ -44,9 +44,8 @@ final class CentralFlutuanteTest extends JusPrimeWebTestCase
 
         // A janela é a da Central, em modo flutuante, fechada até o clique; botões de janela no cabeçalho.
         self::assertSelectorExists('[data-flutuante-janela][hidden] > [data-central][data-modo="flutuante"]');
-        foreach (['minimizar', 'maximizar', 'fechar'] as $botao) {
-            self::assertSelectorExists('[data-central][data-modo="flutuante"] > .bj-central-cab > .bj-central-janela-acoes > [data-flutuante-' . $botao . ']');
-        }
+        // Ordem do desenho (L6340-6345): Destacar (B2), Minimizar, Maximizar, Fechar.
+        self::assertSelectorExists('[data-central][data-modo="flutuante"] > .bj-central-cab > .bj-central-janela-acoes > [data-flutuante-destacar]:first-child + [data-flutuante-minimizar] + [data-flutuante-maximizar] + [data-flutuante-fechar]:last-child');
         // B1: cabeçalho da lista com o avatar de quem usa, ANTES dos textos, e o ⋮ como botão de painel (fechado).
         self::assertSelectorExists('[data-central][data-modo="flutuante"] > .bj-central-cab > [data-central-cab-eu].bj-central-avatar--cab + [data-central-cab-avatar][hidden] + .bj-central-cab-textos');
         self::assertSelectorTextContains('[data-central-cab-eu]', 'A');

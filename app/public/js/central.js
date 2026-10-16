@@ -92,11 +92,22 @@
             filtro: '',            // lançador: '' (tudo) | 'mencoes' (L5776)
             comMencao: new Set(),  // conversas com menção por ver (servidor: conversasComMencao)
             janelaAberta: !flutuante,
+            externa: null,         // B2: a janela destacada (Picture-in-Picture ou pop-up) em que a Central está agora
+            relogio: window,       // B2: de qual janela é o setInterval do polling (a destacada, quando houver)
             listaCarregada: false  // flutuante: lista e contatos só carregam na primeira abertura (carga por página)
         };
         var abrirAoCarregar = Number(raiz.dataset.abrirConversa) || null;   // ?conversa=N (link da menção)
 
         // ── utilitários ──────────────────────────────────────────────────────────────
+        // B2: destacada, a Central mora no documento de OUTRA janela. Medidas, foco e "está à vista" são dela.
+        function vista() {
+            return raiz.ownerDocument.defaultView || window;
+        }
+
+        function oculta() {   // a aba (ou a janela destacada) não está à vista: não consulta nem marca como lida
+            return estado.externa ? estado.externa.document.hidden : document.hidden;
+        }
+
         function criar(tag, classe, texto) {
             var n = document.createElement(tag);
             if (classe) { n.className = classe; }
@@ -555,7 +566,7 @@
 
         function marcarLida() {
             // Janela flutuante fechada não "lê": a conversa só vira lida quando está de fato à vista.
-            if (!estado.aberta || document.hidden || !estado.janelaAberta || estado.aberta.ultimaId === 0) { return; }
+            if (!estado.aberta || oculta() || !estado.janelaAberta || estado.aberta.ultimaId === 0) { return; }
             var id = estado.aberta.id;
             pedir(urls.base + '/' + id + '/lida', { metodo: 'POST', corpo: { ateId: estado.aberta.ultimaId } })
                 .then(function () {
@@ -869,9 +880,9 @@
             area.setAttribute('readonly', '');
             area.style.position = 'fixed';
             area.style.opacity = '0';
-            document.body.appendChild(area);
+            raiz.ownerDocument.body.appendChild(area);
             area.select();
-            try { document.execCommand('copy'); } catch (e) { /* sem cópia: nada a fazer */ }
+            try { raiz.ownerDocument.execCommand('copy'); } catch (e) { /* sem cópia: nada a fazer */ }
             area.remove();
         }
 
@@ -884,7 +895,7 @@
             estado.menu.fundo.remove();
             estado.menu.caixa.remove();
             estado.menu = null;
-            if (devolverFoco && origem && document.contains(origem)) { origem.focus(); }
+            if (devolverFoco && origem && raiz.ownerDocument.contains(origem)) { origem.focus(); }
         }
 
         function abrirMenu(itens, x, y, origem) {
@@ -907,13 +918,13 @@
             });
             var largura = 220;
             var altura = itens.length * 33 + 10;
-            caixa.style.left = Math.max(8, Math.min(x, window.innerWidth - largura - 8)) + 'px';
-            caixa.style.top = Math.max(8, Math.min(y, window.innerHeight - altura - 8)) + 'px';
+            caixa.style.left = Math.max(8, Math.min(x, vista().innerWidth - largura - 8)) + 'px';
+            caixa.style.top = Math.max(8, Math.min(y, vista().innerHeight - altura - 8)) + 'px';
             fundo.addEventListener('click', function () { fecharMenu(true); });
             fundo.addEventListener('contextmenu', function (ev) { ev.preventDefault(); fecharMenu(true); });
             caixa.addEventListener('keydown', function (ev) {
                 var botoes = Array.prototype.slice.call(caixa.querySelectorAll('.bj-central-ctx-item'));
-                var atual = botoes.indexOf(document.activeElement);
+                var atual = botoes.indexOf(raiz.ownerDocument.activeElement);
                 if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
                     ev.preventDefault();
                     var passo = ev.key === 'ArrowDown' ? 1 : -1;
@@ -1397,13 +1408,16 @@
 
         function iniciarPolling() {
             pararPolling();
-            if (document.hidden || estado.semSessao) { return; }   // aba aberta em segundo plano não consulta
-            estado.timer = window.setInterval(verificarNovidades, flutuante && !estado.janelaAberta ? POLLING_FECHADA_MS : POLLING_MS);
+            if (oculta() || estado.semSessao) { return; }   // aba aberta em segundo plano não consulta
+            // Destacada, o relógio é o da janela destacada: a aba do BlueJus pode estar em segundo plano (e o navegador
+            // desacelera os timers dela), mas a Central está à vista. Um polling só: o anterior sempre para antes.
+            estado.relogio = estado.externa || window;
+            estado.timer = estado.relogio.setInterval(verificarNovidades, flutuante && !estado.janelaAberta ? POLLING_FECHADA_MS : POLLING_MS);
         }
 
         function pararPolling() {
             if (estado.timer !== null) {
-                window.clearInterval(estado.timer);
+                try { estado.relogio.clearInterval(estado.timer); } catch (e) { /* janela destacada já fechada: o timer foi junto */ }
                 estado.timer = null;
             }
         }
@@ -1486,13 +1500,32 @@
             fecharMenu(false);
             if (el.corpo.scrollTop === 0) { carregarAnteriores(); }
         });
-        document.addEventListener('visibilitychange', function () {
-            if (document.hidden) {
+        function aoMudarVisibilidade() {
+            if (oculta()) {
                 pararPolling();
                 return;
             }
             if (estado.semSessao) { return; }
             verificarNovidades().then(marcarLida);
+            iniciarPolling();
+        }
+        // Destacada, quem diz se a Central está à vista é a janela destacada, não a aba do BlueJus.
+        document.addEventListener('visibilitychange', function () { if (!estado.externa) { aoMudarVisibilidade(); } });
+
+        // B2: o lançador avisa quando a Central vai para outra janela (detail.janela) ou volta (null). O nó é o MESMO:
+        // conversa aberta, rascunho, cursor e contadores continuam; só o relógio do polling e a visibilidade mudam.
+        raiz.addEventListener('bj-central:separada', function (ev) {
+            var externa = ev.detail && ev.detail.janela ? ev.detail.janela : null;
+            fecharMenu(false);
+            fecharPainelMenu(false);
+            fecharSugestoes();
+            pararPolling();
+            estado.externa = externa;
+            if (externa) {
+                externa.document.addEventListener('visibilitychange', function () { if (estado.externa === externa) { aoMudarVisibilidade(); } });
+                externa.addEventListener('resize', function () { fecharMenu(false); });
+            }
+            if (estado.semSessao) { return; }
             iniciarPolling();
         });
 

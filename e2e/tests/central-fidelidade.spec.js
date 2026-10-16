@@ -93,25 +93,54 @@ const PARTICIPANTES = { conversaId: 77, nome: GRUPO.nome, souAdministrador: true
     { id: 2, nome: 'Colega Fictícia', eu: false, administrador: false, ativoNoEscritorio: true },
 ] };
 
+// Resposta fictícia de /central/* (e do lembrete do ponto) para o cenário; escritas são só anotadas.
+function respostaSimulada(c, metodo, caminho) {
+    if (caminho === '/ponto/alerta-horario') { return { status: 200, json: { alertar: false } }; }
+    if (metodo !== 'GET') {
+        c.escritas.push(metodo + ' ' + caminho);
+        // Escrita "recusada" pelo servidor: prova que o erro vira aviso na janela (não window.alert).
+        if (c.recusar) { return { status: 422, json: { erro: c.recusar } }; }
+        return { status: 200, json: {} };
+    }
+    if (caminho === '/central/novidades') {
+        return { status: 200, json: { mensagens: [], cursor: 1000 + c.naoLidas, naoLidas: c.naoLidas, completo: true, conversasComMencao: c.mencoes } };
+    }
+    if (caminho === '/central/conversas') { return { status: 200, json: { conversas: c.conversas, conversasComMencao: c.mencoes } }; }
+    if (/^\/central\/conversas\/\d+\/participantes$/.test(caminho)) { return { status: 200, json: PARTICIPANTES }; }
+    if (/^\/central\/conversas\/\d+\/mensagens$/.test(caminho)) { return { status: 200, json: { mensagens: [], temMais: false, mencionaveis: [] } }; }
+    if (caminho === '/central/contatos') { return { status: 200, json: { contatos: [] } }; }
+    return { status: 200, json: {} };
+}
+
 async function isolar(contexto, c) {
-    await contexto.route((url) => url.pathname === '/ponto/alerta-horario', (r) => r.fulfill({ json: { alertar: false } }));
-    await contexto.route((url) => url.pathname.startsWith('/central/'), (r) => {
+    await contexto.route((url) => url.pathname === '/ponto/alerta-horario' || url.pathname.startsWith('/central/'), (r) => {
         const req = r.request();
-        const caminho = new URL(req.url()).pathname;
-        if (req.method() !== 'GET') {
-            c.escritas.push(req.method() + ' ' + caminho);
-            // Escrita "recusada" pelo servidor: prova que o erro vira aviso na janela (não window.alert).
-            if (c.recusar) { return r.fulfill({ status: 422, json: { erro: c.recusar } }); }
-            return r.fulfill({ json: {} });
-        }
-        if (caminho === '/central/novidades') {
-            return r.fulfill({ json: { mensagens: [], cursor: 1000 + c.naoLidas, naoLidas: c.naoLidas, completo: true, conversasComMencao: c.mencoes } });
-        }
-        if (caminho === '/central/conversas') { return r.fulfill({ json: { conversas: c.conversas, conversasComMencao: c.mencoes } }); }
-        if (/^\/central\/conversas\/\d+\/participantes$/.test(caminho)) { return r.fulfill({ json: PARTICIPANTES }); }
-        if (/^\/central\/conversas\/\d+\/mensagens$/.test(caminho)) { return r.fulfill({ json: { mensagens: [], temMais: false, mencionaveis: [] } }); }
-        if (caminho === '/central/contatos') { return r.fulfill({ json: { contatos: [] } }); }
-        return r.fulfill({ json: {} });
+        const resp = respostaSimulada(c, req.method(), new URL(req.url()).pathname);
+        return r.fulfill({ status: resp.status, json: resp.json });
+    });
+}
+
+// B2: com a rede interceptada o Playwright pausa também os pedidos da janela Picture-in-Picture (que ele não conhece)
+// e nunca os solta: as folhas de estilo dela não carregam. Aqui o isolamento é pelo fetch da página (o central.js é
+// dela, inclusive destacado): /central/* responde o cenário pelo exposeFunction, sem tocar a rede. `vazou` anota
+// qualquer pedido a /central/* que chegue à rede mesmo assim (o teste exige zero).
+async function isolarPorScript(page, c) {
+    c.vazou = [];
+    page.on('request', (r) => {
+        const u = new URL(r.url());
+        if (u.pathname.startsWith('/central/') || u.pathname === '/ponto/alerta-horario') { c.vazou.push(r.method() + ' ' + u.pathname); }
+    });
+    await page.exposeFunction('__bjTesteCentral', (metodo, caminho) => { c.leituras = (c.leituras || 0) + (caminho === '/central/novidades' ? 1 : 0); return respostaSimulada(c, metodo, caminho); });
+    await page.addInitScript(() => {
+        const original = window.fetch.bind(window);
+        window.fetch = (url, init) => {
+            const u = new URL(typeof url === 'string' ? url : url.url, location.href);
+            if (u.origin === location.origin && (u.pathname.startsWith('/central/') || u.pathname === '/ponto/alerta-horario')) {
+                return window.__bjTesteCentral((init && init.method) || 'GET', u.pathname).then((r) =>
+                    new Response(JSON.stringify(r.json), { status: r.status, headers: { 'Content-Type': 'application/json' } }));
+            }
+            return original(url, init);
+        };
     });
 }
 
@@ -143,13 +172,14 @@ async function entrar(browser) {
 
 async function abrirSistema(browser, c, opcoes = {}) {
     const contexto = await browser.newContext({ storageState: SESSAO, viewport: opcoes.viewport || { width: 1366, height: 800 }, reducedMotion: 'no-preference' });
-    await isolar(contexto, c);
+    if (!opcoes.porScript) { await isolar(contexto, c); }
     const page = await contexto.newPage();
+    if (opcoes.porScript) { await isolarPorScript(page, c); }
     // Estado inicial lido: o lançador só se redesenha depois da 1ª resposta de /central/novidades.
-    const primeiraLeitura = page.waitForResponse((r) => new URL(r.url()).pathname === '/central/novidades');
+    const primeiraLeitura = opcoes.porScript ? null : page.waitForResponse((r) => new URL(r.url()).pathname === '/central/novidades');
     await page.goto(APP + PAGINA_APP);
     await page.waitForSelector(S.lancador);
-    await primeiraLeitura;
+    if (primeiraLeitura) { await primeiraLeitura; }
     await expect(page.locator(S.lancador)).toHaveAttribute('aria-label', c.naoLidas ? /não lida/ : /tudo em dia/);
     return page;
 }
@@ -609,7 +639,7 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         const rotulos = async (pg, sel) => (await pg.locator(sel + ' > button').allTextContents()).map((t) => t.replace(/(Normal|Grande)$/, '').trim());
         const doSistema = await rotulos(s, MENU_S), doDesenho = await rotulos(p, MENU_P);
         expect(doSistema).toEqual(['Novo grupo', 'Ver conversas arquivadas', expect.stringMatching(/^Não perturbe até \d\d:\d\d$/),
-            'Som de notificações', 'Alertas visuais', 'Tamanho do texto']);
+            'Som de notificações', 'Alertas visuais', 'Tamanho do texto', 'Abrir em janela separada']);
         doSistema.forEach((r) => expect(doDesenho.some((d) => d === r || (/^Não perturbe/.test(r) && /^Não perturbe/.test(d)))).toBe(true));
         // Seções: as do desenho que têm comando real ("Tamanho do texto" vai para Mensagens, ver o HANDOFF).
         expect(await s.locator(MENU_S + ' > .bj-central-menu-secao').allTextContents()).toEqual(['Conversas', 'Meu status', 'Notificações', 'Mensagens']);
@@ -678,5 +708,166 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await expect(s.locator('.bj-flutuante-aviso')).toHaveText('Recusado pelo teste.');
         expect(dialogos).toEqual([]);
         await Promise.all([p.context().close(), s.context().close()]);
+    });
+    // ── B2 Destacar (16/10): Document Picture-in-Picture, pop-up, mesmo nó, voltar ─────────────────────────────────
+    // Guarda a janela que o navegador devolve (PiP ou pop-up) e os tamanhos pedidos, para o teste ler de fora.
+    const ESPIAO_DESTACAR = () => {
+        const api = window.documentPictureInPicture;
+        if (api && api.requestWindow) {
+            const original = api.requestWindow.bind(api);
+            api.requestWindow = (o) => { window.__pedidoPip = o; return original(o).then((w) => { window.__destacada = w; return w; }); };
+        }
+    };
+
+    test('B2 botão Destacar: mesma posição, tamanho, ícone e dica do desenho, antes de Minimizar', async ({ browser }, testInfo) => {
+        const c = cenario();
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        await p.locator(P.lancador).click();
+        await s.locator(S.lancador).click();
+        await p.waitForTimeout(300);
+        await s.waitForTimeout(300);
+        const DP = P.janela + ' button[aria-label^="Destacar"]', DS = S.janela + ' [data-flutuante-destacar]';
+        expect(await caixa(s, DS)).toEqual(await caixa(p, DP));
+        const props = ['width', 'height', 'font-size', 'border-radius', 'color', 'background-color'];
+        expect(await estilos(s, DS, props)).toEqual(await estilos(p, DP, props));
+        const icone = (pg, sel) => medir(pg, sel, `return el.querySelector('i').className.split(' ').filter((k) => k.startsWith('bi-'));`);
+        expect(await icone(s, DS)).toEqual(['bi-box-arrow-up-right']);
+        expect(await icone(p, DP)).toEqual(['bi-box-arrow-up-right']);
+        // Ordem do desenho: Destacar, Minimizar, Maximizar, Fechar.
+        const ordem = await s.locator(S.janela + ' .bj-central-janela-acoes > button').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')));
+        expect(ordem).toEqual(['Destacar', 'Minimizar', 'Maximizar', 'Fechar']);
+        await expect(s.locator(DS)).toHaveAttribute('title', 'Destacar: levar o chat para qualquer lugar da tela');
+        expect(c.escritas).toEqual([]);
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+
+    test('B2 destacar (Picture-in-Picture): o MESMO nó vai, conversa e rascunho ficam, polling não duplica, volta ao fechar', async ({ browser }, testInfo) => {
+        test.setTimeout(180000);
+        const c = cenario(0, [], { conversas: [GRUPO] });
+        // Protótipo: pede a mesma janela (tamanho) que o sistema.
+        const p = await abrirPrototipo(browser);
+        await p.evaluate(ESPIAO_DESTACAR);
+        await p.locator(P.lancador).click();
+        await p.waitForTimeout(300);
+        await p.locator(P.janela + ' button[aria-label^="Destacar"]').click();
+        await expect.poll(() => p.evaluate(() => !!window.__destacada)).toBe(true);
+        const pedidoP = await p.evaluate(() => window.__pedidoPip);
+
+        const s = await abrirSistema(browser, c, { porScript: true });
+        await s.evaluate(ESPIAO_DESTACAR);
+        const novidades = { get length() { return c.leituras || 0; } };   // consultas a /central/novidades
+        await s.locator(S.lancador).click();
+        await s.locator(S.janela + ' .bj-central-linha', { hasText: GRUPO.nome }).click();
+        await s.locator(S.janela + ' [data-central-campo]').fill('rascunho que não pode se perder');
+        await s.evaluate((sel) => { document.querySelector(sel).__marcaDoTeste = 'mesmo nó'; }, S.janela);
+
+        await s.locator(S.janela + ' [data-flutuante-destacar]').click();
+        await expect.poll(() => s.evaluate(() => !!window.__destacada)).toBe(true);
+        expect(await s.evaluate(() => window.__pedidoPip)).toEqual(pedidoP);   // L6299: max(420, 440) × max(560, 660)
+        expect(pedidoP).toEqual({ width: 440, height: 660 });
+
+        const fora = await s.evaluate((sel) => {
+            const w = window.__destacada, j = w.document.querySelector(sel), cab = j.querySelector('.bj-central-cab');
+            const r = j.getBoundingClientRect(), vis = (q) => { const b = j.querySelector(q); return !!b && !b.hidden && b.getBoundingClientRect().width > 0; };
+            return {
+                naPagina: !!document.querySelector(sel), mesmoNo: j.__marcaDoTeste, modo: j.dataset.modo,
+                caixa: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)], viewport: [w.innerWidth, w.innerHeight],
+                titulo: j.querySelector('[data-central-cab-titulo]').textContent, rascunho: j.querySelector('[data-central-campo]').value,
+                minimizar: vis('[data-flutuante-minimizar]'), maximizar: vis('[data-flutuante-maximizar]'),
+                destacar: j.querySelector('[data-flutuante-destacar]').getAttribute('aria-label'),
+                icone: j.querySelector('[data-flutuante-destacar] i').className,
+                cabFundo: w.getComputedStyle(cab).backgroundColor, folhas: w.document.styleSheets.length,
+                aviso: (w.document.querySelector('.bj-flutuante-aviso') || {}).textContent || null,
+                lancador: document.querySelector('[data-flutuante-lancador]').dataset.estado,
+            };
+        }, S.janela);
+        expect(fora).toMatchObject({
+            naPagina: false, mesmoNo: 'mesmo nó', modo: 'separada', titulo: GRUPO.nome, rascunho: 'rascunho que não pode se perder',
+            minimizar: false, maximizar: false, destacar: 'Voltar para dentro do BlueJus', icone: 'bi bi-box-arrow-in-down-left',
+            lancador: 'aberto',
+            aviso: 'Chat em janela flutuante: arraste para qualquer lugar da tela. Ela fica por cima mesmo com o BlueJus minimizado.',
+        });
+        expect(fora.caixa).toEqual([0, 0, fora.viewport[0], fora.viewport[1]]);
+        // As folhas copiadas carregam na janela nova (L6303, como no protótipo): o estilo chega logo depois.
+        await expect.poll(() => s.evaluate(() => window.__destacada.getComputedStyle(window.__destacada.document.querySelector('.bj-central-cab')).backgroundColor), { timeout: 5000 })
+            .toBe('rgb(10, 122, 173)');
+        expect(fora.folhas).toBeGreaterThan(3);
+
+        // Polling: um só, no ritmo da janela aberta (5 s). Em 11 s: 2 ou 3 consultas (duplicado daria 4 ou mais).
+        const antes = novidades.length;
+        await s.waitForTimeout(11000);
+        expect(novidades.length - antes).toBeGreaterThanOrEqual(2);
+        expect(novidades.length - antes).toBeLessThanOrEqual(3);
+
+        // Fechar a janela de fora devolve o nó à página, aberto, com a conversa e o rascunho.
+        await s.evaluate(() => window.__destacada.close());
+        await expect(s.locator(S.janela)).toBeVisible();
+        const volta = await s.evaluate((sel) => {
+            const j = document.querySelector(sel);
+            return { mesmoNo: j.__marcaDoTeste, modo: j.dataset.modo, irmao: j.nextElementSibling && j.nextElementSibling.matches('[data-central-flutuante]'),
+                rascunho: j.querySelector('[data-central-campo]').value, titulo: j.querySelector('[data-central-cab-titulo]').textContent,
+                minimizar: !j.querySelector('[data-flutuante-minimizar]').hidden, destacar: j.querySelector('[data-flutuante-destacar]').getAttribute('aria-label') };
+        }, S.janela);
+        expect(volta).toEqual({ mesmoNo: 'mesmo nó', modo: 'normal', irmao: true, rascunho: 'rascunho que não pode se perder', titulo: GRUPO.nome, minimizar: true, destacar: 'Destacar' });
+        expect(await caixa(s, S.janela)).toEqual({ x: 968, y: 136, w: 380, h: 580 });
+        const depois = novidades.length;
+        await s.waitForTimeout(6000);
+        expect(novidades.length - depois).toBeGreaterThanOrEqual(1);   // o polling seguiu na página
+        expect(novidades.length - depois).toBeLessThanOrEqual(2);
+        await evidencia(testInfo, 'destacar-voltou-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
+        expect(c.escritas).toEqual([]);
+        expect(c.vazou).toEqual([]);   // nada de /central/* chegou ao servidor de verdade
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+
+    test('B2 Fechar dentro da janela destacada: fecha a de fora e devolve a Central ao lançador, fechada', async ({ browser }) => {
+        const c = cenario();
+        const s = await abrirSistema(browser, c);
+        await s.evaluate(ESPIAO_DESTACAR);
+        await s.locator(S.lancador).click();
+        await s.locator(S.janela + ' [data-flutuante-destacar]').click();
+        await expect.poll(() => s.evaluate(() => !!window.__destacada)).toBe(true);
+        await s.evaluate((sel) => window.__destacada.document.querySelector(sel + ' [data-flutuante-fechar]').click(), S.janela);
+        expect(await s.evaluate(() => window.__destacada.closed)).toBe(true);
+        await expect(s.locator(S.janela)).toBeHidden();
+        await expect(s.locator(S.lancador)).toHaveAttribute('data-estado', 'calmo');
+        // Reabrir pelo ícone: a janela volta para dentro do BlueJus, no modo normal.
+        await s.locator(S.lancador).click();
+        await expect(s.locator(S.janela)).toHaveAttribute('data-modo', 'normal');
+        expect(c.escritas).toEqual([]);
+        await s.context().close();
+    });
+
+    test('B2 sem Picture-in-Picture: pop-up próprio; bloqueado, o aviso do desenho', async ({ browser }) => {
+        const c = cenario(0, [], { conversas: [GRUPO] });
+        const s = await abrirSistema(browser, c);
+        await s.evaluate(() => { Object.defineProperty(window, 'documentPictureInPicture', { value: undefined, configurable: true }); });
+        await s.locator(S.lancador).click();
+        await s.locator(S.janela + ' .bj-central-linha', { hasText: GRUPO.nome }).click();
+        await s.locator(S.janela + ' [data-central-campo]').fill('rascunho no pop-up');
+
+        // Pelo item do ⋮ ("Abrir em janela separada"), o mesmo comando do botão.
+        await s.locator(S.janela + ' [data-central-mais]').click();
+        const [popup] = await Promise.all([
+            s.waitForEvent('popup'),
+            s.locator(S.janela + ' .bj-central-menu > button', { hasText: 'Abrir em janela separada' }).click(),
+        ]);
+        await expect(popup.locator(S.janela)).toBeVisible();
+        await expect(popup).toHaveTitle('BlueJus · Central de Comunicação');
+        await expect(popup.locator(S.janela + ' [data-central-campo]')).toHaveValue('rascunho no pop-up');
+        await expect(popup.locator('.bj-flutuante-aviso')).toHaveText('Chat em janela própria: arraste para qualquer lugar ou para outro monitor.');
+        await expect(s.locator(S.janela)).toHaveCount(0);
+        // "Voltar para dentro do BlueJus" fecha o pop-up e traz a Central de volta.
+        await Promise.all([popup.waitForEvent('close'), popup.locator(S.janela + ' [data-flutuante-destacar]').click()]);
+        await expect(s.locator(S.janela)).toBeVisible();
+        await expect(s.locator(S.janela + ' [data-central-campo]')).toHaveValue('rascunho no pop-up');
+
+        // Pop-up bloqueado: aviso, nada sai do lugar.
+        await s.evaluate(() => { window.open = () => null; });
+        await s.locator(S.janela + ' [data-flutuante-destacar]').click();
+        await expect(s.locator('.bj-flutuante-aviso')).toHaveText('O navegador bloqueou a janela. Permita pop-ups para este site e tente de novo.');
+        await expect(s.locator(S.janela)).toBeVisible();
+        expect(c.escritas).toEqual([]);
+        await s.context().close();
     });
 });

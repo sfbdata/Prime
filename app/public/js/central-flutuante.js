@@ -30,11 +30,13 @@
         var btnMinimizar = janela.querySelector('[data-flutuante-minimizar]');
         var btnMaximizar = janela.querySelector('[data-flutuante-maximizar]');
         var btnFechar = janela.querySelector('[data-flutuante-fechar]');
+        var btnDestacar = janela.querySelector('[data-flutuante-destacar]');
         var cab = central.querySelector('.bj-central-cab');
 
         var chave = 'bj-central-prefs:' + (raizLancador.dataset.euId || '0');
         var prefs = lerPrefs();
         var ui = { aberto: false, naoLidas: 0, mencoes: 0, timerSalto: null };
+        var separada = null;   // B2: { janela, tipo: 'flutuante' | 'janela', pai, prox } enquanto destacada
 
         // ── preferências (só este navegador) ─────────────────────────────────────────
         function lerPrefs() {
@@ -72,7 +74,7 @@
         }
 
         function posicionarLancador() {
-            var pos = ui.aberto && prefs.janela === 'max' ? { r: 12, b: 12 } : (prefs.pos || POS_PADRAO);
+            var pos = ui.aberto && !separada && prefs.janela === 'max' ? { r: 12, b: 12 } : (prefs.pos || POS_PADRAO);
             raizLancador.style.right = pos.r + 'px';
             raizLancador.style.bottom = pos.b + 'px';
             window.requestAnimationFrame(function () {   // L6418: nunca menos de 64px à vista
@@ -129,7 +131,12 @@
             ic.setAttribute('aria-hidden', 'true');
             caixa.appendChild(ic);
             caixa.appendChild(document.createTextNode(texto));
-            raizLancador.insertBefore(caixa, lancador);
+            if (separada) {   // destacada, o aviso sai na janela em que a Central está (no desenho a raiz vai junto)
+                caixa.classList.add('bj-flutuante-aviso--separada');
+                separada.janela.document.body.appendChild(caixa);
+            } else {
+                raizLancador.insertBefore(caixa, lancador);
+            }
             avisoAtual = caixa;
             window.setTimeout(function () { if (avisoAtual === caixa) { caixa.remove(); avisoAtual = null; } }, AVISO_MS);
         }
@@ -153,7 +160,10 @@
             // transição de largura/altura deixava a janela ~1 s no tamanho máximo, fora da tela, ao restaurar.
             janela.classList.add('bj-flutuante--instantaneo');
             var st = janela.style;
-            if (prefs.janela === 'max') {
+            if (separada) {   // winCss, L6426: a janela destacada inteira
+                janela.dataset.modo = 'separada';
+                st.left = '0'; st.top = '0'; st.width = '100vw'; st.height = '100vh';
+            } else if (prefs.janela === 'max') {
                 janela.dataset.modo = 'max';
                 st.left = '12px'; st.top = '12px'; st.width = 'calc(100vw - 24px)'; st.height = 'calc(100vh - 24px)';
             } else if (prefs.snap) {
@@ -174,6 +184,12 @@
                 if (!prefs.win && q.x < 8 && d.w <= window.innerWidth - 16) { q.x = 8; }
                 st.left = q.x + 'px'; st.top = q.y + 'px'; st.width = d.w + 'px'; st.height = d.h + 'px';
             }
+            // Destacada: some Minimizar e Maximizar; Destacar vira "Voltar para dentro do BlueJus" (L6340-6344).
+            btnMinimizar.hidden = !!separada;
+            btnMaximizar.hidden = !!separada;
+            btnDestacar.title = separada ? 'Voltar para dentro do BlueJus' : 'Destacar: levar o chat para qualquer lugar da tela';
+            btnDestacar.setAttribute('aria-label', separada ? 'Voltar para dentro do BlueJus' : 'Destacar');
+            btnDestacar.querySelector('.bi').className = 'bi ' + (separada ? 'bi-box-arrow-in-down-left' : 'bi-box-arrow-up-right');
             var max = prefs.janela === 'max';
             btnMaximizar.title = max ? 'Restaurar tamanho' : 'Maximizar';
             btnMaximizar.setAttribute('aria-label', btnMaximizar.title);
@@ -209,6 +225,9 @@
         }
 
         function fechar() {   // fechar não marca nada como lido (L6345)
+            // Destacada: Fechar devolve a Central ao BlueJus e fecha a janela de fora. (No protótipo o Fechar destacado
+            // deixa a janela de fora vazia e aberta, L6345: defeito dele, registrado no HANDOFF.)
+            if (separada) { voltar(true); }
             ui.aberto = false;
             janela.hidden = true;
             desenharLancador();
@@ -275,6 +294,7 @@
         });
         lancador.addEventListener('click', function () {
             if (cliqueBloqueado) { return; }
+            if (separada) { voltar(true); return; }   // destacada: o ícone traz a Central de volta (aberta)
             if (ui.aberto) { fechar(); } else { abrir(); }
         });
 
@@ -283,7 +303,7 @@
         cab.title = 'Arraste para mover o chat';
         cab.setAttribute('aria-label', 'Barra da janela do chat. Arraste ou use as setas para mover.');
         cab.addEventListener('keydown', function (e) {
-            if (e.target !== cab || !/^Arrow/.test(e.key) || prefs.janela === 'max') { return; }
+            if (e.target !== cab || !/^Arrow/.test(e.key) || prefs.janela === 'max' || separada) { return; }
             e.preventDefault();
             var r = janela.getBoundingClientRect(), s = e.shiftKey ? 80 : 20;
             var dx = e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0;
@@ -295,7 +315,7 @@
             aplicarJanela();
         });
         cab.addEventListener('dblclick', function (e) {   // L6347
-            if (e.target.closest('button,input')) { return; }
+            if (e.target.closest('button,input') || separada) { return; }
             prefs.janela = prefs.janela === 'max' || prefs.snap ? 'normal' : 'max';
             prefs.snap = null;
             salvarPrefs();
@@ -303,7 +323,8 @@
             posicionarLancador();
         });
         cab.addEventListener('pointerdown', function (e) {
-            if (e.button !== 0 || e.target.closest('button,input,textarea,select,a')) { return; }
+            // Destacada não se move por aqui: quem move é o sistema operacional (L6420, sem moverJanela).
+            if (e.button !== 0 || separada || e.target.closest('button,input,textarea,select,a')) { return; }
             var r0 = janela.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY;
             var moveu = false, guia = null, alvo = null, off = { x: x0 - r0.left, y: y0 - r0.top }, W = r0.width, H = r0.height;
             try { cab.setPointerCapture(e.pointerId); } catch (x) { /* sem captura: segue com os eventos do cabeçalho */ }
@@ -456,6 +477,8 @@
                     prefs.tam = null; prefs.janela = 'normal'; salvarPrefs(); aplicarJanela(); posicionarLancador();
                 } });
             }
+            // L6291: o mesmo comando do botão Destacar (destacada, ele traz de volta).
+            final.push({ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir em janela separada', acao: destacar });
             return [
                 { titulo: 'Meu status', itens: [   // L6266 (o "Status" manual depende de presença: fora)
                     { icone: dnd ? 'bi-moon-fill' : 'bi-moon', rotulo: dnd ? 'Não perturbe até ' + hhmm(prefs.dnd) : 'Não perturbe por 1 hora', chave: dnd, acao: function () {
@@ -486,6 +509,99 @@
             central.classList.toggle('bj-central--texto-grande', prefs.texto === 'grande');
         }
 
+        // ── B2 Destacar (abrirJanelaSeparada, L6296-6313) ───────────────────────────────
+        // Document Picture-in-Picture quando o navegador tem (janela do sistema, sempre por cima, vai a outro monitor);
+        // senão um pop-up. O MESMO nó da janela é movido para lá (nada é clonado): conversa aberta, rascunho, cursor do
+        // polling e contadores continuam. Fechar a janela de fora (ou "Voltar") devolve o nó ao lugar e ao modo de antes.
+        function copiarEstilos(w) {   // L6303: todas as folhas e <style> da página, com o endereço absoluto
+            // Criadas NO documento da janela nova: um <link> clonado aqui e adotado lá não carrega (medido no Chromium;
+            // o protótipo clona e a janela dele abre sem estilo até a próxima pintura).
+            Array.prototype.forEach.call(document.querySelectorAll('link[rel="stylesheet"], style'), function (f) {
+                var copia;
+                if (f.tagName === 'LINK') {
+                    copia = w.document.createElement('link');
+                    copia.rel = 'stylesheet';
+                    copia.href = f.href;
+                    if (f.media) { copia.media = f.media; }
+                } else {
+                    copia = w.document.createElement('style');
+                    copia.textContent = f.textContent;
+                }
+                w.document.head.appendChild(copia);
+            });
+            var tema = document.documentElement.getAttribute('data-bs-theme');   // tema escuro segue junto
+            if (tema) { w.document.documentElement.setAttribute('data-bs-theme', tema); }
+            w.document.documentElement.lang = document.documentElement.lang || 'pt-BR';
+            w.document.body.style.cssText = 'margin:0;background:#eef2f5;font-family:Arial,Helvetica,sans-serif';
+        }
+
+        function montarSeparada(w, tipo) {
+            if (separada || w.closed) { return; }
+            w.document.head.replaceChildren();   // pop-up reaproveitado ("bluejus-chat") de uma página anterior
+            w.document.body.replaceChildren();
+            w.document.title = 'BlueJus · Central de Comunicação';
+            copiarEstilos(w);
+            separada = { janela: w, tipo: tipo, pai: janela.parentNode, prox: janela.nextSibling };
+            ui.aberto = true;
+            janela.hidden = false;
+            janela.classList.remove('bj-flutuante--abrindo');
+            w.document.body.appendChild(janela);
+            aplicarJanela();
+            desenharLancador();
+            posicionarLancador();
+            central.dispatchEvent(new CustomEvent('bj-central:separada', { detail: { janela: w } }));
+            avisarVisibilidade();
+            if (window.bjCentralDicaLigar) { window.bjCentralDicaLigar(w.document); }
+            w.addEventListener('pagehide', function () { voltar(false); });   // fechou a janela de fora
+            avisar(tipo === 'flutuante'
+                ? 'Chat em janela flutuante: arraste para qualquer lugar da tela. Ela fica por cima mesmo com o BlueJus minimizado.'
+                : 'Chat em janela própria: arraste para qualquer lugar ou para outro monitor.');
+        }
+
+        function destacar() {
+            if (separada) { voltar(true); return; }
+            var t = prefs.tam || {};
+            var W = Math.max(420, t.w || 440), H = Math.max(560, t.h || 660);   // L6299
+            var API = window.documentPictureInPicture;
+            if (API && typeof API.requestWindow === 'function') {
+                API.requestWindow({ width: W, height: H })
+                    .then(function (w) { montarSeparada(w, 'flutuante'); })
+                    .catch(function () { avisar('Não foi possível abrir a janela separada.'); });
+                return;
+            }
+            var w = null;
+            try {
+                w = window.open('', 'bluejus-chat', 'popup=yes,width=' + W + ',height=' + H + ',left=' + Math.max(0, screen.availWidth - W - 40) + ',top=60');
+            } catch (e) { w = null; }
+            if (!w) { avisar('O navegador bloqueou a janela. Permita pop-ups para este site e tente de novo.'); return; }
+            try { montarSeparada(w, 'janela'); } catch (e) { avisar('Não foi possível abrir a janela separada.'); }
+        }
+
+        function voltar(fecharDeFora) {
+            if (!separada) { return; }
+            var s = separada;
+            separada = null;
+            avisoAtual = null;
+            try {
+                s.pai.insertBefore(janela, s.prox && s.prox.parentNode === s.pai ? s.prox : null);
+            } catch (e) {
+                document.body.insertBefore(janela, raizLancador);
+            }
+            aplicarJanela();
+            desenharLancador();
+            posicionarLancador();
+            central.dispatchEvent(new CustomEvent('bj-central:separada', { detail: { janela: null } }));
+            avisarVisibilidade();
+            if (fecharDeFora) { try { s.janela.close(); } catch (e) { /* já fechada */ } }
+        }
+
+        // A Central destacada vive enquanto a página que a abriu viver: ao sair da página, fecha a janela de fora (a
+        // próxima página tem o seu próprio lançador). Sem isto o pop-up ficaria com uma Central sem script.
+        window.addEventListener('pagehide', function () {
+            if (separada) { try { separada.janela.close(); } catch (e) { /* já fechada */ } }
+        });
+        btnDestacar.addEventListener('click', destacar);
+
         // ── ligação com o central.js ─────────────────────────────────────────────────
         central.addEventListener('bj-central:contadores', function (ev) {
             var d = ev.detail || {};
@@ -509,7 +625,7 @@
         window.addEventListener('resize', function () {   // L6453: refaz com debounce de 120 ms
             window.clearTimeout(redim);
             redim = window.setTimeout(function () {
-                if (ui.aberto) { aplicarJanela(); }
+                if (ui.aberto && !separada) { aplicarJanela(); }
                 posicionarLancador();
             }, 120);
         });

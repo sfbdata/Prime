@@ -37,9 +37,12 @@
             <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
         </button>
         {% if modo|default('pagina') == 'flutuante' %}
-            {# Botões de janela do desenho (L6340-6345): minimizar, maximizar/restaurar, fechar. O "destacar" (janela
-               separada do navegador) fica fora: depende de Picture-in-Picture e não tem regra no BlueJus. #}
+            {# Botões de janela do desenho (L6340-6345), na ordem dele: destacar (B2: janela própria, Picture-in-Picture
+               ou pop-up), minimizar, maximizar/restaurar, fechar. #}
             <div class="bj-central-janela-acoes">
+                <button type="button" class="bj-central-btn-ico" data-flutuante-destacar title="Destacar: levar o chat para qualquer lugar da tela" aria-label="Destacar">
+                    <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                </button>
                 <button type="button" class="bj-central-btn-ico" data-flutuante-minimizar title="Minimizar: recolher para o ícone de conversas" aria-label="Minimizar">
                     <i class="bi bi-dash-lg" aria-hidden="true"></i>
                 </button>
