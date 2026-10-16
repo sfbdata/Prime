@@ -558,7 +558,7 @@
 
     function rotuloBotaoBatida() {
         const nome = ROTULOS_TIPO[tipoRegistro.value];
-        return '<i class="bi bi-fingerprint"></i> Bater Ponto' + (nome ? ' — ' + nome : '');
+        return '<i class="bi bi-fingerprint"></i> Bater Ponto' + (nome ? ': ' + nome : '');
     }
 
     function atualizarRotuloBotao() {
@@ -745,7 +745,7 @@
         document.getElementById('batidas-de-hoje').classList.add('opacity-50');
 
         // A sugestão do select foi calculada no servidor, para ONTEM, e agora está velha. Quem
-        // esqueceu a saída ontem encontraria "Bater Ponto — Saída" de manhã: um toque gravaria
+        // esqueceu a saída ontem encontraria "Bater Ponto: Saída" de manhã: um toque gravaria
         // `saida` no dia novo e, pior, a interjornada de 11 h do servidor
         // (`PontoController::batida`) passaria a RECUSAR a entrada dele pelo resto da manhã.
         // Devolver o select ao vazio faz o toque cair na guarda "Selecione o tipo de registro",
