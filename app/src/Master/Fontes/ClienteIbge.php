@@ -115,6 +115,47 @@ final class ClienteIbge
     }
 
     /**
+     * População das 27 UFs. Resposta sem alguma UF (ou com código estranho) é recusada: o retrato
+     * anterior fica, em vez de um mapa com estados faltando.
+     *
+     * @return array{ano: string, valores: array<string, int>, nomes: array<string, string>}
+     *
+     * @throws FonteIndisponivel
+     */
+    public function populacaoDasUfs(): array
+    {
+        $dados = $this->populacao('N3[all]');
+        $recebidas = array_map('strval', array_keys($dados['valores']));
+        $esperadas = array_map('strval', array_values(self::CODIGO_UF));
+        sort($recebidas);
+        sort($esperadas);
+        if ($recebidas !== $esperadas) {
+            throw new FonteIndisponivel(sprintf('IBGE devolveu população de %d UFs (esperado 27).', count($recebidas)));
+        }
+
+        return $dados;
+    }
+
+    /**
+     * População dos municípios de uma UF: não vazia e só com códigos de município (7 dígitos) da UF.
+     *
+     * @return array{ano: string, valores: array<string, int>, nomes: array<string, string>}
+     *
+     * @throws FonteIndisponivel
+     */
+    public function populacaoDosMunicipios(int $codigoUf): array
+    {
+        $dados = $this->populacao(sprintf('N6[N3[%d]]', $codigoUf));
+        foreach (array_keys($dados['valores']) as $codigo) {
+            if (preg_match('/^' . $codigoUf . '\d{5}$/', (string) $codigo) !== 1) {
+                throw new FonteIndisponivel(sprintf('IBGE devolveu município %s fora da UF %d.', $codigo, $codigoUf));
+            }
+        }
+
+        return $dados;
+    }
+
+    /**
      * @param array<string, string> $query
      *
      * @throws FonteIndisponivel

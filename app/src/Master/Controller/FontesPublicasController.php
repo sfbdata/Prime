@@ -74,6 +74,12 @@ final class FontesPublicasController extends AbstractController
             return $this->json(['erro' => 'Sessão expirada. Recarregue a página.'], Response::HTTP_FORBIDDEN);
         }
 
+        // Libera a sessão ANTES de buscar fora: a busca pode levar segundos e, com a sessão aberta,
+        // travaria as outras requisições do Master (o PHP serializa por sessão).
+        if ($request->hasSession()) {
+            $request->getSession()->save();
+        }
+
         $resultado = $useCase->executar($request->request->getBoolean('automatico'));
 
         return $this->json(['resultado' => $resultado, 'resumo' => $this->fontes->resumo()]);

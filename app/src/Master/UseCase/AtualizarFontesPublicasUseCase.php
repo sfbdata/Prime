@@ -19,12 +19,12 @@ final class AtualizarFontesPublicasUseCase
     }
 
     /**
-     * @param bool $soSeVencido atualização automática do mapa: não busca se o retrato tem menos de 24 h
+     * @param bool $automatico atualização automática do mapa: só fonte vencida (24 h) e fora da espera de 1 h após falha
      *
      * @return array{ibge: bool, oab: bool, emAndamento: bool}
      */
-    public function executar(bool $soSeVencido = false): array
+    public function executar(bool $automatico = false): array
     {
-        return $this->fontes->atualizar($soSeVencido);
+        return $this->fontes->atualizar($automatico);
     }
 }

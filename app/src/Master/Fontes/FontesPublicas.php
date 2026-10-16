@@ -21,10 +21,15 @@ final class FontesPublicas
 {
     private const DIAS_IBGE = 30;
     private const DIAS_RETRATO_DIARIO = 1;
+    private const MINUTOS_DE_ESPERA_APOS_FALHA = 60;
+    private const CHAVE_FALHA = 'falha.';
     private const CHAVE_OAB = 'oab.quadro';
     private const CHAVE_TABELA = 'tabela.enviada';
     private const CHAVE_POP_UFS = 'ibge.populacao.ufs';
     private const FONTE_IBGE = 'IBGE (servicodados.ibge.gov.br)';
+
+    /** Fontes que a atualização diária refaz: nome => chave do retrato. */
+    private const FONTES_DIARIAS = ['ibge' => self::CHAVE_POP_UFS, 'oab' => self::CHAVE_OAB];
 
     public function __construct(
         private readonly ArmazemDeFontes $armazem,
@@ -68,7 +73,7 @@ final class FontesPublicas
     public function populacaoDosMunicipios(string $uf): array
     {
         $codigo = self::codigoUf($uf);
-        $dados = (array) $this->obter('ibge.populacao.' . $codigo, fn (): array => $this->ibge->populacao(sprintf('N6[N3[%d]]', $codigo)));
+        $dados = (array) $this->obter('ibge.populacao.' . $codigo, fn (): array => $this->ibge->populacaoDosMunicipios($codigo));
 
         $enviada = $this->tabelaEnviada();
         foreach (($enviada['mun'][(string) $codigo] ?? []) as $municipio => $populacao) {
@@ -88,7 +93,7 @@ final class FontesPublicas
     {
         $populacao = null;
         try {
-            $populacao = (array) $this->obter(self::CHAVE_POP_UFS, fn (): array => $this->ibge->populacao('N3[all]'));
+            $populacao = (array) $this->obter(self::CHAVE_POP_UFS, fn (): array => $this->ibge->populacaoDasUfs());
         } catch (FonteIndisponivel) {
             // Sem população: o mapa segue sem o número de habitantes (nada estimado).
         }
@@ -149,60 +154,86 @@ final class FontesPublicas
         return ['data' => SementeQuadroOab::DATA, 'fonte' => SementeQuadroOab::FONTE, 'uf' => SementeQuadroOab::UF, 'buscadoEm' => null];
     }
 
-    /** O retrato da OAB ou da população não existe ou tem mais de 24 horas? */
+    /**
+     * A atualização automática deve rodar? Sim se o retrato da OAB ou da população não existe ou
+     * tem mais de 24 horas, e aquela fonte não falhou na última hora (espera mínima após falha).
+     */
     public function precisaAtualizar(): bool
     {
-        return !$this->armazem->fresco($this->armazem->ler(self::CHAVE_OAB), self::DIAS_RETRATO_DIARIO)
-            || !$this->armazem->fresco($this->armazem->ler(self::CHAVE_POP_UFS), self::DIAS_RETRATO_DIARIO);
+        foreach (array_keys(self::FONTES_DIARIAS) as $fonte) {
+            if ($this->deveTentar($fonte)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * Busca de novo a população das UFs (IBGE) e o Quadro da Advocacia (OAB). Fonte que falhar
-     * mantém o retrato anterior. Só uma atualização por vez (trava sem espera): a segunda chamada
-     * simultânea volta com `emAndamento`. Com `$soSeVencido`, não busca se os retratos têm menos
-     * de 24 horas (dois navegadores abertos não disparam duas buscas seguidas).
+     * mantém o retrato anterior e registra o instante da falha. Só uma atualização por vez (trava
+     * sem espera): a segunda chamada simultânea volta com `emAndamento`.
+     *
+     * Automática (`$automatico`): só busca a fonte vencida (mais de 24 h) e fora da espera de 1 hora
+     * após falha; fonte que não precisava conta como ok. Manual (botão): busca as duas, sem espera.
      *
      * @return array{ibge: bool, oab: bool, emAndamento: bool}
      */
-    public function atualizar(bool $soSeVencido = false): array
+    public function atualizar(bool $automatico = false): array
     {
-        [$executou, $resultado] = $this->armazem->comTrava('atualizar', function () use ($soSeVencido): array {
-            if ($soSeVencido && !$this->precisaAtualizar()) {
-                return ['ibge' => true, 'oab' => true, 'emAndamento' => false];
+        [$executou, $resultado] = $this->armazem->comTrava('atualizar', function () use ($automatico): array {
+            $saida = ['ibge' => true, 'oab' => true, 'emAndamento' => false];
+            foreach (array_keys(self::FONTES_DIARIAS) as $fonte) {
+                if ($automatico && !$this->deveTentar($fonte)) {
+                    continue;
+                }
+                $saida[$fonte] = $fonte === 'ibge' ? $this->buscarPopulacaoDasUfs() : $this->buscarQuadroOab();
             }
 
-            return $this->buscarTudo() + ['emAndamento' => false];
+            return $saida;
         }, false);
 
         return $executou ? $resultado : ['ibge' => false, 'oab' => false, 'emAndamento' => true];
     }
 
-    /**
-     * @return array{ibge: bool, oab: bool}
-     */
-    private function buscarTudo(): array
+    private function deveTentar(string $fonte): bool
     {
-        $ibge = true;
-        try {
-            $this->armazem->gravar(self::CHAVE_POP_UFS, $this->ibge->populacao('N3[all]'), self::FONTE_IBGE);
-        } catch (FonteIndisponivel $e) {
-            $ibge = false;
-            $this->logger->warning('Painel do Master: população do IBGE não atualizada; mantido o retrato anterior.', ['erro' => $e->getMessage()]);
-        }
+        $vencida = !$this->armazem->fresco($this->armazem->ler(self::FONTES_DIARIAS[$fonte]), self::DIAS_RETRATO_DIARIO);
+        $emEspera = $this->armazem->recente($this->armazem->ler(self::CHAVE_FALHA . $fonte), self::MINUTOS_DE_ESPERA_APOS_FALHA);
 
-        $oab = true;
+        return $vencida && !$emEspera;
+    }
+
+    private function buscarPopulacaoDasUfs(): bool
+    {
+        try {
+            $this->armazem->gravar(self::CHAVE_POP_UFS, $this->ibge->populacaoDasUfs(), self::FONTE_IBGE);
+
+            return true;
+        } catch (FonteIndisponivel $e) {
+            $this->armazem->gravar(self::CHAVE_FALHA . 'ibge', $e->getMessage(), self::FONTE_IBGE);
+            $this->logger->warning('Painel do Master: população do IBGE não atualizada; mantido o retrato anterior.', ['erro' => $e->getMessage()]);
+
+            return false;
+        }
+    }
+
+    private function buscarQuadroOab(): bool
+    {
         try {
             $lido = $this->leitorOab->ler($this->clienteOab->baixarPagina());
             $this->armazem->comTrava('armazem', fn () => $this->armazem->gravar(self::CHAVE_OAB, [
                 'data' => $this->relogio->now()->format('d/m/Y'),
                 'uf'   => $lido['uf'],
             ], ClienteQuadroOab::URL));
-        } catch (FonteIndisponivel $e) {
-            $oab = false;
-            $this->logger->warning('Painel do Master: Quadro da Advocacia não atualizado; mantido o retrato anterior.', ['erro' => $e->getMessage()]);
-        }
 
-        return ['ibge' => $ibge, 'oab' => $oab];
+            return true;
+        } catch (FonteIndisponivel $e) {
+            $this->armazem->gravar(self::CHAVE_FALHA . 'oab', $e->getMessage(), ClienteQuadroOab::URL);
+            $this->logger->warning('Painel do Master: Quadro da Advocacia não atualizado; mantido o retrato anterior.', ['erro' => $e->getMessage()]);
+
+            return false;
+        }
     }
 
     /**

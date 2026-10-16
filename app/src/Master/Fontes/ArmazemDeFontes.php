@@ -100,6 +100,22 @@ final class ArmazemDeFontes
         return $buscado > $this->relogio->now()->modify(sprintf('-%d days', $dias));
     }
 
+    /** O registro existe e foi gravado há menos de `$minutos` minutos? */
+    public function recente(?array $registro, int $minutos): bool
+    {
+        if ($registro === null) {
+            return false;
+        }
+
+        try {
+            $gravado = new \DateTimeImmutable((string) $registro['buscadoEm']);
+        } catch (\Exception) {
+            return false;
+        }
+
+        return $gravado > $this->relogio->now()->modify(sprintf('-%d minutes', $minutos));
+    }
+
     private static function chave(string $chave): string
     {
         return str_replace(['{', '}', '(', ')', '/', '\\', '@', ':'], '_', $chave);

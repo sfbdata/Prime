@@ -4,7 +4,8 @@
      o retrato com fonte e data e, se a fonte falhar, mantém o anterior);
    - "Atualizar dados" e o envio de arquivos gravam no servidor (POST com CSRF), não no navegador;
    - arquivos: CSV no formato do modelo baixado pelo menu, ou Excel convertido para esse CSV no navegador (PDF não);
-   - atualização diária automática: o mapa pede ao servidor quando o retrato passa de 24 h. */
+   - atualização diária automática: o mapa pede ao servidor quando o retrato passa de 24 h (uma vez por carga do
+     painel; o servidor espera 1 h após falha antes de tentar sozinho de novo). */
 (() => {
   const CFG = JSON.parse(document.body.dataset.cfg || '{}');
   const UF = { 11: ['RO', 'Rondônia'], 12: ['AC', 'Acre'], 13: ['AM', 'Amazonas'], 14: ['RR', 'Roraima'], 15: ['PA', 'Pará'], 16: ['AP', 'Amapá'], 17: ['TO', 'Tocantins'], 21: ['MA', 'Maranhão'], 22: ['PI', 'Piauí'], 23: ['CE', 'Ceará'], 24: ['RN', 'Rio Grande do Norte'], 25: ['PB', 'Paraíba'], 26: ['PE', 'Pernambuco'], 27: ['AL', 'Alagoas'], 28: ['SE', 'Sergipe'], 29: ['BA', 'Bahia'], 31: ['MG', 'Minas Gerais'], 32: ['ES', 'Espírito Santo'], 33: ['RJ', 'Rio de Janeiro'], 35: ['SP', 'São Paulo'], 41: ['PR', 'Paraná'], 42: ['SC', 'Santa Catarina'], 43: ['RS', 'Rio Grande do Sul'], 50: ['MS', 'Mato Grosso do Sul'], 51: ['MT', 'Mato Grosso'], 52: ['GO', 'Goiás'], 53: ['DF', 'Distrito Federal'] };
@@ -22,7 +23,14 @@
   let carga = null;
   // Atualização diária sem cron: se o retrato da OAB ou da população passou de 24 h, pede ao servidor em segundo
   // plano (ele trava para não buscar duas vezes e ignora se outro navegador já atualizou) e recarrega ao terminar.
-  const atualizarSeVencido = r => { if (r && r.precisaAtualizar) enviar(CFG.atualizar, { automatico: '1' }).then(j => posResumo(j)).catch(() => {}); return r; };
+  // No máximo uma vez por carga da página do painel (o iframe recarrega a cada troca de visão): a marca fica na
+  // janela do painel; se não der para tocá-la, no sessionStorage do iframe.
+  const jaDisparou = () => {
+    try { if (window.parent && window.parent !== window) { if (window.parent.__bjFontesAuto) return true; window.parent.__bjFontesAuto = true; return false; } } catch (e) {}
+    try { if (sessionStorage.getItem('bj-fontes-auto')) return true; sessionStorage.setItem('bj-fontes-auto', '1'); } catch (e) {}
+    return false;
+  };
+  const atualizarSeVencido = r => { if (r && r.precisaAtualizar && !jaDisparou()) enviar(CFG.atualizar, { automatico: '1' }).then(j => posResumo(j)).catch(() => {}); return r; };
   const popUFs = () => carga || (carga = pedir(CFG.fontes).then(atualizarSeVencido).then(aplicarResumo));
   const pendente = {};
   function popMun(uf) {
@@ -117,7 +125,7 @@
     menu.classList.remove('on');
     if (a === 'ibge') {
       avisar('Atualizando dados públicos pelo servidor…');
-      try { const j = await enviar(CFG.atualizar); posResumo(j); const r = j.resultado || {}; avisar(r.ibge && r.oab ? 'Dados do IBGE e da OAB atualizados.' : (r.ibge ? 'IBGE atualizado. OAB indisponível agora: mantido o retrato de ' + oab().data + '.' : r.oab ? 'OAB atualizada. IBGE indisponível agora: mantida a população anterior.' : 'Não foi possível acessar o IBGE nem a OAB agora. Mantidos os dados anteriores.')); }
+      try { const j = await enviar(CFG.atualizar); posResumo(j); const r = j.resultado || {}; if (r.emAndamento) return avisar('Atualização já em andamento.'); avisar(r.ibge && r.oab ? 'Dados do IBGE e da OAB atualizados.' : (r.ibge ? 'IBGE atualizado. OAB indisponível agora: mantido o retrato de ' + oab().data + '.' : r.oab ? 'OAB atualizada. IBGE indisponível agora: mantida a população anterior.' : 'Não foi possível acessar o IBGE nem a OAB agora. Mantidos os dados anteriores.')); }
       catch (e) { avisar((e && e.erro) || 'Não foi possível atualizar agora. Tente de novo ou envie a tabela.'); }
     }
     if (a === 'oab') abrirOAB();

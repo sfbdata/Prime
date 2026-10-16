@@ -108,6 +108,22 @@ final class FontesPublicasTest extends TestCase
 
     private ?ArmazemDeFontes $armazem = null;
     private bool $paginaAdulterada = false;
+    /** @var list<string>|null */
+    private ?array $ufsDaPopulacao = null;
+
+    /** População das 27 UFs no formato do agregado 6579 (SP com 46.000.000; as demais com 1.000.000). */
+    private static function populacaoDasUfs(?array $so = null): string
+    {
+        $series = [];
+        foreach (\App\Master\Fontes\ClienteIbge::CODIGO_UF as $sigla => $codigo) {
+            if ($so !== null && !in_array($sigla, $so, true)) {
+                continue;
+            }
+            $series[] = ['localidade' => ['id' => (string) $codigo, 'nome' => $sigla], 'serie' => ['2025' => $sigla === 'SP' ? '46000000' : '1000000']];
+        }
+
+        return (string) json_encode([['resultados' => [['series' => $series]]]]);
+    }
 
     private function armazem(): ArmazemDeFontes
     {
@@ -154,6 +170,44 @@ final class FontesPublicasTest extends TestCase
         self::assertSame(4250, $fontes->quadroOab()['uf']['AC'][0]);
     }
 
+    #[TestDox('IBGE sem alguma UF na população: recusado, mantém o retrato anterior')]
+    public function testPopulacaoIncompletaMantemRetrato(): void
+    {
+        $fontes = $this->fontes();
+        $fontes->atualizar();
+        $this->relogio->modify('+2 days');
+        $this->ufsDaPopulacao = ['SP', 'RJ'];
+
+        self::assertFalse($fontes->atualizar()['ibge']);
+        self::assertSame(1000000, $fontes->resumo()['uf']['53']['pop'], 'DF continua com a população anterior');
+    }
+
+    #[TestDox('Espera de 1 h após falha: a automática não tenta de novo antes disso; o botão manual tenta')]
+    public function testEsperaAposFalha(): void
+    {
+        $fontes = $this->fontes();
+        $this->redeFora = true;
+
+        self::assertTrue($fontes->precisaAtualizar());
+        self::assertSame(['ibge' => false, 'oab' => false, 'emAndamento' => false], $fontes->atualizar(true));
+        self::assertFalse($fontes->precisaAtualizar(), 'durante a espera o servidor não pede atualização');
+        self::assertFalse($fontes->resumo()['precisaAtualizar']);
+
+        $chamadas = count($this->urls);
+        $fontes->atualizar(true);
+        self::assertCount($chamadas, $this->urls, 'automática dentro da espera não busca');
+
+        $fontes->atualizar(false);
+        self::assertGreaterThan($chamadas, count($this->urls), 'manual ignora a espera');
+
+        $chamadas = count($this->urls);
+        $this->relogio->modify('+61 minutes');
+        self::assertTrue($fontes->precisaAtualizar());
+        $this->redeFora = false;
+        self::assertSame(['ibge' => true, 'oab' => true, 'emAndamento' => false], $fontes->atualizar(true));
+        self::assertFalse($fontes->precisaAtualizar());
+    }
+
     private function fontes(): FontesPublicas
     {
         $http = new MockHttpClient(function (string $metodo, string $url): MockResponse {
@@ -171,7 +225,7 @@ final class FontesPublicasTest extends TestCase
                 return new MockResponse('[{"resultados":[{"series":[{"localidade":{"id":"2704302","nome":"Maceió - AL"},"serie":{"2025":"957916"}},{"localidade":{"id":"2700102","nome":"Água Branca - AL"},"serie":{"2025":"50000"}}]}]}]');
             }
             if (str_contains($url, '/agregados/')) {
-                return new MockResponse('[{"resultados":[{"series":[{"localidade":{"id":"35","nome":"São Paulo"},"serie":{"2025":"46000000"}}]}]}]');
+                return new MockResponse(self::populacaoDasUfs($this->ufsDaPopulacao));
             }
             if (str_contains($url, 'oab.org.br')) {
                 $html = (string) file_get_contents(__DIR__ . '/../Fixtures/oab-quadro-advogados-2026-10-16.html');

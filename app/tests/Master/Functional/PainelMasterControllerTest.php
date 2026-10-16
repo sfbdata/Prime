@@ -362,8 +362,16 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
             if (str_contains($url, '/localidades/')) {
                 return new MockResponse('[{"id":2704302,"nome":"Maceió"}]');
             }
+            if (str_contains($url, '/agregados/') && str_contains(urldecode($url), 'N6')) {
+                return new MockResponse('[{"resultados":[{"series":[{"localidade":{"id":"2704302","nome":"Maceió - AL"},"serie":{"2025":"957916"}}]}]}]');
+            }
             if (str_contains($url, '/agregados/')) {
-                return new MockResponse('[{"resultados":[{"series":[{"localidade":{"id":"27","nome":"Alagoas"},"serie":{"2025":"3127683"}}]}]}]');
+                $series = [];
+                foreach (ClienteIbge::CODIGO_UF as $sigla => $codigo) {
+                    $series[] = ['localidade' => ['id' => (string) $codigo, 'nome' => $sigla], 'serie' => ['2025' => '1000000']];
+                }
+
+                return new MockResponse((string) json_encode([['resultados' => [['series' => $series]]]]));
             }
 
             return new MockResponse('', ['http_code' => 404]);
