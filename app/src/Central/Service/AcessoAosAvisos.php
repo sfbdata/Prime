@@ -29,7 +29,7 @@ final class AcessoAosAvisos
             return (int) $pasta;
         }
 
-        return preg_match('#^/pasta/(\d+)#', (string) $aviso->getUrl(), $m) === 1 ? (int) $m[1] : null;
+        return preg_match('#^/pasta/(\d{1,9})#', (string) $aviso->getUrl(), $m) === 1 ? (int) $m[1] : null;
     }
 
     /** @param array<int, bool> $memoria */

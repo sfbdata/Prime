@@ -40,7 +40,8 @@ final class ObterNovidadesDaCentralUseCase
         private readonly ClockInterface $clock,
         private readonly ParticipanteRepository $participantes,
         private readonly AvisoDeMencaoNaCentral $avisos,
-        // Opcional só para os testes unitários do polling (a classe é final); no container ele sempre vem.
+        // Opcional só para não mexer nos testes unitários antigos do polling; no container o autowiring sempre injeta
+        // (provado pelo teste funcional das contagens).
         private readonly ?ContadorDeAvisos $contadorDeAvisos = null,
     ) {
     }
@@ -59,7 +60,7 @@ final class ObterNovidadesDaCentralUseCase
 
         if ($desde === null) {
             return new NovidadesOutput([], $this->mensagens->ultimoIdVisivelPara($eu, $tenant), $naoLidas, true, $comMencao,
-                $avisos->naoLidos, $avisos->urgentes, $avisos->ultimo);
+                $avisos->naoLidos, $avisos->urgentes, $avisos->ultimo, $avisos->importantes);
         }
 
         $novas = $this->mensagens->novidades($eu, $tenant, $desde, self::TETO);
@@ -81,6 +82,7 @@ final class ObterNovidadesDaCentralUseCase
             avisosNaoLidos: $avisos->naoLidos,
             avisosUrgentes: $avisos->urgentes,
             ultimoAviso: $avisos->ultimo,
+            avisosImportantes: $avisos->importantes,
         );
     }
 }

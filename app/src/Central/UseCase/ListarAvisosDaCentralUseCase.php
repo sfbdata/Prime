@@ -6,6 +6,7 @@ namespace App\Central\UseCase;
 
 use App\Central\DTO\AvisoOutput;
 use App\Central\Exception\SemAcessoACentralException;
+use App\Central\Repository\AvisoResolvidoRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\AcessoAosAvisos;
 use App\Central\Service\AvisosDaCentral;
@@ -30,6 +31,7 @@ final class ListarAvisosDaCentralUseCase
         private readonly AcessoAosAvisos $acesso,
         private readonly TiposDeAvisoDaCentral $tipos,
         private readonly UrlGeneratorInterface $urls,
+        private readonly AvisoResolvidoRepository $resolvidos,
     ) {
     }
 
@@ -44,17 +46,19 @@ final class ListarAvisosDaCentralUseCase
 
         $saida = [];
         $memoria = [];
-        foreach ($this->avisos->recentes($eu, $tenant, self::LIMITE) as $aviso) {
+        $recentes = $this->avisos->recentes($eu, $tenant, self::LIMITE);
+        $resolvidas = $this->resolvidos->resolvidas($tenant, $eu, array_map(static fn (Notificacao $n): int => (int) $n->getId(), $recentes));
+        foreach ($recentes as $aviso) {
             if (!$this->acesso->podeVer($aviso, $eu, $tenant, $memoria)) {
                 continue;
             }
-            $saida[] = $this->paraSaida($aviso);
+            $saida[] = $this->paraSaida($aviso, $resolvidas[(int) $aviso->getId()] ?? null);
         }
 
         return $saida;
     }
 
-    private function paraSaida(Notificacao $aviso): AvisoOutput
+    private function paraSaida(Notificacao $aviso, ?\DateTimeImmutable $resolvidaEm): AvisoOutput
     {
         $tipo = $this->tipos->para($aviso->getTipo());
         $url = $aviso->getUrl();
@@ -75,6 +79,7 @@ final class ListarAvisosDaCentralUseCase
             url: $url !== '' ? $url : null,
             lido: $aviso->isLida(),
             criadoEm: $aviso->getCriadaEm()->format(\DATE_ATOM),
+            resolvidoEm: $resolvidaEm?->format(\DATE_ATOM),
         );
     }
 }

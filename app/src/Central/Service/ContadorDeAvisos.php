@@ -14,6 +14,7 @@ final class ContadorDeAvisos
     public function __construct(
         private readonly AvisosDaCentral $avisos,
         private readonly AcessoAosAvisos $acesso,
+        private readonly TiposDeAvisoDaCentral $tipos,
     ) {
     }
 
@@ -21,15 +22,18 @@ final class ContadorDeAvisos
     {
         $naoLidos = 0;
         $urgentes = 0;
+        $importantes = 0;
         $memoria = [];
         foreach ($this->avisos->naoLidosAgrupados($eu, $tenant) as $grupo) {
             if (!$grupo['responsavel'] && !$this->acesso->podeVerPasta($grupo['pasta'], $eu, $tenant, $memoria)) {
                 continue;
             }
+            $nivel = $this->tipos->para($grupo['tipo'])['nivel'];
             $naoLidos += $grupo['total'];
-            $urgentes += $grupo['urgente'] ? $grupo['total'] : 0;
+            $urgentes += $nivel >= 3 ? $grupo['total'] : 0;
+            $importantes += $nivel >= 2 ? $grupo['total'] : 0;
         }
 
-        return new ContagemDeAvisos($naoLidos, $urgentes, $this->avisos->ultimoId($eu, $tenant));
+        return new ContagemDeAvisos($naoLidos, $urgentes, $this->avisos->ultimoId($eu, $tenant), $importantes);
     }
 }

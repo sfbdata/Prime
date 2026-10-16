@@ -18,6 +18,7 @@
     var POS_PADRAO = { r: 18, b: 18 };     // L5412
     var AVISO_MS = 2600;              // aviso(), L5398
     var SALTO_MS = 2400;              // ui.pulso, L141
+    var VOL = { baixo: 0.45, medio: 1, alto: 1.7 }, VOL_ROTULO = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' };   // L44
     var STATUS_ROTULO = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'] };   // L45
 
     function iniciar(raizLancador) {
@@ -42,7 +43,9 @@
 
         // ── preferências (só este navegador) ─────────────────────────────────────────
         function lerPrefs() {
-            var base = { pos: null, win: null, tam: null, snap: null, janela: 'normal', alertas: true, som: true, dnd: 0, texto: 'normal', status: 'disponivel' };
+            // L43: os padrões do desenho. F3: volume, modo de aviso, Enter envia e a janela das resolvidas.
+            var base = { pos: null, win: null, tam: null, snap: null, janela: 'normal', alertas: true, som: true, dnd: 0, texto: 'normal', status: 'disponivel',
+                volume: 'medio', modo: 'todas', enterEnvia: true, resJanelaH: 24 };
             try {
                 var salvo = JSON.parse(window.localStorage.getItem(chave) || '{}');
                 Object.keys(base).forEach(function (k) { if (salvo && salvo[k] !== undefined) { base[k] = salvo[k]; } });
@@ -117,7 +120,7 @@
                     o.connect(g);
                     g.connect(audio.destination);
                     g.gain.setValueAtTime(0, t0);
-                    g.gain.linearRampToValueAtTime(0.12, t0 + 0.015);   // volume "médio" do desenho (VOL.medio = 1)
+                    g.gain.linearRampToValueAtTime(0.12 * (VOL[prefs.volume] || 1), t0 + 0.015);   // L44: 0,12 × volume
                     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
                     o.start(t0);
                     o.stop(t0 + 0.3);
@@ -471,13 +474,14 @@
 
         central.bjSilencio = silencio;
         // F2: o status que vai no batimento (L276): o manual deste navegador, ou "ocupado" com Não perturbe ligado.
-        // Outra aba mudou as preferências (status, Não perturbe, som...): relê, para não sobrescrever com as velhas.
-        window.addEventListener('storage', function (ev) {
-            if (ev.key !== chave) { return; }
+        // Outra aba (ou o central.js, nesta) mudou as preferências: relê, para não sobrescrever com as velhas.
+        function reler() {
             prefs = lerPrefs();
             desenharLancador();
             aplicarTexto();
-        });
+        }
+        window.addEventListener('storage', function (ev) { if (ev.key === chave) { reler(); } });
+        central.addEventListener('bj-central:prefs-gravadas', reler);
         central.bjMenuJanela = function () {
             var dnd = silencio();
             var final = [];
@@ -511,13 +515,24 @@
                         prefs.som = !prefs.som; salvarPrefs();
                         if (prefs.som) { ultimoToque = 0; tocar(); }   // L6268: ligar toca uma vez, para ouvir
                     } },
+                    { icone: 'bi-sliders', rotulo: 'Volume', valor: VOL_ROTULO[prefs.volume] || 'Médio', acao: function () {   // L6269
+                        var o = ['baixo', 'medio', 'alto'];
+                        prefs.volume = o[(o.indexOf(prefs.volume) + 1) % 3]; salvarPrefs();
+                        ultimoToque = 0; tocar();   // mudar toca uma vez, para ouvir
+                    } },
                     { icone: 'bi-lightning', rotulo: 'Alertas visuais', chave: !!prefs.alertas, acao: function () {
                         prefs.alertas = !prefs.alertas; salvarPrefs(); desenharLancador();
+                    } },
+                    { icone: 'bi-funnel', rotulo: 'Avisar', valor: prefs.modo === 'importantes' ? 'Importantes' : 'Todas', acao: function () {   // L6275
+                        prefs.modo = prefs.modo === 'importantes' ? 'todas' : 'importantes'; salvarPrefs();
                     } }
                 ] },
                 // No desenho o "Tamanho do texto" mora na seção "Ligações · BlueJus Connect" (L6278), que não existe
                 // aqui (ligações não autorizadas); vai para "Mensagens", a seção de leitura das conversas.
                 { titulo: 'Mensagens', itens: [
+                    { icone: 'bi-arrow-return-left', rotulo: 'Enter envia a mensagem', chave: prefs.enterEnvia !== false, acao: function () {   // L6277
+                        prefs.enterEnvia = prefs.enterEnvia === false; salvarPrefs();
+                    } },
                     { icone: 'bi-fonts', rotulo: 'Tamanho do texto', valor: prefs.texto === 'grande' ? 'Grande' : 'Normal', acao: function () {
                         prefs.texto = prefs.texto === 'grande' ? 'normal' : 'grande'; salvarPrefs(); aplicarTexto();
                     } }
@@ -639,7 +654,9 @@
             ui.mencoes = d.mencoes || 0;
             ui.urgentes = d.urgentes || 0;
             desenharLancador();
-            if (d.chegaram > 0) {
+            // ⋮ "Avisar: Importantes" (L140): só nível ≥ 2 (menção, aviso importante) salta e soa; mensagem comum, não.
+            var relevantes = prefs.modo === 'importantes' ? (d.importantes || 0) : d.chegaram;
+            if (relevantes > 0) {
                 saltar();
                 // Toca se a Central não está à vista: fechada, ou a aba/janela em que ela está oculta (destacada, a de fora).
                 var oculta = separada ? separada.janela.document.hidden : document.hidden;

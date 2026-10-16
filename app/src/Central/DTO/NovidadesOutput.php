@@ -24,6 +24,7 @@ final class NovidadesOutput
         public readonly int $avisosNaoLidos = 0,
         public readonly int $avisosUrgentes = 0,
         public readonly int $ultimoAviso = 0,
+        public readonly int $avisosImportantes = 0,
     ) {
     }
 }

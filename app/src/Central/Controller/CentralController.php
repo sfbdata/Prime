@@ -30,6 +30,9 @@ use App\Central\UseCase\ListarEquipeDaCentralUseCase;
 use App\Central\UseCase\RegistrarPresencaUseCase;
 use App\Central\UseCase\ListarAvisosDaCentralUseCase;
 use App\Central\UseCase\MarcarAvisoUseCase;
+use App\Central\UseCase\ResolverAvisoUseCase;
+use App\Central\UseCase\MarcarTudoComoLidoUseCase;
+use App\Central\UseCase\LimparAvisosLidosUseCase;
 use App\Central\Exception\AvisoNaoEncontradoException;
 use App\Entity\Auth\User;
 use App\Service\Tenant\TenantContext;
@@ -84,6 +87,9 @@ final class CentralController extends AbstractController
         private readonly RegistrarPresencaUseCase $registrarPresenca,
         private readonly ListarAvisosDaCentralUseCase $listarAvisos,
         private readonly MarcarAvisoUseCase $marcarAviso,
+        private readonly ResolverAvisoUseCase $resolverAviso,
+        private readonly MarcarTudoComoLidoUseCase $marcarTudo,
+        private readonly LimparAvisosLidosUseCase $limparLidos,
     ) {
     }
 
@@ -345,6 +351,53 @@ final class CentralController extends AbstractController
 
             return ['ok' => true];
         });
+    }
+
+    /** Dar baixa / reabrir um aviso (F3, `docs/specs/central-comunicacao-f3-menu.md` §2). */
+    #[Route('/avisos/{id}/resolver', name: 'central_aviso_resolver', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function resolverAviso(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->resolverAviso->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, true);
+
+            return ['ok' => true];
+        });
+    }
+
+    #[Route('/avisos/{id}/reabrir', name: 'central_aviso_reabrir', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function reabrirAviso(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->resolverAviso->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, false);
+
+            return ['ok' => true];
+        });
+    }
+
+    /** ⋮ "Marcar todas como lidas" (F3): avisos da Caixa e conversas, só minhas, neste escritório. */
+    #[Route('/ler-tudo', name: 'central_ler_tudo', methods: ['POST'])]
+    public function lerTudo(Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function (): array {
+            $this->marcarTudo->executar($this->usuario(), $this->tenantContext->getCurrentTenant());
+
+            return ['ok' => true];
+        });
+    }
+
+    /** ⋮ "Limpar notificações lidas" (F3): apaga as já lidas da Caixa (a tela confirma antes). */
+    #[Route('/avisos/limpar-lidos', name: 'central_avisos_limpar', methods: ['POST'])]
+    public function limparLidos(Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(fn () => ['apagadas' => $this->limparLidos->executar($this->usuario(), $this->tenantContext->getCurrentTenant())]);
     }
 
     /** Batimento de presença (F2): a cada 20 s e quando o status muda. */

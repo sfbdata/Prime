@@ -11,6 +11,8 @@ final class ContagemDeAvisos
         public readonly int $naoLidos,
         public readonly int $urgentes,
         public readonly int $ultimo,
+        /** F3, ⋮ "Avisar: Importantes": não lidos de nível ≥ 2 (L140). */
+        public readonly int $importantes = 0,
     ) {
     }
 }

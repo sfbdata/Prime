@@ -22,9 +22,6 @@ final class TiposDeAvisoDaCentral
         Notificacao::TIPO_CENTRAL_GRUPO_ADICIONADO,
     ];
 
-    /** Nível 3 = urgente (pinta o contador do lançador de vermelho, L6409). */
-    public const URGENTES = [AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO];
-
     private const AZUL = '#0a7aad';
     private const PETROLEO = '#0b5f86';
     private const VERDE = '#1f9d61';
@@ -33,7 +30,8 @@ final class TiposDeAvisoDaCentral
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {
-        return match ($tipo) {
+        // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
+        return match (strtolower($tipo)) {
             AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'urgente', 'rotulo' => 'Alerta', 'icone' => 'bi-bell-fill', 'cor' => '#e8590c', 'nivel' => 3],
             Notificacao::TIPO_TAREFA_CRIADA => ['grupo' => 'metas', 'rotulo' => 'Nova meta', 'icone' => 'bi-clipboard2-plus', 'cor' => self::AZUL, 'nivel' => 2],
             Notificacao::TIPO_TAREFA_EM_REVISAO, Notificacao::TIPO_TAREFA_PENDENTE => ['grupo' => 'metas', 'rotulo' => 'Meta atualizada', 'icone' => 'bi-pencil-square', 'cor' => self::PETROLEO, 'nivel' => 1],

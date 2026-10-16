@@ -28,6 +28,9 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(MarcarAvisoUseCase::class)]
 #[CoversClass(AvisosDaCentral::class)]
 #[CoversClass(ContadorDeAvisos::class)]
+#[CoversClass(\App\Central\UseCase\ResolverAvisoUseCase::class)]
+#[CoversClass(\App\Central\UseCase\MarcarTudoComoLidoUseCase::class)]
+#[CoversClass(\App\Central\UseCase\LimparAvisosLidosUseCase::class)]
 final class CentralAvisosTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
@@ -169,5 +172,171 @@ final class CentralAvisosTest extends JusPrimeWebTestCase
         self::assertSame([], $avisos->naoLidosAgrupados($ana, $escritorioA));
         self::assertSame(0, $avisos->ultimoId($ana, $escritorioA));
         self::assertCount(1, $avisos->recentes($ana, $escritorioB, 100), 'controle: no B aparece');
+    }
+
+    #[TestDox('Baixa (F3): resolver marca lido e aparece na lista; reabrir desfaz; alheio ou de gestão é 404; sem CSRF é 403')]
+    public function testResolverEReabrir(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $meu = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Meu')->getId();
+        $daBia = (int) $this->aviso($bia, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Da Bia')->getId();
+        $gestao = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_SERVICEDESK_NOVO, 'Gestão')->getId();
+        $baixas = fn (int $id): int => (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM central_aviso_resolvido WHERE notificacao_id = ?', [$id]);
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->post($client, "/central/avisos/$meu/resolver", []);
+        self::assertResponseIsSuccessful();
+        $this->post($client, "/central/avisos/$meu/resolver", []);   // idempotente
+        self::assertSame(1, $baixas($meu));
+        self::assertTrue((bool) $this->em()->getConnection()->fetchOne('SELECT lida FROM notificacao WHERE id = ?', [$meu]));
+        $client->request('GET', '/central/avisos');
+        self::assertNotNull($this->json($client)['avisos'][0]['resolvidoEm']);
+
+        $this->post($client, "/central/avisos/$meu/reabrir", []);
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $baixas($meu));
+        foreach ([$daBia, $gestao] as $id) {
+            $this->post($client, "/central/avisos/$id/resolver", []);
+            self::assertResponseStatusCodeSame(404);
+            self::assertSame(0, $baixas($id));
+        }
+        $client->request('POST', "/central/avisos/$meu/resolver", [], [], ['CONTENT_TYPE' => 'application/json'], '{}');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $baixas($meu));
+    }
+
+    #[TestDox('Marcar todas como lidas (F3): avisos da Caixa e conversas da pessoa; gestão, colega e outro escritório intactos')]
+    public function testMarcarTudo(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        [, $outro] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Caixa');
+        $gestao = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_SERVICEDESK_NOVO, 'Gestão')->getId();
+        $deOutro = (int) $this->aviso($ana, $outro, Notificacao::TIPO_TAREFA_CRIADA, 'Outro')->getId();
+        $daBia = (int) $this->aviso($bia, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Da Bia')->getId();
+
+        // Bia escreve para Ana (não lidas da Ana); Ana escreve uma (não lida da Bia).
+        $this->logarComTenant($client, $bia, $tenant);
+        $conversa = $this->abrir($client, $ana);
+        $this->enviar($client, $conversa, 'um');
+        $this->enviar($client, $conversa, 'dois');
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->enviar($client, $conversa, 'resposta');
+
+        $this->post($client, '/central/ler-tudo', []);
+        self::assertResponseIsSuccessful();
+        $client->request('GET', '/central/novidades');
+        $d = $this->json($client);
+        self::assertSame([0, 0], [$d['naoLidas'], $d['avisosNaoLidos']]);
+        $lida = fn (int $id): bool => (bool) $this->em()->getConnection()->fetchOne('SELECT lida FROM notificacao WHERE id = ?', [$id]);
+        self::assertFalse($lida($gestao), 'gestão não é da Caixa');
+        self::assertFalse($lida($deOutro), 'outro escritório');
+        self::assertFalse($lida($daBia), 'aviso da colega');
+
+        $this->logarComTenant($client, $bia, $tenant);
+        $client->request('GET', '/central/novidades');
+        self::assertSame(1, $this->json($client)['naoLidas'], 'as não lidas da Bia continuam');
+    }
+
+    #[TestDox('Limpar lidas (F3): apaga só as lidas da Caixa da pessoa neste escritório; não lidas, gestão, colega e outro escritório ficam')]
+    public function testLimparLidos(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        [, $outro] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $lida = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Lida', null, true)->getId();
+        $resolvida = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CONCLUIDA, 'Resolvida', null, true)->getId();
+        $ficam = [
+            (int) $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Não lida')->getId(),
+            (int) $this->aviso($ana, $tenant, Notificacao::TIPO_SERVICEDESK_NOVO, 'Gestão lida', null, true)->getId(),
+            (int) $this->aviso($ana, $outro, Notificacao::TIPO_TAREFA_CRIADA, 'Outro lida', null, true)->getId(),
+            (int) $this->aviso($bia, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Bia lida', null, true)->getId(),
+        ];
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->post($client, "/central/avisos/$resolvida/resolver", []);
+
+        $this->post($client, '/central/avisos/limpar-lidos', []);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['apagadas' => 2], $this->json($client));
+        $existe = fn (int $id): bool => (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM notificacao WHERE id = ?', [$id]) === 1;
+        self::assertFalse($existe($lida));
+        self::assertFalse($existe($resolvida));
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM central_aviso_resolvido'), 'a baixa cai junto (CASCADE)');
+        foreach ($ficam as $id) {
+            self::assertTrue($existe($id));
+        }
+    }
+
+    #[TestDox('Aviso de META com pasta sem acesso some da lista e da contagem; se a pessoa é responsável pela meta, aparece')]
+    public function testMetaDePastaSemAcesso(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');   // sem permissão de pasta
+        $pasta = \App\Tests\Factory\Pasta\PastaFactory::createOne(['tenant' => $tenant])->_real();
+        $meta = \App\Tests\Factory\Tarefa\TarefaFactory::createOne(['pasta' => $pasta, 'tenant' => $tenant])->_real();
+        $this->em()->persist((new Notificacao())->setUsuario($ana)->setTenant($tenant)->setTipo(Notificacao::TIPO_TAREFA_CRIADA)
+            ->setTitulo('META-DA-PASTA')->setTarefa($meta));
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', '/central/avisos');
+        self::assertSame([], array_column($this->json($client)['avisos'], 'titulo'));
+        $client->request('GET', '/central/novidades');
+        self::assertSame(0, $this->json($client)['avisosNaoLidos']);
+
+        // Responsável pela meta: vê o aviso dela (com o link da meta) mesmo sem a pasta.
+        $this->em()->getConnection()->executeStatement('INSERT INTO tarefa_responsaveis (tarefa_id, user_id) VALUES (?, ?)', [$meta->getId(), $ana->getId()]);
+        $this->em()->clear();
+        $client->request('GET', '/central/avisos');
+        $avisos = $this->json($client)['avisos'];
+        self::assertSame(['META-DA-PASTA'], array_column($avisos, 'titulo'));
+        self::assertSame('/tarefas/' . $meta->getId(), $avisos[0]['url']);
+        $client->request('GET', '/central/novidades');
+        self::assertSame(1, $this->json($client)['avisosNaoLidos']);
+    }
+
+    #[TestDox('Todo não lido aparece na lista, mesmo mais antigo que os 100 mais recentes (a contagem e a lista fecham)')]
+    public function testNaoLidoAntigoAparece(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'ANTIGO-NAO-LIDO');
+        for ($i = 0; $i < 105; $i++) {
+            $this->em()->persist((new Notificacao())->setUsuario($ana)->setTenant($tenant)->setTipo(Notificacao::TIPO_TAREFA_CONCLUIDA)->setTitulo('lido ' . $i)->setLida(true));
+        }
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', '/central/avisos');
+        $avisos = $this->json($client)['avisos'];
+        self::assertCount(100, $avisos);
+        self::assertContains('ANTIGO-NAO-LIDO', array_column($avisos, 'titulo'));
+        $client->request('GET', '/central/novidades');
+        self::assertSame(1, $this->json($client)['avisosNaoLidos']);
+    }
+
+    #[TestDox('O maior id do polling ignora gestão e os avisos da Central (senão a lista recarregaria à toa)')]
+    public function testUltimoAvisoIgnoraForaDaCaixa(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $daCaixa = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Caixa')->getId();
+        $this->aviso($ana, $tenant, Notificacao::TIPO_SERVICEDESK_NOVO, 'Gestão depois');
+        $this->aviso($ana, $tenant, Notificacao::TIPO_CENTRAL_MENCAO, 'Menção depois');
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', '/central/novidades');
+        self::assertSame($daCaixa, $this->json($client)['ultimoAviso']);
     }
 }

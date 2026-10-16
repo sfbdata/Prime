@@ -20,6 +20,8 @@ final class AvisoOutput
         public readonly ?string $url,
         public readonly bool $lido,
         public readonly string $criadoEm,
+        /** F3: quando a pessoa deu baixa (null = em aberto). */
+        public readonly ?string $resolvidoEm = null,
     ) {
     }
 }
