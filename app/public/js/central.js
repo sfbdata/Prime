@@ -19,6 +19,9 @@
     var MAX_SUGESTOES = 6;                       // L6094
     var CORES_NOME = ['#0a6fa8', '#8a4fb5', '#1e7b45', '#b4460a', '#a8326e', '#2f6f73'];   // L5814
     var AVISO_MS = 2600;                         // aviso(), L5398
+    // F2, presença (L45, L279): status e cores do desenho; batimento a cada 20 s (on-line = menos de 60 s, no servidor).
+    var STATUS = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'], offline: ['Off-line', '#b7c4cd'] };
+    var BATIMENTO_MS = 20000;
 
     function corNome(id) {   // L5815 — a mesma cor para a mesma pessoa
         var h = String(id).split('').reduce(function (t, ch) { return (t * 31 + ch.charCodeAt(0)) | 0; }, 7);
@@ -31,7 +34,12 @@
             contatos: raiz.dataset.urlContatos,
             novidades: raiz.dataset.urlNovidades,
             base: raiz.dataset.urlConversaBase,
-            grupos: raiz.dataset.urlGrupos
+            grupos: raiz.dataset.urlGrupos,
+            equipe: raiz.dataset.urlEquipe,
+            avisos: raiz.dataset.urlAvisos,
+            lerTudo: raiz.dataset.urlLerTudo,
+            limparLidos: raiz.dataset.urlLimparLidos,
+            presenca: raiz.dataset.urlPresenca
         };
         var meuNome = raiz.dataset.euNome || '';
         var tamanhoMaximo = Number(raiz.dataset.tamanhoMaximo) || 4000;   // Mensagem::TAMANHO_MAXIMO
@@ -39,6 +47,9 @@
             voltar: raiz.querySelector('[data-central-voltar]'),
             cabAvatar: raiz.querySelector('[data-central-cab-avatar]'),
             cabEu: raiz.querySelector('[data-central-cab-eu]'),
+            cabPonto: raiz.querySelector('[data-central-cab-ponto]'),
+            online: raiz.querySelector('[data-central-online]'),
+            onlineTexto: raiz.querySelector('[data-central-online-texto]'),
             cabTitulo: raiz.querySelector('[data-central-cab-titulo]'),
             cabSub: raiz.querySelector('[data-central-cab-sub]'),
             telaLista: raiz.querySelector('[data-central-tela-lista]'),
@@ -92,6 +103,16 @@
             filtro: '',            // lançador: '' (tudo) | 'mencoes' (L5776)
             comMencao: new Set(),  // conversas com menção por ver (servidor: conversasComMencao)
             janelaAberta: !flutuante,
+            avisos: [],            // F1: avisos do sino na Caixa (GET /central/avisos)
+            avisosNaoLidos: 0,     // F1: contagens que vêm no polling (sem a lista)
+            avisosUrgentes: 0,
+            avisosImportantes: 0,
+            verResolvidas: false,  // F3: ⋮ "Ver resolvidas antigas" (L6261)
+            ajuda: false,          // F3: ⋮ "Ajuda" (L6372)
+            chegaramImportantes: 0,   // F3: desde o último aviso ao lançador, quantos de nível ≥ 2 (menção e aviso importante)
+            ultimoAviso: null,     // F1: maior id; quando muda, a lista recarrega
+            equipe: null,          // F2: {equipe, online, total} de /central/equipe (Painel e "N on-line")
+            verOnline: false,      // F2: lista "on-line agora / off-line" (L6380)
             externa: null,         // B2: a janela destacada (Picture-in-Picture ou pop-up) em que a Central está agora
             relogio: window,       // B2: de qual janela é o setInterval do polling (a destacada, quando houver)
             listaCarregada: false  // flutuante: lista e contatos só carregam na primeira abertura (carga por página)
@@ -239,6 +260,17 @@
             // O ⋮ fica no cabeçalho da lista e da conversa, como no desenho (L6339); some nas telas de grupo.
             el.mais.hidden = estado.tela !== 'lista' && estado.tela !== 'conversa';
             el.cabEu.hidden = !(estado.tela === 'lista' && !estado.aberta);
+            // F2: ponto do MEU status no avatar e a pílula "N on-line" (L6337), só no cabeçalho da lista.
+            var meu = statusManual();
+            el.cabPonto.style.background = STATUS[meu][1];
+            el.cabPonto.title = STATUS[meu][0];
+            el.online.hidden = !(estado.tela === 'lista' && !estado.aberta && estado.equipe);
+            if (estado.equipe) {
+                el.onlineTexto.textContent = estado.equipe.online + ' on-line';
+                el.online.title = 'Ver quem está on-line: ' + estado.equipe.equipe.filter(function (m) { return m.online; })
+                    .map(function (m) { return m.nome; }).join(', ');
+                el.online.setAttribute('aria-expanded', String(estado.verOnline));
+            }
             el.info.hidden = !(estado.tela === 'conversa' && estado.aberta && estado.aberta.grupo && !estado.aberta.fora);
             if (estado.tela === 'novoGrupo' || estado.tela === 'info') {
                 el.voltar.hidden = false;
@@ -253,9 +285,12 @@
                 el.cabAvatar.hidden = false;
                 el.cabTitulo.textContent = estado.aberta.nome;
                 // O desenho mostra presença e setor · função (L6334), que a Central não tem; só o que é verdade.
+                // Conversa 1:1 (L6334): "on-line · cargo" com a presença real (F2); o setor não existe aqui.
+                var outro = !estado.aberta.grupo && estado.aberta.outro ? membroDaEquipe(estado.aberta.outro.id) : null;
                 el.cabSub.textContent = estado.aberta.grupo
                     ? plural(estado.aberta.participantes, 'participante', 'participantes')
-                    : (estado.aberta.outroAtivo ? '' : 'Saiu do escritório');
+                    : (!estado.aberta.outroAtivo ? 'Saiu do escritório'
+                        : outro ? [outro.online ? 'on-line' : '', outro.cargo || ''].filter(Boolean).join(' · ') : '');
                 return;
             }
             el.voltar.hidden = true;
@@ -263,8 +298,9 @@
             el.cabTitulo.textContent = TITULO;
             // Subtítulo do desenho (L6338): "nome · N não lidas | em dia | não perturbe". Status manual não existe aqui.
             var silencio = typeof raiz.bjSilencio === 'function' && raiz.bjSilencio();
-            el.cabSub.textContent = meuNome + ' · ' + (silencio ? 'não perturbe' : estado.naoLidas > 0
-                ? (estado.naoLidas === 1 ? '1 não lida' : estado.naoLidas + ' não lidas')
+            var nl = totalCaixa();   // L6338: mensagens + avisos
+            el.cabSub.textContent = meuNome + ' · ' + (silencio ? 'não perturbe' : nl > 0
+                ? (nl === 1 ? '1 não lida' : nl + ' não lidas')
                 : 'em dia');
         }
 
@@ -375,18 +411,57 @@
                 return;
             }
             atualizarAbas();
+            if (estado.ajuda) {
+                el.faixaArquivadas.hidden = true;
+                el.painel.hidden = true;
+                desenharAjuda();
+                return;
+            }
+            if (estado.verOnline) {
+                el.faixaArquivadas.hidden = true;
+                el.painel.hidden = true;
+                desenharOnline();
+                return;
+            }
             if (estado.aba === 'painel') {
                 el.faixaArquivadas.hidden = true;
                 desenharPainel();
+                desenharEquipe();
                 return;
             }
             // Arquivada some da lista principal (L320) e volta com "Ver conversas arquivadas".
             el.faixaArquivadas.hidden = !estado.verArquivadas;
-            var visiveis = estado.conversas.filter(function (c) {
-                return (estado.verArquivadas || !c.arquivada) && (estado.filtro !== 'mencoes' || estado.comMencao.has(c.id));
+            var f = estado.filtro;
+            // Filtros (L5776, F1): Tudo = conversas + avisos; Conversas = só conversas; Menções = conversas com menção +
+            // avisos de menção; Urgente/Atenção/Metas = avisos do grupo.
+            var visiveis = ['', 'conversas', 'mencoes'].indexOf(f) === -1 ? [] : estado.conversas.filter(function (c) {
+                return (estado.verArquivadas || !c.arquivada) && (f !== 'mencoes' || estado.comMencao.has(c.id));
             });
-            if (visiveis.length === 0 && estado.filtro === 'mencoes') {
-                el.lista.appendChild(vazio('bi-at', 'Nenhuma menção por ver', 'Quando alguém mencionar você, a conversa aparece aqui.'));
+            // Resolvidas antigas saem da Caixa (L5782) e voltam com ⋮ "Ver resolvidas antigas".
+            var avisos = f === 'conversas' ? [] : estado.avisos.filter(function (a) {
+                return (f === '' || a.grupo === f) && (estado.verResolvidas || !resolvidaExpirada(a));
+            });
+            if (estado.verResolvidas) {   // L5785
+                var faixa = criar('div', 'bj-central-faixa-resolvidas');
+                var ic = criar('i', 'bi bi-check2-circle');
+                ic.setAttribute('aria-hidden', 'true');
+                faixa.appendChild(ic);
+                faixa.appendChild(document.createTextNode('Mostrando resolvidas antigas'));
+                faixa.appendChild(botao('bj-central-faixa-resolvidas-ocultar', 'Ocultar', function () { estado.verResolvidas = false; desenharLista(); }));
+                el.lista.appendChild(faixa);
+            }
+            if (visiveis.length === 0 && avisos.length === 0 && f !== '' && f !== 'conversas') {
+                el.lista.appendChild(f === 'mencoes'
+                    ? vazio('bi-at', 'Nenhuma menção por ver', 'Quando alguém mencionar você, aparece aqui.')
+                    : vazio('bi-check2-all', 'Tudo em dia', 'Nenhuma notificação pendente para você.'));
+                return;
+            }
+            if (avisos.length > 0) {
+                // Ordem (L5781): fixadas primeiro, depois o mais recente, conversas e avisos misturados.
+                var itens = visiveis.map(function (c) { return { fixa: !!c.fixada, quando: c.ultima ? c.ultima.criadaEm : (c.criadaEm || ''), c: c }; })
+                    .concat(avisos.map(function (a) { return { fixa: false, quando: a.criadoEm, a: a }; }));
+                itens.sort(function (x, y) { return (y.fixa - x.fixa) || (x.quando < y.quando ? 1 : x.quando > y.quando ? -1 : 0); });
+                itens.slice(0, 100).forEach(function (it) { el.lista.appendChild(it.c ? linhaDaConversa(it.c) : linhaDoAviso(it.a)); });
                 return;
             }
             if (visiveis.length === 0) {
@@ -403,21 +478,31 @@
             return estado.naoLidas;
         }
 
+        function totalCaixa() {   // aba "Caixa de entrada" e lançador: mensagens + avisos não lidos (L6323)
+            return estado.naoLidas + estado.avisosNaoLidos;
+        }
+
         function atualizarAbas() {
             if (!el.abas.length) { return; }
             el.abas.forEach(function (b) { b.setAttribute('aria-selected', b.dataset.centralAba === estado.aba ? 'true' : 'false'); });
-            el.abaContador.hidden = totalMensagens() === 0;
-            el.abaContador.textContent = String(totalMensagens());
+            el.abaContador.hidden = totalCaixa() === 0;
+            el.abaContador.textContent = String(totalCaixa());
             el.filtros.hidden = estado.aba !== 'entrada';
             el.botoesFiltro.forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.centralFiltro === estado.filtro ? 'true' : 'false'); });
             el.painel.hidden = estado.aba !== 'painel';
-            el.lista.hidden = estado.aba === 'painel';
+            el.lista.hidden = false;   // no Painel ela leva a "Equipe · em aberto" (F2), abaixo dos cartões
         }
 
         function desenharPainel() {   // telaPrioridades, L5632 — só os grupos que têm dado no BlueJus
             el.painel.replaceChildren();
-            [['mencoes', 'Menções', '#0a7aad', estado.comMencao.size],
-             ['mensagens', 'Mensagens', '#0b5f86', totalMensagens()]].forEach(function (g) {
+            var porGrupo = { urgente: 0, atencao: 0, mencoes: 0, mensagens: 0, metas: 0 };
+            estado.avisos.forEach(function (a) { if (!a.lido && porGrupo[a.grupo] !== undefined) { porGrupo[a.grupo]++; } });
+            // GRUPOS, L84: Urgente, Atenção, Menções, Mensagens, Metas (F1: com os avisos do sino).
+            [['urgente', 'Urgente', '#c0392f', porGrupo.urgente],
+             ['atencao', 'Atenção', '#c8952a', porGrupo.atencao],
+             ['mencoes', 'Menções', '#0a7aad', estado.comMencao.size + porGrupo.mencoes],
+             ['mensagens', 'Mensagens', '#0b5f86', totalMensagens()],   // L5634: só mensagens (o clique leva a "Conversas")
+             ['metas', 'Metas', '#0a7aad', porGrupo.metas]].forEach(function (g) {
                 var card = criar('button', 'bj-central-painel-card' + (g[3] ? ' bj-central-painel-card--ativo' : ''));
                 card.type = 'button';
                 card.title = 'Ver ' + g[1].toLowerCase() + ' na Caixa de entrada';
@@ -428,22 +513,399 @@
                 card.appendChild(criar('span', 'bj-central-painel-valor', String(g[3])));
                 card.addEventListener('click', function () {
                     estado.aba = 'entrada';
-                    estado.filtro = g[0] === 'mencoes' ? 'mencoes' : '';
+                    estado.filtro = g[0] === 'mensagens' ? 'conversas' : g[0];
                     desenharLista();
                 });
                 el.painel.appendChild(card);
             });
         }
 
+        // ── F3: preferências deste navegador lidas/gravadas no mesmo lugar do lançador; resolvidas; ações do ⋮ ──────
+        function guardarPreferencia(chave, valor) {
+            var p = prefsGuardadas();
+            p[chave] = valor;
+            try { window.localStorage.setItem('bj-central-prefs:' + (raiz.dataset.euId || '0'), JSON.stringify(p)); } catch (e) { /* sem armazenamento */ }
+            raiz.dispatchEvent(new CustomEvent('bj-central:prefs-gravadas'));   // o lançador relê
+        }
+
+        function janelaDasResolvidas() {   // RES_JANELA, L91: 1 h, 1 dia (padrão) ou 1 semana
+            var h = prefsGuardadas().resJanelaH;
+            return [1, 24, 168].indexOf(h) !== -1 ? h : 24;
+        }
+
+        function idadeDaBaixa(a) {   // resIdade, L92: 0 (agora) a 1 (fim da janela)
+            return a.resolvidoEm ? (Date.now() - new Date(a.resolvidoEm).getTime()) / (janelaDasResolvidas() * 3600000) : 0;
+        }
+
+        function resolvidaExpirada(a) {   // resExpirada, L93
+            return !!a.resolvidoEm && idadeDaBaixa(a) >= 1;
+        }
+
+        function irParaLista() {   // os comandos do ⋮ que mostram a lista saem da conversa/tela de grupo
+            estado.verOnline = false;
+            estado.ajuda = false;
+            if (estado.aberta) { fecharConversa(); } else if (estado.tela !== 'lista') { mostrarTela('lista'); }
+        }
+
+        function recarregarTudo() {
+            return Promise.all([carregarConversas(), carregarAvisos()]).then(function () { return verificarNovidades(); });
+        }
+
+        function marcarTudoComoLido() {   // L6262
+            pedir(urls.lerTudo, { metodo: 'POST', corpo: {} })
+                .then(function () { estado.comMencao = new Set(); return recarregarTudo(); })
+                .then(function () { emitirContadores(0); atualizarCabecalho(); })
+                .catch(falhaDeAcao);
+        }
+
+        function limparLidas() {   // L6283: confirmação do desenho; apaga as já lidas da Caixa
+            var q = estado.avisos.filter(function (a) { return a.lido; }).length;
+            if (!q) { avisar('Não há notificações lidas para limpar.'); return; }
+            var texto = q >= 100 ? 'Apagar todas as notificações já lidas? Esta ação não poderá ser desfeita.'
+                : 'Apagar ' + q + ' notificação(ões) já lida(s)? Esta ação não poderá ser desfeita.';
+            confirmar(texto, 'Excluir', function () {
+                pedir(urls.limparLidos, { metodo: 'POST', corpo: {} })
+                    .then(function (d) { avisar((d.apagadas || 0) + ' notificação(ões) apagada(s).'); return carregarAvisos(); })
+                    .catch(falhaDeAcao);
+            });
+        }
+
+        function resolverAviso(a, resolver) {   // resolverNotif, L5620
+            pedir(urls.avisos + '/' + a.id + '/' + (resolver ? 'resolver' : 'reabrir'), { metodo: 'POST', corpo: {} })
+                .then(function () { return Promise.all([carregarAvisos(), verificarNovidades()]); })
+                .catch(falhaDeAcao);
+        }
+
+        function desenharAjuda() {   // ui.ajuda, L6372 — o que existe de verdade aqui
+            var caixa = criar('div', 'bj-central-ajuda');
+            caixa.appendChild(criar('b', 'bj-central-ajuda-titulo', 'Como funciona'));
+            ['Caixa de entrada: suas conversas e os avisos do sistema (metas, menções, publicações, agenda), do mais recente ao mais antigo. Clique para ir direto ao local.',
+             'Conversas: pesquise um colega pelo nome ou abra a lista em ⋮ → Nova conversa. Digite @ para mencionar alguém.',
+             'Botão direito numa mensagem, conversa ou aviso: responder, copiar, mencionar, fixar, silenciar, arquivar, marcar como lida ou não lida e dar baixa.',
+             'Painel: o que está em aberto por tipo e por pessoa da equipe. Clique numa pessoa para conversar.',
+             'Destacar: leva a Central para uma janela própria, que pode ir para outro monitor.',
+             'Fechar a central não marca nada como lido.'].forEach(function (t) { caixa.appendChild(criar('div', null, t)); });
+            caixa.appendChild(botao('bj-central-ajuda-ok', 'Entendi', function () { estado.ajuda = false; desenharLista(); }));
+            el.lista.appendChild(caixa);
+        }
+
+        // ── F1: cartão do aviso (cartaoNotif, L5603-5630; F3: com a baixa) ───────────────────────
+        function abrirAviso(a) {
+            // Destacada, a Central mora em outra janela: navegar a aba de origem a fecharia (pagehide). O item abre numa
+            // aba nova e a Central destacada continua à vista (revisão do F1).
+            var ir = function () {
+                if (!a.url) { desenharLista(); return; }
+                if (estado.externa) { var nova = window.open(a.url, '_blank'); if (nova) { nova.focus(); } return; }
+                window.location.href = a.url;
+            };
+            if (a.lido) { ir(); return; }
+            pedir(urls.avisos + '/' + a.id + '/lido', { metodo: 'POST', corpo: {} })
+                .then(function () { a.lido = true; estado.avisosNaoLidos = Math.max(0, estado.avisosNaoLidos - 1); emitirContadores(0); atualizarCabecalho(); })
+                .catch(function () { /* abre mesmo assim; a marcação vem na próxima */ })
+                .finally(ir);
+        }
+
+        function marcarAviso(a, lido) {
+            pedir(urls.avisos + '/' + a.id + '/' + (lido ? 'lido' : 'nao-lido'), { metodo: 'POST', corpo: {} })
+                .then(function () { return verificarNovidades(); })
+                .then(carregarAvisos)
+                .catch(falhaDeAcao);
+        }
+
+        function menuDoAviso(a, x, y, origem) {   // menuNotif: abrir, resolver/reabrir, lida/não lida
+            var itens = [{ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir', acao: function () { abrirAviso(a); } }];
+            itens.push(a.resolvidoEm
+                ? { icone: 'bi-arrow-counterclockwise', rotulo: 'Reabrir', acao: function () { resolverAviso(a, false); } }
+                : { icone: 'bi-check2-circle', rotulo: 'Resolver (dar baixa)', corIcone: '#1e8a4c', acao: function () { resolverAviso(a, true); } });
+            itens.push(a.lido
+                ? { icone: 'bi-circle-fill', rotulo: 'Marcar como não lida', corIcone: '#3b6e8f', acao: function () { marcarAviso(a, false); } }
+                : { icone: 'bi-check2', rotulo: 'Marcar como lida', acao: function () { marcarAviso(a, true); } });
+            abrirMenu(itens, x, y, origem);
+        }
+
+        function linhaDoAviso(a) {
+            var ok = !!a.resolvidoEm, VERDE = '#1e8a4c';
+            var c = criar('div', 'bj-central-aviso-cartao' + (a.lido ? ' bj-central-aviso-cartao--lido' : '') + (ok ? ' bj-central-aviso-cartao--resolvido' : ''));
+            c.setAttribute('role', 'button');
+            c.tabIndex = 0;
+            c.title = 'Clique para abrir. Botão direito: mais opções';
+            var cor = ok ? VERDE : a.cor;
+            var fundo = ok ? '#f4f9f5' : a.cor + (a.lido ? '08' : '14');   // L5605: a cor do tipo bem clara (alfa em hexadecimal)
+            c.style.setProperty('--bjc-aviso', cor);
+            c.style.background = fundo;
+            // L5606: a resolvida esmaece com a idade da baixa; passada a janela, fica em .55 ("resolvidas antigas").
+            if (ok) { c.style.opacity = (resolvidaExpirada(a) ? 0.55 : Math.max(0.45, 1 - idadeDaBaixa(a) * 0.55)).toFixed(2); }
+            c.appendChild(criar('span', 'bj-central-aviso-faixa'));
+            var ic = criar('span', 'bj-central-aviso-icone' + (ok ? ' bj-central-aviso-icone--ok' : ''));
+            if (!ok) { ic.style.background = a.cor + '14'; } else { ic.title = 'Resolvida'; }
+            var i = criar('i', 'bi ' + (ok ? 'bi-check-lg' : a.icone));
+            i.setAttribute('aria-hidden', 'true');
+            ic.appendChild(i);
+            c.appendChild(ic);
+            var corpo = criar('span', 'bj-central-aviso-corpo');
+            var topo = criar('span', 'bj-central-aviso-topo');
+            topo.appendChild(criar('span', 'bj-central-aviso-rotulo', a.rotulo));
+            if (ok) {
+                var selo = criar('span', 'bj-central-aviso-selo-ok');
+                var si = criar('i', 'bi bi-check2');
+                si.setAttribute('aria-hidden', 'true');
+                selo.appendChild(si);
+                selo.appendChild(document.createTextNode('RESOLVIDA'));
+                topo.appendChild(selo);
+            }
+            topo.appendChild(criar('span', 'bj-central-aviso-hora', quando(a.criadoEm)));
+            corpo.appendChild(topo);
+            corpo.appendChild(criar('span', 'bj-central-aviso-titulo', a.titulo));
+            if (a.texto && !ok) { corpo.appendChild(criar('span', 'bj-central-aviso-texto', a.texto)); }
+            if (ok) {   // L5626: "Baixa por Você · quando · sai da caixa em N h"
+                var h = Math.ceil((janelaDasResolvidas() * 3600000 - (Date.now() - new Date(a.resolvidoEm).getTime())) / 3600000);
+                corpo.appendChild(criar('span', 'bj-central-aviso-baixa', 'Baixa por Você · ' + quando(a.resolvidoEm)
+                    + (resolvidaExpirada(a) ? '' : ' · sai da caixa ' + (h <= 1 ? 'em menos de 1 h' : 'em ' + h + ' h'))));
+            }
+            c.appendChild(corpo);
+            // Baixa rápida (L5628): aparece ao passar o cursor ou no foco.
+            var bx = criar('button', 'bj-central-aviso-bx' + (ok ? ' bj-central-aviso-bx--ok' : ''));
+            bx.type = 'button';
+            bx.title = ok ? 'Reabrir demanda' : 'Marcar como resolvida (dar baixa)';
+            bx.setAttribute('aria-label', ok ? 'Reabrir demanda' : 'Marcar como resolvida');
+            var bi = criar('i', 'bi ' + (ok ? 'bi-arrow-counterclockwise' : 'bi-check-lg'));
+            bi.setAttribute('aria-hidden', 'true');
+            bx.appendChild(bi);
+            bx.addEventListener('click', function (ev) { ev.stopPropagation(); resolverAviso(a, !ok); });
+            c.appendChild(bx);
+            c.addEventListener('mouseenter', function () { c.style.background = ok ? '#e9f4ec' : a.cor + '22'; });
+            c.addEventListener('mouseleave', function () { c.style.background = fundo; });
+            c.addEventListener('click', function () { abrirAviso(a); });
+            c.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter') { abrirAviso(a); return; }
+                if (ev.key === 'ContextMenu' || (ev.shiftKey && ev.key === 'F10')) {
+                    ev.preventDefault();
+                    var r = c.getBoundingClientRect();
+                    menuDoAviso(a, r.left + 20, r.top + 20, c);
+                }
+            });
+            c.addEventListener('contextmenu', function (ev) { ev.preventDefault(); menuDoAviso(a, ev.clientX, ev.clientY, c); });
+            return c;
+        }
+
+        // ── F2: equipe e presença (telaPrioridades L5638-5653; verOnline L6380-6386) ─────
+        // Preferências da Central neste navegador (as mesmas do lançador; na página /central não há lançador, então lê
+        // direto). Lidas a cada uso: outra aba pode ter mudado o status.
+        function prefsGuardadas() {
+            try { return JSON.parse(window.localStorage.getItem('bj-central-prefs:' + (raiz.dataset.euId || '0')) || '{}') || {}; } catch (e) { return {}; }
+        }
+
+        function statusManual() {   // o que a pessoa escolheu no ⋮ "Status" (L6264); é o que o ponto do cabeçalho mostra (L6337)
+            var s = prefsGuardadas().status;   // fonte única: o lançador grava aqui antes de avisar
+            return STATUS[s] && s !== 'offline' ? s : 'disponivel';
+        }
+
+        function statusEfetivo() {   // o que vai no batimento (L276): "ocupado" com Não perturbe ligado
+            var p = prefsGuardadas();
+            return p.dnd && Date.now() < p.dnd ? 'ocupado' : statusManual();
+        }
+
+        function membroDaEquipe(id) {
+            return estado.equipe ? estado.equipe.equipe.filter(function (m) { return m.id === id; })[0] || null : null;
+        }
+
+        function avatarDe(m, classe) {   // avatarU, L5409: foto do perfil ou iniciais
+            var av = criar('span', 'bj-central-avatar ' + classe, m.foto ? null : iniciais(m.nome));
+            av.setAttribute('aria-hidden', 'true');
+            if (m.foto) {
+                var img = criar('img');
+                img.src = m.foto;
+                img.alt = '';
+                av.appendChild(img);
+            }
+            return av;
+        }
+
+        function hmDe(iso) {   // hm(), L286: "hoje às HH:MM" ou "dd/mm às HH:MM"
+            var d = new Date(iso), hoje = new Date();
+            var dia = d.toDateString() === hoje.toDateString() ? 'hoje' : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+            return dia + ' às ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        function detalheDePresenca(m) {   // det, L287
+            if (m.online) { return m.desde ? 'desde ' + hmDe(m.desde).replace(/^.* às /, '') : 'on-line agora'; }
+            return m.vistoEm ? 'visto por último ' + hmDe(m.vistoEm) : 'sem atividade recente';
+        }
+
+        function abrirComColega(m) {
+            if (m.eu) { return; }
+            estado.aba = 'entrada';
+            estado.filtro = '';
+            estado.verOnline = false;
+            iniciarConversaCom({ id: m.id, nome: m.nome });
+        }
+
+        function linhaDaEquipe(m) {   // L5645-5652
+            var rot = STATUS[m.status] ? STATUS[m.status][0] : STATUS.offline[0];
+            var b = criar('button', 'bj-central-equipe-linha' + (m.eu ? ' bj-central-equipe-linha--eu' : ''));
+            b.type = 'button';
+            b.title = m.eu ? 'Você' : 'Conversar com ' + m.nome + ' · ' + rot + ' · ' + detalheDePresenca(m);
+            var lugar = criar('span', 'bj-central-equipe-av');
+            lugar.appendChild(avatarDe(m, 'bj-central-avatar--equipe'));
+            var ponto = criar('span', 'bj-central-equipe-ponto');
+            ponto.style.background = (STATUS[m.status] || STATUS.offline)[1];
+            ponto.title = rot;
+            lugar.appendChild(ponto);
+            b.appendChild(lugar);
+            var textos = criar('span', 'bj-central-equipe-textos');
+            textos.appendChild(criar('span', 'bj-central-equipe-nome', m.nome + (m.eu ? ' (você)' : '')));
+            textos.appendChild(criar('span', 'bj-central-equipe-sub', [m.cargo, rot].filter(Boolean).join(' · ')));
+            b.appendChild(textos);
+            var n = m.emAberto;
+            var cont = criar('span', 'bj-central-equipe-contador bj-central-equipe-contador--' + (n >= 10 ? 'alto' : n ? 'algum' : 'zero'), String(n));
+            cont.title = n + (n === 1 ? ' mensagem em aberto' : ' mensagens em aberto');
+            b.appendChild(cont);
+            if (!m.eu) {
+                var ic = criar('i', 'bi bi-chat-dots bj-central-equipe-conversar');
+                ic.setAttribute('aria-hidden', 'true');
+                b.appendChild(ic);
+            }
+            b.addEventListener('click', function () { abrirComColega(m); });
+            return b;
+        }
+
+        function desenharEquipe() {   // "Equipe · em aberto", abaixo dos cartões do Painel
+            if (!estado.equipe) { return; }
+            var caixa = criar('div', 'bj-central-equipe');
+            var tit = criar('div', 'bj-central-equipe-titulo');
+            var ic = criar('i', 'bi bi-people');
+            ic.setAttribute('aria-hidden', 'true');
+            tit.appendChild(ic);
+            tit.appendChild(document.createTextNode('Equipe · em aberto'));
+            tit.appendChild(criar('span', 'bj-central-equipe-total', estado.equipe.total + ' no total'));
+            caixa.appendChild(tit);
+            estado.equipe.equipe.forEach(function (m) { caixa.appendChild(linhaDaEquipe(m)); });
+            el.lista.appendChild(caixa);
+        }
+
+        function linhaDePessoa(m) {   // linhaUsuario, L5803: avatar 34, ponto verde só on-line
+            var b = criar('button', 'bj-central-pessoa' + (m.online ? '' : ' bj-central-pessoa--off'));
+            b.type = 'button';
+            b.title = m.nome + ' · ' + (STATUS[m.status] || STATUS.offline)[0] + ' · ' + detalheDePresenca(m);
+            var lugar = criar('span', 'bj-central-equipe-av');
+            lugar.appendChild(avatarDe(m, 'bj-central-avatar--contato'));
+            if (m.online) {
+                var ponto = criar('span', 'bj-central-pessoa-ponto');
+                ponto.title = 'On-line';
+                lugar.appendChild(ponto);
+            }
+            b.appendChild(lugar);
+            var textos = criar('span', 'bj-central-pessoa-textos');
+            textos.appendChild(criar('span', 'bj-central-pessoa-nome', m.nome));
+            textos.appendChild(criar('span', 'bj-central-pessoa-sub', m.eu ? 'Você' : (m.cargo || '')));
+            b.appendChild(textos);
+            b.addEventListener('click', function () { abrirComColega(m); });
+            return b;
+        }
+
+        function faixaOnline(texto, cor, ponto, extra) {   // tit(), L6382
+            var f = criar('div', 'bj-central-online-faixa');
+            f.style.color = cor;
+            var p = criar('span', 'bj-central-online-faixa-ponto');
+            p.style.background = ponto;
+            f.appendChild(p);
+            f.appendChild(document.createTextNode(texto));
+            if (extra) { f.appendChild(extra); }
+            return f;
+        }
+
+        function desenharOnline() {   // verOnline, L6380-6386 (sem "Todos" e "BlueJus IA": não existem aqui)
+            var eq = estado.equipe ? estado.equipe.equipe : [];
+            var porNome = function (a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); };
+            var on = eq.filter(function (m) { return m.online; }).sort(function (a, b) { return (a.eu - b.eu) || porNome(a, b); });
+            var off = eq.filter(function (m) { return !m.online; }).sort(porNome);
+            var voltarBtn = criar('button', 'bj-central-online-voltar', 'Voltar');
+            voltarBtn.type = 'button';
+            voltarBtn.addEventListener('click', function () { estado.verOnline = false; atualizarCabecalho(); desenharLista(); });
+            el.lista.appendChild(faixaOnline(on.length + ' on-line agora', '#1e7b45', '#3fd17f', voltarBtn));
+            on.forEach(function (m) { el.lista.appendChild(linhaDePessoa(m)); });
+            if (off.length) {
+                el.lista.appendChild(faixaOnline(off.length + ' off-line', '#7b93a2', '#c3cfd6'));
+                off.forEach(function (m) { el.lista.appendChild(linhaDePessoa(m)); });
+            }
+        }
+
+        function carregarEquipe() {
+            return pedir(urls.equipe).then(function (d) {
+                var mudou = JSON.stringify(d) !== JSON.stringify(estado.equipe);
+                estado.equipe = d;
+                atualizarCabecalho();
+                // Redesenha só se mudou, só o que mostra a equipe (o Painel ou a lista de on-line) e sem busca digitada;
+                // a rolagem e o foco ficam onde estavam (quem navega por teclado não perde o lugar).
+                if (!mudou || estado.tela !== 'lista' || !(estado.aba === 'painel' || estado.verOnline) || el.busca.value.trim() !== '') { return; }
+                var rolagem = el.lista.scrollTop;
+                var focado = raiz.ownerDocument.activeElement;
+                var indice = focado && el.lista.contains(focado) ? Array.prototype.indexOf.call(el.lista.querySelectorAll('button'), focado) : -1;
+                desenharLista();
+                el.lista.scrollTop = rolagem;
+                if (indice >= 0) { var b = el.lista.querySelectorAll('button')[indice]; if (b) { b.focus(); } }
+            });
+        }
+
+        // Batimento (F2): toda página com a Central bate a cada 20 s, com a janela aberta ou não (como no desenho,
+        // L344); com ela aberta, a equipe vem junto.
+        // Só com algo do BlueJus à vista (a página ou a Central destacada): aba esquecida em segundo plano não fica
+        // "on-line" nem mantém a sessão viva (revisão do F2). O relógio é o da janela à vista, como o do polling.
+        var batimento = { timer: null, relogio: window };
+        function iniciarBatimento() {
+            if (batimento.timer !== null) {
+                try { batimento.relogio.clearInterval(batimento.timer); } catch (e) { /* janela destacada já fechada */ }
+                batimento.timer = null;
+            }
+            if (oculta() || estado.semSessao || !urls.presenca) { return; }
+            batimento.relogio = estado.externa && !estado.externa.document.hidden ? estado.externa : window;
+            batimento.timer = batimento.relogio.setInterval(bater, BATIMENTO_MS);
+        }
+
+        function bater() {
+            if (estado.semSessao || !urls.presenca || oculta()) { return Promise.resolve(); }
+            return pedir(urls.presenca, { metodo: 'POST', corpo: { status: statusEfetivo() } })
+                .then(function () { if (estado.janelaAberta) { return carregarEquipe(); } })
+                .catch(function (e) { if (e && e.sessao) { tratarFalha(e); } });
+        }
+
         function emitirContadores(chegaram) {   // para o lançador flutuante: badge, "@n", salto e som
             raiz.dispatchEvent(new CustomEvent('bj-central:contadores', {
                 bubbles: true,
-                detail: { naoLidas: estado.naoLidas, mencoes: estado.comMencao.size, chegaram: chegaram || 0 }
+                detail: { naoLidas: totalCaixa(), mencoes: estado.comMencao.size, urgentes: estado.avisosUrgentes, chegaram: chegaram || 0, importantes: estado.chegaramImportantes }
             }));
+            estado.chegaramImportantes = 0;
         }
 
         function lerMencoes(dados) {
             if (Array.isArray(dados.conversasComMencao)) { estado.comMencao = new Set(dados.conversasComMencao); }
+        }
+
+        // F1: as contagens dos avisos vêm no polling; a lista só recarrega quando algo mudou (e com a janela aberta).
+        // Devolve quantos avisos novos chegaram (para o salto e o som do lançador).
+        function lerAvisos(dados) {
+            if (!Number.isFinite(dados.avisosNaoLidos)) { return 0; }
+            var primeira = estado.ultimoAviso === null;
+            var mudou = dados.ultimoAviso !== estado.ultimoAviso || dados.avisosNaoLidos !== estado.avisosNaoLidos;
+            var chegaram = !primeira && dados.ultimoAviso > estado.ultimoAviso ? Math.max(0, dados.avisosNaoLidos - estado.avisosNaoLidos) : 0;
+            // ⋮ "Avisar: Importantes" (L140): só os de nível ≥ 2 fazem saltar e soar.
+            estado.chegaramImportantes += !primeira && dados.ultimoAviso > estado.ultimoAviso ? Math.max(0, (dados.avisosImportantes || 0) - estado.avisosImportantes) : 0;
+            estado.avisosImportantes = dados.avisosImportantes || 0;
+            estado.avisosNaoLidos = dados.avisosNaoLidos;
+            estado.avisosUrgentes = dados.avisosUrgentes || 0;
+            estado.ultimoAviso = dados.ultimoAviso || 0;
+            if (mudou && estado.janelaAberta && !primeira) { carregarAvisos().catch(function () { /* tenta no próximo */ }); }
+
+            return chegaram;
+        }
+
+        function carregarAvisos() {
+            return pedir(urls.avisos).then(function (d) {
+                estado.avisos = Array.isArray(d.avisos) ? d.avisos : [];
+                atualizarCabecalho();
+                emitirContadores(0);   // badge e "urgente" do lançador em dia (lido aqui ou no sino de outra aba)
+                if (estado.tela === 'lista' && !estado.verOnline && el.busca.value.trim() === '') { desenharLista(); }
+            });
         }
 
         function carregarConversas() {
@@ -989,7 +1451,15 @@
         // conversas daqui e, no lançador, as preferências da janela (raiz.bjMenuJanela). Chaves e valores mudam sem
         // fechar o painel, como no desenho; os demais itens fecham.
         function secoesDoMenu() {
+            var janelaH = janelaDasResolvidas();
+            var antigas = estado.avisos.filter(resolvidaExpirada).length;
             var secoes = [{ titulo: 'Conversas', itens: [
+                { icone: 'bi-pencil-square', rotulo: 'Nova conversa', acao: function () {   // L6258: a lista de pessoas
+                    irParaLista();
+                    estado.verOnline = true;
+                    atualizarCabecalho();
+                    desenharLista();
+                } },
                 { icone: 'bi-people', rotulo: 'Novo grupo', acao: function () {
                     if (estado.aberta) { fecharConversa(); }
                     abrirNovoGrupo();
@@ -997,9 +1467,37 @@
                 { icone: 'bi-archive', rotulo: estado.verArquivadas ? 'Ocultar arquivadas' : 'Ver conversas arquivadas', acao: function () {
                     estado.verArquivadas = !estado.verArquivadas;
                     desenharLista();
+                } },
+                { icone: 'bi-check2-circle', rotulo: estado.verResolvidas ? 'Ocultar resolvidas antigas' : 'Ver resolvidas antigas (' + antigas + ')', acao: function () {
+                    irParaLista();
+                    estado.verResolvidas = !estado.verResolvidas;
+                    desenharLista();
+                } },
+                { icone: 'bi-hourglass-split', rotulo: 'Resolvidas ficam na caixa por: ' + ({ 1: '1 hora', 24: '1 dia', 168: '1 semana' })[janelaH], manter: true, acao: function () {
+                    var o = [1, 24, 168];
+                    guardarPreferencia('resJanelaH', o[(o.indexOf(janelaH) + 1) % 3]);
+                    if (estado.tela === 'lista') { desenharLista(); }
+                } },
+                { icone: 'bi-check2-all', rotulo: 'Marcar todas como lidas', acao: marcarTudoComoLido },
+                { icone: 'bi-bell', rotulo: 'Ver todas as notificações', acao: function () {   // L6263: a Caixa, filtro Tudo
+                    irParaLista();
+                    estado.aba = 'entrada';
+                    estado.filtro = '';
+                    desenharLista();
                 } }
             ] }];
             if (typeof raiz.bjMenuJanela === 'function') { secoes = secoes.concat(raiz.bjMenuJanela()); }
+            // Limpeza (L6282) antes do bloco final (sem título) e Ajuda no fim dele (L6292).
+            var limpeza = { titulo: 'Limpeza', itens: [{ icone: 'bi-trash3', rotulo: 'Limpar notificações lidas', acao: limparLidas }] };
+            var ajuda = { icone: 'bi-question-circle', rotulo: 'Ajuda', acao: function () { irParaLista(); estado.ajuda = true; desenharLista(); } };
+            var final = secoes.filter(function (sc) { return sc.titulo === null; })[0];
+            if (final) {
+                secoes.splice(secoes.indexOf(final), 0, limpeza);
+                final.itens.push(ajuda);
+            } else {
+                secoes.push(limpeza, { titulo: null, itens: [ajuda] });
+            }
+
             return secoes.filter(function (sc) { return sc.itens.length > 0; });
         }
 
@@ -1018,11 +1516,18 @@
                 if (it.chave) { chave.dataset.ligada = ''; }
                 chave.appendChild(criar('span', 'bj-central-menu-chave-bola'));
                 b.appendChild(chave);
+            } else if (it.valor && it.ponto) {   // "Status" (L6264): ponto colorido + valor
+                var comPonto = criar('span', 'bj-central-menu-valor-ponto');
+                var bolinha = criar('span', 'bj-central-menu-ponto');
+                bolinha.style.background = it.ponto;
+                comPonto.appendChild(bolinha);
+                comPonto.appendChild(criar('span', 'bj-central-menu-valor', it.valor));
+                b.appendChild(comPonto);
             } else if (it.valor) {
                 b.appendChild(criar('span', 'bj-central-menu-valor', it.valor));
             }
             b.addEventListener('click', function () {
-                var manter = it.chave !== undefined || it.valor !== undefined;
+                var manter = it.chave !== undefined || it.valor !== undefined || it.manter === true;
                 if (!manter) { fecharPainelMenu(false); }
                 it.acao();
                 // Mantém o foco na mesma posição: o rótulo pode mudar ("Não perturbe até HH:MM").
@@ -1359,6 +1864,7 @@
                 if (Number.isFinite(d.cursor)) { estado.cursor = d.cursor; }
                 if (Number.isFinite(d.naoLidas)) { estado.naoLidas = d.naoLidas; }
                 lerMencoes(d);
+                lerAvisos(d);
             });
         }
 
@@ -1375,10 +1881,11 @@
                 // A janela do servidor (spec B §6) repete as recentes: só o que ainda não foi visto é novidade.
                 var mencoesAntes = estado.comMencao.size;
                 lerMencoes(dados);
+                estado.chegaramImportantes += Math.max(0, estado.comMencao.size - mencoesAntes);   // menção = nível 2 (L384)
                 var novas = (Array.isArray(dados.mensagens) ? dados.mensagens : []).filter(function (m) { return !estado.vistas.has(m.id); });
                 // Alerta (salto/som do lançador) só quando o total de não lidas SOBE: o servidor já deixa de fora as
                 // conversas silenciadas (spec B §4; desenho L137) e as repetições da janela não somam.
-                var chegaram = Number.isFinite(dados.naoLidas) ? Math.max(0, dados.naoLidas - estado.naoLidas) : 0;
+                var chegaram = (Number.isFinite(dados.naoLidas) ? Math.max(0, dados.naoLidas - estado.naoLidas) : 0) + lerAvisos(dados);
                 novas.forEach(function (m) { estado.vistas.add(m.id); });
                 if (estado.vistas.size > 5000) { estado.vistas = new Set(novas.map(function (m) { return m.id; })); }
                 // A conversa aberta recebe as novas mesmo com a tela de informações por cima — senão elas iriam para
@@ -1395,6 +1902,7 @@
                     if (!dados.completo) { return verificarNovidades(); }
                     return;
                 }
+                if (chegaram > 0 && novas.length === 0 && dados.naoLidas === estado.naoLidas) { emitirContadores(chegaram); atualizarCabecalho(); }
                 if (novas.length > 0 || dados.naoLidas !== estado.naoLidas || estavaComErro || estado.comMencao.size !== mencoesAntes) {
                     return carregarConversas().then(function () {
                         if (chegaram > 0) { emitirContadores(chegaram); }
@@ -1442,7 +1950,7 @@
         // ── eventos ──────────────────────────────────────────────────────────────────
         el.voltar.addEventListener('click', voltar);
         el.abas.forEach(function (b) {
-            b.addEventListener('click', function () { estado.aba = b.dataset.centralAba; estado.filtro = ''; desenharLista(); });
+            b.addEventListener('click', function () { estado.aba = b.dataset.centralAba; estado.filtro = ''; estado.verOnline = false; atualizarCabecalho(); desenharLista(); });
         });
         el.botoesFiltro.forEach(function (b) {
             b.addEventListener('click', function () { estado.filtro = b.dataset.centralFiltro; desenharLista(); });
@@ -1455,21 +1963,30 @@
             iniciarPolling();
             if (!estado.janelaAberta) { return; }
             var primeira = estado.listaCarregada ? Promise.resolve() : Promise.all([carregarConversas(), carregarContatos()]);
+            carregarEquipe().catch(function () { /* a equipe vem de novo no próximo batimento */ });
+            carregarAvisos().catch(function () { /* idem, no próximo polling */ });
             primeira.then(function () { return verificarNovidades(); }).then(marcarLida).catch(tratarFalha);
         });
         el.mais.addEventListener('click', alternarPainelMenu);
+        el.online.addEventListener('click', function () {
+            estado.verOnline = !estado.verOnline;
+            el.busca.value = '';
+            atualizarCabecalho();
+            desenharLista();
+        });
         // Clique fora do ⋮ fecha o painel (no documento em que a Central estiver: a página ou a janela destacada).
         raiz.addEventListener('pointerdown', function (ev) {
             if (estado.painelMenu && !estado.painelMenu.caixa.contains(ev.target) && !el.mais.contains(ev.target)) { fecharPainelMenu(false); }
         });
         // O lançador avisa quando muda uma preferência que aparece no cabeçalho (não perturbe).
-        raiz.addEventListener('bj-central:preferencias', atualizarCabecalho);
+        // ... e o status efetivo (⋮ "Status" ou Não perturbe) vai ao servidor na hora, não só no próximo batimento.
+        raiz.addEventListener('bj-central:preferencias', function () { atualizarCabecalho(); bater(); });
         el.info.addEventListener('click', function () {
             var c = estado.aberta ? estado.conversas.filter(function (x) { return x.id === estado.aberta.id; })[0] : null;
             if (c) { abrirInfo(c, false); }
         });
         el.ocultarArquivadas.addEventListener('click', function () { estado.verArquivadas = false; desenharLista(); });
-        el.busca.addEventListener('input', desenharLista);
+        el.busca.addEventListener('input', function () { estado.verOnline = false; desenharLista(); });
         el.compositor.addEventListener('submit', function (ev) { ev.preventDefault(); enviar(); });
         el.campo.addEventListener('input', function () { ajustarAltura(); atualizarSugestoes(); });
         el.campo.addEventListener('click', atualizarSugestoes);
@@ -1495,7 +2012,9 @@
                     return;
                 }
             }
-            if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {   // Enter envia; Shift+Enter quebra linha
+            // Enter envia; Shift+Enter quebra linha. ⋮ "Enter envia" desligado (L6130): Enter quebra e Ctrl/⌘+Enter envia.
+            var enterEnvia = prefsGuardadas().enterEnvia !== false;
+            if (ev.key === 'Enter' && !ev.isComposing && (enterEnvia ? !ev.shiftKey : (ev.ctrlKey || ev.metaKey))) {
                 ev.preventDefault();
                 enviar();
             }
@@ -1518,10 +2037,12 @@
             if (el.corpo.scrollTop === 0) { carregarAnteriores(); }
         });
         function aoMudarVisibilidade() {
+            iniciarBatimento();
             if (oculta()) {
                 pararPolling();
                 return;
             }
+            bater();
             if (estado.semSessao) { return; }
             verificarNovidades().then(marcarLida);
             iniciarPolling();
@@ -1538,6 +2059,7 @@
             fecharSugestoes();
             pararPolling();
             estado.externa = externa;
+            iniciarBatimento();
             if (externa) {
                 externa.document.addEventListener('visibilitychange', function () { if (estado.externa === externa) { aoMudarVisibilidade(); } });
                 externa.addEventListener('resize', function () { fecharMenu(false); });
@@ -1553,7 +2075,8 @@
         atualizarCabecalho();
         // Página /central: tudo na hora. Lançador (em TODA página do layout): só o cursor e os contadores — a lista e
         // os contatos esperam a primeira abertura da janela.
-        Promise.all(flutuante ? [inicializarCursor()] : [carregarConversas(), carregarContatos(), inicializarCursor()]).then(function () {
+        // Página /central (sem lançador, sem o evento de abrir a janela): os avisos vêm já na carga (revisão do F1).
+        Promise.all(flutuante ? [inicializarCursor()] : [carregarConversas(), carregarContatos(), inicializarCursor(), carregarAvisos()]).then(function () {
             // As menções chegam pela primeira chamada do polling, que pode responder DEPOIS da lista: refaz a lista e o
             // lançador com elas (sem isto o "@n" só apareceria no próximo polling, 30 s depois com a janela fechada).
             if (estado.tela === 'lista') { desenharLista(); }
@@ -1562,6 +2085,12 @@
             var alvo = abrirAoCarregar ? estado.conversas.filter(function (c) { return c.id === abrirAoCarregar; })[0] : null;
             if (alvo) { abrirConversa(alvo); }
         }).catch(tratarFalha).finally(iniciarPolling);
+        bater();
+        iniciarBatimento();
+        // Outra aba mudou o status ou o Não perturbe: o cabeçalho e o próximo batimento já usam o novo.
+        window.addEventListener('storage', function (ev) {
+            if (ev.key === 'bj-central-prefs:' + (raiz.dataset.euId || '0')) { atualizarCabecalho(); bater(); }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {

@@ -6,7 +6,13 @@
          data-url-novidades="{{ path('central_novidades') }}"
          data-url-conversa-base="{{ path('central_conversas') }}"
          data-url-grupos="{{ path('central_grupo_criar') }}"
+         data-url-equipe="{{ path('central_equipe') }}"
+         data-url-avisos="{{ path('central_avisos') }}"
+         data-url-ler-tudo="{{ path('central_ler_tudo') }}"
+         data-url-limpar-lidos="{{ path('central_avisos_limpar') }}"
+         data-url-presenca="{{ path('central_presenca') }}"
          data-eu-nome="{{ eu.fullName }}"
+         data-eu-id="{{ eu.id }}"
          data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
          {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
          data-modo="{{ modo|default('pagina') }}"
@@ -15,18 +21,25 @@
         <button type="button" class="bj-central-btn-ico" data-central-voltar hidden aria-label="Voltar para as conversas" title="Voltar">
             <i class="bi bi-arrow-left" aria-hidden="true"></i>
         </button>
-        {# B1: na lista, o avatar de quem está usando, com o anel do desenho (L6337). Sem o ponto de status: presença
-           não existe no BlueJus (D5). Foto do perfil quando houver; senão as iniciais (avatarU, L5409). #}
+        {# Na lista, o avatar de quem está usando, com o anel do desenho (L6337) e o ponto do MEU status (F2). Foto do
+           perfil quando houver; senão as iniciais (avatarU, L5409). #}
         <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-eu aria-hidden="true">
             {%- if fotoPerfilUrl|default(null) -%}
                 <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}" alt="">
             {%- else -%}
                 {{ eu.fullName|split(' ')|filter(p => p is not empty)|slice(0, 2)|map(p => p|first|upper)|join('') }}
             {%- endif -%}
+            <span class="bj-central-cab-ponto" data-central-cab-ponto></span>
         </span>
         <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-avatar aria-hidden="true" hidden></span>
         <div class="bj-central-cab-textos">
-            <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
+            <div class="bj-central-cab-linha">
+                <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
+                {# F2: "N on-line" (L6337); abre a lista de quem está on-line #}
+                <button type="button" class="bj-central-online" data-central-online hidden aria-expanded="false">
+                    <span class="bj-central-online-ponto" aria-hidden="true"></span><span data-central-online-texto></span>
+                </button>
+            </div>
             <div class="bj-central-cab-sub" data-central-cab-sub>{{ eu.fullName }}</div>
         </div>
         {# B: informações do grupo (só com grupo aberto) e o ⋮ da lista (novo grupo, arquivadas — desenho L6259) #}
@@ -69,14 +82,23 @@
             </button>
             <button type="button" class="bj-central-aba" role="tab" data-central-aba="painel" aria-selected="false">Painel</button>
         </div>
-        {# Filtros da Caixa (L5776) — só os que têm dado no BlueJus: Tudo e Menções #}
+        {# Filtros da Caixa (L5776), na ordem do desenho. F1: Urgente, Atenção e Metas com os avisos do sino; "Para
+           revisar" fica fora (não há marcação de revisão no BlueJus). #}
         <div class="bj-central-filtros" data-central-filtros>
             <button type="button" class="bj-central-filtro" data-central-filtro="" aria-pressed="true" title="Tudo" aria-label="Filtrar: Tudo" style="--bjc-filtro: #4f6878">
                 <i class="bi bi-inbox" aria-hidden="true"></i>
             </button>
-            <button type="button" class="bj-central-filtro" data-central-filtro="mencoes" aria-pressed="false" title="Menções" aria-label="Filtrar: Menções" style="--bjc-filtro: #0a7aad">
-                <span class="bj-central-filtro-bola" aria-hidden="true"></span>
-            </button>
+            {% for f in [
+                {chave: 'conversas', rotulo: 'Conversas', cor: '#3b6e8f'},
+                {chave: 'urgente', rotulo: 'Urgente', cor: '#c0392f'},
+                {chave: 'atencao', rotulo: 'Atenção', cor: '#c8952a'},
+                {chave: 'mencoes', rotulo: 'Menções', cor: '#0a7aad'},
+                {chave: 'metas', rotulo: 'Metas', cor: '#1f9d61'},
+            ] %}
+                <button type="button" class="bj-central-filtro" data-central-filtro="{{ f.chave }}" aria-pressed="false" title="{{ f.rotulo }}" aria-label="Filtrar: {{ f.rotulo }}" style="--bjc-filtro: {{ f.cor }}">
+                    <span class="bj-central-filtro-bola" aria-hidden="true"></span>
+                </button>
+            {% endfor %}
         </div>
         <div class="bj-central-painel-grade" data-central-painel hidden></div>
         <div class="bj-central-faixa-arquivadas" data-central-faixa-arquivadas hidden>
