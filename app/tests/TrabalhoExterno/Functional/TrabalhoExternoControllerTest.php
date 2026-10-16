@@ -166,23 +166,49 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
             return array_column($this->json($client)['demanda']['botoes'], 'rot', 'k');
         };
 
+        $ok = function (string $url, array $corpo = []) use ($client): void {
+            $this->postarJson($client, $url, $corpo);
+            self::assertResponseIsSuccessful($url);
+        };
+        $papel = fn (string $codigo, string $para): ?string => $this->em()->getConnection()->fetchOne('SELECT perfil_autor FROM trabalho_externo_historico WHERE demanda_id = ? AND para = ? ORDER BY id DESC LIMIT 1', [(int) substr($codigo, 3), $para]) ?: null;
+
         $meu = $this->solicitarComo($client, $central->getId(), true)['codigo'];
         self::assertSame('Cancelar solicitação', $botoes($meu)['cancelar'] ?? null, 'nova: cancela como Solicitante');
-        $this->postarJson($client, "/trabalho-externo/api/demandas/$meu/acoes/analise");
-        $this->postarJson($client, "/trabalho-externo/api/demandas/$meu/propostas", ['valor' => '300']);
+        $ok("/trabalho-externo/api/demandas/$meu/acoes/analise");
+        $ok("/trabalho-externo/api/demandas/$meu/acoes/info", ['motivo' => 'Faltou a pauta']);
+        self::assertArrayHasKey('responderInfo', $botoes($meu), 'info: responde pelo escritório');
+        $ok("/trabalho-externo/api/demandas/$meu/acoes/responderInfo", ['motivo' => 'Pauta enviada']);
+        $ok("/trabalho-externo/api/demandas/$meu/propostas", ['valor' => '300']);
         self::assertArrayHasKey('aceitar', $botoes($meu), 'proposta: o Master aceita pelo escritório dele');
         self::assertArrayHasKey('proposta', $botoes($meu), 'e continua com as ações de Master');
-        $this->postarJson($client, "/trabalho-externo/api/demandas/$meu/acoes/aceitar");
-        self::assertResponseIsSuccessful();
-        $papeis = $this->em()->getConnection()->fetchAllKeyValue('SELECT para, perfil_autor FROM trabalho_externo_historico WHERE demanda_id = ? AND para IN (\'analise\', \'aceita\')', [(int) substr($meu, 3)]);
-        self::assertSame(['analise' => 'master', 'aceita' => 'solicitante'], $papeis, 'cada ação no papel em que foi feita');
+        $ok("/trabalho-externo/api/demandas/$meu/acoes/aceitar");
+        $passos = $this->em()->getConnection()->fetchAllNumeric('SELECT de, para, perfil_autor FROM trabalho_externo_historico WHERE demanda_id = ? AND de IS NOT NULL ORDER BY id', [(int) substr($meu, 3)]);
+        self::assertSame([
+            ['rascunho', 'nova', 'solicitante'],
+            ['nova', 'analise', 'master'],
+            ['analise', 'info', 'master'],
+            ['info', 'analise', 'solicitante'],   // "Enviar informações": lado do escritório
+            ['analise', 'proposta', 'master'],
+            ['proposta', 'aceita', 'solicitante'], // "Aceitar proposta": lado do escritório
+        ], $passos, 'cada ação no papel em que foi feita');
+        self::assertSame('solicitante', $this->em()->getConnection()->fetchOne('SELECT perfil_aceita_por FROM trabalho_externo_proposta WHERE demanda_id = ? AND aceita_em IS NOT NULL', [(int) substr($meu, 3)]), '"aceita por" no papel de Solicitante');
+
+        // cancelar: em nova é do escritório (Solicitante); em proposta é da Central (Master).
+        $cancelaNova = $this->solicitarComo($client, $central->getId(), true)['codigo'];
+        $ok("/trabalho-externo/api/demandas/$cancelaNova/acoes/cancelar", ['motivo' => 'Não precisa mais']);
+        self::assertSame('solicitante', $papel($cancelaNova, 'cancelada'));
+        $cancelaProposta = $this->solicitarComo($client, $central->getId(), true)['codigo'];
+        $ok("/trabalho-externo/api/demandas/$cancelaProposta/acoes/analise");
+        $ok("/trabalho-externo/api/demandas/$cancelaProposta/propostas", ['valor' => '100']);
+        $ok("/trabalho-externo/api/demandas/$cancelaProposta/acoes/cancelar", ['motivo' => 'Sem correspondente']);
+        self::assertSame('master', $papel($cancelaProposta, 'cancelada'));
 
         // Demanda de um escritório ao qual o Master NÃO pertence: só as ações de Master.
         $this->logarComTenant($client, $deFora, $alheio);
         $dele = $this->solicitar($client, self::solicitacaoValida())['codigo'];
         $this->logarComTenant($client, $master, $central);
-        $this->postarJson($client, "/trabalho-externo/api/demandas/$dele/acoes/analise");
-        $this->postarJson($client, "/trabalho-externo/api/demandas/$dele/propostas", ['valor' => '300']);
+        $ok("/trabalho-externo/api/demandas/$dele/acoes/analise");
+        $ok("/trabalho-externo/api/demandas/$dele/propostas", ['valor' => '300']);
         self::assertArrayNotHasKey('aceitar', $botoes($dele));
         $this->postarJson($client, "/trabalho-externo/api/demandas/$dele/acoes/aceitar");
         self::assertResponseStatusCodeSame(403, 'o Master não aceita proposta pelo escritório de outro');
