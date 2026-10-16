@@ -1,0 +1,46 @@
+40a41
+>     prazos_pastas: { rot: 'Prazos das pastas', risco: 'leitura', ic: 'bi-calendar-event' },
+58c59,60
+<     if (/(documento|anex|pdf|procura[cç])/.test(t)) tool = /exclu|apag/.test(t) ? 'excluir_documento' : /anex|inclu/.test(t) ? 'anexar_documento' : 'ler_documentos';
+---
+>     if (/(prazo|venc|vence)/.test(t) && !/(troc|mud|aplic|arquiv)/.test(t)) { tool = 'prazos_pastas'; f.periodo = /hoje/.test(t) ? 'hoje' : /amanha/.test(t) ? 'amanha' : /(venceu|vencid|atrasad)/.test(t) ? 'vencidos' : /(mes|30 dias)/.test(t) ? 'mes' : /(\d{1,3}) dias/.test(t) ? t.match(/(\d{1,3}) dias/)[1] : 'semana'; }
+>     else if (/(documento|anex|pdf|procura[cç])/.test(t)) tool = /exclu|apag/.test(t) ? 'excluir_documento' : /anex|inclu/.test(t) ? 'anexar_documento' : 'ler_documentos';
+75c77
+<       'Formato: {"tool":"...","filtro":{"nups":[],"cliente":"","acao":"","responsavel":"","marcador":"","situacao":"","prioridade":"","semMetas":false,"desde":"AAAA-MM-DD","ate":"AAAA-MM-DD"},"valor":"novo valor quando a ferramenta altera algo","resumo":"frase curta em português do que será feito"}. Omita campos vazios. Hoje é ' + new Date().toISOString().slice(0, 10) + '.\nPedido: ' + txt;
+---
+>       'Para prazos use tool prazos_pastas e filtro.periodo = hoje | amanha | semana | mes | vencidos | número de dias.\nFormato: {"tool":"...","filtro":{"periodo":"","nups":[],"cliente":"","acao":"","responsavel":"","marcador":"","situacao":"","prioridade":"","semMetas":false,"desde":"AAAA-MM-DD","ate":"AAAA-MM-DD"},"valor":"novo valor quando a ferramenta altera algo","resumo":"frase curta em português do que será feito"}. Omita campos vazios. Hoje é ' + new Date().toISOString().slice(0, 10) + '.\nPedido: ' + txt;
+94a97,115
+>   function prazosBloco(f) {
+>     const per = String(f.periodo || 'semana'), hoje = new Date(); hoje.setHours(0, 0, 0, 0); const dia = s => { const d = new Date(s + 'T00:00'); return Math.round((d - hoje) / 864e5); };
+>     const fimSem = (() => { const d = new Date(hoje); d.setDate(d.getDate() + (7 - (d.getDay() || 7))); return Math.round((d - hoje) / 864e5); })();
+>     const lim = per === 'hoje' ? [0, 0] : per === 'amanha' ? [1, 1] : per === 'vencidos' ? [-9999, -1] : per === 'mes' ? [0, 30] : /^\d+$/.test(per) ? [0, +per] : [0, fimSem];
+>     const rot = per === 'hoje' ? 'para hoje' : per === 'amanha' ? 'para amanhã' : per === 'vencidos' ? 'vencidos' : per === 'mes' ? 'nos próximos 30 dias' : /^\d+$/.test(per) ? 'nos próximos ' + per + ' dias' : 'nesta semana (até domingo)';
+>     let S = {}; try { S = JSON.parse(localStorage.getItem('bj-prazos-pasta-v1') || '{}'); } catch (x) {}
+>     const base = filtrar(Object.assign({}, f, { periodo: undefined })), cli = {}; base.forEach(d => cli[d.nup] = d);
+>     const lidas = Object.keys(S).filter(k => /^\d+$/.test(k)), itens = [];
+>     lidas.forEach(k => { if (!cli[k] && base.length !== P().ler().length) return; (S[k] || []).forEach(p => { const n = dia(p.data); if (n >= lim[0] && n <= lim[1]) itens.push(Object.assign({ nup: +k, n, cliente: cli[k] ? cli[k].cliente : '' }, p)); }); });
+>     itens.sort((x, y) => x.n - y.n);
+>     const pastas = [...new Set(itens.map(x => x.nup))], w = h('div');
+>     w.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#7b93a2;margin-bottom:4px"><i class="bi bi-calendar-event"></i> PRAZOS DAS PASTAS · SÓ LEITURA</div>' + (itens.length ? '<b>' + pastas.length + '</b> pasta(s) com <b>' + itens.length + '</b> prazo(s) ' + rot + '.' : 'Nenhum prazo ' + rot + '.');
+>     const fx = n => n < 0 ? 'Vencido há ' + -n + (n === -1 ? ' dia' : ' dias') : n === 0 ? 'Hoje' : n === 1 ? 'Amanhã' : 'Faltam ' + n + ' dias', cor = n => n <= 0 ? ['#a3232b', '#fdecec'] : n <= 3 ? ['#a3232b', '#fdecec'] : n <= 7 ? ['#8a5a12', '#fdf3e2'] : ['#34505f', '#eef2f5'];
+>     const ul = h('div', 'margin-top:8px;display:flex;flex-direction:column;gap:4px');
+>     itens.slice(0, 12).forEach(x => { const [c1, c2] = cor(x.n), dt = x.data.split('-').reverse().join('/'); const r = h('button', 'display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:1px solid #eef2f5;background:#fafcfd;border-radius:3px;padding:6px 8px;cursor:pointer;font:12.5px Arial;color:#12242f', '<span style="display:flex;gap:8px;align-items:center"><b style="color:' + AZ + '">' + x.nup + '</b><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(x.titulo) + '</span><span style="font-size:11px;font-weight:700;color:' + c1 + ';background:' + c2 + ';padding:1px 6px;border-radius:3px;white-space:nowrap">' + fx(x.n) + '</span></span><span style="font-size:11px;color:#7b93a2">' + esc((x.cliente ? x.cliente + ' · ' : '') + (x.resp ? x.resp + ' · ' : '') + dt + ' · fonte: ' + x.origem) + '</span>'); r.onmouseenter = () => r.style.background = '#e5f1f7'; r.onmouseleave = () => r.style.background = '#fafcfd'; r.title = 'Mostrar a pasta ' + x.nup + ' na lista'; r.onclick = () => P().abrir(x.nup); ul.appendChild(r); });
+>     if (itens.length) { w.appendChild(ul); const ac = h('div', 'display:flex;gap:6px;margin-top:8px;flex-wrap:wrap'); ac.appendChild(btn('Mostrar na lista', 'pri', () => P().filtrar(pastas), 'bi-funnel')); w.appendChild(ac); }
+>     const nota = h('div', 'margin-top:8px;font-size:11.5px;color:#5b7383;line-height:1.45', '<i class="bi bi-info-circle"></i> Fonte: datas registradas dentro de cada pasta: Próximos prazos, Push processual (termo final calculado pela movimentação) e prazo das Metas abertas. ' + lidas.length + ' pasta(s) com prazos lidos; as demais ainda não têm prazo registrado.'); w.appendChild(nota);
+>     return w;
+>   }
+110a132
+>     if (pl.tool === 'prazos_pastas') { pens.innerHTML = ''; pens.appendChild(prazosBloco(f)); auditar({ tool: pl.tool, filtro: f, resultado: 'consulta' }); return; }
+171c193
+<     const ex = ['Quais pastas estão sem responsável?', 'Trocar o responsável das pastas da Mariana para Samuel', 'Aplicar o marcador Despachar nas pastas urgentes', 'Quantas pastas estão suspensas?'];
+---
+>     const ex = ['Quais pastas têm prazo esta semana?', 'Quais pastas estão sem responsável?', 'Trocar o responsável das pastas da Mariana para Samuel', 'Aplicar o marcador Despachar nas pastas urgentes', 'Quantas pastas estão suspensas?'];
+180,182c202,205
+<     const lan = h('button', 'position:fixed;right:18px;bottom:90px;z-index:2147482990;height:40px;padding:0 14px;border:none;border-radius:4px;background:#fff;color:' + AZ + ';box-shadow:0 4px 16px rgba(16,42,58,.18);font:700 13px Arial;cursor:pointer;display:flex;align-items:center;gap:7px;transition:transform .15s', '<i class="bi bi-stars"></i>Assistente de pastas');
+<     lan.onmouseenter = () => { lan.style.background = AZ; lan.style.color = '#fff'; lan.style.transform = 'scale(1.04)'; }; lan.onmouseleave = () => { lan.style.background = '#fff'; lan.style.color = AZ; lan.style.transform = ''; };
+<     lan.onclick = () => alternar(); document.body.appendChild(lan); estado.lan = lan;
+---
+>     const lan = h('button', 'position:fixed;right:18px;bottom:90px;z-index:2147482990;height:40px;padding:0 14px;border:none;border-radius:4px;background:#fff;color:' + AZ + ';box-shadow:0 4px 16px rgba(16,42,58,.18);font:700 13px Arial;cursor:pointer;display:flex;align-items:center;gap:7px;transition:transform .15s,opacity .6s ease,background .15s,color .15s', '<i class="bi bi-stars"></i>Assistente de pastas');
+>     let lanT = null; const lanApagar = () => { clearTimeout(lanT); lanT = setTimeout(() => { if (!lan.matches(':hover') && (!raiz || raiz.style.display === 'none')) lan.style.opacity = '.35'; }, 4000); }; lanApagar();
+>     lan.onmouseenter = () => { clearTimeout(lanT); lan.style.opacity = '1'; lan.style.background = AZ; lan.style.color = '#fff'; lan.style.transform = 'scale(1.04)'; }; lan.onmouseleave = () => { lan.style.background = '#fff'; lan.style.color = AZ; lan.style.transform = ''; lanApagar(); }; lan.onfocus = lan.onmouseenter; lan.onblur = lan.onmouseleave;
+>     lan.onclick = () => { const abrindo = !raiz || raiz.style.display === 'none'; alternar(); if (abrindo) window.dispatchEvent(new CustomEvent('bj-ai-fx', { detail: { nome: 'Assistente de pastas' } })); }; document.body.appendChild(lan); estado.lan = lan;
