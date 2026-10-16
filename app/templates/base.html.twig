@@ -455,6 +455,12 @@
                 {% include 'ponto/_modal_alerta_ponto.html.twig' %}
             {% endif %}
 
+            {# Central de Comunicação flutuante (lançador + janela, Designer 13/10). Componente isolado da Central (D6:
+               esta é a única linha no layout); não aparece na própria /central, que já é a janela em página. #}
+            {% if central_disponivel() and app.request.attributes.get('_route') != 'central_index' %}
+                {% include 'central/_flutuante.html.twig' %}
+            {% endif %}
+
         {% else %}
             <div class="no-sidebar">
                 {% for label, messages in app.flashes %}

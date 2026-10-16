@@ -66,6 +66,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Última visita do usuário à Timeline da pasta (M4/PAS-043, 07/10): marcador pessoal de leitura,
         // regravado a cada abertura, como os favoritos e as preferências. Não é ato sobre dado do escritório.
         \App\Pasta\Entity\PastaTimelineVisita::class,
+        // Central de Comunicação (A1, 14/10): a conversa é das duas pessoas. O AuditLogSubscriber grava o estado
+        // inteiro da entidade, e o audit_log é lido por quem administra o escritório — auditar entregaria a
+        // conversa privada a terceiros (spec central-comunicacao-a1 §3). O participante é cursor de leitura.
+        \App\Central\Entity\Conversa::class,
+        \App\Central\Entity\Participante::class,
+        \App\Central\Entity\Mensagem::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,

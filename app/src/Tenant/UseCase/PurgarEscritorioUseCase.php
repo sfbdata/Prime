@@ -182,6 +182,11 @@ final class PurgarEscritorioUseCase
         // Foto diária do estoque do Dashboard (dado derivado, por usuário): FK de tenant NO ACTION,
         // nada a referencia — deleção explícita antes de apagar o tenant.
         ['dashboard_foto', 'tenant_id = :tenant'],
+        // Central de Comunicação (A1): mensagem e participante caem pela CASCADE da conversa, mas as FKs de
+        // tenant são NO ACTION — deleção explícita de baixo para cima, antes de apagar o tenant.
+        ['central_mensagem', 'tenant_id = :tenant'],
+        ['central_participante', 'tenant_id = :tenant'],
+        ['central_conversa', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

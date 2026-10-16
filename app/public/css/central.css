@@ -1,0 +1,1370 @@
+/*
+ * Central de Comunicação — A1 (docs/specs/central-comunicacao-a1.md) e A2 (central-comunicacao-a2.md).
+ * Valores do desenho: bluejus-central.js do Designer 13/10 (número da linha ao lado). Tudo sob .bj-central,
+ * sem !important e sem tocar estilo global; cores por variável para o tema escuro.
+ */
+.bj-central {
+    --bjc-azul: #0a7aad;            /* AZUL, L12 */
+    --bjc-petroleo: #0b5f86;        /* PETROLEO, L12 */
+    --bjc-conv: #3b6e8f;            /* COR_CONV, L5668 */
+    --bjc-texto: #12242f;
+    --bjc-texto-forte: #1d3441;
+    --bjc-texto-medio: #4f6878;
+    --bjc-texto-suave: #6b8494;
+    --bjc-texto-fraco: #7b93a2;
+    --bjc-borda: #cfd8de;
+    --bjc-borda-suave: #e1e6ea;
+    --bjc-borda-linha: #eef1f3;
+    --bjc-fundo: #fff;
+    --bjc-fundo-corpo: #f3f6f8;
+    --bjc-fundo-hover-usuario: #f2f8fb;
+    --bjc-separador: #e1e8ed;
+    --bjc-separador-texto: #5f7684;
+    --bjc-bolha-outro: #fff;
+    --bjc-icone-vazio: #b5c2ca;
+    /* A2 — menu de contexto (menuCtxEl, L5697), citação (L6035/L6068), menção (L6094, pintarTexto L5856) */
+    --bjc-menu-texto: #243845;
+    --bjc-menu-icone: #5f7684;
+    --bjc-menu-hover: #eef5fa;
+    --bjc-citacao-fundo: #e6f0f6;
+    --bjc-citacao-texto: #33495a;
+    --bjc-citacao-borda: #b9d2e2;
+    --bjc-selecionado: #e5f1f7;
+    /* B — grupos e preferências (desenho L5676, L5693, L6029) */
+    --bjc-sistema-fundo: #e8eef2;
+    --bjc-sistema-texto: #5f7684;
+    --bjc-selo-mudo: #9fb1bc;
+    --bjc-perigo: #c0392b;
+
+    position: relative;              /* âncora do ⋮ e da confirmação (B1, L6252/L6394) */
+    display: flex;
+    flex-direction: column;
+    width: 380px;                    /* tw, L6325 */
+    max-width: 100%;
+    height: 580px;                   /* th, L6325 */
+    background: var(--bjc-fundo);
+    border-radius: 4px;              /* L6326 */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2), 0 12px 36px rgba(0, 0, 0, .22);
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--bjc-texto);
+    overflow: hidden;
+}
+
+html[data-bs-theme="dark"] .bj-central {
+    --bjc-texto: #e3ebf0;
+    --bjc-texto-forte: #eef3f6;
+    --bjc-texto-medio: #b7c6cf;
+    --bjc-texto-suave: #9fb1bc;
+    --bjc-texto-fraco: #8ea2ae;
+    --bjc-borda: #3a4a55;
+    --bjc-borda-suave: #33424c;
+    --bjc-borda-linha: #2c3a43;
+    --bjc-fundo: #1f2a31;
+    --bjc-fundo-corpo: #18222a;
+    --bjc-fundo-hover-usuario: #26343d;
+    --bjc-separador: #2c3a43;
+    --bjc-separador-texto: #b7c6cf;
+    --bjc-bolha-outro: #26343d;
+    --bjc-icone-vazio: #5c6f7b;
+    --bjc-menu-texto: #e3ebf0;
+    --bjc-menu-icone: #9fb1bc;
+    --bjc-menu-hover: #26343d;
+    --bjc-citacao-fundo: #22323c;
+    --bjc-citacao-texto: #c9d6de;
+    --bjc-citacao-borda: #3a5566;
+    --bjc-selecionado: #26343d;
+    --bjc-sistema-fundo: #26343d;
+    --bjc-sistema-texto: #b7c6cf;
+    --bjc-selo-mudo: #5c6f7b;
+    --bjc-perigo: #e3685c;
+}
+
+.bj-central-pagina {
+    padding: 16px;
+}
+
+/* Cabeçalho — L6330 */
+.bj-central-cab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 0 6px 0 12px;
+    background: var(--bjc-azul);
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.bj-central-cab-textos {
+    flex: 1;
+    min-width: 0;
+}
+
+.bj-central-cab-titulo {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bj-central-cab-sub {
+    font-size: 11.5px;
+    opacity: .85;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* btnIco — L5410 */
+.bj-central-btn-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: #fff;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.bj-central-btn-ico:hover,
+.bj-central-btn-ico:focus-visible {
+    background: rgba(255, 255, 255, .16);
+}
+
+/* Avatar — L5409: iniciais Math.round(0.36 × tamanho) px, peso 700 (30 → 11, 34 → 12, 24 → 9) */
+.bj-central-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--bjc-petroleo);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.bj-central-avatar--cab {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .5);
+}
+
+/* Foto do perfil no avatar (avatarU, L5409: "url(foto) center/cover") */
+.bj-central-avatar > img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.bj-central-avatar[hidden] {
+    display: none;
+}
+
+.bj-central-avatar--contato {
+    width: 34px;
+    height: 34px;
+    font-size: 12px;
+}
+
+/* Busca — L6361 */
+.bj-central-busca {
+    position: relative;
+    margin: 10px 12px 0;
+    flex-shrink: 0;
+}
+
+.bj-central-busca .bi-search {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bjc-texto-fraco);
+    font-size: 13px;
+}
+
+.bj-central-busca-campo {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px 0 30px;
+    border: 1px solid var(--bjc-borda);
+    border-radius: 3px;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto);
+    font: inherit;
+    font-size: 13px;
+}
+
+.bj-central-busca-campo:focus {
+    outline: 2px solid var(--bjc-azul);
+    outline-offset: -1px;
+}
+
+.bj-central-lista-tela,
+.bj-central-conversa-tela {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.bj-central-lista-tela[hidden],
+.bj-central-conversa-tela[hidden] {
+    display: none;
+}
+
+.bj-central-lista {
+    flex: 1;
+    min-height: 0;
+    margin-top: 8px;
+    overflow-y: auto;
+    border-top: 1px solid var(--bjc-borda-suave);
+}
+
+/* linhaConversa — L5670-5696 */
+.bj-central-linha {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px 10px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: rgba(59, 110, 143, .03);   /* COR_CONV + '08' */
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-linha::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--bjc-conv);
+    opacity: .35;
+}
+
+.bj-central-linha--nao-lida {
+    background: rgba(59, 110, 143, .08);   /* COR_CONV + '14' */
+}
+
+.bj-central-linha--nao-lida::before {
+    opacity: 1;
+}
+
+.bj-central-linha:hover,
+.bj-central-linha:focus-visible {
+    background: rgba(59, 110, 143, .13);   /* COR_CONV + '22' */
+}
+
+.bj-central-linha-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.bj-central-linha-topo {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.bj-central-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--bjc-conv);
+}
+
+.bj-central-hora {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+    white-space: nowrap;
+}
+
+.bj-central-nome {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bjc-texto-forte);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bj-central-linha--nao-lida .bj-central-nome {
+    font-weight: 700;
+}
+
+.bj-central-linha-baixo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bj-central-previa {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    color: var(--bjc-texto-medio);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Selo de não lidas — L5694 */
+.bj-central-selo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--bjc-conv);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* linhaUsuario — L5803 */
+.bj-central-linha--contato {
+    align-items: center;
+    background: transparent;
+}
+
+.bj-central-linha--contato::before {
+    display: none;
+}
+
+.bj-central-linha--contato:hover,
+.bj-central-linha--contato:focus-visible {
+    background: var(--bjc-fundo-hover-usuario);
+}
+
+.bj-central-linha--contato .bj-central-nome {
+    font-size: 13.5px;
+}
+
+.bj-central-contato-sub {
+    font-size: 12px;
+    color: var(--bjc-texto-suave);
+}
+
+/* vazio — L5659 */
+.bj-central-vazio {
+    padding: 34px 18px;
+    color: var(--bjc-texto-suave);
+    text-align: center;
+}
+
+.bj-central-vazio .bi {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 26px;
+    color: var(--bjc-icone-vazio);
+}
+
+.bj-central-vazio-titulo {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--bjc-texto-medio);
+}
+
+.bj-central-vazio-sub {
+    margin-top: 4px;
+    font-size: 12.5px;
+}
+
+/* Conversa aberta — L5991-6058 */
+.bj-central-corpo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 0 8px;
+    background: var(--bjc-fundo-corpo);
+}
+
+.bj-central-dia {
+    align-self: center;
+    margin: 8px 0 2px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--bjc-separador);
+    color: var(--bjc-separador-texto);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.bj-central-msg {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 6px 12px 2px;
+}
+
+.bj-central-msg--minha {
+    align-items: flex-end;
+}
+
+/* Bolha — L6045 */
+.bj-central-bolha {
+    max-width: 82%;
+    padding: 7px 11px;
+    border-radius: 4px;
+    border-bottom-left-radius: 2px;
+    background: var(--bjc-bolha-outro);
+    color: var(--bjc-texto-forte);
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+
+.bj-central-msg--minha .bj-central-bolha {
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 2px;
+    background: var(--bjc-azul);
+    color: #fff;
+}
+
+/* Hora abaixo da bolha — L6054; recibo L5980 */
+.bj-central-msg-hora {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--bjc-texto-fraco);
+}
+
+.bj-central-msg-hora .bi {
+    font-size: 13px;
+}
+
+.bj-central-mais {
+    align-self: center;
+    margin: 6px 0;
+    padding: 2px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-azul);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.bj-central-aviso {
+    padding: 8px 12px;
+    border-top: 1px solid var(--bjc-borda-suave);
+    color: var(--bjc-texto-suave);
+    font-size: 12px;
+    text-align: center;
+}
+
+/* Compositor — L6072-6157 (posição relativa: a lista de @menção ancora nele, L6075) */
+.bj-central-compositor {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 8px;
+    border-top: 1px solid var(--bjc-borda-suave);
+    background: var(--bjc-fundo);
+    flex-shrink: 0;
+}
+
+.bj-central-compositor[hidden] {
+    display: none;
+}
+
+.bj-central-campo {
+    flex: 1;
+    min-height: 36px;
+    max-height: 110px;
+    padding: 8px 10px;
+    border: 1px solid var(--bjc-borda);
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    resize: none;
+}
+
+.bj-central-campo:focus {
+    outline: 2px solid var(--bjc-azul);
+    outline-offset: -1px;
+}
+
+.bj-central-enviar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--bjc-azul);
+    color: #fff;
+    font-size: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+    cursor: pointer;
+}
+
+.bj-central-enviar:disabled {
+    opacity: .5;
+    cursor: default;
+}
+
+/* ── A2 ─────────────────────────────────────────────────────────────────────────── */
+
+/* Menção no balão — pintarTexto, L5856: negrito na cor AZUL; no balão próprio, branco */
+.bj-central-mencao {
+    font-weight: 700;
+    color: var(--bjc-azul);
+}
+
+.bj-central-msg--minha .bj-central-mencao {
+    color: #fff;
+}
+
+/* Linha marcada como não lida: selo sem número (só o ponto) */
+.bj-central-selo--marca {
+    min-width: 10px;
+    width: 10px;
+    height: 10px;
+    padding: 0;
+}
+
+/* Citação no balão — L6035 */
+.bj-central-citacao {
+    display: block;
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 4px 8px;
+    border: 0;
+    border-left: 3px solid var(--bjc-conv);
+    border-radius: 3px;
+    background: var(--bjc-citacao-fundo);
+    color: var(--bjc-citacao-texto);
+    box-shadow: inset 0 0 0 1px var(--bjc-citacao-borda);
+    font: inherit;
+    text-align: left;
+    white-space: normal;
+    cursor: pointer;
+}
+
+.bj-central-msg--minha .bj-central-citacao {
+    border-left-color: #fff;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35);
+}
+
+.bj-central-citacao-autor {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.bj-central-citacao-trecho {
+    display: block;
+    font-size: 12px;
+    opacity: .9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Aviso passageiro ("Mensagem copiada.") — aviso(), L5398; desenho L6410 */
+.bj-central-toast {
+    width: 380px;
+    max-width: 100%;
+    margin-bottom: 8px;
+    padding: 7px 12px;
+    border-radius: 4px;
+    background: #12242f;
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+    animation: bjcIn .2s ease-out;
+}
+
+.bj-central-toast .bi {
+    margin-right: 6px;
+    color: #ffb37a;
+}
+
+/* Piscar ao ir até a original — irParaMsg, L5871 */
+.bj-central-msg--destaque .bj-central-bolha {
+    box-shadow: 0 0 0 3px rgba(242, 169, 59, .9);
+    transition: box-shadow .2s;
+}
+
+/* Rodapé: faixa de resposta + autocomplete + compositor */
+.bj-central-rodape {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.bj-central-rodape[hidden] {
+    display: none;
+}
+
+/* Faixa "Respondendo a…" — L6068: largura toda, acima da caixa do compositor (que mantém a borda, L6072) */
+.bj-central-respondendo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 12px;
+    border: 1px solid var(--bjc-citacao-borda);
+    border-radius: 4px 4px 0 0;
+    background: var(--bjc-citacao-fundo);
+}
+
+.bj-central-respondendo[hidden] {
+    display: none;
+}
+
+.bj-central-respondendo-barra {
+    align-self: stretch;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--bjc-conv);   /* a tela troca pela cor do autor (corNome, L5815) */
+}
+
+.bj-central-respondendo-textos {
+    flex: 1;
+    min-width: 0;
+}
+
+.bj-central-respondendo-rotulo {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--bjc-azul);
+}
+
+.bj-central-respondendo-trecho {
+    font-size: 12px;
+    color: var(--bjc-texto-medio);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bj-central-respondendo-cancelar {
+    flex-shrink: 0;
+    padding: 2px 4px;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-menu-icone);
+    cursor: pointer;
+}
+
+/* Autocomplete de @menção — L6094-6111 */
+.bj-central-mencoes {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc(100% + 4px);
+    z-index: 5;
+    max-height: 240px;
+    overflow-y: auto;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
+}
+
+.bj-central-mencoes[hidden] {
+    display: none;
+}
+
+.bj-central-mencoes-cab {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    color: var(--bjc-texto-fraco);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.bj-central-mencoes-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-mencoes-item[aria-selected="true"] {
+    background: var(--bjc-selecionado);
+}
+
+.bj-central-mencoes-item .bj-central-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+}
+
+/* Menu de botão direito — menuCtxEl, L5697-5705 */
+.bj-central-ctx-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+}
+
+.bj-central-ctx {
+    position: fixed;
+    z-index: 1091;
+    width: 220px;
+    padding: 5px;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .24);
+    font-family: Arial, Helvetica, sans-serif;
+    animation: bjcIn .12s both;
+}
+
+.bj-central-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 33px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--bjc-menu-texto);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-ctx-item:hover,
+.bj-central-ctx-item:focus-visible {
+    background: var(--bjc-menu-hover);
+    outline: none;
+}
+
+.bj-central-ctx-item .bi {
+    width: 16px;
+    text-align: center;
+    color: var(--bjc-menu-icone);
+}
+
+@keyframes bjcIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bj-central-ctx {
+        animation: none;
+    }
+}
+
+/* ── B: grupos e preferências ────────────────────────────────────────────────────── */
+
+/* Marcas da linha — L5676: fixada (azul), silenciada e arquivada (cinza), 11px */
+.bj-central-marca {
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+}
+
+.bj-central-marca--fixada {
+    color: var(--bjc-azul);
+}
+
+/* Silenciada: selo cinza — L5693 */
+.bj-central-selo--mudo {
+    background: var(--bjc-selo-mudo);
+}
+
+.bj-central-avatar--grupo {
+    background: var(--bjc-conv);
+}
+
+.bj-central-avatar--grande {
+    width: 64px;
+    height: 64px;
+    font-size: 23px;
+}
+
+/* Linha de sistema do grupo — pílula centralizada, L6029 */
+.bj-central-msg--sistema {
+    align-items: center;
+}
+
+.bj-central-sistema {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--bjc-sistema-fundo);
+    color: var(--bjc-sistema-texto);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Em grupo, o nome de quem escreveu no topo do balão (cor por pessoa, L5814) */
+.bj-central-msg-autor {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.bj-central-faixa-arquivadas {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 12px 0;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: var(--bjc-citacao-fundo);
+    color: var(--bjc-texto-medio);
+    font-size: 12px;
+}
+
+.bj-central-faixa-arquivadas[hidden] {
+    display: none;
+}
+
+.bj-central-faixa-arquivadas button {
+    border: 0;
+    background: transparent;
+    color: var(--bjc-azul);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Telas "Novo grupo" e "Informações" */
+.bj-central-painel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.bj-central-painel[hidden] {
+    display: none;
+}
+
+.bj-central-campo-linha {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--bjc-borda);
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto);
+    font: inherit;
+    font-size: 13px;
+}
+
+.bj-central-campo-linha:focus {
+    outline: 2px solid var(--bjc-azul);
+    outline-offset: -1px;
+}
+
+.bj-central-painel-sub {
+    color: var(--bjc-texto-suave);
+    font-size: 12px;
+}
+
+.bj-central-escolha {
+    flex: 1;
+    min-height: 120px;
+    overflow-y: auto;
+    border-top: 1px solid var(--bjc-borda-linha);
+}
+
+.bj-central-escolha-item,
+.bj-central-info-pessoa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.bj-central-info-pessoa {
+    cursor: default;
+}
+
+.bj-central-escolha-item input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--bjc-azul);   /* caixa marcada #0a7aad, L6206 */
+}
+
+.bj-central-painel-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bj-central-painel-acoes--coluna {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.bj-central-btn {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--bjc-borda);
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    color: var(--bjc-texto-forte);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bj-central-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.bj-central-btn--primario {
+    border-color: var(--bjc-azul);
+    background: var(--bjc-azul);
+    color: #fff;
+}
+
+.bj-central-btn--perigo {
+    border-color: transparent;
+    background: transparent;
+    color: var(--bjc-perigo);
+}
+
+.bj-central-info-topo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 4px;
+}
+
+.bj-central-info-nome {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--bjc-texto-forte);
+    text-align: center;
+}
+
+.bj-central-info-linha {
+    display: flex;
+    gap: 6px;
+}
+
+.bj-central-info-secao {
+    margin-top: 6px;
+    color: var(--bjc-texto-fraco);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+/* ── Lançador flutuante: abas, filtros e Painel (desenho L6366, L5776, L5632) ──────── */
+
+.bj-central-abas {
+    display: flex;
+    flex-shrink: 0;
+    margin-top: 6px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--bjc-borda-suave);
+}
+
+.bj-central-aba {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-menu-icone);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.bj-central-aba[aria-selected="true"] {
+    color: var(--bjc-azul);
+    box-shadow: inset 0 -2.5px 0 var(--bjc-azul);
+}
+
+.bj-central-aba-contador {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--bjc-azul);
+    color: #fff;
+    font-size: 10.5px;
+    letter-spacing: 0;
+}
+
+.bj-central-aba-contador[hidden] {
+    display: none;
+}
+
+.bj-central-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: var(--bjc-fundo-corpo);
+}
+
+.bj-central-filtros[hidden] {
+    display: none;
+}
+
+.bj-central-filtro {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--bjc-filtro);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .15s, box-shadow .15s, transform .15s;
+}
+
+.bj-central-filtro:hover {
+    transform: scale(1.12);
+}
+
+.bj-central-filtro[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--bjc-filtro) 12%, transparent);
+    box-shadow: inset 0 0 0 2px var(--bjc-filtro);
+}
+
+.bj-central-filtro-bola {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--bjc-filtro);
+}
+
+/* Painel — grade de cards por grupo (L5636): só os grupos que têm dado no BlueJus */
+.bj-central-painel-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: var(--bjc-fundo-corpo);
+}
+
+.bj-central-painel-grade[hidden] {
+    display: none;
+}
+
+.bj-central-painel-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border: 0;
+    border-left: 3px solid #dfe4e8;
+    border-radius: 3px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+}
+
+.bj-central-painel-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .12);
+}
+
+.bj-central-painel-rotulo {
+    color: #9aabb6;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.bj-central-painel-valor {
+    color: #b5c2ca;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.bj-central-painel-card--ativo .bj-central-painel-valor {
+    color: var(--bjc-texto);
+}
+
+/* Linha com menção por ver: "@" azul (o "@n" do lançador, por conversa) */
+.bj-central-marca--mencao {
+    color: var(--bjc-azul);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+@media (max-width: 420px) {
+    .bj-central-pagina {
+        padding: 0;
+    }
+
+    .bj-central {
+        width: 100%;
+        height: calc(100vh - 120px);
+        border-radius: 0;
+    }
+}
+
+/* Balão de dica da Central: bj-dica.js do Designer (L9), só dentro da Central (central-dica.js). Cores fixas, como no
+   desenho (que não tem tema escuro). left/top/opacity/transform são do JS. */
+.bj-central-dica {
+    position: fixed;
+    z-index: 2147483647;
+    left: 0;
+    top: 0;
+    max-width: min(300px, calc(100vw - 16px));
+    padding: 6px 10px;
+    border: 1px solid #b9d6e8;
+    border-radius: 4px;
+    background: #e5f1f7;
+    color: #0b4f73;
+    font: 600 12px/1.4 Arial, Helvetica, sans-serif;
+    box-shadow: 0 4px 14px rgba(10, 60, 90, .14);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity .12s, transform .12s;
+}
+
+/* ── B1: menu ⋮ em painel (menu(), L6244-6252) ─────────────────────────────────────── */
+.bj-central-menu {
+    position: absolute;
+    top: 52px;
+    right: 8px;
+    z-index: 3;
+    width: 272px;
+    max-height: calc(100% - 64px);
+    overflow-y: auto;
+    padding: 5px;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .22);
+    color: var(--bjc-menu-texto);
+    line-height: normal;            /* o desenho não herda o 1.5 do Bootstrap: item de 31 px */
+    animation: bjcInDesenho .14s both;
+}
+
+.bj-central-menu-secao {        /* sec, L6247 */
+    padding: 8px 10px 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--bjc-texto-fraco);
+}
+
+.bj-central-menu-sep {          /* sep, L6246 */
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--bjc-borda-linha);
+}
+
+.bj-central-menu-item {         /* op, L6244 */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--bjc-menu-texto);
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-menu-item:hover,
+.bj-central-menu-item:focus-visible {
+    background: var(--bjc-menu-hover);
+    outline: none;
+}
+
+.bj-central-menu-item > .bi {
+    width: 16px;
+    text-align: center;
+    color: var(--bjc-menu-icone);
+}
+
+.bj-central-menu-rotulo {
+    flex: 1;
+}
+
+.bj-central-menu-chave {        /* chave, L6245 */
+    position: relative;
+    flex-shrink: 0;
+    width: 30px;
+    height: 17px;
+    border-radius: 999px;
+    background: #cfd9e0;
+}
+
+.bj-central-menu-chave[data-ligada] {
+    background: var(--bjc-azul);
+}
+
+.bj-central-menu-chave-bola {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+}
+
+.bj-central-menu-chave[data-ligada] .bj-central-menu-chave-bola {
+    left: 15px;
+}
+
+.bj-central-menu-valor {        /* val, L6248 */
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--bjc-azul);
+    white-space: nowrap;
+}
+
+/* ── B1: confirmação dentro da janela (ui.confirma, L6394) ──────────────────────────── */
+.bj-central-confirma {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(18, 36, 47, .38);
+}
+
+.bj-central-confirma-caixa {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 300px;
+    padding: 16px;
+    border-radius: 4px;
+    background: var(--bjc-fundo);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+}
+
+.bj-central-confirma-texto {
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--bjc-texto-forte);
+}
+
+.bj-central-confirma-botoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bj-central-confirma-btn {
+    height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 3px;
+    background: #eef1f3;
+    color: #243845;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.bj-central-confirma-btn--perigo {
+    background: #c0392b;
+    color: #fff;
+}
+
+.bj-central-confirma-btn--acao {
+    background: #0a7aad;
+    color: #fff;
+}
+
+/* bjcIn do desenho (L5414). O bjcIn deste arquivo é o de antes da Fase B (menu de botão direito); fica até a fase C. */
+@keyframes bjcInDesenho {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bj-central-menu {
+        animation: none;
+    }
+}
