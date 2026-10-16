@@ -381,6 +381,160 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('', (string) $c->filter('[data-cad-janela]')->attr('data-pasta'));
     }
 
+    #[TestDox('pasta sem cliente: o botão Cadastro aparece e abre o "Novo cliente" com o nome da pasta')]
+    public function testNovoClienteJanela(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta = $this->criarPastaSemCliente($tenant, $gestor, 'Welton Alves da Silva');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertSame('/pasta/' . $pasta->getId() . '/cadastro/novo', $c->filter('#psCadastroAbrir')->attr('data-url'));
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId() . '/cadastro/novo');
+        self::assertResponseIsSuccessful();
+        self::assertSame('1', $c->filter('[data-cad-janela]')->attr('data-novo'));
+        self::assertSame('WELTON ALVES DA SILVA', trim($c->filter('.js-cad-nome')->text()));
+        self::assertSame('WELTON ALVES DA SILVA', $c->filter('input[name="nome"]')->attr('value'));
+        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['Pessoa física', 'Empresa'], $c->filter('.js-cad-tipo')->each(fn ($b) => trim($b->text())));
+    }
+
+    #[TestDox('salvar o "Novo cliente" cria o cliente, liga à pasta como principal e escreve "cadastro de … criado."')]
+    public function testNovoClienteCria(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta = $this->criarPastaSemCliente($tenant, $gestor, 'Welton Alves da Silva');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->criar($pasta, ['nome' => 'Welton Alves da Silva', 'cpf' => '529.982.247-25', 'numero' => '10']);
+
+        self::assertResponseStatusCodeSame(201);
+        $conn = $this->em()->getConnection();
+        $id = (int) $conn->fetchOne("SELECT c.id FROM cliente c JOIN cliente_pf p ON p.id = c.id WHERE c.tenant_id = ? AND p.cpf = '529.982.247-25'", [$tenant->getId()]);
+        self::assertGreaterThan(0, $id);
+        self::assertSame('/clientes/' . $id . '/cadastro?pasta=' . $pasta->getId(), $this->json()['urlJanela']);
+        self::assertSame($id, (int) $conn->fetchOne('SELECT cliente_principal_id FROM pasta WHERE id = ?', [$pasta->getId()]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM pasta_cliente WHERE pasta_id = ? AND cliente_id = ?', [$pasta->getId(), $id]));
+        self::assertStringContainsString('cadastro de WELTON ALVES DA SILVA criado.', (string) $conn->fetchOne("SELECT conteudo FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'cadastro'", [$pasta->getId()]));
+    }
+
+    #[TestDox('"Novo cliente" sem CPF válido: 422; com CPF de outro cadastro: 409 e nada criado')]
+    public function testNovoClienteRecusas(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $outro = $this->criarClientePF($tenant, 'Já Existe');
+        $pasta = $this->criarPastaSemCliente($tenant, $gestor, 'Fulano');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->criar($pasta, ['nome' => 'Fulano']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Informe um CPF válido. Ele identifica o cliente no sistema.', $this->json()['erro']);
+
+        $this->criar($pasta, ['nome' => 'Fulano', 'cpf' => $outro->getCpf()]);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame($outro->getId(), $this->json()['existente']['id']);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_cliente WHERE pasta_id = ?', [$pasta->getId()]));
+    }
+
+    #[TestDox('quem só vê a pasta abre o "Novo cliente" sem Salvar, e o servidor recusa criar (403)')]
+    public function testNovoClienteSoVe(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta = $this->criarPastaSemCliente($tenant, $gestor, 'Fulano');
+        $leitor = $this->criarColaborador($tenant, []);
+        $this->conceder($leitor, $tenant, 'pasta', (int) $pasta->getId());
+        $this->logarComTenant($this->client, $leitor, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId() . '/cadastro/novo');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $c->filter('.js-cad-salvar'));
+
+        $this->criar($pasta, ['nome' => 'Fulano', 'cpf' => '529.982.247-25']);
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('seletor de autores: os clientes da pasta com o atual marcado; "Novo autor" cria outro sem trocar o principal')]
+    public function testAutores(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $ana = $this->criarClientePF($tenant, 'Ana Autora');
+        $pasta = $this->criarPasta($tenant, $gestor, $ana);
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId() . '/cadastro/novo?autor=1');
+        self::assertSame('Novo cliente', trim($c->filter('.js-cad-nome')->text()));
+        $this->criar($pasta, ['nome' => 'Bruno Autor', 'cpf' => '529.982.247-25']);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($ana->getId(), (int) $this->em()->getConnection()->fetchOne('SELECT cliente_principal_id FROM pasta WHERE id = ?', [$pasta->getId()]));
+
+        $this->em()->clear();
+        $c = $this->client->request('GET', '/clientes/' . $ana->getId() . '/cadastro?pasta=' . $pasta->getId());
+        $chips = $c->filter('.cad-autores .js-cad-autor');
+        self::assertSame(['ANA AUTORAPrincipal', 'BRUNO AUTOR', 'Novo autor'], $chips->each(fn ($b) => trim(preg_replace('/\s+/', ' ', $b->text()))));
+        self::assertSame('true', $c->filter('.js-cad-autor.is-ativo')->attr('aria-current'));
+    }
+
+    #[TestDox('"Novo cliente" como empresa: aba Empresa e cria pessoa jurídica')]
+    public function testNovoClienteEmpresa(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta = $this->criarPastaSemCliente($tenant, $gestor, 'Condomínio Sol');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId() . '/cadastro/novo?tipo=pj');
+        self::assertStringContainsString('Empresa', $c->filter('[data-cad-aba="pessoais"]')->text());
+        self::assertSame('CONDOMÍNIO SOL', $c->filter('input[name="razao_social"]')->attr('value'));
+
+        $this->criar($pasta, ['tipo' => 'pj', 'razao_social' => 'Condomínio Sol', 'cnpj' => '11.222.333/0001-81']);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM cliente_pj WHERE cnpj = '11222333000181'"));
+    }
+
+    #[TestDox('"Novo cliente" de pasta de outro escritório: 404 na janela e no salvar, nada criado')]
+    public function testNovoClienteOutroEscritorio(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $outro = $this->criarTenant();
+        $alheia = $this->criarPastaSemCliente($outro, $this->criarGestor($outro), 'Alheio');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->client->request('GET', '/pasta/' . $alheia->getId() . '/cadastro/novo');
+        self::assertResponseStatusCodeSame(404);
+        $this->criar($alheia, ['nome' => 'Invasor', 'cpf' => '529.982.247-25']);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_cliente WHERE pasta_id = ?', [$alheia->getId()]));
+    }
+
+    /** @param array<string, string> $campos */
+    private function criar(Pasta $pasta, array $campos): void
+    {
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/cadastro/novo', $campos + ['_token' => 'TOKEN_pasta_cadastro_novo_' . $pasta->getId()]);
+    }
+
+    private function criarPastaSemCliente(Tenant $tenant, User $criador, string $nomeCliente): Pasta
+    {
+        $pasta = new Pasta();
+        $pasta->setNup('NOVO-' . strtoupper(substr(uniqid(), -6)));
+        $pasta->setTenant($tenant);
+        $pasta->setCriadoPor($criador);
+        $pasta->setResponsavel($criador);
+        $pasta->setNomeCliente($nomeCliente);
+        $pasta->setNomeAcao('Ação de teste');
+        $this->em()->persist($pasta);
+        $this->em()->flush();
+
+        return $pasta;
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function anexar(ClientePF $cliente, string $categoria, string $nome): \App\Cliente\Entity\ClienteDocumento

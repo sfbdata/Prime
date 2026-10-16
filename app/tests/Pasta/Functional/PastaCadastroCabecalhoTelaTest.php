@@ -175,8 +175,8 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
         self::assertSame('2', $botao->attr('data-pendencias'));
     }
 
-    #[TestDox('Pasta sem cliente cadastrado: nada de botão Cadastro (não há cadastro para mostrar); a Situação continua')]
-    public function testSemClienteNaoDesenhaOBotao(): void
+    #[TestDox('E12i (regra do dono): pasta sem cliente também tem o botão Cadastro, que abre o "Novo cliente"; a Situação continua')]
+    public function testSemClienteAbreONovoCliente(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
@@ -186,8 +186,11 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        self::assertCount(0, $crawler->filter('#psCadastroAbrir'));
-        self::assertCount(0, $crawler->filter('.ps-cad-btn'));
+        $botao = $crawler->filter('.ps-abas-faixa > #psCadastroAbrir.ps-cad-btn');
+        self::assertCount(1, $botao);
+        self::assertSame('/pasta/' . $pasta->getId() . '/cadastro/novo', $botao->attr('data-url'));
+        self::assertCount(1, $botao->filter('.ps-cad-ponto--pendente'));
+        self::assertSame('Sem cliente cadastrado · clique para cadastrar', $botao->attr('title'));
         self::assertCount(1, $crawler->filter('.ps-abas-faixa > .ps-situacao-wrap'));
     }
 

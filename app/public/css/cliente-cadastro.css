@@ -174,3 +174,15 @@
 .cad-reu-btn { width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--cad-rotulo); cursor: pointer; }
 .cad-reu-btn:hover { background: var(--cad-btn-sec-bg); color: var(--cad-btn-sec-tx); }
 .cad-reu-confirma { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; }
+
+/* Seletor de autores e tipo do novo cadastro (E12i). */
+.cad-autores { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 18px; border-bottom: 1px solid var(--cad-borda); }
+.cad-autores-rotulo { margin-right: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cad-rotulo); }
+.cad-autor { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--cad-borda); border-radius: 999px;
+    background: transparent; color: var(--cad-texto); font-size: 12px; font-weight: 600; cursor: pointer; }
+.cad-autor.is-ativo { border-color: var(--cad-aba-on); background: var(--cad-btn-sec-bg); color: var(--cad-btn-sec-tx); }
+.cad-autor--novo { border-style: dashed; color: var(--cad-btn-sec-tx); }
+.cad-autor-tag { padding: 0 6px; border-radius: 999px; background: var(--cad-st-ok-bg); color: var(--cad-st-ok-tx); font-size: 10px; }
+.cad-tipo { flex-direction: row; gap: 6px; }
+.cad-tipo-op { height: 30px; padding: 0 12px; border: 1px solid var(--cad-borda); border-radius: 6px; background: transparent; color: var(--cad-texto); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.cad-tipo-op.is-ativo { border-color: var(--cad-aba-on); background: var(--cad-btn-sec-bg); color: var(--cad-btn-sec-tx); }
