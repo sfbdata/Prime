@@ -14,5 +14,8 @@ class CriarMarcadorDTO
         public readonly ?int $paiId = null,
 
         public readonly ?string $cor = null,
+
+        #[Assert\Length(max: 255, maxMessage: 'A descrição pode ter no máximo {{ limit }} caracteres.')]
+        public readonly ?string $descricao = null,
     ) {}
 }

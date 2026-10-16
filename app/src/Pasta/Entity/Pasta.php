@@ -29,6 +29,10 @@ class Pasta implements Auditavel, TenantAware
 {
     public const SITUACAO_ATIVA     = 'ativo';
     public const SITUACAO_ARQUIVADA = 'arquivado';
+    // Suspenso e Cancelado vêm do desenho 1.1 da Lista (E12). Quem pede "ativa" continua pedindo só ATIVA.
+    public const SITUACAO_SUSPENSA  = 'suspenso';
+    public const SITUACAO_CANCELADA = 'cancelado';
+    public const SITUACOES = [self::SITUACAO_ATIVA, self::SITUACAO_SUSPENSA, self::SITUACAO_CANCELADA, self::SITUACAO_ARQUIVADA];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -48,7 +52,7 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(name: 'drive_synced_at', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $driveSyncedAt = null;
 
-    #[Assert\Choice(choices: [self::SITUACAO_ATIVA, self::SITUACAO_ARQUIVADA])]
+    #[Assert\Choice(choices: self::SITUACOES)]
     #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
     private string $situacao = self::SITUACAO_ATIVA;
 
@@ -91,6 +95,17 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(name: 'excluida_por_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $excluidaPor = null;
+
+    /**
+     * Pasta trancada (E12): só o administrador do escritório tranca e destranca. A proteção é a do desenho,
+     * um aviso na Lista para quem não é administrador; não há bloqueio da pasta_show no servidor.
+     */
+    #[ORM\Column(name: 'trancada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $trancadaEm = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(name: 'trancada_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $trancadaPor = null;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
@@ -385,6 +400,37 @@ $this->documentos = new ArrayCollection();
         $this->excluidaEm  = null;
         $this->excluidaPor = null;
         $this->situacao    = self::SITUACAO_ATIVA;
+
+        return $this;
+    }
+
+    public function estaTrancada(): bool
+    {
+        return $this->trancadaEm !== null;
+    }
+
+    public function getTrancadaEm(): ?\DateTimeImmutable
+    {
+        return $this->trancadaEm;
+    }
+
+    public function getTrancadaPor(): ?User
+    {
+        return $this->trancadaPor;
+    }
+
+    public function trancar(User $por, \DateTimeImmutable $em): self
+    {
+        $this->trancadaEm  = $em;
+        $this->trancadaPor = $por;
+
+        return $this;
+    }
+
+    public function destrancar(): self
+    {
+        $this->trancadaEm  = null;
+        $this->trancadaPor = null;
 
         return $this;
     }

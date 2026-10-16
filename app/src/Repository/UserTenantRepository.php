@@ -100,4 +100,25 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Usuários administradores ativos do escritório (perfil de sistema). Destino do "Pedir acesso" de uma
+     * pasta trancada (E12).
+     *
+     * @return User[]
+     */
+    public function findUsuariosAdminsAtivos(Tenant $tenant): array
+    {
+        $vinculos = $this->createQueryBuilder('ut')
+            ->join('ut.tenantRole', 'r')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('r.isSystem = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('ut.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (UserTenant $ut): User => $ut->getUser(), $vinculos);
+    }
 }

@@ -11,6 +11,12 @@ use App\Entity\Auth\UserTenant;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaFavorita;
+use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
+use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tarefa\TarefaMensagem;
+use App\Processo\Entity\ParteProcesso;
 use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
@@ -35,6 +41,12 @@ class PastaRepository extends ServiceEntityRepository
      */
     private const EXPR_PREFIXO_NUP = 'CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN -1 ELSE CAST_INT_PREFIXO(p.nup) END';
     private const EXPR_NUP_CRU     = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
+
+    /**
+     * Filtros do sistema da seção EXPEDIENTES do trilho (desenho 1.1 da Lista, E12). Audiência e Protocolar
+     * não estão aqui: não há dado para eles (spec E12 §2.2).
+     */
+    public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'prazo', 'metas'];
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -657,6 +669,10 @@ class PastaRepository extends ServiceEntityRepository
      */
     private function aplicarFiltrosPasta(QueryBuilder $qb, array $filters): void
     {
+        if (!empty($filters['expediente']) && in_array($filters['expediente'], self::FILTROS_EXPEDIENTE, true)) {
+            $this->aplicarFiltroDoExpediente($qb, (string) $filters['expediente']);
+        }
+
         if (!empty($filters['nup'])) {
             $qb->andWhere('p.nup LIKE :nup')
                ->setParameter('nup', '%' . $filters['nup'] . '%');
@@ -781,6 +797,201 @@ class PastaRepository extends ServiceEntityRepository
             $qb->andWhere('p.dataAbertura <= :dataAte')
                ->setParameter('dataAte', $dataAte);
         }
+    }
+
+    /**
+     * Filtro do sistema escolhido na seção EXPEDIENTES (E12). Pasta excluída (lápide) nunca entra.
+     *
+     * - resp10: houve atividade nos últimos 10 dias (mensagem, observação de detalhes ou financeira, meta
+     *   criada ou concluída, resposta de meta). EXISTS: cada pasta conta uma vez.
+     * - findou: meta não concluída cujo prazo venceu nos últimos 10 dias (hoje fora) e, depois do prazo,
+     *   nenhuma atividade na pasta.
+     * - prazo: meta não concluída com prazo hoje ou depois.
+     * - metas: meta não concluída sem nenhuma resposta.
+     *
+     * Só metas têm prazo gravado: não existe prazo manual da pasta nem prazo calculado do Push.
+     */
+    private function aplicarFiltroDoExpediente(QueryBuilder $qb, string $filtro): void
+    {
+        $hoje = new \DateTimeImmutable('today');
+        $d10  = $hoje->modify('-10 days');
+        $qb->andWhere('p.excluidaEm IS NULL');
+
+        $atividadeDepois = static fn (string $limite, string $sufixo): string => sprintf(
+            '(EXISTS (SELECT 1 FROM %1$s m_%6$s WHERE m_%6$s.pasta = p AND m_%6$s.criadaEm > %7$s)'
+            . ' OR EXISTS (SELECT 1 FROM %2$s od_%6$s WHERE od_%6$s.pasta = p AND od_%6$s.criadaEm > %7$s)'
+            . ' OR EXISTS (SELECT 1 FROM %3$s of_%6$s WHERE of_%6$s.pasta = p AND of_%6$s.criadaEm > %7$s)'
+            . ' OR EXISTS (SELECT 1 FROM %4$s t_%6$s WHERE t_%6$s.pasta = p AND (t_%6$s.dataCriacao > %7$s OR t_%6$s.dataConclusao > %7$s))'
+            . ' OR EXISTS (SELECT 1 FROM %5$s tm_%6$s JOIN tm_%6$s.tarefa tt_%6$s WHERE tt_%6$s.pasta = p AND tm_%6$s.criadoEm > %7$s))',
+            PastaMensagem::class,
+            PastaObservacaoDetalhes::class,
+            PastaObservacaoFinanceira::class,
+            Tarefa::class,
+            TarefaMensagem::class,
+            $sufixo,
+            $limite,
+        );
+
+        switch ($filtro) {
+            case 'resp10':
+                $qb->andWhere($atividadeDepois(':exp_d10_ini', 'r10'))
+                   ->setParameter('exp_d10_ini', $d10->modify('-1 second'));
+                break;
+            case 'findou':
+                $qb->andWhere(sprintf(
+                    'EXISTS (SELECT 1 FROM %s t_fd WHERE t_fd.pasta = p AND t_fd.status <> :exp_concluida'
+                    . ' AND t_fd.prazo >= :exp_d10 AND t_fd.prazo < :exp_hoje AND NOT %s)',
+                    Tarefa::class,
+                    str_replace(':exp_lim', 't_fd.prazo', $atividadeDepois(':exp_lim', 'fda')),
+                ))
+                   ->setParameter('exp_concluida', Tarefa::STATUS_CONCLUIDA)
+                   ->setParameter('exp_d10', $d10)
+                   ->setParameter('exp_hoje', $hoje);
+                break;
+            case 'prazo':
+                $qb->andWhere(sprintf(
+                    'EXISTS (SELECT 1 FROM %s t_pz WHERE t_pz.pasta = p AND t_pz.status <> :exp_concluida AND t_pz.prazo >= :exp_hoje)',
+                    Tarefa::class,
+                ))
+                   ->setParameter('exp_concluida', Tarefa::STATUS_CONCLUIDA)
+                   ->setParameter('exp_hoje', $hoje);
+                break;
+            case 'metas':
+                $qb->andWhere(sprintf(
+                    'EXISTS (SELECT 1 FROM %s t_mt WHERE t_mt.pasta = p AND t_mt.status <> :exp_concluida'
+                    . ' AND NOT EXISTS (SELECT 1 FROM %s tm_mt WHERE tm_mt.tarefa = t_mt))',
+                    Tarefa::class,
+                    TarefaMensagem::class,
+                ))
+                   ->setParameter('exp_concluida', Tarefa::STATUS_CONCLUIDA);
+                break;
+        }
+    }
+
+    /**
+     * Contagem de cada filtro do sistema da seção EXPEDIENTES do trilho (E12).
+     *
+     * @return array<string, int>
+     */
+    public function contagensDosFiltrosDoExpediente(Tenant $tenant): array
+    {
+        $contagens = [];
+        foreach (self::FILTROS_EXPEDIENTE as $filtro) {
+            $contagens[$filtro] = $this->countByFilters(['expediente' => $filtro], $tenant);
+        }
+
+        return $contagens;
+    }
+
+    /**
+     * Réus das pastas da página, para a coluna "Réu" da Lista (E12): partes de polo passivo dos processos
+     * vinculados à pasta, o processo principal primeiro. O polo é texto livre (`ParteProcesso.papel`, em
+     * maiúsculas), por isso o casamento por radical: PASSIV, RÉU/REU, REQUERID, EXECUTAD, RECLAMAD.
+     *
+     * @param int[] $pastaIds
+     * @return array<int, string[]> pastaId => nomes sem repetição
+     */
+    public function reusPorPasta(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->getEntityManager()->createQueryBuilder()
+            ->select('IDENTITY(pp.pasta) AS pasta_id', 'pa.nome')
+            ->from(PastaProcesso::class, 'pp')
+            ->join('pp.processo', 'pr')
+            ->join(ParteProcesso::class, 'pa', 'WITH', 'pa.processo = pr')
+            ->join('pp.pasta', 'pz')
+            ->where('pz.tenant = :tenant')
+            ->andWhere('pz.id IN (:ids)')
+            ->andWhere("UPPER(pa.papel) LIKE '%PASSIV%' OR UPPER(pa.papel) LIKE '%RÉU%' OR UPPER(pa.papel) LIKE '%REU%'"
+                . " OR UPPER(pa.papel) LIKE '%REQUERID%' OR UPPER(pa.papel) LIKE '%EXECUTAD%' OR UPPER(pa.papel) LIKE '%RECLAMAD%'")
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('pp.principal', 'DESC')
+            ->addOrderBy('pp.id', 'ASC')
+            ->addOrderBy('pa.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $reus = [];
+        foreach ($linhas as $l) {
+            $id   = (int) $l['pasta_id'];
+            $nome = trim((string) $l['nome']);
+            if ($nome !== '' && !in_array($nome, $reus[$id] ?? [], true)) {
+                $reus[$id][] = $nome;
+            }
+        }
+
+        return $reus;
+    }
+
+    /**
+     * Quantas pastas (sem lápide) cada cliente principal tem no escritório: o selo "Nx" ao lado do cliente
+     * na Lista (E12). O cliente principal é o cadastro com CPF/CNPJ, então "mesmo nome e CPF" é ele.
+     *
+     * @param int[] $clienteIds
+     * @return array<int, int> clienteId => total
+     */
+    public function totalDePastasPorClientePrincipal(array $clienteIds, Tenant $tenant): array
+    {
+        if ($clienteIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.clientePrincipal) AS cliente_id', 'COUNT(p.id) AS total')
+            ->where('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('p.clientePrincipal IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $clienteIds)
+            ->groupBy('p.clientePrincipal')
+            ->getQuery()
+            ->getArrayResult();
+
+        $totais = [];
+        foreach ($linhas as $l) {
+            $totais[(int) $l['cliente_id']] = (int) $l['total'];
+        }
+
+        return $totais;
+    }
+
+    /**
+     * Clientes já usados em pastas cujo nome contém o termo, com quantas pastas cada um tem: as sugestões e o
+     * aviso "Cliente já cadastrado em N pasta(s)" da Nova Pasta (E12). Casa pelo identificador da pasta.
+     *
+     * @return array<string, int> nome => total
+     */
+    public function nomesDeClienteParecidos(string $termo, Tenant $tenant, int $limite = 8): array
+    {
+        $termo = mb_strtoupper(trim($termo));
+        if (mb_strlen($termo) < 2) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.nomeCliente AS nome', 'COUNT(p.id) AS total')
+            ->where('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('UPPER(p.nomeCliente) LIKE :termo')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('termo', '%' . addcslashes($termo, '%_') . '%')
+            ->groupBy('p.nomeCliente')
+            ->orderBy('total', 'DESC')
+            ->addOrderBy('p.nomeCliente', 'ASC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getArrayResult();
+
+        $nomes = [];
+        foreach ($linhas as $l) {
+            $nomes[(string) $l['nome']] = (int) $l['total'];
+        }
+
+        return $nomes;
     }
 
     /**

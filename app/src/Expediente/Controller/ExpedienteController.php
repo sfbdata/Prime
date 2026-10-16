@@ -11,10 +11,23 @@ use App\Expediente\Repository\MarcadorRepository;
 use App\Expediente\UseCase\CriarMarcadorUseCase;
 use App\Expediente\UseCase\EditarMarcadorUseCase;
 use App\Expediente\UseCase\ExcluirMarcadorUseCase;
+use App\Expediente\UseCase\ReordenarMarcadorUseCase;
 use App\Expediente\UseCase\SincronizarMarcadoresDaPastaUseCase;
+use App\Expediente\Service\CsvDaListaDoExpediente;
 use App\Pasta\Attribute\PastaPorId;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
+use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Pasta\Repository\PastaDestaqueRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\NumeracaoDePastaInterface;
+use App\Pasta\UseCase\AlternarTrancaDaPastaUseCase;
+use App\Pasta\UseCase\DestacarPastaUseCase;
+use App\Pasta\UseCase\PedirAcessoAPastaTrancadaUseCase;
+use App\Pasta\UseCase\RenomearClienteDaPastaUseCase;
 use App\Repository\UserRepository;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -29,6 +42,12 @@ final class ExpedienteController extends AbstractController
 {
     private const PER_PAGE = 50;
 
+    /** "Pastas por página" do Visualizar (desenho 1.1, E12). */
+    private const POR_PAGINA = [25, 50, 100];
+
+    /** Token único das ações da Lista (F2, trancar, destacar, pedir acesso, reordenar). */
+    public const CSRF_LISTA = 'expediente_lista';
+
     public function __construct(
         private readonly PastaRepository $pastaRepository,
         private readonly UserRepository $userRepository,
@@ -41,6 +60,14 @@ final class ExpedienteController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
+        private readonly ReordenarMarcadorUseCase $reordenarMarcadorUseCase,
+        private readonly RenomearClienteDaPastaUseCase $renomearClienteUseCase,
+        private readonly AlternarTrancaDaPastaUseCase $alternarTrancaUseCase,
+        private readonly DestacarPastaUseCase $destacarPastaUseCase,
+        private readonly PedirAcessoAPastaTrancadaUseCase $pedirAcessoUseCase,
+        private readonly PastaDestaqueRepository $destaqueRepository,
+        private readonly NumeracaoDePastaInterface $numeracaoDePasta,
+        private readonly CsvDaListaDoExpediente $csvDaLista,
     ) {
     }
 
@@ -51,6 +78,7 @@ final class ExpedienteController extends AbstractController
      */
     private const PARAMS_DEEP_LINK_ACERVO = [
         'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao', 'page',
+        'expediente', 'por_pagina',
     ];
 
     #[Route('/expediente', name: 'expediente_index')]
@@ -69,6 +97,9 @@ final class ExpedienteController extends AbstractController
             'todosMarcadores' => $todosMarcadores,
             'contagemPastas'  => $contagemPastas,
             'painelInicial'   => $this->painelInicialDoDeepLink($request),
+            'contagensExpediente' => $this->pastaRepository->contagensDosFiltrosDoExpediente($tenant),
+            'totalPastas'     => $this->pastaRepository->countByFilters([], $tenant),
+            'souAdministrador' => $this->permissionChecker->isAdministradorDoEscritorio($user, $tenant),
         ]);
     }
 
@@ -115,6 +146,7 @@ final class ExpedienteController extends AbstractController
                 ? (int) $request->request->get('pai_id')
                 : null,
             cor:   ($cor === '' || $cor === null) ? null : (string) $cor,
+            descricao: $request->request->has('descricao') ? (string) $request->request->get('descricao') : null,
         );
 
         $erros = $this->validator->validate($dto);
@@ -122,12 +154,17 @@ final class ExpedienteController extends AbstractController
             return $this->json(['erro' => (string) $erros->get(0)->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $marcador = $this->criarMarcadorUseCase->executar($dto, $user, $tenant);
+        try {
+            $marcador = $this->criarMarcadorUseCase->executar($dto, $user, $tenant);
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return $this->json([
             'id'          => $marcador->getId(),
             'nome'        => $marcador->getNome(),
             'cor'         => $marcador->getCor(),
+            'descricao'   => $marcador->getDescricao(),
             'paiId'       => $marcador->getPai()?->getId(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('excluir_marcador_' . $marcador->getId())->getValue(),
             'csrfEditar'  => $this->csrfTokenManager->getToken('editar_marcador_' . $marcador->getId())->getValue(),
@@ -154,15 +191,28 @@ final class ExpedienteController extends AbstractController
         $cor = ($cor === '' || $cor === null) ? null : (string) $cor;
 
         try {
-            $marcador = $this->editarMarcadorUseCase->executar($id, $nome, $cor, $tenant);
+            // "Dentro de (submarcador)" (E12) só muda o pai quando o campo vem: o modal antigo não o manda.
+            $trocarPai = $request->request->has('pai_id');
+            $paiId     = (string) $request->request->get('pai_id', '');
+            $marcador  = $this->editarMarcadorUseCase->executar(
+                $id,
+                $nome,
+                $cor,
+                $tenant,
+                $request->request->has('descricao') ? (string) $request->request->get('descricao') : null,
+                $trocarPai,
+                $paiId === '' ? null : (int) $paiId,
+            );
         } catch (\DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json([
-            'id'   => $marcador->getId(),
-            'nome' => $marcador->getNome(),
-            'cor'  => $marcador->getCor(),
+            'id'        => $marcador->getId(),
+            'nome'      => $marcador->getNome(),
+            'cor'       => $marcador->getCor(),
+            'descricao' => $marcador->getDescricao(),
+            'paiId'     => $marcador->getPai()?->getId(),
         ]);
     }
 
@@ -216,12 +266,13 @@ final class ExpedienteController extends AbstractController
             ? $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant)
             : $this->pastaRepository->countPorMarcador($marcador, $tenant);
 
-        $totalPages = max(1, (int) ceil($totalItems / self::PER_PAGE));
+        $porPagina  = $this->porPaginaDaRequest($request);
+        $totalPages = max(1, (int) ceil($totalItems / $porPagina));
         $page       = min($page, $totalPages);
 
         $pastas = $hasFilters
-            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao, $user)
-            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao, $user);
+            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user)
+            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
 
@@ -236,11 +287,11 @@ final class ExpedienteController extends AbstractController
             'formAction'   => $urlPainel,
             'pagination'   => [
                 'current_page' => $page,
-                'per_page'     => self::PER_PAGE,
+                'per_page'     => $porPagina,
                 'total_items'  => $totalItems,
                 'total_pages'  => $totalPages,
             ],
-        ]);
+        ] + $this->extrasDaLista($pastas, $user, $tenant));
     }
 
     // Pasta excluída (lápide) é somente-leitura: o PastaSomenteLeituraListener recusa pelo id.
@@ -281,6 +332,191 @@ final class ExpedienteController extends AbstractController
         ]);
     }
 
+    #[Route('/expediente/marcador/{id}/reordenar', name: 'expediente_marcador_reordenar', methods: ['POST'])]
+    public function reordenarMarcador(int $id, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_LISTA, $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $this->reordenarMarcadorUseCase->executar(
+                $id,
+                $request->request->getInt('alvo_id'),
+                $request->request->getBoolean('depois'),
+                $tenant,
+            );
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['ok' => true]);
+    }
+
+    // F2 da Lista: muda só o identificador da pasta. Lápide recusada pelo PastaSomenteLeituraListener.
+    #[Route('/expediente/pasta/{id}/nome', name: 'expediente_pasta_nome', methods: ['POST'])]
+    public function renomearClienteDaPasta(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_LISTA, $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $nome = $this->renomearClienteUseCase->executar($pasta, (string) $request->request->get('nome', ''), $user, $tenant);
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaEditarPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['nome' => $nome]);
+    }
+
+    #[Route('/expediente/pasta/{id}/trancar', name: 'expediente_pasta_trancar', methods: ['POST'])]
+    public function alternarTrancaDaPasta(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_LISTA, $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $trancada = $this->alternarTrancaUseCase->executar($pasta, $user, $tenant);
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (AccessDeniedException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->json([
+            'trancada' => $trancada,
+            'por'      => $pasta->getTrancadaPor()?->getFullName(),
+            'em'       => $pasta->getTrancadaEm()?->format('d/m/Y'),
+        ]);
+    }
+
+    #[Route('/expediente/pasta/{id}/destaque', name: 'expediente_pasta_destaque', methods: ['POST'])]
+    public function destacarPasta(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_LISTA, $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $cor = (string) $request->request->get('cor', '');
+
+        try {
+            $final = $this->destacarPastaUseCase->executar($pasta, $cor === '' ? null : $cor, $user, $tenant);
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaVerPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['cor' => $final]);
+    }
+
+    #[Route('/expediente/pasta/{id}/pedir-acesso', name: 'expediente_pasta_pedir_acesso', methods: ['POST'])]
+    public function pedirAcessoAPasta(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_LISTA, $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $avisados = $this->pedirAcessoUseCase->executar($pasta, $user, $tenant, $this->generateUrl('pasta_show', ['id' => $pasta->getId()]));
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['avisados' => $avisados]);
+    }
+
+    /**
+     * "Exportar colunas visíveis (CSV)" (E12): todas as pastas da consulta (não só a página), com os mesmos
+     * filtros, a mesma ordem e só as colunas pedidas. `marcador` restringe ao painel de um marcador.
+     */
+    #[Route('/expediente/exportar.csv', name: 'expediente_exportar_csv', methods: ['GET'])]
+    public function exportarCsv(Request $request): Response
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        $filters             = $this->filtrosDaRequest($request);
+        [$ordenar, $direcao] = $this->ordenacaoDaRequest($request);
+        $colunas             = array_filter(explode(',', (string) $request->query->get('colunas', '')));
+
+        $marcadorId = $request->query->getInt('marcador');
+        if ($marcadorId > 0) {
+            $marcador = $this->marcadorRepository->findPorTenant($marcadorId, $tenant);
+            if ($marcador === null) {
+                throw $this->createNotFoundException('Marcador não encontrado.');
+            }
+            $total  = $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant);
+            $pastas = $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, 1, max(1, $total), $ordenar, $direcao, $user);
+        } else {
+            $total  = $this->pastaRepository->countByFilters($filters, $tenant);
+            $pastas = $this->pastaRepository->findByFilters($filters, $tenant, 1, max(1, $total), $ordenar, $direcao, $user);
+        }
+
+        $ids = array_map(static fn (Pasta $p): int => (int) $p->getId(), $pastas);
+        $csv = $this->csvDaLista->gerar($pastas, $colunas, $this->pastaRepository->reusPorPasta($ids, $tenant));
+
+        return new Response($csv, Response::HTTP_OK, [
+            'Content-Type'        => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="expediente-pastas.csv"',
+            'Cache-Control'       => 'no-store',
+        ]);
+    }
+
+    /**
+     * Nova Pasta do desenho 1.1 (E12): o próximo número, só informativo (o servidor numera de novo ao
+     * salvar, com trava), e os clientes parecidos com quantas pastas cada um já tem.
+     */
+    #[Route('/expediente/nova-pasta/sugestoes', name: 'expediente_nova_pasta_sugestoes', methods: ['GET'])]
+    public function sugestoesDaNovaPasta(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        $nomes = $this->pastaRepository->nomesDeClienteParecidos((string) $request->query->get('q', ''), $tenant);
+
+        return $this->json([
+            'proximoNumero' => (string) ($this->numeracaoDePasta->maiorNumero($tenant) + 1),
+            'clientes'      => array_map(
+                static fn (string $nome, int $total): array => ['nome' => $nome, 'total' => $total],
+                array_keys($nomes),
+                array_values($nomes),
+            ),
+        ]);
+    }
+
     #[Route('/expediente/painel/acervo-geral', name: 'expediente_acervo_geral')]
     public function acervoGeral(Request $request): Response
     {
@@ -298,11 +534,13 @@ final class ExpedienteController extends AbstractController
         $page = max(1, $request->query->getInt('page', 1));
 
         $totalItems = $this->pastaRepository->countByFilters($filters, $tenant);
-        $totalPages = max(1, (int) ceil($totalItems / self::PER_PAGE));
+        $porPagina  = $this->porPaginaDaRequest($request);
+        $totalPages = max(1, (int) ceil($totalItems / $porPagina));
         $page       = min($page, $totalPages);
+        $pastas     = $this->pastaRepository->findByFilters($filters, $tenant, $page, $porPagina, $ordenar, $direcao, $user);
 
         return $this->render('expediente/_acervo_geral.html.twig', [
-            'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE, $ordenar, $direcao, $user),
+            'pastas'       => $pastas,
             'filters'      => $filters,
             'ordenar'      => $ordenar,
             'direcao'      => $direcao,
@@ -311,11 +549,11 @@ final class ExpedienteController extends AbstractController
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
             'pagination'   => [
                 'current_page' => $page,
-                'per_page'     => self::PER_PAGE,
+                'per_page'     => $porPagina,
                 'total_items'  => $totalItems,
                 'total_pages'  => $totalPages,
             ],
-        ]);
+        ] + $this->extrasDaLista($pastas, $user, $tenant));
     }
 
     /**
@@ -333,6 +571,40 @@ final class ExpedienteController extends AbstractController
             'data_de'     => $request->query->get('data_de', ''),
             'data_ate'    => $request->query->get('data_ate', ''),
             'criado_por'  => $request->query->get('criado_por', ''),
+            'expediente'  => in_array($request->query->get('expediente', ''), PastaRepository::FILTROS_EXPEDIENTE, true)
+                ? (string) $request->query->get('expediente')
+                : '',
+        ];
+    }
+
+    private function porPaginaDaRequest(Request $request): int
+    {
+        $n = $request->query->getInt('por_pagina', self::PER_PAGE);
+
+        return in_array($n, self::POR_PAGINA, true) ? $n : self::PER_PAGE;
+    }
+
+    /**
+     * O que a Lista do desenho 1.1 mostra além da pasta (E12): réus, selo "Nx", destaques do usuário, quem
+     * é administrador (trancar) e o token das ações. Uma consulta por item, para a página inteira.
+     *
+     * @param Pasta[] $pastas
+     * @return array<string, mixed>
+     */
+    private function extrasDaLista(array $pastas, User $user, Tenant $tenant): array
+    {
+        $ids      = array_map(static fn (Pasta $p): int => (int) $p->getId(), $pastas);
+        $clientes = array_values(array_unique(array_filter(array_map(
+            static fn (Pasta $p): ?int => $p->getClientePrincipal()?->getId(),
+            $pastas,
+        ))));
+
+        return [
+            'reusPorPasta'      => $this->pastaRepository->reusPorPasta($ids, $tenant),
+            'pastasPorCliente'  => $this->pastaRepository->totalDePastasPorClientePrincipal($clientes, $tenant),
+            'destaques'         => $this->destaqueRepository->coresDoUsuario($user, $tenant),
+            'souAdministrador'  => $this->permissionChecker->isAdministradorDoEscritorio($user, $tenant),
+            'csrfLista'         => $this->csrfTokenManager->getToken(self::CSRF_LISTA)->getValue(),
         ];
     }
 
