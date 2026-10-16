@@ -201,6 +201,10 @@ final class PurgarEscritorioUseCase
         ['chamado', 'tenant_id = :tenant'],
         ['evento', 'tenant_id = :tenant'],
         ['kanban_board', 'tenant_id = :tenant'],
+        // Trabalho Externo: as demandas que o escritório SOLICITOU. Histórico, mensagens, leituras,
+        // propostas e documentos caem pela CASCADE da demanda. Se o escritório for a sede da
+        // Central, a configuração perde a sede por SET NULL (a Central não é apagada).
+        ['trabalho_externo_demanda', 'tenant_id = :tenant'],
         ['marcador', 'tenant_id = :tenant'],
         ['legenda_cor', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
@@ -294,6 +298,16 @@ final class PurgarEscritorioUseCase
              LEFT JOIN kanban_anexo o ON o.caminho = a.caminho AND o.tenant_id IS DISTINCT FROM :tenant
              WHERE a.tenant_id = :tenant OR c.tenant_id = :tenant OR b.tenant_id = :tenant OR kb.tenant_id = :tenant
              GROUP BY a.caminho',
+        ],
+        'trabalho_externo_documento' => [
+            CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO,
+            'SELECT d.nome_armazenado AS nome, bool_or(od.id IS NOT NULL) AS compartilhado
+             FROM trabalho_externo_documento d
+             JOIN trabalho_externo_demanda m ON m.id = d.demanda_id
+             LEFT JOIN trabalho_externo_documento o ON o.nome_armazenado = d.nome_armazenado AND o.id <> d.id
+             LEFT JOIN trabalho_externo_demanda od ON od.id = o.demanda_id AND od.tenant_id IS DISTINCT FROM m.tenant_id
+             WHERE m.tenant_id = :tenant
+             GROUP BY d.nome_armazenado',
         ],
     ];
 

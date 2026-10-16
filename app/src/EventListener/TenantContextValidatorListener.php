@@ -36,7 +36,19 @@ final class TenantContextValidatorListener
         // em tenant_selecionar e em termo_aceite — as duas telas que oferecem o link.
         'legal_politica_privacidade',
         'legal_politica_privacidade_pdf',
+        // Convite do Trabalho Externo: quem aceita pode não ter escritório nenhum (spec §8).
+        'trabalho_externo_convite',
+        'trabalho_externo_convite_criar_conta',
+        'trabalho_externo_convite_aceitar',
     ];
+
+    /**
+     * Prefixo de rotas que funcionam SEM escritório: o Trabalho Externo atende o Convidado, que só
+     * tem convite para uma demanda e nenhum vínculo com escritório. As rotas não confiam nesta
+     * liberação: cada uma resolve o perfil (`FabricaDeContexto`) e, sem escritório, só o Convidado
+     * passa, e só para as demandas do convite.
+     */
+    private const PREFIXO_SEM_ESCRITORIO = 'trabalho_externo_';
 
     public function __construct(
         private readonly Security $security,
@@ -64,6 +76,11 @@ final class TenantContextValidatorListener
 
         if (!$this->tenantContext->hasCurrentTenant()) {
             if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+                return;
+            }
+            // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
+            // abaixo, para o Trabalho Externo também.
+            if (str_starts_with($route, self::PREFIXO_SEM_ESCRITORIO)) {
                 return;
             }
 

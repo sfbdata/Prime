@@ -47,6 +47,10 @@ final class TermoAceiteListener
         // aqui não afrouxa o portão do aceite, só deixa de transformar o link em beco sem saída.
         'legal_politica_privacidade',
         'legal_politica_privacidade_pdf',
+        // Convite do Trabalho Externo: a criação de conta registra o aceite do termo junto.
+        'trabalho_externo_convite',
+        'trabalho_externo_convite_criar_conta',
+        'trabalho_externo_convite_aceitar',
     ];
 
     public function __construct(
