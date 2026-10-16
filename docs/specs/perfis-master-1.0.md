@@ -105,6 +105,37 @@ Faixa "Painel exclusivo do Master. Mostra metadados das contas…" e 9 seções:
 Crescimento de GB: data de criação dos registros com tamanho. Seta de tendência por estado: só entradas
 (`User.createdAt`); saídas não são medidas (sem data de desativação): o título da seta diz isso.
 
+**Como a E2 ficou (16/10, após duas rodadas de revisão):**
+
+- Rotas (todas `ROLE_SUPER_ADMIN` na classe): `GET /master` (página), `GET /master/dados/{visao-geral,contas,
+  usuarios-oab,auditoria,mapa}` (JSON só leitura), `GET /master/mapa/{brasil,mundo}` (página do iframe),
+  `GET /master/ibge/{municipios,populacao}/{UF}`, `GET /master/fontes`, `POST /master/fontes/{atualizar,tabela,oab}`
+  (CSRF `master_fontes`). `/admin/platform` redireciona para `/master`.
+- Mapa: o iframe **não confia na query string** (ela só escolhe a visão `quem`/`usu`); as contagens vêm de
+  `/master/dados/mapa` e são validadas no navegador (`mapa-agregado.js`: UF conhecida, inteiro, nome curto sem
+  `< > " ' \``). No servidor, nomes de cidade (lotação e `Tenant.cidade`) passam por `LocalizacaoDaPessoa::nomeDeLugar`
+  (remove esses caracteres, corta em 80). Todo `innerHTML` dos mapas e do painel escapa o dado.
+- CSP (`Master\EventListener\CabecalhosDeSegurancaDoMaster`): mapas com `script-src 'self'` estrita, sem script
+  inline; `/master` com CSP compatível com `base.html.twig` (que ainda tem script inline e CDN, por isso
+  `'unsafe-inline'` em script continua lá); JSON com `nosniff`.
+- Fontes públicas: o servidor busca, guarda o retrato com fonte e data (`cache.master_fontes`, filesystem sem
+  expiração em `var/master-fontes/<env>`) e mantém o anterior se a fonte falhar. Retrato da OAB só é aceito se
+  fechar com a própria página (27 UFs, advogados > 0, soma de cada coluna = TOTAL). População das UFs só com as
+  27 UFs; por município, não vazia e só códigos da UF.
+- Atualização diária **disparada pelo front**, sem depender de cron: `/master/fontes` devolve
+  `precisaAtualizar` quando o retrato da OAB ou da população passou de 24 h; o mapa faz o POST `atualizar`
+  automático no máximo uma vez por carga do painel. O servidor libera a sessão antes de buscar fora, trava para
+  não buscar duas vezes ao mesmo tempo ("Atualização já em andamento.") e, depois de uma falha, espera 1 h antes
+  de tentar sozinho de novo (o botão manual ignora a espera). O comando `app:master:atualizar-fontes-publicas`
+  continua, opcional em cron.
+- Envio manual pelo menu ⋮: CSV no formato do modelo baixado, ou Excel convertido para esse CSV **no navegador**
+  (biblioteca local `public/js/vendor/xlsx`); **PDF não**. Números aceitos: "4250", "4.250", "46,024,937",
+  "17223547.5", "17.223.547,50" (decimal descartado); forma ambígua recusa o arquivo. A planilha da OAB passa
+  pela mesma validação estrutural (27 UFs, advogados > 0, linha TOTAL conferida se existir); recusa mantém o
+  retrato. Arquivo até 2 MB.
+- Auditoria: carregada só quando a seção abre; janela dos últimos 12 meses, até 1000 registros; responsável
+  sem nome aparece como "Usuário sem nome (nº N)" e sem ator como "Sistema" (nunca o e-mail).
+
 ## 5. Etapas
 
 - **E1 · Perfis e nomenclatura (sem migration).** Lista e edição (§4.1, §4.2, Master sem o painel ainda),
@@ -116,8 +147,10 @@ Crescimento de GB: data de criação dos registros com tamanho. Seta de tendênc
 - **E2 · Painel do Master, leitura (sem migration).** Domínio `app/src/Master/`: consultas globais só
   leitura (DBAL ou `AcessoGlobal` com escopo, no molde do `AcessoALixeira`), endpoints JSON sob `/master/*`
   com `#[IsGranted('ROLE_SUPER_ADMIN')]`, fontes públicas com cache e data (IBGE malhas/população; OAB lida
-  da página oficial uma vez por dia, último retrato mantido se falhar; envio manual de Excel/PDF como
-  alternativa), mapa com d3 local em `public/js/vendor`, `/admin/platform` redireciona para o Painel.
+  da página oficial uma vez por dia, último retrato mantido se falhar; envio manual de CSV ou Excel
+  convertido no navegador, sem PDF), mapa com d3 local em `public/js/vendor`, `/admin/platform` redireciona
+  para o Painel. O que foi entregue (rota `/master/dados/mapa`, CSP, atualização disparada pelo front com
+  espera de 1 h após falha, validação dos retratos) está no fim do §4.3.
 - **E3 · Limites e ações de conta (com migration).** Colunas novas em `tenant`: `cota_armazenamento_gb`
   (nulo = sem limite) e `limite_usuarios` (nulo = sem limite); faixas de alerta globais (70/85/95/100).
   Bloqueio no limite: novos uploads acima da cota recusados (consulta, download e exportação seguem);
