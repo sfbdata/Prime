@@ -33,6 +33,9 @@ const PAGINA_APP = process.env.CENTRAL_E2E_PAGINA || '/expediente';
 const EMAIL = process.env.CENTRAL_E2E_EMAIL || '';
 const SENHA = process.env.CENTRAL_E2E_SENHA || '';
 const ESCRITORIO = process.env.CENTRAL_E2E_ESCRITORIO || '';
+// Nome da chave de localStorage em que o PROTÓTIPO guarda o banco fictício dele (não é segredo: o gitleaks lia
+// `{ key: '...' }` como chave de API; ver .gitleaksignore, 16/10/2026).
+const CHAVE_DB_PROTOTIPO = 'bj-central-v1';
 const SESSAO = path.join(__dirname, '../test-results/central-fidelidade-sessao.json');
 
 // Pares de seletores: protótipo × sistema.
@@ -194,16 +197,16 @@ async function abrirPrototipo(browser, opcoes = {}) {
     // Tudo lido: o protótipo relê o armazenamento no evento storage (L263). Ele também GERA avisos sozinho logo depois
     // de montar (centralSync, E:4314; resumos da IA): o que chegar depois da limpeza é limpo de novo, até firmar.
     await expect.poll(async () => {
-        await page.evaluate(() => {
+        await page.evaluate((chave) => {
             // Só o banco que o próprio protótipo gravou: um banco inventado ({notifs, msgs}) quebra o render dele.
-            const salvo = localStorage.getItem('bj-central-v1');
+            const salvo = localStorage.getItem(chave);
             if (!salvo) { return; }
             const db = JSON.parse(salvo);
             (db.notifs || []).forEach((n) => { n.lida = true; });
             (db.msgs || []).forEach((m) => { m.lida = true; m.lidaPor = ['farlei', 'samuel', 'jessica', 'mariana', 'rafael', 'thamara', 'rodrigo', 'helena']; });
-            localStorage.setItem('bj-central-v1', JSON.stringify(db));
-            window.dispatchEvent(new StorageEvent('storage', { key: 'bj-central-v1' }));
-        });
+            localStorage.setItem(chave, JSON.stringify(db));
+            window.dispatchEvent(new StorageEvent('storage', { key: chave }));
+        }, CHAVE_DB_PROTOTIPO);
         await page.waitForTimeout(500);
         return page.evaluate((sel) => { const b = document.querySelector(sel); return b ? b.getAttribute('aria-label') : 'sem lançador'; }, P.lancador);
     }, { timeout: 20000, intervals: [100] }).toMatch(/tudo em dia/);
