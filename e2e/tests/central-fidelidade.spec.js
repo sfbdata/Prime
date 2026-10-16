@@ -91,6 +91,13 @@ function cenario(naoLidas = 0, mencoes = [], extra = {}) {
 // Um grupo fictício (id 77) em que eu sou administrador, com uma colega: chega às confirmações de Remover e Sair.
 const GRUPO = { id: 77, tipo: 'grupo', nome: 'Grupo fictício de teste', participantes: 2, naoLidas: 0, marcadaNaoLida: false,
     fixada: false, silenciada: false, arquivada: false, ultima: null, outro: null, outroAtivo: true };
+// Equipe fictícia (F2): os três contadores do desenho (≥10, >0, 0), on-line e off-line, e "você".
+const EQUIPE = { online: 3, total: 30, equipe: [
+    { id: 2, nome: 'Colega Fictícia', cargo: 'Advogada', foto: null, eu: false, emAberto: 22, status: 'ausente', online: true, desde: null, vistoEm: null },
+    { id: 4, nome: 'Mais Alguém', cargo: 'Coordenadora', foto: null, eu: false, emAberto: 5, status: 'ocupado', online: true, desde: null, vistoEm: null },
+    { id: 1, nome: 'Pessoa Teste', cargo: 'Advogado', foto: null, eu: true, emAberto: 3, status: 'disponivel', online: true, desde: null, vistoEm: null },
+    { id: 3, nome: 'Outra Pessoa', cargo: 'Estagiária', foto: null, eu: false, emAberto: 0, status: 'offline', online: false, desde: null, vistoEm: null },
+] };
 const PARTICIPANTES = { conversaId: 77, nome: GRUPO.nome, souAdministrador: true, participantes: [
     { id: 1, nome: 'Pessoa Teste', eu: true, administrador: true, ativoNoEscritorio: true },
     { id: 2, nome: 'Colega Fictícia', eu: false, administrador: false, ativoNoEscritorio: true },
@@ -100,10 +107,18 @@ const PARTICIPANTES = { conversaId: 77, nome: GRUPO.nome, souAdministrador: true
 function respostaSimulada(c, metodo, caminho) {
     if (caminho === '/central/novidades') { c.leituras = (c.leituras || 0) + 1; }
     if (caminho === '/ponto/alerta-horario') { return { status: 200, json: { alertar: false } }; }
+    // Batimento de presença (F2): toda página com a Central bate a cada 20 s. Anotado à parte (c.batimentos): as
+    // demais escritas continuam exigidas em zero.
+    if (metodo === 'POST' && caminho === '/central/presenca') { c.batimentos = (c.batimentos || 0) + 1; return { status: 200, json: { status: 'disponivel' } }; }
+    if (caminho === '/central/equipe') { return { status: 200, json: c.equipe || { equipe: [], online: 0, total: 0 } }; }
     if (metodo !== 'GET') {
         c.escritas.push(metodo + ' ' + caminho);
         // Escrita "recusada" pelo servidor: prova que o erro vira aviso na janela (não window.alert).
         if (c.recusar) { return { status: 422, json: { erro: c.recusar } }; }
+        if (caminho === '/central/conversas') {   // "abrir conversa" com alguém da equipe fictícia
+            return { status: 200, json: { conversa: { id: 88, tipo: 'individual', nome: null, participantes: 2, naoLidas: 0, marcadaNaoLida: false,
+                fixada: false, silenciada: false, arquivada: false, ultima: null, outro: { id: 2, nome: 'Colega Fictícia' }, outroAtivo: true } } };
+        }
         return { status: 200, json: {} };
     }
     if (caminho === '/central/novidades') {
@@ -904,5 +919,122 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await expect(s.locator(S.janela)).toBeVisible();
         expect(c.escritas).toEqual([]);
         await s.context().close();
+    });
+    // ── Painel "Equipe · em aberto" e presença (F2, 16/10) ───────────────────────────────────────────────────────
+    test('F2 Painel: Equipe · em aberto igual ao desenho; clicar abre a conversa com a pessoa', async ({ browser }, testInfo) => {
+        const c = cenario(0, [], { equipe: EQUIPE });
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        await p.locator(P.lancador).click();
+        await s.locator(S.lancador).click();
+        await p.waitForTimeout(300);
+        await p.locator(P.janela + ' button', { hasText: /^Painel$/ }).click();
+        await s.locator(S.janela + ' [data-central-aba="painel"]').click();
+        const LINHA_P = P.janela + ' button[title^="Conversar com"]', LINHA_S = S.janela + ' .bj-central-equipe-linha[title^="Conversar com"]';
+        await expect(p.locator(LINHA_P).first()).toBeVisible();
+        await expect(s.locator(LINHA_S).first()).toBeVisible();
+
+        // Título da seção e total.
+        const TIT_P = { sel: P.janela + ' div', texto: /^Equipe · em aberto\d+ no total$/ }, TIT_S = S.janela + ' .bj-central-equipe-titulo';
+        const tit = ['display', 'gap', 'padding-top', 'padding-bottom', 'font-size', 'font-weight', 'letter-spacing', 'text-transform', 'color'];
+        expect(await estilos(s, TIT_S, tit)).toEqual(await estilos(p, TIT_P, tit));
+        await expect(s.locator(TIT_S)).toHaveText('Equipe · em aberto30 no total');
+
+        // Linha: caixa, estilo, avatar 26 com ponto, nome, subtítulo "cargo · status".
+        const linha = ['display', 'gap', 'min-height', 'padding-top', 'padding-left', 'border-radius', 'background-color', 'text-align', 'cursor'];
+        expect(await estilos(s, LINHA_S, linha)).toEqual(await estilos(p, LINHA_P, linha));
+        expect((await caixa(s, LINHA_S)).h).toBe((await caixa(p, LINHA_P)).h);
+        const partes = (pg, sel) => medir(pg, sel, `
+            const av = el.firstElementChild, a = av.firstElementChild, ponto = av.lastElementChild, txt = el.children[1];
+            const cs = (n, ks) => { const c = getComputedStyle(n), o = {}; ks.forEach((k) => { o[k] = c.getPropertyValue(k); }); return o; };
+            return {
+                avatar: cs(a, ['width', 'height', 'border-radius', 'font-size', 'font-weight', 'color']),
+                ponto: cs(ponto, ['width', 'height', 'border-radius', 'right', 'bottom', 'box-shadow']),
+                nome: cs(txt.children[0], ['font-size', 'font-weight', 'color', 'white-space']),
+                sub: cs(txt.children[1], ['font-size', 'color', 'white-space']),
+                subTexto: /^[^·]+ · (Disponível|Ocupado|Ausente|Off-line)$/.test(txt.children[1].textContent),
+            };`);
+        expect(await partes(s, LINHA_S)).toEqual(await partes(p, LINHA_P));
+
+        // Contador nas três faixas (≥10 vermelho, >0 azul, 0 cinza): mesmo estilo que o do desenho para o mesmo número.
+        const contadorDe = (pg, faixa) => pg.evaluate((f) => {
+            const alvo = [...document.querySelectorAll('span[title$="em aberto"]')].find((x) => {
+                const n = Number(x.textContent);
+                return f === 'alto' ? n >= 10 : f === 'algum' ? n > 0 && n < 10 : n === 0;
+            });
+            if (!alvo) { return 'sem contador ' + f; }
+            const c = getComputedStyle(alvo), o = {};
+            ['min-width', 'height', 'padding-left', 'border-radius', 'background-color', 'color', 'font-size', 'font-weight'].forEach((k) => { o[k] = c.getPropertyValue(k); });
+            return o;
+        }, faixa);
+        let comparados = 0;
+        for (const faixa of ['alto', 'algum', 'zero']) {
+            const doDesenho = await contadorDe(p, faixa);
+            if (typeof doDesenho === 'string') { continue; }   // o protótipo pode não ter ninguém nessa faixa agora
+            expect(await contadorDe(s, faixa)).toEqual(doDesenho);
+            comparados++;
+        }
+        expect(comparados).toBeGreaterThanOrEqual(2);
+        // Ordem: mais em aberto primeiro; "você" não clica.
+        expect(await s.locator(S.janela + ' .bj-central-equipe-linha .bj-central-equipe-nome').allTextContents())
+            .toEqual(['Colega Fictícia', 'Mais Alguém', 'Pessoa Teste (você)', 'Outra Pessoa']);
+        await expect(s.locator(S.janela + ' .bj-central-equipe-linha--eu')).toHaveAttribute('title', 'Você');
+        await evidencia(testInfo, 'equipe-prototipo', p, { x: 940, y: 120, width: 426, height: 680 });
+        await evidencia(testInfo, 'equipe-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
+
+        // Clicar na colega abre (cria) a conversa com ela e volta para a Caixa de entrada.
+        await s.locator(LINHA_S, { hasText: 'Colega Fictícia' }).click();
+        await expect.poll(() => c.escritas).toEqual(['POST /central/conversas']);
+        await expect(s.locator(S.janela + ' [data-central-cab-titulo]')).toHaveText('Colega Fictícia');
+        // Subtítulo da conversa 1:1 com a presença real (L6334): "on-line · cargo".
+        await expect(s.locator(S.janela + ' [data-central-cab-sub]')).toHaveText('on-line · Advogada');
+        await Promise.all([p.context().close(), s.context().close()]);
+    });
+
+    test('F2 presença no cabeçalho: ponto do meu status, "N on-line" e a lista on-line/off-line; ⋮ Status', async ({ browser }, testInfo) => {
+        const c = cenario(0, [], { equipe: EQUIPE });
+        const [p, s] = await Promise.all([abrirPrototipo(browser), abrirSistema(browser, c)]);
+        await p.locator(P.lancador).click();
+        await s.locator(S.lancador).click();
+        await p.waitForTimeout(300);
+        const PIL_P = P.janela + ' [data-bjc-online]', PIL_S = S.janela + ' [data-central-online]';
+        await expect(s.locator(PIL_S)).toHaveText('3 on-line');
+        const pil = ['display', 'gap', 'height', 'padding-left', 'border-radius', 'color', 'font-size', 'font-weight', 'white-space'];
+        expect(await estilos(s, PIL_S, pil)).toEqual(await estilos(p, PIL_P, pil));
+        const pontoPil = (pg, sel) => medir(pg, sel, `const c = getComputedStyle(el.firstElementChild); return [c.width, c.height, c.backgroundColor, c.boxShadow];`);
+        expect(await pontoPil(s, PIL_S)).toEqual(await pontoPil(p, PIL_P));
+        const PT_P = '[data-bjc-cab] > span:first-child > span:last-child', PT_S = S.janela + ' [data-central-cab-ponto]';
+        const pt = ['width', 'height', 'border-radius', 'right', 'bottom', 'box-shadow', 'background-color'];
+        expect(await estilos(s, PT_S, pt)).toEqual(await estilos(p, PT_P, pt));   // Disponível, verde, nos dois
+        await expect(s.locator(PIL_S)).toHaveAttribute('title', 'Ver quem está on-line: Colega Fictícia, Mais Alguém, Pessoa Teste');
+
+        // A lista: faixa "N on-line agora" + Voltar, e "N off-line" com as linhas esmaecidas.
+        await s.locator(PIL_S).click();
+        await p.locator(PIL_P).click();
+        const FX_S = S.janela + ' .bj-central-online-faixa';
+        await expect(s.locator(FX_S).first()).toHaveText(/^3 on-line agoraVoltar$/);
+        await expect(s.locator(FX_S).nth(1)).toHaveText('1 off-line');
+        const FX_P = { sel: P.janela + ' div', texto: /^\d+ on-line agoraVoltar$/ };
+        const fx = ['display', 'gap', 'padding-top', 'padding-left', 'font-size', 'font-weight', 'letter-spacing', 'text-transform', 'color', 'background-color'];
+        expect(await estilos(s, FX_S, fx)).toEqual(await estilos(p, FX_P, fx));
+        const LIN_S = S.janela + ' .bj-central-pessoa', LIN_P = { sel: P.janela + ' button', texto: /Você$/ };
+        const lin = ['display', 'gap', 'padding-top', 'padding-left', 'border-bottom-width', 'background-color', 'cursor'];
+        expect(await estilos(s, LIN_S + ':not(.bj-central-pessoa--off)', lin)).toEqual(await estilos(p, LIN_P, lin));
+        await expect(s.locator(S.janela + ' .bj-central-pessoa--off')).toHaveCSS('opacity', '0.62');
+        await evidencia(testInfo, 'online-prototipo', p, { x: 940, y: 120, width: 426, height: 680 });
+        await evidencia(testInfo, 'online-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
+        await s.locator(S.janela + ' .bj-central-online-voltar').click();
+        await expect(s.locator(FX_S)).toHaveCount(0);
+
+        // ⋮ "Status": ponto + valor, alterna Disponível → Ocupado (o ponto do cabeçalho muda e o batimento vai na hora).
+        const antes = c.batimentos || 0;
+        await s.locator(S.janela + ' [data-central-mais]').click();
+        const ST = S.janela + ' .bj-central-menu > button';
+        await expect(s.locator(ST, { hasText: /^Status/ })).toHaveText(/^StatusDisponível$/);
+        await s.locator(ST, { hasText: /^Status/ }).click();
+        await expect(s.locator(ST, { hasText: /^Status/ })).toHaveText(/^StatusOcupado$/);
+        await expect(s.locator(PT_S)).toHaveCSS('background-color', 'rgb(229, 72, 77)');
+        await expect.poll(() => (c.batimentos || 0) - antes).toBeGreaterThanOrEqual(1);
+        expect(c.escritas).toEqual([]);
+        await Promise.all([p.context().close(), s.context().close()]);
     });
 });

@@ -300,4 +300,37 @@ class NotificacaoRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * Não lidas do sino de VÁRIAS pessoas, só DESTE escritório (Central, Painel "Equipe · em aberto"). Só o número:
+     * título e texto nunca saem. Tenant explícito: o TenantFilter não é a única barreira.
+     *
+     * @param list<int> $usuarioIds
+     *
+     * @return array<int, int> id do usuário → quantidade (só quem tem alguma)
+     */
+    public function contarNaoLidasPorUsuarios(Tenant $tenant, array $usuarioIds): array
+    {
+        if ($usuarioIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('n')
+            ->select('IDENTITY(n.usuario) AS usuario', 'COUNT(n.id) AS total')
+            ->where('n.tenant = :tenant')
+            ->andWhere('n.usuario IN (:ids)')
+            ->andWhere('n.lida = false')
+            ->groupBy('n.usuario')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $usuarioIds)
+            ->getQuery()
+            ->getArrayResult();
+
+        $porUsuario = [];
+        foreach ($linhas as $linha) {
+            $porUsuario[(int) $linha['usuario']] = (int) $linha['total'];
+        }
+
+        return $porUsuario;
+    }
 }

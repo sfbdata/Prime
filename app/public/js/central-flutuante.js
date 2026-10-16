@@ -18,6 +18,7 @@
     var POS_PADRAO = { r: 18, b: 18 };     // L5412
     var AVISO_MS = 2600;              // aviso(), L5398
     var SALTO_MS = 2400;              // ui.pulso, L141
+    var STATUS_ROTULO = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'] };   // L45
 
     function iniciar(raizLancador) {
         var janela = document.querySelector('[data-flutuante-janela]');
@@ -41,7 +42,7 @@
 
         // ── preferências (só este navegador) ─────────────────────────────────────────
         function lerPrefs() {
-            var base = { pos: null, win: null, tam: null, snap: null, janela: 'normal', alertas: true, som: true, dnd: 0, texto: 'normal' };
+            var base = { pos: null, win: null, tam: null, snap: null, janela: 'normal', alertas: true, som: true, dnd: 0, texto: 'normal', status: 'disponivel' };
             try {
                 var salvo = JSON.parse(window.localStorage.getItem(chave) || '{}');
                 Object.keys(base).forEach(function (k) { if (salvo && salvo[k] !== undefined) { base[k] = salvo[k]; } });
@@ -466,6 +467,10 @@
         }
 
         central.bjSilencio = silencio;
+        // F2: o status que vai no batimento (L276): o manual deste navegador, ou "ocupado" com Não perturbe ligado.
+        central.bjStatus = function () {
+            return silencio() ? 'ocupado' : (STATUS_ROTULO[prefs.status] ? prefs.status : 'disponivel');
+        };
         central.bjMenuJanela = function () {
             var dnd = silencio();
             var final = [];
@@ -482,7 +487,14 @@
             // L6291: o mesmo comando do botão Destacar (destacada, ele traz de volta).
             final.push({ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir em janela separada', acao: destacar });
             return [
-                { titulo: 'Meu status', itens: [   // L6266 (o "Status" manual depende de presença: fora)
+                { titulo: 'Meu status', itens: [   // L6264-6266
+                    { icone: 'bi-circle-fill', rotulo: 'Status', valor: STATUS_ROTULO[central.bjStatus()][0], ponto: STATUS_ROTULO[central.bjStatus()][1], acao: function () {
+                        // ciclo(['disponivel', 'ocupado', 'ausente']) a partir do manual (L6264)
+                        var ordem = ['disponivel', 'ocupado', 'ausente'];
+                        prefs.status = ordem[(ordem.indexOf(prefs.status) + 1) % ordem.length];
+                        salvarPrefs();
+                        avisarPreferencias();
+                    } },
                     { icone: dnd ? 'bi-moon-fill' : 'bi-moon', rotulo: dnd ? 'Não perturbe até ' + hhmm(prefs.dnd) : 'Não perturbe por 1 hora', chave: dnd, acao: function () {
                         prefs.dnd = dnd ? 0 : Date.now() + 3600000; salvarPrefs(); desenharLancador(); avisarPreferencias();
                     } }

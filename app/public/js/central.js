@@ -19,6 +19,9 @@
     var MAX_SUGESTOES = 6;                       // L6094
     var CORES_NOME = ['#0a6fa8', '#8a4fb5', '#1e7b45', '#b4460a', '#a8326e', '#2f6f73'];   // L5814
     var AVISO_MS = 2600;                         // aviso(), L5398
+    // F2, presença (L45, L279): status e cores do desenho; batimento a cada 20 s (on-line = menos de 60 s, no servidor).
+    var STATUS = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'], offline: ['Off-line', '#b7c4cd'] };
+    var BATIMENTO_MS = 20000;
 
     function corNome(id) {   // L5815 — a mesma cor para a mesma pessoa
         var h = String(id).split('').reduce(function (t, ch) { return (t * 31 + ch.charCodeAt(0)) | 0; }, 7);
@@ -31,7 +34,9 @@
             contatos: raiz.dataset.urlContatos,
             novidades: raiz.dataset.urlNovidades,
             base: raiz.dataset.urlConversaBase,
-            grupos: raiz.dataset.urlGrupos
+            grupos: raiz.dataset.urlGrupos,
+            equipe: raiz.dataset.urlEquipe,
+            presenca: raiz.dataset.urlPresenca
         };
         var meuNome = raiz.dataset.euNome || '';
         var tamanhoMaximo = Number(raiz.dataset.tamanhoMaximo) || 4000;   // Mensagem::TAMANHO_MAXIMO
@@ -39,6 +44,9 @@
             voltar: raiz.querySelector('[data-central-voltar]'),
             cabAvatar: raiz.querySelector('[data-central-cab-avatar]'),
             cabEu: raiz.querySelector('[data-central-cab-eu]'),
+            cabPonto: raiz.querySelector('[data-central-cab-ponto]'),
+            online: raiz.querySelector('[data-central-online]'),
+            onlineTexto: raiz.querySelector('[data-central-online-texto]'),
             cabTitulo: raiz.querySelector('[data-central-cab-titulo]'),
             cabSub: raiz.querySelector('[data-central-cab-sub]'),
             telaLista: raiz.querySelector('[data-central-tela-lista]'),
@@ -92,6 +100,8 @@
             filtro: '',            // lançador: '' (tudo) | 'mencoes' (L5776)
             comMencao: new Set(),  // conversas com menção por ver (servidor: conversasComMencao)
             janelaAberta: !flutuante,
+            equipe: null,          // F2: {equipe, online, total} de /central/equipe (Painel e "N on-line")
+            verOnline: false,      // F2: lista "on-line agora / off-line" (L6380)
             externa: null,         // B2: a janela destacada (Picture-in-Picture ou pop-up) em que a Central está agora
             relogio: window,       // B2: de qual janela é o setInterval do polling (a destacada, quando houver)
             listaCarregada: false  // flutuante: lista e contatos só carregam na primeira abertura (carga por página)
@@ -239,6 +249,17 @@
             // O ⋮ fica no cabeçalho da lista e da conversa, como no desenho (L6339); some nas telas de grupo.
             el.mais.hidden = estado.tela !== 'lista' && estado.tela !== 'conversa';
             el.cabEu.hidden = !(estado.tela === 'lista' && !estado.aberta);
+            // F2: ponto do MEU status no avatar e a pílula "N on-line" (L6337), só no cabeçalho da lista.
+            var meu = statusEfetivo();
+            el.cabPonto.style.background = STATUS[meu][1];
+            el.cabPonto.title = STATUS[meu][0];
+            el.online.hidden = !(estado.tela === 'lista' && !estado.aberta && estado.equipe);
+            if (estado.equipe) {
+                el.onlineTexto.textContent = estado.equipe.online + ' on-line';
+                el.online.title = 'Ver quem está on-line: ' + estado.equipe.equipe.filter(function (m) { return m.online; })
+                    .map(function (m) { return m.nome; }).join(', ');
+                el.online.setAttribute('aria-expanded', String(estado.verOnline));
+            }
             el.info.hidden = !(estado.tela === 'conversa' && estado.aberta && estado.aberta.grupo && !estado.aberta.fora);
             if (estado.tela === 'novoGrupo' || estado.tela === 'info') {
                 el.voltar.hidden = false;
@@ -253,9 +274,12 @@
                 el.cabAvatar.hidden = false;
                 el.cabTitulo.textContent = estado.aberta.nome;
                 // O desenho mostra presença e setor · função (L6334), que a Central não tem; só o que é verdade.
+                // Conversa 1:1 (L6334): "on-line · cargo" com a presença real (F2); o setor não existe aqui.
+                var outro = !estado.aberta.grupo && estado.aberta.outro ? membroDaEquipe(estado.aberta.outro.id) : null;
                 el.cabSub.textContent = estado.aberta.grupo
                     ? plural(estado.aberta.participantes, 'participante', 'participantes')
-                    : (estado.aberta.outroAtivo ? '' : 'Saiu do escritório');
+                    : (!estado.aberta.outroAtivo ? 'Saiu do escritório'
+                        : outro ? [outro.online ? 'on-line' : '', outro.cargo || ''].filter(Boolean).join(' · ') : '');
                 return;
             }
             el.voltar.hidden = true;
@@ -375,9 +399,16 @@
                 return;
             }
             atualizarAbas();
+            if (estado.verOnline) {
+                el.faixaArquivadas.hidden = true;
+                el.painel.hidden = true;
+                desenharOnline();
+                return;
+            }
             if (estado.aba === 'painel') {
                 el.faixaArquivadas.hidden = true;
                 desenharPainel();
+                desenharEquipe();
                 return;
             }
             // Arquivada some da lista principal (L320) e volta com "Ver conversas arquivadas".
@@ -411,7 +442,7 @@
             el.filtros.hidden = estado.aba !== 'entrada';
             el.botoesFiltro.forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.centralFiltro === estado.filtro ? 'true' : 'false'); });
             el.painel.hidden = estado.aba !== 'painel';
-            el.lista.hidden = estado.aba === 'painel';
+            el.lista.hidden = false;   // no Painel ela leva a "Equipe · em aberto" (F2), abaixo dos cartões
         }
 
         function desenharPainel() {   // telaPrioridades, L5632 — só os grupos que têm dado no BlueJus
@@ -433,6 +464,143 @@
                 });
                 el.painel.appendChild(card);
             });
+        }
+
+        // ── F2: equipe e presença (telaPrioridades L5638-5653; verOnline L6380-6386) ─────
+        function statusEfetivo() {   // o manual (⋮ "Status") ou "ocupado" com Não perturbe: quem decide é o lançador
+            var s = typeof raiz.bjStatus === 'function' ? raiz.bjStatus() : 'disponivel';
+            return STATUS[s] && s !== 'offline' ? s : 'disponivel';
+        }
+
+        function membroDaEquipe(id) {
+            return estado.equipe ? estado.equipe.equipe.filter(function (m) { return m.id === id; })[0] || null : null;
+        }
+
+        function avatarDe(m, classe) {   // avatarU, L5409: foto do perfil ou iniciais
+            var av = criar('span', 'bj-central-avatar ' + classe, m.foto ? null : iniciais(m.nome));
+            av.setAttribute('aria-hidden', 'true');
+            if (m.foto) {
+                var img = criar('img');
+                img.src = m.foto;
+                img.alt = '';
+                av.appendChild(img);
+            }
+            return av;
+        }
+
+        function abrirComColega(m) {
+            if (m.eu) { return; }
+            estado.aba = 'entrada';
+            estado.filtro = '';
+            estado.verOnline = false;
+            iniciarConversaCom({ id: m.id, nome: m.nome });
+        }
+
+        function linhaDaEquipe(m) {   // L5645-5652
+            var rot = STATUS[m.status] ? STATUS[m.status][0] : STATUS.offline[0];
+            var b = criar('button', 'bj-central-equipe-linha' + (m.eu ? ' bj-central-equipe-linha--eu' : ''));
+            b.type = 'button';
+            b.title = m.eu ? 'Você' : 'Conversar com ' + m.nome + ' · ' + rot;
+            var lugar = criar('span', 'bj-central-equipe-av');
+            lugar.appendChild(avatarDe(m, 'bj-central-avatar--equipe'));
+            var ponto = criar('span', 'bj-central-equipe-ponto');
+            ponto.style.background = (STATUS[m.status] || STATUS.offline)[1];
+            ponto.title = rot;
+            lugar.appendChild(ponto);
+            b.appendChild(lugar);
+            var textos = criar('span', 'bj-central-equipe-textos');
+            textos.appendChild(criar('span', 'bj-central-equipe-nome', m.nome + (m.eu ? ' (você)' : '')));
+            textos.appendChild(criar('span', 'bj-central-equipe-sub', [m.cargo, rot].filter(Boolean).join(' · ')));
+            b.appendChild(textos);
+            var n = m.emAberto;
+            var cont = criar('span', 'bj-central-equipe-contador bj-central-equipe-contador--' + (n >= 10 ? 'alto' : n ? 'algum' : 'zero'), String(n));
+            cont.title = n + (n === 1 ? ' mensagem em aberto' : ' mensagens em aberto');
+            b.appendChild(cont);
+            if (!m.eu) {
+                var ic = criar('i', 'bi bi-chat-dots bj-central-equipe-conversar');
+                ic.setAttribute('aria-hidden', 'true');
+                b.appendChild(ic);
+            }
+            b.addEventListener('click', function () { abrirComColega(m); });
+            return b;
+        }
+
+        function desenharEquipe() {   // "Equipe · em aberto", abaixo dos cartões do Painel
+            if (!estado.equipe) { return; }
+            var caixa = criar('div', 'bj-central-equipe');
+            var tit = criar('div', 'bj-central-equipe-titulo');
+            var ic = criar('i', 'bi bi-people');
+            ic.setAttribute('aria-hidden', 'true');
+            tit.appendChild(ic);
+            tit.appendChild(document.createTextNode('Equipe · em aberto'));
+            tit.appendChild(criar('span', 'bj-central-equipe-total', estado.equipe.total + ' no total'));
+            caixa.appendChild(tit);
+            estado.equipe.equipe.forEach(function (m) { caixa.appendChild(linhaDaEquipe(m)); });
+            el.lista.appendChild(caixa);
+        }
+
+        function linhaDePessoa(m) {   // linhaUsuario, L5803: avatar 34, ponto verde só on-line
+            var b = criar('button', 'bj-central-pessoa' + (m.online ? '' : ' bj-central-pessoa--off'));
+            b.type = 'button';
+            var lugar = criar('span', 'bj-central-equipe-av');
+            lugar.appendChild(avatarDe(m, 'bj-central-avatar--contato'));
+            if (m.online) {
+                var ponto = criar('span', 'bj-central-pessoa-ponto');
+                ponto.title = 'On-line';
+                lugar.appendChild(ponto);
+            }
+            b.appendChild(lugar);
+            var textos = criar('span', 'bj-central-pessoa-textos');
+            textos.appendChild(criar('span', 'bj-central-pessoa-nome', m.nome));
+            textos.appendChild(criar('span', 'bj-central-pessoa-sub', m.eu ? 'Você' : (m.cargo || '')));
+            b.appendChild(textos);
+            b.addEventListener('click', function () { abrirComColega(m); });
+            return b;
+        }
+
+        function faixaOnline(texto, cor, ponto, extra) {   // tit(), L6382
+            var f = criar('div', 'bj-central-online-faixa');
+            f.style.color = cor;
+            var p = criar('span', 'bj-central-online-faixa-ponto');
+            p.style.background = ponto;
+            f.appendChild(p);
+            f.appendChild(document.createTextNode(texto));
+            if (extra) { f.appendChild(extra); }
+            return f;
+        }
+
+        function desenharOnline() {   // verOnline, L6380-6386 (sem "Todos" e "BlueJus IA": não existem aqui)
+            var eq = estado.equipe ? estado.equipe.equipe : [];
+            var porNome = function (a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); };
+            var on = eq.filter(function (m) { return m.online; }).sort(function (a, b) { return (a.eu - b.eu) || porNome(a, b); });
+            var off = eq.filter(function (m) { return !m.online; }).sort(porNome);
+            var voltarBtn = criar('button', 'bj-central-online-voltar', 'Voltar');
+            voltarBtn.type = 'button';
+            voltarBtn.addEventListener('click', function () { estado.verOnline = false; atualizarCabecalho(); desenharLista(); });
+            el.lista.appendChild(faixaOnline(on.length + ' on-line agora', '#1e7b45', '#3fd17f', voltarBtn));
+            on.forEach(function (m) { el.lista.appendChild(linhaDePessoa(m)); });
+            if (off.length) {
+                el.lista.appendChild(faixaOnline(off.length + ' off-line', '#7b93a2', '#c3cfd6'));
+                off.forEach(function (m) { el.lista.appendChild(linhaDePessoa(m)); });
+            }
+        }
+
+        function carregarEquipe() {
+            return pedir(urls.equipe).then(function (d) {
+                estado.equipe = d;
+                atualizarCabecalho();
+                // Redesenha só o que mostra a equipe (o Painel ou a lista de on-line), e só sem busca digitada.
+                if (estado.tela === 'lista' && (estado.aba === 'painel' || estado.verOnline) && el.busca.value.trim() === '') { desenharLista(); }
+            });
+        }
+
+        // Batimento (F2): toda página com a Central bate a cada 20 s, com a janela aberta ou não (como no desenho,
+        // L344); com ela aberta, a equipe vem junto.
+        function bater() {
+            if (estado.semSessao || !urls.presenca) { return Promise.resolve(); }
+            return pedir(urls.presenca, { metodo: 'POST', corpo: { status: statusEfetivo() } })
+                .then(function () { if (estado.janelaAberta) { return carregarEquipe(); } })
+                .catch(function (e) { if (e && e.sessao) { tratarFalha(e); } });
         }
 
         function emitirContadores(chegaram) {   // para o lançador flutuante: badge, "@n", salto e som
@@ -1018,6 +1186,13 @@
                 if (it.chave) { chave.dataset.ligada = ''; }
                 chave.appendChild(criar('span', 'bj-central-menu-chave-bola'));
                 b.appendChild(chave);
+            } else if (it.valor && it.ponto) {   // "Status" (L6264): ponto colorido + valor
+                var comPonto = criar('span', 'bj-central-menu-valor-ponto');
+                var bolinha = criar('span', 'bj-central-menu-ponto');
+                bolinha.style.background = it.ponto;
+                comPonto.appendChild(bolinha);
+                comPonto.appendChild(criar('span', 'bj-central-menu-valor', it.valor));
+                b.appendChild(comPonto);
             } else if (it.valor) {
                 b.appendChild(criar('span', 'bj-central-menu-valor', it.valor));
             }
@@ -1442,7 +1617,7 @@
         // ── eventos ──────────────────────────────────────────────────────────────────
         el.voltar.addEventListener('click', voltar);
         el.abas.forEach(function (b) {
-            b.addEventListener('click', function () { estado.aba = b.dataset.centralAba; estado.filtro = ''; desenharLista(); });
+            b.addEventListener('click', function () { estado.aba = b.dataset.centralAba; estado.filtro = ''; estado.verOnline = false; atualizarCabecalho(); desenharLista(); });
         });
         el.botoesFiltro.forEach(function (b) {
             b.addEventListener('click', function () { estado.filtro = b.dataset.centralFiltro; desenharLista(); });
@@ -1455,21 +1630,29 @@
             iniciarPolling();
             if (!estado.janelaAberta) { return; }
             var primeira = estado.listaCarregada ? Promise.resolve() : Promise.all([carregarConversas(), carregarContatos()]);
+            carregarEquipe().catch(function () { /* a equipe vem de novo no próximo batimento */ });
             primeira.then(function () { return verificarNovidades(); }).then(marcarLida).catch(tratarFalha);
         });
         el.mais.addEventListener('click', alternarPainelMenu);
+        el.online.addEventListener('click', function () {
+            estado.verOnline = !estado.verOnline;
+            el.busca.value = '';
+            atualizarCabecalho();
+            desenharLista();
+        });
         // Clique fora do ⋮ fecha o painel (no documento em que a Central estiver: a página ou a janela destacada).
         raiz.addEventListener('pointerdown', function (ev) {
             if (estado.painelMenu && !estado.painelMenu.caixa.contains(ev.target) && !el.mais.contains(ev.target)) { fecharPainelMenu(false); }
         });
         // O lançador avisa quando muda uma preferência que aparece no cabeçalho (não perturbe).
-        raiz.addEventListener('bj-central:preferencias', atualizarCabecalho);
+        // ... e o status efetivo (⋮ "Status" ou Não perturbe) vai ao servidor na hora, não só no próximo batimento.
+        raiz.addEventListener('bj-central:preferencias', function () { atualizarCabecalho(); bater(); });
         el.info.addEventListener('click', function () {
             var c = estado.aberta ? estado.conversas.filter(function (x) { return x.id === estado.aberta.id; })[0] : null;
             if (c) { abrirInfo(c, false); }
         });
         el.ocultarArquivadas.addEventListener('click', function () { estado.verArquivadas = false; desenharLista(); });
-        el.busca.addEventListener('input', desenharLista);
+        el.busca.addEventListener('input', function () { estado.verOnline = false; desenharLista(); });
         el.compositor.addEventListener('submit', function (ev) { ev.preventDefault(); enviar(); });
         el.campo.addEventListener('input', function () { ajustarAltura(); atualizarSugestoes(); });
         el.campo.addEventListener('click', atualizarSugestoes);
@@ -1562,6 +1745,9 @@
             var alvo = abrirAoCarregar ? estado.conversas.filter(function (c) { return c.id === abrirAoCarregar; })[0] : null;
             if (alvo) { abrirConversa(alvo); }
         }).catch(tratarFalha).finally(iniciarPolling);
+        bater();
+        window.setInterval(bater, BATIMENTO_MS);
+        if (!flutuante) { carregarEquipe().catch(function () { /* idem */ }); }
     }
 
     document.addEventListener('DOMContentLoaded', function () {

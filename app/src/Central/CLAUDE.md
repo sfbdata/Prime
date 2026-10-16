@@ -35,6 +35,12 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 11. **Preferências são da participação de quem pede** (`fixada`, `silenciada`, `arquivada`): nunca mexer na de
     outro. Silenciada sai do total do cabeçalho (servidor e tela); arquivada volta quando EU envio.
 
+12. **Presença e "Equipe · em aberto" (F2, `docs/specs/central-comunicacao-painel-presenca.md`).** `central_presenca`
+    é uma linha por VÍNCULO (tenant × usuário), gravada só pelo batimento (`POST /central/presenca`, upsert, CSRF);
+    on-line = batimento há < 60 s (`PresencaRepository::ONLINE_SEGUNDOS`). "Em aberto" de cada colega (decisão do dono:
+    visível a todos) = não lidas na Central + não lidas do sino NESTE escritório; só números saem, nunca texto.
+    Grave e compare sempre pelo relógio do PHP: `NOW()` do Postgres está em outro fuso.
+
 ## Modelo
 
 `central_conversa` (individual: par ordenado `usuario_menor`/`usuario_maior`, único por escritório; grupo: par nulo,

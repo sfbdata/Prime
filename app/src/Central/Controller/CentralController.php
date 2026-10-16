@@ -25,6 +25,9 @@ use App\Central\UseCase\ListarMensagensDaConversaUseCase;
 use App\Central\UseCase\MarcarConversaComoLidaUseCase;
 use App\Central\UseCase\MarcarConversaComoNaoLidaUseCase;
 use App\Central\UseCase\ObterNovidadesDaCentralUseCase;
+use App\Central\DTO\MembroDaEquipeOutput;
+use App\Central\UseCase\ListarEquipeDaCentralUseCase;
+use App\Central\UseCase\RegistrarPresencaUseCase;
 use App\Entity\Auth\User;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -74,6 +77,8 @@ final class CentralController extends AbstractController
         private readonly SairDoGrupoUseCase $sairDoGrupo,
         private readonly RenomearGrupoUseCase $renomearGrupo,
         private readonly DefinirPreferenciasDaConversaUseCase $definirPreferencias,
+        private readonly ListarEquipeDaCentralUseCase $listarEquipe,
+        private readonly RegistrarPresencaUseCase $registrarPresenca,
     ) {
     }
 
@@ -275,6 +280,46 @@ final class CentralController extends AbstractController
         $desde = self::idDaQuery($request, 'desde', aceitaZero: true);
 
         return $this->responder(fn () => $this->obterNovidades->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $desde));
+    }
+
+    /**
+     * Painel "Equipe · em aberto" e a pílula "N on-line" (`docs/specs/central-comunicacao-painel-presenca.md`): os
+     * colegas ativos com o que têm em aberto e a presença. A foto vira URL aqui (a rota dela só serve no escritório).
+     */
+    #[Route('/equipe', name: 'central_equipe', methods: ['GET'])]
+    public function equipe(): JsonResponse
+    {
+        return $this->responder(function (): array {
+            $saida = $this->listarEquipe->executar($this->usuario(), $this->tenantContext->getCurrentTenant());
+
+            return [
+                'equipe' => array_map(fn (MembroDaEquipeOutput $m): array => [
+                    'id' => $m->id,
+                    'nome' => $m->nome,
+                    'cargo' => $m->cargo,
+                    'foto' => $m->foto !== null ? $this->generateUrl('app_profile_foto_serve', ['nome' => $m->foto]) : null,
+                    'eu' => $m->eu,
+                    'emAberto' => $m->emAberto,
+                    'status' => $m->status,
+                    'online' => $m->online,
+                    'desde' => $m->desde,
+                    'vistoEm' => $m->vistoEm,
+                ], $saida->equipe),
+                'online' => $saida->online,
+                'total' => $saida->total,
+            ];
+        });
+    }
+
+    /** Batimento de presença (F2): a cada 20 s e quando o status muda. */
+    #[Route('/presenca', name: 'central_presenca', methods: ['POST'])]
+    public function presenca(Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+        $corpo = $this->corpo($request);
+        $status = isset($corpo['status']) && is_string($corpo['status']) ? $corpo['status'] : '';
+
+        return $this->responder(fn () => ['status' => $this->registrarPresenca->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $status)]);
     }
 
     /** @param callable(): mixed $acao */

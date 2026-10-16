@@ -1368,3 +1368,312 @@ html[data-bs-theme="dark"] .bj-central {
         animation: none;
     }
 }
+
+/* ── F2: presença e "Equipe · em aberto" (docs/specs/central-comunicacao-painel-presenca.md) ───────────────── */
+/* Ponto do MEU status no avatar do cabeçalho — L6337 */
+.bj-central-avatar--cab {
+    position: relative;
+}
+
+.bj-central-cab-ponto {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--bjc-azul);
+}
+
+.bj-central-cab-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* Pílula "N on-line" — L6337 */
+.bj-central-online {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    height: 22px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: normal;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.bj-central-online:hover,
+.bj-central-online:focus-visible {
+    background: rgba(255, 255, 255, .14);
+    outline: none;
+}
+
+.bj-central-online[hidden] {
+    display: none;
+}
+
+.bj-central-online-ponto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3fd17f;
+    box-shadow: 0 0 0 2px rgba(63, 209, 127, .3);
+}
+
+/* Painel: Equipe · em aberto — L5643-5652 */
+.bj-central-equipe {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px 10px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    line-height: normal;
+}
+
+.bj-central-equipe-titulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 2px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--bjc-texto-suave);
+}
+
+.bj-central-equipe-total {
+    margin-left: auto;
+    white-space: nowrap;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--bjc-texto-medio);
+}
+
+.bj-central-equipe-linha {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 38px;
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.bj-central-equipe-linha:hover,
+.bj-central-equipe-linha:focus-visible {
+    background: var(--bjc-menu-hover);
+    outline: none;
+}
+
+.bj-central-equipe-linha--eu {
+    cursor: default;
+}
+
+.bj-central-equipe-linha--eu:hover {
+    background: transparent;
+}
+
+.bj-central-equipe-av {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.bj-central-avatar--equipe {
+    width: 26px;
+    height: 26px;
+    font-size: 9px;                 /* Math.round(26 × .36) */
+}
+
+.bj-central-equipe-ponto {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--bjc-fundo);
+}
+
+.bj-central-equipe-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.bj-central-equipe-nome {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bjc-texto);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.bj-central-equipe-sub {
+    overflow: hidden;
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.bj-central-equipe-contador {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.bj-central-equipe-contador--alto {
+    background: #fdeceb;
+    color: #a3232b;
+}
+
+.bj-central-equipe-contador--algum {
+    background: #e5f1f7;
+    color: #0a7aad;
+}
+
+.bj-central-equipe-contador--zero {
+    background: #eef2f5;
+    color: #9aabb6;
+}
+
+.bj-central-equipe-conversar {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: #8aa0ad;
+}
+
+/* Lista "on-line agora / off-line" — verOnline L6380-6386, linhaUsuario L5803 */
+.bj-central-online-faixa {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: #f5f6f7;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    line-height: normal;
+    text-transform: uppercase;
+}
+
+.bj-central-online-faixa-ponto {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.bj-central-online-voltar {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    color: var(--bjc-azul);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+}
+
+.bj-central-pessoa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: var(--bjc-fundo);
+    font-family: inherit;
+    line-height: normal;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bj-central-pessoa:hover,
+.bj-central-pessoa:focus-visible {
+    background: var(--bjc-fundo-hover-usuario);
+    outline: none;
+}
+
+.bj-central-pessoa--off {
+    opacity: .62;
+}
+
+.bj-central-pessoa-ponto {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #3fd17f;
+    box-shadow: 0 0 0 2px var(--bjc-fundo);
+}
+
+.bj-central-pessoa-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.bj-central-pessoa-nome {
+    overflow: hidden;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--bjc-texto-forte);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.bj-central-pessoa-sub {
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--bjc-texto-suave);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* ⋮ "Status": ponto + valor — L6264 */
+.bj-central-menu-valor-ponto {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bj-central-menu-ponto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}

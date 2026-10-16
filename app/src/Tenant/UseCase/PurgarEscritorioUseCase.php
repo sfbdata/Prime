@@ -187,6 +187,8 @@ final class PurgarEscritorioUseCase
         ['central_mensagem', 'tenant_id = :tenant'],
         ['central_participante', 'tenant_id = :tenant'],
         ['central_conversa', 'tenant_id = :tenant'],
+        // Presença na Central (F2): uma linha por vínculo, FK de tenant NO ACTION.
+        ['central_presenca', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

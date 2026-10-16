@@ -6,6 +6,8 @@
          data-url-novidades="{{ path('central_novidades') }}"
          data-url-conversa-base="{{ path('central_conversas') }}"
          data-url-grupos="{{ path('central_grupo_criar') }}"
+         data-url-equipe="{{ path('central_equipe') }}"
+         data-url-presenca="{{ path('central_presenca') }}"
          data-eu-nome="{{ eu.fullName }}"
          data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
          {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
@@ -15,18 +17,25 @@
         <button type="button" class="bj-central-btn-ico" data-central-voltar hidden aria-label="Voltar para as conversas" title="Voltar">
             <i class="bi bi-arrow-left" aria-hidden="true"></i>
         </button>
-        {# B1: na lista, o avatar de quem está usando, com o anel do desenho (L6337). Sem o ponto de status: presença
-           não existe no BlueJus (D5). Foto do perfil quando houver; senão as iniciais (avatarU, L5409). #}
+        {# Na lista, o avatar de quem está usando, com o anel do desenho (L6337) e o ponto do MEU status (F2). Foto do
+           perfil quando houver; senão as iniciais (avatarU, L5409). #}
         <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-eu aria-hidden="true">
             {%- if fotoPerfilUrl|default(null) -%}
                 <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}" alt="">
             {%- else -%}
                 {{ eu.fullName|split(' ')|filter(p => p is not empty)|slice(0, 2)|map(p => p|first|upper)|join('') }}
             {%- endif -%}
+            <span class="bj-central-cab-ponto" data-central-cab-ponto></span>
         </span>
         <span class="bj-central-avatar bj-central-avatar--cab" data-central-cab-avatar aria-hidden="true" hidden></span>
         <div class="bj-central-cab-textos">
-            <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
+            <div class="bj-central-cab-linha">
+                <div class="bj-central-cab-titulo" data-central-cab-titulo>Central de Comunicação</div>
+                {# F2: "N on-line" (L6337); abre a lista de quem está on-line #}
+                <button type="button" class="bj-central-online" data-central-online hidden aria-expanded="false">
+                    <span class="bj-central-online-ponto" aria-hidden="true"></span><span data-central-online-texto></span>
+                </button>
+            </div>
             <div class="bj-central-cab-sub" data-central-cab-sub>{{ eu.fullName }}</div>
         </div>
         {# B: informações do grupo (só com grupo aberto) e o ⋮ da lista (novo grupo, arquivadas — desenho L6259) #}

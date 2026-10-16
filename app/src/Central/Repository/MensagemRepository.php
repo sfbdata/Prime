@@ -113,6 +113,41 @@ class MensagemRepository extends ServiceEntityRepository
     }
 
     /**
+     * Não lidas de VÁRIAS pessoas de uma vez (Painel, "Equipe · em aberto"): a mesma regra de
+     * `naoLidasPorConversa` (de outra pessoa, não de sistema, acima do cursor de cada uma, participação ativa),
+     * somada por pessoa. Silenciadas contam, como no desenho (L5641). Tenant explícito na mensagem e na participação.
+     *
+     * @param list<int> $usuarioIds
+     *
+     * @return array<int, int> id do usuário → quantidade (só quem tem alguma)
+     */
+    public function naoLidasPorUsuario(Tenant $tenant, array $usuarioIds): array
+    {
+        if ($usuarioIds === []) {
+            return [];
+        }
+
+        $linhas = $this->getEntityManager()->createQuery(
+            'SELECT IDENTITY(p.usuario) AS usuario, COUNT(m.id) AS total
+             FROM ' . Mensagem::class . ' m
+             JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.tenant = :tenant
+                AND p.usuario IN (:ids) AND p.saiuEm IS NULL
+             WHERE m.tenant = :tenant AND m.autor <> p.usuario AND m.sistema = false AND m.id > p.ultimaLidaId
+             GROUP BY p.usuario'
+        )
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $usuarioIds)
+            ->getArrayResult();
+
+        $porUsuario = [];
+        foreach ($linhas as $linha) {
+            $porUsuario[(int) $linha['usuario']] = (int) $linha['total'];
+        }
+
+        return $porUsuario;
+    }
+
+    /**
      * Mensagens novas (id acima do cursor) nas conversas de que o usuário participa ATIVAMENTE, em ordem — o que o
      * polling entrega. Conversa de que ele não participa (ou de que saiu) nunca entra, mesmo no mesmo escritório.
      *
