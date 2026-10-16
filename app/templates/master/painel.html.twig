@@ -1,9 +1,100 @@
 {% extends 'base.html.twig' %}
 
+{# Desenho: docs/design/perfis-1.0/05 - Perfis 1.0.dc.html (edição do perfil Master: abas Painel do sistema | Permissões).
+   As seções do painel são montadas por public/js/master/painel.js a partir dos endpoints /master/dados/*. #}
+
 {% block title %}Editar Perfil | Master do Sistema{% endblock %}
 
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('css/master.css') }}">
+{% endblock %}
+
 {% block body %}
-<section class="content">
-  <h1>Editar Perfil: Master do Sistema</h1>
-</section>
+{% set tenantAtual = current_tenant() %}
+{% set urls = {
+    visao: path('master_dados_visao_geral'),
+    contas: path('master_dados_contas'),
+    oab: path('master_dados_usuarios_oab'),
+    auditoria: path('master_dados_auditoria'),
+    mapaBrasil: path('master_mapa_brasil'),
+    mapaMundo: path('master_mapa_mundo'),
+    revisaoOab: path('admin_platform_oab_index'),
+    convites: path('admin_platform_convite_index'),
+    logo: asset('images/logo/bluejus-logo-nav.png')
+} %}
+<div class="mp" id="master-painel" data-urls="{{ urls|json_encode|e('html_attr') }}" data-quem="{{ app.user ? app.user.fullName : '' }}">
+
+    <div class="mp-topo">
+        <h1 class="mp-titulo"><i class="bi bi-shield-lock"></i>Editar Perfil: Master do Sistema<span class="mp-selo">MASTER</span><span class="mp-titulo-traco"></span></h1>
+        <a class="mp-btn-voltar" href="{{ tenantAtual ? path('app_tenant_role_index', {tenantId: tenantAtual.id}) : path('dashboard_index') }}"><i class="bi bi-arrow-left"></i>Voltar</a>
+    </div>
+
+    <div class="mp-abas" role="tablist">
+        <button type="button" class="mp-aba on" data-aba="painel" role="tab" aria-selected="true"><i class="bi bi-speedometer2"></i>Painel do sistema</button>
+        <button type="button" class="mp-aba" data-aba="perm" role="tab" aria-selected="false"><i class="bi bi-key"></i>Permissões</button>
+    </div>
+
+    <div class="mp-painel" data-painel-aba="painel">
+        <div class="mp-faixa"><i class="bi bi-shield-fill-check"></i>Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.</div>
+        <div class="mp-secs" id="mp-secs"></div>
+        <div class="mp-secao" id="mp-secao"><div class="mp-carregando">Carregando o painel…</div></div>
+    </div>
+
+    <div class="mp-perm" data-painel-aba="perm" hidden>
+        <div class="mp-card mp-masters">
+            <div class="mp-cab-roxo"><i class="bi bi-people-fill"></i><b>Masters do sistema</b><span>{{ masters|length }} Master(s)</span></div>
+            {% for m in masters %}
+                {% set partes = m.nome|split(' ')|filter(p => p is not empty) %}
+                <div class="mp-master">
+                    <span class="mp-avatar">{% for p in partes|slice(0, 2) %}{{ p|first|upper }}{% endfor %}</span>
+                    <span class="mp-master-id"><b>{{ m.nome }}</b><span>{{ m.email }}{% if m.oabNumero %} · OAB {{ m.oabNumero }}/{{ m.oabUf }}{% endif %}</span></span>
+                    <span class="mp-tag-master">MASTER PRIMÁRIO</span>
+                    <i class="bi bi-lock-fill mp-cadeado" title="O Master primário não pode ser excluído"></i>
+                </div>
+            {% else %}
+                <div class="mp-vazio-linha">Nenhum usuário com o papel de Master.</div>
+            {% endfor %}
+        </div>
+
+        <div class="mp-perm-duas">
+            <div class="mp-card mp-poderes">
+                <div class="mp-cab-roxo"><i class="bi bi-stars"></i><b>Poderes exclusivos do Master</b><i class="bi bi-lock-fill" title="Fixos, não podem ser removidos nem transferidos"></i></div>
+                {% for p in [
+                    'Ver e administrar todas as contas do BlueJus',
+                    'Suspender, reativar e excluir contas',
+                    'Definir limites de armazenamento e usuários',
+                    'Criar e alterar planos e franquias',
+                    'Configurações globais do sistema',
+                    'Acessar toda a trilha de auditoria do sistema',
+                    'Sem restrição de tempo para editar ou excluir'
+                ] %}
+                    <div class="mp-poder"><i class="bi bi-check-circle-fill"></i>{{ p }}</div>
+                {% endfor %}
+                <div class="mp-rodape-roxo">Esses poderes só existem no perfil Master. Primários e secundários dos escritórios nunca os recebem.</div>
+            </div>
+
+            <div class="mp-card mp-papeis">
+                <div class="mp-cab-cinza-14"><i class="bi bi-diagram-3"></i><b>Atribuições por papel</b></div>
+                {% for p in [
+                    {rot: 'MASTER', icone: 'bi-stars', cor: '#7a3e8f', bg: '#f3e9f7', quem: 'O criador do BlueJus, único Master do sistema.', faz: 'administra a plataforma: contas, limites, planos, custos, infraestrutura, configurações globais e auditoria do sistema.', naoFaz: 'não atua dentro dos escritórios nem lê o conteúdo jurídico das contas; não tem perfil de primário nem de secundário.'},
+                    {rot: 'PRIMÁRIO', icone: 'bi-person-badge', cor: '#0a6fa0', bg: '#e5f1f7', quem: 'Quem abriu a conta (titular) e os sócios que ele promover.', faz: 'gere o próprio escritório: convida e administra secundários, cria perfis, define permissões, configura módulos e audita a conta.', naoFaz: 'não vê nem altera outras contas, limites contratados ou configurações do sistema.'},
+                    {rot: 'SECUNDÁRIO', icone: 'bi-person', cor: '#4a6373', bg: '#eef2f5', quem: 'Colaborador convidado pelo primário.', faz: 'trabalha nas pastas, processos e módulos liberados pelo seu perfil.', naoFaz: 'não administra usuários, perfis ou configurações, nem acessa o painel do sistema.'}
+                ] %}
+                    <div class="mp-papel">
+                        <span class="mp-papel-selo" style="--cor: {{ p.cor }}; --bg: {{ p.bg }};"><i class="bi {{ p.icone }}"></i>{{ p.rot }}</span>
+                        <span class="mp-papel-quem">{{ p.quem }}</span>
+                        <span class="mp-papel-faz"><b>Faz:</b> {{ p.faz }}</span>
+                        <span class="mp-papel-nao"><b>Não faz:</b> {{ p.naoFaz }}</span>
+                    </div>
+                {% endfor %}
+                <div class="mp-rodape-cinza">Cada papel tem competências separadas. O Master não recebe permissões de escritório e o primário não recebe poderes do sistema.</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    <script src="{{ asset('js/master/bj-dica.js') }}"></script>
+    <script src="{{ asset('js/master/painel.js') }}"></script>
 {% endblock %}

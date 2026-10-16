@@ -1,0 +1,55 @@
+{# Desenho: docs/design/perfis-1.0/mapa-mundo.html. Página do iframe do mapa no Painel do Master (ROLE_SUPER_ADMIN).
+   O navegador não chama site externo: d3 local, malhas locais, municípios e dados públicos pelas rotas /master/*. #}
+{% set cfg = {
+    malhaUf: asset('js/master/geo/brasil-uf.geojson'),
+    malhaMundo: asset('js/master/geo/mundo-110m.json'),
+    municipios: path('master_ibge_municipios', {uf: 'XX'}),
+    populacao: path('master_ibge_populacao', {uf: 'XX'}),
+    fontes: path('master_fontes_resumo'),
+    atualizar: path('master_fontes_atualizar'),
+    tabela: path('master_fontes_tabela'),
+    oab: path('master_fontes_oab'),
+    csrf: csrf_token('master_fontes')
+} %}
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Mapa mundial por país</title>
+<script src="{{ asset('js/vendor/d3/d3.min.js') }}"></script>
+<script src="{{ asset('js/vendor/topojson-client/topojson-client.min.js') }}"></script>
+<style>
+html,body{margin:0;height:100%;font-family:Arial,Helvetica,sans-serif;background:#fff;overflow:hidden}
+#m{width:100%;height:100%;display:block}
+.pais{stroke:#b9c7d2;stroke-width:.5;transition:opacity .45s ease;cursor:pointer}
+.pais:hover{opacity:.82}
+.uf{stroke:#fff;cursor:pointer;transition:opacity .45s ease,fill-opacity .2s}
+.uf:hover{fill-opacity:.82}
+.mun{stroke:#fff;transition:fill-opacity .2s}
+.mun:hover{fill-opacity:.8}
+.msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7d909d;font-size:13px;text-align:center;padding:20px}
+#tip{position:fixed;width:max-content;max-width:min(320px,calc(100vw - 16px));white-space:pre-line;overflow-wrap:anywhere;box-sizing:border-box;line-height:1.35;z-index:20;pointer-events:none;background:#e5f1f7;color:#0b4f73;font-size:12px;font-weight:bold;padding:6px 9px;border-radius:4px;box-shadow:0 4px 12px rgba(18,36,47,.15);opacity:0;transition:opacity .12s}
+#painel{position:absolute;z-index:6!important;top:10px;left:10px;width:236px;background:#fff;border:1px solid #dfe7ed;border-radius:4px;box-shadow:0 6px 20px rgba(18,36,47,.12);opacity:0;transform:translateY(-6px);transition:opacity .35s,transform .35s;pointer-events:none;z-index:4}
+#painel.on{opacity:1;transform:none;pointer-events:auto}
+#painel .top{user-select:none;touch-action:none;display:flex;align-items:center;gap:8px;padding:9px 10px;background:#0a6fa0;color:#fff;border-radius:4px 4px 0 0}
+#voltar{width:28px;height:28px;flex:none;border:none;border-radius:4px;background:rgba(255,255,255,.16);color:#fff;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+#voltar:hover{background:rgba(255,255,255,.3)}
+#pNome{font-size:13.5px;flex:1;font-weight:bold}
+#pNome span{font-size:11px;opacity:.85;font-weight:normal;display:block}
+#trilha{font-size:11px;color:#5b7383;padding:6px 10px;background:#f7f9fb;border-bottom:1px solid #eef2f5}
+#trilha a{color:#0a6fa0;cursor:pointer;text-decoration:none}#trilha a:hover{text-decoration:underline}
+#lista{max-height:250px;overflow:auto;font-size:12.5px;color:#243845}
+#lista div{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-bottom:1px solid #eef2f5;position:relative}
+#lista div.cl{cursor:pointer}#lista div.cl:hover{background:#f2f8fb}
+#lista div span{position:relative}
+#lista div i{position:absolute;left:0;top:0;bottom:0;background:#e5f1f7}
+#lista .vazio{color:#7d909d;justify-content:center;text-align:center}
+#lista .ins{font-size:11px;color:#5b7383;background:#f7f9fb}
+#carreg{position:absolute;right:12px;top:12px;font-size:11.5px;color:#5b7383;background:#f7f9fb;border:1px solid #e2e9ee;padding:5px 9px;border-radius:4px;opacity:0;transition:opacity .2s}
+#zCtl{position:absolute;z-index:3!important;right:12px;bottom:12px;display:flex;flex-direction:column;background:#fff;border:1px solid #dfe7ed;border-radius:4px;box-shadow:0 4px 14px rgba(18,36,47,.12);overflow:hidden;z-index:4}#zCtl button{width:32px;height:30px;border:none;border-bottom:1px solid #eef2f5;background:#fff;color:#0a6fa0;font:bold 17px Arial;cursor:pointer;transition:background .15s}#zCtl button:last-child{border-bottom:none;font-size:14px}#zCtl button:hover{background:#e5f1f7}#m{cursor:grab}#m:active{cursor:grabbing}
+</style></head><body data-cfg="{{ cfg|json_encode|e('html_attr') }}">
+<svg id="m"><defs><filter id="sombra" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0a3d5c" flood-opacity=".3"/></filter></defs></svg>
+<div id="tip"></div><div class="msg" id="msg">Carregando mapa…</div><div id="carreg">Carregando…</div>
+<div id="painel"><div class="top"><button id="voltar" title="Voltar" aria-label="Voltar">&#8592;</button><div id="pNome"></div></div><div id="trilha"></div><div id="lista"></div></div>
+
+<script src="{{ asset('js/master/mapa-mundo.js') }}"></script>
+<script src="{{ asset('js/master/mapa-dados.js') }}"></script>
+</body></html>
