@@ -12,10 +12,12 @@ use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
+use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\MontarPainelUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -40,6 +42,7 @@ final class TrabalhoExternoController extends AbstractController
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
+        private readonly PreviaDePerfil $previa,
     ) {
     }
 
@@ -56,20 +59,33 @@ final class TrabalhoExternoController extends AbstractController
         ]);
     }
 
+    /** `?como=solicitante|equipe|convidado`: pré-visualização do Master (spec §9); para os demais, ignorado. */
     #[Route('/api/painel', name: 'trabalho_externo_painel', methods: ['GET'])]
-    public function painel(): JsonResponse
+    public function painel(Request $request): JsonResponse
     {
         $ctx = $this->contextoOuNulo();
+        if ($ctx === null) {
+            return $this->semAcesso();
+        }
+        $como = $this->previa->perfilPedido($ctx, $request->query->get('como'));
 
-        return $ctx === null ? $this->semAcesso() : $this->responder(fn (): array => ['painel' => $this->montarPainel->executar($ctx)]);
+        return $this->responder(fn (): array => ['painel' => $como !== null
+            ? $this->montarPainel->executarPrevia($ctx, $como)
+            : $this->montarPainel->executar($ctx)]);
     }
 
     #[Route('/api/demandas/{codigo}', name: 'trabalho_externo_detalhe', methods: ['GET'], requirements: ['codigo' => 'TE-\d{1,9}'])]
-    public function detalhe(string $codigo): JsonResponse
+    public function detalhe(Request $request, string $codigo): JsonResponse
     {
         $ctx = $this->contextoOuNulo();
+        if ($ctx === null) {
+            return $this->semAcesso();
+        }
+        $como = $this->previa->perfilPedido($ctx, $request->query->get('como'));
 
-        return $ctx === null ? $this->semAcesso() : $this->responder(fn (): array => ['demanda' => $this->detalhar->executar($ctx, $codigo)]);
+        return $this->responder(fn (): array => ['demanda' => $como !== null
+            ? $this->detalhar->executarPrevia($ctx, $codigo, $como)
+            : $this->detalhar->executar($ctx, $codigo)]);
     }
 
     #[Route('/demandas/{codigo}/documentos/{id}', name: 'trabalho_externo_documento', methods: ['GET'], requirements: ['codigo' => 'TE-\d{1,9}', 'id' => '\d+'])]

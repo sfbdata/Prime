@@ -17,6 +17,7 @@ use App\TrabalhoExterno\Service\ContadorDeNaoLidas;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
+use App\TrabalhoExterno\Service\PreviaDePerfil;
 
 /**
  * Tudo que a tela inicial do Trabalho Externo precisa de uma vez: perfil, configuração (só o que
@@ -33,15 +34,35 @@ final class MontarPainelUseCase
         private readonly ApresentadorDeDemanda $apresentador,
         private readonly ContadorDeNaoLidas $contador,
         private readonly UserTenantRepository $vinculos,
+        private readonly PreviaDePerfil $previa,
     ) {
     }
 
     /** @return array<string, mixed> */
     public function executar(Contexto $ctx): array
     {
+        return $this->montar($ctx, $this->localizador->visiveis($ctx));
+    }
+
+    /**
+     * A mesma tela, como `$como` a veria (spec §9): só leitura, montada a partir do que o Master vê.
+     *
+     * @return array<string, mixed>
+     */
+    public function executarPrevia(Contexto $master, Perfil $como): array
+    {
+        return $this->montar($this->previa->contexto($master, $como), $this->previa->pares($master, $como));
+    }
+
+    /**
+     * @param list<array{0: DemandaExterna, 1: Contexto}> $pares
+     *
+     * @return array<string, mixed>
+     */
+    private function montar(Contexto $ctx, array $pares): array
+    {
         $cfg = $ctx->configuracao;
         $bloqueada = $this->politica->abaBloqueada($ctx);
-        $pares = $this->localizador->visiveis($ctx);
         $naoLidas = $this->contador->porDemanda($pares);
 
         return [
@@ -52,8 +73,11 @@ final class MontarPainelUseCase
                 'nome' => trim((string) $ctx->usuario->getFullName()) ?: (string) $ctx->usuario->getEmail(),
                 'interno' => $ctx->ehInterno(),
                 'master' => $ctx->perfil === Perfil::Master,
-                'podeSolicitar' => $ctx->perfil === Perfil::Solicitante,
+                'podeSolicitar' => $ctx->perfil === Perfil::Solicitante && !$ctx->previa,
             ],
+            // Só o Master real tem o seletor; na prévia, qual perfil está sendo mostrado.
+            'podePrever' => $ctx->previa || $ctx->perfil === Perfil::Master,
+            'previa' => $ctx->previa ? ['chave' => $ctx->perfil->value, 'rotulo' => $ctx->perfil->rotulo()] : null,
             'configuracao' => $this->configuracao($ctx),
             'bloqueio' => $bloqueada ? $this->bloqueio($ctx) : null,
             'aviso' => $this->aviso($ctx),
@@ -64,7 +88,7 @@ final class MontarPainelUseCase
                 $pares,
             ),
             'avisoDeMensagem' => $this->avisoDeMensagem($pares, $naoLidas),
-            'novaSolicitacao' => $ctx->perfil === Perfil::Solicitante ? $this->dadosDoModal($ctx) : null,
+            'novaSolicitacao' => $ctx->perfil === Perfil::Solicitante && !$ctx->previa ? $this->dadosDoModal($ctx) : null,
         ];
     }
 

@@ -84,6 +84,9 @@ final class PoliticaDaDemanda
      */
     public function botoes(Contexto $ctx, DemandaExterna $d): array
     {
+        if ($ctx->previa) {
+            return [];
+        }
         $s = $d->getSituacao();
         $p = $ctx->perfil;
         $botoes = [];
@@ -204,14 +207,15 @@ final class PoliticaDaDemanda
 
     public function podePropor(Contexto $ctx, DemandaExterna $d): bool
     {
-        return $this->podeVer($ctx, $d)
+        return !$ctx->previa
+            && $this->podeVer($ctx, $d)
             && $this->pode($ctx, 'proposta')
             && in_array($d->getSituacao(), [Situacao::Analise, Situacao::Proposta], true);
     }
 
     public function podeConversar(Contexto $ctx, DemandaExterna $d): bool
     {
-        if (!$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
+        if ($ctx->previa || !$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
             return false;
         }
 
@@ -230,14 +234,16 @@ final class PoliticaDaDemanda
     /** Checklist e "Registrar andamento": só em execução, pela Central ou pelo Convidado com "andamento". */
     public function podeRegistrarAndamento(Contexto $ctx, DemandaExterna $d): bool
     {
-        return $this->podeVer($ctx, $d)
+        return !$ctx->previa
+            && $this->podeVer($ctx, $d)
             && $d->getSituacao() === Situacao::Execucao
             && ($ctx->ehInterno() || $this->convidadoPode($ctx, 'andamento'));
     }
 
     public function podeAnexar(Contexto $ctx, DemandaExterna $d): bool
     {
-        return $this->podeVer($ctx, $d)
+        return !$ctx->previa
+            && $this->podeVer($ctx, $d)
             && $d->getSituacao() !== Situacao::Rascunho
             && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'enviar'));
     }
@@ -262,7 +268,7 @@ final class PoliticaDaDemanda
     /** Reenviar e revogar: a mesma permissão, em qualquer situação (`c.gerir` do desenho). */
     public function podeGerirConvites(Contexto $ctx, DemandaExterna $d): bool
     {
-        return $this->podeVer($ctx, $d) && $this->pode($ctx, 'convidar');
+        return !$ctx->previa && $this->podeVer($ctx, $d) && $this->pode($ctx, 'convidar');
     }
 
     /** Aba WhatsApp: quem vê a demanda, menos o Convidado (o desenho tira a aba dele). */

@@ -478,6 +478,113 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame('convidado', $this->json($client)['painel']['perfil']['chave'] ?? null);
     }
 
+    #[TestDox('pré-visualização do Master (spec §9): mostra a tela como cada perfil a veria, só para leitura e sem rascunhos')]
+    public function testPreviaDoMaster(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio, $token] = $this->demandaComNegociacao();
+        $this->contaDoConvidado($client, $token, 'negocio@test.com');
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'NOTA-DO-MASTER', 'interna' => true]);
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $rascunho = $this->solicitar($client, self::solicitacaoValida(['descricao' => 'RASCUNHO-PRIVADO']), false)['codigo'];
+
+        $this->logarComTenant($client, $master, $central);
+        $painel = function (string $como) use ($client): array {
+            $client->request('GET', '/trabalho-externo/api/painel?como=' . $como);
+            self::assertResponseIsSuccessful();
+
+            return $this->json($client)['painel'];
+        };
+        $detalhe = function (string $como) use ($client, $codigo): array {
+            $client->request('GET', "/trabalho-externo/api/demandas/$codigo?como=" . $como);
+            self::assertResponseIsSuccessful();
+
+            return $this->json($client)['demanda'];
+        };
+        $semEscrita = static function (array $d, string $como): void {
+            self::assertSame([], $d['botoes'], "$como: nenhuma ação");
+            foreach (['podeAnexar', 'podePropor', 'podeAndamento', 'podeConvidar', 'podeConversar', 'podeNotaInterna'] as $k) {
+                self::assertFalse($d[$k], "$como: $k desligado na prévia");
+            }
+        };
+
+        // Sem prévia: o Master tem o seletor e não está pré-visualizando.
+        $client->request('GET', '/trabalho-externo/api/painel');
+        $real = $this->json($client)['painel'];
+        self::assertTrue($real['podePrever']);
+        self::assertNull($real['previa']);
+
+        // Solicitante: o escritório dono; sem nota interna, sem rascunho, sem escrita.
+        $p = $painel('solicitante');
+        self::assertSame(['chave' => 'solicitante', 'rotulo' => 'Solicitante'], $p['previa']);
+        self::assertSame('solicitante', $p['perfil']['chave']);
+        self::assertTrue($p['podePrever'], 'o seletor continua para voltar ao Master');
+        self::assertFalse($p['perfil']['podeSolicitar']);
+        self::assertNull($p['novaSolicitacao']);
+        self::assertSame([$codigo], array_column($p['demandas'], 'codigo'), 'nunca o rascunho do escritório');
+        self::assertStringNotContainsString('RASCUNHO-PRIVADO', (string) $client->getResponse()->getContent());
+        $d = $detalhe('solicitante');
+        self::assertStringNotContainsString('NOTA-DO-MASTER', (string) $client->getResponse()->getContent());
+        $semEscrita($d, 'solicitante');
+        $client->request('GET', "/trabalho-externo/api/demandas/$rascunho?como=solicitante");
+        self::assertResponseStatusCodeSame(404, 'nem pelo código o rascunho abre na prévia');
+
+        // Convidado: o recorte daquele convite (corte do aceite, sem proposta nem WhatsApp).
+        self::assertSame([$codigo], array_column($painel('convidado')['demandas'], 'codigo'));
+        $d = $detalhe('convidado');
+        $conteudo = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('SEGREDO', $conteudo);
+        self::assertStringNotContainsString('NOTA-DO-MASTER', $conteudo);
+        self::assertSame(['resumo', 'exec', 'chat', 'hist'], $d['abas']);
+        self::assertSame([], $d['propostas']);
+        $semEscrita($d, 'convidado');
+
+        // Equipe: vê como a Central (inclusive nota interna), mas sem escrita.
+        self::assertContains($codigo, array_column($painel('equipe')['demandas'], 'codigo'));
+        $d = $detalhe('equipe');
+        self::assertStringContainsString('NOTA-DO-MASTER', (string) $client->getResponse()->getContent());
+        $semEscrita($d, 'equipe');
+
+        // Valor fora da lista: a tela real do Master.
+        self::assertNull($painel('master')['previa']);
+        self::assertNull($painel('qualquer')['previa']);
+
+        // Escrita nunca é "como" outro perfil: a ação de convidado com ?como=convidado é do Master, que não a tem.
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/impedimento?como=convidado", ['motivo' => 'x']);
+        self::assertResponseStatusCodeSame(403);
+
+        // Aba só para a equipe: a prévia de Solicitante mostra o bloqueio dele, não as demandas.
+        $this->postarJson($client, '/trabalho-externo/api/configuracao', ['visibilidade' => 'interno']);
+        self::assertResponseIsSuccessful();
+        $p = $painel('solicitante');
+        self::assertSame([], $p['demandas']);
+        self::assertSame('Acesso restrito', $p['bloqueio']['titulo'] ?? null);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo?como=solicitante");
+        self::assertResponseStatusCodeSame(404);
+        self::assertNotSame([], $painel('equipe')['demandas'], 'a Equipe continua vendo');
+    }
+
+    #[TestDox('quem não é Master não pré-visualiza: o parâmetro é ignorado')]
+    public function testPreviaSoParaOMaster(): void
+    {
+        [$client, $codigo, , , $solicitante, $escritorio, $token] = $this->demandaComNegociacao();
+
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $client->request('GET', '/trabalho-externo/api/painel?como=equipe');
+        $p = $this->json($client)['painel'];
+        self::assertSame('solicitante', $p['perfil']['chave']);
+        self::assertNull($p['previa']);
+        self::assertFalse($p['podePrever']);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo?como=equipe");
+        self::assertTrue($this->json($client)['demanda']['podeConversar'] ?? null, 'segue com o próprio chat: não entrou em modo prévia');
+
+        $this->contaDoConvidado($client, $token, 'negocio@test.com');
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo?como=equipe");
+        $conteudo = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('SEGREDO', $conteudo, 'o convidado não ganha a visão da Equipe');
+        self::assertFalse($this->json($client)['demanda']['mostraConvites']);
+    }
+
     private function aceitarLogado(KernelBrowser $client, User $usuario, string $token): void
     {
         $client->getCookieJar()->clear();

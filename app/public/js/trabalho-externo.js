@@ -54,6 +54,7 @@
         perMesV: String(painelInicial.hoje || '').slice(0, 7),
         perAnoV: String(painelInicial.hoje || '').slice(0, 4),
         hm: false,
+        como: null,
         menu: null,
         aberta: null,
         dz: null,
@@ -139,8 +140,11 @@
     /* ---------------------------------------------------------------- URLs */
 
     function comCodigo(base, codigo) { return base.replace(MARCADOR, encodeURIComponent(codigo)); }
+    /** Pré-visualização do Master (spec §9): só as LEITURAS levam `?como=`; escrita nunca. */
+    function comComo(url) { return S.como ? url + (url.indexOf('?') >= 0 ? '&' : '?') + 'como=' + encodeURIComponent(S.como) : url; }
+    function previa() { return !!S.painel.previa; }
     var ROTA = {
-        detalhe: function (c) { return comCodigo(D.urlDetalhe, c); },
+        detalhe: function (c) { return comComo(comCodigo(D.urlDetalhe, c)); },
         acao: function (c, a) { return comCodigo(D.urlAcao, c).replace('__acao__', encodeURIComponent(a)); },
         proposta: function (c) { return comCodigo(D.urlProposta, c); },
         mensagem: function (c) { return comCodigo(D.urlMensagem, c); },
@@ -182,7 +186,7 @@
     }
 
     function recarregarPainel() {
-        return pedir('GET', D.urlPainel).then(function (r) {
+        return pedir('GET', comComo(D.urlPainel)).then(function (r) {
             if (r.ok && r.painel) {
                 S.painel = r.painel;
                 renderTudo();
@@ -199,9 +203,22 @@
 
     /* ---------------------------------------------------------------- linha do título */
 
+    var PERFIS = [['master', 'Master', 'bi-shield-check'], ['solicitante', 'Solicitante', 'bi-building'], ['equipe', 'Equipe', 'bi-people'], ['convidado', 'Convidado', 'bi-person-badge']];
+
     function renderTitulo() {
         var alvo = limpar($('teTituloAcoes'));
         var p = perfil(), c = cfg();
+
+        if (S.painel.podePrever) {
+            var atual = S.como || 'master';
+            alvo.appendChild(el('div', { class: 'te-perfis', title: 'Pré-visualizar como cada perfil vê a aba (somente leitura)' }, PERFIS.map(function (x) {
+                return el('button', {
+                    type: 'button', class: x[0] === atual ? 'is-on' : '',
+                    attrs: { 'aria-pressed': x[0] === atual ? 'true' : 'false' },
+                    onclick: function () { trocarPerfil(x[0]); }
+                }, [ic(x[2]), x[1]]);
+            })));
+        }
 
         if (c.visibilidade && c.visibilidade !== 'todos' && p.interno) {
             alvo.appendChild(el('span', { class: 'te-selo-vis' }, [ic('bi-eye-slash'), c.visibilidade === 'interno' ? 'Somente equipe' : 'Aba suspensa']));
@@ -229,6 +246,46 @@
     }
 
     function fecharHm() { S.hm = false; renderTitulo(); }
+
+    /** Troca a pré-visualização: recarrega o painel no recorte do perfil (o servidor monta tudo). */
+    function trocarPerfil(chave) {
+        var como = chave === 'master' ? null : chave;
+        if (como === S.como) {
+            return;
+        }
+        var antes = S.como;
+        S.como = como;
+        S.hm = false;
+        fecharMenu();
+        fecharDrawer();
+        fecharToast();
+        pedir('GET', comComo(D.urlPainel)).then(function (r) {
+            if (!r.ok || !r.painel) {
+                S.como = antes;
+                toastErro(r.mensagem);
+                return;
+            }
+            S.painel = r.painel;
+            S.grupo = 'todas';
+            renderTudo();
+            if (S.painel.avisoDeMensagem) {
+                var a = S.painel.avisoDeMensagem;
+                mostrarToast({ id: a.codigo, tit: a.titulo, txt: a.texto, hora: a.hora });
+            }
+        });
+    }
+
+    function renderPrevia() {
+        var alvo = limpar($('tePrevia'));
+        var pv = S.painel.previa;
+        if (pv) {
+            alvo.appendChild(el('div', { class: 'te-previa', attrs: { role: 'status' } }, [
+                ic('bi-eye'),
+                el('span', { text: 'Pré-visualizando como ' + pv.rotulo + ': somente leitura. Ações, mensagens e formulários ficam desligados.' }),
+                el('button', { type: 'button', text: 'Voltar ao Master', onclick: function () { trocarPerfil('master'); } })
+            ]));
+        }
+    }
 
     function menuDoMaster() {
         var c = cfg();
@@ -632,7 +689,7 @@
         if (S.toast && S.toast.id === dz.codigo) {
             fecharToast();
         }
-        if (!(dz.naoLidas > 0)) {
+        if (!(dz.naoLidas > 0) || previa()) {
             return;
         }
         var codigo = dz.codigo;
@@ -1099,6 +1156,7 @@
         var wa = dz.whatsapp;
         if (!wa) { return; }
         var cod = dz.codigo;
+        var ler = previa();  // pré-visualização: a aba aparece como o perfil a veria, sem nenhum controle de escrita
 
         alvo.appendChild(el('div', { class: 'te-wa-intro' }, [
             ic('bi-whatsapp'),
@@ -1110,7 +1168,7 @@
 
         alvo.appendChild(el('div', { class: 'te-secao-rot te-wa-tit' }, [
             'CONTATOS CONECTADOS', el('span', { class: 'te-flex1' }),
-            wa.temAtivos ? el('button', {
+            wa.temAtivos && !ler ? el('button', {
                 type: 'button', class: 'te-wa-agora',
                 onclick: function (e) { whats(cod, '/avisar-fase-atual', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
             }, 'Avisar fase atual: ' + wa.faseAtual) : null
@@ -1122,11 +1180,11 @@
                     ic('bi-person-circle'),
                     el('div', { class: 'te-flex1 te-min0' }, [el('b', { text: ct.nome }), el('div', { class: 'te-wa-tel', text: ct.tel })]),
                     el('span', { class: 'te-wa-st' + (ct.ativo ? ' is-ativo' : ''), text: ct.ativo ? 'Conectado' : 'Pausado' }),
-                    el('button', {
+                    ler ? null : el('button', {
                         type: 'button', class: 'te-wa-tg',
                         onclick: function (e) { whats(cod, '/contatos/' + ct.id + '/alternar', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
                     }, ct.ativo ? 'Pausar' : 'Reativar'),
-                    el('button', {
+                    ler ? null : el('button', {
                         type: 'button', class: 'te-wa-rem', title: 'Desconectar',
                         onclick: function (e) { whats(cod, '/contatos/' + ct.id + '/remover', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
                     }, ic('bi-trash'))
@@ -1134,7 +1192,7 @@
                 el('div', { class: 'te-wa-fases' }, (ct.fases || []).map(function (fa) {
                     return el('label', { class: 'te-wa-fase' }, [
                         el('input', {
-                            type: 'checkbox', checked: !!fa.ok,
+                            type: 'checkbox', checked: !!fa.ok, disabled: ler,
                             onchange: function () { whats(cod, '/contatos/' + ct.id + '/fases/' + fa.k).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
                         }),
                         fa.rot
@@ -1148,9 +1206,10 @@
 
         var erro = el('span', { class: 'te-erro te-flex1', text: S.erroWa || '' });
         var nome = ctl('input', 'waNome', { placeholder: 'Ex.: Dr. Teste' });
+        var novoContato;
         var tel = ctl('input', 'waTel', { type: 'tel', placeholder: '(82) 99999-0000' });
         var ok = el('input', { type: 'checkbox', checked: !!S.f.waOk, onchange: function (e) { S.f.waOk = e.target.checked; } });
-        alvo.appendChild(el('div', { class: 'te-wa-novo' }, [
+        novoContato = el('div', { class: 'te-wa-novo' }, [
             el('div', { class: 'te-wa-grade' }, [
                 el('label', { class: 'te-rot' }, ['Nome do contato', nome]),
                 el('label', { class: 'te-rot' }, ['Celular com DDD', tel])
@@ -1172,14 +1231,17 @@
                     }
                 }, [ic('bi-whatsapp'), 'Conectar WhatsApp'])
             ])
-        ]));
+        ]);
+        if (!ler) {
+            alvo.appendChild(novoContato);
+        }
 
         alvo.appendChild(el('div', { class: 'te-secao-rot te-wa-tit', text: 'MENSAGENS PRONTAS PARA ENVIAR' }));
         (wa.fila || []).forEach(function (m) {
             alvo.appendChild(el('div', { class: 'te-wa-msg' }, [
                 el('div', { class: 'te-wa-msg-topo' }, [el('b', { text: m.fase }), el('span', { text: 'para ' + m.para }), el('span', { class: 'te-flex1' }), m.em]),
                 el('div', { class: 'te-wa-balao', text: m.txt }),
-                el('div', { class: 'te-wa-msg-botoes' }, [
+                ler ? null : el('div', { class: 'te-wa-msg-botoes' }, [
                     el('button', {
                         type: 'button', class: 'te-wa-descartar',
                         onclick: function (e) { whats(cod, '/avisos/' + m.id + '/descartar', {}, e.currentTarget).then(function (r) { if (!r.ok) { toastErro(r.mensagem); } }); }
@@ -1633,6 +1695,7 @@
 
     function renderTudo() {
         renderTitulo();
+        renderPrevia();
         renderBloqueio();
         renderAviso();
         renderLista();

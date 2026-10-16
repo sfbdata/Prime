@@ -189,3 +189,28 @@ segurança). Tudo é filtrado no servidor, antes do JSON, por uma regra só, em 
 - As datas são gravadas em segundos: evento no mesmo segundo do aceite conta como anterior.
 
 E-mail: `TrabalhoExternoMailer`, remetente da casa (`IdentidadeDeEmail`). Em dev o `MAILER_DSN` é nulo.
+
+## 9. Pré-visualização de perfil pelo Master (decisão do dono, 16/10/2026)
+
+O seletor "Simula o acesso de cada perfil" do desenho (Master · Solicitante · Equipe · Convidado,
+à esquerda de "Central disponível") volta, mas **só como pré-visualização para o Master real**. Não é
+troca de identidade: a sessão, o usuário e as permissões continuam os do Master.
+
+- **Quem vê o seletor**: só quem é Master de verdade (`ROLE_SUPER_ADMIN`). Para os demais, o parâmetro
+  é ignorado e a resposta é a do próprio perfil.
+- **Só leitura, garantido no servidor**: a prévia existe só nas leituras (`GET /api/painel?como=` e
+  `GET /api/demandas/{c}?como=`). O contexto da prévia leva `previa = true` e a `PoliticaDaDemanda`
+  responde "não" a toda escrita (botões, proposta, chat, nota interna, andamento, anexar, convidar,
+  gerir convites). Nenhuma rota de escrita aceita o parâmetro: se algo for enviado, vale o Master real.
+  Abrir o chat na prévia não marca como lido.
+- **Subconjunto do que o Master já vê**: a prévia parte das demandas do Master (todas, menos
+  rascunhos) e aplica o recorte do perfil escolhido. Nunca mostra rascunho nem dado que o Master não veja.
+  - Solicitante: cada demanda como o escritório DONO dela a veria (notas internas fora, nomes da
+    Central mascarados conforme a privacidade, aba bloqueada se a visibilidade não for "todos").
+  - Equipe: como um colaborador da sede veria, com as chaves de "Equipe do Master" (sem `ver`, bloqueio).
+  - Convidado: só as demandas com convite aceito e vigente, cada uma como AQUELE convidado a veria
+    (permissões do convite, corte do aceite). Sem convite aceito, a lista fica vazia.
+- **Diferenças assumidas em relação ao desenho**: uma faixa "Pré-visualizando como X: somente leitura"
+  com "Voltar ao Master" (o protótipo não precisava dela, porque lá a troca é de identidade); na
+  prévia não aparecem "Nova solicitação", o ⋮ nem formulários; a escolha não persiste ao recarregar a
+  página (volta ao Master).

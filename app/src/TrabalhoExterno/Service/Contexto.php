@@ -26,13 +26,18 @@ final readonly class Contexto
         public ConfiguracaoCentral $configuracao,
         /** Só no perfil Convidado: o convite que dá acesso à demanda em questão (o perfil é por demanda). */
         public ?ConviteDemanda $convite = null,
+        /**
+         * Pré-visualização do Master (spec §9): a tela é montada como este perfil a veria, mas
+         * SÓ para leitura. A política nega toda escrita quando isto está ligado.
+         */
+        public bool $previa = false,
     ) {
     }
 
     /** O mesmo usuário, como Convidado da demanda do convite. */
     public function comoConvidado(ConviteDemanda $convite): self
     {
-        return new self($this->usuario, $this->tenant, Perfil::Convidado, $this->configuracao, $convite);
+        return new self($this->usuario, $this->tenant, Perfil::Convidado, $this->configuracao, $convite, $this->previa);
     }
 
     public function autor(): Autor

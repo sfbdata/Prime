@@ -169,6 +169,12 @@
 .te-titulo-sub { font-size: 13px; color: var(--te-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .te-titulo-acoes { display: contents; }
 
+/* Seletor de pré-visualização do Master (spec §9), medidas do desenho: "Simula o acesso de cada perfil". */
+.te-perfis { display: flex; background: var(--te-seg); border-radius: 4px; padding: 3px; gap: 2px; }
+.te-perfis button { height: 30px; padding: 0 12px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); font-size: 12.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.te-perfis button.is-on { background: var(--te-seg-on); color: var(--te-azul); box-shadow: 0 1px 3px rgba(18, 36, 47, .12); }
+.te-previa { display: flex; align-items: center; gap: 10px; background: var(--te-azul-suave); border: 1px solid var(--te-azul-bd); color: var(--te-azul-texto); border-radius: 3px; padding: 9px 12px; font-size: 13.5px; margin-bottom: 14px; }
+.te-previa button { margin-left: auto; height: 28px; padding: 0 12px; border: 1px solid var(--te-azul-bd); border-radius: 3px; background: var(--te-card); color: var(--te-azul); font-size: 12.5px; font-weight: bold; cursor: pointer; }
 .te-selo-vis { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 3px; background: var(--te-vermelho-bg); color: var(--te-vermelho); font-size: 12px; font-weight: bold; }
 .te-pilula-disp { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border-radius: 3px; background: var(--te-card); border: 1px solid var(--te-border); font-size: 12.5px; color: var(--te-text-2); }
 .te-pilula-disp .bi { font-size: 8px; }
