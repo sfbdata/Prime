@@ -320,7 +320,10 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->where('n.tenant = :tenant')
             ->andWhere('n.usuario IN (:ids)')
             ->andWhere('n.lida = false')
+            // Os avisos da própria Central (menção, entrou no grupo) já contam como mensagem não lida: não somar 2 vezes.
+            ->andWhere('n.tipo NOT IN (:daCentral)')
             ->groupBy('n.usuario')
+            ->setParameter('daCentral', [Notificacao::TIPO_CENTRAL_MENCAO, Notificacao::TIPO_CENTRAL_GRUPO_ADICIONADO])
             ->setParameter('tenant', $tenant)
             ->setParameter('ids', $usuarioIds)
             ->getQuery()

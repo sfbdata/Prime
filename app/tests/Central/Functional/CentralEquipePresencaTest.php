@@ -104,12 +104,13 @@ final class CentralEquipePresencaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $ana, $tenant);
         $this->enviar($client, $conversa, 'resposta');
 
-        // Sino: 2 não lidas da Ana neste escritório, 1 lida (não conta), 1 em OUTRO escritório (não conta).
+        // Sino: 2 não lidas da Ana neste escritório, 1 lida (não conta), 1 em OUTRO escritório (não conta) e 1 aviso de
+        // menção da própria Central (não conta: a mensagem já conta como não lida).
         // (Referências: depois das requisições HTTP as entidades do teste não estão mais no EntityManager.)
         $anaRef = $this->em()->getReference(User::class, $ana->getId());
-        foreach ([[$tenant, false], [$tenant, false], [$tenant, true], [$outro, false]] as [$t, $lida]) {
+        foreach ([[$tenant, false, 'teste'], [$tenant, false, 'teste'], [$tenant, true, 'teste'], [$outro, false, 'teste'], [$tenant, false, Notificacao::TIPO_CENTRAL_MENCAO]] as [$t, $lida, $tipo]) {
             $this->em()->persist((new Notificacao())->setUsuario($anaRef)->setTenant($this->em()->getReference(Tenant::class, $t->getId()))
-                ->setTipo('teste')->setTitulo('Aviso')->setLida($lida));
+                ->setTipo($tipo)->setTitulo('Aviso')->setLida($lida));
         }
         $this->em()->flush();
         $this->sairDoEscritorio($exColega, $tenant);
@@ -161,6 +162,31 @@ final class CentralEquipePresencaTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('On-line é o batimento dos últimos 60 s: 50 s atrás está on-line, 70 s atrás está off-line')]
+    public function testLimiteDeSessentaSegundos(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $caio = $this->colega($tenant, 'caio');
+        foreach ([[$bia, '-50 seconds'], [$caio, '-70 seconds']] as [$quem, $quando]) {
+            $hora = (new \DateTimeImmutable($quando))->format('Y-m-d H:i:s');
+            $this->em()->getConnection()->executeStatement(
+                "INSERT INTO central_presenca (tenant_id, usuario_id, ultima_atividade, status, status_desde) VALUES (?, ?, ?, 'ocupado', ?)",
+                [$tenant->getId(), $quem->getId(), $hora, $hora],
+            );
+        }
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', '/central/equipe');
+        $status = [];
+        foreach ($this->json($client)['equipe'] as $m) {
+            $status[$m['nome']] = [$m['status'], $m['online']];
+        }
+        self::assertSame(['ocupado', true], $status[(string) $bia->getFullName()]);
+        self::assertSame(['offline', false], $status[(string) $caio->getFullName()]);
+    }
+
     #[TestDox('Sem vínculo ativo no escritório: equipe e batimento recusados')]
     public function testSemVinculo(): void
     {
@@ -170,10 +196,11 @@ final class CentralEquipePresencaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $ana, $tenant);
         $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ?', [$ana->getId()]);
 
+        // A plataforma redireciona quem perdeu o vínculo (302) antes do controller; a Central responderia 403. Nunca 2xx/5xx.
         $client->request('GET', '/central/equipe');
-        self::assertFalse($client->getResponse()->isSuccessful());
+        self::assertContains($client->getResponse()->getStatusCode(), [302, 403]);
         $this->post($client, '/central/presenca', ['status' => 'disponivel']);
-        self::assertFalse($client->getResponse()->isSuccessful());
+        self::assertContains($client->getResponse()->getStatusCode(), [302, 403]);
         self::assertFalse($this->linhaDePresenca((int) $ana->getId(), (int) $tenant->getId()));
     }
 }

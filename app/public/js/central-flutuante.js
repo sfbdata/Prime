@@ -468,9 +468,13 @@
 
         central.bjSilencio = silencio;
         // F2: o status que vai no batimento (L276): o manual deste navegador, ou "ocupado" com Não perturbe ligado.
-        central.bjStatus = function () {
-            return silencio() ? 'ocupado' : (STATUS_ROTULO[prefs.status] ? prefs.status : 'disponivel');
-        };
+        // Outra aba mudou as preferências (status, Não perturbe, som...): relê, para não sobrescrever com as velhas.
+        window.addEventListener('storage', function (ev) {
+            if (ev.key !== chave) { return; }
+            prefs = lerPrefs();
+            desenharLancador();
+            aplicarTexto();
+        });
         central.bjMenuJanela = function () {
             var dnd = silencio();
             var final = [];
@@ -488,7 +492,7 @@
             final.push({ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir em janela separada', acao: destacar });
             return [
                 { titulo: 'Meu status', itens: [   // L6264-6266
-                    { icone: 'bi-circle-fill', rotulo: 'Status', valor: STATUS_ROTULO[central.bjStatus()][0], ponto: STATUS_ROTULO[central.bjStatus()][1], acao: function () {
+                    { icone: 'bi-circle-fill', rotulo: 'Status', valor: STATUS_ROTULO[STATUS_ROTULO[prefs.status] ? prefs.status : 'disponivel'][0], ponto: STATUS_ROTULO[STATUS_ROTULO[prefs.status] ? prefs.status : 'disponivel'][1], acao: function () {
                         // ciclo(['disponivel', 'ocupado', 'ausente']) a partir do manual (L6264)
                         var ordem = ['disponivel', 'ocupado', 'ausente'];
                         prefs.status = ordem[(ordem.indexOf(prefs.status) + 1) % ordem.length];

@@ -72,6 +72,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Central\Entity\Conversa::class,
         \App\Central\Entity\Participante::class,
         \App\Central\Entity\Mensagem::class,
+        // Presença na Central (F2, 16/10): batimento a cada 20 s por pessoa. É atividade, não dado de negócio; auditar
+        // cada batimento inundaria o audit_log e exporia a rotina de cada um a quem administra.
+        \App\Central\Entity\Presenca::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,

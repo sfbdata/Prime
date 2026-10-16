@@ -250,7 +250,7 @@
             el.mais.hidden = estado.tela !== 'lista' && estado.tela !== 'conversa';
             el.cabEu.hidden = !(estado.tela === 'lista' && !estado.aberta);
             // F2: ponto do MEU status no avatar e a pílula "N on-line" (L6337), só no cabeçalho da lista.
-            var meu = statusEfetivo();
+            var meu = statusManual();
             el.cabPonto.style.background = STATUS[meu][1];
             el.cabPonto.title = STATUS[meu][0];
             el.online.hidden = !(estado.tela === 'lista' && !estado.aberta && estado.equipe);
@@ -467,9 +467,20 @@
         }
 
         // ── F2: equipe e presença (telaPrioridades L5638-5653; verOnline L6380-6386) ─────
-        function statusEfetivo() {   // o manual (⋮ "Status") ou "ocupado" com Não perturbe: quem decide é o lançador
-            var s = typeof raiz.bjStatus === 'function' ? raiz.bjStatus() : 'disponivel';
+        // Preferências da Central neste navegador (as mesmas do lançador; na página /central não há lançador, então lê
+        // direto). Lidas a cada uso: outra aba pode ter mudado o status.
+        function prefsGuardadas() {
+            try { return JSON.parse(window.localStorage.getItem('bj-central-prefs:' + (raiz.dataset.euId || '0')) || '{}') || {}; } catch (e) { return {}; }
+        }
+
+        function statusManual() {   // o que a pessoa escolheu no ⋮ "Status" (L6264); é o que o ponto do cabeçalho mostra (L6337)
+            var s = prefsGuardadas().status;   // fonte única: o lançador grava aqui antes de avisar
             return STATUS[s] && s !== 'offline' ? s : 'disponivel';
+        }
+
+        function statusEfetivo() {   // o que vai no batimento (L276): "ocupado" com Não perturbe ligado
+            var p = prefsGuardadas();
+            return p.dnd && Date.now() < p.dnd ? 'ocupado' : statusManual();
         }
 
         function membroDaEquipe(id) {
@@ -488,6 +499,17 @@
             return av;
         }
 
+        function hmDe(iso) {   // hm(), L286: "hoje às HH:MM" ou "dd/mm às HH:MM"
+            var d = new Date(iso), hoje = new Date();
+            var dia = d.toDateString() === hoje.toDateString() ? 'hoje' : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+            return dia + ' às ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        function detalheDePresenca(m) {   // det, L287
+            if (m.online) { return m.desde ? 'desde ' + hmDe(m.desde).replace(/^.* às /, '') : 'on-line agora'; }
+            return m.vistoEm ? 'visto por último ' + hmDe(m.vistoEm) : 'sem atividade recente';
+        }
+
         function abrirComColega(m) {
             if (m.eu) { return; }
             estado.aba = 'entrada';
@@ -500,7 +522,7 @@
             var rot = STATUS[m.status] ? STATUS[m.status][0] : STATUS.offline[0];
             var b = criar('button', 'bj-central-equipe-linha' + (m.eu ? ' bj-central-equipe-linha--eu' : ''));
             b.type = 'button';
-            b.title = m.eu ? 'Você' : 'Conversar com ' + m.nome + ' · ' + rot;
+            b.title = m.eu ? 'Você' : 'Conversar com ' + m.nome + ' · ' + rot + ' · ' + detalheDePresenca(m);
             var lugar = criar('span', 'bj-central-equipe-av');
             lugar.appendChild(avatarDe(m, 'bj-central-avatar--equipe'));
             var ponto = criar('span', 'bj-central-equipe-ponto');
@@ -542,6 +564,7 @@
         function linhaDePessoa(m) {   // linhaUsuario, L5803: avatar 34, ponto verde só on-line
             var b = criar('button', 'bj-central-pessoa' + (m.online ? '' : ' bj-central-pessoa--off'));
             b.type = 'button';
+            b.title = m.nome + ' · ' + (STATUS[m.status] || STATUS.offline)[0] + ' · ' + detalheDePresenca(m);
             var lugar = criar('span', 'bj-central-equipe-av');
             lugar.appendChild(avatarDe(m, 'bj-central-avatar--contato'));
             if (m.online) {
@@ -587,17 +610,38 @@
 
         function carregarEquipe() {
             return pedir(urls.equipe).then(function (d) {
+                var mudou = JSON.stringify(d) !== JSON.stringify(estado.equipe);
                 estado.equipe = d;
                 atualizarCabecalho();
-                // Redesenha só o que mostra a equipe (o Painel ou a lista de on-line), e só sem busca digitada.
-                if (estado.tela === 'lista' && (estado.aba === 'painel' || estado.verOnline) && el.busca.value.trim() === '') { desenharLista(); }
+                // Redesenha só se mudou, só o que mostra a equipe (o Painel ou a lista de on-line) e sem busca digitada;
+                // a rolagem e o foco ficam onde estavam (quem navega por teclado não perde o lugar).
+                if (!mudou || estado.tela !== 'lista' || !(estado.aba === 'painel' || estado.verOnline) || el.busca.value.trim() !== '') { return; }
+                var rolagem = el.lista.scrollTop;
+                var focado = raiz.ownerDocument.activeElement;
+                var indice = focado && el.lista.contains(focado) ? Array.prototype.indexOf.call(el.lista.querySelectorAll('button'), focado) : -1;
+                desenharLista();
+                el.lista.scrollTop = rolagem;
+                if (indice >= 0) { var b = el.lista.querySelectorAll('button')[indice]; if (b) { b.focus(); } }
             });
         }
 
         // Batimento (F2): toda página com a Central bate a cada 20 s, com a janela aberta ou não (como no desenho,
         // L344); com ela aberta, a equipe vem junto.
+        // Só com algo do BlueJus à vista (a página ou a Central destacada): aba esquecida em segundo plano não fica
+        // "on-line" nem mantém a sessão viva (revisão do F2). O relógio é o da janela à vista, como o do polling.
+        var batimento = { timer: null, relogio: window };
+        function iniciarBatimento() {
+            if (batimento.timer !== null) {
+                try { batimento.relogio.clearInterval(batimento.timer); } catch (e) { /* janela destacada já fechada */ }
+                batimento.timer = null;
+            }
+            if (oculta() || estado.semSessao || !urls.presenca) { return; }
+            batimento.relogio = estado.externa && !estado.externa.document.hidden ? estado.externa : window;
+            batimento.timer = batimento.relogio.setInterval(bater, BATIMENTO_MS);
+        }
+
         function bater() {
-            if (estado.semSessao || !urls.presenca) { return Promise.resolve(); }
+            if (estado.semSessao || !urls.presenca || oculta()) { return Promise.resolve(); }
             return pedir(urls.presenca, { metodo: 'POST', corpo: { status: statusEfetivo() } })
                 .then(function () { if (estado.janelaAberta) { return carregarEquipe(); } })
                 .catch(function (e) { if (e && e.sessao) { tratarFalha(e); } });
@@ -1701,10 +1745,12 @@
             if (el.corpo.scrollTop === 0) { carregarAnteriores(); }
         });
         function aoMudarVisibilidade() {
+            iniciarBatimento();
             if (oculta()) {
                 pararPolling();
                 return;
             }
+            bater();
             if (estado.semSessao) { return; }
             verificarNovidades().then(marcarLida);
             iniciarPolling();
@@ -1721,6 +1767,7 @@
             fecharSugestoes();
             pararPolling();
             estado.externa = externa;
+            iniciarBatimento();
             if (externa) {
                 externa.document.addEventListener('visibilitychange', function () { if (estado.externa === externa) { aoMudarVisibilidade(); } });
                 externa.addEventListener('resize', function () { fecharMenu(false); });
@@ -1746,8 +1793,11 @@
             if (alvo) { abrirConversa(alvo); }
         }).catch(tratarFalha).finally(iniciarPolling);
         bater();
-        window.setInterval(bater, BATIMENTO_MS);
-        if (!flutuante) { carregarEquipe().catch(function () { /* idem */ }); }
+        iniciarBatimento();
+        // Outra aba mudou o status ou o Não perturbe: o cabeçalho e o próximo batimento já usam o novo.
+        window.addEventListener('storage', function (ev) {
+            if (ev.key === 'bj-central-prefs:' + (raiz.dataset.euId || '0')) { atualizarCabecalho(); bater(); }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {

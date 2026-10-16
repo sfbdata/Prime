@@ -32,19 +32,23 @@ Risco: MÉDIO (tabela nova ligada a usuário × escritório, dado de atividade e
 1. **Presença é por vínculo (usuário × escritório).** Tabela nova `central_presenca`: `tenant_id`, `usuario_id`,
    `ultima_atividade`, `status` (`disponivel|ocupado|ausente`), `status_desde`; único `(tenant_id, usuario_id)`. Quem
    tem dois escritórios tem presença separada em cada um. Entra na purga de escritório.
-2. **Batimento:** `POST /central/presenca {status}` (CSRF `ajax`) a cada 20 s enquanto houver página do BlueJus aberta
-   com a Central (lançador ou `/central`), e na hora em que o status muda. Exige vínculo ativo
+2. **Batimento:** `POST /central/presenca {status}` (CSRF `ajax`) a cada 20 s enquanto houver algo do BlueJus **à
+   vista** (a página com a Central ou a Central destacada), e na hora em que o status muda. Aba em segundo plano não
+   bate (revisão de 16/10: senão a pessoa ficaria "on-line" a noite toda e a sessão nunca expiraria); o relógio é o da
+   janela à vista, como o do polling. Exige vínculo ativo
    (`AcessoACentral::exigirVinculoAtivo`). Grava com `INSERT ... ON CONFLICT DO UPDATE` (duas abas ao mesmo tempo não
    duplicam). `status_desde` só muda quando o status muda. Status fora da lista = 422.
-3. **Status efetivo** vem da tela: o manual (preferência deste navegador, como no desenho) ou `ocupado` com "Não
-   perturbe" ligado.
+3. **Status efetivo** vem da tela: o manual (preferência deste navegador, como no desenho, lida do armazenamento a cada
+   uso para que todas as abas concordem) ou `ocupado` com "Não perturbe" ligado. O ponto do meu cabeçalho e o ⋮
+   mostram o MANUAL (L6337); o batimento leva o efetivo.
 4. **On-line** = `ultima_atividade` há menos de 60 s (relógio do servidor). Off-line não mostra o status manual.
    "Visto por último" = `ultima_atividade` (nunca deu batimento: "sem atividade recente").
 5. **Equipe:** `GET /central/equipe` devolve todos os colegas com vínculo ATIVO no escritório (eu incluído, marcado):
    id, nome, cargo, foto, em aberto, presença. Ex-colega (vínculo inativo) não aparece.
 6. **Em aberto (por colega)** = mensagens da Central não lidas por ele (mesma regra de não lida da Central: de outra
    pessoa, não de sistema, acima do cursor, participação ativa; silenciadas contam, como no desenho) + notificações do
-   sino não lidas dele **neste escritório**. Só números: nenhum título, texto ou conversa alheia sai.
+   sino não lidas dele **neste escritório**, menos os avisos da própria Central (menção, entrou no grupo), que já contam
+   como mensagem. Só números: nenhum título, texto ou conversa alheia sai.
 7. **Tenant explícito** em toda consulta nova (regra 4 do `app/src/Central/CLAUDE.md`): presença, não lidas por
    colega e notificações por colega filtram `tenant = :tenant` além do `TenantFilter`; prova com o filtro desligado.
 8. **Frequência:** com a janela aberta, a tela pede `/central/equipe` a cada 20 s (junto do batimento); com ela

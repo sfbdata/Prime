@@ -1034,6 +1034,21 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await expect(s.locator(ST, { hasText: /^Status/ })).toHaveText(/^StatusOcupado$/);
         await expect(s.locator(PT_S)).toHaveCSS('background-color', 'rgb(229, 72, 77)');
         await expect.poll(() => (c.batimentos || 0) - antes).toBeGreaterThanOrEqual(1);
+
+        // Aba oculta: o batimento para (ninguém fica "on-line" numa aba esquecida e a sessão pode expirar). Voltar à
+        // vista bate na hora.
+        await s.evaluate(() => {
+            Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+        const oculta = c.batimentos || 0;
+        await s.waitForTimeout(22000);
+        expect((c.batimentos || 0) - oculta).toBe(0);
+        await s.evaluate(() => {
+            Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+        await expect.poll(() => (c.batimentos || 0) - oculta).toBeGreaterThanOrEqual(1);
         expect(c.escritas).toEqual([]);
         await Promise.all([p.context().close(), s.context().close()]);
     });
