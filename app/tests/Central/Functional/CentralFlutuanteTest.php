@@ -48,7 +48,9 @@ final class CentralFlutuanteTest extends JusPrimeWebTestCase
         self::assertSelectorExists('[data-central][data-modo="flutuante"] > .bj-central-cab > .bj-central-janela-acoes > [data-flutuante-destacar]:first-child + [data-flutuante-minimizar] + [data-flutuante-maximizar] + [data-flutuante-fechar]:last-child');
         // B1: cabeçalho da lista com o avatar de quem usa, ANTES dos textos, e o ⋮ como botão de painel (fechado).
         self::assertSelectorExists('[data-central][data-modo="flutuante"] > .bj-central-cab > [data-central-cab-eu].bj-central-avatar--cab + [data-central-cab-avatar][hidden] + .bj-central-cab-textos');
-        self::assertSelectorTextContains('[data-central-cab-eu]', 'A');
+        // Sem foto no perfil: as iniciais do nome (com foto, um <img>). Nunca vazio.
+        $avatar = $client->getCrawler()->filter('[data-central-cab-eu]');
+        self::assertTrue(trim($avatar->text('')) !== '' || $avatar->filter('img')->count() === 1);
         self::assertSelectorExists('.bj-central-cab > [data-central-mais][aria-haspopup="menu"][aria-expanded="false"]');
         self::assertSelectorExists('[data-central-tela-lista] > .bj-central-abas > [data-central-aba="entrada"] + [data-central-aba="painel"]');
         self::assertSelectorExists('[data-central-tela-lista] > [data-central-filtros] > [data-central-filtro="mencoes"]');

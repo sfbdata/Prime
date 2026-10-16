@@ -37,6 +37,7 @@
         var prefs = lerPrefs();
         var ui = { aberto: false, naoLidas: 0, mencoes: 0, timerSalto: null };
         var separada = null;   // B2: { janela, tipo: 'flutuante' | 'janela', pai, prox } enquanto destacada
+        var pedindo = false;   // B2: a janela Picture-in-Picture foi pedida e ainda não chegou
 
         // ── preferências (só este navegador) ─────────────────────────────────────────
         function lerPrefs() {
@@ -226,7 +227,8 @@
 
         function fechar() {   // fechar não marca nada como lido (L6345)
             // Destacada: Fechar devolve a Central ao BlueJus e fecha a janela de fora. (No protótipo o Fechar destacado
-            // deixa a janela de fora vazia e aberta, L6345: defeito dele, registrado no HANDOFF.)
+            // deixa a janela de fora vazia e aberta, L6345. Decisão desta entrega, levada ao dono: HANDOFF §12.)
+            pedindo = false;   // um Destacar ainda pendente não reabre depois do Fechar
             if (separada) { voltar(true); }
             ui.aberto = false;
             janela.hidden = true;
@@ -536,7 +538,7 @@
         }
 
         function montarSeparada(w, tipo) {
-            if (separada || w.closed) { return; }
+            if (separada || w.closed) { try { w.close(); } catch (e) { /* já fechada */ } return; }
             w.document.head.replaceChildren();   // pop-up reaproveitado ("bluejus-chat") de uma página anterior
             w.document.body.replaceChildren();
             w.document.title = 'BlueJus · Central de Comunicação';
@@ -553,6 +555,7 @@
             avisarVisibilidade();
             if (window.bjCentralDicaLigar) { window.bjCentralDicaLigar(w.document); }
             w.addEventListener('pagehide', function () { voltar(false); });   // fechou a janela de fora
+            btnDestacar.focus();   // o foco não atravessa documentos sozinho: fica no botão de voltar
             avisar(tipo === 'flutuante'
                 ? 'Chat em janela flutuante: arraste para qualquer lugar da tela. Ela fica por cima mesmo com o BlueJus minimizado.'
                 : 'Chat em janela própria: arraste para qualquer lugar ou para outro monitor.');
@@ -560,13 +563,20 @@
 
         function destacar() {
             if (separada) { voltar(true); return; }
+            if (pedindo) { return; }   // dois cliques rápidos: uma janela só
             var t = prefs.tam || {};
             var W = Math.max(420, t.w || 440), H = Math.max(560, t.h || 660);   // L6299
             var API = window.documentPictureInPicture;
             if (API && typeof API.requestWindow === 'function') {
+                pedindo = true;
                 API.requestWindow({ width: W, height: H })
-                    .then(function (w) { montarSeparada(w, 'flutuante'); })
-                    .catch(function () { avisar('Não foi possível abrir a janela separada.'); });
+                    .then(function (w) {
+                        var valia = pedindo;
+                        pedindo = false;
+                        if (!valia) { try { w.close(); } catch (e) { /* já fechada */ } return; }   // Fechar no meio
+                        montarSeparada(w, 'flutuante');
+                    })
+                    .catch(function () { pedindo = false; avisar('Não foi possível abrir a janela separada.'); });
                 return;
             }
             var w = null;
@@ -593,6 +603,7 @@
             central.dispatchEvent(new CustomEvent('bj-central:separada', { detail: { janela: null } }));
             avisarVisibilidade();
             if (fecharDeFora) { try { s.janela.close(); } catch (e) { /* já fechada */ } }
+            if (ui.aberto && !janela.hidden) { btnDestacar.focus(); }
         }
 
         // A Central destacada vive enquanto a página que a abriu viver: ao sair da página, fecha a janela de fora (a
@@ -610,7 +621,9 @@
             desenharLancador();
             if (d.chegaram > 0) {
                 saltar();
-                if (!ui.aberto || document.hidden) { tocar(); }
+                // Toca se a Central não está à vista: fechada, ou a aba/janela em que ela está oculta (destacada, a de fora).
+                var oculta = separada ? separada.janela.document.hidden : document.hidden;
+                if (!ui.aberto || oculta) { tocar(); }
             }
         });
         central.addEventListener('bj-central:aviso', function (ev) {

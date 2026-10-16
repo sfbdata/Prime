@@ -104,8 +104,15 @@
             return raiz.ownerDocument.defaultView || window;
         }
 
-        function oculta() {   // a aba (ou a janela destacada) não está à vista: não consulta nem marca como lida
+        // A Central (na página ou na janela destacada) não está à vista: não marca nada como lido.
+        function centralOculta() {
             return estado.externa ? estado.externa.document.hidden : document.hidden;
+        }
+
+        // Nada do BlueJus à vista: nem a Central nem a página com o lançador. Só então o polling para. (Destacada num
+        // pop-up minimizado, a página continua à vista e o lançador dela precisa do contador.)
+        function oculta() {
+            return estado.externa ? estado.externa.document.hidden && document.hidden : document.hidden;
         }
 
         function criar(tag, classe, texto) {
@@ -566,7 +573,7 @@
 
         function marcarLida() {
             // Janela flutuante fechada não "lê": a conversa só vira lida quando está de fato à vista.
-            if (!estado.aberta || oculta() || !estado.janelaAberta || estado.aberta.ultimaId === 0) { return; }
+            if (!estado.aberta || centralOculta() || !estado.janelaAberta || estado.aberta.ultimaId === 0) { return; }
             var id = estado.aberta.id;
             pedir(urls.base + '/' + id + '/lida', { metodo: 'POST', corpo: { ateId: estado.aberta.ultimaId } })
                 .then(function () {
@@ -1018,19 +1025,30 @@
                 var manter = it.chave !== undefined || it.valor !== undefined;
                 if (!manter) { fecharPainelMenu(false); }
                 it.acao();
-                if (manter && estado.painelMenu) { desenharPainelMenu(it.rotulo); }
+                // Mantém o foco na mesma posição: o rótulo pode mudar ("Não perturbe até HH:MM").
+                if (manter && estado.painelMenu) {
+                    desenharPainelMenu(Array.prototype.indexOf.call(estado.painelMenu.caixa.querySelectorAll('.bj-central-menu-item'), b));
+                }
             });
             return b;
         }
 
-        function desenharPainelMenu(focarRotulo) {
+        function desenharPainelMenu(focarIndice) {
             var caixa = estado.painelMenu ? estado.painelMenu.caixa : criar('div', 'bj-central-menu');
             caixa.replaceChildren();
             caixa.setAttribute('role', 'menu');
             caixa.setAttribute('aria-label', 'Mais opções');
             secoesDoMenu().forEach(function (sc, i) {
-                if (i > 0) { caixa.appendChild(criar('div', 'bj-central-menu-sep')); }
-                if (sc.titulo) { caixa.appendChild(criar('div', 'bj-central-menu-secao', sc.titulo)); }
+                if (i > 0) {
+                    var sep = criar('div', 'bj-central-menu-sep');
+                    sep.setAttribute('role', 'separator');
+                    caixa.appendChild(sep);
+                }
+                if (sc.titulo) {
+                    var tit = criar('div', 'bj-central-menu-secao', sc.titulo);
+                    tit.setAttribute('role', 'presentation');
+                    caixa.appendChild(tit);
+                }
                 sc.itens.forEach(function (it) { caixa.appendChild(itemDoMenu(it)); });
             });
             if (!estado.painelMenu) {
@@ -1050,9 +1068,8 @@
                 estado.painelMenu = { caixa: caixa };
                 el.mais.setAttribute('aria-expanded', 'true');
             }
-            var alvo = Array.prototype.slice.call(caixa.querySelectorAll('.bj-central-menu-item')).filter(function (b) {
-                return !focarRotulo || b.querySelector('.bj-central-menu-rotulo').textContent === focarRotulo;
-            })[0] || caixa.querySelector('.bj-central-menu-item');
+            var itens = caixa.querySelectorAll('.bj-central-menu-item');
+            var alvo = (typeof focarIndice === 'number' && focarIndice >= 0 ? itens[focarIndice] : null) || itens[0];
             if (alvo) { alvo.focus(); }
         }
 
@@ -1411,7 +1428,7 @@
             if (oculta() || estado.semSessao) { return; }   // aba aberta em segundo plano não consulta
             // Destacada, o relógio é o da janela destacada: a aba do BlueJus pode estar em segundo plano (e o navegador
             // desacelera os timers dela), mas a Central está à vista. Um polling só: o anterior sempre para antes.
-            estado.relogio = estado.externa || window;
+            estado.relogio = estado.externa && !estado.externa.document.hidden ? estado.externa : window;
             estado.timer = estado.relogio.setInterval(verificarNovidades, flutuante && !estado.janelaAberta ? POLLING_FECHADA_MS : POLLING_MS);
         }
 
@@ -1509,8 +1526,8 @@
             verificarNovidades().then(marcarLida);
             iniciarPolling();
         }
-        // Destacada, quem diz se a Central está à vista é a janela destacada, não a aba do BlueJus.
-        document.addEventListener('visibilitychange', function () { if (!estado.externa) { aoMudarVisibilidade(); } });
+        // Destacada, contam as duas: a janela destacada (relógio, "lida") e a página (lançador).
+        document.addEventListener('visibilitychange', aoMudarVisibilidade);
 
         // B2: o lançador avisa quando a Central vai para outra janela (detail.janela) ou volta (null). O nó é o MESMO:
         // conversa aberta, rascunho, cursor e contadores continuam; só o relógio do polling e a visibilidade mudam.

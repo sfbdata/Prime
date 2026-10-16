@@ -95,6 +95,7 @@ const PARTICIPANTES = { conversaId: 77, nome: GRUPO.nome, souAdministrador: true
 
 // Resposta fictícia de /central/* (e do lembrete do ponto) para o cenário; escritas são só anotadas.
 function respostaSimulada(c, metodo, caminho) {
+    if (caminho === '/central/novidades') { c.leituras = (c.leituras || 0) + 1; }
     if (caminho === '/ponto/alerta-horario') { return { status: 200, json: { alertar: false } }; }
     if (metodo !== 'GET') {
         c.escritas.push(metodo + ' ' + caminho);
@@ -130,7 +131,7 @@ async function isolarPorScript(page, c) {
         const u = new URL(r.url());
         if (u.pathname.startsWith('/central/') || u.pathname === '/ponto/alerta-horario') { c.vazou.push(r.method() + ' ' + u.pathname); }
     });
-    await page.exposeFunction('__bjTesteCentral', (metodo, caminho) => { c.leituras = (c.leituras || 0) + (caminho === '/central/novidades' ? 1 : 0); return respostaSimulada(c, metodo, caminho); });
+    await page.exposeFunction('__bjTesteCentral', (metodo, caminho) => respostaSimulada(c, metodo, caminho));
     await page.addInitScript(() => {
         const original = window.fetch.bind(window);
         window.fetch = (url, init) => {
@@ -641,7 +642,7 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         expect(doSistema).toEqual(['Novo grupo', 'Ver conversas arquivadas', expect.stringMatching(/^Não perturbe até \d\d:\d\d$/),
             'Som de notificações', 'Alertas visuais', 'Tamanho do texto', 'Abrir em janela separada']);
         doSistema.forEach((r) => expect(doDesenho.some((d) => d === r || (/^Não perturbe/.test(r) && /^Não perturbe/.test(d)))).toBe(true));
-        // Seções: as do desenho que têm comando real ("Tamanho do texto" vai para Mensagens, ver o HANDOFF).
+        // Seções: as do desenho que têm comando real ("Tamanho do texto" vai para Mensagens: desvio levado ao dono, HANDOFF §12).
         expect(await s.locator(MENU_S + ' > .bj-central-menu-secao').allTextContents()).toEqual(['Conversas', 'Meu status', 'Notificações', 'Mensagens']);
 
         // Esc fecha e devolve o foco ao ⋮; nada foi gravado no servidor.
@@ -820,6 +821,24 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await Promise.all([p.context().close(), s.context().close()]);
     });
 
+    test('B2 dois cliques rápidos no Destacar: uma janela só', async ({ browser }) => {
+        const c = cenario();
+        const s = await abrirSistema(browser, c);
+        await s.evaluate(() => {
+            const api = window.documentPictureInPicture, original = api.requestWindow.bind(api);
+            window.__pedidos = 0;
+            api.requestWindow = (o) => { window.__pedidos++; return original(o).then((w) => { window.__destacada = w; return w; }); };
+        });
+        await s.locator(S.lancador).click();
+        await s.evaluate((sel) => { const b = document.querySelector(sel); b.click(); b.click(); }, S.janela + ' [data-flutuante-destacar]');
+        await expect.poll(() => s.evaluate(() => !!window.__destacada)).toBe(true);
+        await s.waitForTimeout(500);
+        expect(await s.evaluate(() => window.__pedidos)).toBe(1);
+        expect(await s.evaluate(() => window.__destacada.closed)).toBe(false);
+        expect(c.escritas).toEqual([]);
+        await s.context().close();
+    });
+
     test('B2 Fechar dentro da janela destacada: fecha a de fora e devolve a Central ao lançador, fechada', async ({ browser }) => {
         const c = cenario();
         const s = await abrirSistema(browser, c);
@@ -857,6 +876,19 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await expect(popup.locator(S.janela + ' [data-central-campo]')).toHaveValue('rascunho no pop-up');
         await expect(popup.locator('.bj-flutuante-aviso')).toHaveText('Chat em janela própria: arraste para qualquer lugar ou para outro monitor.');
         await expect(s.locator(S.janela)).toHaveCount(0);
+        // Pop-up minimizado com a página à vista: o polling NÃO para (o lançador da página precisa do contador).
+        await popup.evaluate(() => {
+            Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+        const antes = c.leituras || 0;
+        await s.waitForTimeout(11000);
+        expect((c.leituras || 0) - antes).toBeGreaterThanOrEqual(2);
+        expect((c.leituras || 0) - antes).toBeLessThanOrEqual(3);
+        await popup.evaluate(() => {
+            Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
         // "Voltar para dentro do BlueJus" fecha o pop-up e traz a Central de volta.
         await Promise.all([popup.waitForEvent('close'), popup.locator(S.janela + ' [data-flutuante-destacar]').click()]);
         await expect(s.locator(S.janela)).toBeVisible();

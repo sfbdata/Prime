@@ -9,6 +9,8 @@ specs citadas; aqui ficam o estado real, as decisões, os riscos e o ponto exato
 
 ## 1. Onde está
 
+**16/10, fim do dia: B1 e B2 ENTREGUES (só frontend, locais). Estado, desvios à espera do dono e limitações em §12.**
+
 **Verificado em 16/10 (atualização desta transferência):** branch `designer-central-ia`, HEAD `419af346`
 (`origin/master` @ `a3919b5c`, 40 à frente), árvore limpa exceto os dois documentos desta transferência
 (`HANDOFF.md` alterado e `AUDITORIA-FIDELIDADE.md` novo, **não commitados**, à espera de autorização). Nenhum código
@@ -352,3 +354,81 @@ continua.
 - IA: D1-a…f (ZDR, LGPD art. 33, modelo, região, piloto, orçamento) antes de qualquer conversa BlueJus IA.
 - Outras worktrees usam o mesmo container e portas (8000 `fidelidade-designer`, 8001 demo integrada): não derrubar.
 
+
+---
+
+## 12. B1 Moldura e B2 Destacar (16/10/2026)
+
+**Entregue, só frontend, nada publicado.** Commits: `b1bbc607` (docs da transferência), `0499001e` (B1), `a81eed97`
+(B2) e o commit de correções da revisão independente (logo depois deste registro). Sem migration, sem backend, sem
+dado gravado (`/central/*` simulado em todos os testes de navegador).
+
+### 12.1 O que mudou
+
+- **Restaurar sem pulo.** A transição de largura/altura (que o desenho declara mas nunca roda, porque recria a janela
+  a cada render) deixava a janela ~1 s em 1342×776 a partir de x=968. Agora maximizar, restaurar e encaixar são
+  instantâneos (`bj-flutuante--instantaneo`). Medido: no mesmo quadro do clique a janela já está em 380×580.
+- **Cabeçalho da lista:** avatar de quem usa (30 px, anel do desenho, foto do perfil ou iniciais), sem ponto de status
+  e sem pílula "on-line" (presença não autorizada); subtítulo "nome · N não lidas | em dia | não perturbe". As iniciais
+  passaram a usar a fonte arredondada do desenho (30 px → 11 px; 34 → 12; 24 → 9).
+- **Menu ⋮ em painel** (272 px, seções, chaves, valores, `bjcIn .14s`), visível na lista e na conversa. Itens, todos
+  com efeito real: Conversas (Novo grupo; Ver/Ocultar arquivadas) · Meu status (Não perturbe 1 h, "até HH:MM") ·
+  Notificações (Som; Alertas visuais) · Mensagens (Tamanho do texto) · final (Restaurar posição e Restaurar tamanho, só
+  quando há o que restaurar; Abrir em janela separada). Chaves e valores mudam sem fechar o painel, como no desenho.
+- **Confirmação dentro da janela** (Remover participante, Sair do grupo) e **aviso escuro** no lugar de todo
+  `window.confirm`/`window.alert` (guarda em `tests/Central/Unit/CentralJsTest.php`).
+- **Destacar** (botão antes de Minimizar e item do ⋮): Document Picture-in-Picture quando o navegador tem
+  (Chrome/Edge), senão pop-up `bluejus-chat`; bloqueado, o aviso do desenho. O MESMO nó vai para a janela de fora:
+  conversa, rascunho, cursor do polling e contadores continuam. Destacada: some Minimizar/Maximizar, o botão vira
+  "Voltar para dentro do BlueJus", não se arrasta nem redimensiona por dentro (quem move é o sistema operacional).
+  Polling: um só, no relógio da janela destacada quando ela está à vista; para só quando nem ela nem a página estão
+  à vista. "Lida" só com a janela em que a Central está à vista. Balão de dica também na janela destacada.
+
+### 12.2 Desvios do desenho: DECIDIDOS NESTA ENTREGA, À ESPERA DO AVAL DO DONO
+
+A regra é perguntar antes; estes três apareceram durante a implementação, onde o desenho mostra algo que não existe
+aqui ou que é defeito do protótipo. Foram implementados do jeito abaixo e são reversíveis em minutos.
+
+1. **"Tamanho do texto" na seção "Mensagens".** No desenho mora em "Ligações · BlueJus Connect" (L6278), seção que
+   não existe aqui (ligações não autorizadas). Alternativas: seção própria "Leitura", ou sem título de seção.
+2. **Lançador fica na página com a Central destacada.** No desenho o lançador e o aviso vão junto para a janela
+   destacada (L6306: a raiz inteira é movida; lá o lançador cobre o canto da conversa). Aqui só a janela vai; o lançador
+   fica na página com o desenho "aberto", e clicar nele traz a Central de volta. O aviso de sucesso sai na janela
+   destacada.
+3. **Fechar dentro da janela destacada** fecha a janela de fora e devolve a Central ao lançador, fechada. No
+   protótipo o Fechar destacado deixa a janela de fora aberta e vazia (L6345, provável defeito dele).
+
+### 12.3 Testes e provas
+
+- Playwright `central-fidelidade` (protótipo × sistema): **16/16**, duas rodadas seguidas (7 da Fase A + 4 do B1 +
+  5 do B2). Prova por mutação (3): sem a supressão da transição o teste de restaurar cai (380×580 no quadro em que
+  devia ser 1342×776); sem o aviso de "voltou" ao `central.js` o teste do PiP cai (polling parado na página); com a
+  regra antiga de visibilidade o teste do pop-up minimizado cai (0 consultas).
+- `tests/Central` **85/85** e suíte completa da frente **9342/9342** (banco `saas_testdesigner-central-ia`).
+- **Revisão independente** (`feature-review-agent`, read-only): aprovar com correções. Corrigidos: polling parava com
+  o pop-up minimizado e a página à vista (IMPORTANTE); PiP pedida duas vezes deixava janela vazia; som tocava com a
+  Central destacada à vista; foco do ⋮ pulava ao trocar o rótulo; papéis ARIA de separador/título; foco ao destacar e
+  ao voltar; asserção frágil das iniciais. Os três desvios que ela apontou são os de 12.2 (à espera do dono). Sem
+  teste ainda: ⋮/confirmação/Esc dentro da janela destacada, navegação da página com a Central destacada.
+- **Achados de teste que eram do ambiente, não do produto:** (a) o protótipo grava o próprio banco só depois de
+  montar: a preparação antiga escrevia um banco incompleto e o quebrava; (b) com a rede interceptada no CONTEXTO (ou
+  na página), o Playwright pausa os pedidos da janela Picture-in-Picture e nunca os solta: as folhas dela não carregam.
+  O teste do PiP isola `/central/*` pelo `fetch` da página (`isolarPorScript`) e prova zero pedidos à rede.
+- **Achado de produto (corrigido):** `<link>` clonado na página e adotado pela janela nova não carrega no Chromium;
+  as folhas são criadas no documento da janela nova.
+
+### 12.4 Limitações (não verificáveis aqui ou aceitas)
+
+- **Levar a outro monitor:** é do sistema operacional; validar no smoke do dono (Chrome/Edge com PiP; Firefox/Safari
+  com o pop-up).
+- **A Central destacada vive enquanto a página que a abriu viver.** Navegar no BlueJus fecha a janela de fora (a nova
+  página tem o seu lançador); reabrir exige um clique (PiP e pop-up pedem gesto do usuário). Manter a janela entre
+  páginas exigiria a Central como página própria no pop-up (estado por URL), fora deste escopo.
+- O PiP abre no tamanho que o navegador decide (Chromium headless: 1280×720), não necessariamente 440×660.
+- As folhas copiadas carregam na janela nova: há um instante sem estilo ao destacar (o protótipo também tem).
+- Menus de contexto e autocomplete fecham na troca de janela (o rascunho fica).
+
+### 12.5 Próximo passo
+
+Smoke do dono na demo `http://127.0.0.1:8002` (`scripts/central-demo.sh designer-central-ia 8002`) e decisão dos três
+desvios de 12.2. Fases C, D, E e F seguem não autorizadas.
