@@ -308,3 +308,21 @@ razão social, CNPJ, nome fantasia, inscrições, representante, CPF, RG e cargo
   gravada junto) e 6 "deveria" aplicados. Testes: `ClienteCadastroControllerTest` (13; mutação na permissão e na
   normalização do CEP derrubam o seu), `DigitoVerificadorTest`, pendências e qualificação atualizados.
 - Próximas fatias: 3b Documentos, 3c Réu, 3d Histórico.
+
+## 14. E12g: Cadastro do cliente, fatia 3b, aba Documentos (16/10/2026)
+
+- Aba Documentos entre Contato e Qualificação, com os dois cartões do desenho: "Documento de identificação" (CNH ou
+  RG) e "Comprovante de residência" (conta de consumo, contrato de locação ou similar). Sem anexo: "não anexado" e
+  Anexar; com anexo: "{arquivo} · anexado em dd/mm/aaaa · N KB", Visualizar, Baixar, Substituir e Excluir (o mais
+  recente de cada categoria).
+- Sem backend novo: usa as rotas de documento de cliente que já existiam (enviar, ver, baixar, excluir), que
+  conferem EDIT do cliente e CSRF. Excluir confirma dentro do próprio cartão (sem `confirm()` nativo). Substituir
+  envia o novo, relê a janela e só exclui o antigo se o novo apareceu: a rota de envio redireciona até quando recusa
+  o arquivo, e sem essa conferência o antigo seria apagado sem substituto.
+- Depois de cada ação a janela é trocada pela mesma, já na aba Documentos; ao fechar, a tela recarrega.
+- Leitura automática: depois de anexar a identificação aparece o texto do desenho para quando o OCR não existe ("O
+  serviço de leitura (OCR) não está configurado neste ambiente…"). Inteligência cadastral fica fora (sem serviço).
+- `cliente_cadastro` aceita `?aba=` e `?ocr=1`. Testes: `ClienteCadastroControllerTest` (15; mutação nos botões de
+  quem só vê derruba o seu). O JS de envio/substituição não tem teste automático (smoke do dono).
+- 🔎 Visto e não mexido: as rotas antigas de enviar/excluir documento de cliente não conferem o escritório do cliente
+  além do `PermissionChecker` (mesma família do achado da revisão da E12d).

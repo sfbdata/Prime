@@ -2,13 +2,14 @@
    Janela "Cadastro e qualificação do cliente" (desenho 1.2.3, `cadAbrir`/`cadVals`; E12f fatia 3a).
    Fragmento devolvido por `cliente_cadastro`; quem monta e controla é public/js/cliente-cadastro.js.
 
-   Abas desta fatia: Cliente, Endereço, Contato, Qualificação. Réu, Documentos e Histórico entram nas fatias
-   3b a 3d (spec E12, §13). Pessoa jurídica usa a mesma janela adaptada (decisão do dono, sem desenho próprio).
+   Abas: Cliente, Endereço, Contato, Documentos (3b), Qualificação. Réu e Histórico entram nas fatias 3c e 3d
+   (spec E12, §13). Pessoa jurídica usa a mesma janela adaptada (decisão do dono, sem desenho próprio).
    As regras de pendência vêm do servidor (`PendenciasDoCadastro`): cada campo obrigatório leva o texto e a aba
    da pendência dele em data-*, para o JS recalcular a cada tecla como o desenho; as de documento chegam prontas.
    Sem permissão de EDITAR o cliente, os campos vêm travados e não há Salvar.
 
-   Contexto: cliente, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis.
+   Contexto: cliente, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
+   abaInicial, mostrarOcr.
    ============================================================================ #}
 {% set travado = not podeEditar %}
 {% set documento = pf ? cliente.cpf : cliente.cnpj %}
@@ -34,6 +35,9 @@
      data-url-cadastro="{{ path('cliente_cadastro', {id: 0}) }}"
      data-csrf="{{ csrf_token('cliente_cadastro_' ~ cliente.id) }}"
      data-cliente-id="{{ cliente.id }}"
+     data-url-upload="{{ path('cliente_documento_upload', {id: cliente.id}) }}"
+     data-csrf-upload="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}"
+     data-url-janela="{{ path('cliente_cadastro', {id: cliente.id, pasta: pasta ? pasta.id : null}) }}"
      data-tipo="{{ pf ? 'pf' : 'pj' }}"
      data-pasta="{{ pasta ? pasta.id : '' }}"
      data-tem-fixo="{{ cliente.telefoneFixo ? '1' : '' }}"
@@ -62,17 +66,18 @@
                 {k: 'pessoais', rotulo: pf ? 'Cliente' : 'Empresa', icone: 'bi-person'},
                 {k: 'endereco', rotulo: 'Endereço', icone: 'bi-geo-alt'},
                 {k: 'contato',  rotulo: 'Contato',  icone: 'bi-telephone'},
+                {k: 'docs',     rotulo: 'Documentos', icone: 'bi-paperclip'},
                 {k: 'qual',     rotulo: 'Qualificação', icone: 'bi-file-text'},
             ] %}
-                <button type="button" class="cad-aba{{ loop.first ? ' is-ativa' : '' }}" role="tab" data-cad-aba="{{ aba.k }}"
-                        aria-selected="{{ loop.first ? 'true' : 'false' }}">
+                <button type="button" class="cad-aba{{ aba.k == abaInicial ? ' is-ativa' : '' }}" role="tab" data-cad-aba="{{ aba.k }}"
+                        aria-selected="{{ aba.k == abaInicial ? 'true' : 'false' }}">
                     <i class="bi {{ aba.icone }}" aria-hidden="true"></i>{{ aba.rotulo }}<span class="cad-aba-ponto" aria-hidden="true" hidden></span>
                 </button>
             {% endfor %}
         </nav>
 
         <form class="cad-corpo" novalidate>
-            <section class="cad-painel cad-grade" data-cad-painel="pessoais">
+            <section class="cad-painel cad-grade" data-cad-painel="pessoais"{{ abaInicial != 'pessoais' ? ' hidden' : '' }}>
                 {% if pf %}
                     {{ f.campo('Nome completo', 'nome', cliente.nomeCompleto, 6, {obrig: 'Nome completo não informado', travado: travado, maxlength: 150}) }}
                     <label class="cad-campo cad-campo--2">
@@ -136,7 +141,7 @@
                 {% endif %}
             </section>
 
-            <section class="cad-painel cad-grade" data-cad-painel="endereco" hidden>
+            <section class="cad-painel cad-grade" data-cad-painel="endereco"{{ abaInicial != 'endereco' ? ' hidden' : '' }}>
                 {{ f.campo('CEP', 'cep', cliente.cep|length == 8 ? cliente.cep|slice(0, 5) ~ '-' ~ cliente.cep|slice(5) : cliente.cep, 2, {obrig: 'CEP não informado', aba: 'endereco', mascara: 'cep', inputmode: 'numeric', placeholder: '00000-000', travado: travado, maxlength: 9}) }}
                 {{ f.campo('Logradouro', 'logradouro', cliente.endereco, 4, {obrig: 'Logradouro não informado', aba: 'endereco', travado: travado}) }}
                 {{ f.campo('Número', 'numero', cliente.numero, 1, {obrig: 'Número não informado', aba: 'endereco', travado: travado, maxlength: 20}) }}
@@ -153,7 +158,7 @@
                 <p class="cad-nota js-cad-cep-nota" hidden>Endereço preenchido pelo CEP. Confira e informe o número.</p>
             </section>
 
-            <section class="cad-painel cad-grade js-cad-contatos" data-cad-painel="contato" hidden>
+            <section class="cad-painel cad-grade js-cad-contatos" data-cad-painel="contato"{{ abaInicial != 'contato' ? ' hidden' : '' }}>
                 {{ f.campo('Telefone', 'telefone', cliente.telefoneCelular, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
                 {{ f.campo('WhatsApp', 'whatsapp', cliente.whatsapp, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
                 <label class="cad-campo cad-campo--2">
@@ -164,7 +169,56 @@
                 </label>
             </section>
 
-            <section class="cad-painel" data-cad-painel="qual" hidden>
+            {# Aba Documentos (desenho 1.2.3, L.736-810; E12f fatia 3b): os dois anexos que o cadastro cobra. As ações
+               usam as rotas de documento de cliente que já existem (enviar, ver, baixar, excluir), que conferem a
+               permissão de EDITAR o cliente e o CSRF. "Substituir" envia o novo e só depois exclui o antigo. #}
+            <section class="cad-painel" data-cad-painel="docs"{{ abaInicial != 'docs' ? ' hidden' : '' }}>
+                {% for cat, info in {
+                    IDENTIFICACAO: {titulo: 'Documento de identificação', sub: 'CNH ou RG', icone: 'bi-person-badge'},
+                    COMPROVANTE_RESIDENCIA: {titulo: 'Comprovante de residência', sub: 'Conta de consumo, contrato de locação ou similar', icone: 'bi-house-door'},
+                } %}
+                    {% set doc = docs[cat] %}
+                    <div class="cad-doc{{ doc ? ' is-anexado' : '' }}" data-cad-doc="{{ cat }}"{% if doc %} data-doc-id="{{ doc.id }}"{% endif %}>
+                        <span class="cad-doc-icone" aria-hidden="true"><i class="bi {{ info.icone }}"></i></span>
+                        <div class="cad-doc-texto">
+                            <div class="cad-doc-titulo">{{ info.titulo }}</div>
+                            <div class="cad-doc-info">
+                                {% if doc %}{{ doc.nomeOriginal }} · anexado em {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024)|round(0, 'ceil') }} KB{% else %}{{ info.sub }} · não anexado{% endif %}
+                            </div>
+                        </div>
+                        <div class="cad-doc-acoes">
+                            {% if doc %}
+                                <a class="cad-btn cad-btn--sec" href="{{ path('cliente_documento_view', {id: doc.id}) }}" target="_blank" rel="noopener">Visualizar</a>
+                                <a class="cad-btn cad-btn--sec" href="{{ path('cliente_documento_download', {id: doc.id}) }}">Baixar</a>
+                                {% if podeEditar %}
+                                    <button type="button" class="cad-btn cad-btn--sec js-cad-doc-anexar" data-substituir="1">Substituir</button>
+                                    <button type="button" class="cad-btn cad-btn--sec js-cad-doc-excluir"
+                                            data-url="{{ path('cliente_documento_delete', {id: doc.id}) }}"
+                                            data-csrf="{{ csrf_token('delete_doc_cliente_' ~ doc.id) }}">Excluir</button>
+                                {% endif %}
+                            {% elseif podeEditar %}
+                                <button type="button" class="cad-btn cad-btn--pri is-pronto js-cad-doc-anexar">Anexar</button>
+                            {% endif %}
+                        </div>
+                        <div class="cad-doc-confirma js-cad-doc-confirma" hidden>
+                            <span>Excluir {{ doc ? doc.nomeOriginal : '' }} do cadastro?</span>
+                            <button type="button" class="cad-btn cad-btn--perigo js-cad-doc-excluir-sim">Excluir</button>
+                            <button type="button" class="cad-btn cad-btn--link js-cad-doc-excluir-nao">Cancelar</button>
+                        </div>
+                    </div>
+                {% endfor %}
+                {% if mostrarOcr %}
+                    <div class="cad-ocr">
+                        <div class="cad-ocr-titulo"><i class="bi bi-magic" aria-hidden="true"></i>Leitura automática do documento</div>
+                        <p>O serviço de leitura (OCR) não está configurado neste ambiente. Quando estiver ativo, nome, CPF, RG e nascimento são sugeridos aqui para você conferir antes de salvar.</p>
+                    </div>
+                {% endif %}
+                {% if podeEditar %}
+                    <input type="file" class="js-cad-doc-arquivo" accept="image/*,.pdf" hidden>
+                {% endif %}
+            </section>
+
+            <section class="cad-painel" data-cad-painel="qual"{{ abaInicial != 'qual' ? ' hidden' : '' }}>
                 <div class="cad-qual js-cad-qual">{{ qualificacao }}</div>
                 <p class="cad-nota">Texto gerado com os campos preenchidos, pronto para contratos, procurações e petições. Documentos já gerados não mudam quando o cadastro é atualizado.</p>
             </section>

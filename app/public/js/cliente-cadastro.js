@@ -36,25 +36,27 @@
         return true;
     }
 
-    function abrir(url) {
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    /* `herdado.salvou`: a janela foi trocada depois de mexer em documento; ao fechar, a tela ainda recarrega. */
+    function abrir(url, herdado) {
+        return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
             .then(function (html) {
                 var caixa = document.createElement('div');
                 caixa.innerHTML = html.trim();
                 var veu = caixa.firstElementChild;
                 document.body.appendChild(veu);
-                montar(veu);
+                montar(veu, herdado || {});
+                return veu;
             })
             .catch(function () { window.alert('Não foi possível abrir o cadastro.'); });
     }
 
-    function montar(veu) {
+    function montar(veu, herdado) {
         var form = veu.querySelector('form');
         var pf = veu.dataset.tipo === 'pf';
         var docsPend = []; try { docsPend = JSON.parse(veu.dataset.pendDocs || '[]'); } catch (x) { docsPend = []; }
         var msg = veu.querySelector('.js-cad-msg');
-        var salvou = false, confirmarFechar = false, tempoFechar = null, enviando = false;
+        var salvou = !!herdado.salvou, confirmarFechar = false, tempoFechar = null, enviando = false;
 
         function campo(n) { return form.elements.namedItem(n); }
         function valor(n) { var c = campo(n); return c ? String(c.value || '').trim() : ''; }
@@ -263,6 +265,73 @@
         }
         var bSalvar = veu.querySelector('.js-cad-salvar');
         if (bSalvar) { bSalvar.addEventListener('click', salvar); }
+
+        /* Aba Documentos: anexar, substituir e excluir pelas rotas de documento de cliente; depois a janela é
+           trocada pela mesma, já na aba Documentos (a pendência e o cartão se refazem no servidor). */
+        var arquivo = veu.querySelector('.js-cad-doc-arquivo');
+        var alvo = null;
+        function reabrir(extra) {
+            document.removeEventListener('keydown', teclas, true);
+            veu.remove();
+            return abrir(veu.dataset.urlJanela + (veu.dataset.urlJanela.indexOf('?') >= 0 ? '&' : '?') + 'aba=docs' + (extra || ''), { salvou: true });
+        }
+        function postar(url, corpo) {
+            return fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: corpo }).then(function (r) {
+                if (!r.ok) { throw new Error(r.status); }
+                return r;
+            });
+        }
+        veu.querySelectorAll('.js-cad-doc-anexar').forEach(function (b) {
+            b.addEventListener('click', function () {
+                if (sujo()) { aviso('Salve as alterações antes de mexer nos documentos.', 'pendente'); return; }
+                var card = b.closest('[data-cad-doc]');
+                alvo = { cat: card.dataset.cadDoc, antigo: b.dataset.substituir ? card : null };
+                arquivo.value = '';
+                arquivo.click();
+            });
+        });
+        if (arquivo) {
+            arquivo.addEventListener('change', function () {
+                if (!arquivo.files.length || !alvo) { return; }
+                var fd = new FormData();
+                fd.append('_token', veu.dataset.csrfUpload);
+                fd.append('arquivos[]', arquivo.files[0]);
+                fd.append('categorias[]', alvo.cat);
+                aviso('Enviando o arquivo...', 'pendente');
+                var antigo = alvo.antigo, cat = alvo.cat, idAntes = antigo ? antigo.dataset.docId : null;
+                // A rota de envio responde redirecionando até quando recusa o arquivo (tipo ou tamanho): só a
+                // janela relida diz se o anexo entrou. Sem anexo novo, o antigo NÃO é excluído.
+                postar(veu.dataset.urlUpload, fd)
+                    .then(function () { return fetch(veu.dataset.urlJanela, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }); })
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        var card = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-cad-doc="' + cat + '"]');
+                        var idDepois = card ? card.dataset.docId : null;
+                        if (!idDepois || idDepois === idAntes) { throw new Error('recusado'); }
+                        if (!antigo) { return null; }
+                        var ex = antigo.querySelector('.js-cad-doc-excluir');
+                        return postar(ex.dataset.url, new URLSearchParams({ _token: ex.dataset.csrf }));
+                    })
+                    .then(function () { return reabrir(cat === 'IDENTIFICACAO' ? '&ocr=1' : ''); })
+                    .catch(function (e) {
+                        aviso(e && e.message === 'recusado' ? 'O arquivo não foi aceito: envie PDF ou imagem dentro do limite de tamanho.' : 'Não foi possível anexar o arquivo.', 'erro');
+                    });
+            });
+        }
+        veu.querySelectorAll('.js-cad-doc-excluir').forEach(function (b) {
+            b.addEventListener('click', function () { b.closest('[data-cad-doc]').querySelector('.js-cad-doc-confirma').hidden = false; });
+        });
+        veu.querySelectorAll('.js-cad-doc-excluir-nao').forEach(function (b) {
+            b.addEventListener('click', function () { b.closest('.js-cad-doc-confirma').hidden = true; });
+        });
+        veu.querySelectorAll('.js-cad-doc-excluir-sim').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var ex = b.closest('[data-cad-doc]').querySelector('.js-cad-doc-excluir');
+                postar(ex.dataset.url, new URLSearchParams({ _token: ex.dataset.csrf }))
+                    .then(function () { return reabrir(''); })
+                    .catch(function () { aviso('Não foi possível excluir o documento.', 'erro'); });
+            });
+        });
 
         /* Copiar qualificação. */
         veu.querySelector('.js-cad-copiar').addEventListener('click', function () {

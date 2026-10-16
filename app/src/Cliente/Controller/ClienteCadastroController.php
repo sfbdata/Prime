@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cliente\Controller;
 
 use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Exception\CadastroInvalidoException;
 use App\Cliente\Exception\DocumentoJaCadastradoException;
@@ -79,6 +80,9 @@ final class ClienteCadastroController extends AbstractController
             'pasta'        => $pasta,
             'podeVincular' => $pasta !== null && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
             'estadosCivis' => SalvarCadastroDoClienteUseCase::ESTADOS_CIVIS,
+            'docs'         => $this->documentosDoCadastro($cliente),
+            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'endereco', 'contato', 'docs', 'qual'], true) ? $request->query->get('aba') : 'pessoais',
+            'mostrarOcr'   => $request->query->get('ocr') === '1',
         ]);
     }
 
@@ -141,6 +145,24 @@ final class ClienteCadastroController extends AbstractController
             && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, (int) $outro->getId(), AccessRequest::ACTION_VIEW);
 
         return $this->json(['existente' => $visivel ? $this->resumoDe($outro) : null]);
+    }
+
+    /**
+     * Os dois cartões da aba Documentos (desenho 1.2.3): o anexo mais recente de cada categoria, ou null.
+     *
+     * @return array<string, ?ClienteDocumento>
+     */
+    private function documentosDoCadastro(Cliente $cliente): array
+    {
+        $docs = [ClienteDocumento::CATEGORIA_IDENTIFICACAO => null, ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => null];
+        foreach ($cliente->getDocumentos() as $doc) {
+            $cat = $doc->getCategoria();
+            if (\array_key_exists($cat, $docs) && ($docs[$cat] === null || $doc->getUploadedAt() > $docs[$cat]->getUploadedAt())) {
+                $docs[$cat] = $doc;
+            }
+        }
+
+        return $docs;
     }
 
     /** @return array{0: Cliente, 1: Tenant} */

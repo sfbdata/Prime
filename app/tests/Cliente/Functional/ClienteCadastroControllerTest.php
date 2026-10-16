@@ -63,7 +63,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Cadastro e qualificação do cliente', $c->filter('.cad-janela')->attr('aria-label'));
-        self::assertSame(['pessoais', 'endereco', 'contato', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'endereco', 'contato', 'docs', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame('GLEISSON BRUNO GABRIEL', trim($c->filter('.js-cad-nome')->text()));
         self::assertSame('Número não informado', $c->filter('input[name="numero"]')->attr('data-obrig'));
         self::assertSame('brasileiro(a)', $c->filter('input[name="nacionalidade"]')->attr('value'));
@@ -312,7 +312,73 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('OCULTO', (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('aba Documentos: sem anexo, os dois cartões "não anexado" com Anexar; com anexo, Visualizar, Baixar, Substituir e Excluir')]
+    public function testAbaDocumentos(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $cliente = $this->criarClientePF($tenant, 'Ana');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $c = $this->client->request('GET', '/clientes/' . $cliente->getId() . '/cadastro?aba=docs');
+        self::assertSame('true', $c->filter('[data-cad-aba="docs"]')->attr('aria-selected'));
+        self::assertNull($c->filter('[data-cad-painel="docs"]')->attr('hidden'));
+        self::assertNotNull($c->filter('[data-cad-painel="pessoais"]')->attr('hidden'));
+        $ident = $c->filter('[data-cad-doc="IDENTIFICACAO"]');
+        self::assertStringContainsString('CNH ou RG · não anexado', $ident->text());
+        self::assertCount(1, $ident->filter('.js-cad-doc-anexar'));
+        self::assertStringContainsString('Conta de consumo, contrato de locação ou similar · não anexado', $c->filter('[data-cad-doc="COMPROVANTE_RESIDENCIA"]')->text());
+        self::assertCount(0, $c->filter('.cad-ocr'));
+
+        $doc = $this->anexar($cliente, 'IDENTIFICACAO', 'rg.pdf');
+        $this->em()->clear();
+        $c = $this->client->request('GET', '/clientes/' . $cliente->getId() . '/cadastro?aba=docs&ocr=1');
+
+        $ident = $c->filter('[data-cad-doc="IDENTIFICACAO"]');
+        self::assertStringContainsString('is-anexado', (string) $ident->attr('class'));
+        self::assertSame((string) $doc->getId(), $ident->attr('data-doc-id'));
+        self::assertStringContainsString('rg.pdf · anexado em', $ident->text());
+        self::assertSame(['Visualizar', 'Baixar', 'Substituir', 'Excluir'], $ident->filter('.cad-doc-acoes .cad-btn')->each(fn ($b) => trim($b->text())));
+        self::assertSame('/clientes/documento/' . $doc->getId() . '/deletar', $ident->filter('.js-cad-doc-excluir')->attr('data-url'));
+        self::assertStringContainsString('O serviço de leitura (OCR) não está configurado neste ambiente.', $c->filter('.cad-ocr')->text());
+        self::assertStringNotContainsString('Documento de identificação não anexado', (string) $c->filter('[data-cad-janela]')->attr('data-pend-docs'));
+    }
+
+    #[TestDox('quem só VÊ o cliente vê os anexos mas não Anexar, Substituir nem Excluir')]
+    public function testAbaDocumentosSoVe(): void
+    {
+        $tenant = $this->criarTenant();
+        $cliente = $this->criarClientePF($tenant, 'Ana');
+        $this->anexar($cliente, 'COMPROVANTE_RESIDENCIA', 'luz.pdf');
+        $leitor = $this->criarColaborador($tenant, ['resources.cliente.view']);
+        $this->conceder($leitor, $tenant, 'cliente', (int) $cliente->getId());
+        $this->logarComTenant($this->client, $leitor, $tenant);
+        $this->em()->clear();
+
+        $c = $this->client->request('GET', '/clientes/' . $cliente->getId() . '/cadastro?aba=docs');
+
+        self::assertCount(0, $c->filter('.js-cad-doc-anexar, .js-cad-doc-excluir, .js-cad-doc-arquivo'));
+        self::assertSame(['Visualizar', 'Baixar'], $c->filter('[data-cad-doc="COMPROVANTE_RESIDENCIA"] .cad-doc-acoes .cad-btn')->each(fn ($b) => trim($b->text())));
+    }
+
     // ----------------------------------------------------------------- helpers
+
+    private function anexar(ClientePF $cliente, string $categoria, string $nome): \App\Cliente\Entity\ClienteDocumento
+    {
+        $doc = new \App\Cliente\Entity\ClienteDocumento();
+        $doc->setTitulo($nome);
+        $doc->setCategoria($categoria);
+        $doc->setCaminhoArquivo('fake/' . uniqid() . '.pdf');
+        $doc->setNomeOriginal($nome);
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(2048);
+        $doc->setCliente($cliente);
+        $doc->setTenant($cliente->getTenant());
+        $this->em()->persist($doc);
+        $this->em()->flush();
+
+        return $doc;
+    }
 
     /** @param array<string, string> $campos */
     private function salvar(?int $clienteId, array $campos, ?int $pastaId = null): void
