@@ -154,7 +154,8 @@ tela de seleção de escritório.
   removida por primário/Master. O titular segue intocável mesmo com a conta desativada.
 - **O titular não sai do escritório** pela porta "Sair do escritório" (`OrigemRemocao::Saida` no
   `RemoverColaboradorDoEscritorioUseCase`): "O titular do escritório não pode sair. Fale com o suporte
-  do BlueJus." (D4: o titular nunca é rebaixado nem removido).
+  do BlueJus." (D4: o titular nunca é rebaixado nem removido). A barra superior nem mostra o botão
+  "Sair deste escritório" para o titular do escritório atual (`base.html.twig`).
 - **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
   (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
   `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só
