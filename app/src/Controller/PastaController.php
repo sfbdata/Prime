@@ -67,6 +67,7 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
+use App\Pasta\Repository\PastaPrazoRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
@@ -193,6 +194,7 @@ class PastaController extends AbstractController
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
         private readonly PublicacaoDjenRepository $publicacaoDjenRepository,
         private readonly LoggerInterface $logger,
+        private readonly PastaPrazoRepository $pastaPrazoRepository,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -337,10 +339,13 @@ class PastaController extends AbstractController
             static fn (TimelineItemDTO $i) => $i->tipo === TimelineItemType::EVENTO,
         ));
 
-        // Cartão "Próximos prazos" do trilho: as metas abertas mais perto do
-        // vencimento. Sai da coleção que a aba Metas já carrega — nenhuma
-        // consulta a mais por causa deste cartão.
-        $proximosPrazos = PastaPrazoOutput::proximas($pasta->getTarefas());
+        // Cartão "Próximos prazos" do trilho (desenho 1.2.3, E12b): prazos e audiências registrados à mão e as
+        // metas abertas com prazo, do mais próximo ao mais distante. As metas saem da coleção que a aba Metas já
+        // carrega; os prazos manuais são uma consulta.
+        $proximosPrazos = PastaPrazoOutput::daPasta(
+            $pasta->getTarefas(),
+            $tenant !== null ? $this->pastaPrazoRepository->abertosDaPasta($pasta, $tenant) : [],
+        );
 
         $usuarios = $tenant !== null
             ? $this->userRepository->findColaboradoresAtivosPorTenant($tenant)

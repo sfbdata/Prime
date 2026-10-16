@@ -214,7 +214,7 @@ final class PastaClientesCadastroTelaTest extends JusPrimeWebTestCase
         self::assertSame($pasta->getNup(), $ics->attr('data-ics-pasta'));
 
         self::assertSame(
-            'Juntar documentos · Faltam 20 dias · Admin Tela · ' . $prazo->format('d/m') . ' · Pasta ' . $pasta->getNup(),
+            'Juntar documentos · Faltam 20 dias · Admin Tela · ' . $prazo->format('d/m') . ' · Meta · Pasta ' . $pasta->getNup(),
             $menu->filter('.js-ps-copiar')->attr('data-ps-copiar'),
             'Copiar = "título · selo · meta · Pasta N", como o desenho'
         );

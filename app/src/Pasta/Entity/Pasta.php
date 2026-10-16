@@ -100,6 +100,14 @@ class Pasta implements Auditavel, TenantAware
      * Pasta trancada (E12): só o administrador do escritório tranca e destranca. A proteção é a do desenho,
      * um aviso na Lista para quem não é administrador; não há bloqueio da pasta_show no servidor.
      */
+    /**
+     * "Administrativo sem processo" (desenho 1.2.3, interruptor do cabeçalho da aba Processo, `bj-adm-sem-proc-v1`):
+     * a pasta segue a via administrativa (trilha Requerimento, Em análise, Exigência, Parecer) e sai da contagem
+     * de "Protocolar" da Lista.
+     */
+    #[ORM\Column(name: 'administrativa_sem_processo', type: 'boolean', options: ['default' => false])]
+    private bool $administrativaSemProcesso = false;
+
     #[ORM\Column(name: 'trancada_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $trancadaEm = null;
 
@@ -400,6 +408,18 @@ $this->documentos = new ArrayCollection();
         $this->excluidaEm  = null;
         $this->excluidaPor = null;
         $this->situacao    = self::SITUACAO_ATIVA;
+
+        return $this;
+    }
+
+    public function isAdministrativaSemProcesso(): bool
+    {
+        return $this->administrativaSemProcesso;
+    }
+
+    public function setAdministrativaSemProcesso(bool $sim): self
+    {
+        $this->administrativaSemProcesso = $sim;
 
         return $this;
     }

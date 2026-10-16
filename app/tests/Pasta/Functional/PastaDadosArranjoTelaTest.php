@@ -669,7 +669,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         // Ordem: a mais próxima primeiro.
         self::assertStringContainsString('Protocolar contestação', $linhas->eq(0)->text());
-        self::assertSame('Falta 1 dia', trim($linhas->eq(0)->filter('.ps-selo')->text()));
+        self::assertSame('Faltam 1 dia', trim($linhas->eq(0)->filter('.ps-selo')->text()), 'texto do desenho 1.2.3 (E12b)');
         self::assertStringContainsString(
             'ps-selo--urgente',
             (string) $linhas->eq(0)->filter('.ps-selo')->attr('class'),

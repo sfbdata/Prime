@@ -3,7 +3,7 @@
     <div class="exp-barra">
         {# Título (dc `titulo`, L.120, E12): o filtro do sistema aberto no trilho, ou "Acervo geral"; clicar volta
            ao acervo geral sem filtros. #}
-        {% set TITULOS = {resp10: 'Respondidos nos últimos 10 dias', findou: 'Prazo findou sem resposta', prazo: 'Expediente com prazo', metas: 'Metas não respondidas'} %}
+        {% set TITULOS = {resp10: 'Respondidos nos últimos 10 dias', findou: 'Prazo findou sem resposta', aud: 'Audiência', prazo: 'Expediente com prazo', metas: 'Metas não respondidas', protocolar: 'Protocolar'} %}
         <h2 class="exp-barra-titulo" role="button" tabindex="0" data-tip="Voltar ao acervo geral (ordem padrão)"><i class="bi bi-folder2" aria-hidden="true"></i>{{ TITULOS[filters.expediente ?? ''] ?? 'Acervo geral' }}</h2>
         <button type="button" class="exp-nova-pasta"
                 data-bs-toggle="modal" data-bs-target="#modalNovaPasta"

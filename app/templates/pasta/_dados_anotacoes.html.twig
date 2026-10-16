@@ -236,7 +236,9 @@
     {# PAS-025b: na pasta excluída (lápide) toda escrita é recusada pelo servidor
        (`PastaSomenteLeituraListener`): sem Editar, Excluir nem Responder, como em Detalhes. #}
     {% set lapide = pasta.estaExcluida %}
-    {% set podeGerenciar = podeGerenciar and not lapide %}
+    {# Cartão do sistema (E12b, dc `autoReg`): andamento, prazo. Não se edita, não se exclui, não se responde. #}
+    {% set doSistema = item.sistema ?? null %}
+    {% set podeGerenciar = podeGerenciar and not lapide and not doSistema %}
     {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
     {% set alvoId = raiz ? raiz.mensagemId : item.mensagemId %}
     {% set alvoNome = raiz ? (raiz.autorNome ?? raiz.autorEmail ?? '') : autor %}
@@ -245,7 +247,7 @@
         ? item.dataHora|date('d/m') ~ ' · ' ~ item.dataHora|date('H:i')
         : item.dataHora|date('H:i') %}
 
-    <article class="ps-anotacao{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
+    <article class="ps-anotacao{{ doSistema ? ' ps-anotacao--sistema' : '' }}{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
              {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"
              data-janela-ate="{{ item.dataHora|date('U') + comentario_janela_minutos() * 60 }}"
              data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"{% endif %}>
@@ -291,7 +293,7 @@
                     </button>
                 </span>
             {% endif %}
-            {% if alvoId and not lapide %}
+            {% if alvoId and not lapide and not doSistema %}
                 {# PAS-031 (dc L.5958 `respTxt`): responder a uma RESPOSTA já começa com "@Nome " do
                    autor dela — uma menção de verdade (o id vai no token; o servidor confere quem
                    pode ser mencionado e troca o rótulo pelo nome do banco). #}
@@ -316,7 +318,7 @@
             {% endif %}
         </div>
         <div class="ps-anotacao-corpo">
-            <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
+            <i class="bi {{ {fase: 'bi-signpost-split', prazo: 'bi-calendar-event', contrato: 'bi-pen'}[doSistema] ?? 'bi-megaphone-fill' }} ps-anotacao-icone" aria-hidden="true"></i>
             <div class="ps-anotacao-texto pasta-msg-conteudo">
                 {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. O
                    `registro_texto` é o `texto_rico` com as @menções (`@[Nome](user:ID)`) em

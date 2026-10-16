@@ -3,10 +3,10 @@
    `expediente_trilho` depois de criar, editar, excluir ou reordenar um marcador (expediente-trilho.js).
    Quem é o item aberto e quais grupos estão abertos é estado da tela: o JS reaplica depois de cada troca. #}
 {% set filtrosSistema = [
-    {chave: 'resp10',     nome: 'Respondidos nos últimos 10 dias',               icone: 'bi-reply',          nota: 'Pastas com comentário, observação, meta ou resposta de meta registrada nos últimos 10 dias (cada pasta conta uma vez)'},
-    {chave: 'findou',     nome: 'Prazo findou nos últimos 10 dias sem resposta', icone: 'bi-hourglass-bottom', nota: 'O prazo de uma meta venceu nos últimos 10 dias e não houve nenhuma ação na pasta depois da data'},
-    {chave: 'aud',        nome: 'Audiência',                                     icone: 'bi-people',         nota: 'Em breve: o sistema ainda não registra audiência ligada à pasta', emBreve: true},
-    {chave: 'prazo',      nome: 'Expediente com prazo',                          icone: 'bi-calendar-event', nota: 'Pastas com meta em aberto com prazo de hoje em diante'},
+    {chave: 'resp10',     nome: 'Respondidos nos últimos 10 dias',               icone: 'bi-reply',          nota: 'Pastas com comentário, meta, prazo ou ação registrada nos últimos 10 dias (cada pasta conta uma vez)'},
+    {chave: 'findou',     nome: 'Prazo findou nos últimos 10 dias sem resposta', icone: 'bi-hourglass-bottom', nota: 'Um prazo (registrado na pasta ou de meta) venceu nos últimos 10 dias e não houve nenhuma ação na pasta depois da data'},
+    {chave: 'aud',        nome: 'Audiência',                                     icone: 'bi-people',         nota: 'Pastas com audiência marcada (hoje ou futura), registrada em Próximos prazos da pasta'},
+    {chave: 'prazo',      nome: 'Expediente com prazo',                          icone: 'bi-calendar-event', nota: 'Pastas com prazo em aberto de hoje em diante: registrado na pasta ou de meta'},
     {chave: 'metas',      nome: 'Metas não respondidas',                         icone: 'bi-check2-square',  nota: 'Pastas com meta aberta ainda sem resposta ou conclusão'},
     {chave: 'protocolar', nome: 'Protocolar',                                    icone: 'bi-send',           nota: 'Em breve: depende da fase Protocolo do andamento da pasta, que o sistema ainda não tem', emBreve: true},
 ] %}

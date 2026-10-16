@@ -12,6 +12,7 @@ use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaFavorita;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Entity\Tarefa\Tarefa;
@@ -43,10 +44,10 @@ class PastaRepository extends ServiceEntityRepository
     private const EXPR_NUP_CRU     = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
 
     /**
-     * Filtros do sistema da seção EXPEDIENTES do trilho (desenho 1.1 da Lista, E12). Audiência e Protocolar
-     * não estão aqui: não há dado para eles (spec E12 §2.2).
+     * Filtros do sistema da seção EXPEDIENTES do trilho (desenho 1.1 da Lista, E12/E12b). Os prazos vêm das metas
+     * e dos prazos e audiências registrados à mão na pasta; Protocolar vem do andamento da pasta.
      */
-    public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'prazo', 'metas'];
+    public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'aud', 'prazo', 'metas'];
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -835,7 +836,8 @@ class PastaRepository extends ServiceEntityRepository
      * - prazo: meta não concluída com prazo hoje ou depois.
      * - metas: meta não concluída sem nenhuma resposta.
      *
-     * Só metas têm prazo gravado: não existe prazo manual da pasta nem prazo calculado do Push.
+     * - aud: audiência registrada na pasta, não cumprida, de hoje em diante.
+     * Prazo = meta com prazo ou prazo/audiência registrado à mão. O prazo calculado do Push ainda não existe.
      */
     private function aplicarFiltroDoExpediente(QueryBuilder $qb, string $filtro): void
     {
@@ -848,7 +850,8 @@ class PastaRepository extends ServiceEntityRepository
             . ' OR EXISTS (SELECT 1 FROM %2$s od_%6$s WHERE od_%6$s.pasta = p AND od_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %3$s of_%6$s WHERE of_%6$s.pasta = p AND of_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %4$s t_%6$s WHERE t_%6$s.pasta = p AND (t_%6$s.dataCriacao > %7$s OR t_%6$s.dataConclusao > %7$s))'
-            . ' OR EXISTS (SELECT 1 FROM %5$s tm_%6$s JOIN tm_%6$s.tarefa tt_%6$s WHERE tt_%6$s.pasta = p AND tm_%6$s.criadoEm > %7$s))',
+            . ' OR EXISTS (SELECT 1 FROM %5$s tm_%6$s JOIN tm_%6$s.tarefa tt_%6$s WHERE tt_%6$s.pasta = p AND tm_%6$s.criadoEm > %7$s)'
+            . ' OR EXISTS (SELECT 1 FROM %8$s zp_%6$s WHERE zp_%6$s.pasta = p AND (zp_%6$s.criadoEm > %7$s OR zp_%6$s.cumpridoEm > %7$s)))',
             PastaMensagem::class,
             PastaObservacaoDetalhes::class,
             PastaObservacaoFinanceira::class,
@@ -856,6 +859,7 @@ class PastaRepository extends ServiceEntityRepository
             TarefaMensagem::class,
             $sufixo,
             $limite,
+            PastaPrazo::class,
         );
 
         switch ($filtro) {
@@ -865,10 +869,14 @@ class PastaRepository extends ServiceEntityRepository
                 break;
             case 'findou':
                 $qb->andWhere(sprintf(
-                    'EXISTS (SELECT 1 FROM %s t_fd WHERE t_fd.pasta = p AND t_fd.status <> :exp_concluida'
-                    . ' AND t_fd.prazo >= :exp_d10 AND t_fd.prazo < :exp_hoje AND NOT %s)',
+                    '(EXISTS (SELECT 1 FROM %s t_fd WHERE t_fd.pasta = p AND t_fd.status <> :exp_concluida'
+                    . ' AND t_fd.prazo >= :exp_d10 AND t_fd.prazo < :exp_hoje AND NOT %s)'
+                    . ' OR EXISTS (SELECT 1 FROM %s z_fd WHERE z_fd.pasta = p AND z_fd.cumpridoEm IS NULL'
+                    . ' AND z_fd.data >= :exp_d10 AND z_fd.data < :exp_hoje AND NOT %s))',
                     Tarefa::class,
                     str_replace(':exp_lim', 't_fd.prazo', $atividadeDepois(':exp_lim', 'fda')),
+                    PastaPrazo::class,
+                    str_replace(':exp_lim', 'z_fd.data', $atividadeDepois(':exp_lim', 'fdz')),
                 ))
                    ->setParameter('exp_concluida', Tarefa::STATUS_CONCLUIDA)
                    ->setParameter('exp_d10', $d10)
@@ -876,10 +884,20 @@ class PastaRepository extends ServiceEntityRepository
                 break;
             case 'prazo':
                 $qb->andWhere(sprintf(
-                    'EXISTS (SELECT 1 FROM %s t_pz WHERE t_pz.pasta = p AND t_pz.status <> :exp_concluida AND t_pz.prazo >= :exp_hoje)',
+                    '(EXISTS (SELECT 1 FROM %s t_pz WHERE t_pz.pasta = p AND t_pz.status <> :exp_concluida AND t_pz.prazo >= :exp_hoje)'
+                    . ' OR EXISTS (SELECT 1 FROM %s z_pz WHERE z_pz.pasta = p AND z_pz.cumpridoEm IS NULL AND z_pz.data >= :exp_hoje))',
                     Tarefa::class,
+                    PastaPrazo::class,
                 ))
                    ->setParameter('exp_concluida', Tarefa::STATUS_CONCLUIDA)
+                   ->setParameter('exp_hoje', $hoje);
+                break;
+            case 'aud':
+                $qb->andWhere(sprintf(
+                    'EXISTS (SELECT 1 FROM %s z_au WHERE z_au.pasta = p AND z_au.tipo = :exp_audiencia AND z_au.cumpridoEm IS NULL AND z_au.data >= :exp_hoje)',
+                    PastaPrazo::class,
+                ))
+                   ->setParameter('exp_audiencia', PastaPrazo::TIPO_AUDIENCIA)
                    ->setParameter('exp_hoje', $hoje);
                 break;
             case 'metas':
