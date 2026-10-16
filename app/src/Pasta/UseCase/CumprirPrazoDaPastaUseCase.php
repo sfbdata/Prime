@@ -42,6 +42,9 @@ final class CumprirPrazoDaPastaUseCase
         if ($prazo === null) {
             throw new \DomainException('Prazo não encontrado.');
         }
+        if (!$prazo->isManual()) {
+            throw new \DomainException('Prazo lido de um registro muda quando o registro muda.');
+        }
 
         if ($excluir) {
             $this->registro->registrar($pasta, $usuario, 'prazo', 'Prazo excluído: ' . $prazo->getTitulo());

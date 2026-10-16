@@ -30,6 +30,12 @@ class PastaPrazo implements TenantAware, Auditavel
     public const TIPO_AUDIENCIA = 'audiencia';
     public const TIPOS = [self::TIPO_PRAZO, self::TIPO_AUDIENCIA];
 
+    public const ORIGEM_MANUAL   = 'manual';
+    public const ORIGEM_REGISTRO = 'registro';
+
+    /** Onde o prazo lido foi escrito (prefixo de `registroRef`) e o rótulo que a tela mostra, como o desenho. */
+    public const ROTULOS_REGISTRO = ['expedientes' => 'Registro dos expedientes', 'detalhes' => 'Detalhes', 'financeiro' => 'Financeiro'];
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -60,6 +66,21 @@ class PastaPrazo implements TenantAware, Auditavel
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(name: 'cumprido_por_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $cumpridoPor = null;
+
+    /**
+     * `manual` (o "+" do trilho) ou `registro` (lido de uma data escrita num registro da pasta pelo LeitorDeDatas,
+     * E12c). O lido não se edita nem se cumpre: muda quando o registro muda.
+     */
+    #[ORM\Column(length: 20, options: ['default' => self::ORIGEM_MANUAL])]
+    private string $origem = self::ORIGEM_MANUAL;
+
+    /** "expedientes:123", "detalhes:45", "financeiro:6": o registro de onde a data foi lida. */
+    #[ORM\Column(name: 'registro_ref', length: 40, nullable: true)]
+    private ?string $registroRef = null;
+
+    /** Data contada pelo leitor ("prazo de 15 dias úteis"), a conferir. */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $estimado = false;
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
@@ -94,6 +115,38 @@ class PastaPrazo implements TenantAware, Auditavel
         $this->hora = ($hora === null || $hora === '') ? null : $hora;
         $responsavel = $responsavel === null ? '' : trim($responsavel);
         $this->responsavel = $responsavel === '' ? null : mb_substr($responsavel, 0, 120);
+    }
+
+    /**
+     * Prazo lido de um registro: a data de criação é a do registro (é ela que conta como atividade da pasta), e o
+     * responsável é quem escreveu.
+     */
+    public static function doRegistro(Tenant $tenant, Pasta $pasta, string $ref, \DateTimeImmutable $escritoEm, ?User $autor, string $tipo, string $titulo, \DateTimeImmutable $data, ?string $hora, bool $estimado): self
+    {
+        $prazo = new self($tenant, $pasta, $autor);
+        $prazo->definir($tipo, $titulo, $data, $hora, $autor?->getFullName());
+        $prazo->origem = self::ORIGEM_REGISTRO;
+        $prazo->registroRef = $ref;
+        $prazo->estimado = $estimado;
+        $prazo->criadoEm = $escritoEm;
+
+        return $prazo;
+    }
+
+    public function isManual(): bool { return $this->origem === self::ORIGEM_MANUAL; }
+    public function getOrigem(): string { return $this->origem; }
+    public function getRegistroRef(): ?string { return $this->registroRef; }
+    public function isEstimado(): bool { return $this->estimado; }
+
+    /** "Manual", ou de onde foi lido, com " (estimado: conferir)" quando a data foi contada (desenho `pzLista`). */
+    public function getOrigemRotulo(): string
+    {
+        if ($this->isManual()) {
+            return 'Manual';
+        }
+        $onde = self::ROTULOS_REGISTRO[explode(':', (string) $this->registroRef)[0]] ?? 'Registro';
+
+        return $onde . ($this->estimado ? ' (estimado: conferir)' : '');
     }
 
     public function cumprir(User $por): void

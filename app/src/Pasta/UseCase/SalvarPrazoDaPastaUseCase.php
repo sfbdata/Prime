@@ -65,6 +65,9 @@ final class SalvarPrazoDaPastaUseCase
             if ($prazo->estaCumprido()) {
                 throw new \DomainException('Prazo já cumprido não se edita.');
             }
+            if (!$prazo->isManual()) {
+                throw new \DomainException('Prazo lido de um registro muda quando o registro muda.');
+            }
         } else {
             $prazo = new PastaPrazo($tenant, $pasta, $usuario);
             $this->em->persist($prazo);

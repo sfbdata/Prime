@@ -51,7 +51,7 @@
                 ? tarefaDoPrazo.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id)
                 : [] %}
             {% set chave = prazo.prazoId ? 'm' ~ prazo.prazoId : prazo.tarefaId %}
-            <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}"{% if prazo.prazoId %} data-prazo-manual="{{ prazo.prazoId }}"{% endif %}>
+            <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}"{% if prazo.prazoId and prazo.manual %} data-prazo-manual="{{ prazo.prazoId }}"{% endif %}>
                 <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
                 <div class="ps-linha-corpo">
                     <div class="ps-linha-titulo">
@@ -66,7 +66,7 @@
                             title="Mais opções" aria-label="Mais opções do prazo"><i class="bi bi-three-dots-vertical"></i></button>
                     <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ chave }}" role="menu">
                         <div class="ps-pop-secao ps-prazo-menu-titulo" title="{{ prazo.titulo }}">{{ prazo.titulo }}</div>
-                        {% if prazo.prazoId and podeRegistrarPrazo %}
+                        {% if prazo.prazoId and prazo.manual and podeRegistrarPrazo %}
                             <button type="button" class="ps-pop-item js-prazo-cumprir" role="menuitem"
                                     data-url="{{ path('pasta_prazo_cumprir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
                                 <i class="bi bi-check2-circle"></i><span>Marcar como cumprido</span>

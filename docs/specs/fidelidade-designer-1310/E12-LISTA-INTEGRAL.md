@@ -212,3 +212,25 @@ administrativa, que não passou por Protocolo (com processo vinculado e sem anda
 **Fora, sem lastro hoje:** prazos lidos do Push e das datas escritas nos registros (o desenho tem um leitor de
 datas com dias úteis; o servidor não tem); sugestão de fase por "documentos novos anexados"; "Encaminhar via Chat
 I.A." e "Alertar" no prazo manual (o responsável é texto livre, não colaborador).
+
+## 10. E12c: datas escritas nos registros viram prazos (16/10/2026)
+
+Pedido do dono: escrever "Prazo 16/10/2026" (ou "audiência ... 20/11/2026") num registro da pasta faz o sistema
+reconhecer o prazo como o desenho 1.2.3 (`pzLista` + `Component.lerDatas`), sem desfazer os outros caminhos (prazo
+manual do "+", metas).
+
+- `App\Pasta\Service\LeitorDeDatas`: porte do `lerDatas`/`diaUtil`/`somarDias` (palavras de tipo, datas numéricas e
+  por extenso, "prazo de N dias úteis" estimado, amanhã/hoje, contexto passado, remarcação, hora). Duas diferenças
+  declaradas no docblock: parágrafo separa frase; número CNJ e ano fora de 1990 a 2100 não viram data.
+- `pasta_prazo` ganha `origem` (manual | registro), `registro_ref`, `estimado` (`Version20261016220000`, só colunas
+  com default).
+- `PrazosDosRegistros::sincronizar(Pasta)` lê Registro dos expedientes (sem cartões do sistema), Detalhes e
+  Financeiro, tira repetidos por tipo+data na pasta (como o desenho) e acerta a tabela. `PrazosDosRegistrosListener`
+  relê a pasta a cada registro criado, editado ou excluído.
+- Trilho: origem "Registro dos expedientes" / "Detalhes" / "Financeiro", com " (estimado: conferir)" quando contada;
+  sem cumprir/editar/excluir (o desenho só dá essas ações ao manual). Salvar/Cumprir recusam o lido no servidor.
+- Lista: os filtros Audiência, Expediente com prazo e Prazo findou já leem `pasta_prazo`, então passam a ver os lidos.
+- Acervo anterior: `app:pastas:ler-prazos-dos-registros [--dry-run] [--pasta=ID]`, idempotente. No dev (saas_ux):
+  138 pastas lidas, 31 prazos criados. Em produção é do dono, depois da migration.
+- Como o desenho, data lida que já passou aparece como "Vencido há N dias" (registros antigos trazem datas antigas).
+- Testes: `LeitorDeDatasTest` (18), `PrazosDosRegistrosTest` (6, prova por mutação: sem a releitura os 6 falham).

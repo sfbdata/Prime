@@ -13,8 +13,9 @@ use App\Pasta\Entity\PastaPrazo;
  *
  * Desenho 1.2.3 (`pzLista`, E12b): o cartão junta os prazos e audiências registrados à mão (origem "Manual",
  * não cumpridos) e as metas ABERTAS com prazo (origem "Meta"), do mais próximo ao mais distante. Meta sem prazo
- * não entra: ela não tem posição numa lista ordenada por data. Os prazos lidos do Push e das datas escritas nos
- * registros ainda não entram (não há leitor de prazos no servidor).
+ * não entra: ela não tem posição numa lista ordenada por data. Os prazos lidos das datas escritas nos registros
+ * (E12c, origem "Registro dos expedientes", "Detalhes" ou "Financeiro") entram como os manuais, mas sem as ações:
+ * mudam quando o registro muda. Os lidos do Push ainda não entram.
  */
 final readonly class PastaPrazoOutput
 {
@@ -44,6 +45,8 @@ final readonly class PastaPrazoOutput
         /** Descrição sem o prefixo de audiência (o que se edita). */
         public string $descricao = '',
         public int $dias = 0,
+        /** Prazo do "+" do trilho: só esse se cumpre, edita e exclui. */
+        public bool $manual = false,
     ) {}
 
     /**
@@ -77,7 +80,7 @@ final readonly class PastaPrazoOutput
     {
         $dias = self::diasAte($prazo->getData());
         $meta = ($prazo->getResponsavel() ?: 'Sem responsável') . ' · ' . $prazo->getData()->format('d/m')
-            . ($prazo->getHora() ? ' ' . $prazo->getHora() : '') . ' · Manual';
+            . ($prazo->getHora() ? ' ' . $prazo->getHora() : '') . ' · ' . $prazo->getOrigemRotulo();
 
         return new self(
             tarefaId: null,
@@ -87,12 +90,13 @@ final readonly class PastaPrazoOutput
             tom: self::tomDosDias($dias),
             prazoId: $prazo->getId(),
             tipo: $prazo->getTipo(),
-            origem: 'Manual',
+            origem: $prazo->getOrigemRotulo(),
             dataIso: $prazo->getData()->format('Y-m-d'),
             hora: $prazo->getHora(),
             responsavel: $prazo->getResponsavel(),
             descricao: $prazo->getTitulo(),
             dias: $dias,
+            manual: $prazo->isManual(),
         );
     }
 
