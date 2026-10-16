@@ -12,11 +12,15 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
+use App\Repository\UserTenantRepository;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Termo\Repository\AceiteTermoRepository;
 use App\Termo\TermoVigente;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -28,6 +32,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
     private UserRepository&MockObject $userRepo;
     private EntityManagerInterface&MockObject $em;
     private UserPasswordHasherInterface&MockObject $hasher;
+    private UserTenantRepository&MockObject $userTenantRepo;
     private AceitarConviteEscritorioSemContaUseCase $useCase;
     private Tenant $tenant;
 
@@ -37,6 +42,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->userRepo       = $this->createMock(UserRepository::class);
         $this->em             = $this->createMock(EntityManagerInterface::class);
         $this->hasher         = $this->createMock(UserPasswordHasherInterface::class);
+        $this->userTenantRepo = $this->createMock(UserTenantRepository::class);
 
         // Registrar real com repo curto-circuitado (já aceito) — sem efeitos no fluxo do convite.
         $aceiteRepo = $this->createMock(AceiteTermoRepository::class);
@@ -49,6 +55,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             $this->em,
             $this->hasher,
             $registrarAceite,
+            new RegraDosPrimarios($this->userTenantRepo),
         );
         $this->tenant = new Tenant();
     }
@@ -264,6 +271,26 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
         $this->useCase->executar(
             new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'minhasenha', aceiteTermos: true)
+        );
+    }
+
+    #[TestDox('convite de primário sem conta: recusado se quem convidou foi desativado; nada é criado')]
+    public function testConviteDePrimarioDeContaDesativada(): void
+    {
+        $sistema = (new TenantRole())->setIsSystem(true);
+        $quemConvidou = (new User())->setEmail('ex@example.com')->setIsActive(false);
+        $invitation = $this->makeInvitation();
+        $invitation->setTenantRole($sistema);
+        $invitation->setCreatedBy($quemConvidou);
+
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userRepo->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(OperacaoDePrimarioRecusada::class);
+
+        $this->useCase->executar(
+            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123', aceiteTermos: true)
         );
     }
 }

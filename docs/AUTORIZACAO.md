@@ -121,7 +121,10 @@ perfil pelo nome. Na tela ele aparece como **"Usuário Primário"** (só exibiç
   - edit-role (`TenantController::editUserRole`): para quem não gere primários, o perfil de sistema
     não aparece no select e o POST forjado é recusado, tanto para promover quanto para rebaixar;
   - convite (`GerenciarConvitesController` + `CriarConviteEscritorioUseCase`): convidar com o perfil
-    de sistema;
+    de sistema. No ACEITE (`AceitarConviteEscritorioComContaUseCase` / `SemContaUseCase`) a regra é
+    revalidada (`garantirQueConviteDePrimarioSegueValido()`): se quem convidou já não pode gerir
+    primários naquele escritório (rebaixado, desligado ou com conta desativada), o aceite é recusado
+    e nenhum vínculo é criado;
   - remover colaborador (`RemoverColaboradorDoEscritorioUseCase`, porta do painel): tirar um
     primário (sócio) do escritório também é gerir primários;
   - senha (`editUserRole`, campo `newPassword`): senha de sócio só por primário ou Master; senha do

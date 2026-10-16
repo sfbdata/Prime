@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Tenant\Service;
 
+use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -81,6 +82,34 @@ final class RegraDosPrimarios
     {
         if (!$this->podeAlterarConta($ator, $alvo)) {
             throw new OperacaoDePrimarioRecusada('A conta do Master só pode ser alterada pelo próprio Master.');
+        }
+    }
+
+    /**
+     * Convite com o perfil de sistema é uma promoção adiada: no ACEITE, quem convidou ainda precisa
+     * poder gerir primários naquele escritório (conta ativa e primário ativo, ou Master). Senão um
+     * primário rebaixado ou desligado continuaria criando primários pelos convites que deixou.
+     *
+     * @throws OperacaoDePrimarioRecusada
+     */
+    public function garantirQueConviteDePrimarioSegueValido(Invitation $convite): void
+    {
+        if ($convite->getTenantRole()?->isSystem() !== true) {
+            return;
+        }
+
+        $quemConvidou = $convite->getCreatedBy();
+        $tenant       = $convite->getTenant();
+        if (
+            $quemConvidou === null
+            || $tenant === null
+            || !$quemConvidou->isActive()
+            || !$this->podeGerirPrimarios($quemConvidou, $tenant)
+        ) {
+            throw new OperacaoDePrimarioRecusada(
+                'Este convite dava acesso de usuário primário, mas quem o enviou não pode mais conceder '
+                . 'esse acesso. Peça um novo convite ao escritório.'
+            );
         }
     }
 

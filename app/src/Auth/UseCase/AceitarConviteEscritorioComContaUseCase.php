@@ -8,6 +8,7 @@ use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
 use App\Entity\Auth\UserTenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class AceitarConviteEscritorioComContaUseCase
@@ -16,6 +17,7 @@ final class AceitarConviteEscritorioComContaUseCase
         private readonly InvitationRepository $invitationRepository,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     public function executar(AceitarConviteEscritorioComContaInput $input): UserTenant
@@ -42,6 +44,9 @@ final class AceitarConviteEscritorioComContaUseCase
         if ($tenant === null) {
             throw new \DomainException('Convite inválido: escritório não encontrado.');
         }
+
+        // Convite de primário: quem convidou ainda pode dar esse acesso? (spec perfis-master D4)
+        $this->regraDosPrimarios->garantirQueConviteDePrimarioSegueValido($invitation);
 
         $vinculo = $this->userTenantRepository->findPorUserETenant($input->usuarioAtual, $tenant);
 
