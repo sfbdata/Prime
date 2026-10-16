@@ -271,6 +271,9 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(SementeQuadroOab::UF['SP'][1], $resposta['resumo']['oab']['uf']['SP'][1], 'coluna ausente mantém o anterior');
         self::assertSame('16/10/2026', $resposta['resumo']['oab']['data']);
 
+        $client->request('POST', '/master/fontes/oab', ['_token' => $cfg['csrf']], ['arquivo' => $this->csv("SECCIONAL;Advogado(a)\n" . str_repeat("SP;1\n", 450000))]);
+        self::assertResponseStatusCodeSame(422, 'arquivo acima de 2 MB é recusado antes de ser lido');
+
         $client->request('POST', '/master/fontes/tabela', ['_token' => $cfg['csrf']], ['arquivo' => $this->csv("a;b\n1;2\n")]);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Tabela não reconhecida. Use o modelo baixado pelo menu.', json_decode((string) $client->getResponse()->getContent(), true)['erro']);
@@ -370,7 +373,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         });
 
         static::getContainer()->set(FontesPublicas::class, new FontesPublicas(
-            new ArmazemDeFontes(new ArrayAdapter(0, false), $relogio),
+            new ArmazemDeFontes(new ArrayAdapter(0, false), $relogio, sys_get_temp_dir() . '/master-fontes-teste-' . uniqid()),
             new ClienteIbge($http),
             new ClienteQuadroOab($http),
             new LeitorQuadroOab(),

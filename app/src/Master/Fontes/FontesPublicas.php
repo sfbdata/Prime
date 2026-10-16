@@ -20,6 +20,7 @@ use Psr\Log\LoggerInterface;
 final class FontesPublicas
 {
     private const DIAS_IBGE = 30;
+    private const DIAS_RETRATO_DIARIO = 1;
     private const CHAVE_OAB = 'oab.quadro';
     private const CHAVE_TABELA = 'tabela.enviada';
     private const CHAVE_POP_UFS = 'ibge.populacao.ufs';
@@ -123,6 +124,8 @@ final class FontesPublicas
             'fonteAdv'     => ($tabelaMaisNova ? 'tabela enviada + ' : '') . 'OAB ' . $oab['data'],
             'atualizado'   => max((string) ($retratoPop['buscadoEm'] ?? ''), (string) ($oab['buscadoEm'] ?? ''), (string) ($retratoTabela['buscadoEm'] ?? '')) ?: null,
             'urlOab'       => ClienteQuadroOab::URL,
+            // Atualização diária sem depender de cron: o mapa pede a atualização quando isto vem verdadeiro.
+            'precisaAtualizar' => $this->precisaAtualizar(),
         ];
     }
 
@@ -146,13 +149,38 @@ final class FontesPublicas
         return ['data' => SementeQuadroOab::DATA, 'fonte' => SementeQuadroOab::FONTE, 'uf' => SementeQuadroOab::UF, 'buscadoEm' => null];
     }
 
+    /** O retrato da OAB ou da população não existe ou tem mais de 24 horas? */
+    public function precisaAtualizar(): bool
+    {
+        return !$this->armazem->fresco($this->armazem->ler(self::CHAVE_OAB), self::DIAS_RETRATO_DIARIO)
+            || !$this->armazem->fresco($this->armazem->ler(self::CHAVE_POP_UFS), self::DIAS_RETRATO_DIARIO);
+    }
+
     /**
      * Busca de novo a população das UFs (IBGE) e o Quadro da Advocacia (OAB). Fonte que falhar
-     * mantém o retrato anterior.
+     * mantém o retrato anterior. Só uma atualização por vez (trava sem espera): a segunda chamada
+     * simultânea volta com `emAndamento`. Com `$soSeVencido`, não busca se os retratos têm menos
+     * de 24 horas (dois navegadores abertos não disparam duas buscas seguidas).
      *
+     * @return array{ibge: bool, oab: bool, emAndamento: bool}
+     */
+    public function atualizar(bool $soSeVencido = false): array
+    {
+        [$executou, $resultado] = $this->armazem->comTrava('atualizar', function () use ($soSeVencido): array {
+            if ($soSeVencido && !$this->precisaAtualizar()) {
+                return ['ibge' => true, 'oab' => true, 'emAndamento' => false];
+            }
+
+            return $this->buscarTudo() + ['emAndamento' => false];
+        }, false);
+
+        return $executou ? $resultado : ['ibge' => false, 'oab' => false, 'emAndamento' => true];
+    }
+
+    /**
      * @return array{ibge: bool, oab: bool}
      */
-    public function atualizar(): array
+    private function buscarTudo(): array
     {
         $ibge = true;
         try {
@@ -165,10 +193,10 @@ final class FontesPublicas
         $oab = true;
         try {
             $lido = $this->leitorOab->ler($this->clienteOab->baixarPagina());
-            $this->armazem->gravar(self::CHAVE_OAB, [
+            $this->armazem->comTrava('armazem', fn () => $this->armazem->gravar(self::CHAVE_OAB, [
                 'data' => $this->relogio->now()->format('d/m/Y'),
                 'uf'   => $lido['uf'],
-            ], ClienteQuadroOab::URL);
+            ], ClienteQuadroOab::URL));
         } catch (FonteIndisponivel $e) {
             $oab = false;
             $this->logger->warning('Painel do Master: Quadro da Advocacia não atualizado; mantido o retrato anterior.', ['erro' => $e->getMessage()]);
@@ -186,6 +214,16 @@ final class FontesPublicas
      * @return array{data: string, seccionais: int}
      */
     public function gravarQuadroOabEnviado(array $porUf, string $nomeArquivo): array
+    {
+        return $this->armazem->comTrava('armazem', fn (): array => $this->mesclarQuadroOab($porUf, $nomeArquivo))[1];
+    }
+
+    /**
+     * @param array<string, list<int|null>> $porUf
+     *
+     * @return array{data: string, seccionais: int}
+     */
+    private function mesclarQuadroOab(array $porUf, string $nomeArquivo): array
     {
         $atual = $this->quadroOab()['uf'];
         foreach ($porUf as $sigla => $valores) {
@@ -212,6 +250,14 @@ final class FontesPublicas
      * @param array{uf: array<string, array{pop?: int, adv?: int}>, mun: array<string, array<string, int>>} $tabela
      */
     public function gravarTabelaEnviada(array $tabela, string $nomeArquivo): void
+    {
+        $this->armazem->comTrava('armazem', fn () => $this->mesclarTabela($tabela, $nomeArquivo));
+    }
+
+    /**
+     * @param array{uf: array<string, array{pop?: int, adv?: int}>, mun: array<string, array<string, int>>} $tabela
+     */
+    private function mesclarTabela(array $tabela, string $nomeArquivo): void
     {
         $atual = $this->tabelaEnviada();
         foreach ($tabela['uf'] as $codigo => $valores) {

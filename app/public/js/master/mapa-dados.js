@@ -3,7 +3,8 @@
    - o navegador nunca chama site externo: tudo vem de /master/fontes e /master/ibge/* (o servidor busca, guarda
      o retrato com fonte e data e, se a fonte falhar, mantém o anterior);
    - "Atualizar dados" e o envio de arquivos gravam no servidor (POST com CSRF), não no navegador;
-   - arquivos: só CSV no formato do modelo baixado pelo próprio menu (Excel e PDF ainda não são lidos). */
+   - arquivos: CSV no formato do modelo baixado pelo menu, ou Excel convertido para esse CSV no navegador (PDF não);
+   - atualização diária automática: o mapa pede ao servidor quando o retrato passa de 24 h. */
 (() => {
   const CFG = JSON.parse(document.body.dataset.cfg || '{}');
   const UF = { 11: ['RO', 'Rondônia'], 12: ['AC', 'Acre'], 13: ['AM', 'Amazonas'], 14: ['RR', 'Roraima'], 15: ['PA', 'Pará'], 16: ['AP', 'Amapá'], 17: ['TO', 'Tocantins'], 21: ['MA', 'Maranhão'], 22: ['PI', 'Piauí'], 23: ['CE', 'Ceará'], 24: ['RN', 'Rio Grande do Norte'], 25: ['PB', 'Paraíba'], 26: ['PE', 'Pernambuco'], 27: ['AL', 'Alagoas'], 28: ['SE', 'Sergipe'], 29: ['BA', 'Bahia'], 31: ['MG', 'Minas Gerais'], 32: ['ES', 'Espírito Santo'], 33: ['RJ', 'Rio de Janeiro'], 35: ['SP', 'São Paulo'], 41: ['PR', 'Paraná'], 42: ['SC', 'Santa Catarina'], 43: ['RS', 'Rio Grande do Sul'], 50: ['MS', 'Mato Grosso do Sul'], 51: ['MT', 'Mato Grosso'], 52: ['GO', 'Goiás'], 53: ['DF', 'Distrito Federal'] };
@@ -19,7 +20,10 @@
   const aplicarResumo = r => { D.uf = r.uf || {}; D.anoPop = r.anoPop || ''; D.fonteAdv = r.fonteAdv || ''; D.atualizado = r.atualizado || null; D.oab = r.oab || D.oab; D.urlOab = r.urlOab || ''; };
 
   let carga = null;
-  const popUFs = () => carga || (carga = pedir(CFG.fontes).then(aplicarResumo));
+  // Atualização diária sem cron: se o retrato da OAB ou da população passou de 24 h, pede ao servidor em segundo
+  // plano (ele trava para não buscar duas vezes e ignora se outro navegador já atualizou) e recarrega ao terminar.
+  const atualizarSeVencido = r => { if (r && r.precisaAtualizar) enviar(CFG.atualizar, { automatico: '1' }).then(j => posResumo(j)).catch(() => {}); return r; };
+  const popUFs = () => carga || (carga = pedir(CFG.fontes).then(atualizarSeVencido).then(aplicarResumo));
   const pendente = {};
   function popMun(uf) {
     if (D.mun[uf] && Object.keys(D.mun[uf]).length) return Promise.resolve();
@@ -96,15 +100,15 @@
   const dots = document.createElement('button'); dots.id = 'bjDots'; dots.title = 'Dados do mapa'; dots.setAttribute('aria-label', 'Dados do mapa'); dots.innerHTML = '&#8942;';
   const menu = document.createElement('div'); menu.id = 'bjMenu';
   const aviso = document.createElement('div'); aviso.id = 'bjAviso';
-  const file = document.createElement('input'); file.type = 'file'; file.accept = '.csv'; file.style.display = 'none';
-  const fileOAB = document.createElement('input'); fileOAB.type = 'file'; fileOAB.accept = '.csv'; fileOAB.style.display = 'none';
+  const file = document.createElement('input'); file.type = 'file'; file.accept = '.csv,.xlsx,.xls'; file.style.display = 'none';
+  const fileOAB = document.createElement('input'); fileOAB.type = 'file'; fileOAB.accept = '.csv,.xlsx,.xls'; fileOAB.style.display = 'none';
   document.body.append(dots, menu, aviso, file, fileOAB);
   const avisar = t => { aviso.textContent = t; aviso.style.opacity = 1; clearTimeout(avisar.t); avisar.t = setTimeout(() => aviso.style.opacity = 0, 5200); };
   const desenhar = () => {
     const at = D.atualizado ? new Date(D.atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca';
     const nAdv = Object.values(D.uf).filter(u => u.adv).length;
     menu.innerHTML = '<div class="h"><b style="color:#0b4f75">Dados públicos</b><br>População: IBGE' + (D.anoPop ? ' (estimativa ' + escH(D.anoPop) + ')' : ': não carregada') + '<br>Advogados: ' + (nAdv ? nAdv + ' de 27 estados informados' : 'não informado') + (D.fonteAdv ? ' · ' + escH(D.fonteAdv) : '') + '<br>Última atualização: ' + escH(at) + '</div>'
-      + '<button data-a="oab"><i>&#9878;</i>Quadro da Advocacia (OAB)</button><button data-a="cor"><i>&#9673;</i>' + (modoOAB ? 'Voltar a colorir por usuários' : 'Colorir mapa por advogados') + '</button><div class="sep"></div><button data-a="ibge"><i>&#8635;</i>Atualizar dados (IBGE e OAB)</button><div class="sep"></div><button data-a="baixar"><i>&#8681;</i>Baixar tabela (CSV)</button><button data-a="enviar"><i>&#8679;</i>Enviar tabela atualizada (CSV)</button><div class="sep"></div><button data-a="oabcsv"><i>&#8681;</i>Baixar planilha OAB (CSV)</button><button data-a="oabup"><i>&#8679;</i>Atualizar OAB por arquivo (CSV)</button>';
+      + '<button data-a="oab"><i>&#9878;</i>Quadro da Advocacia (OAB)</button><button data-a="cor"><i>&#9673;</i>' + (modoOAB ? 'Voltar a colorir por usuários' : 'Colorir mapa por advogados') + '</button><div class="sep"></div><button data-a="ibge"><i>&#8635;</i>Atualizar dados (IBGE e OAB)</button><div class="sep"></div><button data-a="baixar"><i>&#8681;</i>Baixar tabela (CSV)</button><button data-a="enviar"><i>&#8679;</i>Enviar tabela atualizada (Excel ou CSV)</button><div class="sep"></div><button data-a="oabcsv"><i>&#8681;</i>Baixar planilha OAB (CSV)</button><button data-a="oabup"><i>&#8679;</i>Atualizar OAB por arquivo (Excel ou CSV)</button>';
     menu.querySelectorAll('button').forEach(b => b.onclick = () => acao(b.dataset.a));
   };
   const baixarCsv = (linhas, nome) => { const blob = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8' }), url = URL.createObjectURL(blob), x = document.createElement('a'); x.href = url; x.download = nome; document.body.appendChild(x); x.click(); x.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); };
@@ -136,14 +140,22 @@
       avisar('Planilha OAB baixada (' + oab().data + ').');
     }
   }
+  // Excel (.xlsx/.xls) vira, no navegador, o mesmo CSV que o servidor lê: 1ª planilha, separador ";".
+  // Biblioteca local (public/js/vendor/xlsx), carregada só quando usada. PDF não é lido.
+  const carregarXlsx = () => window.XLSX ? Promise.resolve(window.XLSX) : new Promise((ok, erro) => { const sc = document.createElement('script'); sc.src = CFG.xlsx; sc.onload = () => ok(window.XLSX); sc.onerror = erro; document.head.appendChild(sc); });
+  const comoCsv = async f => {
+    if (!/\.xlsx?$/i.test(f.name)) return f;
+    const X = await carregarXlsx(), wb = X.read(await f.arrayBuffer(), { type: 'array' }), ws = wb.Sheets[wb.SheetNames[0]];
+    return new File([X.utils.sheet_to_csv(ws, { FS: ';', blankrows: false })], f.name.replace(/\.xlsx?$/i, '') + '.csv', { type: 'text/csv' });
+  };
   file.onchange = async () => {
     const f = file.files[0]; file.value = ''; if (!f) return;
-    try { const j = await enviar(CFG.tabela, { arquivo: f }); posResumo(j); D.mun = {}; avisar('Tabela importada: ' + j.resultado.estados + ' estado(s) e ' + j.resultado.municipios + ' município(s).'); }
+    try { const j = await enviar(CFG.tabela, { arquivo: await comoCsv(f) }); posResumo(j); D.mun = {}; avisar('Tabela importada: ' + j.resultado.estados + ' estado(s) e ' + j.resultado.municipios + ' município(s).'); }
     catch (e) { avisar((e && e.erro) || 'Tabela não reconhecida. Use o modelo baixado pelo menu.'); }
   };
   fileOAB.onchange = async () => {
     const f = fileOAB.files[0]; fileOAB.value = ''; if (!f) return; avisar('Lendo ' + f.name + '…');
-    try { const j = await enviar(CFG.oab, { arquivo: f }); posResumo(j); avisar('OAB atualizada (' + j.resultado.data + '): ' + j.resultado.seccionais + ' seccionais. Colunas vazias mantidas da versão anterior.'); }
+    try { const j = await enviar(CFG.oab, { arquivo: await comoCsv(f) }); posResumo(j); avisar('OAB atualizada (' + j.resultado.data + '): ' + j.resultado.seccionais + ' seccionais. Colunas vazias mantidas da versão anterior.'); }
     catch (e) { avisar((e && e.erro) || 'Não foi possível ler o arquivo. Use o CSV no formato do modelo baixado pelo menu.'); }
   };
   dots.onclick = e => { e.stopPropagation(); desenhar(); menu.classList.toggle('on'); };

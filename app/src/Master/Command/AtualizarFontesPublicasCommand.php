@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Cron diário do Painel do Master: retrato do Quadro da Advocacia (a OAB atualiza às 00:01) e da
+ * Atualização das fontes do Painel do Master (opcional em cron; o mapa também se atualiza sozinho): retrato do Quadro da Advocacia (a OAB atualiza às 00:01) e da
  * população das UFs (IBGE). Fonte que falhar mantém o retrato anterior; o comando termina com
  * falha para o cron registrar.
  */
@@ -32,6 +32,11 @@ final class AtualizarFontesPublicasCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $resultado = $this->useCase->executar();
+        if ($resultado['emAndamento']) {
+            $io->writeln('Outra atualização já está em andamento; nada feito.');
+
+            return Command::SUCCESS;
+        }
 
         $io->writeln('IBGE (população das UFs): ' . ($resultado['ibge'] ? 'atualizado' : 'indisponível, mantido o retrato anterior'));
         $io->writeln('OAB (Quadro da Advocacia): ' . ($resultado['oab'] ? 'atualizado' : 'indisponível, mantido o retrato anterior'));

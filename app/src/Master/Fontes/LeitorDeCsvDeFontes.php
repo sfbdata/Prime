@@ -64,7 +64,13 @@ final class LeitorDeCsvDeFontes
             $pop = $iPop >= 0 ? self::numero($c[$iPop] ?? '') : null;
             $adv = $iAdv >= 0 ? self::numero($c[$iAdv] ?? '') : null;
 
-            if (str_starts_with($tipo, 'est') || strlen($codigo) === 2) {
+            // Só códigos IBGE válidos: UF (2 dígitos conhecidos) ou município (7 dígitos de uma UF conhecida).
+            $ehEstado = str_starts_with($tipo, 'est') || strlen($codigo) === 2;
+            if (strlen($codigo) !== ($ehEstado ? 2 : 7) || !in_array((int) substr($codigo, 0, 2), self::UF_POR_SIGLA, true)) {
+                continue;
+            }
+
+            if ($ehEstado) {
                 $valores = array_filter(['pop' => $pop, 'adv' => $adv], static fn (?int $v): bool => $v !== null && $v > 0);
                 if ($valores !== []) {
                     $saida['uf'][$codigo] = $valores;

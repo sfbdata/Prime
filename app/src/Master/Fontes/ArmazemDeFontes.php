@@ -24,7 +24,42 @@ final class ArmazemDeFontes
         #[Autowire(service: 'cache.master_fontes')]
         private readonly CacheItemPoolInterface $pool,
         private readonly ClockInterface $relogio,
+        #[Autowire('%kernel.project_dir%/var/master-fontes/%kernel.environment%')]
+        private readonly string $diretorioDeTravas,
     ) {
+    }
+
+    /**
+     * Executa `$trabalho` com trava exclusiva de arquivo (flock) chamada `$nome`: evita duas buscas
+     * simultâneas na OAB/IBGE e protege a leitura-modificação-gravação do retrato.
+     * Com `$esperar = false`, se outra execução já segura a trava, não executa e devolve [false, null].
+     *
+     * @return array{0: bool, 1: mixed}
+     */
+    public function comTrava(string $nome, callable $trabalho, bool $esperar = true): array
+    {
+        if (!is_dir($this->diretorioDeTravas) && !@mkdir($this->diretorioDeTravas, 0775, true) && !is_dir($this->diretorioDeTravas)) {
+            throw new \RuntimeException('Não foi possível criar o diretório de travas do Painel do Master.');
+        }
+
+        $arquivo = fopen($this->diretorioDeTravas . '/' . preg_replace('/[^a-z0-9_.-]/i', '_', $nome) . '.lock', 'c');
+        if ($arquivo === false) {
+            throw new \RuntimeException('Não foi possível abrir a trava ' . $nome . '.');
+        }
+
+        try {
+            if (!flock($arquivo, \LOCK_EX | ($esperar ? 0 : \LOCK_NB))) {
+                return [false, null];
+            }
+
+            try {
+                return [true, $trabalho()];
+            } finally {
+                flock($arquivo, \LOCK_UN);
+            }
+        } finally {
+            fclose($arquivo);
+        }
     }
 
     /**

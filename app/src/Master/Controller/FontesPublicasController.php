@@ -74,7 +74,7 @@ final class FontesPublicasController extends AbstractController
             return $this->json(['erro' => 'Sessão expirada. Recarregue a página.'], Response::HTTP_FORBIDDEN);
         }
 
-        $resultado = $useCase->executar();
+        $resultado = $useCase->executar($request->request->getBoolean('automatico'));
 
         return $this->json(['resultado' => $resultado, 'resumo' => $this->fontes->resumo()]);
     }
@@ -105,9 +105,13 @@ final class FontesPublicasController extends AbstractController
             return $this->json(['erro' => 'Escolha um arquivo CSV no formato do modelo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        if ($arquivo->getSize() > ImportarArquivoDeFontesUseCase::TAMANHO_MAXIMO) {
+            return $this->json(['erro' => 'Arquivo grande demais (máximo 2 MB). Use o modelo baixado pelo menu.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $nome = mb_substr(basename($arquivo->getClientOriginalName()), 0, 120);
         if (strtolower(pathinfo($nome, \PATHINFO_EXTENSION)) !== 'csv') {
-            return $this->json(['erro' => 'Por enquanto só CSV no formato do modelo baixado pelo menu. Excel e PDF ainda não são lidos.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => 'Envie CSV ou Excel no formato do modelo baixado pelo menu (o Excel é convertido no navegador). PDF ainda não é lido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {

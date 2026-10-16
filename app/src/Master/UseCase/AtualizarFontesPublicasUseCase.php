@@ -8,8 +8,8 @@ use App\Master\Fontes\FontesPublicas;
 
 /**
  * Atualiza os dados públicos do mapa: população das UFs (IBGE) e Quadro da Advocacia (OAB).
- * Usado pelo cron diário (`app:master:atualizar-fontes-publicas`) e pela ação "Atualizar dados"
- * do menu ⋮. Fonte que falhar mantém o retrato anterior; nada é apagado.
+ * Usado pelo comando `app:master:atualizar-fontes-publicas`, pela ação "Atualizar dados" do menu ⋮
+ * e pela atualização automática do mapa quando o retrato passa de 24 horas. Fonte que falhar mantém o retrato anterior; nada é apagado.
  */
 final class AtualizarFontesPublicasUseCase
 {
@@ -19,10 +19,12 @@ final class AtualizarFontesPublicasUseCase
     }
 
     /**
-     * @return array{ibge: bool, oab: bool}
+     * @param bool $soSeVencido atualização automática do mapa: não busca se o retrato tem menos de 24 h
+     *
+     * @return array{ibge: bool, oab: bool, emAndamento: bool}
      */
-    public function executar(): array
+    public function executar(bool $soSeVencido = false): array
     {
-        return $this->fontes->atualizar();
+        return $this->fontes->atualizar($soSeVencido);
     }
 }
