@@ -166,7 +166,7 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
                     $lista->filter('[data-equipe-lista] > .mm-linha[data-equipe-meta]')->count(),
                     sprintf('%s de %s: célula %d × lista', $coluna, $nome, $numero),
                 );
-                self::assertStringStartsWith($rotulo . ' — ' . $nome, trim($lista->filter('[data-equipe-titulo]')->text()));
+                self::assertStringStartsWith($rotulo . ': ' . $nome, trim($lista->filter('[data-equipe-titulo]')->text()));
                 $corpo = (string) $client->getResponse()->getContent();
                 self::assertStringNotContainsStringIgnoringCase('do outro escritório', $corpo);
             }
@@ -292,7 +292,7 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
             $lista->filter('[data-equipe-lista] > .mm-linha[data-equipe-meta]')->count(),
             sprintf('%s de %s: denominador %d × lista', $coluna, $nome, $denominador),
         );
-        self::assertStringStartsWith($tituloLista . ' — ' . $nome, trim($lista->filter('[data-equipe-titulo]')->text()));
+        self::assertStringStartsWith($tituloLista . ': ' . $nome, trim($lista->filter('[data-equipe-titulo]')->text()));
         self::assertStringNotContainsStringIgnoringCase('do outro escritório', (string) $client->getResponse()->getContent());
 
         return $texto;

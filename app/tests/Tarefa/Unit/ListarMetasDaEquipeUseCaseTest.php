@@ -129,7 +129,7 @@ final class ListarMetasDaEquipeUseCaseTest extends TestCase
 
         self::assertSame([], $capturado['ids']);
         self::assertTrue($out->estaVazia());
-        self::assertSame('Metas — colaborador não encontrado', $out->titulo);
+        self::assertSame('Metas: colaborador não encontrado', $out->titulo);
     }
 
     #[TestDox('Cargo estreita o universo aos colaboradores daquele cargo, como no Dashboard')]
@@ -147,7 +147,7 @@ final class ListarMetasDaEquipeUseCaseTest extends TestCase
         $out = $useCase->executar($this->tenant, $this->referencia, ['status' => 'todas', 'cargo' => 'Advogado']);
 
         self::assertSame([1, 3], $capturado['ids']);
-        self::assertSame('Metas — Advogado', $out->titulo);
+        self::assertSame('Metas: Advogado', $out->titulo);
     }
 
     /** @return iterable<string, array{0: string, 1: string}> */
@@ -192,7 +192,7 @@ final class ListarMetasDaEquipeUseCaseTest extends TestCase
         $out = $useCase->executar($this->tenant, $this->referencia, ['data_de' => '2026-02-31', 'data_ate' => 'ontem']);
 
         self::assertSame(['data_de' => '', 'data_ate' => ''], $capturado['filtros']);
-        self::assertSame('Metas — Equipe', $out->titulo);
+        self::assertSame('Metas: Equipe', $out->titulo);
     }
 
     #[TestDox('Página além da última é trazida de volta para a última')]

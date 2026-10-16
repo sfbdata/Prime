@@ -288,7 +288,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('ps-fin-selo', (string) $contrato->attr('class'));
         self::assertSame('Pendente', trim($contrato->text()), 'pasta nova nasce com contrato pendente');
         self::assertStringContainsString(
-            'clique para marcar como assinado',
+            'Clique para marcar como assinado',
             (string) $contrato->attr('title'),
             'o próprio selo tem de dizer o que o clique faz'
         );
