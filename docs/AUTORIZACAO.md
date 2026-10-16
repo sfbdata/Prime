@@ -50,15 +50,16 @@ qualquer checagem, independente de tenant ou permissão. É uma role
 atribuída diretamente no `User` (campo `roles`, JSONB), fora do
 sistema de `TenantRole`.
 
-**Onde é atribuída:** manualmente via comando CLI
-`app/src/Command/CreateSuperAdminCommand.php` (~l. 46):
+**Master = `ROLE_SUPER_ADMIN`, único** (spec `docs/specs/perfis-master-1.0.md`, D2). Na interface
+o papel se chama só "Master" (Painel do Master, selo MASTER). Atribuição só por CLI:
 
-```php
-$user->setRoles(['ROLE_SUPER_ADMIN']);
-```
+- `app:master:definir <email> [--confirmar]` (`app/src/Command/DefinirMasterCommand.php`): deixa
+  EXATAMENTE um `ROLE_SUPER_ADMIN`, o do e-mail. Sem `--confirmar` só mostra quem ganha e quem perde;
+  com `--confirmar` aplica numa transação. É o caminho para TROCAR o Master.
+- `app:create-super-admin` (`app/src/Command/CreateSuperAdminCommand.php`): só cria o Master quando
+  ainda não existe nenhum; havendo um, falha e aponta o `app:master:definir`.
 
-Não é atribuída automaticamente no bootstrap de tenant — só por
-comando manual. Além do `PermissionChecker`, essa role é verificada
+Não é atribuída automaticamente no bootstrap de tenant. Além do `PermissionChecker`, essa role é verificada
 em outros pontos:
 
 - `app/src/Security/UserAuthenticator.php` (l. 72): usuário sem tenant
@@ -97,6 +98,35 @@ $this->attachAllPermissions($adminRole); // recebe TODAS as permissões do catá
 O role resultante recebe todas as permissões cadastradas via
 `attachAllPermissions()`. Qualquer usuário vinculado a esse role
 bypassa todas as verificações dentro do tenant.
+
+O nome gravado ("Administrador do Escritório") não pode mudar: o `TenantBootstrapService` acha o
+perfil pelo nome. Na tela ele aparece como **"Usuário Primário"** (só exibição).
+
+#### Primários: titular e sócios (spec perfis-master, D3/D4/D5)
+
+- **Primário** = vínculo ativo, de usuário ativo, com o perfil `isSystem`. As caixas de permissão
+  desse perfil aparecem marcadas e travadas: o bypass acima ignora as caixas (D5).
+- **Titular** = `Tenant.criadoPor`, quem abriu a conta. **Sócio** = qualquer outro primário.
+- **Só primário ou Master gere primários.** A regra mora num lugar só,
+  `App\Tenant\Service\RegraDosPrimarios::podeGerirPrimarios()` / `garantirQuePodeGerirPrimarios()`,
+  e vale em todas as portas que dão ou tiram o perfil de sistema:
+  - Perfis (`TenantRoleController`): promover sócio (`PromoverPrimarioSocioUseCase`) e remover sócio
+    (`RemoverPrimarioSocioUseCase`, que exige um perfil secundário de destino);
+  - edit-role (`TenantController::editUserRole`): para quem não gere primários, o perfil de sistema
+    não aparece no select e o POST forjado é recusado, tanto para promover quanto para rebaixar;
+  - convite (`GerenciarConvitesController` + `CriarConviteEscritorioUseCase`): convidar com o perfil
+    de sistema;
+  - senha (`editUserRole`, campo `newPassword`): senha de sócio só por primário ou Master; senha do
+    titular só pelo próprio titular ou pelo Master (`RegraDosPrimarios::podeTrocarSenhaDe()`).
+
+  Uma permissão de secundário (`admin.roles.manage`, `admin.users.manage`, `admin.users.invite`) NÃO
+  basta: com ela um secundário se promoveria, ou promoveria um cúmplice, ao acesso total.
+- **Guarda do titular e do último primário** (`RegraDosPrimarios::garantirQuePodeDeixarDeSerPrimario()`):
+  o titular nunca deixa de ser primário e o escritório nunca fica sem primário ativo. Vale na remoção
+  de sócio e no edit-role.
+- **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
+  (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega tudo** no
+  `PermissionChecker` até alguém atribuir outro. Perfil `isSystem` não pode ser excluído.
 
 ---
 
