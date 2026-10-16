@@ -1,12 +1,18 @@
 # HANDOFF — frente `designer-central-ia` (Central de Comunicação)
 
-Consolidado em **15/10/2026** para a transferência a uma nova sessão. Este documento substitui as versões anteriores
+Consolidado em **15/10/2026** e atualizado em **16/10/2026** (auditoria integral, decisões e preparo de B1/B2; ver §11
+e `AUDITORIA-FIDELIDADE.md`) para a transferência a uma nova sessão. Este documento substitui as versões anteriores
 (que cresceram por camadas, §1–§16); o histórico delas está no `git log` deste arquivo. O detalhe de regra mora nas
 specs citadas; aqui ficam o estado real, as decisões, os riscos e o ponto exato de retomada. **Nada foi publicado.**
 
 ---
 
-## 1. Onde está (verificado em 15/10, fim da sessão)
+## 1. Onde está
+
+**Verificado em 16/10 (atualização desta transferência):** branch `designer-central-ia`, HEAD `419af346`
+(`origin/master` @ `a3919b5c`, 40 à frente), árvore limpa exceto os dois documentos desta transferência
+(`HANDOFF.md` alterado e `AUDITORIA-FIDELIDADE.md` novo, **não commitados**, à espera de autorização). Nenhum código
+mudou depois da Fase A. A tabela abaixo é a de 15/10 e segue válida no que não foi atualizado aqui.
 
 | Item | Valor |
 |---|---|
@@ -230,7 +236,13 @@ demo integrada e não foi alterada). Testes comparativos: `cd e2e && npm ci && C
 CENTRAL_E2E_ESCRITORIO="..." npx playwright test --project=central-fidelidade` (protótipo em
 `/home/prime/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/prototipo`, servido pelo próprio teste).
 
-**Primeira ação recomendada:** conferir se a R2 já concluiu e validou a renomeação para `Version20261015213000`
+**Próxima ação AUTORIZADA (16/10): B1 Moldura, depois B2 Destacar.** Escopo, critérios de aceite e restrições em
+§11. Comece por: (1) os comandos de diagnóstico acima; (2) `scripts/central-demo.sh designer-central-ia 8002` (a
+máquina reinicia com frequência: a demo, o proxy e às vezes os containers caem); (3) ler `AUDITORIA-FIDELIDADE.md` §2
+(regras do protótipo para comandos e Destacar) e §3 (matriz); (4) commitar os dois documentos desta transferência, se
+ainda não estiverem commitados, num commit só de docs.
+
+**Integração (histórico):** conferir se a R2 já concluiu e validou a renomeação para `Version20261015213000`
 (§9: `git ls-tree --name-only -r r2-gravacao-dupla -- app/migrations | grep 20261015`). **Até lá, não integrar a
 Central** (nem ao master, nem a outra branch de integração). Em paralelo, conforme o dono pedir: (a) avaliação visual do lançador (incorporar à demo os commits
 `f118f3c7`, `66b67c9c`, `7de93350`, `007c7876`, `04ced658` por cherry-pick individual na `demo-expediente-central`,
@@ -241,3 +253,102 @@ limpar o cache de dev dela e religar a 8001); (b) conferir o projeto online do C
 `.frente`); cherry-pick um commit por vez; push/merge/reset/deploy são do humano; no máximo 2 subagentes e uma suíte
 por vez; smoke no navegador só quando o dono pedir com essas palavras; migrations no dev só com backup validado e
 `execute --up` da versão exata; nenhum texto visível com travessão.
+
+---
+
+## 11. Auditoria integral, decisões de 16/10 e preparo de B1/B2
+
+**Auditoria (15/10, noite, só leitura): NÃO refazer.** Está em `docs/specs/designer-central-ia/AUDITORIA-FIDELIDADE.md`:
+diagnóstico, regras extraídas do protótipo (comandos, Destacar, lançador, presença, filtros, Painel, notificações, IA,
+menu ⋮, bj-contas, integrações do Expediente), matriz de fidelidade, comandos ausentes, o que está comprovado,
+backend existente e faltante, riscos e plano B1, B2, C, D, E, F. Evidências em
+`/home/prime/projetos/jusprime/.playwright-mcp/fid/` (`auditoria/`, `faseA/`, `p-*`/`d-*`), pasta ignorada pelo git.
+Conclusão central: o Designer mostra atividade fictícia (notificações geradas pelo próprio protótipo, presença
+simulada); o sistema só tem mensagens e menções; as telas internas foram reinterpretadas; os testes da Fase A provam
+aparência com dado simulado, não a existência de dado real.
+
+**Situação da R2 (16/10):** `r2-gravacao-dupla` @ `bcaf2d11` já tem `Version20261015213000` commitada (colisão de
+versão resolvida do lado dela). A validação é da sessão da R2; a regra de integrar uma frente com migration por vez
+continua.
+
+### 11.1 Decisões APROVADAS pelo dono (16/10)
+
+1. **Próximas entregas autorizadas: B1 (Moldura) e B2 (Destacar)**, a iniciar na PRÓXIMA sessão.
+   - B1: corrigir a restauração da janela; reproduzir o cabeçalho e o menu ⋮ do Designer exibindo **só comandos que
+     funcionam de verdade**; substituir `window.alert`/`window.confirm` por componentes visuais fiéis ao desenho.
+   - B2: Destacar com Document Picture-in-Picture e alternativa compatível (pop-up `window.open`); permitir levar a
+     Central a outro monitor; preservar estado da conversa, polling e retorno à janela original.
+2. **NÃO autorizados nesta etapa:** notificações, presença, IA, anexos, ligações, migrations e qualquer alteração de
+   backend fora do escopo B1/B2.
+
+### 11.2 Recomendações AINDA NÃO APROVADAS (decidir antes das fases que dependem delas)
+
+- Integrar as notificações do sino na Caixa (F1) **com revalidação de acesso na leitura e tenant explícito**.
+- Restringir "Equipe · em aberto" a gestores autorizados (o desenho mostra a todos).
+- Adiar recibos detalhados de leitura ("Visualizada" e "visualizado por").
+- Manter o título "Central de Comunicação" (o desenho diz "Chat I.A").
+- Não criar funcionalidades fictícias para preencher menus (Governança, Ocorrências, Ligações, Central de Atenção
+  ficam fora até existirem).
+- Preferir demonstrações de estados isoladas em Playwright (sem semear dado no `saas_ux`).
+- Regra de urgência proposta para F1 (do desenho): Urgente = meta atrasada, alerta, cobrança; Atenção = prazo em até
+  7 dias, demanda, chamado de prioridade alta/crítica.
+- Presença (F2) por polling, com última atividade por vínculo e status manual (exige migration e decisão).
+
+### 11.3 Critérios de aceite
+
+**B1 Moldura**
+1. Restaurar após maximizar volta a 380×580 (ou o tamanho salvo) sem nenhum quadro intermediário fora da tela:
+   medir a caixa da janela logo após o clique e 100 ms depois (hoje fica ~1 s em 1342×776 a partir de x=968).
+2. Cabeçalho da lista com o avatar do usuário (30 px, anel `0 0 0 2px rgba(255,255,255,.5)`), **sem** ponto de
+   status e **sem** pílula "on-line" (presença não autorizada); título "Central de Comunicação" (pendente de decisão,
+   ver 11.2) e subtítulo "nome · N não lidas | em dia | não perturbe" como no desenho (C:6338).
+3. Menu ⋮ em painel absoluto (right 8, top 52, largura 272, max-height `calc(100% - 64px)`, sombra
+   `0 6px 24px rgba(0,0,0,.22)`, padding 5, `bjcIn .14s`), títulos de seção 10,5 px/700/.07em #7b93a2, separador 1 px
+   #eef1f3, itens 8px 10px raio 3 com ícone 16 px #5f7684, chaves 30×17 (ligada #0a7aad, desligada #cfd9e0), valores
+   em azul 12/700 (C:6244-6293). **Só itens funcionais hoje:** Novo grupo; Ver/ocultar arquivadas; Não perturbe 1 h
+   (chave, "até HH:MM"); Som (chave); Alertas visuais (chave); Tamanho do texto (valor Normal/Grande); Restaurar
+   posição e Restaurar tamanho (só quando houver o que restaurar); "Abrir em janela separada" entra com B2. Itens
+   que exigem backend não autorizado ficam fora (sem placeholder).
+4. Confirmação interna (sobreposição `rgba(18,36,47,.38)`, caixa até 300 px, padding 16, raio 4, sombra
+   `0 10px 30px rgba(0,0,0,.3)`, texto 13,5 px #1d3441, botões 32 px 13/700: Cancelar #eef1f3, ação vermelha #c0392b
+   para Excluir/Remover/Sair ou azul #0a7aad) no lugar de todo `window.confirm`; erros como aviso escuro (o mesmo do
+   lançador) no lugar de todo `window.alert`. Busca no código: zero `window.confirm`/`window.alert` na Central.
+5. Playwright comparativo (no spec `central-fidelidade`) para cada item: geometria, estilo computado e keyframes
+   iguais ao protótipo; prova por mutação de pelo menos um item; `tests/Central` verde; revisão independente.
+
+**B2 Destacar**
+1. Botão no cabeçalho (ordem do desenho: Destacar, Minimizar, Maximizar, Fechar; 25×25, ícone
+   `bi-box-arrow-up-right`, dica "Destacar: levar o chat para qualquer lugar da tela") e item "Abrir em janela
+   separada" no ⋮.
+2. Com `documentPictureInPicture`: `requestWindow` com W=max(420, tam.w‖440), H=max(560, tam.h‖660); sem ele:
+   `window.open('', 'bluejus-chat', 'popup=yes,...')`; bloqueado: aviso "O navegador bloqueou a janela. Permita pop-ups
+   para este site e tente de novo." Textos de sucesso do desenho (AUDITORIA §2).
+3. O MESMO nó da janela é movido (não clonado): conversa aberta, rascunho, cursor do polling e contadores continuam;
+   folhas de estilo copiadas; janela destacada em 100% do espaço; Minimizar e Maximizar somem; Destacar vira "Voltar
+   para dentro do BlueJus".
+4. Fechar a janela externa (ou "Voltar") devolve o nó ao lugar e ao modo anteriores; o polling não duplica nem para.
+   Decidir e testar o caso "Fechar dentro da janela destacada" (no protótipo não volta; provavelmente defeito dele).
+5. Testes: Playwright com Chromium (PiP disponível) cobrindo abrir, estado preservado, voltar ao fechar, e o caminho
+   do pop-up (forçando ausência de PiP); nenhuma escrita a mais em `/central/*`; mover para outro monitor é do sistema
+   operacional (validar manualmente com o dono).
+
+### 11.4 Restrições de execução (B1/B2)
+
+- Só a worktree `designer-central-ia`; não tocar `master`, R2, Trabalho Externo, `fidelidade-designer`,
+  `demo-expediente-central` (8001) nem o servidor de outra sessão (o `central-demo.sh` recusa porta alheia).
+- Sem migration, sem alteração de banco e sem backend (salvo o mínimo de B1/B2, se houver, com aprovação).
+- Não usar componentes globais (`base.html.twig`, `app.css`, `bj-dica` global) sem avaliação de impacto.
+- Uma suíte por vez e nunca junto com a de outra frente (conferir com `docker top jusprime_php_dev -eo pid,args |
+  grep bin/phpunit`, que mostra também a worktree pelo cwd do PID no host).
+- Playwright comparativo com `/central/*` interceptado; nada de dado fictício em produção nem no `saas_ux`.
+- Commits locais pequenos por assunto; push, merge, tag e deploy são do dono.
+
+### 11.5 Riscos e dependências a lembrar
+
+- Prévia de notificação continua visível após revogação de acesso no sino: qualquer F1 precisa rechecar acesso.
+- Toda consulta nova da Central com tenant explícito (o sino depende do TenantFilter).
+- Notificações do Designer são simuladas; as reais do sistema são outras (ver AUDITORIA §4) e não têm prioridade.
+- Anexos dependem da frente R2 (categoria nova, armazenamento por tenant).
+- IA: D1-a…f (ZDR, LGPD art. 33, modelo, região, piloto, orçamento) antes de qualquer conversa BlueJus IA.
+- Outras worktrees usam o mesmo container e portas (8000 `fidelidade-designer`, 8001 demo integrada): não derrubar.
+
