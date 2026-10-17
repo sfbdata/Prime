@@ -224,6 +224,7 @@
                         pasta: pasta,
                         proximosPrazos: proximosPrazos,
                         podeEditarPasta: podeEditarPasta,
+                        unidadeCobrada: unidadeCobrada|default(null),
                     }) }}
                 </div>
             </div>
@@ -3831,7 +3832,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     modal.addEventListener('show.bs.modal', function () {
         var nome = modal.querySelector('[data-pe-resp-nome]');
-        var doChip = document.querySelector('.ps-cab-dados .pasta-resp-chip .pasta-resp-nome');
+        var doChip = document.querySelector('.ps-cab-resp .pasta-resp-chip .pasta-resp-nome');
         if (nome && doChip) { nome.textContent = doChip.textContent.trim(); }
     });
 

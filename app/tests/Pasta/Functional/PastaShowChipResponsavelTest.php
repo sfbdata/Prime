@@ -98,7 +98,7 @@ final class PastaShowChipResponsavelTest extends JusPrimeWebTestCase
         // uma aba só. "Existe na página" seria verdade com o chip caído em
         // qualquer outro canto do HTML, por isso o combinador é de descendência
         // a partir do bloco certo.
-        $chip = $crawler->filter('.ps-cab-dados [data-campo="responsavel"] .pasta-resp-chip');
+        $chip = $crawler->filter('.ps-cab-resp[data-campo="responsavel"] .pasta-resp-chip');
         self::assertCount(1, $chip, 'o chip tem de estar na faixa de dados do cabeçalho');
         self::assertCount(
             0,
@@ -222,7 +222,7 @@ final class PastaShowChipResponsavelTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $chip = $crawler->filter('.ps-cab-dados [data-campo="responsavel"] .pasta-resp-chip');
+        $chip = $crawler->filter('.ps-cab-resp[data-campo="responsavel"] .pasta-resp-chip');
         self::assertCount(1, $chip);
 
         // Usa EXATAMENTE o que o chip publicou na página — é o que o JS faria.
@@ -312,7 +312,7 @@ final class PastaShowChipResponsavelTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $admin, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
-        $img = $crawler->filter('.ps-cab-dados .pasta-resp-chip .resp-avatar-img img');
+        $img = $crawler->filter('.ps-cab-resp .pasta-resp-chip .resp-avatar-img img');
         self::assertCount(1, $img, 'com foto cadastrada o chip mostra a imagem, não as iniciais');
 
         /* Defesa em profundidade: mesmo que a folha de estilo chegue tarde (ou não
