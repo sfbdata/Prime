@@ -7,6 +7,11 @@
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0">Processos Judiciais</h1>
         <div class="d-flex gap-2">
+            {% if can_access_module('djen') %}
+                <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-newspaper me-1"></i> Push Processual
+                </a>
+            {% endif %}
             <a href="{{ path('processo_new') }}" class="btn btn-success">Cadastrar Processo</a>
         </div>
     </div>

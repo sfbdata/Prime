@@ -19,7 +19,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Job de captação (rodado por cron no host → docker exec) que sincroniza as publicações do DJEN de
- * cada escritório ativo, a partir das OABs que ele monitora.
+ * cada escritório ativo, a partir das OABs que ele monitora e do número de cada processo cadastrado
+ * sem baixa. A fase de processos espera a janela do limite do DJEN quando bate nele, então o job pode
+ * levar minutos (cerca de 1 minuto a cada 20 processos).
  *
  * Multi-tenant no CLI: o TenantFilter fica DESLIGADO fora de um request, então iteramos os escritórios
  * e o UseCase recebe o Tenant EXPLICITAMENTE (toda query/criação é escopada por ele). Re-buscamos um
@@ -29,7 +31,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'app:djen:sincronizar',
-    description: 'Capta publicações do DJEN para as OABs monitoradas de cada escritório.',
+    description: 'Capta publicações do DJEN pelas OABs monitoradas e pelos processos cadastrados de cada escritório.',
 )]
 final class SincronizarDjenCommand extends Command
 {
@@ -84,42 +86,60 @@ final class SincronizarDjenCommand extends Command
             $total = new ResultadoSincronizacao();
             $linhas = [];
             $falhasComando = 0;
+            /** @var array<int, list<string>> $captadosPelaOab escritório => djenId novos da fase de OABs */
+            $captadosPelaOab = [];
 
-            foreach ($ids as $id) {
-                // Re-busca gerenciada (a iteração anterior fez em->clear()).
-                $tenant = $this->tenantRepository->find($id);
-                if (!$tenant instanceof Tenant) {
-                    continue;
-                }
-
-                $nome = $tenant->getName() ?? '';
-
-                try {
-                    $resultado = $this->sincronizar->executar($tenant, $periodo, $dryRun);
-                    $total->somar($resultado);
-                    $linhas[] = [
-                        $id,
-                        $nome,
-                        $resultado->getNovas(),
-                        $resultado->getVinculadas(),
-                        $resultado->getNotificados(),
-                        \count($resultado->getFalhas()),
-                    ];
-
-                    foreach ($resultado->getFalhas() as $rotulo => $motivo) {
-                        $io->text(sprintf('  <comment>#%d OAB %s: %s</comment>', $id, $rotulo, $motivo));
+            // Duas fases, nesta ordem: as OABs de TODOS os escritórios primeiro, depois os processos
+            // cadastrados (pelo número). O DJEN aceita 20 requisições por IP na janela; a fase de
+            // processos espera a janela quando bate no limite, e por vir depois nunca rouba a cota
+            // da captação por OAB, que é a que já existia.
+            foreach (['oab' => 'OABs', 'processo' => 'processos cadastrados'] as $fase => $rotuloFase) {
+                foreach ($ids as $id) {
+                    // Re-busca gerenciada (a iteração anterior fez em->clear()).
+                    $tenant = $this->tenantRepository->find($id);
+                    if (!$tenant instanceof Tenant) {
+                        continue;
                     }
-                } catch (\Throwable $e) {
-                    ++$falhasComando;
-                    $io->error(sprintf('Falha ao sincronizar o escritório #%d (%s): %s', $id, $nome, $e->getMessage()));
-                } finally {
-                    // Higiene de memória entre iterações (job potencialmente longo).
-                    $this->em->clear();
+
+                    $nome = $tenant->getName() ?? '';
+
+                    try {
+                        $resultado = $fase === 'oab'
+                            ? $this->sincronizar->executar($tenant, $periodo, $dryRun, false)
+                            : $this->sincronizar->sincronizarProcessosCobrindoTodos($tenant, $periodo, $dryRun, $captadosPelaOab[$id] ?? []);
+                        if ($fase === 'oab') {
+                            $captadosPelaOab[$id] = $resultado->getDjenIdsNovos();
+                        }
+                        $total->somar($resultado);
+                        $linhas[] = [
+                            $id,
+                            $nome,
+                            $rotuloFase,
+                            $resultado->getNovas(),
+                            $resultado->getVinculadas(),
+                            $resultado->getNotificados(),
+                            \count($resultado->getFalhas()),
+                        ];
+
+                        foreach ($resultado->getFalhas() as $rotulo => $motivo) {
+                            $io->text(sprintf('  <comment>#%d %s: %s</comment>', $id, $rotulo, $motivo));
+                        }
+
+                        if ($resultado->getProcessosAdiados() > 0) {
+                            $io->text(sprintf('  <comment>#%d %d processo(s) sem consulta (limite do DJEN persistente)</comment>', $id, $resultado->getProcessosAdiados()));
+                        }
+                    } catch (\Throwable $e) {
+                        ++$falhasComando;
+                        $io->error(sprintf('Falha ao sincronizar %s do escritório #%d (%s): %s', $rotuloFase, $id, $nome, $e->getMessage()));
+                    } finally {
+                        // Higiene de memória entre iterações (job potencialmente longo).
+                        $this->em->clear();
+                    }
                 }
             }
 
             if ($linhas !== []) {
-                $io->table(['ID', 'Escritório', 'Novas', 'Vinculadas', 'Notificados', 'Falhas OAB'], $linhas);
+                $io->table(['ID', 'Escritório', 'Fonte', 'Novas', 'Vinculadas', 'Notificados', 'Falhas'], $linhas);
             }
 
             $io->success($total->resumo());

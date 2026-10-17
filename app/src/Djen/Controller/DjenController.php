@@ -19,6 +19,7 @@ use App\Djen\UseCase\RemoverOabMonitoradaUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Processo\Repository\ProcessoRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,7 +29,9 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Módulo "Push Processual": publicações captadas do DJEN para o escritório atual + gestão das OABs
- * monitoradas + sincronização sob demanda.
+ * monitoradas + sincronização sob demanda. Desde 16/10 é também a porta de entrada dos processos
+ * (o item Processos saiu do menu): a tela leva ao cadastro, e todo processo cadastrado sem baixa é
+ * acompanhado pelo número na sincronização, além das OABs.
  *
  * O nome do produto é "Push Processual"; DJEN (Diário de Justiça Eletrônico Nacional) segue sendo o
  * nome do sistema do CNJ de onde as publicações vêm — por isso ele permanece nas classes, no código
@@ -54,6 +57,7 @@ final class DjenController extends AbstractController
         private readonly RemoverOabMonitoradaUseCase $removerOab,
         private readonly AlternarStatusOabMonitoradaUseCase $alternarOab,
         private readonly SincronizarPublicacoesDjenUseCase $sincronizar,
+        private readonly ProcessoRepository $processoRepository,
     ) {
     }
 
@@ -84,6 +88,8 @@ final class DjenController extends AbstractController
             'pagina' => $pagina,
             'total' => $total,
             'totalPaginas' => (int) ceil($total / self::POR_PAGINA),
+            // Processos cadastrados (sem baixa) que a sincronização consulta pelo número.
+            'processosAcompanhados' => $this->processoRepository->contarAcompanhadosDoTenant($tenant),
         ]);
     }
 

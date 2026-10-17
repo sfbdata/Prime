@@ -414,10 +414,14 @@
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') == 'demandas_index' ? 'active' : '' }}">
                             Demandas
                         </a>
-                        <a href="{{ path('processo_index') }}"
-                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'processo_' ? 'active' : '' }}">
-                            Processos
-                        </a>
+                        {# Processos saiu daqui (16/10, pedido do dono): o cadastro mora dentro do Push
+                           Processual, que acompanha as publicações por OAB e por processo cadastrado. #}
+                        {% if can_access_module('tarefas') %}
+                            <a href="{{ path('tarefa_minhas') }}"
+                               class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
+                                Minhas Metas
+                            </a>
+                        {% endif %}
                         {% if can_access_module('trabalho_externo') %}
                             <a href="{{ path('trabalho_externo_index') }}"
                                class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'trabalho_externo_' ? 'active' : '' }}">
