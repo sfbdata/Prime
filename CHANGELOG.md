@@ -69,6 +69,8 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Pasta e Dashboard no padrão visual PJe, Trilha A (`4d1d054a` a `6de3b60d`).
 - Fidelidade das telas ao desenho aprovado no Claude Designer, lotes 1 e 2 do Engineering Loop
   (#6, #7).
+- Ícones de tipo de arquivo no padrão do Guia visual BlueJus (família preenchida, cores únicas por
+  tipo), iguais aos da aba Documentos: Dados da Pasta, Financeiro e documentos da Cobrança.
 
 ### Removido
 

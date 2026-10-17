@@ -264,7 +264,9 @@
 {# ── Documentos ───────────────────────────────────────────────────────────
    Três itens e o atalho para a aba, como o desenho pede. A lista completa mora
    na aba Documentos; repeti-la aqui só empurraria o trilho para fora da vista.
-   O ícone é o do TIPO do arquivo (PDF vermelho, Word azul…), via `arquivo_icone`. #}
+   O ícone é o do TIPO do arquivo (PDF vermelho, Word azul…), via `arquivo_icone`:
+   família e cores do Guia visual, as mesmas da aba Documentos; a cor sai pela classe
+   `ps-doc-icone--<tipo>` (tokens com par escuro no pasta-show.css), nunca inline. #}
 {% set docsRecentes = pasta.documentos|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
 <section class="ps-card" data-trilho="documentos">
     <div class="ps-card-cab">
@@ -296,7 +298,7 @@
                data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
                data-nome="{{ doc.nomeOriginal|e('html_attr') }}"
                data-mime="{{ doc.mimeType|e('html_attr') }}">
-                <span class="ps-doc-icone" style="color: {{ icone.cor|e('html_attr') }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
+                <span class="ps-doc-icone ps-doc-icone--{{ icone.tipo }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
                 <span class="ps-linha-corpo">
                     <span class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
                     <span class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</span>

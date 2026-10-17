@@ -213,17 +213,18 @@
     --pex-limp-excluir:   #a3232b;
     --pex-limp-excluir-hover: #861b22;
 
-    /* ícones por tipo (dc L4675-4680) */
+    /* ícones por tipo (dc L4675-4680; excel/assin no verde do Guia visual, #1d7a46,
+       o mesmo do chip --pex-f-excel e do helper arquivo_icone) */
     --pex-c-pdf:          #d93a2b;
     --pex-c-word:         #1f5fbf;
-    --pex-c-excel:        #1e7b45;
+    --pex-c-excel:        #1d7a46;
     --pex-c-img:          #7a4bb0;
     --pex-c-zip:          #b7791f;
     --pex-c-txt:          #4f6878;
     --pex-c-slides:       #c0571d;
     --pex-c-midia:        #7a4bb0;
     --pex-c-email:        #0a7aad;
-    --pex-c-assin:        #1e7b45;
+    --pex-c-assin:        #1d7a46;
     --pex-c-outro:        #6b8494;
 
     /* estados, rodapé, upload */

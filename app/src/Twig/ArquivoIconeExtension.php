@@ -10,12 +10,109 @@ use Twig\TwigFunction;
 
 /**
  * Ícone/cor por tipo de arquivo (a partir da extensão do nome, com fallback no
- * MIME) e formatação de tamanho. Usado pelo gerenciador de arquivos da pasta.
- * As cores são fixas por tipo (convenção de file manager) e legíveis em tema
- * claro e escuro.
+ * MIME) e formatação de tamanho. Fonte ÚNICA do padrão no Twig: trilho de Dados e
+ * Financeiro da pasta, documentos da carteira e do caso na Cobrança.
+ *
+ * O padrão é o do Guia visual BlueJus (04 Tipografia e ícones): família
+ * `bi-file-earmark-*-fill`, cor só para o tipo de arquivo. É a MESMA família,
+ * o MESMO `tipo` e a MESMA paleta que a aba Documentos desenha no navegador
+ * (pasta-explorador.js `TIPOS`/`TIPO_ALIAS` + tokens `--pex-c-*`).
+ *
+ * `cor` é o hex do tema claro, para quem pinta inline (Cobrança). Na tela da
+ * pasta a cor sai por classe `ps-doc-icone--<tipo>` lendo os tokens
+ * `--ps-arquivo-<tipo>` do pasta-show.css, que têm par escuro igual ao do
+ * explorador; o espelho JS do Financeiro (`iconeDoArquivo` em
+ * pasta/_financeiro.html.twig) repete ícone, tipo e rótulo. Mudou em um lugar,
+ * muda nos outros: ArquivoIconePadraoFolhaTest compara helper × explorador ×
+ * pasta-show.css e PastaFinanceiroIconeEspelhoFolhaTest compara helper × espelho.
  */
 final class ArquivoIconeExtension extends AbstractExtension
 {
+    /**
+     * Cor por TIPO (hex do tema claro): PDF, Word e Excel são os do Guia visual; os
+     * demais, os tokens claros `--pex-c-*` do explorador. As chaves são as mesmas
+     * classes `pex-ico-<tipo>` do explorador e `ps-doc-icone--<tipo>` da pasta.
+     *
+     * @var array<string, string>
+     */
+    private const CORES = [
+        'pdf'    => '#d93a2b',
+        'word'   => '#1f5fbf',
+        'excel'  => '#1d7a46',
+        'img'    => '#7a4bb0',
+        'zip'    => '#b7791f',
+        'txt'    => '#4f6878',
+        'slides' => '#c0571d',
+        'midia'  => '#7a4bb0',
+        'email'  => '#0a7aad',
+        'assin'  => '#1d7a46',
+        'outro'  => '#6b8494',
+    ];
+
+    /** @var array<string, array{0: string, 1: string, 2: string}> extensão => [ícone, tipo, rótulo] */
+    private const MAPA = [
+        // documentos
+        'pdf'  => ['bi-file-earmark-pdf-fill',      'pdf',   'PDF'],
+        'doc'  => ['bi-file-earmark-word-fill',     'word',  'Word'],
+        'docx' => ['bi-file-earmark-word-fill',     'word',  'Word'],
+        'docm' => ['bi-file-earmark-word-fill',     'word',  'Word'],
+        'dotx' => ['bi-file-earmark-word-fill',     'word',  'Word'],
+        'odt'  => ['bi-file-earmark-word-fill',     'word',  'Documento'],
+        'rtf'  => ['bi-file-earmark-richtext-fill', 'word',  'Documento'],
+        'txt'  => ['bi-file-earmark-text-fill',     'txt', 'Texto'],
+        'md'   => ['bi-file-earmark-text-fill',     'txt', 'Texto'],
+        // planilhas
+        'xls'  => ['bi-file-earmark-excel-fill',       'excel', 'Planilha'],
+        'xlsx' => ['bi-file-earmark-excel-fill',       'excel', 'Planilha'],
+        'xlsm' => ['bi-file-earmark-excel-fill',       'excel', 'Planilha'],
+        'xlsb' => ['bi-file-earmark-excel-fill',       'excel', 'Planilha'],
+        'ods'  => ['bi-file-earmark-spreadsheet-fill', 'excel', 'Planilha'],
+        'csv'  => ['bi-filetype-csv',                  'excel', 'CSV'],
+        // apresentações
+        'ppt'  => ['bi-file-earmark-slides-fill', 'slides', 'Slides'],
+        'pptx' => ['bi-file-earmark-slides-fill', 'slides', 'Slides'],
+        'odp'  => ['bi-file-earmark-slides-fill', 'slides', 'Slides'],
+        // imagens
+        'png'  => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'jpg'  => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'jpeg' => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'jfif' => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'gif'  => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'webp' => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'bmp'  => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'svg'  => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'heic' => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'tif'  => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        'tiff' => ['bi-file-earmark-image-fill', 'img', 'Imagem'],
+        // compactados
+        'zip'  => ['bi-file-earmark-zip-fill', 'zip', 'Compactado'],
+        'rar'  => ['bi-file-earmark-zip-fill', 'zip', 'Compactado'],
+        '7z'   => ['bi-file-earmark-zip-fill', 'zip', 'Compactado'],
+        'gz'   => ['bi-file-earmark-zip-fill', 'zip', 'Compactado'],
+        'tar'  => ['bi-file-earmark-zip-fill', 'zip', 'Compactado'],
+        // mídia
+        'mp3'  => ['bi-file-earmark-music-fill', 'midia', 'Áudio'],
+        'wav'  => ['bi-file-earmark-music-fill', 'midia', 'Áudio'],
+        'ogg'  => ['bi-file-earmark-music-fill', 'midia', 'Áudio'],
+        'opus' => ['bi-file-earmark-music-fill', 'midia', 'Áudio'],
+        'm4a'  => ['bi-file-earmark-music-fill', 'midia', 'Áudio'],
+        'mp4'  => ['bi-file-earmark-play-fill',  'midia', 'Vídeo'],
+        'mov'  => ['bi-file-earmark-play-fill',  'midia', 'Vídeo'],
+        'avi'  => ['bi-file-earmark-play-fill',  'midia', 'Vídeo'],
+        'mkv'  => ['bi-file-earmark-play-fill',  'midia', 'Vídeo'],
+        'webm' => ['bi-file-earmark-play-fill',  'midia', 'Vídeo'],
+        // e-mail e assinatura digital
+        'eml'  => ['bi-envelope-paper-fill', 'email',      'E-mail'],
+        'msg'  => ['bi-envelope-paper-fill', 'email',      'E-mail'],
+        'p7s'  => ['bi-patch-check-fill',    'assin', 'Assinatura'],
+        'p7m'  => ['bi-patch-check-fill',    'assin', 'Assinatura'],
+        // web/código
+        'html' => ['bi-filetype-html', 'txt', 'HTML'],
+        'xml'  => ['bi-filetype-xml',  'txt', 'XML'],
+        'json' => ['bi-filetype-json', 'txt', 'JSON'],
+        'kml'  => ['bi-geo-alt-fill',  'txt', 'Mapa'],
+    ];
+
     public function getFunctions(): array
     {
         return [
@@ -31,89 +128,45 @@ final class ArquivoIconeExtension extends AbstractExtension
     }
 
     /**
-     * @return array{icone: string, cor: string, rotulo: string}
+     * @return array{icone: string, tipo: string, cor: string, rotulo: string}
      */
     public function arquivoIcone(string $nome, string $mime = ''): array
     {
         $ext = strtolower(pathinfo($nome, PATHINFO_EXTENSION));
 
-        $mapa = [
-            // documentos
-            'pdf'  => ['bi-filetype-pdf',  '#e2564d', 'PDF'],
-            'doc'  => ['bi-filetype-doc',  '#2b7cd3', 'Word'],
-            'docx' => ['bi-filetype-docx', '#2b7cd3', 'Word'],
-            'odt'  => ['bi-filetype-doc',  '#2b7cd3', 'Documento'],
-            'rtf'  => ['bi-filetype-doc',  '#2b7cd3', 'Documento'],
-            'txt'  => ['bi-filetype-txt',  '#6c757d', 'Texto'],
-            'md'   => ['bi-filetype-md',   '#6c757d', 'Texto'],
-            // planilhas
-            'xls'  => ['bi-filetype-xls',  '#1f9d55', 'Planilha'],
-            'xlsx' => ['bi-filetype-xlsx', '#1f9d55', 'Planilha'],
-            'ods'  => ['bi-filetype-xlsx', '#1f9d55', 'Planilha'],
-            'csv'  => ['bi-filetype-csv',  '#1f9d55', 'CSV'],
-            // apresentações
-            'ppt'  => ['bi-filetype-ppt',  '#d9822b', 'Slides'],
-            'pptx' => ['bi-filetype-pptx', '#d9822b', 'Slides'],
-            'odp'  => ['bi-filetype-pptx', '#d9822b', 'Slides'],
-            // imagens
-            'png'  => ['bi-filetype-png',  '#7b5ea7', 'Imagem'],
-            'jpg'  => ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
-            'jpeg' => ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
-            'gif'  => ['bi-filetype-gif',  '#7b5ea7', 'Imagem'],
-            'webp' => ['bi-file-image',    '#7b5ea7', 'Imagem'],
-            'bmp'  => ['bi-file-image',    '#7b5ea7', 'Imagem'],
-            'svg'  => ['bi-filetype-svg',  '#7b5ea7', 'Imagem'],
-            'heic' => ['bi-file-image',    '#7b5ea7', 'Imagem'],
-            // compactados
-            'zip'  => ['bi-file-zip',      '#b08900', 'Compactado'],
-            'rar'  => ['bi-file-zip',      '#b08900', 'Compactado'],
-            '7z'   => ['bi-file-zip',      '#b08900', 'Compactado'],
-            'gz'   => ['bi-file-zip',      '#b08900', 'Compactado'],
-            'tar'  => ['bi-file-zip',      '#b08900', 'Compactado'],
-            // mídia
-            'mp3'  => ['bi-filetype-mp3',  '#c2410c', 'Áudio'],
-            'wav'  => ['bi-filetype-wav',  '#c2410c', 'Áudio'],
-            'ogg'  => ['bi-file-music',    '#c2410c', 'Áudio'],
-            'mp4'  => ['bi-filetype-mp4',  '#be123c', 'Vídeo'],
-            'mov'  => ['bi-filetype-mov',  '#be123c', 'Vídeo'],
-            'avi'  => ['bi-file-play',     '#be123c', 'Vídeo'],
-            'mkv'  => ['bi-file-play',     '#be123c', 'Vídeo'],
-            // web/código
-            'html' => ['bi-filetype-html', '#e34c26', 'HTML'],
-            'xml'  => ['bi-filetype-xml',  '#6c757d', 'XML'],
-            'json' => ['bi-filetype-json', '#6c757d', 'JSON'],
-        ];
-
-        if ($ext !== '' && isset($mapa[$ext])) {
-            [$icone, $cor, $rotulo] = $mapa[$ext];
-
-            return ['icone' => $icone, 'cor' => $cor, 'rotulo' => $rotulo];
+        if ($ext !== '' && isset(self::MAPA[$ext])) {
+            return self::montar(self::MAPA[$ext]);
         }
 
         // Fallback pelo MIME quando a extensão não ajuda.
         if (str_starts_with($mime, 'image/')) {
-            return ['icone' => 'bi-file-image', 'cor' => '#7b5ea7', 'rotulo' => 'Imagem'];
+            return self::montar(['bi-file-earmark-image-fill', 'img', 'Imagem']);
         }
         if (str_starts_with($mime, 'video/')) {
-            return ['icone' => 'bi-file-play', 'cor' => '#be123c', 'rotulo' => 'Vídeo'];
+            return self::montar(['bi-file-earmark-play-fill', 'midia', 'Vídeo']);
         }
         if (str_starts_with($mime, 'audio/')) {
-            return ['icone' => 'bi-file-music', 'cor' => '#c2410c', 'rotulo' => 'Áudio'];
+            return self::montar(['bi-file-earmark-music-fill', 'midia', 'Áudio']);
         }
         if (str_contains($mime, 'pdf')) {
-            return ['icone' => 'bi-filetype-pdf', 'cor' => '#e2564d', 'rotulo' => 'PDF'];
+            return self::montar(['bi-file-earmark-pdf-fill', 'pdf', 'PDF']);
+        }
+        // Planilha e slides ANTES de Word: os MIMEs do Office trazem "officedocument"
+        // no nome, e a checagem por "document" os engoliria como Word.
+        if (str_contains($mime, 'sheet') || str_contains($mime, 'excel')) {
+            return self::montar(['bi-file-earmark-excel-fill', 'excel', 'Planilha']);
+        }
+        if (str_contains($mime, 'presentation') || str_contains($mime, 'powerpoint')) {
+            return self::montar(['bi-file-earmark-slides-fill', 'slides', 'Slides']);
         }
         if (str_contains($mime, 'word') || str_contains($mime, 'document')) {
-            return ['icone' => 'bi-filetype-doc', 'cor' => '#2b7cd3', 'rotulo' => 'Word'];
-        }
-        if (str_contains($mime, 'sheet') || str_contains($mime, 'excel')) {
-            return ['icone' => 'bi-filetype-xlsx', 'cor' => '#1f9d55', 'rotulo' => 'Planilha'];
+            return self::montar(['bi-file-earmark-word-fill', 'word', 'Word']);
         }
         if (str_contains($mime, 'zip') || str_contains($mime, 'compress')) {
-            return ['icone' => 'bi-file-zip', 'cor' => '#b08900', 'rotulo' => 'Compactado'];
+            return self::montar(['bi-file-earmark-zip-fill', 'zip', 'Compactado']);
         }
 
-        return ['icone' => 'bi-file-earmark', 'cor' => '#6c757d', 'rotulo' => 'Arquivo'];
+        return self::montar(['bi-file-earmark-fill', 'outro', 'Arquivo']);
     }
 
     public function formatarBytes(int|float|null $bytes): string
@@ -131,5 +184,17 @@ final class ArquivoIconeExtension extends AbstractExtension
         }
 
         return number_format($bytes / 1024 / 1024 / 1024, 2, ',', '.') . ' GB';
+    }
+
+    /**
+     * @param array{0: string, 1: string, 2: string} $entrada [ícone, tipo, rótulo]
+     *
+     * @return array{icone: string, tipo: string, cor: string, rotulo: string}
+     */
+    private static function montar(array $entrada): array
+    {
+        [$icone, $tipo, $rotulo] = $entrada;
+
+        return ['icone' => $icone, 'tipo' => $tipo, 'cor' => self::CORES[$tipo], 'rotulo' => $rotulo];
     }
 }
