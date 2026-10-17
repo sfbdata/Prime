@@ -6,10 +6,21 @@
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0">Push Processual — Publicações</h1>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
             <a href="{{ path('push_processual_oabs') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-person-badge me-1"></i> OABs monitoradas
             </a>
+            {# Processos e Push Processual unificados: o cadastro mora aqui. Todo processo cadastrado
+               sem baixa também é acompanhado pelo número na sincronização. #}
+            {% if can_access_module('processos') %}
+                <a href="{{ path('processo_index') }}" class="btn btn-outline-secondary" data-push-processos>
+                    <i class="bi bi-briefcase me-1"></i> Processos monitorados
+                    <span class="badge bg-secondary ms-1">{{ processosAcompanhados }}</span>
+                </a>
+                <a href="{{ path('processo_new') }}" class="btn btn-success" data-push-cadastrar-processo>
+                    <i class="bi bi-plus-lg me-1"></i> Cadastrar processo
+                </a>
+            {% endif %}
             <form method="POST" action="{{ path('push_processual_sincronizar') }}" class="d-inline">
                 <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
                 <button type="submit" class="btn btn-primary">
@@ -116,7 +127,7 @@
                         {% else %}
                             <tr>
                                 <td colspan="6" class="text-center text-muted py-4">
-                                    Nenhuma publicação encontrada. Cadastre uma OAB e clique em "Sincronizar agora".
+                                    Nenhuma publicação encontrada. Cadastre uma OAB ou um processo e clique em "Sincronizar agora".
                                 </td>
                             </tr>
                         {% endfor %}

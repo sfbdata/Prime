@@ -148,6 +148,7 @@ services:
     # Cliente do DJEN: injeta a implementação concreta via interface (integração desacoplada).
     App\Djen\Service\DjenClientInterface: '@App\Djen\Service\DjenClient'
     App\Djen\Service\NotificadorPublicacoesDjenInterface: '@App\Djen\Service\NotificadorPublicacoesDjen'
+    App\Djen\Service\EsperaEntreConsultasInterface: '@App\Djen\Service\EsperaEntreConsultas'
 
     # Envio do link de redefinição de senha (interface para o UseCase poder ser testado
     # sem SMTP — é o mailer que prova a resposta neutra da recuperação de senha).
