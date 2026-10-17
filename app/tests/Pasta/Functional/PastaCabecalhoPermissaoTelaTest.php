@@ -63,7 +63,7 @@ final class PastaCabecalhoPermissaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu->filter('#psMenuAcoes > form.js-excluir-pasta'));
         self::assertCount(1, $crawler->filter('.ps-cab-etiquetas > .ps-pop-wrap > button.pasta-prioridade-btn[data-ps-pop="psPrioridade"]'));
         self::assertCount(1, $crawler->filter('.ps-abas-faixa > .ps-situacao-wrap > button#btn-alternar-status'));
-        self::assertCount(1, $crawler->filter('.ps-cab-dados > [data-campo="processo"] .ps-link-btn--vincular'));
+        self::assertCount(1, $crawler->filter('[data-trilho="processo"] > [data-campo="processo"] .ps-link-btn--vincular'));
     }
 
     #[TestDox('só VIEW: nenhum controle de escrita no cabeçalho; ficam Histórico, Timeline, Copiar link, Imprimir e Favoritos')]
@@ -85,7 +85,7 @@ final class PastaCabecalhoPermissaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $menu->filter('[data-bs-target="#modalVincularProcesso"]'));
         self::assertCount(0, $crawler->filter('#psMenuTrocarResponsavel'));
         self::assertCount(0, $crawler->filter('.js-situacao-alternar'));
-        self::assertCount(0, $crawler->filter('.ps-cab-dados .ps-link-btn--vincular'), 'sem o "vincular" da faixa');
+        self::assertCount(0, $crawler->filter('[data-trilho="processo"] .ps-link-btn--vincular'), 'sem o "vincular" da faixa');
 
         self::assertCount(1, $menu->filter('#psMenuAcoes > #psHistoricoAbrir'));
         self::assertCount(1, $menu->filter('#psMenuAcoes > #psTimelineAbrir'));

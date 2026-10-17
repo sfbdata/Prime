@@ -187,9 +187,9 @@ final class PastaRegistroExpedientesTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('[data-trilho="prazos"] > .ps-card-cab > button.ps-card-cab-link[data-ps-ir-aba="tarefas-tab"]'));
         self::assertCount(1, $crawler->filter('[data-trilho="documentos"] > .ps-card-cab > button.ps-card-cab-link[data-ps-ir-aba="documentos-tab"]'));
         self::assertCount(0, $crawler->filter('.ps-trilho a[href="#"]'), 'nenhum link morto no trilho');
-        // A ordem aprovada do trilho da aba DADOS não mudou (o Financeiro tem o seu próprio trilho).
+        // Ordem do trilho da aba DADOS: Ação/Processo vinculado no alto (desenho 1.2.3, 16/10), depois a de sempre.
         self::assertSame(
-            ['prazos', 'clientes', 'documentos'],
+            ['processo', 'prazos', 'clientes', 'documentos'],
             $crawler->filter('#dados > .ps-grade > .ps-trilho > [data-trilho]')->each(fn ($n) => $n->attr('data-trilho'))
         );
     }

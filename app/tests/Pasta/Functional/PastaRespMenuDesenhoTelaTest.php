@@ -111,7 +111,7 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $chip = $crawler->filter('.ps-cab-dados [data-campo="responsavel"] .pasta-resp-chip');
+        $chip = $crawler->filter('.ps-cab-resp[data-campo="responsavel"] .pasta-resp-chip');
         self::assertCount(1, $chip);
         self::assertSame('', $chip->attr('data-resp-id'));
         self::assertCount(1, $chip->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person-dash'));

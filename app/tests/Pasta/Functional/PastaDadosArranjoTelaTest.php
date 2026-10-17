@@ -173,14 +173,15 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $campos = $crawler->filter('.ps-cabecalho > .ps-cab-dados > [data-campo]');
-        /* Desenho 1.2.3: o cliente virou o TÍTULO, a movimentação foi para o lado
-           do nome e a situação, para a linha das abas. Sobram três células. */
+        /* Desenho 1.2.3 (16/10): a faixa saiu do cabeçalho. Ação e Processo vinculado são o primeiro
+           cartão do trilho, nessa ordem; o Responsável foi para a linha de cima, antes das setas. */
+        self::assertCount(0, $crawler->filter('.ps-cabecalho [data-trilho="processo"]'), 'nada da antiga faixa no cabeçalho');
         self::assertSame(
-            ['processo', 'acao', 'responsavel'],
-            $campos->each(fn ($n) => $n->attr('data-campo')),
-            'ordem do desenho: Processo vinculado · Ação · Responsável'
+            ['acao', 'processo'],
+            $crawler->filter('.ps-trilho > [data-trilho="processo"] > [data-campo]')->each(fn ($n) => $n->attr('data-campo')),
+            'ordem do desenho: Ação · Processo vinculado'
         );
+        self::assertCount(1, $crawler->filter('.ps-cab-linha1 > .ps-cab-resp[data-campo="responsavel"] + .ps-cab-nav'), 'Responsável logo antes das setas');
     }
 
     #[TestDox('o título grande é o IDENTIFICADOR da pasta; a ação vai para a faixa de dados; o número fica na linha de cima')]
@@ -204,7 +205,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         self::assertSame(
             'EXECUÇÃO DE TÍTULO EXTRAJUDICIAL',
-            trim($crawler->filter('.ps-cab-dados > [data-campo="acao"] .ps-dado')->text()),
+            trim($crawler->filter('[data-trilho="processo"] > [data-campo="acao"] .ps-dado')->text()),
             'a ação é a segunda célula da faixa de dados'
         );
 
@@ -307,9 +308,9 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $cartoes = $crawler->filter('#dados > .ps-grade > .ps-trilho > [data-trilho]');
         self::assertSame(
-            ['prazos', 'clientes', 'documentos'],
+            ['processo', 'prazos', 'clientes', 'documentos'],
             $cartoes->each(fn ($n) => $n->attr('data-trilho')),
-            'ordem aprovada (revisão 28/08): Próximos prazos · Clientes · Documentos'
+            'desenho 1.2.3: Ação e Processo vinculado no alto, depois Próximos prazos · Clientes · Documentos'
         );
     }
 
@@ -606,7 +607,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $mascarado = '1059316-72.2022.4.01.3400';
 
-        $noCabecalho = $crawler->filter('.ps-cab-dados [data-campo="processo"] a');
+        $noCabecalho = $crawler->filter('[data-trilho="processo"] [data-campo="processo"] a');
         self::assertCount(1, $noCabecalho);
         self::assertSame($mascarado, trim($noCabecalho->text()), 'o cabeçalho mostra o número formatado, não os 20 dígitos colados');
 
@@ -623,7 +624,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         // no sistema do tribunal.
         self::assertSame(
             '10593167220224013400',
-            $crawler->filter('.ps-cab-dados [data-campo="processo"] .copy-btn')->attr('data-copy'),
+            $crawler->filter('[data-trilho="processo"] [data-campo="processo"] .copy-btn')->attr('data-copy'),
             'copiar entrega o número cru, não a máscara'
         );
 
@@ -635,7 +636,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
            impedir. */
         self::assertSame(
             'CUMPRIMENTO DE SENTENÇA · TJDFT',
-            trim($crawler->filter('.ps-cab-dados [data-campo="processo"] .ps-dado-sub')->text())
+            trim($crawler->filter('[data-trilho="processo"] [data-campo="processo"] .ps-dado-sub')->text())
         );
     }
 

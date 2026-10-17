@@ -368,3 +368,20 @@ aplicada sozinha.
 - A rota de criar recebe a Pasta, para a trava da lápide cobrir (teste de arquitetura).
 - Testes: `ClienteCadastroControllerTest` (23; mutação na permissão de criar derruba o seu); teste antigo "sem
   cliente não desenha o botão" trocado pela regra nova.
+
+## 17. E12j: faixa de dados sai do cabeçalho da pasta (16/10/2026)
+
+Pedido do dono: "no desenho não tem processo vinculado, ação e responsável no cabeçalho de pastas". Conferido no
+02 online: Responsável fica na linha de cima (`toggleResp`, antes das setas), Ação e Processo vinculado são
+cartões no alto do trilho (L.1420-1445) e o carimbo da situação mora no mesmo bloco do andamento (L.1294-1298).
+
+- Cabeçalho: a faixa saiu. O carimbo passou para o `.ps-cab-palco`, que embrulha a linha do tempo (a `.ps-and` já
+  reservava os 150px do desenho).
+- Responsável: o mesmo chip de troca, agora na linha de cima, antes de "‹ 3 de 7 ›" (`.ps-cab-resp`).
+- Trilho da aba Dados: cartão novo no alto (`pasta/_dados_trilho_topo.html.twig`) com Ação e Processo vinculado,
+  na ordem do desenho, e Cobrança (só do BlueJus) embaixo, com os mesmos atalhos da faixa (abrir e copiar o número,
+  trocar, outros vinculados, vincular).
+- Conferência com o desenho: Responsável no topo ✓; nada de Processo/Ação/Responsável na faixa ✓; Ação antes de
+  Processo vinculado no trilho ✓; carimbo à direita da linha do tempo ✓. Medida na tela: do dono.
+- Testes: seletores e arranjo de 19 testes antigos atualizados para os lugares novos (a regra mudou por decisão do
+  dono); ordem do trilho agora `processo · prazos · clientes · documentos`.
