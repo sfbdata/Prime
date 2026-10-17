@@ -269,7 +269,7 @@
                                         {% elseif linha.saldoDia < 0 %}
                                             <span class="text-danger">-{{ (absSaldo // 60) }}h{{ '%02d'|format(absSaldo % 60) }}m</span>
                                         {% else %}
-                                            <span class="text-muted">—</span>
+                                            <span class="text-muted">0:00</span>
                                         {% endif %}
                                     {% endif %}
                                 </td>
@@ -306,7 +306,7 @@
                                                 <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
                                             {% endif %}
                                             {% if j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %}
-                                                <div class="small text-muted">{{ j.horaInicioAbono|date('H:i') }}–{{ j.horaFimAbono|date('H:i') }}</div>
+                                                <div class="small text-muted">{{ j.horaInicioAbono|date('H:i') }} às {{ j.horaFimAbono|date('H:i') }}</div>
                                             {% endif %}
                                         {% elseif j.status == 'pendente' %}
                                             <span class="badge text-bg-warning text-dark">

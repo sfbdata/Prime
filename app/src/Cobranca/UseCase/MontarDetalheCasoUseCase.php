@@ -304,11 +304,11 @@ final class MontarDetalheCasoUseCase
 
         return new CasoDetalheOutput(
             id: $caso->getId() ?? 0,
-            objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
+            objetoIdentificacao: $objeto?->getIdentificacao() ?? 'Não informado',
             objetoDescricao: $objeto?->getDescricao(),
             carteiraId: $carteira?->getId() ?? 0,
-            carteiraNome: $carteira?->getNome() ?? '—',
-            pessoaCobradaNome: $pessoa?->getNome() ?? '—',
+            carteiraNome: $carteira?->getNome() ?? 'Não informado',
+            pessoaCobradaNome: $pessoa?->getNome() ?? 'Não informado',
             pessoaCobradaCpf: $pessoa?->getCpf(),
             pessoaCobradaCnpj: $pessoa?->getCnpj(),
             pessoaCobradaEmail: $pessoa?->getEmail(),

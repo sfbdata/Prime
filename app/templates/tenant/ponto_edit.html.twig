@@ -5,7 +5,7 @@
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Editar Batida — {{ user.fullName }}</h1>
+        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Editar Batida: {{ user.fullName }}</h1>
     </div>
 </section>
 
@@ -17,7 +17,7 @@
                     <div class="card-header">
                         <h3 class="card-title">
                             <i class="bi bi-clock-history me-2"></i>
-                            Batida #{{ registro.id }} — {{ registro.dataHora|date('d/m/Y H:i') }}
+                            Batida #{{ registro.id }}: {{ registro.dataHora|date('d/m/Y H:i') }}
                         </h3>
                     </div>
                     {{ form_start(form) }}

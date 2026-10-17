@@ -57,7 +57,7 @@ final class PastaFinanceiroResponsavelFocoCssTest extends TestCase
     #[TestDox('cabeçalho: nome do responsável corta em 170px com reticências (dc L3084)')]
     public function testNomeDoResponsavelNoCabecalho(): void
     {
-        $regra = $this->regras('pasta-show.css', '.ps-cab-dados .pasta-resp-chip .pasta-resp-nome');
+        $regra = $this->regras('pasta-show.css', '.ps-cab-resp .pasta-resp-chip .pasta-resp-nome');
 
         self::assertMatchesRegularExpression('/max-width:\s*170px;/', $regra);
         self::assertMatchesRegularExpression('/overflow:\s*hidden;/', $regra);

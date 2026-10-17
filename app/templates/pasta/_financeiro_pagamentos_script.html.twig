@@ -515,7 +515,7 @@
 
             // O valor da causa pode ter sido editado nesta tela depois da carga.
             const causa = causaCentavos();
-            el.causa.textContent = causa > 0 ? brlCentavos(causa) : '—';
+            el.causa.textContent = causa > 0 ? brlCentavos(causa) : 'Sem dado';
             renderizar();
         });
 

@@ -392,7 +392,7 @@ class PastaTimelineAssembler
         $detalhe        = sprintf('%d arquivo(s)', $arquivos);
         $naoEncontrados = $changes['nao_encontrados'] ?? 0;
         if (is_int($naoEncontrados) && $naoEncontrados > 0) {
-            $detalhe .= sprintf(' — %d não encontrado(s) no armazenamento', $naoEncontrados);
+            $detalhe .= sprintf(' (%d não encontrado(s) no armazenamento)', $naoEncontrados);
         }
 
         return $detalhe;

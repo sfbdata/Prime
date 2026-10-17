@@ -86,7 +86,7 @@ final class AcordoCriarTypeTest extends TestCase
 
         $opcoes = AcordoCriarType::opcoesObrigacoes([$obrigacao]);
 
-        self::assertSame(['Abril/2026 — venc 10/04/2026 — R$ 1.400,00' => 7], $opcoes);
+        self::assertSame(['Abril/2026 · venc 10/04/2026 · R$ 1.400,00' => 7], $opcoes);
     }
 
     #[Test]
@@ -118,8 +118,8 @@ final class AcordoCriarTypeTest extends TestCase
         $opcoes = AcordoCriarType::opcoesObrigacoes([$a, $b], [9 => 25000]);
 
         self::assertCount(2, $opcoes);
-        self::assertArrayHasKey('Abril/2026 — venc 10/04/2026 — R$ 1.000,00', $opcoes);
-        self::assertArrayHasKey('Abril/2026 — venc 10/04/2026 — R$ 750,00 (R$ 250,00 já recebidos)', $opcoes);
+        self::assertArrayHasKey('Abril/2026 · venc 10/04/2026 · R$ 1.000,00', $opcoes);
+        self::assertArrayHasKey('Abril/2026 · venc 10/04/2026 · R$ 750,00 (R$ 250,00 já recebidos)', $opcoes);
     }
 
     #[Test]

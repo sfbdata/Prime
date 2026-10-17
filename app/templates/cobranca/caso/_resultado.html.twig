@@ -37,7 +37,7 @@
                         <td class="align-middle text-muted">{{ caso.carteiraNome }}</td>
                         <td class="align-middle">
                             <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
-                            {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success ms-1" data-bs-toggle="tooltip" title="Saldo exigível zerado — pode ser encerrado">Pronto</span>{% endif %}
+                            {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success ms-1" data-bs-toggle="tooltip" title="Saldo exigível zerado: pode ser encerrado">Pronto</span>{% endif %}
                         </td>
                         <td class="align-middle text-end fw-semibold">{{ caso.saldoExigivel|centavos }}</td>
                         <td class="align-middle text-end {{ caso.temVencido ? 'text-danger fw-semibold' : 'text-muted' }}">{{ caso.saldoVencido|centavos }}</td>

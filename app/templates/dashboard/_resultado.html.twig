@@ -495,7 +495,7 @@
                     {% set tipoX = extrasCatalogo[k].tipo %}
                     {% set sentidoX = extrasTendencia[k] ?? null %}
                     {% set antTx = tAntX is null ? null : (tAntX[k] ?? null) %}
-                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? 'Sem dado' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     {% endfor %}
                 </tr>
             </tfoot>

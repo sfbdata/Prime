@@ -865,18 +865,16 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     .ps-cab-mov-ponto, .ps-cab-mov-ponto::after { animation: none; }
 }
 
-.ps-cab-dados {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-    gap: 4px;
-    padding: 4px;
-    margin-bottom: 20px;
-    background: var(--ps-card);
-    border-radius: 4px;
-}
-.ps-cab-dado { position: relative; min-width: 0; padding: 12px 16px; border-radius: 4px; }
-/* A faixa ancora o selo carimbado (desenho: o grid e `position:relative`). */
-.ps-cab-dados { position: relative; }
+/* Palco da linha do tempo: ancora o carimbo da situação à direita (desenho 1.2.3, `seloEl` no mesmo bloco
+   do andamento; a `.ps-and` reserva 150px para ele). A antiga faixa de dados saiu do cabeçalho. */
+.ps-cab-palco { position: relative; min-height: 96px; margin-bottom: 16px; }
+/* Cartões do alto do trilho (Ação, Processo vinculado, Cobrança), com a marcação da antiga faixa. */
+.ps-trilho-dados { padding: 2px 0; }
+.ps-trilho-dados .ps-cab-dado { position: relative; min-width: 0; padding: 12px 16px; }
+.ps-trilho-dados .ps-cab-dado + .ps-cab-dado { border-top: 1px solid var(--ps-trilho-cab-bd); }
+/* Responsável na linha de cima do cabeçalho (desenho 1.2.3, antes das setas "3 de 7"). */
+.ps-cab-resp { display: flex; align-items: center; flex-shrink: 0; margin-left: auto; margin-right: 6px; }
+.ps-cab-resp + .ps-cab-nav { margin-left: 0; }
 
 /* ── Selo carimbado ARQUIVADO (desenho 1.2.3, `seloEl`) ──
    Carimbo girado -14°, cor #5d7383, entra "batendo" (seloBate) e solta ondas.
@@ -999,13 +997,13 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
    pagina (`.ps-page a:not(.btn):not(.ps-btn)`, 0,3,1) a pintaria de azul de link. */
 .ps-page .ps-pop a.ps-pop-item:not(.btn):not(.ps-btn),
 .ps-page .ps-pop a.ps-pop-item:not(.btn):not(.ps-btn):hover { color: var(--ps-body); text-decoration: none; }
-.ps-cab-dados .ps-rotulo { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
-.ps-cab-dados .ps-rotulo i { font-size: 12px; color: var(--ps-icone); }
-.ps-cab-dados .ps-dado--forte { font-weight: 700; }
-.ps-cab-dados .ps-dado--vazio { font-size: 14.5px; color: var(--ps-dado-vazio); }
-.ps-cab-dados .ps-cab-acao-vazia { font-size: 13.5px; font-weight: 500; }
-.ps-cab-dados .ps-dado-sub { margin-top: 3px; }
-.ps-cab-dados .ps-link-btn--vincular { font-size: 13px; }
+.ps-trilho-dados .ps-rotulo { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+.ps-trilho-dados .ps-rotulo i { font-size: 12px; color: var(--ps-icone); }
+.ps-trilho-dados .ps-dado--forte { font-weight: 700; }
+.ps-trilho-dados .ps-dado--vazio { font-size: 14.5px; color: var(--ps-dado-vazio); }
+.ps-trilho-dados .ps-cab-acao-vazia { font-size: 13.5px; font-weight: 500; }
+.ps-trilho-dados .ps-dado-sub { margin-top: 3px; }
+.ps-trilho-dados .ps-link-btn--vincular { font-size: 13px; }
 /* "trocar" e "vincular": botao que se comporta como link, sem href morto. */
 .ps-link-btn {
     display: inline-flex;
@@ -2159,7 +2157,7 @@ span.ps-situacao-pill { cursor: default; }
 /* ── Chip do responsável dentro da faixa de dados do cabeçalho ──
    No desenho o responsável é avatar + nome, sem moldura. A moldura só aparece
    no hover, que é onde ela tem serventia: dizer que dá para clicar e trocar. */
-.ps-cab-dados .pasta-resp-chip {
+.ps-cab-resp .pasta-resp-chip {
     border-color: transparent;
     background: transparent;
     border-radius: 4px;
@@ -2172,18 +2170,18 @@ span.ps-situacao-pill { cursor: default; }
     max-width: 100%;
     transition: background .18s;
 }
-.ps-cab-dados .pasta-resp-chip:hover,
-.ps-cab-dados .pasta-resp-chip:focus-visible {
+.ps-cab-resp .pasta-resp-chip:hover,
+.ps-cab-resp .pasta-resp-chip:focus-visible {
     border-color: transparent;
     background: var(--ps-hover);
 }
-.ps-cab-dados .pasta-resp-chip .resp-avatar { width: 28px !important; height: 28px !important; }
+.ps-cab-resp .pasta-resp-chip .resp-avatar { width: 28px !important; height: 28px !important; }
 /* Avatar do responsavel no desenho: degrade azul com sombra, iniciais 11/700. */
-.ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 11px; background: var(--ps-resp-grad); box-shadow: var(--ps-resp-sombra); }
-.ps-cab-dados .pasta-resp-caret { font-size: 11px; color: var(--ps-muted); }
+.ps-cab-resp .pasta-resp-chip .resp-avatar-ini { font-size: 11px; background: var(--ps-resp-grad); box-shadow: var(--ps-resp-sombra); }
+.ps-cab-resp .pasta-resp-caret { font-size: 11px; color: var(--ps-muted); }
 /* Nome longo corta em 170px com reticências (dc de 13/10, L3084). Só no cabeçalho: o chip da lista
    do Expediente é o mesmo e não muda. O nome inteiro continua no DOM e no `title` do chip. */
-.ps-cab-dados .pasta-resp-chip .pasta-resp-nome { min-width: 0; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-cab-resp .pasta-resp-chip .pasta-resp-nome { min-width: 0; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Lista de clientes no trilho ──
    `overflow: hidden` no cartão: ele tem raio de 14px, e sem isto qualquer linha
@@ -4473,16 +4471,16 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 
 /* ── Avatar "Sem responsavel" (C1 no menu, C3 no chip do cabecalho) ── */
 .ps-body .pasta-resp-menu .resp-avatar-vazio,
-.ps-cab-dados .pasta-resp-chip .resp-avatar-vazio {
+.ps-cab-resp .pasta-resp-chip .resp-avatar-vazio {
     background: var(--ps-resp-vazio-bg);
     color: var(--ps-muted);
     box-shadow: inset 0 0 0 1px var(--ps-resp-vazio-bd);
 }
 .ps-body .pasta-resp-menu .resp-avatar-vazio i,
-.ps-cab-dados .pasta-resp-chip .resp-avatar-vazio i { font-size: 13px; }
+.ps-cab-resp .pasta-resp-chip .resp-avatar-vazio i { font-size: 13px; }
 /* Nome apagado do chip vazio (C3: 14.5/700 #6b8494). Vale quando o template tirar
    o `.text-muted` (que e !important no Bootstrap). */
-.ps-cab-dados .pasta-resp-chip[data-resp-id=""] .pasta-resp-nome { color: var(--ps-muted); }
+.ps-cab-resp .pasta-resp-chip[data-resp-id=""] .pasta-resp-nome { color: var(--ps-muted); }
 
 /* ── Interruptor de Favoritos no menu ⋮ (C7) ──
    O `<style>` do _cabecalho crava #cfd9e0/#0a7aad, sem par escuro. Aqui o trilho

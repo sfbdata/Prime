@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Sedes — {{ tenant.name }}{% endblock %}
+{% block title %}Sedes | {{ tenant.name }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -814,7 +814,7 @@
                                 if (results && results.length > 0) {
                                     panToResult(results[0].lat, results[0].lon);
                                     const precisao = tentativas.indexOf(q) === 0 ? '' :
-                                        tentativas.indexOf(q) === 1 ? ' (aproximado — bairro)' : ' (aproximado — cidade)';
+                                        tentativas.indexOf(q) === 1 ? ' (aproximado pelo bairro)' : ' (aproximado pela cidade)';
                                     showCepFeedback('Localização encontrada: ' + (results[0].display_name || '') + precisao, 'success');
                                     found = true;
                                     break;

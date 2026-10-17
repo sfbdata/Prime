@@ -79,7 +79,7 @@
                         data-modo="edicao"
                         data-url="{{ path('cobranca_pessoa_ficha_modal', {id: ficha.id}) }}"
                         data-pessoa-nome="{{ (cobradaAtual ? cobradaAtual.nome : '')|e('html_attr') }}"
-                        title="Falta CPF/CNPJ, estado civil ou endereço — clique para completar a ficha.">
+                        title="Falta CPF/CNPJ, estado civil ou endereço. Clique para completar a ficha.">
                     <i class="bi bi-exclamation-triangle me-1"></i>Qualificação incompleta
                 </button>
                 {% else %}
@@ -207,7 +207,7 @@
                     <span class="cob-resp-qualif-val">
                         {%- if enderecoAtual -%}
                             {{ enderecoAtual.logradouro }}, {{ enderecoAtual.numero }}
-                            {{- enderecoAtual.complemento ? ' — ' ~ enderecoAtual.complemento : '' }} ·
+                            {{- enderecoAtual.complemento ? ', ' ~ enderecoAtual.complemento : '' }} ·
                             {{ enderecoAtual.bairro }} · CEP {{ enderecoAtual.cep }} · {{ enderecoAtual.cidade }}/{{ enderecoAtual.uf }}
                         {%- else -%}
                             não informado
@@ -287,7 +287,7 @@
                                    exposição de PII para o perfil sem capacidade seria mudança de permissão —
                                    fora do escopo deste delta. #}
                                 {% if v.email and podeAbrirFicha %}<a href="mailto:{{ v.email|e('url') }}"><i class="bi bi-envelope"></i><span class="jp-contato-label">E-mail:</span> {{ v.email }}</a>{% endif %}
-                                <span><i class="bi bi-calendar3"></i>{{ v.dataInicio|date('m/Y') }}{% if v.dataFim %} — {{ v.dataFim|date('m/Y') }}{% endif %}</span>
+                                <span><i class="bi bi-calendar3"></i>{{ v.dataInicio|date('m/Y') }}{% if v.dataFim %} a {{ v.dataFim|date('m/Y') }}{% endif %}</span>
                                 {% if not v.ativo and v.motivoEncerramento %}
                                 <span class="text-secondary"><i class="bi bi-info-circle"></i>{{ v.motivoEncerramento }}</span>
                                 {% endif %}

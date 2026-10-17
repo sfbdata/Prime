@@ -17,7 +17,7 @@ use App\Pasta\Entity\Pasta;
  */
 final readonly class PastaFinanceiroOutput
 {
-    public const SEM_DADO = '—';
+    public const SEM_DADO = 'Sem dado';
 
     public function __construct(
         public ?string $valorCausa,

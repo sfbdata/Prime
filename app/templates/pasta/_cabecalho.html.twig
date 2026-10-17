@@ -7,7 +7,7 @@
    Três linhas:
      1. Voltar · PASTA nnnn · prioridade · etiquetas · (espaço) · setas ‹ › · ⋮;
      2. o CLIENTE como título (ícone de pessoa, nome, "Movimentado…", documento)
-        e a faixa de dados (Processo vinculado · Ação · Responsável [· Cobrança]);
+        o andamento com o carimbo da situação (a antiga faixa de dados saiu: Responsável no topo, o resto no trilho);
      3. abas no padrão PJe, com o botão Cadastro (ponto de pendências) e a
         Situação (Ativo / Arquivado) à direita.
 
@@ -120,6 +120,17 @@
            e some conforme a pasta faz o olho procurar. O rótulo diz o nome e o
            número de destino porque "anterior" num acervo ordenado do maior para
            o menor é ambíguo sem ele. #}
+        {# Responsável na linha de cima (desenho 1.2.3, `toggleResp`): o mesmo chip de sempre, que troca o
+           responsável sem sair da tela. #}
+        <div class="ps-cab-resp" data-campo="responsavel">
+            {# O chip é o mesmo do Expediente: mostrar avatar + nome como o desenho
+               pede E continuar trocando o responsável sem sair da tela. #}
+            {{ include('pasta/_resp_chip.html.twig', {
+                pasta: pasta,
+                fotos: fotosResponsaveis|default({}),
+            }) }}
+        </div>
+
         <nav class="ps-cab-nav" aria-label="Navegar entre pastas do acervo">
             {% if vizinhas.anteriorId %}
                 <a href="{{ path('pasta_show', {id: vizinhas.anteriorId}) }}"
@@ -309,7 +320,7 @@
             <strong>Pasta excluída</strong>
             em {{ pasta.excluidaEm|date('d/m/Y') }} às {{ pasta.excluidaEm|date('H:i') }}
             {%- if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}.
-            Ela continua aqui porque o número {{ pasta.nup }} não pode ser reaproveitado —
+            Ela continua aqui porque o número {{ pasta.nup }} não pode ser reaproveitado:
             já existem pastas posteriores. Somente leitura até ser restaurada.
         </span>
     </div>
@@ -384,11 +395,14 @@
         {% endif %}
     </div>
 
-    {{ include('pasta/_andamento.html.twig') }}
 
-    {# ── Faixa de dados: Processo vinculado · Ação · Responsável [· Cobrança] ── #}
+    {# ── Palco da linha do tempo (desenho 1.2.3: o carimbo da situação fica no MESMO bloco do andamento,
+       à direita, e a linha do tempo reserva 150px para ele). A faixa "Processo vinculado · Ação ·
+       Responsável · Cobrança" saiu do cabeçalho (regra do dono, 16/10, como o desenho): Responsável foi
+       para a linha de cima e os outros viraram cartões no alto do trilho da aba Dados
+       (pasta/_dados_trilho_topo.html.twig). ── #}
     {# Selo carimbado (desenho, `seloEl`): permanente para Arquivado (inclusive a lápide, que o
-       sistema arquiva ao excluir), Suspenso e Cancelado. Fica por cima da faixa sem roubar
+       sistema arquiva ao excluir), Suspenso e Cancelado. Fica por cima do bloco sem roubar
        clique. Trocar a situação recarrega a tela (o Registro ganha o cartão e, ao arquivar, o
        andamento vai a Finalizada), então o selo sai sempre do servidor. #}
     {% set selosPermanentes = {
@@ -417,7 +431,7 @@
             <span class="ps-cab-selo-faixa"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>ATIVO</span>
         </div>
     {% endset %}
-    <div class="ps-cab-dados" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}"
+    <div class="ps-cab-palco" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}"
          data-ps-selo-ativo-modelo="{{ seloAtivo|e('html_attr') }}">
         {% if eArquivada %}{{ seloArquivado }}{% elseif selosPermanentes[pasta.situacao] is defined %}
             {% set sp = selosPermanentes[pasta.situacao] %}
@@ -429,103 +443,7 @@
                 <span class="ps-cab-selo-faixa"><i class="bi {{ sp.icone }}" aria-hidden="true"></i>{{ sp.texto }}</span>
             </div>
         {% endif %}
-        <div class="ps-cab-dado" data-campo="processo">
-            <p class="ps-rotulo"><i class="bi bi-diagram-3"></i>Processo vinculado</p>
-            {% if proc %}
-                <p class="ps-dado ps-dado--forte ps-num">
-                    <a href="{{ path('processo_show', {id: proc.id}) }}" title="Abrir processo">{{ proc.numeroProcesso|numero_cnj }}</a>
-                    <i class="bi bi-copy copy-btn ps-copiar" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar"></i>
-                </p>
-                {% if proc.classeProcessual or proc.siglaTribunal %}
-                    <div class="ps-dado-sub">
-                        {{- proc.classeProcessual -}}
-                        {%- if proc.classeProcessual and proc.siglaTribunal %} · {% endif -%}
-                        {{- proc.siglaTribunal -}}
-                    </div>
-                {% endif %}
-                {% set outros = pasta.pastaProcessos|filter(pp => pp.processo.id != proc.id) %}
-                <div class="ps-cab-proc-acoes">
-                    <button type="button" class="ps-link-btn" data-ps-ir-aba="processo-tab" title="Ir à aba Processo">
-                        <i class="bi bi-arrow-left-right"></i>trocar
-                    </button>
-                    {# O sistema não tem "tipo de apenso": o chip conta os OUTROS processos
-                       vinculados à pasta e abre a lista deles. #}
-                    {% if outros|length > 0 %}
-                        <button type="button" class="ps-chip-vinc" data-ps-toggle="psProcessosVinculados"
-                                aria-expanded="false" aria-controls="psProcessosVinculados"
-                                title="Outros processos vinculados a esta pasta">
-                            <i class="bi bi-paperclip"></i>{{ outros|length }} vinculado{{ outros|length > 1 ? 's' : '' }}<i class="bi bi-chevron-down"></i>
-                        </button>
-                    {% endif %}
-                </div>
-                {% if outros|length > 0 %}
-                    <div class="ps-cab-vinculados" id="psProcessosVinculados" hidden>
-                        {% for pp in outros %}
-                            {% set outro = pp.processo %}
-                            <div class="ps-cab-vinculado">
-                                <div class="ps-rotulo ps-rotulo--mini"><i class="bi bi-link-45deg"></i>Vinculado</div>
-                                <a class="ps-num ps-dado--forte" href="{{ path('processo_show', {id: outro.id}) }}" title="Abrir processo vinculado">{{ outro.numeroProcesso|numero_cnj }}</a>
-                                {% if outro.classeProcessual or outro.siglaTribunal %}
-                                    <div class="ps-dado-sub">
-                                        {{- outro.classeProcessual -}}
-                                        {%- if outro.classeProcessual and outro.siglaTribunal %} · {% endif -%}
-                                        {{- outro.siglaTribunal -}}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% else %}
-                <p class="ps-dado ps-dado--vazio">Nenhum processo.
-                    {% if podeEditarPasta %}
-                    <button type="button" class="ps-link-btn ps-link-btn--vincular" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">vincular</button>
-                    {% endif %}
-                </p>
-            {% endif %}
-        </div>
-
-        <div class="ps-cab-dado" data-campo="acao">
-            <p class="ps-rotulo"><i class="bi bi-bank2"></i>Ação</p>
-            {%- if pasta.nomeAcao -%}
-                <p class="ps-dado ps-dado--forte">{{ pasta.nomeAcao }}</p>
-            {%- elseif proc and (proc.classeProcessual or proc.assuntoProcessual) -%}
-                <p class="ps-dado ps-dado--forte" title="Extraído do processo vinculado">{{ proc.classeProcessual ?: proc.assuntoProcessual }}</p>
-            {%- elseif proc -%}
-                <p class="ps-dado ps-dado--vazio">Não informada</p>
-            {%- else -%}
-                {# Sem processo a ação não tem de onde vir — o desenho convida a vincular. #}
-                <p class="ps-dado ps-dado--vazio ps-cab-acao-vazia">Vincule um processo para definir</p>
-            {%- endif -%}
-        </div>
-
-        <div class="ps-cab-dado" data-campo="responsavel">
-            <p class="ps-rotulo"><i class="bi bi-person-badge"></i>Responsável</p>
-            {# O chip é o mesmo do Expediente: mostrar avatar + nome como o desenho
-               pede E continuar trocando o responsável sem sair da tela. #}
-            {{ include('pasta/_resp_chip.html.twig', {
-                pasta: pasta,
-                fotos: fotosResponsaveis|default({}),
-            }) }}
-        </div>
-
-        {# Atalho para a UNIDADE cobrada — espelho do link "Pasta judicial" que a tela da unidade já
-           oferece. O desenho é omisso sobre ele; o sistema já o tinha, então fica (convenção da casa).
-
-           ⚠️ Some para quem não tem o módulo `cobrancas`: a tela de destino tem gate de módulo, e
-           oferecer o link a quem seria recusado é pior que não oferecer. #}
-        {% if unidadeCobrada|default(null) and can_access_module('cobrancas') %}
-            <div class="ps-cab-dado" data-campo="cobranca">
-                <p class="ps-rotulo"><i class="bi bi-cash-coin"></i>Cobrança</p>
-                <p class="ps-dado ps-dado--forte ps-num">
-                    <a href="{{ path('cobranca_objeto_show', {id: unidadeCobrada.objetoId}) }}"
-                       title="Abrir a unidade cobrada">{{ unidadeCobrada.identificacao }}</a>
-                </p>
-                {% if unidadeCobrada.credor %}
-                    <div class="ps-dado-sub">{{ unidadeCobrada.credor }}</div>
-                {% endif %}
-            </div>
-        {% endif %}
+        {{ include('pasta/_andamento.html.twig') }}
     </div>
 
     {# ── Linha 3: abas (padrão PJe, desenho 1.2.3) ──────────────────────── #}
@@ -586,7 +504,7 @@
            Destino (E12f): a janela "Cadastro e qualificação do cliente" do desenho
            (`cliente_cadastro`, cliente-cadastro.js pela classe `js-cad-abrir`). O botão
            direito no nome segue abrindo "Detalhes do cliente". Pasta sem cliente
-           cadastrado não tem cadastro para mostrar: o botão não é desenhado. #}
+           cadastrado abre o "Novo cliente" (E12i). #}
         {% if cliente %}
             {% set cadPendencias = cliente_pendencias(cliente) %}
             {% set cadCompleto = cadPendencias is empty %}
@@ -600,6 +518,17 @@
                     data-pendencias="{{ cadPendencias|length }}"
                     title="{{ cadDica }}" aria-label="{{ cadDica }}">
                 <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--{{ cadCompleto ? 'completo' : 'pendente' }}"></span></span>
+                <span>Cadastro</span>
+            </button>
+        {% elseif podeEditarPasta and not pasta.estaExcluida %}
+            {# E12i (regra do dono, como o desenho): o Cadastro existe em toda pasta. Sem cliente vinculado, abre o
+               "Novo cliente" com o nome da pasta já escrito; ao salvar, o cliente é criado e ligado à pasta. #}
+            <button type="button" id="psCadastroAbrir"
+                    class="ps-cad-btn js-cad-abrir"
+                    data-url="{{ path('pasta_cadastro_novo', {id: pasta.id}) }}"
+                    data-pendencias="1"
+                    title="Sem cliente cadastrado · clique para cadastrar" aria-label="Sem cliente cadastrado · clique para cadastrar">
+                <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--pendente"></span></span>
                 <span>Cadastro</span>
             </button>
         {% endif %}
@@ -759,7 +688,7 @@
        depois de abrir, ele bate e some em 3,3 s (o CSS faz o esmaecer, o timer tira o nó). Trocar
        para Ativo recarrega a tela, então este é o único caminho do carimbo. Os permanentes
        (Arquivado, Suspenso, Cancelado) vêm do servidor. */
-    var faixa = document.querySelector('.ps-cabecalho .ps-cab-dados');
+    var faixa = document.querySelector('.ps-cabecalho .ps-cab-palco');
     var pilula = document.querySelector('.ps-cabecalho .ps-situacao-pill');
     if (!faixa || !pilula || !faixa.dataset.psSeloAtivoModelo || !pilula.classList.contains('ps-situacao-pill--ativo')) { return; }
     setTimeout(function () {

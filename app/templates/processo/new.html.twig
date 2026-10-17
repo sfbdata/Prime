@@ -161,7 +161,7 @@
                     <div class="col-md-8">
                         <label for="cliente_id" class="form-label">Cliente vinculado</label>
                         <select id="cliente_id" name="cliente_id" class="form-select select2-search">
-                            <option value="">— Nenhum cliente —</option>
+                            <option value="">Nenhum cliente</option>
                             {% for cliente in clientes %}
                                 <option value="{{ cliente.id }}"
                                     data-nome="{% if cliente.cpf is defined %}{{ cliente.nomeCompleto }}{% else %}{{ cliente.razaoSocial }}{% endif %}"
@@ -483,7 +483,7 @@ $(document).ready(function () {
     // Select2 para cliente
     $('.select2-search').select2({
         width: '100%',
-        placeholder: '— Nenhum cliente —',
+        placeholder: 'Nenhum cliente',
         allowClear: true,
         language: { noResults: function() { return 'Nenhum cliente encontrado'; } }
     });

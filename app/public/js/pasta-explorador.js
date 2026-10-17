@@ -2833,7 +2833,8 @@
         const junto = !!pai && pai.excluidoEm != null && pai.excluidoEm === it.excluidoEm;
         const partes = [ehPasta ? TIPO_PASTA[2] : tipoDe(it.nome)[2]];
         if (!ehPasta && it.tamanho != null) partes.push(formatarBytes(it.tamanho));
-        const quando = 'Excluído em ' + (formatarDataHora(it.excluidoEm) || '—') + (it.excluidoPor && it.excluidoPor.nome ? ' por ' + it.excluidoPor.nome : '');
+        const dataExclusao = formatarDataHora(it.excluidoEm);
+        const quando = (dataExclusao ? 'Excluído em ' + dataExclusao : 'Excluído (data sem registro)') + (it.excluidoPor && it.excluidoPor.nome ? ' por ' + it.excluidoPor.nome : '');
         const origem = junto
             ? 'Excluído junto com a pasta "' + pai.nome + '"'
             : (pai ? 'Estava em "' + pai.nome + '", que também está na lixeira' : 'Local original: ' + (it.caminho || 'Raiz'));
@@ -2843,7 +2844,7 @@
             ehPasta ? icone(TIPO_PASTA[0] + ' pex-lix-ico pex-ico-pasta') : h('span', { class: 'pex-lix-ico' }, [iconeArquivo(it.nome, 16)]),
             h('div', { class: 'pex-lix-txt' }, [
                 h('span', { class: 'pex-lix-nome', id: nomeId, text: it.nome, title: it.nome }),
-                h('span', { class: 'pex-lix-sub', text: partes.join(' · ') + ' — ' + quando }),
+                h('span', { class: 'pex-lix-sub', text: partes.join(' · ') + ' · ' + quando }),
                 h('span', { class: 'pex-lix-sub', text: origem }),
             ]),
             escrever ? h('button', {
@@ -3535,7 +3536,7 @@
             }, function (err) {
                 houveErro = true;
                 el.uploadProg.classList.add('bg-danger');
-                el.uploadNome.textContent = '✗ ' + file.name + ' — ' + err.message;
+                el.uploadNome.textContent = '✗ ' + file.name + ': ' + err.message;
                 toastErro('Falha ao anexar "' + file.name + '": ' + err.message);
             }).then(function () { i++; proximo(); });
         }

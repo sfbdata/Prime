@@ -3,7 +3,7 @@
 {% set pastaInfoNup = pasta.nup %}
 {% set pastaInfoCliente = nomeCliente %}
 
-{% block title %}Peticionar — {{ pasta.nup }}{% endblock %}
+{% block title %}Peticionar | {{ pasta.nup }}{% endblock %}
 
 {% block content %}
 
@@ -634,7 +634,7 @@
         if (c.comprimido) {
             linhas = [`Arquivo reduzido de ${formatarBytes(c.tamanhoOriginal)} para ${formatarBytes(c.tamanhoFinal)}.`];
             if (c.eraAssinado) {
-                linhas.push('Atenção: este PDF estava assinado digitalmente — a assinatura pode ter sido invalidada.');
+                linhas.push('Atenção: este PDF estava assinado digitalmente. A assinatura pode ter sido invalidada.');
             }
             cor = c.eraAssinado ? 'alert-warning' : 'alert-success';
         } else {

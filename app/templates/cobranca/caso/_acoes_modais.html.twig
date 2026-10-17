@@ -16,12 +16,12 @@
 <hr class="my-3">
 <h6 class="fw-semibold mb-1">Encargos reconhecidos</h6>
 <div class="form-text mb-3">
-    Informe o percentual <em>ou</em> o valor em reais — um espelha o outro enquanto você digita; quem
+    Informe o percentual <em>ou</em> o valor em reais: um espelha o outro enquanto você digita; quem
     grava a taxa final (à data de hoje) é o servidor. Juros, multa e correção incidem sobre o
     <strong>valor original</strong>; o <strong>honorário</strong> incide sobre
     {{ honorarioComposta ? 'a base composta (valor + juros + multa + correção)' : 'o valor original (principal)' }}.
-    Deixe os dois campos <strong>vazios</strong> para <strong>herdar</strong> a configuração do caso —
-    a obrigação nunca congela ao registrar ou editar.
+    Deixe os dois campos <strong>vazios</strong> para <strong>herdar</strong> a configuração do caso.
+    A obrigação nunca congela ao registrar ou editar.
 </div>
 {# TODO(humano): a spec de encargos ao-vivo propõe estender o bloqueio do campo R$ também a multa/correção
    e à janela de tolerância (juros/multa) — extensão PROPOSTA, ainda NÃO ratificada. Hoje só juros
@@ -107,7 +107,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">Correção de cadastro — informe o motivo. O saldo se ajusta automaticamente.</p>
+                <p class="text-muted small mb-3">Correção de cadastro: informe o motivo. O saldo se ajusta automaticamente.</p>
                 {# F5 (spec §12): quando a obrigação já recebeu pagamento, mudar o valor pode deixar o
                    recebido sobrando ou faltando. Nasce escondido (`d-none`) e o JS de show.html.twig o
                    revela conforme o `data-tem-pagamento` do botão "Editar" da linha — o modal é
@@ -115,7 +115,7 @@
                 <div class="alert alert-info small d-flex align-items-start gap-2 mb-3 d-none" data-aviso-reconciliar>
                     <i class="bi bi-info-circle-fill"></i>
                     <div>Esta obrigação já recebeu pagamento. Se você <strong>alterar o valor</strong>, o valor
-                        recebido pode ficar sobrando ou faltando — nesse caso, ajuste-o depois em
+                        recebido pode ficar sobrando ou faltando. Nesse caso, ajuste-o depois em
                         <strong>Corrigir pagamento</strong>, no extrato de movimentos.</div>
                 </div>
                 {{ form_row(forms.editarObrigacao.descricao) }}
@@ -281,7 +281,7 @@
             <div class="modal-body">
                 <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-info-circle-fill"></i>
-                    <div>Abre a pasta judicial do caso e liga as duas. A judicialização <strong>não encerra</strong> o caso — o acompanhamento financeiro continua.</div>
+                    <div>Abre a pasta judicial do caso e liga as duas. A judicialização <strong>não encerra</strong> o caso: o acompanhamento financeiro continua.</div>
                 </div>
 
                 <div class="cob-judicializar-modo mb-3">{{ form_row(forms.judicializar.modo) }}</div>
@@ -345,7 +345,7 @@
             <div class="modal-body">
                 <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    <div>Desvincula a pasta judicial do caso e volta o status para <strong>ativo</strong>. A pasta em si <strong>não é apagada</strong> — só o vínculo com este caso.</div>
+                    <div>Desvincula a pasta judicial do caso e volta o status para <strong>ativo</strong>. A pasta em si <strong>não é apagada</strong>. Só o vínculo com este caso é desfeito.</div>
                 </div>
                 {{ form_row(forms.cancelarJudicializacao.motivo) }}
             </div>
@@ -448,11 +448,11 @@
                         <div class="alert alert-warning d-none py-2 small mt-2 mb-0" id="avisoAcordoComPagamento">
                             <i class="bi bi-info-circle me-1"></i>
                             Uma das dívidas escolhidas <strong>já recebeu pagamento</strong>. O valor sugerido é o que
-                            <strong>ainda falta</strong> — não o valor original.
+                            <strong>ainda falta</strong>, não o valor original.
                         </div>
                         <div class="form-text">
                             As escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Só dívidas
-                            originais aparecem aqui — para refazer um acordo vigente, rompa o atual primeiro.
+                            originais aparecem aqui. Para refazer um acordo vigente, rompa o atual primeiro.
                         </div>
                     {% endif %}
                 </section>

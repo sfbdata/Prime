@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Push Processual — OABs monitoradas{% endblock %}
+{% block title %}Push Processual | OABs monitoradas{% endblock %}
 
 {% block body %}
 <section class="content-header">
@@ -58,7 +58,7 @@
                         {% for oab in oabs %}
                             <tr>
                                 <td>{{ oab.numero }}/{{ oab.uf }}</td>
-                                <td>{{ oab.apelido ?? '—' }}</td>
+                                <td>{% if (oab.apelido ?? null) is not null %}{{ oab.apelido }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
                                 <td>
                                     {% if oab.ativo %}
                                         <span class="badge bg-success">Ativa</span>
@@ -66,7 +66,7 @@
                                         <span class="badge bg-secondary">Pausada</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ oab.criadoEm ?? '—' }}</td>
+                                <td>{% if (oab.criadoEm ?? null) is not null %}{{ oab.criadoEm }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}</td>
                                 <td class="text-end">
                                     <form method="POST" action="{{ path('push_processual_oab_alternar', {id: oab.id}) }}" class="d-inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">

@@ -22,7 +22,7 @@ final class PastaCabecalhoSeloTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
 
-    private const SELO = '.ps-cabecalho > .ps-cab-dados > .ps-cab-selo';
+    private const SELO = '.ps-cabecalho > .ps-cab-palco > .ps-cab-selo';
 
     #[TestDox('Pasta arquivada mostra o selo ARQUIVADO como filho direto da faixa de dados')]
     public function testArquivadaMostraOSelo(): void
@@ -58,7 +58,7 @@ final class PastaCabecalhoSeloTelaTest extends JusPrimeWebTestCase
         self::assertSame('ativo', $pasta->getSituacao());
         self::assertCount(0, $crawler->filter('.ps-cab-selo'), 'Pasta ativa não pode ganhar carimbo.');
         // O modelo do selo para a troca ao vivo mora num atributo, não no DOM.
-        self::assertNotEmpty($crawler->filter('.ps-cab-dados')->attr('data-ps-selo-modelo'));
+        self::assertNotEmpty($crawler->filter('.ps-cab-palco')->attr('data-ps-selo-modelo'));
     }
 
     #[TestDox('PAS-002: o carimbo ATIVO da reativação existe só como modelo (verde, bi-check-circle-fill) e nunca nasce no DOM')]
@@ -77,7 +77,7 @@ final class PastaCabecalhoSeloTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.ps-cab-selo--ativo'), 'o ATIVO não vem do servidor: o script o carimba ao abrir a pasta ativa');
         self::assertCount(1, $crawler->filter(self::SELO . '.ps-cab-selo--arquivado'));
 
-        $modelo = (string) $crawler->filter('.ps-cabecalho > .ps-cab-dados')->attr('data-ps-selo-ativo-modelo');
+        $modelo = (string) $crawler->filter('.ps-cabecalho > .ps-cab-palco')->attr('data-ps-selo-ativo-modelo');
         $selo   = (new Crawler('<div>' . $modelo . '</div>'))->filter('div > .ps-cab-selo.ps-cab-selo--ativo[role="img"]');
         self::assertCount(1, $selo);
         self::assertSame('Pasta ativa', $selo->attr('aria-label'));

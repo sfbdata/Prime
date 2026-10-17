@@ -55,6 +55,14 @@ class ProcessoController extends AbstractController
 
     private const PER_PAGE = 25;
 
+    /**
+     * Acima desta quantidade de processos mais novos do mesmo foro já publicados, o atraso da base
+     * não explica a ausência. Medido em 15/10/2026: processo sigiloso de vara de família com 466
+     * posteriores, arquivado com 1.187, recente com 0. Perto do corte de publicação a base fica
+     * com buracos de poucos processos (um caso real tinha 1), daí a margem.
+     */
+    private const POSTERIORES_PARA_DESCARTAR_ATRASO = 50;
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly TribunalCnjResolver $tribunalResolver,
@@ -306,7 +314,7 @@ class ProcessoController extends AbstractController
 
             if ($hits === []) {
                 return $this->erroDatajud(
-                    $this->mensagemNaoEncontrado($numeroProcesso, $validadorNumeroCnj),
+                    $this->mensagemNaoEncontrado($numeroProcesso, $validadorNumeroCnj, $datajudClient, $logger),
                     404
                 );
             }
@@ -412,23 +420,42 @@ class ProcessoController extends AbstractController
      * consultado no CNJ normalmente. Bloquear a consulta deixaria o usuário sem saída diante
      * de um número atípico, e não é isso que estamos consertando.
      */
-    private function mensagemNaoEncontrado(string $numeroProcesso, ValidadorNumeroCnj $validador): string
+    private function mensagemNaoEncontrado(string $numeroProcesso, ValidadorNumeroCnj $validador, DatajudClient $datajudClient, LoggerInterface $logger): string
     {
         $sigla = $this->derivarSiglaSegura($numeroProcesso);
+        $base = $sigla !== null ? sprintf('na base pública do %s', $sigla) : 'na base pública do CNJ';
 
         if (!$validador->digitoVerificadorConfere($numeroProcesso)) {
             $abertura = $sigla !== null
                 ? sprintf('Consultamos a base do %s e não encontramos nenhum processo com esse número.', $sigla)
                 : 'Não encontramos nenhum processo com esse número.';
 
-            return $abertura . ' Confira o número digitado: o dígito verificador não confere, o que costuma indicar erro de digitação.';
+            return $abertura . ' Confira o número digitado: o dígito verificador não confere, o que costuma indicar erro de digitação. Se o número estiver certo, preencha os dados manualmente.';
         }
 
-        $abertura = $sigla !== null
-            ? sprintf('O número é válido, mas não encontramos este processo na base do %s.', $sigla)
-            : 'O número é válido, mas não encontramos este processo na base pública do CNJ.';
+        // Segunda consulta só para escolher a explicação: se falhar, cai na mensagem que cobre as duas causas.
+        try {
+            $posteriores = $datajudClient->contarPosterioresNoForo($numeroProcesso, self::POSTERIORES_PARA_DESCARTAR_ATRASO);
+        } catch (ConsultaDatajudException | TribunalNaoIdentificadoException $e) {
+            $logger->warning('Falha ao contar processos posteriores no Datajud', ['erro' => $e->getMessage()]);
+            $posteriores = null;
+        }
 
-        return $abertura . ' A base pública do CNJ é publicada com atraso de algumas semanas e não inclui processos em segredo de justiça — se o processo é recente, tente de novo em alguns dias ou preencha os dados manualmente.';
+        if ($posteriores === 0) {
+            return sprintf('O número é válido, mas este processo ainda não aparece %s.', $base)
+                . ' A base do CNJ é publicada com algumas semanas de atraso e ainda não chegou aos processos mais recentes deste foro.'
+                . ' Para cadastrar agora, preencha os dados manualmente. Se preferir, tente a busca de novo daqui a algumas semanas.';
+        }
+
+        if ($posteriores !== null && $posteriores >= self::POSTERIORES_PARA_DESCARTAR_ATRASO) {
+            return sprintf('O número é válido, mas este processo não aparece %s, embora processos mais novos do mesmo foro já apareçam.', $base)
+                . ' Isso acontece com processos em segredo de justiça (como os de família) e com processos arquivados, que a base pública não divulga.'
+                . ' Ele não vai aparecer na busca: preencha os dados manualmente.';
+        }
+
+        return sprintf('O número é válido, mas não encontramos este processo %s.', $base)
+            . ' Isso acontece com processos recentes, que o CNJ publica com algumas semanas de atraso, e com processos em segredo de justiça ou arquivados, que a base pública não divulga.'
+            . ' Preencha os dados manualmente.';
     }
 
     /**

@@ -249,6 +249,11 @@
             fetch(veu.dataset.urlSalvar, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: corpo })
                 .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
                 .then(function (res) {
+                    if (res.status === 201 && res.j.urlJanela) {
+                        // Novo cliente criado (E12i): a janela vira a do cadastro recém-criado, já salvo.
+                        trocar(res.j.urlJanela, true);
+                        return;
+                    }
                     if (res.status === 200) {
                         original = serial(); salvou = salvou || res.j.mudou;
                         veu.querySelector('.js-cad-nome').textContent = (valor(pf ? 'nome' : 'razao_social') || '').toUpperCase();
@@ -408,6 +413,20 @@
             var listaInicial = []; try { listaInicial = JSON.parse(painelReu.dataset.reus || '[]'); } catch (x) { listaInicial = []; }
             desenharReus(listaInicial);
         }
+
+        /* Trocar a janela por outra (outro autor, tipo do novo cadastro, cadastro recém-criado) sem perder o "salvou". */
+        function trocar(url, criou) {
+            document.removeEventListener('keydown', teclas, true);
+            veu.remove();
+            abrir(url, { salvou: salvou || !!criou });
+        }
+        veu.querySelectorAll('.js-cad-autor, .js-cad-tipo').forEach(function (b) {
+            b.addEventListener('click', function () {
+                if (b.classList.contains('is-ativo')) { return; }
+                if (sujo()) { aviso('Salve as alterações antes de trocar.', 'pendente'); return; }
+                trocar(b.dataset.url);
+            });
+        });
 
         /* Copiar qualificação. */
         veu.querySelector('.js-cad-copiar').addEventListener('click', function () {

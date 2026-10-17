@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Push Processual — Publicação{% endblock %}
+{% block title %}Push Processual | Publicação{% endblock %}
 
 {% block stylesheets %}
 <style>
@@ -16,7 +16,7 @@
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">Push Processual — Publicação</h1>
+        <h1 class="m-0">Push Processual: Publicação</h1>
         {# Volta para a origem quando ela é conhecida e interna (ver DjenController::destinoDeVolta);
            sem origem, o destino é a lista — que era o comportamento fixo de antes. #}
         <a href="{{ voltarPara ?: path('push_processual_index') }}"
@@ -32,19 +32,19 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-3"><small class="text-muted d-block">Tribunal</small>{{ publicacao.siglaTribunal }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Tipo</small>{{ publicacao.tipoComunicacao ?? '—' }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Disponibilização</small>{{ publicacao.dataDisponibilizacao ?? '—' }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Meio</small>{{ publicacao.meioLabel ?? '—' }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Tipo</small>{% if (publicacao.tipoComunicacao ?? null) is not null %}{{ publicacao.tipoComunicacao }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Disponibilização</small>{% if (publicacao.dataDisponibilizacao ?? null) is not null %}{{ publicacao.dataDisponibilizacao }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Meio</small>{% if (publicacao.meioLabel ?? null) is not null %}{{ publicacao.meioLabel }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</div>
                     <div class="col-md-6"><small class="text-muted d-block">Processo</small>
-                        {{ publicacao.numeroProcessoExibicao ?? '—' }}
+                        {% if (publicacao.numeroProcessoExibicao ?? null) is not null %}{{ publicacao.numeroProcessoExibicao }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}
                         {% if publicacao.avulsa %}
                             <span class="badge bg-secondary">Avulsa</span>
                         {% else %}
                             <a href="{{ path('processo_show', {id: publicacao.processoId}) }}" class="badge bg-success text-decoration-none">Ver processo</a>
                         {% endif %}
                     </div>
-                    <div class="col-md-3"><small class="text-muted d-block">Órgão</small>{{ publicacao.nomeOrgao ?? '—' }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Classe</small>{{ publicacao.nomeClasse ?? '—' }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Órgão</small>{% if (publicacao.nomeOrgao ?? null) is not null %}{{ publicacao.nomeOrgao }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Classe</small>{% if (publicacao.nomeClasse ?? null) is not null %}{{ publicacao.nomeClasse }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</div>
                     {% if publicacao.oabRotulo %}
                         <div class="col-md-3"><small class="text-muted d-block">Captada pela OAB</small>{{ publicacao.oabRotulo }}</div>
                     {% endif %}

@@ -133,11 +133,11 @@ final class PastaSituacaoControllerTest extends JusPrimeWebTestCase
         $pilula = $c->filter('#btn-alternar-status');
         self::assertStringContainsString('ps-situacao-pill--suspenso', (string) $pilula->attr('class'));
         self::assertSame('Suspenso', trim($pilula->filter('.ps-situacao-label')->text()));
-        $selo = $c->filter('.ps-cab-dados > .ps-cab-selo--suspenso');
+        $selo = $c->filter('.ps-cab-palco > .ps-cab-selo--suspenso');
         self::assertCount(1, $selo);
         self::assertSame('SUSPENSO', trim($selo->filter('.ps-cab-selo-faixa')->text()));
         self::assertCount(1, $selo->filter('.bi-pause-circle-fill'));
-        self::assertCount(0, $c->filter('.ps-cab-dados > .ps-cab-selo--arquivado'));
+        self::assertCount(0, $c->filter('.ps-cab-palco > .ps-cab-selo--arquivado'));
         $opcoes = $c->filter('#psSituacao [role="menuitemradio"]');
         self::assertSame(['ativo', 'suspenso', 'cancelado', 'arquivado'], $opcoes->each(static fn ($o) => $o->attr('data-situacao')));
         self::assertSame('true', $c->filter('#psSituacao [data-situacao="suspenso"]')->attr('aria-checked'));
@@ -156,7 +156,7 @@ final class PastaSituacaoControllerTest extends JusPrimeWebTestCase
 
         $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
 
-        $selo = $c->filter('.ps-cab-dados > .ps-cab-selo--cancelado');
+        $selo = $c->filter('.ps-cab-palco > .ps-cab-selo--cancelado');
         self::assertCount(1, $selo);
         self::assertSame('Pasta cancelada', $selo->attr('aria-label'));
         self::assertCount(1, $selo->filter('.bi-x-octagon-fill'));

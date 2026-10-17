@@ -51,7 +51,7 @@
     {%- if o.encargosNaoCalculados %}
     <div class="jp-obr-valor jp-money col-total jp-total-nao-calculado">
         {{ o.valorOriginal|centavos }}
-        <span class="jp-enc-motivo">— ⚠ acordo sem data</span>
+        <span class="jp-enc-motivo">⚠ acordo sem data</span>
     </div>
     {%- else %}
     <div class="jp-obr-valor jp-money col-total"
@@ -62,7 +62,7 @@
             {# Congelada (INV-E4): estes encargos não crescem mais — o cron não a toca. Sinal discreto,
                que não pode competir com o número nem ocupar coluna própria. #}
             <i class="bi bi-snow jp-obr-congelado" data-bs-toggle="tooltip"
-               title="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }} — não são recalculados automaticamente."
+               title="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }}. Não são recalculados automaticamente."
                aria-label="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }}"></i>
         {%- endif %}
         {% if o.alocado > 0 and not o.quitada %}
@@ -201,7 +201,7 @@
             <div class="jp-vazio">
                 <i class="bi bi-receipt"></i>
                 <div class="jp-vazio-titulo">Nenhuma obrigação registrada.</div>
-                <p class="jp-vazio-dica">Registre o que está sendo cobrado — cada obrigação entra na fila acima pelo vencimento.</p>
+                <p class="jp-vazio-dica">Registre o que está sendo cobrado: cada obrigação entra na fila acima pelo vencimento.</p>
             </div>
         </div>
     {% elseif caso.obrigacoesAvulsasEmAberto|length == 0 and caso.gruposAcordo|length == 0 %}
@@ -212,7 +212,7 @@
             <div class="jp-vazio">
                 <i class="bi bi-check2-circle"></i>
                 <div class="jp-vazio-titulo">Nada em aberto.</div>
-                <p class="jp-vazio-dica">Tudo o que está registrado para esta unidade já foi pago — veja em “Já pago”, abaixo.</p>
+                <p class="jp-vazio-dica">Tudo o que está registrado para esta unidade já foi pago. Veja em “Já pago”, abaixo.</p>
             </div>
         </div>
     {% else %}
@@ -228,7 +228,7 @@
                    soma de juros + multa + correção + honorários, feita no DTO. Juntas explicam o Total
                    ao lado sem obrigar a abrir o detalhe. #}
                 <span class="col-original" data-bs-toggle="tooltip"
-                      title="Valor de face da dívida, como veio da contabilidade — antes de qualquer encargo.">Original</span>
+                      title="Valor de face da dívida, como veio da contabilidade, antes de qualquer encargo.">Original</span>
                 <span class="col-acrescimos" data-bs-toggle="tooltip"
                       title="Tudo que foi somado ao valor de face: juros, multa, correção monetária e honorários. Abra o ⌄ da linha para ver cada um com o seu percentual.">Acréscimos</span>
                 {# "Total" aparece DUAS vezes nesta tela, e a coluna existe para explicar por que os dois
@@ -255,7 +255,7 @@
                    ⚠️ A correção 1 sozinha não bastava — foi ela que deixou a 2 passar, porque olhou só
                    a parte do honorário. Este texto é lido pelo USUÁRIO, sobre dinheiro. #}
                 <span class="col-total col-valor" data-bs-toggle="tooltip"
-                      title="Total de cada dívida: original + juros + multa + correção + honorários, antes de abater pagamentos. Somar esta coluna não bate com o card “Total vencido” do topo, e isso é esperado: lá entram só as dívidas já vencidas e ainda não quitadas. Os dois são brutos — pagamento parcial não reduz nenhum dos dois.">Total</span>
+                      title="Total de cada dívida: original + juros + multa + correção + honorários, antes de abater pagamentos. Somar esta coluna não bate com o card “Total vencido” do topo, e isso é esperado: lá entram só as dívidas já vencidas e ainda não quitadas. Os dois são brutos: pagamento parcial não reduz nenhum dos dois.">Total</span>
                 <span></span>{# ações #}
                 <span></span>{# chevron #}
             </div>
@@ -390,7 +390,7 @@
                 <div class="jp-vazio">
                     <i class="bi bi-file-earmark-text"></i>
                     <div class="jp-vazio-titulo">Todas as obrigações desta cobrança estão nos acordos abaixo.</div>
-                    <p class="jp-vazio-dica">As parcelas do acordo são a dívida agora — as obrigações que ele trocou saíram do total em aberto.</p>
+                    <p class="jp-vazio-dica">As parcelas do acordo são a dívida agora. As obrigações que ele trocou saíram do total em aberto.</p>
                 </div>
             {% endfor %}
         </div>
@@ -472,7 +472,7 @@
                     data-bs-target="#substituidasAcordo{{ g.acordoId }}" aria-expanded="false"
                     aria-controls="substituidasAcordo{{ g.acordoId }}">
                 <i class="bi bi-chevron-right me-1"></i>Mostrar {{ g.substituidas|length }} obrigação(ões) trocada(s) pelo acordo #{{ g.acordoId }}
-                <span class="text-secondary">— fora do total em aberto</span>
+                <span class="text-secondary">(fora do total em aberto)</span>
             </button>
             <div class="collapse" id="substituidasAcordo{{ g.acordoId }}">
                 {% for s in g.substituidas %}
@@ -567,7 +567,7 @@
                     <div class="jp-pagas-data">
                         {# Sem data quando a obrigação satisfaz `quitada()` sem nunca ter recebido
                            alocação (exigível zero). Raro, mas a coluna não pode imprimir "01/01/1970". #}
-                        {{ o.pagoEm ? o.pagoEm|date('d/m/Y') : '—' }}
+                        {% if o.pagoEm %}{{ o.pagoEm|date('d/m/Y') }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}
                     </div>
                     <div class="jp-pagas-desc">
                         {{ o.descricao }}{% if o.referenciaExterna %} <span class="jp-obr-sub">#{{ o.referenciaExterna }}</span>{% endif %}

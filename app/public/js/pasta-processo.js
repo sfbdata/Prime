@@ -349,7 +349,7 @@
         }, function () {
             // Só a falha de REDE desfaz aqui: um erro depois da troca não pode
             // "desligar" na tela o que o servidor já gravou.
-            falhaAdministrativa(form, botao, ligadoAntes, 'Erro de comunicação. A marcação pode não ter sido salva — recarregue a página.');
+            falhaAdministrativa(form, botao, ligadoAntes, 'Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.');
             return null;
         }).then(function (r) {
             if (!r) { return; }

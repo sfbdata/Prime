@@ -14,7 +14,7 @@ final class ObrigacaoDeOutroCasoException extends \DomainException
     public function __construct(int $obrigacaoId, int $casoId)
     {
         parent::__construct(sprintf(
-            'Obrigação %d não pertence ao caso %d — o movimento não atravessa casos.',
+            'Obrigação %d não pertence ao caso %d: o movimento não atravessa casos.',
             $obrigacaoId,
             $casoId,
         ));

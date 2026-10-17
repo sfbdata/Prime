@@ -205,12 +205,12 @@ final class EditarAcordoUseCase
             TipoEventoHistorico::AcordoEditado,
             $editadoPor,
             sprintf(
-                'Acordo editado: %d parcela(s) alterada(s), %d adicionada(s), %d removida(s) — total %s (antes %s)',
+                'Acordo editado: %d parcela(s) alterada(s), %d adicionada(s), %d removida(s). Total %s (antes %s)',
                 count($alteracoes),
                 count($novas),
                 count($remocoes),
                 number_format($somaParcelas / 100, 2, ',', '.'),
-                $totalAnterior === null ? '—' : number_format($totalAnterior / 100, 2, ',', '.'),
+                $totalAnterior === null ? 'sem dado' : number_format($totalAnterior / 100, 2, ',', '.'),
             ),
             [
                 'antes' => [

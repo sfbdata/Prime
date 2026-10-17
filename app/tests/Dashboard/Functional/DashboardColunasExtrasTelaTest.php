@@ -213,8 +213,8 @@ final class DashboardColunasExtrasTelaTest extends DashboardWebTestCase
 
         $zeca = $this->linhaDe($crawler, 'Zeca Sem Meta');
         self::assertSame('0', trim($zeca->filter('td[data-coluna="metas_concluidas"]')->text()));
-        self::assertSame('—', trim($zeca->filter('td[data-coluna="taxa_conclusao"]')->text()), 'sem meta não há taxa: nada inventado');
-        self::assertSame('—', trim($zeca->filter('td[data-coluna="tempo_medio"]')->text()));
+        self::assertSame('Sem dado', trim($zeca->filter('td[data-coluna="taxa_conclusao"]')->text()), 'sem meta não há taxa: nada inventado');
+        self::assertSame('Sem dado', trim($zeca->filter('td[data-coluna="tempo_medio"]')->text()));
 
         $total = $crawler->filter('.db-table > tfoot > tr');
         self::assertSame('2', trim($total->filter('td[data-coluna="metas_concluidas"] .db-total-num')->text()));

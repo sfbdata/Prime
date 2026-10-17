@@ -348,3 +348,40 @@ razão social, CNPJ, nome fantasia, inscrições, representante, CPF, RG e cargo
   reserva" com partes reais (`testCadastroMandaDatajudDeReserva`). Mantido: "CPF com 11 ou CNPJ com 14 dígitos" é o
   texto literal do desenho. Corrida na ordem entre dois envios simultâneos fica cosmética (o próximo subir/remover
   renumera) e sem índice único.
+
+## 16. E12i: Cadastro em toda pasta, "Novo cliente" e seletor de autores (16/10/2026)
+
+Pedido do dono: o essencial da pasta é o nome do cliente e a ação, e o Cadastro tem de estar sempre disponível para
+completar as partes (ré e autora). Decisões do dono para as próximas entregas: leitura dos documentos no próprio
+servidor (sem IA externa), seletor de autores na janela, histórico próprio do cadastro, sugestão da leitura nunca
+aplicada sozinha.
+
+- Botão Cadastro em toda pasta (como o desenho): sem cliente vinculado, ponto laranja, "Sem cliente cadastrado ·
+  clique para cadastrar", abre `pasta_cadastro_novo` (para quem edita a pasta e ela não está excluída).
+- Janela em modo "Novo cliente": nome já escrito com o identificador da pasta (`nome_cliente`), escolha Pessoa física
+  ou Empresa, sem a aba Documentos até existir o cadastro. `CriarClienteDaPastaUseCase` (EDIT da pasta, lápide recusa)
+  cria com as mesmas regras do editar (serviço `CamposDoCadastro`, extraído do `SalvarCadastroDoClienteUseCase`):
+  nome e CPF/CNPJ válido exigidos, CPF de outro cadastro dá 409 com "usar o existente". Liga à pasta (principal se
+  ela não tinha), cartão "Cadastro do cliente: cadastro de FULANO criado.", e a janela vira a do cadastro criado.
+- Seletor de autores no topo da janela (clientes da pasta, o atual marcado, "Principal"); "Novo autor" cria outro
+  cliente ligado à pasta sem trocar o principal. Com alteração não salva, pede para salvar antes de trocar.
+- A rota de criar recebe a Pasta, para a trava da lápide cobrir (teste de arquitetura).
+- Testes: `ClienteCadastroControllerTest` (23; mutação na permissão de criar derruba o seu); teste antigo "sem
+  cliente não desenha o botão" trocado pela regra nova.
+
+## 17. E12j: faixa de dados sai do cabeçalho da pasta (16/10/2026)
+
+Pedido do dono: "no desenho não tem processo vinculado, ação e responsável no cabeçalho de pastas". Conferido no
+02 online: Responsável fica na linha de cima (`toggleResp`, antes das setas), Ação e Processo vinculado são
+cartões no alto do trilho (L.1420-1445) e o carimbo da situação mora no mesmo bloco do andamento (L.1294-1298).
+
+- Cabeçalho: a faixa saiu. O carimbo passou para o `.ps-cab-palco`, que embrulha a linha do tempo (a `.ps-and` já
+  reservava os 150px do desenho).
+- Responsável: o mesmo chip de troca, agora na linha de cima, antes de "‹ 3 de 7 ›" (`.ps-cab-resp`).
+- Trilho da aba Dados: cartão novo no alto (`pasta/_dados_trilho_topo.html.twig`) com Ação e Processo vinculado,
+  na ordem do desenho, e Cobrança (só do BlueJus) embaixo, com os mesmos atalhos da faixa (abrir e copiar o número,
+  trocar, outros vinculados, vincular).
+- Conferência com o desenho: Responsável no topo ✓; nada de Processo/Ação/Responsável na faixa ✓; Ação antes de
+  Processo vinculado no trilho ✓; carimbo à direita da linha do tempo ✓. Medida na tela: do dono.
+- Testes: seletores e arranjo de 19 testes antigos atualizados para os lugares novos (a regra mudou por decisão do
+  dono); ordem do trilho agora `processo · prazos · clientes · documentos`.

@@ -195,7 +195,7 @@ final class PastaValorCausaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertNull($data['valor']);
-        self::assertSame('—', $data['valorFormatado']);
+        self::assertSame('Sem dado', $data['valorFormatado']);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->refresh($pasta);

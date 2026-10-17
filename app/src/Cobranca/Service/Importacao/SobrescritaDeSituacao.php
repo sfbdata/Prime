@@ -47,7 +47,7 @@ final class SobrescritaDeSituacao
     public function descricao(): string
     {
         return sprintf(
-            'Acordo %d: a contábil diz "%s" — status do sistema alterado de %s para %s (o importe sobrescreve o sistema).',
+            'Acordo %d: a contábil diz "%s". Status do sistema alterado de %s para %s (o importe sobrescreve o sistema).',
             $this->numero,
             $this->situacaoDaPlanilha,
             $this->anterior->value,

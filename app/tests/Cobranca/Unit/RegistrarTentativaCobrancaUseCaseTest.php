@@ -78,7 +78,7 @@ final class RegistrarTentativaCobrancaUseCaseTest extends TestCase
         self::assertSame(TipoEventoHistorico::ContatoRealizado, $evento->getTipo());
         self::assertSame($caso, $evento->getCaso());
         self::assertSame($quando, $evento->getOcorridoEm(), 'a data do contato vira a data do evento na timeline');
-        self::assertSame('Contato por WhatsApp em 10/05/2026 14:30 — Prometeu pagar. Vai pagar sexta', $evento->getDescricao());
+        self::assertSame('Contato por WhatsApp em 10/05/2026 14:30: Prometeu pagar. Vai pagar sexta', $evento->getDescricao());
         self::assertSame(['canal' => 'whatsapp', 'resultado' => 'prometeu_pagar'], $evento->getDados());
     }
 
@@ -97,7 +97,7 @@ final class RegistrarTentativaCobrancaUseCaseTest extends TestCase
 
         $evento = $this->sut->executar($input, $this->tenant, $this->usuario);
 
-        self::assertSame('Contato por Telefone em 01/06/2026 09:00 — Não atendido.', $evento->getDescricao());
+        self::assertSame('Contato por Telefone em 01/06/2026 09:00: Não atendido.', $evento->getDescricao());
         self::assertSame(['canal' => 'telefone', 'resultado' => 'nao_atendido'], $evento->getDados());
     }
 

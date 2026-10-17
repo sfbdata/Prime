@@ -150,7 +150,7 @@
                                 </span>
                             {% endif %}
                         {% else %}
-                            <span class="text-muted">—</span>
+                            <span class="text-muted">Não informado</span>
                         {% endif %}
                     </td>
                     <td class="col-acao-tabela align-middle">
@@ -160,7 +160,7 @@
                         {% elseif pasta.processoPrincipal %}
                             {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
                         {% else %}
-                            <span class="text-muted">—</span>
+                            <span class="text-muted">Não informado</span>
                         {% endif %}
                         </span>
                     </td>

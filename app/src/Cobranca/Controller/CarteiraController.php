@@ -268,7 +268,7 @@ final class CarteiraController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             try {
                 $objeto = $this->criarObjeto->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Objeto criado — cobrança iniciada.');
+                $this->addFlash('success', 'Objeto criado. Cobrança iniciada.');
 
                 // Ajuste 2: criar o objeto já cria a cobrança; cai direto na página do objeto.
                 return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objeto->getId()]);

@@ -115,7 +115,7 @@ final class AcordoCriarType extends AbstractType
             $valor = number_format($remanescente / 100, 2, ',', '.');
 
             $label = sprintf(
-                '%s — venc %s — R$ %s',
+                '%s · venc %s · R$ %s',
                 $o->getDescricao(),
                 $o->getVencimentoOriginal()->format('d/m/Y'),
                 $valor,

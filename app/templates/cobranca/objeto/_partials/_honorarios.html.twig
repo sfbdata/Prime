@@ -63,7 +63,7 @@
                 <div class="cob-hon-item">
                     <span class="cob-hon-rot">Percentual</span>
                     {# O DTO carrega o decimal cru ("15.00"); a vírgula é só apresentação, como no resto da tela. #}
-                    <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios|replace({'.': ','}) }}%{% else %}—{% endif %}</span>
+                    <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios|replace({'.': ','}) }}%{% else %}<span class="text-muted small">Não informado</span>{% endif %}</span>
                 </div>
                 <div class="cob-hon-item">
                     <span class="cob-hon-rot">Base de cálculo</span>
@@ -71,7 +71,7 @@
                 </div>
                 <div class="cob-hon-item">
                     <span class="cob-hon-rot">Carência</span>
-                    <span class="cob-hon-val">{% if caso.carenciaHonorariosDias is not null %}{{ caso.carenciaHonorariosDias }} dia(s){% else %}—{% endif %}</span>
+                    <span class="cob-hon-val">{% if caso.carenciaHonorariosDias is not null %}{{ caso.carenciaHonorariosDias }} dia(s){% else %}<span class="text-muted small">Não informado</span>{% endif %}</span>
                 </div>
             </div>
         </div>
@@ -85,7 +85,7 @@
     <h6 class="mb-1">Por obrigação</h6>
     <p class="small text-secondary mb-2">
         A configuração acima é a que vale hoje para novas incidências. Cada obrigação pode ter taxa
-        própria, definida em <em>Editar configuração de encargos</em> — por isso um valor da lista pode
+        própria, definida em <em>Editar configuração de encargos</em>. Por isso um valor da lista pode
         não bater com o percentual exibido.
     </p>
     {# `set` dentro de `for` não escapa do laço no Twig — a lista vazia é decidida ANTES, pelos dois

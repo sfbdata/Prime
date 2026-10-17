@@ -197,7 +197,7 @@ final class ProfileController extends AbstractController
         $this->verificarOab->executar($user);
 
         // Backend dormente: o resultado é sempre NaoVerificada. Mensagem honesta ao usuário.
-        $this->addFlash('info', 'Verificação automática indisponível no momento — sua OAB será revisada por um administrador.');
+        $this->addFlash('info', 'Verificação automática indisponível no momento. Sua OAB será revisada por um administrador.');
 
         return $this->redirectToRoute('app_profile');
     }

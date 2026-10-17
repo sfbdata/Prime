@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Push Processual — Publicações{% endblock %}
+{% block title %}Push Processual | Publicações{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">Push Processual — Publicações</h1>
+        <h1 class="m-0">Push Processual: Publicações</h1>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
             <a href="{{ path('push_processual_oabs') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-person-badge me-1"></i> OABs monitoradas
@@ -106,18 +106,18 @@
                     <tbody>
                         {% for pub in publicacoes %}
                             <tr {% if not pub.lida %}class="fw-semibold"{% endif %}>
-                                <td>{{ pub.dataDisponibilizacao ?? '—' }}</td>
+                                <td>{% if (pub.dataDisponibilizacao ?? null) is not null %}{{ pub.dataDisponibilizacao }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}</td>
                                 <td>{{ pub.siglaTribunal }}</td>
-                                <td>{{ pub.tipoComunicacao ?? '—' }}</td>
+                                <td>{% if (pub.tipoComunicacao ?? null) is not null %}{{ pub.tipoComunicacao }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
                                 <td>
-                                    {{ pub.numeroProcessoExibicao ?? '—' }}
+                                    {% if (pub.numeroProcessoExibicao ?? null) is not null %}{{ pub.numeroProcessoExibicao }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}
                                     {% if pub.avulsa %}
                                         <span class="badge bg-secondary">Avulsa</span>
                                     {% else %}
                                         <span class="badge bg-success">Vinculada</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ pub.nomeOrgao ?? '—' }}</td>
+                                <td>{% if (pub.nomeOrgao ?? null) is not null %}{{ pub.nomeOrgao }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
                                 <td class="text-end">
                                     <a href="{{ path('push_processual_show', {id: pub.id}) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="bi bi-eye"></i> Ver

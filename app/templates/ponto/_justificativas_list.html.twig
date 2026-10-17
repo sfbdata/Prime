@@ -43,7 +43,7 @@
                                 {% if batch[0].abonoParcial %}
                                     <span class="badge text-bg-secondary ms-1" title="Abono parcial">Parcial</span>
                                     {% if batch[0].horaInicioAbono and batch[0].horaFimAbono %}
-                                        <div class="small text-muted mt-1">{{ batch[0].horaInicioAbono|date('H:i') }}–{{ batch[0].horaFimAbono|date('H:i') }}</div>
+                                        <div class="small text-muted mt-1">{{ batch[0].horaInicioAbono|date('H:i') }} às {{ batch[0].horaFimAbono|date('H:i') }}</div>
                                     {% endif %}
                                 {% endif %}
                                 {% if batch[0].tipo == 'esquecimento_registro' and batch[0].tipoRegistroEsquecido %}
@@ -71,15 +71,15 @@
                                         <i class="bi bi-paperclip"></i> Ver
                                     </a>
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <span class="text-muted">Sem anexo</span>
                                 {% endif %}
                             </td>
-                            <td class="small text-muted">{{ batch[0].observacaoAnalise ?? '—' }}</td>
+                            <td class="small text-muted">{{ batch[0].observacaoAnalise ?? 'Não informado' }}</td>
                             <td class="small text-muted">
                                 {% if batch[0].dataAnalise %}
                                     {{ batch[0].dataAnalise|date('d/m/Y') }}
                                 {% else %}
-                                    —
+                                    Sem registro
                                 {% endif %}
                             </td>
                             <td>

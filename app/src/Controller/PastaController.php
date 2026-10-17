@@ -1512,7 +1512,7 @@ class PastaController extends AbstractController
         return $this->json([
             'sucesso'          => true,
             'responsavelId'    => $responsavel?->getId(),
-            'responsavelNome'  => $responsavel?->getFullName() ?? '—',
+            'responsavelNome'  => $responsavel?->getFullName() ?? 'Não informado',
         ]);
     }
 
@@ -1626,7 +1626,7 @@ class PastaController extends AbstractController
                 'success',
                 sprintf(
                     'Pasta %s excluída. Ela continua na lista, riscada, porque o número dela não pode '
-                    . 'ser reaproveitado — já existem pastas posteriores.',
+                    . 'ser reaproveitado: já existem pastas posteriores.',
                     $pasta->getNup(),
                 ),
             );

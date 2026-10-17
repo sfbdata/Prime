@@ -77,8 +77,8 @@
                     id="financeiro-situacao-btn"
                     class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
                     title="{{ contratoAssinado
-                        ? 'Contrato assinado — clique para reabrir como pendente'
-                        : 'Contrato pendente — clique para marcar como assinado' }}"
+                        ? 'Contrato assinado. Clique para reabrir como pendente'
+                        : 'Contrato pendente. Clique para marcar como assinado' }}"
                     data-pasta-id="{{ pasta.id }}"
                     data-situacao-atual="{{ pasta.situacaoContrato }}"
                     data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
@@ -332,7 +332,7 @@
                 {% if podeEscreverFin %}
                 <span class="ps-cab-espaco"></span>
                 <label class="ps-btn-mini ps-fin-adicionar"
-                       title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
+                       title="Adicionar arquivo (PDF, DOCX, JPEG, PNG, máx. 10 MB)">
                     <i class="bi bi-plus-lg"></i> Adicionar
                     <input type="file"
                            id="financeiro-upload-input"
@@ -624,8 +624,8 @@
                 this.dataset.situacaoAtual = data.situacao;
                 this.className = 'ps-fin-selo ps-fin-selo--' + (assinado ? 'ok' : 'perigo');
                 this.title = assinado
-                    ? 'Contrato assinado — clique para reabrir como pendente'
-                    : 'Contrato pendente — clique para marcar como assinado';
+                    ? 'Contrato assinado. Clique para reabrir como pendente'
+                    : 'Contrato pendente. Clique para marcar como assinado';
                 this.querySelector('i').className = 'bi ' + (assinado ? 'bi-patch-check-fill' : 'bi-hourglass-split');
                 this.querySelector('.ps-fin-selo-texto').textContent = assinado ? 'Assinado' : 'Pendente';
             } catch (_) {

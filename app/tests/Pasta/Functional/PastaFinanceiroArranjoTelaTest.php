@@ -288,7 +288,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('ps-fin-selo', (string) $contrato->attr('class'));
         self::assertSame('Pendente', trim($contrato->text()), 'pasta nova nasce com contrato pendente');
         self::assertStringContainsString(
-            'clique para marcar como assinado',
+            'Clique para marcar como assinado',
             (string) $contrato->attr('title'),
             'o próprio selo tem de dizer o que o clique faz'
         );
@@ -316,7 +316,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        self::assertSame('—', trim($crawler->filter('#financeiro-media-cpf')->text()));
+        self::assertSame('Sem dado', trim($crawler->filter('#financeiro-media-cpf')->text()));
         self::assertStringContainsString(
             'Vincule o cliente',
             $crawler->filter('.ps-fin-faixa')->text(),
@@ -454,7 +454,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        self::assertSame('—', trim($crawler->filter('#financeiro-valor-causa')->text()));
+        self::assertSame('Sem dado', trim($crawler->filter('#financeiro-valor-causa')->text()));
     }
 
     #[TestDox('Os honorários contratuais são editáveis na própria tela, com token CSRF e rota de gravação')]

@@ -62,7 +62,7 @@
                     <form method="POST" action="{{ path('cobranca_pessoa_telefone_excluir', {id: pessoa.id, itemId: t.id}) }}"
                           data-disable-on-submit="true"
                           onsubmit="return confirm({{ (t.atual
-                              ? 'Excluir ' ~ t.numero ~ '? Este é o telefone atual — o mais recente que sobrar passa a ser o atual.'
+                              ? 'Excluir ' ~ t.numero ~ '? Este é o telefone atual. O mais recente que sobrar passa a ser o atual.'
                               : 'Excluir ' ~ t.numero ~ '? Não dá para desfazer.')|json_encode }});">
                         <input type="hidden" name="_token" value="{{ csrf_token('excluir_telefone_' ~ t.id) }}">
                         <button type="submit" class="btn btn-sm btn-outline-danger" data-acao="excluir-telefone" aria-label="Excluir telefone" title="Excluir este número">

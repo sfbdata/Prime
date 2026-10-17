@@ -67,7 +67,7 @@
 
 <div class="card card-outline card-success mb-3">
     <div class="card-header d-flex align-items-center justify-content-between">
-        <h3 class="card-title mb-0"><i class="bi bi-cash-coin me-2"></i>Horas pagas — {{ user.fullName }}</h3>
+        <h3 class="card-title mb-0"><i class="bi bi-cash-coin me-2"></i>Horas pagas: {{ user.fullName }}</h3>
         <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalLancarHorasPagas">
             <i class="bi bi-plus-circle me-1"></i>Horas pagas
         </button>
@@ -98,9 +98,9 @@
                                 </span>
                             </td>
                             <td class="align-middle" style="white-space: pre-wrap;">{{ lancamento.motivo }}</td>
-                            <td class="align-middle small text-muted">{{ lancamento.criadoPor ? lancamento.criadoPor.fullName : '—' }}</td>
+                            <td class="align-middle small text-muted">{{ lancamento.criadoPor ? lancamento.criadoPor.fullName : 'Não informado' }}</td>
                             <td class="align-middle small text-muted">
-                                {{ lancamento.criadoEm ? lancamento.criadoEm|date('d/m/Y H:i') : '—' }}
+                                {{ lancamento.criadoEm ? lancamento.criadoEm|date('d/m/Y H:i') : 'Sem registro' }}
                                 {% if lancamento.atualizadoEm %}
                                     <br>
                                     <span class="fst-italic">
@@ -138,7 +138,7 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_lancar_' ~ user.id) }}">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalLancarHorasPagasLabel">
-                        <i class="bi bi-cash-coin me-2"></i>Lançar horas pagas — {{ user.fullName }}
+                        <i class="bi bi-cash-coin me-2"></i>Lançar horas pagas: {{ user.fullName }}
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>

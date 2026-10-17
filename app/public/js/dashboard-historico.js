@@ -53,7 +53,7 @@
     function desenharOpcao(area, opcao, tituloCard) {
         var barras = el('div', 'db-hist-barras');
         barras.setAttribute('role', 'img');
-        barras.setAttribute('aria-label', tituloCard + ' — ' + opcao.barras.map(function (b) { return b.titulo; }).join('; '));
+        barras.setAttribute('aria-label', tituloCard + ': ' + opcao.barras.map(function (b) { return b.titulo; }).join('; '));
         var rotulos = el('div', 'db-hist-rotulos');
         rotulos.setAttribute('aria-hidden', 'true');
 

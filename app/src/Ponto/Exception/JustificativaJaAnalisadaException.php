@@ -12,8 +12,8 @@ namespace App\Ponto\Exception;
 final class JustificativaJaAnalisadaException extends \DomainException
 {
     // "Ou registrada como falta": a falta não justificada nasce abonada sem passar por gestor nenhum.
-    public const MENSAGEM = 'Esta justificativa não está mais pendente — já foi analisada pelo gestor ou '
-        . 'registrada como falta — e não pode ser alterada. Para corrigi-la, peça ao administrador para '
+    public const MENSAGEM = 'Esta justificativa não está mais pendente (já foi analisada pelo gestor ou '
+        . 'registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para '
         . 'revertê-la para pendente.';
 
     public function __construct()
