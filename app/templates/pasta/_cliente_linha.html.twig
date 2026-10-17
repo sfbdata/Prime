@@ -66,7 +66,7 @@
         {% if ehPrincipal %}
             <span class="btn btn-xs btn-primary disabled js-cliente-principal-estrela"
                   data-cliente-id="{{ cliente.id }}"
-                  title="Cliente principal desta pasta — a Média por CPF é dele{{ podeMexerNoCliente ? '. Clique na estrela de outro para trocar' : '' }}">
+                  title="Cliente principal desta pasta. A Média por CPF é dele{{ podeMexerNoCliente ? '. Clique na estrela de outro para trocar' : '' }}">
                 <i class="bi bi-star-fill"></i>
             </span>
         {% elseif podeMexerNoCliente %}

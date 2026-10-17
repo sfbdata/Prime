@@ -309,7 +309,7 @@
             <strong>Pasta excluída</strong>
             em {{ pasta.excluidaEm|date('d/m/Y') }} às {{ pasta.excluidaEm|date('H:i') }}
             {%- if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}.
-            Ela continua aqui porque o número {{ pasta.nup }} não pode ser reaproveitado —
+            Ela continua aqui porque o número {{ pasta.nup }} não pode ser reaproveitado:
             já existem pastas posteriores. Somente leitura até ser restaurada.
         </span>
     </div>

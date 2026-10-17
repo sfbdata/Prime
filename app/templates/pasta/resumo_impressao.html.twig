@@ -155,7 +155,7 @@
                             {% for c in resumo.clientes %}
                                 <tr>
                                     <td>{{ c.nome }}{% if c.principal and resumo.clientes|length > 1 %} <span class="rp-marca-principal">· principal</span>{% endif %}</td>
-                                    <td class="rp-num">{{ c.documento ? c.documento|documento_br : '—' }}</td>
+                                    <td class="rp-num">{{ c.documento ? c.documento|documento_br : 'Não informado' }}</td>
                                 </tr>
                             {% endfor %}
                         </table>
@@ -170,8 +170,8 @@
                             {% for p in resumo.processos %}
                                 <tr>
                                     <td class="rp-num">{{ p.numero|numero_cnj }}{% if p.principal and resumo.processos|length > 1 %} <span class="rp-marca-principal">· principal</span>{% endif %}</td>
-                                    <td>{{ p.classe ?: '—' }}</td>
-                                    <td>{{ p.orgao ?: (p.tribunal ?: '—') }}</td>
+                                    <td>{{ p.classe ?: 'Não informada' }}</td>
+                                    <td>{{ p.orgao ?: (p.tribunal ?: 'Não informado') }}</td>
                                 </tr>
                             {% endfor %}
                         </table>
@@ -204,7 +204,7 @@
                             {% endfor %}
                         </table>
                         {% if resumo.totalMetasAbertas > resumo.metasAbertas|length %}
-                            <div class="rp-vazio">e mais {{ resumo.totalMetasAbertas - resumo.metasAbertas|length }} — a lista completa está na aba Metas.</div>
+                            <div class="rp-vazio">e mais {{ resumo.totalMetasAbertas - resumo.metasAbertas|length }}. A lista completa está na aba Metas.</div>
                         {% endif %}
                     {% else %}
                         <div class="rp-vazio">Nenhuma meta aberta.</div>
@@ -217,7 +217,7 @@
                         <table class="rp-tabela">
                             {% for mv in resumo.movimentacoes %}
                                 <tr>
-                                    <td class="rp-num" style="width:86px;font-weight:700">{{ mv.data ?: '—' }}</td>
+                                    <td class="rp-num" style="width:86px;font-weight:700">{{ mv.data ?: 'Sem registro' }}</td>
                                     <td style="width:110px"><b>{{ mv.tipo ?: 'Publicação' }}</b></td>
                                     {# O texto da movimentação (dc:4591); sem teor, o órgão · processo. #}
                                     {% if mv.texto %}

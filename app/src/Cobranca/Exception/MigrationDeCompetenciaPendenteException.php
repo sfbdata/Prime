@@ -19,7 +19,7 @@ final class MigrationDeCompetenciaPendenteException extends \RuntimeException
         parent::__construct(
             'O banco ainda não tem a coluna `cobranca_obrigacao.competencia`: rode a migration '
             . 'Version20260730120000 antes de importar. Sem ela o casamento do boleto seria feito só pelo '
-            . 'Nosso Número, que a contábil reaproveita entre carteiras — nenhuma escrita foi feita.',
+            . 'Nosso Número, que a contábil reaproveita entre carteiras. Nenhuma escrita foi feita.',
         );
     }
 }

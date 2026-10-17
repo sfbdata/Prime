@@ -43,19 +43,19 @@
                             {% set ut = userTenantByUserId[user.id] ?? null %}
                             {% set userAccesses = accessByUser[user.id] ?? [] %}
                             <tr>
-                                <td class="align-middle ps-3 text-muted fw-semibold" style="font-size:.82rem;">{{ ut ? ut.codigoFuncionario ?? '—' : '—' }}</td>
+                                <td class="align-middle ps-3 text-muted fw-semibold" style="font-size:.82rem;">{{ ut ? ut.codigoFuncionario ?? 'Não informado' : 'Não informado' }}</td>
                                 <td class="align-middle">{{ user.fullName }}</td>
                                 <td class="align-middle">{{ user.email }}</td>
                                 <td class="align-middle">
                                     {% if ut and ut.tenantRole %}
                                         <span class="badge text-bg-secondary">{{ ut.tenantRole.nomeExibido }}</span>
                                     {% else %}
-                                        <span class="text-muted">—</span>
+                                        <span class="text-muted">Não informado</span>
                                     {% endif %}
                                 </td>
                                 <td class="align-middle">
                                     {% if userAccesses is empty %}
-                                        <span class="text-muted small">—</span>
+                                        <span class="text-muted small">Nenhum</span>
                                     {% else %}
                                         <button
                                             class="btn btn-sm btn-outline-secondary"

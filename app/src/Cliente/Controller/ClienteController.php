@@ -337,7 +337,7 @@ class ClienteController extends AbstractController
 
         if ($assinadosComprimidos > 0) {
             $this->addFlash('warning', sprintf(
-                '%d PDF assinado%s foi comprimido — a assinatura pode ter sido invalidada.',
+                '%d PDF assinado%s foi comprimido. A assinatura pode ter sido invalidada.',
                 $assinadosComprimidos,
                 $assinadosComprimidos > 1 ? 's' : ''
             ));

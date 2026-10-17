@@ -245,7 +245,7 @@
             {% set antTx = tAntX is null ? null : (tAntX[k] ?? null) %}
             <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
                 <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% endif %}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? 'Sem dado' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% endif %}</span>
             </div>
             {% endfor %}
         </div>

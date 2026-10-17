@@ -71,7 +71,7 @@
                                 {%- else -%}
                                     «{{ evento.metaTitulo }}»
                                 {%- endif -%}
-                                {%- if evento.detalhe %} — {{ evento.detalhe }}{% endif -%}
+                                {%- if evento.detalhe %}: {{ evento.detalhe }}{% endif -%}
                             </div>
                         {% elseif evento.detalhe %}
                             {# Texto gerado pelo sistema: escapado, sem editor rico. #}

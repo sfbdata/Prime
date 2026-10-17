@@ -114,7 +114,7 @@
                                 {# "Título · Pasta NNN" (dc `atencao`): a pasta da meta atrasada sem abrir nada. #}
                                 <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-atencao-titulo d-block">{{ meta.titulo }} · Pasta {{ meta.pasta.nup }}</a>
                                 <div class="mm-atencao-meta">
-                                    prazo {{ meta.prazo ? meta.prazo|date('d/m/Y') : '—' }} · {{ info.texto }}
+                                    prazo {{ meta.prazo ? meta.prazo|date('d/m/Y') : 'não informado' }} · {{ info.texto }}
                                     {%- if aba.value == 'criei' and meta.responsaveis|length > 0 %} · {{ (meta.responsaveis|first).fullName }}
                                     {%- elseif meta.criadoPor %} · de {{ meta.criadoPor.fullName }}{% endif %}
                                 </div>

@@ -121,7 +121,7 @@ final class PastaExploradorLixeiraTest extends TestCase
         // A linha: nome por `text` (textContent), excluído em/por e caminho original.
         $linha = $this->funcao('linhaDaLixeira');
         self::assertStringContainsString("h('span', { class: 'pex-lix-nome', id: nomeId, text: it.nome, title: it.nome })", $linha);
-        self::assertStringContainsString("'Excluído em ' + (formatarDataHora(it.excluidoEm) || '—') + (it.excluidoPor && it.excluidoPor.nome ? ' por ' + it.excluidoPor.nome : '')", $linha);
+        self::assertStringContainsString("(dataExclusao ? 'Excluído em ' + dataExclusao : 'Excluído (data sem registro)') + (it.excluidoPor && it.excluidoPor.nome ? ' por ' + it.excluidoPor.nome : '')", $linha);
         self::assertStringContainsString("'Local original: ' + (it.caminho || 'Raiz')", $linha);
         // Restaurar (um ou selecionados) pelo MESMO token do lote; a lista é relida depois.
         $restaurar = $this->funcao('restaurarDaLixeira');

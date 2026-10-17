@@ -36,7 +36,7 @@
 {%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
 {%- set tipo = catalogo[chave].tipo -%}
 {%- if valor is null -%}
-    <span class="db-num db-num--vazio" title="Sem dado no período">—</span>
+    <span class="db-num db-num--vazio text-muted small" title="Sem dado no período">Sem dado</span>
 {%- else -%}
     {%- set texto = tipo == 'pct' ? valor ~ '%' : (tipo == 'dias' ? valor ~ 'd' : valor) -%}
     {%- if userId is not null and chave == 'pastas_urgentes' and valor > 0 -%}

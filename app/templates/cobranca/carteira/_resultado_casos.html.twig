@@ -74,7 +74,7 @@
                     {# "Pronto p/ encerrar" é indicador DERIVADO (saldo zerado e caso não encerrado),
                        não um quarto estado — por isso texto miúdo abaixo, nunca um selo do mesmo peso. #}
                     {% if caso.prontoParaEncerrar %}
-                    <span class="cs-pronto" title="Saldo exigível zerado — o caso pode ser encerrado">
+                    <span class="cs-pronto" title="Saldo exigível zerado: o caso pode ser encerrado">
                         <i class="bi bi-check2-circle"></i>Pronto p/ encerrar
                     </span>
                     {% endif %}
@@ -110,7 +110,7 @@
    incompleta, e usar o tamanho da lista devolvida faria "Mostrando 7–7 de 121". #}
 {% set primeiro = (pagina - 1) * por_pagina + 1 %}
 <div class="cs-rodape">
-    <span class="cs-faixa">Mostrando {{ primeiro }}–{{ primeiro + casos|length - 1 }} de {{ total }}</span>
+    <span class="cs-faixa">Mostrando {{ primeiro }} a {{ primeiro + casos|length - 1 }} de {{ total }}</span>
     {{ include('cobranca/carteira/_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
 

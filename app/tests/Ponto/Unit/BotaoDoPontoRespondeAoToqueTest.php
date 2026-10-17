@@ -263,9 +263,16 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 
         // Pré-selecionar sem mostrar trocaria o erro de "não escolheu" pelo de "não percebeu".
         self::assertMatchesRegularExpression(
-            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?Bater Ponto\'\s*\+\s*\(nome\s*\?\s*\' — \'\s*\+\s*nome\s*:\s*\'\'\)/',
+            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?Bater Ponto\'\s*\+\s*\(nome\s*\?\s*\': \'\s*\+\s*nome\s*:\s*\'\'\)/',
             $tela,
             'o rótulo do botão deixou de dizer o tipo escolhido'
+        );
+
+        // Regra do dono (15/10/2026): nada de travessão em texto visível. O rótulo é "Bater Ponto: Saída".
+        self::assertDoesNotMatchRegularExpression(
+            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?[—–]/u',
+            $tela,
+            'o rótulo do botão voltou a usar travessão'
         );
 
         // `liberarBotaoBatida` roda depois de toda falha de envio; se ela reescrever o rótulo sem

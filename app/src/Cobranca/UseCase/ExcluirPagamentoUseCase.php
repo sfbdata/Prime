@@ -119,7 +119,7 @@ final class ExcluirPagamentoUseCase
             $data->format('d/m/Y'),
         );
 
-        return $motivo === null ? $texto : $texto . ' — ' . $motivo;
+        return $motivo === null ? $texto : $texto . '. Motivo: ' . $motivo;
     }
 
     /**

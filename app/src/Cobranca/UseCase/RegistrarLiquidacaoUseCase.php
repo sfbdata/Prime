@@ -72,7 +72,7 @@ final class RegistrarLiquidacaoUseCase
             TipoEventoHistorico::LiquidacaoRegistrada,
             $criadoPor,
             sprintf(
-                'Liquidação registrada: %s — reconhecido %s',
+                'Liquidação registrada: %s, reconhecido %s',
                 $input->tipo->label(),
                 $this->formatarReais($valorReconhecido),
             ),

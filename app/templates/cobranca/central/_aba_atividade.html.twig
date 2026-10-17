@@ -27,7 +27,7 @@
         #}
         <p class="cobranca-central-aviso text-muted small mb-2">
             <i class="bi bi-info-circle me-1"></i>Nenhum trabalho de cobrança registrado no período
-            selecionado. Lançamentos de cadastro e importação não entram nesta conta — a tela mostra o
+            selecionado. Lançamentos de cadastro e importação não entram nesta conta: a tela mostra o
             que a equipe registra, então a linha zerada também pode ser trabalho não registrado.
         </p>
     {% endif %}
@@ -65,7 +65,7 @@
                     <td class="text-end">{{ atividade.totalAcordos }}</td>
                     <td class="text-end">{{ atividade.totalBaixas }}</td>
                     <td class="text-end d-none d-md-table-cell">
-                        {{ atividade.ultimaAcaoDoSetor ? include('cobranca/central/_momento.html.twig', { momento: atividade.ultimaAcaoDoSetor }) : '—' }}
+                        {% if atividade.ultimaAcaoDoSetor %}{{ include('cobranca/central/_momento.html.twig', { momento: atividade.ultimaAcaoDoSetor }) }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}
                     </td>
                 </tr>
 
@@ -91,7 +91,7 @@
                     <td class="text-end">{{ pessoa.acordos }}</td>
                     <td class="text-end">{{ pessoa.baixas }}</td>
                     <td class="text-end d-none d-md-table-cell">
-                        {{ pessoa.ultimaAcao ? include('cobranca/central/_momento.html.twig', { momento: pessoa.ultimaAcao }) : '—' }}
+                        {% if pessoa.ultimaAcao %}{{ include('cobranca/central/_momento.html.twig', { momento: pessoa.ultimaAcao }) }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}
                     </td>
                 </tr>
                 <tr class="js-linha-detalhe cobranca-central-detalhe" id="detalhe-{{ chave }}" hidden>

@@ -42,7 +42,7 @@
                                     </tr>
                                     <tr>
                                         <th><i class="bi bi-folder me-1"></i>Pasta-raiz</th>
-                                        <td>{{ conexao.rootFolderId ?? '—' }}</td>
+                                        <td>{% if (conexao.rootFolderId ?? null) is not null %}{{ conexao.rootFolderId }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
                                     </tr>
                                     <tr>
                                         <th><i class="bi bi-calendar-event me-1"></i>Conectado em</th>

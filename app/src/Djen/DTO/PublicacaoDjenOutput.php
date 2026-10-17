@@ -99,7 +99,7 @@ final class PublicacaoDjenOutput
             'P' => 'Passivo',
             'T' => 'Terceiro interessado',
             'D' => 'Outros',
-            default => '—',
+            default => 'Não informado',
         };
     }
 }

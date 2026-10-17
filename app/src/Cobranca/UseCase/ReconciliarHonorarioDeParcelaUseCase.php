@@ -329,7 +329,7 @@ final class ReconciliarHonorarioDeParcelaUseCase
                 'Honorário retirado de %d parcela(s) de acordo: R$ %s. A correção foi aplicada a partir '
                 . 'de uma lista de obrigações informada na linha de comando, uma a uma. ATENÇÃO: o '
                 . 'sistema NÃO decidiu que estas parcelas não devem cobrar honorário, e isto NÃO é '
-                . 'regra geral — parcela de acordo que ATRASA migra para o relatório de inadimplência '
+                . 'regra geral: parcela de acordo que ATRASA migra para o relatório de inadimplência '
                 . 'da contabilidade, e lá ela cobra encargo normalmente.',
                 count($linhas),
                 number_format($total / 100, 2, ',', '.'),

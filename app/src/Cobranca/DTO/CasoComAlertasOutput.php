@@ -43,10 +43,10 @@ final class CasoComAlertasOutput
         return new self(
             casoId: $c->getId() ?? 0,
             objetoId: $objeto?->getId() ?? 0,
-            objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
+            objetoIdentificacao: $objeto?->getIdentificacao() ?? 'Não informado',
             carteiraId: $carteira?->getId() ?? 0,
-            carteiraNome: $carteira?->getNome() ?? '—',
-            pessoaCobradaNome: $c->getPessoaCobradaAtual()?->getNome() ?? '—',
+            carteiraNome: $carteira?->getNome() ?? 'Não informado',
+            pessoaCobradaNome: $c->getPessoaCobradaAtual()?->getNome() ?? 'Não informado',
             statusLabel: $status->label(),
             statusBadgeClass: $status->badgeClass(),
             alertas: $alertas,

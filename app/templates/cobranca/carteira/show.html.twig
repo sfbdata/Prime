@@ -140,7 +140,7 @@
                                     {% endfor %}
                                 </div>
                                 <div class="cs-frescor-nota">
-                                    A carteira só está em dia até a emissão <strong>mais antiga</strong> — é ela, em
+                                    A carteira só está em dia até a emissão <strong>mais antiga</strong>: é ela, em
                                     vermelho, que define a data do selo.
                                 </div>
                             </div>
@@ -296,10 +296,10 @@
                             <dt>Multa</dt><span class="cs-leader"></span><dd>{{ carteira.multaLabel }}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Vínculo preferido</dt><span class="cs-leader"></span><dd>{{ carteira.tipoVinculoPreferidoLabel|default('—') }}</dd>
+                            <dt>Vínculo preferido</dt><span class="cs-leader"></span><dd>{% if carteira.tipoVinculoPreferidoLabel|default(null) is not empty %}{{ carteira.tipoVinculoPreferidoLabel }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Rótulo do objeto</dt><span class="cs-leader"></span><dd>{{ carteira.rotuloObjeto|default('—') }}</dd>
+                            <dt>Rótulo do objeto</dt><span class="cs-leader"></span><dd>{% if carteira.rotuloObjeto|default(null) is not empty %}{{ carteira.rotuloObjeto }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</dd>
                         </div>
                     </dl>
                 </div>

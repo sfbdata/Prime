@@ -228,7 +228,7 @@ final class CorrigirPastaJudicialDuplicadaUseCase
             TipoEventoHistorico::VinculoPasta,
             $usuario,
             sprintf(
-                'Pasta corrigida: duplicidade com o caso #%d resolvida — %s %s.',
+                'Pasta corrigida: duplicidade com o caso #%d resolvida (%s %s).',
                 $vencedor->getId(),
                 $reaproveitou ? 'vinculado à pasta órfã' : 'nova pasta',
                 $pastaNova->getNup() ?? (string) $pastaNova->getId(),

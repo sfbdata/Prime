@@ -76,7 +76,7 @@ final class CarteiraDetalheOutput
         return new self(
             id: $c->getId() ?? 0,
             nome: $c->getNome(),
-            clienteNome: $cliente !== null ? $cliente->getNomeExibicao() : '—',
+            clienteNome: $cliente !== null ? $cliente->getNomeExibicao() : 'Não informado',
             modoLabel: $c->getModo()->label(),
             formaHonorariosLabel: $c->getFormaHonorarios()->label(),
             percentualHonorarios: $c->getPercentualHonorarios(),

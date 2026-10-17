@@ -34,7 +34,7 @@
                         <td class="align-middle">
                             {{ c.formaHonorariosLabel }}{% if c.percentualHonorarios %} <span class="text-muted">({{ c.percentualHonorarios }}%)</span>{% endif %}
                         </td>
-                        <td class="align-middle text-muted" style="font-size:.82rem;">{{ c.atualizadoEm ? c.atualizadoEm|date('d/m/Y') : '—' }}</td>
+                        <td class="align-middle text-muted" style="font-size:.82rem;">{{ c.atualizadoEm ? c.atualizadoEm|date('d/m/Y') : 'Sem registro' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
