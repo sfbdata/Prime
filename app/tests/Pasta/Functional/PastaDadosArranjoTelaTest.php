@@ -751,4 +751,56 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         self::assertSame('/pasta/documento/' . $doc->getId() . '/visualizar', $linha->attr('href'));
         self::assertSame('_blank', $linha->attr('target'));
     }
+
+    /**
+     * Guia visual BlueJus (04 Tipografia e ícones): o ícone do TIPO de arquivo é o
+     * MESMO da aba Documentos, família `bi-file-earmark-*-fill`, com cor só para o
+     * tipo. A cor sai pela classe `ps-doc-icone--<tipo>` (tokens com par escuro no
+     * pasta-show.css), nunca inline: inline ignoraria o tema escuro e as duas abas
+     * da mesma tela desenhariam o mesmo arquivo com tons diferentes.
+     */
+    #[TestDox('o ícone do documento do trilho é o da aba Documentos (Guia visual)')]
+    public function testIconeDoDocumentoDoTrilhoSegueOGuiaVisual(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        $arquivos = [
+            ['Procuração', 'procuracao.pdf', 'application/pdf'],
+            ['Contrato', 'contrato.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+            ['Custas', 'custas.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        ];
+        foreach ($arquivos as [$titulo, $nome, $mime]) {
+            $doc = new PastaDocumento();
+            $doc->setTitulo($titulo);
+            $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+            $doc->setCaminhoArquivo('uploads/fake/' . $nome);
+            $doc->setNomeOriginal($nome);
+            $doc->setMimeType($mime);
+            $doc->setTamanhoBytes(2048);
+            $doc->setPasta($pasta);
+            $doc->setTenant($tenant);
+            $em->persist($doc);
+            $pasta->addDocumento($doc);
+        }
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $esperado = [
+            'procuracao.pdf' => ['bi-file-earmark-pdf-fill', 'pdf', 'PDF'],
+            'contrato.docx'  => ['bi-file-earmark-word-fill', 'word', 'Word'],
+            'custas.xlsx'    => ['bi-file-earmark-excel-fill', 'excel', 'Planilha'],
+        ];
+        foreach ($esperado as $nome => [$icone, $tipo, $rotulo]) {
+            $span = $crawler->filter('[data-trilho="documentos"] a.ps-doc[data-nome="' . $nome . '"] > span.ps-doc-icone');
+            self::assertCount(1, $span, "{$nome} tem o ícone do tipo");
+            self::assertCount(1, $span->filter('i.bi.' . $icone), "{$nome} usa a família da aba Documentos ({$icone})");
+            self::assertSame($rotulo, $span->attr('title'));
+            self::assertCount(1, $crawler->filter('[data-trilho="documentos"] a.ps-doc[data-nome="' . $nome . '"] > span.ps-doc-icone.ps-doc-icone--' . $tipo), "{$nome} pinta pela classe do tipo '{$tipo}'");
+            self::assertNull($span->attr('style'), "{$nome} sem cor inline: a cor vem do token, que tem par escuro");
+            self::assertCount(0, $span->filter('i[class*="bi-filetype-"]'), "{$nome} não usa a família de contorno (bi-filetype-*), que só csv/html/xml/json mantêm, como no explorador");
+        }
+    }
 }

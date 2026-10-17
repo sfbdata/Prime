@@ -209,6 +209,23 @@
     /* Entradas e switches; o spring fica so no indicador de abas. */
     --ps-ease:          cubic-bezier(.32,.72,0,1);
     --ps-spring:        cubic-bezier(.22,1.2,.28,1);
+
+    /* Cor por TIPO de arquivo (Guia visual 04, Tipografia e icones): os mesmos
+       valores dos `--pex-c-*` do explorador da aba Documentos, que ficam presos a
+       `.pex` e nao alcancam o trilho de Dados nem o Financeiro. Quem pinta e
+       `.ps-doc-icone--<tipo>`; ArquivoIconePadraoFolhaTest confere claro e escuro
+       contra o explorador e contra o helper `arquivo_icone`. */
+    --ps-arquivo-pdf:    #d93a2b;
+    --ps-arquivo-word:   #1f5fbf;
+    --ps-arquivo-excel:  #1d7a46;
+    --ps-arquivo-img:    #7a4bb0;
+    --ps-arquivo-zip:    #b7791f;
+    --ps-arquivo-txt:    #4f6878;
+    --ps-arquivo-slides: #c0571d;
+    --ps-arquivo-midia:  #7a4bb0;
+    --ps-arquivo-email:  #0a7aad;
+    --ps-arquivo-assin:  #1d7a46;
+    --ps-arquivo-outro:  #6b8494;
 }
 
 /* O escuro nao inverte os hex do claro: cada token volta a apontar para o
@@ -376,6 +393,20 @@
     --ps-shadow-pop:    0 10px 30px rgba(0,0,0,.5);
     --ps-shadow-drawer: -14px 0 40px rgba(0,0,0,.55);
     --ps-shadow-hover:  0 6px 18px rgba(0,0,0,.4);
+
+    /* Tipo de arquivo: os tons do explorador no escuro (`--pex-c-*` sob
+       [data-bs-theme="dark"] .pex), para as duas abas baterem. */
+    --ps-arquivo-pdf:    #f0675a;
+    --ps-arquivo-word:   #6ea0ef;
+    --ps-arquivo-excel:  #4fbf7f;
+    --ps-arquivo-img:    #b48ae6;
+    --ps-arquivo-zip:    #e0a443;
+    --ps-arquivo-txt:    #a9b8c2;
+    --ps-arquivo-slides: #ea8a52;
+    --ps-arquivo-midia:  #b48ae6;
+    --ps-arquivo-email:  #45b0d6;
+    --ps-arquivo-assin:  #4fbf7f;
+    --ps-arquivo-outro:  #9fb0ba;
 }
 
 /* O fundo da pagina e do desenho (#eaeef1), nao o bg-body-tertiary do resto do
@@ -1970,9 +2001,22 @@ span.ps-situacao-pill { cursor: default; }
     text-transform: uppercase;
 }
 [data-bs-theme="dark"] .ps-doc-ext { border-color: var(--bs-border-color); }
-/* Icone do TIPO do arquivo (PDF, Word, planilha…): a cor vem do `arquivo_icone`. */
+/* Icone do TIPO do arquivo (PDF, Word, planilha…): icone e tipo vem do `arquivo_icone`. */
 /* 30x30, icone de 30px (desenho: `fi(ext, 30)`, auditoria 2 D3). */
 .ps-doc-icone { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 30px; line-height: 1; }
+/* A cor vem do TIPO (classe), nunca inline: e o que deixa o par escuro dos tokens
+   valer, igual ao `.pex-ico-<tipo>` do explorador. Mesmas chaves nos dois. */
+.ps-doc-icone--pdf    { color: var(--ps-arquivo-pdf); }
+.ps-doc-icone--word   { color: var(--ps-arquivo-word); }
+.ps-doc-icone--excel  { color: var(--ps-arquivo-excel); }
+.ps-doc-icone--img    { color: var(--ps-arquivo-img); }
+.ps-doc-icone--zip    { color: var(--ps-arquivo-zip); }
+.ps-doc-icone--txt    { color: var(--ps-arquivo-txt); }
+.ps-doc-icone--slides { color: var(--ps-arquivo-slides); }
+.ps-doc-icone--midia  { color: var(--ps-arquivo-midia); }
+.ps-doc-icone--email  { color: var(--ps-arquivo-email); }
+.ps-doc-icone--assin  { color: var(--ps-arquivo-assin); }
+.ps-doc-icone--outro  { color: var(--ps-arquivo-outro); }
 .ps-doc-nome {
     font-size: 13px;
     font-weight: 500;

@@ -361,7 +361,7 @@
                            protege; o MIME é o desempate. `iconeDoArquivo` (JS, abaixo) espelha. #}
                         {% set icone = arquivo_icone(doc.titulo, doc.mimeType ?? '') %}
                         <div class="ps-fin-doc" id="financeiro-doc-{{ doc.id }}">
-                            <span class="ps-doc-icone" style="color: {{ icone.cor|e('html_attr') }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
+                            <span class="ps-doc-icone ps-doc-icone--{{ icone.tipo }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
                             <div class="ps-fin-doc-corpo">
                                 <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
                                 <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
@@ -829,32 +829,34 @@
     /**
      * Espelho de `arquivo_icone()` (App\Twig\ArquivoIconeExtension) para os tipos
      * que este upload aceita (PDF, DOC/DOCX, JPEG, PNG), com o mesmo desempate
-     * pelo MIME e o mesmo genérico. Mudou lá, muda aqui.
+     * pelo MIME e o mesmo genérico: [ícone, tipo, rótulo]. A cor sai da classe
+     * `ps-doc-icone--<tipo>` (tokens do pasta-show.css, com par escuro), nunca
+     * inline. Mudou lá, muda aqui (PastaFinanceiroIconeEspelhoFolhaTest avisa).
      */
     function iconeDoArquivo(titulo, mime) {
         const t     = String(titulo);
         const ponto = t.lastIndexOf('.');
         const ext   = ponto > 0 ? t.slice(ponto + 1).toLowerCase() : '';
         const mapa  = {
-            pdf:  ['bi-filetype-pdf',  '#e2564d', 'PDF'],
-            doc:  ['bi-filetype-doc',  '#2b7cd3', 'Word'],
-            docx: ['bi-filetype-docx', '#2b7cd3', 'Word'],
-            png:  ['bi-filetype-png',  '#7b5ea7', 'Imagem'],
-            jpg:  ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
-            jpeg: ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
+            pdf:  ['bi-file-earmark-pdf-fill',   'pdf',  'PDF'],
+            doc:  ['bi-file-earmark-word-fill',  'word', 'Word'],
+            docx: ['bi-file-earmark-word-fill',  'word', 'Word'],
+            png:  ['bi-file-earmark-image-fill', 'img',  'Imagem'],
+            jpg:  ['bi-file-earmark-image-fill', 'img',  'Imagem'],
+            jpeg: ['bi-file-earmark-image-fill', 'img',  'Imagem'],
         };
         const m = String(mime ?? '');
-        const [icone, cor, rotulo] = mapa[ext]
-            ?? (m.startsWith('image/') ? ['bi-file-image', '#7b5ea7', 'Imagem']
-            : m.includes('pdf') ? ['bi-filetype-pdf', '#e2564d', 'PDF']
-            : (m.includes('word') || m.includes('document')) ? ['bi-filetype-doc', '#2b7cd3', 'Word']
-            : ['bi-file-earmark', '#6c757d', 'Arquivo']);
-        return { icone: icone, cor: cor, rotulo: rotulo };
+        const [icone, tipo, rotulo] = mapa[ext]
+            ?? (m.startsWith('image/') ? ['bi-file-earmark-image-fill', 'img', 'Imagem']
+            : m.includes('pdf') ? ['bi-file-earmark-pdf-fill', 'pdf', 'PDF']
+            : (m.includes('word') || m.includes('document')) ? ['bi-file-earmark-word-fill', 'word', 'Word']
+            : ['bi-file-earmark-fill', 'outro', 'Arquivo']);
+        return { icone: icone, tipo: tipo, rotulo: rotulo };
     }
 
     function htmlIconeDoArquivo(titulo, mime) {
         const ic = iconeDoArquivo(titulo, mime);
-        return '<span class="ps-doc-icone" style="color: ' + esc(ic.cor) + '" title="' + esc(ic.rotulo) + '">'
+        return '<span class="ps-doc-icone ps-doc-icone--' + esc(ic.tipo) + '" title="' + esc(ic.rotulo) + '">'
             + '<i class="bi ' + esc(ic.icone) + '"></i></span>';
     }
 

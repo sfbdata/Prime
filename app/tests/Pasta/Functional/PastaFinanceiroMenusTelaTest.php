@@ -164,6 +164,7 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
      * Auditoria 2, F2 (dc ~6549 `fi(ext,30)`): a linha do arquivo mostra o ícone
      * do TIPO, como o trilho de Dados, e não mais a caixinha com a sigla. O título
      * persistido vem em maiúsculas (".PDF"): o ícone tem de reconhecer assim mesmo.
+     * A família é a da aba Documentos e do Guia visual (`bi-file-earmark-*-fill`).
      */
     #[TestDox('a linha do arquivo mostra o ícone do tipo, não a caixinha com a sigla')]
     public function testArquivoMostraIconeDoTipo(): void
@@ -177,11 +178,11 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        $iconePdf = $crawler->filter("#financeiro-docs-lista > #financeiro-doc-{$pdf->getId()} > span.ps-doc-icone > i.bi.bi-filetype-pdf");
+        $iconePdf = $crawler->filter("#financeiro-docs-lista > #financeiro-doc-{$pdf->getId()} > span.ps-doc-icone > i.bi.bi-file-earmark-pdf-fill");
         self::assertCount(1, $iconePdf, 'PDF ganha o ícone de PDF (título gravado: ' . $pdf->getTitulo() . ')');
         self::assertSame('PDF', $crawler->filter("#financeiro-doc-{$pdf->getId()} > .ps-doc-icone")->attr('title'));
 
-        self::assertCount(1, $crawler->filter("#financeiro-docs-lista > #financeiro-doc-{$docx->getId()} > span.ps-doc-icone > i.bi.bi-filetype-docx"));
+        self::assertCount(1, $crawler->filter("#financeiro-docs-lista > #financeiro-doc-{$docx->getId()} > span.ps-doc-icone > i.bi.bi-file-earmark-word-fill"));
 
         self::assertCount(0, $crawler->filter('#financeiro-docs-lista .ps-doc-ext'), 'a caixinha com a sigla saiu');
     }
