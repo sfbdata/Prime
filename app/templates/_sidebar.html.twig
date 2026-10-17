@@ -44,25 +44,28 @@
                     </a>
                 </li>
 
-                {% if can_access_module('processos') %}
+                {# Processos e Push Processual foram UNIFICADOS (16/10, pedido do dono): o cadastro de
+                   processos mora dentro do Push Processual, e as telas de processo acendem este item.
+                   Quem só tem o módulo de processos (sem o Push) não pode perder o caminho até eles:
+                   para esse perfil o item continua sendo "Processos". #}
+                {% if can_access_module('djen') %}
+                    <li class="pje-menu-item">
+                        {# O módulo se chamava DJEN: sem o alias, quem digita "djen" (o termo que os
+                           usuários conhecem, e o que as notificações antigas dizem) não acha nada.
+                           "processos" pelo mesmo motivo: o item Processos saiu do menu. #}
+                        <a href="{{ path('push_processual_index') }}"
+                           data-busca-alias="djen publicações intimações processos"
+                           class="pje-menu-link {{ currentRoute starts with 'push_processual_' or currentRoute starts with 'processo_' ? 'active' : '' }}">
+                            <i class="bi bi-newspaper pje-nav-icon"></i>
+                            <span>Push Processual</span>
+                        </a>
+                    </li>
+                {% elseif can_access_module('processos') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('processo_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'processo_' ? 'active' : '' }}">
                             <i class="bi bi-briefcase pje-nav-icon"></i>
                             <span>Processos</span>
-                        </a>
-                    </li>
-                {% endif %}
-
-                {% if can_access_module('djen') %}
-                    <li class="pje-menu-item">
-                        {# O módulo se chamava DJEN: sem o alias, quem digita "djen" (o termo que os
-                           usuários conhecem, e o que as notificações antigas dizem) não acha nada. #}
-                        <a href="{{ path('push_processual_index') }}"
-                           data-busca-alias="djen publicações intimações"
-                           class="pje-menu-link {{ currentRoute starts with 'push_processual_' ? 'active' : '' }}">
-                            <i class="bi bi-newspaper pje-nav-icon"></i>
-                            <span>Push Processual</span>
                         </a>
                     </li>
                 {% endif %}

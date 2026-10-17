@@ -9,6 +9,9 @@ namespace App\Djen\DTO;
  *
  * Só inclui os parâmetros documentados/confirmados da API — enviar parâmetros desconhecidos
  * (ex.: cpf) faz a consulta falhar. itensPorPagina aceita apenas 5 ou 100 (default 100).
+ *
+ * `numeroProcesso` vai SEM máscara (20 dígitos): é como o DJEN o devolve em `numero_processo`, e
+ * a consulta com esse formato foi conferida contra a API pública em 16/10/2026.
  */
 final class ConsultaComunicacoesQuery
 {
@@ -20,6 +23,7 @@ final class ConsultaComunicacoesQuery
         public readonly ?string $siglaTribunal = null,
         public readonly int $pagina = 1,
         public readonly int $itensPorPagina = 100,
+        public readonly ?string $numeroProcesso = null,
     ) {
     }
 
@@ -41,6 +45,10 @@ final class ConsultaComunicacoesQuery
 
         if ($this->ufOab !== null && $this->ufOab !== '') {
             $params['ufOab'] = $this->ufOab;
+        }
+
+        if ($this->numeroProcesso !== null && $this->numeroProcesso !== '') {
+            $params['numeroProcesso'] = $this->numeroProcesso;
         }
 
         if ($this->siglaTribunal !== null && $this->siglaTribunal !== '') {

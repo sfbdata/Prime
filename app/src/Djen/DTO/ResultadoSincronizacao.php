@@ -16,6 +16,15 @@ final class ResultadoSincronizacao
     private int $vinculadas = 0;
     private int $notificados = 0;
 
+    /** Processos cadastrados consultados com sucesso pelo número CNJ (segunda fonte da captação). */
+    private int $processosConsultados = 0;
+
+    /** Processos que o request não chegou a consultar (limite do DJEN); a captação automática consulta todos. */
+    private int $processosAdiados = 0;
+
+    /** @var list<string> djenId das novas desta execução (a fase de processos do comando parte deles) */
+    private array $djenIdsNovos = [];
+
     /** @var array<string, string> rótulo da OAB => motivo (valor do enum) */
     private array $falhas = [];
 
@@ -27,13 +36,27 @@ final class ResultadoSincronizacao
         $this->recebidas += $quantidade;
     }
 
-    public function registrarNova(bool $vinculada): void
+    public function registrarNova(bool $vinculada, string $djenId = ''): void
     {
         $this->novas++;
+
+        if ($djenId !== '') {
+            $this->djenIdsNovos[] = $djenId;
+        }
 
         if ($vinculada) {
             $this->vinculadas++;
         }
+    }
+
+    public function registrarProcessoConsultado(): void
+    {
+        $this->processosConsultados++;
+    }
+
+    public function registrarProcessosAdiados(int $quantidade): void
+    {
+        $this->processosAdiados += $quantidade;
     }
 
     public function definirNotificados(int $quantidade): void
@@ -57,6 +80,8 @@ final class ResultadoSincronizacao
         $this->novas += $outro->novas;
         $this->vinculadas += $outro->vinculadas;
         $this->notificados += $outro->notificados;
+        $this->processosConsultados += $outro->processosConsultados;
+        $this->processosAdiados += $outro->processosAdiados;
 
         foreach ($outro->falhas as $rotulo => $motivo) {
             $this->falhas[$rotulo] = $motivo;
@@ -83,6 +108,22 @@ final class ResultadoSincronizacao
     public function getNotificados(): int
     {
         return $this->notificados;
+    }
+
+    public function getProcessosConsultados(): int
+    {
+        return $this->processosConsultados;
+    }
+
+    /** @return list<string> */
+    public function getDjenIdsNovos(): array
+    {
+        return $this->djenIdsNovos;
+    }
+
+    public function getProcessosAdiados(): int
+    {
+        return $this->processosAdiados;
     }
 
     public function getAvulsas(): int
@@ -112,7 +153,7 @@ final class ResultadoSincronizacao
 
     public function resumo(): string
     {
-        return sprintf(
+        $resumo = sprintf(
             '%d nova(s) publicação(ões) (%d vinculada(s), %d avulsa(s)) de %d recebida(s); %d notificação(ões).',
             $this->novas,
             $this->vinculadas,
@@ -120,5 +161,18 @@ final class ResultadoSincronizacao
             $this->recebidas,
             $this->notificados,
         );
+
+        if ($this->processosConsultados > 0) {
+            $resumo .= sprintf(' %d processo(s) cadastrado(s) consultado(s) pelo número.', $this->processosConsultados);
+        }
+
+        if ($this->processosAdiados > 0) {
+            $resumo .= sprintf(
+                ' %d processo(s) não foram consultados agora (limite de consultas do DJEN); a captação automática diária consulta todos.',
+                $this->processosAdiados,
+            );
+        }
+
+        return $resumo;
     }
 }

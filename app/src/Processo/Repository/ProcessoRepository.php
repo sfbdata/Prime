@@ -51,6 +51,46 @@ class ProcessoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Números dos processos que o Push Processual acompanha por número: todos os cadastrados no
+     * escritório que ainda não deram baixa (processo baixado não recebe publicação nova), do mais
+     * recente ao mais antigo: no botão, que roda dentro do limite do DJEN, o recém-cadastrado vem
+     * primeiro.
+     *
+     * Escopado pelo tenant explícito: roda também no comando de captação, onde o TenantFilter
+     * está desligado.
+     *
+     * @return list<string>
+     */
+    public function listarNumerosAcompanhadosDoTenant(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.numeroProcesso')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.dataBaixa IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map('strval', $linhas));
+    }
+
+    /**
+     * Quantos processos o Push Processual acompanha por número (mesmo critério de
+     * `listarNumerosAcompanhadosDoTenant`). Alimenta o botão da tela do módulo.
+     */
+    public function contarAcompanhadosDoTenant(Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.dataBaixa IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
      * Busca por número escopada explicitamente ao tenant (não depende do filtro de sessão).
      */
     public function findByNumeroProcessoDoTenant(string $numeroProcesso, Tenant $tenant): ?Processo
