@@ -194,8 +194,10 @@ A base de cada frente é definida pelo **script**, não pelo `worktree.baseRef`:
 `scripts/frente-abrir.sh` faz `git worktree add ... origin/master` explicitamente. Por isso o
 setting continua `head` (que o fan-out precisa) sem prejudicar as frentes.
 
-Registro obrigatório: `docs/frentes-ativas.md`. É o que permite duas sessões saberem uma da
-outra. Fatos medidos do ambiente: `docs/worktrees-frentes-paralelas.md`.
+Como duas sessões sabem uma da outra: `gh pr list` ao começar e o check "Aviso de sobreposição"
+em cada PR (regras em CLAUDE.md, "Várias sessões ao mesmo tempo"). O registro em
+`docs/frentes-ativas.md` ficou **opcional** desde 18/10/2026: ele próprio conflitava entre PRs.
+Fatos medidos do ambiente: `docs/worktrees-frentes-paralelas.md`.
 
 ```bash
 scripts/frente-abrir.sh <nome>          # worktree + vendor + uploads + banco de teste isolado

@@ -122,3 +122,48 @@ class Bloqueado(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TrazerOMasterParaABranch(unittest.TestCase):
+    """`git merge origin/master` só numa branch de trabalho: atualizar a frente antes do merge do PR."""
+
+    @classmethod
+    def setUpClass(cls):
+        import tempfile
+        cls.dir = pathlib.Path(tempfile.mkdtemp())
+        for nome, branch in (('frente', 'minha-frente'), ('principal', 'master')):
+            d = cls.dir / nome
+            subprocess.run(['git', 'init', '-q', '-b', branch, str(d)], check=True)
+        cls.frente = str(cls.dir / 'frente')
+        cls.principal = str(cls.dir / 'principal')
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(cls.dir)
+
+    def roda_em(self, comando, cwd):
+        entrada = json.dumps({'tool_input': {'command': comando}, 'cwd': cwd})
+        return subprocess.run([sys.executable, str(HOOK)], input=entrada, text=True,
+                              capture_output=True).returncode
+
+    def test_liberado_na_branch_de_trabalho(self):
+        for c in ['git merge origin/master', 'git merge --no-edit origin/master', 'git merge -q --no-edit origin/master',
+                  'git fetch -q origin && git merge --no-edit origin/master', 'git merge --abort', 'git merge --continue']:
+            with self.subTest(c):
+                self.assertEqual(self.roda_em(c, self.frente), 0, c)
+        self.assertEqual(self.roda_em(f'git -C {self.frente} merge --no-edit origin/master', self.principal), 0)
+
+    def test_bloqueado_no_master(self):
+        self.assertEqual(self.roda_em('git merge origin/master', self.principal), 2)
+        self.assertEqual(self.roda_em(f'git -C {self.principal} merge origin/master', self.frente), 2)
+
+    def test_bloqueado_outro_alvo_ou_forma(self):
+        for c in ['git merge minha-outra-branch', 'git merge origin/release/proxima', 'git merge --squash origin/master',
+                  'git merge -X theirs origin/master', 'git merge --no-verify origin/master', 'git merge origin/master outra',
+                  'cd /outro && git merge origin/master']:
+            with self.subTest(c):
+                self.assertEqual(self.roda_em(c, self.frente), 2, c)
+
+    def test_sem_cwd_falha_fechado(self):
+        self.assertEqual(roda('git merge origin/master'), 2)

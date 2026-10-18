@@ -1,0 +1,68 @@
+# Aviso de sobreposição entre PRs abertos: NUNCA bloqueia, só avisa no resumo do check.
+#
+# Para cada PR, lista os outros PRs abertos que mexem nos mesmos arquivos, destaca os arquivos
+# "quentes" (layout base, menu, CSS global, config, dependências, workflows, migrations) e diz se a
+# branch está atrás do master. É o aviso cedo do conflito que, sem ele, só aparece na hora do merge.
+# Regras de convivência entre sessões: CLAUDE.md, "Várias sessões ao mesmo tempo".
+
+name: Sobreposição
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: sobreposicao-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sobreposicao:
+    name: Aviso de sobreposição
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Comparar com os outros PRs abertos
+        run: |
+          export LC_ALL=C   # sort e comm na mesma ordem (com a do idioma, o comm perde coincidências)
+          quente='^(app/templates/base\.html\.twig|app/templates/_sidebar\.html\.twig|app/public/css/[^/]+\.css|app/config/[^/]+\.yaml|app/config/packages/|app/composer\.(json|lock)|\.github/workflows/|CLAUDE\.md|app/migrations/)'
+          arquivos() { gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$1/files?per_page=100" -q '.[].filename' | sort -u; }
+          meus="$(arquivos "$PR")"
+          {
+            echo "## Sobreposição com outros PRs abertos"
+            atras="$(gh api "repos/$GITHUB_REPOSITORY/compare/master...$HEAD_SHA" -q .behind_by 2>/dev/null || true)"
+            if [[ "$atras" =~ ^[0-9]+$ && "$atras" -gt 0 ]]; then
+              echo "- Esta branch está **$atras commit(s) atrás do master**: traga o master (\`git merge --no-edit origin/master\`) e rode os testes de novo antes do merge."
+            fi
+            achou=0
+            while read -r outro titulo; do
+              [[ -n "$outro" && "$outro" != "$PR" ]] || continue
+              comuns="$(comm -12 <(echo "$meus") <(arquivos "$outro"))"
+              [[ -n "$comuns" ]] || continue
+              achou=1
+              echo "- **#$outro** ($titulo) mexe nos mesmos arquivos:"
+              while read -r f; do
+                if [[ "$f" =~ $quente ]]; then echo "  - \`$f\` ⚠️ arquivo quente"; else echo "  - \`$f\`"; fi
+              done <<< "$comuns"
+              echo "::warning::PR #$outro mexe em arquivos deste PR: $(echo "$comuns" | tr '\n' ' ')"
+            done < <(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number,title -q '.[] | "\(.number) \(.title)"')
+            if grep -qE '^app/migrations/' <<< "$meus"; then
+              outros_com_migration="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number,files -q \
+                "[.[] | select(.number != $PR) | select(any(.files[]; .path | startswith(\"app/migrations/\"))) | \"#\(.number)\"] | join(\", \")")"
+              [[ -z "$outros_com_migration" ]] || echo "- Este PR tem migration, e também: $outros_com_migration. Mergeie um, traga o master no outro e teste de novo."
+            fi
+            [[ "$achou" == 1 ]] || echo "Nenhum outro PR aberto mexe nos mesmos arquivos."
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
