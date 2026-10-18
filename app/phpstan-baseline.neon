@@ -379,12 +379,6 @@ parameters:
 			path: src/Controller/TarefaController.php
 
 		-
-			message: '#^Call to method App\\Repository\\UserRepository\<App\\Entity\\Auth\\User\>\:\:findOneBy\(\) \- entity App\\Entity\\Auth\\User does not have a field named \$tenantRole\.$#'
-			identifier: doctrine.findOneByArgument
-			count: 1
-			path: src/Controller/TenantController.php
-
-		-
 			message: '#^Method App\\Controller\\TenantController\:\:calcularCargaDiaria\(\) is unused\.$#'
 			identifier: method.unused
 			count: 1

@@ -222,7 +222,7 @@
     "Controller/TenantController.php::aprovarTodosJustificativas": 63,
     "Controller/TenantController.php::deleteSede": 64,
     "Controller/TenantController.php::downloadAnexoJustificativa": 54,
-    "Controller/TenantController.php::edit": 106,
+    "Controller/TenantController.php::edit": 71,
     "Controller/TenantController.php::editSede": 59,
     "Controller/TenantController.php::editUserName": 54,
     "Controller/TenantController.php::editUserRole": 284,
