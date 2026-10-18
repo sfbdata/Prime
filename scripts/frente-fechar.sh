@@ -107,5 +107,6 @@ Encerrar a frente depois de integrada:
 
   git worktree remove "$worktree"
   git branch -d $nome                  # -d recusa branch nao integrada; nunca use -D
+  scripts/testar-paralelo.sh $nome --limpar   # apaga os bancos e temporarios do ParaTest, se houver
   # e tire a linha dela de docs/frentes-ativas.md
 FIM

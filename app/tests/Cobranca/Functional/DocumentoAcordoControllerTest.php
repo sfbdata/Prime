@@ -207,7 +207,7 @@ final class DocumentoAcordoControllerTest extends CobrancaWebTestCase
 
     protected function tearDown(): void
     {
-        $dir = __DIR__ . '/../../../var/uploads-test/cobrancas';
+        $dir = __DIR__ . '/../../../var/uploads-test' . getenv('TESTE_PROCESSO') . '/cobrancas';
         if (is_dir($dir)) {
             $it = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),

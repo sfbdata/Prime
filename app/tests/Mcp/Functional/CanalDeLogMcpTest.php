@@ -50,7 +50,8 @@ final class CanalDeLogMcpTest extends KernelTestCase
         self::bootKernel();
         $container = self::getContainer();
 
-        $arquivoLog = $container->getParameter('kernel.logs_dir') . '/mcp_test.log';
+        // O sufixo é o do processo do ParaTest (vazio na execução serial), o mesmo do monolog.yaml.
+        $arquivoLog = $container->getParameter('kernel.logs_dir') . '/mcp_test' . (string) getenv('TESTE_PROCESSO') . '.log';
         @unlink($arquivoLog);
 
         // Logger tirado do container de verdade (mesmo serviço que o teste acima prova estar

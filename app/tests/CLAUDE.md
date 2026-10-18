@@ -82,6 +82,17 @@ $cliente = ClienteFactory::createOne(['nome' => 'Teste Ltda']);
 
 Medir: `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --coverage-text'`.
 
+## Rodar em paralelo (ParaTest)
+
+`scripts/testar-paralelo.sh [frente] [-p N]` roda a suíte em N processos (padrão 6). A serial
+(`php bin/phpunit`, `scripts/frente-testar.sh`) continua sendo a referência; o CI não usa o paralelo.
+
+Cada processo tem banco, uploads, logs e temporários próprios (`tests/Shared/Paralelo/ProcessoDeTesteParalelo`).
+Teste novo que grava fora do banco não pode montar caminho fixo: use o parâmetro do container
+(`uploads_dir`, `cobrancas_uploads_dir`...), `kernel.logs_dir` com o sufixo `getenv('TESTE_PROCESSO')`
+e `sys_get_temp_dir()`. Os ids se repetem entre processos (cada banco recomeça as sequências), então
+nada fora do banco pode ser compartilhado por id de tenant.
+
 ## Geradores (`make:factory`, `make:test`) — servem, mas gravam no lugar errado
 
 - `make:factory` **precisa** de `--test`; sem o flag grava em `src/Factory/`. O lugar aqui é `tests/Factory/<Dominio>/`.

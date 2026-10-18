@@ -70,6 +70,12 @@ dbname_suffix: '_test%env(default::TEST_TOKEN)%'
 
 Ou seja, `TEST_TOKEN=central` → banco `saas_testcentral`, isolado, sem nenhuma mudança de código.
 
+No ParaTest (`scripts/testar-paralelo.sh`), o `TEST_TOKEN` de cada processo vira `<frente>_P<n>`: o
+ParaTest numera os processos (1..N) e o `tests/bootstrap.php` junta o número com a frente, que o
+script passa em `TEST_FRENTE`. Banco do processo 3 da frente `central`: `saas_testcentral_P3`. O `P`
+maiúsculo é o que evita colisão: nome de frente só tem minúsculas, então o banco de um processo nunca
+é o banco serial de outra frente. Fora do ParaTest o `TEST_TOKEN` continua sendo o nome da frente.
+
 **Evidência de que o problema é real:** o Postgres de dev já tem `saas_test`, `saas_testwt`, `saas_testint` e
 `saas_testf2` — sessões anteriores contornaram isso na mão, sem registrar.
 
@@ -129,6 +135,8 @@ Não foi construído nada disto ainda. É a recomendação que saiu da investiga
 - **`scripts/frente-abrir.sh <nome>`** — worktree a partir do master atual + banco de teste isolado + migrações +
   registro. Se a frente mexer em schema, também escreve o `.env.local` com banco de dev próprio.
 - **`scripts/frente-testar.sh <nome>`** — fixa caminho e `TEST_TOKEN`; existe para eliminar o verde falso de 3.1.
+- **`scripts/testar-paralelo.sh [nome] [-p N]`**: a mesma suíte com o ParaTest, N processos com banco
+  (clonado do banco da frente), uploads, logs e temporários próprios. `--limpar` apaga os clones.
 - **`scripts/frente-fechar.sh <nome>`** — ritual de §4 + suíte; **para antes do merge** e entrega o comando ao
   humano (merge/push/deploy seguem sendo dele).
 - **`docs/frentes-ativas.md`** — registro com domínio, se tem migração, arquivos compartilhados tocados e estágio.

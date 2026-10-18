@@ -100,6 +100,7 @@
         }
     },
     "require-dev": {
+        "brianium/paratest": "^7.8",
         "dama/doctrine-test-bundle": "^8.6",
         "doctrine/doctrine-fixtures-bundle": "^4.3",
         "phpunit/phpunit": "^11.5",
