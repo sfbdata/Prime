@@ -386,6 +386,15 @@
                                     </li>
                                     <li><hr class="dropdown-divider my-0"></li>
                                     <li>
+                                        {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
+                                        <a href="{{ path('novidades_index') }}"
+                                           class="dropdown-item d-flex align-items-center gap-2"
+                                           data-novidades-versao="{{ novidades_mais_recente()|e('html_attr') }}">
+                                            <i class="bi bi-stars"></i> Novidades
+                                            <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">novo</span>
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a href="{{ path('legal_politica_privacidade') }}"
                                            class="dropdown-item d-flex align-items-center gap-2"
                                            target="_blank" rel="noopener">
@@ -695,6 +704,7 @@
             })();
         </script>
 
+        <script src="{{ asset('js/novidades.js') }}" defer></script>
         {% block javascripts %}{% endblock %}
         {#
             SCRIPT CONFLITANTE REMOVIDO.

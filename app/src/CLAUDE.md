@@ -18,6 +18,7 @@ Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository
 | Perfil do usuário | `src/Profile/` | ativo |
 | Central de Comunicação | `src/Central/` | ativo (A1: conversas 1:1 · A2: menção, resposta, menus · B: grupos, preferências) |
 | Master (painel do sistema) | `src/Master/` | ativo (E2: Painel do Master só leitura, fontes públicas IBGE/OAB; exclusivo de `ROLE_SUPER_ADMIN`) |
+| Novidades (página global de versões) | `src/Novidades/` | ativo (lê `config/novidades.yaml`, escrito pelo robô do PR de release; sem tenant) |
 | Compartilhado | `src/Shared/` | ativo |
 | Ponto | `src/Entity/Ponto/` | legado — migrar para `src/Ponto/` |
 | Agenda | `src/Entity/Agenda/` | legado — migração planejada (`src/Agenda/` ainda não criado) |
@@ -41,6 +42,7 @@ Dados específicos de cada domínio. Use ao criar/editar arquivos em
 | Profile | `App\Profile` | `profile` | `app_profile_` |
 | Central | `App\Central` | _(vínculo ativo, sem módulo)_ | `central_` |
 | Master | `App\Master` | _(`ROLE_SUPER_ADMIN`, sem módulo)_ | `master_` |
+| Novidades | `App\Novidades` | _(qualquer usuário logado)_ | `novidades_` |
 | Shared | `App\Shared` | _(transversal)_ | _(N/A)_ |
 
 ## Refatorando código legado
