@@ -80,9 +80,12 @@ fi
 if [[ "${1:-}" != --filho ]]; then
     mkdir -p "$LOGS"
     log="$LOGS/$(date -u +%Y%m%dT%H%M%SZ)-${2:-sem-tag}-${1:-sem-modo}.log"
-    setsid bash "$0" --filho "$@" > "$log" 2>&1 < /dev/null &
+    # O log nasce ANTES do filho: senão o tail às vezes abre o arquivo antes de ele existir, falha,
+    # e (com set -e) o pai sai com erro enquanto o deploy segue sozinho em segundo plano.
+    : > "$log"
+    setsid bash "$0" --filho "$@" >> "$log" 2>&1 < /dev/null &
     filho=$!
-    tail -n +1 -f --pid="$filho" "$log"
+    tail -n +1 -f --pid="$filho" "$log" || true   # mostrar o log é cortesia; quem decide é o wait
     wait "$filho"
     exit $?
 fi
