@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.2.2] - 2026-10-18
+
+### Corrigido
+
+- Central: o aviso resolvido sai da Caixa 30 minutos depois da baixa mesmo com a Central aberta e parada; com a lista à vista, ela se redesenha a cada minuto (sem nova consulta ao servidor) e o "sai da caixa em N min" deixa de congelar.
+
 ## [2.2.1] - 2026-10-18
 
 ### Corrigido
@@ -137,7 +143,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.2.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.2.2...HEAD
+[2.2.2]: https://github.com/sfbdata/Prime/compare/v2.2.1...v2.2.2
 [2.2.1]: https://github.com/sfbdata/Prime/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/sfbdata/Prime/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/sfbdata/Prime/compare/v2.0.0...v2.1.0
