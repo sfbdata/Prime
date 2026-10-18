@@ -57,11 +57,14 @@ final class <Acao><Nome>UseCase
 
     public function executar(<Nome>Input $input): <Nome>Output
     {
-        // 1. buscar entidades necessárias
-        // 2. aplicar regras de negócio / chamar métodos da entidade
-        // 3. persistir
-        // 4. retornar DTO de saída
+        $entidade = $this->carregarDoEscritorio($input);   // buscar o que precisa
+        $this->exigirRegraDoNegocio($entidade, $input);     // validar / aplicar a regra
+        $this->repository->salvar($entidade, flush: true);  // persistir
+
+        return <Nome>Output::fromEntity($entidade);         // devolver o DTO de saída
     }
+
+    // cada passo é um método privado com nome do negócio (ver "Tamanho e organização de método")
 }
 ```
 
@@ -107,3 +110,16 @@ if ($entidade->getTenant() !== $usuarioAtual->getTenant()) {
 - UseCases de comando (criar/atualizar/deletar): retornam DTO de saída ou `void`
 - UseCases de query (buscar): retornam DTO de saída ou coleção de DTOs
 - **Nunca retornar entidade Doctrine diretamente para o controller**
+
+## Tamanho e organização de método
+
+- **Meta: ~20 linhas por método.** O CI reprova acima de 40 (`tests/Arquitetura/MetodoLongoArquiteturaTest`,
+  contado do `function` ao `}`; docblock e atributos não contam). 40 é o limite, não a meta.
+- **Um método, um nível de abstração.** O método público conta a história chamando métodos privados com
+  nome do negócio; o detalhe mora no privado.
+- **Bloco que precisa de comentário para ser entendido vira método**, e o comentário vira o nome dele.
+- **Método legado longo** (está em `tests/Arquitetura/metodos-longos-tolerados.json`): pode crescer no
+  máximo 5 linhas sobre o número da lista, no total. O código novo vai para um método privado novo; não
+  reescreva o legado sem liberação. Mover para o domínio é trocar a chave no JSON com o mesmo número.
+- `executar()` narra os passos (carregar → validar → aplicar a regra → persistir → montar a saída), cada um num privado: `carregarPastaDoEscritorio()`, `exigirPrazoAberto()`. O closure de transação chama esses privados; não guarda a regra inteira dentro dele.
+

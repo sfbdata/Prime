@@ -48,7 +48,9 @@ final class <Nome>Test extends TestCase
 
 - Usar atributos PHPUnit: `#[DataProvider]`, `#[CoversClass]`, `#[Group]`, `#[TestDox]`
 - **Nunca mockar `EntityManager` diretamente** — crie uma interface e mocke ela
-- **Nunca mockar o que não é seu** — só mockar abstrações próprias (interfaces do domínio)
+- **Nunca mockar o que não é seu** — só mockar abstrações próprias. O repository do domínio (`XRepository`) é
+  nosso e pode ser mockado no teste de UseCase; `EntityManager`, `ServiceEntityRepository` genérico e classes de
+  terceiros, não. A query em si se prova em teste de integração.
 - DAMA/DoctrineTestBundle para rollback automático em testes funcionais
 - Mocks com PHPUnit nativo: `createMock()`, `createStub()` — não usar Prophecy
 

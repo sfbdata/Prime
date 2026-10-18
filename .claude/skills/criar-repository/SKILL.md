@@ -20,7 +20,7 @@ use App\<Dominio>\Entity\<Nome>;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
-final class <Nome>Repository extends ServiceEntityRepository
+class <Nome>Repository extends ServiceEntityRepository  // sem `final`: é mockado nos testes de UseCase
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -67,6 +67,10 @@ final class <Nome>Repository extends ServiceEntityRepository
      ->setParameter('tenant', $tenant);
   ```
 - Nomes de métodos pelo negócio: `buscarAtivosDoTenant()`, `listarPorCliente()` — nunca `getData()`
+- **Sem `final`** (exceção à regra geral, como as entidades): o teste unitário do UseCase mocka o repository do
+  domínio, e mock de classe final quebra. Os 6 que estendem `ServiceEntityRepository` e já são `final` ficam como estão: não
+  padronize o legado. Mock de repository não prova a query: DQL nova se prova em teste de integração
+  (`KernelTestCase` + DAMA).
 
 ## Paginação obrigatória em listagens
 
@@ -106,6 +110,18 @@ public function listarResumido(Tenant $tenant): array
 | Query estática simples | DQL |
 | Features PG específicas (CTE, tsvector, GIN) | DBAL raw SQL |
 | Listagem para view | DQL `NEW` com DTO |
+
+## Tamanho e organização de método
+
+- **Meta: ~20 linhas por método.** O CI reprova acima de 40 (`tests/Arquitetura/MetodoLongoArquiteturaTest`,
+  contado do `function` ao `}`; docblock e atributos não contam). 40 é o limite, não a meta.
+- **Um método, um nível de abstração.** O método público conta a história chamando métodos privados com
+  nome do negócio; o detalhe mora no privado.
+- **Bloco que precisa de comentário para ser entendido vira método**, e o comentário vira o nome dele.
+- **Método legado longo** (está em `tests/Arquitetura/metodos-longos-tolerados.json`): pode crescer no
+  máximo 5 linhas sobre o número da lista, no total. O código novo vai para um método privado novo; não
+  reescreva o legado sem liberação. Mover para o domínio é trocar a chave no JSON com o mesmo número.
+- Um método público por consulta. Filtro reaproveitado vira privado que recebe e devolve o `QueryBuilder` (`aplicarFiltroDeStatus($qb, $status)`), em vez de crescer um `findByFilters` com um `if` por chave.
 
 ## Geradores — o repositório nasce junto com a entidade, e nós não usamos o gerador
 

@@ -117,3 +117,16 @@ final class CriarClienteInput
 A validação `#[Assert\...]` no DTO é chamada automaticamente pelo Symfony Form ou `#[MapRequestPayload]`. O UseCase recebe dados **já validados** — não revalida o que o DTO já garantiu.
 
 Validações de negócio que dependem de estado persistido (ex.: "CPF já existe") ficam no UseCase, não no DTO.
+
+## Tamanho e organização de método
+
+- **Meta: ~20 linhas por método.** O CI reprova acima de 40 (`tests/Arquitetura/MetodoLongoArquiteturaTest`,
+  contado do `function` ao `}`; docblock e atributos não contam). 40 é o limite, não a meta.
+- **Um método, um nível de abstração.** O método público conta a história chamando métodos privados com
+  nome do negócio; o detalhe mora no privado.
+- **Bloco que precisa de comentário para ser entendido vira método**, e o comentário vira o nome dele.
+- **Método legado longo** (está em `tests/Arquitetura/metodos-longos-tolerados.json`): pode crescer no
+  máximo 5 linhas sobre o número da lista, no total. O código novo vai para um método privado novo; não
+  reescreva o legado sem liberação. Mover para o domínio é trocar a chave no JSON com o mesmo número.
+- `fromEntity()` grande se divide por grupo de campos em privados estáticos (`camposDoCliente($c)`) ou em DTOs aninhados, em vez de um array de 40 linhas.
+
