@@ -221,7 +221,7 @@ final class ConsultasDoPainelTest extends KernelTestCase
         $this->vinculo($titular, $a, $sistemaA, $lotacao);
         $this->vinculo($titular, $b, $secB, null);
 
-        $secundario = $this->pessoa('sec.painel@teste.com', 'Secundario Painel', '0012.044', 'df', StatusOab::NaoVerificada, (new \DateTimeImmutable('-26 years -10 days'))->format('Y-m-d'));
+        $secundario = $this->pessoa('sec.painel@teste.com', 'Secundario Painel', '0012044', 'DF', StatusOab::NaoVerificada, (new \DateTimeImmutable('-26 years -10 days'))->format('Y-m-d'));
         $this->vinculo($secundario, $a, $secA, null);
 
         $semLocal = $this->pessoa('semlocal.painel@teste.com', 'Sem Local', null, null, null, null);
