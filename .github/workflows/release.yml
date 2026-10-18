@@ -240,5 +240,9 @@ jobs:
     with:
       tag: v${{ needs.decidir.outputs.versao }}
       simulacao: ${{ vars.DEPLOY_AUTOMATICO != 'ligado' }}
-    # Sem `secrets: inherit`: os segredos da VPS são do AMBIENTE production, que o job do Deploy
-    # referencia; nada do repositório precisa descer para ele.
+    # `secrets: inherit` é obrigatório: sem ele, o job do Deploy chamado daqui recebe VAZIOS os
+    # segredos do ambiente production, mesmo declarando `environment: production` (medido no
+    # Release da v2.1.0, 18/10/2026: "Segredo VPS_HOST ausente"). Disparado direto (Run workflow),
+    # o Deploy os recebe normalmente. O repositório não tem segredo próprio: o que desce são só os
+    # do ambiente, e só o job que entra em production os enxerga.
+    secrets: inherit  # zizmor: ignore[secrets-inherit]
