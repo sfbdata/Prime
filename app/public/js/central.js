@@ -520,21 +520,12 @@
             });
         }
 
-        // ── F3: preferências deste navegador lidas/gravadas no mesmo lugar do lançador; resolvidas; ações do ⋮ ──────
-        function guardarPreferencia(chave, valor) {
-            var p = prefsGuardadas();
-            p[chave] = valor;
-            try { window.localStorage.setItem('bj-central-prefs:' + (raiz.dataset.euId || '0'), JSON.stringify(p)); } catch (e) { /* sem armazenamento */ }
-            raiz.dispatchEvent(new CustomEvent('bj-central:prefs-gravadas'));   // o lançador relê
-        }
-
-        function janelaDasResolvidas() {   // RES_JANELA, L91: 1 h, 1 dia (padrão) ou 1 semana
-            var h = prefsGuardadas().resJanelaH;
-            return [1, 24, 168].indexOf(h) !== -1 ? h : 24;
-        }
+        // ── F3: resolvidas; ações do ⋮ ──────────────────────────────────────────────
+        // RES_JANELA, L91: o desenho deixava escolher 1 h, 1 dia ou 1 semana; o dono fixou 30 min para todos (18/10).
+        var JANELA_DAS_RESOLVIDAS_MS = 30 * 60000;
 
         function idadeDaBaixa(a) {   // resIdade, L92: 0 (agora) a 1 (fim da janela)
-            return a.resolvidoEm ? (Date.now() - new Date(a.resolvidoEm).getTime()) / (janelaDasResolvidas() * 3600000) : 0;
+            return a.resolvidoEm ? (Date.now() - new Date(a.resolvidoEm).getTime()) / JANELA_DAS_RESOLVIDAS_MS : 0;
         }
 
         function resolvidaExpirada(a) {   // resExpirada, L93
@@ -581,7 +572,8 @@
             caixa.appendChild(criar('b', 'bj-central-ajuda-titulo', 'Como funciona'));
             ['Caixa de entrada: suas conversas e os avisos do sistema (metas, menções, publicações, agenda), do mais recente ao mais antigo. Clique para ir direto ao local.',
              'Conversas: pesquise um colega pelo nome ou abra a lista em ⋮ → Nova conversa. Digite @ para mencionar alguém.',
-             'Botão direito numa mensagem, conversa ou aviso: responder, copiar, mencionar, fixar, silenciar, arquivar, marcar como lida ou não lida e dar baixa.',
+             'Botão direito numa mensagem, conversa ou aviso: responder, copiar, mencionar, fixar, silenciar, arquivar, marcar como lida ou não lida, dar baixa e excluir.',
+             'Resolvidas saem da caixa 30 minutos depois da baixa. Excluir limpa só a sua caixa: ninguém mais perde nada.',
              'Painel: o que está em aberto por tipo e por pessoa da equipe. Clique numa pessoa para conversar.',
              'Destacar: leva a Central para uma janela própria, que pode ir para outro monitor.',
              'Fechar a central não marca nada como lido.'].forEach(function (t) { caixa.appendChild(criar('div', null, t)); });
@@ -612,7 +604,13 @@
                 .catch(falhaDeAcao);
         }
 
-        function menuDoAviso(a, x, y, origem) {   // menuNotif: abrir, resolver/reabrir, lida/não lida
+        function excluirAviso(a) {   // L5586: limpa a MINHA caixa; a meta, a pasta ou a menção de origem não mudam
+            pedir(urls.avisos + '/' + a.id + '/excluir', { metodo: 'POST', corpo: {} })
+                .then(function () { avisar('Notificação excluída.'); return Promise.all([carregarAvisos(), verificarNovidades()]); })
+                .catch(falhaDeAcao);
+        }
+
+        function menuDoAviso(a, x, y, origem) {   // menuNotif: abrir, resolver/reabrir, lida/não lida, excluir
             var itens = [{ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir', acao: function () { abrirAviso(a); } }];
             itens.push(a.resolvidoEm
                 ? { icone: 'bi-arrow-counterclockwise', rotulo: 'Reabrir', acao: function () { resolverAviso(a, false); } }
@@ -620,6 +618,7 @@
             itens.push(a.lido
                 ? { icone: 'bi-circle-fill', rotulo: 'Marcar como não lida', corIcone: '#3b6e8f', acao: function () { marcarAviso(a, false); } }
                 : { icone: 'bi-check2', rotulo: 'Marcar como lida', acao: function () { marcarAviso(a, true); } });
+            itens.push({ icone: 'bi-trash3', rotulo: 'Excluir', perigo: true, acao: function () { excluirAviso(a); } });   // L5586
             abrirMenu(itens, x, y, origem);
         }
 
@@ -658,9 +657,9 @@
             corpo.appendChild(criar('span', 'bj-central-aviso-titulo', a.titulo));
             if (a.texto && !ok) { corpo.appendChild(criar('span', 'bj-central-aviso-texto', a.texto)); }
             if (ok) {   // L5626: "Baixa por Você · quando · sai da caixa em N h"
-                var h = Math.ceil((janelaDasResolvidas() * 3600000 - (Date.now() - new Date(a.resolvidoEm).getTime())) / 3600000);
+                var resta = JANELA_DAS_RESOLVIDAS_MS - (Date.now() - new Date(a.resolvidoEm).getTime());
                 corpo.appendChild(criar('span', 'bj-central-aviso-baixa', 'Baixa por Você · ' + quando(a.resolvidoEm)
-                    + (resolvidaExpirada(a) ? '' : ' · sai da caixa ' + (h <= 1 ? 'em menos de 1 h' : 'em ' + h + ' h'))));
+                    + (resolvidaExpirada(a) ? '' : ' · sai da caixa ' + (resta < 60000 ? 'em menos de 1 min' : 'em ' + Math.ceil(resta / 60000) + ' min'))));
             }
             c.appendChild(corpo);
             // Baixa rápida (L5628): aparece ao passar o cursor ou no foco.
@@ -1374,7 +1373,7 @@
             var caixa = criar('div', 'bj-central-ctx');
             caixa.setAttribute('role', 'menu');
             itens.forEach(function (it) {
-                var b = criar('button', 'bj-central-ctx-item');
+                var b = criar('button', 'bj-central-ctx-item' + (it.perigo ? ' bj-central-ctx-item--perigo' : ''));
                 b.type = 'button';
                 b.setAttribute('role', 'menuitem');
                 var ic = criar('i', 'bi ' + it.icone);
@@ -1443,6 +1442,20 @@
                 itens.push({ icone: 'bi-pencil', rotulo: 'Renomear grupo', acao: function () { abrirInfo(c, true); } });
                 itens.push({ icone: 'bi-info-circle', rotulo: 'Ver informações', acao: function () { abrirInfo(c, false); } });
             }
+            if (c.ultima) {   // L5757: limpa só para mim; o colega segue vendo tudo e mensagem nova traz a conversa de volta
+                itens.push({ icone: 'bi-trash3', rotulo: 'Excluir conversa', perigo: true, acao: function () {
+                    confirmar('Excluir a conversa "' + nomeDaConversa(c) + '" da sua visualização? Esta ação não poderá ser desfeita.', 'Excluir', function () {
+                        pedir(urls.base + '/' + c.id + '/limpar', { metodo: 'POST', corpo: {} })
+                            .then(function () {
+                                avisar('Conversa excluída.');
+                                // fecharConversa já recarrega a lista; sem conversa aberta, recarrega aqui.
+                                if (estado.aberta && estado.aberta.id === c.id) { fecharConversa(); return verificarNovidades(); }
+                                return Promise.all([carregarConversas(), verificarNovidades()]);
+                            })
+                            .catch(falhaDeAcao);
+                    });
+                } });
+            }
             abrirMenu(itens, x, y, origem);
         }
 
@@ -1451,7 +1464,6 @@
         // conversas daqui e, no lançador, as preferências da janela (raiz.bjMenuJanela). Chaves e valores mudam sem
         // fechar o painel, como no desenho; os demais itens fecham.
         function secoesDoMenu() {
-            var janelaH = janelaDasResolvidas();
             var antigas = estado.avisos.filter(resolvidaExpirada).length;
             var secoes = [{ titulo: 'Conversas', itens: [
                 { icone: 'bi-pencil-square', rotulo: 'Nova conversa', acao: function () {   // L6258: a lista de pessoas
@@ -1472,11 +1484,6 @@
                     irParaLista();
                     estado.verResolvidas = !estado.verResolvidas;
                     desenharLista();
-                } },
-                { icone: 'bi-hourglass-split', rotulo: 'Resolvidas ficam na caixa por: ' + ({ 1: '1 hora', 24: '1 dia', 168: '1 semana' })[janelaH], manter: true, acao: function () {
-                    var o = [1, 24, 168];
-                    guardarPreferencia('resJanelaH', o[(o.indexOf(janelaH) + 1) % 3]);
-                    if (estado.tela === 'lista') { desenharLista(); }
                 } },
                 { icone: 'bi-check2-all', rotulo: 'Marcar todas como lidas', acao: marcarTudoComoLido },
                 { icone: 'bi-bell', rotulo: 'Ver todas as notificações', acao: function () {   // L6263: a Caixa, filtro Tudo

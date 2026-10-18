@@ -31,6 +31,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(\App\Central\UseCase\ResolverAvisoUseCase::class)]
 #[CoversClass(\App\Central\UseCase\MarcarTudoComoLidoUseCase::class)]
 #[CoversClass(\App\Central\UseCase\LimparAvisosLidosUseCase::class)]
+#[CoversClass(\App\Central\UseCase\ExcluirAvisoUseCase::class)]
 final class CentralAvisosTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
@@ -271,6 +272,46 @@ final class CentralAvisosTest extends JusPrimeWebTestCase
         self::assertFalse($existe($resolvida));
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM central_aviso_resolvido'), 'a baixa cai junto (CASCADE)');
         foreach ($ficam as $id) {
+            self::assertTrue($existe($id));
+        }
+    }
+
+    #[TestDox('Excluir um aviso (botão direito): apaga só a MINHA notificação, mesmo não lida; alheio, de gestão ou de outro escritório é 404; sem CSRF é 403')]
+    public function testExcluirUm(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        [, $outro] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $meu = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CONCLUIDA, 'Meu, não lido')->getId();
+        $outroMeu = (int) $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Fica')->getId();
+        $intocaveis = [
+            (int) $this->aviso($bia, $tenant, Notificacao::TIPO_TAREFA_CONCLUIDA, 'Da Bia')->getId(),
+            (int) $this->aviso($ana, $tenant, Notificacao::TIPO_SERVICEDESK_NOVO, 'Gestão')->getId(),
+            (int) $this->aviso($ana, $outro, Notificacao::TIPO_TAREFA_CRIADA, 'Outro escritório')->getId(),
+        ];
+        $existe = fn (int $id): bool => (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM notificacao WHERE id = ?', [$id]) === 1;
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->post($client, "/central/avisos/$meu/resolver", []);
+        $client->request('POST', "/central/avisos/$meu/excluir", [], [], ['CONTENT_TYPE' => 'application/json'], '{}');
+        self::assertResponseStatusCodeSame(403);
+        self::assertTrue($existe($meu));
+
+        $this->post($client, "/central/avisos/$meu/excluir", []);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($existe($meu));
+        self::assertTrue($existe($outroMeu));
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM central_aviso_resolvido'), 'a baixa cai junto (CASCADE)');
+        $client->request('GET', '/central/avisos');
+        self::assertSame([$outroMeu], array_column($this->json($client)['avisos'], 'id'));
+
+        $this->post($client, "/central/avisos/$meu/excluir", []);
+        self::assertResponseStatusCodeSame(404, 'já excluído');
+        foreach ($intocaveis as $id) {
+            $this->post($client, "/central/avisos/$id/excluir", []);
+            self::assertResponseStatusCodeSame(404);
             self::assertTrue($existe($id));
         }
     }

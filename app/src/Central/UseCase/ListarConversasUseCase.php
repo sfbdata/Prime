@@ -21,6 +21,7 @@ use App\Entity\Tenant\Tenant;
  * `outroAtivo = false` quando o colega saiu do escritório: a conversa segue legível, sem envio.
  * B: grupos entram na mesma lista (participação ativa), fixadas primeiro; as arquivadas vêm marcadas e a tela decide
  * mostrar ou não ("Ver conversas arquivadas").
+ * Conversa limpa ("Excluir", `LimparConversaUseCase`) fica fora até chegar mensagem depois da limpeza.
  */
 final class ListarConversasUseCase
 {
@@ -51,6 +52,9 @@ final class ListarConversasUseCase
         foreach ($participacoes as $participacao) {
             $conversa = $participacao->getConversa();
             $id = (int) $conversa->getId();
+            if ($participacao->getLimpaAteId() > 0 && (int) (($ultimas[$id] ?? null)?->getId() ?? 0) <= $participacao->getLimpaAteId()) {
+                continue;
+            }
             $outro = $conversa->isGrupo() ? null : $conversa->outroAlemDe($eu);
             $lista[] = new ConversaResumoOutput(
                 id: $id,

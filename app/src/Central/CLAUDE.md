@@ -25,8 +25,19 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 7. **Menção só a participante ativo.** `AcessoACentral::mencionaveis` (participante DESTA conversa, vínculo ativo,
    não o autor) + `MencoesDaCentral` (token `@[Nome](user:ID)`, rótulo reescrito pelo nome do banco, laço até só
    sobrar token canônico). O aviso (`AvisoDeMencaoNaCentral`) leva `mensagem = null`: a `Notificacao` é auditada.
-8. **Menu só com ação real (D5).** Conversa: abrir, lida/não lida, fixar, silenciar, arquivar; grupo: renomear,
-   informações. Mensagem: responder, copiar, mencionar (a de sistema não tem menu). Item novo exige regra e rota antes.
+8. **Menu só com ação real (D5).** Conversa: abrir, lida/não lida, fixar, silenciar, arquivar, excluir; grupo: renomear,
+   informações. Aviso: abrir, resolver/reabrir, lida/não lida, excluir. Mensagem: responder, copiar, mencionar (a de
+   sistema não tem menu). Item novo exige regra e rota antes.
+   **"Excluir" é limpar a PRÓPRIA caixa (decisão do dono, 18/10), nunca apagar para os outros.** Aviso: apaga a
+   notificação da pessoa (`ExcluirAvisoUseCase`; a meta/pasta/menção de origem não mudam). Conversa: `limpa_ate_id` na
+   participação (`LimparConversaUseCase`): histórico, lista e polling não mostram dali para trás a quem limpou; o colega
+   segue vendo tudo; mensagem nova traz a conversa de volta. Consulta nova de mensagem para a pessoa respeita esse corte.
+   O corte espera a trava da conversa (`ConversaRepository::travar`) e é gravado no banco só para frente; o @aviso de
+   menção da conversa vira lido junto. "Excluir conversa" só aparece com mensagem (vazia não tem o que limpar: desvio
+   consciente do desenho L5757, aprovado pelo dono). **Comportamento conhecido:** se o colega responder citando uma
+   mensagem que eu limpei, o trecho citado reaparece para mim dentro da resposta; não vaza para terceiros e fica assim
+   por decisão do dono (18/10).
+   Resolvida sai da Caixa 30 min depois da baixa, fixo para todos (o desenho deixava escolher; o dono fixou).
 9. **Participação ativa em TODA consulta (B).** Quem saiu ou foi removido não lê, não escreve, não aparece na lista
    nem nas novidades, não é mencionável. Esquecer `p.saiuEm IS NULL` numa consulta nova reabre o grupo a ex-membro.
 10. **Administrador do grupo é coluna, não papel (D3).** `Conversa::isAdministradaPor` — só ele adiciona/remove;
@@ -45,7 +56,7 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 
 `central_conversa` (individual: par ordenado `usuario_menor`/`usuario_maior`, único por escritório; grupo: par nulo,
 `nome` 1–60 e `administrador_id`) → `central_participante` (cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida`
-à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa) → `central_mensagem` (índices `(conversa_id, id)` e
+à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (índices `(conversa_id, id)` e
 `(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
 Bruno", montada pelo servidor). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.

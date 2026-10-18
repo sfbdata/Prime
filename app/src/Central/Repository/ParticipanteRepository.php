@@ -120,6 +120,22 @@ class ParticipanteRepository extends ServiceEntityRepository
     }
 
     /**
+     * Avança o corte de "Excluir conversa" (limpar para mim) no BANCO, só para frente, pelo mesmo motivo de
+     * `avancarLeitura`: dois pedidos ao mesmo tempo não fazem o corte recuar.
+     */
+    public function avancarLimpeza(Participante $participante, int $ateId): void
+    {
+        $this->getEntityManager()->createQuery(
+            'UPDATE ' . Participante::class . ' p SET p.limpaAteId = :ate
+             WHERE p.id = :id AND p.tenant = :tenant AND p.limpaAteId < :ate'
+        )
+            ->setParameter('ate', $ateId)
+            ->setParameter('id', $participante->getId())
+            ->setParameter('tenant', $participante->getTenant())
+            ->execute();
+    }
+
+    /**
      * A participação do usuário na conversa, ATIVA OU NÃO — para readmitir quem saiu na mesma linha (o único
      * `(conversa, usuario)` não deixa criar outra). Só para quem já passou pela guarda da conversa.
      */
