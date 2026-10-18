@@ -210,13 +210,33 @@ tem, confira na doc antes de escrever — é justamente o caso em que estou tira
 Isso vale para o **framework**. As regras **da casa** (multi-tenancy, UseCase, nomes de pasta) não estão em
 documentação nenhuma — moram nos `CLAUDE.md` por camada e nas skills `criar-*`.
 
-## Git — commit local permitido, publicação é humana
+## Git — o Claude abre o PR, o merge é do dono
 
-Claude Code **pode** preparar staging (`git add`) e criar **commits locais** (`git commit`) — revisando antes `git status`, o diff e os arquivos staged, sem `git add .` cego que arraste alteração fora do escopo. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) seguem livres.
+O caminho único até produção é: branch/worktree → `git push` da branch → PR no GitHub → checks
+verdes → **merge no GitHub** → release → deploy. O master no GitHub só recebe por PR com os checks
+obrigatórios (vale até para o admin); o master local é só cópia (`git pull`), nunca lugar de merge.
 
-**Continuam responsabilidade exclusiva do humano** (proibidos para o Claude): `push`, `merge`, `rebase`, `reset` e demais operações que publiquem ou reescrevam histórico. **Claude cria commits locais, mas nunca publica alterações remotamente.** `block-git-writes.py` permanece ativo como garantia técnica: libera `git add`/`git commit` (e `git cherry-pick` **individual** — um commit por vez —, usado só pela integração do orquestrador no fan-out; ver skill `workflow`), bloqueia push/merge/rebase/reset e demais escritas sensíveis, e não aceita `--no-verify`. O subagente `feature-implementer` tem trava própria que bloqueia até o cherry-pick (ele nunca integra).
+Claude Code **pode**: `git add` e commits locais (revisando `git status`, o diff e os arquivos
+staged, sem `git add .` cego); **`git push -u origin <branch>` de branch de trabalho**; `gh pr
+create`; e leitura (`git status/diff/log/show/branch/fetch`, `gh pr view/checks`, `gh run
+view/list`, `gh api` GET).
 
-Quando uma instrução implicar `push`/`merge`/`rebase`/`reset` (ou outra operação sensível), o orquestrador monta o(s) comando(s), explica o que cada um faz, e entrega em bloco markdown prefixado com `# Execute manualmente no terminal externo`. Mostra antes; você aprova e executa. Para commits locais isso não é mais necessário — o Claude commita direto.
+**Continuam exclusivos do dono:**
+- **`gh pr merge`** — mergear o PR de release é publicar em produção: é o "botão" do dono;
+- disparar workflow (`gh workflow run`), criar/editar release, segredos, variáveis, rulesets e
+  configuração do repositório, e `gh api` que escreve;
+- push no master/main, de tag, forçado, de exclusão ou com refspec;
+- `pull`, `merge`, `rebase`, `reset`, `checkout`, `stash` e demais reescrita local (sessões
+  paralelas já perderam trabalho com isso).
+
+`block-git-writes.py` é a garantia técnica (testes em `.claude/hooks/test_block_git_writes.py`,
+que rodam no CI): libera o que está acima, bloqueia o resto, libera `git cherry-pick` **individual**
+(um commit por vez, só para a integração do orquestrador no fan-out; ver skill `workflow`) e não
+aceita `--no-verify`. O subagente `feature-implementer` tem trava própria que bloqueia até o
+cherry-pick (ele nunca integra).
+
+Quando uma instrução implicar operação do dono, o orquestrador monta o(s) comando(s), explica o
+que cada um faz, e entrega em bloco markdown prefixado com `# Execute manualmente no terminal externo`.
 
 Convenção de commit: imperativo em português, máx. 72 chars, sem ponto final. Branches: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`.
 

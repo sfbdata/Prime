@@ -63,7 +63,11 @@ echo "$nome" > "$destino/.frente"
 
 # vendor/ e gitignored (299M): a worktree nasce SEM ele e o phpunit falha seco.
 echo "==> composer install (a worktree nasce sem vendor/)"
-docker exec "$container" bash -c "cd '$caminho_container' && composer install --no-interaction"
+# --no-scripts + cache:clear à parte: o auto-script do composer roda o cache:clear com o
+# memory_limit padrão (128M) e morre por falta de memória no warmup do Twig — e com
+# `set -e` o script parava ali, sem criar os uploads nem clonar o banco da frente.
+docker exec "$container" bash -c "cd '$caminho_container' && composer install --no-interaction --no-scripts"
+docker exec "$container" bash -c "cd '$caminho_container' && php -d memory_limit=512M bin/console cache:clear"
 
 # public/uploads/ tambem e gitignored: sem os dirs, upload quebra no smoke por
 # permissao, nao por codigo.

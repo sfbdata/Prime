@@ -260,4 +260,4 @@ só funciona com o ruleset desligado.
 A deploy key `deploy-prime-vps` tem **escrita**, e a VPS só faz `git pull`. Uma chave só de
 leitura basta e tira da VPS o poder de empurrar branches (o master já está protegido). Trocar exige
 gerar a chave nova na VPS e cadastrá-la como somente leitura antes de apagar a antiga, para o
-deploy não parar — é uma mudança à parte, a planejar com o dono.
+deploy não parar. Procedimento: [deploy-key-somente-leitura.md](deploy-key-somente-leitura.md).
