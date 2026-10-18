@@ -8,11 +8,13 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
-Tudo o que entrou no master desde a `v1.0.0`, ainda sem versão. São cerca de 2.000 commits feitos
-antes de existir este registro: a lista abaixo cobre o que dá para comprovar pelo histórico (o
-commit de origem vem entre parênteses), não cada correção. A próxima versão proposta é a **2.0.0**,
-porque houve remoção de funcionalidade e de endereços (ver "Removido") — a justificativa está em
-`docs/versionamento.md`.
+## [2.0.0] - 2026-10-17
+
+Primeira versão desde a `v1.0.0`. Reúne cerca de 2.200 commits, a maior parte feita antes de existir
+este registro: a lista cobre o que dá para comprovar pelo histórico (o commit ou o PR de origem vem
+entre parênteses), não cada correção. É MAJOR porque saíram funcionalidades e endereços que existiam
+na `v1.0.0` (ver "Removido") e o jeito de entrar no sistema mudou (identidade global). A
+justificativa está em `docs/versionamento.md`.
 
 ### Adicionado
 
@@ -45,6 +47,14 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Central de Comunicação: balão de dica no padrão do desenho (azul-claro) em todos os botões da Central.
 - Portões de CI em todo pull request: guarda de segredos (#5) e lints com testes unitários e de
   arquitetura (#9).
+- Versionamento semântico, este CHANGELOG e o workflow Release, que só cria a tag num commit do
+  master aprovado no CI; tags de versão protegidas por um App próprio (#10, #11).
+- Pasta no desenho de 13/10, entre outros: janela de cadastro do cliente com as abas Documentos e
+  Réu, coluna Réu na Lista, cadastro em toda pasta com novo cliente e seletor de autores, as 4
+  situações da pasta com carimbo e cartão, datas escritas nos registros lidas como prazos e
+  sugestões de fase pelo tipo do documento (#15, #19).
+- Push Processual: processos monitorados e cadastro de processo na própria tela, e captação do
+  DJEN também pelo número de cada processo cadastrado sem baixa (#22).
 - Trabalho Externo: central nacional de advocacia correspondente. Escritórios abrem solicitações
   (com rascunho e documentos) e só a Central recebe: análise, pedido de informações, propostas com
   versões, aceite, execução com checklist e andamento, validação, conclusão, pagamento, arquivamento e
@@ -71,6 +81,13 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
   (#6, #7).
 - Ícones de tipo de arquivo no padrão do Guia visual BlueJus (família preenchida, cores únicas por
   tipo), iguais aos da aba Documentos: Dados da Pasta, Financeiro e documentos da Cobrança.
+- Menus: Processos sai do menu lateral e passa a ficar dentro do Push Processual (perfil que só tem
+  Processos mantém o item), e Minhas Metas entra na barra superior no lugar dele (#22).
+- Cabeçalho da pasta sem a faixa de dados, como no desenho (#21).
+- O perfil de sistema aparece como "Usuário Primário" em todas as telas e nos convites pendentes, e
+  o titular não vê mais "Sair do escritório" (#16).
+- A busca no CNJ explica o motivo quando não encontra o processo (#17).
+- Textos de tela sem travessão, e zero hora aparece como 0:00 na folha de ponto (#17, #20).
 
 ### Removido
 
@@ -85,11 +102,14 @@ porque houve remoção de funcionalidade e de endereços (ver "Removido") — a 
 - Credencial de e-mail retirada do repositório e guarda de segredos no commit e no CI (#5).
 - Requisições web não conseguem mais trocar o ambiente da aplicação pela query string
   (CVE-2026-47767; #8).
+- O perfil Master fica protegido também na promoção e na remoção de sócios, e o convite com perfil
+  de usuário primário é revalidado no aceite (#16).
 
 ## [1.0.0] - 2026-03-31
 
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v1.0.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/sfbdata/Prime/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/sfbdata/Prime/releases/tag/v1.0.0
