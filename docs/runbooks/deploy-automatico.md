@@ -127,7 +127,7 @@ gh api -X POST repos/sfbdata/Prime/branches/master/protection/required_status_ch
 |---|---|
 | Pausar o deploy automático | `gh variable delete DEPLOY_AUTOMATICO --repo sfbdata/Prime` (a release continua saindo; o deploy não) |
 | Voltar a versão do ar à mão | o rollback por imagem de `docs/versionamento.md`, seção 7; as imagens ficam como `jusprime-rollback:*-pre-vX.Y.Z` e em `/opt/backups/imagens/` |
-| Restaurar o banco | o dump de cada deploy fica em `/opt/backups/deploy/jusprime-pre-vX.Y.Z-*.dump` (guarda 5); restaurar segue `scripts/restore.sh` |
+| Restaurar o banco | o dump de cada deploy fica em `/opt/backups/deploy/jusprime-pre-vX.Y.Z-*.dump` (guarda 5); restaurar com `scripts/restore.sh <arquivo>.dump`, ver [restaurar-backup.md](restaurar-backup.md) |
 | Ver o log de um deploy na VPS | `ls -t /var/log/jusprime-deploy/ | head` |
 | A versão do PR de release ficou sem tag (Release falhou, ou outro PR entrou no meio) | Refaça a execução do Release **do commit do merge do PR de release**: `gh run list --repo sfbdata/Prime --workflow release.yml -L 10` e `gh run rerun <id>` daquela execução. O botão "Run workflow" usa a ponta do master, que já tem mudança nova pendente, e é recusado de propósito. |
 | Imagens antigas de rollback | o script guarda as dos 2 últimos deploys (tag, container parado e `.tar.gz`) e apaga as mais antigas sozinho |
