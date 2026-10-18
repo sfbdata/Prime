@@ -43,7 +43,7 @@ final class ListarMensagensDaConversaUseCase
         $participacao = $this->acesso->participacao($conversaId, $eu, $tenant);
 
         // Uma a mais que a página diz se há mensagens antes dela, sem uma contagem à parte.
-        $pagina = $this->mensagens->historico($participacao->getConversa(), $tenant, $antesDe, self::POR_PAGINA + 1);
+        $pagina = $this->mensagens->historico($participacao->getConversa(), $tenant, $antesDe, self::POR_PAGINA + 1, $participacao->getLimpaAteId());
         $temMais = count($pagina) > self::POR_PAGINA;
         if ($temMais) {
             array_shift($pagina);

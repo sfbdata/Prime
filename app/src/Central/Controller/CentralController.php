@@ -33,6 +33,8 @@ use App\Central\UseCase\MarcarAvisoUseCase;
 use App\Central\UseCase\ResolverAvisoUseCase;
 use App\Central\UseCase\MarcarTudoComoLidoUseCase;
 use App\Central\UseCase\LimparAvisosLidosUseCase;
+use App\Central\UseCase\ExcluirAvisoUseCase;
+use App\Central\UseCase\LimparConversaUseCase;
 use App\Central\Exception\AvisoNaoEncontradoException;
 use App\Entity\Auth\User;
 use App\Service\Tenant\TenantContext;
@@ -90,6 +92,8 @@ final class CentralController extends AbstractController
         private readonly ResolverAvisoUseCase $resolverAviso,
         private readonly MarcarTudoComoLidoUseCase $marcarTudo,
         private readonly LimparAvisosLidosUseCase $limparLidos,
+        private readonly ExcluirAvisoUseCase $excluirAviso,
+        private readonly LimparConversaUseCase $limparConversa,
     ) {
     }
 
@@ -182,6 +186,19 @@ final class CentralController extends AbstractController
             $this->marcarComoNaoLida->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id);
 
             return ['marcadaNaoLida' => true];
+        });
+    }
+
+    /** Botão direito → "Excluir": limpa a conversa só para quem pede (o colega segue vendo tudo). */
+    #[Route('/conversas/{id}/limpar', name: 'central_conversa_limpar', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function limparConversa(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->limparConversa->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id);
+
+            return ['ok' => true];
         });
     }
 
@@ -373,6 +390,19 @@ final class CentralController extends AbstractController
 
         return $this->responder(function () use ($id): array {
             $this->resolverAviso->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id, false);
+
+            return ['ok' => true];
+        });
+    }
+
+    /** Botão direito → "Excluir" num aviso: apaga a notificação da própria pessoa (sem confirmação, como no desenho L5586). */
+    #[Route('/avisos/{id}/excluir', name: 'central_aviso_excluir', requirements: ['id' => '\d{1,9}'], methods: ['POST'])]
+    public function excluirAviso(int $id, Request $request): JsonResponse
+    {
+        $this->validarCsrfAjax($request);
+
+        return $this->responder(function () use ($id): array {
+            $this->excluirAviso->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $id);
 
             return ['ok' => true];
         });

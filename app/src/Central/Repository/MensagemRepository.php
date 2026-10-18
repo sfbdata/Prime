@@ -22,11 +22,12 @@ class MensagemRepository extends ServiceEntityRepository
 
     /**
      * Uma página do histórico, devolvida da mais antiga para a mais nova. `$antesDe` é o id da mensagem mais
-     * antiga que a tela já tem (rolar para cima); nulo = as mais recentes.
+     * antiga que a tela já tem (rolar para cima); nulo = as mais recentes. `$limpaAte` = o que a pessoa limpou
+     * ("Excluir" a conversa): dali para trás não volta.
      *
      * @return list<Mensagem>
      */
-    public function historico(Conversa $conversa, Tenant $tenant, ?int $antesDe, int $limite): array
+    public function historico(Conversa $conversa, Tenant $tenant, ?int $antesDe, int $limite, int $limpaAte = 0): array
     {
         $qb = $this->createQueryBuilder('m')
             ->addSelect('a', 'r', 'ra')
@@ -35,8 +36,10 @@ class MensagemRepository extends ServiceEntityRepository
             ->leftJoin('r.autor', 'ra')
             ->andWhere('m.conversa = :conversa')
             ->andWhere('m.tenant = :tenant')
+            ->andWhere('m.id > :limpaAte')
             ->setParameter('conversa', $conversa)
             ->setParameter('tenant', $tenant)
+            ->setParameter('limpaAte', $limpaAte)
             ->orderBy('m.id', 'DESC')
             ->setMaxResults($limite);
 
@@ -185,7 +188,7 @@ class MensagemRepository extends ServiceEntityRepository
              LEFT JOIN r.autor ra
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant AND ' . $condicao . '
+             WHERE m.tenant = :tenant AND m.id > p.limpaAteId AND ' . $condicao . '
              ORDER BY m.id ASC'
         )
             ->setParameter('usuario', $usuario)
