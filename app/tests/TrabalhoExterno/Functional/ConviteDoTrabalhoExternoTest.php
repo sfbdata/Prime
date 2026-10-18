@@ -203,7 +203,12 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $client->request('GET', "/trabalho-externo/demandas/$codigo/documentos/$docId");
         self::assertResponseStatusCodeSame(404);
 
-        $this->em()->getConnection()->executeStatement("UPDATE trabalho_externo_convite SET validade = CURRENT_DATE - 1 WHERE email = 'semver@test.com'");
+        // Ontem pelo relógio do PHP, que é o que o sistema compara: o CURRENT_DATE do Postgres está em UTC
+        // e, das 21h à meia-noite em Brasília, o "ontem" dele é o "hoje" do PHP.
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE trabalho_externo_convite SET validade = ? WHERE email = ?',
+            [(new \DateTimeImmutable('yesterday'))->format('Y-m-d'), 'semver@test.com'],
+        );
         $this->em()->clear();
         $client->request('GET', '/trabalho-externo/api/painel');
         self::assertResponseStatusCodeSame(403, 'convite vencido: a conta perde o perfil');

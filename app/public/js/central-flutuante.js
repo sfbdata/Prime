@@ -43,9 +43,9 @@
 
         // ── preferências (só este navegador) ─────────────────────────────────────────
         function lerPrefs() {
-            // L43: os padrões do desenho. F3: volume, modo de aviso, Enter envia e a janela das resolvidas.
+            // L43: os padrões do desenho. F3: volume, modo de aviso e Enter envia.
             var base = { pos: null, win: null, tam: null, snap: null, janela: 'normal', alertas: true, som: true, dnd: 0, texto: 'normal', status: 'disponivel',
-                volume: 'medio', modo: 'todas', enterEnvia: true, resJanelaH: 24 };
+                volume: 'medio', modo: 'todas', enterEnvia: true };
             try {
                 var salvo = JSON.parse(window.localStorage.getItem(chave) || '{}');
                 Object.keys(base).forEach(function (k) { if (salvo && salvo[k] !== undefined) { base[k] = salvo[k]; } });
@@ -474,14 +474,13 @@
 
         central.bjSilencio = silencio;
         // F2: o status que vai no batimento (L276): o manual deste navegador, ou "ocupado" com Não perturbe ligado.
-        // Outra aba (ou o central.js, nesta) mudou as preferências: relê, para não sobrescrever com as velhas.
+        // Outra aba mudou as preferências: relê, para não sobrescrever com as velhas.
         function reler() {
             prefs = lerPrefs();
             desenharLancador();
             aplicarTexto();
         }
         window.addEventListener('storage', function (ev) { if (ev.key === chave) { reler(); } });
-        central.addEventListener('bj-central:prefs-gravadas', reler);
         central.bjMenuJanela = function () {
             var dnd = silencio();
             var final = [];

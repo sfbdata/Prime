@@ -1,0 +1,58 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Portão de qualidade local e do CI. Chamado por `composer qa -- <arquivos novos>`.
+//
+//   php bin/qa                         PHPStan só (sem lista, o CS-Fixer é pulado)
+//   php bin/qa <arquivos>              PHPStan + CS-Fixer em modo conferência nos arquivos dados
+//   php bin/qa --sem-phpstan <arqs>    só o CS-Fixer
+//   php bin/qa --corrigir <arquivos>   aplica o CS-Fixer (revise o diff: troca == por ===)
+//
+// A lista de arquivos NOVOS é calculada fora daqui (scripts/qa.sh no host; o workflow no CI),
+// porque o git de uma worktree não funciona dentro do container. Lista vazia nunca vira
+// "formata tudo": sem arquivo, o CS-Fixer não roda.
+
+chdir(dirname(__DIR__));
+
+$args = array_slice($argv, 1);
+$semPhpstan = in_array('--sem-phpstan', $args, true);
+$corrigir = in_array('--corrigir', $args, true);
+$arquivos = array_values(array_filter(
+    $args,
+    static fn (string $a): bool => !str_starts_with($a, '--')
+        && str_ends_with($a, '.php')
+        && preg_match('#^(src|tests|migrations)/#', $a) === 1
+        && is_file($a),
+));
+
+$falhou = false;
+
+if (!$semPhpstan && !$corrigir) {
+    $container = 'var/cache/test/App_KernelTestDebugContainer.xml';
+    if (!is_file($container)) {
+        echo "Gerando o container de teste que o PHPStan lê ($container)...\n";
+        passthru('APP_ENV=test php -d memory_limit=1G bin/console cache:warmup --env=test --quiet', $codigo);
+        $falhou = $falhou || $codigo !== 0;
+    }
+
+    echo "\n== PHPStan (nível 5, legado no baseline) ==\n";
+    passthru('vendor/bin/phpstan analyse --memory-limit=2G --no-progress', $codigo);
+    $falhou = $falhou || $codigo !== 0;
+}
+
+echo "\n== PHP-CS-Fixer (só arquivo novo) ==\n";
+if ($arquivos === []) {
+    echo "Nenhum arquivo PHP novo em src/, tests/ ou migrations/: pulado.\n";
+} else {
+    $modo = $corrigir ? '' : '--dry-run --diff ';
+    $lista = implode(' ', array_map('escapeshellarg', $arquivos));
+    passthru("vendor/bin/php-cs-fixer fix {$modo}--path-mode=intersection --config=.php-cs-fixer.dist.php -- {$lista}", $codigo);
+    if ($codigo !== 0 && !$corrigir) {
+        echo "\nPara aplicar: scripts/qa.sh --corrigir (e revise o diff antes de commitar).\n";
+    }
+    $falhou = $falhou || $codigo !== 0;
+}
+
+exit($falhou ? 1 : 0);

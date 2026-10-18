@@ -1,0 +1,1346 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Property App\\Central\\Entity\\Presenca\:\:\$statusDesde type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Central/Entity/Presenca.php
+
+		-
+			message: '#^Property App\\Cliente\\Entity\\Cliente\:\:\$criadoAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Cliente/Entity/Cliente.php
+
+		-
+			message: '#^Property App\\Cliente\\Entity\\Cliente\:\:\$documentos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Cliente\\Entity\\ClienteDocumento\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cliente/Entity/Cliente.php
+
+		-
+			message: '#^Property App\\Cliente\\Entity\\Cliente\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cliente/Entity/Cliente.php
+
+		-
+			message: '#^Property App\\Cliente\\Entity\\ClienteDocumento\:\:\$cliente type mapping mismatch\: property can contain App\\Cliente\\Entity\\Cliente\|null but database expects App\\Cliente\\Entity\\Cliente\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cliente/Entity/ClienteDocumento.php
+
+		-
+			message: '#^Property App\\Cliente\\Entity\\ClienteDocumento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cliente/Entity/ClienteDocumento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Acordo\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Acordo.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Acordo\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Acordo.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\AcordoDocumento\:\:\$acordo type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Acordo\|null but database expects App\\Cobranca\\Entity\\Acordo\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/AcordoDocumento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\AcordoDocumento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/AcordoDocumento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\AlocacaoPagamento\:\:\$obrigacao type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Obrigacao\|null but database expects App\\Cobranca\\Entity\\Obrigacao\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/AlocacaoPagamento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\AlocacaoPagamento\:\:\$pagamento type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Pagamento\|null but database expects App\\Cobranca\\Entity\\Pagamento\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/AlocacaoPagamento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\AlocacaoPagamento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/AlocacaoPagamento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Carteira\:\:\$cliente type mapping mismatch\: property can contain App\\Cliente\\Entity\\Cliente\|null but database expects App\\Cliente\\Entity\\Cliente\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Carteira.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Carteira\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Carteira.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CarteiraDocumento\:\:\$carteira type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Carteira\|null but database expects App\\Cobranca\\Entity\\Carteira\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CarteiraDocumento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CarteiraDocumento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CarteiraDocumento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CasoCobranca\:\:\$objeto type mapping mismatch\: property can contain App\\Cobranca\\Entity\\ObjetoCobranca\|null but database expects App\\Cobranca\\Entity\\ObjetoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CasoCobranca.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CasoCobranca\:\:\$pessoaCobradaAtual type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Pessoa\|null but database expects App\\Cobranca\\Entity\\Pessoa\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CasoCobranca.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CasoCobranca\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CasoCobranca.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CobrancaDocumento\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CobrancaDocumento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CobrancaDocumento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CobrancaDocumento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CobrancaSecao\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CobrancaSecao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\CobrancaSecao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/CobrancaSecao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\EventoHistorico\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/EventoHistorico.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\EventoHistorico\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/EventoHistorico.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Liquidacao\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Liquidacao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Liquidacao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Liquidacao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\ObjetoCobranca\:\:\$carteira type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Carteira\|null but database expects App\\Cobranca\\Entity\\Carteira\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/ObjetoCobranca.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\ObjetoCobranca\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/ObjetoCobranca.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Obrigacao\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Obrigacao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Obrigacao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Obrigacao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Pagamento\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Pagamento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Pagamento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Pagamento.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\Pessoa\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/Pessoa.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\PessoaEmail\:\:\$pessoa type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Pessoa\|null but database expects App\\Cobranca\\Entity\\Pessoa\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/PessoaEmail.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\PessoaEmail\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/PessoaEmail.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\PessoaEndereco\:\:\$pessoa type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Pessoa\|null but database expects App\\Cobranca\\Entity\\Pessoa\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/PessoaEndereco.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\PessoaEndereco\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/PessoaEndereco.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\PessoaTelefone\:\:\$pessoa type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Pessoa\|null but database expects App\\Cobranca\\Entity\\Pessoa\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/PessoaTelefone.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\PessoaTelefone\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/PessoaTelefone.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\ProximaAcao\:\:\$caso type mapping mismatch\: property can contain App\\Cobranca\\Entity\\CasoCobranca\|null but database expects App\\Cobranca\\Entity\\CasoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/ProximaAcao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\ProximaAcao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/ProximaAcao.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\RelatorioImportado\:\:\$carteira type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Carteira\|null but database expects App\\Cobranca\\Entity\\Carteira\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/RelatorioImportado.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\RelatorioImportado\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/RelatorioImportado.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\RelatorioLinha\:\:\$relatorio type mapping mismatch\: property can contain App\\Cobranca\\Entity\\RelatorioImportado\|null but database expects App\\Cobranca\\Entity\\RelatorioImportado\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/RelatorioLinha.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\RelatorioLinha\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/RelatorioLinha.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\RelatorioTotalizador\:\:\$relatorio type mapping mismatch\: property can contain App\\Cobranca\\Entity\\RelatorioImportado\|null but database expects App\\Cobranca\\Entity\\RelatorioImportado\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/RelatorioTotalizador.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\RelatorioTotalizador\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/RelatorioTotalizador.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\VinculoPessoaObjeto\:\:\$objeto type mapping mismatch\: property can contain App\\Cobranca\\Entity\\ObjetoCobranca\|null but database expects App\\Cobranca\\Entity\\ObjetoCobranca\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/VinculoPessoaObjeto.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\VinculoPessoaObjeto\:\:\$pessoa type mapping mismatch\: property can contain App\\Cobranca\\Entity\\Pessoa\|null but database expects App\\Cobranca\\Entity\\Pessoa\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/VinculoPessoaObjeto.php
+
+		-
+			message: '#^Property App\\Cobranca\\Entity\\VinculoPessoaObjeto\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Cobranca/Entity/VinculoPessoaObjeto.php
+
+		-
+			message: '#^Property App\\Djen\\Entity\\OabMonitorada\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Djen/Entity/OabMonitorada.php
+
+		-
+			message: '#^Property App\\Djen\\Entity\\PublicacaoDjen\:\:\$djenId type mapping mismatch\: database can contain int but property expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Djen/Entity/PublicacaoDjen.php
+
+		-
+			message: '#^Property App\\Djen\\Entity\\PublicacaoDjen\:\:\$numeroComunicacao type mapping mismatch\: database can contain int\|null but property expects string\|null\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Djen/Entity/PublicacaoDjen.php
+
+		-
+			message: '#^Property App\\Djen\\Entity\\PublicacaoDjen\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Djen/Entity/PublicacaoDjen.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Agenda/Evento.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$criador type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Agenda/Evento.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$dataFim type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Agenda/Evento.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$dataInicio type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Agenda/Evento.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$participantes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Auth\\User\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Agenda/Evento.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Agenda/Evento.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\LegendaCor\:\:\$criadoAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Agenda/LegendaCor.php
+
+		-
+			message: '#^Property App\\Entity\\Agenda\\LegendaCor\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Agenda/LegendaCor.php
+
+		-
+			message: '#^Property App\\Entity\\Auth\\User\:\:\$createdAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Auth/User.php
+
+		-
+			message: '#^Property App\\Entity\\Auth\\User\:\:\$email type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Auth/User.php
+
+		-
+			message: '#^Property App\\Entity\\Auth\\User\:\:\$fullName type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Auth/User.php
+
+		-
+			message: '#^Property App\\Entity\\Notificacao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Notificacao.php
+
+		-
+			message: '#^Property App\\Entity\\Notificacao\:\:\$usuario type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Notificacao.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\AccessRequest\:\:\$action type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/AccessRequest.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\AccessRequest\:\:\$resourceId type mapping mismatch\: property can contain int\|null but database expects int\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/AccessRequest.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\AccessRequest\:\:\$resourceType type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/AccessRequest.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\AccessRequest\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Permission/AccessRequest.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\AccessRequest\:\:\$user type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Permission/AccessRequest.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\Permission\:\:\$code type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/Permission.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\Permission\:\:\$description type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/Permission.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\Permission\:\:\$group type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/Permission.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\ResourceAccess\:\:\$resourceId type mapping mismatch\: property can contain int\|null but database expects int\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/ResourceAccess.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\ResourceAccess\:\:\$resourceType type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Permission/ResourceAccess.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\ResourceAccess\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Permission/ResourceAccess.php
+
+		-
+			message: '#^Property App\\Entity\\Permission\\ResourceAccess\:\:\$user type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Permission/ResourceAccess.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\Chamado\:\:\$anexos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\ServiceDesk\\ChamadoAnexo\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/Chamado.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\Chamado\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/ServiceDesk/Chamado.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\Chamado\:\:\$interacoes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\ServiceDesk\\ChamadoInteracao\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/Chamado.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\Chamado\:\:\$solicitante type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/Chamado.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\Chamado\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/Chamado.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\ChamadoAnexo\:\:\$chamado type mapping mismatch\: property can contain App\\Entity\\ServiceDesk\\Chamado\|null but database expects App\\Entity\\ServiceDesk\\Chamado\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/ChamadoAnexo.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\ChamadoAnexo\:\:\$enviadoPor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/ChamadoAnexo.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\ChamadoInteracao\:\:\$autor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/ChamadoInteracao.php
+
+		-
+			message: '#^Property App\\Entity\\ServiceDesk\\ChamadoInteracao\:\:\$chamado type mapping mismatch\: property can contain App\\Entity\\ServiceDesk\\Chamado\|null but database expects App\\Entity\\ServiceDesk\\Chamado\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/ServiceDesk/ChamadoInteracao.php
+
+		-
+			message: '#^Property App\\Entity\\Tarefa\\Tarefa\:\:\$acompanhantes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Auth\\User\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tarefa/Tarefa.php
+
+		-
+			message: '#^Property App\\Entity\\Tarefa\\Tarefa\:\:\$mensagens type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Tarefa\\TarefaMensagem\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tarefa/Tarefa.php
+
+		-
+			message: '#^Property App\\Entity\\Tarefa\\Tarefa\:\:\$responsaveis type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Auth\\User\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tarefa/Tarefa.php
+
+		-
+			message: '#^Property App\\Entity\\Tarefa\\Tarefa\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tarefa/Tarefa.php
+
+		-
+			message: '#^Property App\\Entity\\Tarefa\\TarefaMensagem\:\:\$tarefa type mapping mismatch\: property can contain App\\Entity\\Tarefa\\Tarefa\|null but database expects App\\Entity\\Tarefa\\Tarefa\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tarefa/TarefaMensagem.php
+
+		-
+			message: '#^Property App\\Entity\\Tarefa\\TarefaMensagem\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tarefa/TarefaMensagem.php
+
+		-
+			message: '#^Property App\\Entity\\Tarefa\\TarefaMensagem\:\:\$usuario type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tarefa/TarefaMensagem.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Cargo\:\:\$nome type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Cargo.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Cargo\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tenant/Cargo.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Lotacao\:\:\$nome type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Lotacao.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Lotacao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tenant/Lotacao.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Sede\:\:\$latitude type mapping mismatch\: property can contain string\|null but database expects float\|int\|string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Sede.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Sede\:\:\$longitude type mapping mismatch\: property can contain string\|null but database expects float\|int\|string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Sede.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Sede\:\:\$nome type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Sede.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Sede\:\:\$raioPermitido type mapping mismatch\: property can contain int\|null but database expects int\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Sede.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Sede\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tenant/Sede.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Sede\:\:\$timezone type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Sede.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Tenant\:\:\$createdAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Tenant.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Tenant\:\:\$isActive type mapping mismatch\: property can contain bool\|null but database expects bool\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Tenant.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\Tenant\:\:\$name type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/Tenant.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\TenantRole\:\:\$createdAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/TenantRole.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\TenantRole\:\:\$name type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/TenantRole.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\TenantRole\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tenant/TenantRole.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\TenantRolePermission\:\:\$grantedAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Entity/Tenant/TenantRolePermission.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\TenantRolePermission\:\:\$permission type mapping mismatch\: property can contain App\\Entity\\Permission\\Permission\|null but database expects App\\Entity\\Permission\\Permission\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tenant/TenantRolePermission.php
+
+		-
+			message: '#^Property App\\Entity\\Tenant\\TenantRolePermission\:\:\$tenantRole type mapping mismatch\: property can contain App\\Entity\\Tenant\\TenantRole\|null but database expects App\\Entity\\Tenant\\TenantRole\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Entity/Tenant/TenantRolePermission.php
+
+		-
+			message: '#^Property App\\Expediente\\Entity\\Marcador\:\:\$criadoAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Expediente/Entity/Marcador.php
+
+		-
+			message: '#^Property App\\Expediente\\Entity\\Marcador\:\:\$criadoPor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Expediente/Entity/Marcador.php
+
+		-
+			message: '#^Property App\\Expediente\\Entity\\Marcador\:\:\$filhos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Expediente\\Entity\\Marcador\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Expediente/Entity/Marcador.php
+
+		-
+			message: '#^Property App\\Expediente\\Entity\\Marcador\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Expediente/Entity/Marcador.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanAnexo\:\:\$card type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanCard\|null but database expects App\\Kanban\\Entity\\KanbanCard\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanAnexo.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanAnexo\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Kanban/Entity/KanbanAnexo.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanAnexo\:\:\$criadoPor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanAnexo.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanAnexo\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanAnexo.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanBoard\:\:\$colunas type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Kanban\\Entity\\KanbanColuna\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanBoard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanBoard\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Kanban/Entity/KanbanBoard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanBoard\:\:\$criadoPor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanBoard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanBoard\:\:\$participantes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Auth\\User\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanBoard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanBoard\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanBoard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$anexos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Kanban\\Entity\\KanbanAnexo\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$board type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanBoard\|null but database expects App\\Kanban\\Entity\\KanbanBoard\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$checklists type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Kanban\\Entity\\KanbanChecklist\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$coluna type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanColuna\|null but database expects App\\Kanban\\Entity\\KanbanColuna\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$comentarios type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Kanban\\Entity\\KanbanComentario\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$criadoPor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$marcadores type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Kanban\\Entity\\KanbanMarcador\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$responsaveis type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Auth\\User\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanCard\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanCard.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanChecklist\:\:\$card type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanCard\|null but database expects App\\Kanban\\Entity\\KanbanCard\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanChecklist.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanChecklist\:\:\$itens type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Kanban\\Entity\\KanbanChecklistItem\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanChecklist.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanChecklist\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanChecklist.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanChecklistItem\:\:\$checklist type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanChecklist\|null but database expects App\\Kanban\\Entity\\KanbanChecklist\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanChecklistItem.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanChecklistItem\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanChecklistItem.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanColuna\:\:\$board type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanBoard\|null but database expects App\\Kanban\\Entity\\KanbanBoard\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanColuna.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanColuna\:\:\$cards type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Kanban\\Entity\\KanbanCard\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanColuna.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanColuna\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanColuna.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanComentario\:\:\$card type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanCard\|null but database expects App\\Kanban\\Entity\\KanbanCard\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanComentario.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanComentario\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Kanban/Entity/KanbanComentario.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanComentario\:\:\$criadoPor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanComentario.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanComentario\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanComentario.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanMarcador\:\:\$board type mapping mismatch\: property can contain App\\Kanban\\Entity\\KanbanBoard\|null but database expects App\\Kanban\\Entity\\KanbanBoard\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanMarcador.php
+
+		-
+			message: '#^Property App\\Kanban\\Entity\\KanbanMarcador\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Kanban/Entity/KanbanMarcador.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$checklistItens type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaChecklistItem\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$clientes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Cliente\\Entity\\Cliente\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$documentos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaDocumento\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$marcadores type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Expediente\\Entity\\Marcador\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$mensagens type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaMensagem\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$nup type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$observacoesDetalhes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaObservacaoDetalhes\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$observacoesFinanceiras type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaObservacaoFinanceira\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$pagamentos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaPagamento\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$secoes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaSecao\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$tarefas type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Tarefa\\Tarefa\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\Pasta\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/Pasta.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaChecklistItem\:\:\$pasta type mapping mismatch\: property can contain App\\Pasta\\Entity\\Pasta\|null but database expects App\\Pasta\\Entity\\Pasta\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaChecklistItem.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaChecklistItem\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaChecklistItem.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaChecklistModelo\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaChecklistModelo.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaChecklistModeloItem\:\:\$modelo type mapping mismatch\: property can contain App\\Pasta\\Entity\\PastaChecklistModelo\|null but database expects App\\Pasta\\Entity\\PastaChecklistModelo\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaChecklistModeloItem.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaChecklistModeloItem\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaChecklistModeloItem.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaDocumento\:\:\$pasta type mapping mismatch\: property can contain App\\Pasta\\Entity\\Pasta\|null but database expects App\\Pasta\\Entity\\Pasta\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaDocumento.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaDocumento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaDocumento.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaMensagem\:\:\$autor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaMensagem.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaMensagem\:\:\$pasta type mapping mismatch\: property can contain App\\Pasta\\Entity\\Pasta\|null but database expects App\\Pasta\\Entity\\Pasta\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaMensagem.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaMensagem\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaMensagem.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaObservacaoDetalhes\:\:\$autor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaObservacaoDetalhes.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaObservacaoDetalhes\:\:\$pasta type mapping mismatch\: property can contain App\\Pasta\\Entity\\Pasta\|null but database expects App\\Pasta\\Entity\\Pasta\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaObservacaoDetalhes.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaObservacaoDetalhes\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaObservacaoDetalhes.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaObservacaoFinanceira\:\:\$autor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaObservacaoFinanceira.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaObservacaoFinanceira\:\:\$pasta type mapping mismatch\: property can contain App\\Pasta\\Entity\\Pasta\|null but database expects App\\Pasta\\Entity\\Pasta\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaObservacaoFinanceira.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaObservacaoFinanceira\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaObservacaoFinanceira.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaPagamento\:\:\$pasta type mapping mismatch\: property can contain App\\Pasta\\Entity\\Pasta\|null but database expects App\\Pasta\\Entity\\Pasta\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaPagamento.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaPagamento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaPagamento.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaSecao\:\:\$documentos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Pasta\\Entity\\PastaDocumento\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaSecao.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaSecao\:\:\$pasta type mapping mismatch\: property can contain App\\Pasta\\Entity\\Pasta\|null but database expects App\\Pasta\\Entity\\Pasta\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaSecao.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaSecao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Pasta/Entity/PastaSecao.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\BlocoJornada\:\:\$jornadaTenant type mapping mismatch\: property can contain App\\Ponto\\Entity\\JornadaTenant\|null but database expects App\\Ponto\\Entity\\JornadaTenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/BlocoJornada.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\BlocoJornadaColaborador\:\:\$jornadaColaborador type mapping mismatch\: property can contain App\\Ponto\\Entity\\JornadaColaborador\|null but database expects App\\Ponto\\Entity\\JornadaColaborador\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/BlocoJornadaColaborador.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\Feriado\:\:\$data type mapping mismatch\: property can contain DateTimeInterface\|null but database expects DateTimeInterface\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/Feriado.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\Feriado\:\:\$nome type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/Feriado.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\Feriado\:\:\$recorrente type mapping mismatch\: property can contain bool\|null but database expects bool\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/Feriado.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\Feriado\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/Feriado.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\HomeOfficeConfig\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/HomeOfficeConfig.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\HomeOfficeConfig\:\:\$user type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/HomeOfficeConfig.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\JornadaColaborador\:\:\$cargaHorariaDiaria type mapping mismatch\: property can contain int\|null but database expects int\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/JornadaColaborador.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\JornadaColaborador\:\:\$user type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/JornadaColaborador.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\JornadaTenant\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/JornadaTenant.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\JustificativaPonto\:\:\$data type mapping mismatch\: property can contain DateTimeInterface\|null but database expects DateTimeInterface\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/JustificativaPonto.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\JustificativaPonto\:\:\$status type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/JustificativaPonto.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\JustificativaPonto\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/JustificativaPonto.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\JustificativaPonto\:\:\$user type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/JustificativaPonto.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\LancamentoHorasPagas\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/LancamentoHorasPagas.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\LancamentoHorasPagas\:\:\$criadoPor type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/LancamentoHorasPagas.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\LancamentoHorasPagas\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/LancamentoHorasPagas.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\LancamentoHorasPagas\:\:\$user type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/LancamentoHorasPagas.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\RegistroPonto\:\:\$dataHora type mapping mismatch\: property can contain DateTimeInterface\|null but database expects DateTimeInterface\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/RegistroPonto.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\RegistroPonto\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/RegistroPonto.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\RegistroPonto\:\:\$tipo type mapping mismatch\: property can contain string\|null but database expects string\.$#'
+			identifier: doctrine.columnType
+			count: 1
+			path: src/Ponto/Entity/RegistroPonto.php
+
+		-
+			message: '#^Property App\\Ponto\\Entity\\RegistroPonto\:\:\$user type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Ponto/Entity/RegistroPonto.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\AssuntoProcesso\:\:\$processo type mapping mismatch\: property can contain App\\Processo\\Entity\\Processo\|null but database expects App\\Processo\\Entity\\Processo\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/AssuntoProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\AssuntoProcesso\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/AssuntoProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\DocumentoProcesso\:\:\$processo type mapping mismatch\: property can contain App\\Processo\\Entity\\Processo\|null but database expects App\\Processo\\Entity\\Processo\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/DocumentoProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\DocumentoProcesso\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/DocumentoProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\MovimentacaoProcesso\:\:\$processo type mapping mismatch\: property can contain App\\Processo\\Entity\\Processo\|null but database expects App\\Processo\\Entity\\Processo\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/MovimentacaoProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\MovimentacaoProcesso\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/MovimentacaoProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\ParteProcesso\:\:\$processo type mapping mismatch\: property can contain App\\Processo\\Entity\\Processo\|null but database expects App\\Processo\\Entity\\Processo\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/ParteProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\ParteProcesso\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/ParteProcesso.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\Processo\:\:\$assuntos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Processo\\Entity\\AssuntoProcesso\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/Processo.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\Processo\:\:\$documentos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Processo\\Entity\\DocumentoProcesso\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/Processo.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\Processo\:\:\$movimentacoes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Processo\\Entity\\MovimentacaoProcesso\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/Processo.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\Processo\:\:\$partes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Processo\\Entity\\ParteProcesso\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/Processo.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\Processo\:\:\$processosFilhos type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Processo\\Entity\\Processo\>\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/Processo.php
+
+		-
+			message: '#^Property App\\Processo\\Entity\\Processo\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Processo/Entity/Processo.php
+
+		-
+			message: '#^Property App\\Sync\\Entity\\TenantDriveConexao\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			identifier: doctrine.associationType
+			count: 1
+			path: src/Sync/Entity/TenantDriveConexao.php
+

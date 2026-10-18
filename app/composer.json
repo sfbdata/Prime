@@ -53,7 +53,8 @@
         "allow-plugins": {
             "php-http/discovery": true,
             "symfony/flex": true,
-            "symfony/runtime": true
+            "symfony/runtime": true,
+            "phpstan/extension-installer": true
         },
         "bump-after-update": true,
         "sort-packages": true
@@ -88,7 +89,19 @@
         ],
         "post-update-cmd": [
             "@auto-scripts"
+        ],
+        "qa": [
+            "Composer\\Config::disableProcessTimeout",
+            "php bin/qa"
+        ],
+        "phpstan:baseline": [
+            "Composer\\Config::disableProcessTimeout",
+            "vendor/bin/phpstan analyse --memory-limit=2G --no-progress --generate-baseline=phpstan-baseline.neon --allow-empty-baseline"
         ]
+    },
+    "scripts-descriptions": {
+        "qa": "PHPStan nível 5 + CS-Fixer nos arquivos passados (composer qa -- <arquivos novos>; use scripts/qa.sh)",
+        "phpstan:baseline": "Regera o baseline geral do PHPStan (o de Doctrine fica à parte)"
     },
     "conflict": {
         "symfony/symfony": "*"
@@ -103,6 +116,11 @@
         "brianium/paratest": "^7.8",
         "dama/doctrine-test-bundle": "^8.6",
         "doctrine/doctrine-fixtures-bundle": "^4.3",
+        "friendsofphp/php-cs-fixer": "^3.75",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
         "phpunit/phpunit": "^11.5",
         "symfony/browser-kit": "7.4.*",
         "symfony/css-selector": "7.4.*",

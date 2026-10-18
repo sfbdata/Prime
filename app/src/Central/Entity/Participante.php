@@ -33,6 +33,10 @@ class Participante implements TenantAware
     #[ORM\Column(name: 'ultima_lida_id', type: 'integer', options: ['default' => 0])]
     private int $ultimaLidaId = 0;
 
+    /** "Excluir" a conversa (limpar para mim): mensagens até este id não aparecem a esta pessoa. 0 = nada limpo. */
+    #[ORM\Column(name: 'limpa_ate_id', type: 'integer', options: ['default' => 0])]
+    private int $limpaAteId = 0;
+
     /**
      * "Marcar como não lida" (A2): sinal do próprio participante, à parte do cursor — o cursor continua sem
      * recuar. Desliga quando a conversa é lida.
@@ -78,6 +82,12 @@ class Participante implements TenantAware
         if ($mensagemId > $this->ultimaLidaId) {
             $this->ultimaLidaId = $mensagemId;
         }
+    }
+
+    /** Gravado só por `ParticipanteRepository::avancarLimpeza` (no banco, nunca recua). */
+    public function getLimpaAteId(): int
+    {
+        return $this->limpaAteId;
     }
 
     public function sair(\DateTimeImmutable $em): void
