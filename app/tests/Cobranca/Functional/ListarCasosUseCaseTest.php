@@ -143,6 +143,29 @@ final class ListarCasosUseCaseTest extends KernelTestCase
         }
     }
 
+    #[TestDox('A ordenação por criação respeita a direção pedida, e a página traz os primeiros dela')]
+    public function testOrdenacaoPorCriacaoRespeitaADirecao(): void
+    {
+        $tenant   = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $antigo   = $this->caso($tenant, $carteira);
+        $meio     = $this->caso($tenant, $carteira);
+        $novo     = $this->caso($tenant, $carteira);
+
+        // A coluna guarda segundos: casos criados no mesmo instante empatariam e a ordem não provaria nada.
+        $conexao = $this->em->getConnection();
+        foreach ([[$antigo, '2026-01-01 10:00:00'], [$meio, '2026-02-01 10:00:00'], [$novo, '2026-03-01 10:00:00']] as [$caso, $quando]) {
+            $conexao->executeStatement('UPDATE cobranca_caso SET criado_em = ? WHERE id = ?', [$quando, $caso->getId()]);
+        }
+        $this->em->clear();
+
+        $ids = static fn (array $resultado): array => array_map(static fn ($item): int => $item->id, $resultado['itens']);
+
+        self::assertSame([$antigo->getId(), $meio->getId(), $novo->getId()], $ids($this->sut->executar($tenant, [], 1, 20, 'criacao', 'asc')));
+        self::assertSame([$novo->getId(), $meio->getId(), $antigo->getId()], $ids($this->sut->executar($tenant, [], 1, 20, 'criacao', 'desc')));
+        self::assertSame([$novo->getId(), $meio->getId()], $ids($this->sut->executar($tenant, [], 1, 2, 'criacao', 'desc')), 'a página 1 traz os mais recentes');
+    }
+
     #[TestDox('Faceta de status e escopo por tenant íntegros após o fetch-join')]
     public function testFacetaStatusETenant(): void
     {

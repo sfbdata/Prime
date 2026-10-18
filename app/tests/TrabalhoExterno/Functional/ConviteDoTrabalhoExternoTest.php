@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\TrabalhoExterno\Controller\ConviteController;
+use App\TrabalhoExterno\Entity\ConviteDemanda;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -203,6 +204,15 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $client->request('GET', "/trabalho-externo/demandas/$codigo/documentos/$docId");
         self::assertResponseStatusCodeSame(404);
 
+        // O último dia da validade ainda vale: o convite vence DEPOIS dele, não nele.
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE trabalho_externo_convite SET validade = ? WHERE email = ?',
+            [(new \DateTimeImmutable('today'))->format('Y-m-d'), 'semver@test.com'],
+        );
+        $this->em()->clear();
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertResponseIsSuccessful('validade = hoje: o convite ainda vale');
+
         // Ontem pelo relógio do PHP, que é o que o sistema compara: o CURRENT_DATE do Postgres está em UTC
         // e, das 21h à meia-noite em Brasília, o "ontem" dele é o "hoje" do PHP.
         $this->em()->getConnection()->executeStatement(
@@ -214,6 +224,27 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403, 'convite vencido: a conta perde o perfil');
         $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
         self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('convite com validade no passado é recusado e não manda e-mail; validade hoje é aceita')]
+    public function testConviteComValidadeNoPassadoEhRecusado(): void
+    {
+        [$client, $codigo] = $this->demandaEmExecucao();
+
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites", [
+            'nome' => 'Profissional', 'email' => 'passado@test.com',
+            'validade' => (new \DateTimeImmutable('yesterday'))->format('Y-m-d'),
+        ]);
+        self::assertResponseStatusCodeSame(422);
+        // O registro de e-mails do mailer é zerado a cada requisição: o que sobra é só o desta.
+        self::assertSame([], $this->mensagensDeEmail(), 'convite recusado não manda e-mail');
+        self::assertNull($this->em()->getRepository(ConviteDemanda::class)->findOneBy(['email' => 'passado@test.com']), 'nem fica registrado');
+
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites", [
+            'nome' => 'Profissional', 'email' => 'hoje@test.com',
+            'validade' => (new \DateTimeImmutable('today'))->format('Y-m-d'),
+        ]);
+        self::assertResponseIsSuccessful('validade hoje não está no passado');
     }
 
     #[TestDox('Equipe sem "Convidar e revogar profissionais" não convida; o link do reenvio funciona')]
