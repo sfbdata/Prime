@@ -1,0 +1,949 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to an undefined method Symfony\\Component\\Security\\Core\\User\\UserInterface\:\:getId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Auth/Controller/AdminConviteController.php
+
+		-
+			message: '#^Parameter \$criadoPor of class App\\Auth\\DTO\\CriarConvitePlataformaInput constructor expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/Controller/AdminConviteController.php
+
+		-
+			message: '#^Parameter \$usuarioAtual of class App\\Auth\\DTO\\AceitarConviteEscritorioComContaInput constructor expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/Controller/ConviteController.php
+
+		-
+			message: '#^Parameter \$usuarioAtual of class App\\Auth\\DTO\\RecusarConviteEscritorioInput constructor expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/Controller/ConviteController.php
+
+		-
+			message: '#^Call to an undefined method Symfony\\Component\\Security\\Core\\User\\UserInterface\:\:getId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Auth/Controller/GerenciarConvitesController.php
+
+		-
+			message: '#^Parameter \#1 \$ator of method App\\Tenant\\Service\\RegraDosPrimarios\:\:podeGerirPrimarios\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/Controller/GerenciarConvitesController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/Controller/GerenciarConvitesController.php
+
+		-
+			message: '#^Parameter \$criadoPor of class App\\Auth\\DTO\\CriarConviteEscritorioInput constructor expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Auth/Controller/GerenciarConvitesController.php
+
+		-
+			message: '#^Property App\\Auth\\UseCase\\CriarConviteEscritorioUseCase\:\:\$invitationRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Auth/UseCase/CriarConviteEscritorioUseCase.php
+
+		-
+			message: '#^Property App\\Auth\\UseCase\\CriarConvitePlataformaUseCase\:\:\$invitationRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Auth/UseCase/CriarConvitePlataformaUseCase.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAccessResource\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Cliente/Controller/ClienteController.php
+
+		-
+			message: '#^Property App\\Cliente\\Controller\\ClienteController\:\:\$clienteDocumentoRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Cliente/Controller/ClienteController.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between Symfony\\Component\\HttpFoundation\\File\\UploadedFile and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Cliente/Controller/ClienteController.php
+
+		-
+			message: '#^Call to an undefined method App\\Cliente\\Entity\\Cliente\:\:getCnpj\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Cliente/Repository/ClienteRepository.php
+
+		-
+			message: '#^Call to an undefined method App\\Cliente\\Entity\\Cliente\:\:getRazaoSocial\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/Cliente/Repository/ClienteRepository.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Cobranca/Command/CarregarEspelhoRelatorioCommand.php
+
+		-
+			message: '#^Offset ''maiorPaga'' does not exist on array\{numero\: int, pagas\: int, total\: int\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: src/Cobranca/Command/ImportarReceitasCommand.php
+
+		-
+			message: '#^Offset ''menorPaga'' does not exist on array\{numero\: int, pagas\: int, total\: int\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: src/Cobranca/Command/ImportarReceitasCommand.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>baseHonorarios" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Cobranca/DTO/ObrigacaoOutput.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>baseMulta" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Cobranca/DTO/ObrigacaoOutput.php
+
+		-
+			message: '#^Constructor of class App\\Cobranca\\Exception\\PastaJaVinculadaAOutroCasoException has an unused parameter \$pastaId\.$#'
+			identifier: constructor.unusedParameter
+			count: 1
+			path: src/Cobranca/Exception/PastaJaVinculadaAOutroCasoException.php
+
+		-
+			message: '#^Call to function is_int\(\) with int will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/CentavosParaReaisTransformer.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/CentavosParaReaisTransformer.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between int and '''' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/CentavosParaReaisTransformer.php
+
+		-
+			message: '#^Call to function is_string\(\) with non\-empty\-string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/PercentualParaTextoTransformer.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/PercentualParaTextoTransformer.php
+
+		-
+			message: '#^Call to function is_int\(\) with int will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/TaxaBpParaTextoTransformer.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/TaxaBpParaTextoTransformer.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between int and '''' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Cobranca/Form/DataTransformer/TaxaBpParaTextoTransformer.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between int and false will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Cobranca/Service/CalculadoraEncargos.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Cobranca/Service/Espelho/AtribuidorDeCarteira.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Cobranca/Service/Espelho/CalibracaoDoEspelho.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Cobranca/Service/Espelho/CoberturaDoEspelho.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Cobranca/Service/Espelho/ConferenciaDeEncargos.php
+
+		-
+			message: '#^Parameter \#2 \$grupo of method App\\Cobranca\\Service\\Espelho\\ConferenciaDeEncargos\:\:duplaContagemPorCampo\(\) expects array\{juros\: int, multa\: int, correcao\: int, honorarios\: int, somaColunaValor\: int, honorariosForaDaLinha115\: int, encargoDaLinha\: array\<string, int\>\}, array\{juros\: int, multa\: int, correcao\: int, honorarios\: int, encargoDaLinha\: array\<string, int\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Cobranca/Service/Espelho/ConferenciaDeEncargos.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type App\\Cobranca\\Entity\\RelatorioImportado\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Cobranca/Service/Espelho/ConferenciaDeEncargos.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Cobranca/Service/Espelho/ConferenciaDoEspelho.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 2
+			path: src/Cobranca/Service/Importacao/CadastroCondominosAdapter.php
+
+		-
+			message: '#^Call to an undefined method PhpOffice\\PhpSpreadsheet\\Reader\\IReader\:\:listWorksheetNames\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Cobranca/Service/Importacao/LeitorEmissaoDoRelatorio.php
+
+		-
+			message: '#^Call to an undefined method PhpOffice\\PhpSpreadsheet\\Reader\\IReader\:\:listWorksheetNames\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Cobranca/Service/Importacao/ValidadorRodapeFiltros.php
+
+		-
+			message: '#^Property App\\Cobranca\\Service\\MontadorModaisCaso\:\:\$pastaRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Cobranca/Service/MontadorModaisCaso.php
+
+		-
+			message: '#^Offset 7 does not exist on array\{list\<string\>, list\<string\>, list\<string\>, list\<string\>, list\<string\>, list\<string\>, int\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: src/Cobranca/UseCase/ImportarAcordosDetalhadosUseCase.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>novo" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Cobranca/UseCase/ImportarAcordosDetalhadosUseCase.php
+
+		-
+			message: '#^Anonymous function has an unused use \$caso\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: src/Cobranca/UseCase/MontarDetalheCasoUseCase.php
+
+		-
+			message: '#^PHPDoc tag @var with type list\<string\>\|false is not subtype of native type non\-empty\-list\<string\|null\>\|false\.$#'
+			identifier: varTag.nativeType
+			count: 1
+			path: src/Command/ImportarAcervoCommand.php
+
+		-
+			message: '#^Variable \$row in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: src/Command/ImportarAcervoCommand.php
+
+		-
+			message: '#^Parameter \#1 \$decidedBy of method App\\Entity\\Permission\\AccessRequest\:\:setDecidedBy\(\) expects App\\Entity\\Auth\\User\|null, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Controller/AccessRequestController.php
+
+		-
+			message: '#^Parameter \#1 \$grantedBy of method App\\Entity\\Permission\\ResourceAccess\:\:setGrantedBy\(\) expects App\\Entity\\Auth\\User\|null, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/AccessRequestController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Entity\\Permission\\AccessRequest\:\:setUser\(\) expects App\\Entity\\Auth\\User\|null, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/AccessRequestController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Repository\\AccessRequestRepository\:\:findPendingForUserAndResource\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/AccessRequestController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAccessResource\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/AccessRequestController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/AccessRequestController.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between App\\Entity\\Tenant\\Tenant and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Controller/AgendaController.php
+
+		-
+			message: '#^Call to an undefined method App\\Cliente\\Entity\\Cliente\:\:getCnpj\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Call to an undefined method App\\Cliente\\Entity\\Cliente\:\:getRazaoSocial\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 2
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Method App\\Controller\\PastaController\:\:syncClientes\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAccessResource\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Property App\\Controller\\PastaController\:\:\$clienteDocumentoRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Property App\\Controller\\PastaController\:\:\$validator is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between App\\Entity\\Tenant\\Tenant and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: src/Controller/PastaController.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Controller/ServiceDeskController.php
+
+		-
+			message: '#^Method Symfony\\Component\\HttpFoundation\\ParameterBag\:\:all\(\) invoked with 2 parameters, 0\-1 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/Controller/TarefaController.php
+
+		-
+			message: '#^Call to method App\\Repository\\UserRepository\<App\\Entity\\Auth\\User\>\:\:findOneBy\(\) \- entity App\\Entity\\Auth\\User does not have a field named \$tenantRole\.$#'
+			identifier: doctrine.findOneByArgument
+			count: 1
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Method App\\Controller\\TenantController\:\:calcularCargaDiaria\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 3
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Parameter \#1 \$analisadoPor of method App\\Ponto\\Entity\\JustificativaPonto\:\:setAnalisadoPor\(\) expects App\\Entity\\Auth\\User\|null, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 4
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Parameter \#1 \$ator of method App\\Tenant\\Service\\RegraDosPrimarios\:\:podeAlterarConta\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Parameter \#1 \$ator of method App\\Tenant\\Service\\RegraDosPrimarios\:\:podeGerirPrimarios\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Parameter \#1 \$ator of method App\\Tenant\\Service\\RegraDosPrimarios\:\:podeTrocarSenhaDe\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Parameter \#1 \$executor of class App\\Tenant\\DTO\\RemoverColaboradorInput constructor expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Repository\\UserTenantRepository\:\:existeVinculoAtivo\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 16
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 17
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between ''entrada''\|''repouso''\|''retorno''\|''saida'' and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Controller/TenantController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>problema" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Dashboard/Inteligencia/MotorAvancado.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>restantes" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Dashboard/Inteligencia/MotorAvancado.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Dashboard/Repository/HistoricoDoDashboardRepository.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Dashboard/Repository/MetricasExtrasDoDashboardRepository.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: src/DataFixtures/AppFixtures.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: src/Djen/DTO/PublicacaoDjenOutput.php
+
+		-
+			message: '#^Call to an undefined method Symfony\\Component\\HttpFoundation\\Session\\SessionInterface\:\:getFlashBag\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/EventListener/TenantContextValidatorListener.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: src/Expediente/Controller/ExpedienteController.php
+
+		-
+			message: '#^Offset ''normal''\|''prioridade''\|''urgente'' on array\{normal\: ''Normal'', prioridade\: ''Alta'', urgente\: ''Urgente''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Expediente/Service/CsvDaListaDoExpediente.php
+
+		-
+			message: '#^Call to an undefined method App\\Cliente\\Entity\\Cliente\:\:getRazaoSocial\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Form/PastaType.php
+
+		-
+			message: '#^Instanceof between App\\Entity\\Auth\\User and App\\Entity\\Auth\\User will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Inteligencia/Contexto/FonteDeMovimentacoesDoPushDoctrine.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\{tipo\: string, texto\: string\} will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Inteligencia/DTO/AnaliseOutput.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: src/Inteligencia/DTO/AnaliseOutput.php
+
+		-
+			message: '#^Offset ''texto'' on array\{tipo\: string, texto\: string\} in isset\(\) always exists and is not nullable\.$#'
+			identifier: isset.offset
+			count: 1
+			path: src/Inteligencia/DTO/AnaliseOutput.php
+
+		-
+			message: '#^Offset ''tipo'' on array\{tipo\: string, texto\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Inteligencia/DTO/AnaliseOutput.php
+
+		-
+			message: '#^Result of \|\| is always false\.$#'
+			identifier: booleanOr.alwaysFalse
+			count: 2
+			path: src/Inteligencia/DTO/AnaliseOutput.php
+
+		-
+			message: '#^Dead catch \- LogicException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Inteligencia/MessageHandler/ProcessarAnaliseDeInteligenciaHandler.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Inteligencia/UseCase/RegistrarExportacaoDaAnaliseUseCase.php
+
+		-
+			message: '#^Property App\\Kanban\\Controller\\KanbanCardController\:\:\$boardRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Kanban/Controller/KanbanCardController.php
+
+		-
+			message: '#^Offset 0 on non\-empty\-list\<string\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Kanban/DTO/UsuarioOutput.php
+
+		-
+			message: '#^Dead catch \- InvalidArgumentException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Master/Controller/FontesPublicasController.php
+
+		-
+			message: '#^Empty array passed to foreach\.$#'
+			identifier: foreach.emptyArray
+			count: 1
+			path: src/Master/Fontes/FontesPublicas.php
+
+		-
+			message: '#^Offset ''11''\|''12''\|''13''\|''14''\|''15''\|''16''\|''17''\|''21''\|''22''\|''23''\|''24''\|''25''\|''26''\|''27''\|''28''\|''29''\|''31''\|''32''\|''33''\|''35''\|''41''\|''42''\|''43''\|''50''\|''51''\|''52''\|''53'' on array\<string, array\{pop\?\: int, adv\?\: int\}\> on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: src/Master/Fontes/FontesPublicas.php
+
+		-
+			message: '#^Offset decimal\-int\-string on array\<string, array\<string, int\>\> on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Master/Fontes/FontesPublicas.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: src/Master/Fontes/FontesPublicas.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between null and null will always evaluate to false\.$#'
+			identifier: notIdentical.alwaysFalse
+			count: 1
+			path: src/Master/Fontes/FontesPublicas.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type DOMNodeList\<DOMNameSpaceNode\|DOMNode\>\|false\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: src/Master/Fontes/LeitorQuadroOab.php
+
+		-
+			message: '#^Dead catch \- Symfony\\Component\\Security\\Core\\Exception\\AccessDeniedException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Pasta/Controller/PastaDocumentoController.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between App\\Entity\\Tenant\\Tenant and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Pasta/Controller/PastaDocumentoController.php
+
+		-
+			message: '#^Dead catch \- App\\Shared\\Armazenamento\\Exception\\ChaveDeArquivoInvalida is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Pasta/Controller/PeticionarController.php
+
+		-
+			message: '#^Dead catch \- InvalidArgumentException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Pasta/Controller/PeticionarController.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{string, string\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 2
+			path: src/Pasta/Entity/PastaAndamento.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Pasta/Entity/PastaAndamento.php
+
+		-
+			message: '#^Property App\\Pasta\\Entity\\PastaAndamento\:\:\$marcos \(array\{em\?\: array\<int\|string, string\>, pul\?\: list\<int\>, extra\?\: list\<array\{string, string\}\>\}\) does not accept array\{em\: stdClass, pul\: list\<int\>, extra\: list\<array\{string, string\}\>\}\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Pasta/Entity/PastaAndamento.php
+
+		-
+			message: '#^Instanceof between App\\Pasta\\Entity\\PastaDocumento and App\\Pasta\\Entity\\PastaDocumento will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Pasta/Service/ConflitoDeNumeroCnj.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-falsy\-string&numeric\-string and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: src/Pasta/Service/LeitorDeDatas.php
+
+		-
+			message: '#^Instanceof between App\\Entity\\Auth\\User and App\\Entity\\Auth\\User will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Pasta/Service/PastaTimelineAssembler.php
+
+		-
+			message: '#^Instanceof between App\\Entity\\Tarefa\\Tarefa and App\\Entity\\Tarefa\\Tarefa will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Pasta/Service/PastaTimelineAssembler.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: src/Pasta/Service/PastaTimelineAssembler.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{titulo\: string, nomeOriginal\: string, categoria\: string, data\: string\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Pasta/Service/SugestorDeDocumentos.php
+
+		-
+			message: '#^Instanceof between App\\Pasta\\Entity\\PastaChecklistItem and App\\Pasta\\Entity\\PastaChecklistItem will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Pasta/Twig/DocumentosSugeridosExtension.php
+
+		-
+			message: '#^Instanceof between App\\Pasta\\Entity\\PastaDocumento and App\\Pasta\\Entity\\PastaDocumento will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Pasta/Twig/DocumentosSugeridosExtension.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 2
+			path: src/Pasta/UseCase/ExcluirItensDaPastaUseCase.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<App\\Pasta\\Entity\\PastaReu\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Pasta/UseCase/GerenciarReusDaPastaUseCase.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Ponto/Controller/FeriadoController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Ponto/Controller/HomeOfficeConfigController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 3
+			path: src/Ponto/Controller/JornadaColaboradorController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Ponto/Controller/JornadaTenantController.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 2
+			path: src/Ponto/Controller/PontoController.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type App\\Entity\\Tenant\\Tenant\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 10
+			path: src/Ponto/Controller/PontoController.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type App\\Ponto\\Entity\\JornadaColaborador\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Ponto/Service/CalculadoraJornada.php
+
+		-
+			message: '#^Offset int\<0, 4\> on array\{non\-falsy\-string, non\-falsy\-string, ''Descanso Semanal…'', non\-falsy\-string, non\-falsy\-string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Ponto/Service/FolhaPontoXlsxExporter.php
+
+		-
+			message: '#^Offset int\<0, 4\> on array\{non\-falsy\-string, non\-falsy\-string, non\-falsy\-string, non\-falsy\-string, non\-falsy\-string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Ponto/Service/FolhaPontoXlsxExporter.php
+
+		-
+			message: '#^Dead catch \- App\\Processo\\Exception\\TribunalNaoIdentificadoException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Processo/Controller/ProcessoController.php
+
+		-
+			message: '#^Parameter \#1 \$criadoPor of method App\\Processo\\Entity\\Processo\:\:setCriadoPor\(\) expects App\\Entity\\Auth\\User\|null, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Processo/Controller/ProcessoController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAccessResource\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Processo/Controller/ProcessoController.php
+
+		-
+			message: '#^Offset ''error_count'' on array\{warning_count\: int\<0, max\>, warnings\: list\<string\>, error_count\: int\<0, max\>, errors\: list\<string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Processo/Service/DatajudProcessoMapper.php
+
+		-
+			message: '#^Offset ''warning_count'' on array\{warning_count\: int\<0, max\>, warnings\: list\<string\>, error_count\: int\<0, max\>, errors\: list\<string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Processo/Service/DatajudProcessoMapper.php
+
+		-
+			message: '#^PHPDoc tag @var for constant App\\Processo\\Service\\TribunalCnjResolver\:\:MAPA with type array\<string, array\{nome\: string, tribunais\: array\<string, string\>\}\> is incompatible with value array\{1\: array\{nome\: ''Supremo Tribunal…'', tribunais\: array\{''00''\: ''STF''\}\}, 2\: array\{nome\: ''Conselho Nacional…'', tribunais\: array\{''00''\: ''CNJ''\}\}, 3\: array\{nome\: ''Superior Tribunal…'', tribunais\: array\{''00''\: ''STJ''\}\}, 4\: array\{nome\: ''Justiça Federal'', tribunais\: array\{''01''\: ''TRF1'', ''02''\: ''TRF2'', ''03''\: ''TRF3'', ''04''\: ''TRF4'', ''05''\: ''TRF5'', ''06''\: ''TRF6'', 90\: ''CJF''\}\}, 5\: array\{nome\: ''Justiça do Trabalho'', tribunais\: array\{''00''\: ''TST'', ''01''\: ''TRT1'', ''02''\: ''TRT2'', ''03''\: ''TRT3'', ''04''\: ''TRT4'', ''05''\: ''TRT5'', ''06''\: ''TRT6'', ''07''\: ''TRT7'', \.\.\.\}\}, 6\: array\{nome\: ''Justiça Eleitoral'', tribunais\: array\{''00''\: ''TSE'', ''01''\: ''TRE\-AC'', ''02''\: ''TRE\-AL'', ''03''\: ''TRE\-AP'', ''04''\: ''TRE\-AM'', ''05''\: ''TRE\-BA'', ''06''\: ''TRE\-CE'', ''07''\: ''TRE\-DF'', \.\.\.\}\}, 7\: array\{nome\: ''Justiça Militar da…'', tribunais\: array\{''00''\: ''STM'', ''01''\: ''1CJM'', ''02''\: ''2CJM'', ''03''\: ''3CJM'', ''04''\: ''4CJM'', ''05''\: ''5CJM'', ''06''\: ''6CJM'', ''07''\: ''7CJM'', \.\.\.\}\}, 8\: array\{nome\: ''Justiça Estadual e…'', tribunais\: array\{''01''\: ''TJAC'', ''02''\: ''TJAL'', ''03''\: ''TJAP'', ''04''\: ''TJAM'', ''05''\: ''TJBA'', ''06''\: ''TJCE'', ''07''\: ''TJDFT'', ''08''\: ''TJES'', \.\.\.\}\}, \.\.\.\}\.$#'
+			identifier: classConstant.phpDocType
+			count: 1
+			path: src/Processo/Service/TribunalCnjResolver.php
+
+		-
+			message: '#^Offset ''id'' on non\-empty\-array in isset\(\) always exists and is not nullable\.$#'
+			identifier: isset.offset
+			count: 1
+			path: src/Repository/UserRepository.php
+
+		-
+			message: '#^Offset ''id'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Repository/UserRepository.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Repository/UserRepository.php
+
+		-
+			message: '#^Method App\\Security\\UserAuthenticator\:\:onAuthenticationSuccess\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: src/Security/UserAuthenticator.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Symfony\\Component\\Security\\Core\\User\\UserInterface and ''getRoles'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Service/Audit/AuditLogSubscriber.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Symfony\\Component\\Security\\Core\\User\\UserInterface and ''getUserIdentifier'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Service/Audit/AuditLogSubscriber.php
+
+		-
+			message: '#^Instanceof between Doctrine\\ORM\\EntityManagerInterface and Doctrine\\ORM\\EntityManagerInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/Service/Audit/AuditLogSubscriber.php
+
+		-
+			message: '#^Offset 0 on non\-empty\-list\<string\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Service/Audit/AuditLogSubscriber.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between non\-empty\-string and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Shared/Doctrine/Filter/TenantFilter.php
+
+		-
+			message: '#^Property App\\Sync\\Message\\SincronizarPastaNoDrive\:\:\$renomear \(bool\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Sync/MessageHandler/SincronizarPastaNoDriveHandler.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Sync/Service/GoogleDriveClient.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Sync/Service/GoogleDriveClient.php
+
+		-
+			message: '#^Parameter \#4 \$data of class Google\\Http\\MediaFileUpload constructor expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Sync/Service/GoogleDriveClient.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>metas" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Tarefa/DTO/MinhasMetasOutput.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Tarefa/Repository/TarefaRepository.php
+
+		-
+			message: '#^Offset ''dataConclusao''\|''dataCriacao''\|''prazo'' on array\{titulo\: ''Título'', descricao\: ''Descrição'', status\: ''Status'', prazo\: ''Prazo'', dataConclusao\: ''Data de conclusão'', dataCriacao\: ''Data de criação'', responsavel\: ''Responsável''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Tarefa/Service/TarefaTimelineAssembler.php
+
+		-
+			message: '#^Property App\\Tarefa\\Service\\TarefaTimelineAssembler\:\:\$mensagemRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Tarefa/Service/TarefaTimelineAssembler.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Tarefa/Service/TarefaTimelineAssembler.php
+
+		-
+			message: '#^Parameter \#1 \$usuario of method App\\Tenant\\UseCase\\SairDoEscritorioUseCase\:\:executar\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Tenant/Controller/EscritorioController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Repository\\UserTenantRepository\:\:existeVinculoAtivo\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Tenant/Controller/TenantUserProfileController.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Service\\PermissionChecker\:\:canAdminister\(\) expects App\\Entity\\Auth\\User, Symfony\\Component\\Security\\Core\\User\\UserInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Tenant/Controller/TenantUserProfileController.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type App\\Entity\\Tenant\\Tenant\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/TrabalhoExterno/Service/FabricaDeContexto.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between App\\Entity\\Tenant\\Tenant and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/TrabalhoExterno/UseCase/MontarPainelUseCase.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type App\\Entity\\Tenant\\Tenant\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: src/TrabalhoExterno/UseCase/MontarPainelUseCase.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type App\\Entity\\Tenant\\Tenant\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/TrabalhoExterno/UseCase/SolicitarPeloMasterUseCase.php
