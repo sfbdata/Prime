@@ -119,3 +119,10 @@ jobs:
 
       - name: Testes unitarios e de arquitetura
         run: php bin/phpunit --fail-on-skipped tests/*/Unit tests/Arquitetura tests/Twig
+
+      - name: Testes dos scripts de deploy e de versao
+        working-directory: .
+        run: |
+          python3 -m unittest scripts/test_mudancas.py
+          bash scripts/testar-deploy-automatico.sh
+          bash scripts/testar-deploy-guardas.sh

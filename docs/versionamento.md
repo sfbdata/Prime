@@ -77,42 +77,27 @@ infraestrutura: a imagem de produção copia só `app/` (`COPY app/ ./` no `Dock
 opções, a decidir quando ela for feita: copiar o CHANGELOG para a imagem (uma linha no Dockerfile)
 ou manter um texto próprio para o usuário final, já que o CHANGELOG é escrito para a equipe.
 
-## 5. Como lançar uma versão
+## 5. Como lançar uma versão (automático desde a v2.1.0)
 
-1. **PR de release**, numa branch `release-X.Y.Z` cortada do master:
-   - `VersaoDoSistema::ATUAL` passa a `X.Y.Z`;
-   - no CHANGELOG, a seção `## [Não lançado]` ganha embaixo dela `## [X.Y.Z] - AAAA-MM-DD`, com o
-     conteúdo que estava em "[Não lançado]" (reescreva o parágrafo de abertura: ele vira o corpo da
-     release no GitHub). A data é a do dia em que a tag vai ser criada; se escorregar, corrija no
-     próprio PR antes do merge;
-   - nos links do fim: `[Não lançado]: .../compare/vX.Y.Z...HEAD` e
-     `[X.Y.Z]: .../compare/vANTERIOR...vX.Y.Z`;
-   - `[Não lançado]` fica só com o título, sem conteúdo: tudo o que estava ali passa para a versão;
-   - conferir localmente: `bash scripts/release.sh validar X.Y.Z`.
-2. **Merge** do PR, depois dos checks obrigatórios verdes ("Segredos" e "Lints e testes
-   unitários", que inclui o `VersaoDoSistemaTest`).
-3. **Esperar os mesmos checks verdes no commit de merge** do master (eles rodam no push).
-4. **Criar a tag pelo workflow**, nunca à mão:
-   ```bash
-   gh workflow run release.yml --repo sfbdata/Prime --ref master -f versao=X.Y.Z
-   gh run watch --repo sfbdata/Prime "$(gh run list --repo sfbdata/Prime --workflow release.yml -L 1 --json databaseId -q '.[0].databaseId')"
-   ```
-   O job roda no ambiente `release` e **espera a sua aprovação** na página da execução (Review
-   deployments → Approve). Ele recusa se não for o master, se a constante ou o CHANGELOG não
-   baterem, se a tag existir ou se os checks não estiverem verdes **naquele commit**; e só então o
-   GitHub App "BlueJus Release" cria a tag `vX.Y.Z` e a release com o texto do CHANGELOG.
-5. **Deploy** como hoje (`DEPLOY.md`). Antes, na VPS, conferir que o master que o script vai puxar
-   é exatamente a tag; depois, que é ela que está no ar:
-   ```bash
-   cd /opt/jusprime && git fetch --tags origin && test "$(git rev-parse origin/master)" = "$(git rev-list -n1 vX.Y.Z)" && echo "ok: o deploy leva vX.Y.Z"
-   # ... scripts/deploy-prod-tls.sh ...
-   git describe --tags --exact-match HEAD   # tem que dizer vX.Y.Z
-   ```
-   Se o master andou depois da tag, o deploy levaria commits sem versão: pare e decida (lançar
-   outra versão, ou esperar).
-6. **Registrar** o que foi ao ar no checklist do `DEPLOY.md` (versão, data/hora, responsável).
+1. **Cada PR traz um arquivo em `mudancas/`** com o tipo (`novidade`, `correcao`, `remocao`,
+   `alteracao`, `seguranca` ou `interno`) e o texto do CHANGELOG e, opcionalmente, o texto para o
+   cliente. Formato: [../mudancas/README.md](../mudancas/README.md). O check "Registro de mudança"
+   exige o arquivo. Os critérios da seção 3 viram o tipo: remoção = MAJOR, novidade/alteração =
+   MINOR, correção/segurança = PATCH, interno = não gera versão.
+2. **A cada merge no master, o robô atualiza o PR "Lança a vX.Y.Z"** (`preparar-release.yml`): calcula
+   o número, escreve a seção do CHANGELOG, sobe a `VersaoDoSistema`, acrescenta o texto para o
+   cliente em `app/config/novidades.yaml` e apaga os arquivos de mudança. Ninguém edita o
+   CHANGELOG à mão; `[Não lançado]` fica sempre vazio.
+3. **Publicar é mergear o PR de release.** Com o Qualidade verde no master, o Release cria a tag e a
+   release e, com `DEPLOY_AUTOMATICO=ligado`, o Deploy publica (backup, versão anterior guardada,
+   conferência e volta automática). Configuração e operação:
+   [runbooks/deploy-automatico.md](runbooks/deploy-automatico.md).
+4. **Retomar à mão** (raro): versão sem tag → refazer a execução do Release do commit do merge do
+   PR de release (`gh run rerun`, runbook seção 4); o botão "Run workflow" só serve quando a ponta
+   do master é esse commit. Republicar uma versão oficial: `gh workflow run deploy.yml -f
+   tag=vX.Y.Z -f simulacao=false -f confirmacao=vX.Y.Z`.
 
-Correção urgente em produção: o mesmo fluxo com PATCH (`X.Y.Z+1`), PR pequeno.
+A data da seção é a do dia em que o robô atualizou o PR de release pela última vez.
 
 ## 6. Como o CI garante que não sai tag sem teste
 
@@ -175,8 +160,7 @@ Volta-se o sistema, e a correção sai como versão nova.
 
 ## 8. Pendências
 
-- [ ] Dono: confirmar **2.0.0** como primeira versão desta política (seção 2).
-- [ ] Dono: configurar App, ambiente e ruleset das tags `v*` (seção 6 e
-      `runbooks/protecao-tags-versao.md`), nessa ordem, depois do merge do workflow novo.
-- [ ] Primeiro PR de release `release-2.0.0` e disparo do workflow — só com autorização.
-- [ ] Página de Novidades: decidir CHANGELOG na imagem × texto próprio (seção 4).
+- [x] 2.0.0 confirmada e lançada em 17/10/2026 (PR #24).
+- [x] App, ambiente `release` e ruleset das tags `v*` configurados (14/10/2026).
+- [x] Página de Novidades com texto próprio para o cliente (`app/config/novidades.yaml`, `/novidades`).
+- [ ] Dono: configuração única do CI/CD automático (`runbooks/deploy-automatico.md`, seção 2).

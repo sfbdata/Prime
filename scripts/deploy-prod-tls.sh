@@ -73,8 +73,14 @@ if [[ ! -f "$LETSENCRYPT_DIR/live/grupojusprime.tech/fullchain.pem" || \
 fi
 
 # ─── Atualiza código ───────────────────────────────────────────────────────────
-echo "📦 Atualizando código do repositório..."
-git pull
+# O deploy automático (scripts/vps/deploy-automatico.sh) já deixou o checkout exatamente na tag
+# vX.Y.Z e chama com PULAR_GIT_PULL=1: um pull aqui traria o que entrou no master depois da tag.
+if [[ "${PULAR_GIT_PULL:-0}" == 1 ]]; then
+  echo "📦 Código já posicionado na versão $(git describe --tags --always) (deploy automático)."
+else
+  echo "📦 Atualizando código do repositório..."
+  git pull
+fi
 
 # ─── Constrói a imagem ANTES de derrubar nada ──────────────────────────────────
 # A ORDEM É O CONSERTO. Antes, a manutenção era ligada primeiro e o build vinha depois:
