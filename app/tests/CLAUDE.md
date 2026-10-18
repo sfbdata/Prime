@@ -95,6 +95,12 @@ Teste novo que grava fora do banco não pode montar caminho fixo: use o parâmet
 e `sys_get_temp_dir()`. Os ids se repetem entre processos (cada banco recomeça as sequências), então
 nada fora do banco pode ser compartilhado por id de tenant.
 
+Os dois scripts rodam o PHP com o OPcache ligado na CLI (`scripts/lib/opcache-de-teste.sh`). À mão,
+use a mesma receita: `php -d opcache.enable_cli=1 -d opcache.memory_consumption=512
+-d opcache.interned_strings_buffer=32 -d opcache.max_accelerated_files=20000
+-d opcache.revalidate_freq=0 bin/phpunit`. Sem ela (`enable_cli=0` no container) o bytecode das ~7 mil
+classes carregadas fica na heap do processo: a serial pica em ~400 MB em vez de ~208 MB e roda mais devagar.
+
 ## Geradores (`make:factory`, `make:test`) — servem, mas gravam no lugar errado
 
 - `make:factory` **precisa** de `--test`; sem o flag grava em `src/Factory/`. O lugar aqui é `tests/Factory/<Dominio>/`.

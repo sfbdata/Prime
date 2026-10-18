@@ -18,7 +18,10 @@ if [ -z "$nome" ]; then
 fi
 shift || true
 
-raiz=$(git rev-parse --show-toplevel)
+# O repositório principal, mesmo quando o script é chamado de dentro de uma worktree (o
+# --show-toplevel devolvia a própria worktree e o caminho saía dobrado).
+raiz=$(cd "$(git rev-parse --git-common-dir)/.." && pwd)
+source "$(dirname "${BASH_SOURCE[0]}")/lib/opcache-de-teste.sh"
 container=jusprime_php_dev
 
 if [ "$nome" = "master" ] || [ "$nome" = "principal" ]; then
@@ -48,5 +51,11 @@ echo "==> codigo:  $caminho_container"
 echo "==> banco:   $banco"
 echo
 
+# Argumentos citados um a um: um --filter 'A|B' chega inteiro ao phpunit, não vira pipe.
+extras_citados=""
+if [ $# -gt 0 ]; then
+    printf -v extras_citados '%q ' "$@"
+fi
+
 docker exec -e "TEST_TOKEN=$token" "$container" \
-    bash -c "cd '$caminho_container' && php bin/phpunit $*"
+    bash -c "cd '$caminho_container' && php $OPCACHE_DE_TESTE bin/phpunit $extras_citados"
