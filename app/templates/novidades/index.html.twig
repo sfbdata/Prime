@@ -1,0 +1,38 @@
+{% extends 'base.html.twig' %}
+
+{# Página global de Novidades. O texto vem do app/config/novidades.yaml, escrito pelo robô do PR
+   de release. Cores pelas variáveis do Bootstrap (`--bs-*`): o sistema alterna tema claro/escuro. #}
+
+{% block title %}Novidades | BlueJus{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .novidades-pagina { max-width: 52rem; margin: 0 auto; padding: 1.5rem 0 4rem; }
+    .novidades-versao { border-left: 3px solid var(--bs-primary); padding: .25rem 0 .25rem 1.25rem; margin-bottom: 2rem; }
+    .novidades-versao h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: .15rem; }
+    .novidades-versao .novidades-data { color: var(--bs-secondary-color); font-size: .875rem; }
+    .novidades-versao ul { margin: .75rem 0 0; padding-left: 1.1rem; line-height: 1.6; }
+    .novidades-versao li + li { margin-top: .35rem; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="novidades-pagina" data-novidades-vista="{{ versoes is not empty ? versoes|first.versao : '' }}">
+    <h1 class="h3 mb-1">Novidades</h1>
+    <p class="text-body-secondary mb-4">O que mudou no BlueJus a cada versão. Você está na versão {{ versaoAtual }}.</p>
+
+    {% for v in versoes %}
+        <section class="novidades-versao">
+            <h2>Versão {{ v.versao }}</h2>
+            <div class="novidades-data">{{ v.data|date('d/m/Y') }}</div>
+            <ul>
+                {% for item in v.itens %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% else %}
+        <p class="text-body-secondary">Ainda não há novidades registradas.</p>
+    {% endfor %}
+</div>
+{% endblock %}

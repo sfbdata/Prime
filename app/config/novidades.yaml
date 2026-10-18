@@ -1,0 +1,13 @@
+# Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
+# "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
+versoes:
+- versao: "2.0.0"
+  data: "2026-10-17"
+  itens:
+    - "Central de Comunicação: converse com os colegas do escritório, em conversas individuais ou em grupo, pelo ícone que fica em todas as telas."
+    - "Trabalho Externo: peça diligências e audiências à central de correspondentes e acompanhe tudo pela própria demanda."
+    - "Pasta com novo cadastro do cliente, aba Réu e situação da pasta em destaque."
+    - "Push Processual reúne os processos monitorados e capta publicações também pelo número do processo."
+    - "Minhas Metas agora fica na barra superior; Processos passou a ficar dentro do Push Processual."
+    - "Mensagem mais clara quando o CNJ não encontra o processo."
+    - "Mais segurança no acesso e na proteção dos dados do escritório."

@@ -1,0 +1,203 @@
+# Deploy do BlueJus em produção, a partir de uma versão oficial vX.Y.Z.
+#
+# Chamado pelo workflow Release logo depois de criar a tag e a release, quando a variável do
+# repositório DEPLOY_AUTOMATICO é "ligado" (ou "simulacao", que só confere). Também roda pelo botão
+# "Run workflow" do master: simulação (padrão) ou republicar uma versão oficial, digitando a tag
+# de novo em "confirmacao".
+#
+# Travas:
+#   - só a partir do master; tag no formato vX.Y.Z, com release publicada pelo robô do Release
+#     (só ele cria tag v*, pelo ruleset), commit no master e os checks obrigatórios verdes;
+#   - o job que fala com a VPS usa o ambiente "production": a chave SSH só existe nele, e ele só
+#     aceita jobs do master;
+#   - um deploy por vez (concurrency, sem cancelar) e uma trava de arquivo na própria VPS.
+#
+# O que roda na VPS: scripts/vps/deploy-automatico.sh (backup conferido, versão anterior guardada,
+# guarda de migration destrutiva, publicação, conferência e volta automática). Configuração:
+# docs/runbooks/deploy-automatico.md.
+
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      simulacao:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Versão oficial (exemplo: v2.1.0)"
+        required: true
+        type: string
+      simulacao:
+        description: "Simulação: confere tudo sem alterar a produção"
+        type: boolean
+        default: true
+      confirmacao:
+        description: "Só para deploy real: digite a tag de novo"
+        required: false
+        type: string
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TAG: ${{ inputs.tag }}
+  SIMULACAO: ${{ inputs.simulacao && 'true' || 'false' }}
+
+jobs:
+  validar:
+    name: Validar a versão
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CONFIRMACAO: ${{ inputs.confirmacao }}
+      EVENTO: ${{ github.event_name }}
+      REF: ${{ github.ref }}
+      ROBO: ${{ vars.RELEASE_APP_BOT || 'bluejus-release-sfbdata[bot]' }}
+    steps:
+      - name: Exigir master, formato e confirmacao
+        run: |
+          [[ "$REF" == refs/heads/master ]] || { echo "::error::O Deploy só roda a partir do master (veio de $REF)."; exit 1; }
+          [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
+            || { echo "::error::Tag inválida: '$TAG' (use vX.Y.Z)."; exit 1; }
+          if [[ "$EVENTO" == workflow_dispatch && "$SIMULACAO" != true && "$CONFIRMACAO" != "$TAG" ]]; then
+            echo "::error::Deploy manual real: digite a tag de novo em 'confirmacao'. Nada foi feito."
+            exit 1
+          fi
+          echo "Modo: $([[ "$SIMULACAO" == true ]] && echo simulação || echo publicação) de $TAG"
+
+      - name: Baixar o historico
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Conferir a tag, a release e os checks
+        id: tag
+        run: |
+          git rev-parse -q --verify "refs/tags/$TAG" >/dev/null \
+            || { echo "::error::A tag $TAG não existe."; exit 1; }
+          SHA="$(git rev-parse "$TAG^{commit}")"
+          git merge-base --is-ancestor "$SHA" origin/master \
+            || { echo "::error::O commit de $TAG não está no master."; exit 1; }
+          versao="$(git show "$SHA:app/src/Shared/VersaoDoSistema.php" | sed -n "s/.*public const ATUAL = '\([0-9.]*\)'.*/\1/p")"
+          [[ "v$versao" == "$TAG" ]] || { echo "::error::$TAG tem VersaoDoSistema '$versao'."; exit 1; }
+          read -r rascunho autor < <(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,author -q '"\(.isDraft) \(.author.login)"') \
+            || { echo "::error::$TAG não tem release no GitHub."; exit 1; }
+          [[ "$rascunho" == false ]] || { echo "::error::A release $TAG é rascunho."; exit 1; }
+          [[ "$autor" == "$ROBO" ]] || { echo "::error::A release $TAG não foi criada pelo robô do Release (autor: $autor)."; exit 1; }
+          for check in "Segredos" "Lints e testes unitários"; do
+            nome="$(jq -rn --arg c "$check" '$c|@uri')"
+            [[ -n "$nome" ]] || { echo "::error::nome de check vazio"; exit 1; }
+            conclusao="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?app_id=15368&check_name=$nome" \
+              -q '[.check_runs[]] | sort_by(.started_at // "") | last | if . == null then "ausente" elif .status != "completed" then "em andamento" else .conclusion end')"
+            [[ "$conclusao" == success ]] || { echo "::error::'$check' não está verde em $SHA ($conclusao)."; exit 1; }
+          done
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "$TAG → $SHA: release do robô, checks verdes."
+
+  deploy:
+    name: ${{ inputs.simulacao && 'Simular deploy' || 'Publicar em produção' }}
+    needs: validar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    concurrency:
+      group: jusprime-deploy-production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://bluejus.com.br/novidades
+    permissions:
+      contents: read
+    env:
+      SHA: ${{ needs.validar.outputs.sha }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+    steps:
+      - name: Conferir segredos do ambiente
+        env:
+          VPS_SSH_KEY_B64: ${{ secrets.VPS_SSH_KEY_B64 }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          falta=0
+          for nome in VPS_HOST VPS_USER VPS_SSH_KEY_B64 VPS_KNOWN_HOSTS; do
+            [[ -n "${!nome}" ]] || { echo "::error::Segredo $nome ausente no ambiente production."; falta=1; }
+          done
+          exit $falta
+
+      # O script vem do MESMO commit desta definição (o master, que só recebe por PR); o código
+      # publicado vem da tag, que o script posiciona na VPS. Assim dá para simular ou republicar
+      # uma versão anterior ao próprio script (a v2.0.0, por exemplo).
+      - name: Baixar o script de deploy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Chave em Base64 numa linha (colada como texto, uma chave OpenSSH perde as quebras de linha).
+      # A chave do host é fixada: nunca aceita host desconhecido.
+      - name: Preparar o SSH
+        env:
+          VPS_SSH_KEY_B64: ${{ secrets.VPS_SSH_KEY_B64 }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          ( umask 077; printf '%s' "$VPS_SSH_KEY_B64" | tr -d '[:space:]' | base64 -d > ~/.ssh/deploy_key ) \
+            || { echo "::error::VPS_SSH_KEY_B64 não é Base64 válido (gere com: base64 -w0 <chave>)."; exit 1; }
+          ssh-keygen -y -P '' -f ~/.ssh/deploy_key > /dev/null \
+            || { echo "::error::VPS_SSH_KEY_B64 não é uma chave privada OpenSSH sem senha."; exit 1; }
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName ${VPS_HOST}
+            User ${VPS_USER}
+            Port ${VPS_PORT}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            BatchMode yes
+            ConnectTimeout 15
+            ServerAliveInterval 30
+          EOF
+          chmod 600 ~/.ssh/config
+          ssh vps 'echo "SSH ok: $(whoami)@$(hostname)"'
+
+      - name: ${{ inputs.simulacao && 'Simular na VPS (nada muda)' || 'Backup, publicacao, conferencia e volta automatica na VPS' }}
+        run: |
+          modo=$([[ "$SIMULACAO" == true ]] && echo simular || echo publicar)
+          # Nome imprevisível na VPS (mktemp), criado só para o usuário do deploy.
+          remoto="$(ssh vps 'mktemp /tmp/jusprime-deploy-XXXXXXXX.sh')"
+          [[ "$remoto" =~ ^/tmp/jusprime-deploy-[A-Za-z0-9]{8}\.sh$ ]] || { echo "::error::mktemp remoto inesperado: $remoto"; exit 1; }
+          # shellcheck disable=SC2029  # caminho conferido acima
+          ssh vps "cat > $remoto" < scripts/vps/deploy-automatico.sh
+          # shellcheck disable=SC2029
+          ssh vps "bash $remoto $(printf '%q ' "$modo" "$TAG" "$SHA"); rc=\$?; rm -f $remoto; exit \$rc"
+
+      - name: Resumo
+        if: success()
+        run: |
+          if [[ "$SIMULACAO" == true ]]; then
+            echo "Simulação de $TAG: tudo conferido, produção não mudou." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Produção em $TAG ($SHA)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Apagar a chave do runner
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/config

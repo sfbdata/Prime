@@ -73,6 +73,13 @@ validar() {
     [[ -z "$pendente" ]] \
         || falhar "[Não lançado] tem conteúdo: o master tem mudança que não é da $versao. Inclua-a na release ou lance depois."
 
+    # Arquivo em mudancas/ (fora o README) é mudança de PR que ainda não entrou numa versão: a tag
+    # levaria código que o CHANGELOG da $versao não descreve.
+    local soltos
+    soltos="$(find "$RAIZ/mudancas" -maxdepth 1 -name '*.md' ! -name README.md -printf '%f ' 2>/dev/null || true)"
+    [[ -z "$soltos" ]] \
+        || falhar "Há mudanças em mudancas/ que não são da $versao ($soltos). Lance-as numa versão nova."
+
     grep -qE "^\[$versao_re\]: $REPOSITORIO/(compare/v[0-9.]+\.\.\.v|releases/tag/v)$versao_re$" "$CHANGELOG" \
         || falhar "Falta o link de referência '[$versao]: ...' no fim do CHANGELOG."
     grep -qxF "[Não lançado]: $REPOSITORIO/compare/v$versao...HEAD" "$CHANGELOG" \
