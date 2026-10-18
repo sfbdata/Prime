@@ -379,7 +379,7 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
         $this->temporariosDoTeste = [];
 
         // Remove os temporários de importação criados no disco de teste (var/uploads-test/cobrancas/import-tmp).
-        $dir = __DIR__ . '/../../../var/uploads-test/cobrancas/import-tmp';
+        $dir = __DIR__ . '/../../../var/uploads-test' . getenv('TESTE_PROCESSO') . '/cobrancas/import-tmp';
         if (is_dir($dir)) {
             $it = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
