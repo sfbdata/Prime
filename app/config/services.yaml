@@ -216,6 +216,10 @@ when@test:
         ia_habilitada: true
 
     services:
+        # Página de erro igual à de PRODUÇÃO (sem depuração); o porquê está na classe.
+        App\Tests\Shared\Doubles\PaginaDeErroDeProducao:
+            decorates: error_handler.error_renderer.html
+
         # BlueJus IA — o ÚNICO provedor com resposta programada, e ele mora em tests/. `public` para
         # o teste alcançá-lo pelo container e programar a resposta/falha antes da requisição.
         App\Tests\Inteligencia\Support\ProvedorFalso:
