@@ -87,7 +87,7 @@ Medir: `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --covera
 ## Rodar em paralelo (ParaTest)
 
 `scripts/testar-paralelo.sh [frente] [-p N]` roda a suíte em N processos (padrão 6). A serial
-(`php bin/phpunit`, `scripts/frente-testar.sh`) continua sendo a referência; o CI não usa o paralelo.
+(`php bin/phpunit`, `scripts/frente-testar.sh`) continua sendo a referência; no CI, o workflow "Suíte completa" roda a suíte inteira com o ParaTest (`scripts/ci-montar-banco-de-teste.sh`).
 
 Cada processo tem banco, uploads, logs e temporários próprios (`tests/Shared/Paralelo/ProcessoDeTesteParalelo`).
 Teste novo que grava fora do banco não pode montar caminho fixo: use o parâmetro do container

@@ -1,0 +1,117 @@
+# Suíte completa (Unit, Functional, Integration, Arquitetura, Twig...) em todo PR para o master,
+# com o ParaTest: um processo por CPU do runner, cada um com banco, uploads, logs e temporários
+# próprios (tests/bootstrap.php, ProcessoDeTesteParalelo).
+#
+# O banco de teste NÃO sai de migrations nem de schema:create:
+#   - migrations do zero falham (Version20260625200952 supõe dados de um dump);
+#   - schema:create não cria a extensão unaccent nem os índices funcionais de SQL cru das
+#     migrations, e parte dos Functional/Integration dá falso vermelho sem eles.
+# Ele sai do snapshot versionado app/tests/ci/schema-de-teste.sql (estrutura do banco local de
+# teste + catálogo permission + versões de migration já aplicadas; nenhum dado de cliente), e o
+# doctrine:migrations:migrate aplica por cima só as migrations mais novas que o snapshot. Montagem:
+# scripts/ci-montar-banco-de-teste.sh. Regerar o snapshot: scripts/gerar-schema-de-teste.sh.
+#
+# O ambiente é o mesmo do job "Lints e testes unitários" (qualidade.yml): Ghostscript, as mesmas
+# extensões e ini do PHP, fuso America/Sao_Paulo. Os lints, o PHPStan e o CS-Fixer ficam lá; aqui
+# só a suíte.
+
+name: Suíte completa
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # PR: o run novo cancela o anterior (ele valida o PR inteiro de novo). Push no master: um
+  # grupo por run, para nenhum commit do master ficar sem validação.
+  group: suite-completa-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  suite:
+    name: Suíte completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: saas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d saas"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: app
+
+    env:
+      APP_ENV: test
+      TZ: America/Sao_Paulo
+      # Em APP_ENV=test o Doctrine acrescenta "_test" ao nome (doctrine.yaml): o banco usado é
+      # saas_test, e o do processo N do ParaTest é saas_test_P<N>.
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/saas?serverVersion=15&charset=utf8"
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: ci
+      PGPASSWORD: ci
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Instalar Ghostscript e cliente do PostgreSQL
+        working-directory: .
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ghostscript postgresql-client
+          gs --version
+          psql --version
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.2"
+          extensions: bcmath, ctype, dom, fileinfo, gd, iconv, intl, libxml, mbstring, pdo_pgsql, posix, simplexml, sodium, xml, xmlreader, xmlwriter, zip, zlib
+          ini-values: date.timezone=America/Sao_Paulo, memory_limit=1G
+          tools: composer:v2
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Contar os processos
+        id: processos
+        run: echo "n=$(nproc)" >> "$GITHUB_OUTPUT"
+
+      - name: Montar o banco de teste
+        working-directory: .
+        env:
+          PROCESSOS: ${{ steps.processos.outputs.n }}
+        run: bash scripts/ci-montar-banco-de-teste.sh saas_test "$PROCESSOS"
+
+      # Os processos dividem o var/cache/test: compilado antes, nenhum deles disputa a compilação.
+      - name: Aquecer o cache de teste
+        run: php bin/console cache:warmup
+
+      - name: Suite completa (ParaTest)
+        env:
+          PROCESSOS: ${{ steps.processos.outputs.n }}
+        run: php vendor/bin/paratest --processes="$PROCESSOS"

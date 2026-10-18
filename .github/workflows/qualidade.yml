@@ -23,7 +23,8 @@
 #   - Functional/Integration: parte deles precisa da extensão `unaccent`, das funções do schema
 #     public e de índices que vêm de SQL cru das migrations — que, por sua vez, supõem dados de
 #     um dump (ver scripts/frente-abrir.sh). Em banco de `schema:create` dão falso vermelho.
-#     A suíte completa continua sendo a do container, antes do merge.
+#     Eles rodam no job "Suíte completa" (suite-completa.yml), que monta o banco a partir do
+#     snapshot app/tests/ci/schema-de-teste.sql + migrations mais novas, com o ParaTest.
 #   - composer audit: hoje acusa dezenas de advisories herdados; como portão, travaria todo PR.
 #
 # O ambiente replica do Dockerfile (stage base) o que os testes usam: Ghostscript (compressão e
