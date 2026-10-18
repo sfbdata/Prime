@@ -22,6 +22,8 @@
     // F2, presença (L45, L279): status e cores do desenho; batimento a cada 20 s (on-line = menos de 60 s, no servidor).
     var STATUS = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'], offline: ['Off-line', '#b7c4cd'] };
     var BATIMENTO_MS = 20000;
+    // Resolvidas (RES_JANELA, L91): com a lista à vista, o tempo da baixa anda a cada minuto sem ir ao servidor.
+    var RELOGIO_DAS_RESOLVIDAS_MS = 60000;
 
     function corNome(id) {   // L5815 — a mesma cor para a mesma pessoa
         var h = String(id).split('').reduce(function (t, ch) { return (t * 31 + ch.charCodeAt(0)) | 0; }, 7);
@@ -115,6 +117,8 @@
             verOnline: false,      // F2: lista "on-line agora / off-line" (L6380)
             externa: null,         // B2: a janela destacada (Picture-in-Picture ou pop-up) em que a Central está agora
             relogio: window,       // B2: de qual janela é o setInterval do polling (a destacada, quando houver)
+            timerResolvidas: null, // F3: o minuto das resolvidas (no mesmo relógio do polling)
+            resolvidasDesenhadas: 0, // F3: quantas resolvidas dentro da janela o último desenho da lista mostrou
             listaCarregada: false  // flutuante: lista e contatos só carregam na primeira abertura (carga por página)
         };
         var abrirAoCarregar = Number(raiz.dataset.abrirConversa) || null;   // ?conversa=N (link da menção)
@@ -388,6 +392,7 @@
         }
 
         function desenharLista() {
+            estado.resolvidasDesenhadas = resolvidasNaJanela();   // o minuto das resolvidas compara com isto
             el.lista.replaceChildren();
             if (estado.semSessao) {
                 el.lista.appendChild(vazio('bi-box-arrow-in-right', 'Sessão encerrada', 'Recarregue a página para continuar.'));
@@ -530,6 +535,32 @@
 
         function resolvidaExpirada(a) {   // resExpirada, L93
             return !!a.resolvidoEm && idadeDaBaixa(a) >= 1;
+        }
+
+        // Quantas resolvidas ainda estão dentro da janela. O minuto só muda algo na tela se há alguma ("sai da caixa em
+        // N min", a opacidade) ou se alguma acabou de expirar desde o último desenho (a saída da Caixa aos 30 min).
+        function resolvidasNaJanela() {
+            return estado.avisos.filter(function (a) { return !!a.resolvidoEm && !resolvidaExpirada(a); }).length;
+        }
+
+        // A cada minuto, sem pedir nada ao servidor: redesenha a Caixa para a resolvida sair na hora certa. Não mexe
+        // em nada aberto por cima (menu, ⋮, confirmação), na busca digitada nem nas outras telas da lista.
+        function avancarResolvidas() {
+            if (centralOculta() || !estado.janelaAberta || estado.semSessao || estado.erro) { return; }
+            if (estado.tela !== 'lista' || estado.aba !== 'entrada' || estado.verOnline || estado.ajuda || estado.filtro === 'conversas') { return; }
+            if (el.busca.value.trim() !== '' || estado.menu || estado.painelMenu || estado.confirma) { return; }
+            var naJanela = resolvidasNaJanela();
+            if (naJanela === 0 && estado.resolvidasDesenhadas === 0) { return; }
+            // A rolagem fica onde estava. O foco volta ao mesmo botão só se nenhum cartão saiu (senão a posição
+            // apontaria para o botão de outro cartão).
+            var saiuCartao = naJanela !== estado.resolvidasDesenhadas && !estado.verResolvidas;
+            var rolagem = el.lista.scrollTop;
+            var focado = raiz.ownerDocument.activeElement;
+            var seletor = 'button, [role="button"]';
+            var indice = !saiuCartao && focado && el.lista.contains(focado) ? Array.prototype.indexOf.call(el.lista.querySelectorAll(seletor), focado) : -1;
+            desenharLista();
+            el.lista.scrollTop = rolagem;
+            if (indice >= 0) { var b = el.lista.querySelectorAll(seletor)[indice]; if (b) { b.focus(); } }
         }
 
         function irParaLista() {   // os comandos do ⋮ que mostram a lista saem da conversa/tela de grupo
@@ -1945,12 +1976,18 @@
             // desacelera os timers dela), mas a Central está à vista. Um polling só: o anterior sempre para antes.
             estado.relogio = estado.externa && !estado.externa.document.hidden ? estado.externa : window;
             estado.timer = estado.relogio.setInterval(verificarNovidades, flutuante && !estado.janelaAberta ? POLLING_FECHADA_MS : POLLING_MS);
+            // O minuto das resolvidas nasce e morre com o polling, no mesmo relógio (nunca dois ao mesmo tempo).
+            estado.timerResolvidas = estado.relogio.setInterval(avancarResolvidas, RELOGIO_DAS_RESOLVIDAS_MS);
         }
 
         function pararPolling() {
             if (estado.timer !== null) {
                 try { estado.relogio.clearInterval(estado.timer); } catch (e) { /* janela destacada já fechada: o timer foi junto */ }
                 estado.timer = null;
+            }
+            if (estado.timerResolvidas !== null) {
+                try { estado.relogio.clearInterval(estado.timerResolvidas); } catch (e) { /* idem */ }
+                estado.timerResolvidas = null;
             }
         }
 

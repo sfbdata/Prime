@@ -117,7 +117,7 @@ function respostaSimulada(c, metodo, caminho) {
     // Batimento de presença (F2): toda página com a Central bate a cada 20 s. Anotado à parte (c.batimentos): as
     // demais escritas continuam exigidas em zero.
     if (metodo === 'POST' && caminho === '/central/presenca') { c.batimentos = (c.batimentos || 0) + 1; return { status: 200, json: { status: 'disponivel' } }; }
-    if (caminho === '/central/avisos') { return { status: 200, json: { avisos: c.avisos || [] } }; }
+    if (caminho === '/central/avisos') { c.leiturasAvisos = (c.leiturasAvisos || 0) + 1; return { status: 200, json: { avisos: c.avisos || [] } }; }
     if (caminho === '/central/equipe') { return { status: 200, json: c.equipe || { equipe: [], online: 0, total: 0 } }; }
     if (metodo !== 'GET') {
         c.escritas.push(metodo + ' ' + caminho);
@@ -1251,5 +1251,39 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await campo.press('Control+Enter');
         await expect.poll(() => c.escritas.filter((e) => /mensagens$/.test(e))).toEqual(['POST /central/conversas/77/mensagens']);
         await Promise.all([p.context().close(), s.context().close()]);
+    });
+
+    test('F3 resolvida sai da Caixa 30 min depois da baixa com a Central parada (sem nova leitura dos avisos)', async ({ browser }) => {
+        // Baixa dada há 28 min 30 s: falta 1 min 30 s. Com o relógio falso, a Central fica aberta e parada; nada novo no polling.
+        const avisos = AVISOS.map((a) => ({ ...a }));
+        avisos[0].lido = true;
+        avisos[0].resolvidoEm = new Date(Date.now() - 28.5 * 60000).toISOString();
+        const c = cenario(0, [], { avisos });
+        const contexto = await browser.newContext({ storageState: SESSAO, viewport: { width: 1366, height: 800 }, reducedMotion: 'no-preference' });
+        await isolar(contexto, c);
+        const s = await contexto.newPage();
+        await s.clock.install();
+        await s.goto(APP + PAGINA_APP);
+        await s.waitForSelector(S.lancador);
+        await s.clock.runFor(2000);
+        await s.locator(S.lancador).click();
+        await s.clock.runFor(1000);
+        const CART_S = S.janela + ' .bj-central-aviso-cartao';
+        const resolvido = s.locator(CART_S, { hasText: 'Verifique a meta' });
+        await expect(resolvido).toHaveClass(/--resolvido/);
+        await expect(resolvido.locator('.bj-central-aviso-baixa')).toHaveText(/sai da caixa em 2 min$/);
+        const leituras = c.leiturasAvisos;
+
+        // Um minuto depois o texto anda sozinho (antes ficava congelado).
+        await s.clock.runFor(60000);
+        await expect(resolvido.locator('.bj-central-aviso-baixa')).toHaveText(/sai da caixa em menos de 1 min$/);
+
+        // Passados os 30 min, o cartão sai da Caixa sozinho; os outros dois ficam. Ninguém releu /central/avisos.
+        await s.clock.runFor(60000);
+        await expect(resolvido).toHaveCount(0);
+        await expect(s.locator(CART_S)).toHaveCount(2);
+        expect(c.leiturasAvisos).toBe(leituras);
+        expect(c.escritas).toEqual([]);
+        await contexto.close();
     });
 });
