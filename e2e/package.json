@@ -6,7 +6,10 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "test:visual": "playwright test -c playwright.visual.config.js",
+    "test:visual:aprovar": "playwright test -c playwright.visual.config.js --update-snapshots",
+    "test:visual:relatorio": "playwright show-report relatorio-visual"
   },
   "keywords": [],
   "author": "",

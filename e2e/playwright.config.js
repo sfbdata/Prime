@@ -37,7 +37,8 @@ module.exports = defineConfig({
         },
         {
             name: 'chromium',
-            testIgnore: '**/central-fidelidade.spec.js',
+            // A regressão visual tem configuração própria (playwright.visual.config.js).
+            testIgnore: ['**/central-fidelidade.spec.js', '**/visual/**'],
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: 'storage/auth.json',
