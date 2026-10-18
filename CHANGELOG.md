@@ -8,6 +8,14 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.2.0] - 2026-10-18
+
+### Adicionado
+
+- Central de Comunicação: aviso resolvido sai da Caixa de entrada 30 minutos depois da baixa, para todos (a escolha de 1 hora, 1 dia ou 1 semana saiu do menu).
+- Central de Comunicação: botão direito num aviso ganhou "Excluir", que apaga só a notificação de quem clicou (a meta, a pasta ou a menção de origem não mudam).
+- Central de Comunicação: botão direito numa conversa ganhou "Excluir conversa", que limpa a conversa só para quem pediu (coluna `central_participante.limpa_ate_id`); o colega continua vendo tudo e mensagem nova traz a conversa de volta.
+
 ## [2.1.0] - 2026-10-18
 
 ### Adicionado
@@ -123,7 +131,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.1.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/sfbdata/Prime/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/sfbdata/Prime/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/sfbdata/Prime/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/sfbdata/Prime/releases/tag/v1.0.0
