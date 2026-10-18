@@ -674,7 +674,8 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         // Só comandos com comportamento real, e todos existem no desenho.
         const rotulos = async (pg, sel) => (await pg.locator(sel + ' > button').allTextContents()).map((t) => t.replace(/(Normal|Grande|Disponível|Ocupado|Ausente|Baixo|Médio|Alto|Todas|Importantes)$/, '').replace(/ \(\d+\)$/, '').replace(/: (1 hora|1 dia|1 semana)$/, '').trim());
         const doSistema = await rotulos(s, MENU_S), doDesenho = await rotulos(p, MENU_P);
-        expect(doSistema).toEqual(['Nova conversa', 'Novo grupo', 'Ver conversas arquivadas', 'Ver resolvidas antigas', 'Resolvidas ficam na caixa por',
+        // "Resolvidas ficam na caixa por" saiu: o dono fixou 30 min para todos (18/10).
+        expect(doSistema).toEqual(['Nova conversa', 'Novo grupo', 'Ver conversas arquivadas', 'Ver resolvidas antigas',
             'Marcar todas como lidas', 'Ver todas as notificações', 'Status', expect.stringMatching(/^Não perturbe até \d\d:\d\d$/),
             'Som de notificações', 'Volume', 'Alertas visuais', 'Avisar', 'Enter envia a mensagem', 'Tamanho do texto',
             'Limpar notificações lidas', 'Abrir em janela separada', 'Ajuda']);
@@ -1186,7 +1187,8 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
                 selo: cs(selo, ['display', 'padding-left', 'border-radius', 'background-color', 'color', 'font-size', 'font-weight', 'letter-spacing']),
                 titulo: cs(titulo, ['font-weight', 'text-decoration-line', 'text-decoration-color']),
                 baixa: cs(baixa, ['font-size', 'font-weight', 'color']),
-                baixaTexto: /^Baixa por \S+ · agora · sai da caixa em \d+ h$/.test(baixa.textContent),
+                // O desenho conta em horas (janela de 1 dia); o sistema em minutos (30 min fixos, decisão do dono em 18/10).
+                baixaTexto: /^Baixa por \S+ · agora · sai da caixa em \d+ (h|min)$/.test(baixa.textContent),
             };
         }, sel);
         // Fundo medido sem o mouse por cima (o hover troca o fundo, com transição de .15s).
@@ -1201,12 +1203,10 @@ test.describe('Central: fidelidade do lançador ao Designer', () => {
         await evidencia(testInfo, 'resolvido-prototipo', p, { x: 940, y: 120, width: 426, height: 680 });
         await evidencia(testInfo, 'resolvido-sistema', s, { x: 940, y: 120, width: 426, height: 680 });
 
-        // "Resolvidas ficam na caixa por": muda sem fechar o painel; 1 dia → 1 semana.
+        // A janela das resolvidas é fixa (30 min): o ⋮ não oferece mais a escolha.
         const MENU = S.janela + ' .bj-central-menu > button';
         await s.locator(S.janela + ' [data-central-mais]').click();
-        await expect(s.locator(MENU, { hasText: 'Resolvidas ficam' })).toHaveText('Resolvidas ficam na caixa por: 1 dia');
-        await s.locator(MENU, { hasText: 'Resolvidas ficam' }).click();
-        await expect(s.locator(MENU, { hasText: 'Resolvidas ficam' })).toHaveText('Resolvidas ficam na caixa por: 1 semana');
+        await expect(s.locator(MENU, { hasText: 'Resolvidas ficam' })).toHaveCount(0);
         // Volume e Avisar mudam no lugar.
         await s.locator(MENU, { hasText: /^Volume/ }).click();
         await expect(s.locator(MENU, { hasText: /^Volume/ })).toHaveText('VolumeAlto');

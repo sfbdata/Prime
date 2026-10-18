@@ -18,6 +18,7 @@ use App\Central\Service\AvisoDeMencaoNaCentral;
 use App\Central\Service\MencoesDaCentral;
 use App\Central\UseCase\AbrirConversaUseCase;
 use App\Central\UseCase\EnviarMensagemUseCase;
+use App\Central\UseCase\LimparConversaUseCase;
 use App\Central\UseCase\MarcarConversaComoLidaUseCase;
 use App\Central\UseCase\MarcarConversaComoNaoLidaUseCase;
 use App\Central\UseCase\ObterNovidadesDaCentralUseCase;
@@ -43,6 +44,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 #[CoversClass(EnviarMensagemUseCase::class)]
 #[CoversClass(MarcarConversaComoLidaUseCase::class)]
 #[CoversClass(ObterNovidadesDaCentralUseCase::class)]
+#[CoversClass(LimparConversaUseCase::class)]
 final class UseCasesDaCentralTest extends TestCase
 {
     private function usuario(int $id): User
@@ -224,6 +226,34 @@ final class UseCasesDaCentralTest extends TestCase
 
         self::assertTrue($participacao->isMarcadaNaoLida());
         self::assertSame(30, $participacao->getUltimaLidaId());
+    }
+
+    #[TestDox('Excluir conversa (limpar para mim): trava a conversa ANTES de ler a última; corte, cursor, marca e menção gravados dentro da transação')]
+    public function testLimparConversa(): void
+    {
+        $tenant = new Tenant();
+        [$eu, $outro] = [$this->usuario(1), $this->usuario(2)];
+        $conversa = Conversa::individual($tenant, $eu, $outro, new \DateTimeImmutable());
+        $participacao = new Participante($tenant, $conversa, $eu, new \DateTimeImmutable());
+        $ordem = [];
+        $participantes = $this->createMock(ParticipanteRepository::class);
+        $participantes->method('daConversa')->willReturn($participacao);
+        $participantes->expects(self::once())->method('avancarLimpeza')->with($participacao, 42)->willReturnCallback(function () use (&$ordem): void { $ordem[] = 'corte'; });
+        $participantes->expects(self::once())->method('avancarLeitura')->with($participacao, 42)->willReturnCallback(function () use (&$ordem): int { $ordem[] = 'cursor'; return 42; });
+        $participantes->expects(self::once())->method('desmarcarNaoLida')->with($participacao);
+        $conversas = $this->createMock(ConversaRepository::class);
+        $conversas->expects(self::once())->method('travar')->with($conversa, $tenant)->willReturnCallback(function () use (&$ordem): void { $ordem[] = 'trava'; });
+        $mensagens = $this->createStub(MensagemRepository::class);
+        $mensagens->method('ultimoIdDa')->willReturnCallback(function () use (&$ordem): int { $ordem[] = 'ultima'; return 42; });
+        $notificacoes = $this->createMock(NotificacaoRepository::class);
+        $notificacoes->expects(self::exactly(2))->method('marcarComoLidasPelaUrl');   // menção e "adicionado ao grupo"
+        $aviso = new AvisoDeMencaoNaCentral($this->createStub(NotificacaoService::class), $notificacoes, $this->createStub(UrlGeneratorInterface::class), $this->createStub(TravaDosAvisosDeMencao::class));
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::once())->method('wrapInTransaction')->willReturnCallback(function (callable $f) use (&$ordem): mixed { $ordem[] = 'inicio'; $r = $f(); $ordem[] = 'commit'; return $r; });
+
+        (new LimparConversaUseCase($this->acesso(static fn (): bool => true, $participantes), $conversas, $mensagens, $participantes, $aviso, $em))->executar($eu, $tenant, 9);
+
+        self::assertSame(['inicio', 'trava', 'ultima', 'corte', 'cursor', 'commit'], $ordem);
     }
 
     #[TestDox('Marcar como não lida: conversa sem mensagem nenhuma é 422, sem gravar')]

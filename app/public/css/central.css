@@ -35,6 +35,7 @@
     --bjc-sistema-texto: #5f7684;
     --bjc-selo-mudo: #9fb1bc;
     --bjc-perigo: #c0392b;
+    --bjc-perigo-hover: #fdecea;   /* item perigoso do menu de contexto, L5689 */
 
     position: relative;              /* âncora do ⋮ e da confirmação (B1, L6252/L6394) */
     display: flex;
@@ -77,6 +78,7 @@ html[data-bs-theme="dark"] .bj-central {
     --bjc-sistema-texto: #b7c6cf;
     --bjc-selo-mudo: #5c6f7b;
     --bjc-perigo: #e3685c;
+    --bjc-perigo-hover: rgba(227, 104, 92, .16);
 }
 
 .bj-central-pagina {
@@ -785,6 +787,17 @@ html[data-bs-theme="dark"] .bj-central {
     width: 16px;
     text-align: center;
     color: var(--bjc-menu-icone);
+}
+
+/* L5689: o item perigoso ("Excluir") é vermelho no texto e no ícone, com fundo rosado ao passar o mouse. */
+.bj-central-ctx-item--perigo,
+.bj-central-ctx-item--perigo .bi {
+    color: var(--bjc-perigo);
+}
+
+.bj-central-ctx-item--perigo:hover,
+.bj-central-ctx-item--perigo:focus-visible {
+    background: var(--bjc-perigo-hover);
 }
 
 @keyframes bjcIn {
