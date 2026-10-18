@@ -62,6 +62,7 @@ docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'              # 
 docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --filter <Nome>'  # um teste/classe
 docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/<Dominio>/Unit'  # uma pasta
 docker exec jusprime_db_dev psql -U symfony -d saas -c "<query>" # one-shot
+scripts/qa.sh                  # no host, antes do PR: PHPStan nível 5 + CS-Fixer nos PHP novos
 ```
 
 Nunca rodar `php`, `composer` ou `bin/console` fora do container. PHPUnit roda em

@@ -1,0 +1,23 @@
+# PHPStan nível 5 em src/ (tests/ fica para depois de tipar os mocks como `X&MockObject`).
+#
+# O legado está congelado em dois baselines:
+#   - phpstan-baseline-doctrine.neon: divergência entre o tipo PHP e o mapeamento Doctrine
+#     (doctrine.associationType / doctrine.columnType), separada para revisão do dono;
+#   - phpstan-baseline.neon: o resto.
+# Erro novo reprova, inclusive em arquivo legado alterado. Regerar o baseline geral:
+# `composer phpstan:baseline` (o de Doctrine não muda sozinho).
+#
+# reportUnmatchedIgnoredErrors: false porque corrigir um erro do legado não deve obrigar a regerar
+# o baseline (ele viraria arquivo quente entre sessões paralelas).
+includes:
+    - phpstan-baseline-doctrine.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    paths:
+        - src
+    tmpDir: var/phpstan
+    reportUnmatchedIgnoredErrors: false
+    symfony:
+        containerXmlPath: var/cache/test/App_KernelTestDebugContainer.xml

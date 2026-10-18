@@ -57,6 +57,10 @@ Request → Controller → Form/DTO → UseCase → Entity → Repository → fl
 
 ## Padrões PHP/Symfony obrigatórios
 
+`scripts/qa.sh` (e o CI) conferem: PHPStan nível 5 em todo `src/`, com o legado no baseline; e o
+PHP-CS-Fixer (`@PSR12` + as regras abaixo que dá para automatizar) só nos arquivos PHP **novos**. Arquivo
+alterado não é reformatado: siga as regras à mão.
+
 - `declare(strict_types=1);` em todo arquivo PHP
 - Type hints em 100% de argumentos e retornos
 - Constructor property promotion com `private readonly` para dependências
