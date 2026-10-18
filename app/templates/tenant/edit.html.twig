@@ -31,11 +31,6 @@
                             <i class="bi bi-building-gear me-1"></i>Lotações
                         </button>
                     </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-senha-btn" data-bs-toggle="tab" data-bs-target="#tab-senha" type="button" role="tab">
-                            <i class="bi bi-key me-1"></i>Alterar Senha
-                        </button>
-                    </li>
                 </ul>
 
                 <div class="tab-content border border-top-0 rounded-bottom bg-body p-4 mb-4" id="editTabsContent">
@@ -174,19 +169,6 @@
                                 </button>
                             </div>
                         {{ form_end(lotacoesForm) }}
-                    </div>
-
-                    {# Aba: Alterar Senha #}
-                    <div class="tab-pane fade" id="tab-senha" role="tabpanel">
-                        {{ form_start(passwordForm) }}
-                            {{ form_row(passwordForm.password) }}
-                            {{ form_row(passwordForm.confirm_password) }}
-                            <div class="mt-3">
-                                <button class="btn btn-secondary">
-                                    <i class="bi bi-shield-lock me-1"></i>Alterar Senha
-                                </button>
-                            </div>
-                        {{ form_end(passwordForm) }}
                     </div>
 
                 </div>{# /tab-content #}

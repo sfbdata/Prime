@@ -21,7 +21,6 @@ use App\Form\TenantCargosType;
 use App\Form\TenantLotacoesType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
-use App\Form\TenantPasswordType;
 use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Ponto\Repository\FeriadoRepository;
@@ -198,9 +197,7 @@ final class TenantController extends AbstractController
         Request $request,
         #[MapEntity(id: 'tenantId')] Tenant $tenant,
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher,
         PermissionChecker $permissionChecker,
-        TenantRoleRepository $tenantRoleRepository,
         UserTenantRepository $userTenantRepository
     ): Response {
         $user = $this->getUser();
@@ -222,38 +219,6 @@ final class TenantController extends AbstractController
         if ($nameForm->isSubmitted() && $nameForm->isValid()) {
             $entityManager->flush();
             $this->addFlash('success', 'Nome do Tenant atualizado com sucesso!');
-            return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
-        }
-
-        // Form para alterar senha
-        $passwordForm = $this->createForm(TenantPasswordType::class, $tenant);
-        $passwordForm->handleRequest($request);
-        if ($passwordForm->isSubmitted() && $passwordForm->isValid()) {
-            $newPassword = $passwordForm->get('password')->getData();
-            $confirmPassword = $passwordForm->get('confirm_password')->getData();
-
-            if ($newPassword !== $confirmPassword) {
-                $this->addFlash('error', 'As senhas não coincidem.');
-            } else {
-                // Busca o usuário com perfil de sistema (Administrador do Escritório) no tenant
-                $adminRole = null;
-                foreach ($tenantRoleRepository->findByTenantId($tenant->getId()) as $role) {
-                    if ($role->isSystem()) {
-                        $adminRole = $role;
-                        break;
-                    }
-                }
-
-                $adminUser = $adminRole
-                    ? $entityManager->getRepository(User::class)->findOneBy(['tenantRole' => $adminRole])
-                    : null;
-
-                if ($adminUser) {
-                    $adminUser->setPassword($passwordHasher->hashPassword($adminUser, $newPassword));
-                    $entityManager->flush();
-                    $this->addFlash('success', 'Senha do administrador alterada com sucesso!');
-                }
-            }
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
         }
 
@@ -295,7 +260,6 @@ final class TenantController extends AbstractController
         return $this->render('tenant/edit.html.twig', [
             'tenant'        => $tenant,
             'nameForm'      => $nameForm->createView(),
-            'passwordForm'  => $passwordForm->createView(),
             'cargosForm'    => $cargosForm->createView(),
             'lotacoesForm'  => $lotacoesForm->createView(),
         ]);
