@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.1.0"
+  data: "2026-10-18"
+  itens:
+    - "Nova página Novidades, no menu do seu usuário: veja o que mudou no BlueJus a cada versão."
+    - "Atualizações de segurança nos componentes do sistema."
 - versao: "2.0.0"
   data: "2026-10-17"
   itens:
