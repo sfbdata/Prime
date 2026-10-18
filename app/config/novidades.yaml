@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.2.0"
+  data: "2026-10-18"
+  itens:
+    - "Na Central de Comunicação, o que você marca como resolvido sai da sua caixa de entrada em 30 minutos."
+    - "Agora dá para limpar a caixa: clique com o botão direito num aviso ou numa conversa e escolha \"Excluir\". Some só para você; ninguém mais perde nada."
 - versao: "2.1.0"
   data: "2026-10-18"
   itens:
