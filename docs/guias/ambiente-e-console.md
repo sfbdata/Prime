@@ -14,6 +14,29 @@ cd e2e && npm run test:ui                                # E2E no modo UI do Pla
 A pasta principal do repositório é só cópia do master: ela é atualizada no início de cada sessão e pelo
 alias `gh merge-atualiza <PR>` (merge + atualização), ambos do dono.
 
+## Qual banco cada caminho usa (e como levar uma migration ao 8080)
+
+| Quem | Lê | Banco (neste PC) |
+|---|---|---|
+| `localhost:8080` e o console da pasta principal (`cd /var/www/app`) | `app/.env.local` da principal | `saas_ux` |
+| console de uma worktree e o `scripts/central-demo.sh` | `app/.env` (worktree não tem `.env.local`) | `saas` |
+| suíte da pasta principal / de uma frente | `--env=test` | `saas_test` / `saas_test<frente>` |
+
+Por isso `cd /var/www/.claude/worktrees/<frente>/app && ... migrations:migrate` **não** chega ao 8080. Em
+18/10 a Central quebrou no 8080 ("coluna limpa_ate_id não existe") assim. Depois do merge e com o master
+local atualizado, use:
+
+```bash
+scripts/migrar-dev.sh Version20261018150000 [Version...]   # dev (banco do 8080) e test da pasta principal
+```
+
+Ele recusa migration que não está no `origin/master` (frente sem merge quebraria o 8080, que roda o código do
+master) e aplica só as versões pedidas, com `migrations:execute --up`: o ledger dos bancos de dev não tem duas
+migrations antigas cujas tabelas já existem, então `migrations:migrate` puro depende das guardas `skipIf` delas.
+
+O demo (`scripts/central-demo.sh`) acha a rede pelo próprio `jusprime_php_dev`: o compose prefixa o nome com o
+projeto (= pasta), e aqui ela é `bluejus_saas_net`, não `jusprime_saas_net`.
+
 ## Uploads em DEV (permissão)
 
 O container roda como `${UID:-1000}` (bind-mount do repo). Os diretórios
