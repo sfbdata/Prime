@@ -68,6 +68,7 @@ done
 
 # O repositório principal, mesmo quando o script é chamado de dentro de uma worktree.
 raiz=$(cd "$(git rev-parse --git-common-dir)/.." && pwd)
+source "$(dirname "${BASH_SOURCE[0]}")/lib/opcache-de-teste.sh"
 
 if [ -z "$frente" ]; then
     # Chamado de dentro de uma frente sem dizer qual: é ela, não o checkout principal (o verde falso
@@ -191,7 +192,7 @@ fi
 echo
 status=0
 docker exec -e "TEST_FRENTE=$frente" "$container" \
-    bash -c "cd '$caminho_container' && php vendor/bin/paratest --processes=$processos $extras_citados" || status=$?
+    bash -c "cd '$caminho_container' && php $OPCACHE_DE_TESTE vendor/bin/paratest --processes=$processos --passthru-php='$OPCACHE_DE_TESTE' $extras_citados" || status=$?
 
 # Os temporários de cada processo são deste script; o que um teste deixou para trás sai aqui.
 docker exec "$container" bash -c "rm -rf '$temporario_container'*" || true
