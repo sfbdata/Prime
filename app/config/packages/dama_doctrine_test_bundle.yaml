@@ -1,0 +1,10 @@
+when@test:
+    dama_doctrine_test:
+        # O cache estático de consultas do DAMA vive o processo inteiro do PHPUnit. O TenantFilter
+        # põe o tenant_id como literal no SQL e o Doctrine inclui os filtros na chave do cache: como
+        # cada teste cria um tenant novo, cada teste gravava de novo as consultas que executa. O
+        # cache crescia sem limite (18 mil entradas só em Pasta), a memória subia de 200 para 600 MB
+        # e o coletor de lixo deixava a suíte 2 vezes mais lenta. Desligado, cada kernel usa o
+        # cache de consultas próprio, que morre com ele. O cache de metadados segue estático: ele
+        # não depende do tenant e não cresce.
+        enable_static_query_cache: false
