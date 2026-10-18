@@ -44,28 +44,6 @@ final class <Nome>Test extends TestCase
 }
 ```
 
-## Estrutura de teste funcional
-
-```php
-<?php
-declare(strict_types=1);
-namespace App\Tests\<Dominio>\Functional;
-
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-
-final class <Nome>ControllerTest extends WebTestCase
-{
-    public function testListarRetorna200(): void
-    {
-        $client = static::createClient();
-        // autenticar usuário de teste
-        $client->request('GET', '/rota');
-
-        self::assertResponseIsSuccessful();
-    }
-}
-```
-
 ## Regras obrigatórias
 
 - Usar atributos PHPUnit: `#[DataProvider]`, `#[CoversClass]`, `#[Group]`, `#[TestDox]`
@@ -102,13 +80,7 @@ $cliente = ClienteFactory::createOne(['nome' => 'Teste Ltda']);
 - Controllers (happy path + erro): todos cobertos por Functional
 - Target global: 80%
 
-## Rodar testes
-
-```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/<Dominio>/'
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --coverage-text'
-```
+Medir: `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --coverage-text'`.
 
 ## Geradores (`make:factory`, `make:test`) — servem, mas gravam no lugar errado
 

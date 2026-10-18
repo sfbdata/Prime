@@ -22,17 +22,10 @@ relatório e o repassa.
    Permission/Profile · BAIXO = demais). Em ALTO/MÉDIO deveria existir uma spec
    em `docs/specs/`; se não houver, registre isso como achado.
 
-3. Despache o `feature-review-agent` para executar no contexto isolado dele,
-   passando o alvo do passo 1. O agente já sabe seu protocolo (rodar
-   `git status`/`git diff`, ler o conteúdo literal, buscar prova antes de
-   afirmar, os 14 princípios). Reforce apenas o foco desta revisão:
-   - Divergência entre o que foi pedido (alvo) e o que o diff faz.
-   - Edge cases não tratados — atenção a tenant isolation / IDOR em qualquer
-     query que carregue tenantId vindo de rota (padrão B-route: lookup por
-     repositório, nunca getCurrentTenant()).
-   - Violações dos padrões do CLAUDE.md e das skills de camada (UseCase,
-     1 controller/domínio, padrões A/B/C/D).
-   - Só apontar, com arquivo:linha e severidade. NÃO conserta.
+3. Despache o `feature-review-agent` (`.claude/agents/feature-review-agent.md`) para executar no
+   contexto isolado dele, passando o alvo do passo 1 e qual diff revisar. O protocolo, a ordem do
+   que procurar e o formato do relatório estão no próprio agente. Reforce apenas o que for
+   específico desta mudança (por exemplo, a regra inegociável do domínio tocado).
 
 4. Repasse o relatório do subagente para mim sem alterá-lo. Em seguida, proponha
    as correções (que você, orquestrador, aplicará no próximo passo do ciclo —

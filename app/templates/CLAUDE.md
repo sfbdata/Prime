@@ -37,10 +37,6 @@ templates/
 <script>var config = {{ configuracao|raw }}</script>
 ```
 
-**Internacionalização:**
-- Todo texto visível via `|trans`: `{{ 'cliente.nome'|trans }}`
-- Nunca texto hardcoded em português diretamente no template
-
 **Permissões:**
 ```twig
 {% if can_access_module('clientes') %}

@@ -6,44 +6,15 @@ Cada domínio em `src/<Dominio>/` com subpastas: `Controller/` `UseCase/` `Entit
 
 Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository/` são **legado** — não criar arquivos novos lá.
 
-## Domínios ativos
+## Domínios
 
-| Domínio | Pasta | Situação |
-|---|---|---|
-| Clientes | `src/Cliente/` | ativo |
-| Expediente (processos/pastas) | `src/Expediente/` | ativo |
-| Processos | `src/Processo/` | ativo |
-| Pastas | `src/Pasta/` | ativo |
-| Tarefas | `src/Tarefa/` | ativo |
-| Perfil do usuário | `src/Profile/` | ativo |
-| Central de Comunicação | `src/Central/` | ativo (A1: conversas 1:1 · A2: menção, resposta, menus · B: grupos, preferências) |
-| Master (painel do sistema) | `src/Master/` | ativo (E2: Painel do Master só leitura, fontes públicas IBGE/OAB; exclusivo de `ROLE_SUPER_ADMIN`) |
-| Novidades (página global de versões) | `src/Novidades/` | ativo (lê `config/novidades.yaml`, escrito pelo robô do PR de release; sem tenant) |
-| Compartilhado | `src/Shared/` | ativo |
-| Ponto | `src/Entity/Ponto/` | legado — migrar para `src/Ponto/` |
-| Agenda | `src/Entity/Agenda/` | legado — migração planejada (`src/Agenda/` ainda não criado) |
-| ServiceDesk | `src/Entity/ServiceDesk/` | legado — migração planejada (`src/ServiceDesk/` ainda não criado) |
-| Tenant | `src/Entity/Tenant/` | legado |
-| Permission | `src/Entity/Permission/` | legado |
+O domínio é a pasta: `src/<Dominio>/` (Cliente, Cobranca, Pasta, Ponto, Central, Inteligencia…; liste
+com `ls app/src`). Ainda em pasta legada: as entidades de `src/Entity/` (Agenda, Audit, Auth,
+Permission, ServiceDesk, Tarefa, Tenant, `Notificacao`) e os controllers de `src/Controller/`.
 
-## Configuração por domínio
-
-Dados específicos de cada domínio. Use ao criar/editar arquivos em
-`src/<Dominio>/`. Padrões gerais de cada camada estão nas skills
-(a serem criadas na próxima etapa).
-
-| Domínio | Namespace base | Módulo permissão | Prefixo rota |
-|---|---|---|---|
-| Cliente | `App\Cliente` | `clientes` | `app_cliente_` |
-| Expediente | `App\Expediente` | `expediente` | `app_expediente_` |
-| Processo | `App\Processo` | `processos` | `app_processo_` |
-| Pasta | `App\Pasta` | `pastas` | `app_pasta_` |
-| Tarefa | `App\Tarefa` | `tarefas` | `app_tarefa_` |
-| Profile | `App\Profile` | `profile` | `app_profile_` |
-| Central | `App\Central` | _(vínculo ativo, sem módulo)_ | `central_` |
-| Master | `App\Master` | _(`ROLE_SUPER_ADMIN`, sem módulo)_ | `master_` |
-| Novidades | `App\Novidades` | _(qualquer usuário logado)_ | `novidades_` |
-| Shared | `App\Shared` | _(transversal)_ | _(N/A)_ |
+Módulo de permissão e prefixo de rota de cada domínio: leia o controller dele ou rode
+`debug:router | grep <prefixo>`. Três domínios não usam módulo de permissão: Central (vínculo ativo
+com o escritório), Master (`ROLE_SUPER_ADMIN`) e Novidades (qualquer usuário logado, sem tenant).
 
 ## Refatorando código legado
 
