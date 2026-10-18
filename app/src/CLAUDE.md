@@ -65,7 +65,7 @@ alterado não é reformatado: siga as regras à mão.
 - Type hints em 100% de argumentos e retornos
 - Constructor property promotion com `private readonly` para dependências
 - Apenas atributos PHP (`#[Route]`, `#[ORM\...]`) — nenhuma anotação docblock
-- Classes `final` por padrão (serviços, use cases, controllers, DTOs, forms) — **exceto entidades Doctrine**, que não podem ser `final` por causa dos proxies gerados pelo ORM
+- Classes `final` por padrão (serviços, use cases, controllers, DTOs, forms) — **exceto entidades Doctrine**, que não podem ser `final` por causa dos proxies gerados pelo ORM, e **repositories**, que os testes de UseCase mockam (ver skill `criar-repository`)
 - Comparação idêntica `===`/`!==` sempre
 - Linha em branco antes de `return` (exceto bloco de uma linha)
 - Nunca `else`/`elseif` após `if` que retorna ou lança
