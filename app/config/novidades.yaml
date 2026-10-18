@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.2.2"
+  data: "2026-10-18"
+  itens:
+    - "O aviso resolvido agora sai da caixa de entrada 30 minutos depois da baixa, mesmo com a Central parada, e a contagem \"sai da caixa em N min\" anda sozinha."
 - versao: "2.2.1"
   data: "2026-10-18"
   itens:
