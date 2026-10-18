@@ -66,7 +66,9 @@ case "$1" in
         "2026-10-10 10:00:00|jusprime_rollback_jusprime_php_prod_pre_v2.0.0" \
         "2026-10-10 10:00:00|jusprime_rollback_jusprime_worker_prod_pre_v2.0.0" \
         "2026-10-20 10:00:00|jusprime_rollback_jusprime_php_prod_pre_v2.1.0" \
-        "2026-10-20 10:00:00|jusprime_rollback_jusprime_worker_prod_pre_v2.1.0" ;;
+        "2026-10-20 10:00:00|jusprime_rollback_jusprime_worker_prod_pre_v2.1.0" \
+        "2026-09-01 10:00:00|jusprime_rollback_php_preloop1" \
+        "2026-09-01 10:00:00|jusprime_rollback_worker_preargv" ;;
   compose) [[ "$*" == *"up -d --no-build"* ]] && echo velho > "$FAKE_ESTADO/imagem" ;;
 esac
 exit 0
@@ -164,6 +166,7 @@ montar ""
 rc=$(rodar publicar)
 confere "remove as do deploy mais antigo (v1.9.0)" 'grep -q "docker rmi jusprime-rollback:jusprime_php_prod-pre-v1.9.0" "$T/log" && grep -q "docker rmi jusprime-rollback:jusprime_worker_prod-pre-v1.9.0" "$T/log"'
 confere "guarda as dos 2 mais recentes" '! grep -qE "docker rmi .*-pre-v2\.(0|1)\.0" "$T/log"'
+confere "não toca nas travas criadas à mão (preloop1, preargv)" '! grep -qE "docker rm -f jusprime_rollback_(php_preloop1|worker_preargv)" "$T/log"'
 
 echo "── Falha inesperada antes da troca (disco cheio no docker save) ──"
 montar ""

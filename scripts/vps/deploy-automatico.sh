@@ -201,7 +201,11 @@ while IFS= read -r antigo; do
     docker rm -f "$antigo" >/dev/null 2>&1 || true
     docker rmi "jusprime-rollback:${resto%_pre_v*}-pre-v${resto##*_pre_v}" >/dev/null 2>&1 || true
     echo "  rollback antigo removido: $antigo"
-done < <(docker ps -a --filter name=jusprime_rollback_ --format '{{.CreatedAt}}|{{.Names}}' | sort -r | cut -d'|' -f2 | tail -n +5)
+done < <(docker ps -a --filter name=jusprime_rollback_ --format '{{.CreatedAt}}|{{.Names}}' \
+    | grep -E '\|jusprime_rollback_.+_pre_v[0-9]+\.[0-9]+\.[0-9]+$' | sort -r | cut -d'|' -f2 | tail -n +5)
+# Só os do formato deste script (…_pre_vX.Y.Z): travas criadas à mão em outros deploys (preloop1,
+# preargv...) não são dele e ficam. Medido no deploy da v2.1.0: o filtro antigo, só por prefixo,
+# apagou os containers preloop1/preloop2 de 13/10 (as cópias em arquivo deles ficaram).
 
 voltar() {
     trap - ERR
