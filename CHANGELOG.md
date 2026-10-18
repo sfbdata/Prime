@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.2.1] - 2026-10-18
+
+### Corrigido
+
+- Editar escritório: removida a aba "Alterar Senha", que nunca funcionou na v2 (o envio dava erro 500 sem trocar senha nenhuma) e, se consertada, deixaria quem só administra o escritório trocar a senha de um sócio sem passar pela regra dos primários. A troca de senha de outra pessoa continua em editar colaborador, com as guardas de sempre.
+
 ## [2.2.0] - 2026-10-18
 
 ### Adicionado
@@ -131,7 +137,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.2.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/sfbdata/Prime/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/sfbdata/Prime/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/sfbdata/Prime/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/sfbdata/Prime/compare/v1.0.0...v2.0.0

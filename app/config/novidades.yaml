@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.2.1"
+  data: "2026-10-18"
+  itens:
+    - "A tela de editar o escritório não tem mais a aba \"Alterar Senha\", que não funcionava. Para trocar a senha de alguém da equipe, vá ao menu Colaboradores, clique em Editar na pessoa e preencha \"Nova senha\"."
 - versao: "2.2.0"
   data: "2026-10-18"
   itens:
