@@ -210,6 +210,27 @@ tem, confira na doc antes de escrever — é justamente o caso em que estou tira
 Isso vale para o **framework**. As regras **da casa** (multi-tenancy, UseCase, nomes de pasta) não estão em
 documentação nenhuma — moram nos `CLAUDE.md` por camada e nas skills `criar-*`.
 
+## Várias sessões ao mesmo tempo — evitar conflito sem travar o trabalho
+
+Cada sessão trabalha na própria worktree/branch; a pasta principal é só cópia do master (atualizada
+no início de cada sessão e pelo `gh merge-atualiza <PR>`). O conflito nasce quando duas branches
+abertas mexem no mesmo trecho. As regras abaixo são **avisos e hábitos**, nenhuma bloqueia o dono:
+
+1. **Ao começar uma tarefa**, olhar os PRs abertos (`gh pr list`) e avisar o dono se outro mexe na
+   mesma área. Ele decide se segue em paralelo.
+2. **PR pequeno e curto**: abrir assim que a entrega estiver pronta; branch não fica dias parada.
+3. **Depois de cada merge**, atualizar os outros PRs abertos que ficaram para trás:
+   `git merge --no-edit origin/master` na branch, resolver conflito, rodar os testes, `git push`.
+   Só então pedir o próximo merge.
+4. **Arquivos quentes** (`base.html.twig`, `_sidebar.html.twig`, CSS global, `app/config/*.yaml`,
+   `composer.json/lock`, workflows, `CLAUDE.md`, migrations): avisar no início quando a tarefa precisar
+   deles. Se outra sessão também precisa, a segunda atualiza logo depois do merge da primeira.
+5. **Uma migration por vez** entre os PRs abertos: o segundo traz o master e roda a suíte de novo.
+6. **Antes de pedir merge**, conferir no PR o check "Aviso de sobreposição" (outros PRs nos mesmos
+   arquivos, branch atrás do master) e o estado do PR (sem conflito, checks verdes).
+
+O CHANGELOG não é mais fonte de conflito (cada PR tem o próprio arquivo em `mudancas/`).
+
 ## Git — o Claude abre o PR, o merge é do dono
 
 O caminho único até produção é: branch/worktree → `git push` da branch → PR no GitHub → checks
@@ -223,6 +244,8 @@ view/list`, `gh api` GET).
 
 **Continuam exclusivos do dono:**
 - **`gh pr merge`** — mergear o PR de release é publicar em produção: é o "botão" do dono;
+  (o Claude pode, numa branch de trabalho, `git merge --no-edit origin/master` para atualizá-la;
+  merge em qualquer outra direção continua bloqueado);
 - disparar workflow (`gh workflow run`), criar/editar release, segredos, variáveis, rulesets e
   configuração do repositório, e `gh api` que escreve;
 - push no master/main, de tag, forçado, de exclusão ou com refspec;

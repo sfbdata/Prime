@@ -136,6 +136,59 @@ for trecho in re.split(r'&&|\|\||;|\||\n', sem_msg):
         if not metodo and re.search(r'(?<![\w-])(?:-f|-F|--field|--raw-field|--input)\b', trecho):
             barra("`gh api` com campos ou corpo vira POST: escrita no GitHub é do humano.")
 
+# --- `git merge origin/master` numa BRANCH DE TRABALHO: trazer o master para a frente ---
+# Quando outro PR entra no master, a frente que ficou para trás precisa do master novo dentro dela
+# (resolver conflito e testar a combinação antes do merge do PR). Só isso é liberado: alvo
+# exatamente origin/master, sem estratégia nem squash, e a branch atual NÃO pode ser master/main.
+# O diretório vem do `-C` ou do cwd da sessão; um `cd` no comando torna isso incerto e é recusado.
+import subprocess
+
+MERGE_FLAGS_OK = {'--no-edit', '-q', '--quiet'}
+
+
+def branch_em(diretorio):
+    if not diretorio:
+        return None
+    r = subprocess.run(['git', '-C', diretorio, 'symbolic-ref', '--short', '-q', 'HEAD'],
+                       capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def merge_de_trabalho_ok(toks, j, diretorio):
+    args = toks[j + 1:]
+    if args not in (['--abort'], ['--continue']):
+        posicionais = [a for a in args if not a.startswith('-')]
+        if posicionais != ['origin/master'] or any(a not in MERGE_FLAGS_OK for a in args if a.startswith('-')):
+            return False
+    branch = branch_em(diretorio)
+    return branch is not None and branch not in ('master', 'main')
+
+
+merges_liberados = []
+tem_cd = re.search(r'(^|&&|;|\|\||\n)\s*cd\s', sem_msg) is not None
+for trecho in re.split(r'&&|\|\||;|\||\n', sem_msg):
+    try:
+        toks = shlex.split(trecho)
+    except ValueError:
+        continue
+    for i, t in enumerate(toks):
+        if t != 'git':
+            continue
+        j, diretorio = i + 1, None
+        while j < len(toks) and toks[j] in ('-C', '-c'):
+            if toks[j] == '-C' and j + 1 < len(toks):
+                diretorio = toks[j + 1]
+            j += 2
+        if j < len(toks) and toks[j] == 'merge':
+            if diretorio is None:
+                diretorio = None if tem_cd else data.get('cwd')
+            if not merge_de_trabalho_ok(toks, j, diretorio):
+                barra("merge só `git merge [--no-edit] origin/master` (ou --abort/--continue), e só "
+                      "numa branch de trabalho (nunca no master); com `cd` no comando, use `git -C <pasta>`.")
+            merges_liberados.append(trecho)
+for trecho in merges_liberados:
+    sem_msg = sem_msg.replace(trecho, ' ')
+
 # --- escrita/publicação/reescrita reservada ao humano (add/commit/cherry-pick fora) ---
 proibidas = (
     r'\bgit\s+(?:-C\s+\S+\s+)?'
