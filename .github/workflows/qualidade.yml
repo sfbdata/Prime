@@ -12,6 +12,12 @@
 #     mapeamento gera DDL válido no PostgreSQL 15.
 #   - --fail-on-skipped: vários testes se pulam sozinhos quando falta algo do ambiente (gs,
 #     posix, /proc). Sem a flag, um runner divergente ficaria verde com menos cobertura.
+#   - PHPStan nível 5 em src/ (app/phpstan.dist.neon): o legado está nos baselines; erro novo
+#     reprova, inclusive em arquivo legado alterado. Lê o container de TESTE, que o cache:warmup
+#     gera logo antes.
+#   - PHP-CS-Fixer só nos arquivos PHP CRIADOS pelo PR (scripts/qa-arquivos-novos.sh, com -M:
+#     arquivo movido não conta). Só em pull_request: no push o master já recebeu o que o PR
+#     validou, e no workflow_dispatch não há base para saber o que é novo.
 #
 # O que NÃO roda, de propósito:
 #   - Functional/Integration: parte deles precisa da extensão `unaccent`, das funções do schema
@@ -80,6 +86,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Histórico inteiro: o CS-Fixer de arquivo novo precisa do merge-base com a base do PR.
+          fetch-depth: 0
 
       - name: Instalar Ghostscript
         working-directory: .
@@ -109,6 +117,25 @@ jobs:
           php bin/console lint:twig templates
           php bin/console lint:container
 
+      - name: Gerar o container de teste para o PHPStan
+        run: php bin/console cache:warmup
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github
+
+      - name: PHP-CS-Fixer nos arquivos novos do PR
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Atribuição, não `< <(...)`: se a base for desconhecida o script sai 2 e o passo falha,
+          # em vez de seguir com lista vazia e ficar verde sem ter olhado nada.
+          lista=$(cd .. && scripts/qa-arquivos-novos.sh "$BASE")
+          novos=()
+          [ -n "$lista" ] && mapfile -t novos <<< "$lista"
+          echo "Arquivos PHP novos no PR: ${#novos[@]}"
+          php bin/qa --sem-phpstan "${novos[@]}"
+
       - name: Validar mapeamento Doctrine
         run: php bin/console doctrine:schema:validate --skip-sync
 
@@ -126,3 +153,4 @@ jobs:
           python3 -m unittest scripts/test_mudancas.py
           bash scripts/testar-deploy-automatico.sh
           bash scripts/testar-deploy-guardas.sh
+          bash scripts/testar-qa-arquivos-novos.sh
