@@ -9,6 +9,7 @@
  * Uso (o mesmo formato nos três gateways de cartão):
  *   await ContribuaStripe.montar(elemento, { chavePublica, valorCentavos, nome, email });
  *   const token = await ContribuaStripe.tokenizar();   // rejeita com Error de mensagem pronta para a tela
+ *   await ContribuaStripe.concluirAcao(segredo);        // só quando o servidor devolve acaoNoNavegador
  *   ContribuaStripe.desmontar();
  */
 (function () {
@@ -66,6 +67,21 @@
         return criado.paymentMethod.id;
     }
 
+    /*
+     * Autenticação do banco (3DS) da primeira cobrança: o servidor devolve o client_secret da fatura em
+     * SituacaoNoGateway::acaoNoNavegador e o Stripe abre a janela do banco. Não muda a situação: quem
+     * confirma o pagamento é a reconsulta ou o aviso do Stripe.
+     */
+    async function concluirAcao(segredo) {
+        if (!stripe) {
+            throw new Error('O formulário de cartão ainda não está pronto.');
+        }
+        const resultado = await stripe.handleNextAction({ clientSecret: segredo });
+        if (resultado.error) {
+            throw new Error(resultado.error.message || 'O banco não confirmou o pagamento. Tente de novo ou use outro cartão.');
+        }
+    }
+
     function desmontar() {
         if (pagamento) {
             pagamento.destroy();
@@ -75,5 +91,5 @@
         pagamento = null;
     }
 
-    window.ContribuaStripe = { montar, tokenizar, desmontar };
+    window.ContribuaStripe = { montar, tokenizar, concluirAcao, desmontar };
 })();
