@@ -11,7 +11,8 @@
         <div class="co-janela-master" role="dialog" aria-label="Pagamento por cartão">
             <div class="ct-modal-topo"><i class="bi bi-credit-card"></i><b>Pagamento por cartão · só Master</b><button type="button" data-fechar-master aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>
             <div class="co-master-corpo">
-                <div class="co-master-intro">Crie no gateway um <b>link de assinatura mensal</b> para cada pacote, com recebedor <b>BlueJus Gestão e Tecnologia LTDA</b>, e cole aqui. Configure no gateway a página de retorno abaixo, para o BlueJus reconhecer o pagamento.</div>
+                <div class="co-master-intro" data-intro-hospedado hidden>Com este gateway o BlueJus cria o cliente e a assinatura mensal de cada escritório pela API, com recebedor <b>BlueJus Gestão e Tecnologia LTDA</b>: não há link para colar. Configure no gateway a página de retorno abaixo, para o BlueJus reconhecer o pagamento.</div>
+                <div class="co-master-intro" data-intro-links>Crie no gateway um <b>link de assinatura mensal</b> para cada pacote, com recebedor <b>BlueJus Gestão e Tecnologia LTDA</b>, e cole aqui. Configure no gateway a página de retorno abaixo, para o BlueJus reconhecer o pagamento.</div>
                 <label class="co-master-campo">CHAVE PÚBLICA DO GATEWAY<input data-master-chave value="{{ m.chavePublica }}" placeholder="APP_USR-... ou pk_live_..."><span>Usada para transformar o cartão em token no próprio navegador; a chave secreta fica só no servidor.</span></label>
                 <label class="co-master-campo">GATEWAY<select data-master-gateway>
                     <option value="" {{ m.gateway is null ? 'selected' }}>Nenhum (pedidos entram na lista de espera)</option>
