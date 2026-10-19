@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Contribua C1: planos de espaço, espaço por escritório e configuração das faixas.
  *
  * Só cria tabelas novas e as preenche: nenhuma tabela existente muda. Os planos seguem o desenho 08
- * (o 05 traz outros valores, marcados como "Preços de exemplo"); o limite de usuários nasce vazio.
+ * (o 05 traz outros valores, marcados como "Preços de exemplo"); os limites de usuários vêm do 05 (D5).
  * O bloqueio de envio nasce DESLIGADO: o deploy não pausa os envios de quem já passa da franquia.
  * Só um escritório ganha linha em contribua_espaco_do_escritorio: o do dono do sistema, sem limite (decisão
  * do dono, 19/10/2026; ver a constante abaixo). Os demais ficam sem linha = plano Free.
@@ -51,11 +51,13 @@ final class Version20261019190000 extends AbstractMigration
 
         $this->addSql('CREATE TABLE contribua_configuracao (id INT NOT NULL, faixa_atencao SMALLINT DEFAULT 70 NOT NULL, faixa_alerta SMALLINT DEFAULT 90 NOT NULL, faixa_critico SMALLINT DEFAULT 95 NOT NULL, faixa_bloqueio SMALLINT DEFAULT 100 NOT NULL, bloqueio_ativo BOOLEAN DEFAULT false NOT NULL, atualizado_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, PRIMARY KEY (id))');
 
-        $this->addSql("INSERT INTO contribua_plano (codigo, nome, cota_gb, preco_centavos, descricao, ordem, criado_em) VALUES
-            ('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1, NOW()),
-            ('essencial', 'Essencial', 20, 1990, 'Advogado autônomo ou escritório pequeno', 2, NOW()),
-            ('profissional', 'Profissional', 50, 3990, 'Equipes que anexam processos e documentos todos os dias', 3, NOW()),
-            ('avancado', 'Avançado', 100, 6990, 'Alto volume de processos e digitalizações', 4, NOW())");
+        // Preços e cotas do desenho 08; usuários do desenho 05 (Avançado sem limite: nenhum desenho define).
+        // Decisão do dono, 19/10/2026 (D5). O Master edita depois pela tela de Planos.
+        $this->addSql("INSERT INTO contribua_plano (codigo, nome, cota_gb, preco_centavos, descricao, ordem, limite_usuarios, criado_em) VALUES
+            ('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1, 3, NOW()),
+            ('essencial', 'Essencial', 20, 1990, 'Advogado autônomo ou escritório pequeno', 2, 8, NOW()),
+            ('profissional', 'Profissional', 50, 3990, 'Equipes que anexam processos e documentos todos os dias', 3, 15, NOW()),
+            ('avancado', 'Avançado', 100, 6990, 'Alto volume de processos e digitalizações', 4, NULL, NOW())");
         $this->addSql('INSERT INTO contribua_configuracao (id) VALUES (1)');
         $this->addSql(self::SQL_ESCRITORIO_DO_DONO_SEM_LIMITE, ['id' => self::ESCRITORIO_DO_DONO_ID, 'nome' => self::ESCRITORIO_DO_DONO_NOME]);
     }
