@@ -54,4 +54,30 @@ class PastaPrazoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Prazos e audiências não cumpridos do escritório no período, de pastas fora da lixeira, para
+     * a Agenda. Traz a pasta junto (a Agenda mostra o NUP e o link).
+     *
+     * @return list<PastaPrazo>
+     */
+    public function abertosDoEscritorioNoPeriodo(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
+    {
+        return $this->createQueryBuilder('z')
+            ->addSelect('p')
+            ->join('z.pasta', 'p')
+            ->andWhere('z.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('z.cumpridoEm IS NULL')
+            ->andWhere('z.data >= :de AND z.data <= :ate')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('de', $de->setTime(0, 0))
+            ->setParameter('ate', $ate->setTime(0, 0))
+            ->orderBy('z.data', 'ASC')
+            ->addOrderBy('z.hora', 'ASC')
+            ->addOrderBy('z.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

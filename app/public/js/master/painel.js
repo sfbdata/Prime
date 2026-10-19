@@ -1,4 +1,7 @@
 /* BlueJus · Painel do Master (desenho docs/design/perfis-1.0/05 - Perfis 1.0.dc.html, aba "Painel do sistema").
+   Abas abertas pelo hash como no desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (linha 481):
+   #aba=perm abre Permissões e #sec=contas abre a seção (é para onde voltam promover e remover Master).
+   O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js.
    Lógica portada do componente do desenho (kpis, gráfico com curva monotônica, mapa, faltam, auditoria, PDF).
    Regra do dono: nada inventado. Dado que não existe aparece como "sem informação" ou no estado vazio do desenho.
    Os dados vêm de /master/dados/* (só leitura, ROLE_SUPER_ADMIN no servidor). */
@@ -54,11 +57,17 @@
     : '<div class="mp-carregando">Carregando…</div>');
 
   /* ---------- abas ---------- */
-  raiz.querySelectorAll('[data-aba]').forEach(b => b.addEventListener('click', () => {
-    S.aba = b.dataset.aba;
+  function mostrarAba() {
     raiz.querySelectorAll('[data-aba]').forEach(x => { const on = x.dataset.aba === S.aba; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
     raiz.querySelectorAll('[data-painel-aba]').forEach(p => { p.hidden = p.dataset.painelAba !== S.aba; });
-  }));
+  }
+  raiz.querySelectorAll('[data-aba]').forEach(b => b.addEventListener('click', () => { S.aba = b.dataset.aba; mostrarAba(); }));
+
+  // Estado inicial pelo hash (desenho 1.2): aba=(\w+) e sec=(\w+). Valor desconhecido fica no padrão.
+  const doHash = chave => (location.hash.match(new RegExp(chave + '=(\\w+)')) || [])[1];
+  if (raiz.querySelector('[data-aba="' + doHash('aba') + '"]')) S.aba = doHash('aba');
+  if (SECS.some(([k]) => k === doHash('sec'))) S.sec = doHash('sec');
+  mostrarAba();
 
   /* ---------- seções ---------- */
   function renderSecs() {

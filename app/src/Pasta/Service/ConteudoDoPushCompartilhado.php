@@ -13,6 +13,7 @@ use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
+use App\Processo\Entity\Processo;
 
 /**
  * O que o link externo do Push pode mostrar, lido AO VIVO, e se a pasta pode ser compartilhada.
@@ -40,12 +41,13 @@ final class ConteudoDoPushCompartilhado
     /** @return PublicacaoDjenListaItem[] */
     public function movimentacoes(Pasta $pasta, Tenant $tenant): array
     {
-        $numeros = [];
-        foreach ($pasta->getPastaProcessos() as $vinculo) {
-            $numeros[] = $vinculo->getProcesso()->getNumeroProcesso();
-        }
+        return $this->publicacoes->listarItensPorNumerosDoTenant($tenant, self::numeros($pasta), self::LIMITE_MOVIMENTACOES);
+    }
 
-        return $this->publicacoes->listarItensPorNumerosDoTenant($tenant, $numeros, self::LIMITE_MOVIMENTACOES);
+    /** @return list<string> */
+    private static function numeros(Pasta $pasta): array
+    {
+        return array_map(static fn (Processo $p): string => (string) $p->getNumeroProcesso(), $pasta->getProcessos());
     }
 
     /** @return AnaliseDeInteligencia[] mais recente primeiro */
@@ -98,7 +100,8 @@ final class ConteudoDoPushCompartilhado
         if ($this->temProcessoEmSegredo($pasta)) {
             return LinkExternoDoPushException::SEGREDO_DE_JUSTICA;
         }
-        if ($this->movimentacoes($pasta, $tenant) === []) {
+        // Só a existência: a lista (até 100 itens) não é usada aqui.
+        if (!$this->publicacoes->existePorNumerosDoTenant($tenant, self::numeros($pasta))) {
             return LinkExternoDoPushException::SEM_MOVIMENTACOES;
         }
 
