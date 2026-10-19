@@ -79,13 +79,14 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
         }
 
         $faltam = max(0, $r->bytesLimite - $r->bytesUsados);
+        // Envios de fato pausados: só com o bloqueio ligado e a faixa Bloqueio atingida.
+        $cheio = $r->bloqueioAtivo && $r->faixa === FaixaDoEspaco::Bloqueio;
 
         return [
-            // Envios de fato pausados: só com o bloqueio ligado e a faixa Bloqueio atingida.
-            'cheio' => $r->bloqueioAtivo && $r->faixa === FaixaDoEspaco::Bloqueio,
-            // As cores vermelhas do desenho valem a partir de 100% (com o bloqueio desligado o texto é o de
-            // uso alto, também do desenho: decisão da coordenação, 19/10).
-            'vermelho' => $r->percentual >= 100,
+            'cheio' => $cheio,
+            // Vermelho do desenho a partir de 100%, ou quando os envios estão pausados (faixa Bloqueio
+            // antecipada pelo Master). Acima de 100% com o bloqueio desligado, o texto é o de uso alto.
+            'vermelho' => $cheio || $r->percentual >= 100,
             'percentual' => $r->percentual,
             'largura' => min(100, $r->percentual) . '%',
             'uso' => RetratoDoEspaco::formatarGb($r->bytesUsados),

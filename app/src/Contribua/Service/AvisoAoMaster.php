@@ -21,6 +21,9 @@ use Psr\Log\LoggerInterface;
  */
 final class AvisoAoMaster
 {
+    /** O título da notificação é `varchar(255)`: nome, escritório e texto longos não podem estourar. */
+    private const TAMANHO_MAXIMO = 255;
+
     public function __construct(
         private readonly UserRepository $usuarios,
         private readonly UserTenantRepository $vinculos,
@@ -28,9 +31,6 @@ final class AvisoAoMaster
         private readonly LoggerInterface $logger,
     ) {
     }
-
-    /** O título da notificação é `varchar(255)`: nome, escritório e texto longos não podem estourar. */
-    private const TAMANHO_MAXIMO = 255;
 
     /**
      * Nunca lança: o aviso é consequência do que a pessoa fez (a sugestão já está gravada). Uma falha

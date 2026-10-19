@@ -81,8 +81,8 @@ final class MontarPaginaDoContribuaUseCase
             'icone' => $alto ? 'bi-exclamation-triangle' : 'bi-hdd-stack',
             // Cores pelos limiares literais do desenho (100 vermelho, 90 âmbar). Acima de 100% com o bloqueio
             // desligado o texto é o de uso alto (decisão da coordenação, 19/10).
-            'fundo' => $pct >= 100 ? '#fdf1f2' : ($alto ? '#fff8e6' : '#f8f9fa'),
-            'cor' => $pct >= 100 ? '#b02a37' : ($pct >= 90 ? '#c08a12' : '#0a6fa0'),
+            'fundo' => $cheio || $pct >= 100 ? '#fdf1f2' : ($alto ? '#fff8e6' : '#f8f9fa'),
+            'cor' => $cheio || $pct >= 100 ? '#b02a37' : ($pct >= 90 ? '#c08a12' : '#0a6fa0'),
             'uso' => RetratoDoEspaco::formatarGb($r->bytesUsados),
             'limite' => $r->bytesLimite === null ? 'sem limite' : RetratoDoEspaco::formatarGb($r->bytesLimite),
             'plano' => $r->planoNome,
