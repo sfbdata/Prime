@@ -115,7 +115,13 @@
         cvDet: null,
         cvF: null,
         cvDoc: null,
-        cvDel: null
+        cvDel: null,
+        // Candidatura (spec VS 18.10.26 §4.6, fatia F2b)
+        candSel: null,
+        mcFiltro: '',
+        mcSel: [],
+        quase: null,
+        quaseUlt: -1
     };
 
     /* ---------------------------------------------------------------- utilidades */
@@ -234,7 +240,12 @@
         curriculoNota: function (c) { return D.urlCurriculoNota.replace(MARCADOR_CV, encodeURIComponent(c)); },
         curriculosMarcacoes: function () { return D.urlCurriculosMarcacoes; },
         curriculoPrevia: function () { return D.urlCurriculoPrevia; },
-        curriculosCsv: function (q) { return comComo(D.urlCurriculosCsv + (q ? (D.urlCurriculosCsv.indexOf('?') >= 0 ? '&' : '?') + q : '')); }
+        curriculosCsv: function (q) { return comComo(D.urlCurriculosCsv + (q ? (D.urlCurriculosCsv.indexOf('?') >= 0 ? '&' : '?') + q : '')); },
+        // Candidatura (§4.6): só escrita, nunca com `?como=`. A de status vem com o id 0 no lugar do da candidatura.
+        vagaCandidatura: function (c) { return String(D.urlVagaCandidatura || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
+        vagaEnviar: function (c) { return String(D.urlVagaEnviar || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
+        candidaturaStatus: function (id) { return String(D.urlCandidaturaStatus || '').replace(/\/0\/status$/, '/' + encodeURIComponent(id) + '/status'); },
+        candidaturasMarcacoes: function () { return String(D.urlCandidaturasMarcacoes || ''); }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -964,6 +975,22 @@
         if (m.tipo === 'cv') {
             caixa.style.width = m.largura + 'px';
             menuDoCv(caixa, m.codigo);
+            alvo.appendChild(caixa);
+
+            return;
+        }
+        if (m.tipo === 'mcselpor') {
+            caixa.style.width = m.largura + 'px';
+            VG_SEL_OPS.forEach(function (o) {
+                caixa.appendChild(el('button', {
+                    type: 'button', class: 'te-menu-item', text: o[0],
+                    onclick: function () {
+                        fecharMenu();
+                        S.mcSel = minhasFiltradas().filter(o[1]).map(function (a) { return a.id; });
+                        renderCurriculos();
+                    }
+                }));
+            });
             alvo.appendChild(caixa);
 
             return;
@@ -2393,8 +2420,8 @@
        (152 a 169), modal genérico `tlm` (230 a 234 e 372 a 381) com o formulário `tmVagaForm`
        (235 a 253), o detalhe `tmVaga` (285 a 300, sem a candidatura: F2b), a exclusão `tmDel`
        (371) e a configuração `tmCfgV` (363 a 369, aberta pelo menu do Master, l.1265). A lógica
-       é a do `renderVals()` (l.979 a 1006, 1051, 1093 a 1118, 1156 a 1188). Compartilhar vagas
-       (F2c), candidatura e aceite (F2b), campanha (F4) e Currículos (F3) ficam de fora.
+       é a do `renderVals()` (l.979 a 1006, 1051, 1093 a 1118, 1156 a 1188). Candidatura e aceite
+       (F2b) moram no bloco CANDIDATURA, mais abaixo; a campanha (F4) fica de fora.
        ============================================================================= */
 
     /* ---------------------------------------------------------------- módulos: Demandas | Vagas */
@@ -2800,7 +2827,8 @@
                     }, ic(I.ic))
                 ]),
                 v.vivo ? el('span', { class: 'te-vg-vivo' }, [el('span', { class: 'te-vg-vivo-pt' }), 'AO VIVO']) : null,
-                v.nova ? el('span', { class: 'te-vg-nova', text: 'NOVA' }) : null
+                v.nova ? el('span', { class: 'te-vg-nova', text: 'NOVA' }) : null,
+                seloCompat(v)
             ]),
             el('div', { class: 'te-vg-info' }, [
                 el('span', null, [ic('bi-person-badge'), (v.cargo || '') + ' · ' + (v.contratacao || '')]),
@@ -2809,7 +2837,14 @@
             ]),
             (v.areas || []).length ? el('div', { class: 'te-vg-areas' }, v.areas.slice(0, 4).map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
             v.oferta ? relogioDaVaga(v, false, relogiosGrade) : null,
-            el('div', { class: 'te-vg-rodape' }, [ic('bi-calendar3'), el('span', { class: 'te-flex1', text: v.prazoTxt || '' })])
+            el('div', { class: 'te-vg-rodape' }, [
+                ic('bi-calendar3'),
+                el('span', { class: 'te-flex1', text: v.prazoTxt || '' }),
+                // `mostraN`/`nCand` (l.165 e 1117): o interno vê quantas candidaturas a vaga tem; o dono externo, quantos o BlueJus indicou.
+                vgInterno() && v.nCand !== undefined && v.nCand !== null ? el('b', { class: 'te-cand-n' }, [ic('bi-people'), ' ' + v.nCand]) : null,
+                !vgInterno() && v.minha && typeof v.indicadosN === 'number' ? el('b', { class: 'te-cand-n' }, [ic('bi-people'), ' ' + v.indicadosN + ' indicado(s) pelo BlueJus']) : null,
+                !vgInterno() && v.jaFoi ? el('b', { class: 'te-cand-foi' }, [ic('bi-check2-circle'), ' Candidatura enviada']) : null
+            ])
         ]);
     }
 
@@ -2921,6 +2956,12 @@
         caixa.appendChild(el('div', { class: 'te-menu-tit', text: v.titulo }));
         if (!vgInterno()) {
             item('Ver vaga', 'bi-box-arrow-up-right', function () { abrirVaga(codigo); });
+            // l.1001: "Aceitar oferta" na oferta com tempo (o externo só sabe dela pelo AO VIVO), senão
+            // "Candidatar-se". A vaga própria não mostra (§4.6); quem decide de fato é o servidor.
+            if (!v.minha && podeEscreverVaga()) {
+                var oferta = !!(v.vivo || v.oferta);
+                item(oferta ? 'Aceitar oferta' : 'Candidatar-se', oferta ? 'bi-hand-thumbs-up' : 'bi-send', function () { candidatar(codigo); });
+            }
             if (v.podeCompartilhar && podeEscreverVaga()) {
                 item('Compartilhar vaga', 'bi-share', function () { abrirShare([codigo]); });
             }
@@ -3329,11 +3370,14 @@
         corpo.scrollTop = topo;
     }
 
-    /** `tipo`: '' secundário, 'pri' azul, 'verde' (#1e7b45) e 'perigo' (#a3232b), como o `B(rot, ic, ir, pri, bg)` do desenho. */
+    /**
+     * `tipo`: '' secundário, 'pri' azul, 'verde' (#1e7b45), 'perigo' (#a3232b) e 'cinza' (#6b8494, "Oferta
+     * indisponível", l.1095), como o `B(rot, ic, ir, pri, bg)` do desenho.
+     */
     function botaoTlm(rot, icone, tipo, acao) {
         return el('button', {
             type: 'button',
-            class: 'te-tlm-btn' + (tipo === 'pri' ? ' is-pri' : tipo === 'verde' ? ' is-pri is-verde' : tipo === 'perigo' ? ' is-pri is-perigo' : ''),
+            class: 'te-tlm-btn' + (tipo === 'pri' ? ' is-pri' : tipo === 'verde' ? ' is-pri is-verde' : tipo === 'perigo' ? ' is-pri is-perigo' : tipo === 'cinza' ? ' is-pri te-cand-cinza' : ''),
             onclick: acao
         }, [ic(icone), rot]);
     }
@@ -3362,6 +3406,11 @@
             S.vgDet = r.vaga;
             S.vf = null;
             S.vgDel = null;
+            S.cvDoc = null;
+            // A marcação para envio é por vaga (lacuna 9): outra vaga começa sem nada marcado.
+            if (!S.candSel || S.candSel.vaga !== codigo) {
+                S.candSel = { vaga: codigo, ids: [] };
+            }
             renderDetalheVaga();
         });
     }
@@ -3414,6 +3463,8 @@
             ]),
             (v.areas || []).length ? el('div', { class: 'te-vg-areas' }, v.areas.map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
             v.oferta ? relogioDaVaga(v, true, relogiosDetalhe) : null,
+            // "SUA CANDIDATURA" (`tv.minhaOn`, l.292): só o externo que se candidatou.
+            !vgInterno() ? blocoMinhaCandidatura(v.minhaCandidatura) : null,
             el('div', { class: 'te-tv-req', text: v.requisitos || '' })
         ];
         if ((v.historico || []).length) {
@@ -3425,6 +3476,10 @@
                     el('span', { class: 'te-tv-hist-em', text: h.em })
                 ]);
             }))));
+        }
+        // Candidatos (`tv.candOn`, l.295 a 298): o interno e o dono externo da vaga.
+        if ((vgInterno() || v.minha) && Array.isArray(v.candidatos)) {
+            corpo = corpo.concat(blocoCandidatos(v));
         }
 
         var botoes = [botaoTlm('Fechar', 'bi-x', '', fecharTlm)];
@@ -3446,11 +3501,21 @@
                     botoes.push(botaoTlm(v.rotuloEditar, 'bi-pencil', 'pri', function () { editarVaga(v.codigo); }));
                 }
             } else if (vgInterno()) {
+                // "Enviar {N} ao escritório" (l.1095) logo depois de Fechar, só com alguém marcado.
+                var nSel = selecaoDeEnvio(v).length;
+                if (v.podeEnviar && nSel) {
+                    botoes.push(botaoTlm('Enviar ' + nSel + ' ao escritório', 'bi-send-check', 'verde', function () { enviarCandidatos(v); }));
+                }
                 B.forEach(function (b) {
                     botoes.push(botaoTlm(b.rot, b.ic, tipoNoRodape(v, b), function () { acaoVaga(v.codigo, b); }));
                 });
                 if (v.podeEditar) {
                     botoes.push(botaoTlm('Editar vaga', 'bi-pencil', 'pri', function () { editarVaga(v.codigo); }));
+                }
+            } else if (!v.minha) {
+                var bx = botaoDoExterno(v);
+                if (bx) {
+                    botoes.push(bx);
                 }
             }
         }
@@ -4060,7 +4125,9 @@
             S.cv = {
                 interno: !!L.interno, podeGerir: !!L.podeGerir, ehMaster: !!L.ehMaster,
                 meu: L.meu || null, curriculos: Array.isArray(L.curriculos) ? L.curriculos : [],
-                listas: L.listas || null, agora: L.agora || null
+                listas: L.listas || null, agora: L.agora || null,
+                // "Minhas candidaturas" do externo (§4.6).
+                minhas: Array.isArray(L.minhas) ? L.minhas : []
             };
             renderModulos();
             renderCurriculos();
@@ -4707,8 +4774,10 @@
             })));
             corpo.push(campoNota(x, age));
         }
-        if ((x.candidaturasVagas || []).length) {
-            corpo.push(el('div', { class: 'te-cv-cands' }, [el('b', { text: 'Candidaturas:' }), ' ' + x.candidaturasVagas.join(', ')]));
+        // "Candidaturas:" (`tc.cands`, l.312 e 999): os títulos das vagas, separados por vírgula.
+        var titulosCand = (x.candidaturasVagas || []).map(function (c) { return c && typeof c === 'object' ? c.titulo : c; }).filter(function (t) { return !vazio(t); });
+        if (titulosCand.length) {
+            corpo.push(el('div', { class: 'te-cv-cands' }, [el('b', { text: 'Candidaturas:' }), ' ' + titulosCand.join(', ')]));
         }
         modalVaga({
             icone: 'bi-person-vcard', titulo: 'Currículo · ' + (x.nome || ''), largura: '720px', corpo: corpo,
@@ -4791,7 +4860,8 @@
         });
     }
 
-    function abrirDocCv(html, pdfUrl, volta) {
+    /** `voltaVaga`: código da vaga quando veio do botão "Currículo" de um candidato ("Voltar a editar" reabre a vaga, como o desenho, l.1100). */
+    function abrirDocCv(html, pdfUrl, volta, voltaVaga) {
         gravarNotaJa();
         if (!volta) {
             S.cvF = null;
@@ -4802,7 +4872,7 @@
         S.vf = null;
         S.vgDel = null;
         S.cvDel = null;
-        S.cvDoc = { html: html, pdfUrl: pdfUrl, volta: !!volta };
+        S.cvDoc = { html: html, pdfUrl: pdfUrl, volta: !!volta, voltaVaga: voltaVaga || null };
         relogiosDetalhe = [];
         limpar($('teVagaModal'));
         renderDocCv();
@@ -4819,7 +4889,9 @@
         quadro.srcdoc = X.html;
         var botoes = [X.volta
             ? botaoTlm('Voltar a editar', 'bi-arrow-left', '', function () { S.tlm = 'cvForm'; S.cvDoc = null; limpar($('teVagaModal')); renderFormCv(); })
-            : botaoTlm('Fechar', 'bi-x', '', fecharTlm)];
+            : X.voltaVaga
+                ? botaoTlm('Voltar a editar', 'bi-arrow-left', '', function () { abrirVaga(X.voltaVaga); })
+                : botaoTlm('Fechar', 'bi-x', '', fecharTlm)];
         if (!vazio(X.pdfUrl)) {
             botoes.push(botaoTlm('Baixar PDF', 'bi-file-earmark-pdf', 'pri', function () { baixar(X.pdfUrl); }));
         }
@@ -4872,20 +4944,22 @@
             ]),
             conteudo
         ]));
-        // "Minhas candidaturas" (l.222 a 224) é da F2b: por enquanto, só o vazio do desenho.
-        alvo.appendChild(el('div', { class: 'te-cv-card is-2' }, [
-            el('div', { class: 'te-cv-card-cab is-cand' }, [ic('bi-send-check'), el('b', { text: 'Minhas candidaturas' })]),
-            el('div', { class: 'te-cv-cand-vazio', text: 'Você ainda não se candidatou. Veja as vagas abertas na aba Vagas.' })
-        ]));
+        alvo.appendChild(cartaoMinhas());
     }
 
     /* ---------------------------------------------------------------- formulário (tmCvForm) */
 
-    /** `editarCv` (l.987): o próprio currículo do externo, preenchido com o detalhe de `meu`. */
-    function abrirFormCv() {
+    /**
+     * `editarCv` (l.987): o próprio currículo do externo, preenchido com o detalhe de `meu`.
+     * `candidatarA`: código da vaga quando veio de "Candidatar-se" sem currículo (`tlPend`, l.974): o
+     * formulário vira "Seu currículo para candidatura" e o salvar já candidata (§4.6). Como `onclick`,
+     * o primeiro argumento é o evento: só vale se for texto.
+     */
+    function abrirFormCv(candidatarA) {
         if (!podeEscreverCv() || !S.cv || cvInterno()) {
             return;
         }
+        var pend = typeof candidatarA === 'string' && !vazio(candidatarA) ? candidatarA : null;
         fecharMenu();
         var m = S.cv.meu, v = function (k) { return m && m[k] !== null && m[k] !== undefined ? String(m[k]) : ''; };
         var copia = function (L, campos) {
@@ -4897,6 +4971,7 @@
         };
         S.cvF = {
             edicao: !!m,
+            candidatarA: pend,
             f: {
                 nome: v('nome'), email: v('email'), tel: v('tel'), insta: v('insta'), situacao: v('situacao'),
                 oabNum: v('oabNum'), oabUf: v('oabUf'), inst: v('inst'), sem: v('sem'), cargo: v('cargo'),
@@ -5200,14 +5275,16 @@
         var botoes = [
             botaoTlm('Cancelar', 'bi-x', '', fecharTlm),
             botaoTlm('Pré-visualizar', 'bi-eye', '', previaDoFormCv),
-            botaoTlm('Salvar currículo', 'bi-check2', 'pri', salvarCv)
+            botaoTlm(F.candidatarA ? 'Salvar e candidatar-se' : 'Salvar currículo', 'bi-check2', 'pri', salvarCv)
         ];
         if (F.edicao) {
             botoes.push(botaoTlm('Excluir meu currículo', 'bi-trash', '', function () {
                 pedirExclusaoCv(ROTA.curriculoExcluirMeu(), 'Excluir seu currículo e todas as suas candidaturas? Esta ação não pode ser desfeita.');
             }));
         }
-        modalVaga({ icone: 'bi-person-vcard', titulo: F.edicao ? 'Editar currículo' : 'Cadastrar currículo', largura: '720px', corpo: corpo, botoes: botoes });
+        // `tlmTit` (l.1156): com candidatura pendente, "Seu currículo para candidatura".
+        var tituloForm = F.candidatarA ? 'Seu currículo para candidatura' : F.edicao ? 'Editar currículo' : 'Cadastrar currículo';
+        modalVaga({ icone: 'bi-person-vcard', titulo: tituloForm, largura: '720px', corpo: corpo, botoes: botoes });
         if (F.rolagem) {
             $('teTlmCorpo').scrollTop = F.rolagem;
             F.rolagem = 0;
@@ -5271,23 +5348,50 @@
         }
         F.enviando = true;
         travarRodape(true);
-        pedirCv('POST', ROTA.curriculoSalvar(), corpoDoCv(F.f)).then(function (r) {
+        var corpoCv = corpoDoCv(F.f);
+        if (F.candidatarA) {
+            // O salvar segue o mesmo caso de uso da candidatura (§4.6): o servidor candidata e responde o `toast`.
+            corpoCv.candidatarA = F.candidatarA;
+        }
+        // `pedirCand` guarda o corpo do erro: com `candidatarA`, o 422 pode trazer `curriculoSalvo` (§4.6).
+        pedirCand('POST', ROTA.curriculoSalvar(), corpoCv).then(function (r) {
             if (S.cvF !== F) {
                 return;
             }
             F.enviando = false;
-            if (!r.ok) {
+            if (!r.ok && !r.curriculoSalvo) {
                 F.erro = r.mensagem;
                 F.rolagem = 1e6;
                 renderFormCv();
                 return;
             }
+            // Daqui em diante o currículo está gravado (mesmo com a candidatura recusada): fecha o formulário,
+            // o que também descarta a candidatura pendente (`candidatarA`, o `tlPend` do desenho).
             var pendentes = F.pendentes;
             F.mudouArquivo = false;
             F.pendentes = {};
+            var candidatou = !!F.candidatarA;
+            F.candidatarA = null;
             fecharTlm();
-            mostrarToast({ tit: 'Currículo salvo', txt: 'Use-o para se candidatar às vagas.', hora: '' });
             enviarPendentesCv(pendentes).then(function () { carregarCurriculos(); });
+            if (candidatou) {
+                // O cartão passa a mostrar "Candidatura enviada" e a compatibilidade com o currículo novo.
+                carregarVagas();
+            }
+            if (!r.ok) {
+                // Currículo salvo, candidatura recusada: o QUASE com `quase`, senão o aviso do servidor.
+                if (r.quase) {
+                    abrirQuase();
+                } else {
+                    toastDoServidor({ titulo: r.titulo, texto: r.mensagem }, 'Currículo salvo', r.mensagem);
+                }
+                return;
+            }
+            if (r.toast && !vazio(r.toast.titulo)) {
+                mostrarToast({ tit: r.toast.titulo, txt: r.toast.texto || '', hora: '' });
+            } else {
+                mostrarToast({ tit: 'Currículo salvo', txt: 'Use-o para se candidatar às vagas.', hora: '' });
+            }
         });
     }
 
@@ -5330,6 +5434,686 @@
             }
             // O PDF é sempre do currículo salvo: só aparece quando ele já existe.
             abrirDocCv(r.html, (S.cv && S.cv.meu && S.cv.meu.pdfUrl) || '', true);
+        });
+    }
+
+    /* =============================================================================
+       CANDIDATURA (spec VS 18.10.26 §4.6, fatia F2b)
+       Desenho "06 - Trabalho Externo - VS 18.10.26": selo de compatibilidade e rodapé do cartão
+       (l.161 e 165), "Minhas candidaturas" (l.221 a 224), "SUA CANDIDATURA" e candidatos no detalhe
+       da vaga (l.292 e 295 a 298), modal QUASE (l.392 a 400). Lógica do `renderVals()`: l.839, 846,
+       974 a 985, 1001, 1003, 1006, 1039 a 1047, 1095, 1103, 1117, 1154, 1156 e 1190.
+       O servidor decide tudo (botão do externo, etapas, quem vê quem, quem envia e muda status);
+       a prévia do Master (`?como=`) só lê.
+       ============================================================================= */
+
+    /** Situação da candidatura (`AST`, l.846): chave, rótulo e cor, na ordem das pílulas do detalhe. */
+    var AST = [
+        ['recebida', 'Recebida', '#0a6fa0'],
+        ['analise', 'Em análise', '#9a5b00'],
+        ['entrevista', 'Entrevista', '#5b3f9e'],
+        ['aprovado', 'Aprovado', '#1e7b45'],
+        ['contratado', 'Contratado', '#1e7b45'],
+        ['nao', 'Não selecionado', '#6b8494']
+    ];
+    /** Frases do QUASE (l.839): ícone, título e texto. */
+    var QUASE = [
+        ['bi-lightning-charge', 'Nossa, foi por pouco!', 'Outro profissional aceitou primeiro. Fique de olho: novas vagas aparecem toda hora.'],
+        ['bi-rocket-takeoff', 'Quase lá!', 'Essa já foi preenchida, mas seu perfil está no radar. Continue tentando!'],
+        ['bi-trophy', 'Por um triz!', 'Quem tenta sempre chega. A próxima pode ser sua.'],
+        ['bi-stopwatch', 'Corrida acirrada!', 'A vaga voou. Ative os avisos e seja o primeiro da próxima vez.'],
+        ['bi-star', 'Você chegou perto!', 'Mantenha o currículo completo: perfis completos aparecem primeiro.'],
+        ['bi-emoji-smile', 'Não desanime!', 'Hoje não foi, mas a rede BlueJus cresce todo dia. Bora para a próxima!'],
+        ['bi-fire', 'Disputada essa, hein?', 'Sinal de que é uma ótima área. Continue de olho nas vagas.'],
+        ['bi-compass', 'Seguimos em frente!', 'Veja as outras vagas abertas: tem oportunidade esperando por você.'],
+        ['bi-hand-thumbs-up', 'Foi quase!', 'Seu interesse foi registrado. Continue tentando, a persistência vence.'],
+        ['bi-graph-up-arrow', 'Ritmo bom!', 'Cada tentativa deixa seu perfil mais visível para os escritórios.']
+    ];
+    /** Filtros de "Minhas candidaturas" (`mcFiltros`, l.1154), sem contador como no desenho. */
+    var MC_FILTROS = [['', 'Todas'], ['estrela', '★ Estrela'], ['lix', 'Lixeira']];
+
+    function astDe(k) { return AST.filter(function (a) { return a[0] === k; })[0] || [k, k || '', '#6b8494']; }
+
+    /**
+     * Como o `pedirCv()`, mas o erro devolve o corpo inteiro (`titulo`, `semCurriculo`, `quase` do contrato
+     * da §4.6), com `ok:false` e `mensagem`. Sem a URL no template, falha sem sair da página.
+     */
+    function pedirCand(metodo, url, corpo) {
+        if (vazio(url)) {
+            return Promise.resolve({ ok: false, mensagem: FALHA });
+        }
+        var op = { method: metodo, credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
+        if (corpo !== undefined) {
+            op.headers['Content-Type'] = 'application/json';
+            op.body = JSON.stringify(corpo);
+        }
+        return fetch(url, op).then(function (r) {
+            return r.json().then(function (j) {
+                if (!j || typeof j !== 'object') {
+                    return { ok: false, mensagem: FALHA };
+                }
+                if (!r.ok || j.ok === false) {
+                    j.ok = false;
+                    j.mensagem = j.mensagem || FALHA;
+                    return j;
+                }
+                j.ok = true;
+                return j;
+            }, function () {
+                return { ok: false, mensagem: FALHA };
+            });
+        }, function () {
+            return { ok: false, mensagem: FALHA };
+        });
+    }
+
+    /** `{titulo, texto}` do servidor no aviso do canto; sem título, o padrão. */
+    function toastDoServidor(t, tituloPadrao, textoPadrao) {
+        var ok = t && !vazio(t.titulo);
+        mostrarToast({ tit: ok ? t.titulo : tituloPadrao, txt: ok ? (t.texto || '') : (textoPadrao || ''), hora: '' });
+    }
+
+    /** "N dia(s)" do desenho (l.1046) quando o servidor manda número; texto vai como veio. */
+    function textoDeDias(t) {
+        if (typeof t === 'number' && !isNaN(t)) {
+            return t + (t === 1 ? ' dia' : ' dias');
+        }
+        return t === null || t === undefined ? '' : String(t);
+    }
+
+    /* ---------------------------------------------------------------- cartão: compatibilidade */
+
+    /** Selo "{N}% compatível" (`cp`/`cpCor`, l.161 e 1117), só para o externo com currículo. */
+    function seloCompat(v) {
+        if (vgInterno() || v.compat === null || v.compat === undefined || v.compat === '') {
+            return null;
+        }
+        var n = Math.round(+v.compat);
+        if (isNaN(n)) {
+            return null;
+        }
+        var cor = n >= 70 ? '#1e7b45' : n >= 40 ? '#0a6fa0' : '#6b8494';
+        return el('span', { class: 'te-cand-cp', style: { color: cor } }, [ic('bi-bullseye'), n + '% compatível']);
+    }
+
+    /* ---------------------------------------------------------------- linha do tempo (etapas, l.1039 a 1047) */
+
+    /**
+     * Visual do `etapas()`: o servidor manda os passos com `estado` (feito, atual, futuro, nao); a tela
+     * pinta como o desenho. Feito vira o check a partir do segundo passo; o traço até o próximo fica
+     * azul entre passos alcançados e some no último e antes de "Não selecionado". `compacto`: 26px
+     * (lista de candidatos e "Minhas candidaturas"); senão 30px ("SUA CANDIDATURA").
+     */
+    function linhaDoTempo(et, compacto) {
+        var P = (et && et.passos) || [];
+        if (!P.length) {
+            return null;
+        }
+        return el('div', { class: 'te-cand-et-rolo' }, el('div', {
+            class: 'te-cand-et' + (compacto ? ' is-compacto' : ''),
+            style: { 'min-width': (P.length * (compacto ? 78 : 96)) + 'px' }
+        }, P.map(function (p, i) {
+            var est = ['feito', 'atual', 'futuro', 'nao'].indexOf(p.estado) >= 0 ? p.estado : 'futuro';
+            var prox = P[i + 1];
+            var alcancado = prox && (prox.estado === 'feito' || prox.estado === 'atual');
+            var linha = !prox || prox.estado === 'nao' ? 'transparent' : est === 'feito' && alcancado ? 'var(--te-cand-feito)' : 'var(--te-cand-linha)';
+            var icone = est === 'nao' ? 'bi-x-lg' : est === 'feito' && i > 0 ? 'bi-check-lg' : (p.ic || 'bi-circle');
+            var dias = textoDeDias(p.dias);
+            return el('div', { class: 'te-cand-passo' }, [
+                el('span', { class: 'te-cand-passo-linha', style: { background: linha } }),
+                dias ? el('span', { class: 'te-cand-passo-dias', text: dias }) : null,
+                el('span', { class: 'te-cand-passo-bola is-' + est }, ic(icone)),
+                el('span', { class: 'te-cand-passo-rot is-' + est, text: p.rot || '' }),
+                el('span', { class: 'te-cand-passo-dt', text: p.data || '' })
+            ]);
+        })));
+    }
+
+    /* ---------------------------------------------------------------- detalhe da vaga */
+
+    /** "SUA CANDIDATURA" (l.292): título, total de dias à direita e a linha do tempo de 30px. */
+    function blocoMinhaCandidatura(mc) {
+        if (!mc) {
+            return null;
+        }
+        var et = mc.etapas || {};
+        var total = mc.total !== undefined && mc.total !== null ? mc.total : et.total;
+        return el('div', { class: 'te-cand-minha' }, [
+            el('div', { class: 'te-cand-minha-cab' }, [ic('bi-signpost-split'), el('b', { text: 'SUA CANDIDATURA' }), el('span', { text: textoDeDias(total) })]),
+            linhaDoTempo(et, false)
+        ]);
+    }
+
+    /** Marcados para envio nesta vaga, sem os que já foram (o `S` do `enviarCands`, l.981). */
+    function selecaoDeEnvio(v) {
+        if (!S.candSel || S.candSel.vaga !== v.codigo) {
+            return [];
+        }
+        var livres = (v.candidatos || []).filter(function (k) { return !k.enviado; }).map(function (k) { return k.id; });
+        return S.candSel.ids.filter(function (id) { return livres.indexOf(id) >= 0; });
+    }
+
+    /** Título (`tvCandTit`), `envioInfo` com os marcados (`tvEnvTxt`, l.1190), o vazio e as linhas (l.296 a 298). */
+    function blocoCandidatos(v) {
+        var L = v.candidatos || [], sel = selecaoDeEnvio(v);
+        var info = !vazio(v.envioInfo) ? v.envioInfo + (sel.length ? ' · ' + sel.length + ' marcado(s)' : '') : '';
+        var nos = [el('div', { class: 'te-cand-cab' }, [
+            el('span', { class: 'te-cand-tit', text: v.candTitulo || 'CANDIDATOS (' + L.length + ')' }),
+            info ? el('span', { class: 'te-cand-env', text: info }) : null
+        ])];
+        if (!L.length) {
+            nos.push(el('div', { class: 'te-cand-vazio', text: 'Ainda não há candidaturas para esta vaga.' }));
+        }
+        L.forEach(function (k) { nos.push(linhaCandidato(v, k, sel)); });
+        return nos;
+    }
+
+    /**
+     * Linha do candidato (l.298): marcar para envio (`podeEnviar`), avatar, nome que abre o detalhe do
+     * currículo, "Currículo" (documento formatado com "Voltar a editar" para a vaga), as pílulas de situação
+     * (`podeMudarStatus`) e a linha do tempo compacta.
+     */
+    function linhaCandidato(v, k, sel) {
+        var escreve = podeEscreverVaga(), marcado = sel.indexOf(k.id) >= 0;
+        var envio = null;
+        if (v.podeEnviar && escreve) {
+            var dicaEnv = 'Marcar para enviar ao escritório';
+            envio = el('button', {
+                type: 'button', class: 'te-cand-env-btn' + (k.enviado ? ' is-enviado' : marcado ? ' is-on' : ''),
+                title: k.enviado ? 'Enviado ao escritório' : dicaEnv,
+                attrs: { 'data-tip': dicaEnv, 'aria-label': k.enviado ? 'Enviado ao escritório' : dicaEnv, 'aria-pressed': marcado || k.enviado ? 'true' : 'false' },
+                onclick: function () { alternarEnvio(v, k); }
+            }, ic(k.enviado ? 'bi-send-check-fill' : marcado ? 'bi-check-square-fill' : 'bi-square'));
+        }
+        var pilulas = null;
+        if (v.podeMudarStatus && escreve) {
+            pilulas = el('div', { class: 'te-cand-sts' }, AST.map(function (a) {
+                var on = k.status === a[0];
+                return el('button', {
+                    type: 'button', class: 'te-cand-st' + (on ? ' is-on' : ''),
+                    style: on ? { background: a[2], 'border-color': a[2] } : null,
+                    attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                    onclick: function () { mudarStatusCand(v, k, a[0]); }
+                }, a[1]);
+            }));
+        }
+        return el('div', { class: 'te-cand-linha' }, [
+            envio,
+            avatarCv(k, ' is-30'),
+            el('button', {
+                type: 'button', class: 'te-cand-nome',
+                onclick: function () { if (!vazio(k.codigoCv)) { abrirCv(k.codigoCv); } }
+            }, [el('b', { text: k.nome || 'Currículo removido' }), el('span', { text: k.info || '' })]),
+            el('button', { type: 'button', class: 'te-cand-doc', onclick: function () { verDocCandidato(v, k); } }, [ic('bi-file-earmark-person'), 'Currículo']),
+            pilulas,
+            el('div', { class: 'te-cand-linha-et' }, linhaDoTempo(k.etapas, true))
+        ]);
+    }
+
+    /** Marca e desmarca para envio (`tgEnv`, l.1003); quem já foi enviado não volta. */
+    function alternarEnvio(v, k) {
+        if (k.enviado || !v.podeEnviar || !podeEscreverVaga()) {
+            return;
+        }
+        if (!S.candSel || S.candSel.vaga !== v.codigo) {
+            S.candSel = { vaga: v.codigo, ids: [] };
+        }
+        var ids = S.candSel.ids;
+        S.candSel.ids = ids.indexOf(k.id) >= 0 ? ids.filter(function (y) { return y !== k.id; }) : ids.concat([k.id]);
+        renderDetalheVaga();
+    }
+
+    /**
+     * `enviarCands` (l.981): sem marcados, o aviso do desenho; abaixo do mínimo (contando os já enviados),
+     * a confirmação do sistema com o texto da spec; depois, o POST e o aviso que o servidor manda.
+     */
+    function enviarCandidatos(v) {
+        if (!v.podeEnviar || !podeEscreverVaga()) {
+            return;
+        }
+        var ids = selecaoDeEnvio(v);
+        if (!ids.length) {
+            mostrarToast({ tit: 'Selecione candidatos', txt: 'Marque quem será enviado ao escritório.', hora: '' });
+            return;
+        }
+        var total = (+v.enviadosN || 0) + ids.length, min = +v.minEnvio || 0;
+        var ir = function () {
+            if (S.candSel && S.candSel.enviando) {
+                return Promise.resolve({ ok: false });
+            }
+            if (S.candSel) {
+                S.candSel.enviando = true;
+            }
+            travarRodape(true);
+            return pedirCand('POST', ROTA.vagaEnviar(v.codigo), { candidaturas: ids }).then(function (r) {
+                if (S.candSel) {
+                    S.candSel.enviando = false;
+                }
+                var noDetalhe = S.tlm === 'vaga' && S.vgDet && S.vgDet.codigo === v.codigo;
+                if (!r.ok) {
+                    if (noDetalhe) {
+                        travarRodape(false);
+                    }
+                    toastDoServidor({ titulo: r.titulo, texto: r.mensagem }, 'Não foi possível concluir', r.mensagem);
+                    return r;
+                }
+                if (S.candSel && S.candSel.vaga === v.codigo) {
+                    S.candSel.ids = [];
+                }
+                if (noDetalhe && r.vaga) {
+                    S.vgDet = r.vaga;
+                    renderDetalheVaga();
+                } else if (noDetalhe) {
+                    abrirVaga(v.codigo, true);
+                }
+                toastDoServidor(r.toast, 'Candidatos enviados', '');
+                carregarVagas();
+                return r;
+            });
+        };
+        if (min && total < min) {
+            abrirConf(null, {
+                k: '__enviar_candidatos__',
+                confirmacao: {
+                    titulo: 'Enviar ao escritório',
+                    texto: 'O padrão é enviar pelo menos ' + min + ' candidatos. Enviar mesmo assim ' + total + '?',
+                    botao: 'Enviar', motivo: false
+                },
+                executar: ir
+            });
+            return;
+        }
+        ir();
+    }
+
+    /** `aStatus` (l.985): grava e redesenha o detalhe com a vaga da resposta (ou relê a vaga). */
+    function mudarStatusCand(v, k, status) {
+        if (!v.podeMudarStatus || !podeEscreverVaga() || k.status === status) {
+            return;
+        }
+        pedirCand('POST', ROTA.candidaturaStatus(k.id), { status: status }).then(function (r) {
+            if (!r.ok) {
+                toastDoServidor({ titulo: r.titulo, texto: r.mensagem }, 'Não foi possível concluir', r.mensagem);
+                return;
+            }
+            var noDetalhe = S.tlm === 'vaga' && S.vgDet && S.vgDet.codigo === v.codigo;
+            if (noDetalhe && r.vaga) {
+                S.vgDet = r.vaga;
+                renderDetalheVaga();
+            } else if (noDetalhe) {
+                abrirVaga(v.codigo, true);
+            }
+            carregarVagas();
+        });
+    }
+
+    /**
+     * "Currículo" do candidato (`verDoc`, l.1003): o documento formatado, com "Voltar a editar" para a vaga (l.1100). O PDF
+     * sai da mesma rota do documento trocando `/documento` por `/pdf` (§4.5), quando o candidato não traz `pdfUrl`.
+     */
+    function verDocCandidato(v, k) {
+        if (vazio(k.documentoUrl)) {
+            toastErro(null);
+            return;
+        }
+        pedirHtml('GET', comComo(k.documentoUrl)).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            var pdf = k.pdfUrl || (/\/documento$/.test(k.documentoUrl) ? k.documentoUrl.replace(/\/documento$/, '/pdf') : '');
+            abrirDocCv(r.html, pdf, false, v.codigo);
+        });
+    }
+
+    /** Rodapé do externo (l.1095) pelo `botaoExterno` do servidor. */
+    function botaoDoExterno(v) {
+        var ir = function () { candidatar(v.codigo); };
+        switch (v.botaoExterno) {
+            case 'enviada':
+                return botaoTlm('Candidatura enviada', 'bi-check2-circle', 'verde', fecharTlm);
+            case 'aceitar':
+                return botaoTlm('Aceitar oferta', 'bi-hand-thumbs-up', 'verde', ir);
+            case 'indisponivel':
+                return botaoTlm('Oferta indisponível', 'bi-slash-circle', 'cinza', fecharTlm);
+            case 'candidatar':
+                return botaoTlm('Candidatar-se', 'bi-send', 'pri', ir);
+            default:
+                return null;
+        }
+    }
+
+    /* ---------------------------------------------------------------- candidatar-se e aceitar oferta */
+
+    var candidatando = {};
+
+    /**
+     * `candidatar`/`aceitar` (l.974 e 978): o servidor decide pela oferta. Deu certo: fecha o detalhe e
+     * mostra o aviso da resposta. Sem currículo (409 `semCurriculo`): o formulário da candidatura. 422 com
+     * `quase`: o modal QUASE; os demais 422 viram aviso com o `titulo` e a `mensagem` do servidor.
+     */
+    function candidatar(codigo) {
+        fecharMenu();
+        if (!podeEscreverVaga() || candidatando[codigo]) {
+            return;
+        }
+        candidatando[codigo] = true;
+        var noDetalhe = function () { return S.tlm === 'vaga' && S.vgDet && S.vgDet.codigo === codigo; };
+        if (noDetalhe()) {
+            travarRodape(true);
+        }
+        pedirCand('POST', ROTA.vagaCandidatura(codigo), {}).then(function (r) {
+            candidatando[codigo] = false;
+            if (r.ok) {
+                if (noDetalhe()) {
+                    fecharTlm();
+                }
+                toastDoServidor(r.toast, 'Candidatura enviada', 'Acompanhe em Meu currículo · Minhas candidaturas.');
+                carregarVagas();
+                if (S.cv) {
+                    carregarCurriculos();
+                }
+                return;
+            }
+            if (noDetalhe()) {
+                travarRodape(false);
+            }
+            if (r.semCurriculo) {
+                abrirFormDaCandidatura(codigo);
+                return;
+            }
+            if (r.quase) {
+                if (noDetalhe()) {
+                    fecharTlm();
+                }
+                abrirQuase();
+                carregarVagas();
+                return;
+            }
+            toastDoServidor({ titulo: r.titulo, texto: r.mensagem }, 'Não foi possível concluir', r.mensagem);
+            carregarVagas();
+            if (noDetalhe()) {
+                abrirVaga(codigo, true);
+            }
+        });
+    }
+
+    /** "Seu currículo para candidatura" (l.974 e 1156): precisa da lista de currículos do externo. */
+    function abrirFormDaCandidatura(codigo) {
+        var abrirJa = function () {
+            if (S.cv && !cvInterno()) {
+                abrirFormCv(codigo);
+            } else {
+                toastErro(null);
+            }
+        };
+        if (S.cv) {
+            abrirJa();
+        } else {
+            carregarCurriculos().then(abrirJa);
+        }
+    }
+
+    /* ---------------------------------------------------------------- modal QUASE (l.392 a 400, 841) */
+
+    /** `quase()` (l.841): sorteia a frase, nunca a mesma da última vez. */
+    function abrirQuase() {
+        var i;
+        do {
+            i = Math.floor(Math.random() * QUASE.length);
+        } while (QUASE.length > 1 && i === S.quaseUlt);
+        S.quaseUlt = i;
+        S.quase = QUASE[i];
+        renderQuase();
+    }
+
+    function caixaQuase() {
+        var c = $('teQuase');
+        if (!c) {
+            c = el('div', { id: 'teQuase' });
+            raiz.appendChild(c);
+        }
+        return c;
+    }
+
+    function renderQuase() {
+        var alvo = limpar(caixaQuase()), Q = S.quase;
+        if (!Q) {
+            return;
+        }
+        alvo.appendChild(el('div', { class: 'te-cand-quase-fundo', onclick: fecharQuase }));
+        alvo.appendChild(el('div', { class: 'te-cand-quase-pos' }, el('div', { class: 'te-cand-quase', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': Q[1] } }, [
+            el('div', { class: 'te-cand-quase-faixa' }),
+            el('div', { class: 'te-cand-quase-corpo' }, [
+                el('span', { class: 'te-cand-quase-ic' }, ic(Q[0])),
+                el('div', { class: 'te-cand-quase-tit', text: Q[1] }),
+                el('div', { class: 'te-cand-quase-txt', text: Q[2] }),
+                el('div', { class: 'te-cand-quase-botoes' }, [
+                    el('button', { type: 'button', class: 'te-cand-quase-fechar', text: 'Fechar', onclick: fecharQuase }),
+                    el('button', { type: 'button', class: 'te-cand-quase-ver', onclick: verOutrasVagas }, [ic('bi-search'), 'Ver outras vagas'])
+                ])
+            ])
+        ])));
+    }
+
+    function fecharQuase() {
+        S.quase = null;
+        limpar(caixaQuase());
+    }
+
+    /** `quaseVer` (l.1110): aba Vagas no filtro "Abertas". */
+    function verOutrasVagas() {
+        fecharQuase();
+        S.vgFiltro = 'aberta';
+        S.vgSel = [];
+        if (moduloAtual() !== 'vagas') {
+            irModulo('vagas');
+        } else {
+            renderVagas();
+        }
+    }
+
+    /* ---------------------------------------------------------------- "Minhas candidaturas" (l.221 a 224) */
+
+    function minhas() { return (S.cv && S.cv.minhas) || []; }
+
+    function ehIso(s) { return /^\d{4}-\d{2}-\d{2}/.test(String(s || '')); }
+
+    /** Data do "Enviada em" (`d8`): ISO vira dd/mm/aaaa; texto já formatado vai como veio. */
+    function dataDaCand(s) { return ehIso(s) ? dataBr(s) : String(s || ''); }
+
+    /** `espF` + ordem (l.1103): fora da Lixeira, nada do que está nela; a mais recente primeiro. */
+    function minhasFiltradas() {
+        var f = S.mcFiltro;
+        return minhas().filter(function (a) {
+            return f === 'lix' ? !!a.lixeira : !a.lixeira && (f !== 'estrela' || !!a.estrela);
+        }).sort(function (a, b) {
+            return ehIso(a.enviadaEm) && ehIso(b.enviadaEm) ? String(b.enviadaEm).localeCompare(String(a.enviadaEm)) : 0;
+        });
+    }
+
+    function mcSelecionada(id) { return S.mcSel.indexOf(id) >= 0; }
+
+    /** O cartão: cabeçalho, barra (seleção, "Selecionar por", Atualizar, filtros), lote, aviso da lixeira e as linhas. */
+    function cartaoMinhas() {
+        var L = minhasFiltradas(), escreve = podeEscreverCv();
+        var vistos = L.map(function (a) { return a.id; });
+        S.mcSel = S.mcSel.filter(function (id) { return vistos.indexOf(id) >= 0; });
+        var todas = L.length > 0 && S.mcSel.length === L.length;
+        var sel = el('div', { class: 'te-vg-sel' }, [
+            escreve ? el('button', {
+                type: 'button', class: 'te-sel-btn' + (S.mcSel.length ? ' is-on' : ''), title: 'Selecionar',
+                attrs: { 'aria-label': todas ? 'Limpar seleção' : 'Selecionar todas' },
+                onclick: function () {
+                    S.mcSel = todas ? [] : L.map(function (a) { return a.id; });
+                    renderCurriculos();
+                }
+            }, ic(todas ? 'bi-check-square-fill' : S.mcSel.length ? 'bi-dash-square-fill' : 'bi-square')) : null,
+            escreve ? el('button', {
+                type: 'button', class: 'te-sel-caret', title: 'Selecionar por', attrs: { 'aria-haspopup': 'menu' },
+                onclick: function (e) {
+                    var r = e.currentTarget.getBoundingClientRect();
+                    abrirMenuEspecial({ tipo: 'mcselpor' }, r.left - 30, r.bottom + 4, 170);
+                }
+            }, ic('bi-caret-down-fill')) : null,
+            el('button', { type: 'button', class: 'te-sel-atualizar', title: 'Atualizar', onclick: function () { carregarCurriculos(true); } }, ic('bi-arrow-clockwise'))
+        ]);
+        var filtros = el('div', { class: 'te-cand-mc-filtros' }, MC_FILTROS.map(function (f) {
+            var on = S.mcFiltro === f[0];
+            return el('button', {
+                type: 'button', class: 'te-cand-mc-filtro' + (on ? ' is-ativo' : ''), text: f[1],
+                attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { S.mcFiltro = f[0]; S.mcSel = []; renderCurriculos(); }
+            });
+        }));
+        var filhos = [
+            el('div', { class: 'te-cv-card-cab is-cand' }, [ic('bi-send-check'), el('b', { text: 'Minhas candidaturas' })]),
+            el('div', { class: 'te-cand-mc-barra' }, [sel, filtros])
+        ].concat(loteDasMinhas());
+        if (!L.length) {
+            filhos.push(el('div', { class: 'te-cv-cand-vazio', text: 'Você ainda não se candidatou. Veja as vagas abertas na aba Vagas.' }));
+        }
+        L.forEach(function (a) { filhos.push(linhaMinha(a)); });
+        return el('div', { class: 'te-cv-card is-2' }, filhos);
+    }
+
+    /** Barra de lote (`mcBulk`, l.222), igual à das vagas, e o aviso da lixeira. */
+    function loteDasMinhas() {
+        var nos = [], naLixeira = S.mcFiltro === 'lix';
+        if (S.mcSel.length && podeEscreverCv()) {
+            var sel = minhas().filter(function (a) { return mcSelecionada(a.id); });
+            var algumaNaoVista = sel.some(function (a) { return !a.vista; });
+            var todasEstrela = sel.length > 0 && sel.every(function (a) { return !!a.estrela; });
+            var acoes = naLixeira
+                ? [
+                    ['restaurar', 'Restaurar', 'bi-arrow-counterclockwise', null],
+                    ['definitivo', 'Excluir da minha lista', 'bi-x-octagon', '#a3232b']
+                ]
+                : [
+                    ['lixeira', 'Mover para a lixeira', 'bi-trash', null],
+                    algumaNaoVista ? ['lida', 'Marcar como visto', 'bi-eye', null] : ['naolida', 'Marcar como não visto', 'bi-eye-slash', null],
+                    todasEstrela ? ['semestrela', 'Remover estrela', 'bi-star-fill', '#e0a106'] : ['estrela', 'Adicionar estrela', 'bi-star', null],
+                    ['imp', 'Marcar como importante', 'bi-chevron-double-right', '#0a6fa0'],
+                    ['naoimp', 'Marcar como não importante', 'bi-chevron-right', null]
+                ];
+            var ids = S.mcSel.slice();
+            nos.push(el('div', { class: 'te-lote', attrs: { role: 'toolbar', 'aria-label': 'Ações nas candidaturas selecionadas' } }, [
+                el('b', { class: 'te-lote-n', text: S.mcSel.length + ' selecionado(s)' })
+            ].concat(acoes.map(function (a) {
+                return el('button', {
+                    type: 'button', class: 'te-lote-btn', title: a[1],
+                    style: a[3] ? { color: a[3] } : null,
+                    attrs: { 'data-tip': a[1], 'aria-label': a[1] },
+                    onclick: function () { loteMinhas(ids, a[0]); }
+                }, ic(a[2]));
+            })).concat([
+                el('span', { class: 'te-espaco' }),
+                el('button', { type: 'button', class: 'te-lote-cancelar', text: 'Cancelar', onclick: function () { S.mcSel = []; renderCurriculos(); } })
+            ])));
+        }
+        if (naLixeira) {
+            nos.push(el('div', { class: 'te-lix-aviso' }, [ic('bi-info-circle'), ' A lixeira é só sua: os itens continuam para os demais. Restaure quando quiser.']));
+        }
+        return nos;
+    }
+
+    /**
+     * Linha (l.224): selecionar, estrela e importância (com a dica), título da vaga em negrito se não
+     * vista, "Enviada em …", a situação e as etapas compactas. O clique abre a vaga e marca como vista.
+     */
+    function linhaMinha(a) {
+        var sel = mcSelecionada(a.id), pv = !podeEscreverCv();
+        var nv = nivelDaVaga(a), I = IMPORTANCIA[nv], dica = dicaDeImportancia(nv, a.importancia);
+        var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
+        var st = astDe(a.status);
+        return el('div', {
+            class: 'te-cand-mc-linha' + (sel ? ' is-sel' : ''),
+            onclick: function () {
+                marcarMinhaVista(a);
+                if (!vazio(a.codigoVaga)) {
+                    abrirVaga(a.codigoVaga);
+                }
+            }
+        }, [
+            el('div', { class: 'te-vg-marca', onclick: parar(null) }, [
+                pv ? null : el('button', {
+                    type: 'button', class: 'te-sel-btn' + (sel ? ' is-on' : ''), title: 'Selecionar',
+                    attrs: { 'aria-pressed': sel ? 'true' : 'false' },
+                    onclick: parar(function () {
+                        S.mcSel = sel ? S.mcSel.filter(function (y) { return y !== a.id; }) : S.mcSel.concat([a.id]);
+                        renderCurriculos();
+                    })
+                }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
+                el('button', {
+                    type: 'button', class: 'te-estrela' + (a.estrela ? ' is-on' : ''), title: 'Estrela', disabled: pv,
+                    attrs: { 'aria-pressed': a.estrela ? 'true' : 'false' },
+                    onclick: parar(function () { loteMinhas([a.id], a.estrela ? 'semestrela' : 'estrela'); })
+                }, ic(a.estrela ? 'bi-star-fill' : 'bi-star')),
+                el('button', {
+                    type: 'button', class: 'te-imp te-vg-imp', title: dica, disabled: pv,
+                    style: { background: I.bg, color: I.cor },
+                    attrs: { 'data-tip': dica, 'aria-label': dica },
+                    onclick: parar(function () { loteMinhas([a.id], nv >= 2 ? 'naoimp' : 'imp'); })
+                }, ic(I.ic))
+            ]),
+            el('div', { class: 'te-flex1 te-min0' }, [
+                el('b', { class: 'te-cand-mc-tit te-reticencias' + (a.vista ? '' : ' is-naovista'), text: a.titulo || 'Vaga removida' }),
+                el('span', { class: 'te-cand-mc-em', text: 'Enviada em ' + dataDaCand(a.enviadaEm) })
+            ]),
+            seloSituacao(a.statusRotulo || st[1], a.statusCor || st[2]),
+            el('div', { class: 'te-cand-linha-et' }, linhaDoTempo(a.etapas, true))
+        ]);
+    }
+
+    /** Marcações pela rota das candidaturas, com o mesmo corpo e resposta das vagas. */
+    function loteMinhas(ids, op) {
+        if (!ids.length || !podeEscreverCv()) {
+            return;
+        }
+        fecharMenu();
+        if (op === 'definitivo') {
+            abrirConf(null, {
+                k: '__definitivo_cand__',
+                confirmacao: {
+                    titulo: 'Excluir da minha lista',
+                    texto: 'Excluir ' + ids.length + ' item(ns) da sua lista definitivamente? Continuam existindo para os demais.',
+                    botao: 'Excluir', motivo: false, perigo: true
+                },
+                executar: function () { return enviarLoteMinhas(ids, op); }
+            });
+            return;
+        }
+        enviarLoteMinhas(ids, op);
+    }
+
+    function enviarLoteMinhas(ids, op) {
+        if (vazio(ROTA.candidaturasMarcacoes())) {
+            toastErro(null);
+            return Promise.resolve({ ok: false });
+        }
+        return pedirCv('POST', ROTA.candidaturasMarcacoes(), { codigos: ids, op: op }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            S.mcSel = [];
+            mostrarDesfazer(r.texto, op === 'lixeira' ? function () { enviarLoteMinhas(ids, 'restaurar'); } : null);
+            carregarCurriculos();
+            return r;
+        });
+    }
+
+    /** Abrir a linha marca a candidatura como vista (o título deixa de ficar em negrito), sem aviso. */
+    function marcarMinhaVista(a) {
+        if (a.vista || !podeEscreverCv() || vazio(ROTA.candidaturasMarcacoes())) {
+            return;
+        }
+        a.vista = true;
+        pedirCv('POST', ROTA.candidaturasMarcacoes(), { codigos: [a.id], op: 'lida' }).then(function (r) {
+            if (!r.ok) {
+                a.vista = false;
+            }
+            renderCurriculos();
         });
     }
 
@@ -5407,6 +6191,8 @@
         }
         if (S.conf) {
             fecharConf();
+        } else if (S.quase) {
+            fecharQuase();
         } else if (S.menu) {
             fecharMenu();
         } else if (S.tlm) {
