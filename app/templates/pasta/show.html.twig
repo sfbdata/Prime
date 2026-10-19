@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-busca-rapida.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -4388,4 +4389,6 @@ document.addEventListener('DOMContentLoaded', function () {
 {# Andamento da pasta em fases (E12b). #}
 <script src="{{ asset('js/pasta-andamento.js') }}"></script>
 <script src="{{ asset('js/cliente-cadastro.js') }}"></script>
+{# Busca rápida (Ctrl + K): janela em pasta/_busca_rapida.html.twig, só para quem tem o módulo Pastas. #}
+{% if can_access_module('pastas') %}{{ include('pasta/_busca_rapida.html.twig') }}<script src="{{ asset('js/pasta-busca-rapida.js') }}"></script>{% endif %}
 {% endblock %}

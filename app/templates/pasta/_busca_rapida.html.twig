@@ -1,0 +1,18 @@
+{# Busca rápida da pasta (Ctrl + K). Desenho: docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html,
+   L405-421. Os resultados vêm de expediente_busca_rapida e são montados por public/js/pasta-busca-rapida.js
+   (createElement + textContent; nada de innerHTML com dado). #}
+<div class="pbr" id="pastaBuscaRapida" hidden data-url="{{ path('expediente_busca_rapida') }}">
+    <div class="pbr-fundo"></div>
+    <div class="pbr-janela" role="dialog" aria-modal="true" aria-label="Busca rápida">
+        <div class="pbr-topo">
+            <i class="bi bi-search pbr-lupa" aria-hidden="true"></i>
+            <input type="text" class="pbr-campo" placeholder="Buscar pasta, cliente, CPF ou processo" aria-label="Buscar pasta, cliente, CPF ou processo" autocomplete="off" spellcheck="false">
+            <span class="pbr-esc">Esc</span>
+        </div>
+        <div class="pbr-lista">
+            <div class="pbr-vazio" hidden><i class="bi bi-search" aria-hidden="true"></i>Nada encontrado.</div>
+        </div>
+        <div class="pbr-aviso" role="status" hidden>Pasta trancada. Somente o usuário primário pode liberar o acesso.</div>
+        <div class="pbr-rodape"><span>↑ ↓ navegar</span><span>Enter abrir</span><span>Ctrl + K abrir ou fechar</span></div>
+    </div>
+</div>
