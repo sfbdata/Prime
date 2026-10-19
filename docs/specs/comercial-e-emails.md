@@ -115,6 +115,13 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   base). Até a 9b entregar, a linha do `lemb` aparece no painel e não dispara. O `CadastroMailer` segue com o
   dispatch de `ConfirmacaoDeCadastroEnviada` depois do send. Ordem: esta 1a entra antes; a 9b traz o master e leva os
   eventos aos pontos novos.
+  **Entregue pela 9b (branch `login-desenho-10`, 19/10, sem PR):** `ContaCriadaPeloCadastro` (no `CriarContaEEscritorioUseCase`)
+  e `EmailDaContaConfirmado` (no `ConfirmarEmailDaContaUseCase`, só na primeira confirmação), a consulta e o
+  `ReemitirConfirmacaoDeEmailUseCase` com os nomes combinados, e `CadastroMailer::enviarConfirmacaoDeEmail(User,
+  token)` (método novo; o `enviarConfirmacao` antigo não mudou). **Follow-up desta frente, depois do merge das duas:** um
+  PR pequeno que (a) põe as boas-vindas (`val`) a ouvir `EmailDaContaConfirmado`, (b) liga o `lemb` à consulta e ao
+  reemissor da 9b, mandando pelo Carteiro, e (c) põe o dispatch de `ConfirmacaoDeCadastroEnviada` depois do send do
+  `enviarConfirmacaoDeEmail`.
 - **Contrato com a 7d (desenho 10, antes da troca para a 9b; vale o da 9b acima):** a 1a entra primeiro em Auth e a 7d traz o master; a 7d não muda a
   validade de 24 h nem a purga; se criar a confirmação por código, ela chama o mesmo `ConfirmarCadastroUseCase` (o
   evento sai nos dois caminhos); colunas dela em `cadastro_pendente`: `codigo_hash`, `codigo_expira_em`.
