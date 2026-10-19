@@ -20,6 +20,13 @@ base do PR para `master` e tirar do rascunho.
 Master é dono do sistema e pode tudo; navegador liberado nesta sessão para a verificação visual
 (porta 8107, banco isolado `demo_trabalho_a7`, usuário de demonstração com senha só nesse banco).
 
+**Decisão P1, pelo desenho completo** (19/10): o candidato é o usuário **externo**, Solicitante de
+qualquer escritório ou Convidado (06 l.718 `interno()` = Master ou Equipe; l.1109 `modCvInt` para
+interno e `modCvExt` "Meu currículo" para os demais; l.1001 e l.974 "Candidatar-se" e "Aceitar oferta"
+para o externo, com o currículo dele). Currículo **um por usuário** (no protótipo é por perfil
+simulado). Conta pelo `/cadastro` que existe, único cadastro do desenho ("Criar minha conta e
+escritório", Login l.65, l.101, l.158).
+
 **Convenções registradas pelo coordenador**: apagar mensagem para todos = autor ou Master (P de
 19/10); P2 = escritório vê as vagas abertas e as dele em qualquer situação; P3 = a página pública e
 o compartilhar entram como fatia própria.
@@ -47,11 +54,15 @@ o compartilhar entram como fatia própria.
 - Limite por IP da página pública só vale em produção depois do PR #77 (IP do cliente).
 
 **Pendências**:
-- **P1** (quem é o candidato, risco ALTO, identidade User/Tenant): com o dono via coordenador.
-  Bloqueia F2b (candidatura), F3 (currículos), F4 (visão externa) e os botões de candidato da página
-  pública, que hoje levam aos alertas por e-mail (**desvio temporário**).
-- **Zip completo do desenho** (o DesignSync corta em 256 KiB): pedido ao dono. Resolve os provisórios
-  de §3.5 e §4.1 e a lista de rótulos e menus perdidos.
+- **P1 resolvida pelo desenho** (19/10, confirmada pelo coordenador): ver "Decisões" abaixo. Risco
+  das fases de candidato: **MÉDIO** (permissão do módulo, sem identidade nova).
+- **Voltar à aba Vagas depois do login**: o `UserAuthenticator` sempre leva ao Expediente (ou à
+  escolha de escritório) e ignora o destino guardado. Mudar isso é fluxo de login (ALTO): fica para
+  fatia própria, com o coordenador. Hoje "Entrar" vai ao `/login` e só.
+- **Conta de pessoa física** (sem escritório): o texto de marketing sugere, o desenho não oferece. Se
+  o dono quiser, vira frente própria depois. Não bloqueia.
+- **Desenho completo recebido** (19/10, `docs/design/redesign-19-10-26/`, fora do git; cópia de
+  referência nas worktrees). Conferência dos #62, #83 e #84 contra ele: em andamento.
 - Descrição do #62 não editável pelo `gh` 2.46 desta máquina: complemento postado como comentário.
 
 **Próximo passo**: esperar o merge do #62 e seguir a pilha. A F2d (§4.3) espera o PR da 5d, que avisa
@@ -297,9 +308,9 @@ dado pessoal (LGPD) e de formulário aberto na internet.
 
 - "Entrar" → `/login`. "Divulgar minha vaga grátis" e "Quero divulgar vaga" → `/cadastro` (conta e
   escritório, já existe).
-- "Criar conta grátis e me candidatar", "Procuro vaga" e os "Criar conta" do candidato: **dependem
-  da P1** (quem é o candidato, risco ALTO). Até ela, levam ao bloco de alertas por e-mail da própria
-  página (`#alertas`), sem criar conta. **Provisório.**
+- "Criar conta grátis e me candidatar", "Procuro vaga", "Quero me candidatar" e os "Criar conta" do
+  candidato: também `/cadastro` (P1 decidida pelo desenho: o candidato é usuário externo, de
+  escritório). Voltar à aba Vagas depois do login fica pendente (Estado da frente).
 
 ### Segurança
 

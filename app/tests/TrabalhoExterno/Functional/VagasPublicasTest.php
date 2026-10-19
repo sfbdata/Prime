@@ -70,6 +70,11 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         $client->request('GET', '/vagas-juridicas');
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('Sua próxima vaga na área jurídica começa aqui', (string) $client->getResponse()->getContent());
+        // P1 decidida pelo desenho: candidato e escritório criam conta pelo /cadastro; "Entrar" vai ao /login.
+        $crawler = $client->getCrawler();
+        self::assertSame('/cadastro', $crawler->filter('.vp-hero-ctas a.vp-cta[data-so="cand"]')->attr('href'));
+        self::assertSame('/cadastro', $crawler->filter('.vp-barra-1')->attr('href'));
+        self::assertSame('/login', $crawler->filter('.vp-entrar')->attr('href'));
     }
 
     #[TestDox('inscrição nos alertas: pede consentimento e e-mail válido; repetir atualiza sem duplicar; sem CSRF é 403')]

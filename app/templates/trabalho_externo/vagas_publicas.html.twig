@@ -4,14 +4,15 @@
     desenho, passados para classes `vp-*`. Só chega aqui o que o desenho diz que a página mostra
     (cargo, local, tipo, áreas); o bloco borrado de cada cartão é enfeite fixo, sem dado da vaga.
 
-    Provisório até a P1 (quem é o candidato): os botões de candidato levam aos alertas por e-mail
-    (#alertas) em vez de criar conta. "Divulgar" usa o /cadastro (conta e escritório).
+    Contas (P1, decidida pelo desenho em 19/10, spec §4.2): o candidato é o usuário externo (Solicitante
+    de qualquer escritório, ou Convidado), e o único cadastro do desenho é "Criar minha conta e
+    escritório". Por isso "criar conta" e "divulgar" vão os dois para o /cadastro, e "Entrar" para o /login.
 #}
 {% set vagas = pagina.vagas %}
 {% set total = pagina.total %}
 {% set cargos = pagina.cargos %}
 {% set ufsVagas = pagina.ufsDasVagas %}
-{% set urlCand = '#alertas' %}
+{% set urlCand = path('auth_cadastro') %}
 {% set urlDivulgar = path('auth_cadastro') %}
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -133,7 +134,7 @@
                 <span class="vp-lead-ok-ic"><i class="bi bi-envelope-check"></i></span>
                 <div class="vp-lead-ok-tit">Pronto! Você vai receber as vagas por e-mail</div>
                 <div class="vp-lead-ok-txt" id="vpLeadTxt"></div>
-                {# "Criar conta agora" do desenho: volta quando a P1 decidir quem é o candidato (TEMPORÁRIO). #}
+                <a href="{{ urlCand }}" class="vp-btn"><i class="bi bi-person-plus"></i>Criar conta agora</a>
             </div>
             <div class="vp-lead-form">
                 <div class="vp-lead-cab"><span><i class="bi bi-bell"></i></span><div><h2>Receba vagas da sua área por e-mail</h2><p>Seja um dos primeiros a saber. Você pode cancelar quando quiser.</p></div></div>
