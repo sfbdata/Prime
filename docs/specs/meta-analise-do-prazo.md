@@ -22,8 +22,10 @@ dele como fonte única de dias úteis. Risco: prazo jurídico é risco (`trilha-
 - **Depois da decisão:** migration da Tarefa (prioridade, tipo, prazo jurídico, estado, publicação, ciência,
   "usou a sugestão") e a criação da meta no `TarefaController::criarParaPasta` (legado), combinadas com a 7d
   (#89 mexe no mesmo controller).
-- **Análise documental (B):** fica nos ajustes possíveis sem leitura de conteúdo nem IA: a fase pelas
-  movimentações do Push. O resto (camada de IA do "Sugerir documentos", confiança "Alta" pelo PDF, memória por
+- **Análise documental (B), feito:** a fase dos documentos sugeridos vem da última movimentação do Push quando ela
+  a diz (`FaseDoProcessoPeloPush`, que reaproveita a "Situação atual" do #82: regras do CPC sobre o texto, sem
+  IA nem leitura de documento), como o `faseDe` do `bj-docsug.js`; senão, segue pela classe processual. A tela diz
+  "pela última movimentação do Push: <situação>". O resto (camada de IA do "Sugerir documentos", confiança "Alta" pelo PDF, memória por
   processo, leitura de documentos) está no "Para o dono".
 
 ## O motor (contrato para a tela que vier)
