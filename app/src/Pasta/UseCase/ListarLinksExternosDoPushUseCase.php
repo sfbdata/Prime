@@ -28,7 +28,8 @@ final class ListarLinksExternosDoPushUseCase
     ) {
     }
 
-    public function executar(Pasta $pasta): LinksExternosDaPastaOutput
+    /** `$podeVerIa`: sem `modules.inteligencia.view` a contagem de análises é 0 e o interruptor fica travado. */
+    public function executar(Pasta $pasta, bool $podeVerIa): LinksExternosDaPastaOutput
     {
         $tenant = $pasta->getTenant() ?? throw new PastaDeOutroEscritorioException('Pasta não encontrada.');
         $agora = $this->relogio->now();
@@ -39,7 +40,7 @@ final class ListarLinksExternosDoPushUseCase
             links: $saidas,
             podeGerar: $motivo === null,
             motivoBloqueio: $motivo,
-            analisesCompartilhaveis: count($this->conteudo->analisesCompartilhaveis($pasta, $tenant)),
+            analisesCompartilhaveis: $podeVerIa ? count($this->conteudo->analisesCompartilhaveis($pasta, $tenant)) : 0,
             ultimoAcesso: $this->ultimoAcesso($saidas),
         );
     }

@@ -11,6 +11,10 @@ use App\Pasta\Service\MontadorDeLinksExternos;
 use App\Pasta\UseCase\RecusarRenovacaoDoLinkUseCase;
 use App\Pasta\UseCase\RenovarLinkExternoDoPushUseCase;
 use App\Pasta\UseCase\RevogarLinkExternoDoPushUseCase;
+use App\Pasta\Service\ConteudoDoPushCompartilhado;
+use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Pasta\Entity\Pasta;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -31,12 +35,17 @@ final class OperacoesDoLinkExternoUseCaseTest extends TestCase
         $this->links = $this->createMock(LinkExternoDoPushRepository::class);
     }
 
+    private function conteudo(): ConteudoDoPushCompartilhado
+    {
+        return new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class));
+    }
+
     private function montador(): MontadorDeLinksExternos
     {
         $acessos = $this->createMock(AcessoAoLinkExternoDoPushRepository::class);
         $acessos->method('estatisticasDosLinks')->willReturn([]);
 
-        return new MontadorDeLinksExternos($acessos, $this->urlGenerator());
+        return new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class)));
     }
 
     private function relogio(): MockClock
@@ -74,7 +83,7 @@ final class OperacoesDoLinkExternoUseCaseTest extends TestCase
         $link = $this->linkExpirado();
         $this->links->expects(self::once())->method('salvar')->with($link, true);
 
-        $saida = (new RenovarLinkExternoDoPushUseCase($this->links, $this->montador(), $this->relogio()))->executar($link, $this->usuario());
+        $saida = (new RenovarLinkExternoDoPushUseCase($this->links, $this->montador(), $this->conteudo(), $this->relogio()))->executar($link, $this->usuario());
 
         self::assertSame('ativo', $saida->estado);
         self::assertSame('18/11/2026 10:00', $saida->expiraEm);
@@ -86,7 +95,23 @@ final class OperacoesDoLinkExternoUseCaseTest extends TestCase
         $this->links->expects(self::never())->method('salvar');
 
         $this->expectExceptionObject(LinkExternoDoPushException::renovarAtivo());
-        (new RenovarLinkExternoDoPushUseCase($this->links, $this->montador(), $this->relogio()))->executar($this->link(), $this->usuario());
+        (new RenovarLinkExternoDoPushUseCase($this->links, $this->montador(), $this->conteudo(), $this->relogio()))->executar($this->link(), $this->usuario());
+    }
+
+    #[TestDox('Link de pasta arquivada: aparece como Indisponível, não renova')]
+    public function testIndisponivel(): void
+    {
+        $link = $this->linkExpirado();
+        $link->getPasta()->setSituacao(Pasta::SITUACAO_ARQUIVADA);
+
+        $saida = $this->montador()->montarUm($link, $link->getTenant(), $this->agora()->modify('+40 days'));
+        self::assertSame('indisponivel', $saida->estado);
+        self::assertSame('Indisponível', $saida->estadoRotulo);
+        self::assertFalse($saida->podeRenovar);
+        self::assertTrue($saida->podeRevogar);
+
+        $this->expectExceptionObject(LinkExternoDoPushException::renovarIndisponivel());
+        (new RenovarLinkExternoDoPushUseCase($this->links, $this->montador(), $this->conteudo(), $this->relogio()))->executar($link, $this->usuario());
     }
 
     #[TestDox('Recusar com pedido pendente: resposta recusado, estado volta a expirado')]

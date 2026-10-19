@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Inteligencia\Entity\AnaliseDeInteligencia;
+use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Pasta\Controller\PastaLinkExternoController;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -21,6 +23,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
 {
     use CriaLinkExternoDoPushTrait;
+    use CriaUsuarioComPermissoesTrait;
 
     /** @return array<string, mixed> */
     private function corpo(KernelBrowser $client): array
@@ -64,6 +67,33 @@ final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
             array_keys($link),
         );
         self::assertNotNull($this->em()->getRepository(LinkExternoDoPush::class)->find($link['id']));
+    }
+
+    #[TestDox('Sem o módulo de IA: a lista conta 0 análises e incluir_analises=1 é ignorado')]
+    public function testSemModuloDeIaNaoPublicaAnalise(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPush($tenant);
+        $analise = new AnaliseDeInteligencia($tenant, null, TipoDeAnalise::ResumoPush, AnaliseDeInteligencia::ALVO_PASTA, (int) $pasta->getId(), 'v1', str_repeat('a', 64), []);
+        $analise->iniciarProcessamento();
+        $analise->concluir('Resumo', [], null, '{}', 'falso', 'falso', null, null, null);
+        $analise->alternarInterna();
+        $this->em()->persist($analise);
+        $this->em()->flush();
+        $soPasta = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view']);
+
+        $this->instalarCsrfPrevisivel();
+        $this->logarComTenant($client, $soPasta, $tenant);
+        $client->request('GET', "/pasta/{$pasta->getId()}/push/links");
+        self::assertSame(0, $this->corpo($client)['analisesCompartilhaveis']);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/push/links", [
+            '_token' => 'TOKEN_pasta_push_link_' . $pasta->getId(),
+            'incluir_analises' => '1',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+        self::assertFalse($this->corpo($client)['link']['incluirAnalises']);
     }
 
     #[TestDox('Gerar sem movimentação: 422 com o texto do desenho')]

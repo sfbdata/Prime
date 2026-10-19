@@ -19,6 +19,7 @@ final class MontadorDeLinksExternos
     public function __construct(
         private readonly AcessoAoLinkExternoDoPushRepository $acessos,
         private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly ConteudoDoPushCompartilhado $conteudo,
     ) {
     }
 
@@ -38,6 +39,7 @@ final class MontadorDeLinksExternos
                 $this->url($l),
                 $estatisticas[(int) $l->getId()] ?? ['total' => 0, 'ultimo' => null, 'porDia' => [], 'ultimos' => []],
                 $agora,
+                $this->conteudo->linkVisivel($l),
             ),
             $links,
         );

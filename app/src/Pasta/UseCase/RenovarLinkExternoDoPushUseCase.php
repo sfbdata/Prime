@@ -7,7 +7,9 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Pasta\DTO\LinkExternoDoPushOutput;
 use App\Pasta\Entity\LinkExternoDoPush;
+use App\Pasta\Exception\LinkExternoDoPushException;
 use App\Pasta\Repository\LinkExternoDoPushRepository;
+use App\Pasta\Service\ConteudoDoPushCompartilhado;
 use App\Pasta\Service\MontadorDeLinksExternos;
 use Psr\Clock\ClockInterface;
 
@@ -23,6 +25,7 @@ final class RenovarLinkExternoDoPushUseCase
     public function __construct(
         private readonly LinkExternoDoPushRepository $links,
         private readonly MontadorDeLinksExternos $montador,
+        private readonly ConteudoDoPushCompartilhado $conteudo,
         private readonly ClockInterface $relogio,
     ) {
     }
@@ -30,6 +33,9 @@ final class RenovarLinkExternoDoPushUseCase
     public function executar(LinkExternoDoPush $link, User $usuario): LinkExternoDoPushOutput
     {
         $agora = $this->relogio->now();
+        if (!$this->conteudo->linkVisivel($link)) {
+            throw LinkExternoDoPushException::renovarIndisponivel();
+        }
         $link->renovar($agora);
         $this->links->salvar($link, true);
 

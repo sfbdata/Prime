@@ -477,7 +477,7 @@
 {{ include('pasta/_timeline_inteligente.html.twig', {pasta: pasta}) }}
 {{ include('pasta/_impressao_modal.html.twig', {pasta: pasta}) }}
 {# Link externo do Push Processual (spec push-link-externo §5): menu da aba Push, modal e painel de acessos. #}
-{{ include('pasta/_push_link_externo.html.twig', {pasta: pasta, push: push}) }}
+{{ include('pasta/_push_link_externo.html.twig', {pasta: pasta, push: push, iaPermitida: analisesIa is not null}) }}
 
 {# ── Modais do explorador de documentos ─────────────────────────────────────
    Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos. Modal é

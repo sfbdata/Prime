@@ -28,6 +28,11 @@ final class LinkExternoDoPushException extends \DomainException
         return new self('Link revogado não pode ser renovado.');
     }
 
+    public static function renovarIndisponivel(): self
+    {
+        return new self('Este link não abre mais porque a pasta mudou. Gere um link novo.');
+    }
+
     public static function renovarAtivo(): self
     {
         return new self('Só um link expirado pode ser renovado.');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
+use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
@@ -52,7 +53,7 @@ final class PastaLinkExternoController extends AbstractController
             return $recusa;
         }
 
-        return $this->json($listar->executar($pasta)->paraJson());
+        return $this->json($listar->executar($pasta, $this->podeVerIa())->paraJson());
     }
 
     #[Route('', name: 'pasta_push_links_gerar', methods: ['POST'])]
@@ -69,7 +70,8 @@ final class PastaLinkExternoController extends AbstractController
                 $this->usuario(),
                 $request->request->getBoolean('exigir_codigo'),
                 $request->request->getBoolean('mostrar_cliente'),
-                $request->request->getBoolean('incluir_analises'),
+                // Sem o módulo de IA, ninguém publica análise por fora: o pedido é ignorado.
+                $request->request->getBoolean('incluir_analises') && $this->podeVerIa(),
             );
         } catch (LinkExternoDoPushException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -151,5 +153,13 @@ final class PastaLinkExternoController extends AbstractController
         }
 
         return $usuario;
+    }
+
+    private function podeVerIa(): bool
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        return $tenant !== null
+            && $this->permissionChecker->canAccessModule($this->usuario(), $tenant, DisponibilidadeDeInteligencia::MODULO);
     }
 }

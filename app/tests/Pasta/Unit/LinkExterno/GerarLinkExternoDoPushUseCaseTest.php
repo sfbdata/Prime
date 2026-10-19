@@ -53,7 +53,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
             $this->links,
             new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises),
             new GeradorDeEnderecoDoLinkExterno($this->links),
-            new MontadorDeLinksExternos($acessos, $this->urlGenerator()),
+            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class))),
             new MockClock($this->agora()),
         );
     }

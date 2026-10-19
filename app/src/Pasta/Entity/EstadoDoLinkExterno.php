@@ -16,6 +16,8 @@ enum EstadoDoLinkExterno: string
     case Expirado = 'expirado';
     case RenovacaoPedida = 'renovacao_pedida';
     case Revogado = 'revogado';
+    /** Não revogado, mas a pasta mudou e a página pública não abre mais (D4, `linkVisivel`). Só na tela interna. */
+    case Indisponivel = 'indisponivel';
 
     /** Rótulos da lista "Links desta pasta" ([EXP] 5219). */
     public function rotulo(): string
@@ -25,6 +27,7 @@ enum EstadoDoLinkExterno: string
             self::Expirado => 'Expirado',
             self::RenovacaoPedida => 'Renovação pedida',
             self::Revogado => 'Revogado',
+            self::Indisponivel => 'Indisponível',
         };
     }
 }

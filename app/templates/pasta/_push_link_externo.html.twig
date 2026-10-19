@@ -104,10 +104,13 @@
                             <span class="ppl-op-textos"><span class="ppl-op-titulo">Mostrar o nome do cliente</span><span class="ppl-op-desc">Sem isso, o link mostra só o número do processo.</span></span>
                             <span class="ppl-sw" aria-hidden="true"><span class="ppl-sw-bola"></span></span>
                         </button>
+                        {# Sem `modules.inteligencia.view` a aba não mostra nada de IA: o interruptor também some. #}
+                        {% if iaPermitida|default(false) %}
                         <button type="button" class="ppl-op js-ppl-op" role="switch" aria-checked="false" data-op="incluir_analises" disabled aria-disabled="true">
                             <span class="ppl-op-textos"><span class="ppl-op-titulo">Incluir Análises IA</span><span class="ppl-op-desc js-ppl-op-ia-desc">Esta pasta ainda não tem Análise IA.</span></span>
                             <span class="ppl-sw" aria-hidden="true"><span class="ppl-sw-bola"></span></span>
                         </button>
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}

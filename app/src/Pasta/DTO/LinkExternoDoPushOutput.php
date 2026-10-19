@@ -45,9 +45,13 @@ final readonly class LinkExternoDoPushOutput
     /**
      * @param array{total: int, ultimo: ?\DateTimeImmutable, porDia: array<string, int>, ultimos: list<\DateTimeImmutable>} $estatisticas
      */
-    public static function fromEntity(LinkExternoDoPush $link, string $url, array $estatisticas, \DateTimeImmutable $agora): self
+    public static function fromEntity(LinkExternoDoPush $link, string $url, array $estatisticas, \DateTimeImmutable $agora, bool $visivel = true): self
     {
         $estado = $link->estado($agora);
+        // Link que a página pública não abre mais não pode aparecer como "Ativo" nem ser renovado.
+        if (!$visivel && $estado !== EstadoDoLinkExterno::Revogado) {
+            $estado = EstadoDoLinkExterno::Indisponivel;
+        }
 
         return new self(
             id: (int) $link->getId(),
