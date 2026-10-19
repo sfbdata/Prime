@@ -32,10 +32,10 @@ use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
-use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Armazenamento\Sha256DeArquivo;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Psr\Log\LoggerInterface;
 use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
@@ -187,7 +187,6 @@ class PastaController extends AbstractController
         private readonly ReordenarChecklistItensUseCase $reordenarChecklistItensUseCase,
         private readonly AlterarPrioridadeUseCase $alterarPrioridadeUseCase,
         private readonly PastaSecaoRepository $secaoRepository,
-        private readonly UserTenantRepository $userTenantRepo,
         private readonly CriarPastaUseCase $criarPastaUseCase,
         private readonly EditarPastaUseCase $editarPastaUseCase,
         private readonly ExcluirPastaUseCase $excluirPastaUseCase,
@@ -315,6 +314,7 @@ class PastaController extends AbstractController
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
+        ColaboradoresAtribuiveis $atribuiveis,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -355,7 +355,7 @@ class PastaController extends AbstractController
         );
 
         $usuarios = $tenant !== null
-            ? $this->userRepository->findColaboradoresAtivosPorTenant($tenant)
+            ? $atribuiveis->doEscritorio($tenant, [$pasta->getResponsavel()])
             : [];
 
         // Fotos do menu de responsável, num mapa userId => fotoUrl. Uma consulta para
@@ -1478,7 +1478,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/responsavel', name: 'pasta_atualizar_responsavel', methods: ['PATCH'])]
-    public function atualizarResponsavel(Pasta $pasta, Request $request): JsonResponse
+    public function atualizarResponsavel(Pasta $pasta, Request $request, ColaboradoresAtribuiveis $atribuiveis): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1497,9 +1497,9 @@ class PastaController extends AbstractController
         if ($responsavelId === '' || $responsavelId === null) {
             $pasta->setResponsavel(null);
         } else {
-            $responsavel = $this->userRepository->find((int) $responsavelId);
             $tenant = $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.');
-            if ($responsavel === null || !$this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant)) {
+            $responsavel = $atribuiveis->resolver((int) $responsavelId, $tenant, [$pasta->getResponsavel()]);
+            if ($responsavel === null) {
                 return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
             }
             $pasta->setResponsavel($responsavel);
