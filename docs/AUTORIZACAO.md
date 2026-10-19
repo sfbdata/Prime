@@ -50,14 +50,27 @@ qualquer checagem, independente de tenant ou permissão. É uma role
 atribuída diretamente no `User` (campo `roles`, JSONB), fora do
 sistema de `TenantRole`.
 
-**Master = `ROLE_SUPER_ADMIN`, único** (spec `docs/specs/perfis-master-1.0.md`, D2). Na interface
-o papel se chama só "Master" (Painel do Master, selo MASTER). Atribuição só por CLI:
+**Master = `ROLE_SUPER_ADMIN`: um primário e, se ele quiser, secundários** (spec
+`docs/specs/perfis-1.2-masters.md`, que substitui a D2 "Master é único" de `perfis-master-1.0.md`). Na
+interface o papel se chama "Master" (Painel do Master, selo MASTER). Os nomes dos papéis moram em
+`App\Master\Service\RegraDosMasters`.
 
-- `app:master:definir <email> [--confirmar]` (`app/src/Command/DefinirMasterCommand.php`): deixa
-  EXATAMENTE um `ROLE_SUPER_ADMIN`, o do e-mail. Sem `--confirmar` só mostra quem ganha e quem perde;
-  com `--confirmar` aplica numa transação. É o caminho para TROCAR o Master.
-- `app:create-super-admin` (`app/src/Command/CreateSuperAdminCommand.php`): só cria o Master quando
-  ainda não existe nenhum; havendo um, falha e aponta o `app:master:definir`.
+- **Master primário** = `ROLE_SUPER_ADMIN` + `ROLE_MASTER_PRIMARIO` (um só, o criador do BlueJus). O
+  `ROLE_MASTER_PRIMARIO` só marca quem é o primário; sozinho não dá acesso a nada.
+- **Master secundário** = `ROLE_SUPER_ADMIN` dado pelo primário na aba Permissões de `/master`
+  (`PromoverMasterUseCase`): só um usuário secundário com vínculo ativo no escritório da sessão do primário.
+  Tem o MESMO bypass total acima (falha conhecida, aceita pelo desenho 1.2). Só o primário promove e remove
+  (`RemoverMasterUseCase`, que tira só o `ROLE_SUPER_ADMIN`); o primário nunca é removido pela tela.
+  Promoção e remoção ficam na auditoria (`User` é `Auditavel`).
+
+Por CLI, rodado pelo dono:
+
+- `app:master:definir <email> [--confirmar]` (`app/src/Command/DefinirMasterCommand.php`): o do e-mail
+  fica Master primário e TODOS os outros Masters (primário anterior e secundários) perdem os dois papéis.
+  Sem `--confirmar` só mostra quem ganha e quem perde; com `--confirmar` aplica numa transação. É o
+  caminho para TROCAR o Master primário.
+- `app:create-super-admin` (`app/src/Command/CreateSuperAdminCommand.php`): só cria o primeiro Master, já
+  primário, quando ainda não existe nenhum; havendo um, falha e aponta o `app:master:definir`.
 
 Não é atribuída automaticamente no bootstrap de tenant.
 

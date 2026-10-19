@@ -2,7 +2,8 @@
  * perfis.js: comportamento da lista e da edição de perfis (desenho "05 - Perfis 1.0").
  *
  * - linha inteira clicável abre a edição (o lápis e a lixeira têm o próprio clique);
- * - "Ver como Master / Primário" (só no HTML do Master): prévia que esconde a linha Master (D7);
+ * - "Ver como Master / Primário" (só no HTML do Master): prévia que esconde a linha Master e
+ *   troca os números do resumo (D7);
  * - confirmação interna do desenho no lugar do window.confirm (excluir perfil, promover e
  *   remover primário);
  * - "Marcar todos / Desmarcar todos" por cartão e o rodapé "N de M permissões ativas".
@@ -76,6 +77,10 @@
                 var souMaster = btn.getAttribute('data-pf-visao') === 'master';
                 qsa('[data-pf-visao]', verComo).forEach(function (b) { b.classList.toggle('is-ativo', b === btn); });
                 qsa('[data-pf-linha-master]').forEach(function (l) { l.classList.toggle('is-oculta', !souMaster); });
+                // Os chips do resumo acompanham a prévia: os dois números vêm prontos do servidor.
+                qsa('[data-pf-chip-n]').forEach(function (n) {
+                    n.textContent = n.getAttribute(souMaster ? 'data-master' : 'data-primario');
+                });
             });
         });
     }
