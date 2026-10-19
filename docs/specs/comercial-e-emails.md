@@ -82,7 +82,37 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   `ListaDeDescadastros {total, itens, pagina, porPagina}` com `ItemDeDescadastro {email, assunto, origem, motivo, em}`
   (busca ILIKE no e-mail). A migration `Version20261020090000` da 0d foi reescrita: no banco de teste da frente, `down`
   e `up` dela antes da da 1a.
-- **Pendências:** respostas do dono; consulta de datas de descadastro à 0d (fatia 3); `CITA_RASTREIO_DE_EMAIL` com a f6.
+- **Implementação da 1a (19/10, noite):** contratos commitados (80c4c7de, com push); bloco A (envio) e bloco B
+  (confirmação de endereço) com implementadores em worktrees isoladas; bloco C (ganchos de Auth, purgas, automações,
+  varredura e a tela do Master) com a 5d. Decisões técnicas da implementação, registradas: (1) gravação por DBAL e
+  entidades só para esquema e purga, como a 0d; (2) coluna nova `comercial_envio.proxima_tentativa_em`: a
+  recuperação só redespacha o `enfileirado` com a tentativa vencida há mais de 30 min (sem ela, todo envio que espera
+  a vazão do dia seguinte seria redespachado a cada 15 min); (3) a tela carrega por JSON quando a seção abre (o
+  parcial não recebe variáveis do controller do painel, que é do #56); (4) o `cad` não é registrado pelo Carteiro: o
+  `CadastroMailer` despacha `ConfirmacaoDeCadastroEnviada` e um ouvinte grava o envio; (5) contrato do Carteiro
+  ajustado para a 0d (P4c e P4d): `ResultadoDoEnvio {envioId, situacao}`, `RegistroDeEnviosInterface::situacoes`,
+  `nomeDoRemetente` só como nome exibido, um destinatário por mensagem.
+- **Contrato da 0d no Push (P4c/P4d, aceito em 19/10):** manual da Análise IA = transacional, origem
+  `pasta:push_cliente_ia`, escopo = o escritório, `replyTo` = responsável, `nomeDoRemetente` = "{Escritório} via
+  BlueJus", CC da Controladoria só na 1ª mensagem; automático = lista `push_cliente`. A 0d guarda os `envioId` e lê a
+  situação pelo `RegistroDeEnviosInterface`. Migration dela renomeada para `Version20261020103000` (a desta é
+  `Version20261020100000`).
+- **Contrato com a 7d (desenho 10, 19/10):** a 1a entra primeiro em Auth e a 7d traz o master; a 7d não muda a
+  validade de 24 h nem a purga; se criar a confirmação por código, ela chama o mesmo `ConfirmarCadastroUseCase` (o
+  evento sai nos dois caminhos); colunas dela em `cadastro_pendente`: `codigo_hash`, `codigo_expira_em`.
+- **A tela só aparece com o #56:** o include do parcial `master/_comercial.html.twig` é do painel do #56, que não está
+  nesta base. A verificação visual contra o 05 fica para depois do #56 no master; até lá o PR fica em rascunho.
+- **Para o dono:**
+  1. Q1: a conta do `MAILER_DSN` de produção (Gmail gratuito, Workspace ou Hostinger). Recomendação: provedor
+     transacional ou o SMTP da Hostinger, com SPF e DKIM; o Gmail limita o volume e não dá aviso de entrega.
+  2. P1 (provedor), P2 ("Ao abrir uma conta" travado em ligado; recomendação: sim) e P4 (retenção de 24 meses;
+     recomendação: sim) e as do pacote anterior (A2, A3, B1, reply-to, C3), com o coordenador.
+  3. Deploy: o `jusprime_worker_prod` passa a consumir `comercial async` (docker-compose.prod.yml), e rodar
+     `php bin/console app:comercial:varredura` uma vez depois do deploy (semeia a cadeia; idempotente).
+  4. `SYMFONY_TRUSTED_PROXIES` na VPS, para o IP real nos limitadores e na prova de consentimento.
+  5. Os merges, na ordem: #82 → #87 (0d) → esta 1a.
+- **Pendências:** respostas do dono; consulta de datas de descadastro à 0d (fatia 3); `CITA_RASTREIO_DE_EMAIL` com a f6
+  (a f6 já pôs a regra no rascunho da Política).
 - **Próximo passo:** abrir a frente da 1a sobre `push-avisar-quando-chegar` e implementar; revisão e re-revisão no código.
 
 ## 1. O que já existe (levantamento de 19/10)

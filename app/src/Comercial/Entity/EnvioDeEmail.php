@@ -71,6 +71,14 @@ class EnvioDeEmail
     #[ORM\Column(name: 'tentativa_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $tentativaEm = null;
 
+    /**
+     * Quando a mensagem na fila fica disponível: agora, no Carteiro; o horário do DelayStamp, quando a vazão adia. A
+     * recuperação da varredura só redespacha o `enfileirado` com esta hora vencida há mais de 30 min (a mensagem se
+     * perdeu), nunca o que espera a vazão.
+     */
+    #[ORM\Column(name: 'proxima_tentativa_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $proximaTentativaEm = null;
+
     #[ORM\Column(name: 'enviado_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $enviadoEm = null;
 

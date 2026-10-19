@@ -20,10 +20,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use App\Auth\Event\ConviteDeEscritorioAceito;
 
 #[CoversClass(AceitarConviteEscritorioComContaUseCase::class)]
 final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 {
+    private EventDispatcher $eventos;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserTenantRepository&MockObject $userTenantRepo;
     private EntityManagerInterface&MockObject $em;
@@ -41,6 +45,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
             $this->userTenantRepo,
             $this->em,
             new RegraDosPrimarios($this->userTenantRepo),
+            $this->eventos = new EventDispatcher(),
         );
         $this->tenant  = new Tenant();
         $this->usuario = (new User())->setEmail('usuario@example.com');
@@ -84,6 +89,8 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 
     public function testHappyPathCriaUserTenantEAceita(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(ConviteDeEscritorioAceito::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->userTenantRepo->method('findPorUserETenant')->willReturn(null);
@@ -97,6 +104,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         self::assertInstanceOf(UserTenant::class, $resultado);
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($this->usuario, $invitation->getAcceptedAsUser());
+        self::assertCount(1, $capturados, 'vínculo novo');
     }
 
     public function testTenantRoleNaInvitationPropagadoParaUserTenant(): void
@@ -209,6 +217,8 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 
     public function testReativaVinculoInativoAoAceitarConvite(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(ConviteDeEscritorioAceito::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
         $vinculoInativo = $this->criarVinculoInativo($this->usuario, $this->tenant);
 
@@ -225,6 +235,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         self::assertTrue($resultado->isActive());
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($this->usuario, $invitation->getAcceptedAsUser());
+        self::assertCount(1, $capturados, 'reativação: o Comercial deduplica as boas-vindas, o evento sai igual');
     }
 
     public function testAtualizaTenantRoleAoReativarVinculo(): void

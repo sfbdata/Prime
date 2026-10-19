@@ -24,10 +24,14 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use App\Auth\Event\ConviteDeEscritorioAceito;
 
 #[CoversClass(AceitarConviteEscritorioSemContaUseCase::class)]
 final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 {
+    private EventDispatcher $eventos;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserRepository&MockObject $userRepo;
     private EntityManagerInterface&MockObject $em;
@@ -56,6 +60,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             $this->hasher,
             $registrarAceite,
             new RegraDosPrimarios($this->userTenantRepo),
+            $this->eventos = new EventDispatcher(),
         );
         $this->tenant = new Tenant();
     }
@@ -83,6 +88,8 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
     public function testHappyPathFullNameNoInputCriaUserEUserTenant(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(ConviteDeEscritorioAceito::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $invitation = $this->makeInvitation();
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->userRepo->method('findOneBy')->willReturn(null);
@@ -103,6 +110,8 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($resultado, $invitation->getAcceptedAsUser());
         self::assertCount(2, $persistidos);
+        self::assertCount(1, $capturados);
+        self::assertFalse($capturados[0]->comoPrimario);
     }
 
     public function testFullNameVazioUsaNomeDaInvitation(): void

@@ -41,11 +41,15 @@ class CadastroPendenteRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** Folga entre vencer e ser purgado: o lembrete "E-mail não confirmado" de 72 h ainda acha o pendente. */
+    public const FOLGA_DA_PURGA = '-72 hours';
+
     /**
      * Registros sem uso futuro que guardam senha_hash + PII e devem ser purgados:
      * os já confirmados (o User foi criado; o hash aqui é cópia morta) e os pendentes
-     * cujo token expirou (cadastro abandonado). Pendentes ainda no prazo são cadastros
-     * vivos e ficam de fora.
+     * vencidos há mais de 72 h (cadastro abandonado; a folga é do lembrete com link novo,
+     * docs/specs/comercial-e-emails.md §3.5). Pendentes ainda no prazo, ou vencidos há
+     * menos de 72 h, ficam de fora.
      */
     private function criterioPurgavel(\Doctrine\ORM\QueryBuilder $qb): \Doctrine\ORM\QueryBuilder
     {
@@ -62,7 +66,7 @@ class CadastroPendenteRepository extends ServiceEntityRepository
     {
         $qb = $this->criterioPurgavel($this->createQueryBuilder('c')->select('COUNT(c.id)'));
 
-        return (int) $qb->setParameter('agora', $agora)->getQuery()->getSingleScalarResult();
+        return (int) $qb->setParameter('agora', $agora->modify(self::FOLGA_DA_PURGA))->getQuery()->getSingleScalarResult();
     }
 
     /**
@@ -72,6 +76,28 @@ class CadastroPendenteRepository extends ServiceEntityRepository
     {
         $qb = $this->criterioPurgavel($this->createQueryBuilder('c')->delete());
 
-        return (int) $qb->setParameter('agora', $agora)->getQuery()->execute();
+        return (int) $qb->setParameter('agora', $agora->modify(self::FOLGA_DA_PURGA))->getQuery()->execute();
+    }
+
+    /**
+     * Pendentes que o lembrete "E-mail não confirmado" alcança: ainda pendentes, sem lembrete, criados entre o corte
+     * da automação (`ligada_em`) e `agora - atraso`.
+     *
+     * @return list<CadastroPendente>
+     */
+    public function semConfirmacaoParaLembrete(\DateTimeImmutable $corte, \DateTimeImmutable $criadoAte, int $limite): array
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.status = :pending')
+            ->andWhere('c.lembreteEm IS NULL')
+            ->andWhere('c.createdAt >= :corte')
+            ->andWhere('c.createdAt <= :criadoAte')
+            ->setParameter('pending', 'pending')
+            ->setParameter('corte', $corte)
+            ->setParameter('criadoAte', $criadoAte)
+            ->orderBy('c.id', 'ASC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
     }
 }

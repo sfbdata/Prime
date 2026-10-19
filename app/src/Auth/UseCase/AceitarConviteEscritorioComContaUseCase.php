@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
+use App\Auth\Event\ConviteDeEscritorioAceito;
+use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 final class AceitarConviteEscritorioComContaUseCase
 {
@@ -18,6 +23,7 @@ final class AceitarConviteEscritorioComContaUseCase
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EntityManagerInterface $em,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly EventDispatcherInterface $eventos,
     ) {}
 
     public function executar(AceitarConviteEscritorioComContaInput $input): UserTenant
@@ -60,6 +66,7 @@ final class AceitarConviteEscritorioComContaUseCase
             $vinculo->setUpdatedAt(new \DateTimeImmutable());
             $invitation->aceitar($input->usuarioAtual);
             $this->em->flush();
+            $this->avisarAceite($invitation, $input->usuarioAtual, $tenant);
 
             return $vinculo;
         }
@@ -73,7 +80,18 @@ final class AceitarConviteEscritorioComContaUseCase
 
         $this->em->persist($userTenant);
         $this->em->flush();
+        $this->avisarAceite($invitation, $input->usuarioAtual, $tenant);
 
         return $userTenant;
+    }
+
+    /** Depois do último flush: as boas-vindas do Comercial (comercial-e-emails.md §3.5). */
+    private function avisarAceite(Invitation $invitation, User $user, Tenant $tenant): void
+    {
+        $this->eventos->dispatch(new ConviteDeEscritorioAceito(
+            (int) $user->getId(),
+            (int) $tenant->getId(),
+            $invitation->getTenantRole()?->isSystem() === true,
+        ));
     }
 }

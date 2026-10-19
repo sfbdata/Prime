@@ -14,6 +14,7 @@ use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 #[CoversClass(CadastroMailer::class)]
 final class CadastroMailerTest extends TestCase
@@ -47,6 +48,7 @@ final class CadastroMailerTest extends TestCase
             $twig,
             $urlGenerator,
             new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'),
+            new EventDispatcher(),
         );
 
         $service->enviarConfirmacao($cadastro);

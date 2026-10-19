@@ -6,6 +6,7 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
 use App\Auth\Enum\StatusOab;
+use App\Auth\Event\ConvitePlataformaAceito;
 use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
@@ -13,6 +14,7 @@ use App\Repository\UserRepository;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class AceitarConvitePlataformaUseCase
@@ -24,6 +26,7 @@ final class AceitarConvitePlataformaUseCase
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly ValidadorOab $validadorOab,
+        private readonly EventDispatcherInterface $eventos,
     ) {}
 
     public function executar(AceitarConvitePlataformaInput $input): User
@@ -90,6 +93,7 @@ final class AceitarConvitePlataformaUseCase
             ip: $input->ip,
             userAgent: $input->userAgent,
         ));
+        $this->eventos->dispatch(new ConvitePlataformaAceito((int) $user->getId()));   // depois do último flush (comercial-e-emails.md §3.5)
 
         return $user;
     }
