@@ -9,8 +9,9 @@ compactação de contexto, releia antes de continuar.
 - 19/10: tudo o que está no desenho entra (03 EXPEDIENTE e 07 Meu Perfil, VS 18.10.26); nada existente sai.
 - 19/10: fidelidade ao desenho é critério de pronto (lista ✓/✗ e capturas antes do PR); o navegador está liberado na
   porta 8102, com o banco isolado `demo_menu7d`.
-- 19/10: "Abrir conta" e "Minha conta" só para o primário (e o Master); "Indicar" e o que não existe aparecem como
-  "em preparação"; troca de conta só pelo seletor.
+- 19/10: "Convites do escritório" só para o usuário primário (e o Master), como no desenho; os itens do Master sem
+  tela no sistema (Central de vagas, Campanha por e-mail) aparecem como "em preparação"; idioma do sistema entra só
+  como seletor (tradução das telas é projeto à parte); ordem PR 1 (menu) e depois PR 2 (página).
 - 19/10: excluir conta mantém a quarentena de 365 dias, recuperável pelo Master; nada do lado do primário diz
   "irreversível".
 - Decisões da coordenação (19/10): o secundário edita a própria data de admissão, com auditoria; suspenso e em análise
