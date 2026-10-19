@@ -14,6 +14,7 @@
     if (!raiz || !window.PontoBatida) { return; }
     var urlEstado = raiz.getAttribute('data-ponto-estado');
     var urlBatida = raiz.getAttribute('data-ponto-batida');
+    var urlPonto = raiz.getAttribute('data-ponto-index');
     var PB = window.PontoBatida;
 
     // A releitura do estado no clique tem prazo próprio (spec F1): espera nova no fluxo da batida sem prazo travaria o
@@ -55,6 +56,8 @@
         if (!e) { return null; }
         var h = e.hoje || {};
         switch (e.estado) {
+            case 'regularizar_ontem':   // dc: vem antes de tudo; aqui leva ao pedido de esquecimento (decisão do dono)
+                return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', acao: 'regularizar', dica: 'Clique para informar a saída de ontem' };
             case 'bater_entrada':
                 return { texto: 'Bater ponto', cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: 'Clique para registrar a entrada' };
             case 'em_intervalo':
@@ -79,11 +82,25 @@
         return hora ? String(hora).slice(0, 5) : '';
     }
 
+    /* A frase do dc e, com a validação de interjornada ligada no escritório, o descanso que o servidor vai cobrar na
+       próxima entrada, com o valor configurado (decisão do dono, 19/10). */
+    function descanso(min) {
+        var h = Math.floor(min / 60);
+        var m = min % 60;
+
+        return (h ? h + ' h' : '') + (h && m ? ' ' : '') + (m ? m + ' min' : '');
+    }
     function confirmarSaida(base) {
         var texto = 'Registrar a saída agora (' + new Date().toTimeString().slice(0, 5) + ')?';
-        if (base.interjornadaLigada) { texto += '\nA próxima entrada só será aceita depois da interjornada.'; }
+        if (base.interjornadaMinimaMin) { texto += ' A próxima entrada só será aceita depois de ' + descanso(base.interjornadaMinimaMin) + ' de descanso.'; }
 
         return window.confirm(texto);
+    }
+
+    /* "Regularizar ponto de ontem": leva à folha do mês de ontem, que abre o "+" da saída daquele dia (o pedido de
+       justificativa de esquecimento que já existe, aprovado pelo gestor). Nenhuma batida sai daqui. */
+    function regularizarOntem(dia) {
+        window.location.href = urlPonto + '?competencia=' + dia.slice(0, 7) + '&esquecimento=' + dia + ':saida';
     }
 
     function mensagemDaCerca(onde) {
@@ -100,6 +117,7 @@
         var base = estado;
         var atual = linhaDe(base);
         if (envioEmAndamento || !atual || !atual.acao) { return; }
+        if (atual.acao === 'regularizar') { regularizarOntem(base.ontemSemSaida); return; }
         envioEmAndamento = true;   // (1)
         var sucesso = false;
         try {

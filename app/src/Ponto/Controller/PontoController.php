@@ -14,6 +14,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use App\Ponto\Service\InicioContagemResolver;
@@ -190,24 +191,9 @@ final class PontoController extends AbstractController
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
 
         // Atalho "+" da folha: célula que já tem esquecimento pendente ou abonado não oferece o
-        // botão de novo, para não gerar fila duplicada no gestor. 'abonado' entra porque a
-        // aprovação em lote não cria o RegistroPonto — a célula segue vazia com a justificativa
-        // já deferida. Reaproveita a lista acima; nenhuma query nova.
-        $esquecimentosRegistrados = [];
-        foreach ($justificativasDaCompetencia as $justificativaDaCompetencia) {
-            if ($justificativaDaCompetencia->getTipo() !== 'esquecimento_registro') {
-                continue;
-            }
-            if (!in_array($justificativaDaCompetencia->getStatus(), ['pendente', 'abonado'], true)) {
-                continue;
-            }
-            $tipoEsquecido = $justificativaDaCompetencia->getTipoRegistroEsquecido();
-            $dataEsquecida = $justificativaDaCompetencia->getData();
-            if ($tipoEsquecido === null || $dataEsquecida === null) {
-                continue;
-            }
-            $esquecimentosRegistrados[$dataEsquecida->format('Y-m-d') . '|' . $tipoEsquecido] = true;
-        }
+        // botão de novo (condição 8). Reaproveita a lista acima; nenhuma query nova. Mesma regra do
+        // "Regularizar ponto de ontem" do atalho do cabeçalho (`EsquecimentosRegistrados`).
+        $esquecimentosRegistrados = EsquecimentosRegistrados::dasJustificativas($justificativasDaCompetencia);
 
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,

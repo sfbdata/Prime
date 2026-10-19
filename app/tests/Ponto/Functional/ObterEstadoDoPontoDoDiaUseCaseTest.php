@@ -7,7 +7,6 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\EstadoDoPontoDoDiaOutput;
-use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -82,18 +81,83 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertTrue($this->casoDeUso()->executar($user, $tenant)->homeOffice);
     }
 
-    #[TestDox('Interjornada: o padrão do servidor (sem configuração vale; desligada no escritório, não)')]
-    public function testInterjornada(): void
+    #[TestDox('Regularizar ontem: entrada sem saída num dia útil vem antes do estado de hoje, com o dia de ontem')]
+    public function testRegularizarOntem(): void
     {
         [$user, $tenant] = $this->pessoa();
-        self::assertTrue($this->casoDeUso()->executar($user, $tenant)->interjornadaLigada);
+        $this->batida($user, $tenant, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');   // segunda, sem saída
 
-        $jornada = new JornadaTenant();
-        $jornada->setValidacaoInterjornadaHabilitada(false);
+        $saida = $this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant);   // terça
+
+        self::assertSame(EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM, $saida->estado);
+        self::assertSame('2026-10-19', $saida->ontemSemSaida);
+    }
+
+    #[TestDox('Regularizar ontem some: com saída, num fim de semana, sem batida ou com o esquecimento da saída já pedido')]
+    public function testSemRegularizarOntem(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        $this->batida($user, $tenant, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');
+        $this->batida($user, $tenant, RegistroPonto::TIPO_SAIDA, '2026-10-19 17:00');
+        self::assertNull($this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant)->ontemSemSaida, 'com saída');
+
+        [$user2, $tenant2] = $this->pessoa();
+        $this->batida($user2, $tenant2, RegistroPonto::TIPO_ENTRADA, '2026-10-18 08:00');   // domingo
+        self::assertNull($this->casoDeUsoEm('2026-10-19 10:00')->executar($user2, $tenant2)->ontemSemSaida, 'fim de semana (condição 4)');
+
+        [$user3, $tenant3] = $this->pessoa();
+        $saida3 = $this->casoDeUsoEm('2026-10-20 10:00')->executar($user3, $tenant3);
+        self::assertNull($saida3->ontemSemSaida, 'sem batida ontem (condição 9)');
+        self::assertSame(EstadoDoPontoDoDiaOutput::BATER_ENTRADA, $saida3->estado);
+
+        [$user4, $tenant4] = $this->pessoa();
+        $this->batida($user4, $tenant4, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');
+        $pedido = new \App\Ponto\Entity\JustificativaPonto();
+        $pedido->setUser($user4);
+        $pedido->setTenant($tenant4);
+        $pedido->setData(new \DateTime('2026-10-19'));
+        $pedido->setTipo('esquecimento_registro');
+        $pedido->setTipoRegistroEsquecido(RegistroPonto::TIPO_SAIDA);
+        $pedido->setStatus('pendente');
+        $this->em->persist($pedido);
+        $this->em->flush();
+        self::assertNull($this->casoDeUsoEm('2026-10-20 10:00')->executar($user4, $tenant4)->ontemSemSaida, 'esquecimento pendente (condição 8)');
+    }
+
+    #[TestDox('Descanso mínimo do aviso da saída: o do escritório, 660 sem configuração, null com a validação desligada')]
+    public function testInterjornadaMinima(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        self::assertSame(660, $this->casoDeUso()->executar($user, $tenant)->interjornadaMinimaMin);
+
+        $jornada = new \App\Ponto\Entity\JornadaTenant();
+        $jornada->setMinimoMinutosInterjornada(390);
         $tenant->setJornadaTenant($jornada);
         $this->em->persist($jornada);
         $this->em->flush();
-        self::assertFalse($this->casoDeUso()->executar($user, $tenant)->interjornadaLigada);
+        self::assertSame(390, $this->casoDeUso()->executar($user, $tenant)->interjornadaMinimaMin);
+
+        $jornada->setValidacaoInterjornadaHabilitada(false);
+        $this->em->flush();
+        self::assertNull($this->casoDeUso()->executar($user, $tenant)->interjornadaMinimaMin);
+    }
+
+    private function casoDeUsoEm(string $agora): ObterEstadoDoPontoDoDiaUseCase
+    {
+        $c = static::getContainer();
+
+        return new ObterEstadoDoPontoDoDiaUseCase(
+            $c->get(\App\Ponto\Repository\RegistroPontoRepository::class),
+            $c->get(\App\Ponto\Service\EscolhaDasBatidasDoDia::class),
+            $c->get(\App\Ponto\Service\HomeOfficeResolver::class),
+            $c->get(\App\Ponto\Service\SedesDaCercaDoPonto::class),
+            $c->get(\App\Ponto\Service\FolhaPontoBuilder::class),
+            $c->get(\App\Ponto\Repository\FeriadoRepository::class),
+            $c->get(\App\Ponto\Repository\JustificativaPontoRepository::class),
+            $c->get(\App\Ponto\Service\InicioContagemResolver::class),
+            $c->get(\App\Ponto\Service\EsquecimentosRegistrados::class),
+            new \Symfony\Component\Clock\MockClock($agora, date_default_timezone_get()),   // o fuso do sistema, como o relógio real
+        );
     }
 
     private function casoDeUso(): ObterEstadoDoPontoDoDiaUseCase

@@ -111,4 +111,17 @@ test.describe('atalho de ponto no cabeçalho', () => {
         await expect.poll(() => avisos(page)).toEqual([expect.stringMatching(/^Não registrou: você está a \d+ m da sede Sede de teste, fora da área permitida/)]);
         expect(envios).toBe(0);
     });
+
+    test('regularizar ontem: leva à folha do mês de ontem para o pedido de esquecimento e nenhuma batida sai', async ({ page }) => {
+        let envios = 0;
+        await page.route('**/ponto/estado-do-dia', (r) => r.fulfill({ json: estado('regularizar_ontem', { ontemSemSaida: '2026-09-30' }) }));
+        await page.route('**/ponto/batida', (r) => { envios++; r.fulfill({ json: { success: true } }); });
+        await abrirPainel(page);
+
+        await expect(page.locator('.presenca-sub--ponto.is-acao')).toHaveText(/Regularizar ponto de ontem/);
+        await Promise.all([page.waitForURL(/\/ponto\/\?competencia=2026-09/), page.locator('.presenca-sub--ponto.is-acao').click()]);
+        await page.waitForLoadState('networkidle');
+        expect(new URL(page.url()).searchParams.get('esquecimento')).toBeNull();   // a tela tira o parâmetro depois de usar
+        expect(envios).toBe(0);
+    });
 });

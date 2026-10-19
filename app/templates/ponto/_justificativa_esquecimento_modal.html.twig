@@ -70,5 +70,17 @@
     modalEl.addEventListener('shown.bs.modal', function () {
         campoHora.focus();
     });
+
+    // Vindo do "Regularizar ponto de ontem" do cabeçalho (`?esquecimento=AAAA-MM-DD:saida`, decisão do dono 19/10): abre
+    // o MESMO "+" da folha para aquele dia e batida. Se ele não existir (alguma condição do atalho falha), nada abre:
+    // a regra de quando o "+" aparece continua só aqui na folha.
+    var pedido = /^(\d{4}-\d{2}-\d{2}):(entrada|repouso|retorno|saida)$/.exec(new URLSearchParams(window.location.search).get('esquecimento') || '');
+    if (pedido) {
+        var alvo = document.querySelector('[data-esquecimento-dia="' + pedido[1] + '"][data-esquecimento-campo="' + pedido[2] + '"]');
+        var url = new URL(window.location.href);
+        url.searchParams.delete('esquecimento');
+        window.history.replaceState(null, '', url.toString());
+        if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); }
+    }
 }());
 </script>

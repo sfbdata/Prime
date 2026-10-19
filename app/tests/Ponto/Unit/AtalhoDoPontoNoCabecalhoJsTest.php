@@ -68,8 +68,9 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringNotContainsString('function distanciaEmMetros', $js);
         self::assertStringContainsString("if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }", $js, 'só recusa quando certamente fora');
         self::assertStringContainsString("return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };", $js);
-        self::assertStringContainsString('A próxima entrada só será aceita depois da interjornada.', $js);
-        self::assertStringContainsString('if (base.interjornadaLigada)', $js);
+        self::assertStringContainsString("if (base.interjornadaMinimaMin) { texto += ' A próxima entrada só será aceita depois de ' + descanso(base.interjornadaMinimaMin) + ' de descanso.'; }", $js, 'decisão do dono 19/10: o valor do escritório, só com a validação ligada');
+        self::assertStringContainsString("if (atual.acao === 'regularizar') { regularizarOntem(base.ontemSemSaida); return; }", $js, 'regularizar não envia batida');
+        self::assertStringContainsString("'?competencia=' + dia.slice(0, 7) + '&esquecimento=' + dia + ':saida'", $js);
         foreach (['nao_entrou: AVISO_NAO_ENTROU', 'sem_confirmacao: AVISO_SEM_CONFIRMACAO', 'sem_rede: AVISO_SEM_REDE', 'atrasado: AVISO_ATRASADO'] as $caso) {
             self::assertStringContainsString($caso, $js);
         }

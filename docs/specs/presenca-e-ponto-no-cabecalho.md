@@ -140,7 +140,8 @@ estados; rota `GET /ponto/estado-do-dia` (`ponto_estado_do_dia`) com as mesmas g
 403 sem módulo, 403 sem tenant). Devolve:
 `{dia: 'AAAA-MM-DD', estado: 'bater_entrada'|'em_intervalo'|'em_jornada'|'jornada_concluida', hoje: {entrada,
 repouso, retorno, saida} (H:i ou null), homeOffice: bool, sedes: [{nome, latitude, longitude, raio}] (as chaves da
-tela do ponto, que o `avaliarPosicao` lê), interjornadaLigada: bool}`. O `estado` é derivado no UseCase. (`ontemEntradaSemSaida` só entra com a P2: nenhum
+tela do ponto, que o `avaliarPosicao` lê), ontemSemSaida: ?'AAAA-MM-DD', interjornadaMinimaMin: ?int}`. O `estado` é
+derivado no UseCase (`regularizar_ontem` vem antes dos outros, ver P2 na seção 5). (`ontemEntradaSemSaida` só entra com a P2: nenhum
 campo morto no contrato.)
 - Batidas de `RegistroPontoRepository::batidasDoDiaNoEscritorio(User, Tenant, dia)`, método novo com
   `r.tenant = :tenant` explícito; escolha por `CalculadoraJornada::escolherBatidas` (a da folha, spec
@@ -271,11 +272,20 @@ Ao dono, nesta sessão (N5: desvio do dc e sinal de monitoramento são dele; o c
 dono confirma ou corrige): P4 temporário, Q1, Q2 e Q3. O PR da fase 2 fica em rascunho até o dono confirmar Q1 e Q2
 (F5).
 
-Com o dono, pendente:
-- **P2. Regularizar ontem.** O dc grava a saída retroativa sem aprovação; conflita com a regra do ponto. Até a
-  resposta, o estado não aparece e o contrato não tem o campo. Se entrar pelo fluxo de esquecimento: segue as
-  condições do "+" da folha (dia útil, dentro da contagem, sem esquecimento de saída pendente ou abonado); e, como a
-  regularização aqui depende do gestor, o estado não pode esconder "Bater ponto" o dia todo.
+Decididas pelo dono (19/10, pelo coordenador), que fecham a fase 2:
+- **P2. Regularizar ontem: aprovado pelo fluxo de esquecimento.** Estado `regularizar_ontem` ("Regularizar ponto de
+  ontem", laranja `#c76a12`, bi-exclamation-triangle, dica "Clique para informar a saída de ontem"), que vem antes do
+  estado de hoje como no dc. Só aparece quando a folha ofereceria o "+" da saída de ontem: o UseCase monta a linha de
+  ontem com o próprio `FolhaPontoBuilder` (fim de semana, feriado, início da contagem, escolha das batidas) e o
+  esquecimento já pedido ou abonado (`EsquecimentosRegistrados`, extraído do `index`) não volta. O clique leva a
+  `ponto_index?competencia=<mês de ontem>&esquecimento=<dia>:saida`, e a tela do ponto clica no MESMO "+" da folha (se
+  ele não existir, nada abre): nenhuma batida sai do atalho e a regra de quando o "+" aparece continua só na folha.
+  Depois do pedido (pendente), o estado some e volta o de hoje.
+- **Q1. "Em intervalo desde HH:MM" sem ação: aprovado.**
+- **Q2. Aviso da saída: a interjornada fica em 11 h.** A confirmação é a frase do dc mais "A próxima entrada só será
+  aceita depois de <descanso> de descanso.", com o valor configurado do escritório (`minimoMinutosInterjornada`, 660
+  sem configuração, como o servidor), e só com a validação de interjornada ligada. O contrato troca
+  `interjornadaLigada` por `interjornadaMinimaMin` (null com a validação desligada).
 
 ## 6. O que o dono olha na tela (smoke)
 

@@ -37,4 +37,15 @@ final class TelaDoPontoTraduzAClassificacaoTest extends TestCase
         self::assertMatchesRegularExpression("/\\} catch \\(erro\\) \\{[^}]*mostrarAvisoBatida\\(AVISO_SEM_CONFIRMACAO, 'danger', true\\);\\s+\\} finally \\{/s", $tela);
         self::assertMatchesRegularExpression("/btnPonto\\.addEventListener\\('click', async function\\(\\) \\{\\s+if \\(!window\\.PontoBatida\\) \\{\\s+mostrarAvisoBatida\\(AVISO_PAGINA_INCOMPLETA/", $tela);
     }
+
+    #[TestDox('Link do cabeçalho ?esquecimento=AAAA-MM-DD:saida abre o MESMO "+" da folha, se ele existir; o parâmetro sai da URL')]
+    public function testLinkDoRegularizarOntem(): void
+    {
+        $modal = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_justificativa_esquecimento_modal.html.twig');
+        self::assertStringContainsString("get('esquecimento')", $modal);
+        self::assertStringContainsString('(entrada|repouso|retorno|saida)', $modal, 'só os quatro tipos');
+        self::assertStringContainsString('[data-esquecimento-dia="\' + pedido[1] + \'"][data-esquecimento-campo="\' + pedido[2] + \'"]', $modal, 'o botão do "+" da folha, nenhuma regra própria');
+        self::assertStringContainsString("if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); }", $modal);
+        self::assertStringContainsString("url.searchParams.delete('esquecimento');", $modal);
+    }
 }

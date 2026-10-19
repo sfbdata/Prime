@@ -12,7 +12,7 @@
           data-url-equipe="{{ path('central_equipe') }}"
           data-chave="{{ tenantPresenca.id }}:{{ app.user.id }}"
           data-eu-id="{{ app.user.id }}"
-          {% if atalhoPonto %}data-ponto-estado="{{ path('ponto_estado_do_dia') }}" data-ponto-batida="{{ path('ponto_batida') }}"{% endif %}>
+          {% if atalhoPonto %}data-ponto-estado="{{ path('ponto_estado_do_dia') }}" data-ponto-batida="{{ path('ponto_batida') }}" data-ponto-index="{{ path('ponto_index') }}"{% endif %}>
         <button type="button" class="presenca-cab-selo" data-presenca-selo hidden
                 aria-haspopup="dialog" aria-expanded="false" aria-label="Quem está on-line: 0">0</button>
     </span>
