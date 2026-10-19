@@ -15,12 +15,14 @@ use Doctrine\ORM\Mapping as ORM;
  * Uma inscrição da pessoa na OAB (desenho "07 - Meu Perfil", VS 18.10.26; spec
  * docs/specs/meu-perfil-oab-inscricoes.md). No máximo uma por UF (seccional) e exatamente uma
  * PRINCIPAL, conferidas no UseCase e garantidas no banco (UNIQUE user+uf e índice único parcial da
- * principal, criados na migration). É da pessoa, não do escritório. Os campos User.oab* são o espelho
+ * principal, os dois no mapeamento para o schema não propor apagá-los). É da pessoa, não do escritório. Os campos User.oab* são o espelho
  * da principal.
  */
 #[ORM\Entity(repositoryClass: InscricaoOabRepository::class)]
 #[ORM\Table(name: 'inscricao_oab')]
 #[ORM\UniqueConstraint(name: 'uniq_inscricao_oab_user_uf', columns: ['user_id', 'uf'])]
+#[ORM\UniqueConstraint(name: 'uniq_inscricao_oab_principal', columns: ['user_id'], options: ['where' => "((tipo)::text = 'principal'::text)"])]
+// O `where` está na forma em que o PostgreSQL guarda o predicado: com outra grafia o schema acusaria diferença.
 #[ORM\HasLifecycleCallbacks]
 class InscricaoOab implements Auditavel
 {

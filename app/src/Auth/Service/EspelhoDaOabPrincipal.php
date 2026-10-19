@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Auth\Entity\InscricaoOab;
-use App\Auth\Enum\TipoInscricaoOab;
 use App\Auth\Repository\InscricaoOabRepository;
 use App\Entity\Auth\User;
 
@@ -13,7 +12,7 @@ use App\Entity\Auth\User;
  * Mantém a inscrição principal e os campos User.oab* em acordo (spec docs/specs/meu-perfil-oab-inscricoes.md §2).
  *
  * - `inscricoesDe`: se a pessoa tem OAB no espelho mas nenhuma inscrição (cadastro, convite ou criar escritório
- *   gravaram só no User), cria a principal a partir do espelho. Não dá flush: quem chama persiste junto.
+ *   gravaram só no User), cria a principal a partir do espelho, direto no banco e à prova de duas abas.
  * - `doUsuarioParaPrincipal`: depois que a revisão do Master mudou o status no User (fluxo por User), copia
  *   status, nome oficial e data para a principal.
  * - `principalParaUsuario`: depois de mudar inscrições pelo perfil, copia a principal para o User (ou limpa).
@@ -33,11 +32,9 @@ final class EspelhoDaOabPrincipal
             return $lista;
         }
 
-        $principal = new InscricaoOab($usuario, (string) $usuario->getOabNumero(), (string) $usuario->getOabUf(), TipoInscricaoOab::Principal);
-        $this->copiarSituacaoDoUsuario($usuario, $principal);
-        $this->inscricoes->salvar($principal);
+        $this->inscricoes->criarPrincipalDoEspelhoSeFaltar($usuario);
 
-        return [$principal];
+        return $this->inscricoes->doUsuario($usuario);
     }
 
     public function doUsuarioParaPrincipal(User $usuario): void

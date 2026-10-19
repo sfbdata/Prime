@@ -15,11 +15,12 @@ use App\Profile\DTO\InscricaoOabInput;
  * Criar ou editar uma inscrição na OAB da própria pessoa (desenho "07 - Meu Perfil", VS 18.10.26,
  * `_salvarOab`; spec docs/specs/meu-perfil-oab-inscricoes.md §1).
  *
- * Regras: número só com dígitos (o desenho aceita uma letra final, mas o banco exige só dígitos no espelho
- * User.oab_numero, chk_user_oab_numero); UF de uma das 27 seccionais; no máximo uma
+ * Regras: número de 1 a 7 dígitos (o desenho aceita uma letra final, mas o banco exige só dígitos no espelho
+ * User.oab_numero, chk_user_oab_numero; em produção, 19/10/2026, a maior tinha 5); UF de uma das 27 seccionais; no máximo uma
  * inscrição por UF; sempre exatamente uma principal (a primeira nasce principal; escolher outra rebaixa a
  * atual a suplementar; não dá para deixar a pessoa sem principal). Inscrição nova ou com número/UF
- * mudados volta a Pendente. A principal é copiada para User.oab* (espelho). Uma transação, um flush.
+ * mudados volta a Pendente. A principal é copiada para User.oab* (espelho). Toda recusa vem antes de qualquer
+ * mudança; a troca de principal grava na ordem certa (InscricaoOabRepository::gravarComNovaPrincipal).
  *
  * @throws \DomainException com a mensagem do desenho
  */
@@ -41,21 +42,43 @@ final class SalvarInscricaoOabUseCase
         $todas         = $this->espelho->inscricoesDe($usuario);
         $alvo          = $this->localizar($todas, $input->id);
         $this->exigirUmaPorUf($todas, $alvo, $uf);
+        $tipo = $todas === [] ? TipoInscricaoOab::Principal : $input->tipo;
+        $this->exigirQueFiquePrincipal($alvo, $tipo);
 
-        $pendente       = $alvo === null || $alvo->getNumero() !== $numero || $alvo->getUf() !== $uf;
-        $primeiraDaPessoa = $todas === [];
+        // Daqui em diante só gravação: toda recusa já aconteceu acima.
+        $pendente = $alvo === null || $alvo->getNumero() !== $numero || $alvo->getUf() !== $uf;
         if ($alvo === null) {
-            $alvo    = new InscricaoOab($usuario, $numero, $uf, $todas === [] ? TipoInscricaoOab::Principal : $input->tipo);
-            $todas[] = $alvo;
+            $alvo = new InscricaoOab($usuario, $numero, $uf, TipoInscricaoOab::Suplementar);
         } else {
             $alvo->alterar($numero, $uf);
         }
-        $this->aplicarTipo($todas, $alvo, $primeiraDaPessoa ? TipoInscricaoOab::Principal : $input->tipo);
-
-        $this->espelho->principalParaUsuario($usuario, $todas);
-        $this->inscricoes->salvar($alvo, flush: true);
+        $this->gravar($usuario, $todas, $alvo, $tipo);
 
         return $pendente;
+    }
+
+    /** @param list<InscricaoOab> $todas */
+    private function gravar(User $usuario, array $todas, InscricaoOab $alvo, TipoInscricaoOab $tipo): void
+    {
+        if ($tipo === TipoInscricaoOab::Principal && !$alvo->ehPrincipal()) {
+            $outras = array_values(array_filter($todas, static fn (InscricaoOab $i): bool => $i !== $alvo && $i->ehPrincipal()));
+            $this->inscricoes->gravarComNovaPrincipal($alvo, $outras);
+
+            return;
+        }
+        if ($tipo === TipoInscricaoOab::Suplementar) {
+            $alvo->tornarSuplementar();
+        }
+        $this->espelho->principalParaUsuario($usuario, in_array($alvo, $todas, true) ? $todas : [...$todas, $alvo]);
+        $this->inscricoes->salvar($alvo, flush: true);
+    }
+
+    /** Rebaixar a única principal a suplementar deixaria a pessoa sem principal. */
+    private function exigirQueFiquePrincipal(?InscricaoOab $alvo, TipoInscricaoOab $tipo): void
+    {
+        if ($alvo !== null && $alvo->ehPrincipal() && $tipo === TipoInscricaoOab::Suplementar) {
+            throw new \DomainException('É preciso ter uma inscrição principal.');
+        }
     }
 
     /** @return array{0: string, 1: string} */
@@ -64,7 +87,7 @@ final class SalvarInscricaoOabUseCase
         // Pontos, traços, barras e espaços saem; letra ou outro caractere recusa (não some calado).
         $numero = preg_replace('/[\s.\-\/]/', '', $input->numero) ?? '';
         $uf     = strtoupper(trim($input->uf));
-        if (preg_match('/^\d{1,10}$/', $numero) !== 1) {
+        if (preg_match('/^\d{1,7}$/', $numero) !== 1) {
             throw new \DomainException('Informe o número da OAB (somente números).');
         }
         if (!in_array($uf, self::UFS, true)) {
@@ -97,25 +120,5 @@ final class SalvarInscricaoOabUseCase
                 throw new \DomainException('Já existe uma inscrição na OAB/' . $uf . '. Cada seccional tem uma só inscrição por advogado.');
             }
         }
-    }
-
-    /** @param list<InscricaoOab> $todas */
-    private function aplicarTipo(array $todas, InscricaoOab $alvo, TipoInscricaoOab $tipo): void
-    {
-        if ($tipo === TipoInscricaoOab::Principal) {
-            foreach ($todas as $inscricao) {
-                $inscricao === $alvo ? $inscricao->tornarPrincipal() : $inscricao->tornarSuplementar();
-            }
-
-            return;
-        }
-        $alvo->tornarSuplementar();
-        foreach ($todas as $inscricao) {
-            if ($inscricao->ehPrincipal()) {
-                return;
-            }
-        }
-
-        throw new \DomainException('É preciso ter uma inscrição principal.');
     }
 }

@@ -6,6 +6,7 @@ namespace App\Tests\Shared\Functional;
 
 use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\Auth\Entity\CadastroPendente;
+use App\Auth\Entity\InscricaoOab;
 use App\Auth\Entity\RedefinicaoSenha;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
@@ -89,6 +90,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // não do escritório. Quem atua em dois escritórios tem um perfil só.
         UserProfile::class,
 
+        // Inscrições na OAB (spec docs/specs/meu-perfil-oab-inscricoes.md §2): credencial da PESSOA, como os
+        // campos oab* do User de que a principal é o espelho; vale em todo escritório em que ela atua. Leitura
+        // sempre por usuário (doUsuario/daPessoa); a fila global é só do Master.
+        InscricaoOab::class,
+
         // Trabalho Externo (spec docs/specs/trabalho-externo.md §3): a Central do Master global lê
         // as demandas de TODOS os escritórios, por desenho. O TenantFilter as esconderia dela. O
         // isolamento é do DemandaExternaRepository (só consultas escopadas: Central ou escritório)
@@ -116,8 +122,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * aí é decisão visível em vez de descuido.
      */
     private const MAX_PENDENTE = 14;
-    // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 18;
+    // 8 → 18 com o Trabalho Externo (15/10/2026); 19 com as inscrições na OAB (19/10/2026): exceções
+    // permanentes e justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 19;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

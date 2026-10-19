@@ -24,28 +24,28 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(InscricaoOab::class)]
 final class SalvarInscricaoOabUseCaseTest extends TestCase
 {
-    #[TestDox('primeira inscrição nasce principal e Pendente e vai para o espelho, mesmo pedida como suplementar')]
+    #[TestDox('primeira inscrição nasce principal (gravada pela troca ordenada), mesmo pedida como suplementar')]
     public function testPrimeira(): void
     {
         $user = new User();
-        [$sut] = $this->sut($user, []);
+        [$sut, $repo] = $this->sut($user, []);
+        $repo->expects(self::once())->method('gravarComNovaPrincipal')
+            ->with(self::callback(static fn (InscricaoOab $i): bool => [$i->getNumero(), $i->getUf()] === ['49613', 'DF']), []);
 
         self::assertTrue($sut->executar($user, new InscricaoOabInput(null, '49.613', 'df', TipoInscricaoOab::Suplementar)));
-        self::assertSame(['49613', 'DF', StatusOab::NaoVerificada], [$user->getOabNumero(), $user->getOabUf(), $user->getOabStatus()]);
     }
 
-    #[TestDox('nova principal rebaixa a antiga; o espelho passa a ser a nova')]
+    #[TestDox('nova principal vai pela gravação ordenada, que rebaixa a antiga antes')]
     public function testNovaPrincipal(): void
     {
         $user = new User();
         $df   = $this->inscricao($user, 1, '49613', 'DF', TipoInscricaoOab::Principal, StatusOab::Confirmada);
-        [$sut] = $this->sut($user, [$df]);
+        [$sut, $repo] = $this->sut($user, [$df]);
+        $repo->expects(self::once())->method('gravarComNovaPrincipal')
+            ->with(self::callback(static fn (InscricaoOab $i): bool => $i->getUf() === 'GO'), [$df]);
+        $repo->expects(self::never())->method('salvar');
 
         $sut->executar($user, new InscricaoOabInput(null, '700', 'GO', TipoInscricaoOab::Principal));
-
-        self::assertFalse($df->ehPrincipal());
-        self::assertSame(StatusOab::Confirmada, $df->getStatus(), 'rebaixar não mexe na situação');
-        self::assertSame('GO', $user->getOabUf());
     }
 
     #[TestDox('mesmo número e UF: situação e data ficam; devolve "não pendente"')]

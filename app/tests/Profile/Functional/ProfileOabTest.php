@@ -84,18 +84,36 @@ final class ProfileOabTest extends JusPrimeWebTestCase
         self::assertSame('GO', $this->recarregar($user)->getOabUf());
     }
 
+    #[TestDox('inscrição NOVA escolhida como principal rebaixa a atual sem estourar o índice da principal')]
+    public function testNovaComoPrincipal(): void
+    {
+        [$client, $user] = $this->logado(oabNumero: '49613', oabUf: 'DF', status: StatusOab::Confirmada);
+        $this->salvarOab($client, ['numero' => '700', 'uf' => 'GO', 'tipo' => 'principal']);
+
+        self::assertResponseRedirects('/perfil');
+        self::assertSame([['700', 'GO', 'principal', 'nao_verificada'], ['49613', 'DF', 'suplementar', 'confirmada']], $this->inscricoes($user));
+        self::assertSame(['700', 'GO'], [$this->recarregar($user)->getOabNumero(), $this->recarregar($user)->getOabUf()]);
+    }
+
     #[TestDox('regras: UF repetida, número com letra e deixar sem principal são recusados com a mensagem do desenho')]
     public function testRegras(): void
     {
         [$client, $user] = $this->logado(oabNumero: '49613', oabUf: 'DF', status: StatusOab::Confirmada);
         $this->salvarOab($client, ['numero' => '1', 'uf' => 'DF', 'tipo' => 'suplementar']);
-        self::assertStringContainsString('Já existe uma inscrição na OAB/DF', $this->flashDeErro($client));
+        self::assertStringContainsString('Já existe uma inscrição na OAB/DF', $this->erroDoModal($client));
 
         $this->salvarOab($client, ['numero' => '12A', 'uf' => 'SP', 'tipo' => 'suplementar']);
+        self::assertStringContainsString('somente números', $this->erroDoModal($client));
         self::assertSame([['49613', 'DF', 'principal', 'confirmada']], $this->inscricoes($user), 'nada foi gravado');
 
         $this->salvarOab($client, ['id' => (string) $this->idDa($user, 'DF'), 'numero' => '49613', 'uf' => 'DF', 'tipo' => 'suplementar']);
-        self::assertStringContainsString('É preciso ter uma inscrição principal', $this->flashDeErro($client));
+        self::assertStringContainsString('É preciso ter uma inscrição principal', $this->erroDoModal($client));
+        self::assertSame([['49613', 'DF', 'principal', 'confirmada']], $this->inscricoes($user), 'a recusa não mudou nada');
+
+        $tela = $client->request('GET', '/perfil');
+        $reabrir = json_decode((string) $tela->filter('#formOab')->attr('data-reabrir'), true);
+        self::assertSame(['49613', 'DF', 'suplementar'], [$reabrir['numero'], $reabrir['uf'], $reabrir['tipo']], 'o modal volta com o que foi digitado');
+        self::assertNull($client->request('GET', '/perfil')->filter('#formOab')->attr('data-reabrir'), 'só uma vez');
     }
 
     #[TestDox('editar o número de uma inscrição Confirmada volta a Pendente, no espelho também')]
@@ -216,6 +234,13 @@ final class ProfileOabTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         return $em->getRepository(UserTenant::class)->findOneBy(['user' => $user->getId()])->getTenant();
+    }
+
+    private function erroDoModal(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client): string
+    {
+        $erro = $client->getRequest()->getSession()->get(\App\Profile\Controller\InscricoesOabDoPerfilController::ERRO_NA_SESSAO);
+
+        return is_array($erro) ? (string) $erro['erro'] : '';
     }
 
     private function flashDeErro(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client): string

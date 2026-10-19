@@ -51,7 +51,17 @@
     tipoOab(linha ? linha.dataset.tipo : (formOab.dataset.temPrincipal === '1' ? 'suplementar' : 'principal'));
     const rem = formOab.querySelector('[data-mp-oab-remover]');
     if (rem) { rem.hidden = !(linha && linha.dataset.podeRemover === '1'); rem.dataset.id = linha ? linha.dataset.mpOabEditar : ''; rem.dataset.uf = linha ? linha.dataset.uf : ''; }
+    const erro = formOab.querySelector('[data-mp-oab-erro]'); if (erro) erro.hidden = true;
     const m = modal('modalOab'); if (m) m.show();
+  }
+  /* Recusa do servidor: o modal volta aberto com o que foi digitado e o erro dentro dele (desenho: erroTem). */
+  function reabrirOabComErro() {
+    if (!formOab || !formOab.dataset.reabrir) return;
+    let d = null; try { d = JSON.parse(formOab.dataset.reabrir); } catch (e) { return; }
+    const linha = d.id ? document.querySelector('[data-mp-oab-editar="' + CSS.escape(String(d.id)) + '"]') : null;
+    abrirOab(linha);
+    formOab.elements.numero.value = d.numero || ''; formOab.elements.uf.value = d.uf || ''; tipoOab(d.tipo === 'principal' ? 'principal' : 'suplementar');
+    const erro = formOab.querySelector('[data-mp-oab-erro]'); if (erro) { erro.querySelector('span').textContent = d.erro || ''; erro.hidden = false; }
   }
   function removerOab(botao) {
     if (!window.confirm('Remover a inscrição OAB/' + botao.dataset.uf + '?')) return;
@@ -111,5 +121,6 @@
     }
   });
 
-  if (revisaoPendente()) setTimeout(() => { if (!document.querySelector('.modal.show')) { const m = modal('modalRevisao'); if (m) m.show(); } }, 1200);
+  if (formOab && formOab.dataset.reabrir) setTimeout(reabrirOabComErro, 200);
+  else if (revisaoPendente()) setTimeout(() => { if (!document.querySelector('.modal.show')) { const m = modal('modalRevisao'); if (m) m.show(); } }, 1200);
 })();

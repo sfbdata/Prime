@@ -59,7 +59,7 @@ final class ProfileController extends AbstractController
     }
 
     #[Route('', name: '', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         /** @var User $user */
         $user = $this->getUser();
@@ -69,7 +69,6 @@ final class ProfileController extends AbstractController
         $output = PerfilOutput::fromEntity($perfil, $user, $userTenant, $vinculo);
 
         $formDados = $this->createForm(DadosPessoaisType::class, DadosPessoaisInput::dePerfil($output), ['campos_do_perfil' => true]);
-
 
         $formSenha = $this->createForm(AlterarSenhaType::class, new AlterarSenhaInput(), [
             'action' => $this->generateUrl('app_profile_senha'),
@@ -82,6 +81,8 @@ final class ProfileController extends AbstractController
             'podeAlterarVinculo' => $this->podeAlterarVinculo($user, $userTenant),
             'form_dados' => $formDados->createView(),
             'inscricoesOab' => $this->obterInscricoesOab->executar($user),
+            // Recusa do modal da OAB: volta aberto, com o erro e o que foi digitado (InscricoesOabDoPerfilController).
+            'erroOab'       => $request->getSession()->remove(InscricoesOabDoPerfilController::ERRO_NA_SESSAO),
             'form_senha' => $formSenha->createView(),
         ]);
     }

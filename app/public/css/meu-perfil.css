@@ -116,6 +116,8 @@
 .mp-oab-tipos button.on { background: #fff; color: #0a6fa0; box-shadow: 0 1px 3px rgba(18, 36, 47, .12); }
 .mp-oab-linha-campos { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
 .mp-campo select { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 8px; font-size: 14px; background: #fff; width: 100%; }
+.mp-oab-erro { font-size: 13px; color: #a3232b; }
+.mp-oab-erro[hidden] { display: none; }
 .mp-oab-remover { align-self: flex-start; height: 30px; padding: 0 10px; border: none; background: transparent; color: #a3232b; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .mp-oab-remover:hover { background: #fdf1f2; }
 

@@ -365,7 +365,7 @@ input[type="range"].img-slider {
         <div class="mp-card-topo">
             <span class="mp-card-selo"><i class="bi bi-patch-check-fill"></i></span>
             <div class="flex-grow-1"><b>Registro OAB</b><div class="mp-card-sub">{{ inscricoesOab|length > 1 ? inscricoesOab|length ~ ' inscrições · ' ~ _nSup ~ ' suplementar(es)' : 'Ordem dos Advogados do Brasil' }}</div></div>
-            <button type="button" class="mp-btn-oab" data-mp-oab-nova title="{{ inscricoesOab is empty ? 'Informar a inscrição principal' : 'Adicionar inscrição suplementar' }}"><i class="bi bi-plus-lg"></i>Adicionar OAB</button>
+            <button type="button" class="mp-btn-oab" data-mp-oab-nova title="Adicionar inscrição suplementar"><i class="bi bi-plus-lg"></i>Adicionar OAB</button>
         </div>
         {% for o in inscricoesOab %}
             <button type="button" class="mp-oab-linha" data-mp-oab-editar="{{ o.id }}" data-numero="{{ o.numero }}" data-uf="{{ o.uf }}"
@@ -594,7 +594,8 @@ input[type="range"].img-slider {
                 <i class="bi bi-patch-check"></i><b id="modalOabLabel">Inscrição na OAB</b>
                 <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
-            <form action="{{ path('app_profile_oab') }}" method="post" id="formOab" data-tem-principal="{{ inscricoesOab is empty ? '0' : '1' }}">
+            <form action="{{ path('app_profile_oab') }}" method="post" id="formOab" data-tem-principal="{{ inscricoesOab is empty ? '0' : '1' }}"
+                  {% if erroOab %}data-reabrir="{{ erroOab|json_encode|e('html_attr') }}"{% endif %}>
                 <input type="hidden" name="_token" value="{{ csrf_token('profile_oab') }}">
                 <input type="hidden" name="id" value="">
                 <input type="hidden" name="tipo" value="principal">
@@ -608,7 +609,7 @@ input[type="range"].img-slider {
                         <small data-mp-oab-ajuda data-principal="Seccional do seu domicílio profissional. Só pode haver uma; se você mudar, a atual passa a suplementar." data-suplementar="Para atuar com habitualidade em outro estado. Uma por seccional."></small>
                     </div>
                     <div class="mp-oab-linha-campos">
-                        <label class="mp-campo"><span>NÚMERO DA OAB</span><input type="text" name="numero" maxlength="10" inputmode="numeric" placeholder="Somente números" autocomplete="off" required></label>
+                        <label class="mp-campo"><span>NÚMERO DA OAB</span><input type="text" name="numero" maxlength="7" inputmode="numeric" placeholder="Somente números" autocomplete="off" required></label>
                         <label class="mp-campo"><span>UF (SECCIONAL)</span>
                             <select name="uf" required>
                                 <option value="">UF</option>
@@ -616,6 +617,7 @@ input[type="range"].img-slider {
                             </select>
                         </label>
                     </div>
+                    <div class="mp-oab-erro" data-mp-oab-erro hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
                     <button type="button" class="mp-oab-remover" data-mp-oab-remover hidden><i class="bi bi-trash"></i>Remover esta inscrição</button>
                 </div>
                 <div class="mp-modal-rodape">

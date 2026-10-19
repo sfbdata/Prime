@@ -74,6 +74,48 @@ class InscricaoOabRepository extends ServiceEntityRepository
         return (int) $this->qbRevisao($statuses, $busca)->select('COUNT(i.id)')->getQuery()->getSingleScalarResult();
     }
 
+    /**
+     * Cria a principal a partir do espelho User.oab* se a pessoa ainda não tem inscrição. SQL com ON CONFLICT: duas
+     * requisições ao mesmo tempo (duas abas na primeira abertura) não estouram o índice único, a segunda só não faz nada.
+     */
+    public function criarPrincipalDoEspelhoSeFaltar(User $usuario): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            <<<'SQL'
+                INSERT INTO inscricao_oab (user_id, numero, uf, tipo, status, nome_oficial, verificada_em, criado_em)
+                SELECT u.id, TRIM(u.oab_numero), UPPER(TRIM(u.oab_uf)), 'principal', COALESCE(u.oab_status, 'nao_verificada'),
+                       u.oab_nome_oficial, u.oab_verificada_em, NOW()
+                  FROM "user" u
+                 WHERE u.id = :id AND COALESCE(TRIM(u.oab_numero), '') <> '' AND COALESCE(TRIM(u.oab_uf), '') <> ''
+                   AND NOT EXISTS (SELECT 1 FROM inscricao_oab i WHERE i.user_id = u.id)
+                ON CONFLICT DO NOTHING
+                SQL,
+            ['id' => $usuario->getId()],
+        );
+    }
+
+    /**
+     * Grava `$nova` como principal rebaixando as outras ANTES, numa transação. O Doctrine faz INSERT antes de UPDATE
+     * no mesmo flush, e o índice único parcial da principal recusaria a nova enquanto a antiga ainda é principal.
+     *
+     * @param list<InscricaoOab> $rebaixar
+     */
+    public function gravarComNovaPrincipal(InscricaoOab $nova, array $rebaixar): void
+    {
+        $em = $this->getEntityManager();
+        $em->wrapInTransaction(static function () use ($em, $nova, $rebaixar): void {
+            foreach ($rebaixar as $antiga) {
+                $antiga->tornarSuplementar();
+            }
+            $nova->tornarSuplementar();
+            $em->persist($nova);
+            $em->flush();
+            $nova->tornarPrincipal();
+            $nova->espelharNoUsuario();
+            $em->flush();
+        });
+    }
+
     public function salvar(InscricaoOab $inscricao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($inscricao);

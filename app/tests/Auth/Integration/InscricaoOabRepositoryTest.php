@@ -46,6 +46,37 @@ final class InscricaoOabRepositoryTest extends KernelTestCase
         self::assertSame(1, $this->repo->contarParaRevisao([], '49613'));
     }
 
+    #[TestDox('criar a principal do espelho duas vezes (duas abas) deixa uma só, sem erro')]
+    public function testEspelhoIdempotente(): void
+    {
+        $user = $this->usuario();
+        $user->setOabNumero('49613');
+        $user->setOabUf('DF');
+        $user->setOabStatus(StatusOab::Confirmada);
+        $this->em->flush();
+
+        $this->repo->criarPrincipalDoEspelhoSeFaltar($user);
+        $this->repo->criarPrincipalDoEspelhoSeFaltar($user);
+
+        $lista = $this->repo->doUsuario($user);
+        self::assertCount(1, $lista);
+        self::assertSame(['49613', 'DF', StatusOab::Confirmada, true], [$lista[0]->getNumero(), $lista[0]->getUf(), $lista[0]->getStatus(), $lista[0]->ehPrincipal()]);
+    }
+
+    #[TestDox('trocar para uma principal NOVA grava na ordem certa, sem estourar o índice parcial')]
+    public function testGravarComNovaPrincipal(): void
+    {
+        $user = $this->usuario();
+        $antiga = new InscricaoOab($user, '1', 'DF', TipoInscricaoOab::Principal);
+        $this->em->persist($antiga);
+        $this->em->flush();
+
+        $this->repo->gravarComNovaPrincipal(new InscricaoOab($user, '2', 'SP', TipoInscricaoOab::Suplementar), [$antiga]);
+
+        self::assertSame(['SP', 'DF'], array_map(static fn (InscricaoOab $i): string => $i->getUf(), $this->repo->doUsuario($user)));
+        self::assertSame('SP', $user->getOabUf(), 'espelho na nova principal');
+    }
+
     #[TestDox('o banco recusa uma segunda principal para a mesma pessoa')]
     public function testUmaPrincipal(): void
     {

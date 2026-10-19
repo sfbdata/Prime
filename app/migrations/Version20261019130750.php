@@ -10,9 +10,8 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Várias inscrições na OAB (desenho 07, VS 18.10.26; spec docs/specs/meu-perfil-oab-inscricoes.md §2).
  *
- * Tabela inscricao_oab, uma por UF por pessoa (UNIQUE user_id+uf) e no máximo uma principal (índice único PARCIAL
- * em SQL cru: o mapeamento não representa índice parcial, e o make:migration de outra frente vai propor apagá-lo;
- * não aceite). Backfill: cada usuário com número e UF no espelho User.oab* vira uma inscrição PRINCIPAL com a
+ * Tabela inscricao_oab, uma por UF por pessoa (UNIQUE user_id+uf) e no máximo uma principal (índice único PARCIAL,
+ * também no mapeamento da entidade com o predicado na forma normalizada do PostgreSQL, para o schema não propor apagá-lo). Backfill: cada usuário com número e UF no espelho User.oab* vira uma inscrição PRINCIPAL com a
  * situação, o nome oficial e a data que já tinha. Donos confirmados sem número (backfill de 01/07) ficam sem
  * inscrição, como hoje. Os campos do User continuam e passam a ser a cópia da principal.
  */

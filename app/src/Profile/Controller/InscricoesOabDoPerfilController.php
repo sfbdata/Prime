@@ -16,11 +16,15 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Inscrições na OAB da própria pessoa, pelo modal "Inscrição na OAB" do Meu Perfil (desenho 07, VS 18.10.26;
- * spec docs/specs/meu-perfil-oab-inscricoes.md §4). As mensagens são as do desenho.
+ * spec docs/specs/meu-perfil-oab-inscricoes.md §4). As mensagens são as do desenho. Recusa ao salvar volta para o
+ * modal aberto, com o erro dentro dele e os valores digitados (desenho: `erroTem`/`erro`), pela sessão
+ * ({@see self::ERRO_NA_SESSAO}), porque a base mostra e consome todo flash antes do corpo da página.
  */
 #[Route('/perfil/oab', name: 'app_profile_oab')]
 final class InscricoesOabDoPerfilController extends AbstractController
 {
+    public const ERRO_NA_SESSAO = 'perfil_oab_erro';
+
     public function __construct(
         private readonly SalvarInscricaoOabUseCase $salvar,
         private readonly RemoverInscricaoOabUseCase $remover,
@@ -47,7 +51,9 @@ final class InscricoesOabDoPerfilController extends AbstractController
             $pendente = $this->salvar->executar($user, $input);
             $this->addFlash('success', $pendente ? 'Inscrição salva. Ela fica Pendente até o Master validar.' : 'Inscrição atualizada');
         } catch (\DomainException $e) {
-            $this->addFlash('error', $e->getMessage());
+            $request->getSession()->set(self::ERRO_NA_SESSAO, [
+                'erro' => $e->getMessage(), 'id' => $id, 'numero' => $input->numero, 'uf' => $input->uf, 'tipo' => $input->tipo->value,
+            ]);
         }
 
         return $this->redirectToRoute('app_profile');
@@ -63,8 +69,8 @@ final class InscricoesOabDoPerfilController extends AbstractController
         $user = $this->getUser();
 
         try {
-            $uf = $this->remover->executar($user, $id);
-            $this->addFlash('success', 'Inscrição OAB/' . $uf . ' removida');
+            $this->remover->executar($user, $id);
+            $this->addFlash('success', 'Inscrição removida');
         } catch (\DomainException $e) {
             $this->addFlash('error', $e->getMessage());
         }

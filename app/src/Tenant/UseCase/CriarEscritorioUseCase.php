@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Auth\Enum\StatusOab;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -31,6 +32,7 @@ final class CriarEscritorioUseCase
         private readonly TenantBootstrapService $bootstrap,
         private readonly ValidadorOab $validadorOab,
         private readonly int $tenantMaxPorUsuario,
+        private readonly EspelhoDaOabPrincipal $espelhoOab,
     ) {}
 
     public function executar(CriarEscritorioInput $input, User $criador): Tenant
@@ -68,6 +70,8 @@ final class CriarEscritorioUseCase
             if ($resultado->status === StatusOab::Confirmada) {
                 $criador->setOabVerificadaEm(new \DateTimeImmutable());
             }
+            // A inscrição principal (se já existe) acompanha a situação gravada no User (spec meu-perfil-oab §2).
+            $this->espelhoOab->doUsuarioParaPrincipal($criador);
         }
 
         $tenant = new Tenant();

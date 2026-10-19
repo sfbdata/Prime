@@ -16,8 +16,12 @@ selo PRINCIPAL, "Verificada em 10/07/2026 16:56", chip "Confirmada" e lápis; mo
 5. **Remover** só suplementar, e só quando houver mais de uma inscrição. A principal não se remove (troca-se a principal).
 6. Lista ordenada: principal primeiro, depois por UF. Subtítulo: "Ordem dos Advogados do Brasil" com uma inscrição;
    "N inscrições · M suplementar(es)" com mais.
-7. Número: só dígitos, com a letra final se houver (`^\d{1,7}[A-Z]?$` no desenho; o sistema hoje aceita `^\d+$`). UF:
-   uma das 27 seccionais.
+7. Número: de 1 a 7 dígitos. O desenho aceita uma letra final (`^\d{1,7}[A-Z]?$`), mas o banco exige só dígitos no
+   espelho (`chk_user_oab_numero`); em produção (19/10/2026) havia 8 OABs, a maior com 5 dígitos, nenhuma fora do
+   formato. Pontos, traços e espaços são ignorados; letra recusa com a mensagem. UF: uma das 27 seccionais.
+8. Recusa ao salvar volta com o modal aberto, os valores digitados e o erro dentro dele (desenho `erroTem`/`erro`).
+9. Criar a principal a partir do espelho é idempotente e à prova de duas abas (`INSERT ... ON CONFLICT DO NOTHING`);
+   trocar para uma principal nova grava rebaixando a antiga antes, numa transação (o índice parcial é imediato).
 
 Situação no sistema = `StatusOab` que já existe: NaoVerificada aparece como **Pendente**, Divergente como
 **Não confirmada**, Confirmada como **Confirmada** (cores do desenho).
