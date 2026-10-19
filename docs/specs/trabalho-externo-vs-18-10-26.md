@@ -4,12 +4,14 @@
 
 **Pilha de branches** (cada uma sobre a anterior; merge na ordem):
 1. `trabalho-externo-vs1810` (F1, marcações e chat avançado) → **PR #62 aberto**. Migration `Version20261019120126`.
-2. `trabalho-externo-vagas` (F2a, vagas) → sem PR até o #62 entrar. Migration `Version20261019132051`.
-3. `trabalho-externo-vagas-publicas` (F2c, página pública e compartilhar) → sem PR até o F2a entrar.
+2. `trabalho-externo-vagas` (F2a, vagas) → **PR #83 em rascunho**, base `trabalho-externo-vs1810`. Migration `Version20261019132051`.
+3. `trabalho-externo-vagas-publicas` (F2c, página pública e compartilhar) → **PR #84 em rascunho**,
+   base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
-rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe) e abrir o PR.
+rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
+base do PR para `master` e tirar do rascunho.
 
 **Fila de migrations** (coordenador): #52 → Push (0d) → Telas e recursos (b5) → PR 2 da 7d → C1 (f6)
 → F1 → F2a → F2c.
@@ -26,7 +28,7 @@ o compartilhar entram como fatia própria.
 - Scripts globais do desenho: `bj-idioma` (7d), `bj-recursos` (b5), `bj-lembretes` (4b), `bj-plano`
   (f6). Esta frente só consome.
 - Descadastro de e-mail: serviço e tabela `email_descadastro` em `Shared`, da 0d. Não criar outro.
-- Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (8ª sessão). Envio só
+- Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (5d). Envio só
   para quem confirmou o e-mail (double opt-in) e não está descadastrado (§4.2).
 - `security.yaml`: linha própria `^/vagas-juridicas`; 0d e f6 acrescentam as delas.
 - Teto `MAX_FORA_DO_ESCOPO` em `TenantAwareCoberturaTest`: o #56 (b5) também sobe; quem entrar depois
