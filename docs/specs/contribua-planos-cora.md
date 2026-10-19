@@ -201,6 +201,17 @@ legado de risco ALTO):
   Autorização `ROLE_SUPER_ADMIN` é do controller da b5. Auditoria: depois do merge do #52, envolver as três
   escritas em `EscopoDeAuditoriaDePlataforma::executar()` (pedido da b5).
 - **Decisão do dono (19/10): publicar com o bloqueio DESLIGADO.**
+- **Decisão do dono (19/10, D5): planos.** Preços e cotas do 08 (Free grátis 10 GB; Essencial R$ 19,90,
+  20 GB; Profissional R$ 39,90, 50 GB; Avançado R$ 69,90, 100 GB); usuários do 05 (Free 3, Essencial 8,
+  Profissional 15, Avançado sem limite, que nenhum desenho define). Carga da migration da C1; o Master edita
+  depois pela tela de Planos (b5) com `AlterarPlanoUseCase` (regras em `Plano::alterar`: nome, espaço > 0,
+  preço >= 0, limite de usuários > 0 ou vazio; o Free continua grátis e ativo) e lê com
+  `CatalogoDePlanos::todos()` (cada plano com quantos escritórios usam).
+- **O limite de usuários segue a mesma chave do espaço:** `RetratoDoEspaco::aceitaMaisUmUsuario()` só
+  recusa com o bloqueio ligado; desligado, ninguém é travado no deploy (escritório de 11 usuários num Free
+  de 3 continua convidando). Quem aplica no convite é o Perfis. Teste: `PlanoTest`.
+- **"Sem limite" dispensa as duas checagens, espaço e usuários** (decisão do dono, 19/10). Teste:
+  `SituacaoDoEspacoTest::testSemLimiteDispensaUsuarios`.
 - **Decisão do dono (19/10): o escritório do dono do sistema fica SEM LIMITE** ("Farlei Assis da Rocha
   Sociedade Individual de Advocacia", id 1 em produção, o dos 24,29 GB). A carga da migration da C1 cria a
   linha dele com `sem_limite = true`, só se o id for 1 **e** o nome for exatamente esse (em dev e teste o
@@ -310,7 +321,7 @@ interface. Mais um **adaptador falso** para os testes, que já entra na C3.
 | D10 | (dono) Credenciais: sandbox do gateway escolhido e da Cora (Client ID, certificado, chave) | o dono gera nos painéis |
 | D11 | Texto da política de privacidade | dono/advogado (rascunho será entregue) |
 | D12 | Quem é dono do modelo de plano e cota | **Resolvida**: o Contribua; o Painel do Master (b5) administra pelos UseCases do §5 |
-| D13 | Preços: 05 (R$ 189/389, com usuários) × 08 (R$ 19,90/39,90/69,90) | **Resolvida**: carga segue o 08; limite de usuários do 05 existe, vazio. Levado ao dono como confirmação |
+| D13 | Preços: 05 (R$ 189/389, com usuários) × 08 (R$ 19,90/39,90/69,90) | **Resolvida pelo dono (19/10, D5)**: preços do 08, usuários do 05 (3/8/15, Avançado sem limite) |
 
 ## 10.1 Sobreposição com outras frentes (19/10, via sessão coordenadora)
 
