@@ -43,6 +43,12 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
 - 7d (cabeçalho): parcial `layout/_globais/aviso_espaco.html.twig`; linha do pageTitle `contribua_` no
   `base.html.twig` e item "Contribua · PIX" no `menu_usuario/_dropdown.html.twig` (autorizados, no #74).
 - a7 (Trabalho Externo): ordem das propostas do apoiador (C6), contrato a combinar antes.
+- **4b (desde 19/10):** implementa a **C4 Cora** (domínio App\Contribua, branch empilhada sobre a
+  contribua-c3; parciais `contribua/_integracao_bancaria.html.twig` e `contribua/_premio.html.twig` nos
+  pontos de inclusão; acrescenta colunas ao `Apoio`; interface `BancoPix` para Inter/BB/Outro) e, depois,
+  os adaptadores **Mercado Pago, Stripe e Pagar.me** da interface `App\Contribua\Gateway\GatewayDeAssinatura`,
+  cada um passando `TesteDeContratoDoGatewayDeAssinatura` (commit 02899552). Não mexe no núcleo do
+  Contribua (lista na mensagem de contrato). Mudança na interface é contrato compartilhado: avisa antes.
 
 **Pendências:**
 - Dono: credenciais sandbox do Asaas, configuração fiscal e webhook (passo a passo em
@@ -52,7 +58,7 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
 - Depois do merge do #64: `scripts/migrar-dev.sh` no banco do 8080 e migration no `saas_test` principal.
 - `recurso_visivel('contribua')` no menu e na rota quando o "Telas e recursos" (b5, #56) entrar.
 
-**Próximo passo:** C3 comum (pedidos, assinatura, retorno, webhook com reconsulta, conciliação, confirmação
+**Próximo passo (f6):** C3 comum (pedidos, assinatura, retorno, webhook com reconsulta, conciliação, confirmação
 manual do Master, cancelar, carência configurável, bloco no Meu Perfil) e C3a Asaas com MockHttpClient.
 
 **Ambiente:** demo da C2 em http://127.0.0.1:8105 (`scripts/central-demo.sh contribua-c2 8105`), banco
