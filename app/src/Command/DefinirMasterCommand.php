@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Command;
 
 use App\Entity\Auth\User;
+use App\Master\Service\RegraDosMasters;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,24 +16,27 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Deixa EXATAMENTE um Master (ROLE_SUPER_ADMIN) no sistema: a conta do e-mail informado.
- * Spec perfis-master D2 ("Master é único") e §7 (a troca em PROD é do dono).
+ * Define o Master PRIMÁRIO do sistema: a conta do e-mail informado fica com ROLE_SUPER_ADMIN e
+ * ROLE_MASTER_PRIMARIO, e todos os outros Masters (primário anterior e secundários) perdem os dois.
+ * Spec perfis-1.2-masters §4.2 e M4 (trocar o primário é deste comando, rodado pelo dono; a tela
+ * só promove e remove secundários) e perfis-master §7 (a troca em PROD é do dono).
  *
  * Sem --confirmar só mostra o plano (quem ganha, quem perde) e não grava nada. Com --confirmar
- * aplica tudo numa transação: ou o novo Master entra e os outros saem, ou nada muda. Só mexe no
- * papel ROLE_SUPER_ADMIN; os demais papéis de cada conta ficam como estão.
+ * aplica tudo numa transação: ou o novo primário entra e os outros saem, ou nada muda. Só mexe nos
+ * dois papéis de Master; os demais papéis de cada conta ficam como estão.
  */
 #[AsCommand(
     name: 'app:master:definir',
-    description: 'Define o único Master do sistema (ROLE_SUPER_ADMIN) pelo e-mail',
+    description: 'Define o Master primário do sistema pelo e-mail (os demais Masters perdem o papel)',
 )]
 final class DefinirMasterCommand extends Command
 {
-    private const PAPEL = 'ROLE_SUPER_ADMIN';
+    private const PAPEIS = [RegraDosMasters::PAPEL_MASTER, RegraDosMasters::PAPEL_MASTER_PRIMARIO];
 
     public function __construct(
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegraDosMasters $regraDosMasters,
     ) {
         parent::__construct();
     }
@@ -40,7 +44,7 @@ final class DefinirMasterCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('email', InputArgument::REQUIRED, 'E-mail da conta que será o único Master')
+            ->addArgument('email', InputArgument::REQUIRED, 'E-mail da conta que será o Master primário')
             ->addOption('confirmar', null, InputOption::VALUE_NONE, 'Aplica a mudança (sem esta opção só mostra o que faria)');
     }
 
@@ -69,14 +73,13 @@ final class DefinirMasterCommand extends Command
             return Command::FAILURE;
         }
 
-        $atuais = $this->userRepository->findComPapelGlobal(self::PAPEL);
-        $perdem = array_values(array_filter($atuais, static fn (User $u): bool => $u->getId() !== $novo->getId()));
-        $ganha  = !in_array(self::PAPEL, $novo->getRoles(), true);
+        $perdem = array_values(array_filter($this->mastersAtuais(), static fn (User $u): bool => $u->getId() !== $novo->getId()));
+        $ganha  = !$this->regraDosMasters->ehMasterPrimario($novo);
 
         $io->section('Plano');
         $io->writeln($ganha
-            ? sprintf('Ganha o papel de Master: %s (id %d)', $novo->getEmail(), $novo->getId())
-            : sprintf('Já é Master e continua: %s (id %d)', $novo->getEmail(), $novo->getId()));
+            ? sprintf('Ganha o papel de Master primário: %s (id %d)', $novo->getEmail(), $novo->getId())
+            : sprintf('Já é o Master primário e continua: %s (id %d)', $novo->getEmail(), $novo->getId()));
         if ($perdem === []) {
             $io->writeln('Ninguém perde o papel de Master.');
         }
@@ -85,7 +88,7 @@ final class DefinirMasterCommand extends Command
         }
 
         if (!$ganha && $perdem === []) {
-            $io->success('Nada a fazer: o Master já é único.');
+            $io->success('Nada a fazer: esta conta já é o único Master, e é o primário.');
 
             return Command::SUCCESS;
         }
@@ -98,34 +101,35 @@ final class DefinirMasterCommand extends Command
 
         $this->em->wrapInTransaction(function () use ($novo, $perdem, $ganha): void {
             foreach ($perdem as $user) {
-                $user->setRoles(array_values(array_filter(
-                    $this->papeisGravados($user),
-                    static fn (string $papel): bool => $papel !== self::PAPEL
-                )));
+                RegraDosMasters::tirarPapeis($user, ...self::PAPEIS);
             }
 
             if ($ganha) {
-                $novo->setRoles(array_values(array_unique([...$this->papeisGravados($novo), self::PAPEL])));
+                RegraDosMasters::darPapeis($novo, ...self::PAPEIS);
             }
 
             $this->em->flush();
         });
 
-        $io->success(sprintf('Master definido: %s.', $novo->getEmail()));
+        $io->success(sprintf('Master primário definido: %s.', $novo->getEmail()));
 
         return Command::SUCCESS;
     }
 
     /**
-     * Papéis como gravados na coluna, sem o ROLE_USER que o getRoles() acrescenta sempre.
+     * Quem tem hoje algum dos dois papéis de Master, uma vez cada.
      *
-     * @return list<string>
+     * @return list<User>
      */
-    private function papeisGravados(User $user): array
+    private function mastersAtuais(): array
     {
-        return array_values(array_filter(
-            $user->getRoles(),
-            static fn (string $papel): bool => $papel !== 'ROLE_USER'
-        ));
+        $porId = [];
+        foreach (self::PAPEIS as $papel) {
+            foreach ($this->userRepository->findComPapelGlobal($papel) as $user) {
+                $porId[$user->getId()] = $user;
+            }
+        }
+
+        return array_values($porId);
     }
 }
