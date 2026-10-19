@@ -46,13 +46,13 @@ final class AssinaturaDeEspacoController extends AbstractController
     #[Route('/assinatura/{id}/token', name: 'contribua_assinatura_token', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function token(int $id, Request $request, AssinarComTokenUseCase $assinar): JsonResponse
     {
-        return $this->acao($request, fn (): array => ['proxima' => $assinar->executar(
+        return $this->acao($request, fn (): array => $assinar->executar(
             $this->sessao->atual(),
             $id,
             (string) $request->request->get('token', ''),
             (string) $request->request->get('documento', ''),
             $request->getClientIp(),
-        )->format('d/m/Y')]);
+        ));
     }
 
     #[Route('/assinatura/cancelar', name: 'contribua_assinatura_cancelar', methods: ['POST'])]

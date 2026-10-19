@@ -7,6 +7,7 @@ namespace App\Tests\Contribua\Functional;
 use App\Contribua\Controller\AssinaturaDeEspacoController;
 use App\Contribua\Controller\WebhookDoGatewayController;
 use App\Contribua\Entity\AssinaturaDeEspaco;
+use App\Contribua\Gateway\InicioDoCheckout;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDePagamentoRepository;
@@ -209,6 +210,26 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
 
         self::assertFalse($resposta['ok']);
         self::assertStringContainsString('cancele a atual em Meu Perfil', (string) $resposta['erro']);
+    }
+
+    #[TestDox('Formulário: o servidor recebe só o token, assina e devolve a próxima cobrança e a ação do 3-D Secure')]
+    public function testAssinarComToken(): void
+    {
+        $this->gateway->modo = InicioDoCheckout::FORMULARIO;
+
+        $inicio = $this->assinar($this->primario);
+        self::assertSame('formulario', $inicio['modo'], json_encode($inicio) ?: '');
+        self::assertSame('chave-publica-falsa', $inicio['chavePublica']);
+
+        $resposta = $this->post('/contribua/assinatura/' . $inicio['pedido'] . '/token', ['token' => 'tok_falso', 'documento' => '12345678909']);
+        self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
+        self::assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4}$#', (string) $resposta['proxima']);
+        self::assertArrayHasKey('acaoNoNavegador', $resposta);
+        self::assertSame(SituacaoDaAssinatura::Ativa, $this->pedido()->getSituacao());
+        self::assertSame('essencial', $this->planoDoEscritorio());
+
+        $this->post('/contribua/assinatura/' . $inicio['pedido'] . '/token', ['token' => 'tok_falso', 'documento' => '12345678909']);
+        self::assertResponseStatusCodeSame(422, 'o mesmo pedido não assina duas vezes');
     }
 
     /** @return array<string, mixed> */

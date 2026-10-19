@@ -62,7 +62,7 @@
                     <div class="ct-pacote-dia">{{ pac.porDia }}</div>
                     <div class="ct-pacote-desc">{{ pac.descricao }}</div>
                     <button type="button" class="ct-pacote-botao" data-pedir-plano="{{ pac.codigo }}"
-                            data-plano-nome="{{ pac.nome }}" data-plano-gb="{{ pac.gbNumero }}" data-plano-hoje="{{ pac.hojeGb }}" data-plano-preco="{{ pac.preco }}"
+                            data-plano-nome="{{ pac.nome }}" data-plano-gb="{{ pac.gbNumero }}" data-plano-hoje="{{ pac.hojeGb }}" data-plano-preco="{{ pac.preco }}" data-plano-centavos="{{ pac.centavos }}"
                             {{ pac.desabilitado or not p.podePedirEspaco ? 'disabled' }}>{{ pac.botao }}</button>
                 </div>
             {% endfor %}
@@ -219,6 +219,6 @@
     {{ parent() }}
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
     <script src="{{ asset('js/contribua.js') }}" defer></script>
-    {% if pagamento.modo == 'formulario' and pagamento.gateway %}<script src="{{ asset('js/contribua-' ~ pagamento.gateway ~ '.js') }}" defer></script>{% endif %}
+    {% if pagamento.modo == 'formulario' and pagamento.script %}<script src="{{ asset(pagamento.script) }}" defer></script>{% endif %}
     <script src="{{ asset('js/contribua-checkout.js') }}" defer></script>
 {% endblock %}

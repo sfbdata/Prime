@@ -1,7 +1,8 @@
 /* Contribua C3: checkout "Pagamento seguro" e modal "Pagamento por cartão · só Master" do desenho 08
-   (coPagar, coFechar, gwLinks, gwPed). O cartão nunca vai ao BlueJus: no modo formulário o número segue para
-   o tokenizador oficial do gateway (window.BlueJusTokenizadores[gateway], arquivo contribua-<gateway>.js) e só
-   o token sobe; no modo hospedado o pagador digita o cartão na página do gateway. */
+   (coPagar, coFechar, gwLinks, gwPed). O cartão nunca vai ao BlueJus: no modo formulário o campo seguro do
+   gateway é montado pelo módulo dele (contribua-<gateway>.js, contrato com a sessão 4b:
+   montar(elemento, {chavePublica, valorCentavos, nome, email}), tokenizar(), concluirAcao(segredo),
+   desmontar()) e só o token sobe; no modo hospedado o pagador digita o cartão na página do gateway. */
 (function () {
     'use strict';
 
@@ -14,8 +15,12 @@
     const $ = (sel, base) => (base || document).querySelector(sel);
     const $$ = (sel, base) => Array.from((base || document).querySelectorAll(sel));
     const soDigitos = (t) => String(t || '').replace(/\D/g, '');
+    const MODULOS = { stripe: 'ContribuaStripe', mercado_pago: 'ContribuaMercadoPago', pagarme: 'ContribuaPagarme' };
     let plano = null;
     let processando = false;
+    let montado = null;
+
+    const modulo = () => window[MODULOS[modal.dataset.gateway]] || null;
 
     function enviar(url, campos) {
         const corpo = new FormData();
@@ -30,36 +35,6 @@
 
         return fetch(url, { method: 'POST', body: corpo, headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } })
             .then((r) => r.json().catch(() => ({ ok: false, erro: 'Não foi possível concluir. Tente de novo.' })));
-    }
-
-    /* Luhn e bandeira, como no desenho (luhn(), band) */
-    function luhn(n) {
-        if (n.length < 13) {
-            return false;
-        }
-        let soma = 0;
-        n.split('').reverse().forEach((d, i) => {
-            let v = +d;
-            if (i % 2) {
-                v *= 2;
-                if (v > 9) {
-                    v -= 9;
-                }
-            }
-            soma += v;
-        });
-
-        return soma % 10 === 0;
-    }
-
-    function bandeira(n) {
-        if (/^4/.test(n)) return 'VISA';
-        if (/^(5[1-5]|2[2-7])/.test(n)) return 'MASTERCARD';
-        if (/^3[47]/.test(n)) return 'AMEX';
-        if (/^(4011|4312|4389|4514|4576|5041|5066|5067|509|6277|6362|6363|650|6516|6550)/.test(n)) return 'ELO';
-        if (/^(606282|3841)/.test(n)) return 'HIPERCARD';
-
-        return '';
     }
 
     function erro(texto) {
@@ -77,7 +52,7 @@
     }
 
     function abrir(botao) {
-        plano = { codigo: botao.dataset.pedirPlano, nome: botao.dataset.planoNome, gb: +botao.dataset.planoGb, hoje: +botao.dataset.planoHoje, preco: botao.dataset.planoPreco };
+        plano = { codigo: botao.dataset.pedirPlano, nome: botao.dataset.planoNome, gb: +botao.dataset.planoGb, hoje: +botao.dataset.planoHoje, preco: botao.dataset.planoPreco, centavos: +botao.dataset.planoCentavos };
         $('[data-co-add]', modal).textContent = String(plano.gb - plano.hoje);
         $('[data-co-de]', modal).textContent = String(plano.hoje);
         $('[data-co-gb]', modal).textContent = plano.gb + ' GB';
@@ -89,6 +64,24 @@
         erro('');
         botaoProcessando(false);
         modal.hidden = false;
+        montarCampoSeguro();
+    }
+
+    /* O campo do cartão é do gateway (iframe/SDK oficial): montado ao abrir, desmontado ao fechar */
+    function montarCampoSeguro() {
+        const elemento = $('[data-co-elemento]', modal);
+        if (!elemento) {
+            return;
+        }
+        const m = modulo();
+        if (!m || !modal.dataset.chavePublica) {
+            erro('O pagamento por cartão deste gateway ainda não está disponível.');
+            $('[data-co-pagar]', modal).disabled = true;
+            return;
+        }
+        montado = m;
+        Promise.resolve(m.montar(elemento, { chavePublica: modal.dataset.chavePublica, valorCentavos: plano.centavos, nome: modal.dataset.pagadorNome, email: modal.dataset.pagadorEmail }))
+            .catch((e) => erro(e.message || 'Não foi possível abrir o formulário do cartão.'));
     }
 
     function mostrarSucesso(ligado) {
@@ -101,24 +94,14 @@
             return;
         }
         modal.hidden = true;
-        $$('[data-cartao-numero], [data-cartao-cvv], [data-cartao-validade]', modal).forEach((el) => { el.value = ''; });
+        if (montado) {
+            montado.desmontar();
+            montado = null;
+        }
         if (raiz.dataset.retorno === '1') {
             raiz.dataset.retorno = '0';
             history.replaceState(null, '', location.pathname + '#espaco');
         }
-    }
-
-    /* Validação do desenho (coPagar), na mesma ordem e com as mesmas frases */
-    function validarCartao() {
-        const num = soDigitos($('[data-cartao-numero]', modal).value);
-        const [mm, aa] = String($('[data-cartao-validade]', modal).value).split('/');
-        const venc = mm && aa ? new Date(2000 + +aa, +mm, 0) : null;
-        if (!luhn(num)) return 'Número do cartão inválido.';
-        if (String($('[data-cartao-nome]', modal).value).trim().split(/\s+/).length < 2) return 'Informe o nome como está no cartão.';
-        if (!venc || +mm < 1 || +mm > 12 || venc < new Date()) return 'Validade inválida ou cartão vencido.';
-        if (soDigitos($('[data-cartao-cvv]', modal).value).length < 3) return 'Informe o código de segurança (CVV).';
-
-        return '';
     }
 
     function documento() {
@@ -126,10 +109,8 @@
     }
 
     function pagar() {
-        const formulario = modal.dataset.modo === 'formulario';
-        const recusa = (formulario ? validarCartao() : '') || ([11, 14].includes(documento().length) ? '' : 'Informe o CPF ou CNPJ do titular.');
-        if (recusa) {
-            erro(recusa);
+        if (![11, 14].includes(documento().length)) {
+            erro('Informe o CPF ou CNPJ do titular.');
             return;
         }
         erro('');
@@ -153,19 +134,22 @@
             });
     }
 
+    /* Token do campo seguro → assinatura no servidor → 3-D Secure no navegador, se o banco pedir */
     function tokenizarEAssinar(inicio) {
-        const tokenizar = (window.BlueJusTokenizadores || {})[modal.dataset.gateway];
-        if (typeof tokenizar !== 'function') {
+        if (!montado) {
             throw new Error('O pagamento por cartão deste gateway ainda não está disponível.');
         }
-        const [mm, aa] = String($('[data-cartao-validade]', modal).value).split('/');
-        const cartao = { numero: soDigitos($('[data-cartao-numero]', modal).value), nome: $('[data-cartao-nome]', modal).value.trim(), mes: mm, ano: '20' + aa, cvv: soDigitos($('[data-cartao-cvv]', modal).value), documento: documento() };
 
-        return Promise.resolve(tokenizar(inicio.chavePublica, cartao)).then((token) => enviar(modal.dataset.urlToken.replace(/\/0\/token$/, '/' + inicio.pedido + '/token'), { token: token, documento: documento() }))
+        return Promise.resolve(montado.tokenizar())
+            .then((token) => enviar(modal.dataset.urlToken.replace(/\/0\/token$/, '/' + inicio.pedido + '/token'), { token: token, documento: documento() }))
             .then((d) => {
                 if (!d.ok) {
                     throw new Error(d.erro);
                 }
+
+                return d.acaoNoNavegador ? Promise.resolve(montado.concluirAcao(d.acaoNoNavegador)).then(() => d) : d;
+            })
+            .then((d) => {
                 botaoProcessando(false);
                 $('[data-co-ok-gb]', modal).textContent = plano.gb + ' GB';
                 $('[data-co-ok-proxima]', modal).textContent = d.proxima;
@@ -180,24 +164,7 @@
             campo.addEventListener('input', () => { campo.value = fn(campo.value); erro(''); });
         }
     }
-    mascarar('[data-cartao-numero]', (v) => soDigitos(v).slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 '));
-    mascarar('[data-cartao-validade]', (v) => soDigitos(v).slice(0, 4).replace(/^(\d{2})(\d)/, '$1/$2'));
-    mascarar('[data-cartao-cvv]', (v) => soDigitos(v).slice(0, 4));
     mascarar('[data-cartao-documento]', (v) => soDigitos(v).slice(0, 14));
-    mascarar('[data-cartao-nome]', (v) => v.toUpperCase());
-
-    const numero = $('[data-cartao-numero]', modal);
-    if (numero) {
-        numero.addEventListener('input', () => {
-            const n = soDigitos(numero.value);
-            const b = bandeira(n);
-            const selo = $('[data-cartao-bandeira]', modal);
-            selo.hidden = !b;
-            selo.textContent = b;
-            selo.className = 'co-bandeira co-bandeira--' + b.toLowerCase();
-            $('[data-co-borda-numero]', modal).classList.toggle('co-numero--invalido', n.length >= 13 && !luhn(n));
-        });
-    }
 
     $$('[data-pedir-plano]').forEach((b) => b.addEventListener('click', () => {
         if (!b.disabled && raiz.dataset.cartaoLiberado === '1') {
