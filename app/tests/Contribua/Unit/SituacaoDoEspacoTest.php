@@ -52,6 +52,22 @@ final class SituacaoDoEspacoTest extends TestCase
         self::assertSame(OrigemDoLimite::Master, $retrato->origemDoLimite);
     }
 
+    #[TestDox('Em lote: o mesmo retrato de cada escritório, quem não tem linha no Free, na ordem pedida')]
+    public function testRetratarVarios(): void
+    {
+        $espaco = new EspacoDoEscritorio(new Tenant(), self::free());
+        $espaco->definirLimite(30, false, 'contratou ampliação', null);
+        $situacao = $this->situacao($espaco);
+
+        $retratos = $situacao->retratarVarios([9 => 5 * self::GB, 7 => 24 * self::GB]);
+
+        self::assertSame([9, 7], array_keys($retratos));
+        self::assertEquals($situacao->retratar(7, 24 * self::GB), $retratos[7]);
+        self::assertSame(10 * self::GB, $retratos[9]->bytesLimite);
+        self::assertSame(9, $retratos[9]->tenantId);
+        self::assertSame([], $situacao->retratarVarios([]));
+    }
+
     #[TestDox('Sem limite: nem limite, nem percentual, e sempre cabe')]
     public function testSemLimite(): void
     {
@@ -181,6 +197,7 @@ final class SituacaoDoEspacoTest extends TestCase
     {
         $espacos = $this->createStub(EspacoDoEscritorioRepository::class);
         $espacos->method('doTenant')->willReturn($espaco);
+        $espacos->method('dosTenants')->willReturn($espaco === null ? [] : [7 => $espaco]);
         $planos = $this->createStub(PlanoRepository::class);
         $planos->method('free')->willReturn(self::free());
         $configuracao = new ConfiguracaoDoEspaco();
