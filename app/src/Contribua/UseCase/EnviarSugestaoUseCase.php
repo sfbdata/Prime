@@ -31,7 +31,7 @@ final class EnviarSugestaoUseCase
 
         $this->avisoAoMaster->avisar(
             $quem->escritorio,
-            'contribua.sugestao',
+            AvisoAoMaster::TIPO_SUGESTAO,
             sprintf('Nova sugestão (%s): %s · %s: %s', $tipo->rotulo(), $quem->nome(), $quem->escritorio->getName(), mb_substr($sugestao->getTexto(), 0, 140)),
             $this->urls->generate('contribua_index') . '#sug',
         );

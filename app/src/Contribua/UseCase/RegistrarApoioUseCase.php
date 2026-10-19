@@ -34,7 +34,7 @@ final class RegistrarApoioUseCase
         $this->apoios->salvar(new Apoio($quem->escritorio, $quem->usuario, $valorCentavos), flush: true);
         $this->avisoAoMaster->avisar(
             $quem->escritorio,
-            'contribua.apoio',
+            AvisoAoMaster::TIPO_APOIO,
             sprintf('Apoio registrado: %s (conta Nº %s) informou um apoio de %s. Confira no extrato.', $quem->escritorio->getName(), $quem->numeroDaConta(), self::reais($valorCentavos)),
             $this->urls->generate('contribua_index') . '#apoie',
         );
