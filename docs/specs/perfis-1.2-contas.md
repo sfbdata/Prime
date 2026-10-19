@@ -41,7 +41,7 @@
 **Pendências**
 - C12, que é do dono.
 - Bloco "Pedidos de exclusão" (espera o PR 5 da 7d).
-- Planos e limites (espera o #52 e o #72 no master e a f6 trazer o master para a contribua-cora). O rascunho da spec está em `docs/specs/perfis-1.2-planos-e-limites.md`, depois de criado; a referência visual está em `scratchpad/ref-planos/`.
+- Planos e limites (espera o #52 e o #72 no master e a f6 trazer o master para a contribua-cora). O rascunho da spec está em `docs/specs/perfis-1.2-planos-e-limites.md` (na branch perfis-contas, #72).
 - Religar a revisão de OAB para as inscrições suplementares (depois do PR 3 da 7d).
 
 **Próximo passo:** cortar `perfis-planos` sobre a `contribua-cora` quando ela tiver o #52 e o #72. Até lá, manter as PRs atualizadas com o `origin/master` depois de cada merge.
