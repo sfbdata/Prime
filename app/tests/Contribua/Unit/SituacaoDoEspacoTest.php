@@ -136,6 +136,16 @@ final class SituacaoDoEspacoTest extends TestCase
         self::assertFalse($retrato->cabe(101));
     }
 
+    #[TestDox('99,96% arredonda para 100 mas ainda aceita envio: a faixa é Crítico, não Bloqueio')]
+    public function testFaixaBloqueioSoComOBloqueioDeVerdade(): void
+    {
+        $retrato = $this->situacao(null, bloqueioAtivo: true)->retratar(7, (int) (0.9996 * 10 * self::GB));
+
+        self::assertSame(100, $retrato->percentual);
+        self::assertSame(FaixaDoEspaco::Critico, $retrato->faixa);
+        self::assertTrue($retrato->cabe(1));
+    }
+
     private static function free(): Plano
     {
         return new Plano('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1);

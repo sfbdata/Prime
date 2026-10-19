@@ -42,6 +42,17 @@ final class EspacoDoEscritorioSoNoContribuaArquiteturaTest extends TestCase
         self::assertSame([], array_values($achados));
     }
 
+    #[TestDox('dentro do Contribua, ninguém usa findAll/findBy/findOneBy do repositório do espaço (só doTenant)')]
+    public function testNinguemUsaFindGenericoDoEspaco(): void
+    {
+        $achados = array_filter(
+            $this->arquivosQueCasam('/EspacoDoEscritorioRepository[\s\S]*->\s*(findAll|findBy|findOneBy|count)\s*\(/'),
+            static fn (string $arquivo): bool => $arquivo !== 'src/Contribua/Repository/EspacoDoEscritorioRepository.php',
+        );
+
+        self::assertSame([], array_values($achados));
+    }
+
     /** @return list<string> */
     private function arquivosQueCasam(string $padrao): array
     {

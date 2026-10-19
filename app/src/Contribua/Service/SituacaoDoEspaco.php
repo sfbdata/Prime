@@ -44,20 +44,21 @@ final class SituacaoDoEspaco
         $configuracao = $this->configuracoes->atual();
         [$bytesLimite, $origem] = self::limiteEmBytes($espaco, $plano);
         $percentual = $bytesLimite === null ? null : (int) round($bytesUsados / $bytesLimite * 100);
+        $bytesBloqueio = $bytesLimite === null ? null : intdiv($bytesLimite * $configuracao->getFaixaBloqueio(), 100);
 
         return new RetratoDoEspaco(
             $tenantId,
             $bytesUsados,
             $bytesLimite,
             $percentual,
-            self::faixa($percentual, $configuracao),
+            self::faixa($percentual, $configuracao, $bytesBloqueio !== null && $bytesUsados >= $bytesBloqueio),
             $origem,
             $plano->getCodigo(),
             $plano->getNome(),
             $espaco?->getLimiteUsuarios() ?? $plano->getLimiteUsuarios(),
             $espaco?->getLimiteUsuarios() !== null ? OrigemDoLimite::Master : OrigemDoLimite::Plano,
             $configuracao->isBloqueioAtivo(),
-            $bytesLimite === null ? null : intdiv($bytesLimite * $configuracao->getFaixaBloqueio(), 100),
+            $bytesBloqueio,
         );
     }
 
@@ -74,11 +75,15 @@ final class SituacaoDoEspaco
         return [$plano->getCotaGb() * RetratoDoEspaco::BYTES_POR_GB, OrigemDoLimite::Plano];
     }
 
-    private static function faixa(?int $percentual, ConfiguracaoDoEspaco $c): FaixaDoEspaco
+    /**
+     * A faixa Bloqueio vem dos bytes exatos, como o bloqueio em si: 99,5% arredonda para 100 mas ainda
+     * aceita envio, então ainda é Crítico. As demais faixas vêm do percentual arredondado do desenho.
+     */
+    private static function faixa(?int $percentual, ConfiguracaoDoEspaco $c, bool $atingiuBloqueio): FaixaDoEspaco
     {
         return match (true) {
             $percentual === null => FaixaDoEspaco::Livre,
-            $percentual >= $c->getFaixaBloqueio() => FaixaDoEspaco::Bloqueio,
+            $atingiuBloqueio => FaixaDoEspaco::Bloqueio,
             $percentual >= $c->getFaixaCritico() => FaixaDoEspaco::Critico,
             $percentual >= $c->getFaixaAlerta() => FaixaDoEspaco::Alerta,
             $percentual >= $c->getFaixaAtencao() => FaixaDoEspaco::Atencao,
