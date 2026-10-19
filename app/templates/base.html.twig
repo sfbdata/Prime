@@ -89,6 +89,7 @@
 
         {# App Custom Styles #}
         <link rel="stylesheet" href="/css/app.css">
+        <link rel="stylesheet" href="{{ asset('css/menu-usuario.css') }}">
         {% block stylesheets %}{% endblock %}
     </head>
     {#
@@ -164,53 +165,16 @@
                         {# Lado direito: notificações + fullscreen + usuário #}
                         <div class="navtop-right">
 
-                            {# Seletor de escritório #}
+                            {# Escritório atual: abre "Trocar conta" no modal "Conta do escritório"
+                               (desenho 07 - Meu Perfil, VS 18.10.26). Criar e sair do escritório moram no modal. #}
                             {% set _escritorios = meus_escritorios() %}
                             {% if current_tenant() and _escritorios|length > 0 %}
-                                <div class="navtop-action dropdown">
-                                    <a href="#" class="navtop-avatar-btn dropdown-toggle"
-                                       data-bs-toggle="dropdown" aria-expanded="false"
-                                       aria-label="Trocar de escritório" title="{{ current_tenant().name }}">
+                                <div class="navtop-action">
+                                    <button type="button" class="navtop-avatar-btn mu-escritorio" data-mu-conta="trocar"
+                                            aria-label="{{ current_tenant().name }}: trocar de conta" title="{{ current_tenant().name }}">
                                         <i class="bi bi-building"></i>
                                         <span class="navtop-escritorio-nome d-none d-lg-inline">{{ current_tenant().name }}</span>
-                                    </a>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow escritorio-dropdown">
-                                        <li><h6 class="dropdown-header">Seus escritórios</h6></li>
-                                        {% for ut in _escritorios %}
-                                            <li>
-                                                <form method="post" action="{{ path('tenant_selecionar') }}">
-                                                    <input type="hidden" name="tenant_id" value="{{ ut.tenant.id }}">
-                                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('tenant_selecionar') }}">
-                                                    <button type="submit"
-                                                            class="dropdown-item d-flex align-items-center gap-2{{ ut.tenant.id == current_tenant().id ? ' active' : '' }}">
-                                                        <i class="bi {{ ut.tenant.id == current_tenant().id ? 'bi-check-circle-fill text-success' : 'bi-building' }}"></i>
-                                                        <span class="flex-grow-1 text-truncate">{{ ut.tenant.name }}</span>
-                                                        {% if ut.tenantRole %}<small class="text-muted">{{ ut.tenantRole.nomeExibido }}</small>{% endif %}
-                                                    </button>
-                                                </form>
-                                            </li>
-                                        {% endfor %}
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <a href="{{ path('escritorio_criar') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                                <i class="bi bi-plus-circle"></i> Criar escritório
-                                            </a>
-                                        </li>
-                                        {# O titular (quem abriu a conta) não sai do escritório (D4): sem o botão. O
-                                           RemoverColaboradorDoEscritorioUseCase recusa mesmo assim. #}
-                                        {% set _titularAtual = current_tenant().criadoPor %}
-                                        {% if not (_titularAtual and _titularAtual.id == app.user.id) %}
-                                        <li>
-                                            <form method="post" action="{{ path('escritorio_sair', {id: current_tenant().id}) }}"
-                                                  onsubmit="return confirm('Deseja realmente sair de {{ current_tenant().name|e('js') }}? Você perderá o acesso a este escritório.');">
-                                                <input type="hidden" name="_token" value="{{ csrf_token('sair_' ~ current_tenant().id) }}">
-                                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2 text-danger">
-                                                    <i class="bi bi-box-arrow-left"></i> Sair deste escritório
-                                                </button>
-                                            </form>
-                                        </li>
-                                        {% endif %}
-                                    </ul>
+                                    </button>
                                 </div>
                             {% endif %}
 
@@ -310,11 +274,17 @@
                                 <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
                             </a>
 
-                            {# Usuário #}
+                            {# Usuário: nome, papel e avatar; o menu mora em templates/menu_usuario/_dropdown.html.twig #}
+                            {% set _partesNome = app.user.fullName|trim|split(' ')|filter(p => p is not empty) %}
+                            {% set _iniciais = _partesNome|length > 0
+                                ? (_partesNome|first|slice(0, 1) ~ (_partesNome|length > 1 ? _partesNome|last|slice(0, 1) : ''))|upper
+                                : '?' %}
+                            {% set _ehMaster = is_granted('ROLE_SUPER_ADMIN') %}
+                            {% set _ehPrimario = eh_usuario_primario() %}
                             <div class="navtop-action dropdown menu-usuario">
-                                <a href="#" class="navtop-avatar-btn dropdown-toggle"
-                                   data-bs-toggle="dropdown" aria-expanded="false"
-                                   aria-label="Menu do usuário">
+                                <a href="#" class="navtop-avatar-btn dropdown-toggle" data-mu-toggle
+                                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                                   aria-haspopup="menu" aria-label="Menu do usuário">
                                     <div class="navtop-user-info d-none d-md-flex">
                                         <span class="navtop-username">{{ app.user.fullName }}</span>
                                         {% set papelNaBarra = papel_na_barra() %}
@@ -326,88 +296,11 @@
                                                  alt="{{ app.user.fullName }}"
                                                  style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
                                         {% else %}
-                                            {{ app.user.fullName|slice(0,1)|upper }}
+                                            {{ _iniciais }}
                                         {% endif %}
                                     </span>
                                 </a>
-                                <ul class="dropdown-menu dropdown-menu-end shadow usuario-dropdown">
-                                    <li class="usuario-dropdown-header">
-                                        <span class="usuario-avatar-lg" id="usuarioAvatarLg">
-                                            {% if fotoPerfilUrl %}
-                                                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
-                                                     alt="{{ app.user.fullName }}"
-                                                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                                            {% else %}
-                                                {{ app.user.fullName|slice(0,1)|upper }}
-                                            {% endif %}
-                                        </span>
-                                        <div class="usuario-info">
-                                            <div class="usuario-name">{{ app.user.fullName }}</div>
-                                            <div class="usuario-email">{{ app.user.email }}</div>
-                                        </div>
-                                    </li>
-                                    <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
-                                        <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                            <i class="bi bi-person"></i> Meu Perfil
-                                        </a>
-                                    </li>
-                                    {% if can_administer('admin.users.invite') %}
-                                        <li>
-                                            <a href="{{ path('auth_gerenciar_convites') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                                <i class="bi bi-envelope-plus"></i> Convites do escritório
-                                            </a>
-                                        </li>
-                                    {% endif %}
-                                    {% if is_granted('ROLE_SUPER_ADMIN') %}
-                                        <li>
-                                            <a href="{{ path('admin_platform_dashboard') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                                <i class="bi bi-shield-lock"></i> Painel do Master
-                                            </a>
-                                        </li>
-                                    {% endif %}
-                                    <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
-                                        <button type="button" id="toggleTema"
-                                                class="dropdown-item d-flex align-items-center gap-2"
-                                                style="background:none; border:none; width:100%; text-align:left;">
-                                            <i class="bi bi-moon-stars" id="toggleTemaIcone"></i>
-                                            <span id="toggleTemaLabel">Tema escuro</span>
-                                        </button>
-                                    </li>
-                                    <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
-                                        <button type="button" id="linkInstalarApp"
-                                                class="dropdown-item d-flex align-items-center gap-2"
-                                                style="background:none; border:none; width:100%; text-align:left;">
-                                            <i class="bi bi-download"></i>
-                                            <span id="linkInstalarAppTexto">Instalar aplicativo</span>
-                                        </button>
-                                    </li>
-                                    <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
-                                        {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
-                                        <a href="{{ path('novidades_index') }}"
-                                           class="dropdown-item d-flex align-items-center gap-2"
-                                           data-novidades-versao="{{ novidades_mais_recente()|e('html_attr') }}">
-                                            <i class="bi bi-stars"></i> Novidades
-                                            <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">novo</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ path('legal_politica_privacidade') }}"
-                                           class="dropdown-item d-flex align-items-center gap-2"
-                                           target="_blank" rel="noopener">
-                                            <i class="bi bi-shield-lock"></i> Política de Privacidade
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
-                                        <a href="{{ path('app_logout') }}" class="dropdown-item d-flex align-items-center gap-2 text-danger">
-                                            <i class="bi bi-box-arrow-right"></i> Sair
-                                        </a>
-                                    </li>
-                                </ul>
+                                {% include 'menu_usuario/_dropdown.html.twig' %}
                             </div>
 
                         </div>{# /navtop-right #}
@@ -449,6 +342,8 @@
 
                 {# Main Content #}
                 <main class="app-main" id="main" tabindex="-1">
+                    {# Faixa logo abaixo do cabeçalho, na largura do conteúdo (abas do Meu Perfil). #}
+                    {% block faixa_topo %}{% endblock %}
                     <div class="app-content-header">
                         <div class="container-fluid">
                             {% for label, messages in app.flashes %}
@@ -474,6 +369,9 @@
             {% if app.user and can_access_module('ponto') and app.user.jornadaColaborador is not null %}
                 {% include 'ponto/_modal_alerta_ponto.html.twig' %}
             {% endif %}
+
+            {# Modais do menu do usuário (Conta do escritório, Idioma, Em preparação) #}
+            {% include 'menu_usuario/_modais.html.twig' %}
 
             {# Central de Comunicação flutuante (lançador + janela, Designer 13/10). Componente isolado da Central (D6:
                esta é a única linha no layout); não aparece na própria /central, que já é a janela em página. #}
@@ -504,30 +402,7 @@
         <script>
             document.addEventListener('DOMContentLoaded', function () {
 
-                // ── Toggle de tema claro/escuro (persiste em localStorage)
-                (function () {
-                    const botao = document.getElementById('toggleTema');
-                    const icone = document.getElementById('toggleTemaIcone');
-                    const label = document.getElementById('toggleTemaLabel');
-
-                    function sincronizarRotulo() {
-                        const escuro = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-                        if (label) label.textContent = escuro ? 'Tema claro' : 'Tema escuro';
-                        if (icone) icone.className = escuro ? 'bi bi-sun' : 'bi bi-moon-stars';
-                    }
-
-                    sincronizarRotulo();
-
-                    if (botao) {
-                        botao.addEventListener('click', function () {
-                            const escuro = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-                            const novo = escuro ? 'light' : 'dark';
-                            document.documentElement.setAttribute('data-bs-theme', novo);
-                            try { localStorage.setItem('tema', novo); } catch (e) {}
-                            sincronizarRotulo();
-                        });
-                    }
-                })();
+                // O tema claro/escuro (chave no menu do usuário) mora em public/js/menu-usuario.js.
 
                 // ── Polling do total no sino a cada 30 s
                 function atualizarNotificacoes() {
@@ -705,6 +580,7 @@
         </script>
 
         <script src="{{ asset('js/novidades.js') }}" defer></script>
+        <script src="{{ asset('js/menu-usuario.js') }}" defer></script>
         {% block javascripts %}{% endblock %}
         {#
             SCRIPT CONFLITANTE REMOVIDO.
