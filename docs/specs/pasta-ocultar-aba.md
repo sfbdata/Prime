@@ -97,14 +97,17 @@ mapa casa com o roteador; financeiro oculto some a pendência de pagamentos; pus
 
 ## 7. Decisões da revisão de permissão (19/10)
 
-Decisões do orquestrador, a confirmar com o dono:
+Alcance decidido pelo dono (19/10/2026): **ocultar a aba é para ORGANIZAR a pasta, não para restringir o acesso
+no sistema todo.** Quem não pode ver um conteúdo de jeito nenhum fica sem a permissão do módulo no perfil. Por isso:
 
 - O módulo global `/push-processual` continua governado pela permissão do módulo. A regra de aba oculta vale
-  dentro da pasta.
-- Os links externos do Push já criados continuam ativos quando o Push é ocultado para alguém.
-- As metas fora da pasta (`/tarefas`) continuam visíveis para quem tem a aba Metas oculta.
+  dentro da pasta. (decidido pelo dono)
+- Os links externos do Push já criados continuam ativos quando o Push é ocultado para alguém. (decidido pelo dono)
+- As metas fora da pasta (`/tarefas`) continuam visíveis para quem tem a aba Metas oculta. (decidido pelo dono)
 - O número do processo continua no cabeçalho da pasta (e no cabeçalho da folha impressa) com a aba Processo oculta.
+  (decidido pelo coordenador: é a identificação da pasta)
 - "Todos marcados" no "Ocultar para…" grava `para_todos`, como no desenho (vale também para quem entrar depois).
+  (decidido pelo coordenador: comportamento do desenho)
 
 Já decididas e implementadas nesta revisão:
 
