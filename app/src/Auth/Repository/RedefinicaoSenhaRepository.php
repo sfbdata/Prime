@@ -29,6 +29,37 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
     }
 
     /**
+     * O pedido ainda não consumido mais novo do usuário (senha por código do desenho 10).
+     *
+     * O código de 6 números NÃO é chave de busca: com um milhão de valores possíveis, buscar
+     * pelo hash deixaria o atacante testar códigos contra todas as contas de uma vez. Busca-se
+     * o pedido da conta e compara-se o hash com hash_equals no UseCase, contando as tentativas.
+     * A validade (15 minutos) é conferida pelo chamador.
+     */
+    public function encontrarPendenteMaisNovoDoUsuario(User $user): ?RedefinicaoSenha
+    {
+        return $this->createQueryBuilder('r')
+            ->where('r.user = :user')
+            ->andWhere('r.usadoEm IS NULL')
+            ->setParameter('user', $user)
+            ->orderBy('r.criadoEm', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Já existe linha com este hash (inclusive consumida, até a purga)? Serve para o código
+     * novo não colidir com o índice único de `token_hash` quando o mesmo número sai de novo
+     * para a mesma conta.
+     */
+    public function existeTokenHash(string $tokenHash): bool
+    {
+        return $this->count(['tokenHash' => $tokenHash]) > 0;
+    }
+
+    /**
      * Consome o pedido de forma atômica: o `WHERE usado_em IS NULL` faz o próprio banco
      * decidir quem chegou primeiro. Sem isso, dois POSTs simultâneos com o mesmo token
      * passariam os dois pela validação em PHP antes de qualquer um gravar.

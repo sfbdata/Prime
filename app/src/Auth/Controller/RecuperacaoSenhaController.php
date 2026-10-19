@@ -4,86 +4,108 @@ declare(strict_types=1);
 
 namespace App\Auth\Controller;
 
+use App\Auth\DTO\ConfirmarCodigoSenhaInput;
 use App\Auth\DTO\RedefinirSenhaInput;
-use App\Auth\DTO\SolicitarRedefinicaoSenhaInput;
+use App\Auth\DTO\SolicitarCodigoSenhaInput;
 use App\Auth\Form\RedefinirSenhaType;
-use App\Auth\Form\SolicitarRedefinicaoSenhaType;
 use App\Auth\Repository\RedefinicaoSenhaRepository;
+use App\Auth\UseCase\ConfirmarCodigoSenhaUseCase;
 use App\Auth\UseCase\RedefinirSenhaUseCase;
-use App\Auth\UseCase\SolicitarRedefinicaoSenhaUseCase;
+use App\Auth\UseCase\SolicitarCodigoSenhaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Exception\JsonException;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Recuperação de senha (rotas públicas).
  *
- * Regra que atravessa o arquivo inteiro: **a resposta é sempre a mesma** para e-mail
- * existente e inexistente (RN02). Quem decide enviar o e-mail é o UseCase — o controller
- * não sabe se a conta existe, justamente para não ter como vazar isso.
+ * Senha por código (desenho 10): o modal "Recuperar senha" da tela de login chama
+ * `/senha/codigo` e `/senha/codigo/confirmar` em JSON. O link antigo `/senha/redefinir/{token}`
+ * continua valendo para os pedidos já enviados por e-mail.
+ *
+ * Regra que atravessa o arquivo: **a resposta não diz se a conta existe** (RN02). Quem decide
+ * enviar e quem confere o código são os UseCases; o controller não sabe se a conta existe,
+ * justamente para não ter como vazar isso.
  */
 final class RecuperacaoSenhaController extends AbstractController
 {
+    private const CSRF_ID = 'senha_codigo';
+    private const ERRO_CSRF = 'Sessão expirada. Recarregue a página.';
+    private const ERRO_LIMITE = 'Muitas tentativas. Tente de novo mais tarde.';
+
     public function __construct(
-        private readonly SolicitarRedefinicaoSenhaUseCase $solicitar,
+        private readonly SolicitarCodigoSenhaUseCase $solicitarCodigo,
+        private readonly ConfirmarCodigoSenhaUseCase $confirmarCodigo,
         private readonly RedefinirSenhaUseCase $redefinir,
         private readonly RedefinicaoSenhaRepository $redefinicaoRepository,
+        private readonly ValidatorInterface $validator,
         private readonly RateLimiterFactoryInterface $senhaEsqueciIpLimiter,
         private readonly RateLimiterFactoryInterface $senhaEsqueciEmailLimiter,
-    ) {}
+    ) {
+    }
 
-    #[Route('/senha/esqueci', name: 'auth_senha_esqueci', methods: ['GET', 'POST'])]
-    public function esqueci(Request $request): Response
+    /** O pedido por formulário virou o passo "Recuperar senha" do modal da tela de login. */
+    #[Route('/senha/esqueci', name: 'auth_senha_esqueci', methods: ['GET'])]
+    public function esqueci(): Response
     {
         if ($this->getUser() !== null) {
             return $this->redirectToRoute('tenant_selecionar');
         }
 
-        $input = new SolicitarRedefinicaoSenhaInput();
-        $form  = $this->createForm(SolicitarRedefinicaoSenhaType::class, $input);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            // Os dois limites são consumidos SÓ AQUI, depois do CSRF e da validação, para
-            // que um POST com corpo lixo não gaste cota nenhuma.
-            //
-            // Isto encarece o abuso, NÃO o elimina: o token CSRF do Symfony não é de uso
-            // único dentro da sessão, então um GET rende um token reutilizável para N POSTs.
-            // Quem quiser esgotar a cota de um IP ainda consegue. O que segura de fato a
-            // vítima é o limite por e-mail; o limite por IP é largo justamente porque, sem
-            // SYMFONY_TRUSTED_PROXIES confirmado na VPS, a chave é o IP do nginx — a mesma
-            // para todos. Fechar isso de verdade é o captcha da F4.
-            if (!$this->senhaEsqueciIpLimiter->create((string) $request->getClientIp())->consume()->isAccepted()) {
-                throw new TooManyRequestsHttpException();
-            }
-
-            // Limite por e-mail (RS09): o limite por IP sozinho não segura IP rotativo.
-            // A chave é o e-mail digitado — existindo conta ou não, o custo é o mesmo.
-            $chave = mb_strtolower(trim($input->email));
-
-            if (!$this->senhaEsqueciEmailLimiter->create($chave)->consume()->isAccepted()) {
-                throw new TooManyRequestsHttpException();
-            }
-
-            $this->solicitar->executar(
-                $input,
-                (string) $request->getClientIp(),
-                $request->headers->get('User-Agent'),
-            );
-
-            return $this->redirectToRoute('auth_senha_enviado');
-        }
-
-        return $this->render('auth/senha/esqueci.html.twig', ['form' => $form]);
+        return $this->redirectToRoute('app_login', ['abrir' => 'senha']);
     }
 
-    #[Route('/senha/enviado', name: 'auth_senha_enviado', methods: ['GET'])]
-    public function enviado(): Response
+    #[Route('/senha/codigo', name: 'auth_senha_codigo_enviar', methods: ['POST'])]
+    public function enviarCodigo(Request $request): JsonResponse
     {
-        return $this->render('auth/senha/enviado.html.twig');
+        $dados = $this->corpoJson($request);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_ID, $this->texto($dados, '_token'))) {
+            return new JsonResponse(['erro' => self::ERRO_CSRF], Response::HTTP_FORBIDDEN);
+        }
+
+        $input     = new SolicitarCodigoSenhaInput(trim($this->texto($dados, 'email')));
+        $violacoes = $this->validator->validate($input);
+
+        if (count($violacoes) > 0) {
+            return new JsonResponse(['erro' => (string) $violacoes->get(0)->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if (!$this->dentroDosLimites($request, $input->email)) {
+            return new JsonResponse(['erro' => self::ERRO_LIMITE], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
+        $this->solicitarCodigo->executar($input, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
+
+        return new JsonResponse(['ok' => true]);
+    }
+
+    #[Route('/senha/codigo/confirmar', name: 'auth_senha_codigo_confirmar', methods: ['POST'])]
+    public function confirmarCodigo(Request $request): JsonResponse
+    {
+        $dados = $this->corpoJson($request);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_ID, $this->texto($dados, '_token'))) {
+            return new JsonResponse(['erro' => self::ERRO_CSRF], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $this->confirmarCodigo->executar(new ConfirmarCodigoSenhaInput(
+                email: $this->texto($dados, 'email'),
+                codigo: $this->texto($dados, 'codigo'),
+                senha: $this->texto($dados, 'senha'),
+                confirmacao: $this->texto($dados, 'confirmacao'),
+            ));
+        } catch (\DomainException $e) {
+            return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return new JsonResponse(['ok' => true]);
     }
 
     #[Route('/senha/redefinir/{token}', name: 'auth_senha_redefinir', methods: ['GET', 'POST'], requirements: ['token' => '[a-f0-9]{64}'])]
@@ -95,7 +117,7 @@ final class RecuperacaoSenhaController extends AbstractController
             return $this->redirectToRoute('tenant_selecionar');
         }
 
-        // Confere o link antes de mostrar o formulário — quem chega com link morto
+        // Confere o link antes de mostrar o formulário: quem chega com link morto
         // recebe a explicação na hora, em vez de descobrir depois de digitar a senha.
         $pedido = $this->redefinicaoRepository->encontrarPorToken($token);
 
@@ -124,5 +146,41 @@ final class RecuperacaoSenhaController extends AbstractController
             'form'  => $form,
             'token' => $token,
         ]);
+    }
+
+    /**
+     * Os dois limites são consumidos SÓ depois do CSRF e da validação, para que um POST com
+     * corpo lixo não gaste cota nenhuma.
+     *
+     * Isto encarece o abuso, não o elimina: o token CSRF não é de uso único dentro da sessão.
+     * O que segura de fato a vítima é o limite por e-mail (RS09); o limite por IP é largo
+     * porque, sem SYMFONY_TRUSTED_PROXIES confirmado na VPS, a chave é o IP do nginx, a mesma
+     * para todos. A chave por e-mail é o digitado normalizado, exista a conta ou não.
+     */
+    private function dentroDosLimites(Request $request, string $email): bool
+    {
+        if (!$this->senhaEsqueciIpLimiter->create((string) $request->getClientIp())->consume()->isAccepted()) {
+            return false;
+        }
+
+        return $this->senhaEsqueciEmailLimiter->create(mb_strtolower($email))->consume()->isAccepted();
+    }
+
+    /** @return array<mixed> corpo JSON; vazio se não for JSON (aí o CSRF já recusa) */
+    private function corpoJson(Request $request): array
+    {
+        try {
+            return $request->toArray();
+        } catch (JsonException) {
+            return [];
+        }
+    }
+
+    /** @param array<mixed> $dados */
+    private function texto(array $dados, string $chave): string
+    {
+        $valor = $dados[$chave] ?? '';
+
+        return is_string($valor) ? $valor : '';
     }
 }
