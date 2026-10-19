@@ -560,11 +560,21 @@ final class PurgarEscritorioUseCase
     /**
      * As mesmas guardas, RELIDAS do banco depois do `FOR UPDATE` (corrida com o Master): entre a lista
      * do job e este ponto a conta pode ter sido recuperada da quarentena (`ReativarContaUseCase`) ou
-     * ter mudado de criador. Qualquer diferença aborta só esta conta, dentro da transação, sem apagar nada.
+     * ter mudado de criador, ou o criador pode ter virado Master. Qualquer diferença aborta só esta conta,
+     * dentro da transação, sem apagar nada.
+     *
+     * A recusa ({@see PurgaRecusada}) sai como FAILURE no `app:purgar-dados-expirados` DE PROPÓSITO: conta
+     * em quarentena vencida que não pode ser purgada (recuperada no meio, ou do Master) precisa chegar ao
+     * dono como alerta, não sumir num log.
      */
     private function garantirElegivelNoBanco(Connection $conn, Tenant $tenant): void
     {
-        $linha = $conn->fetchAssociative('SELECT is_active, excluido_em, criado_por_id FROM tenant WHERE id = :tenant', ['tenant' => $tenant->getId()]);
+        // O "criador é Master?" também vem do banco (roles do criador agora), não do User em memória.
+        $linha = $conn->fetchAssociative(
+            'SELECT t.is_active, t.excluido_em, t.criado_por_id, COALESCE(u.roles::text LIKE :papel, FALSE) AS criador_master
+               FROM tenant t LEFT JOIN "user" u ON u.id = t.criado_por_id WHERE t.id = :tenant',
+            ['tenant' => $tenant->getId(), 'papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
+        );
         if ($linha === false) {
             throw new PurgaRecusada('Escritório não existe mais; nada a purgar.');
         }
@@ -576,7 +586,11 @@ final class PurgarEscritorioUseCase
             throw new PurgaRecusada('O criador do escritório mudou depois da seleção para a purga; purga adiada.');
         }
 
-        // O fallback (Master com vínculo ativo) consulta o banco na mesma transação.
+        if ((bool) $linha['criador_master']) {
+            throw new PurgaRecusada('A conta do Master nunca é purgada.');
+        }
+
+        // O fallback (sem criador: Master com vínculo ativo) consulta o banco na mesma transação.
         $this->exigirQueNaoEhContaDoMaster($tenant);
     }
 

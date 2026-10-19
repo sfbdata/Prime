@@ -175,6 +175,21 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         self::assertSame(1, $this->existeTenant((int) $semCriador->getId()));
     }
 
+    #[TestDox('Criador comum promovido a Master no banco depois da carga: não purga (roles relidos após o FOR UPDATE)')]
+    public function testCriadorPromovidoAMasterDepoisDaCargaNaoPurga(): void
+    {
+        $criador = UserFactory::createOne(['roles' => ['ROLE_USER']])->_real();
+        $tenant  = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $tenant->setCriadoPor($criador);
+        $this->em->flush();
+
+        // Em memória o criador continua comum; no banco, virou Master.
+        $this->conn->executeStatement('UPDATE "user" SET roles = :r WHERE id = :u', ['r' => '["ROLE_SUPER_ADMIN"]', 'u' => $criador->getId()]);
+
+        $this->assertPurgaRecusada($tenant, 'A conta do Master nunca é purgada.');
+        self::assertSame(1, $this->existeTenant((int) $tenant->getId()));
+    }
+
     private function assertPurgaRecusada(Tenant $tenant, string $trecho): void
     {
         try {
