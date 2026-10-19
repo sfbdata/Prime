@@ -33,6 +33,7 @@ use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
 use App\TrabalhoExterno\Entity\InteressadoEmVagas;
 use App\TrabalhoExterno\Entity\LinkDeVagas;
@@ -127,6 +128,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
+        Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
     ];
 
     /**
@@ -139,8 +141,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026); 18 → 20 com as marcações pessoais dele
-    // (19/10/2026); 20 → 25 com as vagas, as preferências do usuário e a página pública (19/10/2026): exceções permanentes e justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 25;
+    // (19/10/2026); 20 → 25 com as vagas, as preferências do usuário e a página pública (19/10/2026); 25 → 26
+    // com o currículo do banco de talentos (19/10/2026): exceções permanentes e justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 26;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

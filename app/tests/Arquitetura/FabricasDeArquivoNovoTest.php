@@ -171,11 +171,22 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('png', $novo->extensao);
     }
 
+    #[TestDox('arquivo novo do currículo: escopo global (D1), categoria própria')]
+    public function testArquivoNovoDoCurriculoEhGlobal(): void
+    {
+        $novo = ChavesDeTrabalhoExterno::novoArquivoDoCurriculo('pdf');
+
+        self::assertSame(CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('pdf', $novo->extensao);
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
         $cobertas = array_keys(iterator_to_array(self::fabricas()));
         $cobertas[] = ChavesDePerfil::class . '::novaFoto';
+        $cobertas[] = ChavesDeTrabalhoExterno::class . '::novoArquivoDoCurriculo';
 
         $encontradas = [];
 
