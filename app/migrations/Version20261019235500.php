@@ -19,6 +19,9 @@ use Doctrine\Migrations\AbstractMigration;
  *  - o compromisso foi "Só eu" em algum registro dele ou é "Só eu" hoje (vale para o compromisso inteiro,
  *    como o subscriber, que esconde também a mudança que tira o "Só eu").
  *
+ * A mudança de participantes leva o título no rótulo do dono: `SQL_DONO_DA_COLECAO` troca pelo rótulo
+ * particular.
+ *
  * Os dois nomes da classe entram porque o #63 move o `Evento` para `App\Agenda\Entity` (e renomeia os
  * registros); esta migration pode rodar antes ou depois dele.
  *
@@ -61,6 +64,56 @@ final class Version20261019235500 extends AbstractMigration
            AND (ev.id IN (SELECT id FROM proprio) OR ev.entity_id IN (SELECT entity_id FROM compromissos))
         SQL;
 
+    /**
+     * Mudança de participantes: o rótulo do dono (`association_events[].owner.label`) é o título. Vira o
+     * rótulo particular do subscriber quando o dono é "Só eu" pelo id (hoje ou em algum registro) ou, no
+     * registro gravado no mesmo flush da criação (o dono ainda sem id), quando a criação "Só eu" é do mesmo
+     * instante e da mesma pessoa. Duas criações no mesmo segundo pela mesma pessoa, uma "Só eu" e outra não,
+     * escondem as duas: na dúvida, esconde.
+     */
+    public const SQL_DONO_DA_COLECAO = <<<'SQL'
+        WITH compromissos AS (
+            SELECT entity_id
+              FROM audit_log
+             WHERE entity_class IN ('App\Entity\Agenda\Evento', 'App\Agenda\Entity\Evento')
+               AND entity_id IS NOT NULL
+               AND (changes::jsonb #>> '{diff,after,visibilidade}' = 'somente_eu'
+                    OR changes::jsonb #>> '{diff,before,visibilidade}' = 'somente_eu'
+                    OR changes::jsonb #>> '{diff,changes,visibilidade,0}' = 'somente_eu'
+                    OR changes::jsonb #>> '{diff,changes,visibilidade,1}' = 'somente_eu')
+            UNION
+            SELECT id::text FROM evento WHERE visibilidade = 'somente_eu'
+        )
+        UPDATE audit_log a
+           SET changes = jsonb_set(
+                   jsonb_set(
+                       a.changes::jsonb,
+                       '{diff,association_events}',
+                       (SELECT jsonb_agg(jsonb_set(e, '{owner,label}', '"Compromisso particular"'::jsonb))
+                          FROM jsonb_array_elements(a.changes::jsonb #> '{diff,association_events}') e)
+                   ),
+                   '{diff,conteudo_particular}',
+                   'true'::jsonb
+               )::json
+         WHERE a.entity_class IN ('App\Entity\Agenda\Evento', 'App\Agenda\Entity\Evento')
+           AND jsonb_typeof(a.changes::jsonb #> '{diff,association_events}') = 'array'
+           AND jsonb_array_length(a.changes::jsonb #> '{diff,association_events}') > 0
+           AND (
+               EXISTS (SELECT 1
+                         FROM jsonb_array_elements(a.changes::jsonb #> '{diff,association_events}') e
+                        WHERE e #>> '{owner,id}' IN (SELECT entity_id FROM compromissos))
+               OR (a.entity_id IS NULL AND EXISTS (
+                   SELECT 1
+                     FROM audit_log c
+                    WHERE c.entity_class = a.entity_class
+                      AND c.action = 'create'
+                      AND c.created_at = a.created_at
+                      AND c.actor_user_id IS NOT DISTINCT FROM a.actor_user_id
+                      AND c.id < a.id
+                      AND c.changes::jsonb #>> '{diff,after,visibilidade}' = 'somente_eu'))
+           )
+        SQL;
+
     public function getDescription(): string
     {
         return 'Tira título, descrição e local dos registros antigos de auditoria dos compromissos Só eu';
@@ -69,6 +122,7 @@ final class Version20261019235500 extends AbstractMigration
     public function up(Schema $schema): void
     {
         $this->addSql(self::SQL_LIMPEZA);
+        $this->addSql(self::SQL_DONO_DA_COLECAO);
     }
 
     public function down(Schema $schema): void
