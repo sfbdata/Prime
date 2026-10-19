@@ -68,6 +68,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\DTO\AnalisesDaPastaOutput;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\AndamentoDaPastaOutput;
@@ -315,6 +316,7 @@ class PastaController extends AbstractController
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
+        VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -509,6 +511,7 @@ class PastaController extends AbstractController
                 veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
             ),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
+            'abasDaPasta'                 => $visibilidadeDasAbas->estadoParaTela($pasta, $currentUser), // abas ocultas (spec pasta-ocultar-aba §5)
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
             // simplesmente não desenha o campo.

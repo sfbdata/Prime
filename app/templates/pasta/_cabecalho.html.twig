@@ -26,6 +26,8 @@
    Contexto: `pasta`, `fotosResponsaveis`, `vizinhas`, `push`, `unidadeCobrada`.
    ============================================================================ #}
 {% set proc = pasta.processoPrincipal %}
+{# Abas ocultas desta pasta para quem está vendo (spec pasta-ocultar-aba §5); sem o dado, tudo visível. #}
+{% set abasDaPasta = abasDaPasta|default(null) %}
 {% set cliente = pasta.clientePrincipal %}
 {# O documento sai do CADASTRO, nunca do texto legado: pasta sem cliente vinculado
    não tem CPF/CNPJ para mostrar — é o estado de 1.152 das 1.201 pastas em produção. #}
@@ -255,11 +257,14 @@
                     {# Link externo do Push ([EXP] L.1104, `mPushLink`): abre o #modalLinkExternoPush
                        (pasta/_push_link_externo.html.twig). O selo conta os links ATIVOS; quem o
                        preenche é o pasta-push-link.js, com o GET da lista, ao abrir este menu. #}
+                    {# Com a aba Push oculta para quem abre o ⋮, o item some (spec pasta-ocultar-aba §5). #}
+                    {% if abasDaPasta is null or abasDaPasta.visivel('push') %}
                     <button type="button" class="ps-pop-item js-ppl-abrir" role="menuitem"
                             aria-haspopup="dialog" aria-controls="modalLinkExternoPush">
                         <i class="bi bi-broadcast"></i><span>Link externo do Push</span>
                         <span class="ppl-badge js-ppl-badge-ativos ps-num" hidden></span>
                     </button>
+                    {% endif %}
                     {# O clique abre a janela Imprimir (pasta-impressao.js, EDT-001): prévia, opções,
                        Imprimir e Copiar texto, e "Baixar PDF" gerado no servidor (Dompdf, rota
                        `pasta_resumo_pdf`). O href fica como caminho sem JS e para o Ctrl+clique: a
@@ -478,6 +483,11 @@
         {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: pasta.documentos|length},
         {id: 'push',       painel: 'push',       rotulo: 'Push Processual', icone: 'bi-broadcast',     contagem: pushNaoLidas},
     ] %}
+    {# Abas ocultas (spec pasta-ocultar-aba §5): para quem está oculto, a aba nem é desenhada, e a
+       primeira visível nasce ativa (o `loop.first` abaixo). `abasDaPasta` vem do servidor
+       (`VisibilidadeDasAbasDaPasta::estadoParaTela`); quem configura nunca é ocultado. #}
+    {% set abas = abas|filter(a => abasDaPasta is null or abasDaPasta.visivel(a.id)) %}
+    {% set configuraAbas = abasDaPasta is not null and abasDaPasta.podeConfigurar %}
     <div class="ps-abas-faixa">
         {# `ps-abas--sem-js` sai no boot do pasta-show.js. Sem JS o sublinhado nunca
            é medido, e sem esta classe a aba ativa ficaria sem marca nenhuma. #}
@@ -496,7 +506,13 @@
                         {#- Botão direito (ou Shift+F10 / tecla de menu) na aba Push abre o menu
                             "PUSH PROCESSUAL" do link externo ([EXP] L.1241 `onContextMenu`,
                             `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. #}
-                        {%- if aba.id == 'push' %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}>
+                        {%- if aba.id == 'push' %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}
+                        {#- Botão direito em qualquer aba: ocultar para a equipe ([EXP] L.4409-4419). Quem
+                            escuta é o pasta-abas-ocultas.js; o rótulo e a regra vão para o menu. #}
+                        data-pao-aba="{{ aba.id }}" data-pao-rotulo="{{ aba.rotulo }}"
+                        {%- if configuraAbas and abasDaPasta.temRegra(aba.id) %} data-pao-regra="1" data-pao-sufixo="{{ abasDaPasta.sufixoDoMenu(aba.id) }}"{% endif %}>
+                    {# Ícone da regra, só para quem configura ([EXP] L.1243, title L.6088). #}
+                    {% if configuraAbas and abasDaPasta.temRegra(aba.id) %}<i class="bi bi-eye-slash ps-aba-oculta-ind" title="{{ abasDaPasta.dicaDoIcone(aba.id) }}" aria-label="{{ abasDaPasta.dicaDoIcone(aba.id) }}"></i>{% endif %}
                     {# A barra some na aba ativa (CSS, pela classe `.active` que o
                        Bootstrap alterna): quem está olhando a aba já vê a pendência. #}
                     {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}
