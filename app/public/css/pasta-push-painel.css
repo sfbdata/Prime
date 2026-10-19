@@ -112,7 +112,8 @@
 .ps-push-painel-processo { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* Selo "PRINCIPAL" à direita do número e os demais processos recuados por uma barra vertical
    (desenho de 18/10, pelo print do dono: sem linha citável no 1.2.3; mesmo tom do chip da pasta). */
-.ps-push-painel-selo { flex-shrink: 0; align-self: center; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; background: var(--ps-chip-bg); color: var(--ps-chip-text); }
+/* Print do dono (desenho 18/10): "PRINCIPAL" é texto cinza em caixa alta, sem fundo. */
+.ps-push-painel-selo { flex-shrink: 0; align-self: center; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ps-muted); }
 .ps-push-apensado { display: flex; align-items: center; gap: 10px; margin-left: 6px; padding-left: 14px; border-left: 2px solid var(--ps-div-strong); }
 .ps-push-apensado-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ps-push-apensado-numero { overflow-wrap: anywhere; }
