@@ -7,7 +7,10 @@ namespace App\Djen\Repository;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
+use App\Processo\DTO\HistoricoParaPrevisao;
 use App\Processo\DTO\MovimentacaoParaPrevisao;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -221,50 +224,74 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
-     * As movimentações que a "Situação atual" do Push lê (spec push-painel-monitoramento §3): a
-     * MESMA lista da aba (`listarItensPorNumerosDoTenant`: mesmos números, ordem e teto), com o teor.
-     * O teor vem cortado em `TEXTO_PREVISAO` caracteres de HTML: a previsão só lê os 5.000 primeiros
-     * de texto, e o HTML das tags ocupa espaço. Publicação sem data de disponibilização fica de
-     * fora: sem data não há contagem de prazo nem ordem.
+     * A movimentação mais recente da pasta, com o teor, para a regra da "Situação atual" do Push
+     * (spec push-painel-monitoramento §3): a primeira da MESMA lista da aba
+     * (`listarItensPorNumerosDoTenant`: mesmos números e ordem), sem as que não têm data (sem data
+     * não há contagem de prazo nem ordem). O teor vem cortado em `TEXTO_PREVISAO` caracteres de
+     * HTML: a previsão só lê os 5.000 primeiros de texto, e as tags ocupam espaço.
      *
      * @param string[] $numeros números CNJ dos processos da pasta
-     *
-     * @return MovimentacaoParaPrevisao[] da mais recente para a mais antiga
      */
-    public function listarParaPrevisaoDoTenant(Tenant $tenant, array $numeros, int $limite = 100): array
+    public function ultimaParaPrevisaoDoTenant(Tenant $tenant, array $numeros): ?MovimentacaoParaPrevisao
     {
         $numeros = self::normalizarNumeros($numeros);
         if ($numeros === []) {
-            return [];
+            return null;
         }
 
-        $linhas = $this->createQueryBuilder('p')
-            ->select(
-                'p.dataDisponibilizacao AS data',
-                'p.tipoComunicacao AS tipo',
-                'SUBSTRING(p.texto, 1, ' . self::TEXTO_PREVISAO . ') AS teor',
-            )
+        $linha = $this->createQueryBuilder('p')
+            ->select('p.dataDisponibilizacao AS data', 'p.tipoComunicacao AS tipo', 'SUBSTRING(p.texto, 1, ' . self::TEXTO_PREVISAO . ') AS teor')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->andWhere('p.dataDisponibilizacao IS NOT NULL')
             ->setParameter('tenant', $tenant)
             ->setParameter('numeros', $numeros)
             ->orderBy('p.dataDisponibilizacao', 'DESC')
             ->addOrderBy('p.id', 'DESC')
-            ->setMaxResults($limite)
+            ->setMaxResults(1)
             ->getQuery()
-            ->getArrayResult();
+            ->getArrayResult()[0] ?? null;
 
-        $movimentacoes = [];
-        foreach ($linhas as $linha) {
-            $data = $linha['data'] instanceof \DateTimeInterface
-                ? \DateTimeImmutable::createFromInterface($linha['data'])
-                : null;
-            if ($data !== null) {
-                $movimentacoes[] = MovimentacaoParaPrevisao::doTeorHtml($data, $linha['tipo'], $linha['teor']);
-            }
+        if ($linha === null || !$linha['data'] instanceof \DateTimeInterface) {
+            return null;
         }
 
-        return $movimentacoes;
+        return MovimentacaoParaPrevisao::doTeorHtml(\DateTimeImmutable::createFromInterface($linha['data']), $linha['tipo'], $linha['teor']);
+    }
+
+    /**
+     * O histórico que a "Situação atual" lê, respondido no banco sem trazer teor nenhum: quantas
+     * movimentações há na lista (até o teto da aba) e se alguma, além da mais recente, fala em
+     * contestação (`/contesta/` sobre tipo + teor, dc L.5098). ILIKE dispensa tirar acento e caixa:
+     * "contesta" não tem acento, e "CONTESTAÇÃO"/"contestação" casam igual.
+     *
+     * @param string[] $numeros números CNJ dos processos da pasta
+     */
+    public function historicoParaPrevisaoDoTenant(Tenant $tenant, array $numeros, int $limite = 100): HistoricoParaPrevisao
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return new HistoricoParaPrevisao(0, false);
+        }
+
+        $linha = $this->getEntityManager()->getConnection()->fetchAssociative(
+            "WITH lista AS (
+                SELECT ROW_NUMBER() OVER (ORDER BY data_disponibilizacao DESC, id DESC) AS ordem,
+                       COALESCE(tipo_comunicacao, '') || ' ' || SUBSTRING(COALESCE(texto, ''), 1, " . self::TEXTO_PREVISAO . ") AS n
+                  FROM publicacao_djen
+                 WHERE tenant_id = :tenant AND numero_processo IN (:numeros) AND data_disponibilizacao IS NOT NULL
+                 ORDER BY data_disponibilizacao DESC, id DESC
+                 LIMIT :limite
+            )
+            SELECT COUNT(*) AS total, COALESCE(BOOL_OR(ordem > 1 AND n ILIKE '%contesta%'), false) AS contestacao FROM lista",
+            ['tenant' => $tenant->getId(), 'numeros' => array_map('strval', $numeros), 'limite' => $limite],
+            ['numeros' => ArrayParameterType::STRING, 'limite' => ParameterType::INTEGER],
+        );
+
+        // O driver devolve o booleano do PostgreSQL como bool; 't' cobre um driver que devolva texto.
+        $contestacao = $linha['contestacao'] ?? false;
+
+        return new HistoricoParaPrevisao((int) ($linha['total'] ?? 0), $contestacao === true || $contestacao === 't');
     }
 
     /**

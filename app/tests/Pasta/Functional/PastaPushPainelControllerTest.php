@@ -64,11 +64,13 @@ final class PastaPushPainelControllerTest extends JusPrimeWebTestCase
         static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 
-    private function postar(KernelBrowser $client, int $pastaId, string $acao, ?string $token = null): void
+    private function postar(KernelBrowser $client, int $pastaId, string $acao, ?string $token = null, ?int $processoId = null): void
     {
-        $client->request('POST', "/pasta/{$pastaId}/push/{$acao}", [
-            '_token' => $token ?? 'TOKEN_pasta_push_' . $acao . '_' . $pastaId,
-        ]);
+        $dados = ['_token' => $token ?? 'TOKEN_pasta_push_' . $acao . '_' . $pastaId];
+        if ($processoId !== null) {
+            $dados['processo'] = (string) $processoId;
+        }
+        $client->request('POST', "/pasta/{$pastaId}/push/{$acao}", $dados);
     }
 
     /** @return array<string, mixed> */
@@ -122,28 +124,73 @@ final class PastaPushPainelControllerTest extends JusPrimeWebTestCase
         return [$client, $user, $tenant, $pasta, $processo];
     }
 
-    #[TestDox('Alternar: pausa (quem e quando gravados) e retoma, com os textos do desenho no JSON')]
+    #[TestDox('Alternar o principal: pausa e retoma (quem mexeu por último fica gravado), com os textos do desenho no JSON')]
     public function testAlternar(): void
     {
         [$client, $user, $tenant, $pasta, $processo] = $this->cenario();
         $this->logarComTenant($client, $user, $tenant);
+        $id = (int) $processo->getId();
 
-        $this->postar($client, (int) $pasta->getId(), 'monitoramento');
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento', processoId: $id);
 
         self::assertResponseIsSuccessful();
-        self::assertSame(
-            ['sucesso' => true, 'ativo' => false, 'statusTxt' => 'Monitoramento pausado', 'statusSub' => 'Novas movimentações não serão capturadas'],
-            $this->json($client),
-        );
-        $noBanco = $this->processoNoBanco((int) $processo->getId());
+        $json = $this->json($client);
+        self::assertFalse($json['ativo']);
+        self::assertSame('Monitoramento pausado', $json['statusTxt']);
+        self::assertSame('Novas movimentações não serão capturadas', $json['statusSub']);
+        self::assertSame($id, $json['processo']['id']);
+        self::assertTrue($json['processo']['principal']);
+        self::assertFalse($json['processo']['ativo']);
+        self::assertStringStartsWith('Pausado por Admin Push em ', (string) $json['processo']['dica']);
+        $noBanco = $this->processoNoBanco($id);
         self::assertNotNull($noBanco->getMonitoramentoPausadoEm());
-        self::assertSame($user->getId(), $noBanco->getMonitoramentoPausadoPor()?->getId());
+        self::assertSame($user->getId(), $noBanco->getMonitoramentoAlteradoPor()?->getId());
 
-        $this->postar($client, (int) $pasta->getId(), 'monitoramento');
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento', processoId: $id);
 
         self::assertResponseIsSuccessful();
         self::assertSame('Monitoramento ativo', $this->json($client)['statusTxt']);
+        $noBanco = $this->processoNoBanco($id);
+        self::assertTrue($noBanco->monitoramentoAtivo());
+        self::assertSame($user->getId(), $noBanco->getMonitoramentoAlteradoPor()?->getId(), 'retomar não apaga quem mexeu');
+        self::assertNotNull($noBanco->getMonitoramentoAlteradoEm());
+    }
+
+    #[TestDox('Alternar o outro processo da pasta: só ele pausa, com "Apensado: … · pausado"; o principal segue ativo')]
+    public function testAlternarApensado(): void
+    {
+        [$client, $user, $tenant, $pasta, $processo] = $this->cenario();
+        $apensado = $this->criarProcesso($tenant, '00000904420265180301');
+        $this->vincular($pasta, $apensado);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento', processoId: (int) $apensado->getId());
+
+        self::assertResponseIsSuccessful();
+        $json = $this->json($client);
+        self::assertTrue($json['ativo'], 'o cabeçalho é o do principal');
+        self::assertSame('Captura automática nos diários e no PJe · 2 processos', $json['statusSub']);
+        self::assertFalse($json['processo']['principal']);
+        self::assertSame('Apensado: PROCEDIMENTO COMUM · pausado', $json['processo']['sub']);
         self::assertTrue($this->processoNoBanco((int) $processo->getId())->monitoramentoAtivo());
+        self::assertFalse($this->processoNoBanco((int) $apensado->getId())->monitoramentoAtivo());
+    }
+
+    #[TestDox('Alternar processo que não é desta pasta (do mesmo escritório) ou sem processo: 404 e nada muda')]
+    public function testAlternarProcessoDeOutraPasta(): void
+    {
+        [$client, $user, $tenant, $pasta] = $this->cenario();
+        $outraPasta = $this->criarPasta($tenant);
+        $alheio = $this->criarProcesso($tenant, '07099999999999999999');
+        $this->vincular($outraPasta, $alheio);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento', processoId: (int) $alheio->getId());
+        self::assertResponseStatusCodeSame(404);
+        self::assertTrue($this->processoNoBanco((int) $alheio->getId())->monitoramentoAtivo());
+
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento');
+        self::assertResponseStatusCodeSame(404, 'sem o campo processo');
     }
 
     #[TestDox('Alternar sem CSRF válido: 403 e nada muda')]
@@ -152,7 +199,7 @@ final class PastaPushPainelControllerTest extends JusPrimeWebTestCase
         [$client, $user, $tenant, $pasta, $processo] = $this->cenario();
         $this->logarComTenant($client, $user, $tenant);
 
-        $this->postar($client, (int) $pasta->getId(), 'monitoramento', 'errado');
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento', 'errado', (int) $processo->getId());
 
         self::assertResponseStatusCodeSame(403);
         self::assertTrue($this->processoNoBanco((int) $processo->getId())->monitoramentoAtivo());
@@ -164,7 +211,7 @@ final class PastaPushPainelControllerTest extends JusPrimeWebTestCase
         [$client, , $tenant, $pasta, $processo] = $this->cenario();
         $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view']), $tenant);
 
-        $this->postar($client, (int) $pasta->getId(), 'monitoramento');
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento', processoId: (int) $processo->getId());
 
         self::assertResponseStatusCodeSame(403);
         self::assertTrue($this->processoNoBanco((int) $processo->getId())->monitoramentoAtivo());
@@ -176,28 +223,18 @@ final class PastaPushPainelControllerTest extends JusPrimeWebTestCase
         [$client, , , $pasta, $processo] = $this->cenario();
         [$intruso, $outroTenant] = $this->criarAdmin();
         $suaPasta = $this->criarPasta($outroTenant);
-        $this->vincular($suaPasta, $this->criarProcesso($outroTenant, self::NUMERO));
+        $seuProcesso = $this->criarProcesso($outroTenant, self::NUMERO);
+        $this->vincular($suaPasta, $seuProcesso);
+        $seuProcessoId = (int) $seuProcesso->getId();
         $this->logarComTenant($client, $intruso, $outroTenant);
 
-        $this->postar($client, (int) $pasta->getId(), 'monitoramento');
+        $this->postar($client, (int) $pasta->getId(), 'monitoramento', processoId: (int) $processo->getId());
 
         self::assertResponseStatusCodeSame(404);
         self::assertTrue($this->processoNoBanco((int) $processo->getId())->monitoramentoAtivo());
 
-        $this->postar($client, (int) $suaPasta->getId(), 'monitoramento');
+        $this->postar($client, (int) $suaPasta->getId(), 'monitoramento', processoId: $seuProcessoId);
         self::assertResponseIsSuccessful();
-    }
-
-    #[TestDox('Alternar pasta sem processo: 422')]
-    public function testAlternarSemProcesso(): void
-    {
-        [$client, $user, $tenant] = $this->cenario();
-        $semProcesso = $this->criarPasta($tenant);
-        $this->logarComTenant($client, $user, $tenant);
-
-        $this->postar($client, (int) $semProcesso->getId(), 'monitoramento');
-
-        self::assertResponseStatusCodeSame(422);
     }
 
     #[TestDox('Buscar agora: consulta o DJEN, grava a publicação nova e a última verificação, e avisa "1 movimentação(ões) nova(s)"')]

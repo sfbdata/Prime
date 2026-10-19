@@ -77,16 +77,10 @@ final class SincronizarNumerosDjenUseCaseTest extends TestCase
                 : throw new ConsultaDjenException(MotivoFalhaDjen::Timeout),
         );
 
-        $verificados = [];
-        $this->processoRepository->method('registrarVerificacaoDoNumero')->willReturnCallback(
-            function (Tenant $tenant, string $numero) use (&$verificados): void {
-                $verificados[] = $numero;
-            },
-        );
+        $this->processoRepository->expects(self::once())->method('registrarVerificacaoDosNumeros')
+            ->with($this->tenant, ['11111111111111111111'], self::isInstanceOf(\DateTimeImmutable::class));
 
         $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, self::periodo());
-
-        self::assertSame(['11111111111111111111'], $verificados);
     }
 
     #[TestDox('--dry-run não grava a última verificação')]
@@ -94,7 +88,7 @@ final class SincronizarNumerosDjenUseCaseTest extends TestCase
     {
         $this->processoRepository->method('listarNumerosAcompanhadosDoTenant')->willReturn(['11111111111111111111']);
         $this->djenClient->method('consultarComunicacoes')->willReturn(new RespostaComunicacoes(0, []));
-        $this->processoRepository->expects(self::never())->method('registrarVerificacaoDoNumero');
+        $this->processoRepository->expects(self::never())->method('registrarVerificacaoDosNumeros');
 
         $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, self::periodo(), dryRun: true);
     }
@@ -112,8 +106,8 @@ final class SincronizarNumerosDjenUseCaseTest extends TestCase
                 return new RespostaComunicacoes(0, []);
             },
         );
-        $this->processoRepository->expects(self::once())->method('registrarVerificacaoDoNumero')
-            ->with($this->tenant, '07011345720258070007', self::isInstanceOf(\DateTimeImmutable::class));
+        $this->processoRepository->expects(self::once())->method('registrarVerificacaoDosNumeros')
+            ->with($this->tenant, ['07011345720258070007'], self::isInstanceOf(\DateTimeImmutable::class));
 
         $resultado = $this->sut->sincronizarNumeros($this->tenant, self::periodo(), ['0701134-57.2025.8.07.0007', 'SEM-NUMERO']);
 
@@ -125,12 +119,34 @@ final class SincronizarNumerosDjenUseCaseTest extends TestCase
     public function testSincronizarNumerosParaNoLimite(): void
     {
         $this->djenClient->method('consultarComunicacoes')->willThrowException(new ConsultaDjenException(MotivoFalhaDjen::LimiteExcedido));
-        $this->processoRepository->expects(self::never())->method('registrarVerificacaoDoNumero');
+        $this->processoRepository->expects(self::once())->method('registrarVerificacaoDosNumeros')
+            ->with($this->tenant, [], self::anything());
 
         $resultado = $this->sut->sincronizarNumeros($this->tenant, self::periodo(), ['11111111111111111111', '22222222222222222222']);
 
         self::assertSame(2, $resultado->getProcessosAdiados());
         self::assertSame(0, $resultado->getProcessosConsultados());
         self::assertFalse($resultado->temFalhas());
+    }
+
+    #[TestDox('A verificação é gravada DEPOIS do flush das publicações novas')]
+    public function testVerificacaoDepoisDoFlush(): void
+    {
+        $this->djenClient->method('consultarComunicacoes')->willReturn(new RespostaComunicacoes(1, [[
+            'id' => 1, 'numero_processo' => '11111111111111111111', 'siglaTribunal' => 'TJDFT',
+            'tipoComunicacao' => 'Intimação', 'data_disponibilizacao' => '2026-10-19',
+        ]]));
+        $this->publicacaoRepository->method('filtrarDjenIdsExistentesDoTenant')->willReturn([]);
+        $ordem = [];
+        $this->publicacaoRepository->method('flush')->willReturnCallback(function () use (&$ordem): void {
+            $ordem[] = 'flush';
+        });
+        $this->processoRepository->method('registrarVerificacaoDosNumeros')->willReturnCallback(function () use (&$ordem): void {
+            $ordem[] = 'verificacao';
+        });
+
+        $this->sut->sincronizarNumeros($this->tenant, self::periodo(), ['11111111111111111111']);
+
+        self::assertSame(['flush', 'verificacao'], $ordem);
     }
 }

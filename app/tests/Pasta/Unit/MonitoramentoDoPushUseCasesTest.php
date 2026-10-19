@@ -20,7 +20,10 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\BuscaNoPushOutput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\BuscaNoPushMuitoFrequenteException;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\ProcessoForaDaPastaException;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Pasta\UseCase\AlternarMonitoramentoDaPastaUseCase;
 use App\Pasta\UseCase\BuscarAgoraNoPushUseCase;
 use App\Processo\Entity\Processo;
@@ -43,6 +46,8 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
 
     private Tenant $tenant;
 
+    private ?RateLimiterFactoryEspiao $limitador = null;
+
     protected function setUp(): void
     {
         $this->tenant = new Tenant();
@@ -55,6 +60,11 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
         $processo->setNumeroProcesso($numero);
 
         return $processo;
+    }
+
+    private function definirId(Processo $processo, int $id): void
+    {
+        (new \ReflectionProperty(Processo::class, 'id'))->setValue($processo, $id);
     }
 
     private function pasta(Processo ...$processos): Pasta
@@ -100,7 +110,7 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
             $this->createMock(EsperaEntreConsultasInterface::class),
         );
 
-        return new BuscarAgoraNoPushUseCase($sincronizar, new MockClock(new \DateTimeImmutable(self::AGORA)));
+        return new BuscarAgoraNoPushUseCase($sincronizar, new MockClock(new \DateTimeImmutable(self::AGORA)), $this->limitador ?? new RateLimiterFactoryEspiao(aceita: true));
     }
 
     #[TestDox('Alternar: pausa o processo principal (quem e quando) e retoma na segunda vez, com os textos do desenho')]
@@ -108,31 +118,51 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
     {
         $principal = $this->processo('07011345720258070007');
         $outro = $this->processo('07099999999999999999');
+        $this->definirId($principal, 1);
+        $this->definirId($outro, 2);
         $pasta = $this->pasta($principal, $outro);
         $usuario = new User();
 
-        $pausado = $this->alternar()->executar($pasta, $usuario, $this->tenant);
+        $pausado = $this->alternar()->executar($pasta, (int) $principal->getId(), $usuario, $this->tenant);
 
         self::assertFalse($pausado->ativo);
         self::assertSame('Monitoramento pausado', $pausado->statusTxt);
-        self::assertSame('Novas movimentações não serão capturadas', $pausado->statusSub);
-        self::assertSame($usuario, $principal->getMonitoramentoPausadoPor());
+        self::assertSame('Novas movimentações não serão capturadas · 2 processos', $pausado->statusSub);
+        self::assertSame($usuario, $principal->getMonitoramentoAlteradoPor());
         self::assertEquals(new \DateTimeImmutable(self::AGORA), $principal->getMonitoramentoPausadoEm());
+        self::assertSame('Pausado em 19/10', $pausado->processos[0]->dicaPausa, 'usuário sem nome: só a data');
         self::assertTrue($outro->monitoramentoAtivo(), 'só o principal: o desenho não tem switch por apensado');
 
-        $ativo = $this->alternar()->executar($pasta, $usuario, $this->tenant);
+        $quemRetomou = new User();
+        $ativo = $this->alternar()->executar($pasta, (int) $principal->getId(), $quemRetomou, $this->tenant);
 
         self::assertTrue($ativo->ativo);
         self::assertSame('Monitoramento ativo', $ativo->statusTxt);
-        self::assertNull($principal->getMonitoramentoPausadoPor());
+        self::assertSame($quemRetomou, $principal->getMonitoramentoAlteradoPor(), 'retomar não apaga quem mexeu: registra quem retomou');
     }
 
-    #[TestDox('Alternar sem processo vinculado é recusado')]
-    public function testAlternarSemProcesso(): void
+    #[TestDox('Alternar processo que não é desta pasta é recusado (o controller dá 404)')]
+    public function testAlternarProcessoDeFora(): void
     {
-        $this->expectException(\DomainException::class);
+        $this->expectException(ProcessoForaDaPastaException::class);
 
-        $this->alternar()->executar($this->pasta(), new User(), $this->tenant);
+        $this->alternar()->executar($this->pasta($this->processo('07011345720258070007')), 999999, new User(), $this->tenant);
+    }
+
+    #[TestDox('Alternar o processo apensado não mexe no principal')]
+    public function testAlternarApensado(): void
+    {
+        $principal = $this->processo('07011345720258070007');
+        $apensado = $this->processo('07099999999999999999');
+        $this->definirId($principal, 1);
+        $this->definirId($apensado, 2);
+
+        $painel = $this->alternar()->executar($this->pasta($principal, $apensado), 2, new User(), $this->tenant);
+
+        self::assertTrue($principal->monitoramentoAtivo());
+        self::assertFalse($apensado->monitoramentoAtivo());
+        self::assertTrue($painel->ativo);
+        self::assertFalse($painel->processo(2)?->ativo);
     }
 
     #[TestDox('Alternar pasta de outro escritório é recusado')]
@@ -140,7 +170,7 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
     {
         $this->expectException(PastaDeOutroEscritorioException::class);
 
-        $this->alternar()->executar($this->pasta($this->processo('07011345720258070007')), new User(), new Tenant());
+        $this->alternar()->executar($this->pasta($this->processo('07011345720258070007')), 0, new User(), new Tenant());
     }
 
     #[TestDox('Buscar agora: consulta só os processos da pasta com monitoramento ativo')]
@@ -167,6 +197,29 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
 
         $this->expectException(\DomainException::class);
         $this->buscar($consultados)->executar($this->pasta($principal), $this->tenant);
+    }
+
+    #[TestDox('Limite: recusa sem consultar o DJEN; com o monitoramento pausado a cota nem é gasta')]
+    public function testLimiteDepoisDasRecusas(): void
+    {
+        $this->limitador = new RateLimiterFactoryEspiao(aceita: false);
+        $principal = $this->processo('07011345720258070007');
+        $consultados = [];
+
+        try {
+            $this->buscar($consultados)->executar($this->pasta($principal), $this->tenant);
+            self::fail('deveria recusar pelo limite');
+        } catch (BuscaNoPushMuitoFrequenteException) {
+        }
+        self::assertSame([], $consultados);
+
+        $this->limitador = new RateLimiterFactoryEspiao(aceita: true);
+        $principal->pausarMonitoramento(new User(), new \DateTimeImmutable());
+        try {
+            $this->buscar($consultados)->executar($this->pasta($principal), $this->tenant);
+        } catch (\DomainException) {
+        }
+        self::assertSame([], $this->limitador->chavesConsumidas, 'pausado não gasta a cota');
     }
 
     #[TestDox('Mensagens: "N movimentação(ões) nova(s)", limite do DJEN e falha')]

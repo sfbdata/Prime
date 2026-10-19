@@ -12,6 +12,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PainelDoPushOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\MontarPainelDoPushUseCase;
+use App\Processo\DTO\HistoricoParaPrevisao;
 use App\Processo\DTO\MovimentacaoParaPrevisao;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\PrevisaoRegistradaRepository;
@@ -65,9 +66,11 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
         return $pasta;
     }
 
+    /** A consulta devolve a mais recente e o resumo do histórico (aqui, o resumo é do tamanho da lista). */
     private function comPublicacoes(MovimentacaoParaPrevisao ...$movs): void
     {
-        $this->publicacoes->method('listarParaPrevisaoDoTenant')->willReturn($movs);
+        $this->publicacoes->method('ultimaParaPrevisaoDoTenant')->willReturn($movs[0] ?? null);
+        $this->publicacoes->method('historicoParaPrevisaoDoTenant')->willReturn(new HistoricoParaPrevisao(count($movs), false));
     }
 
     private static function mov(string $data, string $tipo, string $texto): MovimentacaoParaPrevisao
@@ -80,7 +83,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
     {
         $pasta = new Pasta();
         $pasta->setTenant($this->tenant);
-        $this->publicacoes->expects(self::never())->method('listarParaPrevisaoDoTenant');
+        $this->publicacoes->expects(self::never())->method('ultimaParaPrevisaoDoTenant');
 
         $painel = $this->sut->executar($pasta, $this->tenant);
 
@@ -88,7 +91,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
         self::assertFalse($painel->ativo);
         self::assertSame('Sem monitoramento', $painel->statusTxt);
         self::assertSame('Vincule um processo', $painel->statusSub);
-        self::assertSame('Sem processo vinculado', $painel->processo);
+        self::assertSame([], $painel->processos);
         self::assertNull($painel->situacao);
     }
 
@@ -103,7 +106,10 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
         self::assertTrue($painel->ativo);
         self::assertSame('Monitoramento ativo', $painel->statusTxt);
         self::assertSame('Captura automática nos diários e no PJe', $painel->statusSub);
-        self::assertSame('0701134-57.2025.8.07.0007 · TJDFT', $painel->processo);
+        self::assertCount(1, $painel->processos);
+        self::assertSame('0701134-57.2025.8.07.0007', $painel->processos[0]->numero);
+        self::assertSame('TJDFT', $painel->processos[0]->tribunal);
+        self::assertTrue($painel->processos[0]->principal);
         self::assertSame('Última verificação: ainda não verificado', $painel->ultima);
         self::assertNull($painel->situacao);
     }
@@ -128,11 +134,11 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
     public function testPrimeiraPrevisao(): void
     {
         $this->comPublicacoes(self::mov('2026-10-14', 'Intimação', 'Sentença publicada.'));
-        $this->previsoes->method('ultimaDoProcesso')->willReturn(null);
+        $this->previsoes->method('ultimaDaPasta')->willReturn(null);
         $this->previsoes->method('contarConferidas')->willReturn(['conferidas' => 0, 'acertos' => 0]);
         $this->previsoes->expects(self::never())->method('conferir');
         $this->previsoes->expects(self::once())->method('registrar')
-            ->with($this->tenant, self::isInstanceOf(Processo::class), '14/10/2026 Intimação', 'Apelação ou embargos de declaração', new \DateTimeImmutable(self::AGORA));
+            ->with($this->tenant, self::isInstanceOf(Pasta::class), self::isInstanceOf(Processo::class), '14/10/2026 Intimação', 'Apelação ou embargos de declaração', new \DateTimeImmutable(self::AGORA));
 
         $painel = $this->sut->executar($this->pastaComProcesso(), $this->tenant);
 
@@ -145,7 +151,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
     public function testMesmaChaveEhIdempotente(): void
     {
         $this->comPublicacoes(self::mov('2026-10-14', 'Intimação', 'Sentença publicada.'));
-        $this->previsoes->method('ultimaDoProcesso')
+        $this->previsoes->method('ultimaDaPasta')
             ->willReturn(['id' => 7, 'chave' => '14/10/2026 Intimação', 'previsto' => 'Apelação ou embargos de declaração', 'conferida' => false]);
         $this->previsoes->method('contarConferidas')->willReturn(['conferidas' => 2, 'acertos' => 1]);
         $this->previsoes->expects(self::never())->method('conferir');
@@ -163,12 +169,12 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
             self::mov('2026-10-14', 'Intimação', 'Apelação interposta pela parte ré.'),
             self::mov('2026-09-01', 'Intimação', 'Sentença publicada.'),
         );
-        $this->previsoes->method('ultimaDoProcesso')
+        $this->previsoes->method('ultimaDaPasta')
             ->willReturn(['id' => 7, 'chave' => '01/09/2026 Intimação', 'previsto' => 'Apelação ou embargos de declaração', 'conferida' => false]);
         $this->previsoes->method('contarConferidas')->willReturn(['conferidas' => 1, 'acertos' => 1]);
         $this->previsoes->expects(self::once())->method('conferir')->with(7, $this->tenant, true);
         $this->previsoes->expects(self::once())->method('registrar')
-            ->with($this->tenant, self::isInstanceOf(Processo::class), '14/10/2026 Intimação', 'Contrarrazões', self::anything());
+            ->with($this->tenant, self::isInstanceOf(Pasta::class), self::isInstanceOf(Processo::class), '14/10/2026 Intimação', 'Contrarrazões', self::anything());
 
         $painel = $this->sut->executar($this->pastaComProcesso(), $this->tenant);
 
@@ -179,7 +185,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
     public function testAnteriorVaziaNaoConfere(): void
     {
         $this->comPublicacoes(self::mov('2026-10-14', 'Intimação', 'Sentença publicada.'));
-        $this->previsoes->method('ultimaDoProcesso')
+        $this->previsoes->method('ultimaDaPasta')
             ->willReturn(['id' => 7, 'chave' => '01/09/2026 Edital', 'previsto' => '', 'conferida' => false]);
         $this->previsoes->method('contarConferidas')->willReturn(['conferidas' => 0, 'acertos' => 0]);
         $this->previsoes->expects(self::never())->method('conferir');
@@ -195,7 +201,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
         $pasta = $this->pastaComProcesso($processo);
         $processo->pausarMonitoramento(new User(), new \DateTimeImmutable('2026-10-18'));
         $this->previsoes->method('contarConferidas')->willReturn(['conferidas' => 0, 'acertos' => 0]);
-        $this->previsoes->expects(self::never())->method('ultimaDoProcesso');
+        $this->previsoes->expects(self::never())->method('ultimaDaPasta');
         $this->previsoes->expects(self::never())->method('registrar');
 
         $painel = $this->sut->executar($pasta, $this->tenant);
@@ -204,5 +210,44 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
         self::assertSame('Monitoramento pausado', $painel->statusTxt);
         self::assertSame('Novas movimentações não serão capturadas', $painel->statusSub);
         self::assertNotNull($painel->situacao);
+    }
+
+    #[TestDox('Pasta excluída (somente leitura): o GET não grava previsão')]
+    public function testPastaExcluidaNaoGrava(): void
+    {
+        $this->comPublicacoes(self::mov('2026-10-14', 'Intimação', 'Sentença publicada.'));
+        $pasta = $this->pastaComProcesso();
+        $pasta->marcarExcluida(new User(), new \DateTimeImmutable('2026-10-18'));
+        $this->previsoes->method('contarConferidas')->willReturn(['conferidas' => 0, 'acertos' => 0]);
+        $this->previsoes->expects(self::never())->method('registrar');
+        $this->previsoes->expects(self::never())->method('conferir');
+
+        self::assertNotNull($this->sut->executar($pasta, $this->tenant)->situacao);
+    }
+
+    #[TestDox('Mais de um processo: o principal primeiro, os demais com "Apensado: classe · monitorado/pausado" e " · N processos" no subtítulo')]
+    public function testVariosProcessos(): void
+    {
+        $this->comPublicacoes();
+        $pasta = $this->pastaComProcesso();
+        $apensado = new Processo();
+        $apensado->setTenant($this->tenant);
+        $apensado->setNumeroProcesso('00000904420265180301');
+        $apensado->setSiglaTribunal('TRT18');
+        $apensado->setClasseProcessual('Execução Fiscal');
+        $quem = new User();
+        $quem->setFullName('Ana Souza');
+        $apensado->pausarMonitoramento($quem, new \DateTimeImmutable('2026-10-18 15:00'));
+        $pasta->vincularProcesso($apensado);
+
+        $painel = $this->sut->executar($pasta, $this->tenant);
+
+        self::assertSame('Captura automática nos diários e no PJe · 2 processos', $painel->statusSub);
+        self::assertCount(2, $painel->processos);
+        self::assertTrue($painel->processos[0]->principal);
+        self::assertFalse($painel->processos[1]->principal);
+        self::assertSame('Apensado: EXECUÇÃO FISCAL · pausado', $painel->processos[1]->sub);
+        self::assertSame('Pausado por Ana Souza em 18/10', $painel->processos[1]->dicaPausa);
+        self::assertNull($painel->processos[0]->dicaPausa);
     }
 }

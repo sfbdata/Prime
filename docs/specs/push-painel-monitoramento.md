@@ -78,3 +78,22 @@ recesso, virada de ano), selo de status, exemplo do desenho (Intimação 02/10/2
 em 19/10/2026, confiança Média com a nota da classe), taxa de acertos. Functional: alternar monitoramento (CSRF,
 sem EDIT 403, outro tenant 404), buscar agora (DJEN dublê, 429 no limite), captação pula pausado e grava a última
 verificação, cartão com os textos certos em cada estado, grade com filho direto.
+
+## 7. Decisões (registradas na implementação, 19/10/2026)
+
+- **Lista de processos no cartão** (pedido do coordenador, pelo print do desenho de 18/10): o principal na
+  primeira linha, com o selo "PRINCIPAL"; os demais processos da pasta recuados por uma barra, com a sublinha
+  "Apensado: {classe} · monitorado/pausado" e um switch próprio. O subtítulo ganha " · N processos" com mais de
+  um. `POST /pasta/{id}/push/monitoramento` recebe `processo` (id), que tem de ser desta pasta (senão 404).
+- **Quem mexeu**: `monitoramentoAlteradoPor`/`monitoramentoAlteradoEm` guardam quem pausou ou retomou por último;
+  pausado, o switch mostra "Pausado por X em dd/mm".
+- **Taxa de acertos por pasta**: `previsao_processual` tem `pasta_id` e UNIQUE (pasta, chave). O processo pode estar
+  em mais de uma pasta, cada uma com a sua lista; por processo, uma pasta conferiria a previsão da outra.
+- **A confirmar com o dono: contagem do prazo a partir da disponibilização.** O porte é fiel ao desenho
+  (`somaUteis` sobre a data da movimentação, L5090): a data de disponibilização no DJEN é tratada como a
+  publicação, e o prazo começa no 1º dia útil seguinte. Pela Lei 11.419/2006, art. 4º, §§ 3º e 4º, a publicação é o
+  1º dia útil seguinte à disponibilização, e o prazo começaria no dia útil depois dela (um dia a mais). Mantido
+  como o desenho até o dono decidir.
+- **A confirmar com o dono: pausa e a captação pela OAB.** Pausar tira o número da captação POR NÚMERO. A captação
+  pela OAB monitorada continua trazendo publicações desse processo quando a OAB aparece nelas, e elas continuam
+  aparecendo na aba. Comportamento mantido até o dono decidir se a pausa também deve filtrar essas.

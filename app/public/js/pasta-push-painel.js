@@ -2,9 +2,10 @@
    Coluna direita da aba Push: o cartão de Monitoramento e Situação atual
    (desenho 1.2.3, dc L.2567-2626; spec push-painel-monitoramento).
 
-     1. switch "Monitoramento" (POST `pasta_push_monitoramento`): troca no lugar o
-        ponto, o título, o subtítulo, o switch, o "Buscar agora" e a Situação atual,
-        que some com o monitoramento pausado (dc L.5420);
+     1. switches "Monitoramento" (POST `pasta_push_monitoramento`, com o id do
+        processo): o do principal troca no lugar o ponto, o título, o subtítulo, o
+        "Buscar agora" e a Situação atual, que some pausada (dc L.5420); o de cada
+        outro processo troca a própria linha ("· monitorado" / "· pausado");
      2. "Buscar agora" (POST `pasta_push_buscar`): enquanto roda, "Lendo o
         processo..." com `bi-arrow-repeat` (dc L.5443); no fim a página recarrega a
         aba e o aviso chega como flash ("N movimentação(ões) nova(s)").
@@ -22,7 +23,6 @@
         var ponto = painel.querySelector('[data-push-painel-ponto]');
         var titulo = painel.querySelector('[data-push-painel-titulo]');
         var sub = painel.querySelector('[data-push-painel-sub]');
-        var chave = painel.querySelector('[data-push-painel-switch]');
         var situacao = painel.querySelector('[data-push-painel-situacao]');
         var buscar = painel.querySelector('[data-push-painel-buscar]');
         var buscarIco = painel.querySelector('[data-push-painel-buscar-ico]');
@@ -37,10 +37,7 @@
             msg.hidden = !texto;
         }
 
-        function postar(url, token) {
-            var dados = new FormData();
-            dados.append('_token', token);
-
+        function postar(url, dados) {
             return fetch(url, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
@@ -51,33 +48,50 @@
             });
         }
 
-        /* ── 1. Switch do monitoramento ───────────────────────────────────── */
-        function aplicarEstado(ativo, textoTitulo, textoSub) {
-            ponto.classList.toggle('is-ativo', ativo);
-            titulo.textContent = textoTitulo;
-            sub.textContent = textoSub;
-            chave.classList.toggle('is-on', ativo);
-            chave.setAttribute('aria-checked', ativo ? 'true' : 'false');
-            if (situacao) { situacao.hidden = !ativo; }
-            if (buscar && buscarPermitido) { buscar.disabled = !ativo; }
+        /* ── 1. Switches do monitoramento ─────────────────────────────────────
+           O do cabeçalho é o do processo principal (mexe no cabeçalho, na Situação
+           atual e no Buscar agora); os dos demais processos só mudam a própria linha. */
+        function aplicarChave(botao, ativo, dica) {
+            botao.classList.toggle('is-on', ativo);
+            botao.setAttribute('aria-checked', ativo ? 'true' : 'false');
+            if (dica) { botao.title = dica; } else { botao.removeAttribute('title'); }
         }
 
-        if (chave) {
-            chave.addEventListener('click', function () {
-                if (chave.disabled) { return; }
-                chave.disabled = true;
-                avisar('');
-                postar(painel.dataset.monitoramentoUrl, painel.dataset.monitoramentoToken)
-                    .then(function (res) {
-                        if (!res.ok || !res.dados.sucesso) {
-                            throw new Error(res.dados.erro || 'Não foi possível alterar o monitoramento.');
-                        }
-                        aplicarEstado(!!res.dados.ativo, res.dados.statusTxt, res.dados.statusSub);
-                    })
-                    .catch(function (e) { avisar(e.message); })
-                    .then(function () { chave.disabled = false; });
-            });
+        function aplicarCabecalho(dados) {
+            ponto.classList.toggle('is-ativo', !!dados.ativo);
+            titulo.textContent = dados.statusTxt;
+            sub.textContent = dados.statusSub;
+            if (situacao) { situacao.hidden = !dados.ativo; }
+            if (buscar && buscarPermitido) { buscar.disabled = !dados.ativo; }
         }
+
+        function alternar(botao) {
+            botao.disabled = true;
+            avisar('');
+            var dados = new FormData();
+            dados.append('_token', painel.dataset.monitoramentoToken);
+            dados.append('processo', botao.dataset.processoId);
+            postar(painel.dataset.monitoramentoUrl, dados)
+                .then(function (res) {
+                    if (!res.ok || !res.dados.sucesso) {
+                        throw new Error(res.dados.erro || 'Não foi possível alterar o monitoramento.');
+                    }
+                    var processo = res.dados.processo || {};
+                    aplicarChave(botao, !!processo.ativo, processo.dica);
+                    aplicarCabecalho(res.dados);
+                    var linha = botao.closest('[data-push-painel-processo]');
+                    var linhaSub = linha && linha.querySelector('[data-push-painel-processo-sub]');
+                    if (linhaSub && processo.sub) { linhaSub.textContent = processo.sub; }
+                })
+                .catch(function (e) { avisar(e.message); })
+                .then(function () { botao.disabled = false; });
+        }
+
+        painel.querySelectorAll('[data-push-painel-switch]').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                if (!botao.disabled && botao.dataset.processoId) { alternar(botao); }
+            });
+        });
 
         /* ── 2. Buscar agora ──────────────────────────────────────────────── */
         function marcarBuscando(sim) {
@@ -92,7 +106,9 @@
                 if (buscar.disabled) { return; }
                 marcarBuscando(true);
                 avisar('');
-                postar(painel.dataset.buscarUrl, painel.dataset.buscarToken)
+                var dados = new FormData();
+                dados.append('_token', painel.dataset.buscarToken);
+                postar(painel.dataset.buscarUrl, dados)
                     .then(function (res) {
                         if (!res.ok || !res.dados.sucesso) {
                             throw new Error(res.dados.erro || 'Não foi possível buscar agora.');

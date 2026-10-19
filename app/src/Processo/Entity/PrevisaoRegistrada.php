@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Processo\Entity;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Processo\Repository\PrevisaoRegistradaRepository;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
@@ -19,8 +20,11 @@ use Doctrine\ORM\Mapping as ORM;
  *     longa do previsto aparece no texto do que realmente aconteceu (`PrevisaoProcessual::acertou`).
  *
  * Anatomia:
- *   - UNIQUE (processo_id, chave): uma previsão por movimentação, árbitro do INSERT idempotente;
- *   - `processo_id` CASCADE: a previsão some com o processo;
+ *   - UNIQUE (pasta_id, chave): uma previsão por movimentação DA PASTA, árbitro do INSERT
+ *     idempotente. É por pasta, e não por processo, porque a lista lida é a da pasta (todos os
+ *     processos dela) e o mesmo processo pode estar em outra pasta, com outra lista: por processo,
+ *     uma pasta conferiria a previsão da outra;
+ *   - `pasta_id` e `processo_id` (o principal da pasta quando a previsão nasceu) CASCADE;
  *   - `tenant_id` NOT NULL: TenantAware, passa pelo TenantFilter e pela purga.
  *
  * Dado derivado, gravado pelo sistema na montagem da aba: fora da auditoria (AuditavelCoberturaTest).
@@ -28,7 +32,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: PrevisaoRegistradaRepository::class)]
 #[ORM\Table(name: 'previsao_processual')]
 #[ORM\Index(name: 'idx_previsao_processual_tenant', columns: ['tenant_id'])]
-#[ORM\UniqueConstraint(name: 'uniq_previsao_processual_processo_chave', columns: ['processo_id', 'chave'])]
+#[ORM\UniqueConstraint(name: 'uniq_previsao_processual_pasta_chave', columns: ['pasta_id', 'chave'])]
 class PrevisaoRegistrada implements TenantAware
 {
     #[ORM\Id]
@@ -46,6 +50,9 @@ class PrevisaoRegistrada implements TenantAware
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
         private Tenant $tenant,
+        #[ORM\ManyToOne(targetEntity: Pasta::class)]
+        #[ORM\JoinColumn(name: 'pasta_id', nullable: false, onDelete: 'CASCADE')]
+        private Pasta $pasta,
         #[ORM\ManyToOne(targetEntity: Processo::class)]
         #[ORM\JoinColumn(name: 'processo_id', nullable: false, onDelete: 'CASCADE')]
         private Processo $processo,
@@ -66,6 +73,11 @@ class PrevisaoRegistrada implements TenantAware
     public function getTenant(): Tenant
     {
         return $this->tenant;
+    }
+
+    public function getPasta(): Pasta
+    {
+        return $this->pasta;
     }
 
     public function getProcesso(): Processo

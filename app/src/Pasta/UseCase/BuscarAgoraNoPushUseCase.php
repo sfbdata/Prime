@@ -9,8 +9,10 @@ use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\BuscaNoPushOutput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\BuscaNoPushMuitoFrequenteException;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * "Buscar agora" do painel do Push (desenho 1.2.3, dc L.2626; spec push-painel-monitoramento §2).
@@ -30,12 +32,14 @@ final class BuscarAgoraNoPushUseCase
     public function __construct(
         private readonly SincronizarPublicacoesDjenUseCase $sincronizar,
         private readonly ClockInterface $relogio,
+        private readonly RateLimiterFactoryInterface $pastaPushBuscarLimiter,
     ) {
     }
 
     /**
      * @throws PastaDeOutroEscritorioException pasta de outro escritório
      * @throws \DomainException                sem processo ou com o monitoramento pausado
+     * @throws BuscaNoPushMuitoFrequenteException a pasta já buscou no último minuto
      */
     public function executar(Pasta $pasta, Tenant $tenant): BuscaNoPushOutput
     {
@@ -48,6 +52,8 @@ final class BuscarAgoraNoPushUseCase
             throw new \DomainException('Ative o monitoramento para buscar.');
         }
 
+        $this->exigirCotaDaPasta($pasta, $tenant);
+
         $hoje = $this->relogio->now()->setTime(0, 0);
         $resultado = $this->sincronizar->sincronizarNumeros(
             $tenant,
@@ -56,6 +62,17 @@ final class BuscarAgoraNoPushUseCase
         );
 
         return BuscaNoPushOutput::doResultado($resultado);
+    }
+
+    /**
+     * Uma busca por pasta a cada minuto (limitador `pasta_push_buscar`, chave escritório + pasta).
+     * Consome só DEPOIS das recusas acima: pedido recusado por pausa não gasta a cota.
+     */
+    private function exigirCotaDaPasta(Pasta $pasta, Tenant $tenant): void
+    {
+        if (!$this->pastaPushBuscarLimiter->create($tenant->getId() . '-' . $pasta->getId())->consume()->isAccepted()) {
+            throw new BuscaNoPushMuitoFrequenteException('Aguarde um minuto para buscar de novo.');
+        }
     }
 
     /** @return list<string> */

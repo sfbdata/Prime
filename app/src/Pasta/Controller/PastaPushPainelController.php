@@ -7,6 +7,8 @@ namespace App\Pasta\Controller;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\BuscaNoPushMuitoFrequenteException;
+use App\Pasta\Exception\ProcessoForaDaPastaException;
 use App\Pasta\UseCase\AlternarMonitoramentoDaPastaUseCase;
 use App\Pasta\UseCase\BuscarAgoraNoPushUseCase;
 use App\Service\PermissionChecker;
@@ -15,12 +17,12 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Ações do cartão da coluna direita da aba Push (desenho 1.2.3, dc L.2568-2626; spec
- * push-painel-monitoramento §1 e §2): o switch do monitoramento e o "Buscar agora".
+ * push-painel-monitoramento §1 e §2): os switches do monitoramento (um por processo da pasta; o
+ * campo `processo` diz qual, e processo de fora da pasta dá 404) e o "Buscar agora".
  *
  * Guarda, nas duas: a pasta é do escritório da sessão (404, nunca 403, para não revelar que existe:
  * o resolver busca por PK e o TenantFilter não se aplica a find()), a permissão sobre a pasta (403)
@@ -34,7 +36,6 @@ final class PastaPushPainelController extends AbstractController
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
-        private readonly RateLimiterFactoryInterface $pastaPushBuscarLimiter,
     ) {
     }
 
@@ -48,17 +49,20 @@ final class PastaPushPainelController extends AbstractController
             return $recusa;
         }
 
+        $processoId = $request->request->getInt('processo');
         try {
-            $painel = $alternar->executar($pasta, $usuario, $this->tenant());
-        } catch (\DomainException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            $painel = $alternar->executar($pasta, $processoId, $usuario, $this->tenant());
+        } catch (ProcessoForaDaPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
+        $processo = $painel->processo($processoId);
 
         return $this->json([
             'sucesso'   => true,
             'ativo'     => $painel->ativo,
             'statusTxt' => $painel->statusTxt,
             'statusSub' => $painel->statusSub,
+            'processo'  => ['id' => $processoId, 'principal' => $processo?->principal, 'ativo' => $processo?->ativo, 'sub' => $processo?->sub, 'dica' => $processo?->dicaPausa],
         ]);
     }
 
@@ -72,13 +76,10 @@ final class PastaPushPainelController extends AbstractController
             return $recusa;
         }
 
-        $tenant = $this->tenant();
-        if (!$this->pastaPushBuscarLimiter->create($tenant->getId() . '-' . $pasta->getId())->consume()->isAccepted()) {
-            return $this->json(['erro' => 'Aguarde um minuto para buscar de novo.'], Response::HTTP_TOO_MANY_REQUESTS);
-        }
-
         try {
-            $busca = $buscar->executar($pasta, $tenant);
+            $busca = $buscar->executar($pasta, $this->tenant());
+        } catch (BuscaNoPushMuitoFrequenteException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_TOO_MANY_REQUESTS);
         } catch (\DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

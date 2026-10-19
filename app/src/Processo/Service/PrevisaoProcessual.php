@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Processo\Service;
 
 use App\Agenda\Service\DiasUteisNacionais;
+use App\Processo\DTO\HistoricoParaPrevisao;
 use App\Processo\DTO\MovimentacaoParaPrevisao;
 use App\Processo\DTO\SituacaoAtualOutput;
 
@@ -59,8 +60,33 @@ final class PrevisaoProcessual
     }
 
     /**
+     * A situação a partir da movimentação MAIS RECENTE e do resumo do histórico, que é o que a
+     * montagem da aba consulta (`PublicacaoDjenRepository::ultimaParaPrevisaoDoTenant` e
+     * `historicoParaPrevisaoDoTenant`), sem trazer o teor de cada publicação.
+     *
+     * @param string $classe classe processual do processo principal
+     */
+    public function preverComHistorico(MovimentacaoParaPrevisao $ultima, HistoricoParaPrevisao $historico, string $classe, \DateTimeImmutable $hoje): SituacaoAtualOutput
+    {
+        $ult = self::lida($ultima);
+        $regra = self::regraDe($ult['n']);
+        [$conf, $notas] = self::ajustarConfianca($regra, $historico->temContestacao, $classe);
+        [$dias, $notaDoPrazo] = self::diasDoPrazo($regra, $ult['n']);
+        if ($notaDoPrazo !== null) {
+            $notas[] = $notaDoPrazo;
+        }
+        $fim = $dias ? $this->diasUteis->somarUteis($ultima->data, $dias) : null;
+        $falta = $fim !== null ? $this->diasUteis->uteisAte($fim, $hoje) : null;
+
+        return $this->montar($regra, $ult, max(1, $historico->total), $conf, $notas, $dias, $fim, $falta);
+    }
+
+    /**
+     * A mesma situação a partir da lista inteira, como o desenho a lê (dc L.5093-5096): a mais
+     * recente manda e o histórico é o resto. Resumir a lista aqui dá o mesmo que a consulta resume
+     * no banco; é a forma que os testes do porte usam.
+     *
      * @param MovimentacaoParaPrevisao[] $movimentacoes as publicações dos processos da pasta
-     * @param string                     $classe        classe processual do processo principal
      */
     public function prever(array $movimentacoes, string $classe, \DateTimeImmutable $hoje): ?SituacaoAtualOutput
     {
@@ -68,19 +94,15 @@ final class PrevisaoProcessual
             return null;
         }
 
-        $ms = $this->maisRecentePrimeiro($movimentacoes);
-        $ultima = $ms[0];
-        $historico = array_slice($ms, 1);
-        $regra = self::regraDe($ultima['n']);
-        [$conf, $notas] = self::ajustarConfianca($regra, $ultima, $historico, $classe);
-        [$dias, $notaDoPrazo] = self::diasDoPrazo($regra, $ultima['n']);
-        if ($notaDoPrazo !== null) {
-            $notas[] = $notaDoPrazo;
+        $ms = array_values($movimentacoes);
+        // usort é estável: no mesmo dia vale a ordem de chegada, como o `sort` do desenho.
+        usort($ms, static fn (MovimentacaoParaPrevisao $a, MovimentacaoParaPrevisao $b): int => $b->data <=> $a->data);
+        $temContestacao = false;
+        foreach (array_slice($ms, 1) as $anterior) {
+            $temContestacao = $temContestacao || preg_match('/contesta/', self::lida($anterior)['n']) === 1;
         }
-        $fim = $dias ? $this->diasUteis->somarUteis($ultima['mov']->data, $dias) : null;
-        $falta = $fim !== null ? $this->diasUteis->uteisAte($fim, $hoje) : null;
 
-        return $this->montar($regra, $ultima, count($ms), $conf, $notas, $dias, $fim, $falta);
+        return $this->preverComHistorico($ms[0], new HistoricoParaPrevisao(count($ms), $temContestacao), $classe, $hoje);
     }
 
     /**
@@ -108,21 +130,17 @@ final class PrevisaoProcessual
     }
 
     /**
-     * @param MovimentacaoParaPrevisao[] $movimentacoes
+     * O texto como a regra o lê (dc L.5094): tipo + teor, minúsculo, sem acento, até 5.000 caracteres.
      *
-     * @return list<array{mov: MovimentacaoParaPrevisao, n: string, data: string}>
+     * @return array{mov: MovimentacaoParaPrevisao, n: string, data: string}
      */
-    private function maisRecentePrimeiro(array $movimentacoes): array
+    private static function lida(MovimentacaoParaPrevisao $m): array
     {
-        $ms = array_map(static fn (MovimentacaoParaPrevisao $m): array => [
+        return [
             'mov'  => $m,
             'n'    => mb_substr(self::normalizar($m->tipo . ' ' . $m->texto), 0, self::LIMITE_TEXTO),
             'data' => $m->data->format('d/m/Y'),
-        ], array_values($movimentacoes));
-        // usort é estável: no mesmo dia vale a ordem de chegada, como o `sort` do desenho.
-        usort($ms, static fn (array $a, array $b): int => $b['mov']->data <=> $a['mov']->data);
-
-        return $ms;
+        ];
     }
 
     /** @return array{id: string, re: string, fase: string, quem: string, dias: int|string|null, base: string, prox: string, post: string, conf: string, exige?: string}|null */
@@ -140,13 +158,15 @@ final class PrevisaoProcessual
     /**
      * Ajustes de contexto (dc L.5097-5101), na ordem do desenho.
      *
-     * @param array<string, mixed>|null                                            $regra
-     * @param array{mov: MovimentacaoParaPrevisao, n: string, data: string}       $ultima
-     * @param list<array{mov: MovimentacaoParaPrevisao, n: string, data: string}> $historico
+     * O ajuste "Já existe réplica registrada depois desta intimação" (dc L.5099) não foi portado:
+     * ele procura no histórico movimentação com data POSTERIOR à mais recente, o que não existe
+     * (a mais recente é a de maior data). No desenho a condição nunca é verdadeira; aqui, também.
+     *
+     * @param array<string, mixed>|null $regra
      *
      * @return array{0: string, 1: list<string>}
      */
-    private static function ajustarConfianca(?array $regra, array $ultima, array $historico, string $classe): array
+    private static function ajustarConfianca(?array $regra, bool $historicoTemContestacao, string $classe): array
     {
         if ($regra === null) {
             return ['Baixa', []];
@@ -154,14 +174,9 @@ final class PrevisaoProcessual
 
         $conf = $regra['conf'];
         $notas = [];
-        if (isset($regra['exige']) && !self::algumCasa($historico, '/contesta/')) {
+        if (isset($regra['exige']) && !$historicoTemContestacao) {
             $conf = 'Média';
             $notas[] = 'Não encontrei a contestação no histórico; confira se ela foi juntada.';
-        }
-        $replicaDepois = array_filter($historico, static fn (array $m): bool => $m['mov']->data > $ultima['mov']->data);
-        if ($regra['id'] === 'replica' && self::algumCasa(array_values($replicaDepois), '/replica/')) {
-            $conf = 'Baixa';
-            $notas[] = 'Já existe réplica registrada depois desta intimação.';
         }
         if (preg_match('/cumprimento de senten/u', mb_strtolower($classe)) === 1 && in_array($regra['id'], self::REGRAS_DE_CONHECIMENTO, true)) {
             $conf = $conf === 'Alta' ? 'Média' : 'Baixa';
@@ -169,18 +184,6 @@ final class PrevisaoProcessual
         }
 
         return [$conf, $notas];
-    }
-
-    /** @param list<array{mov: MovimentacaoParaPrevisao, n: string, data: string}> $ms */
-    private static function algumCasa(array $ms, string $padrao): bool
-    {
-        foreach ($ms as $m) {
-            if (preg_match($padrao, $m['n']) === 1) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

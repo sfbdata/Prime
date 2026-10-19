@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Processo\Repository;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\PrevisaoRegistrada;
 use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -28,17 +29,17 @@ class PrevisaoRegistradaRepository extends ServiceEntityRepository
     }
 
     /**
-     * A previsão mais recente do processo, como dado simples (sem hidratar entidade).
+     * A previsão mais recente da pasta, como dado simples (sem hidratar entidade).
      *
      * @return array{id: int, chave: string, previsto: string, conferida: bool}|null
      */
-    public function ultimaDoProcesso(Processo $processo, Tenant $tenant): ?array
+    public function ultimaDaPasta(Pasta $pasta, Tenant $tenant): ?array
     {
         $linha = $this->getEntityManager()->getConnection()->fetchAssociative(
             'SELECT id, chave, previsto, conferida FROM previsao_processual
-              WHERE tenant_id = :tenant AND processo_id = :processo
+              WHERE tenant_id = :tenant AND pasta_id = :pasta
               ORDER BY id DESC LIMIT 1',
-            ['tenant' => $tenant->getId(), 'processo' => $processo->getId()],
+            ['tenant' => $tenant->getId(), 'pasta' => $pasta->getId()],
         );
 
         if ($linha === false) {
@@ -54,14 +55,15 @@ class PrevisaoRegistradaRepository extends ServiceEntityRepository
     }
 
     /** Grava a previsão desta chave; se ela já existe, não faz nada (idempotente). */
-    public function registrar(Tenant $tenant, Processo $processo, string $chave, string $previsto, \DateTimeImmutable $em): void
+    public function registrar(Tenant $tenant, Pasta $pasta, Processo $processo, string $chave, string $previsto, \DateTimeImmutable $em): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
-            'INSERT INTO previsao_processual (tenant_id, processo_id, chave, previsto, conferida, acertou, em)
-             VALUES (:tenant, :processo, :chave, :previsto, false, NULL, :em)
-             ON CONFLICT (processo_id, chave) DO NOTHING',
+            'INSERT INTO previsao_processual (tenant_id, pasta_id, processo_id, chave, previsto, conferida, acertou, em)
+             VALUES (:tenant, :pasta, :processo, :chave, :previsto, false, NULL, :em)
+             ON CONFLICT (pasta_id, chave) DO NOTHING',
             [
                 'tenant'   => $tenant->getId(),
+                'pasta'    => $pasta->getId(),
                 'processo' => $processo->getId(),
                 'chave'    => mb_substr($chave, 0, 255),
                 'previsto' => $previsto,
@@ -81,13 +83,13 @@ class PrevisaoRegistradaRepository extends ServiceEntityRepository
     }
 
     /** @return array{conferidas: int, acertos: int} */
-    public function contarConferidas(Processo $processo, Tenant $tenant): array
+    public function contarConferidas(Pasta $pasta, Tenant $tenant): array
     {
         $linha = $this->getEntityManager()->getConnection()->fetchAssociative(
             'SELECT COUNT(*) AS conferidas, COUNT(*) FILTER (WHERE acertou) AS acertos
                FROM previsao_processual
-              WHERE tenant_id = :tenant AND processo_id = :processo AND conferida = true',
-            ['tenant' => $tenant->getId(), 'processo' => $processo->getId()],
+              WHERE tenant_id = :tenant AND pasta_id = :pasta AND conferida = true',
+            ['tenant' => $tenant->getId(), 'pasta' => $pasta->getId()],
         );
 
         return [

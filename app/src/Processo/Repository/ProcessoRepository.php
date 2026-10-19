@@ -4,6 +4,8 @@ namespace App\Processo\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
+use App\Twig\NumeroProcessoExtension;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -94,20 +96,34 @@ class ProcessoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Grava a última verificação no DJEN dos processos do escritório com este número (spec
-     * push-painel-monitoramento §1). O número chega só com dígitos (é o que a captação consulta) e o
-     * cadastro pode tê-lo com máscara, por isso a comparação é só de dígitos dos dois lados.
+     * Grava a última verificação no DJEN dos processos do escritório com estes números (spec
+     * push-painel-monitoramento §1). Os números chegam só com dígitos (é o que a captação consulta)
+     * e o cadastro pode guardá-los com a máscara CNJ: a comparação é com as DUAS formas, por `IN`,
+     * para usar o índice único (tenant_id, numero_processo) em vez de varrer a tabela.
      *
-     * UPDATE direto, e não pela entidade: roda no laço da captação (no comando, centenas de números)
+     * UPDATE direto, e não pela entidade: roda depois da captação (no comando, centenas de números)
      * e não deve disparar o `PreUpdate` do processo, que mudaria o `modificadoEm` sem ninguém ter
      * mexido no cadastro. Escopado pelo tenant explícito (o comando roda sem o TenantFilter).
+     *
+     * @param list<string> $numerosSoDigitos
      */
-    public function registrarVerificacaoDoNumero(Tenant $tenant, string $numeroSoDigitos, \DateTimeImmutable $em): void
+    public function registrarVerificacaoDosNumeros(Tenant $tenant, array $numerosSoDigitos, \DateTimeImmutable $em): void
     {
+        if ($numerosSoDigitos === []) {
+            return;
+        }
+
+        $mascara = new NumeroProcessoExtension();
+        $formas = [];
+        foreach ($numerosSoDigitos as $numero) {
+            $formas[$numero] = true;
+            $formas[$mascara->numeroCnj($numero)] = true;
+        }
+
         $this->getEntityManager()->getConnection()->executeStatement(
-            "UPDATE processo SET ultima_verificacao_em = :em
-              WHERE tenant_id = :tenant AND regexp_replace(numero_processo, '\\D', '', 'g') = :numero",
-            ['em' => $em->format('Y-m-d H:i:s'), 'tenant' => $tenant->getId(), 'numero' => $numeroSoDigitos],
+            'UPDATE processo SET ultima_verificacao_em = :em WHERE tenant_id = :tenant AND numero_processo IN (:numeros)',
+            ['em' => $em->format('Y-m-d H:i:s'), 'tenant' => $tenant->getId(), 'numeros' => array_map('strval', array_keys($formas))],
+            ['numeros' => ArrayParameterType::STRING],
         );
     }
 

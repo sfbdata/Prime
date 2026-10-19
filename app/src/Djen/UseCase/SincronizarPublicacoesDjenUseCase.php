@@ -107,6 +107,7 @@ final class SincronizarPublicacoesDjenUseCase
         }
 
         $this->concluir($tenant, $dryRun, $resultado);
+        $this->registrarVerificacoes($tenant, $dryRun, $resultado);
 
         // A vinculação acima olha o cadastro no instante da captura. Quando o processo entra no
         // sistema DEPOIS — o caso normal ao assumir um caso em andamento —, a publicação ficaria
@@ -140,6 +141,7 @@ final class SincronizarPublicacoesDjenUseCase
 
         $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
         $this->concluir($tenant, $dryRun, $resultado);
+        $this->registrarVerificacoes($tenant, $dryRun, $resultado);
 
         return $resultado;
     }
@@ -159,6 +161,7 @@ final class SincronizarPublicacoesDjenUseCase
 
         $this->consultarProcessos($tenant, $this->numerosCnj($numeros), $periodo, false, $vistosNesteRun, $resultado, false);
         $this->concluir($tenant, false, $resultado);
+        $this->registrarVerificacoes($tenant, false, $resultado);
         $this->reconciliar->executar($tenant);
 
         return $resultado;
@@ -188,11 +191,15 @@ final class SincronizarPublicacoesDjenUseCase
         return $validos;
     }
 
-    /** A última verificação do processo (spec push-painel-monitoramento §1). O --dry-run não grava nada. */
-    private function registrarVerificacao(Tenant $tenant, string $numero, bool $dryRun): void
+    /**
+     * A última verificação dos números consultados com sucesso (spec push-painel-monitoramento §1).
+     * Só DEPOIS do flush das publicações (`concluir`): se gravar o que o DJEN trouxe falhar, o
+     * processo não pode aparecer como verificado. O --dry-run não grava nada.
+     */
+    private function registrarVerificacoes(Tenant $tenant, bool $dryRun, ResultadoSincronizacao $resultado): void
     {
         if (!$dryRun) {
-            $this->processoRepository->registrarVerificacaoDoNumero($tenant, $numero, new \DateTimeImmutable());
+            $this->processoRepository->registrarVerificacaoDosNumeros($tenant, $resultado->getNumerosConsultados(), new \DateTimeImmutable());
         }
     }
 
@@ -288,8 +295,7 @@ final class SincronizarPublicacoesDjenUseCase
 
             $esperasSeguidas = 0;
             ++$indice;
-            $resultado->registrarProcessoConsultado();
-            $this->registrarVerificacao($tenant, $numero, $dryRun);
+            $resultado->registrarProcessoConsultado($numero);
             $resultado->registrarRecebidas(\count($itens));
             $this->processarItens(null, $tenant, $itens, $dryRun, $vistosNesteRun, $resultado);
         }

@@ -17,6 +17,15 @@
 {% set pastaViva = not pasta.estaExcluida %}
 {% set podeAlternar = painel.temProcesso and podeEditarPasta and pastaViva %}
 {% set situacao = painel.situacao %}
+{% set principal = painel.processos|first %}
+{# A dica do switch dá o motivo real de ele estar travado; liberado e pausado, diz quem pausou. #}
+{% if not pastaViva %}
+    {% set dicaTrava = 'Pasta excluída: somente leitura.' %}
+{% elseif not podeEditarPasta %}
+    {% set dicaTrava = 'Só quem edita a pasta pausa ou retoma o monitoramento' %}
+{% else %}
+    {% set dicaTrava = null %}
+{% endif %}
 <aside class="ps-push-coluna" aria-label="Monitoramento do processo">
     <div class="ps-push-painel" data-push-painel
          data-monitoramento-url="{{ path('pasta_push_monitoramento', {id: pasta.id}) }}"
@@ -30,16 +39,45 @@
                 <span class="ps-push-painel-titulo" data-push-painel-titulo>{{ painel.statusTxt }}</span>
                 <span class="ps-push-painel-sub" data-push-painel-sub>{{ painel.statusSub }}</span>
             </span>
+            {% set dicaPrincipal = dicaTrava ?? (principal ? principal.dicaPausa : null) %}
             <button type="button" class="ps-push-switch{{ painel.ativo ? ' is-on' : '' }}"
                     role="switch" aria-checked="{{ painel.ativo ? 'true' : 'false' }}" aria-label="Monitoramento"
-                    data-push-painel-switch
-                    {% if painel.temProcesso and not podeAlternar %}title="Só quem edita a pasta pausa ou retoma o monitoramento"{% endif %}
+                    data-push-painel-switch data-push-painel-principal
+                    {% if principal %}data-processo-id="{{ principal.id }}"{% endif %}
+                    {% if painel.temProcesso and dicaPrincipal %}title="{{ dicaPrincipal }}"{% endif %}
                     {{ podeAlternar ? '' : 'disabled' }}>
                 <span class="ps-push-switch-bola"></span>
             </button>
         </div>
+        {# Processos da pasta (desenho de 18/10, pedido do coordenador): o principal com o selo, e os
+           demais recuados por uma barra, cada um com o seu switch. Número com a máscara CNJ. #}
         <div class="ps-push-painel-info">
-            <div class="ps-push-painel-linha"><i class="bi bi-diagram-3" aria-hidden="true"></i><span class="ps-push-painel-processo">{{ painel.processo }}</span></div>
+            <div class="ps-push-painel-linha">
+                <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                {% if principal %}
+                    <span class="ps-push-painel-processo">{{ principal.numero|numero_cnj }}{% if principal.tribunal %} · {{ principal.tribunal }}{% endif %}</span>
+                    <span class="ps-push-painel-selo">Principal</span>
+                {% else %}
+                    <span class="ps-push-painel-processo">Sem processo vinculado</span>
+                {% endif %}
+            </div>
+            {% for apensado in painel.processos|slice(1) %}
+                {% set dicaApensado = dicaTrava ?? apensado.dicaPausa %}
+                <div class="ps-push-apensado" data-push-painel-processo="{{ apensado.id }}">
+                    <span class="ps-push-apensado-texto">
+                        <span class="ps-push-apensado-numero">{{ apensado.numero|numero_cnj }}{% if apensado.tribunal %} · {{ apensado.tribunal }}{% endif %}</span>
+                        <span class="ps-push-apensado-sub" data-push-painel-processo-sub>{{ apensado.sub }}</span>
+                    </span>
+                    <button type="button" class="ps-push-switch{{ apensado.ativo ? ' is-on' : '' }}"
+                            role="switch" aria-checked="{{ apensado.ativo ? 'true' : 'false' }}"
+                            aria-label="Monitoramento do processo {{ apensado.numero|numero_cnj }}"
+                            data-push-painel-switch data-processo-id="{{ apensado.id }}"
+                            {% if dicaApensado %}title="{{ dicaApensado }}"{% endif %}
+                            {{ podeEditarPasta and pastaViva ? '' : 'disabled' }}>
+                        <span class="ps-push-switch-bola"></span>
+                    </button>
+                </div>
+            {% endfor %}
             <div class="ps-push-painel-linha"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>{{ painel.ultima }}</span></div>
         </div>
         {% if situacao is not null %}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\DTO;
 
+use App\Pasta\Entity\Pasta;
 use App\Processo\DTO\SituacaoAtualOutput;
 use App\Processo\Entity\Processo;
 
@@ -11,61 +12,83 @@ use App\Processo\Entity\Processo;
  * O cartão da coluna direita da aba Push (desenho 1.2.3, dc L.2568-2626; spec
  * push-painel-monitoramento §1-3), já resolvido. Os textos são os de `pushVals` (dc L.5434-5446).
  *
- * O monitoramento é o do processo PRINCIPAL da pasta. `situacao` existe quando há movimentação;
- * com o monitoramento pausado a tela a esconde (dc L.5420), e o switch a mostra de novo sem
- * recarregar.
+ * O cabeçalho é o do processo PRINCIPAL da pasta (o switch dele é o do cabeçalho). `processos`
+ * lista o principal primeiro e depois os demais da pasta, cada um com o seu switch; com mais de um,
+ * o subtítulo ganha " · N processos". `situacao` existe quando há movimentação; com o
+ * monitoramento pausado a tela a esconde (dc L.5420), e o switch a mostra de novo sem recarregar.
  */
 final readonly class PainelDoPushOutput
 {
+    /** @param list<ProcessoDoPainelOutput> $processos */
     private function __construct(
         public bool $temProcesso,
         public bool $ativo,
         public string $statusTxt,
         public string $statusSub,
-        public string $processo,
         public string $ultima,
+        public array $processos,
         public ?SituacaoAtualOutput $situacao,
     ) {
     }
 
     public static function semProcesso(): self
     {
-        [$titulo, $sub] = self::textosDoEstado(false, false);
+        [$titulo, $sub] = self::textosDoEstado(false, false, 0);
 
-        return new self(false, false, $titulo, $sub, 'Sem processo vinculado', 'Última verificação: ainda não verificado', null);
+        return new self(false, false, $titulo, $sub, 'Última verificação: ainda não verificado', [], null);
     }
 
-    public static function doProcesso(Processo $principal, \DateTimeImmutable $agora, ?SituacaoAtualOutput $situacao): self
+    public static function daPasta(Pasta $pasta, Processo $principal, \DateTimeImmutable $agora, ?SituacaoAtualOutput $situacao): self
     {
+        $processos = [ProcessoDoPainelOutput::de($principal, true)];
+        foreach ($pasta->getPastaProcessos() as $vinculo) {
+            if ($vinculo->getProcesso() !== $principal) {
+                $processos[] = ProcessoDoPainelOutput::de($vinculo->getProcesso(), false);
+            }
+        }
+
         $ativo = $principal->monitoramentoAtivo();
-        [$titulo, $sub] = self::textosDoEstado(true, $ativo);
-        $tribunal = trim($principal->getSiglaTribunal());
+        [$titulo, $sub] = self::textosDoEstado(true, $ativo, count($processos));
 
         return new self(
             true,
             $ativo,
             $titulo,
             $sub,
-            $principal->getNumeroProcesso() . ($tribunal !== '' ? ' · ' . $tribunal : ''),
             'Última verificação: ' . self::quando($principal->getUltimaVerificacaoEm(), $agora),
+            $processos,
             $situacao,
         );
     }
 
+    /** O processo de id `$id` no cartão, ou null. */
+    public function processo(int $id): ?ProcessoDoPainelOutput
+    {
+        foreach ($this->processos as $processo) {
+            if ($processo->id === $id) {
+                return $processo;
+            }
+        }
+
+        return null;
+    }
+
     /**
-     * Título e subtítulo do cartão (dc L.5436-5437).
+     * Título e subtítulo do cartão (dc L.5436-5437), com " · N processos" quando há mais de um.
      *
      * @return array{0: string, 1: string}
      */
-    public static function textosDoEstado(bool $temProcesso, bool $ativo): array
+    private static function textosDoEstado(bool $temProcesso, bool $ativo, int $quantos): array
     {
         if (!$temProcesso) {
             return ['Sem monitoramento', 'Vincule um processo'];
         }
 
-        return $ativo
+        [$titulo, $sub] = $ativo
             ? ['Monitoramento ativo', 'Captura automática nos diários e no PJe']
             : ['Monitoramento pausado', 'Novas movimentações não serão capturadas'];
+
+        return [$titulo, $sub . ($quantos > 1 ? ' · ' . $quantos . ' processos' : '')];
     }
 
     /** "hoje, 09:12" (dc L.5442), "ontem, 18:40", "05/10/2026, 08:00" ou "ainda não verificado". */
