@@ -23,6 +23,23 @@ Carteiro da 5d (envio). Risco MÉDIO (e-mail para fora do escritório, dado de c
   - `EnvioDeEmailAoClienteInterface::enviar(...)` — implementação provisória pelo Symfony Mailer atual (síncrono,
     com os cabeçalhos List-Unsubscribe do #87); troca para o Carteiro da 5d quando ele entrar.
 
+## Contrato com o Carteiro da 5d (recebido 19/10, branch comercial-1a, `App\Comercial\Envio`, spec comercial-e-emails §3.1)
+
+`CarteiroInterface::enviar(MensagemDeEmail): ResultadoDoEnvio {envioId, situacao: enfileirado | bloqueado_descadastro}`.
+`MensagemDeEmail(para: string (UM destinatário), assunto, corpoHtml (só o miolo; layout, rodapé legal e descadastro
+são do Carteiro), tipo: Transacional|Lista, origem: '/^[a-z0-9_:-]{3,60}$/', lista: ?string (só em Lista),
+escopo: ?Tenant, nome, selo, titulo, replyTo, cc: list<string>, rastrear=false, nomeDoRemetente)`. Assíncrono (fila
+'comercial'), relê o descadastro antes de mandar. Situação: `RegistroDeEnviosInterface::situacoes(list<int>)`.
+Aplicação no P4c:
+- Envio manual da Análise IA = Transacional, origem `pasta:push_cliente_ia`, escopo = o escritório,
+  replyTo = responsável da pasta, nomeDoRemetente = "{Escritório} via BlueJus".
+- Uma chamada por destinatário; o CC da Controladoria vai SÓ na primeira mensagem do envio (a Controladoria recebe uma
+  cópia por envio, não uma por e-mail do cliente).
+- `envio_ao_cliente` guarda os envioIds; a situação de cada um é lida do Carteiro no histórico.
+- A interface provisória `EnvioDeEmailAoClienteInterface` espelha a `MensagemDeEmail` (mesmos campos), para a troca
+  ser só de implementação. A provisória (Mailer atual, síncrono) devolve envioId null e situação "enviado".
+- P4d (automático) = Lista, lista `push_cliente`, escopo = o escritório.
+
 ## 1. Modelo
 
 - `cliente_email` (domínio Cliente): tenant, cliente (FK), email (normalizado), rotulo (Pessoal | Trabalho |
