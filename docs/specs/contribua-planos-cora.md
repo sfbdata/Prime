@@ -225,6 +225,17 @@ assinatura ativa ?? Free (10 GB). **Número da conta** = `tenant.id` com 6 dígi
 | D10 | Credenciais: sandbox do gateway escolhido e da Cora (Client ID, certificado, chave) | o dono gera nos painéis |
 | D11 | Texto da política de privacidade | dono/advogado |
 
+## 10.1 Sobreposição com outras frentes (19/10, via sessão coordenadora)
+
+- **Perfis 1.2 "Telas e recursos"** (worktree `perfis-telas-recursos`, empilhada no PR #52): `contribua` é
+  uma chave do catálogo; o menu e a rota `/contribua` usam `recurso_visivel('contribua')` quando ela existir.
+- **Perfis "limites/suspensão" e "Planos"** encostam no §4 (`PlanoDeEspaco`, `tenant.cota_armazenamento_gb`).
+  **Quem é dono do modelo de plano e cota é decisão do dono (D12)**; a coluna não é criada antes disso.
+- Arquivos quentes disputados: `base.html.twig` (Perfis, Agenda), `security.yaml` (`push-link-externo`).
+  Avisar a coordenação antes de tocar.
+- Migrations: há duas pendentes com o mesmo número (`Version20261019120000`, #52 e `push-link-externo`).
+  Cada migration desta frente espera a vez combinada com a coordenação.
+
 ## 11. Etapas (uma migration por PR)
 
 | Etapa | Entrega | Migration | Depende |
