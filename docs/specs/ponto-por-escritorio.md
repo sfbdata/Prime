@@ -133,8 +133,8 @@ já registrado em `ponto-isolamento-tenant.md`, fora desta frente); a cerca; sem
 - Mais casos (revisão): home office liberado em X; Y excluído e vínculo inativo em Y, separados; trava e interjornada
   falhando juntas (a trava vem antes); o JSON do 422 só com `success` e `message`; lançamento manual do admin em X não
   travado (teste pela rota do admin); lançamento manual e esquecimento aprovado em Y contando como entrada (por
-  construção: os dois viram `RegistroPonto` sem marca de origem, e a consulta não filtra origem; a batida inserida no
-  teste é o mesmo registro); super admin sem vínculo.
+  construção: os dois viram `RegistroPonto`, e a consulta não filtra a origem, nem pelo `sede_nome_snapshot` do
+  lançamento manual; a batida inserida no teste é o mesmo registro); super admin sem vínculo.
 - Limite: `PontoController::batida` ficou em 229 linhas, exatamente o tolerado (224 + 5). Qualquer linha a mais nele,
   inclusive ao trazer o master, derruba `MetodoLongoArquiteturaTest`: o código novo vai para um método privado.
 - A mensagem não aparece em nenhum HTML de X (a folha de X segue sem dado de Y).
