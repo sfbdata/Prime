@@ -71,7 +71,7 @@ aberta em 19/10/2026.
 | R5 | **Quem não é Master** não vê o item (menu, botão, atalho) e, ao abrir a rota de uma tela desligada, recebe a página "em preparação" (status 503): ícone `bi-tools`, "<Título> em preparação", o motivo (ou "Estamos finalizando esta tela para ela chegar com tudo funcionando. Volte em breve."), "Previsão: dd/mm/aaaa" quando houver data, e o botão "Voltar ao Expediente". Chamada de API (não-GET ou `Accept: application/json`) da mesma função recebe 503 JSON com a mesma mensagem. |
 | R6 | **O Master** continua vendo e usando tudo: o item desligado aparece apagado com contorno vermelho tracejado (`opacity:.45; outline:1px dashed #c0392b; outline-offset:-2px`) e a tela desligada mostra a faixa vermelha fixa "Esta tela está desativada para os usuários. Só o Master está vendo." |
 | R7 | Só `ROLE_SUPER_ADMIN` liga e desliga. Cada mudança vai para a auditoria (`RecursoEstado` é `Auditavel`). |
-| R8 | Item do catálogo cuja tela ou função **ainda não existe no sistema** (Contribua, Vagas públicas, Push compartilhado, Contribua atalho, Chat I.A) tem a chave e o interruptor funcionando; o efeito passa a valer quando a tela nascer, usando a mesma função Twig e o mesmo mapa de rotas. |
+| R8 | Item do catálogo cuja tela ou função **ainda não existe no sistema** (Contribua, Vagas públicas, Push compartilhado, Contribua atalho) tem a chave e o interruptor funcionando; o efeito passa a valer quando a tela nascer, usando a mesma função Twig e o mesmo mapa de rotas. |
 
 ## 3. Tela (aba "Telas e recursos", só no perfil Master)
 
@@ -108,7 +108,7 @@ redesenha sem recarregar.
 | tema | Tema escuro | | `#toggleTema` |
 | novidades | Novidades | `novidades_` | item do menu do usuário |
 | privacidade | Política de Privacidade | (a rota pública continua aberta: é texto legal) | item do menu do usuário |
-| chat | Chat I.A (não existe ainda) | R8 | |
+| chat | Chat I.A | (a página /central continua aberta: a chave é só a bolha) | bolha flutuante da Central (`central/_flutuante`, `data-recurso="chat"`, como no bluejus-central.js de 18/10) |
 | assistente | Assistente de pastas | `inteligencia_agente` | gaveta de agentes da pasta |
 
 O mapa mora no catálogo (uma fonte só). Twig: `recurso_visivel('chave')` (false só para não-Master com o item

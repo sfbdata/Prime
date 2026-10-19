@@ -275,6 +275,20 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('div.usuario-dropdown > div.mu-grupo > [data-mu-ajuda]'), 'o outro grupo continua');
     }
 
+    #[TestDox('chave "chat": a bolha flutuante da Central some para quem não é Master (bluejus-central.js de 18/10)')]
+    public function testChatDesligadoEscondeABolhaDaCentral(): void
+    {
+        $this->entrar($this->comum);
+        $antes = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $antes->filter('div.bj-flutuante[data-recurso="chat"][data-central-flutuante]'), 'ligado, a bolha aparece');
+
+        $this->desligar('chat', null, null);
+        $depois = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $depois->filter('[data-central-flutuante]'));
+    }
+
     #[TestDox('o Master vê Idioma e Ajuda desligados marcados em vermelho no menu do usuário')]
     public function testMasterVeItensDoMenuMarcados(): void
     {

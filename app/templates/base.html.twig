@@ -391,7 +391,8 @@
 
             {# Central de Comunicação flutuante (lançador + janela, Designer 13/10). Componente isolado da Central (D6:
                esta é a única linha no layout); não aparece na própria /central, que já é a janela em página. #}
-            {% if central_disponivel() and app.request.attributes.get('_route') != 'central_index' %}
+            {# Telas e recursos: a bolha é a chave "chat" (desenho 05 + bluejus-central.js de 18/10, data-recurso="chat"). #}
+            {% if central_disponivel() and app.request.attributes.get('_route') != 'central_index' and recurso_visivel('chat') %}
                 {% include 'central/_flutuante.html.twig' %}
             {% endif %}
 
