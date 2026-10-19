@@ -117,6 +117,31 @@ final class SituacaoDoEspacoTest extends TestCase
         self::assertNull($this->situacao(null)->retratar(7, 0)->limiteUsuarios, 'o Free do 08 não limita usuários');
     }
 
+    #[TestDox('Sem limite dispensa também o limite de usuários, mesmo com plano e limite do Master')]
+    public function testSemLimiteDispensaUsuarios(): void
+    {
+        $plano = new Plano('essencial', 'Essencial', 20, 1990, 'Essencial', 2, 8);
+        $espaco = new EspacoDoEscritorio(new Tenant(), $plano);
+        $espaco->definirLimiteDeUsuarios(5, 'antes', null);
+        $espaco->definirLimite(null, true, 'escritório do dono', null);
+
+        $retrato = $this->situacao($espaco)->retratar(7, 0);
+
+        self::assertNull($retrato->limiteUsuarios);
+        self::assertSame(OrigemDoLimite::SemLimite, $retrato->origemDoLimiteDeUsuarios);
+    }
+
+    #[TestDox('Sem linha: vale o limite de usuários do plano')]
+    public function testLimiteDeUsuariosDoPlano(): void
+    {
+        $espaco = new EspacoDoEscritorio(new Tenant(), new Plano('essencial', 'Essencial', 20, 1990, 'Essencial', 2, 8));
+
+        $retrato = $this->situacao($espaco)->retratar(7, 0);
+
+        self::assertSame(8, $retrato->limiteUsuarios);
+        self::assertSame(OrigemDoLimite::Plano, $retrato->origemDoLimiteDeUsuarios);
+    }
+
     #[TestDox('GB no formato do desenho: "9,3 GB", "10 GB"')]
     public function testFormatarGb(): void
     {

@@ -44,6 +44,7 @@ final class SituacaoDoEspaco
         $configuracao = $this->configuracoes->atual();
         [$bytesLimite, $origem] = self::limiteEmBytes($espaco, $plano);
         $percentual = $bytesLimite === null ? null : (int) round($bytesUsados / $bytesLimite * 100);
+        [$limiteUsuarios, $origemDoLimiteDeUsuarios] = self::limiteDeUsuarios($espaco, $plano);
         $bytesBloqueio = $bytesLimite === null ? null : intdiv($bytesLimite * $configuracao->getFaixaBloqueio(), 100);
 
         return new RetratoDoEspaco(
@@ -55,11 +56,29 @@ final class SituacaoDoEspaco
             $origem,
             $plano->getCodigo(),
             $plano->getNome(),
-            $espaco?->getLimiteUsuarios() ?? $plano->getLimiteUsuarios(),
-            $espaco?->getLimiteUsuarios() !== null ? OrigemDoLimite::Master : OrigemDoLimite::Plano,
+            $limiteUsuarios,
+            $origemDoLimiteDeUsuarios,
             $configuracao->isBloqueioAtivo(),
             $bytesBloqueio,
         );
+    }
+
+    /**
+     * "Sem limite" dispensa as duas checagens, espaço e usuários (decisão do dono, 19/10/2026: o
+     * escritório do dono do sistema tem mais usuários que qualquer plano).
+     *
+     * @return array{0: ?int, 1: OrigemDoLimite}
+     */
+    private static function limiteDeUsuarios(?EspacoDoEscritorio $espaco, Plano $plano): array
+    {
+        if ($espaco?->isSemLimite() === true) {
+            return [null, OrigemDoLimite::SemLimite];
+        }
+        if ($espaco?->getLimiteUsuarios() !== null) {
+            return [$espaco->getLimiteUsuarios(), OrigemDoLimite::Master];
+        }
+
+        return [$plano->getLimiteUsuarios(), OrigemDoLimite::Plano];
     }
 
     /** @return array{0: ?int, 1: OrigemDoLimite} */
