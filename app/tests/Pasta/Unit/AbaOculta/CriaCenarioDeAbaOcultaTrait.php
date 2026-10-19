@@ -65,6 +65,8 @@ trait CriaCenarioDeAbaOcultaTrait
         $this->vinculosAtivos = [$vAna, $vBeto, $vMaster, $vPrimario];
 
         $this->regras = $this->createMock(AbaOcultaDaPastaRepository::class);
+        // A trava de verdade é do banco (teste funcional); aqui a operação só roda.
+        $this->regras->method('comTravaDaPasta')->willReturnCallback(static fn (Pasta $p, callable $operacao): mixed => $operacao());
         $this->vinculos = $this->createMock(UserTenantRepository::class);
         $this->vinculos->method('findAtivosComCargoELotacaoPorTenant')->willReturn($this->vinculosAtivos);
         $this->vinculos->method('findAtivoPorUserETenant')->willReturnCallback(

@@ -30,10 +30,12 @@ final class MostrarAbaParaTodosUseCase
     {
         $this->visibilidade->garantirQuePodeConfigurar($pasta, $quem, $tenant);
 
-        $regra = $this->regras->daAba($pasta, $aba, $tenant);
-        if ($regra !== null) {
-            $this->regras->remover($regra, flush: true);
-        }
+        $this->regras->comTravaDaPasta($pasta, function () use ($pasta, $aba, $tenant): void {
+            $regra = $this->regras->daAba($pasta, $aba, $tenant);
+            if ($regra !== null) {
+                $this->regras->remover($regra, flush: true);
+            }
+        });
 
         return AbaOcultaResultadoOutput::visivelParaTodos($aba);
     }

@@ -396,7 +396,7 @@ class PastaController extends AbstractController
         // "contém 3 subpastas e 127 arquivos" precisa delas ANTES do clique — saem em memória.
         $explorador = ExploradorDeDocumentosOutput::montar(
             $secoes,
-            $tenant !== null ? $this->pastaDocumentoRepository->findByPastaComSecao($pasta, $tenant) : [],
+            $tenant !== null ? VisibilidadeDasAbasDaPasta::documentosVisiveis($this->pastaDocumentoRepository->findByPastaComSecao($pasta, $tenant), $abasDaPasta->ocultas) : [], // contrato some com o Financeiro oculto
             self::DOCUMENT_TYPES,
             fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
@@ -453,7 +453,7 @@ class PastaController extends AbstractController
             && $this->permissionChecker->canAccessModule($currentUser, $tenant, DisponibilidadeDeInteligencia::MODULO)
         ) {
             $analisesIa = $disponibilidadeIa->plataformaConfigurada()
-                ? $listarAnalisesIa->executar($pasta, $tenant)
+                ? $listarAnalisesIa->executar($pasta, $tenant, $abasDaPasta->ocultas)
                 : AnalisesDaPastaOutput::semInteligenciaNaPlataforma($push->total);
         }
 

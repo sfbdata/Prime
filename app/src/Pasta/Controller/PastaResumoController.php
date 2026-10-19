@@ -400,7 +400,7 @@ final class PastaResumoController extends AbstractController
             \in_array(AbaDaPasta::Push->value, $ocultas, true) ? [] : $push->itens,
             $pagamentos,
             incluirFinanceiro: $veFinanceiro,
-        );
+        )->semSecoesDasAbas($ocultas);
     }
 
     /** O símbolo do BlueJus como `data:` — o Dompdf roda sem acesso a arquivo nem rede. */

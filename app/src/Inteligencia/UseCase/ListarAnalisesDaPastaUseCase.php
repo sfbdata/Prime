@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\UseCase;
 
+use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\DTO\AnaliseOutput;
@@ -29,10 +30,19 @@ final class ListarAnalisesDaPastaUseCase
     ) {
     }
 
-    public function executar(Pasta $pasta, Tenant $tenant): AnalisesDaPastaOutput
+    /**
+     * `$abasOcultas`: as abas da pasta ocultas para quem lê (regra única
+     * `VisibilidadeDaAnaliseDaPasta::legivelCom`; com o Push oculto, nenhum resumo do Push entra).
+     *
+     * @param list<string> $abasOcultas
+     */
+    public function executar(Pasta $pasta, Tenant $tenant, array $abasOcultas): AnalisesDaPastaOutput
     {
         $alvoId = (int) $pasta->getId();
-        $entidades = $this->analises->listarPorAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, self::LIMITE);
+        $entidades = array_values(array_filter(
+            $this->analises->listarPorAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, self::LIMITE),
+            static fn (AnaliseDeInteligencia $a): bool => VisibilidadeDaAnaliseDaPasta::legivelCom($a, $abasOcultas),
+        ));
 
         $saidas = [];
         $ultimaConcluida = null;

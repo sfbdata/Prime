@@ -480,7 +480,7 @@
         {id: 'processo',   painel: 'processo',   rotulo: 'Processo',       icone: 'bi-bank',          contagem: null},
         {id: 'financeiro', painel: 'financeiro', rotulo: 'Financeiro',     icone: 'bi-cash-coin',     contagem: null},
         {id: 'detalhes',   painel: 'detalhes',   rotulo: 'Detalhes',       icone: 'bi-info-circle',   contagem: null},
-        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: pasta.documentos|length},
+        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: (abasDaPasta ? pasta.documentos|filter(d => abasDaPasta.documentoVisivel(d.categoria)) : pasta.documentos)|length},
         {id: 'push',       painel: 'push',       rotulo: 'Push Processual', icone: 'bi-broadcast',     contagem: pushNaoLidas},
     ] %}
     {# Abas ocultas (spec pasta-ocultar-aba §5): para quem está oculto, a aba nem é desenhada, e a

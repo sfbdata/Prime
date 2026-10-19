@@ -94,3 +94,25 @@ tenant 404, sem VIEW 403, não primário 403, CSRF, aba inválida 404); show par
 (e idem financeiro); show para primário tem a aba e o ícone; barreira 403 em ao menos uma rota de cada aba do mapa;
 mapa casa com o roteador; financeiro oculto some a pendência de pagamentos; push oculto tira o item do ⋮ e bloqueia
 `pasta_push_links_gerar`. JS: sem innerHTML, contrato de classes com o template.
+
+## 7. Decisões da revisão de permissão (19/10)
+
+Decisões do orquestrador, a confirmar com o dono:
+
+- O módulo global `/push-processual` continua governado pela permissão do módulo. A regra de aba oculta vale
+  dentro da pasta.
+- Os links externos do Push já criados continuam ativos quando o Push é ocultado para alguém.
+- As metas fora da pasta (`/tarefas`) continuam visíveis para quem tem a aba Metas oculta.
+- O número do processo continua no cabeçalho da pasta (e no cabeçalho da folha impressa) com a aba Processo oculta.
+- "Todos marcados" no "Ocultar para…" grava `para_todos`, como no desenho (vale também para quem entrar depois).
+
+Já decididas e implementadas nesta revisão:
+
+- Análise de IA da pasta só aparece para quem lê se nenhuma aba de onde ela tirou conteúdo estiver oculta para
+  essa pessoa (`VisibilidadeDaAnaliseDaPasta::abasDaAnalise`): resumo do Push → Push; agente → as abas das seções
+  que ele lê, menos as que estavam ocultas para quem pediu (`contexto_resumo.abasOcultas`); quem leu documentos com
+  o Financeiro visível depende também do Financeiro (contratos). Bloqueada = 404 por id.
+- O contrato de honorários (`CATEGORIA_CONTRATO`) é dado do Financeiro: com ele oculto, sai do explorador, do
+  cartão do trilho, da contagem da aba, do Histórico, do contexto da IA e dos documentos do Agente de Pastas, e por
+  id dá 404 (`VisibilidadeDasAbasDaPasta::documentoVisivel`).
+- Checklist de documentação é da aba Documentos (mora no explorador dela); os réus (janela Cadastro) não são de aba.

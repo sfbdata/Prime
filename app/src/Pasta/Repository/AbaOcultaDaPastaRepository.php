@@ -9,6 +9,7 @@ use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -38,6 +39,27 @@ class AbaOcultaDaPastaRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /**
+     * Roda `$operacao` numa transação com a linha da pasta travada (`SELECT … FOR UPDATE`). Duas
+     * pessoas gravando a PRIMEIRA regra da mesma aba ao mesmo tempo esbarrariam no UNIQUE
+     * (pasta_id, aba) e a segunda levaria 500; com a trava, a segunda espera, relê a regra que a
+     * primeira criou e a atualiza. Entidade normal (não SQL cru), para a auditoria seguir valendo.
+     *
+     * @template T
+     *
+     * @param callable(): T $operacao
+     *
+     * @return T
+     */
+    public function comTravaDaPasta(Pasta $pasta, callable $operacao): mixed
+    {
+        return $this->getEntityManager()->wrapInTransaction(static function (EntityManagerInterface $em) use ($pasta, $operacao): mixed {
+            $em->getConnection()->fetchOne('SELECT id FROM pasta WHERE id = :id FOR UPDATE', ['id' => $pasta->getId()]);
+
+            return $operacao();
+        });
     }
 
     public function daAba(Pasta $pasta, AbaDaPasta $aba, Tenant $tenant): ?AbaOcultaDaPasta

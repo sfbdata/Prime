@@ -9,6 +9,7 @@ use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -60,6 +61,7 @@ final class BarreiraDeAbaOcultaListener
         'pasta_secao*'                     => 'documentos',
         'pasta_secoes_*'                   => 'documentos',
         'pasta_peticionar*'                => 'documentos',
+        'inteligencia_agente_pastas_documentos' => 'documentos',
         'pasta_checklist_*'                => 'documentos',
         'pasta_detalhes_*'                 => 'detalhes',
         'pasta_vincular_processo'          => 'processo',
@@ -107,13 +109,55 @@ final class BarreiraDeAbaOcultaListener
         }
 
         $pasta = $this->pastaDaRequisicao($event, $request);
-        if ($pasta === null || !$this->visibilidade->ocultaPara($pasta, $aba, $user)) {
+        if ($pasta === null) {
             return;
         }
 
-        $resposta = $this->recusa($request, $aba);
-        $event->setController(static fn (): Response => $resposta);
-        $event->setArguments([]);
+        $resposta = $this->visibilidade->ocultaPara($pasta, $aba, $user)
+            ? $this->recusa($request, $aba)
+            : $this->recusaDoContrato($event, $request, $pasta, $user);
+        if ($resposta !== null) {
+            $event->setController(static fn (): Response => $resposta);
+            $event->setArguments([]);
+        }
+    }
+
+    /**
+     * O contrato de honorários por id (ver, baixar, editar…) com o Financeiro oculto: 404, como se não
+     * existisse (regra `VisibilidadeDasAbasDaPasta::documentoVisivel`).
+     */
+    private function recusaDoContrato(ControllerArgumentsEvent $event, Request $request, Pasta $pasta, User $user): ?Response
+    {
+        $documento = $this->documentoDaRequisicao($event, $request);
+        if ($documento === null) {
+            return null;
+        }
+        $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $this->visibilidade->abasOcultasPara($pasta, $user));
+        if (VisibilidadeDasAbasDaPasta::documentoVisivel($documento->getCategoria(), $ocultas)) {
+            return null;
+        }
+
+        return new JsonResponse(['status' => 'erro', 'erro' => 'Documento não encontrado.', 'mensagem' => 'Documento não encontrado.'], Response::HTTP_NOT_FOUND);
+    }
+
+    /** O documento da rota: argumento já resolvido ou `#[PastaPelaFilha]` de documento (por id e escritório). */
+    private function documentoDaRequisicao(ControllerArgumentsEvent $event, Request $request): ?PastaDocumento
+    {
+        foreach ($event->getArguments() as $argumento) {
+            if ($argumento instanceof PastaDocumento) {
+                return $argumento;
+            }
+        }
+        foreach ($event->getAttributes(PastaPelaFilha::class) as $declaracao) {
+            $id = $request->attributes->get($declaracao->argumento);
+            if ($declaracao->entidade === PastaDocumento::class && is_numeric($id)) {
+                $doc = $this->em->getRepository(PastaDocumento::class)->findOneBy(['id' => (int) $id, 'tenant' => $this->tenantContext->getCurrentTenant()]);
+
+                return $doc instanceof PastaDocumento ? $doc : null;
+            }
+        }
+
+        return null;
     }
 
     /** A pasta da requisição, só se for do escritório da sessão. */

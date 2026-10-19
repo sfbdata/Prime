@@ -10,6 +10,7 @@ use App\Pasta\DTO\AbasDaPastaOutput;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Exception\AbaOcultaRecusadaException;
 use App\Pasta\Repository\AbaOcultaDaPastaRepository;
 use App\Tenant\Service\RegraDosPrimarios;
@@ -106,33 +107,67 @@ final class VisibilidadeDasAbasDaPasta
     }
 
     /**
-     * A aba de onde vem um acontecimento da pasta (Histórico do sistema, Timeline inteligente),
-     * pela família dele: a regra ÚNICA que decide se ele aparece para quem tem a aba oculta.
-     * `null` = não é de aba nenhuma (cadastro da pasta, notificação pessoal): aparece sempre.
+     * As abas de onde vem um acontecimento da pasta (Histórico do sistema, Timeline inteligente):
+     * a regra ÚNICA que decide se ele aparece para quem tem aba oculta. Lista vazia = não é de aba
+     * nenhuma (cadastro da pasta, notificação pessoal): aparece sempre.
      *
-     * Famílias: a `origem` do `PastaTimelineAssembler` (documento, meta, processo, financeiro, pasta),
+     * Famílias: a `origem` do `PastaTimelineAssembler` (documento, contrato, meta, processo, pasta),
      * `registro` (anotação da aba Dados) e o `tipo` dos eventos próprios da Timeline inteligente.
+     * `contrato` é documento de honorários: é das duas abas, Documentos e Financeiro.
+     *
+     * @return list<AbaDaPasta>
      */
-    public static function abaDoEvento(?string $familia): ?AbaDaPasta
+    public static function abasDoEvento(?string $familia): array
     {
         return match ($familia) {
-            'registro'                                                                    => AbaDaPasta::Dados,
-            'documento'                                                                   => AbaDaPasta::Documentos,
-            'meta', 'meta_concluida', 'metas_concluidas', 'prazo_meta'                    => AbaDaPasta::Tarefas,
-            'processo'                                                                    => AbaDaPasta::Processo,
-            'publicacao'                                                                  => AbaDaPasta::Push,
-            'observacao_detalhes'                                                         => AbaDaPasta::Detalhes,
-            'financeiro', 'observacao_financeira', 'pagamento_lancado', 'pagamento_quitado', 'pagamento_vencido' => AbaDaPasta::Financeiro,
-            default                                                                       => null,
+            'registro'                                                   => [AbaDaPasta::Dados],
+            'documento'                                                  => [AbaDaPasta::Documentos],
+            'contrato'                                                   => [AbaDaPasta::Documentos, AbaDaPasta::Financeiro],
+            'meta', 'meta_concluida', 'metas_concluidas', 'prazo_meta'   => [AbaDaPasta::Tarefas],
+            'processo'                                                   => [AbaDaPasta::Processo],
+            'publicacao'                                                 => [AbaDaPasta::Push],
+            'observacao_detalhes'                                        => [AbaDaPasta::Detalhes],
+            'observacao_financeira', 'pagamento_lancado', 'pagamento_quitado', 'pagamento_vencido' => [AbaDaPasta::Financeiro],
+            default                                                      => [],
         };
     }
 
     /** @param list<string> $abasOcultas ids das abas ocultas para quem vê */
     public static function eventoVisivel(?string $familia, array $abasOcultas): bool
     {
-        $aba = self::abaDoEvento($familia);
+        foreach (self::abasDoEvento($familia) as $aba) {
+            if (\in_array($aba->value, $abasOcultas, true)) {
+                return false;
+            }
+        }
 
-        return $aba === null || !\in_array($aba->value, $abasOcultas, true);
+        return true;
+    }
+
+    /**
+     * Documento da pasta para quem tem aba oculta (revisão de permissão, decisão do orquestrador): o
+     * contrato de honorários (`CATEGORIA_CONTRATO`) é dado do Financeiro e some com ele oculto. A
+     * aba Documentos inteira já tem a sua barreira; aqui só o recorte do contrato.
+     *
+     * @param list<string> $abasOcultas
+     */
+    public static function documentoVisivel(?string $categoria, array $abasOcultas): bool
+    {
+        return $categoria !== PastaDocumento::CATEGORIA_CONTRATO
+            || !\in_array(AbaDaPasta::Financeiro->value, $abasOcultas, true);
+    }
+
+    /**
+     * @template T of PastaDocumento
+     *
+     * @param list<T>      $documentos
+     * @param list<string> $abasOcultas
+     *
+     * @return list<T>
+     */
+    public static function documentosVisiveis(array $documentos, array $abasOcultas): array
+    {
+        return array_values(array_filter($documentos, static fn (PastaDocumento $d): bool => self::documentoVisivel($d->getCategoria(), $abasOcultas)));
     }
 
     /**

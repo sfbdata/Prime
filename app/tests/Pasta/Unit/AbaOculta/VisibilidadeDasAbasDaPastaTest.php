@@ -140,14 +140,20 @@ final class VisibilidadeDasAbasDaPastaTest extends TestCase
     public function testAbaDoEvento(): void
     {
         $esperado = [
-            'registro' => 'dados', 'documento' => 'documentos', 'meta' => 'tarefas', 'prazo_meta' => 'tarefas',
-            'metas_concluidas' => 'tarefas', 'meta_concluida' => 'tarefas', 'processo' => 'processo', 'publicacao' => 'push',
-            'observacao_detalhes' => 'detalhes', 'financeiro' => 'financeiro', 'observacao_financeira' => 'financeiro',
-            'pagamento_vencido' => 'financeiro', 'pasta' => null, 'cadastro' => null, 'notificacao' => null, 'auditoria' => null,
+            'registro' => ['dados'], 'documento' => ['documentos'], 'contrato' => ['documentos', 'financeiro'],
+            'meta' => ['tarefas'], 'prazo_meta' => ['tarefas'], 'metas_concluidas' => ['tarefas'], 'meta_concluida' => ['tarefas'],
+            'processo' => ['processo'], 'publicacao' => ['push'], 'observacao_detalhes' => ['detalhes'],
+            'observacao_financeira' => ['financeiro'], 'pagamento_vencido' => ['financeiro'],
+            'pasta' => [], 'cadastro' => [], 'notificacao' => [], 'auditoria' => [], 'financeiro' => [],
         ];
-        foreach ($esperado as $familia => $aba) {
-            self::assertSame($aba, VisibilidadeDasAbasDaPasta::abaDoEvento($familia)?->value, $familia);
+        foreach ($esperado as $familia => $abas) {
+            self::assertSame($abas, array_map(static fn (AbaDaPasta $a): string => $a->value, VisibilidadeDasAbasDaPasta::abasDoEvento($familia)), $familia);
         }
+        self::assertFalse(VisibilidadeDasAbasDaPasta::eventoVisivel('contrato', ['financeiro']), 'contrato some com o Financeiro oculto');
+        self::assertFalse(VisibilidadeDasAbasDaPasta::eventoVisivel('contrato', ['documentos']));
+        self::assertTrue(VisibilidadeDasAbasDaPasta::documentoVisivel('CONTRATO', ['documentos']));
+        self::assertFalse(VisibilidadeDasAbasDaPasta::documentoVisivel('CONTRATO', ['financeiro']));
+        self::assertTrue(VisibilidadeDasAbasDaPasta::documentoVisivel('DEMAIS', ['financeiro']));
         self::assertFalse(VisibilidadeDasAbasDaPasta::eventoVisivel('publicacao', ['push']));
         self::assertTrue(VisibilidadeDasAbasDaPasta::eventoVisivel('publicacao', ['processo']));
         self::assertTrue(VisibilidadeDasAbasDaPasta::eventoVisivel('pasta', AbasDaPastaOutput::ORDEM));

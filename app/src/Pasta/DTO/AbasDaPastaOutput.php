@@ -6,6 +6,7 @@ namespace App\Pasta\DTO;
 
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\AbaOcultaDaPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 
 /**
  * O que a tela da pasta precisa saber das abas ocultas, já decidido no servidor (spec
@@ -78,6 +79,12 @@ final readonly class AbasDaPastaOutput
         }
 
         return null;
+    }
+
+    /** O contrato de honorários some com o Financeiro oculto (regra de `VisibilidadeDasAbasDaPasta`). */
+    public function documentoVisivel(?string $categoria): bool
+    {
+        return VisibilidadeDasAbasDaPasta::documentoVisivel($categoria, $this->ocultas);
     }
 
     public function temRegra(string $aba): bool

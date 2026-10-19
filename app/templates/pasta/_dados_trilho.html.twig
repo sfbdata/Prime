@@ -272,13 +272,15 @@
    O ícone é o do TIPO do arquivo (PDF vermelho, Word azul…), via `arquivo_icone`:
    família e cores do Guia visual, as mesmas da aba Documentos; a cor sai pela classe
    `ps-doc-icone--<tipo>` (tokens com par escuro no pasta-show.css), nunca inline. #}
-{% set docsRecentes = pasta.documentos|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
+{# O contrato de honorários some com o Financeiro oculto (regra `documentoVisivel`, ocultar aba). #}
+{% set docsDoCartao = abasDaPasta is defined and abasDaPasta ? pasta.documentos|filter(d => abasDaPasta.documentoVisivel(d.categoria)) : pasta.documentos %}
+{% set docsRecentes = docsDoCartao|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
 {% if 'documentos' not in abasOcultas %}
 <section class="ps-card" data-trilho="documentos">
     <div class="ps-card-cab">
         <h2>Documentos</h2>
-        {% if pasta.documentos|length > 0 %}
-            <span class="ps-contagem">{{ pasta.documentos|length }}</span>
+        {% if docsDoCartao|length > 0 %}
+            <span class="ps-contagem">{{ docsDoCartao|length }}</span>
         {% endif %}
         <span class="ps-cab-espaco"></span>
         <button type="button" class="ps-card-cab-link" data-ps-ir-aba="documentos-tab"

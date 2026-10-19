@@ -226,7 +226,7 @@ final class MontadorDaTimelineInteligente
 
     /**
      * Abas ocultas para quem lê (spec pasta-ocultar-aba §5): fora o que vem delas, pela regra única
-     * `VisibilidadeDasAbasDaPasta::abaDoEvento`. O `tipo` decide primeiro (publicação é do Push mesmo
+     * `VisibilidadeDasAbasDaPasta::abasDoEvento`. O `tipo` decide primeiro (publicação é do Push mesmo
      * na categoria "processo"); sem aba pelo tipo, vale a categoria (auditoria de documento, meta…).
      *
      * @param list<EventoDaTimelineOutput> $eventos
@@ -241,7 +241,7 @@ final class MontadorDaTimelineInteligente
         }
 
         return array_values(array_filter($eventos, static function (EventoDaTimelineOutput $e) use ($ocultas): bool {
-            $familia = VisibilidadeDasAbasDaPasta::abaDoEvento($e->tipo) !== null ? $e->tipo : $e->categoria;
+            $familia = VisibilidadeDasAbasDaPasta::abasDoEvento($e->tipo) !== [] ? $e->tipo : $e->categoria;
 
             return VisibilidadeDasAbasDaPasta::eventoVisivel($familia, $ocultas);
         }));
@@ -279,7 +279,7 @@ final class MontadorDaTimelineInteligente
                 id: 'a' . $n,
                 tipo: $tipo,
                 categoria: match ($item->origem) {
-                    'documento' => 'documento',
+                    'documento', 'contrato' => 'documento',
                     'meta'      => 'meta',
                     'processo'  => 'processo',
                     default     => 'cadastro',

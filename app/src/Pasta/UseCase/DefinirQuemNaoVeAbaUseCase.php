@@ -45,16 +45,19 @@ final class DefinirQuemNaoVeAbaUseCase
 
         $elegiveis = $this->equipe->idsDoEscritorio($tenant);
         $escolhidos = array_values(array_intersect($elegiveis, array_map('intval', $userIds)));
-        $regra = $this->regras->daAba($pasta, $aba, $tenant);
 
-        if ($escolhidos === []) {
-            return $this->apagar($regra, $aba);
-        }
+        // Com a pasta travada: a primeira regra gravada ao mesmo tempo por duas pessoas não vira 500.
+        return $this->regras->comTravaDaPasta($pasta, function () use ($pasta, $aba, $quem, $tenant, $escolhidos, $elegiveis): AbaOcultaResultadoOutput {
+            $regra = $this->regras->daAba($pasta, $aba, $tenant);
+            if ($escolhidos === []) {
+                return $this->apagar($regra, $aba);
+            }
 
-        $paraTodos = \count($escolhidos) === \count($elegiveis);
-        $this->regras->salvar($this->aplicar($regra, $pasta, $aba, $quem, $tenant, $escolhidos, $paraTodos), flush: true);
+            $paraTodos = \count($escolhidos) === \count($elegiveis);
+            $this->regras->salvar($this->aplicar($regra, $pasta, $aba, $quem, $tenant, $escolhidos, $paraTodos), flush: true);
 
-        return AbaOcultaResultadoOutput::ocultaPara($aba, \count($escolhidos), $paraTodos);
+            return AbaOcultaResultadoOutput::ocultaPara($aba, \count($escolhidos), $paraTodos);
+        });
     }
 
     private function apagar(?AbaOcultaDaPasta $regra, AbaDaPasta $aba): AbaOcultaResultadoOutput

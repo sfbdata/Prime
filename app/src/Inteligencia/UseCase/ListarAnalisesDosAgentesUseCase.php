@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\UseCase;
 
+use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\AnaliseOutput;
 use App\Inteligencia\DTO\AnalisesDoAgenteOutput;
@@ -31,17 +32,24 @@ final class ListarAnalisesDosAgentesUseCase
     ) {
     }
 
-    public function executar(Pasta $pasta, Tenant $tenant): PainelDeAgentesOutput
+    /**
+     * `$abasOcultas`: as abas da pasta ocultas para quem lê. Análise que tirou conteúdo de uma delas
+     * não entra (regra única `VisibilidadeDaAnaliseDaPasta::legivelCom`).
+     *
+     * @param list<string> $abasOcultas
+     */
+    public function executar(Pasta $pasta, Tenant $tenant, array $abasOcultas): PainelDeAgentesOutput
     {
         $saidas = [];
         foreach (Agente::cases() as $agente) {
-            $saidas[$agente->value] = $this->executarParaAgente($pasta, $tenant, $agente);
+            $saidas[$agente->value] = $this->executarParaAgente($pasta, $tenant, $agente, $abasOcultas);
         }
 
         return new PainelDeAgentesOutput($saidas);
     }
 
-    public function executarParaAgente(Pasta $pasta, Tenant $tenant, Agente $agente): AnalisesDoAgenteOutput
+    /** @param list<string> $abasOcultas */
+    public function executarParaAgente(Pasta $pasta, Tenant $tenant, Agente $agente, array $abasOcultas): AnalisesDoAgenteOutput
     {
         $entidades = $this->analises->listarPorAlvo(
             $tenant,
@@ -52,7 +60,10 @@ final class ListarAnalisesDosAgentesUseCase
             $agente,
         );
 
-        return $this->saidaDoAgente($agente, $entidades);
+        return $this->saidaDoAgente($agente, array_values(array_filter(
+            $entidades,
+            static fn (AnaliseDeInteligencia $a): bool => VisibilidadeDaAnaliseDaPasta::legivelCom($a, $abasOcultas),
+        )));
     }
 
     /** @param list<AnaliseDeInteligencia> $entidades */

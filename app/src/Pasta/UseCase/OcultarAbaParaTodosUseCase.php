@@ -35,14 +35,17 @@ final class OcultarAbaParaTodosUseCase
     {
         $this->visibilidade->garantirQuePodeConfigurar($pasta, $quem, $tenant);
 
-        $agora = $this->relogio->now();
-        $regra = $this->regras->daAba($pasta, $aba, $tenant);
-        if ($regra === null) {
-            $regra = AbaOcultaDaPasta::paraTodaAEquipe($tenant, $pasta, $aba, $quem, $agora);
-        } else {
-            $regra->ocultarParaTodos($quem, $agora);
-        }
-        $this->regras->salvar($regra, flush: true);
+        // Com a pasta travada: a primeira regra gravada ao mesmo tempo por duas pessoas não vira 500.
+        $this->regras->comTravaDaPasta($pasta, function () use ($pasta, $aba, $quem, $tenant): void {
+            $agora = $this->relogio->now();
+            $regra = $this->regras->daAba($pasta, $aba, $tenant);
+            if ($regra === null) {
+                $regra = AbaOcultaDaPasta::paraTodaAEquipe($tenant, $pasta, $aba, $quem, $agora);
+            } else {
+                $regra->ocultarParaTodos($quem, $agora);
+            }
+            $this->regras->salvar($regra, flush: true);
+        });
 
         return AbaOcultaResultadoOutput::ocultaParaTodos($aba);
     }
