@@ -57,11 +57,11 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         yield 'cabeçalho da tabela #f4f7f9' => ['--ex-cab-tabela:   #f4f7f9;'];
         yield 'barra do acervo #f7f9fb' => ['--ex-barra:        #f7f9fb;'];
         yield 'Nova Pasta #e2e9ee' => ['--ex-botao:        #e2e9ee;'];
-        yield 'colunas do desenho (96 · 120 · 220 · 76 · 190 · 116)' => ['col[data-col="resp"]    { width: 200px !important; }'];
+        yield 'colunas do desenho VS 18.10.26 (dc L.594 COLW: fixas no mínimo 74 · 105 · 82 · 98)' => ['col[data-col="resp"]    { width: 20.8% !important; }'];
         // E8b: Cliente e Ação em 2fr:1.5fr. `calc` com % é ignorado no <col>; em percentual, as duas dividem a sobra
         // das colunas fixas na razão 40:30 (= 2:1.5), medido na tela.
-        yield 'Cliente 2fr (dc L.146)' => ['col[data-col="cliente"] { width: 40% !important; }'];
-        yield 'Ação 1.5fr (dc L.146)' => ['col[data-col="acao"]    { width: 28% !important; }'];
+        yield 'Cliente 2fr (dc L.594)' => ['col[data-col="cliente"] { width: 26% !important; }'];
+        yield 'Ação 1.4fr (dc L.594)' => ['col[data-col="acao"]    { width: 18.2% !important; }'];
         yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { flex: 0 1 250px; height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
         yield 'datas do período encolhem dentro do bloco (dc L.109)' => ['.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { flex: 1 1 0; min-width: 0; width: 0; }'];
         yield '"a" entre as datas #7d909d (dc L.109)' => ['--ex-periodo-sep:  #7d909d;'];

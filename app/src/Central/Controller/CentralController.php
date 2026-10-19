@@ -27,6 +27,7 @@ use App\Central\UseCase\MarcarConversaComoNaoLidaUseCase;
 use App\Central\UseCase\ObterNovidadesDaCentralUseCase;
 use App\Central\DTO\MembroDaEquipeOutput;
 use App\Central\UseCase\ListarEquipeDaCentralUseCase;
+use App\Central\UseCase\ListarPresencaDoEscritorioUseCase;
 use App\Central\UseCase\RegistrarPresencaUseCase;
 use App\Central\UseCase\ListarAvisosDaCentralUseCase;
 use App\Central\UseCase\MarcarAvisoUseCase;
@@ -87,6 +88,7 @@ final class CentralController extends AbstractController
         private readonly DefinirPreferenciasDaConversaUseCase $definirPreferencias,
         private readonly ListarEquipeDaCentralUseCase $listarEquipe,
         private readonly RegistrarPresencaUseCase $registrarPresenca,
+        private readonly ListarPresencaDoEscritorioUseCase $presencaDoEscritorio,
         private readonly ListarAvisosDaCentralUseCase $listarAvisos,
         private readonly MarcarAvisoUseCase $marcarAviso,
         private readonly ResolverAvisoUseCase $resolverAviso,
@@ -430,7 +432,10 @@ final class CentralController extends AbstractController
         return $this->responder(fn () => ['apagadas' => $this->limparLidos->executar($this->usuario(), $this->tenantContext->getCurrentTenant())]);
     }
 
-    /** Batimento de presença (F2): a cada 20 s e quando o status muda. */
+    /**
+     * Batimento de presença (F2): a cada 20 s e quando o status muda. Responde também quem está on-line no escritório
+     * (só ids, status e minutos), para o selo do cabeçalho não pedir a equipe a cada 20 s.
+     */
     #[Route('/presenca', name: 'central_presenca', methods: ['POST'])]
     public function presenca(Request $request): JsonResponse
     {
@@ -438,7 +443,10 @@ final class CentralController extends AbstractController
         $corpo = $this->corpo($request);
         $status = isset($corpo['status']) && is_string($corpo['status']) ? $corpo['status'] : '';
 
-        return $this->responder(fn () => ['status' => $this->registrarPresenca->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $status)]);
+        return $this->responder(fn () => [
+            'status' => $this->registrarPresenca->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $status),
+            'online' => $this->presencaDoEscritorio->executar($this->usuario(), $this->tenantContext->getCurrentTenant()),
+        ]);
     }
 
     /** @param callable(): mixed $acao */
