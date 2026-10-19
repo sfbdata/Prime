@@ -458,14 +458,14 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('#tePagina');
 
-        // Quem tem escritório E convite vigente: o destino de sempre (o Expediente), sem mudança.
+        // Quem tem escritório E convite vigente: o destino de sempre (o Expediente), pelo véu do login.
         $outroEscritorio = $this->criarTenant('Correspondente com escritório');
         $comEscritorio = $this->criarUsuario($outroEscritorio);
         $this->logarComTenant($client, $master, $central);
         $tokenComEscritorio = $this->convidar($client, $codigo, (string) $comEscritorio->getEmail());
         $this->aceitarLogado($client, $comEscritorio, $tokenComEscritorio);
         $this->entrarPeloFormulario($client, (string) $comEscritorio->getEmail(), 'senha123');
-        self::assertResponseRedirects('/expediente');
+        self::assertResponseRedirects('/login/entrando?para=/expediente');
 
         // Super admin sem escritório e com convite vigente: segue para o painel da plataforma.
         $admin = new User();
@@ -480,7 +480,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $tokenAdmin = $this->convidar($client, $codigo, (string) $admin->getEmail());
         $this->aceitarLogado($client, $admin, $tokenAdmin);
         $this->entrarPeloFormulario($client, (string) $admin->getEmail(), 'senha123');
-        self::assertResponseRedirects('/admin/platform');
+        self::assertResponseRedirects('/login/entrando?para=/admin/platform');
 
         // Convite revogado: sem convite vigente, volta ao caminho de sempre (selecionar escritório).
         $this->logarComTenant($client, $master, $central);
@@ -488,7 +488,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $id = $this->json($client)['demanda']['convites'][0]['id'];
         $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites/$id/revogar");
         $this->entrarPeloFormulario($client, 'entrada@test.com', 'senha-forte-1');
-        self::assertResponseRedirects('/escritorio/selecionar');
+        self::assertResponseRedirects('/login/entrando?para=/escritorio/selecionar');
     }
 
     #[TestDox('o login automático pelo "manter conectado" deixa a requisição do convidado seguir, sem redirecionar')]

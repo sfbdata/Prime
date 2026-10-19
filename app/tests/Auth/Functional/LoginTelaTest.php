@@ -70,9 +70,11 @@ final class LoginTelaTest extends JusPrimeWebTestCase
             null,
             'Credencial correta tem que sair do /login. Se ficou, o contrato do formulário quebrou.',
         );
-        self::assertStringNotContainsString(
-            '/login',
-            (string) $client->getResponse()->headers->get('Location'),
+        // O sucesso passa pelo véu /login/entrando (comportamento 2 da spec login-desenho-10);
+        // voltar ao próprio /login é o sintoma de CSRF ausente ou campo com nome errado.
+        self::assertSame(
+            '/login/entrando',
+            parse_url((string) $client->getResponse()->headers->get('Location'), PHP_URL_PATH),
             'Redirecionar de volta ao /login é o sintoma de CSRF ausente ou campo com nome errado.',
         );
         self::assertNotNull(
