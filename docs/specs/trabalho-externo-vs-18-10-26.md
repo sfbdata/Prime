@@ -13,8 +13,9 @@ Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-ed
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
 base do PR para `master` e tirar do rascunho.
 
-**Fila de migrations** (coordenador): #52 → Push (0d) → Telas e recursos (b5) → PR 2 da 7d → C1 (f6)
-→ F1 → F2a → F2c.
+**Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
+#62 → #83 → #84. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
 Master é dono do sistema e pode tudo; navegador liberado nesta sessão para a verificação visual
@@ -75,10 +76,9 @@ Frente `trabalho-externo-vs1810`, base `origin/master` @ `1d3e664c` (v2.2.2). Co
 `docs/specs/trabalho-externo.md`, que segue valendo para tudo o que ela já cobre.
 
 Desenho: `06 - Trabalho Externo - VS 18.10.26.dc.html`, projeto Claude Design `4f6a5f61-…`.
-Cópia local **parcial** em `docs/design/trabalho-externo/vs-18-10-26/` (o DesignSync entrega no máximo
-256 KiB). A marcação veio inteira (linhas 1–706); o script foi cortado na linha 930, dentro de `cvHTML`.
-Perdeu-se o `renderVals()`, que monta todas as listas e os textos dinâmicos. O zip completo foi pedido
-ao dono. **O desenho manda** onde mostra algo; onde a parte que falta é omissa, vale a convenção do
+Cópia de referência **completa** (zip do dono, 19/10) em `docs/design/trabalho-externo/vs-18-10-26/`, fora do
+git; a pasta inteira do zip está em `docs/design/redesign-19-10-26/` (sem commitar, há documentos pessoais).
+**O desenho manda** onde mostra algo; onde a parte que falta é omissa, vale a convenção do
 sistema e o item fica marcado como **provisório até o zip**.
 
 Risco **BAIXO** pela régua do projeto (não toca ponto, identidade User/Tenant nem TenantRole/Permission).
@@ -176,29 +176,27 @@ Tabela `trabalho_externo_marcacao_mensagem` (`mensagem_id` FK cascade, `usuario_
   `definitivo`, `fav` (`_chatLote()` linha 878). Só mensagens que o usuário vê na demanda.
 - Lixeira do chat expira em 30 dias: na leitura, `lixeira_em` com mais de 30 dias conta como
   excluída (`_chatLixeira()` linha 886). Sem cron.
-- Apagar para todos: o autor, nas próprias mensagens `normal` ou `interna`, e o Master em qualquer
-  uma (o Master pode tudo, regra do dono, via coordenador em 19/10). Registro do sistema não se
-  apaga. A mensagem continua na conversa sem o texto e some das não lidas. **Provisório até o zip**
-  (a regra `m.podeApagar` se perdeu).
+- Apagar para todos (desenho l.1233–1240): o **Master** em qualquer mensagem; o **autor** nas próprias até
+  **60 min** após o envio; qualquer tipo menos o registro do sistema. A mensagem fica como "Mensagem apagada
+  por X em dd/mm/aaaa hh:mm" (nome no recorte de quem lê), some das não lidas e das favoritas de todos.
+  Quem não pode vê no menu o item travado "Apagar (prazo de 60 min encerrado)" ou "Só o autor ou o Master
+  apagam".
 - Teclas Delete ou `#` com mensagens selecionadas: lixeira (ou definitivo, dentro da lixeira).
 - Desfazer de 8 s para a lixeira e o restaurar.
 
-### 3.5 Provisório até o zip (rótulos que estavam no código perdido)
+### 3.5 Rótulos e listas (definidos pelo desenho completo, 19/10)
 
-As estruturas abaixo existem na marcação, mas o conteúdo vinha do `renderVals()`:
-`loteAcoes` (botões da barra de lote), `selOps` ("Selecionar por"), o chip Lixeira (o desenho só
-mostra o aviso `lixGrupo`; estrela e importância não ganham chip, para não inventar filtro), itens novos do menu de contexto da linha (`menuItens`) e do
-menu da mensagem (`tlMenuItens`), `chatFiltros`, `chatVazioTxt`. Até o zip, usam o conjunto de
-operações de `lote()`/`_chatLote()` com os rótulos do mapa `T`, e o menu da linha mantém os itens da
-1.0 mais estrela, importante, lida/não lida e lixeira.
+Barra de lote (l.1309), "Selecionar por" (l.1307), chips "★ Com estrela", "Importantes" e "Lixeira"
+(l.1302), menu da linha sem marcações (l.1214), importância com as cores e dicas da l.1305, menu da
+mensagem (l.1239), filtros e vazios do chat (l.1287–1288). Nada mais é provisório no F1.
 
 ## 4. F2–F4: o que já se sabe
 
 Da marcação e das estáticas que vieram (linhas 832–846):
 - Vaga: status `VST` (Aguardando aprovação, Não aprovada, Aberta, Pausada, Preenchida, Expirada,
-  Encerrada); durações `DUR` 5/10/15/30/60 dias; oferta relâmpago com cronômetro, nº de vagas e
-  aceites; formulário em `tmVagaForm` (linhas 230–381). Configuração padrão `tlCfg()`:
-  `{dur: 15, sino: true, motiv: true, maxDias: 0, minEnvio: 3}`.
+  Encerrada); `DUR` 5/10/15/30/60 são **minutos** da oferta com tempo; formulário em `tmVagaForm`
+  (linhas 230–381). Configuração padrão `tlCfg()`: `{dur: 15, sino: true, motiv: true, maxDias: 0,
+  minEnvio: 3}`, com `dur` em minutos (l.1159).
 - Currículo: status `CST` (Novo, Em análise, Entrevista, Favorito, Arquivado); campos em `tmCvForm`;
   áreas `AREAS` (12), cargos `CARGOS` (7), contratação `CONTR`, modalidade `MODAL`.
 - Candidatura: status `AST` (Recebida, Em análise, Entrevista, Aprovado, Contratado, Não selecionado).
@@ -234,34 +232,33 @@ Configuração das vagas em `ConfiguracaoCentral.vagas` (json, padrão de `tlCfg
 `{dur: 15, sino: true, motiv: true, maxDias: 0, minEnvio: 3}`), editada no modal `tmCfgV`.
 `EQUIPE_PADRAO` ganha `talentos: true` (`CFG.equipe` do desenho, linha 716).
 
-### Regras (convenção até o zip; o código que as dizia se perdeu)
+### Regras (desenho completo, l.979–1117)
 
-- **Criar**: Master, ou Equipe com `talentos`, pelo "Nova vaga" (`tlGere`): nasce **aberta**.
-- **Divulgar**: Solicitante, pelo "Divulgar uma vaga" (`podeDivulgar`): nasce **pendente** ("A equipe
-  BlueJus revisa e divulga na Central"). O período pedido acima de `maxDias` (0 = sem limite) é
-  ajustado na aprovação, como diz o modal de configuração do desenho.
-- **Aprovar / reprovar**: Master ou Equipe com `talentos`. Aprovar abre a vaga e conta o período a
-  partir dali; reprovar pede motivo.
-- **Pausar, retomar, marcar como preenchida, encerrar**: Central, e o escritório dono na vaga dele.
-- **Expirar**: sem cron. Na leitura, aberta com `fimDivulgacao` vencido conta como **encerrada**
-  ("Período de divulgação de N dia(s) encerrado"), e oferta com `expiraEm` vencido como **expirada**
-  ("Oferta expirou sem aceite"). A próxima escrita na vaga grava a mudança.
-- **Quem vê** (P2, convenção registrada pelo coordenador em 19/10): a Central vê todas; o Solicitante
-  vê as abertas da Central e as do escritório dele em qualquer situação; o Convidado não vê (P1).
-- **Marcações** pessoais: as mesmas do F1, com `TipoItemMarcado::Vaga`.
-- **O tempo é da Central**: "Os usuários não veem o tempo da oferta nem estas regras; a vaga
-  simplesmente deixa de aparecer quando o tempo acaba" (`tmCfgV`). Cronômetro, "AO VIVO" e o fim da
-  divulgação só saem para a Central (o fim da divulgação também para o dono da vaga).
-- Selos: "AO VIVO" para oferta aberta com tempo correndo; "NOVA" para aberta publicada há menos de
-  24 h (**provisório até o zip**).
+- **Quem vê** (l.990): o interno (Master e qualquer Equipe) vê todas e o histórico; o externo
+  (Solicitante e Convidado) vê as abertas e as que divulgou. Equipe sem `talentos` vê, mas não age.
+- **Nova vaga** (`tlGere`): Master, ou Equipe com `talentos`; nasce aberta. **Só o Master** escolhe o
+  tipo ("Vaga comum" ou "Oferta com tempo") e "Até a vaga ser preenchida"; os demais ficam no teto
+  `maxDias`. Em "Nova vaga" a oferta vem ligada se `dur > 0`.
+- **Divulgar uma vaga na Central** (`podeDivulgar: !int`): Solicitante e Convidado; nasce pendente.
+- **Situação, só a Central com `talentos`**: "Aprovar e publicar" (teto de dias da vaga externa; sem tipo
+  escolhido pelo Master, vira oferta de `dur` minutos se `dur > 0`; o prazo de inscrição passa a ser o
+  fim da divulgação), "Não aprovar" (motivo opcional, "o solicitante verá"), "Pausar inscrições",
+  "Reabrir vaga", "Ofertar novamente (N min)", "Finalizar oferta" ou "Encerrar vaga", "Excluir vaga".
+- **Dono externo**: só "Editar pedido" (pendente) ou "Corrigir e reenviar" (reprovada, volta a pendente).
+- **Expirar**: sem cron, como antes; reabrir e ofertar novamente recomeçam o contador.
+- **Contador da oferta**: só o interno (`tempo()`, l.996); "AO VIVO" para todos.
+- **OFERECIDO POR**: só os dados com o olho aberto, para todos; e-mail e telefone nascem ocultos (l.1182).
+  O último ofertante vira o padrão das próximas vagas do usuário.
+- **"NOVA"**: criada depois da última visita do usuário à aba Vagas (`trabalho_externo_preferencia`).
+- **"Visto"**: só por abrir ou marcar (coluna própria na marcação).
+- **Importância da vaga**: calculada (`impV`, l.1037); compatibilidade (F3) e candidaturas (F2b) depois.
+- Histórico com os textos do desenho ("Aprovada e publicada por X", "Pausada por X", …).
 
 ### Tela
 
-Faixa de abas de módulo (`mods`, linhas 85–87): Demandas e Vagas (Currículos entra no F3). Aba Vagas
-nas linhas 152–169: barra (seleção, busca, filtros, Compartilhar vagas, Divulgar uma vaga, Nova
-vaga), cartões em grade `minmax(310px,1fr)`, modal genérico (`tlm`) com formulário, detalhe e
-configuração. **Provisórios até o zip**: rótulos de `vagaFiltros`, ações de `vgBulk`, itens do menu de
-contexto do cartão, `divPassos`, `tfTipos`, `tfDurs`, `cfgTgs`, `cfgEnvOps`.
+Faixa de abas (l.1105), filtros por perfil (l.1116), lote (l.1051–1052), cartões (l.1117), menu (l.1001),
+detalhe e botões (l.1003, l.1095), formulário (l.1156, l.1182–1188), configuração no menu ⋮ "VAGAS E
+CURRÍCULOS" (l.1265, l.1159–1161). Nada provisório além do que depende de F2b/F3/F4.
 
 ## 4.2 F2c: página pública de vagas e "Compartilhar vagas"
 
@@ -300,7 +297,8 @@ dado pessoal (LGPD) e de formulário aberto na internet.
   nenhum e-mail de vaga pode sair para um interessado antes de ele confirmar o endereço pelo próprio
   e-mail (double opt-in) e de conferir o `email_descadastro`. Isso é contrato da frente de e-mails
   (pendente com o coordenador); esta fatia só grava o pedido.
-- "Indicadas por …" só identifica a Central. Link gerado por escritório não leva o nome dele.
+- "Indicadas por …" + o **primeiro nome** de quem gerou o link, nunca o escritório (VP l.165–180, 06
+  l.1074; resolvido com o coordenador em 19/10).
 - O envio dos e-mails de vagas é da frente "Comercial e e-mails" (contrato pelo coordenador), e o
   descadastro é o serviço de `Shared` da frente `push-avisar-quando-chegar` (tabela
   `email_descadastro`). Esta fatia não envia e-mail nem cria descadastro próprio: a tela de "Não quer
