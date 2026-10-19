@@ -11,7 +11,6 @@
     "Auth/UseCase/AceitarConviteEscritorioSemContaUseCase.php::executar": 68,
     "Auth/UseCase/AceitarConvitePlataformaUseCase.php::executar": 67,
     "Auth/UseCase/ConfirmarCadastroUseCase.php::executar": 69,
-    "Auth/UseCase/IniciarCadastroPublicoUseCase.php::executar": 49,
     "Auth/UseCase/RedefinirSenhaUseCase.php::executar": 47,
     "Central/UseCase/AdicionarParticipanteUseCase.php::executar": 47,
     "Central/UseCase/CriarGrupoUseCase.php::executar": 41,

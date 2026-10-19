@@ -37,18 +37,19 @@ final class PoliticaPrivacidadeLigacoesTest extends JusPrimeWebTestCase
 {
     private const SELETOR = 'a[href="/politica-de-privacidade"]';
 
-    #[TestDox('O cadastro público oferece a Política — fora do "Li e aceito"')]
-    public function testCadastroPublicoLevaAPolitica(): void
+    /**
+     * O cadastro público passou para a tela de entrada (desenho 10). Lá a caixa única "Li e aceito
+     * os Termos de uso e a Política de privacidade" grava a CIÊNCIA da Política em registro próprio
+     * (decisão b da spec `login-desenho-10.md`), então a distinção 1 acima deixou de valer para o
+     * cadastro; o link daquela caixa é da tela de entrada e é testado com ela.
+     */
+    #[TestDox('O endereço antigo do cadastro público leva à tela de entrada com o cadastro aberto')]
+    public function testCadastroPublicoLevaATelaDeEntrada(): void
     {
-        $client  = static::createClient();
-        $crawler = $client->request('GET', '/cadastro');
+        $client = static::createClient();
+        $client->request('GET', '/cadastro');
 
-        self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter(self::SELETOR));
-
-        // O link não pode estar dentro do bloco do aceite: lá dentro ele vira parte do que
-        // o usuário declara aceitar, e a decisão foi que a Política é só leitura.
-        self::assertCount(0, $crawler->filter('.form-check ' . self::SELETOR));
+        self::assertResponseRedirects('/login?abrir=cadastro');
     }
 
     #[TestDox('A tela do convite oferece a Política — também fora do aceite')]

@@ -4,69 +4,89 @@ declare(strict_types=1);
 
 namespace App\Auth\Controller;
 
-use App\Auth\DTO\IniciarCadastroPublicoInput;
-use App\Auth\Form\CadastroPublicoType;
-use App\Auth\Service\CadastroMailer;
+use App\Auth\DTO\ContaCriadaOutput;
+use App\Auth\DTO\CriarContaEEscritorioInput;
 use App\Auth\UseCase\ConfirmarCadastroUseCase;
-use App\Auth\UseCase\IniciarCadastroPublicoUseCase;
+use App\Auth\UseCase\ConfirmarEmailDaContaUseCase;
+use App\Auth\UseCase\CriarContaEEscritorioUseCase;
+use App\Security\UserAuthenticator;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
-use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
+/**
+ * Cadastro público do desenho 10: o formulário mora na tela de entrada (passo "Criar conta e escritório"); aqui
+ * ficam o POST em JSON que cria a conta já logada e o link de confirmação do e-mail. O `/cadastro/confirmar/{token}`
+ * antigo continua para os cadastros pendentes já enviados (valem 24 h).
+ */
 final class CadastroController extends AbstractController
 {
     public function __construct(
-        private readonly IniciarCadastroPublicoUseCase $iniciarCadastro,
+        private readonly CriarContaEEscritorioUseCase $criarConta,
+        private readonly ConfirmarEmailDaContaUseCase $confirmarEmail,
         private readonly ConfirmarCadastroUseCase $confirmarCadastro,
-        private readonly CadastroMailer $cadastroMailer,
-        private readonly RateLimiterFactory $cadastroAutoLimiter,
+        private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
+        private readonly Security $security,
+        private readonly TenantContext $tenantContext,
     ) {}
 
-    #[Route('/cadastro', name: 'auth_cadastro', methods: ['GET', 'POST'])]
-    public function cadastrar(Request $request): Response
+    #[Route('/cadastro', name: 'auth_cadastro', methods: ['GET'])]
+    public function cadastrar(): Response
     {
         if ($this->getUser() !== null) {
             return $this->redirectToRoute('tenant_selecionar');
         }
 
-        if ($request->isMethod('POST')
-            && !$this->cadastroAutoLimiter->create((string) $request->getClientIp())->consume()->isAccepted()) {
-            throw new TooManyRequestsHttpException();
-        }
-
-        $input = new IniciarCadastroPublicoInput();
-        $form  = $this->createForm(CadastroPublicoType::class, $input);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $cadastro = $this->iniciarCadastro->executar(
-                    $input,
-                    (string) $request->getClientIp(),
-                    $request->headers->get('User-Agent'),
-                );
-                $this->cadastroMailer->enviarConfirmacao($cadastro);
-
-                return $this->redirectToRoute('auth_cadastro_verifique', ['email' => $cadastro->getEmail()]);
-            } catch (\DomainException | \InvalidArgumentException $e) {
-                $this->addFlash('danger', $e->getMessage());
-            } catch (\RuntimeException) {
-                $this->addFlash('danger', 'Não foi possível enviar o e-mail de confirmação. Tente novamente em instantes.');
-            }
-        }
-
-        return $this->render('auth/cadastro/form.html.twig', ['form' => $form]);
+        return $this->redirectToRoute('app_login', ['abrir' => 'cadastro']);
     }
 
-    #[Route('/cadastro/verifique-email', name: 'auth_cadastro_verifique', methods: ['GET'])]
-    public function verifique(Request $request): Response
+    #[Route('/cadastro/criar', name: 'auth_cadastro_criar', methods: ['POST'])]
+    public function criar(Request $request): JsonResponse
     {
-        return $this->render('auth/cadastro/verifique_email.html.twig', [
-            'email' => (string) $request->query->get('email', ''),
+        if ($this->getUser() !== null) {
+            return $this->json(['erro' => 'Saia da sua conta para criar outra.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $dados = self::lerJson($request);
+
+        if (!$this->isCsrfTokenValid('cadastro_criar', self::texto($dados, '_token'))) {
+            return $this->json(['erro' => 'Sessão expirada. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+
+        // Depois do CSRF: um POST forjado não gasta a cota de quem divide o IP.
+        if (!$this->cadastroAutoLimiter->create((string) $request->getClientIp())->consume()->isAccepted()) {
+            return $this->json(['erro' => 'Muitas tentativas. Tente de novo mais tarde.'], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
+        try {
+            $conta = $this->criarConta->executar(self::input($dados), (string) $request->getClientIp(), $request->headers->get('User-Agent'));
+        } catch (\InvalidArgumentException | \DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $this->entrar($conta);
+
+        return $this->json([
+            'ok' => true,
+            'destino' => $this->generateUrl('app_login_entrando', ['para' => $this->generateUrl('expediente_index')]),
         ]);
+    }
+
+    #[Route('/cadastro/confirmar-email/{token}', name: 'auth_cadastro_confirmar_email', requirements: ['token' => '[a-f0-9]{64}'], methods: ['GET'])]
+    public function confirmarEmail(string $token): Response
+    {
+        try {
+            $this->confirmarEmail->executar($token);
+        } catch (\DomainException $e) {
+            return $this->render('auth/cadastro/confirmar_email.html.twig', ['motivo' => $e->getMessage()]);
+        }
+
+        return $this->render('auth/cadastro/confirmar_email.html.twig', ['motivo' => null]);
     }
 
     #[Route('/cadastro/confirmar/{token}', name: 'auth_cadastro_confirmar', methods: ['GET'])]
@@ -87,5 +107,42 @@ final class CadastroController extends AbstractController
         } catch (\DomainException $e) {
             return $this->render('auth/cadastro/erro.html.twig', ['motivo' => $e->getMessage()]);
         }
+    }
+
+    /** Decisão c: "Criar minha conta" já entra no sistema, no escritório que acabou de nascer. */
+    private function entrar(ContaCriadaOutput $conta): void
+    {
+        $this->security->login($conta->user, UserAuthenticator::class, 'main');
+        $this->tenantContext->setCurrentTenant((int) $conta->tenant->getId());
+    }
+
+    /** @return array<string, mixed> */
+    private static function lerJson(Request $request): array
+    {
+        try {
+            return $request->toArray();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** @param array<string, mixed> $dados */
+    private static function input(array $dados): CriarContaEEscritorioInput
+    {
+        return new CriarContaEEscritorioInput(
+            nome: self::texto($dados, 'nome'),
+            escritorio: self::texto($dados, 'escritorio'),
+            email: self::texto($dados, 'email'),
+            senha: self::texto($dados, 'senha'),
+            aceite: in_array($dados['aceite'] ?? false, [true, 1, '1', 'true', 'on'], true),
+        );
+    }
+
+    /** @param array<string, mixed> $dados */
+    private static function texto(array $dados, string $chave): string
+    {
+        $valor = $dados[$chave] ?? '';
+
+        return is_string($valor) ? $valor : '';
     }
 }
