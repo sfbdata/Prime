@@ -14,7 +14,12 @@
 - **Contratos com outras sessões:** o X de fechar do painel segue a regra do #71 (fechar-janelas, 5d), cujo include
   global está no #69 (7d).
 - **Migrations:** nenhuma nas fases 1 e 2; uma na fase 3 (posição na fila: a pedir ao coordenador).
-- **Pendências:** merges; confirmação do Q3 pelo dono; fase 3.
+- **Lacuna achada no `bluejus-central.js` completo (19/10):** o 03 monta o painel com `BJCentral.online()`
+  (`{id, nome, setor, cargo}`), e o subtítulo do colega é `[setor, cargo, funcao].join(' · ') || 'on-line'` (dc L.669).
+  O #61 mostra só o cargo. No sistema, setor = lotação do vínculo (`UserTenant.lotacao`) e **"função" não existe
+  separada do cargo**. Decisão do coordenador (19/10): não mexer no #61; PR pequeno a partir do master DEPOIS do merge
+  dele, com a lotação no `central_equipe` e o subtítulo "Lotação · Cargo" ("on-line" sem nenhum dos dois).
+- **Pendências:** merges; confirmação do Q3 pelo dono; o PR da lotação depois do #61; fase 3.
 - **Próximo passo:** depois dos merges, trazer o master para o #79; fase 3 quando houver intervalo.
 
 Desenho: `03 - EXPEDIENTE - VS 18.10.26.dc.html` (projeto claude.ai/design 4f6a5f61), linhas 31, 67 (selo),
