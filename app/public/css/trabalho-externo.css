@@ -320,6 +320,8 @@
 .te-menu-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; border-top: 1px solid transparent; background: var(--te-card); padding: 8px 14px; font-size: 13.5px; color: var(--te-body); cursor: pointer; text-align: left; }
 .te-menu-item.is-sep { border-top-color: var(--te-div); }
 .te-menu-item.is-perigo { color: var(--te-vermelho); }
+/* Apagar negado pelo servidor (`apagarBloqueado`): o item só mostra o motivo e fecha o menu. */
+.te-menu-item.is-travado { color: #9aabb7; }
 .te-menu-item:hover { background: var(--te-hover); }
 .te-menu-item > .bi { width: 16px; }
 
@@ -460,6 +462,8 @@ select.te-ctl { padding: 0 7px; }
 .te-msg-cab > .te-espaco { flex: 1; }
 .te-msg-acoes { display: flex; gap: 2px; opacity: .55; transition: opacity .15s; }
 .te-msg:hover .te-msg-acoes, .te-msg.is-sel .te-msg-acoes, .te-msg-acoes:focus-within { opacity: 1; }
+/* Favorita: as ações ficam sempre acesas (`acOp` do desenho). */
+.te-msg-acoes.is-fav { opacity: 1; }
 .te-msg-btn { width: 24px; height: 22px; border: none; background: transparent; border-radius: 3px; color: var(--te-sel-off); cursor: pointer; font-size: 12px; padding: 0; }
 .te-msg-btn:hover { background: var(--te-sel-hover); color: var(--te-text-2); }
 .te-msg-btn.is-fav { color: #e0a106; }
