@@ -48,3 +48,8 @@ dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github
 # desenho e não deve ser editado.
 74a9dcc46ef501f1294436f2cb9f09dde0e6e1d8:docs/design/trabalho-externo/bluejus-central.js:generic-api-key:11
 74a9dcc46ef501f1294436f2cb9f09dde0e6e1d8:docs/design/trabalho-externo/bluejus-central.js:generic-api-key:150
+
+# docs/design/meu-perfil-18-10/bluejus-central.js (commit do PR #53, arquivo já removido no commit seguinte):
+# nomes de chave de localStorage do protótipo ('bj-central-v1', 'bj-pasta-acesso-pedidos-v1'), conferidos em 19/10/2026
+6b6bcff1522da57dee4e607afe9653fb44596f8d:docs/design/meu-perfil-18-10/bluejus-central.js:generic-api-key:11
+6b6bcff1522da57dee4e607afe9653fb44596f8d:docs/design/meu-perfil-18-10/bluejus-central.js:generic-api-key:152

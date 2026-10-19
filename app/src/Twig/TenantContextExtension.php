@@ -34,6 +34,7 @@ final class TenantContextExtension extends AbstractExtension implements ResetInt
             new TwigFunction('current_tenant', $this->currentTenant(...)),
             new TwigFunction('meus_escritorios', $this->meusEscritorios(...)),
             new TwigFunction('papel_na_barra', $this->papelNaBarra(...)),
+            new TwigFunction('eh_usuario_primario', $this->ehUsuarioPrimario(...)),
         ];
     }
 
@@ -91,21 +92,11 @@ final class TenantContextExtension extends AbstractExtension implements ResetInt
                 $partes[] = 'MASTER';
             }
 
-            // Reaproveita os vínculos ativos já lidos para o seletor de escritórios (a base chama
-            // meus_escritorios() antes): sem consulta extra. O escritório atual vem da sessão.
-            $tenantAtual = $this->tenantContext->getCurrentTenant();
-            if ($tenantAtual !== null) {
-                foreach ($this->meusEscritorios() as $vinculo) {
-                    if ($vinculo->getTenant()->getId() !== $tenantAtual->getId()) {
-                        continue;
-                    }
-
-                    $partes[] = $vinculo->getTenantRole()?->isSystem() === true
-                        ? 'USUÁRIO PRIMÁRIO'
-                        : 'USUÁRIO SECUNDÁRIO';
-
-                    break;
-                }
+            $vinculo = $this->vinculoNoEscritorioAtual();
+            if ($vinculo !== null) {
+                $partes[] = $vinculo->getTenantRole()?->isSystem() === true
+                    ? 'USUÁRIO PRIMÁRIO'
+                    : 'USUÁRIO SECUNDÁRIO';
             }
 
             return implode(' · ', $partes);
@@ -113,5 +104,40 @@ final class TenantContextExtension extends AbstractExtension implements ResetInt
             // Roda em TODA página: um subtítulo nunca pode derrubar a tela.
             return '';
         }
+    }
+
+    /**
+     * O usuário logado é o primário do escritório atual (vínculo com o perfil de sistema)? É o que
+     * decide, no menu do usuário e nas abas do Meu Perfil, quem vê "Convites do escritório" e
+     * "Abrir conta" (desenho "07 - Meu Perfil" e "03 - EXPEDIENTE", VS 18.10.26: só o primário).
+     * Só decide o que aparece; a rota de destino mantém a própria guarda. Nunca lança.
+     */
+    public function ehUsuarioPrimario(): bool
+    {
+        try {
+            return $this->vinculoNoEscritorioAtual()?->getTenantRole()?->isSystem() === true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Reaproveita os vínculos ativos já lidos para o seletor de escritórios (a base chama
+     * meus_escritorios() antes): sem consulta extra. O escritório atual vem da sessão.
+     */
+    private function vinculoNoEscritorioAtual(): ?UserTenant
+    {
+        $tenantAtual = $this->tenantContext->getCurrentTenant();
+        if ($tenantAtual === null) {
+            return null;
+        }
+
+        foreach ($this->meusEscritorios() as $vinculo) {
+            if ($vinculo->getTenant()->getId() === $tenantAtual->getId()) {
+                return $vinculo;
+            }
+        }
+
+        return null;
     }
 }
