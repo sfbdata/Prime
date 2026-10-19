@@ -109,6 +109,41 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('Atender: o secundário também recebe 403')]
+    public function testAtenderSecundario(): void
+    {
+        $id = (int) static::getContainer()->get(Connection::class)->fetchOne('SELECT id FROM contribua_sugestao WHERE tenant_id = :t', ['t' => $this->outro->getId()]);
+        $this->logarComTenant($this->client, $this->secundario, $this->escritorio);
+
+        $this->client->request('POST', "/contribua/sugestao/{$id}/atender", ['_token' => self::TOKEN]);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Sugestão longa com nomes longos: grava uma vez e o aviso ao Master cabe no título')]
+    public function testSugestaoLonga(): void
+    {
+        $this->escritorio->setName(str_repeat('Escritório Grande ', 3));
+        $this->secundario->setFullName(str_repeat('Nome Comprido ', 3));
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->secundario, $this->escritorio);
+
+        self::assertTrue($this->post('/contribua/sugestao', ['tipo' => 'sug', 'texto' => str_repeat('Texto longo de sugestão. ', 20)])['ok']);
+
+        self::assertSame(1, $this->contar('SELECT COUNT(*) FROM contribua_sugestao WHERE tenant_id = :t', $this->escritorio));
+        self::assertSame(1, $this->contar("SELECT COUNT(*) FROM notificacao WHERE tipo = 'contribua.sugestao' AND tenant_id = :t AND char_length(titulo) <= 255", $this->escritorio));
+    }
+
+    #[TestDox('Números isolados: o escritório conta só os próprios apoios; o Master conta todos')]
+    public function testNumerosIsolados(): void
+    {
+        $this->em->persist(new \App\Contribua\Entity\Apoio($this->outro, null, 2000));
+        $this->em->flush();
+
+        self::assertMatchesRegularExpression('#APOIOS REGISTRADOS</div><b>0</b>#', $this->abrir($this->primario));
+        self::assertMatchesRegularExpression('#APOIOS REGISTRADOS</div><b>[1-9]\d*</b>#', $this->abrir($this->master));
+    }
+
     #[TestDox('Apoio: um por mês; o segundo é recusado com o texto do desenho')]
     public function testApoioUmPorMes(): void
     {

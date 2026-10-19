@@ -227,7 +227,20 @@ legado de risco ALTO):
 - Aviso de espaço: parcial `layout/_globais/aviso_espaco.html.twig` (ponto de inclusão da 7d), só para o
   primário, a partir da faixa Alerta, uma vez por dia; "Espaço esgotado" sem fechar só com o bloqueio
   ligado e a faixa Bloqueio atingida. Espera qualquer modal aberto (`hidden.bs.modal`).
-- Cores e textos do cabeçalho do espaço seguem os limiares literais do desenho (80, 90, 100).
+- Cores do cabeçalho do espaço e do aviso pelos limiares literais do desenho (80, 90, 100). **Estado
+  bloqueio desligado acima de 100% usa a variante de uso alto do desenho** ("Seu escritório está com N% do
+  espaço ocupado", aviso com ×), mantendo o vermelho: "novos envios estão pausados" só aparece com o
+  bloqueio ligado e a faixa Bloqueio atingida, porque com ele desligado seria falso (coordenação, 19/10).
+- E-mail de 90%/100% (§2.8): fica com a frente de e-mails, que ouve o evento `EspacoAtingiuFaixa`
+  (coordenação, 19/10). A C2 não manda e-mail.
+- Auditoria: `Apoio` é auditável; `MotivoDeNaoApoiar` fica fora de propósito (a trilha gravaria quem
+  respondeu e desfaria o anonimato); `Sugestao` fica fora até o escopo de auditoria de plataforma (#52),
+  porque o Master a atende de outro escritório e a trilha gravaria no escritório da sessão dele.
+- O aviso ao Master nunca derruba a ação: título cortado em 255 e falha vira log. O aviso global de
+  espaço nunca derruba a página: falha vira log e o aviso some.
+- Limites aceitos: "um apoio por mês" não tem trava entre dois cliques simultâneos (dois apoios e dois
+  avisos no pior caso); a soma de consumo roda em toda página do primário (uma consulta indexada por
+  escritório).
 - Ficam para a C3/C4, com as funções: "Configurar pagamento" (Master), checkout, Integração bancária,
   "Testar mensagem de prêmio" e o prêmio do apoiador.
 - Avisos ao Master saem no sino do escritório de origem quando o Master tem vínculo com ele; senão no

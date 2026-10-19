@@ -17,6 +17,10 @@ use Doctrine\ORM\Mapping as ORM;
  * O escritório vê as próprias; o Master vê as de todos e as marca como atendidas, com resposta
  * opcional para quem enviou. O nome de quem enviou fica gravado no momento do envio: a pessoa pode
  * sair do escritório e a sugestão continua dizendo de quem veio.
+ *
+ * Fora da auditoria por enquanto: o Master atende a sugestão de qualquer escritório, e o `audit_log`
+ * gravaria a mudança no escritório da SESSÃO dele, expondo-a na trilha de outro escritório. Entra quando
+ * existir o escopo de auditoria de plataforma (#52).
  */
 #[ORM\Entity(repositoryClass: SugestaoRepository::class)]
 #[ORM\Table(name: 'contribua_sugestao')]
@@ -62,6 +66,7 @@ class Sugestao implements TenantAware
         #[ORM\Column(type: 'text')]
         private string $texto,
     ) {
+        $this->autorNome = mb_substr(trim($autorNome), 0, 180);
         $this->texto = trim($texto);
         if (mb_strlen($this->texto) < self::MINIMO_DE_CARACTERES) {
             throw new \DomainException('Escreva um pouco mais para entendermos a sua sugestão.');

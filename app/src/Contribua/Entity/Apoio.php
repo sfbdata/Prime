@@ -7,6 +7,7 @@ namespace App\Contribua\Entity;
 use App\Contribua\Repository\ApoioRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -21,8 +22,11 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'contribua_apoio')]
 #[ORM\Index(name: 'idx_contribua_apoio_tenant_criado', columns: ['tenant_id', 'criado_em'])]
 #[ORM\Index(name: 'idx_contribua_apoio_informado_por', columns: ['informado_por_id'])]
-class Apoio implements TenantAware
+class Apoio implements TenantAware, Auditavel
 {
+    /** R$ 1.000.000,00: acima disso é engano de digitação (e passaria do inteiro da coluna). */
+    public const VALOR_MAXIMO_CENTAVOS = 100_000_000;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -44,7 +48,7 @@ class Apoio implements TenantAware
         #[ORM\Column(type: 'integer')]
         private int $valorCentavos,
     ) {
-        if ($valorCentavos < 0) {
+        if ($valorCentavos < 0 || $valorCentavos > self::VALOR_MAXIMO_CENTAVOS) {
             throw new \DomainException('Informe um valor válido.');
         }
         $this->criadoEm = new \DateTimeImmutable();

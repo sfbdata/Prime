@@ -10,6 +10,7 @@ use App\Contribua\Entity\MotivoDeNaoApoiar;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Entity\Sugestao;
 use App\Contribua\Enum\FaixaDoEspaco;
+use App\Contribua\Enum\TipoDeSugestao;
 use App\Contribua\Repository\ApoioRepository;
 use App\Contribua\Repository\MotivoDeNaoApoiarRepository;
 use App\Contribua\Repository\PlanoRepository;
@@ -60,6 +61,7 @@ final class MontarPaginaDoContribuaUseCase
             'perguntarMotivo' => !$apoiou && !$respondeu,
             'motivoRespondido' => !$apoiou && $respondeu,
             'motivos' => MotivoDeNaoApoiar::MOTIVOS,
+            'tipos' => array_map(static fn (TipoDeSugestao $t): array => ['codigo' => $t->value, 'rotulo' => $t->rotulo(), 'icone' => $t->icone(), 'cor' => $t->cores()[0], 'fundo' => $t->cores()[1], 'dica' => $t->dica()], TipoDeSugestao::cases()),
             ...$this->sugestoesENumeros($quem),
         ];
     }
@@ -77,8 +79,10 @@ final class MontarPaginaDoContribuaUseCase
             'titulo' => $cheio ? 'Seu espaço acabou: novos envios estão pausados' : ($alto ? 'Seu escritório está com ' . $pct . '% do espaço ocupado' : 'Mais espaço quando o escritório crescer'),
             'subtitulo' => $alto ? 'Amplie agora e continue anexando documentos sem interrupção. Nada do que você já guardou é apagado.' : 'O BlueJus continua gratuito. Amplie o espaço só quando precisar, mês a mês.',
             'icone' => $alto ? 'bi-exclamation-triangle' : 'bi-hdd-stack',
-            'fundo' => $cheio ? '#fdf1f2' : ($alto ? '#fff8e6' : '#f8f9fa'),
-            'cor' => $cheio ? '#b02a37' : ($pct >= 90 ? '#c08a12' : '#0a6fa0'),
+            // Cores pelos limiares literais do desenho (100 vermelho, 90 âmbar). Acima de 100% com o bloqueio
+            // desligado o texto é o de uso alto (decisão da coordenação, 19/10).
+            'fundo' => $pct >= 100 ? '#fdf1f2' : ($alto ? '#fff8e6' : '#f8f9fa'),
+            'cor' => $pct >= 100 ? '#b02a37' : ($pct >= 90 ? '#c08a12' : '#0a6fa0'),
             'uso' => RetratoDoEspaco::formatarGb($r->bytesUsados),
             'limite' => $r->bytesLimite === null ? 'sem limite' : RetratoDoEspaco::formatarGb($r->bytesLimite),
             'plano' => $r->planoNome,
@@ -96,7 +100,8 @@ final class MontarPaginaDoContribuaUseCase
     {
         $limiteGb = $r->bytesLimite === null ? PHP_INT_MAX : intdiv($r->bytesLimite, RetratoDoEspaco::BYTES_POR_GB);
         $usoGb = $r->bytesUsados / RetratoDoEspaco::BYTES_POR_GB;
-        $recomendado = self::recomendado($planos, $limiteGb, $usoGb);
+        // Sem limite não há o que ampliar: nenhum cartão aparece como recomendado.
+        $recomendado = $r->bytesLimite === null ? null : self::recomendado($planos, $limiteGb, $usoGb);
 
         return array_map(
             static fn (Plano $p): array => self::pacote($p, $r->planoCodigo === $p->getCodigo(), $limiteGb, $recomendado === $p->getCodigo()),

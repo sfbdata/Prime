@@ -55,6 +55,17 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertSame(['essencial'], array_column(array_filter($pagina['pacotes'], static fn (array $p): bool => $p['recomendado']), 'codigo'));
     }
 
+    #[TestDox('Acima de 100% com o bloqueio desligado: vermelho do desenho com o texto de uso alto, sem "pausados"')]
+    public function testAcimaDeCemSemBloqueio(): void
+    {
+        $pagina = $this->pagina((int) (24.3 * RetratoDoEspaco::BYTES_POR_GB));
+
+        self::assertSame('Seu escritório está com 243% do espaço ocupado', $pagina['espaco']['titulo']);
+        self::assertSame('#b02a37', $pagina['espaco']['cor']);
+        self::assertSame('#fdf1f2', $pagina['espaco']['fundo']);
+        self::assertSame('100%', $pagina['espaco']['largura']);
+    }
+
     private function pagina(int $usados): array
     {
         $planos = [

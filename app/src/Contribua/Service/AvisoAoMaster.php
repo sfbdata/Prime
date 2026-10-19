@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use Psr\Log\LoggerInterface;
 
 /**
  * Avisa o(s) Master(s) de algo do Contribua (sugestão nova, apoio informado, motivo, pedido de espaço)
@@ -24,17 +25,35 @@ final class AvisoAoMaster
         private readonly UserRepository $usuarios,
         private readonly UserTenantRepository $vinculos,
         private readonly NotificacaoService $notificacoes,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
+    /** O título da notificação é `varchar(255)`: nome, escritório e texto longos não podem estourar. */
+    private const TAMANHO_MAXIMO = 255;
+
+    /**
+     * Nunca lança: o aviso é consequência do que a pessoa fez (a sugestão já está gravada). Uma falha
+     * aqui vira log, não erro na tela, e não leva a pessoa a reenviar e duplicar.
+     */
     public function avisar(Tenant $origem, string $tipo, string $mensagem, string $url): void
     {
-        foreach ($this->usuarios->findComPapelGlobal('ROLE_SUPER_ADMIN') as $master) {
-            $escritorio = $this->escritorioDoAviso($master, $origem);
-            if ($escritorio !== null) {
-                $this->notificacoes->criarNotificacao($master, $escritorio, $tipo, $mensagem, $url);
+        $mensagem = self::caber($mensagem);
+        try {
+            foreach ($this->usuarios->findComPapelGlobal('ROLE_SUPER_ADMIN') as $master) {
+                $escritorio = $this->escritorioDoAviso($master, $origem);
+                if ($escritorio !== null) {
+                    $this->notificacoes->criarNotificacao($master, $escritorio, $tipo, $mensagem, $url);
+                }
             }
+        } catch (\Throwable $falha) {
+            $this->logger->error('Contribua: aviso ao Master não foi criado', ['tipo' => $tipo, 'erro' => $falha->getMessage()]);
         }
+    }
+
+    public static function caber(string $mensagem): string
+    {
+        return mb_strlen($mensagem) <= self::TAMANHO_MAXIMO ? $mensagem : rtrim(mb_substr($mensagem, 0, self::TAMANHO_MAXIMO - 3)) . '...';
     }
 
     private function escritorioDoAviso(User $master, Tenant $origem): ?Tenant

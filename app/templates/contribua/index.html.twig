@@ -185,11 +185,11 @@
         <div class="ct-modal-topo"><i class="bi bi-lightbulb"></i><b>Enviar sugestão</b><button type="button" data-fechar-sugestao aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>
         <div class="ct-modal-corpo">
             <div class="ct-tipos">
-                {% for t in [['sug', 'Sugestão', 'bi-lightbulb', '#0a6fa0', '#e5f1f7', 'Descreva a ideia ou a melhoria que ajudaria no dia a dia do escritório.'], ['prob', 'Algo atrapalha', 'bi-exclamation-triangle', '#9a5b00', '#fff4d6', 'Conte o que está atrapalhando, em qual tela e o que você esperava que acontecesse.'], ['falta', 'O que falta', 'bi-puzzle', '#5b3f9e', '#efeaf8', 'Qual recurso falta para o seu escritório trabalhar só pelo BlueJus?']] %}
-                    <button type="button" class="ct-tipo{{ loop.first ? ' ct-tipo--ativo' }}" data-tipo="{{ t[0] }}" data-dica="{{ t[5] }}" style="--ct-tipo-cor: {{ t[3] }}; --ct-tipo-fundo: {{ t[4] }}"><i class="bi {{ t[2] }}"></i>{{ t[1] }}</button>
+                {% for t in p.tipos %}
+                    <button type="button" class="ct-tipo{{ loop.first ? ' ct-tipo--ativo' }}" data-tipo="{{ t.codigo }}" data-dica="{{ t.dica }}" style="--ct-tipo-cor: {{ t.cor }}; --ct-tipo-fundo: {{ t.fundo }}"><i class="bi {{ t.icone }}"></i>{{ t.rotulo }}</button>
                 {% endfor %}
             </div>
-            <textarea rows="5" data-texto-sugestao placeholder="Descreva a ideia ou a melhoria que ajudaria no dia a dia do escritório."></textarea>
+            <textarea rows="5" data-texto-sugestao placeholder="{{ p.tipos[0].dica }}"></textarea>
             <div class="ct-erro" data-erro-sugestao hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
         </div>
         <div class="ct-modal-rodape"><button type="button" class="ct-botao-cancelar" data-fechar-sugestao>Cancelar</button><button type="button" class="ct-botao-azul ct-botao-enviar" data-enviar-sugestao><i class="bi bi-send"></i>Enviar</button></div>

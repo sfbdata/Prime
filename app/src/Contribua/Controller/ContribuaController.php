@@ -57,7 +57,7 @@ final class ContribuaController extends AbstractController
     #[Route('/apoio', name: 'contribua_apoio', methods: ['POST'])]
     public function apoio(Request $request, RegistrarApoioUseCase $registrar): JsonResponse
     {
-        return $this->acao($request, fn (): string => $registrar->executar($this->solicitante(), max(0, (int) $request->request->get('centavos', 0))));
+        return $this->acao($request, fn (): string => $registrar->executar($this->solicitante(), (int) $request->request->get('centavos', 0)));
     }
 
     #[Route('/motivo', name: 'contribua_motivo', methods: ['POST'])]
