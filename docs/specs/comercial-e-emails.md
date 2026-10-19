@@ -62,7 +62,13 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
 - **Arquivos quentes que a 1a toca:** `config/packages/messenger.yaml` (transporte próprio), `security.yaml` (rotas
   públicas), `framework.yaml` (limitadores), `docker-compose.prod.yml` (o worker passa a consumir o transporte novo:
   avisar o dono, é deploy), e três UseCases de Auth mais o `CadastroMailer` (uma linha cada).
-- **Pendências:** nova revisão da v2; respostas do dono; o push do `reativar` e `listar` no #87 (a 0d avisa o hash).
+- **0d, assinatura final (#87, commit 56fd1001):** constantes `PADRAO_DO_ASSUNTO`, `ASSUNTO_TODOS`,
+  `ORIGEM_MANUAL_MASTER = 'manual_master'`, `MAXIMO_POR_PAGINA = 100`; `descadastrar(..., ?string $motivo = null)`
+  (até 280 caracteres); `reativar(?Tenant, email, assunto, origem, ?User $por = null)`; `listar(...)` devolve
+  `ListaDeDescadastros {total, itens, pagina, porPagina}` com `ItemDeDescadastro {email, assunto, origem, motivo, em}`
+  (busca ILIKE no e-mail). A migration `Version20261020090000` da 0d foi reescrita: no banco de teste da frente, `down`
+  e `up` dela antes da da 1a.
+- **Pendências:** re-revisão da v2; respostas do dono.
 - **Próximo passo:** revisão da v2; aprovada, abrir a frente da 1a sobre `push-avisar-quando-chegar` e implementar.
 
 ## 1. O que já existe (levantamento de 19/10)
