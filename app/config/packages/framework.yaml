@@ -34,6 +34,12 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '1 hour'
+        # "Falar com suporte" da tela de entrada (desenho 10): rota anônima que grava no banco e
+        # avisa o Master no sino. Chave = IP. 5 por hora cobre quem não consegue entrar e insiste.
+        suporte_entrada:
+            policy: sliding_window
+            limit: 5
+            interval: '1 hour'
         oab_verificar:
             policy: sliding_window
             limit: 5
