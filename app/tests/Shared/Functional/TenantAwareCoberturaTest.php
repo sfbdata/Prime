@@ -111,8 +111,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // não lida e favorita são do USUÁRIO, como a LeituraDemanda; o Master marca demandas de
         // todos os escritórios. Toda leitura filtra pelo usuário logado e só alcança itens que o
         // LocalizadorDeDemanda já escopou, provado em MarcacoesDoTrabalhoExternoTest.
-        MarcacaoDoUsuario::class,
-        MarcacaoDeMensagem::class,
+        MarcacaoDoUsuario::class,   // do usuário, não do escritório; MarcarDemandasEmLoteUseCase só marca o que o LocalizadorDeDemanda escopou (MarcacoesDoTrabalhoExternoTest)
+        MarcacaoDeMensagem::class,  // do usuário; MarcarMensagensEmLoteUseCase só alcança mensagens visíveis pela PoliticaDaDemanda (MarcacoesDoTrabalhoExternoTest::testChatAvancado)
     ];
 
     /**
