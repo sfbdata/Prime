@@ -131,16 +131,17 @@
 /* ── Lista (desenho 1.2, linhas 52-64) ─────────────────────────────────────── */
 /* Chips e tabela são filhos diretos de .pf-page (no desenho o sc-if é Fragment, sem caixa):
    entre eles fica o gap da coluna (18px) mais o margin-bottom dos chips (14px), 32px no total. */
-.pf-page .pf-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+/* line-height normal como o <body> do desenho: com o 1.5 herdado, chips, cabeçalho e linhas ficavam 5 a 9px mais altos. */
+.pf-page .pf-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; line-height: normal; }
 .pf-page .pf-chip {
     display: flex; align-items: center; gap: 9px; background: var(--pf-card); border: 1px solid var(--pf-lista-borda);
-    border-radius: 3px; padding: 9px 14px; min-width: 140px;
+    border-radius: 3px; padding: 9px 14px; min-width: 140px; box-sizing: content-box; /* o desenho mede em content-box: 170px */
 }
 .pf-page .pf-chip > .bi { color: var(--pf-azul); font-size: 15px; }
 .pf-page .pf-chip > b { font-size: 17px; color: var(--pf-texto); }
 .pf-page .pf-chip > span { font-size: 12.5px; color: var(--pf-suave); }
 
-.pf-page .pf-tabela { background: var(--pf-card); border: 1px solid var(--pf-lista-borda); border-radius: 3px; overflow-x: auto; }
+.pf-page .pf-tabela { line-height: normal; background: var(--pf-card); border: 1px solid var(--pf-lista-borda); border-radius: 3px; overflow-x: auto; }
 .pf-page .pf-tabela-miolo { min-width: 900px; }
 .pf-page .pf-grade { display: grid; grid-template-columns: minmax(300px,2.4fr) 170px 210px 130px 110px; }
 .pf-page .pf-tabela-cab {
@@ -287,3 +288,12 @@
 .pf-page .pf-conf-cancelar:hover { background: var(--pf-cinza); }
 .pf-page .pf-conf-ok { height: 34px; border: none; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; padding: 0 16px; cursor: pointer; border-radius: 4px; }
 .pf-page .pf-conf-ok[hidden] { display: none; }
+
+/* Tema escuro: as cores do desenho (#0a6fa0, #7a3e8f, #4a6373, #a3232b) ficam ilegíveis sobre o fundo escuro.
+   Só o texto e os ícones da lista clareiam; os tokens continuam os mesmos porque também pintam fundos. */
+[data-bs-theme="dark"] .pf-page .pf-chip > .bi,
+[data-bs-theme="dark"] .pf-page .pf-selo-primario,
+[data-bs-theme="dark"] .pf-page .pf-acao-editar { color: #7cc0ec; }
+[data-bs-theme="dark"] .pf-page .pf-selo-master { color: #d2a8e6; }
+[data-bs-theme="dark"] .pf-page .pf-selo-secundario { color: var(--bs-body-color); }
+[data-bs-theme="dark"] .pf-page .pf-acao-excluir { color: #f08a90; }
