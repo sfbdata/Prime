@@ -86,3 +86,13 @@ O desenho é omisso nestes pontos; vale a convenção do sistema, registrada no 
 - botão para salvar as faixas;
 - GB com uma casa decimal;
 - plural da previsão ("≈ 1 mês" / "≈ N meses").
+
+## 5. Próxima frente da b5 depois desta: C6 (saídas na tendência por estado)
+
+Contrato com a 7d (19/10):
+- A 7d cria a tabela `saida_da_equipe`, só de inclusão, num PR depois do #69, com migration na fila. Colunas:
+  `tenant_id`, `user_id` (ON DELETE SET NULL), `motivo` (removido | saiu), `saiu_em` e `era_primario`.
+- A tabela é gravada na mesma transação de "demitir" e de "sair do escritório", e entra na ordem de deleção da purga.
+- A b5 só lê: saídas por UF da pessoa (mesmo critério das entradas; se não houver usuário, vale a UF do escritório)
+  nos últimos 30 dias e nos 30 anteriores, com o filtro "Só primários" por `era_primario`.
+- Isso troca o title "só entradas: saídas ainda não são medidas" pela tendência completa do desenho.
