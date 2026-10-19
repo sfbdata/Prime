@@ -35,6 +35,8 @@ use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
 use App\TrabalhoExterno\Entity\LeituraDemanda;
+use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
+use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use Doctrine\ORM\EntityManagerInterface;
@@ -105,6 +107,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         AvisoWhatsapp::class,
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
+        // Marcações pessoais (spec docs/specs/trabalho-externo-vs-18-10-26.md §2): estrela, lixeira,
+        // não lida e favorita são do USUÁRIO, como a LeituraDemanda; o Master marca demandas de
+        // todos os escritórios. Toda leitura filtra pelo usuário logado e só alcança itens que o
+        // LocalizadorDeDemanda já escopou, provado em MarcacoesDoTrabalhoExternoTest.
+        MarcacaoDoUsuario::class,
+        MarcacaoDeMensagem::class,
     ];
 
     /**
@@ -116,8 +124,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * aí é decisão visível em vez de descuido.
      */
     private const MAX_PENDENTE = 14;
-    // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 18;
+    // 8 → 18 com o Trabalho Externo (15/10/2026); 18 → 20 com as marcações pessoais dele
+    // (19/10/2026): exceções permanentes e justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 20;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

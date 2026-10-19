@@ -50,13 +50,13 @@ class MarcacaoDeMensagem
         match ($op) {
             OperacaoDeMensagem::Lixeira => $this->lixeiraEm = $agora,
             OperacaoDeMensagem::Restaurar => $this->lixeiraEm = null,
-            OperacaoDeMensagem::Definitivo => $this->excluir($agora),
+            OperacaoDeMensagem::Definitivo => $this->excluirDaConversa($agora),
             OperacaoDeMensagem::Favoritar => $this->favorita = true,
             OperacaoDeMensagem::Desfavoritar => $this->favorita = false,
         };
     }
 
-    private function excluir(\DateTimeImmutable $agora): void
+    private function excluirDaConversa(\DateTimeImmutable $agora): void
     {
         $this->lixeiraEm = null;
         $this->excluidaEm = $agora;
