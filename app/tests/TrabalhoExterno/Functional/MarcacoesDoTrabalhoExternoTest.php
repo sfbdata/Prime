@@ -73,7 +73,7 @@ final class MarcacoesDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertNotNull($this->linha($client, $codigo));
     }
 
-    #[TestDox('não lida conta 1 com o chat em dia, e lida zera de novo')]
+    #[TestDox('não lida conta 1 com o chat em dia; lida, ou abrir o chat, desliga a marca')]
     public function testNaoLidaELida(): void
     {
         $client = static::createClient();
@@ -89,6 +89,11 @@ final class MarcacoesDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->linha($client, $codigo)['naoLidas']);
         $this->postarJson($client, self::LOTE, ['codigos' => [$codigo], 'op' => 'lida']);
         self::assertSame(0, $this->linha($client, $codigo)['naoLidas']);
+        $this->postarJson($client, self::LOTE, ['codigos' => [$codigo], 'op' => 'naolida']);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertSame(1, $this->json($client)['demanda']['naoLidas'], 'o painel lateral também conta a marca, para a tela avisar a leitura');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/lida");
+        self::assertSame(0, $this->linha($client, $codigo)['naoLidas'], 'abrir o chat desliga a marca manual');
     }
 
     #[TestDox('código de outro escritório é ignorado em silêncio, operação desconhecida é 422 e sem CSRF é 403')]

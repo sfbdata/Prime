@@ -688,6 +688,7 @@
                 return r;
             }
             S.sel = [];
+            renderTudo();
             mostrarDesfazer(r.texto, op === 'lixeira' ? function () { enviarLote(codigos, 'restaurar'); } : null);
             recarregarPainel();
             return r;
@@ -772,7 +773,7 @@
         var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
         var pv = previa();
 
-        return el('div', { class: 'te-l-marca', onclick: parar(null), oncontextmenu: function (e) { e.stopPropagation(); } }, [
+        return el('div', { class: 'te-l-marca', onclick: parar(null) }, [
             pv ? null : el('button', {
                 type: 'button', class: 'te-sel-btn' + (sel ? ' is-on' : ''), title: 'Selecionar',
                 attrs: { 'aria-pressed': sel ? 'true' : 'false' },
@@ -1410,6 +1411,16 @@
         corpo.scrollTop = topo;
     }
 
+    /** Tira só a faixa de desfazer: redesenhar a aba tiraria o foco de quem está escrevendo. */
+    function fecharChatUndo() {
+        clearTimeout(temporizadorChatUndo);
+        S.chatUndo = null;
+        var faixa = document.querySelector('#teDzCorpo .te-chat-undo');
+        if (faixa) {
+            faixa.remove();
+        }
+    }
+
     function chatSelecionada(id) { return S.chatSel.indexOf(id) >= 0; }
 
     function alternarChatSel(id) {
@@ -1451,7 +1462,7 @@
             // Como no desenho: excluir definitivamente não deixa aviso; só a lixeira pode ser desfeita.
             S.chatUndo = op === 'definitivo' ? null : { txt: r.texto, codigo: codigo, ids: op === 'lixeira' ? ids : null };
             if (S.chatUndo) {
-                temporizadorChatUndo = setTimeout(function () { S.chatUndo = null; redesenharChat(); }, DESFAZER_MS);
+                temporizadorChatUndo = setTimeout(fecharChatUndo, DESFAZER_MS);
             }
             aplicarDemandaNoChat(r);
             return r;
@@ -1585,7 +1596,7 @@
                 }) : null,
                 el('button', {
                     type: 'button', class: 'te-desfazer-fechar', title: 'Fechar',
-                    onclick: function () { clearTimeout(temporizadorChatUndo); S.chatUndo = null; redesenharChat(); }
+                    onclick: fecharChatUndo
                 }, ic('bi-x-lg'))
             ]));
         }
@@ -1691,6 +1702,7 @@
                 return;
             }
             S.f.msg = '';
+            S.chatVis = 'todas';
             aplicarDemanda(r);
             var corpo = $('teDzCorpo');
             if (corpo && S.aba === 'chat') {
@@ -2298,7 +2310,7 @@
             return;
         }
         var tag = (e.target && e.target.tagName) || '';
-        if (!S.aberta || S.aba !== 'chat' || !S.chatSel.length || S.conf || S.menu || S.nova || /INPUT|TEXTAREA|SELECT/.test(tag)) {
+        if (!S.aberta || S.aba !== 'chat' || !S.chatSel.length || S.conf || S.menu || S.nova || S.cfgAberta || S.hm || /INPUT|TEXTAREA|SELECT/.test(tag)) {
             return;
         }
         e.preventDefault();
