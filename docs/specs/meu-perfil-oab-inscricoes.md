@@ -1,5 +1,59 @@
 # Spec: várias inscrições na OAB (PR 3 do redesenho do Meu Perfil, VS 18.10.26)
 
+## Estado da frente (sessão 7d, redesenho Meu Perfil e menu do usuário; atualizado em 19/10/2026)
+
+Mesma seção nas specs `meu-perfil-pagina.md`, `meu-perfil-oab-inscricoes.md` e `equipe-da-conta.md`. Depois de uma
+compactação de contexto, releia antes de continuar.
+
+**Decisões do dono**
+- 19/10: tudo o que está no desenho entra (03 EXPEDIENTE e 07 Meu Perfil, VS 18.10.26); nada existente sai.
+- 19/10: fidelidade ao desenho é critério de pronto (lista ✓/✗ e capturas antes do PR); o navegador está liberado na
+  porta 8102, com o banco isolado `demo_menu7d`.
+- 19/10: "Abrir conta" e "Minha conta" só para o primário (e o Master); "Indicar" e o que não existe aparecem como
+  "em preparação"; troca de conta só pelo seletor.
+- 19/10: excluir conta mantém a quarentena de 365 dias, recuperável pelo Master; nada do lado do primário diz
+  "irreversível".
+- Decisões da coordenação (19/10): o secundário edita a própria data de admissão, com auditoria; suspenso e em análise
+  não recebem atribuição nova, e editar preserva quem já estava (`ColaboradoresAtribuiveis`).
+
+**Contratos com outras sessões**
+- b5: ordem das barreiras no `TenantContextValidatorListener`: (a) escritório suspenso ou excluído, (b) pedido de
+  exclusão pendente (PR 5), (c) vínculo, (d) situação. Nomes "escritório suspenso" e "acesso suspenso / em análise".
+  Quarentena = Tenant com `excluidoEm` (purga em `tenant_carencia_purga_dias`, 365); os 365 dias contam da decisão do
+  Master. Entre o pedido e essa decisão, o pedido fica "suspensa a pedido". `PedidoDeExclusaoDeConta` "excluida" com
+  escritório ativo = recuperada; o `ReativarContaUseCase` não mexe no pedido. O botão do Master é "Excluir conta".
+- 0d: também acrescenta coluna em `user_tenant` (sem conflito de nome).
+- 5d: presença, "Bater ponto" (módulo de Ponto existente), o parcial `layout/_globais/fechar.html.twig` e
+  "Instalar aplicativo" no menu do usuário (vai avisar o arquivo).
+- f6: põe o item Contribua e a linha do pageTitle; ponto de inclusão `contribua/_assinatura_no_perfil.html.twig`.
+- 4b: dona do formulário de Evento (fica fora do PR de `ColaboradoresAtribuiveis`).
+- "Comercial e e-mails": lê a tabela de indicações por um UseCase público de consulta, com limites (PR de Indicar).
+
+**PRs e pilha**
+- #53 menu do usuário: mergeado.
+- #60 página Meu Perfil (`meu-perfil-pagina`, base master).
+- #65 inscrições na OAB (`meu-perfil-oab`, EMPILHADO sobre #60): mergear depois do #60; em seguida trazer o
+  origin/master para a branch.
+- #69 equipe da conta (`equipe-da-conta`, base master). Sobrepõe #56 (menu-usuario.css/js, EquipeDoEscritorioRepository,
+  _globais, _dropdown, _modais, profile/index), #60/#65 (_dropdown, profile/index) e #55 (listener).
+
+**Fila de migrations** (a coordenação controla; renomear o timestamp para o atual antes de cada merge)
+- #60 `Version20261019120728`, depois de #52 → #55 → #56.
+- #65 `Version20261019130750`, depois do #60.
+- #69 `Version20261019134246`, depois do #65.
+
+**Pendências**
+- Com a coordenação: terceiro campo do convite, Cargo (desenho) ou Perfil (implementado no #69).
+- Depois de cada merge: trazer o origin/master para as branches que ficaram para trás e rodar a suíte.
+
+**Próximo passo**
+1. PR `ColaboradoresAtribuiveis` nos formulários (Chamado, Expediente, seletores de Pasta, consultas de Kanban,
+   Tarefa e Agenda; não o de Evento), sem migration, com teste funcional por formulário provando que editar preserva
+   o suspenso.
+2. PR 5: excluir conta em 2 etapas (motivo; código de 6 dígitos por e-mail e a palavra EXCLUIR), barreira (b) e
+   desistir, com migration.
+3. PR Indicar o BlueJus (desenho 03, L320/L687), com migration e o contrato de leitura na spec.
+
 Risco: MÉDIO (credencial profissional; a revisão do Master e o cadastro dependem dela).
 Desenho: `docs/design/meu-perfil-18-10/07 - Meu Perfil - VS: 18.10.26.dc.html`, card "Registro OAB" (linhas 79 a 92),
 modal "Inscrição na OAB" (127 a 132) e `_salvarOab`/`ofRemover` (216 a 230). Print do dono: card com `49613/DF`,
