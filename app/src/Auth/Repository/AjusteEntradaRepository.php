@@ -29,6 +29,12 @@ class AjusteEntradaRepository extends ServiceEntityRepository
         return $porChave;
     }
 
+    /** O ajuste gravado da chave (`link.termos`, `suporte.destinatario`...) ou nulo quando vale o padrão. */
+    public function daChave(string $chave): ?AjusteEntrada
+    {
+        return $this->find($chave);
+    }
+
     public function salvar(AjusteEntrada $ajuste, bool $flush = false): void
     {
         $this->getEntityManager()->persist($ajuste);

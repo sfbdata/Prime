@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{# Lista do "Falar com suporte" da tela de entrada (desenho 10). Recebe `mensagens`: list<MensagemSuporteItem>. #}
+
+{% block title %}Mensagens de suporte{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid">
+        <h1 class="m-0"><i class="bi bi-headset me-2"></i>Mensagens de suporte</h1>
+        <p class="text-muted mb-3">Enviadas pelo "Falar com suporte" da tela de entrada. Responda pelo e-mail informado.</p>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {% if mensagens is empty %}
+            <div class="card"><div class="card-body text-muted suporte-mensagens-vazio">Nenhuma mensagem de suporte por enquanto.</div></div>
+        {% else %}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 suporte-mensagens">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Assunto</th>
+                                <th>Mensagem</th>
+                                <th>Origem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in mensagens %}
+                                <tr>
+                                    <td class="text-nowrap">{{ m.criadaEm|date('d/m/Y H:i') }}</td>
+                                    <td>{{ m.nome is empty ? '(sem nome)' : m.nome }}</td>
+                                    <td><a href="mailto:{{ m.email|e('html_attr') }}">{{ m.email }}</a></td>
+                                    <td>{{ m.assunto ?? 'Mensagem' }}</td>
+                                    <td>{{ m.mensagem|nl2br }}</td>
+                                    <td>{{ m.origem == 'login' ? 'Tela de entrada' : m.origem }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
