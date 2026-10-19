@@ -9,6 +9,7 @@ use App\Master\UseCase\ConsultarContasUseCase;
 use App\Master\UseCase\ConsultarUsuariosOabUseCase;
 use App\Master\UseCase\ConsultarVisaoGeralUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
@@ -38,14 +39,19 @@ final class PainelMasterDadosController extends AbstractController
     }
 
     #[Route('/contas', name: 'master_dados_contas', methods: ['GET'])]
-    public function contas(ConsultarContasUseCase $useCase, CsrfTokenManagerInterface $csrf): JsonResponse
-    {
+    public function contas(
+        ConsultarContasUseCase $useCase,
+        CsrfTokenManagerInterface $csrf,
+        #[Autowire('%tenant_carencia_purga_dias%')]
+        int $carenciaPurgaDias,
+    ): JsonResponse {
         $contas = array_map(
             static fn (array $c): array => $c + ['token' => $csrf->getToken(ContasDoSistemaController::PREFIXO_CSRF . $c['id'])->getValue()],
             $useCase->executar(),
         );
 
-        return $this->json(['contas' => $contas]);
+        // A carência vai junto para o modal de "Excluir conta" dizer o prazo configurado, não um número fixo.
+        return $this->json(['contas' => $contas, 'carenciaPurgaDias' => $carenciaPurgaDias]);
     }
 
     #[Route('/usuarios-oab', name: 'master_dados_usuarios_oab', methods: ['GET'])]

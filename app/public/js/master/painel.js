@@ -12,6 +12,7 @@
 
   const URLS = JSON.parse(raiz.dataset.urls || '{}');
   const QUEM = raiz.dataset.quem || 'Master';
+  const CARENCIA_DIAS = parseInt(raiz.dataset.carenciaPurgaDias, 10) || 365;
   const elSecs = document.getElementById('mp-secs');
   const elSecao = document.getElementById('mp-secao');
 
@@ -304,8 +305,9 @@
   const CONF_CONTA = {
     suspender: c => ({ titulo: 'Suspender conta', icone: 'bi-pause-circle', cor: '#c08a12', botao: 'Suspender', texto: 'Os usuários de "' + c.nome + '" ficam sem acesso até a reativação. Nenhum dado é apagado.' }),
     reativar: c => ({ titulo: 'Reativar conta', icone: 'bi-play-circle', cor: '#1e7b45', botao: 'Reativar', texto: 'A conta "' + c.nome + '" volta a ter acesso normal.' }),
-    // C4: texto e botão aprovados pelo dono (quarentena de 365 dias), com a palavra EXCLUIR para liberar o botão.
-    excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta "' + c.nome + '" sai do ar agora e é apagada de vez em 365 dias. Até lá, pode ser recuperada pelo Master.' })
+    // C4: texto e botão aprovados pelo dono, com a palavra EXCLUIR para liberar o botão. Os dias vêm do servidor
+    // (`tenant_carencia_purga_dias`, no JSON de /master/dados/contas): com 365, o texto é o aprovado, letra a letra.
+    excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta "' + c.nome + '" sai do ar agora e é apagada de vez em ' + D.contas.carenciaPurgaDias + ' dias. Até lá, pode ser recuperada pelo Master.' })
   };
   const URL_ACAO = { suspender: () => URLS.contaSuspender, reativar: () => URLS.contaReativar, excluir: () => URLS.contaExcluir };
 

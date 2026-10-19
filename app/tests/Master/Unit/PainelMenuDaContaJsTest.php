@@ -69,7 +69,9 @@ final class PainelMenuDaContaJsTest extends TestCase
     public function testModalDeExcluir(): void
     {
         $js = self::js('painel.js');
-        self::assertStringContainsString("excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta \"' + c.nome + '\" sai do ar agora e é apagada de vez em 365 dias. Até lá, pode ser recuperada pelo Master.' })", $js);
+        self::assertStringContainsString("excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta \"' + c.nome + '\" sai do ar agora e é apagada de vez em ' + D.contas.carenciaPurgaDias + ' dias. Até lá, pode ser recuperada pelo Master.' })", $js);
+        self::assertStringContainsString("const CARENCIA_DIAS = parseInt(raiz.dataset.carenciaPurgaDias, 10) || 365;", $js);
+        self::assertStringNotContainsString('em 365 dias', $js, 'a carência vem do servidor, não fica fixa no JS');
         self::assertStringContainsString("if (tipo === 'excluir') corpo.append('confirmacao', digitado || '');", $js);
         self::assertStringContainsString('excluir: () => URLS.contaExcluir', $js);
 

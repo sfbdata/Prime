@@ -239,7 +239,7 @@ final class ContasDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(405);
     }
 
-    #[TestDox('/master/dados/contas leva ehDoMaster (C7) e o token CSRF de cada conta')]
+    #[TestDox('/master/dados/contas leva ehDoMaster (C7), o token CSRF de cada conta e a carência da purga')]
     public function testListaDeContas(): void
     {
         $this->entrar($this->master, $this->contaDoMaster);
@@ -253,6 +253,11 @@ final class ContasDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Ativa', $contas[$this->alvo->getId()]['situacao']);
         self::assertIsString($contas[$this->alvo->getId()]['token']);
         self::assertNotSame('', $contas[$this->alvo->getId()]['token']);
+        self::assertSame(
+            (int) static::getContainer()->getParameter('tenant_carencia_purga_dias'),
+            json_decode((string) $this->client->getResponse()->getContent(), true)['carenciaPurgaDias'],
+            'a carência configurada vai para o texto do modal de excluir',
+        );
     }
 
     #[TestDox('excluir (C4): JSON "Em quarentena" com a purga em 365 dias, a equipe é barrada, a conta vai para "Em quarentena" e reativar devolve o acesso (C4b)')]
