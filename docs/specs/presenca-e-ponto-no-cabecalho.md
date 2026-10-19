@@ -14,12 +14,14 @@
 - **Contratos com outras sessões:** o X de fechar do painel segue a regra do #71 (fechar-janelas, 5d), cujo include
   global está no #69 (7d).
 - **Migrations:** nenhuma nas fases 1 e 2; uma na fase 3 (posição na fila: a pedir ao coordenador).
-- **Lacuna achada no `bluejus-central.js` completo (19/10):** o 03 monta o painel com `BJCentral.online()`
-  (`{id, nome, setor, cargo}`), e o subtítulo do colega é `[setor, cargo, funcao].join(' · ') || 'on-line'` (dc L.669).
-  O #61 mostra só o cargo. No sistema, setor = lotação do vínculo (`UserTenant.lotacao`) e **"função" não existe
-  separada do cargo**. Decisão do coordenador (19/10): não mexer no #61; PR pequeno a partir do master DEPOIS do merge
-  dele, com a lotação no `central_equipe` e o subtítulo "Lotação · Cargo" ("on-line" sem nenhum dos dois).
-- **Pendências:** merges; confirmação do Q3 pelo dono; o PR da lotação depois do #61; fase 3.
+- **Subtítulo do colega, fechado (19/10):** o 03 monta o painel com `BJCentral.online()` (`{id, nome, setor, cargo}`,
+  dc L.662) e o subtítulo é `[u.setor, u.cargo, u.funcao].join(' · ') || 'on-line'` (L.669; L.676). O "setor" é um
+  departamento, que o sistema não tem (a lotação é o local de trabalho, e em produção guarda endereços), e a 7d
+  conferiu que em nenhum desenho ele é preenchido (`bj-contas.js` L.23, L.41-43, L.53, L.64: sempre `setor: ''`).
+  Na prática o desenho mostra o cargo. Decisão do coordenador: o subtítulo fica como está no master (o cargo, e
+  "on-line" sem nada); a branch `presenca-lotacao` foi descartada. Se um dia o setor existir no vínculo (7d), entra
+  como "setor · cargo".
+- **Pendências:** merges; confirmação do Q3 pelo dono; fase 3.
 - **Próximo passo:** depois dos merges, trazer o master para o #79; fase 3 quando houver intervalo.
 
 Desenho: `03 - EXPEDIENTE - VS 18.10.26.dc.html` (projeto claude.ai/design 4f6a5f61), linhas 31, 67 (selo),
