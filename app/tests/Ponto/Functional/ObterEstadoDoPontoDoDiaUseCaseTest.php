@@ -67,6 +67,21 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertSame((new \DateTimeImmutable())->format('Y-m-d'), $saida->dia);
     }
 
+    #[TestDox('Home office liberado hoje: o estado diz, e a tela não pede posição nem avalia a cerca')]
+    public function testHomeOffice(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        $config = new \App\Ponto\Entity\HomeOfficeConfig();
+        $config->setUser($user);
+        $config->setTenant($tenant);
+        $config->setDiasSemana([1, 2, 3, 4, 5, 6, 7]);
+        $config->setAtivo(true);
+        $this->em->persist($config);
+        $this->em->flush();
+
+        self::assertTrue($this->casoDeUso()->executar($user, $tenant)->homeOffice);
+    }
+
     #[TestDox('Interjornada: o padrão do servidor (sem configuração vale; desligada no escritório, não)')]
     public function testInterjornada(): void
     {

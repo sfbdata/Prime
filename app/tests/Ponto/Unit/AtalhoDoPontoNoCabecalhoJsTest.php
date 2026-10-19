@@ -25,13 +25,13 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         $js = self::js();
         $marcos = [
             'envioEmAndamento = true;   // (1)',
-            "if (atual.acao === 'saida' && !confirmarSaida()) { return; }   // (2)",
+            "if (atual.acao === 'saida' && !confirmarSaida(base)) { return; }   // (2)",
             'var momentoDoToque = performance.now();                        // (3)',
             'await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS',
             'PB.avaliarPosicao(',
             'var conferido = await lerEstado(RELEITURA_PRAZO_MS);',
             'await PB.enviarBatida(urlBatida, payload, momentoDoToque);',
-            'envioEmAndamento = false;   // (9)',
+            "if (sucesso) { await atualizar(); }\n            envioEmAndamento = false;",   // (9), não a declaração
         ];
         $ultima = -1;
         foreach ($marcos as $marco) {
@@ -41,6 +41,10 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
             $ultima = $pos;
         }
         self::assertStringContainsString('} finally {', $js);
+        self::assertStringContainsString('var base = estado;', $js);
+        self::assertStringContainsString('var atual = linhaDe(base);', $js);
+        self::assertStringContainsString('if (!base.homeOffice) {', $js);
+        self::assertStringNotContainsString('estado.estado ||', $js, 'nada compara com o estado mutável');
     }
 
     #[TestDox('Prazos: a releitura do estado tem AbortController próprio (5 s); a posição tem 10 s; sem posição nada é enviado')]
@@ -53,7 +57,7 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString('signal: aborto.signal', $js);
         self::assertStringContainsString("if (!position) { avisar(AVISO_SEM_POSICAO); return; }", $js);
         self::assertStringContainsString("if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }", $js, 'releitura que falha não envia');
-        self::assertStringContainsString('if (conferido.estado !== estado.estado || conferido.dia !== estado.dia) {', $js, 'compara estado derivado e dia, não horários');
+        self::assertStringContainsString('if (conferido.estado !== base.estado || conferido.dia !== base.dia) {', $js, 'compara com o retrato do clique (estado derivado e dia), não com o estado que o fundo reescreve');
     }
 
     #[TestDox('Nada de regra própria: cerca, envio e classificação são os da tela; o intervalo não tem ação; avisos nunca afirmam que não entrou sem saber')]
@@ -65,7 +69,7 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString("if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }", $js, 'só recusa quando certamente fora');
         self::assertStringContainsString("return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };", $js);
         self::assertStringContainsString('A próxima entrada só será aceita depois da interjornada.', $js);
-        self::assertStringContainsString('if (estado && estado.interjornadaLigada)', $js);
+        self::assertStringContainsString('if (base.interjornadaLigada)', $js);
         foreach (['nao_entrou: AVISO_NAO_ENTROU', 'sem_confirmacao: AVISO_SEM_CONFIRMACAO', 'sem_rede: AVISO_SEM_REDE', 'atrasado: AVISO_ATRASADO'] as $caso) {
             self::assertStringContainsString($caso, $js);
         }

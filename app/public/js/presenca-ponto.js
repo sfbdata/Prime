@@ -50,10 +50,11 @@
     }
 
     /* dc `pontoDe`, mais o intervalo que o dc não tem (decisão Q1). */
-    function linha() {
-        if (!estado) { return null; }
-        var h = estado.hoje || {};
-        switch (estado.estado) {
+    function linha() { return linhaDe(estado); }
+    function linhaDe(e) {
+        if (!e) { return null; }
+        var h = e.hoje || {};
+        switch (e.estado) {
             case 'bater_entrada':
                 return { texto: 'Bater ponto', cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: 'Clique para registrar a entrada' };
             case 'em_intervalo':
@@ -78,9 +79,9 @@
         return hora ? String(hora).slice(0, 5) : '';
     }
 
-    function confirmarSaida() {
+    function confirmarSaida(base) {
         var texto = 'Registrar a saída agora (' + new Date().toTimeString().slice(0, 5) + ')?';
-        if (estado && estado.interjornadaLigada) { texto += '\nA próxima entrada só será aceita depois da interjornada.'; }
+        if (base.interjornadaLigada) { texto += '\nA próxima entrada só será aceita depois da interjornada.'; }
 
         return window.confirm(texto);
     }
@@ -92,17 +93,21 @@
             + ', fora da área permitida. Se hoje é trabalho fora da sede, peça a liberação do dia ao gestor.';
     }
 
-    /* A sequência do clique, nesta ordem (spec F2). */
+    /* A sequência do clique, nesta ordem (spec F2). `base` é o retrato do estado no clique: a ação, o home office,
+       as sedes e a comparação da releitura saem dele, nunca do `estado`, que o relógio de fundo reescreve no meio do
+       clique (senão a releitura compararia o novo com o novo e uma batida velha sairia). */
     async function bater() {
-        var atual = linha();
+        var base = estado;
+        var atual = linhaDe(base);
         if (envioEmAndamento || !atual || !atual.acao) { return; }
         envioEmAndamento = true;   // (1)
+        aoMudar();
         var sucesso = false;
         try {
-            if (atual.acao === 'saida' && !confirmarSaida()) { return; }   // (2) cancelar destrava no finally
+            if (atual.acao === 'saida' && !confirmarSaida(base)) { return; }   // (2) cancelar destrava no finally
             var momentoDoToque = performance.now();                        // (3) depois da confirmação
             var payload = { tipo: atual.acao };
-            if (!estado.homeOffice) {
+            if (!base.homeOffice) {
                 var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
                 if (!position) { avisar(AVISO_SEM_POSICAO); return; }
                 payload.latitude = position.coords.latitude;
@@ -110,13 +115,13 @@
                 payload.precisaoGps = position.coords.accuracy;
                 var onde = PB.avaliarPosicao(                                                    // (5)
                     { latitude: payload.latitude, longitude: payload.longitude, precisaoGps: payload.precisaoGps },
-                    estado.sedes || []
+                    base.sedes || []
                 );
                 if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }
             }
             var conferido = await lerEstado(RELEITURA_PRAZO_MS);                                 // (6)
             if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }
-            if (conferido.estado !== estado.estado || conferido.dia !== estado.dia) {
+            if (conferido.estado !== base.estado || conferido.dia !== base.dia) {
                 estado = conferido;
                 aoMudar();
                 avisar(AVISO_MUDOU);
@@ -140,13 +145,17 @@
             if (window.console) { window.console.error('Falha no atalho de ponto:', erro); }
             avisar(AVISO_SEM_CONFIRMACAO);
         } finally {
-            envioEmAndamento = false;   // (9)
-            if (sucesso) { atualizar(); }
+            // (9) No sucesso, a trava só sai com o estado novo desenhado: antes disso o item ainda ofereceria a
+            // ação velha e um segundo clique sairia como batida repetida.
+            if (sucesso) { await atualizar(); }
+            envioEmAndamento = false;
+            aoMudar();
         }
     }
 
     window.PresencaPonto = {
         linha: linha,
+        ocupado: function () { return envioEmAndamento; },
         atualizar: atualizar,
         bater: bater,
         aoMudar: function (fn) { aoMudar = fn; },

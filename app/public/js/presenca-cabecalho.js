@@ -239,13 +239,15 @@
     function subtitulo(x) {
         var pt = x.eu && ponto() ? ponto().linha() : null;
         if (!pt || !(pt.acao || alternar)) { return el('span', 'presenca-sub', detalhe(x.m, x.k)); }
-        var sub = el('span', 'presenca-sub presenca-sub--ponto' + (pt.acao ? ' is-acao' : ''));
+        var ocupado = ponto().ocupado();
+        var sub = el('span', 'presenca-sub presenca-sub--ponto' + (pt.acao ? ' is-acao' : '') + (ocupado ? ' is-ocupado' : ''));
         sub.style.color = pt.cor;
         sub.appendChild(icone(pt.icone));
         sub.appendChild(document.createTextNode(pt.texto));
         if (pt.acao) {
             sub.setAttribute('role', 'button');
             sub.setAttribute('tabindex', '0');
+            sub.setAttribute('aria-busy', ocupado ? 'true' : 'false');
             sub.title = pt.dica;
             var bater = function (e) { e.stopPropagation(); ponto().bater(); };
             sub.addEventListener('click', bater);
@@ -258,6 +260,7 @@
     function desenharPainel() {
         if (!painel) { return; }
         var focoNoSom = document.activeElement && document.activeElement.classList.contains('presenca-som');
+        var focoNoPonto = document.activeElement && document.activeElement.classList.contains('presenca-sub--ponto');
         var lista = pessoas();
         var nOn = lista.filter(function (x) { return x.k === 'on'; }).length;
         var nAus = lista.filter(function (x) { return x.k === 'ausente'; }).length;
@@ -295,6 +298,8 @@
         painel.appendChild(nota);
         if (equipe && lista.length <= 1) { painel.appendChild(el('div', 'presenca-vazio', 'Só você está na equipe por enquanto.')); }
         if (focoNoSom) { som.focus(); }   // redesenhar a cada 20 s não tira o foco de quem está no botão
+        var novoPonto = focoNoPonto ? painel.querySelector('.presenca-sub--ponto.is-acao') : null;
+        if (novoPonto) { novoPonto.focus(); }   // nem do atalho de ponto (revisão: perdia o foco em até 4 s)
     }
     function fecharMenuDoAvatar() {   // dc `onTg`: abrir o painel fecha o menu do avatar
         document.querySelectorAll('[data-mu-toggle]').forEach(function (t) {

@@ -60,7 +60,8 @@ final class EstadoDoPontoDoDiaControllerTest extends JusPrimeWebTestCase
         $semPonto = $this->colega($tenant, 'semponto');
 
         $client->request('GET', '/ponto/estado-do-dia');
-        self::assertNotSame(200, $client->getResponse()->getStatusCode());
+        self::assertResponseRedirects(null, null, 'sem sessão a plataforma manda ao login antes do controller (o 401 do controller é a segunda linha)');
+        self::assertStringContainsString('/login', (string) $client->getResponse()->headers->get('Location'));
 
         $this->logarComTenant($client, $semPonto, $tenant);
         $client->request('GET', '/ponto/estado-do-dia');

@@ -98,6 +98,7 @@
    linha piscar (no dc o React mantém o nó e ela roda uma vez). */
 .presenca-painel.is-abrindo .presenca-sub { animation: pcAparece .3s ease-out; }
 .presenca-sub--ponto.is-acao { font-weight: bold; cursor: pointer; }   /* dc `subPeso`, `subCur` */
+.presenca-sub--ponto.is-ocupado { opacity: .6; cursor: progress; }   /* enquanto a batida corre: posição, releitura e envio */
 .presenca-sub--ponto.is-acao:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; }
 .presenca-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .presenca-status { font-size: 11px; font-weight: bold; white-space: nowrap; }
