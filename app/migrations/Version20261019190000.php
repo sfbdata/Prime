@@ -26,7 +26,7 @@ final class Version20261019190000 extends AbstractMigration
     public const ESCRITORIO_DO_DONO_ID = 1;
     public const ESCRITORIO_DO_DONO_NOME = 'Farlei Assis da Rocha Sociedade Individual de Advocacia';
     public const SQL_ESCRITORIO_DO_DONO_SEM_LIMITE = "INSERT INTO contribua_espaco_do_escritorio (tenant_id, plano_id, sem_limite, justificativa, criado_em)
-        SELECT t.id, p.id, true, 'Escritório do dono do sistema, sem limite (decisão do dono, 19/10/2026)', NOW()
+        SELECT t.id, p.id, true, 'Escritório do dono do sistema, sem limite (decisão do dono, 19/10/2026)', (NOW() AT TIME ZONE 'America/Sao_Paulo')
           FROM tenant t JOIN contribua_plano p ON p.codigo = 'free'
          WHERE t.id = :id AND t.name = :nome
         ON CONFLICT (tenant_id) DO NOTHING";
@@ -54,10 +54,10 @@ final class Version20261019190000 extends AbstractMigration
         // Preços e cotas do desenho 08; usuários do desenho 05 (Avançado sem limite: nenhum desenho define).
         // Decisão do dono, 19/10/2026 (D5). O Master edita depois pela tela de Planos.
         $this->addSql("INSERT INTO contribua_plano (codigo, nome, cota_gb, preco_centavos, descricao, ordem, limite_usuarios, criado_em) VALUES
-            ('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1, 3, NOW()),
-            ('essencial', 'Essencial', 20, 1990, 'Advogado autônomo ou escritório pequeno', 2, 8, NOW()),
-            ('profissional', 'Profissional', 50, 3990, 'Equipes que anexam processos e documentos todos os dias', 3, 15, NOW()),
-            ('avancado', 'Avançado', 100, 6990, 'Alto volume de processos e digitalizações', 4, NULL, NOW())");
+            ('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1, 3, (NOW() AT TIME ZONE 'America/Sao_Paulo')),
+            ('essencial', 'Essencial', 20, 1990, 'Advogado autônomo ou escritório pequeno', 2, 8, (NOW() AT TIME ZONE 'America/Sao_Paulo')),
+            ('profissional', 'Profissional', 50, 3990, 'Equipes que anexam processos e documentos todos os dias', 3, 15, (NOW() AT TIME ZONE 'America/Sao_Paulo')),
+            ('avancado', 'Avançado', 100, 6990, 'Alto volume de processos e digitalizações', 4, NULL, (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
         $this->addSql('INSERT INTO contribua_configuracao (id) VALUES (1)');
         $this->addSql(self::SQL_ESCRITORIO_DO_DONO_SEM_LIMITE, ['id' => self::ESCRITORIO_DO_DONO_ID, 'nome' => self::ESCRITORIO_DO_DONO_NOME]);
     }
