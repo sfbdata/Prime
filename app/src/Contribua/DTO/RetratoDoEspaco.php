@@ -29,17 +29,20 @@ final readonly class RetratoDoEspaco
         public ?int $limiteUsuarios,
         public OrigemDoLimite $origemDoLimiteDeUsuarios,
         public bool $bloqueioAtivo,
+        /** Onde o envio para: a faixa Bloqueio do Master aplicada ao limite (100% = o próprio limite). */
+        public ?int $bytesBloqueio = null,
     ) {
     }
 
     /** Cabe mais `$bytes`? Sem limite, ou com o bloqueio desligado, sempre cabe. */
     public function cabe(int $bytes): bool
     {
-        if (!$this->bloqueioAtivo || $this->bytesLimite === null) {
+        $teto = $this->bytesBloqueio ?? $this->bytesLimite;
+        if (!$this->bloqueioAtivo || $teto === null) {
             return true;
         }
 
-        return $this->bytesUsados + $bytes <= $this->bytesLimite;
+        return $this->bytesUsados + $bytes <= $teto;
     }
 
     public function semLimite(): bool

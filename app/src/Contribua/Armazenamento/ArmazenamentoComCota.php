@@ -11,6 +11,7 @@ use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
@@ -40,10 +41,29 @@ use Symfony\Contracts\Service\ResetInterface;
  * O uso medido fica guardado por escritório durante a requisição e cresce a cada gravação: um
  * envio de dez arquivos faz uma soma no banco, não dez. `reset()` esvazia entre requisições e
  * mensagens do worker.
+ *
+ * Limites aceitos, conscientes:
+ *  - não é atômico entre requisições: dois envios simultâneos do mesmo escritório medem o mesmo uso e
+ *    podem passar juntos do limite por um arquivo. O próximo envio já é recusado;
+ *  - o tamanho medido é o gravado: quem comprime depois de gravar (financeiro da pasta) é medido
+ *    pelo tamanho cru nesta requisição, o que só erra para o lado de recusar.
  */
 #[AsDecorator(decorates: ArmazenamentoDeArquivos::class)]
 final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterface
 {
+    /**
+     * As categorias que `ConsumoDeArmazenamentoRepository` soma. As demais passam sem bloqueio nem
+     * medição: justificativa de ponto (o funcionário nunca pode ficar sem justificar a falta),
+     * Trabalho Externo, imagem do editor, anexo de tarefa e foto de perfil.
+     */
+    private const CATEGORIAS_COBRADAS = [
+        CategoriaDeArquivo::PASTA_DOCUMENTO,
+        CategoriaDeArquivo::CLIENTE_DOCUMENTO,
+        CategoriaDeArquivo::CHAMADO_ANEXO,
+        CategoriaDeArquivo::COBRANCA_DOCUMENTO,
+        CategoriaDeArquivo::KANBAN_ANEXO,
+    ];
+
     /** @var array<int, int> bytes usados por tenant, medidos nesta requisição */
     private array $usados = [];
 
@@ -59,7 +79,7 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
 
     public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
     {
-        $tenantId = $destino instanceof NovoArquivo ? $destino->escopo->tenantIdOuNull() : null;
+        $tenantId = $destino instanceof NovoArquivo && self::cobrado($destino) ? $destino->escopo->tenantIdOuNull() : null;
         if ($tenantId === null) {
             return $this->interno->gravar($destino, $fonte);
         }
@@ -105,6 +125,12 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
     public function reset(): void
     {
         $this->usados = [];
+    }
+
+    /** Só bloqueia o que a soma do espaço cobra (§5 da spec): não se recusa o que não se conta. */
+    private static function cobrado(NovoArquivo $destino): bool
+    {
+        return \in_array($destino->categoria, self::CATEGORIAS_COBRADAS, true);
     }
 
     private function retrato(int $tenantId): RetratoDoEspaco

@@ -8,7 +8,6 @@ use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\Auditavel;
-use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -23,6 +22,13 @@ use Doctrine\ORM\Mapping as ORM;
  *  3. a cota do plano.
  *
  * Auditável: cada mudança de limite fica no `audit_log` (o 05 exige justificativa e auditoria).
+ *
+ * NÃO é `TenantAware`, de propósito (decisão da revisão da C1): todo leitor pede o espaço por um
+ * tenantId explícito, e o filtro da sessão só atrapalharia. O decorador lê o escritório da CHAVE do
+ * arquivo (no Trabalho Externo, o solicitante, mesmo quando quem anexa é o Master) e o Painel do
+ * Master lê qualquer escritório. Com o filtro, o Master no escritório X veria o Y como Free. O
+ * isolamento é estrutural: só `EspacoDoEscritorioRepository::doTenant()` consulta esta entidade, e
+ * `EspacoDoEscritorioSoNoContribuaArquiteturaTest` impede consulta em outro lugar.
  */
 #[ORM\Entity(repositoryClass: EspacoDoEscritorioRepository::class)]
 #[ORM\Table(name: 'contribua_espaco_do_escritorio')]
@@ -30,7 +36,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_contribua_espaco_plano', columns: ['plano_id'])]
 #[ORM\Index(name: 'idx_contribua_espaco_alterado_por', columns: ['alterado_por_id'])]
 #[ORM\HasLifecycleCallbacks]
-class EspacoDoEscritorio implements TenantAware, Auditavel
+class EspacoDoEscritorio implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

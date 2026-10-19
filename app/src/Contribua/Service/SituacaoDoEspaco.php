@@ -57,6 +57,7 @@ final class SituacaoDoEspaco
             $espaco?->getLimiteUsuarios() ?? $plano->getLimiteUsuarios(),
             $espaco?->getLimiteUsuarios() !== null ? OrigemDoLimite::Master : OrigemDoLimite::Plano,
             $configuracao->isBloqueioAtivo(),
+            $bytesLimite === null ? null : intdiv($bytesLimite * $configuracao->getFaixaBloqueio(), 100),
         );
     }
 

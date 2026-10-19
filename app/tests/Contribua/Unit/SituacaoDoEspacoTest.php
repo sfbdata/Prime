@@ -125,12 +125,24 @@ final class SituacaoDoEspacoTest extends TestCase
         self::assertSame('0 GB', RetratoDoEspaco::formatarGb(0));
     }
 
+    #[TestDox('Faixa Bloqueio antecipada pelo Master (95%): o envio para em 95% do limite')]
+    public function testBloqueioNaFaixaConfigurada(): void
+    {
+        $situacao = $this->situacao(null, bloqueioAtivo: true, faixas: [60, 80, 90, 95]);
+
+        $retrato = $situacao->retratar(7, (int) (0.95 * 10 * self::GB) - 100);
+
+        self::assertTrue($retrato->cabe(100));
+        self::assertFalse($retrato->cabe(101));
+    }
+
     private static function free(): Plano
     {
         return new Plano('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1);
     }
 
-    private function situacao(?EspacoDoEscritorio $espaco, bool $bloqueioAtivo = false): SituacaoDoEspaco
+    /** @param array{int, int, int, int} $faixas */
+    private function situacao(?EspacoDoEscritorio $espaco, bool $bloqueioAtivo = false, array $faixas = [70, 90, 95, 100]): SituacaoDoEspaco
     {
         $espacos = $this->createStub(EspacoDoEscritorioRepository::class);
         $espacos->method('doTenant')->willReturn($espaco);
@@ -138,6 +150,7 @@ final class SituacaoDoEspacoTest extends TestCase
         $planos->method('free')->willReturn(self::free());
         $configuracao = new ConfiguracaoDoEspaco();
         $configuracao->ligarBloqueio($bloqueioAtivo);
+        $configuracao->definirFaixas(...$faixas);
         $configuracoes = $this->createStub(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn($configuracao);
 

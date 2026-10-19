@@ -125,6 +125,30 @@ final class ArmazenamentoComCotaTest extends TestCase
         self::assertSame('menor', $this->interno->ler($armazenado->chave));
     }
 
+    #[TestDox('Justificativa de ponto (não cobrada) passa com o escritório cheio e nem mede o uso')]
+    public function testCategoriaNaoCobradaPassa(): void
+    {
+        $consumo = $this->createMock(ConsumoDeArmazenamentoRepository::class);
+        $consumo->expects(self::never())->method('bytesDoEscritorio');
+        $cota = $this->decorador(usados: 0, bloqueioAtivo: true, consumo: $consumo);
+
+        $cota->gravar(new NovoArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::JUSTIFICATIVA_ANEXO, 'pdf'), FonteDeConteudo::deTexto('atestado'));
+
+        self::assertCount(1, $this->interno->gravadas);
+    }
+
+    #[TestDox('reset() esvazia o uso memorizado: a próxima requisição mede de novo')]
+    public function testResetMedeDeNovo(): void
+    {
+        $consumo = $this->createMock(ConsumoDeArmazenamentoRepository::class);
+        $consumo->expects(self::exactly(2))->method('bytesDoEscritorio')->willReturn(0);
+        $cota = $this->decorador(usados: 0, bloqueioAtivo: true, consumo: $consumo);
+
+        $cota->gravar(self::novo(7), FonteDeConteudo::deTexto('um'));
+        $cota->reset();
+        $cota->gravar(self::novo(7), FonteDeConteudo::deTexto('dois'));
+    }
+
     private static function novo(int $tenantId): NovoArquivo
     {
         return new NovoArquivo(EscopoDeArquivo::deTenant($tenantId), CategoriaDeArquivo::KANBAN_ANEXO, 'pdf');

@@ -164,9 +164,14 @@ legado de risco ALTO):
   com a mesma regra (**D7 resolvida pela convenção existente**: documento de pasta na lixeira não conta,
   pasta em lápide conta). Fora: Trabalho Externo (documento de demanda entre escritórios, sem dono único),
   foto, anexos de ponto e tarefa, imagem do editor (sem tamanho no banco).
-- Ponto único: `ArmazenamentoComCota` (`#[AsDecorator]` sobre `ArmazenamentoDeArquivos`; o
-  `ArmazenamentoLocal` ganhou `#[AsAlias]` porque a interface passou a ter duas implementações). Só
-  `NovoArquivo` de escopo tenant, só com o bloqueio ligado. Recusa antes se já está no limite; senão grava,
+- Ponto único: `ArmazenamentoComCota` (`#[AsDecorator]` sobre `ArmazenamentoDeArquivos`). Como a
+  interface passou a ter duas implementações, o alias para o `ArmazenamentoLocal` está explícito em
+  `config/services.yaml` (o núcleo não pode usar atributo do Symfony, INV-8). Só `NovoArquivo` de escopo
+  tenant **e de categoria cobrada** (as que a soma conta: documento de pasta, de cliente, de cobrança,
+  anexo de chamado e do Kanban); justificativa de ponto, Trabalho Externo, imagem do editor, anexo de
+  tarefa e foto passam sem bloqueio nem medição ("não se recusa o que não se conta"; a justificativa de
+  ponto nunca pode ficar travada). Recusa só com o bloqueio ligado, a partir da faixa Bloqueio aplicada
+  ao limite (100 = o próprio limite; o Master pode antecipar, como o 05 permite). Recusa antes se já está no limite; senão grava,
   mede e, se passou, remove o arquivo recém-cunhado (pela `RemocaoAposTransacao` sobre o interno) e recusa.
   Uso medido memorizado por requisição (`ResetInterface`).
 - Resposta (`EspacoEsgotadoListener`): JSON 422 com `error`/`erro`/`mensagem`/`message` e
@@ -177,6 +182,14 @@ legado de risco ALTO):
   de acervo: segue a mesma cota (com o bloqueio desligado ou o escritório sem limite, nada muda).
 - Kanban: o JS do mural não mostra erro de upload hoje; a mensagem só aparece lá quando a C2 tocar o JS.
 - Purga de escritório apaga `contribua_espaco_do_escritorio`.
+- `EspacoDoEscritorio` **não é TenantAware** (revisão da C1, decisão B): o filtro da sessão fazia o
+  Master no escritório X ver o Y como Free e quebrar a unicidade ao gravar. Todo acesso é por tenantId
+  explícito no repositório, e `EspacoDoEscritorioSoNoContribuaArquiteturaTest` impede consulta fora dele.
+- **Condição antes de a b5 ligar a tela do Master:** envolver as três escritas em
+  `EscopoDeAuditoriaDePlataforma::executar()` (chega com o #52). Sem isso o `audit_log` grava a mudança
+  no escritório da sessão do Master e a expõe na auditoria dele.
+- Limites aceitos e registrados no decorador: não é atômico entre requisições simultâneas (passa no
+  máximo um arquivo); arquivo comprimido depois de gravado conta pelo tamanho cru naquela requisição.
 - Evento de domínio `EspacoAtingiuFaixa` (tenantId, faixa, faixa anterior, retrato): o decorador o
   dispara quando um envio faz o escritório subir de faixa, com o bloqueio ligado ou não. Os e-mails do
   desenho 05 ("Comercial e e-mails": 90%, 100%, pedido de espaço) só ouvem o evento; o Contribua não manda
@@ -211,8 +224,15 @@ adaptadores segue o gateway em que o dono abrir conta primeiro (só ordem e cred
   O aviso nunca muda nada sozinho: dispara `consultar()`;
 - `cancelar(idNoGateway)`.
 
-**Adaptadores**, uma etapa cada: C3a, C3b, C3c e C3d (Mercado Pago, Stripe, Asaas, Pagar.me, na ordem que
-o dono escolher). Mais um **adaptador falso** para os testes, que já entra na C3.
+**Adaptadores**, uma etapa cada, na ordem decidida pelo dono em 19/10: **C3a Asaas** (primeira conta,
+teste de ponta a ponta no sandbox), depois C3b Mercado Pago, C3c Stripe e C3d Pagar.me, pela mesma
+interface. Mais um **adaptador falso** para os testes, que já entra na C3.
+
+**Nota fiscal mensal** (garantia do desenho):
+- Asaas: NFS-e automática da assinatura (`POST /v3/subscriptions/{id}/invoiceSettings`; webhooks
+  `INVOICE_AUTHORIZED` e `INVOICE_ERROR`). O e-mail da nota é o do pagador.
+- Mercado Pago, Stripe e Pagar.me não emitem NFS-e brasileira pela assinatura: **pendência de cada
+  adaptador** (emissor próprio ou serviço de NFS-e), resolvida antes de ligar o gateway em produção.
 
 **Fluxo comum (C3):**
 - "Quero +N GB" abre o checkout do §2.2 e grava `PedidoDeEspaco` "aguardando confirmação".
@@ -270,11 +290,11 @@ o dono escolher). Mais um **adaptador falso** para os testes, que já entra na C
 
 | # | Decisão | Proposta |
 |---|---|---|
-| D1 | Cora para o espaço? | **Resolvida**: a API da Cora só tem boleto, PIX e webhooks (sem cartão); o desenho (cartão por gateway, Cora no PIX) é compatível com o pedido |
-| D2 | (dono) Em qual gateway abrir conta primeiro | os quatro entram (§6); a escolha só define a ordem C3a a C3d e as primeiras credenciais |
+| D1 | Cora para o espaço? | **Resolvida**: a API da Cora só tem boleto, PIX e webhooks (developers.cora.com.br/llms.txt); o link de cartão da Cora existe só no aplicativo (avulso, validade de 7 dias, sem API e sem recorrência), então não serve para assinatura. O desenho (cartão por gateway, Cora no PIX) é compatível com o pedido |
+| D2 | Em qual gateway abrir conta primeiro | **Resolvida pelo dono**: Asaas (C3a). Os quatro continuam no escopo |
 | D3 | (dono) Carência da inadimplência antes de voltar ao Free | 7 dias |
 | D4 | Quem compra e cancela espaço | **Resolvida**: o primário, como no desenho |
-| D5 | (dono) Garantia "Nota fiscal enviada por e-mail todo mês" precisa de emissor | emitir pelo gateway (Asaas emite NFS-e); senão o cartão sai da tela, **com o seu sim** |
+| D5 | Nota fiscal mensal | **Resolvida para o Asaas** (NFS-e da assinatura, §6); pendência por adaptador nos outros três |
 | D6 | Certificado da Cora pela tela | **Resolvida**: segue o desenho; o arquivo é guardado cifrado (sodium, chave de ambiente ou Symfony secrets) e a tela mostra presente/ausente. A chave de produção é segredo do dono |
 | D7 | Lixeira conta no espaço? | **Resolvida** pela convenção do Painel do Master (§5) |
 | D8 | Preferência no Trabalho Externo | **Resolvida**: etapa C6, contrato com a sessão a7 antes |
@@ -302,7 +322,8 @@ o dono escolher). Mais um **adaptador falso** para os testes, que já entra na C
 | **C1** | Cota: catálogo de planos, cota efetiva, consumo, decorador de bloqueio, mensagem | sim | D7 |
 | **C2** | Página `/contribua` sem dinheiro: espaço (leitura), Quem somos, Suporte, Sugestões, apoio por PIX estático, "registrar meu apoio", motivos; aba no perfil; aviso de espaço + e-mail | sim | C1, D4 |
 | **C3** | Cartão, parte comum: interface `GatewayDeAssinatura`, adaptador falso, checkout, pedidos, retorno, webhook, conciliação, confirmação manual do Master, cancelar, inadimplência | sim | C2, D3 |
-| **C3a a C3d** | Um adaptador por gateway (Mercado Pago, Stripe, Asaas, Pagar.me), na ordem da D2 | não | C3, D2, D5, D10 |
+| **C3a** | Adaptador Asaas (assinatura, token, webhook, NFS-e), testado com MockHttpClient e depois no sandbox | não | C3, D10 |
+| **C3b a C3d** | Mercado Pago, Stripe, Pagar.me, pela mesma interface; nota fiscal de cada um | não | C3, D10 |
 | **C4** | Cora: configuração Master, token mTLS, QR dinâmico, webhook, conciliação, prêmio, selo | sim | C2, D6, D9, D10 |
 | **C5** | Produção: credenciais montadas, cron no `DEPLOY.md`, webhooks cadastrados, política publicada | não | C3, C4, D11 |
 | **C6** | Preferência do apoiador no Trabalho Externo | talvez | C4, D8 |

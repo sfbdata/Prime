@@ -41,8 +41,9 @@ class EspacoDoEscritorioRepository extends ServiceEntityRepository
      * O espaço do escritório, ou null se ele nunca saiu do Free nem recebeu limite do Master.
      *
      * Por id de tenant e não por entidade: o decorador de armazenamento só conhece o id que vem na
-     * chave do arquivo. O Master age sobre outro escritório, por isso o filtro é explícito aqui e
-     * não depende do TenantFilter da sessão.
+     * chave do arquivo. A entidade não é TenantAware, então o filtro da sessão não interfere: o Master
+     * no escritório X enxerga o espaço de Y. O filtro explícito por `tenant` é a única garantia, e é
+     * por isso que nenhuma outra consulta a esta entidade pode existir.
      */
     public function doTenant(int $tenantId): ?EspacoDoEscritorio
     {

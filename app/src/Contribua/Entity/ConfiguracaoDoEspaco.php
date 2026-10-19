@@ -13,7 +13,8 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Linha única (id fixo 1, criada pela migration). Faixas em % de uso:
  * Atenção 70 · Alerta 90 · Crítico 95 · Bloqueio 100. O aviso do desenho 08 (`bj-plano.js`,
- * "a partir de 90%") é a faixa Alerta; o bloqueio de envio começa na faixa Bloqueio.
+ * "a partir de 90%") é a faixa Alerta; o bloqueio de envio começa na faixa Bloqueio (100 = no
+ * próprio limite; o Master pode antecipá-lo, como o desenho 05 permite).
  *
  * `bloqueioAtivo` é convenção, sem desenho: nasce DESLIGADO para que o deploy não pause os envios
  * de quem já passa da franquia hoje. O Master liga quando quiser.
