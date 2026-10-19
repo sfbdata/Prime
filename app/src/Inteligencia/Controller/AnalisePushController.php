@@ -12,6 +12,7 @@ use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
+use App\Inteligencia\Exception\EdicaoDaAnaliseConcorrenteException;
 use App\Inteligencia\Exception\EdicaoDaAnaliseInvalidaException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
@@ -57,7 +58,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *   POST /pasta/{id}/ia/analises/{analiseId}/registro → `acao` = download | impressao (outra → 422): 1 linha no
  *                                                 `audit_log` (C6-IA-01) · JSON {id, acao, registrado}
  *   POST …/{analiseId}/lida | /nao-lida | /excluir | /interna | /recolher → XHR: JSON · form comum: redirect para a pasta #push
- *   POST …/{analiseId}/editar → `resumo` + `pontos[i]` (P4h; EDIT na pasta) · 422 texto longo · 409 não concluída
+ *   POST …/{analiseId}/editar → `resumo` + `pontos[i]` + `versao` (P4h; EDIT na pasta; só Push) · 422 texto longo · 409 não concluída ou editada por outro
  * CSRF: `_token` (campo ou header X-CSRF-Token); ids `inteligencia_push_{pastaId}` e
  * `inteligencia_analise_{analiseId}`; o registro de download/impressão usa
  * `inteligencia_analise_registro_{analiseId}`.
@@ -295,8 +296,8 @@ final class AnalisePushController extends AbstractController
      * "Editar" do cartão (P4h, `docs/specs/push-editar-analise-ia.md`): grava a versão do advogado ao
      * lado da saída do modelo. Mesma regra do "Criar tarefa da providência" (C6-IA-03): além da
      * guarda comum, EDIT na pasta; a lápide é recusada antes pelo `PastaSomenteLeituraListener`.
-     * Ordem: 404 pasta alheia → 403 sem ver/sem módulo → 403 CSRF → 403 sem EDIT → 404 análise →
-     * 422 texto longo → 409 análise não concluída. Nada é gravado em nenhuma recusa.
+     * Ordem: 404 pasta alheia → 403 sem ver/sem módulo → 403 CSRF → 403 sem EDIT → 404 análise (ou de
+     * agente) → 409 editada por outra pessoa → 422 texto longo → 409 análise não concluída. Nada é gravado em nenhuma recusa.
      */
     #[Route('/analises/{analiseId}/editar', name: 'inteligencia_analise_editar', requirements: ['analiseId' => '\d+'], methods: ['POST'])]
     public function editar(Pasta $pasta, int $analiseId, Request $request): Response
@@ -314,6 +315,8 @@ final class AnalisePushController extends AbstractController
             throw $this->createNotFoundException($e->getMessage());
         } catch (EdicaoDaAnaliseInvalidaException $e) {
             return $this->recusa('texto_longo', $e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (EdicaoDaAnaliseConcorrenteException $e) {
+            return $this->recusa('editada_por_outro', $e->getMessage(), Response::HTTP_CONFLICT);
         } catch (\DomainException) {
             return $this->recusa('nao_concluida', 'Só dá para editar uma análise concluída.', Response::HTTP_CONFLICT);
         }

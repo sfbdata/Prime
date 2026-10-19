@@ -347,7 +347,7 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
             }
         }
 
-        if ($novoResumo === $this->getResumoExibido() && $novosPontos === $this->getPontosExibidos()) {
+        if ($novoResumo === (string) $this->getResumoExibido() && $novosPontos === $this->getPontosExibidos()) {
             return false;
         }
 

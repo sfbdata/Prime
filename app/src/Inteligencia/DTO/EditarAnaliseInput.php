@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Corpo do "Salvar" da edição do cartão (P4h): `resumo` e `pontos[i]`, com `i` = posição do ponto na
  * lista exibida. Ponto ausente = removido. Valor que não é texto vira vazio (e o ponto sai).
+ * `versao`: o `editada_em` que a tela viu ('' = nunca editada); nulo quando o POST não o traz.
  */
 final readonly class EditarAnaliseInput
 {
@@ -18,6 +19,7 @@ final readonly class EditarAnaliseInput
     public function __construct(
         public string $resumo,
         public array $pontos,
+        public ?string $versao = null,
     ) {
     }
 
@@ -35,6 +37,8 @@ final readonly class EditarAnaliseInput
             }
         }
 
-        return new self(is_string($resumo) ? $resumo : '', $pontos);
+        $versao = $request->request->get('versao');
+
+        return new self(is_string($resumo) ? $resumo : '', $pontos, is_string($versao) ? $versao : null);
     }
 }

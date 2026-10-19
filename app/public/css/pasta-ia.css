@@ -358,7 +358,7 @@
 .ps-push .ps-ia-cartao--recolhida .ps-ia-pontos,
 .ps-push .ps-ia-cartao--recolhida .ps-ia-quem,
 .ps-push .ps-ia-cartao--recolhida .ps-ia-base,
-.ps-push .ps-ia-cartao--recolhida .ps-ia-acoes { display: none; }
+.ps-push .ps-ia-cartao--recolhida footer.ps-ia-acoes { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
     .ps-push .ps-ia-cartao.is-nova,
@@ -414,3 +414,5 @@
 .ps-push .ps-ia-botao--salvar { padding: 0 12px; background: var(--ps-ia-roxo); color: var(--ps-ia-salvar-tx); font-weight: 700; }
 .ps-push .ps-ia-botao--salvar:hover,
 .ps-push .ps-ia-botao--salvar:focus-visible { background: var(--ps-ia-salvar-hover); }
+/* Recolhida vence a edição (o chevron durante a edição esconde o formulário inteiro, botões juntos). */
+.ps-push .ps-ia-cartao--recolhida.ps-ia-cartao--editando .ps-ia-edicao { display: none; }

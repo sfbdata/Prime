@@ -563,6 +563,29 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertSame(1, $relida->getContextoResumo()['novas']);
     }
 
+    #[TestDox('P4h: a anterior EDITADA pelo advogado entra no prompt com o texto ORIGINAL do modelo')]
+    public function testAnteriorEditadaUsaOOriginal(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta, , $primeiraPub] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $anterior = $this->criarAnalisePendente($tenant, $user, $pasta, ['pub:' . $primeiraPub->getId()]);
+        $this->concluirAnalise($anterior, 'A contestação foi recebida.');
+        $anterior->editar('Texto do advogado, não do modelo.', [], $user);
+        $this->em()->flush();
+
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('Nada novo.');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString("<analise_anterior>\nA contestação foi recebida.\n</analise_anterior>", $texto);
+        self::assertStringNotContainsString('Texto do advogado', $texto);
+    }
+
     // =========================================================================
     // Agentes da pasta (fatia 2) — mesmo handler, outro fluxo
     // =========================================================================

@@ -27,6 +27,19 @@ dias). "Enviar ao cliente" é do #98 (P4c).
 - E6: trilha: a entidade é `Auditavel`; o changeset das colunas novas vai ao `audit_log` sozinho. O .txt ganha a linha
   "Editado por {nome} em dd/mm/aaaa HH:MM".
 
+- E7 (revisão, 19/10): só a análise do Push (`resumo_push`) é editável; a dos agentes tem o texto integral e outro
+  cartão, fora do desenho (404). Texto que volta igual ao exibido depois da limpeza fica exato (sem limite e sem
+  marcar "editado"); o texto editado segue a regra "semTraco" do interpretador. O formulário leva a `versao` (o
+  `editada_em` visto): se outra pessoa salvou antes, 409 "Outra pessoa editou esta análise. Recarregue a página e
+  edite de novo." (os pontos vão por posição). A recarga automática da lista não troca um cartão em edição; Esc
+  cancela; o foco volta ao "Editar".
+
+## Para o dono
+
+- O link externo (página do cliente) mostra o texto editado sob "Gerada por inteligência artificial", sem marca de
+  revisão humana (o desenho da página pública é omisso). Acrescentar "Revisada pelo escritório" é decisão do dono.
+- Depois do merge do #98 (P4c): o "Enviar ao cliente" deve mandar a versão exibida (conferir na integração).
+
 ## Tela
 
 - Selo "editado" (chip roxo claro) depois do aviso "Gerado por IA…", com a dica "Editado por {nome} em dd/mm às HH:MM".

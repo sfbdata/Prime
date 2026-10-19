@@ -169,6 +169,8 @@
                         <form method="post" action="{{ path('inteligencia_analise_editar', {id: pastaId, analiseId: a.id}) }}"
                               class="ps-ia-acao ps-ia-edicao" data-ia-acao="editar" data-ia-edicao>
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                            {# A edição que esta tela viu: se outra pessoa salvar antes, o servidor recusa. #}
+                            <input type="hidden" name="versao" value="{{ a.editadaEm ? a.editadaEm|date('U') : '' }}">
                             <textarea name="resumo" class="ps-ia-ed-resumo" rows="3" maxlength="2000" aria-label="Resumo da análise">{{ a.resumo }}</textarea>
                             {% for p in a.pontos %}
                                 <div class="ps-ia-ed-ponto" data-ia-ed-ponto>

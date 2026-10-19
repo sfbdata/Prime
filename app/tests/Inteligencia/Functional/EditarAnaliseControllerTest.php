@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Inteligencia\Functional;
 
 use App\Inteligencia\Controller\AnalisePushController;
+use App\Inteligencia\Enum\Agente;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
@@ -230,5 +231,42 @@ final class EditarAnaliseControllerTest extends JusPrimeWebTestCase
 
         self::assertFalse($this->editada($id));
         self::assertFalse($this->editada((int) $pendente->getId()));
+    }
+
+    #[TestDox('análise de agente da mesma pasta → 404 (só a do Push é editável); nada é gravado')]
+    public function testAgenteNaoEditavel(): void
+    {
+        $client = $this->cliente();
+        [$admin, $tenant, $pasta] = $this->cenario();
+        $agente = $this->criarAnaliseDoAgentePendente($tenant, $admin, $pasta, Agente::Gestor);
+        $this->concluirAnalise($agente, 'Pasta parada.', [], null, 'Texto.');
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $this->editar($client, (int) $pasta->getId(), (int) $agente->getId(), ['resumo' => 'x']);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertFalse($this->editada((int) $agente->getId()));
+    }
+
+    #[TestDox('o formulário leva a versão vista; salvar com a versão antiga depois de outra edição → 409 e a outra edição fica')]
+    public function testVersaoConcorrente(): void
+    {
+        $client = $this->cliente();
+        [$admin, $tenant, $pasta, $id] = $this->cenario();
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $form = $this->cartao($client, (int) $pasta->getId(), $id)->filter('form[data-ia-edicao]');
+        self::assertSame('', $form->filter('input[name="versao"]')->attr('value'));
+
+        $this->editar($client, (int) $pasta->getId(), $id, ['resumo' => 'Primeira edição.', 'versao' => '']);
+        self::assertResponseIsSuccessful();
+        $this->editar($client, (int) $pasta->getId(), $id, ['resumo' => 'Segunda, com a tela velha.', 'versao' => '']);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(1, $this->contarNoBanco("SELECT count(*) FROM inteligencia_analise WHERE id = :id AND resumo_editado = 'Primeira edição.'", ['id' => $id]));
+
+        $versao = $this->cartao($client, (int) $pasta->getId(), $id)->filter('form[data-ia-edicao] input[name="versao"]')->attr('value');
+        self::assertNotSame('', $versao);
+        $this->editar($client, (int) $pasta->getId(), $id, ['resumo' => 'Segunda, com a tela nova.', 'versao' => $versao]);
+        self::assertResponseIsSuccessful();
     }
 }

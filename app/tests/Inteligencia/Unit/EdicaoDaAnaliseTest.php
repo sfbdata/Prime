@@ -149,4 +149,23 @@ final class EdicaoDaAnaliseTest extends TestCase
         self::assertSame('Resumo corrigido.', $publica->resumo);
         self::assertSame([['tipo' => 'prazo', 'texto' => 'Apelação até 27/10.']], $publica->pontos);
     }
+
+    #[TestDox('resumo nulo do modelo e nada digitado: não marca "editado"')]
+    public function testResumoNuloSemMudanca(): void
+    {
+        $a = new AnaliseDeInteligencia(
+            tenant: new Tenant(),
+            solicitante: $this->user,
+            tipo: TipoDeAnalise::ResumoPush,
+            alvoTipo: AnaliseDeInteligencia::ALVO_PASTA,
+            alvoId: 7,
+            versaoDoPrompt: 'push-v1',
+            contextoHash: str_repeat('a', 64),
+            contextoResumo: [],
+        );
+        $a->iniciarProcessamento();
+        $a->concluir('', [], null, '{}', 'falso', 'falso-1', 1, 1, 1);
+
+        self::assertFalse($a->editar('', [], $this->user));
+    }
 }

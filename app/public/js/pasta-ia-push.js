@@ -130,6 +130,12 @@
                     var nova = molde.content.querySelector('[data-ia-lista]');
                     var atual = lista();
                     if (!nova || !atual) { return; }
+                    // P4h: um cartão em edição não é trocado (o texto digitado se perderia); o resto
+                    // da lista se atualiza em volta dele. O "Salvar" sai da edição antes de recarregar.
+                    atual.querySelectorAll('.ps-ia-cartao--editando[data-ia-analise]').forEach(function (emEdicao) {
+                        var irmao = nova.querySelector('[data-ia-analise="' + emEdicao.getAttribute('data-ia-analise') + '"]');
+                        if (irmao) { irmao.replaceWith(emEdicao); }
+                    });
                     atual.replaceWith(nova);
                     if (idNova) {
                         var cartao = nova.querySelector('[data-ia-analise="' + idNova + '"]');
@@ -363,6 +369,10 @@
                     if (!res.ok) {
                         throw new Error(res.dados.mensagem || res.dados.message || 'Não foi possível atualizar a análise.');
                     }
+                    if (form.hasAttribute('data-ia-edicao')) {
+                        var editado = form.closest('[data-ia-analise]');
+                        if (editado) { editado.classList.remove('ps-ia-cartao--editando'); }
+                    }
                     return recarregarLista();
                 })
                 .catch(function (falha) {
@@ -457,7 +467,7 @@
         // "Remover ponto" esconde a linha e desliga o campo (campo desligado não vai no POST: o ponto
         // sai); "Cancelar" religa tudo e volta aos valores originais. "Salvar" é um `data-ia-acao`
         // comum: a seção 3 envia e recarrega a lista.
-        function sairDaEdicao(cartao) {
+        function sairDaEdicao(cartao, devolverFoco) {
             var form = cartao.querySelector('[data-ia-edicao]');
             if (form) {
                 form.querySelectorAll('[data-ia-ed-ponto]').forEach(function (linha) {
@@ -468,6 +478,10 @@
                 form.reset();
             }
             cartao.classList.remove('ps-ia-cartao--editando');
+            if (devolverFoco) {
+                var editar = cartao.querySelector('footer [data-ia-editar]');
+                if (editar) { editar.focus(); }
+            }
         }
 
         secao.addEventListener('click', function (e) {
@@ -493,15 +507,30 @@
                 if (!linha) { return; }
                 var campo = linha.querySelector('input');
                 if (campo) { campo.disabled = true; }
+                // O foco ia sumir com a linha: vai ao próximo ponto que sobrou, ou ao resumo.
+                var linhas = Array.prototype.slice.call(linha.parentNode.querySelectorAll('[data-ia-ed-ponto]'));
+                var proximo = linhas.slice(linhas.indexOf(linha) + 1).filter(function (l) { return !l.hidden; })[0];
                 linha.hidden = true;
+                var destino = proximo ? proximo.querySelector('input') : linha.parentNode.querySelector('textarea');
+                if (destino) { destino.focus(); }
                 return;
             }
 
             var cancelar = e.target.closest('[data-ia-ed-cancelar]');
             if (cancelar && secao.contains(cancelar)) {
                 var alvo = cancelar.closest('[data-ia-analise]');
-                if (alvo) { sairDaEdicao(alvo); }
+                if (alvo) { sairDaEdicao(alvo, true); }
             }
+        });
+
+        // Esc dentro da edição = Cancelar (o desenho é omisso; é o gesto do menu e das janelas).
+        secao.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') { return; }
+            var form = e.target.closest && e.target.closest('[data-ia-edicao]');
+            var cartao = form ? form.closest('.ps-ia-cartao--editando') : null;
+            if (!cartao) { return; }
+            e.preventDefault();
+            sairDaEdicao(cartao, true);
         });
 
         acompanhar();
