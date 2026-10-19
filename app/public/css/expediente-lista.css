@@ -47,6 +47,7 @@
     --ex-avatar:       #0a6fa0;   /* avatar com iniciais na Lista, dc L.330 `avBg` */
     --ex-avatar-vazio-bg: #eef2f5; --ex-avatar-vazio-tx: #62798a;   /* "?" sem responsável, dc L.330/524 */
     --ex-menu-titulo:  #62798a;
+    --ex-menu-subtitulo: #7a8e9b;
     --ex-menu-hover:   #e6f2fa;  --ex-menu-hover-tx: #0b4f75;
     --ex-perigo-hover: #fbecec;  --ex-perigo-hover-tx: #8a1d24;
     /* Hover da linha (dc L.28-35) */
@@ -95,6 +96,7 @@
     --ex-avatar:       #2b7fb8;
     --ex-avatar-vazio-bg: rgba(255,255,255,.08); --ex-avatar-vazio-tx: var(--bs-secondary-color);
     --ex-menu-titulo:  var(--bs-secondary-color);
+    --ex-menu-subtitulo: var(--bs-secondary-color);
     --ex-menu-hover:   rgba(77,163,234,.14);  --ex-menu-hover-tx: #8cc4f0;
     --ex-perigo-hover: rgba(192,57,47,.20);   --ex-perigo-hover-tx: #f08a84;
     --ex-prio-normal-bg: rgba(255,255,255,.08); --ex-prio-normal-tx: var(--bs-body-color);
@@ -596,6 +598,12 @@
 .exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .js-toggle-situacao::before { background: #fff; color: #fff; }
 .exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .resp-avatar { background: transparent !important; color: #fff !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.7); }
 .exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .js-mover-para { border-color: rgba(255,255,255,.6) !important; }
+/* O botão do responsável sob o mouse, dentro da linha azul (dc L.44-45): fundo branco translúcido e borda. Os
+   `:not()` repetem os do reset acima só para vencer a especificidade dele. */
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover > td .pasta-resp-chip:hover:not(.resp-avatar):not(.pasta-favorita-estrela) {
+    background: rgba(255,255,255,.2) !important;
+    border-color: rgba(255,255,255,.65) !important;
+}
 /* O hover antigo (cinza) sai. */
 .exp-body #tabelaPastas tbody tr:hover { background: transparent; }
 
@@ -627,6 +635,8 @@
     font-size: 12px; color: var(--ex-menu-titulo, #62798a);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Subfrase do menu de colunas (dc L.288): quebra a linha em vez de cortar. */
+.exp-ctx-subtitulo { display: block; margin-top: 2px; font-size: 11px; color: var(--ex-menu-subtitulo); white-space: normal; }
 .exp-ctx-item {
     width: 100%; display: flex; align-items: center; gap: 10px;
     padding: 8px 14px; border: 0; border-radius: 0;

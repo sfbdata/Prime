@@ -160,7 +160,7 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('desc', (string) $nup->attr('class'));
         self::assertCount(1, $nup->filter('i.sort-icon.bi-caret-down-fill'));
         self::assertCount(1, $crawler->filter('#tabelaPastas thead [aria-sort]'));
-        self::assertCount(6, $crawler->filter('#tabelaPastas thead th[data-ordenar] > i.sort-icon.bi-chevron-expand'));
+        self::assertCount(7, $crawler->filter('#tabelaPastas thead th[data-ordenar] > i.sort-icon.bi-chevron-expand'), 'VS 18.10.26: Réu também ordena');
         self::assertCount(0, $crawler->filter('#tabelaPastas .bi-arrow-down-up, #tabelaPastas .ps-3'));
 
         // Ordenação escolhida: a seta vai para a coluna, crescente.

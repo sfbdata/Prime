@@ -220,4 +220,16 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString("e.target.closest('.exp-simples-linha[data-pasta-id]')", $js);
         self::assertStringContainsString('function linhaDaTabela(item)', $js);
     }
+
+    #[TestDox('VS 18.10.26: colunas por usuário com a subfrase do dc, hover do chip do responsável na linha azul, textos do dc')]
+    public function testDesenhoVs181026(): void
+    {
+        $js = self::js();
+        self::assertStringContainsString("t.getAttribute('data-chave-colunas')", $js);
+        self::assertStringContainsString("{ icone: 'bi-person-lock', texto: 'Ajuste só seu: não muda para o resto da equipe' }", $js);
+        self::assertStringContainsString("'BlueJus I.A · '", $js);
+        $css = self::css();
+        self::assertStringContainsString('> td .pasta-resp-chip:hover:not(.resp-avatar):not(.pasta-favorita-estrela) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.65) !important; }', $css);
+        self::assertStringContainsString('placeholder="Buscar pasta, cliente, ação ou processo"', self::ler('templates/pasta/_filtros.html.twig'));
+    }
 }

@@ -633,7 +633,7 @@ final class ExpedienteController extends AbstractController
      */
     private function ordenacaoDaRequest(Request $request): array
     {
-        $colunas = ['nup', 'cliente', 'acao', 'prioridade', 'responsavel', 'marcadores', 'situacao'];
+        $colunas = ['nup', 'cliente', 'reu', 'acao', 'prioridade', 'responsavel', 'marcadores', 'situacao'];
         $ordenar = (string) $request->query->get('ordenar', '');
         $ordenar = in_array($ordenar, $colunas, true) ? $ordenar : '';
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';

@@ -39,7 +39,7 @@
         return menu ? Array.prototype.slice.call(menu.querySelectorAll('.exp-ctx-item')) : [];
     }
 
-    function abrir(titulo, lista, x, y, quem, variante) {
+    function abrir(titulo, lista, x, y, quem, variante, subtitulo) {
         fechar(false);
         origem = quem || document.activeElement;
         menu = document.createElement('div');
@@ -51,6 +51,20 @@
             var cab = document.createElement('div');
             cab.className = 'exp-ctx-titulo';
             cab.textContent = titulo;
+            // Subfrase (ex.: "Ajuste só seu" do menu de colunas): entra antes de medir, para o encaixe na janela valer.
+            if (subtitulo) {
+                var sub = document.createElement('span');
+                sub.className = 'exp-ctx-subtitulo';
+                if (subtitulo.icone) {
+                    var si = document.createElement('i');
+                    si.className = 'bi ' + subtitulo.icone;
+                    si.setAttribute('aria-hidden', 'true');
+                    sub.appendChild(si);
+                    sub.appendChild(document.createTextNode(' '));
+                }
+                sub.appendChild(document.createTextNode(subtitulo.texto));
+                cab.appendChild(sub);
+            }
             menu.appendChild(cab);
         }
 
@@ -950,17 +964,28 @@
     /* ── Colunas da tabela (dc `colVis`, `colItens`, `colCsv`) ─────────── */
     var COLUNAS = [['nup', 'NUP'], ['cliente', 'Cliente'], ['reu', 'Réu'], ['acao', 'Ação'], ['prio', 'Prioridade'], ['resp', 'Responsável'], ['metas', 'Metas'], ['marc', 'Marcadores'], ['sit', 'Situação']];
     var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true };
-    var CHAVE_COLUNAS = 'expediente_colunas';
+    /* Ajuste só de quem escolheu (dc `colKey`: conta + usuário), não do navegador. A chave antiga, sem usuário,
+       ainda vale como ponto de partida de quem não gravou na nova. */
+    var CHAVE_COLUNAS_ANTIGA = 'expediente_colunas';
+    function chaveColunas() {
+        var t = document.getElementById('tabelaPastas');
+        var dono = t ? t.getAttribute('data-chave-colunas') : '';
+
+        return dono ? CHAVE_COLUNAS_ANTIGA + ':' + dono : CHAVE_COLUNAS_ANTIGA;
+    }
     function colunasVisiveis() {
         var v = {};
-        try { v = JSON.parse(localStorage.getItem(CHAVE_COLUNAS) || '{}') || {}; } catch (x) { v = {}; }
+        try { v = JSON.parse(localStorage.getItem(chaveColunas()) || localStorage.getItem(CHAVE_COLUNAS_ANTIGA) || '{}') || {}; } catch (x) { v = {}; }
         var out = {};
         COLUNAS.forEach(function (c) { out[c[0]] = v[c[0]] !== false; });
         out.nup = true;
         return out;
     }
     function gravarColunas(v) {
-        try { if (v) { localStorage.setItem(CHAVE_COLUNAS, JSON.stringify(v)); } else { localStorage.removeItem(CHAVE_COLUNAS); } } catch (x) { /* só não lembra */ }
+        try {
+            // Restaurar grava o padrão (e não apaga): apagar faria a chave antiga voltar a valer.
+            localStorage.setItem(chaveColunas(), JSON.stringify(v || {}));
+        } catch (x) { /* só não lembra */ }
         aplicarColunas();
     }
     function aplicarColunas() {
@@ -1001,7 +1026,9 @@
         lista.push({ rotulo: 'Só as essenciais', icone: 'bi-funnel', manter: true, acao: function () { gravarColunas(ESSENCIAIS); menuColunas(botao, x, y); } });
         lista.push({ rotulo: 'Restaurar padrão', icone: 'bi-arrow-counterclockwise', acao: function () { gravarColunas(null); } });
         lista.push({ rotulo: 'Exportar colunas visíveis (CSV)', icone: 'bi-filetype-csv', acao: function () { window.location.href = urlCsv(botao); } });
-        window.ExpMenu.abrir('Colunas da tabela · ' + n + ' visíveis', lista, x, y, botao);
+        // Subfrase do dc (L.288): o ajuste é por usuário.
+        window.ExpMenu.abrir('Colunas da tabela · ' + n + ' visíveis', lista, x, y, botao, null,
+            { icone: 'bi-person-lock', texto: 'Ajuste só seu: não muda para o resto da equipe' });
     }
     document.addEventListener('click', function (e) {
         var b = e.target.closest('.js-colunas');
@@ -1077,7 +1104,7 @@
         orbe.appendChild(nucleo);
         fx.appendChild(orbe);
         var rot = el('div', 'exp-ai-fx-rotulo');
-        rot.appendChild(el('span', null, 'BlueJus I.A. · ' + (d.nome || 'Assistente de pastas')));
+        rot.appendChild(el('span', null, 'BlueJus I.A · ' + (d.nome || 'Assistente de pastas')));
         var barra = el('span', 'exp-ai-barra');
         barra.appendChild(el('span'));
         rot.appendChild(barra);
