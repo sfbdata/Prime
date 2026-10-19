@@ -41,6 +41,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_CENTRAL_MENCAO = 'central_mencao';
     /** Alguém adicionou o destinatário a um grupo da Central de Comunicação. */
     public const TIPO_CENTRAL_GRUPO_ADICIONADO = 'central_grupo_adicionado';
+    /** Quem recebeu o link externo do Push pediu a renovação; vai para quem criou o link. */
+    public const TIPO_PUSH_LINK_RENOVACAO = 'push_link_renovacao';
 
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
