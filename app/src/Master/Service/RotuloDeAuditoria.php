@@ -164,7 +164,26 @@ final class RotuloDeAuditoria
             return ['acao' => 'Reativou ' . $titulo, 'detalhe' => 'Liberado para todos os usuários'];
         }
 
-        return ['acao' => 'Desativou ' . $titulo, 'detalhe' => self::detalheDeDesligamento($depois)];
+        return ['acao' => 'Desativou ' . $titulo, 'detalhe' => self::detalheDeDesligamento(self::comMotivoDeQuemEstavaAtivo($acao, $mudancas, $depois))];
+    }
+
+    /**
+     * Saindo de ativo, o motivo de antes era sempre nulo (religar limpa motivo e data). Se ele não
+     * aparece entre os campos alterados, continuou nulo: é "Sem motivo informado", não uma lacuna.
+     *
+     * @param array<string, mixed> $mudancas
+     * @param array<string, mixed> $depois
+     *
+     * @return array<string, mixed>
+     */
+    private static function comMotivoDeQuemEstavaAtivo(string $acao, array $mudancas, array $depois): array
+    {
+        $saiuDeAtivo = (self::diff($mudancas)['ativo']['from'] ?? null) === true;
+        if ($acao === 'update' && $saiuDeAtivo && !array_key_exists('motivo', $depois)) {
+            $depois['motivo'] = null;
+        }
+
+        return $depois;
     }
 
     /**

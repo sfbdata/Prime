@@ -66,5 +66,8 @@ final class RotuloDeAuditoriaTest extends TestCase
 
         $desativou = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"motivo":{"from":null,"to":"Correção de falha"}}}}', 'peticionar');
         self::assertSame(['acao' => 'Desativou Peticionar', 'detalhe' => 'Motivo: Correção de falha'], $desativou);
+
+        $semMotivoComHistorico = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"alteradoEm":{"from":"a","to":"b"}}}}', 'peticionar');
+        self::assertSame('Sem motivo informado', $semMotivoComHistorico['detalhe'], 'saindo de ativo, motivo fora do diff continuou nulo');
     }
 }

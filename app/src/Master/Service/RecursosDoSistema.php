@@ -7,7 +7,9 @@ namespace App\Master\Service;
 use App\Entity\Auth\User;
 use App\Master\DTO\EstadoDoRecursoOutput;
 use App\Master\Repository\RecursoEstadoRepository;
+use Doctrine\DBAL\Exception\TableNotFoundException;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -23,6 +25,9 @@ use Symfony\Component\HttpFoundation\RequestStack;
  *  - `estaAtivo`: estado efetivo (R4: data vencida = ativo). Chave fora do catálogo = ativo.
  *  - `visivel`: false só para quem NÃO é Master com o item desligado (R5).
  *  - `marca`: a classe da marcação vermelha, só para o Master com o item desligado (R6).
+ *
+ * Sem a tabela `recurso_estado` (código publicado antes da migration rodar), tudo vale como ativo,
+ * com aviso no log: esta leitura roda em toda página logada e não pode derrubar o sistema.
  */
 final class RecursosDoSistema
 {
@@ -40,6 +45,7 @@ final class RecursosDoSistema
         private readonly Security $security,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly RequestStack $requestStack,
+        private readonly LoggerInterface $logger,
     ) {
         $this->porRequisicao = new \WeakMap();
     }
@@ -101,9 +107,17 @@ final class RecursosDoSistema
     {
         $hoje = $this->relogio->now();
 
+        try {
+            $gravados = $this->repositorio->todosPorChave();
+        } catch (TableNotFoundException $e) {
+            $this->logger->warning('Telas e recursos: tabela recurso_estado inexistente (migration pendente); tudo vale como ativo.', ['exception' => $e]);
+
+            return [];
+        }
+
         return array_map(
             static fn ($estado): EstadoDoRecursoOutput => EstadoDoRecursoOutput::fromEntity($estado, $hoje),
-            $this->repositorio->todosPorChave(),
+            $gravados,
         );
     }
 }

@@ -48,7 +48,7 @@ final class AlternarRecursoUseCaseTest extends TestCase
                 return true;
             }), true);
 
-        $saida = $this->useCase->executar(AlternarRecursoInput::doJson($this->master, 'dashboard', ['ativo' => false, 'motivo' => ' Revisão ética ', 'ate' => '2026-10-25']) ?? self::fail());
+        $saida = $this->useCase->executar(AlternarRecursoInput::doJson($this->master, 'dashboard', ['ativo' => false, 'motivo' => ' Revisão ética ', 'ate' => '2026-10-25'], self::hoje()) ?? self::fail());
 
         self::assertInstanceOf(RecursoEstado::class, $gravado);
         self::assertSame('dashboard', $gravado->getChave());
@@ -104,28 +104,36 @@ final class AlternarRecursoUseCaseTest extends TestCase
         $this->useCase->executar(new AlternarRecursoInput($this->master, 'inexistente', false));
     }
 
-    #[TestDox('desligar com data já vencida devolve o estado efetivo ativo (R4)')]
-    public function testDataVencidaDevolveAtivo(): void
+    #[TestDox('data de volta no passado vira "sem data", como a inválida; hoje ainda vale (R4)')]
+    public function testDataNoPassadoViraSemData(): void
     {
+        $ontem = AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => false, 'ate' => '2026-10-18'], self::hoje()) ?? self::fail();
+        self::assertNull($ontem->ate);
+
+        $hoje = AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => false, 'ate' => '2026-10-19'], self::hoje()) ?? self::fail();
+        self::assertSame('2026-10-19', $hoje->ate?->format('Y-m-d'));
+
         $this->repositorio->method('buscarPorChave')->willReturn(null);
-
-        $saida = $this->useCase->executar(new AlternarRecursoInput($this->master, 'dashboard', false, null, new \DateTimeImmutable('2026-10-18')));
-
-        self::assertTrue($saida->ativo);
+        self::assertFalse($this->useCase->executar($ontem)->ativo, 'desligar nunca resulta em "Ativo" sem explicação');
     }
 
     #[TestDox('o corpo JSON é normalizado: sem "ativo" é recusado, motivo vazio vira nulo, data inválida vira "sem data"')]
     public function testNormalizacaoDoCorpo(): void
     {
-        self::assertNull(AlternarRecursoInput::doJson(null, 'dashboard', []));
-        self::assertNull(AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => 'false']));
+        self::assertNull(AlternarRecursoInput::doJson(null, 'dashboard', [], self::hoje()));
+        self::assertNull(AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => 'false'], self::hoje()));
 
-        $input = AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => false, 'motivo' => '   ', 'ate' => '2026-02-31']) ?? self::fail();
+        $input = AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => false, 'motivo' => '   ', 'ate' => '2026-02-31'], self::hoje()) ?? self::fail();
         self::assertNull($input->motivo);
         self::assertNull($input->ate);
 
-        $longo = AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => false, 'motivo' => str_repeat('a', 400), 'ate' => '25/10/2026']) ?? self::fail();
+        $longo = AlternarRecursoInput::doJson(null, 'dashboard', ['ativo' => false, 'motivo' => str_repeat('a', 400), 'ate' => '25/10/2026'], self::hoje()) ?? self::fail();
         self::assertSame(RecursoEstado::MOTIVO_MAXIMO, mb_strlen((string) $longo->motivo));
         self::assertNull($longo->ate);
+    }
+
+    private static function hoje(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2026-10-19 10:00:00');
     }
 }

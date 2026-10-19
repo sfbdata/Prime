@@ -246,6 +246,47 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertStringContainsString('js/master/recursos.js', (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('menu do usuário sem divisória dupla quando Tema, Instalar ou Novidades e Privacidade somem')]
+    public function testMenuDoUsuarioSemDivisoriaDupla(): void
+    {
+        $this->entrar($this->comum);
+
+        foreach ([['tema'], ['tema', 'instalar'], ['tema', 'instalar', 'novidades', 'privacidade']] as $desligadas) {
+            foreach ($desligadas as $chave) {
+                $this->desligar($chave, null, null);
+            }
+
+            $crawler = $this->client->request('GET', '/expediente');
+            self::assertResponseIsSuccessful();
+            $itens = $crawler->filter('ul.usuario-dropdown > li')->each(
+                static fn ($li): string => $li->filter('hr.dropdown-divider')->count() > 0 ? 'hr' : 'item',
+            );
+            self::assertStringNotContainsString('hr,hr', implode(',', $itens), 'desligadas: ' . implode(', ', $desligadas));
+            self::assertSame('item', end($itens), 'Sair continua por último');
+        }
+
+        self::assertCount(0, $crawler->filter('#toggleTema'));
+        self::assertCount(0, $crawler->filter('#linkInstalarApp'));
+    }
+
+    #[TestDox('tema escuro desligado: quem não é Master não recebe o script que aplica o tema salvo; o Master recebe')]
+    public function testTemaEscuroDesligadoNaoAplica(): void
+    {
+        $leitura = "localStorage.getItem('tema') === 'dark'";
+        $this->entrar($this->comum);
+        $this->client->request('GET', '/expediente');
+        self::assertStringContainsString($leitura, (string) $this->client->getResponse()->getContent(), 'ativo, o tema salvo vale');
+
+        $this->desligar('tema', null, null);
+        $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString($leitura, (string) $this->client->getResponse()->getContent());
+
+        $this->entrar($this->master);
+        $this->client->request('GET', '/expediente');
+        self::assertStringContainsString($leitura, (string) $this->client->getResponse()->getContent());
+    }
+
     private function desligar(string $chave, ?string $motivo, ?string $ate): void
     {
         $estado = $this->estado($chave) ?? new RecursoEstado($chave);

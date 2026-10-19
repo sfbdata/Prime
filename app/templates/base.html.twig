@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
         <meta name="color-scheme" content="light dark">
         {# Anti-flash: aplica o tema salvo antes do render, evitando piscar branco #}
+        {% if recurso_visivel('tema') %}
         <script>
             (function () {
                 try {
@@ -14,6 +15,7 @@
                 } catch (e) {}
             })();
         </script>
+        {% endif %}
         {# CSRF para AJAX: token único 'ajax' + interceptador que injeta o header X-CSRF-Token
            em toda requisição same-origin de método inseguro (fetch e XMLHttpRequest/jQuery). #}
         <meta name="csrf-token" content="{{ csrf_token('ajax') }}">
@@ -378,8 +380,8 @@
                                             <span id="toggleTemaLabel">Tema escuro</span>
                                         </button>
                                     </li>
-                                    {% endif %}
                                     <li><hr class="dropdown-divider my-0"></li>
+                                    {% endif %}
                                     {% if recurso_visivel('instalar') %}
                                     <li class="{{ recurso_marca('instalar') }}">
                                         <button type="button" id="linkInstalarApp"
@@ -389,8 +391,8 @@
                                             <span id="linkInstalarAppTexto">Instalar aplicativo</span>
                                         </button>
                                     </li>
-                                    {% endif %}
                                     <li><hr class="dropdown-divider my-0"></li>
+                                    {% endif %}
                                     {% if recurso_visivel('novidades') %}
                                     <li class="{{ recurso_marca('novidades') }}">
                                         {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
@@ -411,7 +413,9 @@
                                         </a>
                                     </li>
                                     {% endif %}
+                                    {% if recurso_visivel('novidades') or recurso_visivel('privacidade') %}
                                     <li><hr class="dropdown-divider my-0"></li>
+                                    {% endif %}
                                     <li>
                                         <a href="{{ path('app_logout') }}" class="dropdown-item d-flex align-items-center gap-2 text-danger">
                                             <i class="bi bi-box-arrow-right"></i> Sair

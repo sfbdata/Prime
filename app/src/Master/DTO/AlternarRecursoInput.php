@@ -11,7 +11,8 @@ use App\Master\Entity\RecursoEstado;
  * Pedido de ligar ou desligar uma chave do catálogo (POST /master/recursos/{chave}, JSON).
  *
  * `doJson()` normaliza o corpo como o desenho faz na tela: motivo vazio vira "sem motivo", o
- * motivo longo é cortado no tamanho da coluna e a data que não é AAAA-MM-DD válida vira "sem data".
+ * motivo longo é cortado no tamanho da coluna, e a data que não é AAAA-MM-DD válida, ou que já passou,
+ * vira "sem data". Data no passado faria o desligar resultar em "Ativo" sem explicação (R4); hoje vale.
  */
 final readonly class AlternarRecursoInput
 {
@@ -29,13 +30,13 @@ final readonly class AlternarRecursoInput
     /**
      * @param array<mixed> $corpo
      */
-    public static function doJson(?User $ator, string $chave, array $corpo): ?self
+    public static function doJson(?User $ator, string $chave, array $corpo, \DateTimeImmutable $hoje): ?self
     {
         if (!is_bool($corpo['ativo'] ?? null)) {
             return null;
         }
 
-        return new self($ator, $chave, $corpo['ativo'], self::motivo($corpo['motivo'] ?? null), self::data($corpo['ate'] ?? null));
+        return new self($ator, $chave, $corpo['ativo'], self::motivo($corpo['motivo'] ?? null), self::data($corpo['ate'] ?? null, $hoje));
     }
 
     private static function motivo(mixed $valor): ?string
@@ -45,14 +46,17 @@ final readonly class AlternarRecursoInput
         return $texto === '' ? null : mb_substr($texto, 0, RecursoEstado::MOTIVO_MAXIMO);
     }
 
-    private static function data(mixed $valor): ?\DateTimeImmutable
+    private static function data(mixed $valor, \DateTimeImmutable $hoje): ?\DateTimeImmutable
     {
         if (!is_string($valor) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor) !== 1) {
             return null;
         }
 
         $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        if ($data === false || $data->format('Y-m-d') !== $valor) {
+            return null;
+        }
 
-        return $data !== false && $data->format('Y-m-d') === $valor ? $data : null;
+        return $valor < $hoje->format('Y-m-d') ? null : $data;
     }
 }

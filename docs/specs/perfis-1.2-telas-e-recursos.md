@@ -51,7 +51,7 @@ redesenha sem recarregar.
 | expedientes | Pasta (Expedientes) | `pasta_show` | links "abrir pasta" seguem; a rota bloqueia |
 | lista | Expediente · lista de pastas | essencial | |
 | metas | Minhas Metas | `tarefa_minhas` | sidebar e subnav |
-| trabalho | Trabalho Externo | `trabalho_externo_` (exceto `trabalho_externo_convite*`, link público de convite) | sidebar e subnav |
+| trabalho | Trabalho Externo | `trabalho_externo_` (exceto as 3 rotas públicas do link de convite, por nome exato: `trabalho_externo_convite`, `trabalho_externo_convite_criar_conta` e `trabalho_externo_convite_aceitar`; `_convite_reenviar` e `_convite_revogar` são API logada e seguem a chave) | sidebar e subnav |
 | peticionar | Peticionar | `pasta_peticionar` | botão em `pasta/_processos_vinculados` |
 | meuperfil | Meu Perfil | essencial | |
 | contribua, pushpub, vagaspub | (não existem ainda) | R8 | |

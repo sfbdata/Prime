@@ -67,12 +67,18 @@ final class CatalogoDeRecursos
     ];
 
     /**
-     * Prefixos que ficam abertos mesmo dentro de uma chave desligada: o link público de convite do
-     * Trabalho Externo é aberto por quem ainda nem tem conta.
+     * Rotas EXATAS que ficam abertas mesmo dentro de uma chave desligada: o link público de convite
+     * do Trabalho Externo, aberto por quem ainda nem tem conta. Lista exata, e não prefixo: as rotas
+     * internas de convite (`trabalho_externo_convite_reenviar`, `_revogar`) são API logada e seguem
+     * a chave `trabalho`.
      *
      * @var list<string>
      */
-    public const ROTAS_SEMPRE_ABERTAS = ['trabalho_externo_convite'];
+    public const ROTAS_SEMPRE_ABERTAS = [
+        'trabalho_externo_convite',
+        'trabalho_externo_convite_criar_conta',
+        'trabalho_externo_convite_aceitar',
+    ];
 
     /** @return list<string> as 18 chaves, na ordem da primeira aparição. */
     public static function chaves(): array
@@ -111,14 +117,8 @@ final class CatalogoDeRecursos
     /** Chave que a rota representa, ou null para rota fora do mapa (que nunca é bloqueada). */
     public static function chaveDaRota(string $rota): ?string
     {
-        if ($rota === '') {
+        if ($rota === '' || in_array($rota, self::ROTAS_SEMPRE_ABERTAS, true)) {
             return null;
-        }
-
-        foreach (self::ROTAS_SEMPRE_ABERTAS as $aberta) {
-            if (str_starts_with($rota, $aberta)) {
-                return null;
-            }
         }
 
         foreach (self::ROTAS as $chave => $prefixos) {

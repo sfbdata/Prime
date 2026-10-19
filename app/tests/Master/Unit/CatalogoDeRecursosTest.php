@@ -59,6 +59,9 @@ final class CatalogoDeRecursosTest extends TestCase
         yield 'trabalho externo' => ['trabalho_externo_index', 'trabalho'];
         yield 'convite público do trabalho externo fica aberto' => ['trabalho_externo_convite', null];
         yield 'aceite do convite fica aberto' => ['trabalho_externo_convite_aceitar', null];
+        yield 'criação de conta pelo convite fica aberta' => ['trabalho_externo_convite_criar_conta', null];
+        yield 'reenviar convite (API logada) segue a chave' => ['trabalho_externo_convite_reenviar', 'trabalho'];
+        yield 'revogar convite (API logada) segue a chave' => ['trabalho_externo_convite_revogar', 'trabalho'];
         yield 'peticionar' => ['pasta_peticionar_upload', 'peticionar'];
         yield 'novidades' => ['novidades_index', 'novidades'];
         yield 'agentes da pasta' => ['inteligencia_agentes_painel', 'assistente'];

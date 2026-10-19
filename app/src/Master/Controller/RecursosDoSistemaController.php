@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Master\DTO\AlternarRecursoInput;
 use App\Master\Exception\RecursoRecusado;
 use App\Master\UseCase\AlternarRecursoUseCase;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,14 +28,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class RecursosDoSistemaController extends AbstractController
 {
     #[Route('/master/recursos/{chave}', name: 'master_recurso_alternar', requirements: ['chave' => '[a-z]{1,40}'], methods: ['POST'])]
-    public function alternar(string $chave, Request $request, AlternarRecursoUseCase $alternar): JsonResponse
+    public function alternar(string $chave, Request $request, AlternarRecursoUseCase $alternar, ClockInterface $relogio): JsonResponse
     {
         if (!$this->isCsrfTokenValid('master_recursos', (string) $request->headers->get('X-CSRF-Token', ''))) {
             return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
         }
 
         $ator = $this->getUser();
-        $input = AlternarRecursoInput::doJson($ator instanceof User ? $ator : null, $chave, $this->corpo($request));
+        $input = AlternarRecursoInput::doJson($ator instanceof User ? $ator : null, $chave, $this->corpo($request), $relogio->now());
         if ($input === null) {
             return $this->json(['erro' => 'Informe se a tela fica ativa ou desativada.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
