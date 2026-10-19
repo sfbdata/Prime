@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Email\Descadastro;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Email\Descadastro\Repository\EmailDescadastroRepository;
 use Psr\Clock\ClockInterface;
@@ -28,17 +29,51 @@ final class DescadastroDeEmail implements DescadastroDeEmailInterface
             return false;
         }
 
-        return $this->repositorio->existeAlgum($tenant, $email, array_values(array_unique([self::exigirPadrao($assunto, 'assunto'), self::ASSUNTO_TODOS])));
+        return $this->repositorio->bloqueado($tenant, $email, self::exigirPadrao($assunto, 'assunto'), self::ASSUNTO_TODOS);
     }
 
-    public function descadastrar(?Tenant $tenant, string $email, string $assunto, string $origem): void
+    public function descadastrar(?Tenant $tenant, string $email, string $assunto, string $origem, ?string $motivo = null): void
     {
         $this->repositorio->registrarSeAusente(
             $tenant,
             self::exigirEmail($email),
             self::exigirPadrao($assunto, 'assunto'),
             self::exigirPadrao($origem, 'origem'),
+            self::motivo($motivo),
             $this->relogio->now(),
+        );
+    }
+
+    /**
+     * (a) encerra o ativo do assunto; (b) `todos` encerra todos os ativos do escopo; (c) se, depois
+     * disso, um `todos` ativo ainda bloqueia o assunto, grava a exceção dele (linha já reativada).
+     * Já liberado: nada muda (idempotente).
+     */
+    public function reativar(?Tenant $tenant, string $email, string $assunto, string $origem, ?User $por = null): void
+    {
+        $email = self::exigirEmail($email);
+        $assunto = self::exigirPadrao($assunto, 'assunto');
+        $origem = self::exigirPadrao($origem, 'origem');
+        $porId = $por?->getId();
+        $agora = $this->relogio->now();
+
+        $this->repositorio->encerrarAtivos($tenant, $email, $assunto === self::ASSUNTO_TODOS ? null : $assunto, $origem, $porId, $agora);
+        if ($assunto !== self::ASSUNTO_TODOS && $this->repositorio->bloqueado($tenant, $email, $assunto, self::ASSUNTO_TODOS)) {
+            $this->repositorio->registrarExcecao($tenant, $email, $assunto, $origem, $porId, $agora);
+        }
+    }
+
+    public function listar(?Tenant $tenant, ?string $busca, int $pagina, int $porPagina): ListaDeDescadastros
+    {
+        $pagina = max(1, $pagina);
+        $porPagina = min(self::MAXIMO_POR_PAGINA, max(1, $porPagina));
+        $resultado = $this->repositorio->listarAtivos($tenant, $busca, $pagina, $porPagina);
+
+        return new ListaDeDescadastros(
+            $resultado['total'],
+            array_map(static fn (array $l): ItemDeDescadastro => new ItemDeDescadastro($l['email'], $l['assunto'], $l['origem'], $l['motivo'], new \DateTimeImmutable($l['em'])), $resultado['linhas']),
+            $pagina,
+            $porPagina,
         );
     }
 
@@ -49,6 +84,16 @@ final class DescadastroDeEmail implements DescadastroDeEmailInterface
             self::exigirEmail($email),
             self::exigirPadrao($assunto, 'assunto'),
         ));
+    }
+
+    private static function motivo(?string $motivo): ?string
+    {
+        $motivo = trim((string) $motivo);
+        if (mb_strlen($motivo) > 280) {
+            throw new \InvalidArgumentException('O motivo do descadastro tem no máximo 280 caracteres.');
+        }
+
+        return $motivo === '' ? null : $motivo;
     }
 
     private static function normalizar(string $email): string
