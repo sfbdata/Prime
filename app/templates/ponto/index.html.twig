@@ -514,6 +514,9 @@
 
         // Botão desabilitado precisa DIZER o motivo e o caminho. Antes ele só ficava cinza, e a
         // pessoa fora da área nem sabia por que não conseguia bater nem o que fazer a respeito.
+        if (!window.PontoBatida) {
+            return;   // sem o módulo, a posição fica guardada e o toque avisa (AVISO_PAGINA_INCOMPLETA)
+        }
         const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);
 
         if (onde.situacao === 'fora') {
@@ -572,6 +575,9 @@
 
     // Falha em que dá para afirmar que nada entrou: o servidor recusou antes de gravar.
     const AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
+    // O módulo da batida (`ponto-batida.js`) é arquivo à parte: se ele não carregou (rede, cache, bloqueador), o toque
+    // responde em vez de ficar mudo.
+    const AVISO_PAGINA_INCOMPLETA = 'A página não carregou por inteiro e a batida não foi enviada. Atualize a página e tente de novo.';
 
     btnAtualizarPagina.addEventListener('click', () => window.location.reload());
 
@@ -760,6 +766,10 @@
 
     // Botão de Bater Ponto
     btnPonto.addEventListener('click', async function() {
+        if (!window.PontoBatida) {
+            mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
+            return;
+        }
         if (!tipoRegistro.value) {
             mostrarAvisoBatida('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).', 'warning');
             return;
@@ -855,6 +865,11 @@
                 // `sem_confirmacao`: a batida PODE ter entrado, então nunca se afirma que não entrou.
                 mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
             }
+        } catch (erro) {
+            // O `catch` que o envio tinha antes da extração: erro da própria tela nunca vira silêncio, e o aviso
+            // nunca afirma que a batida não entrou.
+            console.error('Falha ao tratar a resposta da batida:', erro);
+            mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
         } finally {
             if (!sucesso) {
                 liberarBotaoBatida();
