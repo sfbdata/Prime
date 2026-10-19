@@ -16,12 +16,17 @@ final class DadosDaVaga
     public const CARGOS = ['Advogado(a)', 'Advogado(a) associado(a)', 'Correspondente', 'Estagiário(a)', 'Assistente jurídico', 'Controladoria', 'Administrativo'];
     public const CONTRATACOES = ['CLT', 'PJ / Associado', 'Estágio', 'Por demanda'];
     public const MODALIDADES = ['Presencial', 'Híbrido', 'Remoto'];
-    /** Dias de divulgação (`DUR`). */
-    public const PERIODOS = [5, 10, 15, 30, 60];
-    /** Minutos da oferta relâmpago ("DISPONÍVEL POR"). Provisório até o zip: `tfDurs` se perdeu. */
-    public const DURACOES_DA_OFERTA = [5, 10, 15, 30, 60];
-    /** Dados de quem oferece que cada um pode esconder na vaga (o "olho" de `ofCampos`). */
-    public const CAMPOS_DO_OFERTANTE = ['resp', 'cidade', 'uf', 'email', 'tel', 'site'];
+    /**
+     * Dias de divulgação ("QUANTO TEMPO A VAGA FICA DISPONÍVEL", `perOps`, desenho l.1185). O 0 é "Até a
+     * vaga ser preenchida", só para o Master; os demais ficam no teto `maxDias` da configuração.
+     */
+    public const PERIODOS = [0, 1, 3, 7, 15, 30, 60];
+    /** Minutos da oferta com tempo ("DISPONÍVEL POR", `DUR` l.838; a configuração vai até 24 h, l.1159). */
+    public const DURACOES_DA_OFERTA = [5, 10, 15, 30, 60, 120, 1440];
+    /** Dados de quem oferece com o olho (`ofCampos`, l.1182); `local` é cidade e UF juntas. */
+    public const CAMPOS_DO_OFERTANTE = ['resp', 'local', 'email', 'tel', 'site'];
+    /** O que nasce oculto: e-mail e telefone; os candidatos falam com quem oferece pelo BlueJus (l.1182). */
+    public const OCULTOS_PADRAO = ['email', 'tel'];
 
     public string $titulo = '';
     public string $cargo = '';
@@ -39,6 +44,8 @@ final class DadosDaVaga
     public bool $oferta = false;
     public int $duracaoDaOferta = 15;
     public int $qtd = 1;
+    /** O Master escolheu o tipo (vaga comum ou oferta com tempo); sem isso, a aprovação aplica o padrão (`tipoDef`, l.979). */
+    public bool $ofertaDefinida = false;
     /** @var array{nome: string, resp: string, cidade: string, uf: string, email: string, tel: string, site: string, ocultos: list<string>} */
     public array $ofertante = ['nome' => '', 'resp' => '', 'cidade' => '', 'uf' => '', 'email' => '', 'tel' => '', 'site' => '', 'ocultos' => []];
 
@@ -58,6 +65,7 @@ final class DadosDaVaga
         $x->inscricoesAte = self::data($d['inscricoesAte'] ?? '');
         $x->exigeOab = (bool) ($d['exigeOab'] ?? false);
         $x->periodoDias = self::opcao($d['periodoDias'] ?? null, self::PERIODOS, 15);
+        $x->ofertaDefinida = array_key_exists('oferta', $d);
         $x->oferta = (bool) ($d['oferta'] ?? false);
         $x->duracaoDaOferta = self::opcao($d['duracaoDaOferta'] ?? null, self::DURACOES_DA_OFERTA, 15);
         $x->qtd = max(1, min(20, (int) ($d['qtd'] ?? 1)));
@@ -66,11 +74,24 @@ final class DadosDaVaga
         return $x;
     }
 
-    /** Os obrigatórios do desenho: TÍTULO DA VAGA *, CARGO * e ESCRITÓRIO * (de quem oferece). */
+    /** Os obrigatórios do desenho, na ordem e com as mensagens dele (l.1005). */
     public function exigirCompleta(): void
     {
-        if ($this->titulo === '' || $this->cargo === '' || $this->ofertante['nome'] === '') {
-            throw new DadosInvalidos('Preencha os campos obrigatórios marcados com *.');
+        match (true) {
+            $this->ofertante['nome'] === '' => throw new DadosInvalidos('Informe o escritório que está oferecendo a vaga.'),
+            $this->titulo === '' => throw new DadosInvalidos('Informe o título da vaga.'),
+            $this->cargo === '' => throw new DadosInvalidos('Escolha o cargo.'),
+            default => null,
+        };
+    }
+
+    /** Quem não é Master não escolhe o tipo nem "Até ser preenchida", e fica no teto da Central (l.1005). */
+    public function limitarParaQuemNaoEMaster(int $maxDias): void
+    {
+        $this->oferta = false;
+        $this->ofertaDefinida = false;
+        if ($this->periodoDias === 0 || ($maxDias > 0 && $this->periodoDias > $maxDias)) {
+            $this->periodoDias = $maxDias > 0 ? min(15, $maxDias) : 15;
         }
     }
 
@@ -89,7 +110,9 @@ final class DadosDaVaga
             'email' => self::texto($o['email'] ?? '', 180),
             'tel' => self::texto($o['tel'] ?? '', 40),
             'site' => self::texto($o['site'] ?? '', 200),
-            'ocultos' => array_values(array_intersect(self::CAMPOS_DO_OFERTANTE, is_array($o['ocultos'] ?? null) ? $o['ocultos'] : [])),
+            'ocultos' => is_array($o['ocultos'] ?? null)
+                ? array_values(array_intersect(self::CAMPOS_DO_OFERTANTE, $o['ocultos']))
+                : self::OCULTOS_PADRAO,
         ];
     }
 

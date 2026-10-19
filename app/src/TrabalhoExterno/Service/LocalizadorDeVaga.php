@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\TrabalhoExterno\Service;
 
 use App\TrabalhoExterno\Entity\Vaga;
+use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
 use App\TrabalhoExterno\Repository\VagaRepository;
 
@@ -26,9 +27,8 @@ final class LocalizadorDeVaga
         $id = Vaga::idDoCodigo($codigo);
         $vaga = match (true) {
             $id === null => null,
-            $this->politica->ehDaCentral($ctx) => $this->repositorio->daCentralPorId($id),
-            $ctx->tenant !== null => $this->repositorio->visivelAoEscritorioPorId($id, $ctx->tenant),
-            default => null,
+            $this->politica->ehInterno($ctx) => $this->repositorio->daCentralPorId($id),
+            default => $this->repositorio->visivelAoExternoPorId($id, $ctx->perfil === Perfil::Convidado ? null : $ctx->tenant, $ctx->usuario),
         };
         if ($vaga === null || !$this->politica->podeVer($ctx, $vaga, $agora)) {
             throw new DemandaNaoEncontrada('Vaga não encontrada.');
@@ -43,11 +43,9 @@ final class LocalizadorDeVaga
         if (!$this->politica->veAba($ctx)) {
             return [];
         }
-        $vagas = match (true) {
-            $this->politica->ehDaCentral($ctx) => $this->repositorio->daCentral(),
-            $ctx->tenant !== null => $this->repositorio->visiveisAoEscritorio($ctx->tenant),
-            default => [],
-        };
+        $vagas = $this->politica->ehInterno($ctx)
+            ? $this->repositorio->daCentral()
+            : $this->repositorio->visiveisAoExterno($ctx->perfil === Perfil::Convidado ? null : $ctx->tenant, $ctx->usuario);
 
         return array_values(array_filter($vagas, fn (Vaga $v): bool => $this->politica->podeVer($ctx, $v, $agora)));
     }

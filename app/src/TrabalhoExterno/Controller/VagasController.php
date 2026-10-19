@@ -10,7 +10,9 @@ use App\TrabalhoExterno\Enum\AcaoVaga;
 use App\TrabalhoExterno\Enum\OperacaoDeMarcacao;
 use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
+use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeVaga;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
@@ -18,6 +20,9 @@ use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaVagaUseCase;
 use App\TrabalhoExterno\UseCase\CompartilharVagasUseCase;
+use App\TrabalhoExterno\UseCase\EditarVagaUseCase;
+use App\TrabalhoExterno\UseCase\ExcluirVagaUseCase;
+use App\TrabalhoExterno\UseCase\RegistrarVisitaAsVagasUseCase;
 use App\TrabalhoExterno\UseCase\ListarVagasUseCase;
 use App\TrabalhoExterno\UseCase\MarcarVagasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\SalvarVagaUseCase;
@@ -45,6 +50,7 @@ final class VagasController extends AbstractController
         private readonly LocalizadorDeVaga $localizador,
         private readonly ApresentadorDeVaga $apresentador,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly PreferenciaDoUsuarioRepository $preferencias,
     ) {
     }
 
@@ -67,6 +73,37 @@ final class VagasController extends AbstractController
             $vaga = $salvar->executar($ctx, DadosDaVaga::deArray($this->corpo($request)));
 
             return ['codigo' => $vaga->getCodigo(), 'vaga' => $this->detalhar($ctx, $vaga->getCodigo())];
+        });
+    }
+
+    #[Route('/{codigo}/editar', name: 'trabalho_externo_vaga_editar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function editar(Request $request, string $codigo, EditarVagaUseCase $editar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $editar): array {
+            $editar->executar($ctx, $codigo, DadosDaVaga::deArray($this->corpo($request)));
+
+            return ['vaga' => $this->detalhar($ctx, $codigo)];
+        });
+    }
+
+    #[Route('/{codigo}/excluir', name: 'trabalho_externo_vaga_excluir', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function excluir(Request $request, string $codigo, ExcluirVagaUseCase $excluir): JsonResponse
+    {
+        return $this->escrever($request, static function (Contexto $ctx) use ($codigo, $excluir): array {
+            $excluir->executar($ctx, $codigo);
+
+            return [];
+        });
+    }
+
+    /** A tela avisa a visita à aba Vagas DEPOIS de listar: é ela que define o "NOVA" da próxima vez. */
+    #[Route('/visita', name: 'trabalho_externo_vagas_visita', methods: ['POST'])]
+    public function visita(Request $request, RegistrarVisitaAsVagasUseCase $registrar): JsonResponse
+    {
+        return $this->escrever($request, static function (Contexto $ctx) use ($registrar): array {
+            $registrar->executar($ctx);
+
+            return [];
         });
     }
 
@@ -117,8 +154,9 @@ final class VagasController extends AbstractController
         $vaga = $this->localizador->localizar($ctx, $codigo, $agora);
         $id = (int) $vaga->getId();
         $marca = $ctx->previa ? null : ($this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Vaga, [$id])[$id] ?? null);
+        $em = $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->getValor()['em'] ?? null;
 
-        return $this->apresentador->detalhe($ctx, $vaga, $marca, $agora);
+        return $this->apresentador->detalhe($ctx, $vaga, $marca, is_string($em) ? new \DateTimeImmutable($em) : null, $agora);
     }
 
     /** @param callable(Contexto): array<string, mixed> $acao */

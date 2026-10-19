@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Repository;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\SituacaoVaga;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -39,18 +41,6 @@ class VagaRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('v')->orderBy('v.id', 'DESC')->getQuery()->getResult();
     }
 
-    /** @return list<Vaga> */
-    public function visiveisAoEscritorio(Tenant $tenant): array
-    {
-        return $this->createQueryBuilder('v')
-            ->andWhere('v.situacao = :aberta OR v.escritorio = :tenant')
-            ->setParameter('aberta', SituacaoVaga::Aberta)
-            ->setParameter('tenant', $tenant)
-            ->orderBy('v.id', 'DESC')
-            ->getQuery()
-            ->getResult();
-    }
-
     public function daCentralPorId(int $id): ?Vaga
     {
         return $this->createQueryBuilder('v')
@@ -60,16 +50,35 @@ class VagaRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    public function visivelAoEscritorioPorId(int $id, Tenant $tenant): ?Vaga
+    /**
+     * O que um externo enxerga (desenho l.990): as abertas e as que ele divulgou, pelo escritório
+     * dele ou, sem escritório (Convidado), por ele mesmo.
+     *
+     * @return list<Vaga>
+     */
+    public function visiveisAoExterno(?Tenant $tenant, User $usuario): array
     {
-        return $this->createQueryBuilder('v')
-            ->andWhere('v.id = :id')
-            ->andWhere('v.situacao = :aberta OR v.escritorio = :tenant')
-            ->setParameter('id', $id)
+        return $this->doExterno($tenant, $usuario)->orderBy('v.id', 'DESC')->getQuery()->getResult();
+    }
+
+    public function visivelAoExternoPorId(int $id, ?Tenant $tenant, User $usuario): ?Vaga
+    {
+        return $this->doExterno($tenant, $usuario)->andWhere('v.id = :id')->setParameter('id', $id)->getQuery()->getOneOrNullResult();
+    }
+
+    private function doExterno(?Tenant $tenant, User $usuario): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('v')
             ->setParameter('aberta', SituacaoVaga::Aberta)
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setParameter('usuario', $usuario);
+        $dele = $qb->expr()->andX('v.daCentral = false', 'v.escritorio IS NULL', 'v.criadaPor = :usuario');
+        if ($tenant === null) {
+            return $qb->andWhere($qb->expr()->orX('v.situacao = :aberta', $dele));
+        }
+
+        return $qb
+            ->andWhere($qb->expr()->orX('v.situacao = :aberta', 'v.escritorio = :tenant', $dele))
+            ->setParameter('tenant', $tenant);
     }
 
     /**

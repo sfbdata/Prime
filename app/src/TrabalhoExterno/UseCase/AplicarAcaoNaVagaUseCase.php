@@ -13,9 +13,10 @@ use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
 
 /**
- * Aprovar, não aprovar, pausar, retomar, marcar como preenchida e encerrar (spec VS 18.10.26 §4.1).
- * Fluxo: localiza no escopo (404); confere a política (403); a entidade grava o vencimento que
- * estava só calculado e confere a situação e o motivo (409).
+ * Aprovar e publicar, não aprovar, pausar inscrições, reabrir, ofertar novamente e encerrar (desenho
+ * 06 l.979–983). Só a Central. Fluxo: localiza no escopo (404); confere a política (403); a entidade
+ * grava o vencimento que estava só calculado e confere a situação (409). A aprovação aplica o teto de
+ * dias e, se o Master não escolheu o tipo, o tempo padrão da oferta da configuração.
  */
 final class AplicarAcaoNaVagaUseCase
 {
@@ -34,11 +35,8 @@ final class AplicarAcaoNaVagaUseCase
             throw new AcaoNaoPermitida('Você não pode executar esta ação nesta vaga.');
         }
 
-        // "Pedidos acima do limite são ajustados na aprovação" (modal de configuração do desenho).
-        if ($acao === AcaoVaga::Aprovar && !$vaga->ehDaCentral()) {
-            $vaga->limitarPeriodo($ctx->configuracao->getVagas()['maxDias']);
-        }
-        $vaga->aplicar($acao, $motivo, $agora);
+        $cfg = $ctx->configuracao->getVagas();
+        $vaga->aplicar($acao, $motivo, $ctx->autor()->nome, $cfg['dur'], $cfg['maxDias'], $agora);
         $this->vagas->salvar($vaga, flush: true);
 
         return $vaga;
