@@ -531,7 +531,8 @@ da candidatura para "Meu currículo" (F2b, decisão 11); KPI "COM OAB" filtra ad
 ## 4.6 F2b: Candidatura (desenho 06, 19/10)
 
 Branch `trabalho-externo-candidatura`, empilhada sobre `trabalho-externo-curriculos` (#96). Risco
-**MÉDIO**. Inventário de 19/10 (linhas abaixo). Fora: notificações (F4, sino de avisos), painel/funil
+**MÉDIO**. Inventário de 19/10 (linhas abaixo). Fora: notificações (decididas pelo coordenador em 19/10: entram na F4 pelo sino da Central,
+`TiposDeAvisoDaCentral` conforme `app/src/Central/CLAUDE.md`; e-mail só se o desenho mostrar, pelo Carteiro da 5d), painel/funil
 (F3b), chips de engajamento, QUASE por evento entre abas e bem-vindo (F4).
 
 ### Modelo
@@ -559,7 +560,7 @@ Marcações pessoais: `TipoItemMarcado::Candidatura`.
   {mm:ss} min". Toasts "Oferta aceita" / "A vaga está reservada para você. O escritório já foi avisado.",
   "Você já aceitou" / "Sua vaga está garantida.", "Vaga indisponível" / "Esta vaga já foi preenchida ou
   encerrada." (com `motiv` ligado, o modal QUASE do desenho, l.392 a 400 e 839).
-  Padrão até o coordenador decidir: **cada rodada** ("Ofertar novamente", "Reabrir") conta os aceites do
+  Decidido pelo coordenador (19/10): **cada rodada** ("Ofertar novamente", "Reabrir") conta os aceites do
   zero; os aceites anteriores continuam `aprovado`. Aceite em vaga **com dono** entra direto nos
   enviados ao escritório (o toast promete que o escritório sabe).
 - **Status** (`aStatus`): qualquer AST para qualquer outro, só com `talentos` (decisão 3 da §4.4).
