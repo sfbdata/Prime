@@ -61,7 +61,9 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Não consigo entrar desde ontem.', $mensagem->getMensagem());
         $avisos = $this->avisosDoSuporte($master);
         self::assertCount(1, $avisos);
-        self::assertSame('Suporte: Ana Souza · Não consigo entrar', $avisos[0]['mensagem']);
+        self::assertSame('Suporte · Ana Souza', $avisos[0]['titulo']);
+        self::assertStringStartsWith('💬 Ana Souza (', $avisos[0]['mensagem']);
+        self::assertStringEndsWith(') pela página de login: Não consigo entrar desde ontem.', $avisos[0]['mensagem']);
         self::assertSame('/suporte/mensagens', $avisos[0]['url']);
         self::assertCount(1, $this->limite()->chavesConsumidas, 'o POST válido gasta a cota do IP');
     }

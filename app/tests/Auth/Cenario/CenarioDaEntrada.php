@@ -81,12 +81,12 @@ trait CenarioDaEntrada
     /**
      * Pelo banco, sem o ORM: o filtro de tenant pode estar ligado depois de uma requisição.
      *
-     * @return list<array{tipo: string, mensagem: string, url: ?string, tenant_id: int}>
+     * @return list<array{tipo: string, titulo: string, mensagem: string, url: ?string, tenant_id: int}>
      */
     private function avisosDoSuporte(User $user): array
     {
         return $this->em()->getConnection()->fetchAllAssociative(
-            'SELECT tipo, mensagem, url, tenant_id FROM notificacao WHERE usuario_id = :id AND tipo = :tipo ORDER BY id',
+            'SELECT tipo, titulo, mensagem, url, tenant_id FROM notificacao WHERE usuario_id = :id AND tipo = :tipo ORDER BY id',
             ['id' => $user->getId(), 'tipo' => 'suporte.mensagem'],
         );
     }

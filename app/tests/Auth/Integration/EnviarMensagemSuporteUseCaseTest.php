@@ -9,6 +9,9 @@ use App\Auth\Entity\MensagemSuporte;
 use App\Auth\Repository\MensagemSuporteRepository;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Auth\UseCase\EnviarMensagemSuporteUseCase;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
@@ -73,7 +76,8 @@ final class EnviarMensagemSuporteUseCaseTest extends KernelTestCase
 
         $avisos = $this->avisosDoSuporte($master);
         self::assertCount(1, $avisos);
-        self::assertSame('Suporte: Ana Souza · Esqueci a senha', $avisos[0]['mensagem']);
+        self::assertSame('Suporte · Ana Souza', $avisos[0]['titulo']);
+        self::assertStringContainsString('pela página de login:', $avisos[0]['mensagem']);
         self::assertSame('/suporte/mensagens', $avisos[0]['url']);
         self::assertSame($this->escritorioDe($master), (int) $avisos[0]['tenant_id']);
         self::assertSame([], $this->avisosDoSuporte($masterSemEscritorio), 'sem escritório não há sino');
@@ -81,11 +85,34 @@ final class EnviarMensagemSuporteUseCaseTest extends KernelTestCase
         self::assertSame([], $this->avisosDoSuporte($comum));
     }
 
+    #[TestDox('O aviso cai na conta do Master, nunca no escritório de um cliente (a Notificacao é auditada)')]
+    public function testAvisoNuncaCaiNoEscritorioDoCliente(): void
+    {
+        $titular = $this->pessoa('Tito Titular');
+        $cliente = $this->em()->find(Tenant::class, $this->escritorioDe($titular));
+        $cliente->setCriadoPor($titular);
+        $master = $this->pessoa('Marta Master', ['ROLE_SUPER_ADMIN'], comEscritorio: false);
+        $this->em()->persist(new UserTenant($master, $cliente));
+        $this->em()->flush();
+        $propria = new Tenant();
+        $propria->setName('BlueJus ' . uniqid());
+        $propria->setCriadoPor($master);
+        $this->em()->persist($propria);
+        $this->em()->persist(new UserTenant($master, $propria));
+        $this->em()->flush();
+
+        static::getContainer()->get(EnviarMensagemSuporteUseCase::class)->executar($this->input());
+
+        $avisos = $this->avisosDoSuporte($master);
+        self::assertCount(1, $avisos);
+        self::assertSame($propria->getId(), (int) $avisos[0]['tenant_id']);
+    }
+
     #[TestDox('Com destinatário escolhido: só ele é avisado e a mensagem guarda quem era')]
     public function testComDestinatarioAvisaSoEle(): void
     {
         $master = $this->master();
-        $escolhida = $this->pessoa('Carla Escolhida');
+        $escolhida = $this->colega($master, 'Carla Escolhida');
         $this->escolherDestinatario($escolhida);
 
         $input = $this->input();
@@ -119,7 +146,8 @@ final class EnviarMensagemSuporteUseCaseTest extends KernelTestCase
 
         static::getContainer()->get(EnviarMensagemSuporteUseCase::class)->executar($input);
 
-        self::assertSame('Suporte: ' . $input->email . ' · mensagem', $this->avisosDoSuporte($master)[0]['mensagem']);
+        self::assertSame('Suporte · ' . $input->email, $this->avisosDoSuporte($master)[0]['titulo']);
+        self::assertStringStartsWith('💬 Visitante (' . $input->email . ')', $this->avisosDoSuporte($master)[0]['mensagem']);
     }
 
     #[TestDox('Aviso cortado em 255 caracteres')]
@@ -165,6 +193,7 @@ final class EnviarMensagemSuporteUseCaseTest extends KernelTestCase
             $sino,
             $c->get(UrlGeneratorInterface::class),
             $log,
+            $c->get(RegraDosMasters::class),
         );
     }
 

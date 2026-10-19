@@ -11,6 +11,7 @@ use App\Auth\Service\PaginaDeEntrada;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
@@ -39,6 +40,7 @@ final class EnviarMensagemSuporteUseCase
         private readonly NotificacaoService $notificacoes,
         private readonly UrlGeneratorInterface $urls,
         private readonly LoggerInterface $logger,
+        private readonly RegraDosMasters $regraDosMasters,
     ) {
     }
 
@@ -47,10 +49,11 @@ final class EnviarMensagemSuporteUseCase
         $destinatario = $this->paginaDeEntrada->destinatarioDoSuporte();
         $this->mensagens->salvar($this->novaMensagem($input, $destinatario), flush: true);
 
+        $titulo = $this->tituloDoAviso($input);
         $texto = $this->textoDoAviso($input);
         $url = $this->urls->generate('auth_suporte_mensagens');
         foreach ($this->quemRecebe($destinatario) as $user) {
-            $this->avisarNoSino($user, $texto, $url);
+            $this->avisarNoSino($user, $titulo, $texto, $url);
         }
     }
 
@@ -67,11 +70,16 @@ final class EnviarMensagemSuporteUseCase
         );
     }
 
+    /** "Suporte · Nome", como o bjSuporteFila do bluejus-central.js (o aviso "Mensagem" da Central). */
+    private function tituloDoAviso(EnviarMensagemSuporteInput $input): string
+    {
+        return mb_substr('Suporte · ' . ($input->nome !== '' ? $input->nome : $input->email), 0, 255);
+    }
+
+    /** "💬 Nome (e-mail) pela página de login: mensagem", o texto do desenho. */
     private function textoDoAviso(EnviarMensagemSuporteInput $input): string
     {
-        $quem = $input->nome !== '' ? $input->nome : $input->email;
-
-        return mb_substr('Suporte: ' . $quem . ' · ' . ($input->assunto ?? 'mensagem'), 0, 255);
+        return '💬 ' . ($input->nome !== '' ? $input->nome : 'Visitante') . ' (' . $input->email . ') pela página de login: ' . $input->mensagem;
     }
 
     /** @return list<User> */
@@ -85,14 +93,14 @@ final class EnviarMensagemSuporteUseCase
         return array_values(array_filter($masters, static fn (User $master): bool => $master->isActive()));
     }
 
-    private function avisarNoSino(User $user, string $texto, string $url): void
+    private function avisarNoSino(User $user, string $titulo, string $texto, string $url): void
     {
         try {
             $escritorio = $this->primeiroEscritorioAtivo($user);
             if ($escritorio === null) {
                 return;
             }
-            $this->notificacoes->criarNotificacao($user, $escritorio, self::TIPO_NOTIFICACAO, $texto, $url);
+            $this->notificacoes->criarNotificacao($user, $escritorio, self::TIPO_NOTIFICACAO, $titulo, $url, $texto);
         } catch (\Throwable $e) {
             $this->logger->error('Suporte da tela de entrada: aviso no sino falhou.', [
                 'usuario' => $user->getId(),
@@ -101,10 +109,16 @@ final class EnviarMensagemSuporteUseCase
         }
     }
 
-    /** O vínculo ativo mais antigo (menor id), para o aviso cair sempre no mesmo escritório. */
+    /**
+     * O vínculo ativo mais antigo (menor id) numa CONTA DO MASTER, para o aviso cair sempre no mesmo escritório. Nunca
+     * no de um cliente: a Notificacao é auditada, e o texto do visitante iria parar no audit_log que o cliente lê.
+     */
     private function primeiroEscritorioAtivo(User $user): ?Tenant
     {
-        $vinculos = $this->vinculos->findActiveByUser($user);
+        $vinculos = array_values(array_filter(
+            $this->vinculos->findActiveByUser($user),
+            fn (UserTenant $v): bool => $this->regraDosMasters->ehContaDoMaster($v->getTenant()),
+        ));
         usort($vinculos, static fn (UserTenant $a, UserTenant $b): int => ($a->getId() ?? 0) <=> ($b->getId() ?? 0));
 
         return ($vinculos[0] ?? null)?->getTenant();

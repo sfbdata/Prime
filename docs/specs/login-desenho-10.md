@@ -35,9 +35,9 @@ tem documentos pessoais e nunca é commitada).
 ## Itens do desenho fora do produto (não entram, com motivo)
 
 - `Protótipo: o código de teste é <b>…</b>`: andaime do protótipo; mostrar o código na tela anula a senha por código.
-- O selo verde tem um bloco expansível (`segOn`/`tgSeg`) que nenhum clique do desenho alcança (o selo chama `segAbrir`, o painel). Segue o clique do desenho: o selo abre o painel.
+- O selo verde tem um bloco expansível (`segOn`/`tgSeg`) que nenhum clique do desenho alcança. Prova: `tgSeg` aparece uma única vez no arquivo, na própria definição (`tgSeg: () => set({ seg: !s.seg })`), e nenhum elemento o usa; o selo chama `onClick="{{ segAbrir }}"` (o painel). Código morto do protótipo; segue o clique do desenho.
 - `localStorage` `bj-manter` (e-mail lembrado por 30 dias): é como o protótipo simula "Manter conectado". No sistema, "Manter conectado" é o `_remember_me` do Symfony (30 dias, já configurado).
-- `?bemvindo=1` no Expediente depois de criar a conta: tela de outra frente; o cadastro leva ao Expediente como o login.
+- `?bemvindo=1` no Expediente depois de criar a conta: só o desenho 10 escreve o parâmetro; o desenho 03 (Expediente) nunca o lê (`grep bemvindo` no 03 não acha nada), então não há tela de boas-vindas desenhada. O cadastro leva ao Expediente como o login.
 
 ## Contratos
 
@@ -107,6 +107,8 @@ Suíte completa da frente, `scripts/qa.sh`, revisão e re-revisão do `feature-r
 1. **Quem recebe o suporte (interpretação do desenho, coordenador 19/10):** "o Master e os usuários da conta" = os Masters
    e os usuários ativos das contas do Master (`RegraDosMasters::ehContaDoMaster`, a regra do Painel do Master). Nunca a
    equipe do escritório em que o Master estiver navegando: assim um cliente jamais lê o suporte de outros visitantes.
-2. **"recebe as mensagens no Chat I.A."** (texto do desenho, mantido): a mensagem chega no sino de quem recebe e na lista
-   "Mensagens de suporte" (`/suporte/mensagens`), não num chat.
+2. **"recebe as mensagens no Chat I.A."**: no desenho é o `bjSuporteFila` do `bluejus-central.js` (L6643), que vira um aviso
+   tipo "mensagem" na Central ("Suporte · Nome", "💬 Nome (e-mail) pela página de login: ...", ação "Responder por
+   e-mail"). Implementado assim: aviso no grupo Mensagens da Central, só numa conta do Master (a Notificacao é auditada),
+   e a lista `/suporte/mensagens` com "Responder por e-mail".
 3. **Caixa "Protótipo: o código de teste é"** não entrou: mostrar o código anularia a senha por código.
