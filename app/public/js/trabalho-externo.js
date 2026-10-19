@@ -40,12 +40,10 @@
         ['rascunho', 'Rascunhos', ['rascunho']]
     ];
     /**
-     * Chips das marcações pessoais (spec VS 18.10.26 §3.3 e §3.5). Provisório até o zip: o desenho
-     * tem a lixeira com aviso, mas os rótulos dos chips vinham do `renderVals()` perdido.
+     * Chip das marcações pessoais (spec VS 18.10.26 §3.3 e §3.5). O desenho mostra só a lixeira (o
+     * aviso `lixGrupo`); estrela e importância se filtram pelo "Selecionar por". Provisório até o zip.
      */
     var EXTRAS = [
-        ['estrela', 'Com estrela'],
-        ['importantes', 'Importantes'],
         ['lixeira', 'Lixeira']
     ];
     /** Importância nível 0 a 3 (`impDe()` do desenho): fundo, cor e ícone graduados. Provisório até o zip. */

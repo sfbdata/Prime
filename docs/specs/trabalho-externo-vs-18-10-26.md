@@ -115,8 +115,8 @@ Tabela `trabalho_externo_marcacao_mensagem` (`mensagem_id` FK cascade, `usuario_
 ### 3.5 Provisório até o zip (rótulos que estavam no código perdido)
 
 As estruturas abaixo existem na marcação, mas o conteúdo vinha do `renderVals()`:
-`loteAcoes` (botões da barra de lote), `selOps` ("Selecionar por"), chips além de `GRUPOS`
-(Lixeira, Com estrela, Importantes), itens novos do menu de contexto da linha (`menuItens`) e do
+`loteAcoes` (botões da barra de lote), `selOps` ("Selecionar por"), o chip Lixeira (o desenho só
+mostra o aviso `lixGrupo`; estrela e importância não ganham chip, para não inventar filtro), itens novos do menu de contexto da linha (`menuItens`) e do
 menu da mensagem (`tlMenuItens`), `chatFiltros`, `chatVazioTxt`. Até o zip, usam o conjunto de
 operações de `lote()`/`_chatLote()` com os rótulos do mapa `T`, e o menu da linha mantém os itens da
 1.0 mais estrela, importante, lida/não lida e lixeira.
