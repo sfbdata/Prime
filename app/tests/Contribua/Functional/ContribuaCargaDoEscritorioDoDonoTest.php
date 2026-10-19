@@ -34,6 +34,16 @@ final class ContribuaCargaDoEscritorioDoDonoTest extends KernelTestCase
         self::assertSame([['sem_limite' => true, 'codigo' => 'free']], $this->espacoDe($tenant));
     }
 
+    #[TestDox('A carga grava a hora local do sistema (o NOW() do Postgres está em UTC, 3 h adiantado)')]
+    public function testCargaNaHoraLocal(): void
+    {
+        $tenant = $this->criar(Migration::ESCRITORIO_DO_DONO_NOME);
+        $this->carregar((int) $tenant->getId(), Migration::ESCRITORIO_DO_DONO_NOME);
+
+        $gravado = new \DateTimeImmutable((string) static::getContainer()->get(Connection::class)->fetchOne('SELECT criado_em FROM contribua_espaco_do_escritorio WHERE tenant_id = ?', [$tenant->getId()]));
+        self::assertLessThan(120, abs($gravado->getTimestamp() - time()), 'criado_em na hora do PHP (America/Sao_Paulo)');
+    }
+
     #[TestDox('Mesmo id com outro nome não é marcado')]
     public function testOutroNomeNaoMarca(): void
     {
