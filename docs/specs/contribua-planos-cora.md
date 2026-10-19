@@ -200,6 +200,10 @@ legado de risco ALTO):
   abaixo dos cadastrados: "Menor que os usuários já cadastrados."), `ConfigurarFaixasDoEspacoUseCase`.
   Autorização `ROLE_SUPER_ADMIN` é do controller da b5. Auditoria: depois do merge do #52, envolver as três
   escritas em `EscopoDeAuditoriaDePlataforma::executar()` (pedido da b5).
+- **Decisão do dono (19/10): publicar com o bloqueio DESLIGADO**, sem alterar dado de nenhum escritório em
+  produção (o de 24 GB inclusive: com a chave desligada ninguém é bloqueado). A tela do Master que liga a
+  chave (b5) mostra o aviso: "Antes de ligar, confira os escritórios acima do plano e defina sem limite ou
+  uma cota própria."
 - **Convenções sem desenho** (registradas, aprovadas pela coordenação): "sem limite" por escritório e a
   chave liga/desliga do bloqueio. Motivo medido: em produção o único escritório com arquivos usa 24,29 GB;
   com o Free de 10 GB ele seria bloqueado no deploy.
