@@ -359,55 +359,29 @@ input[type="range"].img-slider {
         </div>
     </section>
 
-    {# ── Registro OAB (o card atual; várias inscrições chegam no PR seguinte) ── #}
+    {# ── Registro OAB (desenho 07, linhas 79 a 92; spec docs/specs/meu-perfil-oab-inscricoes.md) ── #}
+    {% set _nSup = inscricoesOab|filter(i => not i.principal)|length %}
     <section class="mp-card mp-card-oab" data-screen-label="Registro OAB">
-            {# Seção OAB — credencial profissional #}
-            {% set oabStatus = perfil.oabStatus ? perfil.oabStatus.value : null %}
-            <div class="perfil-oab-card">
-                <div class="perfil-oab-head">
-                    <div class="perfil-oab-seal"><i class="bi bi-patch-check-fill"></i></div>
-                    <div class="flex-grow-1">
-                        <div class="perfil-oab-title">Registro OAB</div>
-                        <div class="perfil-oab-sub">Ordem dos Advogados do Brasil</div>
-                    </div>
-                    {% include '_oab_status.html.twig' with {status: perfil.oabStatus} only %}
-                </div>
-                <div class="perfil-oab-body">
-                    <div class="perfil-oab-num">
-                        {% if perfil.oabNumero %}
-                            <span class="perfil-oab-num-value">{{ perfil.oabNumero }}</span><span class="perfil-oab-num-uf">/{{ perfil.oabUf }}</span>
-                        {% else %}
-                            <span class="text-secondary fst-italic">OAB não informada</span>
-                        {% endif %}
-                    </div>
-                    {% if oabStatus == 'divergente' and perfil.oabNomeOficial %}
-                        <div class="perfil-oab-alert">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                            <div>
-                                <div><span class="text-secondary">Nome no CNA:</span> <strong>{{ perfil.oabNomeOficial }}</strong></div>
-                                <div><span class="text-secondary">Informado:</span> {{ perfil.nomeExibido }}</div>
-                            </div>
-                        </div>
-                    {% endif %}
-                    {% if perfil.oabVerificadaEm %}
-                        <div class="perfil-oab-meta"><i class="bi bi-clock-history me-1"></i>Verificada em {{ perfil.oabVerificadaEm|date('d/m/Y H:i') }}</div>
-                    {% endif %}
-                </div>
-                <div class="perfil-oab-actions">
-                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalOab">
-                        <i class="bi bi-pencil me-1"></i>{{ perfil.oabNumero ? 'Editar OAB' : 'Informar OAB' }}
-                    </button>
-                    {% if perfil.oabNumero %}
-                        <form action="{{ path('app_profile_oab_verificar') }}" method="post" class="d-inline">
-                            <input type="hidden" name="_token" value="{{ csrf_token('profile_oab_verificar') }}">
-                            <button type="submit" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-arrow-repeat me-1"></i>Verificar
-                            </button>
-                        </form>
-                    {% endif %}
-                </div>
-            </div>
-
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-patch-check-fill"></i></span>
+            <div class="flex-grow-1"><b>Registro OAB</b><div class="mp-card-sub">{{ inscricoesOab|length > 1 ? inscricoesOab|length ~ ' inscrições · ' ~ _nSup ~ ' suplementar(es)' : 'Ordem dos Advogados do Brasil' }}</div></div>
+            <button type="button" class="mp-btn-oab" data-mp-oab-nova title="{{ inscricoesOab is empty ? 'Informar a inscrição principal' : 'Adicionar inscrição suplementar' }}"><i class="bi bi-plus-lg"></i>Adicionar OAB</button>
+        </div>
+        {% for o in inscricoesOab %}
+            <button type="button" class="mp-oab-linha" data-mp-oab-editar="{{ o.id }}" data-numero="{{ o.numero }}" data-uf="{{ o.uf }}"
+                    data-tipo="{{ o.principal ? 'principal' : 'suplementar' }}" data-pode-remover="{{ not o.principal and inscricoesOab|length > 1 ? '1' : '0' }}">
+                <span class="mp-oab-num">
+                    <span><b class="{{ o.principal ? 'grande' : '' }}">{{ o.numero }}</b><span class="mp-oab-uf">/{{ o.uf }}</span></span>
+                    <small><i class="bi bi-clock"></i>{{ o.verificadaEm ? 'Verificada em ' ~ o.verificadaEm|date('d/m/Y H:i') : 'Aguardando validação do Master' }}</small>
+                </span>
+                <span class="mp-oab-tipo {{ o.principal ? 'principal' : '' }}"><i class="bi {{ o.principal ? 'bi-star-fill' : 'bi-diagram-2' }}"></i>{{ o.principal ? 'PRINCIPAL' : 'SUPLEMENTAR' }}</span>
+                <span class="flex-grow-1"></span>
+                <span class="mp-oab-situacao {{ o.situacaoClasse }}"><i class="bi {{ o.situacaoIcone }}"></i>{{ o.situacao }}</span>
+                <i class="bi bi-pencil mp-oab-lapis"></i>
+            </button>
+        {% else %}
+            <div class="mp-oab-vazio">Nenhuma inscrição informada. Use "Adicionar OAB" para cadastrar a principal.</div>
+        {% endfor %}
     </section>
 
     {# ── Preferências ── #}
@@ -612,39 +586,45 @@ input[type="range"].img-slider {
     </div>
 </div>
 
-{# ══════════════════════════════════════════════
-   MODAL: Informar / editar OAB
-══════════════════════════════════════════════ #}
-<div class="modal fade" id="modalOab" tabindex="-1" aria-labelledby="modalOabLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+{# Modal "Inscrição na OAB" (desenho 07, linhas 127 a 132 e ofTipos/ofTipoAj/ofPodeRemover). #}
+<div class="modal fade mp-modal" id="modalOab" tabindex="-1" aria-labelledby="modalOabLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalOabLabel">
-                    <i class="bi bi-patch-check me-2"></i>OAB
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="mp-modal-topo">
+                <i class="bi bi-patch-check"></i><b id="modalOabLabel">Inscrição na OAB</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
-            <form action="{{ path('app_profile_oab') }}" method="post" id="formOab">
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">
-                        Informe seu número de inscrição e a UF. Deixe ambos em branco para remover a OAB.
-                    </p>
-                    <div class="row">
-                        <div class="col-8">
-                            {{ form_row(form_oab.oabNumero, {'attr': {'class': 'form-control'}}) }}
+            <form action="{{ path('app_profile_oab') }}" method="post" id="formOab" data-tem-principal="{{ inscricoesOab is empty ? '0' : '1' }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('profile_oab') }}">
+                <input type="hidden" name="id" value="">
+                <input type="hidden" name="tipo" value="principal">
+                <div class="mp-oab-form">
+                    <div class="mp-campo">
+                        <span>TIPO DE INSCRIÇÃO</span>
+                        <div class="mp-oab-tipos" role="radiogroup">
+                            <button type="button" data-mp-oab-tipo="principal" role="radio"><i class="bi bi-star-fill"></i>Principal</button>
+                            <button type="button" data-mp-oab-tipo="suplementar" role="radio"><i class="bi bi-diagram-2"></i>Suplementar</button>
                         </div>
-                        <div class="col-4">
-                            {{ form_row(form_oab.oabUf, {'attr': {'class': 'form-control text-uppercase'}}) }}
-                        </div>
+                        <small data-mp-oab-ajuda data-principal="Seccional do seu domicílio profissional. Só pode haver uma; se você mudar, a atual passa a suplementar." data-suplementar="Para atuar com habitualidade em outro estado. Uma por seccional."></small>
                     </div>
-                    {{ form_rest(form_oab) }}
+                    <div class="mp-oab-linha-campos">
+                        <label class="mp-campo"><span>NÚMERO DA OAB</span><input type="text" name="numero" maxlength="10" inputmode="numeric" placeholder="Somente números" autocomplete="off" required></label>
+                        <label class="mp-campo"><span>UF (SECCIONAL)</span>
+                            <select name="uf" required>
+                                <option value="">UF</option>
+                                {% for uf in ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'] %}<option value="{{ uf }}">{{ uf }}</option>{% endfor %}
+                            </select>
+                        </label>
+                    </div>
+                    <button type="button" class="mp-oab-remover" data-mp-oab-remover hidden><i class="bi bi-trash"></i>Remover esta inscrição</button>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-1"></i>Salvar
-                    </button>
+                <div class="mp-modal-rodape">
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>Salvar</button>
                 </div>
+            </form>
+            <form method="post" id="formOabRemover" data-acao="{{ path('app_profile_oab_remover', {id: 0}) }}" hidden>
+                <input type="hidden" name="_token" value="{{ csrf_token('profile_oab_remover') }}">
             </form>
         </div>
     </div>
