@@ -26,10 +26,15 @@ final class NotificacaoRecebidaRepositoryTest extends KernelTestCase
         self::assertTrue($repositorio->registrarSeNova(new NotificacaoRecebida('cora', $id, 'invoice.paid', 'inv_1')));
 
         $repositorio->marcarProcessada('asaas', $id);
-        $processada = static::getContainer()->get(Connection::class)->fetchOne(
-            'SELECT processada_em FROM contribua_notificacao_recebida WHERE origem = :o AND id_evento = :e',
+        $linha = static::getContainer()->get(Connection::class)->fetchAssociative(
+            'SELECT recebida_em, processada_em FROM contribua_notificacao_recebida WHERE origem = :o AND id_evento = :e',
             ['o' => 'asaas', 'e' => $id],
         );
-        self::assertNotNull($processada);
+        self::assertNotFalse($linha);
+        self::assertNotNull($linha['processada_em']);
+        // Hora do PHP (America/Sao_Paulo), não o NOW() do Postgres, que está em UTC (3 h adiantado).
+        foreach (['recebida_em', 'processada_em'] as $coluna) {
+            self::assertLessThan(120, abs((new \DateTimeImmutable((string) $linha[$coluna]))->getTimestamp() - time()), $coluna);
+        }
     }
 }
