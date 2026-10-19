@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
 
@@ -102,6 +103,33 @@ final class ConteudoDoPushCompartilhado
         }
 
         return null;
+    }
+
+    /**
+     * A regra única de "o link ainda pode mostrar alguma coisa", usada pela página e pelo pedido de
+     * renovação. Qualquer mudança da pasta depois de criar o link que impediria GERAR um link novo
+     * também desliga o existente (decisão do orquestrador, 19/10): excluída, trancada, cancelada,
+     * arquivada, processo em segredo, ou o processo do link desvinculado da pasta.
+     */
+    public function linkVisivel(LinkExternoDoPush $link): bool
+    {
+        $pasta = $link->getPasta();
+        if (
+            $pasta->estaExcluida()
+            || $pasta->estaTrancada()
+            || \in_array($pasta->getSituacao(), [Pasta::SITUACAO_CANCELADA, Pasta::SITUACAO_ARQUIVADA], true)
+            || $this->temProcessoEmSegredo($pasta)
+        ) {
+            return false;
+        }
+
+        foreach ($pasta->getProcessos() as $processo) {
+            if ($processo === $link->getProcesso()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Segredo de justiça em QUALQUER processo da pasta: a página pública mostra o push de todos. */

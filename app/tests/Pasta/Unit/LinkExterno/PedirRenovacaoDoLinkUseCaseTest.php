@@ -9,6 +9,9 @@ use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Repository\LinkExternoDoPushRepository;
 use App\Pasta\UseCase\PedirRenovacaoDoLinkUseCase;
 use App\Service\NotificacaoService;
+use App\Pasta\Service\ConteudoDoPushCompartilhado;
+use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -26,6 +29,7 @@ final class PedirRenovacaoDoLinkUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->links = $this->createMock(LinkExternoDoPushRepository::class);
+        $this->links->method('alterarComTrava')->willReturnCallback(static fn (LinkExternoDoPush $l, callable $f): mixed => $f($l));
         $this->notificacoes = $this->createMock(NotificacaoService::class);
     }
 
@@ -33,7 +37,7 @@ final class PedirRenovacaoDoLinkUseCaseTest extends TestCase
     {
         $this->links->method('findOnePeloEndereco')->willReturn($link);
 
-        return (new PedirRenovacaoDoLinkUseCase($this->links, $this->notificacoes, $this->urlGenerator(), new MockClock($this->agora())))
+        return (new PedirRenovacaoDoLinkUseCase($this->links, new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class)), $this->notificacoes, $this->urlGenerator(), new MockClock($this->agora())))
             ->executar('bluejus-maria-silva-abcdefgh', $nome, $mensagem);
     }
 
@@ -52,6 +56,27 @@ final class PedirRenovacaoDoLinkUseCaseTest extends TestCase
         self::assertTrue($this->pedir($link, ' Carlos Terceiro ', 'Preciso acompanhar'));
         self::assertTrue($link->temPedidoPendente());
         self::assertSame('Preciso acompanhar', $link->getRenovacaoMensagem());
+    }
+
+    #[TestDox('Byte UTF-8 inválido no nome e na mensagem é trocado antes de gravar')]
+    public function testUtf8Invalido(): void
+    {
+        $link = $this->linkExpirado();
+
+        self::assertTrue($this->pedir($link, "Ana\xffBeatriz", "ok\xfe"));
+        self::assertTrue(mb_check_encoding((string) $link->getRenovacaoNome(), 'UTF-8'));
+        self::assertTrue(mb_check_encoding((string) $link->getRenovacaoMensagem(), 'UTF-8'));
+    }
+
+    #[TestDox('Pasta trancada: o pedido não grava nem avisa')]
+    public function testPastaTrancadaNaoAceita(): void
+    {
+        $link = $this->linkExpirado();
+        $link->getPasta()->trancar($link->getCriadoPor(), $this->agora());
+        $this->notificacoes->expects(self::never())->method('criarNotificacao');
+
+        self::assertFalse($this->pedir($link, 'Carlos'));
+        self::assertFalse($link->temPedidoPendente());
     }
 
     #[TestDox('Sem nome, o aviso diz "Quem recebeu o link"')]
@@ -84,7 +109,9 @@ final class PedirRenovacaoDoLinkUseCaseTest extends TestCase
 
         foreach ([$this->link(), $revogado, null, $pendente, $recusado] as $link) {
             $this->links = $this->createMock(LinkExternoDoPushRepository::class);
+            $this->links->method('alterarComTrava')->willReturnCallback(static fn (LinkExternoDoPush $l, callable $f): mixed => $f($l));
             $this->links->expects(self::never())->method('salvar');
+            $this->notificacoes->expects(self::never())->method('criarNotificacao');
             self::assertFalse($this->pedir($link, 'Carlos'));
         }
     }

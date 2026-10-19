@@ -13,6 +13,8 @@ use App\Pasta\Repository\AcessoAoLinkExternoDoPushRepository;
 use App\Pasta\Repository\LinkExternoDoPushRepository;
 use App\Pasta\Service\ConteudoDoPushCompartilhado;
 use App\Pasta\UseCase\AbrirLinkExternoDoPushUseCase;
+use App\Pasta\Entity\Pasta;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -35,6 +37,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->links = $this->createMock(LinkExternoDoPushRepository::class);
+        $this->links->method('alterarComTrava')->willReturnCallback(static fn (LinkExternoDoPush $l, callable $f): mixed => $f($l));
         $this->acessos = $this->createMock(AcessoAoLinkExternoDoPushRepository::class);
         $this->acessos->method('salvar')->willReturnCallback(function (AcessoAoLinkExternoDoPush $a): void {
             $this->acessosGravados[] = $a;
@@ -92,6 +95,32 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     {
         $link = $this->link();
         $link->getPasta()->getProcessos()[0]->setNivelSigilo(1);
+
+        self::assertSame('nao_encontrado', $this->abrir($link)->estado);
+    }
+
+    #[TestDox('Pasta cancelada ou arquivada depois de criar o link: nao_encontrado')]
+    #[DataProvider('situacoesQueDesligam')]
+    public function testSituacaoDesliga(string $situacao): void
+    {
+        $link = $this->link();
+        $link->getPasta()->setSituacao($situacao);
+
+        self::assertSame('nao_encontrado', $this->abrir($link)->estado);
+    }
+
+    public static function situacoesQueDesligam(): iterable
+    {
+        yield 'cancelada' => [Pasta::SITUACAO_CANCELADA];
+        yield 'arquivada' => [Pasta::SITUACAO_ARQUIVADA];
+    }
+
+    #[TestDox('Processo do link desvinculado da pasta: nao_encontrado')]
+    public function testProcessoDesvinculado(): void
+    {
+        $link = $this->link();
+        $link->getPasta()->vincularProcesso($this->processo($link->getTenant(), '0000001-11.2024.8.07.0001'));
+        $link->getPasta()->desvincularProcesso($link->getProcesso());
 
         self::assertSame('nao_encontrado', $this->abrir($link)->estado);
     }

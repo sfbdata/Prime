@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Notificacao;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Repository\LinkExternoDoPushRepository;
+use App\Pasta\Service\ConteudoDoPushCompartilhado;
 use App\Service\NotificacaoService;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -23,6 +24,7 @@ final class PedirRenovacaoDoLinkUseCase
 {
     public function __construct(
         private readonly LinkExternoDoPushRepository $links,
+        private readonly ConteudoDoPushCompartilhado $conteudo,
         private readonly NotificacaoService $notificacoes,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly ClockInterface $relogio,
@@ -33,15 +35,20 @@ final class PedirRenovacaoDoLinkUseCase
     {
         $agora = $this->relogio->now();
         $link = $this->links->findOnePeloEndereco($endereco);
-        if ($link === null || $link->getPasta()->estaExcluida() || !$link->aceitaPedidoDeRenovacao($agora)) {
+        if ($link === null || !$this->conteudo->linkVisivel($link)) {
             return false;
         }
 
-        $link->pedirRenovacao($nome, $mensagem, $agora);
-        $this->links->salvar($link);
-        $this->avisarQuemCriou($link);
+        // Com a trava, POSTs simultâneos geram um pedido e um aviso, não um por requisição.
+        return $this->links->alterarComTrava($link, function (LinkExternoDoPush $l) use ($nome, $mensagem, $agora): bool {
+            if (!$l->aceitaPedidoDeRenovacao($agora)) {
+                return false;
+            }
+            $l->pedirRenovacao($nome, $mensagem, $agora);
+            $this->avisarQuemCriou($l);
 
-        return true;
+            return true;
+        });
     }
 
     /** `criarNotificacao` grava com flush: o pedido e o aviso vão na mesma descarga. */

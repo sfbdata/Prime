@@ -8,6 +8,8 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -29,6 +31,27 @@ class LinkExternoDoPushRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /**
+     * Relê o link com `SELECT ... FOR UPDATE` e aplica `$alteracao` na mesma transação (o commit faz o
+     * flush). Serve às duas escritas da página pública que contam com o estado anterior: o contador
+     * de códigos errados (sem a trava, POSTs simultâneos leriam o mesmo número e o bloqueio de 5
+     * tentativas viraria 5 por worker) e o pedido de renovação (um aviso por pedido, não um por POST).
+     *
+     * @template T
+     *
+     * @param callable(LinkExternoDoPush): T $alteracao
+     *
+     * @return T
+     */
+    public function alterarComTrava(LinkExternoDoPush $link, callable $alteracao): mixed
+    {
+        return $this->getEntityManager()->wrapInTransaction(static function (EntityManagerInterface $em) use ($link, $alteracao): mixed {
+            $em->refresh($link, LockMode::PESSIMISTIC_WRITE);
+
+            return $alteracao($link);
+        });
     }
 
     /** O endereço é único na plataforma inteira (é a chave da URL pública), não por escritório. */

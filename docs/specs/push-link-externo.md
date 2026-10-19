@@ -15,6 +15,15 @@ ALTO na parte pública (re-revisão de segurança antes do PR).
 - D3. O servidor resolve o link curto na hora: a caixa mostra **um link só**, o curto, já ativo. Saem o selo
   "ATIVA COM O DOMÍNIO", o "Copiar link completo" e a linha "Link completo: N mil caracteres".
 
+- D4 (orquestrador, depois da revisão de segurança): processo em segredo de justiça e pasta trancada também bloqueiam
+  gerar ("O processo está em segredo de justiça: o link externo fica indisponível." / "A pasta está trancada: o link
+  externo fica indisponível."). Regra única `ConteudoDoPushCompartilhado::linkVisivel`: link existente deixa de abrir
+  (página "Link não encontrado") e não aceita pedido de renovação quando a pasta é excluída, trancada, cancelada ou
+  arquivada, quando algum processo da pasta vira sigiloso, ou quando o processo do link é desvinculado.
+- D5: contador de códigos errados e pedido de renovação gravam sob `SELECT ... FOR UPDATE`
+  (`LinkExternoDoPushRepository::alterarComTrava`): o limite de 5 erros não pode ser furado com POSTs simultâneos, e o
+  limitador por IP sozinho não basta (o IP pode ser forjado pelo `X-Forwarded-For` com a configuração atual da VPS).
+
 ## 1. Modelo
 
 `push_link_externo` (entidade `App\Pasta\Entity\LinkExternoDoPush`, `TenantAware`, NÃO `Auditavel`: guarda o código):

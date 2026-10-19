@@ -19,7 +19,7 @@ use Psr\Clock\ClockInterface;
  * Abrir a página pública do link externo (spec push-link-externo §2.5). Público, sem sessão.
  *
  * Quem: o terceiro que recebeu o endereço (e, se exigido, o código) do escritório.
- * Ordem de decisão: não encontrado (ou pasta excluída) > revogado > expirado > bloqueado > pede
+ * Ordem de decisão: não encontrado (ou link que deixou de ser visível) > revogado > expirado > bloqueado > pede
  * código > ok. O código é conferido em tempo constante; erro soma tentativa (5 seguidas bloqueiam
  * por 15 min) e acerto zera. Só o `ok` grava um acesso.
  *
@@ -43,14 +43,9 @@ final class AbrirLinkExternoDoPushUseCase
         $agora = $this->relogio->now();
         $link = $this->links->findOnePeloEndereco($endereco);
 
-        // Lápide, pasta trancada ou processo que virou sigiloso depois de criar o link: a página não
-        // confirma que o link existe nem mostra dado.
-        if (
-            $link === null
-            || $link->getPasta()->estaExcluida()
-            || $link->getPasta()->estaTrancada()
-            || $this->conteudo->temProcessoEmSegredo($link->getPasta())
-        ) {
+        // A pasta mudou depois de criar o link (excluída, trancada, cancelada, arquivada, processo
+        // sigiloso ou desvinculado): a página não confirma que o link existe nem mostra dado.
+        if ($link === null || !$this->conteudo->linkVisivel($link)) {
             return PaginaDoPushCompartilhadoOutput::naoEncontrado($endereco);
         }
         if ($link->estaRevogado()) {
@@ -74,8 +69,11 @@ final class AbrirLinkExternoDoPushUseCase
             return PaginaDoPushCompartilhadoOutput::pedeCodigo($link);
         }
 
-        $conferiu = $link->conferirCodigo(self::soDigitos($codigo), $agora);
-        $this->links->salvar($link, !$conferiu);
+        $digitado = self::soDigitos($codigo);
+        $conferiu = $this->links->alterarComTrava(
+            $link,
+            static fn (LinkExternoDoPush $l): bool => $l->conferirCodigo($digitado, $agora),
+        );
         if ($conferiu) {
             return $this->mostrar($link, $agora);
         }

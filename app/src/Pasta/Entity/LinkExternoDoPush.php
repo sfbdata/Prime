@@ -254,7 +254,8 @@ class LinkExternoDoPush implements TenantAware
 
     private static function textoOuNulo(?string $texto, int $limite): ?string
     {
-        $texto = trim((string) $texto);
+        // Vem do público: byte UTF-8 inválido derrubaria o flush no PostgreSQL.
+        $texto = trim(mb_scrub((string) $texto, 'UTF-8'));
 
         return $texto === '' ? null : mb_substr($texto, 0, $limite);
     }
