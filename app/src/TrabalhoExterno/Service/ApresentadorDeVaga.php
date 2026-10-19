@@ -42,6 +42,8 @@ final class ApresentadorDeVaga
             'local' => $this->local($v),
             'remuneracao' => $v->getRemuneracao() !== '' ? $v->getRemuneracao() : 'A combinar',
             'areas' => $v->getAreas(),
+            // "N de Q aceita(s)" do contador também no cartão (`tempo()`, l.996).
+            'qtd' => $v->getQtd(),
             'prazo' => $v->getInscricoesAte()?->format('Y-m-d'),
             'prazoTxt' => $this->prazoDoCartao($v, $agora),
             'vivo' => $v->isOferta() && $s === SituacaoVaga::Aberta,
@@ -71,7 +73,6 @@ final class ApresentadorDeVaga
             'oab' => $v->isExigeOab() ? 'Exige OAB ativa' : 'OAB não obrigatória',
             'prazoDetalhe' => $this->prazoDoDetalhe($v),
             'em' => $v->getCriadaEm()->format('d/m/Y'),
-            'qtd' => $v->getQtd(),
             'ofertante' => $this->ofertante($v),
             'historico' => $interno ? array_reverse(array_map(static fn (HistoricoVaga $h): array => [
                 'ic' => $h->getIcone(),
