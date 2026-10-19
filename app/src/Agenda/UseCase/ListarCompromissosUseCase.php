@@ -8,6 +8,7 @@ use App\Agenda\DTO\CompromissoOutput as C;
 use App\Agenda\Repository\AjusteDeDataRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Enum\TipoDeAjuste;
+use App\Agenda\Service\CalendarioPelaCor;
 use App\Agenda\Service\OcorrenciasDoEvento;
 use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
@@ -106,7 +107,7 @@ final class ListarCompromissosUseCase
             id: 'ev-' . $id . '-' . $dia,
             data: $dia,
             titulo: $evento->getTitulo(),
-            calendario: $evento->getTipo()->value ?? $calPorCor[strtolower($evento->getCor())] ?? C::CAL_MEUS,
+            calendario: (new CalendarioPelaCor())->calendario($evento->getTipo(), $evento->getCor(), $calPorCor),
             origem: C::ORIGEM_AGENDA,
             dia: $evento->isDiaInteiro(),
             h1: $evento->isDiaInteiro() ? '' : $inicio->format('H:i'),
@@ -132,33 +133,10 @@ final class ListarCompromissosUseCase
         );
     }
 
-    /**
-     * Cor da legenda => calendário, pelo nome da legenda do escritório (ou pelas cores padrão do
-     * formulário antigo quando o escritório não tem legendas).
-     *
-     * @return array<string, string>
-     */
+    /** @return array<string, string> cor => calendário (regra única com a contagem da lateral) */
     private function calendarioPorCor(Tenant $tenant): array
     {
-        $mapa = [strtolower(Evento::COR_AZUL) => C::CAL_AUD, strtolower(Evento::COR_VERDE) => C::CAL_PRAZO, strtolower(Evento::COR_AMARELO) => C::CAL_REUNIAO];
-        $legendas = $this->legendas->findBy(['tenant' => $tenant]);
-        if ([] !== $legendas) {
-            $mapa = [];
-        }
-        foreach ($legendas as $legenda) {
-            $nome = mb_strtolower((string) $legenda->getNome());
-            $cal = match (true) {
-                str_contains($nome, 'audi')  => C::CAL_AUD,
-                str_contains($nome, 'reuni') => C::CAL_REUNIAO,
-                str_contains($nome, 'prazo') => C::CAL_PRAZO,
-                default                      => null,
-            };
-            if (null !== $cal) {
-                $mapa[strtolower((string) $legenda->getCor())] ??= $cal;
-            }
-        }
-
-        return $mapa;
+        return (new CalendarioPelaCor())->mapa($this->legendas->findBy(['tenant' => $tenant]));
     }
 
     /**
@@ -234,4 +212,5 @@ final class ListarCompromissosUseCase
 
         return [$ocultos, $nomes];
     }
+
 }

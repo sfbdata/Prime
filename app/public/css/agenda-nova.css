@@ -377,3 +377,10 @@
 .ag-perg-rodape { padding: 12px 18px; border-top: 1px solid var(--ag-div-2); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .ag-perg-rodape .ag-mbtn { height: 36px; font-size: 14px !important; }
 .ag-perg-nao { font-weight: normal !important; }
+
+/* Toque longo abre o menu do dia (iPhone): sem o balão de copiar/selecionar do sistema por cima. Só no toque:
+   com mouse, o título do compromisso continua selecionável. */
+@media (hover: none) and (pointer: coarse) {
+    .ag-cel, .ag-chip { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}
+.ag-cel:focus-visible, .ag-chip:focus-visible { outline: 2px solid var(--ag-azul); outline-offset: -2px; }

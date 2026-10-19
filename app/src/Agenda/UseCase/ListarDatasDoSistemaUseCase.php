@@ -98,7 +98,7 @@ final class ListarDatasDoSistemaUseCase
             (string) $a->getCalendario(),
             D::TIPO_ACRESCENTADA,
             $fonte,
-            null !== $fonte ? 'Fonte: ' . $fonte . '.' : 'Incluído manualmente pelo escritório.',
+            null !== $fonte ? 'Fonte: ' . $fonte . '.' : 'Incluído manualmente.',
         );
     }
 

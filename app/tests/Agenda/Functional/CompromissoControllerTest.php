@@ -181,6 +181,8 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $colega]);
         self::assertCount(1, $avisos);
         self::assertSame('/agenda#ev=ev-' . $id . '-2030-03-10', (string) $avisos[0]->getUrl());
+        self::assertSame('Agenda: Original', $avisos[0]->getTitulo(), 'título como no desenho');
+        self::assertStringContainsString('marcou você em um compromisso: Original', (string) $avisos[0]->getMensagem(), 'o resumo vai no corpo');
         self::assertCount(0, $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $deFora]));
     }
 

@@ -564,6 +564,8 @@ Conferência do desenho inteiro contra as entregas #58 a #78 e #81 (98 itens). O
   (`bjt<escritório>e<id>`), ou seja, nascido no Google (`CompromissoOutput::doGoogle`).
 - **Contagem por calendário** (L196): todos os compromissos da pessoa de cada tipo, em qualquer data
   (`ContarMeusCompromissosUseCase`, devolvida em `contagens` com os compromissos), e não só os do período.
+  O da agenda antiga, sem tipo, conta no calendário em que aparece na grade (pela cor da legenda), pela mesma
+  regra (`CalendarioPelaCor`); no desenho não existe esse legado.
 - **Lista de @** reabre ao clicar no campo de observação (L118, `onClick=obsAuto`).
 - **Aviso do colega no Chat:** título "Agenda: <título>" e o texto com o resumo (L191). O botão "Abrir na
   agenda" (`acao` em L192) **não aparece no protótipo da Central**: `notificar()` em
@@ -576,17 +578,20 @@ Conferência do desenho inteiro contra as entregas #58 a #78 e #81 (98 itens). O
 - **Botão direito só no Mês** (célula, chip e rótulo do feriado), como no desenho; saiu das horas de
   Semana/Dia (acréscimo sem registro, removido por decisão do coordenador).
 - **Menu pelo teclado e por toque longo** (prometido na seção 3): células e chips do Mês recebem foco
-  (Tab); Enter ou espaço fazem o clique; tecla Menu ou Shift+F10 abrem o menu junto do elemento; toque
+  (Tab; navegação por setas fica para depois); Enter ou espaço fazem o clique; tecla Menu ou Shift+F10 abrem o menu junto do elemento; toque
   parado de meio segundo abre o menu no iPhone (o Safari não dispara `contextmenu`), mexer o dedo cancela, e
-  o clique depois do toque longo não acontece. Sem o balão de copiar do sistema nas células.
+  o clique depois do toque longo não acontece; toque cancelado pelo sistema ou que vira arrastar não abre
+  o menu. Sem o balão de copiar do sistema nas células, só em tela de toque.
 - **Fora, por não aparecer na tela do desenho:** exportar e importar `.ics` (L167, L200-201) e o antigo
   "Avisar alguém no Chat" (`equipe`, `eqAberto`, `eqBtn`, `pergResp`, L202-203, L231) existem só no script
   do protótipo, sem botão no template.
 
 **Lembretes contra `docs/design/meu-perfil-18-10/bj-lembretes.js`** (além do registrado nas seções 15 e 16):
-- Corrigidos: outras abas refazem os lembretes na hora quando a Agenda salva algo (o desenho ouve
-  `storage`; aqui a chave `bj-agenda-mudou`); o clique no push foca a aba do BlueJus já aberta e a leva ao
-  destino, em vez de abrir outra janela.
+- Corrigido: outras abas refazem os lembretes na hora quando a Agenda salva algo (o desenho ouve
+  `storage`; aqui a chave `bj-agenda-mudou`).
+- Acréscimo (o desenho não tem Service Worker): o clique no push foca a aba que já está no destino (a
+  Agenda ou a pasta); senão abre uma janela. Não leva uma aba de outra tela ao destino (formulário pela
+  metade).
 - Iguais ao desenho, sem mudança: perfis (rótulo, ícone, cor, notas, antecedência, dica), som, rótulo de
   tempo, cartão (medidas, cores, animações, barra), ações, notificação, teste. Audiência pelo tipo do
   prazo: no desenho é `/audi/i` sobre `tipo || título`, e no sistema o prazo sempre tem tipo.
