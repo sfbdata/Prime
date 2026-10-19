@@ -112,5 +112,7 @@ final class DadosPessoaisType extends AbstractType
             'campos_do_perfil' => false,
         ]);
         $resolver->setAllowedTypes('campos_do_perfil', 'bool');
+        // CPF com 11 números e CNPJ com 14 valem no modal do perfil (desenho 07); a tela do admin segue como era.
+        $resolver->setDefault('validation_groups', static fn (\Symfony\Component\Form\FormInterface $form): array => $form->getConfig()->getOption('campos_do_perfil') ? ['Default', 'perfil'] : ['Default']);
     }
 }

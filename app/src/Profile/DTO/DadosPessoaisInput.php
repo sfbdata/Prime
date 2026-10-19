@@ -26,7 +26,7 @@ final class DadosPessoaisInput
     public ?string $telefone = null;
 
     #[Assert\Length(max: 14, maxMessage: 'CPF inválido.')]
-    #[Assert\Callback(callback: [self::class, 'validarCpf'])]
+    #[Assert\Callback(callback: [self::class, 'validarCpf'], groups: ['perfil'])]
     public ?string $cpf = null;
 
     public ?\DateTimeInterface $dataNascimento = null;
@@ -44,7 +44,7 @@ final class DadosPessoaisInput
     public ?\DateTimeInterface $contratoInicio = null;
 
     #[Assert\Length(max: 18, maxMessage: 'CNPJ inválido.')]
-    #[Assert\Callback(callback: [self::class, 'validarCnpj'])]
+    #[Assert\Callback(callback: [self::class, 'validarCnpj'], groups: ['perfil'])]
     public ?string $cnpj = null;
 
     /** Modal aberto com o que já está gravado. */

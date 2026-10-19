@@ -306,13 +306,6 @@ input[type="range"].img-slider {
      data-revisado-em="{{ perfil.revisadoEm ? perfil.revisadoEm|date('Y-m-d') : '' }}"
      data-usuario="{{ app.user.id }}">
 
-    {% for msg in app.flashes('success') %}
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            {{ msg }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    {% endfor %}
-
     {# ── Identificação ── #}
     <section class="mp-card mp-ident" data-screen-label="Identificação">
         <div class="mp-capa">

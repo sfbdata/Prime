@@ -7,10 +7,11 @@ use App\Auth\Form\AlterarSenhaType;
 use App\Auth\UseCase\AlterarSenhaUseCase;
 use App\Auth\UseCase\VerificarOabUseCase;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Profile\Armazenamento\ChavesDePerfil;
 use App\Profile\DTO\AtualizarFotoInput;
-use App\Profile\DTO\CompletudeDoCadastro;
 use App\Profile\DTO\AtualizarStatusInput;
+use App\Profile\DTO\CompletudeDoCadastro;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\DTO\OabPerfilInput;
 use App\Profile\DTO\PerfilOutput;
@@ -24,11 +25,11 @@ use App\Profile\UseCase\AtualizarOabPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Profile\UseCase\ObterPreferenciasDoPerfilUseCase;
-use App\Tenant\Service\RegraDosPrimarios;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Http\EntregaDeArquivo;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -282,7 +283,7 @@ final class ProfileController extends AbstractController
     }
 
     /** Tipo de vínculo: só o primário do escritório ou o Master altera (desenho 07, vincOps.off). */
-    private function podeAlterarVinculo(User $user, ?\App\Entity\Auth\UserTenant $userTenant): bool
+    private function podeAlterarVinculo(User $user, ?UserTenant $userTenant): bool
     {
         return $userTenant !== null && $this->regraDosPrimarios->podeGerirPrimarios($user, $userTenant->getTenant());
     }

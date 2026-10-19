@@ -21,6 +21,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Página Meu Perfil do desenho "07 - Meu Perfil - VS 18.10.26" (spec docs/specs/meu-perfil-pagina.md):
@@ -190,6 +191,90 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame((new \DateTimeImmutable('today'))->format('Y-m-d'), $perfil?->getRevisadoEm()?->format('Y-m-d'));
     }
 
+    #[TestDox('dois escritórios: a tela e o salvar só tocam o vínculo do escritório da sessão')]
+    public function testOutroEscritorioNaoMistura(): void
+    {
+        $outro = new Tenant();
+        $outro->setName('Outro Escritório ' . uniqid());
+        $this->em->persist($outro);
+        $noOutro = new UserTenant($this->primario, $outro);
+        $this->em->persist($noOutro);
+        $vinculoOutro = new VinculoNoEscritorio($outro, $this->primario);
+        $vinculoOutro->definirTipo(VinculoColaborador::Pj);
+        $vinculoOutro->definirCnpj('11222333000144');
+        $this->em->persist($vinculoOutro);
+        $this->em->flush();
+
+        $tela = $this->abrir($this->primario);
+        self::assertSame('Empregado CLT · bate ponto', $this->linhasDaGrade($tela)['Vínculo']);
+
+        $form = $tela->filter('#formDadosPessoais')->form();
+        $form['dados_pessoais[vinculo]'] = 'socio';
+        $this->client->submit($form);
+        // Direto no banco: o TenantFilter do ORM esconderia a linha do outro escritório.
+        $linhas = $this->em->getConnection()->fetchAllAssociativeIndexed(
+            'SELECT tenant_id, tipo, cnpj FROM vinculo_no_escritorio WHERE user_id = ?',
+            [$this->primario->getId()],
+        );
+        self::assertSame('socio', $linhas[$this->tenant->getId()]['tipo'] ?? null);
+        self::assertSame(['tipo' => 'pj', 'cnpj' => '11222333000144'], $linhas[$outro->getId()] ?? null);
+    }
+
+    #[TestDox('Master fora de escritório: a página abre sem o bloco de vínculo e salva só os dados da pessoa')]
+    public function testMasterSemEscritorio(): void
+    {
+        $master = $this->criarUsuarioSemVinculo('Master Solto', ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $this->client->loginUser($master);
+        $this->marcarTermosAceitos($this->client);
+
+        $tela = $this->client->request('GET', '/perfil');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $tela->filter('#formDadosPessoais [data-mp-vinculo]'));
+
+        $form = $tela->filter('#formDadosPessoais')->form();
+        $form['dados_pessoais[telefone]'] = '61 98888-7777';
+        $this->client->submit($form);
+
+        self::assertResponseRedirects('/perfil');
+        $this->em->clear();
+        self::assertSame('61988887777', $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $master->getId()])?->getTelefone());
+        self::assertSame(0, $this->em->getRepository(VinculoNoEscritorio::class)->count(['usuario' => $master->getId()]));
+    }
+
+    #[TestDox('tela de dados pessoais do admin: salvar não apaga a frase nem o telefone da pessoa')]
+    public function testAdminNaoApagaFraseNemTelefone(): void
+    {
+        $perfil = new UserProfile($this->secundario);
+        $perfil->setNomeCompleto('Jéssica Martins');
+        $perfil->setStatus('Frase da Jéssica');
+        $perfil->setTelefone('82911112222');
+        $this->em->persist($perfil);
+        $this->em->flush();
+
+        $this->logarComTenant($this->client, $this->primario, $this->tenant);
+        $url = sprintf('/tenant/%d/user/%d/dados-pessoais', $this->tenant->getId(), $this->secundario->getId());
+        $this->client->request('POST', $url, ['dados_pessoais' => [
+            '_token' => $this->tokenCsrf('profile_dados'), 'nomeCompleto' => 'Jéssica Martins Souza', 'cpf' => '123',
+        ]]);
+
+        self::assertResponseRedirects();
+        $this->em->clear();
+        $salvo = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->secundario->getId()]);
+        self::assertSame('Jéssica Martins Souza', $salvo?->getNomeCompleto(), 'o admin salvou');
+        self::assertSame('Frase da Jéssica', $salvo?->getStatus());
+        self::assertSame('82911112222', $salvo?->getTelefone());
+        self::assertSame('123', $salvo?->getCpf(), 'a regra dos 11 números é só do modal do perfil');
+    }
+
+    #[TestDox('revisão mensal sem o token AJAX responde 403 e não grava')]
+    public function testRevisaoSemTokenRecusada(): void
+    {
+        $this->abrir($this->primario);
+        $this->client->request('POST', '/perfil/revisao');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
     private function abrir(User $usuario): Crawler
     {
         $this->logarComTenant($this->client, $usuario, $this->tenant);
@@ -226,6 +311,53 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         $this->em->persist($perfil);
 
         return $perfil;
+    }
+
+    /** @param list<string> $papeis */
+    private function criarUsuarioSemVinculo(string $nome, array $papeis): User
+    {
+        $user = new User();
+        $user->setEmail(uniqid('perfil_') . '@test.com');
+        $user->setFullName($nome);
+        $user->setRoles($papeis);
+        $user->setIsActive(true);
+        $user->setPassword('x');
+        $this->em->persist($user);
+        $this->em->flush();
+
+        return $user;
+    }
+
+    /** Token CSRF previsível (molde do PerfisDoEscritorioControllerTest): chame logo antes do request. */
+    private function tokenCsrf(string $id): string
+    {
+        $storage = new class () implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+
+            public function setToken(string $tokenId, string $token): void
+            {
+            }
+
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+
+            public function clear(): void
+            {
+            }
+        };
+        static::getContainer()->set('security.csrf.token_storage', $storage);
+
+        return 'TOKEN_' . $id;
     }
 
     private function criarUsuario(string $nome, TenantRole $perfil): User

@@ -9,6 +9,12 @@
   const aviso = t => (window.bjAviso ? window.bjAviso(t) : null);
   const modal = id => { const el = document.getElementById(id); return el && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(el) : null; };
 
+  /* ---------- confirmação de salvar: aviso embaixo, como no desenho (toast), em vez da faixa do topo ---------- */
+  document.querySelectorAll('.app-content-header .alert-success').forEach(a => {
+    const texto = (a.childNodes[0] && a.childNodes[0].textContent || a.textContent).trim();
+    a.remove(); if (texto) setTimeout(() => aviso(texto), 300);
+  });
+
   /* ---------- modal Editar informações ---------- */
   const form = document.getElementById('formDadosPessoais');
   function vinculoAtual() {
@@ -40,7 +46,7 @@
   }
 
   /* ---------- revisão mensal (uma vez por mês; "já mostrei" fica no navegador) ---------- */
-  const mes = new Date().toISOString().slice(0, 7);
+  const agora = new Date(), mes = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0'); // fuso local, como o servidor
   function revisaoPendente() {
     if ((raiz.dataset.revisadoEm || '').slice(0, 7) === mes) return false;
     try { const k = 'bj-perfil-revisao:' + raiz.dataset.usuario; if (localStorage.getItem(k) === mes) return false; localStorage.setItem(k, mes); } catch (e) { return false; }

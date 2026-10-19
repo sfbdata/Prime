@@ -1,6 +1,6 @@
 /* BlueJus · Meu Perfil. Valores do desenho "07 - Meu Perfil - VS 18.10.26" (linhas 52 a 175). */
 
-.mp-pagina { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 0 40px; display: flex; flex-direction: column; gap: 16px; color: #12242f; }
+.mp-pagina { width: 100%; max-width: 1144px; margin: 0 auto; padding: 0 0 40px; display: flex; flex-direction: column; gap: 16px; color: #12242f; }
 .mp-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; animation: mpUp .45s ease both; }
 .mp-ident { border-color: #dde5eb; margin-top: 2px; animation-duration: .4s; }
 @keyframes mpUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

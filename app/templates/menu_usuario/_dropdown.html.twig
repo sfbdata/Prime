@@ -25,7 +25,7 @@
             <div class="mu-selos">
                 {% if _ehMaster %}<span class="mu-selo mu-selo-master"><i class="bi bi-star-fill"></i>MASTER</span>{% endif %}
                 {% if current_tenant() %}
-                    <span class="mu-selo mu-selo-papel">{{ _ehPrimario ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>
+                    <span class="mu-selo mu-selo-papel">{{ _ehPrimario or _ehMaster ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>
                 {% endif %}
             </div>
         </div>
