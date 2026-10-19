@@ -42,11 +42,6 @@ final class ApresentadorDeVaga
             'local' => $this->local($v),
             'remuneracao' => $v->getRemuneracao() !== '' ? $v->getRemuneracao() : 'A combinar',
             'areas' => $v->getAreas(),
-            // Crus, para a mensagem padrão do "Divulgar vaga(s)" (`msgPadrao`, l.1075).
-            'contrato' => $v->getContratacao(),
-            'modalidade' => $v->getModalidade(),
-            'cidade' => $v->getCidade(),
-            'uf' => $v->getUf(),
             // "N de Q aceita(s)" do contador também no cartão (`tempo()`, l.996).
             'qtd' => $v->getQtd(),
             'prazo' => $v->getInscricoesAte()?->format('Y-m-d'),
@@ -64,7 +59,18 @@ final class ApresentadorDeVaga
             'podeCompartilhar' => $this->politica->podeCompartilhar($ctx, $v, $agora),
             'rotuloEditar' => $this->rotuloEditar($ctx, $v),
             'botoes' => $this->politica->botoes($ctx, $v, $agora),
-        ] + $this->faixa($ctx, $v, $s) + $this->tempo($ctx, $v, $s);
+        ] + $this->faixa($ctx, $v, $s) + $this->tempo($ctx, $v, $s) + $this->crus($v);
+    }
+
+    /** Os dados crus, para a mensagem padrão do "Divulgar vaga(s)" (`msgPadrao`, l.1075). @return array<string, string> */
+    private function crus(Vaga $v): array
+    {
+        return [
+            'contrato' => $v->getContratacao(),
+            'modalidade' => $v->getModalidade(),
+            'cidade' => $v->getCidade(),
+            'uf' => $v->getUf(),
+        ];
     }
 
     /** @return array<string, mixed> */
