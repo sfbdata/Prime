@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Agenda\UseCase;
 
 use App\Agenda\DTO\CompromissoOutput as C;
+use App\Agenda\Repository\AjusteDeDataRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
+use App\Agenda\Enum\TipoDeAjuste;
 use App\Agenda\Service\OcorrenciasDoEvento;
 use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
@@ -33,6 +35,7 @@ final class ListarCompromissosUseCase
         private readonly PastaPrazoRepository $prazos,
         private readonly UserProfileRepository $perfis,
         private readonly LegendaCorRepository $legendas,
+        private readonly AjusteDeDataRepository $ajustes,
     ) {
     }
 
@@ -182,18 +185,46 @@ final class ListarCompromissosUseCase
     {
         $ini = $de->format('Y-m-d');
         $fim = $ate->format('Y-m-d');
+        [$ocultos, $nomes] = $this->ajustesDeAniversario($tenant);
         $saida = [];
         foreach ($this->perfis->aniversariantesDoEscritorio($tenant) as $p) {
             for ($ano = (int) $de->format('Y'); $ano <= (int) $ate->format('Y'); ++$ano) {
                 $md = $p['nascimento']->format('m-d');
                 $data = $ano . '-' . ('02-29' === $md && !checkdate(2, 29, $ano) ? '02-28' : $md);
-                if ($data >= $ini && $data <= $fim) {
+                $id = 'aniv-' . $p['id'] . '-' . $data;
+                if ($data >= $ini && $data <= $fim && !isset($ocultos[$id])) {
                     $curto = implode(' ', array_slice(explode(' ', trim($p['nome'])), 0, 2));
-                    $saida[] = new C('aniv-' . $p['id'] . '-' . $data, $data, '🎂 Aniversário de ' . $curto, C::CAL_ANIV, C::ORIGEM_ANIV, true, usuarioId: $p['id'], donoNome: $p['nome']);
+                    $saida[] = new C($id, $data, $nomes[$id] ?? '🎂 Aniversário de ' . $curto, C::CAL_ANIV, C::ORIGEM_ANIV, true, usuarioId: $p['id'], donoNome: $p['nome'], editado: isset($nomes[$id]));
                 }
             }
         }
 
         return $saida;
+    }
+
+    /**
+     * Aniversário também é data do sistema no botão direito (desenho: ORG inclui "aniv"): pode ser
+     * ocultado ou renomeado pelo escritório.
+     *
+     * @return array{array<string, true>, array<string, string>}
+     */
+    private function ajustesDeAniversario(Tenant $tenant): array
+    {
+        $ocultos = [];
+        $nomes = [];
+        foreach ($this->ajustes->doEscritorio($tenant) as $a) {
+            $id = (string) $a->getDataId();
+            if (!str_starts_with($id, 'aniv-')) {
+                continue;
+            }
+            if (TipoDeAjuste::Ocultar === $a->getTipo()) {
+                $ocultos[$id] = true;
+            }
+            if (TipoDeAjuste::Renomear === $a->getTipo()) {
+                $nomes[$id] = (string) $a->getTitulo();
+            }
+        }
+
+        return [$ocultos, $nomes];
     }
 }

@@ -343,3 +343,53 @@ coisa no mesmo lugar; decisão do coordenador em 19/10/2026).
 | 34 | Avisos com link para o detalhe | De pé (novos avisos apontam para `/agenda#ev=...`) |
 | 35 | Outras referências às rotas antigas | Nenhuma quebrada. `agenda_criar_ajax` e `agenda_atualizar_datas` ficam sem chamador na tela (só o calendário antigo as usava), mas continuam no servidor, protegidas como antes: nada é removido nesta entrega |
 | 36 | Testes da agenda antiga | Verdes (nenhum dependia do calendário FullCalendar) |
+
+## 13. Entrega 4: ajustes de datas pelo botão direito
+
+Branch `agenda-ajustes`, empilhada sobre `agenda-troca` (#66). Itens do menu do desenho (dc L.217-224):
+"Ver detalhes", "Editar nome", "Ocultar da agenda" (ou "Excluir", na data acrescentada), "Acrescentar
+feriado ou data em dd/mm/aaaa", "Novo compromisso em ..." e "Restaurar datas do sistema" (quando há
+algo ocultado ou renomeado). Os `prompt()` do protótipo viram um formulário pequeno: nome, tipo
+(Nacional, Estadual, Tribunal, Comemorativa; o desenho começa em Tribunal) e fonte opcional.
+
+**Onde fica:** tabela `agenda_data_ajuste` (migration `Version20261019135744`), por escritório: vale para
+a Agenda de todo o escritório. Quem pode: a mesma permissão de Feriados e Folgas
+(`admin.tenant.settings.manage`, convenção D2); os demais veem só "Ver detalhes" e "Novo compromisso".
+Aniversários também podem ser ocultados ou renomeados (o desenho os trata como data do sistema).
+
+**O Ponto não muda.** Nenhum ajuste grava na tabela `feriado` nem mexe no cálculo da jornada. Um teste
+compara a tabela `feriado` inteira antes e depois de cada ajuste (acrescentar, renomear, ocultar um
+feriado que conta no ponto, restaurar, excluir a data acrescentada).
+
+**Para o usuário, o que significa ocultar:**
+- Ocultar um feriado na Agenda só tira o feriado da Agenda do escritório. Se ele está cadastrado em
+  Feriados e Folgas, **continua contando no ponto** como feriado; o aviso depois de ocultar diz isso
+  ("... removido da agenda. Restaure quando quiser. Ele continua contando no ponto.").
+- Acrescentar um feriado na Agenda (ex.: feriado municipal) **não** o faz contar no ponto: o formulário
+  avisa "Não muda o ponto: para contar como feriado na jornada, cadastre em Feriados e Folgas".
+- Renomear muda só o nome mostrado na Agenda.
+- "Restaurar datas do sistema" devolve as datas ocultadas e os nomes originais; as datas acrescentadas
+  ficam (somem uma a uma, por "Excluir").
+
+O detalhe das datas do sistema volta a dizer "Clique com o botão direito no dia para editar ou ocultar"
+(para quem pode ajustar), e mostra "Nome alterado pelo escritório" na data renomeada.
+
+Acertos da revisão: o detalhe de data que não conta no ponto traz o link "Cadastrar em Feriados e
+Folgas, para contar no ponto" (§5, regra 4; só para quem pode ajustar); "Restaurar" remove pelo
+EntityManager e entra na auditoria; índice único `(tenant_id, tipo, data_id)` contra ajuste duplicado em
+pedidos simultâneos; aniversário renomeado também mostra "Nome alterado pelo escritório".
+
+Diferenças conscientes do desenho: excluir uma data acrescentada avisa só "removido da agenda", sem
+"Restaure quando quiser" (o restaurar não traz de volta o que foi excluído; a frase do desenho seria
+falsa); "Editar nome" fecha sem aviso, como no desenho. Fica para depois: os ajustes do escritório são
+lidos inteiros a cada carga (o volume é pequeno; filtrar por período quando crescer).
+
+## 14. Pendências com outras frentes
+
+- **ColaboradoresAtribuiveis (#69, frente 7d):** quando entrar no master, o modal de compromisso
+  (participantes e avisados) passa a usar esse serviço no lugar de `findColaboradoresAtivosPorTenant`:
+  suspensos não aparecem para atribuição nova, e editar preserva quem já estava (hoje o
+  `SalvarCompromissoUseCase` já preserva os participantes desligados). Entra com teste de que editar
+  um compromisso com participante suspenso o mantém.
+- **Comercial e e-mails (desenho 05, Perfis):** lê as datas comemorativas do `CalendarioDoSistema`
+  (seção 9).
