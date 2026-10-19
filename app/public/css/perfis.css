@@ -1,8 +1,9 @@
 /* =============================================================================
    perfis.css: "Perfis do Escritório", lista e edição de perfil.
 
-   Desenho aprovado: docs/design/perfis-1.0/05 - Perfis 1.0.dc.html (linhas 30-66 lista,
-   229-311 edição, 330-338 confirmação). Cada estilo inline do desenho virou uma classe aqui,
+   Desenho aprovado: docs/design/perfis-1.0/05 - Perfis 1.0.dc.html (229-311 edição, 330-338
+   confirmação); a lista segue o 1.2: docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html
+   (linhas 48-64). Cada estilo inline do desenho virou uma classe aqui,
    com os mesmos valores; a fonte herda do app.css (Arial, decisão do dono).
 
    Tudo vive sob `.pf-page`; nenhum seletor global. Os hex do desenho ficam no tema CLARO;
@@ -36,13 +37,20 @@
     --pf-azul-promo:    #f5f9fc;
     --pf-socio:         #5c9ec7;
 
-    --pf-linha-hover:   #3b8fc2;
-    --pf-linha-barra:   #1f6f9c;
+    /* Lista 1.2 (linhas 53-64) */
+    --pf-lista-borda:   #d3dde4;
+    --pf-linha-div:     #f0f2f4;
+    --pf-linha-hover:   #eaf3f9;
+    --pf-cab-icone:     #5b7383;
+    --pf-desc:          #6c757d;
+    --pf-perm-de:       #7a8e9b;
+    --pf-barra-bg:      #e6edf2;
+    --pf-fixo:          #7a5200;
+    --pf-fixo-bg:       #fff4d6;
+    --pf-perigo-hover-lista: #fdecee;
 
     --pf-perigo:        #a3232b;
     --pf-perigo-bg:     #fbe7e7;
-    --pf-cadeado:       #c08a12;
-    --pf-cadeado-aberto:#98a9b4;
 
     --pf-master:        #7a3e8f;
     --pf-master-bg:     #f3e9f7;
@@ -82,6 +90,16 @@
     --pf-master-bg:     rgba(122,62,143,.22);
     --pf-sec-bg:        var(--bs-secondary-bg);
     --pf-perigo-bg:     rgba(163,35,43,.18);
+    --pf-lista-borda:   var(--bs-border-color);
+    --pf-linha-div:     var(--bs-border-color-translucent);
+    --pf-linha-hover:   rgba(77,163,234,.10);
+    --pf-cab-icone:     var(--bs-secondary-color);
+    --pf-desc:          var(--bs-secondary-color);
+    --pf-perm-de:       var(--bs-secondary-color);
+    --pf-barra-bg:      var(--bs-secondary-bg);
+    --pf-fixo:          #f0c870;
+    --pf-fixo-bg:       rgba(192,138,18,.20);
+    --pf-perigo-hover-lista: rgba(163,35,43,.18);
 }
 
 /* ── Cabeçalho (linhas 47-52) ─────────────────────────────────────────────── */
@@ -110,33 +128,60 @@
 }
 .pf-page .pf-ver-como-btn.is-ativo { background: #fff; color: var(--pf-azul); }
 
-/* ── Lista (linhas 55-71) ─────────────────────────────────────────────────── */
-.pf-page .pf-tabela { background: var(--pf-card); border: 1px solid var(--pf-borda); border-radius: 4px; box-shadow: var(--pf-sombra); overflow-x: auto; }
-.pf-page .pf-tabela-miolo { min-width: 980px; }
-.pf-page .pf-grade { display: grid; grid-template-columns: minmax(220px,1.3fr) 150px minmax(200px,2fr) 120px 100px 90px 100px; }
-.pf-page .pf-tabela-cab {
-    background: var(--pf-cab); border-bottom: 2px solid var(--pf-cab-borda);
-    font-size: 12px; font-weight: bold; letter-spacing: 1.2px; color: var(--pf-rotulo);
+/* ── Lista (desenho 1.2, linhas 52-64) ─────────────────────────────────────── */
+/* Chips e tabela são filhos diretos de .pf-page (no desenho o sc-if é Fragment, sem caixa):
+   entre eles fica o gap da coluna (18px) mais o margin-bottom dos chips (14px), 32px no total. */
+/* line-height normal como o <body> do desenho: com o 1.5 herdado, chips, cabeçalho e linhas ficavam 5 a 9px mais altos. */
+.pf-page .pf-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; line-height: normal; }
+.pf-page .pf-chip {
+    display: flex; align-items: center; gap: 9px; background: var(--pf-card); border: 1px solid var(--pf-lista-borda);
+    border-radius: 3px; padding: 9px 14px; min-width: 140px; box-sizing: content-box; /* o desenho mede em content-box: 170px */
 }
-.pf-page .pf-tabela-cab > div { padding: 13px 10px; }
-.pf-page .pf-tabela-cab > div:first-child { padding: 13px 20px; }
-.pf-page .pf-tabela-cab > .pf-centro { text-align: center; }
+.pf-page .pf-chip > .bi { color: var(--pf-azul); font-size: 15px; }
+.pf-page .pf-chip > b { font-size: 17px; color: var(--pf-texto); }
+.pf-page .pf-chip > span { font-size: 12.5px; color: var(--pf-suave); }
 
-.pf-page .pf-linha { align-items: center; border-bottom: 1px solid var(--pf-div); cursor: pointer; transition: background .15s; }
-.pf-page .pf-linha:hover { background: var(--pf-linha-hover); box-shadow: inset 4px 0 0 var(--pf-linha-barra); }
-.pf-page .pf-linha:hover > div,
-.pf-page .pf-linha:hover > div * { color: #fff !important; background: transparent !important; border-color: transparent !important; }
+.pf-page .pf-tabela { line-height: normal; background: var(--pf-card); border: 1px solid var(--pf-lista-borda); border-radius: 3px; overflow-x: auto; }
+.pf-page .pf-tabela-miolo { min-width: 900px; }
+.pf-page .pf-grade { display: grid; grid-template-columns: minmax(300px,2.4fr) 170px 210px 130px 110px; }
+.pf-page .pf-tabela-cab {
+    background: var(--pf-cab); border-bottom: 1px solid var(--pf-lista-borda);
+    font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: var(--pf-rotulo);
+}
+.pf-page .pf-tabela-cab > div { padding: 13px 10px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; }
+.pf-page .pf-tabela-cab > div:first-child { padding: 13px 20px; }
+.pf-page .pf-tabela-cab > .pf-centro { justify-content: center; }
+.pf-page .pf-tabela-cab > div > .bi { color: var(--pf-cab-icone); }
+
+.pf-page .pf-linha { position: relative; align-items: center; border-bottom: 1px solid var(--pf-linha-div); cursor: pointer; transition: background .15s; }
+/* Hover do 1.2 (style-hover da linha 59): azul claro. O [data-lin]:hover !important global do
+   desenho é resto do 1.0; no 1.2 as células perderam o data-hv e o texto escuro fica legível. */
+.pf-page .pf-linha:hover { background: var(--pf-linha-hover); }
 .pf-page .pf-linha.is-oculta { display: none; }
 
-.pf-page .pf-col-nome { padding: 14px 20px; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-.pf-page .pf-col-classe { padding: 14px 10px; }
-.pf-page .pf-col-desc { padding: 14px 10px; font-size: 13px; color: var(--pf-suave); }
-.pf-page .pf-col-num { text-align: center; font-weight: bold; font-size: 14px; }
-.pf-page .pf-col-cadeado { text-align: center; }
-.pf-page .pf-col-cadeado .bi { font-size: 16px; }
-.pf-page .pf-col-cadeado .bi-lock-fill { color: var(--pf-cadeado); }
-.pf-page .pf-col-cadeado .bi-unlock { color: var(--pf-cadeado-aberto); }
-.pf-page .pf-col-acoes { display: flex; justify-content: center; gap: 6px; }
+.pf-page .pf-col-perfil { padding: 13px 20px; min-width: 0; display: block; }
+.pf-page .pf-perfil-nome { display: flex; align-items: center; gap: 7px; }
+.pf-page .pf-perfil-nome > b { font-size: 14.5px; color: var(--pf-texto); text-transform: uppercase; letter-spacing: .2px; }
+.pf-page .pf-fixo {
+    height: 18px; padding: 0 6px; border-radius: 3px; background: var(--pf-fixo-bg); color: var(--pf-fixo);
+    font-size: 10.5px; font-weight: bold; display: inline-flex; align-items: center; gap: 3px;
+}
+.pf-page .pf-perfil-desc { display: block; font-size: 12.5px; color: var(--pf-desc); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pf-page .pf-col-classe { padding: 13px 10px; }
+
+.pf-page .pf-col-perm { padding: 13px 10px; }
+.pf-page .pf-perm-topo { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+.pf-page .pf-perm-topo > b { color: var(--pf-corpo); }
+.pf-page .pf-perm-topo > span { color: var(--pf-perm-de); }
+.pf-page .pf-perm-barra { height: 4px; background: var(--pf-barra-bg); overflow: hidden; }
+.pf-page .pf-perm-barra > div { height: 100%; background: var(--pf-azul); transition: width .5s; }
+
+.pf-page .pf-col-usu { text-align: center; }
+.pf-page .pf-col-usu > b { font-size: 14px; color: var(--pf-corpo); }
+
+.pf-page .pf-col-acoes { display: flex; justify-content: center; gap: 4px; }
+.pf-page .pf-vazio { font-size: 13px; color: var(--pf-suave); }
 
 .pf-page .pf-selo { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: bold; letter-spacing: .6px; padding: 4px 9px; border-radius: 3px; }
 .pf-page .pf-selo-master   { color: var(--pf-master); background: var(--pf-master-bg); }
@@ -150,6 +195,10 @@
 .pf-page .pf-acao-editar  { color: var(--pf-azul); }
 .pf-page .pf-acao-excluir { color: var(--pf-perigo); }
 .pf-page .pf-acao-excluir:hover { background: var(--pf-perigo-bg); }
+/* Na lista 1.2 os botões crescem para 32px; o lápis e a lixeira têm o hover da linha 64. */
+.pf-page .pf-col-acoes .pf-acao { width: 32px; height: 32px; transition: background .15s; }
+.pf-page .pf-col-acoes .pf-acao-editar:hover { background: var(--pf-azul-bg); }
+.pf-page .pf-col-acoes .pf-acao-excluir:hover { background: var(--pf-perigo-hover-lista); }
 
 /* ── Edição (linhas 229-311) ──────────────────────────────────────────────── */
 .pf-page .pf-faixa { display: flex; align-items: center; gap: 10px; background: var(--pf-azul-bg); color: var(--pf-azul-escuro); border-radius: 4px; padding: 11px 16px; font-size: 13.5px; }
@@ -239,3 +288,12 @@
 .pf-page .pf-conf-cancelar:hover { background: var(--pf-cinza); }
 .pf-page .pf-conf-ok { height: 34px; border: none; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; padding: 0 16px; cursor: pointer; border-radius: 4px; }
 .pf-page .pf-conf-ok[hidden] { display: none; }
+
+/* Tema escuro: as cores do desenho (#0a6fa0, #7a3e8f, #4a6373, #a3232b) ficam ilegíveis sobre o fundo escuro.
+   Só o texto e os ícones da lista clareiam; os tokens continuam os mesmos porque também pintam fundos. */
+[data-bs-theme="dark"] .pf-page .pf-chip > .bi,
+[data-bs-theme="dark"] .pf-page .pf-selo-primario,
+[data-bs-theme="dark"] .pf-page .pf-acao-editar { color: #7cc0ec; }
+[data-bs-theme="dark"] .pf-page .pf-selo-master { color: #d2a8e6; }
+[data-bs-theme="dark"] .pf-page .pf-selo-secundario { color: var(--bs-body-color); }
+[data-bs-theme="dark"] .pf-page .pf-acao-excluir { color: #f08a90; }

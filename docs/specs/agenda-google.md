@@ -7,7 +7,7 @@ Risco **MÉDIO**: guarda, por pessoa, a autorização de acesso à agenda Google
 
 O estado completo da pilha da Agenda (decisões, contratos, ordem de merge, migrations, pendências) está
 no topo de `docs/specs/agenda-vs-18-10-26.md`. Desta entrega: PR #78 em RASCUNHO até o #81 (auditoria do
-"Só eu") entrar; migration Version20261019170000 depois da do #76; falta o cliente OAuth do dono (§8 da
+"Só eu") entrar; migration Version20261019180500 (renomeada de 170000, que o master já usa) depois da do #76; falta o cliente OAuth do dono (§8 da
 spec principal) e a ponta a ponta com conta real.
 
 ## 1. O que o desenho pede (09 - Agenda - VS 18.10.26, linhas 52-57 e 232-233)

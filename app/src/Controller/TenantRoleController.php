@@ -40,7 +40,7 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant/{tenantId}/roles')]
 final class TenantRoleController extends AbstractController
 {
-    private const DESCRICAO_MASTER   = 'Criador do BlueJus. Único, com todos os poderes sobre o sistema e as contas.';
+    private const DESCRICAO_MASTER   = 'O criador do BlueJus (Master primário) e quem ele promover (Master secundário).';
     private const DESCRICAO_PRIMARIO = 'Quem abriu a conta. Gestor do escritório; cadastra e administra os secundários. Não pode ser excluído.';
     private const DESCRICAO_SECUNDARIO_VAZIA = 'Usuário secundário';
 
@@ -142,10 +142,43 @@ final class TenantRoleController extends AbstractController
         }
 
         return $this->render('tenant_role/index.html.twig', [
-            'tenantId' => $tenantId,
-            'perfis'   => $perfis,
-            'master'   => $master,
+            'tenantId'        => $tenantId,
+            'perfis'          => $perfis,
+            'master'          => $master,
+            'totalDoCatalogo' => $totalDoCatalogo,
+            'resumo'          => $this->resumoDaLista($perfis, $master),
         ]);
+    }
+
+    /**
+     * Chips do resumo da lista (desenho Perfis 1.2, `pfResumo`). A visão "primario" conta só os
+     * perfis do escritório; a "master" soma a linha Master e só existe para o Master (D2), para
+     * o "Ver como Primário" trocar os números sem nada do Master chegar ao HTML de quem não é.
+     *
+     * @param list<array{classificacao: string, usuarios: int}> $perfis
+     * @param array{usuarios: int}|null                         $master
+     *
+     * @return array{primario: array<string, int>, master: array<string, int>|null}
+     */
+    private function resumoDaLista(array $perfis, ?array $master): array
+    {
+        $fixos    = count(array_filter($perfis, static fn (array $p): bool => $p['classificacao'] !== 'secundario'));
+        $primario = [
+            'perfis'         => count($perfis),
+            'usuarios'       => array_sum(array_column($perfis, 'usuarios')),
+            'fixos'          => $fixos,
+            'personalizados' => count($perfis) - $fixos,
+        ];
+
+        return [
+            'primario' => $primario,
+            'master'   => $master === null ? null : [
+                'perfis'         => $primario['perfis'] + 1,
+                'usuarios'       => $primario['usuarios'] + $master['usuarios'],
+                'fixos'          => $primario['fixos'] + 1,
+                'personalizados' => $primario['personalizados'],
+            ],
+        ];
     }
 
     #[Route('/new', name: 'app_tenant_role_new', methods: ['GET', 'POST'])]

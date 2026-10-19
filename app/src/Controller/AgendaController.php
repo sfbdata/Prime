@@ -208,7 +208,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -271,7 +271,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -402,7 +402,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes sobre cancelamento
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -555,5 +555,16 @@ class AgendaController extends AbstractController
         ], $legendas);
 
         return $this->json($legendasArray);
+    }
+
+    /**
+     * "Só eu" só a pessoa vê: os participantes não enxergam o compromisso, e o aviso (com o título) ainda
+     * iria para a auditoria pela Notificacao. Então "Só eu" não avisa ninguém.
+     *
+     * @return iterable<User>
+     */
+    private function participantesAvisaveis(Evento $evento): iterable
+    {
+        return Evento::VISIBILIDADE_SOMENTE_EU === $evento->getVisibilidade() ? [] : $evento->getParticipantes();
     }
 }

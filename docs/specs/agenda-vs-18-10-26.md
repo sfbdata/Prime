@@ -33,15 +33,17 @@ O protótipo guarda tudo em `localStorage`; aqui tudo vai para o servidor, por e
   `implements ConteudoParticular` e os dois métodos para `App\Agenda\Entity\Evento`.
 
 **PRs e ordem de merge (pilha)**
-- #58 agenda-nova (base master) → #63 agenda-modal → #66 agenda-troca → #70 agenda-ajustes →
+- #58 e #81 já entraram no master (a7433b93). A pilha foi atualizada com o master camada por camada
+  (19/10/2026), levando o `ConteudoParticular` do #81 para o `Evento` movido.
+- #63 agenda-modal (base master) → #66 agenda-troca → #70 agenda-ajustes →
   #73 agenda-lembretes → #76 agenda-push → #78 agenda-google (RASCUNHO até o #81 entrar) →
   acertos finais (branch agenda-acertos, base #78, a abrir).
-- #81 auditoria-so-eu (base master, independente da pilha): entra antes do #78.
+- #81 auditoria-so-eu: mergeado. O #78 pode sair do rascunho.
 
 **Fila de migrations (uma por vez, na fila do coordenador)**
 - #63: Version20261019125154 e Version20261019125854 (inclui o UPDATE do audit_log de produção, que o
   coordenador leva ao dono).
-- #70: Version20261019135744. #76: Version20261019144101. #78: Version20261019170000.
+- #70: Version20261019135744. #76: Version20261019144101. #78: Version20261019180500 (renomeada de 170000, nome que o Link externo do Push já usa no master).
 - #58, #66, #73, #81 e acertos: sem migration. Renomear o horário se outra migration entrar antes.
 
 **Pendências**

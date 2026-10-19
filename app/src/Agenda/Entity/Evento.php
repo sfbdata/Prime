@@ -12,13 +12,14 @@ use App\Repository\EventoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\ConteudoParticular;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EventoRepository::class)]
 #[ORM\Index(name: 'idx_evento_google_id', columns: ['google_id'])]
 #[ORM\HasLifecycleCallbacks]
-class Evento implements Auditavel, TenantAware
+class Evento implements Auditavel, TenantAware, ConteudoParticular
 {
     public const STATUS_AGENDADO = 'agendado';
     public const STATUS_CONCLUIDO = 'concluido';
@@ -454,5 +455,18 @@ class Evento implements Auditavel, TenantAware
         $this->googleHash = $hash;
 
         return $this;
+    }
+
+    /** "Só eu" agora ou antes desta mudança: nos dois casos o conteúdo não vai para a auditoria. */
+    public function ehParticular(array $mudancas = []): bool
+    {
+        $antes = $mudancas['visibilidade'][0] ?? null;
+
+        return self::VISIBILIDADE_SOMENTE_EU === $this->visibilidade || self::VISIBILIDADE_SOMENTE_EU === $antes;
+    }
+
+    public function camposParticulares(): array
+    {
+        return ['titulo', 'descricao', 'local'];
     }
 }
