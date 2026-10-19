@@ -66,7 +66,7 @@ class ApoioRepository extends ServiceEntityRepository
         }
         $linhas = $this->getEntityManager()->getConnection()->fetchFirstColumn(
             'SELECT DISTINCT tenant_id FROM contribua_apoio WHERE tenant_id IN (?) AND confirmado_em >= ?',
-            [array_values($tenantIds), $desde->format('Y-m-d H:i:s')],
+            [$tenantIds, $desde->format('Y-m-d H:i:s')],
             [ArrayParameterType::INTEGER, ParameterType::STRING],
         );
 
