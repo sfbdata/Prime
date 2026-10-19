@@ -13,8 +13,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * O currículo no recorte de quem lê, no contrato JSON da spec VS 18.10.26 §4.5, com os textos do
  * desenho 06 (`cvItem`, l.999; tabela, l.199 a 210; detalhe `tmCv`, l.301 a 312). A nota interna só
- * sai para o interno (`nota: null` para o externo). O termo de voluntariado fica "sem" até a F3b e as
- * candidaturas, zero até a F2b.
+ * sai para o interno (`nota: null` para o externo). O termo de voluntariado fica "sem" até a F3b.
+ * O dono externo de uma vaga lê o candidato enviado a ele pelo recorte {@see doDonoDaVaga()}.
  */
 final class ApresentadorDeCurriculo
 {
@@ -33,7 +33,7 @@ final class ApresentadorDeCurriculo
     }
 
     /** A linha do banco de talentos (`cvs[]`). @return array<string, mixed> */
-    public function cartao(Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora): array
+    public function cartao(Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, int $candidaturas = 0): array
     {
         $sit = $cv->getSituacao();
 
@@ -64,15 +64,22 @@ final class ApresentadorDeCurriculo
             'estrela' => $marca?->temEstrela() ?? false,
             'lixeira' => $marca?->naLixeira() ?? false,
             'vista' => $marca?->isVista() ?? false,
-            'importancia' => $this->importancia->calcular($cv, $marca?->getImportante(), $agora),
-            'candidaturas' => 0,
+            'importancia' => $this->importancia->calcular($cv, $marca?->getImportante(), $agora, $candidaturas),
+            'candidaturas' => $candidaturas,
         ];
     }
 
-    /** O detalhe (`curriculo`), com o que cada um pode fazer. @return array<string, mixed> */
-    public function detalhe(Contexto $ctx, Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora): array
+    /**
+     * O detalhe (`curriculo`), com o que cada um pode fazer. `$vagas` são os títulos das vagas a que o
+     * currículo se candidatou ("Candidaturas:", `cvItem.cands`, l.312).
+     *
+     * @param list<string> $vagas
+     *
+     * @return array<string, mixed>
+     */
+    public function detalhe(Contexto $ctx, Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, array $vagas = []): array
     {
-        return $this->cartao($cv, $marca, $agora) + $this->contato($cv) + [
+        return $this->cartao($cv, $marca, $agora, count($vagas)) + $this->contato($cv) + [
             'exps' => $cv->itens('exps'),
             'forms' => $cv->itens('forms'),
             'idis' => $cv->itens('idis'),
@@ -90,8 +97,31 @@ final class ApresentadorDeCurriculo
             'podeExcluir' => $this->politica->podeExcluir($ctx, $cv),
             'documentoUrl' => $this->urls->generate('trabalho_externo_curriculo_documento', ['codigo' => $cv->getCodigo()]),
             'pdfUrl' => $this->urls->generate('trabalho_externo_curriculo_pdf', ['codigo' => $cv->getCodigo()]),
-            'candidaturasVagas' => [],
+            'candidaturasVagas' => $vagas,
         ];
+    }
+
+    /**
+     * O candidato que a Central enviou ao dono externo da vaga (decisão 1 da §4.4): o currículo inteiro,
+     * sem a nota interna, sem a situação no banco de talentos e sem as candidaturas a outras vagas; nada
+     * de marcação nem de ação.
+     *
+     * @return array<string, mixed>
+     */
+    public function doDonoDaVaga(Contexto $ctx, Curriculo $cv, \DateTimeImmutable $agora): array
+    {
+        return array_replace($this->detalhe($ctx, $cv, null, $agora), [
+            'nota' => null,
+            'status' => null,
+            'statusRotulo' => null,
+            'statusCor' => null,
+            'importancia' => null,
+            'candidaturas' => 0,
+            'candidaturasVagas' => [],
+            'podeEditar' => false,
+            'podeGerir' => false,
+            'podeExcluir' => false,
+        ]);
     }
 
     /** Os campos crus do formulário, para editar e para o detalhe. @return array<string, mixed> */

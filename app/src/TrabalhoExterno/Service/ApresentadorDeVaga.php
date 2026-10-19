@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Service;
 
+use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\Vaga;
@@ -15,20 +16,24 @@ use App\TrabalhoExterno\Enum\SituacaoVaga;
  * - "OFERECIDO POR" mostra só o que o ofertante deixou visível, para TODOS (l.1003); o formulário de
  *   edição, só para quem edita, leva os dados inteiros.
  * - O histórico é só do interno (`tvHistOn`, l.1190).
+ * - Candidatos (F2b, l.1003): o interno vê todos; o dono externo, só os enviados a ele, sem botões de
+ *   status; os outros externos, só a própria candidatura e a compatibilidade com o currículo dele.
  */
 final class ApresentadorDeVaga
 {
     public function __construct(
         private readonly PoliticaDaVaga $politica,
         private readonly CalculadoraDeImportanciaDaVaga $importancia,
+        private readonly ApresentadorDeCandidatura $candidaturas,
     ) {
     }
 
     /** @return array<string, mixed> */
-    public function cartao(Contexto $ctx, Vaga $v, ?MarcacaoDoUsuario $marca, ?\DateTimeImmutable $ultimaVisita, \DateTimeImmutable $agora): array
+    public function cartao(Contexto $ctx, Vaga $v, ?MarcacaoDoUsuario $marca, ?\DateTimeImmutable $ultimaVisita, \DateTimeImmutable $agora, ?CandidaturasDaVaga $cand = null): array
     {
         $s = $v->situacaoEm($agora);
         $nova = $s === SituacaoVaga::Aberta && $ultimaVisita !== null && $v->getCriadaEm() > $ultimaVisita;
+        $cand ??= new CandidaturasDaVaga();
 
         return [
             'codigo' => $v->getCodigo(),
@@ -53,13 +58,32 @@ final class ApresentadorDeVaga
             'estrela' => $marca?->temEstrela() ?? false,
             'lixeira' => $marca?->naLixeira() ?? false,
             'vista' => $marca?->isVista() ?? false,
-            'importancia' => $this->importancia->calcular($v, $marca?->getImportante(), $nova, $agora),
+            'importancia' => $this->importancia->calcular($v, $marca?->getImportante(), $nova, $agora, $cand->compat, $this->politica->ehInterno($ctx) ? $cand->recebidas : 0),
             'podeEditar' => $this->politica->podeEditar($ctx, $v),
             'podeExcluir' => $this->politica->podeExcluir($ctx),
             'podeCompartilhar' => $this->politica->podeCompartilhar($ctx, $v, $agora),
             'rotuloEditar' => $this->rotuloEditar($ctx, $v),
             'botoes' => $this->politica->botoes($ctx, $v, $agora),
-        ] + $this->faixa($ctx, $v, $s) + $this->tempo($ctx, $v, $s) + $this->crus($v);
+        ] + $this->faixa($ctx, $v, $s) + $this->tempo($ctx, $v, $s, $cand) + $this->crus($v) + $this->numeros($ctx, $v, $cand);
+    }
+
+    /**
+     * Compatibilidade (só o externo com currículo), "já me candidatei" e os números do cartão (l.1117):
+     * o interno vê quantos se candidataram; o dono, "{n} indicado(s) pelo BlueJus".
+     *
+     * @return array<string, mixed>
+     */
+    private function numeros(Contexto $ctx, Vaga $v, CandidaturasDaVaga $cand): array
+    {
+        $interno = $this->politica->ehInterno($ctx);
+
+        return [
+            'compat' => $interno ? null : $cand->compat,
+            'compatCor' => !$interno && $cand->compat !== null ? CompatibilidadeDaVaga::cor($cand->compat) : null,
+            'jaFoi' => !$interno && $cand->minha !== null,
+            'indicadosN' => $this->politica->ehDono($ctx, $v) ? $cand->enviados : null,
+            'nCand' => $interno ? $cand->total : null,
+        ];
     }
 
     /** Os dados crus, para a mensagem padrão do "Divulgar vaga(s)" (`msgPadrao`, l.1075). @return array<string, string> */
@@ -74,11 +98,12 @@ final class ApresentadorDeVaga
     }
 
     /** @return array<string, mixed> */
-    public function detalhe(Contexto $ctx, Vaga $v, ?MarcacaoDoUsuario $marca, ?\DateTimeImmutable $ultimaVisita, \DateTimeImmutable $agora): array
+    public function detalhe(Contexto $ctx, Vaga $v, ?MarcacaoDoUsuario $marca, ?\DateTimeImmutable $ultimaVisita, \DateTimeImmutable $agora, ?CandidaturasDaVaga $cand = null): array
     {
         $interno = $this->politica->ehInterno($ctx);
+        $cand ??= new CandidaturasDaVaga();
 
-        return $this->cartao($ctx, $v, $marca, $ultimaVisita, $agora) + [
+        return $this->cartao($ctx, $v, $marca, $ultimaVisita, $agora, $cand) + $this->candidatos($ctx, $v, $cand, $agora) + [
             'requisitos' => $v->getRequisitos() !== '' ? $v->getRequisitos() : 'Sem descrição.',
             'oab' => $v->isExigeOab() ? 'Exige OAB ativa' : 'OAB não obrigatória',
             'prazoDetalhe' => $this->prazoDoDetalhe($v),
@@ -112,19 +137,68 @@ final class ApresentadorDeVaga
         ];
     }
 
-    /** O contador da oferta, só para o interno (`tempo()`, l.996). Os aceites entram na F2b. @return array<string, mixed> */
-    private function tempo(Contexto $ctx, Vaga $v, SituacaoVaga $s): array
+    /**
+     * O contador da oferta, só para o interno (`tempo()`, l.996): os aceites da rodada atual e, no
+     * detalhe, quem aceitou ("aceita por …").
+     *
+     * @return array<string, mixed>
+     */
+    private function tempo(Contexto $ctx, Vaga $v, SituacaoVaga $s, CandidaturasDaVaga $cand): array
     {
         if (!$v->isOferta() || !$this->politica->ehInterno($ctx)) {
-            return ['oferta' => false, 'expiraEm' => null, 'duracao' => null, 'aceites' => 0];
+            return ['oferta' => false, 'expiraEm' => null, 'duracao' => null, 'aceites' => 0, 'aceitosPor' => []];
         }
 
         return [
             'oferta' => true,
             'expiraEm' => $s === SituacaoVaga::Aberta ? $v->getExpiraEm()?->format(\DATE_ATOM) : null,
             'duracao' => $v->getDuracaoDaOferta(),
-            'aceites' => 0,
+            'aceites' => $cand->aceites,
+            'aceitosPor' => $cand->aceitosPor,
         ];
+    }
+
+    /**
+     * Os candidatos do detalhe (`tv.cands`, `tvCandTit`, `tvEnvTxt`, l.1003 e 1190): o interno vê todos;
+     * o dono externo, só os enviados ao escritório dele; os outros, nenhum. "SUA CANDIDATURA" e o botão
+     * do externo saem daqui também.
+     *
+     * @return array<string, mixed>
+     */
+    private function candidatos(Contexto $ctx, Vaga $v, CandidaturasDaVaga $cand, \DateTimeImmutable $agora): array
+    {
+        $interno = $this->politica->ehInterno($ctx);
+        $dono = $this->politica->ehDono($ctx, $v);
+        $lista = $interno ? $cand->candidatos : ($dono ? array_values(array_filter($cand->candidatos, static fn (Candidatura $c): bool => $c->isEnviadoAoEscritorio())) : []);
+        $minEnvio = $ctx->configuracao->getVagas()['minEnvio'];
+
+        return [
+            'candidatos' => array_map(fn (Candidatura $c): array => $this->candidaturas->candidato($c, $agora), $lista),
+            'candTitulo' => match (true) {
+                $dono => sprintf('CANDIDATOS INDICADOS PELO BLUEJUS (%d) · O BLUEJUS ATUALIZA O ANDAMENTO', $cand->enviados),
+                $interno => sprintf('CANDIDATOS (%d)', $cand->total),
+                default => null,
+            },
+            'envioInfo' => $interno && $v->temDono() ? sprintf('%d enviado(s) ao escritório · padrão: %d ou mais', $cand->enviados, $minEnvio) : null,
+            'podeEnviar' => $this->politica->podeEnviarCandidatos($ctx, $v),
+            'podeMudarStatus' => $this->politica->podeGerirCandidatos($ctx),
+            'minEnvio' => $minEnvio,
+            'enviadosN' => $this->politica->veCandidatos($ctx, $v) ? $cand->enviados : 0,
+            'minhaCandidatura' => !$interno && $cand->minha !== null ? $this->candidaturas->minha($cand->minha, $agora) : null,
+            'botaoExterno' => $this->botaoExterno($ctx, $v, $cand, $agora),
+        ];
+    }
+
+    /** O botão principal do externo no detalhe (l.1095); a vaga própria não mostra "Candidatar-se". */
+    private function botaoExterno(Contexto $ctx, Vaga $v, CandidaturasDaVaga $cand, \DateTimeImmutable $agora): ?string
+    {
+        return match (true) {
+            $this->politica->ehInterno($ctx), $this->politica->ehDono($ctx, $v) => null,
+            $cand->minha !== null => 'enviada',
+            !$v->isOferta() => 'candidatar',
+            $v->situacaoEm($agora) === SituacaoVaga::Aberta => 'aceitar',
+            default => 'indisponivel',
+        };
     }
 
     private function prazoDoCartao(Vaga $v, \DateTimeImmutable $agora): string
