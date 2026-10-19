@@ -33,9 +33,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *     escritório, origem `pasta:push_cliente_auto`, remetente "{Escritório} via BlueJus", Responder
  *     para = o responsável ativo da pasta (sem ele, um primário do escritório; nunca o endereço da
  *     plataforma). A cópia da Controladoria vai só na primeira mensagem que sair;
- *   - falha de um destinatário (transporte, endereço inválido) vai ao log e não impede os outros;
+ *   - falha de um destinatário (qualquer erro do envio) vai ao log e não impede os outros;
  *   - grava no histórico da pasta (`envio_ao_cliente`, tipo `auto`) uma linha por registro do pedido,
- *     com os destinatários que receberam.
+ *     com os destinatários que receberam, cada um gravado (flush) logo depois que o e-mail dele sai.
  *
  * O aviso aos primários sem Controladoria é de quem chama (uma vez por execução, não por e-mail).
  */
@@ -90,18 +90,13 @@ final class EnvioAutomaticoAoCliente
     public function enviar(PedidoDeEnvioAutomatico $pedido, array $destinatarios): array
     {
         $enviados = [];
-        $ids = [];
-        $ccEnviada = false;
+        $linhas = [];
         foreach ($destinatarios as $email) {
-            $resultado = $this->enviarUm($pedido, $email, $ccEnviada ? [] : $pedido->cc);
+            $resultado = $this->enviarUm($pedido, $email, $linhas === [] ? $pedido->cc : []);
             if ($resultado !== null && $resultado->saiu()) {
                 $enviados[] = $email;
-                $ids[] = $resultado->envioId;
-                $ccEnviada = true;
+                $linhas = $this->registrar($pedido, $linhas, $email, $resultado->envioId);
             }
-        }
-        if ($enviados !== []) {
-            $this->registrar($pedido, $enviados, $ids);
         }
 
         return $enviados;
@@ -126,7 +121,7 @@ final class EnvioAutomaticoAoCliente
     {
         try {
             return $this->envio->enviar($this->mensagem($pedido, $email, $cc));
-        } catch (\RuntimeException|\InvalidArgumentException $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('Envio automático ao cliente: falha na pasta {pasta} do tenant {tenant} ({classe}).', [
                 'pasta' => $pedido->pasta->getId(), 'tenant' => $pedido->tenant->getId(), 'classe' => $e::class,
             ]);
@@ -178,28 +173,40 @@ final class EnvioAutomaticoAoCliente
     }
 
     /**
-     * @param list<string>   $enviados
-     * @param list<int|null> $ids
+     * Grava o destinatário que acabou de receber, antes do próximo e-mail sair (flush por
+     * destinatário): no primeiro, cria as linhas do histórico (com a cópia, que foi nele); nos
+     * seguintes, acrescenta o endereço nelas.
+     *
+     * @param list<EnvioAoCliente> $linhas
+     *
+     * @return non-empty-list<EnvioAoCliente>
      */
-    private function registrar(PedidoDeEnvioAutomatico $pedido, array $enviados, array $ids): void
+    private function registrar(PedidoDeEnvioAutomatico $pedido, array $linhas, string $email, ?int $envioId): array
     {
-        $agora = $this->relogio->now();
-        $ultimo = \count($pedido->registros) - 1;
-        foreach ($pedido->registros as $i => $registro) {
-            $this->envios->salvar(new EnvioAoCliente(
+        if ($linhas === []) {
+            $agora = $this->relogio->now();
+            $linhas = array_map(static fn (array $registro): EnvioAoCliente => new EnvioAoCliente(
                 $pedido->tenant,
                 $pedido->pasta,
                 $pedido->cliente,
                 TipoDeEnvioAoCliente::Auto,
-                $enviados,
+                [$email],
                 null,
                 $agora,
                 cc: $pedido->cc,
                 assunto: mb_substr($pedido->assunto, 0, 255),
                 descricao: mb_substr($registro['descricao'], 0, 255),
                 referencia: $registro['referencia'],
-                envioIds: $ids,
-            ), $i === $ultimo);
+                envioIds: [$envioId],
+            ), $pedido->registros);
+        } else {
+            array_walk($linhas, static fn (EnvioAoCliente $linha) => $linha->acrescentarDestinatario($email, $envioId));
         }
+        $ultima = \count($linhas) - 1;
+        foreach ($linhas as $i => $linha) {
+            $this->envios->salvar($linha, $i === $ultima);
+        }
+
+        return $linhas;
     }
 }

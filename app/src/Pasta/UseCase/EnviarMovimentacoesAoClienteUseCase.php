@@ -16,6 +16,8 @@ use App\Pasta\Repository\EnvioAoClienteRepository;
 use App\Pasta\Service\EnvioAutomaticoAoCliente;
 use App\Pasta\Service\GruposDoEnvioAutomatico;
 use App\Pasta\Service\TextoDoEnvioAutomatico;
+use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * "Novas movimentações" e "Audiências e intimações" do envio automático ao cliente (spec
@@ -25,8 +27,10 @@ use App\Pasta\Service\TextoDoEnvioAutomatico;
  * cliente quer saber da movimentação (com o texto oficial) sem precisar ligar para o escritório. Quem
  * dispara é a captação (comando diário ou "Buscar agora"), sem sessão: o escritório é explícito.
  *
- *   1. as publicações NOVAS desta captação vinculadas a processo do escritório, agrupadas por pasta
- *      viva, com o cliente principal da pasta e as chaves dele (padrão: desligadas, D1);
+ *   1. as publicações NOVAS desta captação vinculadas a processo do escritório e disponibilizadas nos
+ *      últimos 3 dias (hoje e os 2 anteriores; D6, "assim que ela chega": a publicação antiga que a
+ *      captação acabou de achar não vai como novidade, só no resumo semanal da semana dela), agrupadas
+ *      por pasta viva e liberada (D7), com o cliente principal da pasta e as chaves dele (D1);
  *   2. por pasta com alguma das duas chaves ligada: "Novas movimentações" leva todas; só "Audiências e
  *      intimações" leva as intimações e as designações de audiência. As duas ligadas: cada
  *      movimentação sai uma vez só;
@@ -36,15 +40,21 @@ use App\Pasta\Service\TextoDoEnvioAutomatico;
  *      texto oficial até 4.000 caracteres; segredo de justiça pela D4), cópia da Controladoria na
  *      primeira mensagem e uma linha no histórico por movimentação;
  *   5. sem Controladoria: envia e avisa os primários UMA vez nesta execução.
- * Falha de envio vai ao log e não derruba nada (o envio de cada destinatário é independente).
+ * Falha de envio vai ao log e não derruba nada (o envio de cada destinatário é independente); a falha
+ * de uma pasta vai ao log e não impede as outras.
  */
 final class EnviarMovimentacoesAoClienteUseCase
 {
+    /** D6: a janela do "assim que ela chega", em dias antes de hoje (hoje e os 2 anteriores). */
+    public const DIAS_DE_NOVIDADE = 2;
+
     public function __construct(
         private readonly PublicacaoDjenRepository $publicacoes,
         private readonly GruposDoEnvioAutomatico $grupos,
         private readonly EnvioAoClienteRepository $envios,
         private readonly EnvioAutomaticoAoCliente $envio,
+        private readonly ClockInterface $relogio,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -55,20 +65,19 @@ final class EnviarMovimentacoesAoClienteUseCase
      */
     public function executar(Tenant $tenant, array $djenIdsNovos): int
     {
-        $grupos = $this->grupos->agrupar($tenant, $this->publicacoes->listarVinculadasPorDjenIdsDoTenant($tenant, $djenIdsNovos));
-        $cc = null;
+        $grupos = $this->grupos->agrupar($tenant, $this->recentes($this->publicacoes->listarVinculadasPorDjenIdsDoTenant($tenant, $djenIdsNovos)));
+        $cc = $grupos !== [] ? $this->envio->copiaDaControladoria($tenant) : [];
         $jaNestaExecucao = [];
         $enviadas = [];
         foreach ($grupos as $grupo) {
-            $clienteId = (int) $grupo['cliente']->getId();
-            $movimentacoes = $this->aEnviar($tenant, $grupo['cliente'], $grupo['chaves'], $grupo['publicacoes'], $jaNestaExecucao[$clienteId] ?? []);
-            if ($movimentacoes === []) {
-                continue;
-            }
-            $jaNestaExecucao[$clienteId] = array_merge($jaNestaExecucao[$clienteId] ?? [], array_map(static fn (MovimentacaoAoClienteOutput $m): int => $m->publicacaoId, $movimentacoes));
-            $cc ??= $this->envio->copiaDaControladoria($tenant);
-            if ($this->enviarDaPasta($tenant, $grupo['pasta'], $grupo['cliente'], $movimentacoes, $cc)) {
-                $enviadas[] = $grupo['pasta'];
+            try {
+                if ($this->enviarDoGrupo($tenant, $grupo, $cc, $jaNestaExecucao)) {
+                    $enviadas[] = $grupo['pasta'];
+                }
+            } catch (\Throwable $e) {
+                $this->logger->error('Envio automático ao cliente: falha na pasta {pasta} do tenant {tenant} ({classe}).', [
+                    'pasta' => $grupo['pasta']->getId(), 'tenant' => $tenant->getId(), 'classe' => $e::class,
+                ]);
             }
         }
         if ($enviadas !== [] && $cc === []) {
@@ -76,6 +85,26 @@ final class EnviarMovimentacoesAoClienteUseCase
         }
 
         return \count($enviadas);
+    }
+
+    /**
+     * Uma pasta: o que o cliente dela deve receber agora e o envio. A falha de uma pasta (banco,
+     * template) é de quem chama: vai ao log e não impede as outras do escritório.
+     *
+     * @param array{pasta: Pasta, cliente: Cliente, chaves: ChavesDoEnvioAutomatico, publicacoes: non-empty-list<PublicacaoDjen>} $grupo
+     * @param list<string>                                                                                                        $cc
+     * @param array<int, list<int>>                                                                                               $jaNestaExecucao publicações já enviadas por cliente nesta execução
+     */
+    private function enviarDoGrupo(Tenant $tenant, array $grupo, array $cc, array &$jaNestaExecucao): bool
+    {
+        $clienteId = (int) $grupo['cliente']->getId();
+        $movimentacoes = $this->aEnviar($tenant, $grupo['cliente'], $grupo['chaves'], $grupo['publicacoes'], $jaNestaExecucao[$clienteId] ?? []);
+        if ($movimentacoes === []) {
+            return false;
+        }
+        $jaNestaExecucao[$clienteId] = array_merge($jaNestaExecucao[$clienteId] ?? [], array_map(static fn (MovimentacaoAoClienteOutput $m): int => $m->publicacaoId, $movimentacoes));
+
+        return $this->enviarDaPasta($tenant, $grupo['pasta'], $grupo['cliente'], $movimentacoes, $cc);
     }
 
     /**
@@ -100,6 +129,20 @@ final class EnviarMovimentacoesAoClienteUseCase
         $jaEnviadas = array_merge($jaNestaExecucao, $this->envios->publicacoesJaEnviadasAoCliente($tenant, $cliente, $ids));
 
         return array_values(array_filter($movimentacoes, static fn (MovimentacaoAoClienteOutput $m): bool => !\in_array($m->publicacaoId, $jaEnviadas, true)));
+    }
+
+    /**
+     * D6: só as disponibilizadas de hoje e dos 2 dias anteriores (pelo relógio); sem data, fora.
+     *
+     * @param list<PublicacaoDjen> $publicacoes
+     *
+     * @return list<PublicacaoDjen>
+     */
+    private function recentes(array $publicacoes): array
+    {
+        $desde = $this->relogio->now()->setTime(0, 0)->modify('-' . self::DIAS_DE_NOVIDADE . ' days');
+
+        return array_values(array_filter($publicacoes, static fn (PublicacaoDjen $p): bool => $p->getDataDisponibilizacao() !== null && $p->getDataDisponibilizacao() >= $desde));
     }
 
     /**

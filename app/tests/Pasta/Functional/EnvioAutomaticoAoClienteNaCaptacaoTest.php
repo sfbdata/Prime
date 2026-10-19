@@ -30,7 +30,16 @@ use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Entity\Notificacao;
+use App\Repository\NotificacaoRepository;
+use App\Repository\UserRepository;
+use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\Mime\Email;
 
 /**
@@ -53,14 +62,23 @@ final class EnvioAutomaticoAoClienteNaCaptacaoTest extends KernelTestCase
 
     protected function setUp(): void
     {
+        // D6: o envio só leva o que foi disponibilizado hoje e nos 2 dias anteriores; a dublagem do
+        // DJEN publica em 02/10, então o relógio fica em 03/10.
+        Clock::set(new MockClock('2026-10-03 10:00:00'));
         self::bootKernel();
         if ($this->em()->getFilters()->isEnabled('tenant')) {
             $this->em()->getFilters()->disable('tenant');
         }
     }
 
+    protected function tearDown(): void
+    {
+        Clock::set(new NativeClock());
+        parent::tearDown();
+    }
+
     /** @param list<int> $ids djenId das intimações que o DJEN devolve para o número */
-    private function dublarDjen(array $ids): void
+    private function dublarDjen(array $ids, string $data = '2026-10-02'): void
     {
         $itens = array_map(static fn (int $id): array => [
             'id' => $id,
@@ -69,7 +87,7 @@ final class EnvioAutomaticoAoClienteNaCaptacaoTest extends KernelTestCase
             'tipoComunicacao' => 'Intimação',
             'nomeOrgao' => '1ª Vara Cível de Brasília',
             'texto' => '<p>Fica a parte autora intimada para apresentar réplica no prazo de 15 dias.</p>',
-            'data_disponibilizacao' => '2026-10-02',
+            'data_disponibilizacao' => $data,
         ], $ids);
         $mock = $this->createMock(DjenClientInterface::class);
         $mock->method('consultarComunicacoes')->willReturnCallback(
@@ -216,5 +234,98 @@ final class EnvioAutomaticoAoClienteNaCaptacaoTest extends KernelTestCase
         self::assertSame('controle@escritorio.com.br', $emails[0]->getCc()[0]->getAddress());
         self::assertSame([], $emails[1]->getCc());
         self::assertSame(['controle@escritorio.com.br'], $this->historico($pasta)[0]->getCc());
+    }
+    #[TestDox('D6: "Buscar agora" numa pasta nova que acha publicações de 20 dias atrás não manda nada ao cliente')]
+    public function testPublicacaoAntigaNaoVai(): void
+    {
+        [$quem, $tenant, $pasta, $cliente] = $this->cenario();
+        $this->ligar($tenant, $cliente, $quem, ChaveDoEnvioAutomatico::NovasMovimentacoes);
+        $this->dublarDjen([890041, 890042], '2026-09-13');
+
+        $this->captar($tenant);
+
+        self::assertSame([], $this->emailsAoCliente());
+        self::assertSame([], $this->historico($pasta));
+    }
+
+    #[TestDox('Captação repetida: a trava do histórico (não o unique do DJEN) impede o segundo envio das mesmas publicações')]
+    public function testTravaDoHistorico(): void
+    {
+        [$quem, $tenant, $pasta, $cliente] = $this->cenario();
+        $this->ligar($tenant, $cliente, $quem, ChaveDoEnvioAutomatico::NovasMovimentacoes);
+        $this->dublarDjen([890051]);
+        $this->captar($tenant);
+        self::assertCount(1, $this->emailsAoCliente());
+
+        // As mesmas publicações entregues de novo como "novas": só o histórico segura.
+        $enviadas = static::getContainer()->get(EnviarMovimentacoesAoClienteUseCase::class)->executar($tenant, ['890051']);
+
+        self::assertSame(0, $enviadas);
+        self::assertCount(1, $this->emailsAoCliente());
+        self::assertCount(1, $this->historico($pasta));
+    }
+
+    #[TestDox('Cliente em duas pastas com o mesmo processo: cada movimentação sai uma vez só (um e-mail, uma linha no histórico)')]
+    public function testClienteEmDuasPastasDoMesmoProcesso(): void
+    {
+        [$quem, $tenant, $pasta, $cliente] = $this->cenario();
+        $outra = $this->criarPasta($tenant);
+        $outra->addCliente($cliente);
+        $this->vincular($outra, $pasta->getProcessoPrincipal() ?? self::fail('sem processo'));
+        $this->ligar($tenant, $cliente, $quem, ChaveDoEnvioAutomatico::NovasMovimentacoes);
+        $this->dublarDjen([890061]);
+
+        $this->captar($tenant);
+
+        self::assertCount(1, $this->emailsAoCliente());
+        self::assertCount(1, array_merge($this->historico($pasta), $this->historico($outra)));
+    }
+
+    #[TestDox('Descadastro em "todos" (o cliente saiu de tudo do escritório): não recebe')]
+    public function testDescadastroEmTodos(): void
+    {
+        [$quem, $tenant, $pasta, $cliente] = $this->cenario();
+        static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar($tenant, self::EMAIL_DO_CLIENTE, DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
+        $this->ligar($tenant, $cliente, $quem, ChaveDoEnvioAutomatico::NovasMovimentacoes);
+        $this->dublarDjen([890071]);
+
+        $this->captar($tenant);
+
+        self::assertSame([], $this->emailsAoCliente());
+        self::assertSame([], $this->historico($pasta));
+    }
+
+    #[TestDox('Falha no aviso à equipe que fecha o EntityManager: o cliente já recebeu, com o histórico gravado (o envio ao cliente vem antes)')]
+    public function testFalhaDaEquipeNaoDeixaOClienteSemNada(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        static::getContainer()->set(NotificacaoService::class, new class ($em, static::getContainer()->get(NotificacaoRepository::class), static::getContainer()->get(UserRepository::class), static::getContainer()->get(PermissionChecker::class)) extends NotificacaoService {
+            public function __construct(private readonly EntityManagerInterface $em, NotificacaoRepository $notificacoes, UserRepository $usuarios, PermissionChecker $permissoes)
+            {
+                parent::__construct($em, $notificacoes, $usuarios, $permissoes);
+            }
+
+            public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null): Notificacao
+            {
+                if ($tipo === Notificacao::TIPO_PUSH_PUBLICACAO_PASTA) {
+                    $this->em->close();
+
+                    throw new \RuntimeException('banco caiu no aviso à equipe');
+                }
+
+                return parent::criarNotificacao($usuario, $tenant, $tipo, $mensagem, $url);
+            }
+        });
+        [$quem, $tenant, $pasta, $cliente] = $this->cenario();
+        $this->ligar($tenant, $cliente, $quem, ChaveDoEnvioAutomatico::NovasMovimentacoes);
+        $pastaId = (int) $pasta->getId();
+        $this->dublarDjen([890081]);
+
+        $this->captar($tenant);
+
+        self::assertFalse($em->isOpen(), 'o aviso à equipe fechou o EntityManager');
+        self::assertCount(1, $this->emailsAoCliente());
+        $total = (int) static::getContainer()->get('doctrine')->getConnection()->fetchOne("SELECT COUNT(*) FROM envio_ao_cliente WHERE pasta_id = ? AND tipo = 'auto'", [$pastaId]);
+        self::assertSame(1, $total);
     }
 }

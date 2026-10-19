@@ -55,7 +55,10 @@ final class EnviarResumoSemanalAoClienteUseCaseTest extends TestCase
     /** @var list<PublicacaoDjen> */
     private array $publicacoes = [];
     private ?EnvioAutomaticoDoCliente $chaves = null;
-    private bool $jaSaiu = false;
+    /** @var list<string> */
+    private array $jaReceberam = [];
+    /** @var list<PastaProcesso> */
+    private array $vinculos = [];
     /** @var list<MensagemAoCliente> */
     private array $mensagens = [];
     /** @var list<EnvioAoCliente> */
@@ -107,19 +110,21 @@ final class EnviarResumoSemanalAoClienteUseCaseTest extends TestCase
             return $this->publicacoes;
         });
         $pastas = $this->createStub(PastaRepository::class);
-        $pastas->method('listarVinculosDePastasVivasDosProcessos')->willReturn([new PastaProcesso($this->pasta, $this->processo)]);
+        $pastas->method('listarVinculosDePastasVivasDosProcessos')->willReturnCallback(fn (): array => $this->vinculos !== [] ? $this->vinculos : [new PastaProcesso($this->pasta, $this->processo)]);
         $emails = $this->createStub(ClienteEmailRepository::class);
         $emails->method('listarDoCliente')->willReturn([]);
         $automaticos = $this->createStub(EnvioAutomaticoDoClienteRepository::class);
         $automaticos->method('porClientesDoTenant')->willReturnCallback(fn (): array => $this->chaves !== null ? [50 => $this->chaves] : []);
         $envios = $this->createStub(EnvioAoClienteRepository::class);
-        $envios->method('existeEnvioAutomaticoDaPasta')->willReturnCallback(function (Tenant $t, Pasta $p, string $descricao): bool {
+        $envios->method('destinatariosDoEnvioAutomaticoDaPasta')->willReturnCallback(function (Tenant $t, Pasta $p, string $descricao): array {
             $this->descricaoConsultada = $descricao;
 
-            return $this->jaSaiu;
+            return $this->jaReceberam;
         });
         $envios->method('salvar')->willReturnCallback(function (EnvioAoCliente $e): void {
-            $this->gravados[] = $e;
+            if (!\in_array($e, $this->gravados, true)) {
+                $this->gravados[] = $e;
+            }
         });
         $porta = $this->createStub(EnvioDeEmailAoClienteInterface::class);
         $porta->method('enviar')->willReturnCallback(function (MensagemAoCliente $m): ResultadoDoEnvioAoCliente {
@@ -144,7 +149,7 @@ final class EnviarResumoSemanalAoClienteUseCaseTest extends TestCase
             new NullLogger(),
         );
 
-        return new EnviarResumoSemanalAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos), $envios, $envio, new MockClock($agora));
+        return new EnviarResumoSemanalAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos), $envios, $envio, new MockClock($agora), new NullLogger());
     }
 
     /** @return iterable<string, array{string, string, string}> */
@@ -187,7 +192,7 @@ final class EnviarResumoSemanalAoClienteUseCaseTest extends TestCase
         self::assertNull($this->gravados[0]->getReferencia());
     }
 
-    #[TestDox('Chave desligada (padrão), semana sem movimentação ou resumo da semana já enviado: nada sai')]
+    #[TestDox('Chave desligada (padrão), semana sem movimentação ou resumo da semana já recebido: nada sai')]
     public function testNaoEnvia(): void
     {
         $this->useCase()->executar($this->tenant);
@@ -199,8 +204,8 @@ final class EnviarResumoSemanalAoClienteUseCaseTest extends TestCase
 
         $this->setUp();
         $this->ligarResumo();
-        $this->jaSaiu = true;
-        self::assertSame(0, $this->useCase()->executar($this->tenant)->pastas, 'já enviado nesta semana');
+        $this->jaReceberam = ['maria@cliente.com.br'];
+        self::assertSame(0, $this->useCase()->executar($this->tenant)->pastas, 'quem já recebeu nesta semana não recebe de novo');
         self::assertSame('resumo semanal de 12/10 a 18/10', $this->descricaoConsultada);
         self::assertSame([], $this->mensagens);
         self::assertSame([], $this->gravados);
@@ -217,5 +222,32 @@ final class EnviarResumoSemanalAoClienteUseCaseTest extends TestCase
         self::assertSame(1, $resultado->emails);
         self::assertSame([], $this->mensagens);
         self::assertSame([], $this->gravados);
+    }
+    #[TestDox('O mesmo processo em duas pastas do mesmo cliente: a movimentação aparece em um resumo só')]
+    public function testMesmoClienteDuasPastas(): void
+    {
+        $this->ligarResumo();
+        $outra = new Pasta();
+        $outra->setTenant($this->tenant);
+        $outra->setNup('2026/0043');
+        $outra->addCliente($this->cliente);
+        DefineId::em($outra, 31);
+        $this->vinculos = [new PastaProcesso($this->pasta, $this->processo), new PastaProcesso($outra, $this->processo)];
+
+        $resultado = $this->useCase()->executar($this->tenant);
+
+        self::assertSame(1, $resultado->pastas);
+        self::assertCount(1, $this->mensagens);
+        self::assertSame(1, substr_count($this->mensagens[0]->corpoHtml, 'Fica a parte intimada.'));
+    }
+
+    #[TestDox('D7 no resumo: processo pausado não entra')]
+    public function testBloqueioNoResumo(): void
+    {
+        $this->ligarResumo();
+        $this->processo->pausarMonitoramento(new User(), new \DateTimeImmutable());
+
+        self::assertSame(0, $this->useCase()->executar($this->tenant)->pastas);
+        self::assertSame([], $this->mensagens);
     }
 }

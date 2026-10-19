@@ -126,25 +126,30 @@ class EnvioAoClienteRepository extends ServiceEntityRepository
     }
 
     /**
-     * Já há, desde o instante, um envio automático da pasta com esta descrição (o resumo semanal de uma
-     * semana sai uma vez; o `desde` evita que a mesma "dd/mm a dd/mm" de outro ano conte).
+     * Quem já recebeu, desde o instante, o envio automático da pasta com esta descrição (o resumo
+     * semanal de uma semana não vai de novo a quem já recebeu; o `desde` evita que a mesma "dd/mm a
+     * dd/mm" de outro ano conte).
+     *
+     * @return list<string>
      */
-    public function existeEnvioAutomaticoDaPasta(Tenant $tenant, Pasta $pasta, string $descricao, \DateTimeImmutable $desde): bool
+    public function destinatariosDoEnvioAutomaticoDaPasta(Tenant $tenant, Pasta $pasta, string $descricao, \DateTimeImmutable $desde): array
     {
-        return (int) $this->createQueryBuilder('e')
-            ->select('COUNT(e.id)')
+        /** @var list<EnvioAoCliente> $envios */
+        $envios = $this->createQueryBuilder('e')
             ->andWhere('e.tenant = :tenant')
             ->andWhere('e.pasta = :pasta')
             ->andWhere('e.tipo = :tipo')
             ->andWhere('e.descricao = :descricao')
             ->andWhere('e.em >= :desde')
             ->setParameter('tenant', $tenant)
-            ->setParameter('desde', $desde)
             ->setParameter('pasta', $pasta)
             ->setParameter('tipo', TipoDeEnvioAoCliente::Auto)
             ->setParameter('descricao', $descricao)
+            ->setParameter('desde', $desde)
             ->getQuery()
-            ->getSingleScalarResult() > 0;
+            ->getResult();
+
+        return array_values(array_unique(array_merge([], ...array_map(static fn (EnvioAoCliente $e): array => $e->getPara(), $envios))));
     }
 
     /**

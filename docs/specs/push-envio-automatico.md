@@ -18,6 +18,21 @@ para fora do escritório).
 - D4 (orquestrador): segredo de justiça (`nivelSigilo > 0`) não leva conteúdo da movimentação ao cliente: o e-mail diz
   "Há movimentação nova no seu processo sob segredo de justiça. Fale com o escritório." (mesma regra do P4b).
 - D5 (orquestrador): a "Análise da BlueJus IA" fica fixa como "Só manual" (desenho), sem switch.
+- D6 (orquestrador, revisão do P4d, 19/10): "assim que ela chega". O envio da captação só leva publicações com
+  `dataDisponibilizacao` de hoje e dos 2 dias anteriores (relógio do PHP); a publicação antiga que a captação acabou de
+  achar (pasta nova, processo recém-cadastrado) não vai como novidade. Ela aparece no resumo semanal se for da semana
+  anterior.
+- D7 (orquestrador, revisão do P4d, 19/10; a confirmar com o dono: menos e-mail é o lado seguro): nada sai, na captação
+  nem no resumo, de processo com o monitoramento pausado (`!monitoramentoAtivo()`) ou baixado (`dataBaixa`), nem de
+  pasta que não está ativa (arquivada, cancelada, suspensa) ou está trancada.
+- Notas (revisão do P4d): processo sem sigilo informado (`nivelSigilo` nulo) é tratado como público. O filtro
+  "Audiências e intimações" pega quase tudo, porque o DJEN marca quase toda comunicação como "Intimação"; é o
+  comportamento do desenho ("Avisa quando chegar intimação ou designação de audiência").
+- Robustez (revisão do P4d): na captação, o envio ao cliente roda ANTES do aviso à equipe (uma falha do P4b que feche o
+  EntityManager não deixa o cliente sem nada). Cada destinatário fica gravado no histórico (flush) logo depois que o
+  e-mail dele sai; qualquer erro de um destinatário vai ao log e não impede os outros; a falha de uma pasta não para as
+  outras do escritório. O resumo não vai de novo a quem já recebeu o da semana, e cada movimentação aparece uma vez
+  por cliente (o mesmo processo em duas pastas dele).
 
 ## 1. Modelo
 

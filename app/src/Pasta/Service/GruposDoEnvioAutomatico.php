@@ -18,6 +18,10 @@ use App\Pasta\Repository\PastaRepository;
  * P4b), cada uma com o cliente principal dela (do escritório; pasta sem cliente fica de fora) e as
  * chaves do envio automático desse cliente (sem linha, os padrões: tudo desligado). Tenant explícito
  * em tudo: roda no CLI.
+ *
+ * Bloqueios (D7, decisão do orquestrador a confirmar com o dono: menos e-mail é o lado seguro), valem
+ * na captação e no resumo: fica de fora a publicação de processo com o monitoramento pausado ou
+ * baixado, e a pasta que não está ativa (arquivada, cancelada, suspensa) ou está trancada.
  */
 final class GruposDoEnvioAutomatico
 {
@@ -39,10 +43,15 @@ final class GruposDoEnvioAutomatico
             return [];
         }
 
+        $publicacoes = array_values(array_filter($publicacoes, self::processoLiberado(...)));
+        if ($publicacoes === []) {
+            return [];
+        }
+
         $processoIds = array_map(static fn (PublicacaoDjen $p): int => (int) $p->getProcesso()?->getId(), $publicacoes);
         $grupos = [];
         foreach (AgrupadorDoAvisoDoPush::agrupar($this->pastas->listarVinculosDePastasVivasDosProcessos($tenant, $processoIds), $publicacoes) as $grupo) {
-            $cliente = $this->emails->cliente($grupo['pasta'], $tenant);
+            $cliente = self::pastaLiberada($grupo['pasta']) ? $this->emails->cliente($grupo['pasta'], $tenant) : null;
             if ($cliente !== null) {
                 $grupos[] = ['pasta' => $grupo['pasta'], 'cliente' => $cliente, 'publicacoes' => $grupo['publicacoes']];
             }
@@ -50,5 +59,19 @@ final class GruposDoEnvioAutomatico
         $linhas = $this->automaticos->porClientesDoTenant($tenant, array_map(static fn (array $g): int => (int) $g['cliente']->getId(), $grupos));
 
         return array_map(static fn (array $g): array => $g + ['chaves' => ChavesDoEnvioAutomatico::da($linhas[(int) $g['cliente']->getId()] ?? null)], $grupos);
+    }
+
+    /** D7: processo com o monitoramento ligado e sem baixa. */
+    private static function processoLiberado(PublicacaoDjen $publicacao): bool
+    {
+        $processo = $publicacao->getProcesso();
+
+        return $processo !== null && $processo->monitoramentoAtivo() && $processo->getDataBaixa() === null;
+    }
+
+    /** D7: pasta ativa e destrancada. */
+    private static function pastaLiberada(Pasta $pasta): bool
+    {
+        return $pasta->getSituacao() === Pasta::SITUACAO_ATIVA && !$pasta->estaTrancada();
     }
 }

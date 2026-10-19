@@ -8,6 +8,7 @@ use App\Cliente\Entity\Cliente;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\DTO\ChavesDoEnvioAutomatico;
 use App\Pasta\DTO\MovimentacaoAoClienteOutput;
 use App\Pasta\DTO\PedidoDeEnvioAutomatico;
 use App\Pasta\DTO\ResultadoDoResumoSemanal;
@@ -17,6 +18,7 @@ use App\Pasta\Service\EnvioAutomaticoAoCliente;
 use App\Pasta\Service\GruposDoEnvioAutomatico;
 use App\Pasta\Service\TextoDoEnvioAutomatico;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * "Resumo semanal" do envio automático ao cliente (spec push-envio-automatico §3), pelo comando
@@ -29,8 +31,10 @@ use Psr\Clock\ClockInterface;
  *      semana que a segunda mandaria);
  *   2. as publicações do escritório vinculadas a processo e disponibilizadas nessa semana, agrupadas
  *      por pasta viva, com o cliente principal e as chaves dele (padrão: desligadas, D1);
- *   3. pasta sem movimentação na semana não recebe nada; pasta cujo resumo desta semana já saiu
- *      (histórico `auto` com a mesma descrição) não recebe de novo;
+ *   3. pasta sem movimentação na semana não recebe nada; cada movimentação aparece uma vez por cliente
+ *      (o mesmo processo em duas pastas dele); quem já recebeu o resumo desta semana da pasta
+ *      (histórico `auto` com a mesma descrição) não recebe de novo; bloqueios da D7 (processo pausado
+ *      ou baixado, pasta não ativa ou trancada);
  *   4. um e-mail por e-mail ativo do cliente, cópia da Controladoria na primeira, uma linha no
  *      histórico ("resumo semanal de dd/mm a dd/mm"); segredo de justiça pela D4;
  *   5. sem Controladoria: envia e avisa os primários UMA vez nesta execução.
@@ -47,6 +51,7 @@ final class EnviarResumoSemanalAoClienteUseCase
         private readonly EnvioAoClienteRepository $envios,
         private readonly EnvioAutomaticoAoCliente $envio,
         private readonly ClockInterface $relogio,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -54,16 +59,17 @@ final class EnviarResumoSemanalAoClienteUseCase
     {
         [$inicio, $fim] = self::semanaAnterior($this->relogio->now());
         $descricao = 'resumo semanal de ' . $inicio->format('d/m') . ' a ' . $fim->format('d/m');
-        $cc = null;
+        $grupos = $this->grupos->agrupar($tenant, $this->publicacoes->listarVinculadasDoPeriodoDoTenant($tenant, $inicio, $fim));
+        $cc = $grupos !== [] ? $this->envio->copiaDaControladoria($tenant) : [];
+        $noResumo = [];
         $enviadas = [];
         $emails = 0;
-        foreach ($this->grupos->agrupar($tenant, $this->publicacoes->listarVinculadasDoPeriodoDoTenant($tenant, $inicio, $fim)) as $grupo) {
-            $destinatarios = $this->destinatariosDoResumo($tenant, $grupo['pasta'], $grupo['chaves']->resumoSemanal, $descricao, $inicio);
-            if ($destinatarios === []) {
+        foreach ($grupos as $grupo) {
+            $publicacoes = $this->publicacoesDoResumo($grupo, $noResumo);
+            if ($publicacoes === []) {
                 continue;
             }
-            $cc ??= $this->envio->copiaDaControladoria($tenant);
-            $saiu = $simular ? $destinatarios : $this->enviar($tenant, $grupo['pasta'], $grupo['cliente'], $grupo['publicacoes'], $inicio, $fim, $descricao, $cc, $destinatarios);
+            $saiu = $this->resumoDaPastaSemDerrubar($tenant, $grupo['pasta'], $grupo['cliente'], $publicacoes, [$inicio, $fim, $descricao], $cc, $simular);
             if ($saiu !== []) {
                 $emails += \count($saiu);
                 $enviadas[] = $grupo['pasta'];
@@ -88,14 +94,55 @@ final class EnviarResumoSemanalAoClienteUseCase
         return [$segundaDestaSemana->modify('-7 days'), $segundaDestaSemana->modify('-1 day')];
     }
 
-    /** @return list<string> a quem o resumo desta pasta vai (nada se a chave está desligada ou já saiu) */
-    private function destinatariosDoResumo(Tenant $tenant, Pasta $pasta, bool $ligado, string $descricao, \DateTimeImmutable $inicio): array
+    /**
+     * As publicações desta pasta que entram no resumo: chave ligada e cada movimentação uma vez por
+     * cliente (o mesmo processo em duas pastas do mesmo cliente não sai duas vezes). Marca as que
+     * entram, mesmo que o resumo desta pasta já tenha saído antes (a ordem das pastas é estável).
+     *
+     * @param array{pasta: Pasta, cliente: Cliente, chaves: ChavesDoEnvioAutomatico, publicacoes: non-empty-list<PublicacaoDjen>} $grupo
+     * @param array<int, list<int>>                                                                                               $noResumo publicações já no resumo, por cliente
+     *
+     * @return list<PublicacaoDjen>
+     */
+    private function publicacoesDoResumo(array $grupo, array &$noResumo): array
     {
-        if (!$ligado || $this->envios->existeEnvioAutomaticoDaPasta($tenant, $pasta, $descricao, $inicio)) {
+        if (!$grupo['chaves']->resumoSemanal) {
             return [];
         }
+        $clienteId = (int) $grupo['cliente']->getId();
+        $publicacoes = array_values(array_filter($grupo['publicacoes'], static fn (PublicacaoDjen $p): bool => !\in_array((int) $p->getId(), $noResumo[$clienteId] ?? [], true)));
+        $noResumo[$clienteId] = array_merge($noResumo[$clienteId] ?? [], array_map(static fn (PublicacaoDjen $p): int => (int) $p->getId(), $publicacoes));
 
-        return $this->envio->destinatarios($pasta, $tenant);
+        return $publicacoes;
+    }
+
+    /**
+     * O resumo de uma pasta, só para quem ainda não recebeu o desta semana. Uma pasta que falha vai ao
+     * log e não impede as outras do escritório.
+     *
+     * @param non-empty-list<PublicacaoDjen>                                  $publicacoes
+     * @param array{0: \DateTimeImmutable, 1: \DateTimeImmutable, 2: string} $semana      início, fim e a descrição
+     * @param list<string>                                                    $cc
+     *
+     * @return list<string> os que receberam (na simulação, os que receberiam)
+     */
+    private function resumoDaPastaSemDerrubar(Tenant $tenant, Pasta $pasta, Cliente $cliente, array $publicacoes, array $semana, array $cc, bool $simular): array
+    {
+        try {
+            $jaRecebeu = $this->envios->destinatariosDoEnvioAutomaticoDaPasta($tenant, $pasta, $semana[2], $semana[0]);
+            $destinatarios = array_values(array_diff($this->envio->destinatarios($pasta, $tenant), $jaRecebeu));
+            if ($destinatarios === [] || $simular) {
+                return $destinatarios;
+            }
+
+            return $this->enviar($tenant, $pasta, $cliente, $publicacoes, $semana[0], $semana[1], $semana[2], $cc, $destinatarios);
+        } catch (\Throwable $e) {
+            $this->logger->error('Resumo semanal ao cliente: falha na pasta {pasta} do tenant {tenant} ({classe}).', [
+                'pasta' => $pasta->getId(), 'tenant' => $tenant->getId(), 'classe' => $e::class,
+            ]);
+
+            return [];
+        }
     }
 
     /**

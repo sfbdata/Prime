@@ -40,6 +40,7 @@ use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tests\Inteligencia\Support\DefineId;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -59,6 +60,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 #[CoversClass(GruposDoEnvioAutomatico::class)]
 final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
 {
+    /** Relógio dos testes: as publicações de 02/10 estão na janela da D6 (hoje e os 2 dias anteriores). */
+    private const AGORA = '2026-10-04 09:00:00';
+
     private Tenant $tenant;
     private Pasta $pasta;
     private Processo $processo;
@@ -81,6 +85,9 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
     /** @var list<string> */
     private array $falharPara = [];
     private NotificacaoService&MockObject $notificacoes;
+    /** @var list<list<list<string>>> o "para" de cada linha gravada, a cada flush */
+    private array $flushes = [];
+    private ?\Throwable $erroNoEnvio = null;
     /** @var list<UserTenant> */
     private array $vinculosDoEscritorio = [];
 
@@ -155,13 +162,18 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
         $automaticos->method('porClientesDoTenant')->willReturnCallback(fn (): array => $this->chaves !== null ? [50 => $this->chaves] : []);
         $envios = $this->createStub(EnvioAoClienteRepository::class);
         $envios->method('publicacoesJaEnviadasAoCliente')->willReturnCallback(fn (): array => $this->jaEnviadas);
-        $envios->method('salvar')->willReturnCallback(function (EnvioAoCliente $e): void {
-            $this->gravados[] = $e;
+        $envios->method('salvar')->willReturnCallback(function (EnvioAoCliente $e, bool $flush = false): void {
+            if (!\in_array($e, $this->gravados, true)) {
+                $this->gravados[] = $e;
+            }
+            if ($flush) {
+                $this->flushes[] = array_map(static fn (EnvioAoCliente $g): array => $g->getPara(), $this->gravados);
+            }
         });
 
         $daPasta = new EmailsDoClienteDaPasta($emails);
 
-        return new EnviarMovimentacoesAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos), $envios, $this->envio($daPasta, $envios));
+        return new EnviarMovimentacoesAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos), $envios, $this->envio($daPasta, $envios), new MockClock(self::AGORA), new NullLogger());
     }
 
     private function envio(EmailsDoClienteDaPasta $daPasta, EnvioAoClienteRepository $envios): EnvioAutomaticoAoCliente
@@ -173,7 +185,7 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
         $porta = $this->createStub(EnvioDeEmailAoClienteInterface::class);
         $porta->method('enviar')->willReturnCallback(function (MensagemAoCliente $m): ResultadoDoEnvioAoCliente {
             if (\in_array($m->para, $this->falharPara, true)) {
-                throw new \RuntimeException('smtp');
+                throw $this->erroNoEnvio ?? new \RuntimeException('smtp');
             }
             $this->mensagens[] = $m;
 
@@ -184,7 +196,7 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
         $urls = $this->createStub(UrlGeneratorInterface::class);
         $urls->method('generate')->willReturn('/pasta/30');
 
-        return new EnvioAutomaticoAoCliente($daPasta, $descadastro, $controladoria, $porta, $envios, $vinculos, new RegraDosPrimarios($vinculos), $this->notificacoes, $urls, new MockClock('2026-10-19 10:00:00'), new NullLogger());
+        return new EnvioAutomaticoAoCliente($daPasta, $descadastro, $controladoria, $porta, $envios, $vinculos, new RegraDosPrimarios($vinculos), $this->notificacoes, $urls, new MockClock(self::AGORA), new NullLogger());
     }
 
     /** @return list<string> */
@@ -334,5 +346,59 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
         $this->useCase()->executar($this->tenant, ['701']);
 
         self::assertSame('primario@escritorio.com.br', $this->mensagens[0]->replyTo);
+    }
+    #[TestDox('D6: publicação disponibilizada antes de anteontem (achada agora pela captação) não vai como novidade')]
+    public function testPublicacaoAntigaNaoVai(): void
+    {
+        $this->ligar(ChaveDoEnvioAutomatico::NovasMovimentacoes);
+        $this->publicacoes[0]->setDataDisponibilizacao(new \DateTimeImmutable('2026-10-01'));
+        $this->publicacoes[1]->setDataDisponibilizacao(new \DateTimeImmutable('2026-09-14'));
+
+        self::assertSame(0, $this->useCase()->executar($this->tenant, ['701', '702']));
+        self::assertSame([], $this->mensagens);
+
+        $this->publicacoes[0]->setDataDisponibilizacao(new \DateTimeImmutable('2026-10-02'));
+        $this->useCase()->executar($this->tenant, ['701', '702']);
+        self::assertSame([701], array_map(static fn (EnvioAoCliente $e): ?int => $e->getReferencia(), $this->gravados), 'anteontem ainda entra');
+    }
+
+    /** @return iterable<string, array{callable(Pasta, Processo): void}> */
+    public static function bloqueios(): iterable
+    {
+        yield 'processo com o monitoramento pausado' => [static fn (Pasta $p, Processo $pr) => $pr->pausarMonitoramento(new User(), new \DateTimeImmutable())];
+        yield 'processo baixado' => [static fn (Pasta $p, Processo $pr) => $pr->setDataBaixa(new \DateTimeImmutable('2026-09-01'))];
+        yield 'pasta arquivada' => [static fn (Pasta $p, Processo $pr) => $p->setSituacao(Pasta::SITUACAO_ARQUIVADA)];
+        yield 'pasta cancelada' => [static fn (Pasta $p, Processo $pr) => $p->setSituacao(Pasta::SITUACAO_CANCELADA)];
+        yield 'pasta suspensa' => [static fn (Pasta $p, Processo $pr) => $p->setSituacao(Pasta::SITUACAO_SUSPENSA)];
+        yield 'pasta trancada' => [static fn (Pasta $p, Processo $pr) => $p->trancar(new User(), new \DateTimeImmutable())];
+    }
+
+    /** @param callable(Pasta, Processo): void $bloquear */
+    #[DataProvider('bloqueios')]
+    #[TestDox('D7: $_dataName não envia nada')]
+    public function testBloqueios(callable $bloquear): void
+    {
+        $this->ligar(ChaveDoEnvioAutomatico::NovasMovimentacoes, ChaveDoEnvioAutomatico::AudienciasIntimacoes);
+        $bloquear($this->pasta, $this->processo);
+
+        self::assertSame(0, $this->useCase()->executar($this->tenant, ['701', '702']));
+        self::assertSame([], $this->mensagens);
+        self::assertSame([], $this->gravados);
+    }
+
+    #[TestDox('Histórico por destinatário: o primeiro fica gravado (flush) antes de o segundo sair; um \Error no envio também só vai ao log')]
+    public function testGravaCadaDestinatarioAntesDoProximo(): void
+    {
+        $this->ligar(ChaveDoEnvioAutomatico::NovasMovimentacoes);
+        $this->falharPara = ['maria@trabalho.com.br'];
+        $this->erroNoEnvio = new \Error('quebrou');
+        $this->publicacoes = [$this->publicacoes[0]];
+        $this->linhas[] = new ClienteEmail($this->tenant, $this->cliente, 'terceiro@cliente.com.br', RotuloDoEmail::Outro, false, null, new \DateTimeImmutable());
+
+        $this->useCase()->executar($this->tenant, ['701']);
+
+        self::assertSame(['maria@cliente.com.br', 'terceiro@cliente.com.br'], $this->para());
+        self::assertSame([[['maria@cliente.com.br']], [['maria@cliente.com.br', 'terceiro@cliente.com.br']]], $this->flushes);
+        self::assertSame(['maria@cliente.com.br', 'terceiro@cliente.com.br'], $this->gravados[0]->getPara());
     }
 }
