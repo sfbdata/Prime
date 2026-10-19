@@ -24,7 +24,7 @@ sistema"). Passa a valer o desenho 1.2:
 | M4 | O **Master primário nunca é removido** pela tela (cadeado). Trocar o primário continua sendo o comando `app:master:definir`, rodado pelo dono. |
 | M5 | Só pode ser promovido um **usuário secundário da conta** em que o Master primário está (vínculo ativo, perfil que não é de sistema, conta do usuário ativa, ainda não Master). Rótulo do desenho: "Escolha um usuário secundário da conta *". |
 | M6 | Remover um secundário tira só o `ROLE_SUPER_ADMIN`; o vínculo dele com o escritório fica como está. |
-| M7 | Promoção e remoção vão para a auditoria: `User` é `Auditavel`, o `AuditLogSubscriber` grava a troca de `roles` no flush. |
+| M7 | Promoção e remoção vão para a auditoria: `User` é `Auditavel`, o `AuditLogSubscriber` grava a troca de `roles` no flush. A troca grava sem escritório (`tenant_id` nulo, `EscopoDeAuditoriaDePlataforma`) e aparece só na trilha do Master, como "Plataforma (sem conta)", nunca na auditoria do escritório da sessão. |
 
 **Falha conhecida, aceita pelo desenho:** `ROLE_SUPER_ADMIN` é bypass total no `PermissionChecker`
 (`docs/AUTORIZACAO.md`). O Master secundário ganha esse mesmo bypass. O texto da confirmação diz isso ao

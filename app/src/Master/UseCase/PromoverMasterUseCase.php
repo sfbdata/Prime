@@ -11,6 +11,7 @@ use App\Master\DTO\PromoverMasterInput;
 use App\Master\Exception\OperacaoDeMasterRecusada;
 use App\Master\Service\RegraDosMasters;
 use App\Repository\UserRepository;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Repository\UserTenantRepository;
 
 /**
@@ -27,7 +28,8 @@ use App\Repository\UserTenantRepository;
  * Fluxos alternativos: ator não é o primário; sem escritório na sessão; alvo inexistente, inativo,
  * já Master, sem vínculo ativo com o escritório ou primário do escritório. Todos recusados com mensagem.
  * Pós-condições: o alvo é Master secundário; o vínculo com o escritório não muda.
- * Auditoria (M7): User é Auditavel; o AuditLogSubscriber grava a troca de `roles` no flush.
+ * Auditoria (M7): User é Auditavel; o AuditLogSubscriber grava a troca de `roles` no flush, dentro do
+ * EscopoDeAuditoriaDePlataforma: sem escritório, visível só na trilha do Master.
  * Regra não óbvia: a busca do vínculo é pelo par (alvo, escritório da sessão). Usuário de outro
  * escritório não encontra vínculo e para aqui, mesmo com um id forjado.
  */
@@ -37,6 +39,7 @@ final class PromoverMasterUseCase
         private readonly UserRepository $userRepository,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly RegraDosMasters $regraDosMasters,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
     ) {
     }
 
@@ -48,7 +51,8 @@ final class PromoverMasterUseCase
         $this->exigirSecundarioDoEscritorio($alvo, $escritorio);
 
         RegraDosMasters::darPapeis($alvo, RegraDosMasters::PAPEL_MASTER);
-        $this->userRepository->salvar($alvo, flush: true);
+        // Ato de plataforma: a troca de roles vai para o audit_log sem escritório (M7).
+        $this->escopoDePlataforma->executar(fn () => $this->userRepository->salvar($alvo, flush: true));
 
         return MasterAlteradoOutput::fromEntity($alvo);
     }

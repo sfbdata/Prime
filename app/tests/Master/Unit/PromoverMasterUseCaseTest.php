@@ -13,6 +13,7 @@ use App\Master\Exception\OperacaoDeMasterRecusada;
 use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\PromoverMasterUseCase;
 use App\Repository\UserRepository;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Repository\UserTenantRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -27,6 +28,7 @@ use PHPUnit\Framework\TestCase;
 final class PromoverMasterUseCaseTest extends TestCase
 {
     private UserRepository&MockObject $userRepository;
+    private EscopoDeAuditoriaDePlataforma $escopo;
     private UserTenantRepository&MockObject $userTenantRepository;
     private PromoverMasterUseCase $useCase;
     private User $primario;
@@ -36,7 +38,8 @@ final class PromoverMasterUseCaseTest extends TestCase
     {
         $this->userRepository       = $this->createMock(UserRepository::class);
         $this->userTenantRepository = $this->createMock(UserTenantRepository::class);
-        $this->useCase = new PromoverMasterUseCase($this->userRepository, $this->userTenantRepository, new RegraDosMasters());
+        $this->escopo = new EscopoDeAuditoriaDePlataforma();
+        $this->useCase = new PromoverMasterUseCase($this->userRepository, $this->userTenantRepository, new RegraDosMasters(), $this->escopo);
         $this->primario   = $this->usuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
         $this->escritorio = new Tenant();
     }
@@ -46,7 +49,8 @@ final class PromoverMasterUseCaseTest extends TestCase
     {
         $alvo = $this->usuario(['ROLE_ALGUM']);
         $this->encontrar($alvo, $this->vinculo($alvo, $this->escritorio, sistema: false));
-        $this->userRepository->expects($this->once())->method('salvar')->with($alvo, true);
+        $this->userRepository->expects($this->once())->method('salvar')->with($alvo, true)
+            ->willReturnCallback(fn () => self::assertTrue($this->escopo->estaLigado(), 'grava dentro do escopo de plataforma (tenant_id nulo)'));
 
         $saida = $this->useCase->executar(new PromoverMasterInput($this->primario, $this->escritorio, 42));
 

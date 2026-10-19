@@ -11,6 +11,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\Controller\MastersDoSistemaController;
 use App\Master\Controller\PainelMasterController;
+use App\Repository\AuditLogRepository;
 use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -87,6 +88,46 @@ final class MastersDoSistemaControllerTest extends JusPrimeWebTestCase
 
         $this->client->followRedirect();
         self::assertStringContainsString('&quot;Bruno Master&quot; deixou de ser Master.', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('promover e remover gravam a troca de roles sem escritório: fora da /auditoria do escritório, na trilha do Master como "Plataforma (sem conta)"')]
+    public function testAuditoriaDePlataforma(): void
+    {
+        $alvo = $this->usuario('Ana Secundária', ['ROLE_USER']);
+        $this->vincular($alvo, $this->escritorio, sistema: false);
+        $this->entrar($this->primario);
+
+        $this->client->request('POST', '/master/masters/promover', ['_token' => 'TOKEN_master_promover', 'usuario' => $alvo->getId()]);
+        self::assertResponseRedirects('/master#aba=perm');
+        $this->client->request('POST', '/master/masters/' . $alvo->getId() . '/remover', ['_token' => 'TOKEN_master_remover_' . $alvo->getId()]);
+        self::assertResponseRedirects('/master#aba=perm');
+
+        $linhasDeRoles = array_values(array_filter(
+            $this->em->getRepository(AuditLog::class)->findBy(['entityClass' => User::class, 'entityId' => (string) $alvo->getId(), 'action' => 'update']),
+            static fn (AuditLog $a): bool => str_contains((string) json_encode($a->getChanges()), 'roles'),
+        ));
+        self::assertCount(2, $linhasDeRoles, 'uma linha da promoção e uma da remoção');
+        foreach ($linhasDeRoles as $linha) {
+            self::assertNull($linha->getTenantId(), 'ato de plataforma grava sem escritório');
+        }
+
+        // A /auditoria do escritório lista pelo AuditLogRepository filtrado pelo tenant da sessão.
+        $doEscritorio = static::getContainer()->get(AuditLogRepository::class)->findByFilters(User::class, null, null, null, (int) $this->escritorio->getId(), 1, 500);
+        $idsDoEscritorio = array_map(static fn (AuditLog $a): ?int => $a->getId(), $doEscritorio);
+        foreach ($linhasDeRoles as $linha) {
+            self::assertNotContains($linha->getId(), $idsDoEscritorio, 'a troca de roles não aparece na auditoria do escritório');
+        }
+        $this->client->request('GET', '/auditoria');
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, static::getContainer()->get(AuditLogRepository::class)->countByFilters(User::class, (string) $this->primario->getId(), null, null, (int) $this->escritorio->getId()));
+
+        $this->client->request('GET', '/master/dados/auditoria');
+        self::assertResponseIsSuccessful();
+        $registros = json_decode((string) $this->client->getResponse()->getContent(), true)['registros'];
+        $daPlataforma = array_values(array_filter($registros, fn (array $r): bool => $r['quem'] === 'Farlei Primário' && $r['conta'] === 'Plataforma (sem conta)'));
+        $acoes = array_column($daPlataforma, 'acao');
+        self::assertContains('Promovido a Master', $acoes);
+        self::assertContains('Removido de Master', $acoes);
     }
 
     #[TestDox('o Master primário não se remove: cadeado também no servidor')]
