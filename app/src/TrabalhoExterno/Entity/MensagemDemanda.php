@@ -35,6 +35,10 @@ class MensagemDemanda
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $em;
 
+    /** Apagada para todos pelo autor (ou pelo Master): continua na conversa, sem o texto. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $apagadaEm = null;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: DemandaExterna::class, inversedBy: 'mensagens')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -84,5 +88,24 @@ class MensagemDemanda
     public function getEm(): \DateTimeImmutable
     {
         return $this->em;
+    }
+
+    /** Só mensagem escrita por gente (normal ou nota interna) pode ser apagada; registro do sistema não. */
+    public function podeSerApagada(): bool
+    {
+        return $this->apagadaEm === null && in_array($this->tipo, [TipoMensagem::Normal, TipoMensagem::Interna], true);
+    }
+
+    public function apagar(\DateTimeImmutable $agora): void
+    {
+        if (!$this->podeSerApagada()) {
+            throw new \DomainException('Esta mensagem não pode ser apagada.');
+        }
+        $this->apagadaEm = $agora;
+    }
+
+    public function foiApagada(): bool
+    {
+        return $this->apagadaEm !== null;
     }
 }

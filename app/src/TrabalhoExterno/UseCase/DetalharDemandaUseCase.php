@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
+use App\TrabalhoExterno\Repository\MarcacaoDeMensagemRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeDemanda;
 use App\TrabalhoExterno\Service\ContadorDeNaoLidas;
 use App\TrabalhoExterno\Service\Contexto;
@@ -20,6 +21,7 @@ final class DetalharDemandaUseCase
         private readonly ApresentadorDeDemanda $apresentador,
         private readonly ContadorDeNaoLidas $contador,
         private readonly PreviaDePerfil $previa,
+        private readonly MarcacaoDeMensagemRepository $marcacoes,
     ) {
     }
 
@@ -28,8 +30,9 @@ final class DetalharDemandaUseCase
     {
         [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
         $naoLidas = $this->contador->porDemanda([[$demanda, $ctx]]);
+        $marcas = $this->marcacoes->daDemanda($demanda, $ctx->usuario);
 
-        return $this->apresentador->detalhe($ctx, $demanda, $naoLidas[(int) $demanda->getId()] ?? 0);
+        return $this->apresentador->detalhe($ctx, $demanda, $naoLidas[(int) $demanda->getId()] ?? 0, $marcas);
     }
 
     /**

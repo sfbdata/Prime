@@ -342,6 +342,19 @@ final class PoliticaDaDemanda
     }
 
     /**
+     * "Apagar para todos" (spec VS 18.10.26 §3.4): o autor, nas próprias mensagens; o Master, em
+     * qualquer uma (o Master pode tudo, regra do dono). Registro do sistema não se apaga.
+     */
+    public function podeApagarMensagem(Contexto $ctx, MensagemDemanda $m): bool
+    {
+        if ($ctx->previa || !$m->podeSerApagada()) {
+            return false;
+        }
+
+        return $ctx->perfil === Perfil::Master || $m->getAutor()?->getId() === $ctx->usuario->getId();
+    }
+
+    /**
      * O evento é anterior ao aceite do convite de quem lê (só vale para o Convidado). As datas
      * são gravadas em segundos: o que caiu no MESMO segundo do aceite conta como anterior, para
      * a dúvida esconder em vez de mostrar.
