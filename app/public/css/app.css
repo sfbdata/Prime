@@ -529,3 +529,17 @@ html[data-bs-theme="dark"] .table-light {
     color: var(--bs-secondary-color);
     font-weight: 600;
 }
+/* ── Telas e recursos ligados e desligados pelo Master (spec docs/specs/perfis-1.2-telas-e-recursos.md) ──
+   R6: item desligado que o Master continua vendo (recurso_marca) e a faixa vermelha fixa da tela desligada.
+   R5: página "em preparação" (templates/recurso/em_preparacao.html.twig). */
+.bj-recurso-off { opacity: .45; outline: 1px dashed #c0392b; outline-offset: -2px; }
+.bj-recurso-faixa { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 8px 16px; background: #c0392b; color: #fff; font-size: 13px; font-weight: bold; box-shadow: 0 -2px 8px rgba(0,0,0,.18); }
+.bj-recurso-pagina { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f4f7f9; color: #243845; font-family: var(--jp-font-sans, Arial, sans-serif); }
+.bj-recurso-preparo { max-width: 520px; margin: 24px; padding: 36px 32px; text-align: center; background: #fff; border: 1px solid #dde5eb; border-radius: 4px; box-shadow: 0 2px 10px rgba(18,36,47,.05); }
+.bj-recurso-preparo-icone { display: block; font-size: 40px; color: #0a6fa0; margin-bottom: 12px; }
+.bj-recurso-preparo-titulo { font-size: 20px; font-weight: bold; margin: 0 0 10px; }
+.bj-recurso-preparo-texto { font-size: 14px; color: #4a6373; margin: 0 0 8px; }
+.bj-recurso-preparo-previsao { font-size: 13px; color: #5b7383; margin: 0 0 8px; }
+.bj-recurso-preparo-voltar { display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; height: 36px; padding: 0 16px; border-radius: 4px; background: #0a6fa0; color: #fff; font-size: 13.5px; font-weight: bold; text-decoration: none; }
+.bj-recurso-preparo-voltar:hover { background: #085a82; color: #fff; }

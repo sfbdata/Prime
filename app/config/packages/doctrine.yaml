@@ -135,6 +135,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Central/Entity'
                 prefix: 'App\Central\Entity'
                 alias: AppCentral
+            AppMaster:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Master/Entity'
+                prefix: 'App\Master\Entity'
+                alias: AppMaster
         controller_resolver:
             auto_mapping: false
         dql:

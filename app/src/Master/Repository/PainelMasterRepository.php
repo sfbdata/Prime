@@ -11,6 +11,7 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
 use App\Master\Service\RegraDosMasters;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -59,6 +60,7 @@ final class PainelMasterRepository
         TenantRolePermission::class,
         Permission::class,
         Invitation::class,
+        RecursoEstado::class,
     ];
 
     public function __construct(
@@ -352,16 +354,20 @@ final class PainelMasterRepository
      * Fica de fora a atualização de vínculo que só mexe em `lastLoginAt`/`updatedAt`: é o carimbo de
      * acesso gravado a cada login, não uma alteração administrativa (e afogaria a trilha).
      *
-     * @return list<array{id: int, acao: string, entidade: string, entidadeId: ?string, mudancas: ?string, tenantId: ?int, conta: ?string, responsavel: ?string, responsavelId: ?int, criadoEm: string}>
+     * `recurso` é a chave da tela ou função ligada/desligada (linha de RecursoEstado): a alteração só
+     * grava os campos mudados, e a chave nunca muda, então ela vem da própria `recurso_estado`.
+     *
+     * @return list<array{id: int, acao: string, entidade: string, entidadeId: ?string, mudancas: ?string, tenantId: ?int, conta: ?string, responsavel: ?string, responsavelId: ?int, criadoEm: string, recurso: ?string}>
      */
     public function trilhaAdministrativa(int $limite, \DateTimeImmutable $desde): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
             "SELECT a.id, a.action, a.entity_class, a.entity_id, a.changes::text AS changes, a.tenant_id,
-                    t.name AS conta, u.full_name AS responsavel, a.actor_user_id, a.created_at
+                    t.name AS conta, u.full_name AS responsavel, a.actor_user_id, a.created_at, re.chave AS recurso
                FROM audit_log a
           LEFT JOIN tenant t ON t.id = a.tenant_id
           LEFT JOIN \"user\" u ON u.id = a.actor_user_id
+          LEFT JOIN recurso_estado re ON a.entity_class = :recurso AND re.id::text = a.entity_id
               WHERE (a.entity_class IN (:entidades) OR a.action = 'purge')
                 AND a.created_at >= :desde
                 AND NOT (
@@ -370,7 +376,7 @@ final class PainelMasterRepository
                 )
            ORDER BY a.created_at DESC, a.id DESC
               LIMIT :limite",
-            ['entidades' => self::ENTIDADES_AUDITADAS, 'vinculo' => UserTenant::class, 'limite' => $limite, 'desde' => $desde->format('Y-m-d H:i:s')],
+            ['entidades' => self::ENTIDADES_AUDITADAS, 'vinculo' => UserTenant::class, 'recurso' => RecursoEstado::class, 'limite' => $limite, 'desde' => $desde->format('Y-m-d H:i:s')],
             ['entidades' => ArrayParameterType::STRING, 'limite' => ParameterType::INTEGER],
         );
 
@@ -385,6 +391,7 @@ final class PainelMasterRepository
             'responsavel'      => self::textoOuNulo($l['responsavel']),
             'responsavelId'    => $l['actor_user_id'] !== null ? (int) $l['actor_user_id'] : null,
             'criadoEm'         => (string) $l['created_at'],
+            'recurso'          => self::textoOuNulo($l['recurso']),
         ], $linhas);
     }
 

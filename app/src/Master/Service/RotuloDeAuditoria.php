@@ -11,6 +11,7 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
 
 /**
  * Traduz uma linha do `audit_log` para o rótulo humano da trilha "Segurança e auditoria" e um
@@ -57,11 +58,18 @@ final class RotuloDeAuditoria
     ];
 
     /**
+     * `$recurso` é a chave da tela ou função quando a linha é de RecursoEstado (vem da própria
+     * `recurso_estado`: a alteração não regrava a chave).
+     *
      * @return array{acao: string, detalhe: string}
      */
-    public static function traduzir(string $acao, string $entidade, ?string $mudancasJson): array
+    public static function traduzir(string $acao, string $entidade, ?string $mudancasJson, ?string $recurso = null): array
     {
         $mudancas = self::decodificar($mudancasJson);
+
+        if ($entidade === RecursoEstado::class && $acao !== 'delete') {
+            return self::traduzirRecurso($acao, $mudancas, $recurso);
+        }
 
         if ($acao === 'purge') {
             return ['acao' => 'Conta excluída definitivamente', 'detalhe' => 'Purga após a quarentena de exclusão'];
@@ -135,6 +143,72 @@ final class RotuloDeAuditoria
         }
 
         return 'Papel no sistema alterado';
+    }
+
+    /**
+     * Tela ou função ligada/desligada pelo Master (spec perfis-1.2-telas-e-recursos, R7): "Desativou X" e
+     * "Reativou X", com o título do catálogo. O motivo e a data de volta são texto mostrado aos usuários,
+     * não dado sensível: entram no detalhe quando a linha os registra.
+     *
+     * @param array<string, mixed> $mudancas
+     *
+     * @return array{acao: string, detalhe: string}
+     */
+    private static function traduzirRecurso(string $acao, array $mudancas, ?string $recurso): array
+    {
+        $depois = $acao === 'create' ? self::estadoCriado($mudancas) : self::valoresNovos($mudancas);
+        $chave = $recurso ?? (is_string($depois['chave'] ?? null) ? $depois['chave'] : '');
+        $titulo = CatalogoDeRecursos::titulo($chave) ?? ($chave !== '' ? $chave : 'tela ou função');
+
+        if (($depois['ativo'] ?? null) === true) {
+            return ['acao' => 'Reativou ' . $titulo, 'detalhe' => 'Liberado para todos os usuários'];
+        }
+
+        return ['acao' => 'Desativou ' . $titulo, 'detalhe' => self::detalheDeDesligamento($depois)];
+    }
+
+    /**
+     * @param array<string, mixed> $depois
+     */
+    private static function detalheDeDesligamento(array $depois): string
+    {
+        $partes = [];
+        if (array_key_exists('motivo', $depois)) {
+            $partes[] = is_string($depois['motivo']) && $depois['motivo'] !== '' ? 'Motivo: ' . $depois['motivo'] : 'Sem motivo informado';
+        }
+
+        if (is_string($depois['ate'] ?? null) && strlen($depois['ate']) >= 10) {
+            $partes[] = 'volta em ' . implode('/', array_reverse(explode('-', substr($depois['ate'], 0, 10))));
+        }
+
+        return $partes === [] ? 'Desativado para os usuários' : implode(' · ', $partes);
+    }
+
+    /**
+     * @param array<string, mixed> $mudancas
+     *
+     * @return array<string, mixed>
+     */
+    private static function estadoCriado(array $mudancas): array
+    {
+        $depois = $mudancas['diff']['after'] ?? null;
+
+        return is_array($depois) ? $depois : [];
+    }
+
+    /**
+     * @param array<string, mixed> $mudancas
+     *
+     * @return array<string, mixed>
+     */
+    private static function valoresNovos(array $mudancas): array
+    {
+        $novos = [];
+        foreach (self::diff($mudancas) as $campo => $troca) {
+            $novos[(string) $campo] = is_array($troca) ? ($troca['to'] ?? null) : null;
+        }
+
+        return $novos;
     }
 
     /**

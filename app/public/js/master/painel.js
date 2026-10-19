@@ -1,7 +1,8 @@
 /* BlueJus · Painel do Master (desenho docs/design/perfis-1.0/05 - Perfis 1.0.dc.html, aba "Painel do sistema").
    Abas abertas pelo hash como no desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (linha 481):
-   #aba=perm abre Permissões e #sec=contas abre a seção (é para onde voltam promover e remover Master).
-   O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js.
+   #aba=perm abre Permissões, #aba=rec abre Telas e recursos e #sec=contas abre a seção (é para onde voltam promover e
+   remover Master). Vale qualquer aba que exista no HTML ([data-aba]).
+   O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js; a aba Telas e recursos, do recursos.js.
    Lógica portada do componente do desenho (kpis, gráfico com curva monotônica, mapa, faltam, auditoria, PDF).
    Regra do dono: nada inventado. Dado que não existe aparece como "sem informação" ou no estado vazio do desenho.
    Os dados vêm de /master/dados/* (só leitura, ROLE_SUPER_ADMIN no servidor). */

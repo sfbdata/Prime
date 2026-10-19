@@ -296,12 +296,14 @@
                             </div>
 
                             {# Instalar App #}
+                            {% if recurso_visivel('instalar') %}
                             <button type="button" id="btnInstalarApp"
-                                    class="navtop-action-btn"
+                                    class="navtop-action-btn {{ recurso_marca('instalar') }}"
                                     aria-label="Instalar aplicativo"
                                     style="display:none; background:none; border:none; cursor:pointer;">
                                 <i class="bi bi-download"></i>
                             </button>
+                            {% endif %}
 
                             {# Fullscreen #}
                             <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
@@ -367,7 +369,8 @@
                                         </li>
                                     {% endif %}
                                     <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
+                                    {% if recurso_visivel('tema') %}
+                                    <li class="{{ recurso_marca('tema') }}">
                                         <button type="button" id="toggleTema"
                                                 class="dropdown-item d-flex align-items-center gap-2"
                                                 style="background:none; border:none; width:100%; text-align:left;">
@@ -375,8 +378,10 @@
                                             <span id="toggleTemaLabel">Tema escuro</span>
                                         </button>
                                     </li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
+                                    {% if recurso_visivel('instalar') %}
+                                    <li class="{{ recurso_marca('instalar') }}">
                                         <button type="button" id="linkInstalarApp"
                                                 class="dropdown-item d-flex align-items-center gap-2"
                                                 style="background:none; border:none; width:100%; text-align:left;">
@@ -384,8 +389,10 @@
                                             <span id="linkInstalarAppTexto">Instalar aplicativo</span>
                                         </button>
                                     </li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider my-0"></li>
-                                    <li>
+                                    {% if recurso_visivel('novidades') %}
+                                    <li class="{{ recurso_marca('novidades') }}">
                                         {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
                                         <a href="{{ path('novidades_index') }}"
                                            class="dropdown-item d-flex align-items-center gap-2"
@@ -394,13 +401,16 @@
                                             <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">novo</span>
                                         </a>
                                     </li>
-                                    <li>
+                                    {% endif %}
+                                    {% if recurso_visivel('privacidade') %}
+                                    <li class="{{ recurso_marca('privacidade') }}">
                                         <a href="{{ path('legal_politica_privacidade') }}"
                                            class="dropdown-item d-flex align-items-center gap-2"
                                            target="_blank" rel="noopener">
                                             <i class="bi bi-shield-lock"></i> Política de Privacidade
                                         </a>
                                     </li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider my-0"></li>
                                     <li>
                                         <a href="{{ path('app_logout') }}" class="dropdown-item d-flex align-items-center gap-2 text-danger">
@@ -425,15 +435,15 @@
                         </a>
                         {# Processos saiu daqui (16/10, pedido do dono): o cadastro mora dentro do Push
                            Processual, que acompanha as publicações por OAB e por processo cadastrado. #}
-                        {% if can_access_module('tarefas') %}
+                        {% if can_access_module('tarefas') and recurso_visivel('metas') %}
                             <a href="{{ path('tarefa_minhas') }}"
-                               class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
+                               class="navtop-subnav-link {{ recurso_marca('metas') }} {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
                                 Minhas Metas
                             </a>
                         {% endif %}
-                        {% if can_access_module('trabalho_externo') %}
+                        {% if can_access_module('trabalho_externo') and recurso_visivel('trabalho') %}
                             <a href="{{ path('trabalho_externo_index') }}"
-                               class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'trabalho_externo_' ? 'active' : '' }}">
+                               class="navtop-subnav-link {{ recurso_marca('trabalho') }} {{ app.request.attributes.get('_route') starts with 'trabalho_externo_' ? 'active' : '' }}">
                                 Trabalho Externo
                             </a>
                         {% endif %}
@@ -448,6 +458,7 @@
                 {% block sidebar %}{% include '_sidebar.html.twig' %}{% endblock %}
 
                 {# Main Content #}
+                {% include '_recurso_faixa_master.html.twig' %}
                 <main class="app-main" id="main" tabindex="-1">
                     <div class="app-content-header">
                         <div class="container-fluid">
