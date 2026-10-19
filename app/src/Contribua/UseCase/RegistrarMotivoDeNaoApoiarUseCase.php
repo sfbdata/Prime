@@ -34,7 +34,7 @@ final class RegistrarMotivoDeNaoApoiarUseCase
         $this->motivos->salvar($resposta, flush: true);
         $this->avisoAoMaster->avisar(
             $quem->escritorio,
-            'contribua.motivo',
+            AvisoAoMaster::TIPO_MOTIVO,
             sprintf('Motivo para não contribuir: Conta Nº %s: %s', $quem->numeroDaConta(), $resposta->getMotivo()),
             $this->urls->generate('contribua_index') . '#apoie',
         );

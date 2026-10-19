@@ -21,6 +21,12 @@ use Psr\Log\LoggerInterface;
  */
 final class AvisoAoMaster
 {
+    /** Tipos das notificações do Contribua: na Central, o tipo "Contribua" do desenho (bi-heart, vermelho). */
+    public const TIPO_SUGESTAO = 'contribua.sugestao';
+    public const TIPO_APOIO = 'contribua.apoio';
+    public const TIPO_MOTIVO = 'contribua.motivo';
+    public const TIPO_PEDIDO_DE_ESPACO = 'contribua.pedido_espaco';
+
     /** O título da notificação é `varchar(255)`: nome, escritório e texto longos não podem estourar. */
     private const TAMANHO_MAXIMO = 255;
 

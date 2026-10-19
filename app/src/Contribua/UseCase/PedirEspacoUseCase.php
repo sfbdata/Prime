@@ -6,6 +6,8 @@ namespace App\Contribua\UseCase;
 
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Entity\Plano;
+use App\Contribua\Event\EspacoFoiPedido;
+use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\AvisoAoMaster;
 use App\Contribua\Service\SituacaoDoEspaco;
@@ -28,6 +30,7 @@ final class PedirEspacoUseCase
         private readonly SituacaoDoEspaco $situacao,
         private readonly AvisoAoMaster $avisoAoMaster,
         private readonly UrlGeneratorInterface $urls,
+        private readonly EventosDoEspacoAposConfirmar $eventos,
     ) {
     }
 
@@ -40,10 +43,12 @@ final class PedirEspacoUseCase
 
         $this->avisoAoMaster->avisar(
             $quem->escritorio,
-            'contribua.pedido_espaco',
+            AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO,
             sprintf('Pedido de espaço: %s (conta Nº %s) quer o plano %s (%d GB). Lista de espera.', $quem->escritorio->getName(), $quem->numeroDaConta(), $plano->getNome(), $plano->getCotaGb()),
             $this->urls->generate('contribua_index') . '#espaco',
         );
+
+        $this->eventos->adiar(new EspacoFoiPedido($quem->tenantId(), $plano->getCodigo(), $quem->usuario->getId()));
 
         return self::PEDIDO_REGISTRADO;
     }
