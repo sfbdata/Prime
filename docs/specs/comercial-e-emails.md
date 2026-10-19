@@ -154,7 +154,11 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   5. Os merges, na ordem: #82 → #87 (0d) → esta 1a.
 - **Pendências:** respostas do dono; consulta de datas de descadastro à 0d (fatia 3); `CITA_RASTREIO_DE_EMAIL` com a f6
   (a f6 já pôs a regra no rascunho da Política).
-- **Próximo passo:** abrir a frente da 1a sobre `push-avisar-quando-chegar` e implementar; revisão e re-revisão no código.
+- **PR da 1a: #99** (rascunho, base `push-avisar-quando-chegar` = #87; merge depois de #82 e #87). Revisão aprovada com
+  ressalvas, corrigidas e re-revisadas (aprovada); suíte da frente 10457 verdes. Fica em rascunho até o #56 entrar e a
+  tela ser conferida contra o 05.
+- **Próximo passo:** depois do #56 no master, verificação visual do bloco Automações contra o 05 e tirar o #99 do
+  rascunho; a 1b quando o #87 com o #99, ou o #74, entrar no master; o follow-up da 9b depois do merge das duas.
 
 ## 1. O que já existe (levantamento de 19/10)
 
