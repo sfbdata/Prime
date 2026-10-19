@@ -47,11 +47,10 @@
     --pf-barra-bg:      #e6edf2;
     --pf-fixo:          #7a5200;
     --pf-fixo-bg:       #fff4d6;
+    --pf-perigo-hover-lista: #fdecee;
 
     --pf-perigo:        #a3232b;
     --pf-perigo-bg:     #fbe7e7;
-    --pf-cadeado:       #c08a12;
-    --pf-cadeado-aberto:#98a9b4;
 
     --pf-master:        #7a3e8f;
     --pf-master-bg:     #f3e9f7;
@@ -100,6 +99,7 @@
     --pf-barra-bg:      var(--bs-secondary-bg);
     --pf-fixo:          #f0c870;
     --pf-fixo-bg:       rgba(192,138,18,.20);
+    --pf-perigo-hover-lista: rgba(163,35,43,.18);
 }
 
 /* ── Cabeçalho (linhas 47-52) ─────────────────────────────────────────────── */
@@ -129,7 +129,8 @@
 .pf-page .pf-ver-como-btn.is-ativo { background: #fff; color: var(--pf-azul); }
 
 /* ── Lista (desenho 1.2, linhas 52-64) ─────────────────────────────────────── */
-/* Resumo e tabela num bloco só, como no desenho: o espaço entre eles é o margin-bottom dos chips. */
+/* Chips e tabela são filhos diretos de .pf-page (no desenho o sc-if é Fragment, sem caixa):
+   entre eles fica o gap da coluna (18px) mais o margin-bottom dos chips (14px), 32px no total. */
 .pf-page .pf-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .pf-page .pf-chip {
     display: flex; align-items: center; gap: 9px; background: var(--pf-card); border: 1px solid var(--pf-lista-borda);
@@ -152,6 +153,8 @@
 .pf-page .pf-tabela-cab > div > .bi { color: var(--pf-cab-icone); }
 
 .pf-page .pf-linha { position: relative; align-items: center; border-bottom: 1px solid var(--pf-linha-div); cursor: pointer; transition: background .15s; }
+/* Hover do 1.2 (style-hover da linha 59): azul claro. O [data-lin]:hover !important global do
+   desenho é resto do 1.0; no 1.2 as células perderam o data-hv e o texto escuro fica legível. */
 .pf-page .pf-linha:hover { background: var(--pf-linha-hover); }
 .pf-page .pf-linha.is-oculta { display: none; }
 
@@ -191,9 +194,10 @@
 .pf-page .pf-acao-editar  { color: var(--pf-azul); }
 .pf-page .pf-acao-excluir { color: var(--pf-perigo); }
 .pf-page .pf-acao-excluir:hover { background: var(--pf-perigo-bg); }
-/* Na lista 1.2 os botões crescem para 32px e o lápis ganha fundo no hover (linha 64). */
+/* Na lista 1.2 os botões crescem para 32px; o lápis e a lixeira têm o hover da linha 64. */
 .pf-page .pf-col-acoes .pf-acao { width: 32px; height: 32px; transition: background .15s; }
 .pf-page .pf-col-acoes .pf-acao-editar:hover { background: var(--pf-azul-bg); }
+.pf-page .pf-col-acoes .pf-acao-excluir:hover { background: var(--pf-perigo-hover-lista); }
 
 /* ── Edição (linhas 229-311) ──────────────────────────────────────────────── */
 .pf-page .pf-faixa { display: flex; align-items: center; gap: 10px; background: var(--pf-azul-bg); color: var(--pf-azul-escuro); border-radius: 4px; padding: 11px 16px; font-size: 13.5px; }

@@ -40,7 +40,7 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant/{tenantId}/roles')]
 final class TenantRoleController extends AbstractController
 {
-    private const DESCRICAO_MASTER   = 'Criador do BlueJus (Master primário) e quem ele promover (Master secundário), com todos os poderes sobre o sistema e as contas.';
+    private const DESCRICAO_MASTER   = 'O criador do BlueJus (Master primário) e quem ele promover (Master secundário).';
     private const DESCRICAO_PRIMARIO = 'Quem abriu a conta. Gestor do escritório; cadastra e administra os secundários. Não pode ser excluído.';
     private const DESCRICAO_SECUNDARIO_VAZIA = 'Usuário secundário';
 

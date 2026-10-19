@@ -95,6 +95,9 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame('Acesso total', trim($linha->filter('.pf-col-perm > .pf-perm-topo > b')->text()));
         self::assertSame((string) $totalMasters, trim($linha->filter('.pf-col-usu > b')->text()));
         self::assertCount(1, $linha->filter('.pf-col-acoes > a[href="/master"]'));
+        $descricao = trim($linha->filter('.pf-col-perfil > .pf-perfil-desc')->text());
+        self::assertSame('O criador do BlueJus (Master primário) e quem ele promover (Master secundário).', $descricao);
+        self::assertStringNotContainsString('Único', $descricao);
         self::assertCount(1, $crawler->filter('.pf-cabecalho > [data-pf-ver-como] > [data-pf-visao="primario"]'));
     }
 
@@ -143,11 +146,11 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         );
         self::assertSame(
             ['perfis', 'usuários', 'fixos do sistema', 'personalizados'],
-            $crawler->filter('.pf-lista > .pf-chips > .pf-chip > span')->each(static fn ($n): string => trim($n->text())),
+            $crawler->filter('.pf-page > .pf-chips > .pf-chip > span')->each(static fn ($n): string => trim($n->text())),
         );
         self::assertSame(
             ['bi-diagram-3', 'bi-people', 'bi-lock', 'bi-person-gear'],
-            $crawler->filter('.pf-lista > .pf-chips > .pf-chip > i.bi')->each(static fn ($n): string => trim(str_replace('bi ', '', (string) $n->attr('class')))),
+            $crawler->filter('.pf-page > .pf-chips > .pf-chip > i.bi')->each(static fn ($n): string => trim(str_replace('bi ', '', (string) $n->attr('class')))),
         );
         self::assertCount(0, $crawler->filter('[data-pf-chip-n][data-master]'), 'quem não é Master não recebe os números do Master');
     }
@@ -180,7 +183,7 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', $this->urlLista());
         self::assertResponseIsSuccessful();
 
-        $colunas = $crawler->filter('.pf-lista > .pf-tabela > .pf-tabela-miolo > .pf-grade.pf-tabela-cab > div');
+        $colunas = $crawler->filter('.pf-page > .pf-tabela > .pf-tabela-miolo > .pf-grade.pf-tabela-cab > div');
         self::assertSame(
             ['PERFIL', 'CLASSIFICAÇÃO', 'PERMISSÕES', 'USUÁRIOS', 'AÇÕES'],
             $colunas->each(static fn ($n): string => trim($n->text())),
@@ -859,7 +862,7 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
     private function numerosDosChips(Crawler $crawler, ?string $atributo): array
     {
         $numeros = [];
-        $crawler->filter('.pf-lista > .pf-chips > .pf-chip')->each(function ($chip) use (&$numeros, $atributo): void {
+        $crawler->filter('.pf-page > .pf-chips > .pf-chip')->each(function ($chip) use (&$numeros, $atributo): void {
             $n = $chip->filter('b[data-pf-chip-n]');
             $numeros[(string) $chip->attr('data-pf-chip')] = $atributo === null ? trim($n->text()) : (string) $n->attr($atributo);
         });
