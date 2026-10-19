@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Ponto\Unit;
+
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * O atalho de ponto do cabeçalho (spec `presenca-e-ponto-no-cabecalho.md` §3, F1 e F2), lido no texto do script: a
+ * ordem do clique, os prazos e a mesma lógica da tela do ponto (public/js/ponto-batida.js). A regra de arquivo inteiro
+ * (nenhuma promessa crua com getCurrentPosition) é do BatidaNaoTravaNoGpsTest, que também lê este arquivo.
+ */
+final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
+{
+    private static function js(): string
+    {
+        return (string) file_get_contents(__DIR__ . '/../../../public/js/presenca-ponto.js');
+    }
+
+    #[TestDox('Ordem do clique: trava, confirmação da saída, momento do toque, posição, cerca, releitura, envio, destrava')]
+    public function testOrdemDoClique(): void
+    {
+        $js = self::js();
+        $marcos = [
+            'envioEmAndamento = true;   // (1)',
+            "if (atual.acao === 'saida' && !confirmarSaida()) { return; }   // (2)",
+            'var momentoDoToque = performance.now();                        // (3)',
+            'await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS',
+            'PB.avaliarPosicao(',
+            'var conferido = await lerEstado(RELEITURA_PRAZO_MS);',
+            'await PB.enviarBatida(urlBatida, payload, momentoDoToque);',
+            'envioEmAndamento = false;   // (9)',
+        ];
+        $ultima = -1;
+        foreach ($marcos as $marco) {
+            $pos = strpos($js, $marco);
+            self::assertNotFalse($pos, 'faltou: ' . $marco);
+            self::assertGreaterThan($ultima, $pos, 'fora de ordem: ' . $marco);
+            $ultima = $pos;
+        }
+        self::assertStringContainsString('} finally {', $js);
+    }
+
+    #[TestDox('Prazos: a releitura do estado tem AbortController próprio (5 s); a posição tem 10 s; sem posição nada é enviado')]
+    public function testPrazos(): void
+    {
+        $js = self::js();
+        self::assertStringContainsString('var RELEITURA_PRAZO_MS = 5000;', $js);
+        self::assertStringContainsString('var POSICAO_PRAZO_MS = 10000;', $js);
+        self::assertStringContainsString('var prazo = setTimeout(function () { aborto.abort(); }, prazoMs);', $js);
+        self::assertStringContainsString('signal: aborto.signal', $js);
+        self::assertStringContainsString("if (!position) { avisar(AVISO_SEM_POSICAO); return; }", $js);
+        self::assertStringContainsString("if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }", $js, 'releitura que falha não envia');
+        self::assertStringContainsString('if (conferido.estado !== estado.estado || conferido.dia !== estado.dia) {', $js, 'compara estado derivado e dia, não horários');
+    }
+
+    #[TestDox('Nada de regra própria: cerca, envio e classificação são os da tela; o intervalo não tem ação; avisos nunca afirmam que não entrou sem saber')]
+    public function testSemRegraPropria(): void
+    {
+        $js = self::js();
+        self::assertStringNotContainsString('fetch(urlBatida', $js, 'o POST é o do módulo');
+        self::assertStringNotContainsString('function distanciaEmMetros', $js);
+        self::assertStringContainsString("if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }", $js, 'só recusa quando certamente fora');
+        self::assertStringContainsString("return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };", $js);
+        self::assertStringContainsString('A próxima entrada só será aceita depois da interjornada.', $js);
+        self::assertStringContainsString('if (estado && estado.interjornadaLigada)', $js);
+        foreach (['nao_entrou: AVISO_NAO_ENTROU', 'sem_confirmacao: AVISO_SEM_CONFIRMACAO', 'sem_rede: AVISO_SEM_REDE', 'atrasado: AVISO_ATRASADO'] as $caso) {
+            self::assertStringContainsString($caso, $js);
+        }
+        self::assertStringContainsString('PODE ter sido registrada', $js);
+        self::assertStringContainsString("resultado.data.data.hora", $js, 'a hora do aviso é a do servidor');
+        self::assertStringNotContainsString('innerHTML', $js);
+        self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);
+    }
+}

@@ -28,6 +28,8 @@
     var evento = '';
     var painel = null;
     var veu = null;
+    var alternar = false;     // dc `_alt`: a sua linha alterna "Você" e o ponto a cada 4 s quando o ponto não tem ação
+    function ponto() { return window.PresencaPonto || null; }
 
     function ler(armazem, k, padrao) {
         try { var v = JSON.parse(armazem.getItem(k)); return v === null ? padrao : v; } catch (e) { return padrao; }
@@ -215,7 +217,7 @@
         l.appendChild(av);
         var tx = el('span', 'presenca-textos');
         tx.appendChild(el('b', 'presenca-nome', x.m.nome));
-        tx.appendChild(el('span', 'presenca-sub', detalhe(x.m, x.k)));
+        tx.appendChild(subtitulo(x));
         l.appendChild(tx);
         var dir = el('span', 'presenca-dir');
         var st = el('span', 'presenca-status', ST[x.k][0]);
@@ -233,6 +235,26 @@
 
         return frag;
     }
+    /* Subtítulo da linha; na sua, o atalho de ponto (presenca-ponto.js, dc `pontoDe`): fixo quando tem ação. */
+    function subtitulo(x) {
+        var pt = x.eu && ponto() ? ponto().linha() : null;
+        if (!pt || !(pt.acao || alternar)) { return el('span', 'presenca-sub', detalhe(x.m, x.k)); }
+        var sub = el('span', 'presenca-sub presenca-sub--ponto' + (pt.acao ? ' is-acao' : ''));
+        sub.style.color = pt.cor;
+        sub.appendChild(icone(pt.icone));
+        sub.appendChild(document.createTextNode(pt.texto));
+        if (pt.acao) {
+            sub.setAttribute('role', 'button');
+            sub.setAttribute('tabindex', '0');
+            sub.title = pt.dica;
+            var bater = function (e) { e.stopPropagation(); ponto().bater(); };
+            sub.addEventListener('click', bater);
+            sub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bater(e); } });
+        }
+
+        return sub;
+    }
+
     function desenharPainel() {
         if (!painel) { return; }
         var focoNoSom = document.activeElement && document.activeElement.classList.contains('presenca-som');
@@ -290,6 +312,7 @@
         document.body.appendChild(veu);
         document.body.appendChild(painel);
         selo.setAttribute('aria-expanded', 'true');
+        if (ponto()) { ponto().atualizar(); }
         desenharPainel();
         var som = painel.querySelector('.presenca-som');
         if (som) { som.focus(); }   // o foco entra no painel (Esc fecha e volta ao selo)
@@ -313,6 +336,7 @@
     /* ── Batimento da Central ──────────────────────────────────────────── */
     document.addEventListener('bj-central:presenca', function (ev) {
         online = (ev.detail && ev.detail.online) || [];
+        if (painel && ponto()) { ponto().atualizar(); }   // com o painel aberto, o ponto é relido a cada batimento
         var desconhecido = online.some(function (o) { return !pessoaDe(o.id); });
         (equipe && !desconhecido ? Promise.resolve() : carregarEquipe()).then(function () {
             detectarEvento();
@@ -320,6 +344,9 @@
             desenharPainel();
         });
     });
+
+    if (ponto()) { ponto().aoMudar(function () { desenharPainel(); }); }
+    window.setInterval(function () { if (painel) { alternar = !alternar; desenharPainel(); } }, 4000);   // dc `_altT`
 
     // Relógio próprio das horas: segue com a aba oculta (dc), o navegador só o espaça.
     contarHoras();
