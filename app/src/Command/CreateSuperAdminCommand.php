@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Entity\Auth\User;
+use App\Master\Service\RegraDosMasters;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -14,7 +15,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[AsCommand(
     name: 'app:create-super-admin',
-    description: 'Cria o Master (ROLE_SUPER_ADMIN) quando ainda não existe nenhum',
+    description: 'Cria o primeiro Master, já primário, quando ainda não existe nenhum',
 )]
 class CreateSuperAdminCommand extends Command
 {
@@ -43,12 +44,13 @@ class CreateSuperAdminCommand extends Command
         $email = $input->getArgument('email');
         $password = $input->getArgument('password');
 
-        // O Master é único (spec perfis-master D2). Havendo um, este comando não cria outro: a
-        // troca de Master é do app:master:definir, que tira o papel de quem tem.
-        $mastersAtuais = $this->userRepository->findComPapelGlobal('ROLE_SUPER_ADMIN');
+        // Só cria o PRIMEIRO Master, já primário (spec perfis-1.2-masters §4.2). Havendo Master, não
+        // cria outro: Master secundário se promove pela tela /master e a troca do primário é do
+        // app:master:definir.
+        $mastersAtuais = $this->userRepository->findComPapelGlobal(RegraDosMasters::PAPEL_MASTER);
         if ($mastersAtuais !== []) {
             $output->writeln(sprintf(
-                '<error>Já existe um Master (%s). O Master é único: para trocá-lo, use app:master:definir com o e-mail e --confirmar.</error>',
+                '<error>Já existe Master (%s). Para trocar o Master primário, use app:master:definir com o e-mail e --confirmar; Master secundário se promove pela tela do Master.</error>',
                 implode(', ', array_map(static fn (User $u): string => (string) $u->getEmail(), $mastersAtuais))
             ));
 
@@ -61,13 +63,13 @@ class CreateSuperAdminCommand extends Command
         $user->setEmail(mb_strtolower(trim((string) $email)));
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));
         $user->setFullName('Master');
-        $user->setRoles(['ROLE_SUPER_ADMIN']);
+        $user->setRoles([RegraDosMasters::PAPEL_MASTER, RegraDosMasters::PAPEL_MASTER_PRIMARIO]);
         $user->setIsActive(true);
 
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
-        $output->writeln("<info>Master criado com sucesso: $email</info>");
+        $output->writeln("<info>Master primário criado com sucesso: $email</info>");
 
         return Command::SUCCESS;
     }
