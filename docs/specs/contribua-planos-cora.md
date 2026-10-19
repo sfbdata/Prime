@@ -200,9 +200,38 @@ legado de risco ALTO):
   abaixo dos cadastrados: "Menor que os usuários já cadastrados."), `ConfigurarFaixasDoEspacoUseCase`.
   Autorização `ROLE_SUPER_ADMIN` é do controller da b5. Auditoria: depois do merge do #52, envolver as três
   escritas em `EscopoDeAuditoriaDePlataforma::executar()` (pedido da b5).
+- **Decisão do dono (19/10): publicar com o bloqueio DESLIGADO**, sem alterar dado de nenhum escritório em
+  produção (o de 24 GB inclusive: com a chave desligada ninguém é bloqueado). A tela do Master que liga a
+  chave (b5) mostra o aviso: "Antes de ligar, confira os escritórios acima do plano e defina sem limite ou
+  uma cota própria."
 - **Convenções sem desenho** (registradas, aprovadas pela coordenação): "sem limite" por escritório e a
   chave liga/desliga do bloqueio. Motivo medido: em produção o único escritório com arquivos usa 24,29 GB;
   com o Free de 10 GB ele seria bloqueado no deploy.
+
+## 5.1 Página e aviso (C2)
+
+- Página própria `/contribua` (`contribua_index`), como no 08, com o item "Contribua · PIX" no menu do
+  avatar (desenho 03) e o título "Quem somos e contribua" na barra azul (linha autorizada pela 7d no
+  `base.html.twig`). Não há aba no Meu Perfil: o 07 não tem; o bloco "Assinatura" do Meu Perfil (plano,
+  vencimento, cancelar) entra na C3, no ponto de inclusão do #60 (decisão da coordenação, 19/10).
+- Sugestões: cada escritório vê as próprias; o Master vê as de todos (pela porta `VisaoDoMaster`, que
+  suspende o filtro de tenant só no callback) e marca como atendida com resposta. Números (recebidas, em
+  aberto, atendidas, apoios): do escritório; para o Master, de todos.
+- Apoio informado: um por escritório a cada 30 dias, como no desenho; avisa o Master. Motivo de não
+  apoiar: anônimo (só a conta), um a cada 30 dias.
+- PIX estático gerado e validado no servidor (`CodigoPixEstatico`, testado byte a byte contra a função
+  `pix()` do desenho); QR desenhado no navegador com o `qrcode-generator@1.4.4` do desenho.
+- Conta Nº = id do escritório com 6 dígitos; txid `BJ<conta>`.
+- "Quero +N GB": na C2 registra o pedido em lista de espera e avisa o Master (caminho `coPedir` do
+  próprio desenho para gateway não configurado). Na C3 vira o checkout de cartão.
+- Aviso de espaço: parcial `layout/_globais/aviso_espaco.html.twig` (ponto de inclusão da 7d), só para o
+  primário, a partir da faixa Alerta, uma vez por dia; "Espaço esgotado" sem fechar só com o bloqueio
+  ligado e a faixa Bloqueio atingida. Espera qualquer modal aberto (`hidden.bs.modal`).
+- Cores e textos do cabeçalho do espaço seguem os limiares literais do desenho (80, 90, 100).
+- Ficam para a C3/C4, com as funções: "Configurar pagamento" (Master), checkout, Integração bancária,
+  "Testar mensagem de prêmio" e o prêmio do apoiador.
+- Avisos ao Master saem no sino do escritório de origem quando o Master tem vínculo com ele; senão no
+  primeiro escritório do Master.
 
 ## 6. Cartão (espaço): quatro gateways atrás de uma interface
 
@@ -292,7 +321,7 @@ interface. Mais um **adaptador falso** para os testes, que já entra na C3.
 |---|---|---|
 | D1 | Cora para o espaço? | **Resolvida**: a API da Cora só tem boleto, PIX e webhooks (developers.cora.com.br/llms.txt); o link de cartão da Cora existe só no aplicativo (avulso, validade de 7 dias, sem API e sem recorrência), então não serve para assinatura. O desenho (cartão por gateway, Cora no PIX) é compatível com o pedido |
 | D2 | Em qual gateway abrir conta primeiro | **Resolvida pelo dono**: Asaas (C3a). Os quatro continuam no escopo |
-| D3 | (dono) Carência da inadimplência antes de voltar ao Free | 7 dias |
+| D3 | Carência da inadimplência | **Resolvida pelo dono (19/10)**: 7 dias, configurável pelo Master (padrão 7) |
 | D4 | Quem compra e cancela espaço | **Resolvida**: o primário, como no desenho |
 | D5 | Nota fiscal mensal | **Resolvida para o Asaas** (NFS-e da assinatura, §6); pendência por adaptador nos outros três |
 | D6 | Certificado da Cora pela tela | **Resolvida**: segue o desenho; o arquivo é guardado cifrado (sodium, chave de ambiente ou Symfony secrets) e a tela mostra presente/ausente. A chave de produção é segredo do dono |
