@@ -204,7 +204,10 @@
 
     function desenharMarca(botao, marca, estadoMarca) {
         // [EXP] L.4423-4425: quadrado cheio, traço (alguns) ou vazio.
-        marca.className = 'bi pao-marca ' + (estadoMarca === 'true' ? 'bi-check-square-fill' : estadoMarca === 'mixed' ? 'bi-dash-square-fill' : 'bi-square');
+        // Troca só o ícone: reescrever o className apagava a classe `js-pao-todos-marca`, e o
+        // próximo desenho não achava mais a marca (a lista travava sem marcar ninguém).
+        marca.classList.remove('bi-check-square-fill', 'bi-dash-square-fill', 'bi-square');
+        marca.classList.add(estadoMarca === 'true' ? 'bi-check-square-fill' : estadoMarca === 'mixed' ? 'bi-dash-square-fill' : 'bi-square');
         botao.setAttribute('aria-checked', estadoMarca);
     }
 

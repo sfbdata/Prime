@@ -37,6 +37,13 @@ final class PastaAbasOcultasJsTest extends TestCase
         self::assertStringContainsString('.textContent = p.nome', $this->js());
     }
 
+    #[TestDox('Marca do modal troca só o ícone (classList): reescrever className apagava a classe js- de busca')]
+    public function testNaoReescreveClassName(): void
+    {
+        self::assertDoesNotMatchRegularExpression('/\.className\s*=/', $this->js());
+        self::assertStringContainsString("marca.classList.remove('bi-check-square-fill', 'bi-dash-square-fill', 'bi-square')", $this->js());
+    }
+
     #[TestDox('Todo id que o JS procura existe na marcação')]
     public function testIdsExistem(): void
     {
