@@ -71,8 +71,8 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         $pagina = $crawler->filter('body > main.bj-recurso-preparo');
         self::assertCount(1, $pagina->filter('i.bi-tools'));
         self::assertSame('Minhas Metas em preparação', $pagina->filter('h1')->text());
-        self::assertSame('Revisão ética', $pagina->filter('.bj-recurso-preparo-texto')->text());
-        self::assertSame('Previsão: 25/10/2099', $pagina->filter('.bj-recurso-preparo-previsao')->text());
+        self::assertSame('Revisão ética', $pagina->filter('.bj-recurso-preparo-texto > .bj-recurso-preparo-motivo')->text());
+        self::assertSame('Previsão: 25/10/2099', $pagina->filter('.bj-recurso-preparo-texto > .bj-recurso-preparo-previsao')->text());
         self::assertSame('/expediente', $pagina->filter('a.bj-recurso-preparo-voltar')->attr('href'));
         self::assertSame('Voltar ao Expediente', $pagina->filter('a.bj-recurso-preparo-voltar')->text());
     }
@@ -86,7 +86,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', '/tarefas/minhas');
 
         self::assertResponseStatusCodeSame(503);
-        self::assertSame(BloqueioDeRecursoDesativado::MENSAGEM_PADRAO, $crawler->filter('.bj-recurso-preparo-texto')->text());
+        self::assertSame(BloqueioDeRecursoDesativado::MENSAGEM_PADRAO, $crawler->filter('.bj-recurso-preparo-texto > .bj-recurso-preparo-motivo')->text());
         self::assertCount(0, $crawler->filter('.bj-recurso-preparo-previsao'));
     }
 
