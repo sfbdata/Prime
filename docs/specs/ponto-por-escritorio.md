@@ -58,7 +58,7 @@ tipo, para a pessoa ver o motivo certo e não um "fora da área"):
   microssegundos; só uma batida a 23:59:59,999 poderia cair dos dois lados, e isso é aceito.
 - Com entrada aberta: **422** `{success: false, message: 'Você está com o ponto aberto em <nome de Y>. Registre a saída
   lá antes.'}` e nada é gravado. O nome é o do escritório (`Tenant::getName()`). Mais de um Y aberto: cita o primeiro em
-  ordem alfabética (P-E). O texto pode mudar conforme P-A.
+  ordem alfabética (P-E). Texto provisório conforme P-A (seção 6).
 - **Onde a mensagem aparece (v2, I2).** No servidor a trava vem logo depois de validar o tipo, antes do home office e do
   GPS. Mas a tela do ponto e o atalho do cabeçalho recusam por localização **antes** de enviar (cerca do navegador): quem
   está fora da área de X vê o aviso da cerca, não o da trava. A mensagem da trava aparece para quem está dentro da área
@@ -129,17 +129,21 @@ Pessoa com vínculo em dois escritórios, **dentro da área de B** (ou com home 
 trocar para B e tentar a entrada (vê a mensagem); bater a saída em A e a entrada em B passa; no dia seguinte, com a
 entrada de A esquecida, a entrada em B passa e A mostra a pendência na folha.
 
-## 6. Perguntas ao dono (pelo coordenador), com recomendação
+## 6. Decisões (19/10)
 
-- **P-A (bloqueante, B1). O que solta a trava quando a pessoa não consegue bater a saída em Y.** A saída em Y exige estar
-  na área de Y (a cerca), e a justificativa de esquecimento só vira batida quando o gestor de Y aprova. Quem esqueceu a
-  saída em Y e já está em X ficaria sem entrar em X até a meia-noite. **Recomendo:** a justificativa de esquecimento da
-  saída de hoje em Y, **pendente**, já solta a trava (a pessoa pede em Y, de onde estiver, e bate em X); a mensagem vira
-  "Você está com o ponto aberto em <Y>. Registre a saída lá ou peça o esquecimento da saída de hoje em <Y>."
-- **P-B (I1). Reentrada.** Recomendo contar a reentrada como aberta (a última batida do dia manda), como na v2.
-- **P-C. Vínculo e módulo em Y.** Recomendo travar só por Y onde a pessoa tem vínculo ativo **e** o módulo de ponto (sem
-  o módulo ela não consegue bater a saída lá e cairia no beco do P-A).
-- **P-D. Repouso sem retorno em Y conta como aberto.** Recomendo sim (ela não saiu do expediente de lá).
-- **P-E. Dois ou mais Y abertos.** Recomendo citar o primeiro em ordem alfabética.
-- **P-F. Corrida de duas entradas no mesmo segundo.** Recomendo aceitar (seção 2.2).
+Decididas pelo coordenador, por delegação do dono:
+- **P-B.** A última batida do dia manda: a reentrada conta como aberta.
+- **P-C.** Só trava por escritório Y onde a pessoa tem vínculo ativo **e** o módulo de ponto (`canAccessModule` em Y).
+  Sem o módulo ela não bateria a saída lá.
+- **P-D.** Repouso sem retorno em Y conta como aberto.
+- **P-E.** Dois ou mais Y abertos: cita o primeiro em ordem alfabética.
+- **P-F.** Corrida de duas entradas no mesmo segundo em X e Y: limite conhecido, aceito.
+- Decisões técnicas da v2 (antes do GPS no servidor, "hoje" do servidor, sem consulta para quem tem um vínculo só,
+  meia-noite no unitário): aceitas.
 
+**A confirmar pelo dono (P-A, implementado isolado para trocar fácil).** Quem esqueceu a saída em Y e já está em X não
+bate a saída em Y (a cerca de Y) e a justificativa só vira batida com a aprovação do gestor de Y. Até o dono responder:
+a justificativa de esquecimento **da saída de hoje** em Y, **pendente** (ou abonada), solta a trava; a mensagem é "Você
+está com o ponto aberto em <Y>. Registre a saída lá ou peça o esquecimento da saída de hoje em <Y>." Isolado num método
+do serviço (`liberadoPorEsquecimentoPendente`) e numa constante do texto: se o dono recusar, a liberação vira `false` e
+a mensagem volta à frase dele, sem mexer no resto. Teste próprio dos dois lados.
