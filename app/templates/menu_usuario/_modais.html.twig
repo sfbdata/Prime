@@ -1,0 +1,74 @@
+{#
+    Modais do menu do usuário (desenhos "03 - EXPEDIENTE" e "07 - Meu Perfil", VS 18.10.26, e
+    bj-contas.js / bj-idioma.js / bj-recursos.js). Comportamento em public/js/menu-usuario.js.
+      - Conta do escritório: "Abrir conta" só para o primário (ou o Master); "Trocar conta" para todos,
+        carregada sob demanda de escritorio_contas.
+      - Idioma: só o seletor por enquanto (decisão do dono, 19/10/2026); só o Português está ativo.
+      - Em preparação: itens do Master ainda sem tela (decisão do dono, 19/10/2026).
+    Recebe do base: `_ehPrimario`, `_ehMaster`.
+#}
+<div class="modal fade mu-modal" id="modalContaEscritorio" tabindex="-1" aria-labelledby="modalContaEscritorioTitulo" aria-hidden="true"
+     data-url-contas="{{ path('escritorio_contas') }}">
+    <div class="modal-dialog modal-dialog-centered mu-modal-largo">
+        <div class="modal-content">
+            <div class="mu-modal-topo">
+                <b id="modalContaEscritorioTitulo">Conta do escritório</b>
+                <button type="button" class="mu-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mu-abas" role="tablist">
+                {% if _ehPrimario or _ehMaster %}
+                    <button type="button" class="mu-aba" data-mu-aba="nova" role="tab" aria-controls="muPainelNova" aria-selected="false">Abrir conta</button>
+                {% endif %}
+                <button type="button" class="mu-aba" data-mu-aba="trocar" role="tab" aria-controls="muPainelTrocar" aria-selected="false">Trocar conta</button>
+            </div>
+            <div class="mu-modal-corpo">
+                {% if _ehPrimario or _ehMaster %}
+                    <div data-mu-painel="nova" id="muPainelNova" role="tabpanel" hidden>
+                        <p class="mu-texto">Quem abre a conta se torna o <b>usuário primário</b> (gestor do escritório). As pessoas convidadas depois entram como secundárias. Os dados de cada conta ficam separados e não são vistos por outras contas.</p>
+                        <div class="mu-acoes"><a href="{{ path('escritorio_criar') }}" class="mu-btn mu-btn-pri"><i class="bi bi-plus-circle"></i>Abrir conta</a></div>
+                    </div>
+                {% endif %}
+                <div data-mu-painel="trocar" id="muPainelTrocar" role="tabpanel" hidden>
+                    <div class="mu-carregando">Carregando…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade mu-modal" id="modalIdioma" tabindex="-1" aria-labelledby="modalIdiomaTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered mu-modal-medio">
+        <div class="modal-content">
+            <div class="mu-modal-topo">
+                <b id="modalIdiomaTitulo">Idioma do sistema</b>
+                <button type="button" class="mu-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mu-idiomas">
+                {% for idioma in [
+                    ['pt-BR', 'Português (Brasil)', 'PT'], ['en', 'English', 'EN'], ['es', 'Español', 'ES'], ['fr', 'Français', 'FR'],
+                    ['it', 'Italiano', 'IT'], ['de', 'Deutsch', 'DE'], ['ru', 'Русский', 'RU'], ['zh', '中文', 'ZH'], ['ja', '日本語', 'JA'], ['ar', 'العربية', 'AR']
+                ] %}
+                    <button type="button" class="mu-idioma{{ loop.first ? ' atual' : '' }}" {{ loop.first ? '' : 'disabled' }} lang="{{ idioma[0] }}">
+                        <span class="mu-idioma-sigla">{{ idioma[2] }}</span>
+                        <span class="mu-idioma-nome">{{ idioma[1] }}</span>
+                        {% if loop.first %}<i class="bi bi-check-lg"></i>{% else %}<span class="mu-idioma-breve">em breve</span>{% endif %}
+                    </button>
+                {% endfor %}
+            </div>
+            <div class="mu-nota mu-nota-modal">Vale só para você e muda todas as telas, menus, avisos e o Chat I.A. Por enquanto só o Português (Brasil) está disponível; os demais idiomas chegam em breve.</div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade mu-modal" id="modalEmPreparacao" tabindex="-1" aria-labelledby="modalEmPreparacaoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered mu-modal-medio">
+        <div class="modal-content mu-preparacao">
+            <button type="button" class="mu-modal-x mu-modal-x-claro" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            <span class="mu-preparacao-icone"><i class="bi bi-tools"></i></span>
+            <b class="mu-preparacao-titulo" id="modalEmPreparacaoTitulo"><span data-mu-preparacao-nome></span> em preparação</b>
+            <p class="mu-texto">Estamos finalizando esta tela para ela chegar com tudo funcionando. Volte em breve.</p>
+        </div>
+    </div>
+</div>
+
+<div class="mu-aviso" id="muAviso" role="status" aria-live="polite" hidden></div>
