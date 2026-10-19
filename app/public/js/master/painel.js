@@ -12,7 +12,6 @@
 
   const URLS = JSON.parse(raiz.dataset.urls || '{}');
   const QUEM = raiz.dataset.quem || 'Master';
-  const CARENCIA_DIAS = parseInt(raiz.dataset.carenciaPurgaDias, 10) || 365;
   const elSecs = document.getElementById('mp-secs');
   const elSecao = document.getElementById('mp-secao');
 
