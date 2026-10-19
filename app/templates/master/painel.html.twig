@@ -43,6 +43,10 @@
         <div class="mp-faixa"><i class="bi bi-shield-fill-check"></i>Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.</div>
         <div class="mp-secs" id="mp-secs"></div>
         <div class="mp-secao" id="mp-secao"><div class="mp-carregando">Carregando o painel…</div></div>
+        {# Seção "Comercial e e-mails" (desenho 1.2, #sec=com): mora num parcial próprio, de outra frente. Sem o
+           parcial, o painel.js nem mostra o botão da seção. O parcial pode trazer o próprio <script src> (CSP 'self')
+           e ouvir o evento "mp:secao" no #master-painel para montar a seção quando ela abrir. #}
+        <div class="mp-secao-externa" data-sec-externa="com" hidden>{% include 'master/_comercial.html.twig' ignore missing %}</div>
     </div>
 
     <div class="mp-perm" data-painel-aba="perm" hidden>

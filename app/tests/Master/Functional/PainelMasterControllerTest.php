@@ -189,6 +189,19 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/master');
     }
 
+    #[TestDox('ponto de entrada da seção "Comercial e e-mails" (#sec=com): contêiner oculto e vazio enquanto o parcial de outra frente não existe')]
+    public function testPontoDeEntradaDaSecaoComercial(): void
+    {
+        $client = $this->clienteMaster();
+        $crawler = $client->request('GET', '/master');
+
+        self::assertResponseIsSuccessful();
+        $externa = $crawler->filter('div.mp-painel[data-painel-aba="painel"] > div.mp-secao-externa[data-sec-externa="com"]');
+        self::assertCount(1, $externa);
+        self::assertSame('hidden', $externa->attr('hidden') === null ? null : 'hidden');
+        self::assertSame('', trim($externa->html()));
+    }
+
     #[TestDox('Aba Permissões (desenho 1.2): Master primário com cadeado, "Promover a Master" e 8 poderes; sem escritório, o select vem vazio')]
     public function testAbaPermissoes(): void
     {

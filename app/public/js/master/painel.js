@@ -32,6 +32,10 @@
   const SECS = [['visao', 'Visão geral', 'bi-speedometer2'], ['contas', 'Contas e escritórios', 'bi-buildings'], ['oab', 'Usuários e OABs', 'bi-person-vcard'],
     ['arm', 'Armazenamento', 'bi-hdd-stack'], ['planos', 'Planos e limites', 'bi-sliders'], ['custos', 'Custos e infraestrutura', 'bi-cash-coin'],
     ['desemp', 'Desempenho', 'bi-activity'], ['audit', 'Segurança e auditoria', 'bi-journal-check'], ['config', 'Configurações globais', 'bi-gear']];
+  // Seções de outras frentes (desenho 1.2): entram só quando o parcial delas existe e trouxe conteúdo.
+  const EXTERNAS = {};
+  raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
+  if (EXTERNAS.com) SECS.push(['com', 'Comercial e e-mails', 'bi-megaphone']);
   const VAZIAS = {
     custos: ['bi-cash-coin', 'Custos e infraestrutura', 'Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.', ['Armazenamento', 'Banco de dados', 'Hospedagem', 'Tráfego', 'Backups', 'APIs de IA', 'Notificações', 'Receita recorrente', 'Custo por conta', 'Custo por GB', 'Margem por plano', 'Projeção 3, 6 e 12 meses']],
     desemp: ['bi-activity', 'Desempenho e disponibilidade', 'Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.', ['Disponibilidade', 'Tempo de resposta', 'Erros', 'Falhas de upload', 'Falhas de login', 'Último backup', 'Teste de restauração', 'CPU e memória', 'Integrações', 'Incidentes']],
@@ -81,6 +85,10 @@
 
   function renderSecao() {
     const sec = S.sec, dep = precisa[sec];
+    Object.keys(EXTERNAS).forEach(k => { EXTERNAS[k].hidden = k !== sec; });
+    elSecao.hidden = !!EXTERNAS[sec];
+    raiz.dispatchEvent(new CustomEvent('mp:secao', { detail: { sec } }));
+    if (EXTERNAS[sec]) return;
     if (dep && !D[dep]) { elSecao.innerHTML = aguardando(dep); carregar(dep, urlDe[dep]); return; }
     if (VAZIAS[sec]) { elSecao.innerHTML = vazia(VAZIAS[sec]); return; }
     if (sec === 'visao') return montarVisao();
