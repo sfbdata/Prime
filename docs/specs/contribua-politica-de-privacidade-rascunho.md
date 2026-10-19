@@ -40,8 +40,9 @@ Contribua (já é BlueJus), o rodapé do login ("© BlueJus") e os e-mails (reme
   4. o `docs/legal/politica-de-privacidade.docx` atualizado, para a fonte continuar batendo com o texto.
 - No deploy: a página `/politica-de-privacidade` e o PDF passam a mostrar a nova versão e a nova data; quem
   já usa o sistema segue usando, sem tela nova.
-- Se o advogado entender que a troca de controladora pede **aviso** aos usuários (LGPD, art. 9º, § 2º),
-  o caminho é uma Novidade e um e-mail, não um reaceite. Isso é decisão dele.
+- A LGPD manda informar o titular, com destaque, quando muda a identificação do controlador (art. 8º, § 6º,
+  combinado com o art. 9º, III). O caminho proposto é uma Novidade e um e-mail no dia da troca, não um
+  reaceite. Forma e texto do aviso: decisão do advogado.
 
 ## 1. Anexo I (relação de suboperadores): linhas novas
 
