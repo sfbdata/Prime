@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * ausência de cada escritório (uma linha por escritório, criada na primeira escolha do primário; sem linha = 60 min).
  * Gerada pelo diff do mapeamento e limpa do ruído de base. Fila de migrations: no fim (renomear o timestamp na vez).
  */
-final class Version20261019225327 extends AbstractMigration
+final class Version20261020120000 extends AbstractMigration
 {
     public function getDescription(): string
     {
