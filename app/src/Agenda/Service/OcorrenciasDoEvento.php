@@ -9,7 +9,8 @@ use App\Entity\Agenda\Evento;
 /**
  * Ocorrências de um evento num período. Mesma regra da agenda antiga
  * (EventoRepository::expandirEventosRecorrentes): diário, semanal, mensal ou anual a partir do
- * início, até o fim da recorrência, no máximo 366 ocorrências.
+ * início, até o fim da recorrência; avança sem limite até o período e conta no máximo 366
+ * ocorrências dentro dele.
  */
 final class OcorrenciasDoEvento
 {
@@ -35,12 +36,14 @@ final class OcorrenciasDoEvento
     {
         $limite = $evento->getFimRecorrencia();
         $limite = null === $limite || $limite > $ate ? $ate : $limite;
+        $tipo = $evento->getTipoRecorrencia();
+        while (null !== $atual && $atual < $de) {
+            $atual = $this->proxima($atual, $tipo);
+        }
         $saida = [];
         for ($n = 0; null !== $atual && $atual <= $limite && $n < self::MAX; ++$n) {
-            if ($atual >= $de) {
-                $saida[] = ['inicio' => $atual, 'fim' => $atual->add($duracao)];
-            }
-            $atual = $this->proxima($atual, $evento->getTipoRecorrencia());
+            $saida[] = ['inicio' => $atual, 'fim' => $atual->add($duracao)];
+            $atual = $this->proxima($atual, $tipo);
         }
 
         return $saida;

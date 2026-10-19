@@ -22,12 +22,9 @@
 
 {% block body %}
 <div class="ag-page" id="agPagina"
-     data-eu="{{ eu|json_encode|e('html_attr') }}"
-     data-pode-ver-pastas="{{ podeVerPastas ? '1' : '0' }}"
      data-url-datas="{{ path('app_agenda_datas') }}"
      data-url-compromissos="{{ path('app_agenda_compromissos') }}"
      data-url-novo="{{ path('agenda_novo') }}"
-     data-url-evento="{{ path('agenda_show', {id: 0}) }}"
      data-url-editar="{{ path('agenda_editar', {id: 0}) }}"
      data-url-pasta="{{ path('pasta_show', {id: 0}) }}">
 

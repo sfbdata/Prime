@@ -67,8 +67,9 @@ final class ListarCompromissosUseCase
     }
 
     /**
-     * Evento de dia inteiro que dura vários dias aparece em cada dia; o com horário, no dia em que
-     * começa.
+     * Evento de dia inteiro que dura vários dias aparece em cada dia do período; o com horário, no
+     * dia em que começa. Fim exatamente à meia-noite não abre mais um dia: é o limite exclusivo que o
+     * arrastar da agenda antiga (FullCalendar) grava.
      *
      * @return list<string>
      */
@@ -77,12 +78,13 @@ final class ListarCompromissosUseCase
         if (!$evento->isDiaInteiro()) {
             return [$inicio->format('Y-m-d')];
         }
+        if ('00:00:00' === $fim->format('H:i:s') && $fim > $inicio) {
+            $fim = $fim->modify('-1 second');
+        }
         $dias = [];
-        $dia = $inicio->setTime(0, 0);
-        for ($n = 0; $dia <= $fim && $n < self::MAX_DIAS_DIA_INTEIRO; ++$n, $dia = $dia->modify('+1 day')) {
-            if ($dia >= $de->setTime(0, 0) && $dia <= $ate) {
-                $dias[] = $dia->format('Y-m-d');
-            }
+        $dia = max($inicio->setTime(0, 0), $de->setTime(0, 0));
+        for ($n = 0; $dia <= $fim && $dia <= $ate && $n < self::MAX_DIAS_DIA_INTEIRO; ++$n, $dia = $dia->modify('+1 day')) {
+            $dias[] = $dia->format('Y-m-d');
         }
 
         return $dias;

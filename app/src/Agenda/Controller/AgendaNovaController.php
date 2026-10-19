@@ -42,11 +42,7 @@ final class AgendaNovaController extends AbstractController
             return $this->redirectToRoute('homepage');
         }
 
-        return $this->render('agenda/nova.html.twig', [
-            'eu'              => ['id' => $user->getId(), 'nome' => $user->getFullName()],
-            'tenantId'        => $tenant->getId(),
-            'podeVerPastas'   => $this->permissionChecker->canAccessModule($user, $tenant, 'pastas'),
-        ]);
+        return $this->render('agenda/nova.html.twig');
     }
 
     #[Route('/agenda/compromissos', name: 'app_agenda_compromissos', methods: ['GET'])]

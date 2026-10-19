@@ -28,7 +28,7 @@
         trib: ['Tribunais e eleições', '#334e8a', '#e4eaf6'],
         aniv: ['Aniversários da equipe', '#d1477a', '#fde8f0'],
     };
-    const DO_SISTEMA = ['fer', 'est', 'forense', 'com', 'trib'];
+    const DO_SISTEMA = ['fer', 'est', 'forense', 'com', 'trib', 'aniv'];
     const MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
     const SEM = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
     const H0 = 7;
@@ -88,10 +88,16 @@
     /* ── Busca de dados por intervalo ───────────────────────────────────── */
     const coberto = (lista, de, ate) => lista.some(([a, b]) => a <= de && b >= ate);
 
+    const emCurso = new Map();
+    function umaVez(chave, fazer) {
+        if (!emCurso.has(chave)) { emCurso.set(chave, fazer().finally(() => emCurso.delete(chave))); }
+        return emCurso.get(chave);
+    }
+
     async function garantir(de, ate) {
         const pedidos = [];
         if (!coberto(s.cobertoDatas, de, ate)) {
-            pedidos.push(buscar(url.datas + '?de=' + de + '&ate=' + ate).then(r => {
+            pedidos.push(umaVez('d' + de + ate, () => buscar(url.datas + '?de=' + de + '&ate=' + ate)).then(r => {
                 s.ufs = r.ufs;
                 r.datas.forEach(d => s.datas.set(d.id, d));
                 s.cobertoDatas.push([de, ate]);
@@ -99,7 +105,7 @@
         }
         if (!coberto(s.cobertoItens, de, ate)) {
             const escopo = s.escopo;
-            pedidos.push(buscar(url.compromissos + '?de=' + de + '&ate=' + ate + '&escopo=' + escopo).then(r => {
+            pedidos.push(umaVez('c' + escopo + de + ate, () => buscar(url.compromissos + '?de=' + de + '&ate=' + ate + '&escopo=' + escopo)).then(r => {
                 if (escopo !== s.escopo) { return; }
                 r.itens.forEach(c => s.itens.set(c.id, c));
                 s.cobertoItens.push([de, ate]);
@@ -137,10 +143,22 @@
         return [hoje0(), soma(hoje0(), 60)];
     }
 
+    /* Uma busca só por endpoint quando os intervalos cabem nos 400 dias do servidor; o que já está
+       coberto não é pedido de novo. */
+    function juntar(lista) {
+        const falta = lista.filter(([de, ate]) => !coberto(s.cobertoDatas, de, ate) || !coberto(s.cobertoItens, de, ate));
+        if (!falta.length) { return []; }
+        const de = falta.map(x => x[0]).sort()[0];
+        const ate = falta.map(x => x[1]).sort().slice(-1)[0];
+        const dias = (dataDe(ate) - dataDe(de)) / 864e5;
+
+        return dias <= 400 ? [[de, ate]] : falta;
+    }
+
     async function carregar() {
         desenhar();
         try {
-            await Promise.all(intervalos().map(([de, ate]) => garantir(de, ate)));
+            await Promise.all(juntar(intervalos()).map(([de, ate]) => garantir(de, ate)));
         } catch (e) {
             avisar('Não foi possível carregar a agenda. Tente de novo em instantes.');
         }
@@ -179,11 +197,11 @@
     const tituloNaTela = e => (e.privado ? '🔒 ' : '') + (s.escopo === 'equipe' && e.src === 'meus' && !e.meu && e.dono ? String(e.dono).split(' ')[0] + ': ' : '') + e.t;
     const corDe = e => CAL[e.cal] || CAL.meus;
 
-    function chip(e, classe) {
+    function chip(e, semHora) {
         const c = corDe(e);
-        return '<div class="' + (classe || 'ag-chip') + (e.status === 'cancelado' ? ' is-cancelado' : '') + '" data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '"'
+        return '<div class="ag-chip' + (e.status === 'cancelado' ? ' is-cancelado' : '') + '" data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '"'
             + ' style="border-left-color:' + c[1] + ';background:' + c[2] + ';">'
-            + '<b>' + esc(horaDe(e)) + '</b><span>' + esc(tituloNaTela(e)) + '</span></div>';
+            + (semHora ? '' : '<b>' + esc(horaDe(e)) + '</b>') + '<span>' + esc(tituloNaTela(e)) + '</span></div>';
     }
 
     /* ── Desenho ────────────────────────────────────────────────────────── */
@@ -191,7 +209,7 @@
         const L = visiveis();
         const por = porDia(L);
         desenharResumo();
-        desenharMini(porDia(todos().filter(e => e.cal !== 'fer')));
+        desenharMini(porDia(L.filter(e => e.cal !== 'fer')));
         desenharCals();
         document.getElementById('agUfs').textContent = s.ufs === null ? '…' : (s.ufs.join(' e ') || 'nenhum estado cadastrado');
         desenharSegmentos();
@@ -258,7 +276,7 @@
     function desenharCals() {
         const meus = todos().filter(e => e.src === 'meus' && e.meu);
         document.getElementById('agCals').innerHTML = Object.entries(CAL).map(([k, v]) => {
-            const n = ['meus', 'aud', 'reun', 'prazo'].includes(k) ? meus.filter(e => e.cal === k).length : 0;
+            const n = ['meus', 'aud', 'reun', 'prazo'].includes(k) ? new Set(meus.filter(e => e.cal === k).map(e => e.eventoId)).size : 0;
             return '<button type="button" class="ag-cal-item" data-cal="' + k + '" aria-pressed="' + (s.V[k] === false ? 'false' : 'true') + '">'
                 + '<i class="bi ' + (s.V[k] === false ? 'bi-square' : 'bi-check-square-fill') + '" style="color:' + v[1] + ';"></i><span>' + esc(v[0]) + '</span><span class="ag-cal-n">' + (n || '') + '</span></button>';
         }).join('');
@@ -318,7 +336,7 @@
         const cab = colunas.map(d => {
             const k = iso(d);
             const diaInt = (por[k] || []).filter(e => e.dia || !e.h1);
-            return '<div class="ag-grade-col-cab' + (k === hk ? ' is-hoje' : '') + '" data-ir-dia="' + k + '"><div>' + SEM[d.getDay()] + '</div><b>' + d.getDate() + '</b>' + diaInt.map(e => chip(e)).join('') + '</div>';
+            return '<div class="ag-grade-col-cab' + (k === hk ? ' is-hoje' : '') + '" data-ir-dia="' + k + '"><div>' + SEM[d.getDay()] + '</div><b>' + d.getDate() + '</b>' + diaInt.map(e => chip(e, true)).join('') + '</div>';
         }).join('');
         const horas = Array.from({ length: H1 - H0 }, (_, j) => '<div class="ag-hora">' + String(H0 + j).padStart(2, '0') + ':00</div>').join('');
         const cols = colunas.map(d => htmlColuna(d, iso(d), por[iso(d)] || [], iso(d) === hk)).join('');
@@ -371,7 +389,7 @@
         if (!L.length) { caixa.innerHTML = '<div class="ag-pf-vazio">Nenhum feriado neste mês nem no próximo.</div>'; return; }
         caixa.innerHTML = '<div class="ag-pf-grade">' + L.map(e => {
             const d = dataDe(e.d);
-            const n = Math.round((d - h) / 864e5);
+            const n = Math.round((d - dataDe(iso(h))) / 864e5);
             const falta = n <= 0 ? 'hoje' : n === 1 ? 'amanhã' : 'em ' + n + ' dias';
             const ponte = d.getDay() === 2 || d.getDay() === 4;
             return '<button type="button" class="ag-pf-item" data-pf="' + e.d + '"><span class="ag-pf-data"><span style="background:' + corDe(e)[1] + ';">' + SEM[d.getDay()] + '</span><b>' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '</b></span>'
@@ -436,8 +454,8 @@
     }
 
     function botoesDoDetalhe(e) {
-        const fechar = '<button type="button" class="ag-mbtn is-pri is-fim" data-fechar><i class="bi bi-x"></i>Fechar</button>';
-        if (DO_SISTEMA.includes(e.src) || e.src === 'aniv') { return fechar; }
+        const fechar = '<button type="button" class="ag-mbtn is-fim" data-fechar><i class="bi bi-x"></i>Fechar</button>';
+        if (DO_SISTEMA.includes(e.src)) { return fechar; }
         const google = '<a class="ag-mbtn" href="' + esc(googleUrl(e)) + '" target="_blank" rel="noopener"><i class="bi bi-google"></i>Google Agenda</a>';
         if (e.src === 'meus' && e.meu && e.eventoId) {
             return google + '<a class="ag-mbtn is-pri is-fim" href="' + esc(comId(url.editar, e.eventoId)) + '"><i class="bi bi-pencil"></i>Editar</a>';
@@ -466,8 +484,8 @@
 
     function fecharMenu() { document.getElementById('agCtx').innerHTML = ''; }
 
-    function novoEm(dia, hora) {
-        location.href = url.novo + '?data=' + encodeURIComponent(dia) + (hora ? '&hora=' + encodeURIComponent(hora) : '');
+    function novoEm(dia) {
+        location.href = url.novo + '?data=' + encodeURIComponent(dia);
     }
 
     /* ── Eventos da página ──────────────────────────────────────────────── */
@@ -497,7 +515,7 @@
         if ((a = alvo('[data-ev]'))) { const e = acharItem(a.dataset.ev); if (e) { abrir(e); } return; }
         if ((a = alvo('[data-ver-dia]'))) { irPara(dataDe(a.dataset.verDia), 'dia'); return; }
         if ((a = alvo('[data-ir-dia]'))) { irPara(dataDe(a.dataset.irDia), 'dia'); return; }
-        if ((a = alvo('.ag-slot'))) { novoEm(a.dataset.dia, a.dataset.hora); return; }
+        if ((a = alvo('.ag-slot'))) { novoEm(a.dataset.dia); return; }
         if ((a = alvo('.ag-cel'))) { novoEm(a.dataset.dia); return; }
         if ((a = alvo('[data-rz]'))) { s.busca = ''; document.getElementById('agBusca').value = ''; irPara(dataDe(a.dataset.ref), a.dataset.vista); return; }
         if ((a = alvo('[data-mini-nav]'))) { s.mini = new Date(s.mini.getFullYear(), s.mini.getMonth() + Number(a.dataset.miniNav), 1); carregar(); return; }
@@ -515,6 +533,7 @@
 
     raiz.addEventListener('contextmenu', ev => {
         const t = ev.target;
+        if (t.closest('[data-ctx-fechar]')) { ev.preventDefault(); fecharMenu(); return; }
         if (t.closest('#agModal, #agCtx')) { return; }
         const cel = t.closest('[data-dia]');
         if (!cel) { return; }
@@ -557,9 +576,23 @@
         const m = location.hash.match(/ev=([^&]+)/);
         await carregar();
         if (!m) { return; }
-        const e = acharItem(decodeURIComponent(m[1]));
-        if (e) { irPara(dataDe(e.d)); abrir(e); }
+        const id = decodeURIComponent(m[1]);
+        let e = acharItem(id);
+        const dia = id.match(/(\d{4}-\d{2}-\d{2})$/);
+        if (!e && dia) {
+            s.ref = dataDe(dia[1]);
+            s.ref.setHours(0, 0, 0, 0);
+            s.mini = new Date(s.ref.getFullYear(), s.ref.getMonth(), 1);
+            await carregar();
+            e = acharItem(id);
+        }
+        if (!e) { avisar('Compromisso não encontrado. Ele pode ter sido excluído ou não estar visível para você.'); return; }
+        s.ref = dataDe(e.d);
+        s.ref.setHours(0, 0, 0, 0);
+        await carregar();
+        abrir(e);
     }
 
+    window.addEventListener('hashchange', abrirDoEndereco);
     abrirDoEndereco();
 })();

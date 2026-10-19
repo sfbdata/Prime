@@ -35,6 +35,8 @@ class EventoDaAgendaRepository
         bool $soOsDele,
     ): array {
         $qb = $this->eventos->createQueryBuilder('e')
+            ->addSelect('criador')
+            ->leftJoin('e.criador', 'criador')
             ->andWhere('e.tenant = :tenant')
             ->andWhere('e.dataInicio <= :ate')
             ->andWhere('(e.recorrente = false AND e.dataFim >= :de) OR (e.recorrente = true AND (e.fimRecorrencia IS NULL OR e.fimRecorrencia >= :de))')
