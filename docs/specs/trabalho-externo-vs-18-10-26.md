@@ -67,9 +67,21 @@ o compartilhar entram como fatia própria.
   referência nas worktrees). Conferência dos #62, #83 e #84 contra ele: em andamento.
 - Descrição do #62 não editável pelo `gh` 2.46 desta máquina: complemento postado como comentário.
 
-**Próximo passo**: corrigir os #62, #83 e #84 contra o desenho completo; depois F3a (§4.4), empilhada.
-Esperar o merge do #62 e seguir a pilha. A F2d (§4.3) espera o PR da 5d, que avisa
-quando abrir. Enquanto isso, o que não depender da P1 nem do zip.
+**Feito no #84 contra o 06 completo** (19/10, noite): "Divulgar vaga(s)" como o desenho (l.343 a 362,
+1074 a 1077, 1098, 1166 e 1167). Quem divulga: qualquer um que vê a vaga aberta (o externo também,
+"Compartilhar vaga" no menu, l.1001). "Indicadas por" = primeiro nome de quem gerou o link. Cada canal
+(WhatsApp, E-mail, LinkedIn, mensagem copiada, link) soma uma divulgação e vai ao histórico com o ícone
+do canal (rota `trabalho_externo_vagas_divulgacao`). Entradas: botão "Compartilhar vagas" na aba,
+"Compartilhar esta vaga" no detalhe, item do menu. Página pública: áreas cortadas em 4, `og:image`.
+Conferido no navegador (8107): modal de várias vagas e de uma, detalhe, menu.
+
+**Para o dono** (depende dele): merges da pilha na ordem acima; smoke na tela do "Divulgar vaga(s)"
+(WhatsApp e e-mail abrem fora do navegador de teste, não conferidos); decidir se quer conta de pessoa
+física (pendência abaixo).
+
+**Próximo passo**: F3a Currículos (§4.4), empilhada sobre o #84; depois F2b Candidatura, F4 visão
+externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
+lista do que não tem dono. A F2d (§4.3) espera o PR da 5d.
 
 
 Frente `trabalho-externo-vs1810`, base `origin/master` @ `1d3e664c` (v2.2.2). Continua a spec
