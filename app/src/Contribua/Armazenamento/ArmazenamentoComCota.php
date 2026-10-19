@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Contribua\Armazenamento;
 
 use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Event\EnvioRecusadoPorEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
 use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Event\UsoDoEspacoSubiu;
@@ -88,7 +89,7 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
 
         $antes = $this->retrato($tenantId);
         if (!$antes->cabe(0)) {
-            throw new EspacoEsgotado($antes);
+            $this->recusar($antes);
         }
 
         $armazenado = $this->interno->gravar($destino, $fonte);
@@ -152,7 +153,15 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
         (new RemocaoAposTransacao($this->interno, $this->logger))
             ->remover([$armazenado->chave], 'arquivo recusado por falta de espaço');
 
-        throw new EspacoEsgotado($antes);
+        $this->recusar($antes);
+    }
+
+    /** Avisa a recusa na hora (é o fato, não depende do trabalho) e recusa. */
+    private function recusar(RetratoDoEspaco $retrato): never
+    {
+        $this->eventos->agora(new EnvioRecusadoPorEspaco($retrato->tenantId, $retrato));
+
+        throw new EspacoEsgotado($retrato);
     }
 
     /** Os eventos saem depois do commit de quem gravou (`EventosDoEspacoAposConfirmar`). */
