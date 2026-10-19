@@ -11,7 +11,7 @@ use App\Pasta\Enum\ChaveDoAvisoDoPush;
 use App\Pasta\Exception\BuscaNoPushMuitoFrequenteException;
 use App\Pasta\Exception\ChaveDoAvisoTravadaException;
 use App\Pasta\Exception\ProcessoForaDaPastaException;
-use App\Pasta\UseCase\AlternarAvisoDoPushUseCase;
+use App\Pasta\UseCase\DefinirAvisoDoPushUseCase;
 use App\Pasta\UseCase\AlternarMonitoramentoDaPastaUseCase;
 use App\Pasta\UseCase\BuscarAgoraNoPushUseCase;
 use App\Service\PermissionChecker;
@@ -26,7 +26,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Ações dos cartões da coluna direita da aba Push (desenho 1.2.3, dc L.2568-2636; specs
  * push-painel-monitoramento §1 e §2 e push-avisar-quando-chegar §2): os switches do monitoramento
  * (um por processo da pasta; o campo `processo` diz qual, e processo de fora da pasta dá 404), o
- * "Buscar agora" e as chaves do "Avisar quando chegar" (campo `chave`; desconhecida ou travada, 422).
+ * "Buscar agora" e as chaves do "Avisar quando chegar" (campos `chave` e `ligado` = 1|0, o estado
+ * desejado; chave ou valor desconhecido, ou ligar uma chave travada, 422).
  *
  * Guarda, nas duas: a pasta é do escritório da sessão (404, nunca 403, para não revelar que existe:
  * o resolver busca por PK e o TenantFilter não se aplica a find()), a permissão sobre a pasta (403)
@@ -96,7 +97,7 @@ final class PastaPushPainelController extends AbstractController
     }
 
     #[Route('/{id}/push/avisos', name: 'pasta_push_avisos', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function alternarAviso(Pasta $pasta, Request $request, AlternarAvisoDoPushUseCase $alternar): JsonResponse
+    public function definirAviso(Pasta $pasta, Request $request, DefinirAvisoDoPushUseCase $definir): JsonResponse
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -106,12 +107,13 @@ final class PastaPushPainelController extends AbstractController
         }
 
         $chave = ChaveDoAvisoDoPush::tryFrom((string) $request->request->get('chave'));
-        if ($chave === null) {
+        $ligado = (string) $request->request->get('ligado');
+        if ($chave === null || !\in_array($ligado, ['0', '1'], true)) {
             return $this->json(['erro' => 'Aviso desconhecido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {
-            $avisos = $alternar->executar($pasta, $chave, $usuario, $this->tenant());
+            $avisos = $definir->executar($pasta, $chave, $ligado === '1', $usuario, $this->tenant());
         } catch (ChaveDoAvisoTravadaException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

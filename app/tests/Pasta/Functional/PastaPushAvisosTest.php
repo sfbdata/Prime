@@ -6,10 +6,11 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Pasta\Controller\PastaPushPainelController;
 use App\Pasta\Entity\AvisoDoPushDaPasta;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\UseCase\AlternarAvisoDoPushUseCase;
+use App\Pasta\UseCase\DefinirAvisoDoPushUseCase;
 use App\Pasta\UseCase\MontarAvisosDoPushUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -25,7 +26,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * EDITAR, VER 403, outro escritório 404, chave travada 422, lápide).
  */
 #[CoversClass(PastaPushPainelController::class)]
-#[CoversClass(AlternarAvisoDoPushUseCase::class)]
+#[CoversClass(DefinirAvisoDoPushUseCase::class)]
 #[CoversClass(MontarAvisosDoPushUseCase::class)]
 #[Group('pasta')]
 final class PastaPushAvisosTest extends JusPrimeWebTestCase
@@ -75,11 +76,13 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         return [$client, $user, $tenant, $pasta];
     }
 
-    private function postar(KernelBrowser $client, Pasta $pasta, string $chave, ?string $token = null): void
+    /** @param string $ligado o estado DESEJADO ('1' ou '0') */
+    private function postar(KernelBrowser $client, Pasta $pasta, string $chave, string $ligado, ?string $token = null): void
     {
         $client->request('POST', '/pasta/' . $pasta->getId() . '/push/avisos', [
             '_token' => $token ?? 'TOKEN_pasta_push_avisos_' . $pasta->getId(),
             'chave' => $chave,
+            'ligado' => $ligado,
         ]);
     }
 
@@ -129,13 +132,13 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('—', $cartao->html());
     }
 
-    #[TestDox('Rota: desliga o responsável (o e-mail trava com a dica) e religa; a linha guarda quem mexeu')]
-    public function testAlternar(): void
+    #[TestDox('Rota (estado desejado): desliga o responsável (o e-mail trava com a dica), repetir não inverte, religa; a linha guarda quem mexeu')]
+    public function testDefinir(): void
     {
         [$client, $user, $tenant, $pasta] = $this->cenario();
         $this->logarComTenant($client, $user, $tenant);
 
-        $this->postar($client, $pasta, 'responsavel');
+        $this->postar($client, $pasta, 'responsavel', '0');
 
         self::assertResponseIsSuccessful();
         $avisos = $this->json($client)['avisos'];
@@ -145,7 +148,12 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         self::assertNotNull($linha);
         self::assertSame($user->getId(), $linha->getAtualizadoPor()?->getId());
 
-        $this->postar($client, $pasta, 'email');
+        $this->postar($client, $pasta, 'responsavel', '0');
+        self::assertFalse($this->json($client)['avisos'][0]['ligado'], 'o segundo clique (ou a outra aba) não inverte');
+
+        $this->postar($client, $pasta, 'email', '0');
+        self::assertResponseIsSuccessful();
+        $this->postar($client, $pasta, 'email', '1');
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erro' => 'Ligue o aviso ao responsável para receber por e-mail.'], $this->json($client));
 
@@ -154,27 +162,50 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         self::assertNotNull($cartao->filter('[data-push-aviso="email"]')->attr('disabled'));
         self::assertSame('Ligue o aviso ao responsável para receber por e-mail.', $cartao->filter('[data-push-aviso="email"]')->attr('title'));
 
-        $this->postar($client, $pasta, 'responsavel');
+        $this->postar($client, $pasta, 'responsavel', '1');
         self::assertTrue($this->json($client)['avisos'][0]['ligado']);
-        $this->postar($client, $pasta, 'email');
+        $this->postar($client, $pasta, 'email', '1');
         self::assertResponseIsSuccessful();
-        self::assertFalse($this->json($client)['avisos'][1]['ligado']);
+        self::assertTrue($this->json($client)['avisos'][1]['ligado']);
+        self::assertCount(1, $this->em()->getRepository(AvisoDoPushDaPasta::class)->findBy(['pasta' => $pasta->getId()]), 'uma linha só');
     }
 
-    #[TestDox('Rota: sem CSRF 403; chave desconhecida 422; IA desligada no escritório 422 com o motivo; nada gravado')]
+    #[TestDox('Rota: sem CSRF 403; chave ou valor desconhecido 422; IA desligada no escritório 422 com o motivo; nada gravado')]
     public function testRecusas(): void
     {
         [$client, $user, $tenant, $pasta] = $this->cenario();
         $this->logarComTenant($client, $user, $tenant);
 
-        $this->postar($client, $pasta, 'responsavel', 'errado');
+        $this->postar($client, $pasta, 'responsavel', '0', 'errado');
         self::assertResponseStatusCodeSame(403);
-        $this->postar($client, $pasta, 'sms');
+        $this->postar($client, $pasta, 'sms', '1');
         self::assertResponseStatusCodeSame(422);
-        $this->postar($client, $pasta, 'ia');
+        $this->postar($client, $pasta, 'responsavel', 'talvez');
+        self::assertResponseStatusCodeSame(422);
+        $this->postar($client, $pasta, 'ia', '1');
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erro' => 'BlueJus IA desligada neste escritório. Peça ao administrador.'], $this->json($client));
         self::assertNull($this->linha($pasta));
+    }
+
+    #[TestDox('IA ligada no escritório e responsável da pasta sem modules.inteligencia.view: a chave da IA trava com a dica e ligar dá 422')]
+    public function testResponsavelSemIa(): void
+    {
+        [$client, $user, $tenant, $pasta] = $this->cenario();
+        $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->atualizar(true, 50, 500, true, $user);
+        $this->em()->persist($configuracao);
+        $pasta->setResponsavel($this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view']));
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $ia = $this->cartao($client, $pasta)->filter('[data-push-aviso="ia"]');
+        self::assertNotNull($ia->attr('disabled'));
+        self::assertSame('O responsável da pasta não tem acesso à BlueJus IA.', $ia->attr('title'));
+
+        $this->postar($client, $pasta, 'ia', '1');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'O responsável da pasta não tem acesso à BlueJus IA.'], $this->json($client));
     }
 
     #[TestDox('Só VER a pasta: a rota responde 403 e a tela mostra as chaves desabilitadas com a dica')]
@@ -183,7 +214,7 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         [$client, , $tenant, $pasta] = $this->cenario();
         $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view']), $tenant);
 
-        $this->postar($client, $pasta, 'responsavel');
+        $this->postar($client, $pasta, 'responsavel', '0');
         self::assertResponseStatusCodeSame(403);
         self::assertNull($this->linha($pasta));
 
@@ -202,7 +233,7 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         [$intruso, $outroTenant] = $this->criarAdmin();
         $this->logarComTenant($client, $intruso, $outroTenant);
 
-        $this->postar($client, $pasta, 'responsavel');
+        $this->postar($client, $pasta, 'responsavel', '0');
 
         self::assertResponseStatusCodeSame(404);
         self::assertNull($this->linha($pasta));
@@ -217,7 +248,7 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         // O JS chama com X-Requested-With: o listener da lápide responde JSON de erro (sem ele, redireciona).
-        $client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/push/avisos', ['_token' => 'TOKEN_pasta_push_avisos_' . $pasta->getId(), 'chave' => 'responsavel']);
+        $client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/push/avisos', ['_token' => 'TOKEN_pasta_push_avisos_' . $pasta->getId(), 'chave' => 'responsavel', 'ligado' => '0']);
         self::assertGreaterThanOrEqual(400, $client->getResponse()->getStatusCode());
         self::assertNull($this->linha($pasta));
 

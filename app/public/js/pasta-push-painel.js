@@ -128,7 +128,7 @@
     }
 
     /* ── 3. Avisar quando chegar ─────────────────────────────────────────────
-       Cada linha é um switch (POST `pasta_push_avisos` com a `chave`). O servidor devolve
+       Cada linha é um switch (POST `pasta_push_avisos` com a `chave` e o `ligado` desejado). O servidor devolve
        as três linhas: uma chave muda a outra ("Por e-mail" trava sem o aviso ao responsável). */
     function iniciarAvisos() {
         var cartao = document.querySelector('[data-push-avisos]');
@@ -162,6 +162,9 @@
                 var dados = new FormData();
                 dados.append('_token', cartao.dataset.avisosToken);
                 dados.append('chave', botao.dataset.pushAviso);
+                // O estado DESEJADO (o oposto do que a tela mostra), não "inverter": o clique
+                // repetido ou outra aba não desfazem o primeiro.
+                dados.append('ligado', botao.getAttribute('aria-checked') === 'true' ? '0' : '1');
                 fetch(cartao.dataset.avisosUrl, {
                     method: 'POST',
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
