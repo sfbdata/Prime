@@ -29,8 +29,9 @@ o compartilhar entram como fatia própria.
   (f6). Esta frente só consome.
 - Descadastro de e-mail: serviço único da 0d, `App\Shared\Email\Descadastro\DescadastroDeEmailInterface`
   (`estaDescadastrado`, `descadastrar`, `gerarLink`, com Tenant, e-mail e assunto), tabela
-  `email_descadastro`. Os alertas de vagas não têm escritório: usam o escopo "plataforma" (pedido
-  pelo coordenador à 0d). Não criar outro.
+  `email_descadastro`. Os alertas de vagas não têm escritório: Tenant `null` = plataforma, assunto
+  `vagas_alerta` (confirmado pela 0d). Há opt-out total (`todos`) e descadastro de um clique por
+  lista. Não criar outro.
 - Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (5d). Double opt-in também
   é dela; esta frente só grava o pedido de alerta. Envio só
   para quem confirmou o e-mail (double opt-in) e não está descadastrado (§4.2).
