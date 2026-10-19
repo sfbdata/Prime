@@ -5,8 +5,9 @@ namespace App\EventListener;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
-use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Enum\SituacaoNaEquipe;
+use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -42,6 +43,10 @@ final class TenantContextValidatorListener
         'trabalho_externo_convite',
         'trabalho_externo_convite_criar_conta',
         'trabalho_externo_convite_aceitar',
+        // Link externo do Push: página pública de terceiro, não depende de termo nem de escritório.
+        'push_compartilhado',
+        'push_compartilhado_codigo',
+        'push_compartilhado_renovacao',
     ];
 
     /**
@@ -52,7 +57,7 @@ final class TenantContextValidatorListener
      */
     private const PREFIXO_SEM_ESCRITORIO = 'trabalho_externo_';
 
-    private const SEM_ACESSO = 'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.';
+    private const ACESSO_INDISPONIVEL = 'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.';
 
     public function __construct(
         private readonly Security $security,
@@ -93,41 +98,58 @@ final class TenantContextValidatorListener
             return;
         }
 
+        // Barreiras de acesso ao escritório da sessão, nesta ordem (spec perfis-1.2-contas C13). Vale a
+        // mensagem da primeira que falhar. Derrubam a sessão a cada request: fecham num ponto só os 40+
+        // consumidores de getCurrentTenant() que não rechecam isActive (RS06/RS07).
         $userTenant = $this->tenantContext->getCurrentUserTenant();
+        $recusa = $this->barreiraDaConta($userTenant);
+        // (b) pedido de exclusão pendente: entra aqui (frente 7d, PR 5).
+        $recusa ??= $this->barreiraDoVinculo($userTenant);
+        $recusa ??= $this->barreiraDaSituacao($userTenant, $user);
 
-        // Barreiras do acesso ao escritório da sessão, nesta ordem (contrato com a frente das contas, spec
-        // docs/specs/equipe-da-conta.md §3 e perfis-1.2-contas.md C3/C13); vale a mensagem da primeira que falhar.
-        // Fecha num ponto só os 40+ consumidores de getCurrentTenant() que não rechecam o vínculo (RS06/RS07).
-        // (b) pedido de exclusão pendente entra entre (a) e (c), com o PR 5 do redesenho do Meu Perfil.
-        $mensagem = $this->barreiraDoEscritorio($userTenant)
-            ?? $this->barreiraDoVinculo($userTenant)
-            ?? $this->barreiraDaSituacao($userTenant, $user);
-        if ($mensagem === null) {
+        if ($recusa === null) {
             return;
         }
 
         $this->tenantContext->clearCurrentTenant();
-        $event->getRequest()->getSession()->getFlashBag()->add('warning', $mensagem);
+        $event->getRequest()->getSession()->getFlashBag()->add('warning', $recusa);
         $event->setResponse(new RedirectResponse($this->router->generate('tenant_selecionar')));
     }
 
-    /** (a) Escritório suspenso ou excluído (soft delete) por outro admin ou pelo Master. */
-    private function barreiraDoEscritorio(?UserTenant $userTenant): ?string
+    /**
+     * (a) A conta: escritório suspenso pelo Master (isActive=false, excluidoEm nulo, aviso da C9) ou
+     * excluído, em quarentena (aviso da C9b). Sem bypass para o Master (spec perfis-1.2-contas C12).
+     */
+    private function barreiraDaConta(?UserTenant $userTenant): ?string
     {
-        return $userTenant !== null && $userTenant->getTenant()->isActive() !== true ? self::SEM_ACESSO : null;
+        $conta = $userTenant?->getTenant() ?? $this->tenantContext->getCurrentTenant();
+        if ($conta !== null && $conta->isActive() === true) {
+            return null;
+        }
+
+        if ($conta === null) {
+            return self::ACESSO_INDISPONIVEL; // já purgada: não há mais nome a dizer
+        }
+
+        return $conta->getExcluidoEm() === null
+            ? AvisoDeContaSuspensa::para((string) $conta->getName())
+            : AvisoDeContaSuspensa::paraExcluida((string) $conta->getName());
     }
 
-    /** (c) Vínculo removido, ou inativo de legado (inativo sem ser por causa da situação na equipe). */
+    /** (c) O vínculo: removido, ou inativo de legado (inativo sem ser por causa da situação na equipe). */
     private function barreiraDoVinculo(?UserTenant $userTenant): ?string
     {
         if ($userTenant === null) {
-            return self::SEM_ACESSO;
+            return self::ACESSO_INDISPONIVEL;
         }
 
-        return !$userTenant->isActive() && $userTenant->getSituacao() === SituacaoNaEquipe::Aprovado ? self::SEM_ACESSO : null;
+        return !$userTenant->isActive() && $userTenant->getSituacao() === SituacaoNaEquipe::Aprovado ? self::ACESSO_INDISPONIVEL : null;
     }
 
-    /** (d) Situação na equipe: em análise ou suspenso pelo primário. O Master não passa por esta barreira. */
+    /**
+     * (d) Situação na equipe: em análise ou suspenso pelo primário (spec docs/specs/equipe-da-conta.md §3). O Master
+     * não passa por esta barreira.
+     */
     private function barreiraDaSituacao(?UserTenant $userTenant, User $user): ?string
     {
         if ($userTenant === null || $userTenant->isActive() || in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {

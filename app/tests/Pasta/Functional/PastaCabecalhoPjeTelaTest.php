@@ -251,7 +251,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         $itens = $menu->filter('.ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Link externo do Push', 'Imprimir resumo', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
             $itens
         );
         // L18: a Timeline inteligente ganhou back-end (`pasta_timeline`) e entrou no menu, com o T do desenho.
