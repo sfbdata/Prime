@@ -283,8 +283,9 @@ Mercado Pago, Pagar.me). No Asaas:
 - o vínculo com o escritório vem do `customer` do `SUBSCRIPTION_CREATED`, porque o `externalReference` do
   link fixo não é documentado como copiado para a assinatura (no exemplo oficial vem `null`:
   docs.asaas.com/docs/eventos-para-assinaturas). Por isso o link fixo colado pelo Master não serve ao Asaas.
-  Tirar o campo "Link do pacote" da tela do Master quando o gateway é o Asaas é desvio do desenho, levado ao
-  dono, e fica por último;
+  **Desvio do desenho aprovado pelo dono (19/10):** com o gateway Asaas, o campo "Link do pacote" some do
+  modal "Pagamento por cartão" do Master (o sistema cria o cliente e o Checkout pela API); para Mercado
+  Pago, Stripe e Pagar.me o campo continua, como no desenho;
 - webhook com o token no header `asaas-access-token`, entrega "at least once" (idempotência pelo `id` do
   evento), e o aviso nunca muda nada sozinho: o servidor reconsulta a assinatura.
 
