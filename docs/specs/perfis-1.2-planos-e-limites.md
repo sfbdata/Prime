@@ -20,7 +20,28 @@ risco **MÉDIO** (limites e preços; nada de identidade) · aberta em 19/10/2026
   sessão b5.
 - **Implementado (19/10):** P1 a P11 na worktree, com testes verdes na frente. Pontos para o orquestrador no
   relatório da implementação (leitura das faixas, teste de arquitetura, convite aceito sem nova checagem).
-- **Próximo:** revisar, fazer a verificação visual e abrir o PR empilhado.
+- **PR #97** (base contribua-cora): suíte com 10.555 testes OK, qa.sh limpo, revisão e verificação visual ✓.
+  Ordem: #64 → #97.
+- **Situação dos outros PRs da b5 (20/10):**
+  - #52, #59, #72 e #77 já estão no master;
+  - #56 está com CI verde, na vez da fila de migrations (migration `Version20261019172536`).
+- **Próximo:**
+  - C6, saídas na tendência: espera o PR da 7d com a `saida_da_equipe`;
+  - bloco "Pedidos de exclusão", lado Master: espera o PR 5 da 7d.
+
+### Para o dono
+
+1. Merge do #56 na vez da fila e, depois do #64, do #97.
+2. VPS, por causa do #77, já mergeado: em `/opt/jusprime/.env.prod`, `SYMFONY_TRUSTED_PROXIES=127.0.0.1` e
+   `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build php`, fora do horário. O guia
+   está em `docs/guias/ip-do-cliente-em-producao.md`.
+3. Decisão C12: o Master entra em escritório suspenso? Hoje não entra; a recomendação é manter.
+4. Decisão C7: o "Acesso de suporte" temporário existe só na lógica do desenho 05, sem tela. Entra ou não?
+5. Olhar na tela:
+   - KPI ARMAZENAMENTO com conta sem limite (quebra em 3 linhas);
+   - "Editar plano" e "Sem limite";
+   - faixa de resultado verde ou vermelha no painel;
+   - botão "Criar meu escritório" abaixo do aviso de conta suspensa ou excluída.
 
 ## 1. Fontes
 
