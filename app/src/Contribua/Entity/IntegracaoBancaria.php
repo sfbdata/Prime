@@ -89,7 +89,7 @@ class IntegracaoBancaria
     {
         $this->certificadoCifrado = $certificadoCifrado;
         $this->chaveCifrada = $chaveCifrada;
-        $this->arquivos = array_values(array_map(static fn (string $n): string => mb_substr($n, 0, 120), $nomes));
+        $this->arquivos = array_map(static fn (string $n): string => mb_substr($n, 0, 120), $nomes);
         $this->estado = self::ESTADO_AGUARDANDO;
         $this->tocar($quem);
     }

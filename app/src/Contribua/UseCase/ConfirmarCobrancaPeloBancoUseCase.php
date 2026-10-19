@@ -66,7 +66,7 @@ final class ConfirmarCobrancaPeloBancoUseCase
         }
         $this->avisoAoMaster->avisar(
             $cobranca->getTenant(),
-            'contribua.apoio_confirmado',
+            AvisoAoMaster::TIPO_APOIO_CONFIRMADO,
             sprintf('Apoio confirmado pelo banco: %s (conta Nº %s), %s.', (string) $cobranca->getTenant()->getName(), str_pad((string) $cobranca->getTenant()->getId(), 6, '0', \STR_PAD_LEFT), RegistrarApoioUseCase::reais($valorCentavos)),
             $this->urls->generate('contribua_index') . '#apoie',
         );
