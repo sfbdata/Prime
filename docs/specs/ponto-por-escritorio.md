@@ -1,5 +1,17 @@
 # Ponto por escritório
 
+## Estado da frente (atualizado em 19/10/2026; reler antes de continuar se a sessão for compactada)
+
+- **Sessão:** 5d. **Branch:** `ponto-escritorio`, worktree `.claude/worktrees/ponto-escritorio` (a antiga `ponto-por-escritorio`, cortada do master, ficou só com a spec e não tem PR).
+- **PR:** #79, empilhado sobre o #67 (`ponto-no-cabecalho`), que está sobre o #61 (`presenca-cabecalho`). Ordem de merge: **#61 → #67 → #79**. Depois de cada merge, `git merge --no-edit origin/master` na branch de cima, testes e push.
+- **Decisões do dono:** 19/10, a trava vale só para entrada aberta no mesmo dia; 19/10, P-A: o esquecimento pendente NÃO solta a trava (a liberação foi removida do código). P-B a P-F, decididas pelo coordenador por delegação (seção 6).
+- **Contratos com outras sessões:** nenhum. Reaproveita a `batidasDoDiaNoEscritorio` do #67.
+- **Migrations:** nenhuma.
+- **Revisões:** spec v3 aprovada; implementação aprovada com ressalvas, corrigidas e re-revisadas (aprovada).
+- **Atenção:** `PontoController::batida` está no limite tolerado (229 = 224 + 5). Ao trazer o master, se outra frente tiver mexido no método, extrair código para um método privado.
+- **Pendências:** só os merges.
+- **Próximo passo:** quando o #61 e o #67 entrarem, trazer o master, rodar a suíte da frente e avisar o coordenador.
+
 Risco **ALTO** (ponto eletrônico). Frente `ponto-por-escritorio`, a partir do master. Decisão do dono (19/10, pelo
 coordenador): cada batida é do escritório onde foi feita; cada escritório vê e imprime só as suas; a interjornada é
 contada dentro de cada escritório; e, regra nova, quem está com a entrada aberta no escritório X não bate a entrada no
