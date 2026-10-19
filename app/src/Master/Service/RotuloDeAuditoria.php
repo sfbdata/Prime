@@ -97,7 +97,7 @@ final class RotuloDeAuditoria
         }
 
         if ($entidade === User::class && isset($diff['roles'])) {
-            return 'Papel no sistema alterado';
+            return self::rotuloDePapel($diff['roles']);
         }
 
         if ($entidade === User::class && isset($diff['oabStatus'])) {
@@ -113,6 +113,28 @@ final class RotuloDeAuditoria
         }
 
         return $padrao;
+    }
+
+    /**
+     * Promoção e remoção de Master secundário (spec perfis-1.2-masters M7): entrou ou saiu o
+     * ROLE_SUPER_ADMIN. Qualquer outra troca de papel fica com o rótulo genérico.
+     */
+    private static function rotuloDePapel(mixed $troca): string
+    {
+        $antes  = is_array($troca) && is_array($troca['from'] ?? null) ? $troca['from'] : [];
+        $depois = is_array($troca) && is_array($troca['to'] ?? null) ? $troca['to'] : [];
+        $eraMaster = in_array(RegraDosMasters::PAPEL_MASTER, $antes, true);
+        $ehMaster  = in_array(RegraDosMasters::PAPEL_MASTER, $depois, true);
+
+        if (!$eraMaster && $ehMaster) {
+            return 'Promovido a Master';
+        }
+
+        if ($eraMaster && !$ehMaster) {
+            return 'Removido de Master';
+        }
+
+        return 'Papel no sistema alterado';
     }
 
     /**
