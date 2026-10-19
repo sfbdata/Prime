@@ -254,27 +254,39 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertStringContainsString('js/master/recursos.js', (string) $this->client->getResponse()->getContent());
     }
 
-    #[TestDox('menu do usuário sem divisória dupla quando Tema, Instalar ou Novidades e Privacidade somem')]
-    public function testMenuDoUsuarioSemDivisoriaDupla(): void
+    #[TestDox('menu do usuário: item desligado some, o grupo vazio some junto e Sair continua por último')]
+    public function testMenuDoUsuarioSemGrupoVazio(): void
     {
         $this->entrar($this->comum);
 
-        foreach ([['tema'], ['tema', 'instalar'], ['tema', 'instalar', 'novidades', 'privacidade']] as $desligadas) {
-            foreach ($desligadas as $chave) {
-                $this->desligar($chave, null, null);
-            }
-
-            $crawler = $this->client->request('GET', '/expediente');
-            self::assertResponseIsSuccessful();
-            $itens = $crawler->filter('ul.usuario-dropdown > li')->each(
-                static fn ($li): string => $li->filter('hr.dropdown-divider')->count() > 0 ? 'hr' : 'item',
-            );
-            self::assertStringNotContainsString('hr,hr', implode(',', $itens), 'desligadas: ' . implode(', ', $desligadas));
-            self::assertSame('item', end($itens), 'Sair continua por último');
+        foreach (['tema', 'idioma', 'instalar'] as $chave) {
+            $this->desligar($chave, null, null);
         }
 
-        self::assertCount(0, $crawler->filter('#toggleTema'));
-        self::assertCount(0, $crawler->filter('#linkInstalarApp'));
+        $crawler = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        $menu = $crawler->filter('div.usuario-dropdown');
+        self::assertCount(0, $menu->filter('#toggleTema'));
+        self::assertCount(0, $menu->filter('[data-mu-idioma]'));
+        self::assertCount(0, $menu->filter('#linkInstalarApp'));
+        $grupos = $crawler->filter('div.usuario-dropdown > div.mu-grupo');
+        $grupos->each(static fn ($g) => self::assertGreaterThan(0, $g->filter('.mu-item')->count(), 'nenhum grupo vazio'));
+        self::assertCount(1, $grupos->last()->filter('a[data-mu-sair]'), 'Sair continua por último');
+        self::assertCount(1, $crawler->filter('div.usuario-dropdown > div.mu-grupo > [data-mu-ajuda]'), 'o outro grupo continua');
+    }
+
+    #[TestDox('o Master vê Idioma e Ajuda desligados marcados em vermelho no menu do usuário')]
+    public function testMasterVeItensDoMenuMarcados(): void
+    {
+        $this->entrar($this->master);
+        $this->desligar('idioma', null, null);
+        $this->desligar('ajuda', null, null);
+
+        $crawler = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('div.usuario-dropdown > div.mu-grupo > button.bj-recurso-off[data-mu-idioma]'));
+        self::assertCount(1, $crawler->filter('div.usuario-dropdown > div.mu-grupo > button.bj-recurso-off[data-mu-ajuda]'));
+        self::assertCount(0, $crawler->filter('div.usuario-dropdown > div.mu-grupo > .bj-recurso-off#toggleTema'));
     }
 
     #[TestDox('tema escuro desligado: quem não é Master não recebe o script que aplica o tema salvo; o Master recebe')]

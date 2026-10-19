@@ -24,7 +24,7 @@ aberta em 19/10/2026.
 | R5 | **Quem não é Master** não vê o item (menu, botão, atalho) e, ao abrir a rota de uma tela desligada, recebe a página "em preparação" (status 503): ícone `bi-tools`, "<Título> em preparação", o motivo (ou "Estamos finalizando esta tela para ela chegar com tudo funcionando. Volte em breve."), "Previsão: dd/mm/aaaa" quando houver data, e o botão "Voltar ao Expediente". Chamada de API (não-GET ou `Accept: application/json`) da mesma função recebe 503 JSON com a mesma mensagem. |
 | R6 | **O Master** continua vendo e usando tudo: o item desligado aparece apagado com contorno vermelho tracejado (`opacity:.45; outline:1px dashed #c0392b; outline-offset:-2px`) e a tela desligada mostra a faixa vermelha fixa "Esta tela está desativada para os usuários. Só o Master está vendo." |
 | R7 | Só `ROLE_SUPER_ADMIN` liga e desliga. Cada mudança vai para a auditoria (`RecursoEstado` é `Auditavel`). |
-| R8 | Item do catálogo cuja tela ou função **ainda não existe no sistema** (Contribua, Vagas públicas, Push compartilhado, Idioma, Ajuda e atalhos, Contribua atalho, Chat I.A) tem a chave e o interruptor funcionando; o efeito passa a valer quando a tela nascer, usando a mesma função Twig e o mesmo mapa de rotas. |
+| R8 | Item do catálogo cuja tela ou função **ainda não existe no sistema** (Contribua, Vagas públicas, Push compartilhado, Contribua atalho, Chat I.A) tem a chave e o interruptor funcionando; o efeito passa a valer quando a tela nascer, usando a mesma função Twig e o mesmo mapa de rotas. |
 
 ## 3. Tela (aba "Telas e recursos", só no perfil Master)
 
@@ -56,7 +56,8 @@ redesenha sem recarregar.
 | meuperfil | Meu Perfil | essencial | |
 | contribua, pushpub, vagaspub | (não existem ainda) | R8 | |
 | instalar | Instalar aplicativo | | `#linkInstalarApp`, `#btnInstalarApp` |
-| idioma, ajuda | (não existem ainda) | R8 | |
+| idioma | Idioma | | `[data-mu-idioma]` no menu do usuário (`menu_usuario/_dropdown`) |
+| ajuda | Ajuda e atalhos | | `[data-mu-ajuda]` no menu do usuário |
 | tema | Tema escuro | | `#toggleTema` |
 | novidades | Novidades | `novidades_` | item do menu do usuário |
 | privacidade | Política de Privacidade | (a rota pública continua aberta: é texto legal) | item do menu do usuário |
