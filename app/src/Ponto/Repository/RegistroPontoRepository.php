@@ -109,6 +109,28 @@ SQL;
             ->getResult();
     }
 
+    /**
+     * As batidas do dia da pessoa NESTE escritório (spec `presenca-e-ponto-no-cabecalho.md` §3, atalho do cabeçalho):
+     * tenant explícito além do `TenantFilter`, porque o atalho mostra o estado do ponto e não pode misturar o de outro
+     * escritório da mesma pessoa. Quem escolhe a batida de cada tipo é a `EscolhaDasBatidasDoDia`, não esta consulta.
+     *
+     * @return list<RegistroPonto>
+     */
+    public function batidasDoDiaNoEscritorio(User $user, Tenant $tenant, \DateTimeImmutable $dia): array
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $dia->setTime(0, 0, 0))
+            ->setParameter('fim', $dia->setTime(23, 59, 59))
+            ->orderBy('r.dataHora', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findRepousoDoDia(User $user, \DateTimeImmutable $dia): ?RegistroPonto
     {
         $inicio = $dia->setTime(0, 0, 0);

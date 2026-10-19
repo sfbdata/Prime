@@ -138,8 +138,9 @@ atalho deixaria a tela sugerindo a mesma batida de novo. Na tela do ponto, bate-
 **Estado do dia: UseCase de leitura (I5).** `ObterEstadoDoPontoDoDiaUseCase` (domínio Ponto), com teste unitário dos
 estados; rota `GET /ponto/estado-do-dia` (`ponto_estado_do_dia`) com as mesmas guardas da batida (401 sem usuário,
 403 sem módulo, 403 sem tenant). Devolve:
-`{dia: 'AAAA-MM-DD', hoje: {entrada, repouso, retorno, saida} (H:i ou null), homeOffice: bool,
-sedes: [{nome, lat, lng, raio}], interjornadaLigada: bool}`. (`ontemEntradaSemSaida` só entra com a P2: nenhum
+`{dia: 'AAAA-MM-DD', estado: 'bater_entrada'|'em_intervalo'|'em_jornada'|'jornada_concluida', hoje: {entrada,
+repouso, retorno, saida} (H:i ou null), homeOffice: bool, sedes: [{nome, latitude, longitude, raio}] (as chaves da
+tela do ponto, que o `avaliarPosicao` lê), interjornadaLigada: bool}`. O `estado` é derivado no UseCase. (`ontemEntradaSemSaida` só entra com a P2: nenhum
 campo morto no contrato.)
 - Batidas de `RegistroPontoRepository::batidasDoDiaNoEscritorio(User, Tenant, dia)`, método novo com
   `r.tenant = :tenant` explícito; escolha por `CalculadoraJornada::escolherBatidas` (a da folha, spec
@@ -179,7 +180,9 @@ nem saldo.
 **Envio, com a lógica da tela do ponto num lugar só (I4, B1, I2, a).** Vão para `public/js/ponto-batida.js` só as
 partes puras: `distanciaEmMetros`, `avaliarPosicao(posicao, sedes)`, `lerPosicaoComPrazo(prazo, aoChegar)`, as
 constantes (prazos, `LIMITE_ATRASO_ENVIO_MS`, `ENVIO_PRAZO_MS`) e `enviarBatida(url, payload, momentoDoToque)`, que
-devolve uma classificação (sucesso, recusa com mensagem, não entrou, sem confirmação, sem rede) sem mexer na tela.
+devolve uma classificação (sucesso, recusa com mensagem, não entrou, sem confirmação, sem rede, e `atrasado`
+quando passou do limite de 60 s: a guarda de atraso mora no módulo, antes do `fetch`, na mesma posição de hoje) sem
+mexer na tela.
 Ficam na tela, porque dependem de IDs dela: `updateButtonState`, `liberarBotaoBatida`, os rótulos do botão,
 `mostrarAvisoBatida` e `AVISO_SEM_REDE`, `cercaMandaNoBotaoAtualizar`, `guardarPosicao` e `aplicarPosicao`,
 `conferirViradaDoDia` e o relógio, a sugestão de tipo e o recarregamento. **Não é só mover**: as funções passam a
