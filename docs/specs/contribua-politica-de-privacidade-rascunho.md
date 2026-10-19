@@ -4,15 +4,44 @@
 > `app/templates/legal/_politica_privacidade_texto.html.twig`. Texto jurídico é decisão de vocês;
 > este rascunho só aponta onde a política fica desatualizada quando o Contribua entrar e propõe redação.
 
-## 0. Antes de tudo: quem é a empresa
+## 0. A empresa: BlueJus para tudo (decisão do dono, 19/10/2026)
 
-A política identifica a mantenedora como **PRIME GESTÃO EMPRESARIAL LTDA, CNPJ 62.916.987/0001-46**
-(capítulo 1.1). O desenho do Contribua mostra como favorecido do PIX, do cartão e do "Quem somos" a
-**BlueJus Gestão e Tecnologia LTDA, CNPJ 66.803.163/0001-10**, sediada em Taguatinga Norte, Brasília/DF.
+"Para tudo é a BlueJus." A **BlueJus Gestão e Tecnologia LTDA, CNPJ 66.803.163/0001-10**, é a mantenedora do
+sistema, a controladora dos dados, quem recebe os pagamentos e quem emite as notas. A PRIME GESTÃO
+EMPRESARIAL LTDA (CNPJ 62.916.987/0001-46) **sai da política**.
 
-Se quem recebe o dinheiro e emite a nota é a BlueJus Gestão e Tecnologia, ela precisa aparecer na
-política como controladora dos dados de faturamento (ou as duas, com o papel de cada uma). Decidir isso
-vem antes de qualquer linha abaixo.
+Proposta para o capítulo 1.1 (tabela "Identificação do responsável"):
+
+| Item | Hoje | Passa a ser |
+|---|---|---|
+| Mantenedora | PRIME GESTÃO EMPRESARIAL LTDA | BLUEJUS GESTÃO E TECNOLOGIA LTDA |
+| CNPJ | 62.916.987/0001-46 | 66.803.163/0001-10 |
+| Cidade | Brasília, Distrito Federal | Brasília, Distrito Federal (QND 14, Lote 7, Sala 11-A, Taguatinga Norte, CEP 72.120-140) |
+| Encarregado, e-mail, telefone | (sem mudança) | (sem mudança, salvo decisão do advogado) |
+
+Onde a Prime aparece hoje (busca em 19/10 no código e nos documentos): só na política, em dois lugares, que
+mudam juntos:
+- `app/templates/legal/_politica_privacidade_texto.html.twig`, linhas 79 e 80 (tabela do capítulo 1.1);
+- `docs/legal/politica-de-privacidade.docx` (a fonte do texto), na mesma tabela.
+
+Não citam a Prime: os Termos de Uso (texto e PDF, que não nomeiam razão social), o "Quem somos" do
+Contribua (já é BlueJus), o rodapé do login ("© BlueJus") e os e-mails (remetente `[BlueJus]`).
+
+### Como a troca entra no sistema (nada disso foi feito; espera o OK final do dono e do advogado)
+
+- A política **não** entra no fluxo de aceite (`app/src/Legal/PoliticaPrivacidadeVigente.php`): trocar o
+  texto **não** obriga ninguém a reaceitar e não trava nenhum usuário no deploy. Quem força reaceite é só a
+  versão dos Termos de Uso (`app/src/Termo/TermoVigente.php` + `TermoAceiteListener`), que não muda aqui.
+- A troca é um PR próprio, pequeno, **separado do Contribua**, aberto só depois do OK final. No mesmo commit:
+  1. o texto novo em `_politica_privacidade_texto.html.twig` (este rascunho, revisado pelo advogado);
+  2. `PoliticaPrivacidadeVigente::VERSAO` de `1.0.2026` para `1.1.2026` e `DATA_PUBLICACAO` para o dia do
+     deploy;
+  3. uma linha nova no Anexo III ("Controle de versões") com a data e o resumo da mudança;
+  4. o `docs/legal/politica-de-privacidade.docx` atualizado, para a fonte continuar batendo com o texto.
+- No deploy: a página `/politica-de-privacidade` e o PDF passam a mostrar a nova versão e a nova data; quem
+  já usa o sistema segue usando, sem tela nova.
+- Se o advogado entender que a troca de controladora pede **aviso** aos usuários (LGPD, art. 9º, § 2º),
+  o caminho é uma Novidade e um e-mail, não um reaceite. Isso é decisão dele.
 
 ## 1. Anexo I (relação de suboperadores): linhas novas
 
