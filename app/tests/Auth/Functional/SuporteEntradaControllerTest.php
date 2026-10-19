@@ -8,6 +8,7 @@ use App\Auth\Controller\SuporteEntradaController;
 use App\Auth\Entity\MensagemSuporte;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Auth\Cenario\CenarioDaEntrada;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
@@ -180,7 +181,7 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
 
     // ---------------------------------------------------------- destinatário
 
-    #[TestDox('Master escolhe uma pessoa da equipe do escritório atual e recebe o texto do desenho')]
+    #[TestDox('Master escolhe uma pessoa da equipe da conta do Master e recebe o texto do desenho')]
     public function testMasterEscolheDestinatarioDaEquipe(): void
     {
         $master = $this->master('Marta Master');
@@ -193,6 +194,23 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
         self::assertSame(['ok' => true, 'texto' => 'A partir de agora, Carla recebe as mensagens no Chat I.A.'], $this->resposta());
         $this->em()->clear();
         self::assertSame($colega->getId(), static::getContainer()->get(PaginaDeEntrada::class)->destinatarioDoSuporte()?->getId());
+    }
+
+    #[TestDox('Master dentro do escritório de um cliente não pode escolher alguém do cliente: só a conta do Master conta')]
+    public function testMasterNaoEscolheEquipeDoCliente(): void
+    {
+        $master = $this->master();
+        $titular = $this->pessoa('Tito Titular');
+        $cliente = $this->em()->find(Tenant::class, $this->escritorioDe($titular));
+        $cliente->setCriadoPor($titular);
+        $this->em()->persist(new UserTenant($master, $cliente));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $master, $cliente);
+
+        $this->postJson('/login/suporte/destinatario', ['userId' => $titular->getId(), '_token' => 'TOKEN_entrada_ajuste']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'Pessoa inválida.'], $this->resposta());
     }
 
     #[TestDox('Destinatário: pessoa fora das opções dá 422 "Pessoa inválida."')]

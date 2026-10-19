@@ -100,3 +100,12 @@ Rótulos: 0 `''`, 1 `Fraca` `#c0392b` 25%, 2 `Média` `#c76a12` 50%, 3 `Boa` `#0
 ## Verificação
 
 Suíte completa da frente, `scripts/qa.sh`, revisão e re-revisão do `feature-review-agent`, e lista ✓/✗ do desenho item a item. Verificação visual no navegador só com liberação do dono.
+
+## Para o dono (confirmar)
+
+1. **Quem recebe o suporte (interpretação do desenho, coordenador 19/10):** "o Master e os usuários da conta" = os Masters
+   e os usuários ativos das contas do Master (`RegraDosMasters::ehContaDoMaster`, a regra do Painel do Master). Nunca a
+   equipe do escritório em que o Master estiver navegando: assim um cliente jamais lê o suporte de outros visitantes.
+2. **"recebe as mensagens no Chat I.A."** (texto do desenho, mantido): a mensagem chega no sino de quem recebe e na lista
+   "Mensagens de suporte" (`/suporte/mensagens`), não num chat.
+3. **Caixa "Protótipo: o código de teste é"** não entrou: mostrar o código anularia a senha por código.

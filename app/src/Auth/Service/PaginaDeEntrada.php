@@ -10,7 +10,7 @@ use App\Auth\Repository\AjusteEntradaRepository;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
-use App\Service\Tenant\TenantContext;
+use App\Master\Service\RegraDosMasters;
 
 /**
  * Lê os ajustes SÓ MASTER da tela de entrada e devolve o que a tela mostra (spec `login-desenho-10.md`).
@@ -30,7 +30,7 @@ final class PaginaDeEntrada
         private readonly AjusteEntradaRepository $ajustes,
         private readonly UserRepository $usuarios,
         private readonly UserTenantRepository $vinculos,
-        private readonly TenantContext $tenantContext,
+        private readonly RegraDosMasters $regraDosMasters,
     ) {
     }
 
@@ -73,28 +73,53 @@ final class PaginaDeEntrada
     }
 
     /**
-     * Opções do "QUEM RECEBE AS MENSAGENS DE SUPORTE": os Masters primeiro, depois a equipe ativa do escritório
-     * atual de quem vê (o desenho lista o Master e os usuários da conta dele).
+     * Opções do "QUEM RECEBE AS MENSAGENS DE SUPORTE": os Masters primeiro, depois os usuários ativos das contas do
+     * Master (RegraDosMasters::ehContaDoMaster, a mesma regra do Painel do Master). Interpretação do desenho
+     * ("o Master e os usuários da conta" = a equipe BlueJus), confirmada pelo coordenador em 19/10: nunca a equipe
+     * do escritório em que o Master estiver navegando, para um cliente jamais ler o suporte de outros visitantes.
      *
      * @return array<int, array{nome: string, cargo: string}> por id
      */
     public function opcoesDeDestinatario(): array
     {
+        $masters = array_values(array_filter(
+            $this->usuarios->findComPapelGlobal('ROLE_SUPER_ADMIN'),
+            static fn (User $m): bool => $m->isActive() && $m->getId() !== null,
+        ));
         $opcoes = [];
-        foreach ($this->usuarios->findComPapelGlobal('ROLE_SUPER_ADMIN') as $master) {
-            if ($master->isActive() && $master->getId() !== null) {
-                $opcoes[$master->getId()] = ['nome' => (string) $master->getFullName(), 'cargo' => 'Master'];
-            }
+        foreach ($masters as $master) {
+            $opcoes[(int) $master->getId()] = ['nome' => (string) $master->getFullName(), 'cargo' => 'Master'];
         }
-        $escritorio = $this->tenantContext->getCurrentTenant();
-        foreach ($escritorio === null ? [] : $this->vinculos->findAtivosComPerfilPorTenant($escritorio) as $vinculo) {
-            $user = $vinculo->getUser();
-            if ($user->getId() !== null && !isset($opcoes[$user->getId()])) {
-                $opcoes[$user->getId()] = ['nome' => (string) $user->getFullName(), 'cargo' => (string) $vinculo->getTenantRole()?->getName()];
+        foreach ($this->contasDoMaster($masters) as $conta) {
+            foreach ($this->vinculos->findAtivosComPerfilPorTenant($conta) as $vinculo) {
+                $user = $vinculo->getUser();
+                if ($user->isActive() && $user->getId() !== null && !isset($opcoes[$user->getId()])) {
+                    $opcoes[$user->getId()] = ['nome' => (string) $user->getFullName(), 'cargo' => (string) $vinculo->getTenantRole()?->getName()];
+                }
             }
         }
 
         return $opcoes;
+    }
+
+    /**
+     * @param list<User> $masters
+     *
+     * @return list<\App\Entity\Tenant\Tenant> as contas em que algum Master tem vínculo ativo e que são do Master
+     */
+    private function contasDoMaster(array $masters): array
+    {
+        $contas = [];
+        foreach ($masters as $master) {
+            foreach ($this->vinculos->findActiveByUser($master) as $vinculo) {
+                $conta = $vinculo->getTenant();
+                if (!isset($contas[$conta->getId()]) && $this->regraDosMasters->ehContaDoMaster($conta)) {
+                    $contas[$conta->getId()] = $conta;
+                }
+            }
+        }
+
+        return array_values($contas);
     }
 
     /**

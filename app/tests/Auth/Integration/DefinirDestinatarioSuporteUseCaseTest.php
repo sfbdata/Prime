@@ -15,8 +15,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * Integração, e não unitário: as opções válidas vêm do PaginaDeEntrada, que é `final`. Sem requisição não há
- * escritório atual, então aqui as opções são só os Masters; a equipe do escritório é coberta no teste funcional.
+ * Integração, e não unitário: as opções válidas vêm do PaginaDeEntrada, que é `final`. As opções não dependem da requisição
+ * (nem do escritório atual): a equipe da conta do Master é coberta no teste funcional.
  */
 #[CoversClass(DefinirDestinatarioSuporteUseCase::class)]
 final class DefinirDestinatarioSuporteUseCaseTest extends KernelTestCase
