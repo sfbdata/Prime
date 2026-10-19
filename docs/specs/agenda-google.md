@@ -3,6 +3,13 @@
 Risco **MÉDIO**: guarda, por pessoa, a autorização de acesso à agenda Google dela. Parte da spec
 `docs/specs/agenda-vs-18-10-26.md` (V8, seções 3 e 8). Base: entrega 5b (#76).
 
+## Estado da frente (sessão 4b; atualizado em 19/10/2026)
+
+O estado completo da pilha da Agenda (decisões, contratos, ordem de merge, migrations, pendências) está
+no topo de `docs/specs/agenda-vs-18-10-26.md`. Desta entrega: PR #78 em RASCUNHO até o #81 (auditoria do
+"Só eu") entrar; migration Version20261019170000 depois da do #76; falta o cliente OAuth do dono (§8 da
+spec principal) e a ponta a ponta com conta real.
+
 ## 1. O que o desenho pede (09 - Agenda - VS 18.10.26, linhas 52-57 e 232-233)
 
 Painel **GOOGLE AGENDA** na lateral, três estados:
