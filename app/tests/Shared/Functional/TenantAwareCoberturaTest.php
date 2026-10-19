@@ -34,6 +34,8 @@ use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
+use App\TrabalhoExterno\Entity\InteressadoEmVagas;
+use App\TrabalhoExterno\Entity\LinkDeVagas;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
 use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
@@ -121,6 +123,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escritório é 404). O histórico só é lido pela vaga.
         Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
         HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só para a Central e o dono (ApresentadorDeVaga::detalhe)
+        LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
+        InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
     ];
 
     /**
@@ -133,8 +137,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026); 18 → 20 com as marcações pessoais dele
-    // (19/10/2026); 20 → 22 com as vagas (19/10/2026): exceções permanentes e justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 22;
+    // (19/10/2026); 20 → 22 com as vagas e 22 → 24 com a página pública delas (19/10/2026): exceções permanentes e justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 24;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

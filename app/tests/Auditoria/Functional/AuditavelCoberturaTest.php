@@ -167,6 +167,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // (HistoricoVaga, o "HISTÓRICO DA OFERTA" do desenho), como a demanda. Auditar seria log de log.
         \App\TrabalhoExterno\Entity\Vaga::class,
         \App\TrabalhoExterno\Entity\HistoricoVaga::class,
+        // Página pública de vagas: o link guarda só o hash e as vagas; o interessado guarda o próprio
+        // consentimento (data e versão do texto), que é o registro que a LGPD pede.
+        \App\TrabalhoExterno\Entity\LinkDeVagas::class,
+        \App\TrabalhoExterno\Entity\InteressadoEmVagas::class,
     ];
 
     private EntityManagerInterface $em;

@@ -71,4 +71,27 @@ class VagaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * As vagas de um link público, só as ABERTAS (as fechadas somem da página, como no desenho).
+     * Quem chama ainda confere o vencimento ({@see Vaga::situacaoEm()}).
+     *
+     * @param list<int> $ids
+     *
+     * @return list<Vaga>
+     */
+    public function abertasEntre(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('v')
+            ->andWhere('v.id IN (:ids)')
+            ->andWhere('v.situacao = :aberta')
+            ->setParameter('ids', $ids)
+            ->setParameter('aberta', SituacaoVaga::Aberta)
+            ->getQuery()
+            ->getResult();
+    }
 }
