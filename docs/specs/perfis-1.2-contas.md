@@ -1,7 +1,7 @@
 # Perfis 1.2 · Suspender, reativar e excluir conta pelo Master
 
 Frente `perfis-contas` · **empilhada sobre `perfis-masters` (#52)** · risco **ALTO** (Tenant, perda de dado) ·
-aberta em 19/10/2026. Q2 a Q4 decididas pela coordenação (19/10); **Q1 (exclusão) está com o dono**: a exclusão e o bloco de pedidos esperam.
+aberta em 19/10/2026. Q1 decidida pelo dono e Q2 a Q4 pela coordenação (19/10). O bloco de pedidos espera o PR 5 da 7d.
 
 ## 1. Fontes
 
@@ -22,8 +22,9 @@ aberta em 19/10/2026. Q2 a Q4 decididas pela coordenação (19/10); **Q1 (exclus
 |---|---|
 | C1 | Só `ROLE_SUPER_ADMIN`. Rotas POST sob `/master/contas/{id}/…`, com CSRF por conta e 403 para os outros. |
 | C2 | **Suspender**: `isActive=false`, `excluidoEm` nulo. Os usuários perdem o acesso no request seguinte; nenhum dado é apagado. Conta já suspensa ou excluída: recusa com mensagem. |
-| C3 | **Reativar**: um único `ReativarContaUseCase`, usado também pelo bloco "Pedidos de exclusão". Conta suspensa pelo Master: `isActive=true`. Conta com pedido de exclusão pendente (estado próprio da 7d; o Tenant continua `isActive=true`): só `marcarReativada(ator)`. Recusa conta com `excluidoEm` preenchido, salvo se a §6 Q1 disser que a quarentena continua. Se houver pedido pendente, chama `marcarReativada(ator)` na mesma transação. |
-| C4 | **Excluir**: conforme a §6 Q1. Em qualquer caso grava `excluidoEm`, também quando a conta já está suspensa (o `ExcluirEscritorioUseCase` atual sai cedo quando ela já está inativa: não serve aqui). Se houver pedido pendente, chama `marcarExcluida(ator)`. |
+| C3 | **Reativar**: um único `ReativarContaUseCase`, usado também pelo bloco "Pedidos de exclusão". Conta suspensa pelo Master: `isActive=true`. Conta com pedido de exclusão pendente (estado próprio da 7d; o Tenant continua `isActive=true`): só `marcarReativada(ator)`. Conta em quarentena (`excluidoEm` preenchido e ainda não purgada): limpa `excluidoEm` e religa (C4b). Se houver pedido pendente, chama `marcarReativada(ator)` na mesma transação. |
+| C4 | **Excluir** (Q1 decidida pelo dono em 19/10: **quarentena de 365 dias**, como já é hoje): grava `isActive=false` e `excluidoEm=agora` (também quando a conta já estava suspensa). Ninguém acessa e a conta sai das listas. A purga automática roda depois de `tenant_carencia_purga_dias`. Os usuários nunca são apagados. Confirmação com "digite EXCLUIR". Recusa: conta do Master (C5), conta já excluída. Com pedido pendente, chama `marcarExcluida(ator)`. **Desvio de texto aprovado pelo dono:** o modal diz `A conta "X" sai do ar agora e é apagada de vez em 365 dias. Até lá, pode ser recuperada pelo Master.`, no lugar de "irreversível…". Pelo mesmo princípio (o texto diz o que acontece), o botão passa de "Excluir definitivamente" para "Excluir conta". |
+| C4b | **Recuperar da quarentena**: a lista "Contas e escritórios" ganha no filtro de situação a opção "Em quarentena", que mostra as contas excluídas e ainda não purgadas, com a data da purga. O menu delas tem "Reativar conta", que usa o mesmo `ReativarContaUseCase`: limpa `excluidoEm` e religa `isActive`. É acréscimo ao desenho, necessário para cumprir o "pode ser recuperada pelo Master" do texto aprovado. |
 | C5 | **Conta do Master**: o item "Excluir conta" não aparece e o servidor recusa quando o criador do escritório (`Tenant.criadoPor`) é um Master; sem criador registrado, vale "algum Master tem vínculo ativo". Suspender essa conta também é recusado: hoje o Master não tem bypass de conta suspensa e ficaria fora do próprio escritório. Mensagem: "Esta conta foi criada por um Master. Suspendê-la tiraria dele o acesso ao próprio escritório." |
 | C10 | **Vaga no limite de escritórios** (Q3): a conta suspensa e não excluída continua ocupando a vaga do criador. |
 | C11 | **Rotas antigas** (Q4): `escritorio_excluir` e `app_tenant_delete` recusam a conta criada por um Master, com a mesma regra da C5. |
@@ -57,7 +58,7 @@ Limites de armazenamento e de usuários (frente própria, depois da C1 da Contri
 ## 6. Perguntas de produto (19/10)
 
 Decididas pela coordenação: Q2 (recusar; a revisão com bypass do Master, C12, espera o dono), Q3 (ocupa vaga) e Q4 (recusar já nesta frente).
-Pendente com o dono: Q1.
+Q1 decidida pelo dono em 19/10: quarentena de 365 dias (C4, C4b).
 
 - **Q1. "Excluir conta" do Master.** O desenho diz: "A exclusão de X é irreversível: todos os usuários, pastas e
   arquivos da conta serão apagados." O sistema hoje põe a conta em quarentena de 365 dias, purga depois e nunca
