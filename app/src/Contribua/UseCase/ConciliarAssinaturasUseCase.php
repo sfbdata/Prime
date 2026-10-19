@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Contribua\UseCase;
 
-use App\Contribua\Gateway\FalhaNoGateway;
 use App\Contribua\Gateway\GatewaysDeAssinatura;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Repository\NotificacaoRecebidaRepository;
@@ -20,7 +19,7 @@ use Psr\Log\LoggerInterface;
  *  3. revê o plano de quem teve assinatura paga: o fim do mês pago (ou da carência) devolve ao Free
  *     mesmo sem aviso nenhum do gateway.
  *
- * Um gateway fora do ar não para o resto: conta como falha e segue.
+ * Um gateway fora do ar (ou um item com erro) não para o resto: conta como falha e segue.
  */
 final class ConciliarAssinaturasUseCase
 {
@@ -42,6 +41,9 @@ final class ConciliarAssinaturasUseCase
         $avisos = $this->reprocessarAvisos();
         [$reconsultadas, $falhas] = $this->reconsultarAssinaturas();
 
+        if (!$this->em->isOpen()) {
+            return ['avisos' => $avisos, 'reconsultadas' => $reconsultadas, 'falhas' => $falhas, 'escritorios' => 0];
+        }
         $escritorios = $this->assinaturas->escritoriosComAssinaturaPaga();
         foreach ($escritorios as $tenantId) {
             $this->planoVigente->atualizar($tenantId, $agora);
@@ -77,9 +79,14 @@ final class ConciliarAssinaturasUseCase
             try {
                 $this->atualizacao->reconsultar($gateway, (string) $assinatura->getIdDaAssinatura());
                 ++$ok;
-            } catch (FalhaNoGateway $falha) {
+            } catch (\Throwable $falha) {
                 ++$falhas;
                 $this->logger->warning('Contribua: conciliação não conseguiu reconsultar', ['gateway' => $gateway->codigo(), 'assinatura' => $assinatura->getIdDaAssinatura(), 'erro' => $falha->getMessage()]);
+                // Um erro de banco dentro da transação fecha o EntityManager: os itens seguintes ficam para a
+                // próxima rodada (de hora em hora), em vez de falharem um a um.
+                if (!$this->em->isOpen()) {
+                    break;
+                }
             }
         }
 

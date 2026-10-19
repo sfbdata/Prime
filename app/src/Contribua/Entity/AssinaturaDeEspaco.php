@@ -44,6 +44,10 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
     #[ORM\Column(length: 120, nullable: true)]
     private ?string $idDoCheckout = null;
 
+    /** A página hospedada do gateway, para reabrir o mesmo checkout em vez de criar outro. */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $urlDoCheckout = null;
+
     #[ORM\Column(length: 120, nullable: true)]
     private ?string $idDaAssinatura = null;
 
@@ -114,9 +118,21 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
         return sprintf('BJ%06d-%s-%d', (int) $this->tenant->getId(), $this->plano->getCodigo(), $this->id);
     }
 
-    public function registrarInicio(?string $idDoCheckout): void
+    public function registrarInicio(?string $idDoCheckout, ?string $urlDoCheckout = null): void
     {
         $this->idDoCheckout = $idDoCheckout;
+        $this->urlDoCheckout = $urlDoCheckout;
+    }
+
+    public function getUrlDoCheckout(): ?string
+    {
+        return $this->urlDoCheckout;
+    }
+
+    /** Ainda não foi ao gateway de verdade: nem assinatura ligada, nem pagamento. */
+    public function semNadaNoGateway(): bool
+    {
+        return $this->situacao === SituacaoDaAssinatura::Aguardando && $this->idDaAssinatura === null;
     }
 
     public function vincularNoGateway(string $idDaAssinatura, ?string $idDoCliente): void
