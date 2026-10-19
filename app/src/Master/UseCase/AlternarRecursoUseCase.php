@@ -10,6 +10,7 @@ use App\Master\Entity\RecursoEstado;
 use App\Master\Exception\RecursoRecusado;
 use App\Master\Repository\RecursoEstadoRepository;
 use App\Master\Service\CatalogoDeRecursos;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -25,13 +26,16 @@ use Psr\Clock\ClockInterface;
  * religar o que já está ativo (ou sem linha, que já é ativo) não grava nada, para a trilha não
  * ganhar um "Reativou" que não mudou coisa alguma.
  * Pós-condições: o menu, o guarda de rota e a faixa do Master passam a ler o estado novo.
- * Auditoria (R7): RecursoEstado é Auditavel; o AuditLogSubscriber grava a mudança no flush.
+ * Auditoria (R7): RecursoEstado é Auditavel; o AuditLogSubscriber grava a mudança no flush, dentro do
+ * EscopoDeAuditoriaDePlataforma: o efeito vale para todas as contas, então a linha fica sem escritório e
+ * aparece só na trilha do Master ("Plataforma (sem conta)"), não no escritório em que o Master está.
  */
 final class AlternarRecursoUseCase
 {
     public function __construct(
         private readonly RecursoEstadoRepository $repositorio,
         private readonly ClockInterface $relogio,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
     ) {
     }
 
@@ -47,7 +51,7 @@ final class AlternarRecursoUseCase
 
         $estado ??= new RecursoEstado($input->chave);
         $this->aplicar($estado, $input, $agora);
-        $this->repositorio->salvar($estado, flush: true);
+        $this->escopoDePlataforma->executar(fn () => $this->repositorio->salvar($estado, flush: true));
 
         return EstadoDoRecursoOutput::fromEntity($estado, $agora);
     }

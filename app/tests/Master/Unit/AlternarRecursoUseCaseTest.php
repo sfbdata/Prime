@@ -11,6 +11,7 @@ use App\Master\Entity\RecursoEstado;
 use App\Master\Exception\RecursoRecusado;
 use App\Master\Repository\RecursoEstadoRepository;
 use App\Master\UseCase\AlternarRecursoUseCase;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -32,7 +33,7 @@ final class AlternarRecursoUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->repositorio = $this->createMock(RecursoEstadoRepository::class);
-        $this->useCase = new AlternarRecursoUseCase($this->repositorio, new MockClock('2026-10-19 10:00:00'));
+        $this->useCase = new AlternarRecursoUseCase($this->repositorio, new MockClock('2026-10-19 10:00:00'), new EscopoDeAuditoriaDePlataforma());
         $this->master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
     }
 

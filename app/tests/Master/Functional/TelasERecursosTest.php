@@ -169,10 +169,18 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertSame(['chave' => 'peticionar', 'ativo' => true, 'motivo' => null, 'ate' => null], $this->json());
 
         // A criação é gravada antes do id (IDENTITY) existir: o rótulo dela sai da chave no próprio registro.
-        self::assertCount(2, $this->em->getRepository(AuditLog::class)->findBy(['entityClass' => RecursoEstado::class]));
-        $acoes = array_column(static::getContainer()->get(ConsultarAuditoriaUseCase::class)->executar()['registros'], 'acao');
+        // Efeito global: a linha grava sem escritório (EscopoDeAuditoriaDePlataforma), só na trilha do Master.
+        $linhas = $this->em->getRepository(AuditLog::class)->findBy(['entityClass' => RecursoEstado::class]);
+        self::assertCount(2, $linhas);
+        foreach ($linhas as $linha) {
+            self::assertNull($linha->getTenantId());
+        }
+        $registros = static::getContainer()->get(ConsultarAuditoriaUseCase::class)->executar()['registros'];
+        $acoes = array_column($registros, 'acao');
         self::assertContains('Desativou Peticionar', $acoes);
         self::assertContains('Reativou Peticionar', $acoes);
+        $contas = array_column(array_filter($registros, static fn (array $r): bool => str_ends_with((string) $r['acao'], 'Peticionar')), 'conta');
+        self::assertSame(['Plataforma (sem conta)'], array_values(array_unique($contas)));
     }
 
     #[TestDox('POST de quem não é Master: 403 e nada muda')]
