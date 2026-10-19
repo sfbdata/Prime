@@ -130,6 +130,34 @@ final class PlanoDeCobrancaDoChecklistTest extends TestCase
         self::assertStringContainsString('até 20/10 e não resolveu. É a 2ª vez que a data informada não é cumprida.', $xq);
     }
 
+    #[TestDox('Textos literais dos níveis 2, 3 e 5, da coordenação, do "sem anexo", do desativar e do lembrete')]
+    public function testDemaisTextos(): void
+    {
+        $pasta = (new Pasta())->setNup('0001')->setNomeCliente('Maria da Silva Souza');
+        $c = fn (int $n, int $dias = 3): CobrancaDoDia => new CobrancaDoDia($this->p(1, 'RG'), $n, false, $dias);
+
+        self::assertSame(['Segundo aviso: RG', 'RG continua pendente na pasta 0001 (MARIA DA). Sem esse documento a pasta não avança. Preciso disso resolvido hoje. Até que dia você resolve? Responda com a data aqui no Chat I.A, na conversa com a BlueJus IA (ex.: até 08/10).'], MensagensDaCobrancaDoChecklist::cobranca($c(2), $pasta));
+        self::assertSame('Estou insistindo e não estou vendo retorno. RG segue pendente há 1 dia na pasta 0001 (MARIA DA). Isso já virou atraso. Resolva agora ou registre o impedimento na pasta. Até que dia você resolve? Responda com a data aqui no Chat I.A, na conversa com a BlueJus IA (ex.: até 08/10).', MensagensDaCobrancaDoChecklist::cobranca($c(3, 1), $pasta)[1]);
+        self::assertSame('Já são 4 cobranças ignoradas. RG segue pendente desde hoje na pasta 0001 (MARIA DA) e a coordenação está acompanhando. Resolva hoje ou registre por escrito o que está impedindo. Até que dia você resolve? Responda com a data aqui no Chat I.A, na conversa com a BlueJus IA (ex.: até 08/10).', MensagensDaCobrancaDoChecklist::cobranca($c(5, 0), $pasta)[1]);
+        self::assertSame(['Documento sem retorno: RG', 'Ana recebeu 4 cobranças e o item segue pendente há 3 dias na pasta 0001.'], MensagensDaCobrancaDoChecklist::paraCoordenacao($c(4), $pasta, 'Ana'));
+        self::assertSame(['Item marcado sem anexo: RG', 'Você marcou RG como entregue na pasta 0001, mas não há nenhum documento correspondente anexado. Marcar sem juntar o documento não resolve a pendência. A pasta será auditada. Anexe o documento hoje.'], MensagensDaCobrancaDoChecklist::semAnexoParaQuemMarcou('RG', $pasta));
+        self::assertSame(['Pasta 0001 para auditoria', 'Ana marcou RG como entregue sem anexar o documento. Recomendo auditar a pasta 0001 (MARIA DA SILVA SOUZA).'], MensagensDaCobrancaDoChecklist::semAnexoParaControladoria('RG', $pasta, 'Ana'));
+        self::assertSame(['Checklist desativado: Pasta 0001', 'Ana desativou o checklist de documentação (Pasta encerrada) com 2 pendências em aberto.'], MensagensDaCobrancaDoChecklist::desativado($pasta, 'Ana', 'Pasta encerrada', 2));
+        self::assertSame(['Revisar checklist da Pasta 0001', 'O checklist de documentação está desativado há 31 dias (Pasta encerrada). Sem ele, o sistema não confere os documentos necessários para instruir o processo. Reative ou confirme que continua não se aplicando.'], MensagensDaCobrancaDoChecklist::lembrete($pasta, 31, 'Pasta encerrada'));
+    }
+
+    #[TestDox('Empate de peso: cobra primeiro o que foi cobrado há mais tempo')]
+    public function testDesempatePeloMaisAntigo(): void
+    {
+        $plano = (new PlanoDeCobrancaDoChecklist())->doDia([
+            $this->p(1, 'PROCURAÇÃO', ['2026-10-20']),
+            $this->p(2, 'CONTRATO', ['2026-10-16']),
+            $this->p(3, 'PROCURAÇÃO DO SÓCIO', ['2026-10-19']),
+        ], new \DateTimeImmutable(self::QUARTA), true);
+
+        self::assertSame([2, 3], array_map(static fn (CobrancaDoDia $c): int => $c->pendencia->itemId, $plano));
+    }
+
     /** @param list<string> $envios */
     private function p(int $id, string $titulo, array $envios = [], string $desde = 'today', ?string $previsao = null, int $quebras = 0): PendenciaDoChecklist
     {

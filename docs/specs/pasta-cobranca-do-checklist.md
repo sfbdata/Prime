@@ -16,7 +16,20 @@ Frente `pasta-exito-cobranca`, sessão f6, aberta em 19/10/2026 a pedido do coor
   antes da resposta.
 - **D-DOC-S6 ("adiar: sem cobrança") foi SUPERADA** pela regra do dono de 19/10 ("tudo que está no desenho
   entra"), registrada pelo coordenador.
-- Migration: uma, pedida ao coordenador antes de gerar.
+- Migration: `Version20261021090000` (provisória), na FIM da fila (depois do cadeado da b5); renomear na vez.
+- Revisão (19/10): aprovada com ressalvas, corrigidas: rotina pasta a pasta (carrega, grava e solta), comando
+  que reabre o EntityManager depois de erro de banco, arquivada e cancelada fora (convenção das listas do
+  Expediente; o desenho é omisso), responsável só com vínculo ativo no escritório, lembrete por dia e não por
+  segundo, pendência da aba com o texto literal do desenho ("item marcado sem anexo").
+
+**Para o dono (só ele decide):**
+1. A data da previsão "pelo Chat I.A" (decisão 4).
+2. Volume do primeiro dia: a primeira rodada audita todo item já marcado sem anexo (aviso "A pasta será auditada"
+   por item) e passa a cobrar toda pasta com procuração ou contrato pendente. Ligar o cron com um escritório
+   piloto, ou em data combinada?
+3. O cron `0 9 * * 1-5` segue o relógio da VPS: se ela estiver em UTC, roda às 6h de Brasília.
+4. A contagem "pendente há N dias" começa na primeira rodada (o item não guarda a data de criação), como no
+   desenho.
 
 ## Decisões (coordenador, 19/10)
 

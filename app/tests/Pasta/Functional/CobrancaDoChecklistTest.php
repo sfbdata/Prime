@@ -6,9 +6,12 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Command\CobrarChecklistCommand;
 use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaChecklistCobranca;
 use App\Pasta\Entity\PastaChecklistItem;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaChecklistCobrancaRepository;
 use App\Pasta\Service\AuditoriaDoChecklist;
 use App\Pasta\Service\AvisoDoChecklist;
@@ -22,6 +25,8 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Tester\CommandTester;
 
 /**
  * A cobrança automática do checklist de ponta a ponta (desenho 02; spec `docs/specs/pasta-cobranca-do-checklist.md`):
@@ -32,6 +37,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(DiaUtilDoEscritorio::class)]
 #[CoversClass(CobrancasDoChecklistDaPasta::class)]
 #[CoversClass(InformarPrevisaoDoItemUseCase::class)]
+#[CoversClass(CobrarChecklistCommand::class)]
 final class CobrancaDoChecklistTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
@@ -139,21 +145,7 @@ final class CobrancaDoChecklistTest extends JusPrimeWebTestCase
         [$responsavel, $tenant] = $this->criarAdmin();
         [$coordenadora] = $this->criarAdmin();
         $pasta = $this->pastaCom($tenant, $responsavel, [['PROCURAÇÃO', false], ['RG', false]]);
-        // A controladoria real (#75) relê as pessoas do banco a cada chamada; o dublê faz o mesmo.
-        $em = $this->em();
-        $idDaCoordenadora = (int) $coordenadora->getId();
-        static::getContainer()->set(ControladoriaDoEscritorioInterface::class, new class ($em, $idDaCoordenadora) implements ControladoriaDoEscritorioInterface {
-            public function __construct(private readonly EntityManagerInterface $em, private readonly int $id)
-            {
-            }
-
-            public function pessoas(Tenant $tenant): array
-            {
-                $pessoa = $this->em->find(User::class, $this->id);
-
-                return $pessoa === null ? [] : [$pessoa];
-            }
-        });
+        $this->dubleDaControladoria((int) $coordenadora->getId());
 
         $this->logarComTenant($client, $responsavel, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
@@ -165,6 +157,80 @@ final class CobrancaDoChecklistTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('Checklist desativado: Pasta ', $titulos[0]);
         $texto = (string) static::getContainer()->get(Connection::class)->fetchOne('SELECT mensagem FROM notificacao WHERE usuario_id = ? AND tipo = ?', [$coordenadora->getId(), AvisoDoChecklist::TIPO_PROVIDENCIA]);
         self::assertStringEndsWith('(' . MotivoDesativacaoChecklist::Encerrada->rotulo() . ') com 2 pendências em aberto.', $texto);
+    }
+
+    #[TestDox('Feriado nacional em dia de semana (Finados) não cobra; a rotina de um escritório não toca o outro')]
+    public function testFeriadoEIsolamento(): void
+    {
+        static::createClient();
+        [$responsavelA, $escritorioA] = $this->criarAdmin();
+        [$responsavelB, $escritorioB] = $this->criarAdmin();
+        $this->pastaCom($escritorioA, $responsavelA, [['PROCURAÇÃO', false]]);
+        $this->pastaCom($escritorioB, $responsavelB, [['PROCURAÇÃO', false]]);
+
+        self::assertSame(0, $this->rodar($escritorioA, '2026-11-02 09:00')['cobrancas'], 'Finados, segunda-feira');
+        self::assertSame(1, $this->rodar($escritorioA, self::QUARTA)['cobrancas']);
+        self::assertSame([], $this->titulos($responsavelB, AvisoDoChecklist::TIPO_COBRANCA), 'o escritório B não foi cobrado');
+        self::assertSame(0, (int) static::getContainer()->get(Connection::class)->fetchOne('SELECT COUNT(*) FROM pasta_checklist_cobranca WHERE tenant_id = ?', [$escritorioB->getId()]));
+    }
+
+    #[TestDox('Arquivada, cancelada e responsável que saiu do escritório ficam fora da cobrança')]
+    public function testForaDaCobranca(): void
+    {
+        static::createClient();
+        [$responsavel, $tenant] = $this->criarAdmin();
+        $arquivada = $this->pastaCom($tenant, $responsavel, [['PROCURAÇÃO', false]]);
+        $arquivada->setSituacao(Pasta::SITUACAO_ARQUIVADA);
+        $this->em()->flush();
+        self::assertSame(0, $this->rodar($tenant, self::QUARTA)['cobrancas'], 'arquivada');
+
+        $this->pastaCom($tenant, $responsavel, [['CONTRATO', false]]);
+        static::getContainer()->get(Connection::class)->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$responsavel->getId(), $tenant->getId()]);
+        self::assertSame(0, $this->rodar($tenant, self::QUARTA)['cobrancas'], 'saiu do escritório');
+    }
+
+    #[TestDox('Auditoria: a controladoria recebe "Pasta N para auditoria"; desmarcar limpa e anexar o documento apaga o registro')]
+    public function testAuditoriaCompleta(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$responsavel, $tenant] = $this->criarAdmin();
+        [$coordenadora] = $this->criarAdmin();
+        $this->dubleDaControladoria((int) $coordenadora->getId());
+        $pasta = $this->pastaCom($tenant, $responsavel, [['PROCURAÇÃO', true]]);
+
+        $this->rodar($tenant, self::QUARTA);
+        $titulos = $this->titulos($coordenadora, AvisoDoChecklist::TIPO_COBRANCA);
+        self::assertCount(1, $titulos);
+        self::assertStringEndsWith(' para auditoria', $titulos[0]);
+        self::assertNotNull($this->registroDe($pasta)?->getAuditoriaEm());
+
+        $this->rodar($tenant, '2026-10-22 09:00');
+        self::assertCount(1, $this->titulos($coordenadora, AvisoDoChecklist::TIPO_COBRANCA), 'uma vez por item');
+
+        $documento = new PastaDocumento();
+        $documento->setPasta($this->em()->find(Pasta::class, $pasta->getId()));
+        $documento->setTenant($this->em()->find(Tenant::class, $tenant->getId()));
+        $documento->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $documento->setTitulo('Procuração assinada');
+        $documento->setNomeOriginal('procuracao.pdf');
+        $documento->setCaminhoArquivo('procuracao-' . uniqid() . '.pdf');
+        $documento->setMimeType('application/pdf');
+        $documento->setTamanhoBytes(1024);
+        $this->em()->persist($documento);
+        $this->em()->flush();
+        $this->rodar($tenant, '2026-10-23 09:00');
+        self::assertNull($this->registroDe($pasta), 'com o documento anexado o registro sai');
+    }
+
+    #[TestDox('O comando roda todos os escritórios e resume o que fez')]
+    public function testComando(): void
+    {
+        $kernel = static::bootKernel();
+        $tester = new CommandTester((new Application($kernel))->find('app:pasta:cobrar-checklist'));
+
+        self::assertSame(0, $tester->execute([]));
+        self::assertMatchesRegularExpression('/Cobranças: \d+ · lembretes: \d+ · escritórios com falha: 0/', $tester->getDisplay());
     }
 
     /** @return array{cobrancas: int, lembretes: int} */
@@ -181,7 +247,8 @@ final class CobrancaDoChecklistTest extends JusPrimeWebTestCase
     /** @param list<array{string, bool}> $itens */
     private function pastaCom(Tenant $tenant, ?User $responsavel, array $itens): Pasta
     {
-        $pasta = $this->criarPasta($tenant);
+        // A rotina solta (clear) tudo ao terminar: o escritório é relido antes de criar a pasta.
+        $pasta = $this->criarPasta($this->em()->find(Tenant::class, $tenant->getId()) ?? $tenant);
         $pasta->setResponsavel($responsavel === null ? null : $this->em()->find(User::class, $responsavel->getId()));
         foreach ($itens as $i => [$titulo, $concluido]) {
             $this->em()->persist((new PastaChecklistItem())->setPasta($pasta)->setTenant($pasta->getTenant())->setTitulo($titulo)->setConcluido($concluido)->setOrdem($i));
@@ -196,5 +263,31 @@ final class CobrancaDoChecklistTest extends JusPrimeWebTestCase
     private function titulos(User $usuario, string $tipo): array
     {
         return array_map('strval', static::getContainer()->get(Connection::class)->fetchFirstColumn('SELECT titulo FROM notificacao WHERE usuario_id = ? AND tipo = ? ORDER BY id', [$usuario->getId(), $tipo]));
+    }
+
+    /** A controladoria real (#75) relê as pessoas do banco a cada chamada; o dublê faz o mesmo. */
+    private function dubleDaControladoria(int $idDaPessoa): void
+    {
+        $em = $this->em();
+        static::getContainer()->set(ControladoriaDoEscritorioInterface::class, new class ($em, $idDaPessoa) implements ControladoriaDoEscritorioInterface {
+            public function __construct(private readonly EntityManagerInterface $em, private readonly int $id)
+            {
+            }
+
+            public function pessoas(Tenant $tenant): array
+            {
+                $pessoa = $this->em->find(User::class, $this->id);
+
+                return $pessoa === null ? [] : [$pessoa];
+            }
+        });
+    }
+
+    private function registroDe(Pasta $pasta): ?PastaChecklistCobranca
+    {
+        $this->em()->clear();
+        $item = $this->em()->getRepository(PastaChecklistItem::class)->findOneBy(['pasta' => $pasta->getId()]);
+
+        return $item === null ? null : static::getContainer()->get(PastaChecklistCobrancaRepository::class)->findOneBy(['item' => $item]);
     }
 }

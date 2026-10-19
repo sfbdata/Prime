@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaChecklistCobrancaRepository;
 use App\Pasta\UseCase\CobrarChecklistDoEscritorioUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -33,6 +34,7 @@ final class CobrarChecklistCommand extends Command
         private readonly CobrarChecklistDoEscritorioUseCase $cobrar,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly ManagerRegistry $doctrine,
     ) {
         parent::__construct();
     }
@@ -43,22 +45,34 @@ final class CobrarChecklistCommand extends Command
         $agora = new \DateTimeImmutable();
         $total = ['cobrancas' => 0, 'lembretes' => 0, 'falhas' => 0];
         foreach ($this->cobrancas->escritoriosComChecklist() as $tenantId) {
-            $escritorio = $this->em->find(Tenant::class, $tenantId);
-            if ($escritorio === null || !$this->em->isOpen()) {
-                continue;
-            }
             try {
-                $r = $this->cobrar->executar($escritorio, $agora);
-                $total['cobrancas'] += $r['cobrancas'];
-                $total['lembretes'] += $r['lembretes'];
+                $escritorio = $this->em->find(Tenant::class, $tenantId);
+                if ($escritorio !== null) {
+                    $r = $this->cobrar->executar($escritorio, $agora);
+                    $total['cobrancas'] += $r['cobrancas'];
+                    $total['lembretes'] += $r['lembretes'];
+                }
             } catch (\Throwable $falha) {
                 ++$total['falhas'];
                 $this->logger->error('Cobrança do checklist falhou num escritório', ['tenant' => $tenantId, 'erro' => $falha->getMessage()]);
+                $this->reabrirSeFechou();
             }
             $this->em->clear();
         }
         $io->writeln(sprintf('Cobranças: %d · lembretes: %d · escritórios com falha: %d', $total['cobrancas'], $total['lembretes'], $total['falhas']));
 
         return $total['falhas'] > 0 ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    /**
+     * Erro de banco fecha o EntityManager; sem reabrir, todos os escritórios seguintes falhariam também. O
+     * serviço `doctrine.orm.entity_manager` é preguiçoso: depois do reset, as referências injetadas (o UseCase,
+     * os repositórios) passam a usar o novo.
+     */
+    private function reabrirSeFechou(): void
+    {
+        if (!$this->em->isOpen()) {
+            $this->doctrine->resetManager();
+        }
     }
 }

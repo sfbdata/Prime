@@ -64,27 +64,35 @@ class PastaChecklistCobrancaRepository extends ServiceEntityRepository
     }
 
     /**
-     * As pastas do escritório que a rotina diária olha: não excluídas e com algum item de checklist (as
-     * desativadas entram para o lembrete de 30 dias). Tenant explícito: roda sem sessão.
+     * Os ids das pastas do escritório que a rotina diária olha: não excluídas, em andamento (arquivada e
+     * cancelada ficam fora, como nas listas de trabalho do Expediente) e com algum item de checklist ou com o
+     * checklist desativado (o lembrete de 30 dias não depende de haver itens). Ids, e não entidades, para a
+     * rotina carregar e soltar uma pasta por vez. Tenant explícito: roda sem sessão.
      *
-     * @return list<Pasta>
+     * @return list<int>
      */
-    public function pastasComChecklist(int $tenantId): array
+    public function idsDasPastasDaRotina(int $tenantId): array
     {
-        return $this->getEntityManager()->createQueryBuilder()
-            ->select('p')->from(Pasta::class, 'p')
+        $ids = $this->getEntityManager()->createQueryBuilder()
+            ->select('p.id')->from(Pasta::class, 'p')
             ->andWhere('IDENTITY(p.tenant) = :tenant')->setParameter('tenant', $tenantId)
             ->andWhere('p.excluidaEm IS NULL')
-            ->andWhere('EXISTS (SELECT i.id FROM ' . PastaChecklistItem::class . ' i WHERE i.pasta = p)')
+            ->andWhere('p.situacao NOT IN (:fora)')->setParameter('fora', [Pasta::SITUACAO_ARQUIVADA, Pasta::SITUACAO_CANCELADA])
+            ->andWhere('p.checklistDesativadoEm IS NOT NULL OR EXISTS (SELECT i.id FROM ' . PastaChecklistItem::class . ' i WHERE i.pasta = p)')
             ->orderBy('p.id', 'ASC')
-            ->getQuery()->getResult();
+            ->getQuery()->getSingleColumnResult();
+
+        return array_map('intval', $ids);
     }
 
-    /** @return list<int> escritórios ativos com algum item de checklist */
+    /** @return list<int> escritórios ativos com alguma pasta que a rotina olha (itens ou checklist desativado) */
     public function escritoriosComChecklist(): array
     {
         $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
-            'SELECT DISTINCT i.tenant_id FROM pasta_checklist_item i JOIN tenant t ON t.id = i.tenant_id WHERE t.is_active = true AND t.excluido_em IS NULL ORDER BY i.tenant_id',
+            'SELECT DISTINCT p.tenant_id FROM pasta p JOIN tenant t ON t.id = p.tenant_id
+              WHERE t.is_active = true AND t.excluido_em IS NULL AND p.excluida_em IS NULL
+                AND (p.checklist_desativado_em IS NOT NULL OR EXISTS (SELECT 1 FROM pasta_checklist_item i WHERE i.pasta_id = p.id))
+              ORDER BY p.tenant_id',
         );
 
         return array_map('intval', $ids);

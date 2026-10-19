@@ -120,7 +120,7 @@ final readonly class PastaPendenciasOutput
     {
         $partes = array_filter([
             $cobrados > 0 ? self::plural($cobrados, 'documento cobrado e ainda não anexado', 'documentos cobrados e ainda não anexados') : '',
-            $semAnexo > 0 ? self::plural($semAnexo, 'item do checklist marcado sem anexo', 'itens do checklist marcados sem anexo') : '',
+            $semAnexo > 0 ? self::plural($semAnexo, 'item marcado sem anexo', 'itens marcados sem anexo') : '',
         ]);
 
         return ['n' => $cobrados + $semAnexo, 'txt' => implode(' e ', $partes)];

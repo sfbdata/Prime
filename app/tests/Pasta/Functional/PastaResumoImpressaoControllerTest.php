@@ -206,7 +206,7 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', $this->url($idSem));
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('1 item do checklist marcado sem anexo', $crawler->filter('[data-secao="pendencias"]')->text());
+        self::assertStringContainsString('1 item marcado sem anexo', $crawler->filter('[data-secao="pendencias"]')->text());
 
         $this->em()->clear();
         $crawler = $client->request('GET', $this->url($idCom));

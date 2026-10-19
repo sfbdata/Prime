@@ -18,6 +18,7 @@ use App\Pasta\Service\ControladoriaDoEscritorioInterface;
 use App\Pasta\Service\DiaUtilDoEscritorio;
 use App\Pasta\Service\MensagensDaCobrancaDoChecklist as Msg;
 use App\Pasta\Service\PlanoDeCobrancaDoChecklist;
+use App\Repository\UserTenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -44,53 +45,73 @@ final class CobrarChecklistDoEscritorioUseCase
         private readonly DiaUtilDoEscritorio $diaUtil,
         private readonly UrlGeneratorInterface $urls,
         private readonly EntityManagerInterface $em,
+        private readonly UserTenantRepository $vinculos,
     ) {
     }
 
-    /** @return array{cobrancas: int, lembretes: int} */
+    /**
+     * Uma pasta por vez: carrega, processa, grava e solta (clear), para o custo e a memória não crescerem com
+     * o tamanho do escritório. Depois do clear o `$escritorio` recebido fica solto: só o id é usado.
+     *
+     * @return array{cobrancas: int, lembretes: int}
+     */
     public function executar(Tenant $escritorio, \DateTimeImmutable $agora): array
     {
         $diaUtil = $this->diaUtil->ehDiaUtil($escritorio, $agora);
         $total = ['cobrancas' => 0, 'lembretes' => 0];
-        foreach ($this->cobrancas->pastasComChecklist((int) $escritorio->getId()) as $pasta) {
-            if (!$pasta->isChecklistAtivo()) {
-                $total['lembretes'] += $this->lembrar($pasta, $agora) ? 1 : 0;
-                continue;
+        foreach ($this->cobrancas->idsDasPastasDaRotina((int) $escritorio->getId()) as $pastaId) {
+            $pasta = $this->em->find(Pasta::class, $pastaId);
+            if ($pasta !== null) {
+                $this->processar($pasta, $agora, $diaUtil, $total);
+                $this->em->flush();
             }
-            $this->auditoria->varrer($pasta, $agora);
-            $total['cobrancas'] += $this->cobrar($pasta, $agora, $diaUtil);
-            $this->em->flush();
+            $this->em->clear();
         }
-        $this->em->flush();
 
         return $total;
     }
 
-    private function lembrar(Pasta $pasta, \DateTimeImmutable $agora): bool
+    /** @param array{cobrancas: int, lembretes: int} $total */
+    private function processar(Pasta $pasta, \DateTimeImmutable $agora, bool $diaUtil, array &$total): void
+    {
+        $responsavel = $this->responsavelAtivo($pasta);
+        if (!$pasta->isChecklistAtivo()) {
+            $total['lembretes'] += $this->lembrar($pasta, $responsavel, $agora) ? 1 : 0;
+
+            return;
+        }
+
+        $registros = $this->cobrancas->daPasta((int) $pasta->getTenant()?->getId(), (int) $pasta->getId());
+        $this->auditoria->varrer($pasta, $responsavel, $registros, $agora);
+        if ($responsavel !== null) {
+            $total['cobrancas'] += $this->cobrar($pasta, $responsavel, $registros, $agora, $diaUtil);
+        }
+    }
+
+    /**
+     * Por dia, não por segundo: o cron das 9h do 30º dia começa alguns segundos antes do de 30 dias atrás.
+     * Os dias do texto são arredondados, como o `Math.round` do desenho.
+     */
+    private function lembrar(Pasta $pasta, ?User $responsavel, \DateTimeImmutable $agora): bool
     {
         $desde = $pasta->getChecklistLembreteEm() ?? $pasta->getChecklistDesativadoEm();
-        $responsavel = self::ativo($pasta->getResponsavel());
-        if ($desde === null || $responsavel === null || $desde > $agora->modify('-' . self::DIAS_ENTRE_LEMBRETES . ' days')) {
+        $limite = $agora->setTime(0, 0)->modify('-' . self::DIAS_ENTRE_LEMBRETES . ' days');
+        if ($desde === null || $responsavel === null || $desde->setTime(0, 0) > $limite) {
             return false;
         }
 
-        $dias = (int) $pasta->getChecklistDesativadoEm()?->diff($agora)->format('%a');
+        $dias = (int) round(($agora->getTimestamp() - (int) $pasta->getChecklistDesativadoEm()?->getTimestamp()) / 86400);
         $motivo = $pasta->getChecklistMotivo()?->rotulo() ?? '';
         $this->aviso->avisar($responsavel, $pasta->getTenant(), AvisoDoChecklist::TIPO_PROVIDENCIA, Msg::lembrete($pasta, $dias, $motivo), $this->url($pasta));
         $pasta->registrarLembreteDoChecklist($agora);
-        $this->em->flush();
 
         return true;
     }
 
-    private function cobrar(Pasta $pasta, \DateTimeImmutable $agora, bool $diaUtil): int
+    /** @param array<int, PastaChecklistCobranca> $existentes */
+    private function cobrar(Pasta $pasta, User $responsavel, array $existentes, \DateTimeImmutable $agora, bool $diaUtil): int
     {
-        $responsavel = self::ativo($pasta->getResponsavel());
-        if ($responsavel === null) {
-            return 0;
-        }
-
-        $registros = $this->registrosDosPendentes($pasta, $agora);
+        $registros = $this->registrosDosPendentes($pasta, $existentes, $agora);
         $pendentes = array_map(static fn (PastaChecklistCobranca $r): PendenciaDoChecklist => new PendenciaDoChecklist((int) $r->getItem()->getId(), $r->getItem()->getTitulo(), $r->getPendenteDesde(), $r->getEnvios(), $r->getPrevisao(), $r->getQuebras()), array_values($registros));
         $cobrancas = $this->plano->doDia($pendentes, $agora, $diaUtil);
         foreach ($cobrancas as $cobranca) {
@@ -117,18 +138,19 @@ final class CobrarChecklistDoEscritorioUseCase
     /**
      * Um registro por item pendente (o novo nasce hoje); itens concluídos sem auditoria perdem o registro.
      *
+     * @param array<int, PastaChecklistCobranca> $existentes
+     *
      * @return array<int, PastaChecklistCobranca> indexado pelo id do item
      */
-    private function registrosDosPendentes(Pasta $pasta, \DateTimeImmutable $agora): array
+    private function registrosDosPendentes(Pasta $pasta, array $existentes, \DateTimeImmutable $agora): array
     {
-        $existentes = $this->cobrancas->daPasta((int) $pasta->getTenant()?->getId(), (int) $pasta->getId());
         $pendentes = [];
         /** @var PastaChecklistItem $item */
         foreach ($pasta->getChecklistItens() as $item) {
             $id = (int) $item->getId();
             $registro = $existentes[$id] ?? null;
             if ($item->isConcluido()) {
-                if ($registro !== null && $registro->getAuditoriaEm() === null) {
+                if ($registro !== null && $registro->getAuditoriaEm() === null && $this->em->contains($registro)) {
                     $this->cobrancas->remover($registro);
                 }
                 continue;
@@ -145,8 +167,15 @@ final class CobrarChecklistDoEscritorioUseCase
         return $this->urls->generate('pasta_show', ['id' => $pasta->getId(), 'aba' => 'documentos']);
     }
 
-    private static function ativo(?User $usuario): ?User
+    /** Responsável com conta ativa E vínculo ativo neste escritório: quem saiu não é cobrado. */
+    private function responsavelAtivo(Pasta $pasta): ?User
     {
-        return $usuario !== null && $usuario->isActive() ? $usuario : null;
+        $responsavel = $pasta->getResponsavel();
+        $escritorio = $pasta->getTenant();
+        if ($responsavel === null || $escritorio === null || !$responsavel->isActive()) {
+            return null;
+        }
+
+        return $this->vinculos->existeVinculoAtivo($responsavel, $escritorio) ? $responsavel : null;
     }
 }

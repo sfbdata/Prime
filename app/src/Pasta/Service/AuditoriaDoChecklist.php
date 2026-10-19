@@ -38,11 +38,17 @@ final class AuditoriaDoChecklist
         }
 
         $conferencia = ConferenciaDeAnexosDoChecklist::daPasta([$item], $pasta->getDocumentos(), $item->getTenant());
-        $this->conferirItem($pasta, $item, $conferencia, $quem, $hoje);
+        $this->conferirItem($pasta, $item, $this->cobrancas->doItem($item), $conferencia, $quem, $hoje);
     }
 
-    /** Varredura diária: itens marcados antes, atribuídos ao responsável da pasta. */
-    public function varrer(Pasta $pasta, \DateTimeImmutable $hoje): void
+    /**
+     * Varredura diária: itens marcados antes, atribuídos ao responsável da pasta (já conferido como ativo no
+     * escritório por quem chama; sem ele, só a controladoria é avisada). Os registros vêm pré-carregados:
+     * uma consulta por pasta, não uma por item.
+     *
+     * @param array<int, PastaChecklistCobranca> $registrosPorItem
+     */
+    public function varrer(Pasta $pasta, ?User $responsavel, array $registrosPorItem, \DateTimeImmutable $hoje): void
     {
         if (!$pasta->isChecklistAtivo()) {
             return;
@@ -51,13 +57,12 @@ final class AuditoriaDoChecklist
         $itens = $pasta->getChecklistItens()->toArray();
         $conferencia = ConferenciaDeAnexosDoChecklist::daPasta($itens, $pasta->getDocumentos(), $pasta->getTenant());
         foreach ($itens as $item) {
-            $this->conferirItem($pasta, $item, $conferencia, $pasta->getResponsavel(), $hoje);
+            $this->conferirItem($pasta, $item, $registrosPorItem[(int) $item->getId()] ?? null, $conferencia, $responsavel, $hoje);
         }
     }
 
-    private function conferirItem(Pasta $pasta, PastaChecklistItem $item, ConferenciaDeAnexosDoChecklist $conferencia, ?User $quem, \DateTimeImmutable $hoje): void
+    private function conferirItem(Pasta $pasta, PastaChecklistItem $item, ?PastaChecklistCobranca $registro, ConferenciaDeAnexosDoChecklist $conferencia, ?User $quem, \DateTimeImmutable $hoje): void
     {
-        $registro = $this->cobrancas->doItem($item);
         if (!$item->isConcluido()) {
             $registro?->limparAuditoria();
 
@@ -87,7 +92,7 @@ final class AuditoriaDoChecklist
         if ($quem !== null) {
             $this->aviso->avisar($quem, $tenant, AvisoDoChecklist::TIPO_COBRANCA, MensagensDaCobrancaDoChecklist::semAnexoParaQuemMarcou($item->getTitulo(), $pasta), $url);
         }
-        $nome = $quem?->getFullName() ?: ($quem?->getEmail() ?? 'Alguém');
+        $nome = $quem?->getFullName() ?: ($quem?->getEmail() ?? 'O responsável da pasta');
         $this->aviso->avisarVarias($this->controladoria->pessoas($tenant), $quem, $tenant, AvisoDoChecklist::TIPO_COBRANCA, MensagensDaCobrancaDoChecklist::semAnexoParaControladoria($item->getTitulo(), $pasta, (string) $nome), $url);
     }
 }
