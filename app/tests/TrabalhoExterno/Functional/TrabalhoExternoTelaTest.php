@@ -115,6 +115,9 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-vaga-acao' => '/trabalho-externo/api/vagas/VG-0/acoes/__acao__',
             'data-url-vagas-marcacoes' => '/trabalho-externo/api/vagas/marcacoes',
             'data-url-vagas-compartilhar' => '/trabalho-externo/api/vagas/compartilhar',
+            'data-url-vaga-editar' => '/trabalho-externo/api/vagas/VG-0/editar',
+            'data-url-vaga-excluir' => '/trabalho-externo/api/vagas/VG-0/excluir',
+            'data-url-vagas-visita' => '/trabalho-externo/api/vagas/visita',
         ];
         foreach ($esperadas as $atributo => $url) {
             self::assertSame($url, $raiz->attr($atributo), $atributo);
@@ -157,7 +160,7 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#tePagina > #teBloqueio + #teModulos + #teLiberado'));
         self::assertCount(1, $crawler->filter('#tePagina > #teLiberado + #teVagas[hidden]'));
         self::assertSame(
-            'Buscar vaga, cargo, cidade',
+            'Buscar vaga, cargo, área ou cidade',
             $crawler->filter('#tePagina > #teVagas > .te-vg-barra > label.te-vg-busca > input#teVgBusca')->attr('placeholder'),
         );
         self::assertCount(1, $crawler->filter('#tePagina > #teVagas > .te-vg-barra + #teVgLote + #teVgVazio + #teVgGrade.te-vg-grade'));

@@ -112,6 +112,9 @@ final class VagaTest extends TestCase
         self::assertFalse($d->oferta);
         self::assertSame(7, $d->periodoDias);
         self::assertSame(['email', 'tel'], $this->dados()->ofertante['ocultos']);
+        $semTeto = $this->dados(['periodoDias' => 0]);
+        $semTeto->limitarParaQuemNaoEMaster(0);
+        self::assertSame(0, $semTeto->periodoDias, 'sem teto, o externo também pode "até ser preenchida"');
     }
 
     #[TestDox('política: interno (até a Equipe sem talentos) vê tudo; só quem gere age; o externo vê abertas e as dele, divulga e só edita a dele pendente ou reprovada')]
