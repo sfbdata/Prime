@@ -1,5 +1,5 @@
 ---
-tipo: correcao
+tipo: alteracao
 ---
 ## Changelog
 - Ponto: quem está com o ponto aberto hoje em outro escritório não bate a entrada neste; a resposta diz em qual escritório registrar a saída antes. Só valem os escritórios com vínculo ativo e módulo de ponto; a virada do dia solta a trava, e o pedido de esquecimento pendente não solta (decisão do dono, 19/10).

@@ -43,6 +43,9 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
     protected function setUp(): void
     {
+        if ((int) (new \DateTimeImmutable())->format('Hi') < 5) {
+            self::markTestSkipped('Nos primeiros 5 minutos do dia os horários "de hoje" do teste cairiam em ontem.');
+        }
         $this->client = static::createClient();
         $this->client->disableReboot();   // várias requisições por teste: o CSRF falso e o banco seguem os mesmos
         $this->instalarCsrfStorage();
@@ -94,9 +97,10 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->em()->persist($pedido);
         $this->em()->flush();
 
-        $this->baterEmX('entrada');
+        $resposta = $this->baterEmX('entrada');
 
         self::assertResponseStatusCodeSame(422);
+        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $resposta['message']);
         self::assertSame(0, $this->batidasEm($this->x));
     }
 
@@ -106,9 +110,10 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
         $this->batida($this->y, 'repouso', $this->hojeCedo(2));
 
-        $this->baterEmX('entrada');
+        $resposta = $this->baterEmX('entrada');
 
         self::assertResponseStatusCodeSame(422);
+        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $resposta['message']);
     }
 
     #[TestDox('Entrada sem saída em Y ontem às 23:50 não trava a entrada de hoje em X (variante do mesmo dia)')]
@@ -162,10 +167,10 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
     public function testInterjornadaNoEscritorio(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
-        $this->batida($this->y, 'saida', new \DateTime('-1 minute'));
+        $this->batida($this->y, 'saida', $this->agoraHaPouco());
         self::assertTrue($this->baterEmX('entrada')['success'], 'a saída de Y não conta em X');
 
-        $this->batida($this->x, 'saida', new \DateTime('-1 minute'));
+        $this->batida($this->x, 'saida', $this->agoraHaPouco());
         $resposta = $this->baterEmX('entrada');
         self::assertResponseStatusCodeSame(422);
         self::assertStringStartsWith('Interjornada mínima', $resposta['message']);
@@ -174,7 +179,7 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
     #[TestDox('Trava e interjornada falhando juntas: a trava vem antes')]
     public function testTravaAntesDaInterjornada(): void
     {
-        $this->batida($this->x, 'saida', new \DateTime('-1 minute'));
+        $this->batida($this->x, 'saida', $this->agoraHaPouco());
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
 
         self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $this->baterEmX('entrada')['message']);
@@ -215,8 +220,28 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
         $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$master->getId(), $this->x->getId()]);
         $this->vincular($master, $this->y, []);
-        $this->postar('entrada');
+        $resposta = $this->postar('entrada');
         self::assertResponseStatusCodeSame(422, 'com vínculo em Y');
+        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $resposta['message']);
+    }
+
+    #[TestDox('Lançamento manual do admin em X (correção, não batida) não é travado por Y aberto')]
+    public function testLancamentoManualDoAdminNaoETravado(): void
+    {
+        $this->batida($this->y, 'entrada', $this->hojeCedo(1));
+        $admin = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->vincular($admin, $this->x, []);
+        $this->logarComTenant($this->client, $admin, $this->x);
+
+        $hoje = new \DateTimeImmutable();
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/add', $this->x->getId(), $this->user->getId()), [
+            'registro_ponto_manual' => ['data' => $hoje->format('Y-m-d'), 'hora' => '00:01:00', 'tipo' => 'entrada'],
+            'competencia' => $hoje->format('Y-m'),
+            '_token' => 'TOKEN_ponto_manual_add',
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertSame(1, $this->batidasEm($this->x));
     }
 
     #[TestDox('A folha de X depois da recusa não mostra nada de Y')]
@@ -262,6 +287,12 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         );
 
         return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+    }
+
+    /** Um minuto atrás, ainda hoje (o setUp pula os primeiros 5 minutos do dia): a interjornada ainda corre. */
+    private function agoraHaPouco(): \DateTime
+    {
+        return new \DateTime('-1 minute');
     }
 
     /** Um horário de hoje já passado, no começo do dia (a contar da meia-noite). */

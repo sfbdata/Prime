@@ -40,10 +40,10 @@ final class PontoPorEscritorioRepositoryTest extends KernelTestCase
         [$x, $y] = [$this->tenant('X'), $this->tenant('Y')];
         $user = $this->user();
         $deX = $this->batida($user, $x, RegistroPonto::TIPO_SAIDA, '2026-10-18 18:00:00');
-        $this->batida($user, $y, RegistroPonto::TIPO_SAIDA, '2026-10-18 22:00:00');
+        $deY = $this->batida($user, $y, RegistroPonto::TIPO_SAIDA, '2026-10-18 22:00:00');
 
         self::assertSame($deX->getId(), $this->registros->findUltimaSaida($user, $x)?->getId());
-        self::assertNotSame($deX->getId(), $this->registros->findUltimaSaida($user, $y)?->getId());
+        self::assertSame($deY->getId(), $this->registros->findUltimaSaida($user, $y)?->getId());
     }
 
     #[TestDox('findRepousoDoDia, filtro desligado: só o repouso do escritório pedido')]
