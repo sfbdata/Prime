@@ -6,6 +6,7 @@ namespace App\Contribua\Gateway\Asaas;
 
 use App\Contribua\Gateway\AvisoDoGateway;
 use App\Contribua\Gateway\AvisoNaoAutenticado;
+use App\Contribua\Gateway\EmiteNotaFiscalDaAssinatura;
 use App\Contribua\Gateway\FalhaNoGateway;
 use App\Contribua\Gateway\GatewayDeAssinatura;
 use App\Contribua\Gateway\InicioDoCheckout;
@@ -24,7 +25,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * As variáveis de ambiente são lidas com `default::`: o build de produção apaga o `.env`, e o gateway sem
  * configuração não pode derrubar o container; ele responde `FalhaNoGateway` ao ser usado.
  */
-final class GatewayAsaas implements GatewayDeAssinatura
+final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssinatura
 {
     public const CODIGO = 'asaas';
 
@@ -38,13 +39,22 @@ final class GatewayAsaas implements GatewayDeAssinatura
     /** Teto de páginas de cobranças lidas numa consulta (100 por página: mais de 80 anos de mensalidades). */
     private const MAXIMO_DE_PAGINAS = 10;
 
+    /** Estorno, chargeback e estorno em andamento NÃO contam como pagos. */
     private const STATUS_PAGOS = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'];
+
+    /** Limite do nome do item no Asaas Checkout. */
+    private const TAMANHO_DO_NOME_DO_ITEM = 30;
 
     private const STATUS_ENCERRADOS = ['INACTIVE', 'EXPIRED'];
 
     private const EVENTOS_DE_ASSINATURA = ['SUBSCRIPTION_CREATED', 'SUBSCRIPTION_UPDATED', 'SUBSCRIPTION_INACTIVATED', 'SUBSCRIPTION_DELETED'];
 
-    private const EVENTOS_DE_COBRANCA = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_OVERDUE', 'PAYMENT_REFUNDED'];
+    /** Só disparam a reconsulta: a situação vem sempre de `consultar`. */
+    private const EVENTOS_DE_COBRANCA = [
+        'PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_OVERDUE', 'PAYMENT_REFUNDED',
+        'PAYMENT_CREDIT_CARD_CAPTURE_REFUSED', 'PAYMENT_DELETED', 'PAYMENT_RESTORED',
+        'PAYMENT_CHARGEBACK_REQUESTED', 'PAYMENT_REFUND_IN_PROGRESS',
+    ];
 
     private const EVENTOS_DE_CHECKOUT = ['CHECKOUT_PAID', 'CHECKOUT_CANCELED', 'CHECKOUT_EXPIRED'];
 
@@ -104,16 +114,20 @@ final class GatewayAsaas implements GatewayDeAssinatura
 
     public function consultar(string $idDaAssinatura): SituacaoNoGateway
     {
-        $assinatura = $this->chamar('GET', '/subscriptions/' . rawurlencode($idDaAssinatura));
+        $assinatura = $this->chamarOuNulo('GET', '/subscriptions/' . rawurlencode($idDaAssinatura));
+        if ($assinatura === null) {
+            // 404: a assinatura não existe mais no Asaas. O núcleo guarda o maior pagaAte que já conhecia.
+            return new SituacaoNoGateway($idDaAssinatura, SituacaoDaAssinatura::Cancelada, null);
+        }
         $cobrancas = $this->cobrancasDaAssinatura($idDaAssinatura);
         $idDoCliente = self::texto($assinatura, 'customer');
-        $pagaAte = self::fimDoPeriodoPago($cobrancas);
+        $ultimaPaga = self::ultimaCobrancaPaga($cobrancas);
         $valor = $assinatura['value'] ?? null;
 
         return new SituacaoNoGateway(
             $idDaAssinatura,
-            self::traduzirSituacao($assinatura, $cobrancas, $pagaAte !== null),
-            $pagaAte,
+            self::traduzirSituacao($assinatura, $cobrancas, $ultimaPaga),
+            $ultimaPaga === null ? null : self::fimDoPeriodoPago($ultimaPaga),
             $idDoCliente === null ? null : $this->referenciaDoCliente($idDoCliente),
             $idDoCliente,
             is_numeric($valor) ? (int) round((float) $valor * 100) : null,
@@ -148,11 +162,11 @@ final class GatewayAsaas implements GatewayDeAssinatura
     public function cancelar(string $idDaAssinatura): void
     {
         // 404: a assinatura já foi removida no Asaas, e cancelar o que já está cancelado não é erro.
-        $this->chamar('DELETE', '/subscriptions/' . rawurlencode($idDaAssinatura), [], true);
+        $this->chamarOuNulo('DELETE', '/subscriptions/' . rawurlencode($idDaAssinatura));
     }
 
     /**
-     * Liga a NFS-e automática da assinatura (específico do Asaas, fora da interface comum). Sem o código do
+     * Liga a NFS-e automática da assinatura (`EmiteNotaFiscalDaAssinatura`). Sem o código do
      * serviço municipal configurado, a configuração fiscal ainda não foi feita: não chama nada.
      *
      * Doc: https://docs.asaas.com/reference/create-configuration-for-issuance-of-invoices
@@ -190,6 +204,8 @@ final class GatewayAsaas implements GatewayDeAssinatura
         foreach (self::lista($lista) as $cliente) {
             $id = self::texto($cliente, 'id');
             if ($id !== null && ($cliente['deleted'] ?? false) !== true) {
+                $this->atualizarClienteSeMudou($id, $cliente, $pedido);
+
                 return $id;
             }
         }
@@ -205,9 +221,39 @@ final class GatewayAsaas implements GatewayDeAssinatura
         return self::texto($novo, 'id') ?? throw new FalhaNoGateway('Asaas criou o cliente ' . $referencia . ' sem devolver o id.');
     }
 
+    /**
+     * O cliente reaproveitado leva o CPF/CNPJ e o e-mail do pagador de agora (a nota sai em nome dele).
+     * Doc: https://docs.asaas.com/reference/update-existing-customer
+     *
+     * @param array<mixed> $cliente
+     */
+    private function atualizarClienteSeMudou(string $idDoCliente, array $cliente, PedidoDeCheckout $pedido): void
+    {
+        $documentoAtual = preg_replace('/\D/', '', (string) ($cliente['cpfCnpj'] ?? ''));
+        $emailAtual = mb_strtolower(trim((string) ($cliente['email'] ?? '')));
+        if ($documentoAtual === $pedido->pagador->documento && $emailAtual === mb_strtolower(trim($pedido->pagador->email))) {
+            return;
+        }
+
+        $this->chamar('POST', '/customers/' . rawurlencode($idDoCliente), ['json' => [
+            'cpfCnpj' => $pedido->pagador->documento,
+            'email' => $pedido->pagador->email,
+        ]]);
+    }
+
     /** @return array<string, mixed> */
     private function corpoDoCheckout(PedidoDeCheckout $pedido, string $idDoCliente): array
     {
+        // A imagem do item (`items[].imageBase64`) NÃO é enviada: a documentação do Checkout se contradiz (a
+        // referência da API a marca como obrigatória e o exemplo do guia de assinatura recorrente a omite).
+        // O sandbox decide; se for obrigatória, entra aqui o logotipo em base64.
+        $item = [
+            'name' => mb_substr('BlueJus ' . $pedido->planoNome, 0, self::TAMANHO_DO_NOME_DO_ITEM),
+            'description' => 'Espaço do plano ' . $pedido->planoNome,
+            'quantity' => 1,
+            'value' => $pedido->valorCentavos / 100,
+        ];
+
         return [
             'billingTypes' => ['CREDIT_CARD'],
             'chargeTypes' => ['RECURRENT'],
@@ -217,12 +263,7 @@ final class GatewayAsaas implements GatewayDeAssinatura
                 'cancelUrl' => $pedido->urlDeCancelamento,
                 'expiredUrl' => $pedido->urlDeCancelamento,
             ],
-            'items' => [[
-                'name' => 'BlueJus ' . $pedido->planoNome,
-                'description' => 'Espaço do plano ' . $pedido->planoNome,
-                'quantity' => 1,
-                'value' => $pedido->valorCentavos / 100,
-            ]],
+            'items' => [$item],
             'subscription' => [
                 'cycle' => 'MONTHLY',
                 'nextDueDate' => $this->relogio->now()->setTimezone(new \DateTimeZone(self::FUSO))->format('Y-m-d'),
@@ -253,13 +294,19 @@ final class GatewayAsaas implements GatewayDeAssinatura
                 'limit' => self::COBRANCAS_POR_PAGINA,
                 'offset' => $pagina * self::COBRANCAS_POR_PAGINA,
             ]]);
+            $novas = 0;
             foreach (self::lista($resposta) as $cobranca) {
-                if (($cobranca['deleted'] ?? false) !== true) {
-                    $cobrancas[] = $cobranca;
+                $id = self::texto($cobranca, 'id') ?? 'sem-id-' . \count($cobrancas);
+                if (!isset($cobrancas[$id])) {
+                    $cobrancas[$id] = $cobranca;
+                    ++$novas;
                 }
             }
             ++$pagina;
-        } while (($resposta['hasMore'] ?? false) === true && $pagina < self::MAXIMO_DE_PAGINAS);
+            // Página vazia ou repetida (nenhum id novo) encerra mesmo com hasMore: evita laço com a API.
+        } while ($novas > 0 && ($resposta['hasMore'] ?? false) === true && $pagina < self::MAXIMO_DE_PAGINAS);
+
+        $cobrancas = array_values(array_filter($cobrancas, static fn (array $c): bool => ($c['deleted'] ?? false) !== true));
 
         usort($cobrancas, static fn (array $a, array $b): int => [(string) ($b['dueDate'] ?? ''), (string) ($b['dateCreated'] ?? '')]
             <=> [(string) ($a['dueDate'] ?? ''), (string) ($a['dateCreated'] ?? '')]);
@@ -271,7 +318,9 @@ final class GatewayAsaas implements GatewayDeAssinatura
     private function referenciaDoCliente(string $idDoCliente): ?string
     {
         // 404: cliente removido no Asaas; a assinatura segue ligada pelo id do cliente.
-        return self::texto($this->chamar('GET', '/customers/' . rawurlencode($idDoCliente), [], true), 'externalReference');
+        $cliente = $this->chamarOuNulo('GET', '/customers/' . rawurlencode($idDoCliente));
+
+        return $cliente === null ? null : self::texto($cliente, 'externalReference');
     }
 
     /** @param array<string, string> $cabecalhos */
@@ -288,13 +337,39 @@ final class GatewayAsaas implements GatewayDeAssinatura
 
     /**
      * Chama a API e devolve o JSON da resposta. Erro de transporte, tempo esgotado, status fora de 2xx ou
-     * corpo que não é JSON viram `FalhaNoGateway`; com `$aceitaNaoEncontrado`, 404 devolve vazio.
+     * corpo que não é JSON viram `FalhaNoGateway`.
      *
      * @param array<string, mixed> $opcoes
      *
      * @return array<mixed>
      */
-    private function chamar(string $metodo, string $caminho, array $opcoes = [], bool $aceitaNaoEncontrado = false): array
+    private function chamar(string $metodo, string $caminho, array $opcoes = []): array
+    {
+        [$status, $conteudo] = $this->enviar($metodo, $caminho, $opcoes);
+
+        return self::lerResposta($status, $conteudo, $metodo, $caminho);
+    }
+
+    /**
+     * Como `chamar`, mas 404 (recurso que não existe mais no Asaas) devolve null em vez de falhar.
+     *
+     * @param array<string, mixed> $opcoes
+     *
+     * @return array<mixed>|null
+     */
+    private function chamarOuNulo(string $metodo, string $caminho, array $opcoes = []): ?array
+    {
+        [$status, $conteudo] = $this->enviar($metodo, $caminho, $opcoes);
+
+        return $status === 404 ? null : self::lerResposta($status, $conteudo, $metodo, $caminho);
+    }
+
+    /**
+     * @param array<string, mixed> $opcoes
+     *
+     * @return array{0: int, 1: string} status e corpo
+     */
+    private function enviar(string $metodo, string $caminho, array $opcoes): array
     {
         if ($this->urlDaApi === '' || $this->chaveDaApi === '') {
             throw new FalhaNoGateway('Asaas sem configuração: defina CONTRIBUA_ASAAS_URL_API e CONTRIBUA_ASAAS_API_KEY.');
@@ -311,9 +386,12 @@ final class GatewayAsaas implements GatewayDeAssinatura
             throw new FalhaNoGateway(sprintf('Asaas indisponível em %s %s: %s', $metodo, $caminho, $e->getMessage()), 0, $e);
         }
 
-        if ($status === 404 && $aceitaNaoEncontrado) {
-            return [];
-        }
+        return [$status, $conteudo];
+    }
+
+    /** @return array<mixed> */
+    private static function lerResposta(int $status, string $conteudo, string $metodo, string $caminho): array
+    {
         if ($status < 200 || $status >= 300) {
             throw new FalhaNoGateway(sprintf('Asaas respondeu HTTP %d em %s %s%s.', $status, $metodo, $caminho, self::codigosDeErro($conteudo)));
         }
@@ -356,41 +434,61 @@ final class GatewayAsaas implements GatewayDeAssinatura
     }
 
     /**
+     * Inadimplente quando há cobrança OVERDUE vencida depois da última paga (ou sem nenhuma paga), mesmo
+     * que a próxima PENDING já exista: o Asaas gera cada cobrança 40 dias antes do vencimento
+     * (https://docs.asaas.com/docs/faq-assinaturas), então a vencida quase nunca é a mais recente.
+     *
      * @param array<mixed>       $assinatura
-     * @param list<array<mixed>> $cobrancas  da mais recente para a mais antiga
+     * @param list<array<mixed>> $cobrancas
+     * @param array<mixed>|null  $ultimaPaga
      */
-    private static function traduzirSituacao(array $assinatura, array $cobrancas, bool $temCobrancaPaga): SituacaoDaAssinatura
+    private static function traduzirSituacao(array $assinatura, array $cobrancas, ?array $ultimaPaga): SituacaoDaAssinatura
     {
         if (($assinatura['deleted'] ?? false) === true || \in_array($assinatura['status'] ?? null, self::STATUS_ENCERRADOS, true)) {
             return SituacaoDaAssinatura::Cancelada;
         }
-        if (($cobrancas[0]['status'] ?? null) === 'OVERDUE') {
-            return SituacaoDaAssinatura::Inadimplente;
+        $vencimentoPago = $ultimaPaga === null ? '' : (string) ($ultimaPaga['dueDate'] ?? '');
+        foreach ($cobrancas as $cobranca) {
+            if (($cobranca['status'] ?? null) === 'OVERDUE' && (string) ($cobranca['dueDate'] ?? '') > $vencimentoPago) {
+                return SituacaoDaAssinatura::Inadimplente;
+            }
         }
 
-        return $temCobrancaPaga ? SituacaoDaAssinatura::Ativa : SituacaoDaAssinatura::Aguardando;
+        return $ultimaPaga === null ? SituacaoDaAssinatura::Aguardando : SituacaoDaAssinatura::Ativa;
     }
 
     /**
-     * Fim do período pago: vencimento da cobrança paga mais recente + 1 mês. Null se nada foi pago.
-     *
      * @param list<array<mixed>> $cobrancas da mais recente para a mais antiga
+     *
+     * @return array<mixed>|null
      */
-    private static function fimDoPeriodoPago(array $cobrancas): ?\DateTimeImmutable
+    private static function ultimaCobrancaPaga(array $cobrancas): ?array
     {
         foreach ($cobrancas as $cobranca) {
-            if (!\in_array($cobranca['status'] ?? null, self::STATUS_PAGOS, true)) {
-                continue;
+            if (\in_array($cobranca['status'] ?? null, self::STATUS_PAGOS, true)) {
+                return $cobranca;
             }
-            $vencimento = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($cobranca['dueDate'] ?? ''), new \DateTimeZone(self::FUSO));
-            if ($vencimento === false) {
-                throw new FalhaNoGateway('Asaas devolveu uma cobrança paga sem vencimento legível.');
-            }
-
-            return $vencimento->modify('+1 month');
         }
 
         return null;
+    }
+
+    /**
+     * Fim do período pago: o mesmo dia do vencimento no mês seguinte, limitado ao último dia daquele mês
+     * (31/01 vira 28/02 ou 29/02, nunca 03/03).
+     *
+     * @param array<mixed> $cobrancaPaga
+     */
+    private static function fimDoPeriodoPago(array $cobrancaPaga): \DateTimeImmutable
+    {
+        $vencimento = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($cobrancaPaga['dueDate'] ?? ''), new \DateTimeZone(self::FUSO));
+        if ($vencimento === false) {
+            throw new FalhaNoGateway('Asaas devolveu uma cobrança paga sem vencimento legível.');
+        }
+        $mesSeguinte = $vencimento->modify('first day of next month');
+        $dia = min((int) $vencimento->format('j'), (int) $mesSeguinte->format('t'));
+
+        return $mesSeguinte->setDate((int) $mesSeguinte->format('Y'), (int) $mesSeguinte->format('n'), $dia);
     }
 
     /**
