@@ -97,7 +97,9 @@
         vgSel: [],
         vgDet: null,
         tlm: null,
-        vf: null
+        vf: null,
+        sh: null,
+        shPedindo: false
     };
 
     /* ---------------------------------------------------------------- utilidades */
@@ -197,7 +199,8 @@
         vaga: function (c) { return comComo(D.urlVaga.replace(MARCADOR_VAGA, encodeURIComponent(c))); },
         vagaAcao: function (c, a) { return D.urlVagaAcao.replace(MARCADOR_VAGA, encodeURIComponent(c)).replace('__acao__', encodeURIComponent(a)); },
         vagaSalvar: function () { return D.urlVagaSalvar; },
-        vagasMarcacoes: function () { return D.urlVagasMarcacoes; }
+        vagasMarcacoes: function () { return D.urlVagasMarcacoes; },
+        vagasCompartilhar: function () { return D.urlVagasCompartilhar; }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -2540,8 +2543,16 @@
         if (!podeEscreverVaga()) {
             return;
         }
+        // "Compartilhar vagas" (`temAbertas` / `shareTodas`, desenho linha 153).
+        if (vagasCompartilhaveis(vagas()).length) {
+            var dicaShare = 'Compartilhe as vagas abertas por WhatsApp, e-mail ou LinkedIn';
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-share', title: dicaShare, attrs: { 'data-tip': dicaShare },
+                onclick: compartilharTodas
+            }, [ic('bi-share'), 'Compartilhar vagas']));
+        }
         if (V.podeDivulgar) {
-            var dica = 'Envie a vaga do seu escritório. A equipe BlueJus revisa e divulga na Central.';
+            var dica ='Envie a vaga do seu escritório. A equipe BlueJus revisa e divulga na Central.';
             alvo.appendChild(el('button', {
                 type: 'button', class: 'te-vg-divulgar', title: dica, attrs: { 'data-tip': dica },
                 onclick: function () { abrirFormVaga('divulgar'); }
@@ -2910,6 +2921,7 @@
         S.tlm = null;
         S.vgDet = null;
         S.vf = null;
+        S.sh = null;
         relogiosDetalhe = [];
         limpar($('teVagaModal'));
     }
@@ -2996,6 +3008,10 @@
         relogiosDetalhe = [];
         var of = v.ofertante || { nome: v.escritorio, campos: [], oculto: false };
         var corpo = [
+            // "Compartilhar esta vaga" (`tvPodeShare` / `tvShare`, desenho linha 286).
+            podeEscreverVaga() && vagaCompartilhavel(v)
+                ? el('button', { type: 'button', class: 'te-tv-share', onclick: function () { abrirCompartilhar([v.codigo]); } }, [ic('bi-whatsapp'), 'Compartilhar esta vaga'])
+                : null,
             el('div', { class: 'te-tv-of' }, [
                 el('span', { class: 'te-tv-of-ic' }, ic('bi-building')),
                 el('div', { class: 'te-tv-of-textos' }, [
@@ -3048,6 +3064,197 @@
         }
         modalVaga({ icone: 'bi-briefcase', titulo: v.codigo + ' · ' + v.titulo, largura: '640px', corpo: corpo, botoes: botoes });
         ligarRelogio();
+    }
+
+    /* ---------------------------------------------------------------- compartilhar vagas (tmShare) */
+
+    /** A Central compartilha qualquer vaga aberta; o escritório, só as abertas dele (spec §4.2). */
+    function vagaCompartilhavel(v) {
+        return !!v && v.situacao === 'aberta' && (!!(S.vg && S.vg.daCentral) || !!v.minha);
+    }
+
+    function vagasCompartilhaveis(lista) {
+        return lista.filter(function (v) { return !v.lixeira && vagaCompartilhavel(v); });
+    }
+
+    /**
+     * `shareTodas`: as abertas compartilháveis à vista no filtro e na busca. Se o filtro atual não
+     * mostra nenhuma (Encerradas, Lixeira), vão todas as abertas compartilháveis da aba.
+     */
+    function compartilharTodas() {
+        var L = vagasCompartilhaveis(vagasFiltradas());
+        if (!L.length) {
+            L = vagasCompartilhaveis(vagas());
+        }
+        abrirCompartilhar(L.map(function (v) { return v.codigo; }));
+    }
+
+    function plural(n, um, varios) { return n + ' ' + (n === 1 ? um : varios); }
+
+    /** Cargos distintos, na ordem da lista, das vagas que entraram no link. */
+    function cargosDoLink(codigos) {
+        var vistos = [];
+        codigos.forEach(function (c) {
+            var v = vagas().filter(function (x) { return x.codigo === c; })[0] || (S.vgDet && S.vgDet.codigo === c ? S.vgDet : null);
+            if (v && !vazio(v.cargo) && vistos.indexOf(v.cargo) < 0) {
+                vistos.push(v.cargo);
+            }
+        });
+        return vistos;
+    }
+
+    /** Mensagem padrão (`msg` do desenho da página pública). O emoji é do desenho. */
+    function mensagemPadrao(sh) {
+        return '⚖️ Vagas para Advogados e área Jurídica disponíveis no BlueJus! '
+            + plural(sh.n, 'vaga', 'vagas')
+            + (sh.cargos.length ? ': ' + sh.cargos.slice(0, 3).join(', ') : '')
+            + '. Veja: {link}';
+    }
+
+    function abrirCompartilhar(codigos) {
+        if (!podeEscreverVaga() || !codigos.length || S.shPedindo) {
+            return;
+        }
+        fecharMenu();
+        S.shPedindo = true;
+        pedir('POST', ROTA.vagasCompartilhar(), { codigos: codigos }).then(function (r) {
+            S.shPedindo = false;
+            if (!r.ok || !r.url) {
+                toastErro(r.mensagem);
+                return;
+            }
+            var dominio = '';
+            try {
+                dominio = new URL(r.url).host;
+            } catch (e) {
+                dominio = '';
+            }
+            var n = +r.vagas || codigos.length;
+            S.tlm = 'share';
+            S.vgDet = null;
+            S.vf = null;
+            relogiosDetalhe = [];
+            // Vindo do detalhe, o modal entra de novo (sem herdar a rolagem dele).
+            limpar($('teVagaModal'));
+            S.sh = { url: r.url, dominio: dominio, n: n, cargos: cargosDoLink(codigos), msg: '' };
+            S.sh.msg = mensagemPadrao(S.sh);
+            renderCompartilhar();
+        });
+    }
+
+    /** Canais (`shCanais`): provisórios até o zip. `semLink` desabilita todos. */
+    function canaisDoLink(sh) {
+        var texto = sh.msg.split('{link}').join(sh.url);
+
+        return [
+            { r: 'WhatsApp', ic: 'bi-whatsapp', cor: '#1e7b45', href: 'https://wa.me/?text=' + encodeURIComponent(texto) },
+            { r: 'E-mail', ic: 'bi-envelope', cor: '#0a6fa0', href: 'mailto:?subject=' + encodeURIComponent('Vagas jurídicas no BlueJus') + '&body=' + encodeURIComponent(texto), mesmaAba: true },
+            { r: 'LinkedIn', ic: 'bi-linkedin', cor: '#0a66c2', href: 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(sh.url) },
+            { r: 'Copiar mensagem', ic: 'bi-clipboard', cor: '#34505f', copiar: texto }
+        ];
+    }
+
+    function copiarMensagem(texto) {
+        var falhou = function () { toastErro('Não foi possível copiar. Selecione o texto e copie manualmente.'); };
+        try {
+            if (!navigator.clipboard || !navigator.clipboard.writeText) {
+                falhou();
+                return;
+            }
+            navigator.clipboard.writeText(texto).then(function () {
+                mostrarToast({ tit: 'Mensagem copiada', txt: 'Cole onde quiser compartilhar.', hora: '' });
+            }, falhou);
+        } catch (e) {
+            falhou();
+        }
+    }
+
+    /** Monta os botões dos canais no lugar, sem redesenhar o modal (a textarea não perde o foco). */
+    function renderCanais(alvo, alerta) {
+        var sh = S.sh;
+        var semLink = sh.msg.indexOf('{link}') < 0;
+        alerta.hidden = !semLink;
+        limpar(alvo);
+        canaisDoLink(sh).forEach(function (k) {
+            var filhos = [ic(k.ic), k.r];
+            var estilo = { color: k.cor };
+            if (k.copiar !== undefined) {
+                alvo.appendChild(el('button', {
+                    type: 'button', class: 'te-sh-canal', style: estilo, disabled: semLink,
+                    onclick: function () { copiarMensagem(k.copiar); }
+                }, filhos));
+                return;
+            }
+            if (semLink) {
+                alvo.appendChild(el('button', { type: 'button', class: 'te-sh-canal', style: estilo, disabled: true }, filhos));
+                return;
+            }
+            alvo.appendChild(el('a', {
+                class: 'te-sh-canal', style: estilo, href: k.href,
+                attrs: k.mesmaAba ? { rel: 'noopener noreferrer' } : { target: '_blank', rel: 'noopener noreferrer' }
+            }, filhos));
+        });
+    }
+
+    function renderCompartilhar() {
+        var sh = S.sh;
+        if (!sh) {
+            return;
+        }
+        var canais = el('div', { class: 'te-sh-canais' });
+        var alerta = el('div', { class: 'te-sh-sem-link', attrs: { role: 'alert' } }, [ic('bi-exclamation-triangle'), ' Inclua {link} no texto para o link entrar na mensagem.']);
+        var texto = el('textarea', {
+            class: 'te-sh-msg', rows: 10, value: sh.msg, attrs: { 'aria-label': 'Mensagem' },
+            oninput: function (e) {
+                sh.msg = e.target.value;
+                renderCanais(canais, alerta);
+            }
+        });
+        var corpo = [
+            el('div', { class: 'te-sh' }, [
+                el('div', { class: 'te-sh-col' }, [
+                    el('div', { class: 'te-sh-rot', text: 'PRÉVIA DO LINK' }),
+                    el('div', { class: 'te-sh-previa' }, [
+                        el('div', { class: 'te-sh-cartao' }, [
+                            el('div', { class: 'te-sh-capa' }, [
+                                el('span', { class: 'te-sh-bola te-sh-bola--1' }),
+                                el('span', { class: 'te-sh-bola te-sh-bola--2' }),
+                                el('img', { class: 'te-sh-simbolo', src: '/images/logo/bluejus_simbolo.svg', alt: '' }),
+                                el('div', { class: 'te-sh-capa-txt' }, [
+                                    el('div', { class: 'te-sh-capa-rot', text: 'CENTRAL DE VAGAS JURÍDICAS' }),
+                                    el('div', { class: 'te-sh-capa-nome', text: 'BlueJus' })
+                                ])
+                            ]),
+                            el('div', { class: 'te-sh-info' }, [
+                                el('div', { class: 'te-sh-dom', text: sh.dominio }),
+                                el('b', { class: 'te-sh-tit', text: 'Vagas para Advogados e área Jurídica' }),
+                                el('div', { class: 'te-sh-sub', text: plural(sh.n, 'vaga aberta', 'vagas abertas') }),
+                                sh.cargos.length ? el('div', { class: 'te-sh-cargos' }, sh.cargos.map(function (g) { return el('span', { class: 'te-sh-cargo', text: g }); })) : null
+                            ])
+                        ])
+                    ]),
+                    el('div', { class: 'te-sh-aviso' }, [ic('bi-shield-lock'), ' A página pública mostra só cargo, local e tipo. Detalhes, remuneração, contatos e candidatura ficam liberados depois de criar a conta.'])
+                ]),
+                el('div', { class: 'te-sh-col' }, [
+                    el('div', { class: 'te-sh-msg-cab' }, [
+                        el('span', { class: 'te-sh-rot te-sh-msg-rot', text: 'MENSAGEM' }),
+                        el('button', {
+                            type: 'button', class: 'te-sh-padrao',
+                            onclick: function () {
+                                sh.msg = mensagemPadrao(sh);
+                                texto.value = sh.msg;
+                                renderCanais(canais, alerta);
+                            }
+                        }, [ic('bi-arrow-counterclockwise'), ' Mensagem padrão'])
+                    ]),
+                    texto,
+                    alerta,
+                    canais
+                ])
+            ])
+        ];
+        renderCanais(canais, alerta);
+        modalVaga({ icone: 'bi-share', titulo: 'Compartilhar vagas', largura: '760px', corpo: corpo, botoes: [botaoTlm('Fechar', 'bi-x-lg', '', fecharTlm)] });
     }
 
     /* ---------------------------------------------------------------- formulário Nova vaga / Divulgar (tmVagaForm) */
