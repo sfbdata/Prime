@@ -3,12 +3,15 @@
    Cada classe reproduz 1:1 o estilo inline do desenho. Cores e tamanhos que variam por item chegam como
    variáveis CSS (--cor, --bg, --borda, --linha, --w) no próprio elemento. */
 
-.mp { font-family: Arial, Helvetica, sans-serif; color: #12242f; -webkit-font-smoothing: antialiased;
+/* font-size e line-height do <body> do desenho (16px, normal): sem isso o painel herda 14px/1.5 do layout e cada
+   linha sai de 4 a 9px mais alta que no desenho. */
+.mp { font-family: Arial, Helvetica, sans-serif; color: #12242f; -webkit-font-smoothing: antialiased; font-size: 16px; line-height: normal;
   padding: 14px 10px 40px; max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .mp a { color: #0a6fa0; text-decoration: none; }
 .mp a:hover { color: #0b5f86; text-decoration: underline; }
 .mp [hidden] { display: none !important; }
-.mp button { font: inherit; }
+/* :where() zera a especificidade: o font herdado não pode vencer o negrito e o tamanho das classes (.mp-aba, .mp-sec...). */
+:where(.mp) button { font: inherit; }
 
 /* ---------- cabeçalho ---------- */
 .mp-topo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -285,7 +288,8 @@
 .mp-avatar.mp-avatar-sec { background: #a77bb8; }
 .mp-tag-master.mp-tag-master-sec { color: #7a3e8f; background: #f3e9f7; }
 .mp-form-remover { margin: 0; display: inline-flex; }
-.mp .mp-lixeira { width: 30px; height: 30px; border: none; background: transparent; border-radius: 4px; color: #a3232b; cursor: pointer; padding: 0; }
+/* O botão do desenho não herda a fonte: usa a do navegador (13.33px), que dá o tamanho do ícone. */
+.mp .mp-lixeira { width: 30px; height: 30px; border: none; background: transparent; border-radius: 4px; color: #a3232b; cursor: pointer; padding: 0; font-size: 13.33px; }
 .mp .mp-lixeira:hover { background: #fbe7e7; }
 /* Rodapé "Promover a Master" (desenho 1.2, linhas 330-337). */
 .mp-promover { margin: 0; padding: 14px 18px; background: #faf7fc; display: flex; flex-direction: column; gap: 10px; }
@@ -317,7 +321,7 @@
 .mp-conf-fundo { position: fixed; inset: 0; z-index: 1060; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .mp .mp-conf-fundo[hidden] { display: none !important; }
 .mp-conf { width: 100%; max-width: 440px; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px -12px rgba(13,27,42,.45); overflow: hidden; }
-.mp-conf-cab { background: var(--cor, #0a6fa0); color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+.mp-conf-cab { background: var(--cor, #0a6fa0); color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 16px; line-height: normal; }
 .mp-conf-texto { padding: 18px 20px; font-size: 13.5px; line-height: 1.55; color: #34505f; }
 .mp-conf-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: #f5f8fa; }
 .mp .mp-conf-cancelar { height: 34px; border: none; background: transparent; font-size: 13.5px; padding: 0 14px; cursor: pointer; border-radius: 4px; color: #12242f; }
