@@ -61,6 +61,29 @@ final class VagasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertContains($codigo, array_column($this->listar($client)['vagas'], 'codigo'));
     }
 
+    #[TestDox('período acima da divulgação máxima é ajustado na aprovação, como diz o modal de configuração')]
+    public function testPeriodoAjustadoNaAprovacao(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $sede = $this->criarTenant('Sede');
+        $a = $this->criarTenant('A');
+        $master = $this->criarMaster($sede);
+        $doA = $this->criarUsuario($a);
+
+        $this->logarComTenant($client, $master, $sede);
+        $this->postarJson($client, '/trabalho-externo/api/configuracao', ['vagas' => ['maxDias' => 15]]);
+        self::assertResponseIsSuccessful();
+
+        $this->logarComTenant($client, $doA, $a);
+        $enviada = $this->postarJson($client, self::VAGAS, self::vaga('Advogado previdenciário') + ['periodoDias' => 60]);
+        self::assertSame(60, $enviada['vaga']['periodoDias'], 'no envio fica o que o escritório pediu');
+
+        $this->logarComTenant($client, $master, $sede);
+        $aprovada = $this->postarJson($client, self::VAGAS . '/' . $enviada['codigo'] . '/acoes/aprovar');
+        self::assertSame(15, $aprovada['vaga']['periodoDias']);
+    }
+
     #[TestDox('contato que o ofertante escondeu não sai para outro escritório; a Central e o dono veem')]
     public function testContatoOculto(): void
     {

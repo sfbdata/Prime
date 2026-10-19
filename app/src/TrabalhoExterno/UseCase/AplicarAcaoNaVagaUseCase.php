@@ -34,6 +34,10 @@ final class AplicarAcaoNaVagaUseCase
             throw new AcaoNaoPermitida('Você não pode executar esta ação nesta vaga.');
         }
 
+        // "Pedidos acima do limite são ajustados na aprovação" (modal de configuração do desenho).
+        if ($acao === AcaoVaga::Aprovar && !$vaga->ehDaCentral()) {
+            $vaga->limitarPeriodo($ctx->configuracao->getVagas()['maxDias']);
+        }
         $vaga->aplicar($acao, $motivo, $agora);
         $this->vagas->salvar($vaga, flush: true);
 

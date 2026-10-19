@@ -167,7 +167,8 @@ Configuração das vagas em `ConfiguracaoCentral.vagas` (json, padrão de `tlCfg
 
 - **Criar**: Master, ou Equipe com `talentos`, pelo "Nova vaga" (`tlGere`): nasce **aberta**.
 - **Divulgar**: Solicitante, pelo "Divulgar uma vaga" (`podeDivulgar`): nasce **pendente** ("A equipe
-  BlueJus revisa e divulga na Central"). O período pedido é cortado em `maxDias` (0 = sem limite).
+  BlueJus revisa e divulga na Central"). O período pedido acima de `maxDias` (0 = sem limite) é
+  ajustado na aprovação, como diz o modal de configuração do desenho.
 - **Aprovar / reprovar**: Master ou Equipe com `talentos`. Aprovar abre a vaga e conta o período a
   partir dali; reprovar pede motivo.
 - **Pausar, retomar, marcar como preenchida, encerrar**: Central, e o escritório dono na vaga dele.
