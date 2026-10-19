@@ -22,8 +22,14 @@ L222-287, script L482-588). "dc L.n" abaixo são linhas desse arquivo. Regra do 
   escopo plataforma; B3 rodapé legal SEMPRE, também no HTML importado; B4 link da Política de Privacidade no rodapé;
   C2 aberturas (pixel) e cliques (link rastreado) entram, em números e CSV por campanha, sem gráfico, e a Política de
   Privacidade precisa citar o rastreio (rascunho da f6, com o advogado); C4 "Enviar teste" vai ao Master logado.
+- **Decisões (coordenador, 19/10, segunda rodada):** C1 a confirmação de cadastro já existe; o evento de cadastro
+  confirmado e de convite aceito sai DEPOIS do commit nos três UseCases, rigor ALTO; o e-mail sai do ouvinte e a falha
+  dele não desfaz o cadastro. P3a: o `e90` oferece 80, 85 e 90% como no dc (combinar com a f6 o percentual no evento).
+  P3b: o `lemb` manda um link novo, uma vez só. P5: migrar os e-mails antigos é follow-up fora desta frente. A fatia 1
+  empilha sobre a branch da 0d quando o PR dela abrir. Vazão 20/min e 1.500/dia, configurável, até o dono responder.
 - **Com o dono (pacote do coordenador):** A2 datas comemorativas desligadas e só para primários; A3 Pausar e Encerrar
-  na recorrente; B1 CSV e Individual só para quem consentiu; reply-to; C3 limite de envio. Novas (§6): P1 a P5.
+  na recorrente; B1 CSV e Individual só para quem consentiu; reply-to; C3 limite de envio; P1 provedor de envio; P2
+  "Ao abrir uma conta" travado em ligado; P4 retenção de 24 meses.
 - **Contratos com outras sessões:**
   - 0d: `App\Shared\Email\Descadastro\DescadastroDeEmailInterface` com `?Tenant` (null = plataforma),
     `estaDescadastrado`, `descadastrar`, `gerarLink`; `ASSUNTO_TODOS = 'todos'`; assunto `[a-z_]{3,40}`;
@@ -32,7 +38,11 @@ L222-287, script L482-588). "dc L.n" abaixo são linhas desse arquivo. Regra do 
   - a7: alertas de vagas (`trabalho_externo_interessado`, #84) só recebem depois do double opt-in desta frente (§3.3)
     e consultando o descadastro (`vagas_alerta`).
   - 0d (Push) e a7 (campanha de vagas): consomem o `Carteiro` desta frente (§3.1).
-  - f6 (#64, #74): ouvir `EspacoAtingiuFaixa`; pedir a f6 um evento `EspacoFoiPedido` no `PedirEspacoUseCase` (§3.4).
+  - f6 (#64, #74), pedido direto da 5d em 19/10, aguardando resposta: (1) `EspacoAtingiuFaixa` despachado DEPOIS do
+    commit (antes, um rollback deixaria e-mail enfileirado por engano); (2) o percentual antes e depois em cada
+    cruzamento, para o ouvinte desta frente decidir pelo limite de 80/85/90% escolhido; (3) `EspacoFoiPedido(tenantId,
+    codigoDoPlano, pedidoPorUserId)` no `PedirEspacoUseCase`. Proposta: o limite de 1 aviso por dia por escritório fica
+    com esta frente.
   - 4b (#54): datas do `CalendarioDoSistema` (fatia 4).
   - 7d: UseCase público de leitura das indicações (fatia 4), combinar antes da migration dela.
   - #56 (b5): parcial `master/_comercial.html.twig`, evento `mp:secao`, CSP do `/master` com 'self'.
@@ -159,11 +169,11 @@ de corte gravada na primeira execução).
 | Chave | Gatilho no sistema | Quem recebe | Como |
 |---|---|---|---|
 | `cad` | É o e-mail de confirmação que o `CadastroMailer` já manda | quem se cadastrou | não muda (P2) |
-| `lemb` | Varredura: `CadastroPendente` sem confirmação há N horas (24/48/72) e ainda válido | quem se cadastrou | 1 lembrete por cadastro; como o link vale 24 h, o lembrete de 24 h sai antes de vencer só se o atraso for menor que a validade (P3) |
+| `lemb` | Varredura: `CadastroPendente` sem confirmação há N horas (24/48/72) | quem se cadastrou | 1 lembrete por cadastro, com link NOVO (renova a validade por mais 24 h) (P3b) |
 | `val` | Evento novo `CadastroConfirmado(userId, tenantId)`, disparado pelo `ConfirmarCadastroUseCase` depois do commit | o novo primário | Boas-vindas |
 | `conv` | Evento novo `ConviteDeEscritorioAceito(userId, tenantId)`, nos dois UseCases de aceite | o secundário | Boas-vindas |
 | `dica` | Varredura: conta confirmada há N dias (3/7/15) | o primário | Primeiros passos; desligada por padrão (dc) |
-| `e90` | Ouvinte de `EspacoAtingiuFaixa` (f6, #64), faixa que corresponde ao limite escolhido (P3) | o primário | no máximo 1 por dia por escritório (spec da f6) |
+| `e90` | Ouvinte de `EspacoAtingiuFaixa` (f6, #64), depois do commit: dispara quando o percentual cruza para cima o limite escolhido (80, 85 ou 90%) | o primário | no máximo 1 por dia por escritório (spec da f6); controle `comercial_aviso_espaco` |
 | `e100` | Ouvinte de `EspacoAtingiuFaixa`, faixa `Bloqueio` | o primário | idem |
 | `ped` | Evento `EspacoFoiPedido(tenantId, plano)` pedido à f6 no `PedirEspacoUseCase` | o primário, e o aviso ao Master que a f6 já faz | Pedido de espaço recebido |
 
@@ -236,13 +246,14 @@ confirmar.
   Hostinger). O Gmail limita o volume diário e não dá aviso de entrega nem de devolução; envio em massa por ele arrisca
   o bloqueio da conta. Recomendação: campanhas e datas por um provedor transacional (ou o SMTP da Hostinger, se o
   plano permitir volume), com SPF e DKIM do domínio. Até lá, a vazão fica no padrão conservador (§3.5).
-- **P2. O interruptor de `cad`.** Desligar "Ao abrir uma conta" impediria qualquer cadastro (a conta só nasce com a
+- **P2. O interruptor de `cad`** (com o dono). Desligar "Ao abrir uma conta" impediria qualquer cadastro (a conta só nasce com a
   confirmação). Proposta: o interruptor de `cad` aparece travado em "ligada", com a dica "Obrigatório: sem ele
   ninguém consegue criar conta". É desvio do dc.
-- **P3. Faixas e prazos.** (a) O dc oferece 80/85/90% para o `e90`, mas a f6 só emite as faixas dela
+- **P3. Faixas e prazos. DECIDIDA (coordenador, 19/10):** (a) entram 80, 85 e 90% como no dc; (b) link novo, uma vez
+  só. Registro da pergunta original: (a) O dc oferece 80/85/90% para o `e90`, mas a f6 só emite as faixas dela
   (Atencao, Alerta, Critico, Bloqueio) e a tela de Armazenamento usa 70/90/95/100. Proposta: o seletor do `e90`
   oferece as faixas que a f6 emite (90% = Alerta). (b) O `lemb` em 24 h coincide com a validade do link (24 h):
   proposta, o lembrete manda um link NOVO (renova a validade do `CadastroPendente` por mais 24 h), uma vez só.
 - **P4. Retenção dos envios.** 24 meses, depois o e-mail vira hash.
-- **P5. Migrar os e-mails antigos** (senha, convite, confirmação) para o Carteiro e o layout novo: follow-up, fora
+- **P5. DECIDIDA: follow-up fora desta frente.** Migrar os e-mails antigos (senha, convite, confirmação) para o Carteiro e o layout novo: follow-up, fora
   desta frente, se o dono quiser.
