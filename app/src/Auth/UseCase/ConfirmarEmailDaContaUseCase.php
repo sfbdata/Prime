@@ -48,13 +48,13 @@ final class ConfirmarEmailDaContaUseCase
         }
 
         // Quem perde a corrida do UPDATE encontra o e-mail já confirmado pelo outro clique: sucesso, sem evento.
-        if (!$this->confirmacaoEmailRepository->confirmarEmailDaConta($user)) {
+        if (!$this->confirmacaoEmailRepository->confirmarComLink($confirmacao, $agora)) {
             return;
         }
 
+        // O banco já está gravado (transação do repositório); aqui só alinha os objetos em memória.
         $user->confirmarEmail();
         $confirmacao->marcarUsado($agora);
-        $this->confirmacaoEmailRepository->salvar($confirmacao, flush: true);
         $this->despacharEvento((int) $user->getId());
     }
 

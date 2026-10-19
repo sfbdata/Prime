@@ -7,6 +7,7 @@ namespace App\Auth\Repository;
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Entity\Auth\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Connection;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -31,17 +32,30 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
     }
 
     /**
-     * Zera a pendência de e-mail da conta num UPDATE condicional: com dois cliques simultâneos no link (o
-     * pré-carregamento do cliente de e-mail faz isso), só um ganha, e só ele despacha o EmailDaContaConfirmado.
+     * Confirma pelo link numa transação só: zera a pendência da conta num UPDATE condicional e marca o link usado.
+     * Com dois cliques simultâneos (o pré-carregamento do cliente de e-mail faz isso), só um ganha, e só ele
+     * despacha o EmailDaContaConfirmado; e nunca fica conta confirmada com o link sem a marca de uso.
      *
      * @return bool true se FOI ESTA chamada que confirmou
      */
-    public function confirmarEmailDaConta(User $user): bool
+    public function confirmarComLink(ConfirmacaoEmail $confirmacao, \DateTimeImmutable $agora): bool
     {
-        return $this->getEntityManager()->getConnection()->executeStatement(
-            'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
-            ['id' => $user->getId()],
-        ) === 1;
+        return $this->getEntityManager()->getConnection()->transactional(
+            static function (Connection $conexao) use ($confirmacao, $agora): bool {
+                $ganhou = $conexao->executeStatement(
+                    'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+                    ['id' => $confirmacao->getUser()->getId()],
+                ) === 1;
+                if ($ganhou) {
+                    $conexao->executeStatement(
+                        'UPDATE confirmacao_email SET usado_em = :agora WHERE id = :id AND usado_em IS NULL',
+                        ['id' => $confirmacao->getId(), 'agora' => $agora->format('Y-m-d H:i:s')],
+                    );
+                }
+
+                return $ganhou;
+            },
+        );
     }
 
     public function salvar(ConfirmacaoEmail $confirmacao, bool $flush = false): void

@@ -28,13 +28,10 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     /** @var list<EmailDaContaConfirmado> */
     private array $despachados = [];
 
-    /** Resultado do UPDATE condicional: false = outro clique simultâneo confirmou antes. */
-    private bool $venceCorrida = true;
-
     protected function setUp(): void
     {
         $this->repository = $this->createMock(ConfirmacaoEmailRepository::class);
-        $this->repository->method('confirmarEmailDaConta')->willReturnCallback(fn (): bool => $this->venceCorrida);
+        
         $this->eventos = new EventDispatcher();
         $this->eventos->addListener(EmailDaContaConfirmado::class, function (EmailDaContaConfirmado $evento): void {
             $this->despachados[] = $evento;
@@ -68,7 +65,7 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     {
         $confirmacao = $this->confirmacao();
         $this->repository->method('encontrarPorToken')->with('tok')->willReturn($confirmacao);
-        $this->repository->expects($this->once())->method('salvar')->with($confirmacao, true);
+        $this->repository->expects($this->once())->method('confirmarComLink')->with($confirmacao)->willReturn(true);
 
         $this->useCase()->executar('tok');
 
@@ -82,7 +79,7 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     public function testIdempotente(): void
     {
         $this->repository->method('encontrarPorToken')->willReturn($this->confirmacao(confirmado: true));
-        $this->repository->expects($this->never())->method('salvar');
+        $this->repository->expects($this->never())->method('confirmarComLink');
 
         $this->useCase()->executar('tok');
 
@@ -93,7 +90,7 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     public function testTokenInexistente(): void
     {
         $this->repository->method('encontrarPorToken')->willReturn(null);
-        $this->repository->expects($this->never())->method('salvar');
+        $this->repository->expects($this->never())->method('confirmarComLink');
 
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Este link de confirmação é inválido ou expirou.');
@@ -106,7 +103,7 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     {
         $confirmacao = $this->confirmacao(expiraEm: '2026-10-19 09:59:59');
         $this->repository->method('encontrarPorToken')->willReturn($confirmacao);
-        $this->repository->expects($this->never())->method('salvar');
+        $this->repository->expects($this->never())->method('confirmarComLink');
 
         try {
             $this->useCase()->executar('tok');
@@ -124,6 +121,7 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     {
         $confirmacao = $this->confirmacao();
         $this->repository->method('encontrarPorToken')->willReturn($confirmacao);
+        $this->repository->method('confirmarComLink')->willReturn(true);
         $this->eventos->addListener(EmailDaContaConfirmado::class, static function (): void {
             throw new \RuntimeException('ouvinte quebrado');
         });
@@ -136,9 +134,8 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     #[TestDox('Dois cliques simultâneos: quem perde o UPDATE não grava nem despacha o evento de novo')]
     public function testCorridaDespachaUmaVezSo(): void
     {
-        $this->venceCorrida = false;
         $this->repository->method('encontrarPorToken')->willReturn($this->confirmacao());
-        $this->repository->expects($this->never())->method('salvar');
+        $this->repository->expects($this->once())->method('confirmarComLink')->willReturn(false);
 
         $this->useCase()->executar('tok');
 

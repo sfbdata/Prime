@@ -101,8 +101,9 @@
     /* ------------------------------------------------------- força ---------- */
     /* Régua da spec (igual ao ForcaDaSenha do servidor). */
     const FORCA = [['', '#c9d3da', '0%'], ['Fraca', '#c0392b', '25%'], ['Média', '#c76a12', '50%'], ['Boa', '#0a63c9', '75%'], ['Forte', '#1e7b45', '100%']];
-    const pontos = (p) => (!p ? 0 : (p.length >= 8) + (/[A-Z]/.test(p) && /[a-z]/.test(p)) + /\d/.test(p) + /[^A-Za-z0-9_]/.test(p));
-    const senhaAceita = (p) => p.length >= 8 && pontos(p) >= 2;
+    const tamanho = (p) => [...p].length; // em caracteres, como o mb_strlen do servidor (emoji conta 1)
+    const pontos = (p) => (!p ? 0 : (tamanho(p) >= 8) + (/[A-Z]/.test(p) && /[a-z]/.test(p)) + /\d/.test(p) + /[^A-Za-z0-9_]/.test(p));
+    const senhaAceita = (p) => tamanho(p) >= 8 && pontos(p) >= 2;
     document.querySelectorAll('[data-forca]').forEach((caixa) => {
         const campo = $(caixa.dataset.forca);
         const pintar = () => {
