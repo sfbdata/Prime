@@ -5,7 +5,7 @@
 ## Estado da frente
 
 - 19/10 noite: spec e contratos escritos; implementação em quatro blocos (A senha, B cadastro, C suporte e ajustes, D tela).
-- Migration: UMA para a frente toda, na fila logo depois do #56 (coordenador). Timestamp renomeado na hora do merge.
+- Migration: UMA para a frente toda, `Version20261020091500` (a 090000 colidia com o #87), na fila logo depois do #56 (coordenador). Renomear de novo para o momento, se preciso, na hora do merge.
 - Arquivo quente tocado: `app/config/packages/framework.yaml` (um limitador novo, `suporte_entrada`). Avisado ao coordenador.
   `security.yaml`, `doctrine.yaml` e `base.html.twig` **não** são tocados: as rotas novas moram sob `/login`, `/senha` e
   `/cadastro`, que já são `PUBLIC_ACCESS`; as entidades novas ficam em `Auth/Entity` e `Termo/Entity`, já mapeadas.
@@ -14,6 +14,7 @@
   (consulta + `ReemitirConfirmacaoDeEmailUseCase`). A 1a da 5d entra antes; esta frente leva os ganchos dela para os pontos novos.
 
 - 19/10 noite: integrados os 5 blocos; revisão do feature-review-agent reprovou com 2 ALTOS, corrigidos: (1) conta com e-mail a confirmar não vê convites em `/convites` nem na seleção de escritório (a lista entregava o token); (2) a tentativa do código é reservada no banco ANTES de comparar e `/senha/codigo/confirmar` consome o limite por IP. Também: régua com classe ASCII explícita (acento conta como símbolo, igual à tela), um véu só depois do cadastro (o cadastro devolve o destino final), limite de senha em bytes, confirmação de e-mail com UPDATE condicional (evento uma vez), lembrete único no banco, filtro http(s) nos links do painel e do aceite.
+- 19/10 noite: re-revisão aprovou com ressalvas (duas corrigidas); suíte completa verde (10.726 testes, paralela -p 3); qa.sh limpo. PR aberto como rascunho: falta a verificação visual (navegador depende de liberação do dono).
 
 ## O pedido
 

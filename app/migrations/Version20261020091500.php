@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  * `cobranca_pessoa_*`). `email_a_confirmar_desde` nasce nula para todas as contas existentes de propósito: todas
  * provaram o e-mail pelo link do cadastro antigo ou do convite.
  */
-final class Version20261020090000 extends AbstractMigration
+final class Version20261020091500 extends AbstractMigration
 {
     public function getDescription(): string
     {
