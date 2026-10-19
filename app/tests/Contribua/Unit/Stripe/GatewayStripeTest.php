@@ -51,6 +51,7 @@ final class GatewayStripeTest extends TestCase
         self::assertSame(['currency' => 'brl', 'product' => 'bluejus_espaco_essencial', 'unit_amount' => '1990', 'recurring' => ['interval' => 'month']], $assinatura['items'][0]['price_data']);
         self::assertSame('BJ000007-essencial-42', $assinatura['metadata']['referencia']);
         self::assertSame('allow_incomplete', $assinatura['payment_behavior']);
+        self::assertSame(['latest_invoice.confirmation_secret'], $assinatura['expand']);
         self::assertContains('Stripe-Version: ' . ClienteStripe::VERSAO_DA_API, $this->pedidos[3]['cabecalhos']);
         self::assertNotEmpty(preg_grep('/^Idempotency-Key: assinatura-BJ000007-essencial-42-[0-9a-f]{16}$/', $this->pedidos[3]['cabecalhos']));
     }
@@ -86,17 +87,37 @@ final class GatewayStripeTest extends TestCase
         RespostasDoStripe::gateway([], '')->iniciar(self::pedido());
     }
 
-    #[TestDox('Até quando está pago: inadimplente vale até o começo do período não pago; cancelada sem pagar, nada')]
+    #[TestDox('Até quando está pago: inadimplente e cancelada valem até o fim da última fatura paga, não do período vigente')]
     public function testPagaAte(): void
     {
-        $inadimplente = RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura('past_due'))])->consultar('sub_1');
-        $expirada = RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura('incomplete_expired', faturaPaga: 'void'))])->consultar('sub_1');
-        $canceladaPaga = RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura('canceled'))])->consultar('sub_1');
+        $inadimplente = RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura('past_due')), RespostasDoStripe::ultimaPaga(RespostasDoStripe::INICIO_DO_PERIODO)])->consultar('sub_1');
+        $expirada = RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura('incomplete_expired')), RespostasDoStripe::ultimaPaga(null)])->consultar('sub_1');
+        $canceladaPaga = RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura('canceled')), RespostasDoStripe::ultimaPaga()])->consultar('sub_1');
+        $emTeste = RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura('trialing'))])->consultar('sub_1');
 
         self::assertSame(RespostasDoStripe::INICIO_DO_PERIODO, $inadimplente->pagaAte?->getTimestamp());
         self::assertSame(SituacaoDaAssinatura::Cancelada, $expirada->situacao);
         self::assertNull($expirada->pagaAte);
         self::assertSame(RespostasDoStripe::FIM_DO_PERIODO, $canceladaPaga->pagaAte?->getTimestamp());
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $emTeste->situacao, 'período de teste não é pagamento');
+        self::assertNull($emTeste->pagaAte);
+    }
+
+    #[TestDox('3-D Secure: assinatura que nasce incomplete devolve o segredo da fatura para o navegador concluir')]
+    public function testAcaoNoNavegador(): void
+    {
+        $respostas = static fn (string $status): array => [
+            RespostasDoStripe::json(RespostasDoStripe::produto()),
+            RespostasDoStripe::json(RespostasDoStripe::cliente()),
+            RespostasDoStripe::json(RespostasDoStripe::assinatura($status, segredoDaFatura: 'pi_3Teste_secret_abc')),
+        ];
+
+        $pedindo = RespostasDoStripe::gateway($respostas('incomplete'))->assinarComToken(self::pedido(), 'pm_1Teste');
+        $paga = RespostasDoStripe::gateway($respostas('active'))->assinarComToken(self::pedido(), 'pm_1Teste');
+
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $pedindo->situacao);
+        self::assertSame('pi_3Teste_secret_abc', $pedindo->acaoNoNavegador);
+        self::assertNull($paga->acaoNoNavegador);
     }
 
     #[TestDox('Situação desconhecida do Stripe é falha, não um palpite')]
@@ -110,11 +131,11 @@ final class GatewayStripeTest extends TestCase
     public function testCancelar(): void
     {
         $recusa = ['error' => ['type' => 'invalid_request_error', 'message' => 'No such subscription']];
-        $jaCancelada = $this->gatewayQueGrava([RespostasDoStripe::json($recusa, 400), RespostasDoStripe::json(RespostasDoStripe::assinatura('canceled'))]);
+        $jaCancelada = $this->gatewayQueGrava([RespostasDoStripe::json($recusa, 400), RespostasDoStripe::json(RespostasDoStripe::assinatura('canceled')), RespostasDoStripe::ultimaPaga()]);
 
         $jaCancelada->cancelar('sub_1MowQVLkdIwHu7ixeRlqHVzs');
 
-        self::assertSame(['DELETE', 'GET'], array_column($this->pedidos, 'metodo'));
+        self::assertSame(['DELETE', 'GET', 'GET'], array_column($this->pedidos, 'metodo'));
         $this->expectException(FalhaNoGateway::class);
         RespostasDoStripe::gateway([RespostasDoStripe::json($recusa, 404), RespostasDoStripe::json($recusa, 404)])->cancelar('sub_inexistente');
     }

@@ -17,18 +17,16 @@ banco); a cobrança real depende das chaves do dono.
 - Variáveis vazias no `.env`: `CONTRIBUA_STRIPE_SECRET_KEY`, `CONTRIBUA_STRIPE_PUBLIC_KEY`,
   `CONTRIBUA_STRIPE_WEBHOOK_SECRET` (lidas com `string:default::`, porque o build de produção apaga o `.env`).
 
-**Pendente com a f6**
-- 3DS: aceito pela f6 (19/10). O `SituacaoNoGateway` ganha `?string $acaoNoNavegador = null`; o
-  `assinarComToken` passa a preenchê-lo com `latest_invoice.confirmation_secret.client_secret` quando a
-  assinatura nasce `incomplete`, e o checkout chama `ContribuaStripe.concluirAcao(segredo)` (já no JS,
-  `stripe.handleNextAction`). Falta o lado PHP, quando o campo chegar na contribua-c3. Até lá, cartão que
-  pede autenticação fica `incomplete` (Aguardando) e expira em 23 h (Cancelada).
-- A f6 liga o JS no checkout (mapa fixo no `contribua-checkout.js`) e registra o adaptador pelo código.
+**3DS (acertado com a f6 em 19/10)**
+- `assinarComToken` devolve em `acaoNoNavegador` o `latest_invoice.confirmation_secret.client_secret` quando
+  a assinatura nasce `incomplete`; o checkout da f6 chama `ContribuaStripe.concluirAcao(segredo)`
+  (`stripe.handleNextAction`). A confirmação do pagamento continua vindo da consulta ou do aviso.
+- Branch atualizada com a `contribua-c3` em 6462db87 (merge do master e os commits da c3, um a um).
 
 **Para o dono**
 1. Chaves: painel do Stripe, https://dashboard.stripe.com/apikeys. Copiar a "Chave publicável" (`pk_`) para
    `CONTRIBUA_STRIPE_PUBLIC_KEY` e criar uma "Chave restrita" (`rk_`) com escrita em Customers, Products,
-   Subscriptions e PaymentMethods para `CONTRIBUA_STRIPE_SECRET_KEY`. Em teste, as de "área restrita".
+   Subscriptions e PaymentMethods e leitura em Invoices para `CONTRIBUA_STRIPE_SECRET_KEY`. Em teste, as de "área restrita".
 2. Webhook: https://dashboard.stripe.com/webhooks, "Criar um destino de evento", "Sua conta", formato
    Snapshot, versão da API `2026-09-30.endive`; eventos `customer.subscription.created`,
    `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`,
@@ -46,8 +44,10 @@ banco); a cobrança real depende das chaves do dono.
 - `payment_behavior=allow_incomplete` (padrão do Stripe): recusa vira assinatura `incomplete`, não erro.
 - Cancelar é imediato e sem reembolso proporcional; o espaço vale até `pagaAte`. Cancelar o que já está
   cancelado (4xx) é confirmado por consulta e vira sucesso.
-- `pagaAte`: fim do período quando ativa; começo do período não pago quando inadimplente; fim do período
-  quando cancelada com a última fatura paga; nada nos demais casos.
-- Situações: `incomplete` Aguardando; `active`/`trialing` Ativa; `past_due`/`unpaid`/`paused` Inadimplente;
-  `canceled`/`incomplete_expired` Cancelada; desconhecida é `FalhaNoGateway`.
+- `pagaAte`: ativa, o fim do período vigente; inadimplente ou cancelada, o fim do período da última fatura
+  paga (`GET /v1/invoices?status=paid&limit=1`), porque o período de uma inadimplente avança todo mês sem
+  pagamento; nada enquanto não houve pagamento. (Revisão de 19/10.)
+- Situações: `incomplete` e `trialing` Aguardando (o Contribua não dá teste; teste criado no painel não é
+  pagamento); `active` Ativa; `past_due`/`unpaid`/`paused` Inadimplente; `canceled`/`incomplete_expired`
+  Cancelada; desconhecida é `FalhaNoGateway`.
 - Aviso: assinatura v1 com tolerância de 5 minutos; reconsulta pela assinatura, referência ou cliente.

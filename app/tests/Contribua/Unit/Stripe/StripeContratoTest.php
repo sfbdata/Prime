@@ -34,7 +34,7 @@ final class StripeContratoTest extends TesteDeContratoDoGatewayDeAssinatura
             SituacaoDaAssinatura::Cancelada => 'canceled',
         };
 
-        return [RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura($status, 'sub_contrato'))]), 'sub_contrato'];
+        return [RespostasDoStripe::gateway([RespostasDoStripe::json(RespostasDoStripe::assinatura($status, 'sub_contrato')), RespostasDoStripe::ultimaPaga()]), 'sub_contrato'];
     }
 
     protected function avisoAutentico(): array

@@ -17,12 +17,13 @@ use App\Contribua\Gateway\SituacaoNoGateway;
 final class TradutorStripe
 {
     /**
-     * https://docs.stripe.com/api/subscriptions/object (status). `paused` só acontece quando um período de
-     * teste termina sem cartão; o Contribua não dá teste, e se acontecer é cobrança que não veio.
+     * https://docs.stripe.com/api/subscriptions/object (status). `trialing` é Aguardando: o Contribua não dá
+     * período de teste, e um teste criado no painel não é pagamento. `paused` só acontece quando um teste
+     * termina sem cartão.
      */
     private const SITUACOES = [
         'incomplete' => SituacaoDaAssinatura::Aguardando,
-        'trialing' => SituacaoDaAssinatura::Ativa,
+        'trialing' => SituacaoDaAssinatura::Aguardando,
         'active' => SituacaoDaAssinatura::Ativa,
         'past_due' => SituacaoDaAssinatura::Inadimplente,
         'unpaid' => SituacaoDaAssinatura::Inadimplente,
@@ -38,8 +39,12 @@ final class TradutorStripe
 
     private const EVENTOS_DA_FATURA = ['invoice.paid', 'invoice.payment_failed', 'invoice.payment_action_required'];
 
-    /** @param array<string, mixed> $assinatura objeto Subscription, de preferência com `latest_invoice` expandido */
-    public static function situacao(array $assinatura): SituacaoNoGateway
+    /**
+     * @param array<string, mixed>      $assinatura      objeto Subscription
+     * @param array<string, mixed>|null $ultimaFaturaPaga a última Invoice paga da assinatura, quando a situação
+     *                                                     pede (`precisaDaUltimaFaturaPaga`)
+     */
+    public static function situacao(array $assinatura, ?array $ultimaFaturaPaga = null, ?string $acaoNoNavegador = null): SituacaoNoGateway
     {
         $id = $assinatura['id'] ?? null;
         $situacao = self::SITUACOES[$assinatura['status'] ?? ''] ?? null;
@@ -53,11 +58,24 @@ final class TradutorStripe
         return new SituacaoNoGateway(
             $id,
             $situacao,
-            self::pagaAte($situacao, $item, $assinatura['latest_invoice'] ?? null),
+            self::pagaAte($situacao, $item, $ultimaFaturaPaga),
             \is_string($metadados['referencia'] ?? null) ? $metadados['referencia'] : null,
             \is_string($assinatura['customer'] ?? null) ? $assinatura['customer'] : null,
             \is_int($valor) ? $valor : null,
+            $acaoNoNavegador,
         );
+    }
+
+    /**
+     * Inadimplente ou cancelada: o mês pago vem da última fatura paga, não do período vigente.
+     *
+     * @param array<string, mixed> $assinatura
+     */
+    public static function precisaDaUltimaFaturaPaga(array $assinatura): bool
+    {
+        $situacao = self::SITUACOES[$assinatura['status'] ?? ''] ?? null;
+
+        return $situacao === SituacaoDaAssinatura::Inadimplente || $situacao === SituacaoDaAssinatura::Cancelada;
     }
 
     /**
@@ -83,23 +101,34 @@ final class TradutorStripe
     }
 
     /**
-     * Até quando o mês está pago: o fim do período vigente quando ativa; o começo dele quando inadimplente
-     * (o período vigente é o que não foi pago); o fim do período quando cancelada depois de paga; nada
+     * Até quando o mês está pago. Ativa: o fim do período vigente. Inadimplente ou cancelada: o fim do período
+     * da última fatura paga (`lines.data[].period.end`; o `period_end` da fatura de assinatura é o do período
+     * anterior). O período vigente de uma inadimplente avança todo mês sem pagamento, então não serve. Nada
      * enquanto não houve pagamento.
      *
-     * @param array<string, mixed> $item
+     * @param array<string, mixed>      $item
+     * @param array<string, mixed>|null $ultimaFaturaPaga
      */
-    private static function pagaAte(SituacaoDaAssinatura $situacao, array $item, mixed $ultimaFatura): ?\DateTimeImmutable
+    private static function pagaAte(SituacaoDaAssinatura $situacao, array $item, ?array $ultimaFaturaPaga): ?\DateTimeImmutable
     {
-        $campo = match (true) {
-            $situacao === SituacaoDaAssinatura::Ativa => 'current_period_end',
-            $situacao === SituacaoDaAssinatura::Inadimplente => 'current_period_start',
-            $situacao === SituacaoDaAssinatura::Cancelada && ($ultimaFatura['status'] ?? null) === 'paid' => 'current_period_end',
-            default => null,
+        $carimbo = match ($situacao) {
+            SituacaoDaAssinatura::Ativa => $item['current_period_end'] ?? null,
+            SituacaoDaAssinatura::Inadimplente, SituacaoDaAssinatura::Cancelada => self::fimDoPeriodoPago($ultimaFaturaPaga),
+            SituacaoDaAssinatura::Aguardando => null,
         };
-        $carimbo = $campo === null ? null : ($item[$campo] ?? null);
 
         return \is_int($carimbo) ? (new \DateTimeImmutable('@' . $carimbo))->setTimezone(new \DateTimeZone('America/Sao_Paulo')) : null;
+    }
+
+    /** @param array<string, mixed>|null $fatura */
+    private static function fimDoPeriodoPago(?array $fatura): ?int
+    {
+        if (($fatura['status'] ?? null) !== 'paid') {
+            return null;
+        }
+        $fins = array_filter(array_map(static fn (mixed $linha): mixed => \is_array($linha) ? ($linha['period']['end'] ?? null) : null, $fatura['lines']['data'] ?? []), 'is_int');
+
+        return $fins === [] ? null : max($fins);
     }
 
     private static function texto(mixed $valor): ?string

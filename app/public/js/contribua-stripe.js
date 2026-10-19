@@ -46,9 +46,13 @@
             paymentMethodTypes: ['card'],
             paymentMethodCreation: 'manual',
         });
-        pagamento = elements.create('payment', { layout: 'tabs', fields: { billingDetails: { name: 'auto', email: 'never' } } });
+        /* Com o e-mail do escritório, o campo some; sem ele, o Stripe pede (e exige) no próprio formulário. */
+        pagamento = elements.create('payment', { layout: 'tabs', fields: { billingDetails: { name: 'auto', email: opcoes.email ? 'never' : 'auto' } } });
         pagamento.mount(elemento);
-        pagador = { name: opcoes.nome || undefined, email: opcoes.email || undefined };
+        pagador = opcoes.email ? { email: opcoes.email } : {};
+        if (opcoes.nome) {
+            pagador.name = opcoes.nome;
+        }
     }
 
     async function tokenizar() {

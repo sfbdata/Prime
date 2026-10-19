@@ -59,7 +59,7 @@ final class RespostasDoStripe
     }
 
     /** @return array<string, mixed> */
-    public static function assinatura(string $status, string $id = 'sub_1MowQVLkdIwHu7ixeRlqHVzs', ?string $faturaPaga = 'paid'): array
+    public static function assinatura(string $status, string $id = 'sub_1MowQVLkdIwHu7ixeRlqHVzs', ?string $segredoDaFatura = null): array
     {
         return [
             'id' => $id,
@@ -75,11 +75,28 @@ final class RespostasDoStripe
                 'price' => ['id' => 'price_1MowQULkdIwHu7ixraBm864M', 'currency' => 'brl', 'product' => 'bluejus_espaco_essencial', 'recurring' => ['interval' => 'month', 'interval_count' => 1], 'unit_amount' => 1990],
                 'quantity' => 1,
             ]]],
-            'latest_invoice' => $faturaPaga === null ? 'in_1MowQWLkdIwHu7ixuzkSPfKd' : ['id' => 'in_1MowQWLkdIwHu7ixuzkSPfKd', 'object' => 'invoice', 'status' => $faturaPaga],
+            'latest_invoice' => $segredoDaFatura === null ? 'in_1MowQWLkdIwHu7ixuzkSPfKd' : ['id' => 'in_1MowQWLkdIwHu7ixuzkSPfKd', 'object' => 'invoice', 'status' => 'open', 'confirmation_secret' => ['client_secret' => $segredoDaFatura, 'type' => 'payment_intent']],
             'livemode' => false,
             'metadata' => ['referencia' => 'BJ000007-essencial-42', 'escritorio' => '7', 'plano' => 'essencial'],
             'status' => $status,
         ];
+    }
+
+    /**
+     * `GET /v1/invoices?subscription=...&status=paid&limit=1` (https://docs.stripe.com/api/invoices/list): a
+     * última fatura paga, com o período de serviço na linha; vazia quando nada foi pago.
+     */
+    public static function ultimaPaga(?int $fimDoPeriodo = self::FIM_DO_PERIODO): MockResponse
+    {
+        $faturas = $fimDoPeriodo === null ? [] : [[
+            'id' => 'in_1MowQWLkdIwHu7ixuzkSPfKd',
+            'object' => 'invoice',
+            'status' => 'paid',
+            'period_end' => $fimDoPeriodo - 2_592_000,
+            'lines' => ['object' => 'list', 'data' => [['id' => 'il_1', 'object' => 'line_item', 'amount' => 1990, 'period' => ['start' => $fimDoPeriodo - 2_592_000, 'end' => $fimDoPeriodo]]]],
+        ]];
+
+        return self::json(['object' => 'list', 'data' => $faturas, 'has_more' => false, 'url' => '/v1/invoices']);
     }
 
     /** @param array<string, mixed> $objeto */

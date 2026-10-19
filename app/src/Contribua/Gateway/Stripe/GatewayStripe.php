@@ -63,14 +63,15 @@ final class GatewayStripe implements GatewayDeAssinatura
             'assinatura-' . $pedido->referencia . '-' . self::marca($tokenDoCartao),
         );
 
-        return TradutorStripe::situacao($assinatura);
+        return TradutorStripe::situacao($assinatura, null, self::acaoNoNavegador($assinatura));
     }
 
     public function consultar(string $idDaAssinatura): SituacaoNoGateway
     {
-        return TradutorStripe::situacao(
-            $this->stripe->ler('/v1/subscriptions/' . rawurlencode($idDaAssinatura), ['expand' => ['latest_invoice']]),
-        );
+        $assinatura = $this->stripe->ler('/v1/subscriptions/' . rawurlencode($idDaAssinatura));
+        $ultimaPaga = TradutorStripe::precisaDaUltimaFaturaPaga($assinatura) ? $this->ultimaFaturaPaga($idDaAssinatura) : null;
+
+        return TradutorStripe::situacao($assinatura, $ultimaPaga);
     }
 
     public function interpretarAviso(array $cabecalhos, string $corpo): ?AvisoDoGateway
@@ -101,6 +102,28 @@ final class GatewayStripe implements GatewayDeAssinatura
                 throw $falha;
             }
         }
+    }
+
+    /** @return array<string, mixed>|null https://docs.stripe.com/api/invoices/list */
+    private function ultimaFaturaPaga(string $idDaAssinatura): ?array
+    {
+        $lista = $this->stripe->ler('/v1/invoices', ['subscription' => $idDaAssinatura, 'status' => 'paid', 'limit' => 1]);
+
+        return \is_array($lista['data'][0] ?? null) ? $lista['data'][0] : null;
+    }
+
+    /**
+     * Primeira cobrança pedindo autenticação do banco (3-D Secure): a assinatura nasce `incomplete` e o
+     * navegador conclui com o `client_secret` da fatura (`ContribuaStripe.concluirAcao`). Recusa simples
+     * também nasce `incomplete`; aí o Stripe responde ao navegador com o motivo.
+     *
+     * @param array<string, mixed> $assinatura
+     */
+    private static function acaoNoNavegador(array $assinatura): ?string
+    {
+        $segredo = $assinatura['latest_invoice']['confirmation_secret']['client_secret'] ?? null;
+
+        return ($assinatura['status'] ?? null) === 'incomplete' && \is_string($segredo) && $segredo !== '' ? $segredo : null;
     }
 
     private function jaEncerrada(string $idDaAssinatura): bool
@@ -158,7 +181,7 @@ final class GatewayStripe implements GatewayDeAssinatura
             'payment_behavior' => 'allow_incomplete',
             'payment_settings' => ['save_default_payment_method' => 'on_subscription'],
             'metadata' => ['referencia' => $pedido->referencia, 'escritorio' => (string) $pedido->tenantId, 'plano' => $pedido->planoCodigo],
-            'expand' => ['latest_invoice'],
+            'expand' => ['latest_invoice.confirmation_secret'],
         ];
     }
 
