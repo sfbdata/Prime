@@ -36,9 +36,9 @@ o compartilhar entram como fatia própria.
   - Double opt-in: `ConfirmacaoDeEnderecoInterface` da 5d (`pedir()`, `confirmar()`, `estaConfirmado()`).
     A inscrição de alertas chama `pedir()`; **nada é enviado antes de `estaConfirmado()`**.
   - Envio: `CarteiroInterface` da 5d, tipo lista, assunto `vagas_alerta`.
-  - Assinaturas, rota de confirmação e quem lê os interessados: combinando direto com a bluejus-5d
-    (19/10). Enquanto a interface não estiver no master, a inscrição só grava; ligar `pedir()` entra
-    no PR que vier depois do dela. Envio só
+  - Contrato fechado com a bluejus-5d em 19/10 (spec dela `docs/specs/comercial-e-emails.md` §3.1 e
+    §3.3, branch `comercial-emails`): ver §4.3. A fatia 1 dela ainda não tem PR e vai empilhada sobre
+    a da 0d; o #84 segue sem enviar nada, e a F2d liga tudo num PR pequeno depois do dela. Envio só
   para quem confirmou o e-mail (double opt-in) e não está descadastrado (§4.2).
 - `security.yaml`: linha própria `^/vagas-juridicas`; 0d e f6 acrescentam as delas.
 - Teto `MAX_FORA_DO_ESCOPO` em `TenantAwareCoberturaTest`: o #56 (b5) também sobe; quem entrar depois
@@ -54,8 +54,8 @@ o compartilhar entram como fatia própria.
   de §3.5 e §4.1 e a lista de rótulos e menus perdidos.
 - Descrição do #62 não editável pelo `gh` 2.46 desta máquina: complemento postado como comentário.
 
-**Próximo passo**: esperar o merge do #62 e seguir a pilha; enquanto isso, o que não depender da P1
-nem do zip.
+**Próximo passo**: esperar o merge do #62 e seguir a pilha. A F2d (§4.3) espera o PR da 5d, que avisa
+quando abrir. Enquanto isso, o que não depender da P1 nem do zip.
 
 
 Frente `trabalho-externo-vs1810`, base `origin/master` @ `1d3e664c` (v2.2.2). Continua a spec
@@ -306,6 +306,34 @@ dado pessoal (LGPD) e de formulário aberto na internet.
 - `security.yaml`: uma linha `^/vagas-juridicas` com `PUBLIC_ACCESS`, própria (outras frentes
   acrescentam as delas). Avisar o coordenador ao mexer.
 - Sem dado de escritório na página; token de 32 bytes; sem `find` por id.
+
+## 4.3 F2d: alertas de vagas por e-mail (depois do PR da 5d)
+
+Contrato da 5d (`App\Comercial`), assinatura final quando o PR dela abrir:
+
+- `Consentimento\ConfirmacaoDeEnderecoInterface`:
+  - `pedir(string $lista, string $email, string $origem, string $versaoDoConsentimento,
+    string $textoDoConsentimento, ?Tenant $escopo = null): void`. Já envia o e-mail de confirmação
+    (link assinado de 7 dias, reenvio no máximo 1 vez por 24 h). Grava como prova a versão e o texto
+    que a pessoa viu, mais IP, agente e data;
+  - `estaConfirmado(string $lista, string $email, ?Tenant $escopo = null): bool`;
+  - `confirmar()` é interno da rota pública dela, `/e/confirmar/{token}` (tela e texto dela).
+- `Envio\CarteiroInterface::enviar(MensagemDeEmail $m): ResultadoDoEnvio`, com
+  `MensagemDeEmail(para, nome, assunto, corpoHtml, tipo: 'lista', lista: 'vagas_alerta', escopo: null,
+  origem: 'consumidor:vagas_alerta', rastrear: true)`. O Carteiro confere o descadastro (inclusive
+  `todos`) ao enfileirar e ao enviar, põe layout, rodapé legal, link de descadastro e
+  `List-Unsubscribe`, e envia em lote pela fila. Aqui vai só o miolo.
+
+O que a F2d faz aqui, no Trabalho Externo:
+
+1. `InscreverInteressadoUseCase` chama `pedir('vagas_alerta', email, 'pagina-publica-vagas',
+   InteressadoEmVagas::VERSAO_DO_CONSENTIMENTO, InteressadoEmVagas::CONSENTIMENTO, null)` depois de
+   gravar (a resposta ao visitante continua igual para e-mail novo e repetido).
+2. Uma tarefa de alertas (comando agendado) escolhe, para cada vaga aberta nova, os interessados cuja
+   UF e áreas casam, e chama o Carteiro **só** para quem passa em `estaConfirmado('vagas_alerta',
+   email, null)`. Regra de frequência (por vaga ou resumo diário): **pendente** (o desenho não diz;
+   proposta: resumo diário).
+3. A 5d não lê a tabela daqui; a "Base de contatos" dela vem das confirmações dela.
 
 ### Fatias seguintes
 
