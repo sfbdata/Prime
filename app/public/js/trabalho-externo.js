@@ -24,6 +24,7 @@
 
     var D = raiz.dataset;
     var MARCADOR = D.codigoMarcador || 'TE-0';
+    var MARCADOR_VAGA = 'VG-0';
     var FALHA = 'Não foi possível concluir. Tente de novo.';
 
     var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -86,7 +87,17 @@
         sel: [],
         chatSel: [],
         chatVis: 'todas',
-        chatUndo: null
+        chatUndo: null,
+        // Aba Vagas (spec VS 18.10.26 §4.1)
+        modulo: 'demandas',
+        vg: null,
+        vgRelogio: 0,
+        vgFiltro: 'abertas',
+        vgBusca: '',
+        vgSel: [],
+        vgDet: null,
+        tlm: null,
+        vf: null
     };
 
     /* ---------------------------------------------------------------- utilidades */
@@ -180,7 +191,13 @@
         whatsapp: function (c, resto) { return comCodigo(D.urlWhatsapp, c).replace(/\/avisar-fase-atual$/, '') + resto; },
         marcacoes: function () { return D.urlMarcacoes; },
         marcacoesMsg: function (c) { return comCodigo(D.urlMensagensMarcacoes, c); },
-        apagarMsg: function (c, id) { return comCodigo(D.urlMensagemApagar, c).replace(/\/0\/apagar$/, '/' + id + '/apagar'); }
+        apagarMsg: function (c, id) { return comCodigo(D.urlMensagemApagar, c).replace(/\/0\/apagar$/, '/' + id + '/apagar'); },
+        // Vagas: as rotas com {codigo} vêm com o marcador VG-0 (o requisito da rota é VG-\d+).
+        vagas: function () { return comComo(D.urlVagas); },
+        vaga: function (c) { return comComo(D.urlVaga.replace(MARCADOR_VAGA, encodeURIComponent(c))); },
+        vagaAcao: function (c, a) { return D.urlVagaAcao.replace(MARCADOR_VAGA, encodeURIComponent(c)).replace('__acao__', encodeURIComponent(a)); },
+        vagaSalvar: function () { return D.urlVagaSalvar; },
+        vagasMarcacoes: function () { return D.urlVagasMarcacoes; }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -285,10 +302,17 @@
         fecharMenu();
         fecharDrawer();
         fecharToast();
+        fecharTlm();
+        // As vagas também vêm no recorte do perfil: some a aba até o servidor dizer se ele a vê.
+        S.vg = null;
+        S.vgSel = [];
+        renderModulos();
+        carregarVagas();
         pedir('GET', comComo(D.urlPainel)).then(function (r) {
             if (!r.ok || !r.painel) {
                 S.como = antes;
                 toastErro(r.mensagem);
+                carregarVagas();
                 return;
             }
             S.painel = r.painel;
@@ -368,7 +392,7 @@
     function renderBloqueio() {
         var alvo = limpar($('teBloqueio'));
         var b = S.painel.bloqueio;
-        $('teLiberado').hidden = !!b;
+        // Quem esconde #teLiberado e #teVagas é o renderModulos(), chamado logo depois.
         if (b) {
             alvo.appendChild(el('div', { class: 'te-bloqueio' }, [
                 ic('bi-shield-lock'),
@@ -869,6 +893,29 @@
         if (m.tipo === 'msg') {
             caixa.style.width = m.largura + 'px';
             menuDaMensagem(caixa, m.msg);
+            alvo.appendChild(caixa);
+
+            return;
+        }
+        if (m.tipo === 'vgselpor') {
+            caixa.style.width = m.largura + 'px';
+            VG_SEL_OPS.forEach(function (o) {
+                caixa.appendChild(el('button', {
+                    type: 'button', class: 'te-menu-item', text: o[0],
+                    onclick: function () {
+                        fecharMenu();
+                        S.vgSel = vagasFiltradas().filter(o[1]).map(function (v) { return v.codigo; });
+                        renderVagas();
+                    }
+                }));
+            });
+            alvo.appendChild(caixa);
+
+            return;
+        }
+        if (m.tipo === 'vaga') {
+            caixa.style.width = m.largura + 'px';
+            menuDaVaga(caixa, m.codigo);
             alvo.appendChild(caixa);
 
             return;
@@ -2153,7 +2200,7 @@
                 ok.disabled = true;
                 if (b.executar) {
                     // Confirmação que não é ação de fluxo (ex.: revogar convite): fecha ao concluir.
-                    b.executar().then(function (r) { ok.disabled = false; if (r && r.ok) { fecharConf(); } });
+                    b.executar(m || null).then(function (r) { ok.disabled = false; if (r && r.ok) { fecharConf(); } });
                     return;
                 }
                 aplicarAcao(codigo, b.k, m || null).then(function () { ok.disabled = false; });
@@ -2253,6 +2300,1094 @@
         limpar($('teCfg'));
     }
 
+    /* =============================================================================
+       ABA VAGAS (spec VS 18.10.26 §4.1, fase F2a)
+       Desenho "06 - Trabalho Externo - VS 18.10.26": faixa `mods` (linhas 85 a 87), aba Vagas
+       (152 a 169), modal genérico `tlm` (230 a 234 e 372 a 381) com o formulário `tmVagaForm`
+       (235 a 253), o detalhe `tmVaga` (285 a 300, sem a candidatura: F2b) e a configuração
+       `tmCfgV` (363 a 369). Compartilhar vagas (F2c) e Currículos (F3) ficam de fora.
+       ============================================================================= */
+
+    /* ---------------------------------------------------------------- módulos: Demandas | Vagas */
+
+    var MODULO_CHAVE = 'bj-te-modulo';
+    var MODULOS = [['demandas', 'Demandas', 'bi-inbox'], ['vagas', 'Vagas', 'bi-megaphone']];
+
+    function moduloSalvo() {
+        try {
+            return window.sessionStorage.getItem(MODULO_CHAVE) === 'vagas' ? 'vagas' : 'demandas';
+        } catch (e) {
+            return 'demandas';
+        }
+    }
+
+    function salvarModulo(m) {
+        try {
+            window.sessionStorage.setItem(MODULO_CHAVE, m);
+        } catch (e) {
+            // Sem sessionStorage (modo privado, cota cheia): só não lembra a aba.
+        }
+    }
+
+    function veVagas() { return !!(S.vg && S.vg.veAba); }
+    function moduloAtual() { return S.modulo === 'vagas' && veVagas() ? 'vagas' : 'demandas'; }
+
+    /** A faixa só aparece a quem vê a aba Vagas (`veAba`); com a tela bloqueada, nenhum painel aparece. */
+    function renderModulos() {
+        var alvo = limpar($('teModulos'));
+        var bloq = !!S.painel.bloqueio, mod = moduloAtual();
+        $('teLiberado').hidden = bloq || mod !== 'demandas';
+        $('teVagas').hidden = bloq || mod !== 'vagas';
+        if (bloq || !veVagas()) {
+            return;
+        }
+        alvo.appendChild(el('div', { class: 'te-mods', attrs: { role: 'tablist', 'aria-label': 'Módulos do Trabalho Externo' } }, MODULOS.map(function (m) {
+            var on = mod === m[0];
+            return el('button', {
+                type: 'button', class: 'te-mod' + (on ? ' is-ativo' : ''),
+                attrs: { role: 'tab', 'aria-selected': on ? 'true' : 'false' },
+                onclick: function () { irModulo(m[0]); }
+            }, [ic(m[2]), m[1]]);
+        })));
+    }
+
+    function irModulo(m) {
+        if (m === moduloAtual()) {
+            return;
+        }
+        S.modulo = m;
+        salvarModulo(m);
+        fecharMenu();
+        renderModulos();
+        if (m === 'vagas') {
+            renderVagas();
+            carregarVagas();
+        }
+    }
+
+    /** GET /api/vagas no recorte do perfil (com `?como=` na prévia). Resposta pedida por outro perfil é descartada. */
+    function carregarVagas() {
+        var como = S.como;
+        return pedir('GET', ROTA.vagas()).then(function (r) {
+            if (como !== S.como) {
+                return;
+            }
+            if (!r.ok || !r.vagas) {
+                if (moduloAtual() === 'vagas') {
+                    toastErro(r.mensagem);
+                }
+                return;
+            }
+            S.vg = r.vagas;
+            // O cronômetro conta no relógio do servidor: guarda a diferença para o do navegador.
+            var agora = Date.parse(r.vagas.agora || '');
+            S.vgRelogio = isNaN(agora) ? 0 : agora - Date.now();
+            renderModulos();
+            renderVagas();
+        });
+    }
+
+    /* ---------------------------------------------------------------- dados da aba */
+
+    function vagas() { return (S.vg && S.vg.vagas) || []; }
+    function listasVg() { return (S.vg && S.vg.listas) || {}; }
+    function cfgVagas() { return (S.vg && S.vg.configuracao) || null; }
+    /** Prévia do Master: nada de escrita (sem Nova vaga, Divulgar, botões nem marcações). */
+    function podeEscreverVaga() { return !previa(); }
+
+    /** Filtros da barra (`vagaFiltros`). Rótulos e agrupamento provisórios até o zip. */
+    var VG_ENCERRADAS = ['reprovada', 'ocupada', 'expirada', 'encerrada', 'pausada'];
+    var VG_FILTROS = [
+        ['abertas', 'Abertas', function (v) { return v.situacao === 'aberta'; }],
+        ['pendente', 'Aguardando aprovação', function (v) { return v.situacao === 'pendente'; }],
+        ['encerradas', 'Encerradas', function (v) { return VG_ENCERRADAS.indexOf(v.situacao) >= 0; }],
+        ['lixeira', 'Lixeira', null]
+    ];
+
+    function doFiltroVaga(f) {
+        return vagas().filter(function (v) { return f[2] ? !v.lixeira && f[2](v) : !!v.lixeira; });
+    }
+
+    /** "Aguardando aprovação" só aparece quando há alguma. */
+    function filtrosDeVaga() {
+        return VG_FILTROS.filter(function (f) { return f[0] !== 'pendente' || doFiltroVaga(f).length > 0; });
+    }
+
+    function filtroDeVaga() {
+        var vis = filtrosDeVaga();
+        return vis.filter(function (f) { return f[0] === S.vgFiltro; })[0] || vis[0];
+    }
+
+    function vagasFiltradas() {
+        var q = S.vgBusca.trim().toLowerCase();
+        return doFiltroVaga(filtroDeVaga()).filter(function (v) {
+            return !q || [v.codigo, v.titulo, v.cargo, v.contratacao, v.local, v.escritorio, (v.areas || []).join(' ')].join(' ').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+
+    function irFiltroVaga(k) {
+        S.vgFiltro = k;
+        S.vgSel = [];
+        renderVagas();
+    }
+
+    /** A vaga guarda só sim, não ou sem marca: viram os níveis 3, 0 e 1 de IMPORTANCIA. Provisório até o zip. */
+    function nivelDaVaga(v) { return v.importante === true ? 3 : v.importante === false ? 0 : 1; }
+    function vagaImportante(v) { return v.importante === true; }
+
+    /** "Selecionar por" da aba (`vgBulk.ops`), sempre dentro do filtro atual. Provisório até o zip. */
+    var VG_SEL_OPS = [
+        ['Todas', function () { return true; }],
+        ['Nenhuma', function () { return false; }],
+        ['Vistas', function (v) { return !!v.vista; }],
+        ['Não vistas', function (v) { return !v.vista; }],
+        ['Com estrela', function (v) { return !!v.estrela; }],
+        ['Sem estrela', function (v) { return !v.estrela; }],
+        ['Importantes', vagaImportante]
+    ];
+
+    function vgSelecionada(codigo) { return S.vgSel.indexOf(codigo) >= 0; }
+
+    function alternarVgSel(codigo) {
+        S.vgSel = vgSelecionada(codigo) ? S.vgSel.filter(function (c) { return c !== codigo; }) : S.vgSel.concat([codigo]);
+        renderVagas();
+    }
+
+    function prazoDaVaga(v) { return v.prazo ? 'Inscrições até ' + dataBr(v.prazo) : 'Sem prazo'; }
+
+    function seloSituacao(rotulo, cor) {
+        return el('span', { class: 'te-vg-st', style: { color: cor } }, [ic('bi-circle-fill'), rotulo]);
+    }
+
+    /* ---------------------------------------------------------------- barra, lote e grade */
+
+    function renderVagas() {
+        var L = vagasFiltradas();
+        // Só age sobre o que está à vista: a seleção perde o que saiu do filtro, da busca ou da lista.
+        var vistos = L.map(function (v) { return v.codigo; });
+        S.vgSel = S.vgSel.filter(function (c) { return vistos.indexOf(c) >= 0; });
+        renderVgSel(L);
+        renderVgFiltros();
+        renderVgAcoes();
+        renderVgLote();
+        renderVgGrade(L);
+    }
+
+    /** Selecionar todas, "Selecionar por" e Atualizar (desenho, linha 153). */
+    function renderVgSel(L) {
+        var alvo = limpar($('teVgSel'));
+        if (podeEscreverVaga()) {
+            var todas = L.length > 0 && S.vgSel.length === L.length;
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-btn' + (S.vgSel.length ? ' is-on' : ''), title: 'Selecionar',
+                attrs: { 'aria-label': todas ? 'Limpar seleção' : 'Selecionar todas' },
+                onclick: function () {
+                    S.vgSel = todas ? [] : L.map(function (v) { return v.codigo; });
+                    renderVagas();
+                }
+            }, ic(todas ? 'bi-check-square-fill' : S.vgSel.length ? 'bi-dash-square-fill' : 'bi-square')));
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-caret', title: 'Selecionar por', attrs: { 'aria-haspopup': 'menu' },
+                onclick: function (e) {
+                    var r = e.currentTarget.getBoundingClientRect();
+                    abrirMenuEspecial({ tipo: 'vgselpor' }, r.left - 30, r.bottom + 4, 170);
+                }
+            }, ic('bi-caret-down-fill')));
+        }
+        alvo.appendChild(el('button', {
+            type: 'button', class: 'te-sel-atualizar', title: 'Atualizar',
+            onclick: function () { carregarVagas(); }
+        }, ic('bi-arrow-clockwise')));
+    }
+
+    function renderVgFiltros() {
+        var alvo = limpar($('teVgFiltros')), atual = filtroDeVaga();
+        filtrosDeVaga().forEach(function (f) {
+            var on = f === atual;
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-filtro' + (on ? ' is-ativo' : ''),
+                attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { irFiltroVaga(f[0]); }
+            }, [f[1] + ' ', el('span', { class: 'te-vg-filtro-n', text: doFiltroVaga(f).length })]));
+        });
+    }
+
+    /** "Divulgar uma vaga" (podeDivulgar), "Nova vaga" (podeCriar) e, para o Master, a engrenagem da configuração (lugar provisório). */
+    function renderVgAcoes() {
+        var alvo = limpar($('teVgAcoes')), V = S.vg || {};
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        if (V.podeDivulgar) {
+            var dica = 'Envie a vaga do seu escritório. A equipe BlueJus revisa e divulga na Central.';
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-divulgar', title: dica, attrs: { 'data-tip': dica },
+                onclick: function () { abrirFormVaga('divulgar'); }
+            }, [ic('bi-megaphone'), 'Divulgar uma vaga']));
+        }
+        if (V.podeCriar) {
+            alvo.appendChild(el('button', { type: 'button', class: 'te-btn-nova', onclick: function () { abrirFormVaga('criar'); } }, [ic('bi-plus-lg'), 'Nova vaga']));
+        }
+        if (cfgVagas()) {
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-btn-icone', title: 'Configurar vagas', attrs: { 'aria-label': 'Configurar vagas' },
+                onclick: abrirCfgVagas
+            }, ic('bi-gear')));
+        }
+    }
+
+    /** Barra de lote (`vgBulk`, linha 154) com as operações das demandas; ações provisórias até o zip. */
+    function renderVgLote() {
+        var alvo = limpar($('teVgLote'));
+        var naLixeira = filtroDeVaga()[0] === 'lixeira';
+        if (S.vgSel.length && podeEscreverVaga()) {
+            var sel = vagas().filter(function (v) { return vgSelecionada(v.codigo); });
+            var todasEstrela = sel.length > 0 && sel.every(function (v) { return !!v.estrela; });
+            var todasImp = sel.length > 0 && sel.every(vagaImportante);
+            var acoes = naLixeira
+                ? [
+                    ['restaurar', 'Restaurar', 'bi-arrow-counterclockwise', null],
+                    ['definitivo', 'Excluir definitivamente', 'bi-x-octagon', '#a3232b']
+                ]
+                : [
+                    ['lixeira', 'Mover para a lixeira', 'bi-trash', null],
+                    ['lida', 'Marcar como vista', 'bi-envelope-open', null],
+                    ['naolida', 'Marcar como não vista', 'bi-envelope', null],
+                    todasEstrela ? ['semestrela', 'Tirar estrela', 'bi-star', null] : ['estrela', 'Marcar com estrela', 'bi-star-fill', '#e0a106'],
+                    todasImp ? ['naoimp', 'Marcar como não importante', 'bi-bookmark-x', null] : ['imp', 'Marcar como importante', 'bi-bookmark-star-fill', '#b07f00']
+                ];
+            var codigos = S.vgSel.slice();
+            alvo.appendChild(el('div', { class: 'te-lote', attrs: { role: 'toolbar', 'aria-label': 'Ações nas vagas selecionadas' } }, [
+                el('b', { class: 'te-lote-n', text: S.vgSel.length + (S.vgSel.length === 1 ? ' selecionada' : ' selecionadas') })
+            ].concat(acoes.map(function (a) {
+                return el('button', {
+                    type: 'button', class: 'te-lote-btn', title: a[1],
+                    style: a[3] ? { color: a[3] } : null,
+                    attrs: { 'data-tip': a[1], 'aria-label': a[1] },
+                    onclick: function () { loteVagas(codigos, a[0]); }
+                }, ic(a[2]));
+            })).concat([
+                el('span', { class: 'te-espaco' }),
+                el('button', { type: 'button', class: 'te-lote-cancelar', text: 'Cancelar', onclick: function () { S.vgSel = []; renderVagas(); } })
+            ])));
+        }
+        if (naLixeira) {
+            alvo.appendChild(el('div', { class: 'te-lix-aviso' }, [ic('bi-info-circle'), ' A lixeira é só sua: os itens continuam para os demais. Restaure quando quiser.']));
+        }
+    }
+
+    function renderVgGrade(L) {
+        var grade = limpar($('teVgGrade')), alvoVazio = limpar($('teVgVazio'));
+        relogiosGrade = [];
+        L.forEach(function (v) { grade.appendChild(cartaoVaga(v)); });
+        grade.hidden = !L.length;
+        if (!L.length) {
+            alvoVazio.appendChild(vazioDeVagas());
+        }
+        ligarRelogio();
+    }
+
+    /** Vazio (`vagasVazio`, linha 155). Os textos são provisórios: o `renderVals()` que os dizia se perdeu. */
+    function vazioDeVagas() {
+        var V = S.vg || {}, f = filtroDeVaga()[0], tit, txt;
+        if (!vagas().length) {
+            tit = 'Nenhuma vaga por aqui ainda';
+            txt = podeEscreverVaga() && V.podeCriar
+                ? 'Use "Nova vaga" para publicar uma vaga na Central.'
+                : podeEscreverVaga() && V.podeDivulgar
+                    ? 'Use "Divulgar uma vaga" para enviar a vaga do seu escritório. A equipe BlueJus revisa e divulga na Central.'
+                    : 'Quando houver vagas abertas na Central, elas aparecem aqui.';
+        } else if (f === 'lixeira' && !S.vgBusca.trim()) {
+            tit = 'A lixeira está vazia';
+            txt = 'As vagas que você mover para a lixeira aparecem aqui.';
+        } else {
+            tit = 'Nenhuma vaga neste filtro';
+            txt = 'Troque o filtro ou a busca para ver outras vagas.';
+        }
+        return el('div', { class: 'te-vg-vazio' }, [
+            ic('bi-briefcase'),
+            el('div', { class: 'te-vg-vazio-tit', text: tit }),
+            el('div', { class: 'te-vg-vazio-txt', text: txt })
+        ]);
+    }
+
+    /** Cartão da vaga (desenho, linhas 158 a 166). O clique abre o detalhe; o botão direito, o menu. */
+    function cartaoVaga(v) {
+        var sel = vgSelecionada(v.codigo), pv = previa();
+        var I = IMPORTANCIA[nivelDaVaga(v)];
+        var dica = v.importante === true ? 'Importante' : v.importante === false ? 'Não importante' : 'Marcar como importante';
+        var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
+        var linhaCargo = [v.cargo, v.contratacao].filter(function (x) { return !vazio(x); }).join(' · ');
+
+        return el('div', {
+            class: 'te-vg-card' + (sel ? ' is-sel' : ''),
+            attrs: { 'data-codigo': v.codigo },
+            onclick: function () { abrirVaga(v.codigo); },
+            oncontextmenu: function (e) {
+                e.preventDefault();
+                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 250);
+            }
+        }, [
+            el('div', { class: 'te-vg-topo' }, [
+                el('span', { class: 'te-vg-ic' }, ic('bi-briefcase')),
+                el('div', { class: 'te-flex1 te-min0' }, [
+                    el('div', { class: 'te-vg-tit te-reticencias' + (v.vista ? '' : ' is-naovista'), text: v.titulo }),
+                    el('div', { class: 'te-vg-esc te-reticencias', text: v.escritorio })
+                ]),
+                seloSituacao(v.situacaoRotulo, v.situacaoCor)
+            ]),
+            v.pendente ? el('div', { class: 'te-vg-pend' }, [ic('bi-hourglass-split'), 'Aguardando aprovação da Central']) : null,
+            el('div', { class: 'te-vg-marcas' }, [
+                el('div', { class: 'te-vg-marca', onclick: parar(null) }, [
+                    pv ? null : el('button', {
+                        type: 'button', class: 'te-sel-btn' + (sel ? ' is-on' : ''), title: 'Selecionar',
+                        attrs: { 'aria-pressed': sel ? 'true' : 'false' },
+                        onclick: parar(function () { alternarVgSel(v.codigo); })
+                    }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
+                    el('button', {
+                        type: 'button', class: 'te-estrela' + (v.estrela ? ' is-on' : ''), title: v.estrela ? 'Tirar estrela' : 'Estrela', disabled: pv,
+                        attrs: { 'aria-pressed': v.estrela ? 'true' : 'false' },
+                        onclick: parar(function () { loteVagas([v.codigo], v.estrela ? 'semestrela' : 'estrela'); })
+                    }, ic(v.estrela ? 'bi-star-fill' : 'bi-star')),
+                    el('button', {
+                        type: 'button', class: 'te-imp te-vg-imp', title: dica, disabled: pv,
+                        style: { background: I.bg, color: I.cor },
+                        attrs: { 'data-tip': dica, 'aria-label': dica },
+                        onclick: parar(function () { loteVagas([v.codigo], vagaImportante(v) ? 'naoimp' : 'imp'); })
+                    }, ic(I.ic))
+                ]),
+                v.oferta ? el('span', { class: 'te-vg-vivo' }, [el('span', { class: 'te-vg-vivo-pt' }), 'AO VIVO']) : null,
+                v.nova ? el('span', { class: 'te-vg-nova', text: 'NOVA' }) : null
+            ]),
+            el('div', { class: 'te-vg-info' }, [
+                el('span', null, [ic('bi-person-badge'), linhaCargo]),
+                el('span', null, [ic('bi-geo-alt'), v.local || '']),
+                el('span', null, [ic('bi-cash-stack'), v.remuneracao || ''])
+            ]),
+            (v.areas || []).length ? el('div', { class: 'te-vg-areas' }, v.areas.map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
+            v.oferta && v.expiraEm ? relogioDaVaga(v, false, relogiosGrade) : null,
+            el('div', { class: 'te-vg-rodape' }, [ic('bi-calendar3'), el('span', { class: 'te-flex1', text: prazoDaVaga(v) })])
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- cronômetro da oferta (tlTick, 1 s) */
+
+    var relogiosGrade = [], relogiosDetalhe = [], temporizadorRelogio = null, zerados = {};
+
+    /** `mmss()` do desenho. */
+    function mmss(ms) {
+        var t = Math.ceil(Math.max(0, ms) / 1000), m = Math.floor(t / 60), s = t % 60;
+        return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function agoraServidor() { return Date.now() + (S.vgRelogio || 0); }
+
+    /** Contador mm:ss até `expiraEm` e barra proporcional ao tempo que resta desde a publicação. */
+    function relogioDaVaga(v, grande, lista) {
+        var r = {
+            codigo: v.codigo,
+            fim: Date.parse(v.expiraEm || ''),
+            ini: Date.parse(v.publicadaEm || ''),
+            ic: ic('bi-stopwatch'),
+            tmr: el('b', { class: 'te-vg-tmr' }),
+            barra: el('div', { class: 'te-vg-pct' })
+        };
+        if (isNaN(r.fim)) {
+            return null;
+        }
+        lista.push(r);
+        atualizarRelogio(r);
+        var txt = 'restantes da oferta relâmpago' + (grande && +v.qtd > 1 ? ' · ' + v.qtd + ' vagas' : '');
+        var trilho = el('div', { class: 'te-vg-trilho' }, r.barra);
+        if (grande) {
+            return el('div', { class: 'te-vg-relogio is-grande' }, [
+                r.ic,
+                el('div', { class: 'te-flex1 te-min0' }, [el('div', { class: 'te-vg-relogio-linha' }, [r.tmr, el('span', { text: txt })]), trilho])
+            ]);
+        }
+        return el('div', { class: 'te-vg-relogio' }, [
+            el('div', { class: 'te-vg-relogio-linha' }, [r.ic, r.tmr, el('span', { class: 'te-flex1 te-reticencias', text: txt })]),
+            trilho
+        ]);
+    }
+
+    /** Cor da barra: verde, laranja no último meio e vermelha no último quinto. Provisório até o zip. */
+    function atualizarRelogio(r) {
+        var resta = Math.max(0, r.fim - agoraServidor());
+        var total = !isNaN(r.ini) && r.fim > r.ini ? r.fim - r.ini : 0;
+        var pct = total ? Math.max(0, Math.min(1, resta / total)) : (resta > 0 ? 1 : 0);
+        var cor = pct > 0.5 ? '#1e7b45' : pct > 0.2 ? '#c76a12' : '#a3232b';
+        r.tmr.textContent = mmss(resta);
+        r.tmr.style.color = cor;
+        r.ic.style.color = cor;
+        r.barra.style.background = cor;
+        r.barra.style.width = (pct * 100).toFixed(2) + '%';
+        return resta;
+    }
+
+    function ligarRelogio() {
+        if (!temporizadorRelogio && (relogiosGrade.length || relogiosDetalhe.length)) {
+            temporizadorRelogio = setInterval(tique, 1000);
+        }
+    }
+
+    /** Quando uma oferta zera, recarrega a lista (o servidor a conta como expirada) uma vez por vaga. */
+    function tique() {
+        var zerou = null;
+        relogiosGrade.concat(relogiosDetalhe).forEach(function (r) {
+            if (atualizarRelogio(r) <= 0 && !zerados[r.codigo]) {
+                zerados[r.codigo] = true;
+                zerou = r.codigo;
+            }
+        });
+        if (zerou) {
+            carregarVagas();
+            if (S.tlm === 'vaga' && S.vgDet) {
+                abrirVaga(S.vgDet.codigo, true);
+            }
+        }
+        if (!relogiosGrade.length && !relogiosDetalhe.length) {
+            clearInterval(temporizadorRelogio);
+            temporizadorRelogio = null;
+        }
+    }
+
+    /* ---------------------------------------------------------------- menu de contexto, ações e marcações */
+
+    /** Itens provisórios até o zip: Abrir, os botões da vaga e as marcações pessoais. */
+    function menuDaVaga(caixa, codigo) {
+        var v = vagas().filter(function (x) { return x.codigo === codigo; })[0];
+        if (!v) {
+            return;
+        }
+        var item = function (rot, icone, acao, classe) {
+            caixa.appendChild(el('button', {
+                type: 'button', class: 'te-menu-item' + (classe || ''),
+                onclick: function () { fecharMenu(); acao(); }
+            }, [ic(icone), rot]));
+        };
+        item('Abrir', 'bi-box-arrow-up-right', function () { abrirVaga(codigo); });
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        (v.botoes || []).forEach(function (b, i) {
+            item(b.rot, b.ic, function () { acaoVaga(codigo, b); }, (i === 0 ? ' is-sep' : '') + (b.tipo === 'perigo' ? ' is-perigo' : ''));
+        });
+        var primeiro = true;
+        var marca = function (op, rot, icone, perigo) {
+            item(rot, icone, function () { loteVagas([codigo], op); }, (primeiro ? ' is-sep' : '') + (perigo ? ' is-perigo' : ''));
+            primeiro = false;
+        };
+        marca(v.estrela ? 'semestrela' : 'estrela', v.estrela ? 'Tirar estrela' : 'Marcar com estrela', v.estrela ? 'bi-star' : 'bi-star-fill');
+        marca(vagaImportante(v) ? 'naoimp' : 'imp', vagaImportante(v) ? 'Marcar como não importante' : 'Marcar como importante', vagaImportante(v) ? 'bi-bookmark-x' : 'bi-bookmark-star');
+        if (v.lixeira) {
+            marca('restaurar', 'Restaurar', 'bi-arrow-counterclockwise');
+            marca('definitivo', 'Excluir definitivamente', 'bi-x-octagon', true);
+        } else {
+            marca('lixeira', 'Mover para a lixeira', 'bi-trash');
+        }
+    }
+
+    /** Botão da vaga: com `motivo`, pede o motivo; os de perigo confirmam antes; os demais vão direto. */
+    function acaoVaga(codigo, b) {
+        fecharMenu();
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        if (b.motivo || b.tipo === 'perigo') {
+            abrirConf(codigo, {
+                k: '__vaga_' + b.k + '__',
+                confirmacao: {
+                    titulo: b.rot,
+                    texto: b.motivo ? 'Escreva o motivo. Ele fica registrado na vaga ' + codigo + '.' : 'Confirmar "' + b.rot + '" na vaga ' + codigo + '?',
+                    botao: b.rot, motivo: !!b.motivo, perigo: b.tipo === 'perigo'
+                },
+                executar: function (motivo) { return enviarAcaoVaga(codigo, b.k, motivo); }
+            });
+            return;
+        }
+        enviarAcaoVaga(codigo, b.k, null);
+    }
+
+    function enviarAcaoVaga(codigo, k, motivo) {
+        return pedir('POST', ROTA.vagaAcao(codigo, k), { motivo: motivo }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            if (r.vaga && S.tlm === 'vaga' && S.vgDet && S.vgDet.codigo === codigo) {
+                S.vgDet = r.vaga;
+                renderDetalheVaga();
+            }
+            carregarVagas();
+            return r;
+        });
+    }
+
+    /** As mesmas operações do lote das demandas, gravadas só para o usuário logado. */
+    function loteVagas(codigos, op) {
+        if (!codigos.length || !podeEscreverVaga()) {
+            return;
+        }
+        fecharMenu();
+        if (op === 'definitivo') {
+            var n = codigos.length;
+            abrirConf(null, {
+                k: '__definitivo_vaga__',
+                confirmacao: {
+                    titulo: 'Excluir definitivamente',
+                    texto: n === 1
+                        ? 'Excluir esta vaga da sua lista definitivamente? Ela continua existindo para os outros.'
+                        : 'Excluir ' + n + ' vagas da sua lista definitivamente? Elas continuam existindo para os outros.',
+                    botao: 'Excluir', motivo: false, perigo: true
+                },
+                executar: function () { return enviarLoteVagas(codigos, op); }
+            });
+            return;
+        }
+        enviarLoteVagas(codigos, op);
+    }
+
+    function enviarLoteVagas(codigos, op) {
+        return pedir('POST', ROTA.vagasMarcacoes(), { codigos: codigos, op: op }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            S.vgSel = [];
+            mostrarDesfazer(r.texto, op === 'lixeira' ? function () { enviarLoteVagas(codigos, 'restaurar'); } : null);
+            carregarVagas();
+            return r;
+        });
+    }
+
+    /** Abrir o detalhe marca a vaga como vista (o título deixa de ficar em negrito), sem aviso. */
+    function marcarVagaVista(v) {
+        if (v.vista || !podeEscreverVaga()) {
+            return;
+        }
+        pedir('POST', ROTA.vagasMarcacoes(), { codigos: [v.codigo], op: 'lida' }).then(function (r) {
+            if (!r.ok) {
+                return;
+            }
+            vagas().forEach(function (x) { if (x.codigo === v.codigo) { x.vista = true; } });
+            if (S.vgDet && S.vgDet.codigo === v.codigo) {
+                S.vgDet.vista = true;
+            }
+            renderVagas();
+        });
+    }
+
+    /* ---------------------------------------------------------------- modal genérico (tlm) */
+
+    function fecharTlm() {
+        S.tlm = null;
+        S.vgDet = null;
+        S.vf = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+    }
+
+    /** Cabeçalho azul, corpo com rolagem e rodapé com os botões (`tlmBtns`). Redesenhar guarda a rolagem. */
+    function modalVaga(o) {
+        var alvo = $('teVagaModal');
+        var antes = $('teTlmCorpo'), entra = !antes, topo = antes ? antes.scrollTop : 0;
+        limpar(alvo);
+        var corpo = el('div', { class: 'te-tlm-corpo', id: 'teTlmCorpo' }, o.corpo);
+        alvo.appendChild(el('div', { class: 'te-tlm-fundo', onclick: fecharTlm }));
+        alvo.appendChild(el('div', {
+            class: 'te-tlm' + (entra ? ' is-entra' : ''),
+            style: { width: 'min(' + o.largura + ', calc(100vw - 24px))' },
+            attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': o.titulo }
+        }, [
+            el('div', { class: 'te-modal-cab' }, [
+                ic(o.icone),
+                el('b', { class: 'te-reticencias', text: o.titulo }),
+                el('button', { type: 'button', class: 'te-modal-fechar', title: 'Fechar', onclick: fecharTlm }, ic('bi-x-lg'))
+            ]),
+            corpo,
+            el('div', { class: 'te-tlm-rodape' }, o.botoes)
+        ]));
+        corpo.scrollTop = topo;
+    }
+
+    function botaoTlm(rot, icone, tipo, acao) {
+        return el('button', {
+            type: 'button',
+            class: 'te-tlm-btn' + (tipo === 'pri' ? ' is-pri' : tipo === 'perigo' ? ' is-pri is-perigo' : ''),
+            onclick: acao
+        }, [ic(icone), rot]);
+    }
+
+    /** Erro do servidor (`tlErro`, linha 372): última faixa do corpo, logo acima do rodapé. */
+    function erroTlm(txt) {
+        return vazio(txt) ? null : el('div', { class: 'te-tlm-erro', attrs: { role: 'alert' } }, [ic('bi-exclamation-circle'), ' ', el('span', { text: txt })]);
+    }
+
+    /* ---------------------------------------------------------------- detalhe da vaga (tmVaga) */
+
+    /** Ícone e nome de cada dado de quem oferece (`ofCampos`). */
+    var OF_CAMPOS = {
+        resp: ['bi-person', 'Responsável'],
+        cidade: ['bi-geo-alt', 'Cidade'],
+        uf: ['bi-map', 'UF'],
+        email: ['bi-envelope', 'E-mail'],
+        tel: ['bi-telephone', 'Telefone'],
+        site: ['bi-globe', 'Site']
+    };
+    var OF_CHAVES = ['resp', 'cidade', 'uf', 'email', 'tel', 'site'];
+
+    function abrirVaga(codigo, silencioso) {
+        fecharMenu();
+        return pedir('GET', ROTA.vaga(codigo)).then(function (r) {
+            // Atualização em segundo plano não reabre um detalhe que o usuário já fechou.
+            if (silencioso && !(S.tlm === 'vaga' && S.vgDet && S.vgDet.codigo === codigo)) {
+                return;
+            }
+            if (!r.ok || !r.vaga) {
+                if (!silencioso) {
+                    toastErro(r.mensagem);
+                }
+                return;
+            }
+            S.tlm = 'vaga';
+            S.vgDet = r.vaga;
+            S.vf = null;
+            renderDetalheVaga();
+            marcarVagaVista(r.vaga);
+        });
+    }
+
+    function dadoDaVaga(icone, texto) {
+        return el('span', { class: 'te-tv-dado' }, [ic(icone), texto]);
+    }
+
+    function renderDetalheVaga() {
+        var v = S.vgDet;
+        if (!v) {
+            return;
+        }
+        relogiosDetalhe = [];
+        var of = v.ofertante || { nome: v.escritorio, campos: [], oculto: false };
+        var corpo = [
+            el('div', { class: 'te-tv-of' }, [
+                el('span', { class: 'te-tv-of-ic' }, ic('bi-building')),
+                el('div', { class: 'te-tv-of-textos' }, [
+                    el('div', { class: 'te-tv-of-rot', text: 'OFERECIDO POR' }),
+                    el('b', { class: 'te-tv-of-nome', text: of.nome || v.escritorio || '' }),
+                    (of.campos || []).length ? el('div', { class: 'te-tv-of-info' }, of.campos.map(function (c) {
+                        var d = OF_CAMPOS[c.k] || ['bi-dot', c.k];
+                        return el('span', { title: c.oculto ? d[1] + ': oculto para quem vê a vaga' : d[1] }, [
+                            ic(d[0]), ' ' + c.v,
+                            c.oculto ? el('i', { class: 'bi bi-eye-slash te-tv-of-olho' }) : null
+                        ]);
+                    })) : null,
+                    of.oculto ? el('div', { class: 'te-tv-of-oculto' }, [ic('bi-shield-lock'), ' Contato pelo BlueJus, ao se candidatar.']) : null
+                ])
+            ]),
+            el('div', { class: 'te-tv-sit' }, [
+                seloSituacao(v.situacaoRotulo, v.situacaoCor),
+                el('span', { text: (v.escritorio || '') + ' · ' + (v.publicadaEm ? 'publicada em ' + dataBr(v.publicadaEm) : 'ainda não publicada') })
+            ]),
+            el('div', { class: 'te-tv-dados' }, [
+                dadoDaVaga('bi-person-badge', v.cargo || ''),
+                dadoDaVaga('bi-file-earmark-text', vazio(v.contratacao) ? 'Contratação não informada' : v.contratacao),
+                dadoDaVaga('bi-geo-alt', v.local || ''),
+                dadoDaVaga('bi-cash-stack', v.remuneracao || ''),
+                dadoDaVaga('bi-calendar3', prazoDaVaga(v)),
+                dadoDaVaga('bi-award', v.exigeOab ? 'Exige OAB' : 'OAB não exigida')
+            ]),
+            (v.areas || []).length ? el('div', { class: 'te-vg-areas' }, v.areas.map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
+            v.oferta && v.expiraEm ? relogioDaVaga(v, true, relogiosDetalhe) : null,
+            // Motivo da reprovação: o desenho não mostra onde; fica antes dos requisitos (provisório).
+            !vazio(v.motivo) ? el('div', { class: 'te-tv-motivo' }, [ic('bi-x-circle'), el('span', null, [el('b', { text: 'Motivo: ' }), v.motivo])]) : null,
+            el('div', { class: 'te-tv-req', text: vazio(v.requisitos) ? 'Requisitos e atividades não informados.' : v.requisitos })
+        ];
+        if ((v.historico || []).length) {
+            corpo.push(el('div', { class: 'te-tv-hist-rot', text: 'HISTÓRICO DA OFERTA' }));
+            corpo.push(el('div', { class: 'te-tv-hist' }, [el('div', { class: 'te-tv-hist-eixo' })].concat(v.historico.map(function (h) {
+                return el('div', { class: 'te-tv-hist-item' }, [
+                    el('span', { class: 'te-tv-hist-bola', style: { color: h.cor, 'border-color': h.cor } }, ic(h.ic)),
+                    el('span', { class: 'te-tv-hist-txt', text: h.txt }),
+                    el('span', { class: 'te-tv-hist-em', text: h.em })
+                ]);
+            }))));
+        }
+
+        var botoes = [botaoTlm('Fechar', 'bi-x-lg', '', fecharTlm)];
+        if (podeEscreverVaga()) {
+            (v.botoes || []).forEach(function (b) {
+                botoes.push(botaoTlm(b.rot, b.ic, b.tipo, function () { acaoVaga(v.codigo, b); }));
+            });
+        }
+        modalVaga({ icone: 'bi-briefcase', titulo: v.codigo + ' · ' + v.titulo, largura: '640px', corpo: corpo, botoes: botoes });
+        ligarRelogio();
+    }
+
+    /* ---------------------------------------------------------------- formulário Nova vaga / Divulgar (tmVagaForm) */
+
+    /** Passos de quem divulga (`divPassos`). Textos provisórios até o zip. */
+    var DIV_PASSOS = [
+        ['1', 'Envie a vaga', 'Preencha os dados e envie pelo BlueJus.'],
+        ['2', 'A equipe BlueJus revisa', 'Conferimos as informações antes de divulgar.'],
+        ['3', 'A vaga é divulgada na Central', 'Os profissionais da rede passam a ver a vaga.']
+    ];
+    /** Tipos da configuração interna (`tfTipos`). Textos provisórios até o zip. */
+    var TF_TIPOS = [
+        [false, 'Vaga', 'bi-briefcase', 'Divulgação comum, aberta durante o período escolhido.'],
+        [true, 'Oferta relâmpago', 'bi-lightning-charge', 'Fica disponível por poucos minutos, com contador. Quem aceitar primeiro fica com a vaga.']
+    ];
+
+    /** `criar` = "Nova vaga" (Central, nasce aberta); `divulgar` = "Divulgar uma vaga" (escritório, nasce pendente). */
+    function abrirFormVaga(modo) {
+        if (!podeEscreverVaga() || !S.vg) {
+            return;
+        }
+        fecharMenu();
+        var L = listasVg(), P = S.vg.ofertantePadrao || {}, c = cfgVagas() || {};
+        var periodos = L.periodos || [], duracoes = L.duracoesDaOferta || [];
+        // Para o Master, o período começa no "Tempo padrão de disponibilidade" da configuração.
+        var per = periodos.indexOf(+c.dur) >= 0 ? +c.dur : periodos.indexOf(15) >= 0 ? 15 : (periodos[0] || 15);
+        S.vf = {
+            modo: modo,
+            f: {
+                titulo: '', cargo: '', contratacao: '', modalidade: '', cidade: '', uf: '', remuneracao: '',
+                areas: [], requisitos: '', inscricoesAte: '', exigeOab: false, periodoDias: per,
+                oferta: false, duracaoDaOferta: duracoes.indexOf(15) >= 0 ? 15 : (duracoes[0] || 15), qtd: 1
+            },
+            of: { nome: P.nome || '', resp: P.resp || '', cidade: P.cidade || '', uf: P.uf || '', email: P.email || '', tel: '', site: '' },
+            ocultos: [],
+            editOf: vazio(P.nome),
+            erro: '',
+            enviando: false
+        };
+        S.tlm = 'form';
+        S.vgDet = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderFormVaga();
+    }
+
+    function rotuloVf(texto, controle, extra) {
+        return el('label', { class: 'te-vf-rot' + (extra || '') }, [texto, controle]);
+    }
+
+    /** Campo que guarda o digitado no estado; o obrigatório perde a borda vermelha quando deixa de estar vazio. */
+    function ctlVf(tag, obj, k, props, req) {
+        var p = Object.assign({
+            class: 'te-vf-ctl' + (req && S.vf && S.vf.erro && vazio(obj[k]) ? ' is-erro' : ''),
+            value: obj[k] === undefined || obj[k] === null ? '' : String(obj[k])
+        }, props || {});
+        p.oninput = function (e) {
+            obj[k] = e.target.value;
+            if (req && S.vf && S.vf.erro) {
+                e.target.classList.toggle('is-erro', vazio(obj[k]));
+            }
+        };
+        return el(tag, p);
+    }
+
+    function selectVf(obj, k, ops, req) {
+        return el('select', {
+            class: 'te-vf-ctl' + (req && S.vf && S.vf.erro && vazio(obj[k]) ? ' is-erro' : ''),
+            value: obj[k] || '',
+            onchange: function (e) {
+                obj[k] = e.target.value;
+                if (req && S.vf && S.vf.erro) {
+                    e.target.classList.toggle('is-erro', vazio(obj[k]));
+                }
+            }
+        }, [el('option', { value: '', text: 'Selecione' })].concat((ops || []).map(function (o) { return el('option', { value: String(o), text: String(o) }); })));
+    }
+
+    function opcaoVf(rot, on, acao, extra) {
+        return el('button', {
+            type: 'button', class: 'te-vf-opcao' + (on ? ' is-on' : '') + (extra || ''),
+            attrs: { 'aria-pressed': on ? 'true' : 'false' },
+            onclick: acao
+        }, rot);
+    }
+
+    function periodoVf(F, L) {
+        return rotuloVf('QUANTO TEMPO A VAGA FICA DISPONÍVEL', el('select', {
+            class: 'te-vf-ctl', value: String(F.f.periodoDias),
+            onchange: function (e) { F.f.periodoDias = +e.target.value; }
+        }, (L.periodos || []).map(function (d) { return el('option', { value: String(d), text: d + ' dias' }); })), ' is-cheio is-pequeno');
+    }
+
+    /** "QUEM ESTÁ OFERECENDO" (linhas 238 a 244): resumo com o olho em cada dado, ou os campos para editar. */
+    function blocoOfertante(F, L) {
+        var of = F.of, conteudo;
+        if (!F.editOf) {
+            var chips = OF_CHAVES.filter(function (k) { return !vazio(of[k]); }).map(function (k) {
+                var oc = F.ocultos.indexOf(k) >= 0, d = OF_CAMPOS[k];
+                var dica = oc ? d[1] + ' oculto: clique para mostrar na vaga' : d[1] + ' visível: clique para ocultar na vaga';
+                return el('button', {
+                    type: 'button', class: 'te-vf-of-chip' + (oc ? ' is-oculto' : ''), title: dica,
+                    attrs: { 'data-tip': dica, 'aria-pressed': oc ? 'false' : 'true' },
+                    onclick: function () {
+                        F.ocultos = oc ? F.ocultos.filter(function (x) { return x !== k; }) : F.ocultos.concat([k]);
+                        renderFormVaga();
+                    }
+                }, [ic(d[0]), of[k], el('i', { class: 'bi te-vf-of-olho ' + (oc ? 'bi-eye-slash' : 'bi-eye') })]);
+            });
+            conteudo = el('div', { class: 'te-vf-of-resumo' }, [
+                el('b', { class: 'te-vf-of-nome', text: vazio(of.nome) ? 'Informe o escritório em Editar.' : of.nome }),
+                chips.length ? el('div', { class: 'te-vf-of-chips' }, chips) : null,
+                el('span', { class: 'te-vf-of-dica', text: 'Clique num dado para mostrar ou ocultar na vaga. Ocultos: os candidatos falam com você pelo BlueJus.' }),
+                el('div', { class: 'te-vf-of-grade' }, [periodoVf(F, L)])
+            ]);
+        } else {
+            conteudo = el('div', { class: 'te-vf-of-campos' }, [
+                rotuloVf('ESCRITÓRIO *', ctlVf('input', of, 'nome', { type: 'text' }, true), ' is-pequeno'),
+                rotuloVf('RESPONSÁVEL PELA VAGA', ctlVf('input', of, 'resp', { type: 'text' }), ' is-pequeno'),
+                rotuloVf('CIDADE', ctlVf('input', of, 'cidade', { type: 'text' }), ' is-pequeno'),
+                rotuloVf('UF', selectVf(of, 'uf', L.ufs), ' is-pequeno'),
+                rotuloVf('E-MAIL', ctlVf('input', of, 'email', { type: 'email' }), ' is-pequeno'),
+                rotuloVf('TELEFONE / WHATSAPP', ctlVf('input', of, 'tel', { type: 'tel' }), ' is-pequeno'),
+                rotuloVf('SITE OU INSTAGRAM', ctlVf('input', of, 'site', { type: 'text' }), ' is-pequeno'),
+                periodoVf(F, L)
+            ]);
+        }
+        return el('div', { class: 'te-vf-of' }, [
+            el('div', { class: 'te-vf-of-cab' }, [
+                ic('bi-building-check'),
+                el('b', { text: 'QUEM ESTÁ OFERECENDO' }),
+                F.editOf ? null : el('span', { class: 'te-vf-of-orig', text: 'Preenchido do seu cadastro' }),
+                el('button', {
+                    type: 'button', class: 'te-vf-of-editar',
+                    onclick: function () { F.editOf = !F.editOf; renderFormVaga(); }
+                }, [ic(F.editOf ? 'bi-check2' : 'bi-pencil'), F.editOf ? 'Concluir' : 'Editar'])
+            ]),
+            conteudo
+        ]);
+    }
+
+    function renderFormVaga() {
+        var F = S.vf;
+        if (!F) {
+            return;
+        }
+        var L = listasVg(), f = F.f, criar = F.modo === 'criar';
+        var corpo = [];
+
+        if (!criar) {
+            corpo.push(el('div', { class: 'te-vf-passos' }, DIV_PASSOS.map(function (d) {
+                return el('div', { class: 'te-vf-passo' }, [
+                    el('span', { class: 'te-vf-passo-n', text: d[0] }),
+                    el('span', { class: 'te-vf-passo-txt' }, [el('b', { text: d[1] }), d[2]])
+                ]);
+            })));
+        }
+        corpo.push(blocoOfertante(F, L));
+
+        if (criar) {
+            corpo.push(el('div', { class: 'te-vf-interna' }, [ic('bi-lock'), 'CONFIGURAÇÃO INTERNA · SÓ O MASTER VÊ']));
+            corpo.push(el('div', { class: 'te-vf-tipos' }, TF_TIPOS.map(function (t) {
+                var on = !!f.oferta === t[0];
+                return el('button', {
+                    type: 'button', class: 'te-vf-tipo' + (on ? ' is-on' : ''),
+                    attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                    onclick: function () { f.oferta = t[0]; renderFormVaga(); }
+                }, [
+                    ic(t[2]),
+                    el('span', { class: 'te-flex1' }, [el('b', { text: t[1] }), el('span', { class: 'te-vf-tipo-d', text: t[3] })]),
+                    on ? el('i', { class: 'bi bi-check-circle-fill te-vf-tipo-ok' }) : null
+                ]);
+            })));
+            if (f.oferta) {
+                corpo.push(el('div', { class: 'te-vf-oferta' }, [
+                    el('div', { class: 'te-vf-oferta-grupo' }, [
+                        'DISPONÍVEL POR',
+                        el('div', { class: 'te-vf-opcoes' }, (L.duracoesDaOferta || []).map(function (m) {
+                            return opcaoVf(m + ' min', +f.duracaoDaOferta === +m, function () { f.duracaoDaOferta = +m; renderFormVaga(); });
+                        }))
+                    ]),
+                    el('label', { class: 'te-vf-oferta-grupo' }, [
+                        'Nº DE VAGAS',
+                        el('input', { type: 'number', min: 1, max: 20, class: 'te-vf-qtd', value: String(f.qtd), oninput: function (e) { f.qtd = e.target.value; } })
+                    ]),
+                    el('span', { class: 'te-vf-oferta-info' }, [ic('bi-info-circle'), ' O contador começa ao publicar. A oferta fecha sozinha quando todas as vagas forem aceitas ou o tempo acabar.'])
+                ]));
+            }
+        }
+
+        corpo.push(rotuloVf('TÍTULO DA VAGA *', ctlVf('input', f, 'titulo', { type: 'text', placeholder: 'Cargo e área da vaga' }, true)));
+        corpo.push(el('div', { class: 'te-vf-grade' }, [
+            rotuloVf('CARGO *', selectVf(f, 'cargo', L.cargos, true)),
+            rotuloVf('CONTRATAÇÃO', selectVf(f, 'contratacao', L.contratacoes)),
+            rotuloVf('MODALIDADE', selectVf(f, 'modalidade', L.modalidades))
+        ]));
+        corpo.push(el('div', { class: 'te-vf-grade' }, [
+            rotuloVf('CIDADE', ctlVf('input', f, 'cidade', { type: 'text', placeholder: 'Cidade da vaga' })),
+            rotuloVf('UF', selectVf(f, 'uf', L.ufs)),
+            rotuloVf('REMUNERAÇÃO', ctlVf('input', f, 'remuneracao', { type: 'text', placeholder: 'Valor mensal ou A combinar' }))
+        ]));
+        corpo.push(el('div', { class: 'te-vf-rot' }, [
+            'ÁREAS DE ATUAÇÃO',
+            el('div', { class: 'te-vf-areas' }, (L.areas || []).map(function (a) {
+                var on = f.areas.indexOf(a) >= 0;
+                return el('button', {
+                    type: 'button', class: 'te-vf-area' + (on ? ' is-on' : ''),
+                    attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                    onclick: function () {
+                        f.areas = on ? f.areas.filter(function (x) { return x !== a; }) : f.areas.concat([a]);
+                        renderFormVaga();
+                    }
+                }, a);
+            }))
+        ]));
+        corpo.push(rotuloVf('REQUISITOS E ATIVIDADES', ctlVf('textarea', f, 'requisitos', { rows: 4, placeholder: 'Experiência, conhecimentos e rotina da vaga' })));
+        corpo.push(el('div', { class: 'te-vf-grade' }, [
+            rotuloVf('INSCRIÇÕES ATÉ', ctlVf('input', f, 'inscricoesAte', { type: 'date' })),
+            el('label', { class: 'te-vf-oab' }, [
+                el('input', { type: 'checkbox', checked: !!f.exigeOab, onchange: function (e) { f.exigeOab = e.target.checked; } }),
+                'Exige OAB ativa'
+            ])
+        ]));
+        corpo.push(erroTlm(F.erro));
+
+        modalVaga({
+            icone: criar ? 'bi-plus-lg' : 'bi-megaphone',
+            titulo: criar ? 'Nova vaga' : 'Divulgar uma vaga',
+            largura: '720px',
+            corpo: corpo,
+            botoes: [
+                botaoTlm('Cancelar', 'bi-x-lg', '', fecharTlm),
+                botaoTlm(criar ? 'Publicar vaga' : 'Enviar para aprovação', criar ? 'bi-check2' : 'bi-send', 'pri', enviarFormVaga)
+            ]
+        });
+    }
+
+    function enviarFormVaga() {
+        var F = S.vf;
+        if (!F || F.enviando || !podeEscreverVaga()) {
+            return;
+        }
+        var f = F.f, of = F.of;
+        if (vazio(f.titulo) || vazio(f.cargo) || vazio(of.nome)) {
+            F.erro = 'Preencha os campos obrigatórios marcados com *.';
+            if (vazio(of.nome)) {
+                F.editOf = true;
+            }
+            renderFormVaga();
+            return;
+        }
+        var t = function (x) { return String(x || '').trim(); };
+        var corpo = {
+            titulo: t(f.titulo), cargo: f.cargo, contratacao: f.contratacao, modalidade: f.modalidade,
+            cidade: t(f.cidade), uf: f.uf, remuneracao: t(f.remuneracao), areas: f.areas.slice(),
+            requisitos: t(f.requisitos), inscricoesAte: f.inscricoesAte || '', exigeOab: !!f.exigeOab,
+            periodoDias: +f.periodoDias,
+            oferta: F.modo === 'criar' && !!f.oferta,
+            duracaoDaOferta: +f.duracaoDaOferta,
+            qtd: Math.max(1, Math.min(20, parseInt(f.qtd, 10) || 1)),
+            ofertante: {
+                nome: t(of.nome), resp: t(of.resp), cidade: t(of.cidade), uf: of.uf || '', email: t(of.email), tel: t(of.tel), site: t(of.site),
+                // Dado vazio não conta como oculto: senão o detalhe diria "Contato pelo BlueJus" sem nada escondido.
+                ocultos: F.ocultos.filter(function (k) { return !vazio(of[k]); })
+            }
+        };
+        F.enviando = true;
+        Array.prototype.forEach.call(document.querySelectorAll('#teVagaModal .te-tlm-rodape button'), function (b) { b.disabled = true; });
+        pedir('POST', ROTA.vagaSalvar(), corpo).then(function (r) {
+            if (S.vf !== F) {
+                return;
+            }
+            F.enviando = false;
+            if (!r.ok) {
+                F.erro = r.mensagem;
+                renderFormVaga();
+                return;
+            }
+            var pendente = !!(r.vaga && r.vaga.pendente);
+            fecharTlm();
+            mostrarToast(pendente
+                ? { tit: 'Vaga enviada', txt: 'A equipe BlueJus revisa e divulga na Central.', hora: '' }
+                : { tit: 'Vaga publicada', txt: (r.codigo || 'A vaga') + ' já aparece na Central.', hora: '' });
+            S.vgFiltro = pendente ? 'pendente' : 'abertas';
+            S.vgSel = [];
+            carregarVagas();
+        });
+    }
+
+    /* ---------------------------------------------------------------- configuração das vagas (tmCfgV), só Master */
+
+    /** Chaves da configuração (`cfgTgs`). Provisório até o zip: sino e motiv, com textos de apoio nossos. */
+    var CFG_VAGAS_TGS = [
+        ['sino', 'bi-bell', 'Avisar no sino quando chegar candidatura', 'O Master e a equipe recebem um aviso no sino a cada nova candidatura.'],
+        ['motiv', 'bi-emoji-smile', 'Mostrar frases de ânimo a quem não conseguiu a vaga', 'Quando outra pessoa fica com a vaga, quem tentou vê uma mensagem de incentivo.']
+    ];
+
+    function abrirCfgVagas() {
+        if (!cfgVagas() || !podeEscreverVaga()) {
+            return;
+        }
+        fecharMenu();
+        S.tlm = 'cfg';
+        S.vgDet = null;
+        S.vf = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderCfgVagas();
+    }
+
+    function renderCfgVagas() {
+        var c = cfgVagas();
+        if (!c || S.tlm !== 'cfg') {
+            return;
+        }
+        var grupo = function (k, tit, txt, ops, rot, primeiro) {
+            return el('div', { class: 'te-cv-grupo' + (primeiro ? '' : ' is-div') }, [
+                el('b', { text: tit }),
+                el('span', { class: 'te-cv-txt', text: txt }),
+                el('div', { class: 'te-vf-opcoes' }, ops.map(function (o) {
+                    return opcaoVf(rot(o), +c[k] === o, function () { gravarCfgVaga(k, o); }, ' is-cfg');
+                }))
+            ]);
+        };
+        var corpo = [
+            el('div', { class: 'te-cv-aviso' }, [ic('bi-lock'), ' Configuração interna. Os usuários não veem o tempo da oferta nem estas regras; a vaga simplesmente deixa de aparecer quando o tempo acaba ou é preenchida.']),
+            grupo('dur', 'Tempo padrão de disponibilidade das vagas', 'Vale para as vagas que você aprovar ou publicar. Pode ser alterado em cada vaga pelo botão Ajustar.',
+                [5, 10, 15, 30, 60], function (d) { return d + ' dias'; }, true),
+            grupo('maxDias', 'Divulgação máxima para vagas de escritórios', 'Limita o período que o escritório pode escolher. Pedidos acima do limite são ajustados na aprovação.',
+                [0, 5, 10, 15, 30, 60], function (d) { return d === 0 ? 'Sem limite' : d + ' dias'; }),
+            grupo('minEnvio', 'Candidatos enviados ao escritório', 'O escritório não vê todos os inscritos: você seleciona e envia os melhores. Padrão mínimo por vaga:',
+                [1, 2, 3, 5, 10], function (n) { return n === 1 ? '1 candidato' : n + ' candidatos'; })
+        ].concat(CFG_VAGAS_TGS.map(function (t) {
+            return el('label', { class: 'te-cv-tg' }, [
+                ic(t[1]),
+                el('span', { class: 'te-flex1' }, [el('b', { text: t[2] }), el('span', { class: 'te-cv-txt', text: t[3] })]),
+                el('input', { type: 'checkbox', checked: !!c[t[0]], onchange: function (e) { gravarCfgVaga(t[0], e.target.checked); } })
+            ]);
+        }));
+        modalVaga({ icone: 'bi-gear', titulo: 'Configurar vagas', largura: '560px', corpo: corpo, botoes: [botaoTlm('Fechar', 'bi-x-lg', '', fecharTlm)] });
+    }
+
+    /** Cada clique grava (como o resto da configuração do módulo); se o servidor recusar, volta o valor. */
+    function gravarCfgVaga(k, valor) {
+        var c = cfgVagas();
+        if (!c || !podeEscreverVaga()) {
+            return;
+        }
+        var antes = c[k];
+        c[k] = valor;
+        renderCfgVagas();
+        var corpo = { vagas: {} };
+        corpo.vagas[k] = valor;
+        pedir('POST', D.urlConfiguracao, corpo).then(function (r) {
+            if (r.ok) {
+                return;
+            }
+            var atual = cfgVagas();
+            if (atual) {
+                atual[k] = antes;
+            }
+            renderCfgVagas();
+            toastErro(r.mensagem);
+        });
+    }
+
     /* ---------------------------------------------------------------- aviso no canto */
 
     var temporizadorToast = null;
@@ -2293,6 +3428,7 @@
         renderTitulo();
         renderPrevia();
         renderBloqueio();
+        renderModulos();
         renderAviso();
         renderLista();
     }
@@ -2300,6 +3436,11 @@
     $('teBusca').addEventListener('input', function (e) {
         S.busca = e.target.value;
         renderLinhas();
+    });
+
+    $('teVgBusca').addEventListener('input', function (e) {
+        S.vgBusca = e.target.value;
+        renderVagas();
     });
 
     /** `_chatTecla()` do desenho: Delete ou # com mensagens selecionadas, fora de campo de texto. */
@@ -2321,6 +3462,10 @@
         }
         if (S.conf) {
             fecharConf();
+        } else if (S.menu) {
+            fecharMenu();
+        } else if (S.tlm) {
+            fecharTlm();
         } else if (S.cfgAberta) {
             fecharCfg();
         } else if (S.hm) {
@@ -2332,7 +3477,12 @@
         }
     });
 
+    S.modulo = moduloSalvo();
     renderTudo();
+    // A aba Vagas só aparece depois que o servidor disser `veAba`; sem resposta, fica só Demandas.
+    if (!S.painel.bloqueio) {
+        carregarVagas();
+    }
 
     if (S.painel.avisoDeMensagem) {
         var a = S.painel.avisoDeMensagem;

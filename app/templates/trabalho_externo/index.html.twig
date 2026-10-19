@@ -43,7 +43,12 @@
      data-url-marcacoes="{{ path('trabalho_externo_marcacoes') }}"
      data-url-mensagens-marcacoes="{{ path('trabalho_externo_mensagens_marcacoes', {codigo: marcador}) }}"
      data-url-mensagem-apagar="{{ path('trabalho_externo_mensagem_apagar', {codigo: marcador, id: 0}) }}"
-     data-url-configuracao="{{ path('trabalho_externo_configuracao') }}">
+     data-url-configuracao="{{ path('trabalho_externo_configuracao') }}"
+     data-url-vagas="{{ path('trabalho_externo_vagas') }}"
+     data-url-vaga="{{ path('trabalho_externo_vaga', {codigo: 'VG-0'}) }}"
+     data-url-vaga-salvar="{{ path('trabalho_externo_vaga_salvar') }}"
+     data-url-vaga-acao="{{ path('trabalho_externo_vaga_acao', {codigo: 'VG-0', acao: '__acao__'}) }}"
+     data-url-vagas-marcacoes="{{ path('trabalho_externo_vagas_marcacoes') }}">
 
     <div class="te-titulo-linha">
         <h1 class="te-titulo">
@@ -60,6 +65,9 @@
     <div id="tePrevia"></div>
 
     <div id="teBloqueio"></div>
+
+    {# Faixa de abas de módulo (desenho VS 18.10.26, linhas 85 a 87): o JS mostra "Vagas" só a quem a vê. #}
+    <div id="teModulos"></div>
 
     <div id="teLiberado">
         <div id="teAviso"></div>
@@ -88,6 +96,23 @@
         </div>
     </div>
 
+    {# Aba Vagas (spec VS 18.10.26 §4.1, desenho linhas 152 a 169): irmã de #teLiberado; o JS troca uma pela outra. #}
+    <div id="teVagas" hidden>
+        <div class="te-vg-barra">
+            <div class="te-vg-sel" id="teVgSel"></div>
+            <label class="te-vg-busca">
+                <i class="bi bi-search"></i>
+                <input type="text" id="teVgBusca" placeholder="Buscar vaga, cargo, cidade" autocomplete="off">
+            </label>
+            <div class="te-vg-filtros" id="teVgFiltros"></div>
+            <span class="te-espaco"></span>
+            <div class="te-vg-acoes" id="teVgAcoes"></div>
+        </div>
+        <div id="teVgLote"></div>
+        <div id="teVgVazio"></div>
+        <div class="te-vg-grade" id="teVgGrade"></div>
+    </div>
+
     {# Camadas sobrepostas: o JS preenche e mostra. Ficam dentro do .te-page para herdar os tokens do tema. #}
     <div id="teMenu"></div>
     <div id="teDrawer"></div>
@@ -96,6 +121,7 @@
     <div id="teConf"></div>
     <div id="teToast"></div>
     <div id="teDesfazer"></div>
+    <div id="teVagaModal"></div>
 </div>
 {% endblock %}
 
