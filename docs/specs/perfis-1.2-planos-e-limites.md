@@ -1,7 +1,24 @@
 # Perfis 1.2 · Planos e limites no painel do Master
 
-Frente `perfis-planos` · base: `contribua-cora` (#64) depois de ela trazer o master com o #52 e o #72 · risco
-**MÉDIO** (limites e preços; nada de identidade) · rascunho de 19/10/2026.
+Frente `perfis-planos` · **empilhada sobre `contribua-cora` (#64)** em 1426eb63 (já contém o master com o #52 e o #72) ·
+risco **MÉDIO** (limites e preços; nada de identidade) · aberta em 19/10/2026. **Sem migration própria.**
+
+## Estado da frente (atualizado em 19/10/2026)
+
+- **Base:** #64 da f6. O deploy leva os dois juntos e o merge deste PR vem depois do #64.
+- **Contrato f6** (nomes finais no #64):
+  - leitura por `SituacaoDoEspaco::doEscritorio` → `RetratoDoEspaco` e `CatalogoDePlanos::todos()`;
+  - escrita por `AlterarPlanoUseCase`, `DefinirLimiteDeArmazenamentoUseCase`, `DefinirLimiteDeUsuariosUseCase` e
+    `ConfigurarFaixasDoEspacoUseCase`;
+  - a auditoria fica com o controller do Master: `executarComoConta` para os limites, escopo de plataforma para o
+    plano e as faixas;
+  - nunca ler `EspacoDoEscritorio` fora do Contribua.
+- **Decisões do dono:**
+  - os planos da D5, editáveis pelo Master;
+  - bloqueio de envio desligado, com o aviso ao lado da chave.
+- **Referência visual:** `docs/design/perfis-1.2/referencia-planos-e-limites.md`, com as capturas no scratchpad da
+  sessão b5.
+- **Próximo:** implementar P1 a P8, revisar, fazer a verificação visual e abrir o PR empilhado.
 
 ## 1. Fontes
 
