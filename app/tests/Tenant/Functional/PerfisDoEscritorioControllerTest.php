@@ -726,18 +726,18 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame('Usuário Primário', trim($opcao->text()));
     }
 
-    #[TestDox('M-c: a barra não mostra "Sair deste escritório" para o titular; o sócio vê')]
+    #[TestDox('M-c: "Sair deste escritório" (aba Trocar conta do modal) some para o titular; o sócio vê')]
     public function testBotaoSairEscondidoParaOTitular(): void
     {
         $seletor = sprintf('form[action="/escritorio/%d/sair"]', $this->tenant->getId());
 
         $this->logarComTenant($this->client, $this->titular, $this->tenant);
-        $crawler = $this->client->request('GET', $this->urlLista());
+        $crawler = $this->client->request('GET', '/escritorio/contas');
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter($seletor));
 
         $this->logarComTenant($this->client, $this->socio, $this->tenant);
-        $crawler = $this->client->request('GET', $this->urlLista());
+        $crawler = $this->client->request('GET', '/escritorio/contas');
         self::assertCount(1, $crawler->filter($seletor));
     }
 
