@@ -34,7 +34,7 @@ final class CarteiroTest extends TestCase
         $this->envios->method('emTransacao')->willReturnCallback(static fn (\Closure $trabalho): mixed => $trabalho());
         $this->descadastro = $this->createMock(DescadastroDeEmailInterface::class);
         $this->bus = $this->createMock(MessageBusInterface::class);
-        $this->carteiro = new Carteiro($this->envios, $this->descadastro, $this->bus, new MockClock('2030-01-15 10:00:00'));
+        $this->carteiro = new Carteiro($this->envios, $this->descadastro, $this->bus, new MockClock('2030-01-15 10:00:00', date_default_timezone_get()));
     }
 
     private static function lista(): MensagemDeEmail
@@ -118,7 +118,7 @@ final class CarteiroTest extends TestCase
             return new Envelope($m);
         });
 
-        (new Carteiro($envios, $this->descadastro, $this->bus, new MockClock()))->enviar(self::transacional());
+        (new Carteiro($envios, $this->descadastro, $this->bus, new MockClock('now', date_default_timezone_get())))->enviar(self::transacional());
 
         self::assertSame(['inserir:dentro', 'despachar:dentro'], $passos);
     }

@@ -39,10 +39,6 @@ class CadastroPendente
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $oabNomeOficial = null;
 
-    /** Quando o lembrete "E-mail não confirmado" reemitiu o link (uma vez só; spec comercial-e-emails.md §3.5). */
-    #[ORM\Column(name: 'lembrete_em', type: 'datetime_immutable', nullable: true)]
-    private ?\DateTimeImmutable $lembreteEm = null;
-
     public function __construct(
         #[ORM\Column(length: 180)]
         private string $email,
@@ -110,22 +106,6 @@ class CadastroPendente
     public function isExpired(): bool
     {
         return $this->expiresAt < new \DateTimeImmutable();
-    }
-
-    public function getLembreteEm(): ?\DateTimeImmutable { return $this->lembreteEm; }
-
-    /**
-     * Link novo para o lembrete "E-mail não confirmado" (P3b): token novo e mais 24 h, uma vez só. O token antigo deixa
-     * de valer. Só para cadastro ainda pendente.
-     */
-    public function reemitir(string $novoToken, \DateTimeImmutable $agora): void
-    {
-        if ($this->status !== 'pending' || $this->lembreteEm !== null) {
-            throw new \DomainException('Este cadastro não aceita outro lembrete.');
-        }
-        $this->token      = $novoToken;
-        $this->expiresAt  = $agora->modify('+24 hours');
-        $this->lembreteEm = $agora;
     }
 
     public function confirmar(): void

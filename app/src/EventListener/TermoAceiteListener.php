@@ -54,6 +54,10 @@ final class TermoAceiteListener
         // Descadastro de e-mail: link assinado aberto por quem pode nem ter conta (ou estar logado
         // em outro escritório). Não depende de termo nem de escritório; a guarda é a assinatura.
         'email_descadastro',
+        'comercial_confirmar_endereco',
+        'comercial_confirmar_endereco_gravar',
+        'comercial_rastreio_abertura',
+        'comercial_rastreio_clique',
     ];
 
     public function __construct(

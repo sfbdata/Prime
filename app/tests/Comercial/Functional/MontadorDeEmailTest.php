@@ -38,8 +38,16 @@ final class MontadorDeEmailTest extends KernelTestCase
     private static function mensagem(TipoDeEnvio $tipo, ?Tenant $escopo = null, bool $rastrear = false): MensagemDeEmail
     {
         return new MensagemDeEmail(
-            'ana@exemplo.com', 'Novidades', '<p>Veja <a href="https://exemplo.com/artigo?a=1&amp;b=2">o artigo</a>.</p>', $tipo,
-            'campanha:1', $tipo === TipoDeEnvio::Lista ? 'comercial_dicas' : null, $escopo, 'Ana Souza', 'NOVIDADE', 'Olá, {nome}',
+            'ana@exemplo.com',
+            'Novidades',
+            '<p>Veja <a href="https://exemplo.com/artigo?a=1&amp;b=2">o artigo</a>.</p>',
+            $tipo,
+            'campanha:1',
+            $tipo === TipoDeEnvio::Lista ? 'comercial_dicas' : null,
+            $escopo,
+            'Ana Souza',
+            'NOVIDADE',
+            'Olá, {nome}',
             rastrear: $rastrear,
         );
     }
@@ -112,11 +120,11 @@ final class MontadorDeEmailTest extends KernelTestCase
             'assunto' => 'Confirme', 'selo' => null, 'titulo' => 'Confirme', 'corpo' => '<p>x</p>', 'logo' => 'https://x/logo.png',
             'tipo' => 'transacional', 'escritorio' => null, 'linkDescadastro' => 'https://x/email/descadastro?d=1',
             'linkPolitica' => 'https://x/politica-de-privacidade', 'pixel' => null,
-            'rodapeConfirmacao' => 'Este endereço foi informado em a página de vagas do BlueJus. Se não foi você, ignore este e-mail.',
+            'motivoDoEnvio' => 'Este endereço foi informado na página de vagas do BlueJus. Se não foi você, ignore este e-mail.',
         ]);
         $rodape = (new Crawler($html))->filter('td.rodape-legal');
 
-        self::assertStringContainsString('Este endereço foi informado em a página de vagas do BlueJus.', $rodape->text());
+        self::assertStringContainsString('Este endereço foi informado na página de vagas do BlueJus.', $rodape->text());
         self::assertStringNotContainsString('por causa da sua conta', $rodape->text());
         self::assertStringContainsString(self::RAZAO_SOCIAL, $rodape->text());
         self::assertCount(1, $rodape->filter('a[data-descadastro]'));
@@ -155,8 +163,14 @@ final class MontadorDeEmailTest extends KernelTestCase
     public function testIdentidade(): void
     {
         $mensagem = new MensagemDeEmail(
-            'ana@exemplo.com', 'Aviso', '<p>x</p>', TipoDeEnvio::Transacional, 'consumidor:push',
-            replyTo: 'responsavel@escritorio.com', cc: ['controladoria@escritorio.com'], nomeDoRemetente: 'Escritório X via BlueJus',
+            'ana@exemplo.com',
+            'Aviso',
+            '<p>x</p>',
+            TipoDeEnvio::Transacional,
+            'consumidor:push',
+            replyTo: 'responsavel@escritorio.com',
+            cc: ['controladoria@escritorio.com'],
+            nomeDoRemetente: 'Escritório X via BlueJus',
         );
         $padrao = $this->montador()->montar(new MensagemDeEmail('ana@exemplo.com', 'Aviso', '<p>x</p>', TipoDeEnvio::Transacional, 'teste'), self::TOKEN);
 
@@ -193,8 +207,12 @@ final class MontadorDeEmailTest extends KernelTestCase
     {
         $c = static::getContainer();
         $montador = new MontadorDeEmail(
-            $c->get(\Twig\Environment::class), $c->get(\App\Shared\Email\IdentidadeDeEmail::class), $c->get(DescadastroDeEmailInterface::class),
-            $c->get(\Symfony\Component\Routing\Generator\UrlGeneratorInterface::class), self::assinadorDeClique(), true,
+            $c->get(\Twig\Environment::class),
+            $c->get(\App\Shared\Email\IdentidadeDeEmail::class),
+            $c->get(DescadastroDeEmailInterface::class),
+            $c->get(\Symfony\Component\Routing\Generator\UrlGeneratorInterface::class),
+            self::assinadorDeClique(),
+            true,
         );
 
         $email = $montador->montar(self::mensagem(TipoDeEnvio::Lista, rastrear: true), self::TOKEN);

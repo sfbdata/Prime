@@ -51,8 +51,14 @@ final class ConfirmacaoDeEnderecoControllerTest extends JusPrimeWebTestCase
         $agora = new \DateTimeImmutable();
         $tenantId = $tenant === null ? null : (int) $tenant->getId();
         static::getContainer()->get(FatoDeConsentimentoRepository::class)->registrar(
-            $tenantId, FatoDeConsentimento::PEDIDO, self::LISTA, self::EMAIL,
-            ['origem' => 'pagina-publica-vagas', 'versao' => 'v1', 'texto' => 'Quero receber os alertas de vagas.'], null, null, $agora,
+            $tenantId,
+            FatoDeConsentimento::PEDIDO,
+            self::LISTA,
+            self::EMAIL,
+            ['origem' => 'pagina-publica-vagas', 'versao' => 'v1', 'texto' => 'Quero receber os alertas de vagas.'],
+            null,
+            null,
+            $agora,
         );
         static::getContainer()->get(ConfirmacaoDeEnderecoRepository::class)
             ->gravarPedido($tenantId, self::LISTA, self::EMAIL, hash('sha256', $token), $agora, $agora->modify($expira));

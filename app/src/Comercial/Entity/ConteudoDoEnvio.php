@@ -41,6 +41,9 @@ class ConteudoDoEnvio
     #[ORM\Column(name: 'nome_do_remetente', length: 120, nullable: true)]
     private ?string $nomeDoRemetente = null;
 
+    #[ORM\Column(name: 'motivo_do_envio', length: 300, nullable: true)]
+    private ?string $motivoDoEnvio = null;
+
     public function __construct(EnvioDeEmail $envio)
     {
         $this->envio = $envio;

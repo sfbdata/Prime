@@ -150,9 +150,21 @@ final class EnviarEmailHandler
         }
         try {
             return new MensagemDeEmail(
-                $envio['destinatario'], $envio['assunto'], $envio['corpo_html'], $tipo, $envio['origem'],
-                $envio['lista'], $escopo, $envio['nome'], $envio['selo'], $envio['titulo'],
-                $envio['reply_to'], $envio['cc'], $envio['rastrear'], $envio['nome_do_remetente'],
+                $envio['destinatario'],
+                $envio['assunto'],
+                $envio['corpo_html'],
+                $tipo,
+                $envio['origem'],
+                $envio['lista'],
+                $escopo,
+                $envio['nome'],
+                $envio['selo'],
+                $envio['titulo'],
+                $envio['reply_to'],
+                $envio['cc'],
+                $envio['rastrear'],
+                $envio['nome_do_remetente'],
+                $envio['motivo_do_envio'],
             );
         } catch (\InvalidArgumentException) {
             return null;

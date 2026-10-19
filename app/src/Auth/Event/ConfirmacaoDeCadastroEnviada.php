@@ -11,7 +11,8 @@ namespace App\Auth\Event;
 final class ConfirmacaoDeCadastroEnviada
 {
     public function __construct(
-        public readonly string $email, public readonly string $assunto,
+        public readonly string $email,
+        public readonly string $assunto,
     ) {
     }
 }

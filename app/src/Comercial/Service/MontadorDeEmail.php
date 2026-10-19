@@ -91,6 +91,7 @@ final class MontadorDeEmail
             'escritorio' => $m->escopo === null ? null : (trim((string) $m->escopo->getName()) ?: 'o escritório'),
             'linkDescadastro' => $linkDescadastro,
             'linkPolitica' => $linkPolitica,
+            'motivoDoEnvio' => $m->motivoDoEnvio,
             'pixel' => $rastreia ? $this->urls->generate(self::ROTA_ABERTURA, ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL) : null,
         ]);
 

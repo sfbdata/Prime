@@ -105,6 +105,18 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         AvisoWhatsapp::class,
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
+
+        // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
+        // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
+        // coluna nullable (null = plataforma) escrita à mão em cada consulta SQL; o filtro de tenant esconderia o que
+        // o Master precisa ver e quebraria o envio pelo worker, que roda sem sessão.
+        \App\Comercial\Entity\EnvioDeEmail::class,
+        \App\Comercial\Entity\ConteudoDoEnvio::class,
+        \App\Comercial\Entity\FatoDeConsentimento::class,
+        \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
+        \App\Comercial\Entity\AutomacaoDeEmail::class,
+        \App\Comercial\Entity\CicloDaConta::class,
+        \App\Comercial\Entity\VarreduraComercial::class,
     ];
 
     /**
@@ -117,7 +129,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 18;
+    // 18 → 25 com o Comercial e e-mails (19/10/2026): dado do Master, de escopo plataforma, justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 25;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

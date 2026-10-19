@@ -70,6 +70,16 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // endereço, assunto, origem e quando), gravada por SQL na rota pública sem sessão (não há autor
         // para auditar) e nunca editada. Auditar só duplicaria o endereço no audit_log.
         \App\Shared\Email\Descadastro\Entity\EmailDescadastro::class,
+        // Comercial e e-mails (comercial-e-emails.md §3): o envio, o conteúdo (apagado no estado final), o ciclo e a
+        // varredura são registros gravados pelo worker sem sessão (não há autor); a prova de consentimento já é a
+        // própria trilha, só de acréscimo, e o estado da confirmação também é escrito por SQL na rota pública. A
+        // alteração do Master nas automações É auditada (AutomacaoDeEmail implementa Auditavel).
+        \App\Comercial\Entity\EnvioDeEmail::class,
+        \App\Comercial\Entity\ConteudoDoEnvio::class,
+        \App\Comercial\Entity\FatoDeConsentimento::class,
+        \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
+        \App\Comercial\Entity\CicloDaConta::class,
+        \App\Comercial\Entity\VarreduraComercial::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,

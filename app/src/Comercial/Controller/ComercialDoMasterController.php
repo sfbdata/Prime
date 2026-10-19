@@ -6,7 +6,12 @@ namespace App\Comercial\Controller;
 
 use App\Comercial\DTO\DisparoOutput;
 use App\Comercial\DTO\EstadoDaAutomacao;
+use App\Comercial\Enum\Automacao;
+use App\Comercial\Envio\MensagemDeEmail;
+use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Exception\AutomacaoRecusada;
+use App\Comercial\Service\ModelosDeAutomacao;
+use App\Comercial\Service\MontadorDeEmail;
 use App\Comercial\UseCase\AlterarAutomacaoUseCase;
 use App\Comercial\UseCase\ListarAutomacoesUseCase;
 use App\Comercial\UseCase\SimularNovoCadastroUseCase;
@@ -66,6 +71,34 @@ final class ComercialDoMasterController extends AbstractController
         }
 
         return $this->json(['mensagem' => $simular->executar()]);
+    }
+
+    /**
+     * A prévia só de leitura do modelo de uma automação (o botão do modelo, dc L.564), com o nome e o endereço de
+     * exemplo do dc (L.537). Os avisos de espaço chegam com a fatia 1b. Nada é enviado nem gravado.
+     */
+    #[Route('/master/comercial/automacoes/{chave}/previa', name: 'master_comercial_previa', requirements: ['chave' => '[a-z0-9]{2,10}'], methods: ['GET'])]
+    public function previa(string $chave, ModelosDeAutomacao $modelos, MontadorDeEmail $montador): Response
+    {
+        $automacao = Automacao::tryFrom($chave);
+        if ($automacao === null || in_array($automacao, [Automacao::E90, Automacao::E100, Automacao::Ped], true)) {
+            return new Response('<p style="font-family:sans-serif;color:#5b7383;padding:16px;">O modelo deste aviso entra com os avisos de espaço.</p>');
+        }
+        $modelo = $modelos->montar($automacao, 'Dra. Ana', ['urlDeConfirmacao' => '#']);
+        $ehDica = $automacao === Automacao::Dica;
+        $email = $montador->montar(new MensagemDeEmail(
+            para: 'teste@bluejus.com.br',
+            assunto: $modelo->assunto,
+            corpoHtml: $modelo->corpoHtml,
+            tipo: $ehDica ? TipoDeEnvio::Lista : TipoDeEnvio::Transacional,
+            origem: 'teste',
+            lista: $ehDica ? 'comercial_dicas' : null,
+            nome: 'Dra. Ana',
+            selo: $modelo->selo,
+            titulo: $modelo->titulo,
+        ), 'previa');
+
+        return new Response((string) $email->getHtmlBody());
     }
 
     /** @return array<string, mixed> */

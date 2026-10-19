@@ -111,9 +111,14 @@ final class ConfirmacaoDeEnderecoTest extends TestCase
         $this->estados->method('buscar')->willReturn(null);
         $this->fatos->method('ultimoPedidoEm')->willReturn(null);
         $this->fatos->expects(self::once())->method('registrar')->with(
-            null, FatoDeConsentimento::PEDIDO, self::LISTA, self::EMAIL,
+            null,
+            FatoDeConsentimento::PEDIDO,
+            self::LISTA,
+            self::EMAIL,
             ['origem' => 'pagina-publica-vagas', 'versao' => 'v1', 'texto' => 'Quero receber os alertas de vagas.'],
-            null, null, $this->relogio->now(),
+            null,
+            null,
+            $this->relogio->now(),
         );
         $hash = null;
         $this->estados->expects(self::once())->method('gravarPedido')->willReturnCallback(
@@ -147,7 +152,7 @@ final class ConfirmacaoDeEnderecoTest extends TestCase
         self::assertStringContainsString('Confirme que quer receber os alertas de vagas do BlueJus', $corpo);
         self::assertStringContainsString('Confirmar meu e-mail', $corpo);
         self::assertStringContainsString('O link vale por 7 dias.', $corpo);
-        self::assertStringContainsString('Este endereço foi informado em a página de vagas do BlueJus. Se não foi você, ignore este e-mail.', $corpo);
+        self::assertSame('Este endereço foi informado na página de vagas do BlueJus. Se não foi você, ignore este e-mail.', $this->enviadas[0]->motivoDoEnvio, 'a frase vai no rodapé, no lugar da transacional');
         self::assertStringNotContainsString('pagina-publica-vagas', $corpo);
         self::assertStringNotContainsString('vagas_alerta', $corpo);
         self::assertStringNotContainsString('—', $corpo);

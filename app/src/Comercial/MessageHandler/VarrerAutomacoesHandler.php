@@ -39,7 +39,6 @@ final class VarrerAutomacoesHandler
             return;
         }
         try {
-            $this->varredura->lembrarCadastrosNaoConfirmados($agora);
             $this->varredura->mandarDicas($agora);
             $this->recuperacao->recuperar($agora);
         } finally {

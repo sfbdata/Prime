@@ -43,10 +43,16 @@ final class CarteiroIntegracaoTest extends KernelTestCase
     private static function mensagem(string $para = 'ana@exemplo.com', TipoDeEnvio $tipo = TipoDeEnvio::Lista): MensagemDeEmail
     {
         return new MensagemDeEmail(
-            $para, 'Dicas da semana', '<p>Corpo com <a href="https://exemplo.com">link</a></p>', $tipo,
+            $para,
+            'Dicas da semana',
+            '<p>Corpo com <a href="https://exemplo.com">link</a></p>',
+            $tipo,
             $tipo === TipoDeEnvio::Lista ? 'campanha:1' : 'automacao:val',
             $tipo === TipoDeEnvio::Lista ? 'comercial_dicas' : null,
-            replyTo: 'resp@exemplo.com', cc: ['cc@exemplo.com'], selo: 'NOVIDADE', titulo: 'Olá, {nome}',
+            replyTo: 'resp@exemplo.com',
+            cc: ['cc@exemplo.com'],
+            selo: 'NOVIDADE',
+            titulo: 'Olá, {nome}',
         );
     }
 
@@ -150,6 +156,6 @@ final class CarteiroIntegracaoTest extends KernelTestCase
 
     private function carteiro(MessageBusInterface $bus): Carteiro
     {
-        return new Carteiro($this->envios, $this->descadastro, $bus, new MockClock('2030-01-15 10:00:00'));
+        return new Carteiro($this->envios, $this->descadastro, $bus, new MockClock('2030-01-15 10:00:00', date_default_timezone_get()));
     }
 }

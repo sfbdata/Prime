@@ -15,7 +15,6 @@ use Doctrine\Migrations\AbstractMigration;
  *   - `comercial_automacao` (uma linha por automação, com o padrão do desenho 05; `ligada_em` = agora para as que nascem
  *     ligadas: é o corte, nada dispara para o passado) e `comercial_ciclo_conta`;
  *   - `comercial_varredura` (a linha 1 da cadeia);
- *   - `cadastro_pendente.lembrete_em` (o lembrete "E-mail não confirmado", uma vez só).
  *
  * Fila de migrations: logo depois da Version20261020090000 da 0d (email_descadastro). Gerada pelo diff do mapeamento e
  * limpa do ruído de base (messenger_messages e índices funcionais da Cobrança), que não é desta frente.
@@ -24,7 +23,7 @@ final class Version20261020100000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Comercial 1a: envios, consentimento, automações, ciclo da conta, varredura e lembrete do cadastro';
+        return 'Comercial 1a: envios, consentimento, automações, ciclo da conta e varredura';
     }
 
     public function up(Schema $schema): void
@@ -51,7 +50,7 @@ final class Version20261020100000 extends AbstractMigration
         $this->addSql('CREATE INDEX idx_comercial_envio_destinatario ON comercial_envio (destinatario)');
         $this->addSql('CREATE INDEX idx_comercial_envio_tenant ON comercial_envio (tenant_id)');
         $this->addSql('CREATE UNIQUE INDEX uniq_comercial_envio_token ON comercial_envio (token)');
-        $this->addSql('CREATE TABLE comercial_envio_conteudo (corpo_html TEXT NOT NULL, selo VARCHAR(120) DEFAULT NULL, titulo VARCHAR(255) DEFAULT NULL, reply_to VARCHAR(180) DEFAULT NULL, cc JSON NOT NULL, rastrear BOOLEAN DEFAULT false NOT NULL, nome_do_remetente VARCHAR(120) DEFAULT NULL, envio_id INT NOT NULL, PRIMARY KEY (envio_id))');
+        $this->addSql('CREATE TABLE comercial_envio_conteudo (corpo_html TEXT NOT NULL, selo VARCHAR(120) DEFAULT NULL, titulo VARCHAR(255) DEFAULT NULL, reply_to VARCHAR(180) DEFAULT NULL, cc JSON NOT NULL, rastrear BOOLEAN DEFAULT false NOT NULL, nome_do_remetente VARCHAR(120) DEFAULT NULL, motivo_do_envio VARCHAR(300) DEFAULT NULL, envio_id INT NOT NULL, PRIMARY KEY (envio_id))');
         $this->addSql('CREATE TABLE comercial_varredura (id INT NOT NULL, proxima_em TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, executada_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, PRIMARY KEY (id))');
         $this->addSql('ALTER TABLE comercial_automacao ADD CONSTRAINT FK_106CC60358CC7A25 FOREIGN KEY (alterada_por_id) REFERENCES "user" (id) ON DELETE SET NULL NOT DEFERRABLE');
         $this->addSql('ALTER TABLE comercial_ciclo_conta ADD CONSTRAINT FK_23741E5A76ED395 FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE NOT DEFERRABLE');
@@ -59,7 +58,6 @@ final class Version20261020100000 extends AbstractMigration
         $this->addSql('ALTER TABLE comercial_confirmacao_endereco ADD CONSTRAINT FK_7601915D9033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) NOT DEFERRABLE');
         $this->addSql('ALTER TABLE comercial_envio ADD CONSTRAINT FK_D543297A9033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) NOT DEFERRABLE');
         $this->addSql('ALTER TABLE comercial_envio_conteudo ADD CONSTRAINT FK_602E84D695BC4699 FOREIGN KEY (envio_id) REFERENCES comercial_envio (id) ON DELETE CASCADE NOT DEFERRABLE');
-        $this->addSql('ALTER TABLE cadastro_pendente ADD lembrete_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
 
         // As linhas iniciais: o padrão do desenho 05 (dc L.562). Criá-las não dispara nada.
         $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('cad', true, NULL, NOW())");
@@ -88,6 +86,5 @@ final class Version20261020100000 extends AbstractMigration
         $this->addSql('DROP TABLE comercial_envio');
         $this->addSql('DROP TABLE comercial_envio_conteudo');
         $this->addSql('DROP TABLE comercial_varredura');
-        $this->addSql('ALTER TABLE cadastro_pendente DROP lembrete_em');
     }
 }

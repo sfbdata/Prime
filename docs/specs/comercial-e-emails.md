@@ -91,13 +91,31 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   parcial não recebe variáveis do controller do painel, que é do #56); (4) o `cad` não é registrado pelo Carteiro: o
   `CadastroMailer` despacha `ConfirmacaoDeCadastroEnviada` e um ouvinte grava o envio; (5) contrato do Carteiro
   ajustado para a 0d (P4c e P4d): `ResultadoDoEnvio {envioId, situacao}`, `RegistroDeEnviosInterface::situacoes`,
-  `nomeDoRemetente` só como nome exibido, um destinatário por mensagem.
+  `nomeDoRemetente` só como nome exibido, um destinatário por mensagem; (6) campo `MensagemDeEmail::motivoDoEnvio`
+  (a frase do rodapé que diz por que a pessoa recebeu; a confirmação de endereço usa "Este endereço foi informado na
+  página de vagas do BlueJus. Se não foi você, ignore este e-mail.", em vez da frase transacional, falsa para quem
+  ainda não tem conta); (7) no rodapé de escritório em transacional, o link diz "Não quero mais receber e-mails de
+  <escritório>"; (8) a tela tem a prévia só de leitura de cada modelo (`/master/comercial/automacoes/{chave}/previa`),
+  com o nome e o endereço de exemplo do 05; os avisos de espaço ganham prévia na 1b.
 - **Contrato da 0d no Push (P4c/P4d, aceito em 19/10):** manual da Análise IA = transacional, origem
   `pasta:push_cliente_ia`, escopo = o escritório, `replyTo` = responsável, `nomeDoRemetente` = "{Escritório} via
   BlueJus", CC da Controladoria só na 1ª mensagem; automático = lista `push_cliente`. A 0d guarda os `envioId` e lê a
   situação pelo `RegistroDeEnviosInterface`. Migration dela renomeada para `Version20261020103000` (a desta é
   `Version20261020100000`).
-- **Contrato com a 7d (desenho 10, 19/10):** a 1a entra primeiro em Auth e a 7d traz o master; a 7d não muda a
+- **Contrato com a 9b (desenho 10, Login e cadastro, que passou da 7d para a 9b em 19/10):** o cadastro passa a
+  criar a conta direto e a confirmação do e-mail não trava. A 9b cria `App\Auth\Event\ContaCriadaPeloCadastro(int
+  $userId, int $tenantId)` e `App\Auth\Event\EmailDaContaConfirmado(int $userId)` (depois do commit); as boas-vindas
+  (`val`) passam a ouvir o `EmailDaContaConfirmado` quando ela integrar. O **lembrete `lemb` é sobre o User**: coluna
+  `user.email_a_confirmar_desde`, `UserRepository::semConfirmacaoDeEmailParaLembrete(\DateTimeImmutable $pendenteAte,
+  int $limite): list<User>` e `ReemitirConfirmacaoDeEmailUseCase::executar(int $userId):
+  ReemissaoDeConfirmacaoOutput{email, nome, url}` (link novo, grava a marca, NÃO envia; DomainException sem conta,
+  já confirmado ou já lembrado). A varredura desta frente chama os dois e manda pelo Carteiro, com o miolo "Confirmar
+  e-mail" do 05. Por isso **saíram desta 1a** o `ReemitirConfirmacaoDeCadastroUseCase`, a coluna
+  `cadastro_pendente.lembrete_em` e a folga de 72 h da purga (o `CadastroPendente` e o repositório dele voltaram à
+  base). Até a 9b entregar, a linha do `lemb` aparece no painel e não dispara. O `CadastroMailer` segue com o
+  dispatch de `ConfirmacaoDeCadastroEnviada` depois do send. Ordem: esta 1a entra antes; a 9b traz o master e leva os
+  eventos aos pontos novos.
+- **Contrato com a 7d (desenho 10, antes da troca para a 9b; vale o da 9b acima):** a 1a entra primeiro em Auth e a 7d traz o master; a 7d não muda a
   validade de 24 h nem a purga; se criar a confirmação por código, ela chama o mesmo `ConfirmarCadastroUseCase` (o
   evento sai nos dois caminhos); colunas dela em `cadastro_pendente`: `codigo_hash`, `codigo_expira_em`.
 - **A tela só aparece com o #56:** o include do parcial `master/_comercial.html.twig` é do painel do #56, que não está

@@ -9,6 +9,8 @@ use App\Comercial\UseCase\AlterarAutomacaoUseCase;
 use App\Comercial\UseCase\ListarAutomacoesUseCase;
 use App\Comercial\UseCase\SimularNovoCadastroUseCase;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -51,7 +53,8 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         $client = $this->clienteMaster();
         $this->postar($client, '/master/comercial/automacoes/dica', ['ligada' => true, 'atraso' => '15d']);
         self::assertResponseIsSuccessful();
-        self::assertSame(['ligada' => true, 'atraso' => '15d'], array_intersect_key($this->json($client), ['ligada' => 0, 'atraso' => 0]));
+        $resposta = $this->json($client);
+        self::assertSame([true, '15d'], [$resposta['ligada'], $resposta['atraso']]);
         $linha = $this->conexao()->fetchAssociative("SELECT ligada_em, alterada_por_id FROM comercial_automacao WHERE chave = 'dica'");
         self::assertNotNull($linha['ligada_em'], 'ligar grava o corte: nada para o passado');
         self::assertNotNull($linha['alterada_por_id']);
@@ -88,8 +91,13 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
-        $client->loginUser($this->usuario(['ROLE_USER']));
-        $this->marcarTermosAceitos($client);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant = (new Tenant())->setName('Escritório Comercial ' . uniqid());
+        $em->persist($tenant);
+        $usuario = $this->usuario(['ROLE_USER']);
+        $em->persist(new UserTenant($usuario, $tenant));
+        $em->flush();
+        $this->logarComTenant($client, $usuario, $tenant);
 
         $client->request('GET', '/master/comercial/automacoes');
         self::assertResponseStatusCodeSame(403);
@@ -111,6 +119,24 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         $ultimos = $this->json($client)['ultimos'];
         self::assertSame(['E-mail confirmado', 'Conta aberta'], array_column($ultimos, 'gatilho'));
         self::assertSame('n***@exemplo.com', $ultimos[0]['destinatario']);
+    }
+
+    #[TestDox('Prévia do modelo: boas-vindas com o título do desenho e o rodapé legal; avisos de espaço ainda não; nada é enviado')]
+    public function testPrevia(): void
+    {
+        $client = $this->clienteMaster();
+        $client->request('GET', '/master/comercial/automacoes/val/previa');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Seja bem-vindo(a), Dra.!', $html);
+        self::assertStringContainsString('Comece por aqui', $html);
+        self::assertStringContainsString('CNPJ 66.803.163/0001-10', $html);
+        self::assertEmailCount(0);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
+
+        $client->request('GET', '/master/comercial/automacoes/e90/previa');
+        self::assertStringContainsString('entra com os avisos de espaço', (string) $client->getResponse()->getContent());
     }
 
     /** @param array<string, mixed> $corpo */

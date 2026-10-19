@@ -59,16 +59,29 @@ final class EnviarEmailHandlerTest extends KernelTestCase
         $c = static::getContainer();
 
         return new EnviarEmailHandler(
-            $this->envios, $this->descadastro, $c->get(TenantRepository::class), $this->montador(),
-            $mailer ?? $c->get(MailerInterface::class), $this->bus, $this->relogio, new NullLogger(), $porMinuto, $teto,
+            $this->envios,
+            $this->descadastro,
+            $c->get(TenantRepository::class),
+            $this->montador(),
+            $mailer ?? $c->get(MailerInterface::class),
+            $this->bus,
+            $this->relogio,
+            new NullLogger(),
+            $porMinuto,
+            $teto,
         );
     }
 
     private function enfileirar(TipoDeEnvio $tipo = TipoDeEnvio::Lista, string $origem = 'campanha:1', string $para = 'ana@exemplo.com'): int
     {
         $mensagem = new MensagemDeEmail(
-            $para, 'Assunto do teste', '<p>Olá, {nome}. Segredo do corpo.</p>', $tipo, $origem,
-            $tipo === TipoDeEnvio::Lista ? 'comercial_dicas' : null, nome: 'Ana Souza',
+            $para,
+            'Assunto do teste',
+            '<p>Olá, {nome}. Segredo do corpo.</p>',
+            $tipo,
+            $origem,
+            $tipo === TipoDeEnvio::Lista ? 'comercial_dicas' : null,
+            nome: 'Ana Souza',
         );
         $carteiro = new Carteiro($this->envios, $this->descadastro, new BusQueRegistra($this->conexao), $this->relogio);
 

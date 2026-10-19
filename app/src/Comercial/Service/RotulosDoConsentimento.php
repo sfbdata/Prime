@@ -12,17 +12,17 @@ namespace App\Comercial\Service;
 final class RotulosDoConsentimento
 {
     private const ORIGENS = [
-        'pagina-publica-vagas' => 'a página de vagas do BlueJus',
+        'pagina-publica-vagas' => 'na página de vagas do BlueJus',
     ];
 
     private const LISTAS = [
         'vagas_alerta' => 'os alertas de vagas do BlueJus',
     ];
 
-    private const ORIGEM_DESCONHECIDA = 'um formulário do BlueJus';
+    private const ORIGEM_DESCONHECIDA = 'em um formulário do BlueJus';
     private const LISTA_DESCONHECIDA = 'as comunicações do BlueJus';
 
-    /** Onde o endereço foi informado: "Este endereço foi informado em <rótulo>." */
+    /** Onde o endereço foi informado, já com a preposição: "Este endereço foi informado <rótulo>." */
     public static function daOrigem(string $origem): string
     {
         return self::ORIGENS[$origem] ?? self::ORIGEM_DESCONHECIDA;

@@ -4,7 +4,7 @@
      assunto, selo?, titulo?, corpo (HTML já pronto do chamador), logo (URL absoluta),
      tipo ('lista' | 'transacional'), escritorio? (nome; null = plataforma),
      linkDescadastro, linkPolitica, pixel? (URL do pixel, só com o rastreio ligado),
-     rodapeConfirmacao? (frase do e-mail de confirmação de endereço, §3.3; troca só a frase do rodapé).
+     motivoDoEnvio? (MensagemDeEmail::motivoDoEnvio: a frase de por que a pessoa recebeu; troca só essa frase do rodapé).
    O rodapé sai SEMPRE (B3) e não é editável: razão social, a frase do escopo e do tipo, o link de
    descadastro (M1) e o da Política de Privacidade (B4). #}
 <!doctype html>
@@ -29,8 +29,8 @@
 <tr><td style="background:#f7f9fb;border-top:1px solid #e6edf2;padding:18px 30px;font:12px/1.6 Arial,Helvetica,sans-serif;color:#7a8e9b;" class="rodape-legal">
 {% if escritorio %}Enviado por {{ escritorio }} por meio do BlueJus.<br>{% endif %}
 BlueJus Gestão e Tecnologia LTDA · CNPJ 66.803.163/0001-10 · Brasília/DF<br>
-{% if rodapeConfirmacao is defined and rodapeConfirmacao %}
-{{ rodapeConfirmacao }}
+{% if motivoDoEnvio is defined and motivoDoEnvio %}
+{{ motivoDoEnvio }}
 {% elseif escritorio %}
 {% elseif tipo == 'lista' %}
 Você recebeu este e-mail porque se cadastrou no BlueJus ou autorizou o envio de novidades.

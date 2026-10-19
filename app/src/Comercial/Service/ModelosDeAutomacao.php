@@ -54,7 +54,7 @@ final class ModelosDeAutomacao
         return match ($automacao) {
             Automacao::Val, Automacao::Conv => 'boas_vindas',
             Automacao::Dica => 'primeiros_passos',
-            Automacao::Lemb => 'lembrete_confirmacao',
+            Automacao::Cad, Automacao::Lemb => 'lembrete_confirmacao',
             default => throw new \LogicException('Modelo desta automação não é da fatia 1a: ' . $automacao->value),
         };
     }

@@ -2,8 +2,7 @@
    legal e o link de descadastro são do Carteiro (_layout.html.twig).
    Contexto: `nomeDaLista` e `rotuloDaOrigem` (nomes legíveis de RotulosDoConsentimento, nunca o identificador cru) e
    `link` (URL absoluta do GET /e/confirmar/{token}, que só mostra o botão; quem grava é o POST).
-   A frase "Este endereço foi informado em ..." é do rodapé da confirmação (§3.7). A MensagemDeEmail não tem campo
-   para levá-la ao layout (`rodapeConfirmacao`), então ela fecha o miolo. #}
+   A frase "Este endereço foi informado em ..." vai no rodapé, pelo `motivoDoEnvio` da MensagemDeEmail (§3.7). #}
 <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">Confirme que quer receber {{ nomeDaLista }}</p>
 
 <p style="margin:0 0 24px;font-size:15px;color:#444444;line-height:1.6;">
@@ -23,6 +22,3 @@
 </p>
 <p style="margin:0 0 16px;font-size:13px;color:#1a56db;word-break:break-all;">{{ link }}</p>
 
-<p class="rodape-confirmacao" style="margin:24px 0 0;font-size:13px;color:#888888;line-height:1.6;">
-    Este endereço foi informado em {{ rotuloDaOrigem }}. Se não foi você, ignore este e-mail.
-</p>

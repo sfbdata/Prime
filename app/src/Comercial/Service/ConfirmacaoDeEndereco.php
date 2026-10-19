@@ -172,7 +172,9 @@ final class ConfirmacaoDeEndereco implements ConfirmacaoDeEnderecoInterface
             'link' => $this->urls->generate(self::ROTA, ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL),
         ]);
 
-        return new MensagemDeEmail($email, self::ASSUNTO, $corpo, TipoDeEnvio::Transacional, 'consentimento:' . $lista, escopo: $escopo);
+        $motivo = sprintf('Este endereço foi informado %s. Se não foi você, ignore este e-mail.', RotulosDoConsentimento::daOrigem($origem));
+
+        return new MensagemDeEmail($email, self::ASSUNTO, $corpo, TipoDeEnvio::Transacional, 'consentimento:' . $lista, escopo: $escopo, motivoDoEnvio: $motivo);
     }
 
     private static function exigirPedidoValido(string $lista, string $email, string $origem, string $versao, string $texto): void

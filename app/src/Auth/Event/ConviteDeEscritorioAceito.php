@@ -11,7 +11,9 @@ namespace App\Auth\Event;
 final class ConviteDeEscritorioAceito
 {
     public function __construct(
-        public readonly int $userId, public readonly int $tenantId, public readonly bool $comoPrimario,
+        public readonly int $userId,
+        public readonly int $tenantId,
+        public readonly bool $comoPrimario,
     ) {
     }
 }

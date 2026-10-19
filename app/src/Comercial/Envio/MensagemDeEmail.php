@@ -39,6 +39,11 @@ final class MensagemDeEmail
         public readonly bool $rastrear = false,
         /** Só o nome exibido ("Escritório X via BlueJus"); o endereço é sempre o remetente da plataforma. */
         public readonly ?string $nomeDoRemetente = null,
+        /**
+         * A frase do rodapé que diz por que a pessoa recebeu (troca só essa frase; o resto do rodapé legal fica). Ex.:
+         * a confirmação de endereço, "Este endereço foi informado em ... Se não foi você, ignore este e-mail."
+         */
+        public readonly ?string $motivoDoEnvio = null,
     ) {
         $this->para = self::normalizar($para);
         if (filter_var($this->para, FILTER_VALIDATE_EMAIL) === false) {

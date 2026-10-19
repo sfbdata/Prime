@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
-use App\Auth\Entity\CadastroPendente;
 use App\Auth\Event\CadastroConfirmado;
 use App\Auth\Event\ConfirmacaoDeCadastroEnviada;
 use App\Auth\Event\ConviteDeEscritorioAceito;
@@ -22,8 +21,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * As automações do ciclo da conta contra o banco (spec comercial-e-emails.md §3.4 e §3.5): uma boas-vindas por pessoa
- * e escritório, nada com a automação desligada, nada para o passado (corte `ligada_em`), lembrete uma vez com link
- * novo, dica uma vez, e o registro do `cad`. O Carteiro é o real; o transporte `comercial` é em memória.
+ * e escritório, nada com a automação desligada, nada para o passado (corte `ligada_em`), dica uma vez, e o registro
+ * do `cad`. O Carteiro é o real; o transporte `comercial` é em memória.
  */
 #[CoversClass(CicloDaContaListener::class)]
 #[CoversClass(VarreduraDeAutomacoes::class)]
@@ -87,27 +86,6 @@ final class AutomacoesDoCicloDaContaTest extends KernelTestCase
         self::assertSame('enviado', $this->conexao->fetchOne("SELECT situacao FROM comercial_envio WHERE origem = 'automacao:cad' AND destinatario = 'nova@exemplo.com'"));
     }
 
-    #[TestDox('Lembrete (lemb): pendente de 25 h recebe link novo uma vez; o anterior ao corte não recebe')]
-    public function testLembreteUmaVezSoDepoisDoCorte(): void
-    {
-        $this->conexao->executeStatement("UPDATE comercial_automacao SET ligada_em = NOW() - INTERVAL '10 days' WHERE chave = 'lemb'");
-        $recente = $this->pendente('-25 hours');
-        $antigo = $this->pendente('-20 days');
-        $tokenAntes = $recente->getToken();
-
-        $varredura = static::getContainer()->get(VarreduraDeAutomacoes::class);
-        $varredura->lembrarCadastrosNaoConfirmados(new \DateTimeImmutable());
-        $varredura->lembrarCadastrosNaoConfirmados(new \DateTimeImmutable());
-
-        self::assertSame(1, $this->envios('automacao:lemb', $recente->getEmail()));
-        self::assertSame(0, $this->envios('automacao:lemb', $antigo->getEmail()), 'anterior ao corte: nada para o passado');
-        $this->em->clear();
-        $relido = $this->em->find(CadastroPendente::class, $recente->getId());
-        self::assertNotSame($tokenAntes, $relido?->getToken(), 'link novo');
-        self::assertNotNull($relido?->getLembreteEm());
-        self::assertGreaterThan(new \DateTimeImmutable('+23 hours'), $relido?->getExpiresAt());
-    }
-
     #[TestDox('Dica: desligada não sai; ligada, só para conta confirmada depois do corte e há 7 dias ou mais, uma vez')]
     public function testDica(): void
     {
@@ -154,14 +132,5 @@ final class AutomacoesDoCicloDaContaTest extends KernelTestCase
         $this->em->flush();
 
         return [$user, $tenant];
-    }
-
-    private function pendente(string $criadoHa): CadastroPendente
-    {
-        $p = new CadastroPendente('pend_' . uniqid() . '@test.com', bin2hex(random_bytes(32)), 'Bia Pendente', 'Banca Bia', '12345', 'SP', 'HASH', '1.2.3.4', new \DateTimeImmutable($criadoHa . ' +24 hours'), 'UA', new \DateTimeImmutable($criadoHa));
-        $this->em->persist($p);
-        $this->em->flush();
-
-        return $p;
     }
 }

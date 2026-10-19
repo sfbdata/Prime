@@ -17,8 +17,8 @@ final class RotulosDoConsentimentoTest extends TestCase
     /** @return iterable<string, array{string, string}> */
     public static function origens(): iterable
     {
-        yield 'página de vagas' => ['pagina-publica-vagas', 'a página de vagas do BlueJus'];
-        yield 'desconhecida' => ['consumidor:novo', 'um formulário do BlueJus'];
+        yield 'página de vagas' => ['pagina-publica-vagas', 'na página de vagas do BlueJus'];
+        yield 'desconhecida' => ['consumidor:novo', 'em um formulário do BlueJus'];
     }
 
     #[DataProvider('origens')]
