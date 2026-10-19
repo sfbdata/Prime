@@ -160,14 +160,14 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('desc', (string) $nup->attr('class'));
         self::assertCount(1, $nup->filter('i.sort-icon.bi-caret-down-fill'));
         self::assertCount(1, $crawler->filter('#tabelaPastas thead [aria-sort]'));
-        self::assertCount(6, $crawler->filter('#tabelaPastas thead th[data-ordenar] > i.sort-icon.bi-chevron-expand'));
+        self::assertCount(7, $crawler->filter('#tabelaPastas thead th[data-ordenar] > .exp-th > i.sort-icon.bi-chevron-expand'), 'VS 18.10.26: Réu também ordena; rótulo e seta no .exp-th (dc L.200)');
         self::assertCount(0, $crawler->filter('#tabelaPastas .bi-arrow-down-up, #tabelaPastas .ps-3'));
 
         // Ordenação escolhida: a seta vai para a coluna, crescente.
         $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?ordenar=cliente&direcao=asc');
         self::assertSame('ascending', $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"]')->attr('aria-sort'));
-        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"] > i.bi-caret-up-fill'));
-        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"] > i.bi-chevron-expand'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"] > .exp-th > i.bi-caret-up-fill'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"] > .exp-th > i.bi-chevron-expand'));
         self::assertCount(1, $crawler->filter('#tabelaPastas tbody td.col-marc-tabela .exp-tag-vazio > i.bi-tag'), 'AUD-24: ícone do dc');
     }
 

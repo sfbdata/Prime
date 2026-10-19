@@ -11,6 +11,7 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Service\RegraDosMasters;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
@@ -277,25 +278,66 @@ final class PainelMasterRepository
     }
 
     /**
-     * Usuários com `ROLE_SUPER_ADMIN` (o Master). `roles` é json: a busca é textual pelo nome exato
-     * entre aspas, como o Symfony grava.
+     * Masters do sistema (`ROLE_SUPER_ADMIN`), o primário (`ROLE_MASTER_PRIMARIO`) primeiro, depois
+     * os secundários por nome (spec perfis-1.2-masters §4.1). `roles` é json: a busca é textual pelo
+     * nome exato entre aspas, como o Symfony grava.
      *
-     * @return list<array{id: int, nome: string, email: string, oabNumero: ?string, oabUf: ?string}>
+     * @return list<array{id: int, nome: string, email: string, oabNumero: ?string, oabUf: ?string, primario: bool}>
      */
     public function masters(): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
-            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf
+            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf,
+                    (u.roles::text LIKE :primario) AS primario
                FROM "user" u
               WHERE u.roles::text LIKE :papel
-           ORDER BY u.id',
-            ['papel' => '%"ROLE_SUPER_ADMIN"%'],
+           ORDER BY primario DESC, u.full_name, u.id',
+            [
+                'papel'    => '%"' . RegraDosMasters::PAPEL_MASTER . '"%',
+                'primario' => '%"' . RegraDosMasters::PAPEL_MASTER_PRIMARIO . '"%',
+            ],
         );
 
         return array_map(static fn (array $l): array => [
             'id'        => (int) $l['id'],
             'nome'      => (string) $l['full_name'],
             'email'     => (string) $l['email'],
+            'oabNumero' => self::textoOuNulo($l['oab_numero']),
+            'oabUf'     => self::textoOuNulo($l['oab_uf']),
+            'primario'  => (bool) $l['primario'],
+        ], $linhas);
+    }
+
+    /**
+     * Quem pode ser promovido a Master secundário (spec perfis-1.2-masters M5): vínculo ATIVO com o
+     * escritório informado (o da sessão do Master), perfil que não é de sistema (sem perfil também
+     * conta como secundário), conta ativa e ainda sem `ROLE_SUPER_ADMIN`. Recorte por escritório:
+     * nada de outro escritório entra na lista.
+     *
+     * @return list<array{id: int, nome: string, email: string, perfil: ?string, oabNumero: ?string, oabUf: ?string}>
+     */
+    public function candidatosAMaster(int $tenantId): array
+    {
+        $linhas = $this->conexao->fetchAllAssociative(
+            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf, tr.name AS perfil
+               FROM user_tenant ut
+               JOIN "user" u ON u.id = ut.user_id
+          LEFT JOIN tenant_role tr ON tr.id = ut.tenant_role_id
+              WHERE ut.tenant_id = :tenant
+                AND ut.is_active = TRUE
+                AND u.is_active = TRUE
+                AND COALESCE(tr.is_system, FALSE) = FALSE
+                AND u.roles::text NOT LIKE :papel
+           ORDER BY u.full_name, u.id',
+            ['tenant' => $tenantId, 'papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
+            ['tenant' => ParameterType::INTEGER],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'id'        => (int) $l['id'],
+            'nome'      => (string) $l['full_name'],
+            'email'     => (string) $l['email'],
+            'perfil'    => self::textoOuNulo($l['perfil']),
             'oabNumero' => self::textoOuNulo($l['oab_numero']),
             'oabUf'     => self::textoOuNulo($l['oab_uf']),
         ], $linhas);
