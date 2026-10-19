@@ -77,6 +77,12 @@
     }
 
     /* ── Regra do escritório: "Ausente após sem atividade" (dc L.306, só o primário) ─────────────────────────── */
+    var ausenciaConfirmada = ausenciaMin;   // o último valor que o servidor aceitou
+    var pedidoDeAusencia = 0;               // só a resposta da escolha mais nova decide
+    var redesenhoPendente = false;
+    function seletorDeAusenciaEmUso() {
+        return document.activeElement && document.activeElement.id === 'presencaAusencia';
+    }
     function regraDeAusencia() {
         var linha = el('div', 'presenca-regra');
         linha.appendChild(icone('bi-clock-history'));
@@ -91,23 +97,39 @@
             seletor.appendChild(op);
         });
         seletor.addEventListener('click', function (e) { e.stopPropagation(); });
-        seletor.addEventListener('change', function () { mudarAusencia(Number(seletor.value), seletor); });
+        // Esc com a lista aberta fecha só a lista: o painel continua (o keydown do documento não o vê).
+        seletor.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); } });
+        seletor.addEventListener('change', function () { mudarAusencia(Number(seletor.value)); });
+        // Enquanto o seletor está em uso o painel não se redesenha (fecharia a lista); ao sair, põe o atraso em dia.
+        seletor.addEventListener('blur', function () {
+            if (redesenhoPendente) { redesenhoPendente = false; window.setTimeout(desenharPainel, 0); }
+        });
         linha.appendChild(rotulo);
         linha.appendChild(seletor);
 
         return linha;
     }
-    function mudarAusencia(minutos, seletor) {
-        var anterior = ausenciaMin;
+    function respostaJsonDeSucesso(r) {   // sessão expirada redireciona para o login com 200: não é sucesso
+        if (!r.ok || r.redirected || (r.headers.get('Content-Type') || '').indexOf('application/json') === -1) {
+            throw new Error(String(r.status));
+        }
+
+        return r.json();
+    }
+    function mudarAusencia(minutos) {
+        var meu = ++pedidoDeAusencia;
         ausenciaMin = minutos;   // o redesenho de 4 e 20 s mantém a escolha
         fetch(urlAusencia, {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify({ minutos: minutos }),
-        }).then(function (r) { if (!r.ok) { throw new Error(String(r.status)); } })
+        }).then(respostaJsonDeSucesso)
+            .then(function (d) { ausenciaConfirmada = d && d.minutos ? d.minutos : minutos; })
             .catch(function () {
-                ausenciaMin = anterior;
-                seletor.value = String(anterior);
+                if (meu !== pedidoDeAusencia) { return; }   // uma escolha mais nova já está a caminho
+                ausenciaMin = ausenciaConfirmada;
+                var atual = document.getElementById('presencaAusencia');   // o seletor da tela, não o de antes do redesenho
+                if (atual) { atual.value = String(ausenciaConfirmada); }
                 if (window.bjAviso) { window.bjAviso('Não foi possível salvar o tempo de ausência. Tente de novo.'); }
             });
     }
@@ -275,6 +297,7 @@
     }
     function desenharPainel() {
         if (!painel) { return; }
+        if (seletorDeAusenciaEmUso()) { redesenhoPendente = true; return; }
         var focoNoSom = document.activeElement && document.activeElement.classList.contains('presenca-som');
         var lista = pessoas();
         var nOn = lista.filter(function (x) { return x.k === 'on'; }).length;

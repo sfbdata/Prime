@@ -8,7 +8,7 @@ use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\ParticipacaoAlteradaAoMesmoTempoException;
 use App\Central\Exception\PedidoInvalidoNaCentralException;
-use App\Central\Exception\AusenciaRecusada;
+use App\Central\Exception\AusenciaRecusadaException;
 use App\Central\Service\AcessoACentral;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Exception\SemPermissaoNoGrupoException;
@@ -467,8 +467,12 @@ final class CentralController extends AbstractController
             return $this->responder(fn () => [
                 'minutos' => $alterar->executar($this->usuario(), $acesso->exigirVinculoAtivo($this->usuario(), $this->tenantContext->getCurrentTenant()), $minutos),
             ]);
-        } catch (AusenciaRecusada $e) {
-            return $this->json(['erro' => $e->getMessage()], $e->semPermissao ? Response::HTTP_FORBIDDEN : Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (AusenciaRecusadaException $e) {
+            return $this->json(['erro' => $e->getMessage()], match ($e->motivo) {
+                AusenciaRecusadaException::SEM_PERMISSAO => Response::HTTP_FORBIDDEN,
+                AusenciaRecusadaException::CONCORRENTE => Response::HTTP_CONFLICT,
+                default => Response::HTTP_UNPROCESSABLE_ENTITY,
+            });
         }
     }
 

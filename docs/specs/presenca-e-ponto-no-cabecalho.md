@@ -241,7 +241,14 @@ depois da C1 da Contribua. O PR #52 (`perfis-masters`) mexe no conceito de Maste
 - `AlterarAusenciaDoEscritorioUseCase(User, Tenant, int)`: só valores das opções; só o primário (vínculo ativo, usuário
   ativo, perfil de sistema: `RegraDosPrimarios::ehPrimario`). Rota `POST /central/presenca/ausencia` (JSON
   `{minutos}`, CSRF `ajax` no header como as outras da Central), 403 para quem não é primário, 422 para valor fora da
-  lista.
+  lista, 409 se dois primários gravarem a primeira escolha do escritório no mesmo instante (a UNIQUE segura; o
+  outro venceu). Erros pela `AusenciaRecusadaException` (`motivo`).
+- A mudança vale para quem carregar a página depois: o navegador recebe o limite no `data-inativo-apos-min` e não
+  o relê a cada batimento (quem está com a página aberta segue no valor antigo até recarregar). O "sem atividade há N
+  min" do servidor já usa o novo no batimento seguinte.
+- Seletor: o painel não se redesenha enquanto o seletor está em foco (a lista aberta não fecha nem perde o foco); Esc
+  nele fecha só a lista. Sucesso só com JSON 2xx sem redirecionamento (sessão expirada não conta); na falha volta ao
+  último valor aceito, e só a resposta da escolha mais nova decide.
 - Quem usa o valor: o `central.js` (o `data-inativo-apos-min` do `_janela` passa a ser o do escritório) e o
   `ListarPresencaDoEscritorioUseCase` ("sem atividade há N min" = minutos desde o `inativo` + o limite do escritório).
 - Tela: no painel de presença, a linha do dc L.306 (ícone `bi-clock-history`, "Ausente após sem atividade" e o

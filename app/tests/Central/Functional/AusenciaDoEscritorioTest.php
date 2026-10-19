@@ -68,6 +68,7 @@ final class AusenciaDoEscritorioTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $secundario, $tenant);
         $this->post($client, '/central/presenca/ausencia', ['minutos' => 30]);
         self::assertResponseStatusCodeSame(403);
+        self::assertSame('Só o usuário primário do escritório escolhe este tempo.', $this->json($client)['erro']);
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM central_configuracao_presenca WHERE tenant_id = ?', [$tenant->getId()]));
 
         $this->logarComTenant($client, $primario, $tenant);
