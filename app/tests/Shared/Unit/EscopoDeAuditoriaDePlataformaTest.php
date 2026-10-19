@@ -52,4 +52,35 @@ final class EscopoDeAuditoriaDePlataformaTest extends TestCase
 
         self::assertFalse($escopo->estaLigado());
     }
+
+    #[TestDox('escopo de conta: liga com o id da conta alvo; o de plataforma tem conta nula')]
+    public function testEscopoDeConta(): void
+    {
+        $escopo = new EscopoDeAuditoriaDePlataforma();
+        self::assertNull($escopo->contaAlvo());
+
+        self::assertSame([true, 42], $escopo->executarComoConta(42, static fn (): array => [$escopo->estaLigado(), $escopo->contaAlvo()]));
+        self::assertSame([true, null], $escopo->executar(static fn (): array => [$escopo->estaLigado(), $escopo->contaAlvo()]));
+        self::assertFalse($escopo->estaLigado());
+        self::assertNull($escopo->contaAlvo());
+    }
+
+    #[TestDox('escopos aninhados: vale o mais interno, e o de fora volta quando o de dentro termina, também com exceção')]
+    public function testAninhadoComConta(): void
+    {
+        $escopo = new EscopoDeAuditoriaDePlataforma();
+
+        $escopo->executarComoConta(7, static function () use ($escopo): void {
+            $escopo->executar(static fn (): null => self::assertNull($escopo->contaAlvo()));
+            try {
+                $escopo->executarComoConta(9, static function (): never {
+                    throw new \RuntimeException('falhou');
+                });
+            } catch (\RuntimeException) {
+            }
+            self::assertSame(7, $escopo->contaAlvo());
+        });
+
+        self::assertFalse($escopo->estaLigado());
+    }
 }
