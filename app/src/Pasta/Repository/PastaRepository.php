@@ -133,6 +133,25 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Pasta do escritório pelo número (NUP), fora da lixeira. Usada pela Agenda ao ligar compromisso a
+     * pasta. O número é normalizado como em Pasta::setNup (sem espaços nas pontas, maiúsculas).
+     */
+    public function findDoEscritorioPorNup(string $nup, Tenant $tenant): ?Pasta
+    {
+        $nup = mb_strtoupper(trim($nup));
+
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.nup = :nup')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nup', $nup)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Pastas do escritório com o MESMO cliente e a MESMA ação — base do aviso de duplicada na
      * criação (spec fase2 §12.5/D12.5).
      *
