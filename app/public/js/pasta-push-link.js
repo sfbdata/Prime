@@ -392,8 +392,14 @@
         if ((link.estado === 'ativo' || link.estado === 'indisponivel') && link.podeRevogar) {
             topo.appendChild(botao('ppl-btn ppl-btn--perigo js-ppl-linha-revogar', 'Revogar'));
         }
-        if (link.podeRenovar) { topo.appendChild(botao('ppl-btn ppl-btn--renovar js-ppl-linha-renovar', 'Renovar 30 dias', 'bi bi-arrow-clockwise')); }
-        if (link.podeRecusar) { topo.appendChild(botao('ppl-btn ppl-btn--recusar js-ppl-linha-recusar', 'Não renovar', 'bi bi-x-lg')); }
+        // Renovar e Não renovar empilhados na mesma coluna: lado a lado, o segundo quebrava sozinho
+        // para uma linha nova (conferido na tela, 19/10).
+        if (link.podeRenovar || link.podeRecusar) {
+            var decisao = el('div', 'ppl-linha-decisao');
+            if (link.podeRenovar) { decisao.appendChild(botao('ppl-btn ppl-btn--renovar js-ppl-linha-renovar', 'Renovar 30 dias', 'bi bi-arrow-clockwise')); }
+            if (link.podeRecusar) { decisao.appendChild(botao('ppl-btn ppl-btn--recusar js-ppl-linha-recusar', 'Não renovar', 'bi bi-x-lg')); }
+            topo.appendChild(decisao);
+        }
 
         li.appendChild(topo);
         if (aberto) { li.appendChild(linhaDosAcessos(link)); }
@@ -740,6 +746,18 @@
             }
         });
     }
+
+    /* Pré-carga: o mouse ou o foco chegam na aba Push antes do botão direito, e o menu já abre com
+       os itens (o desenho não tem estado "Carregando"). Uma carga por minuto, no máximo. */
+    var preCarregadoEm = 0;
+    function preCarregar(e) {
+        if (!e.target.closest || !e.target.closest('[data-ppl-menu]')) { return; }
+        if (Date.now() - preCarregadoEm < 60000) { return; }
+        preCarregadoEm = Date.now();
+        carregar().catch(function () { preCarregadoEm = 0; });
+    }
+    document.addEventListener('pointerover', preCarregar);
+    document.addEventListener('focusin', preCarregar);
 
     /* ── Menu ⋮ da pasta ([EXP] L.1104) ── */
     document.addEventListener('click', function (e) {

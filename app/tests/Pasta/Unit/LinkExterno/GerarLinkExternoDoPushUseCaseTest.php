@@ -84,7 +84,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
     #[TestDox('Bloqueia com o texto exato do desenho')]
     public function testBloqueios(callable $pasta, string $mensagem): void
     {
-        $this->publicacoes->method('listarItensPorNumerosDoTenant')->willReturn([$this->item(1)]);
+        $this->publicacoes->method('existePorNumerosDoTenant')->willReturn(true);
         $this->links->expects(self::never())->method('salvar');
 
         $this->expectException(LinkExternoDoPushException::class);
@@ -95,7 +95,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
     #[TestDox('Sem movimentações: "Ainda não há movimentações para compartilhar."')]
     public function testSemMovimentacoes(): void
     {
-        $this->publicacoes->method('listarItensPorNumerosDoTenant')->willReturn([]);
+        $this->publicacoes->method('existePorNumerosDoTenant')->willReturn(false);
         $this->links->expects(self::never())->method('salvar');
 
         $this->expectExceptionObject(LinkExternoDoPushException::bloqueio('Ainda não há movimentações para compartilhar.'));
@@ -108,7 +108,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
         $tenant = $this->tenant();
         $pasta = $this->pastaComProcesso($tenant);
         $pasta->setNomeCliente('Maria Silva');
-        $this->publicacoes->method('listarItensPorNumerosDoTenant')->willReturn([$this->item(1)]);
+        $this->publicacoes->method('existePorNumerosDoTenant')->willReturn(true);
         $this->analises->method('listarPorAlvo')->willReturn([]);
 
         $saida = $this->useCase()->executar($pasta, $this->usuario(), true, true, false);
@@ -128,7 +128,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
     {
         $pasta = $this->pastaComProcesso($this->tenant());
         $pasta->setNomeCliente('Maria Silva');
-        $this->publicacoes->method('listarItensPorNumerosDoTenant')->willReturn([$this->item(1)]);
+        $this->publicacoes->method('existePorNumerosDoTenant')->willReturn(true);
         $this->analises->method('listarPorAlvo')->willReturn([]);
 
         $saida = $this->useCase()->executar($pasta, $this->usuario(), false, false, false);
@@ -142,7 +142,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
     public function testIncluirAnalises(): void
     {
         $tenant = $this->tenant();
-        $this->publicacoes->method('listarItensPorNumerosDoTenant')->willReturn([$this->item(1)]);
+        $this->publicacoes->method('existePorNumerosDoTenant')->willReturn(true);
         $this->analises->method('listarPorAlvo')->willReturnOnConsecutiveCalls(
             [$this->analise($tenant, interna: true), $this->analise($tenant, interna: false, concluida: false)],
             [$this->analise($tenant, interna: false)],
