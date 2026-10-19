@@ -577,12 +577,17 @@ Marcações pessoais: `TipoItemMarcado::Candidatura`.
 - **Linha do tempo** `etapas` calculada no servidor (passos, estado, datas dd/mm/aa, dias); com `nao`,
   o último passo alcançado aparece feito (lacuna 16) e entra o passo "Não selecionado".
 - **Minhas candidaturas** (l.221 a 224, 1103, 1154): lista, filtros Todas / ★ Estrela / Lixeira, lote,
-  importância (marcada 3; entrevista, aprovado ou contratado 2; senão 1), abrir marca como vista.
+  importância (marcada 3; entrevista ou aprovado 2, como l.1154; senão 1), abrir marca como vista.
 - **Compatibilidade** `compat` (l.1011): áreas 60, UF/sem UF/Remoto 25, cargo 15; selo
   "{N}% compatível" (≥70 #1e7b45, ≥40 #0a6fa0, senão #6b8494) e ordem do externo (ofertas ao vivo,
   depois compatibilidade); entra no `impV` (+2 com ≥70) e as candidaturas recebidas no `impV` do
   interno (+min(3, n)); `impC` +2 com candidaturas.
 - Excluir vaga ou currículo apaga as candidaturas (FK), como o desenho.
+- Revisão de 19/10 (corrigido): "Salvar e candidatar-se" recusado devolve `curriculoSalvo` e a tela trata
+  o currículo como salvo; ações da Central na vaga pegam a mesma trava do aceite; unit dos casos de uso.
+  Decisão registrada: a vaga já publicada e fechada responde 422 ("Inscrições encerradas") em vez de 404,
+  para quem tem o link; não mostra título nem dado. O dono da vaga baixa os arquivos do candidato
+  ENVIADO a ele (o modal `tmCv` do desenho mostra; o consentimento LGPD cobre).
 
 ### Contrato JSON (fixo)
 - `POST /trabalho-externo/api/vagas/{codigo}/candidatura` `trabalho_externo_vaga_candidatura`: candidata
