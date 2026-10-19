@@ -101,9 +101,9 @@
         var atual = linhaDe(base);
         if (envioEmAndamento || !atual || !atual.acao) { return; }
         envioEmAndamento = true;   // (1)
-        aoMudar();
         var sucesso = false;
         try {
+            aoMudar();   // mostra o item ocupado
             if (atual.acao === 'saida' && !confirmarSaida(base)) { return; }   // (2) cancelar destrava no finally
             var momentoDoToque = performance.now();                        // (3) depois da confirmação
             var payload = { tipo: atual.acao };
@@ -147,9 +147,10 @@
         } finally {
             // (9) No sucesso, a trava só sai com o estado novo desenhado: antes disso o item ainda ofereceria a
             // ação velha e um segundo clique sairia como batida repetida.
-            if (sucesso) { await atualizar(); }
+            // A trava sai mesmo se a releitura ou o redesenho falharem (senão o item ficaria ocupado até recarregar).
+            try { if (sucesso) { await atualizar(); } } catch (e) { /* a próxima releitura corrige */ }
             envioEmAndamento = false;
-            aoMudar();
+            try { aoMudar(); } catch (e) { /* idem */ }
         }
     }
 

@@ -31,7 +31,7 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
             'PB.avaliarPosicao(',
             'var conferido = await lerEstado(RELEITURA_PRAZO_MS);',
             'await PB.enviarBatida(urlBatida, payload, momentoDoToque);',
-            "if (sucesso) { await atualizar(); }\n            envioEmAndamento = false;",   // (9), não a declaração
+            "try { if (sucesso) { await atualizar(); } } catch (e) { /* a próxima releitura corrige */ }\n            envioEmAndamento = false;",   // (9), não a declaração; sai mesmo com falha
         ];
         $ultima = -1;
         foreach ($marcos as $marco) {

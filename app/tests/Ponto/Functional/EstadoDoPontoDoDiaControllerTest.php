@@ -68,4 +68,25 @@ final class EstadoDoPontoDoDiaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         self::assertSame('Sem permissão para registrar ponto.', $this->json($client)['message']);
     }
+
+    #[TestDox('Super admin sem escritório na sessão: a plataforma deixa passar e a guarda da rota responde 403, como a batida')]
+    public function testSuperAdminSemEscritorio(): void
+    {
+        $client = $this->cliente();
+        $hasher = static::getContainer()->get(\Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface::class);
+        $master = new \App\Entity\Auth\User();
+        $master->setEmail('master_ponto_' . uniqid() . '@test.com');
+        $master->setFullName('Master sem escritorio');
+        $master->setRoles(['ROLE_SUPER_ADMIN']);
+        $master->setIsActive(true);
+        $master->setPassword($hasher->hashPassword($master, 'senha123'));
+        $this->em()->persist($master);
+        $this->em()->flush();
+        $client->loginUser($master);
+        $this->marcarTermosAceitos($client);
+
+        $client->request('GET', '/ponto/estado-do-dia');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Usuário sem tenant configurado.', $this->json($client)['message']);
+    }
 }
