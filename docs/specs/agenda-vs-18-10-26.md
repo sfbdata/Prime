@@ -20,7 +20,7 @@ O protótipo guarda tudo em `localStorage`; aqui tudo vai para o servidor, por e
   Desconectar por LGPD art. 8º §5º; a mesma conta Google num escritório só (agenda pessoal não vaza).
 - "Só eu" escondido da auditoria (#81), antes do #78.
 - Acertos finais (§17): itens 1-6 e 8; o 7 removido; `.ics` fora; botão "Abrir na agenda" não entra
-  (o protótipo da Central de 05/10 descarta `acao`; conferir no de 18/10 quando o zip do dono chegar).
+  (o protótipo da Central de 05/10 descarta `acao`; o de 18/10 guarda em `ctx.acao` mas não desenha; fechado).
 
 **Contratos com outras sessões**
 - Lembretes pelo parcial `templates/layout/_globais/lembretes.html.twig` (ponto de inclusão da frente
@@ -571,9 +571,11 @@ Conferência do desenho inteiro contra as entregas #58 a #78 e #81 (98 itens). O
   agenda" (`acao` em L192) **não aparece no protótipo da Central**: `notificar()` em
   `docs/design/claude-design-2026-10-05 (1)/bluejus-central.js:123-131` monta o aviso sem o campo `acao`, e
   nenhum trecho desenha botão de ação no aviso; lá, como no sistema, o clique no aviso leva ao link. A
-  Central não muda (decisão do coordenador, 19/10/2026). **Conferir quando o zip do dono chegar:** a leitura
-  é do `bluejus-central.js` de 05/10; o de 18/10 está cortado em 256 KiB e pode desenhar o `acao`. Se
-  desenhar, o botão entra num PR pequeno, no lugar que o próprio desenho definir.
+  Central não muda (decisão do coordenador, 19/10/2026). **Conferido no zip do dono (19/10/2026), pendência fechada:** no
+  `bluejus-central.js` de 18/10 (`docs/design/redesign-19-10-26/`, 1.415 KB, completo), o
+  `BJCentral.notificar` guarda o `acao` em `ctx.acao` quando há link (L6644: `acao: e2.acao || 'Abrir'`),
+  mas nenhum trecho do protótipo lê `ctx.acao` nem desenha botão no aviso: o clique no aviso leva ao link,
+  como no sistema. O botão não entra. O 09 do zip é idêntico à cópia em `docs/design/agenda-vs-18-10-26/`.
 - **Data acrescentada:** "Incluído manualmente." (L218).
 - **Botão direito só no Mês** (célula, chip e rótulo do feriado), como no desenho; saiu das horas de
   Semana/Dia (acréscimo sem registro, removido por decisão do coordenador).
