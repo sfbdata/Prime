@@ -5,7 +5,11 @@
 .menu-usuario { position: relative; } /* âncora do selo de presença (menu_usuario/_presenca.html.twig) */
 .usuario-dropdown.mu-menu { width: min(320px, calc(100vw - 24px)); min-width: 0; max-height: calc(100vh - 80px); overflow: auto;
   padding: 0 0 6px; border: 1px solid #d3dde4; border-radius: 4px; box-shadow: 0 14px 36px rgba(15, 32, 43, .2); color: #1f3644; }
-.mu-menu .mu-topo { gap: 14px; padding: 12px 18px; background: #f5f8fa; border-bottom: 1px solid #e6edf2; }
+.mu-menu .mu-topo { position: relative; gap: 14px; padding: 12px 52px 12px 18px; background: #f5f8fa; border-bottom: 1px solid #e6edf2; }
+.mu-menu-x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border: none; border-radius: 3px; background: #e6edf2; color: #34505f; cursor: pointer; }
+.mu-menu-x:hover { background: #d3dde4; }
+/* nome em caixa alta no cabeçalho, como nos desenhos 03 e 07 */
+.navtop-username { text-transform: uppercase; }
 .mu-menu .mu-avatar-lg { width: 52px; height: 52px; background: #0a6fa0; font-size: 18px; }
 .mu-menu .usuario-name { font-size: 15px; font-weight: 700; line-height: 1.25; color: #12242f; }
 .mu-menu .usuario-email { font-size: 12.5px; color: #5b7383; }
@@ -20,13 +24,13 @@
 .mu-grupo-rotulo { display: flex; align-items: center; gap: 7px; padding: 6px 18px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; color: #9a6a00; }
 
 .mu-menu .mu-item { width: 100%; display: flex; align-items: center; gap: 12px; border: none; background: transparent;
-  padding: 6px 18px; font-size: 14px; color: #1f3644; text-align: left; cursor: pointer; transition: background .12s, color .12s; }
+  padding: 6px 18px; font-size: 14px; line-height: 1.3; color: #1f3644; text-align: left; cursor: pointer; transition: background .12s, color .12s; }
 .mu-menu .mu-item:hover, .mu-menu .mu-item:focus-visible { background: #e6f2fa; color: #0b4f75; }
 .mu-menu .mu-item > .bi { width: 18px; font-size: 16px; flex: none; }
 .mu-menu .mu-item.text-danger { color: #c0392b !important; }
 .mu-item-texto { flex: 1; min-width: 0; }
-.mu-item-titulo { display: block; }
-.mu-item-sub { display: block; font-size: 11.5px; color: #7a8e9b; }
+.mu-item-titulo { display: block; line-height: 1.3; }
+.mu-item-sub { display: block; font-size: 11.5px; line-height: 1.2; color: #7a8e9b; }
 .mu-item-dir { font-size: 11.5px; color: #7b93a2; white-space: nowrap; }
 
 /* chave liga/desliga do tema escuro */
@@ -115,6 +119,9 @@
 .mu-aba-perfil[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
 .mu-master-menu { width: 290px; padding: 6px 0; border: none; border-radius: 0 0 4px 4px; background: #0b5f86; box-shadow: 0 14px 34px rgba(18, 36, 47, .3); }
 .mu-master-menu .mu-grupo-rotulo { color: #ffd770; padding: 6px 14px 8px; }
+.mu-menu-x-escuro { top: 6px; right: 8px; width: 26px; height: 26px; background: rgba(255, 255, 255, .15); color: #fff; }
+.mu-menu-x-escuro:hover { background: rgba(255, 255, 255, .28); }
+.mu-master-menu { position: relative; }
 .mu-master-menu .mu-item { width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 14px; border: none; background: transparent;
   color: #fff; text-align: left; text-decoration: none; cursor: pointer; }
 .mu-master-menu .mu-item:hover { background: rgba(255, 255, 255, .14); color: #fff; }
@@ -135,6 +142,7 @@ html[data-bs-theme="dark"] .mu-idioma { background: var(--bs-body-bg); color: va
 html[data-bs-theme="dark"] .mu-conta.atual,
 html[data-bs-theme="dark"] .mu-idioma.atual { background: var(--bs-secondary-bg); border-color: #3aa0d8; }
 html[data-bs-theme="dark"] .mu-texto { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mu-menu .mu-menu-x { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
 html[data-bs-theme="dark"] .mu-abas { border-color: var(--bs-border-color); }
 
 @media (prefers-reduced-motion: reduce) { .mu-aviso { animation: none; } }

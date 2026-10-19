@@ -63,6 +63,13 @@
   document.addEventListener('click', e => {
     const t = e.target;
     if (t.closest('#toggleTema')) { e.preventDefault(); return alternarTema(); }
+    const x = t.closest('[data-mu-fechar-menu]');
+    if (x) {
+      e.preventDefault();
+      const tg = x.closest('.dropdown') && x.closest('.dropdown').querySelector('[data-bs-toggle="dropdown"]');
+      const d = tg && window.bootstrap && bootstrap.Dropdown.getInstance(tg);
+      return d ? d.hide() : fecharMenu();
+    }
     const conta = t.closest('[data-mu-conta]');
     if (conta) { e.preventDefault(); fecharMenu(); return abrirConta(conta.dataset.muConta); }
     const aba = t.closest('[data-mu-aba]');
