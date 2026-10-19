@@ -270,9 +270,30 @@ adaptadores segue o gateway em que o dono abrir conta primeiro (só ordem e cred
 teste de ponta a ponta no sandbox), depois C3b Mercado Pago, C3c Stripe e C3d Pagar.me, pela mesma
 interface. Mais um **adaptador falso** para os testes, que já entra na C3.
 
+**Asaas pelo caminho hospedado (coordenação, 19/10):** o cartão nunca passa pelo BlueJus. A tokenização do
+Asaas é chamada pelo servidor com a chave secreta (docs.asaas.com/reference/tokenizacao-de-cartao-de-credito),
+então o formulário de cartão do desenho fica para os adaptadores que tokenizam no navegador (Stripe,
+Mercado Pago, Pagar.me). No Asaas:
+- um **cliente Asaas por escritório** (`POST /v3/customers`, CPF/CNPJ e e-mail do pagador,
+  `externalReference` = `BJ<conta>`);
+- a cada "Quero +N GB", um **Asaas Checkout recorrente** (`POST /v3/checkouts`: `billingTypes`
+  CREDIT_CARD, `chargeTypes` RECURRENT, `subscription.cycle` MONTHLY, `customer` = o do escritório,
+  `callback.successUrl` = a página de retorno). Fontes: docs.asaas.com/docs/introdu%C3%A7%C3%A3o-1 e
+  docs.asaas.com/docs/checkout-com-assinatura-recorrente;
+- o vínculo com o escritório vem do `customer` do `SUBSCRIPTION_CREATED`, porque o `externalReference` do
+  link fixo não é documentado como copiado para a assinatura (no exemplo oficial vem `null`:
+  docs.asaas.com/docs/eventos-para-assinaturas). Por isso o link fixo colado pelo Master não serve ao Asaas.
+  Tirar o campo "Link do pacote" da tela do Master quando o gateway é o Asaas é desvio do desenho, levado ao
+  dono, e fica por último;
+- webhook com o token no header `asaas-access-token`, entrega "at least once" (idempotência pelo `id` do
+  evento), e o aviso nunca muda nada sozinho: o servidor reconsulta a assinatura.
+
 **Nota fiscal mensal** (garantia do desenho):
-- Asaas: NFS-e automática da assinatura (`POST /v3/subscriptions/{id}/invoiceSettings`; webhooks
-  `INVOICE_AUTHORIZED` e `INVOICE_ERROR`). O e-mail da nota é o do pagador.
+- Asaas: NFS-e automática da assinatura (`POST /v3/subscriptions/{id}/invoiceSettings`, aplicada ao
+  receber o `SUBSCRIPTION_CREATED`; webhooks `INVOICE_AUTHORIZED` e `INVOICE_ERROR`). A documentação aceita
+  "uma assinatura existente pelo id", mas **não diz se a assinatura criada por checkout é elegível**: só o
+  sandbox confirma (credenciais e configuração fiscal da conta são do dono; passo a passo em
+  `docs/runbooks/contribua-asaas-passo-a-passo.md`). O e-mail da nota é o do pagador.
 - Mercado Pago, Stripe e Pagar.me não emitem NFS-e brasileira pela assinatura: **pendência de cada
   adaptador** (emissor próprio ou serviço de NFS-e), resolvida antes de ligar o gateway em produção.
 
