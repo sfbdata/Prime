@@ -84,28 +84,32 @@ final class MarcacoesTest extends TestCase
         self::assertFalse($mm->isFavorita());
     }
 
-    #[TestDox('só mensagem normal ou nota interna se apaga para todos, e uma vez só')]
+    #[TestDox('apagar para todos: qualquer tipo menos o registro do sistema, uma vez só, guardando quem apagou')]
     public function testApagarParaTodos(): void
     {
-        $normal = $this->mensagem(TipoMensagem::Normal);
-        $normal->apagar(new \DateTimeImmutable());
-        self::assertTrue($normal->foiApagada());
-        self::assertFalse($normal->podeSerApagada());
+        $andamento = $this->mensagem(TipoMensagem::Andamento);
+        $andamento->apagar(Apoio::autor(Perfil::Master), new \DateTimeImmutable());
+        self::assertTrue($andamento->foiApagada());
+        self::assertSame('Fulano', $andamento->getApagadaPor());
+        self::assertSame(Perfil::Master, $andamento->getApagadaPorPerfil());
+        self::assertFalse($andamento->podeSerApagada());
 
         $this->expectException(\DomainException::class);
-        $this->mensagem(TipoMensagem::Sistema)->apagar(new \DateTimeImmutable());
+        $this->mensagem(TipoMensagem::Sistema)->apagar(Apoio::autor(), new \DateTimeImmutable());
     }
 
-    #[TestDox('apagar para todos: o autor apaga a própria; o Master apaga qualquer uma; outro perfil não; na prévia ninguém')]
+    #[TestDox('quem apaga para todos: o Master sempre; o autor só até 60 min; outro perfil não; na prévia ninguém')]
     public function testQuemApagaParaTodos(): void
     {
         $politica = new PoliticaDaDemanda();
         $autor = Apoio::usuario(50);
         $mensagem = $this->mensagem(TipoMensagem::Normal);
+        $agora = new \DateTimeImmutable();
 
-        self::assertTrue($politica->podeApagarMensagem(Apoio::contexto(Perfil::Solicitante, usuario: $autor), $mensagem));
-        self::assertTrue($politica->podeApagarMensagem(Apoio::contexto(Perfil::Master), $mensagem));
-        self::assertFalse($politica->podeApagarMensagem(Apoio::contexto(Perfil::Equipe), $mensagem));
+        self::assertTrue($politica->podeApagarMensagem(Apoio::contexto(Perfil::Solicitante, usuario: $autor), $mensagem, $agora->modify('+59 minutes')));
+        self::assertFalse($politica->podeApagarMensagem(Apoio::contexto(Perfil::Solicitante, usuario: $autor), $mensagem, $agora->modify('+61 minutes')), 'prazo de 60 min encerrado');
+        self::assertTrue($politica->podeApagarMensagem(Apoio::contexto(Perfil::Master), $mensagem, $agora->modify('+5 days')));
+        self::assertFalse($politica->podeApagarMensagem(Apoio::contexto(Perfil::Equipe), $mensagem, $agora));
         $ctx = Apoio::contexto(Perfil::Master);
         $previa = new Contexto($ctx->usuario, $ctx->tenant, Perfil::Master, $ctx->configuracao, previa: true);
         self::assertFalse($politica->podeApagarMensagem($previa, $mensagem));

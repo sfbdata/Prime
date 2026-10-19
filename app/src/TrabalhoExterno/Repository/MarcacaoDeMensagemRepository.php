@@ -7,6 +7,7 @@ namespace App\TrabalhoExterno\Repository;
 use App\Entity\Auth\User;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
+use App\TrabalhoExterno\Entity\MensagemDemanda;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -45,5 +46,18 @@ class MarcacaoDeMensagemRepository extends ServiceEntityRepository
         }
 
         return $mapa;
+    }
+
+    /** Mensagem apagada para todos deixa de ser favorita de todos (desenho l.1236, `x.fav = {}`). */
+    public function tirarDasFavoritas(MensagemDemanda $mensagem): void
+    {
+        $this->createQueryBuilder('mm')
+            ->update()
+            ->set('mm.favorita', ':nao')
+            ->andWhere('mm.mensagem = :mensagem')
+            ->setParameter('nao', false)
+            ->setParameter('mensagem', $mensagem)
+            ->getQuery()
+            ->execute();
     }
 }

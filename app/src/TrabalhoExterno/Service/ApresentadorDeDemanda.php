@@ -317,7 +317,16 @@ final class ApresentadorDeDemanda
                 default => '#5b3f9e',
             },
             'apagada' => $m->foiApagada(),
-            'podeApagar' => $this->politica->podeApagarMensagem($ctx, $m),
+            // "Mensagem apagada por X em dd/mm hh:mm" (desenho l.1240), com o nome no recorte de quem lê.
+            'apagadaTxt' => $m->foiApagada()
+                ? 'Mensagem apagada por ' . $this->politica->nomeVisivel($ctx, (string) $m->getApagadaPor(), $m->getApagadaPorPerfil() ?? Perfil::Master) . ' em ' . $this->dataHora($m->getApagadaEm())
+                : '',
+            'podeApagar' => $this->politica->podeApagarMensagem($ctx, $m, $agora),
+            // Dica e item travado do menu da mensagem (desenho l.1239).
+            'apagarDica' => $ctx->perfil === Perfil::Master && !$meu ? 'Apagar para todos (Master)' : 'Apagar para todos · até 60 min após o envio',
+            'apagarBloqueado' => $m->foiApagada() || $tipo === TipoMensagem::Sistema || $this->politica->podeApagarMensagem($ctx, $m, $agora)
+                ? ''
+                : ($meu ? 'Apagar (prazo de 60 min encerrado)' : 'Só o autor ou o Master apagam'),
             'favorita' => $marca?->isFavorita() ?? false,
             'lixeira' => $marca?->naLixeira($agora) ?? false,
         ];
