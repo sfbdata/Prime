@@ -143,6 +143,9 @@ final class ColaboradoresAtribuiveisNosSeletoresTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $this->client->request('PATCH', '/pasta/' . $this->pasta->getId() . '/responsavel', ['_token' => $token, 'responsavel_id' => $this->bruna->getId()]);
         self::assertResponseStatusCodeSame(404);
+
+        $this->em->clear();
+        self::assertSame($this->carla->getId(), $this->em->find(Pasta::class, $this->pasta->getId())?->getResponsavel()?->getId());
     }
 
     /** @param list<string> $nomes */

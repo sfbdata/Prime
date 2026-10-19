@@ -27,7 +27,7 @@ contratos, PRs e a fila de migrations). Este PR não tem migration e entra depoi
 | Meta (detalhe, responsáveis) | `doEscritorio` com os responsáveis | `resolverVarios` com os atuais | oferecia todo mundo do escritório, inclusive suspensos |
 | Meta nova pela pasta | (lista da pasta) | `resolverVarios` sem atuais | aceitava um suspenso enviado pelo navegador |
 | Kanban (criar mural, editar mural) | `doEscritorio` (com criador e participantes ao editar) | `resolverVarios` (com os participantes atuais ao editar) | oferecia e aceitava suspensos |
-| Kanban (responsáveis do cartão) | (participantes do mural) | `resolverVarios` com os responsáveis atuais | aceitava suspensos |
+| Kanban (responsáveis do cartão) | participantes do mural filtrados por `doEscritorio` com os responsáveis atuais (`CardDetalheOutput`) | `resolverVarios` com os responsáveis atuais | oferecia e aceitava suspensos |
 
 Fora deste PR:
 - O formulário de Evento da Agenda é da frente 4b.
@@ -37,3 +37,5 @@ Fora deste PR:
 - O campo `responsavel` do `ChamadoType` só existe com `is_admin`, e nenhuma tela usa essa opção (a atribuição é pelo
   formulário próprio do show).
 - Listas só de leitura (Dashboard, Central, menções, filtros) já mostram só os ativos.
+- Participar de um mural não é atribuição: a participante suspensa continua no mural (é o histórico), só não é
+  oferecida como responsável de cartão.
