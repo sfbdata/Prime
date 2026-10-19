@@ -42,7 +42,10 @@
         salvar: raiz.dataset.urlSalvar,
         excluir: raiz.dataset.urlExcluir,
         avisar: raiz.dataset.urlAvisar,
+        mover: raiz.dataset.urlMover,
+        status: raiz.dataset.urlStatus,
         pasta: raiz.dataset.urlPasta,
+        lista: raiz.dataset.urlLista,
     };
     const lerJson = (texto, padrao) => { try { return JSON.parse(texto || ''); } catch (e) { return padrao; } };
     const eu = lerJson(raiz.dataset.eu, {});
@@ -183,7 +186,7 @@
             dia: c.dia || !c.h1, h1: c.h1, h2: c.h2, obs: c.observacao || '', meu: c.meu, dono: c.donoNome,
             privado: c.privado, status: c.status, eventoId: c.eventoId, pastaId: c.pastaId, pasta: c.pastaNup, nome: c.donoNome,
             tipo: c.tipo, lembreteMinutos: c.lembreteMinutos, avisados: c.avisados, participantes: c.participantes, repetir: c.repetir,
-            repetirAte: c.repetirAte, editavel: c.editavel, inicioOriginal: c.inicioOriginal, fimOriginal: c.fimOriginal,
+            repetirAte: c.repetirAte, editavel: c.editavel, inicioOriginal: c.inicioOriginal, fimOriginal: c.fimOriginal, recorrente: c.recorrente,
         }));
 
         return L.sort((a, b) => (a.d + (a.dia ? '' : a.h1)).localeCompare(b.d + (b.dia ? '' : b.h1)));
@@ -204,9 +207,13 @@
     const tituloNaTela = e => (e.privado ? '🔒 ' : '') + (s.escopo === 'equipe' && e.src === 'meus' && !e.meu && e.dono ? String(e.dono).split(' ')[0] + ': ' : '') + e.t;
     const corDe = e => CAL[e.cal] || CAL.meus;
 
+    const movivel = e => e.src === 'meus' && e.editavel && e.eventoId && !e.repetir && !e.recorrente;
+    const arrastar = e => (movivel(e) ? ' draggable="true" data-arrastar="' + esc(e.id) + '"' : '');
+    const situacao = e => (e.status === 'cancelado' ? ' is-cancelado' : e.status === 'concluido' ? ' is-concluido' : '');
+
     function chip(e, semHora) {
         const c = corDe(e);
-        return '<div class="ag-chip' + (e.status === 'cancelado' ? ' is-cancelado' : '') + '" data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '"'
+        return '<div class="ag-chip' + situacao(e) + '"' + arrastar(e) + ' data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '"'
             + ' style="border-left-color:' + c[1] + ';background:' + c[2] + ';">'
             + (semHora ? '' : '<b>' + esc(horaDe(e)) + '</b>') + '<span>' + esc(tituloNaTela(e)) + '</span></div>';
     }
@@ -359,7 +366,7 @@
             const t0 = a * 60 + b;
             const t1 = e.h2 ? (([c, x]) => c * 60 + x)(e.h2.split(':').map(Number)) : t0 + 60;
             const c = corDe(e);
-            return '<div class="ag-bloco" data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t) + '" style="top:' + Math.max(0, (t0 - H0 * 60) * 48 / 60) + 'px;height:' + Math.max(22, (t1 - t0) * 48 / 60 - 2) + 'px;border-left-color:' + c[1] + ';background:' + c[2] + ';">'
+            return '<div class="ag-bloco' + situacao(e) + '"' + arrastar(e) + ' data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t) + '" style="top:' + Math.max(0, (t0 - H0 * 60) * 48 / 60) + 'px;height:' + Math.max(22, (t1 - t0) * 48 / 60 - 2) + 'px;border-left-color:' + c[1] + ';background:' + c[2] + ';">'
                 + '<b>' + esc(horaDe(e)) + '</b>' + esc(tituloNaTela(e)) + '</div>';
         }).join('');
         const agora = new Date();
@@ -372,13 +379,14 @@
         const hk = iso(hoje0());
         const lim = iso(soma(hoje0(), 60));
         const dias = Object.keys(por).filter(k => k >= hk && k <= lim).sort();
-        if (!dias.length) { return '<div class="ag-lista-vazia">Nenhum compromisso nos próximos 60 dias.</div>'; }
+        const completa = url.lista ? '<div class="ag-lista-completa"><a href="' + esc(url.lista) + '"><i class="bi bi-list-ul"></i>Lista completa, com eventos passados e filtros</a></div>' : '';
+        if (!dias.length) { return '<div class="ag-lista-vazia">Nenhum compromisso nos próximos 60 dias.</div>' + completa; }
         return dias.map(k => {
             const d = dataDe(k);
             return '<div class="ag-lista-dia"><div class="ag-lista-data"><b>' + d.getDate() + ' ' + MES[d.getMonth()].slice(0, 3) + '</b><span>' + SEM[d.getDay()] + '</span></div><div>'
                 + por[k].map(e => '<div class="ag-lista-item" data-ev="' + esc(e.id) + '"><span class="ag-lista-cor" style="background:' + corDe(e)[1] + ';"></span><b class="ag-lista-hora">' + esc(horaDe(e)) + '</b><span class="ag-lista-tit">' + esc(tituloNaTela(e)) + '</span><span class="ag-lista-cal">' + esc(corDe(e)[0]) + '</span></div>').join('')
                 + '</div></div>';
-        }).join('');
+        }).join('') + completa;
     }
 
     function desenharProximosFeriados() {
@@ -441,7 +449,10 @@
     }
 
     function abrir(e) {
-        const quando = dataDe(e.d).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) + (e.dia || !e.h1 ? ' · dia inteiro' : ' · ' + e.h1 + (e.h2 ? ' às ' + e.h2 : ''));
+        const fimOutroDia = e.fimOriginal && e.inicioOriginal && e.fimOriginal.slice(0, 10) !== e.inicioOriginal.slice(0, 10) ? e.fimOriginal : '';
+        const ate = fimOutroDia ? ' até ' + brData(fimOutroDia.slice(0, 10)) + (e.dia ? '' : ' às ' + fimOutroDia.slice(11, 16)) : '';
+        const quando = dataDe(e.d).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+            + (e.dia || !e.h1 ? ' · dia inteiro' + ate : ' · ' + e.h1 + (ate || (e.h2 ? ' às ' + e.h2 : '')));
         const linhas = [
             '<b>' + esc(e.t) + '</b>',
             '<span><i class="bi bi-clock"></i>' + esc(quando) + '</span>',
@@ -449,6 +460,8 @@
         ];
         if (e.src === 'meus' && !e.meu && e.dono) { linhas.push('<span><i class="bi bi-person"></i>Agenda de ' + esc(e.dono) + '</span>'); }
         if (e.src === 'meus') { linhas.push('<span><i class="bi bi-eye"></i>' + (e.privado ? 'Só você vê' : 'Visível para a equipe do escritório') + '</span>'); }
+        if (e.repetir || e.recorrente) { linhas.push('<span><i class="bi bi-arrow-repeat"></i>Repete: ' + esc(({ diario: 'todo dia', semanal: 'toda semana', mensal: 'todo mês', anual: 'todo ano' })[e.repetir] || 'sim') + (e.repetirAte ? ' até ' + esc(brData(e.repetirAte)) : '') + '</span>'); }
+        if (e.status === 'concluido' || e.status === 'cancelado') { linhas.push('<span class="ag-modal-situacao is-' + e.status + '"><i class="bi ' + (e.status === 'concluido' ? 'bi-check2-circle' : 'bi-x-circle') + '"></i>' + (e.status === 'concluido' ? 'Concluído' : 'Cancelado') + '</span>'); }
         if (e.pastaId) { linhas.push('<a href="' + esc(comId(url.pasta, e.pastaId)) + '"><i class="bi bi-folder2-open"></i>Abrir a Pasta ' + esc(e.pasta || '') + '</a>'); }
         if (e.obs) { linhas.push('<span class="ag-modal-obs">' + esc(e.obs) + '</span>'); }
         if ((e.avisados || []).length) { linhas.push('<span class="ag-modal-avisados"><i class="bi bi-chat-dots"></i>Avisados no Chat: ' + esc(nomesAvisados(e.avisados)) + '</span>'); }
@@ -468,7 +481,10 @@
         const det = (acao, rotulo, ic, classe) => '<button type="button" class="ag-mbtn' + classe + '" data-det="' + acao + '" data-ev="' + esc(e.id) + '"><i class="bi ' + ic + '"></i>' + rotulo + '</button>';
         const avisarBtn = e.eventoId && !e.privado ? det('avisar', 'Avisar no Chat', 'bi-chat-dots', '') : '';
         if (e.src === 'meus' && e.editavel && e.eventoId) {
-            return google + avisarBtn + det('excluir', 'Excluir', 'bi-trash3', ' is-perigo') + det('editar', 'Editar', 'bi-pencil', ' is-pri is-fim');
+            const sit = (e.status === 'agendado' || !e.status ? det('concluir', 'Concluir', 'bi-check2-circle', '') : '')
+                + (e.status !== 'cancelado' ? det('cancelar', 'Cancelar compromisso', 'bi-x-circle', '') : '')
+                + (e.status && e.status !== 'agendado' ? det('reabrir', 'Reabrir', 'bi-arrow-counterclockwise', '') : '');
+            return google + avisarBtn + sit + det('excluir', 'Excluir', 'bi-trash3', ' is-perigo') + det('editar', 'Editar', 'bi-pencil', ' is-pri is-fim');
         }
 
         return google + avisarBtn + fechar;
@@ -713,6 +729,74 @@
         } catch (x) { avisar(x.message); }
     }
 
+    async function mudarSituacao(e, status) {
+        const serie = e.repetir || e.recorrente ? ' Vale para todas as repetições.' : '';
+        const temParticipantes = (e.participantes || []).some(id => id !== eu.id);
+        const pergunta = { concluido: 'Concluir este compromisso?', agendado: 'Reabrir este compromisso?', cancelado: 'Cancelar este compromisso?' + (temParticipantes ? ' Os participantes serão avisados.' : '') }[status];
+        if ((serie || status === 'cancelado') && !confirm(pergunta + serie)) { return; }
+        try {
+            await postar(comId(url.status, e.eventoId), { status });
+            fecharModal();
+            recarregarEm(s.ref);
+            avisar({ concluido: 'Compromisso concluído.', cancelado: 'Compromisso cancelado.', agendado: 'Compromisso reaberto.' }[status]);
+        } catch (x) { avisar(x.message); }
+    }
+
+    /* Arrastar e soltar: no Mês troca o dia; na Semana e no Dia, o dia e a hora. A duração fica. */
+    let arrastado = null;
+    raiz.addEventListener('dragstart', ev => {
+        const el = ev.target.closest('[data-arrastar]');
+        if (!el) { return; }
+        arrastado = el.dataset.arrastar;
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', arrastado);
+        el.classList.add('is-arrastando');
+    });
+    raiz.addEventListener('dragend', ev => {
+        const el = ev.target.closest('[data-arrastar]');
+        if (el) { el.classList.remove('is-arrastando'); }
+        raiz.querySelectorAll('.is-alvo').forEach(x => x.classList.remove('is-alvo'));
+        arrastado = null;
+    });
+    /* Onde caiu: célula do Mês, ou a coluna da Semana/Dia (hora pela altura, de meia em meia hora). */
+    function destinoDoSoltar(ev) {
+        const cel = ev.target.closest('.ag-cel');
+        if (cel) { return { el: cel, dia: cel.dataset.dia, hora: '' }; }
+        const col = ev.target.closest('.ag-grade-col');
+        const slot0 = col && col.querySelector('.ag-slot');
+        if (!slot0) { return null; }
+        const meias = Math.max(0, Math.min((H1 - H0) * 2 - 1, Math.floor((ev.clientY - col.getBoundingClientRect().top) / 24)));
+        const hora = String(H0 + Math.floor(meias / 2)).padStart(2, '0') + ':' + (meias % 2 ? '30' : '00');
+        return { el: col.querySelectorAll('.ag-slot')[Math.floor(meias / 2)], dia: slot0.dataset.dia, hora };
+    }
+
+    raiz.addEventListener('dragover', ev => {
+        const destino = arrastado && destinoDoSoltar(ev);
+        const alvo = destino && destino.el;
+        if (!alvo) { return; }
+        ev.preventDefault();
+        raiz.querySelectorAll('.is-alvo').forEach(x => { if (x !== alvo) { x.classList.remove('is-alvo'); } });
+        alvo.classList.add('is-alvo');
+    });
+    raiz.addEventListener('drop', async ev => {
+        const destino = arrastado && destinoDoSoltar(ev);
+        if (!destino) { return; }
+        ev.preventDefault();
+        const e = acharItem(arrastado);
+        arrastado = null;
+        raiz.querySelectorAll('.is-alvo').forEach(x => x.classList.remove('is-alvo'));
+        if (!e) { return; }
+        // Desloca o compromisso pela diferença entre o dia arrastado e o de destino (o 3º dia de um
+        // compromisso de vários dias, solto no dia 10, leva o início para o dia 8, como no calendário antigo).
+        const inicio = (e.inicioOriginal || e.d).slice(0, 10);
+        const novoInicio = iso(soma(dataDe(inicio), Math.round((dataDe(destino.dia) - dataDe(e.d)) / 864e5)));
+        try {
+            await postar(comId(url.mover, e.eventoId), { data: novoInicio, hora: destino.hora });
+            recarregarEm(s.ref);
+            avisar('Compromisso movido para ' + brData(novoInicio) + (destino.hora && !e.dia ? ' às ' + destino.hora : '') + '.');
+        } catch (x) { avisar(x.message); }
+    });
+
     function recarregarEm(ref) {
         s.itens = new Map();
         s.cobertoItens = [];
@@ -766,7 +850,7 @@
         if ((a = t.closest('[data-perg]'))) { responderPergunta(a.dataset.perg); return true; }
         if ((a = t.closest('[data-av-p]'))) { const id = Number(a.dataset.avP); escolhaAviso = escolhaAviso.includes(id) ? escolhaAviso.filter(x => x !== id) : escolhaAviso.concat(id); const e = acharItem(a.dataset.ev); if (e) { desenharEscolhaAviso(e); } return true; }
         if ((a = t.closest('[data-av-ok]'))) { const e = acharItem(a.dataset.ev); if (e && escolhaAviso.length) { confirmarAviso(e); } return true; }
-        if ((a = t.closest('[data-det]'))) { const e = acharItem(a.dataset.ev); if (e) { ({ editar, excluir: excluirItem, avisar: avisarItem })[a.dataset.det](e); } return true; }
+        if ((a = t.closest('[data-det]'))) { const e = acharItem(a.dataset.ev); if (e) { ({ editar, excluir: excluirItem, avisar: avisarItem, concluir: x => mudarSituacao(x, 'concluido'), cancelar: x => mudarSituacao(x, 'cancelado'), reabrir: x => mudarSituacao(x, 'agendado') })[a.dataset.det](e); } return true; }
         if (t.closest('#agModal .ag-modal') && !t.closest('[data-fechar]')) { return true; }
         return false;
     }

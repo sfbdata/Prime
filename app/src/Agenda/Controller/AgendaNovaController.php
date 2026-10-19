@@ -17,8 +17,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Tela da Agenda nova (desenho 09 - Agenda - VS 18.10.26). Fica em /agenda/nova até a entrega 3
- * trazer o modal de edição; a /agenda antiga continua inteira enquanto isso.
+ * Tela da Agenda (desenho 09 - Agenda - VS 18.10.26). Desde a entrega 3b responde em /agenda
+ * (agenda_index, usada pela barra lateral, pela aba e pelo "Voltar ao Calendário" das páginas antigas);
+ * /agenda/nova continua para os links já enviados nos avisos. As páginas antigas de lista, detalhe,
+ * novo e editar seguem de pé: o Dashboard e avisos gravados no banco apontam para elas.
  */
 final class AgendaNovaController extends AbstractController
 {
@@ -32,6 +34,7 @@ final class AgendaNovaController extends AbstractController
     ) {
     }
 
+    #[Route('/agenda', name: 'agenda_index', methods: ['GET'])]
     #[Route('/agenda/nova', name: 'agenda_nova', methods: ['GET'])]
     public function tela(): Response
     {

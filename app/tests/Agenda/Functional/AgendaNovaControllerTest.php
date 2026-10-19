@@ -27,16 +27,17 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
 {
     private const PERIODO = '/agenda/compromissos?de=2030-03-01&ate=2030-03-31';
 
-    #[TestDox('A tela monta o arranjo do desenho: lateral e calendário lado a lado, próximos feriados abaixo do calendário')]
+    #[TestDox('/agenda mostra a tela nova no arranjo do desenho: lateral e calendário lado a lado, próximos feriados abaixo')]
     public function testArranjoDaTela(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $this->logarComTenant($client, $this->criarUsuario($tenant, true), $tenant);
 
-        $crawler = $client->request('GET', '/agenda/nova');
+        $crawler = $client->request('GET', '/agenda');
 
         self::assertResponseIsSuccessful();
+        self::assertSame('agenda_index', $client->getRequest()->attributes->get('_route'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-topo > h1.ag-titulo'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-topo > .ag-resumo'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-corpo > .ag-lado'));
@@ -181,6 +182,8 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         $client->request('GET', self::PERIODO);
         self::assertResponseStatusCodeSame(403);
         $client->request('GET', '/agenda/nova');
+        self::assertResponseRedirects();
+        $client->request('GET', '/agenda');
         self::assertResponseRedirects();
     }
 

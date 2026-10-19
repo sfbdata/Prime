@@ -294,3 +294,52 @@ Diferenças conscientes: REPETIR/ATÉ e PARTICIPANTES no modal (agenda antiga, D
 "MENCIONAR · NOTIFICA NO CHAT I.A" com cargo e presença do protótipo vem do `bluejus-central.js`
 (componente global do desenho), não da Agenda: aqui vale a lista da própria Agenda (iniciais e nome);
 o aviso de lembrete "Você será lembrado com aviso e som" volta na entrega 5, com os lembretes.
+
+## 12. Entrega 3b: troca da /agenda e conferência da agenda antiga
+
+`/agenda` (rota `agenda_index`, usada pela barra lateral, pela aba e pelo "Voltar ao Calendário" das
+páginas antigas) passa a mostrar a tela nova; `/agenda/nova` continua para os links já enviados. Sai só
+o calendário FullCalendar (`AgendaController::index` e `templates/agenda/index.html.twig`). As demais
+rotas antigas ficam de pé. Novos: arrastar e soltar (`POST /agenda/compromissos/{id}/mover`) e
+Concluir, Cancelar compromisso e Reabrir (`POST /agenda/compromissos/{id}/status`; cancelar avisa os
+participantes com "O evento foi cancelado: <título>", como antes, cortado em 255 caracteres). Em
+compromisso que se repete, situação vale para a série, e a confirmação diz isso.
+
+Conferência item a item do inventário da agenda antiga (36 itens). Legenda: **Mantido** (a tela nova
+faz) · **De pé** (a página ou rota antiga continua) · **Substituído pelo desenho** (o 09 mostra outra
+coisa no mesmo lugar; decisão do coordenador em 19/10/2026).
+
+| # | Agenda antiga | Situação |
+|---|---|---|
+| 1 | Acesso com o módulo `agenda`; sem ele, aviso e volta ao início | Mantido (mesma mensagem e redirect) |
+| 2 | Cabeçalho "Agenda", "Ver Lista", "Novo Evento" | Mantido: título e "Novo compromisso" do desenho; "Ver Lista" vira o link "Lista completa, com eventos passados e filtros" no fim da visão LISTA, que leva à Lista antiga (De pé) |
+| 3 | Calendário mês, semana, dia, "Hoje", setas, "+N" | Mantido (grade do desenho, com Lista) |
+| 4 | Eventos e ocorrências de recorrentes; cancelado riscado | Mantido (cancelado riscado, concluído esmaecido) |
+| 5 | Regra de visibilidade | Mantido (`restringirAoVisivelPara`, a mesma) |
+| 6 | Modal de detalhes (título, descrição, início, fim, local, situação, criador, selo Recorrente) | Mantido no detalhe do desenho (local e descrição num campo; fim em outro dia; "Repete: ..."; situação quando concluído ou cancelado) |
+| 7 | Criar pelo clique na data | Mantido (e corrigido: a data clicada não se perde mais) |
+| 8 | Criar pelo modal (AJAX) | Mantido pelo modal do desenho; `/agenda/criar-ajax` De pé |
+| 9 | Campos: título, cor, descrição, início, duração, local, situação, dia inteiro, visibilidade, participantes, recorrência | Mantido: tipo no lugar da cor (desenho), fim no lugar da duração, local e descrição num campo; situação pelos botões do detalhe |
+| 10 | Página `/agenda/novo` | De pé |
+| 11 | Campos do formulário da página | De pé |
+| 12 | Editar (página) com a regra criador ou admin | Mantido no modal; `/agenda/{id}/editar` De pé |
+| 13 | Concluir (pelo campo situação) | Mantido: botão "Concluir" no detalhe (e "Reabrir") |
+| 14 | Cancelar e avisar os participantes | Mantido: "Cancelar compromisso" avisa como antes |
+| 15 | Excluir | Mantido no detalhe; rota antiga De pé |
+| 16 | Arrastar e soltar | Mantido: Mês troca o dia; Semana e Dia, dia e hora de meia em meia hora (como o FullCalendar), inclusive soltando sobre outro compromisso; arrastar um dia do meio de compromisso de vários dias desloca pela diferença; duração em segundos |
+| 17 | Redimensionar | Mantido pelo campo Fim do modal (sem arrastar a borda) |
+| 18 | Série não se arrasta | Mantido (agora também no servidor) |
+| 19 | Recorrência | Mantido (Repetir e Até no modal) |
+| 20 | Participantes e aviso ao criar | Mantido (aviso também aos participantes novos ao editar) |
+| 21 | Visibilidade "Somente para mim" | Mantido ("Só eu") |
+| 22 | Ver legendas de cor na lateral | Substituído pelo desenho (calendários com cor fixa) |
+| 23 | Editar legendas | Substituído pelo desenho; a cor dos eventos antigos fica, inclusive ao editar |
+| 24 | Salvar legendas | Substituído pelo desenho; `/agenda/legendas` De pé no servidor, sem tela |
+| 25-29 | Página Lista, filtros de situação, responsável e período, colunas e ações | De pé (o Dashboard aponta para ela; testes DASH-009 e SEC-016 seguem verdes) |
+| 30 | Página de detalhe `/agenda/{id}` | De pé (avisos antigos gravados no banco apontam para ela) |
+| 31 | Item Agenda na barra lateral | Mantido (`agenda_index`, agora a tela nova) |
+| 32 | Aba Agenda | Mantido |
+| 33 | Link do Dashboard para a Lista | De pé |
+| 34 | Avisos com link para o detalhe | De pé (novos avisos apontam para `/agenda#ev=...`) |
+| 35 | Outras referências às rotas antigas | Nenhuma quebrada. `agenda_criar_ajax` e `agenda_atualizar_datas` ficam sem chamador na tela (só o calendário antigo as usava), mas continuam no servidor, protegidas como antes: nada é removido nesta entrega |
+| 36 | Testes da agenda antiga | Verdes (nenhum dependia do calendário FullCalendar) |
