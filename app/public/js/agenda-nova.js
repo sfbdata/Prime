@@ -51,6 +51,8 @@
         ocultar: raiz.dataset.urlOcultar,
         restaurar: raiz.dataset.urlRestaurar,
         feriados: raiz.dataset.urlFeriados,
+        googleConectar: raiz.dataset.urlGoogleConectar,
+        googleDesconectar: raiz.dataset.urlGoogleDesconectar,
     };
     const lerJson = (texto, padrao) => { try { return JSON.parse(texto || ''); } catch (e) { return padrao; } };
     const eu = lerJson(raiz.dataset.eu, {});
@@ -926,7 +928,8 @@
         if (alvo('#agAnt')) { navegar(-1); return; }
         if (alvo('#agProx')) { navegar(1); return; }
         if ((a = alvo('[data-testar]'))) { if (window.BJLembretes) { window.BJLembretes.permitir(); window.BJLembretes.testar(a.dataset.testar); } return; }
-        if (alvo('#agGoogle')) { avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.'); }
+        if (alvo('#agGoogle')) { googleSincronizar(); return; }
+        if (alvo('#agGoogleSair')) { googleDesconectar(); }
     });
 
     raiz.addEventListener('contextmenu', ev => {
@@ -1061,6 +1064,34 @@
         abrir(e);
     }
 
+    /* Google Agenda (entrega 6). Clique como no desenho (linha 233): com o servidor liberado, vai ao
+       Google com volta=<página atual>; sem, avisa. A volta traz #google=<resultado> para o toast. */
+    const AVISOS_GOOGLE = {
+        conectado: 'Google Agenda conectado. Os compromissos já estão sendo sincronizados.',
+        cancelado: 'A conexão com o Google Agenda foi cancelada.',
+        falhou: 'Não foi possível conectar ao Google Agenda. Tente de novo.',
+        outro_escritorio: 'Esta conta Google já está ligada à Agenda de outro escritório. Para proteger sua agenda pessoal, ela fica em um escritório só: use outra conta ou desconecte no outro escritório primeiro.',
+    };
+    function googleSincronizar() {
+        const u = url.googleConectar;
+        if (u) { location.href = u + (u.includes('?') ? '&' : '?') + 'volta=' + encodeURIComponent(location.href.split('#')[0]); return; }
+        avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.');
+    }
+    async function googleDesconectar() {
+        if (!window.confirm('Desconectar o Google Agenda? Os compromissos param de sincronizar; nada é apagado.')) { return; }
+        try {
+            await postar(url.googleDesconectar, {});
+            location.reload();
+        } catch (e) { avisar(e.message); }
+    }
+    function avisoDaVoltaDoGoogle() {
+        const m = location.hash.match(/google=(conectado|cancelado|falhou|outro_escritorio)/);
+        if (!m) { return; }
+        history.replaceState(null, '', location.pathname + location.search);
+        avisar(AVISOS_GOOGLE[m[1]]);
+    }
+
     window.addEventListener('hashchange', abrirDoEndereco);
+    avisoDaVoltaDoGoogle();
     abrirDoEndereco();
 })();

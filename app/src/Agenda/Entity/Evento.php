@@ -16,6 +16,7 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EventoRepository::class)]
+#[ORM\Index(name: 'idx_evento_google_id', columns: ['google_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Evento implements Auditavel, TenantAware
 {
@@ -107,6 +108,14 @@ class Evento implements Auditavel, TenantAware
     /** @var array<mixed> ids dos colegas avisados no Chat (JSON do banco; getAvisados() normaliza) */
     #[ORM\Column(type: 'json', options: ['default' => '[]'])]
     private array $avisados = [];
+
+    /** Id do evento no Google Agenda da pessoa que criou (entrega 6); nulo se nunca foi sincronizado. */
+    #[ORM\Column(name: 'google_id', length: 1024, nullable: true)]
+    private ?string $googleId = null;
+
+    /** Resumo do que foi sincronizado com o Google por último: muda o compromisso, muda o resumo, e ele vai. */
+    #[ORM\Column(name: 'google_hash', length: 80, nullable: true)]
+    private ?string $googleHash = null;
 
     public function __construct()
     {
@@ -418,5 +427,32 @@ class Evento implements Auditavel, TenantAware
         $this->avisados = [...$this->getAvisados(), ...$novos];
 
         return $novos;
+    }
+
+    public function getGoogleId(): ?string
+    {
+        return $this->googleId;
+    }
+
+    public function getGoogleHash(): ?string
+    {
+        return $this->googleHash;
+    }
+
+    /** O Google recusou esta versão (resumo com prefixo): não tenta de novo até o compromisso mudar. */
+    public function recusadoPeloGoogle(string $hashDaRecusa): self
+    {
+        $this->googleHash = $hashDaRecusa;
+
+        return $this;
+    }
+
+    /** Marca o compromisso como igual ao do Google (depois de enviar ou de trazer). */
+    public function sincronizadoComGoogle(string $googleId, string $hash): self
+    {
+        $this->googleId = $googleId;
+        $this->googleHash = $hash;
+
+        return $this;
     }
 }

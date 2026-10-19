@@ -39,7 +39,10 @@
      data-url-renomear="{{ path('app_agenda_data_renomear') }}"
      data-url-ocultar="{{ path('app_agenda_data_ocultar') }}"
      data-url-restaurar="{{ path('app_agenda_data_restaurar') }}"
-     data-url-feriados="{{ path('app_feriado_index', {tenantId: tenantId}) }}">
+     data-url-feriados="{{ path('app_feriado_index', {tenantId: tenantId}) }}"
+     data-google="{{ google }}"
+     data-url-google-conectar="{{ google != 'indisponivel' ? path('app_agenda_google_conectar') : '' }}"
+     data-url-google-desconectar="{{ path('app_agenda_google_desconectar') }}">
 
     <div class="ag-topo">
         <i class="bi bi-calendar3 ag-topo-icone" aria-hidden="true"></i>
@@ -66,8 +69,13 @@
             </div>
             <div class="ag-lado-rotulo ag-lado-rotulo-sep">GOOGLE AGENDA</div>
             <div class="ag-google">
-                <button type="button" class="ag-google-btn" id="agGoogle"><i class="bi bi-arrow-repeat"></i>Sincronizar com o Google Agenda</button>
-                <div class="ag-google-st"><i class="bi bi-circle-fill"></i>Disponível quando o servidor liberar a conexão</div>
+                {# Três estados do desenho (linha 232): conectado, não conectado, servidor sem cliente OAuth. #}
+                <button type="button" class="ag-google-btn" id="agGoogle"><i class="bi bi-arrow-repeat"></i>{{ google == 'conectado' ? 'Sincronizado com o Google Agenda' : 'Sincronizar com o Google Agenda' }}</button>
+                <div class="ag-google-st" style="color: {{ google == 'conectado' ? '#1e7b45' : '#7a8e9b' }};"><i class="bi bi-circle-fill"></i>{{ google == 'conectado' ? 'Conectado · atualiza automaticamente' : (google == 'nao_conectado' ? 'Não conectado' : 'Disponível quando o servidor liberar a conexão') }}</div>
+                {% if google == 'conectado' %}
+                    {# Fora do desenho: revogar o consentimento é direito da pessoa (LGPD, art. 8º, § 5º). #}
+                    <button type="button" class="ag-google-sair" id="agGoogleSair">Desconectar</button>
+                {% endif %}
                 <div class="ag-google-txt">Ao conectar sua conta Google, os compromissos ficam iguais nos dois lados: o que você criar, editar ou excluir aqui aparece no Google Agenda e vice-versa. Compromissos "Só eu" continuam particulares e os feriados do sistema não são enviados.</div>
             </div>
         </aside>

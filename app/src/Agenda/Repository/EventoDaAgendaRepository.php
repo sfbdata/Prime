@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Agenda\Repository;
 
 use App\Agenda\Entity\Evento;
+use App\Agenda\Service\CompromissoNoGoogle;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\EventoRepository;
@@ -68,6 +69,51 @@ class EventoDaAgendaRepository
         $this->eventos->restringirAoVisivelPara($qb, $visualizador);
 
         return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * Compromissos que a pessoa criou e que podem ir ao Google: os que ainda não acabaram (desde
+     * `desde`), os que se repetem e os antigos que já estão lá e mudaram depois de `mudouDesde` (nulo:
+     * todos). Filtra o escritório à mão (roda no worker).
+     *
+     * @return list<Evento>
+     */
+    public function criadosPorParaOGoogle(Tenant $tenant, User $criador, \DateTimeImmutable $desde, ?\DateTimeImmutable $mudouDesde): array
+    {
+        $qb = $this->eventos->createQueryBuilder('e')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.criador = :criador')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('criador', $criador)
+            ->setParameter('desde', $desde)
+            ->orderBy('e.id', 'ASC');
+        if (null === $mudouDesde) {
+            return $qb->andWhere('e.dataFim >= :desde OR e.recorrente = true OR e.googleId IS NOT NULL')->getQuery()->getResult();
+        }
+
+        return $qb->andWhere('e.dataFim >= :desde OR e.recorrente = true OR (e.googleId IS NOT NULL AND e.modificadoEm >= :mudou)')
+            ->setParameter('mudou', $mudouDesde)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * A pessoa ligou outra conta Google: os compromissos dela neste escritório perdem a ligação com a conta
+     * antiga e vão para a nova como novos. Os "só do Google" (repetição que a Agenda não representa) ficam
+     * como estão: iriam sem a repetição. Em SQL: colunas técnicas, sem efeito no que a pessoa vê.
+     */
+    public function esquecerGoogleDaPessoa(Tenant $tenant, User $criador): void
+    {
+        $this->em->getConnection()->executeStatement(
+            "UPDATE evento SET google_id = NULL, google_hash = NULL WHERE tenant_id = :t AND criador_id = :u AND google_hash IS DISTINCT FROM :so",
+            ['t' => $tenant->getId(), 'u' => $criador->getId(), 'so' => CompromissoNoGoogle::SO_DO_GOOGLE],
+        );
+    }
+
+    /** O compromisso da pessoa ligado a este evento do Google, se houver. */
+    public function doGoogle(Tenant $tenant, User $criador, string $googleId): ?Evento
+    {
+        return $this->eventos->findOneBy(['tenant' => $tenant, 'criador' => $criador, 'googleId' => $googleId]);
     }
 
     public function salvar(Evento $evento): void

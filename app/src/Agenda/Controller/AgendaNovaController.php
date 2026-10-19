@@ -7,6 +7,8 @@ namespace App\Agenda\Controller;
 use App\Agenda\DTO\CompromissoOutput;
 use App\Agenda\DTO\LembreteOutput;
 use App\Agenda\Service\GarantirVarreduraDePush;
+use App\Agenda\Service\GarantirVarreduraDoGoogle;
+use App\Agenda\UseCase\EstadoDoGoogleAgendaUseCase;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
 use App\Agenda\UseCase\ListarLembretesUseCase;
 use App\Entity\Auth\User;
@@ -36,6 +38,8 @@ final class AgendaNovaController extends AbstractController
         private readonly UserRepository $usuarios,
         private readonly ListarLembretesUseCase $listarLembretes,
         private readonly GarantirVarreduraDePush $garantirPush,
+        private readonly GarantirVarreduraDoGoogle $garantirGoogle,
+        private readonly EstadoDoGoogleAgendaUseCase $estadoDoGoogle,
     ) {
     }
 
@@ -56,6 +60,7 @@ final class AgendaNovaController extends AbstractController
             'eu'     => ['id' => $user->getId(), 'nome' => $user->getFullName()],
             'podeVerPastas' => $this->permissionChecker->canAccessModule($user, $tenant, 'pastas'),
             'tenantId'      => $tenant->getId(),
+            'google'        => $this->estadoDoGoogle->executar($tenant, $user),
             'equipe' => array_map(
                 static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
                 $this->usuarios->findColaboradoresAtivosPorTenant($tenant),
@@ -97,8 +102,9 @@ final class AgendaNovaController extends AbstractController
         }
         $verPastas = $this->permissionChecker->canAccessModule($user, $tenant, 'pastas');
         $itens = $this->listarLembretes->executar($tenant, $user, new \DateTimeImmutable(), $verPastas);
-        // Religa o push dos lembretes se o worker ficou parado (consulta barata; ver GarantirVarreduraDePush).
+        // Religa o push dos lembretes e a sincronia do Google se o worker ficou parado (consultas baratas).
         $this->garantirPush->garantir();
+        $this->garantirGoogle->garantir();
 
         return $this->json(['itens' => array_map(static fn (LembreteOutput $l): array => $l->toArray(), $itens)]);
     }

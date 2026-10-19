@@ -182,6 +182,8 @@
 .ag-google-btn:hover { border-color: var(--ag-azul); color: var(--ag-azul); background: var(--ag-hover); }
 .ag-google-st { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ag-fraco); }
 .ag-google-st i { font-size: 7px; }
+.ag-google-sair { align-self: flex-start; border: 0; background: none; padding: 0; font-size: 11.5px !important; color: var(--ag-fraco); text-decoration: underline; }
+.ag-google-sair:hover { color: var(--ag-azul); }
 .ag-google-txt { font-size: 11.5px; color: var(--ag-mudo); line-height: 1.5; }
 
 .ag-direita { flex: 999 1 min(560px, 100%); min-width: 0; display: flex; flex-direction: column; gap: 16px; }
