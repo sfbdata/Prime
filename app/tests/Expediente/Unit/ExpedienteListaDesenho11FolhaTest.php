@@ -94,7 +94,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('padding: 8px 14px; border: 0; border-radius: 0;', self::bloco($css, '.exp-ctx-item'));
 
         $js = self::js();
-        self::assertStringContainsString("abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha, editando ? 'editando' : null);", $js);
+        self::assertStringContainsString("abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, espelho || linha, editando ? 'editando' : null);", $js);
         self::assertStringContainsString("window.ExpMenu.abrir(el.dataset.nome + ' · ' + (el.dataset.n || '0') + ' pasta(s)', lista, x, y, el, 'marcador');", self::ler('public/js/expediente-trilho.js'));
         foreach (["icone: 'bi-person-badge'", "icone: 'bi-funnel'", "icone: 'bi-plus-lg'", "rotulo: 'Copiar número da pasta'", "rotulo: 'Copiar nome do cliente'"] as $trecho) {
             self::assertStringContainsString($trecho, $js . self::ler('public/js/expediente-trilho.js'));
@@ -201,5 +201,23 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
             self::assertStringContainsString($token . ':', $escuro, 'sem par no escuro: ' . $token);
         }
         // E12: o chip do marcador usa a cor do marcador (texto) sobre ela a 10% (`--mk-cor`), não mais o pastel de fundo.
+    }
+
+    #[TestDox('título da barra (Acervo geral): a caixa tem o tamanho do conteúdo, o realce do hover não estica até o Nova Pasta')]
+    public function testTituloDaBarraDoTamanhoDoConteudo(): void
+    {
+        $titulo = self::bloco(self::css(), '.exp-body .exp-barra-titulo');
+        self::assertStringContainsString('flex: 0 1 auto; min-width: 0;', $titulo);
+        self::assertStringContainsString('margin-right: auto;', $titulo);
+        self::assertStringNotContainsString('flex: 1;', $titulo);
+    }
+
+    #[TestDox('menu de botão direito também nos modos Lista e Cartões, e F2 na linha simples focada')]
+    public function testMenuDaLinhaNosModosListaECartoes(): void
+    {
+        $js = self::js();
+        self::assertStringContainsString("e.target.closest('.exp-simples-linha[data-pasta-id], .exp-cartao[data-pasta-id]')", $js);
+        self::assertStringContainsString("e.target.closest('.exp-simples-linha[data-pasta-id]')", $js);
+        self::assertStringContainsString('function linhaDaTabela(item)', $js);
     }
 }

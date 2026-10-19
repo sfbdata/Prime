@@ -331,8 +331,6 @@ final class ExpedienteController extends AbstractController
             $pasta = $this->sincronizarMarcadoresUseCase->executar($id, $marcadorIds, $tenant);
         } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
-        } catch (\Throwable $e) {
-            return $this->json(['erro' => $e->getMessage(), 'trace' => $e->getTraceAsString()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         return $this->json([

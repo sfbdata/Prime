@@ -212,6 +212,61 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         self::assertSame('0', $c->filter('#tabelaPastas')->attr('data-sou-admin'));
     }
 
+    #[TestDox('Audiência e Protocolar: o título da barra é o do filtro aberto no trilho')]
+    public function testTituloDeAudienciaEProtocolar(): void
+    {
+        $this->entrar();
+
+        foreach (['aud' => 'Audiência', 'protocolar' => 'Protocolar'] as $filtro => $titulo) {
+            $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?expediente=' . $filtro);
+            self::assertResponseIsSuccessful();
+            self::assertSame($titulo, trim($c->filter('#acervo-geral-wrapper > .exp-barra > h2.exp-barra-titulo')->text()));
+        }
+    }
+
+    #[TestDox('menu de botão direito nos modos Lista e Cartões: cada item tem a linha da tabela da mesma pasta, que leva os dados e as URLs')]
+    public function testItensDaListaECartoesTemALinhaDaTabela(): void
+    {
+        [, $tenant] = $this->entrar();
+        $ids = [$this->pasta($tenant, 'M1')->getId(), $this->pasta($tenant, 'M2')->getId()];
+
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+
+        foreach ($ids as $id) {
+            $linha = $c->filter('#tabelaPastas tbody tr.pasta-row-link[data-pasta-id="' . $id . '"]');
+            self::assertCount(1, $linha);
+            self::assertNotEmpty($linha->attr('data-url-nome'));
+            self::assertNotEmpty($linha->attr('data-url-trancar'));
+            self::assertCount(1, $c->filter('.exp-simples > .exp-simples-linha[data-pasta-id="' . $id . '"] > .exp-simples-cli'));
+            self::assertCount(1, $c->filter('.exp-cartoes > .exp-cartao[data-pasta-id="' . $id . '"] > .exp-cartao-cli'));
+        }
+    }
+
+    #[TestDox('navegação: Expediente leva a Demandas e volta pelas abas, e a linha abre a pasta')]
+    public function testNavegacaoEntreAbasEPasta(): void
+    {
+        [, $tenant] = $this->entrar();
+        $pasta = $this->pasta($tenant, 'NV');
+
+        $c = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertSame('Expediente', trim($c->filter('.navtop-subnav > a.navtop-subnav-link.active')->text()));
+
+        $c = $this->client->click($c->filter('.navtop-subnav > a.navtop-subnav-link')->reduce(static fn ($a): bool => trim($a->text()) === 'Demandas')->link());
+        self::assertResponseIsSuccessful();
+        self::assertSame('Demandas', trim($c->filter('.navtop-subnav > a.navtop-subnav-link.active')->text()));
+
+        $c = $this->client->click($c->filter('.navtop-subnav > a.navtop-subnav-link')->reduce(static fn ($a): bool => trim($a->text()) === 'Expediente')->link());
+        self::assertResponseIsSuccessful();
+        self::assertRouteSame('expediente_index');
+
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+        $href = (string) $c->filter('#tabelaPastas tbody tr.pasta-row-link[data-pasta-id="' . $pasta->getId() . '"]')->attr('data-href');
+        $this->client->request('GET', $href);
+        self::assertResponseIsSuccessful();
+        self::assertRouteSame('pasta_show');
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private function em(): EntityManagerInterface
