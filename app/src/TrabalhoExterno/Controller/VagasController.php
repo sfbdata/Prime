@@ -20,6 +20,7 @@ use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaVagaUseCase;
 use App\TrabalhoExterno\UseCase\CompartilharVagasUseCase;
+use App\TrabalhoExterno\UseCase\RegistrarDivulgacaoUseCase;
 use App\TrabalhoExterno\UseCase\EditarVagaUseCase;
 use App\TrabalhoExterno\UseCase\ExcluirVagaUseCase;
 use App\TrabalhoExterno\UseCase\RegistrarVisitaAsVagasUseCase;
@@ -144,6 +145,18 @@ final class VagasController extends AbstractController
                 'url' => $this->generateUrl('trabalho_externo_vagas_link', ['token' => $link['token']], UrlGeneratorInterface::ABSOLUTE_URL),
                 'vagas' => $link['vagas'],
             ];
+        });
+    }
+
+    /** Cada canal clicado no modal de divulgar (WhatsApp, E-mail, LinkedIn, Link): histórico e contador. */
+    #[Route('/divulgacao', name: 'trabalho_externo_vagas_divulgacao', methods: ['POST'])]
+    public function divulgacao(Request $request, RegistrarDivulgacaoUseCase $registrar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $registrar): array {
+            $corpo = $this->corpo($request);
+            $codigos = is_array($corpo['codigos'] ?? null) ? array_values(array_map('strval', array_filter($corpo['codigos'], 'is_scalar'))) : [];
+
+            return ['registradas' => $registrar->executar($ctx, $codigos, is_string($corpo['canal'] ?? null) ? $corpo['canal'] : '')];
         });
     }
 

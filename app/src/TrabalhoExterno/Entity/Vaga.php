@@ -179,10 +179,16 @@ class Vaga
         $this->registrar('bi-pencil', '#4a6373', 'Editada por ' . $quem, $agora);
     }
 
+    /** Cada canal usado no "Divulgar vaga(s)" soma uma divulgação e vira histórico (`regShare`, l.1077). */
     public function registrarDivulgacao(string $canal, string $quem, \DateTimeImmutable $agora): void
     {
         ++$this->divulgacoes;
-        $this->registrar('bi-share', '#0a6fa0', sprintf('Divulgada por %s (%s)', $canal, $quem), $agora);
+        $icone = match ($canal) {
+            'WhatsApp' => 'bi-whatsapp',
+            'E-mail' => 'bi-envelope',
+            default => 'bi-link-45deg',
+        };
+        $this->registrar($icone, '#0a6fa0', sprintf('Divulgada por %s (%s)', $canal, $quem), $agora);
     }
 
     public function preencher(DadosDaVaga $d): void

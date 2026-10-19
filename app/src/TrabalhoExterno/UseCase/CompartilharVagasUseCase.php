@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\Entity\LinkDeVagas;
-use App\TrabalhoExterno\Enum\SituacaoVaga;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Repository\LinkDeVagasRepository;
@@ -14,9 +13,10 @@ use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
 
 /**
- * "Compartilhar vagas" e "Compartilhar esta vaga" (`tmShare`, spec VS 18.10.26 §4.2): gera o link
- * público com as vagas ABERTAS escolhidas. Quem: a Central, e o escritório nas vagas dele.
- * Código que o usuário não vê, ou vaga que não está aberta, fica de fora; sem nenhuma, 422.
+ * "Divulgar vaga(s)" (`abrirShare`, desenho 06 l.1076): gera o link público com as vagas ABERTAS
+ * escolhidas. Quem: qualquer um que vê a vaga aberta (o menu do externo também tem "Compartilhar
+ * vaga", l.1001). Código que o usuário não vê, ou vaga que não está aberta, fica de fora; sem nenhuma,
+ * 422 com o texto do desenho. "Indicadas por" leva o primeiro nome de quem gerou (`linkDe`, l.1074).
  */
 final class CompartilharVagasUseCase
 {
@@ -41,19 +41,15 @@ final class CompartilharVagasUseCase
         $pedidos = array_flip($codigos);
         $ids = [];
         foreach ($this->localizador->visiveis($ctx, $agora) as $v) {
-            if (isset($pedidos[$v->getCodigo()])
-                && $v->situacaoEm($agora) === SituacaoVaga::Aberta
-                && ($this->politica->ehDaCentral($ctx) || $this->politica->ehDono($ctx, $v))) {
+            if (isset($pedidos[$v->getCodigo()]) && $this->politica->podeCompartilhar($ctx, $v, $agora)) {
                 $ids[] = (int) $v->getId();
             }
         }
         if ($ids === []) {
-            throw new DadosInvalidos('Escolha ao menos uma vaga aberta para compartilhar.');
+            throw new DadosInvalidos('Só vagas abertas podem ser divulgadas.');
         }
 
-        // "Indicadas por …" na página pública: só a Central se identifica. O nome do escritório
-        // diria quem oferece a vaga, que a página esconde (spec §4.2, "Escritório: ●●●" do desenho).
-        $nome = $this->politica->ehDaCentral($ctx) ? 'Central BlueJus' : '';
+        $nome = explode(' ', trim($ctx->autor()->nome))[0];
         [$link, $token] = LinkDeVagas::gerar($ids, $ctx->usuario, $nome);
         $this->links->salvar($link, flush: true);
 

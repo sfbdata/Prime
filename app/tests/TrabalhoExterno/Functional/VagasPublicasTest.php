@@ -104,7 +104,7 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         self::assertCount(1, static::getContainer()->get(InteressadoEmVagasRepository::class)->findBy(['email' => 'pessoa@teste.com']));
     }
 
-    #[TestDox('compartilhar: só vagas abertas que o usuário vê; o escritório só compartilha as dele; sem nenhuma é 422')]
+    #[TestDox('compartilhar: qualquer um que vê a vaga aberta divulga, até a da Central; pendente fica de fora e sem nenhuma é 422')]
     public function testQuemCompartilha(): void
     {
         $client = static::createClient();
@@ -118,14 +118,36 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         $daCentral = $this->postarJson($client, '/trabalho-externo/api/vagas', self::vaga('Correspondente em Campinas'))['codigo'];
 
         $this->logarComTenant($client, $doB, $b);
-        $this->postarJson($client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$daCentral]]);
-        self::assertResponseStatusCodeSame(422, 'a vaga da Central não é do escritório B');
+        $link = $this->postarJson($client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$daCentral]]);
+        self::assertSame(1, $link['vagas'], 'o externo também divulga a vaga aberta da Central (desenho 06 l.1001)');
         $pendente = $this->postarJson($client, '/trabalho-externo/api/vagas', self::vaga('Assistente jurídico'))['codigo'];
         $this->postarJson($client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$pendente]]);
         self::assertResponseStatusCodeSame(422, 'pendente não se compartilha');
+        self::assertSame('Só vagas abertas podem ser divulgadas.', $this->json($client)['mensagem'] ?? null);
     }
 
-    #[TestDox('o escritório compartilha a própria vaga sem aparecer: o nome dele não sai na página pública')]
+    #[TestDox('cada canal do "Divulgar vaga(s)" soma uma divulgação e fica no histórico com o ícone do canal; canal desconhecido é 422')]
+    public function testRegistraDivulgacao(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $sede = $this->criarTenant('Sede');
+        $master = $this->criarMaster($sede);
+
+        $this->logarComTenant($client, $master, $sede);
+        $codigo = $this->postarJson($client, '/trabalho-externo/api/vagas', self::vaga('Paralegal'))['codigo'];
+        $r = $this->postarJson($client, '/trabalho-externo/api/vagas/divulgacao', ['codigos' => [$codigo, 'VG-999999'], 'canal' => 'WhatsApp']);
+        self::assertSame(1, $r['registradas']);
+        $client->request('GET', "/trabalho-externo/api/vagas/$codigo");
+        $ultimo = $this->json($client)['vaga']['historico'][0];
+        self::assertSame('bi-whatsapp', $ultimo['ic']);
+        self::assertStringStartsWith('Divulgada por WhatsApp (', $ultimo['txt']);
+
+        $this->postarJson($client, '/trabalho-externo/api/vagas/divulgacao', ['codigos' => [$codigo], 'canal' => 'Fax']);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    #[TestDox('o escritório compartilha a própria vaga sem aparecer: sai só o primeiro nome de quem gerou o link, nunca o escritório')]
     public function testEscritorioCompartilhaSemSeIdentificar(): void
     {
         $client = static::createClient();
@@ -133,7 +155,7 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         $sede = $this->criarTenant('Sede');
         $b = $this->criarTenant('Banca Discreta');
         $master = $this->criarMaster($sede);
-        $doB = $this->criarUsuario($b);
+        $doB = $this->criarUsuario($b, nome: 'Carla Mendes Souza');
 
         $this->logarComTenant($client, $doB, $b);
         $codigo = $this->postarJson($client, '/trabalho-externo/api/vagas', self::vaga('Advogado cível júnior'))['codigo'];
@@ -149,7 +171,8 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Advogado cível júnior', $html);
         self::assertStringNotContainsString('Banca Discreta', $html);
-        self::assertStringNotContainsString('Indicadas por', $html);
+        self::assertStringContainsString('Indicadas por Carla', $html);
+        self::assertStringNotContainsString('Mendes', $html);
     }
 
     #[TestDox('vaga pausada some do link; a prévia do Master não gera link')]

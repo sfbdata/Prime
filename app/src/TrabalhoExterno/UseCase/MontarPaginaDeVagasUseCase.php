@@ -65,7 +65,7 @@ final class MontarPaginaDeVagasUseCase
             'qtd' => $v->isOferta() ? $v->getQtd() : 1,
             'local' => implode(' · ', array_filter([$v->getModalidade(), $cidadeUf !== '' ? $cidadeUf : 'Brasil'])),
             'contratacao' => $v->getContratacao() !== '' ? $v->getContratacao() : 'Contratação a combinar',
-            'areas' => $v->getAreas(),
+            'areas' => array_slice($v->getAreas(), 0, 4),
             'uf' => $v->getUf(),
         ];
     }
