@@ -190,3 +190,56 @@ Use o mesmo projeto do Google Cloud do Google Drive (já tem tela de consentimen
 7. Enquanto o app estiver em modo **Teste**, só os e-mails em **Público-alvo** → **Usuários de teste**
    conseguem conectar. Para todos os escritórios, **Publicar app** (o escopo de Agenda pode pedir
    verificação do Google, que leva dias).
+
+## 9. Consumidores do calendário do sistema
+
+`App\Agenda\Service\CalendarioDoSistema::doPeriodo()` e `App\Agenda\UseCase\ListarDatasDoSistemaUseCase`
+são a **única fonte** de feriados, pontos facultativos e datas comemorativas fora do Ponto. Contrato
+público e estável (assinatura, campos de `DataDoSistemaOutput` e formato do id).
+- Agenda nova (`GET /agenda/datas`).
+- Perfis, seção "Comercial e e-mails" (desenho 05): campanhas por data comemorativa. Deve ler daqui,
+  não criar outra lista.
+
+## 10. Entrega 2: tela em /agenda/nova (conferência item a item)
+
+A tela nova fica em `/agenda/nova` (rota `agenda_nova`, fora do menu) até a entrega 3 trazer o modal
+de criação e edição; a `/agenda` antiga segue inteira. A aba "Agenda" da faixa de abas aponta para a
+antiga até a troca.
+
+Estado contra o inventário da seção 1 (✓ feito · ◐ feito em parte, falta na entrega indicada · ✗ falta):
+
+| # | Item | Estado |
+|---|---|---|
+| V1 | Aba AGENDA na faixa de abas | ✓ (Demandas e Trabalho Externo continuam: diferença registrada) |
+| V2 | 4 cartões e clique para Dia/Semana | ✓ |
+| V3 | Novo compromisso | ◐ abre o formulário antigo no dia; modal do desenho na entrega 3 |
+| V4 | Mini calendário | ✓ |
+| V5 | 10 calendários com marcação | ◐ lembrada no navegador; no servidor na entrega 5 |
+| V6 | Feriados estaduais de: UF | ✓ |
+| V7 | TESTAR LEMBRETES | ✗ entrega 5 |
+| V8 | GOOGLE AGENDA | ◐ painel e aviso "Disponível quando o servidor liberar a conexão"; ligação na entrega 6 |
+| V9 | Barra: Hoje, setas, título, busca, escopo, vistas | ✓ |
+| V10 | Faixa de aniversário, balão e confete | ✓ |
+| V11 | Mês | ◐ clique no vazio abre o formulário antigo (entrega 3) |
+| V12 | Dia e Semana | ◐ clique na hora abre o formulário antigo (entrega 3) |
+| V13 | Lista dos próximos 60 dias | ✓ |
+| V14 | Próximos feriados com PONTE | ✓ |
+| V15 | Detalhe | ◐ leitura e "Google Agenda" ✓; "Editar" abre o formulário antigo; "Avisar no Chat" e "Excluir" na entrega 3 |
+| V16 | Modal de edição | ✗ entrega 3 |
+| V17 | "Compartilhar com a equipe?" | ✗ entrega 3 |
+| V18 | Link `#ev=<id>` | ✓ (fora da faixa carregada, vai ao dia que o id traz; sem achar, avisa) |
+| Menu | Botão direito | ◐ "Abrir compromisso", "Ver detalhes" e "Novo compromisso em" ✓; acrescentar, editar nome, ocultar e restaurar na entrega 4 |
+
+Diferenças conscientes:
+- horário "09:00 às 10:00" no lugar de "09:00 – 10:00" na grade e na lista (regra do dono, sem
+  travessão; o detalhe do próprio desenho já usa "às");
+- o detalhe do feriado nacional mostra a fonte legal e se conta no ponto (seção 5);
+- "Próximos feriados" conta os dias pelo calendário: o desenho somava meio dia e mostrava "amanhã"
+  para o feriado de hoje e "em 15 dias" para um que cai em 14;
+- o texto "Clique com o botão direito no dia para editar ou ocultar" só volta na entrega 4;
+- o item do menu de botão direito com foco fica realçado (teclado); o desenho não tem teclado no menu.
+
+Conferência visual (19/10/2026, liberada pelo dono): demo da worktree na porta 8106 com banco isolado
+`demo_agenda4b`, Playwright a 1280x900 e 390x844, desenho renderizado com dados equivalentes. Mês,
+Semana, Lista, detalhe, menu de botão direito, tema escuro e celular conferidos lado a lado; restam só
+os itens ◐/✗ da tabela acima.

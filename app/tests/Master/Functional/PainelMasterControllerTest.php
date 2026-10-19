@@ -189,7 +189,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/master');
     }
 
-    #[TestDox('Aba Permissões: Master único com cadeado, sem "Promover a Master" nem Master secundário (D2)')]
+    #[TestDox('Aba Permissões (desenho 1.2): Master primário com cadeado, "Promover a Master" e 8 poderes; sem escritório, o select vem vazio')]
     public function testAbaPermissoes(): void
     {
         $client = $this->clienteMaster($master);
@@ -201,10 +201,9 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Painel do sistema', $html);
         self::assertStringContainsString($master->getEmail(), $html);
         self::assertStringContainsString('MASTER PRIMÁRIO', $html);
-        self::assertStringNotContainsString('Promover a Master', $html);
-        self::assertStringNotContainsString('Master secundário', $html);
-        self::assertStringNotContainsString('Masters secundários', $html);
-        self::assertCount(7, $crawler->filter('.mp-poderes .mp-poder'), 'sem o item "Promover e remover Masters secundários"');
+        self::assertStringContainsString('Promover a Master', $html);
+        self::assertCount(0, $crawler->filter('[data-mp-promover-select] option[value!=""]'), 'Master sem escritório não tem secundários para promover (M5)');
+        self::assertCount(8, $crawler->filter('.mp-poderes .mp-poder'), 'com o item "Promover e remover Masters secundários"');
         self::assertSame('/dashboard', $crawler->filter('a.mp-btn-voltar')->attr('href'), 'Master sem escritório volta ao dashboard');
         self::assertStringNotContainsString('—', $html);
         self::assertStringNotContainsString('–', $html);
@@ -303,7 +302,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $this->instalarFontesFalsas();
-        $master = $this->usuario(['ROLE_SUPER_ADMIN']);
+        $master = $this->usuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
         $client->loginUser($master);
         $this->marcarTermosAceitos($client);
 
