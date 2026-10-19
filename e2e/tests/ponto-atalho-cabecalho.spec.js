@@ -23,7 +23,25 @@ function estado(nome, extra) {
     return Object.assign({ dia: new Date().toLocaleDateString('sv-SE'), estado: nome, hoje, homeOffice: false, sedes: [SEDE], interjornadaLigada: true }, extra || {});
 }
 
-/** Loga, grava os avisos, atrasa a posição (para caber a corrida) e abre o painel. */
+let cookies = [];
+
+/** Entra UMA vez e guarda os cookies: o limitador do login é de 5 tentativas por 15 minutos. */
+test.beforeAll(async ({ browser }) => {
+    const contexto = await browser.newContext();
+    const pagina = await contexto.newPage();
+    await pagina.goto(BASE + '/login');
+    await pagina.fill('#inputEmail', process.env.PONTO_ATALHO_E2E_EMAIL || '');
+    await pagina.fill('#senha', process.env.PONTO_ATALHO_E2E_SENHA || '');
+    await Promise.all([pagina.waitForNavigation(), pagina.click('#entrar')]);
+    if (pagina.url().includes('escritorio/selecionar')) {
+        await pagina.locator('form button, a.escritorio-opcao, [data-escritorio]').first().click();
+        await pagina.waitForLoadState('networkidle');
+    }
+    cookies = await contexto.cookies();
+    await contexto.close();
+});
+
+/** Grava os avisos, atrasa a posição (para caber a corrida) e abre o painel, com a sessão do beforeAll. */
 async function abrirPainel(page, { atrasoPosicaoMs = 0 } = {}) {
     await page.addInitScript((atraso) => {
         window.__avisos = [];
@@ -31,14 +49,7 @@ async function abrirPainel(page, { atrasoPosicaoMs = 0 } = {}) {
         const original = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
         navigator.geolocation.getCurrentPosition = (ok, erro, op) => setTimeout(() => original(ok, erro, op), atraso);
     }, atrasoPosicaoMs);
-    await page.goto(BASE + '/login');
-    await page.fill('#inputEmail', process.env.PONTO_ATALHO_E2E_EMAIL || '');
-    await page.fill('#senha', process.env.PONTO_ATALHO_E2E_SENHA || '');
-    await Promise.all([page.waitForNavigation(), page.click('#entrar')]);
-    if (page.url().includes('escritorio/selecionar')) {
-        await page.locator('form button, a.escritorio-opcao, [data-escritorio]').first().click();
-        await page.waitForLoadState('networkidle');
-    }
+    await page.context().addCookies(cookies);
     await page.goto(BASE + '/expediente', { waitUntil: 'networkidle' });
     await page.locator('[data-presenca-selo]').click();
 }
@@ -112,16 +123,23 @@ test.describe('atalho de ponto no cabeçalho', () => {
         expect(envios).toBe(0);
     });
 
-    test('regularizar ontem: leva à folha do mês de ontem para o pedido de esquecimento e nenhuma batida sai', async ({ page }) => {
+    // Precisa, no banco da demo, de uma entrada sem saída num dia útil (PONTO_ATALHO_E2E_DIA_SEM_SAIDA, AAAA-MM-DD).
+    test('regularizar ontem: leva à folha e abre o MESMO "+" da saída daquele dia, preenchido; nenhuma batida sai', async ({ page }) => {
+        const dia = process.env.PONTO_ATALHO_E2E_DIA_SEM_SAIDA || '2026-10-16';
         let envios = 0;
-        await page.route('**/ponto/estado-do-dia', (r) => r.fulfill({ json: estado('regularizar_ontem', { ontemSemSaida: '2026-09-30' }) }));
+        await page.route('**/ponto/estado-do-dia', (r) => r.fulfill({ json: estado('regularizar_ontem', { ontemSemSaida: dia }) }));
         await page.route('**/ponto/batida', (r) => { envios++; r.fulfill({ json: { success: true } }); });
         await abrirPainel(page);
 
         await expect(page.locator('.presenca-sub--ponto.is-acao')).toHaveText(/Regularizar ponto de ontem/);
-        await Promise.all([page.waitForURL(/\/ponto\/\?competencia=2026-09/), page.locator('.presenca-sub--ponto.is-acao').click()]);
-        await page.waitForLoadState('networkidle');
-        expect(new URL(page.url()).searchParams.get('esquecimento')).toBeNull();   // a tela tira o parâmetro depois de usar
+        await Promise.all([page.waitForURL(new RegExp('/ponto/\\?competencia=' + dia.slice(0, 7))), page.locator('.presenca-sub--ponto.is-acao').click()]);
+        const modal = page.locator('#modalEsquecimentoRegistro');
+        await expect(modal).toBeVisible();
+        await expect(page.locator('#esquecimentoData')).toHaveValue(dia);
+        await expect(page.locator('#esquecimentoCampo')).toHaveValue('saida');
+        const [a, m, d] = dia.split('-');
+        await expect(page.locator('#esquecimentoResumo')).toContainText(d + '/' + m + '/' + a);
+        expect(new URL(page.url()).searchParams.get('esquecimento')).toBeNull();
         expect(envios).toBe(0);
     });
 });

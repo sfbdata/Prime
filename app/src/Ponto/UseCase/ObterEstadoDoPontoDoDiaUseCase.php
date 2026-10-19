@@ -77,6 +77,11 @@ final class ObterEstadoDoPontoDoDiaUseCase
         if ($batidas === []) {
             return null;   // condição 9: dia sem batida segue pelo "Justificar Falta"
         }
+        // O caso comum (ontem com entrada e saída) sai aqui, antes da linha da folha, que custa várias consultas.
+        $escolhaDeOntem = $this->escolha->escolher($batidas, $ontem);
+        if ($escolhaDeOntem->entrada === null || $escolhaDeOntem->saida !== null) {
+            return null;
+        }
         $linha = $this->linhaDaFolha($eu, $tenant, $ontem, $batidas);
         $dia = $ontem->format('Y-m-d');
         if ($linha === null || $linha['entradaId'] === null || $linha['saidaId'] !== null

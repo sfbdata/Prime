@@ -142,6 +142,48 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertNull($this->casoDeUso()->executar($user, $tenant)->interjornadaMinimaMin);
     }
 
+    #[TestDox('Regularizar ontem, as demais condições do "+": feriado e abonado bloqueiam; esquecimento de outra batida não; vem antes de hoje em jornada')]
+    public function testCondicoesDoMais(): void
+    {
+        [$u1, $t1] = $this->pessoa();
+        $this->batida($u1, $t1, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');
+        $feriado = new \App\Ponto\Entity\Feriado();
+        $feriado->setNome('Feriado de teste');
+        $feriado->setData(new \DateTime('2026-10-19'));
+        $feriado->setRecorrente(false);
+        $feriado->setTenant($t1);
+        $this->em->persist($feriado);
+        $this->em->flush();
+        self::assertNull($this->casoDeUsoEm('2026-10-20 10:00')->executar($u1, $t1)->ontemSemSaida, 'feriado (condição 5)');
+
+        [$u2, $t2] = $this->pessoa();
+        $this->batida($u2, $t2, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');
+        $this->esquecimento($u2, $t2, RegistroPonto::TIPO_SAIDA, 'abonado');
+        self::assertNull($this->casoDeUsoEm('2026-10-20 10:00')->executar($u2, $t2)->ontemSemSaida, 'abonado (condição 8)');
+
+        [$u3, $t3] = $this->pessoa();
+        $this->batida($u3, $t3, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');
+        $this->esquecimento($u3, $t3, RegistroPonto::TIPO_RETORNO, 'pendente');
+        $this->batida($u3, $t3, RegistroPonto::TIPO_ENTRADA, '2026-10-20 08:00');   // hoje em jornada
+        $saida = $this->casoDeUsoEm('2026-10-20 10:00')->executar($u3, $t3);
+        self::assertSame('2026-10-19', $saida->ontemSemSaida, 'o esquecimento de OUTRA batida não bloqueia a saída');
+        self::assertSame(EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM, $saida->estado, 'vem antes do estado de hoje, como no dc');
+        self::assertSame('08:00', $saida->hoje['entrada']);
+    }
+
+    private function esquecimento(User $user, Tenant $tenant, string $tipo, string $status): void
+    {
+        $pedido = new \App\Ponto\Entity\JustificativaPonto();
+        $pedido->setUser($user);
+        $pedido->setTenant($tenant);
+        $pedido->setData(new \DateTime('2026-10-19'));
+        $pedido->setTipo('esquecimento_registro');
+        $pedido->setTipoRegistroEsquecido($tipo);
+        $pedido->setStatus($status);
+        $this->em->persist($pedido);
+        $this->em->flush();
+    }
+
     private function casoDeUsoEm(string $agora): ObterEstadoDoPontoDoDiaUseCase
     {
         $c = static::getContainer();

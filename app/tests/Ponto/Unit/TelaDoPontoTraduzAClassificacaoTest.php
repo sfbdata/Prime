@@ -45,7 +45,9 @@ final class TelaDoPontoTraduzAClassificacaoTest extends TestCase
         self::assertStringContainsString("get('esquecimento')", $modal);
         self::assertStringContainsString('(entrada|repouso|retorno|saida)', $modal, 'só os quatro tipos');
         self::assertStringContainsString('[data-esquecimento-dia="\' + pedido[1] + \'"][data-esquecimento-campo="\' + pedido[2] + \'"]', $modal, 'o botão do "+" da folha, nenhuma regra própria');
-        self::assertStringContainsString("if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); }", $modal);
+        self::assertStringContainsString("if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); return; }", $modal);
+        self::assertStringContainsString("if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', abrirPedidoDoLink); }", $modal, 'o Bootstrap vem no fim da página: o clique espera');
+        self::assertStringContainsString("window.bjAviso('Não há pedido de esquecimento a fazer para '", $modal, 'sem o "+", avisa em vez de ficar mudo');
         self::assertStringContainsString("url.searchParams.delete('esquecimento');", $modal);
     }
 }

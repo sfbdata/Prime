@@ -74,13 +74,17 @@
     // Vindo do "Regularizar ponto de ontem" do cabeçalho (`?esquecimento=AAAA-MM-DD:saida`, decisão do dono 19/10): abre
     // o MESMO "+" da folha para aquele dia e batida. Se ele não existir (alguma condição do atalho falha), nada abre:
     // a regra de quando o "+" aparece continua só aqui na folha.
-    var pedido = /^(\d{4}-\d{2}-\d{2}):(entrada|repouso|retorno|saida)$/.exec(new URLSearchParams(window.location.search).get('esquecimento') || '');
-    if (pedido) {
+    // Só depois do carregamento: o Bootstrap vem no fim da página, e o "+" abre o modal por ele (revisão do #67).
+    function abrirPedidoDoLink() {
+        var pedido = /^(\d{4}-\d{2}-\d{2}):(entrada|repouso|retorno|saida)$/.exec(new URLSearchParams(window.location.search).get('esquecimento') || '');
+        if (!pedido) { return; }
         var alvo = document.querySelector('[data-esquecimento-dia="' + pedido[1] + '"][data-esquecimento-campo="' + pedido[2] + '"]');
         var url = new URL(window.location.href);
         url.searchParams.delete('esquecimento');
         window.history.replaceState(null, '', url.toString());
-        if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); }
+        if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); return; }
+        if (window.bjAviso) { window.bjAviso('Não há pedido de esquecimento a fazer para ' + formatarData(pedido[1]) + ': confira a folha abaixo.'); }
     }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', abrirPedidoDoLink); } else { abrirPedidoDoLink(); }
 }());
 </script>
