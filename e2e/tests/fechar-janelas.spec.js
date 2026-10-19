@@ -9,15 +9,26 @@ const { test, expect } = require('@playwright/test');
 
 const BASE = process.env.FECHAR_E2E_URL || 'http://127.0.0.1:8101';
 
-async function entrar(page, url) {
-    await page.goto(BASE + '/login');
-    await page.fill('#inputEmail', process.env.FECHAR_E2E_EMAIL || '');
-    await page.fill('#senha', process.env.FECHAR_E2E_SENHA || '');
-    await Promise.all([page.waitForNavigation(), page.click('#entrar')]);
-    if (page.url().includes('escritorio/selecionar')) {
-        await page.locator('form button, a.escritorio-opcao, [data-escritorio]').first().click();
-        await page.waitForLoadState('networkidle');
+let cookies = [];
+
+/** Entra UMA vez e guarda os cookies: o limitador do login é de 5 tentativas por 15 minutos. */
+test.beforeAll(async ({ browser }) => {
+    const contexto = await browser.newContext();
+    const pagina = await contexto.newPage();
+    await pagina.goto(BASE + '/login');
+    await pagina.fill('#inputEmail', process.env.FECHAR_E2E_EMAIL || '');
+    await pagina.fill('#senha', process.env.FECHAR_E2E_SENHA || '');
+    await Promise.all([pagina.waitForNavigation(), pagina.click('#entrar')]);
+    if (pagina.url().includes('escritorio/selecionar')) {
+        await pagina.locator('form button, a.escritorio-opcao, [data-escritorio]').first().click();
+        await pagina.waitForLoadState('networkidle');
     }
+    cookies = await contexto.cookies();
+    await contexto.close();
+});
+
+async function entrar(page, url) {
+    await page.context().addCookies(cookies);
     await page.goto(BASE + url, { waitUntil: 'networkidle' });
 }
 
@@ -43,5 +54,13 @@ test.describe('X de fechar em toda janelinha', () => {
         await expect(modal).toBeVisible();
         await page.waitForTimeout(800);
         await expect(modal.locator('[data-bj-x]')).toHaveCount(0);
+    });
+
+    test('Select2 (lista com role=listbox): a lista aberta não ganha X, que escolheria a primeira opção', async ({ page }) => {
+        await entrar(page, '/agenda/novo');
+        await page.locator('.select2-participantes + .select2 .select2-selection').first().click();
+        await expect(page.locator('.select2-container--open .select2-results__options')).toBeVisible();
+        await page.waitForTimeout(800);
+        await expect(page.locator('.select2-container--open [data-bj-x]')).toHaveCount(0);
     });
 });

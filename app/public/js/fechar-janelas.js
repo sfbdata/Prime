@@ -12,6 +12,12 @@
    - Sem o último recurso do protótipo (esconder com display:none quando a janela não fecha): no sistema isso
      dessincronizaria componentes que reaproveitam o nó; quem não fecha com Esc nem clique fora fica aberto.
    - Claro ou escuro pelo primeiro fundo de verdade (o protótipo contava cabeçalho transparente como preto).
+   - Sem role=listbox (revisão do PR #71): no sistema toda lista assim é a lista de opções DENTRO de um pop-up (Select2,
+     sugestões do editor, responsável, filtros do dashboard) ou uma lista fixa (arquivos da pasta); o X cairia dentro da
+     primeira opção, e no Select2 o clique nele ESCOLHIA essa opção (ele seleciona no mouseup). O pop-up com role de
+     menu ou de diálogo continua ganhando o X.
+   - Janela cujo primeiro filho é um item clicável: o X vai para o canto, nunca para dentro do item.
+   - Esc uma vez só, e o clique fora só quando a janela continua à vista.
    - DOM só com createElement/createElementNS (nunca innerHTML).
    ============================================================================= */
 (function () {
@@ -20,7 +26,8 @@
     if (window.__bjFecharGlobal) { return; }
     window.__bjFecharGlobal = true;
 
-    var PAPEIS = '[role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"]';
+    var PAPEIS = '[role="menu"],[role="dialog"],[role="alertdialog"]';
+    var ITEM = 'button,a,input,select,textarea,[role^="menuitem"],[role="option"],[tabindex]';
     var TEM_X = '[aria-label="Fechar"],[aria-label^="Fechar "],[title^="Fechar"],[data-bj-x],.bi-x-lg,.bi-x-circle,.bi-x-circle-fill,'
         + '.btn-close,[data-bs-dismiss],[aria-label="Close"],[aria-label^="Close "]';
 
@@ -52,10 +59,10 @@
         });
         if (proprio) { proprio.click(); return; }
         var op = { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true, cancelable: true };
-        (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', op));
-        document.dispatchEvent(new KeyboardEvent('keydown', op));
+        // Uma vez só: do foco ele já sobe até o document (o protótipo disparava de novo no document).
+        (document.activeElement && document.activeElement !== document.body ? document.activeElement : document).dispatchEvent(new KeyboardEvent('keydown', op));
         setTimeout(function () {
-            if (!jan.isConnected) { return; }
+            if (!aVista(jan)) { return; }   // o Esc já fechou (a maioria esconde com hidden e continua no DOM)
             ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(function (t) {
                 document.body.dispatchEvent(new MouseEvent(t, { bubbles: true, clientX: 1, clientY: 1 }));
             });
@@ -64,6 +71,13 @@
 
     /* Fundo claro ou escuro, pelo primeiro fundo de verdade de baixo para cima. O protótipo lia só o do anfitrião, e
        um cabeçalho transparente (rgba(0, 0, 0, 0)) contava como preto: o X saía branco sobre branco, invisível. */
+    function aVista(el) {
+        if (!el.isConnected) { return false; }
+        var r = el.getBoundingClientRect();
+
+        return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    }
+
     function escuro(host) {
         for (var el = host; el && el !== document.documentElement; el = el.parentElement) {
             var cs = getComputedStyle(el);
@@ -91,7 +105,7 @@
         p.setAttribute('d', 'M2 2l8 8M10 2l-8 8'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '1.8'); p.setAttribute('stroke-linecap', 'round');
         svg.appendChild(p);
         b.appendChild(svg);
-        ['pointerdown', 'mousedown'].forEach(function (t) { b.addEventListener(t, function (e) { e.stopPropagation(); }, true); });
+        ['pointerdown', 'mousedown', 'pointerup', 'mouseup'].forEach(function (t) { b.addEventListener(t, function (e) { e.stopPropagation(); }, true); });
         b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); fechar(jan); });
 
         return b;
@@ -102,7 +116,7 @@
         if (!jan || jan.querySelector(TEM_X)) { return; }   // já tem X (o próprio ou um nosso que continua lá)
         var h = jan.firstElementChild;
         var alturaCab = h ? h.getBoundingClientRect().height : 0;
-        var usaCab = alturaCab < 140 && alturaCab > 24;
+        var usaCab = alturaCab < 140 && alturaCab > 24 && !h.matches(ITEM);   // nunca dentro de um item clicável
         var host = usaCab ? h : jan;
         if (getComputedStyle(host).position === 'static') { host.style.position = 'relative'; }
         var b = botao(jan);

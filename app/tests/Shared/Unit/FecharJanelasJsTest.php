@@ -42,6 +42,11 @@ final class FecharJanelasJsTest extends TestCase
         self::assertStringContainsString("attributeFilter: ['class', 'style', 'hidden']", $js);
         self::assertStringContainsString('for (var el = host; el && el !== document.documentElement; el = el.parentElement) {', $js);
         self::assertStringNotContainsString('display', self::codigo(), 'nada escondido à força');
+        self::assertStringContainsString("var PAPEIS = '[role=\"menu\"],[role=\"dialog\"],[role=\"alertdialog\"]';", self::codigo(), 'sem listbox: o X cairia dentro da primeira opção (no Select2, escolhia a opção)');
+        self::assertStringContainsString('&& !h.matches(ITEM);', self::codigo(), 'nunca dentro de um item clicável');
+        self::assertStringContainsString("['pointerdown', 'mousedown', 'pointerup', 'mouseup']", self::codigo());
+        self::assertStringContainsString('if (!aVista(jan)) { return; }', self::codigo(), 'clique fora só com a janela ainda à vista');
+        self::assertSame(1, substr_count(self::codigo(), "new KeyboardEvent('keydown'"), 'Esc uma vez só');
         self::assertStringNotContainsString('innerHTML', self::codigo());
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);
     }

@@ -11,4 +11,4 @@
 .bj-fechar-x--escuro { background: rgba(255, 255, 255, .14); color: #fff; }
 .bj-fechar-x--escuro:hover { background: rgba(255, 255, 255, .26); color: #fff; }
 .bj-fechar-x:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
-[data-bs-theme="dark"] .bj-fechar-x:not(.bj-fechar-x--escuro) { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+/* Tema escuro: a cor vem do fundo de verdade da janela (fechar-janelas.js `escuro`), sem regra própria. */
