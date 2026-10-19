@@ -16,9 +16,10 @@ Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coorde
 2. **#74** `contribua-c2`, RASCUNHO, base `contribua-cora` (C2: página /contribua, PIX, sugestões, aviso).
    Migration `Version20261019210000` (3 tabelas). Renomear para o horário do momento na vez da fila
    (a 0d tinha o mesmo número e vai renomear a dela).
-3. `contribua-c3`, base `contribua-c2` (C3 comum + C3a Asaas). Migration `Version20261019220000` (3 tabelas:
+3. **#95** `contribua-c3`, RASCUNHO, base `contribua-c2` (C3 comum + C3a Asaas). Migration `Version20261019220000` (3 tabelas:
    avisos recebidos, assinaturas, configuração do pagamento; carga da linha de configuração SEM gateway).
-   A 4b empilha sobre ela: C4 Cora e os adaptadores Stripe (`contribua-stripe`), Mercado Pago e Pagar.me.
+   A 4b empilha sobre ela: C4 Cora (#88, migration `Version20261019230000`) e os adaptadores Stripe (#92),
+   Mercado Pago (#93) e Pagar.me (#94), rascunhos.
 
 **Fila de migrations** (a coordenação controla): #52 → Push (0d) → Telas e recursos (b5) → PR 2 da 7d →
 C1 (#64) → C2 (#74) → C3.
