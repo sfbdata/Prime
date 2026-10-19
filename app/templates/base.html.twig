@@ -553,6 +553,7 @@
                 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
                 let deferredPrompt = null;
+                const AVISO_SEM_PEDIDO = 'Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".';
 
                 function marcarInstalado() {
                     if (btnHeader)    btnHeader.style.display = 'none';
@@ -574,7 +575,9 @@
                         new bootstrap.Modal(document.getElementById('modalInstalarIOS')).show();
                         return;
                     }
-                    if (isStandalone) marcarInstalado();
+                    if (isStandalone) { marcarInstalado(); return; }
+                    // Sem o pedido do navegador (desenho 03, dc L.690): o aviso de como instalar, em vez de nada.
+                    if (window.bjAviso) window.bjAviso(AVISO_SEM_PEDIDO);
                 }
 
                 if (isStandalone) {
