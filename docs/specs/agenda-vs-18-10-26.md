@@ -576,6 +576,9 @@ Conferência do desenho inteiro contra as entregas #58 a #78 e #81 (98 itens). O
   `BJCentral.notificar` guarda o `acao` em `ctx.acao` quando há link (L6644: `acao: e2.acao || 'Abrir'`),
   mas nenhum trecho do protótipo lê `ctx.acao` nem desenha botão no aviso: o clique no aviso leva ao link,
   como no sistema. O botão não entra. O 09 do zip é idêntico à cópia em `docs/design/agenda-vs-18-10-26/`.
+  O tipo `agenda` do mesmo protótipo (grupo atenção, `bi-calendar-event`, azul `#0a7aad`, nível 2, com som)
+  passa a valer para os avisos da Agenda na Central (`TiposDeAvisoDaCentral`; antes âmbar, nível 1). O som
+  da Central do sistema não depende do nível: toca quando sobe o total de não lidas (regra da Central).
 - **Data acrescentada:** "Incluído manualmente." (L218).
 - **Botão direito só no Mês** (célula, chip e rótulo do feriado), como no desenho; saiu das horas de
   Semana/Dia (acréscimo sem registro, removido por decisão do coordenador).
