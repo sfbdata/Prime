@@ -30,7 +30,8 @@ final class GatewayFalso implements GatewayDeAssinatura
     public bool $foraDoAr = false;
 
     public function __construct(
-        private readonly string $modo = InicioDoCheckout::REDIRECIONAR,
+        /** Mutável: o teste funcional troca o modo do gateway que já está no container. */
+        public string $modo = InicioDoCheckout::REDIRECIONAR,
     ) {
     }
 

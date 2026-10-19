@@ -24,6 +24,12 @@ final readonly class SituacaoNoGateway
         public ?string $idDoCliente = null,
         /** Valor da cobrança vigente, em centavos, para conferir com o plano. */
         public ?int $valorCentavos = null,
+        /**
+         * Só na resposta de `assinarComToken`: o banco pediu autenticação (3-D Secure) e o navegador precisa
+         * concluí-la com este segredo (Stripe: `client_secret` da primeira fatura). O JS do gateway o recebe em
+         * `concluirAcao()`. Null quando não há nada a fazer no navegador.
+         */
+        public ?string $acaoNoNavegador = null,
     ) {
     }
 }

@@ -135,6 +135,7 @@ final class MontarPaginaDoContribuaUseCase
             'codigo' => $p->getCodigo(),
             'nome' => $p->getNome(),
             'gbNumero' => $gb,
+            'centavos' => $p->getPrecoCentavos(),
             'hojeGb' => min($limiteGb, $gb),
             'rotulo' => mb_strtoupper($p->getNome()),
             'gb' => $gb . ' GB',

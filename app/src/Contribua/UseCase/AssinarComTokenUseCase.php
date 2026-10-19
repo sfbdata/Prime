@@ -12,6 +12,7 @@ use App\Contribua\Gateway\GatewaysDeAssinatura;
 use App\Contribua\Gateway\Pagador;
 use App\Contribua\Gateway\PedidoDeCheckout;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
+use App\Contribua\Gateway\SituacaoNoGateway;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Service\AtualizacaoDaAssinatura;
 use Psr\Log\LoggerInterface;
@@ -22,7 +23,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * transformou o cartão em token com a chave pública; aqui só o token chega. A resposta do gateway passa
  * pelo mesmo caminho do webhook (`AtualizacaoDaAssinatura`).
  *
- * Devolve a data da próxima cobrança, para a mensagem "Pagamento enviado" do desenho.
+ * Devolve a data da próxima cobrança (mensagem "Pagamento enviado" do desenho) e, quando o banco pede 3-D
+ * Secure, o segredo que o navegador usa para concluir a autenticação.
  */
 final class AssinarComTokenUseCase
 {
@@ -35,7 +37,8 @@ final class AssinarComTokenUseCase
     ) {
     }
 
-    public function executar(Solicitante $quem, int $pedidoId, string $token, string $documento, ?string $ip): \DateTimeImmutable
+    /** @return array{proxima: string, acaoNoNavegador: ?string} */
+    public function executar(Solicitante $quem, int $pedidoId, string $token, string $documento, ?string $ip): array
     {
         $pedido = $this->pedidoAguardando($quem, $pedidoId);
         $gateway = $this->gateways->porCodigo($pedido->getGateway()) ?? throw new \DomainException('A assinatura por cartão ainda não foi liberada.');
@@ -44,9 +47,10 @@ final class AssinarComTokenUseCase
         }
 
         $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), preg_replace('/\D/', '', $documento) ?? '', (string) $quem->usuario->getEmail());
-        $this->assinarNoGateway($gateway, $pedido, $this->checkout($pedido, $pagador, $ip), $token);
+        $resposta = $this->assinarNoGateway($gateway, $pedido, $this->checkout($pedido, $pagador, $ip), $token);
+        $proxima = $pedido->getPagaAte() ?? new \DateTimeImmutable('+1 month');
 
-        return $pedido->getPagaAte() ?? new \DateTimeImmutable('+1 month');
+        return ['proxima' => $proxima->format('d/m/Y'), 'acaoNoNavegador' => $resposta->acaoNoNavegador];
     }
 
     private function pedidoAguardando(Solicitante $quem, int $pedidoId): AssinaturaDeEspaco
@@ -70,10 +74,13 @@ final class AssinarComTokenUseCase
         return new PedidoDeCheckout($pedido->referencia(), (int) $pedido->getTenant()->getId(), $plano->getCodigo(), $plano->getNome(), $pedido->getValorCentavos(), $pagador, $pagina . '?assinatura=ok', $pagina . '#espaco', $ip);
     }
 
-    private function assinarNoGateway(GatewayDeAssinatura $gateway, AssinaturaDeEspaco $pedido, PedidoDeCheckout $checkout, string $token): void
+    private function assinarNoGateway(GatewayDeAssinatura $gateway, AssinaturaDeEspaco $pedido, PedidoDeCheckout $checkout, string $token): SituacaoNoGateway
     {
         try {
-            $this->atualizacao->aplicar($gateway, $gateway->assinarComToken($checkout, $token), $pedido);
+            $resposta = $gateway->assinarComToken($checkout, $token);
+            $this->atualizacao->aplicar($gateway, $resposta, $pedido);
+
+            return $resposta;
         } catch (FalhaNoGateway $falha) {
             $this->logger->error('Contribua: o gateway recusou a assinatura com token', ['gateway' => $gateway->codigo(), 'referencia' => $checkout->referencia, 'erro' => $falha->getMessage()]);
 
