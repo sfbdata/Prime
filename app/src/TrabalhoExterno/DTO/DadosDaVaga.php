@@ -85,13 +85,16 @@ final class DadosDaVaga
         };
     }
 
-    /** Quem não é Master não escolhe o tipo nem "Até ser preenchida", e fica no teto da Central (l.1005). */
+    /**
+     * Quem não é Master não escolhe o tipo e fica no teto de dias da Central, quando há teto (l.1005:
+     * `cur && cur <= mx ? cur : Math.min(15, mx)`). Sem teto, pode "Até a vaga ser preenchida" (l.1185).
+     */
     public function limitarParaQuemNaoEMaster(int $maxDias): void
     {
         $this->oferta = false;
         $this->ofertaDefinida = false;
-        if ($this->periodoDias === 0 || ($maxDias > 0 && $this->periodoDias > $maxDias)) {
-            $this->periodoDias = $maxDias > 0 ? min(15, $maxDias) : 15;
+        if ($maxDias > 0 && ($this->periodoDias === 0 || $this->periodoDias > $maxDias)) {
+            $this->periodoDias = min(15, $maxDias);
         }
     }
 
