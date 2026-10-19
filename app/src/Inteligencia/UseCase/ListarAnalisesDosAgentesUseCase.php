@@ -27,6 +27,12 @@ final class ListarAnalisesDosAgentesUseCase
 {
     public const LIMITE_POR_AGENTE = 10;
 
+    /**
+     * Quantas vezes o limite se busca antes do filtro das abas ocultas: sem a folga, análises
+     * bloqueadas entre as mais recentes empurrariam para fora as visíveis mais antigas.
+     */
+    public const FOLGA_DO_FILTRO = 3;
+
     public function __construct(
         private readonly AnaliseDeInteligenciaRepository $analises,
     ) {
@@ -55,15 +61,15 @@ final class ListarAnalisesDosAgentesUseCase
             $tenant,
             AnaliseDeInteligencia::ALVO_PASTA,
             (int) $pasta->getId(),
-            self::LIMITE_POR_AGENTE,
+            self::LIMITE_POR_AGENTE * self::FOLGA_DO_FILTRO,
             TipoDeAnalise::AnalisePasta,
             $agente,
         );
 
-        return $this->saidaDoAgente($agente, array_values(array_filter(
+        return $this->saidaDoAgente($agente, \array_slice(array_values(array_filter(
             $entidades,
             static fn (AnaliseDeInteligencia $a): bool => VisibilidadeDaAnaliseDaPasta::legivelCom($a, $abasOcultas),
-        )));
+        )), 0, self::LIMITE_POR_AGENTE));
     }
 
     /** @param list<AnaliseDeInteligencia> $entidades */

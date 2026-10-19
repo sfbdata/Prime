@@ -62,10 +62,11 @@ final class AnaliseDaPastaController extends AbstractController
     public function painel(Pasta $pasta): Response
     {
         [$user, $tenant] = $this->guardar($pasta);
+        $ocultas = $this->visibilidadeDaAnalise->abasOcultasPara($pasta, $user);
 
         return $this->render('inteligencia/_agentes_painel.html.twig', [
-            'painel' => $this->listar->executar($pasta, $tenant, $this->visibilidadeDaAnalise->abasOcultasPara($pasta, $user)),
-            'sabe' => $this->contarOQueSabe->executar($pasta, $tenant),
+            'painel' => $this->listar->executar($pasta, $tenant, $ocultas),
+            'sabe' => $this->contarOQueSabe->executar($pasta, $tenant, $ocultas),
             'pastaId' => (int) $pasta->getId(),
         ]);
     }

@@ -24,6 +24,9 @@ final class ListarAnalisesDaPastaUseCase
 {
     public const LIMITE = 20;
 
+    /** Folga da busca antes do filtro das abas ocultas (ver `ListarAnalisesDosAgentesUseCase`). */
+    public const FOLGA_DO_FILTRO = 3;
+
     public function __construct(
         private readonly AnaliseDeInteligenciaRepository $analises,
         private readonly MontadorDeContextoDoPush $montador,
@@ -39,10 +42,10 @@ final class ListarAnalisesDaPastaUseCase
     public function executar(Pasta $pasta, Tenant $tenant, array $abasOcultas): AnalisesDaPastaOutput
     {
         $alvoId = (int) $pasta->getId();
-        $entidades = array_values(array_filter(
-            $this->analises->listarPorAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, self::LIMITE),
+        $entidades = \array_slice(array_values(array_filter(
+            $this->analises->listarPorAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, self::LIMITE * self::FOLGA_DO_FILTRO),
             static fn (AnaliseDeInteligencia $a): bool => VisibilidadeDaAnaliseDaPasta::legivelCom($a, $abasOcultas),
-        ));
+        )), 0, self::LIMITE);
 
         $saidas = [];
         $ultimaConcluida = null;

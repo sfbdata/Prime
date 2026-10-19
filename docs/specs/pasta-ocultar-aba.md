@@ -116,3 +116,8 @@ Já decididas e implementadas nesta revisão:
   cartão do trilho, da contagem da aba, do Histórico, do contexto da IA e dos documentos do Agente de Pastas, e por
   id dá 404 (`VisibilidadeDasAbasDaPasta::documentoVisivel`).
 - Checklist de documentação é da aba Documentos (mora no explorador dela); os réus (janela Cadastro) não são de aba.
+- Aceito na re-revisão: quem tem aba oculta e pede uma análise de agente pode receber o id da análise PENDENTE de
+  outra pessoa (idempotência por agente). Não vaza conteúdo: a pendente não tem texto, e por id ela segue a regra
+  de leitura (404 se tirou conteúdo de aba oculta para quem lê).
+- Ações em lote com contrato de honorários e o Financeiro oculto: o id do contrato responde como id inexistente
+  (404 "Documento não encontrado.", o mesmo do id que não existe), e a seção baixada em .zip não o leva.
