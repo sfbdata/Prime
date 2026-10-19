@@ -192,10 +192,62 @@ vaga), cartões em grade `minmax(310px,1fr)`, modal genérico (`tlm`) com formul
 configuração. **Provisórios até o zip**: rótulos de `vagaFiltros`, ações de `vgBulk`, itens do menu de
 contexto do cartão, `divPassos`, `tfTipos`, `tfDurs`, `cfgTgs`, `cfgEnvOps`.
 
+## 4.2 F2c: página pública de vagas e "Compartilhar vagas"
+
+Desenho: `Vagas Publicas.dc.html` (projeto Claude Design, arquivo **completo**, sem corte), mais o
+modal `tmShare` do 06 (linhas 343–362) e o botão "Compartilhar vagas" da aba (linha 153).
+
+**Rota pública, sem login.** É a primeira tela do Trabalho Externo fora do login: o rigor é o de
+dado pessoal (LGPD) e de formulário aberto na internet.
+
+### Link de vagas
+
+- "Compartilhar vagas" (Central, com vagas abertas) e "Compartilhar esta vaga" (detalhe) abrem o
+  `tmShare`: prévia do link, mensagem editável com `{link}` ("Inclua {link} no texto para o link
+  entrar na mensagem") e os canais (WhatsApp, e-mail, LinkedIn, copiar; provisório até o zip).
+- Gravar o compartilhamento cria um `LinkDeVagas` (`trabalho_externo_link_vagas`): token aleatório
+  (só o hash SHA-256 é gravado, como o convite), as vagas, quem gerou, quando. O protótipo põe as
+  vagas no próprio endereço em base64; aqui isso vazaria o que a página esconde, por isso o token.
+- A página `GET /vagas-juridicas/{token}` mostra **só** cargo, título, local, modalidade,
+  contratação, áreas e quantidade, das vagas do link que **ainda estão abertas** ("A página pública
+  mostra só cargo, local e tipo. Detalhes, remuneração, contatos e candidatura ficam liberados depois
+  de criar a conta."). Remuneração, escritório e requisitos **não saem do servidor**: o bloco borrado
+  do desenho é texto fixo de enfeite. Sem nenhuma aberta: "As vagas deste link já foram preenchidas".
+  Token desconhecido: a mesma página sem vagas (não confirma se o link existiu).
+- `GET /vagas-juridicas` sem token: a página geral, sem lista ("Sua próxima vaga na área jurídica
+  começa aqui"). `?p=esc` abre a visão "Quero contratar".
+
+### Alertas por e-mail (lead)
+
+- "Receba vagas da sua área por e-mail": e-mail, UF ("Todo o Brasil"), áreas e o consentimento LGPD
+  obrigatório. Grava `InteressadoEmVagas` (`trabalho_externo_interessado`): e-mail único (normalizado
+  em minúsculas), UF, áreas, consentimento com data e versão do texto, origem (link), e o token do
+  link de onde veio. Repetir o e-mail atualiza as preferências; não revela se já existia.
+- POST público com CSRF da própria página e **limite de tentativas** por IP (rate limiter do
+  Symfony). Resposta igual para e-mail novo e repetido.
+- O envio dos e-mails de vagas é da frente "Comercial e e-mails" (contrato pelo coordenador), e o
+  descadastro é o serviço de `Shared` da frente `push-avisar-quando-chegar` (tabela
+  `email_descadastro`). Esta fatia não envia e-mail nem cria descadastro próprio: a tela de "Não quer
+  mais receber" do desenho é a desse serviço.
+
+### Botões de conta
+
+- "Entrar" → `/login`. "Divulgar minha vaga grátis" e "Quero divulgar vaga" → `/cadastro` (conta e
+  escritório, já existe).
+- "Criar conta grátis e me candidatar", "Procuro vaga" e os "Criar conta" do candidato: **dependem
+  da P1** (quem é o candidato, risco ALTO). Até ela, levam ao bloco de alertas por e-mail da própria
+  página (`#alertas`), sem criar conta. **Provisório.**
+
+### Segurança
+
+- `security.yaml`: uma linha `^/vagas-juridicas` com `PUBLIC_ACCESS`, própria (outras frentes
+  acrescentam as delas). Avisar o coordenador ao mexer.
+- Sem dado de escritório na página; token de 32 bytes; sem `find` por id.
+
 ### Fatias seguintes
 
-- **F2c**: página pública "Vagas Publicas.dc.html" e "Compartilhar vagas" (rota pública, spec própria).
-  A campanha por e-mail usa a infraestrutura da frente "Comercial e e-mails" (contrato pelo coordenador).
+- **F2c**: §4.2. A campanha por e-mail usa a infraestrutura da frente "Comercial e e-mails"
+  (contrato pelo coordenador).
 - **F2b**: candidatura, depois do F3 e da P1.
 
 ## 5. Verificação
