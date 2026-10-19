@@ -84,7 +84,8 @@
 .mu-resumo > span:nth-child(odd) { color: #5f7684; }
 .mu-resumo-papel { color: #0a6fa0; }
 .mu-rotulo { font-size: 12px; font-weight: 700; letter-spacing: .5px; color: #5f7684; }
-.mu-rotulo-convidar { margin-top: 4px; }
+.mu-rotulo-convidar { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
+.mu-link-convites { font-weight: 400; letter-spacing: 0; font-size: 12px; }
 .mu-nota-convidar { margin-top: -10px; }
 .mu-equipe { max-height: 220px; overflow: auto; border: 1px solid #e1e8ed; border-radius: 4px; }
 .mu-membro { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #eef2f5; font-size: 14px; }

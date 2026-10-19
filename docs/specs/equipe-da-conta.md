@@ -36,13 +36,22 @@ Só para o **primário do escritório ou o Master** (como "Abrir conta"); o secu
   Master, nunca sobre si mesmo. Mesma situação: nada muda. Auditado (`UserTenant` é Auditavel).
 - **Demitir** usa `RemoverColaboradorDoEscritorioUseCase` (o mesmo "Remover do escritório" da tela de equipe), sem
   substituto: o que estava com a pessoa fica sem responsável, como na opção "Deixar sem responsável" de lá. Valem
-  todas as travas atuais (titular, último administrador, Master, primário sócio).
+  todas as travas atuais (titular, último administrador, Master) e o primário não é demitido por aqui (como no menu).
+  Quem está suspenso ou em análise é reaprovado e removido na MESMA transação (a remoção só acha vínculo ativo); se
+  uma trava recusar, nada muda.
+- **Convite não passa por cima da situação**: criar convite para quem está suspenso ou em análise no escritório é
+  recusado ("Altere a situação dela na equipe da conta"), e aceitar convite também (com a mensagem de acesso).
+- **Atribuição** (decisão da coordenação, 19/10/2026): suspenso e em análise não aparecem para atribuição NOVA; editar
+  um registro preserva quem já estava atribuído. Ponto único: `App\Tenant\Service\ColaboradoresAtribuiveis`
+  (aprovados + atuais do registro). Os formulários de outros domínios passam a usá-lo em PR próprio, logo depois deste
+  (o de Evento fica com a frente da Agenda). Dashboard e metas da equipe ficam como estão (sem quem está suspenso).
 
 ## 3. Acesso (contrato com a b5, registrado também em `perfis-1.2-contas.md` C3 e C13)
 
 `TenantContextValidatorListener`, um método privado por barreira, nesta ordem; vale a mensagem da primeira que falhar:
 
-1. (a) **escritório suspenso ou excluído** (b5): "Este escritório está suspenso. Fale com o responsável pela conta."
+1. (a) **escritório suspenso ou excluído** (b5; a mensagem "Este escritório está suspenso. Fale com o responsável pela
+   conta." entra com o PR da b5, até lá vale a mensagem atual)
 2. (b) **pedido de exclusão pendente** (PR 5).
 3. (c) **vínculo ausente** (removido) ou inativo de legado: mensagem atual.
 4. (d) **situação do usuário** (este PR):
@@ -61,7 +70,9 @@ análise (que não entram na lista de escritórios), para a pessoa entender por 
   for de outro).
 - `POST /escritorio/equipe/{userTenantId}/demitir` (CSRF).
 - Convidar: o formulário da aba envia para a rota que já existe (`auth_gerenciar_convites_criar`), com as mesmas
-  regras e o mesmo e-mail; a resposta volta para a página anterior.
+  regras e o mesmo e-mail; com `_voltar=1`, a resposta volta para a página anterior (só endereço do mesmo site).
+  "Convites do escritório" (menu e abas do perfil) abre esta aba, como no desenho; a página de convites pendentes
+  (revogar e reenviar) fica no link "Ver convites pendentes" da aba.
 
 ## 5. Pergunta em aberto (enviada ao coordenador)
 

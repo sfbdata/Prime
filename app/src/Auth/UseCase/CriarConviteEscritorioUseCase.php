@@ -9,6 +9,7 @@ use App\Entity\Auth\Invitation;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -35,6 +36,11 @@ final class CriarConviteEscritorioUseCase
         $existingUser = $this->userRepository->findOneBy(['email' => $email]);
         if ($existingUser !== null && $this->userTenantRepository->existeVinculoAtivo($existingUser, $input->tenant)) {
             throw new \DomainException('Este usuário já é colaborador ativo deste escritório.');
+        }
+        // Quem está suspenso ou em análise só volta pela equipe da conta, pelo primário (spec equipe-da-conta §2).
+        $situacao = $existingUser === null ? null : $this->userTenantRepository->findPorUserETenant($existingUser, $input->tenant)?->getSituacao();
+        if ($situacao !== null && $situacao !== SituacaoNaEquipe::Aprovado) {
+            throw new \DomainException('Esta pessoa está com o acesso suspenso ou em análise neste escritório. Altere a situação dela na equipe da conta.');
         }
 
         $invitation = new Invitation(

@@ -251,7 +251,7 @@ input[type="range"].img-slider {
                 <button type="button" class="mu-aba-perfil mu-aba-perfil-master" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
                     <i class="bi bi-star-fill"></i>Master<i class="bi bi-chevron-down"></i>
                 </button>
-                <div class="dropdown-menu mu-master-menu" role="menu">
+                <div class="dropdown-menu mu-master-menu" role="menu" data-sem-x="1">
                     <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>EXCLUSIVO DO MASTER</div>
                     <button type="button" class="mu-menu-x mu-menu-x-escuro" data-mu-fechar-menu aria-label="Fechar menu"><i class="bi bi-x-lg"></i></button>
                     {% include 'menu_usuario/_itens_master.html.twig' with {classe_item: 'dropdown-item mu-item', papel: 'menuitem'} only %}

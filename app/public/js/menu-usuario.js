@@ -56,10 +56,16 @@
 
   /* ---------- equipe da conta: menu da pessoa (⋮ ou botão direito), desenho bj-contas.js abrirMnu ---------- */
   const SIT = { aprovado: 'aprovado', em_analise: 'em análise', suspenso: 'suspenso' };
-  function fecharMenuMembro() { const m = document.getElementById('muMenuMembro'); if (m) m.remove(); }
+  let focoAntesDoMenu = null;
+  function fecharMenuMembro() {
+    const m = document.getElementById('muMenuMembro'); if (!m) return;
+    m.remove();
+    if (focoAntesDoMenu && document.contains(focoAntesDoMenu)) focoAntesDoMenu.focus();
+    focoAntesDoMenu = null;
+  }
   function itemMenu(op, icone, texto, classe) {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'mu-mm-item' + (classe ? ' ' + classe : ''); b.dataset.mmOp = op;
+    b.type = 'button'; b.className = 'mu-mm-item' + (classe ? ' ' + classe : ''); b.dataset.mmOp = op; b.setAttribute('role', 'menuitem');
     const i = document.createElement('span'); i.className = 'mu-mm-ic'; i.textContent = icone;
     b.append(i, document.createTextNode(texto));
     return b;
@@ -67,7 +73,7 @@
   function abrirMenuMembro(linha, x, y) {
     fecharMenuMembro();
     const sit = linha.dataset.situacao, m = document.createElement('div');
-    m.id = 'muMenuMembro'; m.className = 'mu-menu-membro'; m.setAttribute('role', 'menu'); m.dataset.membro = linha.dataset.membro;
+    m.id = 'muMenuMembro'; m.className = 'mu-menu-membro'; m.setAttribute('role', 'menu'); m.dataset.membro = linha.dataset.membro; m.dataset.semX = '1';
     const topo = document.createElement('div'); topo.className = 'mu-mm-topo';
     topo.textContent = linha.dataset.nome + (linha.dataset.primario === '1' ? ' · primário' : ' · ' + (SIT[sit] || sit));
     m.append(topo);
@@ -81,7 +87,9 @@
       const v = document.createElement('div'); v.className = 'mu-mm-vazio'; v.textContent = 'Sem ações disponíveis'; m.append(v);
     }
     m.style.left = Math.min(x, innerWidth - 250) + 'px'; m.style.top = Math.min(y, innerHeight - 230) + 'px';
+    focoAntesDoMenu = document.activeElement;
     document.body.append(m);
+    const primeiro = m.querySelector('[data-mm-op]'); if (primeiro) primeiro.focus();
   }
   function executarMembro(op, menu) {
     const raiz = document.querySelector('.mu-minha-conta'); if (!raiz) return;

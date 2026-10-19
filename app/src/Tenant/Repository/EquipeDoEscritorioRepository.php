@@ -81,10 +81,36 @@ class EquipeDoEscritorioRepository
         return $lista;
     }
 
-    /** Um vínculo da equipe deste escritório; de outro escritório, null (a rota responde 404). */
+    /**
+     * Um vínculo da equipe deste escritório, com o mesmo recorte da lista (ativo, ou inativo por causa da situação);
+     * de outro escritório ou inativo de legado, null (a rota responde 404).
+     */
     public function membroDoEscritorio(int $id, Tenant $tenant): ?UserTenant
     {
-        return $this->entityManager->getRepository(UserTenant::class)->findOneBy(['id' => $id, 'tenant' => $tenant]);
+        $vinculo = $this->entityManager->getRepository(UserTenant::class)->findOneBy(['id' => $id, 'tenant' => $tenant]);
+        if ($vinculo === null || (!$vinculo->isActive() && $vinculo->getSituacao() === SituacaoNaEquipe::Aprovado)) {
+            return null;
+        }
+
+        return $vinculo;
+    }
+
+    /** Situação da pessoa neste escritório, se ela tem vínculo (para o convite não passar por cima dela). */
+    public function situacaoDe(\App\Entity\Auth\User $usuario, Tenant $tenant): ?SituacaoNaEquipe
+    {
+        return $this->entityManager->getRepository(UserTenant::class)->findOneBy(['user' => $usuario, 'tenant' => $tenant])?->getSituacao();
+    }
+
+    /**
+     * @template T
+     *
+     * @param callable(): T $operacao
+     *
+     * @return T
+     */
+    public function emTransacao(callable $operacao): mixed
+    {
+        return $this->entityManager->wrapInTransaction($operacao);
     }
 
     /**

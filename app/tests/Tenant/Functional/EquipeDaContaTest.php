@@ -98,6 +98,8 @@ final class EquipeDaContaTest extends JusPrimeWebTestCase
         self::assertStringContainsString($esperado, implode(' ', $this->client->getRequest()->getSession()->getFlashBag()->peek('warning')));
         $selecao = $this->client->followRedirect();
         self::assertStringContainsString($esperado, $selecao->filter('[data-acesso-bloqueado]')->text());
+        self::assertStringNotContainsString('convite(s) pendente(s)', $selecao->text(), 'sem convites, não fala em "0 convites"');
+        self::assertStringNotContainsString('não faz parte de nenhum escritório', $selecao->text());
 
         $this->postar($this->primario, $this->vinculoSecundario->getId(), 'situacao', ['situacao' => 'aprovado']);
         $this->logarComTenant($this->client, $this->secundario, $this->tenant);
@@ -153,6 +155,32 @@ final class EquipeDaContaTest extends JusPrimeWebTestCase
 
         $this->postar($this->primario, $this->vinculoDe($this->primario)->getId(), 'demitir', []);
         self::assertResponseStatusCodeSame(422);
+    }
+
+    #[TestDox('demitir quem está suspenso funciona (a remoção acha o vínculo) e não deixa a pessoa no escritório')]
+    public function testDemitirSuspenso(): void
+    {
+        $id = (int) $this->vinculoSecundario->getId();
+        $this->postar($this->primario, $id, 'situacao', ['situacao' => 'suspenso']);
+        $this->postar($this->primario, $id, 'demitir', []);
+
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->em->getConnection()->fetchOne('SELECT 1 FROM user_tenant WHERE id = ?', [$id]));
+    }
+
+    #[TestDox('convite para quem está suspenso é recusado na criação, com a orientação de usar a equipe da conta')]
+    public function testConviteNaoPassaPorCimaDaSuspensao(): void
+    {
+        $this->postar($this->primario, $this->vinculoSecundario->getId(), 'situacao', ['situacao' => 'suspenso']);
+        $this->logarComTenant($this->client, $this->primario, $this->tenant);
+        $aba   = $this->client->request('GET', '/escritorio/equipe');
+        $form  = $aba->filter('form.mu-convidar')->form();
+        $form['email'] = (string) $this->secundario->getEmail();
+        $this->client->submit($form, [], ['HTTP_REFERER' => 'http://localhost/perfil']);
+
+        self::assertResponseRedirects('http://localhost/perfil', null, 'voltou para a página de onde o convite saiu');
+        self::assertStringContainsString('acesso suspenso ou em análise', implode(' ', $this->client->getRequest()->getSession()->getFlashBag()->peek('erro')));
+        self::assertSame(SituacaoNaEquipe::Suspenso, $this->situacaoDe($this->vinculoSecundario));
     }
 
     #[TestDox('o Master gere a equipe de um escritório onde tem vínculo secundário')]

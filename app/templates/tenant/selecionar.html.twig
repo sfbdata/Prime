@@ -19,12 +19,15 @@
 
     {% if vinculos is empty %}
         {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
-        {% if convites_escritorio is empty and bloqueados|default([]) is empty %}
+        {% if convites_escritorio is empty %}
+            {# Com acesso bloqueado (em análise ou suspenso) a mensagem de cima já explica; não diz "nenhum escritório". #}
+            {% if bloqueados|default([]) is empty %}
             <div class="alert alert-warning text-center">
                 <i class="bi bi-building-x d-block fs-3 mb-2"></i>
                 Você ainda não faz parte de nenhum escritório.<br>
                 <small class="text-muted">Peça a um administrador para te convidar.</small>
             </div>
+            {% endif %}
         {% else %}
             <p class="text-center text-muted mb-3">
                 <i class="bi bi-envelope-paper me-1"></i>

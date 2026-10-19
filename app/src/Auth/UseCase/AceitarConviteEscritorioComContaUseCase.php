@@ -8,6 +8,7 @@ use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
 use App\Entity\Auth\UserTenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -52,6 +53,10 @@ final class AceitarConviteEscritorioComContaUseCase
 
         if ($vinculo !== null && $vinculo->isActive()) {
             throw new \DomainException('Você já é colaborador deste escritório.');
+        }
+        // Suspenso ou em análise: o convite não devolve o acesso; só o primário, pela equipe da conta.
+        if ($vinculo !== null && $vinculo->getSituacao() !== SituacaoNaEquipe::Aprovado) {
+            throw new \DomainException($vinculo->getSituacao()->mensagemDeAcesso((string) $tenant->getName()));
         }
 
         if ($vinculo !== null) {
