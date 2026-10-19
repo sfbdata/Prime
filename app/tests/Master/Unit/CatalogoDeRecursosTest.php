@@ -68,6 +68,13 @@ final class CatalogoDeRecursosTest extends TestCase
         yield 'página pública do push compartilhado' => ['push_compartilhado', 'pushpub'];
         yield 'código do push compartilhado' => ['push_compartilhado_codigo', 'pushpub'];
         yield 'gerar link externo do push na pasta' => ['pasta_push_links_gerar', 'pushpub'];
+        yield 'página pública de vagas é vagaspub, não trabalho' => ['trabalho_externo_vagas_publicas', 'vagaspub'];
+        yield 'link curto de vagas é vagaspub' => ['trabalho_externo_vagas_link', 'vagaspub'];
+        yield 'compartilhar vagas é vagaspub' => ['trabalho_externo_vagas_compartilhar', 'vagaspub'];
+        yield 'demais rotas de vagas seguem trabalho' => ['trabalho_externo_vagas', 'trabalho'];
+        yield 'página do Contribua' => ['contribua_index', 'contribua'];
+        yield 'pedido de espaço do Contribua' => ['contribua_espaco_pedido', 'contribua'];
+        yield 'webhook do banco fica sempre aberto' => ['contribua_webhook_cora', null];
         yield 'lista de pastas (essencial) não é mapeada' => ['expediente_index', null];
         yield 'política de privacidade continua aberta' => ['legal_politica_privacidade', null];
         yield 'painel do Master' => ['master_painel', null];

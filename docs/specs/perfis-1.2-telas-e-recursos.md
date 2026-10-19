@@ -102,7 +102,8 @@ redesenha sem recarregar.
 | peticionar | Peticionar | `pasta_peticionar` | botão em `pasta/_processos_vinculados` |
 | meuperfil | Meu Perfil | essencial | |
 | pushpub | Push compartilhado (link público) | `push_compartilhado` (página pública /p/…) e `pasta_push_links_` (API que gera, renova e revoga) | item "Link externo do Push" no menu da pasta |
-| contribua, vagaspub | (não existem ainda) | R8 | |
+| vagaspub | Vagas públicas (link) | `trabalho_externo_vagas_publicas`, `_vagas_link`, `_vagas_compartilhar` (vence o prefixo mais longo, antes de `trabalho`) | |
+| contribua | Contribua | `contribua_` (o webhook `contribua_webhook_cora` fica sempre aberto) | o atalho do menu do usuário é envolvido pela f6 com `recurso_visivel('contribua')` |
 | instalar | Instalar aplicativo | | `#linkInstalarApp`, `#btnInstalarApp` |
 | idioma | Idioma | | `[data-mu-idioma]` no menu do usuário (`menu_usuario/_dropdown`) |
 | ajuda | Ajuda e atalhos | | `[data-mu-ajuda]` no menu do usuário |

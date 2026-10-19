@@ -66,6 +66,11 @@ final class CatalogoDeRecursos
         'assistente'  => ['inteligencia_agente'],
         // Push compartilhado: a página pública /p/{endereco} e a API da pasta que gera, renova e revoga os links.
         'pushpub'     => ['push_compartilhado', 'pasta_push_links_'],
+        // Vagas públicas (frente trabalho-externo-vagas-publicas): a página pública, o link curto e o "compartilhar".
+        // Prefixos mais longos que o `trabalho_externo_` da chave `trabalho`: vence o mais específico (chaveDaRota).
+        'vagaspub'    => ['trabalho_externo_vagas_publicas', 'trabalho_externo_vagas_link', 'trabalho_externo_vagas_compartilhar'],
+        // Contribua (frentes da f6): a página e as ações dela. O webhook do banco fica sempre aberto (abaixo).
+        'contribua'   => ['contribua_'],
     ];
 
     /**
@@ -80,6 +85,8 @@ final class CatalogoDeRecursos
         'trabalho_externo_convite',
         'trabalho_externo_convite_criar_conta',
         'trabalho_externo_convite_aceitar',
+        // Webhook do banco (Contribua): pagamento confirmado não pode ser recusado por uma tela desligada.
+        'contribua_webhook_cora',
     ];
 
     /** @return list<string> as 18 chaves, na ordem da primeira aparição. */
@@ -123,14 +130,18 @@ final class CatalogoDeRecursos
             return null;
         }
 
+        // Vence o prefixo mais longo: `trabalho_externo_vagas_publicas` (vagaspub) antes de `trabalho_externo_` (trabalho).
+        $achada = null;
+        $tamanho = 0;
         foreach (self::ROTAS as $chave => $prefixos) {
             foreach ($prefixos as $prefixo) {
-                if (str_starts_with($rota, $prefixo)) {
-                    return $chave;
+                if (strlen($prefixo) > $tamanho && str_starts_with($rota, $prefixo)) {
+                    $achada = $chave;
+                    $tamanho = strlen($prefixo);
                 }
             }
         }
 
-        return null;
+        return $achada;
     }
 }
