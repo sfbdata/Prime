@@ -3,7 +3,8 @@
 
    O acordeão (abrir o teor por XHR) continua no pasta-show.js e não é tocado
    aqui. Este arquivo cuida de:
-     1. filtro Todas · Novas · Geram prazo (no navegador: a lista inteira já está na página);
+     1. filtro Todas · Novas · Geram prazo (no navegador: a lista inteira já está na página),
+        depois do chip do processo (P4f: Todos os processos, Principal, um por apensado);
      2. selo e linha de pendência da aba, que acompanham as linhas "novas";
      3. copiar o ID do documento (numeroComunicacao);
      4. marcar como lida / não lida (POST `pasta_push_lida`);
@@ -31,6 +32,29 @@
 
         var lista = secao.querySelector('.ps-push-lista');
         var filtroAtual = 'todas';
+        // P4f (desenho `pushProc`, N:5670): o chip do processo filtra ANTES do Todas/Novas/Geram prazo.
+        var processoAtual = 'todos';
+
+        /* Volta para "Todos" quando o chip do processo filtrado não existe mais (o processo saiu da
+           pasta): corrige o defeito do protótipo, que ficava preso num filtro sem chip. */
+        function processoDoFiltro() {
+            if (processoAtual === 'todos') { return 'todos'; }
+            var existe = Array.prototype.some.call(secao.querySelectorAll('.ps-push-proc'), function (b) {
+                return b.getAttribute('data-push-proc-filtro') === processoAtual;
+            });
+            if (!existe) { marcarChipDoProcesso('todos'); }
+
+            return processoAtual;
+        }
+
+        function marcarChipDoProcesso(chave) {
+            processoAtual = chave;
+            secao.querySelectorAll('.ps-push-proc').forEach(function (b) {
+                var ativo = b.getAttribute('data-push-proc-filtro') === chave;
+                b.classList.toggle('is-ativo', ativo);
+                b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+            });
+        }
 
         /* ── 1. Filtro ─────────────────────────────────────────────────────── */
         function aplicarFiltro() {
@@ -38,13 +62,15 @@
             var itens = lista.querySelectorAll('.ps-push-item');
             var diaAnterior = null;
             var visiveis = 0;
+            var processo = processoDoFiltro();
 
             Array.prototype.forEach.call(itens, function (item) {
                 // "prazo" lê a marca que o servidor pôs pela regra do desenho
                 // (PastaPushOutput::tipoGeraPrazo): o JS não reclassifica o tipo.
-                var mostra = filtroAtual === 'novas'
+                var doProcesso = processo === 'todos' || item.getAttribute('data-push-proc') === processo;
+                var mostra = doProcesso && (filtroAtual === 'novas'
                     ? item.classList.contains(CLASSE_NOVA)
-                    : (filtroAtual === 'prazo' ? item.getAttribute('data-push-gera-prazo') === '1' : true);
+                    : (filtroAtual === 'prazo' ? item.getAttribute('data-push-gera-prazo') === '1' : true));
                 item.hidden = !mostra;
                 if (!mostra) { return; }
 
@@ -59,6 +85,14 @@
             var vazio = document.getElementById('push-vazio-filtro');
             if (vazio) { vazio.hidden = visiveis > 0; }
         }
+
+        secao.addEventListener('click', function (e) {
+            var chip = e.target.closest('.ps-push-proc');
+            if (!chip) { return; }
+
+            marcarChipDoProcesso(chip.getAttribute('data-push-proc-filtro') || 'todos');
+            aplicarFiltro();
+        });
 
         secao.addEventListener('click', function (e) {
             var botao = e.target.closest('.ps-push-filtro');

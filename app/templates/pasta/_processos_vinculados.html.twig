@@ -72,7 +72,7 @@
         {% set principalAdm = vinculos|length > 0 ? pasta.vinculoPrincipal : null %}
         {% set confirmaAdm = null %}
         {% if not administrativa and principalAdm %}
-            {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"?" %}
+            {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"? O andamento passa para a via administrativa." %}
         {% endif %}
         {% if not podeMexerNoVinculo %}
             {# PAS-049b: quem não pode mudar continua VENDO se a pasta é administrativa (com
@@ -113,6 +113,12 @@
                 data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
             <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
         </button>
+        {# P4f (desenho N:1710, `procAbrirApenso` N:4517): abre o MESMO modal em modo apenso
+           (pasta-apensado.js lê o `data-vincular-modo` do botão que abriu). #}
+        <button type="button" class="ps-btn ps-btn--suave ps-btn--apenso" title="Vincular processo apensado (embargos, agravo, execução…)"
+                aria-label="Vincular apensado" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso" data-vincular-modo="apenso">
+            <i class="bi bi-paperclip"></i><span>Vincular apensado</span>
+        </button>
         {% endif %}
         <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
            target="_blank" rel="noopener"
@@ -137,6 +143,8 @@
             {% for vinculo in vinculos %}
                 {% set proc = vinculo.processo %}
                 {% set ehPrincipal = vinculoPrincipal and proc.id == vinculoPrincipal.processo.id %}
+                {# P4f: todo vínculo que não é o principal é apensado (sem tipo gravado, "Outro"). #}
+                {% set confirmaApenso = "Desvincular o apensado " ~ proc.numeroProcesso|numero_cnj ~ " da pasta? O registro fica no histórico." %}
                 {% set menuId      = 'psProcMenu' ~ proc.id %}
                 {% set botaoMaisId = 'psProcMais' ~ proc.id %}
                 {% set detalhesId  = 'psProcDetalhes' ~ proc.id %}
@@ -180,6 +188,20 @@
                         <i class="bi bi-copy copy-btn ps-copiar" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar número do processo"></i>
                         {% if ehPrincipal %}
                             <span class="ps-processo-principal"><i class="bi bi-star-fill"></i>Principal</span>
+                        {% else %}
+                            {# Desenho N:1725: etiqueta "Apensado · Tipo" no lugar de "Principal" e o X que
+                               desvincula ESTE apensado (confirmação vermelha, pasta-apensado.js). #}
+                            <span class="ps-processo-apenso"><i class="bi bi-link-45deg"></i>Apensado · {{ vinculo.tipoApensoRotulo }}</span>
+                            {% if podeMexerNoVinculo %}
+                                <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-desvincular-apensado m-0"
+                                      data-confirmar-texto="{{ confirmaApenso }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
+                                    <input type="hidden" name="processo_id" value="{{ proc.id }}">
+                                    <button type="submit" class="ps-processo-apenso-x" title="Desvincular este apensado" aria-label="Desvincular este apensado">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
                         {% endif %}
                         <span class="ps-cab-espaco"></span>
                         {# Desenho (N4, dc L.1689-1690): no cartão só o copiar, o selo Principal e o ⋮.
@@ -266,8 +288,10 @@
                             </form>
                         {% endif %}
                         {# Texto da confirmação do desenho (procMenu, dc L.2932), lido pelo submit delegado do show. #}
-                        <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0"
-                              data-confirmar="{{ 'Desvincular o processo ' ~ proc.numeroProcesso|numero_cnj ~ ' da Pasta ' ~ (pasta.nup ?? ('#' ~ pasta.id)) ~ "?\nOs dados do processo continuam salvos e você pode vincular de novo." }}">
+                        {# P4f: no apensado, o ⋮ desvincula O APENSADO, com a mesma confirmação do X (o
+                           protótipo escondia o principal aqui, N:3075). #}
+                        <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="{{ ehPrincipal ? 'js-ajax-desvincular-processo' : 'js-desvincular-apensado' }} m-0"
+                              {% if ehPrincipal %}data-confirmar="{{ 'Desvincular o processo ' ~ proc.numeroProcesso|numero_cnj ~ ' da Pasta ' ~ (pasta.nup ?? ('#' ~ pasta.id)) ~ "?\nOs dados do processo continuam salvos e você pode vincular de novo." }}"{% else %}data-confirmar-texto="{{ confirmaApenso }}"{% endif %}>
                             <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
                             <input type="hidden" name="processo_id" value="{{ proc.id }}">
                             <button type="submit" class="ps-processo-menu-item" role="menuitem">

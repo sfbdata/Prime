@@ -84,6 +84,9 @@ use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
+use App\Pasta\UseCase\VincularApensadoUseCase;
+use App\Pasta\Entity\TipoDeApenso;
+use App\Pasta\Exception\ApensadoInvalidoException;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\AtualizarValorCausaUseCase;
@@ -1206,7 +1209,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/processo/vincular', name: 'pasta_vincular_processo', methods: ['POST'])]
-    public function vincularProcesso(Pasta $pasta, Request $request, TribunalCnjResolver $tribunalResolver): Response
+    public function vincularProcesso(Pasta $pasta, Request $request, TribunalCnjResolver $tribunalResolver, VincularApensadoUseCase $vincularApensado): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1251,7 +1254,9 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->vincularProcessoUseCase->executar($pasta, $processo, $currentUser);
+        if ($erro = $this->vincularNoModoPedido($pasta, $processo, $currentUser, $data, $vincularApensado, $isXhr)) {
+            return $erro;
+        }
 
         if ($isXhr) {
             return $this->respostaProcessosVinculados($pasta);
@@ -1285,7 +1290,7 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Processo não está vinculado a esta pasta.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->desvincularProcessoUseCase->executar($pasta, $processo);
+        $this->desvincularProcessoUseCase->executar($pasta, $processo, $currentUser);
 
         if ($isXhr) {
             return $this->respostaProcessosVinculados($pasta);
@@ -1354,6 +1359,35 @@ class PastaController extends AbstractController
         ], $processos);
 
         return $this->json(['results' => $results]);
+    }
+
+    /**
+     * O modal "Vincular processo" também vincula APENSADO (P4f): com `modo=apenso`, o processo já
+     * resolvido (existente ou cadastrado pelo CNJ) entra como apensado do tipo escolhido. Devolve a
+     * resposta de erro (422, texto do desenho) ou null quando vinculou.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function vincularNoModoPedido(Pasta $pasta, Processo $processo, User $usuario, array $data, VincularApensadoUseCase $vincularApensado, bool $isXhr): ?Response
+    {
+        if (($data['modo'] ?? '') !== 'apenso') {
+            $this->vincularProcessoUseCase->executar($pasta, $processo, $usuario);
+
+            return null;
+        }
+
+        $tipo = TipoDeApenso::tryFrom((string) ($data['tipo_apenso'] ?? ''));
+        if ($tipo === null) {
+            return $this->respostaErroProcesso($isXhr, 'Selecione o tipo de apenso.', (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $vincularApensado->executar($pasta, $processo, $tipo, $usuario);
+        } catch (ApensadoInvalidoException $e) {
+            return $this->respostaErroProcesso($isXhr, $e->getMessage(), (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return null;
     }
 
     private function respostaProcessosVinculados(Pasta $pasta): JsonResponse
