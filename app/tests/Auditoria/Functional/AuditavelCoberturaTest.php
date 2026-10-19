@@ -77,6 +77,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Presença na Central (F2, 16/10): batimento a cada 20 s por pessoa. É atividade, não dado de negócio; auditar
         // cada batimento inundaria o audit_log e exporia a rotina de cada um a quem administra.
         \App\Central\Entity\Presenca::class,
+        // Histórico do envio automático do relatório de pastas sem processo: a fotografia das contagens
+        // gravada pelo comando agendado. Dado derivado das pastas, não ato de uma pessoa (como a foto do
+        // Dashboard). A decisão da equipe (DecisaoSemProcessoDaPasta) é auditada.
+        \App\Pasta\Entity\EnvioDoRelatorioSemProcesso::class,
         // Baixa de aviso na Central (F3): preferência de leitura da pessoa, como "lida" no sino (que não é auditada).
         \App\Central\Entity\AvisoResolvido::class,
 

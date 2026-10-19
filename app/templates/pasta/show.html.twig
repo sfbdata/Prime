@@ -474,6 +474,8 @@
    drawer do histórico. Os eventos chegam por JSON (`pasta_timeline`). #}
 {{ include('pasta/_timeline_inteligente.html.twig', {pasta: pasta}) }}
 {{ include('pasta/_impressao_modal.html.twig', {pasta: pasta}) }}
+{# Prévia do relatório geral de processos (⋮ da aba Processo; spec relatorio-processos-controladoria). #}
+{{ include('expediente/_relatorio_processos_modal.html.twig') }}
 
 {# ── Modais do explorador de documentos ─────────────────────────────────────
    Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos. Modal é

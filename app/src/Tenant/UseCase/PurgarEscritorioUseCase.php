@@ -184,6 +184,10 @@ final class PurgarEscritorioUseCase
         // Visitas à Timeline inteligente (por usuário, PAS-043): mesmo caso do favorito — cairiam
         // pela CASCADE de `pasta`, mas a FK de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_timeline_visita', 'tenant_id = :tenant'],
+        // Relatório de pastas sem processo (spec relatorio-processos-controladoria): a decisão cairia pela
+        // CASCADE de `pasta`, mas a FK de tenant é NO ACTION; o histórico de envios só tem a FK de tenant.
+        ['pasta_decisao_sem_processo', 'tenant_id = :tenant'],
+        ['relatorio_sem_processo_envio', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],

@@ -782,4 +782,37 @@ class TarefaRepository extends ServiceEntityRepository
 
         return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
     }
+
+    /**
+     * Título e descrição das metas das pastas pedidas, para o relatório de pastas sem processo
+     * (desenho 1.2.3, `spAnalisar`: fonte "Meta"). Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<string>> pastaId => "título descrição"
+     */
+    public function textosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.pasta) AS pasta_id', 't.titulo', 't.descricao')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = trim($l['titulo'] . ' ' . $l['descricao']);
+        }
+
+        return $porPasta;
+    }
 }

@@ -8,6 +8,7 @@ use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\TenantRole;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
@@ -61,6 +62,11 @@ class EditUserTenantRoleType extends AbstractType
                 'input'    => 'datetime_immutable',
                 'data'     => $options['data_admissao'],
                 'attr'     => ['class' => 'form-control'],
+            ])
+            ->add('controladoria', CheckboxType::class, [
+                'label'    => 'Controladoria',
+                'required' => false,
+                'help'     => 'Recebe o relatório mensal de pastas sem processo e a cópia dos avisos à Controladoria.',
             ])
             ->add('newPassword', RepeatedType::class, [
                 'type'            => PasswordType::class,
