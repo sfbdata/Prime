@@ -28,7 +28,10 @@ final class ApiAsaasFalsa
     /** @var list<array{metodo: string, caminho: string, query: array<mixed>, corpo: mixed, cabecalhos: list<string>}> */
     public array $chamadas = [];
 
-    /** @param array<string, array{0: int, 1: array<mixed>|string}> $rotas 'METODO /caminho' => [status, corpo] */
+    /**
+     * @param array<string, array{0: int, 1: array<mixed>|string}|\Closure(array<mixed>): array{0: int, 1: array<mixed>|string}> $rotas
+     *        'METODO /caminho' => [status, corpo], ou uma função da query que devolve [status, corpo]
+     */
     public function __construct(private readonly array $rotas = [])
     {
     }
@@ -92,7 +95,8 @@ final class ApiAsaasFalsa
         if (!isset($this->rotas[$rota])) {
             throw new \LogicException('Chamada inesperada à API do Asaas: ' . $rota);
         }
-        [$status, $resposta] = $this->rotas[$rota];
+        $definicao = $this->rotas[$rota];
+        [$status, $resposta] = $definicao instanceof \Closure ? $definicao($query) : $definicao;
 
         return new MockResponse(\is_string($resposta) ? $resposta : (string) json_encode($resposta), ['http_code' => $status]);
     }

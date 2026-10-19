@@ -34,9 +34,12 @@ final class GatewayAsaasContratoTest extends TesteDeContratoDoGatewayDeAssinatur
         [$status, $cobrancas] = match ($situacao) {
             SituacaoDaAssinatura::Aguardando => ['ACTIVE', [ApiAsaasFalsa::cobranca('pay_1', 'PENDING', '2026-10-19')]],
             SituacaoDaAssinatura::Ativa => ['ACTIVE', [ApiAsaasFalsa::cobranca('pay_1', 'CONFIRMED', '2026-10-19')]],
+            // O Asaas gera cada cobrança 40 dias antes do vencimento: a de novembro já existe quando a de
+            // outubro vence (https://docs.asaas.com/docs/faq-assinaturas).
             SituacaoDaAssinatura::Inadimplente => ['ACTIVE', [
                 ApiAsaasFalsa::cobranca('pay_1', 'RECEIVED', '2026-09-19'),
                 ApiAsaasFalsa::cobranca('pay_2', 'OVERDUE', '2026-10-19'),
+                ApiAsaasFalsa::cobranca('pay_3', 'PENDING', '2026-11-19'),
             ]],
             SituacaoDaAssinatura::Cancelada => ['INACTIVE', [ApiAsaasFalsa::cobranca('pay_1', 'RECEIVED', '2026-10-19')]],
         };
