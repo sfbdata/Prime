@@ -1027,7 +1027,7 @@
         lista.push({ rotulo: 'Restaurar padrão', icone: 'bi-arrow-counterclockwise', acao: function () { gravarColunas(null); } });
         lista.push({ rotulo: 'Exportar colunas visíveis (CSV)', icone: 'bi-filetype-csv', acao: function () { window.location.href = urlCsv(botao); } });
         // Subfrase do dc (L.288): o ajuste é por usuário.
-        window.ExpMenu.abrir('Colunas da tabela · ' + n + ' visíveis', lista, x, y, botao, null,
+        window.ExpMenu.abrir('Colunas da tabela · ' + n + ' visíveis', lista, x, y, botao, 'colunas',
             { icone: 'bi-person-lock', texto: 'Ajuste só seu: não muda para o resto da equipe' });
     }
     document.addEventListener('click', function (e) {
@@ -1035,14 +1035,14 @@
         if (!b) { return; }
         e.preventDefault();
         var r = b.getBoundingClientRect();
-        menuColunas(b, r.left, r.bottom + 4);
+        menuColunas(b, Math.max(8, Math.min(r.right - 250, window.innerWidth - 258)), Math.min(r.bottom + 4, window.innerHeight - 420));   // dc `colAbrir`
     });
     document.addEventListener('contextmenu', function (e) {
         var b = e.target.closest('.js-colunas');
         if (!b) { return; }
         e.preventDefault();
         var r = b.getBoundingClientRect();
-        menuColunas(b, r.left, r.bottom + 4);
+        menuColunas(b, Math.max(8, Math.min(r.right - 250, window.innerWidth - 258)), Math.min(r.bottom + 4, window.innerHeight - 420));   // dc `colAbrir`
     });
 
     /* ── MARCADOR da linha (dc L.216-227): lista dos marcadores do trilho com a marca nos da pasta. Como a pasta

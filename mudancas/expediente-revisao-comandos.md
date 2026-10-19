@@ -11,6 +11,7 @@ tipo: novidade
 - Expediente: a coluna Réu passa a ordenar, pelo nome que a coluna mostra.
 - Expediente: a escolha de colunas da tabela fica guardada por usuário e escritório, com a subfrase "Ajuste só seu" do desenho.
 - Expediente: textos e hover do botão do responsável alinhados ao desenho VS 18.10.26.
+- Expediente: conferido no navegador contra o desenho VS 18.10.26 e ajustado: larguras das colunas e cabeçalho da tabela (rótulo com reticências, seta em todas as colunas), proporções da barra de filtros, passo da paginação, menu de colunas à esquerda do botão, altura de cartões, lista e título dos menus.
 
 ## Para o cliente
 - No Expediente, o botão direito agora funciona também na visualização em lista e em cartões.
