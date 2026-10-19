@@ -24,15 +24,15 @@ aberta em 19/10/2026. Q2 a Q4 decididas pela coordenação (19/10); **Q1 (exclus
 | C2 | **Suspender**: `isActive=false`, `excluidoEm` nulo. Os usuários perdem o acesso no request seguinte; nenhum dado é apagado. Conta já suspensa ou excluída: recusa com mensagem. |
 | C3 | **Reativar**: um único `ReativarContaUseCase`, usado também pelo bloco "Pedidos de exclusão". `isActive=true`. Recusa conta com `excluidoEm` preenchido, salvo se a §6 Q1 disser que a quarentena continua. Se houver pedido pendente, chama `marcarReativada(ator)` na mesma transação. |
 | C4 | **Excluir**: conforme a §6 Q1. Em qualquer caso grava `excluidoEm`, também quando a conta já está suspensa (o `ExcluirEscritorioUseCase` atual sai cedo quando ela já está inativa: não serve aqui). Se houver pedido pendente, chama `marcarExcluida(ator)`. |
-| C5 | **Conta do Master**: o item "Excluir conta" não aparece e o servidor recusa quando o criador do escritório (`Tenant.criadoPor`) é um Master. **Suspender é permitido**, como no desenho: o Master tem bypass de conta suspensa (C12) e não fica trancado fora. (Revisão da Q2 em 19/10, combinada com a 7d: "o Master pode tudo".) |
+| C5 | **Conta do Master**: o item "Excluir conta" não aparece e o servidor recusa quando o criador do escritório (`Tenant.criadoPor`) é um Master. Suspender essa conta também é recusado: hoje o Master não tem bypass de conta suspensa e ficaria fora do próprio escritório. Mensagem: "Esta conta foi criada por um Master. Suspendê-la tiraria dele o acesso ao próprio escritório." |
 | C10 | **Vaga no limite de escritórios** (Q3): a conta suspensa e não excluída continua ocupando a vaga do criador. |
 | C11 | **Rotas antigas** (Q4): `escritorio_excluir` e `app_tenant_delete` recusam a conta criada por um Master, com a mesma regra da C5. |
 | C6 | **Auditoria**: a linha grava o `tenant_id` da **conta alvo**, não o do escritório da sessão, para que "Histórico de alterações" da conta mostre a ação. O rótulo é "Conta suspensa", "Conta reativada" ou "Conta excluída", e o detalhe é "Ação confirmada pelo Master". O `RotuloDeAuditoria` passa a testar `excluidoEm` antes de `isActive`. |
 | C7 | **Painel**: `/master/dados/contas` ganha `ehDoMaster` (bool). O menu da conta passa a ter os itens do desenho, na ordem: "Editar limite de armazenamento" e "Definir limite de usuários" (da frente de limites, depois da C1 da Contribua; até lá, ocultos), "Estatísticas de uso", "Histórico de alterações", "Suspender conta" ou "Reativar conta", e "Excluir conta" (oculto quando `ehDoMaster`). |
 | C8 | Confirmação no modal genérico do desenho (`bi-pause-circle` `#c08a12` "Suspender"; `bi-play-circle` `#1e7b45` "Reativar"; `bi-exclamation-octagon` `#a3232b` "Excluir definitivamente"), com os textos exatos da linha 624. |
 | C9 | **Mensagem da conta suspensa**: "A conta do escritório {nome} está suspensa. Fale com o responsável pela conta." no aviso do listener e na tela de seleção (no lugar de "Você ainda não faz parte de nenhum escritório"). |
-| C12 | **Bypass do Master**: conta suspensa barra todos menos `ROLE_SUPER_ADMIN`; conta excluída barra todos. O Master entra, troca e navega em escritório suspenso. |
-| C13 | **Ordem das barreiras no acesso** (`TenantContextValidatorListener`, `TenantContext::setCurrentTenant`, seleção), combinada com a 7d (PR 4, situação do usuário): `barreiraDaConta` → `barreiraDoVinculo` → `barreiraDaSituacao` (da 7d: aprovado / em_analise / suspenso). Vale a mensagem da primeira barreira que falhar. O Master passa por todas. Mensagens da 7d: "Seu acesso ao escritório {nome} está suspenso pelo usuário primário. Seus dados e o histórico continuam guardados." e "Seu acesso ao escritório {nome} está em análise pelo usuário primário." |
+| C12 | **PENDENTE DO DONO, não implementado**: proposta da 7d de dar ao Master bypass de conta suspensa ("o Master pode tudo"). Abre exceção numa barreira de acesso, então só entra com confirmação direta do dono. Se aprovada, a C5 passa a permitir suspender a conta do Master. |
+| C13 | **Ordem das barreiras no acesso** (`TenantContextValidatorListener`, `TenantContext::setCurrentTenant`, seleção), combinada com a 7d (PR 4, situação do usuário): `barreiraDaConta` → `barreiraDoVinculo` → `barreiraDaSituacao` (da 7d: aprovado / em_analise / suspenso). Vale a mensagem da primeira barreira que falhar. Bypass do Master: ver a C12. Mensagens da 7d: "Seu acesso ao escritório {nome} está suspenso pelo usuário primário. Seus dados e o histórico continuam guardados." e "Seu acesso ao escritório {nome} está em análise pelo usuário primário." |
 
 ## 3. Bloco "Pedidos de exclusão de conta · N"
 
@@ -56,7 +56,7 @@ Limites de armazenamento e de usuários (frente própria, depois da C1 da Contri
 
 ## 6. Perguntas de produto (19/10)
 
-Decididas pela coordenação: Q2 (revista: permitir, com o bypass do Master da C12), Q3 (ocupa vaga) e Q4 (recusar já nesta frente).
+Decididas pela coordenação: Q2 (recusar; a revisão com bypass do Master, C12, espera o dono), Q3 (ocupa vaga) e Q4 (recusar já nesta frente).
 Pendente com o dono: Q1.
 
 - **Q1. "Excluir conta" do Master.** O desenho diz: "A exclusão de X é irreversível: todos os usuários, pastas e
