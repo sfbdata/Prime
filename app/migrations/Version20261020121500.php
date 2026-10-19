@@ -16,7 +16,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Gerada pelo diff do mapeamento e limpa do ruído de base (messenger_messages, push_link_externo de
  * outra frente, índices funcionais da Cobrança e defaults das tabelas de contato), que não é desta frente.
  */
-final class Version20261020120000 extends AbstractMigration
+final class Version20261020121500 extends AbstractMigration
 {
     public function getDescription(): string
     {

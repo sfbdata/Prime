@@ -17,7 +17,7 @@ versão completa de 18/10 em `docs/design/redesign-19-10-26/`, fora do git), mes
   (comercial-1a) empilha sobre ele (descadastro em Shared).
 - #91 `processo-apensados` (P4f): base master. Migration Version20261020103000.
 - #98 `push-avisar-cliente` (P4c): EMPILHADO sobre o #87. Migration Version20261020110000.
-- P4d `push-envio-automatico`: EMPILHADO sobre o #98. Migration Version20261020120000. D6/D7 a confirmar com o dono.
+- P4d `push-envio-automatico`: EMPILHADO sobre o #98. Migration Version20261020121500. D6/D7 a confirmar com o dono.
 - P4d (envio automático ao cliente, pelo Carteiro da 5d) e P4e (arquivos, OCR, análise completa): specs no
   scratchpad; P4e espera o #76 (composer) e aviso de Dockerfile.
 Depois de cada merge: trazer o origin/master, migrar o banco de teste da frente (APP_ENV=test, TEST_TOKEN da frente),
