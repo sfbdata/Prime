@@ -40,9 +40,13 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
 - **Contratos com outras sessões:**
   - **0d (#87):** `App\Shared\Email\Descadastro\DescadastroDeEmailInterface`: `estaDescadastrado(?Tenant, email,
     assunto)`, `descadastrar(?Tenant, email, assunto, origem)`, `gerarLink(?Tenant, email, assunto)`; `ASSUNTO_TODOS =
-    'todos'`; `PADRAO_DO_ASSUNTO = /^[a-z_]{3,40}$/`; one-click RFC 8058 tira só da lista do link. **Pedido à 0d em
-    19/10, aguardando:** `reativar(?Tenant, email, assunto, origem)` (nova confirmação e "Reativar" do Master) e
-    `listar(?Tenant, ?busca, pagina, porPagina)` (fatia 3); registro manual com origem `manual_master`.
+    'todos'`; `PADRAO_DO_ASSUNTO = /^[a-z_]{3,40}$/`; one-click RFC 8058 tira só da lista do link. **Aceito pela 0d em
+    19/10, entra no #87:** `reativar(?Tenant, email, assunto, origem, ?User $por = null)`, idempotente, sem apagar
+    (a linha ganha `reativado_em/origem/por`; descadastro novo vira linha nova); `reativar('todos')` solta tudo do
+    escopo; com `todos` ativo, `reativar(x)` libera só x (exceção registrada). `listar(?Tenant, ?busca, pagina,
+    porPagina <= 100)`: só os ativos, do mais recente, com total e `{email, assunto, origem, motivo, em}`.
+    `descadastrar(..., ?string $motivo = null)`. Registro manual do Master com origem `manual_master`. Página pública:
+    GET só mostra; o botão grava a lista do link e, se marcada (desmarcada por padrão), também `todos`.
   - **f6 (#64, #74), entregue em 19/10:** eventos despachados só depois do trabalho dar certo
     (`EventosDoEspacoAposConfirmar`); `UsoDoEspacoSubiu(tenantId, percentualAnterior, percentualAtual, retrato)` com
     `cruzou(int $limite)`; `EspacoAtingiuFaixa` (com `percentualAnterior`; esgotado = faixa `Bloqueio`);
@@ -58,7 +62,7 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
 - **Arquivos quentes que a 1a toca:** `config/packages/messenger.yaml` (transporte próprio), `security.yaml` (rotas
   públicas), `framework.yaml` (limitadores), `docker-compose.prod.yml` (o worker passa a consumir o transporte novo:
   avisar o dono, é deploy), e três UseCases de Auth mais o `CadastroMailer` (uma linha cada).
-- **Pendências:** nova revisão da v2; respostas do dono; `reativar` e `listar` da 0d.
+- **Pendências:** nova revisão da v2; respostas do dono; o push do `reativar` e `listar` no #87 (a 0d avisa o hash).
 - **Próximo passo:** revisão da v2; aprovada, abrir a frente da 1a sobre `push-avisar-quando-chegar` e implementar.
 
 ## 1. O que já existe (levantamento de 19/10)
@@ -182,13 +186,13 @@ Política precisa da categoria (vai ao rascunho da f6 junto com o rastreio).
   ?Tenant $escopo = null): void`.
 - `confirmar(string $token, string $ip, ?string $agente): ResultadoDaConfirmacao` (uso interno da rota).
 - `estaConfirmado(string $lista, string $email, ?Tenant $escopo = null): bool`.
-- `revogar(string $lista, string $email, ?Tenant $escopo, string $origem): void` (o descadastro da lista chama, via
-  ouvinte, quando a 0d expuser o evento; até lá, `estaConfirmado` exige também não estar descadastrado).
+- `estaConfirmado` exige confirmação vigente **e** não estar descadastrado da lista (consulta a 0d); o descadastro
+  não precisa avisar esta frente.
 
-**Prova imutável (B1):** `comercial_consentimento` é só de acréscimo: cada linha é um fato (`pedido`, `confirmado`,
-`revogado`), com `tenant_id`, `lista`, `email`, `origem`, `versao_consentimento`, `texto_consentimento`, `ip`,
+**Prova imutável (B1):** `comercial_consentimento` é só de acréscimo: cada linha é um fato (`pedido`, `confirmado`; a
+revogação fica no registro do descadastro da 0d, que também não apaga), com `tenant_id`, `lista`, `email`, `origem`, `versao_consentimento`, `texto_consentimento`, `ip`,
 `agente`, `em`. Nunca se atualiza nem apaga dentro do prazo. **Estado atual** em `comercial_confirmacao_endereco`:
-`tenant_id`, `lista`, `email`, `token_hash` (SHA-256), `pedido_em`, `expira_em`, `confirmado_em`, `revogado_em`;
+`tenant_id`, `lista`, `email`, `token_hash` (SHA-256), `pedido_em`, `expira_em`, `confirmado_em`;
 UNIQUE (`tenant_id`, `lista`, `email`), com índice parcial para o `tenant_id` null.
 
 **Token:** 32 bytes aleatórios, só o hash no banco, uso único, 7 dias. Um `pedir` novo troca o token (o antigo deixa de
@@ -203,12 +207,13 @@ grava `confirmado`, com IP e agente.
 IP, 10 por hora (efetivo quando o #77 entregar o IP real; até lá, vale o teto global); teto global de 200 pedidos por
 hora (protege a vazão das boas-vindas). Os e-mails de confirmação são `transacional`, mas contam no teto diário (§3.6).
 
-**Reinscrição depois de descadastro:** confirmar de novo é consentimento novo: a confirmação chama `reativar` da 0d
-(pedido). Até a 0d expor `reativar`, quem se descadastrou e confirma de novo continua bloqueado, e a página diz
-"Você tinha saído desta lista. Para voltar, fale com o suporte."
+**Reinscrição depois de descadastro:** confirmar de novo é consentimento novo: o POST da confirmação chama
+`reativar(escopo, email, lista, 'nova_confirmacao')` da 0d, que libera só aquela lista (com `todos` ativo, fica a
+exceção registrada só para ela).
 
 **Retenção:** pendência não confirmada é apagada (estado e o fato `pedido`) 30 dias depois de vencer; os fatos de quem
-confirmou ficam 5 anos depois da revogação (Política L379).
+confirmou ficam 5 anos depois do término do tratamento, isto é, do descadastro daquela lista no registro da 0d
+(Política L379); enquanto a pessoa segue inscrita, ficam.
 
 ### 3.4 As automações (modelo de dados e regras comuns)
 
