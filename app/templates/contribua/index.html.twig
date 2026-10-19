@@ -119,6 +119,9 @@
         </div>
     </section>
 
+    {# Integração bancária (API), só Master: C4 (sessão 4b). Parcial próprio, com JS e CSS próprios. #}
+    {% if p.ehMaster %}{% include 'contribua/_integracao_bancaria.html.twig' ignore missing %}{% endif %}
+
     {# Quem somos #}
     <section id="quem" class="ct-cartao">
         <button type="button" class="ct-quem-botao" data-quem aria-expanded="true"><i class="bi bi-chevron-down"></i><b>Quem somos</b><span>a empresa e o propósito do sistema</span></button>
@@ -195,6 +198,9 @@
         <div class="ct-modal-rodape"><button type="button" class="ct-botao-cancelar" data-fechar-sugestao>Cancelar</button><button type="button" class="ct-botao-azul ct-botao-enviar" data-enviar-sugestao><i class="bi bi-send"></i>Enviar</button></div>
     </div>
 </div>
+
+{# Prêmio do apoiador (modal com confete quando o banco confirma um apoio): C4 (sessão 4b). #}
+{% include 'contribua/_premio.html.twig' ignore missing %}
 
 <div class="ct-toast" data-toast hidden><i class="bi bi-check-circle"></i><span></span></div>
 {% endblock %}
