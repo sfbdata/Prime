@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\Repository;
 
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;

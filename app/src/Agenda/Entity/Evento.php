@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Entity\Agenda;
+namespace App\Agenda\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;

@@ -8,7 +8,7 @@ use App\Agenda\DTO\CompromissoOutput as C;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Service\OcorrenciasDoEvento;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Agenda\LegendaCor;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;

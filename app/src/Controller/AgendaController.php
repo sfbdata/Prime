@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Agenda\LegendaCor;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;

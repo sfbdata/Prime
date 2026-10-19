@@ -7,7 +7,7 @@ namespace App\Agenda\UseCase;
 use App\Agenda\DTO\CompromissoOutput as C;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Service\OcorrenciasDoEvento;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaPrazo;
