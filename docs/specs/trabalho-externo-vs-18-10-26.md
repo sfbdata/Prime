@@ -485,6 +485,27 @@ Pré-visualizar no formulário manda os dados ainda não salvos e recebe o HTML.
   `POST /api/curriculos/previa` (HTML do formulário não salvo).
 - `GET /trabalho-externo/curriculos/exportar.csv` `trabalho_externo_curriculos_csv` (talentos; mesmos
   filtros da lista na query).
+**Formato JSON** (contrato fixo; servidor e tela não mudam sem o orquestrador):
+- Cartão do banco (`curriculos[]`): `codigo, nome, iniciais, fotoUrl|null, cargo, situacao (adv|estOab|est|bach),
+  situacaoRotulo (curto do filtro: Advogado(a), Estagiário(a) com OAB, Estudante, Bacharel(a)), oab (texto da coluna
+  OAB, "OAB 12345/DF" ou "Sem OAB"), areas[], local ("Cidade/UF" ou "Brasil"), uf, recebido (dd/mm/aaaa),
+  recebidoEm (ISO), status, statusRotulo, statusCor, vol, voluntario (bool, vol = sim), termo ("sem"), estrela,
+  lixeira, vista, importancia {nivel, motivos[]}, candidaturas (0)`.
+- Detalhe (`curriculo`, GET do código e respostas das escritas): o cartão + `email, tel, insta, oabNum, oabUf,
+  inst, sem, cidade, modalidade, anos, resumo, pretensao, tituloP, linkedin, lattes, habs, exps[], forms[],
+  idis[], arquivos {foto|oab|matricula|curriculo: {nome, url}|null}, nota (só interno; null para o externo),
+  situacaoLonga (detalhe: Advogado(a), Estagiário(a) com OAB, Estudante de Direito, Bacharel(a) sem OAB),
+  oabTxt (texto do `cvItem`), volTxt, experienciaTxt ("Advogado(a) · 3 ano(s) de experiência"), atualizado
+  (dd/mm/aaaa), atualizadoEm (ISO), percentual {pct, cor, faltas[]}, podeEditar, podeGerir, podeExcluir,
+  documentoUrl, pdfUrl, candidaturasVagas[] (vazio até a F2b)`.
+- Lista: `{interno, podeGerir, ehMaster, meu, curriculos, agora}`; erro como as vagas (`{ok:false, mensagem}`,
+  422/403/404). Arquivo enviado: resposta `{curriculo}`. Marcações: mesmo corpo e resposta das vagas.
+- Ações de status `{status}` respondem `{curriculo}`; nota `{nota}` responde `{ok:true}`.
+- `index.html.twig` ganha `data-url-curriculos`, `-curriculo` (com `CV-0`), `-curriculo-salvar`,
+  `-curriculo-arquivo` (com `__tipo__`), `-curriculo-excluir-meu`, `-curriculo-excluir` (CV-0), `-curriculo-status`
+  (CV-0), `-curriculo-nota` (CV-0), `-curriculos-marcacoes`, `-curriculo-previa`, `-curriculos-csv`.
+  A aba "Currículos"/"Meu currículo" (`bi-person-vcard`) entra nos módulos, com o badge dos novos só no interno.
+
 Excluir: apaga marcações, arquivos (depois do commit) e, na F2b, as candidaturas; Termo aceito fica
 com o usuário (coordenador 19/10, retenção com o dono).
 
