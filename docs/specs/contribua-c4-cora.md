@@ -11,8 +11,9 @@ Atualizado em 19/10/2026. Sessão 4b, a pedido do coordenador; dona do Contribua
 
 **Pilha:** branch `contribua-pix`, base `contribua-c3` (f6, commit eefecfef), que fica sobre `contribua-c2` (#74) e
 `contribua-cora` (#64). PR da C4 empilhado sobre o da C3, aberto depois dele.
-**Migration:** uma, própria (`contribua_apoio` + 3 tabelas novas), na fila depois da C3. Pedir a vez ao
-coordenador.
+**Migration:** `Version20261019230000` (`contribua_integracao_bancaria`, `contribua_cobranca_pix` e colunas
+de `contribua_apoio`), na fila logo depois da `Version20261019220000` da C3 (a tabela dos avisos recebidos).
+Branch atualizada com o origin/master e com a C3 até 38624ff8 (19/10/2026).
 
 **Contrato com a f6 (19/10/2026)**
 - Só o domínio `App\Contribua`. Não mexer em: `ArmazenamentoComCota`, `SituacaoDoEspaco`, `Plano`,
@@ -145,8 +146,9 @@ propostas de correspondência" e "Aproveitar agora". Um por apoio confirmado.
   com sucesso tira a pausa.
 - **Conciliação** roda com certificado, Client ID e "Conciliação automática" ligada, no ambiente atual, mesmo
   com a cobrança por conta desligada.
-- **Aviso ao primário** quando o pagamento é confirmado (§8 da spec mãe): pendente, a combinar com a f6 (hoje
-  só o Master é avisado).
+- **Aviso ao escritório:** o "pagamento confirmado" do §8 da spec mãe é o da assinatura no cartão (C3). No
+  apoio por PIX, quem confirma ao escritório é o modal do prêmio na página (desenho 08); não há aviso no sino
+  do primário (a f6 deixou a decisão para a C4; o desenho não tem).
 
 ## 3. Testes
 
