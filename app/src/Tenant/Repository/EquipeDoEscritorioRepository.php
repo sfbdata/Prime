@@ -95,12 +95,6 @@ class EquipeDoEscritorioRepository
         return $vinculo;
     }
 
-    /** Situação da pessoa neste escritório, se ela tem vínculo (para o convite não passar por cima dela). */
-    public function situacaoDe(\App\Entity\Auth\User $usuario, Tenant $tenant): ?SituacaoNaEquipe
-    {
-        return $this->entityManager->getRepository(UserTenant::class)->findOneBy(['user' => $usuario, 'tenant' => $tenant])?->getSituacao();
-    }
-
     /**
      * @template T
      *

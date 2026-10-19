@@ -38,7 +38,7 @@ Só para o **primário do escritório ou o Master** (como "Abrir conta"); o secu
   substituto: o que estava com a pessoa fica sem responsável, como na opção "Deixar sem responsável" de lá. Valem
   todas as travas atuais (titular, último administrador, Master) e o primário não é demitido por aqui (como no menu).
   Quem está suspenso ou em análise é reaprovado e removido na MESMA transação (a remoção só acha vínculo ativo); se
-  uma trava recusar, nada muda.
+  uma trava recusar, nada muda. Na auditoria fica a reaprovação técnica seguida do registro explícito da remoção.
 - **Convite não passa por cima da situação**: criar convite para quem está suspenso ou em análise no escritório é
   recusado ("Altere a situação dela na equipe da conta"), e aceitar convite também (com a mensagem de acesso).
 - **Atribuição** (decisão da coordenação, 19/10/2026): suspenso e em análise não aparecem para atribuição NOVA; editar
