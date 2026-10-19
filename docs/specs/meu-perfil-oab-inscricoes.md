@@ -22,6 +22,9 @@ selo PRINCIPAL, "Verificada em 10/07/2026 16:56", chip "Confirmada" e lápis; mo
 8. Recusa ao salvar volta com o modal aberto, os valores digitados e o erro dentro dele (desenho `erroTem`/`erro`).
 9. Criar a principal a partir do espelho é idempotente e à prova de duas abas (`INSERT ... ON CONFLICT DO NOTHING`);
    trocar para uma principal nova grava rebaixando a antiga antes, numa transação (o índice parcial é imediato).
+   A criação a partir do espelho é SQL cru e não passa pela auditoria do ORM (só copia o que já estava no User, que
+   é auditado); as alterações seguintes da inscrição são auditadas. Envio duplo simultâneo cai no índice único e
+   volta com aviso, sem 500.
 
 Situação no sistema = `StatusOab` que já existe: NaoVerificada aparece como **Pendente**, Divergente como
 **Não confirmada**, Confirmada como **Confirmada** (cores do desenho).

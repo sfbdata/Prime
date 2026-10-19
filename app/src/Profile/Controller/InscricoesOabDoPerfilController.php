@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Profile\DTO\InscricaoOabInput;
 use App\Profile\UseCase\RemoverInscricaoOabUseCase;
 use App\Profile\UseCase\SalvarInscricaoOabUseCase;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -54,6 +55,9 @@ final class InscricoesOabDoPerfilController extends AbstractController
             $request->getSession()->set(self::ERRO_NA_SESSAO, [
                 'erro' => $e->getMessage(), 'id' => $id, 'numero' => $input->numero, 'uf' => $input->uf, 'tipo' => $input->tipo->value,
             ]);
+        } catch (UniqueConstraintViolationException) {
+            // Dois envios ao mesmo tempo (clique duplo ou duas abas): o banco segurou o segundo.
+            $this->addFlash('error', 'Esta inscrição acabou de ser salva. Confira a lista.');
         }
 
         return $this->redirectToRoute('app_profile');
