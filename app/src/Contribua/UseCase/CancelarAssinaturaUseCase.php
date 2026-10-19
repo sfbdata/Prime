@@ -41,17 +41,26 @@ final class CancelarAssinaturaUseCase
     public function executar(Solicitante $quem): string
     {
         $assinatura = $this->assinaturaViva($quem);
-        $this->cancelarNoGateway($assinatura);
+        $noGateway = $this->cancelarNoGateway($assinatura);
         $assinatura->cancelar();
         $this->planoVigente->atualizar($quem->tenantId(), new \DateTimeImmutable());
         $this->em->flush();
 
+        $this->avisarMaster($quem, $assinatura, $noGateway);
         $ate = $assinatura->getPagaAte()?->format('d/m/Y');
-        $this->avisoAoMaster->avisar($quem->escritorio, AvisoAoPrimario::TIPO_ASSINATURA, sprintf('Assinatura cancelada: %s (conta Nº %s), plano %s.', $quem->escritorio->getName(), $quem->numeroDaConta(), $assinatura->getPlano()->getNome()), $this->urls->generate('contribua_index') . '#espaco');
+        $resposta = $ate === null ? 'Assinatura cancelada.' : sprintf('Assinatura cancelada. O espaço do plano vale até %s e nenhum arquivo é apagado.', $ate);
 
-        return $ate === null
-            ? 'Assinatura cancelada. Nenhuma cobrança nova será feita.'
-            : sprintf('Assinatura cancelada. O espaço do plano vale até %s e nenhum arquivo é apagado.', $ate);
+        return $noGateway ? $resposta : $resposta . ' O Master encerra a cobrança no gateway e confirma com você.';
+    }
+
+    /** Sem cancelamento automático no gateway (assinatura não ligada ou gateway desinstalado), o Master encerra à mão. */
+    private function avisarMaster(Solicitante $quem, AssinaturaDeEspaco $assinatura, bool $noGateway): void
+    {
+        $texto = sprintf('Assinatura cancelada: %s (conta Nº %s), plano %s.', $quem->escritorio->getName(), $quem->numeroDaConta(), $assinatura->getPlano()->getNome());
+        if (!$noGateway) {
+            $texto .= ' Cancele também no painel do gateway: o BlueJus não conseguiu cancelar lá.';
+        }
+        $this->avisoAoMaster->avisar($quem->escritorio, AvisoAoPrimario::TIPO_ASSINATURA, $texto, $this->urls->generate('contribua_index') . '#espaco');
     }
 
     private function assinaturaViva(Solicitante $quem): AssinaturaDeEspaco
@@ -68,16 +77,19 @@ final class CancelarAssinaturaUseCase
         throw new \DomainException('Não há assinatura ativa para cancelar.');
     }
 
-    private function cancelarNoGateway(AssinaturaDeEspaco $assinatura): void
+    /** Devolve true quando o próprio BlueJus cancelou no gateway. */
+    private function cancelarNoGateway(AssinaturaDeEspaco $assinatura): bool
     {
         $id = $assinatura->getIdDaAssinatura();
         $gateway = $this->gateways->porCodigo($assinatura->getGateway());
         if ($id === null || $gateway === null) {
-            return;
+            return false;
         }
 
         try {
             $gateway->cancelar($id);
+
+            return true;
         } catch (FalhaNoGateway $falha) {
             $this->logger->error('Contribua: cancelamento no gateway falhou', ['gateway' => $gateway->codigo(), 'assinatura' => $id, 'erro' => $falha->getMessage()]);
 
