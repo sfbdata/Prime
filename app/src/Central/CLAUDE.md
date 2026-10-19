@@ -50,7 +50,10 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     é uma linha por VÍNCULO (tenant × usuário), gravada só pelo batimento (`POST /central/presenca`, upsert, CSRF);
     on-line = batimento há < 60 s (`PresencaRepository::ONLINE_SEGUNDOS`). "Em aberto" de cada colega (decisão do dono:
     visível a todos) = não lidas na Central + não lidas do sino NESTE escritório; só números saem, nunca texto.
-    Grave e compare sempre pelo relógio do PHP: `NOW()` do Postgres está em outro fuso.
+    Grave e compare sempre pelo relógio do PHP: `NOW()` do Postgres está em outro fuso. Status efetivo: Não perturbe →
+    `ocupado`; sem atividade há `Presenca::INATIVO_APOS_MINUTOS` → `inativo`; senão o manual. O batimento responde
+    quem está on-line (só ids, status e minutos) para o selo do cabeçalho (`templates/menu_usuario/_presenca.html.twig`,
+    `presenca-cabecalho.js`; spec `docs/specs/presenca-e-ponto-no-cabecalho.md`).
 
 ## Modelo
 
