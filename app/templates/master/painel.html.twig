@@ -1,7 +1,10 @@
 {% extends 'base.html.twig' %}
 
-{# Desenho: docs/design/perfis-1.0/05 - Perfis 1.0.dc.html (edição do perfil Master: abas Painel do sistema | Permissões).
-   As seções do painel são montadas por public/js/master/painel.js a partir dos endpoints /master/dados/*. #}
+{# Desenho: docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (edição do perfil Master: abas Painel do sistema | Permissões;
+   bloco "Masters do sistema" com Master primário e secundários, linhas 317-336). O painel do sistema segue o desenho 1.0
+   (docs/design/perfis-1.0/05 - Perfis 1.0.dc.html).
+   As seções do painel são montadas por public/js/master/painel.js a partir dos endpoints /master/dados/*; o bloco Masters
+   (select, mensagem e confirmação) por public/js/master/masters.js. Spec: docs/specs/perfis-1.2-masters.md. #}
 
 {% block title %}Editar Perfil | Master do Sistema{% endblock %}
 
@@ -41,19 +44,51 @@
     </div>
 
     <div class="mp-perm" data-painel-aba="perm" hidden>
-        <div class="mp-card mp-masters">
+        <div class="mp-card mp-masters" data-mp-masters>
             <div class="mp-cab-roxo"><i class="bi bi-people-fill"></i><b>Masters do sistema</b><span>{{ masters|length }} Master(s)</span></div>
             {% for m in masters %}
                 {% set partes = m.nome|split(' ')|filter(p => p is not empty) %}
-                <div class="mp-master">
-                    <span class="mp-avatar">{% for p in partes|slice(0, 2) %}{{ p|first|upper }}{% endfor %}</span>
+                <div class="mp-master{{ m.primario ? ' mp-master-primario' : ' mp-master-secundario' }}">
+                    <span class="mp-avatar{{ m.primario ? '' : ' mp-avatar-sec' }}">{% for p in partes|slice(0, 2) %}{{ p|first|upper }}{% endfor %}</span>
                     <span class="mp-master-id"><b>{{ m.nome }}</b><span>{{ m.email }}{% if m.oabNumero %} · OAB {{ m.oabNumero }}/{{ m.oabUf }}{% endif %}</span></span>
-                    <span class="mp-tag-master">MASTER PRIMÁRIO</span>
-                    <i class="bi bi-lock-fill mp-cadeado" title="O Master primário não pode ser excluído"></i>
+                    {% if m.primario %}
+                        <span class="mp-tag-master">MASTER PRIMÁRIO</span>
+                        <i class="bi bi-lock-fill mp-cadeado" title="O Master primário não pode ser excluído"></i>
+                    {% else %}
+                        <span class="mp-tag-master mp-tag-master-sec">MASTER SECUNDÁRIO</span>
+                        {# Remover é só do Master primário (M3); o secundário vê a lista sem ações. #}
+                        {% if souPrimario %}
+                            <form method="post" action="{{ path('master_remover', {userId: m.id}) }}" class="mp-form-remover">
+                                <input type="hidden" name="_token" value="{{ csrf_token('master_remover_' ~ m.id) }}">
+                                <button type="button" class="mp-lixeira" title="Remover este Master" aria-label="Remover este Master"
+                                        data-mp-remover-master data-nome="{{ m.nome }}"><i class="bi bi-trash3"></i></button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
                 </div>
             {% else %}
                 <div class="mp-vazio-linha">Nenhum usuário com o papel de Master.</div>
             {% endfor %}
+
+            {% if souPrimario %}
+                {% set pmInfo = 'Precisa estar cadastrado antes como usuário secundário.' %}
+                {% set pmMsg = 'Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e remoção vai para a auditoria.' %}
+                <form method="post" action="{{ path('master_promover') }}" class="mp-promover" data-mp-form-promover>
+                    <input type="hidden" name="_token" value="{{ csrf_token('master_promover') }}">
+                    <b>Promover a Master</b>
+                    <div class="mp-promover-grade">
+                        <select name="usuario" data-mp-promover-select aria-label="Usuário secundário a promover a Master">
+                            <option value="">Escolha um usuário secundário da conta *</option>
+                            {% for c in candidatos %}
+                                <option value="{{ c.id }}" data-nome="{{ c.nome }}" data-info="{{ c.email }}{{ c.oabNumero ? ' · OAB ' ~ c.oabNumero ~ '/' ~ c.oabUf : ' · sem OAB' }}">{{ c.nome }} · {{ c.perfil ?? 'sem perfil' }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="mp-promover-info" data-mp-promover-info data-padrao="{{ pmInfo }}">{{ pmInfo }}</span>
+                        <button type="button" class="mp-btn-roxo" data-mp-promover><i class="bi bi-stars"></i>Promover</button>
+                    </div>
+                    <span class="mp-promover-msg" data-mp-promover-msg data-padrao="{{ pmMsg }}">{{ pmMsg }}</span>
+                </form>
+            {% endif %}
         </div>
 
         <div class="mp-perm-duas">
@@ -66,6 +101,7 @@
                     'Criar e alterar planos e franquias',
                     'Configurações globais do sistema',
                     'Acessar toda a trilha de auditoria do sistema',
+                    'Promover e remover Masters secundários',
                     'Sem restrição de tempo para editar ou excluir'
                 ] %}
                     <div class="mp-poder"><i class="bi bi-check-circle-fill"></i>{{ p }}</div>
@@ -76,7 +112,7 @@
             <div class="mp-card mp-papeis">
                 <div class="mp-cab-cinza-14"><i class="bi bi-diagram-3"></i><b>Atribuições por papel</b></div>
                 {% for p in [
-                    {rot: 'MASTER', icone: 'bi-stars', cor: '#7a3e8f', bg: '#f3e9f7', quem: 'O criador do BlueJus, único Master do sistema.', faz: 'administra a plataforma: contas, limites, planos, custos, infraestrutura, configurações globais e auditoria do sistema.', naoFaz: 'não atua dentro dos escritórios nem lê o conteúdo jurídico das contas; não tem perfil de primário nem de secundário.'},
+                    {rot: 'MASTER', icone: 'bi-stars', cor: '#7a3e8f', bg: '#f3e9f7', quem: 'O criador do BlueJus (Master primário) e quem ele promover (Master secundário).', faz: 'administra a plataforma: contas, limites, planos, custos, infraestrutura, configurações globais e auditoria do sistema.', naoFaz: 'não atua dentro dos escritórios nem lê o conteúdo jurídico das contas; não tem perfil de primário nem de secundário.'},
                     {rot: 'PRIMÁRIO', icone: 'bi-person-badge', cor: '#0a6fa0', bg: '#e5f1f7', quem: 'Quem abriu a conta (titular) e os sócios que ele promover.', faz: 'gere o próprio escritório: convida e administra secundários, cria perfis, define permissões, configura módulos e audita a conta.', naoFaz: 'não vê nem altera outras contas, limites contratados ou configurações do sistema.'},
                     {rot: 'SECUNDÁRIO', icone: 'bi-person', cor: '#4a6373', bg: '#eef2f5', quem: 'Colaborador convidado pelo primário.', faz: 'trabalha nas pastas, processos e módulos liberados pelo seu perfil.', naoFaz: 'não administra usuários, perfis ou configurações, nem acessa o painel do sistema.'}
                 ] %}
@@ -91,10 +127,23 @@
             </div>
         </div>
     </div>
+
+    {# Confirmação interna do desenho (linhas 411-419), preenchida por public/js/master/masters.js. #}
+    <div class="mp-conf-fundo" data-mp-conf hidden>
+        <div class="mp-conf" role="dialog" aria-modal="true" aria-labelledby="mpConfTitulo">
+            <div class="mp-conf-cab" data-mp-conf-cab><i class="bi" data-mp-conf-icone></i><span id="mpConfTitulo" data-mp-conf-titulo></span></div>
+            <div class="mp-conf-texto" data-mp-conf-texto></div>
+            <div class="mp-conf-rodape">
+                <button type="button" class="mp-conf-cancelar" data-mp-conf-cancelar>Cancelar</button>
+                <button type="button" class="mp-conf-ok" data-mp-conf-ok></button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block javascripts %}
     <script src="{{ asset('js/master/bj-dica.js') }}"></script>
     <script src="{{ asset('js/master/painel.js') }}"></script>
+    <script src="{{ asset('js/master/masters.js') }}"></script>
 {% endblock %}
