@@ -212,7 +212,11 @@ no gateway as assinaturas que ainda podem mudar e devolve ao Free quem passou do
 carência). É a rede de segurança do webhook; idempotente. Sai com erro só quando nenhuma reconsulta deu
 certo (credencial errada ou gateway fora do ar).
 
+De hora em hora, aos 15 minutos: o fuso não muda a frequência, mas a linha fixa `CRON_TZ` como os demais jobs
+do sistema, para os logs saírem no horário de Brasília e não dependerem do relógio da VPS.
+
 ```
+CRON_TZ=America/Sao_Paulo
 15 * * * * docker exec jusprime_php_prod php bin/console app:contribua:conciliar-assinaturas >> /var/log/jusprime-contribua.log 2>&1
 ```
 
