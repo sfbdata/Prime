@@ -17,6 +17,7 @@ final class EnviarMensagemSuporteInput
 
     public function __construct(
         public readonly string $nome,
+        #[Assert\NotBlank(message: 'Informe um e-mail válido para a resposta.')]
         #[Assert\Regex(pattern: '/^\S+@\S+\.\S+$/u', message: 'Informe um e-mail válido para a resposta.')]
         public readonly string $email,
         public readonly ?string $assunto,
