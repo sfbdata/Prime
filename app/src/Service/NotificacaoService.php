@@ -61,13 +61,14 @@ class NotificacaoService
      * por escritório para usuários multi-tenant. Quem chama deriva o tenant da entidade de
      * origem (o evento, o chamado, a justificativa).
      */
-    public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null): Notificacao
+    public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null, ?string $titulo = null): Notificacao
     {
         $notificacao = new Notificacao();
         $notificacao->setUsuario($usuario);
         $notificacao->setTenant($tenant);
         $notificacao->setTipo($tipo);
-        $notificacao->setTitulo($mensagem);
+        // Título próprio quando o aviso tem um (ex.: "Agenda: <compromisso>"); senão, a própria mensagem.
+        $notificacao->setTitulo($titulo ?? $mensagem);
         $notificacao->setMensagem($mensagem);
         $notificacao->setUrl($url);
 

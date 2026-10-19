@@ -8,6 +8,7 @@ use App\Agenda\DTO\CompromissoOutput;
 use App\Agenda\DTO\LembreteOutput;
 use App\Agenda\Service\GarantirVarreduraDePush;
 use App\Agenda\Service\GarantirVarreduraDoGoogle;
+use App\Agenda\UseCase\ContarMeusCompromissosUseCase;
 use App\Agenda\UseCase\EstadoDoGoogleAgendaUseCase;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
 use App\Agenda\UseCase\ListarLembretesUseCase;
@@ -40,6 +41,7 @@ final class AgendaNovaController extends AbstractController
         private readonly GarantirVarreduraDePush $garantirPush,
         private readonly GarantirVarreduraDoGoogle $garantirGoogle,
         private readonly EstadoDoGoogleAgendaUseCase $estadoDoGoogle,
+        private readonly ContarMeusCompromissosUseCase $contarMeus,
     ) {
     }
 
@@ -87,7 +89,10 @@ final class AgendaNovaController extends AbstractController
         $administra = $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage');
         $itens = $this->listarCompromissos->executar($tenant, $user, $de, $ate, $soMinha, $verPastas, $administra);
 
-        return $this->json(['itens' => array_map(static fn (CompromissoOutput $c): array => $c->toArray(), $itens)]);
+        return $this->json([
+            'itens'     => array_map(static fn (CompromissoOutput $c): array => $c->toArray(), $itens),
+            'contagens' => $this->contarMeus->executar($tenant, $user),
+        ]);
     }
 
     /** Lembretes das próximas horas, pedidos pelo lembretes.js em qualquer tela (parcial global). */

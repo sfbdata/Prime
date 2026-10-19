@@ -17,7 +17,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 final class AvisoDoCompromisso
 {
     private const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-    /** Notificacao::titulo é VARCHAR(255) e recebe a mensagem inteira. */
+    /** Notificacao::titulo é VARCHAR(255). */
     private const MAX = 255;
 
     public function __construct(
@@ -38,7 +38,7 @@ final class AvisoDoCompromisso
             if ($pessoa->getId() === $quem->getId()) {
                 continue;
             }
-            $this->notificacoes->criarNotificacao($pessoa, $evento->getTenant(), Notificacao::TIPO_EVENTO_CRIADO, $this->texto($evento, $quem), $this->link($evento));
+            $this->notificacoes->criarNotificacao($pessoa, $evento->getTenant(), Notificacao::TIPO_EVENTO_CRIADO, $this->texto($evento, $quem), $this->link($evento), $this->titulo($evento));
             ++$n;
         }
 
@@ -58,6 +58,14 @@ final class AvisoDoCompromisso
             . ('' !== $obs ? ' · ' . mb_substr($obs, 0, 80) : '');
 
         return mb_strlen($texto) > self::MAX ? mb_substr($texto, 0, self::MAX - 1) . '…' : $texto;
+    }
+
+    /** Como no desenho (BJCentral.notificar): "Agenda: <título>". */
+    public function titulo(Evento $evento): string
+    {
+        $titulo = 'Agenda: ' . $evento->getTitulo();
+
+        return mb_strlen($titulo) > self::MAX ? mb_substr($titulo, 0, self::MAX - 1) . '…' : $titulo;
     }
 
     private function link(Evento $evento): string
