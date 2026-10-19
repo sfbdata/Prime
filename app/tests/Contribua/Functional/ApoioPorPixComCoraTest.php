@@ -61,6 +61,7 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         static::getContainer()->set(CofreDeCertificado::class, $cofre);
         static::getContainer()->set(ClienteCora::class, new ClienteCora($this->cora->cliente(), new ArrayAdapter(), $cofre));
         $this->instalarCsrf();
+        static::getContainer()->get('cache.app')->deleteItem('contribua_banco_em_pausa');
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
         $this->escritorio = $this->tenant('A', '12345678000199');
         $this->primario = $this->pessoa('primario', $this->escritorio, true);
@@ -70,9 +71,14 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
     #[TestDox('Só o Master configura; o certificado vai cifrado (o conteúdo nunca volta); testar conecta por mTLS')]
     public function testMasterConfigura(): void
     {
-        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
-        $this->client->request('POST', '/contribua/integracao-bancaria/salvar', ['_token' => self::TOKEN, 'clientId' => 'x']);
-        self::assertResponseStatusCodeSame(403);
+        $secundario = $this->pessoa('secundario', $this->escritorio, false);
+        foreach ([$this->primario, $secundario] as $quem) {
+            $this->logarComTenant($this->client, $quem, $this->escritorio);
+            foreach (['salvar', 'certificado', 'testar'] as $acao) {
+                $this->client->request('POST', '/contribua/integracao-bancaria/' . $acao, ['_token' => self::TOKEN, 'clientId' => 'x']);
+                self::assertResponseStatusCodeSame(403, $acao);
+            }
+        }
 
         $this->logarComTenant($this->client, $this->master, $this->escritorio);
         self::assertSame('Informe o Client ID e envie o certificado antes de testar.', $this->post('/contribua/integracao-bancaria/testar')['mensagem']);
@@ -131,9 +137,10 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         self::assertSame([], $this->enfileiradas(), 'sem cabeçalho não enfileira');
 
         self::assertCount(1, $primeira);
-        self::assertCount(1, $alheia);
+        self::assertSame([], $alheia, 'recurso que não é cobrança nossa não gera trabalho');
+        self::assertSame(1, (int) static::getContainer()->get(Connection::class)->fetchOne("SELECT COUNT(*) FROM contribua_notificacao_recebida WHERE origem = 'cora'"), 'nem registro');
         $handler = static::getContainer()->get(ReconsultarCobrancaNoBancoHandler::class);
-        foreach ([$primeira[0], $primeira[0], $alheia[0]] as $m) {
+        foreach ([$primeira[0], $primeira[0]] as $m) {
             self::assertInstanceOf(ReconsultarCobrancaNoBanco::class, $m);
             $handler($m);
         }
@@ -162,6 +169,9 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         self::assertStringContainsString('data-valor="R$ 20,00"', $html);
         self::assertStringContainsString('data-nome="Pessoa"', $html);
         preg_match('/data-apoio="(\d+)"/', $html, $m);
+        preg_match('/data-url-visto="([^"]+)"/', $html, $url);
+        $urlDoJs = str_replace('/0/visto', '/' . $m[1] . '/visto', html_entity_decode($url[1]));
+        self::assertSame('/contribua/premio/' . $m[1] . '/visto', $urlDoJs, 'o JS troca o id na URL do parcial');
 
         $outro = $this->tenant('C', null);
         $deFora = $this->pessoa('defora', $outro, true);
@@ -172,6 +182,51 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
 
         self::assertTrue($this->post('/contribua/premio/' . $m[1] . '/visto')['ok']);
         self::assertStringContainsString('data-abrir="0"', $this->pagina());
+    }
+
+    #[TestDox('Ambiente de testes: só o escritório do Master recebe o PIX dinâmico; o pagamento de teste não vira apoio, só avisa o Master')]
+    public function testSandbox(): void
+    {
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $this->conectar('sandbox');
+        self::assertStringContainsString('qrcode-h.cora.com.br', $this->pix(20)['codigo'], 'o Master testa');
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        self::assertStringNotContainsString('cora.com.br', $this->pix(50)['codigo'], 'as contas seguem no estático');
+
+        $idCora = (string) array_key_first($this->cora->status);
+        $this->cora->status[$idCora] = 'PAID';
+        static::getContainer()->get(ConfirmarCobrancaPeloBancoUseCase::class)->executar('cora', $idCora);
+
+        $banco = static::getContainer()->get(Connection::class);
+        self::assertSame(0, (int) $banco->fetchOne('SELECT COUNT(*) FROM contribua_apoio WHERE tenant_id = :t', ['t' => $this->escritorio->getId()]));
+        self::assertSame('paga', $banco->fetchOne('SELECT situacao FROM contribua_cobranca_pix WHERE id_no_banco = :i', ['i' => $idCora]));
+        self::assertStringContainsString('Nenhum apoio foi registrado', (string) $banco->fetchOne('SELECT titulo FROM notificacao WHERE usuario_id = :u ORDER BY id DESC LIMIT 1', ['u' => $this->master->getId()]));
+    }
+
+    #[TestDox('Um pagamento, um apoio: quem clicou em "Já contribuí" tem esse apoio confirmado pelo banco, sem um segundo')]
+    public function testInformadoEConfirmado(): void
+    {
+        $idCora = $this->cobrancaPaga();
+        $this->post('/contribua/apoio', ['centavos' => 2000]);
+
+        static::getContainer()->get(ConfirmarCobrancaPeloBancoUseCase::class)->executar('cora', $idCora);
+
+        $apoios = static::getContainer()->get(Connection::class)->fetchAllAssociative('SELECT origem, id_cora, confirmado_em FROM contribua_apoio WHERE tenant_id = :t', ['t' => $this->escritorio->getId()]);
+        self::assertCount(1, $apoios);
+        self::assertSame('cora', $apoios[0]['origem']);
+        self::assertSame($idCora, $apoios[0]['id_cora']);
+        self::assertNotNull($apoios[0]['confirmado_em']);
+    }
+
+    #[TestDox('Cancelada no banco: a cobrança fica cancelada e nenhum apoio nasce')]
+    public function testCancelada(): void
+    {
+        $idCora = $this->cobrancaPaga();
+        $this->cora->status[$idCora] = 'CANCELLED';
+
+        self::assertFalse(static::getContainer()->get(ConfirmarCobrancaPeloBancoUseCase::class)->executar('cora', $idCora));
+        self::assertSame('cancelada', static::getContainer()->get(Connection::class)->fetchOne('SELECT situacao FROM contribua_cobranca_pix WHERE id_no_banco = :i', ['i' => $idCora]));
+        self::assertSame(0, (int) static::getContainer()->get(Connection::class)->fetchOne('SELECT COUNT(*) FROM contribua_apoio WHERE tenant_id = :t', ['t' => $this->escritorio->getId()]));
     }
 
     #[TestDox('Conciliação: confirma a cobrança paga cujo aviso se perdeu; sem integração, não faz nada')]
@@ -210,7 +265,7 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         return $idCora;
     }
 
-    private function conectar(): void
+    private function conectar(string $ambiente = 'producao'): void
     {
         $par = ParDeCertificado::novo();
         $dir = sys_get_temp_dir() . '/bj-cert-' . uniqid();
@@ -222,7 +277,7 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
             new UploadedFile($dir . '/chave.key', 'chave.key', null, null, true),
         ]]);
         self::assertTrue(json_decode((string) $this->client->getResponse()->getContent(), true)['ok'], (string) $this->client->getResponse()->getContent());
-        self::assertTrue($this->post('/contribua/integracao-bancaria/salvar', ['ambiente' => 'sandbox', 'clientId' => 'cliente-1', 'recursos' => ['cob' => '1', 'conc' => '1', 'bol' => '0', 'rel' => '1']])['ok']);
+        self::assertTrue($this->post('/contribua/integracao-bancaria/salvar', ['ambiente' => $ambiente, 'clientId' => 'cliente-1', 'recursos' => ['cob' => '1', 'conc' => '1', 'bol' => '0', 'rel' => '1']])['ok']);
         self::assertTrue($this->post('/contribua/integracao-bancaria/testar')['conectado']);
     }
 

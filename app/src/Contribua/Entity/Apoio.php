@@ -111,6 +111,19 @@ class Apoio implements TenantAware, Auditavel
         return $apoio;
     }
 
+    /**
+     * O banco confirmou o pagamento que a conta já tinha informado ("Já contribuí"): o mesmo apoio passa a
+     * confirmado, com o valor que o banco recebeu. Um pagamento, um apoio.
+     */
+    public function confirmarPeloBanco(int $valorCentavos, string $origem, string $idNoBanco, string $txid, \DateTimeImmutable $pagoEm): void
+    {
+        $this->valorCentavos = $valorCentavos;
+        $this->origem = $origem;
+        $this->idCora = mb_substr($idNoBanco, 0, 120);
+        $this->txid = mb_substr($txid, 0, 60);
+        $this->confirmadoEm = $pagoEm;
+    }
+
     public function marcarPremioVisto(\DateTimeImmutable $quando): void
     {
         $this->premioVistoEm ??= $quando;

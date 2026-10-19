@@ -18,9 +18,9 @@ class CobrancaPixDaContaRepository extends ServiceEntityRepository
     }
 
     /** A cobrança aberta desta conta e deste valor que ainda serve (não venceu). Escritório filtrado à mão. */
-    public function abertaParaReusar(Tenant $tenant, string $banco, int $valorCentavos, \DateTimeImmutable $hoje): ?CobrancaPixDaConta
+    public function abertaParaReusar(Tenant $tenant, string $banco, string $ambiente, int $valorCentavos, \DateTimeImmutable $hoje): ?CobrancaPixDaConta
     {
-        $abertas = $this->findBy(['tenant' => $tenant, 'banco' => $banco, 'valorCentavos' => $valorCentavos, 'situacao' => CobrancaPixDaConta::ABERTA], ['id' => 'DESC'], 5);
+        $abertas = $this->findBy(['tenant' => $tenant, 'banco' => $banco, 'ambiente' => $ambiente, 'valorCentavos' => $valorCentavos, 'situacao' => CobrancaPixDaConta::ABERTA], ['id' => 'DESC'], 5);
         foreach ($abertas as $c) {
             if ($c->serveEm($hoje)) {
                 return $c;
@@ -28,6 +28,19 @@ class CobrancaPixDaContaRepository extends ServiceEntityRepository
         }
 
         return null;
+    }
+
+    /** Quantas cobranças a conta abriu desde `desde` (limite por dia: o GET da página cria cobrança). */
+    public function criadasDesde(Tenant $tenant, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.criadaEm >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     public function doBanco(string $banco, string $idNoBanco): ?CobrancaPixDaConta
@@ -40,10 +53,12 @@ class CobrancaPixDaContaRepository extends ServiceEntityRepository
      *
      * @return list<CobrancaPixDaConta>
      */
-    public function abertasDesde(string $banco, \DateTimeImmutable $desde): array
+    public function abertasDesde(string $banco, string $ambiente, \DateTimeImmutable $desde): array
     {
         return $this->createQueryBuilder('c')
             ->andWhere('c.banco = :banco')
+            ->andWhere('c.ambiente = :ambiente')
+            ->setParameter('ambiente', $ambiente)
             ->andWhere('c.situacao = :aberta')
             ->andWhere('c.idNoBanco IS NOT NULL')
             ->andWhere('c.criadaEm >= :desde')

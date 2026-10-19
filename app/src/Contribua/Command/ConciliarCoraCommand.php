@@ -35,16 +35,16 @@ final class ConciliarCoraCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $integracao = $this->integracoes->atual();
-        if (!$integracao->cobraPorConta() || !($integracao->getRecursos()['conc'] ?? false)) {
+        if (!$integracao->temCertificado() || '' === (string) $integracao->getClientId() || !($integracao->getRecursos()['conc'] ?? false)) {
             $io->writeln('Nada a fazer: integração desligada ou conciliação automática desligada.');
 
             return Command::SUCCESS;
         }
         [$confirmados, $falhas] = [0, 0];
-        foreach ($this->cobrancas->abertasDesde('cora', new \DateTimeImmutable('-' . self::DIAS . ' days')) as $cobranca) {
+        foreach ($this->cobrancas->abertasDesde('cora', $integracao->getAmbiente(), new \DateTimeImmutable('-' . self::DIAS . ' days')) as $cobranca) {
             try {
                 $confirmados += $this->confirmar->executar('cora', (string) $cobranca->getIdNoBanco()) ? 1 : 0;
-            } catch (FalhaNoBanco $e) {
+            } catch (FalhaNoBanco|\DomainException $e) {
                 ++$falhas;
                 $io->warning('Cobrança ' . $cobranca->getCodigo() . ': ' . $e->getMessage());
             }

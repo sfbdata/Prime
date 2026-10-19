@@ -20,6 +20,8 @@ final class CoraFalsa
     public array $pedidos = [];
     /** @var array<string, string> id da cobrança => status */
     public array $status = [];
+    /** @var array<string, string> id da cobrança => nosso código */
+    private array $codigos = [];
     public bool $recusarToken = false;
     public int $tokensExpirados = 0;
     public int $tokensEmitidos = 0;
@@ -80,6 +82,7 @@ final class CoraFalsa
         }
         $id = 'inv_' . substr(sha1((string) $corpo['code']), 0, 20);
         $this->status[$id] = 'OPEN';
+        $this->codigos[$id] = (string) $corpo['code'];
 
         return $this->json([
             'id' => $id, 'status' => 'OPEN', 'created_at' => '2023-09-27T18:14:12Z', 'total_amount' => $corpo['services'][0]['amount'], 'total_paid' => 0,
@@ -99,7 +102,7 @@ final class CoraFalsa
 
         return $this->json([
             'id' => $id, 'status' => $this->status[$id], 'total_amount' => 2000, 'total_paid' => $pago ? 2000 : 0,
-            'occurrence_date' => $pago ? '2026-10-19' : null, 'code' => 'BJ000001-1',
+            'occurrence_date' => $pago ? '2026-10-19' : null, 'code' => $this->codigos[$id] ?? null,
             'payments' => $pago ? [['id' => 'fd13', 'status' => 'SUCCESS', 'total_paid' => 2000, 'method' => 'PIX']] : [],
         ]);
     }

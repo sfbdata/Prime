@@ -114,7 +114,7 @@
         p.hidden = true;
         // O "Testar mensagem de prêmio" do Master só mostra: não grava nada.
         if (!simulado && p.dataset.apoio) {
-            try { await postar(p.dataset.urlVisto.replace(/0$/, p.dataset.apoio), {}); } catch (e) { /* aparece de novo na próxima visita */ }
+            try { await postar(p.dataset.urlVisto.replace('/0/visto', '/' + encodeURIComponent(p.dataset.apoio) + '/visto'), {}); } catch (e) { /* aparece de novo na próxima visita */ }
             p.dataset.apoio = '';
         }
         if (irParaPropostas) { location.href = p.dataset.urlPropostas; }

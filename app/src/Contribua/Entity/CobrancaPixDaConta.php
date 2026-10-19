@@ -49,6 +49,9 @@ class CobrancaPixDaConta implements TenantAware
         private Tenant $tenant,
         #[ORM\Column(length: 20)]
         private string $banco,
+        /** Ambiente em que nasceu (sandbox ou producao): só é servida e consultada nele. */
+        #[ORM\Column(length: 20)]
+        private string $ambiente,
         #[ORM\Column(name: 'valor_centavos', type: 'integer')]
         private int $valorCentavos,
         #[ORM\Column(type: 'date_immutable')]
@@ -82,9 +85,15 @@ class CobrancaPixDaConta implements TenantAware
         $this->situacao = self::CANCELADA;
     }
 
+    /** Aberta e não vencida (pode ainda não ter o copia e cola: o banco falhou e a criação será repetida). */
     public function serveEm(\DateTimeImmutable $hoje): bool
     {
-        return self::ABERTA === $this->situacao && null !== $this->copiaECola && $this->vencimento >= $hoje->setTime(0, 0);
+        return self::ABERTA === $this->situacao && $this->vencimento >= $hoje->setTime(0, 0);
+    }
+
+    public function getAmbiente(): string
+    {
+        return $this->ambiente;
     }
 
     public function getId(): ?int

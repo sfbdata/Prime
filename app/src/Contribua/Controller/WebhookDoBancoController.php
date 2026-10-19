@@ -6,6 +6,7 @@ namespace App\Contribua\Controller;
 
 use App\Contribua\Entity\NotificacaoRecebida;
 use App\Contribua\Message\ReconsultarCobrancaNoBanco;
+use App\Contribua\Repository\CobrancaPixDaContaRepository;
 use App\Contribua\Repository\NotificacaoRecebidaRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,6 +24,7 @@ final class WebhookDoBancoController extends AbstractController
 {
     public function __construct(
         private readonly NotificacaoRecebidaRepository $avisos,
+        private readonly CobrancaPixDaContaRepository $cobrancas,
         private readonly MessageBusInterface $bus,
     ) {
     }
@@ -33,7 +35,9 @@ final class WebhookDoBancoController extends AbstractController
         $evento = $this->cabecalho($request, 'webhook-event-id');
         $tipo = $this->cabecalho($request, 'webhook-event-type');
         $recurso = $this->cabecalho($request, 'webhook-resource-id');
-        if ('' === $evento || '' === $recurso || !str_starts_with($tipo, 'invoice.')) {
+        // Só uma cobrança nossa gera trabalho: o endereço é público e sem assinatura, então aviso inventado
+        // não grava nem enfileira nada (não enche a fila que o Drive e a Inteligência também usam).
+        if ('' === $evento || '' === $recurso || !str_starts_with($tipo, 'invoice.') || null === $this->cobrancas->doBanco('cora', $recurso)) {
             return $this->json(['success' => true]);
         }
         if ($this->avisos->registrarSeNova(new NotificacaoRecebida('cora', $evento, mb_substr($tipo, 0, 60), $recurso))) {

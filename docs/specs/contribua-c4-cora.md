@@ -37,9 +37,10 @@ o estático é o decorado; P2 usar `NotificacaoRecebida` da C3 (`registrarSeNova
 `CONTRIBUA_CRYPTO_KEY` de produção, o cadastro do webhook e o cron da conciliação (C5).
 **Pendências fora desta entrega:** Boleto e Relatório de contribuições (chaves do desenho, gravadas desde
 já; funcionamento na C4d); Inter, BB, Outro (C4b/C4c); selo de apoiador no perfil e nas propostas (C6).
-**Feito:** camada de banco (interface, cofre, certificado, ClienteCora mTLS, adaptador Cora) com testes.
-**Próximo passo:** cobrança por conta (decorador), webhook, reconsulta, confirmação, conciliação, tela do
-Master, prêmio, migration.
+**Feito:** camada de banco, cobrança por conta (decorador), webhook, reconsulta, confirmação, conciliação,
+tela do Master, prêmio, migration (`Version20261019230000`), testes; revisão com bloqueantes corrigidos (§2b);
+verificado no navegador contra o 08.
+**Próximo passo:** re-revisão; PR empilhado sobre a C3.
 
 ## 1. O que o desenho pede
 
@@ -123,6 +124,27 @@ propostas de correspondência" e "Aproveitar agora". Um por apoio confirmado.
   (§8 da spec mãe): espera outro modal aberto fechar.
 - **Acesso:** toda rota de configuração exige `ROLE_SUPER_ADMIN` (Master, §9); a do prêmio, usuário logado
   com vínculo na conta do apoio.
+
+## 2b. Decisões da revisão (decisor técnico, 19/10/2026)
+
+- **Ambiente de testes isolado:** a cobrança guarda o ambiente em que nasceu e só é servida, reaproveitada,
+  consultada e conciliada nele. Em "Testes (sandbox)", o PIX dinâmico só vale para o escritório do Master;
+  as contas seguem no estático. Pagamento confirmado em sandbox não cria `Apoio`: a cobrança fica paga e o
+  Master recebe "Teste da Cora (sandbox): pagamento confirmado ... Nenhum apoio foi registrado."
+- **Um pagamento, um apoio:** se a conta clicou em "Já contribuí" (apoio informado ainda não confirmado,
+  últimos 35 dias), é esse apoio que o banco confirma (origem, id, código, valor recebido); senão nasce um.
+- **O código que o banco devolve tem de ser o da cobrança;** o valor do apoio é o que o banco recebeu
+  (limitado ao teto do `Apoio`).
+- **Webhook:** só uma cobrança nossa gera registro e fila; aviso com recurso desconhecido responde 200 sem
+  efeito (o endereço é público e sem assinatura; não enche a fila `async`, que o Drive e a Inteligência usam).
+  Limite de requisições por origem fica para quando houver limitador no `framework.yaml` (arquivo quente).
+- **Página:** no máximo 10 cobranças novas por conta por dia; valor acima do teto do `Apoio` cai no estático;
+  falha do banco põe uma pausa de 5 min (a página não espera o banco a cada visita); cobrança que ficou sem
+  código é refeita com a mesma chave de idempotência.
+- **Conciliação** roda com certificado, Client ID e "Conciliação automática" ligada, no ambiente atual, mesmo
+  com a cobrança por conta desligada.
+- **Aviso ao primário** quando o pagamento é confirmado (§8 da spec mãe): pendente, a combinar com a f6 (hoje
+  só o Master é avisado).
 
 ## 3. Testes
 

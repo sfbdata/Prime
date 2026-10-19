@@ -67,6 +67,27 @@ class ApoioRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** O apoio informado (Já contribuí) ainda não confirmado mais antigo da conta, desde `desde`. */
+    public function informadoSemConfirmacao(int $tenantId, \DateTimeImmutable $desde): ?Apoio
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('IDENTITY(a.tenant) = :tenant')
+            ->andWhere('a.confirmadoEm IS NULL')
+            ->andWhere('a.idCora IS NULL')
+            ->andWhere('a.criadoEm >= :desde')
+            ->setParameter('tenant', $tenantId)
+            ->setParameter('desde', $desde)
+            ->orderBy('a.criadoEm', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function doIdNoBanco(string $idNoBanco): ?Apoio
+    {
+        return $this->findOneBy(['idCora' => $idNoBanco]);
+    }
+
     public function doEscritorio(int $id, int $tenantId): ?Apoio
     {
         return $this->createQueryBuilder('a')
