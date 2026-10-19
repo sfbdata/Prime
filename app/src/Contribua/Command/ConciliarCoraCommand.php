@@ -8,6 +8,7 @@ use App\Contribua\Banco\FalhaNoBanco;
 use App\Contribua\Repository\CobrancaPixDaContaRepository;
 use App\Contribua\Repository\IntegracaoBancariaRepository;
 use App\Contribua\UseCase\ConfirmarCobrancaPeloBancoUseCase;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -27,6 +28,7 @@ final class ConciliarCoraCommand extends Command
         private readonly IntegracaoBancariaRepository $integracoes,
         private readonly CobrancaPixDaContaRepository $cobrancas,
         private readonly ConfirmarCobrancaPeloBancoUseCase $confirmar,
+        private readonly EntityManagerInterface $em,
     ) {
         parent::__construct();
     }
@@ -47,6 +49,11 @@ final class ConciliarCoraCommand extends Command
             } catch (FalhaNoBanco|\DomainException $e) {
                 ++$falhas;
                 $io->warning('Cobrança ' . $cobranca->getCodigo() . ': ' . $e->getMessage());
+            }
+            if (!$this->em->isOpen()) {
+                // Uma confirmação perdeu a corrida para o webhook e fechou o gerenciador: o resto fica para a próxima volta.
+                $io->writeln('Conciliação interrompida por confirmação simultânea; o restante segue na próxima volta.');
+                break;
             }
         }
         $io->writeln(sprintf('Conciliação: %d apoio(s) confirmado(s), %d falha(s).', $confirmados, $falhas));

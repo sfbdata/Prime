@@ -229,6 +229,62 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         self::assertSame(0, (int) static::getContainer()->get(Connection::class)->fetchOne('SELECT COUNT(*) FROM contribua_apoio WHERE tenant_id = :t', ['t' => $this->escritorio->getId()]));
     }
 
+    #[TestDox('Proteções da página: teto de valor, no máximo 10 cobranças novas por conta no dia (a já criada continua valendo)')]
+    public function testTetoELimite(): void
+    {
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $this->conectar();
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+
+        self::assertStringNotContainsString('cora.com.br', $this->pix(1000001)['codigo'], 'acima do teto do apoio: estático');
+        for ($reais = 5; $reais < 15; ++$reais) {
+            self::assertStringContainsString('cora.com.br', $this->pix($reais)['codigo']);
+        }
+        self::assertStringNotContainsString('cora.com.br', $this->pix(15)['codigo'], 'a 11ª cobrança do dia não é criada');
+        self::assertStringContainsString('cora.com.br', $this->pix(5)['codigo'], 'a já criada continua valendo');
+    }
+
+    #[TestDox('Banco fora do ar: pausa para todos, a cobrança é refeita depois com a mesma chave; testar a conexão tira a pausa. Recusa de um pedido não pausa os outros')]
+    public function testPausaERecusa(): void
+    {
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $this->conectar();
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $this->cora->statusDaCriacao = 500;
+        self::assertStringNotContainsString('cora.com.br', $this->pix(20)['codigo']);
+        $chave = $this->cora->cabecalho(end($this->cora->pedidos)['opcoes'], 'idempotency-key');
+        $antes = count($this->cora->pedidos);
+        self::assertStringNotContainsString('cora.com.br', $this->pix(50)['codigo'], 'em pausa');
+        self::assertCount($antes, $this->cora->pedidos, 'em pausa, nem chama o banco');
+
+        $this->cora->statusDaCriacao = null;
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        self::assertTrue($this->post('/contribua/integracao-bancaria/testar')['conectado']);
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        self::assertStringContainsString('cora.com.br', $this->pix(20)['codigo']);
+        self::assertSame($chave, $this->cora->cabecalho(end($this->cora->pedidos)['opcoes'], 'idempotency-key'), 'refeita com a mesma chave');
+
+        $this->cora->statusDaCriacao = 400;
+        self::assertStringNotContainsString('cora.com.br', $this->pix(30)['codigo']);
+        $this->cora->statusDaCriacao = null;
+        self::assertStringContainsString('cora.com.br', $this->pix(40)['codigo'], 'recusa de um pedido não pausa');
+        self::assertSame('cancelada', static::getContainer()->get(Connection::class)->fetchOne("SELECT situacao FROM contribua_cobranca_pix WHERE valor_centavos = 3000 AND tenant_id = :t", ['t' => $this->escritorio->getId()]));
+    }
+
+    #[TestDox('"Já contribuí" de antes da cobrança é outro pagamento: o banco cria um apoio novo, sem apagar o informado')]
+    public function testInformadoAnterior(): void
+    {
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $this->post('/contribua/apoio', ['centavos' => 10000]);
+        static::getContainer()->get(Connection::class)->executeStatement("UPDATE contribua_apoio SET criado_em = NOW() - INTERVAL '1 day' WHERE tenant_id = :t", ['t' => $this->escritorio->getId()]);
+        $idCora = $this->cobrancaPaga();
+
+        static::getContainer()->get(ConfirmarCobrancaPeloBancoUseCase::class)->executar('cora', $idCora);
+
+        $apoios = static::getContainer()->get(Connection::class)->fetchAllAssociative('SELECT origem, valor_centavos FROM contribua_apoio WHERE tenant_id = :t ORDER BY id', ['t' => $this->escritorio->getId()]);
+        self::assertSame([['origem' => 'informado', 'valor_centavos' => 10000], ['origem' => 'cora', 'valor_centavos' => 2000]], $apoios);
+    }
+
     #[TestDox('Conciliação: confirma a cobrança paga cujo aviso se perdeu; sem integração, não faz nada')]
     public function testConciliar(): void
     {

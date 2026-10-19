@@ -12,6 +12,7 @@ use App\Contribua\Repository\ApoioRepository;
 use App\Contribua\Repository\CobrancaPixDaContaRepository;
 use App\Contribua\Repository\IntegracaoBancariaRepository;
 use App\Contribua\Service\AvisoAoMaster;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -24,14 +25,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * - o código devolvido pelo banco tem de ser o da cobrança;
  * - no ambiente de testes (sandbox) nenhum apoio nasce: a cobrança fica paga e o Master é avisado do teste;
  * - em produção, um pagamento é um apoio: se a conta já tinha informado ("Já contribuí") e o banco ainda não
- *   tinha confirmado, é esse apoio que fica confirmado; senão nasce um, confirmado. Valor: o que o banco
+ *   tinha confirmado, e clicou depois de a cobrança existir, é esse apoio que fica confirmado; senão nasce um, confirmado. Valor: o que o banco
  *   recebeu. Repetir não duplica (cobrança já paga sai cedo; o id do banco é conferido e é único).
  * O Master é avisado; o prêmio aparece na próxima visita da conta à página Contribua.
  */
 final class ConfirmarCobrancaPeloBancoUseCase
 {
-    private const JANELA_DO_INFORMADO = '-35 days';
-
     public function __construct(
         private readonly CobrancaPixDaContaRepository $cobrancas,
         private readonly ApoioRepository $apoios,
@@ -90,13 +89,19 @@ final class ConfirmarCobrancaPeloBancoUseCase
         $valor = min(max($situacao->valorPagoCentavos, 0) ?: $cobranca->getValorCentavos(), Apoio::VALOR_MAXIMO_CENTAVOS);
         $pagoEm = $situacao->pagaEm ?? new \DateTimeImmutable();
         $tenantId = (int) $cobranca->getTenant()->getId();
-        $informado = $this->apoios->informadoSemConfirmacao($tenantId, new \DateTimeImmutable(self::JANELA_DO_INFORMADO));
+        // Só o "Já contribuí" clicado depois de a cobrança existir pode ser este pagamento.
+        $informado = $this->apoios->informadoSemConfirmacao($tenantId, $cobranca->getCriadaEm());
         if (null !== $informado) {
             $informado->confirmarPeloBanco($valor, $codigoDoBanco, (string) $cobranca->getIdNoBanco(), (string) $cobranca->getCodigo(), $pagoEm);
         } else {
             $this->em->persist(Apoio::confirmadoPeloBanco($cobranca->getTenant(), $valor, $codigoDoBanco, (string) $cobranca->getIdNoBanco(), (string) $cobranca->getCodigo(), $pagoEm));
         }
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException) {
+            // Webhook e conciliação ao mesmo tempo: o outro confirmou primeiro.
+            return false;
+        }
         $this->avisar($cobranca, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, 'Apoio confirmado pelo banco: %s (conta Nº %s), %s.', $valor);
 
         return true;

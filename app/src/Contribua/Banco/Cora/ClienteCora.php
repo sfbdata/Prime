@@ -54,7 +54,7 @@ class ClienteCora
                 [$status, $corpo] = $this->chamar($c, $mtls, $metodo, $caminho, $opcoes, $this->tokenGuardado($c, $mtls));
             }
             if ($status >= 400) {
-                throw new FalhaNoBanco($this->motivo($status, $corpo));
+                throw new FalhaNoBanco($this->motivo($status, $corpo), 0, null, $status >= 500 || 401 === $status || 403 === $status || 429 === $status);
             }
 
             return $corpo;

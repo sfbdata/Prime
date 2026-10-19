@@ -79,13 +79,13 @@ final class CasosDeUsoDoBancoTest extends TestCase
         $this->integracao->guardarCertificado($this->cofre->cifrar($par['certificado']), $this->cofre->cifrar($par['chave']), ['c.pem'], new User());
         $this->integracao->configurar('sandbox', 'c1', [], new User());
         $cora = new CoraFalsa();
-        $sut = new TestarConexaoDoBancoUseCase($this->repo, new BancosPix(new BancoCora(new ClienteCora($cora->cliente(), new ArrayAdapter(), $this->cofre), $this->repo, $this->cofre)));
+        $sut = new TestarConexaoDoBancoUseCase($this->repo, new BancosPix(new BancoCora(new ClienteCora($cora->cliente(), new ArrayAdapter(), $this->cofre), $this->repo, $this->cofre)), new ArrayAdapter());
 
         self::assertTrue($sut->executar()->conectou);
         self::assertTrue($this->integracao->cobraPorConta());
 
         $cora->recusarToken = true;
-        $novo = new TestarConexaoDoBancoUseCase($this->repo, new BancosPix(new BancoCora(new ClienteCora($cora->cliente(), new ArrayAdapter(), $this->cofre), $this->repo, $this->cofre)));
+        $novo = new TestarConexaoDoBancoUseCase($this->repo, new BancosPix(new BancoCora(new ClienteCora($cora->cliente(), new ArrayAdapter(), $this->cofre), $this->repo, $this->cofre)), new ArrayAdapter());
         self::assertFalse($novo->executar()->conectou);
         self::assertSame(IntegracaoBancaria::ESTADO_DESLIGADA, $this->integracao->getEstado());
         self::assertFalse($this->integracao->cobraPorConta());

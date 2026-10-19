@@ -91,6 +91,11 @@ class CobrancaPixDaConta implements TenantAware
         return self::ABERTA === $this->situacao && $this->vencimento >= $hoje->setTime(0, 0);
     }
 
+    public function getCriadaEm(): \DateTimeImmutable
+    {
+        return $this->criadaEm;
+    }
+
     public function getAmbiente(): string
     {
         return $this->ambiente;

@@ -23,6 +23,8 @@ final class CoraFalsa
     /** @var array<string, string> id da cobrança => nosso código */
     private array $codigos = [];
     public bool $recusarToken = false;
+    /** Força a resposta da criação de cobrança (500 = banco fora; 400 = recusa do pedido). */
+    public ?int $statusDaCriacao = null;
     public int $tokensExpirados = 0;
     public int $tokensEmitidos = 0;
 
@@ -77,6 +79,9 @@ final class CoraFalsa
     private function criar(array $opcoes): MockResponse
     {
         $corpo = json_decode((string) ($opcoes['body'] ?? '{}'), true);
+        if (null !== $this->statusDaCriacao) {
+            return $this->json(['code' => 'erro', 'message' => 'Falha simulada', 'errors' => [['code' => 'x', 'message' => 'falha simulada ' . $this->statusDaCriacao]]], $this->statusDaCriacao);
+        }
         if (($corpo['services'][0]['amount'] ?? 0) < 500) {
             return $this->json(['code' => 'invalid_request', 'message' => 'Request has invalid parameters', 'errors' => [['code' => 'services[0].amount', 'message' => 'must be greater than or equal to 500']]], 400);
         }

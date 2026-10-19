@@ -28,7 +28,8 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireDecorated;
  * - ambiente de testes (sandbox) para quem não é o Master: só o escritório do Master testa;
  * - escritório sem CNPJ (o banco exige o documento), valor abaixo do mínimo do banco ou acima do teto;
  * - limite de cobranças da conta no dia (a página cria cobrança a cada valor escolhido);
- * - banco falhou há pouco (pausa de 5 min: a página não espera o banco a cada visita).
+ * - banco fora do ar há pouco (pausa de 5 min só para falha passageira; a cobrança que já tem código segue
+ *   valendo durante a pausa). Recusa do banco para o pedido de uma conta cancela só aquela cobrança.
  * Reaproveita a cobrança aberta da mesma conta, ambiente e valor; se ela ficou sem código (o banco falhou),
  * repete a criação com a MESMA chave de idempotência (o banco devolve a cobrança se já a tinha criado).
  */
@@ -40,7 +41,7 @@ final class CodigoPixDaContaDinamico implements CodigoPixDaConta
     public const MAXIMO_POR_DIA = 10;
     private const DIAS_PARA_VENCER = 7;
     private const PAUSA_SEGUNDOS = 300;
-    private const CHAVE_PAUSA = 'contribua_banco_em_pausa';
+    public const CHAVE_PAUSA = 'contribua_banco_em_pausa';
 
     public function __construct(
         #[AutowireDecorated]
@@ -64,7 +65,11 @@ final class CodigoPixDaContaDinamico implements CodigoPixDaConta
         }
         $hoje = new \DateTimeImmutable('today');
         $cobranca = $this->cobrancas->abertaParaReusar($quem->escritorio, $banco->codigo(), $integracao->getAmbiente(), $valorCentavos, $hoje);
-        if (null === $cobranca && $this->cobrancas->criadasDesde($quem->escritorio, $hoje) >= self::MAXIMO_POR_DIA) {
+        if (null !== $cobranca && null !== $cobranca->getCopiaECola()) {
+            // Já registrada no banco: não depende da pausa nem do limite.
+            return ['codigo' => $cobranca->getCopiaECola(), 'valido' => true];
+        }
+        if ($this->emPausa() || (null === $cobranca && $this->cobrancas->criadasDesde($quem->escritorio, $hoje) >= self::MAXIMO_POR_DIA)) {
             return $this->estatico->para($quem, $valorCentavos);
         }
         $cobranca ??= $this->nova($quem, $banco, $integracao->getAmbiente(), $valorCentavos, $hoje);
@@ -82,9 +87,14 @@ final class CodigoPixDaContaDinamico implements CodigoPixDaConta
         return $integracao->cobraPorConta()
             && ('producao' === $integracao->getAmbiente() || $quem->ehMaster)
             && 14 === strlen($cnpj)
-            && $valorCentavos >= self::MINIMO_CENTAVOS && $valorCentavos <= Apoio::VALOR_MAXIMO_CENTAVOS
-            && !$this->cache->getItem(self::CHAVE_PAUSA)->isHit();
+            && $valorCentavos >= self::MINIMO_CENTAVOS && $valorCentavos <= Apoio::VALOR_MAXIMO_CENTAVOS;
     }
+
+    private function emPausa(): bool
+    {
+        return $this->cache->getItem(self::CHAVE_PAUSA)->isHit();
+    }
+
 
     private function nova(Solicitante $quem, BancoPix $banco, string $ambiente, int $valorCentavos, \DateTimeImmutable $hoje): CobrancaPixDaConta
     {
@@ -102,7 +112,15 @@ final class CodigoPixDaContaDinamico implements CodigoPixDaConta
             $criada = $banco->criarCobranca(new PedidoDeCobrancaPix((string) $cobranca->getCodigo(), $cobranca->getChaveDeIdempotencia(), (string) $quem->escritorio->getName(), $cnpj, $cobranca->getValorCentavos(), $cobranca->getVencimento()));
         } catch (FalhaNoBanco $e) {
             $this->logger->warning('Contribua: cobrança PIX não criada no banco; vale o PIX estático', ['conta' => $quem->numeroDaConta(), 'motivo' => $e->getMessage()]);
-            $this->cache->save($this->cache->getItem(self::CHAVE_PAUSA)->set(true)->expiresAfter(self::PAUSA_SEGUNDOS));
+            if ($e->passageira) {
+                // Banco fora: pausa para todos, e esta cobrança é refeita com a mesma chave depois.
+                $this->cache->save($this->cache->getItem(self::CHAVE_PAUSA)->set(true)->expiresAfter(self::PAUSA_SEGUNDOS));
+
+                return;
+            }
+            // O banco recusou o pedido desta conta: repetir não adianta, e os outros não pagam por isso.
+            $cobranca->marcarCancelada();
+            $this->cobrancas->salvar($cobranca);
 
             return;
         }

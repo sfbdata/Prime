@@ -128,19 +128,21 @@ propostas de correspondência" e "Aproveitar agora". Um por apoio confirmado.
 ## 2b. Decisões da revisão (decisor técnico, 19/10/2026)
 
 - **Ambiente de testes isolado:** a cobrança guarda o ambiente em que nasceu e só é servida, reaproveitada,
-  consultada e conciliada nele. Em "Testes (sandbox)", o PIX dinâmico só vale para o escritório do Master;
-  as contas seguem no estático. Pagamento confirmado em sandbox não cria `Apoio`: a cobrança fica paga e o
+  consultada e conciliada nele. Em "Testes (sandbox)", o PIX dinâmico só vale para o usuário Master (os outros
+  usuários, inclusive do escritório dele, e as contas seguem no estático). Pagamento confirmado em sandbox não cria `Apoio`: a cobrança fica paga e o
   Master recebe "Teste da Cora (sandbox): pagamento confirmado ... Nenhum apoio foi registrado."
-- **Um pagamento, um apoio:** se a conta clicou em "Já contribuí" (apoio informado ainda não confirmado,
-  últimos 35 dias), é esse apoio que o banco confirma (origem, id, código, valor recebido); senão nasce um.
+- **Um pagamento, um apoio:** se a conta clicou em "Já contribuí" depois de a cobrança existir (apoio informado
+  ainda não confirmado), é esse apoio que o banco confirma (origem, id, código, valor recebido); senão nasce um.
 - **O código que o banco devolve tem de ser o da cobrança;** o valor do apoio é o que o banco recebeu
   (limitado ao teto do `Apoio`).
 - **Webhook:** só uma cobrança nossa gera registro e fila; aviso com recurso desconhecido responde 200 sem
   efeito (o endereço é público e sem assinatura; não enche a fila `async`, que o Drive e a Inteligência usam).
   Limite de requisições por origem fica para quando houver limitador no `framework.yaml` (arquivo quente).
 - **Página:** no máximo 10 cobranças novas por conta por dia; valor acima do teto do `Apoio` cai no estático;
-  falha do banco põe uma pausa de 5 min (a página não espera o banco a cada visita); cobrança que ficou sem
-  código é refeita com a mesma chave de idempotência.
+  falha passageira do banco (rede, 5xx, 401, 403, 429) põe uma pausa de 5 min para todos, e a cobrança sem
+  código é refeita depois com a mesma chave de idempotência; recusa do banco para o pedido de uma conta (400)
+  cancela só aquela cobrança. Cobrança que já tem código continua valendo durante a pausa. Testar a conexão
+  com sucesso tira a pausa.
 - **Conciliação** roda com certificado, Client ID e "Conciliação automática" ligada, no ambiente atual, mesmo
   com a cobrança por conta desligada.
 - **Aviso ao primário** quando o pagamento é confirmado (§8 da spec mãe): pendente, a combinar com a f6 (hoje
