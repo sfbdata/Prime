@@ -12,15 +12,18 @@ banco); a cobrança real depende das chaves do dono.
   fixa `2026-09-30.endive`), `TradutorStripe` (situação e avisos), `AssinaturaDoAvisoStripe` (Stripe-Signature).
 - `tests/Contribua/Unit/Stripe/StripeContratoTest` (contrato comum) e `GatewayStripeTest` (bordas), com
   `MockHttpClient` e respostas dos exemplos da doc.
-- `public/js/contribua-stripe.js`, variável global `ContribuaStripe` com `montar`, `tokenizar`, `desmontar`.
+- `public/js/contribua-stripe.js`, variável global `ContribuaStripe` com `montar`, `tokenizar`,
+  `concluirAcao` e `desmontar`.
 - Variáveis vazias no `.env`: `CONTRIBUA_STRIPE_SECRET_KEY`, `CONTRIBUA_STRIPE_PUBLIC_KEY`,
   `CONTRIBUA_STRIPE_WEBHOOK_SECRET` (lidas com `string:default::`, porque o build de produção apaga o `.env`).
 
 **Pendente com a f6**
-- 3DS: o contrato não tem como devolver ao navegador o `client_secret` da primeira fatura. Cartão que
-  pede autenticação fica `incomplete` (Aguardando) e expira em 23 h (Cancelada). Proposto à f6: campo
-  opcional em `SituacaoNoGateway` para a ação no navegador (`stripe.handleNextAction`).
-- A f6 liga o JS no checkout e registra o adaptador pelo código (a tag já vem da interface).
+- 3DS: aceito pela f6 (19/10). O `SituacaoNoGateway` ganha `?string $acaoNoNavegador = null`; o
+  `assinarComToken` passa a preenchê-lo com `latest_invoice.confirmation_secret.client_secret` quando a
+  assinatura nasce `incomplete`, e o checkout chama `ContribuaStripe.concluirAcao(segredo)` (já no JS,
+  `stripe.handleNextAction`). Falta o lado PHP, quando o campo chegar na contribua-c3. Até lá, cartão que
+  pede autenticação fica `incomplete` (Aguardando) e expira em 23 h (Cancelada).
+- A f6 liga o JS no checkout (mapa fixo no `contribua-checkout.js`) e registra o adaptador pelo código.
 
 **Para o dono**
 1. Chaves: painel do Stripe, https://dashboard.stripe.com/apikeys. Copiar a "Chave publicável" (`pk_`) para
