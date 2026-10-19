@@ -1,5 +1,48 @@
 # Painel do Push, parte C: "Avisar cliente" e envio manual da Análise IA (P4c)
 
+## Estado da frente (sessão bluejus-0d; atualizado 19/10/2026, noite)
+
+Releia esta seção antes de continuar se a sessão for compactada.
+
+**Pedido do dono (19/10):** implementar na íntegra o desenho das abas Processo e Push Processual (02 - EXPEDIENTES,
+versão completa de 18/10 em `docs/design/redesign-19-10-26/`, fora do git), mesmo que precise de frente nova.
+
+**PRs e ordem de merge (fila de migrations do coordenador):**
+- #55 link externo do Push: MERGEADO.
+- #68 `pasta-ocultar-aba`: base master. Migration Version20261019200000 (renomear na vez: depois de #56, #60, #65,
+  #69, #64, #74, #62, #83, #84).
+- #75 `relatorio-processos-controladoria`: base master. Migration Version20261019233000.
+- #82 `push-painel-monitoramento` (P4a): base master. Migration Version20261019234500.
+- #87 `push-avisar-quando-chegar` (P4b): EMPILHADO sobre o #82, pronto. Migration Version20261020090000. A 5d
+  (comercial-1a) empilha sobre ele (descadastro em Shared).
+- #91 `processo-apensados` (P4f): base master. Migration Version20261020103000 (renomeada: a 5d tem a 20261020100000).
+- P4c `push-avisar-cliente`: PR aberto, EMPILHADO sobre o #87. Migration Version20261020110000. Controladoria e envio
+  isolados em interfaces: trocar pela coluna do #75 e pelo Carteiro da 5d quando entrarem no master.
+- P4d (envio automático ao cliente, pelo Carteiro da 5d) e P4e (arquivos, OCR, análise completa): specs no
+  scratchpad; P4e espera o #76 (composer) e aviso de Dockerfile.
+Depois de cada merge: trazer o origin/master, migrar o banco de teste da frente (APP_ENV=test, TEST_TOKEN da frente),
+suíte, push. Renomear a migration na vez dela.
+
+**Decisões do dono (19/10/2026):** Controladoria = pessoas marcadas (só Master/primário marca); ocultar aba organiza a
+pasta e não restringe o sistema; renovação do link por aviso no sino e link curto ativo; envios automáticos ao cliente
+nascem desligados; pausar monitoramento para só a busca por número (legenda com OAB); chave "Análise da BlueJus IA"
+do P4b nasce desligada. Coordenador: prazo da previsão pela lei (Lei 11.419 art. 4º, CPC art. 224); e-mail com
+descadastro; sem Controladoria envia e avisa o primário; remetente nao-responda@ com reply-to do responsável; OCR no
+P4e; "Apensado · Outro" para as 4 pastas antigas com 2 processos.
+
+**Contratos com outras sessões:** security.yaml com uma rota pública por linha; framework.yaml com limitadores em
+trechos próprios; descadastro (`App\Shared\Email\Descadastro`, ?Tenant, todos, reativar, listar) usado pela 5d e
+pela a7; Carteiro da 5d (`App\Comercial\Envio`, commit 80c4c7de) para P4c/P4d; user_tenant: 7d põe `situacao`, #75
+põe `controladoria`.
+
+**Para o dono:** merges na ordem da fila; confirmar que o MAILER_DSN de produção sai pela Hostinger (SPF/DKIM do
+nao-responda@); configurar o cron mensal do relatório (DEPLOY.md, #75); reconstruir a imagem de produção quando o P4e
+entrar (tesseract/poppler); trocar o comando do worker para consumir a fila 'comercial' (PR da 5d) antes do P4c/P4d
+enviarem pelo Carteiro.
+
+**Próximo passo:** abrir o PR do P4f; fechar o P4c (revisão, visual, PR); depois P4d; P4e quando o #76 entrar.
+
+
 Desenho: `docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html` (fora do git; igual ao 1.2.3 nesta
 área, salvo raio 4px e `confirmarUI`): cartão "Avisar cliente" ~N:2765-2830 (1.2.3: L2637-2698), `mailVals`
 ~N:5249-5293 (1.2.3: L4993-5037), modal "Enviar ao cliente" ~N:2833-2873 (1.2.3: L2701-2741), CC Controladoria
