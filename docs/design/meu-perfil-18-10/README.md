@@ -10,5 +10,5 @@ com DesignSync (só `list_files` e `get_file`). É a referência dos 6 PRs do re
 5. equipe da conta: situação aprovado, em análise e suspenso, menu de botão direito (risco ALTO)
 6. excluir conta em 2 etapas com código por e-mail (risco ALTO)
 
-Atenção: `bluejus-central.js` veio **truncado** em 256 KiB (limite do `get_file`); a camada de interface
-do sininho ficou fora. As regras de som, tipos de notificação e "Não perturbe" estão inteiras.
+`bluejus-central.js` não está aqui: o `get_file` corta em 256 KiB e a cópia saiu incompleta. A versão
+completa anterior (16/10) está em `docs/design/trabalho-externo/bluejus-central.js`.
