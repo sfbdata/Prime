@@ -144,19 +144,24 @@ por campanha continua). Entra no `app:purgar-dados-expirados`. Ver P4.
 
 Para qualquer lista que exija consentimento (alertas de vagas da a7, base de contatos das campanhas):
 `App\Comercial\Consentimento\ConfirmacaoDeEnderecoInterface`:
-- `pedir(lista, email, origem, versaoDoConsentimento, textoDoConsentimento): void`: grava a pendência e manda, pelo
+- `pedir(string $lista, string $email, string $origem, string $versaoDoConsentimento, string $textoDoConsentimento,
+  ?Tenant $escopo = null): void` (null = plataforma): grava a pendência e manda, pelo
   Carteiro como `transacional`, o e-mail "Confirme que quer receber <nome da lista>", com link assinado de 7 dias.
   Repetir o pedido para o mesmo endereço e lista reenvia no máximo 1 vez por 24 h (limitador por e-mail).
-- `confirmar(token)`: marca `confirmado_em`, com IP e agente (prova do consentimento). Página pública simples
-  "Endereço confirmado" com o link de descadastro.
-- `estaConfirmado(lista, email): bool`.
+- `confirmar(string $token): ?EnderecoConfirmado`: marca `confirmado_em`, com IP e agente (prova do consentimento).
+  Rota pública desta frente `GET /e/confirmar/{token}`, página simples "Endereço confirmado" com o link de descadastro.
+- `estaConfirmado(string $lista, string $email, ?Tenant $escopo = null): bool`.
 
-Tabela `comercial_confirmacao_endereco`: `id`, `lista`, `email`, `origem`, `versao_consentimento`,
+Tabela `comercial_confirmacao_endereco`: `id`, `tenant_id` (nullable, null = plataforma), `lista`, `email`, `origem`, `versao_consentimento`,
 `texto_consentimento`, `token_hash`, `pedido_em`, `expira_em`, `confirmado_em`, `ip`, `agente`. UNIQUE
-(`lista`, `email`). O texto do consentimento fica gravado como foi mostrado (prova).
+(`tenant_id`, `lista`, `email`), com o null tratado como um escopo só (índice parcial para o null). O texto do consentimento fica gravado como foi mostrado (prova).
 
-Quem envia para uma lista com consentimento confere `estaConfirmado` E o descadastro. A a7 chama `pedir` na
-inscrição de alertas e não envia nada antes da confirmação.
+Quem envia para uma lista com consentimento confere `estaConfirmado` E o descadastro. **Contrato com a a7 (19/10):** na
+inscrição de alertas ela chama `pedir('vagas_alerta', email, ..., null)`; o job dos alertas (qual vaga vai para quem)
+é do domínio dela, que filtra os interessados e chama o Carteiro só para quem passa em `estaConfirmado`, com
+`tipo = lista`, `lista = vagas_alerta`, `origem = consumidor:vagas_alerta`. Esta frente não lê a tabela dela; a "Base
+de contatos" das campanhas (fatia 2) sai de `comercial_confirmacao_endereco`. A a7 liga o `pedir()` num PR pequeno
+depois do desta fatia.
 
 ### 3.4 As 8 automações
 
