@@ -205,6 +205,24 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
+### Conciliação das assinaturas de espaço (crontab na VPS)
+
+Job de hora em hora do Contribua (cartão): reprocessa avisos de gateway que ficaram pendentes, reconsulta
+no gateway as assinaturas que ainda podem mudar e devolve ao Free quem passou do fim do mês pago (ou da
+carência). É a rede de segurança do webhook; idempotente. Sai com erro só quando nenhuma reconsulta deu
+certo (credencial errada ou gateway fora do ar).
+
+```
+15 * * * * docker exec jusprime_php_prod php bin/console app:contribua:conciliar-assinaturas >> /var/log/jusprime-contribua.log 2>&1
+```
+
+> **Variáveis (`.env.prod`, nunca no repositório):** `CONTRIBUA_ASAAS_URL_API`, `CONTRIBUA_ASAAS_API_KEY`,
+> `CONTRIBUA_ASAAS_TOKEN_WEBHOOK` e as da nota fiscal (`CONTRIBUA_ASAAS_NFSE_*`); a lista completa e vazia
+> está no `app/.env`. Sem elas o gateway não chama a API e o checkout responde "o gateway de pagamento não
+> respondeu". **Webhook** no painel do Asaas: `https://bluejus.com.br/api/webhooks/asaas`, com o mesmo token
+> (passo a passo em `docs/runbooks/contribua-asaas-passo-a-passo.md`). O Master escolhe o gateway na página
+> Contribua, botão "Pagamento por cartão".
+
 ### Atualização de encargos de cobrança (crontab na VPS)
 
 Job diário que faz os encargos das obrigações **crescerem no tempo**: recalcula juros, multa,
