@@ -7,6 +7,7 @@ namespace App\Tarefa\Repository;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Processo\Entity\Processo;
 use App\Tarefa\DTO\PessoaNoTrilhoOutput;
@@ -440,6 +441,23 @@ class TarefaRepository extends ServiceEntityRepository
             ->orderBy('t.dataCriacao', 'DESC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Uma meta pelo id, desta pasta E deste escritório (o "Encaminhar via Chat I.A" relê o item no servidor).
+     * Filtro explícito: não depende de o TenantFilter estar ligado.
+     */
+    public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?Tarefa
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.id = :id')
+            ->andWhere('t.pasta = :pasta')
+            ->andWhere('t.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function save(Tarefa $entity, bool $flush = false): void

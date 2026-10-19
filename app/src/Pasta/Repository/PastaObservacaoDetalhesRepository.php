@@ -20,6 +20,23 @@ final class PastaObservacaoDetalhesRepository extends ServiceEntityRepository
         parent::__construct($registry, PastaObservacaoDetalhes::class);
     }
 
+    /**
+     * Uma observação pelo id, desta pasta E deste escritório (o "Encaminhar via Chat I.A" relê o item no servidor).
+     * Filtro explícito: não depende de o TenantFilter estar ligado.
+     */
+    public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?PastaObservacaoDetalhes
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.id = :id')
+            ->andWhere('o.pasta = :pasta')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** @return PastaObservacaoDetalhes[] */
     public function findByPasta(Pasta $pasta, Tenant $tenant, int $limit = 100): array
     {

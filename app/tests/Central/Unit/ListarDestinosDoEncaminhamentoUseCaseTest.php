@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Central\Unit;
+
+use App\Central\DTO\DestinoDoEncaminhamentoOutput;
+use App\Central\Entity\Conversa;
+use App\Central\Entity\Participante;
+use App\Central\Exception\ItemEncaminhadoNaoEncontradoException;
+use App\Central\Repository\ParticipanteRepository;
+use App\Central\Service\GuardaDoEncaminhamento;
+use App\Central\UseCase\ListarDestinosDoEncaminhamentoUseCase;
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Tests\Central\Support\MontaEncaminhamentoTrait;
+use App\Tests\Inteligencia\Support\DefineId;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\TestCase;
+
+/** "Para quem?": minhas conversas e os colegas sem conversa, só quem vê a pasta; grupo com quem não vê vem travado. */
+#[CoversClass(ListarDestinosDoEncaminhamentoUseCase::class)]
+#[CoversClass(GuardaDoEncaminhamento::class)]
+#[CoversClass(DestinoDoEncaminhamentoOutput::class)]
+final class ListarDestinosDoEncaminhamentoUseCaseTest extends TestCase
+{
+    use MontaEncaminhamentoTrait;
+
+    private Tenant $tenant;
+    private Pasta $pasta;
+    private User $eu;
+    private User $bruno;
+    private User $carla;
+    private User $davi;
+
+    protected function setUp(): void
+    {
+        $this->tenant = new Tenant();
+        $this->pasta = $this->pastaDe($this->tenant);
+        $this->eu = $this->pessoa(1, 'Ana Lima');
+        $this->bruno = $this->pessoa(2, 'Bruno Reis');
+        $this->carla = $this->pessoa(3, 'Carla Dias');
+        $this->davi = $this->pessoa(4, 'Davi Melo');
+    }
+
+    #[TestDox('Conversa 1:1 com quem vê entra; com quem não vê some; grupo travado leva o motivo; colegas sem conversa por último')]
+    public function testListaCompleta(): void
+    {
+        $agora = new \DateTimeImmutable('2026-10-19 09:00');
+        $comBruno = Conversa::individual($this->tenant, $this->eu, $this->bruno, $agora);
+        $comCarla = Conversa::individual($this->tenant, $this->carla, $this->eu, $agora);
+        $grupoAberto = Conversa::grupo($this->tenant, $this->eu, 'Só quem vê', $agora);
+        $grupoTravado = Conversa::grupo($this->tenant, $this->eu, 'Com a Carla', $agora);
+        foreach ([[$comBruno, 10], [$comCarla, 11], [$grupoAberto, 12], [$grupoTravado, 13]] as [$c, $id]) {
+            DefineId::em($c, $id);
+        }
+        $membros = [10 => [$this->eu, $this->bruno], 11 => [$this->carla, $this->eu], 12 => [$this->eu, $this->bruno], 13 => [$this->eu, $this->bruno, $this->carla]];
+
+        $destinos = $this->listar([1, 2, 4], [$comBruno, $comCarla, $grupoAberto, $grupoTravado], $membros);
+
+        self::assertSame([
+            ['tipo' => 'conversa', 'conversaId' => 10, 'usuarioId' => 2, 'nome' => 'Bruno Reis', 'grupo' => false, 'disponivel' => true, 'motivo' => null],
+            ['tipo' => 'conversa', 'conversaId' => 12, 'usuarioId' => null, 'nome' => 'Só quem vê', 'grupo' => true, 'disponivel' => true, 'motivo' => null],
+            ['tipo' => 'conversa', 'conversaId' => 13, 'usuarioId' => null, 'nome' => 'Com a Carla', 'grupo' => true, 'disponivel' => false, 'motivo' => 'Nem todos deste grupo veem esta pasta.'],
+            ['tipo' => 'colega', 'conversaId' => null, 'usuarioId' => 4, 'nome' => 'Davi Melo', 'grupo' => false, 'disponivel' => true, 'motivo' => null],
+        ], array_map(static fn (DestinoDoEncaminhamentoOutput $d): array => $d->toArray(), $destinos));
+    }
+
+    #[TestDox('Colega que saiu do escritório: a 1:1 com ele some da lista')]
+    public function testConversaComQuemSaiu(): void
+    {
+        $comBruno = Conversa::individual($this->tenant, $this->eu, $this->bruno, new \DateTimeImmutable());
+        DefineId::em($comBruno, 10);
+
+        $destinos = $this->listar([1, 2], [$comBruno], [10 => [$this->eu, $this->bruno]], ativos: [$this->eu]);
+
+        self::assertSame([], $destinos);
+    }
+
+    #[TestDox('Pasta de outro escritório ou que eu não vejo: 404, sem lista')]
+    public function testPastaQueNaoVejo(): void
+    {
+        $this->expectException(ItemEncaminhadoNaoEncontradoException::class);
+        $this->listar([2, 3], [], []);
+    }
+
+    #[TestDox('Pasta que não existe neste escritório: 404')]
+    public function testPastaDeOutroEscritorio(): void
+    {
+        $participantes = $this->createStub(ParticipanteRepository::class);
+        $useCase = new ListarDestinosDoEncaminhamentoUseCase(
+            $this->acessoACentral([$this->eu], $participantes),
+            $this->guarda(null, $this->acessoAPasta([1]), $participantes),
+            $participantes,
+        );
+
+        $this->expectException(ItemEncaminhadoNaoEncontradoException::class);
+        $useCase->executar($this->eu, $this->tenant, 50);
+    }
+
+    /**
+     * @param list<int>              $quemVe
+     * @param list<Conversa>         $minhas
+     * @param array<int, list<User>> $membros
+     * @param list<User>|null        $ativos
+     *
+     * @return list<DestinoDoEncaminhamentoOutput>
+     */
+    private function listar(array $quemVe, array $minhas, array $membros, ?array $ativos = null): array
+    {
+        $participantes = $this->createStub(ParticipanteRepository::class);
+        $participantes->method('doUsuario')->willReturn(array_map(
+            fn (Conversa $c): Participante => new Participante($this->tenant, $c, $this->eu, new \DateTimeImmutable()),
+            $minhas,
+        ));
+        $participantes->method('daConversaInteira')->willReturnCallback(
+            fn (Conversa $c): array => $this->participacoes($this->tenant, $c, $membros[(int) $c->getId()]),
+        );
+
+        return (new ListarDestinosDoEncaminhamentoUseCase(
+            $this->acessoACentral($ativos ?? [$this->eu, $this->bruno, $this->carla, $this->davi], $participantes),
+            $this->guarda($this->pasta, $this->acessoAPasta($quemVe), $participantes),
+            $participantes,
+        ))->executar($this->eu, $this->tenant, 50);
+    }
+}
