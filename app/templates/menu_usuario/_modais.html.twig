@@ -8,7 +8,7 @@
     Recebe do base: `_ehPrimario`, `_ehMaster`.
 #}
 <div class="modal fade mu-modal" id="modalContaEscritorio" tabindex="-1" aria-labelledby="modalContaEscritorioTitulo" aria-hidden="true"
-     data-url-contas="{{ path('escritorio_contas') }}">
+     data-url-contas="{{ path('escritorio_contas') }}" data-url-equipe="{{ path('escritorio_equipe') }}">
     <div class="modal-dialog modal-dialog-centered mu-modal-largo">
         <div class="modal-content">
             <div class="mu-modal-topo">
@@ -16,12 +16,20 @@
                 <button type="button" class="mu-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="mu-abas" role="tablist">
+                {% if current_tenant() and (_ehPrimario or _ehMaster) %}
+                    <button type="button" class="mu-aba" data-mu-aba="conta" role="tab" aria-controls="muPainelConta" aria-selected="false">Minha conta</button>
+                {% endif %}
                 {% if _ehPrimario or _ehMaster %}
                     <button type="button" class="mu-aba" data-mu-aba="nova" role="tab" aria-controls="muPainelNova" aria-selected="false">Abrir conta</button>
                 {% endif %}
                 <button type="button" class="mu-aba" data-mu-aba="trocar" role="tab" aria-controls="muPainelTrocar" aria-selected="false">Trocar conta</button>
             </div>
             <div class="mu-modal-corpo">
+                {% if current_tenant() and (_ehPrimario or _ehMaster) %}
+                    <div data-mu-painel="conta" id="muPainelConta" role="tabpanel" hidden>
+                        <div class="mu-carregando">Carregando…</div>
+                    </div>
+                {% endif %}
                 {% if _ehPrimario or _ehMaster %}
                     <div data-mu-painel="nova" id="muPainelNova" role="tabpanel" hidden>
                         <p class="mu-texto">Quem abre a conta se torna o <b>usuário primário</b> (gestor do escritório). As pessoas convidadas depois entram como secundárias. Os dados de cada conta ficam separados e não são vistos por outras contas.</p>

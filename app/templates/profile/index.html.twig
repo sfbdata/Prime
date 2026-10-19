@@ -241,7 +241,7 @@ input[type="range"].img-slider {
     <div class="mu-abas-perfil-miolo">
         <a href="{{ path('app_profile') }}" class="mu-aba-perfil on" aria-current="page"><i class="bi bi-person"></i>Meu Perfil</a>
         {% if current_tenant() and (eh_usuario_primario() or _ehMasterAba) %}
-            <a href="{{ path('auth_gerenciar_convites') }}" class="mu-aba-perfil"><i class="bi bi-envelope-paper"></i>Convites do escritório</a>
+            <a href="{{ path('auth_gerenciar_convites') }}" class="mu-aba-perfil" data-mu-conta="conta"><i class="bi bi-envelope-paper"></i>Convites do escritório</a>
         {% endif %}
         {% if current_tenant() %}
             <button type="button" class="mu-aba-perfil" data-mu-conta="trocar"><i class="bi bi-arrow-left-right"></i>Trocar de conta</button>

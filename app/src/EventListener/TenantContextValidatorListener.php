@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\EventListener;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -50,6 +52,8 @@ final class TenantContextValidatorListener
      */
     private const PREFIXO_SEM_ESCRITORIO = 'trabalho_externo_';
 
+    private const SEM_ACESSO = 'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.';
+
     public function __construct(
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
@@ -91,22 +95,46 @@ final class TenantContextValidatorListener
 
         $userTenant = $this->tenantContext->getCurrentUserTenant();
 
-        // Derruba a sessão se o vínculo foi removido OU se o escritório foi excluído
-        // (soft delete) por outro admin — senão o usuário fica preso operando num
-        // tenant inativo (RS06/RS07). Fecha num ponto só os 40+ consumidores de
-        // getCurrentTenant() que não recheca isActive.
-        if ($userTenant !== null && $userTenant->isActive() && $userTenant->getTenant()->isActive() === true) {
+        // Barreiras do acesso ao escritório da sessão, nesta ordem (contrato com a frente das contas, spec
+        // docs/specs/equipe-da-conta.md §3 e perfis-1.2-contas.md C3/C13); vale a mensagem da primeira que falhar.
+        // Fecha num ponto só os 40+ consumidores de getCurrentTenant() que não rechecam o vínculo (RS06/RS07).
+        // (b) pedido de exclusão pendente entra entre (a) e (c), com o PR 5 do redesenho do Meu Perfil.
+        $mensagem = $this->barreiraDoEscritorio($userTenant)
+            ?? $this->barreiraDoVinculo($userTenant)
+            ?? $this->barreiraDaSituacao($userTenant, $user);
+        if ($mensagem === null) {
             return;
         }
 
         $this->tenantContext->clearCurrentTenant();
-
-        $event->getRequest()->getSession()->getFlashBag()->add(
-            'warning',
-            'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.',
-        );
-
+        $event->getRequest()->getSession()->getFlashBag()->add('warning', $mensagem);
         $event->setResponse(new RedirectResponse($this->router->generate('tenant_selecionar')));
+    }
+
+    /** (a) Escritório suspenso ou excluído (soft delete) por outro admin ou pelo Master. */
+    private function barreiraDoEscritorio(?UserTenant $userTenant): ?string
+    {
+        return $userTenant !== null && $userTenant->getTenant()->isActive() !== true ? self::SEM_ACESSO : null;
+    }
+
+    /** (c) Vínculo removido, ou inativo de legado (inativo sem ser por causa da situação na equipe). */
+    private function barreiraDoVinculo(?UserTenant $userTenant): ?string
+    {
+        if ($userTenant === null) {
+            return self::SEM_ACESSO;
+        }
+
+        return !$userTenant->isActive() && $userTenant->getSituacao() === SituacaoNaEquipe::Aprovado ? self::SEM_ACESSO : null;
+    }
+
+    /** (d) Situação na equipe: em análise ou suspenso pelo primário. O Master não passa por esta barreira. */
+    private function barreiraDaSituacao(?UserTenant $userTenant, User $user): ?string
+    {
+        if ($userTenant === null || $userTenant->isActive() || in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            return null;
+        }
+
+        return $userTenant->getSituacao()->mensagemDeAcesso((string) $userTenant->getTenant()->getName());
     }
 
     private function deveIgnorar(string $route): bool

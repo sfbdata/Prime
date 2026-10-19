@@ -1,0 +1,47 @@
+{#
+    Aba "Minha conta" do modal "Conta do escritório" (desenho bj-contas.js, VS 18.10.26, aba `conta`; spec
+    docs/specs/equipe-da-conta.md §1). Carregada por GET escritorio_equipe, só para o primário do escritório ou o Master.
+    O menu da pessoa (⋮ ou botão direito) é montado por public/js/menu-usuario.js a partir dos data-attributes.
+    Variáveis: escritorio, membros (MembroDaEquipeOutput[]), perfisSecundarios (list<{id, nome}>).
+#}
+<div class="mu-minha-conta" data-url-situacao="{{ path('escritorio_equipe_situacao', {id: 0}) }}" data-url-demitir="{{ path('escritorio_equipe_demitir', {id: 0}) }}">
+    <div class="mu-resumo">
+        <span>Escritório</span><b>{{ escritorio }}</b>
+        <span>Você</span><span>{{ app.user.fullName }} · <b class="mu-resumo-papel">Usuário primário</b></span>
+    </div>
+
+    <div class="mu-rotulo">EQUIPE DA CONTA ({{ membros|length }})</div>
+    <div class="mu-equipe">
+        {% for m in membros %}
+            <div class="mu-membro" data-membro="{{ m.id }}" data-nome="{{ m.nome }}" data-situacao="{{ m.situacao.value }}"
+                 data-primario="{{ m.primario ? '1' : '0' }}" data-acoes="{{ m.temAcoes ? '1' : '0' }}">
+                <span class="mu-membro-avatar{{ m.primario ? ' primario' : '' }}">{{ m.iniciais }}</span>
+                <span class="mu-membro-texto">
+                    <span class="mu-membro-nome">{{ m.nome }}</span>
+                    <span class="mu-membro-sub">{{ m.cargo ? m.cargo ~ ' · ' : '' }}{{ m.email }}</span>
+                </span>
+                <span class="mu-selo-equipe{{ m.primario ? ' primario' : '' }}">{{ m.primario ? 'PRIMÁRIO' : 'SECUNDÁRIO' }}</span>
+                {% if not m.primario %}
+                    <span class="mu-situacao {{ m.situacao.value }}" title="Situação">{{ m.situacao.rotulo }}</span>
+                {% endif %}
+                <button type="button" class="mu-membro-menu" data-membro-menu="{{ m.id }}" title="Opções" aria-label="Opções de {{ m.nome }}">⋮</button>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="mu-rotulo mu-rotulo-convidar">CONVIDAR (ENTRA COMO SECUNDÁRIO)</div>
+    <div class="mu-nota mu-nota-convidar">Clique com o botão direito (ou em ⋮) numa pessoa para aprovar, suspender, voltar para análise ou demitir.</div>
+    {% if perfisSecundarios is empty %}
+        <div class="mu-nota mu-sem-perfil">Para convidar, cadastre antes um perfil secundário em <a href="{{ path('app_tenant_role_index', {tenantId: current_tenant().id}) }}">Perfis do escritório</a>.</div>
+    {% else %}
+        <form method="post" action="{{ path('auth_gerenciar_convites_criar') }}" class="mu-convidar">
+            <input type="hidden" name="_token" value="{{ csrf_token('convite_novo') }}">
+            <input type="text" name="full_name" placeholder="Nome" maxlength="255" aria-label="Nome">
+            <input type="email" name="email" placeholder="E-mail" required aria-label="E-mail">
+            <select name="tenant_role_id" aria-label="Perfil">
+                {% for perfil in perfisSecundarios %}<option value="{{ perfil.id }}">{{ perfil.nome }}</option>{% endfor %}
+            </select>
+            <div class="mu-acoes"><button type="submit" class="mu-btn mu-btn-pri">Enviar convite</button></div>
+        </form>
+    {% endif %}
+</div>

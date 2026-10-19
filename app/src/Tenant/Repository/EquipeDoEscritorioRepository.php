@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tenant\Repository;
 
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -49,5 +51,70 @@ class EquipeDoEscritorioRepository
         }
 
         return $contagem;
+    }
+
+    /**
+     * A equipe da conta: vínculos ativos e os que estão em análise ou suspensos (inativos por causa da situação).
+     * Os inativos de legado (situação aprovado e isActive falso) ficam fora. Primários primeiro, depois por nome.
+     *
+     * @return list<UserTenant>
+     */
+    public function membrosDaEquipe(Tenant $tenant): array
+    {
+        /** @var list<UserTenant> $lista */
+        $lista = $this->entityManager->createQueryBuilder()
+            ->select('ut', 'u', 'r', 'c')
+            ->from(UserTenant::class, 'ut')
+            ->join('ut.user', 'u')
+            ->leftJoin('ut.tenantRole', 'r')
+            ->leftJoin('ut.cargo', 'c')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true OR ut.situacao <> :aprovado')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('aprovado', SituacaoNaEquipe::Aprovado->value)
+            ->addSelect('CASE WHEN r.isSystem = true THEN 0 ELSE 1 END AS HIDDEN ordem')
+            ->orderBy('ordem', 'ASC')
+            ->addOrderBy('u.fullName', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $lista;
+    }
+
+    /** Um vínculo da equipe deste escritório; de outro escritório, null (a rota responde 404). */
+    public function membroDoEscritorio(int $id, Tenant $tenant): ?UserTenant
+    {
+        return $this->entityManager->getRepository(UserTenant::class)->findOneBy(['id' => $id, 'tenant' => $tenant]);
+    }
+
+    /**
+     * Mensagens de acesso dos vínculos da pessoa bloqueados pela situação (em análise ou suspenso) em escritórios
+     * ativos: a tela de seleção explica por que o escritório não aparece na lista.
+     *
+     * @return list<string>
+     */
+    public function mensagensDeAcessoBloqueado(\App\Entity\Auth\User $usuario): array
+    {
+        /** @var list<UserTenant> $vinculos */
+        $vinculos = $this->entityManager->createQueryBuilder()
+            ->select('ut', 't')
+            ->from(UserTenant::class, 'ut')
+            ->join('ut.tenant', 't')
+            ->andWhere('ut.user = :usuario')
+            ->andWhere('ut.isActive = false')
+            ->andWhere('ut.situacao <> :aprovado')
+            ->andWhere('t.isActive = true')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('aprovado', SituacaoNaEquipe::Aprovado->value)
+            ->orderBy('t.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (UserTenant $v): string => $v->getSituacao()->mensagemDeAcesso((string) $v->getTenant()->getName()), $vinculos);
+    }
+
+    public function gravar(): void
+    {
+        $this->entityManager->flush();
     }
 }

@@ -18,6 +18,7 @@ final class TenantSelecaoController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantContext $tenantContext,
         private readonly InvitationRepository $invitationRepository,
+        private readonly \App\Tenant\Repository\EquipeDoEscritorioRepository $equipe,
     ) {}
 
     #[Route('/escritorio/selecionar', name: 'tenant_selecionar', methods: ['GET', 'POST'])]
@@ -66,6 +67,8 @@ final class TenantSelecaoController extends AbstractController
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
             'convites' => $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()),
+            // Vínculos em análise ou suspensos não entram na lista: a tela diz por quê (spec equipe-da-conta §3).
+            'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user),
         ]);
     }
 }

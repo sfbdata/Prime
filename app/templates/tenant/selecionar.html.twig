@@ -11,9 +11,15 @@
         {% endif %}
     </div>
 
+    {% for mensagem in bloqueados|default([]) %}
+        <div class="alert alert-warning d-flex gap-2 align-items-start" data-acesso-bloqueado>
+            <i class="bi bi-lock fs-5"></i><div>{{ mensagem }}</div>
+        </div>
+    {% endfor %}
+
     {% if vinculos is empty %}
         {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
-        {% if convites_escritorio is empty %}
+        {% if convites_escritorio is empty and bloqueados|default([]) is empty %}
             <div class="alert alert-warning text-center">
                 <i class="bi bi-building-x d-block fs-3 mb-2"></i>
                 Você ainda não faz parte de nenhum escritório.<br>
