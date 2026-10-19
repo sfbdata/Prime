@@ -16,9 +16,10 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Vaga da Central (spec VS 18.10.26 §4.1). Criada pela Central já nasce aberta; divulgada por um
- * escritório nasce pendente até a Central aprovar. Não é `TenantAware`, como a demanda: a Central lê
- * as de todos os escritórios; quem isola é o `VagaRepository` e a `PoliticaDaVaga`.
+ * Vaga da Central (spec VS 18.10.26 §4.1, desenho 06 l.979–1005). Publicada pela Central já nasce
+ * aberta; divulgada por um usuário externo (de escritório ou Convidado) nasce pendente até a Central
+ * aprovar. Não é `TenantAware`, como a demanda: a Central lê todas; quem isola é o `VagaRepository` e a
+ * `PoliticaDaVaga`. O dono externo é o escritório dele ou, sem escritório, o próprio usuário.
  *
  * O tempo vence sem cron: {@see situacaoEm()} diz a situação de agora, e a próxima escrita grava.
  */
@@ -99,6 +100,18 @@ class Vaga
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadaEm;
 
+    /** Publicada pela Central (Master ou Equipe com `talentos`); senão, pedido de divulgação externo. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $daCentral = false;
+
+    /** O Master escolheu o tipo; sem isso, a aprovação aplica o tempo padrão da configuração (`tipoDef`, l.979). */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $tipoDefinido = false;
+
+    /** Quantas vezes foi divulgada pelo "Compartilhar" (`shares`, KPI "VAGAS COMPARTILHADAS"). */
+    #[ORM\Column(options: ['default' => 0])]
+    private int $divulgacoes = 0;
+
     /** @var Collection<int, HistoricoVaga> */
     #[ORM\OneToMany(targetEntity: HistoricoVaga::class, mappedBy: 'vaga', cascade: ['persist'], orphanRemoval: true)]
     #[ORM\OrderBy(['em' => 'ASC', 'id' => 'ASC'])]
@@ -118,25 +131,58 @@ class Vaga
         $this->situacao = SituacaoVaga::Pendente;
     }
 
-    /** "Nova vaga" da Central: publica na hora. */
-    public static function daCentral(User $autor, DadosDaVaga $dados, \DateTimeImmutable $agora): self
+    /** "Nova vaga" da Central: publica na hora (l.1005). */
+    public static function daCentral(User $autor, string $quem, DadosDaVaga $dados, \DateTimeImmutable $agora): self
     {
         $v = new self(null, $autor);
+        $v->daCentral = true;
         $v->preencher($dados);
-        $v->registrar('bi-plus-circle', '#0a6fa0', 'Vaga publicada pela Central', $agora);
+        $v->tipoDefinido = $dados->ofertaDefinida;
         $v->publicar($agora);
+        $v->registrar('bi-megaphone', '#0a6fa0', ($v->oferta
+            ? sprintf('Oferta publicada por %d min · %d vaga(s)', $v->duracaoDaOferta, $v->qtd)
+            : 'Vaga publicada') . ' por ' . $quem, $agora);
 
         return $v;
     }
 
-    /** "Divulgar uma vaga" do escritório: espera a aprovação da Central. */
-    public static function doEscritorio(Tenant $escritorio, User $autor, DadosDaVaga $dados, \DateTimeImmutable $agora): self
+    /** "Divulgar uma vaga na Central" do externo: espera a aprovação (l.1005). Sem escritório, o dono é o usuário. */
+    public static function doExterno(?Tenant $escritorio, User $autor, string $quem, DadosDaVaga $dados, \DateTimeImmutable $agora): self
     {
         $v = new self($escritorio, $autor);
         $v->preencher($dados);
-        $v->registrar('bi-megaphone', '#9a5b00', 'Vaga enviada para aprovação da Central', $agora);
+        $v->registrar('bi-send', '#0a6fa0', 'Pedido de divulgação enviado por ' . $quem, $agora);
 
         return $v;
+    }
+
+    /**
+     * "Editar vaga" da Central, "Editar pedido" e "Corrigir e reenviar" do dono (l.1005): o dono que
+     * corrige uma reprovada a devolve para a fila de aprovação. Quem não é Master não muda o tipo.
+     */
+    public function editar(DadosDaVaga $dados, string $quem, bool $peloMaster, bool $pelaCentral, \DateTimeImmutable $agora): void
+    {
+        $oferta = $this->oferta;
+        $this->preencher($dados);
+        if (!$peloMaster) {
+            $this->oferta = $oferta;
+        } else {
+            $this->tipoDefinido = true;
+        }
+        if (!$pelaCentral && $this->situacao === SituacaoVaga::Reprovada) {
+            $this->situacao = SituacaoVaga::Pendente;
+            $this->motivo = null;
+            $this->registrar('bi-send', '#0a6fa0', 'Corrigida e reenviada por ' . $quem, $agora);
+
+            return;
+        }
+        $this->registrar('bi-pencil', '#4a6373', 'Editada por ' . $quem, $agora);
+    }
+
+    public function registrarDivulgacao(string $canal, string $quem, \DateTimeImmutable $agora): void
+    {
+        ++$this->divulgacoes;
+        $this->registrar('bi-share', '#0a6fa0', sprintf('Divulgada por %s (%s)', $canal, $quem), $agora);
     }
 
     public function preencher(DadosDaVaga $d): void
@@ -159,32 +205,51 @@ class Vaga
         $this->qtd = $d->qtd;
     }
 
-    /** Escritório não escolhe período acima do limite da Central (`maxDias`; 0 = sem limite). */
-    public function limitarPeriodo(int $maxDias): void
-    {
-        if ($maxDias > 0 && $this->periodoDias > $maxDias) {
-            $this->periodoDias = $maxDias;
-        }
-    }
-
-    public function aplicar(AcaoVaga $acao, ?string $motivo, \DateTimeImmutable $agora): void
+    /**
+     * Uma ação de situação (l.979–983). `$padraoDaOferta` é o tempo padrão da configuração em minutos
+     * (0 = vaga comum) e `$maxDias` o teto de divulgação para vaga externa (0 = sem limite).
+     */
+    public function aplicar(AcaoVaga $acao, ?string $motivo, string $quem, int $padraoDaOferta, int $maxDias, \DateTimeImmutable $agora): void
     {
         $this->gravarVencimento($agora);
         $this->exigirOrigem($acao);
         $motivo = $motivo !== null && trim($motivo) !== '' ? mb_substr(trim($motivo), 0, 255) : null;
-        if ($acao->exigeMotivo() && $motivo === null) {
-            throw new TransicaoInvalida('Informe o motivo.');
-        }
 
-        [$ic, $cor, $txt] = $acao->historico($motivo);
+        match ($acao) {
+            AcaoVaga::Aprovar => $this->aprovar($padraoDaOferta, $maxDias, $agora),
+            AcaoVaga::Reabrir, AcaoVaga::OfertarNovamente => $this->reabrir($agora),
+            default => $this->situacao = $acao->destino(),
+        };
+        if ($acao->pedeMotivo()) {
+            $this->motivo = $motivo;
+        }
+        [$ic, $cor, $txt] = $acao->historico($quem, $motivo, $this->duracaoDaOferta);
         $this->registrar($ic, $cor, $txt, $agora);
-        if ($acao === AcaoVaga::Aprovar) {
-            $this->publicar($agora);
+    }
 
-            return;
+    /** "Aprovar e publicar" (l.979): teto de divulgação, tipo padrão da configuração e publicação. */
+    private function aprovar(int $padraoDaOferta, int $maxDias, \DateTimeImmutable $agora): void
+    {
+        if ($maxDias > 0 && !$this->daCentral && ($this->periodoDias === 0 || $this->periodoDias > $maxDias)) {
+            $this->periodoDias = $maxDias;
         }
-        $this->situacao = $acao->destino();
-        $this->motivo = $acao->exigeMotivo() ? $motivo : $this->motivo;
+        if (!$this->tipoDefinido) {
+            $this->oferta = $padraoDaOferta > 0;
+            $this->duracaoDaOferta = $padraoDaOferta > 0 ? $padraoDaOferta : 15;
+        }
+        $this->publicar($agora);
+        if ($this->fimDivulgacao !== null) {
+            $this->inscricoesAte = $this->fimDivulgacao->setTime(0, 0);
+        }
+    }
+
+    /** Reabrir e "Ofertar novamente": a oferta com tempo recomeça o contador (l.982–983). */
+    private function reabrir(\DateTimeImmutable $agora): void
+    {
+        $this->situacao = SituacaoVaga::Aberta;
+        if ($this->oferta) {
+            $this->expiraEm = $agora->modify(sprintf('+%d minutes', $this->duracaoDaOferta));
+        }
     }
 
     /** A situação de agora, com o tempo de divulgação e o da oferta já contados. */
@@ -209,16 +274,17 @@ class Vaga
             return;
         }
         $situacao === SituacaoVaga::Expirada
-            ? $this->registrar('bi-hourglass-bottom', '#a3232b', 'Oferta expirou sem aceite', $this->expiraEm ?? $agora)
+            ? $this->registrar('bi-hourglass-bottom', '#a3232b', 'Oferta expirou sem aceite', $this->expiraEm ?? $agora) // os aceites entram na F2b
             : $this->registrar('bi-calendar-x', '#6b8494', sprintf('Período de divulgação de %d dia(s) encerrado', $this->periodoDias), $this->fimDivulgacao ?? $agora);
         $this->situacao = $situacao;
     }
 
+    /** Período 0 é "Até a vaga ser preenchida": sem fim de divulgação (l.1185). */
     private function publicar(\DateTimeImmutable $agora): void
     {
         $this->situacao = SituacaoVaga::Aberta;
         $this->publicadaEm = $agora;
-        $this->fimDivulgacao = $agora->modify(sprintf('+%d days', $this->periodoDias));
+        $this->fimDivulgacao = $this->periodoDias > 0 ? $agora->modify(sprintf('+%d days', $this->periodoDias)) : null;
         $this->expiraEm = $this->oferta ? $agora->modify(sprintf('+%d minutes', $this->duracaoDaOferta)) : null;
     }
 
@@ -256,7 +322,22 @@ class Vaga
 
     public function ehDaCentral(): bool
     {
-        return $this->escritorio === null;
+        return $this->daCentral;
+    }
+
+    public function getCriadaPor(): ?User
+    {
+        return $this->criadaPor;
+    }
+
+    public function isTipoDefinido(): bool
+    {
+        return $this->tipoDefinido;
+    }
+
+    public function getDivulgacoes(): int
+    {
+        return $this->divulgacoes;
     }
 
     public function getSituacao(): SituacaoVaga

@@ -6,18 +6,24 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\DTO\DadosDaVaga;
+use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
+use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\Perfil;
+use App\TrabalhoExterno\Enum\SituacaoVaga;
 use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeVaga;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
 
 /**
- * A aba Vagas de uma vez (spec VS 18.10.26 §4.1): os cartões que o perfil vê (menos os que ele
- * excluiu da lista), o que ele pode fazer, as listas do formulário e, para o Master, a configuração
- * interna. Consulta: não grava nada (o vencimento só é contado, não gravado).
+ * A aba Vagas de uma vez (spec VS 18.10.26 §4.1, desenho 06 l.1113–1118): os cartões que o perfil vê
+ * (menos os que ele excluiu da lista), o que ele pode fazer, as listas do formulário, o padrão de "QUEM
+ * ESTÁ OFERECENDO" e, para o Master, a configuração interna. O interno vê pela data, a mais nova
+ * primeiro; o externo vê as ofertas ao vivo antes (l.1117). Consulta: não grava nada (a visita é
+ * gravada por `RegistrarVisitaAsVagasUseCase`).
  */
 final class ListarVagasUseCase
 {
@@ -26,6 +32,7 @@ final class ListarVagasUseCase
         private readonly PoliticaDaVaga $politica,
         private readonly ApresentadorDeVaga $apresentador,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly PreferenciaDoUsuarioRepository $preferencias,
     ) {
     }
 
@@ -33,28 +40,54 @@ final class ListarVagasUseCase
     public function executar(Contexto $ctx): array
     {
         $agora = new \DateTimeImmutable();
-        $vagas = $this->localizador->visiveis($ctx, $agora);
-        $marcas = $ctx->previa ? [] : $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Vaga, array_map(static fn ($v): int => (int) $v->getId(), $vagas));
+        $vagas = $this->ordenar($ctx, $this->localizador->visiveis($ctx, $agora), $agora);
+        $marcas = $ctx->previa ? [] : $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Vaga, array_map(static fn (Vaga $v): int => (int) $v->getId(), $vagas));
+        $ultimaVisita = $this->ultimaVisita($ctx);
 
         $cartoes = [];
         foreach ($vagas as $v) {
             $marca = $marcas[(int) $v->getId()] ?? null;
             if ($marca?->excluida() !== true) {
-                $cartoes[] = $this->apresentador->cartao($ctx, $v, $marca, $agora);
+                $cartoes[] = $this->apresentador->cartao($ctx, $v, $marca, $ultimaVisita, $agora);
             }
         }
 
         return [
             'veAba' => $this->politica->veAba($ctx),
+            'interno' => $this->politica->ehInterno($ctx),
             'daCentral' => $this->politica->ehDaCentral($ctx),
+            'master' => $this->politica->ehMaster($ctx),
             'podeCriar' => $this->politica->podeCriar($ctx),
             'podeDivulgar' => $this->politica->podeDivulgar($ctx),
             'agora' => $agora->format(\DATE_ATOM),
             'vagas' => $cartoes,
             'listas' => $this->listas(),
-            'configuracao' => $ctx->perfil === Perfil::Master && !$ctx->previa ? $ctx->configuracao->getVagas() : null,
+            'configuracao' => $ctx->configuracao->getVagas(),
             'ofertantePadrao' => $this->ofertantePadrao($ctx),
         ];
+    }
+
+    /**
+     * @param list<Vaga> $vagas
+     *
+     * @return list<Vaga>
+     */
+    private function ordenar(Contexto $ctx, array $vagas, \DateTimeImmutable $agora): array
+    {
+        if ($this->politica->ehInterno($ctx)) {
+            return $vagas;
+        }
+        $aoVivo = static fn (Vaga $v): int => (int) ($v->isOferta() && $v->situacaoEm($agora) === SituacaoVaga::Aberta);
+        usort($vagas, static fn (Vaga $a, Vaga $b): int => $aoVivo($b) <=> $aoVivo($a) ?: (int) $b->getId() <=> (int) $a->getId());
+
+        return $vagas;
+    }
+
+    private function ultimaVisita(Contexto $ctx): ?\DateTimeImmutable
+    {
+        $em = $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->getValor()['em'] ?? null;
+
+        return is_string($em) ? (new \DateTimeImmutable($em)) : null;
     }
 
     /** @return array<string, list<mixed>> */
@@ -72,21 +105,29 @@ final class ListarVagasUseCase
     }
 
     /**
-     * "QUEM ESTÁ OFERECENDO" já preenchido: o escritório atual, ou a Central. Os dados salvos "como
-     * padrão para as próximas vagas" ficam para depois do zip (a regra se perdeu).
+     * "QUEM ESTÁ OFERECENDO": o padrão salvo desse usuário ("padrão salvo") ou, sem ele, o do cadastro
+     * ("do seu cadastro", `ofOrig`, l.1184). E-mail e telefone nascem ocultos (l.1182).
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private function ofertantePadrao(Contexto $ctx): array
     {
-        $t = $this->politica->ehDaCentral($ctx) ? null : $ctx->tenant;
+        $salvo = $ctx->previa ? null : $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::OFERTANTE_PADRAO)?->getValor();
+        if (is_array($salvo) && $salvo !== []) {
+            return $salvo + ['origem' => 'salvo'];
+        }
+        $t = $this->politica->ehInterno($ctx) || $ctx->perfil === Perfil::Convidado ? null : $ctx->tenant;
 
         return [
-            'nome' => $t !== null ? (string) $t->getName() : 'Central BlueJus',
+            'nome' => $t !== null ? (string) $t->getName() : ($this->politica->ehInterno($ctx) ? 'Central BlueJus' : ''),
             'resp' => trim((string) $ctx->usuario->getFullName()),
             'cidade' => (string) $t?->getCidade(),
             'uf' => (string) $t?->getEstado(),
             'email' => (string) $ctx->usuario->getEmail(),
+            'tel' => '',
+            'site' => '',
+            'ocultos' => DadosDaVaga::OCULTOS_PADRAO,
+            'origem' => 'cadastro',
         ];
     }
 }

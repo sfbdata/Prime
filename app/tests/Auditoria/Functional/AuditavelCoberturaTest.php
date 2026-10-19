@@ -167,6 +167,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // (HistoricoVaga, o "HISTÓRICO DA OFERTA" do desenho), como a demanda. Auditar seria log de log.
         \App\TrabalhoExterno\Entity\Vaga::class,
         \App\TrabalhoExterno\Entity\HistoricoVaga::class,
+        // Preferências do usuário (última visita às vagas, ofertante padrão): dado de conveniência, não de negócio.
+        \App\TrabalhoExterno\Entity\PreferenciaDoUsuario::class,
     ];
 
     private EntityManagerInterface $em;

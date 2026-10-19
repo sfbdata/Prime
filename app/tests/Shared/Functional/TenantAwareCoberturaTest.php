@@ -39,6 +39,7 @@ use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
+use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
 use Doctrine\ORM\EntityManagerInterface;
@@ -120,7 +121,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escopadas) e da PoliticaDaVaga, provado em VagasDoTrabalhoExternoTest (pendente de outro
         // escritório é 404). O histórico só é lido pela vaga.
         Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
-        HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só para a Central e o dono (ApresentadorDeVaga::detalhe)
+        HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
+        PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
     ];
 
     /**
@@ -133,8 +135,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026); 18 → 20 com as marcações pessoais dele
-    // (19/10/2026); 20 → 22 com as vagas (19/10/2026): exceções permanentes e justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 22;
+    // (19/10/2026); 20 → 23 com as vagas e as preferências do usuário (19/10/2026): exceções permanentes e justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 23;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

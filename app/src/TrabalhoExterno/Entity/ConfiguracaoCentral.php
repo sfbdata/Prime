@@ -22,9 +22,10 @@ class ConfiguracaoCentral
     public const EQUIPE_PADRAO = ['ver' => true, 'chat' => true, 'proposta' => false, 'convidar' => false, 'situacao' => false, 'talentos' => true];
 
     /**
-     * Configuração interna das vagas (`tlCfg()` do desenho VS 18.10.26, modal `tmCfgV`): tempo padrão
-     * de divulgação em dias, avisos no sino, frases de ânimo, divulgação máxima para vagas de
-     * escritório (0 = sem limite) e mínimo de candidatos enviados ao escritório.
+     * Configuração interna das vagas (`tlCfg()` do desenho 06 l.840, modal `tmCfgV` l.1159–1161): `dur`
+     * é o tempo padrão da OFERTA em minutos (0 = vaga comum), aplicado na aprovação; `sino` libera o
+     * aviso de vaga nova aos usuários; `motiv` as mensagens motivacionais; `maxDias` o teto de
+     * divulgação das vagas externas (0 = sem limite); `minEnvio` o mínimo de candidatos enviados.
      */
     public const VAGAS_PADRAO = ['dur' => 15, 'sino' => true, 'motiv' => true, 'maxDias' => 0, 'minEnvio' => 3];
 
@@ -205,9 +206,9 @@ class ConfiguracaoCentral
     private function opcaoDeVaga(string $chave, mixed $valor): int
     {
         $opcoes = match ($chave) {
-            'dur' => [5, 10, 15, 30, 60],
-            'maxDias' => [0, 5, 10, 15, 30, 60],
-            default => [1, 2, 3, 5, 10],
+            'dur' => [0, 5, 10, 15, 30, 60, 120, 1440],
+            'maxDias' => [0, 2, 3, 4, 7, 15, 30],
+            default => [1, 2, 3, 4, 5, 10],
         };
         if (!is_numeric($valor) || !in_array((int) $valor, $opcoes, true)) {
             throw new \InvalidArgumentException('Opção de vaga desconhecida.');
