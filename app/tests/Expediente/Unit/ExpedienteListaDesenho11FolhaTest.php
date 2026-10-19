@@ -158,7 +158,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         $index = self::ler('templates/expediente/index.html.twig');
         self::assertStringNotContainsString("form.querySelectorAll('select.js-pasta-filtro')", $index);
         self::assertStringContainsString('form.elements.namedItem(remover.dataset.campo)', $index);
-        self::assertStringContainsString("Array.prototype.filter.call(f.elements, function (el) { return el.matches('.js-pasta-busca, .js-pasta-filtro'); })", $index, '"Limpar tudo" zera também a situação');
+        self::assertStringContainsString("Array.prototype.filter.call(f.elements, function (el) { return el.matches('.js-pasta-busca, .js-pasta-filtro') && el.name !== 'status'; })", $index, 'o Limpar do desenho 03 (dc `limpar`) não zera a Situação; o ↻ do painel zera tudo');
 
         $pag = self::ler('templates/expediente/_paginacao.html.twig');
         foreach (['bi-chevron-double-left', 'bi-chevron-left', 'bi-chevron-right', 'bi-chevron-double-right'] as $seta) {

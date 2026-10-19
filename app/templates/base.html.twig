@@ -122,7 +122,7 @@
                             #}
                             <button class="sidebar-toggle-btn" id="sidebarToggleBtn"
                                     type="button"
-                                    aria-label="Abrir/fechar menu">
+                                    aria-label="Abrir/fechar menu" data-tip="Menu">
                                 <i class="bi bi-list"></i>
                             </button>
                             <a href="{{ path('expediente_index') }}" class="navtop-brand">
@@ -187,7 +187,7 @@
                                 <a href="#" class="navtop-action-btn"
                                    data-bs-toggle="dropdown" data-bs-auto-close="outside"
                                    id="notificacaoDropdownToggle"
-                                   aria-label="Notificações">
+                                   aria-label="Notificações" data-tip="Notificações">
                                     <i class="bi bi-bell"></i>
                                     <span class="navtop-badge" id="notificacaoBadge"
                                           style="{% if notificacoesCount == 0 %}display:none;{% endif %}">
@@ -273,7 +273,7 @@
 
                             {# Fullscreen #}
                             <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
-                               aria-label="Tela cheia">
+                               aria-label="Tela cheia" data-tip="Tela cheia">
                                 <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
                                 <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
                             </a>
