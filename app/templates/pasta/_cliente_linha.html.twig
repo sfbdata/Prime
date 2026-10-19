@@ -13,7 +13,13 @@
    `html` dele (PastaController::htmlLinhaCliente) e o JS do show so o insere —
    nao ha mais espelho JS, e a linha nova nasce com o icone como as demais.
 
-   Parametros: pasta, cliente, ehPrincipal (bool); opcional podeMexerNoCliente (bool).
+   Parametros: pasta, cliente, ehPrincipal (bool); opcionais podeMexerNoCliente (bool)
+   e cpfDuplicado (bool).
+   Selo "CPF duplicado" (desenho 02 VS 18.10.26, L1509 e L6527-6536): outro cliente
+   vinculado a ESTA pasta tem o mesmo documento (so digitos). Quem decide e o servico
+   `ClientesDuplicadosDaPasta`; o trilho calcula uma vez e repassa, o XHR cai no
+   fallback (funcao `pasta_clientes_duplicados`). O desenho so fala de CPF: para PJ o
+   selo diz "CNPJ duplicado".
    C6-PMC-03: a estrela vazia (tornar principal) e a lixeira (desvincular) so para
    quem o servidor deixaria usa-las — EDIT na pasta e pasta fora da lapide. O
    trilho repassa a decisao; o XHR (htmlLinhaCliente) nao, entao o fallback e aqui
@@ -23,6 +29,10 @@
     ? podeMexerNoCliente
     : (can_access_resource('pasta', pasta.id, 'edit') and not pasta.estaExcluida) %}
 {% set doc = cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null) %}
+{% set cpfDuplicado = cpfDuplicado is defined
+    ? cpfDuplicado
+    : cliente.id in pasta_clientes_duplicados(pasta) %}
+{% set rotuloDoc = cliente.cpf is defined ? 'CPF' : 'CNPJ' %}
 {% set pendencias = cliente_pendencias(cliente) %}
 {% set cadCompleto = pendencias is empty %}
 {% set cadDica = cadCompleto
@@ -50,6 +60,7 @@
                     class="cliente-cad js-ps-cli-detalhes cliente-cad--{{ cadCompleto ? 'completo' : 'pendente' }}"
                     data-pendencias="{{ pendencias|length }}"
                     title="{{ cadDica }}" aria-label="{{ cadDica }}"><i class="bi bi-person-vcard" aria-hidden="true"></i></button>
+            {%- if cpfDuplicado %}<span class="ps-selo-duplicado" title="Outro cliente vinculado tem o mesmo {{ rotuloDoc }}">{{ rotuloDoc }} duplicado</span>{% endif -%}
             {%- if ehPrincipal %}<span class="ps-selo-principal">Principal</span>{% endif -%}
         </div>
         {% if doc %}
