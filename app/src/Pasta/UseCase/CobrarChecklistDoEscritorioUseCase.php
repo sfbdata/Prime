@@ -53,12 +53,12 @@ final class CobrarChecklistDoEscritorioUseCase
      * Uma pasta por vez: carrega, processa, grava e solta (clear), para o custo e a memória não crescerem com
      * o tamanho do escritório. Depois do clear o `$escritorio` recebido fica solto: só o id é usado.
      *
-     * @return array{cobrancas: int, lembretes: int}
+     * @return array{cobrancas: int, lembretes: int, detalhes: list<string>}
      */
     public function executar(Tenant $escritorio, \DateTimeImmutable $agora): array
     {
         $diaUtil = $this->diaUtil->ehDiaUtil($escritorio, $agora);
-        $total = ['cobrancas' => 0, 'lembretes' => 0];
+        $total = ['cobrancas' => 0, 'lembretes' => 0, 'detalhes' => []];
         foreach ($this->cobrancas->idsDasPastasDaRotina((int) $escritorio->getId()) as $pastaId) {
             $pasta = $this->em->find(Pasta::class, $pastaId);
             if ($pasta !== null) {
@@ -71,12 +71,15 @@ final class CobrarChecklistDoEscritorioUseCase
         return $total;
     }
 
-    /** @param array{cobrancas: int, lembretes: int} $total */
+    /** @param array{cobrancas: int, lembretes: int, detalhes: list<string>} $total */
     private function processar(Pasta $pasta, \DateTimeImmutable $agora, bool $diaUtil, array &$total): void
     {
         $responsavel = $this->responsavelAtivo($pasta);
         if (!$pasta->isChecklistAtivo()) {
-            $total['lembretes'] += $this->lembrar($pasta, $responsavel, $agora) ? 1 : 0;
+            if ($this->lembrar($pasta, $responsavel, $agora)) {
+                ++$total['lembretes'];
+                $total['detalhes'][] = sprintf('Pasta %s: lembrete de revisar o checklist desativado', Msg::numero($pasta));
+            }
 
             return;
         }
@@ -84,7 +87,10 @@ final class CobrarChecklistDoEscritorioUseCase
         $registros = $this->cobrancas->daPasta((int) $pasta->getTenant()?->getId(), (int) $pasta->getId());
         $this->auditoria->varrer($pasta, $responsavel, $registros, $agora);
         if ($responsavel !== null) {
-            $total['cobrancas'] += $this->cobrar($pasta, $responsavel, $registros, $agora, $diaUtil);
+            foreach ($this->cobrar($pasta, $responsavel, $registros, $agora, $diaUtil) as $linha) {
+                ++$total['cobrancas'];
+                $total['detalhes'][] = $linha;
+            }
         }
     }
 
@@ -109,16 +115,18 @@ final class CobrarChecklistDoEscritorioUseCase
     }
 
     /** @param array<int, PastaChecklistCobranca> $existentes */
-    private function cobrar(Pasta $pasta, User $responsavel, array $existentes, \DateTimeImmutable $agora, bool $diaUtil): int
+    /** @return list<string> uma linha por cobrança enviada (o modo simulação do comando as lista) */
+    private function cobrar(Pasta $pasta, User $responsavel, array $existentes, \DateTimeImmutable $agora, bool $diaUtil): array
     {
         $registros = $this->registrosDosPendentes($pasta, $existentes, $agora);
         $pendentes = array_map(static fn (PastaChecklistCobranca $r): PendenciaDoChecklist => new PendenciaDoChecklist((int) $r->getItem()->getId(), $r->getItem()->getTitulo(), $r->getPendenteDesde(), $r->getEnvios(), $r->getPrevisao(), $r->getQuebras()), array_values($registros));
-        $cobrancas = $this->plano->doDia($pendentes, $agora, $diaUtil);
-        foreach ($cobrancas as $cobranca) {
+        $linhas = [];
+        foreach ($this->plano->doDia($pendentes, $agora, $diaUtil) as $cobranca) {
             $this->enviar($pasta, $responsavel, $cobranca, $registros[$cobranca->pendencia->itemId], $agora);
+            $linhas[] = sprintf('Pasta %s: %s, %dº aviso para %s%s', Msg::numero($pasta), $cobranca->pendencia->titulo, $cobranca->nivel, (string) ($responsavel->getFullName() ?: $responsavel->getEmail()), PlanoDeCobrancaDoChecklist::copiaCoordenacao($cobranca) ? ' (com cópia à controladoria)' : '');
         }
 
-        return \count($cobrancas);
+        return $linhas;
     }
 
     private function enviar(Pasta $pasta, User $responsavel, CobrancaDoDia $cobranca, PastaChecklistCobranca $registro, \DateTimeImmutable $agora): void

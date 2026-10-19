@@ -87,7 +87,8 @@ final class CobrancaDoChecklistTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         $r = $this->rodar($tenant, self::QUARTA);
-        self::assertSame(['cobrancas' => 0, 'lembretes' => 1], $r);
+        self::assertSame(0, $r['cobrancas']);
+        self::assertSame(1, $r['lembretes']);
         $titulos = $this->titulos($responsavel, AvisoDoChecklist::TIPO_PROVIDENCIA);
         self::assertCount(1, $titulos);
         self::assertStringStartsWith('Revisar checklist da Pasta ', $titulos[0]);
@@ -233,7 +234,25 @@ final class CobrancaDoChecklistTest extends JusPrimeWebTestCase
         self::assertMatchesRegularExpression('/Cobranças: \d+ · lembretes: \d+ · escritórios com falha: 0/', $tester->getDisplay());
     }
 
-    /** @return array{cobrancas: int, lembretes: int} */
+    #[TestDox('Piloto: --escritorio roda só um; --simular lista quem seria cobrado e não envia nem grava nada')]
+    public function testComandoPilotoESimulacao(): void
+    {
+        $kernel = static::bootKernel();
+        [$responsavel, $tenant] = $this->criarAdmin();
+        $this->pastaCom($tenant, $responsavel, [['PROCURAÇÃO', false]]);
+        $tester = new CommandTester((new Application($kernel))->find('app:pasta:cobrar-checklist'));
+
+        self::assertSame(0, $tester->execute(['--escritorio' => (string) $tenant->getId(), '--simular' => true]));
+        $saida = $tester->getDisplay();
+        self::assertStringContainsString('SIMULAÇÃO (nada foi enviado)', $saida);
+        if ((int) (new \DateTimeImmutable())->format('N') <= 5) {
+            self::assertStringContainsString('PROCURAÇÃO, 1º aviso para', $saida);
+        }
+        self::assertSame([], $this->titulos($responsavel, AvisoDoChecklist::TIPO_COBRANCA), 'simulação não envia');
+        self::assertSame(0, (int) static::getContainer()->get(Connection::class)->fetchOne('SELECT COUNT(*) FROM pasta_checklist_cobranca WHERE tenant_id = ?', [$tenant->getId()]), 'nem grava');
+    }
+
+    /** @return array{cobrancas: int, lembretes: int, detalhes: list<string>} */
     private function rodar(Tenant $tenant, string $quando): array
     {
         $escritorio = $this->em()->find(Tenant::class, $tenant->getId());
