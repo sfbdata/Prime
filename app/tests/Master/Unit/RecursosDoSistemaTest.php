@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Repository\RecursoEstadoRepository;
 use App\Master\Service\RecursosDoSistema;
 use App\Master\Service\RegraDosMasters;
@@ -38,7 +39,7 @@ final class RecursosDoSistemaTest extends TestCase
                 $this->avisos[] = $level . ': ' . $message;
             }
         };
-        $recursos = new RecursosDoSistema($repositorio, new MockClock(), $this->createStub(Security::class), new RegraDosMasters(), new RequestStack(), $log);
+        $recursos = new RecursosDoSistema($repositorio, new MockClock(), $this->createStub(Security::class), new RegraDosMasters($this->createStub(ContasDoSistemaRepository::class)), new RequestStack(), $log);
 
         self::assertTrue($recursos->estaAtivo('dashboard'));
         self::assertTrue($recursos->visivel('metas'));
