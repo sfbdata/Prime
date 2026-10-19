@@ -76,6 +76,25 @@ Proposta de acréscimo ao fim do capítulo:
 | Receber sugestões de melhoria e responder a quem enviou | Execução de contrato, artigo 7º, inciso V |
 | Registrar, de forma anônima, o motivo de ainda não contribuir | Legítimo interesse, artigo 7º, inciso IX (a resposta não identifica a pessoa, só a conta) |
 
+## 3.1 Rastreio de abertura e de clique nos e-mails comerciais (frente "Comercial e e-mails", 5d)
+
+O sistema passa a poder medir se os e-mails de campanha e de dicas foram abertos e quais links foram
+clicados. Tecnicamente, isso só liga quando a política citar o rastreio: a constante
+`PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL` (hoje `false`) passa a `true` no mesmo PR que publicar
+este texto. Proposta de redação:
+
+> Nos e-mails de campanha e de dicas, a BLUEJUS pode usar uma imagem invisível de abertura (pixel) e links
+> rastreados, para saber se a mensagem foi aberta e quais conteúdos interessaram. Os e-mails operacionais
+> (segurança, cobrança, avisos do sistema) não são rastreados. O titular pode se descadastrar das
+> comunicações comerciais a qualquer momento, pelo link no rodapé de cada mensagem.
+
+- Capítulo 6: a finalidade "medir o alcance das comunicações comerciais", com base no legítimo interesse
+  (art. 7º, IX) para clientes ativos e no consentimento (art. 7º, I) para quem ainda não é cliente, como as
+  linhas de comunicação comercial que a política já tem.
+- Capítulo 17 / Anexo II (prazos de retenção): os registros de envio, abertura e clique guardados por
+  **24 meses** (proposta da 5d, ainda com o dono, P4).
+- Anexo II: a categoria "Registros de comunicação comercial (envio, abertura, clique)".
+
 ## 4. Capítulo 17 (retenção)
 
 > Os registros de pagamento, assinatura e nota fiscal são mantidos pelo prazo exigido pela legislação

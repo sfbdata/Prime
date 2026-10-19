@@ -40,6 +40,12 @@ final class EventosDoEspacoAposConfirmar implements ResetInterface
         $this->pendentes[] = $evento;
     }
 
+    /** Para o fato que não depende do trabalho dar certo (a recusa por espaço): sai já. */
+    public function agora(object $evento): void
+    {
+        $this->eventos->dispatch($evento);
+    }
+
     #[AsEventListener(event: KernelEvents::RESPONSE, priority: -1024)]
     public function aoResponder(ResponseEvent $evento): void
     {
