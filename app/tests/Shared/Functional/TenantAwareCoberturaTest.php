@@ -76,6 +76,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Aviso recebido de gateway/banco: quem manda é o gateway, e o escritório só aparece depois da
         // reconsulta. Guardado antes de processar, para idempotência.
         \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Contribua C4: a integração bancária é da BlueJus (uma linha global, só o Master).
+        \App\Contribua\Entity\IntegracaoBancaria::class,
 
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
@@ -133,7 +135,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 18 → 22 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito; o aviso de gateway chega sem
     // escritório (motivos na lista acima).
-    private const MAX_FORA_DO_ESCOPO = 22;
+    // 22 → 23 com a integração bancária da C4 (linha global da BlueJus, justificada acima).
+    private const MAX_FORA_DO_ESCOPO = 23;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

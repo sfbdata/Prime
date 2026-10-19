@@ -124,6 +124,8 @@ final class PurgarEscritorioUseCase
         // SET NULL; nada as referencia).
         ['contribua_sugestao', 'tenant_id = :tenant'],
         ['contribua_apoio', 'tenant_id = :tenant'],
+        // Contribua C4: cobranças PIX abertas da conta. FK de tenant CASCADE; explícito por convenção.
+        ['contribua_cobranca_pix', 'tenant_id = :tenant'],
         ['contribua_motivo_de_nao_apoiar', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem

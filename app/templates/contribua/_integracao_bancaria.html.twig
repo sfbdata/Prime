@@ -1,0 +1,65 @@
+{#
+    Integração bancária (API), só o Master (desenho 08, L80-101). Ponto de inclusão da f6, entre #apoie e
+    "Quem somos". O certificado e a chave nunca voltam à tela: só os nomes dos arquivos enviados.
+    Lógica em public/js/contribua-cora.js; estilo em public/css/contribua-cora.css (cópia do desenho).
+#}
+{% set i = contribua_integracao_bancaria() %}
+{% if i %}
+{% set estados = {off: ['Não conectado', 'is-off'], pend: ['Aguardando servidor', 'is-pend'], ok: ['Conectado', 'is-ok']} %}
+<link rel="stylesheet" href="{{ asset('css/contribua-cora.css') }}">
+<section class="cc-integ" data-screen-label="Integração bancária" data-cc-integracao
+         data-url-salvar="{{ path('contribua_integracao_salvar') }}"
+         data-url-certificado="{{ path('contribua_integracao_certificado') }}"
+         data-url-testar="{{ path('contribua_integracao_testar') }}"
+         data-webhook-base="{{ url('contribua_index')|split('/contribua')|first }}/api/webhooks/"
+         data-tem-certificado="{{ i.certificadoPresente ? '1' : '0' }}">
+    <div class="cc-integ-topo">
+        <span class="cc-integ-icone"><i class="bi bi-diagram-3"></i></span>
+        <div class="cc-integ-titulo"><b>Integração bancária (API)</b><div><i class="bi bi-star-fill"></i> Exclusivo do Master · conecta o banco da BlueJus para gerar cobranças e confirmar pagamentos automaticamente</div></div>
+        <span class="cc-estado {{ estados[i.estado][1] }}" data-cc-estado><i class="bi bi-circle-fill"></i><span>{{ estados[i.estado][0] }}</span></span>
+    </div>
+    <div class="cc-integ-corpo">
+        <div class="cc-col">
+            <div class="cc-rotulo">BANCO E MODALIDADE</div>
+            <div class="cc-modos">
+                <button type="button" class="cc-modo is-on" aria-pressed="true"><b>Integração Direta</b><span>Só a BlueJus usa a API para receber as contribuições.</span></button>
+                {# Parceria fica fora desta entrega (spec mãe §2.4). #}
+                <button type="button" class="cc-modo" disabled aria-pressed="false"><b>Parceria</b><span>Cada escritório poderá usar os serviços do banco dentro do BlueJus.</span></button>
+            </div>
+            <div class="cc-par">
+                <label class="cc-campo">BANCO<select data-cc-banco>
+                    <option value="cora" selected>Cora SCFI (403)</option>
+                    {# Inter, BB e Outro entram nas etapas C4b e C4c (D9). #}
+                    <option value="inter" disabled>Banco Inter (077)</option>
+                    <option value="bb" disabled>Banco do Brasil (001)</option>
+                    <option value="outro" disabled>Outro (API PIX padrão BACEN)</option>
+                </select></label>
+                <label class="cc-campo">AMBIENTE<select data-cc-ambiente>
+                    <option value="sandbox"{{ i.ambiente == 'sandbox' ? ' selected' }}>Testes (sandbox)</option>
+                    <option value="producao"{{ i.ambiente == 'producao' ? ' selected' }}>Produção</option>
+                </select></label>
+            </div>
+            <label class="cc-campo">CLIENT ID<input data-cc-cid value="{{ i.clientId }}" placeholder="Fornecido pelo banco ao criar a integração" autocomplete="off"></label>
+            <label class="cc-campo">CERTIFICADO E CHAVE PRIVADA
+                <span class="cc-arquivo"><i class="bi bi-file-lock"></i><span data-cc-cert-txt>{{ i.arquivos ? i.arquivos|join(', ') : 'Selecionar arquivos .pem / .key / .p12' }}</span><input type="file" multiple accept=".pem,.key,.crt,.p12,.pfx" data-cc-cert hidden></span>
+                <span class="cc-ajuda">Enviado direto ao servidor e guardado em cofre. O conteúdo nunca aparece na tela nem fica no navegador.</span>
+            </label>
+        </div>
+        <div class="cc-col">
+            <div class="cc-rotulo">O QUE A INTEGRAÇÃO FAZ</div>
+            {% for chave, r in {cob: ['bi-qr-code', 'Cobrança PIX por conta', 'Gera um QR dinâmico para cada escritório, com o número da conta'], conc: ['bi-arrow-repeat', 'Conciliação automática', 'O apoio é marcado como recebido quando o banco confirma'], bol: ['bi-upc', 'Boleto', 'Opção de contribuir por boleto bancário'], rel: ['bi-bar-chart', 'Relatório de contribuições', 'Valores recebidos por conta e por mês no Painel do Master']} %}
+                <button type="button" class="cc-recurso" data-cc-recurso="{{ chave }}" aria-pressed="{{ i.recursos[chave] ?? false ? 'true' : 'false' }}"><i class="bi {{ r[0] }}"></i><span class="cc-recurso-txt"><span>{{ r[1] }}</span><span>{{ r[2] }}</span></span><span class="cc-chave"><span></span></span></button>
+            {% endfor %}
+            <div class="cc-rotulo cc-rotulo-sep">ENDEREÇO DE RETORNO (WEBHOOK)</div>
+            <div class="cc-hook"><code data-cc-hook></code><button type="button" data-cc-copiar title="Copiar" aria-label="Copiar o endereço"><i class="bi bi-copy"></i></button></div>
+            <div class="cc-botoes">
+                <button type="button" class="cc-btn" data-cc-testar><i class="bi bi-plug"></i>Testar conexão</button>
+                <button type="button" class="cc-btn cc-btn-azul" data-cc-salvar><i class="bi bi-check2"></i>Salvar integração</button>
+            </div>
+        </div>
+    </div>
+    <div class="cc-rodape"><i class="bi bi-shield-lock"></i>Sem a integração, o QR continua funcionando (PIX estático com a identificação da conta). Com ela, cada conta recebe uma cobrança PIX própria e o apoio é confirmado sozinho quando o banco avisar o pagamento.</div>
+    <div class="cc-simular"><button type="button" data-cc-simular><i class="bi bi-trophy"></i>Testar mensagem de prêmio</button><span>Simula o banco confirmando um apoio desta conta. No sistema real a mensagem aparece sozinha quando a API confirma o PIX.</span></div>
+</section>
+<script src="{{ asset('js/contribua-cora.js') }}" defer></script>
+{% endif %}
