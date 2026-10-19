@@ -62,7 +62,23 @@ final class GatewayPagarme implements GatewayDeAssinatura
         }
         $assinatura = $this->pagarme->enviar('POST', '/subscriptions', self::camposDaAssinatura($pedido, $tokenDoCartao));
 
-        return TradutorPagarme::situacao($assinatura, $this->faturasDe((string) ($assinatura['id'] ?? '')));
+        return TradutorPagarme::situacao($assinatura, $this->faturasDaRecemCriada((string) ($assinatura['id'] ?? '')));
+    }
+
+    /**
+     * A assinatura já existe (e talvez já foi cobrada): se a leitura das faturas falhar, ela volta como
+     * Aguardando com o id, em vez de uma falha que faria o escritório tentar de novo e assinar duas vezes. A
+     * reconsulta e o aviso acertam a situação depois.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function faturasDaRecemCriada(string $idDaAssinatura): array
+    {
+        try {
+            return $this->faturasDe($idDaAssinatura);
+        } catch (FalhaNoGateway) {
+            return [];
+        }
     }
 
     public function consultar(string $idDaAssinatura): SituacaoNoGateway

@@ -88,6 +88,55 @@ final class GatewayPagarmeTest extends TestCase
         self::assertSame('cus_017228NmffGbA3d4', $renovando->idDoCliente);
     }
 
+    #[TestDox('Assinatura criada e faturas fora do ar: volta Aguardando com o id, não falha (evita assinar duas vezes)')]
+    public function testFaturasForaDoArDepoisDeCriar(): void
+    {
+        $gateway = RespostasDoPagarme::gateway([RespostasDoPagarme::json(RespostasDoPagarme::assinatura()), new MockResponse('', ['error' => 'fora do ar'])]);
+
+        $situacao = $gateway->assinarComToken(self::pedido(), 'token_zVw7rqvHEPH8XlbE');
+
+        self::assertSame(RespostasDoPagarme::ID, $situacao->idDaAssinatura);
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $situacao->situacao);
+        self::assertSame(1990, $situacao->valorCentavos);
+    }
+
+    #[TestDox('Primeira cobrança recusada é Aguardando; estorno contestado cancela sem mês pago')]
+    public function testPrimeiraRecusaEEstorno(): void
+    {
+        $recusada = $this->consultar('active', [RespostasDoPagarme::fatura('failed')]);
+        $estornada = $this->consultar('chargedback', [RespostasDoPagarme::fatura('paid')]);
+
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $recusada->situacao);
+        self::assertSame(SituacaoDaAssinatura::Cancelada, $estornada->situacao);
+        self::assertNull($estornada->pagaAte);
+    }
+
+    #[TestDox('Fatura paga sem ciclo: um mês depois da cobrança, sem pular mês')]
+    public function testPagaSemCiclo(): void
+    {
+        $paga = RespostasDoPagarme::fatura('paid', '2027-01-31T00:00:00Z');
+        unset($paga['cycle']);
+
+        self::assertSame('2027-02-28', $this->consultar('active', [$paga])->pagaAte?->format('Y-m-d'));
+    }
+
+    #[TestDox('Aviso forjado com kid inventado: busca o JWKS de novo no máximo uma vez a cada 5 minutos')]
+    public function testKidInventado(): void
+    {
+        $corpo = RespostasDoPagarme::aviso('invoice.paid', RespostasDoPagarme::fatura('paid'));
+        $gateway = RespostasDoPagarme::gateway([], [RespostasDoPagarme::jwks(), RespostasDoPagarme::jwks()]);
+        $forjado = ['x-webhook-asymmetric-signature' => RespostasDoPagarme::assinar($corpo, 'kid-inventado', RespostasDoPagarme::novaChave())];
+
+        foreach ([1, 2, 3] as $vez) {
+            try {
+                $gateway->interpretarAviso($forjado, $corpo);
+                self::fail('deveria recusar');
+            } catch (AvisoNaoAutenticado) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
     #[TestDox('Situação desconhecida do Pagar.me é falha, não um palpite')]
     public function testSituacaoDesconhecida(): void
     {

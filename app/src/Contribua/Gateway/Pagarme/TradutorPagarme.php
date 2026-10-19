@@ -14,7 +14,8 @@ use App\Contribua\Gateway\SituacaoNoGateway;
  *
  * A assinatura só diz `active`, `canceled` ou `future` (e, nos módulos oficiais, `failed` e `chargedback`):
  * se o mês foi pago quem diz são as faturas de cada ciclo (`paid`, `failed`, `pending`, `scheduled`,
- * `canceled`). Sem fatura paga ainda, é Aguardando; a última fatura falhou, Inadimplente.
+ * `canceled`). Sem fatura paga ainda, é Aguardando (a primeira cobrança recusada não é inadimplência de quem
+ * nunca pagou); já pagou e a última fatura falhou, Inadimplente.
  */
 final class TradutorPagarme
 {
@@ -51,9 +52,9 @@ final class TradutorPagarme
         return match ($status) {
             'future' => SituacaoDaAssinatura::Aguardando,
             'active' => match (true) {
+                !$paga => SituacaoDaAssinatura::Aguardando,
                 ($faturas[0]['status'] ?? null) === 'failed' => SituacaoDaAssinatura::Inadimplente,
-                $paga => SituacaoDaAssinatura::Ativa,
-                default => SituacaoDaAssinatura::Aguardando,
+                default => SituacaoDaAssinatura::Ativa,
             },
             'canceled', 'failed', 'chargedback' => SituacaoDaAssinatura::Cancelada,
             default => null,
@@ -61,22 +62,29 @@ final class TradutorPagarme
     }
 
     /**
-     * Até o fim do ciclo da última fatura paga; ativa sem o ciclo na fatura, até o fim do ciclo vigente.
+     * Até o fim do ciclo da última fatura paga; sem o ciclo na fatura, um mês depois da cobrança dela. Estorno
+     * contestado (`chargedback`): nada, o dinheiro voltou.
      *
      * @param array<string, mixed>       $assinatura
      * @param list<array<string, mixed>> $faturas
      */
     private static function pagaAte(SituacaoDaAssinatura $situacao, array $assinatura, array $faturas): ?\DateTimeImmutable
     {
-        if ($situacao === SituacaoDaAssinatura::Aguardando) {
+        $paga = self::primeiraPaga($faturas);
+        if ($situacao === SituacaoDaAssinatura::Aguardando || $paga === null || ($assinatura['status'] ?? null) === 'chargedback') {
             return null;
         }
-        $fimDaPaga = self::data(self::primeiraPaga($faturas)['cycle']['end_at'] ?? null);
-        if ($fimDaPaga !== null || $situacao !== SituacaoDaAssinatura::Ativa) {
-            return $fimDaPaga;
-        }
+        $cobradaEm = self::data($paga['billing_at'] ?? $paga['created_at'] ?? null);
 
-        return self::data($assinatura['current_cycle']['end_at'] ?? null);
+        return self::data($paga['cycle']['end_at'] ?? null) ?? ($cobradaEm === null ? null : self::umMesDepois($cobradaEm));
+    }
+
+    /** 31/01 vai a 28/02 (ou 29), sem pular para março. */
+    private static function umMesDepois(\DateTimeImmutable $data): \DateTimeImmutable
+    {
+        $mes = $data->modify('first day of +1 month');
+
+        return $mes->setDate((int) $mes->format('Y'), (int) $mes->format('n'), min((int) $data->format('j'), (int) $mes->format('t')));
     }
 
     /**

@@ -45,10 +45,17 @@ da contribua-c3 (f6). Risco: BAIXO no código (sem banco); a cobrança real depe
 - Assinatura avulsa mensal pré-paga (`billing_type=prepaid`), em centavos, cliente PF ou PJ pelo tamanho do
   documento, referência em `code` e em `metadata`.
 - `iniciar` confere a credencial (`GET /customers` do documento) antes de abrir o formulário.
-- Situação pelas faturas dos últimos 75 dias: `future` Aguardando; `active` com a última fatura `failed`
-  Inadimplente, com alguma fatura paga Ativa (renovação pendente não tira o mês pago), sem fatura paga
-  Aguardando; `canceled`, `failed` e `chargedback` Cancelada; desconhecida é `FalhaNoGateway`.
-- `pagaAte`: fim do ciclo da última fatura paga; ativa sem ciclo na fatura, fim do ciclo vigente.
-- Aviso: chaves do JWKS por 6 h no cache, nova busca quando a assinatura não confere (troca de chave). JWKS
-  fora do ar é `FalhaNoGateway` (o Pagar.me reenvia), não aviso falso.
+- Situação pelas faturas dos últimos 75 dias: `future` Aguardando; `active` sem fatura paga Aguardando (a
+  primeira recusa não é inadimplência de quem nunca pagou), já pago com a última fatura `failed`
+  Inadimplente, senão Ativa (renovação pendente não tira o mês pago); `canceled`, `failed` e `chargedback`
+  Cancelada; desconhecida é `FalhaNoGateway`. (Revisão de 19/10.)
+- `pagaAte`: fim do ciclo da última fatura paga; sem o ciclo na fatura, um mês depois da cobrança dela (não o
+  ciclo vigente, que pode não estar pago); estorno contestado (`chargedback`), nada.
+- `assinarComToken`: se a leitura das faturas falhar depois de criar a assinatura, volta Aguardando com o id
+  (não falha): falhar faria o escritório tentar de novo com outro token e assinar duas vezes. O POST não tem
+  chave de idempotência documentada; a C3 trava o pedido (FOR UPDATE) e barra outro checkout por 60 min.
+- Aviso: chaves do JWKS por 6 h no cache; `kid` desconhecido busca de novo, no máximo a cada 5 minutos (aviso
+  forjado não esvazia o cache nem martela o Pagar.me); `kid` conhecido com assinatura errada é recusado sem
+  busca. JWKS fora do ar é `FalhaNoGateway` (a C3 responde 503 e o Pagar.me reenvia), não aviso falso.
+- Branch atualizada com a `contribua-c3` (merge do master e os commits da c3, um a um).
 - Cancelar: `DELETE` com `cancel_pending_invoices=true`; já cancelada (4xx) é confirmada por consulta.

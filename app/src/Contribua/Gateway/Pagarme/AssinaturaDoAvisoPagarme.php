@@ -18,14 +18,16 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *
  * A docs.pagar.me não documenta a assinatura do webhook: o formato vem do código oficial dos plugins
  * (`pagarme/ecommerce-module-core`, `WebhookValidatorService`, usado pelos módulos de Magento 2 e
- * WooCommerce). As chaves ficam 6 h no cache; se a assinatura não confere com as do cache, busca de novo uma
- * vez (troca de chave no Pagar.me). Sem a lista de chaves não dá para decidir: `FalhaNoGateway`, e o
- * Pagar.me reenvia o aviso.
+ * WooCommerce). As chaves ficam 6 h no cache; `kid` fora do cache busca de novo, no máximo a cada 5 minutos
+ * (troca de chave no Pagar.me). Sem a lista de chaves não dá para decidir: `FalhaNoGateway`, e o Pagar.me
+ * reenvia o aviso.
  */
 final class AssinaturaDoAvisoPagarme
 {
     public const JWKS = 'https://hubapi.pagar.me/.well-known/jwks.json';
     private const CHAVE_DO_CACHE = 'contribua_pagarme_jwks';
+    private const CHAVE_DA_ULTIMA_BUSCA = 'contribua_pagarme_jwks_nova_busca';
+    private const INTERVALO_ENTRE_BUSCAS = 300;
 
     public function __construct(
         private readonly HttpClientInterface $http,
@@ -41,21 +43,39 @@ final class AssinaturaDoAvisoPagarme
         if (($partes['alg'] ?? null) !== 'RS256' || ($partes['kid'] ?? '') === '' || $assinatura === null || $corpo === '') {
             throw new AvisoNaoAutenticado('Aviso do Pagar.me sem X-Webhook-Asymmetric-Signature válido.');
         }
-        if ($this->confere($corpo, $assinatura, $partes['kid'], false) || $this->confere($corpo, $assinatura, $partes['kid'], true)) {
-            return;
+        $chave = $this->chaveDo($partes['kid']);
+        if ($chave === null || openssl_verify($corpo, $assinatura, $chave, \OPENSSL_ALGO_SHA256) !== 1) {
+            throw new AvisoNaoAutenticado('Assinatura do aviso do Pagar.me não confere.');
         }
-
-        throw new AvisoNaoAutenticado('Assinatura do aviso do Pagar.me não confere.');
     }
 
-    private function confere(string $corpo, string $assinatura, string $kid, bool $buscarDeNovo): bool
+    /**
+     * A chave do `kid`, do cache. `kid` desconhecido (o Pagar.me trocou a chave) busca o JWKS de novo, no
+     * máximo uma vez a cada 5 minutos: aviso forjado com `kid` inventado não esvazia o cache nem martela o
+     * Pagar.me. `kid` conhecido com assinatura errada é recusado sem buscar nada.
+     */
+    private function chaveDo(string $kid): ?string
     {
-        if ($buscarDeNovo) {
-            $this->cache->delete(self::CHAVE_DO_CACHE);
-        }
         $chave = $this->chaves()[$kid] ?? null;
+        if ($chave !== null || !$this->podeBuscarDeNovo()) {
+            return $chave;
+        }
+        $this->cache->delete(self::CHAVE_DO_CACHE);
 
-        return $chave !== null && openssl_verify($corpo, $assinatura, $chave, \OPENSSL_ALGO_SHA256) === 1;
+        return $this->chaves()[$kid] ?? null;
+    }
+
+    private function podeBuscarDeNovo(): bool
+    {
+        $buscouAgora = false;
+        $this->cache->get(self::CHAVE_DA_ULTIMA_BUSCA, function (ItemInterface $item) use (&$buscouAgora): bool {
+            $item->expiresAfter(self::INTERVALO_ENTRE_BUSCAS);
+            $buscouAgora = true;
+
+            return true;
+        });
+
+        return $buscouAgora;
     }
 
     /** @return array<string, string> PEM de cada chave RSA de assinatura, por `kid` */
