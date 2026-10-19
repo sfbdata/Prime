@@ -95,3 +95,9 @@ Pendente com o dono: Q1.
   (`ConfigurarFaixasDoEspacoUseCase`) mostra ao lado dela: "Antes de ligar, confira os escritórios acima do plano
   e defina sem limite ou uma cota própria." Motivo: o único escritório com arquivos em produção usa 24,29 GB,
   acima do Free de 10 GB.
+- Planos (decisão do dono de 19/10, via coordenação). Preços do desenho 08: Essencial R$ 19,90, Profissional
+  R$ 39,90 e Avançado R$ 69,90. Limites de usuários do desenho 05: Free 3, Essencial 8, Profissional 15 e Avançado
+  sem limite. A carga inicial é da C1 da f6 (#64). A seção "Planos e limites" do painel edita preço, cota e
+  limite de usuários de cada plano: o dono quer mudar esses valores depois com facilidade. A escrita fica com um
+  UseCase de catálogo pedido à f6 (`AlterarPlanoUseCase`, nome a confirmar), mais uma leitura do catálogo com a
+  contagem de contas por plano. O Master grava no escopo de plataforma.
