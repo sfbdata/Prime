@@ -23,7 +23,7 @@ final class ForcaDaSenha
         return (int) (mb_strlen($senha) >= self::MINIMO)
             + (int) (preg_match('/[A-Z]/', $senha) === 1 && preg_match('/[a-z]/', $senha) === 1)
             + (int) (preg_match('/\d/', $senha) === 1)
-            + (int) (preg_match('/[^\w]/u', $senha) === 1);
+            + (int) (preg_match('/[^A-Za-z0-9_]/', $senha) === 1);
     }
 
     public static function aceita(string $senha): bool
