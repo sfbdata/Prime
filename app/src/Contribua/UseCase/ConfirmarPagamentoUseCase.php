@@ -10,6 +10,7 @@ use App\Contribua\Service\AvisoAoPrimario;
 use App\Contribua\Service\PlanoVigenteDoEscritorio;
 use App\Contribua\Service\VisaoDoMaster;
 use App\Entity\Auth\User;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -27,20 +28,24 @@ final class ConfirmarPagamentoUseCase
         private readonly AvisoAoPrimario $avisoAoPrimario,
         private readonly EntityManagerInterface $em,
         private readonly UrlGeneratorInterface $urls,
+        private readonly EscopoDeAuditoriaDePlataforma $auditoria,
     ) {
     }
 
     public function executar(User $master, int $pedidoId): void
     {
-        $pedido = $this->visaoDoMaster->deTodosOsEscritorios(fn (): ?AssinaturaDeEspaco => $this->assinaturas->find($pedidoId));
-        if ($pedido === null) {
-            throw new \DomainException('Pedido não encontrado.');
-        }
+        // O Master pode estar navegando em outro escritório: o filtro da sessão fica suspenso no trabalho
+        // inteiro (leitura das assinaturas do plano vigente inclusive), e a auditoria vai para a conta do pedido.
+        $pedido = $this->visaoDoMaster->deTodosOsEscritorios(function () use ($master, $pedidoId): AssinaturaDeEspaco {
+            $pedido = $this->assinaturas->find($pedidoId) ?? throw new \DomainException('Pedido não encontrado.');
+            $agora = new \DateTimeImmutable();
+            $pedido->confirmarManualmente($master, $agora);
+            $tenantId = (int) $pedido->getTenant()->getId();
+            $this->planoVigente->atualizar($tenantId, $agora);
+            $this->auditoria->executarComoConta($tenantId, fn () => $this->em->flush());
 
-        $agora = new \DateTimeImmutable();
-        $pedido->confirmarManualmente($master, $agora);
-        $this->planoVigente->atualizar((int) $pedido->getTenant()->getId(), $agora);
-        $this->em->flush();
+            return $pedido;
+        });
 
         $this->avisoAoPrimario->avisar(
             $pedido->getTenant(),
