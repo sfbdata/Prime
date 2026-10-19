@@ -118,9 +118,14 @@ propostas aparecem primeiro" do 08 não tem onde encaixar. **Decisão de produto
 (opções da a7: ordem dos convidados sugeridos pela Central; ordem de candidatos numa vaga). Nada implementado
 até lá.
 
-**Próximo passo (f6):** PR rascunho da C3 depois da revisão; C5 (produção: cron no `DEPLOY.md` feito,
-webhooks, política) e C6 (preferência do apoiador no Trabalho Externo, contrato com a a7); conferência final
-do 08 inteiro.
+**C5 (produção):** o que é código ou documento está feito: cron da conciliação e variáveis no `DEPLOY.md`,
+runbook do Asaas, webhook sempre aberto. O resto é do dono: credenciais no `.env.prod`, webhook cadastrado no
+painel do gateway, escolher o gateway no "Configurar pagamento" e o PR da política (texto com o advogado).
+
+**Próximo passo (f6):** #95 em rascunho com a suíte completa verde (10643); sai de rascunho quando o dono
+quiser revisar. C6 espera a decisão de produto. Conferência final do 08 enviada ao coordenador (19/10): sem
+dono só "Novidades em primeira mão", o lugar da preferência no Trabalho Externo e o ponto de inclusão do selo
+no Meu Perfil.
 
 **Ambiente:** demo da C2 em http://127.0.0.1:8105 (`scripts/central-demo.sh contribua-c2 8105`), banco
 isolado `demo_f6` (senha de demonstração só nesse banco, usuários 1 e 2). Bancos de teste por frente:
