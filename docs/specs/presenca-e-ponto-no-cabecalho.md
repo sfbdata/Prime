@@ -70,13 +70,14 @@ só é pedida com a janela da Central aberta. O selo precisa do N sempre, então
   não aparece, regra 5 da spec da Central) e de `PresencaRepository::doEscritorio`, com o mesmo cálculo de 60 s do
   `ListarEquipeDaCentralUseCase`. O 403 sem vínculo não traz lista. Uma consulta a mais por batimento, nenhuma
   requisição a mais. O contrato novo é escrito na spec da Central, §2, regra 2.
-- `central.js` emite `bj-central:presenca` a cada batimento com `{online, eu: {id, status}}` (o status efetivo de
-  quem está logado é interno ao `central.js`, N8); o `presenca-cabecalho.js` escuta.
+- `central.js` emite `bj-central:presenca` a cada batimento com `{online}` no `document` da página (não na raiz da
+  Central: destacada, ela muda de documento e o evento não chegaria ao cabeçalho); o `presenca-cabecalho.js` escuta.
 - Nomes, cargos e iniciais vêm de `GET /central/equipe` (sem mudança), guardados no `sessionStorage` por
   `<tenant>:<user>`; o `GET` só sai na primeira página da sessão, ao abrir o painel e quando aparece um id que não
   está no mapa. Nunca em laço.
 - Mapeamento: fora da lista → Desligado; `ocupado` → Não perturbe; `ausente` e `inativo` → Ausente; `disponivel` →
-  On-line. Você aparece pelo seu próprio status efetivo.
+  On-line. Você aparece sempre On-line enquanto a página está aberta, como no dc (L.680, `eu ? 'on'`); o evento só
+  leva a lista `online`.
 
 **Ausente por inatividade (I6).** Emenda a regra 3 de `docs/specs/central-comunicacao-painel-presenca.md` §2 (status
 efetivo) e a regra 12 de `app/src/Central/CLAUDE.md`, que passam a ter três casos, nesta precedência: Não perturbe
@@ -85,7 +86,8 @@ efetivo) e a regra 12 de `app/src/Central/CLAUDE.md`, que passam a ter três cas
   inatividade). A coluna `status` é `string(10)`: cabe sem migration. `status_desde` passa a valer o instante em que
   a inatividade foi detectada (marca + limite), então `semAtividadeMin = floor((agora - statusDesde) / 60) +
   limite`, calculado no servidor, com erro de até um batimento (20 s). A Central (`central.js`) mostra `inativo`
-  como o "Ausente" dela.
+  como o "Ausente" dela. Comportamento conhecido: quem sai do Não perturbe (ou volta de uma aba oculta) já sem
+  atividade grava `inativo` naquele batimento, e os minutos contam dali (mostra 60 quando o real é maior).
 - A marca de atividade é gravada pelo `central.js` (que roda em toda página com a Central), em chave compartilhada
   por usuário no `localStorage` (`bj-central-ativ:<userId>`), no máximo a cada 15 s, em mousemove, keydown, click,
   scroll e toque, inclusive na janela destacada (`estado.externa`). A chave guarda **um número só** (o instante):
@@ -107,7 +109,8 @@ instante novo. Assim duas abas ou janelas não contam em dobro. Zera na virada d
 
 **Som e evento.** Preferência `presenca-som:<tenant>:<user>`, ligado por padrão; `AudioContext` com as frequências
 do dc (subida 660/880 Hz, descida 700/520 Hz). Com duas janelas à vista, o bipe toca uma vez: a aba que tocar grava
-`presenca-bipe:<tenant>:<user>` com o instante e as outras não tocam o mesmo evento dentro de 5 s.
+`presenca-bipe:<tenant>:<user>` com o evento e o instante, e as outras não tocam o mesmo evento dentro de 30 s (os
+relógios de 20 s das abas não andam juntos; com 5 s a segunda janela tocaria de novo).
 
 **Arquivos.** `templates/menu_usuario/_presenca.html.twig` (selo e painel; `data-url-equipe`,
 `data-chave="<tenant>:<user>"`), `public/js/presenca-cabecalho.js`, `public/css/presenca-cabecalho.css` (tokens claro
