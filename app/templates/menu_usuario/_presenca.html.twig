@@ -8,7 +8,11 @@
     <span class="presenca-cab" data-presenca-cabecalho
           data-url-equipe="{{ path('central_equipe') }}"
           data-chave="{{ tenantPresenca.id }}:{{ app.user.id }}"
-          data-eu-id="{{ app.user.id }}">
+          data-eu-id="{{ app.user.id }}"
+          {%- if presenca_sou_primario() %}
+          data-ausencia-url="{{ path('central_presenca_ausencia') }}"
+          data-ausencia-min="{{ presenca_ausente_apos_min() }}"
+          {%- endif %}>
         <button type="button" class="presenca-cab-selo" data-presenca-selo hidden
                 aria-haspopup="dialog" aria-expanded="false" aria-label="Quem está on-line: 0">0</button>
     </span>

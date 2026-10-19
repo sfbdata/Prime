@@ -16,6 +16,10 @@
     var chave = raiz.getAttribute('data-chave') || '0:0';
     var euId = Number(raiz.getAttribute('data-eu-id')) || 0;
     var urlEquipe = raiz.getAttribute('data-url-equipe');
+    // Fase 3 (dc L.306 e L.685): só o primário recebe a URL; o seletor mostra o limite do escritório.
+    var urlAusencia = raiz.getAttribute('data-ausencia-url');
+    var ausenciaMin = Number(raiz.getAttribute('data-ausencia-min')) || 60;
+    var OPCOES_AUSENCIA = [15, 30, 60, 120];
 
     // dc L.665 `ST`: rótulo, cor e ordem do grupo.
     var ST = { on: ['On-line', '#2ecc71', 1], ausente: ['Ausente', '#f0b429', 2], ocupado: ['Não perturbe', '#e74c3c', 3], off: ['Desligado', '#b7c4cd', 4] };
@@ -70,6 +74,42 @@
         b.addEventListener('click', function (e) { e.stopPropagation(); fechar(); selo.focus(); });
 
         return b;
+    }
+
+    /* ── Regra do escritório: "Ausente após sem atividade" (dc L.306, só o primário) ─────────────────────────── */
+    function regraDeAusencia() {
+        var linha = el('div', 'presenca-regra');
+        linha.appendChild(icone('bi-clock-history'));
+        var rotulo = el('label', 'presenca-regra-rotulo', 'Ausente após sem atividade');
+        var seletor = el('select', 'presenca-regra-seletor');
+        seletor.id = 'presencaAusencia';
+        rotulo.htmlFor = seletor.id;
+        OPCOES_AUSENCIA.forEach(function (n) {
+            var op = el('option', null, n < 60 ? n + ' min' : (n / 60) + ' h');
+            op.value = String(n);
+            op.selected = n === ausenciaMin;
+            seletor.appendChild(op);
+        });
+        seletor.addEventListener('click', function (e) { e.stopPropagation(); });
+        seletor.addEventListener('change', function () { mudarAusencia(Number(seletor.value), seletor); });
+        linha.appendChild(rotulo);
+        linha.appendChild(seletor);
+
+        return linha;
+    }
+    function mudarAusencia(minutos, seletor) {
+        var anterior = ausenciaMin;
+        ausenciaMin = minutos;   // o redesenho de 4 e 20 s mantém a escolha
+        fetch(urlAusencia, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ minutos: minutos }),
+        }).then(function (r) { if (!r.ok) { throw new Error(String(r.status)); } })
+            .catch(function () {
+                ausenciaMin = anterior;
+                seletor.value = String(anterior);
+                if (window.bjAviso) { window.bjAviso('Não foi possível salvar o tempo de ausência. Tente de novo.'); }
+            });
     }
 
     /* ── Equipe (nomes e cargos), na sessão do navegador ─────────────────────── */
@@ -271,6 +311,7 @@
         nota.appendChild(icone('bi-info-circle'));
         nota.appendChild(document.createTextNode(' ' + NOTA));
         painel.appendChild(nota);
+        if (urlAusencia) { painel.appendChild(regraDeAusencia()); }
         if (equipe && lista.length <= 1) { painel.appendChild(el('div', 'presenca-vazio', 'Só você está na equipe por enquanto.')); }
         if (focoNoSom) { som.focus(); }   // redesenhar a cada 20 s não tira o foco de quem está no botão
     }
