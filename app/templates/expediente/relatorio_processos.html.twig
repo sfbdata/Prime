@@ -43,9 +43,10 @@
        entre elas, para sair igual na tela e no Dompdf (que não tem flex); a moldura com margem
        negativa tira o espaço das pontas. #}
     .rsp-cartoes-moldura { margin: 2px -8px 12px; }
-    .rsp-cartoes { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 8px 0; }
+    .rsp-cartoes { width: 100%; table-layout: auto; border-collapse: separate; border-spacing: 8px 0; }
     .rsp-cartao { border: 1px solid #d3dde4; border-radius: 4px; padding: 7px 9px; vertical-align: top; }
-    .rsp-cartao-rotulo { font-size: .7143em; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5f7684; }
+    .rsp-cartao-rotulo { font-size: .7143em; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5f7684; word-break: keep-all; overflow-wrap: normal; hyphens: manual; }
+    /* keep-all: na tela, "ADMINISTRATIVAS" quebrava no meio da palavra (verificação visual 19/10). */
     .rsp-cartao-valor { font-size: 1.5238em; font-weight: 700; color: #0b4f73; line-height: 1.3; }
     .rsp-tom-laranja { color: #b4460a; }
     .rsp-tom-vermelho { color: #a3232b; }
