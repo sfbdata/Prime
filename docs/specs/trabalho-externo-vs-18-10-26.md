@@ -9,7 +9,8 @@
    base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
 4. `trabalho-externo-curriculos` (F3a, §4.5) → **PR #96 em rascunho**, base `trabalho-externo-vagas-publicas`.
-5. `trabalho-externo-candidatura` (F2b, §4.6) → em andamento, base `trabalho-externo-curriculos`.
+5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
+   Migration `Version20261019230000`.
    Migration `Version20261019213000`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
@@ -17,7 +18,7 @@ rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84 → #96. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
@@ -93,7 +94,7 @@ telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do de
 desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
 é excluído (o termo fica ligado ao usuário).
 
-**Próximo passo**: F2b Candidatura (§4.4), empilhada sobre o #96; depois F4 visão
+**Próximo passo**: F4 (§4.4), empilhada sobre o #105, com as notificações pelo sino da Central; depois
 externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
 lista do que não tem dono. A F2d (§4.3) espera o PR da 5d.
 
