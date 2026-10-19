@@ -69,18 +69,22 @@ final class AbrirLinkExternoDoPushUseCase
             return PaginaDoPushCompartilhadoOutput::pedeCodigo($link);
         }
 
+        // O resultado sai de dentro da trava: o estado depois do erro (bloqueou ou não) é o que foi gravado.
         $digitado = self::soDigitos($codigo);
-        $conferiu = $this->links->alterarComTrava(
+        $resultado = $this->links->alterarComTrava(
             $link,
-            static fn (LinkExternoDoPush $l): bool => $l->conferirCodigo($digitado, $agora),
+            static fn (LinkExternoDoPush $l): string => match (true) {
+                $l->conferirCodigo($digitado, $agora) => 'ok',
+                $l->estaBloqueado($agora) => 'bloqueado',
+                default => 'errado',
+            },
         );
-        if ($conferiu) {
-            return $this->mostrar($link, $agora);
-        }
 
-        return $link->estaBloqueado($agora)
-            ? PaginaDoPushCompartilhadoOutput::bloqueado($link)
-            : PaginaDoPushCompartilhadoOutput::pedeCodigo($link, self::ERRO_CODIGO);
+        return match ($resultado) {
+            'ok' => $this->mostrar($link, $agora),
+            'bloqueado' => PaginaDoPushCompartilhadoOutput::bloqueado($link),
+            default => PaginaDoPushCompartilhadoOutput::pedeCodigo($link, self::ERRO_CODIGO),
+        };
     }
 
     private function mostrar(LinkExternoDoPush $link, \DateTimeImmutable $agora): PaginaDoPushCompartilhadoOutput
