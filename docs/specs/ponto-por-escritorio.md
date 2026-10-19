@@ -14,8 +14,8 @@ nesta frente: não decidem regra e só rodam na web, com o filtro ligado.
 **Ordem com o PR #67** (atalho de ponto do cabeçalho, aberto): esta frente entra **depois** dele. Ele mexe nos mesmos
 arquivos (`PontoController`, `RegistroPontoRepository`, `PontoIsolamentoRepositoryTest`) e traz
 `batidasDoDiaNoEscritorio(User, Tenant, dia)`, com o escritório explícito, que esta frente reaproveita. A implementação
-começa quando o #67 estiver no master (traz-se o master para esta branch). Versão 2 (19/10): v1 não aprovada (B1, I1 a
-I4, M1 a M5).
+começa quando o #67 estiver no master (traz-se o master para esta branch). Versão 3 (19/10): v1 não aprovada (B1, I1 a
+I4, M1 a M5); v2 aprovada com ressalvas (N1 a N7, tratadas).
 
 ## 1. O que já é verdade hoje (levantamento, 19/10)
 
@@ -47,7 +47,9 @@ tipo, para a pessoa ver o motivo certo e não um "fora da área"):
 
 - **Entrada aberta** (v2, I1) = num escritório Y ≠ X em que a pessoa tem vínculo ativo (`user_tenant.is_active`) e que
   está ativo (`tenant.is_active`, que a exclusão desliga junto com `excluido_em`), a **última batida de hoje** (por
-  `data_hora`, empate pelo id) **não é saída**, havendo pelo menos uma entrada hoje. Cobre a reentrada (entrada 08:00,
+  `data_hora` e depois id, decrescente, até o `agora`) **não é saída**, havendo pelo menos uma entrada hoje até o
+  `agora`. Batida com hora depois do `agora` (lançamento do admin para mais tarde) não conta: uma saída lançada para as
+  18:00 não fecha Y às 10:00. Cobre a reentrada (entrada 08:00,
   saída 12:00, entrada 14:00: aberto), que a escolha da folha não cobre (ela fica com a primeira entrada e a última
   saída e diria "fechado"). Repouso sem retorno conta como aberto. Contam todas as batidas gravadas em Y, inclusive
   lançamento manual do admin e esquecimento aprovado (viram `RegistroPonto` igual). Ver P-B a P-D na seção 6.
@@ -56,9 +58,11 @@ tipo, para a pessoa ver o motivo certo e não um "fora da área"):
   folha mostra. A trava calcula o seu `agora` uma vez, logo antes de validar; a hora gravada continua sendo a de sempre
   (`new \DateTime()` no fim), porque mudar de onde vem a hora da batida não foi pedido. A diferença entre os dois é de
   microssegundos; só uma batida a 23:59:59,999 poderia cair dos dois lados, e isso é aceito.
-- Com entrada aberta: **422** `{success: false, message: 'Você está com o ponto aberto em <nome de Y>. Registre a saída
-  lá antes.'}` e nada é gravado. O nome é o do escritório (`Tenant::getName()`). Mais de um Y aberto: cita o primeiro em
-  ordem alfabética (P-E). Texto provisório conforme P-A (seção 6).
+- Com entrada aberta: **422** `{success: false, message: <MENSAGEM_TRAVA>}` e nada é gravado. As frases moram em
+  constantes do serviço: `MENSAGEM_TRAVA = 'Você está com o ponto aberto em %s. Registre a saída lá antes.'` (a do dono,
+  a que vale) e `MENSAGEM_TRAVA_COM_ESQUECIMENTO = 'Você está com o ponto aberto em %s. Registre a saída lá ou peça o
+  esquecimento da saída de hoje em %s.'` (só se o P-A for aceito, N7). O nome é o do escritório (`Tenant::getName()`). Mais de um Y aberto: cita o primeiro em
+  ordem alfabética (P-E), depois do filtro do módulo (P-C, N6).
 - **Onde a mensagem aparece (v2, I2).** No servidor a trava vem logo depois de validar o tipo, antes do home office e do
   GPS. Mas a tela do ponto e o atalho do cabeçalho recusam por localização **antes** de enviar (cerca do navegador): quem
   está fora da área de X vê o aviso da cerca, não o da trava. A mensagem da trava aparece para quem está dentro da área
@@ -75,13 +79,18 @@ tipo, para a pessoa ver o motivo certo e não um "fora da área"):
   (`TenantController`, é correção, não batida); o home office não muda nada (a trava vem antes).
 
 **Onde mora.** Serviço `EntradaAbertaEmOutroEscritorio` (domínio Ponto), método `onde(User, Tenant $atual,
-\DateTimeImmutable $agora): ?string` (o nome do escritório ou null). Quem tem **um vínculo ativo só** não paga consulta
-nenhuma (M4). A consulta é **cross-tenant de propósito** e controlada: SQL nativo no `RegistroPontoRepository` (padrão de
+\DateTimeImmutable $agora): ?string` (o nome do escritório ou null). Quem **não tem vínculo ativo em outro escritório
+ativo** não paga a consulta das batidas (M4, N5): a condição é essa, não "um vínculo só" (o super admin pode estar em X
+sem vínculo em X e ter vínculo em Y). A consulta é **cross-tenant de propósito** e controlada: SQL nativo no `RegistroPontoRepository` (padrão de
 `findCompetenciasComRegistroPorUsuario`, que não passa pelo filtro), com o escopo escrito à mão:
-`rp.user_id = :u AND rp.tenant_id <> :atual AND rp.data_hora BETWEEN :inicio AND :fim`, `JOIN user_tenant ut ON
+`rp.user_id = :u AND rp.tenant_id <> :atual AND rp.data_hora BETWEEN :inicio AND :agora`, `JOIN user_tenant ut ON
 ut.user_id = rp.user_id AND ut.tenant_id = rp.tenant_id AND ut.is_active`, `JOIN tenant t ON t.id = rp.tenant_id AND
-t.is_active`; devolve, por escritório, o nome e o tipo da última batida do dia (o serviço decide com isso; não monta
-entidades, I1). Usa o índice de `registro_ponto(user_id)`. Nenhum dado de Y sai além do nome, e só na resposta da
+t.is_active`; devolve, por escritório, o nome, o tipo da última batida (`DISTINCT ON (rp.tenant_id) ... ORDER BY
+rp.tenant_id, rp.data_hora DESC, rp.id DESC`) e se houve entrada (`bool_or(rp.tipo = 'entrada')` numa subconsulta
+agregada), N1. O serviço decide com isso e não monta entidades (I1). Depois, P-C: para cada Y aberto,
+`PermissionChecker::canAccessModule(user, Y, 'ponto')` (lê `UserTenant`, `TenantRole` e permissões, que não são
+TenantAware: funciona com o filtro de X ligado). Para o super admin o `canAccessModule` é sempre verdadeiro, então o
+P-C não filtra nada para ele: com vínculo ativo em Y aberto, trava (N6). Usa o índice de `registro_ponto(user_id)`. Nenhum dado de Y sai além do nome, e só na resposta da
 própria pessoa.
 
 **Corrida.** Duas entradas simultâneas em X e Y (dois aparelhos no mesmo segundo) podem passar as duas: o servidor não
@@ -118,6 +127,12 @@ já registrado em `ponto-isolamento-tenant.md`, fora desta frente); a cerca; sem
   enxergam outro escritório; a consulta nova só traz o próprio usuário, só outros escritórios com vínculo ativo, só hoje.
 - Unit do serviço: última batida por escritório (só entrada, entrada e saída, reentrada depois da saída, repouso sem
   retorno), primeiro em ordem alfabética, janela do dia com `agora` às 23:59 e às 00:00, um vínculo só sem consulta.
+- Decisões (N4): Y com vínculo ativo e **sem** o módulo de ponto não trava (P-C); Y só com repouso ou retorno, sem
+  entrada, não trava (N1); saída lançada para depois do `agora` não fecha Y; super admin com vínculo em Y aberto trava
+  (N6); P-A dos dois lados: com `LIBERA_COM_ESQUECIMENTO = false` (padrão) o esquecimento pendente não solta e a frase
+  é a do dono; com `true`, pendente e abonado soltam, e rejeitado, outro dia, outro tipo de batida e reentrada depois do
+  pedido não soltam; integração da consulta da justificativa com o filtro de X ligado (outro usuário, outro dia,
+  `entrada` em vez de `saida`, `rejeitado`). O teste confere o texto pela constante que estiver valendo (N7).
 - Mais casos (revisão): home office liberado em X; Y excluído e vínculo inativo em Y, separados; trava e interjornada
   falhando juntas (a trava vem antes); o JSON do 422 só com `success` e `message`; lançamento manual do admin em X não
   travado; lançamento manual e esquecimento aprovado em Y contando como entrada; super admin sem vínculo.
@@ -141,9 +156,17 @@ Decididas pelo coordenador, por delegação do dono:
 - Decisões técnicas da v2 (antes do GPS no servidor, "hoje" do servidor, sem consulta para quem tem um vínculo só,
   meia-noite no unitário): aceitas.
 
-**A confirmar pelo dono (P-A, implementado isolado para trocar fácil).** Quem esqueceu a saída em Y e já está em X não
-bate a saída em Y (a cerca de Y) e a justificativa só vira batida com a aprovação do gestor de Y. Até o dono responder:
-a justificativa de esquecimento **da saída de hoje** em Y, **pendente** (ou abonada), solta a trava; a mensagem é "Você
-está com o ponto aberto em <Y>. Registre a saída lá ou peça o esquecimento da saída de hoje em <Y>." Isolado num método
-do serviço (`liberadoPorEsquecimentoPendente`) e numa constante do texto: se o dono recusar, a liberação vira `false` e
-a mensagem volta à frase dele, sem mexer no resto. Teste próprio dos dois lados.
+**A confirmar pelo dono (P-A). Padrão: DESLIGADO (N2).** Quem esqueceu a saída em Y e já está em X não bate a saída em
+Y (a cerca de Y), e a justificativa só vira batida com a aprovação do gestor de Y. A proposta é a justificativa de
+esquecimento **da saída de hoje** em Y, pendente ou abonada, soltar a trava, com a frase
+`MENSAGEM_TRAVA_COM_ESQUECIMENTO`. Atenção do dono: na prática é uma **liberação que a própria pessoa aciona** (basta
+pedir o esquecimento em Y, com qualquer hora; uma rejeição depois não desfaz a entrada já batida em X). Por isso, até o
+dono aceitar, o código roda a regra e a frase dele: a liberação mora numa constante (`LIBERA_COM_ESQUECIMENTO = false`)
+e num método (`liberadoPorEsquecimento`) isolados; aceitar é trocar a constante. Quando ligada, só vale se o pedido for
+posterior à última batida de Y (uma reentrada depois do pedido volta a travar).
+
+**Consulta da justificativa em Y (N3).** `JustificativaPonto` é `TenantAware`, então o filtro de X a esconde. Caminho
+controlado: SQL nativo em `JustificativaPontoRepository`, com o escopo escrito à mão: `user_id = :u AND tenant_id = :y`
+(um Y já filtrado pelo vínculo e pelo escritório ativo) `AND data = :hoje AND tipo = 'esquecimento_registro' AND
+tipo_registro_esquecido = 'saida' AND status IN ('pendente', 'abonado')`. Nunca desligando o filtro nem por `find`.
+Antes de escrever, conferir os nomes reais das colunas e dos valores no mapeamento (`doctrine:mapping:info`).
