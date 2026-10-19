@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Cliente\Exception\EmailDoClienteEmConflitoException;
 use App\Cliente\Exception\EmailDoClienteNaoEncontradoException;
 use App\Cliente\Exception\EmailDoClienteRecusadoException;
+use App\Cliente\Service\CadernoDeEmailsDoCliente;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
@@ -27,11 +29,13 @@ final class TornarEmailDoClientePrincipalUseCase
     /**
      * @throws EmailDoClienteRecusadoException     pasta sem cliente
      * @throws EmailDoClienteNaoEncontradoException id que não é deste cliente
+     * @throws EmailDoClienteEmConflitoException    outra tela gravou ao mesmo tempo
      */
     public function executar(Pasta $pasta, int $emailId, User $usuario, Tenant $tenant): void
     {
-        $caderno = $this->emails->exigirCaderno($pasta, $tenant);
-        $caderno->tornarPrincipal($caderno->item($emailId, $usuario, $this->relogio->now()));
-        $this->emails->gravar($caderno, true);
+        $agora = $this->relogio->now();
+        $this->emails->alterar($pasta, $tenant, static function (CadernoDeEmailsDoCliente $caderno) use ($emailId, $usuario, $agora): void {
+            $caderno->tornarPrincipal($caderno->item($emailId, $usuario, $agora));
+        });
     }
 }

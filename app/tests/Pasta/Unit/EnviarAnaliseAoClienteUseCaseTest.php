@@ -28,7 +28,11 @@ use App\Pasta\Service\EnvioAoCliente\MensagemAoCliente;
 use App\Pasta\Service\EnvioAoCliente\ResultadoDoEnvioAoCliente;
 use App\Pasta\Service\EnvioAoCliente\TipoDeEmailAoCliente;
 use App\Pasta\UseCase\EnviarAnaliseAoClienteUseCase;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\TenantRole;
+use App\Pasta\Exception\EnvioAoClienteMuitoFrequenteException;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Service\NotificacaoService;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -61,6 +65,9 @@ final class EnviarAnaliseAoClienteUseCaseTest extends TestCase
     /** @var list<EnvioAoCliente> */
     private array $gravados = [];
     private ?\RuntimeException $falharNa = null;
+    /** @var list<string> */
+    private array $jaEnviadosRecentes = [];
+    private int $enviosNaHora = 0;
     private int $falharNoIndice = -1;
     private DescadastroDeEmailInterface&MockObject $descadastro;
     private NotificacaoService&MockObject $notificacoes;
@@ -126,6 +133,8 @@ final class EnviarAnaliseAoClienteUseCaseTest extends TestCase
             $this->gravados[] = $e;
         });
         $envios->method('enviosDeAnalisesDaPasta')->willReturnCallback(fn (): array => $this->gravados);
+        $envios->method('destinatariosDaAnaliseDesde')->willReturnCallback(fn (): array => $this->jaEnviadosRecentes);
+        $envios->method('contarEnviosDeAnaliseDesde')->willReturnCallback(fn (): int => $this->enviosNaHora);
 
         $urls = $this->createStub(UrlGeneratorInterface::class);
         $urls->method('generate')->willReturn('/pasta/1');
@@ -138,6 +147,7 @@ final class EnviarAnaliseAoClienteUseCaseTest extends TestCase
             $envio,
             $envios,
             $this->vinculos,
+            new RegraDosPrimarios($this->vinculos),
             $this->notificacoes,
             $urls,
             new MockClock('2026-10-19 14:30:00'),
@@ -190,11 +200,24 @@ final class EnviarAnaliseAoClienteUseCaseTest extends TestCase
         self::assertSame('Enviado 19/10 às 14:30', $saida->envio->quando);
     }
 
-    #[TestDox('Sem Controladoria: envia sem cópia, a mensagem não fala dela e cada primário recebe o aviso no sino')]
+    /** @return list<UserTenant> um primário ativo e um secundário */
+    private function vinculosDoEscritorio(User $primario): array
+    {
+        $sistema = (new TenantRole())->setIsSystem(true);
+        $comum = (new TenantRole())->setIsSystem(false);
+        $vPrimario = new UserTenant($primario->setIsActive(true), $this->tenant);
+        $vPrimario->setTenantRole($sistema);
+        $vComum = new UserTenant((new User())->setIsActive(true), $this->tenant);
+        $vComum->setTenantRole($comum);
+
+        return [$vPrimario, $vComum];
+    }
+
+    #[TestDox('Sem Controladoria: envia sem cópia, a mensagem não fala dela e só o primário (RegraDosPrimarios) recebe o aviso no sino')]
     public function testSemControladoriaAvisaPrimario(): void
     {
         $primario = new User();
-        $this->vinculos->method('findUsuariosAdminsAtivos')->willReturn([$primario]);
+        $this->vinculos->method('findAtivosComPerfilPorTenant')->willReturn($this->vinculosDoEscritorio($primario));
         $this->notificacoes->expects(self::once())->method('criarNotificacao')
             ->with($primario, $this->tenant, EnviarAnaliseAoClienteUseCase::TIPO_NOTIFICACAO_SEM_CONTROLADORIA, self::stringContains('sem cópia para a Controladoria'), '/pasta/1#push');
 
@@ -202,6 +225,82 @@ final class EnviarAnaliseAoClienteUseCaseTest extends TestCase
 
         self::assertSame([], $this->mensagens[0]->cc);
         self::assertSame('Análise enviada para 1 e-mail do cliente', $saida->mensagem());
+    }
+
+    #[TestDox('Falha parcial sem Controladoria: os primários são avisados ANTES da exceção, porque um e-mail saiu')]
+    public function testFalhaParcialSemControladoriaAvisaAntes(): void
+    {
+        $this->falharNoIndice = 1;
+        $this->vinculos->method('findAtivosComPerfilPorTenant')->willReturn($this->vinculosDoEscritorio(new User()));
+        $this->notificacoes->expects(self::once())->method('criarNotificacao');
+
+        $this->expectException(FalhaNoEnvioAoClienteException::class);
+        $this->useCase()->executar($this->pasta, $this->input(), $this->usuario, $this->tenant);
+    }
+
+    #[TestDox('Sem responsável ativo, Responder para = quem enviou (nunca o MAILER_REPLY_TO da plataforma)')]
+    public function testResponderParaQuemEnviou(): void
+    {
+        $this->pasta->getResponsavel()?->setIsActive(false);
+        $this->usuario->setEmail('advogado@escritorio.com.br')->setIsActive(true);
+
+        $this->useCase()->executar($this->pasta, $this->input(['maria@cliente.com.br']), $this->usuario, $this->tenant);
+
+        self::assertSame('advogado@escritorio.com.br', $this->mensagens[0]->replyTo);
+    }
+
+    #[TestDox('Limites: assunto acima de 200 e mensagem acima de 20.000 caracteres dão 422 com a mensagem clara')]
+    public function testLimitesDeTamanho(): void
+    {
+        $casos = [
+            'O assunto pode ter no máximo 200 caracteres.' => $this->input(['maria@cliente.com.br'], str_repeat('a', 201)),
+            'A mensagem pode ter no máximo 20.000 caracteres.' => $this->input(['maria@cliente.com.br'], 'A', str_repeat('b', 20001)),
+        ];
+        foreach ($casos as $mensagem => $input) {
+            try {
+                $this->useCase()->executar($this->pasta, $input, $this->usuario, $this->tenant);
+                self::fail('deveria recusar: ' . $mensagem);
+            } catch (EnvioAoClienteRecusadoException $e) {
+                self::assertSame($mensagem, $e->getMessage());
+            }
+        }
+        $this->useCase()->executar($this->pasta, $this->input(['maria@cliente.com.br'], str_repeat('a', 200), str_repeat('b', 20000)), $this->usuario, $this->tenant);
+        self::assertCount(1, $this->mensagens, 'no limite exato passa');
+    }
+
+    #[TestDox('Limite por hora: com 10 envios da pasta na última hora, o 11º dá 429 e nada sai')]
+    public function testLimitePorHora(): void
+    {
+        $this->enviosNaHora = 10;
+
+        $this->expectException(EnvioAoClienteMuitoFrequenteException::class);
+        $this->expectExceptionMessage('Muitos envios em pouco tempo. Tente de novo mais tarde.');
+        try {
+            $this->useCase()->executar($this->pasta, $this->input(), $this->usuario, $this->tenant);
+        } finally {
+            self::assertSame([], $this->mensagens);
+        }
+    }
+
+    #[TestDox('Idempotência: o destinatário que já recebeu esta análise nos últimos 2 minutos não recebe de novo e volta em jaEnviados; todos repetidos não gravam nada nem contam no limite')]
+    public function testIdempotencia(): void
+    {
+        $this->jaEnviadosRecentes = ['maria@cliente.com.br'];
+
+        $saida = $this->useCase()->executar($this->pasta, $this->input(), $this->usuario, $this->tenant);
+
+        self::assertSame(['maria@trabalho.com.br'], array_map(static fn (MensagemAoCliente $m): string => $m->para, $this->mensagens));
+        self::assertSame(['maria@cliente.com.br'], $saida->jaEnviados);
+        self::assertSame(['maria@trabalho.com.br'], $saida->enviados);
+
+        $this->jaEnviadosRecentes = ['maria@cliente.com.br', 'maria@trabalho.com.br'];
+        $this->enviosNaHora = 99;
+        $repetido = $this->useCase()->executar($this->pasta, $this->input(), $this->usuario, $this->tenant);
+        self::assertSame([], $repetido->enviados);
+        self::assertSame(['maria@cliente.com.br', 'maria@trabalho.com.br'], $repetido->jaEnviados);
+        self::assertSame('Esta análise já foi enviada a estes e-mails há menos de 2 minutos.', $repetido->mensagem());
+        self::assertCount(1, $this->mensagens, 'nada saiu de novo');
+        self::assertCount(1, $this->gravados);
     }
 
     #[TestDox('Validações na ordem do desenho: destinatário, assunto e mensagem, checkbox; nada sai')]

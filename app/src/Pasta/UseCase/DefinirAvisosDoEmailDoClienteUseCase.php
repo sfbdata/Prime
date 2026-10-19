@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Cliente\Exception\EmailDoClienteEmConflitoException;
 use App\Cliente\Exception\EmailDoClienteNaoEncontradoException;
 use App\Cliente\Exception\EmailDoClienteRecusadoException;
+use App\Cliente\Service\CadernoDeEmailsDoCliente;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
@@ -35,16 +37,17 @@ final class DefinirAvisosDoEmailDoClienteUseCase
     /**
      * @throws EmailDoClienteRecusadoException     pasta sem cliente ou e-mail descadastrado
      * @throws EmailDoClienteNaoEncontradoException id que não é deste cliente
+     * @throws EmailDoClienteEmConflitoException    outra tela gravou ao mesmo tempo
      */
     public function executar(Pasta $pasta, int $emailId, bool $recebe, User $usuario, Tenant $tenant): void
     {
-        $caderno = $this->emails->exigirCaderno($pasta, $tenant);
-        $item = $caderno->item($emailId, $usuario, $this->relogio->now());
-        if ($this->descadastro->estaDescadastrado($tenant, $item->getEmail(), EnvioDeEmailAoClienteInterface::ASSUNTO_DO_DESCADASTRO)) {
-            throw new EmailDoClienteRecusadoException(self::ERRO_DESCADASTRADO);
-        }
-
-        $item->definirRecebimento($recebe);
-        $this->emails->gravar($caderno, true);
+        $agora = $this->relogio->now();
+        $this->emails->alterar($pasta, $tenant, function (CadernoDeEmailsDoCliente $caderno) use ($emailId, $recebe, $usuario, $tenant, $agora): void {
+            $item = $caderno->item($emailId, $usuario, $agora);
+            if ($this->descadastro->estaDescadastrado($tenant, $item->getEmail(), EnvioDeEmailAoClienteInterface::ASSUNTO_DO_DESCADASTRO)) {
+                throw new EmailDoClienteRecusadoException(self::ERRO_DESCADASTRADO);
+            }
+            $item->definirRecebimento($recebe);
+        });
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Cliente\Enum\RotuloDoEmail;
+use App\Cliente\Exception\EmailDoClienteEmConflitoException;
 use App\Cliente\Exception\EmailDoClienteNaoEncontradoException;
 use App\Cliente\Exception\EmailDoClienteRecusadoException;
 use App\Entity\Auth\User;
@@ -13,6 +14,7 @@ use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Pasta\DTO\EnviarAnaliseAoClienteInput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\EnvioAoClienteMuitoFrequenteException;
 use App\Pasta\Exception\EnvioAoClienteRecusadoException;
 use App\Pasta\Exception\FalhaNoEnvioAoClienteException;
 use App\Pasta\UseCase\CadastrarEmailDoClienteUseCase;
@@ -39,7 +41,8 @@ use Symfony\Component\Routing\Attribute\Route;
  *   POST /pasta/{id}/push/cliente/emails/{emailId}/remover     → o X
  *   POST /pasta/{id}/push/cliente/analises/{analiseId}/enviar  → `para[]`, `assunto`, `corpo`, `revisado` = 1
  * As de e-mail respondem {sucesso, mensagem, html (o cartão)}; recusa 422 {erro}; id alheio 404.
- * O envio responde {sucesso, mensagem, enviado, dica}; falha do transporte 502 {erro, enviados}.
+ * O envio responde {sucesso, mensagem, enviados, jaEnviados (idempotência de 2 min), enviado, dica};
+ * recusa 422; mais de 10 envios da pasta na hora 429; falha do transporte 502 {erro, enviados}.
  *
  * Guarda: a pasta é do escritório da sessão (404), EDITAR a pasta (403; o cartão só VER) e o CSRF
  * `pasta_push_cliente_{id}` (403). O envio exige também a BlueJus IA (`modules.inteligencia.view`).
@@ -132,11 +135,13 @@ final class PastaPushClienteController extends AbstractController
             return $this->json(['erro' => 'Análise não encontrada.'], Response::HTTP_NOT_FOUND);
         } catch (EnvioAoClienteRecusadoException|EmailDoClienteRecusadoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (EnvioAoClienteMuitoFrequenteException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_TOO_MANY_REQUESTS);
         } catch (FalhaNoEnvioAoClienteException $e) {
             return $this->json(['erro' => $e->getMessage(), 'enviados' => $e->enviados], Response::HTTP_BAD_GATEWAY);
         }
 
-        return $this->json(['sucesso' => true, 'mensagem' => $saida->mensagem(), 'enviado' => $saida->envio->quando, 'dica' => $saida->envio->dica, 'html' => $this->html($pasta)]);
+        return $this->json(['sucesso' => true, 'mensagem' => $saida->mensagem(), 'enviados' => $saida->enviados, 'jaEnviados' => $saida->jaEnviados, 'enviado' => $saida->envio->quando, 'dica' => $saida->envio->dica, 'html' => $this->html($pasta)]);
     }
 
     /**
@@ -155,6 +160,8 @@ final class PastaPushClienteController extends AbstractController
             $mensagem = $operacao($this->usuario(), $this->tenant());
         } catch (EmailDoClienteNaoEncontradoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (EmailDoClienteEmConflitoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_CONFLICT);
         } catch (EmailDoClienteRecusadoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

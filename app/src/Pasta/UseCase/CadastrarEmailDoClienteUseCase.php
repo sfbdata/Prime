@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Cliente\Enum\RotuloDoEmail;
+use App\Cliente\Exception\EmailDoClienteEmConflitoException;
 use App\Cliente\Exception\EmailDoClienteRecusadoException;
 use App\Cliente\Service\CadernoDeEmailsDoCliente;
 use App\Entity\Auth\User;
@@ -14,7 +15,6 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Enum\TipoDeEnvioAoCliente;
 use App\Pasta\Repository\EnvioAoClienteRepository;
 use App\Pasta\Service\EmailsDoClienteDaPasta;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -36,27 +36,20 @@ final class CadastrarEmailDoClienteUseCase
     ) {
     }
 
-    /** @throws EmailDoClienteRecusadoException sem cliente, e-mail inválido, repetido ou acima do limite */
+    /**
+     * @throws EmailDoClienteRecusadoException   sem cliente, e-mail inválido, repetido ou acima do limite
+     * @throws EmailDoClienteEmConflitoException outra tela gravou ao mesmo tempo
+     */
     public function executar(Pasta $pasta, string $email, RotuloDoEmail $rotulo, User $usuario, Tenant $tenant): string
     {
-        $caderno = $this->emails->exigirCaderno($pasta, $tenant);
         $agora = $this->relogio->now();
-        $endereco = $caderno->adicionar($email, $rotulo, $usuario, $agora);
+        $endereco = $this->emails->alterar($pasta, $tenant, function (CadernoDeEmailsDoCliente $caderno) use ($pasta, $email, $rotulo, $usuario, $tenant, $agora): string {
+            $endereco = $caderno->adicionar($email, $rotulo, $usuario, $agora);
+            $this->envios->salvar(new EnvioAoCliente($tenant, $pasta, $this->emails->cliente($pasta, $tenant), TipoDeEnvioAoCliente::Cadastro, [$endereco], $usuario, $agora));
 
-        $this->emails->gravar($caderno, false);
-        $this->envios->salvar(new EnvioAoCliente($tenant, $pasta, $this->emails->cliente($pasta, $tenant), TipoDeEnvioAoCliente::Cadastro, [$endereco], $usuario, $agora));
-        $this->gravarSemCorrida();
+            return $endereco;
+        });
 
         return 'E-mail cadastrado: ' . $endereco;
-    }
-
-    /** Duas abas cadastrando o mesmo endereço ao mesmo tempo: o UNIQUE (cliente, email) decide. */
-    private function gravarSemCorrida(): void
-    {
-        try {
-            $this->envios->flush();
-        } catch (UniqueConstraintViolationException) {
-            throw new EmailDoClienteRecusadoException(CadernoDeEmailsDoCliente::ERRO_REPETIDO);
-        }
     }
 }

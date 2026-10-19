@@ -21,7 +21,8 @@ use App\Entity\Tenant\Tenant;
  *   - sem linha nenhuma, o e-mail válido da ficha (`Cliente.email`) aparece como item virtual
  *     "Cadastro · principal" (id {@see self::ID_DO_CADASTRO}); a primeira alteração o materializa;
  *   - o primeiro cadastrado vira principal; removido o principal, o primeiro que sobra assume;
- *   - a linha do cadastro removida fica marcada (ver {@see ClienteEmail}); as outras saem.
+ *   - a linha `do_cadastro` removida fica marcada (ver {@see ClienteEmail}), mesmo restaurada com
+ *     outro rótulo; as outras saem. Havendo qualquer linha, o item virtual não volta.
  */
 final class CadernoDeEmailsDoCliente
 {
@@ -147,7 +148,7 @@ final class CadernoDeEmailsDoCliente
     public function remover(ClienteEmail $alvo, \DateTimeImmutable $em): void
     {
         $eraPrincipal = $alvo->ehPrincipal();
-        if ($alvo->getRotulo() === RotuloDoEmail::Cadastro) {
+        if ($alvo->ehDoCadastro()) {
             $alvo->marcarRemovido($em);
         } else {
             $this->linhas = array_values(array_filter($this->linhas, static fn (ClienteEmail $e): bool => $e !== $alvo));
@@ -165,6 +166,18 @@ final class CadernoDeEmailsDoCliente
     public function novas(): array
     {
         return $this->novas;
+    }
+
+    /** O principal visível (com ou sem id), se houver. */
+    public function principal(): ?ClienteEmail
+    {
+        foreach ($this->itens() as $item) {
+            if ($item->ehPrincipal()) {
+                return $item;
+            }
+        }
+
+        return null;
     }
 
     /** @return list<ClienteEmail> as linhas a apagar */
@@ -214,7 +227,7 @@ final class CadernoDeEmailsDoCliente
             return null;
         }
 
-        return new ClienteEmail($this->tenant, $this->cliente, $email, RotuloDoEmail::Cadastro, true, $por, $em);
+        return new ClienteEmail($this->tenant, $this->cliente, $email, RotuloDoEmail::Cadastro, true, $por, $em, doCadastro: true);
     }
 
     private function linhaDe(string $email): ?ClienteEmail

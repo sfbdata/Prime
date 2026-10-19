@@ -18,17 +18,24 @@ use Doctrine\ORM\Mapping as ORM;
  * leva as linhas (CASCADE).
  *
  * O e-mail da ficha (`Cliente.email`) aparece como item virtual "Cadastro · principal" até a primeira
- * alteração, quando vira linha com o rótulo `Cadastro`. Remover essa linha só a marca (`removido_em`):
- * o endereço continua na ficha do cliente, e sem a marca o item virtual voltaria sozinho. Os demais
- * e-mails saem de fato (minimização: o escritório pediu para esquecer).
+ * alteração, quando vira linha com `do_cadastro` = true. Essa origem sobrevive a tudo (inclusive a
+ * `restaurar` com outro rótulo): remover uma linha `do_cadastro` só a marca (`removido_em`), nunca a
+ * apaga, porque o endereço continua na ficha do cliente e, sem a linha, o item virtual voltaria
+ * sozinho. Os demais e-mails saem de fato do banco (minimização: o escritório pediu para esquecer), e
+ * o endereço é anonimizado nas linhas "E-mail cadastrado" do histórico da pasta; os envios reais
+ * (Análise IA, automático) guardam o endereço, porque são a prova do ato.
+ *
+ * Um só principal ativo por cliente: índice único parcial (cliente_id) WHERE principal AND
+ * removido_em IS NULL. As escritas travam o cliente (SELECT ... FOR UPDATE) antes de ler a lista.
  *
  * Fora da auditoria (AuditavelCoberturaTest): acompanha a decisão do Cliente, que não é auditado, e
- * auditar duplicaria o endereço no audit_log. O ato fica no histórico de envios da pasta.
+ * auditar duplicaria o endereço no audit_log, onde ele ficaria mesmo depois de removido.
  */
 #[ORM\Entity(repositoryClass: ClienteEmailRepository::class)]
 #[ORM\Table(name: 'cliente_email')]
 #[ORM\Index(name: 'idx_cliente_email_tenant', columns: ['tenant_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_cliente_email_cliente_email', columns: ['cliente_id', 'email'])]
+#[ORM\UniqueConstraint(name: 'uniq_cliente_email_principal', columns: ['cliente_id'], options: ['where' => '(principal AND (removido_em IS NULL))'])]
 class ClienteEmail implements TenantAware
 {
     #[ORM\Id]
@@ -60,6 +67,9 @@ class ClienteEmail implements TenantAware
         private ?User $criadoPor,
         #[ORM\Column(name: 'criado_em', type: 'datetime_immutable')]
         private \DateTimeImmutable $criadoEm,
+        /** Nasceu do e-mail da ficha do cliente (o item virtual materializado). Nunca muda. */
+        #[ORM\Column(name: 'do_cadastro', type: 'boolean')]
+        private bool $doCadastro = false,
     ) {
     }
 
@@ -73,14 +83,14 @@ class ClienteEmail implements TenantAware
         $this->recebeAvisos = $recebe;
     }
 
-    /** Só a linha do cadastro é marcada (ver a classe); as demais saem do banco. */
+    /** Só a linha `do_cadastro` é marcada (ver a classe); as demais saem do banco. */
     public function marcarRemovido(\DateTimeImmutable $em): void
     {
         $this->removidoEm = $em;
         $this->principal = false;
     }
 
-    /** O endereço do cadastro removido que alguém cadastra de novo: volta com o rótulo escolhido. */
+    /** O endereço do cadastro removido que alguém cadastra de novo: volta com o rótulo escolhido e segue `do_cadastro`. */
     public function restaurar(RotuloDoEmail $rotulo, bool $principal, ?User $por, \DateTimeImmutable $em): void
     {
         $this->removidoEm = null;
@@ -124,6 +134,11 @@ class ClienteEmail implements TenantAware
     public function recebeAvisos(): bool
     {
         return $this->recebeAvisos;
+    }
+
+    public function ehDoCadastro(): bool
+    {
+        return $this->doCadastro;
     }
 
     public function estaRemovido(): bool

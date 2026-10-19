@@ -195,6 +195,29 @@ final class CadernoDeEmailsDoClienteTest extends TestCase
         self::assertFalse($item->estaRemovido());
         self::assertTrue($item->ehPrincipal());
         self::assertSame(RotuloDoEmail::Pessoal, $item->getRotulo());
+        self::assertTrue($item->ehDoCadastro(), 'a origem sobrevive ao restaurar');
+    }
+
+    #[TestDox('Sequência da revisão: remover o 0, cadastrar o mesmo endereço como Pessoal, remover pelo id: a linha do_cadastro só é marcada e o virtual não volta')]
+    public function testRemovidoDuasVezesNaoVoltaComoVirtual(): void
+    {
+        $cliente = $this->cliente('maria@ficha.com.br');
+
+        $caderno = $this->caderno($cliente);
+        $caderno->remover($caderno->item(CadernoDeEmailsDoCliente::ID_DO_CADASTRO, $this->usuario, $this->agora), $this->agora);
+        [$linha] = $caderno->novas();
+        (new \ReflectionProperty(ClienteEmail::class, 'id'))->setValue($linha, 3);
+
+        $caderno = $this->caderno($cliente, [$linha]);
+        $caderno->adicionar('maria@ficha.com.br', RotuloDoEmail::Pessoal, $this->usuario, $this->agora);
+        self::assertSame(RotuloDoEmail::Pessoal, $linha->getRotulo());
+
+        $caderno = $this->caderno($cliente, [$linha]);
+        $caderno->remover($caderno->item(3, $this->usuario, $this->agora), $this->agora);
+
+        self::assertSame([], $caderno->apagadas(), 'linha do_cadastro nunca é apagada');
+        self::assertTrue($linha->estaRemovido());
+        self::assertSame([], $this->caderno($cliente, [$linha])->itens(), 'o virtual não volta');
     }
 
     #[TestDox('Id que não é do cliente (ou id 0 sem item virtual): EmailDoClienteNaoEncontradoException')]

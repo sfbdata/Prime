@@ -16,6 +16,7 @@ use App\Pasta\Controller\PastaPushClienteController;
 use App\Pasta\DTO\AvisarClienteOutput;
 use App\Pasta\Entity\EnvioAoCliente;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Enum\TipoDeEnvioAoCliente;
 use App\Pasta\Service\EnvioAoCliente\EnvioDeEmailAoClientePeloMailer;
 use App\Pasta\UseCase\CadastrarEmailDoClienteUseCase;
 use App\Pasta\UseCase\DefinirAvisosDoEmailDoClienteUseCase;
@@ -31,6 +32,8 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Mailer\Event\MessageEvent;
+use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
@@ -274,7 +277,7 @@ final class PastaPushClienteTest extends JusPrimeWebTestCase
         $cartao = $this->abrir($client, $pasta)->filter(self::CARTAO);
         self::assertSame('Ver histórico de envios (1)', $cartao->filter('.ps-push-cliente > [data-push-cliente-hist] > span')->text());
         self::assertSame('E-mail cadastrado', $cartao->filter('.ps-push-cliente-hist-item .ps-push-cliente-hist-t')->text());
-        self::assertStringEndsWith(' · novo@cliente.com.br', $cartao->filter('.ps-push-cliente-hist-item .ps-push-cliente-hist-sub')->text());
+        self::assertStringEndsWith(' · e-mail removido', $cartao->filter('.ps-push-cliente-hist-item .ps-push-cliente-hist-sub')->text());
     }
 
     #[TestDox('CRUD: o item virtual (id 0) é materializado ao ser removido e não volta; validações do desenho em 422')]
@@ -439,6 +442,7 @@ final class PastaPushClienteTest extends JusPrimeWebTestCase
         static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar($tenant, 'maria.ficha@cliente.com.br', 'push_cliente', 'link_do_email');
         $this->postar($client, $pasta, $url, ['revisado' => '1'] + $base);
         self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'O cliente pediu para não receber mais estes avisos em maria.ficha@cliente.com.br.'], $this->json($client));
 
         $this->postar($client, $pasta, $url, ['revisado' => '1'] + $base, 'errado');
         self::assertResponseStatusCodeSame(403);
@@ -476,6 +480,165 @@ final class PastaPushClienteTest extends JusPrimeWebTestCase
         $this->postar($client, $pasta, '/analises/' . $interna->getId() . '/enviar', $dados);
         self::assertResponseStatusCodeSame(403);
         self::assertEmailCount(0);
+    }
+
+    #[TestDox('Revisão item 1, sequência exata: remover o 0, cadastrar o mesmo endereço como Pessoal, remover pelo id: a linha do_cadastro fica marcada e o virtual não volta')]
+    public function testRemovidoDuasVezesNaoVoltaComoVirtual(): void
+    {
+        [$client, $user, $tenant, $pasta, $cliente] = $this->cenario();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->postar($client, $pasta, '/emails/0/remover');
+        self::assertResponseIsSuccessful();
+        $this->postar($client, $pasta, '/emails', ['email' => 'maria.ficha@cliente.com.br', 'rotulo' => 'pessoal']);
+        self::assertResponseIsSuccessful();
+        $linhas = $this->linhas($cliente);
+        self::assertCount(1, $linhas);
+        self::assertTrue($linhas[0]->ehDoCadastro());
+        self::assertFalse($linhas[0]->estaRemovido());
+
+        $this->postar($client, $pasta, '/emails/' . $linhas[0]->getId() . '/remover');
+        self::assertResponseIsSuccessful();
+        $linhas = $this->linhas($cliente);
+        self::assertCount(1, $linhas, 'a linha do_cadastro nunca é apagada');
+        self::assertTrue($linhas[0]->estaRemovido());
+        self::assertCount(0, $this->abrir($client, $pasta)->filter(self::CARTAO . ' > .ps-push-cliente-item'), 'o virtual não volta');
+    }
+
+    #[TestDox('Revisão item 3: trocar o principal e remover o principal (promovendo outro) passam pelo índice único parcial; um só principal ativo')]
+    public function testPrincipalComIndiceParcial(): void
+    {
+        [$client, $user, $tenant, $pasta, $cliente] = $this->cenario();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->postar($client, $pasta, '/emails', ['email' => 'b@cliente.com.br', 'rotulo' => 'pessoal']);
+        $this->postar($client, $pasta, '/emails', ['email' => 'c@cliente.com.br', 'rotulo' => 'pessoal']);
+        [$a, $b, $c] = $this->linhas($cliente);
+
+        $this->postar($client, $pasta, '/emails/' . $c->getId() . '/principal');
+        self::assertResponseIsSuccessful();
+        $this->postar($client, $pasta, '/emails/' . $b->getId() . '/principal');
+        self::assertResponseIsSuccessful();
+        $this->postar($client, $pasta, '/emails/' . $b->getId() . '/remover');
+        self::assertResponseIsSuccessful();
+
+        $principais = array_values(array_filter($this->linhas($cliente), static fn (ClienteEmail $e): bool => $e->ehPrincipal() && !$e->estaRemovido()));
+        self::assertCount(1, $principais);
+        self::assertSame($a->getId(), $principais[0]->getId(), 'removido o principal, o primeiro que sobra assume');
+        $indice = (string) $this->em()->getConnection()->fetchOne("SELECT indexdef FROM pg_indexes WHERE indexname = 'uniq_cliente_email_principal'");
+        self::assertStringContainsString('WHERE (principal AND (removido_em IS NULL))', $indice);
+    }
+
+    #[TestDox('Revisão item 4 (LGPD): remover um e-mail comum anonimiza a linha "E-mail cadastrado" da pasta; o envio real da análise guarda o endereço')]
+    public function testRemoverAnonimizaOHistoricoDeCadastro(): void
+    {
+        [$client, $user, $tenant, $pasta, $cliente] = $this->cenario();
+        $analise = $this->analiseConcluida($tenant, $user, $pasta);
+        $this->logarComTenant($client, $user, $tenant);
+        $this->postar($client, $pasta, '/emails', ['email' => 'some@cliente.com.br', 'rotulo' => 'pessoal']);
+        $this->postar($client, $pasta, '/analises/' . $analise->getId() . '/enviar', ['para' => ['some@cliente.com.br'], 'assunto' => 'A', 'corpo' => 'B', 'revisado' => '1']);
+        self::assertResponseIsSuccessful();
+        $id = $this->linhas($cliente)[1]->getId();
+
+        $this->postar($client, $pasta, '/emails/' . $id . '/remover');
+        self::assertResponseIsSuccessful();
+
+        $porTipo = [];
+        foreach ($this->envios($pasta) as $envio) {
+            $porTipo[$envio->getTipo()->value] = $envio->getPara();
+        }
+        self::assertSame(['e-mail removido'], $porTipo[TipoDeEnvioAoCliente::Cadastro->value]);
+        self::assertSame(['some@cliente.com.br'], $porTipo[TipoDeEnvioAoCliente::Ia->value], 'o envio real é prova do ato');
+    }
+
+    #[TestDox('Revisão item 2: assunto acima de 200 e mensagem acima de 20.000 dão 422; a mesma análise ao mesmo endereço em 2 minutos volta como já enviada sem sair de novo')]
+    public function testLimitesEIdempotencia(): void
+    {
+        [$client, $user, $tenant, $pasta] = $this->cenario();
+        $analise = $this->analiseConcluida($tenant, $user, $pasta);
+        $this->logarComTenant($client, $user, $tenant);
+        $url = '/analises/' . $analise->getId() . '/enviar';
+        $base = ['para' => ['maria.ficha@cliente.com.br'], 'assunto' => 'A', 'corpo' => 'B', 'revisado' => '1'];
+
+        $this->postar($client, $pasta, $url, ['assunto' => str_repeat('a', 201)] + $base);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'O assunto pode ter no máximo 200 caracteres.'], $this->json($client));
+        $this->postar($client, $pasta, $url, ['corpo' => str_repeat('b', 20001)] + $base);
+        self::assertSame(['erro' => 'A mensagem pode ter no máximo 20.000 caracteres.'], $this->json($client));
+
+        $this->postar($client, $pasta, $url, $base);
+        self::assertResponseIsSuccessful();
+        self::assertEmailCount(1);
+        $this->postar($client, $pasta, $url, $base);
+        self::assertResponseIsSuccessful();
+        $resposta = $this->json($client);
+        self::assertSame([], $resposta['enviados']);
+        self::assertSame(['maria.ficha@cliente.com.br'], $resposta['jaEnviados']);
+        self::assertSame('Esta análise já foi enviada a estes e-mails há menos de 2 minutos.', $resposta['mensagem']);
+        self::assertEmailCount(0);
+        self::assertCount(1, $this->envios($pasta));
+    }
+
+    #[TestDox('Revisão item 2: com 10 envios da pasta na última hora, o próximo dá 429 "Muitos envios em pouco tempo. Tente de novo mais tarde."')]
+    public function testLimitePorHora(): void
+    {
+        [$client, $user, $tenant, $pasta] = $this->cenario();
+        $analise = $this->analiseConcluida($tenant, $user, $pasta);
+        for ($i = 0; $i < 10; ++$i) {
+            $this->em()->persist(new EnvioAoCliente($tenant, $pasta, null, TipoDeEnvioAoCliente::Ia, ['x' . $i . '@cliente.com.br'], $user, new \DateTimeImmutable('-10 minutes'), referencia: $analise->getId()));
+        }
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->postar($client, $pasta, '/analises/' . $analise->getId() . '/enviar', ['para' => ['maria.ficha@cliente.com.br'], 'assunto' => 'A', 'corpo' => 'B', 'revisado' => '1']);
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => 'Muitos envios em pouco tempo. Tente de novo mais tarde.'], $this->json($client));
+        self::assertEmailCount(0);
+    }
+
+    #[TestDox('Falha parcial do transporte: 502 com a lista "enviados", o que saiu fica no histórico')]
+    public function testFalhaParcial502(): void
+    {
+        [$client, $user, $tenant, $pasta] = $this->cenario();
+        $analise = $this->analiseConcluida($tenant, $user, $pasta);
+        $this->logarComTenant($client, $user, $tenant);
+        $this->postar($client, $pasta, '/emails', ['email' => 'falha@cliente.com.br', 'rotulo' => 'pessoal']);
+        static::getContainer()->get('event_dispatcher')->addListener(MessageEvent::class, static function (MessageEvent $evento): void {
+            $mensagem = $evento->getMessage();
+            if ($mensagem instanceof Email && $mensagem->getTo()[0]->getAddress() === 'falha@cliente.com.br') {
+                throw new TransportException('SMTP fora do ar');
+            }
+        });
+
+        $this->postar($client, $pasta, '/analises/' . $analise->getId() . '/enviar', [
+            'para' => ['maria.ficha@cliente.com.br', 'falha@cliente.com.br'], 'assunto' => 'A', 'corpo' => 'B', 'revisado' => '1',
+        ]);
+
+        self::assertResponseStatusCodeSame(502);
+        self::assertSame(['erro' => 'Falha no envio. O texto foi mantido; tente de novo.', 'enviados' => ['maria.ficha@cliente.com.br']], $this->json($client));
+        $ia = array_values(array_filter($this->envios($pasta), static fn (EnvioAoCliente $e): bool => $e->getTipo() === TipoDeEnvioAoCliente::Ia));
+        self::assertCount(1, $ia);
+        self::assertSame(['maria.ficha@cliente.com.br'], $ia[0]->getPara());
+    }
+
+    #[TestDox('Envio: quem só VÊ a pasta 403; pasta de outro escritório 404; nada sai')]
+    public function testEnvioSoVerEOutroEscritorio(): void
+    {
+        [$client, $user, $tenant, $pasta] = $this->cenario();
+        $analise = $this->analiseConcluida($tenant, $user, $pasta);
+        $dados = ['para' => ['maria.ficha@cliente.com.br'], 'assunto' => 'A', 'corpo' => 'B', 'revisado' => '1'];
+        $soVe = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'modules.inteligencia.view']);
+        [$intruso, $outroTenant] = $this->criarAdmin();
+
+        $this->logarComTenant($client, $soVe, $tenant);
+        $this->postar($client, $pasta, '/analises/' . $analise->getId() . '/enviar', $dados);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->logarComTenant($client, $intruso, $outroTenant);
+        $this->postar($client, $pasta, '/analises/' . $analise->getId() . '/enviar', $dados);
+        self::assertResponseStatusCodeSame(404);
+        self::assertEmailCount(0);
+        self::assertSame([], $this->envios($pasta));
     }
 
     #[TestDox('Modal e cartão com Controladoria: a cópia travada com "nome · e-mail" e a linha "Cópia para a Controladoria" com o selo "Sempre"')]

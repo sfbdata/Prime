@@ -23,6 +23,18 @@ Carteiro da 5d (envio). Risco MÉDIO (e-mail para fora do escritório, dado de c
   - `EnvioDeEmailAoClienteInterface::enviar(...)` — implementação provisória pelo Symfony Mailer atual (síncrono,
     com os cabeçalhos List-Unsubscribe do #87); troca para o Carteiro da 5d quando ele entrar.
 
+- Orquestrador (revisão do P4c, 19/10): limites do envio manual, no servidor. Assunto com no máximo 200 caracteres e
+  mensagem com no máximo 20.000 (422 com a mensagem clara); no máximo 10 envios de análise por pasta por hora (429
+  "Muitos envios em pouco tempo. Tente de novo mais tarde."); idempotência: a mesma análise para o mesmo destinatário
+  nos últimos 2 minutos é ignorada e volta na resposta como já enviada. O texto livre da mensagem é do desenho e fica.
+- Orquestrador (revisão do P4c, 19/10): a linha que nasceu do e-mail da ficha guarda `do_cadastro`, que sobrevive à
+  restauração; removê-la só marca `removido_em` (nunca apaga) e, havendo essa linha, o item virtual não volta. Um só
+  principal ativo por cliente (índice único parcial); as escritas travam o cliente (FOR UPDATE) e a violação de
+  UNIQUE vira 409. LGPD: remover um e-mail que não é do cadastro troca o endereço por "e-mail removido" nas linhas
+  `cadastro` do histórico da pasta; os envios `ia`/`auto` ficam, como prova do ato. Sem responsável ativo, Responder
+  para = quem enviou (nunca o MAILER_REPLY_TO da plataforma). Primário = `RegraDosPrimarios::ehPrimario`; na falha
+  parcial sem Controladoria, os primários são avisados antes do erro se algum e-mail saiu.
+
 ## Contrato com o Carteiro da 5d (recebido 19/10, branch comercial-1a, `App\Comercial\Envio`, spec comercial-e-emails §3.1)
 
 `CarteiroInterface::enviar(MensagemDeEmail): ResultadoDoEnvio {envioId, situacao: enfileirado | bloqueado_descadastro}`.

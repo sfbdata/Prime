@@ -19,6 +19,8 @@ use Doctrine\Persistence\ManagerRegistry;
 // Não-final: os testes de UseCase mockam o repositório do domínio.
 class EnvioAoClienteRepository extends ServiceEntityRepository
 {
+    public const EMAIL_REMOVIDO = 'e-mail removido';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, EnvioAoCliente::class);
@@ -32,10 +34,64 @@ class EnvioAoClienteRepository extends ServiceEntityRepository
         }
     }
 
-    /** Fecha a transação da operação (as linhas do caderno de e-mails vão no mesmo flush). */
-    public function flush(): void
+    /**
+     * LGPD: o endereço removido sai das linhas "E-mail cadastrado" do histórico da pasta (vira
+     * {@see self::EMAIL_REMOVIDO}). Os envios reais (Análise IA, automático) ficam: são a prova do ato.
+     */
+    public function anonimizarCadastroDoEmail(Tenant $tenant, Pasta $pasta, string $email): void
     {
-        $this->getEntityManager()->flush();
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE envio_ao_cliente SET para = CAST(:anonimo AS json) WHERE tenant_id = :tenant AND pasta_id = :pasta AND tipo = :tipo AND CAST(para AS jsonb) @> CAST(:email AS jsonb)',
+            [
+                'anonimo' => json_encode([self::EMAIL_REMOVIDO], JSON_THROW_ON_ERROR),
+                'tenant' => $tenant->getId(),
+                'pasta' => $pasta->getId(),
+                'tipo' => TipoDeEnvioAoCliente::Cadastro->value,
+                'email' => json_encode([$email], JSON_THROW_ON_ERROR),
+            ],
+        );
+    }
+
+    /** Quantos envios de Análise IA a pasta fez desde o instante (o limite por hora). */
+    public function contarEnviosDeAnaliseDesde(Tenant $tenant, Pasta $pasta, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.pasta = :pasta')
+            ->andWhere('e.tipo = :tipo')
+            ->andWhere('e.em >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tipo', TipoDeEnvioAoCliente::Ia)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Os destinatários a quem esta análise já foi enviada desde o instante (a idempotência do envio).
+     *
+     * @return list<string>
+     */
+    public function destinatariosDaAnaliseDesde(Tenant $tenant, Pasta $pasta, int $analiseId, \DateTimeImmutable $desde): array
+    {
+        /** @var list<EnvioAoCliente> $envios */
+        $envios = $this->createQueryBuilder('e')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.pasta = :pasta')
+            ->andWhere('e.tipo = :tipo')
+            ->andWhere('e.referencia = :analise')
+            ->andWhere('e.em >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tipo', TipoDeEnvioAoCliente::Ia)
+            ->setParameter('analise', $analiseId)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getResult();
+
+        return array_values(array_unique(array_merge([], ...array_map(static fn (EnvioAoCliente $e): array => $e->getPara(), $envios))));
     }
 
     /**
