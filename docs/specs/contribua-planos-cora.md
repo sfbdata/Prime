@@ -43,6 +43,16 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
 - 7d (cabeçalho): parcial `layout/_globais/aviso_espaco.html.twig`; linha do pageTitle `contribua_` no
   `base.html.twig` e item "Contribua · PIX" no `menu_usuario/_dropdown.html.twig` (autorizados, no #74).
 - a7 (Trabalho Externo): ordem das propostas do apoiador (C6), contrato a combinar antes.
+- **5d (Comercial e e-mails do desenho 05):** ouve `UsoDoEspacoSubiu` (tenantId, percentualAnterior,
+  percentualAtual, `cruzou(limite)`: os avisos de 80/85/90% escolhidos pelo Master), `EspacoAtingiuFaixa`
+  (o "esgotado" é a faixa Bloqueio) e `EspacoFoiPedido` (tenantId, codigoDoPlano, pedidoPorUserId). Os
+  três são despachados DEPOIS do sucesso do trabalho (`EventosDoEspacoAposConfirmar`: resposta < 400,
+  comando com 0, mensagem do worker tratada; erro descarta). O limite de 1 e-mail por dia por escritório
+  e faixa fica com a 5d. Eventos no #64 (os dois de espaço) e no #74 (o pedido).
+- **Central:** os avisos do Contribua (`AvisoAoMaster::TIPO_*`) são o tipo "Contribua" do desenho
+  (bi-heart, #c0392b, grupo atenção, nível 2) no `TiposDeAvisoDaCentral` (#74). O destino "master" do
+  protótipo é o `AvisoAoMaster` (todos os `ROLE_SUPER_ADMIN`). A 4b mexeu no mesmo mapa (#86, tipo
+  agenda): entradas separadas, quem mergear depois mantém as duas.
 - **4b (desde 19/10):** implementa a **C4 Cora** (domínio App\Contribua, branch empilhada sobre a
   contribua-c3; parciais `contribua/_integracao_bancaria.html.twig` e `contribua/_premio.html.twig` nos
   pontos de inclusão; acrescenta colunas ao `Apoio`; interface `BancoPix` para Inter/BB/Outro) e, depois,
