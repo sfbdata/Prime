@@ -40,6 +40,14 @@
     --ps-ia-off:         #8a97a0;
     --ps-ia-msg-bg:      #f8f5ff;
     --ps-ia-previa:      #5f5a78;
+    /* Edição (P4h, desenho N:2602-2624). */
+    --ps-ia-ed-borda:    #cdbff1;
+    --ps-ia-ed-borda-2:  #d9cff4;
+    --ps-ia-ed-campo:    #fff;
+    --ps-ia-ed-hover:    #e2d8f8;
+    --ps-ia-salvar-tx:   #fff;
+    --ps-ia-salvar-hover: #4c3399;
+    --ps-ia-remover:     #a3998f;
     /* Chips por tipo de ponto (desenho, `PT`): texto · fundo. */
     --ps-ia-prazo-tx:    #b42318;  --ps-ia-prazo-bg:   #fdecea;
     --ps-ia-atencao-tx:  #b4460a;  --ps-ia-atencao-bg: #fff1e6;
@@ -78,6 +86,13 @@
     --ps-ia-off:         var(--bs-secondary-color);
     --ps-ia-msg-bg:      rgba(122, 92, 214, .12);
     --ps-ia-previa:      var(--bs-secondary-color);
+    --ps-ia-ed-borda:    rgba(185, 166, 242, .4);
+    --ps-ia-ed-borda-2:  rgba(185, 166, 242, .3);
+    --ps-ia-ed-campo:    var(--bs-body-bg);
+    --ps-ia-ed-hover:    rgba(185, 166, 242, .24);
+    --ps-ia-salvar-tx:   #1d1640;
+    --ps-ia-salvar-hover: #cbbcf6;
+    --ps-ia-remover:     var(--bs-secondary-color);
     --ps-ia-prazo-tx:    #f4a29a;  --ps-ia-prazo-bg:   rgba(180, 35, 24, .25);
     --ps-ia-atencao-tx:  #f6b98a;  --ps-ia-atencao-bg: rgba(180, 70, 10, .25);
     --ps-ia-provid-tx:   #e8c96a;  --ps-ia-provid-bg:  rgba(138, 100, 0, .3);
@@ -188,6 +203,7 @@
 .ps-push .ps-ia-aviso { font-size: 11.5px; color: var(--ps-ia-aviso); }
 .ps-push .ps-ia-quando { font-variant-numeric: tabular-nums; }
 .ps-push .ps-ia-lido { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 700; color: var(--ps-ia-texto-3); }
+.ps-push .ps-ia-editado { font-size: 10.5px; font-weight: 700; color: var(--ps-ia-roxo-dia); background: var(--ps-ia-hover-menu); padding: 1px 6px; border-radius: 3px; }
 .ps-push .ps-ia-cadeado { color: var(--ps-ia-roxo); font-size: 13px; }
 .ps-push .ps-ia-acao { margin: 0; display: inline-flex; }
 
@@ -349,3 +365,52 @@
     .ps-push .ps-ia-gerar.is-carregando .ps-ia-gerar-ico,
     .ps-push .ps-ia-andamento-ico { animation: none; }
 }
+
+/* Editar (P4h, desenho N:2602-2624): a classe `--editando` troca a leitura pela edição. */
+.ps-push .ps-ia-edicao { display: none; flex-direction: column; gap: 7px; }
+.ps-push .ps-ia-cartao--editando .ps-ia-edicao { display: flex; }
+.ps-push .ps-ia-cartao--editando .ps-ia-resumo,
+.ps-push .ps-ia-cartao--editando .ps-ia-pontos,
+.ps-push .ps-ia-cartao--editando .ps-ia-quem,
+.ps-push .ps-ia-cartao--editando .ps-ia-base,
+.ps-push .ps-ia-cartao--editando footer.ps-ia-acoes { display: none; }
+.ps-push .ps-ia-ed-resumo {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--ps-ia-ed-borda);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--ps-ia-texto);
+    background: var(--ps-ia-ed-campo);
+    resize: vertical;
+    outline: none;
+}
+.ps-push .ps-ia-ed-ponto { display: flex; align-items: center; gap: 6px; }
+.ps-push .ps-ia-ed-ponto[hidden] { display: none; }
+.ps-push .ps-ia-ed-ponto-txt {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 9px;
+    border: 1px solid var(--ps-ia-ed-borda-2);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ps-ia-texto-2);
+    background: var(--ps-ia-ed-campo);
+    outline: none;
+}
+.ps-push .ps-ia-ed-resumo:focus-visible,
+.ps-push .ps-ia-ed-ponto-txt:focus-visible { border-color: var(--ps-ia-roxo-2); }
+.ps-push .ps-ia-ed-remover { color: var(--ps-ia-remover); }
+.ps-push .ps-ia-ed-remover:hover,
+.ps-push .ps-ia-ed-remover:focus-visible { background: var(--ps-ia-perigo-bg); color: var(--ps-ia-perigo); }
+.ps-push .ps-ia-ed-nota { margin: 0; font-size: 11px; color: var(--ps-ia-base); }
+.ps-push .ps-ia-botao--editar { background: var(--ps-ia-selo-bg); color: var(--ps-ia-roxo); font-weight: 700; }
+.ps-push .ps-ia-botao--editar:hover,
+.ps-push .ps-ia-botao--editar:focus-visible { background: var(--ps-ia-ed-hover); }
+.ps-push .ps-ia-botao--salvar { padding: 0 12px; background: var(--ps-ia-roxo); color: var(--ps-ia-salvar-tx); font-weight: 700; }
+.ps-push .ps-ia-botao--salvar:hover,
+.ps-push .ps-ia-botao--salvar:focus-visible { background: var(--ps-ia-salvar-hover); }

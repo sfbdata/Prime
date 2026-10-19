@@ -8,8 +8,12 @@
 
    Arranjo do desenho 1.2.3 (dc L.2427-2497): coluna da marca (✦ + dia) à
    esquerda; no corpo, a linha do selo com o cadeado e o menu ⋮; resumo, pontos,
-   quem deve agir, base; ações em linha. Edição e "enviar ao cliente" do desenho
-   não existem no sistema e não são desenhadas.
+   quem deve agir, base; ações em linha. "Enviar ao cliente" é do P4c.
+
+   Editar (P4h, desenho N:2602-2624): o formulário de edição mora no cartão,
+   escondido pelo CSS; a classe `ps-ia-cartao--editando` (pasta-ia-push.js)
+   troca a leitura pela edição. A versão do
+   advogado fica ao lado da saída do modelo e ganha o selo "editado".
 
    Recolher/expandir (IA-010, dc L2440 e L2452): chevron no cabeçalho e, recolhida,
    uma prévia de uma linha ("resumo · N ponto(s)") no lugar do conteúdo. A escolha
@@ -47,6 +51,8 @@
         {# Só a concluída recolhe: a prévia é o resumo (dc L5137, `previa`). #}
         {% set recolhivel = a.status == 'concluida' %}
         {% set aberta = not recolhivel or a.id not in recolhidasIa %}
+        {# P4h: editar segue a regra do "Criar tarefa da providência" (EDIT e pasta viva). #}
+        {% set podeEditarIa = a.status == 'concluida' and iaPodeCriarTarefa %}
         {% set dicaAberta = aberta ? 'Recolher a análise' : 'Expandir a análise' %}
         <article class="ps-ia-cartao ps-ia-cartao--{{ a.status }}{{ a.lida ? ' ps-ia-cartao--lida' : '' }}{{ aberta ? '' : ' ps-ia-cartao--recolhida' }}"
                  aria-label="Análise gerada por IA"
@@ -61,6 +67,9 @@
                 <header class="ps-ia-cab">
                     <span class="ps-ia-selo">✦ Análise IA</span>
                     <span class="ps-ia-aviso">Gerado por IA · não é movimentação oficial · <time class="ps-ia-quando ps-num" datetime="{{ a.criadaEm|date('c') }}">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m/Y') }}, {{ a.criadaEm|date('H:i') }}</time></span>
+                    {% if a.editada %}
+                        <span class="ps-ia-editado"{% if a.editadaEm %} title="Editado{{ a.editadaPorNome ? ' por ' ~ a.editadaPorNome : '' }} em {{ a.editadaEm|date('d/m') }} às {{ a.editadaEm|date('H:i') }}"{% endif %}>editado</span>
+                    {% endif %}
                     {% if a.lida %}
                         <span class="ps-ia-lido"><i class="bi bi-check2-all" aria-hidden="true"></i>lido</span>
                     {% endif %}
@@ -92,6 +101,9 @@
                             <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                         </button>
                         <div class="ps-ia-menu" role="menu" hidden>
+                            {% if podeEditarIa %}
+                                <button type="button" class="ps-ia-menu-item" role="menuitem" data-ia-editar><i class="bi bi-pencil" aria-hidden="true"></i>Editar</button>
+                            {% endif %}
                             {% if a.terminal and not a.lida %}
                                 <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="lida">
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
@@ -151,6 +163,27 @@
                         <p class="ps-ia-quem"><i class="bi bi-person-check" aria-hidden="true"></i><strong>Quem deve agir:</strong> {{ a.quemAge }}</p>
                     {% endif %}
                     <p class="ps-ia-base">Base: {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'movimentação' : 'movimentações' }}. Confira o documento original antes de agir.</p>
+                    {% if podeEditarIa %}
+                        {# Modo edição (desenho N:2602-2612 e N:2621-2624). `pontos[i]`: i = posição na lista
+                           exibida; o X tira a linha e o ponto sai. Sem incluir ponto nem trocar o tipo. #}
+                        <form method="post" action="{{ path('inteligencia_analise_editar', {id: pastaId, analiseId: a.id}) }}"
+                              class="ps-ia-acao ps-ia-edicao" data-ia-acao="editar" data-ia-edicao>
+                            <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                            <textarea name="resumo" class="ps-ia-ed-resumo" rows="3" maxlength="2000" aria-label="Resumo da análise">{{ a.resumo }}</textarea>
+                            {% for p in a.pontos %}
+                                <div class="ps-ia-ed-ponto" data-ia-ed-ponto>
+                                    <span class="ps-ia-chip ps-ia-chip--{{ p.tipo }}">{{ p.rotulo }}</span>
+                                    <input type="text" name="pontos[{{ loop.index0 }}]" value="{{ p.texto }}" maxlength="500" class="ps-ia-ed-ponto-txt" aria-label="Ponto da análise">
+                                    <button type="button" class="ps-ia-icone ps-ia-ed-remover" data-ia-ed-remover aria-label="Remover ponto" title="Remover ponto"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                                </div>
+                            {% endfor %}
+                            <p class="ps-ia-ed-nota">Conteúdo originalmente gerado por IA. Sua edição fica registrada como "editado".</p>
+                            <div class="ps-ia-acoes">
+                                <button type="submit" class="ps-ia-botao ps-ia-botao--salvar"><i class="bi bi-check2" aria-hidden="true"></i> Salvar</button>
+                                <button type="button" class="ps-ia-botao" data-ia-ed-cancelar>Cancelar</button>
+                            </div>
+                        </form>
+                    {% endif %}
                 {% elseif a.status == 'falhou' %}
                     <p class="ps-ia-erro">Não foi possível gerar a análise agora. Tente novamente.</p>
                     {% if podeVerMotivoTecnico and a.erroMotivo %}
@@ -160,7 +193,10 @@
                     <p class="ps-ia-erro">IA não configurada nesta instalação.</p>
                 {% endif %}
 
-                <footer class="ps-ia-acoes">
+                <footer class="ps-ia-acoes" data-ia-rodape>
+                    {% if podeEditarIa %}
+                        <button type="button" class="ps-ia-botao ps-ia-botao--editar" data-ia-editar><i class="bi bi-pencil" aria-hidden="true"></i> Editar</button>
+                    {% endif %}
                     <form method="post" action="{{ path('inteligencia_analise_excluir', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="excluir"
                           data-ia-confirmar="Excluir esta análise da IA? As movimentações oficiais não são alteradas.">
                         <input type="hidden" name="_token" value="{{ csrfAnalise }}">

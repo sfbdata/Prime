@@ -6,17 +6,20 @@ namespace App\Inteligencia\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\DTO\EditarAnaliseInput;
 use App\Inteligencia\DTO\SolicitarResumoDoPushInput;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
+use App\Inteligencia\Exception\EdicaoDaAnaliseInvalidaException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\UseCase\AlternarAnaliseInternaUseCase;
 use App\Inteligencia\UseCase\ConsultarStatusDaAnaliseUseCase;
+use App\Inteligencia\UseCase\EditarAnaliseUseCase;
 use App\Inteligencia\UseCase\ExcluirAnaliseUseCase;
 use App\Inteligencia\UseCase\ExportarAnaliseEmTextoUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
@@ -54,6 +57,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *   POST /pasta/{id}/ia/analises/{analiseId}/registro → `acao` = download | impressao (outra → 422): 1 linha no
  *                                                 `audit_log` (C6-IA-01) · JSON {id, acao, registrado}
  *   POST …/{analiseId}/lida | /nao-lida | /excluir | /interna | /recolher → XHR: JSON · form comum: redirect para a pasta #push
+ *   POST …/{analiseId}/editar → `resumo` + `pontos[i]` (P4h; EDIT na pasta) · 422 texto longo · 409 não concluída
  * CSRF: `_token` (campo ou header X-CSRF-Token); ids `inteligencia_push_{pastaId}` e
  * `inteligencia_analise_{analiseId}`; o registro de download/impressão usa
  * `inteligencia_analise_registro_{analiseId}`.
@@ -77,6 +81,7 @@ final class AnalisePushController extends AbstractController
         private readonly ListarAuditoriaDaPastaUseCase $listarAuditoria,
         private readonly RecolherAnaliseUseCase $recolherAnalise,
         private readonly RegistrarExportacaoDaAnaliseUseCase $registrarExportacao,
+        private readonly EditarAnaliseUseCase $editar,
         // Interface (não a classe) pelo mesmo motivo do PoliticaPrivacidadeController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -284,6 +289,36 @@ final class AnalisePushController extends AbstractController
         }
 
         return $this->respostaDaAcao($request, $pasta, $saida->paraJson() + ['internaDoEscritorio' => $saida->internaDoEscritorio]);
+    }
+
+    /**
+     * "Editar" do cartão (P4h, `docs/specs/push-editar-analise-ia.md`): grava a versão do advogado ao
+     * lado da saída do modelo. Mesma regra do "Criar tarefa da providência" (C6-IA-03): além da
+     * guarda comum, EDIT na pasta; a lápide é recusada antes pelo `PastaSomenteLeituraListener`.
+     * Ordem: 404 pasta alheia → 403 sem ver/sem módulo → 403 CSRF → 403 sem EDIT → 404 análise →
+     * 422 texto longo → 409 análise não concluída. Nada é gravado em nenhuma recusa.
+     */
+    #[Route('/analises/{analiseId}/editar', name: 'inteligencia_analise_editar', requirements: ['analiseId' => '\d+'], methods: ['POST'])]
+    public function editar(Pasta $pasta, int $analiseId, Request $request): Response
+    {
+        [$user, $tenant] = $this->guardar($pasta);
+        $this->exigirCsrfDaAnalise($request, $analiseId);
+
+        if (!$this->permissionChecker->canAccessResource($user, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
+            return $this->recusa('sem_permissao', 'Sem permissão para editar esta pasta.', Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $saida = $this->editar->executar($analiseId, (int) $pasta->getId(), EditarAnaliseInput::fromRequest($request), $user, $tenant);
+        } catch (AnaliseNaoEncontradaException $e) {
+            throw $this->createNotFoundException($e->getMessage());
+        } catch (EdicaoDaAnaliseInvalidaException $e) {
+            return $this->recusa('texto_longo', $e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (\DomainException) {
+            return $this->recusa('nao_concluida', 'Só dá para editar uma análise concluída.', Response::HTTP_CONFLICT);
+        }
+
+        return $this->respostaDaAcao($request, $pasta, $saida->paraJson() + ['editada' => $saida->editada]);
     }
 
     /**

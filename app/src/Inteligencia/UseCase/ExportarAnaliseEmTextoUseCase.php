@@ -47,13 +47,20 @@ final class ExportarAnaliseEmTextoUseCase
         $linhas = [
             'BLUEJUS IA · ' . ($saida->agenteNome ?? 'Análise IA do Push'),
             'Pasta ' . $nup . ' · gerada em ' . $saida->criadaEm->format('d/m/Y H:i'),
+        ];
+        // P4h: o texto abaixo é a versão do advogado; o .txt diz isso, como o selo "editado" do cartão.
+        if ($saida->editada && $saida->editadaEm !== null) {
+            $linhas[] = 'Editado' . ($saida->editadaPorNome !== null ? ' por ' . $saida->editadaPorNome : '') . ' em ' . $saida->editadaEm->format('d/m/Y H:i');
+        }
+        array_push(
+            $linhas,
             '',
             $this->corpo($saida),
             '',
             $ehAgente
                 ? 'Gerado por IA · não é ato oficial do processo. Confira os documentos originais antes de agir.'
                 : 'Gerado por IA · não é movimentação oficial. Confira o documento original antes de agir.',
-        ];
+        );
 
         return new AnaliseEmTextoOutput(
             nomeDoArquivo: $this->nomeDoArquivo($saida, $nup),

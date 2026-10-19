@@ -452,6 +452,58 @@
             window.bootstrap.Modal.getOrCreateInstance(modal).show();
         });
 
+        /* ── 7. Editar (P4h, desenho N:2602-2624) ─────────────────────────── */
+        // A classe `ps-ia-cartao--editando` troca a leitura pelo formulário que já veio no cartão.
+        // "Remover ponto" esconde a linha e desliga o campo (campo desligado não vai no POST: o ponto
+        // sai); "Cancelar" religa tudo e volta aos valores originais. "Salvar" é um `data-ia-acao`
+        // comum: a seção 3 envia e recarrega a lista.
+        function sairDaEdicao(cartao) {
+            var form = cartao.querySelector('[data-ia-edicao]');
+            if (form) {
+                form.querySelectorAll('[data-ia-ed-ponto]').forEach(function (linha) {
+                    linha.hidden = false;
+                    var campo = linha.querySelector('input');
+                    if (campo) { campo.disabled = false; }
+                });
+                form.reset();
+            }
+            cartao.classList.remove('ps-ia-cartao--editando');
+        }
+
+        secao.addEventListener('click', function (e) {
+            var editar = e.target.closest('[data-ia-editar]');
+            if (editar && secao.contains(editar)) {
+                var cartao = editar.closest('[data-ia-analise]');
+                if (!cartao || !cartao.querySelector('[data-ia-edicao]')) { return; }
+                fecharMenus();
+                // Recolhida: expande antes (mesmo caminho do chevron, que grava a escolha).
+                if (cartao.classList.contains('ps-ia-cartao--recolhida')) {
+                    var recolher = cartao.querySelector('form[data-ia-acao="recolher"]');
+                    if (recolher) { recolher.requestSubmit(); }
+                }
+                cartao.classList.add('ps-ia-cartao--editando');
+                var resumo = cartao.querySelector('[data-ia-edicao] textarea');
+                if (resumo) { resumo.focus(); }
+                return;
+            }
+
+            var remover = e.target.closest('[data-ia-ed-remover]');
+            if (remover && secao.contains(remover)) {
+                var linha = remover.closest('[data-ia-ed-ponto]');
+                if (!linha) { return; }
+                var campo = linha.querySelector('input');
+                if (campo) { campo.disabled = true; }
+                linha.hidden = true;
+                return;
+            }
+
+            var cancelar = e.target.closest('[data-ia-ed-cancelar]');
+            if (cancelar && secao.contains(cancelar)) {
+                var alvo = cancelar.closest('[data-ia-analise]');
+                if (alvo) { sairDaEdicao(alvo); }
+            }
+        });
+
         acompanhar();
     }
 

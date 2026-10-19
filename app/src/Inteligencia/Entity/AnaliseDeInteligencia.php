@@ -40,6 +40,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_inteligencia_analise_solicitante', columns: ['solicitante_id'])]
 #[ORM\Index(name: 'idx_inteligencia_analise_lida_por', columns: ['lida_por_id'])]
 #[ORM\Index(name: 'idx_inteligencia_analise_excluida_por', columns: ['excluida_por_id'])]
+#[ORM\Index(name: 'idx_inteligencia_analise_editada_por', columns: ['editada_por_id'])]
 class AnaliseDeInteligencia implements TenantAware, Auditavel
 {
     public const ALVO_PASTA = 'pasta';
@@ -113,6 +114,24 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $excluidaPor = null;
+
+    /**
+     * Edição do advogado (P4h). Mora AO LADO da saída do modelo, que nunca é sobrescrita (regras 1 e 6):
+     * a tela, o .txt e o link público mostram a versão exibida; o próximo prompt lê o original.
+     */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $resumoEditado = null;
+
+    /** @var list<array{tipo: string, texto: string}>|null */
+    #[ORM\Column(type: 'json', nullable: true, options: ['jsonb' => true])]
+    private ?array $pontosEditados = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $editadaEm = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $editadaPor = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadaEm;
@@ -303,6 +322,43 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         $this->excluidaPor = $por;
     }
 
+    /**
+     * "Editar" do cartão (desenho, `salvar`): resumo vazio mantém o anterior; o ponto vazio ou ausente
+     * sai; o tipo de cada ponto e "quem deve agir" não mudam. `$textos` é indexado pela posição na
+     * lista EXIBIDA. Devolve false quando nada mudou (não marca "editado").
+     *
+     * @param array<int, string> $textos
+     */
+    public function editar(string $resumo, array $textos, User $por): bool
+    {
+        $this->exigirStatus([StatusDaAnalise::Concluida], 'editar');
+        if ($this->excluidaEm !== null) {
+            throw new \DomainException('Não é possível editar: a análise foi excluída.');
+        }
+
+        $resumo = trim($resumo);
+        $novoResumo = $resumo !== '' ? $resumo : (string) $this->getResumoExibido();
+
+        $novosPontos = [];
+        foreach ($this->getPontosExibidos() as $i => $ponto) {
+            $texto = trim($textos[$i] ?? '');
+            if ($texto !== '') {
+                $novosPontos[] = ['tipo' => $ponto['tipo'], 'texto' => $texto];
+            }
+        }
+
+        if ($novoResumo === $this->getResumoExibido() && $novosPontos === $this->getPontosExibidos()) {
+            return false;
+        }
+
+        $this->resumoEditado = $novoResumo;
+        $this->pontosEditados = $novosPontos;
+        $this->editadaEm = new \DateTimeImmutable();
+        $this->editadaPor = $por;
+
+        return true;
+    }
+
     /** Alterna o cadeado "interna do escritório" e devolve o estado novo. */
     public function alternarInterna(): bool
     {
@@ -438,6 +494,43 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
     public function getPontos(): ?array
     {
         return $this->pontos;
+    }
+
+    /** O que a tela, o .txt e o link público mostram: a edição do advogado, se houver. */
+    public function getResumoExibido(): ?string
+    {
+        return $this->editadaEm !== null ? $this->resumoEditado : $this->resumo;
+    }
+
+    /** @return list<array{tipo: string, texto: string}> */
+    public function getPontosExibidos(): array
+    {
+        // O jsonb pode vir de linha antiga ou malformada: lido como dado cru, e só o que tem texto sai.
+        /** @var array<mixed> $pontos */
+        $pontos = ($this->editadaEm !== null ? $this->pontosEditados : $this->pontos) ?? [];
+        $saida = [];
+        foreach ($pontos as $ponto) {
+            if (is_array($ponto) && isset($ponto['texto']) && is_string($ponto['texto'])) {
+                $saida[] = ['tipo' => is_string($ponto['tipo'] ?? null) ? $ponto['tipo'] : '', 'texto' => $ponto['texto']];
+            }
+        }
+
+        return $saida;
+    }
+
+    public function foiEditada(): bool
+    {
+        return $this->editadaEm !== null;
+    }
+
+    public function getEditadaEm(): ?\DateTimeImmutable
+    {
+        return $this->editadaEm;
+    }
+
+    public function getEditadaPor(): ?User
+    {
+        return $this->editadaPor;
     }
 
     public function getQuemAge(): ?string
