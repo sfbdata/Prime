@@ -49,7 +49,8 @@ final class SuspenderContaUseCase
         $conta->setIsActive(false);
         $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
 
-        return ContaAlteradaOutput::fromEntity($conta);
+        // Suspensa não tem excluidoEm: a carência não entra na saída.
+        return ContaAlteradaOutput::fromEntity($conta, 0);
     }
 
     private function exigirMaster(User $ator): void

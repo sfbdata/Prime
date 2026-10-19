@@ -6,9 +6,11 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Master\DTO\ContaAlteradaOutput;
+use App\Master\DTO\ExcluirContaInput;
 use App\Master\DTO\SituacaoDaContaInput;
 use App\Master\Exception\ContaNaoEncontrada;
 use App\Master\Exception\OperacaoDeContaRecusada;
+use App\Master\UseCase\ExcluirContaPeloMasterUseCase;
 use App\Master\UseCase\ReativarContaUseCase;
 use App\Master\UseCase\SuspenderContaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -20,7 +22,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Ações do Master sobre uma conta, no menu de "Contas e escritórios" (spec docs/specs/perfis-1.2-contas.md
- * C1 a C3): suspender e reativar. Exclusivo do Master (ROLE_SUPER_ADMIN; os outros recebem 403).
+ * C1 a C4b): suspender, reativar (também da quarentena) e excluir. Exclusivo do Master (ROLE_SUPER_ADMIN; os outros recebem 403).
  *
  * Responde JSON porque o painel (public/js/master/painel.js) é montado no navegador: ele troca a
  * situação da linha sem recarregar. CSRF por conta: o token `master_conta_<id>` vem na lista de
@@ -44,6 +46,15 @@ final class ContasDoSistemaController extends AbstractController
         return $this->executar($id, $request, static fn (SituacaoDaContaInput $input): ContaAlteradaOutput => $reativar->executar($input), 'Conta "%s" reativada.');
     }
 
+    /** Excluir: a palavra EXCLUIR vem no corpo (`confirmacao`) e o UseCase a confere, não só o painel. */
+    #[Route('/excluir', name: 'master_conta_excluir', methods: ['POST'])]
+    public function excluir(int $id, Request $request, ExcluirContaPeloMasterUseCase $excluir): JsonResponse
+    {
+        $confirmacao = $request->request->getString('confirmacao');
+
+        return $this->executar($id, $request, static fn (SituacaoDaContaInput $input): ContaAlteradaOutput => $excluir->executar(new ExcluirContaInput($input->ator, $input->contaId, $confirmacao)), 'Conta "%s" excluída. Fica em quarentena até a purga e pode ser recuperada pelo Master.');
+    }
+
     /**
      * @param callable(SituacaoDaContaInput): ContaAlteradaOutput $acao
      */
@@ -61,7 +72,7 @@ final class ContasDoSistemaController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return $this->json(['mensagem' => sprintf($mensagem, $conta->nome), 'conta' => ['id' => $conta->id, 'situacao' => $conta->situacao]]);
+        return $this->json(['mensagem' => sprintf($mensagem, $conta->nome), 'conta' => ['id' => $conta->id, 'situacao' => $conta->situacao, 'purgaEm' => $conta->purgaEm]]);
     }
 
     private function ator(): User

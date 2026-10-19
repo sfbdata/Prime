@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Master\UseCase;
 
+use App\Master\DTO\ContaAlteradaOutput;
 use App\Master\Repository\PainelMasterRepository;
 use Psr\Clock\ClockInterface;
 
 /**
  * "Contas e escritórios" e o ranking de "Armazenamento" do Painel do Master: uma linha por escritório
- * fora da quarentena, com metadados (quantidades, consumo, situação). Nunca o conteúdo jurídico.
+ * fora da quarentena (e, à parte, as contas em quarentena, spec perfis-1.2-contas C4b), com metadados (quantidades, consumo, situação). Nunca o conteúdo jurídico.
  *
  * Plano, cota de armazenamento e limite de usuários não existem no banco (E3): não saem daqui, e a
  * tela mostra "sem plano" / "sem limite" em vez de inventar.
@@ -19,11 +20,12 @@ final class ConsultarContasUseCase
     public function __construct(
         private readonly PainelMasterRepository $repositorio,
         private readonly ClockInterface $relogio,
+        private readonly int $carenciaPurgaDias,
     ) {
     }
 
     /**
-     * @return list<array{id: int, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool}>
+     * @return list<array{id: int, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string}>
      */
     public function executar(): array
     {
@@ -33,7 +35,9 @@ final class ConsultarContasUseCase
         $consumo  = $this->repositorio->consumoPorEscritorio($desde);
 
         $contas = [];
-        foreach ($this->repositorio->escritorios() as $e) {
+        // As contas em quarentena (C4b) vêm depois, para a opção "Em quarentena" do filtro. As contagens
+        // do painel não olham a quarentena: nelas usuários, pastas e consumo saem zerados.
+        foreach ([...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()] as $e) {
             $id = $e['id'];
             $contas[] = [
                 'id'            => $id,
@@ -46,9 +50,11 @@ final class ConsultarContasUseCase
                 'documentos'    => $consumo[$id]['documentos'] ?? 0,
                 'bytes'         => $consumo[$id]['bytes'] ?? 0,
                 'bytesRecentes' => $consumo[$id]['bytesRecentes'] ?? 0,
-                'situacao'      => $e['ativo'] ? 'Ativa' : 'Suspensa',
+                'situacao'      => ContaAlteradaOutput::situacao($e['ativo'], $e['excluido_em'] !== null),
                 // Conta criada por um Master (C5): o painel esconde "Excluir conta" e o servidor recusa.
                 'ehDoMaster'    => $e['do_master'],
+                // Data prevista da purga: excluidoEm + `tenant_carencia_purga_dias` (a mesma conta do comando de purga).
+                'purgaEm'       => $e['excluido_em'] !== null ? (new \DateTimeImmutable($e['excluido_em']))->modify(sprintf('+%d days', $this->carenciaPurgaDias))->format('Y-m-d') : null,
             ];
         }
 

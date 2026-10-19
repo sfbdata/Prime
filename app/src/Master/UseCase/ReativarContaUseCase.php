@@ -22,14 +22,14 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
  * Quem dispara: um Master, no menu da conta em "Contas e escritórios", depois de confirmar no modal.
  * O controller exige ROLE_SUPER_ADMIN; a checagem de Master se repete aqui.
  * Objetivo: devolver o acesso normal aos usuários da conta.
- * Pré-condições: a conta existe, está suspensa (`isActive=false`) e NÃO foi excluída: conta com
- * `excluidoEm` está na quarentena da exclusão e sai dela por outro caminho (decisão Q1 da spec).
- * Fluxo principal: carrega a conta, aplica as recusas, grava `isActive=true`.
- * Fluxos alternativos: conta inexistente ({@see ContaNaoEncontrada}); ator sem ROLE_SUPER_ADMIN; conta excluída ou já ativa. Recusados
+ * Pré-condições: a conta existe e está fora do ar: suspensa (`isActive=false`) ou em quarentena
+ * (`excluidoEm` preenchido e ainda não purgada, C4b: "pode ser recuperada pelo Master").
+ * Fluxo principal: carrega a conta, aplica as recusas, grava `isActive=true` e `excluidoEm=null`.
+ * Fluxos alternativos: conta inexistente ({@see ContaNaoEncontrada}); ator sem ROLE_SUPER_ADMIN; conta já ativa. Recusados
  * com mensagem.
  * Pós-condições: os usuários voltam a selecionar o escritório e a entrar nele.
  * Auditoria (C6): flush dentro de {@see EscopoDeAuditoriaDePlataforma::executarComoConta()}, com o
- * `tenant_id` da conta alvo.
+ * `tenant_id` da conta alvo. Da quarentena, o rótulo é "Exclusão de conta cancelada".
  */
 final class ReativarContaUseCase
 {
@@ -37,6 +37,7 @@ final class ReativarContaUseCase
         private readonly ContasDoSistemaRepository $contas,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDeAuditoria,
+        private readonly int $carenciaPurgaDias,
     ) {
     }
 
@@ -44,15 +45,18 @@ final class ReativarContaUseCase
     {
         $this->exigirMaster($input->ator);
         $conta = $this->carregarConta($input->contaId);
-        $this->exigirContaSuspensa($conta);
+        $this->exigirContaForaDoAr($conta);
 
         $conta->setIsActive(true);
+        // Recuperar da quarentena (C4b): a exclusão é desfeita. Conta só suspensa já tem excluidoEm nulo.
+        $conta->setExcluidoEm(null);
         // Ponto de extensão do contrato com a frente 7d (PR 5): com pedido de exclusão PENDENTE para
         // esta conta, chamar aqui `$pedido->marcarReativada($input->ator)` (PedidoDeExclusaoDeConta),
-        // ANTES do flush abaixo, para o pedido e a conta mudarem na mesma transação.
+        // ANTES do flush abaixo, para o pedido e a conta mudarem na mesma transação. Ao recuperar da
+        // QUARENTENA, um pedido já em "excluida" fica como está: não é tocado (acordo com a 7d, spec C4b).
         $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
 
-        return ContaAlteradaOutput::fromEntity($conta);
+        return ContaAlteradaOutput::fromEntity($conta, $this->carenciaPurgaDias);
     }
 
     private function exigirMaster(User $ator): void
@@ -72,13 +76,10 @@ final class ReativarContaUseCase
         return $conta;
     }
 
-    private function exigirContaSuspensa(Tenant $conta): void
+    /** Suspensa ou em quarentena; conta ativa (e não excluída) não tem o que reativar. */
+    private function exigirContaForaDoAr(Tenant $conta): void
     {
-        if ($conta->getExcluidoEm() !== null) {
-            throw new OperacaoDeContaRecusada('Esta conta foi excluída e não pode ser reativada por aqui.');
-        }
-
-        if ($conta->isActive() === true) {
+        if ($conta->isActive() === true && $conta->getExcluidoEm() === null) {
             throw new OperacaoDeContaRecusada('Esta conta já está ativa.');
         }
     }

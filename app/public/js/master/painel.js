@@ -39,7 +39,9 @@
     planos: ['bi-sliders', 'Planos e limites', 'Planos, franquias de armazenamento e limites de usuários por conta ainda não existem no sistema. Quando forem cadastrados, cada plano aparece aqui com as contas que o usam.', ['Planos', 'Preço mensal', 'Franquia de armazenamento', 'Limite de usuários', 'Contas por plano', 'Contas perto da franquia']]
   };
   const NM = { RO: 'Rondônia', AC: 'Acre', AM: 'Amazonas', RR: 'Roraima', PA: 'Pará', AP: 'Amapá', TO: 'Tocantins', MA: 'Maranhão', PI: 'Piauí', CE: 'Ceará', RN: 'Rio Grande do Norte', PB: 'Paraíba', PE: 'Pernambuco', AL: 'Alagoas', SE: 'Sergipe', BA: 'Bahia', MG: 'Minas Gerais', ES: 'Espírito Santo', RJ: 'Rio de Janeiro', SP: 'São Paulo', PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', GO: 'Goiás', DF: 'Distrito Federal' };
-  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b' };
+  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Em quarentena': '#5b7383' };
+  const QUARENTENA = 'Em quarentena';
+  const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
 
   /* ---------- carga ---------- */
   const carregar = (chave, url) => {
@@ -247,7 +249,9 @@
   function montarContas() {
     elSecao.innerHTML = '<div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>Contas e escritórios <span id="mp-contas-n"></span></b>'
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>Convites</a>'
-      + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option></select>'
+      + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option>'
+      // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
+      + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>Em quarentena</option></select>'
       + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar conta ou primário" aria-label="Buscar conta ou primário"></label></div>'
       + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab"><div>CONTA</div><div>PRIMÁRIO · PLANO</div><div>USUÁRIOS</div><div>PASTAS</div><div>DOCS</div><div>ARMAZENAMENTO</div><div>30 DIAS</div><div>PREVISÃO</div><div>SITUAÇÃO</div><div></div></div>'
       + '<div id="mp-contas-lista"></div></div></div></div>'
@@ -257,13 +261,16 @@
   }
 
   // Menu da conta (desenho 1.2, linha 735), na ordem: [limites: frente própria, ocultos até lá], Estatísticas,
-  // Histórico, Suspender OU Reativar (conforme a situação) e [Excluir conta: parte 2 da spec, ainda não].
+  // Histórico, Suspender OU Reativar (conforme a situação) e Excluir conta (oculto na conta do Master, C5).
+  // Conta em quarentena (C4b): só Estatísticas, Histórico e Reativar conta.
+  const opMenu = (op, classe, icone, rotulo, c) => '<button type="button" class="mp-menu-op' + classe + '" data-op="' + op + '" data-conta-id="' + c.id + '"><i class="bi ' + icone + '"></i>' + rotulo + '</button>';
   const menuDaConta = c => '<div class="mp-menu" data-parar><div class="mp-menu-cab">' + esc(c.nome) + '</div>'
-    + '<button type="button" class="mp-menu-op" data-op="estat"><i class="bi bi-bar-chart"></i>Estatísticas de uso</button>'
-    + '<button type="button" class="mp-menu-op" data-op="hist" data-conta-id="' + c.id + '"><i class="bi bi-clock-history"></i>Histórico de alterações</button>'
-    + (c.situacao === 'Suspensa'
-      ? '<button type="button" class="mp-menu-op mp-menu-sep mp-menu-reativar" data-op="reativar" data-conta-id="' + c.id + '"><i class="bi bi-play-circle"></i>Reativar conta</button>'
-      : '<button type="button" class="mp-menu-op mp-menu-sep mp-menu-suspender" data-op="suspender" data-conta-id="' + c.id + '"><i class="bi bi-pause-circle"></i>Suspender conta</button>')
+    + opMenu('estat', '', 'bi-bar-chart', 'Estatísticas de uso', c)
+    + opMenu('hist', '', 'bi-clock-history', 'Histórico de alterações', c)
+    + (c.situacao === 'Ativa'
+      ? opMenu('suspender', ' mp-menu-sep mp-menu-suspender', 'bi-pause-circle', 'Suspender conta', c)
+      : opMenu('reativar', ' mp-menu-sep mp-menu-reativar', 'bi-play-circle', 'Reativar conta', c))
+    + (c.situacao !== QUARENTENA && !c.ehDoMaster ? opMenu('excluir', ' mp-menu-excluir', 'bi-trash3', 'Excluir conta', c) : '')
     + '</div>';
 
   // Menu em position: fixed, nas coordenadas da janela: as do clique (botão direito) ou as do botão ⋮.
@@ -296,19 +303,23 @@
   // Confirmação do desenho (linha 624), textos exatos. O servidor revalida tudo (CSRF por conta, Master, regras C2, C3 e C5).
   const CONF_CONTA = {
     suspender: c => ({ titulo: 'Suspender conta', icone: 'bi-pause-circle', cor: '#c08a12', botao: 'Suspender', texto: 'Os usuários de "' + c.nome + '" ficam sem acesso até a reativação. Nenhum dado é apagado.' }),
-    reativar: c => ({ titulo: 'Reativar conta', icone: 'bi-play-circle', cor: '#1e7b45', botao: 'Reativar', texto: 'A conta "' + c.nome + '" volta a ter acesso normal.' })
+    reativar: c => ({ titulo: 'Reativar conta', icone: 'bi-play-circle', cor: '#1e7b45', botao: 'Reativar', texto: 'A conta "' + c.nome + '" volta a ter acesso normal.' }),
+    // C4: texto e botão aprovados pelo dono (quarentena de 365 dias), com a palavra EXCLUIR para liberar o botão.
+    excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta "' + c.nome + '" sai do ar agora e é apagada de vez em 365 dias. Até lá, pode ser recuperada pelo Master.' })
   };
+  const URL_ACAO = { suspender: () => URLS.contaSuspender, reativar: () => URLS.contaReativar, excluir: () => URLS.contaExcluir };
 
   function pedirAcaoNaConta(tipo, id) {
     const c = D.contas.contas.find(x => x.id === id);
     if (!c || !window.BJMasterConf) return;
-    window.BJMasterConf.abrir(Object.assign(CONF_CONTA[tipo](c), { aoConfirmar: () => enviarAcaoNaConta(tipo, c) }));
+    window.BJMasterConf.abrir(Object.assign(CONF_CONTA[tipo](c), { aoConfirmar: digitado => enviarAcaoNaConta(tipo, c, digitado) }));
   }
 
-  function enviarAcaoNaConta(tipo, c) {
+  function enviarAcaoNaConta(tipo, c, digitado) {
     const corpo = new FormData();
     corpo.append('_token', c.token || '');
-    const url = (tipo === 'suspender' ? URLS.contaSuspender : URLS.contaReativar).replace('/0/', '/' + c.id + '/');
+    if (tipo === 'excluir') corpo.append('confirmacao', digitado || '');
+    const url = URL_ACAO[tipo]().replace('/0/', '/' + c.id + '/');
     fetch(url, { method: 'POST', body: corpo, credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(r => r.json().catch(() => null).then(j => ({ r, j })))
       .then(({ r, j }) => {
@@ -316,7 +327,8 @@
         // corpo que não é JSON ou JSON sem `conta` contam como erro, nunca verde.
         const json = !r.redirected && j !== null && typeof j === 'object';
         if (json && r.ok && j.conta) {
-          c.situacao = j.conta.situacao;
+          // Excluída vira "Em quarentena": sai da lista padrão e passa a aparecer só nessa opção do filtro.
+          c.situacao = j.conta.situacao; c.purgaEm = j.conta.purgaEm || null;
           // KPIs (suspensas) e trilha mudaram: recarregam quando a seção for aberta de novo.
           D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
           return avisar(true, j.mensagem);
@@ -335,7 +347,7 @@
 
   function renderContasLista() {
     const b = S.busca.toLowerCase();
-    const contas = D.contas.contas.filter(c => (!S.fSit || c.situacao === S.fSit) && (!b || (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b)));
+    const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b)));
     document.getElementById('mp-contas-n').textContent = num(contas.length) + ' · botão direito na linha para ações';
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = S.aviso ? '<div class="mp-aviso ' + (S.aviso.ok ? 'is-ok' : 'is-erro') + '" role="status" data-mp-aviso><i class="bi '
@@ -350,7 +362,8 @@
         + '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(gb(c.bytes)) + ' em uso</span><b></b></span><span>sem cota definida</span></div>'
         + '<div class="mp-conta-cresc mp-hv">' + (c.bytesRecentes > 0 ? '+' + esc(gb(c.bytesRecentes)) : 'estável') + '</div>'
         + '<div class="mp-conta-prev mp-hv">sem previsão</div>'
-        + '<div class="mp-conta-st mp-hv"><span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span></div>'
+        + '<div class="mp-conta-st mp-hv"><span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
+        + (c.purgaEm ? '<span class="mp-conta-purga" title="Data prevista da purga automática">apagada em ' + esc(dataBr(c.purgaEm)) + '</span>' : '') + '</div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';
@@ -384,7 +397,7 @@
 
   /* ================= ARMAZENAMENTO ================= */
   function montarArm() {
-    const contas = D.contas.contas.slice().sort((a, b) => b.bytes - a.bytes), mx = Math.max(1, ...contas.map(c => c.bytes));
+    const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA).sort((a, b) => b.bytes - a.bytes), mx = Math.max(1, ...contas.map(c => c.bytes));
     elSecao.innerHTML = '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>Contas por consumo</b></div>'
       + (contas.length ? contas.map(c => '<div class="mp-rank" style="--cor:#0a6fa0"><span title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><div class="mp-barra-8"><div style="--w:' + pct(c.bytes, mx) + '"></div></div><b>' + esc(gb(c.bytes)) + '</b><span>sem cota definida</span></div>').join('') : '<div class="mp-vazio-linha">Nenhuma conta.</div>')
       + '</div><span class="mp-nota">Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.</span>';
@@ -440,7 +453,7 @@
     if (op) {
       e.stopPropagation(); fecharMenuDaConta();
       if (op.dataset.op === 'estat') return irPara('arm');
-      if (op.dataset.op === 'suspender' || op.dataset.op === 'reativar') return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId);
+      if (CONF_CONTA[op.dataset.op]) return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId);
       S.audConta = +op.dataset.contaId; S.audTipo = ''; return irPara('audit');
     }
     if (t.closest('[data-pdf]')) return gerarPdf();

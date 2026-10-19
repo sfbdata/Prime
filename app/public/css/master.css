@@ -197,7 +197,7 @@
 .mp-barra-6 > div, .mp-barra-8 > div { height: 100%; width: var(--w); background: var(--cor); }
 .mp-conta-cresc { text-align: center; font-size: 12.5px; color: #4a6373; }
 .mp-conta-prev { text-align: center; font-size: 12px; color: #4a6373; }
-.mp-conta-st { display: flex; justify-content: center; }
+.mp-conta-st { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .mp-conta-st > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: bold; color: var(--cor); }
 .mp-conta-st > span > i { width: 7px; height: 7px; border-radius: 50%; background: var(--cor); }
 .mp-conta-acoes { display: flex; justify-content: center; }
@@ -215,6 +215,10 @@
 .mp-menu-op.mp-menu-suspender:hover { background: #fbf1dc; }
 .mp-menu-op.mp-menu-reativar { color: #1e7b45; }
 .mp-menu-op.mp-menu-reativar:hover { background: #e6f4ec; }
+.mp-menu-op.mp-menu-excluir { color: #a3232b; }
+.mp-menu-op.mp-menu-excluir:hover { background: #fbe7e7; }
+/* Conta em quarentena (C4b): situação cinza e a data em que a purga apaga a conta. */
+.mp-conta-st > .mp-conta-purga { display: block; font-size: 11px; font-weight: normal; color: #5b7383; margin-top: 2px; }
 /* Resultado de suspender/reativar conta, acima da tabela de contas. */
 .mp-aviso { display: flex; align-items: center; gap: 8px; padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #eef2f5; }
 .mp-aviso.is-ok { background: #e6f4ec; color: #1e7b45; }
@@ -338,6 +342,11 @@
 .mp-conf-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: #f5f8fa; }
 .mp .mp-conf-cancelar { height: 34px; border: none; background: transparent; font-size: 13.5px; padding: 0 14px; cursor: pointer; border-radius: 4px; color: #12242f; }
 .mp .mp-conf-cancelar:hover { background: #e2e9ee; }
+.mp-conf-campo { padding: 0 20px 16px; display: flex; flex-direction: column; gap: 6px; }
+.mp .mp-conf-campo[hidden] { display: none; }
+.mp-conf-campo label { font-size: 12.5px; font-weight: bold; color: #34505f; margin: 0; }
+.mp-conf-campo input { height: 34px; border: 1px solid #d6e0e7; border-radius: 4px; padding: 0 10px; font-size: 13.5px; letter-spacing: 1px; }
+.mp .mp-conf-ok:disabled { opacity: .45; cursor: not-allowed; }
 .mp .mp-conf-ok { height: 34px; border: none; background: var(--cor, #0a6fa0); color: #fff; font-size: 13.5px; font-weight: bold; padding: 0 16px; cursor: pointer; border-radius: 4px; }
 
 @media (max-width: 900px) {

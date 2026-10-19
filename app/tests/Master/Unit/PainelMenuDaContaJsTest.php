@@ -32,22 +32,57 @@ final class PainelMenuDaContaJsTest extends TestCase
         return substr($js, $inicio, $fim - $inicio);
     }
 
-    #[TestDox('itens na ordem do desenho: Estatísticas, Histórico e, por situação, Suspender OU Reativar; sem Excluir e sem limites (ainda)')]
+    #[TestDox('itens na ordem do desenho: Estatísticas, Histórico, Suspender (ativa) OU Reativar (suspensa ou em quarentena) e Excluir; sem limites (ainda)')]
     public function testItensDoMenu(): void
     {
         $menu = self::menuDaConta();
 
-        $posicoes = array_map(static fn (string $rotulo): int|false => strpos($menu, $rotulo), ['Estatísticas de uso', 'Histórico de alterações', 'Reativar conta', 'Suspender conta']);
+        $posicoes = array_map(static fn (string $rotulo): int|false => strpos($menu, $rotulo), ['Estatísticas de uso', 'Histórico de alterações', 'Suspender conta', 'Reativar conta', 'Excluir conta']);
         self::assertNotContains(false, $posicoes);
         self::assertSame($posicoes, array_values(array_unique($posicoes)));
         self::assertLessThan($posicoes[2], $posicoes[1], 'Histórico antes de Suspender/Reativar');
-        self::assertStringContainsString("c.situacao === 'Suspensa'", $menu, 'Reativar só para conta suspensa, Suspender para as demais');
-        self::assertMatchesRegularExpression("/c\\.situacao === 'Suspensa'\\s*\\?\\s*'[^']*data-op=\"reativar\"/", $menu);
-        foreach (['Excluir conta', 'Editar limite de armazenamento', 'Definir limite de usuários'] as $ausente) {
-            self::assertStringNotContainsString($ausente, $menu, "{$ausente}: fora desta parte da spec");
+        self::assertLessThan($posicoes[4], $posicoes[3], 'Excluir conta por último');
+        self::assertMatchesRegularExpression("/c\\.situacao === 'Ativa'\\s*\\?\\s*opMenu\\('suspender'[^\\n]*\\n\\s*:\\s*opMenu\\('reativar'/", $menu, 'Suspender só na ativa; Reativar na suspensa e na quarentena');
+        self::assertStringContainsString("(c.situacao !== QUARENTENA && !c.ehDoMaster ? opMenu('excluir', ' mp-menu-excluir', 'bi-trash3', 'Excluir conta', c) : '')", $menu, 'Excluir some na conta do Master (C5) e na quarentena (C4b)');
+        foreach (['Editar limite de armazenamento', 'Definir limite de usuários'] as $ausente) {
+            self::assertStringNotContainsString($ausente, $menu, "{$ausente}: fora desta frente");
         }
-        self::assertStringContainsString('bi-pause-circle', $menu);
-        self::assertStringContainsString('bi-play-circle', $menu);
+
+        $css = (string) file_get_contents(self::RAIZ . 'public/css/master.css');
+        self::assertStringContainsString('.mp-menu-op.mp-menu-excluir { color: #a3232b; }', $css);
+        self::assertStringContainsString('.mp-menu-op.mp-menu-excluir:hover { background: #fbe7e7; }', $css);
+    }
+
+    #[TestDox('filtro "Em quarentena" (C4b): a lista padrão esconde a quarentena; a linha mostra a data da purga')]
+    public function testFiltroDeQuarentena(): void
+    {
+        $js = self::js('painel.js');
+
+        self::assertStringContainsString("const QUARENTENA = 'Em quarentena';", $js);
+        self::assertStringContainsString(">Em quarentena</option></select>'", $js);
+        self::assertStringContainsString('(S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA)', $js);
+        self::assertStringContainsString(">apagada em ' + esc(dataBr(c.purgaEm))", $js);
+        self::assertStringContainsString('D.contas.contas.filter(c => c.situacao !== QUARENTENA).sort(', $js, 'o ranking de armazenamento continua sem a quarentena');
+    }
+
+    #[TestDox('excluir: modal com o texto aprovado, botão "Excluir conta" e a palavra EXCLUIR, que vai no corpo para o servidor conferir')]
+    public function testModalDeExcluir(): void
+    {
+        $js = self::js('painel.js');
+        self::assertStringContainsString("excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta \"' + c.nome + '\" sai do ar agora e é apagada de vez em 365 dias. Até lá, pode ser recuperada pelo Master.' })", $js);
+        self::assertStringContainsString("if (tipo === 'excluir') corpo.append('confirmacao', digitado || '');", $js);
+        self::assertStringContainsString('excluir: () => URLS.contaExcluir', $js);
+
+        $masters = self::js('masters.js');
+        self::assertStringContainsString('ok.disabled = !!palavraExigida;', $masters, 'com palavra, o botão nasce desabilitado');
+        self::assertStringContainsString("qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida;", $masters, 'só habilita quando a palavra bate');
+        self::assertStringContainsString('if (palavraExigida && digitado !== palavraExigida) return;', $masters);
+        self::assertStringContainsString("'Digite ' + palavraExigida + ' para confirmar'", $masters);
+
+        $twig = (string) file_get_contents(self::RAIZ . 'templates/master/painel.html.twig');
+        self::assertStringContainsString("contaExcluir: path('master_conta_excluir', {id: 0})", $twig);
+        self::assertStringContainsString('data-mp-conf-campo hidden', $twig);
+        self::assertStringContainsString('data-mp-conf-palavra', $twig);
     }
 
     #[TestDox('confirmação com os textos, ícones e cores exatos da linha 624 do desenho')]
@@ -70,7 +105,7 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString('window.BJMasterConf.abrir(', $js);
 
         self::assertStringContainsString('window.BJMasterConf = { abrir: abrirConf, fechar: fecharConf };', self::js('masters.js'));
-        self::assertStringContainsString('ok.disabled = false;', self::js('masters.js'), 'a confirmação destrava para a próxima ação sem recarregar');
+        self::assertStringContainsString('ok.disabled = !!palavraExigida;', self::js('masters.js'), 'a confirmação destrava para a próxima ação sem recarregar (menos a que exige palavra)');
 
         $twig = (string) file_get_contents(self::RAIZ . 'templates/master/painel.html.twig');
         self::assertStringContainsString("contaSuspender: path('master_conta_suspender', {id: 0})", $twig);

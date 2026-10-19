@@ -19,7 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Reativar conta (spec perfis-1.2-contas C3 e C6): caminho feliz e cada recusa. O caso "com pedido
+ * Reativar conta (spec perfis-1.2-contas C3, C4b e C6): suspensa e em quarentena, e cada recusa. O caso "com pedido
  * de exclusão pendente" chega com a entidade da frente 7d (ponto de extensão no UseCase).
  */
 #[CoversClass(ReativarContaUseCase::class)]
@@ -34,7 +34,7 @@ final class ReativarContaUseCaseTest extends TestCase
     {
         $this->contas  = $this->createMock(ContasDoSistemaRepository::class);
         $this->escopo  = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new ReativarContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo);
+        $this->useCase = new ReativarContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, 365);
         $this->master  = self::usuario(['ROLE_SUPER_ADMIN']);
     }
 
@@ -94,18 +94,32 @@ final class ReativarContaUseCaseTest extends TestCase
         $this->useCase->executar(new SituacaoDaContaInput($this->master, 42));
     }
 
-    #[TestDox('conta excluída (excluidoEm preenchido) é recusada: a quarentena não sai por aqui')]
-    public function testRecusaContaExcluida(): void
+    #[TestDox('conta em quarentena (C4b): limpa excluidoEm, religa isActive e grava no escopo da conta alvo')]
+    public function testRecuperaDaQuarentena(): void
     {
-        $conta = self::conta(42)->setIsActive(false)->setExcluidoEm(new \DateTimeImmutable());
+        $conta = self::conta(42)->setIsActive(false)->setExcluidoEm(new \DateTimeImmutable('-10 days'));
         $this->contas->method('buscar')->willReturn($conta);
-        $this->esperarRecusa('Esta conta foi excluída e não pode ser reativada por aqui.');
+        $this->contas->expects($this->once())->method('salvar')->with($conta, true)
+            ->willReturnCallback(fn () => self::assertSame(42, $this->escopo->contaAlvo()));
 
-        try {
-            $this->useCase->executar(new SituacaoDaContaInput($this->master, 42));
-        } finally {
-            self::assertFalse($conta->isActive(), 'nada muda');
-        }
+        $saida = $this->useCase->executar(new SituacaoDaContaInput($this->master, 42));
+
+        self::assertTrue($conta->isActive());
+        self::assertNull($conta->getExcluidoEm());
+        self::assertSame('Ativa', $saida->situacao);
+        self::assertNull($saida->purgaEm);
+    }
+
+    #[TestDox('conta ativa com excluidoEm (estado inconsistente) também sai da quarentena')]
+    public function testRecuperaAtivaComExcluidoEm(): void
+    {
+        $conta = self::conta(42)->setExcluidoEm(new \DateTimeImmutable());
+        $this->contas->method('buscar')->willReturn($conta);
+        $this->contas->expects($this->once())->method('salvar');
+
+        $this->useCase->executar(new SituacaoDaContaInput($this->master, 42));
+
+        self::assertNull($conta->getExcluidoEm());
     }
 
     private function esperarRecusa(string $mensagem): void
