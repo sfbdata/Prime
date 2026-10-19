@@ -105,9 +105,10 @@ Tabela `trabalho_externo_marcacao_mensagem` (`mensagem_id` FK cascade, `usuario_
   `definitivo`, `fav` (`_chatLote()` linha 878). Só mensagens que o usuário vê na demanda.
 - Lixeira do chat expira em 30 dias: na leitura, `lixeira_em` com mais de 30 dias conta como
   excluída (`_chatLixeira()` linha 886). Sem cron.
-- Apagar para todos: só o autor, em mensagem `normal` ou `interna`; a mensagem continua na conversa
-  com o texto de "apagada" e some das não lidas. **Provisório até o zip** (a regra `m.podeApagar` se
-  perdeu).
+- Apagar para todos: o autor, nas próprias mensagens `normal` ou `interna`, e o Master em qualquer
+  uma (o Master pode tudo, regra do dono, via coordenador em 19/10). Registro do sistema não se
+  apaga. A mensagem continua na conversa sem o texto e some das não lidas. **Provisório até o zip**
+  (a regra `m.podeApagar` se perdeu).
 - Teclas Delete ou `#` com mensagens selecionadas: lixeira (ou definitivo, dentro da lixeira).
 - Desfazer de 8 s para a lixeira e o restaurar.
 
