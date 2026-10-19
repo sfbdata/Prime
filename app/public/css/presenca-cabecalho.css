@@ -93,7 +93,10 @@
 .presenca-av-ponto { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 2px var(--pc-fundo); }
 .presenca-textos { min-width: 0; flex: 1; }
 .presenca-nome { display: block; font-size: 13.5px; font-weight: bold; color: var(--pc-texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.presenca-sub { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--pc-sub); animation: pcAparece .3s ease-out; }
+.presenca-sub { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--pc-sub); }
+/* dc `bjTip .3s` no subtítulo: só ao abrir o painel. O painel se redesenha a cada 4 e 20 s; repetir a animação faria a
+   linha piscar (no dc o React mantém o nó e ela roda uma vez). */
+.presenca-painel.is-abrindo .presenca-sub { animation: pcAparece .3s ease-out; }
 .presenca-sub--ponto.is-acao { font-weight: bold; cursor: pointer; }   /* dc `subPeso`, `subCur` */
 .presenca-sub--ponto.is-acao:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; }
 .presenca-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
@@ -103,5 +106,5 @@
 .presenca-vazio { padding: 14px; font-size: 13px; color: var(--pc-sub); }
 
 @media (prefers-reduced-motion: reduce) {
-    .presenca-cab-selo, .presenca-painel, .presenca-sub { animation: none; }
+    .presenca-cab-selo, .presenca-painel, .presenca-painel.is-abrindo .presenca-sub { animation: none; }
 }

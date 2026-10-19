@@ -306,7 +306,8 @@
         fecharMenuDoAvatar();
         veu = el('div', 'presenca-veu');
         veu.addEventListener('click', function () { fechar(); selo.focus(); });
-        painel = el('div', 'presenca-painel');
+        painel = el('div', 'presenca-painel is-abrindo');
+        window.setTimeout(function () { if (painel) { painel.classList.remove('is-abrindo'); } }, 400);
         painel.setAttribute('role', 'dialog');
         painel.setAttribute('aria-label', 'Quem está on-line');
         document.body.appendChild(veu);
