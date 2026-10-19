@@ -54,4 +54,32 @@ class EspacoDoEscritorioRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Os espaços de vários escritórios numa consulta só, indexados pelo id do escritório (quem não tem
+     * linha está no Free e não aparece). Mesmo filtro explícito por tenant do `doTenant`.
+     *
+     * @param list<int> $tenantIds
+     *
+     * @return array<int, EspacoDoEscritorio>
+     */
+    public function dosTenants(array $tenantIds): array
+    {
+        if ($tenantIds === []) {
+            return [];
+        }
+        $lista = $this->createQueryBuilder('e')
+            ->join('e.plano', 'p')->addSelect('p')
+            ->andWhere('IDENTITY(e.tenant) IN (:tenants)')
+            ->setParameter('tenants', $tenantIds)
+            ->getQuery()
+            ->getResult();
+
+        $porTenant = [];
+        foreach ($lista as $espaco) {
+            $porTenant[(int) $espaco->getTenant()->getId()] = $espaco;
+        }
+
+        return $porTenant;
+    }
 }
