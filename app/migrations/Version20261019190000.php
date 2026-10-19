@@ -13,10 +13,24 @@ use Doctrine\Migrations\AbstractMigration;
  * Só cria tabelas novas e as preenche: nenhuma tabela existente muda. Os planos seguem o desenho 08
  * (o 05 traz outros valores, marcados como "Preços de exemplo"); o limite de usuários nasce vazio.
  * O bloqueio de envio nasce DESLIGADO: o deploy não pausa os envios de quem já passa da franquia.
- * Nenhum escritório ganha linha em contribua_espaco_do_escritorio: sem linha = plano Free.
+ * Só um escritório ganha linha em contribua_espaco_do_escritorio: o do dono do sistema, sem limite (decisão
+ * do dono, 19/10/2026; ver a constante abaixo). Os demais ficam sem linha = plano Free.
  */
 final class Version20261019190000 extends AbstractMigration
 {
+    /**
+     * Decisão do dono (19/10/2026): o escritório do dono do sistema fica SEM LIMITE. Dupla condição, id E
+     * nome exato, para não marcar outro escritório em dev ou teste, onde o id 1 é de outro.
+     * `ContribuaCargaDoEscritorioDoDonoTest` executa este mesmo SQL com outros escritórios.
+     */
+    public const ESCRITORIO_DO_DONO_ID = 1;
+    public const ESCRITORIO_DO_DONO_NOME = 'Farlei Assis da Rocha Sociedade Individual de Advocacia';
+    public const SQL_ESCRITORIO_DO_DONO_SEM_LIMITE = "INSERT INTO contribua_espaco_do_escritorio (tenant_id, plano_id, sem_limite, justificativa, criado_em)
+        SELECT t.id, p.id, true, 'Escritório do dono do sistema, sem limite (decisão do dono, 19/10/2026)', NOW()
+          FROM tenant t JOIN contribua_plano p ON p.codigo = 'free'
+         WHERE t.id = :id AND t.name = :nome
+        ON CONFLICT (tenant_id) DO NOTHING";
+
     public function getDescription(): string
     {
         return 'Contribua: contribua_plano, contribua_espaco_do_escritorio e contribua_configuracao (bloqueio desligado)';
@@ -43,6 +57,7 @@ final class Version20261019190000 extends AbstractMigration
             ('profissional', 'Profissional', 50, 3990, 'Equipes que anexam processos e documentos todos os dias', 3, NOW()),
             ('avancado', 'Avançado', 100, 6990, 'Alto volume de processos e digitalizações', 4, NOW())");
         $this->addSql('INSERT INTO contribua_configuracao (id) VALUES (1)');
+        $this->addSql(self::SQL_ESCRITORIO_DO_DONO_SEM_LIMITE, ['id' => self::ESCRITORIO_DO_DONO_ID, 'nome' => self::ESCRITORIO_DO_DONO_NOME]);
     }
 
     public function down(Schema $schema): void
