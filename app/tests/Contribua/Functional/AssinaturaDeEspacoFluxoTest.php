@@ -15,6 +15,7 @@ use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Service\AtualizacaoDaAssinatura;
 use App\Contribua\Service\PlanoVigenteDoEscritorio;
 use App\Contribua\UseCase\ConciliarAssinaturasUseCase;
+use App\Contribua\UseCase\MontarPagamentoDoContribuaUseCase;
 use App\Contribua\UseCase\ReceberAvisoDoGatewayUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -334,6 +335,21 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
 
         self::assertFalse($resposta['ok']);
         self::assertSame(0, $this->contarAssinaturas());
+    }
+
+    #[TestDox('Bloco Assinatura do Meu Perfil: dados do escritório pago e parcial que não quebra sem sessão')]
+    public function testAssinaturaNoPerfil(): void
+    {
+        $this->assinar($this->primario);
+        $idNoGateway = (string) $this->pedido()->getIdDoCheckout();
+        $this->gateway->marcarComoPaga($idNoGateway, new \DateTimeImmutable('+1 month'));
+        $this->webhook('evt-perfil', $idNoGateway);
+
+        $dados = static::getContainer()->get(MontarPagamentoDoContribuaUseCase::class)->assinaturaDoEscritorio((int) $this->escritorio->getId());
+        self::assertSame('Essencial', $dados['plano'] ?? null);
+        self::assertTrue($dados['cancelavel']);
+        self::assertSame((new \DateTimeImmutable('+1 month'))->format('d/m/Y'), $dados['pagaAte']);
+        self::assertSame('', trim(static::getContainer()->get('twig')->render('contribua/_assinatura_no_perfil.html.twig')));
     }
 
     /** @return array<string, mixed> */

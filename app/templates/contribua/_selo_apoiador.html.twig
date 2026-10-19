@@ -1,0 +1,13 @@
+{# "Selo Apoiador BlueJus" no Meu Perfil (benefício do prêmio do desenho 08: "Aparece no seu perfil e nas suas
+   propostas, mostrando que você apoia o escritório digital"). Ícone e cores do cartão do benefício no desenho
+   (bi-patch-check-fill, #fff4d6 / #9a5b00); o desenho 07 é omisso sobre o lugar, então segue a marcação mp-card
+   do Meu Perfil. Sem apoio confirmado no período, não aparece nada. #}
+{% set selo = selo_apoiador() %}
+{% if selo %}
+    <section class="mp-card" data-screen-label="Selo Apoiador" data-selo-apoiador>
+        <div class="mp-card-topo">
+            <span class="mp-card-selo" style="background: #fff4d6; color: #9a5b00;"><i class="bi bi-patch-check-fill"></i></span>
+            <div><b>Selo Apoiador BlueJus</b><div class="mp-card-sub">Seu escritório apoia o escritório digital. Obrigado!</div></div>
+        </div>
+    </section>
+{% endif %}
