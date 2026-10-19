@@ -38,6 +38,29 @@ class UserProfileRepository extends ServiceEntityRepository
         return $this->findOneBy(['user' => $user]);
     }
 
+    /**
+     * Colaboradores ativos do escritório com data de nascimento, para os aniversários da Agenda.
+     *
+     * @return list<array{id: int, nome: string, nascimento: \DateTimeInterface}>
+     */
+    public function aniversariantesDoEscritorio(Tenant $tenant): array
+    {
+        return $this->getEntityManager()
+            ->createQuery(
+                'SELECT u.id AS id, u.fullName AS nome, up.dataNascimento AS nascimento
+                 FROM App\Profile\Entity\UserProfile up
+                 JOIN up.user u
+                 JOIN App\Entity\Auth\UserTenant ut WITH ut.user = u
+                 WHERE ut.tenant = :tenant
+                   AND ut.isActive = true
+                   AND u.isActive = true
+                   AND up.dataNascimento IS NOT NULL
+                 ORDER BY u.fullName ASC'
+            )
+            ->setParameter('tenant', $tenant)
+            ->getArrayResult();
+    }
+
     public function buscarPorFotoUrlETenant(string $fotoUrl, Tenant $tenant): ?UserProfile
     {
         return $this->getEntityManager()
