@@ -105,3 +105,17 @@ Contrato com a 7d (19/10):
   usuários, vazio não volta ao limite do plano (o contrato aceita nulo, a tela não oferece);
 - conta em quarentena: sem os itens de limite no menu e recusada no servidor; na lista, "uso não medido";
 - previsão negativa (uso acima do limite) sai como "menos de 1 mês", como a fórmula do desenho.
+
+## 6. Acertos com a f6 (19/10, depois da implementação)
+
+- Leitura das faixas: `ConfiguracaoDoEspacoRepository::atual()` é contrato de leitura aceito pela f6 (devolve os
+  padrões em memória sem gravar). A escrita só pelo `ConfigurarFaixasDoEspacoUseCase`.
+- Teste de arquitetura da f6 (`EspacoDoEscritorioSoNoContribuaArquiteturaTest`): liberados só
+  `PainelMasterRepository` e `RotuloDeAuditoriaDoEspaco` para citar a classe, com comentário do porquê. A
+  proibição de consulta à tabela continua.
+- Aceite de convite: o limite de usuários também é conferido no aceite (`AceitarConvite`), com
+  `SituacaoDoEspaco::doEscritorio($tenantId)->aceitaMaisUmUsuario()`. "Sem limite" libera, e a regra só vale com o
+  bloqueio ligado.
+- O plano do escritório pela assinatura (C3 da f6) é da f6. O `AlterarPlanoUseCase` do Master edita só o
+  catálogo. O "plano pago até", se entrar, é lido de
+  `MontarPagamentoDoContribuaUseCase::assinaturaDoEscritorio($tenantId)`.
