@@ -7,7 +7,8 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
 ## Estado da frente (atualizado em 19/10/2026; reler antes de continuar se a sessão for compactada)
 
 - **Sessão:** 5d. **Spec:** branch `comercial-emails` (worktree `.claude/worktrees/comercial-emails`), do master.
-- **Versão:** 2 (19/10). A v1 não foi aprovada (B1, I1 a I11, M1 a M7); a v2 trata todos. Precisa de nova revisão.
+- **Versão:** 3 (19/10). v1 não aprovada (B1, I1 a I11, M1 a M7); v2 aprovada com ressalvas (N1 a N6, M-a a M-m);
+  a v3 trata todos. Pelo rigor ALTO, os ganchos de Auth têm nova revisão já no código.
 - **Risco:** MÉDIO no geral (envio em massa, LGPD). Os ganchos em Auth (§3.5) tocam identidade User/Tenant: rigor
   ALTO (revisão e re-revisão).
 - **Fatias (um PR cada, na fila de migrations):**
@@ -61,15 +62,22 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   - **b5 (#56):** parcial `master/_comercial.html.twig`, evento `mp:secao`, CSP do `/master` com 'self'.
 - **Arquivos quentes que a 1a toca:** `config/packages/messenger.yaml` (transporte próprio), `security.yaml` (rotas
   públicas), `framework.yaml` (limitadores), `docker-compose.prod.yml` (o worker passa a consumir o transporte novo:
-  avisar o dono, é deploy), e três UseCases de Auth mais o `CadastroMailer` (uma linha cada).
+  avisar o dono, é deploy).
+- **Inventário de identidade da 1a (M-i, rigor ALTO):** 4 ganchos de evento (`ConfirmarCadastroUseCase`,
+  `AceitarConviteEscritorioSemContaUseCase`, os 2 retornos do `AceitarConviteEscritorioComContaUseCase`) mais 1 no
+  `AceitarConvitePlataformaUseCase`; 1 evento no `CadastroMailer`; o UseCase novo `ReemitirConfirmacaoDeCadastroUseCase`;
+  métodos novos no `CadastroPendente` (`reemitir`, `lembreteEm`); a purga dos pendentes (72 h); a migration de
+  `cadastro_pendente.lembrete_em`; e a purga de escritório (`PurgarEscritorioUseCase`, N2).
+- **Dependências de PR:** a 1a depende do #87 da 0d, que está em rascunho e empilhado sobre o #82 (M-j); a 1b, do #74
+  (que contém o #64), também em rascunho.
 - **0d, assinatura final (#87, commit 56fd1001):** constantes `PADRAO_DO_ASSUNTO`, `ASSUNTO_TODOS`,
   `ORIGEM_MANUAL_MASTER = 'manual_master'`, `MAXIMO_POR_PAGINA = 100`; `descadastrar(..., ?string $motivo = null)`
   (até 280 caracteres); `reativar(?Tenant, email, assunto, origem, ?User $por = null)`; `listar(...)` devolve
   `ListaDeDescadastros {total, itens, pagina, porPagina}` com `ItemDeDescadastro {email, assunto, origem, motivo, em}`
   (busca ILIKE no e-mail). A migration `Version20261020090000` da 0d foi reescrita: no banco de teste da frente, `down`
   e `up` dela antes da da 1a.
-- **Pendências:** re-revisão da v2; respostas do dono.
-- **Próximo passo:** revisão da v2; aprovada, abrir a frente da 1a sobre `push-avisar-quando-chegar` e implementar.
+- **Pendências:** respostas do dono; consulta de datas de descadastro à 0d (fatia 3); `CITA_RASTREIO_DE_EMAIL` com a f6.
+- **Próximo passo:** abrir a frente da 1a sobre `push-avisar-quando-chegar` e implementar; revisão e re-revisão no código.
 
 ## 1. O que já existe (levantamento de 19/10)
 
@@ -149,15 +157,27 @@ fica numa coluna `tenant_id` nullable (null = plataforma), escrita à mão em ca
 | `cc` | lista opcional; a 0d manda a Controladoria |
 | `rastrear` | bool; só vale em `lista` e só com o rastreio ligado (§3.8) |
 
-Em uma transação só (insert do registro e da mensagem no transporte doctrine, mesma conexão; sem registro órfão):
+**Conteúdo do envio (N1):** o corpo, o selo, o título, o `replyTo`, o `cc` e o `rastrear` ficam em
+`comercial_envio_conteudo` (`envio_id` PK e FK com ON DELETE CASCADE, `corpo_html`, `selo`, `titulo`, `reply_to`,
+`cc` json, `rastrear`). **Apagado assim que o envio chega a um estado final** (`enviado`, `falhou`,
+`bloqueado_descadastro`): o corpo pode levar credencial (o link de confirmação do `lemb`) e não fica guardado. O
+registro de `comercial_envio` (sem o corpo) segue a retenção da §3.2.
+
+**Gravação isolada (M-f):** o Carteiro grava pela conexão DBAL (`Connection::transactional`), sem `flush` do
+EntityManager: chamado no meio do trabalho de um consumidor, não grava as entidades pendentes dele.
+
+Em uma transação só da conexão (insert do registro, do conteúdo e da mensagem no transporte doctrine, mesma conexão;
+sem registro órfão):
 1. `lista`: `estaDescadastrado(escopo, para, lista)`. Descadastrado (inclusive em `todos`): grava o envio como
    `bloqueado_descadastro` e devolve sem despachar.
 2. Grava o `EnvioDeEmail` como `enfileirado` e despacha `EnviarEmail(envioId)` no transporte **`comercial`** (§3.6).
 
 `EnviarEmailHandler`:
 1. **Reivindica** o envio: `UPDATE comercial_envio SET situacao = 'enviando', tentativa_em = :agora WHERE id = :id
-   AND situacao = 'enfileirado'`. Zero linhas: outro worker pegou, ou já saiu; para. (Um `enviando` com `tentativa_em`
-   de mais de 15 min volta a `enfileirado` na varredura, para não travar depois de um worker morto.)
+   AND situacao = 'enfileirado'`. Zero linhas: outro worker pegou, ou já saiu; para.
+   **Recuperação (M-c):** a varredura devolve a `enfileirado` todo `enviando` com `tentativa_em` de mais de 15 min, e
+   **despacha de novo** `EnviarEmail` para todo `enfileirado` de mais de 30 min (a mensagem original pode ter morrido
+   em `failed`); a reivindicação torna o redespacho inofensivo.
 2. `lista`: consulta o descadastro DE NOVO; descadastrado vira `bloqueado_descadastro`.
 3. **Vazão** (§3.6): sem vaga, volta a `enfileirado` e reenfileira com `DelayStamp`.
 4. Monta com o layout (§3.7), aplica `IdentidadeDeEmail` (o `replyTo` do DTO tem precedência), em `lista` acrescenta
@@ -171,7 +191,7 @@ Em uma transação só (insert do registro e da mensagem no transporte doctrine,
 **sanitizado** (endereços de e-mail trocados por `<e-mail>`, até 500 caracteres). Logs sem dado pessoal.
 
 Os e-mails antigos (`CadastroMailer`, `ConviteMailer`, `RedefinicaoSenhaMailer`) continuam síncronos (P5). Só o
-`CadastroMailer` ganha uma linha que registra o envio (§3.5, `cad`).
+`CadastroMailer` passa a despachar um evento depois do `send` (§3.5, `cad`, N3).
 
 ### 3.2 Registro dos envios
 
@@ -184,6 +204,20 @@ enviado_em)`, `(destinatario)`.
 **Retenção (P4, com o dono):** proposta de 24 meses; depois, `destinatario` vira hash SHA-256 com sal da aplicação,
 `nome` e `erro` viram null (os números por campanha continuam). Roda no `app:purgar-dados-expirados`. O Anexo II da
 Política precisa da categoria (vai ao rascunho da f6 junto com o rastreio).
+
+**Purga de escritório (N2, identidade Tenant):** o `PurgarEscritorioUseCase` confere que nenhuma tabela com
+`tenant_id` sobrou. Tratamento de cada tabela nova com `tenant_id`:
+
+| Tabela | FK para `tenant` | Na purga |
+|---|---|---|
+| `comercial_envio` | sim, NO ACTION | entra em `ORDEM_DELECAO` (o conteúdo vai junto, CASCADE) |
+| `comercial_confirmacao_endereco` | sim, NO ACTION | entra em `ORDEM_DELECAO` |
+| `comercial_ciclo_conta` | sim, NO ACTION | entra em `ORDEM_DELECAO` |
+| `comercial_consentimento` | **não** (coluna `tenant_id` sem FK) | entra em `TABELAS_RETIDAS`: prova de consentimento, 5 anos (Política L379) |
+| `comercial_aviso_espaco` (1b) | sim, NO ACTION | entra em `ORDEM_DELECAO` |
+
+Na prática quase tudo desta frente é escopo plataforma (`tenant_id` null); a purga só alcança o que um consumidor
+enviar com escopo de escritório.
 
 ### 3.3 Confirmação de endereço (double opt-in reaproveitável)
 
@@ -201,39 +235,56 @@ revogação fica no registro do descadastro da 0d, que também não apaga), com 
 `tenant_id`, `lista`, `email`, `token_hash` (SHA-256), `pedido_em`, `expira_em`, `confirmado_em`;
 UNIQUE (`tenant_id`, `lista`, `email`), com índice parcial para o `tenant_id` null.
 
-**Token:** 32 bytes aleatórios, só o hash no banco, uso único, 7 dias. Um `pedir` novo troca o token (o antigo deixa de
-valer). Vencido ou já usado: página "Este link venceu ou já foi usado. Peça a confirmação de novo." sem revelar o
+**`pedir` sobre endereço já confirmado (N4):** não mexe em `confirmado_em` nem manda e-mail (devolve como se tivesse
+pedido; quem pede não descobre se o endereço já estava inscrito). Assim ninguém descadastra uma pessoa por tabela.
+Confirmação **vigente** = `confirmado_em` preenchido e não descadastrado da lista nem em `todos` sem exceção (a 0d
+decide); mudar a `versao_consentimento` não invalida a confirmação antiga (o fato com a versão fica gravado).
+
+**Pedido para quem saiu (pergunta 1 da revisão):** se o endereço está descadastrado da lista ou em `todos`, o `pedir`
+ainda manda a confirmação (é o caminho de volta), mas no máximo 1 vez a cada 30 dias para o mesmo endereço e lista.
+
+**Token:** 32 bytes aleatórios, só o hash no banco, uso único, 7 dias. Um `pedir` novo sobre pendência troca o token
+(o antigo deixa de valer). Vencido ou já usado: página "Este link venceu ou já foi usado. Peça a confirmação de novo." sem revelar o
 endereço.
 
 **À prova de robô (I9):** o link abre `GET /e/confirmar/{token}`, que só mostra a página com o botão **"Confirmar"**
 (nada é gravado no GET; os leitores de link do Outlook e afins não confirmam sozinhos). O `POST` (CSRF, mesmo token)
 grava `confirmado`, com IP e agente.
 
-**Contra abuso (I9):** limitadores em `framework.yaml`, trecho próprio: por e-mail e lista, 1 pedido a cada 24 h; por
-IP, 10 por hora (efetivo quando o #77 entregar o IP real; até lá, vale o teto global); teto global de 200 pedidos por
-hora (protege a vazão das boas-vindas). Os e-mails de confirmação são `transacional`, mas contam no teto diário (§3.6).
+**Contra abuso (I9, N6):** dentro do `pedir`: por e-mail e lista, 1 pedido a cada 24 h; teto global de 200 por hora.
+**O limite por IP fica no controller do consumidor** (o `pedir` não recebe IP): a a7 já tem o `vagas_alertas` (10 por
+minuto). O IP real depende de `SYMFONY_TRUSTED_PROXIES` na VPS, que o dono configura; até lá, o IP gravado como prova
+e usado nos limitadores é o do nginx (M-a). **Os e-mails de confirmação obedecem ao teto diário** (são provocados por
+terceiros): ver a prioridade em §3.6.
 
 **Reinscrição depois de descadastro:** confirmar de novo é consentimento novo: o POST da confirmação chama
 `reativar(escopo, email, lista, 'nova_confirmacao')` da 0d, que libera só aquela lista (com `todos` ativo, fica a
 exceção registrada só para ela).
 
-**Retenção:** pendência não confirmada é apagada (estado e o fato `pedido`) 30 dias depois de vencer; os fatos de quem
-confirmou ficam 5 anos depois do término do tratamento, isto é, do descadastro daquela lista no registro da 0d
-(Política L379); enquanto a pessoa segue inscrita, ficam.
+**Retenção:** só a pendência **nunca confirmada** é apagada (estado e o fato `pedido`), 30 dias depois de vencer; um
+estado com `confirmado_em` nunca é apagado pela purga, mesmo com um pedido novo vencido por cima. Os fatos de quem
+confirmou ficam 5 anos depois do término do tratamento (o descadastro daquela lista no registro da 0d; Política L379).
+A purga desses fatos precisa da data do descadastro, inclusive dos reativados, que o `listar` da 0d não devolve: fica
+para a fatia 3, com uma consulta pedida à 0d. Até lá, a 1a não apaga fato confirmado (guarda mais, nunca menos).
+
+**Rótulo da origem (M-g):** o e-mail de confirmação não mostra o identificador cru. Mapa nesta frente:
+`pagina-publica-vagas` → "a página de vagas do BlueJus"; origem desconhecida → "um formulário do BlueJus".
 
 ### 3.4 As automações (modelo de dados e regras comuns)
 
 Enum `App\Comercial\Automacao\Automacao` com as 8 chaves, título, descrição, modelo, opções de atraso e o padrão do dc.
-`comercial_automacao` guarda só o que o Master mudou: `chave` PK, `ligada`, `atraso`, `ligada_em`, `alterada_por`,
-`alterada_em`.
+`comercial_automacao` tem **uma linha por automação**, criada pela migration com o padrão do dc (`chave` PK, `ligada`,
+`atraso`, `ligada_em`, `alterada_por`, `alterada_em`); o `ligada_em` das que nascem ligadas é o momento da migration
+(M-d). Criar as linhas não dispara nada.
 
 **Nada dispara para o passado (I8):** cada gatilho por evento só reage a evento novo. Cada gatilho por varredura só
-considera fatos **posteriores a `ligada_em` daquela automação** (para as que nascem ligadas, o `ligada_em` é o momento
-da primeira execução depois do deploy). Ligar uma automação meses depois não alcança contas antigas.
+considera fatos **posteriores a `ligada_em` daquela automação**; desligar e ligar de novo atualiza o `ligada_em`. Ligar uma automação meses depois não alcança contas antigas.
 
 **Ciclo da conta:** `comercial_ciclo_conta` (`user_id`, `tenant_id`, `confirmado_em`, `boas_vindas_em`, `dica_em`),
-gravado pelo ouvinte de `CadastroConfirmado`. É a fonte do `dica` (o `CadastroPendente` é purgado) e a deduplicação de
-`val` e `dica` (no máximo um de cada por conta).
+UNIQUE (`user_id`, `tenant_id`), gravado pelos ouvintes de `CadastroConfirmado` e de `ConviteDeEscritorioAceito`. É a
+fonte do `dica` (o `CadastroPendente` é purgado) e a deduplicação de `val`, `conv` e `dica`: no máximo uma boas-vindas
+por pessoa e escritório (quem é reativado num escritório onde já esteve não recebe de novo, M-e) e uma `dica` por
+conta.
 
 **Ouvintes nunca derrubam o fluxo (I3):** todo ouvinte de evento desta frente captura qualquer exceção, registra no
 log sem dado pessoal (só ids e a chave da automação) e segue. O usuário nunca recebe erro por causa de um e-mail.
@@ -248,7 +299,7 @@ pode rodar a qualquer momento (no deploy ou à mão); se a cadeia morrer em `fai
 
 | Chave | Gatilho | Quem recebe | Tipo |
 |---|---|---|---|
-| `cad` | O `CadastroMailer` continua mandando (P5). Ganha uma linha: depois do `send`, registra o envio em `comercial_envio` com `origem = automacao:cad` e `situacao = enviado` (para os "Últimos disparos" mostrarem "Conta aberta", I11) | quem se cadastrou | transacional |
+| `cad` | O `CadastroMailer` continua mandando (P5). Depois do `send`, despacha `ConfirmacaoDeCadastroEnviada(email, assunto)`; o ouvinte desta frente (protegido, §3.4) registra o envio em `comercial_envio` com `origem = automacao:cad` e `situacao = enviado` (para os "Últimos disparos" mostrarem "Conta aberta", I11). O Auth não lê nada do Comercial (N3) | quem se cadastrou | transacional |
 | `lemb` | Varredura: `CadastroPendente` com status pendente, criado há N horas ou mais (24, 48, 72) e depois do `ligada_em`, sem lembrete ainda | quem se cadastrou | transacional |
 | `val` | Evento `CadastroConfirmado(userId, tenantId)` | o novo primário | transacional |
 | `conv` | Evento `ConviteDeEscritorioAceito(userId, tenantId, comoPrimario)` | quem aceitou | transacional |
@@ -271,8 +322,10 @@ pode rodar a qualquer momento (no deploy ou à mão); se a cadeia morrer em `fai
   novo), depois do último `flush` de cada; `comoPrimario` diz se o convite era de primário.
 - `AceitarConvitePlataformaUseCase`: `ConvitePlataformaAceito(userId)`; **nenhuma automação ouve na 1a** (pergunta Q3).
 - O dispatcher é o `EventDispatcherInterface` do Symfony (síncrono); o ouvinte só enfileira pelo Carteiro, protegido
-  como em §3.4. A prova de "depois do commit" no teste: o ouvinte de teste grava o nível de transação da conexão no
-  momento do evento, e o teste afirma que é o nível de base do DAMA (1), não o do `wrapInTransaction` (2).
+  como em §3.4. **Prova no teste (M-b):** com a DAMA, o DBAL não enxerga a transação de fora: o nível de base é 0, e
+  dentro do `wrapInTransaction` é 1. No `ConfirmarCadastro`, o ouvinte de teste grava
+  `getTransactionNestingLevel()` no momento do evento e o teste afirma 0. Nos aceites (sem transação), o ouvinte de
+  teste afirma que o efeito do último `flush` já está no banco (o aceite do termo gravado, por consulta direta).
 
 **`conv` e convite de primário (Q4):** o dc diz "(secundário)". Proposta: o `conv` manda as boas-vindas a quem entrou
 por convite, primário ou secundário; o evento leva `comoPrimario` para o texto ou a regra mudarem sem mexer em Auth.
@@ -283,9 +336,10 @@ verificação teria de aceitar o código): **não entra na 1a**; vai ao dono.
 
 **Na tela (parcial do #56, `_comercial.html.twig`):** só o bloco "Automações" na 1a (os outros blocos nas fatias
 seguintes), com:
-- interruptor (POST `master_comercial_automacao`, JSON, `X-CSRF-Token`, auditado; o `cad` aparece travado em
-  "ligada" com a dica "Obrigatório: sem ele ninguém consegue criar conta" se o dono aprovar P2; até lá, segue o dc e
-  desligar o `cad` só para de **registrar**, porque o `CadastroMailer` continua mandando: a dica diz isso);
+- interruptor (POST `master_comercial_automacao`, JSON, `X-CSRF-Token`, auditado). O `cad` mostra o interruptor
+  ligado e **desabilitado**, com a dica "Obrigatório: sem ele ninguém consegue criar conta" (P2, com o dono; o Auth
+  não lê o estado do Comercial, então o interruptor do `cad` não teria efeito, e um interruptor sem efeito enganaria o
+  Master). Se o dono recusar P2, o `cad` volta a esta spec;
 - seletor de atraso; botão do modelo (abre a prévia do modelo, só leitura, com "Editando o modelo da automação "<t>".
   Duplique para ajustar o texto." como no dc; o editor e o duplicar são da fatia 2);
 - **"Simular novo cadastro" como no dc (I11):** grava dois envios `situacao = simulado`, `origem = simulacao`, para
@@ -299,16 +353,19 @@ seguintes), com:
 ### 3.6 Transporte e vazão
 
 - **Transporte próprio `comercial`** (doctrine, `queue_name: comercial`), para um lote de e-mails não atrasar o Drive e
-  a IA (M4). O worker de produção passa a consumir `async comercial` (`docker-compose.prod.yml`: muda o comando do
-  `jusprime_worker_prod`; é deploy, o dono aplica).
+  a IA (M4). O worker de produção passa a consumir **`comercial async`**, nesta ordem (M-m): os e-mails vêm primeiro e
+  são curtos, e a vazão faz um lote esperar com `DelayStamp` em vez de ocupar o worker (`docker-compose.prod.yml`: muda
+  o comando do `jusprime_worker_prod`; é deploy, o dono aplica). No `when@test`, `comercial` é `in-memory` (M-l).
 - **Vazão sem cache (I6):** a fonte é o próprio `comercial_envio`, que sobrevive a deploy e a `cache:clear`:
   - por minuto: `COUNT(*) WHERE situacao = 'enviado' AND enviado_em > agora - 60 s` < `COMERCIAL_ENVIOS_POR_MINUTO`
     (padrão 20);
   - por dia: `COUNT(*) WHERE situacao = 'enviado' AND enviado_em >= hoje 00:00` < `COMERCIAL_TETO_DIARIO` (padrão
     1.500).
   - Sem vaga no minuto: `DelayStamp` de 60 s. Sem vaga no dia: `DelayStamp` até 00:05 do dia seguinte.
-  - **Prioridade:** `transacional` só respeita o limite por minuto (as boas-vindas nunca esperam o dia seguinte por
-    causa de campanha); `lista` respeita os dois, e o teto diário conta tudo o que saiu.
+  - **Prioridade (N6):** só os transacionais **do ciclo da conta** (`automacao:cad`, `lemb`, `val`, `conv`, `e90`,
+    `e100`, `ped`) respeitam apenas o limite por minuto (as boas-vindas nunca esperam o dia seguinte por causa de
+    campanha). Todo o resto (`lista`, confirmações de endereço, testes, consumidores) respeita os dois. O teto diário
+    conta tudo o que saiu.
   - Os e-mails antigos síncronos não passam pela conta nem pelo limite (P5); o padrão conservador deixa folga para
     eles. Se o provedor for Gmail gratuito, o teto de 1.500 é alto demais (Q1).
 
@@ -322,21 +379,22 @@ título), corpo, versão texto gerada. **Rodapé sempre (B3), não editável, co
   <origem>. Se não foi você, ignore este e-mail.";
 - **escritório (`escopo` = Tenant):** "Enviado por <nome do escritório> por meio do BlueJus" (o controlador ali é o
   escritório);
-- **link "Não quero mais receber" em todo e-mail, como no dc (M1):** em `lista`, o `gerarLink` da própria lista; em
-  `transacional`, o `gerarLink(escopo, email, 'todos')`, que tira de toda comunicação comercial daquele remetente
-  (os transacionais continuam saindo, porque não consultam o descadastro);
+- **link de descadastro em todo e-mail, como no dc (M1):** em `lista`, "Não quero mais receber" com o `gerarLink` da
+  própria lista; em `transacional`, o texto diz o que o link faz (M-k): "Não quero receber novidades do BlueJus" com o
+  `gerarLink(escopo, email, 'todos')` (os avisos da conta continuam, porque não consultam o descadastro);
 - **link da Política de Privacidade (B4).**
 
 ### 3.8 Rastreio (desligado até a Política)
 
-- **Ligado só quando a Política citar o rastreio (I10):** `COMERCIAL_RASTREIO_LIGADO` (padrão `false`) **e**
-  `PoliticaPrivacidadeVigente::VERSAO` igual ou posterior à versão que citar o rastreio (constante
-  `VERSAO_QUE_CITA_RASTREIO`, preenchida quando a f6 publicar). Desligado, `rastrear` é ignorado.
+- **Ligado só quando a Política citar o rastreio (I10, M-h):** `COMERCIAL_RASTREIO_LIGADO` (padrão `false`) **e** a
+  constante `PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL` (nova, `false`; quem publicar a versão que cita o
+  rastreio a troca para `true`, combinado com a f6). Sem comparar versões. Desligado, `rastrear` é ignorado.
 - Abertura: `<img>` 1x1 para `GET /e/a/{token}.gif`; grava a primeira abertura e soma. Responde o mesmo GIF para token
   inválido.
 - Clique: cada `href` http(s), exceto o de descadastro e o da Política, vira `GET /e/c/{token}?u=<url>&s=<assinatura>`
   (UriSigner sobre `token` e `u`): grava e responde 302 para `u`; assinatura errada responde 404, sem redirecionar.
-- Limitador por IP nas duas rotas (efetivo com o #77; até lá, só o teto global de 600 por minuto).
+- Limitador por IP nas duas rotas (com o IP real quando o dono configurar `SYMFONY_TRUSTED_PROXIES`; até lá, vale como
+  teto global, 600 por minuto).
 
 ### 3.9 Rotas públicas e segurança (M7)
 
@@ -352,8 +410,9 @@ e no clique.
 | `e100` | `EspacoAtingiuFaixa` com faixa `Bloqueio` **e `retrato.bloqueioAtivo`** (sem o bloqueio ligado, "novos envios pausados" seria falso, como a f6 decidiu) | idem | 1 por escritório por dia |
 | `ped` | `EspacoFoiPedido(tenantId, codigoDoPlano, pedidoPorUserId)` | os primários ativos (também quando o Master pediu por eles); o aviso ao Master continua da f6 | 1 por escritório, plano e dia |
 
-Deduplicação em `comercial_aviso_espaco` (`tenant_id`, `chave`, `dia`, `plano`), UNIQUE (insert que falha = já
-mandou). Todos `transacional` (aviso do serviço contratado), escopo plataforma. Ouvintes protegidos como em §3.4.
+Deduplicação em `comercial_aviso_espaco` (`tenant_id`, `chave`, `dia` em America/Sao_Paulo, `plano` NOT NULL DEFAULT
+`''`), UNIQUE nas quatro colunas (insert que falha = já mandou; o `plano` vazio no `e90` e no `e100` colide de
+verdade, N5). Todos `transacional` (aviso do serviço contratado), escopo plataforma. Ouvintes protegidos como em §3.4.
 
 **`e100` raro com o bloqueio ligado (I2):** com o bloqueio ligado, o envio que estoura é recusado antes do evento, e a
 faixa `Bloqueio` só é atingida quando o uso fecha exatamente no teto. Pedido à f6 (pergunta Q6): um evento
@@ -376,7 +435,16 @@ vez, nos dois retornos do `ComConta`, no nível de transação de base do DAMA);
 cadastro nem do aceite; `ReemitirConfirmacaoDeCadastroUseCase` (uma vez, recusa confirmado); purga do pendente só 72 h
 depois de vencer; `CadastroMailer` registra o envio. E-mails com `MailerAssertionsTrait` e transporte em memória.
 
-**1b.** `e90` cruzando 80, 85 e 90 (só o escolhido); deduplicação por dia, inclusive descendo e subindo de novo; `e100`
+**1a, casos da v3:** conteúdo do envio apagado no estado final (o corpo do `lemb` não sobra); Carteiro grava sem
+`flush` do EntityManager (uma entidade pendente do chamador não é gravada); varredura devolve `enviando` velho e
+redespacha `enfileirado` velho; purga de escritório com as tabelas novas (retidas e apagadas) não falha; `pedir`
+sobre confirmado não envia nem desconfirma; `pedir` para descadastrado no máximo 1 a cada 30 dias; purga não apaga
+estado confirmado; rótulo legível da origem; `conv` não repete na reativação; confirmações de endereço param no teto
+diário e as boas-vindas não; `ConfirmacaoDeCadastroEnviada` registrada pelo ouvinte e falha dele não muda a resposta
+do `/cadastro`; interruptor do `cad` desabilitado; `CITA_RASTREIO_DE_EMAIL = false` ignora `rastrear`.
+
+**1b.** `e90` cruzando 80, 85 e 90 (só o escolhido); deduplicação por dia (com o `plano` vazio colidindo), inclusive
+descendo e subindo de novo, e virada do dia no fuso de São Paulo; `e100`
 com e sem `bloqueioAtivo`; `ped` pelo primário e pelo Master; destinatários = primários ativos.
 
 ## 6. O que o dono olha na tela
