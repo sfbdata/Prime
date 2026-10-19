@@ -33,6 +33,9 @@ pasta, como no desenho (N:2977-2979).
 - Registro na timeline de Dados (`SYS.proc`, faixa "PROCESSO"): "apensado X (Embargos) vinculado ao processo
   principal Y." com "→ X", e "apensado X desvinculado." com "X → —" (N:4555, N:6320). Use o mesmo mecanismo de
   registro de sistema que a pasta já usa para processo vinculado/desvinculado.
+- Desvincular o principal quando a pasta tem apensados NÃO promove apensado a principal (decisão do
+  orquestrador na revisão: é o desenho, e embargos não é a ação principal). A pasta fica sem principal e
+  com os apensados intactos; só o vínculo antigo sem tipo de apenso continua elegível à promoção.
 - Aviso após vincular: "Apensado vinculado · aparece em Processo, Dados da pasta e Push processual" (N:4556).
 
 ## 3. Aba Dados
@@ -53,6 +56,10 @@ reaproveite e complete.
   com mais de 2 opções. Aplicam antes de "Todas/Novas/Geram prazo"; o total do cabeçalho não é filtrado. Filtro
   no navegador (como os atuais). Estado vazio "Nenhuma movimentação neste filtro." (já existe). Corrigir o defeito
   do protótipo: o filtro de processo volta para "Todos" quando o processo filtrado sai da pasta.
+
+- Atualização: depois de vincular ou desvincular, só a aba Processo é refeita na hora (XHR). A aba Push
+  (chips e lista) e a pílula de apensados da aba Dados se atualizam ao recarregar a página; por isso o
+  "volta para Todos" do protótipo não se aplica (a aba Push nasce sempre em "Todos os processos").
 
 ## 5. Registro de fase ao marcar administrativa (`spMarcar`, N:4761)
 

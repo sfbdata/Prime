@@ -69,7 +69,9 @@
         <h2>Processos vinculados</h2>
         {% if vinculos|length > 0 %}<span class="ps-contagem">{{ vinculos|length }}</span>{% endif %}
         <span class="ps-cab-espaco"></span>
-        {% set principalAdm = vinculos|length > 0 ? pasta.vinculoPrincipal : null %}
+        {# P4f: sem principal mas com apensado, a confirmação também vale; cita o principal ou, sem ele,
+           o primeiro processo vinculado. #}
+        {% set principalAdm = vinculos|length > 0 ? (pasta.vinculoPrincipal ?? vinculos|first) : null %}
         {% set confirmaAdm = null %}
         {% if not administrativa and principalAdm %}
             {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"? O andamento passa para a via administrativa." %}

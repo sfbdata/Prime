@@ -1704,9 +1704,10 @@
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalVincularProcessoLabel">
-                    <i class="bi bi-briefcase me-1"></i> <span id="mp-titulo-texto">Vincular Processo</span>
+                    <i class="bi bi-briefcase me-1"></i> <span id="mp-titulo-texto">Vincular processo</span>
                 </h6>
-                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                {# Desenho N:292: X branco num quadrado translúcido (pasta-apensados.css). #}
+                <button type="button" class="mp-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
             <form method="POST" id="formVincularProcesso"
                   action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
@@ -1725,7 +1726,7 @@
                     </label>
 
                     {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ #}
-                    <div class="btn-group w-100 mb-3" role="group" aria-label="Modo de vínculo de processo">
+                    <div class="btn-group w-100 mb-3 mp-abas" role="group" aria-label="Modo de vínculo de processo">
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-existente" autocomplete="off" checked>
                         <label class="btn btn-outline-primary btn-sm" for="mp-modo-existente"><i class="bi bi-search me-1"></i> Buscar processo existente</label>
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-novo" autocomplete="off">
@@ -1905,14 +1906,16 @@
                         <p class="mt-2 mb-0 small">Buscando processo no DataJud...</p>
                     </div>
 
-                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
-
                     </div>{# fim modal-modo-novo #}
+
+                    {# Fora do bloco "Cadastrar novo": o aviso "Selecione um processo para vincular." (desenho
+                       N:347, `pvVals.aviso`) também aparece na aba "Buscar processo existente". #}
+                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> <span id="mp-salvar-texto">Vincular Processo</span>
+                        <i class="bi bi-check-lg me-1"></i> <span id="mp-salvar-texto">Vincular processo</span>
                     </button>
                 </div>
             </form>

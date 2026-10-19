@@ -33,6 +33,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 final class PastaApensadosTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
+    use CriaUsuarioComPermissoesTrait;
 
     private const PRINCIPAL         = '07011345720258070007';
     private const PRINCIPAL_MASCARA = '0701134-57.2025.8.07.0007';
@@ -124,18 +125,23 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         self::assertNull($this->vinculoOuNulo($pasta, $embargos));
     }
 
-    #[TestDox('Quem só vê a pasta (sem EDIT) não vincula apensado')]
+    #[TestDox('Quem VÊ a pasta mas não edita: a página abre, e o POST volta o redirect de pedir acesso (302) sem vincular nada')]
     public function testSemEditNaoVincula(): void
     {
-        [, $tenant] = $this->criarAdmin();
-        $leitor     = $this->criarUsuarioSemPermissaoDoModulo($tenant);
-        $pasta      = $this->pastaComPrincipal($tenant);
-        $embargos   = $this->criarProcesso($tenant, self::EMBARGOS);
+        $tenant   = $this->criarTenant();
+        $leitor   = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.processo.view']);
+        $pasta    = $this->pastaComPrincipal($tenant);
+        $embargos = $this->criarProcesso($tenant, self::EMBARGOS);
         $this->logarComTenant($this->client, $leitor, $tenant);
+        $this->abrir($pasta); // vê a pasta
 
         $this->vincularApensado($pasta, ['processo_id' => $embargos->getId(), 'tipo_apenso' => 'embargos']);
 
-        self::assertFalse($this->client->getResponse()->isSuccessful());
+        // O guard do controller legado (ResourceAccessTrait) responde com o redirect para pedir acesso.
+        self::assertResponseStatusCodeSame(302);
+        $destino = (string) $this->client->getResponse()->headers->get('Location');
+        self::assertStringContainsString('requestAccess=1', $destino);
+        self::assertStringContainsString('action=edit', $destino);
         self::assertNull($this->vinculoOuNulo($pasta, $embargos));
     }
 
@@ -179,7 +185,11 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Este é o processo principal da pasta.', $this->resposta()['erro']);
-        self::assertTrue($pasta->getVinculoPrincipal()?->isPrincipal());
+        $this->em()->clear();
+        $fresca = $this->em()->find(Pasta::class, $pasta->getId());
+        self::assertCount(1, $fresca->getPastaProcessos());
+        self::assertTrue($fresca->getVinculoPrincipal()?->isPrincipal());
+        self::assertSame(self::PRINCIPAL, $fresca->getProcessoPrincipal()?->getNumeroProcesso());
     }
 
     #[TestDox('O mesmo apensado de novo: 422 "Este apensado já está vinculado."')]
@@ -234,6 +244,52 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         self::assertSame(self::PRINCIPAL, $fresca->getProcessoPrincipal()?->getNumeroProcesso());
         self::assertTrue($fresca->getVinculoPrincipal()?->isPrincipal());
         self::assertSame('<p><strong>Processo:</strong> apensado ' . self::EMBARGOS_MASCARA . ' desvinculado.</p>', $this->ultimoCartao($pasta));
+    }
+
+    #[TestDox('Desvincular o principal com apensados: a pasta fica SEM principal e os apensados intactos (spec §2, relido do banco)')]
+    public function testDesvincularPrincipalComApensadosNaoPromove(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->pastaComPrincipal($tenant);
+        $principalId     = $pasta->getProcessoPrincipal()?->getId();
+        $this->apensar($pasta, $this->criarProcesso($tenant, self::EMBARGOS), TipoDeApenso::Embargos);
+        $this->apensar($pasta, $this->criarProcesso($tenant, self::AGRAVO), TipoDeApenso::AgravoDeInstrumento);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->request('POST', '/pasta/' . $pasta->getId() . '/processo/desvincular', [
+            '_token' => 'TOKEN_pasta_desvincular_processo_' . $pasta->getId(), 'processo_id' => $principalId,
+        ], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $linhas = $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT pr.numero_processo, pp.principal, pp.tipo_apenso FROM pasta_processo pp JOIN processo pr ON pr.id = pp.processo_id WHERE pp.pasta_id = ? ORDER BY pp.id',
+            [$pasta->getId()],
+        );
+        self::assertSame([
+            ['numero_processo' => self::EMBARGOS, 'principal' => false, 'tipo_apenso' => 'embargos'],
+            ['numero_processo' => self::AGRAVO, 'principal' => false, 'tipo_apenso' => 'agravo_de_instrumento'],
+        ], $linhas);
+        $this->em()->clear();
+        $fresca = $this->em()->find(Pasta::class, $pasta->getId());
+        self::assertNull($fresca->getVinculoPrincipal());
+        self::assertCount(2, $fresca->getApensados());
+    }
+
+    #[TestDox('Pasta só com apensado (sem principal): marcar "Administrativo sem processo" pede confirmação citando o primeiro processo vinculado')]
+    public function testAdministrativaSemPrincipalPedeConfirmacao(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->apensar($pasta, $this->criarProcesso($tenant, self::EMBARGOS), TipoDeApenso::Embargos);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $form = $this->abrir($pasta)->filter('#processoTabContent > .ps-processos > .ps-card-cab > form.js-pasta-administrativa');
+
+        self::assertCount(1, $form);
+        self::assertSame(
+            'A Pasta ' . $pasta->getNup() . ' tem o processo ' . self::EMBARGOS_MASCARA . " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"? O andamento passa para a via administrativa.",
+            $form->attr('data-confirmar'),
+        );
     }
 
     #[TestDox('Desvincular o principal não escreve cartão de apensado')]
@@ -304,6 +360,41 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
             $select->filter('option')->each(static fn (Crawler $o): string => trim($o->text()))
         );
         self::assertSame('embargos', $select->filter('option[selected]')->attr('value'));
+    }
+
+    #[TestDox('Modal no desenho de 18/10 (N:289-354): cabeçalho com título e X próprios, abas .mp-abas, aviso fora do "Cadastrar novo", rodapé e CSS com escopo no modal')]
+    public function testModalNoDesenho(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->pastaComPrincipal($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $crawler = $this->abrir($pasta);
+        $modal   = $crawler->filter('#modalVincularProcesso .modal-content');
+
+        self::assertSame('Vincular processo', trim($modal->filter('.modal-header > .modal-title > #mp-titulo-texto')->text()));
+        self::assertCount(1, $modal->filter('.modal-header > .modal-title > i.bi-briefcase'));
+        self::assertCount(1, $modal->filter('.modal-header > button.mp-fechar[data-bs-dismiss="modal"] > i.bi-x-lg'));
+        self::assertCount(0, $modal->filter('.modal-header .btn-close'));
+        $abas = $modal->filter('.modal-body > .btn-group.mp-abas');
+        self::assertCount(1, $abas);
+        self::assertSame(['Buscar processo existente', 'Cadastrar novo (CNJ)'], $abas->filter('label.btn')->each(static fn (Crawler $l): string => trim($l->text())));
+        self::assertCount(1, $modal->filter('.modal-body > #mp-feedbackAlerta'), 'o aviso aparece também na aba "Buscar processo existente"');
+        self::assertCount(0, $modal->filter('#modal-modo-novo #mp-feedbackAlerta'));
+        self::assertSame('Cancelar', trim($modal->filter('.modal-footer > .btn-secondary[data-bs-dismiss="modal"]')->text()));
+        self::assertSame('Vincular processo', trim($modal->filter('.modal-footer > button[type="submit"].btn-primary #mp-salvar-texto')->text()));
+        self::assertCount(1, $crawler->filter('link[href*="css/pasta-apensados.css"]'));
+
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/pasta-apensados.css');
+        foreach ([
+            '#modalVincularProcesso .modal-header {',
+            'background: #0a6fa0; color: #fff;',
+            '#modalVincularProcesso .mp-abas > .btn-check:checked + .btn { background: #0a6fa0; color: #fff; }',
+            '#modalVincularProcesso .modal-footer .btn-secondary { padding: 0 16px; background: #eef2f5; color: #34505f; }',
+            '#modalVincularProcesso #mp-feedbackAlerta.alert-warning { background: #fff7e6; color: #7a5200;',
+        ] as $regra) {
+            self::assertStringContainsString($regra, $css);
+        }
     }
 
     #[TestDox('Aba Dados: pílula "2 apensados" com a dica e, aberta, cada apensado com "Apensado · Tipo" e o número que abre a aba Processo')]

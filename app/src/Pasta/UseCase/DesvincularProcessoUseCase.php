@@ -16,8 +16,10 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Quem: usuário com permissão de edição na pasta. O quê: remover um processo da pasta — o
  * registro do Processo permanece (pode estar vinculado a outras pastas). Idempotente: se o
- * processo não estava vinculado, é no-op. Se o desvinculado era o principal e ainda restam
- * processos, o primeiro remanescente é promovido a principal.
+ * processo não estava vinculado, é no-op. Se o desvinculado era o principal, só é promovido o
+ * primeiro vínculo SEM tipo de apenso (vínculo antigo); apensado com tipo nunca vira principal, então a
+ * pasta com principal e apensados fica sem principal e com os apensados intactos (decisão do P4f,
+ * spec §2: embargos não é a ação principal).
  *
  * Apensado (P4f): desvincular um apensado não mexe no principal e escreve o cartão do sistema
  * "apensado X desvinculado." na timeline de Dados (`SYS.proc`, N:6711), em nome de quem desvinculou.

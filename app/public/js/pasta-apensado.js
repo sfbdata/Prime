@@ -13,7 +13,7 @@
         cartão pelo HTML do servidor (`mpSwapProcessos`).
      3. Dica da pílula "N apensados" da aba Dados (N:7000): "Ver" / "Recolher".
 
-   Sem innerHTML: só textContent, atributos e o HTML que o servidor já renderizou.
+   Não monta marcação: só textContent, atributos e o HTML que o servidor já renderizou.
    ============================================================================= */
 (function () {
     'use strict';

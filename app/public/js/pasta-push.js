@@ -35,18 +35,6 @@
         // P4f (desenho `pushProc`, N:5670): o chip do processo filtra ANTES do Todas/Novas/Geram prazo.
         var processoAtual = 'todos';
 
-        /* Volta para "Todos" quando o chip do processo filtrado não existe mais (o processo saiu da
-           pasta): corrige o defeito do protótipo, que ficava preso num filtro sem chip. */
-        function processoDoFiltro() {
-            if (processoAtual === 'todos') { return 'todos'; }
-            var existe = Array.prototype.some.call(secao.querySelectorAll('.ps-push-proc'), function (b) {
-                return b.getAttribute('data-push-proc-filtro') === processoAtual;
-            });
-            if (!existe) { marcarChipDoProcesso('todos'); }
-
-            return processoAtual;
-        }
-
         function marcarChipDoProcesso(chave) {
             processoAtual = chave;
             secao.querySelectorAll('.ps-push-proc').forEach(function (b) {
@@ -62,7 +50,7 @@
             var itens = lista.querySelectorAll('.ps-push-item');
             var diaAnterior = null;
             var visiveis = 0;
-            var processo = processoDoFiltro();
+            var processo = processoAtual;
 
             Array.prototype.forEach.call(itens, function (item) {
                 // "prazo" lê a marca que o servidor pôs pela regra do desenho
