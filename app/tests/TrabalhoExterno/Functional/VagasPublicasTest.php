@@ -120,6 +120,66 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422, 'pendente não se compartilha');
     }
 
+    #[TestDox('o escritório compartilha a própria vaga sem aparecer: o nome dele não sai na página pública')]
+    public function testEscritorioCompartilhaSemSeIdentificar(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $sede = $this->criarTenant('Sede');
+        $b = $this->criarTenant('Banca Discreta');
+        $master = $this->criarMaster($sede);
+        $doB = $this->criarUsuario($b);
+
+        $this->logarComTenant($client, $doB, $b);
+        $codigo = $this->postarJson($client, '/trabalho-externo/api/vagas', self::vaga('Advogado cível júnior'))['codigo'];
+        $this->logarComTenant($client, $master, $sede);
+        $this->postarJson($client, "/trabalho-externo/api/vagas/$codigo/acoes/aprovar");
+
+        $this->logarComTenant($client, $doB, $b);
+        $link = $this->postarJson($client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$codigo]]);
+        self::assertSame(1, $link['vagas']);
+
+        $client->request('GET', '/logout');
+        $client->request('GET', parse_url($link['url'], PHP_URL_PATH));
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Advogado cível júnior', $html);
+        self::assertStringNotContainsString('Banca Discreta', $html);
+        self::assertStringNotContainsString('Indicadas por', $html);
+    }
+
+    #[TestDox('vaga pausada some do link; a prévia do Master não gera link')]
+    public function testPausadaSomeEPreviaNaoCompartilha(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $sede = $this->criarTenant('Sede');
+        $master = $this->criarMaster($sede);
+
+        $this->logarComTenant($client, $master, $sede);
+        $codigo = $this->postarJson($client, '/trabalho-externo/api/vagas', self::vaga('Controladoria jurídica'))['codigo'];
+        $link = $this->postarJson($client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$codigo]]);
+        $this->postarJson($client, "/trabalho-externo/api/vagas/$codigo/acoes/pausar");
+
+        $client->request('GET', parse_url($link['url'], PHP_URL_PATH));
+        self::assertStringNotContainsString('Controladoria jurídica', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('As vagas deste link já foram preenchidas', (string) $client->getResponse()->getContent());
+
+        $this->postarJson($client, '/trabalho-externo/api/vagas/compartilhar?como=solicitante', ['codigos' => [$codigo]]);
+        self::assertResponseStatusCodeSame(422, 'a escrita ignora o como= e a vaga pausada não entra');
+    }
+
+    #[TestDox('o consentimento que a tela mostra é o texto da versão gravada; corpo com tipo errado é 422, não erro')]
+    public function testConsentimentoETiposErrados(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/vagas-juridicas');
+        self::assertSame(InteressadoEmVagas::CONSENTIMENTO, trim($client->getCrawler()->filter('.vp-lead-lgpd span')->text()));
+        $csrf = $client->getCrawler()->filter('#alertas')->attr('data-csrf');
+
+        $this->alerta($client, ['email' => ['x@y.com'], 'uf' => ['DF'], 'areas' => [['Cível']], 'lgpd' => true, '_token' => $csrf]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
     /** @param array<string, mixed> $corpo */
     private function alerta(KernelBrowser $client, array $corpo): void
     {

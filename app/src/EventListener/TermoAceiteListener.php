@@ -51,6 +51,10 @@ final class TermoAceiteListener
         'trabalho_externo_convite',
         'trabalho_externo_convite_criar_conta',
         'trabalho_externo_convite_aceitar',
+        // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
+        'trabalho_externo_vagas_publicas',
+        'trabalho_externo_vagas_link',
+        'trabalho_externo_vagas_alertas',
     ];
 
     public function __construct(

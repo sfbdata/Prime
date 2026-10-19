@@ -58,9 +58,9 @@ final class VagasPublicasController extends AbstractController
 
         try {
             $inscrever->executar(
-                (string) ($corpo['email'] ?? ''),
-                (string) ($corpo['uf'] ?? ''),
-                is_array($corpo['areas'] ?? null) ? array_values($corpo['areas']) : [],
+                is_string($corpo['email'] ?? null) ? $corpo['email'] : '',
+                is_string($corpo['uf'] ?? null) ? $corpo['uf'] : '',
+                is_array($corpo['areas'] ?? null) ? array_values(array_filter($corpo['areas'], 'is_string')) : [],
                 ($corpo['lgpd'] ?? false) === true,
                 is_string($corpo['token'] ?? null) ? $corpo['token'] : null,
             );

@@ -143,7 +143,7 @@
                 </div>
                 <div class="vp-lead-rot">ÁREAS DE INTERESSE</div>
                 <div class="vp-lead-areas" id="vpAreas">{% for a in pagina.areas %}<button type="button" data-area="{{ a }}">{{ a }}</button>{% endfor %}</div>
-                <label class="vp-lead-lgpd"><input type="checkbox" id="vpLgpd"><span>Autorizo o BlueJus a me enviar vagas por e-mail (LGPD). Posso cancelar a qualquer momento pelo link no e-mail.</span></label>
+                <label class="vp-lead-lgpd"><input type="checkbox" id="vpLgpd"><span>{{ pagina.consentimento }}</span></label>
                 <div class="vp-lead-erro" id="vpErro" hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
                 <button type="button" class="vp-lead-btn" id="vpInscrever"><i class="bi bi-envelope-paper"></i>Quero receber as vagas</button>
             </div>
@@ -152,7 +152,7 @@
         <section class="vp-share" data-screen-label="Compartilhar">
             <i class="bi bi-people"></i>
             <div><b>Conhece alguém que procura vaga jurídica?</b><div>Compartilhe estas vagas com colegas, grupos da faculdade e da OAB.</div></div>
-            <a href="https://wa.me/?text={{ ('⚖️ Vagas para Advogados e área Jurídica disponíveis no BlueJus! ' ~ (vagas is not empty ? total ~ ' vaga(s): ' ~ cargos|slice(0, 3)|join(', ') ~ '. ' : '') ~ 'Veja: ' ~ app.request.uri)|url_encode }}" target="_blank" rel="noopener noreferrer" class="vp-btn-verde"><i class="bi bi-whatsapp"></i>Enviar no WhatsApp</a>
+            <a href="https://wa.me/?text={{ ('⚖️ Vagas para Advogados e área Jurídica disponíveis no BlueJus! ' ~ (vagas is not empty ? total ~ ' vaga(s): ' ~ cargos|slice(0, 3)|join(', ') ~ '. ' : '') ~ 'Veja: ' ~ (token ? url('trabalho_externo_vagas_link', {token: token}) : url('trabalho_externo_vagas_publicas')))|url_encode }}" target="_blank" rel="noopener noreferrer" class="vp-btn-verde"><i class="bi bi-whatsapp"></i>Enviar no WhatsApp</a>
         </section>
     </main>
 

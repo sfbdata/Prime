@@ -225,6 +225,11 @@ dado pessoal (LGPD) e de formulário aberto na internet.
   link de onde veio. Repetir o e-mail atualiza as preferências; não revela se já existia.
 - POST público com CSRF da própria página e **limite de tentativas** por IP (rate limiter do
   Symfony). Resposta igual para e-mail novo e repetido.
+- **A inscrição não prova que o dono do e-mail consentiu** (não há confirmação por e-mail). Por isso
+  nenhum e-mail de vaga pode sair para um interessado antes de ele confirmar o endereço pelo próprio
+  e-mail (double opt-in) e de conferir o `email_descadastro`. Isso é contrato da frente de e-mails
+  (pendente com o coordenador); esta fatia só grava o pedido.
+- "Indicadas por …" só identifica a Central. Link gerado por escritório não leva o nome dele.
 - O envio dos e-mails de vagas é da frente "Comercial e e-mails" (contrato pelo coordenador), e o
   descadastro é o serviço de `Shared` da frente `push-avisar-quando-chegar` (tabela
   `email_descadastro`). Esta fatia não envia e-mail nem cria descadastro próprio: a tela de "Não quer

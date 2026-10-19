@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\DTO\DadosDaVaga;
+use App\TrabalhoExterno\Entity\InteressadoEmVagas;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\SituacaoVaga;
 use App\TrabalhoExterno\Repository\LinkDeVagasRepository;
@@ -48,6 +49,8 @@ final class MontarPaginaDeVagasUseCase
             'areasSugeridas' => array_slice(array_values(array_unique(array_merge([], ...array_column($publicas, 'areas')))), 0, 3),
             'areas' => DadosDaVaga::AREAS,
             'ufs' => DadosDaSolicitacao::UFS,
+            // O texto que a pessoa lê é o da versão gravada no consentimento.
+            'consentimento' => InteressadoEmVagas::CONSENTIMENTO,
         ];
     }
 

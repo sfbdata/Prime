@@ -51,7 +51,9 @@ final class CompartilharVagasUseCase
             throw new DadosInvalidos('Escolha ao menos uma vaga aberta para compartilhar.');
         }
 
-        $nome = $this->politica->ehDaCentral($ctx) ? 'Central BlueJus' : (string) $ctx->tenant?->getName();
+        // "Indicadas por …" na página pública: só a Central se identifica. O nome do escritório
+        // diria quem oferece a vaga, que a página esconde (spec §4.2, "Escritório: ●●●" do desenho).
+        $nome = $this->politica->ehDaCentral($ctx) ? 'Central BlueJus' : '';
         [$link, $token] = LinkDeVagas::gerar($ids, $ctx->usuario, $nome);
         $this->links->salvar($link, flush: true);
 
