@@ -105,6 +105,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         AvisoWhatsapp::class,
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
+
+        // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
+        // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
+        \App\Agenda\Entity\VarreduraDePush::class,
     ];
 
     /**
@@ -117,7 +121,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 18;
+    // 18 → 19 com a marca global da varredura do push da Agenda (19/10/2026), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 19;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
