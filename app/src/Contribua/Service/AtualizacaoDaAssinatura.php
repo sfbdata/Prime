@@ -11,6 +11,7 @@ use App\Contribua\Gateway\GatewayDeAssinatura;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Gateway\SituacaoNoGateway;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
+use App\Entity\Tenant\Tenant;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -49,7 +50,8 @@ final class AtualizacaoDaAssinatura
      * `PAYMENT_CONFIRMED` juntos, e o webhook pode cruzar com a conciliação. Quem chega depois vê o pedido
      * já mudado e não avisa de novo. A nota fiscal e os avisos saem depois do COMMIT.
      */
-    public function aplicar(GatewayDeAssinatura $gateway, SituacaoNoGateway $noGateway, ?AssinaturaDeEspaco $pedido = null): ?AssinaturaDeEspaco
+    /** `primeiraVez`: o pedido acabou de ser ligado por quem chama (token), então a nota fiscal ainda falta. */
+    public function aplicar(GatewayDeAssinatura $gateway, SituacaoNoGateway $noGateway, ?AssinaturaDeEspaco $pedido = null, bool $primeiraVez = false): ?AssinaturaDeEspaco
     {
         $resultado = $this->em->wrapInTransaction(fn (): ?array => $this->aplicarTravado($gateway->codigo(), $noGateway, $pedido));
         if ($resultado === null) {
@@ -57,7 +59,7 @@ final class AtualizacaoDaAssinatura
         }
 
         [$pedido, $mudou, $acabouDeLigar] = $resultado;
-        if ($acabouDeLigar) {
+        if ($acabouDeLigar || $primeiraVez) {
             $this->ligarNotaFiscal($gateway, $noGateway->idDaAssinatura);
         }
         if ($mudou) {
@@ -73,7 +75,7 @@ final class AtualizacaoDaAssinatura
     {
         $pedido ??= $this->localizar($codigoDoGateway, $noGateway);
         if ($pedido === null) {
-            $this->logger->warning('Contribua: assinatura do gateway sem pedido no BlueJus', ['gateway' => $codigoDoGateway, 'assinatura' => $noGateway->idDaAssinatura]);
+            $this->avisarSemPedido($codigoDoGateway, $noGateway);
 
             return null;
         }
@@ -85,6 +87,23 @@ final class AtualizacaoDaAssinatura
         $this->planoVigente->atualizar((int) $pedido->getTenant()->getId(), new \DateTimeImmutable());
 
         return [$pedido, $mudou, $acabouDeLigar];
+    }
+
+    /**
+     * Assinatura paga no gateway sem pedido no BlueJus (checkout substituído e pago mesmo assim, valor
+     * diferente): o espaço não é liberado por palpite, mas o Master precisa ver para ligar à mão ou estornar.
+     */
+    private function avisarSemPedido(string $codigoDoGateway, SituacaoNoGateway $noGateway): void
+    {
+        $this->logger->warning('Contribua: assinatura do gateway sem pedido no BlueJus', ['gateway' => $codigoDoGateway, 'assinatura' => $noGateway->idDaAssinatura]);
+        $tenantId = self::tenantDaReferencia($noGateway->referencia);
+        if ($tenantId === null || $noGateway->situacao !== SituacaoDaAssinatura::Ativa) {
+            return;
+        }
+        $escritorio = $this->em->find(Tenant::class, $tenantId);
+        if ($escritorio !== null) {
+            $this->avisoAoMaster->avisar($escritorio, AvisoAoPrimario::TIPO_ASSINATURA, sprintf('Assinatura paga sem pedido no BlueJus: %s, %s (%s). Confira no painel do gateway.', (string) $escritorio->getName(), $noGateway->idDaAssinatura, $codigoDoGateway), $this->urls->generate('contribua_index') . '#espaco');
+        }
     }
 
     /**

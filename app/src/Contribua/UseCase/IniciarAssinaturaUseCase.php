@@ -33,7 +33,6 @@ final class IniciarAssinaturaUseCase
 {
     public const FALHA_NO_GATEWAY = 'O gateway de pagamento não respondeu. Tente de novo em instantes.';
     public const JA_ASSINA = 'Este escritório já tem uma assinatura ativa. Para trocar de plano, cancele a atual em Meu Perfil.';
-    public const CHECKOUT_ABERTO = 'Já existe um pagamento em andamento para este escritório. Conclua na página do gateway ou tente de novo em uma hora.';
     private const MINUTOS_DO_CHECKOUT = 60;
 
     public function __construct(
@@ -54,13 +53,40 @@ final class IniciarAssinaturaUseCase
         $this->exigirSemAssinaturaViva($quem->tenantId());
         $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), preg_replace('/\D/', '', $documento) ?? '', (string) $quem->usuario->getEmail());
 
-        $pedido = new AssinaturaDeEspaco($quem->escritorio, $plano, $gateway->codigo(), $plano->getPrecoCentavos(), $quem->usuario);
+        $pedido = $this->pedidoAberto($quem, $gateway, $plano);
+        if ($pedido?->getUrlDoCheckout() !== null) {
+            return new InicioDaAssinatura((int) $pedido->getId(), InicioDoCheckout::REDIRECIONAR, $pedido->getUrlDoCheckout(), null, $gateway->codigo());
+        }
+
+        $pedido ??= new AssinaturaDeEspaco($quem->escritorio, $plano, $gateway->codigo(), $plano->getPrecoCentavos(), $quem->usuario);
         $this->assinaturas->salvar($pedido, flush: true);
         $inicio = $this->iniciarNoGateway($gateway, $pedido, $this->pedidoDeCheckout($pedido, $pagador, $ip));
-        $pedido->registrarInicio($inicio->idNoGateway);
+        $pedido->registrarInicio($inicio->idNoGateway, $inicio->urlDeRedirecionamento);
         $this->assinaturas->salvar($pedido, flush: true);
 
         return new InicioDaAssinatura((int) $pedido->getId(), $inicio->modo, $inicio->urlDeRedirecionamento, $inicio->chavePublica, $gateway->codigo());
+    }
+
+    /**
+     * O checkout aberto há menos de uma hora (o do gateway expira em 60 minutos) que ainda não foi pago:
+     * do mesmo plano, é reaproveitado (a página hospedada reabre; no formulário, nova tentativa depois de
+     * um cartão recusado); de outro plano, é substituído. Nunca dois checkouts abertos ao mesmo tempo.
+     */
+    private function pedidoAberto(Solicitante $quem, GatewayDeAssinatura $gateway, Plano $plano): ?AssinaturaDeEspaco
+    {
+        $desde = new \DateTimeImmutable('-' . self::MINUTOS_DO_CHECKOUT . ' minutes');
+        foreach ($this->assinaturas->doTenant($quem->tenantId()) as $aberto) {
+            if (!$aberto->semNadaNoGateway() || $aberto->getCriadaEm() < $desde || $aberto->getGateway() !== $gateway->codigo()) {
+                continue;
+            }
+            if ($aberto->getPlano()->getId() === $plano->getId()) {
+                return $aberto;
+            }
+            $aberto->cancelar();
+            $this->assinaturas->salvar($aberto, flush: true);
+        }
+
+        return null;
     }
 
     private function exigirGateway(Solicitante $quem): GatewayDeAssinatura
@@ -86,8 +112,9 @@ final class IniciarAssinaturaUseCase
     }
 
     /**
-     * Uma assinatura viva por escritório: uma que ainda vale (não cancelada) ou um checkout aberto há menos
-     * de uma hora (o checkout do gateway expira em 60 minutos; dois pagos seriam duas cobranças).
+     * Uma assinatura viva por escritório: a que ainda vale e a que continua ligada no gateway (Ativa ou
+     * Inadimplente, mesmo depois da carência: o gateway seguiria cobrando o cartão antigo). Para trocar,
+     * cancela antes.
      */
     private function exigirSemAssinaturaViva(int $tenantId): void
     {
@@ -95,11 +122,9 @@ final class IniciarAssinaturaUseCase
         $carencia = $this->configuracao->atual()->getDiasDeCarencia();
         foreach ($this->assinaturas->doTenant($tenantId) as $assinatura) {
             $situacao = $assinatura->getSituacao();
-            if ($situacao !== SituacaoDaAssinatura::Cancelada && $assinatura->vigenteEm($agora, $carencia)) {
+            $ligadaNoGateway = $assinatura->getIdDaAssinatura() !== null && \in_array($situacao, [SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente], true);
+            if ($ligadaNoGateway || ($situacao !== SituacaoDaAssinatura::Cancelada && $assinatura->vigenteEm($agora, $carencia))) {
                 throw new \DomainException(self::JA_ASSINA);
-            }
-            if ($situacao === SituacaoDaAssinatura::Aguardando && $assinatura->getCriadaEm() > $agora->modify('-' . self::MINUTOS_DO_CHECKOUT . ' minutes')) {
-                throw new \DomainException(self::CHECKOUT_ABERTO);
             }
         }
     }
