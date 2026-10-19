@@ -41,18 +41,20 @@
         ['rascunho', 'Rascunhos', ['rascunho']]
     ];
     /**
-     * Chip das marcações pessoais (spec VS 18.10.26 §3.3 e §3.5). O desenho mostra só a lixeira (o
-     * aviso `lixGrupo`); estrela e importância se filtram pelo "Selecionar por". Provisório até o zip.
+     * Chips das marcações pessoais depois dos grupos (desenho VS 18.10.26, `chips` do renderVals):
+     * estrela e importantes contam o que está fora da lixeira; a lixeira conta só o que está nela.
      */
     var EXTRAS = [
+        ['estrela', '★ Com estrela'],
+        ['imp', 'Importantes'],
         ['lixeira', 'Lixeira']
     ];
-    /** Importância nível 0 a 3 (`impDe()` do desenho): fundo, cor e ícone graduados. Provisório até o zip. */
+    /** Importância nível 0 a 3 (`impIc`, `impCor`, `impBg` e `impTip` do desenho). */
     var IMPORTANCIA = [
-        { bg: '#eef2f5', cor: '#b5c3cc', ic: 'bi-dash' },
-        { bg: '#e5f1f7', cor: '#0a6fa0', ic: 'bi-chevron-right' },
-        { bg: '#fff4d6', cor: '#b07f00', ic: 'bi-chevron-double-right' },
-        { bg: '#e0a106', cor: '#fff', ic: 'bi-exclamation-lg' }
+        { bg: 'transparent', cor: '#c9d3da', ic: 'bi-chevron-right', rot: 'Pouca importância' },
+        { bg: 'transparent', cor: '#7aa7c2', ic: 'bi-chevron-right', rot: 'Importância moderada' },
+        { bg: 'transparent', cor: '#0a6fa0', ic: 'bi-chevron-double-right', rot: 'Importante' },
+        { bg: '#0a6fa0', cor: '#fff', ic: 'bi-chevron-double-right', rot: 'Muito importante' }
     ];
     var DESFAZER_MS = 8000;
     var ABAS = { resumo: 'Resumo', proposta: 'Proposta', exec: 'Execução', chat: 'Chat', hist: 'Histórico', whats: 'WhatsApp' };
@@ -586,7 +588,7 @@
                         ? 'Você ainda não fez solicitações. Use "Nova solicitação" para pedir um serviço em outra localidade.'
                         : 'Nenhuma demanda atribuída a você.';
             } else {
-                txt = S.grupo === 'lixeira' && !S.busca.trim() ? 'A lixeira está vazia.' : 'Nenhuma demanda neste filtro.';
+                txt = 'Nenhuma demanda neste filtro.';
             }
             alvo.appendChild(el('div', { class: 'te-vazio', text: txt }));
         }
@@ -639,31 +641,32 @@
     ];
 
     /**
-     * Barra de lote e aviso da lixeira (desenho, linhas 124 a 126). Os botões são o conjunto de `lote()`
-     * com os rótulos do mapa T; estrela e importante viram "tirar" quando todas as selecionadas já têm.
+     * Barra de lote e aviso da lixeira (desenho, linhas 125 e 126; `loteAcoes` do renderVals). Um só
+     * botão de leitura (lida se alguma tem não lidas) e um de estrela (remover se todas já têm);
+     * importante e não importante aparecem sempre.
      */
     function renderLote() {
         var alvo = limpar($('teLote'));
         var naLixeira = S.grupo === 'lixeira';
         if (S.sel.length && !previa()) {
             var sel = demandas().filter(function (d) { return selecionada(d.codigo); });
+            var algumaNaoLida = sel.some(function (d) { return +d.naoLidas > 0; });
             var todasEstrela = sel.length > 0 && sel.every(function (d) { return !!d.estrela; });
-            var todasImp = sel.length > 0 && sel.every(importante);
             var acoes = naLixeira
                 ? [
                     ['restaurar', 'Restaurar', 'bi-arrow-counterclockwise', null],
-                    ['definitivo', 'Excluir definitivamente', 'bi-x-octagon', '#a3232b']
+                    ['definitivo', 'Excluir da minha lista definitivamente', 'bi-x-octagon', '#a3232b']
                 ]
                 : [
                     ['lixeira', 'Mover para a lixeira', 'bi-trash', null],
-                    ['lida', 'Marcar como lida', 'bi-envelope-open', null],
-                    ['naolida', 'Marcar como não lida', 'bi-envelope', null],
-                    todasEstrela ? ['semestrela', 'Tirar estrela', 'bi-star', null] : ['estrela', 'Marcar com estrela', 'bi-star-fill', '#e0a106'],
-                    todasImp ? ['naoimp', 'Marcar como não importante', 'bi-bookmark-x', null] : ['imp', 'Marcar como importante', 'bi-bookmark-star-fill', '#b07f00']
+                    algumaNaoLida ? ['lida', 'Marcar como lida', 'bi-envelope-open', null] : ['naolida', 'Marcar como não lida', 'bi-envelope', null],
+                    todasEstrela ? ['semestrela', 'Remover estrela', 'bi-star-fill', '#e0a106'] : ['estrela', 'Adicionar estrela', 'bi-star', null],
+                    ['imp', 'Marcar como importante', 'bi-chevron-double-right', '#0a6fa0'],
+                    ['naoimp', 'Marcar como não importante', 'bi-chevron-right', null]
                 ];
             var codigos = S.sel.slice();
             alvo.appendChild(el('div', { class: 'te-lote', attrs: { role: 'toolbar', 'aria-label': 'Ações nas selecionadas' } }, [
-                el('b', { class: 'te-lote-n', text: S.sel.length + (S.sel.length === 1 ? ' selecionada' : ' selecionadas') })
+                el('b', { class: 'te-lote-n', text: S.sel.length + ' selecionada(s)' })
             ].concat(acoes.map(function (a) {
                 return el('button', {
                     type: 'button', class: 'te-lote-btn', title: a[1],
@@ -794,7 +797,7 @@
     function marcasDaLinha(d, sel) {
         var nv = nivelDe(d), I = IMPORTANCIA[nv];
         var motivos = ((d.importancia || {}).motivos || []).join(', ');
-        var dica = motivos ? 'Importância ' + nv + ' de 3: ' + motivos : 'Importância ' + nv + ' de 3';
+        var dica = I.rot + (motivos ? ': ' + motivos : '') + '. Clique para marcar ' + (nv >= 2 ? 'como não importante.' : 'como importante.');
         var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
         var pv = previa();
 
@@ -805,7 +808,7 @@
                 onclick: parar(function () { alternarSel(d.codigo); })
             }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
             el('button', {
-                type: 'button', class: 'te-estrela' + (d.estrela ? ' is-on' : ''), title: d.estrela ? 'Tirar estrela' : 'Estrela', disabled: pv,
+                type: 'button', class: 'te-estrela' + (d.estrela ? ' is-on' : ''), title: 'Estrela', disabled: pv,
                 attrs: { 'aria-pressed': d.estrela ? 'true' : 'false' },
                 onclick: parar(function () { lote([d.codigo], d.estrela ? 'semestrela' : 'estrela'); })
             }, ic(d.estrela ? 'bi-star-fill' : 'bi-star')),
@@ -813,7 +816,7 @@
                 type: 'button', class: 'te-imp', title: dica, disabled: pv,
                 style: { background: I.bg, color: I.cor },
                 attrs: { 'data-tip': dica, 'aria-label': dica },
-                onclick: parar(function () { lote([d.codigo], importante(d) ? 'naoimp' : 'imp'); })
+                onclick: parar(function () { lote([d.codigo], nv >= 2 ? 'naoimp' : 'imp'); })
             }, ic(I.ic))
         ]);
     }
@@ -836,29 +839,6 @@
         m.largura = largura;
         S.menu = m;
         renderMenu();
-    }
-
-    /** Itens das marcações pessoais no menu da linha (spec VS 18.10.26 §3.5, provisório até o zip). */
-    function itensDeMarcacao(d) {
-        var c = [d.codigo];
-        var itens = [
-            d.estrela ? ['semestrela', 'Tirar estrela', 'bi-star'] : ['estrela', 'Marcar com estrela', 'bi-star-fill'],
-            importante(d) ? ['naoimp', 'Marcar como não importante', 'bi-bookmark-x'] : ['imp', 'Marcar como importante', 'bi-bookmark-star'],
-            +d.naoLidas > 0 ? ['lida', 'Marcar como lida', 'bi-envelope-open'] : ['naolida', 'Marcar como não lida', 'bi-envelope']
-        ];
-        if (d.lixeira) {
-            itens.push(['restaurar', 'Restaurar', 'bi-arrow-counterclockwise']);
-            itens.push(['definitivo', 'Excluir definitivamente', 'bi-x-octagon', true]);
-        } else {
-            itens.push(['lixeira', 'Mover para a lixeira', 'bi-trash']);
-        }
-
-        return itens.map(function (x, i) {
-            return el('button', {
-                type: 'button', class: 'te-menu-item' + (i === 0 ? ' is-sep' : '') + (x[3] ? ' is-perigo' : ''),
-                onclick: function () { lote(c, x[0]); }
-            }, [ic(x[2]), x[1]]);
-        });
     }
 
     function fecharMenu() {
@@ -940,10 +920,6 @@
                 onclick: function () { executar(m.codigo, b); }
             }, [ic(b.ic), b.rot]));
         });
-        var d = demandas().filter(function (x) { return x.codigo === m.codigo; })[0];
-        if (d && !previa()) {
-            itensDeMarcacao(d).forEach(function (b) { caixa.appendChild(b); });
-        }
         alvo.appendChild(caixa);
     }
 
@@ -1427,10 +1403,10 @@
 
     /* ---------------------------------------------------------------- chat avançado (spec VS 18.10.26 §3.4) */
 
-    /** Filtros do chat (provisório até o zip: o `chatFiltros` vinha do `renderVals()` perdido). */
+    /** Filtros do chat e o texto de vazio de cada um (`chatFiltros` e `chatVazioTxt` do desenho). */
     var CHAT_FILTROS = [
-        ['todas', 'Todas', 'bi-chat-dots', 'Nenhuma mensagem nesta demanda.'],
-        ['fav', 'Favoritas', 'bi-star', 'Nenhuma mensagem favorita.'],
+        ['todas', 'Todas', 'bi-chat-left-text', 'Nenhuma mensagem nesta demanda.'],
+        ['fav', 'Favoritas', 'bi-star', 'Nenhuma mensagem favoritada. Use a estrela para guardar as importantes.'],
         ['lix', 'Lixeira', 'bi-trash', 'A lixeira está vazia.']
     ];
     var temporizadorChatUndo = null;
@@ -1502,10 +1478,19 @@
         enviarChatLote(codigo, ids, op);
     }
 
-    function enviarChatLote(codigo, ids, op) {
+    /**
+     * Grava a operação. Com `aviso` (favoritar uma mensagem só, como o `tgFav` do desenho) mostra o
+     * aviso do canto e não mexe na seleção nem na faixa de desfazer.
+     */
+    function enviarChatLote(codigo, ids, op, aviso) {
         return pedir('POST', ROTA.marcacoesMsg(codigo), { ids: ids, op: op }).then(function (r) {
             if (!r.ok) {
                 toastErro(r.mensagem);
+                return r;
+            }
+            if (aviso) {
+                mostrarToast(aviso);
+                aplicarDemandaNoChat(r);
                 return r;
             }
             S.chatSel = [];
@@ -1518,6 +1503,25 @@
             aplicarDemandaNoChat(r);
             return r;
         });
+    }
+
+    /** Estrela de uma mensagem (botão ou menu): alterna e avisa no canto, com os textos do desenho. */
+    function alternarFavorita(m) {
+        if (!S.dz || previa()) {
+            return;
+        }
+        fecharMenu();
+        var aviso = m.favorita
+            ? { tit: 'Removida das favoritas', txt: '', hora: '' }
+            : { tit: 'Mensagem favoritada', txt: 'Veja em Favoritas no topo do chat.', hora: '' };
+        enviarChatLote(S.dz.codigo, [m.id], m.favorita ? 'desfav' : 'fav', aviso);
+    }
+
+    function copiarTexto(m) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(m.txt || '');
+        }
+        mostrarToast({ tit: 'Texto copiado', txt: '', hora: '' });
     }
 
     /** Como aplicarDemanda, mas sem perder a rolagem da conversa. */
@@ -1543,7 +1547,7 @@
             k: '__apagar_msg__',
             confirmacao: {
                 titulo: 'Apagar para todos',
-                texto: 'Apagar esta mensagem para todos? Os outros participantes passam a ver "Mensagem apagada" no lugar do texto.',
+                texto: 'Apagar esta mensagem? Ela some para todos e fica registrado que foi apagada.',
                 botao: 'Apagar para todos', motivo: false, perigo: true
             },
             executar: function () {
@@ -1559,26 +1563,36 @@
         });
     }
 
-    /** Menu de contexto de uma mensagem (desenho, linhas 423 a 429): título com autor e hora, e as ações dela. */
+    /**
+     * Menu de contexto de uma mensagem (`ctx` do desenho). Na lixeira: só restaurar e excluir. Fora:
+     * selecionar, favoritar e copiar (se não apagada), lixeira e apagar para todos; quando o servidor
+     * nega o apagar, mostra o motivo num item travado que só fecha o menu.
+     */
     function menuDaMensagem(caixa, m) {
-        caixa.appendChild(el('div', { class: 'te-menu-tit', text: m.de + ' · ' + m.em }));
-        var item = function (rot, icone, acao, perigo) {
+        var item = function (rot, icone, acao, classe) {
             caixa.appendChild(el('button', {
-                type: 'button', class: 'te-menu-item' + (perigo ? ' is-perigo' : ''),
+                type: 'button', class: 'te-menu-item' + (classe ? ' ' + classe : ''),
                 onclick: function () { fecharMenu(); acao(); }
             }, [ic(icone), rot]));
         };
-        var sel = chatSelecionada(m.id);
-        item(sel ? 'Desmarcar' : 'Selecionar', sel ? 'bi-square' : 'bi-check-square', function () { alternarChatSel(m.id); });
         if (m.lixeira) {
+            caixa.appendChild(el('div', { class: 'te-menu-tit', text: 'Lixeira' }));
             item('Restaurar', 'bi-arrow-counterclockwise', function () { chatLote([m.id], 'restaurar'); });
-            item('Excluir definitivamente', 'bi-x-octagon', function () { chatLote([m.id], 'definitivo'); }, true);
+            item('Excluir definitivamente', 'bi-x-octagon', function () { chatLote([m.id], 'definitivo'); }, 'is-perigo');
             return;
         }
-        item(m.favorita ? 'Tirar dos favoritos' : 'Favoritar', m.favorita ? 'bi-star' : 'bi-star-fill', function () { chatLote([m.id], m.favorita ? 'desfav' : 'fav'); });
-        item('Mover para a lixeira', 'bi-archive', function () { chatLote([m.id], 'lixeira'); });
-        if (m.podeApagar && !m.apagada) {
-            item('Apagar para todos', 'bi-trash', function () { apagarParaTodos(m); }, true);
+        caixa.appendChild(el('div', { class: 'te-menu-tit', text: m.de + ' · ' + m.em }));
+        var sel = chatSelecionada(m.id);
+        item(sel ? 'Desmarcar' : 'Selecionar', sel ? 'bi-check-square-fill' : 'bi-check-square', function () { alternarChatSel(m.id); });
+        if (!m.apagada) {
+            item(m.favorita ? 'Remover das favoritas' : 'Favoritar', m.favorita ? 'bi-star-fill' : 'bi-star', function () { alternarFavorita(m); });
+            item('Copiar texto', 'bi-clipboard', function () { copiarTexto(m); });
+        }
+        item('Mover para a lixeira', 'bi-trash', function () { chatLote([m.id], 'lixeira'); });
+        if (m.podeApagar) {
+            item('Apagar para todos', 'bi-trash-fill', function () { apagarParaTodos(m); }, 'is-perigo');
+        } else if (!vazio(m.apagarBloqueado)) {
+            item(m.apagarBloqueado, 'bi-lock', function () {}, 'is-travado');
         }
     }
 
@@ -1668,18 +1682,19 @@
             m.favorita ? el('i', { class: 'bi bi-star-fill te-msg-fav', title: 'Favorita' }) : null,
             el('span', { class: 'te-espaco' })
         ]);
-        if (!pv && !m.lixeira) {
-            cab.appendChild(el('span', { class: 'te-msg-acoes' }, [
+        // Como o `acoes` do desenho: mensagem apagada ou na lixeira não tem ações na linha.
+        if (!pv && !m.lixeira && !m.apagada) {
+            cab.appendChild(el('span', { class: 'te-msg-acoes' + (m.favorita ? ' is-fav' : '') }, [
                 el('button', {
-                    type: 'button', class: 'te-msg-btn' + (m.favorita ? ' is-fav' : ''), title: m.favorita ? 'Tirar dos favoritos' : 'Favoritar',
-                    onclick: function () { chatLote([m.id], m.favorita ? 'desfav' : 'fav'); }
+                    type: 'button', class: 'te-msg-btn' + (m.favorita ? ' is-fav' : ''), title: m.favorita ? 'Remover das favoritas' : 'Favoritar',
+                    onclick: function () { alternarFavorita(m); }
                 }, ic(m.favorita ? 'bi-star-fill' : 'bi-star')),
                 el('button', {
                     type: 'button', class: 'te-msg-btn', title: 'Mover para a lixeira',
                     onclick: function () { chatLote([m.id], 'lixeira'); }
                 }, ic('bi-archive')),
-                m.podeApagar && !m.apagada ? el('button', {
-                    type: 'button', class: 'te-msg-btn is-perigo', title: 'Apagar para todos',
+                m.podeApagar ? el('button', {
+                    type: 'button', class: 'te-msg-btn is-perigo', title: m.apagarDica || 'Apagar para todos',
                     onclick: function () { apagarParaTodos(m); }
                 }, ic('bi-trash')) : null
             ]));
@@ -1703,7 +1718,7 @@
         }, [
             cab,
             m.apagada
-                ? el('div', { class: 'te-msg-apagada' }, [ic('bi-slash-circle'), 'Mensagem apagada'])
+                ? el('div', { class: 'te-msg-apagada' }, [ic('bi-slash-circle'), m.apagadaTxt || 'Mensagem apagada'])
                 : el('div', { class: 'te-msg-txt', text: m.txt })
         ]);
     }
