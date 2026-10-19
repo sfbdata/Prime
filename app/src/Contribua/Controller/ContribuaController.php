@@ -7,14 +7,16 @@ namespace App\Contribua\Controller;
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Enum\TipoDeSugestao;
 use App\Contribua\Service\CodigoPixDaConta;
+use App\Contribua\Service\SolicitanteDaSessao;
 use App\Contribua\UseCase\AtenderSugestaoUseCase;
 use App\Contribua\UseCase\EnviarSugestaoUseCase;
 use App\Contribua\UseCase\MontarPaginaDoContribuaUseCase;
+use App\Contribua\UseCase\MontarPagamentoDoContribuaUseCase;
 use App\Contribua\UseCase\PedirEspacoUseCase;
 use App\Contribua\UseCase\RegistrarApoioUseCase;
 use App\Contribua\UseCase\RegistrarMotivoDeNaoApoiarUseCase;
+use App\Contribua\UseCase\RegistrarRetornoDoPagamentoUseCase;
 use App\Entity\Auth\User;
-use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,14 +36,18 @@ final class ContribuaController extends AbstractController
     private const CSRF = 'contribua';
 
     public function __construct(
-        private readonly TenantContext $tenantContext,
+        private readonly SolicitanteDaSessao $sessao,
     ) {
     }
 
+    /** `?assinatura=ok` é a página de retorno colada no gateway: abre o "Pagamento enviado" do checkout. */
     #[Route('', name: 'contribua_index', methods: ['GET'])]
-    public function index(MontarPaginaDoContribuaUseCase $montar): Response
+    public function index(Request $request, MontarPaginaDoContribuaUseCase $montar, MontarPagamentoDoContribuaUseCase $pagamento, RegistrarRetornoDoPagamentoUseCase $retorno): Response
     {
-        return $this->render('contribua/index.html.twig', ['pagina' => $montar->executar($this->solicitante())]);
+        $quem = $this->solicitante();
+        $voltou = $request->query->get('assinatura') === 'ok' ? $retorno->executar($quem) : null;
+
+        return $this->render('contribua/index.html.twig', ['pagina' => $montar->executar($quem), 'pagamento' => $pagamento->executar($quem), 'retorno' => $voltou]);
     }
 
     /** O "copia e cola" para o valor escolhido (R$ 20, 50, 100 ou outro). */
@@ -122,22 +128,11 @@ final class ContribuaController extends AbstractController
 
     private function solicitante(): Solicitante
     {
-        $escritorio = $this->tenantContext->getCurrentTenant();
-        if ($escritorio === null) {
-            throw $this->createAccessDeniedException('Escolha um escritório para abrir o Contribua.');
-        }
-        $papel = $this->tenantContext->getCurrentUserTenant()?->getTenantRole();
-
-        return new Solicitante($this->usuario(), $escritorio, $this->isGranted('ROLE_SUPER_ADMIN'), $papel?->isSystem() === true);
+        return $this->sessao->atual();
     }
 
     private function usuario(): User
     {
-        $usuario = $this->getUser();
-        if (!$usuario instanceof User) {
-            throw $this->createAccessDeniedException();
-        }
-
-        return $usuario;
+        return $this->sessao->usuario();
     }
 }

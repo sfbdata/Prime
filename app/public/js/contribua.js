@@ -230,9 +230,10 @@
         });
     }));
 
-    /* "Quero +N GB": na C2, lista de espera até a assinatura por cartão ser ligada */
+    /* "Quero +N GB": sem gateway escolhido pelo Master, lista de espera (coPedir do desenho). Com gateway,
+       quem abre o checkout é o contribua-checkout.js. */
     $$('[data-pedir-plano]').forEach((b) => b.addEventListener('click', () => {
-        if (b.disabled) {
+        if (b.disabled || raiz.dataset.cartaoLiberado === '1') {
             return;
         }
         enviar(raiz.dataset.urlPedido, { plano: b.dataset.pedirPlano }).then((d) => avisar(d.mensagem || d.erro));
