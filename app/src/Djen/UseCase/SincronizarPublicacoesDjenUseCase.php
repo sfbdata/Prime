@@ -34,7 +34,9 @@ use App\Processo\Repository\ProcessoRepository;
  * publicação vinda pela OAB e pelo número vira UMA linha), persiste as novas vinculando ao Processo
  * quando o número CNJ já existe no escritório, e notifica os usuários com acesso ao módulo.
  * Por fim, depois da reconciliação, entrega os `djenId` novos ao {@see AvisoDePublicacoesNovasInterface}
- * (o "Avisar quando chegar" de cada pasta, spec push-avisar-quando-chegar §3). O --dry-run não avisa.
+ * (o "Avisar quando chegar" de cada pasta, spec push-avisar-quando-chegar §3), UMA vez por execução:
+ * no botão do módulo e no "Buscar agora", no fim da chamada; no comando diário, no fim da 2ª fase,
+ * com as novas das duas. O --dry-run não avisa.
  *
  * Recebe o Tenant EXPLICITAMENTE — roda tanto no request (botão "sincronizar agora") quanto no comando
  * CLI (TenantFilter desligado). Toda query e criação é escopada por esse tenant; nunca depende do filtro.
@@ -119,10 +121,21 @@ final class SincronizarPublicacoesDjenUseCase
         // faz a captação diária curar o passivo sozinha, em duas consultas.
         if (!$dryRun) {
             $this->reconciliar->executar($tenant);
-            $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
+            $this->avisarSeForAExecucaoInteira($tenant, $incluirProcessos, $resultado);
         }
 
         return $resultado;
+    }
+
+    /**
+     * Só OABs = a 1ª fase do comando: quem avisa é a 2ª (`sincronizarProcessosCobrindoTodos`), uma
+     * vez por escritório, com as novas das duas fases. Senão a pasta receberia dois avisos.
+     */
+    private function avisarSeForAExecucaoInteira(Tenant $tenant, bool $incluirProcessos, ResultadoSincronizacao $resultado): void
+    {
+        if ($incluirProcessos) {
+            $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
+        }
     }
 
     /**
@@ -131,7 +144,8 @@ final class SincronizarPublicacoesDjenUseCase
      * então nenhum fica de fora por estar no fim da lista. O comando roda esta fase depois das
      * OABs de todos os escritórios, para a cota gasta aqui nunca faltar à captação por OAB.
      *
-     * @param list<string> $djenIdsJaCaptados djenId que a fase de OABs já contou como novos
+     * @param list<string> $djenIdsJaCaptados djenId que a fase de OABs já contou como novos (entram no
+     *                                       aviso único do escritório, dado aqui, no fim das duas fases)
      */
     public function sincronizarProcessosCobrindoTodos(
         Tenant $tenant,
@@ -147,8 +161,10 @@ final class SincronizarPublicacoesDjenUseCase
         $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
         $this->concluir($tenant, $dryRun, $resultado);
         $this->registrarVerificacoes($tenant, $dryRun, $resultado);
+        // Fim da execução do escritório no comando: UM aviso com as novas da fase de OABs (recebidas em
+        // `$djenIdsJaCaptados`) e as desta fase.
         if (!$dryRun) {
-            $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
+            $this->avisoDasNovas->avisar($tenant, array_values(array_unique([...$djenIdsJaCaptados, ...$resultado->getDjenIdsNovos()])));
         }
 
         return $resultado;

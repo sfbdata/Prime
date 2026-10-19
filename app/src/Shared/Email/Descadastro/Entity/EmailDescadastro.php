@@ -10,12 +10,18 @@ use App\Shared\Email\Descadastro\Repository\EmailDescadastroRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Um endereço que pediu para não receber mais um ASSUNTO de e-mail de um escritório (spec
+ * Um endereço que pediu para não receber mais um ASSUNTO de e-mail de um REMETENTE (spec
  * push-avisar-quando-chegar D3). Reaproveitável: o assunto é texto livre validado
- * (`push_aviso_equipe` hoje; campanhas e e-mails comerciais depois), não um enum preso ao Push.
+ * (`push_aviso_equipe` hoje; campanhas e e-mails comerciais depois), não um enum preso ao Push, e
+ * `todos` é o opt-out total daquele remetente.
+ *
+ * Escopo do remetente: `tenant_id` preenchido = o escritório; NULL = a PLATAFORMA (Master, Central,
+ * alertas de vagas). Os escopos não se misturam (ver {@see \App\Shared\Email\Descadastro\DescadastroDeEmailInterface}).
  *
  * Anatomia:
- *   - UNIQUE (tenant_id, email, assunto): árbitro do INSERT idempotente (`ON CONFLICT DO NOTHING`);
+ *   - unicidade por escopo, em dois índices PARCIAIS (o NULL do Postgres não colide em UNIQUE comum):
+ *     (tenant_id, email, assunto) onde tenant_id IS NOT NULL, e (email, assunto) onde tenant_id IS
+ *     NULL. São os árbitros do INSERT idempotente (`ON CONFLICT ... DO NOTHING`);
  *   - `email` normalizado (minúsculo, sem espaços nas pontas);
  *   - `origem` diz por onde veio (`link_do_email`, `one_click`), para prova.
  *
@@ -26,7 +32,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: EmailDescadastroRepository::class)]
 #[ORM\Table(name: 'email_descadastro')]
 #[ORM\Index(name: 'idx_email_descadastro_tenant', columns: ['tenant_id'])]
-#[ORM\UniqueConstraint(name: 'uniq_email_descadastro_tenant_email_assunto', columns: ['tenant_id', 'email', 'assunto'])]
+#[ORM\UniqueConstraint(name: 'uniq_email_descadastro_escritorio', columns: ['tenant_id', 'email', 'assunto'], options: ['where' => '(tenant_id IS NOT NULL)'])]
+#[ORM\UniqueConstraint(name: 'uniq_email_descadastro_plataforma', columns: ['email', 'assunto'], options: ['where' => '(tenant_id IS NULL)'])]
 class EmailDescadastro implements TenantAware
 {
     #[ORM\Id]
@@ -36,8 +43,8 @@ class EmailDescadastro implements TenantAware
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
-        #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
-        private Tenant $tenant,
+        #[ORM\JoinColumn(name: 'tenant_id', nullable: true)]
+        private ?Tenant $tenant,
         #[ORM\Column(length: 180)]
         private string $email,
         #[ORM\Column(length: 40)]
@@ -54,7 +61,8 @@ class EmailDescadastro implements TenantAware
         return $this->id;
     }
 
-    public function getTenant(): Tenant
+    /** Null = descadastro da plataforma. */
+    public function getTenant(): ?Tenant
     {
         return $this->tenant;
     }

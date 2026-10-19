@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * O link "Não quero mais receber estes avisos": gera e lê a URL assinada da rota pública
  * `email_descadastro` (UriSigner do Symfony, HMAC com o `kernel.secret`).
  *
- * O pedido (escritório, endereço, assunto) vai num único parâmetro `d`, em JSON base64url: não deixa
+ * O pedido (escritório ou null = plataforma, endereço, assunto) vai num único parâmetro `d`, em JSON base64url: não deixa
  * o endereço legível na URL (logs de acesso, histórico) e mantém a assinatura sobre um campo só.
  * Sem expiração: o descadastro tem de funcionar no e-mail antigo. Qualquer byte trocado no caminho
  * ou na consulta invalida a assinatura e `ler()` devolve null (a rota responde 404).
@@ -49,7 +49,8 @@ final class LinkDeDescadastro
 
         $json = base64_decode(strtr((string) $request->query->get('d', ''), '-_', '+/'), true);
         $carga = $json === false ? null : json_decode($json, true);
-        if (!\is_array($carga) || !\is_int($carga['t'] ?? null) || !\is_string($carga['e'] ?? null) || !\is_string($carga['a'] ?? null)) {
+        if (!\is_array($carga) || !\array_key_exists('t', $carga) || !(\is_int($carga['t']) || $carga['t'] === null)
+            || !\is_string($carga['e'] ?? null) || !\is_string($carga['a'] ?? null)) {
             return null;
         }
 

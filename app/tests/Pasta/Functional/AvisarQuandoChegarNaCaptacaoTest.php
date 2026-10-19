@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Functional;
 use App\Djen\DTO\ConsultaComunicacoesQuery;
 use App\Djen\DTO\PeriodoConsulta;
 use App\Djen\DTO\RespostaComunicacoes;
+use App\Djen\Entity\OabMonitorada;
 use App\Djen\Service\DjenClient;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
@@ -26,7 +27,10 @@ use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\MailerInterface;
@@ -215,6 +219,42 @@ final class AvisarQuandoChegarNaCaptacaoTest extends KernelTestCase
 
         self::assertSame(1, $this->contarAnalises($pasta), 'um pedido por pasta por captação');
         self::assertSame(0, $this->contarAnalises($outraPasta));
+    }
+
+    #[TestDox('Comando diário: publicação nova pela OAB (1ª fase) e pelo número (2ª fase) na mesma pasta: UM aviso e UM e-mail no fim do escritório')]
+    public function testComandoDiarioAvisaUmaVez(): void
+    {
+        [, $tenant, $pasta] = $this->cenario();
+        $oab = new OabMonitorada();
+        $oab->setTenant($tenant);
+        $oab->setNumero('67228');
+        $oab->setUf('PR');
+        $this->em()->persist($oab);
+        $this->em()->flush();
+        $item = static fn (int $id): array => [
+            'id' => $id, 'numero_processo' => self::NUMERO, 'siglaTribunal' => 'TJDFT',
+            'tipoComunicacao' => 'Intimação', 'data_disponibilizacao' => (new \DateTimeImmutable('today'))->format('Y-m-d'),
+        ];
+        $mock = $this->createMock(DjenClientInterface::class);
+        $mock->method('consultarComunicacoes')->willReturnCallback(
+            static fn (ConsultaComunicacoesQuery $q): RespostaComunicacoes => match (true) {
+                $q->numeroOab === '67228' => new RespostaComunicacoes(1, [$item(880061)]),
+                $q->numeroProcesso === self::NUMERO => new RespostaComunicacoes(1, [$item(880062)]),
+                default => new RespostaComunicacoes(0, []),
+            },
+        );
+        static::getContainer()->set(DjenClient::class, $mock);
+        $tenantId = (int) $tenant->getId();
+        $nup = $pasta->getNup();
+
+        $tester = new CommandTester((new Application(self::$kernel))->find('app:djen:sincronizar'));
+        $tester->execute(['--tenant' => (string) $tenantId]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['tenant' => $tenantId, 'tipo' => Notificacao::TIPO_PUSH_PUBLICACAO_PASTA]);
+        self::assertCount(1, $avisos, 'um aviso por escritório no fim das duas fases');
+        self::assertSame('2 novas movimentações na Pasta ' . $nup, $avisos[0]->getMensagem());
+        self::assertEmailCount(1);
     }
 
     #[TestDox('Falha do e-mail: registra e segue; a captação grava a publicação e o aviso no sino sai')]

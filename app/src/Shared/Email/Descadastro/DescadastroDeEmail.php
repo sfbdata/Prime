@@ -9,8 +9,8 @@ use App\Shared\Email\Descadastro\Repository\EmailDescadastroRepository;
 use Psr\Clock\ClockInterface;
 
 /**
- * Implementação do {@see DescadastroDeEmailInterface}: tabela `email_descadastro` (SQL com o tenant
- * explícito, ver o repositório) e o link assinado de {@see LinkDeDescadastro}.
+ * Implementação do {@see DescadastroDeEmailInterface}: tabela `email_descadastro` (SQL com o escopo
+ * explícito, escritório ou plataforma, ver o repositório) e o link assinado de {@see LinkDeDescadastro}.
  */
 final class DescadastroDeEmail implements DescadastroDeEmailInterface
 {
@@ -21,17 +21,17 @@ final class DescadastroDeEmail implements DescadastroDeEmailInterface
     ) {
     }
 
-    public function estaDescadastrado(Tenant $tenant, string $email, string $assunto): bool
+    public function estaDescadastrado(?Tenant $tenant, string $email, string $assunto): bool
     {
         $email = self::normalizar($email);
         if ($email === '') {
             return false;
         }
 
-        return $this->repositorio->existe($tenant, $email, self::exigirPadrao($assunto, 'assunto'));
+        return $this->repositorio->existeAlgum($tenant, $email, array_values(array_unique([self::exigirPadrao($assunto, 'assunto'), self::ASSUNTO_TODOS])));
     }
 
-    public function descadastrar(Tenant $tenant, string $email, string $assunto, string $origem): void
+    public function descadastrar(?Tenant $tenant, string $email, string $assunto, string $origem): void
     {
         $this->repositorio->registrarSeAusente(
             $tenant,
@@ -42,10 +42,10 @@ final class DescadastroDeEmail implements DescadastroDeEmailInterface
         );
     }
 
-    public function gerarLink(Tenant $tenant, string $email, string $assunto): string
+    public function gerarLink(?Tenant $tenant, string $email, string $assunto): string
     {
         return $this->link->gerar(new PedidoDeDescadastro(
-            (int) $tenant->getId(),
+            $tenant === null ? null : (int) $tenant->getId(),
             self::exigirEmail($email),
             self::exigirPadrao($assunto, 'assunto'),
         ));

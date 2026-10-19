@@ -1,4 +1,5 @@
-{# Confirmação do descadastro de e-mail (rota pública `email_descadastro`, spec push-avisar-quando-chegar D3).
+{# Confirmação do descadastro de e-mail (POST da rota pública `email_descadastro`, spec push-avisar-quando-chegar D3).
+   Contexto: `remetente` (escritório ou "BlueJus"), `todos` (opt-out total gravado).
    Página avulsa, sem o layout do sistema: quem chega aqui pode não estar logado. #}
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -17,10 +18,10 @@
             <div style="padding:28px;">
                 <h1 style="margin:0 0 12px;font-size:18px;color:#1a1a2e;">Descadastro confirmado</h1>
                 <p style="margin:0 0 12px;font-size:15px;color:#444444;line-height:1.6;">
-                    Você não vai mais receber estes avisos por e-mail{% if escritorio %} de {{ escritorio }}{% endif %}.
+                    {% if todos %}Você não vai mais receber nenhum e-mail de {{ remetente }}.{% else %}Você não vai mais receber estes avisos por e-mail de {{ remetente }}.{% endif %}
                 </p>
                 <p style="margin:0;font-size:13px;color:#888888;line-height:1.5;">
-                    Pode fechar esta página. Os demais e-mails do sistema, como o de redefinição de senha, continuam chegando.
+                    Pode fechar esta página. {% if not todos %}Os demais e-mails de {{ remetente }} continuam chegando.{% endif %}
                 </p>
             </div>
         </div>

@@ -17,8 +17,10 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 /**
  * A rota pública do link "Não quero mais receber estes avisos" (spec push-avisar-quando-chegar D3):
- * sem login, assinatura válida grava e confirma; inválida, 404; repetir não duplica; quem está logado
- * em OUTRO escritório também consegue (nem termo, nem escritório, nem TenantFilter atrapalham).
+ * sem login; o GET só mostra o pedido (antivírus que pré-abrem links não descadastram ninguém); o
+ * POST na mesma URL assinada grava (botão "Confirmar", com a opção de opt-out total, ou o one-click
+ * do RFC 8058, só o assunto); assinatura inválida, 404; repetir não duplica; quem está logado em
+ * OUTRO escritório também consegue; o link da plataforma grava no escopo da plataforma.
  */
 #[CoversClass(DescadastroDeEmailController::class)]
 final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
@@ -36,6 +38,11 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         return static::getContainer()->get(EntityManagerInterface::class);
     }
 
+    private function descadastro(): DescadastroDeEmailInterface
+    {
+        return static::getContainer()->get(DescadastroDeEmailInterface::class);
+    }
+
     private function tenant(string $nome): Tenant
     {
         $tenant = new Tenant();
@@ -46,48 +53,105 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         return $tenant;
     }
 
-    private function link(Tenant $tenant, string $email = 'ana@exemplo.com'): string
+    private function link(?Tenant $tenant, string $email = 'joana@gmail.com'): string
     {
-        return static::getContainer()->get(DescadastroDeEmailInterface::class)->gerarLink($tenant, $email, 'push_aviso_equipe');
+        return $this->descadastro()->gerarLink($tenant, $email, 'push_aviso_equipe');
     }
 
-    private function contar(Tenant $tenant): int
+    /** @return list<array{assunto: string, origem: string}> */
+    private function linhas(?Tenant $tenant, string $email = 'joana@gmail.com'): array
     {
-        return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM email_descadastro WHERE tenant_id = ?', [$tenant->getId()]);
+        $escopo = $tenant === null ? 'tenant_id IS NULL' : 'tenant_id = ' . (int) $tenant->getId();
+
+        /** @var list<array{assunto: string, origem: string}> */
+        return $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT assunto, origem FROM email_descadastro WHERE ' . $escopo . ' AND email = ? ORDER BY assunto',
+            [$email],
+        );
     }
 
-    #[TestDox('Sem login, link válido: grava, mostra a confirmação com o nome do escritório; o segundo clique não duplica')]
-    public function testLinkValido(): void
+    #[TestDox('GET não grava: mostra o endereço mascarado, o nome do remetente, a opção desmarcada e o botão "Confirmar" que posta na mesma URL')]
+    public function testGetSoMostra(): void
     {
         $tenant = $this->tenant('Silva Advogados');
         $url = $this->link($tenant);
 
+        $crawler = $this->client->request('GET', $url);
         $this->client->request('GET', $url);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Não quero mais receber estes avisos');
+        self::assertSelectorTextContains('main', 'O endereço j***@gmail.com deixará de receber estes avisos por e-mail de Silva Advogados.');
+        self::assertStringNotContainsString('joana@gmail.com', (string) $this->client->getResponse()->getContent());
+        $form = $crawler->filter('main form[method="post"]');
+        self::assertSame(parse_url($url, PHP_URL_PATH) . '?' . parse_url($url, PHP_URL_QUERY), $form->attr('action'));
+        self::assertSame('Confirmar', trim($form->filter('button[name="confirmar"]')->text()));
+        self::assertSame('Não quero receber nenhum e-mail de Silva Advogados', $form->filter('label')->text());
+        self::assertNull($form->filter('input[type="checkbox"][name="todos"]')->attr('checked'), 'desmarcada por padrão');
+        self::assertResponseHeaderSame('X-Robots-Tag', 'noindex');
+        self::assertSame([], $this->linhas($tenant), 'o GET não grava');
+    }
+
+    #[TestDox('Botão "Confirmar" sem a opção: grava só o assunto do link, confirma; o segundo clique não duplica')]
+    public function testConfirmarSoOAssunto(): void
+    {
+        $tenant = $this->tenant('Silva Advogados');
+        $url = $this->link($tenant);
+
+        $this->client->submit($this->client->request('GET', $url)->selectButton('Confirmar')->form());
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Descadastro confirmado');
         self::assertSelectorTextContains('main', 'Você não vai mais receber estes avisos por e-mail de Silva Advogados.');
-        self::assertResponseHeaderSame('X-Robots-Tag', 'noindex');
-        self::assertTrue(static::getContainer()->get(DescadastroDeEmailInterface::class)->estaDescadastrado($tenant, 'ana@exemplo.com', 'push_aviso_equipe'));
-
-        $this->client->request('GET', $url);
-        self::assertResponseIsSuccessful();
-        self::assertSame(1, $this->contar($tenant), 'idempotente');
         self::assertStringNotContainsString('—', (string) $this->client->getResponse()->getContent());
+        $this->client->request('POST', $url, ['confirmar' => '1']);
+        self::assertSame([['assunto' => 'push_aviso_equipe', 'origem' => 'link_do_email']], $this->linhas($tenant));
+        self::assertFalse($this->descadastro()->estaDescadastrado($tenant, 'joana@gmail.com', 'outro_assunto'));
     }
 
-    #[TestDox('POST one-click (List-Unsubscribe-Post) grava com origem one_click')]
+    #[TestDox('Botão com "Não quero receber nenhum e-mail deste remetente": grava também "todos" no escopo do link')]
+    public function testConfirmarTodos(): void
+    {
+        $tenant = $this->tenant('Silva Advogados');
+        $form = $this->client->request('GET', $this->link($tenant))->selectButton('Confirmar')->form();
+        $form['todos']->tick();
+
+        $this->client->submit($form);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('main', 'Você não vai mais receber nenhum e-mail de Silva Advogados.');
+        self::assertSame(['push_aviso_equipe', 'todos'], array_column($this->linhas($tenant), 'assunto'));
+        self::assertTrue($this->descadastro()->estaDescadastrado($tenant, 'joana@gmail.com', 'outro_assunto'));
+    }
+
+    #[TestDox('One-click (List-Unsubscribe-Post, sem token nem botão): grava só o assunto, com origem one_click, mesmo se mandar "todos"')]
     public function testOneClick(): void
     {
         $tenant = $this->tenant('Escritório One Click');
 
-        $this->client->request('POST', $this->link($tenant), ['List-Unsubscribe' => 'One-Click']);
+        $this->client->request('POST', $this->link($tenant), ['List-Unsubscribe' => 'One-Click', 'todos' => '1']);
 
         self::assertResponseIsSuccessful();
-        self::assertSame('one_click', $this->em()->getConnection()->fetchOne('SELECT origem FROM email_descadastro WHERE tenant_id = ?', [$tenant->getId()]));
+        self::assertSame([['assunto' => 'push_aviso_equipe', 'origem' => 'one_click']], $this->linhas($tenant));
     }
 
-    #[TestDox('Assinatura inválida, ausente ou de escritório que não existe: 404 e nada gravado')]
+    #[TestDox('Link da plataforma: remetente "BlueJus" e grava no escopo da plataforma, sem tocar escritório')]
+    public function testPlataforma(): void
+    {
+        $tenant = $this->tenant('Escritório Vizinho');
+        $url = $this->link(null, 'plataforma_' . uniqid() . '@gmail.com');
+        $email = (string) $this->descadastroDoLink($url);
+
+        $this->client->request('GET', $url);
+        self::assertSelectorTextContains('main', 'por e-mail de BlueJus.');
+        $this->client->request('POST', $url, ['confirmar' => '1', 'todos' => '1']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['push_aviso_equipe', 'todos'], array_column($this->linhas(null, $email), 'assunto'));
+        self::assertSame([], $this->linhas($tenant, $email));
+    }
+
+    #[TestDox('Assinatura inválida, ausente ou de escritório que não existe: 404 no GET e no POST, e nada gravado')]
     public function testLinkInvalido(): void
     {
         $tenant = $this->tenant('Escritório Inválido');
@@ -95,11 +159,13 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
 
         $this->client->request('GET', str_replace('d=', 'd=A', $url));
         self::assertResponseStatusCodeSame(404);
+        $this->client->request('POST', str_replace('d=', 'd=A', $url), ['confirmar' => '1']);
+        self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', (string) preg_replace('/&?_hash=[^&]+/', '', $url));
         self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', '/email/descadastro');
         self::assertResponseStatusCodeSame(404);
-        self::assertSame(0, $this->contar($tenant));
+        self::assertSame([], $this->linhas($tenant));
     }
 
     #[TestDox('Logado em OUTRO escritório: o link do primeiro escritório grava no primeiro (TenantFilter não interfere)')]
@@ -119,11 +185,19 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $user, $outro);
         $url = $this->link($dono);
 
-        $this->client->request('GET', $url);
-        $this->client->request('GET', $url);
+        $this->client->request('POST', $url, ['confirmar' => '1']);
+        $this->client->request('POST', $url, ['confirmar' => '1']);
 
         self::assertResponseIsSuccessful();
-        self::assertSame(1, $this->contar($dono));
-        self::assertSame(0, $this->contar($outro));
+        self::assertCount(1, $this->linhas($dono));
+        self::assertSame([], $this->linhas($outro));
+    }
+
+    private function descadastroDoLink(string $url): ?string
+    {
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $carga = json_decode((string) base64_decode(strtr((string) $query['d'], '-_', '+/')), true);
+
+        return \is_array($carga) ? (string) $carga['e'] : null;
     }
 }

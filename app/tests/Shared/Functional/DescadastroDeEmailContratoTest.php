@@ -70,6 +70,41 @@ final class DescadastroDeEmailContratoTest extends KernelTestCase
         self::assertSame([['email' => 'ana@exemplo.com', 'origem' => 'link_do_email']], $linhas, 'uma linha só, a do primeiro pedido');
     }
 
+    #[TestDox('Escopos isolados nas duas direções: escritório A não vale para B nem para a plataforma; plataforma não vale para escritório')]
+    public function testEscoposIsolados(): void
+    {
+        $a = $this->tenant();
+        $b = $this->tenant();
+
+        $this->descadastro->descadastrar($a, 'ana@exemplo.com', 'campanha_vagas', 'link_do_email');
+        self::assertTrue($this->descadastro->estaDescadastrado($a, 'ana@exemplo.com', 'campanha_vagas'));
+        self::assertFalse($this->descadastro->estaDescadastrado($b, 'ana@exemplo.com', 'campanha_vagas'), 'A não vale para B');
+        self::assertFalse($this->descadastro->estaDescadastrado(null, 'ana@exemplo.com', 'campanha_vagas'), 'A não vale para a plataforma');
+
+        $this->descadastro->descadastrar(null, 'bia@exemplo.com', 'campanha_vagas', 'link_do_email');
+        $this->descadastro->descadastrar(null, 'BIA@exemplo.com', 'campanha_vagas', 'one_click');
+        self::assertTrue($this->descadastro->estaDescadastrado(null, 'bia@exemplo.com', 'campanha_vagas'));
+        self::assertFalse($this->descadastro->estaDescadastrado($a, 'bia@exemplo.com', 'campanha_vagas'), 'a plataforma não vale para escritório');
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM email_descadastro WHERE tenant_id IS NULL AND email = 'bia@exemplo.com'"), 'plataforma idempotente');
+    }
+
+    #[TestDox('Opt-out total: "todos" vale para qualquer assunto, só no mesmo escopo')]
+    public function testTodos(): void
+    {
+        $a = $this->tenant();
+        $b = $this->tenant();
+
+        $this->descadastro->descadastrar($a, 'caio@exemplo.com', DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
+        $this->descadastro->descadastrar(null, 'dora@exemplo.com', DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
+
+        self::assertTrue($this->descadastro->estaDescadastrado($a, 'caio@exemplo.com', 'push_aviso_equipe'));
+        self::assertTrue($this->descadastro->estaDescadastrado($a, 'caio@exemplo.com', 'qualquer_outro'));
+        self::assertFalse($this->descadastro->estaDescadastrado($b, 'caio@exemplo.com', 'push_aviso_equipe'));
+        self::assertFalse($this->descadastro->estaDescadastrado(null, 'caio@exemplo.com', 'push_aviso_equipe'));
+        self::assertTrue($this->descadastro->estaDescadastrado(null, 'dora@exemplo.com', 'campanha_vagas'));
+        self::assertFalse($this->descadastro->estaDescadastrado($a, 'dora@exemplo.com', 'campanha_vagas'));
+    }
+
     #[TestDox('Assunto e origem fora de [a-z_]{3,40} e e-mail inválido: InvalidArgumentException')]
     public function testValidacao(): void
     {
@@ -106,6 +141,11 @@ final class DescadastroDeEmailContratoTest extends KernelTestCase
         self::assertSame([(int) $tenant->getId(), 'ana@exemplo.com', 'push_aviso_equipe'], [$pedido->tenantId, $pedido->email, $pedido->assunto]);
 
         self::assertNull($link->ler(Request::create(str_replace('d=', 'd=x', $url))), 'carga alterada');
+
+        $daPlataforma = $link->ler(Request::create($this->descadastro->gerarLink(null, 'eva@exemplo.com', 'campanha_vagas')));
+        self::assertNotNull($daPlataforma);
+        self::assertNull($daPlataforma->tenantId, 'link da plataforma');
+        self::assertSame('e***@exemplo.com', $daPlataforma->emailMascarado());
         self::assertNull($link->ler(Request::create((string) preg_replace('/&?_hash=[^&]+/', '', $url))), 'sem assinatura');
     }
 }

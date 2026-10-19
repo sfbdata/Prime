@@ -422,10 +422,26 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
             new RespostaComunicacoes(1, [$this->item(777, '50636766220224047000')])
         );
         $this->publicacaoRepository->method('filtrarDjenIdsExistentesDoTenant')->willReturn([]);
-        $this->aviso->expects($this->once())->method('avisar')->with($this->tenant, ['777']);
+        // O aviso único do escritório: as novas da fase de OABs (recebidas) mais as desta fase.
+        $this->aviso->expects($this->once())->method('avisar')->with($this->tenant, ['555', '777']);
 
-        $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')));
-        $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), true);
+        $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), false, ['555']);
+        $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), true, ['555']);
+    }
+
+    #[Test]
+    public function faseDeOabsDoComandoNaoAvisaQuemAvisaEaSegunda(): void
+    {
+        $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$this->oab('67228', 'PR')]);
+        $this->djenClient->method('consultarComunicacoes')->willReturn(
+            new RespostaComunicacoes(1, [$this->item(659192456, '50636766220224047000')])
+        );
+        $this->publicacaoRepository->method('filtrarDjenIdsExistentesDoTenant')->willReturn([]);
+        $this->aviso->expects($this->never())->method('avisar');
+
+        $resultado = $this->sut->executar($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), false, false);
+
+        self::assertSame(['659192456'], $resultado->getDjenIdsNovos());
     }
 
     #[Test]
