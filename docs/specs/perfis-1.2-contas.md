@@ -1,7 +1,7 @@
 # Perfis 1.2 · Suspender, reativar e excluir conta pelo Master
 
 Frente `perfis-contas` · **empilhada sobre `perfis-masters` (#52)** · risco **ALTO** (Tenant, perda de dado) ·
-aberta em 19/10/2026. **Rascunho: as perguntas da §6 precisam de resposta antes do código.**
+aberta em 19/10/2026. Q2 a Q4 decididas pela coordenação (19/10); **Q1 (exclusão) está com o dono**: a exclusão e o bloco de pedidos esperam.
 
 ## 1. Fontes
 
@@ -24,7 +24,9 @@ aberta em 19/10/2026. **Rascunho: as perguntas da §6 precisam de resposta antes
 | C2 | **Suspender**: `isActive=false`, `excluidoEm` nulo. Os usuários perdem o acesso no request seguinte; nenhum dado é apagado. Conta já suspensa ou excluída: recusa com mensagem. |
 | C3 | **Reativar**: um único `ReativarContaUseCase`, usado também pelo bloco "Pedidos de exclusão". `isActive=true`. Recusa conta com `excluidoEm` preenchido, salvo se a §6 Q1 disser que a quarentena continua. Se houver pedido pendente, chama `marcarReativada(ator)` na mesma transação. |
 | C4 | **Excluir**: conforme a §6 Q1. Em qualquer caso grava `excluidoEm`, também quando a conta já está suspensa (o `ExcluirEscritorioUseCase` atual sai cedo quando ela já está inativa: não serve aqui). Se houver pedido pendente, chama `marcarExcluida(ator)`. |
-| C5 | **Conta do Master**: o item "Excluir conta" não aparece e o servidor recusa quando o criador do escritório (`Tenant.criadoPor`) é um Master. Suspender a conta do Master: ver a §6 Q2. |
+| C5 | **Conta do Master**: o item "Excluir conta" não aparece e o servidor recusa quando o criador do escritório (`Tenant.criadoPor`) é um Master. Suspender essa conta também é recusado (Q2): o Master não tem bypass de conta suspensa, então ficaria fora do próprio escritório. Mensagem: "Esta conta foi criada por um Master. Suspendê-la tiraria dele o acesso ao próprio escritório." |
+| C10 | **Vaga no limite de escritórios** (Q3): a conta suspensa e não excluída continua ocupando a vaga do criador. |
+| C11 | **Rotas antigas** (Q4): `escritorio_excluir` e `app_tenant_delete` recusam a conta criada por um Master, com a mesma regra da C5. |
 | C6 | **Auditoria**: a linha grava o `tenant_id` da **conta alvo**, não o do escritório da sessão, para que "Histórico de alterações" da conta mostre a ação. O rótulo é "Conta suspensa", "Conta reativada" ou "Conta excluída", e o detalhe é "Ação confirmada pelo Master". O `RotuloDeAuditoria` passa a testar `excluidoEm` antes de `isActive`. |
 | C7 | **Painel**: `/master/dados/contas` ganha `ehDoMaster` (bool). O menu da conta passa a ter os itens do desenho, na ordem: "Editar limite de armazenamento" e "Definir limite de usuários" (da frente de limites, depois da C1 da Contribua; até lá, ocultos), "Estatísticas de uso", "Histórico de alterações", "Suspender conta" ou "Reativar conta", e "Excluir conta" (oculto quando `ehDoMaster`). |
 | C8 | Confirmação no modal genérico do desenho (`bi-pause-circle` `#c08a12` "Suspender"; `bi-play-circle` `#1e7b45` "Reativar"; `bi-exclamation-octagon` `#a3232b` "Excluir definitivamente"), com os textos exatos da linha 624. |
@@ -50,7 +52,10 @@ painel mostra os itens certos por situação.
 Limites de armazenamento e de usuários (frente própria, depois da C1 da Contribua). Rotas antigas
 `escritorio_excluir` e `app_tenant_delete`: ficam como estão nesta frente; ver a §6 Q4.
 
-## 6. Perguntas de produto (encaminhadas ao coordenador em 19/10)
+## 6. Perguntas de produto (19/10)
+
+Decididas pela coordenação: Q2 (recusar, porque não há bypass), Q3 (ocupa vaga) e Q4 (recusar já nesta frente).
+Pendente com o dono: Q1.
 
 - **Q1. "Excluir conta" do Master.** O desenho diz: "A exclusão de X é irreversível: todos os usuários, pastas e
   arquivos da conta serão apagados." O sistema hoje põe a conta em quarentena de 365 dias, purga depois e nunca
