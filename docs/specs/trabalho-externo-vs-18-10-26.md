@@ -32,8 +32,13 @@ o compartilhar entram como fatia própria.
   `email_descadastro`. Os alertas de vagas não têm escritório: Tenant `null` = plataforma, assunto
   `vagas_alerta` (confirmado pela 0d). Há opt-out total (`todos`) e descadastro de um clique por
   lista. Não criar outro.
-- Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (5d). Double opt-in também
-  é dela; esta frente só grava o pedido de alerta. Envio só
+- Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (5d).
+  - Double opt-in: `ConfirmacaoDeEnderecoInterface` da 5d (`pedir()`, `confirmar()`, `estaConfirmado()`).
+    A inscrição de alertas chama `pedir()`; **nada é enviado antes de `estaConfirmado()`**.
+  - Envio: `CarteiroInterface` da 5d, tipo lista, assunto `vagas_alerta`.
+  - Assinaturas, rota de confirmação e quem lê os interessados: combinando direto com a bluejus-5d
+    (19/10). Enquanto a interface não estiver no master, a inscrição só grava; ligar `pedir()` entra
+    no PR que vier depois do dela. Envio só
   para quem confirmou o e-mail (double opt-in) e não está descadastrado (§4.2).
 - `security.yaml`: linha própria `^/vagas-juridicas`; 0d e f6 acrescentam as delas.
 - Teto `MAX_FORA_DO_ESCOPO` em `TenantAwareCoberturaTest`: o #56 (b5) também sobe; quem entrar depois
