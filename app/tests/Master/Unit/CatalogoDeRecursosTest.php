@@ -65,6 +65,9 @@ final class CatalogoDeRecursosTest extends TestCase
         yield 'peticionar' => ['pasta_peticionar_upload', 'peticionar'];
         yield 'novidades' => ['novidades_index', 'novidades'];
         yield 'agentes da pasta' => ['inteligencia_agentes_painel', 'assistente'];
+        yield 'página pública do push compartilhado' => ['push_compartilhado', 'pushpub'];
+        yield 'código do push compartilhado' => ['push_compartilhado_codigo', 'pushpub'];
+        yield 'gerar link externo do push na pasta' => ['pasta_push_links_gerar', 'pushpub'];
         yield 'lista de pastas (essencial) não é mapeada' => ['expediente_index', null];
         yield 'política de privacidade continua aberta' => ['legal_politica_privacidade', null];
         yield 'painel do Master' => ['master_painel', null];

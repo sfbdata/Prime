@@ -255,11 +255,13 @@
                     {# Link externo do Push ([EXP] L.1104, `mPushLink`): abre o #modalLinkExternoPush
                        (pasta/_push_link_externo.html.twig). O selo conta os links ATIVOS; quem o
                        preenche é o pasta-push-link.js, com o GET da lista, ao abrir este menu. #}
-                    <button type="button" class="ps-pop-item js-ppl-abrir" role="menuitem"
+                    {% if recurso_visivel('pushpub') %}
+                    <button type="button" class="ps-pop-item js-ppl-abrir {{ recurso_marca('pushpub') }}" role="menuitem"
                             aria-haspopup="dialog" aria-controls="modalLinkExternoPush">
                         <i class="bi bi-broadcast"></i><span>Link externo do Push</span>
                         <span class="ppl-badge js-ppl-badge-ativos ps-num" hidden></span>
                     </button>
+                    {% endif %}
                     {# O clique abre a janela Imprimir (pasta-impressao.js, EDT-001): prévia, opções,
                        Imprimir e Copiar texto, e "Baixar PDF" gerado no servidor (Dompdf, rota
                        `pasta_resumo_pdf`). O href fica como caminho sem JS e para o Ctrl+clique: a

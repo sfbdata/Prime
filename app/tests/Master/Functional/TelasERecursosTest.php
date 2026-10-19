@@ -90,6 +90,17 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.bj-recurso-preparo-previsao'));
     }
 
+    #[TestDox('push compartilhado desligado: o visitante sem login do link público /p/… recebe a página "em preparação"')]
+    public function testPushCompartilhadoDesligadoBarraOVisitante(): void
+    {
+        $this->desligar('pushpub', 'Revisão ética', null);
+
+        $this->client->request('GET', '/p/bluejus-abc123');
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSelectorTextContains('body > main.bj-recurso-preparo h1', 'Push compartilhado (link público) em preparação');
+    }
+
     #[TestDox('chamada de API da função desligada recebe 503 JSON com a mesma mensagem')]
     public function testApiRecebe503Json(): void
     {

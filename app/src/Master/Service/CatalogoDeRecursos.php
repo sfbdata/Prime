@@ -64,6 +64,8 @@ final class CatalogoDeRecursos
         'peticionar'  => ['pasta_peticionar'],
         'novidades'   => ['novidades_'],
         'assistente'  => ['inteligencia_agente'],
+        // Push compartilhado: a página pública /p/{endereco} e a API da pasta que gera, renova e revoga os links.
+        'pushpub'     => ['push_compartilhado', 'pasta_push_links_'],
     ];
 
     /**

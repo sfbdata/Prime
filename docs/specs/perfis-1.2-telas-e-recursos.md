@@ -33,7 +33,7 @@
 - #72 Contas: suspender, reativar e excluir (empilhado sobre o #52, sem migration).
 - #59 Lista de perfis (base master, sem migration).
 - #77 IP do cliente (base master, sem migration; depois do merge, o dono troca `SYMFONY_TRUSTED_PROXIES=127.0.0.1` na VPS).
-- #56 Telas e recursos (empilhado sobre o #52; migration `Version20261019150000`).
+- #56 Telas e recursos (empilhado sobre o #52; migration `Version20261019172536`).
 - Ordem: #52 → #72; #59 e #77 a qualquer momento; #56 quando a fila de migrations chegar.
 
 **Fila de migrations:** #52 → Push (0d) → #56 → PR 2 da 7d → C1 da f6. Antes do merge do #56, renomear a migration dele com o timestamp do momento, porque o #55 entra antes.
@@ -71,7 +71,7 @@ aberta em 19/10/2026.
 | R5 | **Quem não é Master** não vê o item (menu, botão, atalho) e, ao abrir a rota de uma tela desligada, recebe a página "em preparação" (status 503): ícone `bi-tools`, "<Título> em preparação", o motivo (ou "Estamos finalizando esta tela para ela chegar com tudo funcionando. Volte em breve."), "Previsão: dd/mm/aaaa" quando houver data, e o botão "Voltar ao Expediente". Chamada de API (não-GET ou `Accept: application/json`) da mesma função recebe 503 JSON com a mesma mensagem. |
 | R6 | **O Master** continua vendo e usando tudo: o item desligado aparece apagado com contorno vermelho tracejado (`opacity:.45; outline:1px dashed #c0392b; outline-offset:-2px`) e a tela desligada mostra a faixa vermelha fixa "Esta tela está desativada para os usuários. Só o Master está vendo." |
 | R7 | Só `ROLE_SUPER_ADMIN` liga e desliga. Cada mudança vai para a auditoria (`RecursoEstado` é `Auditavel`). |
-| R8 | Item do catálogo cuja tela ou função **ainda não existe no sistema** (Contribua, Vagas públicas, Push compartilhado, Contribua atalho) tem a chave e o interruptor funcionando; o efeito passa a valer quando a tela nascer, usando a mesma função Twig e o mesmo mapa de rotas. |
+| R8 | Item do catálogo cuja tela ou função **ainda não existe no sistema** (Contribua, Vagas públicas, Contribua atalho) tem a chave e o interruptor funcionando; o efeito passa a valer quando a tela nascer, usando a mesma função Twig e o mesmo mapa de rotas. |
 
 ## 3. Tela (aba "Telas e recursos", só no perfil Master)
 
@@ -101,7 +101,8 @@ redesenha sem recarregar.
 | trabalho | Trabalho Externo | `trabalho_externo_` (exceto as 3 rotas públicas do link de convite, por nome exato: `trabalho_externo_convite`, `trabalho_externo_convite_criar_conta` e `trabalho_externo_convite_aceitar`; `_convite_reenviar` e `_convite_revogar` são API logada e seguem a chave) | sidebar e subnav |
 | peticionar | Peticionar | `pasta_peticionar` | botão em `pasta/_processos_vinculados` |
 | meuperfil | Meu Perfil | essencial | |
-| contribua, pushpub, vagaspub | (não existem ainda) | R8 | |
+| pushpub | Push compartilhado (link público) | `push_compartilhado` (página pública /p/…) e `pasta_push_links_` (API que gera, renova e revoga) | item "Link externo do Push" no menu da pasta |
+| contribua, vagaspub | (não existem ainda) | R8 | |
 | instalar | Instalar aplicativo | | `#linkInstalarApp`, `#btnInstalarApp` |
 | idioma | Idioma | | `[data-mu-idioma]` no menu do usuário (`menu_usuario/_dropdown`) |
 | ajuda | Ajuda e atalhos | | `[data-mu-ajuda]` no menu do usuário |

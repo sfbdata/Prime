@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * frente (DROP de messenger_messages, DROP DEFAULT em cobranca_pessoa_* e DROP INDEX de índices
  * funcionais de cobrança). Só a tabela nova ficou.
  */
-final class Version20261019150000 extends AbstractMigration
+final class Version20261019172536 extends AbstractMigration
 {
     public function getDescription(): string
     {
