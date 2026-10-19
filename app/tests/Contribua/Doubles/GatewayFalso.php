@@ -29,6 +29,9 @@ final class GatewayFalso implements GatewayDeAssinatura
 
     public bool $foraDoAr = false;
 
+    /** @var array<string, string> o que chegou no último `interpretarAviso` */
+    public array $ultimosCabecalhos = [];
+
     public function __construct(
         /** Mutável: o teste funcional troca o modo do gateway que já está no container. */
         public string $modo = InicioDoCheckout::REDIRECIONAR,
@@ -71,6 +74,7 @@ final class GatewayFalso implements GatewayDeAssinatura
 
     public function interpretarAviso(array $cabecalhos, string $corpo): ?AvisoDoGateway
     {
+        $this->ultimosCabecalhos = $cabecalhos;
         if (($cabecalhos['x-token'] ?? null) !== self::TOKEN_DO_AVISO) {
             throw new AvisoNaoAutenticado('Token do aviso ausente ou errado.');
         }

@@ -46,11 +46,13 @@ interface GatewayDeAssinatura
     public function consultar(string $idDaAssinatura): SituacaoNoGateway;
 
     /**
-     * Traduz um webhook. `$cabecalhos` em minúsculas. Devolve null para evento que o Contribua não usa.
+     * Traduz um webhook. `$cabecalhos` em minúsculas; os parâmetros da URL chegam como `x-query-<nome>`.
+     * Devolve null para evento que o Contribua não usa.
      *
      * @param array<string, string> $cabecalhos
      *
      * @throws AvisoNaoAutenticado
+     * @throws FalhaNoGateway      quando precisou consultar o gateway e ele não respondeu (o webhook responde 503)
      */
     public function interpretarAviso(array $cabecalhos, string $corpo): ?AvisoDoGateway;
 
