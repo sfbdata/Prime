@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Master\UseCase;
 
+use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Master\DTO\ContaAlteradaOutput;
 use App\Master\DTO\EspacoDaContaOutput;
@@ -16,7 +17,8 @@ use Psr\Clock\ClockInterface;
  *
  * Plano, limite de armazenamento, % da cota, faixa e limite de usuários (`espaco`) saem do
  * `RetratoDoEspaco` da Contribua (spec perfis-1.2-planos-e-limites P5), montado com o uso que o painel
- * já mediu (mesmas tabelas e mesma regra do bloqueio): uma medição por conta, não duas.
+ * já mediu (mesmas tabelas e mesma regra do bloqueio): uma medição por conta, não duas. Os retratos saem em
+ * lote (`SituacaoDoEspaco::retratarVarios`): uma consulta para todas as contas, não uma por conta.
  */
 final class ConsultarContasUseCase
 {
@@ -39,10 +41,13 @@ final class ConsultarContasUseCase
         $pastas   = $this->repositorio->pastasPorEscritorio();
         $consumo  = $this->repositorio->consumoPorEscritorio($desde);
 
+        $escritorios = [...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()];
+        $retratos = $this->retratos($escritorios, $consumo);
+
         $contas = [];
         // As contas em quarentena (C4b) vêm depois, para a opção "Em quarentena" do filtro. Pastas e
         // consumo do painel não olham a quarentena: nelas saem zerados.
-        foreach ([...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()] as $e) {
+        foreach ($escritorios as $e) {
             $id = $e['id'];
             $contas[] = [
                 'id'            => $id,
@@ -61,10 +66,28 @@ final class ConsultarContasUseCase
                 // Data prevista da purga: excluidoEm + `tenant_carencia_purga_dias` (a mesma conta do comando de purga).
                 'purgaEm'       => $e['excluido_em'] !== null ? (new \DateTimeImmutable($e['excluido_em']))->modify(sprintf('+%d days', $this->carenciaPurgaDias))->format('Y-m-d') : null,
                 // Na quarentena o uso não é medido (sai zerado): vale o plano e o limite, não a faixa.
-                'espaco'        => EspacoDaContaOutput::doRetrato($this->situacaoDoEspaco->retratar($id, $consumo[$id]['bytes'] ?? 0))->paraArray(),
+                'espaco'        => EspacoDaContaOutput::doRetrato($retratos[$id])->paraArray(),
             ];
         }
 
         return $contas;
+    }
+
+    /**
+     * Retratos do espaço em lote (`retratarVarios`): uma consulta para todas as contas, não uma por conta.
+     *
+     * @param list<array{id: int}>                     $escritorios
+     * @param array<int, array{bytes: int}>             $consumo
+     *
+     * @return array<int, RetratoDoEspaco>
+     */
+    private function retratos(array $escritorios, array $consumo): array
+    {
+        $bytesPorConta = [];
+        foreach ($escritorios as $e) {
+            $bytesPorConta[$e['id']] = $consumo[$e['id']]['bytes'] ?? 0;
+        }
+
+        return $this->situacaoDoEspaco->retratarVarios($bytesPorConta);
     }
 }

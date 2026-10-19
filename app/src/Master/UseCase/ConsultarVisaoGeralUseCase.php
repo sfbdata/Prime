@@ -67,10 +67,14 @@ final class ConsultarVisaoGeralUseCase
      */
     private function armazenamentoContratado(array $escritorios, array $consumo): ?array
     {
-        // Dívida conhecida: um retrato (e suas leituras) por conta; a leitura em lote foi pedida à f6.
-        [$cota, $uso, $semLimite, $usoSemLimite] = [0, 0, 0, 0];
+        $bytesPorConta = [];
         foreach ($escritorios as $e) {
-            $retrato = $this->situacaoDoEspaco->retratar($e['id'], $consumo[$e['id']]['bytes'] ?? 0);
+            $bytesPorConta[$e['id']] = $consumo[$e['id']]['bytes'] ?? 0;
+        }
+
+        // Em lote: uma consulta para todas as contas (`retratarVarios`), não uma por conta.
+        [$cota, $uso, $semLimite, $usoSemLimite] = [0, 0, 0, 0];
+        foreach ($this->situacaoDoEspaco->retratarVarios($bytesPorConta) as $retrato) {
             if ($retrato->bytesLimite === null) {
                 [$semLimite, $usoSemLimite] = [$semLimite + 1, $usoSemLimite + $retrato->bytesUsados];
                 continue;

@@ -120,10 +120,10 @@ Contrato com a 7d (19/10):
 - O plano do escritório pela assinatura (C3 da f6) é da f6. O `AlterarPlanoUseCase` do Master edita só o
   catálogo. O "plano pago até", se entrar, é lido de
   `MontarPagamentoDoContribuaUseCase::assinaturaDoEscritorio($tenantId)`.
-- Dívida conhecida: a lista de contas, o ranking e o KPI montam um `RetratoDoEspaco` por conta
-  (`SituacaoDoEspaco::retratar`, com o uso já medido pelo painel), o que faz algumas leituras por conta (N+1).
-  Produção tem 7 contas; foi pedida à f6 uma leitura em lote. O convite (envio e aceite) usa `retratar($id, 0)`,
-  sem medir o espaço.
+- Retratos em lote (19/10, commit c29b7a8c da f6): a lista de contas, o ranking, o KPI e o "plano da conta" da
+  trilha usam `SituacaoDoEspaco::retratarVarios` (uma consulta IN para os espaços; o Free e a configuração lidos
+  uma vez), no lugar de um `retratar` por conta. Saiu a dívida N+1. O convite (envio e aceite) usa
+  `retratar($id, 0)`, sem medir o espaço.
 - KPI ARMAZENAMENTO com conta sem limite (decisão do orquestrador, revista na verificação visual de 19/10): o
   número grande, a descrição e a barra somam só as contas com limite, como o desenho (a cota é delas); com conta
   sem limite, a descrição acrescenta " · + Z GB em N conta(s) sem limite". Todas sem limite: vale o texto antigo,
