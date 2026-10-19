@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Repository;
 
+use App\Cliente\Entity\Cliente;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\EnvioAoCliente;
 use App\Pasta\Entity\Pasta;
@@ -92,6 +93,58 @@ class EnvioAoClienteRepository extends ServiceEntityRepository
             ->getResult();
 
         return array_values(array_unique(array_merge([], ...array_map(static fn (EnvioAoCliente $e): array => $e->getPara(), $envios))));
+    }
+
+    /**
+     * Das publicações informadas, as que já foram enviadas automaticamente a este cliente (P4d, "não
+     * repetir": a linha `auto` guarda a publicação em `referencia`), em qualquer pasta dele.
+     *
+     * @param list<int> $publicacaoIds
+     *
+     * @return list<int>
+     */
+    public function publicacoesJaEnviadasAoCliente(Tenant $tenant, Cliente $cliente, array $publicacaoIds): array
+    {
+        if ($publicacaoIds === []) {
+            return [];
+        }
+
+        $ids = $this->createQueryBuilder('e')
+            ->select('DISTINCT e.referencia')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.cliente = :cliente')
+            ->andWhere('e.tipo = :tipo')
+            ->andWhere('e.referencia IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('cliente', $cliente)
+            ->setParameter('tipo', TipoDeEnvioAoCliente::Auto)
+            ->setParameter('ids', array_values(array_unique($publicacaoIds)))
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map('intval', $ids);
+    }
+
+    /**
+     * Já há, desde o instante, um envio automático da pasta com esta descrição (o resumo semanal de uma
+     * semana sai uma vez; o `desde` evita que a mesma "dd/mm a dd/mm" de outro ano conte).
+     */
+    public function existeEnvioAutomaticoDaPasta(Tenant $tenant, Pasta $pasta, string $descricao, \DateTimeImmutable $desde): bool
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.pasta = :pasta')
+            ->andWhere('e.tipo = :tipo')
+            ->andWhere('e.descricao = :descricao')
+            ->andWhere('e.em >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('desde', $desde)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tipo', TipoDeEnvioAoCliente::Auto)
+            ->setParameter('descricao', $descricao)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
     }
 
     /**

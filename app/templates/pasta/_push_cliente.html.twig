@@ -4,8 +4,10 @@
    pasta-push-cliente.css; o comportamento (formulário, estrela, switch, remover, histórico) é do
    pasta-push-cliente.js, que troca o cartão inteiro pelo HTML que o servidor devolve.
 
-   O "Envio automático" do desenho (Novas movimentações, Audiências e intimações, Resumo semanal e a
-   linha "Análise da BlueJus IA · Só manual") é do P4d e não aparece aqui.
+   "Envio automático" (spec push-envio-automatico §2; dc N:2805-2814 e `autos` N:5270): as três chaves do
+   CLIENTE (nascem desligadas, D1) e a linha fixa "Análise da BlueJus IA" com o selo "Só manual" (D5).
+   Sem e-mail nenhum, os switches ficam esmaecidos, a dica ganha "Cadastre um e-mail para ativar. " e o
+   clique abre o formulário de cadastro (o JS).
 
    Mudar exige EDITAR a pasta; quem só vê enxerga tudo desabilitado com a dica, e a lápide também.
    E-mail descadastrado pelo cliente: selo "Descadastrado pelo cliente" e o switch travado.
@@ -26,6 +28,7 @@
 <div class="ps-push-cliente" data-push-cliente
      data-cliente-url="{{ path('pasta_push_cliente', {id: pasta.id}) }}"
      data-cadastrar-url="{{ path('pasta_push_cliente_email_cadastrar', {id: pasta.id}) }}"
+     data-automatico-url="{{ path('pasta_push_cliente_automatico', {id: pasta.id}) }}"
      data-email-url="{{ path('pasta_push_cliente_email_principal', {id: pasta.id, emailId: 0})|replace({'/0/principal': '/__ID__/__ACAO__'}) }}"
      data-token="{{ csrf_token('pasta_push_cliente_' ~ pasta.id) }}"
      data-permitido="{{ podeEditarCliente and cliente.temCliente ? '1' : '0' }}"
@@ -93,9 +96,7 @@
             </div>
         </form>
     {% endif %}
-    {% if cliente.temControladoria or cliente.totalHistorico > 0 %}
-        <div class="ps-push-cliente-divisor"></div>
-    {% endif %}
+    <div class="ps-push-cliente-divisor"></div>
     {% if cliente.temControladoria %}
         <div class="ps-push-cliente-cc" title="Todo e-mail ao cliente sai com cópia para a Controladoria, para conferência e controle dos atos">
             <i class="bi bi-shield-check" aria-hidden="true"></i>
@@ -103,6 +104,21 @@
             <span class="ps-push-cliente-sempre"><i class="bi bi-lock-fill" aria-hidden="true"></i>Sempre</span>
         </div>
     {% endif %}
+    {# Envio automático (dc N:2805-2814). #}
+    <div class="ps-push-cliente-auto-titulo">Envio automático</div>
+    {% set travaAuto = dicaTravaCliente ?? (cliente.temCliente ? null : 'A pasta não tem cliente vinculado.') %}
+    {% for a in cliente.envioAutomatico %}
+        <button type="button" class="ps-push-cliente-auto{{ a.ligado ? ' is-on' : '' }}{{ a.semEmail ? ' is-sem-email' : '' }}" role="switch"
+                aria-checked="{{ a.ligado ? 'true' : 'false' }}" data-push-cliente-auto="{{ a.chave }}"
+                title="{{ travaAuto ?? a.dica }}" {{ travaAuto is null ? '' : 'disabled' }}>
+            <span class="ps-push-cliente-auto-rotulo">{{ a.rotulo }}</span>
+            <span class="ps-push-cliente-sw"><span class="ps-push-switch-bola"></span></span>
+        </button>
+    {% endfor %}
+    <div class="ps-push-cliente-auto-ia" title="A análise depende de correção e revisão do advogado antes de chegar ao cliente">
+        <span class="ps-push-cliente-auto-rotulo">Análise da BlueJus IA</span>
+        <span class="ps-push-cliente-so-manual"><i class="bi bi-lock-fill" aria-hidden="true"></i>Só manual</span>
+    </div>
     {% if cliente.totalHistorico > 0 %}
         <button type="button" class="ps-push-cliente-hist-botao" data-push-cliente-hist aria-expanded="false"
                 data-txt-ver="{{ cliente.historicoTxt(false) }}" data-txt-ocultar="{{ cliente.historicoTxt(true) }}">

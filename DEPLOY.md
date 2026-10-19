@@ -203,6 +203,14 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
+### Resumo semanal ao cliente (crontab na VPS)
+
+Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; se o relógio da VPS estiver em UTC, use `0 11 * * 1`; simule antes com `--dry-run`; configurar é do dono):
+
+```
+0 8 * * 1 docker exec jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
+```
+
 ### Atualização de encargos de cobrança (crontab na VPS)
 
 Job diário que faz os encargos das obrigações **crescerem no tempo**: recalcula juros, multa,

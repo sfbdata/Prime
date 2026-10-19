@@ -10,7 +10,9 @@
         formulário com "Cadastre um e-mail para enviar a análise."; senão abre o modal
         com o assunto e a mensagem padrão do botão e os e-mails do cartão;
      3. modal: chips do "Para", assunto, mensagem (editar desmarca o checkbox),
-        "Revisei e corrigi", as validações na ordem do desenho e o envio (POST).
+        "Revisei e corrigi", as validações na ordem do desenho e o envio (POST);
+     4. "Envio automático" (P4d): os três switches do cliente (sem e-mail, abrem o
+        formulário de cadastro).
 
    Dado do usuário só entra por `textContent`/`value`; o único innerHTML é o do
    cartão que o servidor renderizou (Twig com autoescape), como na lista da IA.
@@ -122,6 +124,25 @@
         });
     }
 
+    /* Envio automático (spec push-envio-automatico §2; dc N:5270 `autos.alternar`): sem e-mail
+       nenhum, o clique abre o formulário; senão grava o ESTADO DESEJADO da chave do cliente. */
+    function alternarAutomatico(botao) {
+        if (botao.classList.contains('is-sem-email')) { abrirFormulario(''); return; }
+        var c = cartao();
+        var dados = new FormData();
+        dados.append('_token', c.dataset.token);
+        dados.append('chave', botao.dataset.pushClienteAuto);
+        dados.append('ligado', botao.getAttribute('aria-checked') === 'true' ? '0' : '1');
+        botao.disabled = true;
+        postar(c.dataset.automaticoUrl, dados).then(function (res) {
+            if (!res.ok || !res.dados.sucesso) { throw new Error(res.dados.erro || 'Não foi possível alterar o envio automático.'); }
+            trocarCartao(res.dados.html);
+        }).catch(function (e) {
+            botao.disabled = false;
+            avisar(e.message, 'erro');
+        });
+    }
+
     function perguntarERemover(botao) {
         var item = botao.closest('[data-push-cliente-email]');
         var pergunta = 'Remover ' + item.dataset.email + ' dos avisos ao cliente?';
@@ -156,6 +177,8 @@
             escolherRotulo(alvo);
         } else if (alvo.hasAttribute('data-push-cliente-hist')) {
             alternarHistorico(alvo);
+        } else if (alvo.hasAttribute('data-push-cliente-auto')) {
+            alternarAutomatico(alvo);
         } else if (alvo.dataset.pushClienteAcao === 'remover') {
             perguntarERemover(alvo);
         } else if (alvo.dataset.pushClienteAcao) {
