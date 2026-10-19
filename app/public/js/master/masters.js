@@ -33,7 +33,8 @@
   if (conf) {
     conf.addEventListener('click', e => { if (e.target === conf) fecharConf(); });
     qs('[data-mp-conf-cancelar]', conf).addEventListener('click', fecharConf);
-    qs('[data-mp-conf-ok]', conf).addEventListener('click', () => { const acao = aoConfirmar; if (acao) acao(); });
+    // Um envio só: o botão trava no primeiro clique (o servidor recusaria o segundo, mas o flash confundiria).
+    qs('[data-mp-conf-ok]', conf).addEventListener('click', e => { const acao = aoConfirmar; if (!acao) return; aoConfirmar = null; e.currentTarget.disabled = true; acao(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !conf.hidden) fecharConf(); });
   }
 

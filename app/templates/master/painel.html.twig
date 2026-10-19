@@ -50,7 +50,7 @@
                 {% set partes = m.nome|split(' ')|filter(p => p is not empty) %}
                 <div class="mp-master{{ m.primario ? ' mp-master-primario' : ' mp-master-secundario' }}">
                     <span class="mp-avatar{{ m.primario ? '' : ' mp-avatar-sec' }}">{% for p in partes|slice(0, 2) %}{{ p|first|upper }}{% endfor %}</span>
-                    <span class="mp-master-id"><b>{{ m.nome }}</b><span>{{ m.email }}{% if m.oabNumero %} · OAB {{ m.oabNumero }}/{{ m.oabUf }}{% endif %}</span></span>
+                    <span class="mp-master-id"><b>{{ m.nome }}</b><span>{{ m.email }}{% if m.oabNumero %} · OAB {{ m.oabNumero }}{{ m.oabUf ? '/' ~ m.oabUf }}{% endif %}</span></span>
                     {% if m.primario %}
                         <span class="mp-tag-master">MASTER PRIMÁRIO</span>
                         <i class="bi bi-lock-fill mp-cadeado" title="O Master primário não pode ser excluído"></i>
@@ -80,7 +80,7 @@
                         <select name="usuario" data-mp-promover-select aria-label="Usuário secundário a promover a Master">
                             <option value="">Escolha um usuário secundário da conta *</option>
                             {% for c in candidatos %}
-                                <option value="{{ c.id }}" data-nome="{{ c.nome }}" data-info="{{ c.email }}{{ c.oabNumero ? ' · OAB ' ~ c.oabNumero ~ '/' ~ c.oabUf : ' · sem OAB' }}">{{ c.nome }} · {{ c.perfil ?? 'sem perfil' }}</option>
+                                <option value="{{ c.id }}" data-nome="{{ c.nome }}" data-info="{{ c.email }}{{ c.oabNumero ? ' · OAB ' ~ c.oabNumero ~ (c.oabUf ? '/' ~ c.oabUf) : ' · sem OAB' }}">{{ c.nome }} · {{ c.perfil ?? 'sem perfil' }}</option>
                             {% endfor %}
                         </select>
                         <span class="mp-promover-info" data-mp-promover-info data-padrao="{{ pmInfo }}">{{ pmInfo }}</span>
