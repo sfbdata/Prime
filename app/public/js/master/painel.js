@@ -138,12 +138,14 @@
       + '<span class="mp-kpi-base"></span><span class="mp-kpi-brilho"></span></button>').join('');
   }
 
-  // KPI ARMAZENAMENTO (desenho 1.2, linha 688; spec P9): cota = soma dos limites das contas com limite, cor e barra pela
-  // faixa. Sem nenhuma conta com limite, fica o texto de antes.
+  // KPI ARMAZENAMENTO (desenho 1.2, linha 688; spec P9): cota = soma dos limites das contas com limite, cor e barra pela faixa.
   function kpiArmazenamento(k, a) {
     const base = { rot: 'ARMAZENAMENTO', n: gb(k.bytes), icone: 'bi-hdd-stack', bg: '#fbf1dc', ir: 'arm' };
     if (!a) return Object.assign(base, { desc: 'contratado: sem informação · ponto e tarefas não medidos', cor: '#c08a12' });
-    return Object.assign(base, { desc: 'de ' + num(a.cotaGb) + ' GB contratados · livre ' + gb(a.bytesLivres), cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%' });
+    // Número, descrição e barra somam só as contas com limite, como no desenho (a cota é delas); o uso das contas
+    // sem limite vem no sufixo. Sem nenhuma conta com limite, fica o texto antigo, com o uso total.
+    const sem = a.contasSemLimite > 0 ? ' · + ' + gb(a.bytesSemLimite) + ' em ' + num(a.contasSemLimite) + ' conta(s) sem limite' : '';
+    return Object.assign(base, { n: gb(a.bytesUsados), desc: 'de ' + num(a.cotaGb) + ' GB contratados · livre ' + gb(a.bytesLivres) + sem, cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%' });
   }
 
   /* ---------- Crescimento (gráfico SVG do desenho) ---------- */
@@ -451,7 +453,7 @@
   function montarArm() {
     if (!S.fx) S.fx = fxDoServidor();
     elSecao.innerHTML = '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">Faixas de alerta de consumo <span>(configuráveis)</span></b>'
-      + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + rot + '</span><span>a partir de</span>'
+      + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + rot + ' a partir de</span>'
         + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + rot + ' a partir de">%</label>').join('') + '</div>'
       + '<span class="mp-faixas-nota">No limite (100%), novos uploads acima da capacidade ficam bloqueados. Consulta, download e exportação continuam liberados. Nenhum documento é apagado automaticamente.</span>'
       + '<div class="mp-faixas-bloqueio"><label class="mp-chave"><input type="checkbox" data-faixa-bloqueio' + (S.fx.bloqueioAtivo ? ' checked' : '') + '><span>Bloquear novos envios na faixa Bloqueio</span></label>'
@@ -493,7 +495,7 @@
     S.fxEnviando = true; atualizarFaixas();
     postar(URLS.faixas, corpo, j => {
       // O catálogo, as faixas e as contas (a faixa de cada uma muda) recarregam; a trilha também.
-      S.fxEnviando = false; S.fx = null; S.fxMsg = { ok: true, texto: j.mensagem }; D.planos = null; D.contas = null; D.audit = null; ERRO.audit = null;
+      S.fxEnviando = false; S.fx = null; S.fxMsg = { ok: true, texto: j.mensagem }; D.planos = null; D.contas = null; ERRO.planos = null; ERRO.contas = null; recarregarVisaoETrilha();
       if (S.sec === 'arm') renderSecao();
     }, erro => { S.fxEnviando = false; S.fxMsg = { ok: false, texto: erro }; atualizarFaixas(); });
   }
@@ -591,8 +593,8 @@
     postar(url, corpo, j => {
       if (!j.conta || !j.conta.espaco) return falhaNoModal(null);
       m.c.espaco = j.conta.espaco;
-      // A trilha e os cartões de plano ("perto ou acima da franquia") recarregam quando forem abertos.
-      D.audit = null; ERRO.audit = null;
+      // KPI, selo e trilha recarregam; os cartões de plano ("perto ou acima da franquia") leem a conta já trocada.
+      recarregarVisaoETrilha();
       fecharModal();
       S.aviso = { ok: true, msg: j.mensagem };
       renderSecs(); renderSecao();
@@ -650,11 +652,18 @@
     m.enviando = true; m.erro = null; atualizarPlano();
     postar(URLS.planoAlterar.replace(/\/codigo$/, '/' + encodeURIComponent(m.p.codigo)), corpo, j => {
       // Catálogo, contas (nome e limite do plano em cada linha) e trilha recarregam.
-      D.planos = null; D.contas = null; D.audit = null; ERRO.planos = null; ERRO.contas = null; ERRO.audit = null;
+      D.planos = null; D.contas = null; ERRO.planos = null; ERRO.contas = null; recarregarVisaoETrilha();
       fecharModal();
       S.aviso = { ok: true, msg: j.mensagem };
       renderSecs(); renderSecao();
     }, falhaNoModal);
+  }
+
+  // Depois de salvar limite, plano ou faixas: o KPI ARMAZENAMENTO e o selo da auditoria não podem ficar velhos.
+  // A Visão geral volta já (o selo usa S.nAud, o último número, enquanto isso); a trilha, quando for aberta.
+  function recarregarVisaoETrilha() {
+    D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
+    carregar('visao', URLS.visao);
   }
 
   // POST com o mesmo critério do menu da conta: só é sucesso o JSON direto do servidor com `mensagem`.

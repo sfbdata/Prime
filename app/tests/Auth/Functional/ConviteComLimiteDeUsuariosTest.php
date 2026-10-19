@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Auth\Functional;
 
+use App\Auth\Controller\ConviteController;
 use App\Auth\Controller\GerenciarConvitesController;
+use App\Auth\Service\VagaNoEscritorio;
+use App\Auth\UseCase\AceitarConviteEscritorioComContaUseCase;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Entity\Auth\Invitation;
@@ -26,10 +29,14 @@ use Zenstruck\Foundry\Test\Factories;
 /**
  * Limite de usuários no convite do escritório (spec docs/specs/perfis-1.2-planos-e-limites.md P8): o
  * escritório no Free (3 usuários) já com 3 pessoas só é barrado com o bloqueio de envio ligado, que nasce
- * desligado (decisão do dono, 19/10/2026).
+ * desligado (decisão do dono, 19/10/2026). Vale no envio e no ACEITE (§6, acerto com a f6): o convite pode
+ * ter saído com vaga e o escritório ter enchido depois.
  */
 #[CoversClass(GerenciarConvitesController::class)]
 #[CoversClass(CriarConviteEscritorioUseCase::class)]
+#[CoversClass(ConviteController::class)]
+#[CoversClass(AceitarConviteEscritorioComContaUseCase::class)]
+#[CoversClass(VagaNoEscritorio::class)]
 final class ConviteComLimiteDeUsuariosTest extends JusPrimeWebTestCase
 {
     use Factories;
@@ -98,6 +105,57 @@ final class ConviteComLimiteDeUsuariosTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects('/escritorio/convites');
         self::assertNotNull($this->em->getRepository(Invitation::class)->findOneBy(['email' => $email]));
+    }
+
+    #[TestDox('aceite: convite pendente de quando havia vaga; com o bloqueio ligado e o escritório cheio, o aceite é recusado')]
+    public function testAceiteRecusadoComBloqueioLigado(): void
+    {
+        [$convidado, $token] = $this->convitePendente();
+        $this->ligarBloqueio(true);
+
+        $this->aceitar($convidado, $token);
+
+        self::assertResponseRedirects('/convite/' . $token);
+        self::assertSame([sprintf(VagaNoEscritorio::RECUSA, 3)], $this->client->getRequest()->getSession()->getFlashBag()->peek('erro'));
+        self::assertNull($this->em->getRepository(UserTenant::class)->findOneBy(['user' => $convidado, 'tenant' => $this->tenant]));
+    }
+
+    #[TestDox('aceite: com o bloqueio desligado, o mesmo convite é aceito e a pessoa entra no escritório')]
+    public function testAceiteComBloqueioDesligado(): void
+    {
+        [$convidado, $token] = $this->convitePendente();
+        $this->ligarBloqueio(false);
+
+        $this->aceitar($convidado, $token);
+
+        self::assertResponseRedirects();
+        self::assertNotNull($this->em->getRepository(UserTenant::class)->findOneBy(['user' => $convidado, 'tenant' => $this->tenant]));
+    }
+
+    /** @return array{User, string} */
+    private function convitePendente(): array
+    {
+        $convidado = UserFactory::createOne(['fullName' => 'Quarta Pessoa', 'roles' => ['ROLE_USER'], 'isActive' => true])->_real();
+        $token = bin2hex(random_bytes(16));
+        $convite = new Invitation(email: (string) $convidado->getEmail(), token: $token, type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite->setTenant($this->tenant);
+        $convite->setTenantRole($this->perfil);
+        $convite->setCreatedBy($this->admin);
+        $this->em->persist($convite);
+        $this->em->flush();
+
+        return [$convidado, $token];
+    }
+
+    private function aceitar(User $convidado, string $token): void
+    {
+        // Quem já tem conta trabalha em outro escritório: entra por ele e aceita o convite deste.
+        $outro = (new Tenant())->setName('Escritório de Origem ' . uniqid());
+        $this->em->persist($outro);
+        $this->em->persist(new UserTenant($convidado, $outro));
+        $this->em->flush();
+        $this->logarComTenant($this->client, $convidado, $outro);
+        $this->client->request('POST', '/convite/' . $token . '/aceitar', ['_token' => 'TOKEN_convite_' . $token]);
     }
 
     private function convidar(): string

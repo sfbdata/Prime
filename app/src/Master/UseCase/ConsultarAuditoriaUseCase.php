@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Master\UseCase;
 
 use App\Master\Repository\PainelMasterRepository;
+use App\Contribua\DTO\PlanoDoCatalogo;
+use App\Contribua\Service\CatalogoDePlanos;
+use App\Contribua\Service\SituacaoDoEspaco;
 use App\Master\Service\RotuloDeAuditoria;
+use App\Master\Service\RotuloDeAuditoriaDoEspaco;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -21,9 +25,17 @@ final class ConsultarAuditoriaUseCase
 
     public const MESES = 12;
 
+    /** @var array<int, array{cotaGb: int, limiteUsuarios: ?int}|null> plano de hoje de cada conta, nesta consulta */
+    private array $planos = [];
+
+    /** @var array<string, PlanoDoCatalogo>|null catálogo por código, lido uma vez por consulta */
+    private ?array $catalogoPorCodigo = null;
+
     public function __construct(
         private readonly PainelMasterRepository $repositorio,
         private readonly ClockInterface $relogio,
+        private readonly SituacaoDoEspaco $situacaoDoEspaco,
+        private readonly CatalogoDePlanos $catalogo,
     ) {
     }
 
@@ -32,11 +44,13 @@ final class ConsultarAuditoriaUseCase
      */
     public function executar(): array
     {
+        [$this->planos, $this->catalogoPorCodigo] = [[], null];
         $linhas = $this->repositorio->trilhaAdministrativa(self::LIMITE, $this->relogio->now()->modify(sprintf('-%d months', self::MESES)));
 
         $registros = [];
         foreach ($linhas as $l) {
-            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas']);
+            $plano = RotuloDeAuditoriaDoEspaco::ehLimiteDaConta($l['entidade']) && $l['tenantId'] !== null ? $this->planoDaConta($l['tenantId']) : null;
+            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas'], $plano);
             $registros[] = [
                 'quando'  => (new \DateTimeImmutable($l['criadoEm']))->format(\DATE_ATOM),
                 'quem'    => self::responsavel($l['responsavel'], $l['responsavelId']),
@@ -48,6 +62,23 @@ final class ConsultarAuditoriaUseCase
         }
 
         return ['registros' => $registros, 'limite' => self::LIMITE, 'meses' => self::MESES, 'truncado' => count($linhas) >= self::LIMITE];
+    }
+
+    /**
+     * Cota e limite de usuários de HOJE do plano da conta: o "anterior" da primeira mudança de limite (o desenho
+     * mostra "10 GB → 12 GB"). Leitura pública da Contribua: o plano pelo retrato, os valores pelo catálogo.
+     *
+     * @return array{cotaGb: int, limiteUsuarios: ?int}|null
+     */
+    private function planoDaConta(int $tenantId): ?array
+    {
+        if (!array_key_exists($tenantId, $this->planos)) {
+            $this->catalogoPorCodigo ??= array_column(array_map(static fn (PlanoDoCatalogo $p): array => ['codigo' => $p->codigo, 'plano' => $p], $this->catalogo->todos()), 'plano', 'codigo');
+            $plano = $this->catalogoPorCodigo[$this->situacaoDoEspaco->retratar($tenantId, 0)->planoCodigo] ?? null;
+            $this->planos[$tenantId] = $plano === null ? null : ['cotaGb' => $plano->cotaGb, 'limiteUsuarios' => $plano->limiteUsuarios];
+        }
+
+        return $this->planos[$tenantId];
     }
 
     /** Nome do responsável; sem nome, o número do usuário; sem ator, "Sistema". Nunca o e-mail. */

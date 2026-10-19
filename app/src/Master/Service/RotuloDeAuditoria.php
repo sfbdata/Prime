@@ -64,9 +64,12 @@ final class RotuloDeAuditoria
     ];
 
     /**
+     * @param array{cotaGb: int, limiteUsuarios: ?int}|null $planoDaConta valores de HOJE do plano da conta da
+     *                                                            linha, para o "anterior" da primeira mudança de limite
+     *
      * @return array{acao: string, detalhe: string}
      */
-    public static function traduzir(string $acao, string $entidade, ?string $mudancasJson): array
+    public static function traduzir(string $acao, string $entidade, ?string $mudancasJson, ?array $planoDaConta = null): array
     {
         $mudancas = self::decodificar($mudancasJson);
 
@@ -80,7 +83,7 @@ final class RotuloDeAuditoria
         }
 
         // Limites, planos e faixas (Contribua): detalhe com os valores, ver RotuloDeAuditoriaDoEspaco.
-        $doEspaco = RotuloDeAuditoriaDoEspaco::traduzir($acao, $entidade, $mudancas);
+        $doEspaco = RotuloDeAuditoriaDoEspaco::traduzir($acao, $entidade, $mudancas, $planoDaConta);
         if ($doEspaco !== null) {
             return $doEspaco;
         }

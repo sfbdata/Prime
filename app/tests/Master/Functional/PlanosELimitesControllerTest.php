@@ -121,7 +121,7 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         self::assertSame(20, $this->plano('essencial')->getCotaGb());
     }
 
-    #[TestDox('limite de armazenamento: grava no escopo da CONTA ALVO e a trilha mostra "limite do plano → 25 GB · justificativa", depois "25 GB → 30 GB"')]
+    #[TestDox('limite de armazenamento: grava no escopo da CONTA ALVO e a trilha mostra "10 GB → 25 GB · justificativa" (o Free de hoje), depois "25 GB → 30 GB"')]
     public function testLimiteDeArmazenamentoEAuditoria(): void
     {
         $this->entrar($this->master, $this->contaDoMaster);
@@ -142,7 +142,7 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         }
 
         $daConta = $this->trilhaDaConta($this->alvo, 'Limite de armazenamento');
-        self::assertSame(['25 GB → 30 GB · nova ampliação', 'limite do plano → 25 GB · cliente contratou ampliação'], array_column($daConta, 'detalhe'));
+        self::assertSame(['25 GB → 30 GB · nova ampliação', '10 GB → 25 GB · cliente contratou ampliação'], array_column($daConta, 'detalhe'));
         self::assertSame('Farlei Master', $daConta[0]['quem']);
         self::assertSame($this->alvo->getName(), $daConta[0]['conta']);
     }
@@ -167,7 +167,7 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         self::assertSame(10 * self::GB, $this->retrato()->bytesLimite, 'nada mudou');
     }
 
-    #[TestDox('sem limite: libera espaço e usuários; o rótulo da trilha é "limite do plano → sem limite"')]
+    #[TestDox('sem limite: libera espaço e usuários; o rótulo da trilha é "10 GB → sem limite"')]
     public function testSemLimite(): void
     {
         $this->entrar($this->master, $this->contaDoMaster);
@@ -179,10 +179,10 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         self::assertNull($resposta['conta']['espaco']['limiteGb']);
         self::assertNull($resposta['conta']['espaco']['limiteUsuarios']);
         self::assertTrue($this->retrato()->semLimite());
-        self::assertSame(['limite do plano → sem limite · escritório do dono'], array_column($this->trilhaDaConta($this->alvo, 'Limite de armazenamento'), 'detalhe'));
+        self::assertSame(['10 GB → sem limite · escritório do dono'], array_column($this->trilhaDaConta($this->alvo, 'Limite de armazenamento'), 'detalhe'));
     }
 
-    #[TestDox('limite de usuários: abaixo dos cadastrados e vazio dão 422; 5 grava, com "limite do plano → 5 usuários" na trilha da conta')]
+    #[TestDox('limite de usuários: abaixo dos cadastrados e vazio dão 422; 5 grava, com "3 usuários → 5 usuários" (o Free de hoje) na trilha da conta')]
     public function testLimiteDeUsuarios(): void
     {
         $this->entrar($this->master, $this->contaDoMaster);
@@ -199,7 +199,7 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('Limite de usuários atualizado.', $resposta['mensagem']);
         self::assertSame(5, $resposta['conta']['espaco']['limiteUsuarios']);
-        self::assertSame(['limite do plano → 5 usuários · novo estagiário'], array_column($this->trilhaDaConta($this->alvo, 'Limite de usuários'), 'detalhe'));
+        self::assertSame(['3 usuários → 5 usuários · novo estagiário'], array_column($this->trilhaDaConta($this->alvo, 'Limite de usuários'), 'detalhe'));
     }
 
     #[TestDox('limite: conta inexistente 404; conta em quarentena 422')]
@@ -311,6 +311,16 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         self::assertIsInt($visao['registrosDeAuditoria']);
         self::assertGreaterThanOrEqual(20, $visao['armazenamento']['cotaGb'], 'soma dos limites das contas (as duas do teste no Free)');
         self::assertContains($visao['armazenamento']['faixa'], ['livre', 'atencao', 'alerta', 'critico', 'bloqueio']);
+
+        // Conta sem limite sai da soma e é contada à parte (decisão H do orquestrador).
+        $antes = $visao['armazenamento'];
+        $this->limite('armazenamento', ['valor' => '', 'semLimite' => '1', 'justificativa' => 'escritório do dono']);
+        $this->client->request('GET', '/master/dados/visao-geral');
+        $depois = json_decode((string) $this->client->getResponse()->getContent(), true)['armazenamento'];
+        self::assertSame($antes['cotaGb'] - 10, $depois['cotaGb']);
+        self::assertSame($antes['contasSemLimite'] + 1, $depois['contasSemLimite']);
+        self::assertSame($antes['bytesUsados'], $depois['bytesUsados'], 'a conta sem uso saiu da soma das contas com limite');
+        self::assertSame($antes['bytesSemLimite'], $depois['bytesSemLimite'], 'o uso dela (zero) vai para o sufixo das contas sem limite');
     }
 
     #[TestDox('alerta de consumo (P11): subir de faixa grava a linha do Sistema na trilha da conta, "Passou de 90% do armazenamento"')]

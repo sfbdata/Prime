@@ -17,9 +17,9 @@ use Psr\Clock\ClockInterface;
  * o mapa "Onde estamos atuando" e a faixa etária. Só leitura, só números: nenhum nome, e-mail ou
  * CPF sai daqui.
  *
- * `armazenamento` é o KPI do desenho 1.2 (linha 688; spec perfis-1.2-planos-e-limites P9): soma dos limites
- * do RetratoDoEspaco das contas fora da quarentena (conta sem limite fica fora da soma e o uso dela também),
- * com a faixa da função `faixa()` do desenho. Nulo quando nenhuma conta tem limite. `registrosDeAuditoria`
+ * `armazenamento` é o KPI do desenho 1.2 (linha 688; spec perfis-1.2-planos-e-limites P9): uso e soma dos
+ * limites do RetratoDoEspaco das contas fora da quarentena COM limite, com a faixa da função `faixa()` do
+ * desenho; as contas sem limite vêm à parte (quantas e quanto usam). Nulo quando nenhuma conta tem limite. `registrosDeAuditoria`
  * é o selo do botão "Segurança e auditoria" desde a abertura do painel (linha 678; P10).
  */
 final class ConsultarVisaoGeralUseCase
@@ -63,16 +63,19 @@ final class ConsultarVisaoGeralUseCase
      * @param list<array{id: int}>                                              $escritorios
      * @param array<int, array{documentos: int, bytes: int, bytesRecentes: int}> $consumo
      *
-     * @return array{cotaGb: int, bytesUsados: int, bytesLivres: int, percentual: int, faixa: string}|null
+     * @return array{cotaGb: int, bytesUsados: int, bytesLivres: int, percentual: int, faixa: string, contasSemLimite: int, bytesSemLimite: int}|null
      */
     private function armazenamentoContratado(array $escritorios, array $consumo): ?array
     {
-        [$cota, $uso] = [0, 0];
+        // Dívida conhecida: um retrato (e suas leituras) por conta; a leitura em lote foi pedida à f6.
+        [$cota, $uso, $semLimite, $usoSemLimite] = [0, 0, 0, 0];
         foreach ($escritorios as $e) {
             $retrato = $this->situacaoDoEspaco->retratar($e['id'], $consumo[$e['id']]['bytes'] ?? 0);
-            if ($retrato->bytesLimite !== null) {
-                [$cota, $uso] = [$cota + $retrato->bytesLimite, $uso + $retrato->bytesUsados];
+            if ($retrato->bytesLimite === null) {
+                [$semLimite, $usoSemLimite] = [$semLimite + 1, $usoSemLimite + $retrato->bytesUsados];
+                continue;
             }
+            [$cota, $uso] = [$cota + $retrato->bytesLimite, $uso + $retrato->bytesUsados];
         }
         if ($cota === 0) {
             return null;
@@ -85,6 +88,8 @@ final class ConsultarVisaoGeralUseCase
             'bytesLivres' => max(0, $cota - $uso),
             'percentual'  => $percentual,
             'faixa'       => $this->faixa($percentual),
+            'contasSemLimite' => $semLimite,
+            'bytesSemLimite'  => $usoSemLimite,
         ];
     }
 

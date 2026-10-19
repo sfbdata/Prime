@@ -6,19 +6,12 @@ namespace App\Tests\Auth\Unit;
 
 use App\Auth\DTO\CriarConviteEscritorioInput;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
-use App\Contribua\Entity\ConfiguracaoDoEspaco;
-use App\Contribua\Entity\Plano;
-use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
-use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
-use App\Contribua\Repository\EspacoDoEscritorioRepository;
-use App\Contribua\Repository\PlanoRepository;
-use App\Contribua\Repository\UsuariosDoEscritorioRepository;
-use App\Contribua\Service\SituacaoDoEspaco;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
+use App\Tests\Auth\Doubles\VagaNoEscritorioDublada;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -32,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CriarConviteEscritorioUseCase::class)]
 final class CriarConviteEscritorioUseCaseTest extends TestCase
 {
+    use VagaNoEscritorioDublada;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserRepository&MockObject $userRepo;
     private UserTenantRepository&MockObject $userTenantRepo;
@@ -40,8 +35,6 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
     private Tenant $tenant;
     private TenantRole $role;
     private User $criadoPor;
-    private ConfiguracaoDoEspaco $configuracao;
-    private UsuariosDoEscritorioRepository&MockObject $usuariosDoEscritorio;
 
     protected function setUp(): void
     {
@@ -49,16 +42,13 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         $this->userRepo        = $this->createMock(UserRepository::class);
         $this->userTenantRepo  = $this->createMock(UserTenantRepository::class);
         $this->em              = $this->createMock(EntityManagerInterface::class);
-        $this->configuracao    = new ConfiguracaoDoEspaco();
-        $this->usuariosDoEscritorio = $this->createMock(UsuariosDoEscritorioRepository::class);
         $this->useCase         = new CriarConviteEscritorioUseCase(
             $this->invitationRepo,
             $this->userRepo,
             $this->userTenantRepo,
             $this->em,
             new RegraDosPrimarios($this->userTenantRepo),
-            $this->situacaoDoEspaco(),
-            $this->usuariosDoEscritorio,
+            $this->vagaNoEscritorio(),
         );
         $this->tenant    = new Tenant();
         $this->role      = new TenantRole();
@@ -193,49 +183,41 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
     #[TestDox('limite de usuários (P8): com o bloqueio ligado e o Free (3) cheio, o convite é recusado com a mensagem')]
     public function testLimiteDeUsuariosComBloqueioLigadoRecusa(): void
     {
-        $this->configuracao->ligarBloqueio(true);
-        $this->usuariosDoEscritorio->method('quantos')->willReturn(3);
         $this->em->expects($this->never())->method('persist');
 
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Este escritório chegou ao limite de 3 usuários. Para convidar mais pessoas, amplie o plano ou fale com o suporte do BlueJus.');
 
-        $this->useCase->executar($this->input('quarto@escritorio.com'));
+        $this->comVaga(bloqueioLigado: true, usuarios: 3)->executar($this->input('quarto@escritorio.com'));
     }
 
     #[TestDox('limite de usuários (P8): com o bloqueio ligado e vaga sobrando, o convite sai')]
     public function testLimiteDeUsuariosComVagaAceita(): void
     {
-        $this->configuracao->ligarBloqueio(true);
-        $this->usuariosDoEscritorio->method('quantos')->willReturn(2);
         $this->userRepo->method('findOneBy')->willReturn(null);
         $this->em->expects($this->once())->method('persist');
 
-        $this->useCase->executar($this->input('terceiro@escritorio.com'));
+        $this->comVaga(bloqueioLigado: true, usuarios: 2)->executar($this->input('terceiro@escritorio.com'));
     }
 
     #[TestDox('limite de usuários (P8): com o bloqueio desligado (padrão do deploy), nunca recusa')]
     public function testLimiteDeUsuariosComBloqueioDesligadoNaoRecusa(): void
     {
-        $this->usuariosDoEscritorio->method('quantos')->willReturn(10);
         $this->userRepo->method('findOneBy')->willReturn(null);
         $this->em->expects($this->once())->method('persist');
 
-        $this->useCase->executar($this->input('decimo@escritorio.com'));
+        $this->comVaga(bloqueioLigado: false, usuarios: 10)->executar($this->input('decimo@escritorio.com'));
     }
 
-    /** SituacaoDoEspaco é final: real, com os repositórios da Contribua dublados (escritório no Free, 3 usuários). */
-    private function situacaoDoEspaco(): SituacaoDoEspaco
+    private function comVaga(bool $bloqueioLigado, int $usuarios): CriarConviteEscritorioUseCase
     {
-        $consumo = $this->createMock(ConsumoDeArmazenamentoRepository::class);
-        $consumo->method('bytesDoEscritorio')->willReturn(0);
-        $espacos = $this->createMock(EspacoDoEscritorioRepository::class);
-        $espacos->method('doTenant')->willReturn(null);
-        $planos = $this->createMock(PlanoRepository::class);
-        $planos->method('free')->willReturn(new Plano(Plano::CODIGO_FREE, 'Free', 10, 0, 'Grátis', 1, 3));
-        $configuracoes = $this->createMock(ConfiguracaoDoEspacoRepository::class);
-        $configuracoes->method('atual')->willReturnCallback(fn (): ConfiguracaoDoEspaco => $this->configuracao);
-
-        return new SituacaoDoEspaco($consumo, $espacos, $planos, $configuracoes);
+        return new CriarConviteEscritorioUseCase(
+            $this->invitationRepo,
+            $this->userRepo,
+            $this->userTenantRepo,
+            $this->em,
+            new RegraDosPrimarios($this->userTenantRepo),
+            $this->vagaNoEscritorio($bloqueioLigado, $usuarios),
+        );
     }
 }

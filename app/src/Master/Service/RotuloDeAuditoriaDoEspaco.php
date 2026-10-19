@@ -16,6 +16,10 @@ use App\Contribua\Entity\Plano;
  *  - catálogo: "Plano alterado", com cada campo que mudou;
  *  - configuração: "Faixas de alerta alteradas".
  *
+ * Quando o anterior é o limite do plano (cota ou limite nulos no diff), o detalhe mostra o valor do plano da
+ * conta, como o desenho ("10 GB → 12 GB"). É o valor de HOJE do plano (o `audit_log` não guarda o de então),
+ * passado por quem chama; sem ele, sai "limite do plano".
+ *
  * Diferente do resto da trilha, aqui o detalhe leva os VALORES: limites, preços e faixas não são dado
  * sensível, e o desenho pede "15 GB → 20 GB · cliente contratou ampliação". Só lê o `changes` do
  * `audit_log`; nunca consulta a tabela do espaço.
@@ -27,15 +31,22 @@ final class RotuloDeAuditoriaDoEspaco
 
     private const FAIXAS = ['faixaAtencao' => 'Atenção', 'faixaAlerta' => 'Alerta', 'faixaCritico' => 'Crítico', 'faixaBloqueio' => 'Bloqueio'];
 
+    /** A linha é de limite de uma conta? Quem lista a trilha só busca o plano da conta nesse caso. */
+    public static function ehLimiteDaConta(string $entidade): bool
+    {
+        return $entidade === EspacoDoEscritorio::class;
+    }
+
     /**
-     * @param array<string, mixed> $mudancas o `changes` decodificado
+     * @param array<string, mixed>                          $mudancas     o `changes` decodificado
+     * @param array{cotaGb: int, limiteUsuarios: ?int}|null $planoDaConta valores de hoje do plano da conta
      *
      * @return array{acao: string, detalhe: string}|null nulo quando a entidade não é da Contribua
      */
-    public static function traduzir(string $acao, string $entidade, array $mudancas): ?array
+    public static function traduzir(string $acao, string $entidade, array $mudancas, ?array $planoDaConta = null): ?array
     {
         return match ($entidade) {
-            EspacoDoEscritorio::class => self::limite($acao, $mudancas),
+            EspacoDoEscritorio::class => self::limite($acao, $mudancas, $planoDaConta),
             Plano::class => ['acao' => ['create' => 'Plano criado', 'delete' => 'Plano excluído'][$acao] ?? 'Plano alterado', 'detalhe' => self::detalheDoPlano(self::diff($mudancas))],
             ConfiguracaoDoEspaco::class => ['acao' => 'Faixas de alerta alteradas', 'detalhe' => self::detalheDasFaixas(self::diff($mudancas))],
             default => null,
@@ -45,11 +56,12 @@ final class RotuloDeAuditoriaDoEspaco
     /**
      * Na criação (primeira mudança de limite da conta) não há "anterior" gravado: era o limite do plano.
      *
-     * @param array<string, mixed> $mudancas
+     * @param array<string, mixed>                          $mudancas
+     * @param array{cotaGb: int, limiteUsuarios: ?int}|null $plano
      *
      * @return array{acao: string, detalhe: string}
      */
-    private static function limite(string $acao, array $mudancas): array
+    private static function limite(string $acao, array $mudancas, ?array $plano): array
     {
         if ($acao === 'create') {
             $depois = is_array($mudancas['diff']['after'] ?? null) ? $mudancas['diff']['after'] : [];
@@ -62,29 +74,31 @@ final class RotuloDeAuditoriaDoEspaco
                 $diff = ['limiteUsuarios' => ['from' => null, 'to' => $depois['limiteUsuarios']], 'justificativa' => $diff['justificativa']];
             }
 
-            return self::limiteAlterado($diff);
+            return self::limiteAlterado($diff, $plano);
         }
 
-        return self::limiteAlterado(self::diff($mudancas));
+        return self::limiteAlterado(self::diff($mudancas), $plano);
     }
 
     /**
-     * @param array<string, mixed> $diff
+     * @param array<string, mixed>                          $diff
+     * @param array{cotaGb: int, limiteUsuarios: ?int}|null $plano
      *
      * @return array{acao: string, detalhe: string}
      */
-    private static function limiteAlterado(array $diff): array
+    private static function limiteAlterado(array $diff, ?array $plano): array
     {
         $justificativa = is_string($diff['justificativa']['to'] ?? null) ? ' · ' . $diff['justificativa']['to'] : '';
 
         if (isset($diff['limiteUsuarios'])) {
-            $usuarios = static fn (mixed $v): string => is_int($v) ? $v . ' usuários' : self::DO_PLANO;
+            $doPlano = $plano === null ? self::DO_PLANO : ($plano['limiteUsuarios'] === null ? self::SEM_LIMITE : $plano['limiteUsuarios'] . ' usuários');
+            $usuarios = static fn (mixed $v): string => is_int($v) ? $v . ' usuários' : $doPlano;
 
             return ['acao' => 'Limite de usuários', 'detalhe' => $usuarios($diff['limiteUsuarios']['from'] ?? null) . ' → ' . $usuarios($diff['limiteUsuarios']['to'] ?? null) . $justificativa];
         }
 
         if (isset($diff['cotaGb']) || isset($diff['semLimite'])) {
-            return ['acao' => 'Limite de armazenamento', 'detalhe' => self::armazenamento($diff, 'from') . ' → ' . self::armazenamento($diff, 'to') . $justificativa];
+            return ['acao' => 'Limite de armazenamento', 'detalhe' => self::armazenamento($diff, 'from', $plano) . ' → ' . self::armazenamento($diff, 'to', $plano) . $justificativa];
         }
 
         if (isset($diff['plano'])) {
@@ -99,16 +113,21 @@ final class RotuloDeAuditoriaDoEspaco
      * Um lado do limite de armazenamento. Campo fora do diff não mudou; como `semLimite` sempre zera a
      * cota, a cota fora do diff só pode ser nula, e o `semLimite` fora do diff só pode ser falso.
      *
-     * @param array<string, mixed> $diff
+     * @param array<string, mixed>                          $diff
+     * @param array{cotaGb: int, limiteUsuarios: ?int}|null $plano
      */
-    private static function armazenamento(array $diff, string $lado): string
+    private static function armazenamento(array $diff, string $lado, ?array $plano): string
     {
         if (($diff['semLimite'][$lado] ?? false) === true) {
             return self::SEM_LIMITE;
         }
         $cota = $diff['cotaGb'][$lado] ?? null;
 
-        return is_int($cota) ? $cota . ' GB' : self::DO_PLANO;
+        if (is_int($cota)) {
+            return $cota . ' GB';
+        }
+
+        return $plano === null ? self::DO_PLANO : $plano['cotaGb'] . ' GB';
     }
 
     /** @param array<string, mixed> $diff */

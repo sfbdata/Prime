@@ -113,9 +113,21 @@ Contrato com a 7d (19/10):
 - Teste de arquitetura da f6 (`EspacoDoEscritorioSoNoContribuaArquiteturaTest`): liberados só
   `PainelMasterRepository` e `RotuloDeAuditoriaDoEspaco` para citar a classe, com comentário do porquê. A
   proibição de consulta à tabela continua.
-- Aceite de convite: o limite de usuários também é conferido no aceite (`AceitarConvite`), com
-  `SituacaoDoEspaco::doEscritorio($tenantId)->aceitaMaisUmUsuario()`. "Sem limite" libera, e a regra só vale com o
+- Aceite de convite: o limite de usuários também é conferido no aceite (`AceitarConvite`, com e sem conta), com
+  `SituacaoDoEspaco::retratar($tenantId, 0)->aceitaMaisUmUsuario()` (serviço `Auth\Service\VagaNoEscritorio`,
+  o mesmo do envio). "Sem limite" libera, e a regra só vale com o
   bloqueio ligado.
 - O plano do escritório pela assinatura (C3 da f6) é da f6. O `AlterarPlanoUseCase` do Master edita só o
   catálogo. O "plano pago até", se entrar, é lido de
   `MontarPagamentoDoContribuaUseCase::assinaturaDoEscritorio($tenantId)`.
+- Dívida conhecida: a lista de contas, o ranking e o KPI montam um `RetratoDoEspaco` por conta
+  (`SituacaoDoEspaco::retratar`, com o uso já medido pelo painel), o que faz algumas leituras por conta (N+1).
+  Produção tem 7 contas; foi pedida à f6 uma leitura em lote. O convite (envio e aceite) usa `retratar($id, 0)`,
+  sem medir o espaço.
+- KPI ARMAZENAMENTO com conta sem limite (decisão do orquestrador, revista na verificação visual de 19/10): o
+  número grande, a descrição e a barra somam só as contas com limite, como o desenho (a cota é delas); com conta
+  sem limite, a descrição acrescenta " · + Z GB em N conta(s) sem limite". Todas sem limite: vale o texto antigo,
+  com o uso total.
+- Trilha da primeira mudança de limite: o anterior sai em número ("10 GB → 12 GB", "3 usuários → 5 usuários"),
+  com a cota e o limite de HOJE do plano da conta (o `audit_log` não guarda os de então).
+- Medidas dos campos como no desenho (content-box): caixa das faixas 72x30, campos do modal com 40px.

@@ -268,7 +268,8 @@
 .mp-faixas-tit > span { font-weight: normal; color: #5b7383; font-size: 12.5px; }
 .mp-faixas-chips { display: flex; gap: 14px; flex-wrap: wrap; }
 .mp-faixa-chip { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; border-radius: 4px; background: var(--bg); color: var(--cor); font-weight: bold; margin: 0; }
-.mp-faixa-chip > input { width: 58px; height: 28px; border: 1px solid #d6e0e7; border-radius: 3px; font: inherit; font-size: 13px; padding: 0 6px; color: #12242f; background: #fff; }
+/* content-box como no desenho: 58x28 + padding + borda = 72x30 (o layout do sistema usa border-box). */
+.mp-faixa-chip > input { box-sizing: content-box; width: 58px; height: 28px; border: 1px solid #d6e0e7; border-radius: 3px; font: inherit; font-size: 13px; padding: 0 6px; color: #12242f; background: #fff; }
 .mp-faixas-nota { font-size: 12.5px; color: #4a6373; line-height: 1.5; }
 .mp-faixas-bloqueio { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #eef2f5; }
 .mp-chave { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; color: #243845; margin: 0; cursor: pointer; }
@@ -303,7 +304,7 @@
 .mp-lim-info > div > div:last-child { font-size: 15px; font-weight: bold; color: #12242f; margin-top: 3px; }
 .mp-lim-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-weight: normal; }
 .mp-lim-campo > span { font-size: 11px; font-weight: bold; letter-spacing: 1.1px; }
-.mp-lim-campo > input { height: 38px; border: 1px solid var(--borda, #d6e0e7); border-radius: 4px; padding: 0 12px; font: inherit; font-size: 14px; color: #12242f; }
+.mp-lim-campo > input { box-sizing: content-box; height: 38px; border: 1px solid var(--borda, #d6e0e7); border-radius: 4px; padding: 0 12px; font: inherit; font-size: 14px; color: #12242f; }
 .mp-lim-campo > input:disabled { background: #f5f8fa; color: #7d909d; }
 .mp-lim-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .mp-lim-sem { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: normal; margin: 0; cursor: pointer; }

@@ -21,13 +21,17 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 
 /**
- * Consultas GLOBAIS do Painel do Master (spec perfis-master §4.3), SOMENTE LEITURA.
+ * Consultas GLOBAIS do Painel do Master (spec perfis-master §4.3), mais a gravação do "Alerta de consumo".
  *
  * Por que DBAL e não ORM: o painel atravessa todos os escritórios de propósito. SQL direto não passa
  * pelos filtros do ORM (TenantFilter, LixeiraFilter), então nenhum filtro precisa ser desligado e o
- * recorte de cada consulta fica explícito aqui. Nada neste arquivo grava: só SELECT.
+ * recorte de cada consulta fica explícito aqui. Tudo é SELECT, com UMA exceção:
+ * {@see registrarAlertaDeConsumo()}, o INSERT da linha do Sistema no `audit_log` (spec
+ * perfis-1.2-planos-e-limites P11).
  *
- * Quem pode chamar: apenas os UseCases do domínio Master, atrás de `ROLE_SUPER_ADMIN`.
+ * Quem pode chamar: as consultas, só os UseCases do domínio Master, atrás de `ROLE_SUPER_ADMIN`; a
+ * gravação do alerta, só o ouvinte {@see \App\Master\EventListener\AlertaDeConsumoNaTrilha}, que roda
+ * no envio de arquivo de qualquer escritório (sem Master na sessão).
  *
  * Recortes comuns:
  *  - escritório na quarentena (`tenant.excluido_em` preenchido) não conta em lugar nenhum;
@@ -35,7 +39,8 @@ use Doctrine\DBAL\ParameterType;
  *    fora da quarentena. Quem não tem vínculo (o Master sem escritório) não é usuário de escritório;
  *  - pasta na lixeira (`pasta.excluida_em`) e documento de pasta na lixeira (`excluido_em`) não contam.
  */
-final class PainelMasterRepository
+// Não-final: o teste do ouvinte do alerta dubla a gravação (padrão dos repositórios, skill criar-repository).
+class PainelMasterRepository
 {
     /**
      * Tabelas com tamanho de arquivo no banco: [tabela, coluna do tamanho, coluna da data, SQL do tenant, filtro extra].

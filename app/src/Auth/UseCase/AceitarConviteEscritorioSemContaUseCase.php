@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
+use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Repository\InvitationRepository;
@@ -24,6 +25,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly VagaNoEscritorio $vagaNoEscritorio,
     ) {}
 
     public function executar(AceitarConviteEscritorioSemContaInput $input): User
@@ -60,6 +62,9 @@ final class AceitarConviteEscritorioSemContaUseCase
 
         // Convite de primário: quem convidou ainda pode dar esse acesso? (spec perfis-master D4)
         $this->regraDosPrimarios->garantirQueConviteDePrimarioSegueValido($invitation);
+
+        // Limite de usuários também no aceite (spec perfis-1.2-planos-e-limites §6): o convite pode ter saído com vaga.
+        $this->vagaNoEscritorio->exigir((int) $tenant->getId());
 
         if (!$input->aceiteTermos) {
             throw new \DomainException('É necessário aceitar os Termos de Uso para criar a conta.');

@@ -56,6 +56,20 @@ final class RotuloDeAuditoriaDoEspacoTest extends TestCase
         self::assertSame(['acao' => 'Limite de usuários', 'detalhe' => 'limite do plano → 5 usuários · estagiário'], RotuloDeAuditoria::traduzir('create', self::ESPACO, (string) json_encode($usuarios)));
     }
 
+    #[TestDox('com o plano de hoje da conta, o anterior sai em número, como no desenho: "10 GB → 12 GB", "3 usuários → 5 usuários"')]
+    public function testAnteriorComOPlanoDaConta(): void
+    {
+        $free = ['cotaGb' => 10, 'limiteUsuarios' => 3];
+        $armazenamento = ['diff' => ['after' => ['cotaGb' => 12, 'semLimite' => false, 'limiteUsuarios' => null, 'justificativa' => 'ampliação']]];
+        $usuarios = ['diff' => ['changes' => ['limiteUsuarios' => ['from' => null, 'to' => 5]]]];
+        $deSemLimiteAoPlano = ['diff' => ['changes' => ['semLimite' => ['from' => true, 'to' => false]]]];
+
+        self::assertSame('10 GB → 12 GB · ampliação', RotuloDeAuditoria::traduzir('create', self::ESPACO, (string) json_encode($armazenamento), $free)['detalhe']);
+        self::assertSame('3 usuários → 5 usuários', RotuloDeAuditoria::traduzir('update', self::ESPACO, (string) json_encode($usuarios), $free)['detalhe']);
+        self::assertSame('sem limite → 10 GB', RotuloDeAuditoria::traduzir('update', self::ESPACO, (string) json_encode($deSemLimiteAoPlano), $free)['detalhe']);
+        self::assertSame('sem limite → 5 usuários', RotuloDeAuditoria::traduzir('update', self::ESPACO, (string) json_encode($usuarios), ['cotaGb' => 100, 'limiteUsuarios' => null])['detalhe'], 'Avançado: usuários sem limite');
+    }
+
     #[TestDox('plano: "Plano alterado" com cada campo que mudou, preço em reais')]
     public function testPlano(): void
     {

@@ -9,6 +9,7 @@ use App\Contribua\Enum\FaixaDoEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Master\Repository\PainelMasterRepository;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -18,6 +19,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  * em que N é o início da faixa alcançada (as faixas que o Master configura em Armazenamento).
  *
  * O evento da Contribua sai depois do commit de quem gravou o arquivo: envio desfeito não vira alerta.
+ * A trilha é acessória: se a gravação falhar, o erro vai para o log e o envio segue (nunca derruba o upload).
  */
 #[AsEventListener(event: EspacoAtingiuFaixa::class)]
 final class AlertaDeConsumoNaTrilha
@@ -25,17 +27,26 @@ final class AlertaDeConsumoNaTrilha
     public function __construct(
         private readonly PainelMasterRepository $repositorio,
         private readonly ConfiguracaoDoEspacoRepository $configuracoes,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
     public function __invoke(EspacoAtingiuFaixa $evento): void
     {
-        $limiar = self::limiar($evento->faixa, $this->configuracoes->atual());
-        if ($limiar === null) {
-            return;
-        }
+        try {
+            $limiar = self::limiar($evento->faixa, $this->configuracoes->atual());
+            if ($limiar === null) {
+                return;
+            }
 
-        $this->repositorio->registrarAlertaDeConsumo($evento->tenantId, $limiar, $evento->retrato->percentual, $evento->faixa->value);
+            $this->repositorio->registrarAlertaDeConsumo($evento->tenantId, $limiar, $evento->retrato->percentual, $evento->faixa->value);
+        } catch (\Throwable $e) {
+            $this->logger->error('Alerta de consumo: a linha da trilha do Master não foi gravada; o envio segue.', [
+                'tenant' => $evento->tenantId,
+                'faixa'  => $evento->faixa->value,
+                'erro'   => $e->getMessage(),
+            ]);
+        }
     }
 
     private static function limiar(FaixaDoEspaco $faixa, ConfiguracaoDoEspaco $c): ?int

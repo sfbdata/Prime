@@ -70,7 +70,7 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertStringContainsString('.mp .mp-lim-ok:disabled { background: #9fb3c0; cursor: not-allowed; }', $css);
         self::assertStringContainsString('.mp-lim { width: 100%; max-width: 480px;', $css);
         self::assertStringContainsString('.mp-lim-info { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }', $css);
-        self::assertStringContainsString('.mp-lim-campo > input { height: 38px; border: 1px solid var(--borda, #d6e0e7);', $css);
+        self::assertStringContainsString('.mp-lim-campo > input { box-sizing: content-box; height: 38px; border: 1px solid var(--borda, #d6e0e7);', $css);
     }
 
     #[TestDox('P5/P6: ranking com "Editar limite" e faixa do RetratoDoEspaco; faixas com as cores do desenho, a chave do bloqueio e o aviso')]
@@ -82,6 +82,7 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertStringContainsString("const CHIPS = [['atencao', 'Atenção', '#8a5a12', '#fbf1dc'], ['alerta', 'Alerta', '#a3232b', '#fbe7e7'], ['critico', 'Crítico', '#7a1b22', '#f6dcdc'], ['bloqueio', 'Bloqueio', '#fff', '#7a1b22']];", $js);
         self::assertStringContainsString("const AVISO_BLOQUEIO = 'Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.';", $js);
         self::assertStringContainsString('Faixas de alerta de consumo <span>(configuráveis)</span>', $js);
+        self::assertStringContainsString("<span>' + rot + ' a partir de</span>'", $js, 'texto contínuo do chip (desenho, linha 197)');
         self::assertStringContainsString('No limite (100%), novos uploads acima da capacidade ficam bloqueados. Consulta, download e exportação continuam liberados. Nenhum documento é apagado automaticamente.', $js);
         self::assertStringContainsString('data-lim-arm="\' + c.id + \'">Editar limite</button>', $js);
         self::assertStringContainsString("<span>' + esc(rotulo) + ' · livre ' + esc(gb(livreDe(c))) + '</span>", $js);
@@ -100,7 +101,11 @@ final class PainelPlanosELimitesJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString("desc: 'de ' + num(a.cotaGb) + ' GB contratados · livre ' + gb(a.bytesLivres), cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%'", $js);
+        self::assertStringContainsString("desc: 'de ' + num(a.cotaGb) + ' GB contratados · livre ' + gb(a.bytesLivres) + sem, cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%'", $js);
+        self::assertStringContainsString("a.contasSemLimite > 0 ? ' · + ' + gb(a.bytesSemLimite) + ' em ' + num(a.contasSemLimite) + ' conta(s) sem limite' : ''", $js, 'decisão L do orquestrador');
+        self::assertStringContainsString("return Object.assign(base, { n: gb(a.bytesUsados), desc:", $js, 'o número grande soma só as contas com limite');
+        self::assertSame(3, substr_count($js, 'recarregarVisaoETrilha();'), 'limite, faixas e plano recarregam o KPI e o selo');
+        self::assertStringContainsString(': S.nAud || 0;', $js, 'o selo fica com o último número enquanto recarrega');
         self::assertStringContainsString("D.visao ? D.visao.registrosDeAuditoria || 0", $js);
         self::assertStringContainsString("carregar('visao', URLS.visao);", $js);
     }
