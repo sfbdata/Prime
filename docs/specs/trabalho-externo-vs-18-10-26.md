@@ -1,5 +1,51 @@
 # Spec: Trabalho Externo VS 18.10.26 (demandas, vagas e currículos)
 
+## Estado da frente (releia antes de continuar; atualizado em 19/10/2026)
+
+**Pilha de branches** (cada uma sobre a anterior; merge na ordem):
+1. `trabalho-externo-vs1810` (F1, marcações e chat avançado) → **PR #62 aberto**. Migration `Version20261019120126`.
+2. `trabalho-externo-vagas` (F2a, vagas) → sem PR até o #62 entrar. Migration `Version20261019132051`.
+3. `trabalho-externo-vagas-publicas` (F2c, página pública e compartilhar) → sem PR até o F2a entrar.
+   Migration `Version20261019160801`.
+
+Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
+rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe) e abrir o PR.
+
+**Fila de migrations** (coordenador): #52 → Push (0d) → Telas e recursos (b5) → PR 2 da 7d → C1 (f6)
+→ F1 → F2a → F2c.
+
+**Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
+Master é dono do sistema e pode tudo; navegador liberado nesta sessão para a verificação visual
+(porta 8107, banco isolado `demo_trabalho_a7`, usuário de demonstração com senha só nesse banco).
+
+**Convenções registradas pelo coordenador**: apagar mensagem para todos = autor ou Master (P de
+19/10); P2 = escritório vê as vagas abertas e as dele em qualquer situação; P3 = a página pública e
+o compartilhar entram como fatia própria.
+
+**Contratos com outras sessões**:
+- Scripts globais do desenho: `bj-idioma` (7d), `bj-recursos` (b5), `bj-lembretes` (4b), `bj-plano`
+  (f6). Esta frente só consome.
+- Descadastro de e-mail: serviço e tabela `email_descadastro` em `Shared`, da 0d. Não criar outro.
+- Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (8ª sessão). Envio só
+  para quem confirmou o e-mail (double opt-in) e não está descadastrado (§4.2).
+- `security.yaml`: linha própria `^/vagas-juridicas`; 0d e f6 acrescentam as delas.
+- Teto `MAX_FORA_DO_ESCOPO` em `TenantAwareCoberturaTest`: o #56 (b5) também sobe; quem entrar depois
+  soma as entradas das duas listas. Cada entrada tem a justificativa ao lado.
+- Contribua C6 (f6): "preferência de assinante" na ordem das propostas; contrato a combinar.
+- Limite por IP da página pública só vale em produção depois do PR #77 (IP do cliente).
+
+**Pendências**:
+- **P1** (quem é o candidato, risco ALTO, identidade User/Tenant): com o dono via coordenador.
+  Bloqueia F2b (candidatura), F3 (currículos), F4 (visão externa) e os botões de candidato da página
+  pública, que hoje levam aos alertas por e-mail (**desvio temporário**).
+- **Zip completo do desenho** (o DesignSync corta em 256 KiB): pedido ao dono. Resolve os provisórios
+  de §3.5 e §4.1 e a lista de rótulos e menus perdidos.
+- Descrição do #62 não editável pelo `gh` 2.46 desta máquina: complemento postado como comentário.
+
+**Próximo passo**: esperar o merge do #62 e seguir a pilha; enquanto isso, o que não depender da P1
+nem do zip.
+
+
 Frente `trabalho-externo-vs1810`, base `origin/master` @ `1d3e664c` (v2.2.2). Continua a spec
 `docs/specs/trabalho-externo.md`, que segue valendo para tudo o que ela já cobre.
 
