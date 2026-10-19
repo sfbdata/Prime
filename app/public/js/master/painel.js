@@ -24,7 +24,7 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'pes', mapaUsu: 'geral',
-    faltamOn: false, busca: '', fSit: '', menu: null, audTipo: '', audConta: null, aviso: null };
+    faltamOn: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null };
   const D = { visao: null, contas: null, oab: null, audit: null };
   const ERRO = {};
 
@@ -76,7 +76,7 @@
       + (k === 'audit' && nAud > 0 ? '<span class="mp-sec-n">' + num(nAud) + '</span>' : '') + '</button>').join('');
   }
   elSecs.addEventListener('click', e => { const b = e.target.closest('[data-sec]'); if (b) irPara(b.dataset.sec); });
-  function irPara(sec) { S.sec = sec; S.menu = null; S.aviso = null; renderSecs(); renderSecao(); }
+  function irPara(sec) { S.sec = sec; S.menu = null; S.menuPos = null; S.aviso = null; renderSecs(); renderSecao(); }
 
   function renderSecao() {
     const sec = S.sec, dep = precisa[sec];
@@ -250,7 +250,9 @@
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option></select>'
       + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar conta ou primário" aria-label="Buscar conta ou primário"></label></div>'
       + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab"><div>CONTA</div><div>PRIMÁRIO · PLANO</div><div>USUÁRIOS</div><div>PASTAS</div><div>DOCS</div><div>ARMAZENAMENTO</div><div>30 DIAS</div><div>PREVISÃO</div><div>SITUAÇÃO</div><div></div></div>'
-      + '<div id="mp-contas-lista"></div></div></div></div>';
+      + '<div id="mp-contas-lista"></div></div></div></div>'
+      // O menu da conta mora FORA do card e da rolagem (overflow), em posição fixa na janela: nunca é cortado.
+      + '<div id="mp-menu-conta"></div>';
     renderContasLista();
   }
 
@@ -263,6 +265,33 @@
       ? '<button type="button" class="mp-menu-op mp-menu-sep mp-menu-reativar" data-op="reativar" data-conta-id="' + c.id + '"><i class="bi bi-play-circle"></i>Reativar conta</button>'
       : '<button type="button" class="mp-menu-op mp-menu-sep mp-menu-suspender" data-op="suspender" data-conta-id="' + c.id + '"><i class="bi bi-pause-circle"></i>Suspender conta</button>')
     + '</div>';
+
+  // Menu em position: fixed, nas coordenadas da janela: as do clique (botão direito) ou as do botão ⋮.
+  // Não cabe embaixo: abre para cima. Não cabe à direita: encosta na borda. Largura 260px (desenho).
+  const LARGURA_MENU = 260, MARGEM_MENU = 8;
+  function abrirMenuDaConta(id, pos) { S.menu = id; S.menuPos = pos; renderMenuDaConta(); }
+  function fecharMenuDaConta() {
+    if (S.menu === null) return;
+    S.menu = null; S.menuPos = null;
+    const host = document.getElementById('mp-menu-conta'); if (host) host.innerHTML = '';
+  }
+  function renderMenuDaConta() {
+    const host = document.getElementById('mp-menu-conta'); if (!host) return;
+    const c = S.menu === null || !S.menuPos || !D.contas ? null : D.contas.contas.find(x => x.id === S.menu);
+    if (!c) { host.innerHTML = ''; return; }
+    host.innerHTML = menuDaConta(c);
+    const el = host.firstElementChild, p = S.menuPos, alto = el.offsetHeight;
+    let top = p.y;
+    if (top + alto > window.innerHeight - MARGEM_MENU) top = Math.max(MARGEM_MENU, p.yAcima - alto);
+    let left = p.alinharDireita ? p.x - LARGURA_MENU : p.x;
+    left = Math.max(MARGEM_MENU, Math.min(left, window.innerWidth - LARGURA_MENU - MARGEM_MENU));
+    el.style.top = top + 'px';
+    el.style.left = left + 'px';
+  }
+  // Do botão ⋮: abre logo abaixo dele, com a borda direita alinhada à do botão; para cima, acima dele.
+  const posDoBotao = b => { const r = b.getBoundingClientRect(); return { x: r.right, y: r.bottom + 4, yAcima: r.top - 4, alinharDireita: true }; };
+  // Do botão direito: abre no ponto do clique, para a direita e para baixo (ou para cima).
+  const posDoClique = e => ({ x: e.clientX, y: e.clientY, yAcima: e.clientY, alinharDireita: false });
 
   // Confirmação do desenho (linha 624), textos exatos. O servidor revalida tudo (CSRF por conta, Master, regras C2, C3 e C5).
   const CONF_CONTA = {
@@ -312,7 +341,7 @@
     document.getElementById('mp-contas-aviso').innerHTML = S.aviso ? '<div class="mp-aviso ' + (S.aviso.ok ? 'is-ok' : 'is-erro') + '" role="status" data-mp-aviso><i class="bi '
       + (S.aviso.ok ? 'bi-check-circle' : 'bi-exclamation-circle') + '"></i>' + esc(S.aviso.msg) + '</div>' : '';
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
-      const cor = ST[c.situacao] || '#4a6373', aberto = S.menu === c.id;
+      const cor = ST[c.situacao] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>sem plano</span></div>'
@@ -323,9 +352,9 @@
         + '<div class="mp-conta-prev mp-hv">sem previsão</div>'
         + '<div class="mp-conta-st mp-hv"><span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span></div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
-        + (aberto ? menuDaConta(c) : '')
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';
+    renderMenuDaConta();
   }
 
   /* ================= USUÁRIOS E OABs ================= */
@@ -406,12 +435,12 @@
     const modo = t.closest('[data-mapa-modo]'); if (modo) { S.mapaModo = modo.dataset.mapaModo; return renderMapa(); }
     if (t.closest('[data-faltam]')) { S.faltamOn = !S.faltamOn; return renderMapa(); }
     const menu = t.closest('[data-menu]');
-    if (menu) { e.stopPropagation(); const id = +menu.dataset.menu; S.menu = S.menu === id ? null : id; return renderContasLista(); }
+    if (menu) { e.stopPropagation(); const id = +menu.dataset.menu; return S.menu === id ? fecharMenuDaConta() : abrirMenuDaConta(id, posDoBotao(menu)); }
     const op = t.closest('[data-op]');
     if (op) {
-      e.stopPropagation(); S.menu = null;
+      e.stopPropagation(); fecharMenuDaConta();
       if (op.dataset.op === 'estat') return irPara('arm');
-      if (op.dataset.op === 'suspender' || op.dataset.op === 'reativar') { renderContasLista(); return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId); }
+      if (op.dataset.op === 'suspender' || op.dataset.op === 'reativar') return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId);
       S.audConta = +op.dataset.contaId; S.audTipo = ''; return irPara('audit');
     }
     if (t.closest('[data-pdf]')) return gerarPdf();
@@ -419,17 +448,20 @@
   });
   elSecao.addEventListener('contextmenu', e => {
     const lin = e.target.closest('[data-conta]'); if (!lin) return;
-    e.preventDefault(); S.menu = +lin.dataset.conta; renderContasLista();
+    e.preventDefault(); abrirMenuDaConta(+lin.dataset.conta, posDoClique(e));
   });
   elSecao.addEventListener('change', e => {
     const t = e.target;
     if (t.matches('[data-gr-met]')) { S.grMet = t.value; return renderGrafico(); }
-    if (t.matches('[data-f-sit]')) { S.fSit = t.value; S.menu = null; return renderContasLista(); }
+    if (t.matches('[data-f-sit]')) { S.fSit = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-aud-tipo]')) { S.audTipo = t.value; return montarAudit(); }
   });
-  elSecao.addEventListener('input', e => { if (e.target.matches('[data-busca]')) { S.busca = e.target.value; S.menu = null; renderContasLista(); } });
-  document.addEventListener('click', e => { if (S.menu !== null && S.sec === 'contas' && !e.target.closest('[data-parar]')) { S.menu = null; renderContasLista(); } });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.menu !== null && S.sec === 'contas') { S.menu = null; renderContasLista(); } });
+  elSecao.addEventListener('input', e => { if (e.target.matches('[data-busca]')) { S.busca = e.target.value; fecharMenuDaConta(); renderContasLista(); } });
+  // Fecha o menu: clique fora, Esc, rolagem da página OU da tabela (captura: o scroll não borbulha) e janela redimensionada.
+  document.addEventListener('click', e => { if (!e.target.closest('[data-parar]')) fecharMenuDaConta(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharMenuDaConta(); });
+  document.addEventListener('scroll', fecharMenuDaConta, true);
+  window.addEventListener('resize', fecharMenuDaConta);
 
   renderSecs();
   renderSecao();

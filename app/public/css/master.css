@@ -202,7 +202,9 @@
 .mp-conta-st > span > i { width: 7px; height: 7px; border-radius: 50%; background: var(--cor); }
 .mp-conta-acoes { display: flex; justify-content: center; }
 .mp-btn-icone { width: 30px; height: 30px; border: none; background: transparent; border-radius: 4px; color: #4a6373; cursor: pointer; }
-.mp-menu { position: absolute; z-index: 20; right: 20px; top: 52px; width: 260px; background: #fff; border: 1px solid #d6e0e7; border-radius: 4px;
+/* Menu da conta em position: fixed (top/left na janela, calculados pelo painel.js): fora do card e da rolagem, nunca cortado.
+   Abaixo do modal de confirmação (1060). */
+.mp-menu { position: fixed; z-index: 1055; top: 0; left: 0; width: 260px; background: #fff; border: 1px solid #d6e0e7; border-radius: 4px;
   box-shadow: 0 12px 30px rgba(18,36,47,.18); overflow: hidden; }
 .mp-menu-cab { background: #0a6fa0; color: #fff; padding: 9px 14px; font-size: 11px; font-weight: bold; letter-spacing: 1.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-menu-op { width: 100%; display: flex; align-items: center; gap: 9px; border: none; background: #fff; padding: 8px 14px; font-size: 13px; color: #243845; cursor: pointer; text-align: left; }

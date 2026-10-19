@@ -73,6 +73,56 @@ final class ExclusaoDaContaDoMasterTest extends JusPrimeWebTestCase
         $this->assertContaIntacta($conta);
     }
 
+    #[TestDox('conta SEM criador e com Master de vínculo ativo (fallback da C5): as duas rotas antigas recusam')]
+    public function testContaSemCriadorComMasterVinculadoRecusa(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfFixo();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $master = UserFactory::createOne(['roles' => ['ROLE_SUPER_ADMIN'], 'isActive' => true])->_real();
+        $conta = (new Tenant())->setName('Sem criador ' . uniqid());
+        $em->persist($conta);
+        $em->flush();
+        $this->vincularComoAdmin($master, $conta);
+        $admin = UserFactory::createOne(['roles' => ['ROLE_USER'], 'isActive' => true])->_real();
+        $this->vincularComoAdmin($admin, $conta);
+
+        $this->logarComTenant($client, $admin, $conta);
+        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+        self::assertResponseRedirects('/tenant/' . $conta->getId());
+        self::assertContains(RegraDosMasters::RECUSA_EXCLUIR_CONTA_DO_MASTER, $client->getRequest()->getSession()->getFlashBag()->peek('danger'));
+
+        $client->loginUser($master);
+        $this->marcarTermosAceitos($client);
+        $client->request('POST', '/tenant/' . $conta->getId(), ['_token' => 'TOKEN_delete' . $conta->getId()]);
+        self::assertResponseRedirects('/tenant', 303);
+        self::assertContains(RegraDosMasters::RECUSA_EXCLUIR_CONTA_DO_MASTER, $client->getRequest()->getSession()->getFlashBag()->peek('danger'));
+
+        $this->assertContaIntacta($conta);
+    }
+
+    #[TestDox('conta SEM criador e sem Master vinculado: a rota antiga exclui como antes')]
+    public function testContaSemCriadorSemMasterExclui(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfFixo();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $conta = (new Tenant())->setName('Sem criador nem Master ' . uniqid());
+        $em->persist($conta);
+        $em->flush();
+        $admin = UserFactory::createOne(['roles' => ['ROLE_USER'], 'isActive' => true])->_real();
+        $this->vincularComoAdmin($admin, $conta);
+
+        $this->logarComTenant($client, $admin, $conta);
+        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+
+        self::assertResponseRedirects('/escritorio/selecionar');
+        $em->clear();
+        self::assertNotNull($em->find(Tenant::class, $conta->getId())?->getExcluidoEm());
+    }
+
     private function contaDoMaster(User $master): Tenant
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);

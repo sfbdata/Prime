@@ -92,6 +92,52 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString("'Não foi possível concluir a ação. Recarregue a página.'", $js);
     }
 
+    #[TestDox('menu fora do card e da rolagem, em position: fixed na janela, 260px, com as coordenadas do clique ou do botão')]
+    public function testMenuNaoEhCortado(): void
+    {
+        $js = self::js('painel.js');
+
+        // Host do menu depois do fechamento da rolagem e do card, e o menu fora das linhas.
+        self::assertStringContainsString("+ '<div id=\"mp-contas-lista\"></div></div></div></div>'\n      // O menu da conta mora FORA do card e da rolagem", $js);
+        self::assertStringContainsString("+ '<div id=\"mp-menu-conta\"></div>';", $js);
+        $linhas = substr($js, (int) strpos($js, 'function renderContasLista('), 4000);
+        self::assertStringNotContainsString('menuDaConta(c)', substr($linhas, 0, (int) strpos($linhas, 'renderMenuDaConta();')), 'o menu não é desenhado dentro da linha');
+
+        $css = (string) file_get_contents(self::RAIZ . 'public/css/master.css');
+        self::assertMatchesRegularExpression('/\.mp-menu \{ position: fixed; z-index: 1055; top: 0; left: 0; width: 260px;/', $css);
+        self::assertStringContainsString('const LARGURA_MENU = 260, MARGEM_MENU = 8;', $js);
+
+        self::assertStringContainsString("abrirMenuDaConta(id, posDoBotao(menu))", $js, 'botão ⋮');
+        self::assertStringContainsString("abrirMenuDaConta(+lin.dataset.conta, posDoClique(e))", $js, 'botão direito');
+        self::assertStringContainsString('const posDoClique = e => ({ x: e.clientX, y: e.clientY,', $js);
+        self::assertStringContainsString('const r = b.getBoundingClientRect();', $js);
+    }
+
+    #[TestDox('não sai da tela: sem espaço embaixo abre para cima; sem espaço à direita encosta na borda')]
+    public function testMenuCabeNaTela(): void
+    {
+        $js = self::js('painel.js');
+        $inicio = strpos($js, 'function renderMenuDaConta(');
+        self::assertNotFalse($inicio);
+        $bloco = substr($js, $inicio, (int) strpos($js, 'const posDoBotao') - $inicio);
+
+        self::assertStringContainsString('if (top + alto > window.innerHeight - MARGEM_MENU) top = Math.max(MARGEM_MENU, p.yAcima - alto);', $bloco);
+        self::assertStringContainsString('left = Math.max(MARGEM_MENU, Math.min(left, window.innerWidth - LARGURA_MENU - MARGEM_MENU));', $bloco);
+        self::assertStringContainsString("el.style.top = top + 'px';", $bloco);
+        self::assertStringContainsString("el.style.left = left + 'px';", $bloco);
+    }
+
+    #[TestDox('fecha com clique fora, Esc, rolagem da página ou da tabela (captura) e redimensionar')]
+    public function testMenuFecha(): void
+    {
+        $js = self::js('painel.js');
+
+        self::assertStringContainsString("document.addEventListener('click', e => { if (!e.target.closest('[data-parar]')) fecharMenuDaConta(); });", $js);
+        self::assertStringContainsString("document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharMenuDaConta(); });", $js);
+        self::assertStringContainsString("document.addEventListener('scroll', fecharMenuDaConta, true);", $js, 'captura: pega também a rolagem horizontal da tabela');
+        self::assertStringContainsString("window.addEventListener('resize', fecharMenuDaConta);", $js);
+    }
+
     #[TestDox('sem travessão no texto novo do menu e da confirmação')]
     public function testSemTravessao(): void
     {
