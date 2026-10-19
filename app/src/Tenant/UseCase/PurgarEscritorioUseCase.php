@@ -184,6 +184,10 @@ final class PurgarEscritorioUseCase
         // Visitas à Timeline inteligente (por usuário, PAS-043): mesmo caso do favorito — cairiam
         // pela CASCADE de `pasta`, mas a FK de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_timeline_visita', 'tenant_id = :tenant'],
+        // Link externo do Push e seus acessos: cairiam pela CASCADE de `pasta`, mas as FKs de tenant
+        // são NO ACTION. Acesso antes do link (filho antes do pai).
+        ['push_link_externo_acesso', 'tenant_id = :tenant'],
+        ['push_link_externo', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
