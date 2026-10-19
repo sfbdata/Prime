@@ -18,7 +18,7 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class RegistrarDivulgacaoUseCase
 {
-    public const CANAIS = ['WhatsApp', 'E-mail', 'LinkedIn', 'Link'];
+    public const CANAIS = ['WhatsApp', 'E-mail', 'LinkedIn', 'mensagem copiada', 'link'];
 
     public function __construct(
         private readonly LocalizadorDeVaga $localizador,

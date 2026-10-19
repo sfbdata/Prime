@@ -148,7 +148,7 @@ final class VagasController extends AbstractController
         });
     }
 
-    /** Cada canal clicado no modal de divulgar (WhatsApp, E-mail, LinkedIn, Link): histórico e contador. */
+    /** Cada canal clicado no modal de divulgar (WhatsApp, E-mail, LinkedIn, mensagem copiada, link): histórico e contador. */
     #[Route('/divulgacao', name: 'trabalho_externo_vagas_divulgacao', methods: ['POST'])]
     public function divulgacao(Request $request, RegistrarDivulgacaoUseCase $registrar): JsonResponse
     {

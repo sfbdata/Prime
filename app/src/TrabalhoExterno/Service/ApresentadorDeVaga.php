@@ -42,6 +42,11 @@ final class ApresentadorDeVaga
             'local' => $this->local($v),
             'remuneracao' => $v->getRemuneracao() !== '' ? $v->getRemuneracao() : 'A combinar',
             'areas' => $v->getAreas(),
+            // Crus, para a mensagem padrão do "Divulgar vaga(s)" (`msgPadrao`, l.1075).
+            'contrato' => $v->getContratacao(),
+            'modalidade' => $v->getModalidade(),
+            'cidade' => $v->getCidade(),
+            'uf' => $v->getUf(),
             // "N de Q aceita(s)" do contador também no cartão (`tempo()`, l.996).
             'qtd' => $v->getQtd(),
             'prazo' => $v->getInscricoesAte()?->format('Y-m-d'),
@@ -68,7 +73,6 @@ final class ApresentadorDeVaga
         $interno = $this->politica->ehInterno($ctx);
 
         return $this->cartao($ctx, $v, $marca, $ultimaVisita, $agora) + [
-            'modalidade' => $v->getModalidade(),
             'requisitos' => $v->getRequisitos() !== '' ? $v->getRequisitos() : 'Sem descrição.',
             'oab' => $v->isExigeOab() ? 'Exige OAB ativa' : 'OAB não obrigatória',
             'prazoDetalhe' => $this->prazoDoDetalhe($v),
