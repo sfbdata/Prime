@@ -123,6 +123,18 @@ final class PastaCpfDuplicadoEPresencaTelaTest extends JusPrimeWebTestCase
         self::assertSame(['ps-selo-duplicado', 'ps-selo-principal'], $classesDosSelos);
 
         self::assertCount(1, $this->linhaDe($crawler, $gemeo)->filter('.cliente-nome > .ps-selo-duplicado'));
+
+        // O que o JS usa para recalcular o selo de todas as linhas depois de vincular/desvincular: uma chave
+        // igual para documentos iguais (só dígitos), diferente para os demais, e o tipo. Nunca os dígitos crus.
+        $chave = (string) $linhaPrincipal->attr('data-doc-chave');
+        self::assertMatchesRegularExpression('/^[0-9a-f]{20}$/', $chave);
+        self::assertSame($chave, $this->linhaDe($crawler, $gemeo)->attr('data-doc-chave'));
+        self::assertNotSame($chave, $this->linhaDe($crawler, $outro)->attr('data-doc-chave'));
+        self::assertSame('cpf', $linhaPrincipal->attr('data-doc-tipo'));
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('00646225170', $html, 'o documento cru não vai para o HTML');
+        self::assertStringNotContainsString('02254772545', $html);
+        self::assertCount(1, $crawler->filter('script[src*="js/pasta-clientes-duplicados.js"]'));
         self::assertCount(0, $this->linhaDe($crawler, $outro)->filter('.ps-selo-duplicado'), 'CPF diferente por um dígito não é duplicado');
         self::assertStringNotContainsString('CPF duplicado', $this->linhaDe($crawler, $outro)->text());
     }
@@ -179,6 +191,8 @@ final class PastaCpfDuplicadoEPresencaTelaTest extends JusPrimeWebTestCase
         $selo = $this->linhaDe($crawler, $b)->filter('.cliente-nome > .ps-selo-duplicado');
         self::assertCount(1, $selo);
         self::assertSame('CNPJ duplicado', trim($selo->text()));
+        self::assertSame($this->linhaDe($crawler, $a)->attr('data-doc-chave'), $this->linhaDe($crawler, $b)->attr('data-doc-chave'));
+        self::assertSame('cnpj', $this->linhaDe($crawler, $b)->attr('data-doc-tipo'));
         self::assertSame('Outro cliente vinculado tem o mesmo CNPJ', $selo->attr('title'));
     }
 
@@ -215,6 +229,10 @@ final class PastaCpfDuplicadoEPresencaTelaTest extends JusPrimeWebTestCase
 
         $linha = $this->vincularPorXhr($client, $pasta, $unico);
         self::assertCount(0, $linha->filter('.ps-selo-duplicado'));
+        // A linha do XHR leva os mesmos dados que o JS usa para recalcular as outras.
+        self::assertMatchesRegularExpression('/^[0-9a-f]{20}$/', (string) $linha->attr('data-doc-chave'));
+        self::assertSame('cpf', $linha->attr('data-doc-tipo'));
+        self::assertStringNotContainsString('02254772545', (string) $linha->html());
     }
 
     #[TestDox('XHR de vincular o PRIMEIRO cliente: vem como "Principal", sem selo de duplicado')]
@@ -268,8 +286,13 @@ final class PastaCpfDuplicadoEPresencaTelaTest extends JusPrimeWebTestCase
         // Os espelhos JS que montam cartão novo também levam o atributo (sem eles o cartão recém-enviado
         // ficaria sem presença até recarregar).
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('data-do-autor="1" data-autor-id="' . $autorId . '"', $html, 'Registro (show.html.twig, inserirMensagem)');
-        self::assertStringContainsString('data-autor-id="${esc(data.autorId ?? \'\')}"', $html, 'Financeiro e Detalhes (data.autorId)');
+        // Cada espelho contado à parte (uma vez cada), pelo trecho que só ele tem.
+        // Registro: o cartão do Twig também tem `data-do-autor="1" data-autor-id`; o do espelho vem logo após o
+        // `data-janela-ate` calculado em JS (`... * 60}"`).
+        self::assertSame(1, preg_match_all('/\* 60\}"\s+data-do-autor="1" data-autor-id="' . $autorId . '"/', $html), 'Registro (show.html.twig, inserirMensagem)');
+        self::assertSame(1, substr_count($html, 'data-janela-ate="${janelaAte}" data-autor-id="${esc(data.autorId ?? \'\')}"'), 'Financeiro (_financeiro_obs_script)');
+        self::assertSame(1, substr_count($html, 'data-janela-ate="${janelaAte}" data-do-autor="1" data-autor-id="${esc(data.autorId ?? \'\')}"'), 'Detalhes (_detalhes_obs, htmlDoCartao)');
+        self::assertSame(2, substr_count($html, 'data-autor-id="${esc(data.autorId ?? \'\')}"'), 'só os dois espelhos usam data.autorId');
     }
 
     #[TestDox('Registro do sistema também mostra a presença de quem o gerou (dc autoReg L6170): leva data-autor-id')]

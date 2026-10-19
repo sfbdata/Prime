@@ -33,7 +33,7 @@ final class ClientesDuplicadosDaPasta
         $porDocumento = [];
         foreach ($pasta->getClientes() as $cliente) {
             $id      = $cliente->getId();
-            $digitos = $this->digitosDoDocumento($cliente);
+            $digitos = $this->digitosDe($cliente);
             if ($id === null || $digitos === '') {
                 continue;
             }
@@ -55,7 +55,8 @@ final class ClientesDuplicadosDaPasta
         return \in_array($cliente->getId(), $this->idsDe($pasta), true);
     }
 
-    private function digitosDoDocumento(Cliente $cliente): string
+    /** Os dígitos do CPF (PF) ou do CNPJ (PJ), sem máscara; '' quando não há documento. */
+    public function digitosDe(Cliente $cliente): string
     {
         $documento = match (true) {
             $cliente instanceof ClientePF => $cliente->getCpf(),

@@ -78,12 +78,16 @@
             novo.set(id, st);
             vistoAqui[id] = agora;
             if (!desde[id] || desde[id].st !== st) {
-                // Primeira vez: o "desde" da equipe, se ela estiver no mesmo status; senão, a mudança é de agora.
+                // Primeiro batimento da página: o "desde" da equipe, se ela estiver no mesmo status. Depois, a
+                // mudança (ou a volta) é de agora: a equipe foi lida uma vez só e o "desde" dela envelhece.
                 var m = equipe && equipe.get(id);
-                var doServidor = m && m.desde !== null && statusDe(m.status) === st && !desde[id] ? m.desde : null;
+                var doServidor = online === null && m && m.desde !== null && statusDe(m.status) === st ? m.desde : null;
                 desde[id] = { st: st, t: doServidor !== null ? doServidor : (online ? agora : null) };
             }
         });
+        // Quem não veio neste batimento saiu: perde o "desde" (bluejus-central.js L283 `batimento`), e o
+        // "desde HH:MM" recomeça quando voltar.
+        Object.keys(desde).forEach(function (k) { if (!novo.has(Number(k))) { delete desde[k]; } });
         online = novo;
     }
 
@@ -189,17 +193,30 @@
         carregarEquipe().then(function () { anotar(lista); desenhar(); });
     });
 
-    // Cartão novo (enviar, responder, editar) entra sem esperar o próximo batimento.
+    /* Cartão novo (enviar, responder) entra sem esperar o próximo batimento; e o "editado" que o JS da aba
+       põe depois do nome ao salvar uma edição não fica entre o nome e a presença (dc: nome, presença,
+       etiqueta, "editado"). Só as três listas de cartões são observadas. */
+    var listas = ['timelineList', 'financeiroObsLista', 'detalhesObsLista']
+        .map(function (id) { return document.getElementById(id); })
+        .filter(Boolean);
     var agendado = false;
-    new MutationObserver(function () {
-        if (agendado || online === null) { return; }
-        agendado = true;
-        window.requestAnimationFrame(function () {
-            agendado = false;
-            document.querySelectorAll('.ps-anotacao[data-autor-id]').forEach(function (c) {
+    function conferirCartoes() {
+        agendado = false;
+        listas.forEach(function (lista) {
+            lista.querySelectorAll('.ps-anotacao[data-autor-id]').forEach(function (c) {
                 var topo = c.querySelector(':scope > .ps-anotacao-topo');
-                if (topo && !topo.querySelector(':scope > .ppa-rotulo')) { desenharCartao(c); }
+                if (!topo) { return; }
+                var rotulo = topo.querySelector(':scope > .ppa-rotulo');
+                if (!rotulo) { desenharCartao(c); return; }
+                var autor = topo.querySelector(':scope > .ps-anotacao-autor');
+                if (autor && autor.nextElementSibling !== rotulo) { autor.after(rotulo); }
             });
         });
-    }).observe(document.body, { childList: true, subtree: true });
+    }
+    var observador = new MutationObserver(function () {
+        if (agendado || online === null) { return; }
+        agendado = true;
+        window.requestAnimationFrame(conferirCartoes);
+    });
+    listas.forEach(function (lista) { observador.observe(lista, { childList: true, subtree: true }); });
 }());

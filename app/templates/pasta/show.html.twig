@@ -4391,4 +4391,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/cliente-cadastro.js') }}"></script>
 {# Presença do autor nos cartões (desenho 02, dc L1398): escuta o batimento da Central; `defer` porque a Central entra depois do bloco. #}
 <script src="{{ asset('js/pasta-presenca-autor.js') }}" defer></script>
+{# Selo "CPF duplicado" em todas as linhas depois de vincular/desvincular sem recarregar (desenho 02, dc L6527). #}
+<script src="{{ asset('js/pasta-clientes-duplicados.js') }}" defer></script>
 {% endblock %}

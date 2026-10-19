@@ -44,6 +44,11 @@
 {% set iniciais = partesNome|slice(0, 2)|map(p => p|slice(0, 1))|join('')|upper %}
 <div class="cliente-linha d-flex align-items-center gap-2 py-2"
      data-cliente-id="{{ cliente.id }}"
+     {#- Para pasta-clientes-duplicados.js recalcular o selo de TODAS as linhas depois de vincular ou
+         desvincular sem recarregar (dc L6527-6536). A chave e um HMAC dos digitos (mesma comparacao
+         do servico), nunca o documento cru. #}
+     data-doc-chave="{{ pasta_cliente_doc_chave(cliente) }}"
+     data-doc-tipo="{{ rotuloDoc|lower }}"
      {# O token vai na LINHA, nao so no form: quando a estrela cheia (que nao tem
         form) precisa voltar a ser botao, o JS nao teria de onde tira-lo. #}
      {%- if podeMexerNoCliente %} data-token-principal="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}"{% endif %}>
