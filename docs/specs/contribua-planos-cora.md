@@ -259,8 +259,12 @@ legado de risco ALTO):
   abaixo dos cadastrados: "Menor que os usuários já cadastrados."), `ConfigurarFaixasDoEspacoUseCase`.
   Autorização `ROLE_SUPER_ADMIN` é do controller da b5. Auditoria: depois do merge do #52, envolver as três
   escritas em `EscopoDeAuditoriaDePlataforma::executar()` (pedido da b5).
-- **Decisão do dono (19/10): publicar com o bloqueio DESLIGADO**, sem alterar dado de nenhum escritório em
-  produção (o de 24 GB inclusive: com a chave desligada ninguém é bloqueado). A tela do Master que liga a
+- **Decisão do dono (19/10): publicar com o bloqueio DESLIGADO.**
+- **Decisão do dono (19/10): o escritório do dono do sistema fica SEM LIMITE** ("Farlei Assis da Rocha
+  Sociedade Individual de Advocacia", id 1 em produção, o dos 24,29 GB). A carga da migration da C1 cria a
+  linha dele com `sem_limite = true`, só se o id for 1 **e** o nome for exatamente esse (em dev e teste o
+  id 1 é de outro escritório). A "Prime Cobranças Administrativas" (id 2) segue a regra normal (Free).
+  Teste: `ContribuaCargaDoEscritorioDoDonoTest`. É a única alteração de dado de escritório em produção. A tela do Master que liga a
   chave (b5) mostra o aviso: "Antes de ligar, confira os escritórios acima do plano e defina sem limite ou
   uma cota própria."
 - **Convenções sem desenho** (registradas, aprovadas pela coordenação): "sem limite" por escritório e a
