@@ -40,8 +40,38 @@ final class SituacaoDoEspaco
     public function retratar(int $tenantId, int $bytesUsados): RetratoDoEspaco
     {
         $espaco = $this->espacos->doTenant($tenantId);
-        $plano = $espaco?->getPlano() ?? $this->planos->free();
+
+        return self::montar($tenantId, $bytesUsados, $espaco, $espaco?->getPlano() ?? $this->planos->free(), $this->configuracoes->atual());
+    }
+
+    /**
+     * Vários escritórios de uma vez (painel do Master, b5): uma consulta para os espaços, o Free e a
+     * configuração lidos uma vez só, em vez de N a 2N consultas.
+     *
+     * @param array<int, int> $bytesPorTenant id do escritório → bytes usados
+     *
+     * @return array<int, RetratoDoEspaco> na mesma ordem das chaves recebidas
+     */
+    public function retratarVarios(array $bytesPorTenant): array
+    {
+        if ($bytesPorTenant === []) {
+            return [];
+        }
+        $espacos = $this->espacos->dosTenants(array_keys($bytesPorTenant));
+        $free = null;
         $configuracao = $this->configuracoes->atual();
+        $retratos = [];
+        foreach ($bytesPorTenant as $tenantId => $bytes) {
+            $espaco = $espacos[$tenantId] ?? null;
+            $plano = $espaco?->getPlano() ?? ($free ??= $this->planos->free());
+            $retratos[$tenantId] = self::montar($tenantId, $bytes, $espaco, $plano, $configuracao);
+        }
+
+        return $retratos;
+    }
+
+    private static function montar(int $tenantId, int $bytesUsados, ?EspacoDoEscritorio $espaco, Plano $plano, ConfiguracaoDoEspaco $configuracao): RetratoDoEspaco
+    {
         [$bytesLimite, $origem] = self::limiteEmBytes($espaco, $plano);
         $percentual = $bytesLimite === null ? null : (int) round($bytesUsados / $bytesLimite * 100);
         [$limiteUsuarios, $origemDoLimiteDeUsuarios] = self::limiteDeUsuarios($espaco, $plano);
