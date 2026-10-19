@@ -178,6 +178,9 @@ Configuração das vagas em `ConfiguracaoCentral.vagas` (json, padrão de `tlCfg
 - **Quem vê** (P2, convenção registrada pelo coordenador em 19/10): a Central vê todas; o Solicitante
   vê as abertas da Central e as do escritório dele em qualquer situação; o Convidado não vê (P1).
 - **Marcações** pessoais: as mesmas do F1, com `TipoItemMarcado::Vaga`.
+- **O tempo é da Central**: "Os usuários não veem o tempo da oferta nem estas regras; a vaga
+  simplesmente deixa de aparecer quando o tempo acaba" (`tmCfgV`). Cronômetro, "AO VIVO" e o fim da
+  divulgação só saem para a Central (o fim da divulgação também para o dono da vaga).
 - Selos: "AO VIVO" para oferta aberta com tempo correndo; "NOVA" para aberta publicada há menos de
   24 h (**provisório até o zip**).
 

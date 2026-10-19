@@ -30,6 +30,9 @@ final class ApresentadorDeVaga
     {
         $s = $v->situacaoEm($agora);
         $publicada = $v->getPublicadaEm();
+        // "Os usuários não veem o tempo da oferta nem estas regras; a vaga simplesmente deixa de
+        // aparecer quando o tempo acaba" (modal de configuração do desenho): o relógio é da Central.
+        $veTempo = $this->politica->ehDaCentral($ctx);
 
         return [
             'codigo' => $v->getCodigo(),
@@ -45,10 +48,10 @@ final class ApresentadorDeVaga
             'remuneracao' => $v->getRemuneracao() !== '' ? $v->getRemuneracao() : 'A combinar',
             'areas' => $v->getAreas(),
             'prazo' => $v->getInscricoesAte()?->format('Y-m-d'),
-            'oferta' => $v->isOferta() && $s === SituacaoVaga::Aberta,
-            'expiraEm' => $v->isOferta() ? $v->getExpiraEm()?->format(\DATE_ATOM) : null,
+            'oferta' => $veTempo && $v->isOferta() && $s === SituacaoVaga::Aberta,
+            'expiraEm' => $veTempo && $v->isOferta() ? $v->getExpiraEm()?->format(\DATE_ATOM) : null,
             'publicadaEm' => $publicada?->format(\DATE_ATOM),
-            'fimDivulgacao' => $v->getFimDivulgacao()?->format(\DATE_ATOM),
+            'fimDivulgacao' => $veTempo || $this->politica->ehDono($ctx, $v) ? $v->getFimDivulgacao()?->format(\DATE_ATOM) : null,
             'nova' => $s === SituacaoVaga::Aberta && $publicada !== null && $publicada > $agora->modify('-' . self::HORAS_DE_NOVA . ' hours'),
             'daCentral' => $v->ehDaCentral(),
             'minha' => $this->politica->ehDono($ctx, $v),

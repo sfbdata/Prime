@@ -1003,6 +1003,9 @@
 
     function abrir(codigo, aba) {
         fecharMenu();
+        if (S.modulo === 'vagas') {
+            irModulo('demandas');
+        }
         return pedir('GET', ROTA.detalhe(codigo)).then(function (r) {
             if (!r.ok || !r.demanda) {
                 toastErro(r.mensagem);
@@ -2384,7 +2387,25 @@
             S.vgRelogio = isNaN(agora) ? 0 : agora - Date.now();
             renderModulos();
             renderVagas();
+            agendarFimDaDivulgacao();
         });
+    }
+
+    /**
+     * O `tlTick()` do desenho também encerra a vaga quando o período de divulgação acaba: aqui, uma
+     * recarga no próximo fim (em até 24 h), para os botões não ficarem oferecendo ação vencida.
+     */
+    var temporizadorFimDivulgacao = null;
+    function agendarFimDaDivulgacao() {
+        clearTimeout(temporizadorFimDivulgacao);
+        var agora = Date.now() + (S.vgRelogio || 0);
+        var proximo = vagas().reduce(function (min, v) {
+            var fim = v.situacao === 'aberta' ? Date.parse(v.fimDivulgacao || '') : NaN;
+            return !isNaN(fim) && fim > agora && fim < min ? fim : min;
+        }, agora + 864e5);
+        if (proximo < agora + 864e5) {
+            temporizadorFimDivulgacao = setTimeout(carregarVagas, proximo - agora + 1000);
+        }
     }
 
     /* ---------------------------------------------------------------- dados da aba */
@@ -2396,10 +2417,11 @@
     function podeEscreverVaga() { return !previa(); }
 
     /** Filtros da barra (`vagaFiltros`). Rótulos e agrupamento provisórios até o zip. */
-    var VG_ENCERRADAS = ['reprovada', 'ocupada', 'expirada', 'encerrada', 'pausada'];
+    var VG_ENCERRADAS = ['reprovada', 'ocupada', 'expirada', 'encerrada'];
     var VG_FILTROS = [
         ['abertas', 'Abertas', function (v) { return v.situacao === 'aberta'; }],
         ['pendente', 'Aguardando aprovação', function (v) { return v.situacao === 'pendente'; }],
+        ['pausadas', 'Pausadas', function (v) { return v.situacao === 'pausada'; }],
         ['encerradas', 'Encerradas', function (v) { return VG_ENCERRADAS.indexOf(v.situacao) >= 0; }],
         ['lixeira', 'Lixeira', null]
     ];
@@ -2410,7 +2432,7 @@
 
     /** "Aguardando aprovação" só aparece quando há alguma. */
     function filtrosDeVaga() {
-        return VG_FILTROS.filter(function (f) { return f[0] !== 'pendente' || doFiltroVaga(f).length > 0; });
+        return VG_FILTROS.filter(function (f) { return (f[0] !== 'pendente' && f[0] !== 'pausadas') || doFiltroVaga(f).length > 0; });
     }
 
     function filtroDeVaga() {
@@ -2881,6 +2903,10 @@
     /* ---------------------------------------------------------------- modal genérico (tlm) */
 
     function fecharTlm() {
+        // Fechar no meio do envio esconderia a vaga criada: espera a resposta.
+        if (S.vf && S.vf.enviando) {
+            return;
+        }
         S.tlm = null;
         S.vgDet = null;
         S.vf = null;
@@ -3348,7 +3374,7 @@
         };
         var corpo = [
             el('div', { class: 'te-cv-aviso' }, [ic('bi-lock'), ' Configuração interna. Os usuários não veem o tempo da oferta nem estas regras; a vaga simplesmente deixa de aparecer quando o tempo acaba ou é preenchida.']),
-            grupo('dur', 'Tempo padrão de disponibilidade das vagas', 'Vale para as vagas que você aprovar ou publicar. Pode ser alterado em cada vaga pelo botão Ajustar.',
+            grupo('dur', 'Tempo padrão de disponibilidade das vagas', 'Vale para as vagas que você aprovar ou publicar.',
                 [5, 10, 15, 30, 60], function (d) { return d + ' dias'; }, true),
             grupo('maxDias', 'Divulgação máxima para vagas de escritórios', 'Limita o período que o escritório pode escolher. Pedidos acima do limite são ajustados na aprovação.',
                 [0, 5, 10, 15, 30, 60], function (d) { return d === 0 ? 'Sem limite' : d + ' dias'; }),
@@ -3470,8 +3496,6 @@
             fecharCfg();
         } else if (S.hm) {
             fecharHm();
-        } else if (S.menu) {
-            fecharMenu();
         } else if (S.aberta && !S.nova) {
             fecharDrawer();
         }

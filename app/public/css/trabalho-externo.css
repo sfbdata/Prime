@@ -808,3 +808,13 @@ textarea.te-vf-ctl { height: auto; padding: 9px 10px; resize: vertical; line-hei
 [data-bs-theme="dark"] .te-page .te-vg-pend { background: #3a2f12; color: #f0c56a; }
 [data-bs-theme="dark"] .te-page .te-vg-vivo { background: #12301f; color: #7fd3a0; }
 [data-bs-theme="dark"] .te-page .te-vf-of { border-color: var(--bs-border-color); }
+
+/* Na aba Vagas a barra de lote e o aviso da lixeira têm 10px embaixo (desenho, linha 154). */
+#teVagas .te-lote, #teVagas .te-lix-aviso { margin-bottom: 10px; }
+
+/* Tema escuro dos blocos das vagas que tinham cor fixa. */
+[data-bs-theme="dark"] .te-vg-vazio { border-color: var(--te-div); }
+[data-bs-theme="dark"] .te-tv-hist-eixo,
+[data-bs-theme="dark"] .te-vg-relogio.is-grande .te-vg-trilho { background: var(--te-div); }
+[data-bs-theme="dark"] .te-vf-of-dica,
+[data-bs-theme="dark"] .te-tv-of-oculto { color: var(--te-muted); }

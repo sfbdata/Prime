@@ -84,6 +84,29 @@ final class VagasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(15, $aprovada['vaga']['periodoDias']);
     }
 
+    #[TestDox('o tempo da oferta relâmpago é só da Central: o escritório vê a vaga, sem o relógio')]
+    public function testTempoDaOfertaSoParaACentral(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $sede = $this->criarTenant('Sede');
+        $b = $this->criarTenant('B');
+        $master = $this->criarMaster($sede);
+        $doB = $this->criarUsuario($b);
+
+        $this->logarComTenant($client, $master, $sede);
+        $oferta = $this->postarJson($client, self::VAGAS, self::vaga('Correspondente urgente') + ['oferta' => true, 'duracaoDaOferta' => 30, 'qtd' => 2]);
+        self::assertTrue($oferta['vaga']['oferta']);
+        self::assertNotNull($oferta['vaga']['expiraEm']);
+
+        $this->logarComTenant($client, $doB, $b);
+        $client->request('GET', self::VAGAS . '/' . $oferta['codigo']);
+        $vista = $this->json($client)['vaga'];
+        self::assertFalse($vista['oferta']);
+        self::assertNull($vista['expiraEm']);
+        self::assertNull($vista['fimDivulgacao']);
+    }
+
     #[TestDox('contato que o ofertante escondeu não sai para outro escritório; a Central e o dono veem')]
     public function testContatoOculto(): void
     {
