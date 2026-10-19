@@ -9,6 +9,8 @@ use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\DTO\PastaExtratoImpressaoOutput;
 use App\Pasta\DTO\PastaImpressaoOpcoes;
 use App\Pasta\DTO\PastaPendenciasOutput;
@@ -83,6 +85,7 @@ final class PastaResumoController extends AbstractController
         private readonly PastaChecklistItemRepository $checklistRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
     ) {
@@ -211,7 +214,7 @@ final class PastaResumoController extends AbstractController
 
         $pagamentos = $this->pastaPagamentoRepository->findByPasta($pasta, $tenant);
         $resumo     = $opcoes->secao === PastaImpressaoOpcoes::SECAO_RESUMO
-            ? $this->resumoCompleto($pasta, $tenant, $pagamentos, $veFinanceiro)
+            ? $this->resumoCompleto($pasta, $tenant, $pagamentos, $veFinanceiro, $usuario)
             // As outras folhas só usam a faixa Pasta/Cliente/Processo: sem Push nem checklist.
             : PastaResumoImpressaoOutput::montar(
                 $pasta,
@@ -342,8 +345,11 @@ final class PastaResumoController extends AbstractController
     /**
      * @param PastaPagamento[] $pagamentos
      */
-    private function resumoCompleto(Pasta $pasta, Tenant $tenant, array $pagamentos, bool $veFinanceiro): PastaResumoImpressaoOutput
+    private function resumoCompleto(Pasta $pasta, Tenant $tenant, array $pagamentos, bool $veFinanceiro, User $usuario): PastaResumoImpressaoOutput
     {
+        // Abas ocultas para quem imprime (spec pasta-ocultar-aba §4): sem as pendências delas e, com o
+        // Push oculto, sem "Últimas movimentações". O Financeiro já sai pelo `$veFinanceiro`.
+        $ocultas = array_map(static fn (AbaDaPasta $aba): string => $aba->value, $this->visibilidadeDasAbas->abasOcultasPara($pasta, $usuario));
         $numeros = [];
         foreach ($pasta->getPastaProcessos() as $vinculo) {
             $numeros[] = $vinculo->getProcesso()->getNumeroProcesso();
@@ -371,8 +377,8 @@ final class PastaResumoController extends AbstractController
                 itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
                 // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
                 veFinanceiro: $veFinanceiro,
-            ),
-            $push->itens,
+            )->semAbas($ocultas),
+            \in_array(AbaDaPasta::Push->value, $ocultas, true) ? [] : $push->itens,
             $pagamentos,
             incluirFinanceiro: $veFinanceiro,
         );

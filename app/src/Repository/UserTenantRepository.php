@@ -126,6 +126,31 @@ class UserTenantRepository extends ServiceEntityRepository
     }
 
     /**
+     * Vínculos ativos de contas ativas do escritório, com usuário, perfil, cargo e lotação já carregados
+     * (uma consulta, sem N+1), em ordem de nome. Base da lista "Ocultar aba" da pasta (spec
+     * pasta-ocultar-aba §2.4): a "função · setor" de cada pessoa é cargo · lotação.
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosComCargoELotacaoPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u', 'r', 'c', 'l')
+            ->join('ut.user', 'u')
+            ->leftJoin('ut.tenantRole', 'r')
+            ->leftJoin('ut.cargo', 'c')
+            ->leftJoin('ut.lotacao', 'l')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('u.isActive = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Vínculos ativos por perfil no escritório: [id do perfil => quantidade].
      *
      * @return array<int, int>

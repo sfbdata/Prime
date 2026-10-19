@@ -188,6 +188,8 @@ final class PurgarEscritorioUseCase
         // são NO ACTION. Acesso antes do link (filho antes do pai).
         ['push_link_externo_acesso', 'tenant_id = :tenant'],
         ['push_link_externo', 'tenant_id = :tenant'],
+        // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
+        ['pasta_aba_oculta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
