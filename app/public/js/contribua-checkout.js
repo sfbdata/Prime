@@ -196,7 +196,12 @@
         }
         const semLink = (master.dataset.semLink || '').split(',');
         const seletor = $('[data-master-gateway]', master);
-        const mostrarLinks = () => { $('[data-master-links]', master).hidden = semLink.includes(seletor.value); };
+        const mostrarLinks = () => {
+            const hospedado = semLink.includes(seletor.value);
+            $('[data-master-links]', master).hidden = hospedado;
+            $('[data-intro-links]', master).hidden = hospedado;
+            $('[data-intro-hospedado]', master).hidden = !hospedado;
+        };
         const erroMaster = (texto) => { const c = $('[data-master-erro]', master); $('span', c).textContent = texto || ''; c.hidden = !texto; };
 
         abrirMaster.addEventListener('click', () => { mostrarLinks(); erroMaster(''); master.hidden = false; });
