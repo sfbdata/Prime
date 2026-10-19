@@ -18,6 +18,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
@@ -75,7 +76,7 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.pf-selo-master'));
     }
 
-    #[TestDox('lista do Master: linha "Master do Sistema" com selo MASTER, Total, nº de Masters e lápis para o Painel')]
+    #[TestDox('lista do Master: linha "Master do Sistema" com selo MASTER, Acesso total, nº de Masters e lápis para o Painel')]
     public function testListaDoMasterMostraLinhaMaster(): void
     {
         $master = $this->criarUsuario('Master Teste', $this->tenant, $this->perfilAdvogado, ['ROLE_SUPER_ADMIN']);
@@ -89,10 +90,10 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         $linha = $crawler->filter('.pf-tabela-miolo > .pf-linha[data-pf-linha-master]');
         self::assertCount(1, $linha, 'a linha Master é filha direta da tabela');
         self::assertSame('/master', $linha->attr('data-href'));
-        self::assertSame('Master do Sistema', trim($linha->filter('.pf-col-nome')->text()));
+        self::assertSame('Master do Sistema', trim($linha->filter('.pf-col-perfil > .pf-perfil-nome > b')->text()));
         self::assertStringContainsString('MASTER', $linha->filter('.pf-col-classe > .pf-selo-master')->text());
-        self::assertSame('Total', trim($linha->filter('.pf-col-num')->eq(0)->text()));
-        self::assertSame((string) $totalMasters, trim($linha->filter('.pf-col-num')->eq(1)->text()));
+        self::assertSame('Acesso total', trim($linha->filter('.pf-col-perm > .pf-perm-topo > b')->text()));
+        self::assertSame((string) $totalMasters, trim($linha->filter('.pf-col-usu > b')->text()));
         self::assertCount(1, $linha->filter('.pf-col-acoes > a[href="/master"]'));
         self::assertCount(1, $crawler->filter('.pf-cabecalho > [data-pf-ver-como] > [data-pf-visao="primario"]'));
     }
@@ -112,18 +113,124 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
 
         $primario = $linhas->eq(0);
         // M6: exibe "Usuário Primário"; o nome gravado não muda (o bootstrap busca por ele).
-        self::assertSame('Usuário Primário', trim($primario->filter('.pf-col-nome')->text()));
+        self::assertSame('Usuário Primário', trim($primario->filter('.pf-col-perfil > .pf-perfil-nome > b')->text()));
         self::assertCount(1, $primario->filter('.pf-col-classe > .pf-selo-primario'));
-        self::assertStringContainsString('Quem abriu a conta.', $primario->filter('.pf-col-desc')->text());
+        self::assertStringContainsString('Quem abriu a conta.', $primario->filter('.pf-col-perfil > .pf-perfil-desc')->text());
         $totalCatalogo = count($this->em->getRepository(Permission::class)->findAll());
-        self::assertSame((string) $totalCatalogo, trim($primario->filter('.pf-col-num')->eq(0)->text()));
-        self::assertSame('2', trim($primario->filter('.pf-col-num')->eq(1)->text()), 'titular + sócio');
+        self::assertSame($totalCatalogo . ' permissões', trim($primario->filter('.pf-col-perm > .pf-perm-topo > b')->text()));
+        self::assertSame('2', trim($primario->filter('.pf-col-usu > b')->text()), 'titular + sócio');
         self::assertCount(0, $primario->filter('[data-pf-excluir]'), 'o primário não tem lixeira');
 
         $nivel = $crawler->filter(sprintf('.pf-linha[data-href$="/roles/%d/edit"]', $semDescricao->getId()));
-        self::assertSame('Usuário secundário', trim($nivel->filter('.pf-col-desc')->text()));
+        self::assertSame('Usuário secundário', trim($nivel->filter('.pf-col-perfil > .pf-perfil-desc')->text()));
         self::assertCount(1, $nivel->filter('.pf-col-classe > .pf-selo-secundario'));
         self::assertCount(1, $nivel->filter('.pf-col-acoes [data-pf-excluir]'));
+    }
+
+    // ── Perfis 1.2: resumo e tabela de 5 colunas (spec docs/specs/perfis-1.2-lista.md §2/§3) ──
+
+    #[TestDox('1.2: resumo do primário com 4 chips (perfis, usuários, fixos, personalizados), sem a linha Master nem a visão do Master')]
+    public function testResumoDoPrimario(): void
+    {
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $crawler = $this->client->request('GET', $this->urlLista());
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(
+            ['perfis' => '2', 'usuarios' => '3', 'fixos' => '1', 'personalizados' => '1'],
+            $this->numerosDosChips($crawler, null),
+            'Usuário Primário + Advogado; titular, sócio e advogada',
+        );
+        self::assertSame(
+            ['perfis', 'usuários', 'fixos do sistema', 'personalizados'],
+            $crawler->filter('.pf-lista > .pf-chips > .pf-chip > span')->each(static fn ($n): string => trim($n->text())),
+        );
+        self::assertSame(
+            ['bi-diagram-3', 'bi-people', 'bi-lock', 'bi-person-gear'],
+            $crawler->filter('.pf-lista > .pf-chips > .pf-chip > i.bi')->each(static fn ($n): string => trim(str_replace('bi ', '', (string) $n->attr('class')))),
+        );
+        self::assertCount(0, $crawler->filter('[data-pf-chip-n][data-master]'), 'quem não é Master não recebe os números do Master');
+    }
+
+    #[TestDox('1.2: resumo do Master conta a linha Master (perfil, Masters e fixo); a prévia "Primário" tem os números sem ela')]
+    public function testResumoDoMaster(): void
+    {
+        $master = $this->criarUsuario('Master Resumo', $this->tenant, $this->perfilAdvogado, ['ROLE_SUPER_ADMIN']);
+        $this->em->flush();
+        $totalMasters = $this->contarMasters();
+
+        $this->logarComTenant($this->client, $master, $this->tenant);
+        $crawler = $this->client->request('GET', $this->urlLista());
+        self::assertResponseIsSuccessful();
+
+        $esperadoMaster = ['perfis' => '3', 'usuarios' => (string) (4 + $totalMasters), 'fixos' => '2', 'personalizados' => '1'];
+        self::assertSame($esperadoMaster, $this->numerosDosChips($crawler, null), 'o Master abre vendo a visão dele');
+        self::assertSame($esperadoMaster, $this->numerosDosChips($crawler, 'data-master'));
+        self::assertSame(
+            ['perfis' => '2', 'usuarios' => '4', 'fixos' => '1', 'personalizados' => '1'],
+            $this->numerosDosChips($crawler, 'data-primario'),
+            'prévia Primário: sem a linha Master',
+        );
+    }
+
+    #[TestDox('1.2: cabeçalho de 5 colunas com ícone (PERFIL, CLASSIFICAÇÃO, PERMISSÕES, USUÁRIOS, AÇÕES), sem DESCRIÇÃO nem SISTEMA')]
+    public function testCabecalhoDeCincoColunas(): void
+    {
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $crawler = $this->client->request('GET', $this->urlLista());
+        self::assertResponseIsSuccessful();
+
+        $colunas = $crawler->filter('.pf-lista > .pf-tabela > .pf-tabela-miolo > .pf-grade.pf-tabela-cab > div');
+        self::assertSame(
+            ['PERFIL', 'CLASSIFICAÇÃO', 'PERMISSÕES', 'USUÁRIOS', 'AÇÕES'],
+            $colunas->each(static fn ($n): string => trim($n->text())),
+        );
+        self::assertSame(
+            ['bi-diagram-3', 'bi-tag', 'bi-key', 'bi-people'],
+            $crawler->filter('.pf-tabela-cab > div > i.bi')->each(static fn ($n): string => trim(str_replace('bi ', '', (string) $n->attr('class')))),
+        );
+        $cabecalho = $crawler->filter('.pf-tabela-cab')->text();
+        self::assertStringNotContainsString('DESCRIÇÃO', $cabecalho);
+        self::assertStringNotContainsString('SISTEMA', $cabecalho);
+        self::assertStringNotContainsString('NOME', $cabecalho);
+
+        // Cada linha tem as mesmas 5 células, filhas diretas da grade.
+        foreach ($crawler->filter('.pf-tabela-miolo > .pf-linha') as $linha) {
+            self::assertCount(5, (new Crawler($linha))->children());
+        }
+    }
+
+    #[TestDox('1.2: selo FIXO só no Master e no Primário; Master "Acesso total / sistema"; demais "N permissões / de TOTAL" com a barra')]
+    public function testSeloFixoEPermissoes(): void
+    {
+        $this->darPermissao($this->perfilAdvogado, 'admin.roles.manage');
+        $master = $this->criarUsuario('Master Selo', $this->tenant, $this->perfilAdvogado, ['ROLE_SUPER_ADMIN']);
+        $this->em->flush();
+        $total = count($this->em->getRepository(Permission::class)->findAll());
+
+        $this->logarComTenant($this->client, $master, $this->tenant);
+        $crawler = $this->client->request('GET', $this->urlLista());
+        self::assertResponseIsSuccessful();
+
+        $linhaMaster = $crawler->filter('.pf-tabela-miolo > .pf-linha[data-pf-linha-master]');
+        $primario    = $crawler->filter(sprintf('.pf-tabela-miolo > .pf-linha[data-href$="/roles/%d/edit"]', $this->perfilPrimario->getId()));
+        $advogado    = $crawler->filter(sprintf('.pf-tabela-miolo > .pf-linha[data-href$="/roles/%d/edit"]', $this->perfilAdvogado->getId()));
+
+        $seloFixo = '.pf-col-perfil > .pf-perfil-nome > .pf-fixo';
+        self::assertCount(1, $linhaMaster->filter($seloFixo));
+        self::assertCount(1, $primario->filter($seloFixo));
+        self::assertCount(0, $advogado->filter($seloFixo));
+        self::assertSame('Perfil do sistema: não pode ser excluído', $primario->filter($seloFixo)->attr('title'));
+        self::assertSame('FIXO', trim($primario->filter($seloFixo)->text()));
+        self::assertCount(1, $primario->filter($seloFixo . ' > i.bi-lock-fill'));
+        self::assertCount(2, $crawler->filter('.pf-tabela-miolo > .pf-linha .pf-fixo'), 'só Master e Primário têm o selo');
+
+        self::assertSame(['Acesso total', 'sistema'], $this->textosDePermissao($linhaMaster));
+        self::assertSame([$total . ' permissões', 'de ' . $total], $this->textosDePermissao($primario));
+        self::assertSame(['1 permissões', 'de ' . $total], $this->textosDePermissao($advogado));
+
+        self::assertSame('width: 100%', $primario->filter('.pf-col-perm > .pf-perm-barra > div')->attr('style'));
+        self::assertSame(sprintf('width: %d%%', (int) round(1 / $total * 100)), $advogado->filter('.pf-col-perm > .pf-perm-barra > div')->attr('style'));
     }
 
     #[TestDox('lista: a confirmação de exclusão conta todos os vínculos que serão soltos, inativos inclusive; a coluna USUÁRIOS só os ativos')]
@@ -140,7 +247,7 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', $this->urlLista());
 
         $linha = $crawler->filter(sprintf('.pf-linha[data-href$="/roles/%d/edit"]', $this->perfilAdvogado->getId()));
-        self::assertSame('1', trim($linha->filter('.pf-col-num')->eq(1)->text()));
+        self::assertSame('1', trim($linha->filter('.pf-col-usu > b')->text()));
         self::assertSame('2', $linha->filter('[data-pf-excluir]')->attr('data-usuarios'));
     }
 
@@ -741,6 +848,29 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         static::getContainer()->set('security.csrf.token_storage', $storage);
 
         return 'TOKEN_' . $id;
+    }
+
+    /**
+     * Números dos chips do resumo, na ordem do desenho. Com $atributo nulo, o texto exibido; com
+     * "data-master" ou "data-primario", o número que o "Ver como" põe no lugar.
+     *
+     * @return array<string, string>
+     */
+    private function numerosDosChips(Crawler $crawler, ?string $atributo): array
+    {
+        $numeros = [];
+        $crawler->filter('.pf-lista > .pf-chips > .pf-chip')->each(function ($chip) use (&$numeros, $atributo): void {
+            $n = $chip->filter('b[data-pf-chip-n]');
+            $numeros[(string) $chip->attr('data-pf-chip')] = $atributo === null ? trim($n->text()) : (string) $n->attr($atributo);
+        });
+
+        return $numeros;
+    }
+
+    /** @return list<string> [quantidade, "de TOTAL"] da célula PERMISSÕES */
+    private function textosDePermissao(Crawler $linha): array
+    {
+        return $linha->filter('.pf-col-perm > .pf-perm-topo > *')->each(static fn ($n): string => trim($n->text()));
     }
 
     private function contarMasters(): int

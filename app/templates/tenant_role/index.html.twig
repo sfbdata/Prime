@@ -1,7 +1,8 @@
 {% extends 'base.html.twig' %}
 
 {#
-   Lista "Perfis do Escritório" (desenho "05 - Perfis 1.0", linhas 47-71; spec perfis-master §4.1).
+   Lista "Perfis do Escritório" (desenho "05 - Perfis 1.2", linhas 48-64; specs perfis-master-1.0 §4.1
+   e perfis-1.2-lista §2).
    A linha Master e o seletor "Ver como" só existem no HTML de quem é Master (D2/D7): a prévia
    "Primário" esconde a linha no navegador, sem trocar de usuário.
 #}
@@ -26,57 +27,75 @@
         <a href="{{ path('app_tenant_role_new', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-plus-lg"></i>Novo Perfil</a>
     </div>
 
-    <div class="pf-tabela">
-        <div class="pf-tabela-miolo">
-            <div class="pf-grade pf-tabela-cab">
-                <div>NOME</div><div>CLASSIFICAÇÃO</div><div>DESCRIÇÃO</div><div class="pf-centro">PERMISSÕES</div><div class="pf-centro">USUÁRIOS</div><div class="pf-centro">SISTEMA</div><div class="pf-centro">AÇÕES</div>
-            </div>
-
-            {% if master %}
-                <div class="pf-grade pf-linha" data-pf-linha data-pf-linha-master data-href="{{ path('master_painel') }}">
-                    <div class="pf-col-nome">{{ master.nome }}</div>
-                    <div class="pf-col-classe"><span class="pf-selo pf-selo-master"><i class="bi bi-stars"></i>MASTER</span></div>
-                    <div class="pf-col-desc">{{ master.descricao }}</div>
-                    <div class="pf-col-num">Total</div>
-                    <div class="pf-col-num">{{ master.usuarios }}</div>
-                    <div class="pf-col-cadeado"><i class="bi bi-lock-fill"></i></div>
-                    <div class="pf-col-acoes">
-                        <a href="{{ path('master_painel') }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
-                    </div>
+    {#
+       Resumo (pfResumo, linha 53): os números das duas visões vêm prontos do servidor; o "Ver como"
+       só troca qual mostrar. Quem não é Master não recebe a visão com a linha Master.
+    #}
+    {% set chips = [
+        {chave: 'perfis',         icone: 'bi-diagram-3',   rotulo: 'perfis'},
+        {chave: 'usuarios',       icone: 'bi-people',      rotulo: 'usuários'},
+        {chave: 'fixos',          icone: 'bi-lock',        rotulo: 'fixos do sistema'},
+        {chave: 'personalizados', icone: 'bi-person-gear', rotulo: 'personalizados'},
+    ] %}
+    {% set resumoVisivel = resumo.master ?? resumo.primario %}
+    <div class="pf-lista">
+        <div class="pf-chips" data-pf-chips>
+            {% for chip in chips %}
+                <div class="pf-chip" data-pf-chip="{{ chip.chave }}">
+                    <i class="bi {{ chip.icone }}"></i>
+                    <b data-pf-chip-n data-primario="{{ resumo.primario[chip.chave] }}"{% if resumo.master %} data-master="{{ resumo.master[chip.chave] }}"{% endif %}>{{ resumoVisivel[chip.chave] }}</b>
+                    <span>{{ chip.rotulo }}</span>
                 </div>
-            {% endif %}
-
-            {% for perfil in perfis %}
-                {% set urlEditar = path('app_tenant_role_edit', {tenantId: tenantId, id: perfil.id}) %}
-                <div class="pf-grade pf-linha" data-pf-linha data-href="{{ urlEditar }}">
-                    <div class="pf-col-nome">{{ perfil.nome }}</div>
-                    <div class="pf-col-classe">
-                        {% if perfil.classificacao == 'primario' %}
-                            <span class="pf-selo pf-selo-primario"><i class="bi bi-person-badge"></i>PRIMÁRIO</span>
-                        {% else %}
-                            <span class="pf-selo pf-selo-secundario"><i class="bi bi-person"></i>SECUNDÁRIO</span>
-                        {% endif %}
-                    </div>
-                    <div class="pf-col-desc">{{ perfil.descricao }}</div>
-                    <div class="pf-col-num">{{ perfil.permissoes }}</div>
-                    <div class="pf-col-num">{{ perfil.usuarios }}</div>
-                    <div class="pf-col-cadeado">
-                        {% if perfil.podeExcluir %}<i class="bi bi-unlock"></i>{% else %}<i class="bi bi-lock-fill" title="Não pode ser excluído"></i>{% endif %}
-                    </div>
-                    <div class="pf-col-acoes">
-                        <a href="{{ urlEditar }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
-                        {% if perfil.podeExcluir %}
-                            <form method="post" action="{{ path('app_tenant_role_delete', {tenantId: tenantId, id: perfil.id}) }}" class="d-inline" data-pf-form-excluir>
-                                <input type="hidden" name="_token" value="{{ csrf_token('delete_role_' ~ perfil.id) }}">
-                                <button type="button" class="pf-acao pf-acao-excluir" title="Excluir perfil" aria-label="Excluir perfil"
-                                        data-pf-excluir data-nome="{{ perfil.nome }}" data-usuarios="{{ perfil.vinculos }}"><i class="bi bi-trash3"></i></button>
-                            </form>
-                        {% endif %}
-                    </div>
-                </div>
-            {% else %}
-                <div class="pf-col-desc text-center py-3">Nenhum perfil encontrado.</div>
             {% endfor %}
+        </div>
+
+        <div class="pf-tabela">
+            <div class="pf-tabela-miolo">
+                <div class="pf-grade pf-tabela-cab">
+                    <div><i class="bi bi-diagram-3"></i>PERFIL</div><div><i class="bi bi-tag"></i>CLASSIFICAÇÃO</div><div><i class="bi bi-key"></i>PERMISSÕES</div><div class="pf-centro"><i class="bi bi-people"></i>USUÁRIOS</div><div class="pf-centro">AÇÕES</div>
+                </div>
+
+                {% if master %}
+                    <div class="pf-grade pf-linha" data-pf-linha data-pf-linha-master data-href="{{ path('master_painel') }}">
+                        {{ _self.colunaPerfil(master.nome, master.descricao, true) }}
+                        <div class="pf-col-classe"><span class="pf-selo pf-selo-master"><i class="bi bi-stars"></i>MASTER</span></div>
+                        {{ _self.colunaPermissoes('Acesso total', 'sistema', 100) }}
+                        <div class="pf-col-usu"><b>{{ master.usuarios }}</b></div>
+                        <div class="pf-col-acoes">
+                            <a href="{{ path('master_painel') }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% for perfil in perfis %}
+                    {% set urlEditar = path('app_tenant_role_edit', {tenantId: tenantId, id: perfil.id}) %}
+                    {% set largura = totalDoCatalogo > 0 ? min(100, (perfil.permissoes / totalDoCatalogo * 100)|round) : 0 %}
+                    <div class="pf-grade pf-linha" data-pf-linha data-href="{{ urlEditar }}">
+                        {{ _self.colunaPerfil(perfil.nome, perfil.descricao, not perfil.podeExcluir) }}
+                        <div class="pf-col-classe">
+                            {% if perfil.classificacao == 'primario' %}
+                                <span class="pf-selo pf-selo-primario"><i class="bi bi-person-badge"></i>PRIMÁRIO</span>
+                            {% else %}
+                                <span class="pf-selo pf-selo-secundario"><i class="bi bi-person"></i>SECUNDÁRIO</span>
+                            {% endif %}
+                        </div>
+                        {{ _self.colunaPermissoes(perfil.permissoes ~ ' permissões', 'de ' ~ totalDoCatalogo, largura) }}
+                        <div class="pf-col-usu"><b>{{ perfil.usuarios }}</b></div>
+                        <div class="pf-col-acoes">
+                            <a href="{{ urlEditar }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                            {% if perfil.podeExcluir %}
+                                <form method="post" action="{{ path('app_tenant_role_delete', {tenantId: tenantId, id: perfil.id}) }}" class="d-inline" data-pf-form-excluir>
+                                    <input type="hidden" name="_token" value="{{ csrf_token('delete_role_' ~ perfil.id) }}">
+                                    <button type="button" class="pf-acao pf-acao-excluir" title="Excluir perfil" aria-label="Excluir perfil"
+                                            data-pf-excluir data-nome="{{ perfil.nome }}" data-usuarios="{{ perfil.vinculos }}"><i class="bi bi-trash3"></i></button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="pf-vazio text-center py-3">Nenhum perfil encontrado.</div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
@@ -87,3 +106,19 @@
 {% block javascripts %}
 <script src="{{ asset('js/perfis.js') }}" defer></script>
 {% endblock %}
+
+{# Célula PERFIL (linha 60): nome em maiúsculas, selo FIXO nos perfis do sistema e a descrição embaixo. #}
+{% macro colunaPerfil(nome, descricao, fixo) %}
+    <div class="pf-col-perfil">
+        <span class="pf-perfil-nome"><b>{{ nome }}</b>{% if fixo %}<span class="pf-fixo" title="Perfil do sistema: não pode ser excluído"><i class="bi bi-lock-fill"></i>FIXO</span>{% endif %}</span>
+        <span class="pf-perfil-desc">{{ descricao }}</span>
+    </div>
+{% endmacro %}
+
+{# Célula PERMISSÕES (linha 62): quantidade, "de TOTAL" e a barra proporcional. #}
+{% macro colunaPermissoes(quantidade, de, largura) %}
+    <div class="pf-col-perm">
+        <div class="pf-perm-topo"><b>{{ quantidade }}</b><span>{{ de }}</span></div>
+        <div class="pf-perm-barra"><div style="width: {{ largura }}%"></div></div>
+    </div>
+{% endmacro %}
