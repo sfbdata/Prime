@@ -32,6 +32,10 @@ final class PoliticaPrivacidadeVigente
      */
     public const DATA_PUBLICACAO = '2026-08-21';
 
+    // Se o texto vigente cita o rastreio de abertura e clique dos e-mails (spec comercial-e-emails §3.8).
+    // Quem publicar a versão que cita o rastreio troca para true, no mesmo commit (combinado com a f6).
+    public const CITA_RASTREIO_DE_EMAIL = false;
+
     public function getVersao(): string
     {
         return self::VERSAO;
