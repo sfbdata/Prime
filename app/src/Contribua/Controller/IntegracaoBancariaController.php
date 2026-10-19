@@ -55,7 +55,7 @@ final class IntegracaoBancariaController extends AbstractController
             $arquivos = [];
             foreach ($request->files->all('arquivos') as $arquivo) {
                 if ($arquivo instanceof UploadedFile && $arquivo->isValid()) {
-                    $arquivos[$arquivo->getClientOriginalName()] = (string) file_get_contents($arquivo->getPathname());
+                    $arquivos[$arquivo->getClientOriginalName()] = $arquivo->getContent();
                 }
             }
             $nomes = $this->enviarCertificado->executar($arquivos, $this->usuario());

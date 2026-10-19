@@ -1,6 +1,6 @@
 /* Contribua C4: Integração bancária (só Master) e prêmio do apoiador. Cópia do desenho
    08 - Contribua - VS 18.10.26 (L80-101 e L192-203), estilo inline portado para classes. */
-.cc-integ { background: #fff; border: 1px solid #f1e2bf; border-radius: 8px; overflow: hidden; }
+.cc-integ { background: #fff; border: 1px solid #f1e2bf; border-radius: 8px; overflow: hidden; line-height: normal; }
 .cc-integ-topo { display: flex; align-items: center; gap: 12px; padding: 14px clamp(12px, 3vw, 20px); background: #fffaf0; border-bottom: 1px solid #f1e2bf; flex-wrap: wrap; }
 .cc-integ-icone { width: 40px; height: 40px; flex: none; border-radius: 10px; background: #f0b429; color: #5a3a00; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .cc-integ-titulo { flex: 1; min-width: min(220px, 100%); }
@@ -24,7 +24,8 @@
 .cc-modo.is-on b { color: #0a6fa0; }
 .cc-modo:disabled { cursor: not-allowed; opacity: .6; }
 .cc-campo { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; font-weight: bold; color: #4a6373; margin: 0; }
-.cc-campo select, .cc-campo input { height: 34px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 8px; font: inherit; font-size: 13.5px; font-weight: normal; background: #fff; color: #243845; }
+.cc-campo select, .cc-campo input { height: 34px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 8px; font: inherit; font-size: 13.5px; background: #fff; color: #243845; }
+.cc-campo input::placeholder { font-weight: normal; }
 .cc-campo input { padding: 0 9px; }
 .cc-arquivo { display: flex; align-items: center; gap: 10px; height: 34px; border: 1px dashed #b9c7d2; border-radius: 3px; padding: 0 11px; font-weight: normal; color: #34505f; cursor: pointer; background: #f9fbfc; }
 .cc-arquivo i { color: #0a6fa0; }

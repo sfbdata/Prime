@@ -6,6 +6,8 @@ namespace App\Contribua\Banco\Cora;
 
 use App\Contribua\Banco\CofreDeCertificado;
 use App\Contribua\Banco\FalhaNoBanco;
+use App\Shared\Armazenamento\AreaTemporariaPrivada;
+use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -13,7 +15,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Chamadas à Integração Direta da Cora (developers.cora.com.br): mTLS em TODA chamada (certificado e chave
- * em arquivos temporários 0600, apagados no fim) e `Authorization: Bearer` com o token de `POST /token`
+ * numa área temporária privada, apagada no fim) e `Authorization: Bearer` com o token de `POST /token`
  * (client_credentials, vale 24 h, sem refresh). O token fica guardado cifrado por 23 h; um 401 descarta o
  * token e tenta uma vez de novo.
  */
@@ -110,7 +112,8 @@ class ClienteCora
     }
 
     /**
-     * Certificado e chave em arquivos temporários só durante a chamada (o HttpClient pede caminhos).
+     * Certificado e chave em arquivos só durante a chamada (o HttpClient pede caminhos), numa área temporária
+     * privada da operação (diretório 0700 de nome aleatório), apagada no fim.
      *
      * @template T
      *
@@ -120,26 +123,20 @@ class ClienteCora
      */
     private function comArquivos(CredenciaisCora $c, callable $acao): mixed
     {
-        $certificado = $this->arquivoPrivado($c->certificadoPem);
-        $chave = $this->arquivoPrivado($c->chavePem);
         try {
-            return $acao(['local_cert' => $certificado, 'local_pk' => $chave]);
+            $area = AreaTemporariaPrivada::criar('cora');
+        } catch (FalhaNoTemporario $e) {
+            throw new FalhaNoBanco('Não foi possível preparar o certificado.', 0, $e);
+        }
+        try {
+            $mtls = ['local_cert' => $area->gravar($c->certificadoPem, 'pem'), 'local_pk' => $area->gravar($c->chavePem, 'key')];
+
+            return $acao($mtls);
+        } catch (FalhaNoTemporario $e) {
+            throw new FalhaNoBanco('Não foi possível preparar o certificado.', 0, $e);
         } finally {
-            @unlink($certificado);
-            @unlink($chave);
+            $area->liberar();
         }
-    }
-
-    private function arquivoPrivado(string $conteudo): string
-    {
-        $caminho = tempnam(sys_get_temp_dir(), 'bj-cora-');
-        if (false === $caminho) {
-            throw new FalhaNoBanco('Não foi possível preparar o certificado.');
-        }
-        chmod($caminho, 0600);
-        file_put_contents($caminho, $conteudo);
-
-        return $caminho;
     }
 
     /** @param array<string, mixed> $corpo */
