@@ -82,13 +82,9 @@ final class IpDoClienteAtrasDoNginxTest extends TestCase
         self::assertNotSame(self::IP_REAL, $ip, 'a configuração antiga aceitava o IP forjado');
     }
 
-    #[DataProvider('tentativasDeForjar')]
-    #[TestDox('DEPOIS, só o nginx novo: o IP é o real mesmo com REMOTE_ADDR ainda confiável ($_dataName)')]
-    public function testNginxNovoFechaSozinho(string $forjado): void
-    {
-        // O nginx novo ignora o cabeçalho do cliente: X-Forwarded-For = $remote_addr.
-        self::assertSame(self::IP_REAL, $this->ipVisto(self::CONFIA_NO_CLIENTE, self::IP_REAL, self::IP_REAL));
-    }
+    // O nginx novo fecha sozinho porque descarta o X-Forwarded-For do cliente (fastcgi_param ... $remote_addr):
+    // isso é comportamento do nginx, preso pelo testNginxDeProducaoSobrescreveOXForwardedFor e medido de ponta a
+    // ponta em 19/10 (ver docs/guias/ip-do-cliente-em-producao.md). Aqui só cabe provar a metade do Symfony.
 
     #[DataProvider('tentativasDeForjar')]
     #[TestDox('DEPOIS, só a variável nova: o IP é o real mesmo com o nginx antigo ($_dataName)')]
