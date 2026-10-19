@@ -16,7 +16,9 @@ Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coorde
 2. **#74** `contribua-c2`, RASCUNHO, base `contribua-cora` (C2: página /contribua, PIX, sugestões, aviso).
    Migration `Version20261019210000` (3 tabelas). Renomear para o horário do momento na vez da fila
    (a 0d tinha o mesmo número e vai renomear a dela).
-3. `contribua-c3`, base `contribua-c2`, sem PR ainda (C3 comum + C3a Asaas).
+3. `contribua-c3`, base `contribua-c2` (C3 comum + C3a Asaas). Migration `Version20261019220000` (3 tabelas:
+   avisos recebidos, assinaturas, configuração do pagamento; carga da linha de configuração SEM gateway).
+   A 4b empilha sobre ela: C4 Cora e os adaptadores Stripe (`contribua-stripe`), Mercado Pago e Pagar.me.
 
 **Fila de migrations** (a coordenação controla): #52 → Push (0d) → Telas e recursos (b5) → PR 2 da 7d →
 C1 (#64) → C2 (#74) → C3.
@@ -60,16 +62,56 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
   cada um passando `TesteDeContratoDoGatewayDeAssinatura` (commit 02899552). Não mexe no núcleo do
   Contribua (lista na mensagem de contrato). Mudança na interface é contrato compartilhado: avisa antes.
 
-**Pendências:**
-- Dono: credenciais sandbox do Asaas, configuração fiscal e webhook (passo a passo em
-  `docs/runbooks/contribua-asaas-passo-a-passo.md`); confirmar o texto acima de 100%; OK final do texto
-  da política (rascunho em `docs/specs/contribua-politica-de-privacidade-rascunho.md`).
-- Confirmar no sandbox se a assinatura criada pelo Checkout aceita a NFS-e (`invoiceSettings`).
-- Depois do merge do #64: `scripts/migrar-dev.sh` no banco do 8080 e migration no `saas_test` principal.
-- `recurso_visivel('contribua')` no menu e na rota quando o "Telas e recursos" (b5, #56) entrar.
+**Decisões da C3 (19/10, f6; registrar ✓/✗ do dono no smoke):**
+- Uma entidade `AssinaturaDeEspaco` (`contribua_assinatura`) cobre o pedido e a assinatura que nasce dele.
+- Uma assinatura viva por escritório: para trocar de plano, cancela a atual em Meu Perfil (evita duas
+  cobranças no mesmo cartão). Gateway fora do ar no início do checkout: o pedido é removido.
+- A página de retorno (`?assinatura=ok`) abre o "Pagamento enviado" e marca "pago, aguardando confirmação do
+  gateway"; não libera espaço (qualquer um digita a URL). Só a reconsulta ou o Master liberam.
+- Vigência: Ativa e Inadimplente até o fim do período pago mais a carência (D3); Cancelada até o fim do
+  período pago. O plano do escritório é o maior entre as vigentes (`PlanoVigenteDoEscritorio`), senão Free.
+  O período pago nunca recua; o "aguardando" do gateway não desfaz a confirmação manual do Master (um mês).
+- Limite próprio do Master: no Free vale sempre; num plano pago vale só quando é maior (quem paga nunca fica
+  com menos). Muda a regra da C1 só para plano pago; avisado à b5.
+- Webhook `/api/webhooks/<codigo>`: 401 sem credencial, 404 para gateway desconhecido, 200 no resto (aviso
+  repetido, ignorado ou pendente); a falha na reconsulta fica para a conciliação de hora em hora.
+- Primeira ligação de uma assinatura do gateway: pelo escritório da referência `BJ<conta>` (no Asaas é o
+  `externalReference` do cliente), no pedido aguardando mais novo daquele gateway, de preferência o de mesmo
+  valor. Nota fiscal pela interface opcional `EmiteNotaFiscalDaAssinatura` (só o Asaas), ligada nessa hora;
+  falha vira log, não segura o espaço.
+- Formulário de cartão (Stripe, Mercado Pago, Pagar.me): é o campo seguro do SDK de cada gateway, montado
+  pelo módulo JS da 4b (`ContribuaStripe`, `ContribuaMercadoPago`, `ContribuaPagarme`: montar, tokenizar,
+  concluirAcao, desmontar). 3-D Secure pelo campo opcional `SituacaoNoGateway::acaoNoNavegador`.
+- Bloco "Assinatura" do Meu Perfil: `contribua/_assinatura_no_perfil.html.twig` + função
+  `assinatura_no_perfil()`; aparece quando o #60 entrar (ponto de inclusão `ignore missing`).
 
-**Próximo passo (f6):** C3 comum (pedidos, assinatura, retorno, webhook com reconsulta, conciliação, confirmação
-manual do Master, cancelar, carência configurável, bloco no Meu Perfil) e C3a Asaas com MockHttpClient.
+**Para o dono** (só ele decide ou faz):
+1. Asaas: conta, API key de sandbox, configuração fiscal (NFS-e) e webhook com o token (passo a passo em
+   `docs/runbooks/contribua-asaas-passo-a-passo.md`). Variáveis no `.env.prod` (lista no `DEPLOY.md`).
+2. Confirmar no sandbox do Asaas: o checkout aceita item sem `imageBase64` (a doc se contradiz); a
+   assinatura do checkout aceita a NFS-e (`invoiceSettings`) e se a nota do 1º mês sai; o
+   `GET /subscriptions/{id}` depois do cancelamento.
+3. Ver na tela (smoke): checkout do Asaas com CPF/CNPJ e botão "Assinar" que leva à página do Asaas (o
+   desenho mostra o formulário de cartão; desvio já aprovado para o caminho hospedado); modal do Master com o
+   texto do gateway hospedado no lugar do pedido de links; "Pagamento enviado" ao voltar.
+4. Desvio inerente aos SDKs: nos gateways de formulário o campo do cartão é o do gateway (iframe), com
+   aparência do Stripe/Mercado Pago/Pagar.me, não a do desenho.
+5. Estorno e chargeback: hoje a cobrança estornada não conta como paga, mas o período já pago continua
+   valendo até o fim. Se o estorno deve cortar o espaço na hora, é decisão de produto.
+6. Confirmar o texto acima de 100% (variante de uso alto) e o OK final da política de privacidade
+   (`docs/specs/contribua-politica-de-privacidade-rascunho.md`). Credenciais dos outros três gateways.
+
+**Pendências:**
+- Depois do merge do #64: `scripts/migrar-dev.sh` no banco do 8080 e migration no `saas_test` principal.
+- `recurso_visivel('contribua')` + `recurso_marca('contribua')` no item do menu e na rota quando o #56 entrar
+  (pedido da b5 via coordenação; o webhook fica sempre aberto).
+- Contrato com a b5: leitura das faixas pelo `ConfiguracaoDoEspacoRepository::atual()` (só leitura); o
+  painel cita a classe `EspacoDoEscritorio` em 2 arquivos liberados no teste; aceite de convite com
+  `aceitaMaisUmUsuario()` fica com a b5.
+
+**Próximo passo (f6):** PR rascunho da C3 depois da revisão; C5 (produção: cron no `DEPLOY.md` feito,
+webhooks, política) e C6 (preferência do apoiador no Trabalho Externo, contrato com a a7); conferência final
+do 08 inteiro.
 
 **Ambiente:** demo da C2 em http://127.0.0.1:8105 (`scripts/central-demo.sh contribua-c2 8105`), banco
 isolado `demo_f6` (senha de demonstração só nesse banco, usuários 1 e 2). Bancos de teste por frente:
