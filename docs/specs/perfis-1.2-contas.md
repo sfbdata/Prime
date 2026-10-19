@@ -101,3 +101,20 @@ Pendente com o dono: Q1.
   limite de usuários de cada plano: o dono quer mudar esses valores depois com facilidade. A escrita fica com um
   UseCase de catálogo pedido à f6 (`AlterarPlanoUseCase`, nome a confirmar), mais uma leitura do catálogo com a
   contagem de contas por plano. O Master grava no escopo de plataforma.
+- Catálogo de planos, nomes finais no #64 (commit 8f494919 da f6):
+  - escrita: `App\Contribua\UseCase\AlterarPlanoUseCase::executar(AlterarPlanoInput(codigo, nome, cotaGb,
+    precoCentavos, ?limiteUsuarios, descricao, ativo))`. O ator vem do escopo de auditoria e o código do plano não
+    muda. Erros chegam como `\DomainException` com o texto para a tela;
+  - leitura: `App\Contribua\Service\CatalogoDePlanos::todos()`, que devolve `list<PlanoDoCatalogo>`, com
+    `escritorios` = contas por plano.
+
+  Carga do dono (D5):
+
+  | Plano | Espaço | Preço | Usuários |
+  |---|---|---|---|
+  | Free | 10 GB | R$ 0 | 3 |
+  | Essencial | 20 GB | R$ 19,90 | 8 |
+  | Profissional | 50 GB | R$ 39,90 | 15 |
+  | Avançado | 100 GB | R$ 69,90 | sem limite |
+
+  Limite de usuários no convite: `RetratoDoEspaco::aceitaMaisUmUsuario(int)`. Só recusa com o bloqueio ligado.
