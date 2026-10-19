@@ -1,7 +1,8 @@
 /* BlueJus · Painel do Master, aba Permissões: bloco "Masters do sistema"
    (desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html, linhas 317-336, 624 e 641-652).
    - select "Promover a Master": mostra "e-mail · OAB" do escolhido e a mensagem de erro sem escolha;
-   - confirmação interna (promover e remover Master) no lugar do window.confirm.
+   - confirmação interna (promover e remover Master) no lugar do window.confirm. A mesma confirmação
+     serve ao painel.js (suspender e reativar conta) por window.BJMasterConf.abrir(op).
    Nenhuma decisão mora só aqui: o servidor revalida tudo (CSRF, Master primário, regras da spec perfis-1.2-masters). */
 (() => {
   'use strict';
@@ -24,6 +25,7 @@
     qs('[data-mp-conf-texto]', conf).textContent = op.texto;
     const ok = qs('[data-mp-conf-ok]', conf);
     ok.textContent = op.botao;
+    ok.disabled = false; // a ação do painel não recarrega a página: destrava para a próxima confirmação
     conf.style.setProperty('--cor', op.cor);
     aoConfirmar = op.aoConfirmar;
     conf.hidden = false;
@@ -37,6 +39,9 @@
     qs('[data-mp-conf-ok]', conf).addEventListener('click', e => { const acao = aoConfirmar; if (!acao) return; aoConfirmar = null; e.currentTarget.disabled = true; acao(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !conf.hidden) fecharConf(); });
   }
+
+  // Confirmação compartilhada com o painel.js (menu da conta: suspender e reativar).
+  window.BJMasterConf = { abrir: abrirConf, fechar: fecharConf };
 
   /* ---------- promover a Master (só no HTML do Master primário) ---------- */
   const form = qs('[data-mp-form-promover]');

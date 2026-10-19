@@ -67,19 +67,21 @@ final class PainelMasterRepository
     }
 
     /**
-     * Escritórios fora da quarentena, com o nome do titular (`tenant.criado_por_id`).
+     * Escritórios fora da quarentena, com o nome do titular (`tenant.criado_por_id`) e se o titular é
+     * Master (`do_master`: a conta do Master, spec perfis-1.2-contas C5, que não se suspende nem exclui).
      *
-     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string}>
+     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool}>
      */
     public function escritorios(): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT t.id, t.name AS nome, t.cidade, t.estado, t.created_at AS criado_em, t.is_active AS ativo,
-                    u.full_name AS titular
+                    u.full_name AS titular, COALESCE(u.roles::text LIKE :papel, FALSE) AS do_master
                FROM tenant t
           LEFT JOIN "user" u ON u.id = t.criado_por_id
               WHERE t.excluido_em IS NULL
            ORDER BY t.name',
+            ['papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
         );
 
         return array_map(static fn (array $l): array => [
@@ -90,6 +92,7 @@ final class PainelMasterRepository
             'criado_em' => (string) $l['criado_em'],
             'ativo'     => (bool) $l['ativo'],
             'titular'   => $l['titular'] !== null ? (string) $l['titular'] : null,
+            'do_master' => (bool) $l['do_master'],
         ], $linhas);
     }
 

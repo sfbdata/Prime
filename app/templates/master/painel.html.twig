@@ -19,6 +19,8 @@
     contas: path('master_dados_contas'),
     oab: path('master_dados_usuarios_oab'),
     auditoria: path('master_dados_auditoria'),
+    contaSuspender: path('master_conta_suspender', {id: 0}),
+    contaReativar: path('master_conta_reativar', {id: 0}),
     mapaBrasil: path('master_mapa_brasil'),
     mapaMundo: path('master_mapa_mundo'),
     revisaoOab: path('admin_platform_oab_index'),
@@ -128,7 +130,8 @@
         </div>
     </div>
 
-    {# Confirmação interna do desenho (linhas 411-419), preenchida por public/js/master/masters.js. #}
+    {# Confirmação interna do desenho (linhas 411-419), preenchida por public/js/master/masters.js (promover e remover
+       Master) e pelo painel.js (suspender e reativar conta), por window.BJMasterConf. #}
     <div class="mp-conf-fundo" data-mp-conf hidden>
         <div class="mp-conf" role="dialog" aria-modal="true" aria-labelledby="mpConfTitulo">
             <div class="mp-conf-cab" data-mp-conf-cab><i class="bi" data-mp-conf-icone></i><span id="mpConfTitulo" data-mp-conf-titulo></span></div>

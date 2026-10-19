@@ -24,7 +24,7 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'pes', mapaUsu: 'geral',
-    faltamOn: false, busca: '', fSit: '', menu: null, audTipo: '', audConta: null };
+    faltamOn: false, busca: '', fSit: '', menu: null, audTipo: '', audConta: null, aviso: null };
   const D = { visao: null, contas: null, oab: null, audit: null };
   const ERRO = {};
 
@@ -76,7 +76,7 @@
       + (k === 'audit' && nAud > 0 ? '<span class="mp-sec-n">' + num(nAud) + '</span>' : '') + '</button>').join('');
   }
   elSecs.addEventListener('click', e => { const b = e.target.closest('[data-sec]'); if (b) irPara(b.dataset.sec); });
-  function irPara(sec) { S.sec = sec; S.menu = null; renderSecs(); renderSecao(); }
+  function irPara(sec) { S.sec = sec; S.menu = null; S.aviso = null; renderSecs(); renderSecao(); }
 
   function renderSecao() {
     const sec = S.sec, dep = precisa[sec];
@@ -249,15 +249,64 @@
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>Convites</a>'
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option></select>'
       + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar conta ou primário" aria-label="Buscar conta ou primário"></label></div>'
-      + '<div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab"><div>CONTA</div><div>PRIMÁRIO · PLANO</div><div>USUÁRIOS</div><div>PASTAS</div><div>DOCS</div><div>ARMAZENAMENTO</div><div>30 DIAS</div><div>PREVISÃO</div><div>SITUAÇÃO</div><div></div></div>'
+      + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab"><div>CONTA</div><div>PRIMÁRIO · PLANO</div><div>USUÁRIOS</div><div>PASTAS</div><div>DOCS</div><div>ARMAZENAMENTO</div><div>30 DIAS</div><div>PREVISÃO</div><div>SITUAÇÃO</div><div></div></div>'
       + '<div id="mp-contas-lista"></div></div></div></div>';
     renderContasLista();
+  }
+
+  // Menu da conta (desenho 1.2, linha 735), na ordem: [limites: frente própria, ocultos até lá], Estatísticas,
+  // Histórico, Suspender OU Reativar (conforme a situação) e [Excluir conta: parte 2 da spec, ainda não].
+  const menuDaConta = c => '<div class="mp-menu" data-parar><div class="mp-menu-cab">' + esc(c.nome) + '</div>'
+    + '<button type="button" class="mp-menu-op" data-op="estat"><i class="bi bi-bar-chart"></i>Estatísticas de uso</button>'
+    + '<button type="button" class="mp-menu-op" data-op="hist" data-conta-id="' + c.id + '"><i class="bi bi-clock-history"></i>Histórico de alterações</button>'
+    + (c.situacao === 'Suspensa'
+      ? '<button type="button" class="mp-menu-op mp-menu-sep mp-menu-reativar" data-op="reativar" data-conta-id="' + c.id + '"><i class="bi bi-play-circle"></i>Reativar conta</button>'
+      : '<button type="button" class="mp-menu-op mp-menu-sep mp-menu-suspender" data-op="suspender" data-conta-id="' + c.id + '"><i class="bi bi-pause-circle"></i>Suspender conta</button>')
+    + '</div>';
+
+  // Confirmação do desenho (linha 624), textos exatos. O servidor revalida tudo (CSRF por conta, Master, regras C2, C3 e C5).
+  const CONF_CONTA = {
+    suspender: c => ({ titulo: 'Suspender conta', icone: 'bi-pause-circle', cor: '#c08a12', botao: 'Suspender', texto: 'Os usuários de "' + c.nome + '" ficam sem acesso até a reativação. Nenhum dado é apagado.' }),
+    reativar: c => ({ titulo: 'Reativar conta', icone: 'bi-play-circle', cor: '#1e7b45', botao: 'Reativar', texto: 'A conta "' + c.nome + '" volta a ter acesso normal.' })
+  };
+
+  function pedirAcaoNaConta(tipo, id) {
+    const c = D.contas.contas.find(x => x.id === id);
+    if (!c || !window.BJMasterConf) return;
+    window.BJMasterConf.abrir(Object.assign(CONF_CONTA[tipo](c), { aoConfirmar: () => enviarAcaoNaConta(tipo, c) }));
+  }
+
+  function enviarAcaoNaConta(tipo, c) {
+    const corpo = new FormData();
+    corpo.append('_token', c.token || '');
+    const url = (tipo === 'suspender' ? URLS.contaSuspender : URLS.contaReativar).replace('/0/', '/' + c.id + '/');
+    fetch(url, { method: 'POST', body: corpo, credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(r => r.json().catch(() => ({})).then(j => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (ok && j.conta) {
+          c.situacao = j.conta.situacao;
+          // KPIs (suspensas) e trilha mudaram: recarregam quando a seção for aberta de novo.
+          D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
+        }
+        avisar(ok, j.mensagem || j.erro);
+      })
+      .catch(() => avisar(false));
+  }
+
+  function avisar(ok, msg) {
+    if (window.BJMasterConf) window.BJMasterConf.fechar();
+    S.aviso = { ok, msg: msg || 'Não foi possível concluir agora. Recarregue a página e tente de novo.' };
+    renderSecs();
+    if (S.sec === 'contas') renderContasLista();
   }
 
   function renderContasLista() {
     const b = S.busca.toLowerCase();
     const contas = D.contas.contas.filter(c => (!S.fSit || c.situacao === S.fSit) && (!b || (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b)));
     document.getElementById('mp-contas-n').textContent = num(contas.length) + ' · botão direito na linha para ações';
+    // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
+    document.getElementById('mp-contas-aviso').innerHTML = S.aviso ? '<div class="mp-aviso ' + (S.aviso.ok ? 'is-ok' : 'is-erro') + '" role="status" data-mp-aviso><i class="bi '
+      + (S.aviso.ok ? 'bi-check-circle' : 'bi-exclamation-circle') + '"></i>' + esc(S.aviso.msg) + '</div>' : '';
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
       const cor = ST[c.situacao] || '#4a6373', aberto = S.menu === c.id;
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
@@ -270,9 +319,7 @@
         + '<div class="mp-conta-prev mp-hv">sem previsão</div>'
         + '<div class="mp-conta-st mp-hv"><span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span></div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
-        + (aberto ? '<div class="mp-menu" data-parar><div class="mp-menu-cab">' + esc(c.nome) + '</div>'
-          + '<button type="button" class="mp-menu-op" data-op="estat"><i class="bi bi-bar-chart"></i>Estatísticas de uso</button>'
-          + '<button type="button" class="mp-menu-op" data-op="hist" data-conta-id="' + c.id + '"><i class="bi bi-clock-history"></i>Histórico de alterações</button></div>' : '')
+        + (aberto ? menuDaConta(c) : '')
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';
   }
@@ -360,6 +407,7 @@
     if (op) {
       e.stopPropagation(); S.menu = null;
       if (op.dataset.op === 'estat') return irPara('arm');
+      if (op.dataset.op === 'suspender' || op.dataset.op === 'reativar') { renderContasLista(); return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId); }
       S.audConta = +op.dataset.contaId; S.audTipo = ''; return irPara('audit');
     }
     if (t.closest('[data-pdf]')) return gerarPdf();

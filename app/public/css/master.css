@@ -207,6 +207,16 @@
 .mp-menu-cab { background: #0a6fa0; color: #fff; padding: 9px 14px; font-size: 11px; font-weight: bold; letter-spacing: 1.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-menu-op { width: 100%; display: flex; align-items: center; gap: 9px; border: none; background: #fff; padding: 8px 14px; font-size: 13px; color: #243845; cursor: pointer; text-align: left; }
 .mp-menu-op:hover { background: #eef6fb; }
+/* Suspender / Reativar (desenho 1.2, linha 735): separador acima e cor própria. */
+.mp-menu-op.mp-menu-sep { border-top: 1px solid #eef2f5; }
+.mp-menu-op.mp-menu-suspender { color: #8a5a12; }
+.mp-menu-op.mp-menu-suspender:hover { background: #fbf1dc; }
+.mp-menu-op.mp-menu-reativar { color: #1e7b45; }
+.mp-menu-op.mp-menu-reativar:hover { background: #e6f4ec; }
+/* Resultado de suspender/reativar conta, acima da tabela de contas. */
+.mp-aviso { display: flex; align-items: center; gap: 8px; padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #eef2f5; }
+.mp-aviso.is-ok { background: #e6f4ec; color: #1e7b45; }
+.mp-aviso.is-erro { background: #fbe7e7; color: #a3232b; }
 .mp-vazio-linha { padding: 24px; text-align: center; color: #5b7383; font-size: 13px; }
 
 /* ---------- Usuários e OABs ---------- */

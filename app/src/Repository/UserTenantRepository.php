@@ -38,6 +38,29 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Nomes das contas SUSPENSAS (isActive=false e fora da quarentena de exclusão) com que o usuário
+     * tem vínculo ativo. Base do aviso da tela de seleção (spec perfis-1.2-contas C9).
+     *
+     * @return list<string>
+     */
+    public function nomesDasContasSuspensasDoUsuario(User $user): array
+    {
+        $nomes = $this->createQueryBuilder('ut')
+            ->select('t.name')
+            ->join('ut.tenant', 't')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('t.isActive = false')
+            ->andWhere('t.excluidoEm IS NULL')
+            ->setParameter('user', $user)
+            ->orderBy('t.name')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map('strval', $nomes));
+    }
+
     public function existeVinculoAtivo(User $user, Tenant $tenant): bool
     {
         return $this->createQueryBuilder('ut')

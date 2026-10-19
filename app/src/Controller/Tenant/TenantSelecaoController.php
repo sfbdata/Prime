@@ -7,6 +7,7 @@ use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -66,6 +67,8 @@ final class TenantSelecaoController extends AbstractController
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
             'convites' => $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()),
+            // C9 (spec perfis-1.2-contas): sem escritório ativo, mas com vínculo em conta suspensa.
+            'avisosDeContaSuspensa' => $vinculos === [] ? array_map(AvisoDeContaSuspensa::para(...), $this->userTenantRepository->nomesDasContasSuspensasDoUsuario($user)) : [],
         ]);
     }
 }

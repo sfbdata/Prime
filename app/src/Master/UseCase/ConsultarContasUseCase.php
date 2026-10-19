@@ -23,7 +23,7 @@ final class ConsultarContasUseCase
     }
 
     /**
-     * @return list<array{id: int, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string}>
+     * @return list<array{id: int, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool}>
      */
     public function executar(): array
     {
@@ -47,6 +47,8 @@ final class ConsultarContasUseCase
                 'bytes'         => $consumo[$id]['bytes'] ?? 0,
                 'bytesRecentes' => $consumo[$id]['bytesRecentes'] ?? 0,
                 'situacao'      => $e['ativo'] ? 'Ativa' : 'Suspensa',
+                // Conta criada por um Master (C5): o painel esconde "Excluir conta" e o servidor recusa.
+                'ehDoMaster'    => $e['do_master'],
             ];
         }
 
