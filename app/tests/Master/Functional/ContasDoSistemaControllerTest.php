@@ -91,6 +91,7 @@ final class ContasDoSistemaControllerTest extends JusPrimeWebTestCase
         $this->client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-conta-suspensa]', $mensagemC9);
+        self::assertSame(1, substr_count((string) $this->client->getResponse()->getContent(), $mensagemC9), 'a página mostra o alerta e o flash igual sai: o texto aparece uma vez');
         self::assertStringNotContainsString('Você ainda não faz parte de nenhum escritório', (string) $this->client->getResponse()->getContent());
 
         $this->entrar($this->master, $this->contaDoMaster);
@@ -145,7 +146,32 @@ final class ContasDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertTrue($this->recarregar($this->contaDoMaster)->isActive());
     }
 
-    #[TestDox('recusas de situação: suspender conta suspensa, reativar conta ativa, reativar conta excluída e conta inexistente')]
+    #[TestDox('conta SEM criador registrado e com Master de vínculo ativo é conta do Master: JSON e servidor concordam (C5)')]
+    public function testContaSemCriadorComMasterVinculado(): void
+    {
+        $semCriador = (new Tenant())->setName('Sem criador ' . uniqid());
+        $this->em->persist($semCriador);
+        $this->em->flush();
+        $this->vincular($this->master, $semCriador, sistema: false);
+        $semMaster = (new Tenant())->setName('Sem criador nem Master ' . uniqid());
+        $this->em->persist($semMaster);
+        $this->em->flush();
+        $this->entrar($this->master, $this->contaDoMaster);
+
+        $this->client->request('GET', '/master/dados/contas');
+        $contas = array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['contas'], null, 'id');
+        self::assertTrue($contas[$semCriador->getId()]['ehDoMaster']);
+        self::assertFalse($contas[$semMaster->getId()]['ehDoMaster']);
+
+        self::assertSame(['erro' => RegraDosMasters::RECUSA_SUSPENDER_CONTA_DO_MASTER], $this->postar('suspender', $semCriador));
+        self::assertResponseStatusCodeSame(422);
+        self::assertTrue($this->recarregar($semCriador)->isActive());
+
+        $this->postar('suspender', $semMaster);
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('recusas de situação (422): suspender conta suspensa, reativar conta ativa, reativar conta excluída; conta inexistente: 404')]
     public function testRecusasDeSituacao(): void
     {
         $this->entrar($this->master, $this->contaDoMaster);
@@ -164,7 +190,8 @@ final class ContasDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->recarregar($this->alvo)->isActive());
 
         $this->client->request('POST', '/master/contas/99999999/suspender', ['_token' => 'TOKEN_master_conta_99999999']);
-        self::assertResponseStatusCodeSame(422);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(['erro' => 'Conta não encontrada.'], json_decode((string) $this->client->getResponse()->getContent(), true));
     }
 
     #[TestDox('primário e secundário de escritório recebem 403 nas duas rotas; nada muda')]

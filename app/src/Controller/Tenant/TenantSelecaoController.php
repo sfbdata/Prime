@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace App\Controller\Tenant;
 
+use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
@@ -11,6 +13,7 @@ use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class TenantSelecaoController extends AbstractController
@@ -64,11 +67,40 @@ final class TenantSelecaoController extends AbstractController
             return $this->redirectToRoute('admin_platform_dashboard');
         }
 
+        $convites = $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail());
+
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
-            'convites' => $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()),
-            // C9 (spec perfis-1.2-contas): sem escritório ativo, mas com vínculo em conta suspensa.
-            'avisosDeContaSuspensa' => $vinculos === [] ? array_map(AvisoDeContaSuspensa::para(...), $this->userTenantRepository->nomesDasContasSuspensasDoUsuario($user)) : [],
+            'convites' => $convites,
+            'avisosDeContaSuspensa' => $this->avisosDeContaSuspensa($request, $user, $vinculos, $convites),
         ]);
+    }
+
+    /**
+     * C9 (spec perfis-1.2-contas): sem escritório ativo e sem convite de escritório, mas com vínculo em
+     * conta suspensa, a página mostra o alerta no lugar de "Você ainda não faz parte de nenhum
+     * escritório". O mesmo texto que a barreira da conta (TenantContextValidatorListener) pôs no flash
+     * sai do flash, para não aparecer duas vezes; em qualquer outro destino o flash continua.
+     *
+     * @param array<UserTenant> $vinculos
+     * @param array<Invitation> $convites
+     *
+     * @return list<string>
+     */
+    private function avisosDeContaSuspensa(Request $request, User $user, array $vinculos, array $convites): array
+    {
+        $temConviteDeEscritorio = array_filter($convites, static fn (Invitation $c): bool => $c->getTenant() !== null) !== [];
+        if ($vinculos !== [] || $temConviteDeEscritorio) {
+            return [];
+        }
+
+        $avisos = array_map(AvisoDeContaSuspensa::para(...), $this->userTenantRepository->nomesDasContasSuspensasDoUsuario($user));
+        $sessao = $request->getSession();
+        if ($avisos !== [] && $sessao instanceof FlashBagAwareSessionInterface) {
+            $flashes = $sessao->getFlashBag();
+            $flashes->set('warning', array_values(array_diff($flashes->peek('warning'), $avisos)));
+        }
+
+        return $avisos;
     }
 }

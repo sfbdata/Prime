@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\DTO\ContaAlteradaOutput;
 use App\Master\DTO\SituacaoDaContaInput;
+use App\Master\Exception\ContaNaoEncontrada;
 use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
@@ -23,7 +24,7 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
  * por um Master (Q2, regra em {@see RegraDosMasters::recusaParaSuspender()}).
  * Fluxo principal: carrega a conta, aplica as recusas, grava `isActive=false` e mantém `excluidoEm`
  * nulo (é isso que distingue suspensão de exclusão).
- * Fluxos alternativos: ator sem ROLE_SUPER_ADMIN; conta inexistente, excluída, já suspensa ou do
+ * Fluxos alternativos: conta inexistente ({@see ContaNaoEncontrada}); ator sem ROLE_SUPER_ADMIN; conta excluída, já suspensa ou do
  * Master. Todos recusados com mensagem.
  * Pós-condições: os usuários perdem o acesso no request seguinte (o TenantContextValidatorListener
  * barra a cada request; não é preciso derrubar sessão). Nada é apagado.
@@ -62,7 +63,7 @@ final class SuspenderContaUseCase
     {
         $conta = $this->contas->buscar($contaId);
         if ($conta === null) {
-            throw new OperacaoDeContaRecusada('Conta não encontrada.');
+            throw new ContaNaoEncontrada('Conta não encontrada.');
         }
 
         return $conta;

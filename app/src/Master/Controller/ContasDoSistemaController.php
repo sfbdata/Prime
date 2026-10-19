@@ -7,6 +7,7 @@ namespace App\Master\Controller;
 use App\Entity\Auth\User;
 use App\Master\DTO\ContaAlteradaOutput;
 use App\Master\DTO\SituacaoDaContaInput;
+use App\Master\Exception\ContaNaoEncontrada;
 use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\UseCase\ReativarContaUseCase;
 use App\Master\UseCase\SuspenderContaUseCase;
@@ -54,6 +55,8 @@ final class ContasDoSistemaController extends AbstractController
 
         try {
             $conta = $acao(new SituacaoDaContaInput($this->ator(), $id));
+        } catch (ContaNaoEncontrada $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (OperacaoDeContaRecusada $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

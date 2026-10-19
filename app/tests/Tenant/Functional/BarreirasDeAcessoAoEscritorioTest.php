@@ -48,6 +48,36 @@ final class BarreirasDeAcessoAoEscritorioTest extends JusPrimeWebTestCase
         self::assertSame([$mensagem], $this->barrado($this->usuario(['ROLE_SUPER_ADMIN']), $conta, vinculoAtivo: true));
     }
 
+    #[TestDox('vínculo AUSENTE (removido) com a conta suspensa: mensagem da C9, porque a barreira da conta vem antes da do vínculo (C13)')]
+    public function testVinculoAusenteEmContaSuspensa(): void
+    {
+        $conta = $this->conta(ativa: false, excluida: false);
+        $user = $this->usuario(['ROLE_USER']);
+
+        // Sem vínculo nenhum: a sessão ainda aponta para a conta (vínculo removido depois do login).
+        // A ordem C13 testa (a) a conta antes de (c) o vínculo, então vale a mensagem da conta suspensa.
+        self::assertSame([AvisoDeContaSuspensa::para((string) $conta->getName())], $this->barrado($user, $conta, vinculoAtivo: null));
+    }
+
+    #[TestDox('o aviso continua no flash quando a seleção não mostra o alerta (outro escritório ativo: entra direto nele)')]
+    public function testFlashFicaQuandoASelecaoNaoMostraOAlerta(): void
+    {
+        $suspensa = $this->conta(ativa: false, excluida: false);
+        $outra = $this->conta(ativa: true, excluida: false);
+        $user = $this->usuario(['ROLE_USER']);
+        $this->em->persist(new UserTenant($user, $outra));
+        $this->em->persist(new UserTenant($user, $suspensa));
+        $this->em->flush();
+        $this->logarComTenant($this->client, $user, $suspensa);
+
+        $this->client->request('GET', '/expediente');
+        self::assertResponseRedirects('/escritorio/selecionar');
+        $this->client->followRedirect();
+        self::assertResponseRedirects('/expediente', message: 'um só escritório ativo: a seleção entra direto, sem o alerta');
+
+        self::assertSame([AvisoDeContaSuspensa::para((string) $suspensa->getName())], $this->client->getRequest()->getSession()->getFlashBag()->peek('warning'));
+    }
+
     #[TestDox('conta excluída e vínculo inativo em conta ativa: a mensagem de acesso indisponível de sempre')]
     public function testContaExcluidaEVinculoInativo(): void
     {
@@ -74,17 +104,23 @@ final class BarreirasDeAcessoAoEscritorioTest extends JusPrimeWebTestCase
         return $conta;
     }
 
-    /** @return list<string> os avisos da barreira, depois de conferir que ela derrubou a sessão */
-    private function barrado(User $user, Tenant $conta, bool $vinculoAtivo): array
+    /**
+     * @param ?bool $vinculoAtivo null: sem vínculo nenhum
+     *
+     * @return list<string> os avisos da barreira, depois de conferir que ela derrubou a sessão
+     */
+    private function barrado(User $user, Tenant $conta, ?bool $vinculoAtivo): array
     {
         // A requisição anterior pode ter limpado o EntityManager: recarrega antes de ligar os dois.
         $user  = $this->em->find(User::class, $user->getId()) ?? $user;
         $conta = $this->em->find(Tenant::class, $conta->getId()) ?? $conta;
-        $vinculo = new UserTenant($user, $conta);
-        // A entidade não tem como desativar o vínculo (só reativar): o estado legado vem por reflexão.
-        (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($vinculo, $vinculoAtivo);
-        $this->em->persist($vinculo);
-        $this->em->flush();
+        if ($vinculoAtivo !== null) {
+            $vinculo = new UserTenant($user, $conta);
+            // A entidade não tem como desativar o vínculo (só reativar): o estado legado vem por reflexão.
+            (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($vinculo, $vinculoAtivo);
+            $this->em->persist($vinculo);
+            $this->em->flush();
+        }
         $this->logarComTenant($this->client, $user, $conta);
 
         $this->client->request('GET', '/expediente');

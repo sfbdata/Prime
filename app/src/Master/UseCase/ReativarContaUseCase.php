@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\DTO\ContaAlteradaOutput;
 use App\Master\DTO\SituacaoDaContaInput;
+use App\Master\Exception\ContaNaoEncontrada;
 use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
@@ -24,7 +25,7 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
  * Pré-condições: a conta existe, está suspensa (`isActive=false`) e NÃO foi excluída: conta com
  * `excluidoEm` está na quarentena da exclusão e sai dela por outro caminho (decisão Q1 da spec).
  * Fluxo principal: carrega a conta, aplica as recusas, grava `isActive=true`.
- * Fluxos alternativos: ator sem ROLE_SUPER_ADMIN; conta inexistente, excluída ou já ativa. Recusados
+ * Fluxos alternativos: conta inexistente ({@see ContaNaoEncontrada}); ator sem ROLE_SUPER_ADMIN; conta excluída ou já ativa. Recusados
  * com mensagem.
  * Pós-condições: os usuários voltam a selecionar o escritório e a entrar nele.
  * Auditoria (C6): flush dentro de {@see EscopoDeAuditoriaDePlataforma::executarComoConta()}, com o
@@ -65,7 +66,7 @@ final class ReativarContaUseCase
     {
         $conta = $this->contas->buscar($contaId);
         if ($conta === null) {
-            throw new OperacaoDeContaRecusada('Conta não encontrada.');
+            throw new ContaNaoEncontrada('Conta não encontrada.');
         }
 
         return $conta;

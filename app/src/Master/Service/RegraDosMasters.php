@@ -6,6 +6,7 @@ namespace App\Master\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\Repository\ContasDoSistemaRepository;
 
 /**
  * Quem é Master e quem é o Master primário (spec docs/specs/perfis-1.2-masters.md, M1 a M4).
@@ -33,6 +34,11 @@ final class RegraDosMasters
     public const RECUSA_SUSPENDER_CONTA_DO_MASTER = 'Esta conta foi criada por um Master. Suspendê-la tiraria dele o acesso ao próprio escritório.';
     public const RECUSA_EXCLUIR_CONTA_DO_MASTER = 'Esta conta foi criada por um Master e não pode ser excluída.';
 
+    public function __construct(
+        private readonly ContasDoSistemaRepository $contas,
+    ) {
+    }
+
     public function ehMaster(User $user): bool
     {
         return in_array(self::PAPEL_MASTER, $user->getRoles(), true);
@@ -44,12 +50,20 @@ final class RegraDosMasters
         return $this->ehMaster($user) && in_array(self::PAPEL_MASTER_PRIMARIO, $user->getRoles(), true);
     }
 
-    /** O escritório foi criado por um Master (`Tenant.criadoPor` com ROLE_SUPER_ADMIN). */
+    /**
+     * Conta do Master: o criador (`Tenant.criadoPor`) é Master. Sem criador registrado (NULL: escritório
+     * antigo ou criador apagado), vale como do Master quando algum Master tem vínculo ATIVO com ele.
+     * A mesma regra está no SQL de PainelMasterRepository::escritorios() (`do_master`), para a tela e o
+     * servidor nunca divergirem.
+     */
     public function ehContaDoMaster(Tenant $conta): bool
     {
         $criador = $conta->getCriadoPor();
+        if ($criador !== null) {
+            return $this->ehMaster($criador);
+        }
 
-        return $criador !== null && $this->ehMaster($criador);
+        return $conta->getId() !== null && $this->contas->existeMasterComVinculoAtivo($conta->getId());
     }
 
     /**

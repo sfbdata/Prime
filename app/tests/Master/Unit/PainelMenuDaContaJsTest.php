@@ -77,6 +77,21 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString("contaReativar: path('master_conta_reativar', {id: 0})", $twig);
     }
 
+    #[TestDox('só a resposta JSON direta com a conta é sucesso: redirecionada, sem JSON ou sem conta é erro')]
+    public function testRespostaSemContaEhErro(): void
+    {
+        $js = self::js('painel.js');
+        $inicio = strpos($js, 'function enviarAcaoNaConta(');
+        self::assertNotFalse($inicio);
+        $envio = substr($js, $inicio, (int) strpos($js, 'function avisar(') - $inicio);
+
+        self::assertStringContainsString('r.json().catch(() => null)', $envio, 'corpo que não é JSON vira nulo, não sucesso');
+        self::assertStringContainsString("const json = !r.redirected && j !== null && typeof j === 'object';", $envio);
+        self::assertStringContainsString('if (json && r.ok && j.conta) {', $envio, 'verde só com a conta no corpo');
+        self::assertStringContainsString('avisar(false, json && !r.ok ? j.erro : null);', $envio);
+        self::assertStringContainsString("'Não foi possível concluir a ação. Recarregue a página.'", $js);
+    }
+
     #[TestDox('sem travessão no texto novo do menu e da confirmação')]
     public function testSemTravessao(): void
     {

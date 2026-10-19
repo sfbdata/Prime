@@ -281,21 +281,25 @@
     corpo.append('_token', c.token || '');
     const url = (tipo === 'suspender' ? URLS.contaSuspender : URLS.contaReativar).replace('/0/', '/' + c.id + '/');
     fetch(url, { method: 'POST', body: corpo, credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      .then(r => r.json().catch(() => ({})).then(j => ({ ok: r.ok, j })))
-      .then(({ ok, j }) => {
-        if (ok && j.conta) {
+      .then(r => r.json().catch(() => null).then(j => ({ r, j })))
+      .then(({ r, j }) => {
+        // Só é sucesso a resposta JSON direta do servidor com a conta: redirecionamento (sessão caída, login),
+        // corpo que não é JSON ou JSON sem `conta` contam como erro, nunca verde.
+        const json = !r.redirected && j !== null && typeof j === 'object';
+        if (json && r.ok && j.conta) {
           c.situacao = j.conta.situacao;
           // KPIs (suspensas) e trilha mudaram: recarregam quando a seção for aberta de novo.
           D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
+          return avisar(true, j.mensagem);
         }
-        avisar(ok, j.mensagem || j.erro);
+        avisar(false, json && !r.ok ? j.erro : null);
       })
       .catch(() => avisar(false));
   }
 
   function avisar(ok, msg) {
     if (window.BJMasterConf) window.BJMasterConf.fechar();
-    S.aviso = { ok, msg: msg || 'Não foi possível concluir agora. Recarregue a página e tente de novo.' };
+    S.aviso = { ok, msg: msg || (ok ? 'Situação da conta atualizada.' : 'Não foi possível concluir a ação. Recarregue a página.') };
     renderSecs();
     if (S.sec === 'contas') renderContasLista();
   }

@@ -7,6 +7,7 @@ namespace App\Tests\Master\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\DTO\SituacaoDaContaInput;
+use App\Master\Exception\ContaNaoEncontrada;
 use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
@@ -33,7 +34,7 @@ final class SuspenderContaUseCaseTest extends TestCase
     {
         $this->contas  = $this->createMock(ContasDoSistemaRepository::class);
         $this->escopo  = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new SuspenderContaUseCase($this->contas, new RegraDosMasters(), $this->escopo);
+        $this->useCase = new SuspenderContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo);
         $this->master  = self::usuario(['ROLE_SUPER_ADMIN']);
     }
 
@@ -54,16 +55,32 @@ final class SuspenderContaUseCaseTest extends TestCase
         self::assertFalse($this->escopo->estaLigado(), 'o escopo fecha depois do flush');
     }
 
-    #[TestDox('conta sem criador registrado também é suspensa')]
-    public function testSuspendeContaSemCriador(): void
+    #[TestDox('sem criador registrado e sem Master vinculado: suspende')]
+    public function testSuspendeContaSemCriadorESemMaster(): void
     {
         $conta = self::conta(42, criador: null);
         $this->contas->method('buscar')->willReturn($conta);
+        $this->contas->method('existeMasterComVinculoAtivo')->with(42)->willReturn(false);
         $this->contas->expects($this->once())->method('salvar');
 
         $this->useCase->executar(new SituacaoDaContaInput($this->master, 42));
 
         self::assertFalse($conta->isActive());
+    }
+
+    #[TestDox('sem criador registrado, mas com Master de vínculo ativo: é conta do Master, recusa (fallback da C5)')]
+    public function testRecusaContaSemCriadorComMasterVinculado(): void
+    {
+        $conta = self::conta(42, criador: null);
+        $this->contas->method('buscar')->willReturn($conta);
+        $this->contas->method('existeMasterComVinculoAtivo')->with(42)->willReturn(true);
+        $this->esperarRecusa(RegraDosMasters::RECUSA_SUSPENDER_CONTA_DO_MASTER);
+
+        try {
+            $this->useCase->executar(new SituacaoDaContaInput($this->master, 42));
+        } finally {
+            self::assertTrue($conta->isActive(), 'nada muda');
+        }
     }
 
     #[TestDox('quem não é Master é recusado antes de carregar a conta')]
@@ -75,11 +92,13 @@ final class SuspenderContaUseCaseTest extends TestCase
         $this->useCase->executar(new SituacaoDaContaInput(self::usuario(['ROLE_USER']), 42));
     }
 
-    #[TestDox('conta inexistente é recusada')]
+    #[TestDox('conta inexistente: ContaNaoEncontrada (o controller responde 404)')]
     public function testRecusaContaInexistente(): void
     {
         $this->contas->method('buscar')->willReturn(null);
-        $this->esperarRecusa('Conta não encontrada.');
+        $this->contas->expects($this->never())->method('salvar');
+        $this->expectException(ContaNaoEncontrada::class);
+        $this->expectExceptionMessage('Conta não encontrada.');
 
         $this->useCase->executar(new SituacaoDaContaInput($this->master, 999));
     }

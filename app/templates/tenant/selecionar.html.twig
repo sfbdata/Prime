@@ -13,7 +13,8 @@
 
     {% if vinculos is empty %}
         {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
-        {% if convites_escritorio is empty and avisosDeContaSuspensa|default([]) is not empty %}
+        {# avisosDeContaSuspensa só vem preenchido sem convite de escritório (TenantSelecaoController). #}
+        {% if avisosDeContaSuspensa|default([]) is not empty %}
             {% for aviso in avisosDeContaSuspensa %}
                 <div class="alert alert-warning text-center" data-conta-suspensa>
                     <i class="bi bi-pause-circle d-block fs-3 mb-2"></i>

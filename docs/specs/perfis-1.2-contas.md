@@ -90,3 +90,8 @@ Pendente com o dono: Q1.
   `EspacoDoEscritorio`, regravado a cada mudança. O rótulo "Limite de armazenamento" ou "Limite de usuários" sai
   da coluna que mudou no diff (`cota_gb`/`sem_limite` ou `limite_usuarios`), e o detalhe é
   "ant → novo · justificativa".
+- Bloqueio de envio (decisão do dono de 19/10, registrada na spec do PR #64, §5): a publicação sai com
+  `bloqueioAtivo=false` e sem alterar dado de escritório. A tela do Master que liga a chave
+  (`ConfigurarFaixasDoEspacoUseCase`) mostra ao lado dela: "Antes de ligar, confira os escritórios acima do plano
+  e defina sem limite ou uma cota própria." Motivo: o único escritório com arquivos em produção usa 24,29 GB,
+  acima do Free de 10 GB.

@@ -67,8 +67,9 @@ final class PainelMasterRepository
     }
 
     /**
-     * Escritórios fora da quarentena, com o nome do titular (`tenant.criado_por_id`) e se o titular é
-     * Master (`do_master`: a conta do Master, spec perfis-1.2-contas C5, que não se suspende nem exclui).
+     * Escritórios fora da quarentena, com o nome do titular (`tenant.criado_por_id`) e se é a conta do
+     * Master (`do_master`, spec perfis-1.2-contas C5: não se suspende nem exclui). Mesma regra de
+     * RegraDosMasters::ehContaDoMaster(): titular Master; sem titular, algum Master com vínculo ativo.
      *
      * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool}>
      */
@@ -76,7 +77,11 @@ final class PainelMasterRepository
     {
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT t.id, t.name AS nome, t.cidade, t.estado, t.created_at AS criado_em, t.is_active AS ativo,
-                    u.full_name AS titular, COALESCE(u.roles::text LIKE :papel, FALSE) AS do_master
+                    u.full_name AS titular,
+                    CASE WHEN u.id IS NOT NULL THEN u.roles::text LIKE :papel
+                         ELSE EXISTS (SELECT 1 FROM user_tenant ut JOIN "user" m ON m.id = ut.user_id
+                                       WHERE ut.tenant_id = t.id AND ut.is_active = TRUE AND m.roles::text LIKE :papel)
+                    END AS do_master
                FROM tenant t
           LEFT JOIN "user" u ON u.id = t.criado_por_id
               WHERE t.excluido_em IS NULL
