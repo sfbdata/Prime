@@ -31,7 +31,7 @@ compactação de contexto, releia antes de continuar.
 - "Comercial e e-mails": lê a tabela de indicações por um UseCase público de consulta, com limites (PR de Indicar).
 
 **PRs e pilha**
-- #53 menu do usuário: mergeado.
+- #53 menu do usuário: mergeado. Master em a7433b93 (19/10) trazido para #60, #65 e #69.
 - #60 página Meu Perfil (`meu-perfil-pagina`, base master).
 - #65 inscrições na OAB (`meu-perfil-oab`, EMPILHADO sobre #60): mergear depois do #60; em seguida trazer o
   origin/master para a branch.
@@ -39,7 +39,7 @@ compactação de contexto, releia antes de continuar.
   _globais, _dropdown, _modais, profile/index), #60/#65 (_dropdown, profile/index) e #55 (listener).
 
 **Fila de migrations** (a coordenação controla; renomear o timestamp para o atual antes de cada merge)
-- #60 `Version20261019120728`, depois de #52 → #55 → #56.
+- #60 `Version20261019120728`, depois de #55 → #56 (o #52 entrou em 19/10, master em a7433b93).
 - #65 `Version20261019130750`, depois do #60.
 - #69 `Version20261019134246`, depois do #65.
 
