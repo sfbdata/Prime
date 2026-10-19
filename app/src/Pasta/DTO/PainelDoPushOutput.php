@@ -48,7 +48,14 @@ final readonly class PainelDoPushOutput
         }
 
         $ativo = $principal->monitoramentoAtivo();
-        [$titulo, $sub] = self::textosDoEstado(true, $ativo, count($processos));
+        // Desenho 18/10 (statusSub, N:5696): N = 1 (o principal) + apensados NÃO pausados, e só com o principal ativo.
+        $monitorados = 1;
+        foreach ($pasta->getPastaProcessos() as $vinculo) {
+            if ($vinculo->getProcesso() !== $principal && $vinculo->getProcesso()->monitoramentoAtivo()) {
+                ++$monitorados;
+            }
+        }
+        [$titulo, $sub] = self::textosDoEstado(true, $ativo, $ativo ? $monitorados : 0);
 
         return new self(
             true,

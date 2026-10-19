@@ -169,7 +169,7 @@ final class PastaPushPainelControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $json = $this->json($client);
         self::assertTrue($json['ativo'], 'o cabeçalho é o do principal');
-        self::assertSame('Captura automática nos diários e no PJe · 2 processos', $json['statusSub']);
+        self::assertSame('Captura automática nos diários e no PJe', $json['statusSub'], 'desenho 18/10: apensado pausado sai da contagem');
         self::assertFalse($json['processo']['principal']);
         self::assertSame('Apensado: PROCEDIMENTO COMUM · pausado', $json['processo']['sub']);
         self::assertTrue($this->processoNoBanco((int) $processo->getId())->monitoramentoAtivo());

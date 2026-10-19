@@ -184,7 +184,7 @@ final class PastaPushPainelTelaTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contarPrevisoes((int) $processo->getId()), 'recarregar não grava de novo');
     }
 
-    #[TestDox('Vários processos: o principal com o selo, os demais recuados com sublinha e switch próprio; " · 2 processos" no subtítulo')]
+    #[TestDox('Vários processos: o principal com o selo, os demais recuados com sublinha e switch próprio; apensado pausado fora da contagem do subtítulo')]
     public function testOutrosProcessosDaPasta(): void
     {
         $client          = static::createClient();
@@ -198,7 +198,7 @@ final class PastaPushPainelTelaTest extends JusPrimeWebTestCase
 
         $painel = $this->abrir($client, $user, $tenant, (int) $pasta->getId())->filter(self::PAINEL);
 
-        self::assertSame('Captura automática nos diários e no PJe · 2 processos', $painel->filter('.ps-push-painel-sub')->text());
+        self::assertSame('Captura automática nos diários e no PJe', $painel->filter('.ps-push-painel-sub')->text(), 'desenho 18/10: apensado pausado sai da contagem');
         $linha = $painel->filter('.ps-push-painel-info > .ps-push-apensado[data-push-painel-processo="' . $apensado->getId() . '"]');
         self::assertCount(1, $linha);
         self::assertSame('0000090-44.2026.5.18.0301 · TRT18', $linha->filter('.ps-push-apensado-numero')->text());
