@@ -10,7 +10,7 @@
    Migration `Version20261019160801`.
 4. `trabalho-externo-curriculos` (F3a, §4.5) → **PR #96 em rascunho**, base `trabalho-externo-vagas-publicas`.
 5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
-   Migration `Version20261019230000`.
+   Migration `Version20261019231700`.
    Migration `Version20261019213000`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
