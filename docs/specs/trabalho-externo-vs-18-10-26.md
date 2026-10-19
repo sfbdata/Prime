@@ -46,6 +46,10 @@ o compartilhar entram como fatia própria.
   - Double opt-in: `ConfirmacaoDeEnderecoInterface` da 5d (`pedir()`, `confirmar()`, `estaConfirmado()`).
     A inscrição de alertas chama `pedir()`; **nada é enviado antes de `estaConfirmado()`**.
   - Envio: `CarteiroInterface` da 5d, tipo lista, assunto `vagas_alerta`.
+  - PR da 5d: **#99** (rascunho, sobre o #87 da 0d), assinatura final igual à combinada; origem
+    `pagina-publica-vagas`; rota pública GET/POST `/e/confirmar/{token}` (o GET só mostra, o botão grava).
+    A F2d não empilha sobre o #99 (a inscrição está no #84): sai num PR pequeno quando a primeira das
+    duas pilhas entrar no master, empilhado sobre a outra.
   - Contrato fechado com a bluejus-5d em 19/10 (spec dela `docs/specs/comercial-e-emails.md` §3.1 e
     §3.3, branch `comercial-emails`): ver §4.3. A fatia 1 dela ainda não tem PR e vai empilhada sobre
     a da 0d; o #84 segue sem enviar nada, e a F2d liga tudo num PR pequeno depois do dela. Envio só
