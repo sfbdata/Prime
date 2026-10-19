@@ -1,0 +1,6 @@
+{#
+    Avisos globais de outras frentes, no fim do body de toda página logada (incluído pelo base).
+    Cada frente cria só o próprio parcial em templates/layout/_globais/ e não mexe aqui nem no base.
+#}
+{% include 'layout/_globais/lembretes.html.twig' ignore missing %}
+{% include 'layout/_globais/aviso_espaco.html.twig' ignore missing %}
