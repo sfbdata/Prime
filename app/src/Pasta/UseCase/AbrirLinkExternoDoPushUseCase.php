@@ -43,7 +43,14 @@ final class AbrirLinkExternoDoPushUseCase
         $agora = $this->relogio->now();
         $link = $this->links->findOnePeloEndereco($endereco);
 
-        if ($link === null || $link->getPasta()->estaExcluida()) {
+        // Lápide, pasta trancada ou processo que virou sigiloso depois de criar o link: a página não
+        // confirma que o link existe nem mostra dado.
+        if (
+            $link === null
+            || $link->getPasta()->estaExcluida()
+            || $link->getPasta()->estaTrancada()
+            || $this->conteudo->temProcessoEmSegredo($link->getPasta())
+        ) {
             return PaginaDoPushCompartilhadoOutput::naoEncontrado($endereco);
         }
         if ($link->estaRevogado()) {

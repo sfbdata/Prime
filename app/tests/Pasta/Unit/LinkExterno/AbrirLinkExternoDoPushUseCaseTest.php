@@ -78,6 +78,24 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
         self::assertSame('nao_encontrado', $this->abrir($link)->estado);
     }
 
+    #[TestDox('Pasta trancada depois de criar o link: nao_encontrado')]
+    public function testPastaTrancada(): void
+    {
+        $link = $this->link();
+        $link->getPasta()->trancar($this->usuario(), $this->agora());
+
+        self::assertSame('nao_encontrado', $this->abrir($link)->estado);
+    }
+
+    #[TestDox('Processo que virou segredo de justiça depois de criar o link: nao_encontrado')]
+    public function testProcessoEmSegredo(): void
+    {
+        $link = $this->link();
+        $link->getPasta()->getProcessos()[0]->setNivelSigilo(1);
+
+        self::assertSame('nao_encontrado', $this->abrir($link)->estado);
+    }
+
     #[TestDox('Revogado e expirado não mostram dado do processo nem contam acesso')]
     public function testRevogadoEExpirado(): void
     {

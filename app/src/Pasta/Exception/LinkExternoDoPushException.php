@@ -14,6 +14,9 @@ final class LinkExternoDoPushException extends \DomainException
     public const PASTA_CANCELADA = 'A pasta está cancelada: o link externo fica indisponível.';
     public const PASTA_ARQUIVADA = 'A pasta está arquivada: reative para compartilhar o Push.';
     public const SEM_MOVIMENTACOES = 'Ainda não há movimentações para compartilhar.';
+    // Fora do desenho (decisão do orquestrador, 19/10): dado sigiloso nunca vai a uma página pública.
+    public const SEGREDO_DE_JUSTICA = 'O processo está em segredo de justiça: o link externo fica indisponível.';
+    public const PASTA_TRANCADA = 'A pasta está trancada: o link externo fica indisponível.';
 
     public static function bloqueio(string $motivo): self
     {

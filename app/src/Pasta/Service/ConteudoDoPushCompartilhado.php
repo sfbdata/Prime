@@ -91,10 +91,28 @@ final class ConteudoDoPushCompartilhado
         if ($pasta->getSituacao() === Pasta::SITUACAO_ARQUIVADA) {
             return LinkExternoDoPushException::PASTA_ARQUIVADA;
         }
+        if ($pasta->estaTrancada()) {
+            return LinkExternoDoPushException::PASTA_TRANCADA;
+        }
+        if ($this->temProcessoEmSegredo($pasta)) {
+            return LinkExternoDoPushException::SEGREDO_DE_JUSTICA;
+        }
         if ($this->movimentacoes($pasta, $tenant) === []) {
             return LinkExternoDoPushException::SEM_MOVIMENTACOES;
         }
 
         return null;
+    }
+
+    /** Segredo de justiça em QUALQUER processo da pasta: a página pública mostra o push de todos. */
+    public function temProcessoEmSegredo(Pasta $pasta): bool
+    {
+        foreach ($pasta->getProcessos() as $processo) {
+            if (($processo->getNivelSigilo() ?? 0) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
