@@ -26,13 +26,15 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * "Assinar por R$ X/mês" do checkout (desenho 08). Grava o pedido "aguardando confirmação" e pede ao
  * gateway escolhido pelo Master o começo do checkout. Nenhum dado de cartão passa por aqui.
  *
- * Só o primário (ou o Master) assina; só plano pago maior que o limite atual; uma assinatura viva por
+ * Só o primário assina (D4); só plano pago maior que o limite atual; uma assinatura viva por
  * escritório (para trocar de plano, cancela a atual em Meu Perfil: evita duas cobranças no mesmo cartão).
  */
 final class IniciarAssinaturaUseCase
 {
     public const FALHA_NO_GATEWAY = 'O gateway de pagamento não respondeu. Tente de novo em instantes.';
     public const JA_ASSINA = 'Este escritório já tem uma assinatura ativa. Para trocar de plano, cancele a atual em Meu Perfil.';
+    public const CHECKOUT_ABERTO = 'Já existe um pagamento em andamento para este escritório. Conclua na página do gateway ou tente de novo em uma hora.';
+    private const MINUTOS_DO_CHECKOUT = 60;
 
     public function __construct(
         private readonly GatewaysDeAssinatura $gateways,
@@ -63,7 +65,9 @@ final class IniciarAssinaturaUseCase
 
     private function exigirGateway(Solicitante $quem): GatewayDeAssinatura
     {
-        if (!$quem->ehPrimario && !$quem->ehMaster) {
+        // D4: quem compra é o primário. O Master não assina pelo cliente: o pagador (e o e-mail da nota)
+        // seria ele.
+        if (!$quem->ehPrimario) {
             throw new \DomainException('Quem amplia o espaço é o usuário primário do escritório.');
         }
 
@@ -81,11 +85,21 @@ final class IniciarAssinaturaUseCase
         return $plano;
     }
 
+    /**
+     * Uma assinatura viva por escritório: uma que ainda vale (não cancelada) ou um checkout aberto há menos
+     * de uma hora (o checkout do gateway expira em 60 minutos; dois pagos seriam duas cobranças).
+     */
     private function exigirSemAssinaturaViva(int $tenantId): void
     {
+        $agora = new \DateTimeImmutable();
+        $carencia = $this->configuracao->atual()->getDiasDeCarencia();
         foreach ($this->assinaturas->doTenant($tenantId) as $assinatura) {
-            if (\in_array($assinatura->getSituacao(), [SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente], true)) {
+            $situacao = $assinatura->getSituacao();
+            if ($situacao !== SituacaoDaAssinatura::Cancelada && $assinatura->vigenteEm($agora, $carencia)) {
                 throw new \DomainException(self::JA_ASSINA);
+            }
+            if ($situacao === SituacaoDaAssinatura::Aguardando && $assinatura->getCriadaEm() > $agora->modify('-' . self::MINUTOS_DO_CHECKOUT . ' minutes')) {
+                throw new \DomainException(self::CHECKOUT_ABERTO);
             }
         }
     }

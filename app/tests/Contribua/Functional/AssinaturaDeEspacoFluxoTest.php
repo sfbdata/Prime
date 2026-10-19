@@ -232,6 +232,58 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422, 'o mesmo pedido não assina duas vezes');
     }
 
+    #[TestDox('Confirmado à mão antes do aviso: a assinatura do gateway se liga ao pedido e o cancelar chega ao gateway')]
+    public function testConfirmacaoManualDepoisWebhook(): void
+    {
+        $this->assinar($this->primario);
+        $idNoGateway = (string) $this->pedido()->getIdDoCheckout();
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $this->post('/contribua/pagamento/' . $this->pedido()->getId() . '/confirmar', []);
+
+        $this->gateway->marcarComoPaga($idNoGateway, new \DateTimeImmutable('+1 month'));
+        $this->webhook('evt-depois', $idNoGateway);
+        self::assertSame($idNoGateway, $this->pedido()->getIdDaAssinatura());
+
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        self::assertTrue($this->post('/contribua/assinatura/cancelar', [])['ok']);
+        self::assertContains($idNoGateway, $this->gateway->canceladas);
+    }
+
+    #[TestDox('Master navegando em outro escritório confirma o pedido e o plano muda de verdade; a auditoria vai para a conta do pedido')]
+    public function testMasterDeOutroEscritorioConfirma(): void
+    {
+        $this->assinar($this->primario);
+        $id = (int) $this->pedido()->getId();
+        $outro = $this->tenant();
+        $masterDeFora = $this->pessoa('master_fora', false, ['ROLE_SUPER_ADMIN'], $outro);
+
+        $this->logarComTenant($this->client, $masterDeFora, $outro);
+        self::assertTrue($this->post('/contribua/pagamento/' . $id . '/confirmar', [])['ok']);
+
+        self::assertSame('essencial', $this->planoDoEscritorio());
+        $auditoria = static::getContainer()->get(Connection::class)->fetchOne("SELECT tenant_id FROM audit_log WHERE entity_class = ? AND entity_id = ? AND action = 'update' ORDER BY id DESC LIMIT 1", [AssinaturaDeEspaco::class, (string) $id]);
+        self::assertSame((int) $this->escritorio->getId(), (int) $auditoria);
+    }
+
+    #[TestDox('Dois checkouts abertos ao mesmo tempo não passam: o segundo pede para concluir o primeiro')]
+    public function testDoisCheckoutsAbertos(): void
+    {
+        $this->assinar($this->primario);
+        $segundo = $this->assinar($this->primario, 'profissional');
+
+        self::assertFalse($segundo['ok']);
+        self::assertStringContainsString('pagamento em andamento', (string) $segundo['erro']);
+    }
+
+    #[TestDox('O Master não assina pelo escritório (D4: quem compra é o primário)')]
+    public function testMasterNaoAssina(): void
+    {
+        $resposta = $this->assinar($this->master);
+
+        self::assertFalse($resposta['ok']);
+        self::assertSame(0, $this->contarAssinaturas());
+    }
+
     /** @return array<string, mixed> */
     private function assinar(User $quem, string $plano = 'essencial'): array
     {
@@ -241,8 +293,10 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
     }
 
     /** @return array<string, mixed> */
+    /** Sem sessão, como o gateway chama: o filtro de tenant fica desligado. */
     private function webhook(string $evento, string $assinatura, string $token = GatewayFalso::TOKEN_DO_AVISO): array
     {
+        $this->client->getCookieJar()->clear();
         $this->client->request('POST', '/api/webhooks/falso', [], [], ['HTTP_X_TOKEN' => $token, 'CONTENT_TYPE' => 'application/json'], (string) json_encode(['id' => $evento, 'evento' => 'assinatura.atualizada', 'assinatura' => $assinatura]));
 
         return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
@@ -302,8 +356,9 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
     }
 
     /** @param list<string> $roles */
-    private function pessoa(string $prefixo, bool $primario, array $roles = ['ROLE_USER']): User
+    private function pessoa(string $prefixo, bool $primario, array $roles = ['ROLE_USER'], ?Tenant $escritorio = null): User
     {
+        $escritorio ??= $this->escritorio;
         $user = new User();
         $user->setEmail($prefixo . '_' . uniqid() . '@test.com');
         $user->setFullName('Pessoa ' . ucfirst($prefixo));
@@ -313,12 +368,12 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         $this->em->persist($user);
 
         $papel = new TenantRole();
-        $papel->setTenant($this->escritorio);
+        $papel->setTenant($escritorio);
         $papel->setName(($primario ? 'Primário ' : 'Equipe ') . uniqid());
         $papel->setIsSystem($primario);
         $this->em->persist($papel);
 
-        $vinculo = new UserTenant($user, $this->escritorio);
+        $vinculo = new UserTenant($user, $escritorio);
         $vinculo->setTenantRole($papel);
         $this->em->persist($vinculo);
         $this->em->flush();

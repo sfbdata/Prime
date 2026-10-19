@@ -11,6 +11,7 @@ use App\Contribua\Gateway\GatewayDeAssinatura;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Gateway\SituacaoNoGateway;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -30,6 +31,7 @@ final class AtualizacaoDaAssinatura
         private readonly AssinaturaDeEspacoRepository $assinaturas,
         private readonly PlanoVigenteDoEscritorio $planoVigente,
         private readonly AvisoAoPrimario $avisoAoPrimario,
+        private readonly AvisoAoMaster $avisoAoMaster,
         private readonly EntityManagerInterface $em,
         private readonly UrlGeneratorInterface $urls,
         private readonly LoggerInterface $logger,
@@ -42,28 +44,65 @@ final class AtualizacaoDaAssinatura
         return $this->aplicar($gateway, $gateway->consultar($idDaAssinatura));
     }
 
+    /**
+     * Tudo numa transação, com o pedido travado (`FOR UPDATE`): o Asaas manda `SUBSCRIPTION_CREATED` e
+     * `PAYMENT_CONFIRMED` juntos, e o webhook pode cruzar com a conciliação. Quem chega depois vê o pedido
+     * já mudado e não avisa de novo. A nota fiscal e os avisos saem depois do COMMIT.
+     */
     public function aplicar(GatewayDeAssinatura $gateway, SituacaoNoGateway $noGateway, ?AssinaturaDeEspaco $pedido = null): ?AssinaturaDeEspaco
     {
-        $pedido ??= $this->localizar($gateway->codigo(), $noGateway);
+        $resultado = $this->em->wrapInTransaction(fn (): ?array => $this->aplicarTravado($gateway->codigo(), $noGateway, $pedido));
+        if ($resultado === null) {
+            return null;
+        }
+
+        [$pedido, $mudou, $acabouDeLigar] = $resultado;
+        if ($acabouDeLigar) {
+            $this->ligarNotaFiscal($gateway, $noGateway->idDaAssinatura);
+        }
+        if ($mudou) {
+            $this->avisarPrimario($pedido);
+            $this->conferirDuplicata($pedido);
+        }
+
+        return $pedido;
+    }
+
+    /** @return array{AssinaturaDeEspaco, bool, bool}|null */
+    private function aplicarTravado(string $codigoDoGateway, SituacaoNoGateway $noGateway, ?AssinaturaDeEspaco $pedido): ?array
+    {
+        $pedido ??= $this->localizar($codigoDoGateway, $noGateway);
         if ($pedido === null) {
-            $this->logger->warning('Contribua: assinatura do gateway sem pedido no BlueJus', ['gateway' => $gateway->codigo(), 'assinatura' => $noGateway->idDaAssinatura]);
+            $this->logger->warning('Contribua: assinatura do gateway sem pedido no BlueJus', ['gateway' => $codigoDoGateway, 'assinatura' => $noGateway->idDaAssinatura]);
 
             return null;
         }
 
-        if ($pedido->getIdDaAssinatura() === null) {
-            $this->ligarNotaFiscal($gateway, $noGateway->idDaAssinatura);
-        }
+        $this->em->refresh($pedido, LockMode::PESSIMISTIC_WRITE);
+        $acabouDeLigar = $pedido->getIdDaAssinatura() === null;
         $pedido->vincularNoGateway($noGateway->idDaAssinatura, $noGateway->idDoCliente);
         $mudou = $pedido->aplicar($noGateway);
         $this->planoVigente->atualizar((int) $pedido->getTenant()->getId(), new \DateTimeImmutable());
-        $this->em->flush();
 
-        if ($mudou) {
-            $this->avisarPrimario($pedido);
+        return [$pedido, $mudou, $acabouDeLigar];
+    }
+
+    /**
+     * Duas assinaturas pagas no mesmo escritório (dois checkouts abertos e pagos) seriam duas cobranças no
+     * cartão. O BlueJus não cancela sozinho qual delas: avisa o Master para cancelar a que sobra.
+     */
+    private function conferirDuplicata(AssinaturaDeEspaco $pedido): void
+    {
+        if ($pedido->getSituacao() !== SituacaoDaAssinatura::Ativa) {
+            return;
         }
-
-        return $pedido;
+        $outras = array_filter(
+            $this->assinaturas->doTenant((int) $pedido->getTenant()->getId()),
+            static fn (AssinaturaDeEspaco $a): bool => $a->getId() !== $pedido->getId() && \in_array($a->getSituacao(), [SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente], true),
+        );
+        if ($outras !== []) {
+            $this->avisoAoMaster->avisar($pedido->getTenant(), AvisoAoPrimario::TIPO_ASSINATURA, sprintf('Atenção: %s tem %d assinaturas de espaço ativas no cartão. Cancele a que sobra no painel do gateway.', (string) $pedido->getTenant()->getName(), \count($outras) + 1), $this->urls->generate('contribua_index') . '#espaco');
+        }
     }
 
     /**
@@ -93,12 +132,13 @@ final class AtualizacaoDaAssinatura
 
         $candidatos = $this->assinaturas->semAssinaturaNoGateway($tenantId, $codigoDoGateway);
         foreach ($candidatos as $candidato) {
-            if ($candidato->getValorCentavos() === $noGateway->valorCentavos) {
+            if ($noGateway->valorCentavos === null || $candidato->getValorCentavos() === $noGateway->valorCentavos) {
                 return $candidato;
             }
         }
 
-        return $candidatos[0] ?? null;
+        // Valor diferente do de qualquer pedido: não libera plano nenhum por palpite (fica no log para o Master).
+        return null;
     }
 
     /** `BJ000007-essencial-42` ou `BJ000007` → 7. */
@@ -117,7 +157,7 @@ final class AtualizacaoDaAssinatura
         $ate = $pedido->getPagaAte()?->format('d/m/Y') ?? '';
         $mensagem = match ($pedido->getSituacao()) {
             SituacaoDaAssinatura::Ativa => sprintf('Pagamento confirmado: seu espaço passou para %d GB (plano %s). Próxima cobrança em %s.', $plano->getCotaGb(), $plano->getNome(), $ate),
-            SituacaoDaAssinatura::Inadimplente => sprintf('A cobrança do plano %s não foi aprovada. Atualize o cartão no gateway: o espaço continua por alguns dias de carência.', $plano->getNome()),
+            SituacaoDaAssinatura::Inadimplente => $ate === '' ? sprintf('A primeira cobrança do plano %s não foi aprovada. Tente de novo em Contribua, com outro cartão.', $plano->getNome()) : sprintf('A cobrança do plano %s não foi aprovada. Atualize o cartão no gateway: o espaço continua por alguns dias de carência.', $plano->getNome()),
             SituacaoDaAssinatura::Cancelada => $ate === '' ? null : sprintf('Assinatura do plano %s cancelada. O espaço vale até %s e nenhum arquivo é apagado.', $plano->getNome(), $ate),
             SituacaoDaAssinatura::Aguardando => null,
         };
