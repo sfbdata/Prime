@@ -15,8 +15,14 @@ use PHPUnit\Framework\TestCase;
  */
 final class EspacoDoEscritorioSoNoContribuaArquiteturaTest extends TestCase
 {
-    /** Fora do Contribua, só a purga de escritório toca a tabela (apaga a linha do escritório). */
+    /**
+     * Fora do Contribua, só a purga de escritório toca a tabela (apaga a linha do escritório). A trilha
+     * do Master cita a classe como NOME de entidade auditada, sem consultar (spec perfis-1.2-planos-e-limites
+     * P7): filtra o `audit_log` por `entity_class` e traduz o `changes` gravado.
+     */
     private const FORA_DO_CONTRIBUA_PERMITIDOS = [
+        'src/Master/Repository/PainelMasterRepository.php',
+        'src/Master/Service/RotuloDeAuditoriaDoEspaco.php',
         'src/Tenant/UseCase/PurgarEscritorioUseCase.php',
     ];
 

@@ -18,7 +18,9 @@ risco **MÉDIO** (limites e preços; nada de identidade) · aberta em 19/10/2026
   - bloqueio de envio desligado, com o aviso ao lado da chave.
 - **Referência visual:** `docs/design/perfis-1.2/referencia-planos-e-limites.md`, com as capturas no scratchpad da
   sessão b5.
-- **Próximo:** implementar P1 a P8, revisar, fazer a verificação visual e abrir o PR empilhado.
+- **Implementado (19/10):** P1 a P11 na worktree, com testes verdes na frente. Pontos para o orquestrador no
+  relatório da implementação (leitura das faixas, teste de arquitetura, convite aceito sem nova checagem).
+- **Próximo:** revisar, fazer a verificação visual e abrir o PR empilhado.
 
 ## 1. Fontes
 
@@ -59,6 +61,9 @@ risco **MÉDIO** (limites e preços; nada de identidade) · aberta em 19/10/2026
 | P6 | **Faixas de alerta** em Armazenamento: os 4 campos (Atenção 70, Alerta 90, Crítico 95, Bloqueio 100), a nota do desenho e a chave do bloqueio com o aviso "Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.". Grava por `ConfigurarFaixasDoEspacoUseCase`, no escopo de plataforma. |
 | P7 | **Auditoria** na trilha do Master: "Limite de armazenamento" / "Limite de usuários" com "ant → novo · justificativa" (o rótulo sai da coluna que mudou no diff de `EspacoDoEscritorio`), "Plano alterado" com os campos e "Faixas de alerta alteradas". |
 | P8 | **Limite de usuários no convite**: `RetratoDoEspaco::aceitaMaisUmUsuario(usuariosAtuais)` no envio de convite do escritório. Só recusa com o bloqueio ligado. A mensagem é a do desenho, se houver; senão, a da Contribua. |
+| P9 | **KPI ARMAZENAMENTO** da Visão geral (desenho, linha 688): "de {cota} GB contratados · livre {X GB}", barra (uso/cota) e cor do ícone e da barra pela faixa (`faixa()` do desenho, com as faixas configuradas). A cota soma os limites do `RetratoDoEspaco` das contas fora da quarentena; conta sem limite fica fora da soma (e o uso dela fora do % e do livre). Sem nenhuma conta com limite, fica o texto de antes. |
+| P10 | **Selo da auditoria** no botão "Segurança e auditoria" desde a abertura do painel (desenho, linha 678): o total vem no JSON da Visão geral (`registrosDeAuditoria`, mesmo filtro e teto da trilha). |
+| P11 | **"Alerta de consumo" do Sistema** na trilha (desenho, linhas 481, 604 e 700): o ouvinte `AlertaDeConsumoNaTrilha` (domínio Master) do evento `EspacoAtingiuFaixa` da Contribua grava no `audit_log` a conta do evento, sem responsável ("Sistema"), ação própria `alerta` e o detalhe "Passou de N% do armazenamento", em que N é o início da faixa alcançada. O chip "Alertas" conta a linha e o ícone é `bi-exclamation-triangle`. |
 
 ## 3. Testes
 
@@ -96,3 +101,7 @@ Contrato com a 7d (19/10):
 - A b5 só lê: saídas por UF da pessoa (mesmo critério das entradas; se não houver usuário, vale a UF do escritório)
   nos últimos 30 dias e nos 30 anteriores, com o filtro "Só primários" por `era_primario`.
 - Isso troca o title "só entradas: saídas ainda não são medidas" pela tendência completa do desenho.
+- "sem limite" no modal só no armazenamento (o `semLimite` do contrato libera espaço e usuários); no modal de
+  usuários, vazio não volta ao limite do plano (o contrato aceita nulo, a tela não oferece);
+- conta em quarentena: sem os itens de limite no menu e recusada no servidor; na lista, "uso não medido";
+- previsão negativa (uso acima do limite) sai como "menos de 1 mês", como a fórmula do desenho.

@@ -11,11 +11,13 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Repository\PainelMasterRepository;
 
 /**
  * Traduz uma linha do `audit_log` para o rótulo humano da trilha "Segurança e auditoria" e um
  * detalhe CURTO. O detalhe cita só os NOMES dos campos alterados, nunca os valores: o `changes`
  * pode carregar dado sensível (hash de senha, token de convite, CPF) e não sai cru para a tela.
+ * Exceção: limites, planos e faixas da Contribua ({@see RotuloDeAuditoriaDoEspaco}), sem dado sensível.
  */
 final class RotuloDeAuditoria
 {
@@ -70,6 +72,17 @@ final class RotuloDeAuditoria
 
         if ($acao === 'purge') {
             return ['acao' => 'Conta excluída definitivamente', 'detalhe' => 'Purga após a quarentena de exclusão'];
+        }
+
+        // Alerta de consumo do Sistema (AlertaDeConsumoNaTrilha): o limiar da faixa alcançada.
+        if ($acao === PainelMasterRepository::ACAO_ALERTA_DE_CONSUMO) {
+            return ['acao' => 'Alerta de consumo', 'detalhe' => sprintf('Passou de %d%% do armazenamento', (int) ($mudancas['limiar'] ?? 0))];
+        }
+
+        // Limites, planos e faixas (Contribua): detalhe com os valores, ver RotuloDeAuditoriaDoEspaco.
+        $doEspaco = RotuloDeAuditoriaDoEspaco::traduzir($acao, $entidade, $mudancas);
+        if ($doEspaco !== null) {
+            return $doEspaco;
         }
 
         $rotulos = self::ENTIDADE[$entidade] ?? ['Registro criado', 'Registro alterado', 'Registro excluído'];

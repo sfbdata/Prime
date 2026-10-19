@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\CriarConviteEscritorioInput;
+use App\Contribua\Repository\UsuariosDoEscritorioRepository;
+use App\Contribua\Service\SituacaoDoEspaco;
 use App\Entity\Auth\Invitation;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
@@ -20,6 +22,8 @@ final class CriarConviteEscritorioUseCase
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EntityManagerInterface $em,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly SituacaoDoEspaco $situacaoDoEspaco,
+        private readonly UsuariosDoEscritorioRepository $usuariosDoEscritorio,
     ) {}
 
     public function executar(CriarConviteEscritorioInput $input): Invitation
@@ -29,6 +33,8 @@ final class CriarConviteEscritorioUseCase
         if ($input->tenantRole->isSystem()) {
             $this->regraDosPrimarios->garantirQuePodeGerirPrimarios($input->criadoPor, $input->tenant);
         }
+
+        $this->exigirVagaNoEscritorio($input);
 
         $email = strtolower(trim($input->email));
 
@@ -52,5 +58,22 @@ final class CriarConviteEscritorioUseCase
         $this->em->flush();
 
         return $invitation;
+    }
+
+    /**
+     * Limite de usuários do plano ou do Master (spec perfis-1.2-planos-e-limites P8): a regra é da
+     * Contribua (`RetratoDoEspaco::aceitaMaisUmUsuario`), que só recusa com o bloqueio ligado. Conta
+     * quem já está no escritório (vínculo ativo de pessoa ativa), como o "Definir limite de usuários".
+     */
+    private function exigirVagaNoEscritorio(CriarConviteEscritorioInput $input): void
+    {
+        $tenantId = (int) $input->tenant->getId();
+        $retrato = $this->situacaoDoEspaco->doEscritorio($tenantId);
+        if (!$retrato->aceitaMaisUmUsuario($this->usuariosDoEscritorio->quantos($tenantId))) {
+            throw new \DomainException(sprintf(
+                'Este escritório chegou ao limite de %d usuários. Para convidar mais pessoas, amplie o plano ou fale com o suporte do BlueJus.',
+                (int) $retrato->limiteUsuarios,
+            ));
+        }
     }
 }

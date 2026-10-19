@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Master\UseCase;
 
+use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
+use App\Contribua\Service\SituacaoDoEspaco;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Service\FaixaEtaria;
 use App\Master\Service\InscricaoOab;
@@ -14,6 +16,11 @@ use Psr\Clock\ClockInterface;
  * "Visão geral" do Painel do Master (spec perfis-master §4.3): os 8 KPIs, o gráfico Crescimento,
  * o mapa "Onde estamos atuando" e a faixa etária. Só leitura, só números: nenhum nome, e-mail ou
  * CPF sai daqui.
+ *
+ * `armazenamento` é o KPI do desenho 1.2 (linha 688; spec perfis-1.2-planos-e-limites P9): soma dos limites
+ * do RetratoDoEspaco das contas fora da quarentena (conta sem limite fica fora da soma e o uso dela também),
+ * com a faixa da função `faixa()` do desenho. Nulo quando nenhuma conta tem limite. `registrosDeAuditoria`
+ * é o selo do botão "Segurança e auditoria" desde a abertura do painel (linha 678; P10).
  */
 final class ConsultarVisaoGeralUseCase
 {
@@ -22,6 +29,8 @@ final class ConsultarVisaoGeralUseCase
     public function __construct(
         private readonly PainelMasterRepository $repositorio,
         private readonly ClockInterface $relogio,
+        private readonly SituacaoDoEspaco $situacaoDoEspaco,
+        private readonly ConfiguracaoDoEspacoRepository $configuracoes,
     ) {
     }
 
@@ -41,8 +50,56 @@ final class ConsultarVisaoGeralUseCase
             'crescimento' => self::crescimento($this->repositorio->entradasPorMes(), $hoje),
             'mapa'        => MapaDeAtuacao::montar($pessoas, $escritorios, $hoje),
             'idades'      => FaixaEtaria::distribuir(array_column($pessoas, 'nascimento'), $hoje),
+            'armazenamento' => $this->armazenamentoContratado($escritorios, $consumo),
+            'registrosDeAuditoria' => $this->repositorio->contarTrilhaAdministrativa(
+                ConsultarAuditoriaUseCase::LIMITE,
+                $hoje->modify(sprintf('-%d months', ConsultarAuditoriaUseCase::MESES)),
+            ),
             'geradoEm'    => $hoje->format(\DATE_ATOM),
         ];
+    }
+
+    /**
+     * @param list<array{id: int}>                                              $escritorios
+     * @param array<int, array{documentos: int, bytes: int, bytesRecentes: int}> $consumo
+     *
+     * @return array{cotaGb: int, bytesUsados: int, bytesLivres: int, percentual: int, faixa: string}|null
+     */
+    private function armazenamentoContratado(array $escritorios, array $consumo): ?array
+    {
+        [$cota, $uso] = [0, 0];
+        foreach ($escritorios as $e) {
+            $retrato = $this->situacaoDoEspaco->retratar($e['id'], $consumo[$e['id']]['bytes'] ?? 0);
+            if ($retrato->bytesLimite !== null) {
+                [$cota, $uso] = [$cota + $retrato->bytesLimite, $uso + $retrato->bytesUsados];
+            }
+        }
+        if ($cota === 0) {
+            return null;
+        }
+        $percentual = (int) round($uso / $cota * 100);
+
+        return [
+            'cotaGb'      => intdiv($cota, self::BYTES_POR_GB),
+            'bytesUsados' => $uso,
+            'bytesLivres' => max(0, $cota - $uso),
+            'percentual'  => $percentual,
+            'faixa'       => $this->faixa($percentual),
+        ];
+    }
+
+    /** A função `faixa()` do desenho (linha 593), com as faixas que o Master configura. */
+    private function faixa(int $percentual): string
+    {
+        $c = $this->configuracoes->atual();
+
+        return match (true) {
+            $percentual >= $c->getFaixaBloqueio() => 'bloqueio',
+            $percentual >= $c->getFaixaCritico() => 'critico',
+            $percentual >= $c->getFaixaAlerta() => 'alerta',
+            $percentual >= $c->getFaixaAtencao() => 'atencao',
+            default => 'livre',
+        };
     }
 
     /**
