@@ -1,0 +1,77 @@
+{# E-mail do "Avisar quando chegar" para o responsável da pasta (spec push-avisar-quando-chegar §3).
+   Contexto: `nome`, `escritorio`, `aviso` (AvisoDaPastaOutput), `linkDaPasta`, `linkDescadastro`.
+   Só o resumo de cada movimentação (até 220 caracteres), nunca o teor inteiro. #}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ aviso.mensagem }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+                    <tr>
+                        <td style="background-color:#0a6fa0;padding:24px 32px;">
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">{{ escritorio ?: 'BlueJus' }}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;">
+                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">Olá, {{ nome }}!</p>
+
+                            <p style="margin:0 0 20px;font-size:15px;color:#444444;line-height:1.6;">
+                                {{ aviso.mensagem }}.
+                            </p>
+
+                            {% for mov in aviso.movimentacoesDoEmail %}
+                                <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border:1px solid #dde5eb;border-radius:6px;">
+                                    <tr>
+                                        <td style="padding:12px 16px;">
+                                            <p style="margin:0 0 4px;font-size:14px;font-weight:bold;color:#12242f;">
+                                                {{ mov.tipo }}{% if mov.data %} de {{ mov.data }}{% endif %}
+                                            </p>
+                                            {% if mov.orgao %}
+                                                <p style="margin:0 0 6px;font-size:12px;color:#6b8494;">{{ mov.orgao }}</p>
+                                            {% endif %}
+                                            {% if mov.resumo %}
+                                                <p style="margin:0;font-size:13px;color:#444444;line-height:1.5;">{{ mov.resumo }}</p>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
+                            {% endfor %}
+                            {% if aviso.restantesForaDoEmail > 0 %}
+                                <p style="margin:0 0 12px;font-size:13px;color:#6b8494;">E mais {{ aviso.restantesForaDoEmail }} movimentação(ões) na pasta.</p>
+                            {% endif %}
+
+                            <table cellpadding="0" cellspacing="0" style="margin:12px 0 24px;">
+                                <tr>
+                                    <td style="border-radius:6px;background-color:#0a6fa0;">
+                                        <a href="{{ linkDaPasta }}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
+                                            Abrir a pasta
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin:0;font-size:13px;color:#888888;line-height:1.5;">
+                                Você recebe este aviso porque é o responsável pela pasta e o aviso por e-mail está ligado na aba Push.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
+                            <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.5;">
+                                <a href="{{ linkDescadastro }}" style="color:#888888;">Não quero mais receber estes avisos</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

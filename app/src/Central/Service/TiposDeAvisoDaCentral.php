@@ -38,7 +38,7 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_TAREFA_CONCLUIDA => ['grupo' => 'metas', 'rotulo' => 'Meta concluída', 'icone' => 'bi-check2-circle', 'cor' => self::VERDE, 'nivel' => 0],
             Notificacao::TIPO_PASTA_MENCAO_REGISTRO, Notificacao::TIPO_NOTA_TECNICA_MENCAO => ['grupo' => 'mencoes', 'rotulo' => 'Menção', 'icone' => 'bi-at', 'cor' => self::AZUL, 'nivel' => 2],
             Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO => ['grupo' => 'atencao', 'rotulo' => 'Para você', 'icone' => 'bi-person-check', 'cor' => self::AMBAR, 'nivel' => 2],
-            Notificacao::TIPO_DJEN_PUBLICACAO => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
+            Notificacao::TIPO_DJEN_PUBLICACAO, Notificacao::TIPO_PUSH_PUBLICACAO_PASTA => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AMBAR, 'nivel' => 1],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],
             default => ['grupo' => null, 'rotulo' => 'Aviso', 'icone' => 'bi-bell', 'cor' => self::PETROLEO, 'nivel' => 1],

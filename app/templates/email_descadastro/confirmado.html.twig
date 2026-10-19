@@ -1,0 +1,29 @@
+{# Confirmação do descadastro de e-mail (rota pública `email_descadastro`, spec push-avisar-quando-chegar D3).
+   Página avulsa, sem o layout do sistema: quem chega aqui pode não estar logado. #}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Descadastro confirmado</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <main style="max-width:520px;margin:48px auto;padding:0 16px;">
+        <div style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
+            <div style="background-color:#0a6fa0;padding:20px 28px;">
+                <p style="margin:0;font-size:20px;font-weight:bold;color:#ffffff;">BlueJus</p>
+            </div>
+            <div style="padding:28px;">
+                <h1 style="margin:0 0 12px;font-size:18px;color:#1a1a2e;">Descadastro confirmado</h1>
+                <p style="margin:0 0 12px;font-size:15px;color:#444444;line-height:1.6;">
+                    Você não vai mais receber estes avisos por e-mail{% if escritorio %} de {{ escritorio }}{% endif %}.
+                </p>
+                <p style="margin:0;font-size:13px;color:#888888;line-height:1.5;">
+                    Pode fechar esta página. Os demais e-mails do sistema, como o de redefinição de senha, continuam chegando.
+                </p>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

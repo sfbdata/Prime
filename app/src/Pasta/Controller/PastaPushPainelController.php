@@ -7,8 +7,11 @@ namespace App\Pasta\Controller;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Enum\ChaveDoAvisoDoPush;
 use App\Pasta\Exception\BuscaNoPushMuitoFrequenteException;
+use App\Pasta\Exception\ChaveDoAvisoTravadaException;
 use App\Pasta\Exception\ProcessoForaDaPastaException;
+use App\Pasta\UseCase\AlternarAvisoDoPushUseCase;
 use App\Pasta\UseCase\AlternarMonitoramentoDaPastaUseCase;
 use App\Pasta\UseCase\BuscarAgoraNoPushUseCase;
 use App\Service\PermissionChecker;
@@ -20,15 +23,17 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Ações do cartão da coluna direita da aba Push (desenho 1.2.3, dc L.2568-2626; spec
- * push-painel-monitoramento §1 e §2): os switches do monitoramento (um por processo da pasta; o
- * campo `processo` diz qual, e processo de fora da pasta dá 404) e o "Buscar agora".
+ * Ações dos cartões da coluna direita da aba Push (desenho 1.2.3, dc L.2568-2636; specs
+ * push-painel-monitoramento §1 e §2 e push-avisar-quando-chegar §2): os switches do monitoramento
+ * (um por processo da pasta; o campo `processo` diz qual, e processo de fora da pasta dá 404), o
+ * "Buscar agora" e as chaves do "Avisar quando chegar" (campo `chave`; desconhecida ou travada, 422).
  *
  * Guarda, nas duas: a pasta é do escritório da sessão (404, nunca 403, para não revelar que existe:
  * o resolver busca por PK e o TenantFilter não se aplica a find()), a permissão sobre a pasta (403)
- * e o CSRF (403). Pausar muda o processo, que é dado do caso: exige EDITAR a pasta. Buscar só
- * consulta o diário e grava o que ele publicou: VER a pasta basta, como no "marcar como lida".
- * Na pasta excluída (lápide) as duas são recusadas pelo PastaSomenteLeituraListener (são POST).
+ * e o CSRF (403). Pausar muda o processo, que é dado do caso: exige EDITAR a pasta; as chaves do
+ * aviso também (são configuração da pasta). Buscar só consulta o diário e grava o que ele publicou:
+ * VER a pasta basta, como no "marcar como lida".
+ * Na pasta excluída (lápide) as três são recusadas pelo PastaSomenteLeituraListener (são POST).
  */
 #[Route('/pasta')]
 final class PastaPushPainelController extends AbstractController
@@ -88,6 +93,30 @@ final class PastaPushPainelController extends AbstractController
         $this->addFlash($busca->tom, $busca->mensagem);
 
         return $this->json(['sucesso' => true, 'novas' => $busca->novas, 'mensagem' => $busca->mensagem]);
+    }
+
+    #[Route('/{id}/push/avisos', name: 'pasta_push_avisos', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function alternarAviso(Pasta $pasta, Request $request, AlternarAvisoDoPushUseCase $alternar): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $recusa = $this->recusa($pasta, $usuario, 'edit', 'pasta_push_avisos_', $request);
+        if ($recusa !== null) {
+            return $recusa;
+        }
+
+        $chave = ChaveDoAvisoDoPush::tryFrom((string) $request->request->get('chave'));
+        if ($chave === null) {
+            return $this->json(['erro' => 'Aviso desconhecido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $avisos = $alternar->executar($pasta, $chave, $usuario, $this->tenant());
+        } catch (ChaveDoAvisoTravadaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['sucesso' => true, 'avisos' => $avisos->paraJson()]);
     }
 
     /** Guarda comum: escritório (404), permissão sobre a pasta (403) e CSRF (403). */

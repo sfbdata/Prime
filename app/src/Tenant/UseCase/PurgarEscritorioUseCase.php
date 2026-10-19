@@ -178,6 +178,9 @@ final class PurgarEscritorioUseCase
         ['pasta_favorita', 'tenant_id = :tenant'],
         // Destaque de linha da Lista do Expediente (por usuário, E12): mesmo caso do favorito.
         ['pasta_destaque', 'tenant_id = :tenant'],
+        // Chaves do "Avisar quando chegar" do Push (por pasta): cairiam pela CASCADE de `pasta`, mas a FK
+        // de tenant é NO ACTION; deleção explícita aqui.
+        ['pasta_aviso_push', 'tenant_id = :tenant'],
         // Prazos e audiências da pasta (E12b): cairiam pela CASCADE de `pasta`; FK de tenant NO ACTION.
         ['pasta_prazo', 'tenant_id = :tenant'],
         // Andamento da pasta em fases (E12b): mesmo caso.
@@ -202,6 +205,9 @@ final class PurgarEscritorioUseCase
         ['central_presenca', 'tenant_id = :tenant'],
         // Baixa de aviso na Central (F3): cai com a notificação (CASCADE), mas a FK de tenant é NO ACTION.
         ['central_aviso_resolvido', 'tenant_id = :tenant'],
+        // Descadastro de e-mail do escritório (Shared, "Não quero mais receber estes avisos"): FK de tenant
+        // NO ACTION e nada a referencia. Sai com o escritório: sem ele não há quem envie.
+        ['email_descadastro', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

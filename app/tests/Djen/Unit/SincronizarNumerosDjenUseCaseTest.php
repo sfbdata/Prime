@@ -14,6 +14,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\Service\DjenPublicacaoMapper;
 use App\Djen\Service\EsperaEntreConsultasInterface;
+use App\Djen\Service\AvisoDePublicacoesNovasInterface;
 use App\Djen\Service\NotificadorPublicacoesDjenInterface;
 use App\Djen\UseCase\ReconciliarPublicacoesComProcessosUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
@@ -57,6 +58,7 @@ final class SincronizarNumerosDjenUseCaseTest extends TestCase
             $this->createMock(NotificadorPublicacoesDjenInterface::class),
             new ReconciliarPublicacoesComProcessosUseCase($this->publicacaoRepository, $this->processoRepository),
             $this->createMock(EsperaEntreConsultasInterface::class),
+            $this->createMock(AvisoDePublicacoesNovasInterface::class),
         );
     }
 

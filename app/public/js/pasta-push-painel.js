@@ -8,7 +8,9 @@
         outro processo troca a própria linha ("· monitorado" / "· pausado");
      2. "Buscar agora" (POST `pasta_push_buscar`): enquanto roda, "Lendo o
         processo..." com `bi-arrow-repeat` (dc L.5443); no fim a página recarrega a
-        aba e o aviso chega como flash ("N movimentação(ões) nova(s)").
+        aba e o aviso chega como flash ("N movimentação(ões) nova(s)");
+     3. "Avisar quando chegar" (POST `pasta_push_avisos`, dc L.2629-2636): as três
+        chaves; a resposta traz as três, já com a trava de cada uma.
 
    Sem innerHTML com dado: só texto (`textContent`), classe e atributo. A recusa do
    servidor (403, 422, 429) aparece na linha de status sob o botão.
@@ -125,9 +127,67 @@
         }
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', iniciar);
-    } else {
+    /* ── 3. Avisar quando chegar ─────────────────────────────────────────────
+       Cada linha é um switch (POST `pasta_push_avisos` com a `chave`). O servidor devolve
+       as três linhas: uma chave muda a outra ("Por e-mail" trava sem o aviso ao responsável). */
+    function iniciarAvisos() {
+        var cartao = document.querySelector('[data-push-avisos]');
+        if (!cartao) { return; }
+
+        var permitido = cartao.dataset.avisosPermitido === '1';
+        var msg = cartao.querySelector('[data-push-avisos-msg]');
+
+        function avisar(texto) {
+            if (!msg) { return; }
+            msg.textContent = texto || '';
+            msg.hidden = !texto;
+        }
+
+        function aplicar(itens) {
+            itens.forEach(function (item) {
+                var botao = cartao.querySelector('[data-push-aviso="' + item.chave + '"]');
+                if (!botao) { return; }
+                botao.classList.toggle('is-on', !!item.ligado);
+                botao.setAttribute('aria-checked', item.ligado ? 'true' : 'false');
+                botao.disabled = !permitido || !!item.travado;
+                if (item.dica) { botao.title = item.dica; } else { botao.removeAttribute('title'); }
+            });
+        }
+
+        cartao.querySelectorAll('[data-push-aviso]').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                if (botao.disabled) { return; }
+                botao.disabled = true;
+                avisar('');
+                var dados = new FormData();
+                dados.append('_token', cartao.dataset.avisosToken);
+                dados.append('chave', botao.dataset.pushAviso);
+                fetch(cartao.dataset.avisosUrl, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    body: dados
+                }).then(function (r) {
+                    return r.json().catch(function () { return {}; }).then(function (d) {
+                        if (!r.ok || !d.sucesso) { throw new Error(d.erro || 'Não foi possível alterar o aviso.'); }
+                        aplicar(d.avisos || []);
+                    });
+                }).catch(function (e) {
+                    botao.disabled = false;
+                    avisar(e.message);
+                });
+            });
+        });
+    }
+
+    function iniciarTudo() {
         iniciar();
+        iniciarAvisos();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciarTudo);
+    } else {
+        iniciarTudo();
     }
 })();

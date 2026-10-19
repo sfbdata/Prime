@@ -13,6 +13,7 @@ use App\Djen\Enum\MotivoFalhaDjen;
 use App\Djen\Exception\ConsultaDjenException;
 use App\Djen\Repository\OabMonitoradaRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Djen\Service\AvisoDePublicacoesNovasInterface;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\Service\DjenPublicacaoMapper;
 use App\Djen\Service\EsperaEntreConsultasInterface;
@@ -32,6 +33,8 @@ use App\Processo\Repository\ProcessoRepository;
  * Nas duas, consulta o DJEN no período, deduplica (por escritório + dentro da execução, então a mesma
  * publicação vinda pela OAB e pelo número vira UMA linha), persiste as novas vinculando ao Processo
  * quando o número CNJ já existe no escritório, e notifica os usuários com acesso ao módulo.
+ * Por fim, depois da reconciliação, entrega os `djenId` novos ao {@see AvisoDePublicacoesNovasInterface}
+ * (o "Avisar quando chegar" de cada pasta, spec push-avisar-quando-chegar §3). O --dry-run não avisa.
  *
  * Recebe o Tenant EXPLICITAMENTE — roda tanto no request (botão "sincronizar agora") quanto no comando
  * CLI (TenantFilter desligado). Toda query e criação é escopada por esse tenant; nunca depende do filtro.
@@ -58,6 +61,7 @@ final class SincronizarPublicacoesDjenUseCase
         private readonly NotificadorPublicacoesDjenInterface $notificador,
         private readonly ReconciliarPublicacoesComProcessosUseCase $reconciliar,
         private readonly EsperaEntreConsultasInterface $espera,
+        private readonly AvisoDePublicacoesNovasInterface $avisoDasNovas,
     ) {
     }
 
@@ -115,6 +119,7 @@ final class SincronizarPublicacoesDjenUseCase
         // faz a captação diária curar o passivo sozinha, em duas consultas.
         if (!$dryRun) {
             $this->reconciliar->executar($tenant);
+            $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
         }
 
         return $resultado;
@@ -142,6 +147,9 @@ final class SincronizarPublicacoesDjenUseCase
         $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
         $this->concluir($tenant, $dryRun, $resultado);
         $this->registrarVerificacoes($tenant, $dryRun, $resultado);
+        if (!$dryRun) {
+            $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
+        }
 
         return $resultado;
     }
@@ -163,6 +171,7 @@ final class SincronizarPublicacoesDjenUseCase
         $this->concluir($tenant, false, $resultado);
         $this->registrarVerificacoes($tenant, false, $resultado);
         $this->reconciliar->executar($tenant);
+        $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
 
         return $resultado;
     }

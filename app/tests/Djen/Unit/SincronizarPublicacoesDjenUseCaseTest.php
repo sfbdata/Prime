@@ -16,6 +16,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\Service\DjenPublicacaoMapper;
 use App\Djen\Service\EsperaEntreConsultasInterface;
+use App\Djen\Service\AvisoDePublicacoesNovasInterface;
 use App\Djen\Service\NotificadorPublicacoesDjenInterface;
 use App\Djen\UseCase\ReconciliarPublicacoesComProcessosUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
@@ -35,6 +36,7 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
     private PublicacaoDjenRepository&MockObject $publicacaoRepository;
     private ProcessoRepository&MockObject $processoRepository;
     private NotificadorPublicacoesDjenInterface&MockObject $notificador;
+    private AvisoDePublicacoesNovasInterface&MockObject $aviso;
     private EsperaEntreConsultasInterface&MockObject $espera;
     private SincronizarPublicacoesDjenUseCase $sut;
     private Tenant&MockObject $tenant;
@@ -47,6 +49,7 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
         $this->processoRepository = $this->createMock(ProcessoRepository::class);
         $this->notificador = $this->createMock(NotificadorPublicacoesDjenInterface::class);
         $this->espera = $this->createMock(EsperaEntreConsultasInterface::class);
+        $this->aviso = $this->createMock(AvisoDePublicacoesNovasInterface::class);
         $this->tenant = $this->createMock(Tenant::class);
 
         $this->sut = new SincronizarPublicacoesDjenUseCase(
@@ -60,6 +63,7 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
             // mockados, `listarAvulsasDoTenant` devolve [] e a reconciliação vira no-op aqui.
             new ReconciliarPublicacoesComProcessosUseCase($this->publicacaoRepository, $this->processoRepository),
             $this->espera,
+            $this->aviso,
         );
     }
 
@@ -78,6 +82,8 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
         $this->publicacaoRepository->expects($this->once())->method('salvar');
         $this->publicacaoRepository->expects($this->once())->method('flush');
         $this->notificador->expects($this->once())->method('notificar')->with($this->tenant, 1)->willReturn(3);
+        // Depois da reconciliação, o "Avisar quando chegar" recebe os djenId novos desta captação.
+        $this->aviso->expects($this->once())->method('avisar')->with($this->tenant, ['659192456']);
 
         $resultado = $this->sut->executar($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')));
 
@@ -139,6 +145,7 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
         $this->publicacaoRepository->expects($this->never())->method('salvar');
         $this->publicacaoRepository->expects($this->never())->method('flush');
         $this->notificador->expects($this->never())->method('notificar');
+        $this->aviso->expects($this->never())->method('avisar');
 
         $resultado = $this->sut->executar($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), true);
 
@@ -405,6 +412,20 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
 
         self::assertSame(['Processos cadastrados' => MotivoFalhaDjen::LimiteExcedido->value], $resultado->getFalhas());
         self::assertSame(2, $resultado->getProcessosAdiados());
+    }
+
+    #[Test]
+    public function faseDeProcessosDoComandoAvisaAsNovasEoDryRunNao(): void
+    {
+        $this->processoRepository->method('listarNumerosAcompanhadosDoTenant')->willReturn(['50636766220224047000']);
+        $this->djenClient->method('consultarComunicacoes')->willReturn(
+            new RespostaComunicacoes(1, [$this->item(777, '50636766220224047000')])
+        );
+        $this->publicacaoRepository->method('filtrarDjenIdsExistentesDoTenant')->willReturn([]);
+        $this->aviso->expects($this->once())->method('avisar')->with($this->tenant, ['777']);
+
+        $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')));
+        $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), true);
     }
 
     #[Test]
