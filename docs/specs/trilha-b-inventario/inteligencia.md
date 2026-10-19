@@ -378,7 +378,7 @@ Cada linha: o que faz · entrada (dados do BlueJus) · saída · onde aparece ·
 - `symfony/rate-limiter`: limitadores nomeados em `app/config/packages/framework.yaml` (`login`, `convite_aceite`,
   `convite_criar`, `cadastro_auto`, `oab_verificar`, `politica_privacidade_pdf`, `senha_esqueci_ip/email`), injeção
   por nome (`RateLimiterFactory $cadastroAutoLimiter`); em teste `cache.rate_limiter` em array. ⚠️ Comentário do
-  próprio arquivo: `SYMFONY_TRUSTED_PROXIES` não confirmado na VPS → `getClientIp()` devolve o IP do nginx, a mesma
+  próprio arquivo: **(Corrigido em 19/10/2026: em FastCGI o `REMOTE_ADDR` que o PHP recebe é o do cliente, não o do nginx; confiar nele deixava forjar o IP. Ver `docs/guias/ip-do-cliente-em-producao.md`.)** `SYMFONY_TRUSTED_PROXIES` não confirmado na VPS → `getClientIp()` devolve o IP do nginx, a mesma
   chave para todos; limite por IP só é defesa real depois disso.
 - Cache: `cache.yaml` padrão (filesystem); **nenhum** uso de `CacheInterface` em `app/src`. Lock: sem `lock.yaml`
   (cron usa `flock` no host). Mailer: `symfony/mailer` + `MAILER_FROM`, padrão interface
@@ -777,7 +777,7 @@ dificultador, nunca como garantia no texto).
 
 - `saas_test` não recebe migration sozinho: `migrations:execute --up` (memória).
 - Prod é imagem baked: variável nova em `.env.prod` + rebuild pelo script; defaults devem morar em `services.yaml`.
-- Rate limiter por IP é inerte até `SYMFONY_TRUSTED_PROXIES` (comentário em `framework.yaml`) — por isso o limiter da
+- Rate limiter por IP é inerte até `SYMFONY_TRUSTED_PROXIES` (comentário em `framework.yaml`) **(Corrigido em 19/10/2026: em FastCGI o `REMOTE_ADDR` que o PHP recebe é o do cliente, não o do nginx; confiar nele deixava forjar o IP. Ver `docs/guias/ip-do-cliente-em-producao.md`.)** — por isso o limiter da
   IA é por usuário e o do código do link público tem de ser por **token**.
 - Worker roda sem `TenantFilter`: toda consulta do handler recebe `Tenant` explícito; teste cross-tenant obrigatório.
 - `AuditLogSubscriber` grava `tenant_id`/ator nulos no worker — a entidade carrega o próprio tenant e o solicitante.
