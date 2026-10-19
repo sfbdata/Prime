@@ -9,6 +9,8 @@ use App\Contribua\DTO\Solicitante;
 use App\Contribua\Entity\Apoio;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\Plano;
+use App\Contribua\Event\EspacoFoiPedido;
+use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Repository\ApoioRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
@@ -28,7 +30,12 @@ use App\Service\NotificacaoService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 #[CoversClass(RegistrarApoioUseCase::class)]
@@ -64,9 +71,21 @@ final class AcoesDoContribuaUseCaseTest extends TestCase
     #[TestDox('Pedir espaço: secundário é recusado; Free é recusado; plano maior vai para a lista de espera')]
     public function testPedirEspaco(): void
     {
-        $useCase = new PedirEspacoUseCase($this->planos(), $this->situacao(), $this->aviso(), $this->urls());
+        $despachados = [];
+        $despachante = $this->createStub(EventDispatcherInterface::class);
+        $despachante->method('dispatch')->willReturnCallback(static function (object $e) use (&$despachados): object {
+            $despachados[] = $e;
+
+            return $e;
+        });
+        $eventos = new EventosDoEspacoAposConfirmar($despachante);
+        $useCase = new PedirEspacoUseCase($this->planos(), $this->situacao(), $this->aviso(), $this->urls(), $eventos);
 
         self::assertSame(PedirEspacoUseCase::PEDIDO_REGISTRADO, $useCase->executar($this->quem(primario: true), 'essencial'));
+        $eventos->aoResponder(new ResponseEvent($this->createStub(HttpKernelInterface::class), Request::create('/'), HttpKernelInterface::MAIN_REQUEST, new Response()));
+        self::assertCount(1, $despachados);
+        self::assertInstanceOf(EspacoFoiPedido::class, $despachados[0]);
+        self::assertSame([7, 'essencial'], [$despachados[0]->tenantId, $despachados[0]->codigoDoPlano]);
         try {
             $useCase->executar($this->quem(primario: false), 'essencial');
             self::fail('o secundário não pede espaço');

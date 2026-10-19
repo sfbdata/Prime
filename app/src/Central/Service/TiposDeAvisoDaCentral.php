@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Central\Service;
 
+use App\Contribua\Service\AvisoAoMaster;
 use App\Entity\Notificacao;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
@@ -40,6 +41,8 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO => ['grupo' => 'atencao', 'rotulo' => 'Para você', 'icone' => 'bi-person-check', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_DJEN_PUBLICACAO => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AMBAR, 'nivel' => 1],
+            // Contribua (desenho 08 / bluejus-central.js: tipo "contribua"): sugestão, apoio, motivo e pedido de espaço.
+            AvisoAoMaster::TIPO_SUGESTAO, AvisoAoMaster::TIPO_APOIO, AvisoAoMaster::TIPO_MOTIVO, AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO => ['grupo' => 'atencao', 'rotulo' => 'Contribua', 'icone' => 'bi-heart', 'cor' => '#c0392b', 'nivel' => 2],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],
             default => ['grupo' => null, 'rotulo' => 'Aviso', 'icone' => 'bi-bell', 'cor' => self::PETROLEO, 'nivel' => 1],
         };
