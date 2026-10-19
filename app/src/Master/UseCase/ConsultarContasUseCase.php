@@ -30,13 +30,14 @@ final class ConsultarContasUseCase
     public function executar(): array
     {
         $desde    = $this->relogio->now()->modify('-30 days');
-        $usuarios = $this->repositorio->usuariosPorEscritorio();
+        // Os vínculos da conta em quarentena continuam até a purga: a contagem dela também aparece (C4b).
+        $usuarios = $this->repositorio->usuariosPorEscritorio() + $this->repositorio->usuariosPorEscritorioEmQuarentena();
         $pastas   = $this->repositorio->pastasPorEscritorio();
         $consumo  = $this->repositorio->consumoPorEscritorio($desde);
 
         $contas = [];
-        // As contas em quarentena (C4b) vêm depois, para a opção "Em quarentena" do filtro. As contagens
-        // do painel não olham a quarentena: nelas usuários, pastas e consumo saem zerados.
+        // As contas em quarentena (C4b) vêm depois, para a opção "Em quarentena" do filtro. Pastas e
+        // consumo do painel não olham a quarentena: nelas saem zerados.
         foreach ([...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()] as $e) {
             $id = $e['id'];
             $contas[] = [

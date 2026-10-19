@@ -18,7 +18,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * Barreiras do TenantContextValidatorListener (spec perfis-1.2-contas C9 e C13): (a) a conta, depois
+ * Barreiras do TenantContextValidatorListener (spec perfis-1.2-contas C9, C9b e C13): (a) a conta, depois
  * (c) o vínculo. Vale a mensagem da primeira que falhar; o Master não tem bypass (C12).
  */
 #[CoversClass(TenantContextValidatorListener::class)]
@@ -78,13 +78,24 @@ final class BarreirasDeAcessoAoEscritorioTest extends JusPrimeWebTestCase
         self::assertSame([AvisoDeContaSuspensa::para((string) $suspensa->getName())], $this->client->getRequest()->getSession()->getFlashBag()->peek('warning'));
     }
 
-    #[TestDox('conta excluída e vínculo inativo em conta ativa: a mensagem de acesso indisponível de sempre')]
-    public function testContaExcluidaEVinculoInativo(): void
+    #[TestDox('conta excluída (quarentena): barra com a mensagem da C9b, com o nome da conta')]
+    public function testContaExcluida(): void
     {
-        $indisponivel = ['Seu acesso a este escritório não está mais disponível. Selecione outro escritório.'];
+        $conta = $this->conta(ativa: false, excluida: true);
 
-        self::assertSame($indisponivel, $this->barrado($this->usuario(['ROLE_USER']), $this->conta(ativa: false, excluida: true), vinculoAtivo: true));
-        self::assertSame($indisponivel, $this->barrado($this->usuario(['ROLE_USER']), $this->conta(ativa: true, excluida: false), vinculoAtivo: false));
+        self::assertSame(
+            ['A conta do escritório ' . $conta->getName() . ' foi excluída. Fale com o responsável pela conta.'],
+            $this->barrado($this->usuario(['ROLE_USER']), $conta, vinculoAtivo: true),
+        );
+    }
+
+    #[TestDox('vínculo inativo em conta ativa: a mensagem de acesso indisponível de sempre')]
+    public function testVinculoInativoEmContaAtiva(): void
+    {
+        self::assertSame(
+            ['Seu acesso a este escritório não está mais disponível. Selecione outro escritório.'],
+            $this->barrado($this->usuario(['ROLE_USER']), $this->conta(ativa: true, excluida: false), vinculoAtivo: false),
+        );
     }
 
     /**

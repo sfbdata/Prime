@@ -61,7 +61,15 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString("const QUARENTENA = 'Em quarentena';", $js);
         self::assertStringContainsString(">Em quarentena</option></select>'", $js);
         self::assertStringContainsString('(S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA)', $js);
-        self::assertStringContainsString(">apagada em ' + esc(dataBr(c.purgaEm))", $js);
+        self::assertStringContainsString(">apagada a partir de<br>' + esc(dataBr(c.purgaEm))", $js, 'a purga roda às 03h do primeiro dia depois da carência: "a partir de" é exato');
+
+        $css = (string) file_get_contents(self::RAIZ . 'public/css/master.css');
+        self::assertStringContainsString('font-weight: bold; color: var(--cor); white-space: nowrap; }', $css, 'a situação não quebra');
+        self::assertStringContainsString('.mp-conta-st-bloco > .mp-conta-purga { font-size: 11px; font-weight: normal; line-height: 1.3; color: #5b7383; margin-top: 2px; white-space: nowrap; }', $css);
+        self::assertStringContainsString('.mp-conta-st-bloco { display: flex; flex-direction: column; align-items: flex-start; }', $css, 'a data alinhada à esquerda do texto da situação');
+        self::assertStringContainsString('.mp-conta-st { display: flex; align-items: center; justify-content: center; }', $css, 'bloco centrado na célula e na altura da linha');
+        self::assertStringNotContainsString('apagada em', $js);
+        self::assertStringContainsString("const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída", $js, 'recuperar da quarentena tem o ícone verde da reativação, testado antes do vermelho');
         self::assertStringContainsString('D.contas.contas.filter(c => c.situacao !== QUARENTENA).sort(', $js, 'o ranking de armazenamento continua sem a quarentena');
     }
 
@@ -77,6 +85,7 @@ final class PainelMenuDaContaJsTest extends TestCase
         $masters = self::js('masters.js');
         self::assertStringContainsString('ok.disabled = !!palavraExigida;', $masters, 'com palavra, o botão nasce desabilitado');
         self::assertStringContainsString("qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida;", $masters, 'só habilita quando a palavra bate');
+        self::assertStringContainsString('.mp .mp-conf-ok:disabled { background: #9fb3c0; cursor: not-allowed; }', (string) file_get_contents(self::RAIZ . 'public/css/master.css'), 'desabilitado na convenção do desenho (linha 625)');
         self::assertStringContainsString('if (palavraExigida && digitado !== palavraExigida) return;', $masters);
         self::assertStringContainsString("'Digite ' + palavraExigida + ' para confirmar'", $masters);
 

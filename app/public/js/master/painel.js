@@ -363,8 +363,11 @@
         + '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(gb(c.bytes)) + ' em uso</span><b></b></span><span>sem cota definida</span></div>'
         + '<div class="mp-conta-cresc mp-hv">' + (c.bytesRecentes > 0 ? '+' + esc(gb(c.bytesRecentes)) : 'estável') + '</div>'
         + '<div class="mp-conta-prev mp-hv">sem previsão</div>'
-        + '<div class="mp-conta-st mp-hv"><span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
-        + (c.purgaEm ? '<span class="mp-conta-purga" title="Data prevista da purga automática">apagada em ' + esc(dataBr(c.purgaEm)) + '</span>' : '') + '</div>'
+        + '<div class="mp-conta-st mp-hv">' + (c.purgaEm
+          // Quarentena: a situação e, abaixo, a data da purga em duas linhas curtas que não quebram (coluna de 100px).
+          ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
+            + '<span class="mp-conta-purga" title="A purga automática roda às 03h, a partir desta data">apagada a partir de<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
+          : '<span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>') + '</div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';
@@ -405,7 +408,7 @@
   }
 
   /* ================= SEGURANÇA E AUDITORIA ================= */
-  const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /suspensa|excluída|excluído|removido|retirada|desativado/i.test(a) ? ['bi-slash-circle', '#a3232b'] : /reativada|reativado/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /Master|primário|Papel no sistema/i.test(a) ? ['bi-stars', '#7a3e8f'] : /Alerta/.test(a) ? ['bi-exclamation-triangle', '#c08a12'] : ['bi-journal-check', '#4a6373']);
+  const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída|excluído|removido|retirada|desativado/i.test(a) ? ['bi-slash-circle', '#a3232b'] : /Master|primário|Papel no sistema/i.test(a) ? ['bi-stars', '#7a3e8f'] : /Alerta/.test(a) ? ['bi-exclamation-triangle', '#c08a12'] : ['bi-journal-check', '#4a6373']);
   const audFiltrada = () => D.audit.registros.filter(r => (S.audConta === null || r.contaId === S.audConta) && (!S.audTipo || r.acao === S.audTipo));
 
   function montarAudit() {

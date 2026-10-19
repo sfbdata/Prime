@@ -260,7 +260,7 @@ final class ContasDoSistemaControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('excluir (C4): JSON "Em quarentena" com a purga em 365 dias, a equipe é barrada, a conta vai para "Em quarentena" e reativar devolve o acesso (C4b)')]
+    #[TestDox('excluir (C4): JSON "Em quarentena" com a purga em excluidoEm + carência, a equipe é barrada, a conta vai para "Em quarentena" e reativar devolve o acesso (C4b)')]
     public function testExcluirEReativarDaQuarentena(): void
     {
         $this->entrar($this->master, $this->contaDoMaster);
@@ -269,23 +269,29 @@ final class ContasDoSistemaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Em quarentena', $resposta['conta']['situacao']);
-        self::assertSame((new \DateTimeImmutable('+365 days'))->format('Y-m-d'), $resposta['conta']['purgaEm']);
         $conta = $this->recarregar($this->alvo);
         self::assertFalse($conta->isActive());
-        self::assertNotNull($conta->getExcluidoEm());
+        $excluidoEm = $conta->getExcluidoEm();
+        self::assertNotNull($excluidoEm);
+        $carencia = (int) static::getContainer()->getParameter('tenant_carencia_purga_dias');
+        self::assertSame($excluidoEm->modify(sprintf('+%d days', $carencia))->format('Y-m-d'), $resposta['conta']['purgaEm'], 'purga = excluidoEm gravado + carência configurada');
 
         $this->client->request('GET', '/master/dados/contas');
         $contas = array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['contas'], null, 'id');
         self::assertSame('Em quarentena', $contas[$this->alvo->getId()]['situacao'], 'a lista traz a conta só como "Em quarentena"');
         self::assertNotNull($contas[$this->alvo->getId()]['purgaEm']);
 
-        // A equipe é barrada com a mensagem de conta indisponível (não a de conta suspensa).
+        // A equipe é barrada com a mensagem da conta excluída (C9b), uma vez só: o alerta da seleção tira o flash igual.
+        $mensagemC9b = sprintf('A conta do escritório %s foi excluída. Fale com o responsável pela conta.', $this->alvo->getName());
         $this->entrar($this->usuarioDoAlvo, $this->alvo);
         $this->client->request('GET', '/expediente');
         self::assertResponseRedirects('/escritorio/selecionar');
-        self::assertSame(['Seu acesso a este escritório não está mais disponível. Selecione outro escritório.'], $this->client->getRequest()->getSession()->getFlashBag()->peek('warning'));
+        self::assertSame([$mensagemC9b], $this->client->getRequest()->getSession()->getFlashBag()->peek('warning'));
         $this->client->followRedirect();
+        self::assertSelectorTextContains('[data-conta-excluida]', $mensagemC9b);
         self::assertSelectorNotExists('[data-conta-suspensa]');
+        self::assertSame(1, substr_count((string) $this->client->getResponse()->getContent(), $mensagemC9b));
+        self::assertStringNotContainsString('Você ainda não faz parte de nenhum escritório', (string) $this->client->getResponse()->getContent());
 
         $this->entrar($this->master, $this->contaDoMaster);
         $reativada = $this->postar('reativar', $this->alvo);

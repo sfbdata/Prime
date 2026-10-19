@@ -13,12 +13,12 @@
 
     {% if vinculos is empty %}
         {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
-        {# avisosDeContaSuspensa só vem preenchido sem convite de escritório (TenantSelecaoController). #}
-        {% if avisosDeContaSuspensa|default([]) is not empty %}
-            {% for aviso in avisosDeContaSuspensa %}
-                <div class="alert alert-warning text-center" data-conta-suspensa>
-                    <i class="bi bi-pause-circle d-block fs-3 mb-2"></i>
-                    {{ aviso }}
+        {# avisosDeConta (C9 e C9b) só vem preenchido sem convite de escritório (TenantSelecaoController). #}
+        {% if avisosDeConta|default([]) is not empty %}
+            {% for aviso in avisosDeConta %}
+                <div class="alert alert-warning text-center" {{ aviso.excluida ? 'data-conta-excluida' : 'data-conta-suspensa' }}>
+                    <i class="bi {{ aviso.excluida ? 'bi-building-x' : 'bi-pause-circle' }} d-block fs-3 mb-2"></i>
+                    {{ aviso.texto }}
                 </div>
             {% endfor %}
         {% elseif convites_escritorio is empty %}

@@ -191,11 +191,32 @@ final class PainelMasterRepository
      */
     public function usuariosPorEscritorio(): array
     {
+        return $this->usuariosOnde('t.excluido_em IS NULL');
+    }
+
+    /**
+     * A mesma contagem para as contas EM QUARENTENA (spec perfis-1.2-contas C4b): os vínculos continuam
+     * até a purga, e a lista "Em quarentena" mostra quantas pessoas a conta ainda tem.
+     *
+     * @return array<int, array{usuarios: int, ultimoAcesso: ?string}>
+     */
+    public function usuariosPorEscritorioEmQuarentena(): array
+    {
+        return $this->usuariosOnde('t.excluido_em IS NOT NULL');
+    }
+
+    /**
+     * @param string $filtro recorte FIXO da quarentena (nunca dado de fora): um dos dois acima
+     *
+     * @return array<int, array{usuarios: int, ultimoAcesso: ?string}>
+     */
+    private function usuariosOnde(string $filtro): array
+    {
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT ut.tenant_id, COUNT(DISTINCT ut.user_id) AS usuarios, MAX(ut.last_login_at) AS ultimo_acesso
                FROM user_tenant ut
                JOIN "user" u ON u.id = ut.user_id AND u.is_active = TRUE
-               JOIN tenant t ON t.id = ut.tenant_id AND t.excluido_em IS NULL
+               JOIN tenant t ON t.id = ut.tenant_id AND ' . $filtro . '
               WHERE ut.is_active = TRUE
            GROUP BY ut.tenant_id',
         );

@@ -112,8 +112,8 @@ final class TenantContextValidatorListener
     }
 
     /**
-     * (a) A conta: escritório suspenso pelo Master (isActive=false, excluidoEm nulo) ou excluído
-     * (soft delete) por outro admin. Sem bypass para o Master (spec perfis-1.2-contas C12).
+     * (a) A conta: escritório suspenso pelo Master (isActive=false, excluidoEm nulo, aviso da C9) ou
+     * excluído, em quarentena (aviso da C9b). Sem bypass para o Master (spec perfis-1.2-contas C12).
      */
     private function barreiraDaConta(?UserTenant $userTenant): ?string
     {
@@ -122,11 +122,13 @@ final class TenantContextValidatorListener
             return null;
         }
 
-        if ($conta !== null && $conta->getExcluidoEm() === null) {
-            return AvisoDeContaSuspensa::para((string) $conta->getName());
+        if ($conta === null) {
+            return self::ACESSO_INDISPONIVEL; // já purgada: não há mais nome a dizer
         }
 
-        return self::ACESSO_INDISPONIVEL;
+        return $conta->getExcluidoEm() === null
+            ? AvisoDeContaSuspensa::para((string) $conta->getName())
+            : AvisoDeContaSuspensa::paraExcluida((string) $conta->getName());
     }
 
     /** (c) O vínculo: removido ou desativado no escritório. */

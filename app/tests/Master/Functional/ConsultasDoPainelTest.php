@@ -139,7 +139,8 @@ final class ConsultasDoPainelTest extends KernelTestCase
         $q = $contas[$this->cenario['q']->getId()];
         self::assertSame('Em quarentena', $q['situacao'], 'escritório na quarentena não conta como Ativa nem Suspensa');
         self::assertNotNull($q['purgaEm']);
-        self::assertSame(0, $q['usuarios'], 'as contagens do painel continuam fora da quarentena');
+        self::assertSame(1, $q['usuarios'], 'os vínculos da conta em quarentena continuam até a purga: a contagem é a real');
+        self::assertSame(0, $q['pastas'], 'pastas e consumo continuam fora da quarentena');
         self::assertNull($a['purgaEm']);
     }
 

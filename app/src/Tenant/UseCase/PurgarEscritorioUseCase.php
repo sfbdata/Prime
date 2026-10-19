@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
@@ -17,6 +18,7 @@ use App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao;
 use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
 use App\Tenant\DTO\PurgaEscritorioResultado;
 use App\Tenant\Exception\PurgaComDestinoIncerto;
+use App\Tenant\Exception\PurgaRecusada;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -334,6 +336,7 @@ final class PurgarEscritorioUseCase
         private readonly ConsultaDeDestinoDaTransacao $consultaDeDestino,
         private readonly LoggerInterface $logger,
         private readonly int $carenciaPurgaDias,
+        private readonly RegraDosMasters $regraDosMasters,
     ) {
     }
 
@@ -359,6 +362,8 @@ final class PurgarEscritorioUseCase
             // Nenhuma linha nova do escritório entra daqui até o COMMIT (ver o docblock da classe).
             $conn->executeQuery('SELECT id FROM tenant WHERE id = :tenant FOR UPDATE', ['tenant' => $tenantId]);
             $conn->executeQuery('SELECT id FROM chamado WHERE tenant_id = :tenant FOR UPDATE', ['tenant' => $tenantId]);
+            // Com a linha travada, as guardas de novo sobre o BANCO: a conta pode ter sido recuperada depois de entrar na lista.
+            $this->garantirElegivelNoBanco($conn, $tenant);
 
             // Fase 0 — os arquivos, ANTES de apagar as linhas e dentro da mesma transação: é aqui
             // que se prova, pelos registros, que cada arquivo plano é só deste escritório.
@@ -543,25 +548,60 @@ final class PurgarEscritorioUseCase
 
     /**
      * Guarda de segurança: só purga escritório inativo (soft-deletado) cuja carência de
-     * quarentena já venceu. Impede purgar um escritório ativo ou ainda recuperável, mesmo
-     * se chamado por engano.
+     * quarentena já venceu, e nunca a conta do Master (spec perfis-1.2-contas C5). Impede purgar um
+     * escritório ativo ou ainda recuperável, mesmo se chamado por engano.
      */
     private function garantirElegivel(Tenant $tenant): void
     {
-        if ($tenant->isActive() !== false) {
-            throw new \LogicException('Só é possível purgar escritório inativo (soft-deletado).');
+        $this->exigirQuarentenaVencida($tenant->isActive(), $tenant->getExcluidoEm());
+        $this->exigirQueNaoEhContaDoMaster($tenant);
+    }
+
+    /**
+     * As mesmas guardas, RELIDAS do banco depois do `FOR UPDATE` (corrida com o Master): entre a lista
+     * do job e este ponto a conta pode ter sido recuperada da quarentena (`ReativarContaUseCase`) ou
+     * ter mudado de criador. Qualquer diferença aborta só esta conta, dentro da transação, sem apagar nada.
+     */
+    private function garantirElegivelNoBanco(Connection $conn, Tenant $tenant): void
+    {
+        $linha = $conn->fetchAssociative('SELECT is_active, excluido_em, criado_por_id FROM tenant WHERE id = :tenant', ['tenant' => $tenant->getId()]);
+        if ($linha === false) {
+            throw new PurgaRecusada('Escritório não existe mais; nada a purgar.');
         }
 
-        $excluidoEm = $tenant->getExcluidoEm();
+        $this->exigirQuarentenaVencida((bool) $linha['is_active'], $linha['excluido_em'] !== null ? new \DateTimeImmutable((string) $linha['excluido_em']) : null);
+
+        $criadorNoBanco = $linha['criado_por_id'] !== null ? (int) $linha['criado_por_id'] : null;
+        if ($criadorNoBanco !== $tenant->getCriadoPor()?->getId()) {
+            throw new PurgaRecusada('O criador do escritório mudou depois da seleção para a purga; purga adiada.');
+        }
+
+        // O fallback (Master com vínculo ativo) consulta o banco na mesma transação.
+        $this->exigirQueNaoEhContaDoMaster($tenant);
+    }
+
+    private function exigirQuarentenaVencida(?bool $ativo, ?\DateTimeImmutable $excluidoEm): void
+    {
+        if ($ativo !== false) {
+            throw new PurgaRecusada('Só é possível purgar escritório inativo (soft-deletado).');
+        }
 
         if ($excluidoEm === null) {
-            throw new \LogicException('Escritório inativo sem data de exclusão — não elegível à purga.');
+            throw new PurgaRecusada('Escritório inativo sem data de exclusão: não elegível à purga.');
         }
 
         $limite = new \DateTimeImmutable(sprintf('-%d days', $this->carenciaPurgaDias));
 
         if ($excluidoEm > $limite) {
-            throw new \LogicException('Escritório ainda dentro da carência de quarentena — não pode ser purgado.');
+            throw new PurgaRecusada('Escritório ainda dentro da carência de quarentena: não pode ser purgado.');
+        }
+    }
+
+    /** A purga nunca apaga a conta do Master: a mesma regra da C5, com o fallback do vínculo. */
+    private function exigirQueNaoEhContaDoMaster(Tenant $tenant): void
+    {
+        if ($this->regraDosMasters->ehContaDoMaster($tenant)) {
+            throw new PurgaRecusada('A conta do Master nunca é purgada.');
         }
     }
 

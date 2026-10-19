@@ -72,33 +72,37 @@ final class TenantSelecaoController extends AbstractController
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
             'convites' => $convites,
-            'avisosDeContaSuspensa' => $this->avisosDeContaSuspensa($request, $user, $vinculos, $convites),
+            'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
         ]);
     }
 
     /**
-     * C9 (spec perfis-1.2-contas): sem escritório ativo e sem convite de escritório, mas com vínculo em
-     * conta suspensa, a página mostra o alerta no lugar de "Você ainda não faz parte de nenhum
-     * escritório". O mesmo texto que a barreira da conta (TenantContextValidatorListener) pôs no flash
-     * sai do flash, para não aparecer duas vezes; em qualquer outro destino o flash continua.
+     * C9 e C9b (spec perfis-1.2-contas): sem escritório ativo e sem convite de escritório, mas com vínculo
+     * em conta suspensa ou excluída (quarentena), a página mostra o aviso de cada conta no lugar de "Você
+     * ainda não faz parte de nenhum escritório". O mesmo texto que a barreira da conta
+     * (TenantContextValidatorListener) pôs no flash sai do flash, para não aparecer duas vezes; em
+     * qualquer outro destino o flash continua.
      *
      * @param array<UserTenant> $vinculos
      * @param array<Invitation> $convites
      *
-     * @return list<string>
+     * @return list<array{texto: string, excluida: bool}>
      */
-    private function avisosDeContaSuspensa(Request $request, User $user, array $vinculos, array $convites): array
+    private function avisosDeContaForaDoAr(Request $request, User $user, array $vinculos, array $convites): array
     {
         $temConviteDeEscritorio = array_filter($convites, static fn (Invitation $c): bool => $c->getTenant() !== null) !== [];
         if ($vinculos !== [] || $temConviteDeEscritorio) {
             return [];
         }
 
-        $avisos = array_map(AvisoDeContaSuspensa::para(...), $this->userTenantRepository->nomesDasContasSuspensasDoUsuario($user));
+        $avisos = array_map(static fn (array $c): array => [
+            'texto'    => $c['excluida'] ? AvisoDeContaSuspensa::paraExcluida($c['nome']) : AvisoDeContaSuspensa::para($c['nome']),
+            'excluida' => $c['excluida'],
+        ], $this->userTenantRepository->contasForaDoArDoUsuario($user));
         $sessao = $request->getSession();
         if ($avisos !== [] && $sessao instanceof FlashBagAwareSessionInterface) {
             $flashes = $sessao->getFlashBag();
-            $flashes->set('warning', array_values(array_diff($flashes->peek('warning'), $avisos)));
+            $flashes->set('warning', array_values(array_diff($flashes->peek('warning'), array_column($avisos, 'texto'))));
         }
 
         return $avisos;
