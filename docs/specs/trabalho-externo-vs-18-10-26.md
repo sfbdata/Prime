@@ -27,8 +27,12 @@ o compartilhar entram como fatia própria.
 **Contratos com outras sessões**:
 - Scripts globais do desenho: `bj-idioma` (7d), `bj-recursos` (b5), `bj-lembretes` (4b), `bj-plano`
   (f6). Esta frente só consome.
-- Descadastro de e-mail: serviço e tabela `email_descadastro` em `Shared`, da 0d. Não criar outro.
-- Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (5d). Envio só
+- Descadastro de e-mail: serviço único da 0d, `App\Shared\Email\Descadastro\DescadastroDeEmailInterface`
+  (`estaDescadastrado`, `descadastrar`, `gerarLink`, com Tenant, e-mail e assunto), tabela
+  `email_descadastro`. Os alertas de vagas não têm escritório: usam o escopo "plataforma" (pedido
+  pelo coordenador à 0d). Não criar outro.
+- Campanha de vagas por e-mail e envio dos alertas: frente "Comercial e e-mails" (5d). Double opt-in também
+  é dela; esta frente só grava o pedido de alerta. Envio só
   para quem confirmou o e-mail (double opt-in) e não está descadastrado (§4.2).
 - `security.yaml`: linha própria `^/vagas-juridicas`; 0d e f6 acrescentam as delas.
 - Teto `MAX_FORA_DO_ESCOPO` em `TenantAwareCoberturaTest`: o #56 (b5) também sobe; quem entrar depois
