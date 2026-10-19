@@ -1,0 +1,14 @@
+/* O X de fechar em toda janelinha (protótipo, bluejus-central.js): 26px, cantos de 4px, a 8px da direita; no
+   cabeçalho, centrado na altura dele; sem cabeçalho, a 8px do topo. Claro ou escuro conforme o fundo. */
+.bj-fechar-x {
+    position: absolute; right: 8px; z-index: 5; width: 26px; height: 26px; border: 0; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    background: rgba(238, 243, 246, .95); color: #4f6878; transition: background .15s, color .15s;
+}
+.bj-fechar-x--cab { top: 50%; transform: translateY(-50%); }
+.bj-fechar-x--canto { top: 8px; }
+.bj-fechar-x:hover { background: #fdeceb; color: #a3232b; }
+.bj-fechar-x--escuro { background: rgba(255, 255, 255, .14); color: #fff; }
+.bj-fechar-x--escuro:hover { background: rgba(255, 255, 255, .26); color: #fff; }
+.bj-fechar-x:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+[data-bs-theme="dark"] .bj-fechar-x:not(.bj-fechar-x--escuro) { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
