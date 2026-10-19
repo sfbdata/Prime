@@ -48,6 +48,9 @@
      data-url-vaga="{{ path('trabalho_externo_vaga', {codigo: 'VG-0'}) }}"
      data-url-vaga-salvar="{{ path('trabalho_externo_vaga_salvar') }}"
      data-url-vaga-acao="{{ path('trabalho_externo_vaga_acao', {codigo: 'VG-0', acao: '__acao__'}) }}"
+     data-url-vaga-editar="{{ path('trabalho_externo_vaga_editar', {codigo: 'VG-0'}) }}"
+     data-url-vaga-excluir="{{ path('trabalho_externo_vaga_excluir', {codigo: 'VG-0'}) }}"
+     data-url-vagas-visita="{{ path('trabalho_externo_vagas_visita') }}"
      data-url-vagas-marcacoes="{{ path('trabalho_externo_vagas_marcacoes') }}"
      data-url-vagas-compartilhar="{{ path('trabalho_externo_vagas_compartilhar') }}">
 
@@ -97,13 +100,13 @@
         </div>
     </div>
 
-    {# Aba Vagas (spec VS 18.10.26 §4.1, desenho linhas 152 a 169): irmã de #teLiberado; o JS troca uma pela outra. #}
+    {# Aba Vagas (spec VS 18.10.26 §4.1, desenho linhas 152 a 169; busca `tlBuscaPh`, l.1114): irmã de #teLiberado; o JS troca uma pela outra. #}
     <div id="teVagas" hidden>
         <div class="te-vg-barra">
             <div class="te-vg-sel" id="teVgSel"></div>
             <label class="te-vg-busca">
                 <i class="bi bi-search"></i>
-                <input type="text" id="teVgBusca" placeholder="Buscar vaga, cargo, cidade" autocomplete="off">
+                <input type="text" id="teVgBusca" placeholder="Buscar vaga, cargo, área ou cidade" autocomplete="off">
             </label>
             <div class="te-vg-filtros" id="teVgFiltros"></div>
             <span class="te-espaco"></span>
