@@ -119,8 +119,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // desenho (a Central divulga para todos). O isolamento é do VagaRepository (só consultas
         // escopadas) e da PoliticaDaVaga, provado em VagasDoTrabalhoExternoTest (pendente de outro
         // escritório é 404). O histórico só é lido pela vaga.
-        Vaga::class,
-        HistoricoVaga::class,
+        Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
+        HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só para a Central e o dono (ApresentadorDeVaga::detalhe)
     ];
 
     /**
