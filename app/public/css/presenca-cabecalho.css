@@ -1,0 +1,108 @@
+/* Selo de presença no avatar e painel "quem está on-line" (desenho 03 VS 18.10.26; spec
+   docs/specs/presenca-e-ponto-no-cabecalho.md). Medidas e cores do desenho, citadas por linha (dc L.n). */
+:root {
+    --pc-fundo: #fff;
+    --pc-borda: #d3dde4;
+    --pc-div: #eef2f5;
+    --pc-texto: #12242f;
+    --pc-sub: #5b7383;
+    --pc-nota: #7a8e9b;
+    --pc-grupo-fundo: #fafcfd;
+    --pc-evento-fundo: #f2f8fc;
+    --pc-evento-tx: #0b5f86;
+    --pc-faixa: #0a6fa0;
+    --pc-avatar: #0b5f86;
+    --pc-avatar-off: #9aabb7;
+    --pc-sombra: 0 14px 36px rgba(15, 32, 43, .2);
+}
+[data-bs-theme="dark"] {
+    --pc-fundo: var(--bs-body-bg);
+    --pc-borda: var(--bs-border-color);
+    --pc-div: var(--bs-border-color-translucent);
+    --pc-texto: var(--bs-body-color);
+    --pc-sub: var(--bs-secondary-color);
+    --pc-nota: var(--bs-secondary-color);
+    --pc-grupo-fundo: var(--bs-tertiary-bg);
+    --pc-evento-fundo: var(--bs-tertiary-bg);
+    --pc-evento-tx: #7cc4ea;
+    --pc-faixa: #0a6fa0;
+    --pc-avatar: #0b5f86;
+    --pc-avatar-off: #5d6f7b;
+    --pc-sombra: 0 14px 36px rgba(0, 0, 0, .5);
+}
+
+/* Selo (dc L.67): right -5px / bottom -4px medidos do AVATAR. O avatar fica dentro do <a class="navtop-avatar-btn">,
+   que tem 4px 8px de recuo (app.css): relativo ao .menu-usuario, isso dá right 8 - 5 = 3px e bottom 4 - 4 = 0. */
+.presenca-cab { position: absolute; right: 3px; bottom: 0; z-index: 2; line-height: 0; }
+.presenca-cab-selo {
+    min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border: 0; border-radius: 9px;
+    background: #2ecc71; color: #fff; font: bold 10.5px/18px Arial, Helvetica, sans-serif;
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    box-shadow: 0 0 0 2px #0a76a8; animation: pcOnPulse 2.4s ease-out infinite;
+}
+.presenca-cab-selo[hidden] { display: none; }
+.presenca-cab-selo:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@keyframes pcOnPulse {   /* dc L.31 bjOnPulse */
+    0% { box-shadow: 0 0 0 2px #0a76a8, 0 0 0 2px rgba(46, 204, 113, .55); }
+    70% { box-shadow: 0 0 0 2px #0a76a8, 0 0 0 7px rgba(46, 204, 113, 0); }
+    100% { box-shadow: 0 0 0 2px #0a76a8, 0 0 0 2px rgba(46, 204, 113, 0); }
+}
+@keyframes pcAparece { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* Painel (dc L.300-308). */
+.presenca-veu { position: fixed; inset: 0; z-index: 10040; }
+.presenca-painel {
+    position: fixed; z-index: 10050; top: 66px; right: 16px; width: min(300px, calc(100vw - 24px));
+    max-height: calc(100vh - 80px); overflow: auto; background: var(--pc-fundo); border: 1px solid var(--pc-borda);
+    border-radius: 4px; box-shadow: var(--pc-sombra); animation: pcAparece .14s ease-out;
+    font-family: Arial, Helvetica, sans-serif; line-height: normal; color: var(--pc-texto); text-align: left;   /* sem o 1.5 do Bootstrap */
+}
+.presenca-faixa {
+    display: flex; align-items: center; gap: 8px; background: var(--pc-faixa); color: #fff;
+    padding: 10px 48px 10px 14px; font-size: 14px; font-weight: bold; position: relative;   /* 14 + 34 do X */
+}
+.presenca-fechar {
+    position: absolute; top: 50%; right: 8px; transform: translateY(-50%); z-index: 5; width: 26px; height: 26px;
+    border: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    background: rgba(255, 255, 255, .14); color: #fff; transition: background .15s, color .15s;
+}
+.presenca-fechar:hover { background: rgba(255, 255, 255, .26); }
+.presenca-fechar:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.presenca-faixa-ponto { width: 9px; height: 9px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 0 2px rgba(255, 255, 255, .5); }
+.presenca-faixa-resumo { flex: 1; }
+.presenca-som {
+    width: 28px; height: 28px; border: 0; border-radius: 3px; background: rgba(255, 255, 255, .15); color: #fff;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.presenca-som:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.presenca-evento {
+    padding: 6px 14px; background: var(--pc-evento-fundo); color: var(--pc-evento-tx); font-size: 12px;
+    border-bottom: 1px solid var(--pc-div);
+}
+.presenca-grupo {
+    padding: 7px 14px 3px; font-size: 10.5px; font-weight: bold; letter-spacing: .7px; color: var(--pc-sub);
+    background: var(--pc-grupo-fundo);
+}
+.presenca-linha { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--pc-div); }
+.presenca-linha.is-off { opacity: .7; }
+.presenca-av {
+    position: relative; width: 34px; height: 34px; flex: none; border-radius: 50%; background: var(--pc-avatar);
+    color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center;
+}
+.presenca-linha.is-off .presenca-av { background: var(--pc-avatar-off); }
+.presenca-av-ponto { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 2px var(--pc-fundo); }
+.presenca-textos { min-width: 0; flex: 1; }
+.presenca-nome { display: block; font-size: 13.5px; font-weight: bold; color: var(--pc-texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.presenca-sub { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--pc-sub); }
+/* dc `bjTip .3s` no subtítulo: só ao abrir o painel. O painel se redesenha a cada 4 e 20 s; repetir a animação faria a
+   linha piscar (no dc o React mantém o nó e ela roda uma vez). */
+.presenca-painel.is-abrindo .presenca-sub { animation: pcAparece .3s ease-out; }
+.presenca-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.presenca-status { font-size: 11px; font-weight: bold; white-space: nowrap; }
+.presenca-horas { font-size: 11px; color: var(--pc-sub); white-space: nowrap; }
+.presenca-nota { padding: 7px 14px; font-size: 11px; color: var(--pc-nota); border-top: 1px solid var(--pc-div); }
+.presenca-vazio { padding: 14px; font-size: 13px; color: var(--pc-sub); }
+
+@media (prefers-reduced-motion: reduce) {
+    .presenca-cab-selo, .presenca-painel, .presenca-painel.is-abrindo .presenca-sub { animation: none; }
+}

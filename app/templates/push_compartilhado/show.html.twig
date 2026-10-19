@@ -1,0 +1,175 @@
+{#
+    Página pública do link externo do Push Processual (/p/<endereco>), spec push-link-externo §4.
+    Desenho: "Push Compartilhado.dc.html" ([PC]); textos e cores 1:1, classes em push-compartilhado.css.
+
+    Standalone de propósito (não estende base.html.twig): sem menu, sem sessão, sem nada do escritório
+    além do que o desenho mostra. `pagina` (PaginaDoPushCompartilhadoOutput) já chega decidida; com
+    `limite`, o limitador recusou (429) e a página só diz para esperar.
+
+    Não aparece nunca: documentos, teor inteiro, financeiro, metas, registros, notas técnicas, nome
+    de outros usuários além de quem criou o link.
+#}
+{%- set estado = limite ? 'limite' : pagina.estado -%}
+{%- set adv = pagina is not null ? pagina.advogado : null -%}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Consulta de andamento processual · BlueJus</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/push-compartilhado.css">
+</head>
+<body class="pc-corpo">
+<div class="pc-pagina" data-pc-estado="{{ estado }}">
+    {# [PC] 23-45 #}
+    <header class="pc-cabecalho">
+        <div class="pc-faixa"></div>
+        <div class="pc-barra">
+            <div class="pc-barra-in">
+                <img class="pc-logo" src="/images/logo/bluejus-white-transparent-nav.png" alt="BlueJus">
+                <span class="pc-divisor"></span>
+                <span class="pc-titulos"><span class="pc-titulo">Consulta de andamento processual</span><span class="pc-subtitulo">Push Processual · acesso externo</span></span>
+                <span class="pc-mola"></span>
+                <span class="pc-selo"><i class="bi bi-shield-lock"></i>Somente leitura · protegido</span>
+            </div>
+        </div>
+        {% if adv is not null and adv.nome %}
+            <div class="pc-adv" data-pc-adv>
+                <div class="pc-adv-in">
+                    <span class="pc-adv-nome"><i class="bi bi-person-badge"></i>{{ adv.nome }}</span>
+                    {% if adv.oab %}<span class="pc-adv-item">OAB {{ adv.oab }}</span>{% endif %}
+                    {% if adv.email %}<span class="pc-adv-item"><i class="bi bi-envelope"></i>{{ adv.email }}</span>{% endif %}
+                    <span class="pc-mola"></span><span class="pc-adv-esc">{{ adv.escritorio }}</span>
+                </div>
+            </div>
+        {% endif %}
+    </header>
+
+    {% if estado == 'ok' %}
+        {# [PC] 46, 154-156: marca d'água montada no servidor; o texto não tem dado do usuário. #}
+        {%- set marca = 'BlueJus · ' ~ (pagina.processo|numero_cnj) ~ ' · ' ~ agora|date('d/m/Y H:i') ~ ' · ' ~ pagina.assinatura -%}
+        {%- set marca = marca|replace({'<': '', '>': '', '&': '', '"': '', "'": ''}) -%}
+        {%- set svg = '<svg xmlns="http://www.w3.org/2000/svg" width="420" height="220"><text x="0" y="120" transform="rotate(-24 210 110)" fill="rgba(11,95,134,0.07)" font-family="Arial" font-size="15" font-weight="700">' ~ marca ~ '</text></svg>' -%}
+        <div class="pc-marca" aria-hidden="true" data-pc-marca="{{ marca }}" style="background-image:url(&quot;data:image/svg+xml;charset=utf-8,{{ svg|url_encode }}&quot;)"></div>
+    {% endif %}
+
+    {# [PC] 47 #}
+    <div class="pc-oculto" data-pc-oculto hidden>
+        <div class="pc-oculto-in">
+            <i class="bi bi-shield-lock pc-oculto-icone"></i>
+            <span class="pc-oculto-titulo">Conteúdo protegido</span>
+            <span class="pc-oculto-texto">Volte para esta janela para continuar a leitura. Capturas e cópias deste andamento não são permitidas.</span>
+        </div>
+    </div>
+
+    <main class="pc-main" data-seg="1">
+        {% if estado == 'nao_encontrado' %}
+            {# [PC] 135 #}
+            <div class="pc-erro">
+                <i class="bi bi-link-45deg pc-erro-icone"></i>
+                <div class="pc-erro-titulo">Link não encontrado</div>
+                <div class="pc-erro-texto">Confira se o endereço foi copiado inteiro ou peça um novo link ao escritório.</div>
+            </div>
+        {% elseif estado == 'revogado' %}
+            {# [PC] 136 #}
+            <div class="pc-erro">
+                <i class="bi bi-slash-circle pc-erro-icone"></i>
+                <div class="pc-erro-titulo">Link desativado</div>
+                <div class="pc-erro-texto">O escritório revogou este link. Peça um novo ao advogado responsável.</div>
+            </div>
+        {% elseif estado == 'expirado' %}
+            {# [PC] 137-145 #}
+            <div class="pc-erro">
+                <i class="bi bi-hourglass-bottom pc-erro-icone"></i>
+                <div class="pc-erro-titulo">Link expirado</div>
+                <div class="pc-erro-texto">Este link ficou disponível por 30 dias e a validade terminou em {{ pagina.expiraEm }}.{% if not pagina.renovacaoPendente and not pagina.renovacaoRecusada %} Você pode pedir a renovação ao escritório.{% endif %}</div>
+                {% if pagina.podePedirRenovacao %}
+                    <form class="pc-renov" method="post" action="{{ path('push_compartilhado_renovacao', {endereco: pagina.endereco}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('push_publico_' ~ pagina.endereco) }}">
+                        <input class="pc-campo" type="text" name="nome" maxlength="60" placeholder="Seu nome (opcional)" autocomplete="name">
+                        <textarea class="pc-campo pc-campo--texto" name="mensagem" rows="2" maxlength="280" placeholder="Mensagem para o escritório (opcional)"></textarea>
+                        <button type="submit" class="pc-botao"><i class="bi bi-arrow-clockwise"></i>Pedir renovação do link</button>
+                    </form>
+                {% endif %}
+                {% if pagina.renovacaoPendente %}
+                    <div class="pc-renov-status pc-renov-status--enviado"><i class="bi bi-send-check"></i>Pedido de renovação enviado em {{ pagina.renovacaoPedidaEm }}. Assim que o escritório aceitar, este mesmo link volta a abrir.</div>
+                {% elseif pagina.renovacaoRecusada %}
+                    <div class="pc-renov-status pc-renov-status--recusado"><i class="bi bi-x-circle"></i>O escritório não aceitou a renovação. Fale com o advogado responsável.</div>
+                {% endif %}
+            </div>
+        {% elseif estado == 'bloqueado' %}
+            {# Fora do desenho: 5 códigos errados seguidos travam o link por 15 minutos (spec §1). #}
+            <div class="pc-erro">
+                <i class="bi bi-shield-exclamation pc-erro-icone"></i>
+                <div class="pc-erro-titulo">Acesso bloqueado por 15 minutos</div>
+                <div class="pc-erro-texto">Foram digitados 5 códigos incorretos seguidos. Aguarde 15 minutos e tente de novo, ou confirme o código com o escritório.</div>
+            </div>
+        {% elseif estado == 'limite' %}
+            {# Fora do desenho: o limitador push_publico recusou (429). #}
+            <div class="pc-erro">
+                <i class="bi bi-hourglass-split pc-erro-icone"></i>
+                <div class="pc-erro-titulo">Muitas tentativas em pouco tempo</div>
+                <div class="pc-erro-texto">Aguarde um minuto e abra o link de novo.</div>
+            </div>
+        {% elseif estado == 'pede_codigo' %}
+            {# [PC] 65-70 #}
+            <form class="pc-codigo" method="post" action="{{ path('push_compartilhado_codigo', {endereco: pagina.endereco}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('push_publico_' ~ pagina.endereco) }}">
+                <div class="pc-codigo-cab"><i class="bi bi-shield-lock pc-codigo-icone"></i><span class="pc-codigo-titulo">Código de acesso</span></div>
+                <div class="pc-codigo-texto">Digite o código de 6 dígitos enviado pelo escritório.</div>
+                <input class="pc-codigo-campo" data-pc-codigo type="text" name="codigo" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" autocomplete="one-time-code" required>
+                {% if pagina.erroCodigo %}<div class="pc-codigo-erro" role="alert">{{ pagina.erroCodigo }}</div>{% endif %}
+                <button type="submit" class="pc-botao">Acessar</button>
+            </form>
+        {% elseif estado == 'ok' %}
+            {# [PC] 74-78 #}
+            <section class="pc-processo">
+                <span class="pc-rotulo">Processo</span>
+                <span class="pc-numero">{{ pagina.processo|numero_cnj }}</span>
+                <div class="pc-processo-dados">
+                    {% if pagina.cliente %}<span data-pc-cliente><i class="bi bi-person"></i> {{ pagina.cliente }}</span>{% endif %}
+                    {% if pagina.acao %}<span><i class="bi bi-bank"></i> {{ pagina.acao }}</span>{% endif %}
+                    <span><i class="bi bi-clock"></i> Link válido até {{ pagina.expiraEm }}</span>
+                </div>
+            </section>
+            {# [PC] 79-85 #}
+            {% for analise in pagina.analises %}
+                <section class="pc-ia" data-pc-analise>
+                    <div class="pc-ia-cab"><span class="pc-ia-rotulo">✦ Análise IA</span><span class="pc-ia-aviso">Gerada por inteligência artificial · não é ato oficial do processo · {{ analise.quando }}</span></div>
+                    <div class="pc-ia-resumo">{{ analise.resumo }}</div>
+                    {% for ponto in analise.pontos %}
+                        <div class="pc-ia-ponto"><span class="pc-ia-bola pc-ia-bola--{{ ponto.tipo }}"></span>{{ ponto.texto }}</div>
+                    {% endfor %}
+                </section>
+            {% endfor %}
+            {# [PC] 86-95 #}
+            <section class="pc-movs">
+                <div class="pc-movs-cab"><span class="pc-movs-titulo">Movimentações recebidas</span><span class="pc-movs-qtd">{{ pagina.movimentacoes|length }}</span></div>
+                {% for mov in pagina.movimentacoes %}
+                    <div class="pc-mov" data-pc-mov>
+                        <div class="pc-mov-quando"><span class="pc-mov-data">{{ mov.data }}</span></div>
+                        <div class="pc-mov-corpo">
+                            <div class="pc-mov-linha"><span class="pc-tag pc-tag--{{ mov.cor }}">{{ mov.tipo }}</span>{% if mov.fonte %}<span class="pc-mov-fonte">{{ mov.fonte }}</span>{% endif %}</div>
+                            <span class="pc-mov-texto">{{ mov.texto }}</span>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="pc-movs-vazio">Nenhuma movimentação recebida até agora.</div>
+                {% endfor %}
+            </section>
+            {# [PC] 96 #}
+            <p class="pc-rodape">Consulta protegida: impressão, cópia e captura são bloqueadas e cada acesso é registrado. Link compartilhado pelo escritório. As informações vêm da captura automática dos tribunais e podem levar algumas horas para atualizar. Para dúvidas, fale com o advogado responsável.</p>
+        {% endif %}
+    </main>
+
+    {# [PC] 99 #}
+    <div class="pc-aviso" role="status" data-pc-aviso hidden><i class="bi bi-shield-lock"></i>Cópia e impressão bloqueadas neste andamento</div>
+</div>
+<script src="/js/push-compartilhado.js" defer></script>
+</body>
+</html>
