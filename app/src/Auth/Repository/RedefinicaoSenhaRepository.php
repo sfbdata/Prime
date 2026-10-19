@@ -82,17 +82,28 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Conta um código errado no próprio banco, num UPDATE só: soma 1 e, ao chegar no máximo, queima o
-     * pedido (usado_em). Ler, somar no PHP e gravar perderia contagem com POSTs paralelos, e cada perda
-     * é um chute a mais contra um código de 6 números. Recarrega a entidade com o que ficou gravado.
+     * Reserva uma das tentativas do pedido no próprio banco, ANTES de comparar o código: o UPDATE condicional
+     * decide quem ganha a vaga, então POSTs paralelos não comparam mais do que o máximo. Recarrega a entidade.
+     *
+     * @return bool true se esta chamada ganhou uma tentativa
      */
-    public function registrarTentativaErrada(RedefinicaoSenha $redefinicao, int $maximo, \DateTimeImmutable $agora): void
+    public function reservarTentativa(RedefinicaoSenha $redefinicao, int $maximo): bool
+    {
+        $linhas = $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE redefinicao_senha SET tentativas = tentativas + 1 WHERE id = :id AND usado_em IS NULL AND tentativas < :maximo',
+            ['id' => $redefinicao->getId(), 'maximo' => $maximo],
+        );
+        $this->getEntityManager()->refresh($redefinicao);
+
+        return $linhas === 1;
+    }
+
+    /** Código errado na última vaga: queima o pedido (usado_em), e nenhum código passa mais. */
+    public function queimarSeEsgotado(RedefinicaoSenha $redefinicao, int $maximo, \DateTimeImmutable $agora): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
-            'UPDATE redefinicao_senha SET tentativas = tentativas + 1, '
-            . 'usado_em = CASE WHEN tentativas + 1 >= :maximo THEN :agora ELSE usado_em END '
-            . 'WHERE id = :id AND usado_em IS NULL',
-            ['maximo' => $maximo, 'agora' => $agora->format('Y-m-d H:i:s'), 'id' => $redefinicao->getId()],
+            'UPDATE redefinicao_senha SET usado_em = :agora WHERE id = :id AND usado_em IS NULL AND tentativas >= :maximo',
+            ['id' => $redefinicao->getId(), 'maximo' => $maximo, 'agora' => $agora->format('Y-m-d H:i:s')],
         );
         $this->getEntityManager()->refresh($redefinicao);
     }

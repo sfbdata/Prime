@@ -53,9 +53,9 @@ final class ConfirmarCodigoSenhaUseCase
      */
     public function executar(ConfirmarCodigoSenhaInput $input): void
     {
-        $pedido = $this->conferirCodigo($input);
-
-        if (mb_strlen($input->senha) > self::SENHA_MAXIMA || !ForcaDaSenha::aceita($input->senha)) {
+        // A régua vem antes do código: senha fraca não gasta tentativa (a tela já confere antes de enviar).
+        // Limite em BYTES, como o do hasher do Symfony: em caracteres, acento passaria e daria 500.
+        if (strlen($input->senha) > self::SENHA_MAXIMA || !ForcaDaSenha::aceita($input->senha)) {
             throw new \DomainException(ForcaDaSenha::ERRO);
         }
 
@@ -63,7 +63,7 @@ final class ConfirmarCodigoSenhaUseCase
             throw new \DomainException(self::ERRO_CONFIRMACAO);
         }
 
-        $this->trocarSenha($pedido, $input->senha);
+        $this->trocarSenha($this->conferirCodigo($input), $input->senha);
     }
 
     /**
@@ -80,10 +80,16 @@ final class ConfirmarCodigoSenhaUseCase
             throw new \DomainException(self::ERRO_CODIGO);
         }
 
+        // Reserva a tentativa no banco ANTES de comparar: com POSTs paralelos, só os que ganharam uma das 5 vagas
+        // chegam a comparar o código. Ler, comparar e só depois contar deixaria N requisições simultâneas chutarem.
+        if (!$this->redefinicaoRepository->reservarTentativa($pedido, self::MAX_TENTATIVAS)) {
+            throw new \DomainException(self::ERRO_CODIGO);
+        }
+
         $esperado = SolicitarCodigoSenhaUseCase::hashDoCodigo((int) $user->getId(), $codigo, $this->segredo);
 
         if (!hash_equals($pedido->getTokenHash(), $esperado)) {
-            $this->registrarTentativaErrada($pedido);
+            $this->redefinicaoRepository->queimarSeEsgotado($pedido, self::MAX_TENTATIVAS, new \DateTimeImmutable());
 
             throw new \DomainException(self::ERRO_CODIGO);
         }
@@ -96,12 +102,6 @@ final class ConfirmarCodigoSenhaUseCase
         return $pedido->estaValido()
             && $pedido->getTentativas() < self::MAX_TENTATIVAS
             && $pedido->getUser()->isActive() === true;
-    }
-
-    /** Na quinta tentativa errada o pedido queima: marcado usado, nenhum código passa mais. Atômico no banco. */
-    private function registrarTentativaErrada(RedefinicaoSenha $pedido): void
-    {
-        $this->redefinicaoRepository->registrarTentativaErrada($pedido, self::MAX_TENTATIVAS, new \DateTimeImmutable());
     }
 
     /**

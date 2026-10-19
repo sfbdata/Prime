@@ -94,6 +94,11 @@ final class RecuperacaoSenhaController extends AbstractController
             return new JsonResponse(['erro' => self::ERRO_CSRF], Response::HTTP_FORBIDDEN);
         }
 
+        // As 5 tentativas por código são a defesa do código; o limite por IP põe teto em quem varre contas.
+        if (!$this->senhaEsqueciIpLimiter->create((string) $request->getClientIp())->consume()->isAccepted()) {
+            return new JsonResponse(['erro' => self::ERRO_LIMITE], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
         try {
             $this->confirmarCodigo->executar(new ConfirmarCodigoSenhaInput(
                 email: $this->texto($dados, 'email'),

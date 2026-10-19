@@ -58,6 +58,26 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         $this->redefinicaoRepository->method('consumir')
             ->willReturnCallback(fn (): bool => $this->consumoAtomicoVence);
         $this->hasher->method('hashPassword')->willReturn('HASH_NOVO');
+        $this->redefinicaoRepository->method('reservarTentativa')->willReturnCallback($this->reservaNoBanco(...));
+        $this->redefinicaoRepository->method('queimarSeEsgotado')->willReturnCallback($this->queimaNoBanco(...));
+    }
+
+    /** Faz no objeto o que o UPDATE condicional do repositório faz no banco. */
+    private function reservaNoBanco(RedefinicaoSenha $pedido, int $maximo): bool
+    {
+        if ($pedido->isUsado() || $pedido->getTentativas() >= $maximo) {
+            return false;
+        }
+        $pedido->registrarTentativaErrada();
+
+        return true;
+    }
+
+    private function queimaNoBanco(RedefinicaoSenha $pedido, int $maximo, \DateTimeImmutable $agora): void
+    {
+        if ($pedido->getTentativas() >= $maximo) {
+            $pedido->marcarUsado($agora);
+        }
     }
 
     private function usuario(bool $ativo = true): User
@@ -114,14 +134,10 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         self::assertTrue($pedido->isUsado());
     }
 
-    #[TestDox('Código errado conta uma tentativa no banco e devolve o erro neutro')]
+    #[TestDox('Código errado gasta a tentativa reservada no banco e devolve o erro neutro')]
     public function testCodigoErradoContaTentativa(): void
     {
         $pedido = $this->cenario();
-        $this->redefinicaoRepository->expects($this->once())
-            ->method('registrarTentativaErrada')
-            ->with($pedido, ConfirmarCodigoSenhaUseCase::MAX_TENTATIVAS)
-            ->willReturnCallback($this->bancoQueContaTentativa(...));
         $this->hasher->expects($this->never())->method('hashPassword');
 
         try {
@@ -139,8 +155,6 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
     public function testCincoTentativasQueimamOPedido(): void
     {
         $pedido = $this->cenario();
-        $this->redefinicaoRepository->method('registrarTentativaErrada')
-            ->willReturnCallback($this->bancoQueContaTentativa(...));
 
         for ($i = 0; $i < ConfirmarCodigoSenhaUseCase::MAX_TENTATIVAS; ++$i) {
             try {
@@ -168,16 +182,6 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         $this->useCase->executar($this->input());
     }
 
-    /** Faz no objeto o que o UPDATE atômico do repositório faz no banco. */
-    private function bancoQueContaTentativa(RedefinicaoSenha $pedido, int $maximo, \DateTimeImmutable $agora): void
-    {
-        $pedido->registrarTentativaErrada();
-
-        if ($pedido->getTentativas() >= $maximo) {
-            $pedido->marcarUsado($agora);
-        }
-    }
-
     /** @return iterable<string, array{string}> */
     public static function codigosForaDoFormato(): iterable
     {
@@ -192,7 +196,7 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
     public function testFormatoErradoNaoGastaTentativa(string $codigo): void
     {
         $pedido = $this->cenario();
-        $this->redefinicaoRepository->expects($this->never())->method('registrarTentativaErrada');
+        $this->redefinicaoRepository->expects($this->never())->method('reservarTentativa');
 
         try {
             $this->useCase->executar($this->input($codigo));
@@ -208,7 +212,7 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
     public function testContaInexistente(): void
     {
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
-        $this->redefinicaoRepository->expects($this->never())->method('registrarTentativaErrada');
+        $this->redefinicaoRepository->expects($this->never())->method('reservarTentativa');
 
         $this->esperarErro(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO);
         $this->useCase->executar($this->input());
@@ -218,7 +222,7 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
     public function testContaInativa(): void
     {
         $this->cenario($this->usuario(ativo: false));
-        $this->redefinicaoRepository->expects($this->never())->method('registrarTentativaErrada');
+        $this->redefinicaoRepository->expects($this->never())->method('reservarTentativa');
 
         $this->esperarErro(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO);
         $this->useCase->executar($this->input());
@@ -271,13 +275,42 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         $this->useCase->executar($this->input(confirmacao: 'OutraSenha123'));
     }
 
-    #[TestDox('Ordem do desenho: código errado vem antes da senha fraca')]
-    public function testCodigoErradoAntesDaSenhaFraca(): void
+    #[TestDox('Senha fraca é recusada antes de olhar o código, sem gastar tentativa')]
+    public function testSenhaFracaAntesDoCodigo(): void
+    {
+        $pedido = $this->cenario();
+
+        try {
+            $this->useCase->executar($this->input('999999', 'fraca'));
+            self::fail('Senha fraca tinha que ser recusada.');
+        } catch (\DomainException $e) {
+            self::assertSame(ForcaDaSenha::ERRO, $e->getMessage());
+        }
+
+        self::assertSame(0, $pedido->getTentativas());
+    }
+
+    #[TestDox('Sem vaga no banco (outra requisição levou a última), nem compara o código')]
+    public function testSemVagaNaoCompara(): void
+    {
+        $pedido = $this->cenario();
+        for ($i = 0; $i < ConfirmarCodigoSenhaUseCase::MAX_TENTATIVAS - 1; ++$i) {
+            $pedido->registrarTentativaErrada();
+        }
+        $this->reservaNoBanco($pedido, ConfirmarCodigoSenhaUseCase::MAX_TENTATIVAS);
+        $this->hasher->expects($this->never())->method('hashPassword');
+
+        $this->esperarErro(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO);
+        $this->useCase->executar($this->input());
+    }
+
+    #[TestDox('Senha de mais de 4096 bytes com acento é recusada pela régua, não vira 500 no hasher')]
+    public function testSenhaLongaEmBytes(): void
     {
         $this->cenario();
 
-        $this->esperarErro(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO);
-        $this->useCase->executar($this->input('999999', 'fraca'));
+        $this->esperarErro(ForcaDaSenha::ERRO);
+        $this->useCase->executar($this->input(senha: str_repeat('ç', 2100) . 'A1'));
     }
 
     #[TestDox('Corrida: quem perde o UPDATE condicional não troca a senha')]
