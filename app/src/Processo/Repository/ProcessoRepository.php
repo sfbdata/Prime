@@ -52,7 +52,8 @@ class ProcessoRepository extends ServiceEntityRepository
 
     /**
      * Números dos processos que o Push Processual acompanha por número: todos os cadastrados no
-     * escritório que ainda não deram baixa (processo baixado não recebe publicação nova), do mais
+     * escritório que ainda não deram baixa (processo baixado não recebe publicação nova) e cujo
+     * monitoramento não foi pausado na aba Push da pasta (spec push-painel-monitoramento §1), do mais
      * recente ao mais antigo: no botão, que roda dentro do limite do DJEN, o recém-cadastrado vem
      * primeiro.
      *
@@ -67,6 +68,7 @@ class ProcessoRepository extends ServiceEntityRepository
             ->select('p.numeroProcesso')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.dataBaixa IS NULL')
+            ->andWhere('p.monitoramentoPausadoEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->orderBy('p.id', 'DESC')
             ->getQuery()
@@ -85,9 +87,28 @@ class ProcessoRepository extends ServiceEntityRepository
             ->select('COUNT(p.id)')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.dataBaixa IS NULL')
+            ->andWhere('p.monitoramentoPausadoEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * Grava a última verificação no DJEN dos processos do escritório com este número (spec
+     * push-painel-monitoramento §1). O número chega só com dígitos (é o que a captação consulta) e o
+     * cadastro pode tê-lo com máscara, por isso a comparação é só de dígitos dos dois lados.
+     *
+     * UPDATE direto, e não pela entidade: roda no laço da captação (no comando, centenas de números)
+     * e não deve disparar o `PreUpdate` do processo, que mudaria o `modificadoEm` sem ninguém ter
+     * mexido no cadastro. Escopado pelo tenant explícito (o comando roda sem o TenantFilter).
+     */
+    public function registrarVerificacaoDoNumero(Tenant $tenant, string $numeroSoDigitos, \DateTimeImmutable $em): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            "UPDATE processo SET ultima_verificacao_em = :em
+              WHERE tenant_id = :tenant AND regexp_replace(numero_processo, '\\D', '', 'g') = :numero",
+            ['em' => $em->format('Y-m-d H:i:s'), 'tenant' => $tenant->getId(), 'numero' => $numeroSoDigitos],
+        );
     }
 
     /**

@@ -1,0 +1,83 @@
+{# ============================================================================
+   Coluna direita da aba Push: o cartão de Monitoramento e Situação atual (desenho 1.2.3,
+   dc L.2567-2626; spec push-painel-monitoramento). Neste PR só este cartão: "Avisar quando
+   chegar" (P4b) e "Avisar cliente" (P4c) vêm depois; a leitura completa ("Lendo o processo" com
+   as 12 etapas, a análise e o envio de arquivos) é do P4e.
+
+   Textos de `pushVals` (dc L.5434-5446) e de `previsaoProc` (dc L.5110-5116), resolvidos no
+   servidor (App\Pasta\DTO\PainelDoPushOutput). Estilos 1:1 em pasta-push-painel.css, com a linha
+   do desenho em cada regra. O pasta-push-painel.js liga o switch e o "Buscar agora" (sem
+   innerHTML com dado: só troca texto, classe e atributo).
+
+   O switch muda o processo PRINCIPAL e exige EDITAR a pasta; "Buscar agora" exige ver. Na pasta
+   excluída (lápide) os dois saem desabilitados: o servidor recusaria (são POST).
+
+   Contexto: `pasta`, `painel` (PainelDoPushOutput), `podeEditarPasta`.
+   ============================================================================ #}
+{% set pastaViva = not pasta.estaExcluida %}
+{% set podeAlternar = painel.temProcesso and podeEditarPasta and pastaViva %}
+{% set situacao = painel.situacao %}
+<aside class="ps-push-coluna" aria-label="Monitoramento do processo">
+    <div class="ps-push-painel" data-push-painel
+         data-monitoramento-url="{{ path('pasta_push_monitoramento', {id: pasta.id}) }}"
+         data-monitoramento-token="{{ csrf_token('pasta_push_monitoramento_' ~ pasta.id) }}"
+         data-buscar-url="{{ path('pasta_push_buscar', {id: pasta.id}) }}"
+         data-buscar-token="{{ csrf_token('pasta_push_buscar_' ~ pasta.id) }}"
+         data-buscar-permitido="{{ pastaViva ? '1' : '0' }}">
+        <div class="ps-push-painel-cab">
+            <span class="ps-push-painel-ponto{{ painel.ativo ? ' is-ativo' : '' }}" data-push-painel-ponto aria-hidden="true"></span>
+            <span class="ps-push-painel-status">
+                <span class="ps-push-painel-titulo" data-push-painel-titulo>{{ painel.statusTxt }}</span>
+                <span class="ps-push-painel-sub" data-push-painel-sub>{{ painel.statusSub }}</span>
+            </span>
+            <button type="button" class="ps-push-switch{{ painel.ativo ? ' is-on' : '' }}"
+                    role="switch" aria-checked="{{ painel.ativo ? 'true' : 'false' }}" aria-label="Monitoramento"
+                    data-push-painel-switch
+                    {% if painel.temProcesso and not podeAlternar %}title="Só quem edita a pasta pausa ou retoma o monitoramento"{% endif %}
+                    {{ podeAlternar ? '' : 'disabled' }}>
+                <span class="ps-push-switch-bola"></span>
+            </button>
+        </div>
+        <div class="ps-push-painel-info">
+            <div class="ps-push-painel-linha"><i class="bi bi-diagram-3" aria-hidden="true"></i><span class="ps-push-painel-processo">{{ painel.processo }}</span></div>
+            <div class="ps-push-painel-linha"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>{{ painel.ultima }}</span></div>
+        </div>
+        {% if situacao is not null %}
+            {# Some com o monitoramento pausado (dc L.5420); o switch a mostra de novo sem recarregar. #}
+            <div class="ps-push-sit" data-push-painel-situacao{{ painel.ativo ? '' : ' hidden' }}>
+                <div class="ps-push-sit-rotulo"><i class="bi bi-pin-angle" aria-hidden="true"></i>Situação atual</div>
+                <div class="ps-push-sit-fase">
+                    <span class="ps-push-sit-titulo">{{ situacao.situacao }}</span>
+                    <span class="ps-push-sit-selo ps-push-sit-selo--{{ situacao.statusMod }}">{{ situacao.status }}</span>
+                </div>
+                <div class="ps-push-sit-grade">
+                    <span class="ps-push-sit-k">Último evento</span><span class="ps-push-sit-v ps-push-sit-v--forte">{{ situacao.ultimo }}</span>
+                    <span class="ps-push-sit-k">Próximo ato</span><span class="ps-push-sit-v ps-push-sit-v--forte">{{ situacao.proximo }}</span>
+                    <span class="ps-push-sit-k">Quem age</span><span class="ps-push-sit-v">{{ situacao.quem }}</span>
+                    <span class="ps-push-sit-k">Prazo</span><span class="ps-push-sit-v">{{ situacao.prazo }}</span>
+                    <span class="ps-push-sit-k">Previsão</span><span class="ps-push-sit-previsao" title="{{ situacao.dica }}">{{ situacao.previsao }}</span>
+                </div>
+                <div class="ps-push-sit-proxima">
+                    <div class="ps-push-sit-rotulo"><i class="bi bi-signpost-split" aria-hidden="true"></i>Próxima etapa provável</div>
+                    <span class="ps-push-sit-posterior">{{ situacao.posterior }}</span>
+                    <div class="ps-push-sit-conf">
+                        <span class="ps-push-sit-conf-selo ps-push-sit-conf-selo--{{ situacao.confMod }}">Confiança {{ situacao.conf }}</span>
+                        <span class="ps-push-sit-base">Base: {{ situacao.base }}</span>
+                    </div>
+                </div>
+                {% if situacao.nota is not null %}
+                    <div class="ps-push-sit-nota"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span>{{ situacao.nota }}</span></div>
+                {% endif %}
+                <div class="ps-push-sit-rodape">Previsão da I.A, não é ato oficial. {{ situacao.aprendizado }}.</div>
+            </div>
+        {% endif %}
+        <button type="button" class="ps-push-buscar" data-push-painel-buscar
+                title="Busca, lê e audita o processo: prazos, decursos, pendências e próximos atos"
+                {{ painel.ativo and pastaViva ? '' : 'disabled' }}>
+            <i class="bi bi-cloud-download" aria-hidden="true" data-push-painel-buscar-ico></i><span data-push-painel-buscar-txt>Buscar agora</span>
+        </button>
+        <p class="ps-push-painel-msg" data-push-painel-msg role="status" hidden></p>
+    </div>
+</aside>
+<link rel="stylesheet" href="{{ asset('css/pasta-push-painel.css') }}">
+<script src="{{ asset('js/pasta-push-painel.js') }}" defer></script>

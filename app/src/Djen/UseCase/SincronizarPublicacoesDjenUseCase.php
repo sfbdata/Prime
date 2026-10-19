@@ -24,7 +24,8 @@ use App\Processo\Repository\ProcessoRepository;
  * Sincroniza as publicações do DJEN de UM escritório por duas fontes:
  *
  *  1. cada OAB ativa monitorada (o que sempre existiu);
- *  2. cada processo CADASTRADO no escritório, sem baixa, consultado pelo próprio número. Pega a
+ *  2. cada processo CADASTRADO no escritório, sem baixa e sem monitoramento pausado, consultado
+ *     pelo próprio número (e cada consulta bem-sucedida grava a última verificação). Pega a
  *     publicação em que nenhuma OAB monitorada aparece (advogado de fora da lista, substabelecimento,
  *     processo assumido em andamento), que pela OAB nunca chegaria.
  *
@@ -102,7 +103,7 @@ final class SincronizarPublicacoesDjenUseCase
         }
 
         if ($incluirProcessos) {
-            $this->consultarProcessos($tenant, $periodo, $dryRun, $vistosNesteRun, $resultado, false);
+            $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, false);
         }
 
         $this->concluir($tenant, $dryRun, $resultado);
@@ -137,10 +138,62 @@ final class SincronizarPublicacoesDjenUseCase
         // foi gravado, e sem isto a simulação contaria em dobro a publicação vinda pelas duas fontes.
         $vistosNesteRun = array_fill_keys($djenIdsJaCaptados, true);
 
-        $this->consultarProcessos($tenant, $periodo, $dryRun, $vistosNesteRun, $resultado, true);
+        $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
         $this->concluir($tenant, $dryRun, $resultado);
 
         return $resultado;
+    }
+
+    /**
+     * "Buscar agora" do painel do Push na pasta (spec push-painel-monitoramento §2): só os números
+     * informados (os processos da pasta com monitoramento ativo), dentro de um REQUEST. Mesmas regras
+     * da fase de processos do botão do módulo: deduplica, vincula, notifica as novas, para no
+     * primeiro sinal de limite do DJEN (o resultado conta os adiados) e reconcilia as avulsas.
+     *
+     * @param list<string> $numeros números CNJ, com ou sem máscara
+     */
+    public function sincronizarNumeros(Tenant $tenant, PeriodoConsulta $periodo, array $numeros): ResultadoSincronizacao
+    {
+        $resultado = new ResultadoSincronizacao();
+        $vistosNesteRun = [];
+
+        $this->consultarProcessos($tenant, $this->numerosCnj($numeros), $periodo, false, $vistosNesteRun, $resultado, false);
+        $this->concluir($tenant, false, $resultado);
+        $this->reconciliar->executar($tenant);
+
+        return $resultado;
+    }
+
+    /** @return list<string> os números acompanhados do escritório (sem baixa e sem pausa), só dígitos */
+    private function numerosAcompanhados(Tenant $tenant): array
+    {
+        return $this->numerosCnj($this->processoRepository->listarNumerosAcompanhadosDoTenant($tenant));
+    }
+
+    /**
+     * @param list<string> $numeros
+     *
+     * @return list<string> só os que têm os 20 dígitos do CNJ, sem a máscara
+     */
+    private function numerosCnj(array $numeros): array
+    {
+        $validos = [];
+        foreach ($numeros as $numeroCadastrado) {
+            $numero = preg_replace('/\D/', '', $numeroCadastrado) ?? '';
+            if (\strlen($numero) === self::DIGITOS_NUMERO_CNJ) {
+                $validos[] = $numero;
+            }
+        }
+
+        return $validos;
+    }
+
+    /** A última verificação do processo (spec push-painel-monitoramento §1). O --dry-run não grava nada. */
+    private function registrarVerificacao(Tenant $tenant, string $numero, bool $dryRun): void
+    {
+        if (!$dryRun) {
+            $this->processoRepository->registrarVerificacaoDoNumero($tenant, $numero, new \DateTimeImmutable());
+        }
     }
 
     private function concluir(Tenant $tenant, bool $dryRun, ResultadoSincronizacao $resultado): void
@@ -163,24 +216,18 @@ final class SincronizarPublicacoesDjenUseCase
      *
      * Falta de configuração para nos dois modos: as consultas seguintes falhariam igual.
      *
+     * @param list<string>        $numeros        números CNJ só com dígitos, na ordem de consulta
      * @param array<string, true> $vistosNesteRun djenId já criados nesta execução
      */
     private function consultarProcessos(
         Tenant $tenant,
+        array $numeros,
         PeriodoConsulta $periodo,
         bool $dryRun,
         array &$vistosNesteRun,
         ResultadoSincronizacao $resultado,
         bool $aguardarNoLimite,
     ): void {
-        $numeros = [];
-        foreach ($this->processoRepository->listarNumerosAcompanhadosDoTenant($tenant) as $numeroCadastrado) {
-            $numero = preg_replace('/\D/', '', $numeroCadastrado) ?? '';
-            if (\strlen($numero) === self::DIGITOS_NUMERO_CNJ) {
-                $numeros[] = $numero;
-            }
-        }
-
         $indice = 0;
         $esperasSeguidas = 0;
         $total = \count($numeros);
@@ -242,6 +289,7 @@ final class SincronizarPublicacoesDjenUseCase
             $esperasSeguidas = 0;
             ++$indice;
             $resultado->registrarProcessoConsultado();
+            $this->registrarVerificacao($tenant, $numero, $dryRun);
             $resultado->registrarRecebidas(\count($itens));
             $this->processarItens(null, $tenant, $itens, $dryRun, $vistosNesteRun, $resultado);
         }

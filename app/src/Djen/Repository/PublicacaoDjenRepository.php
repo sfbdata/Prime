@@ -7,6 +7,7 @@ namespace App\Djen\Repository;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
+use App\Processo\DTO\MovimentacaoParaPrevisao;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -19,6 +20,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 {
     /** Caracteres do teor (HTML cru) que a lista da PASTA projeta para montar o `textoResumo`. */
     private const TEXTO_INICIO_LISTA = 2000;
+    private const TEXTO_PREVISAO = 15000;
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -216,6 +218,53 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             static fn (array $linha): PublicacaoDjenListaItem => PublicacaoDjenListaItem::fromRow($linha),
             $linhas,
         );
+    }
+
+    /**
+     * As movimentações que a "Situação atual" do Push lê (spec push-painel-monitoramento §3): a
+     * MESMA lista da aba (`listarItensPorNumerosDoTenant`: mesmos números, ordem e teto), com o teor.
+     * O teor vem cortado em `TEXTO_PREVISAO` caracteres de HTML: a previsão só lê os 5.000 primeiros
+     * de texto, e o HTML das tags ocupa espaço. Publicação sem data de disponibilização fica de
+     * fora: sem data não há contagem de prazo nem ordem.
+     *
+     * @param string[] $numeros números CNJ dos processos da pasta
+     *
+     * @return MovimentacaoParaPrevisao[] da mais recente para a mais antiga
+     */
+    public function listarParaPrevisaoDoTenant(Tenant $tenant, array $numeros, int $limite = 100): array
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select(
+                'p.dataDisponibilizacao AS data',
+                'p.tipoComunicacao AS tipo',
+                'SUBSTRING(p.texto, 1, ' . self::TEXTO_PREVISAO . ') AS teor',
+            )
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->orderBy('p.dataDisponibilizacao', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getArrayResult();
+
+        $movimentacoes = [];
+        foreach ($linhas as $linha) {
+            $data = $linha['data'] instanceof \DateTimeInterface
+                ? \DateTimeImmutable::createFromInterface($linha['data'])
+                : null;
+            if ($data !== null) {
+                $movimentacoes[] = MovimentacaoParaPrevisao::doTeorHtml($data, $linha['tipo'], $linha['teor']);
+            }
+        }
+
+        return $movimentacoes;
     }
 
     /**

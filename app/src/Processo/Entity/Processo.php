@@ -123,6 +123,25 @@ class Processo implements TenantAware
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
 
+    /**
+     * Monitoramento do Push Processual (spec push-painel-monitoramento §1). `null` = ativo: a
+     * captação do DJEN consulta este número. Pausar não apaga nada, só tira o número da captação.
+     * É do PROCESSO, então vale para todas as pastas que o compartilham.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $monitoramentoPausadoEm = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'monitoramento_pausado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $monitoramentoPausadoPor = null;
+
+    /**
+     * Quando o BlueJus consultou o DJEN por este número pela última vez, com sucesso. Não é o
+     * `dataAtualizacao`, que vem do DataJud.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $ultimaVerificacaoEm = null;
+
     public function __construct()
     {
         $this->documentos = new ArrayCollection();
@@ -599,4 +618,44 @@ class Processo implements TenantAware
         return $this;
     }
 
+    public function monitoramentoAtivo(): bool
+    {
+        return $this->monitoramentoPausadoEm === null;
+    }
+
+    public function pausarMonitoramento(User $por, \DateTimeImmutable $em): void
+    {
+        if (!$this->monitoramentoAtivo()) {
+            return;
+        }
+
+        $this->monitoramentoPausadoEm  = $em;
+        $this->monitoramentoPausadoPor = $por;
+    }
+
+    public function retomarMonitoramento(): void
+    {
+        $this->monitoramentoPausadoEm  = null;
+        $this->monitoramentoPausadoPor = null;
+    }
+
+    public function getMonitoramentoPausadoEm(): ?\DateTimeImmutable
+    {
+        return $this->monitoramentoPausadoEm;
+    }
+
+    public function getMonitoramentoPausadoPor(): ?User
+    {
+        return $this->monitoramentoPausadoPor;
+    }
+
+    public function getUltimaVerificacaoEm(): ?\DateTimeImmutable
+    {
+        return $this->ultimaVerificacaoEm;
+    }
+
+    public function registrarVerificacao(\DateTimeImmutable $em): void
+    {
+        $this->ultimaVerificacaoEm = $em;
+    }
 }
