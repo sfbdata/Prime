@@ -113,19 +113,19 @@
                         {% endif %}
                     </div>
                 </div>
-            {% endif %}
 
-            {# C.6: "Links desta pasta" ([EXP] L.540-552). Aparece também sem processo: links
-               antigos continuam revogáveis. #}
-            <div class="ppl-lista-bloco js-ppl-lista-bloco" hidden>
-                <div class="ppl-lista-cab">
-                    <span class="ppl-rotulo">Links desta pasta</span>
-                    <span class="ppl-espaco"></span>
-                    <button type="button" class="ppl-ac-total js-ppl-abrir-acessos" title="Abrir o painel de acessos"><i class="bi bi-eye" aria-hidden="true"></i><b class="js-ppl-ac-total">0</b><span class="js-ppl-ac-total-txt"> acessos no total</span><i class="bi bi-box-arrow-up-right ppl-ac-total-seta" aria-hidden="true"></i></button>
-                    <span class="ppl-lista-resumo js-ppl-resumo"></span>
+                {# C.6: "Links desta pasta" ([EXP] L.540-548), dentro de `pl.temProc` (L.514-549) como no
+                   desenho: sem processo vinculado o modal só mostra o aviso. #}
+                <div class="ppl-lista-bloco js-ppl-lista-bloco" hidden>
+                    <div class="ppl-lista-cab">
+                        <span class="ppl-rotulo">Links desta pasta</span>
+                        <span class="ppl-espaco"></span>
+                        <button type="button" class="ppl-ac-total js-ppl-abrir-acessos" title="Abrir o painel de acessos"><i class="bi bi-eye" aria-hidden="true"></i><b class="js-ppl-ac-total">0</b><span class="js-ppl-ac-total-txt"> acessos no total</span><i class="bi bi-box-arrow-up-right ppl-ac-total-seta" aria-hidden="true"></i></button>
+                        <span class="ppl-lista-resumo js-ppl-resumo"></span>
+                    </div>
+                    <ul class="ppl-lista js-ppl-lista"></ul>
                 </div>
-                <ul class="ppl-lista js-ppl-lista"></ul>
-            </div>
+            {% endif %}
         </div>
 
         <div class="ppl-rodape-janela">

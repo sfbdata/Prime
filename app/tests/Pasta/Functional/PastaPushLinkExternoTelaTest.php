@@ -192,12 +192,39 @@ final class PastaPushLinkExternoTelaTest extends JusPrimeWebTestCase
 
         // Lista "Links desta pasta": cabeçalho e o botão do painel de acessos.
         $lista = $corpo->filter('.ppl-corpo > .js-ppl-lista-bloco[hidden]');
+        self::assertSame(
+            ['ppl-aviso', 'js-ppl-bloqueio', 'js-ppl-erro', 'js-ppl-criado', 'js-ppl-form', 'js-ppl-lista-bloco'],
+            $corpo->filter('.ppl-corpo > *')->each(static function (Crawler $n): string {
+                $classes = explode(' ', (string) $n->attr('class'));
+                $js = array_values(array_filter($classes, static fn (string $c): bool => str_starts_with($c, 'js-ppl-')));
+
+                return $js[0] ?? $classes[0];
+            }),
+            'ordem do desenho dentro de `pl.temProc`: aviso, criado/formulário e a lista no fim',
+        );
         self::assertSame('Links desta pasta', $lista->filter('.ppl-lista-cab > .ppl-rotulo')->text());
         self::assertCount(1, $lista->filter('.ppl-lista-cab > button.js-ppl-abrir-acessos[title="Abrir o painel de acessos"]'));
         self::assertCount(1, $lista->filter('.js-ppl-lista-bloco > ul.js-ppl-lista'));
     }
 
-    #[TestDox('Pasta sem processo: o modal mostra o aviso do desenho, sem formulário e sem "Gerar e copiar link"')]
+    #[TestDox('Sem modules.inteligencia.view, o interruptor "Incluir Análises IA" não é renderizado; os outros dois ficam')]
+    public function testSemModuloDeIaSemInterruptor(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPush($tenant);
+        $leitor = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        $ops = $crawler->filter('#modalLinkExternoPush .js-ppl-form > .ppl-ve > button.js-ppl-op');
+        self::assertSame(['exigir_codigo', 'mostrar_cliente'], $ops->each(static fn (Crawler $o): ?string => $o->attr('data-op')));
+        self::assertStringNotContainsString('Incluir Análises IA', $crawler->filter('#modalLinkExternoPush')->text());
+    }
+
+    #[TestDox('Pasta sem processo: o modal mostra só o aviso do desenho, sem formulário, sem lista e sem "Gerar e copiar link"')]
     public function testPastaSemProcesso(): void
     {
         $client = $this->cliente();
@@ -219,7 +246,12 @@ final class PastaPushLinkExternoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $modal->filter('.ppl-aviso'));
         self::assertCount(0, $modal->filter('.js-ppl-gerar'));
         self::assertCount(1, $modal->filter('.ppl-rodape-janela > .js-ppl-fechar'));
-        self::assertCount(1, $modal->filter('.ppl-corpo > .js-ppl-lista-bloco'), 'links antigos continuam visíveis e revogáveis');
+        self::assertCount(0, $modal->filter('.js-ppl-lista-bloco'), 'a lista mora dentro de `pl.temProc` ([EXP] L.514-549)');
+        self::assertSame(
+            ['ppl-sem-proc'],
+            $modal->filter('#modalLinkExternoPush > .ppl-janela > .ppl-corpo > *')->each(static fn (Crawler $n): string => (string) $n->attr('class')),
+            'sem processo, o corpo do modal é só o aviso',
+        );
         // O menu da aba e o item do ⋮ continuam: o JS mostra "Link externo indisponível" com o motivo do servidor.
         self::assertCount(1, $crawler->filter('#pastaTabs > #push-tab[data-ppl-menu="pushLinkMenu"]'));
         self::assertCount(1, $crawler->filter('#psMenuAcoes > .js-ppl-abrir'));

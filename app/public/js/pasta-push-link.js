@@ -38,6 +38,7 @@
         gatilhoModal: null,
         gatilhoPainel: null,
         gatilhoMenu: null,
+        focoLinkId: null,     // linha que pediu Revogar/Renovar/Não renovar: o foco volta para ela
         menuAbertoEm: 0,
         gerando: false,
     };
@@ -217,11 +218,35 @@
     }
 
     function desenharModal() {
+        var antes = document.activeElement;
         desenharIa();
         desenharForm();
         desenharCriado();
         desenharBloqueio();
         desenharLista();
+        focoNaJanela(antes);
+    }
+
+    /* Depois de refazer a lista (Revogar, Renovar, Não renovar) ou de o bloqueio esconder o
+       formulário, o elemento focado pode ter saído da tela: o foco iria para o <body> e o Esc
+       do modal (escutado na janela) deixaria de funcionar. Se o foco estava no modal (ou já
+       no <body>), ele volta para um elemento visível da .ppl-janela: a mesma linha, quando a
+       ação veio dela, ou o primeiro focável. Foco na janela de confirmação ou no painel de
+       acessos não é tocado. */
+    function focoNaJanela(antes) {
+        var linkId = estado.focoLinkId;
+        estado.focoLinkId = null;
+        if (raiz.hidden) { return; }
+        var estavaAqui = !antes || antes === document.body || raiz.contains(antes);
+        var agora = document.activeElement;
+        var perdeu = !agora || agora === document.body || !raiz.contains(agora) || agora.getClientRects().length === 0;
+        if (!estavaAqui || !perdeu) { return; }
+        var alvo = null;
+        if (linkId !== null) {
+            alvo = raiz.querySelector('.ppl-linha[data-link-id="' + Number(linkId) + '"] .js-ppl-linha-ac');
+        }
+        if (!alvo || alvo.getClientRects().length === 0) { alvo = focaveis(q('.ppl-janela'))[0] || null; }
+        if (alvo) { alvo.focus(); }
     }
 
     function abrirModal(gatilho) {
@@ -303,15 +328,19 @@
         caixa.appendChild(ultimos);
     }
 
+    /** "dd/mm/aaaa hh:mm" (formato do servidor) já passou? */
+    function jaPassou(dataHora) {
+        var m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(String(dataHora || ''));
+        if (!m) { return true; }
+        return new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]).getTime() <= Date.now();
+    }
+
+    /* Sub-linha do desenho (`l.por · l.cod · l.val`, [EXP] L.5221): "até …" enquanto vale e
+       "expirou em …" depois. Revogado e indisponível seguem a mesma regra, pela data. */
     function subDaLinha(link) {
-        var validade;
-        if (link.estado === 'revogado') {
-            validade = 'revogado em ' + (link.revogadoEm || '');
-        } else if (link.estado === 'ativo') {
-            validade = 'até ' + link.expiraEm;
-        } else {
-            validade = 'expirou em ' + link.expiraEm;
-        }
+        var validade = link.estado === 'ativo' || !jaPassou(link.expiraEm)
+            ? 'até ' + link.expiraEm
+            : 'expirou em ' + link.expiraEm;
         return 'Criado por ' + link.criadoPor + ' em ' + link.criadoEm + ' · ' + (link.comCodigo ? 'com código' : 'sem código') + ' · ' + validade;
     }
 
@@ -352,12 +381,16 @@
         ac.appendChild(icone('bi ' + (aberto ? 'bi-chevron-up' : 'bi-chevron-down')));
         topo.appendChild(ac);
 
+        // Copiar só no ativo ([EXP] L.5216 `l.ativo`). O indisponível (a página pública não o
+        // abre mais) não tem o que copiar, mas continua revogável.
         if (link.estado === 'ativo') {
             var cp = botao('ppl-linha-copiar js-ppl-linha-copiar', null, 'bi bi-clipboard');
             cp.title = 'Copiar link';
             cp.setAttribute('aria-label', 'Copiar link');
             topo.appendChild(cp);
-            if (link.podeRevogar) { topo.appendChild(botao('ppl-btn ppl-btn--perigo js-ppl-linha-revogar', 'Revogar')); }
+        }
+        if ((link.estado === 'ativo' || link.estado === 'indisponivel') && link.podeRevogar) {
+            topo.appendChild(botao('ppl-btn ppl-btn--perigo js-ppl-linha-revogar', 'Revogar'));
         }
         if (link.podeRenovar) { topo.appendChild(botao('ppl-btn ppl-btn--renovar js-ppl-linha-renovar', 'Renovar 30 dias', 'bi bi-arrow-clockwise')); }
         if (link.podeRecusar) { topo.appendChild(botao('ppl-btn ppl-btn--recusar js-ppl-linha-recusar', 'Não renovar', 'bi bi-x-lg')); }
@@ -388,6 +421,7 @@
     }
 
     function acaoNoLink(link, acao, aviso) {
+        estado.focoLinkId = link.id;
         return postar(URL_LINKS + '/' + encodeURIComponent(String(link.id)) + '/' + acao, {}).then(function (r) {
             if (!r.ok) {
                 avisar((r.corpo && r.corpo.erro) || ERRO_GERAL, 'erro');
@@ -419,9 +453,14 @@
         });
     }
 
+    // Fundo: `onMouseDown` com target === currentTarget ([EXP] L.507, `pl.fundo` L.5226). Por
+    // mousedown, um arrasto que começa num campo e solta no fundo não fecha a janela.
+    raiz.addEventListener('mousedown', function (e) {
+        if (e.target === e.currentTarget) { fecharModal(); }
+    });
+
     raiz.addEventListener('click', function (e) {
         var alvo = e.target;
-        if (alvo === raiz) { fecharModal(); return; } // clique no fundo (`pl.fundo`)
         if (alvo.closest('.js-ppl-fechar')) { fecharModal(); return; }
 
         var op = alvo.closest('.js-ppl-op');
@@ -575,15 +614,17 @@
             [copiar, acessos, gerarItem, indisponivel].forEach(function (b) { b.hidden = true; });
             return;
         }
+        // Bloqueado: item único, mesmo com link ativo ([EXP] L.4389, `if (bloq) return [...]`).
+        var bloqueado = !d.podeGerar;
         var ativo = ativoMaisRecente();
         var lista = links();
-        copiar.hidden = !ativo;
-        acessos.hidden = lista.length === 0;
+        copiar.hidden = bloqueado || !ativo;
+        acessos.hidden = bloqueado || lista.length === 0;
+        gerarItem.hidden = bloqueado;
+        indisponivel.hidden = !bloqueado;
         var n = d.totalAcessos || 0;
         q('.js-ppl-menu-acessos-rotulo', menu).textContent = 'Ver acessos ao link · ' + n + plural(n, ' acesso', ' acessos');
-        gerarItem.hidden = !d.podeGerar;
         q('.js-ppl-menu-gerar-rotulo', menu).textContent = ativo ? 'Gerar novo link externo' : 'Gerar link externo do Push';
-        indisponivel.hidden = !!d.podeGerar;
     }
 
     /** x = borda DIREITA do menu; y = topo. Sempre dentro da janela (`gmVals`, [EXP] L.4367). */
@@ -686,8 +727,8 @@
                 var ativo = ativoMaisRecente();
                 fecharMenu(true);
                 if (!ativo) { return; }
-                // Texto do `gmAviso` do desenho ([EXP] L.4392), com "sem código" quando não há.
-                copiarLink(ativo, 'Link copiado · válido até ' + dataSo(ativo.expiraEm) + ' · ' + (ativo.comCodigo ? 'com' : 'sem') + ' código de acesso. Análises com cadeado fechado não aparecem.');
+                // Texto do `gmAviso` do desenho ([EXP] L.4392): " · com código de acesso" só quando há código.
+                copiarLink(ativo, 'Link copiado · válido até ' + dataSo(ativo.expiraEm) + (ativo.comCodigo ? ' · com código de acesso' : '') + '. Análises com cadeado fechado não aparecem.');
                 return;
             }
             if (alvo.closest('.js-ppl-menu-acessos')) { fecharMenu(false); abrirPainel(aba); return; }
@@ -703,12 +744,15 @@
     /* ── Menu ⋮ da pasta ([EXP] L.1104) ── */
     document.addEventListener('click', function (e) {
         var item = e.target.closest('.js-ppl-abrir');
-        if (item) {
-            var gatilhoDoMenu = document.querySelector('[data-ps-pop="psMenuAcoes"]');
-            abrirModal(gatilhoDoMenu || item);
-            return;
-        }
-        // Abrir o ⋮ atualiza o selo de ativos do item.
-        if (e.target.closest('[data-ps-pop="psMenuAcoes"]')) { carregar().catch(function () {}); }
+        if (!item) { return; }
+        var gatilhoDoMenu = document.querySelector('[data-ps-pop="psMenuAcoes"]');
+        abrirModal(gatilhoDoMenu || item);
     });
+
+    /* Abrir o ⋮ atualiza o selo de ativos do item. Na fase de CAPTURA: o pasta-show.js
+       (`popovers()`) faz stopPropagation no clique do gatilho, e um ouvinte de bolha no
+       document nunca seria chamado. */
+    document.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('[data-ps-pop="psMenuAcoes"]')) { carregar().catch(function () {}); }
+    }, true);
 })();
