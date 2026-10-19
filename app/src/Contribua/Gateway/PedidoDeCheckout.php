@@ -26,6 +26,11 @@ final readonly class PedidoDeCheckout
         public string $urlDeCancelamento,
         /** IP do pagador (alguns gateways exigem o do dispositivo, nunca o do servidor). */
         public ?string $ipDoPagador = null,
+        /**
+         * O link de assinatura que o Master colou para este plano no modal "Pagamento por cartão" (desenho
+         * 08). Serve aos gateways de link fixo; o Asaas ignora (cria o checkout pela API).
+         */
+        public ?string $linkDoPacote = null,
     ) {
     }
 }
