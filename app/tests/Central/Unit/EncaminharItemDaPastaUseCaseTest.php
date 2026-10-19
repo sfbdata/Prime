@@ -106,7 +106,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         self::assertSame(self::INDIVIDUAL, $saida->conversaId);
         self::assertSame('Bruno Reis', $saida->destinoNome);
         self::assertSame(
-            ["🔴 URGENTE · Despacho: Registro de Carla Dias · {$registro->getCriadaEm()->format('d/m/Y H:i')}\nCobrar a guia @ [Zé](user:3)\n\nfavor concluir até sexta"],
+            ["🔴 URGENTE · Despacho: Registro de Carla Dias · {$registro->getCriadaEm()->format('d/m/Y H:i')}\nCobrar a guia @ [Zé](user:3)\nPasta PASTA-50\n\nfavor concluir até sexta"],
             $this->enviadas,
             'o "@[" que veio do registro chega desarmado: não vira menção',
         );
@@ -206,6 +206,42 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         $this->montar([2])->executar($this->eu, $this->tenant, $this->pedido(TipoDeItemEncaminhado::Pasta, null, usuarioId: 2));
     }
 
+    #[TestDox('Tudo numa transação: o despacho roda dentro do wrapInTransaction e termina com um flush; falha da auditoria sobe')]
+    public function testUmaTransacaoSo(): void
+    {
+        $dentro = false;
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::atLeastOnce())->method('wrapInTransaction')->willReturnCallback(function (callable $f) use ($em, &$dentro): mixed {
+            $dentro = true;
+            try {
+                return $f($em);
+            } finally {
+                $dentro = false;
+            }
+        });
+        $em->expects(self::once())->method('flush')->willReturnCallback(function () use (&$dentro): void {
+            self::assertTrue($dentro, 'o flush do despacho acontece dentro da transação');
+        });
+        $this->montar([1, 2], em: $em)->executar($this->eu, $this->tenant, $this->pedido(TipoDeItemEncaminhado::Pasta, null, usuarioId: 2));
+
+        $auditoria = $this->createStub(AuditoriaDoDespacho::class);
+        $auditoria->method('registrar')->willThrowException(new \RuntimeException('banco fora'));
+        $this->expectExceptionMessage('banco fora');
+        $this->montar([1, 2], auditoria: $auditoria)->executar($this->eu, $this->tenant, $this->pedido(TipoDeItemEncaminhado::Pasta, null, usuarioId: 2));
+    }
+
+    #[TestDox('Tipo pasta: o id que vier junto é ignorado, e a auditoria grava item_id null')]
+    public function testPastaAuditaSemItem(): void
+    {
+        $auditoria = $this->createMock(AuditoriaDoDespacho::class);
+        $auditoria->expects(self::once())->method('registrar')
+            ->with($this->eu, $this->tenant, $this->pasta, TipoDeItemEncaminhado::Pasta, null, self::INDIVIDUAL, PrioridadeDoDespacho::Normal);
+
+        $this->montar([1, 2], auditoria: $auditoria)->executar($this->eu, $this->tenant, $this->pedido(TipoDeItemEncaminhado::Pasta, 777, usuarioId: 2));
+
+        self::assertSame(['Despacho: Pasta PASTA-50'], $this->enviadas, 'no tipo pasta a linha da pasta não se repete');
+    }
+
     #[TestDox('Destino: um colega OU uma conversa; os dois juntos ou nenhum é recusado')]
     public function testDestinoExclusivo(): void
     {
@@ -272,6 +308,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         ?NotificacaoService $avisos = null,
         ?AuditoriaDoDespacho $auditoria = null,
         ?PastaMensagem $registro = null,
+        ?EntityManagerInterface $em = null,
     ): EncaminharItemDaPastaUseCase {
         $participantes = $this->participantes();
         $acesso = $this->acessoACentral($ativos ?? [$this->eu, $this->bruno, $this->carla], $participantes);
@@ -289,6 +326,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
             $this->enviar($acesso),
             new AvisoDeDespachoUrgente($avisos ?? $this->createStub(NotificacaoService::class), $this->urls()),
             $auditoria ?? $this->createStub(AuditoriaDoDespacho::class),
+            $em ?? $this->transacao(),
         );
     }
 
@@ -319,8 +357,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         $mensagens->method('salvar')->willReturnCallback(function (Mensagem $m): void {
             $this->enviadas[] = $m->getConteudo();
         });
-        $em = $this->createStub(EntityManagerInterface::class);
-        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $f): mixed => $f($em));
+        $em = $this->transacao();
         $aviso = new AvisoDeMencaoNaCentral(
             $this->createStub(NotificacaoService::class),
             $this->createStub(NotificacaoRepository::class),
@@ -329,6 +366,15 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         );
 
         return new EnviarMensagemUseCase($acesso, $mensagens, $em, $this->relogio(), new MencoesDaCentral(), $aviso);
+    }
+
+    /** O EM de mentira roda o bloco da transação e deixa a exceção dele subir, como o de verdade. */
+    private function transacao(): EntityManagerInterface
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $f): mixed => $f($em));
+
+        return $em;
     }
 
     private function urls(): UrlGeneratorInterface

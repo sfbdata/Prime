@@ -60,9 +60,10 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     e monta título e resumo em texto puro com `@[` desarmado (`@ [`); a instrução não é desarmada (menção nela vale).
     O cadeado da pasta vale para quem RECEBE (`AcessoAPasta::podeVer`): colega que não vê some de "Para quem?" e é
     recusado (422); grupo com algum membro ativo que não vê fica travado com o motivo. A mensagem passa pelo
-    `EnviarMensagemUseCase`. "Urgente" gera `Notificacao` `central_despacho` sem texto, com o link da conversa; a
-    auditoria é uma linha manual (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e
-    prioridade, nunca texto.
+    `EnviarMensagemUseCase` e sempre leva a linha "Pasta NUP" (os resumos por tipo não a repetem). "Urgente" gera
+    `Notificacao` `central_despacho` sem texto, com o link da conversa; a auditoria é uma linha manual
+    (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e prioridade, nunca texto. Abrir a 1:1,
+    mensagem, avisos e auditoria numa transação só (`wrapInTransaction` do UseCase, flush dele). Pasta excluída = 404.
 
 ## Modelo
 

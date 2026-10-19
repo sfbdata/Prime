@@ -60,6 +60,8 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 8. "Enviar no Chat I.A" (D:6872) **entra**, em fatia própria.
 9. Itens sem id no desenho (prazo, documento do PDF do Push): a referência é a pasta.
 10. A conversa da IA não existe no sistema: nada a excluir.
+11. Membro de grupo sem vínculo ativo com o escritório não conta como destinatário (segue a decisão 5): não trava o
+    grupo e não ganha aviso; ele já não lê a Central. Pasta excluída (lápide) dá 404 na lista e no envio.
 
 ## 3. Contratos
 
@@ -72,7 +74,12 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
     `itemId?`, destino (`usuarioId` XOR `conversaId`), `instrucao?` (até 1000), `prioridade` (enum: normal, urgente,
     para_hoje).
   - O **servidor** relê o item e monta título e resumo (nunca o texto do cliente); item de outra pasta ou de outro
-    escritório = 404.
+    escritório = 404. No tipo `pasta` o `itemId` é ignorado e a auditoria grava `item_id = null`.
+  - Texto: `[🔴 URGENTE · | 🟠 PARA HOJE · ]Despacho: TÍTULO` + `\nRESUMO` (se houver) + `\nPasta NUP` (sempre; no
+    tipo `pasta` ela já é o título e não se repete) + `\n\nINSTRUÇÃO` (se houver). Os resumos por tipo não repetem a
+    pasta. O chip "Pasta N" do PR2 sai dessa linha OU de uma coluna futura (`referencia`, §5); a decisão é do PR2.
+  - Uma transação só: abrir a 1:1, a mensagem, os avisos e a auditoria entram juntos ou não entram. A corrida de dois
+    abrindo a mesma 1:1 segue em 409 (`ConversaCriadaAoMesmoTempoException`).
   - Exige: eu vejo a pasta; o destino (cada participante ativo, no grupo) vê a pasta. Senão recusa com o motivo.
   - Abre ou reaproveita a 1:1 (`AbrirConversaUseCase`) e grava a mensagem pelo caminho do `EnviarMensagemUseCase`
     (participação, menções, limite de 4000).

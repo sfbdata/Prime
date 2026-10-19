@@ -16,7 +16,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * A `Notificacao` é `Auditavel`: leva só quem despachou e o link da conversa, NUNCA o texto do item nem a instrução
  * (`mensagem = null`, regra 3 da Central). O link é o mesmo do aviso de menção (`central_index?conversa=N`).
  *
- * Só persiste: o `flush` é do UseCase.
+ * Só persiste: o `flush` é do `EncaminharItemDaPastaUseCase`, na mesma transação da mensagem e da auditoria.
  */
 final class AvisoDeDespachoUrgente
 {

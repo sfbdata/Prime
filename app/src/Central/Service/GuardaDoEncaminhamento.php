@@ -22,6 +22,9 @@ use App\Pasta\Service\AcessoAPasta;
  */
 final class GuardaDoEncaminhamento
 {
+    /** O motivo do grupo travado, na lista de destinos e na recusa do envio. */
+    public const MOTIVO_GRUPO = 'Nem todos deste grupo veem esta pasta.';
+
     public function __construct(
         private readonly PastaRepository $pastas,
         private readonly AcessoAPasta $acessoAPasta,
@@ -29,11 +32,11 @@ final class GuardaDoEncaminhamento
     ) {
     }
 
-    /** @throws ItemEncaminhadoNaoEncontradoException pasta de outro escritório, inexistente ou que eu não vejo */
+    /** @throws ItemEncaminhadoNaoEncontradoException pasta de outro escritório, inexistente, excluída (lápide) ou que eu não vejo */
     public function pastaQueEuVejo(int $pastaId, User $eu, Tenant $tenant): Pasta
     {
         $pasta = $pastaId > 0 ? $this->pastas->findOneBy(['id' => $pastaId, 'tenant' => $tenant]) : null;
-        if (!$pasta instanceof Pasta || !$this->acessoAPasta->podeVer($eu, $pasta)) {
+        if (!$pasta instanceof Pasta || $pasta->estaExcluida() || !$this->acessoAPasta->podeVer($eu, $pasta)) {
             throw new ItemEncaminhadoNaoEncontradoException();
         }
 

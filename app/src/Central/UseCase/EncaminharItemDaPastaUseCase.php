@@ -9,6 +9,7 @@ use App\Central\DTO\EncaminhamentoOutput;
 use App\Central\DTO\EncaminharItemInput;
 use App\Central\DTO\ItemEncaminhado;
 use App\Central\Enum\PrioridadeDoDespacho;
+use App\Central\Enum\TipoDeItemEncaminhado;
 use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\ItemEncaminhadoNaoEncontradoException;
@@ -22,6 +23,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Repository\UserRepository;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Encaminhar um item da pasta para a Central ("Encaminhar via Chat I.A", `docs/specs/encaminhar-via-chat-ia.md`).
@@ -33,11 +35,17 @@ use App\Repository\UserRepository;
  * Recusas: pasta ou item fora do escritório/da pasta = 404; destinatário (ou algum membro do grupo) que não vê a pasta
  * = 422 com o motivo. A mensagem passa pelo {@see EnviarMensagemUseCase} (participação, menções da instrução, limite).
  * "Urgente" avisa cada membro no sino; a auditoria guarda tipo, item, conversa e prioridade, nunca texto.
+ *
+ * Uma transação só: abrir a 1:1, a mensagem, os avisos e a auditoria entram juntos ou não entram (falhou a auditoria,
+ * não fica mensagem nem conversa nova). Os `wrapInTransaction` do abrir e do enviar se aninham nesta. A corrida de
+ * dois abrindo a mesma 1:1 continua virando {@see ConversaCriadaAoMesmoTempoException} (409, "tente de novo"), e a
+ * conversa já existente é reaproveitada como antes.
+ *
+ * No tipo `pasta` o `itemId` não tem sentido: é ignorado e a auditoria grava `null`.
  */
 final class EncaminharItemDaPastaUseCase
 {
     public const MOTIVO_COLEGA = 'Este colega não vê esta pasta.';
-    public const MOTIVO_GRUPO = 'Nem todos deste grupo veem esta pasta.';
 
     public function __construct(
         private readonly AcessoACentral $acesso,
@@ -48,6 +56,7 @@ final class EncaminharItemDaPastaUseCase
         private readonly EnviarMensagemUseCase $enviarMensagem,
         private readonly AvisoDeDespachoUrgente $avisoUrgente,
         private readonly AuditoriaDoDespacho $auditoria,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -64,13 +73,24 @@ final class EncaminharItemDaPastaUseCase
         $pasta = $this->guarda->pastaQueEuVejo($input->pastaId, $eu, $tenant);
         $item = $this->itens->resumir($tenant, $pasta, $input->tipo, $input->itemId);
 
+        /** @var EncaminhamentoOutput $saida */
+        $saida = $this->entityManager->wrapInTransaction(fn (): EncaminhamentoOutput => $this->despachar($eu, $tenant, $pasta, $item, $input));
+
+        return $saida;
+    }
+
+    /** Dentro da transação: o destino (abrindo a 1:1 se preciso), a mensagem, os avisos, a auditoria e o flush. */
+    private function despachar(User $eu, Tenant $tenant, Pasta $pasta, ItemEncaminhado $item, EncaminharItemInput $input): EncaminhamentoOutput
+    {
         ['conversaId' => $conversaId, 'nome' => $nome, 'pessoas' => $pessoas] = $input->usuarioId !== null
             ? $this->conversaComOColega($eu, $tenant, $pasta, $input->usuarioId)
             : $this->conversaQueTodosVeem($eu, $tenant, $pasta, (int) $input->conversaId);
 
-        $this->enviarMensagem->executar($eu, $tenant, $conversaId, self::texto($item, $input));
+        $this->enviarMensagem->executar($eu, $tenant, $conversaId, self::texto($item, $pasta, $input));
         $this->avisarSeUrgente($input->prioridade, $conversaId, $eu, $tenant, $pessoas);
-        $this->auditoria->registrar($eu, $tenant, $pasta, $input->tipo, $input->itemId, $conversaId, $input->prioridade);
+        $itemId = $input->tipo === TipoDeItemEncaminhado::Pasta ? null : $input->itemId;
+        $this->auditoria->registrar($eu, $tenant, $pasta, $input->tipo, $itemId, $conversaId, $input->prioridade);
+        $this->entityManager->flush();
 
         return new EncaminhamentoOutput($conversaId, $nome);
     }
@@ -105,7 +125,7 @@ final class EncaminharItemDaPastaUseCase
         $conversa = $this->acesso->participacao($conversaId, $eu, $tenant)->getConversa();
         $pessoas = $this->guarda->quemRecebe($conversa, $eu, $tenant, $this->acesso->idsComVinculoAtivo($tenant));
         if (!$this->guarda->todosVeem($pessoas, $pasta)) {
-            throw new PedidoInvalidoNaCentralException($conversa->isGrupo() ? self::MOTIVO_GRUPO : self::MOTIVO_COLEGA);
+            throw new PedidoInvalidoNaCentralException($conversa->isGrupo() ? GuardaDoEncaminhamento::MOTIVO_GRUPO : self::MOTIVO_COLEGA);
         }
 
         $nome = $conversa->isGrupo() ? (string) $conversa->getNome() : (string) $conversa->outroAlemDe($eu)->getFullName();
@@ -114,14 +134,18 @@ final class EncaminharItemDaPastaUseCase
     }
 
     /**
-     * `[🔴 URGENTE · | 🟠 PARA HOJE · ]Despacho: TÍTULO\nRESUMO\n\nINSTRUÇÃO` (desenho BC:6218-6238). Título e resumo
-     * já vêm desarmados de menção; a instrução não: a @menção que a pessoa escreveu nela vale.
+     * `[🔴 URGENTE · | 🟠 PARA HOJE · ]Despacho: TÍTULO\nRESUMO\nPasta NUP\n\nINSTRUÇÃO` (desenho BC:6218-6238). A linha
+     * da pasta vai sempre (no tipo pasta ela já é o título, e não se repete). Título e resumo já vêm desarmados de
+     * menção; a instrução não: a @menção que a pessoa escreveu nela vale.
      */
-    private static function texto(ItemEncaminhado $item, EncaminharItemInput $input): string
+    private static function texto(ItemEncaminhado $item, Pasta $pasta, EncaminharItemInput $input): string
     {
         $texto = $input->prioridade->prefixo() . 'Despacho: ' . $item->titulo;
         if ($item->resumo !== '') {
             $texto .= "\n" . $item->resumo;
+        }
+        if ($input->tipo !== TipoDeItemEncaminhado::Pasta) {
+            $texto .= "\n" . ItensEncaminhaveisDaPasta::rotuloDaPasta($pasta);
         }
         if ($input->instrucao !== null) {
             $texto .= "\n\n" . $input->instrucao;

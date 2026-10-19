@@ -22,12 +22,11 @@ use App\Pasta\Entity\Pasta;
  * conversas (na ordem da lista da Central), depois os colegas ativos sem conversa 1:1 comigo, por nome.
  *
  * Regras (decisões 1 e 3 do coordenador): colega que não vê a pasta SOME (na 1:1 e na lista de colegas); grupo com
- * algum membro que não vê fica na lista, indisponível, com o motivo. Pasta de outro escritório ou que eu não vejo é 404.
+ * algum membro que não vê fica na lista, indisponível, com o motivo. Pasta de outro escritório, excluída ou que eu não
+ * vejo é 404. "Vê a pasta?" é perguntado uma vez por pessoa por execução (a mesma pessoa aparece em vários grupos).
  */
 final class ListarDestinosDoEncaminhamentoUseCase
 {
-    public const MOTIVO_GRUPO = 'Nem todos deste grupo veem esta pasta.';
-
     public function __construct(
         private readonly AcessoACentral $acesso,
         private readonly GuardaDoEncaminhamento $guarda,
@@ -46,32 +45,48 @@ final class ListarDestinosDoEncaminhamentoUseCase
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         $pasta = $this->guarda->pastaQueEuVejo($pastaId, $eu, $tenant);
         $ativos = $this->acesso->colaboradoresAtivos($tenant);
+        $ve = $this->quemVe($pasta);
 
         $comConversa = [];
-        $conversas = $this->minhasConversas($eu, $tenant, $pasta, $ativos, $comConversa);
+        $conversas = $this->minhasConversas($eu, $tenant, $ativos, $ve, $comConversa);
 
-        return [...$conversas, ...$this->colegasSemConversa($eu, $pasta, $ativos, $comConversa)];
+        return [...$conversas, ...$this->colegasSemConversa($eu, $ativos, $ve, $comConversa)];
     }
 
     /**
-     * @param array<int, User> $ativos
-     * @param array<int, true> $comConversa preenchido com quem já tem 1:1 comigo
+     * "Esta pessoa vê a pasta?" com a resposta guardada por id durante esta execução.
+     *
+     * @return \Closure(User): bool
+     */
+    private function quemVe(Pasta $pasta): \Closure
+    {
+        $respostas = [];
+
+        return function (User $pessoa) use ($pasta, &$respostas): bool {
+            return $respostas[(int) $pessoa->getId()] ??= $this->guarda->podeVer($pessoa, $pasta);
+        };
+    }
+
+    /**
+     * @param array<int, User>      $ativos
+     * @param \Closure(User): bool   $ve
+     * @param array<int, true>      $comConversa preenchido com quem já tem 1:1 comigo
      *
      * @return list<DestinoDoEncaminhamentoOutput>
      */
-    private function minhasConversas(User $eu, Tenant $tenant, Pasta $pasta, array $ativos, array &$comConversa): array
+    private function minhasConversas(User $eu, Tenant $tenant, array $ativos, \Closure $ve, array &$comConversa): array
     {
         $destinos = [];
         foreach ($this->participantes->doUsuario($eu, $tenant) as $participacao) {
             $conversa = $participacao->getConversa();
             if ($conversa->isGrupo()) {
-                $destinos[] = $this->grupo($conversa, $eu, $tenant, $pasta, $ativos);
+                $destinos[] = $this->grupo($conversa, $eu, $tenant, $ativos, $ve);
                 continue;
             }
 
             $outro = $conversa->outroAlemDe($eu);
             $comConversa[(int) $outro->getId()] = true;
-            if (isset($ativos[(int) $outro->getId()]) && $this->guarda->podeVer($outro, $pasta)) {
+            if (isset($ativos[(int) $outro->getId()]) && $ve($outro)) {
                 $destinos[] = self::destino(DestinoDoEncaminhamentoOutput::CONVERSA, (int) $conversa->getId(), $outro);
             }
         }
@@ -79,10 +94,14 @@ final class ListarDestinosDoEncaminhamentoUseCase
         return $destinos;
     }
 
-    /** @param array<int, User> $ativos */
-    private function grupo(Conversa $grupo, User $eu, Tenant $tenant, Pasta $pasta, array $ativos): DestinoDoEncaminhamentoOutput
+    /**
+     * @param array<int, User>    $ativos
+     * @param \Closure(User): bool $ve
+     */
+    private function grupo(Conversa $grupo, User $eu, Tenant $tenant, array $ativos, \Closure $ve): DestinoDoEncaminhamentoOutput
     {
-        $todosVeem = $this->guarda->todosVeem($this->guarda->quemRecebe($grupo, $eu, $tenant, $ativos), $pasta);
+        $quemNaoVe = array_filter($this->guarda->quemRecebe($grupo, $eu, $tenant, $ativos), static fn (User $u): bool => !$ve($u));
+        $todosVeem = $quemNaoVe === [];
 
         return new DestinoDoEncaminhamentoOutput(
             tipo: DestinoDoEncaminhamentoOutput::CONVERSA,
@@ -91,21 +110,22 @@ final class ListarDestinosDoEncaminhamentoUseCase
             nome: (string) $grupo->getNome(),
             grupo: true,
             disponivel: $todosVeem,
-            motivo: $todosVeem ? null : self::MOTIVO_GRUPO,
+            motivo: $todosVeem ? null : GuardaDoEncaminhamento::MOTIVO_GRUPO,
         );
     }
 
     /**
-     * @param array<int, User> $ativos
-     * @param array<int, true> $comConversa
+     * @param array<int, User>    $ativos
+     * @param \Closure(User): bool $ve
+     * @param array<int, true>    $comConversa
      *
      * @return list<DestinoDoEncaminhamentoOutput>
      */
-    private function colegasSemConversa(User $eu, Pasta $pasta, array $ativos, array $comConversa): array
+    private function colegasSemConversa(User $eu, array $ativos, \Closure $ve, array $comConversa): array
     {
         $destinos = [];
         foreach ($ativos as $id => $colega) {
-            if ($id !== (int) $eu->getId() && !isset($comConversa[$id]) && $this->guarda->podeVer($colega, $pasta)) {
+            if ($id !== (int) $eu->getId() && !isset($comConversa[$id]) && $ve($colega)) {
                 $destinos[] = self::destino(DestinoDoEncaminhamentoOutput::COLEGA, null, $colega);
             }
         }

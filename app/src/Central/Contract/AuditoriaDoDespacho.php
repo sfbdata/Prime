@@ -12,8 +12,8 @@ use App\Pasta\Entity\Pasta;
 
 /**
  * A linha de auditoria do despacho: quem levou qual item de qual pasta para qual conversa, SEM texto (regra 3 da
- * Central: o `audit_log` é lido por quem administra o escritório). Fecha a unidade de trabalho do despacho: grava a
- * linha e o que estiver pendente (os avisos de "Urgente") no mesmo `flush`.
+ * Central: o `audit_log` é lido por quem administra o escritório). Só persiste: o `flush` é do UseCase, dentro da
+ * transação do despacho (falhou aqui, não fica mensagem).
  */
 interface AuditoriaDoDespacho
 {

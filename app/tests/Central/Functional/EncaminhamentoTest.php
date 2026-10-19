@@ -4,7 +4,20 @@ declare(strict_types=1);
 
 namespace App\Tests\Central\Functional;
 
+use App\Central\Contract\AuditoriaDoDespacho;
 use App\Central\Controller\EncaminhamentoController;
+use App\Central\DTO\EncaminharItemInput;
+use App\Central\Enum\PrioridadeDoDespacho;
+use App\Central\Enum\TipoDeItemEncaminhado;
+use App\Central\Service\AcessoACentral;
+use App\Central\Service\AvisoDeDespachoUrgente;
+use App\Central\Service\GuardaDoEncaminhamento;
+use App\Central\Service\ItensEncaminhaveisDaPasta;
+use App\Central\UseCase\AbrirConversaUseCase;
+use App\Central\UseCase\EncaminharItemDaPastaUseCase;
+use App\Central\UseCase\EnviarMensagemUseCase;
+use App\Repository\UserRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Participante;
 use App\Entity\Auth\User;
@@ -55,7 +68,7 @@ final class EncaminhamentoTest extends JusPrimeWebTestCase
         $mensagens = $this->json($client)['mensagens'];
         self::assertCount(1, $mensagens);
         self::assertStringStartsWith('Despacho: Registro de Usuário ana · ', $mensagens[0]['conteudo']);
-        self::assertStringEndsWith("\nSEGREDO-DESPACHO ligar para o cliente\n\naté sexta", $mensagens[0]['conteudo']);
+        self::assertStringEndsWith("\nSEGREDO-DESPACHO ligar para o cliente\nPasta {$pasta->getNup()}\n\naté sexta", $mensagens[0]['conteudo']);
 
         $linhas = $this->em()->getConnection()->fetchAllAssociative(
             "SELECT entity_class, changes FROM audit_log WHERE action = 'despacho' AND tenant_id = ? AND entity_id = ?",
@@ -124,6 +137,14 @@ final class EncaminhamentoTest extends JusPrimeWebTestCase
         $client->request('GET', '/central/encaminhar/destinos?pasta=' . $deFora->getId());
         self::assertResponseStatusCodeSame(404);
 
+        // O EM é limpo entre requisições: a pasta e quem exclui vêm de novo do banco.
+        $this->em()->find(Pasta::class, $irma->getId())?->marcarExcluida($this->em()->find(User::class, $ana->getId()), new \DateTimeImmutable());
+        $this->em()->flush();
+        $client->request('GET', '/central/encaminhar/destinos?pasta=' . $irma->getId());
+        self::assertResponseStatusCodeSame(404, 'pasta excluída (lápide) não lista destinos');
+        $this->encaminhar($client, $irma, ['tipo' => 'pasta', 'usuarioId' => $bruno->getId()]);
+        self::assertResponseStatusCodeSame(404, 'nem recebe despacho');
+
         $this->logarComTenant($client, $semVer, $tenant);
         $client->request('GET', '/central/encaminhar/destinos?pasta=' . $pasta->getId());
         self::assertResponseStatusCodeSame(404);
@@ -163,6 +184,29 @@ final class EncaminhamentoTest extends JusPrimeWebTestCase
         self::assertSame(['atencao', 'Despacho', 'bi-person-check'], [$naCaixa[0]['grupo'], $naCaixa[0]['rotulo'], $naCaixa[0]['icone']]);
     }
 
+    #[TestDox('Falhou a auditoria: nada fica gravado, nem a mensagem, nem a 1:1 aberta para o despacho, nem o aviso')]
+    public function testFalhaDaAuditoriaDesfazTudo(): void
+    {
+        static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->criarUsuarioComPermissoes($tenant, self::VE_PASTA, 'ana');
+        $bruno = $this->criarUsuarioComPermissoes($tenant, self::VE_PASTA, 'bruno');
+        $pasta = $this->criarPasta($tenant);
+        $conexao = $this->em()->getConnection();
+        $useCase = $this->despachoComAuditoriaQueFalha();
+
+        try {
+            $useCase->executar($ana, $tenant, new EncaminharItemInput((int) $pasta->getId(), TipoDeItemEncaminhado::Pasta, null, (int) $bruno->getId(), null, null, PrioridadeDoDespacho::Urgente));
+            self::fail('a falha da auditoria devia subir');
+        } catch (\RuntimeException $e) {
+            self::assertSame('auditoria fora do ar', $e->getMessage());
+        }
+
+        self::assertSame(0, (int) $conexao->fetchOne('SELECT COUNT(*) FROM central_mensagem WHERE tenant_id = ?', [$tenant->getId()]));
+        self::assertSame(0, (int) $conexao->fetchOne('SELECT COUNT(*) FROM central_conversa WHERE tenant_id = ?', [$tenant->getId()]));
+        self::assertSame(0, (int) $conexao->fetchOne('SELECT COUNT(*) FROM notificacao WHERE tipo = ? AND usuario_id = ?', [Notificacao::TIPO_CENTRAL_DESPACHO, $bruno->getId()]));
+    }
+
     #[TestDox('Encaminhar sem o token CSRF: 403 e nada gravado')]
     public function testCsrf(): void
     {
@@ -181,6 +225,29 @@ final class EncaminhamentoTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/central/conversas');
         self::assertSame([], $this->json($client)['conversas']);
+    }
+
+    /** O despacho de verdade, com as peças do container, menos a auditoria, que falha. */
+    private function despachoComAuditoriaQueFalha(): EncaminharItemDaPastaUseCase
+    {
+        $c = static::getContainer();
+
+        return new EncaminharItemDaPastaUseCase(
+            $c->get(AcessoACentral::class),
+            $c->get(GuardaDoEncaminhamento::class),
+            $c->get(ItensEncaminhaveisDaPasta::class),
+            $c->get(UserRepository::class),
+            $c->get(AbrirConversaUseCase::class),
+            $c->get(EnviarMensagemUseCase::class),
+            $c->get(AvisoDeDespachoUrgente::class),
+            new class () implements AuditoriaDoDespacho {
+                public function registrar(User $autor, Tenant $tenant, Pasta $pasta, TipoDeItemEncaminhado $tipo, ?int $itemId, int $conversaId, PrioridadeDoDespacho $prioridade): void
+                {
+                    throw new \RuntimeException('auditoria fora do ar');
+                }
+            },
+            $c->get(EntityManagerInterface::class),
+        );
     }
 
     /**

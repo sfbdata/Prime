@@ -16,6 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * O `audit_log` do despacho, gravado à mão como o da exportação da análise (`RegistrarExportacaoDaAnaliseUseCase`): a
  * mensagem da Central não é `Auditavel`, então o `AuditLogSubscriber` não veria nada. `changes` leva só ids e códigos.
+ * Só persiste: o `flush` é do UseCase, na transação do despacho.
  */
 final class AuditoriaDoDespachoNoAuditLog implements AuditoriaDoDespacho
 {
@@ -51,6 +52,5 @@ final class AuditoriaDoDespachoNoAuditLog implements AuditoriaDoDespacho
             ]);
 
         $this->entityManager->persist($log);
-        $this->entityManager->flush();
     }
 }

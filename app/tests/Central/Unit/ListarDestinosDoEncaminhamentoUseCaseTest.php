@@ -86,6 +86,48 @@ final class ListarDestinosDoEncaminhamentoUseCaseTest extends TestCase
         $this->listar([2, 3], [], []);
     }
 
+    #[TestDox('Pasta excluída (lápide): 404, mesmo para quem a via')]
+    public function testPastaExcluida(): void
+    {
+        $this->pasta->marcarExcluida($this->bruno, new \DateTimeImmutable());
+
+        $this->expectException(ItemEncaminhadoNaoEncontradoException::class);
+        $this->listar([1, 2], [], []);
+    }
+
+    #[TestDox('"Vê a pasta?" é perguntado uma vez por pessoa, mesmo com ela em vários grupos')]
+    public function testPodeVerUmaVezPorPessoa(): void
+    {
+        $agora = new \DateTimeImmutable();
+        $g1 = Conversa::grupo($this->tenant, $this->eu, 'G1', $agora);
+        $g2 = Conversa::grupo($this->tenant, $this->eu, 'G2', $agora);
+        DefineId::em($g1, 20);
+        DefineId::em($g2, 21);
+        $perguntas = [];
+        $checker = $this->createStub(\App\Service\PermissionChecker::class);
+        $checker->method('canAccessResource')->willReturnCallback(static function (User $u) use (&$perguntas): bool {
+            $perguntas[] = (int) $u->getId();
+
+            return true;
+        });
+        $participantes = $this->createStub(ParticipanteRepository::class);
+        $participantes->method('doUsuario')->willReturn([
+            new Participante($this->tenant, $g1, $this->eu, $agora),
+            new Participante($this->tenant, $g2, $this->eu, $agora),
+        ]);
+        $participantes->method('daConversaInteira')->willReturnCallback(
+            fn (Conversa $c): array => $this->participacoes($this->tenant, $c, [$this->eu, $this->bruno]),
+        );
+        (new ListarDestinosDoEncaminhamentoUseCase(
+            $this->acessoACentral([$this->eu, $this->bruno], $participantes),
+            $this->guarda($this->pasta, new \App\Pasta\Service\AcessoAPasta($checker), $participantes),
+            $participantes,
+        ))->executar($this->eu, $this->tenant, 50);
+
+        sort($perguntas);
+        self::assertSame([1, 2], $perguntas, 'eu (na guarda da pasta) e o Bruno uma vez só');
+    }
+
     #[TestDox('Pasta que não existe neste escritório: 404')]
     public function testPastaDeOutroEscritorio(): void
     {

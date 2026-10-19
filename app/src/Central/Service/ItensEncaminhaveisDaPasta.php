@@ -69,7 +69,7 @@ final class ItensEncaminhaveisDaPasta
     public function resumir(Tenant $tenant, Pasta $pasta, TipoDeItemEncaminhado $tipo, ?int $itemId): ItemEncaminhado
     {
         $item = $tipo === TipoDeItemEncaminhado::Pasta
-            ? new ItemEncaminhado('Pasta ' . self::nup($pasta), '')
+            ? new ItemEncaminhado(self::rotuloDaPasta($pasta), '')
             : $this->doTipo($tenant, $pasta, $tipo, $itemId ?? throw new ItemEncaminhadoNaoEncontradoException());
 
         return new ItemEncaminhado(self::neutralizarMencoes($item->titulo), self::neutralizarMencoes($item->resumo));
@@ -105,8 +105,8 @@ final class ItensEncaminhaveisDaPasta
             TipoDeItemEncaminhado::Documento => $this->documento($tenant, $pasta, $id),
             TipoDeItemEncaminhado::Secao => $this->secao($tenant, $pasta, $id),
             TipoDeItemEncaminhado::Processo => $this->processo($tenant, $pasta, $id),
-            TipoDeItemEncaminhado::Meta => $this->meta($this->metas->findByIdAndPastaAndTenant($id, $pasta, $tenant), $pasta),
-            TipoDeItemEncaminhado::Prazo => $this->prazo($this->prazos->findDaPasta($id, $pasta, $tenant), $pasta),
+            TipoDeItemEncaminhado::Meta => $this->meta($this->metas->findByIdAndPastaAndTenant($id, $pasta, $tenant)),
+            TipoDeItemEncaminhado::Prazo => $this->prazo($this->prazos->findDaPasta($id, $pasta, $tenant)),
             TipoDeItemEncaminhado::Push => $this->push($tenant, $pasta, $id),
             TipoDeItemEncaminhado::NotaTecnica => $this->notaTecnica($tenant, $pasta, $id),
             TipoDeItemEncaminhado::Pasta => throw new \LogicException('A pasta é resolvida em resumir().'),
@@ -134,7 +134,7 @@ final class ItensEncaminhaveisDaPasta
         $documento = $this->documentos->findTodosDaPasta([$id], $pasta, $tenant)[0]
             ?? throw new ItemEncaminhadoNaoEncontradoException();
 
-        return new ItemEncaminhado(self::textoLimpo($documento->getTitulo()), 'Documento da Pasta ' . self::nup($pasta));
+        return new ItemEncaminhado(self::textoLimpo($documento->getTitulo()), 'Documento');
     }
 
     private function secao(Tenant $tenant, Pasta $pasta, int $id): ItemEncaminhado
@@ -142,7 +142,7 @@ final class ItensEncaminhaveisDaPasta
         $secao = $this->secoes->findByIdAndPastaAndTenant($id, $pasta, $tenant)
             ?? throw new ItemEncaminhadoNaoEncontradoException();
 
-        return new ItemEncaminhado(self::textoLimpo($secao->getNome()), 'Documentos da Pasta ' . self::nup($pasta));
+        return new ItemEncaminhado(self::textoLimpo($secao->getNome()), 'Seção de documentos');
     }
 
     private function processo(Tenant $tenant, Pasta $pasta, int $id): ItemEncaminhado
@@ -154,11 +154,11 @@ final class ItensEncaminhaveisDaPasta
 
         return new ItemEncaminhado(
             'Processo ' . $this->numeroCnj->numeroCnj($processo->getNumeroProcesso()),
-            self::juntar([$processo->getClasseProcessual(), $processo->getSiglaTribunal(), 'Pasta ' . self::nup($pasta)]),
+            self::juntar([$processo->getClasseProcessual(), $processo->getSiglaTribunal()]),
         );
     }
 
-    private function meta(?Tarefa $meta, Pasta $pasta): ItemEncaminhado
+    private function meta(?Tarefa $meta): ItemEncaminhado
     {
         if ($meta === null) {
             throw new ItemEncaminhadoNaoEncontradoException();
@@ -171,10 +171,10 @@ final class ItensEncaminhaveisDaPasta
             default => '',
         };
 
-        return new ItemEncaminhado(self::textoLimpo($meta->getTitulo()), self::juntar(['Pasta ' . self::nup($pasta), $situacao]));
+        return new ItemEncaminhado(self::textoLimpo($meta->getTitulo()), $situacao);
     }
 
-    private function prazo(?PastaPrazo $prazo, Pasta $pasta): ItemEncaminhado
+    private function prazo(?PastaPrazo $prazo): ItemEncaminhado
     {
         if ($prazo === null) {
             throw new ItemEncaminhadoNaoEncontradoException();
@@ -184,7 +184,6 @@ final class ItensEncaminhaveisDaPasta
             $prazo->isAudiencia() ? 'Audiência' : 'Prazo',
             $prazo->getData()->format('d/m/Y'),
             (string) $prazo->getResponsavel(),
-            'Pasta ' . self::nup($pasta),
         ]));
     }
 
@@ -219,10 +218,14 @@ final class ItensEncaminhaveisDaPasta
         return implode(' · ', array_filter(array_map('trim', $partes), static fn (string $p): bool => $p !== ''));
     }
 
-    private static function nup(Pasta $pasta): string
+    /**
+     * "Pasta NUP" (ou "Pasta #id" sem NUP), já desarmado: o título do tipo pasta e a linha que o despacho sempre leva
+     * (`EncaminharItemDaPastaUseCase`), por isso os resumos por tipo não repetem a pasta.
+     */
+    public static function rotuloDaPasta(Pasta $pasta): string
     {
         $nup = trim((string) $pasta->getNup());
 
-        return $nup !== '' ? $nup : '#' . $pasta->getId();
+        return self::neutralizarMencoes('Pasta ' . ($nup !== '' ? $nup : '#' . $pasta->getId()));
     }
 }
