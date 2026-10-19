@@ -61,9 +61,9 @@
 .co-concluir { margin-top: 16px; height: 38px; padding: 0 18px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; }
 
 /* Master */
-.co-abrir-master { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 11px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #0a6fa0; font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; }
-.co-abrir-master span { font-weight: normal; color: #5b7383; }
-.co-abrir-master span::before { content: "· "; }
+/* Desenho 08, linha 46: "Configurar pagamento · {gwSt}" */
+.co-abrir-master { margin-left: auto; height: 30px; padding: 0 10px; border: 1px solid #f1e2bf; border-radius: 3px; background: #fffaf0; color: #7a5200; font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.co-abrir-master span { font-weight: normal; }
 .co-janela-master { pointer-events: auto; width: min(620px, 100%); max-height: 92vh; overflow: auto; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px rgba(18, 36, 47, .3); animation: ctPop .2s ease both; }
 .co-master-corpo { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
 .co-master-intro { font-size: 13px; color: #34505f; line-height: 1.55; }

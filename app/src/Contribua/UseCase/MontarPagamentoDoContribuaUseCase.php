@@ -6,6 +6,7 @@ namespace App\Contribua\UseCase;
 
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Entity\AssinaturaDeEspaco;
+use App\Contribua\Entity\ConfiguracaoDePagamento;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Gateway\GatewaysDeAssinatura;
 use App\Contribua\Gateway\InicioDoCheckout;
@@ -26,7 +27,7 @@ final class MontarPagamentoDoContribuaUseCase
     public const GATEWAYS_DO_DESENHO = [
         'mercado_pago' => 'Mercado Pago · Assinaturas',
         'stripe' => 'Stripe · Payment Links',
-        'asaas' => 'Asaas · Assinatura recorrente',
+        'asaas' => 'Asaas · Link de pagamento recorrente',
         'pagarme' => 'Pagar.me · Link de pagamento',
     ];
 
@@ -104,6 +105,7 @@ final class MontarPagamentoDoContribuaUseCase
         $opcoes = self::GATEWAYS_DO_DESENHO + array_fill_keys(array_diff($instalados, array_keys(self::GATEWAYS_DO_DESENHO)), '');
 
         return [
+            'estado' => $this->estado($config),
             'gateway' => $config->getGateway(),
             'chavePublica' => $config->getChavePublica() ?? '',
             'carencia' => $config->getDiasDeCarencia(),
@@ -120,6 +122,25 @@ final class MontarPagamentoDoContribuaUseCase
             ),
             'pedidos' => array_map(self::pedido(...), $this->visaoDoMaster->deTodosOsEscritorios(fn (): array => $this->assinaturas->ultimos(self::PEDIDOS_NO_MODAL))),
         ];
+    }
+
+    /**
+     * O "· {gwSt}" do botão do desenho: "chave cadastrada", "N/3 pacotes ativos" ou "não configurado". Com
+     * gateway hospedado (sem chave nem links, convenção) mostra o gateway escolhido.
+     */
+    private function estado(ConfiguracaoDePagamento $config): string
+    {
+        $gateway = $config->getGateway();
+        if ($gateway !== null && \in_array($gateway, self::SEM_LINK_DO_PACOTE, true)) {
+            return self::nome($gateway);
+        }
+        if ($config->getChavePublica() !== null) {
+            return 'chave cadastrada';
+        }
+        $pagos = \count(array_filter($this->planos->ativosEmOrdem(), static fn (Plano $p): bool => !$p->ehGratuito()));
+        $links = \count($config->getLinksDosPacotes());
+
+        return $links > 0 ? sprintf('%d/%d pacotes ativos', $links, $pagos) : 'não configurado';
     }
 
     /** @return array<string, mixed> */

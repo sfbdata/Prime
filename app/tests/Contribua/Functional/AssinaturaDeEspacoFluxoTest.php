@@ -284,11 +284,32 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame($primeiro['url'], $denovo['url']);
         self::assertSame(1, $this->contarAssinaturas());
 
+        // Página hospedada de outro plano: o anterior continua aguardando (pode ter sido pago), e o pago
+        // se liga ao pedido do mesmo valor quando o aviso chegar.
         $outro = $this->assinar($this->primario, 'profissional');
         self::assertTrue($outro['ok'], json_encode($outro) ?: '');
         self::assertNotSame($primeiro['pedido'], $outro['pedido']);
         $this->em->clear();
-        self::assertSame(SituacaoDaAssinatura::Cancelada, static::getContainer()->get(AssinaturaDeEspacoRepository::class)->find($primeiro['pedido'])?->getSituacao());
+        self::assertSame(SituacaoDaAssinatura::Aguardando, static::getContainer()->get(AssinaturaDeEspacoRepository::class)->find($primeiro['pedido'])?->getSituacao());
+
+        $idDoPrimeiro = (string) static::getContainer()->get(AssinaturaDeEspacoRepository::class)->find($primeiro['pedido'])?->getIdDoCheckout();
+        $this->gateway->marcarComoPaga($idDoPrimeiro, new \DateTimeImmutable('+1 month'));
+        $this->webhook('evt-primeiro', $idDoPrimeiro);
+        $this->em->clear();
+        self::assertSame(SituacaoDaAssinatura::Ativa, static::getContainer()->get(AssinaturaDeEspacoRepository::class)->find($primeiro['pedido'])?->getSituacao());
+        self::assertSame('essencial', $this->planoDoEscritorio());
+    }
+
+    #[TestDox('Voltou da página do gateway: outro plano espera a confirmação do pagamento anterior')]
+    public function testVoltouEspera(): void
+    {
+        $this->assinar($this->primario);
+        $this->client->request('GET', '/contribua?assinatura=ok');
+
+        $outro = $this->assinar($this->primario, 'profissional');
+
+        self::assertFalse($outro['ok']);
+        self::assertStringContainsString('sendo confirmado pelo gateway', (string) $outro['erro']);
     }
 
     #[TestDox('Cartão recusado no token: a nova tentativa reaproveita o mesmo pedido, sem esperar')]

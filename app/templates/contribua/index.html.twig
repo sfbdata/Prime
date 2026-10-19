@@ -45,7 +45,7 @@
             <span class="ct-espaco-icone"><i class="bi {{ e.icone }}"></i></span>
             <div class="ct-espaco-titulos"><b>{{ e.titulo }}</b><span>{{ e.subtitulo }}</span></div>
             {% if pagamento.master %}
-                <button type="button" class="co-abrir-master" data-abrir-master><i class="bi bi-credit-card"></i>Pagamento por cartão<span>{{ pagamento.liberado ? pagamento.gatewayNome : 'não configurado' }}</span></button>
+                <button type="button" class="co-abrir-master" data-abrir-master><i class="bi bi-star-fill"></i>Configurar pagamento<span>· {{ pagamento.master.estado }}</span></button>
             {% endif %}
         </div>
         <div class="ct-espaco-uso">

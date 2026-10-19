@@ -109,6 +109,14 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
   painel cita a classe `EspacoDoEscritorio` em 2 arquivos liberados no teste; aceite de convite com
   `aceitaMaisUmUsuario()` fica com a b5.
 
+**C6 (19/10, com a a7):** contrato de leitura proposto e aceito no formato
+(`ApoiadoresDoBlueJus::apoiadores(list<int> $tenantIds, $agora)` e `ehApoiador`; apoiador = apoio por PIX
+confirmado pelo banco nos últimos 30 dias, janela a confirmar). Mas o 06 não tem disputa de propostas entre
+escritórios (a proposta é da Central para o Solicitante; Convidados são chamados um a um), então "suas
+propostas aparecem primeiro" do 08 não tem onde encaixar. **Decisão de produto com o coordenador/dono**
+(opções da a7: ordem dos convidados sugeridos pela Central; ordem de candidatos numa vaga). Nada implementado
+até lá.
+
 **Próximo passo (f6):** PR rascunho da C3 depois da revisão; C5 (produção: cron no `DEPLOY.md` feito,
 webhooks, política) e C6 (preferência do apoiador no Trabalho Externo, contrato com a a7); conferência final
 do 08 inteiro.

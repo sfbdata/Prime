@@ -52,8 +52,15 @@ final class AssinarComTokenUseCase
         $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), preg_replace('/\D/', '', $documento) ?? '', (string) $quem->usuario->getEmail());
         $checkout = $this->checkout($pedido, $pagador, $ip);
         $resposta = $this->em->wrapInTransaction(fn (): SituacaoNoGateway => $this->assinarTravado($gateway, $pedido, $checkout, $token));
-        // Depois do COMMIT, já sem a trava: aplica a situação, liga a nota e avisa (o mesmo caminho do webhook).
-        $this->atualizacao->aplicar($gateway, $resposta, $pedido, primeiraVez: true);
+        // Depois do COMMIT, já sem a trava: primeiro a nota (o pedido já está ligado, ninguém mais a liga),
+        // depois a situação e os avisos pelo mesmo caminho do webhook. Se essa parte falhar, o webhook e a
+        // conciliação refazem; o cartão já foi aceito, então a pessoa não vê erro.
+        $this->atualizacao->ligarNotaFiscal($gateway, $resposta->idDaAssinatura);
+        try {
+            $this->atualizacao->aplicar($gateway, $resposta, $pedido);
+        } catch (\Throwable $falha) {
+            $this->logger->error('Contribua: assinatura aceita no gateway, aplicar ficou para o webhook', ['gateway' => $gateway->codigo(), 'pedido' => $pedido->getId(), 'erro' => $falha->getMessage()]);
+        }
         $proxima = $pedido->getPagaAte() ?? new \DateTimeImmutable('+1 month');
 
         return ['proxima' => $proxima->format('d/m/Y'), 'acaoNoNavegador' => $resposta->acaoNoNavegador];

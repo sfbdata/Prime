@@ -10,7 +10,9 @@ use App\Contribua\Gateway\FalhaNoGateway;
 use App\Contribua\Gateway\GatewayDeAssinatura;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Gateway\SituacaoNoGateway;
+use App\Contribua\Entity\NotificacaoRecebida;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
+use App\Contribua\Repository\NotificacaoRecebidaRepository;
 use App\Entity\Tenant\Tenant;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,6 +35,7 @@ final class AtualizacaoDaAssinatura
         private readonly PlanoVigenteDoEscritorio $planoVigente,
         private readonly AvisoAoPrimario $avisoAoPrimario,
         private readonly AvisoAoMaster $avisoAoMaster,
+        private readonly NotificacaoRecebidaRepository $notificacoes,
         private readonly EntityManagerInterface $em,
         private readonly UrlGeneratorInterface $urls,
         private readonly LoggerInterface $logger,
@@ -55,6 +58,8 @@ final class AtualizacaoDaAssinatura
     {
         $resultado = $this->em->wrapInTransaction(fn (): ?array => $this->aplicarTravado($gateway->codigo(), $noGateway, $pedido));
         if ($resultado === null) {
+            $this->avisarSemPedido($gateway->codigo(), $noGateway);
+
             return null;
         }
 
@@ -75,8 +80,6 @@ final class AtualizacaoDaAssinatura
     {
         $pedido ??= $this->localizar($codigoDoGateway, $noGateway);
         if ($pedido === null) {
-            $this->avisarSemPedido($codigoDoGateway, $noGateway);
-
             return null;
         }
 
@@ -100,7 +103,9 @@ final class AtualizacaoDaAssinatura
         if ($tenantId === null || $noGateway->situacao !== SituacaoDaAssinatura::Ativa) {
             return;
         }
-        $escritorio = $this->em->find(Tenant::class, $tenantId);
+        // Uma vez por assinatura (o gateway avisa a cada cobrança): a trava de idempotência dos avisos serve.
+        $primeiraVez = $this->notificacoes->registrarSeNova(new NotificacaoRecebida('contribua', 'sem-pedido:' . $codigoDoGateway . ':' . $noGateway->idDaAssinatura, 'assinatura_sem_pedido', $noGateway->idDaAssinatura));
+        $escritorio = $primeiraVez ? $this->em->find(Tenant::class, $tenantId) : null;
         if ($escritorio !== null) {
             $this->avisoAoMaster->avisar($escritorio, AvisoAoPrimario::TIPO_ASSINATURA, sprintf('Assinatura paga sem pedido no BlueJus: %s, %s (%s). Confira no painel do gateway.', (string) $escritorio->getName(), $noGateway->idDaAssinatura, $codigoDoGateway), $this->urls->generate('contribua_index') . '#espaco');
         }
@@ -128,7 +133,7 @@ final class AtualizacaoDaAssinatura
      * A nota mensal é ligada na primeira vez que a assinatura aparece. Falha aqui não impede o espaço de
      * ser liberado: vira log de erro para o Master ligar a nota no painel do gateway.
      */
-    private function ligarNotaFiscal(GatewayDeAssinatura $gateway, string $idDaAssinatura): void
+    public function ligarNotaFiscal(GatewayDeAssinatura $gateway, string $idDaAssinatura): void
     {
         if (!$gateway instanceof EmiteNotaFiscalDaAssinatura) {
             return;

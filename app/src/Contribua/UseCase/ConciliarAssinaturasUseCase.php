@@ -58,8 +58,15 @@ final class ConciliarAssinaturasUseCase
         $processados = 0;
         foreach ($this->notificacoes->pendentes($this->gateways->codigosInstalados()) as $aviso) {
             $gateway = $this->gateways->porCodigo($aviso->getOrigem());
-            if ($gateway !== null && $this->avisos->processar($gateway, $aviso->getIdEvento(), $aviso->getIdRecurso()) === ReceberAvisoDoGatewayUseCase::PROCESSADO) {
-                ++$processados;
+            try {
+                if ($gateway !== null && $this->avisos->processar($gateway, $aviso->getIdEvento(), $aviso->getIdRecurso()) === ReceberAvisoDoGatewayUseCase::PROCESSADO) {
+                    ++$processados;
+                }
+            } catch (\Throwable $falha) {
+                $this->logger->warning('Contribua: aviso pendente não reprocessou', ['evento' => $aviso->getIdEvento(), 'erro' => $falha->getMessage()]);
+                if (!$this->em->isOpen()) {
+                    break;
+                }
             }
         }
 

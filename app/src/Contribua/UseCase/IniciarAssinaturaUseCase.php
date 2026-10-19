@@ -33,6 +33,7 @@ final class IniciarAssinaturaUseCase
 {
     public const FALHA_NO_GATEWAY = 'O gateway de pagamento não respondeu. Tente de novo em instantes.';
     public const JA_ASSINA = 'Este escritório já tem uma assinatura ativa. Para trocar de plano, cancele a atual em Meu Perfil.';
+    public const EM_CONFIRMACAO = 'Seu pagamento anterior ainda está sendo confirmado pelo gateway. Aguarde alguns minutos e tente de novo.';
     private const MINUTOS_DO_CHECKOUT = 60;
 
     public function __construct(
@@ -70,7 +71,9 @@ final class IniciarAssinaturaUseCase
     /**
      * O checkout aberto há menos de uma hora (o do gateway expira em 60 minutos) que ainda não foi pago:
      * do mesmo plano, é reaproveitado (a página hospedada reabre; no formulário, nova tentativa depois de
-     * um cartão recusado); de outro plano, é substituído. Nunca dois checkouts abertos ao mesmo tempo.
+     * um cartão recusado). De outro plano: no formulário (nada foi ao gateway) é substituído; na página
+     * hospedada fica como está, porque pode ter sido pago e o aviso ainda não chegou (o vínculo é pelo valor),
+     * e se o pagador já voltou de lá a compra nova espera a confirmação.
      */
     private function pedidoAberto(Solicitante $quem, GatewayDeAssinatura $gateway, Plano $plano): ?AssinaturaDeEspaco
     {
@@ -82,8 +85,13 @@ final class IniciarAssinaturaUseCase
             if ($aberto->getPlano()->getId() === $plano->getId()) {
                 return $aberto;
             }
-            $aberto->cancelar();
-            $this->assinaturas->salvar($aberto, flush: true);
+            if ($aberto->getRetornouEm() !== null) {
+                throw new \DomainException(self::EM_CONFIRMACAO);
+            }
+            if ($aberto->getUrlDoCheckout() === null) {
+                $aberto->cancelar();
+                $this->assinaturas->salvar($aberto, flush: true);
+            }
         }
 
         return null;
@@ -122,11 +130,35 @@ final class IniciarAssinaturaUseCase
         $carencia = $this->configuracao->atual()->getDiasDeCarencia();
         foreach ($this->assinaturas->doTenant($tenantId) as $assinatura) {
             $situacao = $assinatura->getSituacao();
-            $ligadaNoGateway = $assinatura->getIdDaAssinatura() !== null && \in_array($situacao, [SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente], true);
+            $ligada = $assinatura->getIdDaAssinatura() !== null;
+            if ($ligada && $situacao === SituacaoDaAssinatura::Aguardando) {
+                throw new \DomainException(self::EM_CONFIRMACAO);
+            }
+            if ($ligada && $situacao === SituacaoDaAssinatura::Inadimplente && $assinatura->getPagaAte() === null) {
+                $this->encerrarPrimeiraRecusada($assinatura);
+                continue;
+            }
+            $ligadaNoGateway = $ligada && \in_array($situacao, [SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente], true);
             if ($ligadaNoGateway || ($situacao !== SituacaoDaAssinatura::Cancelada && $assinatura->vigenteEm($agora, $carencia))) {
                 throw new \DomainException(self::JA_ASSINA);
             }
         }
+    }
+
+    /**
+     * A primeira cobrança foi recusada e nada foi pago: a nova tentativa ("tente de novo com outro cartão")
+     * encerra essa assinatura no gateway antes, para ele não seguir tentando o cartão recusado.
+     */
+    private function encerrarPrimeiraRecusada(AssinaturaDeEspaco $assinatura): void
+    {
+        $gateway = $this->gateways->porCodigo($assinatura->getGateway());
+        try {
+            $gateway?->cancelar((string) $assinatura->getIdDaAssinatura());
+        } catch (FalhaNoGateway $falha) {
+            throw new \DomainException(self::FALHA_NO_GATEWAY, 0, $falha);
+        }
+        $assinatura->cancelar();
+        $this->assinaturas->salvar($assinatura, flush: true);
     }
 
     private function pedidoDeCheckout(AssinaturaDeEspaco $pedido, Pagador $pagador, ?string $ip): PedidoDeCheckout

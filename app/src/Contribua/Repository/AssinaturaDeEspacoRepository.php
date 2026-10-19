@@ -93,6 +93,8 @@ class AssinaturaDeEspacoRepository extends ServiceEntityRepository
             ->andWhere('a.idDaAssinatura IS NOT NULL')
             ->andWhere('a.situacao IN (:abertas)')
             ->setParameter('abertas', [SituacaoDaAssinatura::Aguardando, SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente])
+            // A mais antiga revista primeiro, sempre na mesma ordem.
+            ->orderBy('a.atualizadaEm', 'ASC')->addOrderBy('a.id', 'ASC')
             ->getQuery()->getResult();
     }
 
