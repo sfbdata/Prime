@@ -64,6 +64,29 @@ class Plano implements Auditavel
         $this->atualizadoEm = new \DateTimeImmutable();
     }
 
+    /** O Master edita o plano pela tela de Planos (domínio Perfis). As regras moram aqui. */
+    public function alterar(string $nome, int $cotaGb, int $precoCentavos, ?int $limiteUsuarios, string $descricao, bool $ativo): void
+    {
+        $this->exigirValores($nome, $cotaGb, $precoCentavos, $limiteUsuarios);
+        if ($this->codigo === self::CODIGO_FREE && (!$ativo || $precoCentavos !== 0)) {
+            throw new \DomainException('O plano Free é o de toda conta nova: continua grátis e ativo.');
+        }
+
+        [$this->nome, $this->cotaGb, $this->precoCentavos, $this->limiteUsuarios, $this->descricao, $this->ativo]
+            = [trim($nome), $cotaGb, $precoCentavos, $limiteUsuarios, trim($descricao), $ativo];
+    }
+
+    private function exigirValores(string $nome, int $cotaGb, int $precoCentavos, ?int $limiteUsuarios): void
+    {
+        match (true) {
+            trim($nome) === '' => throw new \DomainException('Informe o nome do plano.'),
+            $cotaGb <= 0 => throw new \DomainException('O espaço do plano precisa ser maior que zero.'),
+            $precoCentavos < 0 => throw new \DomainException('O preço não pode ser negativo.'),
+            $limiteUsuarios !== null && $limiteUsuarios <= 0 => throw new \DomainException('O limite de usuários precisa ser maior que zero, ou vazio para sem limite.'),
+            default => null,
+        };
+    }
+
     public function getId(): ?int
     {
         return $this->id;

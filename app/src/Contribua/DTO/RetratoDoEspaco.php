@@ -10,7 +10,7 @@ use App\Contribua\Enum\OrigemDoLimite;
 /**
  * O espaço de um escritório num instante: o que a tela, o aviso e o bloqueio leem.
  *
- * `bytesLimite` e `percentual` são nulos quando o escritório está sem limite. O percentual é
+ * `bytesLimite`, `percentual` e `limiteUsuarios` são nulos quando o escritório está sem limite. O percentual é
  * arredondado como no desenho (`Math.round(uso / lim * 100)`) e pode passar de 100.
  */
 final readonly class RetratoDoEspaco
@@ -43,6 +43,20 @@ final readonly class RetratoDoEspaco
         }
 
         return $this->bytesUsados + $bytes <= $teto;
+    }
+
+    /**
+     * Cabe mais uma pessoa no escritório? A mesma chave do espaço governa os usuários: com o bloqueio
+     * desligado, ou sem limite de usuários, sempre cabe (ninguém é travado no deploy). Quem aplica no
+     * convite é o domínio Perfis.
+     */
+    public function aceitaMaisUmUsuario(int $usuariosAtuais): bool
+    {
+        if (!$this->bloqueioAtivo || $this->limiteUsuarios === null) {
+            return true;
+        }
+
+        return $usuariosAtuais + 1 <= $this->limiteUsuarios;
     }
 
     public function semLimite(): bool
