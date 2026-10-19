@@ -47,7 +47,10 @@ final class AnaliseDoPrazoDaMetaTest extends TestCase
         $a = $this->analisar('Manifestação sobre o laudo', publicacao: '2026-10-23');
 
         self::assertSame('2026-10-26', $a?->termoInicial?->format('Y-m-d'), 'publicada na sexta, termo na segunda');
-        self::assertSame('2026-11-03', $a?->prazoJuridico?->format('Y-m-d'), '5 dias úteis, Finados fora');
+        // O 1º dia útil depois da publicação já é o dia 1 (CPC 224 § 3º): 26, 27, 28, 29 e 30/10. É a mesma data
+        // da "Situação atual" do Push; o desenho contava a partir do termo e dava 03/11 (um dia útil a mais).
+        self::assertSame('2026-10-30', $a?->prazoJuridico?->format('Y-m-d'));
+        self::assertEquals((new DiasUteisNacionais(new CalendarioDoSistema()))->somarUteis(new \DateTimeImmutable('2026-10-23'), 5), $a?->prazoJuridico);
         self::assertSame('publicacao', $a?->origem);
     }
 
@@ -81,6 +84,12 @@ final class AnaliseDoPrazoDaMetaTest extends TestCase
         yield 'em 10 dias corridos' => ['Juntar documentos em 10 dias', '2026-10-29'];
         yield 'até sexta' => ['Ligar para o cliente até sexta', '2026-10-23'];
         yield 'data passada sem ano vira o ano seguinte' => ['Atualizar cadastro até 10/01', '2027-01-10'];
+        yield 'ano com 2 dígitos' => ['Atualizar cadastro até 05/03/27', '2027-03-05'];
+        yield 'hoje' => ['Ligar para o cliente hoje', '2026-10-19'];
+        yield 'prazo de N dias corridos' => ['Juntar procuração, prazo de 5 dias', '2026-10-24'];
+        yield 'até a sexta' => ['Retornar ao cliente até a sexta', '2026-10-23'];
+        yield 'em 0 dias úteis é hoje' => ['Juntar documentos em 0 dias uteis', '2026-10-19'];
+        yield 'data inválida cai na próxima regra' => ['Atualizar cadastro 15/13 hoje', '2026-10-19'];
     }
 
     #[DataProvider('datasNoTexto')]
@@ -137,6 +146,39 @@ final class AnaliseDoPrazoDaMetaTest extends TestCase
     public function testTextoCurto(): void
     {
         self::assertNull($this->analisar('ok'));
+    }
+
+    #[TestDox('Data escrita e ciência juntas: vale a data do texto, e a explicação diz isso (não uma contagem que não fez)')]
+    public function testDataDoTextoVenceOTermo(): void
+    {
+        $a = $this->analisar("Contestação\naté 30/10", ciencia: '2026-10-19');
+
+        self::assertSame('2026-10-30', $a?->prazoJuridico?->format('Y-m-d'));
+        self::assertStringStartsWith('Encontrei data 30/10/2026 escrita na meta.', (string) $a?->porque);
+    }
+
+    #[TestDox('O tipo sai do título antes do corpo; informado sem confirmar; folga zero mantém a data; alternativa só quando difere')]
+    public function testDemaisRegras(): void
+    {
+        self::assertSame('Apelação', $this->analisar("Apelação\nmanifestação do cliente")?->tipo);
+
+        $informado = $this->analisar('Contestação', ciencia: '2026-10-19', informado: '2026-11-10');
+        self::assertSame(EstadoDoPrazoJuridico::Informado, $informado?->estado);
+        self::assertNull($informado?->alternativa, 'igual à calculada pela origem');
+
+        $semFolga = $this->analisar('Analisar publicação até 23/10');
+        self::assertSame(0, $semFolga?->folga);
+        self::assertSame('2026-10-23', $semFolga?->prazoInterno->format('Y-m-d'));
+        self::assertStringContainsString('Mantive a data como prazo interno.', (string) $semFolga?->porque);
+    }
+
+    #[TestDox('Prazo jurídico já vencido: o interno fica em hoje e a prioridade é Crítico')]
+    public function testPrazoVencido(): void
+    {
+        $a = $this->analisar('Contestação', informado: '2026-10-16');
+
+        self::assertSame('2026-10-19', $a?->prazoInterno->format('Y-m-d'));
+        self::assertSame('Crítico', $a?->prioridade);
     }
 
     private function analisar(string $texto, ?string $publicacao = null, ?string $ciencia = null, ?string $informado = null, bool $confirmado = false): ?AnaliseDoPrazo

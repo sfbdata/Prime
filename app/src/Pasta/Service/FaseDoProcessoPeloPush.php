@@ -24,15 +24,16 @@ final class FaseDoProcessoPeloPush
 
     /** Situação da `PrevisaoProcessual` (texto da regra) => fase do `CatalogoDeDocumentos`. */
     private const FASE_POR_SITUACAO = [
+        // No desenho, `faseK` "contestacao" é "aguardando réplica" e "replica" é "réplica apresentada"
+        // (bj-processo.js `fase()`); a tradução abaixo segue o `faseDe` (bj-docsug.js L52-61).
         'Prazo para contestação' => 'contestacao',
-        'Aguardando intimação para réplica' => 'replica',
+        'Aguardando intimação para réplica' => 'contestacao',
         'Prazo para réplica' => 'replica',
-        // `faseDe`: "conclusos" sem sentença ainda é a réplica (dc bj-docsug.js L57).
-        'Concluso ao juízo' => 'replica',
-        'Análise judicial após a réplica' => 'provas',
+        'Análise judicial após a réplica' => 'replica',
         'Prazo para especificar provas' => 'provas',
-        'Prazo para esclarecimentos do saneamento' => 'provas',
         'Audiência designada' => 'audiencia',
+        // Fora de propósito: "Concluso ao juízo" (confiança baixa: a lista da classe é melhor que um palpite) e o
+        // saneamento ("saneamento" não é fase do catálogo; no desenho cai na fase inicial).
         'Prazo recursal' => 'sentenca',
         'Prazo para contrarrazões' => 'recurso',
         'Fase de cumprimento' => 'cumprimento',

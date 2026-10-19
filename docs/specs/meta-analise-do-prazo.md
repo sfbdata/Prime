@@ -28,6 +28,21 @@ dele como fonte única de dias úteis. Risco: prazo jurídico é risco (`trilha-
   "pela última movimentação do Push: <situação>". O resto (camada de IA do "Sugerir documentos", confiança "Alta" pelo PDF, memória por
   processo, leitura de documentos) está no "Para o dono".
 
+## Desvios do desenho (revisão de 19/10, decididos pela segurança do prazo)
+
+- **Prazo pela publicação:** o desenho conta os dias úteis a partir do termo (1º dia útil depois da publicação) e
+  perde esse dia: um prazo de 5 dias publicado em 23/10 daria 03/11. Aqui conta a partir da publicação, com o
+  1º dia útil seguinte como dia 1 (CPC 224 § 3º), e dá 30/10, a mesma data da "Situação atual" do Push. A data
+  mais cedo é a segura. Pela ciência não muda.
+- **Explicação com data no texto e termo:** o desenho explicava uma contagem pelo termo que não gerou a data; aqui
+  a explicação diz a data do texto que foi usada.
+- **Bordas:** mês inválido no texto ("15/13") é descartado e cai na próxima regra (o JS virava janeiro do ano
+  seguinte); "em 0 dias úteis" é hoje.
+- **Fase pelo Push (B):** "Aguardando intimação para réplica" = contestação e "Análise judicial após a réplica" =
+  réplica, como o `faseK` do desenho; "Concluso ao juízo" (confiança baixa) e saneamento não trocam a fase: a
+  lista segue pela classe. A situação é recalculada aqui e no painel do Push (duas consultas leves a mais por
+  página): quando o #82 entrar, vale unificar numa leitura só.
+
 ## O motor (contrato para a tela que vier)
 
 Entrada `EntradaDaAnaliseDoPrazo`: texto (título + descrição), hoje, publicação, ciência, prazo jurídico

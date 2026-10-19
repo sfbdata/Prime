@@ -65,10 +65,8 @@ final class AnaliseDoPrazoDaMeta
         [, $tipo, $du, $fonte, $margem, $peso] = self::tipoDe($texto);
         [$explicita, $como] = $this->dataEscrita($texto, $hoje);
         $urgente = preg_match('/urgent|urgencia|imediat|critic|liminar|tutela/', $texto) === 1;
-        $termo = $e->ciencia?->setTime(0, 0) ?? ($e->publicacao !== null ? $this->diasUteis->somarUteis($e->publicacao, 1) : null);
-        $origem = $e->ciencia !== null ? 'ciencia' : ($e->publicacao !== null ? 'publicacao' : null);
-
-        [$juridico, $estado, $aproximado, $alternativa] = $this->prazoJuridico($e, $explicita, $termo, $du, $hoje);
+        [$termo, $origem, $baseDaContagem] = $this->origemDoPrazo($e);
+        [$juridico, $estado, $aproximado, $alternativa] = $this->prazoJuridico($e, $explicita, $baseDaContagem, $du, $hoje);
         [$interno, $antecipou] = $this->prazoInterno($juridico, $margem, $peso, $urgente, $hoje);
         $restam = $this->uteisEntre($hoje, $interno);
         [$diasJur, $feriados] = $juridico === null ? [null, 0] : $this->contarAte($hoje, $juridico);
@@ -138,7 +136,11 @@ final class AnaliseDoPrazoDaMeta
         }
         if (preg_match('/(?:em|prazo de|ate)\s+(\d{1,2})\s+dias?(\s+uteis)?/', $t, $m) === 1) {
             $n = (int) $m[1];
-            $data = ($m[2] ?? '') !== '' ? $this->diasUteis->somarUteis($hoje, $n) : $hoje->modify('+' . $n . ' days');
+            $data = match (true) {
+                $n === 0 => $hoje,
+                ($m[2] ?? '') !== '' => $this->diasUteis->somarUteis($hoje, $n),
+                default => $hoje->modify('+' . $n . ' days'),
+            };
 
             return [$data, '"' . $m[0] . '"'];
         }
@@ -171,16 +173,36 @@ final class AnaliseDoPrazoDaMeta
     }
 
     /**
+     * O termo inicial que a tela mostra (a ciência, ou o 1º dia útil depois da publicação) e a base da contagem
+     * (a própria ciência ou publicação: o prazo começa no dia útil seguinte, que já é o dia 1, CPC 224 § 3º). O
+     * desenho contava a partir do termo e perdia esse dia; aqui a data bate com a "Situação atual" do Push
+     * (`DiasUteisNacionais::somarUteis`). Desvio declarado na spec.
+     *
+     * @return array{?\DateTimeImmutable, ?string, ?\DateTimeImmutable}
+     */
+    private function origemDoPrazo(EntradaDaAnaliseDoPrazo $e): array
+    {
+        if ($e->ciencia !== null) {
+            return [$e->ciencia->setTime(0, 0), 'ciencia', $e->ciencia->setTime(0, 0)];
+        }
+        if ($e->publicacao !== null) {
+            return [$this->diasUteis->somarUteis($e->publicacao, 1), 'publicacao', $e->publicacao->setTime(0, 0)];
+        }
+
+        return [null, null, null];
+    }
+
+    /**
      * Prioridade (dc 4004-4007): a data informada pela pessoa; a escrita no texto; contada do termo inicial pela
      * tabela; contada de hoje, aproximada. Sem prazo legal no tipo, não há prazo jurídico.
      *
      * @return array{?\DateTimeImmutable, EstadoDoPrazoJuridico, bool, ?\DateTimeImmutable}
      */
-    private function prazoJuridico(EntradaDaAnaliseDoPrazo $e, ?\DateTimeImmutable $explicita, ?\DateTimeImmutable $termo, int $du, \DateTimeImmutable $hoje): array
+    private function prazoJuridico(EntradaDaAnaliseDoPrazo $e, ?\DateTimeImmutable $explicita, ?\DateTimeImmutable $base, int $du, \DateTimeImmutable $hoje): array
     {
         if ($e->prazoJuridicoInformado !== null) {
             $informado = $e->prazoJuridicoInformado->setTime(0, 0);
-            $pelaOrigem = $du > 0 && $termo !== null ? $this->diasUteis->somarUteis($termo, $du) : null;
+            $pelaOrigem = $du > 0 && $base !== null ? $this->diasUteis->somarUteis($base, $du) : null;
             $alternativa = $pelaOrigem !== null && $pelaOrigem->format('Y-m-d') !== $informado->format('Y-m-d') ? $pelaOrigem : null;
 
             return [$informado, $e->confirmado ? EstadoDoPrazoJuridico::Confirmado : EstadoDoPrazoJuridico::Informado, false, $alternativa];
@@ -188,8 +210,8 @@ final class AnaliseDoPrazoDaMeta
         if ($explicita !== null) {
             return [$explicita, EstadoDoPrazoJuridico::Informado, false, null];
         }
-        if ($du > 0 && $termo !== null) {
-            return [$this->diasUteis->somarUteis($termo, $du), EstadoDoPrazoJuridico::Estimado, false, null];
+        if ($du > 0 && $base !== null) {
+            return [$this->diasUteis->somarUteis($base, $du), EstadoDoPrazoJuridico::Estimado, false, null];
         }
         if ($du > 0) {
             return [$this->diasUteis->somarUteis($hoje, $du), EstadoDoPrazoJuridico::NecessitaConferencia, true, null];
@@ -290,8 +312,9 @@ final class AnaliseDoPrazoDaMeta
         $reservei = $margem > 0 ? 'Reservei ' . $folga . ' antes para revisão e protocolo.' : 'Mantive a data como prazo interno.';
         $texto = match (true) {
             $e->prazoJuridicoInformado !== null && $juridico !== null => 'Usei o prazo jurídico ' . ($estado === EstadoDoPrazoJuridico::Confirmado ? 'confirmado' : 'informado') . ' por você (' . $juridico->format('d/m/Y') . '). ' . $reservei,
-            $termo !== null && $du > 0 => 'Contei ' . $du . ' dias úteis (' . $fonte . ') a partir do termo inicial ' . $termo->format('d/m/Y') . ($origem === 'ciencia' ? ', dia da ciência/intimação informado por você' : ', 1º dia útil após a publicação de ' . $e->publicacao?->format('d/m/Y')) . '. Prazo interno com ' . $folga . ' de folga.',
+            // A data escrita no texto vence o termo inicial (dc 4004-4006): a explicação diz o que de fato gerou a data.
             $explicita !== null => 'Encontrei ' . $como . '. ' . $reservei,
+            $termo !== null && $du > 0 => 'Contei ' . $du . ' dias úteis (' . $fonte . ') a partir do termo inicial ' . $termo->format('d/m/Y') . ($origem === 'ciencia' ? ', dia da ciência/intimação informado por você' : ', 1º dia útil após a publicação de ' . $e->publicacao?->format('d/m/Y')) . '. Prazo interno com ' . $folga . ' de folga.',
             $du > 0 => 'A meta indica ' . mb_strtolower($tipo) . ': ' . $du . ' dias úteis (' . $fonte . '). O termo inicial não está na meta, então contei a partir de hoje só como estimativa; confira a intimação. Prazo interno com ' . $folga . ' de folga.',
             default => 'Não há prazo legal ligado a ' . mb_strtolower($tipo) . '. Sugeri um prazo interno conforme a natureza da tarefa' . ($urgente ? ' e a urgência indicada no texto' : '') . '.',
         };
