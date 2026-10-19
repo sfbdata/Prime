@@ -40,6 +40,10 @@ final class TenantContextValidatorListener
         'trabalho_externo_convite',
         'trabalho_externo_convite_criar_conta',
         'trabalho_externo_convite_aceitar',
+        // Link externo do Push: página pública de terceiro, não depende de termo nem de escritório.
+        'push_compartilhado',
+        'push_compartilhado_codigo',
+        'push_compartilhado_renovacao',
     ];
 
     /**
