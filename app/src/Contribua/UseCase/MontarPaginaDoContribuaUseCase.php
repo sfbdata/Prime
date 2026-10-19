@@ -133,6 +133,9 @@ final class MontarPaginaDoContribuaUseCase
 
         return [
             'codigo' => $p->getCodigo(),
+            'nome' => $p->getNome(),
+            'gbNumero' => $gb,
+            'hojeGb' => min($limiteGb, $gb),
             'rotulo' => mb_strtoupper($p->getNome()),
             'gb' => $gb . ' GB',
             'preco' => $p->ehGratuito() ? 'Grátis' : RegistrarApoioUseCase::reais($p->getPrecoCentavos()),

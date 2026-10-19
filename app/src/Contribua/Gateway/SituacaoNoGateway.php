@@ -15,7 +15,10 @@ final readonly class SituacaoNoGateway
         public SituacaoDaAssinatura $situacao,
         /** Até quando o mês pago vale (fim do período pago); null enquanto nada foi pago. */
         public ?\DateTimeImmutable $pagaAte,
-        /** A referência do pedido (`BJ<conta>-<plano>-<id>`), quando o gateway a devolve. */
+        /**
+         * A referência do pedido (`BJ<conta>-<plano>-<id>`) ou, nos gateways em que o vínculo passa pelo
+         * cliente (Asaas), a do escritório (`BJ<conta>`). Basta começar por `BJ<conta>`.
+         */
         public ?string $referencia = null,
         /** O cliente no gateway, quando o vínculo com o escritório passa por ele (Asaas). */
         public ?string $idDoCliente = null,

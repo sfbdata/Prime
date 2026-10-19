@@ -45,4 +45,26 @@ class NotificacaoRecebidaRepository extends ServiceEntityRepository
             ['origem' => $origem, 'evento' => $idEvento],
         );
     }
+
+    /**
+     * Avisos gravados e ainda não processados (o gateway estava fora do ar na reconsulta), das origens
+     * dadas, do mais antigo para o mais novo.
+     *
+     * @param list<string> $origens
+     *
+     * @return list<NotificacaoRecebida>
+     */
+    public function pendentes(array $origens, int $limite = 200): array
+    {
+        if ($origens === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('n')
+            ->andWhere('n.processadaEm IS NULL')
+            ->andWhere('n.origem IN (:origens)')->setParameter('origens', $origens)
+            ->orderBy('n.id', 'ASC')
+            ->setMaxResults($limite)
+            ->getQuery()->getResult();
+    }
 }
