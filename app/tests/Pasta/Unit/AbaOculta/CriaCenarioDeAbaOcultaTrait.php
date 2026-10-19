@@ -115,7 +115,7 @@ trait CriaCenarioDeAbaOcultaTrait
 
     private function visibilidade(): VisibilidadeDasAbasDaPasta
     {
-        return new VisibilidadeDasAbasDaPasta($this->regras, $this->regraPrimarios());
+        return new VisibilidadeDasAbasDaPasta($this->regras, $this->regraPrimarios(), $this->equipe());
     }
 
     private function equipe(): EquipeQuePodeTerAbaOculta

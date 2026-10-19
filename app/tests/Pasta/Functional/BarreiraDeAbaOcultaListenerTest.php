@@ -36,6 +36,8 @@ final class BarreiraDeAbaOcultaListenerTest extends JusPrimeWebTestCase
         yield 'financeiro: pró-bono' => [AbaDaPasta::Financeiro, 'POST', '/pasta/{id}/pro-bono', ['pro_bono' => '1']];
         yield 'documentos: lixeira' => [AbaDaPasta::Documentos, 'GET', '/pasta/{id}/documentos/lixeira', []];
         yield 'detalhes: nova observação' => [AbaDaPasta::Detalhes, 'POST', '/pasta/{id}/detalhes/observacao', ['conteudo' => 'x']];
+        yield 'documentos: checklist' => [AbaDaPasta::Documentos, 'POST', '/pasta/{id}/checklist', ['texto' => 'x']];
+        yield 'processo: buscar processos' => [AbaDaPasta::Processo, 'GET', '/pasta/{id}/processo/buscar?q=1', []];
         yield 'processo: vincular' => [AbaDaPasta::Processo, 'POST', '/pasta/{id}/processo/vincular', []];
         yield 'tarefas: novo prazo' => [AbaDaPasta::Tarefas, 'POST', '/pasta/{id}/prazos', []];
     }

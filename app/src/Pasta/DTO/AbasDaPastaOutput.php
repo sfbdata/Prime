@@ -21,7 +21,9 @@ final readonly class AbasDaPastaOutput
 
     /**
      * @param list<string>                                          $ocultas abas que este usuário não vê
-     * @param array<string, array{paraTodos: bool, quantidade: int}> $regras  só para quem configura
+     * @param array<string, array{paraTodos: bool, quantidade: int, alcancados: int}> $regras só para quem
+     *                                                                 configura; `quantidade` = tamanho da lista
+     *                                                                 gravada, `alcancados` = elegíveis que a regra esconde
      */
     public function __construct(
         public array $ocultas,
@@ -32,9 +34,10 @@ final readonly class AbasDaPastaOutput
 
     /**
      * @param list<AbaOcultaDaPasta> $regras  todas as regras da pasta
-     * @param list<AbaDaPasta>       $ocultas as que alcançam este usuário
+     * @param list<AbaDaPasta>       $ocultas   as que alcançam este usuário
+     * @param list<int>              $elegiveis ids de quem pode ter a aba oculta (`EquipeQuePodeTerAbaOculta`)
      */
-    public static function montar(array $regras, array $ocultas, bool $podeConfigurar): self
+    public static function montar(array $regras, array $ocultas, bool $podeConfigurar, array $elegiveis = []): self
     {
         $porAba = [];
         if ($podeConfigurar) {
@@ -42,6 +45,7 @@ final readonly class AbasDaPastaOutput
                 $porAba[$regra->getAba()->value] = [
                     'paraTodos'  => $regra->isParaTodos(),
                     'quantidade' => \count($regra->getUsuarios()),
+                    'alcancados' => \count(array_filter($elegiveis, static fn (int $id): bool => $regra->alcanca($id))),
                 ];
             }
         }
@@ -94,16 +98,14 @@ final readonly class AbasDaPastaOutput
             : 'Oculta para ' . $regra['quantidade'] . ' pessoa(s)';
     }
 
-    /** O complemento do título do menu do botão direito ([EXP] L.4414): " · oculta para N". */
+    /**
+     * O complemento do título do menu do botão direito ([EXP] L.4412-4414): " · oculta para N", com N =
+     * quantos da equipe a regra esconde, também em "toda a equipe". Sem ninguém alcançado, sem sufixo.
+     */
     public function sufixoDoMenu(string $aba): string
     {
-        $regra = $this->regras[$aba] ?? null;
-        if ($regra === null) {
-            return '';
-        }
+        $alcancados = $this->regras[$aba]['alcancados'] ?? 0;
 
-        return $regra['paraTodos']
-            ? ' · oculta para toda a equipe'
-            : ' · oculta para ' . $regra['quantidade'];
+        return $alcancados > 0 ? ' · oculta para ' . $alcancados : '';
     }
 }

@@ -122,7 +122,8 @@
 
     function pedirMenu(aba, e, peloTeclado) {
         e.preventDefault();
-        if (!CONFIGURA || !menu) { avisar(AVISO_SO_PRIMARIO, 'erro'); return; }
+        // Aviso neutro, como o `gmAviso` do desenho (L.4411, ícone de check): é informação, não falha.
+        if (!CONFIGURA || !menu) { avisar(AVISO_SO_PRIMARIO); return; }
         if (peloTeclado || (e.clientX === 0 && e.clientY === 0)) {
             var r = aba.getBoundingClientRect();
             abrirMenu(aba, r.right, r.bottom + 4, true);

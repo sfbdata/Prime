@@ -77,6 +77,16 @@ final class PastaResumoController extends AbstractController
 
     private const LOGO = '/public/images/logo/bluejus_simbolo.svg';
 
+    /**
+     * A aba de onde vem cada folha avulsa (spec pasta-ocultar-aba §4): com a aba oculta para quem pede,
+     * a folha é 403. O resumo geral não está aqui: ele omite as seções das abas ocultas.
+     */
+    private const ABA_DA_SECAO = [
+        PastaImpressaoOpcoes::SECAO_EXTRATO    => AbaDaPasta::Financeiro,
+        PastaImpressaoOpcoes::SECAO_OBSERVACAO => AbaDaPasta::Detalhes,
+        PastaImpressaoOpcoes::SECAO_PROCESSO   => AbaDaPasta::Processo,
+    ];
+
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
@@ -199,6 +209,7 @@ final class PastaResumoController extends AbstractController
             throw $this->createNotFoundException('Folha de impressão desconhecida.');
         }
 
+        $this->exigirAbaDaSecaoVisivel($pasta, $usuario, $opcoes->secao);
         $veFinanceiro = $this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta);
         if ($opcoes->secao === PastaImpressaoOpcoes::SECAO_EXTRATO && !$veFinanceiro) {
             throw $this->createAccessDeniedException('Sem permissão para ver o financeiro desta pasta.');
@@ -247,6 +258,14 @@ final class PastaResumoController extends AbstractController
             // Só na folha do processo: as linhas rótulo/valor do "Copiar resumo".
             'linhasProcesso' => $processoAlvo !== null ? self::linhasDoProcesso($pasta, $processoAlvo) : [],
         ];
+    }
+
+    private function exigirAbaDaSecaoVisivel(Pasta $pasta, User $usuario, ?string $secao): void
+    {
+        $aba = self::ABA_DA_SECAO[$secao ?? ''] ?? null;
+        if ($aba !== null && $this->visibilidadeDasAbas->ocultaPara($pasta, $aba, $usuario)) {
+            throw $this->createAccessDeniedException('A aba ' . $aba->rotulo() . ' está oculta para você nesta pasta.');
+        }
     }
 
     /** Id positivo da query, ou `null` (vazio, texto, zero): `getInt` daria 400 em texto. */

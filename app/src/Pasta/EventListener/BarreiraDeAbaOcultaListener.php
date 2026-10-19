@@ -39,6 +39,10 @@ final class BarreiraDeAbaOcultaListener
     /**
      * Rotas de cada aba. As rotas `tarefa_*` são da meta, não da pasta, e ficam de fora (spec §4).
      *
+     * `pasta_checklist_*` é da aba Documentos: o checklist de documentação mora no explorador dela
+     * (`_documentos_explorador` → `_documentos_checklist`). `pasta_reu_*` fica de fora: os réus vivem
+     * na janela Cadastro (cliente-cadastro.js, aba Réu), aberta pelo cabeçalho, e não em aba da pasta.
+     *
      * @var array<string, string>
      */
     public const MAPA = [
@@ -56,11 +60,13 @@ final class BarreiraDeAbaOcultaListener
         'pasta_secao*'                     => 'documentos',
         'pasta_secoes_*'                   => 'documentos',
         'pasta_peticionar*'                => 'documentos',
+        'pasta_checklist_*'                => 'documentos',
         'pasta_detalhes_*'                 => 'detalhes',
         'pasta_vincular_processo'          => 'processo',
         'pasta_desvincular_processo'       => 'processo',
         'pasta_definir_processo_principal' => 'processo',
         'pasta_administrativa_definir'     => 'processo',
+        'pasta_buscar_processos'           => 'processo',
         'pasta_prazo_*'                    => 'tarefas',
     ];
 

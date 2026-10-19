@@ -331,7 +331,8 @@ class PastaController extends AbstractController
         $tenantId  = $tenant?->getId() ?? 0;
         $processoId = $pasta->getProcessoPrincipal()?->getId();
 
-        $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
+        $abasDaPasta     = $visibilidadeDasAbas->estadoParaTela($pasta, $currentUser); // abas ocultas (spec pasta-ocultar-aba §5)
+        $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId, abasOcultas: $abasDaPasta->ocultas);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
 
         // O redesenho parte a timeline em dois destinos que antes disputavam a
@@ -511,7 +512,7 @@ class PastaController extends AbstractController
                 veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
             ),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
-            'abasDaPasta'                 => $visibilidadeDasAbas->estadoParaTela($pasta, $currentUser), // abas ocultas (spec pasta-ocultar-aba §5)
+            'abasDaPasta'                 => $abasDaPasta,
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
             // simplesmente não desenha o campo.

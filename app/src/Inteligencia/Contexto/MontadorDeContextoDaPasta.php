@@ -80,9 +80,14 @@ final class MontadorDeContextoDaPasta
     }
 
     /**
+     * `$abasOcultas`: as abas ocultas para quem pediu (spec pasta-ocultar-aba §5), decididas na
+     * solicitação e gravadas em `contexto_resumo.abasOcultas`, como o financeiro; aqui só se obedece.
+     *
+     * @param list<string> $abasOcultas
+     *
      * @throws ContextoBloqueadoException
      */
-    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro): ContextoDaPasta
+    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro, array $abasOcultas = []): ContextoDaPasta
     {
         // Sigilo primeiro: o montador do Push lança antes de ler qualquer publicação; a lista de
         // processos daqui repete a conferência para o caso de o agente não ler movimentações.
@@ -95,7 +100,7 @@ final class MontadorDeContextoDaPasta
         $secoes = [];
         $gasto = 0;
         foreach ($agente->secoes() as $secao) {
-            if ($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) {
+            if (($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) || \in_array($secao->abaDaPasta()?->value, $abasOcultas, true)) {
                 continue; // a decisão foi tomada na solicitação; aqui só se obedece
             }
             $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar), $gasto);
@@ -111,6 +116,7 @@ final class MontadorDeContextoDaPasta
             hash: ContextoDaPasta::hashDe($agente, $cabecalho, $linhasDeProcessos, $secoes),
             incluiFinanceiro: $incluirFinanceiro && $agente->leFinanceiro(),
             numerosDosProcessos: $numeros,
+            abasOcultas: $abasOcultas,
         );
     }
 

@@ -136,7 +136,7 @@ final class PastaAbaOcultaTelaTest extends JusPrimeWebTestCase
         self::assertSame('1', $push->attr('data-pao-regra'));
         self::assertSame(' · oculta para 1', $push->attr('data-pao-sufixo'));
         self::assertSame('Push Processual', $push->attr('data-pao-rotulo'));
-        self::assertSame(' · oculta para toda a equipe', $crawler->filter('#financeiro-tab')->attr('data-pao-sufixo'));
+        self::assertSame(' · oculta para 1', $crawler->filter('#financeiro-tab')->attr('data-pao-sufixo'), 'toda a equipe: N = elegíveis (desenho L.4412)');
         self::assertNull($crawler->filter('#dados-tab')->attr('data-pao-regra'));
 
         $raiz = $crawler->filter('#paoRaiz');

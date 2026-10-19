@@ -54,6 +54,11 @@ class PastaTimelineAssembler
     ) {}
 
     /**
+     * `$abasOcultas`: as abas ocultas para quem vai ler (spec pasta-ocultar-aba §5). O que vem delas
+     * não entra, pela regra única `VisibilidadeDasAbasDaPasta::eventoVisivel`.
+     *
+     * @param list<string> $abasOcultas
+     *
      * @return TimelineItemDTO[]
      */
     public function montar(
@@ -61,7 +66,8 @@ class PastaTimelineAssembler
         ?Tenant $tenant,
         int $tenantId,
         ?int $processoId,
-        int $limit = 150
+        int $limit = 150,
+        array $abasOcultas = [],
     ): array {
         $items = [];
 
@@ -89,7 +95,25 @@ class PastaTimelineAssembler
 
         usort($items, static fn(TimelineItemDTO $a, TimelineItemDTO $b) => $b->dataHora <=> $a->dataHora);
 
-        return array_slice($items, 0, $limit);
+        return array_slice($this->semAbasOcultas($items, $abasOcultas), 0, $limit);
+    }
+
+    /**
+     * @param TimelineItemDTO[] $items
+     * @param list<string>      $abasOcultas
+     *
+     * @return TimelineItemDTO[]
+     */
+    private function semAbasOcultas(array $items, array $abasOcultas): array
+    {
+        if ($abasOcultas === []) {
+            return $items;
+        }
+
+        return array_values(array_filter($items, static fn (TimelineItemDTO $i): bool => VisibilidadeDasAbasDaPasta::eventoVisivel(
+            $i->tipo === TimelineItemType::MENSAGEM ? 'registro' : $i->origem,
+            $abasOcultas,
+        )));
     }
 
     /**

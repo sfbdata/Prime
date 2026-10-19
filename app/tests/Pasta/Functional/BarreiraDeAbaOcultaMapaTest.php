@@ -59,7 +59,7 @@ final class BarreiraDeAbaOcultaMapaTest extends KernelTestCase
         self::assertGreaterThan(40, $alcancadas, 'o mapa alcança as rotas das seis abas');
     }
 
-    #[TestDox('As rotas da meta (tarefa_*), da tela e do ocultar aba ficam fora do mapa')]
+    #[TestDox('Fora do mapa: meta (tarefa_*), tela, ocultar aba e réus; checklist é Documentos, busca de processos é Processo')]
     public function testForaDoMapa(): void
     {
         foreach (['tarefa_show', 'pasta_show', 'pasta_aba_equipe', 'pasta_aba_ocultar_todos', 'pasta_resumo_imprimir', 'pasta_timeline'] as $nome) {
@@ -67,6 +67,12 @@ final class BarreiraDeAbaOcultaMapaTest extends KernelTestCase
         }
         self::assertSame(AbaDaPasta::Push, BarreiraDeAbaOcultaListener::abaDaRota('pasta_push_links_gerar'));
         self::assertSame(AbaDaPasta::Documentos, BarreiraDeAbaOcultaListener::abaDaRota('pasta_documento_download'));
+        self::assertSame(AbaDaPasta::Processo, BarreiraDeAbaOcultaListener::abaDaRota('pasta_buscar_processos'));
+        // O checklist mora no explorador da aba Documentos (`_documentos_explorador` → `_documentos_checklist`).
+        self::assertSame(AbaDaPasta::Documentos, BarreiraDeAbaOcultaListener::abaDaRota('pasta_checklist_toggle'));
+        self::assertSame(AbaDaPasta::Documentos, BarreiraDeAbaOcultaListener::abaDaRota('pasta_checklist_modelo_aplicar'));
+        // Réus: janela Cadastro do cabeçalho, não aba da pasta.
+        self::assertNull(BarreiraDeAbaOcultaListener::abaDaRota('pasta_reu_adicionar'));
     }
 
     private function acaoAchaAPasta(string $controller): bool

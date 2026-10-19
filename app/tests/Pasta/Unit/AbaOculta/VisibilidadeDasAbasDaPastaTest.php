@@ -107,7 +107,7 @@ final class VisibilidadeDasAbasDaPastaTest extends TestCase
         self::assertTrue($estado->visivel('financeiro'));
     }
 
-    #[TestDox('Tela para o primário: nada oculto, as regras com o title do ícone e o título do menu do desenho')]
+    #[TestDox('Tela para o primário: nada oculto, as regras com o title do ícone e o título do menu do desenho (N = elegíveis escondidos)')]
     public function testEstadoParaTelaDoPrimario(): void
     {
         $this->regras->method('daPasta')->willReturn([$this->regraParaTodos(AbaDaPasta::Financeiro), $this->regraPara(AbaDaPasta::Push, [3, 4])]);
@@ -119,10 +119,38 @@ final class VisibilidadeDasAbasDaPastaTest extends TestCase
         self::assertSame('dados', $estado->primeiraVisivel());
         self::assertSame('Oculta para toda a equipe', $estado->dicaDoIcone('financeiro'));
         self::assertSame('Oculta para 2 pessoa(s)', $estado->dicaDoIcone('push'));
-        self::assertSame(' · oculta para toda a equipe', $estado->sufixoDoMenu('financeiro'));
+        self::assertSame(' · oculta para 2', $estado->sufixoDoMenu('financeiro'), 'desenho L.4412: N também com toda a equipe');
         self::assertSame(' · oculta para 2', $estado->sufixoDoMenu('push'));
         self::assertSame('', $estado->sufixoDoMenu('dados'));
         self::assertFalse($estado->temRegra('dados'));
+    }
+
+    #[TestDox('Lista com id que não é mais elegível (primário): o menu conta só os elegíveis; o ícone, a lista gravada')]
+    public function testSufixoContaSoElegiveis(): void
+    {
+        $this->regras->method('daPasta')->willReturn([$this->regraPara(AbaDaPasta::Push, [1, 3])]);
+
+        $estado = $this->visibilidade()->estadoParaTela($this->pasta, $this->master);
+
+        self::assertSame(' · oculta para 1', $estado->sufixoDoMenu('push'));
+        self::assertSame('Oculta para 2 pessoa(s)', $estado->dicaDoIcone('push'));
+    }
+
+    #[TestDox('Regra única de evento por aba: cada família de acontecimento vai para a sua aba; cadastro e notificação não são de aba')]
+    public function testAbaDoEvento(): void
+    {
+        $esperado = [
+            'registro' => 'dados', 'documento' => 'documentos', 'meta' => 'tarefas', 'prazo_meta' => 'tarefas',
+            'metas_concluidas' => 'tarefas', 'meta_concluida' => 'tarefas', 'processo' => 'processo', 'publicacao' => 'push',
+            'observacao_detalhes' => 'detalhes', 'financeiro' => 'financeiro', 'observacao_financeira' => 'financeiro',
+            'pagamento_vencido' => 'financeiro', 'pasta' => null, 'cadastro' => null, 'notificacao' => null, 'auditoria' => null,
+        ];
+        foreach ($esperado as $familia => $aba) {
+            self::assertSame($aba, VisibilidadeDasAbasDaPasta::abaDoEvento($familia)?->value, $familia);
+        }
+        self::assertFalse(VisibilidadeDasAbasDaPasta::eventoVisivel('publicacao', ['push']));
+        self::assertTrue(VisibilidadeDasAbasDaPasta::eventoVisivel('publicacao', ['processo']));
+        self::assertTrue(VisibilidadeDasAbasDaPasta::eventoVisivel('pasta', AbasDaPastaOutput::ORDEM));
     }
 
     #[TestDox('Todas as abas ocultas: não há primeira visível (a tela mostra o aviso)')]

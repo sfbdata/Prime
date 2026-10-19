@@ -91,6 +91,7 @@ final class PastaAbasOcultasJsTest extends TestCase
     public function testQuemNaoConfigura(): void
     {
         self::assertStringContainsString("'Só o usuário primário pode ocultar abas'", $this->js());
+        self::assertStringContainsString('avisar(AVISO_SO_PRIMARIO);', $this->js(), 'estilo neutro do gmAviso (L.4411), não o de erro');
         self::assertStringContainsString("!aba.hasAttribute('data-ppl-menu')", $this->js());
     }
 

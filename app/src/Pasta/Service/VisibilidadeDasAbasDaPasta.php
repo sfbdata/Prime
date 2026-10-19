@@ -30,6 +30,7 @@ final class VisibilidadeDasAbasDaPasta
     public function __construct(
         private readonly AbaOcultaDaPastaRepository $regras,
         private readonly RegraDosPrimarios $primarios,
+        private readonly EquipeQuePodeTerAbaOculta $equipe,
     ) {
     }
 
@@ -96,7 +97,42 @@ final class VisibilidadeDasAbasDaPasta
         $regras = $this->regras->daPasta($pasta, $tenant);
         $configura = $this->podeConfigurar($user, $tenant);
 
-        return AbasDaPastaOutput::montar($regras, $configura ? [] : $this->ocultasEntre($regras, $user, $tenant), $configura);
+        if ($configura) {
+            // O título do menu conta quem a regra esconde ([EXP] L.4412): só se lê a equipe havendo regra.
+            return AbasDaPastaOutput::montar($regras, [], true, $regras !== [] ? $this->equipe->idsDoEscritorio($tenant) : []);
+        }
+
+        return AbasDaPastaOutput::montar($regras, $this->ocultasEntre($regras, $user, $tenant), false);
+    }
+
+    /**
+     * A aba de onde vem um acontecimento da pasta (Histórico do sistema, Timeline inteligente),
+     * pela família dele: a regra ÚNICA que decide se ele aparece para quem tem a aba oculta.
+     * `null` = não é de aba nenhuma (cadastro da pasta, notificação pessoal): aparece sempre.
+     *
+     * Famílias: a `origem` do `PastaTimelineAssembler` (documento, meta, processo, financeiro, pasta),
+     * `registro` (anotação da aba Dados) e o `tipo` dos eventos próprios da Timeline inteligente.
+     */
+    public static function abaDoEvento(?string $familia): ?AbaDaPasta
+    {
+        return match ($familia) {
+            'registro'                                                                    => AbaDaPasta::Dados,
+            'documento'                                                                   => AbaDaPasta::Documentos,
+            'meta', 'meta_concluida', 'metas_concluidas', 'prazo_meta'                    => AbaDaPasta::Tarefas,
+            'processo'                                                                    => AbaDaPasta::Processo,
+            'publicacao'                                                                  => AbaDaPasta::Push,
+            'observacao_detalhes'                                                         => AbaDaPasta::Detalhes,
+            'financeiro', 'observacao_financeira', 'pagamento_lancado', 'pagamento_quitado', 'pagamento_vencido' => AbaDaPasta::Financeiro,
+            default                                                                       => null,
+        };
+    }
+
+    /** @param list<string> $abasOcultas ids das abas ocultas para quem vê */
+    public static function eventoVisivel(?string $familia, array $abasOcultas): bool
+    {
+        $aba = self::abaDoEvento($familia);
+
+        return $aba === null || !\in_array($aba->value, $abasOcultas, true);
     }
 
     /**
