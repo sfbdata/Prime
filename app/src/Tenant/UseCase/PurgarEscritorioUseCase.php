@@ -117,6 +117,9 @@ final class PurgarEscritorioUseCase
         // FKs a "user" SET NULL; nada as referencia). Deleção explícita antes de apagar o tenant.
         ['inteligencia_analise', 'tenant_id = :tenant'],
         ['inteligencia_configuracao', 'tenant_id = :tenant'],
+        // Contribua — plano e limites de espaço do escritório (tenant_id direto; FK tenant NO ACTION, nada a
+        // referencia). O catálogo de planos e a configuração são globais e ficam.
+        ['contribua_espaco_do_escritorio', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem
         // ANTES do bloco Etapa 2 (que apaga obrigação e caso).

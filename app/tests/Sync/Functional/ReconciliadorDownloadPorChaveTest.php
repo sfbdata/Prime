@@ -12,6 +12,7 @@ use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao;
 use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
@@ -480,8 +481,9 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
         $reconciliador = new ReconciliadorDePasta(
             $em,
             // E2.6C: o shim saiu; a Via A materializa por chave. Nos testes com armazenamento em
-            // memória, o dublê é materializador também.
-            $armazenamento,
+            // memória, o dublê é materializador também. O disco do container vem envolvido pelo
+            // decorador de cota do Contribua, que não materializa: aí o materializador é o do container.
+            $armazenamento instanceof MaterializadorDeArquivo ? $armazenamento : $container->get(MaterializadorDeArquivo::class),
             $armazenamento,
             new TransacaoComArquivoNovo(
                 $em,

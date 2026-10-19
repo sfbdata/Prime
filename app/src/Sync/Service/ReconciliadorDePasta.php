@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Sync\Service;
 
+use App\Contribua\Exception\EspacoEsgotado;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
@@ -560,6 +561,11 @@ final class ReconciliadorDePasta
             $this->em->clear();
             $conhecidos[$arq['id']] = true;
             $r->arquivosBaixados++;
+        } catch (EspacoEsgotado) {
+            $r->erros++;
+            $r->log(sprintf('[aviso] drive_file_id=%s: espaço do escritório esgotado, importação da pasta interrompida', $arq['id']));
+
+            return false;
         } catch (\Throwable $e) {
             $r->erros++;
             $r->log(sprintf('[erro] drive_file_id=%s (Drive→sistema): %s', $arq['id'], $e->getMessage()));

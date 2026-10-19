@@ -146,28 +146,85 @@ são do primário (D4); seções Master só para `ROLE_SUPER_ADMIN`.
 **Tenant**: `cota_armazenamento_gb` (E3) vira override do Master; cota efetiva = override ?? plano da
 assinatura ativa ?? Free (10 GB). **Número da conta** = `tenant.id` com 6 dígitos (sem coluna nova).
 
-## 5. Cota e bloqueio
+## 5. Cota e bloqueio (C1, implementada)
 
-- `ConsumoDeArmazenamento::doEscritorio()` sai do `PainelMasterRepository` para o domínio, inclui
-  `documento_demanda`, ignora soft delete (D7), cache de 60 s invalidado na gravação.
-- Decorador `ArmazenamentoComCota` sobre `ArmazenamentoDeArquivos::gravar()`: recusa quando
-  `consumo + tamanho > cota` e o escopo é de tenant. Isentos por parâmetro explícito: escopo global,
-  recompressão, comando de acervo. Consulta, download, exportação e exclusão nunca bloqueiam.
-- Mensagem: "Espaço esgotado: novos envios estão pausados. Consultar e baixar arquivos continua liberado."
-  com link para `/contribua#espaco`.
+Modelo real da C1 (substitui o rascunho do §4 para plano e espaço; nenhuma coluna em `tenant`, que é
+legado de risco ALTO):
 
-## 6. Cartão (espaço)
+| Tabela | Entidade | O que guarda |
+|---|---|---|
+| `contribua_plano` | `Plano` (global) | código, nome, cota em GB, preço em centavos, descrição, ordem, `limite_usuarios` (vazio), ativo. Carga: os 4 do 08 |
+| `contribua_espaco_do_escritorio` | `EspacoDoEscritorio` (1 por tenant) | plano, `cota_gb` própria do Master, `sem_limite`, `limite_usuarios` próprio, justificativa, quem alterou. Sem linha = Free |
+| `contribua_configuracao` | `ConfiguracaoDoEspaco` (linha única) | faixas 70/90/95/100 (05: Atenção, Alerta, Crítico, Bloqueio) e `bloqueio_ativo` (nasce **false**) |
 
-- **Um gateway só nesta entrega** (D2). Tokenização no navegador com a chave pública (SDK oficial do
-  gateway, carregado do domínio dele); o BlueJus recebe só o token, cria a assinatura no servidor com a
-  chave secreta (env), grava `PedidoDeEspaco` "aguardando confirmação". Nenhum número de cartão, CVV ou
-  validade toca o servidor, o log ou o banco.
-- Webhook `/api/webhooks/<gateway>`: só aviso; o servidor reconsulta a assinatura no gateway antes de
-  mudar qualquer coisa. Pago → `AssinaturaDeEspaco` ativa, `pagaAte` +1 mês, cota sobe, notificação.
-  Renovação, recusa e cancelamento atualizam do mesmo jeito.
-- Sem webhook: **Confirmar pagamento** do Master (§2.6), com auditoria.
-- Cancelar (perfil): cancela no gateway, mantém até `pagaAte`, depois Free. Inadimplência: o gateway
-  avisa, carência D3, volta a Free. Nada é apagado.
+- Limite efetivo: `sem_limite` > `cota_gb` do Master > cota do plano. Leitura pública:
+  `SituacaoDoEspaco::doEscritorio(tenantId)` → `RetratoDoEspaco` (usados, limite, %, faixa, origem, plano,
+  limite de usuários e origem, bloqueio ativo).
+- Consumo: `ConsumoDeArmazenamentoRepository::bytesDoEscritorio()`, as mesmas 7 tabelas do Painel do Master
+  com a mesma regra (**D7 resolvida pela convenção existente**: documento de pasta na lixeira não conta,
+  pasta em lápide conta). Fora: Trabalho Externo (documento de demanda entre escritórios, sem dono único),
+  foto, anexos de ponto e tarefa, imagem do editor (sem tamanho no banco).
+- Ponto único: `ArmazenamentoComCota` (`#[AsDecorator]` sobre `ArmazenamentoDeArquivos`; o
+  `ArmazenamentoLocal` ganhou `#[AsAlias]` porque a interface passou a ter duas implementações). Só
+  `NovoArquivo` de escopo tenant, só com o bloqueio ligado. Recusa antes se já está no limite; senão grava,
+  mede e, se passou, remove o arquivo recém-cunhado (pela `RemocaoAposTransacao` sobre o interno) e recusa.
+  Uso medido memorizado por requisição (`ResetInterface`).
+- Resposta (`EspacoEsgotadoListener`): JSON 422 com `error`/`erro`/`mensagem`/`message` e
+  `success`/`ok`/`sucesso` falsos quando o pedido vem de JS (`X-Requested-With`, `X-CSRF-Token` ou Accept
+  JSON); formulário comum volta à origem (só mesma origem) com flash `warning`. Mensagem do 08:
+  "Espaço esgotado: novos envios estão pausados. Consultar e baixar arquivos continua liberado."
+- Sync do Drive: recusa interrompe a importação da pasta (não baixa os arquivos seguintes à toa). Comando
+  de acervo: segue a mesma cota (com o bloqueio desligado ou o escritório sem limite, nada muda).
+- Kanban: o JS do mural não mostra erro de upload hoje; a mensagem só aparece lá quando a C2 tocar o JS.
+- Purga de escritório apaga `contribua_espaco_do_escritorio`.
+- Evento de domínio `EspacoAtingiuFaixa` (tenantId, faixa, faixa anterior, retrato): o decorador o
+  dispara quando um envio faz o escritório subir de faixa, com o bloqueio ligado ou não. Os e-mails do
+  desenho 05 ("Comercial e e-mails": 90%, 100%, pedido de espaço) só ouvem o evento; o Contribua não manda
+  e-mail direto. É disparado antes do COMMIT de quem gravou: o ouvinte enfileira e não supõe o documento
+  no banco.
+- Escrita do Master (contrato com a b5, Perfis): `DefinirLimiteDeArmazenamentoUseCase` (GB ou sem limite,
+  justificativa obrigatória, nunca abaixo do uso, texto do 05), `DefinirLimiteDeUsuariosUseCase` (nunca
+  abaixo dos cadastrados: "Menor que os usuários já cadastrados."), `ConfigurarFaixasDoEspacoUseCase`.
+  Autorização `ROLE_SUPER_ADMIN` é do controller da b5. Auditoria: depois do merge do #52, envolver as três
+  escritas em `EscopoDeAuditoriaDePlataforma::executar()` (pedido da b5).
+- **Convenções sem desenho** (registradas, aprovadas pela coordenação): "sem limite" por escritório e a
+  chave liga/desliga do bloqueio. Motivo medido: em produção o único escritório com arquivos usa 24,29 GB;
+  com o Free de 10 GB ele seria bloqueado no deploy.
+
+## 6. Cartão (espaço): quatro gateways atrás de uma interface
+
+O desenho (§2.2 e §2.6) tem o seletor GATEWAY com **Mercado Pago (Assinaturas), Stripe (Payment Links),
+Asaas (Link de pagamento recorrente) e Pagar.me (Link de pagamento)**, a chave pública, um "Link do
+pacote" por plano pago e a "Página de retorno". Pela regra do dono, os quatro entram. A ordem dos
+adaptadores segue o gateway em que o dono abrir conta primeiro (só ordem e credenciais, não escopo).
+
+**Interface `GatewayDeAssinatura`** (domínio Contribua), no modelo que o desenho mostra:
+- `linkDoPacote(Plano, referencia)`: o link de assinatura mensal cadastrado pelo Master para o plano,
+  com a referência externa `BJ<conta>-<plano>` (o desenho grava `external_reference` e
+  `client_reference_id`);
+- `assinarComToken(Plano, tokenDoCartao, pagador, referencia)`: o checkout do desenho é um formulário
+  de cartão na própria tela; o número vira token **no navegador**, com a chave pública e o SDK oficial
+  do gateway; o servidor só recebe o token. Gateway que não aceitar token cai no `linkDoPacote`;
+- `consultar(referencia | idNoGateway)`: a situação da assinatura e do último pagamento, lida do
+  gateway (fonte da verdade);
+- `interpretarAviso(Request)`: o webhook de cada gateway vira um aviso neutro (qual assinatura mudou).
+  O aviso nunca muda nada sozinho: dispara `consultar()`;
+- `cancelar(idNoGateway)`.
+
+**Adaptadores**, uma etapa cada: C3a, C3b, C3c e C3d (Mercado Pago, Stripe, Asaas, Pagar.me, na ordem que
+o dono escolher). Mais um **adaptador falso** para os testes, que já entra na C3.
+
+**Fluxo comum (C3):**
+- "Quero +N GB" abre o checkout do §2.2 e grava `PedidoDeEspaco` "aguardando confirmação".
+- A página de retorno (`/contribua?assinatura=ok`) marca "pago, aguardando confirmação do gateway".
+- O webhook `/api/webhooks/<gateway>` ou a conciliação periódica chama `consultar()`. Pago →
+  `EspacoDoEscritorio` muda de plano, a cota sobe ("Liberado na hora") e o primário é notificado.
+  Renovação, recusa e cancelamento seguem o mesmo caminho.
+- Sem webhook: **Confirmar pagamento** do Master na lista de pedidos (§2.6), com auditoria.
+- Cancelar (Meu Perfil): cancela no gateway, mantém o plano até o fim do mês pago e depois volta ao Free.
+  Inadimplência: carência D3 e volta ao Free. Nada é apagado.
+- Nenhum número de cartão, CVV ou validade toca o servidor, o log ou o banco.
+- Nota fiscal mensal (garantia do desenho): entra. O caminho depende do gateway (D5).
 
 ## 7. Cora (apoio por PIX)
 
@@ -209,21 +266,23 @@ assinatura ativa ?? Free (10 GB). **Número da conta** = `tenant.id` com 6 dígi
   tela; guarda de segredos do CI cobre `*.pem`, `*.key`, `*.p12`.
 - Política de privacidade volta a citar processamento de pagamento (gateway e Cora): texto do dono/advogado.
 
-## 10. Decisões do dono (bloqueiam o início)
+## 10. Decisões (estado em 19/10)
 
 | # | Decisão | Proposta |
 |---|---|---|
-| D1 | A primeira mensagem pedia "integração do banco Cora" para os pagamentos, mas o desenho cobra o espaço **no cartão por gateway** e usa a Cora **só no apoio por PIX**. Confirmar | seguir o desenho |
-| D2 | Qual gateway de cartão (o desenho oferece 4) | **Asaas** (brasileiro, assinatura recorrente, também emite NFS-e, o que resolve a D5); alternativa Mercado Pago |
-| D3 | Carência da inadimplência antes de voltar ao Free | 7 dias |
-| D4 | Quem compra e cancela espaço | só o primário (o aviso já é só dele no desenho) |
-| D5 | Garantia "Nota fiscal enviada por e-mail todo mês" precisa de emissor | emitir pelo gateway (Asaas emite NFS-e); senão o cartão sai da tela, **com o seu sim** |
-| D6 | O desenho envia o certificado da Cora pela tela, "guardado em cofre". Não temos cofre | **desvio**: certificado montado como arquivo no servidor pelo deploy; a tela mostra só "certificado presente / ausente" e o Client ID. Precisa do seu sim |
-| D7 | Arquivo na lixeira conta no espaço? | não |
-| D8 | Benefício "Preferência no Trabalho Externo" muda a ordenação das propostas no módulo Trabalho Externo | entra numa etapa própria (C6); o selo e o "primeira mão" entram antes |
-| D9 | Bancos Inter, BB e "Outro" no seletor | aparecem desabilitados com "em breve"; só Cora funciona |
-| D10 | Credenciais: sandbox do gateway escolhido e da Cora (Client ID, certificado, chave) | o dono gera nos painéis |
-| D11 | Texto da política de privacidade | dono/advogado |
+| D1 | Cora para o espaço? | **Resolvida**: a API da Cora só tem boleto, PIX e webhooks (sem cartão); o desenho (cartão por gateway, Cora no PIX) é compatível com o pedido |
+| D2 | (dono) Em qual gateway abrir conta primeiro | os quatro entram (§6); a escolha só define a ordem C3a a C3d e as primeiras credenciais |
+| D3 | (dono) Carência da inadimplência antes de voltar ao Free | 7 dias |
+| D4 | Quem compra e cancela espaço | **Resolvida**: o primário, como no desenho |
+| D5 | (dono) Garantia "Nota fiscal enviada por e-mail todo mês" precisa de emissor | emitir pelo gateway (Asaas emite NFS-e); senão o cartão sai da tela, **com o seu sim** |
+| D6 | Certificado da Cora pela tela | **Resolvida**: segue o desenho; o arquivo é guardado cifrado (sodium, chave de ambiente ou Symfony secrets) e a tela mostra presente/ausente. A chave de produção é segredo do dono |
+| D7 | Lixeira conta no espaço? | **Resolvida** pela convenção do Painel do Master (§5) |
+| D8 | Preferência no Trabalho Externo | **Resolvida**: etapa C6, contrato com a sessão a7 antes |
+| D9 | Inter, BB e "Outro" | **Resolvida pelo dono**: tudo que está no desenho entra. Etapas C4b/C4c atrás de uma interface de banco comum à Cora |
+| D10 | (dono) Credenciais: sandbox do gateway escolhido e da Cora (Client ID, certificado, chave) | o dono gera nos painéis |
+| D11 | Texto da política de privacidade | dono/advogado (rascunho será entregue) |
+| D12 | Quem é dono do modelo de plano e cota | **Resolvida**: o Contribua; o Painel do Master (b5) administra pelos UseCases do §5 |
+| D13 | Preços: 05 (R$ 189/389, com usuários) × 08 (R$ 19,90/39,90/69,90) | **Resolvida**: carga segue o 08; limite de usuários do 05 existe, vazio. Levado ao dono como confirmação |
 
 ## 10.1 Sobreposição com outras frentes (19/10, via sessão coordenadora)
 
@@ -242,7 +301,8 @@ assinatura ativa ?? Free (10 GB). **Número da conta** = `tenant.id` com 6 dígi
 |---|---|---|---|
 | **C1** | Cota: catálogo de planos, cota efetiva, consumo, decorador de bloqueio, mensagem | sim | D7 |
 | **C2** | Página `/contribua` sem dinheiro: espaço (leitura), Quem somos, Suporte, Sugestões, apoio por PIX estático, "registrar meu apoio", motivos; aba no perfil; aviso de espaço + e-mail | sim | C1, D4 |
-| **C3** | Cartão: gateway, checkout tokenizado, webhook, confirmação manual do Master, cancelar, inadimplência | sim | C2, D2, D3, D5, D10 |
+| **C3** | Cartão, parte comum: interface `GatewayDeAssinatura`, adaptador falso, checkout, pedidos, retorno, webhook, conciliação, confirmação manual do Master, cancelar, inadimplência | sim | C2, D3 |
+| **C3a a C3d** | Um adaptador por gateway (Mercado Pago, Stripe, Asaas, Pagar.me), na ordem da D2 | não | C3, D2, D5, D10 |
 | **C4** | Cora: configuração Master, token mTLS, QR dinâmico, webhook, conciliação, prêmio, selo | sim | C2, D6, D9, D10 |
 | **C5** | Produção: credenciais montadas, cron no `DEPLOY.md`, webhooks cadastrados, política publicada | não | C3, C4, D11 |
 | **C6** | Preferência do apoiador no Trabalho Externo | talvez | C4, D8 |

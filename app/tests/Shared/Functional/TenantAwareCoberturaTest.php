@@ -64,6 +64,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // O próprio eixo do isolamento.
         Tenant::class,
 
+        // Contribua: catálogo de planos e configuração das faixas de espaço valem para todos os
+        // escritórios (só o Master edita). O espaço de cada escritório é TenantAware.
+        \App\Contribua\Entity\Plano::class,
+        \App\Contribua\Entity\ConfiguracaoDoEspaco::class,
+
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
 
@@ -117,7 +122,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 18;
+    // 18 → 20 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
+    // natureza (o mesmo plano para todos os escritórios, só o Master edita).
+    private const MAX_FORA_DO_ESCOPO = 20;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
