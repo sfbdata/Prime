@@ -8,6 +8,7 @@
 3. `trabalho-externo-vagas-publicas` (F2c, página pública e compartilhar) → **PR #84 em rascunho**,
    base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
+4. `trabalho-externo-curriculos` (F3a, §4.5) → em andamento, base `trabalho-externo-vagas-publicas`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
@@ -77,7 +78,10 @@ Conferido no navegador (8107): modal de várias vagas e de uma, detalhe, menu.
 
 **Para o dono** (depende dele): merges da pilha na ordem acima; smoke na tela do "Divulgar vaga(s)"
 (WhatsApp e e-mail abrem fora do navegador de teste, não conferidos); decidir se quer conta de pessoa
-física (pendência abaixo).
+física (pendência abaixo); F3a: minimização (esconder e-mail,
+telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do decisor; hoje segue o
+desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
+é excluído (o termo fica ligado ao usuário).
 
 **Próximo passo**: F3a Currículos (§4.4), empilhada sobre o #84; depois F2b Candidatura, F4 visão
 externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
@@ -387,6 +391,105 @@ currículo (`candidatar()` l.974 abre o formulário se não houver) e a visão e
 - **F2c**: §4.2. A campanha por e-mail usa a infraestrutura da frente "Comercial e e-mails"
   (contrato pelo coordenador).
 - **F2b**: candidatura, depois do F3 e da P1.
+
+## 4.5 F3a: Currículos e banco de talentos (desenho 06, 19/10)
+
+Branch `trabalho-externo-curriculos`, empilhada sobre `trabalho-externo-vagas-publicas` (#84). Risco
+**MÉDIO**. Inventário do desenho feito em 19/10 (linhas citadas abaixo). Fora desta fatia: candidatura
+(F2b), painel/KPIs/gráficos e Termo (F3b), barra de engajamento, lembrete diário e boas-vindas (F4).
+
+### Quem
+- **Externo** (Solicitante de qualquer escritório ou Convidado): "Meu currículo", **um por usuário**.
+  Interno não tem "Meu currículo": o servidor recusa (decisão 18).
+- **Interno** (Master ou Equipe): aba "Currículos" com o banco. **Toda a Equipe vê** tudo, como o
+  desenho (contato e arquivos inclusive; coordenador 19/10). **Agir** (status, nota, lote de
+  marcações vale para todos porque é pessoal; CSV, status e nota exigem `talentos`). Excluir
+  currículo de outra pessoa: **só o Master** (l.1000).
+- Nenhum externo vê currículo de outra pessoa nesta fatia (o dono da vaga verá na F2b, sem nota e sem
+  status, decisão 1 da §4.4).
+
+### Modelo
+`Curriculo` (tabela `trabalho_externo_curriculo`, sem tenant: é da plataforma, como a vaga):
+`usuario` (único), código `CV-0001` (id com 4 dígitos), `status` `StatusCurriculo` (novo, analise,
+entrevista, favorito, arquivado; rótulos e cores CST l.845), `nota` (texto interno), `situacao`
+`SituacaoAcademica` (adv, estOab, est, bach), nome, email, tel, oabNum, oabUf, inst, sem, cargo,
+cidade, uf, modalidade, anos, resumo, pretensao, vol (sim, talvez, nao ou vazio), insta, tituloP,
+linkedin, lattes, habs, `exps` [{cargo, org, ini, fim, desc}], `forms` [{curso, inst, ini, fim}],
+`idis` [{lng, nivel}], `areas` (de AREAS), os quatro arquivos (foto, carteira da OAB, comprovante,
+currículo: chave no armazenamento + nome original), consentimento LGPD (data e versão do texto),
+`recebidoEm` (primeiro envio, imutável) e `atualizadoEm` (cada edição) (decisão 1).
+Marcações pessoais: `TipoItemMarcado::Curriculo` na tabela de marcações da F1.
+
+### Formulário (`tmCvForm`, l.254 a 283; valores l.1171 a 1189; validação l.1006)
+Ordem, rótulos, placeholders e textos exatamente como o inventário (foto, Instagram, nome, e-mail,
+telefone, situação em 4 botões, bloco OAB se adv ou estOab, bloco curso se est, estOab ou bach com os
+rótulos de bach, cargo, cidade, UF, modalidade, anos, pretensão, voluntário Sim/Talvez/Não com clique
+que limpa, áreas, resumo, "APRESENTAÇÃO DO CURRÍCULO", experiências, formação, idiomas, habilidades,
+arquivo do currículo, LGPD). Títulos: "Cadastrar currículo" / "Editar currículo". Rodapé: Cancelar,
+Pré-visualizar, Salvar currículo, Excluir meu currículo (confirmação "Excluir seu currículo e todas as
+suas candidaturas? Esta ação não pode ser desfeita."). Toast "Currículo salvo" / "Use-o para se
+candidatar às vagas.".
+Validações do servidor, na ordem e com o texto do desenho: "Informe o nome completo.", "Informe um
+e-mail válido.", "Informe sua situação: advogado(a), estagiário(a) com OAB, estudante ou
+bacharel(a).", "Informe o número de inscrição na OAB." (adv, estOab), "Informe a instituição de
+ensino." (est, estOab), "É preciso autorizar o uso dos dados (LGPD) para enviar o currículo.".
+Decisão 5 (lacunas): carteira, comprovante e currículo até 1,5 MB, recusa com "O arquivo passa de
+1,5 MB. Envie um arquivo menor."; tipos pelo conteúdo (currículo PDF, DOC, DOCX; carteira e
+comprovante PDF, JPG, PNG); foto JPG ou PNG até 5 MB, guardada em 256×256 no servidor; OAB só
+dígitos (1 a 7); UF válida quando informada; LinkedIn só https em linkedin.com, Lattes só https em
+lattes.cnpq.br. Arquivos pela skill `armazenamento-de-arquivos`; download sempre por controller com
+permissão, `attachment` e `nosniff` (foto inline).
+
+### "Meu currículo" do externo (l.214 a 221, 999, 1013, 1014)
+Cartão com "Ver e baixar" e "Editar"; vazio com o texto e "Cadastrar currículo"; linhas do `cvItem`;
+"Atualizado em" (usa `atualizadoEm`); percentual de 11 itens (nome, email, tel, sit, cidade, cargo,
+resumo, arquivo, foto, áreas, documento conforme sit), cores ≥ 90% #1e7b45, ≥ 60% #0a6fa0, senão
+#c76a12, "Complete: …" na ordem do desenho. O percentual sai do servidor.
+
+### Banco interno (l.170 a 213, 995, 1000, 1038, 1049 a 1052, 1114 a 1119, 1148 a 1151)
+Barra (seleção, "Selecionar por", Atualizar, busca "Buscar nome, OAB, área ou cidade" em nome, OAB,
+cidade, UF, cargo, áreas), abas Ativos, Novos, Favoritos, Voluntários, Arquivados, ★ Estrela,
+Importantes, Lixeira, **contando o que a lista mostra** (decisão 6), selects área, "Situação OAB",
+UF, Termo (Termo fica "Sem termo" até a F3b), "Limpar filtros", "Exportar {N} currículo(s)".
+Tabela com as colunas e larguras do desenho, importância `impC` (+2 candidaturas: 0 até a F2b),
+lote e snackbar iguais aos das vagas, menu de contexto (Abrir currículo, Ver currículo formatado /
+PDF, os status CST que não são o atual, Excluir currículo só Master; "Gerar termo" entra na F3b).
+Vazio: "Nenhum currículo recebido" só com o banco vazio; com filtro, "Nenhum currículo neste filtro."
+e "Limpar filtros" (decisão 7). Ordenação por `recebidoEm` decrescente.
+Detalhe `tmCv` "Currículo · {nome}" (l.301 a 312) com "SITUAÇÃO NO BANCO DE TALENTOS" e "NOTA INTERNA
+(SÓ MASTER E EQUIPE)" gravada ~800 ms depois da última tecla e ao sair do campo (decisão 8).
+CSV `curriculos-bluejus.csv` com as colunas do desenho (l.1150), `;`, aspas e BOM, da lista filtrada.
+Equipe sem talentos e o painel do Master: a Equipe vê "Estatísticas disponíveis só para o Master"; o
+painel em si é da F3b (até lá, o Master vê só a lista).
+
+### PDF (`cvHTML`, l.920 a 938)
+Twig fiel ao `cvHTML` (A4, barra lateral 72 mm #0a6fa0, seções do desenho), servido como HTML para
+a pré-visualização ("Currículo · pré-visualização", 960px, iframe) e como PDF pelo Dompdf em "Baixar
+PDF" (decisão 12c). "Disponibilidade" some quando vazia; `tituloP` dividido em "|" (decisão 9).
+Pré-visualizar no formulário manda os dados ainda não salvos e recebe o HTML.
+
+### Rotas (contrato entre servidor e tela; JSON como as vagas, CSRF no header)
+- `GET /trabalho-externo/api/curriculos` `trabalho_externo_curriculos`: `{interno, podeGerir,
+  ehMaster, meu (externo: detalhe ou null, percentual, faltas), curriculos (interno: cartões), agora}`.
+- `GET /api/curriculos/{codigo}` `trabalho_externo_curriculo` (CV-\d+): detalhe; externo só o seu.
+- `POST /api/curriculos/meu` `trabalho_externo_curriculo_salvar`: cria ou edita o próprio (JSON).
+- `POST /api/curriculos/meu/arquivos/{tipo}` `trabalho_externo_curriculo_arquivo` (foto, oab,
+  matricula, curriculo; multipart `arquivo`) e `.../{tipo}/remover`.
+- `POST /api/curriculos/meu/excluir` `trabalho_externo_curriculo_excluir_meu`.
+- `POST /api/curriculos/{codigo}/excluir` `trabalho_externo_curriculo_excluir` (só Master).
+- `POST /api/curriculos/{codigo}/status` `trabalho_externo_curriculo_status` `{status}` (talentos).
+- `POST /api/curriculos/{codigo}/nota` `trabalho_externo_curriculo_nota` `{nota}` (talentos).
+- `POST /api/curriculos/marcacoes` `trabalho_externo_curriculos_marcacoes` `{codigos, op}`.
+- `GET /trabalho-externo/curriculos/{codigo}/arquivos/{tipo}` `trabalho_externo_curriculo_baixar`.
+- `GET /trabalho-externo/curriculos/{codigo}/documento` (HTML) e `/pdf` (Dompdf);
+  `POST /api/curriculos/previa` (HTML do formulário não salvo).
+- `GET /trabalho-externo/curriculos/exportar.csv` `trabalho_externo_curriculos_csv` (talentos; mesmos
+  filtros da lista na query).
+Excluir: apaga marcações, arquivos (depois do commit) e, na F2b, as candidaturas; Termo aceito fica
+com o usuário (coordenador 19/10, retenção com o dono).
+
+Fica para depois e registrado: currículo em Word (sem botão no desenho, decisão 10); texto do toast
+da candidatura para "Meu currículo" (F2b, decisão 11); KPI "COM OAB" filtra adv e estOab (F3b).
 
 ## 5. Verificação
 
