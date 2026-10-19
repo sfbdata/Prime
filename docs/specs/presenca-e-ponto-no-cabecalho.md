@@ -1,5 +1,22 @@
 # Presença on-line e ponto no avatar do cabeçalho
 
+## Estado da frente (atualizado em 19/10/2026; reler antes de continuar se a sessão for compactada)
+
+- **Sessão:** 5d. **Branches:** `presenca-cabecalho` (fase 1, PR #61) e `ponto-no-cabecalho` (fase 2, PR #67, empilhado
+  no #61). Em cima do #67 está o #79 (ponto por escritório, spec própria `ponto-por-escritorio.md`).
+- **Ordem de merge:** #61 → #67 → #79. Depois de cada merge, trazer o master para a branch de cima, testar e fazer push.
+- **Decisões do dono (19/10, pelo coordenador):** P2 (regularizar ontem pelo esquecimento), Q1 ("Em intervalo desde"),
+  Q2 (aviso de descanso com o valor configurado). Decididas pelo coordenador por delegação: P1, P3, P4, Q3 a Q7 (seção 5).
+  Ainda sem a confirmação explícita do dono: Q3 ("sem atividade há N min", sinal de monitoramento).
+- **Fase 3 (seletor "Ausente após", só o primário):** atribuída à 5d pelo coordenador em 19/10 ("tudo do desenho
+  entra"); tem migration, entra na fila de migrations do coordenador; começa depois do PR de acertos do Expediente
+  (#85), num intervalo da frente Comercial e e-mails. Substitui o desvio temporário P4.
+- **Contratos com outras sessões:** o X de fechar do painel segue a regra do #71 (fechar-janelas, 5d), cujo include
+  global está no #69 (7d).
+- **Migrations:** nenhuma nas fases 1 e 2; uma na fase 3 (posição na fila: a pedir ao coordenador).
+- **Pendências:** merges; confirmação do Q3 pelo dono; fase 3.
+- **Próximo passo:** depois dos merges, trazer o master para o #79; fase 3 quando houver intervalo.
+
 Desenho: `03 - EXPEDIENTE - VS 18.10.26.dc.html` (projeto claude.ai/design 4f6a5f61), linhas 31, 67 (selo),
 299-309 (painel) e 662-685 (lógica). "dc L.n" abaixo são linhas desse arquivo.
 
