@@ -1,14 +1,18 @@
 {# Checkout "Pagamento seguro" do desenho 08 (760px, resumo à esquerda, pagamento à direita).
-   Os campos do cartão NÃO têm `name`: nada deles vai ao BlueJus. No modo formulário o navegador os entrega
-   ao tokenizador oficial do gateway (`window.BlueJusTokenizadores[gateway]`, arquivo contribua-<gateway>.js)
-   e só o token sobe. No Asaas (página hospedada) o botão leva à página segura do gateway. #}
+   O cartão nunca passa pelo BlueJus. Modo formulário (Stripe, Mercado Pago, Pagar.me): o campo seguro do
+   gateway é montado em [data-co-elemento] pelo módulo do gateway (contribua-<gateway>.js: ContribuaStripe,
+   ContribuaMercadoPago, ContribuaPagarme; montar/tokenizar/concluirAcao/desmontar) e só o token sobe.
+   Modo hospedado (Asaas): o botão leva à página segura do gateway. #}
 {% set pg = pagamento %}
 <div class="co-modal" data-checkout hidden
      data-modo="{{ pg.modo }}"
      data-gateway="{{ pg.gateway }}"
      data-gateway-nome="{{ pg.gatewayNome }}"
      data-url-iniciar="{{ path('contribua_assinatura_iniciar') }}"
-     data-url-token="{{ path('contribua_assinatura_token', {id: 0}) }}">
+     data-url-token="{{ path('contribua_assinatura_token', {id: 0}) }}"
+     data-chave-publica="{{ pg.chavePublica }}"
+     data-pagador-nome="{{ pg.pagadorNome }}"
+     data-pagador-email="{{ pg.email }}">
     <div class="co-fundo" data-fechar-checkout></div>
     <div class="co-centro">
         <div class="co-janela" role="dialog" aria-label="Pagamento seguro">
@@ -35,13 +39,8 @@
                 <div class="co-form" data-co-form>
                     <div class="co-meio"><i class="bi bi-credit-card"></i>Cartão de crédito</div>
                     {% if pg.modo == 'formulario' %}
-                        <label class="co-campo">NÚMERO DO CARTÃO<span class="co-numero" data-co-borda-numero><input data-cartao-numero inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000"><span class="co-bandeira" data-cartao-bandeira hidden></span></span></label>
-                        <label class="co-campo">NOME IMPRESSO NO CARTÃO<input data-cartao-nome autocomplete="cc-name" class="co-maiusculas"></label>
-                        <div class="co-linha3">
-                            <label class="co-campo">VALIDADE<input data-cartao-validade inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA"></label>
-                            <label class="co-campo">CVV<input data-cartao-cvv inputmode="numeric" autocomplete="cc-csc" type="password" placeholder="•••"></label>
-                            <label class="co-campo">CPF/CNPJ<input data-cartao-documento inputmode="numeric" placeholder="do titular" value="{{ pg.documento }}"></label>
-                        </div>
+                        <div class="co-elemento" data-co-elemento></div>
+                        <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="do titular" value="{{ pg.documento }}"></label>
                     {% else %}
                         <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="só números" value="{{ pg.documento }}"></label>
                         <div class="co-hospedado"><i class="bi bi-box-arrow-up-right"></i>Você digita o cartão na página segura do {{ pg.gatewayNome }} e volta para o BlueJus quando terminar.</div>

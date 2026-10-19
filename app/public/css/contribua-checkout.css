@@ -42,18 +42,7 @@
 .co-meio { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1px solid #cfe3f0; border-radius: 4px; background: #f2f8fc; color: #0a6fa0; font-size: 13.5px; font-weight: bold; }
 .co-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: bold; color: #4a6373; min-width: 0; white-space: nowrap; }
 .co-campo > input { width: 100%; box-sizing: border-box; min-width: 0; height: 40px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: normal; color: #12242f; }
-.co-maiusculas { text-transform: uppercase; }
-.co-numero { box-sizing: border-box; width: 100%; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; background: #fff; }
-.co-numero--invalido { border-color: #d9534f; }
-.co-numero input { flex: 1; min-width: 0; border: none; outline: none; font: inherit; font-size: 15px; font-weight: normal; letter-spacing: .5px; }
-.co-bandeira { height: 24px; min-width: 52px; padding: 0 8px; border-radius: 3px; background: #fff; color: #fff; font-size: 11px; font-weight: bold; letter-spacing: .5px; display: inline-flex; align-items: center; justify-content: center; animation: ctPop .2s ease both; }
-.co-bandeira[hidden] { display: none; }
-.co-bandeira--visa { background: #1a1f71; font-style: italic; }
-.co-bandeira--mastercard { background: #fff; color: #eb001b; }
-.co-bandeira--amex { background: #2e77bc; }
-.co-bandeira--elo { background: #000; }
-.co-bandeira--hipercard { background: #b3131b; }
-.co-linha3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.3fr); gap: 10px; align-items: end; }
+.co-elemento { min-height: 120px; }
 .co-hospedado { display: flex; gap: 8px; font-size: 12.5px; color: #4a6373; line-height: 1.5; }
 .co-erro { font-size: 13px; color: #a3232b; }
 .co-erro[hidden] { display: none; }
@@ -93,7 +82,3 @@
 .co-pedido-situacao { font-weight: bold; }
 .co-pedido-confirmar { height: 26px; padding: 0 9px; border: 1px solid #bfe3cc; border-radius: 3px; background: #e9f6ee; color: #1e7b45; font: inherit; font-size: 12px; font-weight: bold; cursor: pointer; }
 
-@media (max-width: 420px) {
-    .co-linha3 { grid-template-columns: 1fr 1fr; }
-    .co-linha3 .co-campo:last-child { grid-column: 1 / -1; }
-}

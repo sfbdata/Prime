@@ -62,6 +62,12 @@ final class MontarPagamentoDoContribuaUseCase
             // Página hospedada (o cartão é digitado no gateway) ou o formulário do desenho com token no navegador.
             'modo' => $gateway === null || \in_array($gateway->codigo(), self::SEM_LINK_DO_PACOTE, true) ? InicioDoCheckout::REDIRECIONAR : InicioDoCheckout::FORMULARIO,
             'documento' => preg_replace('/\D/', '', (string) $quem->escritorio->getCnpj()) ?? '',
+            // O formulário de cartão do gateway (Stripe, Mercado Pago, Pagar.me) é montado ao abrir o checkout
+            // com a chave pública que o Master cadastrou; nome e e-mail vão ao campo seguro do gateway.
+            'chavePublica' => $this->configuracao->atual()->getChavePublica() ?? '',
+            'pagadorNome' => $quem->escritorio->getName() ?? $quem->nome(),
+            'email' => (string) $quem->usuario->getEmail(),
+            'script' => $gateway === null ? null : 'js/contribua-' . str_replace('_', '-', $gateway->codigo()) . '.js',
             'assinatura' => $this->assinaturaDoEscritorio($quem->tenantId()),
             'master' => $quem->ehMaster ? $this->doMaster() : null,
         ];
