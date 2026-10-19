@@ -503,6 +503,7 @@ final class TenantController extends AbstractController
             'tenant_cargos'   => $cargos,
             'tenant_lotacoes' => $lotacoes,
             'data_admissao'   => $userTenant->getDataAdmissao(),
+            'pode_marcar_controladoria' => $podeGerirPrimarios,
         ]);
         $form->handleRequest($request);
 

@@ -17,7 +17,8 @@ use Psr\Clock\ClockInterface;
  * acabou de decidir sobre eles. Marcar grava `administrativo` (os termos não bastaram para ser
  * judicial), desmarcar grava `precisa`. Uma decisão por pasta: a nova sobrescreve.
  *
- * Só persiste: o flush é do UseCase que chamou (uma transação com a marcação).
+ * Grava por upsert no banco (não pelo flush do ORM): uma corrida no UNIQUE da pasta nunca derruba a
+ * marcação de "Administrativo sem processo" que chamou isto.
  */
 final class RegistroDeDecisaoSemProcesso
 {
@@ -37,13 +38,6 @@ final class RegistroDeDecisaoSemProcesso
         }
 
         $decisao = $administrativa ? DecisaoSemProcessoDaPasta::ADMINISTRATIVO : DecisaoSemProcessoDaPasta::PRECISA;
-        $atual   = $this->decisaoRepository->daPasta($pasta, $tenant);
-        if ($atual !== null) {
-            $atual->redefinir($decisao, $termos, $por, $this->clock->now());
-
-            return;
-        }
-
-        $this->decisaoRepository->salvar(new DecisaoSemProcessoDaPasta($tenant, $pasta, $decisao, $termos, $por, $this->clock->now()));
+        $this->decisaoRepository->gravarDecisao($pasta, $tenant, $decisao, $termos, $por, $this->clock->now());
     }
 }

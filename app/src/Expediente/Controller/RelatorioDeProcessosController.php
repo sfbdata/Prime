@@ -18,6 +18,7 @@ use App\Shared\Service\GeradorDePdf;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -30,7 +31,8 @@ use Symfony\Component\Routing\Attribute\Route;
  *  - PDF (`expediente_relatorio_processos_pdf`): a mesma folha no Dompdf, rodapé "BlueJus · página k de n".
  *
  * Ler: módulo Expediente; o que cada um vê é decidido no UseCase (spec D4). Enviar: quem EDITA a
- * pasta de onde clicou (404 de outro escritório ou excluída, 403 sem edição), com CSRF.
+ * pasta de onde clicou (404 de outro escritório ou excluída, 403 sem edição), com CSRF; um envio
+ * manual a cada 30 minutos por escritório (429 acima disso).
  */
 #[Route('/expediente/relatorio-processos')]
 final class RelatorioDeProcessosController extends AbstractController
@@ -87,6 +89,9 @@ final class RelatorioDeProcessosController extends AbstractController
         }
 
         $resultado = $this->enviarRelatorio->executar($tenant, $usuario, false);
+        if ($resultado->acimaDoTeto) {
+            return $this->recusa($isXhr, $resultado->mensagem, Response::HTTP_TOO_MANY_REQUESTS);
+        }
         if ($isXhr) {
             return $this->json(['sucesso' => $resultado->enviado, 'mensagem' => $resultado->mensagem, 'avisados' => $resultado->avisados]);
         }
@@ -149,6 +154,9 @@ final class RelatorioDeProcessosController extends AbstractController
         }
         if ($status === Response::HTTP_NOT_FOUND) {
             throw $this->createNotFoundException($mensagem);
+        }
+        if ($status === Response::HTTP_TOO_MANY_REQUESTS) {
+            throw new HttpException($status, $mensagem);
         }
 
         throw $this->createAccessDeniedException($mensagem);

@@ -14,7 +14,16 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Repository\EnvioDoRelatorioSemProcessoRepository;
+use App\Pasta\Service\MontagemDoRelatorioSemProcesso;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
+use App\Repository\NotificacaoRepository;
+use App\Repository\UserTenantRepository;
+use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
+use App\Tenant\Service\RegraDosPrimarios;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use App\Processo\Entity\Processo;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -194,5 +203,24 @@ trait CriaEscritorioSemProcessoTrait
         };
 
         static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
+
+    /** O UseCase de envio com o relógio parado em `$agora` (a regra da primeira segunda-feira e o teto). */
+    private function enviarComRelogio(string $agora): EnviarRelatorioSemProcessoUseCase
+    {
+        $c = static::getContainer();
+
+        return new EnviarRelatorioSemProcessoUseCase(
+            $c->get(MontagemDoRelatorioSemProcesso::class),
+            $c->get(UserTenantRepository::class),
+            $c->get(RegraDosPrimarios::class),
+            $c->get(EnvioDoRelatorioSemProcessoRepository::class),
+            $c->get(NotificacaoService::class),
+            $this->em(),
+            $c->get(UrlGeneratorInterface::class),
+            new MockClock(new \DateTimeImmutable($agora)),
+            $c->get(PermissionChecker::class),
+            $c->get(NotificacaoRepository::class),
+        );
     }
 }

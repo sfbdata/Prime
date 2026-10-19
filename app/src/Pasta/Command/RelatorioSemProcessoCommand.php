@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Repository\TenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -41,6 +42,7 @@ final class RelatorioSemProcessoCommand extends Command
         private readonly TenantRepository $tenantRepository,
         private readonly EnviarRelatorioSemProcessoUseCase $enviar,
         private readonly EntityManagerInterface $em,
+        private readonly ManagerRegistry $doctrine,
     ) {
         parent::__construct();
     }
@@ -97,6 +99,7 @@ final class RelatorioSemProcessoCommand extends Command
             } catch (\Throwable $e) {
                 ++$falhas;
                 $io->error(sprintf('Falha no escritório #%d: %s', $id, $e->getMessage()));
+                $this->reabrirSeFechou();
             } finally {
                 $this->em->clear();
             }
@@ -107,6 +110,18 @@ final class RelatorioSemProcessoCommand extends Command
         }
 
         return $falhas > 0 ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    /**
+     * Erro de banco num escritório fecha o EntityManager; sem reabrir, todos os escritórios seguintes
+     * falhariam com "EntityManager is closed". O EntityManager injetado é o proxy do serviço, que o
+     * `resetManager()` reinicia no lugar.
+     */
+    private function reabrirSeFechou(): void
+    {
+        if (!$this->em->isOpen()) {
+            $this->doctrine->resetManager();
+        }
     }
 
     /**

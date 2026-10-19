@@ -79,7 +79,7 @@ final class ControladoriaNoVinculoTest extends JusPrimeWebTestCase
         self::assertCount(1, $campo);
         self::assertNull($campo->attr('checked'));
         self::assertSame('Controladoria', trim($crawler->filter('#tab-perfil .form-check.form-switch > label')->text()));
-        self::assertStringContainsString('Recebe o relatório mensal de pastas sem processo e a cópia dos avisos à Controladoria.', $crawler->filter('#tab-perfil')->text());
+        self::assertStringContainsString('Recebe o relatório mensal de pastas sem processo e a cópia dos avisos à Controladoria. Para abrir o relatório, a pessoa precisa do módulo Expediente.', $crawler->filter('#tab-perfil')->text());
     }
 
     #[TestDox('Marcar grava true; enviar sem a marcação grava false')]
@@ -103,5 +103,38 @@ final class ControladoriaNoVinculoTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(403);
         self::assertFalse($this->controladoriaNoBanco());
+    }
+
+    private function controladoriaDe(User $pessoa): bool
+    {
+        return (bool) $this->em()->getConnection()->fetchOne(
+            'SELECT controladoria FROM user_tenant WHERE user_id = ? AND tenant_id = ?',
+            [$pessoa->getId(), $this->tenant->getId()],
+        );
+    }
+
+    #[TestDox('Secundário com admin.users.manage: o campo não aparece e o POST forjado não liga, nem em outro nem em si mesmo')]
+    public function testSecundarioQueAdministraNaoMarca(): void
+    {
+        $perfilAdm = $this->novoPerfil($this->tenant, false, ['admin.users.manage']);
+        $gestor    = $this->novaPessoa($this->tenant, 'Gil Gestor', $perfilAdm);
+        $this->logarComTenant($this->client, $gestor, $this->tenant);
+
+        $crawler = $this->client->request('GET', $this->url());
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('input[name="edit_user_tenant_role[controladoria]"]'));
+
+        $this->postar(true);
+        self::assertFalse($this->controladoriaNoBanco(), 'o campo forjado é ignorado');
+
+        $urlPropria = sprintf('/tenant/%d/user/%d/edit-role', $this->tenant->getId(), $gestor->getId());
+        $this->client->request('POST', $urlPropria, ['edit_user_tenant_role' => [
+            'codigoFuncionario' => '',
+            'tenantRole'        => (string) $perfilAdm->getId(),
+            'newPassword'       => ['first' => '', 'second' => ''],
+            'controladoria'     => '1',
+            '_token'            => 'csrf-token',
+        ]], [], ['HTTP_REFERER' => 'http://localhost' . $urlPropria]);
+        self::assertFalse($this->controladoriaDe($gestor), 'nem em si mesmo');
     }
 }

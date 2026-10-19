@@ -13,8 +13,10 @@ use App\Pasta\DTO\ResumoSemProcesso;
 use App\Pasta\Entity\EnvioDoRelatorioSemProcesso;
 use App\Pasta\Repository\EnvioDoRelatorioSemProcessoRepository;
 use App\Pasta\Service\MontagemDoRelatorioSemProcesso;
+use App\Repository\NotificacaoRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -40,7 +42,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *  4. cada responsável (menos quem enviou, e só com vínculo ativo): as pastas dele que pedem ação;
  *  5. automático grava o histórico (o manual não grava, L4567); uma transação só.
  *
- * Sem ninguém na Controladoria o aviso vai só aos primários e a mensagem é a do desenho (L2718).
+ * Só recebe aviso quem tem o módulo Expediente (é onde o relatório abre): vale para a Controladoria,
+ * os primários e os responsáveis. Sem ninguém na Controladoria com o módulo, o aviso vai só aos
+ * primários e a mensagem é a do desenho (L2718).
+ *
+ * Teto do envio MANUAL: um a cada 30 minutos por escritório (revisão de permissão); o que diz se
+ * houve envio recente é o próprio aviso gravado, sem configuração nova.
  * `$simular` (o `--dry-run` do comando) faz tudo menos gravar e avisar.
  */
 final class EnviarRelatorioSemProcessoUseCase
@@ -49,6 +56,10 @@ final class EnviarRelatorioSemProcessoUseCase
 
     public const MENSAGEM_ENVIADO          = 'Relatório enviado à Controladoria';
     public const MENSAGEM_SEM_CONTROLADORIA = 'Nenhum usuário com perfil de Controladoria cadastrado.';
+    public const MENSAGEM_TETO             = 'O relatório já foi enviado há pouco. Tente de novo em alguns minutos.';
+
+    /** Intervalo mínimo entre dois envios manuais do mesmo escritório. */
+    private const TETO_MANUAL = 'PT30M';
 
     /** Quantos números de pasta cabem no aviso ao responsável antes do "…". */
     private const PASTAS_NO_AVISO = 10;
@@ -62,26 +73,30 @@ final class EnviarRelatorioSemProcessoUseCase
         private readonly EntityManagerInterface $em,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly ClockInterface $clock,
+        private readonly PermissionChecker $permissionChecker,
+        private readonly NotificacaoRepository $notificacaoRepository,
     ) {
     }
 
     public function executar(Tenant $tenant, ?User $quem, bool $automatico, bool $simular = false): ResultadoDoEnvioSemProcesso
     {
-        $agora = $this->clock->now();
+        $agora  = $this->clock->now();
         $recusa = $automatico ? $this->motivoParaNaoEnviarAutomatico($tenant, $agora) : null;
         if ($recusa !== null) {
             return ResultadoDoEnvioSemProcesso::naoEnviado($recusa);
         }
+        if (!$automatico && $this->enviadoHaPouco($tenant, $agora)) {
+            return ResultadoDoEnvioSemProcesso::acimaDoTeto(self::MENSAGEM_TETO);
+        }
 
-        $relatorio = $this->montagem->montar($tenant, null, true, $agora);
-        $vinculos  = $this->userTenantRepository->findAtivosComPerfilPorTenant($tenant);
-        $controladoria = $this->userTenantRepository->findUsuariosDaControladoria($tenant);
+        $relatorio     = $this->montagem->montar($tenant, null, true, $agora);
+        $vinculos      = $this->comExpediente($this->userTenantRepository->findAtivosComPerfilPorTenant($tenant), $tenant);
+        $controladoria = $this->usuariosComExpediente($this->userTenantRepository->findUsuariosDaControladoria($tenant), $tenant);
 
         $avisos = array_merge(
             $this->avisosGerais($relatorio, array_merge($controladoria, $this->primarios($vinculos)), $quem),
             $this->avisosAosResponsaveis($relatorio, $vinculos, $quem),
         );
-
         if (!$simular) {
             $this->gravar($tenant, $avisos, $relatorio->resumo, $agora, $automatico);
         }
@@ -93,6 +108,39 @@ final class EnviarRelatorioSemProcessoUseCase
             $controladoria === [],
             $relatorio->resumo,
         );
+    }
+
+    private function enviadoHaPouco(Tenant $tenant, \DateTimeImmutable $agora): bool
+    {
+        return $this->notificacaoRepository->existeDoTipoNoEscritorioDesde($tenant, self::TIPO_NOTIFICACAO, $agora->sub(new \DateInterval(self::TETO_MANUAL)));
+    }
+
+    /**
+     * Só os vínculos de quem tem o módulo Expediente (o relatório abre lá).
+     *
+     * @param list<UserTenant> $vinculos
+     *
+     * @return list<UserTenant>
+     */
+    private function comExpediente(array $vinculos, Tenant $tenant): array
+    {
+        return array_values(array_filter(
+            $vinculos,
+            fn (UserTenant $v): bool => $this->permissionChecker->canAccessModule($v->getUser(), $tenant, 'expediente'),
+        ));
+    }
+
+    /**
+     * @param list<User> $usuarios
+     *
+     * @return list<User>
+     */
+    private function usuariosComExpediente(array $usuarios, Tenant $tenant): array
+    {
+        return array_values(array_filter(
+            $usuarios,
+            fn (User $u): bool => $this->permissionChecker->canAccessModule($u, $tenant, 'expediente'),
+        ));
     }
 
     /** `primeiraSeg` e a trava do mês de `spEnviar` (L4566). */

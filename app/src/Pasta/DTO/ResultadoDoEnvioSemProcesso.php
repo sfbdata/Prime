@@ -16,11 +16,18 @@ final class ResultadoDoEnvioSemProcesso
         public readonly int $avisados = 0,
         public readonly bool $semControladoria = false,
         public readonly ?ResumoSemProcesso $resumo = null,
+        public readonly bool $acimaDoTeto = false,
     ) {
     }
 
     public static function naoEnviado(string $motivo): self
     {
         return new self(false, $motivo);
+    }
+
+    /** Envio manual repetido antes de 30 minutos (teto por escritório). */
+    public static function acimaDoTeto(string $motivo): self
+    {
+        return new self(false, $motivo, acimaDoTeto: true);
     }
 }

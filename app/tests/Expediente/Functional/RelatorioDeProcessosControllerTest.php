@@ -7,6 +7,8 @@ namespace App\Tests\Expediente\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Pasta\DTO\ResumoSemProcesso;
+use App\Pasta\Entity\EnvioDoRelatorioSemProcesso;
 use App\Expediente\Controller\RelatorioDeProcessosController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\GerarRelatorioSemProcessoUseCase;
@@ -47,6 +49,7 @@ final class RelatorioDeProcessosControllerTest extends JusPrimeWebTestCase
     private User $nina;
     private Pasta $p1180;
     private Pasta $p1181;
+    private Pasta $excluida;
 
     protected function setUp(): void
     {
@@ -66,8 +69,9 @@ final class RelatorioDeProcessosControllerTest extends JusPrimeWebTestCase
         $this->registrar($this->p1180, $this->rui, 'Processo 0701134-57.2025.8.07.0007 distribuído');
         $this->p1181 = $this->novaPasta($this->tenant, '1181', $this->vera);
         $this->darAcessoAPasta($this->vera, $this->p1181);
-        $excluida = $this->novaPasta($this->tenant, '1182', $this->rui);
-        $this->em()->getConnection()->executeStatement('UPDATE pasta SET excluida_em = NOW() WHERE id = ?', [$excluida->getId()]);
+        $this->excluida = $this->novaPasta($this->tenant, '1182', $this->rui);
+        $this->em()->getConnection()->executeStatement('UPDATE pasta SET excluida_em = NOW() WHERE id = ?', [$this->excluida->getId()]);
+        $this->em()->refresh($this->excluida);
 
         $outro = $this->novoEscritorio('Outro');
         $this->novaPasta($outro, '7777');
@@ -219,5 +223,59 @@ final class RelatorioDeProcessosControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(404);
         self::assertSame([], $this->avisosDoRelatorio($this->tenant));
+    }
+
+    #[TestDox('Enviar a partir de pasta excluída (lápide): 404 e nenhum aviso')]
+    public function testEnviarPastaExcluida(): void
+    {
+        $this->enviar($this->paula, $this->excluida);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame([], $this->avisosDoRelatorio($this->tenant));
+    }
+
+    #[TestDox('Teto: o segundo envio manual em menos de 30 minutos dá 429 com a mensagem')]
+    public function testEnviarDuasVezesDa429(): void
+    {
+        $this->client->disableReboot();
+        $this->enviar($this->rui, $this->p1180);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('POST', self::URL . '/enviar', [
+            '_token' => 'TOKEN_' . RelatorioDeProcessosController::CSRF_ENVIAR,
+            'pasta'  => (string) $this->p1180->getId(),
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(429);
+        $dados = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertSame('O relatório já foi enviado há pouco. Tente de novo em alguns minutos.', $dados['erro']);
+    }
+
+    #[TestDox('Leitor com resources.pasta.view no perfil (sem acesso item a item) vê todas as pastas')]
+    public function testLeitorComPermissaoDeVerTodas(): void
+    {
+        $leitor = $this->novaPessoa($this->tenant, 'Lia Leitora', $this->novoPerfil($this->tenant, false, ['modules.expediente.view', 'resources.pasta.view']));
+
+        $html = $this->abrir($leitor);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('>1180<', $html);
+        self::assertStringContainsString('>1181<', $html);
+    }
+
+    #[TestDox('Evolução: aparece para quem vê o escritório inteiro e fica escondida para quem vê um recorte')]
+    public function testEvolucaoSoParaQuemVeTudo(): void
+    {
+        $this->em()->persist(new EnvioDoRelatorioSemProcesso($this->tenant, new ResumoSemProcesso(5, 3, 1, 2, 0), new \DateTimeImmutable('2026-09-07 10:05'), true));
+        $this->em()->flush();
+
+        $daPrimaria = $this->abrir($this->paula);
+        self::assertStringContainsString('class="rsp-h3 rsp-h3--evolucao">Evolução<', $daPrimaria);
+        self::assertStringContainsString('09/2026', $daPrimaria);
+
+        $daVera = $this->abrir($this->vera);
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('Evolução', $daVera);
+        self::assertStringNotContainsString('09/2026', $daVera);
     }
 }

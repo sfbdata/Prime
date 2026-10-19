@@ -7,7 +7,6 @@ namespace App\Pasta\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\DecisaoSemProcessoDaPastaRepository;
-use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -20,13 +19,14 @@ use Doctrine\ORM\Mapping as ORM;
  * (a última decisão sobrescreve a anterior). Alimenta o aprendizado do relatório: termo que aparece
  * em 2 ou mais decisões `administrativo` do escritório pesa 40% (L4518-4520).
  *
- * Auditável: é ato de uma pessoa sobre o cadastro da pasta, como a própria marcação.
+ * Fora do audit_log: é gravada por upsert SQL (contra a corrida no UNIQUE), e o ato da pessoa (a troca
+ * de `administrativa` na Pasta) já é auditado; `por` e `em` ficam na própria linha.
  */
 #[ORM\Entity(repositoryClass: DecisaoSemProcessoDaPastaRepository::class)]
 #[ORM\Table(name: 'pasta_decisao_sem_processo')]
 #[ORM\Index(name: 'idx_pasta_decisao_sem_processo_tenant', columns: ['tenant_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_pasta_decisao_sem_processo_pasta', columns: ['pasta_id'])]
-class DecisaoSemProcessoDaPasta implements Auditavel, TenantAware
+class DecisaoSemProcessoDaPasta implements TenantAware
 {
     public const ADMINISTRATIVO = 'administrativo';
     public const PRECISA        = 'precisa';

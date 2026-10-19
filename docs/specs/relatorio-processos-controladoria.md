@@ -75,6 +75,12 @@ Porte fiel de `spAnalisar` (L4513-4537), em PHP, testado com os mesmos casos:
     "Nenhum usuário com perfil de Controladoria cadastrado." (texto do desenho, L2718).
   - Manual não grava histórico (L4567); automático grava `relatorio_sem_processo_envio`.
 - Resposta/aviso na tela: "Relatório enviado à Controladoria" (o desenho dizia "pelo Chat I.A"; D3).
+- Título do aviso geral: "Relatório mensal: N pasta(s) sem processo", o do desenho (`semProcNotificar`
+  L3231), também no envio manual: o relatório é o mesmo e o título é o que o desenho mostra. Decisão
+  registrada na revisão de 19/10.
+- Revisão de permissão (19/10): teto de 1 envio manual a cada 30 minutos por escritório (429, "O relatório
+  já foi enviado há pouco. Tente de novo em alguns minutos."); só recebe aviso quem tem o módulo
+  Expediente (Controladoria, primários e responsáveis); só Master ou primário marca "Controladoria".
 - Comando `app:pastas:relatorio-sem-processo` (D5).
 
 ## 5. Fora deste PR
@@ -89,3 +95,9 @@ UseCase de envio (destinatários, sem Controladoria, automático uma vez por mê
 Functional: relatório e PDF (200, visibilidade por usuário, outro tenant não aparece), envio (CSRF, sem EDIT 403,
 avisos criados para as pessoas certas e não para quem enviou), marcação de Controladoria na tela de vínculo,
 decisão gravada ao marcar/desmarcar administrativa, itens no ⋮. Comando com `--dry-run`.
+
+## 7. Pendências
+
+- Abas ocultas (PR #68, ainda não integrado): o relatório não respeita as abas ocultas de quem lê. Depois
+  que os dois PRs entrarem no master, um ajuste pequeno no `ColetorDePastasSemProcesso` faz as fontes
+  excluírem os registros e documentos das abas ocultas para o leitor.

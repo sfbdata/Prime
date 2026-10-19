@@ -5,22 +5,16 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\EnvioDoRelatorioSemProcesso;
 use App\Pasta\DTO\ResumoSemProcesso;
-use App\Pasta\Repository\EnvioDoRelatorioSemProcessoRepository;
 use App\Pasta\Service\MontagemDoRelatorioSemProcesso;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
-use App\Repository\UserTenantRepository;
-use App\Service\NotificacaoService;
-use App\Tenant\Service\RegraDosPrimarios;
-use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Clock\MockClock;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * "Enviar à Controladoria" (spec relatorio-processos-controladoria §4; desenho `spEnviar` e
@@ -53,7 +47,7 @@ final class EnviarRelatorioSemProcessoUseCaseTest extends KernelTestCase
         self::bootKernel();
         $this->tenant  = $this->novoEscritorio();
         $primario      = $this->novoPerfil($this->tenant, true);
-        $secundario    = $this->novoPerfil($this->tenant, false);
+        $secundario    = $this->novoPerfil($this->tenant, false, ['modules.expediente.view']);
         $this->paula   = $this->novaPessoa($this->tenant, 'Paula Primária', $primario);
         $this->carla   = $this->novaPessoa($this->tenant, 'Carla Controladoria', $secundario, controladoria: true);
         $this->rui     = $this->novaPessoa($this->tenant, 'Rui Responsável', $secundario);
@@ -69,18 +63,7 @@ final class EnviarRelatorioSemProcessoUseCaseTest extends KernelTestCase
 
     private function useCase(string $agora = self::PRIMEIRA_SEGUNDA): EnviarRelatorioSemProcessoUseCase
     {
-        $c = static::getContainer();
-
-        return new EnviarRelatorioSemProcessoUseCase(
-            $c->get(MontagemDoRelatorioSemProcesso::class),
-            $c->get(UserTenantRepository::class),
-            $c->get(RegraDosPrimarios::class),
-            $c->get(EnvioDoRelatorioSemProcessoRepository::class),
-            $c->get(NotificacaoService::class),
-            $c->get(EntityManagerInterface::class),
-            $c->get(UrlGeneratorInterface::class),
-            new MockClock(new \DateTimeImmutable($agora)),
-        );
+        return $this->enviarComRelogio($agora);
     }
 
     private function envios(): int
@@ -204,5 +187,39 @@ final class EnviarRelatorioSemProcessoUseCaseTest extends KernelTestCase
         self::assertGreaterThan(0, $resultado->avisados);
         self::assertSame([], $this->avisosDoRelatorio($this->tenant));
         self::assertSame(0, $this->envios());
+    }
+
+    #[TestDox('Teto do envio manual: o segundo em menos de 30 minutos é recusado; depois de 30, sai')]
+    public function testTetoDoEnvioManual(): void
+    {
+        // O aviso grava a hora real (Notificacao::criadaEm); o relógio do teste anda a partir dela.
+        $agora    = new \DateTimeImmutable();
+        $primeiro = $this->useCase($agora->format('Y-m-d H:i:s'))->executar($this->tenant, $this->sergio, false);
+        $logo     = $this->useCase($agora->modify('+15 minutes')->format('Y-m-d H:i:s'))->executar($this->tenant, $this->sergio, false);
+        $depois   = $this->useCase($agora->modify('+31 minutes')->format('Y-m-d H:i:s'))->executar($this->tenant, $this->sergio, false);
+
+        self::assertTrue($primeiro->enviado);
+        self::assertFalse($logo->enviado);
+        self::assertTrue($logo->acimaDoTeto);
+        self::assertSame('O relatório já foi enviado há pouco. Tente de novo em alguns minutos.', $logo->mensagem);
+        self::assertTrue($depois->enviado);
+    }
+
+    #[TestDox('Só quem tem o módulo Expediente recebe: Controladoria e responsável sem o módulo ficam de fora')]
+    public function testSoQuemTemExpediente(): void
+    {
+        $semModulo = $this->novoPerfil($this->tenant, false);
+        foreach ([$this->carla, $this->rui] as $pessoa) {
+            $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $pessoa, 'tenant' => $this->tenant])?->setTenantRole($semModulo);
+        }
+        $this->em()->flush();
+
+        $resultado = $this->useCase()->executar($this->tenant, $this->sergio, false);
+
+        $avisos = $this->avisosDoRelatorio($this->tenant);
+        self::assertArrayNotHasKey((int) $this->carla->getId(), $avisos);
+        self::assertArrayNotHasKey((int) $this->rui->getId(), $avisos);
+        self::assertArrayHasKey((int) $this->paula->getId(), $avisos, 'primária tem todos os módulos');
+        self::assertTrue($resultado->semControladoria, 'Controladoria sem o módulo não conta como Controladoria');
     }
 }
