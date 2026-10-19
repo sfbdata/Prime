@@ -281,6 +281,9 @@ Decididas pelo dono (19/10, pelo coordenador), que fecham a fase 2:
   `ponto_index?competencia=<mês de ontem>&esquecimento=<dia>:saida`, e a tela do ponto clica no MESMO "+" da folha (se
   ele não existir, nada abre): nenhuma batida sai do atalho e a regra de quando o "+" aparece continua só na folha.
   Depois do pedido (pendente), o estado some e volta o de hoje.
+  Precedência (decidida pelo coordenador, 19/10, segue o dc): enquanto o pedido não é feito, o atalho mostra só
+  "Regularizar ponto de ontem", inclusive com hoje em jornada; o link leva à própria tela do ponto, onde se bate o de
+  hoje normalmente. Substitui a ressalva anterior de que o estado não podia esconder "Bater ponto".
 - **Q1. "Em intervalo desde HH:MM" sem ação: aprovado.**
 - **Q2. Aviso da saída: a interjornada fica em 11 h.** A confirmação é a frase do dc mais "A próxima entrada só será
   aceita depois de <descanso> de descanso.", com o valor configurado do escritório (`minimoMinutosInterjornada`, 660
