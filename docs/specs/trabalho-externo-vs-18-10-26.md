@@ -8,7 +8,8 @@
 3. `trabalho-externo-vagas-publicas` (F2c, página pública e compartilhar) → **PR #84 em rascunho**,
    base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
-4. `trabalho-externo-curriculos` (F3a, §4.5) → em andamento, base `trabalho-externo-vagas-publicas`.
+4. `trabalho-externo-curriculos` (F3a, §4.5) → PR em rascunho, base `trabalho-externo-vagas-publicas`.
+   Migration `Version20261019213000`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
@@ -52,7 +53,11 @@ o compartilhar entram como fatia própria.
 - `security.yaml`: linha própria `^/vagas-juridicas`; 0d e f6 acrescentam as delas.
 - Teto `MAX_FORA_DO_ESCOPO` em `TenantAwareCoberturaTest`: o #56 (b5) também sobe; quem entrar depois
   soma as entradas das duas listas. Cada entrada tem a justificativa ao lado.
-- Contribua C6 (f6): "preferência de assinante" na ordem das propostas; contrato a combinar.
+- Contribua C6 (f6, desenho 08 "Preferência no Trabalho Externo"): serviço pronto na `contribua-c3`,
+  `App\Contribua\Service\ApoiadoresDoBlueJus::apoiadores(list<int> $tenantIds, $agora)` e
+  `ehApoiador(int $tenantId, $agora)` (apoio PIX confirmado nos últimos 30 dias). O 06 não tem disputa
+  de propostas entre escritórios: onde o benefício vale é decisão de produto, com o coordenador
+  (opções: ordem dos convidados, ordem dos candidatos da F2b, só o selo, fora do Trabalho Externo).
 - Limite por IP da página pública só vale em produção depois do PR #77 (IP do cliente).
 
 **Pendências**:
@@ -508,6 +513,12 @@ Pré-visualizar no formulário manda os dados ainda não salvos e recebe o HTML.
 
 Excluir: apaga marcações, arquivos (depois do commit) e, na F2b, as candidaturas; Termo aceito fica
 com o usuário (coordenador 19/10, retenção com o dono).
+
+Revisão de 19/10 (corrigido): busca igual à do CSV; anexo do bloco que sumiu é apagado ao salvar;
+foto até 12 milhões de pixels; consentimento grava a data do primeiro aceite (e de novo só com versão
+nova); exclusão das marcações e do currículo numa transação; corrida do primeiro salvar vira 409.
+Pendente: apagar o `User` leva o currículo (CASCADE) mas deixa os arquivos e as marcações; tratar na
+frente "Excluir conta" (quarentena de 365 dias).
 
 Fica para depois e registrado: currículo em Word (sem botão no desenho, decisão 10); texto do toast
 da candidatura para "Meu currículo" (F2b, decisão 11); KPI "COM OAB" filtra adv e estOab (F3b).
