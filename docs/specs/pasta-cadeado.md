@@ -16,7 +16,7 @@ Frente `pasta-cadeado` · base `origin/master` · risco **MÉDIO** (permissão p
 **Produção (20/10):** 0 pastas trancadas, 0 `resource_access` de pasta e 0 pedidos de acesso, em 1.214 pastas.
 Nenhum comportamento atual muda para ninguém.
 
-**Para o dono:** o alcance nas telas globais (§5, D3) é decisão da coordenação, pelo texto do desenho.
+**Decidido:** D3 foi confirmada pela coordenação em 20/10. Cadeado = restrição; ocultar aba = organização.
 
 ## 1. Fontes
 
@@ -76,11 +76,11 @@ configura os dois é o mesmo grupo (K1).
   assunto do processo dessas pastas para quem não vê.
 - **D2** (IA). A busca de pastas do agente e os documentos do agente respeitam `podeVer`. O agente recebe só o
   número e o cliente de pasta oculta (L4383).
-- **D3** (superfícies globais: `/push-processual`, `/tarefas`, links externos já criados). O desenho diz que, com
-  o cadeado, "Push, financeiro e a BlueJus IA ficam bloqueados". Ao contrário do "ocultar aba", que é
-  organização, o cadeado é restrição. Proposta da b5: o Push global e as metas de pasta oculta somem para quem
-  não vê (filtro por `podeVer`), e o cadeado `Todos` ou `PorPessoa` desliga o link externo do Push, como a tranca
-  já faz hoje. **A coordenação confirma.**
+- **D3** (superfícies globais), **confirmada pela coordenação em 20/10**. O cadeado é RESTRIÇÃO de verdade; o "ocultar
+  aba" (#68) é ORGANIZAÇÃO, pela definição do dono. Por isso, para quem não vê a pasta:
+  - o Push global (`/push-processual`) e as metas da pasta oculta (`/tarefas`) somem;
+  - qualquer cadeado desliga o link externo do Push, como a tranca já faz hoje;
+  - a BlueJus IA (contexto, análises e agentes da pasta) fica bloqueada, como o desenho cita.
 - **D4** (auditoria). Linhas de entidades Pasta* de pasta com cadeado não aparecem com o conteúdo na auditoria do
   escritório para quem não vê a pasta (padrão `ConteudoParticular`), e o Master vê tudo.
 - **D5** (imagem embutida na peça, `/uploads/pastas/{nome}`). Passa a conferir `podeVer` na pasta dona da imagem.
