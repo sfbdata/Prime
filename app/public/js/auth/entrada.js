@@ -246,10 +246,13 @@
     /* Destino da conta criada: só caminho relativo do próprio site. */
     const destinoSeguro = (d) => (typeof d === 'string' && d.startsWith('/') && !d.startsWith('//') && !d.includes('\\') ? d : '/');
 
-    /* "Bom dia, Nome!" a partir do e-mail, como no desenho. */
-    const saudacao = (em) => {
+    /* "Bom dia, Nome!": o primeiro nome digitado no cadastro (sem Dr./Dra.), como o véu do /login/entrando;
+       sem nome, a parte antes do @, como no desenho. */
+    const saudacao = (em, nome) => {
         const h = new Date().getHours();
-        const nm = ((em.split('@')[0] || '').split(/[._-]/)[0]) || '';
+        const partes = (nome || '').trim().split(/\s+/).filter(Boolean);
+        while (partes.length > 1 && /^(dr|dra|sr|sra)\.?$/i.test(partes[0])) { partes.shift(); }
+        const nm = partes[0] || ((em.split('@')[0] || '').split(/[._-]/)[0]) || '';
 
         return (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + (nm ? ', ' + nm.charAt(0).toUpperCase() + nm.slice(1) : '') + '!';
     };
@@ -277,7 +280,7 @@
         }
         mdFechar();
         email.value = em;
-        $('lgVeuTit').textContent = saudacao(em);
+        $('lgVeuTit').textContent = saudacao(em, $('lgCdNome').value);
         mostrar($('lgVeu'), true);
         $('lgCartao').classList.add('lg-sai');
         const destino = destinoSeguro(r.dados.destino);

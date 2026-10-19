@@ -13,6 +13,8 @@
   despachados depois do commit; o lembrete "e-mail não confirmado" passa a ser sobre o User e fica com esta frente
   (consulta + `ReemitirConfirmacaoDeEmailUseCase`). A 1a da 5d entra antes; esta frente leva os ganchos dela para os pontos novos.
 
+- 19/10 noite: integrados os 5 blocos; revisão do feature-review-agent reprovou com 2 ALTOS, corrigidos: (1) conta com e-mail a confirmar não vê convites em `/convites` nem na seleção de escritório (a lista entregava o token); (2) a tentativa do código é reservada no banco ANTES de comparar e `/senha/codigo/confirmar` consome o limite por IP. Também: régua com classe ASCII explícita (acento conta como símbolo, igual à tela), um véu só depois do cadastro (o cadastro devolve o destino final), limite de senha em bytes, confirmação de e-mail com UPDATE condicional (evento uma vez), lembrete único no banco, filtro http(s) nos links do painel e do aceite.
+
 ## O pedido
 
 Dono, pelo coordenador: *"amanhã quero a página de login implementada como no desenho, todos os textos como está no desenho"*.
@@ -25,7 +27,7 @@ tem documentos pessoais e nunca é commitada).
 |---|---|---|
 | a | Cadastro só com os campos do desenho, **sem OAB** | OAB vai para o Meu Perfil depois (#65 da 7d) |
 | b | Caixa única "Li e aceito os Termos de uso e a Política de privacidade" | grava `aceite_termo` (versão `TermoVigente`) **e** `ciencia_politica` (versão `PoliticaPrivacidadeVigente`), os dois com data, IP e navegador |
-| c | "Criar minha conta" já entra no sistema | conta criada direto e logada; e-mail de confirmação enviado sem travar; `user.email_confirmado_em` fica nulo até o clique |
+| c | "Criar minha conta" já entra no sistema | conta criada direto e logada; e-mail de confirmação enviado sem travar; `user.email_a_confirmar_desde` fica preenchida até o clique; enquanto isso a conta não vê convites de escritório nas listas |
 | d | Termos e Política do rodapé apontam para o destino do desenho | padrões `https://www.bluejus.com.br/termos/termos-de-uso.pdf` e `https://www.bluejus.com.br/politica-de-privacidade`, editáveis pelo Master, com Restaurar |
 | e | Textos de segurança ("Criptografia de ponta a ponta", painel "Segurança e privacidade") **exatos**, sem chave e sem versão alternativa | decisão e responsabilidade do P.O. (sessão 7d). Ver memória "Login promete criptografia que não existe" |
 
@@ -73,7 +75,8 @@ Rótulos: 0 `''`, 1 `Fraca` `#c0392b` 25%, 2 `Média` `#c76a12` 50%, 3 `Boa` `#0
 
 ### Modelo de dados (uma migration)
 
-- `"user".email_confirmado_em` `timestamp NULL`. Backfill: `= created_at` para todas as contas existentes (todas nasceram por confirmação de cadastro ou por convite aceito pelo e-mail).
+- `"user".email_a_confirmar_desde` `timestamp NULL` (mudou na implementação, combinado com a 5d): nula = e-mail sem pendência. Só o cadastro novo preenche; o clique zera. Sem backfill: as contas existentes já provaram o e-mail (cadastro antigo ou convite). A data da confirmação fica em `confirmacao_email.usado_em`.
+- `confirmacao_email`: índice único parcial `uq_confirmacao_email_lembrete (user_id) WHERE lembrete` (um lembrete por conta).
 - `confirmacao_email` (Auth): `id`, `user_id` FK CASCADE, `token_hash` char(64) único (SHA-256), `criado_em`, `expira_em` (+7 dias), `usado_em` NULL, `lembrete` bool (o reenvio automático único da 5d).
 - `redefinicao_senha.tentativas` int default 0. O código de 6 números é guardado como `hash_hmac('sha256', userId.':'.codigo, kernel.secret)` na coluna `token_hash` já existente; 15 minutos; 5 tentativas erradas queimam o pedido.
 - `ciencia_politica` (Termo): `id`, `user_id`, `versao` varchar(40), `ciente_em`, `ip`, `user_agent`; único `(user_id, versao)`.
@@ -90,7 +93,7 @@ Rótulos: 0 `''`, 1 `Fraca` `#c0392b` 25%, 2 `Média` `#c76a12` 50%, 3 `Boa` `#0
 1. **Entrar.** Formulário mantém o contrato de `tela-login-redesenho.md` (`email`, `password`, `_csrf_token`, `_remember_me`, botão "Entrar", um `a[href="/senha/esqueci"]`). Caps Lock em `keydown` e `keyup`. Erro de credencial no lugar do `erro` do desenho.
 2. **Volta pós-login.** `UserAuthenticator::onAuthenticationSuccess` lê o `_security.main.target_path`; aceita só caminho relativo (começa com `/`, não `//`, sem `\`, sem esquema) ou URL absoluta do próprio host (reduzida a caminho). Destino final: com 1 escritório → o alvo (ou o Expediente); Master sem escritório → painel do Master (ou o alvo); vários escritórios → seleção de escritório (o alvo se perde, como hoje). Tudo passa por `/login/entrando?para=` que revalida.
 3. **Senha por código.** Passo 1 envia e-mail "Seu código BlueJus: NNNNNN" (assunto) e vai sempre para o passo 2 (neutro). Pedir de novo derruba os anteriores. Passo 2 confere o código, a regra de senha e a confirmação; grava a senha (troca de hash já derruba as outras sessões e o "lembrar-me", ver `RedefinirSenhaUseCase`). Passo 3: "Senha alterada". O link antigo (`/senha/redefinir/{token}`) continua valendo para pedidos já enviados.
-4. **Criar conta.** Valida como o desenho; e-mail já existente → `Já existe uma conta com este e-mail. Faça login para criar o escritório por dentro.` Uma transação: User (ativo, `email_confirmado_em` nulo), Tenant, bootstrap, aceite dos Termos, ciência da Política, `confirmacao_email`. Depois do commit: login programático, e-mail de confirmação (falha só registra em log), evento. O `/cadastro/confirmar/{token}` antigo continua para pendentes já enviados.
+4. **Criar conta.** Valida como o desenho; e-mail já existente → `Já existe uma conta com este e-mail. Faça login para criar o escritório por dentro.` Uma transação: User (ativo, `email_a_confirmar_desde` = agora), Tenant, bootstrap, aceite dos Termos, ciência da Política, `confirmacao_email`. Depois do commit: login programático, e-mail de confirmação (falha só registra em log), evento. O `/cadastro/confirmar/{token}` antigo continua para pendentes já enviados.
 5. **Suporte.** Grava a mensagem e avisa no sino o destinatário escolhido pelo Master (sem escolha: todos os Masters). Mensagem mostrada só na lista `/suporte/mensagens`. Honeypot e limite `suporte_entrada` (5 por hora por IP).
 6. **SÓ MASTER.** Botão direito nos links do rodapé abre "Editar link · <Nome>" com Salvar, Abrir, Restaurar e Ocultar/Mostrar no rodapé. O ⋮ do suporte mostra "QUEM RECEBE AS MENSAGENS DE SUPORTE · SÓ MASTER VÊ" com os Masters e a equipe do escritório atual do Master. Visitante comum não vê link oculto nem link vazio (LinkedIn e Instagram nascem vazios).
 

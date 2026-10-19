@@ -19,6 +19,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'confirmacao_email')]
 #[ORM\UniqueConstraint(name: 'uq_confirmacao_email_token_hash', columns: ['token_hash'])]
 #[ORM\Index(name: 'idx_confirmacao_email_user', columns: ['user_id'])]
+#[ORM\UniqueConstraint(name: 'uq_confirmacao_email_lembrete', columns: ['user_id'], options: ['where' => 'lembrete = true'])]
 class ConfirmacaoEmail
 {
     public const VALIDADE = '+7 days';

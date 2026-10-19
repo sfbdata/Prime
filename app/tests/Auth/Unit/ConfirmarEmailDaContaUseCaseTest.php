@@ -28,9 +28,13 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     /** @var list<EmailDaContaConfirmado> */
     private array $despachados = [];
 
+    /** Resultado do UPDATE condicional: false = outro clique simultâneo confirmou antes. */
+    private bool $venceCorrida = true;
+
     protected function setUp(): void
     {
         $this->repository = $this->createMock(ConfirmacaoEmailRepository::class);
+        $this->repository->method('confirmarEmailDaConta')->willReturnCallback(fn (): bool => $this->venceCorrida);
         $this->eventos = new EventDispatcher();
         $this->eventos->addListener(EmailDaContaConfirmado::class, function (EmailDaContaConfirmado $evento): void {
             $this->despachados[] = $evento;
@@ -127,5 +131,17 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
         $this->useCase()->executar('tok');
 
         self::assertTrue($confirmacao->getUser()->isEmailConfirmado());
+    }
+
+    #[TestDox('Dois cliques simultâneos: quem perde o UPDATE não grava nem despacha o evento de novo')]
+    public function testCorridaDespachaUmaVezSo(): void
+    {
+        $this->venceCorrida = false;
+        $this->repository->method('encontrarPorToken')->willReturn($this->confirmacao());
+        $this->repository->expects($this->never())->method('salvar');
+
+        $this->useCase()->executar('tok');
+
+        self::assertSame([], $this->despachados);
     }
 }

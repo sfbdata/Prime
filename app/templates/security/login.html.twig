@@ -27,6 +27,9 @@
     <link rel="stylesheet" href="{{ asset('css/auth/entrada.css') }}">
 </head>
 <body>
+{#- Só http(s) vira href: o endereço é editável pelo Master. -#}
+{%- set termos_href = pagina.termosUrl matches '{^https?://}i' ? pagina.termosUrl : '#' -%}
+{%- set priv_href = pagina.privUrl matches '{^https?://}i' ? pagina.privUrl : '#' -%}
 <div class="lg-raiz" id="lgRaiz"
      data-abrir="{{ abrir ?? '' }}"
      data-token-senha="{{ csrf_token('senha_codigo') }}"
@@ -141,8 +144,8 @@
                         <button type="button" class="lg-cresce__btn" data-seg-fechar><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Entrar com segurança</button>
                     </div>
                     <div class="lg-seg__links">
-                        <a href="{{ pagina.privUrl }}" target="_blank" rel="noopener">Política de privacidade</a>
-                        <a href="{{ pagina.termosUrl }}" target="_blank" rel="noopener">Termos de uso</a>
+                        <a href="{{ priv_href }}" target="_blank" rel="noopener">Política de privacidade</a>
+                        <a href="{{ termos_href }}" target="_blank" rel="noopener">Termos de uso</a>
                         <a href="mailto:bluejus.86@gmail.com?subject=Encarregado%20de%20dados%20(LGPD)">Falar com o encarregado de dados</a>
                     </div>
                 </div>
@@ -182,7 +185,7 @@
                         <label class="lg-md__rotulo">E-mail<input class="lg-md__entrada" id="lgCdEmail" type="email" placeholder="nome@escritorio.com.br" autocomplete="email"></label>
                         <label class="lg-md__rotulo">Senha<input class="lg-md__entrada" id="lgCdSenha" type="password" placeholder="Mínimo de 8 caracteres" autocomplete="new-password"></label>
                         <div class="lg-forca" data-forca="lgCdSenha"><span class="lg-forca__trilho"><span class="lg-forca__barra"></span></span><span class="lg-forca__txt"></span></div>
-                        <label class="lg-aceite"><input type="checkbox" id="lgCdAceite"><span>Li e aceito os <a href="{{ pagina.termosUrl }}" target="_blank" rel="noopener">Termos de uso</a> e a <a href="{{ pagina.privUrl }}" target="_blank" rel="noopener">Política de privacidade</a>.</span></label>
+                        <label class="lg-aceite"><input type="checkbox" id="lgCdAceite"><span>Li e aceito os <a href="{{ termos_href }}" target="_blank" rel="noopener">Termos de uso</a> e a <a href="{{ priv_href }}" target="_blank" rel="noopener">Política de privacidade</a>.</span></label>
                     </div>
                     <div class="lg-md__erro" id="lgMdErro" role="alert" hidden><i class="bi bi-exclamation-circle" aria-hidden="true"></i> <span id="lgMdErroTxt"></span></div>
                     <button type="submit" class="lg-md__acao" id="lgMdAcao"><i class="bi" id="lgMdBtnIc" aria-hidden="true"></i><span id="lgMdBtnTxt"></span></button>

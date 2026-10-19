@@ -145,7 +145,7 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame(strtolower($email), self::getMailerMessage()?->getTo()[0]->getAddress());
         $router = static::getContainer()->get('router');
         self::assertSame(
-            ['ok' => true, 'destino' => $router->generate('app_login_entrando', ['para' => $router->generate('expediente_index')])],
+            ['ok' => true, 'destino' => $router->generate('expediente_index')],
             self::json($client),
         );
 

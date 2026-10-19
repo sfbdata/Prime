@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\UseCase;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use App\Auth\DTO\ReemissaoDeConfirmacaoOutput;
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
@@ -20,6 +21,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 final class ReemitirConfirmacaoDeEmailUseCase
 {
+    public const ERRO_JA_ENVIADO = 'O lembrete desta conta já foi enviado.';
+
     public function __construct(
         private readonly UserRepository $userRepository,
         private readonly ConfirmacaoEmailRepository $confirmacaoEmailRepository,
@@ -34,13 +37,19 @@ final class ReemitirConfirmacaoDeEmailUseCase
         $agora = $this->relogio->now();
         $token = bin2hex(random_bytes(32));
 
-        $this->confirmacaoEmailRepository->salvar(new ConfirmacaoEmail(
-            user: $user,
-            tokenHash: ConfirmacaoEmail::hashDoToken($token),
-            expiraEm: $agora->modify(ConfirmacaoEmail::VALIDADE),
-            lembrete: true,
-            criadoEm: $agora,
-        ), flush: true);
+        try {
+            $this->confirmacaoEmailRepository->salvar(new ConfirmacaoEmail(
+                user: $user,
+                tokenHash: ConfirmacaoEmail::hashDoToken($token),
+                expiraEm: $agora->modify(ConfirmacaoEmail::VALIDADE),
+                lembrete: true,
+                criadoEm: $agora,
+            ), flush: true);
+        } catch (UniqueConstraintViolationException) {
+            // Corrida entre duas varreduras: o índice parcial uq_confirmacao_email_lembrete garante um só.
+            // Atenção de quem chama em laço: depois desta exceção o EntityManager do Doctrine fica fechado.
+            throw new \DomainException(self::ERRO_JA_ENVIADO);
+        }
 
         return new ReemissaoDeConfirmacaoOutput(
             email: (string) $user->getEmail(),
@@ -66,7 +75,7 @@ final class ReemitirConfirmacaoDeEmailUseCase
         }
 
         if ($this->confirmacaoEmailRepository->existeLembreteDe($user)) {
-            throw new \DomainException('O lembrete desta conta já foi enviado.');
+            throw new \DomainException(self::ERRO_JA_ENVIADO);
         }
 
         return $user;

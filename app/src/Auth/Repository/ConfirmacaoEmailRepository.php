@@ -30,6 +30,20 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
         return $this->count(['user' => $user, 'lembrete' => true]) > 0;
     }
 
+    /**
+     * Zera a pendência de e-mail da conta num UPDATE condicional: com dois cliques simultâneos no link (o
+     * pré-carregamento do cliente de e-mail faz isso), só um ganha, e só ele despacha o EmailDaContaConfirmado.
+     *
+     * @return bool true se FOI ESTA chamada que confirmou
+     */
+    public function confirmarEmailDaConta(User $user): bool
+    {
+        return $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+            ['id' => $user->getId()],
+        ) === 1;
+    }
+
     public function salvar(ConfirmacaoEmail $confirmacao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($confirmacao);

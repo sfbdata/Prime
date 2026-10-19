@@ -73,7 +73,8 @@ final class CadastroController extends AbstractController
 
         return $this->json([
             'ok' => true,
-            'destino' => $this->generateUrl('app_login_entrando', ['para' => $this->generateUrl('expediente_index')]),
+            // A própria tela mostra o véu "Abrindo o seu escritório digital…": o destino já é o final.
+            'destino' => $this->generateUrl('expediente_index'),
         ]);
     }
 

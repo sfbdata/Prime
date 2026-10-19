@@ -47,6 +47,11 @@ final class ConfirmarEmailDaContaUseCase
             throw new \DomainException(self::ERRO_LINK);
         }
 
+        // Quem perde a corrida do UPDATE encontra o e-mail já confirmado pelo outro clique: sucesso, sem evento.
+        if (!$this->confirmacaoEmailRepository->confirmarEmailDaConta($user)) {
+            return;
+        }
+
         $user->confirmarEmail();
         $confirmacao->marcarUsado($agora);
         $this->confirmacaoEmailRepository->salvar($confirmacao, flush: true);
