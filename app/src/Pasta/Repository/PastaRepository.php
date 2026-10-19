@@ -56,6 +56,40 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * O polo passivo da parte do processo: `ParteProcesso.papel` é texto livre (em maiúsculas), por isso o casamento
+     * por radical (PASSIV, RÉU/REU, REQUERID, EXECUTAD, RECLAMAD). Vale para a coluna Réu, a busca e a ordenação.
+     */
+    private static function poloPassivo(string $alias): string
+    {
+        return '(' . implode(' OR ', array_map(
+            static fn (string $radical): string => sprintf("UPPER(%s.papel) LIKE '%%%s%%'", $alias, $radical),
+            ['PASSIV', 'RÉU', 'REU', 'REQUERID', 'EXECUTAD', 'RECLAMAD'],
+        )) . ')';
+    }
+
+    /**
+     * A busca livre acha a pasta pelo réu (desenho do Expediente VS 18.10.26: `nup + cliente + reu + acao`), com a
+     * precedência da coluna (`reusPorPasta`): o cadastrado na pasta; o polo passivo dos processos vinculados só na
+     * pasta sem nenhum cadastrado. Sem acento e sem caixa.
+     */
+    private static function existeReuCasando(string $parametro): string
+    {
+        return sprintf(
+            '(EXISTS (SELECT 1 FROM %s reu_b WHERE reu_b.pasta = p AND UNACCENT(LOWER(reu_b.nome)) LIKE UNACCENT(:%s))'
+            . ' OR EXISTS (SELECT 1 FROM %s ppr_b JOIN ppr_b.processo prr_b JOIN %s par_b WITH par_b.processo = prr_b'
+            . ' WHERE ppr_b.pasta = p AND %s AND UNACCENT(LOWER(par_b.nome)) LIKE UNACCENT(:%s)'
+            . ' AND NOT EXISTS (SELECT 1 FROM %s reu_c WHERE reu_c.pasta = p)))',
+            \App\Pasta\Entity\PastaReu::class,
+            $parametro,
+            PastaProcesso::class,
+            ParteProcesso::class,
+            self::poloPassivo('par_b'),
+            $parametro,
+            \App\Pasta\Entity\PastaReu::class,
+        );
+    }
+
+    /**
      * Subconsulta que casa a pasta cujo CREDOR (fantasia da carteira) ou DEVEDOR (pessoa cobrada)
      * bate com o termo — é o que faz a busca enxergar o identificador DERIVADO das pastas
      * judicializadas, que não existe gravado em lugar nenhum
@@ -802,6 +836,7 @@ class PastaRepository extends ServiceEntityRepository
                     'UNACCENT(LOWER(proc.classeProcessual)) LIKE UNACCENT(:busca)',
                     'UNACCENT(LOWER(proc.numeroProcesso)) LIKE UNACCENT(:busca)',
                     'UNACCENT(LOWER(proc.assuntoProcessual)) LIKE UNACCENT(:busca)',
+                    self::existeReuCasando('busca'),
                 )
             )->setParameter('busca', '%' . mb_strtolower($filters['busca']) . '%');
         }
@@ -967,8 +1002,7 @@ class PastaRepository extends ServiceEntityRepository
             ->join('pp.pasta', 'pz')
             ->where('pz.tenant = :tenant')
             ->andWhere('pz.id IN (:ids)')
-            ->andWhere("UPPER(pa.papel) LIKE '%PASSIV%' OR UPPER(pa.papel) LIKE '%RÉU%' OR UPPER(pa.papel) LIKE '%REU%'"
-                . " OR UPPER(pa.papel) LIKE '%REQUERID%' OR UPPER(pa.papel) LIKE '%EXECUTAD%' OR UPPER(pa.papel) LIKE '%RECLAMAD%'")
+            ->andWhere(self::poloPassivo('pa'))
             ->setParameter('tenant', $tenant)
             ->setParameter('ids', $pastaIds)
             ->orderBy('pp.principal', 'DESC')
@@ -1329,6 +1363,36 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Ordena pelo réu que a coluna MOSTRA (`reusPorPasta`, o primeiro da lista, antes do " e outros"), não pelo menor
+     * em ordem alfabética: senão a lista ordena por um nome que o usuário não vê. O cadastrado manda (o primeiro por
+     * `ordem, id`); sem nenhum cadastrado, o primeiro polo passivo do Datajud (processo principal primeiro, depois
+     * `pp.id` e `pa.id`), sem nome vazio. Cada JOIN deixa passar só esse primeiro: as demais linhas do produto
+     * cartesiano vêm nulas e o MIN fica com o único nome que sobra.
+     */
+    private function ordenarPeloReu(QueryBuilder $qb, string $dir): void
+    {
+        $reu = \App\Pasta\Entity\PastaReu::class;
+        $qb->leftJoin($reu, 'reu_ord', 'WITH', 'reu_ord.pasta = p AND NOT EXISTS (SELECT 1 FROM ' . $reu . ' reu_ant'
+                . ' WHERE reu_ant.pasta = p AND (reu_ant.ordem < reu_ord.ordem OR (reu_ant.ordem = reu_ord.ordem AND reu_ant.id < reu_ord.id)))')
+           ->leftJoin('p.pastaProcessos', 'ppr_ord')
+           ->leftJoin('ppr_ord.processo', 'prr_ord')
+           ->leftJoin(ParteProcesso::class, 'par_ord', 'WITH', 'par_ord.processo = prr_ord AND ' . self::poloPassivo('par_ord')
+                . " AND TRIM(par_ord.nome) <> '' AND NOT EXISTS (" . self::parteAnterior() . ')')
+           ->orderBy('MIN(LOWER(COALESCE(reu_ord.nome, par_ord.nome)))', $dir);
+    }
+
+    /** Outra parte do polo passivo da mesma pasta que vem antes de `par_ord` na ordem da coluna Réu. */
+    private static function parteAnterior(): string
+    {
+        return 'SELECT 1 FROM ' . PastaProcesso::class . ' ppr_ant JOIN ppr_ant.processo prr_ant JOIN ' . ParteProcesso::class
+            . ' par_ant WITH par_ant.processo = prr_ant WHERE ppr_ant.pasta = p AND ' . self::poloPassivo('par_ant')
+            . " AND TRIM(par_ant.nome) <> '' AND ("
+            . '(ppr_ant.principal = true AND ppr_ord.principal = false)'
+            . ' OR (ppr_ant.principal = ppr_ord.principal AND ppr_ant.id < ppr_ord.id)'
+            . ' OR (ppr_ant.id = ppr_ord.id AND par_ant.id < par_ord.id))';
+    }
+
+    /**
      * Ordena a listagem no banco (antes da paginação) pela coluna clicada no cabeçalho.
      *
      * O QueryBuilder já vem com GROUP BY p.id, então colunas de coleção (cliente,
@@ -1388,6 +1452,10 @@ class PastaRepository extends ServiceEntityRepository
                        . 'pes_ord.nome, p.nomeCliente, cpf_ord.nomeCompleto, cpj_ord.razaoSocial)))',
                        $dir,
                    );
+                break;
+
+            case 'reu':
+                $this->ordenarPeloReu($qb, $dir);
                 break;
 
             case 'acao':

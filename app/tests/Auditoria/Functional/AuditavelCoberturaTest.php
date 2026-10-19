@@ -82,6 +82,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Última visita do usuário à Timeline da pasta (M4/PAS-043, 07/10): marcador pessoal de leitura,
         // regravado a cada abertura, como os favoritos e as preferências. Não é ato sobre dado do escritório.
         \App\Pasta\Entity\PastaTimelineVisita::class,
+        // Link externo do Push (19/10, spec push-link-externo §1): o link guarda o código de acesso em claro (o
+        // escritório precisa copiá-lo de novo) e o AuditLogSubscriber gravaria o estado inteiro no audit_log. O acesso
+        // é contagem de aberturas pelo terceiro, sem dado de negócio.
+        \App\Pasta\Entity\LinkExternoDoPush::class,
+        \App\Pasta\Entity\AcessoAoLinkExternoDoPush::class,
         // Central de Comunicação (A1, 14/10): a conversa é das duas pessoas. O AuditLogSubscriber grava o estado
         // inteiro da entidade, e o audit_log é lido por quem administra o escritório — auditar entregaria a
         // conversa privada a terceiros (spec central-comunicacao-a1 §3). O participante é cursor de leitura.

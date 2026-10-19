@@ -27,7 +27,15 @@ class Presenca implements TenantAware
     public const DISPONIVEL = 'disponivel';
     public const OCUPADO = 'ocupado';
     public const AUSENTE = 'ausente';
-    public const STATUS = [self::DISPONIVEL, self::OCUPADO, self::AUSENTE];
+    /**
+     * Ausente por falta de atividade (spec `presenca-e-ponto-no-cabecalho.md` §2): quem manda é o navegador da pessoa,
+     * depois de `INATIVO_APOS_MINUTOS` sem mexer em nada. Separado do `ausente` escolhido para o servidor saber
+     * dizer "sem atividade há N min".
+     */
+    public const INATIVO = 'inativo';
+    public const STATUS = [self::DISPONIVEL, self::OCUPADO, self::AUSENTE, self::INATIVO];
+    /** Limite de inatividade (padrão do desenho, 60 min) até a fase 3 da spec dar ao primário a escolha. */
+    public const INATIVO_APOS_MINUTOS = 60;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
