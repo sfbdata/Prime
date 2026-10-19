@@ -178,6 +178,10 @@
                                 </div>
                             {% endif %}
 
+                            {# Ponto de inclusão de outras frentes no cabeçalho, antes do sininho. Basta criar o
+                               parcial; o base não precisa mudar (dono do cabeçalho: frente menu-do-usuario). #}
+                            {% include 'layout/_cabecalho_acoes.html.twig' ignore missing %}
+
                             {# Notificações #}
                             <div class="navtop-action dropdown">
                                 <a href="#" class="navtop-action-btn"
@@ -301,6 +305,9 @@
                                     </span>
                                 </a>
                                 {% include 'menu_usuario/_dropdown.html.twig' %}
+                                {# Selo de presença on-line e painel (desenho 03, frente do Expediente). Fica fora do <a>
+                                   para o clique no selo não abrir este menu; posição relativa a .menu-usuario. #}
+                                {% include 'menu_usuario/_presenca.html.twig' ignore missing %}
                             </div>
 
                         </div>{# /navtop-right #}
@@ -369,6 +376,10 @@
             {% if app.user and can_access_module('ponto') and app.user.jornadaColaborador is not null %}
                 {% include 'ponto/_modal_alerta_ponto.html.twig' %}
             {% endif %}
+
+            {# Ponto de inclusão de avisos globais de outras frentes (lembretes da agenda, aviso de espaço
+               do plano...): cada uma cria o próprio parcial em templates/layout/_globais/ e o lista aqui. #}
+            {% include 'layout/_globais.html.twig' ignore missing %}
 
             {# Modais do menu do usuário (Conta do escritório, Idioma, Em preparação) #}
             {% include 'menu_usuario/_modais.html.twig' %}
