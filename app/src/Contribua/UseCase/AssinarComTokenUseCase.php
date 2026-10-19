@@ -15,6 +15,8 @@ use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Gateway\SituacaoNoGateway;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Service\AtualizacaoDaAssinatura;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -34,6 +36,7 @@ final class AssinarComTokenUseCase
         private readonly AtualizacaoDaAssinatura $atualizacao,
         private readonly UrlGeneratorInterface $urls,
         private readonly LoggerInterface $logger,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -47,7 +50,8 @@ final class AssinarComTokenUseCase
         }
 
         $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), preg_replace('/\D/', '', $documento) ?? '', (string) $quem->usuario->getEmail());
-        $resposta = $this->assinarNoGateway($gateway, $pedido, $this->checkout($pedido, $pagador, $ip), $token);
+        $checkout = $this->checkout($pedido, $pagador, $ip);
+        $resposta = $this->em->wrapInTransaction(fn (): SituacaoNoGateway => $this->assinarTravado($gateway, $pedido, $checkout, $token));
         $proxima = $pedido->getPagaAte() ?? new \DateTimeImmutable('+1 month');
 
         return ['proxima' => $proxima->format('d/m/Y'), 'acaoNoNavegador' => $resposta->acaoNoNavegador];
@@ -55,7 +59,7 @@ final class AssinarComTokenUseCase
 
     private function pedidoAguardando(Solicitante $quem, int $pedidoId): AssinaturaDeEspaco
     {
-        if (!$quem->ehPrimario && !$quem->ehMaster) {
+        if (!$quem->ehPrimario) {
             throw new \DomainException('Quem amplia o espaço é o usuário primário do escritório.');
         }
         $pedido = $this->assinaturas->doEscritorio($quem->tenantId(), $pedidoId);
@@ -72,6 +76,20 @@ final class AssinarComTokenUseCase
         $plano = $pedido->getPlano();
 
         return new PedidoDeCheckout($pedido->referencia(), (int) $pedido->getTenant()->getId(), $plano->getCodigo(), $plano->getNome(), $pedido->getValorCentavos(), $pagador, $pagina . '?assinatura=ok', $pagina . '#espaco', $ip);
+    }
+
+    /**
+     * O pedido fica travado (`FOR UPDATE`) durante a chamada ao gateway: um clique duplo esperaria e,
+     * depois, encontraria o pedido já ligado, em vez de criar uma segunda assinatura no cartão.
+     */
+    private function assinarTravado(GatewayDeAssinatura $gateway, AssinaturaDeEspaco $pedido, PedidoDeCheckout $checkout, string $token): SituacaoNoGateway
+    {
+        $this->em->refresh($pedido, LockMode::PESSIMISTIC_WRITE);
+        if ($pedido->getSituacao() !== SituacaoDaAssinatura::Aguardando || $pedido->getIdDaAssinatura() !== null) {
+            throw new \DomainException('Este pedido já foi enviado ao gateway.');
+        }
+
+        return $this->assinarNoGateway($gateway, $pedido, $checkout, $token);
     }
 
     private function assinarNoGateway(GatewayDeAssinatura $gateway, AssinaturaDeEspaco $pedido, PedidoDeCheckout $checkout, string $token): SituacaoNoGateway

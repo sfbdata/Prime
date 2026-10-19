@@ -66,7 +66,8 @@ class AssinaturaDeEspacoRepository extends ServiceEntityRepository
 
     /**
      * Os pedidos ainda sem assinatura ligada, do mais novo para o mais antigo: é a eles que um aviso de
-     * "assinatura criada" se prende (o Asaas não devolve a referência do pedido, só o cliente).
+     * "assinatura criada" se prende (o Asaas não devolve a referência do pedido, só o cliente). Inclui o
+     * pedido que o Master confirmou à mão antes do aviso chegar (Ativa sem assinatura ligada).
      *
      * @return list<AssinaturaDeEspaco>
      */
@@ -76,7 +77,7 @@ class AssinaturaDeEspacoRepository extends ServiceEntityRepository
             ->andWhere('IDENTITY(a.tenant) = :tenant')->setParameter('tenant', $tenantId)
             ->andWhere('a.gateway = :gateway')->setParameter('gateway', $gateway)
             ->andWhere('a.idDaAssinatura IS NULL')
-            ->andWhere('a.situacao = :aguardando')->setParameter('aguardando', SituacaoDaAssinatura::Aguardando)
+            ->andWhere('a.situacao IN (:abertas)')->setParameter('abertas', [SituacaoDaAssinatura::Aguardando, SituacaoDaAssinatura::Ativa])
             ->orderBy('a.criadaEm', 'DESC')->addOrderBy('a.id', 'DESC')
             ->getQuery()->getResult();
     }

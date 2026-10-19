@@ -7,6 +7,7 @@ namespace App\Contribua\UseCase;
 use App\Contribua\Gateway\GatewaysDeAssinatura;
 use App\Contribua\Repository\ConfiguracaoDePagamentoRepository;
 use App\Contribua\Repository\PlanoRepository;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 
 /**
  * "Salvar" do modal "Pagamento por cartão · só Master" (desenho 08). O controller exige
@@ -21,6 +22,7 @@ final class ConfigurarPagamentoUseCase
         private readonly ConfiguracaoDePagamentoRepository $configuracao,
         private readonly GatewaysDeAssinatura $gateways,
         private readonly PlanoRepository $planos,
+        private readonly EscopoDeAuditoriaDePlataforma $auditoria,
     ) {
     }
 
@@ -34,7 +36,8 @@ final class ConfigurarPagamentoUseCase
 
         $configuracao = $this->configuracao->atual();
         $configuracao->configurar($gateway, self::vazioViraNulo($chavePublica), $this->linksDosPlanosPagos($links), $diasDeCarencia);
-        $this->configuracao->salvar($configuracao, flush: true);
+        // Configuração global: a auditoria é da plataforma, não do escritório em que o Master está.
+        $this->auditoria->executar(fn () => $this->configuracao->salvar($configuracao, flush: true));
     }
 
     /**
