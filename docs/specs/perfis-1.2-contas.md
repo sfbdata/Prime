@@ -70,3 +70,21 @@ Pendente com o dono: Q1.
 - **Q4. Rotas antigas de exclusão** (`escritorio_excluir` para qualquer perfil com
   `admin.tenant.settings.manage`, e `app_tenant_delete`). Recomendação: passam a recusar a conta criada por um
   Master já nesta frente. A troca de `escritorio_excluir` pelo "pedido de exclusão" é da 7d (PR 5).
+
+## 7. Contrato com a Contribua para a frente de limites (combinado em 19/10, PR #64 da f6)
+
+- Leitura: `App\Contribua\Service\SituacaoDoEspaco::doEscritorio(int $tenantId)` devolve `RetratoDoEspaco` (bytes usados
+  e limite, percentual, faixa, origem do limite, plano, limite de usuários e origem, bloqueio). Formatação em
+  `RetratoDoEspaco::formatarGb()`. Nunca ler `EspacoDoEscritorio` fora do Contribua (teste de arquitetura da f6).
+- Escrita (controller do Master, `ROLE_SUPER_ADMIN`):
+  - `DefinirLimiteDeArmazenamentoUseCase` (tenantId, ?cotaGb, semLimite, justificativa);
+  - `DefinirLimiteDeUsuariosUseCase` (tenantId, ?limite, justificativa);
+  - `ConfigurarFaixasDoEspacoUseCase` (faixas e bloqueioAtivo).
+
+  Erros de regra chegam como `\DomainException`, já com os textos do 05.
+- Auditoria: o controller do Master envolve as duas primeiras escritas no escopo "como a conta alvo", para gravar
+  com o `tenant_id` da conta, e as faixas no escopo de plataforma. A f6 não envolve nada.
+- Entidades `Auditavel`: `EspacoDoEscritorio`, `ConfiguracaoDoEspaco` e `Plano`. A justificativa é um campo de
+  `EspacoDoEscritorio`, regravado a cada mudança. O rótulo "Limite de armazenamento" ou "Limite de usuários" sai
+  da coluna que mudou no diff (`cota_gb`/`sem_limite` ou `limite_usuarios`), e o detalhe é
+  "ant → novo · justificativa".
