@@ -51,6 +51,10 @@ final class EntradaController extends AbstractController
     private function primeiroNome(User $user): string
     {
         $partes = preg_split('/\s+/', trim((string) $user->getFullName()), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        // "Dra. Ana Souza" cumprimenta a Ana, não a "Dra.".
+        while (count($partes) > 1 && preg_match('/^(dr|dra|sr|sra)\.?$/iu', $partes[0]) === 1) {
+            array_shift($partes);
+        }
         if ($partes !== []) {
             return $partes[0];
         }

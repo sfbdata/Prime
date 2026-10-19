@@ -32,6 +32,17 @@ final class EntradaControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/login');
     }
 
+    #[TestDox('Pronome de tratamento não vira o primeiro nome: "Dra. Ana Souza" é a Ana')]
+    public function testPulaOPronomeDeTratamento(): void
+    {
+        $client = static::createClient();
+        $this->logarComEscritorio($client, 'Dra. Ana Souza');
+
+        $crawler = $client->request('GET', '/login/entrando');
+
+        self::assertSame('Ana', json_decode((string) $crawler->filter('#veuEntrada')->attr('data-nome'), true));
+    }
+
     #[TestDox('Logado vê o véu com o primeiro nome, o subtítulo e o destino pedido')]
     public function testLogadoVeOVeuComODestino(): void
     {

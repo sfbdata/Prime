@@ -97,15 +97,13 @@ final class LoginTelaTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects(null, null, 'Credencial correta tem que sair do /login. Se ficou, o contrato do formulário quebrou.');
         $destino = (string) parse_url((string) $client->getResponse()->headers->get('Location'), PHP_URL_PATH);
-        self::assertNotSame('/login', $destino, 'Voltar ao /login é o sintoma de CSRF ausente ou campo com nome errado.');
+        self::assertSame('/login/entrando', $destino, 'Voltar ao /login é o sintoma de CSRF ausente ou campo com nome errado.');
         self::assertNotNull($client->getContainer()->get('security.token_storage')->getToken(), 'A sessão precisa terminar autenticada.');
 
         // A volta pós-login passa pelo véu `/login/entrando`: seguir o redirect não pode cair de novo no formulário.
-        if (str_starts_with($destino, '/login/entrando')) {
-            $client->followRedirect();
-            self::assertLessThan(400, $client->getResponse()->getStatusCode());
-            self::assertSelectorNotExists('form#lgForm');
-        }
+        $client->followRedirect();
+        self::assertLessThan(400, $client->getResponse()->getStatusCode());
+        self::assertSelectorNotExists('form#lgForm');
     }
 
     #[TestDox('Contrato do formulário: campos, token CSRF, botão "Entrar" e um só link de recuperação')]
