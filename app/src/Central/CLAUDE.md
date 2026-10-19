@@ -55,6 +55,15 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     quem está on-line (só ids, status e minutos) para o selo do cabeçalho (`templates/menu_usuario/_presenca.html.twig`,
     `presenca-cabecalho.js`; spec `docs/specs/presenca-e-ponto-no-cabecalho.md`).
 
+13. **Encaminhar via Chat I.A (`docs/specs/encaminhar-via-chat-ia.md`).** O servidor relê o item
+    (`ItensEncaminhaveisDaPasta`, id + pasta + tenant explícitos; de fora = 404 `ItemEncaminhadoNaoEncontradoException`)
+    e monta título e resumo em texto puro com `@[` desarmado (`@ [`); a instrução não é desarmada (menção nela vale).
+    O cadeado da pasta vale para quem RECEBE (`AcessoAPasta::podeVer`): colega que não vê some de "Para quem?" e é
+    recusado (422); grupo com algum membro ativo que não vê fica travado com o motivo. A mensagem passa pelo
+    `EnviarMensagemUseCase`. "Urgente" gera `Notificacao` `central_despacho` sem texto, com o link da conversa; a
+    auditoria é uma linha manual (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e
+    prioridade, nunca texto.
+
 ## Modelo
 
 `central_conversa` (individual: par ordenado `usuario_menor`/`usuario_maior`, único por escritório; grupo: par nulo,

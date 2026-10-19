@@ -5,8 +5,9 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
 
 ## Estado da frente
 
-- **19/10:** investigação concluída, perguntas de produto respondidas pelo coordenador (§2). Spec v1. Nenhum código.
-- **Próximo:** PR1, o backend (§4), cortado do master.
+- **19/10:** investigação concluída, perguntas de produto respondidas pelo coordenador (§2).
+- **19/10, PR1 (backend):** implementado na branch `encaminhar-chat-ia` (commit 82327702), em revisão.
+- **Próximo:** PR2 (tela de despacho), quando a base de presença entrar no master.
 
 ### Para o dono
 
@@ -54,7 +55,7 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 3. Grupo com algum membro que não vê a pasta: **o grupo inteiro fica fora**, com o motivo.
 4. v1 com o chip "Pasta N" que abre a pasta, como o desenho mostra. Sem link para o registro exato, sem migration.
 5. Quem perde o acesso depois mantém o texto já entregue.
-6. **Segue o desenho:** prefixo com 🔴 e 🟠. "Urgente" gera aviso no sino de tipo novo `despacho`; "Para hoje" é só o prefixo.
+6. **Segue o desenho:** prefixo com 🔴 e 🟠. "Urgente" gera aviso no sino de tipo novo `central_despacho`; "Para hoje" é só o prefixo.
 7. Auditoria só com tipo, item #id e destinatário #id, sem texto (regra 3 da Central).
 8. "Enviar no Chat I.A" (D:6872) **entra**, em fatia própria.
 9. Itens sem id no desenho (prazo, documento do PDF do Push): a referência é a pasta.
@@ -66,7 +67,8 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
   PR1 sair antes, ele traz um provisório com o mesmo nome e assinatura sobre `PermissionChecker::canAccessResource(...,
   RESOURCE_PASTA, id, VIEW)`, que a b5 substitui.
 - `EncaminharItemDaPastaUseCase::executar(User $eu, Tenant, EncaminharItemInput): EncaminhamentoOutput`
-  - Input: `pastaId`, `tipo` (enum `TipoDeItemEncaminhado`: registro, documento, pasta, processo, meta, push),
+  - Input: `pastaId`, `tipo` (enum `TipoDeItemEncaminhado`: pasta, registro_dados, registro_detalhes,
+    registro_financeiro, documento, secao, processo, meta, prazo, push, nota_tecnica; item sem id vai como `pasta`),
     `itemId?`, destino (`usuarioId` XOR `conversaId`), `instrucao?` (até 1000), `prioridade` (enum: normal, urgente,
     para_hoje).
   - O **servidor** relê o item e monta título e resumo (nunca o texto do cliente); item de outra pasta ou de outro
@@ -74,7 +76,10 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
   - Exige: eu vejo a pasta; o destino (cada participante ativo, no grupo) vê a pasta. Senão recusa com o motivo.
   - Abre ou reaproveita a 1:1 (`AbrirConversaUseCase`) e grava a mensagem pelo caminho do `EnviarMensagemUseCase`
     (participação, menções, limite de 4000).
-  - Urgente: `Notificacao` tipo `despacho` para cada membro, sem o texto do item (só "Despacho urgente de NOME").
+  - Urgente: `Notificacao` tipo `central_despacho` para cada membro, sem o texto do item (só "Despacho urgente de
+    NOME"), com o link da conversa.
+  - Auditoria: linha manual no `audit_log` com `action = 'despacho'` (a coluna tem 10 caracteres), entidade Pasta,
+    só tipo, item_id, conversa_id e prioridade.
 - `ListarDestinosDoEncaminhamentoUseCase(User, Tenant, pastaId)`: conversas e colegas que veem a pasta; grupos fora
   levam `motivo`.
 - Rotas (Central, CSRF `ajax`): `GET /central/encaminhar/destinos?pasta=N`, `POST /central/encaminhar`.
