@@ -171,7 +171,7 @@ final class PastaPushPainelTelaTest extends JusPrimeWebTestCase
             $sit->filter('.ps-push-sit-grade > .ps-push-sit-k')->each(static fn (Crawler $k): string => $k->text()),
         );
         self::assertSame('02/10/2026 · Intimação', $sit->filter('.ps-push-sit-grade > .ps-push-sit-v')->first()->text());
-        self::assertStringStartsWith('26/10/2026', $sit->filter('.ps-push-sit-previsao')->text());
+        self::assertStringStartsWith('27/10/2026', $sit->filter('.ps-push-sit-previsao')->text());
         self::assertStringStartsWith('Contagem em dias úteis a partir do 1º dia útil após a publicação', (string) $sit->filter('.ps-push-sit-previsao')->attr('title'));
         self::assertSame('Próxima etapa provável', $sit->filter('.ps-push-sit-proxima .ps-push-sit-rotulo')->text());
         self::assertSame('Confiança Alta', $sit->filter('.ps-push-sit-conf-selo--alta')->text());

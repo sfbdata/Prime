@@ -94,6 +94,15 @@ final class DiasUteisNacionaisTest extends TestCase
         self::assertSame('2027-01-27', $this->dias->somarUteis(self::d('2026-12-18'), 5)->format('Y-m-d'));
     }
 
+    #[TestDox('Lei 11.419 art. 4º e CPC art. 224: disponibilizada em 02/10/2026 (sexta), publicada em 05/10, 15 dias úteis terminam em 27/10/2026')]
+    public function testDisponibilizacaoPublicacaoEPrazo(): void
+    {
+        $publicacao = $this->dias->publicacaoDe(self::d('2026-10-02'));
+        self::assertSame('2026-10-05', $publicacao->format('Y-m-d'));
+        self::assertSame('2026-10-27', $this->dias->somarUteis($publicacao, 15)->format('Y-m-d'));
+        self::assertSame('2026-10-13', $this->dias->publicacaoDe(self::d('2026-10-09'))->format('Y-m-d'), 'sexta antes do feriado de segunda');
+    }
+
     #[TestDox('Faltam 5 dias úteis de 19/10/2026 a 26/10/2026; 0 no próprio dia; -1 depois do fim')]
     public function testUteisAte(): void
     {

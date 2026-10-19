@@ -89,11 +89,13 @@ verificação, cartão com os textos certos em cada estado, grade com filho dire
   pausado, o switch mostra "Pausado por X em dd/mm".
 - **Taxa de acertos por pasta**: `previsao_processual` tem `pasta_id` e UNIQUE (pasta, chave). O processo pode estar
   em mais de uma pasta, cada uma com a sua lista; por processo, uma pasta conferiria a previsão da outra.
-- **A confirmar com o dono: contagem do prazo a partir da disponibilização.** O porte é fiel ao desenho
-  (`somaUteis` sobre a data da movimentação, L5090): a data de disponibilização no DJEN é tratada como a
-  publicação, e o prazo começa no 1º dia útil seguinte. Pela Lei 11.419/2006, art. 4º, §§ 3º e 4º, a publicação é o
-  1º dia útil seguinte à disponibilização, e o prazo começaria no dia útil depois dela (um dia a mais). Mantido
-  como o desenho até o dono decidir.
+- **Contagem do prazo segue a lei, não o protótipo (decidido pelo coordenador, 19/10/2026).** A data da
+  movimentação no DJEN é a DISPONIBILIZAÇÃO. A publicação é o 1º dia útil seguinte (Lei 11.419/2006, art. 4º,
+  § 3º; CPC, art. 224, § 2º) e o prazo começa no 1º dia útil depois da publicação (Lei 11.419, art. 4º, § 4º;
+  CPC, art. 224, § 3º). O desenho (`somaUteis` sobre a data da movimentação, L5090) pulava a publicação e errava
+  o fim em 1 dia útil: é erro de cálculo do protótipo, corrigido pela lei. Exemplo testado: disponibilizada em
+  02/10/2026, publicada em 05/10, 15 dias úteis terminam em 27/10/2026 (o desenho dava 26/10). O rótulo continua
+  "Previsão": é estimativa e não substitui o controle de prazos do advogado.
 - **A confirmar com o dono: pausa e a captação pela OAB.** Pausar tira o número da captação POR NÚMERO. A captação
   pela OAB monitorada continua trazendo publicações desse processo quando a OAB aparece nelas, e elas continuam
   aparecendo na aba. Comportamento mantido até o dono decidir se a pausa também deve filtrar essas.

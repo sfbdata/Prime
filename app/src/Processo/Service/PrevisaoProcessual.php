@@ -75,7 +75,10 @@ final class PrevisaoProcessual
         if ($notaDoPrazo !== null) {
             $notas[] = $notaDoPrazo;
         }
-        $fim = $dias ? $this->diasUteis->somarUteis($ultima->data, $dias) : null;
+        // A data da movimentação do DJEN é a DISPONIBILIZAÇÃO, não a publicação. O desenho (L.5090)
+        // contava dali e errava o fim em 1 dia útil; a lei corrige o protótipo (decisão do
+        // coordenador, 19/10): publicação = 1º útil seguinte, prazo a partir do útil depois dela.
+        $fim = $dias ? $this->diasUteis->somarUteis($this->diasUteis->publicacaoDe($ultima->data), $dias) : null;
         $falta = $fim !== null ? $this->diasUteis->uteisAte($fim, $hoje) : null;
 
         return $this->montar($regra, $ult, max(1, $historico->total), $conf, $notas, $dias, $fim, $falta);

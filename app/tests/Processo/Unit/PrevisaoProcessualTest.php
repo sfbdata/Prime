@@ -81,7 +81,7 @@ final class PrevisaoProcessualTest extends TestCase
         self::assertSame($prazo, $situacao->prazo);
     }
 
-    #[TestDox('Exemplo do desenho: Intimação de 02/10/2026 leva à réplica até 26/10/2026, faltam 5 em 19/10, confiança Média pela classe')]
+    #[TestDox('Exemplo do desenho, corrigido pela lei: Intimação disponibilizada em 02/10/2026 leva à réplica até 27/10/2026, faltam 6 em 19/10, confiança Média pela classe')]
     public function testExemploDoDesenho(): void
     {
         $situacao = $this->prever([
@@ -96,7 +96,7 @@ final class PrevisaoProcessualTest extends TestCase
         self::assertSame('Réplica / manifestação da parte autora', $situacao->proximo);
         self::assertSame('Parte autora', $situacao->quem);
         self::assertSame('15 dias úteis', $situacao->prazo);
-        self::assertSame('26/10/2026 · faltam 5 dias úteis', $situacao->previsao);
+        self::assertSame('27/10/2026 · faltam 6 dias úteis', $situacao->previsao);
         self::assertSame('Conclusão para decisão / saneamento (CPC art. 357)', $situacao->posterior);
         self::assertSame('Média', $situacao->conf);
         self::assertSame('media', $situacao->confMod);
@@ -146,7 +146,7 @@ final class PrevisaoProcessualTest extends TestCase
         self::assertSame('5 dias úteis', $situacao->prazo);
         self::assertSame('O texto fala em 5 dias; usei o prazo do texto.', $situacao->nota);
         // 14/10 (quarta): 15, 16, 19, 20, 21.
-        self::assertSame('21/10/2026 · faltam 2 dias úteis', $situacao->previsao);
+        self::assertSame('22/10/2026 · faltam 3 dias úteis', $situacao->previsao);
     }
 
     #[TestDox('Selo "Prazo encerrado" com "(encerrado)" quando o fim já passou')]
@@ -157,7 +157,7 @@ final class PrevisaoProcessualTest extends TestCase
         self::assertSame('Prazo encerrado', $situacao->status);
         self::assertSame(SituacaoAtualOutput::STATUS_ENCERRADO, $situacao->statusMod);
         // 01/09 (terça) + 15 dias úteis, pulando o 07/09: 23/09.
-        self::assertSame('23/09/2026 (encerrado)', $situacao->previsao);
+        self::assertSame('24/09/2026 (encerrado)', $situacao->previsao);
     }
 
     #[TestDox('Selo "Prazo terminando" com até 3 dias úteis')]
@@ -165,12 +165,12 @@ final class PrevisaoProcessualTest extends TestCase
     {
         $situacao = $this->prever(
             [self::mov('2026-10-02', 'Citação', 'Citação da parte ré.')],
-            hoje: '2026-10-21',
+            hoje: '2026-10-22',
         );
 
         self::assertSame('Prazo terminando', $situacao->status);
         self::assertSame(SituacaoAtualOutput::STATUS_TERMINANDO, $situacao->statusMod);
-        self::assertSame('26/10/2026 · faltam 3 dias úteis', $situacao->previsao);
+        self::assertSame('27/10/2026 · faltam 3 dias úteis', $situacao->previsao);
     }
 
     #[TestDox('Sem regra: fase não identificada, sem prazo e sem data, confiança Baixa')]

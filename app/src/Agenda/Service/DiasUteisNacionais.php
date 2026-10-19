@@ -59,6 +59,16 @@ final class DiasUteisNacionais
     }
 
     /**
+     * Data de publicação de uma intimação no DJEN: o 1º dia útil seguinte ao da disponibilização
+     * (Lei 11.419/2006, art. 4º, § 3º; CPC, art. 224, § 2º). O prazo começa no 1º dia útil depois
+     * da publicação (Lei 11.419, art. 4º, § 4º; CPC, art. 224, § 3º), que é o que `somarUteis` faz.
+     */
+    public function publicacaoDe(\DateTimeImmutable $disponibilizacao): \DateTimeImmutable
+    {
+        return $this->primeiroUtilDepois($disponibilizacao->setTime(0, 0));
+    }
+
+    /**
      * Quantos dias úteis faltam de `$hoje` até `$fim` (dc L.5091, `uteisAte`): -1 quando o fim já
      * passou; 0 quando o fim é hoje.
      */
