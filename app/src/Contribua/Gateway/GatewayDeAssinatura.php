@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Contribua\Gateway;
 
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+
 /**
  * Um gateway de cartão para a assinatura mensal de espaço (desenho 08: Mercado Pago, Stripe, Asaas,
  * Pagar.me). Uma implementação por gateway, cada uma num adaptador; o resto do Contribua só conhece esta
@@ -15,9 +17,17 @@ namespace App\Contribua\Gateway;
  *  - toda chamada de rede que falha vira `FalhaNoGateway` (nunca exceção do HttpClient vazando);
  *  - `interpretarAviso` autentica antes de ler e lança `AvisoNaoAutenticado` sem a credencial;
  *  - `consultar` é a fonte da verdade e é idempotente.
+ *
+ * Todo adaptador recebe a tag `contribua.gateway` sozinho (atributo abaixo) e é escolhido pelo `codigo()`
+ * que o Master configurou: o adaptador não precisa de registro em `services.yaml`. As credenciais vêm do
+ * ambiente, com o prefixo `CONTRIBUA_<GATEWAY>_` (ex.: `CONTRIBUA_ASAAS_API_KEY`), lidas no construtor
+ * do próprio adaptador com `#[Autowire(env: ...)]`.
  */
+#[AutoconfigureTag(GatewayDeAssinatura::TAG)]
 interface GatewayDeAssinatura
 {
+    public const TAG = 'contribua.gateway';
+
     /** 'asaas', 'mercado_pago', 'stripe', 'pagarme' (ou 'falso', nos testes). */
     public function codigo(): string;
 
