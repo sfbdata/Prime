@@ -1,0 +1,57 @@
+{# ============================================================================
+   Modal "Enviar ao cliente" da Análise IA (spec push-avisar-cliente §3; desenho de 18/10, dc
+   N:2831-2873, `mailVals` N:5272-5291). Aberto pelo botão "Enviar ao cliente" / "Reenviar ao cliente"
+   do cartão da análise (inteligencia/_analises_push.html.twig), que traz o assunto, a mensagem padrão
+   e o subtítulo. Os chips "Para" são montados pelo pasta-push-cliente.js a partir dos e-mails do
+   cartão "Avisar cliente" (todos os não descadastrados; marcados os que recebem avisos).
+
+   A cópia da Controladoria é do servidor e não sai daqui: a tela só a mostra, travada.
+
+   Contexto: `pasta`, `cliente` (App\Pasta\DTO\AvisarClienteOutput).
+   ============================================================================ #}
+<div class="ps-push-envio-fundo" data-push-envio hidden
+     data-envio-url="{{ path('pasta_push_cliente_enviar_analise', {id: pasta.id, analiseId: 0})|replace({'/0/enviar': '/__ID__/enviar'}) }}"
+     data-token="{{ csrf_token('pasta_push_cliente_' ~ pasta.id) }}">
+    <div class="ps-push-envio" role="dialog" aria-modal="true" aria-label="Enviar análise ao cliente">
+        <div class="ps-push-envio-cab">
+            <i class="bi bi-envelope-paper" aria-hidden="true"></i>
+            <div class="ps-push-envio-cab-texto">
+                <div class="ps-push-envio-titulo">Enviar ao cliente</div>
+                <div class="ps-push-envio-sub" data-push-envio-sub>{{ cliente.subDoModal }}</div>
+            </div>
+            <button type="button" class="ps-push-envio-x" aria-label="Fechar" data-push-envio-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="ps-push-envio-corpo">
+            <div>
+                <div class="ps-push-envio-rotulo">Para</div>
+                <div class="ps-push-envio-chips" data-push-envio-para></div>
+            </div>
+            <div>
+                <div class="ps-push-envio-rotulo ps-push-envio-rotulo--cc">Cópia (CC) · Controladoria<i class="bi bi-lock-fill" title="Cópia obrigatória: garante a conferência e o controle dos atos enviados ao cliente" aria-hidden="true"></i></div>
+                <div class="ps-push-envio-chips">
+                    {% for k in cliente.controladoria %}
+                        <span class="ps-push-envio-cc" title="Cópia obrigatória, não pode ser removida"><i class="bi bi-shield-check" aria-hidden="true"></i>{{ k.nome }} · {{ k.email }}</span>
+                    {% else %}
+                        <span class="ps-push-envio-sem-cc">Nenhum usuário com perfil de Controladoria cadastrado.</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <div class="ps-push-envio-rotulo">Assunto</div>
+                <input type="text" class="ps-push-envio-assunto" aria-label="Assunto" maxlength="255" data-push-envio-assunto>
+            </div>
+            <div>
+                <div class="ps-push-envio-msg-cab"><span class="ps-push-envio-rotulo">Mensagem</span><span class="ps-push-envio-selo-ia">texto da análise, revise antes de enviar</span></div>
+                <textarea class="ps-push-envio-texto" rows="11" aria-label="Mensagem" data-push-envio-corpo></textarea>
+            </div>
+            <button type="button" class="ps-push-envio-revisei" role="checkbox" aria-checked="false" data-push-envio-revisei>
+                <i class="bi bi-square" aria-hidden="true"></i><span>Revisei e corrigi o conteúdo. Autorizo o envio ao cliente em nome do escritório.</span>
+            </button>
+            <div class="ps-push-envio-erro" data-push-envio-erro role="alert" hidden><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span></span></div>
+        </div>
+        <div class="ps-push-envio-rodape">
+            <button type="button" class="ps-push-envio-cancelar" data-push-envio-fechar>Cancelar</button>
+            <button type="button" class="ps-push-envio-enviar" data-push-envio-confirmar><i class="bi bi-send" aria-hidden="true"></i><span data-push-envio-confirmar-txt>Enviar e-mail</span></button>
+        </div>
+    </div>
+</div>

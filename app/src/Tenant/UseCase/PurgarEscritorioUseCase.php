@@ -181,6 +181,10 @@ final class PurgarEscritorioUseCase
         // Chaves do "Avisar quando chegar" do Push (por pasta): cairiam pela CASCADE de `pasta`, mas a FK
         // de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_aviso_push', 'tenant_id = :tenant'],
+        // "Avisar cliente" do Push (P4c): o histórico de envios cai pela CASCADE de `pasta` e os e-mails do
+        // cliente pela de `cliente`, mas a FK de tenant das duas é NO ACTION; deleção explícita aqui.
+        ['envio_ao_cliente', 'tenant_id = :tenant'],
+        ['cliente_email', 'tenant_id = :tenant'],
         // Prazos e audiências da pasta (E12b): cairiam pela CASCADE de `pasta`; FK de tenant NO ACTION.
         ['pasta_prazo', 'tenant_id = :tenant'],
         // Andamento da pasta em fases (E12b): mesmo caso.
