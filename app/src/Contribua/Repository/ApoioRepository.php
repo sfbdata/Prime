@@ -48,4 +48,33 @@ class ApoioRepository extends ServiceEntityRepository
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
+
+    /**
+     * O apoio confirmado pelo banco desta conta cujo prêmio ainda não foi visto (C4, desenho 08: um prêmio por
+     * apoio confirmado). Escritório filtrado à mão.
+     */
+    public function comPremioPendente(int $tenantId): ?Apoio
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('IDENTITY(a.tenant) = :tenant')
+            ->andWhere('a.confirmadoEm IS NOT NULL')
+            ->andWhere('a.idCora IS NOT NULL')
+            ->andWhere('a.premioVistoEm IS NULL')
+            ->setParameter('tenant', $tenantId)
+            ->orderBy('a.confirmadoEm', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function doEscritorio(int $id, int $tenantId): ?Apoio
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.id = :id')
+            ->andWhere('IDENTITY(a.tenant) = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('tenant', $tenantId)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }
