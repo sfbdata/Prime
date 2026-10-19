@@ -66,7 +66,8 @@ o compartilhar entram como fatia própria.
   referência nas worktrees). Conferência dos #62, #83 e #84 contra ele: em andamento.
 - Descrição do #62 não editável pelo `gh` 2.46 desta máquina: complemento postado como comentário.
 
-**Próximo passo**: esperar o merge do #62 e seguir a pilha. A F2d (§4.3) espera o PR da 5d, que avisa
+**Próximo passo**: corrigir os #62, #83 e #84 contra o desenho completo; depois F3a (§4.4), empilhada.
+Esperar o merge do #62 e seguir a pilha. A F2d (§4.3) espera o PR da 5d, que avisa
 quando abrir. Enquanto isso, o que não depender da P1 nem do zip.
 
 
@@ -346,6 +347,30 @@ O que a F2d faz aqui, no Trabalho Externo:
    email, null)`. Regra de frequência (por vaga ou resumo diário): **pendente** (o desenho não diz;
    proposta: resumo diário).
 3. A 5d não lê a tabela daqui; a "Base de contatos" dela vem das confirmações dela.
+
+## 4.4 Plano das fases que faltam (desenho 06 completo, 19/10)
+
+Inventário completo do script (l.707–1348) feito em 19/10. Ordem, porque a candidatura exige o
+currículo (`candidatar()` l.974 abre o formulário se não houver) e a visão externa usa os dois:
+
+| Fatia | Conteúdo | Depende de |
+|---|---|---|
+| **F3a** | Currículo: entidade (um por usuário externo), formulário `tmCvForm` (l.254–283, validações l.1006, campos condicionais por `sit` l.1173–1175), arquivos (foto 256×256, carteira da OAB, comprovante de curso, currículo PDF/Word), "Meu currículo" com percentual (l.1013–1014), PDF `cvHTML` (l.920–938), banco interno: lista, filtros `cvFiltros` e selects (l.1119, 1148, 1151), lote, menu (l.1000), detalhe `tmCv` com status CST e nota interna, exportar CSV (l.1150) | F2a |
+| **F2b** | Candidatura: `candidatar` e aceite de oferta (l.974, 978), status AST e linha do tempo (l.1039–1047), envio de candidatos ao escritório com `minEnvio` (l.981), lista de candidatos no detalhe da vaga (l.1003), "Ofertar novamente" e "Finalizar oferta" (l.982–983), cronômetro, ordenação por compatibilidade (l.1011) | F3a |
+| **F3b** | Painel do banco (só Master): KPIs (l.1146), gráficos (l.1125), crescimento (l.1128–1144); Termo de Voluntariado (l.848–875, 1025–1035, 315–327): modelo, envio, aceite eletrônico com versão | F3a, F2b |
+| **F4** | Visão externa e engajamento: abas com contadores (l.1105), banner e chips (l.1020–1022), sino de avisos (l.1107), boas-vindas pelo link (l.1078, 1111), lembrete diário (l.1054–1061), "quase lá" (l.1012); campanha por e-mail do Master (l.1082–1097) consumindo a 5d | F3, F2b, contrato 5d |
+
+**Decisões nas lacunas do desenho** (técnicas, registradas para o PR de cada fatia):
+1. Nota interna e status do banco (CST) **não** saem para o dono externo da vaga quando ele abre o
+   currículo de um candidato enviado: o rótulo do desenho é "NOTA INTERNA (SÓ MASTER E EQUIPE)" (l.311).
+2. A candidatura é recusada no servidor se a vaga não estiver aberta ou se o prazo de inscrição tiver
+   passado; "Exige OAB ativa" continua só informativo, como no desenho (l.252, 1003).
+3. Mudar status do candidato e marcar para envio exigem `talentos` (Master ou Equipe com a chave),
+   como as outras ações de gestão (o protótipo só pedia ser interno).
+4. Aceite de oferta relâmpago cria a candidatura direto em "Aprovado", como no desenho (l.978).
+5. O aceite do Termo grava data e hora em ISO no servidor (o protótipo grava texto local).
+6. Arquivos (foto, carteira, comprovante, currículo, termo) seguem a skill `armazenamento-de-arquivos`;
+   CPF e RG do voluntário só existem no Termo.
 
 ### Fatias seguintes
 
