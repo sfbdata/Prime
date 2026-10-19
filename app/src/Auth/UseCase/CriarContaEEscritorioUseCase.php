@@ -59,7 +59,8 @@ final class CriarContaEEscritorioUseCase
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
         private readonly ClockInterface $relogio,
-    ) {}
+    ) {
+    }
 
     public function executar(CriarContaEEscritorioInput $input, string $ip, ?string $userAgent): ContaCriadaOutput
     {

@@ -15,5 +15,6 @@ final readonly class ContaCriadaOutput
     public function __construct(
         public User $user,
         public Tenant $tenant,
-    ) {}
+    ) {
+    }
 }

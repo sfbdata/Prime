@@ -52,19 +52,40 @@ class ConfirmacaoEmail
         return hash('sha256', $token);
     }
 
-    public function getId(): ?int { return $this->id; }
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
 
-    public function getUser(): User { return $this->user; }
+    public function getUser(): User
+    {
+        return $this->user;
+    }
 
-    public function getTokenHash(): string { return $this->tokenHash; }
+    public function getTokenHash(): string
+    {
+        return $this->tokenHash;
+    }
 
-    public function getExpiraEm(): \DateTimeImmutable { return $this->expiraEm; }
+    public function getExpiraEm(): \DateTimeImmutable
+    {
+        return $this->expiraEm;
+    }
 
-    public function isLembrete(): bool { return $this->lembrete; }
+    public function isLembrete(): bool
+    {
+        return $this->lembrete;
+    }
 
-    public function getCriadoEm(): \DateTimeImmutable { return $this->criadoEm; }
+    public function getCriadoEm(): \DateTimeImmutable
+    {
+        return $this->criadoEm;
+    }
 
-    public function getUsadoEm(): ?\DateTimeImmutable { return $this->usadoEm; }
+    public function getUsadoEm(): ?\DateTimeImmutable
+    {
+        return $this->usadoEm;
+    }
 
     public function isExpirado(\DateTimeImmutable $agora): bool
     {

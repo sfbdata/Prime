@@ -48,23 +48,53 @@ class MensagemSuporte
     ) {
     }
 
-    public function getId(): ?int { return $this->id; }
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
 
-    public function getNome(): string { return $this->nome; }
+    public function getNome(): string
+    {
+        return $this->nome;
+    }
 
-    public function getEmail(): string { return $this->email; }
+    public function getEmail(): string
+    {
+        return $this->email;
+    }
 
-    public function getAssunto(): ?string { return $this->assunto; }
+    public function getAssunto(): ?string
+    {
+        return $this->assunto;
+    }
 
-    public function getMensagem(): string { return $this->mensagem; }
+    public function getMensagem(): string
+    {
+        return $this->mensagem;
+    }
 
-    public function getIp(): string { return $this->ip; }
+    public function getIp(): string
+    {
+        return $this->ip;
+    }
 
-    public function getUserAgent(): ?string { return $this->userAgent; }
+    public function getUserAgent(): ?string
+    {
+        return $this->userAgent;
+    }
 
-    public function getDestinatario(): ?User { return $this->destinatario; }
+    public function getDestinatario(): ?User
+    {
+        return $this->destinatario;
+    }
 
-    public function getOrigem(): string { return $this->origem; }
+    public function getOrigem(): string
+    {
+        return $this->origem;
+    }
 
-    public function getCriadaEm(): \DateTimeImmutable { return $this->criadaEm; }
+    public function getCriadaEm(): \DateTimeImmutable
+    {
+        return $this->criadaEm;
+    }
 }

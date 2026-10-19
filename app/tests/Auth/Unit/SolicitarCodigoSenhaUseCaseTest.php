@@ -62,9 +62,13 @@ final class SolicitarCodigoSenhaUseCaseTest extends TestCase
     private function capturar(): void
     {
         $this->redefinicaoRepository->method('salvar')
-            ->willReturnCallback(function (RedefinicaoSenha $r): void { $this->salvo = $r; });
+            ->willReturnCallback(function (RedefinicaoSenha $r): void {
+                $this->salvo = $r;
+            });
         $this->mailer->method('enviarCodigo')
-            ->willReturnCallback(function (User $u, string $codigo): void { $this->codigoEnviado = $codigo; });
+            ->willReturnCallback(function (User $u, string $codigo): void {
+                $this->codigoEnviado = $codigo;
+            });
     }
 
     private function executar(string $email = 'ana@adv.com'): void
@@ -171,7 +175,9 @@ final class SolicitarCodigoSenhaUseCaseTest extends TestCase
         $destinatario = null;
         $this->mailer->expects($this->once())
             ->method('enviarCodigo')
-            ->willReturnCallback(function (User $u) use (&$destinatario): void { $destinatario = $u; });
+            ->willReturnCallback(function (User $u) use (&$destinatario): void {
+                $destinatario = $u;
+            });
 
         $this->executar('Ana@Adv.com');
 
@@ -202,7 +208,9 @@ final class SolicitarCodigoSenhaUseCaseTest extends TestCase
         $contexto = null;
         $this->logger->expects($this->once())
             ->method('error')
-            ->willReturnCallback(function (string $msg, array $ctx) use (&$contexto): void { $contexto = $ctx; });
+            ->willReturnCallback(function (string $msg, array $ctx) use (&$contexto): void {
+                $contexto = $ctx;
+            });
 
         // Sem exceção: se o erro subisse, só apareceria para conta existente (RN02).
         $this->executar();

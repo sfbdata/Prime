@@ -25,7 +25,8 @@ final class ReemitirConfirmacaoDeEmailUseCase
         private readonly ConfirmacaoEmailRepository $confirmacaoEmailRepository,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly ClockInterface $relogio,
-    ) {}
+    ) {
+    }
 
     public function executar(int $userId): ReemissaoDeConfirmacaoOutput
     {

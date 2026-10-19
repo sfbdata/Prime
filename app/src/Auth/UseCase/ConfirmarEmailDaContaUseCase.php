@@ -23,7 +23,8 @@ final class ConfirmarEmailDaContaUseCase
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
         private readonly ClockInterface $relogio,
-    ) {}
+    ) {
+    }
 
     public function executar(string $token): void
     {

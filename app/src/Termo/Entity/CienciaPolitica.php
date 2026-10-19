@@ -38,15 +38,33 @@ class CienciaPolitica
     ) {
     }
 
-    public function getId(): ?int { return $this->id; }
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
 
-    public function getUser(): User { return $this->user; }
+    public function getUser(): User
+    {
+        return $this->user;
+    }
 
-    public function getVersao(): string { return $this->versao; }
+    public function getVersao(): string
+    {
+        return $this->versao;
+    }
 
-    public function getIp(): string { return $this->ip; }
+    public function getIp(): string
+    {
+        return $this->ip;
+    }
 
-    public function getUserAgent(): ?string { return $this->userAgent; }
+    public function getUserAgent(): ?string
+    {
+        return $this->userAgent;
+    }
 
-    public function getCienteEm(): \DateTimeImmutable { return $this->cienteEm; }
+    public function getCienteEm(): \DateTimeImmutable
+    {
+        return $this->cienteEm;
+    }
 }

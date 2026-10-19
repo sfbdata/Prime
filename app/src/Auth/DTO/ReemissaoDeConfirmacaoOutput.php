@@ -14,5 +14,6 @@ final readonly class ReemissaoDeConfirmacaoOutput
         public string $email,
         public string $nome,
         public string $url,
-    ) {}
+    ) {
+    }
 }

@@ -48,15 +48,30 @@ class AjusteEntrada
         return 'link.' . $link;
     }
 
-    public function getChave(): string { return $this->chave; }
+    public function getChave(): string
+    {
+        return $this->chave;
+    }
 
-    public function getValor(): ?string { return $this->valor; }
+    public function getValor(): ?string
+    {
+        return $this->valor;
+    }
 
-    public function isOculto(): bool { return $this->oculto; }
+    public function isOculto(): bool
+    {
+        return $this->oculto;
+    }
 
-    public function getAlteradoEm(): \DateTimeImmutable { return $this->alteradoEm; }
+    public function getAlteradoEm(): \DateTimeImmutable
+    {
+        return $this->alteradoEm;
+    }
 
-    public function getAlteradoPor(): ?User { return $this->alteradoPor; }
+    public function getAlteradoPor(): ?User
+    {
+        return $this->alteradoPor;
+    }
 
     public function definirValor(?string $valor, User $por, \DateTimeImmutable $agora): void
     {

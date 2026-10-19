@@ -200,13 +200,19 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         $aceite = null;
         $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
         $this->aceiteRepository->expects($this->once())->method('salvar')
-            ->willReturnCallback(static function (AceiteTermo $a) use (&$aceite): void { $aceite = $a; });
+            ->willReturnCallback(static function (AceiteTermo $a) use (&$aceite): void {
+                $aceite = $a;
+            });
         $ciencia = null;
         $this->cienciaRepository->expects($this->once())->method('salvar')
-            ->willReturnCallback(static function (CienciaPolitica $c) use (&$ciencia): void { $ciencia = $c; });
+            ->willReturnCallback(static function (CienciaPolitica $c) use (&$ciencia): void {
+                $ciencia = $c;
+            });
         $confirmacao = null;
         $this->confirmacaoRepository->expects($this->once())->method('salvar')
-            ->willReturnCallback(static function (ConfirmacaoEmail $c) use (&$confirmacao): void { $confirmacao = $c; });
+            ->willReturnCallback(static function (ConfirmacaoEmail $c) use (&$confirmacao): void {
+                $confirmacao = $c;
+            });
         $this->em->expects($this->atLeastOnce())->method('flush');
 
         $conta = $this->useCase()->executar(self::input(nome: '  Ana Souza ', escritorio: ' Souza Advogados ', email: ' Ana@ADV.com '), '10.0.0.1', 'Navegador X');

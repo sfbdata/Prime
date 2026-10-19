@@ -16,5 +16,6 @@ final readonly class CriarContaEEscritorioInput
         public string $email,
         public string $senha,
         public bool $aceite,
-    ) {}
+    ) {
+    }
 }
