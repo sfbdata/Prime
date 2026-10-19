@@ -98,16 +98,10 @@ final class ConfirmarCodigoSenhaUseCase
             && $pedido->getUser()->isActive() === true;
     }
 
-    /** Na quinta tentativa errada o pedido queima: marcado usado, nenhum código passa mais. */
+    /** Na quinta tentativa errada o pedido queima: marcado usado, nenhum código passa mais. Atômico no banco. */
     private function registrarTentativaErrada(RedefinicaoSenha $pedido): void
     {
-        $pedido->registrarTentativaErrada();
-
-        if ($pedido->getTentativas() >= self::MAX_TENTATIVAS) {
-            $pedido->marcarUsado();
-        }
-
-        $this->redefinicaoRepository->salvar($pedido, flush: true);
+        $this->redefinicaoRepository->registrarTentativaErrada($pedido, self::MAX_TENTATIVAS, new \DateTimeImmutable());
     }
 
     /**

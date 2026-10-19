@@ -81,6 +81,22 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
         return $linhas === 1;
     }
 
+    /**
+     * Conta um código errado no próprio banco, num UPDATE só: soma 1 e, ao chegar no máximo, queima o
+     * pedido (usado_em). Ler, somar no PHP e gravar perderia contagem com POSTs paralelos, e cada perda
+     * é um chute a mais contra um código de 6 números. Recarrega a entidade com o que ficou gravado.
+     */
+    public function registrarTentativaErrada(RedefinicaoSenha $redefinicao, int $maximo, \DateTimeImmutable $agora): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE redefinicao_senha SET tentativas = tentativas + 1, '
+            . 'usado_em = CASE WHEN tentativas + 1 >= :maximo THEN :agora ELSE usado_em END '
+            . 'WHERE id = :id AND usado_em IS NULL',
+            ['maximo' => $maximo, 'agora' => $agora->format('Y-m-d H:i:s'), 'id' => $redefinicao->getId()],
+        );
+        $this->getEntityManager()->refresh($redefinicao);
+    }
+
     public function salvar(RedefinicaoSenha $redefinicao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($redefinicao);
