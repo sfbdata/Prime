@@ -208,7 +208,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
 
         self::assertFalse($painel->ativo);
         self::assertSame('Monitoramento pausado', $painel->statusTxt);
-        self::assertSame('Novas movimentações não serão capturadas', $painel->statusSub);
+        self::assertSame('A busca pelo número do processo fica parada; intimações pela OAB continuam chegando.', $painel->statusSub);
         self::assertNotNull($painel->situacao);
     }
 

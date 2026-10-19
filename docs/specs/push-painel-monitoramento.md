@@ -96,6 +96,8 @@ verificação, cartão com os textos certos em cada estado, grade com filho dire
   o fim em 1 dia útil: é erro de cálculo do protótipo, corrigido pela lei. Exemplo testado: disponibilizada em
   02/10/2026, publicada em 05/10, 15 dias úteis terminam em 27/10/2026 (o desenho dava 26/10). O rótulo continua
   "Previsão": é estimativa e não substitui o controle de prazos do advogado.
-- **A confirmar com o dono: pausa e a captação pela OAB.** Pausar tira o número da captação POR NÚMERO. A captação
-  pela OAB monitorada continua trazendo publicações desse processo quando a OAB aparece nelas, e elas continuam
-  aparecendo na aba. Comportamento mantido até o dono decidir se a pausa também deve filtrar essas.
+- **Pausa e captação pela OAB: decidido pelo dono (19/10/2026).** Pausar para SÓ a busca pelo número do processo;
+  as intimações que chegam pela OAB monitorada continuam sendo captadas, para nenhum prazo se perder. A legenda do
+  estado pausado passa a ser "A busca pelo número do processo fica parada; intimações pela OAB continuam chegando.".
+  Desvio de texto do desenho (statusSub, L5437: "Novas movimentações não serão capturadas"), aprovado pelo dono com
+  esse fundamento.

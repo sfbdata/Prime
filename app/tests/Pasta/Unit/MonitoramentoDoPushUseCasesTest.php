@@ -127,7 +127,7 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
 
         self::assertFalse($pausado->ativo);
         self::assertSame('Monitoramento pausado', $pausado->statusTxt);
-        self::assertSame('Novas movimentações não serão capturadas · 2 processos', $pausado->statusSub);
+        self::assertSame('A busca pelo número do processo fica parada; intimações pela OAB continuam chegando. · 2 processos', $pausado->statusSub);
         self::assertSame($usuario, $principal->getMonitoramentoAlteradoPor());
         self::assertEquals(new \DateTimeImmutable(self::AGORA), $principal->getMonitoramentoPausadoEm());
         self::assertSame('Pausado em 19/10', $pausado->processos[0]->dicaPausa, 'usuário sem nome: só a data');

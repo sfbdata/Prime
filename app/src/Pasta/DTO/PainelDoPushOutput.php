@@ -84,9 +84,11 @@ final readonly class PainelDoPushOutput
             return ['Sem monitoramento', 'Vincule um processo'];
         }
 
+        // Pausado: desvio de texto do desenho (statusSub, L5437) aprovado pelo dono (19/10): a pausa só para a
+        // busca pelo número; intimações pela OAB continuam sendo captadas, para nenhum prazo se perder.
         [$titulo, $sub] = $ativo
             ? ['Monitoramento ativo', 'Captura automática nos diários e no PJe']
-            : ['Monitoramento pausado', 'Novas movimentações não serão capturadas'];
+            : ['Monitoramento pausado', 'A busca pelo número do processo fica parada; intimações pela OAB continuam chegando.'];
 
         return [$titulo, $sub . ($quantos > 1 ? ' · ' . $quantos . ' processos' : '')];
     }

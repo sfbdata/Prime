@@ -124,7 +124,7 @@ final class PastaPushPainelTelaTest extends JusPrimeWebTestCase
         $painel = $this->abrir($client, $user, $tenant, (int) $pasta->getId())->filter(self::PAINEL);
 
         self::assertSame('Monitoramento pausado', $painel->filter('.ps-push-painel-titulo')->text());
-        self::assertSame('Novas movimentações não serão capturadas', $painel->filter('.ps-push-painel-sub')->text());
+        self::assertSame('A busca pelo número do processo fica parada; intimações pela OAB continuam chegando.', $painel->filter('.ps-push-painel-sub')->text());
         self::assertCount(0, $painel->filter('.ps-push-painel-ponto.is-ativo'));
         self::assertSame('false', $painel->filter('[role="switch"]')->attr('aria-checked'));
         self::assertNotNull($painel->filter('.ps-push-buscar')->attr('disabled'));
