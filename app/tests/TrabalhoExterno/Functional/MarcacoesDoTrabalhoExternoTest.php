@@ -151,6 +151,8 @@ final class MarcacoesDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $segunda = array_values(array_filter($this->mensagens($client, $codigo), static fn (array $m): bool => $m['id'] === $ids['Segunda']))[0];
         self::assertTrue($segunda['apagada']);
         self::assertSame('', $segunda['txt']);
+        self::assertStringStartsWith('Mensagem apagada por Central BlueJus em ', $segunda['apagadaTxt'], 'para o Solicitante, quem atende aparece como Central');
+        self::assertFalse($segunda['favorita']);
     }
 
     #[TestDox('apagar para todos: outro participante que não é o autor nem o Master recebe 403')]

@@ -11,9 +11,9 @@ use Doctrine\Migrations\AbstractMigration;
  * Trabalho Externo VS 18.10.26, F1 (spec `docs/specs/trabalho-externo-vs-18-10-26.md`): as
  * marcações de cada usuário (estrela, importância, não lida, lixeira e exclusão da lista dele) em
  * demandas, vagas, currículos e candidaturas, as marcações dele nas mensagens do chat (favorita,
- * lixeira, exclusão), e o "apagar para todos" da mensagem.
+ * lixeira, exclusão), e o "apagar para todos" da mensagem (quando, quem e com que perfil).
  *
- * Só acrescenta: duas tabelas novas e uma coluna anulável. As linhas vieram do `--dump-sql` no banco
+ * Só acrescenta: duas tabelas novas e três colunas anuláveis. As linhas vieram do `--dump-sql` no banco
  * de teste da frente, filtradas por `trabalho_externo`; o resto do dump (messenger, índices
  * funcionais e defaults da cobrança) é divergência antiga e ficou de fora.
  *
@@ -42,10 +42,14 @@ final class Version20261019120126 extends AbstractMigration
         $this->addSql('ALTER TABLE trabalho_externo_marcacao_mensagem ADD CONSTRAINT FK_F691A93FDB38439E FOREIGN KEY (usuario_id) REFERENCES "user" (id) ON DELETE CASCADE NOT DEFERRABLE');
 
         $this->addSql('ALTER TABLE trabalho_externo_mensagem ADD apagada_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
+        $this->addSql('ALTER TABLE trabalho_externo_mensagem ADD apagada_por VARCHAR(255) DEFAULT NULL');
+        $this->addSql('ALTER TABLE trabalho_externo_mensagem ADD apagada_por_perfil VARCHAR(20) DEFAULT NULL');
     }
 
     public function down(Schema $schema): void
     {
+        $this->addSql('ALTER TABLE trabalho_externo_mensagem DROP apagada_por_perfil');
+        $this->addSql('ALTER TABLE trabalho_externo_mensagem DROP apagada_por');
         $this->addSql('ALTER TABLE trabalho_externo_mensagem DROP apagada_em');
         $this->addSql('DROP TABLE trabalho_externo_marcacao_mensagem');
         $this->addSql('DROP TABLE trabalho_externo_marcacao');
