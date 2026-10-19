@@ -336,6 +336,8 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     #[TestDox('convite de primário: aceito quando quem convidou segue primário ativo')]
     public function testConviteDePrimarioDePrimarioAtivo(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(ConviteDeEscritorioAceito::class, static function (ConviteDeEscritorioAceito $e) use (&$capturados): void { $capturados[] = $e; });
         $sistema = (new TenantRole())->setIsSystem(true);
         $quemConvidou = (new User())->setEmail('primario@example.com');
         $invitation = $this->makePendingOfficeInvitation('usuario@example.com', role: $sistema);
@@ -350,5 +352,6 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         $vinculo = $this->useCase->executar(new AceitarConviteEscritorioComContaInput(token: 'tok123', usuarioAtual: $this->usuario));
 
         self::assertSame($sistema, $vinculo->getTenantRole());
+        self::assertTrue($capturados[0]->comoPrimario, 'convite com o papel de sistema: o evento diz que entrou como primário');
     }
 }

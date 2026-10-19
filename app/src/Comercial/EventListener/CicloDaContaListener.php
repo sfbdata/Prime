@@ -14,6 +14,7 @@ use App\Comercial\Repository\CicloDaContaRepository;
 use App\Comercial\Service\DisparadorDeAutomacao;
 use App\Comercial\Service\RegistroDeEnvioExterno;
 use App\Repository\UserRepository;
+use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -32,6 +33,7 @@ final class CicloDaContaListener
         private readonly UserRepository $usuarios,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
+        private readonly Connection $conexao,
     ) {
     }
 
@@ -77,15 +79,25 @@ final class CicloDaContaListener
             return;
         }
         $user = $this->usuarios->find($userId);
-        if ($user !== null && $user->getEmail() !== null) {
+        if ($user === null || $user->getEmail() === null) {
+            return;
+        }
+        try {
             $this->disparador->disparar($automacao, (string) $user->getEmail(), $user->getFullName());
+        } catch (\Throwable $erro) {
+            $this->ciclos->desmarcarBoasVindas($userId, $tenantId);   // a vez não se perde numa falha de envio
+            throw $erro;
         }
     }
 
+    /**
+     * Numa transação própria da conexão: aninhada na de quem chamou, vira um savepoint, e uma falha de SQL aqui volta só
+     * até ele, sem abortar a transação de Auth (se houver uma). Sem transação de fora, é uma transação curta.
+     */
     private function protegido(Automacao $automacao, ?int $userId, callable $passo): void
     {
         try {
-            $passo();
+            $this->conexao->transactional(static fn () => $passo());
         } catch (\Throwable $erro) {
             $this->logger->error('Comercial: automação falhou sem afetar o fluxo de Auth.', [
                 'automacao' => $automacao->value,

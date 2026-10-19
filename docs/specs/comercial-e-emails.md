@@ -118,6 +118,17 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
 - **Contrato com a 7d (desenho 10, antes da troca para a 9b; vale o da 9b acima):** a 1a entra primeiro em Auth e a 7d traz o master; a 7d não muda a
   validade de 24 h nem a purga; se criar a confirmação por código, ela chama o mesmo `ConfirmarCadastroUseCase` (o
   evento sai nos dois caminhos); colunas dela em `cadastro_pendente`: `codigo_hash`, `codigo_expira_em`.
+- **Decisões da revisão do código (19/10):** (1) o trabalho de cada ouvinte de Auth roda em `Connection::transactional`:
+  aninhado numa transação de quem chamou, vira savepoint, e uma falha de SQL ali não aborta o fluxo de Auth (o teste
+  achou isso com a DAMA); (2) "no máximo uma vez": a boas-vindas e a dica são marcadas antes do envio, e uma falha no
+  Carteiro desfaz a marcação (sai na próxima vez); (3) cada passo da varredura é isolado (uma falha na dica não pula a
+  recuperação) e a purga do Comercial nunca lança (não impede a purga dos escritórios); (4) as simulações gravam a
+  origem `simulacao:<chave>` (para o gatilho de "Últimos disparos"); (5) hora: o sistema grava hora local
+  (America/Sao_Paulo) sem fuso e o `NOW()` do banco está em UTC; a migration semeia o `ligada_em` com
+  `NOW() AT TIME ZONE 'America/Sao_Paulo'` e a varredura com uma data passada (com o `NOW()` puro, a primeira cadeia
+  morreria por 3 h em produção); (6) o worker de dev e o de produção consomem `comercial async`
+  (docker-compose.yml e docker-compose.prod.yml, neste PR); (7) o texto "Boas-vindas" no `conv` e a descrição do
+  `cad` ("o link e o código") seguem o 05 literalmente; o código é da 9b.
 - **A tela só aparece com o #56:** o include do parcial `master/_comercial.html.twig` é do painel do #56, que não está
   nesta base. A verificação visual contra o 05 fica para depois do #56 no master; até lá o PR fica em rascunho.
 - **Para o dono:**
@@ -125,8 +136,9 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
      transacional ou o SMTP da Hostinger, com SPF e DKIM; o Gmail limita o volume e não dá aviso de entrega.
   2. P1 (provedor), P2 ("Ao abrir uma conta" travado em ligado; recomendação: sim) e P4 (retenção de 24 meses;
      recomendação: sim) e as do pacote anterior (A2, A3, B1, reply-to, C3), com o coordenador.
-  3. Deploy: o `jusprime_worker_prod` passa a consumir `comercial async` (docker-compose.prod.yml), e rodar
-     `php bin/console app:comercial:varredura` uma vez depois do deploy (semeia a cadeia; idempotente).
+  3. Deploy: este PR muda o comando do `jusprime_worker_prod` para `messenger:consume comercial async`
+     (docker-compose.prod.yml); o worker precisa ser recriado no deploy. Depois, rodar
+     `php bin/console app:comercial:varredura` uma vez (semeia a cadeia; idempotente).
   4. `SYMFONY_TRUSTED_PROXIES` na VPS, para o IP real nos limitadores e na prova de consentimento.
   5. Os merges, na ordem: #82 → #87 (0d) → esta 1a.
 - **Pendências:** respostas do dono; consulta de datas de descadastro à 0d (fatia 3); `CITA_RASTREIO_DE_EMAIL` com a f6

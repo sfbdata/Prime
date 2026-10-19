@@ -59,16 +59,19 @@ final class Version20261020100000 extends AbstractMigration
         $this->addSql('ALTER TABLE comercial_envio ADD CONSTRAINT FK_D543297A9033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) NOT DEFERRABLE');
         $this->addSql('ALTER TABLE comercial_envio_conteudo ADD CONSTRAINT FK_602E84D695BC4699 FOREIGN KEY (envio_id) REFERENCES comercial_envio (id) ON DELETE CASCADE NOT DEFERRABLE');
 
-        // As linhas iniciais: o padrão do desenho 05 (dc L.562). Criá-las não dispara nada.
-        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('cad', true, NULL, NOW())");
-        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('lemb', true, '24h', NOW())");
-        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('val', true, NULL, NOW())");
-        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('conv', true, NULL, NOW())");
+        // As linhas iniciais: o padrão do desenho 05 (dc L.562). Criá-las não dispara nada. O `ligada_em` é a hora local
+        // da aplicação (America/Sao_Paulo): o NOW() puro do banco está em UTC, 3 h à frente do relógio do PHP.
+        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('cad', true, NULL, (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
+        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('lemb', true, '24h', (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
+        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('val', true, NULL, (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
+        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('conv', true, NULL, (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
         $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('dica', false, '7d', NULL)");
-        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('e90', true, '90', NOW())");
-        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('e100', true, NULL, NOW())");
-        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('ped', true, NULL, NOW())");
-        $this->addSql("INSERT INTO comercial_varredura (id, proxima_em) VALUES (1, NOW())");
+        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('e90', true, '90', (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
+        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('e100', true, NULL, (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
+        $this->addSql("INSERT INTO comercial_automacao (chave, ligada, atraso, ligada_em) VALUES ('ped', true, NULL, (NOW() AT TIME ZONE 'America/Sao_Paulo'))");
+        // As horas do sistema são locais (America/Sao_Paulo, sem fuso) e o NOW() do banco está em UTC: o corte usa a hora
+        // local; a varredura nasce com uma data passada, para a primeira semente reivindicar na hora.
+        $this->addSql("INSERT INTO comercial_varredura (id, proxima_em) VALUES (1, '2000-01-01 00:00:00')");
     }
 
     public function down(Schema $schema): void

@@ -41,8 +41,13 @@ final class VarreduraDeAutomacoes
                 continue;
             }
             $user = $this->usuarios->find($conta['user_id']);
-            if ($user !== null && $user->getEmail() !== null) {
+            if ($user === null || $user->getEmail() === null) {
+                continue;
+            }
+            try {
                 $this->disparador->disparar(Automacao::Dica, (string) $user->getEmail(), $user->getFullName());
+            } catch (\Throwable) {
+                $this->ciclos->desmarcarDica($conta['id']);   // tenta de novo no próximo passo; não para o lote
             }
         }
     }

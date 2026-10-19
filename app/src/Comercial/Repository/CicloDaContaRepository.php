@@ -43,6 +43,20 @@ class CicloDaContaRepository extends ServiceEntityRepository
         ) === 1;
     }
 
+    /** Desfaz a marcação quando o envio falhou: a boas-vindas pode sair na próxima vez. */
+    public function desmarcarBoasVindas(int $userId, ?int $tenantId): void
+    {
+        $this->conexao()->executeStatement(
+            'UPDATE comercial_ciclo_conta SET boas_vindas_em = NULL WHERE user_id = :u AND ' . self::escopo($tenantId),
+            array_filter(['u' => $userId, 't' => $tenantId], static fn ($v): bool => $v !== null),
+        );
+    }
+
+    public function desmarcarDica(int $id): void
+    {
+        $this->conexao()->executeStatement('UPDATE comercial_ciclo_conta SET dica_em = NULL WHERE id = :id', ['id' => $id]);
+    }
+
     /**
      * Contas confirmadas entre o corte e `confirmadoAte`, ainda sem a dica.
      *

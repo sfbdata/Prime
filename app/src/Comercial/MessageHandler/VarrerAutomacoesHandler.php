@@ -9,6 +9,7 @@ use App\Comercial\Service\RecuperacaoDeEnvios;
 use App\Comercial\Service\VarreduraDeAutomacoes;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
@@ -29,6 +30,7 @@ final class VarrerAutomacoesHandler
         private readonly RecuperacaoDeEnvios $recuperacao,
         private readonly MessageBusInterface $bus,
         private readonly ClockInterface $clock,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -38,11 +40,18 @@ final class VarrerAutomacoesHandler
         if (!$this->reivindicar($agora)) {
             return;
         }
+        // Cada passo isolado: uma falha na dica não pula a recuperação dos envios, e a cadeia sempre se reagenda.
+        $this->passo('dica', fn () => $this->varredura->mandarDicas($agora));
+        $this->passo('recuperacao', fn () => $this->recuperacao->recuperar($agora));
+        $this->bus->dispatch(new VarrerAutomacoes(), [new DelayStamp(self::INTERVALO_SEGUNDOS * 1000)]);
+    }
+
+    private function passo(string $nome, callable $passo): void
+    {
         try {
-            $this->varredura->mandarDicas($agora);
-            $this->recuperacao->recuperar($agora);
-        } finally {
-            $this->bus->dispatch(new VarrerAutomacoes(), [new DelayStamp(self::INTERVALO_SEGUNDOS * 1000)]);
+            $passo();
+        } catch (\Throwable $erro) {
+            $this->logger->error('Comercial: passo da varredura falhou.', ['passo' => $nome, 'erro' => $erro::class]);
         }
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Comercial\UseCase;
 
 use Doctrine\DBAL\Connection;
+use Psr\Log\LoggerInterface;
 
 /**
  * O passo do Comercial no `app:purgar-dados-expirados` (spec comercial-e-emails.md §3.3 e §3.5): as confirmações de
@@ -18,12 +19,20 @@ final class PurgarDadosDoComercialUseCase
     public function __construct(
         private readonly PurgarConfirmacoesVencidasUseCase $confirmacoes,
         private readonly Connection $conexao,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
+    /** Nunca lança: uma falha aqui não pode impedir os passos seguintes do comando (a purga dos escritórios). */
     public function executar(\DateTimeImmutable $agora, bool $dryRun): int
     {
-        return $this->confirmacoes->executar($agora, $dryRun) + $this->simulacoes($agora, $dryRun);
+        try {
+            return $this->confirmacoes->executar($agora, $dryRun) + $this->simulacoes($agora, $dryRun);
+        } catch (\Throwable $erro) {
+            $this->logger->error('Comercial: purga dos dados expirados falhou.', ['erro' => $erro::class]);
+
+            return 0;
+        }
     }
 
     private function simulacoes(\DateTimeImmutable $agora, bool $dryRun): int
