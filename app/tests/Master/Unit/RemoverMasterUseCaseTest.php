@@ -10,6 +10,7 @@ use App\Master\Exception\OperacaoDeMasterRecusada;
 use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\RemoverMasterUseCase;
 use App\Repository\UserRepository;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -22,13 +23,15 @@ use PHPUnit\Framework\TestCase;
 final class RemoverMasterUseCaseTest extends TestCase
 {
     private UserRepository&MockObject $userRepository;
+    private EscopoDeAuditoriaDePlataforma $escopo;
     private RemoverMasterUseCase $useCase;
     private User $primario;
 
     protected function setUp(): void
     {
         $this->userRepository = $this->createMock(UserRepository::class);
-        $this->useCase  = new RemoverMasterUseCase($this->userRepository, new RegraDosMasters());
+        $this->escopo = new EscopoDeAuditoriaDePlataforma();
+        $this->useCase  = new RemoverMasterUseCase($this->userRepository, new RegraDosMasters(), $this->escopo);
         $this->primario = $this->usuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
     }
 
@@ -37,7 +40,8 @@ final class RemoverMasterUseCaseTest extends TestCase
     {
         $alvo = $this->usuario(['ROLE_ALGUM', 'ROLE_SUPER_ADMIN']);
         $this->userRepository->method('find')->with(7)->willReturn($alvo);
-        $this->userRepository->expects($this->once())->method('salvar')->with($alvo, true);
+        $this->userRepository->expects($this->once())->method('salvar')->with($alvo, true)
+            ->willReturnCallback(fn () => self::assertTrue($this->escopo->estaLigado(), 'grava dentro do escopo de plataforma (tenant_id nulo)'));
 
         $saida = $this->useCase->executar(new RemoverMasterInput($this->primario, 7));
 

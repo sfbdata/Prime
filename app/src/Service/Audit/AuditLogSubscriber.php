@@ -3,6 +3,7 @@
 namespace App\Service\Audit;
 
 use App\Entity\Audit\AuditLog;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Shared\Contract\Auditavel;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\EntityManagerInterface;
@@ -37,6 +38,7 @@ class AuditLogSubscriber
         private readonly RequestStack $requestStack,
         private readonly EntityLabelResolver $entityLabelResolver,
         private readonly TenantContext $tenantContext,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
         #[Autowire(service: 'monolog.logger.audit')]
         private readonly LoggerInterface $auditLogger
     ) {
@@ -309,7 +311,9 @@ class AuditLogSubscriber
 
         $actorUserId = ($user && method_exists($user, 'getId')) ? $user->getId() : null;
         $actorEmail = ($user && method_exists($user, 'getUserIdentifier')) ? $user->getUserIdentifier() : null;
-        $tenantId = $this->tenantContext->getCurrentTenant()?->getId();
+        // Ato de plataforma (ex.: promover/remover Master) grava sem escritório: não vaza para a
+        // auditoria do escritório da sessão, aparece só na trilha do Master.
+        $tenantId = $this->escopoDePlataforma->estaLigado() ? null : $this->tenantContext->getCurrentTenant()?->getId();
 
         return (new AuditLog())
             ->setAction($action)
