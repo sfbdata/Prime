@@ -11,6 +11,8 @@ use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Enum\FaixaDoEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
+use App\Contribua\Event\UsoDoEspacoSubiu;
+use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Exception\EspacoEsgotado;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
@@ -28,9 +30,15 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Event\ConsoleTerminateEvent;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
 
 #[CoversClass(ArmazenamentoComCota::class)]
 #[CoversClass(EspacoAtingiuFaixa::class)]
+#[CoversClass(UsoDoEspacoSubiu::class)]
+#[CoversClass(EventosDoEspacoAposConfirmar::class)]
 final class ArmazenamentoComCotaTest extends TestCase
 {
     private const GB = RetratoDoEspaco::BYTES_POR_GB;
@@ -39,6 +47,8 @@ final class ArmazenamentoComCotaTest extends TestCase
 
     /** @var list<object> */
     private array $disparados = [];
+
+    private EventosDoEspacoAposConfirmar $eventos;
 
     protected function setUp(): void
     {
@@ -53,21 +63,30 @@ final class ArmazenamentoComCotaTest extends TestCase
         $cota = $this->decorador(usados: (int) (0.894 * self::GB), bloqueioAtivo: false, cotaGb: 1);
 
         $cota->gravar(self::novo(7), FonteDeConteudo::deTexto(str_repeat('x', (int) (0.01 * self::GB))));
+        self::assertSame([], $this->disparados, 'nada sai antes do commit');
+        $this->terminarComSucesso();
 
-        self::assertCount(1, $this->disparados);
-        $evento = $this->disparados[0];
+        $faixas = array_values(array_filter($this->disparados, static fn (object $e): bool => $e instanceof EspacoAtingiuFaixa));
+        $usos = array_values(array_filter($this->disparados, static fn (object $e): bool => $e instanceof UsoDoEspacoSubiu));
+        self::assertCount(1, $faixas);
+        self::assertCount(1, $usos);
+        self::assertSame([89, 90], [$usos[0]->percentualAnterior, $usos[0]->percentualAtual]);
+        self::assertTrue($usos[0]->cruzou(90));
+        self::assertFalse($usos[0]->cruzou(85));
+        $evento = $faixas[0];
         self::assertInstanceOf(EspacoAtingiuFaixa::class, $evento);
         self::assertSame(7, $evento->tenantId);
         self::assertSame(FaixaDoEspaco::Alerta, $evento->faixa);
         self::assertSame(FaixaDoEspaco::Atencao, $evento->faixaAnterior);
     }
 
-    #[TestDox('Gravar sem mudar de faixa não dispara nada')]
+    #[TestDox('Gravar sem mudar de percentual nem de faixa não dispara nada')]
     public function testMesmaFaixaNaoDispara(): void
     {
         $cota = $this->decorador(usados: 0, bloqueioAtivo: true);
 
         $cota->gravar(self::novo(7), FonteDeConteudo::deTexto('pequeno'));
+        $this->terminarComSucesso();
 
         self::assertSame([], $this->disparados);
         self::assertCount(1, $this->interno->gravadas);
@@ -149,6 +168,23 @@ final class ArmazenamentoComCotaTest extends TestCase
         $cota->gravar(self::novo(7), FonteDeConteudo::deTexto('dois'));
     }
 
+    #[TestDox('Trabalho que falha (comando com erro) descarta os eventos: nada de aviso por engano')]
+    public function testFalhaDescartaEventos(): void
+    {
+        $cota = $this->decorador(usados: (int) (0.894 * self::GB), bloqueioAtivo: false, cotaGb: 1);
+        $cota->gravar(self::novo(7), FonteDeConteudo::deTexto(str_repeat('x', (int) (0.01 * self::GB))));
+
+        $this->eventos->aoTerminarComando(new ConsoleTerminateEvent(new Command('x'), new ArrayInput([]), new NullOutput(), 1));
+        $this->terminarComSucesso();
+
+        self::assertSame([], $this->disparados);
+    }
+
+    private function terminarComSucesso(): void
+    {
+        $this->eventos->aoTerminarComando(new ConsoleTerminateEvent(new Command('x'), new ArrayInput([]), new NullOutput(), 0));
+    }
+
     private static function novo(int $tenantId): NovoArquivo
     {
         return new NovoArquivo(EscopoDeArquivo::deTenant($tenantId), CategoriaDeArquivo::KANBAN_ANEXO, 'pdf');
@@ -174,13 +210,14 @@ final class ArmazenamentoComCotaTest extends TestCase
         }
         $situacao = new SituacaoDoEspaco($consumo, $espacos, $planos, $configuracoes);
 
-        $eventos = $this->createStub(EventDispatcherInterface::class);
-        $eventos->method('dispatch')->willReturnCallback(function (object $evento): object {
+        $despachante = $this->createStub(EventDispatcherInterface::class);
+        $despachante->method('dispatch')->willReturnCallback(function (object $evento): object {
             $this->disparados[] = $evento;
 
             return $evento;
         });
+        $this->eventos = new EventosDoEspacoAposConfirmar($despachante);
 
-        return new ArmazenamentoComCota($this->interno, $consumo, $situacao, $eventos, new NullLogger());
+        return new ArmazenamentoComCota($this->interno, $consumo, $situacao, $this->eventos, new NullLogger());
     }
 }
