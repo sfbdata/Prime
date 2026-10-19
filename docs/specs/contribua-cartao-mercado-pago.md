@@ -20,8 +20,8 @@ da contribua-c3 (f6). Risco: BAIXO no código (sem tela, sem banco); a cobrança
 - Grafia de cancelada (`canceled` na doc; `cancelled` também é aceito).
 - Se o `/preapproval` respeita o `X-Idempotency-Key` (mandamos mesmo assim).
 - Corpo literal e `x-signature` dos avisos de assinatura (a doc só traz o de `payment`). A conferência usa o
-  `data.id` do corpo, porque o contrato não entrega a query da URL; o Mercado Pago assina o da query, que é o
-  mesmo recurso.
+  `data.id` da query da URL (`x-query-data.id`, repassado pelo controller da C3 desde 6462db87) e, sem ele,
+  o do corpo.
 
 **Para o dono**
 1. Credenciais: https://www.mercadopago.com.br/developers/panel/app, a aplicação, menu "Produção" >
@@ -41,11 +41,16 @@ da contribua-c3 (f6). Risco: BAIXO no código (sem tela, sem banco); a cobrança
 - Assinatura sem plano (`POST /preapproval` com `status=authorized` e `card_token_id`), mensal, em reais,
   sem `start_date`/`end_date` (a doc diz que o início só vale com o fim, e a assinatura não tem fim).
 - `iniciar` confere a credencial (`GET /users/me`) antes de abrir o formulário.
-- Situação: `pending` Aguardando; `authorized` com semáforo amarelo ou vermelho Inadimplente, com cobrança
-  feita Ativa, sem cobrança ainda Aguardando (a primeira sai até 1 h depois); `paused` Inadimplente;
-  `canceled`/`cancelled` Cancelada; desconhecida é `FalhaNoGateway`.
-- `pagaAte`: ativa até `next_payment_date`; inadimplente ou cancelada, um período depois de
-  `summarized.last_charged_date` (inferência: a doc não tem campo "pago até").
+- Situação: `pending` Aguardando; `authorized` sem nenhuma cobrança feita Aguardando (a primeira sai até 1 h
+  depois, e a primeira recusada não é inadimplência de quem nunca pagou), com cobrança feita e semáforo
+  amarelo ou vermelho Inadimplente, senão Ativa; `paused` Inadimplente se já pagou, senão Aguardando;
+  `canceled`/`cancelled` Cancelada; desconhecida é `FalhaNoGateway`. (Revisão de 19/10.)
+- `pagaAte`: ativa até `next_payment_date` (sem ela, um período depois da última cobrança); inadimplente ou
+  cancelada, um período depois de `summarized.last_charged_date` (inferência: a doc não tem campo "pago
+  até"). Mês somado sem pular mês (31/01 vai a 28/02).
+- O aviso não autentica o tipo nem o id do evento (a assinatura cobre só `data.id`, `x-request-id` e `ts`):
+  repetido ou trocado, só provoca reconsulta, e a consulta decide.
+- Branch atualizada com a `contribua-c3` em 6462db87 (merge do master e os commits da c3, um a um).
 - Aviso de fatura (`subscription_authorized_payment`): a assinatura vem de `GET /authorized_payments/{id}`;
   se o Mercado Pago não responder, `FalhaNoGateway` (ele reenvia o aviso). `payment` e o resto: null.
 - Sem janela de tempo no aviso: o Mercado Pago reenvia por horas, e o Contribua ignora o repetido e reconsulta.

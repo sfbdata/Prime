@@ -13,9 +13,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * `ts=<carimbo>,v1=<hmac>`, HMAC-SHA256 em hex do manifesto `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`
  * com a assinatura secreta do painel. O `data.id` vai em minúsculas e as partes ausentes saem do manifesto.
  *
- * O Mercado Pago assina o `data.id` da query da URL; o contrato só entrega cabeçalhos e corpo, então usamos o
- * `data.id` do corpo, que é o mesmo recurso. Sem janela de tempo: o Mercado Pago reenvia o mesmo aviso por
- * horas, e repetir um aviso não faz mal (o Contribua ignora o repetido e sempre reconsulta).
+ * O Mercado Pago assina o `data.id` da query da URL (o controller da C3 o repassa em `x-query-data.id`). A
+ * assinatura não cobre o resto do corpo (tipo e id do evento) e não há janela de tempo, porque o Mercado Pago
+ * reenvia o mesmo aviso por horas: um aviso repetido ou com o tipo trocado só provoca uma reconsulta, e a
+ * consulta é que decide.
  */
 final class AssinaturaDoAvisoMercadoPago
 {

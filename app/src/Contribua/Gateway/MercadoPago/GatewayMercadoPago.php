@@ -74,14 +74,15 @@ final class GatewayMercadoPago implements GatewayDeAssinatura
     }
 
     /**
-     * Aviso de assinatura: o `data.id` é a assinatura. Aviso de fatura: o `data.id` é a fatura, e a
+     * O `data.id` assinado é o da query da URL, que o controller repassa em `x-query-data.id`; sem ele, o do
+     * corpo (o mesmo recurso). Aviso de assinatura: o `data.id` é a assinatura. Aviso de fatura: o `data.id` é a fatura, e a
      * assinatura dela vem de `GET /authorized_payments/{id}` (pode lançar `FalhaNoGateway`; o Mercado Pago
      * reenvia o aviso). Pagamento avulso e o resto: null.
      */
     public function interpretarAviso(array $cabecalhos, string $corpo): ?AvisoDoGateway
     {
         $aviso = json_decode($corpo, true);
-        $idDoRecurso = \is_array($aviso) ? self::texto($aviso['data']['id'] ?? null) : null;
+        $idDoRecurso = self::texto($cabecalhos['x-query-data.id'] ?? null) ?? (\is_array($aviso) ? self::texto($aviso['data']['id'] ?? null) : null);
         $this->assinaturaDoAviso->exigirAutentico($cabecalhos['x-signature'] ?? '', $cabecalhos['x-request-id'] ?? '', $idDoRecurso ?? '');
         $idDoEvento = \is_array($aviso) ? self::texto($aviso['id'] ?? null) : null;
         $tipo = \is_array($aviso) ? self::texto($aviso['type'] ?? $aviso['topic'] ?? null) : null;

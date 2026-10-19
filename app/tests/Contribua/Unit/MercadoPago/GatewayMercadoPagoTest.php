@@ -86,6 +86,42 @@ final class GatewayMercadoPagoTest extends TestCase
         self::assertSame('123123123', $ativa->idDoCliente);
     }
 
+    #[TestDox('Primeira cobrança recusada (semáforo vermelho sem cobrança feita) é Aguardando, não inadimplência')]
+    public function testPrimeiraCobrancaRecusada(): void
+    {
+        $recusada = $this->consultar(RespostasDoMercadoPago::assinatura('authorized', RespostasDoMercadoPago::resumo('red', 0)));
+        $pausadaSemPagar = $this->consultar(RespostasDoMercadoPago::assinatura('paused', RespostasDoMercadoPago::resumo('green', 0)));
+
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $recusada->situacao);
+        self::assertNull($recusada->pagaAte);
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $pausadaSemPagar->situacao);
+    }
+
+    #[TestDox('Mês pago sem pular mês: cobrança em 31/01 vale até 28/02; ativa sem próxima cobrança usa a última')]
+    public function testSomaDeMes(): void
+    {
+        $resumo = ['last_charged_date' => '2027-01-31T10:00:00.000-03:00', 'charged_quantity' => 1] + RespostasDoMercadoPago::resumo('red', 1);
+        $semProxima = RespostasDoMercadoPago::assinatura('authorized', ['last_charged_date' => '2027-01-31T10:00:00.000-03:00'] + RespostasDoMercadoPago::resumo('green', 1));
+        unset($semProxima['next_payment_date']);
+
+        $inadimplente = $this->consultar(RespostasDoMercadoPago::assinatura('authorized', $resumo));
+        $ativa = $this->consultar($semProxima);
+
+        self::assertSame('2027-02-28', $inadimplente->pagaAte?->format('Y-m-d'));
+        self::assertSame('2027-02-28', $ativa->pagaAte?->format('Y-m-d'));
+    }
+
+    #[TestDox('O id assinado é o da query da URL (x-query-data.id), não o do corpo')]
+    public function testIdDaQuery(): void
+    {
+        $corpoTrocado = RespostasDoMercadoPago::aviso('subscription_preapproval', 'outro-recurso');
+        $cabecalhos = RespostasDoMercadoPago::cabecalhos(RespostasDoMercadoPago::ID) + ['x-query-data.id' => RespostasDoMercadoPago::ID];
+
+        $aviso = RespostasDoMercadoPago::gateway([])->interpretarAviso($cabecalhos, $corpoTrocado);
+
+        self::assertSame(RespostasDoMercadoPago::ID, $aviso?->idDaAssinatura);
+    }
+
     #[TestDox('Situação desconhecida do Mercado Pago é falha, não um palpite')]
     public function testSituacaoDesconhecida(): void
     {
