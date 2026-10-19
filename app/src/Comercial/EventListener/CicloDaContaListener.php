@@ -40,28 +40,31 @@ final class CicloDaContaListener
     #[AsEventListener]
     public function aoConfirmarCadastro(CadastroConfirmado $evento): void
     {
+        // O ciclo fica gravado mesmo se o envio falhar (cada passo na sua transação): a dica daquela conta continua possível.
         $this->protegido(Automacao::Val, $evento->userId, function () use ($evento): void {
             $this->ciclos->garantir($evento->userId, $evento->tenantId, $this->clock->now());
-            $this->boasVindas(Automacao::Val, $evento->userId, $evento->tenantId);
         });
+        $this->protegido(Automacao::Val, $evento->userId, fn () => $this->boasVindas(Automacao::Val, $evento->userId, $evento->tenantId));
     }
 
     #[AsEventListener]
     public function aoAceitarConviteDeEscritorio(ConviteDeEscritorioAceito $evento): void
     {
+        // O ciclo fica gravado mesmo se o envio falhar (cada passo na sua transação): a dica daquela conta continua possível.
         $this->protegido(Automacao::Conv, $evento->userId, function () use ($evento): void {
             $this->ciclos->garantir($evento->userId, $evento->tenantId, null);
-            $this->boasVindas(Automacao::Conv, $evento->userId, $evento->tenantId);
         });
+        $this->protegido(Automacao::Conv, $evento->userId, fn () => $this->boasVindas(Automacao::Conv, $evento->userId, $evento->tenantId));
     }
 
     #[AsEventListener]
     public function aoAceitarConviteDePlataforma(ConvitePlataformaAceito $evento): void
     {
+        // O ciclo fica gravado mesmo se o envio falhar (cada passo na sua transação): a dica daquela conta continua possível.
         $this->protegido(Automacao::Conv, $evento->userId, function () use ($evento): void {
             $this->ciclos->garantir($evento->userId, null, null);
-            $this->boasVindas(Automacao::Conv, $evento->userId, null);
         });
+        $this->protegido(Automacao::Conv, $evento->userId, fn () => $this->boasVindas(Automacao::Conv, $evento->userId, null));
     }
 
     #[AsEventListener]

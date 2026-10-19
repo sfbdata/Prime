@@ -96,12 +96,12 @@ final class AutomacoesDoCicloDaContaTest extends KernelTestCase
         $varredura->mandarDicas(new \DateTimeImmutable());
         self::assertSame(0, $this->envios('automacao:dica', (string) $user->getEmail()), 'nasce desligada');
 
-        $this->conexao->executeStatement("UPDATE comercial_automacao SET ligada = true, ligada_em = NOW() - INTERVAL '30 days' WHERE chave = 'dica'");
+        $this->conexao->executeStatement("UPDATE comercial_automacao SET ligada = true, ligada_em = ? WHERE chave = 'dica'", [(new \DateTimeImmutable('-30 days'))->format('Y-m-d H:i:s')]);
         $varredura->mandarDicas(new \DateTimeImmutable());
         $varredura->mandarDicas(new \DateTimeImmutable());
         self::assertSame(1, $this->envios('automacao:dica', (string) $user->getEmail()));
 
-        $this->conexao->executeStatement("UPDATE comercial_automacao SET ligada_em = NOW() WHERE chave = 'dica'");
+        $this->conexao->executeStatement("UPDATE comercial_automacao SET ligada_em = ? WHERE chave = 'dica'", [(new \DateTimeImmutable())->format('Y-m-d H:i:s')]);
         [$outro, $outroTenant] = $this->contaNova();
         $this->conexao->insert('comercial_ciclo_conta', ['user_id' => $outro->getId(), 'tenant_id' => $outroTenant->getId(), 'confirmado_em' => (new \DateTimeImmutable('-8 days'))->format('Y-m-d H:i:s')]);
         $varredura->mandarDicas(new \DateTimeImmutable());

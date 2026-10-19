@@ -8,6 +8,7 @@ use App\Comercial\Enum\Automacao;
 use App\Comercial\Repository\AutomacaoDeEmailRepository;
 use App\Comercial\Repository\CicloDaContaRepository;
 use App\Repository\UserRepository;
+use Psr\Log\LoggerInterface;
 
 /**
  * As automações por tempo (spec §3.5): a `dica` (conta confirmada há 3/7/15 dias, uma vez). Só fatos depois do
@@ -26,6 +27,7 @@ final class VarreduraDeAutomacoes
         private readonly CicloDaContaRepository $ciclos,
         private readonly UserRepository $usuarios,
         private readonly DisparadorDeAutomacao $disparador,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -46,8 +48,9 @@ final class VarreduraDeAutomacoes
             }
             try {
                 $this->disparador->disparar(Automacao::Dica, (string) $user->getEmail(), $user->getFullName());
-            } catch (\Throwable) {
+            } catch (\Throwable $erro) {
                 $this->ciclos->desmarcarDica($conta['id']);   // tenta de novo no próximo passo; não para o lote
+                $this->logger->warning('Comercial: dica não enfileirada.', ['cicloId' => $conta['id'], 'erro' => $erro::class]);
             }
         }
     }

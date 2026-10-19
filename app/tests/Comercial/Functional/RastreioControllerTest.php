@@ -35,8 +35,8 @@ final class RastreioControllerTest extends JusPrimeWebTestCase
         $token = bin2hex(random_bytes(16));
         $this->conexao->executeStatement(
             "INSERT INTO comercial_envio (token, destinatario, assunto, tipo, lista, origem, situacao, criado_em, enviado_em, aberturas, cliques)
-             VALUES (:token, 'ana@exemplo.com', 'x', 'lista', 'comercial_dicas', 'campanha:1', 'enviado', NOW(), NOW(), 0, 0)",
-            ['token' => $token],
+             VALUES (:token, 'ana@exemplo.com', 'x', 'lista', 'comercial_dicas', 'campanha:1', 'enviado', :agora, :agora, 0, 0)",
+            ['token' => $token, 'agora' => (new \DateTimeImmutable())->format('Y-m-d H:i:s')],
         );
 
         return $token;
