@@ -275,14 +275,35 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame((int) $this->escritorio->getId(), (int) $auditoria);
     }
 
-    #[TestDox('Dois checkouts abertos ao mesmo tempo não passam: o segundo pede para concluir o primeiro')]
-    public function testDoisCheckoutsAbertos(): void
+    #[TestDox('Checkout aberto: o mesmo plano reabre a mesma página do gateway; outro plano substitui o anterior')]
+    public function testCheckoutAbertoReaproveitado(): void
     {
-        $this->assinar($this->primario);
-        $segundo = $this->assinar($this->primario, 'profissional');
+        $primeiro = $this->assinar($this->primario);
+        $denovo = $this->assinar($this->primario);
+        self::assertSame($primeiro['pedido'], $denovo['pedido']);
+        self::assertSame($primeiro['url'], $denovo['url']);
+        self::assertSame(1, $this->contarAssinaturas());
 
-        self::assertFalse($segundo['ok']);
-        self::assertStringContainsString('pagamento em andamento', (string) $segundo['erro']);
+        $outro = $this->assinar($this->primario, 'profissional');
+        self::assertTrue($outro['ok'], json_encode($outro) ?: '');
+        self::assertNotSame($primeiro['pedido'], $outro['pedido']);
+        $this->em->clear();
+        self::assertSame(SituacaoDaAssinatura::Cancelada, static::getContainer()->get(AssinaturaDeEspacoRepository::class)->find($primeiro['pedido'])?->getSituacao());
+    }
+
+    #[TestDox('Cartão recusado no token: a nova tentativa reaproveita o mesmo pedido, sem esperar')]
+    public function testNovaTentativaDepoisDeRecusa(): void
+    {
+        $this->gateway->modo = InicioDoCheckout::FORMULARIO;
+        $inicio = $this->assinar($this->primario);
+        $this->gateway->foraDoAr = true;
+        self::assertFalse($this->post('/contribua/assinatura/' . $inicio['pedido'] . '/token', ['token' => 'tok', 'documento' => '12345678909'])['ok']);
+
+        $this->gateway->foraDoAr = false;
+        $denovo = $this->assinar($this->primario);
+        self::assertTrue($denovo['ok'], json_encode($denovo) ?: '');
+        self::assertSame($inicio['pedido'], $denovo['pedido']);
+        self::assertTrue($this->post('/contribua/assinatura/' . $denovo['pedido'] . '/token', ['token' => 'tok', 'documento' => '12345678909'])['ok']);
     }
 
     #[TestDox('O Master não assina pelo escritório (D4: quem compra é o primário)')]

@@ -55,11 +55,12 @@ final class WebhookDoGatewayController extends AbstractController
         foreach ($request->headers->all() as $nome => $valores) {
             $cabecalhos[strtolower((string) $nome)] = (string) ($valores[0] ?? '');
         }
-        // À mão e não com parse_str: o PHP troca o ponto de `data.id` por sublinhado.
+        // À mão e não com parse_str: o PHP troca o ponto de `data.id` por sublinhado. rawurldecode para o `+`
+        // continuar `+` (o valor assinado pelo gateway é o cru).
         foreach (explode('&', (string) $request->server->get('QUERY_STRING', '')) as $par) {
             [$nome, $valor] = array_pad(explode('=', $par, 2), 2, '');
             if ($nome !== '') {
-                $cabecalhos['x-query-' . strtolower(urldecode($nome))] = urldecode($valor);
+                $cabecalhos['x-query-' . strtolower(rawurldecode($nome))] = rawurldecode($valor);
             }
         }
 

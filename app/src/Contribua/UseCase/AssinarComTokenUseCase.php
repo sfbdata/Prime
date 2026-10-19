@@ -52,6 +52,8 @@ final class AssinarComTokenUseCase
         $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), preg_replace('/\D/', '', $documento) ?? '', (string) $quem->usuario->getEmail());
         $checkout = $this->checkout($pedido, $pagador, $ip);
         $resposta = $this->em->wrapInTransaction(fn (): SituacaoNoGateway => $this->assinarTravado($gateway, $pedido, $checkout, $token));
+        // Depois do COMMIT, já sem a trava: aplica a situação, liga a nota e avisa (o mesmo caminho do webhook).
+        $this->atualizacao->aplicar($gateway, $resposta, $pedido, primeiraVez: true);
         $proxima = $pedido->getPagaAte() ?? new \DateTimeImmutable('+1 month');
 
         return ['proxima' => $proxima->format('d/m/Y'), 'acaoNoNavegador' => $resposta->acaoNoNavegador];
@@ -79,8 +81,8 @@ final class AssinarComTokenUseCase
     }
 
     /**
-     * O pedido fica travado (`FOR UPDATE`) durante a chamada ao gateway: um clique duplo esperaria e,
-     * depois, encontraria o pedido já ligado, em vez de criar uma segunda assinatura no cartão.
+     * O pedido fica travado (`FOR UPDATE`) durante a chamada ao gateway e sai dela já ligado à assinatura:
+     * um clique duplo espera e, depois, encontra o pedido ligado, em vez de criar uma segunda assinatura.
      */
     private function assinarTravado(GatewayDeAssinatura $gateway, AssinaturaDeEspaco $pedido, PedidoDeCheckout $checkout, string $token): SituacaoNoGateway
     {
@@ -96,7 +98,7 @@ final class AssinarComTokenUseCase
     {
         try {
             $resposta = $gateway->assinarComToken($checkout, $token);
-            $this->atualizacao->aplicar($gateway, $resposta, $pedido);
+            $pedido->vincularNoGateway($resposta->idDaAssinatura, $resposta->idDoCliente);
 
             return $resposta;
         } catch (FalhaNoGateway $falha) {
