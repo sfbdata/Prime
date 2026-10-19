@@ -139,6 +139,16 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contarNotificacoesDoPrimario());
     }
 
+    #[TestDox('Webhook: a query da URL chega ao adaptador como x-query-<nome>, com o ponto preservado')]
+    public function testQueryDoWebhook(): void
+    {
+        $this->client->request('POST', '/api/webhooks/falso?data.id=123&type=payment', [], [], ['HTTP_X_TOKEN' => GatewayFalso::TOKEN_DO_AVISO], '{}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('123', $this->gateway->ultimosCabecalhos['x-query-data.id'] ?? null);
+        self::assertSame('payment', $this->gateway->ultimosCabecalhos['x-query-type'] ?? null);
+    }
+
     #[TestDox('O aviso de assinatura que o BlueJus não conhece não muda nada nem derruba o webhook')]
     public function testWebhookDeAssinaturaAlheia(): void
     {

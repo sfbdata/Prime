@@ -42,7 +42,9 @@
 .co-meio { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1px solid #cfe3f0; border-radius: 4px; background: #f2f8fc; color: #0a6fa0; font-size: 13.5px; font-weight: bold; }
 .co-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: bold; color: #4a6373; min-width: 0; white-space: nowrap; }
 .co-campo > input { width: 100%; box-sizing: border-box; min-width: 0; height: 40px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: normal; color: #12242f; }
-.co-elemento { min-height: 120px; }
+.co-elemento { min-height: 120px; display: flex; flex-direction: column; gap: 12px; }
+/* Pagar.me: os campos do cartão são criados pelo módulo dele (contribua-pagarme.js) e seguem o input do desenho */
+.co-elemento .contribua-cartao-campo { width: 100%; box-sizing: border-box; min-width: 0; height: 40px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font: inherit; font-size: 14px; color: #12242f; }
 .co-hospedado { display: flex; gap: 8px; font-size: 12.5px; color: #4a6373; line-height: 1.5; }
 .co-erro { font-size: 13px; color: #a3232b; }
 .co-erro[hidden] { display: none; }
