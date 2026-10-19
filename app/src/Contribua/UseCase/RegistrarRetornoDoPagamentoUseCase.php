@@ -28,8 +28,11 @@ final class RegistrarRetornoDoPagamentoUseCase
     {
         foreach ($this->assinaturas->doTenant($quem->tenantId()) as $assinatura) {
             if ($assinatura->getSituacao() === SituacaoDaAssinatura::Aguardando) {
-                $assinatura->marcarRetorno();
-                $this->assinaturas->salvar($assinatura, flush: true);
+                // Só quem pode pagar (o primário) marca o retorno: a URL qualquer um digita.
+                if ($quem->ehPrimario) {
+                    $assinatura->marcarRetorno();
+                    $this->assinaturas->salvar($assinatura, flush: true);
+                }
 
                 return ['gb' => $assinatura->getPlano()->getCotaGb() . ' GB', 'proxima' => $assinatura->getCriadaEm()->modify('+1 month')->format('d/m/Y')];
             }

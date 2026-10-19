@@ -352,6 +352,50 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame('', trim(static::getContainer()->get('twig')->render('contribua/_assinatura_no_perfil.html.twig')));
     }
 
+    #[TestDox('A URL de retorno só marca o pedido quando quem volta é o primário; o Master não lê "pago"')]
+    public function testRetornoSoDoPrimario(): void
+    {
+        $this->assinar($this->primario);
+        $this->logarComTenant($this->client, $this->secundario, $this->escritorio);
+        $this->client->request('GET', '/contribua?assinatura=ok');
+        self::assertNull($this->pedido()->getRetornouEm());
+
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $this->client->request('GET', '/contribua?assinatura=ok');
+        self::assertNotNull($this->pedido()->getRetornouEm());
+
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $this->client->request('GET', '/contribua');
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('voltou do gateway, não confirmado', $html);
+        self::assertStringNotContainsString('pago, aguardando', $html);
+    }
+
+    #[TestDox('Escritório excluído: a conciliação cancela a assinatura no gateway e aqui')]
+    public function testEscritorioExcluidoParaDeSerCobrado(): void
+    {
+        $this->assinar($this->primario);
+        $idNoGateway = (string) $this->pedido()->getIdDoCheckout();
+        $this->gateway->marcarComoPaga($idNoGateway, new \DateTimeImmutable('+1 month'));
+        $this->webhook('evt-excluido', $idNoGateway);
+        static::getContainer()->get(Connection::class)->executeStatement('UPDATE tenant SET excluido_em = NOW(), is_active = false WHERE id = ?', [$this->escritorio->getId()]);
+
+        static::getContainer()->get(ConciliarAssinaturasUseCase::class)->executar(new \DateTimeImmutable());
+
+        self::assertContains($idNoGateway, $this->gateway->canceladas);
+        self::assertSame(SituacaoDaAssinatura::Cancelada, $this->pedido()->getSituacao());
+    }
+
+    #[TestDox('PIX: valor acima do teto do apoio é limitado e o código continua válido')]
+    public function testPixComTeto(): void
+    {
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $this->client->request('GET', '/contribua/pix?valor=999999999');
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue(json_decode((string) $this->client->getResponse()->getContent(), true)['valido'] ?? false);
+    }
+
     /** @return array<string, mixed> */
     private function assinar(User $quem, string $plano = 'essencial'): array
     {

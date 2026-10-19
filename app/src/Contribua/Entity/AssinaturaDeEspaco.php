@@ -154,12 +154,17 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
      * Aplica o que o gateway respondeu. Devolve true quando a situação mudou (quem chama avisa o primário).
      *
      * Uma confirmação manual do Master não é desfeita por um gateway que ainda diz "aguardando": quem
-     * já pagou não perde o espaço porque a cobrança demorou a compensar.
+     * já pagou não perde o espaço porque a cobrança demorou a compensar. Cancelada não volta.
      */
     public function aplicar(SituacaoNoGateway $noGateway): bool
     {
         $anterior = $this->situacao;
         if ($noGateway->situacao === SituacaoDaAssinatura::Aguardando && $anterior !== SituacaoDaAssinatura::Aguardando) {
+            return false;
+        }
+        // Cancelada é final: o gateway não reativa uma assinatura apagada, e uma reconsulta lida antes do
+        // cancelamento e aplicada depois não pode ressuscitá-la (nem avisar "pagamento confirmado").
+        if ($anterior === SituacaoDaAssinatura::Cancelada) {
             return false;
         }
 

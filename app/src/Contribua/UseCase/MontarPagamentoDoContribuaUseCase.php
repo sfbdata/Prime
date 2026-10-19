@@ -160,7 +160,8 @@ final class MontarPagamentoDoContribuaUseCase
     private static function rotuloDaSituacao(AssinaturaDeEspaco $a): string
     {
         return match ($a->getSituacao()) {
-            SituacaoDaAssinatura::Aguardando => $a->getRetornouEm() !== null ? 'pago, aguardando confirmação do gateway' : 'aguardando confirmação',
+            // "Voltou do gateway" é só o pagador ter passado pela URL de retorno: não prova pagamento.
+            SituacaoDaAssinatura::Aguardando => $a->getRetornouEm() !== null ? 'voltou do gateway, não confirmado' : 'aguardando confirmação',
             SituacaoDaAssinatura::Ativa => $a->getConfirmadaPor() !== null ? 'pago · ativo (confirmado pelo Master)' : 'pago · ativo',
             SituacaoDaAssinatura::Inadimplente => 'cobrança recusada · em carência',
             SituacaoDaAssinatura::Cancelada => 'cancelada',

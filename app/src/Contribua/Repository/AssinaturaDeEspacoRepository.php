@@ -98,6 +98,22 @@ class AssinaturaDeEspacoRepository extends ServiceEntityRepository
             ->getQuery()->getResult();
     }
 
+    /**
+     * Assinaturas ainda vivas de escritórios excluídos (soft delete, quarentena de 365 dias): o gateway
+     * seguiria cobrando o cartão durante a quarentena inteira.
+     *
+     * @return list<AssinaturaDeEspaco>
+     */
+    public function vivasDeEscritoriosExcluidos(): array
+    {
+        return $this->createQueryBuilder('a')
+            ->join('a.tenant', 't')->addSelect('t')
+            ->andWhere('t.excluidoEm IS NOT NULL')
+            ->andWhere('a.situacao IN (:vivas)')
+            ->setParameter('vivas', [SituacaoDaAssinatura::Aguardando, SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente])
+            ->getQuery()->getResult();
+    }
+
     /** @return list<int> escritórios com alguma assinatura que já valeu (para revisar o plano vigente) */
     public function escritoriosComAssinaturaPaga(): array
     {

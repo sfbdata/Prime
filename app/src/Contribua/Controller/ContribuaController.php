@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Contribua\Controller;
 
 use App\Contribua\DTO\Solicitante;
+use App\Contribua\Entity\Apoio;
 use App\Contribua\Enum\TipoDeSugestao;
 use App\Contribua\Service\CodigoPixDaConta;
 use App\Contribua\Service\SolicitanteDaSessao;
@@ -54,7 +55,7 @@ final class ContribuaController extends AbstractController
     #[Route('/pix', name: 'contribua_pix', methods: ['GET'])]
     public function pix(Request $request, CodigoPixDaConta $codigoPix): JsonResponse
     {
-        $centavos = max(0, (int) round((float) str_replace(',', '.', (string) $request->query->get('valor', '0')) * 100));
+        $centavos = min(Apoio::VALOR_MAXIMO_CENTAVOS, max(0, (int) round((float) str_replace(',', '.', (string) $request->query->get('valor', '0')) * 100)));
 
         return $this->json($codigoPix->para($this->solicitante(), $centavos));
     }

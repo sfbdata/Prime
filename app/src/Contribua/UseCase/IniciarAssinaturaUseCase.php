@@ -19,6 +19,7 @@ use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDePagamentoRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
+use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -35,6 +36,8 @@ final class IniciarAssinaturaUseCase
     public const JA_ASSINA = 'Este escritório já tem uma assinatura ativa. Para trocar de plano, cancele a atual em Meu Perfil.';
     public const EM_CONFIRMACAO = 'Seu pagamento anterior ainda está sendo confirmado pelo gateway. Aguarde alguns minutos e tente de novo.';
     private const MINUTOS_DO_CHECKOUT = 60;
+    /** Primeira chave da trava consultiva (a segunda é o escritório): só o checkout do Contribua a usa. */
+    private const TRAVA = 8722;
 
     public function __construct(
         private readonly GatewaysDeAssinatura $gateways,
@@ -44,10 +47,25 @@ final class IniciarAssinaturaUseCase
         private readonly ConfiguracaoDePagamentoRepository $configuracao,
         private readonly UrlGeneratorInterface $urls,
         private readonly LoggerInterface $logger,
+        private readonly Connection $conexao,
     ) {
     }
 
+    /**
+     * Um checkout por escritório de cada vez (trava consultiva do Postgres por escritório): dois cliques
+     * simultâneos não criam dois pedidos nem dois checkouts no gateway; o segundo espera e reaproveita.
+     */
     public function executar(Solicitante $quem, string $codigoDoPlano, string $documento, ?string $ip): InicioDaAssinatura
+    {
+        $this->conexao->executeStatement('SELECT pg_advisory_lock(?, ?)', [self::TRAVA, $quem->tenantId()]);
+        try {
+            return $this->iniciar($quem, $codigoDoPlano, $documento, $ip);
+        } finally {
+            $this->conexao->executeStatement('SELECT pg_advisory_unlock(?, ?)', [self::TRAVA, $quem->tenantId()]);
+        }
+    }
+
+    private function iniciar(Solicitante $quem, string $codigoDoPlano, string $documento, ?string $ip): InicioDaAssinatura
     {
         $gateway = $this->exigirGateway($quem);
         $plano = $this->planoQueAmplia($quem->tenantId(), $codigoDoPlano);
@@ -82,7 +100,7 @@ final class IniciarAssinaturaUseCase
             if (!$aberto->semNadaNoGateway() || $aberto->getCriadaEm() < $desde || $aberto->getGateway() !== $gateway->codigo()) {
                 continue;
             }
-            if ($aberto->getPlano()->getId() === $plano->getId()) {
+            if ($aberto->getPlano()->getId() === $plano->getId() && $aberto->getValorCentavos() === $plano->getPrecoCentavos()) {
                 return $aberto;
             }
             if ($aberto->getRetornouEm() !== null) {

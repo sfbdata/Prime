@@ -67,8 +67,12 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
 - Uma entidade `AssinaturaDeEspaco` (`contribua_assinatura`) cobre o pedido e a assinatura que nasce dele.
 - Uma assinatura viva por escritório: para trocar de plano, cancela a atual em Meu Perfil (evita duas
   cobranças no mesmo cartão). Gateway fora do ar no início do checkout: o pedido é removido.
-- A página de retorno (`?assinatura=ok`) abre o "Pagamento enviado" e marca "pago, aguardando confirmação do
-  gateway"; não libera espaço (qualquer um digita a URL). Só a reconsulta ou o Master liberam.
+- A página de retorno (`?assinatura=ok`) abre o "Pagamento enviado"; só quando quem volta é o primário o pedido
+  é marcado, e o Master lê "voltou do gateway, não confirmado" (revisão de segurança: a URL qualquer um digita,
+  e "pago" induziria o Master a confirmar à mão). Não libera espaço: só a reconsulta ou o Master liberam.
+- Escritório excluído (quarentena de 365 dias): a conciliação cancela a assinatura viva no gateway e avisa o
+  Master; Cancelada é final (reconsulta atrasada não ressuscita). Checkout com trava consultiva por escritório;
+  checkout aberto com preço antigo não é reaproveitado; valor do PIX limitado ao teto do apoio.
 - Vigência: Ativa e Inadimplente até o fim do período pago mais a carência (D3); Cancelada até o fim do
   período pago. O plano do escritório é o maior entre as vigentes (`PlanoVigenteDoEscritorio`), senão Free.
   O período pago nunca recua; o "aguardando" do gateway não desfaz a confirmação manual do Master (um mês).

@@ -80,6 +80,17 @@ final class AssinaturaDeEspacoTest extends TestCase
         self::assertNull($a->getInadimplenteDesde());
     }
 
+    #[TestDox('Cancelada é final: uma reconsulta atrasada dizendo "ativa" não a ressuscita')]
+    public function testCanceladaNaoVolta(): void
+    {
+        $a = $this->assinatura();
+        $a->aplicar($this->noGateway(SituacaoDaAssinatura::Ativa, new \DateTimeImmutable('+1 month')));
+        $a->cancelar();
+
+        self::assertFalse($a->aplicar($this->noGateway(SituacaoDaAssinatura::Ativa, new \DateTimeImmutable('+2 months'))));
+        self::assertSame(SituacaoDaAssinatura::Cancelada, $a->getSituacao());
+    }
+
     #[TestDox('Só confirma à mão o que está aguardando')]
     public function testConfirmarSoAguardando(): void
     {

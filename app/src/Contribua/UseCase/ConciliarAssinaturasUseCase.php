@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace App\Contribua\UseCase;
 
+use App\Contribua\Gateway\FalhaNoGateway;
 use App\Contribua\Gateway\GatewaysDeAssinatura;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Repository\NotificacaoRecebidaRepository;
 use App\Contribua\Service\AtualizacaoDaAssinatura;
+use App\Contribua\Service\AvisoAoMaster;
+use App\Contribua\Service\AvisoAoPrimario;
 use App\Contribua\Service\PlanoVigenteDoEscritorio;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * A rede de segurança do webhook (`app:contribua:conciliar-assinaturas`, de hora em hora no cron):
  *  1. reprocessa os avisos que ficaram pendentes;
  *  2. reconsulta no gateway toda assinatura que ainda pode mudar (aviso perdido, renovação, recusa);
- *  3. revê o plano de quem teve assinatura paga: o fim do mês pago (ou da carência) devolve ao Free
+ *  3. cancela no gateway a assinatura de escritório excluído (quarentena), que seguiria cobrando o cartão;
+ *  4. revê o plano de quem teve assinatura paga: o fim do mês pago (ou da carência) devolve ao Free
  *     mesmo sem aviso nenhum do gateway.
  *
  * Um gateway fora do ar (ou um item com erro) não para o resto: conta como falha e segue.
@@ -32,6 +37,8 @@ final class ConciliarAssinaturasUseCase
         private readonly PlanoVigenteDoEscritorio $planoVigente,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly AvisoAoMaster $avisoAoMaster,
+        private readonly UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -39,7 +46,9 @@ final class ConciliarAssinaturasUseCase
     public function executar(\DateTimeImmutable $agora): array
     {
         $avisos = $this->reprocessarAvisos();
+        $falhasAoEncerrar = $this->encerrarDeEscritoriosExcluidos();
         [$reconsultadas, $falhas] = $this->reconsultarAssinaturas();
+        $falhas += $falhasAoEncerrar;
 
         if (!$this->em->isOpen()) {
             return ['avisos' => $avisos, 'reconsultadas' => $reconsultadas, 'falhas' => $falhas, 'escritorios' => 0];
@@ -71,6 +80,31 @@ final class ConciliarAssinaturasUseCase
         }
 
         return $processados;
+    }
+
+    /**
+     * Escritório excluído (quarentena): a assinatura é cancelada no gateway e aqui, e o Master é avisado.
+     * Falha no gateway fica para a próxima rodada; devolve quantas falharam.
+     */
+    private function encerrarDeEscritoriosExcluidos(): int
+    {
+        $falhas = 0;
+        foreach ($this->assinaturas->vivasDeEscritoriosExcluidos() as $assinatura) {
+            $id = $assinatura->getIdDaAssinatura();
+            try {
+                if ($id !== null) {
+                    $this->gateways->porCodigo($assinatura->getGateway())?->cancelar($id);
+                }
+                $assinatura->cancelar();
+                $this->em->flush();
+                $this->avisoAoMaster->avisar($assinatura->getTenant(), AvisoAoPrimario::TIPO_ASSINATURA, sprintf('Assinatura de espaço encerrada no gateway: o escritório %s foi excluído.', (string) $assinatura->getTenant()->getName()), $this->urls->generate('contribua_index') . '#espaco');
+            } catch (FalhaNoGateway $falha) {
+                ++$falhas;
+                $this->logger->warning('Contribua: não cancelou a assinatura do escritório excluído', ['assinatura' => $id, 'erro' => $falha->getMessage()]);
+            }
+        }
+
+        return $falhas;
     }
 
     /** @return array{int, int} */
