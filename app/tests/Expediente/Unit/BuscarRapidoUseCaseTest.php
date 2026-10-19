@@ -51,9 +51,9 @@ final class BuscarRapidoUseCaseTest extends TestCase
         $saida = $this->useCase()->executar('1176', $this->user, $this->tenant);
 
         self::assertEquals([
-            new ResultadoDaBuscaRapidaOutput('Pasta', 'Pasta 1176', 'Indenização por danos morais', 1176, false),
-            new ResultadoDaBuscaRapidaOutput('Cliente', 'Mariana Alves Duarte', 'CPF 318.774.902-15 · Pasta 1176', 1176, false),
-            new ResultadoDaBuscaRapidaOutput('Processo', '0712284-19.2025.8.07.0001', 'Indenização por danos morais · Pasta 1176', 1176, false),
+            new ResultadoDaBuscaRapidaOutput('Pasta', 'Pasta 1176', 'Indenização por danos morais', 1176, '1176', false),
+            new ResultadoDaBuscaRapidaOutput('Cliente', 'Mariana Alves Duarte', 'CPF 318.774.902-15 · Pasta 1176', 1176, '1176', false),
+            new ResultadoDaBuscaRapidaOutput('Processo', '0712284-19.2025.8.07.0001', 'Indenização por danos morais · Pasta 1176', 1176, '1176', false),
         ], $saida->resultados);
     }
 
@@ -91,13 +91,13 @@ final class BuscarRapidoUseCaseTest extends TestCase
         self::assertCount(8, $this->useCase()->executar('', $this->user, $this->tenant)->resultados);
     }
 
-    #[TestDox('pede ao repositório o termo aparado, até 100 caracteres, e 50 candidatos')]
-    public function testTermoAparadoECandidatos(): void
+    #[TestDox('pede ao repositório o termo aparado, até 100 caracteres, e o limite de 8')]
+    public function testTermoAparadoELimite(): void
     {
         $this->veTodas();
         $this->pastas->expects(self::once())
             ->method('buscarParaBuscaRapida')
-            ->with(str_repeat('a', 100), $this->tenant, BuscarRapidoUseCase::CANDIDATOS)
+            ->with(str_repeat('a', 100), $this->tenant, BuscarRapidoUseCase::LIMITE, null)
             ->willReturn([]);
 
         $saida = $this->useCase()->executar('  ' . str_repeat('a', 150) . '  ', $this->user, $this->tenant);
@@ -105,34 +105,43 @@ final class BuscarRapidoUseCaseTest extends TestCase
         self::assertSame([], $saida->resultados);
     }
 
-    #[TestDox('quem tem resources.pasta.view vê todas, sem consultar acesso por pasta')]
-    public function testPermissaoGeralNaoConsultaAcessoPorPasta(): void
+    #[TestDox('quem tem resources.pasta.view busca sem restrição, sem consultar acesso por pasta')]
+    public function testPermissaoGeralNaoRestringe(): void
     {
         $this->checker->expects(self::once())->method('hasPermission')
             ->with($this->user, $this->tenant, 'resources.pasta.view')->willReturn(true);
         $this->acessos->expects(self::never())->method('findBy');
-        $this->devolve([new OcorrenciaDaBuscaRapida(1, 'Pasta', '1', false)]);
+        $this->pastas->expects(self::once())->method('buscarParaBuscaRapida')
+            ->with('', $this->tenant, BuscarRapidoUseCase::LIMITE, null)
+            ->willReturn([new OcorrenciaDaBuscaRapida(1, 'Pasta', '1', false)]);
 
         self::assertCount(1, $this->useCase()->executar('', $this->user, $this->tenant)->resultados);
     }
 
-    #[TestDox('sem a permissão geral, só as pastas com acesso próprio de visualização, numa consulta só')]
-    public function testSemPermissaoGeralFiltraPorAcessoProprio(): void
+    #[TestDox('sem a permissão geral, o repositório recebe só os ids com acesso próprio que permite ver (uma consulta)')]
+    public function testSemPermissaoGeralRestringeAosIdsComAcessoProprio(): void
     {
         $this->checker->method('hasPermission')->willReturn(false);
-        $this->devolve([
-            new OcorrenciaDaBuscaRapida(1, 'Pasta', '1', false),
-            new OcorrenciaDaBuscaRapida(2, 'Pasta', '2', false),
-            new OcorrenciaDaBuscaRapida(2, 'Cliente', '2', false, nome: 'X'),
-            new OcorrenciaDaBuscaRapida(3, 'Pasta', '3', false),
-        ]);
         $this->acessos->expects(self::once())->method('findBy')
-            ->with(['user' => $this->user, 'resourceType' => 'pasta', 'resourceId' => [1, 2, 3]])
-            ->willReturn([$this->acesso(2, true), $this->acesso(3, false)]);
+            ->with(['user' => $this->user, 'resourceType' => 'pasta'])
+            ->willReturn([$this->acesso(2, true), $this->acesso(3, false), $this->acesso(2, true), $this->acesso(9, true)]);
+        $this->pastas->expects(self::once())->method('buscarParaBuscaRapida')
+            ->with('x', $this->tenant, BuscarRapidoUseCase::LIMITE, [2, 9])
+            ->willReturn([]);
 
-        $r = $this->useCase()->executar('', $this->user, $this->tenant)->resultados;
+        $this->useCase()->executar('x', $this->user, $this->tenant);
+    }
 
-        self::assertSame([2, 2], array_map(static fn (ResultadoDaBuscaRapidaOutput $x): int => $x->pastaId, $r));
+    #[TestDox('sem a permissão geral e sem acesso próprio, o repositório recebe lista vazia')]
+    public function testSemNenhumAcessoPassaListaVazia(): void
+    {
+        $this->checker->method('hasPermission')->willReturn(false);
+        $this->acessos->method('findBy')->willReturn([$this->acesso(3, false)]);
+        $this->pastas->expects(self::once())->method('buscarParaBuscaRapida')
+            ->with('', $this->tenant, BuscarRapidoUseCase::LIMITE, [])
+            ->willReturn([]);
+
+        self::assertSame([], $this->useCase()->executar('', $this->user, $this->tenant)->resultados);
     }
 
     #[TestDox('trancada passa adiante; abreTrancada vem de ser administrador do escritório; restrito é sempre false hoje')]

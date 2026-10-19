@@ -55,6 +55,7 @@ final class BuscaRapidaController extends AbstractController
             'titulo'    => $r->titulo,
             'subtitulo' => $r->subtitulo,
             'pastaId'   => $r->pastaId,
+            'nup'       => $r->nup,
             'url'       => $this->generateUrl('pasta_show', ['id' => $r->pastaId]),
             'trancada'  => $r->trancada,
             'restrito'  => $r->restrito,

@@ -26,6 +26,7 @@ use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\QueryBuilder;
@@ -1507,7 +1508,8 @@ class PastaRepository extends ServiceEntityRepository
      * Busca rápida da pasta (Ctrl + K, desenho 02 EXPEDIENTES L405-421): as ocorrências do termo no
      * escritório, já separadas por grupo, das pastas mais recentes para as mais antigas.
      *
-     * - Pasta: casa pelo número da pasta ou pela ação.
+     * - Pasta: como o desenho (L6470-6472), casa pelo número da pasta ou por "Pasta <número>". A ação
+     *   NÃO entra na busca: é só o subtítulo.
      * - Cliente: casa pelo nome (PF e PJ), pelo CPF/CNPJ como gravado e, com 3 dígitos ou mais no
      *   termo, pelos DÍGITOS do CPF/CNPJ (o banco guarda o CPF ora mascarado, ora cru: ver
      *   `DocumentoBrExtension`). Pasta sem cliente cadastrado casa pelo nome escrito na pasta.
@@ -1515,38 +1517,63 @@ class PastaRepository extends ServiceEntityRepository
      *   pelos dígitos (3 ou mais).
      * - Termo vazio: só as pastas, as mais recentes.
      *
+     * `$somenteIds`: null = sem restrição; lista = só essas pastas (a visibilidade é decidida pelo
+     * chamador e aplicada AQUI, antes do LIMIT, para o corte valer sobre o que a pessoa vê).
+     *
      * Sem acento e sem caixa (`unaccent` + `lower`). SQL nativo porque a comparação por dígitos
      * precisa do `regexp_replace` do PostgreSQL, que o DQL não tem; o filtro de tenant do Doctrine
-     * NÃO vale aqui, por isso o `tenant_id` explícito em todas as tabelas TenantAware. Pasta excluída
-     * (lápide) fica de fora. Quem decide quais pastas a pessoa pode ver é o chamador.
+     * NÃO vale aqui, por isso o `tenant_id` explícito em pasta, cliente (inclusive o principal) e
+     * processo. Pasta excluída (lápide) fica de fora.
+     *
+     * @param list<int>|null $somenteIds
      *
      * @return list<OcorrenciaDaBuscaRapida>
      */
-    public function buscarParaBuscaRapida(string $termo, Tenant $tenant, int $limite = 50): array
+    public function buscarParaBuscaRapida(string $termo, Tenant $tenant, int $limite = 8, ?array $somenteIds = null): array
     {
-        $termo   = mb_strtolower(trim($termo));
-        $digitos = preg_replace('/\D/', '', $termo) ?? '';
-        $digitos = \strlen($digitos) >= 3 ? $digitos : '';
+        if ($somenteIds === []) {
+            return [];
+        }
 
+        $termo       = mb_strtolower(trim($termo));
+        $base        = self::SQL_BUSCA_RAPIDA_BASE . ($somenteIds !== null ? ' AND p.id IN (:ids)' : '');
         $ocorrencias = $termo === '' ? self::SQL_BUSCA_RAPIDA_SO_PASTAS : self::SQL_BUSCA_RAPIDA_OCORRENCIAS;
-        $sql = 'WITH base AS (' . self::SQL_BUSCA_RAPIDA_BASE . '), ocorrencias AS (' . $ocorrencias . ')'
+        $sql = 'WITH base AS (' . $base . '), ocorrencias AS (' . $ocorrencias . ')'
             . ' SELECT o.*, b.nup, b.nome_acao, b.nome_cliente, b.trancada, b.nome_principal'
             . ' FROM ocorrencias o JOIN base b ON b.id = o.pasta_id'
             . ' ORDER BY o.pasta_id DESC, o.ordem ASC, o.principal DESC, o.nome ASC, o.numero ASC'
             . ' LIMIT :limite';
 
-        // Parâmetro nomeado que a consulta não usa (termo vazio) é ignorado: o DBAL converte os nomeados
-        // em posicionais pelo que aparece no SQL.
-        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative($sql, [
+        // Parâmetro nomeado que a consulta não usa (termo vazio, sem restrição) é ignorado: o DBAL
+        // converte os nomeados em posicionais pelo que aparece no SQL.
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            $sql,
+            self::parametrosDaBuscaRapida($termo, $tenant, $limite, $somenteIds),
+            ['limite' => ParameterType::INTEGER, 'tenant' => ParameterType::INTEGER, 'ids' => ArrayParameterType::INTEGER],
+        );
+
+        return array_map(self::ocorrenciaDaLinha(...), $linhas);
+    }
+
+    /**
+     * @param list<int>|null $somenteIds
+     *
+     * @return array<string, mixed>
+     */
+    private static function parametrosDaBuscaRapida(string $termo, Tenant $tenant, int $limite, ?array $somenteIds): array
+    {
+        $digitos = preg_replace('/\D/', '', $termo) ?? '';
+        $digitos = \strlen($digitos) >= 3 ? $digitos : '';
+
+        return [
             'tenant'      => $tenant->getId(),
             // `%`, `_` e `\` digitados valem como texto, não como curinga do LIKE.
             'termo'       => '%' . addcslashes($termo, '%_\\') . '%',
             'digitos'     => $digitos,
             'digitosLike' => '%' . $digitos . '%',
             'limite'      => $limite,
-        ], ['limite' => ParameterType::INTEGER, 'tenant' => ParameterType::INTEGER]);
-
-        return array_map(self::ocorrenciaDaLinha(...), $linhas);
+            'ids'         => $somenteIds ?? [],
+        ];
     }
 
     /** As pastas vivas do escritório, com o nome do cliente principal para o subtítulo. */
@@ -1554,8 +1581,9 @@ class PastaRepository extends ServiceEntityRepository
         . ' (p.trancada_em IS NOT NULL) AS trancada,'
         . ' COALESCE(cpf_pr.nome_completo, cpj_pr.razao_social) AS nome_principal'
         . ' FROM pasta p'
-        . ' LEFT JOIN cliente_pf cpf_pr ON cpf_pr.id = p.cliente_principal_id'
-        . ' LEFT JOIN cliente_pj cpj_pr ON cpj_pr.id = p.cliente_principal_id'
+        . ' LEFT JOIN cliente c_pr ON c_pr.id = p.cliente_principal_id AND c_pr.tenant_id = :tenant'
+        . ' LEFT JOIN cliente_pf cpf_pr ON cpf_pr.id = c_pr.id'
+        . ' LEFT JOIN cliente_pj cpj_pr ON cpj_pr.id = c_pr.id'
         . ' WHERE p.tenant_id = :tenant AND p.excluida_em IS NULL';
 
     private const SQL_BUSCA_RAPIDA_SO_PASTAS = "SELECT b.id AS pasta_id, 1 AS ordem, 'Pasta' AS grupo, false AS principal,"
@@ -1565,7 +1593,7 @@ class PastaRepository extends ServiceEntityRepository
     private const SQL_BUSCA_RAPIDA_OCORRENCIAS = "SELECT b.id AS pasta_id, 1 AS ordem, 'Pasta' AS grupo, false AS principal,"
         . ' NULL::text AS nome, NULL::text AS documento, NULL::text AS numero, NULL::text AS classe'
         . ' FROM base b'
-        . " WHERE unaccent(lower(b.nup)) LIKE unaccent(:termo) OR unaccent(lower(COALESCE(b.nome_acao, ''))) LIKE unaccent(:termo)"
+        . " WHERE unaccent(lower(b.nup)) LIKE unaccent(:termo) OR unaccent(lower('pasta ' || b.nup)) LIKE unaccent(:termo)"
         . " UNION ALL SELECT b.id, 2, 'Cliente', false, COALESCE(cpf.nome_completo, cpj.razao_social), COALESCE(cpf.cpf, cpj.cnpj), NULL, NULL"
         . ' FROM base b JOIN pasta_cliente pc ON pc.pasta_id = b.id'
         . ' JOIN cliente c ON c.id = pc.cliente_id AND c.tenant_id = :tenant'

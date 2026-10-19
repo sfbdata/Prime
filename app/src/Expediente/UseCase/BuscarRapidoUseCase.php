@@ -29,9 +29,6 @@ final class BuscarRapidoUseCase
 {
     public const LIMITE = 8;
 
-    /** Ocorrências lidas do banco antes do filtro de visibilidade (que roda fora do SQL). */
-    public const CANDIDATOS = 50;
-
     private const TAMANHO_MAXIMO_DO_TERMO = 100;
 
     public function __construct(
@@ -46,73 +43,55 @@ final class BuscarRapidoUseCase
     public function executar(string $termo, User $user, Tenant $tenant): BuscaRapidaOutput
     {
         $termo       = mb_substr(trim($termo), 0, self::TAMANHO_MAXIMO_DO_TERMO);
-        $ocorrencias = $this->pastaRepository->buscarParaBuscaRapida($termo, $tenant, self::CANDIDATOS);
-        $visiveis    = array_slice($this->filtrarVisiveis($user, $tenant, $ocorrencias), 0, self::LIMITE);
+        $visiveis    = $this->calcularVisibilidade($user, $tenant);
+        $ocorrencias = $this->pastaRepository->buscarParaBuscaRapida($termo, $tenant, self::LIMITE, $visiveis);
 
         return new BuscaRapidaOutput(
-            array_map($this->montarResultado(...), $visiveis),
+            array_map($this->montarResultado(...), array_slice($ocorrencias, 0, self::LIMITE)),
             $this->permissionChecker->isAdministradorDoEscritorio($user, $tenant),
         );
     }
 
     /**
      * REGRA PROVISÓRIA de visibilidade, isolada aqui de propósito: é a mesma decisão do `pasta_show`
-     * (`PermissionChecker::canAccessResource(..., RESOURCE_PASTA, id, ACTION_VIEW)`), só que em lote.
-     * Quem tem `resources.pasta.view` no perfil (ou é administrador do escritório / super admin, que
-     * `hasPermission` já cobre) vê todas; os demais só as pastas com acesso próprio de visualização
-     * (`ResourceAccess`), numa consulta só.
+     * (`PermissionChecker::canAccessResource(..., RESOURCE_PASTA, id, ACTION_VIEW)`), em lote. Devolve
+     * null quando a pessoa vê todas as pastas do escritório (`resources.pasta.view` no perfil; o
+     * administrador do escritório e o super admin já passam por `hasPermission`) ou a lista dos ids
+     * com acesso próprio de visualização (`ResourceAccess` com can_view), numa consulta só. O
+     * repositório aplica a lista DENTRO do SQL, antes do LIMIT.
      *
      * SERÁ TROCADA pelo serviço `App\Pasta\Service\AcessoAPasta` (sessão b5, spec
-     * docs/specs/pasta-cadeado.md, D1), pelos métodos `niveisEmLote(User, array $pastas)` e
-     * `restringirAoVisivel(QueryBuilder, aliasPasta, User)`. A regra que entra no lugar desta:
+     * docs/specs/pasta-cadeado.md, D1). Com ele, a restrição entra no SQL por
+     * `restringirAoVisivel(QueryBuilder, aliasPasta, User)` (ou o equivalente no CTE base desta busca
+     * nativa) e o nível de cada resultado vem de `niveisEmLote(User, array $pastas)`. A regra que entra:
      * - nível Visualizar ou Editar: a pasta aparece normal;
      * - nível Oculto: a pasta APARECE, mas só com número da pasta, cliente e CPF e o cadeado
      *   (`restrito: true` no resultado), casa SÓ por número da pasta, nome do cliente e CPF (nunca
      *   por processo ou assunto), e ao abrir vai para a tela "Pasta trancada" com o pedido de acesso.
      *
-     * @param list<OcorrenciaDaBuscaRapida> $ocorrencias
-     *
-     * @return list<OcorrenciaDaBuscaRapida>
+     * @return list<int>|null
      */
-    private function filtrarVisiveis(User $user, Tenant $tenant, array $ocorrencias): array
+    private function calcularVisibilidade(User $user, Tenant $tenant): ?array
     {
         $permissao = sprintf('resources.%s.%s', AccessRequest::RESOURCE_PASTA, AccessRequest::ACTION_VIEW);
-        if ($ocorrencias === [] || $this->permissionChecker->hasPermission($user, $tenant, $permissao)) {
-            return $ocorrencias;
+        if ($this->permissionChecker->hasPermission($user, $tenant, $permissao)) {
+            return null;
         }
-
-        $comAcessoProprio = $this->pastasComAcessoProprio($user, $ocorrencias);
-
-        return array_values(array_filter(
-            $ocorrencias,
-            static fn (OcorrenciaDaBuscaRapida $o): bool => isset($comAcessoProprio[$o->pastaId]),
-        ));
-    }
-
-    /**
-     * @param list<OcorrenciaDaBuscaRapida> $ocorrencias
-     *
-     * @return array<int, true> id da pasta => true
-     */
-    private function pastasComAcessoProprio(User $user, array $ocorrencias): array
-    {
-        $ids = array_values(array_unique(array_map(static fn (OcorrenciaDaBuscaRapida $o): int => $o->pastaId, $ocorrencias)));
 
         /** @var list<ResourceAccess> $acessos */
         $acessos = $this->resourceAccessRepository->findBy([
             'user'         => $user,
             'resourceType' => AccessRequest::RESOURCE_PASTA,
-            'resourceId'   => $ids,
         ]);
 
-        $permitidas = [];
+        $ids = [];
         foreach ($acessos as $acesso) {
             if ($acesso->allows(AccessRequest::ACTION_VIEW)) {
-                $permitidas[(int) $acesso->getResourceId()] = true;
+                $ids[] = (int) $acesso->getResourceId();
             }
         }
 
-        return $permitidas;
+        return array_values(array_unique($ids));
     }
 
     private function montarResultado(OcorrenciaDaBuscaRapida $o): ResultadoDaBuscaRapidaOutput
@@ -123,7 +102,7 @@ final class BuscarRapidoUseCase
             default                                 => $this->textosDaPasta($o),
         };
 
-        return new ResultadoDaBuscaRapidaOutput($o->grupo, $titulo, $subtitulo, $o->pastaId, $o->trancada);
+        return new ResultadoDaBuscaRapidaOutput($o->grupo, $titulo, $subtitulo, $o->pastaId, $o->nup, $o->trancada);
     }
 
     /** @return array{0: string, 1: string} "Pasta 1176" / ação, ou o cliente quando não há ação */

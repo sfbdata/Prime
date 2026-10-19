@@ -104,18 +104,21 @@ final class PastaRepositoryBuscaRapidaTest extends KernelTestCase
         self::assertCount(1, $this->repo->buscarParaBuscaRapida('080993155', $tenant));
     }
 
-    #[TestDox('casa a pasta pelo número e pela ação, sem acento')]
-    public function testPastaPorNumeroEPorAcao(): void
+    #[TestDox('grupo Pasta casa pelo número e por "Pasta <número>", não pela ação (desenho L6470-6472)')]
+    public function testPastaPorNumeroENaoPelaAcao(): void
     {
         $tenant = $this->criarTenant();
         $pasta  = $this->criarPasta($tenant, nomeAcao: 'Usucapião Extraordinária Zétima');
 
-        $porAcao = $this->repo->buscarParaBuscaRapida('usucapiao extraordinaria zetima', $tenant);
-        self::assertSame([$pasta->getId()], $this->idsDoGrupo($porAcao, OcorrenciaDaBuscaRapida::GRUPO_PASTA));
-
         $porNumero = $this->repo->buscarParaBuscaRapida(mb_strtolower((string) $pasta->getNup()), $tenant);
         self::assertSame([$pasta->getId()], $this->idsDoGrupo($porNumero, OcorrenciaDaBuscaRapida::GRUPO_PASTA));
-        self::assertTrue($porNumero[0]->trancada === false);
+        self::assertFalse($porNumero[0]->trancada);
+        self::assertSame('USUCAPIÃO EXTRAORDINÁRIA ZÉTIMA', $porNumero[0]->nomeAcao, 'a ação segue como dado do subtítulo');
+
+        $comPrefixo = $this->repo->buscarParaBuscaRapida('Pasta ' . $pasta->getNup(), $tenant);
+        self::assertSame([$pasta->getId()], $this->idsDoGrupo($comPrefixo, OcorrenciaDaBuscaRapida::GRUPO_PASTA));
+
+        self::assertSame([], $this->repo->buscarParaBuscaRapida('usucapiao extraordinaria zetima', $tenant));
     }
 
     #[TestDox('pasta sem cliente cadastrado casa pelo nome escrito na pasta')]
@@ -130,34 +133,67 @@ final class PastaRepositoryBuscaRapidaTest extends KernelTestCase
         self::assertSame('GLEISSON BRUNO TESTE', $achadas[0]->nome);
     }
 
-    #[TestDox('pasta de outro escritório nunca aparece, nem por cliente nem por processo')]
+    #[TestDox('pasta de outro escritório nunca aparece, nem por número, cliente ou processo')]
     public function testTenantAlheioNaoAparece(): void
     {
         $meu    = $this->criarTenant();
         $alheio = $this->criarTenant();
-        $dele   = $this->criarPasta($alheio, nomeAcao: 'Acao Exclusiva Alheia');
+        $dele   = $this->criarPasta($alheio);
         $dele->addCliente($this->clientePF($alheio, 'Cliente Exclusivo Alheio', '555.444.333-22'));
         $dele->vincularProcesso($this->criarProcesso($alheio, '55544433322201234567'));
         $this->em->flush();
 
-        self::assertSame([], $this->repo->buscarParaBuscaRapida('exclusiva alheia', $meu));
+        self::assertSame([], $this->repo->buscarParaBuscaRapida((string) $dele->getNup(), $meu));
         self::assertSame([], $this->repo->buscarParaBuscaRapida('exclusivo alheio', $meu));
         self::assertSame([], $this->repo->buscarParaBuscaRapida('55544433322', $meu));
         self::assertSame([], $this->repo->buscarParaBuscaRapida('', $meu));
-        self::assertNotSame([], $this->repo->buscarParaBuscaRapida('exclusiva alheia', $alheio));
+        self::assertNotSame([], $this->repo->buscarParaBuscaRapida((string) $dele->getNup(), $alheio));
+    }
+
+    #[TestDox('pasta minha ligada a cliente e processo de OUTRO escritório não traz esse cliente nem esse processo')]
+    public function testGuardasDeTenantDoClienteEDoProcesso(): void
+    {
+        $meu    = $this->criarTenant();
+        $alheio = $this->criarTenant();
+        $minha  = $this->criarPasta($meu);
+        $minha->addCliente($this->clientePF($alheio, 'Cliente Infiltrado Alheio', '777.666.555-44'));
+        $minha->vincularProcesso($this->criarProcesso($alheio, '77766655544401234567'));
+        $this->em->flush();
+
+        self::assertSame([], $this->repo->buscarParaBuscaRapida('infiltrado alheio', $meu));
+        self::assertSame([], $this->repo->buscarParaBuscaRapida('77766655544', $meu));
+
+        $pelaPasta = $this->repo->buscarParaBuscaRapida((string) $minha->getNup(), $meu);
+        self::assertCount(1, $pelaPasta);
+        self::assertNull($pelaPasta[0]->nomeDoClientePrincipal, 'o cliente principal de outro escritório não vira subtítulo');
+    }
+
+    #[TestDox('somenteIds restringe dentro do SQL, antes do limite; lista vazia não traz nada')]
+    public function testSomenteIdsRestringeAntesDoLimite(): void
+    {
+        $tenant = $this->criarTenant();
+        $antiga = $this->criarPasta($tenant);
+        for ($i = 0; $i < 12; ++$i) {
+            $this->criarPasta($tenant);
+        }
+
+        $achadas = $this->repo->buscarParaBuscaRapida('', $tenant, 8, [(int) $antiga->getId()]);
+        self::assertSame([$antiga->getId()], array_map(static fn (OcorrenciaDaBuscaRapida $o): int => $o->pastaId, $achadas));
+        self::assertSame([], $this->repo->buscarParaBuscaRapida('', $tenant, 8, []));
     }
 
     #[TestDox('pasta excluída (lápide) não aparece')]
     public function testLapideNaoAparece(): void
     {
         $tenant = $this->criarTenant();
-        $viva   = $this->criarPasta($tenant, nomeAcao: 'Acao Lapide Teste');
-        $morta  = $this->criarPasta($tenant, nomeAcao: 'Acao Lapide Teste');
+        $viva   = $this->criarPasta($tenant, nomeCliente: 'Lapide Teste Nome');
+        $morta  = $this->criarPasta($tenant, nomeCliente: 'Lapide Teste Nome');
         $morta->marcarExcluida($this->criarUsuario(), new \DateTimeImmutable());
         $this->em->flush();
 
-        self::assertSame([$viva->getId()], $this->idsDoGrupo($this->repo->buscarParaBuscaRapida('lapide teste', $tenant), OcorrenciaDaBuscaRapida::GRUPO_PASTA));
+        self::assertSame([$viva->getId()], $this->idsDoGrupo($this->repo->buscarParaBuscaRapida('lapide teste', $tenant), OcorrenciaDaBuscaRapida::GRUPO_CLIENTE));
         self::assertSame([$viva->getId()], $this->idsDoGrupo($this->repo->buscarParaBuscaRapida('', $tenant), OcorrenciaDaBuscaRapida::GRUPO_PASTA));
+        self::assertSame([], $this->repo->buscarParaBuscaRapida((string) $morta->getNup(), $tenant));
     }
 
     #[TestDox('termo vazio: só pastas, das mais recentes, até o limite')]
@@ -187,17 +223,20 @@ final class PastaRepositoryBuscaRapidaTest extends KernelTestCase
 
         self::assertSame([], $this->repo->buscarParaBuscaRapida('%', $tenant));
         self::assertSame([], $this->repo->buscarParaBuscaRapida('_', $tenant));
+        // Sem o escape, a barra no fim do padrão faria o PostgreSQL recusar o LIKE.
+        self::assertSame([], $this->repo->buscarParaBuscaRapida('\\', $tenant));
+        self::assertSame([], $this->repo->buscarParaBuscaRapida('a\\', $tenant));
     }
 
     #[TestDox('pasta trancada vem marcada')]
     public function testTrancadaVemMarcada(): void
     {
         $tenant = $this->criarTenant();
-        $pasta  = $this->criarPasta($tenant, nomeAcao: 'Acao Trancada Teste');
+        $pasta  = $this->criarPasta($tenant);
         $pasta->trancar($this->criarUsuario(), new \DateTimeImmutable());
         $this->em->flush();
 
-        $achadas = $this->repo->buscarParaBuscaRapida('trancada teste', $tenant);
+        $achadas = $this->repo->buscarParaBuscaRapida((string) $pasta->getNup(), $tenant);
 
         self::assertCount(1, $achadas);
         self::assertTrue($achadas[0]->trancada);

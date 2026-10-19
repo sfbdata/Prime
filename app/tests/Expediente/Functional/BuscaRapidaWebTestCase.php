@@ -76,26 +76,27 @@ abstract class BuscaRapidaWebTestCase extends JusPrimeWebTestCase
         return $this->criarUsuario($tenant, $role);
     }
 
-    protected function criarPasta(Tenant $tenant, ?string $nomeAcao = null): Pasta
+    protected function criarPasta(Tenant $tenant, ?string $nomeAcao = null, ?string $nomeCliente = null): Pasta
     {
         $pasta = new Pasta();
         $pasta->setNup('BRF' . (++$this->seq) . 'X' . strtoupper(substr(uniqid(), -7)));
         $pasta->setTenant($tenant);
         $pasta->setNomeAcao($nomeAcao);
+        $pasta->setNomeCliente($nomeCliente);
         $this->em()->persist($pasta);
         $this->em()->flush();
 
         return $pasta;
     }
 
-    protected function darAcessoProprio(User $user, Tenant $tenant, Pasta $pasta): void
+    protected function darAcessoProprio(User $user, Tenant $tenant, Pasta $pasta, bool $podeVer = true): void
     {
         $acesso = (new ResourceAccess())
             ->setUser($user)
             ->setTenant($tenant)
             ->setResourceType('pasta')
             ->setResourceId((int) $pasta->getId())
-            ->setCanView(true);
+            ->setCanView($podeVer);
         $this->em()->persist($acesso);
         $this->em()->flush();
     }

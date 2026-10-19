@@ -58,19 +58,22 @@ final class BuscaRapidaControllerTest extends BuscaRapidaWebTestCase
         $pasta->vincularProcesso($this->processo($tenant, '07122841920258070001'));
         $this->em()->flush();
 
-        $resultados = $this->buscar($client, $admin, $tenant, 'quintessencial');
-        self::assertSame(['Pasta', 'Cliente'], array_column($resultados, 'grupo'));
+        $porNumero = $this->buscar($client, $admin, $tenant, 'Pasta ' . $pasta->getNup());
         self::assertSame([
             'grupo'     => 'Pasta',
             'titulo'    => 'Pasta ' . $pasta->getNup(),
             'subtitulo' => 'ACAO QUINTESSENCIAL',
             'pastaId'   => $pasta->getId(),
+            'nup'       => $pasta->getNup(),
             'url'       => '/pasta/' . $pasta->getId(),
             'trancada'  => false,
             'restrito'  => false,
-        ], $resultados[0]);
-        self::assertSame('QUINTESSENCIAL SILVA', $resultados[1]['titulo']);
-        self::assertSame('CPF 318.774.902-15 · Pasta ' . $pasta->getNup(), $resultados[1]['subtitulo']);
+        ], $porNumero[0]);
+
+        $porCliente = $this->buscar($client, $admin, $tenant, 'quintessencial');
+        self::assertSame(['Cliente'], array_column($porCliente, 'grupo'), 'a ação não entra na busca do grupo Pasta');
+        self::assertSame('QUINTESSENCIAL SILVA', $porCliente[0]['titulo']);
+        self::assertSame('CPF 318.774.902-15 · Pasta ' . $pasta->getNup(), $porCliente[0]['subtitulo']);
 
         $porProcesso = $this->buscar($client, $admin, $tenant, '0712284-19');
         self::assertSame('Processo', $porProcesso[0]['grupo']);
@@ -85,25 +88,44 @@ final class BuscaRapidaControllerTest extends BuscaRapidaWebTestCase
         $meu    = $this->criarTenant();
         $alheio = $this->criarTenant();
         $admin  = $this->criarAdministrador($meu);
-        $this->criarPasta($alheio, 'Acao Zigurate Alheia');
+        $dele   = $this->criarPasta($alheio, nomeCliente: 'Zigurate Alheio');
 
+        self::assertSame([], $this->buscar($client, $admin, $meu, (string) $dele->getNup()));
         self::assertSame([], $this->buscar($client, $admin, $meu, 'zigurate'));
         self::assertSame([], $this->buscar($client, $admin, $meu, ''));
     }
 
-    #[TestDox('sem resources.pasta.view, só aparece a pasta com acesso próprio')]
+    #[TestDox('sem resources.pasta.view, só aparece a pasta com acesso próprio de ver; can_view=false não conta')]
     public function testPastaSemAcessoNaoAparece(): void
     {
-        $client  = static::createClient();
-        $tenant  = $this->criarTenant();
-        $pessoa  = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view']);
-        $liberada = $this->criarPasta($tenant, 'Acao Obelisco');
-        $this->criarPasta($tenant, 'Acao Obelisco');
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $pessoa   = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view']);
+        $liberada = $this->criarPasta($tenant, nomeCliente: 'Obelisco Teste');
+        $semVer   = $this->criarPasta($tenant, nomeCliente: 'Obelisco Teste');
+        $this->criarPasta($tenant, nomeCliente: 'Obelisco Teste');
         $this->darAcessoProprio($pessoa, $tenant, $liberada);
+        $this->darAcessoProprio($pessoa, $tenant, $semVer, podeVer: false);
 
         $resultados = $this->buscar($client, $pessoa, $tenant, 'obelisco');
 
         self::assertSame([$liberada->getId()], array_column($resultados, 'pastaId'));
+    }
+
+    #[TestDox('60 pastas e acesso só a uma antiga: o corte vale sobre o visível, ela aparece no campo vazio e no termo comum')]
+    public function testAcessoAUmaPastaAntigaEntreSessenta(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $pessoa = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view']);
+        $antiga = $this->criarPasta($tenant, nomeCliente: 'Comum Sessenta');
+        for ($i = 0; $i < 59; ++$i) {
+            $this->criarPasta($tenant, nomeCliente: 'Comum Sessenta');
+        }
+        $this->darAcessoProprio($pessoa, $tenant, $antiga);
+
+        self::assertSame([$antiga->getId()], array_column($this->buscar($client, $pessoa, $tenant, ''), 'pastaId'));
+        self::assertSame([$antiga->getId()], array_column($this->buscar($client, $pessoa, $tenant, 'comum sessenta'), 'pastaId'));
     }
 
     #[TestDox('pasta trancada vem com trancada=true; quem não é administrador não a abre direto')]
@@ -113,12 +135,13 @@ final class BuscaRapidaControllerTest extends BuscaRapidaWebTestCase
         $tenant = $this->criarTenant();
         $admin  = $this->criarAdministrador($tenant);
         $pessoa = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view', 'resources.pasta.view']);
-        $pasta  = $this->criarPasta($tenant, 'Acao Cofre Forte');
+        $pasta  = $this->criarPasta($tenant);
         $pasta->trancar($admin, new \DateTimeImmutable());
         $this->em()->flush();
+        $q = rawurlencode((string) $pasta->getNup());
 
         $this->logarComTenant($client, $pessoa, $tenant);
-        $client->request('GET', self::URL . '?q=cofre');
+        $client->request('GET', self::URL . '?q=' . $q);
         self::assertResponseIsSuccessful();
         $json = json_decode((string) $client->getResponse()->getContent(), true);
 
@@ -126,7 +149,7 @@ final class BuscaRapidaControllerTest extends BuscaRapidaWebTestCase
         self::assertFalse($json['abreTrancada']);
 
         $this->logarComTenant($client, $admin, $tenant);
-        $client->request('GET', self::URL . '?q=cofre');
+        $client->request('GET', self::URL . '?q=' . $q);
         self::assertTrue(json_decode((string) $client->getResponse()->getContent(), true)['abreTrancada']);
     }
 
