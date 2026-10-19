@@ -205,6 +205,17 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
+### Cobrança automática do checklist das pastas (crontab na VPS)
+
+Job de manhã, de segunda a sexta (desenho 02, aba Documentos): cobra do responsável os documentos pendentes
+do checklist (no máximo 2 por pasta por dia, o tom sobe a cada aviso, a controladoria vai junto no 4º),
+avisa itens marcados sem o documento anexado e lembra de revisar checklist desativado há 30 dias. Cada
+escritório pula feriado (calendário da Agenda). Idempotente no dia.
+
+```
+0 9 * * 1-5 docker exec jusprime_php_prod php bin/console app:pasta:cobrar-checklist >> /var/log/jusprime-checklist.log 2>&1
+```
+
 ### Atualização de encargos de cobrança (crontab na VPS)
 
 Job diário que faz os encargos das obrigações **crescerem no tempo**: recalcula juros, multa,

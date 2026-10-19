@@ -56,6 +56,7 @@ final readonly class PastaPendenciasOutput
         ?\DateTimeImmutable $hoje = null,
         int $itensMarcadosSemAnexo = 0,
         bool $veFinanceiro = false,
+        int $documentosCobrados = 0,
     ): self {
         $porAba = [];
 
@@ -95,15 +96,8 @@ final readonly class PastaPendenciasOutput
 
         // Checklist desativado (DOC-73): a conferência "sem anexo" está pausada e não é pendência.
         // O gate mora AQUI, e não em quem chama, para a tela e o resumo impresso obedecerem juntos.
-        if ($itensMarcadosSemAnexo > 0 && $pasta->isChecklistAtivo()) {
-            $porAba['documentos'] = [
-                'n'   => $itensMarcadosSemAnexo,
-                'txt' => self::plural(
-                    $itensMarcadosSemAnexo,
-                    'item do checklist marcado sem anexo',
-                    'itens do checklist marcados sem anexo',
-                ),
-            ];
+        if ($itensMarcadosSemAnexo + $documentosCobrados > 0 && $pasta->isChecklistAtivo()) {
+            $porAba['documentos'] = self::pendenciaDosDocumentos($documentosCobrados, $itensMarcadosSemAnexo);
         }
 
         if ($pushNaoLidas > 0) {
@@ -114,6 +108,22 @@ final readonly class PastaPendenciasOutput
         }
 
         return new self($porAba);
+    }
+
+    /**
+     * Desenho 02 (dc 5496-5498): "N documentos cobrados e ainda não anexados" e "N itens marcados sem
+     * anexo", juntos com " e ".
+     *
+     * @return array{n: int, txt: string}
+     */
+    private static function pendenciaDosDocumentos(int $cobrados, int $semAnexo): array
+    {
+        $partes = array_filter([
+            $cobrados > 0 ? self::plural($cobrados, 'documento cobrado e ainda não anexado', 'documentos cobrados e ainda não anexados') : '',
+            $semAnexo > 0 ? self::plural($semAnexo, 'item do checklist marcado sem anexo', 'itens do checklist marcados sem anexo') : '',
+        ]);
+
+        return ['n' => $cobrados + $semAnexo, 'txt' => implode(' e ', $partes)];
     }
 
     private static function plural(int $n, string $um, string $varios): string

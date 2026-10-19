@@ -20,6 +20,7 @@ use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
+use App\Pasta\Service\CobrancasDoChecklistDaPasta;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Processo\Entity\Processo;
 use App\Processo\Service\SituacaoProcessoRotulo;
@@ -83,6 +84,7 @@ final class PastaResumoController extends AbstractController
         private readonly PastaChecklistItemRepository $checklistRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
+        private readonly CobrancasDoChecklistDaPasta $cobrancasDoChecklist,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
     ) {
@@ -371,6 +373,7 @@ final class PastaResumoController extends AbstractController
                 itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
                 // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
                 veFinanceiro: $veFinanceiro,
+                documentosCobrados: $this->cobrancasDoChecklist->cobradosPendentes($pasta),
             ),
             $push->itens,
             $pagamentos,

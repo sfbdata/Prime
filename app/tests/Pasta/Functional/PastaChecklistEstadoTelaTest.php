@@ -96,7 +96,7 @@ final class PastaChecklistEstadoTelaTest extends JusPrimeWebTestCase
         self::assertSame('1', $raiz->attr('data-checklist-ativo'));
     }
 
-    #[TestDox('desativado: faixa com motivo, quem e quando + Reativar; sem corpo, sem ações; nada de 30 dias, cobrança ou IA')]
+    #[TestDox('desativado: faixa com motivo, quem e quando + Reativar; sem corpo, sem ações; cobrança e lembrete de 30 dias pausados, sem atribuir à IA')]
     public function testArranjoDesativado(): void
     {
         $client          = static::createClient();
@@ -127,8 +127,8 @@ final class PastaChecklistEstadoTelaTest extends JusPrimeWebTestCase
         }
 
         $cartao = $crawler->filter('#pexChecklist')->text();
-        self::assertStringNotContainsString('30 dias', $cartao, 'não existe lembrete (S-6)');
-        self::assertStringNotContainsStringIgnoringCase('cobran', $cartao, 'não existe cobrança (S-6)');
+        // Desenho dc 2245 (a D-DOC-S6 "adiar" foi superada em 19/10): a cobrança existe e fica pausada.
+        self::assertStringContainsString('Cobranças, auditoria e alerta da aba pausados. O sistema lembra de revisar a cada 30 dias.', (string) preg_replace('/\s+/u', ' ', $cartao));
         self::assertStringNotContainsString('controladoria', $cartao);
         self::assertDoesNotMatchRegularExpression('/\bIA\b/u', $cartao);
         self::assertSame('0', $crawler->filter('#pexChecklist')->attr('data-checklist-ativo'));

@@ -6,6 +6,7 @@ namespace App\Central\Service;
 
 use App\Entity\Notificacao;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
+use App\Pasta\Service\AvisoDoChecklist;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 
 /**
@@ -41,6 +42,9 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_DJEN_PUBLICACAO => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_PUSH_LINK_RENOVACAO => ['grupo' => 'atencao', 'rotulo' => 'Renovação', 'icone' => 'bi-arrow-clockwise', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AMBAR, 'nivel' => 1],
+            // Cobrança automática do checklist da pasta (desenho 02: tipos "cobranca" e "conformidade").
+            AvisoDoChecklist::TIPO_COBRANCA => ['grupo' => 'urgente', 'rotulo' => 'Cobrança de documento', 'icone' => 'bi-megaphone-fill', 'cor' => '#c0392f', 'nivel' => 3],
+            AvisoDoChecklist::TIPO_PROVIDENCIA => ['grupo' => 'atencao', 'rotulo' => 'Providência', 'icone' => 'bi-clipboard2-check', 'cor' => self::AMBAR, 'nivel' => 2],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],
             default => ['grupo' => null, 'rotulo' => 'Aviso', 'icone' => 'bi-bell', 'cor' => self::PETROLEO, 'nivel' => 1],
         };
