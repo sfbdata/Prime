@@ -135,6 +135,65 @@ Da marcação e das estáticas que vieram (linhas 832–846):
 
 Cada fase ganha sua seção aqui antes de começar, depois do zip.
 
+## 4.1 F2a: Vagas, sem candidatura
+
+Branch `trabalho-externo-vagas`, empilhada sobre `trabalho-externo-vs1810` (F1) porque o F1 espera a
+vez na fila de migrations. O PR só abre depois do merge do F1. A candidatura (F2b) depende do
+currículo (F3) e de quem é o candidato (pergunta P1, risco ALTO, com o coordenador): fica de fora.
+
+### Modelo
+
+`Vaga` (`trabalho_externo_vaga`, código `VG-0001`), não `TenantAware` pelo mesmo motivo da demanda
+(a Central lê de todos os escritórios); o isolamento é do repositório escopado e da política.
+
+| Campo | Origem no desenho |
+|---|---|
+| `escritorio` (Tenant, anulável) | quem divulga; nulo = vaga da Central (Master) |
+| `situacao` `SituacaoVaga` | `VST`: pendente, reprovada, aberta, pausada, ocupada (Preenchida), expirada, encerrada |
+| `titulo`*, `cargo`* (`CARGOS`), `contratacao` (`CONTR`), `modalidade` (`MODAL`), `cidade`, `uf`, `remuneracao`, `areas` (`AREAS`), `requisitos`, `inscricoesAte`, `exigeOab` | `tmVagaForm` (linhas 244–252) |
+| `ofertante` (json: nome*, resp, cidade, uf, email, tel, site, e quais campos ficam ocultos) | "QUEM ESTÁ OFERECENDO", `ofCampos` com o olho (linhas 238–242) |
+| `periodoDias` | "QUANTO TEMPO A VAGA FICA DISPONÍVEL", `DUR` 5/10/15/30/60 |
+| `publicadaEm`, `fimDivulgacao` | `fimDiv` de `tlTick()` |
+| `oferta` (bool), `qtd` (1–20), `expiraEm` | oferta relâmpago, `tfOfertaM` |
+| `motivo` | reprovação |
+
+`HistoricoVaga` (vaga, ícone, cor, texto, em): "HISTÓRICO DA OFERTA" (`tv.hist`).
+
+Configuração das vagas em `ConfiguracaoCentral.vagas` (json, padrão de `tlCfg()`:
+`{dur: 15, sino: true, motiv: true, maxDias: 0, minEnvio: 3}`), editada no modal `tmCfgV`.
+`EQUIPE_PADRAO` ganha `talentos: true` (`CFG.equipe` do desenho, linha 716).
+
+### Regras (convenção até o zip; o código que as dizia se perdeu)
+
+- **Criar**: Master, ou Equipe com `talentos`, pelo "Nova vaga" (`tlGere`): nasce **aberta**.
+- **Divulgar**: Solicitante, pelo "Divulgar uma vaga" (`podeDivulgar`): nasce **pendente** ("A equipe
+  BlueJus revisa e divulga na Central"). O período pedido é cortado em `maxDias` (0 = sem limite).
+- **Aprovar / reprovar**: Master ou Equipe com `talentos`. Aprovar abre a vaga e conta o período a
+  partir dali; reprovar pede motivo.
+- **Pausar, retomar, marcar como preenchida, encerrar**: Central, e o escritório dono na vaga dele.
+- **Expirar**: sem cron. Na leitura, aberta com `fimDivulgacao` vencido conta como **encerrada**
+  ("Período de divulgação de N dia(s) encerrado"), e oferta com `expiraEm` vencido como **expirada**
+  ("Oferta expirou sem aceite"). A próxima escrita na vaga grava a mudança.
+- **Quem vê** (P2, convenção registrada pelo coordenador em 19/10): a Central vê todas; o Solicitante
+  vê as abertas da Central e as do escritório dele em qualquer situação; o Convidado não vê (P1).
+- **Marcações** pessoais: as mesmas do F1, com `TipoItemMarcado::Vaga`.
+- Selos: "AO VIVO" para oferta aberta com tempo correndo; "NOVA" para aberta publicada há menos de
+  24 h (**provisório até o zip**).
+
+### Tela
+
+Faixa de abas de módulo (`mods`, linhas 85–87): Demandas e Vagas (Currículos entra no F3). Aba Vagas
+nas linhas 152–169: barra (seleção, busca, filtros, Compartilhar vagas, Divulgar uma vaga, Nova
+vaga), cartões em grade `minmax(310px,1fr)`, modal genérico (`tlm`) com formulário, detalhe e
+configuração. **Provisórios até o zip**: rótulos de `vagaFiltros`, ações de `vgBulk`, itens do menu de
+contexto do cartão, `divPassos`, `tfTipos`, `tfDurs`, `cfgTgs`, `cfgEnvOps`.
+
+### Fatias seguintes
+
+- **F2c**: página pública "Vagas Publicas.dc.html" e "Compartilhar vagas" (rota pública, spec própria).
+  A campanha por e-mail usa a infraestrutura da frente "Comercial e e-mails" (contrato pelo coordenador).
+- **F2b**: candidatura, depois do F3 e da P1.
+
 ## 5. Verificação
 
 - Unit dos UseCases e functional dos controllers (escopo, prévia negada, código fora do escopo).

@@ -33,12 +33,14 @@ use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\HistoricoVaga;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
 use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
+use App\TrabalhoExterno\Entity\Vaga;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -113,6 +115,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // LocalizadorDeDemanda já escopou, provado em MarcacoesDoTrabalhoExternoTest.
         MarcacaoDoUsuario::class,
         MarcacaoDeMensagem::class,
+        // Vagas da Central (spec VS 18.10.26 §4.1): como a demanda, lidas entre escritórios por
+        // desenho (a Central divulga para todos). O isolamento é do VagaRepository (só consultas
+        // escopadas) e da PoliticaDaVaga, provado em VagasDoTrabalhoExternoTest (pendente de outro
+        // escritório é 404). O histórico só é lido pela vaga.
+        Vaga::class,
+        HistoricoVaga::class,
     ];
 
     /**
@@ -125,8 +133,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026); 18 → 20 com as marcações pessoais dele
-    // (19/10/2026): exceções permanentes e justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 20;
+    // (19/10/2026); 20 → 22 com as vagas (19/10/2026): exceções permanentes e justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 22;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

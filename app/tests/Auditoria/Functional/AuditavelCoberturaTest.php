@@ -163,6 +163,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // de UM usuário, como a LeituraDemanda. Não mudam nada para os outros; auditar seria ruído.
         \App\TrabalhoExterno\Entity\MarcacaoDoUsuario::class,
         \App\TrabalhoExterno\Entity\MarcacaoDeMensagem::class,
+        // Vagas do Trabalho Externo (spec VS 18.10.26 §4.1): têm o LOG DE DOMÍNIO próprio
+        // (HistoricoVaga, o "HISTÓRICO DA OFERTA" do desenho), como a demanda. Auditar seria log de log.
+        \App\TrabalhoExterno\Entity\Vaga::class,
+        \App\TrabalhoExterno\Entity\HistoricoVaga::class,
     ];
 
     private EntityManagerInterface $em;
