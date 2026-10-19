@@ -6,6 +6,8 @@ namespace App\Contribua\Armazenamento;
 
 use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
+use App\Contribua\Event\EventosDoEspacoAposConfirmar;
+use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\Exception\EspacoEsgotado;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
@@ -17,7 +19,6 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
-use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
 use Symfony\Component\DependencyInjection\Attribute\AutowireDecorated;
@@ -35,8 +36,9 @@ use Symfony\Contracts\Service\ResetInterface;
  * O tamanho de uma `FonteDeConteudo` só é conhecido depois da escrita (stream). Por isso: recusa
  * antes quando o escritório já está no limite; senão grava, mede e, se passou, remove o arquivo
  * recém-cunhado (ainda sem registro que aponte para ele) e recusa. Com o bloqueio desligado nada é
- * recusado (`RetratoDoEspaco::cabe()`), mas a faixa continua medida: subir de faixa dispara
- * `EspacoAtingiuFaixa`, que é de onde saem os avisos por e-mail.
+ * recusado (`RetratoDoEspaco::cabe()`), mas o uso continua medido: subir o percentual gera
+ * `UsoDoEspacoSubiu` e subir de faixa gera `EspacoAtingiuFaixa`, despachados depois do commit; é deles
+ * que saem os avisos por e-mail (frente "Comercial e e-mails").
  *
  * O uso medido fica guardado por escritório durante a requisição e cresce a cada gravação: um
  * envio de dez arquivos faz uma soma no banco, não dez. `reset()` esvazia entre requisições e
@@ -72,7 +74,7 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
         private readonly ArmazenamentoDeArquivos $interno,
         private readonly ConsumoDeArmazenamentoRepository $consumo,
         private readonly SituacaoDoEspaco $situacao,
-        private readonly EventDispatcherInterface $eventos,
+        private readonly EventosDoEspacoAposConfirmar $eventos,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -92,7 +94,7 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
         $armazenado = $this->interno->gravar($destino, $fonte);
         $this->desfazerSeNaoCoube($antes, $armazenado);
         $this->usados[$tenantId] += $armazenado->tamanhoBytes;
-        $this->avisarSeSubiuDeFaixa($antes, $this->retrato($tenantId));
+        $this->avisarSeSubiu($antes, $this->retrato($tenantId));
 
         return $armazenado;
     }
@@ -153,10 +155,14 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
         throw new EspacoEsgotado($antes);
     }
 
-    private function avisarSeSubiuDeFaixa(RetratoDoEspaco $antes, RetratoDoEspaco $depois): void
+    /** Os eventos saem depois do commit de quem gravou (`EventosDoEspacoAposConfirmar`). */
+    private function avisarSeSubiu(RetratoDoEspaco $antes, RetratoDoEspaco $depois): void
     {
+        if ($antes->percentual !== null && $depois->percentual !== null && $depois->percentual > $antes->percentual) {
+            $this->eventos->adiar(new UsoDoEspacoSubiu($depois->tenantId, $antes->percentual, $depois->percentual, $depois));
+        }
         if ($depois->faixa->ordem() > $antes->faixa->ordem()) {
-            $this->eventos->dispatch(new EspacoAtingiuFaixa($depois->tenantId, $depois->faixa, $antes->faixa, $depois));
+            $this->eventos->adiar(new EspacoAtingiuFaixa($depois->tenantId, $depois->faixa, $antes->faixa, $depois, $antes->percentual));
         }
     }
 }
