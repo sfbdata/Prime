@@ -31,7 +31,7 @@ final class ConfirmarEmailDaContaUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->repository = $this->createMock(ConfirmacaoEmailRepository::class);
-        
+
         $this->eventos = new EventDispatcher();
         $this->eventos->addListener(EmailDaContaConfirmado::class, function (EmailDaContaConfirmado $evento): void {
             $this->despachados[] = $evento;
