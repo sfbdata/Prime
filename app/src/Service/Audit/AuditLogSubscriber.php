@@ -5,6 +5,7 @@ namespace App\Service\Audit;
 use App\Entity\Audit\AuditLog;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\ConteudoParticular;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityNotFoundException;
@@ -24,6 +25,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 class AuditLogSubscriber
 {
     private const MAX_STRING_LENGTH = 500;
+    private const ROTULO_PARTICULAR = 'Compromisso particular';
     private const MAX_COLLECTION_ITEMS = 100;
 
     private const IGNORED_FIELDS = [
@@ -61,9 +63,9 @@ class AuditLogSubscriber
                 continue;
             }
 
-            $payload = [
+            $payload = $this->semConteudoParticular($entity, [], [
                 'after' => $this->normalizeEntityState($entity, $unitOfWork),
-            ];
+            ], 'after');
 
             $audit = $this->buildAuditLog('create', $entity, $unitOfWork, $this->wrapAuditPayload($payload));
             $this->persistAuditIfUnique($entityManager, $unitOfWork, $auditMetadata, $audit, $loggedFingerprints);
@@ -79,9 +81,9 @@ class AuditLogSubscriber
                 continue;
             }
 
-            $audit = $this->buildAuditLog('update', $entity, $unitOfWork, $this->wrapAuditPayload([
-                'changes' => $changeSet,
-            ]));
+            $audit = $this->buildAuditLog('update', $entity, $unitOfWork, $this->wrapAuditPayload(
+                $this->semConteudoParticular($entity, $unitOfWork->getEntityChangeSet($entity), ['changes' => $changeSet], 'changes'),
+            ));
             $this->persistAuditIfUnique($entityManager, $unitOfWork, $auditMetadata, $audit, $loggedFingerprints);
         }
 
@@ -90,9 +92,11 @@ class AuditLogSubscriber
                 continue;
             }
 
-            $payload = [
+            // O `before` é o estado do banco: a decisão olha também a visibilidade de lá.
+            $doBanco = array_map(static fn (mixed $valor): array => [$valor, $valor], $unitOfWork->getOriginalEntityData($entity));
+            $payload = $this->semConteudoParticular($entity, $doBanco, [
                 'before' => $this->normalizeEntityState($entity, $unitOfWork),
-            ];
+            ], 'before');
 
             $audit = $this->buildAuditLog('delete', $entity, $unitOfWork, $this->wrapAuditPayload($payload));
             $this->persistAuditIfUnique($entityManager, $unitOfWork, $auditMetadata, $audit, $loggedFingerprints);
@@ -191,7 +195,7 @@ class AuditLogSubscriber
             $associationEvents[] = [
                 'field' => $fieldName,
                 'operation' => $isAdd ? 'add' : ($isRemove ? 'remove' : 'change'),
-                'owner' => $this->normalizeAssociationItem($owner, $unitOfWork),
+                'owner' => $this->donoDaColecao($owner, $unitOfWork),
                 'related' => is_array($diff['to'] ?? null) ? $diff['to'] : (is_array($diff['from'] ?? null) ? $diff['from'] : null),
             ];
         }
@@ -215,7 +219,49 @@ class AuditLogSubscriber
 
     private function resolveEntityLabel(object $entity): ?string
     {
+        // O rótulo de um compromisso "Só eu" é o título: não vai para a auditoria (nem como dono de uma
+        // mudança de participantes, nem como item relacionado de outra entidade).
+        if ($entity instanceof ConteudoParticular && $entity->ehParticular()) {
+            return self::ROTULO_PARTICULAR;
+        }
+
         return $this->entityLabelResolver->resolve($entity);
+    }
+
+    /** Dono de uma mudança de coleção: "Só eu" antes ou depois desta mudança leva o rótulo particular. */
+    private function donoDaColecao(object $owner, UnitOfWork $unitOfWork): array
+    {
+        $dono = $this->normalizeAssociationItem($owner, $unitOfWork);
+        if ($owner instanceof ConteudoParticular && $owner->ehParticular($unitOfWork->getEntityChangeSet($owner))) {
+            $dono['label'] = self::ROTULO_PARTICULAR;
+        }
+
+        return $dono;
+    }
+
+    /**
+     * Tira do registro os campos particulares (antes e depois) de uma entidade "Só eu", ou que era "Só eu"
+     * antes desta mudança. A ação, quem e quando continuam; a marca `conteudo_particular` diz que algo foi
+     * omitido (o desfazer só lê `changes`, então os campos que ficaram continuam desfazíveis).
+     *
+     * @param array<string, mixed> $mudancasDoDoctrine
+     * @param array<string, mixed> $diff
+     *
+     * @return array<string, mixed>
+     */
+    private function semConteudoParticular(object $entity, array $mudancasDoDoctrine, array $diff, string $chave): array
+    {
+        if (!$entity instanceof ConteudoParticular || !$entity->ehParticular($mudancasDoDoctrine)) {
+            return $diff;
+        }
+        $campos = is_array($diff[$chave] ?? null) ? $diff[$chave] : [];
+        foreach ($entity->camposParticulares() as $campo) {
+            unset($campos[$campo]);
+        }
+        $diff[$chave] = $campos;
+        $diff['conteudo_particular'] = true;
+
+        return $diff;
     }
 
     private function wrapAuditPayload(array $diff): array
