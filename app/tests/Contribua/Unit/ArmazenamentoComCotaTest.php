@@ -10,6 +10,7 @@ use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Enum\FaixaDoEspaco;
+use App\Contribua\Event\EnvioRecusadoPorEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\Event\EventosDoEspacoAposConfirmar;
@@ -38,6 +39,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[CoversClass(ArmazenamentoComCota::class)]
 #[CoversClass(EspacoAtingiuFaixa::class)]
 #[CoversClass(UsoDoEspacoSubiu::class)]
+#[CoversClass(EnvioRecusadoPorEspaco::class)]
 #[CoversClass(EventosDoEspacoAposConfirmar::class)]
 final class ArmazenamentoComCotaTest extends TestCase
 {
@@ -119,6 +121,9 @@ final class ArmazenamentoComCotaTest extends TestCase
         }
 
         self::assertCount(1, $this->interno->excluidas, 'o arquivo recusado sai do armazenamento');
+        $recusas = array_values(array_filter($this->disparados, static fn (object $e): bool => $e instanceof EnvioRecusadoPorEspaco));
+        self::assertCount(1, $recusas, 'a recusa é avisada na hora, mesmo com o trabalho falhando');
+        self::assertSame(7, $recusas[0]->tenantId);
     }
 
     #[TestDox('Escopo global (foto de perfil) nem consulta o espaço')]
