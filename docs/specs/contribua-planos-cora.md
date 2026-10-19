@@ -382,8 +382,8 @@ Mercado Pago, Pagar.me). No Asaas:
   `NotificacaoRecebida` (evento repetido é ignorado), responde 200 `{"success": true}` e enfileira no
   Messenger a **reconsulta por mTLS**; só a resposta da Cora confirma o `Apoio`. Conciliação
   `app:cora:conciliar` a cada 15 min cobre aviso perdido.
-- Confirmado → `Apoio.confirmadoEm`, prêmio (§2.5) na próxima tela do usuário daquela conta, aviso ao
-  Master, selo de apoiador.
+- Confirmado → `Apoio.confirmadoEm`, prêmio (§2.5) na página Contribua, como no desenho (modal `prOn` do
+  08), aviso ao Master, selo de apoiador.
 - **Testar conexão** = pedir token no ambiente escolhido e mostrar o resultado.
 
 ## 8. Pop-ups e comandos existentes (respeitar)

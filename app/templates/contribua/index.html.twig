@@ -78,7 +78,7 @@
         <div class="ct-apoie">
             <div class="ct-apoie-qr">
                 <div class="ct-qr" data-qr data-codigo="{{ p.pix.codigo }}"></div>
-                <div class="ct-pix-valido" data-pix-valido><i class="bi bi-patch-check-fill"></i>PIX válido · conta Nº {{ p.pix.conta }}</div>
+                <div class="ct-pix-valido" data-pix-valido {{ p.pix.valido ? "" : "hidden" }}><i class="bi bi-patch-check-fill"></i>PIX válido · conta Nº {{ p.pix.conta }}</div>
                 <div class="ct-valores">
                     {% for v in [[20, 'R$ 20'], [50, 'R$ 50'], [100, 'R$ 100'], [-1, 'Outro valor']] %}
                         <button type="button" class="ct-valor{{ loop.first ? ' ct-valor--ativo' }}" data-valor="{{ v[0] }}">{{ v[1] }}</button>

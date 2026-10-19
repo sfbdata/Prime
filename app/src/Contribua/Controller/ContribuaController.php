@@ -6,7 +6,7 @@ namespace App\Contribua\Controller;
 
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Enum\TipoDeSugestao;
-use App\Contribua\Service\CodigoPixEstatico;
+use App\Contribua\Service\CodigoPixDaConta;
 use App\Contribua\UseCase\AtenderSugestaoUseCase;
 use App\Contribua\UseCase\EnviarSugestaoUseCase;
 use App\Contribua\UseCase\MontarPaginaDoContribuaUseCase;
@@ -46,12 +46,11 @@ final class ContribuaController extends AbstractController
 
     /** O "copia e cola" para o valor escolhido (R$ 20, 50, 100 ou outro). */
     #[Route('/pix', name: 'contribua_pix', methods: ['GET'])]
-    public function pix(Request $request): JsonResponse
+    public function pix(Request $request, CodigoPixDaConta $codigoPix): JsonResponse
     {
         $centavos = max(0, (int) round((float) str_replace(',', '.', (string) $request->query->get('valor', '0')) * 100));
-        $codigo = CodigoPixEstatico::gerar(CodigoPixEstatico::txidDaConta($this->solicitante()->numeroDaConta()), $centavos);
 
-        return $this->json(['codigo' => $codigo, 'valido' => CodigoPixEstatico::valido($codigo)]);
+        return $this->json($codigoPix->para($this->solicitante(), $centavos));
     }
 
     #[Route('/apoio', name: 'contribua_apoio', methods: ['POST'])]
