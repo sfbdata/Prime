@@ -57,8 +57,9 @@ o compartilhar entram como fatia própria.
 - **P1 resolvida pelo desenho** (19/10, confirmada pelo coordenador): ver "Decisões" abaixo. Risco
   das fases de candidato: **MÉDIO** (permissão do módulo, sem identidade nova).
 - **Voltar à aba Vagas depois do login**: o `UserAuthenticator` sempre leva ao Expediente (ou à
-  escolha de escritório) e ignora o destino guardado. Mudar isso é fluxo de login (ALTO): fica para
-  fatia própria, com o coordenador. Hoje "Entrar" vai ao `/login` e só.
+  escolha de escritório) e ignora o destino guardado. **Dependência da frente do desenho 10 (Login)**,
+  risco ALTO, atribuída pelo coordenador em 19/10; ela também corrige o convite, que perde o destino.
+  Esta frente não mexe no login. Hoje "Entrar" vai ao `/login` e só.
 - **Conta de pessoa física** (sem escritório): o texto de marketing sugere, o desenho não oferece. Se
   o dono quiser, vira frente própria depois. Não bloqueia.
 - **Desenho completo recebido** (19/10, `docs/design/redesign-19-10-26/`, fora do git; cópia de
