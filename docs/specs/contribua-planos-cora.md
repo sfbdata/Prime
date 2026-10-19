@@ -6,6 +6,59 @@
 > `bj-recursos.js`, `bj-lembretes.js`, `bj-idioma.js`). **O desenho manda**; onde ele é omisso, a
 > convenção do sistema. Nenhuma linha de código antes das decisões do §10.
 
+## Estado da frente (atualizar a cada PR, decisão ou contrato; reler depois de compactação)
+
+Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coordenador".
+
+**Pilha de PRs e ordem de merge** (cada um só depois do anterior):
+1. **#64** `contribua-cora` (C1: planos, espaço, bloqueio, evento, contrato b5, catálogo). Aberto, pronto.
+   Migration `Version20261019190000` (cria 3 tabelas + carga dos planos + escritório do dono sem limite).
+2. **#74** `contribua-c2`, RASCUNHO, base `contribua-cora` (C2: página /contribua, PIX, sugestões, aviso).
+   Migration `Version20261019210000` (3 tabelas). Renomear para o horário do momento na vez da fila
+   (a 0d tinha o mesmo número e vai renomear a dela).
+3. `contribua-c3`, base `contribua-c2`, sem PR ainda (C3 comum + C3a Asaas).
+
+**Fila de migrations** (a coordenação controla): #52 → Push (0d) → Telas e recursos (b5) → PR 2 da 7d →
+C1 (#64) → C2 (#74) → C3.
+
+**Decisões do dono (19/10/2026):** bloqueio de envio publicado DESLIGADO; escritório "Farlei Assis da Rocha
+Sociedade Individual de Advocacia" (id 1 em produção) SEM LIMITE de espaço e de usuários (carga da migration
+da C1, id + nome); D3 carência de 7 dias, configurável; D5 preços do 08 e usuários do 05 (3/8/15, Avançado
+sem limite); D2 Asaas é o primeiro gateway, os quatro do desenho continuam no escopo; com o Asaas, o campo
+"Link do pacote" some do modal do Master (desvio aprovado); "para tudo é a BlueJus" (BlueJus Gestão e
+Tecnologia LTDA, CNPJ 66.803.163/0001-10, mantenedora, controladora, recebe e emite nota; a Prime sai da
+política, troca num PR próprio só com OK final do dono e do advogado).
+**Decisões da coordenação:** acima de 100% com o bloqueio desligado usa a variante de uso alto do desenho
+(pendente de confirmação do dono no smoke); Asaas pelo caminho hospedado (cliente por escritório + Checkout
+recorrente, cartão nunca no servidor); e-mail de 90%/100% fica com a frente de e-mails (evento
+`EspacoAtingiuFaixa`); bloco "Assinatura" no Meu Perfil (parcial `contribua/_assinatura_no_perfil.html.twig`,
+ponto de inclusão no #60, marcação `mp-card`) na C3.
+
+**Contratos com outras sessões:**
+- b5 (Perfis, painel do Master): `SituacaoDoEspaco::doEscritorio()` → `RetratoDoEspaco`;
+  `DefinirLimiteDeArmazenamentoUseCase`, `DefinirLimiteDeUsuariosUseCase`, `ConfigurarFaixasDoEspacoUseCase`,
+  `AlterarPlanoUseCase`, `CatalogoDePlanos::todos()`; `RetratoDoEspaco::aceitaMaisUmUsuario()` no convite. A
+  b5 envolve as escritas no escopo de auditoria dela e mostra o aviso "Antes de ligar, confira os
+  escritórios acima do plano..." junto da chave. `EspacoDoEscritorio` não é consultada fora do Contribua.
+- 7d (cabeçalho): parcial `layout/_globais/aviso_espaco.html.twig`; linha do pageTitle `contribua_` no
+  `base.html.twig` e item "Contribua · PIX" no `menu_usuario/_dropdown.html.twig` (autorizados, no #74).
+- a7 (Trabalho Externo): ordem das propostas do apoiador (C6), contrato a combinar antes.
+
+**Pendências:**
+- Dono: credenciais sandbox do Asaas, configuração fiscal e webhook (passo a passo em
+  `docs/runbooks/contribua-asaas-passo-a-passo.md`); confirmar o texto acima de 100%; OK final do texto
+  da política (rascunho em `docs/specs/contribua-politica-de-privacidade-rascunho.md`).
+- Confirmar no sandbox se a assinatura criada pelo Checkout aceita a NFS-e (`invoiceSettings`).
+- Depois do merge do #64: `scripts/migrar-dev.sh` no banco do 8080 e migration no `saas_test` principal.
+- `recurso_visivel('contribua')` no menu e na rota quando o "Telas e recursos" (b5, #56) entrar.
+
+**Próximo passo:** C3 comum (pedidos, assinatura, retorno, webhook com reconsulta, conciliação, confirmação
+manual do Master, cancelar, carência configurável, bloco no Meu Perfil) e C3a Asaas com MockHttpClient.
+
+**Ambiente:** demo da C2 em http://127.0.0.1:8105 (`scripts/central-demo.sh contribua-c2 8105`), banco
+isolado `demo_f6` (senha de demonstração só nesse banco, usuários 1 e 2). Bancos de teste por frente:
+`saas_testcontribua-cora`, `saas_testcontribua-c2`, `saas_testcontribua-c3`.
+
 ## 1. Estado real (medido no master `1d3e664c`)
 
 | O desenho supõe | Existe? | O mais próximo |
