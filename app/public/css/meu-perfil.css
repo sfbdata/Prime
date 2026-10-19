@@ -1,0 +1,144 @@
+/* BlueJus · Meu Perfil. Valores do desenho "07 - Meu Perfil - VS 18.10.26" (linhas 52 a 175). */
+
+.mp-pagina { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 0 40px; display: flex; flex-direction: column; gap: 16px; color: #12242f; }
+.mp-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; animation: mpUp .45s ease both; }
+.mp-ident { border-color: #dde5eb; margin-top: 2px; animation-duration: .4s; }
+@keyframes mpUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes mpGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* capa e identificação */
+.mp-capa { position: relative; height: 178px; overflow: hidden; background: linear-gradient(100deg, #1d3f66 0%, #24568f 50%, #3478c6 100%); }
+.mp-capa-bola { position: absolute; right: -60px; top: -70px; width: 260px; height: 260px; border-radius: 50%; background: rgba(255, 255, 255, .05); }
+.mp-capa-logo { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); height: clamp(36px, 7vw, 66px); max-width: 45%; object-fit: contain; opacity: .97; }
+.mp-ident-linha { padding: 0 26px 18px; display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-end; }
+.mp-avatar { position: relative; margin-top: -52px; width: 104px; height: 104px; flex: none; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 2px 10px rgba(18, 36, 47, .18);
+  background: #0a6fa0; color: #fff; padding: 0; cursor: pointer; overflow: visible; }
+.mp-avatar > img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.mp-avatar-ini { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: 34px; font-weight: 700; }
+.mp-avatar-camera { position: absolute; right: 2px; bottom: 2px; width: 28px; height: 28px; border-radius: 50%; background: #fff; color: #0a6fa0; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0, 0, 0, .2); }
+.mp-ident-texto { flex: 1; min-width: 240px; padding-top: 12px; }
+.mp-nome-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mp-nome { margin: 0; font-size: 23px; font-weight: 700; letter-spacing: .2px; color: #12242f; }
+.mp-selo { height: 22px; padding: 0 8px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: .4px; display: inline-flex; align-items: center; gap: 4px; }
+.mp-selo-master { background: #fff4d6; color: #7a5200; }
+.mp-selo-papel { background: #e5f1f7; color: #0a6fa0; }
+.mp-cargo { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; font-size: 14px; color: #4a6373; }
+.mp-cargo .bi { margin-right: 5px; }
+.mp-frase { padding: 0 26px 18px; display: flex; align-items: center; gap: 9px; font-size: 14.5px; color: #34505f; }
+.mp-frase > .bi { color: #0a6fa0; font-size: 16px; }
+.mp-frase.vazia > span { font-style: italic; }
+
+/* botões */
+.mp-btn-contorno, .mp-btn-azul, .mp-btn-laranja, .mp-btn-cinza { height: 34px; padding: 0 14px; border-radius: 3px; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  transition: background .15s, color .15s, transform .15s; }
+.mp-btn-contorno { border: 1px solid #0a6fa0; background: #fff; color: #0a6fa0; }
+.mp-btn-contorno:hover { background: #0a6fa0; color: #fff; }
+.mp-btn-azul { border: none; background: #0a6fa0; color: #fff; }
+.mp-btn-azul:hover { background: #0b5f86; }
+.mp-btn-laranja { height: 36px; padding: 0 16px; border: none; background: #c76a12; color: #fff; font-weight: 700; }
+.mp-btn-laranja:hover { background: #a8590e; transform: translateY(-1px); }
+.mp-btn-cinza { height: 36px; border: 1px solid #d3dde4; background: #fff; color: #34505f; }
+.mp-btn-cinza:hover { border-color: #0a6fa0; color: #0a6fa0; }
+
+/* cadastro incompleto */
+.mp-incompleto { margin: 0 26px 16px; padding: 12px 16px; border: 1px solid #f1d38a; border-left: 4px solid #e0a106; border-radius: 4px; background: #fff8e6;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.mp-incompleto-icone { width: 38px; height: 38px; flex: none; border-radius: 50%; background: #fde9b6; color: #9a5b00; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.mp-incompleto-texto { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 7px; }
+.mp-incompleto-texto b { font-size: 14.5px; color: #5a3a06; margin-right: 8px; }
+.mp-incompleto-pct { font-size: 13px; color: #7a5200; }
+.mp-barra { height: 8px; border-radius: 4px; background: #f6e3b4; overflow: hidden; }
+.mp-barra > div { height: 100%; background: linear-gradient(90deg, #e0a106, #c76a12); border-radius: 4px; transform-origin: left; animation: mpGrow .9s cubic-bezier(.2, .8, .2, 1) .2s both; }
+.mp-falta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: #7a5200; }
+.mp-chip { height: 22px; padding: 0 8px; border-radius: 11px; background: #fff; border: 1px solid #f1d38a; color: #7a5200; font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 4px; }
+
+/* grade de dados */
+.mp-grade { padding: 16px 26px 20px; border-top: 1px solid #eef2f5; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4px 40px; }
+.mp-linha { display: grid; grid-template-columns: 22px 120px minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 0; font-size: 14px; }
+.mp-linha > .bi { color: #0a6fa0; }
+.mp-linha > b { color: #243845; }
+.mp-linha > span { color: #243845; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.mp-linha > span.vazio { color: #9aabb7; }
+.mp-copiar { width: 24px; height: 24px; border: none; background: transparent; color: #7a8e9b; cursor: pointer; border-radius: 3px; opacity: 0; transition: opacity .15s; }
+.mp-linha:hover .mp-copiar, .mp-copiar:focus { opacity: 1; }
+.mp-copiar:hover { background: #e6edf2; color: #0a6fa0; }
+
+/* cards com cabeçalho (OAB, Preferências, Segurança) */
+.mp-card-oab { animation-delay: .05s; }
+.mp-card-oab > .perfil-oab-card { margin: 0; border: none; border-radius: 0; }
+.mp-card-topo { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+.mp-card-topo b { font-size: 15px; color: #212529; }
+.mp-card-sub { font-size: 12px; color: #5b7383; }
+.mp-card-selo { width: 44px; height: 44px; flex: none; border-radius: 10px; background: linear-gradient(135deg, #3aa0d8, #0a6fa0); color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 19px; box-shadow: 0 2px 6px rgba(10, 111, 160, .3); }
+.mp-prefs { padding: 6px 0; }
+.mp-pref { width: 100%; display: flex; align-items: center; gap: 12px; border: none; border-bottom: 1px solid #f0f4f7; background: #fff; padding: 13px 20px; color: #243845; cursor: pointer; text-align: left; }
+.mp-pref:hover { background: #f5fafd; }
+.mp-pref > .bi:first-child { width: 18px; color: #0a6fa0; font-size: 16px; }
+.mp-pref-texto { flex: 1; font-size: 13.5px; }
+.mp-pref-texto > small { display: block; font-size: 12px; color: #5b7383; }
+.mp-pref-valor { font-size: 13px; color: #0a6fa0; font-weight: 700; }
+.mp-pref-seta { color: #9aabb7; font-size: 12px; }
+.mp-chave { position: relative; width: 36px; height: 20px; flex: none; border-radius: 10px; background: #c9d3da; transition: background .2s; }
+.mp-chave > span { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.mp-pref[aria-checked="true"] .mp-chave { background: #0a6fa0; }
+.mp-pref[aria-checked="true"] .mp-chave > span { left: 19px; }
+.mp-seguranca { padding: 18px 20px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.mp-seguranca > div { flex: 1; min-width: 240px; font-size: 13px; color: #34505f; line-height: 1.5; }
+
+/* modais */
+.mp-modal .modal-content { border: none; border-radius: 4px; overflow: hidden; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); color: #12242f; }
+.mp-modal-largo { max-width: min(640px, calc(100vw - 24px)); }
+.mp-modal-medio { max-width: min(440px, calc(100vw - 24px)); }
+.mp-modal-topo { background: #0a6fa0; color: #fff; padding: 13px 18px; display: flex; align-items: center; gap: 10px; }
+.mp-modal-topo > b { flex: 1; font-size: 15px; }
+.mp-modal-x { width: 30px; height: 30px; border: none; border-radius: 3px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; }
+.mp-vinculo { padding: 16px 18px 0; display: flex; flex-direction: column; gap: 6px; }
+.mp-rotulo, .mp-campo > span { font-size: 12px; font-weight: 700; color: #4a6373; letter-spacing: .3px; }
+.mp-vinculo-opcoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
+.mp-vinculo-op { display: flex; align-items: center; gap: 7px; min-height: 36px; padding: 4px 10px; margin: 0; border: 1px solid #d3dde4; border-radius: 3px; background: #fff;
+  color: #34505f; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.mp-vinculo-op.on { border-color: #0a6fa0; background: #e5f1f7; color: #0a6fa0; }
+.mp-vinculo-op.travado { cursor: not-allowed; }
+.mp-ajuda { font-size: 11.5px; color: #7a8e9b; line-height: 1.45; }
+.mp-ajuda > .bi { margin-right: 4px; }
+.mp-campos { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.mp-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; }
+.mp-campo[hidden] { display: none; }
+.mp-campo-inteiro { grid-column: 1 / -1; }
+.mp-campo input { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font-size: 14px; color: #12242f; width: 100%; }
+.mp-campo input:focus { outline: none; border-color: #0a6fa0; box-shadow: 0 0 0 2px rgba(10, 111, 160, .15); }
+.mp-campo > small { font-size: 11.5px; color: #7a8e9b; }
+.mp-modal-rodape { padding: 12px 18px; border-top: 1px solid #eef2f5; display: flex; justify-content: flex-end; gap: 8px; }
+.mp-rodape-solto { border-top: none; padding: 4px 0 0; flex-wrap: wrap; }
+
+/* revisão mensal */
+.mp-rev-topo { position: relative; background: linear-gradient(100deg, #1d3f66, #2f6eb3); color: #fff; padding: 18px 22px; }
+.mp-rev-topo > .mp-modal-x { position: absolute; top: 10px; right: 10px; }
+.mp-rev-topo > .bi { font-size: 26px; }
+.mp-rev-titulo { font-size: 18px; font-weight: 700; margin-top: 6px; }
+.mp-rev-sub { font-size: 12.5px; opacity: .85; margin-top: 2px; }
+.mp-rev-corpo { padding: 16px 22px 18px; display: flex; flex-direction: column; gap: 10px; }
+.mp-texto { font-size: 13.5px; color: #34505f; line-height: 1.5; }
+.mp-rev-barra { display: flex; align-items: center; gap: 10px; }
+.mp-rev-barra > .mp-barra { flex: 1; height: 7px; background: #e6edf2; }
+.mp-barra-azul > div { background: #0a6fa0; }
+.mp-rev-barra > b { font-size: 12.5px; color: #0a6fa0; }
+.mp-rev-resumo { border: 1px solid #e6edf2; border-radius: 3px; }
+.mp-rev-resumo > div { display: flex; justify-content: space-between; gap: 10px; padding: 7px 11px; border-bottom: 1px solid #f0f4f7; font-size: 13px; }
+.mp-rev-resumo > div:last-child { border-bottom: none; }
+.mp-rev-resumo span { color: #5b7383; }
+.mp-rev-resumo b { color: #243845; text-align: right; }
+
+/* tema escuro */
+html[data-bs-theme="dark"] .mp-pagina { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-card, html[data-bs-theme="dark"] .mp-pref, html[data-bs-theme="dark"] .mp-modal .modal-content { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-card-topo { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .mp-nome, html[data-bs-theme="dark"] .mp-card-topo b, html[data-bs-theme="dark"] .mp-linha > b, html[data-bs-theme="dark"] .mp-linha > span,
+html[data-bs-theme="dark"] .mp-pref, html[data-bs-theme="dark"] .mp-texto, html[data-bs-theme="dark"] .mp-frase { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-pref:hover { background: var(--bs-secondary-bg); }
+html[data-bs-theme="dark"] .mp-campo input, html[data-bs-theme="dark"] .mp-vinculo-op { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+
+@media (prefers-reduced-motion: reduce) { .mp-card, .mp-barra > div { animation: none; } }

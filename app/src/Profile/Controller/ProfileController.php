@@ -9,6 +9,7 @@ use App\Auth\UseCase\VerificarOabUseCase;
 use App\Entity\Auth\User;
 use App\Profile\Armazenamento\ChavesDePerfil;
 use App\Profile\DTO\AtualizarFotoInput;
+use App\Profile\DTO\CompletudeDoCadastro;
 use App\Profile\DTO\AtualizarStatusInput;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\DTO\OabPerfilInput;
@@ -16,11 +17,14 @@ use App\Profile\DTO\PerfilOutput;
 use App\Profile\Form\DadosPessoaisType;
 use App\Profile\Form\OabPerfilType;
 use App\Profile\Repository\UserProfileRepository;
+use App\Profile\Repository\VinculoNoEscritorioRepository;
 use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\AtualizarFotoPerfilUseCase;
 use App\Profile\UseCase\AtualizarOabPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
+use App\Profile\UseCase\ObterPreferenciasDoPerfilUseCase;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
@@ -49,6 +53,9 @@ final class ProfileController extends AbstractController
         private readonly VerificarOabUseCase $verificarOab,
         private readonly RateLimiterFactory $oabVerificarLimiter,
         private readonly AlterarSenhaUseCase $alterarSenha,
+        private readonly VinculoNoEscritorioRepository $vinculos,
+        private readonly ObterPreferenciasDoPerfilUseCase $obterPreferencias,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {
     }
 
@@ -59,16 +66,10 @@ final class ProfileController extends AbstractController
         $user = $this->getUser();
         $userTenant = $this->tenantContext->getCurrentUserTenant();
         $perfil = $this->obterOuCriarPerfil->executar($user);
-        $output = PerfilOutput::fromEntity($perfil, $user, $userTenant);
+        $vinculo = $userTenant === null ? null : $this->vinculos->doUsuarioNoEscritorio($userTenant->getTenant(), $user);
+        $output = PerfilOutput::fromEntity($perfil, $user, $userTenant, $vinculo);
 
-        $input = new DadosPessoaisInput();
-        $input->nomeCompleto = $output->nomeCompleto;
-        $input->cpf = $output->cpf;
-        $input->dataNascimento = $output->dataNascimento;
-        $input->ctps = $output->ctps;
-        $input->serie = $output->serie;
-
-        $formDados = $this->createForm(DadosPessoaisType::class, $input);
+        $formDados = $this->createForm(DadosPessoaisType::class, DadosPessoaisInput::dePerfil($output), ['campos_do_perfil' => true]);
 
         $oabInput = new OabPerfilInput();
         $oabInput->oabNumero = $output->oabNumero;
@@ -80,7 +81,10 @@ final class ProfileController extends AbstractController
         ]);
 
         return $this->render('profile/index.html.twig', [
-            'perfil'     => $output,
+            'perfil'      => $output,
+            'completude'  => CompletudeDoCadastro::de($output),
+            'preferencias' => $this->obterPreferencias->executar($userTenant?->getTenant(), $user),
+            'podeAlterarVinculo' => $this->podeAlterarVinculo($user, $userTenant),
             'form_dados' => $formDados->createView(),
             'form_oab'   => $formOab->createView(),
             'form_senha' => $formSenha->createView(),
@@ -132,15 +136,18 @@ final class ProfileController extends AbstractController
         $user = $this->getUser();
         $perfil = $this->obterOuCriarPerfil->executar($user);
 
+        $userTenant = $this->tenantContext->getCurrentUserTenant();
+
         $input = new DadosPessoaisInput();
-        $form = $this->createForm(DadosPessoaisType::class, $input);
+        $form = $this->createForm(DadosPessoaisType::class, $input, ['campos_do_perfil' => true]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->atualizarDadosPessoais->executar($perfil, $input);
-            $this->addFlash('success', 'Dados pessoais atualizados com sucesso.');
+            $this->atualizarDadosPessoais->executar($perfil, $input, $userTenant, $this->podeAlterarVinculo($user, $userTenant));
+            $this->addFlash('success', 'Informações atualizadas.');
         } else {
-            $this->addFlash('error', 'Verifique os dados informados.');
+            $erros = array_map(static fn ($e): string => $e->getMessage(), iterator_to_array($form->getErrors(true)));
+            $this->addFlash('error', $erros === [] ? 'Verifique os dados informados.' : implode(' ', array_unique($erros)));
         }
 
         return $this->redirectToRoute('app_profile');
@@ -272,5 +279,11 @@ final class ProfileController extends AbstractController
         }
 
         return $this->entrega->resposta($chave, $nome, inline: true);
+    }
+
+    /** Tipo de vínculo: só o primário do escritório ou o Master altera (desenho 07, vincOps.off). */
+    private function podeAlterarVinculo(User $user, ?\App\Entity\Auth\UserTenant $userTenant): bool
+    {
+        return $userTenant !== null && $this->regraDosPrimarios->podeGerirPrimarios($user, $userTenant->getTenant());
     }
 }

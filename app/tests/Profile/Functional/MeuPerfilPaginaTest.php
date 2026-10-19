@@ -1,0 +1,247 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Profile\Functional;
+
+use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
+use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
+use App\Profile\Controller\PreferenciasDoPerfilController;
+use App\Profile\Controller\ProfileController;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Entity\VinculoNoEscritorio;
+use App\Profile\Enum\VinculoColaborador;
+use App\Tests\Functional\JusPrimeWebTestCase;
+use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+
+/**
+ * Página Meu Perfil do desenho "07 - Meu Perfil - VS 18.10.26" (spec docs/specs/meu-perfil-pagina.md):
+ * selos, completude, grade conforme o vínculo, modal Editar (vínculo só para o primário),
+ * preferências e revisão mensal.
+ */
+#[CoversClass(ProfileController::class)]
+#[CoversClass(PreferenciasDoPerfilController::class)]
+final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
+{
+    private KernelBrowser $client;
+    private EntityManagerInterface $em;
+    private Tenant $tenant;
+    private User $primario;
+    private User $secundario;
+
+    protected function setUp(): void
+    {
+        $this->client = static::createClient();
+        $this->em     = static::getContainer()->get(EntityManagerInterface::class);
+
+        $this->tenant = new Tenant();
+        $this->tenant->setName('Escritório Perfil ' . uniqid());
+        $this->em->persist($this->tenant);
+        $this->primario   = $this->criarUsuario('Farlei Assis da Rocha', $this->criarPerfil(true));
+        $this->secundario = $this->criarUsuario('Jéssica Martins', $this->criarPerfil(false));
+        $this->em->flush();
+    }
+
+    #[TestDox('identificação: nome em caixa alta, selo do papel e frase vazia em itálico')]
+    public function testIdentificacao(): void
+    {
+        $tela = $this->abrir($this->primario);
+
+        self::assertSame('FARLEI ASSIS DA ROCHA', trim($tela->filter('.mp-ident .mp-nome-linha > h1.mp-nome')->text()));
+        self::assertSame('USUÁRIO PRIMÁRIO', trim($tela->filter('.mp-nome-linha > .mp-selo-papel')->text()));
+        self::assertCount(0, $tela->filter('.mp-nome-linha > .mp-selo-master'));
+        self::assertSame('Adicione uma frase ao seu perfil', trim($tela->filter('.mp-ident > .mp-frase.vazia > span')->text()));
+        self::assertSame('SECUNDÁRIO', trim($this->abrir($this->secundario)->filter('.mp-nome-linha > .mp-selo-papel')->text()));
+    }
+
+    #[TestDox('cadastro vazio: alerta com 22% e os chips do que falta, na ordem do desenho')]
+    public function testCadastroIncompleto(): void
+    {
+        $alerta = $this->abrir($this->primario)->filter('.mp-ident > .mp-incompleto[data-mp-incompleto]');
+
+        self::assertCount(1, $alerta);
+        self::assertSame('22% preenchido', trim($alerta->filter('.mp-incompleto-pct')->text()));
+        self::assertSame(
+            ['foto', 'telefone', 'CPF', 'nascimento', 'frase', 'OAB', 'CTPS'],
+            $alerta->filter('.mp-falta > .mp-chip')->each(static fn (Crawler $c): string => trim($c->text()))
+        );
+    }
+
+    #[TestDox('grade: CLT mostra CTPS, Série e Admissão; vazio aparece como "Não informado"')]
+    public function testGradeClt(): void
+    {
+        $linhas = $this->linhasDaGrade($this->abrir($this->primario));
+
+        self::assertSame(['E-mail', 'Vínculo', 'CPF', 'CTPS', 'Série', 'Admissão', 'Nascimento', 'Membro desde', 'Telefone'], array_keys($linhas));
+        self::assertSame('Empregado CLT · bate ponto', $linhas['Vínculo']);
+        self::assertSame('Não informado', $linhas['Telefone']);
+    }
+
+    #[TestDox('grade: PJ troca CTPS/Série/Admissão por CNPJ e Início do contrato, e não bate ponto')]
+    public function testGradePj(): void
+    {
+        $vinculo = new VinculoNoEscritorio($this->tenant, $this->primario);
+        $vinculo->definirTipo(VinculoColaborador::Pj);
+        $vinculo->definirCnpj('12345678000190');
+        $this->em->persist($vinculo);
+        $this->em->flush();
+
+        $linhas = $this->linhasDaGrade($this->abrir($this->primario));
+
+        self::assertSame(['E-mail', 'Vínculo', 'CPF', 'CNPJ', 'Início do contrato', 'Nascimento', 'Membro desde', 'Telefone'], array_keys($linhas));
+        self::assertSame('Prestador (PJ / autônomo) · sem ponto', $linhas['Vínculo']);
+        self::assertSame('12345678000190', $linhas['CNPJ']);
+    }
+
+    #[TestDox('modal: o primário escolhe o vínculo; o secundário vê as opções travadas e o aviso')]
+    public function testVinculoTravadoParaOSecundario(): void
+    {
+        $doPrimario = $this->abrir($this->primario)->filter('#formDadosPessoais [data-mp-vinculo]');
+        self::assertCount(5, $doPrimario->filter('.mp-vinculo-opcoes > label.mp-vinculo-op > input[type=radio]:not([disabled])'));
+
+        $doSecundario = $this->abrir($this->secundario)->filter('#formDadosPessoais [data-mp-vinculo]');
+        self::assertCount(5, $doSecundario->filter('.mp-vinculo-opcoes > label.mp-vinculo-op.travado > input[type=radio][disabled]'));
+        self::assertStringContainsString('Definido pelo escritório', $doSecundario->filter('[data-mp-vinculo-ajuda]')->text());
+    }
+
+    #[TestDox('salvar: o primário grava telefone, frase e vínculo PJ com CNPJ e início do contrato')]
+    public function testPrimarioSalva(): void
+    {
+        $form = $this->abrir($this->primario)->filter('#formDadosPessoais')->form();
+        $form['dados_pessoais[status]']         = 'O topo é o seu lugar.';
+        $form['dados_pessoais[telefone]']       = '(82) 99999-1234';
+        $form['dados_pessoais[vinculo]']        = 'pj';
+        $form['dados_pessoais[cnpj]']           = '12.345.678/0001-90';
+        $form['dados_pessoais[contratoInicio]'] = '2026-03-01';
+        $this->client->submit($form);
+
+        self::assertResponseRedirects('/perfil');
+        $this->em->clear();
+        $perfil  = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->primario->getId()]);
+        $vinculo = $this->em->getRepository(VinculoNoEscritorio::class)->findOneBy(['tenant' => $this->tenant->getId(), 'usuario' => $this->primario->getId()]);
+        self::assertSame('82999991234', $perfil?->getTelefone());
+        self::assertSame('O topo é o seu lugar.', $perfil?->getStatus());
+        self::assertSame(VinculoColaborador::Pj, $vinculo?->getTipo());
+        self::assertSame('12345678000190', $vinculo?->getCnpj());
+        self::assertSame('2026-03-01', $vinculo?->getContratoInicio()?->format('Y-m-d'));
+    }
+
+    #[TestDox('salvar: o secundário que forja o vínculo no POST continua CLT, mas grava a própria admissão')]
+    public function testSecundarioNaoTrocaOVinculo(): void
+    {
+        $tela  = $this->abrir($this->secundario);
+        $token = (string) $tela->filter('#formDadosPessoais input[name="dados_pessoais[_token]"]')->attr('value');
+        $this->client->request('POST', '/perfil/dados', ['dados_pessoais' => [
+            '_token' => $token, 'nomeCompleto' => 'Jéssica Martins', 'vinculo' => 'socio', 'dataAdmissao' => '2024-02-10',
+        ]]);
+
+        self::assertResponseRedirects('/perfil');
+        $this->em->clear();
+        $vinculo = $this->em->getRepository(VinculoNoEscritorio::class)->findOneBy(['tenant' => $this->tenant->getId(), 'usuario' => $this->secundario->getId()]);
+        $userTenant = $this->em->getRepository(UserTenant::class)->findOneBy(['tenant' => $this->tenant->getId(), 'user' => $this->secundario->getId()]);
+        self::assertSame(VinculoColaborador::Clt, $vinculo?->getTipo());
+        self::assertSame('2024-02-10', $userTenant?->getDataAdmissao()?->format('Y-m-d'));
+    }
+
+    #[TestDox('preferências: ligadas por padrão; desligar grava e a tela volta desligada')]
+    public function testPreferencias(): void
+    {
+        $tela = $this->abrir($this->primario);
+        self::assertSame('true', $tela->filter('.mp-prefs > button[data-mp-pref="perfil.sons"]')->attr('aria-checked'));
+
+        $this->postarJson('/perfil/preferencia', $tela, ['chave' => 'perfil.sons', 'ligado' => false]);
+        self::assertResponseIsSuccessful();
+        $gravado = static::getContainer()->get(PreferenciaDoUsuarioRepository::class)->valoresDoUsuario($this->tenant, $this->primario, ['perfil.sons']);
+        self::assertFalse($gravado['perfil.sons']);
+
+        self::assertSame('false', $this->abrir($this->primario)->filter('.mp-prefs > button[data-mp-pref="perfil.sons"]')->attr('aria-checked'));
+    }
+
+    #[TestDox('preferências: chave fora do catálogo responde 400; sem o token AJAX, 403')]
+    public function testPreferenciaRecusada(): void
+    {
+        $tela = $this->abrir($this->primario);
+        $this->postarJson('/perfil/preferencia', $tela, ['chave' => 'dashboard.sons', 'ligado' => false]);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->client->request('POST', '/perfil/preferencia', [], [], ['CONTENT_TYPE' => 'application/json'], '{"chave":"perfil.sons","ligado":false}');
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('revisão mensal: "Está tudo certo" grava a data de hoje')]
+    public function testRevisao(): void
+    {
+        $tela = $this->abrir($this->primario);
+        self::assertCount(1, $tela->filter('#modalRevisao [data-mp-revisao-ok]'));
+
+        $this->postarJson('/perfil/revisao', $tela, []);
+
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        $perfil = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->primario->getId()]);
+        self::assertSame((new \DateTimeImmutable('today'))->format('Y-m-d'), $perfil?->getRevisadoEm()?->format('Y-m-d'));
+    }
+
+    private function abrir(User $usuario): Crawler
+    {
+        $this->logarComTenant($this->client, $usuario, $this->tenant);
+        $tela = $this->client->request('GET', '/perfil');
+        self::assertResponseIsSuccessful();
+
+        return $tela;
+    }
+
+    /** @return array<string, string> rótulo => valor */
+    private function linhasDaGrade(Crawler $tela): array
+    {
+        $linhas = [];
+        $tela->filter('.mp-ident > .mp-grade > .mp-linha')->each(static function (Crawler $l) use (&$linhas): void {
+            $linhas[trim($l->filter('b')->text())] = trim($l->filter('span')->text());
+        });
+
+        return $linhas;
+    }
+
+    /** @param array<string, mixed> $dados */
+    private function postarJson(string $url, Crawler $tela, array $dados): void
+    {
+        $token = (string) $tela->filter('meta[name="csrf-token"]')->attr('content');
+        $this->client->request('POST', $url, [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => $token], (string) json_encode($dados));
+    }
+
+    private function criarPerfil(bool $sistema): TenantRole
+    {
+        $perfil = new TenantRole();
+        $perfil->setTenant($this->tenant);
+        $perfil->setName($sistema ? 'Administrador do Escritório' : 'Advogado (a)');
+        $perfil->setIsSystem($sistema);
+        $this->em->persist($perfil);
+
+        return $perfil;
+    }
+
+    private function criarUsuario(string $nome, TenantRole $perfil): User
+    {
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $user   = new User();
+        $user->setEmail(uniqid('perfil_') . '@test.com');
+        $user->setFullName($nome);
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $this->em->persist($user);
+        $vinculo = new UserTenant($user, $this->tenant);
+        $vinculo->setTenantRole($perfil);
+        $this->em->persist($vinculo);
+
+        return $user;
+    }
+}
