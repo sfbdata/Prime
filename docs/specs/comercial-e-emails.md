@@ -121,7 +121,11 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   token)` (método novo; o `enviarConfirmacao` antigo não mudou). **Follow-up desta frente, depois do merge das duas:** um
   PR pequeno que (a) põe as boas-vindas (`val`) a ouvir `EmailDaContaConfirmado`, (b) liga o `lemb` à consulta e ao
   reemissor da 9b, mandando pelo Carteiro, e (c) põe o dispatch de `ConfirmacaoDeCadastroEnviada` depois do send do
-  `enviarConfirmacaoDeEmail`.
+  `enviarConfirmacaoDeEmail`. Cuidados da 9b para o (b): o `ReemitirConfirmacaoDeEmailUseCase` tem `ERRO_JA_ENVIADO` e o banco garante
+  um lembrete por conta (índice único parcial); na corrida, a segunda chamada recebe `DomainException(ERRO_JA_ENVIADO)`
+  vinda de uma violação de unicidade, que **fecha o EntityManager**. A varredura trata isso resetando o EM
+  (`ManagerRegistry::resetManager`) antes do próximo da lista, ou processa um lembrete por mensagem. O
+  `EmailDaContaConfirmado` sai uma vez só mesmo com dois cliques simultâneos.
 - **Contrato com a 7d (desenho 10, antes da troca para a 9b; vale o da 9b acima):** a 1a entra primeiro em Auth e a 7d traz o master; a 7d não muda a
   validade de 24 h nem a purga; se criar a confirmação por código, ela chama o mesmo `ConfirmarCadastroUseCase` (o
   evento sai nos dois caminhos); colunas dela em `cadastro_pendente`: `codigo_hash`, `codigo_expira_em`.
