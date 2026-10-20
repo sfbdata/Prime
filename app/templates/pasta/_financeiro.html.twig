@@ -1572,7 +1572,9 @@
        recalcula os minutos por ele a cada abertura, como em Detalhes. #}
     <article class="ps-anotacao{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="financeiro-obs-{{ obs.id }}"
              data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}"
-             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}">
+             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
+             {#- Presença do autor (pasta-presenca-autor.js). #}
+             {%- if obs.autor %} data-autor-id="{{ obs.autor.id }}"{% endif %}>
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">

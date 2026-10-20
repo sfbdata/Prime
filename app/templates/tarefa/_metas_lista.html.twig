@@ -40,7 +40,7 @@
                                 data-acompanhar="{{ path('tarefa_acompanhar', {id: meta.id}) }}"
                                 data-token="{{ csrf_token('acompanhar_tarefa_' ~ meta.id) }}"
                                 aria-pressed="{{ acompanhando ? 'true' : 'false' }}"
-                                title="{{ acompanhando ? 'Deixar de acompanhar' : 'Acompanhar' }}">
+                                title="{{ acompanhando ? 'Parar de acompanhar' : 'Acompanhar esta meta' }}">
                             <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
                         </button>
 

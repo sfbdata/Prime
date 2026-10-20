@@ -48,7 +48,7 @@ class InvitationRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('i')
             ->andWhere('i.type = :type')
-            ->setParameter('type', 'platform')
+            ->setParameter('type', Invitation::TIPO_PLATAFORMA)
             ->orderBy('i.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
