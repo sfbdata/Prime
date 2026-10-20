@@ -112,7 +112,7 @@ final class PastaRepositoryBuscaRapidaTest extends KernelTestCase
 
         $porNumero = $this->repo->buscarParaBuscaRapida(mb_strtolower((string) $pasta->getNup()), $tenant);
         self::assertSame([$pasta->getId()], $this->idsDoGrupo($porNumero, OcorrenciaDaBuscaRapida::GRUPO_PASTA));
-        self::assertFalse($porNumero[0]->trancada);
+        self::assertFalse($porNumero[0]->restrito);
         self::assertSame('USUCAPIÃO EXTRAORDINÁRIA ZÉTIMA', $porNumero[0]->nomeAcao, 'a ação segue como dado do subtítulo');
 
         $comPrefixo = $this->repo->buscarParaBuscaRapida('Pasta ' . $pasta->getNup(), $tenant);
@@ -228,18 +228,40 @@ final class PastaRepositoryBuscaRapidaTest extends KernelTestCase
         self::assertSame([], $this->repo->buscarParaBuscaRapida('a\\', $tenant));
     }
 
-    #[TestDox('pasta trancada vem marcada')]
-    public function testTrancadaVemMarcada(): void
+    #[TestDox('pasta oculta (ocultas): casa por número e cliente, vem restrita e sem a ação; o grupo Processo não a traz')]
+    public function testOcultaCasaSoPorNumeroECliente(): void
     {
         $tenant = $this->criarTenant();
-        $pasta  = $this->criarPasta($tenant);
-        $pasta->trancar($this->criarUsuario(), new \DateTimeImmutable());
+        $oculta = $this->criarPasta($tenant, nomeAcao: 'Acao Reservada Teste');
+        $oculta->addCliente($this->clientePF($tenant, 'Ofelia Reservada', '318.774.902-15'));
+        $oculta->vincularProcesso($this->criarProcesso($tenant, '0744422-11.2025.8.07.0001'));
+        $livre = $this->criarPasta($tenant, nomeAcao: 'Acao Livre Teste');
+        $livre->vincularProcesso($this->criarProcesso($tenant, '0744433-11.2025.8.07.0001'));
         $this->em->flush();
+        $ocultas = [(int) $oculta->getId()];
 
-        $achadas = $this->repo->buscarParaBuscaRapida((string) $pasta->getNup(), $tenant);
+        $porNumero = $this->repo->buscarParaBuscaRapida((string) $oculta->getNup(), $tenant, 8, null, $ocultas);
+        self::assertCount(1, $porNumero);
+        self::assertTrue($porNumero[0]->restrito);
+        self::assertNull($porNumero[0]->nomeAcao, 'a ação da pasta oculta não sai do banco');
+        self::assertSame('OFELIA RESERVADA', $porNumero[0]->nomeDoClientePrincipal);
 
-        self::assertCount(1, $achadas);
-        self::assertTrue($achadas[0]->trancada);
+        $porCliente = $this->repo->buscarParaBuscaRapida('ofelia reservada', $tenant, 8, null, $ocultas);
+        self::assertSame([$oculta->getId()], $this->idsDoGrupo($porCliente, OcorrenciaDaBuscaRapida::GRUPO_CLIENTE));
+        self::assertTrue($porCliente[0]->restrito);
+        self::assertSame([$oculta->getId()], $this->idsDoGrupo($this->repo->buscarParaBuscaRapida('31877490215', $tenant, 8, null, $ocultas), OcorrenciaDaBuscaRapida::GRUPO_CLIENTE));
+
+        self::assertSame([], $this->repo->buscarParaBuscaRapida('0744422', $tenant, 8, null, $ocultas), 'nem pelo número do processo');
+        $daLivre = $this->repo->buscarParaBuscaRapida('074443311', $tenant, 8, null, $ocultas);
+        self::assertSame([$livre->getId()], $this->idsDoGrupo($daLivre, OcorrenciaDaBuscaRapida::GRUPO_PROCESSO), 'a outra pasta segue casando pelo processo');
+        self::assertFalse($daLivre[0]->restrito);
+        self::assertSame('ACAO LIVRE TESTE', $daLivre[0]->nomeAcao);
+
+        // Sem a lista de ocultas (primário, Master), a mesma pasta é normal.
+        $semCadeado = $this->repo->buscarParaBuscaRapida('0744422', $tenant);
+        self::assertSame([$oculta->getId()], $this->idsDoGrupo($semCadeado, OcorrenciaDaBuscaRapida::GRUPO_PROCESSO));
+        self::assertFalse($semCadeado[0]->restrito);
+        self::assertSame('ACAO RESERVADA TESTE', $semCadeado[0]->nomeAcao);
     }
 
     // ----------------------------------------------------------------- helpers

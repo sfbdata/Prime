@@ -157,51 +157,6 @@
 
 .pbr-vazio .bi { font-size: 20px; color: #b8c6cf; }
 
-/* Fora do desenho (ele não tem pasta trancada): o aviso de sigilo da Lista do Expediente, com "Pedir acesso",
-   para quem não é administrador. Cores e textos de .exp-sigilo-* (expediente-lista-12.css). */
-.pbr-sigilo {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 16px;
-    border-top: 1px solid #dfe4e8;
-    background: #f5f7fb;
-}
-
-.pbr-sigilo[hidden] { display: none; }
-
-.pbr-sigilo-icone { font-size: 20px; color: #141e5c; }
-
-.pbr-sigilo-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-
-.pbr-sigilo-titulo { font-size: 13.5px; font-weight: 700; color: #12242f; }
-
-.pbr-sigilo-texto { font-size: 12.5px; line-height: 1.45; color: #34505f; }
-
-.pbr-sigilo-nota { font-size: 11.5px; color: #62798a; }
-
-.pbr-sigilo-retorno { font-size: 12px; font-weight: 600; color: #0b5f86; }
-
-.pbr-sigilo-retorno:empty { display: none; }
-
-.pbr-sigilo-pedir {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #fff;
-    background: #0b5f86;
-    cursor: pointer;
-}
-
-.pbr-sigilo-pedir:disabled { opacity: .6; cursor: default; }
-
 .pbr-rodape {
     display: flex;
     flex-wrap: wrap;

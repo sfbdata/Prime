@@ -13,9 +13,8 @@
  * expediente_busca_rapida?q= (até 8), com espera de 200 ms depois da última tecla e a requisição anterior
  * cancelada (AbortController). O DOM é montado com createElement + textContent: nenhum dado passa por innerHTML.
  *
- * Pasta trancada, para quem não é administrador do escritório (`abreTrancada: false`), não abre: aparece o aviso
- * de sigilo da Lista do Expediente (expediente-lista.js, abrirOuAvisar/mostrarSigilo), com "Pedir acesso" na
- * mesma rota e com o mesmo token. O aviso some quando a seleção muda.
+ * Pasta oculta pelo cadeado para quem busca (`restrito: true`, spec pasta-cadeado D1) vem com o cadeado no
+ * título e abre como as outras: a página dela é a tela "Pasta trancada", com o "Pedir acesso" de lá.
  */
 (function () {
     'use strict';
@@ -28,10 +27,6 @@
     var opcoes = raiz.querySelector('.pbr-opcoes');
     var vazio = raiz.querySelector('.pbr-vazio');
     var vazioTexto = raiz.querySelector('.pbr-vazio-texto');
-    var sigilo = raiz.querySelector('.pbr-sigilo');
-    var sigiloNup = raiz.querySelector('.js-pbr-sigilo-nup');
-    var sigiloRetorno = raiz.querySelector('.pbr-sigilo-retorno');
-    var pedir = raiz.querySelector('.pbr-sigilo-pedir');
     var url = raiz.getAttribute('data-url');
 
     var ICONES = { Pasta: 'bi bi-folder2', Cliente: 'bi bi-person', Processo: 'bi bi-bank' };
@@ -42,11 +37,9 @@
 
     var resultados = [];
     var selecionado = 0;
-    var abreTrancada = false;
     var espera = null;
     var controle = null;
     var focoAnterior = null;
-    var sigiloPastaId = null;
 
     function aberta() { return !raiz.hidden; }
 
@@ -54,7 +47,6 @@
         focoAnterior = document.activeElement;
         raiz.hidden = false;
         campo.value = '';
-        esconderSigilo();
         limpar();
         campo.focus();
         buscar('');
@@ -79,7 +71,6 @@
 
     function agendarBusca() {
         clearTimeout(espera);
-        esconderSigilo();
         espera = setTimeout(function () { buscar(campo.value.trim()); }, ESPERA_MS);
     }
 
@@ -96,7 +87,6 @@
         }).then(function (j) {
             if (!j || !Array.isArray(j.resultados)) { throw new Error('json'); }
             resultados = j.resultados.slice(0, 8);
-            abreTrancada = j.abreTrancada === true;
             selecionado = 0;
             desenhar(TEXTO_VAZIO);
         }).catch(function (e) {
@@ -135,7 +125,7 @@
         var titulo = document.createElement('span');
         titulo.className = 'pbr-titulo';
         titulo.textContent = r.titulo || '';
-        if (r.trancada) {
+        if (r.restrito) {
             var cadeado = document.createElement('i');
             cadeado.className = 'bi bi-lock pbr-cadeado';
             cadeado.setAttribute('role', 'img');
@@ -155,15 +145,13 @@
         botao.appendChild(icone);
         botao.appendChild(textos);
         botao.appendChild(grupo);
-        // O mouse seleciona mas não fecha o aviso de sigilo: no caminho até o "Pedir acesso" ele passa por outros itens.
-        botao.addEventListener('mouseenter', function () { selecionar(k, true); });
+        botao.addEventListener('mouseenter', function () { selecionar(k); });
         botao.addEventListener('click', function () { ir(k); });
 
         return botao;
     }
 
-    function selecionar(k, manterSigilo) {
-        if (k !== selecionado && !manterSigilo) { esconderSigilo(); }
+    function selecionar(k) {
         selecionado = k;
         marcarSelecionado();
     }
@@ -182,49 +170,13 @@
     function ir(k) {
         var r = resultados[k];
         if (!r || !r.url) { return; }
-        if (r.trancada && !abreTrancada) { mostrarSigilo(r); return; }
         fechar();
         window.location.href = r.url;
     }
 
-    function mostrarSigilo(r) {
-        sigiloPastaId = r.pastaId;
-        sigiloNup.textContent = r.nup || '';
-        sigiloRetorno.textContent = '';
-        pedir.disabled = false;
-        sigilo.hidden = false;
-    }
-
-    function esconderSigilo() {
-        sigilo.hidden = true;
-        sigiloPastaId = null;
-    }
-
-    /* "Pedir acesso": a mesma chamada e as mesmas mensagens da Lista do Expediente (expediente-lista.js). */
-    function pedirAcesso() {
-        if (sigiloPastaId === null) { return; }
-        var corpo = new URLSearchParams();
-        corpo.append('_token', raiz.getAttribute('data-csrf-pedir'));
-        pedir.disabled = true;
-        fetch(raiz.getAttribute('data-url-pedir').replace('/0/', '/' + sigiloPastaId + '/'), {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: corpo.toString()
-        }).then(function (r) {
-            return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
-        }).then(function (r) {
-            if (!r.ok) { sigiloRetorno.textContent = r.j.erro || 'Não foi possível pedir acesso'; pedir.disabled = false; return; }
-            sigiloRetorno.textContent = r.j.avisados > 0 ? 'Pedido de acesso enviado ao administrador do escritório' : 'Nenhum administrador ativo no escritório para receber o pedido';
-        }, function () {
-            sigiloRetorno.textContent = 'Falha de conexão ao pedir acesso';
-            pedir.disabled = false;
-        });
-    }
-
-    /* Tab e Shift+Tab circulam só entre o campo, os itens e o "Pedir acesso" visível. */
+    /* Tab e Shift+Tab circulam só entre o campo e os itens. */
     function prenderFoco(e) {
         var alvos = [campo].concat(Array.prototype.slice.call(opcoes.querySelectorAll('.pbr-item')));
-        if (!sigilo.hidden && !pedir.disabled) { alvos.push(pedir); }
         var atual = alvos.indexOf(document.activeElement);
         var proximo = e.shiftKey ? (atual <= 0 ? alvos.length - 1 : atual - 1) : (atual + 1) % alvos.length;
         e.preventDefault();
@@ -267,7 +219,6 @@
             e.preventDefault();
             mover(e.key === 'ArrowDown' ? 1 : -1);
         } else if (e.key === 'Enter') {
-            if (e.target === pedir) { return; }
             var noItem = e.target.closest ? e.target.closest('.pbr-item') : null;
             var k = noItem ? parseInt(noItem.getAttribute('data-indice'), 10) : selecionado;
             if (!resultados[k]) { return; }
@@ -283,6 +234,5 @@
     });
 
     campo.addEventListener('input', agendarBusca);
-    pedir.addEventListener('click', pedirAcesso);
     raiz.querySelector('.pbr-fundo').addEventListener('click', fechar);
 })();

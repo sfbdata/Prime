@@ -3,15 +3,13 @@
    Desenho: docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html, L405-421. Os resultados vêm de
    expediente_busca_rapida e são montados por public/js/pasta-busca-rapida.js (createElement + textContent; nada
    de innerHTML com dado). "Abrir" leva para pasta_show em qualquer página.
-   O bloco de sigilo (.pbr-sigilo) não está no desenho: é a janela de pasta trancada da Lista do Expediente
-   (expediente/_modais_lista.html.twig, #expSigilo), com o mesmo texto e o mesmo "Pedir acesso"
-   (rota expediente_pasta_pedir_acesso, token expediente_lista).
+   Pasta oculta pelo cadeado (resultado `restrito`) abre como as outras: a página dela é a tela "Pasta trancada"
+   (spec pasta-cadeado K3), com o "Pedir acesso" de lá. A janela não tem aviso de sigilo próprio.
    O CSS vem aqui, no body (rel=stylesheet é permitido no body), para não mexer no base: a janela nasce
    escondida, então não há salto visual até ele chegar. #}
 {% if app.user and current_tenant() and can_access_module('pastas') %}
 <link rel="stylesheet" href="{{ asset('css/pasta-busca-rapida.css') }}">
-<div class="pbr" id="pastaBuscaRapida" hidden data-url="{{ path('expediente_busca_rapida') }}"
-     data-url-pedir="{{ path('expediente_pasta_pedir_acesso', {id: 0}) }}" data-csrf-pedir="{{ csrf_token('expediente_lista') }}">
+<div class="pbr" id="pastaBuscaRapida" hidden data-url="{{ path('expediente_busca_rapida') }}">
     <div class="pbr-fundo"></div>
     <div class="pbr-janela" role="dialog" aria-modal="true" aria-label="Busca rápida">
         <div class="pbr-topo">
@@ -23,16 +21,6 @@
         <div class="pbr-lista">
             <div class="pbr-opcoes" id="pbrOpcoes" role="listbox" aria-label="Resultados da busca rápida"></div>
             <div class="pbr-vazio" role="status" hidden><i class="bi bi-search" aria-hidden="true"></i><span class="pbr-vazio-texto">Nada encontrado.</span></div>
-        </div>
-        <div class="pbr-sigilo" role="alert" hidden>
-            <i class="bi bi-lock pbr-sigilo-icone" aria-hidden="true"></i>
-            <div class="pbr-sigilo-corpo">
-                <div class="pbr-sigilo-titulo">Pasta <span class="js-pbr-sigilo-nup"></span> protegida</div>
-                <div class="pbr-sigilo-texto">Esta pasta contém <b>documentos sigilosos</b>. O acesso não é recomendado no momento.</div>
-                <div class="pbr-sigilo-nota">Somente o usuário primário pode liberar o acesso.</div>
-                <div class="pbr-sigilo-retorno" role="status"></div>
-            </div>
-            <button type="button" class="pbr-sigilo-pedir"><i class="bi bi-key" aria-hidden="true"></i>Pedir acesso</button>
         </div>
         <div class="pbr-rodape"><span>↑ ↓ navegar</span><span>Enter abrir</span><span>Ctrl + K abrir ou fechar</span></div>
     </div>
