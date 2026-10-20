@@ -139,6 +139,24 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * O freio do console (spec §8.1.5): os envios desta origem que ainda esperam o worker viram `cancelado` (a
+     * reivindicação do handler só pega `enfileirado`) e o conteúdo some. Devolve quantos.
+     */
+    public function cancelarNaFilaDaOrigem(string $origem): int
+    {
+        $ids = $this->conexao()->fetchFirstColumn(
+            "UPDATE comercial_envio SET situacao = 'cancelado', proxima_tentativa_em = NULL
+             WHERE origem = :origem AND situacao IN ('enfileirado', 'enviando') RETURNING id",
+            ['origem' => $origem],
+        );
+        foreach ($ids as $id) {
+            $this->apagarConteudo((int) $id);
+        }
+
+        return \count($ids);
+    }
+
     /** Contrapressão do expansor (spec §8.5): os envios de campanha que ainda esperam o worker. */
     public function contarDeCampanhaNaFila(): int
     {

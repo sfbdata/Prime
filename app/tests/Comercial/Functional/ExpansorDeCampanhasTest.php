@@ -174,7 +174,9 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
 
         self::assertSame(['estado' => 'cancelada', 'motivo' => ExpansorDeCampanhas::MOTIVO_DO_ATRASO, 'execucoes' => 0], $this->estado($perdida, ['estado', 'motivo', 'execucoes']));
         self::assertSame(0, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ?', [$perdida]));
+        self::assertSame([['motivo' => ExpansorDeCampanhas::MOTIVO_DO_ATRASO, 'total' => 1]], $this->trilha('camp_canc', $perdida));
         self::assertSame(['estado' => 'enviando', 'execucoes' => 1], $this->estado($atrasada, ['estado', 'execucoes']));
+        self::assertSame([], $this->trilha('camp_canc', $atrasada));
     }
 
     #[TestDox('Recorrente que perdeu a vez pula para a próxima data futura sem enviar; no horário, executa e marca a seguinte (+7 dias)')]
@@ -212,8 +214,8 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
     #[TestDox('B1 reaplicado a cada execução: quem foi desativado depois da confirmação sai da execução')]
     public function testB1ReaplicadoNaExecucao(): void
     {
-        $ativo = $this->usuario();
-        $desativado = $this->usuario();
+        $ativo = $this->cadastradoAtivo();
+        $desativado = $this->cadastradoAtivo();
         $id = $this->campanha([(string) $ativo->getEmail(), (string) $desativado->getEmail()]);
         $this->conexao->executeStatement('UPDATE "user" SET is_active = false WHERE id = ?', [$desativado->getId()]);
 
@@ -232,16 +234,60 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $enviada = $this->campanha($emails, ['estado' => 'enviada']);
         $envioId = $this->enfileirarDaCampanha($naFila, $emails[0]);
 
-        self::assertTrue($this->expansor(ligada: false)->pararSeDesligada());
+        self::assertTrue($this->expansor(ligada: false)->pararSeDesligada(new \DateTimeImmutable()));
 
         foreach ([$naFila, $recorrente] as $id) {
             self::assertSame(['estado' => 'cancelada', 'motivo' => 'Envio de campanhas desligado na instalação'], $this->estado($id, ['estado', 'motivo']));
+            self::assertSame([['motivo' => 'Envio de campanhas desligado na instalação', 'total' => 1]], $this->trilha('camp_canc', $id));
         }
+        self::assertSame([], $this->trilha('camp_canc', $enviada));
         self::assertSame('enviada', $this->estado($enviada, ['estado'])['estado']);
         static::getContainer()->get(EnviarEmailHandler::class)(new EnviarEmail($envioId));
         self::assertSame('cancelado', $this->conexao->fetchOne('SELECT situacao FROM comercial_envio WHERE id = ?', [$envioId]));
         self::assertFalse($this->conexao->fetchOne('SELECT 1 FROM comercial_envio_conteudo WHERE envio_id = ?', [$envioId]));
         self::assertEmailCount(0);
+    }
+
+    #[TestDox('Chave desligada no handler: o EnviarEmail de campanha ATIVA já na fila vira cancelado, sem esperar o expansor')]
+    public function testChaveDesligadaNoHandler(): void
+    {
+        $emails = $this->emailsDeAtivos(1);
+        $id = $this->campanha($emails, ['estado' => 'enviando']);
+        $envioId = $this->enfileirarDaCampanha($id, $emails[0]);
+        static::getContainer()->set(ChaveDasCampanhas::class, new ChaveDasCampanhas(false));
+
+        static::getContainer()->get(EnviarEmailHandler::class)(new EnviarEmail($envioId));
+
+        self::assertSame('cancelado', $this->conexao->fetchOne('SELECT situacao FROM comercial_envio WHERE id = ?', [$envioId]));
+        self::assertFalse($this->conexao->fetchOne('SELECT 1 FROM comercial_envio_conteudo WHERE envio_id = ?', [$envioId]));
+        self::assertSame('enviando', $this->estado($id, ['estado'])['estado'], 'quem cancela a campanha é o expansor; o handler só não envia');
+        self::assertEmailCount(0);
+    }
+
+    #[TestDox('Comando numa campanha enviada com fila: vira cancelada, os envios enfileirados viram cancelado e o handler não manda; sem fila, falha')]
+    public function testComandoNumaEnviadaComFila(): void
+    {
+        $emails = $this->emailsDeAtivos(2);
+        $id = $this->campanha($emails, ['estado' => 'enviada', 'parametros' => null]);
+        $naFila = $this->enfileirarDaCampanha($id, $emails[0]);
+        $saiu = $this->enfileirarDaCampanha($id, $emails[1]);
+        $this->conexao->executeStatement("UPDATE comercial_envio SET situacao = 'enviado' WHERE id = ?", [$saiu]);
+        $semFila = $this->campanha($emails, ['estado' => 'enviada', 'parametros' => null]);
+        $comando = new CommandTester((new Application(self::$kernel))->find('app:comercial:encerrar-campanha'));
+
+        self::assertSame(Command::SUCCESS, $comando->execute(['id' => (string) $id]));
+        self::assertStringContainsString('1 e-mail(s) que estavam na fila foram cancelados.', $comando->getDisplay());
+        self::assertSame(['cancelado', 'enviado'], array_map('strval', $this->conexao->fetchFirstColumn('SELECT situacao FROM comercial_envio WHERE id IN (?, ?) ORDER BY id', [$naFila, $saiu])));
+        self::assertFalse($this->conexao->fetchOne('SELECT 1 FROM comercial_envio_conteudo WHERE envio_id = ?', [$naFila]));
+        self::assertSame(['estado' => 'cancelada', 'motivo' => 'Encerrada pelo console'], $this->estado($id, ['estado', 'motivo']));
+        self::assertSame([['publico' => 'indiv', 'frequencia' => 'unica', 'total' => 2]], $this->trilha('camp_fim', $id));
+        static::getContainer()->set(ChaveDasCampanhas::class, new ChaveDasCampanhas(true));
+        static::getContainer()->get(EnviarEmailHandler::class)(new EnviarEmail($naFila));
+        self::assertSame('cancelado', $this->conexao->fetchOne('SELECT situacao FROM comercial_envio WHERE id = ?', [$naFila]));
+        self::assertEmailCount(0);
+
+        self::assertSame(Command::FAILURE, $comando->execute(['id' => (string) $semFila]));
+        self::assertSame('enviada', $this->estado($semFila, ['estado'])['estado']);
     }
 
     #[TestDox('Comando app:comercial:encerrar-campanha: encerra a ativa e audita camp_fim; repetir ou id inválido falha com a mensagem')]
@@ -340,7 +386,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
     /** @return list<string> e-mails de usuários ativos (passam no B1 do Individual) */
     private function emailsDeAtivos(int $quantos): array
     {
-        return array_map(fn (): string => (string) $this->usuario()->getEmail(), range(1, $quantos));
+        return array_map(fn (): string => (string) $this->cadastradoAtivo()->getEmail(), range(1, $quantos));
     }
 
     private function enfileirarDaCampanha(int $id, string $email): int
@@ -349,6 +395,14 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $mensagem = MensagemDaCampanha::deArray((array) (new \App\Comercial\Campanha\ModelosDeCampanha())->fixo('convite'));
 
         return $c->get(CarteiroInterface::class)->enviar($c->get(ComposicaoDaCampanha::class)->mensagemPara($mensagem, $email, null, 'campanha:' . $id))->envioId;
+    }
+
+    /** @return list<array<string, mixed>> os `changes` das linhas da trilha com a ação, da campanha */
+    private function trilha(string $acao, int $id): array
+    {
+        $linhas = $this->conexao->fetchFirstColumn('SELECT changes FROM audit_log WHERE action = ? AND entity_id = ? ORDER BY id', [$acao, (string) $id]);
+
+        return array_map(static fn (mixed $c): array => (array) json_decode((string) $c, true), $linhas);
     }
 
     /**

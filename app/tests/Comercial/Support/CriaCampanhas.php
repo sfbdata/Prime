@@ -30,6 +30,15 @@ trait CriaCampanhas
         return $user;
     }
 
+    /** Um usuário ativo com vínculo ativo num escritório ativo: passa no B1 do CSV e do Individual. */
+    private function cadastradoAtivo(string $prefixo = 'camp', ?string $nome = 'Pessoa Teste'): User
+    {
+        $user = $this->usuario($prefixo, nome: $nome);
+        $this->vincular($user, false);
+
+        return $user;
+    }
+
     /** O vínculo do usuário num escritório (novo, se não vier um); `primario` = o papel de sistema. */
     private function vincular(User $user, bool $primario, ?Tenant $tenant = null, bool $vinculoAtivo = true): Tenant
     {

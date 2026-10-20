@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\MessageHandler;
 
+use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
@@ -24,7 +25,8 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 /**
  * Envia um e-mail registrado pelo Carteiro (spec `comercial-e-emails.md` §3.1 e §3.6):
  *   1. reivindica (UPDATE atômico; zero linhas = outro worker pegou ou já saiu: para);
- *   2. de campanha encerrada (origem `campanha:<id>`, spec §8.1.5): vira `cancelado`, não sai, e o conteúdo some;
+ *   2. de campanha (origem `campanha:<id>`) com a chave da instalação desligada ou a campanha encerrada (spec §8.1.2 e
+ *      §8.1.5): vira `cancelado`, não sai, e o conteúdo some (sem esperar a volta do expansor);
  *      em `lista`, relê o descadastro: descadastrado vira `bloqueado_descadastro` e o conteúdo some;
  *   3. vazão por contagem em `comercial_envio`: sem vaga, volta a `enfileirado` e reenfileira com DelayStamp;
  *   4. monta e manda. Sucesso: `enviado` e o conteúdo some. Exceção: volta a `enfileirado` e relança (retry do
@@ -60,6 +62,7 @@ final class EnviarEmailHandler
         private readonly int $enviosPorMinuto,
         private readonly int $tetoDiario,
         private readonly CampanhaDeEmailRepository $campanhas,
+        private readonly ChaveDasCampanhas $chaveDasCampanhas,
     ) {
     }
 
@@ -84,10 +87,16 @@ final class EnviarEmailHandler
         $this->mandar($id, $email, $envio['token']);
     }
 
-    /** O freio do console e a chave da instalação (spec §8.1.2 e §8.1.5): o que já estava na fila também não sai. */
+    /**
+     * A chave da instalação e o freio do console (spec §8.1.2 e §8.1.5): com a chave desligada, nada de campanha sai,
+     * mesmo o que já estava na fila; com a campanha encerrada, também não.
+     */
     private function campanhaEncerrada(int $id, string $origem): bool
     {
-        if (preg_match('/^campanha:(\d{1,10})$/', $origem, $achado) !== 1 || !$this->campanhas->estaCancelada((int) $achado[1])) {
+        if (preg_match('/^campanha:(\d{1,10})$/', $origem, $achado) !== 1) {
+            return false;
+        }
+        if ($this->chaveDasCampanhas->ligada() && !$this->campanhas->estaCancelada((int) $achado[1])) {
             return false;
         }
         $this->envios->marcarCancelado($id);

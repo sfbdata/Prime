@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
+use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
@@ -72,6 +73,7 @@ final class EnviarEmailHandlerTest extends KernelTestCase
             $porMinuto,
             $teto,
             $c->get(CampanhaDeEmailRepository::class),
+            new ChaveDasCampanhas(true),
         );
     }
 

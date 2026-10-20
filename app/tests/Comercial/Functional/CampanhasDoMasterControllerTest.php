@@ -78,7 +78,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
     public function testChaveDesligadaRecusa(): void
     {
         $client = $this->clienteMaster(ligada: false);
-        $this->postar($client, '/master/comercial/campanhas', $this->pedido([(string) $this->usuario()->getEmail()]));
+        $this->postar($client, '/master/comercial/campanhas', $this->pedido([(string) $this->cadastradoAtivo()->getEmail()]));
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame('O envio de campanhas está desligado nesta instalação.', $this->json($client)['erro']);
@@ -89,7 +89,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
     public function testConfirmar(): void
     {
         $client = $this->clienteMaster();
-        $ana = $this->usuario('ana');
+        $ana = $this->cadastradoAtivo('ana');
         $this->postar($client, '/master/comercial/campanhas', $this->pedido([(string) $ana->getEmail()]));
 
         self::assertResponseIsSuccessful();
@@ -112,7 +112,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
     public function testIdempotencia(): void
     {
         $client = $this->clienteMaster();
-        $pedido = $this->pedido([(string) $this->usuario()->getEmail()]);
+        $pedido = $this->pedido([(string) $this->cadastradoAtivo()->getEmail()]);
         $this->postar($client, '/master/comercial/campanhas', $pedido);
         $primeira = $this->json($client);
         $this->postar($client, '/master/comercial/campanhas', $pedido);
@@ -127,7 +127,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
     public function testRecusas(): void
     {
         $client = $this->clienteMaster();
-        $email = (string) $this->usuario()->getEmail();
+        $email = (string) $this->cadastradoAtivo()->getEmail();
         $this->postar($client, '/master/comercial/campanhas', $this->pedido([$email], ['agendar' => (new \DateTimeImmutable('-1 hour'))->format('Y-m-d\TH:i')]));
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Escolha uma data futura.', $this->json($client)['erro']);
@@ -147,7 +147,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
     public function testAgendadaERecorrente(): void
     {
         $client = $this->clienteMaster();
-        $email = (string) $this->usuario()->getEmail();
+        $email = (string) $this->cadastradoAtivo()->getEmail();
         $data = (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i');
         $this->postar($client, '/master/comercial/campanhas', $this->pedido([$email], ['agendar' => $data]));
         $agendada = $this->json($client);
@@ -167,8 +167,8 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
     public function testContagemComB1EDescadastro(): void
     {
         $client = $this->clienteMaster();
-        $ana = $this->usuario('ana', nome: 'Ana Maria Souza');
-        $bia = $this->usuario('bia');
+        $ana = $this->cadastradoAtivo('ana', nome: 'Ana Maria Souza');
+        $bia = $this->cadastradoAtivo('bia');
         static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar(null, (string) $bia->getEmail(), ComposicaoDaCampanha::LISTA, 'teste');
         $texto = $ana->getEmail() . ', ' . strtoupper((string) $ana->getEmail()) . '; ' . $bia->getEmail() . ' estranho_' . uniqid() . '@exemplo.com';
         $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => $texto]);
@@ -188,7 +188,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
     public function testContagemDoCsv(): void
     {
         $client = $this->clienteMaster();
-        $ana = $this->usuario('ana');
+        $ana = $this->cadastradoAtivo('ana');
         $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'csv', 'csv' => "nome;email\nAna Lima;" . $ana->getEmail() . "\nFulano;fulano_" . uniqid() . "@exemplo.com\n"]);
         $c = $this->json($client);
         self::assertSame([2, 1, 1], [$c['publicos']['csv'], $c['destinatarios'], $c['semAutorizacao']]);
@@ -199,7 +199,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('O arquivo passa de 1 MB.', $this->json($client)['erro']);
     }
 
-    #[TestDox('Públicos do sistema: vínculo ativo, usuário ativo e escritório válido; primário pelo papel de sistema; secundário sem ser primário')]
+    #[TestDox('Públicos do sistema: vínculo ativo, usuário ativo e escritório válido; primário pelo papel de sistema; secundário pelo vínculo sem ele (§8.5)')]
     public function testPrimariosESecundarios(): void
     {
         $this->clienteMaster();
@@ -228,10 +228,64 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertContains($prim->getEmail(), $primarios);
         self::assertContains($osDois->getEmail(), $primarios);
         self::assertContains($sec->getEmail(), $secundarios);
-        self::assertNotContains($osDois->getEmail(), $secundarios, 'quem é primário em algum escritório não se repete como secundário');
+        self::assertContains($osDois->getEmail(), $secundarios, 'secundário noutro escritório conta como secundário (letra da §8.5)');
         foreach ([$inativo, $semVinculo, $suspenso, $excluido] as $fora) {
             self::assertNotContains($fora->getEmail(), [...$primarios, ...$secundarios]);
         }
+    }
+
+    #[TestDox('Todos = primários ∪ secundários sem repetidos: quem é as duas coisas conta uma vez na grade e na lista')]
+    public function testTodosSemRepetidos(): void
+    {
+        $client = $this->clienteMaster();
+        $osDois = $this->usuario('dois');
+        $this->vincular($osDois, true);
+        $this->vincular($osDois, false);
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'todos']);
+
+        $c = $this->json($client);
+        self::assertLessThanOrEqual($c['publicos']['todos'], $c['destinatarios'] + $c['descadastrados'], 'a lista não passa da união');
+        self::assertLessThan($c['publicos']['prim'] + $c['publicos']['sec'], $c['publicos']['todos']);
+    }
+
+    #[TestDox('B1 com o vínculo válido: usuário ativo sem vínculo, só em escritório excluído (quarentena) ou suspenso fica fora do Individual')]
+    public function testB1ExigeVinculoValido(): void
+    {
+        $client = $this->clienteMaster();
+        $valido = $this->cadastradoAtivo('valido');
+        $semVinculo = $this->usuario('semvinculo');
+        $quarentena = $this->usuario('quarentena');
+        $excluido = $this->vincular($quarentena, true);
+        $suspensoUser = $this->usuario('suspenso');
+        $suspenso = $this->vincular($suspensoUser, false);
+        $desligado = $this->usuario('desligado');
+        $this->vincular($desligado, false, vinculoAtivo: false);
+        $this->conexao()->executeStatement('UPDATE tenant SET is_active = false, excluido_em = NOW() WHERE id = ?', [$excluido->getId()]);
+        $this->conexao()->executeStatement('UPDATE tenant SET is_active = false WHERE id = ?', [$suspenso->getId()]);
+        $texto = implode(', ', array_map(static fn (User $u): string => (string) $u->getEmail(), [$valido, $semVinculo, $quarentena, $suspensoUser, $desligado]));
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => $texto]);
+
+        $c = $this->json($client);
+        self::assertSame([1, 4], [$c['destinatarios'], $c['semAutorizacao']]);
+        self::assertSame($valido->getEmail(), $c['exemplo']['email']);
+    }
+
+    #[TestDox('Confirmado gravado com maiúsculas: a Base de contatos o devolve em minúsculas e o B1 do Individual o aceita')]
+    public function testConfirmadoComMaiusculas(): void
+    {
+        $client = $this->clienteMaster();
+        $email = 'Lead.Misto_' . uniqid() . '@Exemplo.com';
+        $this->conexao()->executeStatement(
+            "INSERT INTO comercial_confirmacao_endereco (lista, email, pedido_em, confirmado_em) VALUES ('comercial_campanhas', ?, NOW(), NOW())",
+            [$email],
+        );
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => strtolower($email)]);
+        $indiv = $this->json($client);
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'leads']);
+        $leads = $this->json($client);
+
+        self::assertSame([1, 0], [$indiv['destinatarios'], $indiv['semAutorizacao']]);
+        self::assertContains(strtolower($email), [$leads['exemplo']['email'] ?? null]);
     }
 
     #[TestDox('Lista de campanhas: as 12 últimas, da mais nova; sub "modelo · público[ · frequência]", data, total e o rótulo do estado')]

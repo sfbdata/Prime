@@ -13,8 +13,11 @@ use Doctrine\DBAL\Connection;
  * usuário ativo e escritório nem suspenso (`tenant.is_active = false`) nem excluído (`tenant.excluido_em`).
  *
  * Primário = vínculo com o papel de sistema (como `UserTenantRepository::findUsuariosAdminsAtivos`). Secundário =
- * vínculo sem papel de sistema, e que não é primário em nenhum escritório válido (o dc divide os usuários entre os dois:
- * "Todos os cadastrados" = "Primários e secundários").
+ * vínculo sem papel de sistema, nas mesmas condições, mesmo que a pessoa seja primária em outro escritório (a letra da
+ * spec §8.5); "Todos os cadastrados" é a união dos dois, sem repetidos (quem resolve o público tira os repetidos).
+ *
+ * O B1 ({@see self::ativosEntre()}) usa o mesmo vínculo válido: quem só está num escritório excluído (quarentena) ou
+ * suspenso, ou não tem vínculo ativo, não conta como "usuário ativo cadastrado".
  */
 class CadastradosRepository
 {
@@ -37,12 +40,11 @@ class CadastradosRepository
     /** @return list<array{email: string, nome: string}> */
     public function secundarios(): array
     {
-        return $this->lista('AND (r.id IS NULL OR r.is_system = false)
-            AND LOWER(u.email) NOT IN (SELECT LOWER(u.email) ' . self::VINCULO_VALIDO . ' AND r.is_system = true)');
+        return $this->lista('AND (r.id IS NULL OR r.is_system = false)');
     }
 
     /**
-     * B1: quais destes endereços são de usuário ativo cadastrado.
+     * B1: quais destes endereços são de usuário ativo cadastrado, com o mesmo vínculo válido dos públicos de sistema.
      *
      * @param list<string> $emails já em minúsculas
      *
@@ -55,7 +57,7 @@ class CadastradosRepository
         }
 
         return array_map('strval', $this->conexao->fetchFirstColumn(
-            'SELECT DISTINCT LOWER(email) FROM "user" WHERE is_active = true AND LOWER(email) IN (:emails)',
+            'SELECT DISTINCT LOWER(u.email) ' . self::VINCULO_VALIDO . ' AND LOWER(u.email) IN (:emails)',
             ['emails' => $emails],
             ['emails' => ArrayParameterType::STRING],
         ));

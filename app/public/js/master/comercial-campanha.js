@@ -5,12 +5,12 @@
    - Editar um modelo (fixo ou próprio) vale para a prévia e o teste, sem guardar; trocar de modelo descarta a
      edição sem aviso (dc L.542, `cmEd: null`). "Salvar modelo" só no próprio.
    - A prévia é o HTML do servidor (o mesmo montador do envio) num iframe sandbox="" (srcdoc), pedida com 400 ms de
-     espera entre teclas. "Baixar HTML" baixa esse HTML como email-CHAVE.html (dc L.558).
+     espera entre teclas. "Baixar HTML" baixa o mesmo e-mail como email-CHAVE.html (dc L.558), sempre com o exemplo fixo.
    - "Enviar teste" manda ao Master logado; as recusas (teto, descadastro) vêm do servidor.
    - 2b: o público (dc L.237-239; o CSV é lido no servidor, com a regra do dc L.545), a contagem e a linha de
      destinatários (L.252), a frequência (L.253), "Agendar" ou "Primeiro envio" (L.254, L.557) e "Enviar campanha"
      com o confirm literal do dc (L.560) e uma chave de idempotência por campanha (clique duplo não cria duas).
-     A prévia usa o primeiro destinatário do público (L.537), que vem da contagem.
+     A prévia na tela usa o primeiro destinatário do público (L.537), que vem da contagem; o arquivo baixado, não.
    Nenhuma regra mora só aqui: o servidor escapa o texto, sanitiza o HTML e recusa o que não vale. */
 (() => {
   'use strict';
@@ -41,7 +41,6 @@
   let carregado = false;
   let espera = null;
   let pedidoDaPrevia = 0;
-  let htmlDaPrevia = '';
   // 2b: o público escolhido (dc L.530, `pub = s.cmP || 'leads'`), as listas informadas, a frequência e a contagem.
   let publico = 'leads';
   let csvTexto = '';
@@ -236,10 +235,7 @@
     const numero = ++pedidoDaPrevia;
     const exemplo = contagem && contagem.exemplo ? { exemplo: contagem.exemplo } : {};
     return postar(ROTAS.urlPrevia, Object.assign(pedido(), exemplo)).then(r => {
-      if (numero === pedidoDaPrevia) {
-        htmlDaPrevia = r.html;
-        elPrevia.srcdoc = r.html;
-      }
+      if (numero === pedidoDaPrevia) elPrevia.srcdoc = r.html;
       return r.html;
     }).catch(e => { avisar(e.message); return ''; });
   }
@@ -288,10 +284,10 @@
     leitor.readAsText(arquivo);
   }
 
-  // dc L.558: o HTML da prévia (atualizada antes, se havia edição esperando) num arquivo email-CHAVE.html.
+  // dc L.558: o HTML do e-mail num arquivo email-CHAVE.html, SEMPRE com o exemplo fixo ("Dra. Ana",
+  // teste@bluejus.com.br): o arquivo baixado não leva o endereço nem o link de descadastro de uma pessoa real.
   function baixar() {
-    const pronto = espera !== null || !htmlDaPrevia ? atualizarPrevia() : Promise.resolve(htmlDaPrevia);
-    pronto.then(html => {
+    postar(ROTAS.urlPrevia, pedido()).then(r => r.html).catch(e => { avisar(e.message); return ''; }).then(html => {
       if (!html) return;
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(new Blob([html], { type: 'text/html' }));

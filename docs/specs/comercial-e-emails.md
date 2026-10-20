@@ -178,14 +178,18 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   `ExpansorDeCampanhas`, `comercial_expansor`), a situação nova `cancelado` em `comercial_envio` (o handler não envia
   o que é de campanha cancelada), o comando `app:comercial:encerrar-campanha`, a lista de campanhas no bloco
   Monitoramento e a retenção de 24 meses de `comercial_campanha_destino`. Migration provisória `Version20261021140000`.
-  Decisões da implementação: (1) secundário = vínculo sem papel de sistema e que não é primário em nenhum escritório
-  válido (o dc divide os usuários entre os dois); (2) o "usuário ativo cadastrado" do B1 é `user.is_active`, sem
-  olhar o vínculo; (3) nada é recuperado vale também para a `na_fila` com mais de 24 h de atraso; a recorrente com até
+  Decisões da implementação: (1) secundário = vínculo ativo sem papel de sistema, mesmo que a pessoa seja primária em
+  outro escritório (letra da §8.5); "Todos" é a união sem repetidos; (2) o "usuário ativo cadastrado" do B1 usa o
+  mesmo vínculo válido dos públicos de sistema (vínculo e usuário ativos, escritório nem suspenso nem excluído); (3) nada é recuperado vale também para a `na_fila` com mais de 24 h de atraso; a recorrente com até
   24 h de atraso executa uma vez; (4) o nome de todo destinatário (não só do CSV) é limpo de `;:()<>"'`; (5) o teto
   diário das campanhas conta os envios de campanha registrados no dia, sem os bloqueados e os cancelados; (6) a frase
   de sucesso volta a "registra entregas, aberturas e cliques." se as duas chaves do rastreio ligarem; (7) o
   descadastro é consultado um endereço por vez (contrato da 0d); uma consulta em lote, pedida à 0d, é follow-up para
-  públicos grandes.
+  públicos grandes. Revisão da 2b (19/10): com a chave desligada o `EnviarEmailHandler` não envia nada de
+  `campanha:*` (marca `cancelado`); o comando de encerrar alcança também a `enviada` com envios na fila e cancela
+  esses envios; os cancelamentos automáticos (chave e atraso) gravam `camp_canc` `{motivo, total}`, um por campanha;
+  "Baixar HTML" sai sempre com o exemplo fixo do dc; a Base de contatos e o B1 comparam o e-mail confirmado em
+  minúsculas.
 - **Próximo passo:** depois do #56 no master, verificação visual do bloco Automações contra o 05 e tirar o #99 do
   rascunho; a 1b quando o #87 com o #99, ou o #74, entrar no master; o follow-up da 9b depois do merge das duas.
 
@@ -771,6 +775,8 @@ recorrente pula, +1 mês no fim do mês, comando de encerrar).
 12. Para a 2b (revisão da 2a): `{nome}` vindo do CSV entra no `style`/`href` do HTML importado só escapado para HTML;
     atinge só o e-mail da própria pessoa, mas a 2b sanitiza o nome do CSV (sem `;:()<>"'`). O teto de 10 testes por
     hora não é atômico (só o Master chega lá; o limite por minuto vale).
+13. A recorrente com até 24 h de atraso executa uma vez; com mais, pula (mesma tolerância da agendada).
+14. Desempenho: a contagem e a execução consultam o descadastro um endereço por vez; consulta em lote com a 0d é follow-up.
 
 ### 8.9 Inventário do dc (19/10), para conferir item a item
 

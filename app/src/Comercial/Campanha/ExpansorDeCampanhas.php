@@ -51,13 +51,24 @@ final class ExpansorDeCampanhas
     ) {
     }
 
-    /** A parada de emergência (§8.1.2). Devolve se a chave está desligada (e então nada mais roda nesta volta). */
-    public function pararSeDesligada(): bool
+    /**
+     * A parada de emergência (§8.1.2). Devolve se a chave está desligada (e então nada mais roda nesta volta). Cada
+     * campanha cancelada ganha a linha `camp_canc` na trilha, na mesma transação.
+     */
+    public function pararSeDesligada(\DateTimeImmutable $agora): bool
     {
         if ($this->chave->ligada()) {
             return false;
         }
-        $canceladas = $this->campanhas->cancelarAtivas(ChaveDasCampanhas::MOTIVO_DO_CANCELAMENTO);
+        $motivo = ChaveDasCampanhas::MOTIVO_DO_CANCELAMENTO;
+        $canceladas = $this->campanhas->emTransacao(function () use ($motivo, $agora): int {
+            $linhas = $this->campanhas->cancelarAtivas($motivo);
+            foreach ($linhas as $linha) {
+                $this->auditarCancelamento($linha['id'], $motivo, $linha['total'], $agora);
+            }
+
+            return \count($linhas);
+        });
         if ($canceladas > 0) {
             $this->logger->warning('Comercial: chave das campanhas desligada; campanhas ativas canceladas.', ['canceladas' => $canceladas]);
         }
@@ -122,9 +133,7 @@ final class ExpansorDeCampanhas
         $limite = $agora->modify(self::TOLERANCIA_DO_ATRASO);
         $proxima = new \DateTimeImmutable((string) $campanha['proxima_execucao']);
         if ($campanha['estado'] !== CampanhaDeEmail::RECORRENTE) {
-            $proxima < $limite
-                ? $this->campanhas->cancelar($campanha['id'], $campanha['estado'], self::MOTIVO_DO_ATRASO)
-                : $this->executar($campanha, $agora, null);
+            $proxima < $limite ? $this->cancelarAtrasada($campanha, $agora) : $this->executar($campanha, $agora, null);
 
             return;
         }
@@ -160,6 +169,23 @@ final class ExpansorDeCampanhas
             $estado = $recorrente ? CampanhaDeEmail::RECORRENTE : ($publico->total() > 0 ? CampanhaDeEmail::ENVIANDO : CampanhaDeEmail::ENVIADA);
             $this->campanhas->registrarExecucao($campanha['id'], $execucao, $publico->total(), $estado, $recorrente ? $seguinte : null);
         });
+    }
+
+    /** @param Campanha $campanha */
+    private function cancelarAtrasada(array $campanha, \DateTimeImmutable $agora): void
+    {
+        $this->campanhas->emTransacao(function () use ($campanha, $agora): void {
+            $total = $this->campanhas->cancelar($campanha['id'], $campanha['estado'], self::MOTIVO_DO_ATRASO);
+            if ($total !== null) {
+                $this->auditarCancelamento($campanha['id'], self::MOTIVO_DO_ATRASO, $total, $agora);
+            }
+        });
+    }
+
+    /** A linha manual da trilha do cancelamento automático (R6): `camp_canc`, `{motivo, total}`, sem autor. */
+    private function auditarCancelamento(int $id, string $motivo, int $total, \DateTimeImmutable $agora): void
+    {
+        $this->campanhas->auditar($id, CampanhaDeEmailRepository::CANCELADA, ['motivo' => $motivo, 'total' => $total], null, null, $agora);
     }
 
     /** Contrapressão e teto diário das campanhas (§8.5): 0 = este lote espera. */

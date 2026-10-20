@@ -14,7 +14,8 @@ use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
  * Os públicos da campanha (dc L.237-239 e L.534-539; spec §8.5), na confirmação e de novo a cada execução:
  *   - `leads` "Base de contatos": confirmados na lista `comercial_campanhas` (hoje nenhum formulário pede esse
  *     consentimento: o público mostra 0; não usa `vagas_alerta`, R1);
- *   - `prim`, `sec`, `todos`: os cadastrados com vínculo ativo, usuário ativo e escritório válido;
+ *   - `prim`, `sec`, `todos`: os cadastrados com vínculo ativo, usuário ativo e escritório válido (`todos` = a união,
+ *     sem repetidos: quem é primário num escritório e secundário noutro conta uma vez);
  *   - `csv` e `indiv`: a lista informada, e só com autorização (B1, {@see PoliticaDeDestinatarios}).
  * Sempre sem repetidos (e-mail minúsculo, fica o primeiro) e sem os descadastrados de `comercial_campanhas` ou de
  * `todos` (a consulta da 0d, escopo plataforma).
@@ -60,12 +61,12 @@ final class PublicosDaCampanha
      */
     public function tamanhos(string $publico, array $informados): array
     {
-        $prim = \count($this->cadastrados->primarios());
-        $sec = \count($this->cadastrados->secundarios());
+        $prim = array_column($this->cadastrados->primarios(), 'email');
+        $sec = array_column($this->cadastrados->secundarios(), 'email');
 
         return [
             'leads' => \count($this->confirmacoes->confirmadosDaLista(ComposicaoDaCampanha::LISTA)),
-            'prim' => $prim, 'sec' => $sec, 'todos' => $prim + $sec,
+            'prim' => \count($prim), 'sec' => \count($sec), 'todos' => \count(array_unique([...$prim, ...$sec])),
             'csv' => $publico === 'csv' ? \count($informados) : 0,
             'indiv' => $publico === 'indiv' ? \count($informados) : 0,
         ];

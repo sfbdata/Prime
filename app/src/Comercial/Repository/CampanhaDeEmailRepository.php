@@ -17,7 +17,8 @@ use Doctrine\Persistence\ManagerRegistry;
  * esperado). Plataforma, do Master: nenhuma consulta filtra por escritório (a tabela não tem `tenant_id`).
  *
  * A trilha manual (R6) vai ao `audit_log` na mesma transação: `camp_conf` na confirmação e `camp_fim` no encerramento,
- * com `changes` só `{publico, frequencia, total}` (sem o assunto, por minimização).
+ * com `changes` só `{publico, frequencia, total}` (sem o assunto, por minimização), e `camp_canc` em cada cancelamento
+ * automático (a chave desligada, o atraso de mais de 24 h), com `{motivo, total}`.
  *
  * @phpstan-type Campanha array{
  *     id: int, chave_idempotencia: string, nome: string, modelo_chave: string, modelo_nome: string, modo: string,
@@ -32,6 +33,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
 {
     public const CONFIRMADA = 'camp_conf';
     public const ENCERRADA = 'camp_fim';
+    public const CANCELADA = 'camp_canc';
 
     private const COLUNAS = 'id, chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo, conteudo,
         publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em';
@@ -98,7 +100,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     /**
      * A linha manual da trilha (R6): sem o assunto nem os endereços.
      *
-     * @param array{publico: string, frequencia: string, total: int} $changes
+     * @param array<string, string|int> $changes `{publico, frequencia, total}` ou, no cancelamento, `{motivo, total}`
      */
     public function auditar(int $id, string $acao, array $changes, ?int $porId, ?string $porEmail, \DateTimeImmutable $agora): void
     {
@@ -121,15 +123,21 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         ) !== false;
     }
 
-    /** A parada de emergência (§8.1.2): toda campanha ativa vira `cancelada` com o motivo. Devolve quantas. */
-    public function cancelarAtivas(string $motivo): int
+    /**
+     * A parada de emergência (§8.1.2): toda campanha ativa vira `cancelada` com o motivo.
+     *
+     * @return list<array{id: int, total: int}> as canceladas
+     */
+    public function cancelarAtivas(string $motivo): array
     {
-        return (int) $this->conexao()->executeStatement(
+        $linhas = $this->conexao()->fetchAllAssociative(
             "UPDATE comercial_campanha SET estado = 'cancelada', motivo = :motivo, publico_parametros = NULL, proxima_execucao = NULL
-             WHERE estado IN (:ativas)",
+             WHERE estado IN (:ativas) RETURNING id, total",
             ['motivo' => $motivo, 'ativas' => CampanhaDeEmail::ATIVAS],
             ['ativas' => ArrayParameterType::STRING],
         );
+
+        return array_map(static fn (array $l): array => ['id' => (int) $l['id'], 'total' => (int) $l['total']], $linhas);
     }
 
     /**
@@ -149,14 +157,38 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         return $linha === false ? null : ['publico' => (string) $linha['publico'], 'frequencia' => (string) $linha['frequencia'], 'total' => (int) $linha['total']];
     }
 
-    /** Cancela uma campanha que ainda está no estado esperado (a agendada que acordou atrasada demais). */
-    public function cancelar(int $id, string $estadoEsperado, string $motivo): void
+    /**
+     * Cancela uma campanha que ainda está no estado esperado (a agendada que acordou atrasada demais). Devolve o total
+     * dela, ou null se ela já não estava naquele estado.
+     */
+    public function cancelar(int $id, string $estadoEsperado, string $motivo): ?int
     {
-        $this->conexao()->executeStatement(
+        $total = $this->conexao()->fetchOne(
             "UPDATE comercial_campanha SET estado = 'cancelada', motivo = :motivo, publico_parametros = NULL, proxima_execucao = NULL
-             WHERE id = :id AND estado = :esperado",
+             WHERE id = :id AND estado = :esperado RETURNING total",
             ['id' => $id, 'esperado' => $estadoEsperado, 'motivo' => $motivo],
         );
+
+        return $total === false ? null : (int) $total;
+    }
+
+    /**
+     * O freio do console numa campanha já `enviada` que ainda tem envios na fila do Carteiro (§8.1.5): ela vira
+     * `cancelada`, com o motivo. Null se não está `enviada` ou não tem nada na fila.
+     *
+     * @return array{publico: string, frequencia: string, total: int}|null
+     */
+    public function encerrarEnviadaComFila(int $id, string $motivo): ?array
+    {
+        $linha = $this->conexao()->fetchAssociative(
+            "UPDATE comercial_campanha SET estado = 'cancelada', motivo = :motivo
+             WHERE id = :id AND estado = 'enviada' AND EXISTS (
+                 SELECT 1 FROM comercial_envio e WHERE e.origem = :origem AND e.situacao IN ('enfileirado', 'enviando'))
+             RETURNING publico, frequencia, total",
+            ['id' => $id, 'motivo' => $motivo, 'origem' => 'campanha:' . $id],
+        );
+
+        return $linha === false ? null : ['publico' => (string) $linha['publico'], 'frequencia' => (string) $linha['frequencia'], 'total' => (int) $linha['total']];
     }
 
     /**
