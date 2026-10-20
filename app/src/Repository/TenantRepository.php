@@ -18,16 +18,17 @@ class TenantRepository extends ServiceEntityRepository
     }
 
     /**
-     * Conta os escritórios ATIVOS criados por um usuário (dos quais ele é dono).
-     * Base do limite de escritórios próprios (RN08). Escritórios excluídos
-     * (soft delete, isActive=false) não contam — liberam vaga.
+     * Conta os escritórios criados por um usuário (dos quais ele é dono) que ocupam vaga no limite
+     * de escritórios próprios (RN08): os ativos e os SUSPENSOS (isActive=false sem excluidoEm,
+     * decisão Q3 da spec perfis-1.2-contas: suspender não libera vaga). Só os excluídos (quarentena,
+     * excluidoEm preenchido) liberam vaga.
      */
     public function contarPorCriador(User $criador): int
     {
         return (int) $this->createQueryBuilder('t')
             ->select('COUNT(t.id)')
             ->andWhere('t.criadoPor = :criador')
-            ->andWhere('t.isActive = true')
+            ->andWhere('(t.isActive = true OR t.excluidoEm IS NULL)')
             ->setParameter('criador', $criador)
             ->getQuery()
             ->getSingleScalarResult();
