@@ -76,7 +76,8 @@ final class BancoCora implements BancoPix
     {
         $r = $this->cliente->pedir($this->credenciais(), 'GET', '/v2/invoices/' . rawurlencode($idNoBanco));
         $status = (string) ($r['status'] ?? '');
-        $quando = is_string($r['occurrence_date'] ?? null) ? new \DateTimeImmutable($r['occurrence_date']) : null;
+        // Só a data: fica no fuso do PHP. Com hora e fuso: convertida para o fuso do PHP (a coluna grava sem fuso).
+        $quando = is_string($r['occurrence_date'] ?? null) ? (new \DateTimeImmutable($r['occurrence_date']))->setTimezone(new \DateTimeZone(date_default_timezone_get())) : null;
 
         return new SituacaoDaCobranca(
             paga: 'PAID' === $status,

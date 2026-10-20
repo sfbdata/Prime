@@ -84,23 +84,23 @@ class ApoioRepository extends ServiceEntityRepository
     }
 
     /**
-     * Relatório de contribuições do Master (desenho 08, L253): soma por mês desde `$desde`, separando o
+     * Relatório de contribuições do Master (desenho 08, L253): soma por mês em [`$desde`, `$ate`), separando o
      * CONFIRMADO (pelo banco: `confirmado_em`, mês do pagamento) do só INFORMADO pelo escritório (mês do
      * registro). Dado de plataforma, de todos os escritórios: SQL nativo de propósito (o `date_trunc` não existe
      * em DQL e o filtro de tenant não se aplica), lido só pelo UseCase do relatório, atrás de ROLE_SUPER_ADMIN.
      *
      * @return list<array{mes: string, confirmado: int, informado: int}>
      */
-    public function totaisPorMes(\DateTimeImmutable $desde): array
+    public function totaisPorMes(\DateTimeImmutable $desde, \DateTimeImmutable $ate): array
     {
         $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
             "SELECT to_char(date_trunc('month', COALESCE(a.confirmado_em, a.criado_em)), 'YYYY-MM') AS mes,
                     COALESCE(SUM(a.valor_centavos) FILTER (WHERE a.confirmado_em IS NOT NULL), 0) AS confirmado,
                     COALESCE(SUM(a.valor_centavos) FILTER (WHERE a.confirmado_em IS NULL), 0) AS informado
                FROM contribua_apoio a
-              WHERE COALESCE(a.confirmado_em, a.criado_em) >= :desde
+              WHERE COALESCE(a.confirmado_em, a.criado_em) >= :desde AND COALESCE(a.confirmado_em, a.criado_em) < :ate
               GROUP BY 1 ORDER BY 1",
-            ['desde' => $desde->format('Y-m-d H:i:s')],
+            ['desde' => $desde->format('Y-m-d H:i:s'), 'ate' => $ate->format('Y-m-d H:i:s')],
         );
 
         return array_map(static fn (array $l): array => ['mes' => (string) $l['mes'], 'confirmado' => (int) $l['confirmado'], 'informado' => (int) $l['informado']], $linhas);
@@ -108,7 +108,8 @@ class ApoioRepository extends ServiceEntityRepository
 
     /**
      * Apoios CONFIRMADOS por conta, de sempre: nome do escritório (nada de e-mail, CPF ou CNPJ), se está
-     * excluído (quarentena), soma, quantidade e a data do último. Uma consulta agregada, maior soma primeiro.
+     * excluído (quarentena), soma, quantidade e a data do último. Uma consulta agregada; a ordem é a do relatório
+     * (maior soma primeiro; no empate, pelo nome, na collation do banco, que respeita acentos).
      *
      * @return list<array{escritorio: string, excluido: bool, total: int, quantidade: int, ultimo: string}>
      */

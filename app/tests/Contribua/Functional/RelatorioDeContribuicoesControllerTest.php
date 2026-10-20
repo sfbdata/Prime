@@ -92,6 +92,55 @@ final class RelatorioDeContribuicoesControllerTest extends JusPrimeWebTestCase
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $html);
     }
 
+    #[TestDox('Mês de cada apoio: o do pagamento (não o do registro), virada do mês em São Paulo e nada depois do mês atual')]
+    public function testMesDeCadaApoio(): void
+    {
+        $this->ligarRelatorio(true);
+        $conta = $this->escritorio('Delta Advocacia');
+        $inicio = (new \DateTimeImmutable('first day of this month'))->setTime(0, 0);
+        // Registrado ("Já contribuí") há 3 meses e pago pelo banco no mês passado.
+        $informadoDepoisPago = new Apoio($conta, null, 5000);
+        (new \ReflectionProperty(Apoio::class, 'criadoEm'))->setValue($informadoDepoisPago, $inicio->modify('-3 months')->setTime(10, 0));
+        $informadoDepoisPago->confirmarPeloBanco(30000, 'cora', 'inv_d1', 'BJ9-1', $inicio->modify('-1 month')->setTime(9, 0));
+        $this->em->persist($informadoDepoisPago);
+        // Virada do mês: 1º dia às 00:30 e último dia do mês anterior às 23:30 (horário de São Paulo).
+        $this->em->persist(Apoio::confirmadoPeloBanco($conta, 11100, 'cora', 'inv_d2', 'BJ9-2', $inicio->modify('-4 months')->setTime(0, 30)));
+        $this->em->persist(Apoio::confirmadoPeloBanco($conta, 22200, 'cora', 'inv_d3', 'BJ9-3', $inicio->modify('-4 months')->modify('-1 day')->setTime(23, 30)));
+        // No 1º dia do mês seguinte ao atual: fora da grade (limite superior), mas no total da conta.
+        $this->em->persist(Apoio::confirmadoPeloBanco($conta, 99900, 'cora', 'inv_d4', 'BJ9-4', $inicio->modify('+1 month')));
+        $this->em->flush();
+        $this->logarMaster();
+
+        $crawler = $this->client->request('GET', self::URL);
+
+        self::assertResponseIsSuccessful();
+        $valor = static fn (\DateTimeImmutable $mes): string => trim($crawler->filter('.cr-meses > .cr-mes[data-mes="' . $mes->format('Y-m') . '"] > b')->text());
+        self::assertSame('R$ 300,00', $valor($inicio->modify('-1 month')), 'mês do confirmado_em');
+        self::assertSame('R$ 0,00', $valor($inicio->modify('-3 months')), 'o mês do criado_em fica zerado');
+        self::assertSame('R$ 111,00', $valor($inicio->modify('-4 months')), '1º dia às 00:30');
+        self::assertSame('R$ 222,00', $valor($inicio->modify('-5 months')), 'último dia às 23:30');
+        self::assertCount(0, $crawler->filter('.cr-mes[data-mes="' . $inicio->modify('+1 month')->format('Y-m') . '"]'));
+        self::assertStringContainsString('R$ 633,00', $crawler->filter('.cr-rotulo')->text(), 'o total da grade é o do período mostrado');
+        self::assertSame('R$ 1.632,00', trim($crawler->filter('[data-cr-total]')->text()));
+    }
+
+    #[TestDox('Contas na ordem do banco: maior soma primeiro; no empate, pelo nome respeitando acentos')]
+    public function testOrdemDasContas(): void
+    {
+        $this->ligarRelatorio(true);
+        $agora = new \DateTimeImmutable();
+        foreach ([['Beta Advocacia', 10000], ['Ágora Advocacia', 10000], ['Zeta Advocacia', 50000]] as $n => [$nome, $valor]) {
+            $this->em->persist(Apoio::confirmadoPeloBanco($this->escritorio($nome), $valor, 'cora', 'inv_o' . $n, 'BJ8-' . $n, $agora));
+        }
+        $this->em->flush();
+        $this->logarMaster();
+
+        $crawler = $this->client->request('GET', self::URL);
+
+        $nomes = $crawler->filter('.cr-tabela > tbody > tr > td:first-child')->each(static fn (Crawler $td): string => trim($td->text()));
+        self::assertSame(['Zeta Advocacia', 'Ágora Advocacia', 'Beta Advocacia'], $nomes);
+    }
+
     #[TestDox('Master sem apoio confirmado: "Nenhuma contribuição confirmada ainda."')]
     public function testEstadoVazio(): void
     {

@@ -42,12 +42,15 @@ final class MontarRelatorioDeContribuicoesUseCaseTest extends TestCase
         self::assertSame(1, $r->maiorMes(), 'a base das barras nunca é zero');
     }
 
-    #[TestDox('A busca por mês começa no primeiro dia do mês de 11 meses atrás, à meia-noite')]
+    #[TestDox('A busca por mês vai do 1º dia do mês de 11 meses atrás (inclusive) ao 1º dia do mês seguinte (exclusive)')]
     public function testDesdeOPrimeiroDoPrimeiroMes(): void
     {
         $apoios = $this->createMock(ApoioRepository::class);
         $apoios->expects(self::once())->method('totaisPorMes')
-            ->with(self::callback(static fn (\DateTimeImmutable $d): bool => '2025-11-01 00:00:00' === $d->format('Y-m-d H:i:s')))
+            ->with(
+                self::callback(static fn (\DateTimeImmutable $d): bool => '2025-11-01 00:00:00' === $d->format('Y-m-d H:i:s')),
+                self::callback(static fn (\DateTimeImmutable $d): bool => '2026-11-01 00:00:00' === $d->format('Y-m-d H:i:s')),
+            )
             ->willReturn([]);
         $apoios->method('totaisPorConta')->willReturn([]);
 
@@ -75,18 +78,18 @@ final class MontarRelatorioDeContribuicoesUseCaseTest extends TestCase
         self::assertFalse($r->semConfirmados());
     }
 
-    #[TestDox('Contas pela maior soma; no empate, pelo nome; escritório excluído marcado como tal')]
+    #[TestDox('Contas na ordem do banco (a consulta ordena); escritório excluído marcado como tal')]
     public function testOrdenacaoEExcluido(): void
     {
         $contas = [
-            ['escritorio' => 'Beta', 'excluido' => false, 'total' => 1000, 'quantidade' => 1, 'ultimo' => '2026-01-10 09:00:00'],
             ['escritorio' => 'Gama', 'excluido' => true, 'total' => 9000, 'quantidade' => 3, 'ultimo' => '2026-05-03 09:00:00'],
-            ['escritorio' => 'Alfa', 'excluido' => false, 'total' => 1000, 'quantidade' => 2, 'ultimo' => '2026-02-11 09:00:00'],
+            ['escritorio' => 'Ágora', 'excluido' => false, 'total' => 1000, 'quantidade' => 2, 'ultimo' => '2026-02-11 09:00:00'],
+            ['escritorio' => 'Beta', 'excluido' => false, 'total' => 1000, 'quantidade' => 1, 'ultimo' => '2026-01-10 09:00:00'],
         ];
 
         $r = $this->useCase($this->apoios([], $contas), $this->integracao(true))->executar();
 
-        self::assertSame(['Gama', 'Alfa', 'Beta'], array_map(static fn (ContribuicoesDaConta $c): string => $c->escritorio, $r->contas));
+        self::assertSame(['Gama', 'Ágora', 'Beta'], array_map(static fn (ContribuicoesDaConta $c): string => $c->escritorio, $r->contas));
         self::assertTrue($r->contas[0]->excluido);
         self::assertFalse($r->contas[1]->excluido);
         self::assertSame(3, $r->contas[0]->quantidade);

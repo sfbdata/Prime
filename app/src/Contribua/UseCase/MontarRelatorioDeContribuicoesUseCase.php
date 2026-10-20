@@ -62,7 +62,8 @@ final class MontarRelatorioDeContribuicoesUseCase
     {
         $primeiro = $this->relogio->now()->modify('first day of this month')->setTime(0, 0)->modify('-' . (self::MESES - 1) . ' months');
         $somas = [];
-        foreach ($this->apoios->totaisPorMes($primeiro) as $linha) {
+        // Limite superior: o 1º dia do mês seguinte ao atual, para o total da grade ser o do período mostrado.
+        foreach ($this->apoios->totaisPorMes($primeiro, $primeiro->modify('+' . self::MESES . ' months')) as $linha) {
             $somas[$linha['mes']] = $linha;
         }
         $meses = [];
@@ -76,18 +77,15 @@ final class MontarRelatorioDeContribuicoesUseCase
         return $meses;
     }
 
-    /** @return list<ContribuicoesDaConta> maior soma primeiro; no empate, pelo nome */
+    /** @return list<ContribuicoesDaConta> na ordem do banco: maior soma primeiro; no empate, pelo nome */
     private function contas(): array
     {
-        $contas = array_map(static fn (array $l): ContribuicoesDaConta => new ContribuicoesDaConta(
+        return array_map(static fn (array $l): ContribuicoesDaConta => new ContribuicoesDaConta(
             $l['escritorio'],
             $l['excluido'],
             $l['total'],
             $l['quantidade'],
             new \DateTimeImmutable($l['ultimo']),
         ), $this->apoios->totaisPorConta());
-        usort($contas, static fn (ContribuicoesDaConta $a, ContribuicoesDaConta $b): int => [$b->totalCentavos, $a->escritorio] <=> [$a->totalCentavos, $b->escritorio]);
-
-        return $contas;
     }
 }
