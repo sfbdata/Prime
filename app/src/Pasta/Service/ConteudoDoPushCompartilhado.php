@@ -14,6 +14,7 @@ use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
 use App\Processo\Entity\Processo;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 
 /**
  * O que o link externo do Push pode mostrar, lido AO VIVO, e se a pasta pode ser compartilhada.
@@ -35,6 +36,7 @@ final class ConteudoDoPushCompartilhado
     public function __construct(
         private readonly PublicacaoDjenRepository $publicacoes,
         private readonly AnaliseDeInteligenciaRepository $analises,
+        private readonly PedidoDeExclusaoDeContaRepository $pedidosDeExclusao,
     ) {
     }
 
@@ -116,6 +118,14 @@ final class ConteudoDoPushCompartilhado
      */
     public function linkVisivel(LinkExternoDoPush $link): bool
     {
+        // Correção de segurança (PR 5, decisão do coordenador 20/10): escritório fora do ar não mostra o
+        // andamento a terceiros. Suspenso pelo Master (isActive=false), em quarentena (excluidoEm) ou
+        // "suspenso a pedido" (pedido de exclusão pendente).
+        $conta = $link->getTenant();
+        if ($conta->isActive() !== true || $conta->getExcluidoEm() !== null || $this->pedidosDeExclusao->existePendente((int) $conta->getId())) {
+            return false;
+        }
+
         $pasta = $link->getPasta();
         if (
             $pasta->estaExcluida()

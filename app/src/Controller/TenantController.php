@@ -289,7 +289,10 @@ final class TenantController extends AbstractController
 
         // RS08: exclusão é soft delete (quarentena), nunca mais remove() destrutivo.
         if ($this->isCsrfTokenValid('delete'.$tenant->getId(), $request->request->get('_token'))) {
-            $excluirEscritorio->executar($tenant);
+            $ator = $this->getUser();
+            if ($ator instanceof User) {
+                $excluirEscritorio->executar($tenant, $ator);
+            }
         }
 
         return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);

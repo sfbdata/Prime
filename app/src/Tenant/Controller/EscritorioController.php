@@ -67,7 +67,7 @@ final class EscritorioController extends AbstractController
             return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
         }
 
-        $this->excluirEscritorio->executar($tenant);
+        $this->excluirEscritorio->executar($tenant, $usuario);
 
         if ($this->tenantContext->getCurrentTenant()?->getId() === $tenant->getId()) {
             $this->tenantContext->clearCurrentTenant();

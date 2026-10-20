@@ -10,6 +10,7 @@ use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Service\AvisoDeContaSuspensa;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +23,7 @@ final class TenantSelecaoController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantContext $tenantContext,
         private readonly InvitationRepository $invitationRepository,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
     ) {}
 
     #[Route('/escritorio/selecionar', name: 'tenant_selecionar', methods: ['GET', 'POST'])]
@@ -55,9 +57,13 @@ final class TenantSelecaoController extends AbstractController
             return $this->redirectToRoute('app_login');
         }
 
-        $vinculos = $this->userTenantRepository->findActiveByUser($user);
+        // "Suspensa a pedido" (PR 5): o escritório barrado sai da escolha (senão a seleção automática o
+        // escolhe de novo e cai em laço com a barreira) e aparece com o aviso.
+        $todos = $this->userTenantRepository->findActiveByUser($user);
+        $vinculos = $this->bloqueioPorPedido->permitidos($todos);
+        $suspensosAPedido = $this->bloqueioPorPedido->nomesBloqueados($todos);
 
-        if (count($vinculos) === 1) {
+        if (count($vinculos) === 1 && $suspensosAPedido === []) {
             $this->tenantContext->setCurrentTenant($vinculos[0]->getTenant()->getId());
 
             return $this->redirectToRoute('expediente_index');
@@ -73,7 +79,27 @@ final class TenantSelecaoController extends AbstractController
             'vinculos' => $vinculos,
             'convites' => $convites,
             'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
+            'avisosDePedido' => $this->avisosDePedido($request, $suspensosAPedido),
         ]);
+    }
+
+    /**
+     * Um aviso por escritório "suspenso a pedido" (PR 5). Tira do flash o mesmo texto que a barreira pôs,
+     * para não aparecer duas vezes.
+     *
+     * @param list<string> $nomes
+     *
+     * @return list<array{escritorio: string, texto: string}>
+     */
+    private function avisosDePedido(Request $request, array $nomes): array
+    {
+        $sessao = $request->getSession();
+        if ($nomes !== [] && $sessao instanceof FlashBagAwareSessionInterface) {
+            $flashes = $sessao->getFlashBag();
+            $flashes->set('warning', array_values(array_diff($flashes->peek('warning'), [BloqueioPorPedidoDeExclusao::MENSAGEM])));
+        }
+
+        return array_map(static fn (string $nome): array => ['escritorio' => $nome, 'texto' => BloqueioPorPedidoDeExclusao::MENSAGEM], $nomes);
     }
 
     /**

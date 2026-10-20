@@ -12,6 +12,7 @@ use App\Service\NotificacaoService;
 use App\Pasta\Service\ConteudoDoPushCompartilhado;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -37,7 +38,7 @@ final class PedirRenovacaoDoLinkUseCaseTest extends TestCase
     {
         $this->links->method('findOnePeloEndereco')->willReturn($link);
 
-        return (new PedirRenovacaoDoLinkUseCase($this->links, new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class)), $this->notificacoes, $this->urlGenerator(), new MockClock($this->agora())))
+        return (new PedirRenovacaoDoLinkUseCase($this->links, new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->createMock(PedidoDeExclusaoDeContaRepository::class)), $this->notificacoes, $this->urlGenerator(), new MockClock($this->agora())))
             ->executar('bluejus-maria-silva-abcdefgh', $nome, $mensagem);
     }
 

@@ -14,6 +14,7 @@ use App\Pasta\Repository\LinkExternoDoPushRepository;
 use App\Pasta\Service\ConteudoDoPushCompartilhado;
 use App\Pasta\UseCase\AbrirLinkExternoDoPushUseCase;
 use App\Pasta\Entity\Pasta;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -47,14 +48,16 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
         $this->analises = $this->createMock(AnaliseDeInteligenciaRepository::class);
     }
 
-    private function abrir(LinkExternoDoPush $link, ?string $codigo = null, int $minutosDepois = 0): PaginaDoPushCompartilhadoOutput
+    private function abrir(LinkExternoDoPush $link, ?string $codigo = null, int $minutosDepois = 0, bool $pedidoDeExclusao = false): PaginaDoPushCompartilhadoOutput
     {
         $this->links->method('findOnePeloEndereco')->willReturn($link);
+        $pedidos = $this->createMock(PedidoDeExclusaoDeContaRepository::class);
+        $pedidos->method('existePendente')->willReturn($pedidoDeExclusao);
 
         return (new AbrirLinkExternoDoPushUseCase(
             $this->links,
             $this->acessos,
-            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises),
+            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $pedidos),
             new MockClock($this->agora()->modify('+' . $minutosDepois . ' minutes')),
         ))->executar($link->getEndereco(), $codigo);
     }
@@ -63,7 +66,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     public function testNaoEncontrado(): void
     {
         $this->links->method('findOnePeloEndereco')->willReturn(null);
-        $useCase = new AbrirLinkExternoDoPushUseCase($this->links, $this->acessos, new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises), new MockClock($this->agora()));
+        $useCase = new AbrirLinkExternoDoPushUseCase($this->links, $this->acessos, new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->createMock(PedidoDeExclusaoDeContaRepository::class)), new MockClock($this->agora()));
 
         $pagina = $useCase->executar('bluejus-nada-aaaaaaaa');
 
@@ -97,6 +100,25 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
         $link->getPasta()->getProcessos()[0]->setNivelSigilo(1);
 
         self::assertSame('nao_encontrado', $this->abrir($link)->estado);
+    }
+
+    #[TestDox('Correção de segurança (PR 5): escritório suspenso pelo Master, em quarentena ou "suspenso a pedido" desliga o link')]
+    public function testEscritorioForaDoArDesligaOLink(): void
+    {
+        $suspenso = $this->link();
+        $suspenso->getTenant()->setIsActive(false);
+        self::assertSame('nao_encontrado', $this->abrir($suspenso)->estado, 'suspenso pelo Master');
+
+        $this->setUp();
+        $quarentena = $this->link();
+        $quarentena->getTenant()->setExcluidoEm($this->agora());
+        self::assertSame('nao_encontrado', $this->abrir($quarentena)->estado, 'em quarentena');
+
+        $this->setUp();
+        self::assertSame('nao_encontrado', $this->abrir($this->link(), pedidoDeExclusao: true)->estado, 'suspenso a pedido');
+
+        $this->setUp();
+        self::assertNotSame('nao_encontrado', $this->abrir($this->link())->estado, 'escritório no ar continua abrindo');
     }
 
     #[TestDox('Pasta cancelada ou arquivada depois de criar o link: nao_encontrado')]

@@ -13,6 +13,7 @@ use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 
 /**
  * Reativa uma conta suspensa (spec docs/specs/perfis-1.2-contas.md C1, C3, C6). É o ÚNICO caminho de
@@ -37,6 +38,7 @@ final class ReativarContaUseCase
         private readonly ContasDoSistemaRepository $contas,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDeAuditoria,
+        private readonly PedidoDeExclusaoDeContaRepository $pedidos,
         private readonly int $carenciaPurgaDias,
     ) {
     }
@@ -45,15 +47,18 @@ final class ReativarContaUseCase
     {
         $this->exigirMaster($input->ator);
         $conta = $this->carregarConta($input->contaId);
-        $this->exigirContaForaDoAr($conta);
+        // "Suspensa a pedido" (PR 5, C3): o Tenant continua ativo; reativar é decidir o pedido. Ao recuperar
+        // da QUARENTENA, um pedido já em "excluida" não é tocado (C4b): só o pendente entra aqui.
+        $pedido = $this->pedidos->pendenteDoEscritorio($conta);
+        if ($pedido === null) {
+            $this->exigirContaForaDoAr($conta);
+        }
 
         $conta->setIsActive(true);
         // Recuperar da quarentena (C4b): a exclusão é desfeita. Conta só suspensa já tem excluidoEm nulo.
         $conta->setExcluidoEm(null);
-        // Ponto de extensão do contrato com a frente 7d (PR 5): com pedido de exclusão PENDENTE para
-        // esta conta, chamar aqui `$pedido->marcarReativada($input->ator)` (PedidoDeExclusaoDeConta),
-        // ANTES do flush abaixo, para o pedido e a conta mudarem na mesma transação. Ao recuperar da
-        // QUARENTENA, um pedido já em "excluida" fica como está: não é tocado (acordo com a 7d, spec C4b).
+        // Pedido e conta mudam na mesma transação (o flush abaixo).
+        $pedido?->marcarReativada($input->ator);
         $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
 
         return ContaAlteradaOutput::fromEntity($conta, $this->carenciaPurgaDias);

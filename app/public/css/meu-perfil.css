@@ -165,6 +165,42 @@
 .mp-rev-resumo span { color: #5b7383; }
 .mp-rev-resumo b { color: #243845; text-align: right; }
 
+/* Excluir conta do escritório (PR 5; desenho 07 L111-161). Cores do desenho: vermelho #a3232b. */
+.mp-ex { border-color: #f1c4c9; }
+.mp-ex-linha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 16px 20px; }
+.mp-ex-selo { width: 44px; height: 44px; flex: none; border-radius: 10px; background: #fdf1f2; color: #a3232b; display: flex; align-items: center; justify-content: center; font-size: 19px; }
+.mp-ex-texto { flex: 1; min-width: 240px; }
+.mp-ex-texto b { font-size: 15px; color: #212529; }
+.mp-ex-sub { font-size: 12.5px; color: #6c757d; line-height: 1.5; }
+.mp-ex-pendente { height: 24px; padding: 0 10px; border-radius: 12px; background: #fff3cd; color: #664d03; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+.mp-ex-desistir { height: 34px; padding: 0 14px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 13.5px; cursor: pointer; }
+.mp-ex-desistir:hover, .mp-ex-desistir:focus-visible { border-color: #1e7b45; color: #1e7b45; }
+.mp-ex-abrir { height: 34px; padding: 0 14px; border: 1px solid #a3232b; border-radius: 3px; background: #fff; color: #a3232b; font: inherit; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .15s, color .15s; }
+.mp-ex-abrir:hover, .mp-ex-abrir:focus-visible { background: #a3232b; color: #fff; }
+.mp-ex-modal .modal-dialog { max-width: 480px; }
+.mp-ex-modal .modal-content { border: none; border-radius: 4px; overflow: hidden; box-shadow: 0 24px 60px rgba(18,36,47,.28); }
+.mp-ex-cab { background: #a3232b; color: #fff; padding: 13px 18px; display: flex; align-items: center; gap: 10px; }
+.mp-ex-cab b { flex: 1; font-size: 15px; }
+.mp-ex-fechar { width: 30px; height: 30px; border: none; border-radius: 3px; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; }
+.mp-ex-corpo { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.mp-ex-corpo > div:not([hidden]) { display: flex; flex-direction: column; gap: 12px; }
+.mp-ex-corpo [hidden] { display: none !important; }
+.mp-ex-p { margin: 0; font-size: 13.5px; color: #34505f; line-height: 1.5; }
+.mp-ex-motivos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mp-ex-motivo { min-height: 36px; padding: 4px 10px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.mp-ex-motivo.is-on { border-color: #a3232b; background: #fdf1f2; color: #a3232b; }
+.mp-ex-campo { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font: inherit; font-size: 13.5px; font-weight: normal; color: #212529; background: #fff; }
+.mp-ex-codigo { font-size: 15px; letter-spacing: 3px; }
+.mp-ex-info { font-size: 12px; color: #5b7383; background: #f7f9fb; border: 1px solid #e6edf2; border-radius: 3px; padding: 9px 11px; line-height: 1.5; }
+.mp-ex-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mp-ex-rotulo { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: bold; color: #4a6373; margin: 0; }
+.mp-ex-erro { font-size: 13px; color: #a3232b; }
+.mp-ex-rodape { padding: 12px 18px; border-top: 1px solid #eef2f5; display: flex; justify-content: flex-end; gap: 8px; }
+.mp-ex-manter { height: 36px; padding: 0 14px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 14px; cursor: pointer; }
+.mp-ex-avancar { height: 36px; padding: 0 16px; border: none; border-radius: 3px; background: #a3232b; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; }
+.mp-ex-avancar:disabled { opacity: .6; cursor: progress; }
+@media (max-width: 480px) { .mp-ex-motivos, .mp-ex-grade { grid-template-columns: 1fr; } }
+
 /* tema escuro */
 html[data-bs-theme="dark"] .mp-pagina { color: var(--bs-body-color); }
 html[data-bs-theme="dark"] .mp-card, html[data-bs-theme="dark"] .mp-pref, html[data-bs-theme="dark"] .mp-modal .modal-content { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
@@ -173,5 +209,18 @@ html[data-bs-theme="dark"] .mp-nome, html[data-bs-theme="dark"] .mp-card-topo b,
 html[data-bs-theme="dark"] .mp-pref, html[data-bs-theme="dark"] .mp-texto, html[data-bs-theme="dark"] .mp-frase { color: var(--bs-body-color); }
 html[data-bs-theme="dark"] .mp-pref:hover { background: var(--bs-secondary-bg); }
 html[data-bs-theme="dark"] .mp-campo input, html[data-bs-theme="dark"] .mp-vinculo-op { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+
+html[data-bs-theme="dark"] .mp-ex { border-color: rgba(240,138,126,.35); }
+html[data-bs-theme="dark"] .mp-ex-texto b, html[data-bs-theme="dark"] .mp-ex-p, html[data-bs-theme="dark"] .mp-ex-rotulo { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-ex-sub, html[data-bs-theme="dark"] .mp-ex-info { color: var(--bs-secondary-color); }
+html[data-bs-theme="dark"] .mp-ex-selo { background: rgba(240,138,126,.14); color: #f08a7e; }
+html[data-bs-theme="dark"] .mp-ex-abrir { background: transparent; color: #f08a7e; border-color: #f08a7e; }
+html[data-bs-theme="dark"] .mp-ex-abrir:hover, html[data-bs-theme="dark"] .mp-ex-abrir:focus-visible { background: #a3232b; color: #fff; border-color: #a3232b; }
+html[data-bs-theme="dark"] .mp-ex-desistir, html[data-bs-theme="dark"] .mp-ex-manter, html[data-bs-theme="dark"] .mp-ex-motivo, html[data-bs-theme="dark"] .mp-ex-campo { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-ex-motivo.is-on { border-color: #f08a7e; background: rgba(240,138,126,.14); color: #f08a7e; }
+html[data-bs-theme="dark"] .mp-ex-info { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .mp-ex-modal .modal-content { background: var(--bs-body-bg); }
+html[data-bs-theme="dark"] .mp-ex-rodape { border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .mp-ex-erro { color: #f08a7e; }
 
 @media (prefers-reduced-motion: reduce) { .mp-card, .mp-barra > div { animation: none; } }

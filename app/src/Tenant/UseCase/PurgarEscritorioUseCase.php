@@ -190,6 +190,10 @@ final class PurgarEscritorioUseCase
         // são NO ACTION. Acesso antes do link (filho antes do pai).
         ['push_link_externo_acesso', 'tenant_id = :tenant'],
         ['push_link_externo', 'tenant_id = :tenant'],
+        // Pedido de exclusão da conta e os códigos da etapa 2 (PR 5): FKs de tenant NO ACTION. O histórico
+        // do pedido fica no audit_log (retido); o motivo é texto do cliente e sai com o escritório.
+        ['codigo_exclusao_conta', 'tenant_id = :tenant'],
+        ['pedido_exclusao_conta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],

@@ -47,6 +47,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
     // Entidades deliberadamente fora do escopo de Auditavel.
     // Toda entidade ausente desta lista E que não implemente Auditavel quebra o teste.
     private const NAO_AUDITAVEIS = [
+        // Código de 6 dígitos da exclusão da conta (PR 5): só o hash, vive 15 minutos e não diz nada a
+        // ninguém. O rastro é o do pedido (PedidoDeExclusaoDeConta, Auditavel).
+        \App\Tenant\Entity\CodigoDeExclusaoDeConta::class,
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,

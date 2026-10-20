@@ -11,6 +11,14 @@
         {% endif %}
     </div>
 
+    {# "Suspensa a pedido" (PR 5): o escritório barrado não entra na lista; aparece com o aviso. #}
+    {% for aviso in avisosDePedido|default([]) %}
+        <div class="alert alert-warning text-center" data-conta-suspensa-a-pedido>
+            <i class="bi bi-hourglass-split d-block fs-3 mb-2"></i>
+            <strong>{{ aviso.escritorio }}</strong><br>{{ aviso.texto }}
+        </div>
+    {% endfor %}
+
     {% if vinculos is empty %}
         {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
         {# avisosDeConta (C9 e C9b) só vem preenchido sem convite de escritório (TenantSelecaoController). #}
@@ -21,7 +29,7 @@
                     {{ aviso.texto }}
                 </div>
             {% endfor %}
-        {% elseif convites_escritorio is empty %}
+        {% elseif convites_escritorio is empty and avisosDePedido|default([]) is empty %}
             <div class="alert alert-warning text-center">
                 <i class="bi bi-building-x d-block fs-3 mb-2"></i>
                 Você ainda não faz parte de nenhum escritório.<br>

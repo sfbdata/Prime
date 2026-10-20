@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -21,7 +23,7 @@ final class ExcluirEscritorioUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new ExcluirEscritorioUseCase($this->em);
+        $this->useCase = new ExcluirEscritorioUseCase($this->em, $this->createStub(PedidoDeExclusaoDeContaRepository::class));
     }
 
     #[TestDox('Soft delete: desativa o escritório e marca excluidoEm, com um flush')]
@@ -32,7 +34,7 @@ final class ExcluirEscritorioUseCaseTest extends TestCase
 
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar($tenant);
+        $this->useCase->executar($tenant, new User());
 
         self::assertFalse($tenant->isActive());
         self::assertInstanceOf(\DateTimeImmutable::class, $tenant->getExcluidoEm());
@@ -46,7 +48,7 @@ final class ExcluirEscritorioUseCaseTest extends TestCase
 
         $this->em->expects($this->never())->method('flush');
 
-        $this->useCase->executar($tenant);
+        $this->useCase->executar($tenant, new User());
 
         self::assertFalse($tenant->isActive());
         self::assertNull($tenant->getExcluidoEm());

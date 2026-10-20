@@ -7,9 +7,14 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Service\AvisoDeContaSuspensa;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
@@ -62,6 +67,8 @@ final class TenantContextValidatorListener
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly RouterInterface $router,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     public function __invoke(RequestEvent $event): void
@@ -102,7 +109,11 @@ final class TenantContextValidatorListener
         // consumidores de getCurrentTenant() que não rechecam isActive (RS06/RS07).
         $userTenant = $this->tenantContext->getCurrentUserTenant();
         $recusa = $this->barreiraDaConta($userTenant);
-        // (b) pedido de exclusão pendente: entra aqui (frente 7d, PR 5).
+        // (b) pedido de exclusão pendente (PR 5): o primário fica no Meu Perfil; a equipe sai.
+        if ($recusa === null && $this->primarioNaContaSuspensaAPedido($userTenant, $event)) {
+            return;
+        }
+        $recusa ??= $this->barreiraDoPedidoDeExclusao($userTenant);
         $recusa ??= $this->barreiraDoVinculo($userTenant);
         // (d) situação do usuário no escritório: entra aqui (frente 7d, PR 4).
 
@@ -133,6 +144,51 @@ final class TenantContextValidatorListener
         return $conta->getExcluidoEm() === null
             ? AvisoDeContaSuspensa::para((string) $conta->getName())
             : AvisoDeContaSuspensa::paraExcluida((string) $conta->getName());
+    }
+
+    /**
+     * (b) Pedido de exclusão pendente ("suspensa a pedido", PR 5): quem não é primário não entra
+     * ({@see BloqueioPorPedidoDeExclusao}). O primário é tratado antes, em
+     * {@see primarioNaContaSuspensaAPedido()}.
+     */
+    private function barreiraDoPedidoDeExclusao(?UserTenant $userTenant): ?string
+    {
+        return $userTenant !== null && $userTenant->isActive() && $this->bloqueioPorPedido->bloqueia($userTenant)
+            ? BloqueioPorPedidoDeExclusao::MENSAGEM
+            : null;
+    }
+
+    /**
+     * O primário de uma conta "suspensa a pedido" continua no escritório, mas só no Meu Perfil (onde
+     * desiste) e no sair: qualquer outra rota volta ao Meu Perfil. Devolve true quando a requisição já foi
+     * resolvida aqui (liberada ou redirecionada).
+     */
+    private function primarioNaContaSuspensaAPedido(?UserTenant $userTenant, RequestEvent $event): bool
+    {
+        if ($userTenant === null || !$userTenant->isActive() || !$this->regraDosPrimarios->ehPrimario($userTenant)) {
+            return false;
+        }
+        $tenantId = $userTenant->getTenant()->getId();
+        if ($tenantId === null || !$this->bloqueioPorPedido->suspensaAPedido($tenantId)) {
+            return false;
+        }
+        if (str_starts_with($event->getRequest()->getPathInfo(), '/perfil')) {
+            return true;
+        }
+
+        // Chamada de fundo (sino, contadores): recusa curta, sem flash acumulando para a próxima página.
+        if ($event->getRequest()->isXmlHttpRequest()) {
+            $event->setResponse(new JsonResponse(['erro' => BloqueioPorPedidoDeExclusao::MENSAGEM], Response::HTTP_FORBIDDEN));
+
+            return true;
+        }
+        $sessao = $event->getRequest()->getSession();
+        if ($sessao instanceof FlashBagAwareSessionInterface) {
+            $sessao->getFlashBag()->add('warning', BloqueioPorPedidoDeExclusao::MENSAGEM);
+        }
+        $event->setResponse(new RedirectResponse($this->router->generate('app_profile')));
+
+        return true;
     }
 
     /** (c) O vínculo: removido ou desativado no escritório. */

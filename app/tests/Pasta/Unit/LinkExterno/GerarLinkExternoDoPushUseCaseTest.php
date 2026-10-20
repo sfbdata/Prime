@@ -15,6 +15,7 @@ use App\Pasta\Service\ConteudoDoPushCompartilhado;
 use App\Pasta\Service\GeradorDeEnderecoDoLinkExterno;
 use App\Pasta\Service\MontadorDeLinksExternos;
 use App\Pasta\UseCase\GerarLinkExternoDoPushUseCase;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -51,9 +52,9 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
 
         return new GerarLinkExternoDoPushUseCase(
             $this->links,
-            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises),
+            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->createMock(PedidoDeExclusaoDeContaRepository::class)),
             new GeradorDeEnderecoDoLinkExterno($this->links),
-            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class))),
+            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->createMock(PedidoDeExclusaoDeContaRepository::class))),
             new MockClock($this->agora()),
         );
     }
