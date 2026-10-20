@@ -20,6 +20,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
+use App\Shared\Http\NomeSeguroDeArquivo;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -420,7 +421,8 @@ class ClienteController extends AbstractController
 
         $descricao = trim((string) $request->request->get('descricao', ''));
         $numero    = trim((string) $request->request->get('numero', ''));
-        $nomeBase  = trim((string) $request->request->get('nomeBase', ''));
+        // Como o renomear da pasta: barra, contrabarra e controle saem (NomeSeguroDeArquivo).
+        $nomeBase  = NomeSeguroDeArquivo::sanear((string) $request->request->get('nomeBase', ''));
 
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);

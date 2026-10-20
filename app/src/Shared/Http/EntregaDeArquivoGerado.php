@@ -31,7 +31,7 @@ final class EntregaDeArquivoGerado
     {
         $resposta = new BinaryFileResponse($arquivo->caminho());
         $resposta->headers->set('Content-Type', $mimeType);
-        $resposta->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $nomeParaDownload);
+        $resposta->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, NomeSeguroDeArquivo::paraDownload($nomeParaDownload));
         $resposta->deleteFileAfterSend(true);
 
         return $resposta;
