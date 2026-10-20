@@ -80,7 +80,7 @@
     const atual = (raiz._automacoes || []).find(a => a.chave === chave);
     if (!atual) return;
     ocupado = true;
-    postar(URL_ALTERAR.replace('__chave__', encodeURIComponent(chave)), Object.assign({ ligada: atual.ligada, atraso: atual.atraso }, mudanca))
+    postar(URL_ALTERAR.replace('xchavex', encodeURIComponent(chave)), Object.assign({ ligada: atual.ligada, atraso: atual.atraso }, mudanca))
       .then(() => carregar())
       .catch(e => avisar(e.message))
       .finally(() => { ocupado = false; });
@@ -90,7 +90,7 @@
     const a = (raiz._automacoes || []).find(x => x.chave === chave);
     if (!a) return;
     raiz.querySelector('[data-mc-previa-titulo]').textContent = a.modelo;
-    raiz.querySelector('[data-mc-previa-quadro]').src = URL_PREVIA.replace('__chave__', encodeURIComponent(chave));
+    raiz.querySelector('[data-mc-previa-quadro]').src = URL_PREVIA.replace('xchavex', encodeURIComponent(chave));
     elPrevia.hidden = false;
     avisar('Editando o modelo da automação "' + a.titulo + '". Duplique para ajustar o texto.');
   }

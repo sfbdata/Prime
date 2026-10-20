@@ -45,3 +45,75 @@
 .mc-previa { border-top: 1px solid var(--mc-div); padding: 12px 18px 16px; }
 .mc-previa-cabeca { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-size: 13px; }
 .mc-previa-quadro { width: 100%; max-width: 640px; height: 560px; border: 1px solid var(--mc-borda); border-radius: 4px; background: #fff; }
+
+/* Bloco "Nova campanha de e-mail", fatia 2a (desenho 05 VS 18.10.26, L.229-260). Valores literais do dc em tokens,
+   com par escuro; cada regra cita a linha do dc. */
+.mc {
+    --mc-cp-rotulo: #4a6373; --mc-cp-campo: #d3dde4; --mc-cp-texto: #34505f; --mc-cp-sel-bg: #e5f1f7;
+    --mc-cp-bloco-bg: #fbfcfd; --mc-cp-novo-borda: #9fc3d8; --mc-cp-novo-bg: #f5fafd; --mc-cp-msg-tx: #0b5f86;
+    --mc-cp-msg-bg: #f2f8fc; --mc-cp-msg-borda: #cfe3f0; --mc-cp-verde: #1e7b45; --mc-cp-vermelho: #a3232b;
+    --mc-cp-dica: #7a8e9b; --mc-cp-previa-bg: #eef2f5; --mc-cp-rm-bg: #fdecee;
+}
+[data-bs-theme="dark"] .mc {
+    --mc-cp-rotulo: var(--bs-secondary-color); --mc-cp-campo: var(--bs-border-color); --mc-cp-texto: var(--bs-body-color);
+    --mc-cp-sel-bg: rgba(77, 163, 234, .16); --mc-cp-bloco-bg: var(--bs-tertiary-bg); --mc-cp-novo-borda: #3d6a88;
+    --mc-cp-novo-bg: rgba(77, 163, 234, .08); --mc-cp-msg-tx: #9cc9ec; --mc-cp-msg-bg: rgba(77, 163, 234, .1);
+    --mc-cp-msg-borda: #2f5675; --mc-cp-verde: #5fc48a; --mc-cp-vermelho: #f08a90; --mc-cp-dica: var(--bs-secondary-color);
+    --mc-cp-previa-bg: var(--bs-tertiary-bg); --mc-cp-rm-bg: rgba(240, 138, 144, .14);
+}
+.mc-cp [hidden] { display: none !important; }
+/* L.230: o ícone do megafone */
+.mc-cp-cabeca { flex-wrap: nowrap; }
+.mc-cp-cabeca-ic { color: var(--mc-azul); font-size: 18px; }
+/* L.231: a grade em duas colunas (auto-fit, mínimo de 340 px) */
+.mc-cp-grade { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; align-items: start; }
+/* L.232 e L.249 */
+.mc-cp-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mc-cp-lado { gap: 10px; }
+/* L.233, L.241, L.250 */
+.mc-cp-passo { font-size: 11.5px; font-weight: bold; color: var(--mc-cp-rotulo); letter-spacing: .5px; }
+.mc-cp-passo-seguinte { margin-top: 4px; }
+/* L.234: a grade de modelos e o botão de cada um (selecionado: borda e fundo azuis, L.542) */
+.mc-cp-modelos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mc-cp-modelo { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 10px; border: 1px solid var(--mc-cp-campo); border-radius: 3px; background: var(--mc-fundo); color: var(--mc-cp-texto); font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; text-align: left; }
+.mc-cp-modelo[aria-pressed="true"] { border-color: var(--mc-azul); background: var(--mc-cp-sel-bg); color: var(--mc-azul); }
+/* L.235: Novo modelo, Duplicar, Importar HTML, Salvar modelo, Excluir */
+.mc-cp-acoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.mc-cp-acao { height: 28px; padding: 0 9px; border: 1px solid var(--mc-cp-campo); border-radius: 3px; background: var(--mc-fundo); color: var(--mc-cp-texto); font: inherit; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; margin: 0; }
+.mc-cp-acao:hover, .mc-cp-acao:focus-within { border-color: var(--mc-azul); color: var(--mc-azul); }
+.mc-cp-acao-salvar { color: var(--mc-cp-verde); }
+.mc-cp-acao-excluir { color: var(--mc-cp-vermelho); }
+.mc-cp-arquivo { display: none; }
+/* L.242-247: os campos da mensagem */
+.mc-cp-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: bold; color: var(--mc-cp-rotulo); margin: 0; }
+.mc-cp-entrada { height: 34px; border: 1px solid var(--mc-cp-campo); border-radius: 3px; padding: 0 9px; font: inherit; font-size: 13.5px; font-weight: normal; background: var(--mc-fundo); color: var(--mc-texto); }
+.mc-cp-texto { border: 1px solid var(--mc-cp-campo); border-radius: 3px; padding: 8px 9px; font: inherit; font-size: 13.5px; font-weight: normal; line-height: 1.5; resize: vertical; background: var(--mc-fundo); color: var(--mc-texto); }
+.mc-cp-codigo { border: 1px solid var(--mc-cp-campo); border-radius: 3px; padding: 8px 9px; font: 12px/1.45 monospace; resize: vertical; background: var(--mc-fundo); color: var(--mc-texto); }
+.mc-cp-dica { font-weight: normal; color: var(--mc-cp-dica); }
+.mc-cp-modo { display: flex; flex-direction: column; gap: 12px; }
+/* L.246-248: os blocos */
+.mc-cp-blocos-titulo { font-size: 11.5px; font-weight: bold; color: var(--mc-cp-rotulo); letter-spacing: .3px; }
+.mc-cp-lista { display: flex; flex-direction: column; gap: 12px; }
+.mc-cp-bloco { border: 1px solid var(--mc-div); border-radius: 4px; padding: 8px 10px; background: var(--mc-cp-bloco-bg); display: flex; flex-direction: column; gap: 6px; }
+.mc-cp-bloco-cabeca { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; color: var(--mc-azul); }
+.mc-cp-bloco-rot { flex: 1; }
+.mc-cp-bloco-btn { width: 24px; height: 24px; border: none; background: transparent; color: var(--mc-sub); cursor: pointer; border-radius: 3px; padding: 0; }
+.mc-cp-bloco-btn:hover, .mc-cp-bloco-btn:focus-visible { background: var(--mc-div); }
+.mc-cp-bloco-rm { color: var(--mc-cp-vermelho); }
+.mc-cp-bloco-rm:hover, .mc-cp-bloco-rm:focus-visible { background: var(--mc-cp-rm-bg); }
+.mc-cp-bloco-a, .mc-cp-bloco-b { width: 100%; box-sizing: border-box; border: 1px solid var(--mc-cp-campo); border-radius: 3px; padding: 6px 8px; font: inherit; font-size: 13px; resize: vertical; background: var(--mc-fundo); color: var(--mc-texto); }
+.mc-cp-bloco-a { line-height: 1.45; }
+.mc-cp-novos { display: flex; flex-wrap: wrap; gap: 5px; }
+.mc-cp-novo { height: 26px; padding: 0 8px; border: 1px dashed var(--mc-cp-novo-borda); border-radius: 3px; background: var(--mc-cp-novo-bg); color: var(--mc-azul); font: inherit; font-size: 11.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.mc-cp-novo:hover, .mc-cp-novo:focus-visible { background: var(--mc-cp-sel-bg); border-style: solid; }
+/* L.251: a prévia */
+.mc-cp-previa { width: 100%; height: 560px; border: 1px solid var(--mc-borda); border-radius: 4px; background: var(--mc-cp-previa-bg); }
+/* L.254: Baixar HTML e Enviar teste, à direita da linha */
+.mc-cp-botoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mc-cp-vao { flex: 1; }
+.mc-cp-botao { height: 34px; padding: 0 11px; border: 1px solid var(--mc-botao-borda); border-radius: 3px; background: var(--mc-fundo); color: var(--mc-cp-texto); font: inherit; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.mc-cp-botao:hover, .mc-cp-botao:focus-visible { border-color: var(--mc-azul); color: var(--mc-azul); }
+/* L.255: a mensagem */
+.mc-cp-msg { font-size: 12.5px; color: var(--mc-cp-msg-tx); background: var(--mc-cp-msg-bg); border: 1px solid var(--mc-cp-msg-borda); border-radius: 3px; padding: 8px 11px; }
+/* L.256: a nota de LGPD */
+.mc-cp-lgpd { font-size: 11.5px; color: var(--mc-cp-dica); line-height: 1.5; }

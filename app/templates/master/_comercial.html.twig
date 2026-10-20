@@ -2,14 +2,74 @@
    Incluída pelo painel.html.twig num <div data-sec-externa="com"> (contrato do #56): o painel.js só mostra a sub-aba
    com este parcial presente, e avisa a troca de seção pelo evento `mp:secao`. Traz o próprio <link> e <script>
    (a CSP do /master aceita 'self', sem inline). Os dados vêm por JSON quando a seção abre.
-   Fatia 1a: só o bloco "Automações"; campanhas, descadastrados, monitoramento, indicações e datas vêm nas seguintes. #}
+   As URLs com parâmetro levam um marcador que casa com o requisito da rota (`xchavex`, `xidx`; o JS o troca): em dev e
+   em teste o roteador recusa um marcador fora do requisito (`strict_requirements`) e o parcial nem renderizaria.
+   Fatia 1a: o bloco "Automações". Fatia 2a: o bloco "Nova campanha de e-mail" (dc L.229-260), antes das Automações,
+   na posição do dc; descadastrados, monitoramento, indicações e datas vêm nas seguintes.
+   Na 2a o bloco da campanha mostra só o que ela entrega: 1 · MODELO (grade, Novo modelo, Duplicar, Importar HTML,
+   Salvar modelo, Excluir), 3 · MENSAGEM (assunto, título, nome do modelo, texto e botão do simples, blocos, HTML
+   importado), a PRÉVIA DO E-MAIL, "Baixar HTML" e "Enviar teste" (ao Master logado). Ficam FORA, com a 2b: a coluna
+   "2 · PARA QUEM" (dc L.236-240), a linha de destinatários (L.252), a Frequência (L.253), o Agendar (L.254) e o
+   "Enviar campanha" (L.254). O "3" fica com o número do dc. #}
 <link rel="stylesheet" href="{{ asset('css/master-comercial.css') }}">
 <div class="mc" data-mc
      data-url-automacoes="{{ path('master_comercial_automacoes') }}"
-     data-url-alterar="{{ path('master_comercial_automacao', {chave: '__chave__'}) }}"
+     data-url-alterar="{{ path('master_comercial_automacao', {chave: 'xchavex'}) }}"
      data-url-simular="{{ path('master_comercial_simular') }}"
-     data-url-previa="{{ path('master_comercial_previa', {chave: '__chave__'}) }}"
+     data-url-previa="{{ path('master_comercial_previa', {chave: 'xchavex'}) }}"
      data-token="{{ csrf_token('master_comercial') }}">
+    {# Nova campanha de e-mail (dc L.229-260). Os textos e a ordem são do dc; o JS desenha a grade e os blocos. #}
+    <section class="mc-caixa mc-cp" data-mc-campanha aria-labelledby="mc-cp-titulo"
+             data-url-modelos="{{ path('master_comercial_modelos') }}"
+             data-url-criar="{{ path('master_comercial_modelo_criar') }}"
+             data-url-salvar="{{ path('master_comercial_modelo_salvar', {id: 'xidx'}) }}"
+             data-url-excluir="{{ path('master_comercial_modelo_excluir', {id: 'xidx'}) }}"
+             data-url-previa="{{ path('master_comercial_previa_campanha') }}"
+             data-url-teste="{{ path('master_comercial_teste') }}">
+        <div class="mc-cabeca mc-cp-cabeca">
+            <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
+            <b class="mc-cabeca-titulo" id="mc-cp-titulo">Nova campanha de e-mail</b>
+            <span class="mc-cabeca-sub">convites, ofertas, agradecimentos e novidades · individual ou em grande escala</span>
+        </div>
+        <div class="mc-cp-grade">
+            <div class="mc-cp-col mc-cp-editor">
+                <div class="mc-cp-passo">1 · MODELO</div>
+                <div class="mc-cp-modelos" data-mc-cp-modelos aria-busy="true"></div>
+                <div class="mc-cp-acoes">
+                    <button type="button" class="mc-cp-acao" data-mc-cp-novo><i class="bi bi-plus-lg" aria-hidden="true"></i>Novo modelo</button>
+                    <button type="button" class="mc-cp-acao" data-mc-cp-duplicar><i class="bi bi-copy" aria-hidden="true"></i>Duplicar</button>
+                    <label class="mc-cp-acao"><i class="bi bi-upload" aria-hidden="true"></i>Importar HTML<input type="file" accept=".html,.htm" class="mc-cp-arquivo" data-mc-cp-importar></label>
+                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar data-mc-cp-so-proprio hidden><i class="bi bi-check2" aria-hidden="true"></i>Salvar modelo</button>
+                    <button type="button" class="mc-cp-acao mc-cp-acao-excluir" data-mc-cp-excluir data-mc-cp-so-proprio hidden><i class="bi bi-trash" aria-hidden="true"></i>Excluir</button>
+                </div>
+                <div class="mc-cp-passo mc-cp-passo-seguinte">3 · MENSAGEM</div>
+                <label class="mc-cp-campo">ASSUNTO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="assunto" maxlength="255"></label>
+                <label class="mc-cp-campo">TÍTULO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="titulo" maxlength="255"></label>
+                <label class="mc-cp-campo" data-mc-cp-so-proprio hidden>NOME DO MODELO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="nome" maxlength="40"></label>
+                <div class="mc-cp-modo" data-mc-cp-simples>
+                    <label class="mc-cp-campo">TEXTO <span class="mc-cp-dica">use {nome} para o primeiro nome</span><textarea class="mc-cp-texto" rows="5" data-mc-cp-campo="corpo"></textarea></label>
+                    <label class="mc-cp-campo">BOTÃO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="cta" maxlength="120"></label>
+                </div>
+                <div class="mc-cp-modo" data-mc-cp-blocos hidden>
+                    <div class="mc-cp-blocos-titulo">BLOCOS <span class="mc-cp-dica">monte o layout; a prévia atualiza na hora</span></div>
+                    <div class="mc-cp-lista" data-mc-cp-lista></div>
+                    <div class="mc-cp-novos" data-mc-cp-novos></div>
+                </div>
+                <label class="mc-cp-campo" data-mc-cp-html hidden>HTML IMPORTADO<textarea class="mc-cp-codigo" rows="8" data-mc-cp-campo="html" spellcheck="false"></textarea></label>
+            </div>
+            <div class="mc-cp-col mc-cp-lado">
+                <div class="mc-cp-passo">PRÉVIA DO E-MAIL</div>
+                <iframe class="mc-cp-previa" title="Prévia do e-mail" sandbox="" data-mc-cp-previa></iframe>
+                <div class="mc-cp-botoes">
+                    <span class="mc-cp-vao"></span>
+                    <button type="button" class="mc-cp-botao" data-mc-cp-baixar><i class="bi bi-filetype-html" aria-hidden="true"></i>Baixar HTML</button>
+                    <button type="button" class="mc-cp-botao" data-mc-cp-teste><i class="bi bi-send-check" aria-hidden="true"></i>Enviar teste</button>
+                </div>
+                <div class="mc-cp-msg" role="status" data-mc-cp-aviso hidden><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-mc-cp-msg></span></div>
+                <div class="mc-cp-lgpd"><i class="bi bi-shield-check" aria-hidden="true"></i> LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link "Não quero mais receber", repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam.</div>
+            </div>
+        </div>
+    </section>
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
         <div class="mc-cabeca">
             <i class="bi bi-lightning-charge mc-cabeca-ic" aria-hidden="true"></i>
@@ -30,3 +90,4 @@
     </section>
 </div>
 <script src="{{ asset('js/master/comercial.js') }}"></script>
+<script src="{{ asset('js/master/comercial-campanha.js') }}"></script>

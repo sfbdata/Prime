@@ -158,6 +158,19 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
 - **PR da 1a: #99** (rascunho, base `push-avisar-quando-chegar` = #87; merge depois de #82 e #87). Revisão aprovada com
   ressalvas, corrigidas e re-revisadas (aprovada); suíte da frente 10457 verdes. Fica em rascunho até o #56 entrar e a
   tela ser conferida contra o 05.
+- **Fatia 2a implementada (19/10, branch `comercial-2`, sem PR):** `ModelosDeCampanha` (os fixos do dc L.504-515, com
+  as cópias em blocos das automações; o `validar` sem o código 482 917), `comercial_modelo` (modelos próprios, trilha
+  manual `modelo_new/upd/del` com `{nome, modo}`), `RenderizadorDeBlocos` (dc L.484-500, 1:1), sanitização do HTML
+  importado (`symfony/html-sanitizer` configurado em código, mais o sanitizador do `style`), `LayoutDoEmail` (`padrao`,
+  `linhas`, `cru`) no `MensagemDeEmail` e na coluna `comercial_envio_conteudo.layout`, a prévia em JSON (`srcdoc` de
+  iframe `sandbox=""`), "Baixar HTML" (na tela) e "Enviar teste" (`teste_campanha`, isento do teto diário pela lista
+  renomeada `ORIGENS_ISENTAS_DO_TETO_DIARIO`, 10 por hora por Master). Migration provisória `Version20261021120000`.
+  Decisões da implementação: (1) as chaves de link `vagas`, `contribua` e `espaco` viram caminhos fixos
+  (`/vagas-juridicas`, `/contribua#sug`, `/contribua#espaco`), porque as rotas da a7 e da f6 não estão nesta base; `app` é
+  a página de entrada (`app_login`, como a 1a) e `cadastro` é `auth_cadastro`; (2) a prévia mostra "Dra. Ana" inteira
+  como o dc (o envio usa o primeiro nome); (3) o bloco da campanha fica ANTES das Automações, na posição do dc;
+  (4) os marcadores das URLs do parcial passaram a casar com o requisito das rotas (`xchavex`, `xidx`): com
+  `__chave__`, o parcial da 1a não renderizava em dev nem em teste (`strict_requirements`).
 - **Próximo passo:** depois do #56 no master, verificação visual do bloco Automações contra o 05 e tirar o #99 do
   rascunho; a 1b quando o #87 com o #99, ou o #74, entrar no master; o follow-up da 9b depois do merge das duas.
 
