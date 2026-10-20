@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * CIFRADOS (a chave de cifra fica no ambiente); chave PIX e URLs do PSP em claro (não são segredo). Vai na
  * fila depois da C4 (Version20261019230000, que cria a tabela); renomear o horário na vez.
  */
-final class Version20261019235500 extends AbstractMigration
+final class Version20261021160000 extends AbstractMigration
 {
     public function getDescription(): string
     {

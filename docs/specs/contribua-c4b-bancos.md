@@ -11,7 +11,7 @@
   webhook BACEN, `app:contribua:conciliar`). Revisão aprovada com ressalvas, **ressalvas corrigidas**: cliente HTTP dos bancos sem
   logger e sem redirecionamento (`ClienteHttpDosBancos`); credenciais só do banco configurado; segredo exigido de novo ao trocar de
   banco ou de URL do "Outro"; URLs do "Outro" sem rede interna; CONCLUIDA sem valor legível não confirma; bases do BB trocadas para
-  `api-pix.bb.com.br` / `api-pix.hm.bb.com.br`. Migration `Version20261019235500` no fim da fila (depois da `Version20261019230000`
+  `api-pix.bb.com.br` / `api-pix.hm.bb.com.br`. Migration `Version20261021160000` (renomeada: o 235500 é do #90) no fim da fila (depois da `Version20261019230000`
   da C4). **Falta:** push e PR (empilhado sobre o #88).
 
 ## O pedido
