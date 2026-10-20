@@ -109,7 +109,8 @@ Menu, Shift+F10, toque longo); a Agenda o usa. Os `prompt()` do protótipo viram
 2. Tela nova (V1 a V14, V18) com prazos das pastas, sem edição nova.
 3. Migration de `Evento` + modal novo (V15 a V17) + Avisar no Chat.
 4. Botão direito + `agenda_data_ajuste` (migration).
-5. Preferências de calendários (migration) + lembretes globais (V7).
+5. Lembretes globais (V7). As preferências de calendários ficam no navegador, como no desenho (sem migration).
+5b. Push com o navegador fechado (Service Worker e envio pelo servidor), prometido no `bj-lembretes.js`.
 6. Google: link de modelo; depois OAuth e sincronia (spec própria antes).
 
 ## 5. Convivência com o Ponto eletrônico (risco ALTO)
@@ -214,9 +215,9 @@ Estado contra o inventário da seção 1 (✓ feito · ◐ feito em parte, falta
 | V2 | 4 cartões e clique para Dia/Semana | ✓ |
 | V3 | Novo compromisso | ◐ abre o formulário antigo no dia; modal do desenho na entrega 3 |
 | V4 | Mini calendário | ✓ |
-| V5 | 10 calendários com marcação | ◐ lembrada no navegador; no servidor na entrega 5 |
+| V5 | 10 calendários com marcação | ✓ lembrada no navegador, como no desenho (o protótipo guarda em `localStorage`, `bj-agenda-v1-vis`); sem migration |
 | V6 | Feriados estaduais de: UF | ✓ |
-| V7 | TESTAR LEMBRETES | ✗ entrega 5 |
+| V7 | TESTAR LEMBRETES | ✓ (entrega 5, seção 15) |
 | V8 | GOOGLE AGENDA | ◐ painel e aviso "Disponível quando o servidor liberar a conexão"; ligação na entrega 6 |
 | V9 | Barra: Hoje, setas, título, busca, escopo, vistas | ✓ |
 | V10 | Faixa de aniversário, balão e confete | ✓ |
@@ -393,3 +394,49 @@ lidos inteiros a cada carga (o volume é pequeno; filtrar por período quando cr
   um compromisso com participante suspenso o mantém.
 - **Comercial e e-mails (desenho 05, Perfis):** lê as datas comemorativas do `CalendarioDoSistema`
   (seção 9).
+
+## 15. Entrega 5: lembretes com som em qualquer tela
+
+Branch `agenda-lembretes`, empilhada sobre `agenda-ajustes` (#70). Adaptação do `bj-lembretes.js` do
+desenho: no horário, um cartão no canto (ícone, som próprio por tipo, rótulo "Em N min · às HH:MM",
+dica, "Ver na agenda" ou "Abrir pasta", "Lembrar em 10 min", dispensar) e a notificação do navegador.
+
+- **Onde aparece:** parcial `templates/layout/_globais/lembretes.html.twig` (ponto de inclusão da frente
+  menu-do-usuario; o `base.html.twig` não muda), só para quem está logado e tem o módulo Agenda. Carrega
+  `public/js/lembretes.js` e `public/css/lembretes.css`.
+- **De onde vem:** `GET /agenda/lembretes` (`ListarLembretesUseCase`), pedido ao abrir a página, a cada 5
+  minutos e quando a Agenda salva algo. Entram os compromissos da pessoa (que criou ou de que participa),
+  com horário, agendados, com o lembrete escolhido ou o padrão do tipo (Audiência 60, Reunião 10, Prazo e
+  Compromisso 15; "Sem lembrete" fica de fora), e, para quem vê pastas, os prazos e audiências abertos de
+  hoje com hora (60 min antes da audiência, 15 do prazo). Janela: avisos das próximas 24 h; o cartão
+  ainda aparece até 2 h depois do início.
+- **Respeito ao navegador:** o som só toca depois que a pessoa interage com a página (o áudio é liberado
+  no primeiro clique ou tecla); a notificação do sistema só aparece se a permissão já foi dada; o pedido
+  de permissão só sai de um clique ("Testar lembretes" ou "Salvar" na Agenda). Dispensados e adiados
+  ficam guardados no navegador (`localStorage`), por chave do lembrete. Com "reduzir movimento", os
+  cartões não animam.
+- **TESTAR LEMBRETES** na lateral (V7), entre os estados e o Google, como no desenho: Audiência, Reunião,
+  Prazo e Compromisso mostram o cartão de exemplo com o som do tipo.
+- Ao salvar compromisso com horário e lembrete, o aviso diz "Você será lembrado com aviso e som." (V16).
+- **Push com o navegador fechado: entrega 5b, própria.** O desenho promete: `bj-lembretes.js`, linha 3,
+  "Sistema real: o mesmo aviso chega por push (Service Worker) e o servidor dispara no horário mesmo com
+  o navegador fechado." (a tela 09 não fala disso). O sistema não tem Service Worker hoje. A 5b traz o
+  Service Worker, a inscrição de push por navegador (pedida por clique), o envio pelo servidor no horário
+  (agendador) e a mesma chave de lembrete, para o aviso não repetir quando a página também está aberta.
+  Orientação do coordenador (19/10/2026): o envio no horário sai pelo Messenger com o transporte que já
+  existe (`doctrine://`, `config/packages/messenger.yaml`), com `DelayStamp` até a hora do aviso, em vez
+  de cron novo; o dono só mantém o worker rodando. A chave VAPID (segredo) e o worker entram na lista de
+  materiais do dono, com passo a passo no PR. Avisar o coordenador antes de mexer em `composer.json`/`.lock`.
+- **Hora de parede:** o servidor manda início e aviso sem fuso (`AAAA-MM-DDTHH:MM:SS`), a mesma hora que a
+  Agenda mostra, e o navegador lê no fuso dele, como o `bj-lembretes.js` (`new Date(dia + 'T' + hora)`).
+  Quem está fora do horário de Brasília é avisado pela hora que vê na Agenda.
+- Quem não vê pastas não recebe o id da pasta no lembrete (nem o botão "Abrir pasta"), como na listagem.
+- **Cartão de teste:** "Abrir pasta" e "Ver na agenda" só fecham o cartão (a "Pasta 1180" do exemplo não
+  existe); no desenho eles navegavam. "Lembrar em 10 min" do teste também só fecha.
+- Os cartões entram e saem um a um (o leitor de tela não relê os antigos). Marcas de "adiar" vencidas há
+  mais de um dia são limpas.
+- **Para o smoke em celular (dono):** o som é liberado no primeiro toque (`pointerdown`, `touchend`) ou
+  tecla; no Safari do iOS não foi possível provar sem aparelho.
+- **Prazos de todos (decisão do coordenador, 19/10/2026):** prazos e audiências de hoje com hora tocam
+  para todo colaborador com acesso às pastas, como no desenho (que lê todas as pastas). Filtrar pelo
+  responsável depende de o responsável do prazo virar usuário (hoje é texto livre em `PastaPrazo`).

@@ -686,13 +686,15 @@
         if (!editId && s.escopo === 'minha' && !perguntado) { perguntarCompartilhar(); return; }
         const corpo = { titulo: f.t, tipo: f.tipo, data: f.d, diaInteiro: f.dia, inicio: f.h1, fim: f.h2, visibilidade: f.vis, pasta: f.pasta.trim(), lembreteMinutos: Number(f.lem), observacao: f.obs, avisados: f.avis, repetir: f.rep, repetirAte: f.rep ? f.repAte : '', participantes: f.part, dias: f.dias };
         try {
+            if (window.BJLembretes) { window.BJLembretes.permitir(); }
             const r = await postar(editId ? comId(url.salvar, editId) : url.criar, corpo);
             const serie = f.serie;
             fecharModal();
             f = { serie };
             recarregarEm(f.serie ? s.ref : dataDe(r.data));
             f = null;
-            avisar('Compromisso salvo.' + (r.avisados ? ' ' + r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : ''));
+            const lembra = !corpo.diaInteiro && corpo.inicio && corpo.lembreteMinutos !== 0;
+            avisar('Compromisso salvo.' + (lembra ? ' Você será lembrado com aviso e som.' : '') + (r.avisados ? ' ' + r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : ''));
         } catch (e) {
             desenharForm(e.message);
         }
@@ -822,6 +824,7 @@
     });
 
     function recarregarEm(ref) {
+        dispatchEvent(new Event('bj-agenda:mudou'));
         s.itens = new Map();
         s.cobertoItens = [];
         s.ref = ref;
@@ -922,6 +925,7 @@
         if (alvo('#agHoje')) { irPara(hoje0()); return; }
         if (alvo('#agAnt')) { navegar(-1); return; }
         if (alvo('#agProx')) { navegar(1); return; }
+        if ((a = alvo('[data-testar]'))) { if (window.BJLembretes) { window.BJLembretes.permitir(); window.BJLembretes.testar(a.dataset.testar); } return; }
         if (alvo('#agGoogle')) { avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.'); }
     });
 

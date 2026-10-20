@@ -328,6 +328,32 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         self::assertNotContains('pz-' . $prazos['oculta']->getId(), $ids);
     }
 
+    #[TestDox('Lembretes: o prazo de hoje da pasta oculta não vira lembrete de quem não a vê')]
+    public function testLembretes(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view']);
+        $oculta = $this->criarPasta($tenant);
+        $livre  = $this->criarPasta($tenant);
+        $prazos = [];
+        foreach (['oculta' => $oculta, 'livre' => $livre] as $chave => $pasta) {
+            $prazo = new PastaPrazo($tenant, $pasta, $primario);
+            $prazo->definir(PastaPrazo::TIPO_AUDIENCIA, 'Audiência', new \DateTimeImmutable('today'), '23:30', null);
+            $this->em()->persist($prazo);
+            $prazos[$chave] = $prazo;
+        }
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+        $this->entrar($ana, $tenant);
+
+        $this->client->request('GET', '/agenda/lembretes');
+
+        self::assertResponseIsSuccessful();
+        $chaves = implode(' ', array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['itens'], 'k'));
+        self::assertStringContainsString('pz:' . $prazos['livre']->getId() . ':', $chaves);
+        self::assertStringNotContainsString('pz:' . $prazos['oculta']->getId() . ':', $chaves);
+    }
+
     // ── D3 ─────────────────────────────────────────────────────────────
 
     #[TestDox('D3 Push global: some só o Push do processo cujas pastas são todas ocultas (lista e 404); com uma pasta visível, segue')]

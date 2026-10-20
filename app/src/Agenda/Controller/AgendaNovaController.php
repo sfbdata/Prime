@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Agenda\Controller;
 
 use App\Agenda\DTO\CompromissoOutput;
+use App\Agenda\DTO\LembreteOutput;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
+use App\Agenda\UseCase\ListarLembretesUseCase;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
@@ -31,6 +33,7 @@ final class AgendaNovaController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly UserRepository $usuarios,
+        private readonly ListarLembretesUseCase $listarLembretes,
     ) {
     }
 
@@ -78,6 +81,22 @@ final class AgendaNovaController extends AbstractController
         $itens = $this->listarCompromissos->executar($tenant, $user, $de, $ate, $soMinha, $verPastas, $administra);
 
         return $this->json(['itens' => array_map(static fn (CompromissoOutput $c): array => $c->toArray(), $itens)]);
+    }
+
+    /** Lembretes das próximas horas, pedidos pelo lembretes.js em qualquer tela (parcial global). */
+    #[Route('/agenda/lembretes', name: 'app_agenda_lembretes', methods: ['GET'])]
+    public function lembretes(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (null === $tenant || !$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
+            return $this->json(['erro' => 'Sem permissão'], 403);
+        }
+        $verPastas = $this->permissionChecker->canAccessModule($user, $tenant, 'pastas');
+        $itens = $this->listarLembretes->executar($tenant, $user, new \DateTimeImmutable(), $verPastas);
+
+        return $this->json(['itens' => array_map(static fn (LembreteOutput $l): array => $l->toArray(), $itens)]);
     }
 
     private function data(string $valor): ?\DateTimeImmutable
