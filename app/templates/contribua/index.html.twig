@@ -86,6 +86,8 @@
                 </div>
                 <label class="ct-outro" data-outro hidden>R$<input type="text" inputmode="decimal" placeholder="0,00" data-outro-valor></label>
                 <button type="button" class="ct-botao-azul ct-botao-grande" data-copiar-codigo><i class="bi bi-qr-code"></i><span>Copiar código PIX</span></button>
+                {# Boleto (chave "bol", só com a Cora): parcial próprio, com JS e CSS próprios. #}
+                {% include 'contribua/_boleto.html.twig' %}
             </div>
             <div class="ct-apoie-dados">
                 <div class="ct-favorecido">

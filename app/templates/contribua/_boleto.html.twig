@@ -1,0 +1,35 @@
+{#
+    "Gerar boleto" da seção Apoie (chave Boleto do desenho 08, L253: "Opção de contribuir por boleto bancário").
+    O desenho não mostra a tela do boleto: vale o visual da própria seção Apoie (botões, rótulos, cópia com
+    aviso) e o campo de documento do checkout. Só aparece com a chave ligada, a integração conectada e a
+    Cora. Usa o valor escolhido nos botões da seção (ou o "Outro valor"). Lógica em public/js/contribua-boleto.js;
+    estilo em public/css/contribua-boleto.css. Spec: docs/specs/contribua-boleto.md.
+#}
+{% set b = contribua_boleto() %}
+{% if b %}
+<link rel="stylesheet" href="{{ asset('css/contribua-boleto.css') }}">
+<div class="cb-boleto" data-cb-boleto data-url="{{ path('contribua_boleto') }}">
+    <button type="button" class="ct-botao-contorno ct-botao-contorno--azul" data-cb-abrir><i class="bi bi-upc"></i><span>Gerar boleto</span></button>
+    <div class="cb-pedido" data-cb-pedido hidden>
+        <label class="cb-campo">CPF/CNPJ DO PAGADOR<input data-cb-documento inputmode="numeric" placeholder="só números" maxlength="18" value="{{ b.documento }}" autocomplete="off"></label>
+        <div class="cb-erro" data-cb-erro hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
+        <button type="button" class="ct-botao-azul" data-cb-gerar><i class="bi bi-upc"></i><span>Gerar boleto de <span data-cb-valor></span></span></button>
+        <div class="ct-nota">Vence em 3 dias, sem multa e sem juros. O boleto sai em nome do escritório e o CPF ou CNPJ vai só para o banco.</div>
+    </div>
+    <div class="cb-resultado" data-cb-resultado hidden>
+        <div class="ct-rotulo-pequeno">LINHA DIGITÁVEL</div>
+        <code class="cb-codigo" data-cb-linha></code>
+        <div class="cb-vencimento">Boleto de <b data-cb-valor-boleto></b> · vence em <b data-cb-vencimento></b></div>
+        <div class="cb-botoes">
+            <button type="button" class="ct-botao-contorno ct-botao-contorno--azul" data-cb-copiar-linha><i class="bi bi-upc"></i><span>Copiar linha digitável</span></button>
+            <a class="ct-botao-contorno" data-cb-pdf href="#" target="_blank" rel="noopener noreferrer"><i class="bi bi-file-earmark-pdf"></i><span>Abrir boleto (PDF)</span></a>
+        </div>
+        <div class="cb-pix" data-cb-pix hidden>
+            <div class="ct-rotulo-pequeno">PIX COPIA E COLA DO BOLETO</div>
+            <code class="cb-codigo" data-cb-pix-codigo></code>
+            <button type="button" class="ct-botao-contorno" data-cb-copiar-pix><i class="bi bi-qr-code"></i><span>Copiar Pix copia e cola</span></button>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/contribua-boleto.js') }}" defer></script>
+{% endif %}

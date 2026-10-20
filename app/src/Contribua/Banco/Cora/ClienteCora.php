@@ -26,6 +26,12 @@ class ClienteCora
     public const BASE_PRODUCAO = 'https://matls-clients.api.cora.com.br';
     private const VALIDADE_SEGUNDOS = 23 * 3600;
     private const TEMPO_SEGUNDOS = 15;
+    /**
+     * Teto da chamada inteira (o `timeout` é só o tempo sem atividade): uma Cora lenta que pinga bytes não
+     * prende a requisição, nem a trava e a transação do boleto, além disto. Pior caso dentro da trava: token +
+     * chamada + (401) token + chamada = 4 x 20 s.
+     */
+    public const DURACAO_MAXIMA_SEGUNDOS = 20;
 
     public function __construct(
         /** Sem logger e sem redirecionamento (ClienteHttpDosBancos): a URL e o segredo não vão para o log. */
@@ -73,7 +79,7 @@ class ClienteCora
     private function chamar(CredenciaisCora $c, array $mtls, string $metodo, string $caminho, array $opcoes, string $token): array
     {
         try {
-            $r = $this->http->request($metodo, $c->base() . $caminho, $mtls + $opcoes + ['auth_bearer' => $token, 'timeout' => self::TEMPO_SEGUNDOS, 'max_redirects' => 0]);
+            $r = $this->http->request($metodo, $c->base() . $caminho, $mtls + $opcoes + ['auth_bearer' => $token, 'timeout' => self::TEMPO_SEGUNDOS, 'max_duration' => self::DURACAO_MAXIMA_SEGUNDOS, 'max_redirects' => 0]);
 
             return [$r->getStatusCode(), $r->toArray(false)];
         } catch (ExceptionInterface $e) {
@@ -101,6 +107,7 @@ class ClienteCora
             $r = $this->http->request('POST', $c->base() . '/token', $mtls + [
                 'body' => ['grant_type' => 'client_credentials', 'client_id' => $c->clientId],
                 'timeout' => self::TEMPO_SEGUNDOS,
+                'max_duration' => self::DURACAO_MAXIMA_SEGUNDOS,
                 'max_redirects' => 0,
             ]);
             $status = $r->getStatusCode();

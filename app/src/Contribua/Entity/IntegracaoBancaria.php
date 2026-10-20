@@ -174,6 +174,12 @@ class IntegracaoBancaria
         return self::ESTADO_CONECTADA === $this->estado && ($this->recursos['cob'] ?? false) && $this->temCertificado();
     }
 
+    /** Chave "Boleto" ligada numa integração conectada. Se o banco emite boleto (só a Cora), quem chama confere. */
+    public function boletoLigado(): bool
+    {
+        return self::ESTADO_CONECTADA === $this->estado && ($this->recursos['bol'] ?? false) && $this->temCertificado();
+    }
+
     public function temCertificado(): bool
     {
         return null !== $this->certificadoCifrado && null !== $this->chaveCifrada;
