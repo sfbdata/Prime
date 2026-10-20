@@ -81,6 +81,40 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
         );
     }
 
+    public function testConviteDeOutroTipoERecusadoSemGravar(): void
+    {
+        $invitation = new Invitation(email: 'advogado@example.com', token: 'tok123', type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+24 hours'));
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Convite não encontrado.');
+
+        $this->useCase->executar($this->validInput());
+    }
+
+    public function testSenhaCurtaERecusadaSemGravar(): void
+    {
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->makeInvitation());
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('A senha deve ter ao menos 8 caracteres.');
+
+        $this->useCase->executar(new AceitarConvitePlataformaInput(token: 'tok123', fullName: 'Dr. Advogado', senha: 'curta', oabNumero: '12345', oabUf: 'SP', aceiteTermos: true, ip: '203.0.113.7'));
+    }
+
+    public function testNomeEmBrancoSemNomeNoConviteERecusado(): void
+    {
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->makeInvitation());
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Nome completo é obrigatório.');
+
+        $this->useCase->executar(new AceitarConvitePlataformaInput(token: 'tok123', fullName: '   ', senha: 'senha_segura', oabNumero: '12345', oabUf: 'SP', aceiteTermos: true, ip: '203.0.113.7'));
+    }
+
     public function testHappyPathOabValidoCriaUser(): void
     {
         $invitation = $this->makeInvitation();
