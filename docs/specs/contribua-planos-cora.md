@@ -11,12 +11,11 @@
 Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coordenador".
 
 **Pilha de PRs e ordem de merge** (cada um só depois do anterior):
-1. **#64** `contribua-cora` (C1: planos, espaço, bloqueio, evento, contrato b5, catálogo). Aberto, pronto.
+1. **#64** `contribua-cora` (C1: planos, espaço, bloqueio, evento, contrato b5, catálogo). **No master (20/10).**
    Migration `Version20261019190000` (cria 3 tabelas + carga dos planos + escritório do dono sem limite).
-2. **#74** `contribua-c2`, RASCUNHO, base `contribua-cora` (C2: página /contribua, PIX, sugestões, aviso).
-   Migration `Version20261019210000` (3 tabelas). Renomear para o horário do momento na vez da fila
-   (a 0d tinha o mesmo número e vai renomear a dela).
-3. **#95** `contribua-c3`, RASCUNHO, base `contribua-c2` (C3 comum + C3a Asaas). Migration `Version20261019220000` (3 tabelas:
+2. **#74** `contribua-c2`, base master (C2: página /contribua, PIX, sugestões, aviso).
+   Migration `Version20261019235600` (3 tabelas; era `Version20261019210000`, renomeada na vez, 20/10).
+3. **#95** `contribua-c3`, RASCUNHO, base `contribua-c2` (C3 comum + C3a Asaas). Migration `Version20261019235700` (era `Version20261019220000`; 3 tabelas:
    avisos recebidos, assinaturas, configuração do pagamento; carga da linha de configuração SEM gateway).
    A 4b empilha sobre ela: C4 Cora (#88, migration `Version20261019230000`) e os adaptadores Stripe (#92),
    Mercado Pago (#93) e Pagar.me (#94), rascunhos.
