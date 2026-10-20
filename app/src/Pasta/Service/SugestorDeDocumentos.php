@@ -16,8 +16,9 @@ use App\Pasta\DTO\SugestaoDeDocumentosOutput;
  * Serviço puro: recebe dados simples, não consulta banco, não chama modelo de linguagem. É a regra
  * de `bj-docsug.js` (`analisar`, L86-128). O "an" do desenho (análise do processo) aqui é só o que
  * `DeterminacoesDoJuizo` leu POR REGRAS no teor das publicações do Push, quando houver: dele saem o
- * "Exigido pelo juízo" (L93), o "Processo: …" do já existente (L66) e os "Prazos em curso". A fase
- * continua vindo da classe processual — não há fase lida das movimentações.
+ * "Exigido pelo juízo" (L93), o "Processo: …" do já existente (L66) e os "Prazos em curso". A fase vem da
+ * última movimentação do Push quando ela a diz (`FaseDoProcessoPeloPush`, regras do CPC sobre o texto, sem
+ * IA); senão, da classe processual.
  *
  * REGRA DE CASAMENTO (a mesma do JS, com o que o sistema tem a mais):
  *
@@ -82,6 +83,7 @@ final class SugestorDeDocumentos
      * @param list<array{titulo: string, concluido: bool}>                                         $checklist
      * @param ?LeituraDoJuizoOutput                                                                $leitura   o que foi lido no Push (null = nada)
      * @param ?\DateTimeImmutable                                                                  $hoje      para "Prazos em curso" (null = não mostra)
+     * @param array{fase: string, situacao: string}|null                                         $faseDoPush a fase pela última movimentação do Push (`FaseDoProcessoPeloPush`)
      */
     public function sugerir(
         ?string $acao,
@@ -91,6 +93,7 @@ final class SugestorDeDocumentos
         array $checklist,
         ?LeituraDoJuizoOutput $leitura = null,
         ?\DateTimeImmutable $hoje = null,
+        ?array $faseDoPush = null,
     ): SugestaoDeDocumentosOutput {
         $leitura ??= LeituraDoJuizoOutput::nada();
         $acao   = self::vazioParaNulo($acao);
@@ -104,21 +107,7 @@ final class SugestorDeDocumentos
             return SugestaoDeDocumentosOutput::semCatalogo($duplicados, $duplicadosAlem);
         }
 
-        $fase = $classe !== null && preg_match(CatalogoDeDocumentos::CLASSE_DE_CUMPRIMENTO, self::normalizar($classe)) === 1
-            ? 'cumprimento'
-            : 'inicial';
-
-        $base = $fase === 'cumprimento'
-            ? 'pela classe processual, sem leitura do processo'
-            : 'presumida: sem leitura do processo, vale a lista da fase inicial';
-
-        // Com teor do Push lido, "sem leitura do processo" deixaria de ser verdade: o que continua
-        // sem leitura é a FASE, que segue vindo da classe processual.
-        if ($leitura->publicacoesLidas > 0) {
-            $base = $fase === 'cumprimento'
-                ? 'pela classe processual; a fase não é lida das publicações'
-                : 'presumida: a fase não é lida das publicações, vale a lista da fase inicial';
-        }
+        [$fase, $base] = self::faseEBase($classe, $leitura, $faseDoPush);
 
         /** @var array<string, DeterminacaoDoJuizoOutput> $exigidos chave => determinação (a mais recente vence) */
         $exigidos = [];
@@ -334,6 +323,36 @@ final class SugestorDeDocumentos
         }
 
         return null;
+    }
+
+    /**
+     * A fase vem da última movimentação do Push quando ela diz a fase (`faseDe` do desenho lê o processo
+     * antes da classe); senão, da classe processual (cumprimento) ou presumida (fase inicial).
+     *
+     * @param array{fase: string, situacao: string}|null $faseDoPush
+     *
+     * @return array{string, string}
+     */
+    private static function faseEBase(?string $classe, LeituraDoJuizoOutput $leitura, ?array $faseDoPush): array
+    {
+        if ($faseDoPush !== null && isset(CatalogoDeDocumentos::FASES[$faseDoPush['fase']])) {
+            return [$faseDoPush['fase'], 'pela última movimentação do Push: ' . mb_strtolower($faseDoPush['situacao'])];
+        }
+
+        $fase = $classe !== null && preg_match(CatalogoDeDocumentos::CLASSE_DE_CUMPRIMENTO, self::normalizar($classe)) === 1
+            ? 'cumprimento'
+            : 'inicial';
+        // Com teor do Push lido, "sem leitura do processo" deixaria de ser verdade: o que continua
+        // sem leitura é a FASE, que segue vindo da classe processual.
+        if ($leitura->publicacoesLidas > 0) {
+            return [$fase, $fase === 'cumprimento'
+                ? 'pela classe processual; a fase não é lida das publicações'
+                : 'presumida: a fase não é lida das publicações, vale a lista da fase inicial'];
+        }
+
+        return [$fase, $fase === 'cumprimento'
+            ? 'pela classe processual, sem leitura do processo'
+            : 'presumida: sem leitura do processo, vale a lista da fase inicial'];
     }
 
     private static function vazioParaNulo(?string $texto): ?string

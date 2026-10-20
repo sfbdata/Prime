@@ -77,6 +77,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // endereço, assunto, origem e quando), gravada por SQL na rota pública sem sessão (não há autor
         // para auditar) e nunca editada. Auditar só duplicaria o endereço no audit_log.
         \App\Shared\Email\Descadastro\Entity\EmailDescadastro::class,
+        // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
+        // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
+        // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.
+        \App\Cliente\Entity\ClienteEmail::class,
+        // Histórico de envios ao cliente (push-avisar-cliente §1): ele próprio é o registro do ato (quem, quando,
+        // para quem, com cópia), nunca editado, como o EventoHistorico. Auditar seria log de log.
+        \App\Pasta\Entity\EnvioAoCliente::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
