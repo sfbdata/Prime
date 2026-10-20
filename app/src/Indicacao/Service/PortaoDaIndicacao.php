@@ -32,9 +32,8 @@ final class PortaoDaIndicacao
     }
 
     /**
-     * O que falta no cadastro para o convite poder levar o nome da pessoa: nome com 2 palavras ou mais, telefone e CPF.
-     * O telefone do perfil ainda não existe nesta base (chega com o Meu Perfil do desenho 07): a exigência só vale
-     * quando o perfil tiver o campo, para não travar ninguém por um dado que a tela não deixa preencher.
+     * O que falta no cadastro para o convite poder levar o nome da pessoa: nome com 2 palavras ou mais, telefone e CPF
+     * (o telefone se preenche no Meu Perfil do desenho 07).
      *
      * @return list<string>
      */
@@ -45,7 +44,7 @@ final class PortaoDaIndicacao
         if (count(self::palavras((string) $user->getFullName())) < 2) {
             $falta[] = self::NOME_COMPLETO;
         }
-        if ($perfil !== null && method_exists($perfil, 'getTelefone') && trim((string) $perfil->getTelefone()) === '') {
+        if ($perfil !== null && trim((string) $perfil->getTelefone()) === '') {
             $falta[] = self::TELEFONE;
         }
         if (trim((string) $perfil?->getCpf()) === '') {
