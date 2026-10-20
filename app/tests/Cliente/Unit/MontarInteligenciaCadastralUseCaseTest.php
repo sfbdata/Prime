@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Cliente\Unit;
 
 use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Repository\DocumentoVinculadoRepository;
 use App\Cliente\Service\AlertasDaInteligenciaCadastral;
+use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\UseCase\MontarInteligenciaCadastralUseCase;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Entity\Auth\User;
@@ -19,7 +22,6 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
-use App\Repository\ClienteDocumentoRepository;
 use App\Service\PermissionChecker;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -70,7 +72,7 @@ final class MontarInteligenciaCadastralUseCaseTest extends TestCase
         $docs = $this->createMock(PastaDocumentoRepository::class);
         $docs->expects(self::once())->method('identificacaoEComprovanteDasPastas')
             ->with([$vista, $outra], self::anything())->willReturn([$rg, $conta, $jaVinculado]);
-        $vinculados = $this->createStub(ClienteDocumentoRepository::class);
+        $vinculados = $this->createStub(DocumentoVinculadoRepository::class);
         $vinculados->method('idsDePastaDocumentoVinculados')->willReturn([102]);
         $permissoes = $this->createStub(PermissionChecker::class);
         $permissoes->method('canAccessResource')->willReturnCallback(
@@ -107,11 +109,35 @@ final class MontarInteligenciaCadastralUseCaseTest extends TestCase
         self::assertFalse($saida->encontrados[0]->podeVincular);
     }
 
-    private function sut(?PastaRepository $pastas = null, ?PastaDocumentoRepository $docs = null, ?ClienteDocumentoRepository $vinculados = null, ?PermissionChecker $permissoes = null): MontarInteligenciaCadastralUseCase
+    #[TestDox('categoria que o cadastro já tem (anexo próprio) não aparece nos encontrados; pasta na lápide fica fora até do subtítulo')]
+    public function testCategoriaJaNoCadastroEPastaExcluida(): void
+    {
+        $viva = self::pasta(10, '1180');
+        $lapide = self::pasta(11, '1176');
+        $lapide->marcarExcluida(new User(), new \DateTimeImmutable());
+        $repoPastas = $this->createStub(PastaRepository::class);
+        $repoPastas->method('findByCliente')->willReturn([$viva, $lapide]);
+        $docs = $this->createMock(PastaDocumentoRepository::class);
+        $docs->expects(self::once())->method('identificacaoEComprovanteDasPastas')->with([$viva], self::anything())->willReturn([
+            self::documento(100, $viva, PastaDocumento::CATEGORIA_IDENTIFICACAO, 'RG.pdf'),
+            self::documento(101, $viva, PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA, 'conta.pdf'),
+        ]);
+        $permissoes = $this->createStub(PermissionChecker::class);
+        $permissoes->method('canAccessResource')->willReturn(true);
+        $cliente = self::pf('529.982.247-25');
+        $cliente->getDocumentos()->add((new ClienteDocumento())->setCliente($cliente)->setCategoria(ClienteDocumento::CATEGORIA_IDENTIFICACAO));
+
+        $saida = $this->sut($repoPastas, $docs, null, $permissoes)->executar($cliente, new User(), self::tenant(1));
+
+        self::assertSame([101], array_map(static fn ($e): int => $e->id, $saida->encontrados));
+        self::assertSame('2 documento(s) deste cliente em 1 pasta(s)', $saida->subtitulo);
+    }
+
+    private function sut(?PastaRepository $pastas = null, ?PastaDocumentoRepository $docs = null, ?DocumentoVinculadoRepository $vinculados = null, ?PermissionChecker $permissoes = null): MontarInteligenciaCadastralUseCase
     {
         $permissoes ??= $this->createStub(PermissionChecker::class);
         $clientes = $this->createStub(ClienteRepository::class);
-        $clientes->method('comONomeNormalizado')->willReturn([]);
+        $clientes->method('contarHomonimos')->willReturn(0);
         $clientes->method('comOMesmoDocumento')->willReturn([]);
         $alertas = new AlertasDaInteligenciaCadastral($clientes, $this->createStub(PessoaRepository::class), $permissoes);
 
@@ -119,7 +145,8 @@ final class MontarInteligenciaCadastralUseCaseTest extends TestCase
             $alertas,
             $pastas ?? $this->createStub(PastaRepository::class),
             $docs ?? $this->createStub(PastaDocumentoRepository::class),
-            $vinculados ?? $this->createStub(ClienteDocumentoRepository::class),
+            $vinculados ?? $this->createStub(DocumentoVinculadoRepository::class),
+            new DocumentosVisiveisDoCadastro($permissoes),
             $permissoes,
         );
     }

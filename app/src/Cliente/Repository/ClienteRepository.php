@@ -172,18 +172,24 @@ class ClienteRepository extends ServiceEntityRepository
     private const NOME_NORMALIZADO_SQL = "trim(regexp_replace(lower(unaccent(%s)), '[^a-z0-9]+', ' ', 'g'))";
 
     /**
-     * Inteligência cadastral (F-A): os OUTROS clientes do mesmo tipo (PF ou PJ), DESTE escritório, com o nome
-     * normalizado igual ao do cliente. Quem chama separa os de documento diferente (homônimo). Tenant explícito: não
-     * depende do TenantFilter.
-     *
-     * @return list<array{id: int, nome: string, documento: string}>
+     * Inteligência cadastral (F-A): quantos OUTROS clientes do mesmo tipo (PF ou PJ), DESTE escritório, têm o nome
+     * normalizado igual ao do cliente e documento (em dígitos) diferente: os homônimos. Contado no banco, sem teto.
+     * Tenant explícito: não depende do TenantFilter.
      */
-    public function comONomeNormalizado(Cliente $cliente, Tenant $tenant): array
+    public function contarHomonimos(Cliente $cliente, Tenant $tenant, string $digitos): int
     {
         [$tabela, $colNome, $colDoc] = self::colunasDoTipo($cliente);
-        $condicao = sprintf(self::NOME_NORMALIZADO_SQL, 'x.' . $colNome) . ' = ' . sprintf(self::NOME_NORMALIZADO_SQL, ':nome');
+        $sql = sprintf(
+            "SELECT COUNT(*) FROM cliente c JOIN %s x ON x.id = c.id WHERE c.tenant_id = :tenant AND c.id <> :id AND %s = %s AND regexp_replace(x.%s, '\\D', '', 'g') <> :digitos",
+            $tabela,
+            sprintf(self::NOME_NORMALIZADO_SQL, 'x.' . $colNome),
+            sprintf(self::NOME_NORMALIZADO_SQL, ':nome'),
+            $colDoc,
+        );
 
-        return $this->outrosDoEscritorio($cliente, $tenant, $tabela, $colNome, $colDoc, $condicao, ['nome' => $cliente->getNomeExibicao()]);
+        return (int) $this->getEntityManager()->getConnection()->fetchOne($sql, [
+            'tenant' => $tenant->getId(), 'id' => (int) $cliente->getId(), 'nome' => $cliente->getNomeExibicao(), 'digitos' => $digitos,
+        ]);
     }
 
     /**

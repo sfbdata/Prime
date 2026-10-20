@@ -48,15 +48,11 @@ final class AlertasDaInteligenciaCadastral
 
     private function homonimo(Cliente $cliente, string $digitos, Tenant $tenant): ?Alerta
     {
-        $outros = array_filter(
-            $this->clientes->comONomeNormalizado($cliente, $tenant),
-            static fn (array $c): bool => NomeNormalizado::iguais($c['nome'], $cliente->getNomeExibicao())
-                && DocumentoDoCliente::digitos($c['documento']) !== $digitos,
-        );
-        if ($outros === []) {
+        $quantos = $this->clientes->contarHomonimos($cliente, $tenant, $digitos);
+        if ($quantos === 0) {
             return null;
         }
-        $t = RotulosDaInteligenciaCadastral::homonimo(\count($outros), $cliente instanceof ClientePJ);
+        $t = RotulosDaInteligenciaCadastral::homonimo($quantos, $cliente instanceof ClientePJ);
 
         return new Alerta(Alerta::HOMONIMO, RotulosDaInteligenciaCadastral::ICONE_HOMONIMO, $t['negrito'], $t['texto']);
     }

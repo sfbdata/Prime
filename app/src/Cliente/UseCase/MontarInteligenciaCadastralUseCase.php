@@ -7,11 +7,14 @@ namespace App\Cliente\UseCase;
 use App\Cliente\DTO\DocumentoEncontradoNaPasta;
 use App\Cliente\DTO\InteligenciaCadastralOutput;
 use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
+use App\Cliente\Repository\DocumentoVinculadoRepository;
 use App\Cliente\Service\AlertasDaInteligenciaCadastral;
 use App\Cliente\Service\DocumentoDoCliente;
+use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\Service\RotulosDaInteligenciaCadastral;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
@@ -20,7 +23,6 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
-use App\Repository\ClienteDocumentoRepository;
 use App\Service\PermissionChecker;
 use App\Shared\Service\DigitoVerificador;
 
@@ -29,8 +31,9 @@ use App\Shared\Service\DigitoVerificador;
  *
  * Quem: quem abre a aba Documentos de um cliente que pode ver (o controller confere o escritório e a visibilidade).
  * O quê: os alertas de identidade ({@see AlertasDaInteligenciaCadastral}) e os documentos de identificação e
- * comprovante que já estão nas pastas do cliente e ainda não foram vinculados ao cadastro. Só aparece com CPF (PF) ou
- * CNPJ (PJ) válido. Só lê: nada muda no cadastro.
+ * comprovante que já estão nas pastas do cliente (fora da lixeira, de pasta viva que o usuário vê) e ainda não foram
+ * vinculados, só da categoria que o cadastro ainda NÃO tem (desenho 02, l.3387: `!(f.docs || {})[x.tipo]`). Só
+ * aparece com CPF (PF) ou CNPJ (PJ) válido. Só lê: nada muda no cadastro.
  */
 final class MontarInteligenciaCadastralUseCase
 {
@@ -38,7 +41,8 @@ final class MontarInteligenciaCadastralUseCase
         private readonly AlertasDaInteligenciaCadastral $alertas,
         private readonly PastaRepository $pastas,
         private readonly PastaDocumentoRepository $documentosDaPasta,
-        private readonly ClienteDocumentoRepository $documentosDoCliente,
+        private readonly DocumentoVinculadoRepository $vinculados,
+        private readonly DocumentosVisiveisDoCadastro $documentosDoCadastro,
         private readonly PermissionChecker $permissoes,
     ) {
     }
@@ -76,12 +80,12 @@ final class MontarInteligenciaCadastralUseCase
         return $valido ? DocumentoDoCliente::digitos($documento) : null;
     }
 
-    /** @return list<Pasta> as pastas em que o cliente está vinculado e que o usuário pode ver */
+    /** @return list<Pasta> as pastas vivas (fora da lápide) em que o cliente está vinculado e que o usuário pode ver */
     private function pastasVisiveis(Cliente $cliente, User $usuario, Tenant $tenant): array
     {
         return array_values(array_filter(
             $this->pastas->findByCliente($cliente, $tenant),
-            fn (Pasta $p): bool => $p->getTenant()?->getId() === $tenant->getId()
+            fn (Pasta $p): bool => $p->getTenant()?->getId() === $tenant->getId() && !$p->estaExcluida()
                 && $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $p->getId(), AccessRequest::ACTION_VIEW),
         ));
     }
@@ -93,11 +97,12 @@ final class MontarInteligenciaCadastralUseCase
      */
     private function encontrados(Cliente $cliente, array $documentos, User $usuario, Tenant $tenant): array
     {
-        $vinculados = $this->documentosDoCliente->idsDePastaDocumentoVinculados($cliente, $tenant);
+        $vinculados = $this->vinculados->idsDePastaDocumentoVinculados($cliente, $tenant);
+        $categoriasNoCadastro = $this->categoriasNoCadastro($cliente, $usuario, $tenant);
         $podeVincular = $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, (int) $cliente->getId(), AccessRequest::ACTION_EDIT);
         $linhas = [];
         foreach ($documentos as $d) {
-            if (!\in_array((int) $d->getId(), $vinculados, true)) {
+            if (!\in_array((int) $d->getId(), $vinculados, true) && !\in_array($d->getCategoria(), $categoriasNoCadastro, true)) {
                 $linhas[] = new DocumentoEncontradoNaPasta(
                     (int) $d->getId(),
                     $d->getNomeOriginal(),
@@ -111,6 +116,15 @@ final class MontarInteligenciaCadastralUseCase
         }
 
         return $linhas;
+    }
+
+    /** @return list<string> as categorias que o cadastro já mostra a este usuário (anexo próprio ou vínculo visível) */
+    private function categoriasNoCadastro(Cliente $cliente, User $usuario, Tenant $tenant): array
+    {
+        return array_values(array_unique(array_map(
+            static fn (ClienteDocumento $d): string => $d->getCategoria(),
+            $this->documentosDoCadastro->de($cliente, $usuario, $tenant),
+        )));
     }
 
     /** @param list<PastaDocumento> $documentos */

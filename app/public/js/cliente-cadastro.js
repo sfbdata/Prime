@@ -358,9 +358,10 @@
 
         /* Inteligência cadastral (desenho 02, l.740 a 791; F-A): carregada ao abrir a aba Documentos, uma vez por janela.
            Cabeçalho, alertas, "Encontrados no menu Documentos" com "Vincular ao cadastro" e a nota. Os textos vêm do
-           servidor (RotulosDaInteligenciaCadastral); aqui só se desenha, sempre por textContent. */
+           servidor (RotulosDaInteligenciaCadastral, `rotulos` do JSON); aqui não há texto próprio, só desenho por textContent. */
         var caixaIi = veu.querySelector('.js-cad-ii');
         var iiCarregada = false;
+        var iiRotulos = {};
         function elemento(tag, cls, txt) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (txt !== undefined) { e.textContent = txt; } return e; }
         function icone(cls) { var i = elemento('i', cls); i.setAttribute('aria-hidden', 'true'); return i; }
         function carregarInteligencia() {
@@ -373,7 +374,7 @@
         }
         function cabecalhoIi(ii) {
             var topo = elemento('div', 'cad-ii-topo');
-            var ic = elemento('span', 'cad-ii-icone'); ic.appendChild(icone('bi bi-stars'));
+            var ic = elemento('span', 'cad-ii-icone'); ic.appendChild(icone(iiRotulos.icone));
             var txt = elemento('div', 'cad-ii-texto');
             txt.appendChild(elemento('div', 'cad-ii-titulo', ii.titulo));
             txt.appendChild(elemento('div', 'cad-ii-sub', ii.subtitulo));
@@ -396,7 +397,7 @@
             linha.appendChild(icone('bi bi-file-earmark-check')); linha.appendChild(nome);
             if (e.podeVincular) {
                 var b = elemento('button', 'cad-ii-vincular js-cad-ii-vincular'); b.type = 'button';
-                b.appendChild(icone('bi bi-link-45deg')); b.appendChild(document.createTextNode('Vincular ao cadastro'));
+                b.appendChild(icone('bi bi-link-45deg')); b.appendChild(document.createTextNode(iiRotulos.vincular));
                 b.addEventListener('click', function () { vincularIi(e.id, b); });
                 linha.appendChild(b);
             }
@@ -405,11 +406,12 @@
         function desenharInteligencia(ii) {
             caixaIi.textContent = '';
             if (!ii || !ii.on) { caixaIi.hidden = true; return; }
+            iiRotulos = ii.rotulos || {};
             caixaIi.appendChild(cabecalhoIi(ii));
             (ii.alertas || []).forEach(function (a) { caixaIi.appendChild(alertaIi(a)); });
             if ((ii.encontrados || []).length) {
                 var lista = elemento('div', 'cad-ii-encontrados');
-                lista.appendChild(elemento('div', 'cad-ii-rotulo', 'Encontrados no menu Documentos'));
+                lista.appendChild(elemento('div', 'cad-ii-rotulo', iiRotulos.encontrados));
                 ii.encontrados.forEach(function (e) { lista.appendChild(encontradoIi(e)); });
                 caixaIi.appendChild(lista);
             }
@@ -417,12 +419,12 @@
             caixaIi.hidden = false;
         }
         function vincularIi(documentoId, botao) {
-            if (sujo()) { aviso('Salve as alterações antes de vincular o documento.', 'pendente'); return; }
+            if (sujo()) { aviso(iiRotulos.salvarAntes, 'pendente'); return; }
             botao.disabled = true;
             fetch(caixaIi.dataset.urlVincular.replace(/\/0$/, '/' + documentoId), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': veu.dataset.csrf } })
                 .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.json(); })
                 .then(function () { return reabrir(''); })
-                .catch(function () { botao.disabled = false; aviso('Não foi possível vincular o documento.', 'erro'); });
+                .catch(function () { botao.disabled = false; aviso(iiRotulos.vincularErro, 'erro'); });
         }
         if (veu.querySelector('[data-cad-aba="docs"].is-ativa')) { carregarInteligencia(); }
 

@@ -9,6 +9,7 @@ use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Exception\DocumentoDaPastaNaoEncontradoException;
 use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
+use App\Cliente\Repository\DocumentoVinculadoRepository;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\RotulosDaInteligenciaCadastral;
 use App\Entity\Auth\User;
@@ -16,22 +17,26 @@ use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
-use App\Repository\ClienteDocumentoRepository;
 use App\Service\PermissionChecker;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * "Vincular ao cadastro" (Inteligência cadastral, F-A; desenho 02, l.778 e 3387).
  *
  * Quem: quem pode EDITAR o cliente e VER a pasta do documento. O quê: o documento de identificação ou comprovante que
  * está numa pasta do cliente passa a valer no cadastro, SEM cópia do arquivo ({@see ClienteDocumento::vinculadoA}).
- * Fica no Histórico do cliente, só com rótulos. Vincular de novo o mesmo documento não duplica (devolve false).
- * Qualquer documento que não seja um "Encontrado" do cliente dá {@see DocumentoDaPastaNaoEncontradoException} (404).
+ * Fica no Histórico do cliente, só com rótulos. Vincular de novo o mesmo documento não duplica (devolve false), nem
+ * quando dois pedidos chegam juntos: o índice único `uniq_cliente_documento_vinculo` recusa o segundo, e a recusa
+ * vira false (a transação dele volta inteira, histórico junto). Qualquer documento que não seja um "Encontrado" do
+ * cliente (pasta na lápide inclusive) dá {@see DocumentoDaPastaNaoEncontradoException} (404).
  */
 final class VincularDocumentoDaPastaAoClienteUseCase
 {
     public function __construct(
         private readonly PastaDocumentoRepository $documentosDaPasta,
-        private readonly ClienteDocumentoRepository $documentosDoCliente,
+        private readonly DocumentoVinculadoRepository $vinculados,
+        private readonly EntityManagerInterface $em,
         private readonly PermissionChecker $permissoes,
         private readonly HistoricoDoCliente $historico,
     ) {
@@ -42,14 +47,23 @@ final class VincularDocumentoDaPastaAoClienteUseCase
     {
         $this->exigirEdicaoDoCliente($cliente, $usuario, $tenant);
         $origem = $this->carregarDocumentoDoCliente($cliente, $documentoId, $usuario, $tenant);
-        if (\in_array((int) $origem->getId(), $this->documentosDoCliente->idsDePastaDocumentoVinculados($cliente, $tenant), true)) {
+        if (\in_array((int) $origem->getId(), $this->vinculados->idsDePastaDocumentoVinculados($cliente, $tenant), true)) {
             return false;
         }
-        $vinculo = ClienteDocumento::vinculadoA($origem, $cliente, $tenant);
-        $cliente->getDocumentos()->add($vinculo);
-        $this->documentosDoCliente->salvar($vinculo);
+
+        return $this->gravarVinculo(ClienteDocumento::vinculadoA($origem, $cliente, $tenant), $usuario);
+    }
+
+    private function gravarVinculo(ClienteDocumento $vinculo, User $usuario): bool
+    {
+        $vinculo->getCliente()?->getDocumentos()->add($vinculo);
+        $this->em->persist($vinculo);
         $this->historico->documentoVinculado($vinculo, $usuario);
-        $this->documentosDoCliente->salvar($vinculo, flush: true);
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException) {
+            return false; // outro pedido vinculou o mesmo documento entre a conferência e o flush
+        }
 
         return true;
     }
@@ -72,6 +86,7 @@ final class VincularDocumentoDaPastaAoClienteUseCase
             && !$documento->estaNaLixeira()
             && \array_key_exists($documento->getCategoria(), RotulosDaInteligenciaCadastral::CATEGORIAS)
             && $pasta->getTenant()?->getId() === $tenant->getId()
+            && !$pasta->estaExcluida()
             && $pasta->getClientes()->contains($cliente)
             && $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW);
         if (!$valido) {

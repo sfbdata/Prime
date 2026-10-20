@@ -28,15 +28,14 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
 {
     private const CPF = '52998224725';
 
-    #[TestDox('homônimo PF: conta os outros com o mesmo nome normalizado e CPF diferente; o mesmo CPF não é homônimo')]
+    #[TestDox('homônimo PF: a contagem do banco (mesmo nome normalizado, CPF diferente) vira o alerta, pedida com os dígitos do CPF')]
     public function testHomonimoPf(): void
     {
         $cliente = self::pf('José da Silva', '529.982.247-25');
-        $sut = $this->sut(nomes: [
-            ['id' => 2, 'nome' => 'JOSE  DA SILVA.', 'documento' => '111.444.777-35'],
-            ['id' => 3, 'nome' => 'José da Silva', 'documento' => '52998224725'],
-            ['id' => 4, 'nome' => 'José da Silva', 'documento' => '390.533.447-05'],
-        ]);
+        $clientes = $this->createMock(ClienteRepository::class);
+        $clientes->expects(self::once())->method('contarHomonimos')->with($cliente, self::tenant(), self::CPF)->willReturn(2);
+        $clientes->method('comOMesmoDocumento')->willReturn([]);
+        $sut = new AlertasDaInteligenciaCadastral($clientes, $this->createStub(PessoaRepository::class), $this->createStub(PermissionChecker::class));
 
         $alertas = $sut->de($cliente, self::CPF, new User(), self::tenant());
 
@@ -51,7 +50,7 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
     public function testHomonimoPj(): void
     {
         $cliente = (new ClientePJ())->setRazaoSocial('ACME Ltda')->setCnpj('11222333000181')->setTenant(self::tenant());
-        $sut = $this->sut(nomes: [['id' => 2, 'nome' => 'Acme LTDA.', 'documento' => '11.444.777/0001-61']]);
+        $sut = $this->sut(homonimos: 1);
 
         $alertas = $sut->de($cliente, '11222333000181', new User(), self::tenant());
 
@@ -59,10 +58,10 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
         self::assertStringStartsWith('1 outro(s) cadastro(s) com a mesma razão social e CNPJ diferente.', $alertas[0]->texto);
     }
 
-    #[TestDox('sem outro com o mesmo nome (ou só com o mesmo documento): nenhum alerta')]
+    #[TestDox('nenhum homônimo contado: nenhum alerta')]
     public function testSemAlerta(): void
     {
-        $sut = $this->sut(nomes: [['id' => 3, 'nome' => 'José da Silva', 'documento' => '529.982.247-25']]);
+        $sut = $this->sut();
 
         self::assertSame([], $sut->de(self::pf('José da Silva', '529.982.247-25'), self::CPF, new User(), self::tenant()));
     }
@@ -117,21 +116,20 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
         $permissoes = $this->createStub(PermissionChecker::class);
         $permissoes->method('canAccessModule')->willReturn(false);
         $clientes = $this->createStub(ClienteRepository::class);
-        $clientes->method('comONomeNormalizado')->willReturn([]);
+        $clientes->method('contarHomonimos')->willReturn(0);
         $clientes->method('comOMesmoDocumento')->willReturn([]);
 
         self::assertSame([], (new AlertasDaInteligenciaCadastral($clientes, $pessoas, $permissoes))->de(self::pf('Ana', '529.982.247-25'), self::CPF, new User(), self::tenant()));
     }
 
     /**
-     * @param list<array{id: int, nome: string, documento: string}> $nomes
      * @param list<array{id: int, nome: string, documento: string}> $mesmos
      * @param list<Pessoa>                                           $pessoas
      */
-    private function sut(array $nomes = [], array $mesmos = [], array $pessoas = [], bool $vePastaOuCliente = true, bool $moduloCobrancas = false): AlertasDaInteligenciaCadastral
+    private function sut(int $homonimos = 0, array $mesmos = [], array $pessoas = [], bool $vePastaOuCliente = true, bool $moduloCobrancas = false): AlertasDaInteligenciaCadastral
     {
         $clientes = $this->createStub(ClienteRepository::class);
-        $clientes->method('comONomeNormalizado')->willReturn($nomes);
+        $clientes->method('contarHomonimos')->willReturn($homonimos);
         $clientes->method('comOMesmoDocumento')->willReturn($mesmos);
         $repoPessoas = $this->createStub(PessoaRepository::class);
         $repoPessoas->method('buscarPossiveisDuplicadas')->willReturn($pessoas);

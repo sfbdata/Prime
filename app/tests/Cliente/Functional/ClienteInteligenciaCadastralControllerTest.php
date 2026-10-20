@@ -10,6 +10,7 @@ use App\Cliente\Controller\ClienteInteligenciaCadastralController;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Cliente\Repository\DocumentoVinculadoRepository;
 use App\Cliente\Service\AlertasDaInteligenciaCadastral;
 use App\Cliente\UseCase\MontarInteligenciaCadastralUseCase;
 use App\Cliente\UseCase\VincularDocumentoDaPastaAoClienteUseCase;
@@ -291,6 +292,117 @@ final class ClienteInteligenciaCadastralControllerTest extends JusPrimeWebTestCa
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente WHERE id = ?', [$cliente->getId()]));
         self::assertSame([], $duble->memoria->excluidas);
         self::assertTrue($duble->memoria->existe(ChavesDePasta::documento($rg)));
+    }
+
+    #[TestDox('categoria que o cadastro já tem some dos encontrados; pasta na lápide fica fora do bloco e o vincular dela dá 404')]
+    public function testCategoriaNoCadastroEPastaExcluida(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarUsuario($tenant, true);
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores', self::CPF);
+        $pasta = $this->criarPasta($tenant, $gestor, $cliente, 'II-6000');
+        $rg = $this->criarDocumento($pasta, PastaDocumento::CATEGORIA_IDENTIFICACAO, 'RG.pdf');
+        $cnh = $this->criarDocumento($pasta, PastaDocumento::CATEGORIA_IDENTIFICACAO, 'CNH.pdf');
+        $conta = $this->criarDocumento($pasta, PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA, 'Conta.pdf');
+        $lapide = $this->criarPasta($tenant, $gestor, $cliente, 'II-6001');
+        $daLapide = $this->criarDocumento($lapide, PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA, 'Conta_lapide.pdf');
+        $lapide->marcarExcluida($gestor, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $antes = $this->retrato((int) $cliente->getId());
+        $ids = array_column($antes['encontrados'], 'id');
+        sort($ids);
+        self::assertSame([(int) $rg->getId(), (int) $cnh->getId(), (int) $conta->getId()], $ids, 'sem o da pasta na lápide');
+        self::assertSame('3 documento(s) deste cliente em 1 pasta(s)', $antes['subtitulo']);
+
+        $this->vincular((int) $cliente->getId(), (int) $daLapide->getId());
+        self::assertResponseStatusCodeSame(404, 'pasta na lápide');
+        $this->vincular((int) $cliente->getId(), (int) $rg->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertSame([(int) $conta->getId()], array_column($this->retrato((int) $cliente->getId())['encontrados'], 'id'), 'com identificação no cadastro, a CNH não aparece');
+    }
+
+    #[TestDox('vínculo de pasta que o usuário não vê não aparece na janela nem na página do cliente; a pendência continua resolvida')]
+    public function testVinculoDePastaInvisivel(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarUsuario($tenant, true);
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores', self::CPF);
+        $pasta = $this->criarPasta($tenant, $gestor, $cliente, 'II-7000');
+        $rg = $this->criarDocumento($pasta, PastaDocumento::CATEGORIA_IDENTIFICACAO, 'RG_Secreto.pdf');
+        $colab = $this->criarUsuario($tenant, false);
+        $this->conceder($colab, $tenant, 'cliente', (int) $cliente->getId(), true);
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->vincular((int) $cliente->getId(), (int) $rg->getId());
+
+        $this->logarComTenant($this->client, $colab, $tenant);
+        $this->em()->clear();
+        $janela = $this->client->request('GET', '/clientes/' . $cliente->getId() . '/cadastro');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('não anexado', $janela->filter('[data-cad-doc="IDENTIFICACAO"] .cad-doc-info')->text());
+        self::assertStringNotContainsString('RG_Secreto', (string) $this->client->getResponse()->getContent());
+        $pendDocs = json_decode((string) $janela->filter('[data-cad-janela]')->attr('data-pend-docs'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['Comprovante de residência não anexado'], array_column($pendDocs, 'texto'), 'a pendência conta o vínculo');
+        $this->em()->clear();
+        $this->client->request('GET', '/clientes/' . $cliente->getId());
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('RG_Secreto', (string) $this->client->getResponse()->getContent());
+
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->em()->clear();
+        $this->client->request('GET', '/clientes/' . $cliente->getId());
+        $pagina = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('RG_Secreto', $pagina);
+        self::assertStringContainsString('na Pasta II-7000', $pagina);
+        self::assertStringNotContainsString('0 KB', $pagina);
+    }
+
+    #[TestDox('vinculado não é editável na página legada do cliente (403), só desvinculado')]
+    public function testVinculadoNaoEditavel(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarUsuario($tenant, true);
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores', self::CPF);
+        $rg = $this->criarDocumento($this->criarPasta($tenant, $gestor, $cliente, 'II-8000'), PastaDocumento::CATEGORIA_IDENTIFICACAO, 'RG.pdf');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->vincular((int) $cliente->getId(), (int) $rg->getId());
+        $id = (int) $this->em()->getConnection()->fetchOne('SELECT id FROM cliente_documento WHERE cliente_id = ?', [$cliente->getId()]);
+
+        $this->em()->clear();
+        $crawler = $this->client->request('GET', '/clientes/' . $cliente->getId());
+        self::assertCount(0, $crawler->filter('[data-bs-target="#editDocModal' . $id . '"]'));
+        $this->client->request('POST', '/clientes/documento/' . $id . '/editar', ['_token' => 'TOKEN_edit_doc_cliente_' . $id, 'categoria' => 'DEMAIS']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('IDENTIFICACAO', $this->em()->getConnection()->fetchOne('SELECT categoria FROM cliente_documento WHERE id = ?', [$id]));
+    }
+
+    #[TestDox('vincular concorrente: o índice único recusa o segundo e a resposta é vinculado false (200), não 500')]
+    public function testVincularConcorrente(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarUsuario($tenant, true);
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores', self::CPF);
+        $rg = $this->criarDocumento($this->criarPasta($tenant, $gestor, $cliente, 'II-9000'), PastaDocumento::CATEGORIA_IDENTIFICACAO, 'RG.pdf');
+        // O "outro pedido" já gravou o vínculo; esta conferência não o viu (chegou antes do COMMIT dele).
+        $this->em()->getConnection()->executeStatement(
+            "INSERT INTO cliente_documento (titulo, categoria, caminho_arquivo, nome_original, mime_type, tamanho_bytes, uploaded_at, cliente_id, tenant_id, pasta_documento_id)
+             VALUES ('RG.PDF', 'IDENTIFICACAO', '', 'RG.pdf', 'application/pdf', 0, NOW(), ?, ?, ?)",
+            [$cliente->getId(), $tenant->getId(), $rg->getId()],
+        );
+        $semVer = $this->createStub(DocumentoVinculadoRepository::class);
+        $semVer->method('idsDePastaDocumentoVinculados')->willReturn([]);
+        static::getContainer()->set(DocumentoVinculadoRepository::class, $semVer);
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->vincular((int) $cliente->getId(), (int) $rg->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->json()['vinculado']);
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_documento WHERE cliente_id = ?', [$cliente->getId()]));
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_historico WHERE cliente_id = ?', [$cliente->getId()]), 'o histórico volta junto');
     }
 
     #[TestDox('o bloco está na aba Documentos do cadastro, com as rotas do contrato')]

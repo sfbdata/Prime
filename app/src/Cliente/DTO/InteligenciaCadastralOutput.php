@@ -45,6 +45,7 @@ final class InteligenciaCadastralOutput
             ], $this->alertas),
             'encontrados' => array_map(static fn (DocumentoEncontradoNaPasta $e): array => $e->paraResposta(), $this->encontrados),
             'nota'        => $this->nota,
+            'rotulos'     => RotulosDaInteligenciaCadastral::daTela(),
         ];
     }
 }

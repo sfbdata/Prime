@@ -12,6 +12,7 @@ use App\Cliente\Form\ClientePFType;
 use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Service\CamposDoCadastro;
+use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
@@ -102,6 +103,7 @@ class ClienteController extends AbstractController
         private readonly CompressaoDeArquivoArmazenado $compressao,
         private readonly HistoricoDoCliente $historico,
         private readonly CamposDoCadastro $campos,
+        private readonly DocumentosVisiveisDoCadastro $documentosVisiveis,
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
@@ -125,7 +127,7 @@ class ClienteController extends AbstractController
             'cliente' => $cliente,
             'pastas' => $this->pastaRepository->findByCliente($cliente, $tenant),
             'documentTypeOptions' => self::DOCUMENT_TYPES,
-            'documentosPorTipo' => $this->groupDocumentsByType($cliente),
+            'documentosPorTipo' => $this->groupDocumentsByType($this->documentosVisiveis->de($cliente, $currentUser, $tenant)),
         ]);
     }
 
@@ -433,15 +435,7 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        $clienteForCheck = $doc->getCliente();
-        if ($clienteForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', (int) $clienteForCheck->getId(), 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar documentos deste cliente.');
-        }
-
-        if (!$this->isCsrfTokenValid('edit_doc_cliente_' . $doc->getId(), (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
+        $this->exigirEdicaoDoDocumento($doc, $currentUser, $request);
 
         $categoriaRaw = strtoupper(trim((string) $request->request->get('categoria', '')));
         $categoria    = array_key_exists($categoriaRaw, self::DOCUMENT_TYPES) ? $categoriaRaw : $doc->getCategoria();
@@ -468,6 +462,23 @@ class ClienteController extends AbstractController
         $this->addFlash('success', 'Documento atualizado com sucesso.');
 
         return $this->redirectToRoute('cliente_show', ['id' => $doc->getCliente()?->getId()]);
+    }
+
+    /** Permissão de editar o cliente, CSRF e, desde a Inteligência cadastral, o vinculado do menu Documentos fora (só desvincular). */
+    private function exigirEdicaoDoDocumento(ClienteDocumento $doc, \App\Entity\Auth\User $currentUser, Request $request): void
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $clienteForCheck = $doc->getCliente();
+        if ($clienteForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', (int) $clienteForCheck->getId(), 'edit')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar documentos deste cliente.');
+        }
+
+        if (!$this->isCsrfTokenValid('edit_doc_cliente_' . $doc->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+        if ($doc->isVinculado()) { // os dados são os do documento da pasta
+            throw $this->createAccessDeniedException('Documento vinculado do menu Documentos não é editado aqui.');
+        }
     }
 
     #[Route('/documento/{id}/deletar', name: 'cliente_documento_delete', methods: ['POST'])]
@@ -502,17 +513,19 @@ class ClienteController extends AbstractController
     }
 
     /**
+     * @param list<ClienteDocumento> $documentos os que o usuário vê ({@see DocumentosVisiveisDoCadastro})
+     *
      * @return array<string, ClienteDocumento[]>
      */
-    private function groupDocumentsByType(Cliente $cliente): array
+    private function groupDocumentsByType(array $documentos): array
     {
         $grouped = [];
         foreach (array_keys(self::DOCUMENT_TYPES) as $tipo) {
             $grouped[$tipo] = [];
         }
-        foreach ($cliente->getDocumentos() as $doc) {
+        foreach ($documentos as $doc) {
             $cat = $doc->getCategoria();
-            if (array_key_exists($cat, $grouped) && $doc->estaDisponivel()) {
+            if (array_key_exists($cat, $grouped)) {
                 $grouped[$cat][] = $doc;
             }
         }

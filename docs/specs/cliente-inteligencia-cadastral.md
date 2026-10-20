@@ -47,7 +47,7 @@ seria "OCR + extração por IA a cada upload".
 - **"Possível homônimo."** "N outro(s) cadastro(s) com o mesmo nome e CPF diferente. Documentos só com o
   nome não atualizam este cadastro." (PJ: "mesma razão social e CNPJ diferente"). Regra: outros clientes do
   **mesmo escritório** com o nome normalizado igual (sem acento, sem diferença de caixa, espaços únicos) e
-  documento (dígitos) diferente. Correção: o desenho só pega nome idêntico; aqui a normalização tira
+  documento (dígitos) diferente, contados no banco (COUNT, sem teto). Correção: o desenho só pega nome idêntico; aqui a normalização tira
   acentos e pontuação.
 - **"Mesmo CPF com outro nome."** "\"<nome>\" em <origem>. Pode ser abreviação ou cadastro duplicado;
   confira antes de consolidar." Fontes internas, no mesmo escritório, comparando os **dígitos**:
@@ -61,8 +61,12 @@ seria "OCR + extração por IA a cada upload".
 
 ### 2.3 "Encontrados no menu Documentos" (l.773 a 780, 3387)
 - Documentos das **pastas em que o cliente está vinculado**, nas categorias **Identificação** e
-  **Comprovante de residência**, não excluídos, que o usuário pode ver (permissão de leitura na pasta), e
-  que ainda não estão vinculados ao cadastro.
+  **Comprovante de residência**, não excluídos (fora da lixeira), de pasta viva (pasta na lápide,
+  `excluidaEm` preenchido, fica fora, também do subtítulo), que o usuário pode ver (permissão de leitura na
+  pasta), que ainda não estão vinculados ao cadastro e **só da categoria que o cadastro ainda não tem**
+  (desenho l.3387, `!(f.docs || {})[x.tipo]`): com um documento de identificação no cadastro (anexo próprio
+  ou vínculo que o usuário vê), nenhum documento de identificação aparece nos Encontrados; idem para o
+  comprovante.
 - Linha: "<arquivo> · Documento de identificação | Comprovante de residência · Pasta N · dd/mm/aaaa" (data
   do envio do documento à pasta; correção: no desenho a data era escrita à mão).
 - **"Vincular ao cadastro"** (permissão de edição do cliente): cria o vínculo do documento da pasta com o
@@ -72,7 +76,10 @@ seria "OCR + extração por IA a cada upload".
 - **Arquivo** (skill `armazenamento-de-arquivos`): o documento vinculado **não tem arquivo próprio**; abrir
   e baixar usam o arquivo do `PastaDocumento`, com a permissão da pasta conferida de novo. Remover o
   vínculo do cadastro **nunca** apaga o arquivo da pasta. Se o documento da pasta for excluído, o vínculo
-  some da lista do cadastro (não fica link quebrado).
+  some da lista do cadastro (não fica link quebrado). O vínculo cuja pasta o usuário não pode ver não aparece
+  para ele na janela de Cadastro nem na página do cliente (as pendências do cadastro continuam contando). O
+  vinculado não é editável na página do cliente (sem o botão Editar; a rota de edição dá 403): só desvincular.
+  A purga do escritório não trata o vinculado como arquivo do cliente (a chave vazia não entra).
 
 ### 2.4 Rótulos "a confirmar" (D1)
 Ponto único `RotulosDaInteligenciaCadastral` (servidor) com:
@@ -90,11 +97,15 @@ tempo da identidade (F-B, D1 e D3); "Atualizar sozinho" (F-C, D2); confirmação
 - `GET /cliente/{id}/inteligencia-cadastral` `cliente_inteligencia_cadastral` (JSON; cliente do escritório
   e visível ao usuário, senão 404): `{on, titulo, subtitulo, alertas: [{tipo (homonimo|mesmoDocumento), ic,
   negrito, texto}], encontrados: [{id, arquivo, categoria, categoriaRotulo, pasta, data,
-  podeVincular}], nota}`.
+  podeVincular}], nota, rotulos: {icone, encontrados, vincular, vincularErro, salvarAntes}}`. `rotulos` vem de
+  `RotulosDaInteligenciaCadastral`: o JS não tem texto próprio do bloco.
 - `POST /cliente/{id}/inteligencia-cadastral/vincular/{documentoId}` `cliente_inteligencia_cadastral_vincular`
-  (CSRF no header; edição do cliente e leitura da pasta; 404 se o documento não é de uma pasta do cliente).
-- Migration: coluna `pasta_documento_id` (FK, `ON DELETE SET NULL`?: a definir na implementação com a
-  regra de exclusão do documento da pasta) em `cliente_documento`.
+  (CSRF no header; edição do cliente e leitura da pasta; 404 se o documento não é de uma pasta viva do
+  cliente). Resposta `{ok, vinculado, mensagem}`: `vinculado: false` quando o vínculo já existia, inclusive
+  em dois pedidos simultâneos (o índice único recusa o segundo; 200, não 500).
+- Migration `Version20261021150000`: coluna `pasta_documento_id` em `cliente_documento`, FK com
+  **`ON DELETE CASCADE`** (decidido: a purga do documento da pasta derruba o vínculo, que não tem arquivo
+  próprio; na lixeira o vínculo fica e só some da tela) e índice único `(cliente_id, pasta_documento_id)`.
 
 ## 4. Verificação
 - Unit: normalização de nome, homônimo PF/PJ, mesmo documento com outro nome, filtro de permissão da

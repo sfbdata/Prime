@@ -20,7 +20,7 @@ use Doctrine\Migrations\AbstractMigration;
  * existia (DROP de `messenger_messages`, DROP INDEX de índices funcionais de cobrança, DROP DEFAULT de
  * `cobranca_pessoa_*`), que não é desta frente.
  */
-final class Version20261021140000 extends AbstractMigration
+final class Version20261021150000 extends AbstractMigration
 {
     public function getDescription(): string
     {

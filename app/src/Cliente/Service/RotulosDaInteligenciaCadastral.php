@@ -20,6 +20,8 @@ final class RotulosDaInteligenciaCadastral
     public const ICONE = 'bi bi-stars';
     public const ENCONTRADOS = 'Encontrados no menu Documentos';
     public const VINCULAR = 'Vincular ao cadastro';
+    public const VINCULAR_ERRO = 'Não foi possível vincular o documento.';
+    public const SALVAR_ANTES = 'Salve as alterações antes de vincular o documento.';
 
     public const ICONE_HOMONIMO = 'bi bi-people';
     public const ICONE_MESMO_DOCUMENTO = 'bi bi-intersect';
@@ -77,6 +79,22 @@ final class RotulosDaInteligenciaCadastral
         return [
             'negrito' => sprintf('Mesmo %s com outro nome.', self::sigla($pj)),
             'texto'   => $onde . ' Pode ser abreviação ou cadastro duplicado; confira antes de consolidar.',
+        ];
+    }
+
+    /**
+     * Os textos fixos do bloco que a tela desenha (o JS não tem texto próprio).
+     *
+     * @return array{icone: string, encontrados: string, vincular: string, vincularErro: string, salvarAntes: string}
+     */
+    public static function daTela(): array
+    {
+        return [
+            'icone'        => self::ICONE,
+            'encontrados'  => self::ENCONTRADOS,
+            'vincular'     => self::VINCULAR,
+            'vincularErro' => self::VINCULAR_ERRO,
+            'salvarAntes'  => self::SALVAR_ANTES,
         ];
     }
 
