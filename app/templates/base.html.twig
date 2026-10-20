@@ -432,10 +432,22 @@
 
                 // O tema claro/escuro (chave no menu do usuário) mora em public/js/menu-usuario.js.
 
-                // ── Polling do total no sino a cada 30 s
+                // ── Polling do total no sino a cada 30 s. Pede JSON (com a sessão vencida, o servidor responde 401 e
+                // o pedido não vira destino do login) e para de sondar no 401: nada de laço batendo na porta.
+                let sinoParado = false;
+                let sinoIntervalo = null;
+                function pararSino() {
+                    sinoParado = true;
+                    if (sinoIntervalo !== null) { clearInterval(sinoIntervalo); sinoIntervalo = null; }
+                }
+                function respostaDoSino(r) {
+                    if (r.status === 401) { pararSino(); throw new Error('sessao'); }
+                    return r.json();
+                }
                 function atualizarNotificacoes() {
-                    fetch('/notificacoes/count')
-                        .then(r => r.json())
+                    if (sinoParado) return;
+                    fetch('/notificacoes/count', { headers: { Accept: 'application/json' } })
+                        .then(respostaDoSino)
                         .then(data => {
                             const badge    = document.getElementById('notificacaoBadge');
                             const countTxt = document.getElementById('notificacaoCountText');
@@ -448,16 +460,16 @@
                         })
                         .catch(e => console.log('Notificações:', e));
                 }
-                setInterval(atualizarNotificacoes, 30000);
+                sinoIntervalo = setInterval(atualizarNotificacoes, 30000);
 
                 // ── Carrega a lista de uma aba (categoria) do dropdown
                 function carregarAbaNotif(categoria) {
                     const container = document.getElementById(
                         categoria === 'gestao' ? 'notifContainerGestao' : 'notifContainerPessoal'
                     );
-                    if (!container) return;
-                    fetch('/notificacoes/lista-dropdown?categoria=' + categoria)
-                        .then(r => r.json())
+                    if (!container || sinoParado) return;
+                    fetch('/notificacoes/lista-dropdown?categoria=' + categoria, { headers: { Accept: 'application/json' } })
+                        .then(respostaDoSino)
                         .then(data => {
                             if (data.html) container.innerHTML = data.html;
                             container.dataset.carregado = '1';
