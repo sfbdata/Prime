@@ -8,6 +8,15 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 `docs/specs/inteligencia-agentes-da-pasta.md` (os 7 agentes) e `docs/specs/engineering-loop/inventario-ia.md`
 (IA-016 a IA-027).
 
+
+## Estado da frente (19/10, sessão f6)
+
+- F1+F2: PR #114 (rascunho, base #68), suíte completa e visual feitos. Commits já enviados.
+- F3 Perguntar: branch `ia-drawer-f3` (sobre `ia-drawer-f1`), commits LOCAIS 63fbf732, 43648b20, 79bdb1b3; revisão
+  aprovada com ressalvas, ressalvas corrigidas. **Falta enviar** (máquina sem internet): `git push -u origin ia-drawer-f3`
+  e abrir o PR em rascunho com base `ia-drawer-f1`. Migration provisória `Version20261021110000`.
+- F4 Documentos e F5 Criar tarefa: a fazer, nesta ordem, cada uma em branch empilhada.
+
 ## O que o desenho tem, e o que pode entrar
 
 O drawer do desenho é, em grande parte, **regra rotulada como IA** (`inventario-ia.md`, nota 3): fase com
