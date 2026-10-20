@@ -104,6 +104,11 @@
 .presenca-status { font-size: 11px; font-weight: bold; white-space: nowrap; }
 .presenca-horas { font-size: 11px; color: var(--pc-sub); white-space: nowrap; }
 .presenca-nota { padding: 7px 14px; font-size: 11px; color: var(--pc-nota); border-top: 1px solid var(--pc-div); }
+/* Fase 3, dc L.306: "Ausente após sem atividade", só o primário. Cores do dc (#4a6373, #fafcfd, #d3dde4) em tokens. */
+.presenca-regra { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 12px; color: var(--pc-regra-tx, #4a6373); background: var(--pc-regra-bg, #fafcfd); }
+.presenca-regra-rotulo { flex: 1; margin: 0; font-weight: normal; }
+.presenca-regra-seletor { height: 28px; border: 1px solid var(--pc-regra-borda, #d3dde4); border-radius: 3px; font: inherit; font-size: 12px; background: var(--pc-fundo, #fff); color: inherit; }
+[data-bs-theme="dark"] .presenca-regra { --pc-regra-tx: var(--bs-secondary-color); --pc-regra-bg: var(--bs-tertiary-bg); --pc-regra-borda: var(--bs-border-color); }
 .presenca-vazio { padding: 14px; font-size: 13px; color: var(--pc-sub); }
 
 @media (prefers-reduced-motion: reduce) {
