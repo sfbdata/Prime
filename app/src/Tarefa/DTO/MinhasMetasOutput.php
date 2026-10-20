@@ -98,18 +98,43 @@ final class MinhasMetasOutput
     }
 
     /**
-     * As metas do bloco "Precisa de atenção" — as atrasadas, com teto.
+     * As metas do bloco "Precisa de atenção": as atrasadas da aba, com teto.
      *
-     * @return \App\Entity\Tarefa\Tarefa[]
+     * Atrasadas pela REGRA (`AgrupadorDeMetas::classificar`), não pelo grupo, como no desenho
+     * (`atencao: M.filter(m => classe(m) === 'atr')`): a aba Criei agrupa por etapa e não tem grupo
+     * "Atrasadas", mas as delegadas atrasadas existem e precisam aparecer aqui.
+     *
+     * @return Tarefa[]
      */
     public function metasQuePrecisamDeAtencao(): array
     {
-        return array_slice($this->grupo('atrasadas')?->metas ?? [], 0, self::TETO_TRILHO);
+        return array_slice($this->atrasadasPelaRegra(), 0, self::TETO_TRILHO);
     }
 
     public function atrasadasOcultas(): int
     {
-        return max(0, ($this->grupo('atrasadas')?->total() ?? 0) - self::TETO_TRILHO);
+        return max(0, count($this->atrasadasPelaRegra()) - self::TETO_TRILHO);
+    }
+
+    /**
+     * Todas as metas da aba que a regra classifica como atrasadas, da que venceu primeiro para a
+     * última (a mesma ordem do grupo "Atrasadas"; empate fica na ordem em que vieram).
+     *
+     * @return Tarefa[]
+     */
+    private function atrasadasPelaRegra(): array
+    {
+        $atrasadas = [];
+        foreach ($this->grupos as $grupo) {
+            foreach ($grupo->metas as $meta) {
+                if (AgrupadorDeMetas::classificar($meta) === 'atrasadas') {
+                    $atrasadas[] = $meta;
+                }
+            }
+        }
+        usort($atrasadas, static fn (Tarefa $a, Tarefa $b): int => $a->getPrazo() <=> $b->getPrazo());
+
+        return $atrasadas;
     }
 
     /**
@@ -152,16 +177,7 @@ final class MinhasMetasOutput
 
     private function totalAtrasadas(): int
     {
-        $total = 0;
-        foreach ($this->grupos as $grupo) {
-            foreach ($grupo->metas as $meta) {
-                if (AgrupadorDeMetas::classificar($meta) === 'atrasadas') {
-                    ++$total;
-                }
-            }
-        }
-
-        return $total;
+        return count($this->atrasadasPelaRegra());
     }
 
     private function totalEmRevisao(): int

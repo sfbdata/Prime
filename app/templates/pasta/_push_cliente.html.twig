@@ -1,0 +1,121 @@
+{# ============================================================================
+   Cartão "Avisar cliente" da coluna do Push (spec push-avisar-cliente §2; desenho de 18/10,
+   02 - EXPEDIENTES - VS 18.10.26, dc N:2765-2830 e `mailVals` N:5249-5293). Estilos 1:1 em
+   pasta-push-cliente.css; o comportamento (formulário, estrela, switch, remover, histórico) é do
+   pasta-push-cliente.js, que troca o cartão inteiro pelo HTML que o servidor devolve.
+
+   O "Envio automático" do desenho (Novas movimentações, Audiências e intimações, Resumo semanal e a
+   linha "Análise da BlueJus IA · Só manual") é do P4d e não aparece aqui.
+
+   Mudar exige EDITAR a pasta; quem só vê enxerga tudo desabilitado com a dica, e a lápide também.
+   E-mail descadastrado pelo cliente: selo "Descadastrado pelo cliente" e o switch travado.
+
+   Contexto: `pasta`, `cliente` (App\Pasta\DTO\AvisarClienteOutput).
+   ============================================================================ #}
+{% set pastaVivaCliente = not pasta.estaExcluida %}
+{% set podeEditarCliente = pastaVivaCliente and can_access_resource('pasta', pasta.id, 'edit') %}
+{% if not pastaVivaCliente %}
+    {% set dicaTravaCliente = 'Pasta excluída: somente leitura.' %}
+{% elseif not podeEditarCliente %}
+    {% set dicaTravaCliente = 'Só quem edita a pasta muda os e-mails do cliente.' %}
+{% else %}
+    {% set dicaTravaCliente = null %}
+{% endif %}
+{% set dicaCadastrar = dicaTravaCliente ?? (cliente.temCliente ? 'Cadastrar e-mail do cliente' : 'A pasta não tem cliente vinculado.') %}
+{% set totalEmails = cliente.total %}
+<div class="ps-push-cliente" data-push-cliente
+     data-cliente-url="{{ path('pasta_push_cliente', {id: pasta.id}) }}"
+     data-cadastrar-url="{{ path('pasta_push_cliente_email_cadastrar', {id: pasta.id}) }}"
+     data-email-url="{{ path('pasta_push_cliente_email_principal', {id: pasta.id, emailId: 0})|replace({'/0/principal': '/__ID__/__ACAO__'}) }}"
+     data-token="{{ csrf_token('pasta_push_cliente_' ~ pasta.id) }}"
+     data-permitido="{{ podeEditarCliente and cliente.temCliente ? '1' : '0' }}"
+     data-total="{{ totalEmails }}"
+     data-recebendo="{{ cliente.recebendo }}"
+     data-dica-envio="{{ cliente.dicaDoEnvio }}">
+    <div class="ps-push-cliente-cab">
+        <i class="bi bi-envelope-at ps-push-cliente-cab-ico" aria-hidden="true"></i>
+        <span class="ps-push-cliente-titulo">Avisar cliente</span>
+        <span class="ps-push-cliente-cont{{ totalEmails == 0 ? ' is-vazio' : '' }}" title="{{ cliente.contadorDica }}">{{ totalEmails }}</span>
+        <div class="ps-push-cliente-espaco"></div>
+        <button type="button" class="ps-push-cliente-cadastrar" data-push-cliente-abrir title="{{ dicaCadastrar }}"
+                {{ podeEditarCliente and cliente.temCliente ? '' : 'disabled' }}>
+            <i class="bi bi-envelope-plus" aria-hidden="true"></i>Cadastrar e-mail
+        </button>
+    </div>
+    {% if totalEmails == 0 %}
+        <div class="ps-push-cliente-vazio"><i class="bi bi-envelope-slash" aria-hidden="true"></i><span>Nenhum e-mail cadastrado para {{ cliente.cliente }}. Cadastre para manter o cliente informado sobre o processo.</span></div>
+    {% endif %}
+    {% for m in cliente.emails %}
+        {% set travaItem = dicaTravaCliente %}
+        <div class="ps-push-cliente-item" data-push-cliente-email="{{ m.id }}" data-email="{{ m.email }}"
+             data-recebendo="{{ m.recebendo ? '1' : '0' }}" data-descadastrado="{{ m.descadastrado ? '1' : '0' }}">
+            <i class="bi {{ m.recebendo ? 'bi-envelope-check-fill is-on' : 'bi-envelope-dash' }} ps-push-cliente-ico" aria-hidden="true"></i>
+            <div class="ps-push-cliente-texto">
+                <div class="ps-push-cliente-email" title="{{ m.email }}">{{ m.email }}</div>
+                <div class="ps-push-cliente-sub">{{ m.sub }}{% if m.descadastrado %}<span class="ps-push-cliente-selo">Descadastrado pelo cliente</span>{% endif %}</div>
+            </div>
+            {% set dicaPrincipal = m.principal ? 'E-mail principal' : 'Tornar principal' %}
+            <button type="button" class="ps-push-cliente-estrela{{ m.principal ? ' is-principal' : '' }}" data-push-cliente-acao="principal"
+                    title="{{ travaItem ?? dicaPrincipal }}" aria-label="{{ dicaPrincipal }}"
+                    {{ travaItem is null and not m.principal ? '' : 'disabled' }}>
+                <i class="bi {{ m.principal ? 'bi-star-fill' : 'bi-star' }}" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="ps-push-cliente-switch{{ m.recebendo ? ' is-on' : '' }}" role="switch"
+                    aria-checked="{{ m.recebendo ? 'true' : 'false' }}" aria-label="Avisos para {{ m.email }}"
+                    data-push-cliente-acao="avisos" title="{{ travaItem ?? m.dicaDoSwitch }}"
+                    {{ travaItem is null and not m.descadastrado ? '' : 'disabled' }}>
+                <span class="ps-push-cliente-sw"><span class="ps-push-switch-bola"></span></span>
+            </button>
+            <button type="button" class="ps-push-cliente-remover" data-push-cliente-acao="remover"
+                    title="{{ travaItem ?? 'Remover e-mail' }}" aria-label="Remover e-mail"
+                    {{ travaItem is null ? '' : 'disabled' }}>
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+    {% endfor %}
+    {% if podeEditarCliente and cliente.temCliente %}
+        {# Formulário do desenho (dc N:2789-2805): aberto pelo "Cadastrar e-mail" ou pelo envio sem e-mail. #}
+        <form class="ps-push-cliente-form" data-push-cliente-form novalidate hidden>
+            <div class="ps-push-cliente-campo">
+                <i class="bi bi-envelope" aria-hidden="true"></i>
+                <input type="email" name="email" placeholder="email@cliente.com.br" aria-label="E-mail do cliente" autocomplete="off" data-push-cliente-campo>
+            </div>
+            <div class="ps-push-cliente-rotulos" role="group" aria-label="Rótulo do e-mail">
+                {% for r in ['pessoal', 'trabalho', 'familiar', 'outro'] %}
+                    <button type="button" class="ps-push-cliente-rotulo{{ loop.first ? ' is-ativo' : '' }}" data-push-cliente-rotulo="{{ r }}"
+                            aria-pressed="{{ loop.first ? 'true' : 'false' }}">{{ r|capitalize }}</button>
+                {% endfor %}
+            </div>
+            <div class="ps-push-cliente-erro" data-push-cliente-erro hidden><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span></span></div>
+            <div class="ps-push-cliente-form-acoes">
+                <button type="button" class="ps-push-cliente-cancelar" data-push-cliente-fechar>Cancelar</button>
+                <button type="submit" class="ps-push-cliente-adicionar"><i class="bi bi-plus-lg" aria-hidden="true"></i>Adicionar</button>
+            </div>
+        </form>
+    {% endif %}
+    {% if cliente.temControladoria or cliente.totalHistorico > 0 %}
+        <div class="ps-push-cliente-divisor"></div>
+    {% endif %}
+    {% if cliente.temControladoria %}
+        <div class="ps-push-cliente-cc" title="Todo e-mail ao cliente sai com cópia para a Controladoria, para conferência e controle dos atos">
+            <i class="bi bi-shield-check" aria-hidden="true"></i>
+            <span class="ps-push-cliente-cc-txt">Cópia para a Controladoria: <strong>{{ cliente.nomesDaControladoria }}</strong></span>
+            <span class="ps-push-cliente-sempre"><i class="bi bi-lock-fill" aria-hidden="true"></i>Sempre</span>
+        </div>
+    {% endif %}
+    {% if cliente.totalHistorico > 0 %}
+        <button type="button" class="ps-push-cliente-hist-botao" data-push-cliente-hist aria-expanded="false"
+                data-txt-ver="{{ cliente.historicoTxt(false) }}" data-txt-ocultar="{{ cliente.historicoTxt(true) }}">
+            <i class="bi bi-clock-history" aria-hidden="true"></i><span>{{ cliente.historicoTxt(false) }}</span>
+        </button>
+        <div class="ps-push-cliente-hist" data-push-cliente-hist-lista hidden>
+            {% for h in cliente.historico %}
+                <div class="ps-push-cliente-hist-item">
+                    <i class="{{ h.icone }}" aria-hidden="true"></i>
+                    <div class="ps-push-cliente-hist-texto"><div class="ps-push-cliente-hist-t">{{ h.titulo }}</div><div class="ps-push-cliente-hist-sub">{{ h.sub }}</div></div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <p class="ps-push-painel-msg" data-push-cliente-msg role="status" hidden></p>
+</div>
