@@ -46,7 +46,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 final class ApoioPorPixComBancoBacenTest extends JusPrimeWebTestCase
 {
     private const TOKEN = 'TOKEN_contribua';
-    private const SECRET = 'segredo-inter-XYZ-123';
+    private const SECRET = 'segredo_de_teste';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;

@@ -53,3 +53,6 @@ dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github
 # nomes de chave de localStorage do protótipo ('bj-central-v1', 'bj-pasta-acesso-pedidos-v1'), conferidos em 19/10/2026
 6b6bcff1522da57dee4e607afe9653fb44596f8d:docs/design/meu-perfil-18-10/bluejus-central.js:generic-api-key:11
 6b6bcff1522da57dee4e607afe9653fb44596f8d:docs/design/meu-perfil-18-10/bluejus-central.js:generic-api-key:152
+
+# app/tests/Contribua/Functional/ApoioPorPixComBancoBacenTest.php: segredo FALSO de teste do PSP simulado (#123); o valor foi trocado por segredo_de_teste
+8ba3227f74c04e28ce56a2741e5f02d9533837ba:app/tests/Contribua/Functional/ApoioPorPixComBancoBacenTest.php:generic-api-key:48
