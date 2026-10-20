@@ -276,6 +276,10 @@ final class PurgarEscritorioUseCase
         // Agenda (5b): inscrições de push e registro de envios. FKs de tenant CASCADE; explícito por convenção.
         ['agenda_push_enviado', 'tenant_id = :tenant'],
         ['agenda_push_inscricao', 'tenant_id = :tenant'],
+        // Agenda (6): conexões com o Google Agenda (refresh token cifrado), ligações e exclusões pendentes. FKs CASCADE; explícito por convenção.
+        ['agenda_google_ligacao', 'tenant_id = :tenant'],
+        ['agenda_google_exclusao', 'tenant_id = :tenant'],
+        ['agenda_google_conexao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
