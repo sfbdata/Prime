@@ -109,6 +109,10 @@ Do desenho 07 (L111-161, L258-269), exatos, exceto onde o dono decidiu (sem "def
 - **Auditoria da rota antiga** na conta excluída (`executarComoConta`), não no escritório da sessão.
 - **Falha no envio do código** vai para o log (antes, o `catch` engolia a causa).
 - Anotado, fora deste PR: `existePendente` em toda página (item 7).
+- Acompanhamento (decisão do coordenador, 20/10): quando este PR e o #155 estiverem no master, um PR pequeno faz a
+  barreira das rotas pelo escritório da URL (`BarreiraDoEscritorioInativoNaRota`, #155) tratar também a conta
+  "suspensa a pedido" (Tenant ativo com pedido pendente). Hoje ela só barra o escritório inativo, e o admin com
+  outro escritório na sessão ainda age pela URL sobre a conta suspensa a pedido.
 
 ## Modelo (contrato com a b5)
 
