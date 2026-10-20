@@ -336,18 +336,42 @@ final class CampanhaPorEmailTest extends TestCase
         $uc->executar($master, FiltroDaCampanha::deArray([]), 'enviar');
     }
 
+    #[TestDox('currículos desligados pela constante (o aceite do currículo não cobre campanha): lista vazia, de fora com a contagem e o motivo, e o inscrito que tem currículo não conta duas vezes')]
+    public function testCurriculosDesligados(): void
+    {
+        self::assertFalse(DestinatariosDaCampanha::CURRICULOS_LIBERADOS, 'a confirmar com o dono');
+        $cvs = [
+            $this->curriculo(1, 'ana@exemplo.test', 'DF', ['Cível']),
+            $this->curriculo(2, 'ANA@exemplo.test', 'DF', ['Cível']),
+            $this->curriculo(3, 'bia@exemplo.test', 'SP', ['Trabalhista']),
+        ];
+        $d = $this->destinatarios($cvs, [new InteressadoEmVagas('ana@exemplo.test'), new InteressadoEmVagas('lead@exemplo.test')], curriculosLiberados: false);
+
+        $todos = $d->para(FiltroDaCampanha::deArray([]));
+        self::assertSame([], $todos['lista']);
+        self::assertSame([
+            ['n' => 2, 'motivo' => '2 currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.'],
+            ['n' => 1, 'motivo' => '1 inscrito(s) nos alertas ficam de fora até confirmarem o e-mail.'],
+        ], $todos['deFora'], 'Ana tem currículo repetido e é inscrita: conta uma vez só, como currículo');
+        self::assertSame([
+            ['n' => 1, 'motivo' => '1 currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.'],
+            ['n' => 2, 'motivo' => self::MOTIVO_DE_2],
+        ], $d->para(FiltroDaCampanha::deArray(['uf' => 'SP']))['deFora'], 'o filtro vale para a contagem: em SP, Ana conta só como inscrita (sem UF)');
+        self::assertSame([], $this->destinatarios($cvs, [], curriculosLiberados: false)->para(FiltroDaCampanha::deArray(['pub' => 'esc']))['deFora']);
+    }
+
     /**
      * @param list<Curriculo>          $cvs
      * @param list<InteressadoEmVagas> $inscritos
      */
-    private function destinatarios(array $cvs, array $inscritos = []): DestinatariosDaCampanha
+    private function destinatarios(array $cvs, array $inscritos = [], bool $curriculosLiberados = true): DestinatariosDaCampanha
     {
         $curriculos = $this->createStub(CurriculoRepository::class);
         $curriculos->method('recebidos')->willReturn($cvs);
         $interessados = $this->createStub(InteressadoEmVagasRepository::class);
         $interessados->method('paraExportar')->willReturn($inscritos);
 
-        return new DestinatariosDaCampanha($curriculos, $interessados, $this->createStub(VagaRepository::class));
+        return new DestinatariosDaCampanha($curriculos, $interessados, $this->createStub(VagaRepository::class), curriculosLiberados: $curriculosLiberados);
     }
 
     /** @param list<Vaga> $abertas o que o repositório devolve como abertas */

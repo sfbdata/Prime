@@ -15,7 +15,9 @@ use App\TrabalhoExterno\Repository\VagaRepository;
  * Quem recebe a campanha por e-mail do Master (`dest` do `campDe`, desenho 06 l.1083; spec VS 18.10.26
  * §4.10). A regra mora SÓ aqui: a tela, o CSV e o log contam o que esta classe devolve.
  *
- * - Candidatos: currículos com o aceite LGPD, nos filtros de UF e área. Os inscritos nos alertas da
+ * - Candidatos: currículos com o aceite LGPD, nos filtros de UF e área, desligados por
+ *   {@see CURRICULOS_LIBERADOS} (o aceite do currículo cobre só compartilhar com quem publica a vaga,
+ *   não e-mail de campanha); até o dono decidir ficam de fora e a tela diz quantos. Os inscritos nos alertas da
  *   página pública só entram com o e-mail confirmado (double opt-in da 5d); até lá ficam de fora e a
  *   tela diz quantos e por quê.
  * - Escritórios: os e-mails dos ofertantes das vagas, desligados por {@see ESCRITORIOS_LIBERADOS}.
@@ -25,6 +27,13 @@ final class DestinatariosDaCampanha
 {
     /** A confirmar com o dono: interesse legítimo B2B para mandar campanha ao e-mail dos ofertantes. */
     public const ESCRITORIOS_LIBERADOS = false;
+    /**
+     * A confirmar com o dono: o aceite do currículo ("compartilhá-los apenas com quem publica as vagas a que
+     * eu me candidatar") não cobre e-mail de campanha. Opções: (a) aceite específico de campanha no
+     * formulário do currículo, (b) só os inscritos confirmados da 5d, (c) aceitar o risco.
+     */
+    public const CURRICULOS_LIBERADOS = false;
+    public const MOTIVO_CURRICULOS = '%d currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.';
     public const DICA_ESCRITORIOS = 'A confirmar';
     public const MOTIVO_INSCRITOS = '%d inscrito(s) nos alertas ficam de fora até confirmarem o e-mail.';
     public const ORIGEM_CURRICULO = 'Currículo';
@@ -37,6 +46,8 @@ final class DestinatariosDaCampanha
         private readonly VagaRepository $vagas,
         /** Só o teste troca: em produção vale a constante. */
         private readonly bool $escritoriosLiberados = self::ESCRITORIOS_LIBERADOS,
+        /** Só o teste troca: em produção vale a constante. */
+        private readonly bool $curriculosLiberados = self::CURRICULOS_LIBERADOS,
     ) {
     }
 
@@ -66,10 +77,11 @@ final class DestinatariosDaCampanha
         if ($filtro->ehEscritorios()) {
             return ['lista' => $this->semDescadastrados($this->escritoriosLiberados ? $this->ofertantes() : []), 'deFora' => []];
         }
-        $lista = $this->doBancoDeTalentos($filtro);
+        $curriculos = $this->doBancoDeTalentos($filtro);
+        $lista = $this->curriculosLiberados ? $curriculos : [];
         $pendentes = 0;
         foreach ($this->interessados->paraExportar() as $i) {
-            if (!self::inscritoNoFiltro($i, $filtro) || isset($lista[$i->getEmail()])) {
+            if (!self::inscritoNoFiltro($i, $filtro) || isset($curriculos[$i->getEmail()]) || isset($lista[$i->getEmail()])) {
                 continue;
             }
             if (!$this->inscritoConfirmado($i)) {
@@ -79,10 +91,21 @@ final class DestinatariosDaCampanha
             $lista[$i->getEmail()] = ['email' => $i->getEmail(), 'nome' => '', 'origem' => self::ORIGEM_ALERTA, 'uf' => $i->getUf()];
         }
 
-        return [
-            'lista' => $this->semDescadastrados($lista),
-            'deFora' => $pendentes > 0 ? [['n' => $pendentes, 'motivo' => sprintf(self::MOTIVO_INSCRITOS, $pendentes)]] : [],
-        ];
+        return ['lista' => $this->semDescadastrados($lista), 'deFora' => $this->deFora($this->curriculosLiberados ? 0 : \count($curriculos), $pendentes)];
+    }
+
+    /** @return list<array{n: int, motivo: string}> */
+    private function deFora(int $curriculos, int $inscritos): array
+    {
+        $fora = [];
+        if ($curriculos > 0) {
+            $fora[] = ['n' => $curriculos, 'motivo' => sprintf(self::MOTIVO_CURRICULOS, $curriculos)];
+        }
+        if ($inscritos > 0) {
+            $fora[] = ['n' => $inscritos, 'motivo' => sprintf(self::MOTIVO_INSCRITOS, $inscritos)];
+        }
+
+        return $fora;
     }
 
     /**

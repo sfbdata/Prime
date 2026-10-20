@@ -9,6 +9,10 @@ use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\TrabalhoExterno\Controller\CampanhaController;
 use App\TrabalhoExterno\Entity\LinkDeVagas;
+use App\TrabalhoExterno\Repository\CurriculoRepository;
+use App\TrabalhoExterno\Repository\InteressadoEmVagasRepository;
+use App\TrabalhoExterno\Repository\VagaRepository;
+use App\TrabalhoExterno\Service\DestinatariosDaCampanha;
 use App\TrabalhoExterno\UseCase\ExportarDestinatariosDaCampanhaUseCase;
 use App\TrabalhoExterno\UseCase\ExportarEmailDaCampanhaUseCase;
 use App\TrabalhoExterno\UseCase\MontarCampanhaUseCase;
@@ -24,6 +28,8 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
  * verdade (Equipe, externo e prévia `?como=` levam 403 em JSON); o CSV sai com as colunas do desenho e
  * a lista vazia é 404 com o toast; o HTML sai como anexo com o link de vagas próprio, que a prévia não
  * cria; o registro do "Copiar HTML" exige CSRF; o log de cada exportação não leva e-mail nenhum.
+ * Com a regra padrão os currículos ficam de fora (o aceite não cobre campanha): os cenários que precisam
+ * de lista trocam o serviço por um com `curriculosLiberados: true` ({@see liberarCurriculos()}).
  */
 #[CoversClass(CampanhaController::class)]
 #[CoversClass(MontarCampanhaUseCase::class)]
@@ -65,7 +71,7 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->links(), 'ninguém sem permissão gera link de vagas');
     }
 
-    #[TestDox('o Master monta o modal: currículo com LGPD conta, o inscrito nos alertas fica de fora com o motivo, Escritórios desabilitado; a prévia não grava link')]
+    #[TestDox('o Master monta o modal com a regra padrão: 0 destinatários, o currículo e o inscrito de fora com os motivos, Escritórios desabilitado, CSV 404; a prévia não grava link')]
     public function testMontaSemGravarLink(): void
     {
         [$sede, $master] = $this->cenario();
@@ -75,14 +81,20 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->client->request('GET', self::API . '?uf=DF');
         self::assertResponseIsSuccessful();
         $c = $this->json($this->client);
-        self::assertSame(['cand', 1, 1], [$c['pub'], $c['destinatarios'], $c['vagas']]);
-        self::assertSame([['n' => 1, 'motivo' => '1 inscrito(s) nos alertas ficam de fora até confirmarem o e-mail.']], $c['deFora']);
+        self::assertSame(['cand', 0, 1], [$c['pub'], $c['destinatarios'], $c['vagas']]);
+        self::assertSame([
+            ['n' => 1, 'motivo' => '1 currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.'],
+            ['n' => 1, 'motivo' => '1 inscrito(s) nos alertas ficam de fora até confirmarem o e-mail.'],
+        ], $c['deFora']);
         self::assertSame([false, 'A confirmar'], [$c['publicos'][1]['disponivel'], $c['publicos'][1]['dica']]);
         self::assertSame('⚖️ 1 vaga(s) jurídica(s) abertas para você', $c['assuntoPadrao']);
-        self::assertSame('1 destinatário(s) com autorização (LGPD)', $c['resumo']['destinatarios']);
+        self::assertSame('0 destinatário(s) com autorização (LGPD)', $c['resumo']['destinatarios']);
         self::assertStringContainsString('href="http://localhost/vagas-juridicas"', $c['html']);
         self::assertStringContainsString('{{descadastrar}}', $c['html']);
         self::assertSame(0, $this->links(), 'a prévia usa a página pública geral e não grava link de vagas');
+        $this->client->request('GET', self::CSV . '?uf=DF');
+        self::assertResponseStatusCodeSame(404, 'com a regra padrão ninguém sai no CSV');
+        self::assertSame('Sem destinatários', $this->json($this->client)['titulo']);
 
         $this->client->request('GET', self::API . '?assunto=' . rawurlencode('Novidades da semana'));
         self::assertSame('Novidades da semana', $this->json($this->client)['assunto']);
@@ -92,6 +104,7 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
     public function testCsv(): void
     {
         [$sede, $master] = $this->cenario();
+        $this->liberarCurriculos();
         $this->logarComTenant($this->client, $master, $sede);
         $log = $this->escutarLog();
 
@@ -112,7 +125,7 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('@', json_encode($registros, JSON_THROW_ON_ERROR), 'nunca a lista no log');
     }
 
-    #[TestDox('Baixar HTML: anexo text/html com o marcador e um link de vagas novo (gravado), que leva às vagas abertas')]
+    #[TestDox('Baixar HTML com a regra padrão (0 destinatários): anexo text/html com o marcador e um link de vagas novo (gravado), que leva às vagas abertas')]
     public function testBaixarHtml(): void
     {
         [$sede, $master] = $this->cenario();
@@ -133,13 +146,14 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->client->request('GET', $m[1]);
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('Advogado trabalhista pleno', (string) $this->client->getResponse()->getContent());
-        self::assertSame('baixar', $this->registrosDaCampanha($log)[0]['acao']);
+        self::assertSame(['baixar', 0], [$this->registrosDaCampanha($log)[0]['acao'], $this->registrosDaCampanha($log)[0]['destinatarios']]);
     }
 
     #[TestDox('Copiar HTML: o registro exige CSRF; com ele, devolve o HTML com o link de vagas próprio e grava o log sem e-mails')]
     public function testRegistroDoCopiar(): void
     {
         [$sede, $master] = $this->cenario();
+        $this->liberarCurriculos();
         $this->logarComTenant($this->client, $master, $sede);
         $this->postarJson($this->client, '/trabalho-externo/api/vagas', self::vaga());
         $log = $this->escutarLog();
@@ -186,6 +200,21 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         return [$sede, $master, $doA, $a];
+    }
+
+    /**
+     * Troca a regra no container de teste por uma com os currículos liberados, para os cenários que
+     * precisam de lista. Antes de qualquer pedido à campanha (o serviço ainda não foi criado).
+     */
+    private function liberarCurriculos(): void
+    {
+        $c = static::getContainer();
+        $c->set(DestinatariosDaCampanha::class, new DestinatariosDaCampanha(
+            $c->get(CurriculoRepository::class),
+            $c->get(InteressadoEmVagasRepository::class),
+            $c->get(VagaRepository::class),
+            curriculosLiberados: true,
+        ));
     }
 
     private function escutarLog(): TestHandler
