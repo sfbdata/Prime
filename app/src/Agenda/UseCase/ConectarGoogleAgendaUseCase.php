@@ -42,12 +42,23 @@ final class ConectarGoogleAgendaUseCase
     public function executar(Tenant $tenant, User $eu, string $codigo, string $verificador, string $retorno): void
     {
         $autorizacao = $this->google->trocarCodigo($codigo, $verificador, $retorno);
-        $conexao = $this->guardar($tenant, $eu, $this->cifrador->cifrar($autorizacao['refresh']), $autorizacao['conta'], GoogleAgendaApi::FUSO);
+        $conexao = $this->guardar($tenant, $eu, $this->cifrar($autorizacao['refresh']), $autorizacao['conta'], GoogleAgendaApi::FUSO);
         $this->bus->dispatch(new SincronizarGoogleDaPessoa((int) $conexao->getId()));
         $this->garantir->garantir();
     }
 
-    private function guardar(Tenant $tenant, User $eu, string $cifrado, string $conta, string $fuso): ConexaoGoogleAgenda
+    /** Sem a chave do servidor não há como guardar: a autorização é revogada lá, para não ficar solta. */
+    private function cifrar(string $refresh): string
+    {
+        try {
+            return $this->cifrador->cifrar($refresh);
+        } catch (\Throwable $e) {
+            $this->google->revogar($refresh);
+            throw new GoogleAgendaException('O servidor não tem como guardar a autorização do Google agora.', 0, $e);
+        }
+    }
+
+        private function guardar(Tenant $tenant, User $eu, string $cifrado, string $conta, string $fuso): ConexaoGoogleAgenda
     {
         $conexao = $this->conexoes->daPessoa($eu, $tenant);
         if (null === $conexao) {

@@ -19,6 +19,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -42,6 +44,7 @@ final class GoogleAgendaController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly LoggerInterface $logger,
+        private readonly RateLimiterFactoryInterface $agendaGoogleLimiter,
     ) {
     }
 
@@ -95,7 +98,11 @@ final class GoogleAgendaController extends AbstractController
         [$eu, $tenant] = $this->exigirAgenda();
         $this->validarCsrfAjax($request);
         $corpo = '' === $request->getContent() ? [] : $request->toArray();
-        $this->desconectar->executar($tenant, $eu, true === ($corpo['apagarAgenda'] ?? false));
+        try {
+            $this->desconectar->executar($tenant, $eu, true === ($corpo['apagarAgenda'] ?? false));
+        } catch (GoogleAgendaException $e) {
+            return $this->json(['erro' => $e->getMessage()], 409);
+        }
 
         return $this->json(['ok' => true]);
     }
@@ -107,6 +114,9 @@ final class GoogleAgendaController extends AbstractController
         $tenant = $this->tenantContext->getCurrentTenant();
         if (!$eu instanceof User || null === $tenant || !$this->permissionChecker->canAccessModule($eu, $tenant, 'agenda')) {
             throw new AccessDeniedHttpException('Sem acesso à Agenda.');
+        }
+        if (!$this->agendaGoogleLimiter->create('pessoa-' . $eu->getId())->consume()->isAccepted()) {
+            throw new TooManyRequestsHttpException(null, 'Muitas tentativas de conexão com o Google. Tente de novo em alguns minutos.');
         }
 
         return [$eu, $tenant];

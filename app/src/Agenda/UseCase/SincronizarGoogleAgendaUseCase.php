@@ -42,6 +42,11 @@ use Psr\Log\LoggerInterface;
 final class SincronizarGoogleAgendaUseCase
 {
     private const PRIMEIRA_VEZ = '-30 days';
+    /**
+     * Quem perdeu a Agenda no escritório (saiu, mudou de papel): apagar também a agenda do escritório na conta
+     * Google dela? Com o dono (revisão da b5, item 1; recomendação do coordenador: sim). Virar é esta linha.
+     */
+    private const APAGAR_AGENDA_DE_QUEM_SAI = false;
     /** Folga ao procurar compromissos antigos mudados desde a última sincronia (relógios e transações). */
     private const FOLGA = '-1 hour';
 
@@ -72,7 +77,11 @@ final class SincronizarGoogleAgendaUseCase
             return $nada;
         }
         if (!$this->permissoes->canAccessModule($conexao->getUsuario(), $conexao->getTenant(), 'agenda')) {
-            $this->desconectar->executar($conexao->getTenant(), $conexao->getUsuario(), false);
+            try {
+                $this->desconectar->executar($conexao->getTenant(), $conexao->getUsuario(), self::APAGAR_AGENDA_DE_QUEM_SAI);
+            } catch (GoogleAgendaException) {
+                // Sincronia rodando agora: a próxima volta desconecta.
+            }
 
             return $nada;
         }

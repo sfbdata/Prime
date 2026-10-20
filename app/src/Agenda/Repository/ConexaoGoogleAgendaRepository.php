@@ -78,6 +78,18 @@ class ConexaoGoogleAgendaRepository extends ServiceEntityRepository
         );
     }
 
+    /** @return list<ConexaoGoogleAgenda> as conexões da pessoa em todos os escritórios */
+    public function daPessoaEmTodos(User $usuario): array
+    {
+        return $this->findBy(['usuario' => $usuario], ['id' => 'ASC']);
+    }
+
+    /** @return list<ConexaoGoogleAgenda> */
+    public function doEscritorio(Tenant $tenant): array
+    {
+        return $this->findBy(['tenant' => $tenant], ['id' => 'ASC']);
+    }
+
     /** Trava atômica: duas sincronias da mesma pessoa ao mesmo tempo duplicariam envios. */
     public function ocupar(int $id, \DateTimeImmutable $agora): bool
     {

@@ -33,8 +33,6 @@ class AuditLogSubscriber
         'invitationToken',
         // Refresh token OAuth do Drive por tenant — já cifrado, nunca vai para o audit_log.
         'refreshTokenCifrado',
-        // Resumo técnico da sincronia com o Google Agenda (entrega 6): muda a cada envio, não é dado de ninguém.
-        'googleHash',
     ];
 
     public function __construct(

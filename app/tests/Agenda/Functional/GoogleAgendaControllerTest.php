@@ -17,6 +17,9 @@ use App\Tests\Agenda\GoogleFalso;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -71,6 +74,7 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
         self::assertSame(43, strlen((string) $q['code_challenge']));
         self::assertSame(32, strlen((string) $q['state']));
         self::assertSame('offline', $q['access_type']);
+        self::assertSame('false', $q['include_granted_scopes'], 'nada herdado de outra autorização do mesmo cliente');
         self::assertSame('openid email https://www.googleapis.com/auth/calendar.app.created', $q['scope']);
         self::assertSame($eu->getEmail(), $q['login_hint'], 'sugere a conta do cadastro; a pessoa escolhe qualquer uma');
         self::assertStringEndsWith('/agenda/google/retorno', (string) $q['redirect_uri']);
@@ -136,6 +140,71 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE tenant_id = :t', ['t' => $tenant->getId()]));
         self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE tenant_id = :t', ['t' => $outro->getId()]));
         self::assertNotContains('POST /revoke', $this->google->pedidos);
+    }
+
+    #[TestDox('Identificação ou permissões que não conferem: $caso. Não conecta, e o que o Google concedeu é revogado')]
+    #[DataProvider('retornosRecusados')]
+    public function testRetornoQueNaoConfere(string $caso, string $propriedade, string|int $valor, bool $revoga): void
+    {
+        $client = $this->cliente();
+        [$eu, $tenant] = $this->entrar($client);
+        $this->google->{$propriedade} = $valor;
+        $client->request('GET', '/agenda/google/conectar?volta=' . rawurlencode('/agenda'));
+        parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), \PHP_URL_QUERY), $q);
+
+        $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
+
+        self::assertResponseRedirects('/agenda#google=falhou');
+        self::assertFalse($this->em()->getConnection()->fetchOne('SELECT id FROM agenda_google_conexao WHERE usuario_id = :u AND tenant_id = :t', ['u' => $eu->getId(), 't' => $tenant->getId()]));
+        self::assertSame($revoga, in_array('POST /revoke', $this->google->pedidos, true));
+    }
+
+    /** @return iterable<string, array{string, string, string|int, bool}> */
+    public static function retornosRecusados(): iterable
+    {
+        yield 'id_token de outro cliente' => ['id_token de outro cliente', 'audiencia', 'outro-cliente', false];
+        yield 'id_token vencido' => ['id_token vencido', 'validadeDoIdToken', -60, false];
+        yield 'escopo além do pedido' => ['escopo além do pedido', 'escoposConcedidos', 'openid email https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/drive', true];
+        yield 'sem o escopo da agenda' => ['sem o escopo da agenda', 'escoposConcedidos', 'openid email', true];
+    }
+
+    #[TestDox('Desconectar com a sincronia rodando: 409 com o aviso, e a conexão fica')]
+    public function testDesconectarDuranteASincronia(): void
+    {
+        $client = $this->cliente();
+        [$eu, $tenant] = $this->entrar($client);
+        $this->conectado($eu, $tenant);
+        $this->em()->getConnection()->executeStatement('UPDATE agenda_google_conexao SET ocupada_desde = NOW() WHERE usuario_id = :u', ['u' => $eu->getId()]);
+
+        $client->request('POST', '/agenda/google/desconectar', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], '{}');
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertStringContainsString('sincronizando agora', (string) json_decode((string) $client->getResponse()->getContent(), true)['erro']);
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE usuario_id = :u', ['u' => $eu->getId()]));
+    }
+
+    #[TestDox('Limitador configurado: 20 pedidos por pessoa em 15 minutos; o 21º é recusado')]
+    public function testLimitadorConfigurado(): void
+    {
+        $limite = static::getContainer()->get('limiter.agenda_google')->create('pessoa-teste');
+
+        self::assertTrue($limite->consume(20)->isAccepted());
+        self::assertFalse($limite->consume()->isAccepted());
+    }
+
+    #[TestDox('Limitador nas rotas do Google: estourado, 429')]
+    public function testLimitadorNasRotas(): void
+    {
+        $client = $this->cliente();
+        // Nas requisições o kernel zera os pools em memória entre uma e outra: um de limite 1 prova o 429.
+        static::getContainer()->set('limiter.agenda_google', new RateLimiterFactory(['id' => 'agenda_google_teste', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 hour'], new InMemoryStorage()));
+        $this->entrar($client);
+
+        $client->request('GET', '/agenda/google/conectar');
+        self::assertResponseRedirects();
+        $client->request('GET', '/agenda/google/conectar');
+
+        self::assertResponseStatusCodeSame(429);
     }
 
     #[TestDox('Desconectar pedindo para apagar a agenda do escritório: apaga lá também; sem pedir, ela fica')]
