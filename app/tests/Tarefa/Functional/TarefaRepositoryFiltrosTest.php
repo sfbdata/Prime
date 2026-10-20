@@ -171,4 +171,102 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         self::assertCount(1, $sem);
         self::assertSame($semPrazo->getId(), $sem[0]->getId());
     }
+
+    #[TestDox('Busca acha a meta pelo nº da pasta (desenho de 19/10: "Buscar por título, pasta ou cliente")')]
+    public function testBuscaPorNumeroDaPasta(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $alvo   = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'PASTA-1361A'])->_real();
+        $outra  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'PASTA-0828'])->_real();
+        $eu     = UserFactory::createOne()->_real();
+
+        $achavel = TarefaFactory::createOne(['pasta' => $alvo, 'titulo' => 'Juntar procuração', 'descricao' => ''])->_real();
+        $achavel->addResponsavel($eu);
+        $fora = TarefaFactory::createOne(['pasta' => $outra, 'titulo' => 'Agendar reunião', 'descricao' => ''])->_real();
+        $fora->addResponsavel($eu);
+        $this->em->flush();
+
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => '1361a']);
+
+        self::assertSame([$achavel->getId()], array_map(static fn (Tarefa $t): ?int => $t->getId(), $resultado));
+    }
+
+    #[TestDox('Busca acha a meta pelo nome do cliente da pasta, sem acento e em minúsculas')]
+    public function testBuscaPorClienteSemAcento(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $alvo   = PastaFactory::createOne(['tenant' => $tenant, 'nomeCliente' => 'José do Egito Alves de Souza'])->_real();
+        $outra  = PastaFactory::createOne(['tenant' => $tenant, 'nomeCliente' => 'Condomínio Rio Negro'])->_real();
+        $eu     = UserFactory::createOne()->_real();
+
+        $achavel = TarefaFactory::createOne(['pasta' => $alvo, 'titulo' => 'Contrato', 'descricao' => ''])->_real();
+        $achavel->addResponsavel($eu);
+        $fora = TarefaFactory::createOne(['pasta' => $outra, 'titulo' => 'Análise de pasta', 'descricao' => ''])->_real();
+        $fora->addResponsavel($eu);
+        $this->em->flush();
+
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'jose do egito']);
+
+        self::assertSame([$achavel->getId()], array_map(static fn (Tarefa $t): ?int => $t->getId(), $resultado));
+    }
+
+    #[TestDox('Busca pela pasta não duplica linhas: duas metas da mesma pasta voltam uma vez cada, e a que casa por título e por pasta volta uma vez só')]
+    public function testBuscaPelaPastaNaoDuplica(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'RECURSO-77', 'nomeCliente' => 'Recurso Ltda'])->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $colega = UserFactory::createOne()->_real();
+
+        $a = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Protocolar recurso', 'descricao' => 'recurso'])->_real();
+        $a->addResponsavel($eu);
+        $a->addResponsavel($colega);
+        $b = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Conferir custas', 'descricao' => ''])->_real();
+        $b->addResponsavel($eu);
+        $this->em->flush();
+
+        $ids = array_map(static fn (Tarefa $t): ?int => $t->getId(), $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'recurso']));
+        sort($ids);
+        $esperado = [$a->getId(), $b->getId()];
+        sort($esperado);
+
+        self::assertSame($esperado, $ids);
+    }
+
+    #[TestDox('Busca pela pasta combinada com a faceta de prioridade usa um join só e respeita as duas')]
+    public function testBuscaPelaPastaComPrioridade(): void
+    {
+        $tenant  = TenantFactory::createOne()->_real();
+        $urgente = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Urgente, 'nomeCliente' => 'Francisca Maria'])->_real();
+        $normal  = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Normal, 'nomeCliente' => 'Francisca Maria'])->_real();
+        $outro   = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Urgente, 'nomeCliente' => 'Wellington'])->_real();
+        $eu      = UserFactory::createOne()->_real();
+
+        $certa = TarefaFactory::createOne(['pasta' => $urgente, 'titulo' => 'Meta um', 'descricao' => ''])->_real();
+        $certa->addResponsavel($eu);
+        foreach ([$normal, $outro] as $p) {
+            TarefaFactory::createOne(['pasta' => $p, 'titulo' => 'Meta outra', 'descricao' => ''])->_real()->addResponsavel($eu);
+        }
+        $this->em->flush();
+
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'francisca', 'prioridade' => 'urgente']);
+
+        self::assertSame([$certa->getId()], array_map(static fn (Tarefa $t): ?int => $t->getId(), $resultado));
+    }
+
+    #[TestDox('Busca pelo título continua achando a meta cuja pasta e cliente não casam')]
+    public function testBuscaPeloTituloSemCasarAPasta(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'PASTA-1', 'nomeCliente' => null])->_real();
+        $eu     = UserFactory::createOne()->_real();
+
+        $meta = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Revisar petição inicial', 'descricao' => ''])->_real();
+        $meta->addResponsavel($eu);
+        $this->em->flush();
+
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'peticao inicial']);
+
+        self::assertSame([$meta->getId()], array_map(static fn (Tarefa $t): ?int => $t->getId(), $resultado));
+    }
 }

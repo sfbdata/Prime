@@ -374,10 +374,17 @@ class TarefaRepository extends ServiceEntityRepository
      */
     private function aplicarFiltrosDaTela(QueryBuilder $qb, array $filtros): void
     {
-        $busca = trim((string) ($filtros['busca'] ?? ''));
+        $busca      = trim((string) ($filtros['busca'] ?? ''));
+        $prioridade = !empty($filtros['prioridade']) ? PrioridadePasta::tryFrom((string) $filtros['prioridade']) : null;
+
+        // Busca e prioridade leem a pasta da meta: um join só, com um alias só, quando qualquer
+        // das duas pede. É ManyToOne, então não duplica linha.
+        if ($busca !== '' || $prioridade !== null) {
+            $qb->leftJoin('t.pasta', 'p_tela');
+        }
+
         if ($busca !== '') {
-            $qb->andWhere('(UNACCENT(LOWER(t.titulo)) LIKE UNACCENT(:busca) OR UNACCENT(LOWER(t.descricao)) LIKE UNACCENT(:busca))')
-               ->setParameter('busca', '%' . mb_strtolower($busca) . '%');
+            $this->aplicarBuscaDaTela($qb, $busca);
         }
 
         if (!empty($filtros['status'])) {
@@ -385,13 +392,9 @@ class TarefaRepository extends ServiceEntityRepository
                ->setParameter('statusFiltro', $filtros['status']);
         }
 
-        if (!empty($filtros['prioridade'])) {
-            $prioridade = PrioridadePasta::tryFrom((string) $filtros['prioridade']);
-            if ($prioridade !== null) {
-                $qb->join('t.pasta', 'p_prio')
-                   ->andWhere('p_prio.prioridade = :prioridade')
-                   ->setParameter('prioridade', $prioridade);
-            }
+        if ($prioridade !== null) {
+            $qb->andWhere('p_tela.prioridade = :prioridade')
+               ->setParameter('prioridade', $prioridade);
         }
 
         $prazo = (string) ($filtros['prazo'] ?? '');
@@ -425,6 +428,22 @@ class TarefaRepository extends ServiceEntityRepository
         if ($prazo === 'sem') {
             $qb->andWhere('t.prazo IS NULL');
         }
+    }
+
+    /**
+     * "Buscar por título, pasta ou cliente" (desenho de 19/10): título, nº da pasta e nome do cliente,
+     * sem acento. A descrição continua entrando, como antes do desenho. Usa o alias `p_tela`, que
+     * `aplicarFiltrosDaTela` junta uma vez só.
+     */
+    private function aplicarBuscaDaTela(QueryBuilder $qb, string $busca): void
+    {
+        $qb->andWhere(
+            '(UNACCENT(LOWER(t.titulo)) LIKE UNACCENT(:busca)'
+            . ' OR UNACCENT(LOWER(t.descricao)) LIKE UNACCENT(:busca)'
+            . ' OR UNACCENT(LOWER(p_tela.nup)) LIKE UNACCENT(:busca)'
+            . ' OR UNACCENT(LOWER(p_tela.nomeCliente)) LIKE UNACCENT(:busca))'
+        )
+           ->setParameter('busca', '%' . mb_strtolower($busca) . '%');
     }
 
     /**
