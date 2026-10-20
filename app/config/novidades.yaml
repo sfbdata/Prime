@@ -1,6 +1,18 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.5.0"
+  data: "2026-10-20"
+  itens:
+    - "A Agenda ganhou tela nova: feriados nacionais e do seu estado, recesso forense, datas comemorativas, aniversários da equipe e os prazos das pastas aparecem sozinhos no calendário."
+    - "Nova tela de entrada, com recuperação de senha por código e criação da conta e do escritório em um minuto."
+    - "O usuário primário agora pode trancar uma pasta para toda a equipe ou escolher, pessoa por pessoa, quem não vê, quem só visualiza e quem edita. Quem encontra a pasta trancada pode pedir acesso ao primário pela própria tela."
+    - "Agora dá para criar um marcador direto na janela Marcadores da pasta: digite o nome e clique em \"Criar marcador\"."
+    - "A aba Detalhes mostra quais pontos do relatório inicial já foram registrados e quais ainda faltam, e se atualiza assim que você registra uma observação."
+    - "Agora dá para bater o ponto de entrada e de saída direto pelo painel de quem está on-line, no avatar do topo."
+    - "Quem trabalha em mais de um escritório precisa registrar a saída num antes de registrar a entrada no outro, no mesmo dia."
+    - "Na aba Push da pasta, o cartão \"Avisar cliente\" guarda os e-mails do cliente, e a análise da BlueJus IA pode ser enviada a ele por e-mail depois de revisada, sempre com cópia para a Controladoria do escritório."
+    - "No cartão \"Avisar cliente\" da aba Push, o escritório pode ligar o envio automático ao cliente das novas movimentações, das audiências e intimações e de um resumo semanal toda segunda-feira, sempre com cópia para a Controladoria."
 - versao: "2.4.0"
   data: "2026-10-20"
   itens:

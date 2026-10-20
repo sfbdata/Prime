@@ -316,6 +316,8 @@
 .ag-ctx-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; background: var(--ag-card); padding: 8px 14px; font-size: 13.5px !important; color: var(--ag-corpo); text-align: left; }
 .ag-ctx-item:hover, .ag-ctx-item:focus { background: var(--ag-hover); outline: none; }
 .ag-ctx-item i { width: 16px; }
+.ag-ctx-item.is-perigo { color: var(--ag-perigo); }
+.ag-f-tipo.is-on { border-color: var(--ag-azul); background: var(--ag-azul-suave); color: var(--ag-azul); }
 
 /* ── Aviso ──────────────────────────────────────────────────────────────── */
 .ag-toast { position: fixed; z-index: 1140; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ag-toast); color: #fff; font-size: 13.5px; padding: 10px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
@@ -323,6 +325,7 @@
 /* ── Modal de criar e editar (dc L.110-121) ─────────────────────────────── */
 .ag-mbtn.is-perigo { color: var(--ag-perigo); }
 .ag-modal-avisados { font-size: 13px; color: var(--ag-texto-2); }
+.ag-modal-corpo a.ag-modal-feriados { font-size: 12.5px; }
 .ag-form { gap: 12px; }
 .ag-f-titulo { height: 40px; border: none; border-bottom: 2px solid var(--ag-azul); font: inherit; font-size: 18px; outline: none; background: transparent; color: var(--ag-texto); }
 .ag-f-tipos { display: flex; gap: 6px; flex-wrap: wrap; }

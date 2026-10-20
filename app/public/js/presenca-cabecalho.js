@@ -16,6 +16,10 @@
     var chave = raiz.getAttribute('data-chave') || '0:0';
     var euId = Number(raiz.getAttribute('data-eu-id')) || 0;
     var urlEquipe = raiz.getAttribute('data-url-equipe');
+    // Fase 3 (dc L.306 e L.685): só o primário recebe a URL; o seletor mostra o limite do escritório.
+    var urlAusencia = raiz.getAttribute('data-ausencia-url');
+    var ausenciaMin = Number(raiz.getAttribute('data-ausencia-min')) || 60;
+    var OPCOES_AUSENCIA = [15, 30, 60, 120];
 
     // dc L.665 `ST`: rótulo, cor e ordem do grupo.
     var ST = { on: ['On-line', '#2ecc71', 1], ausente: ['Ausente', '#f0b429', 2], ocupado: ['Não perturbe', '#e74c3c', 3], off: ['Desligado', '#b7c4cd', 4] };
@@ -72,6 +76,64 @@
         b.addEventListener('click', function (e) { e.stopPropagation(); fechar(); selo.focus(); });
 
         return b;
+    }
+
+    /* ── Regra do escritório: "Ausente após sem atividade" (dc L.306, só o primário) ─────────────────────────── */
+    var ausenciaConfirmada = ausenciaMin;   // o último valor que o servidor aceitou
+    var pedidoDeAusencia = 0;               // só a resposta da escolha mais nova decide
+    var redesenhoPendente = false;
+    function seletorDeAusenciaEmUso() {
+        return document.activeElement && document.activeElement.id === 'presencaAusencia';
+    }
+    function regraDeAusencia() {
+        var linha = el('div', 'presenca-regra');
+        linha.appendChild(icone('bi-clock-history'));
+        var rotulo = el('label', 'presenca-regra-rotulo', 'Ausente após sem atividade');
+        var seletor = el('select', 'presenca-regra-seletor');
+        seletor.id = 'presencaAusencia';
+        rotulo.htmlFor = seletor.id;
+        OPCOES_AUSENCIA.forEach(function (n) {
+            var op = el('option', null, n < 60 ? n + ' min' : (n / 60) + ' h');
+            op.value = String(n);
+            op.selected = n === ausenciaMin;
+            seletor.appendChild(op);
+        });
+        seletor.addEventListener('click', function (e) { e.stopPropagation(); });
+        // Esc com a lista aberta fecha só a lista: o painel continua (o keydown do documento não o vê).
+        seletor.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); } });
+        seletor.addEventListener('change', function () { mudarAusencia(Number(seletor.value)); });
+        // Enquanto o seletor está em uso o painel não se redesenha (fecharia a lista); ao sair, põe o atraso em dia.
+        seletor.addEventListener('blur', function () {
+            if (redesenhoPendente) { redesenhoPendente = false; window.setTimeout(desenharPainel, 0); }
+        });
+        linha.appendChild(rotulo);
+        linha.appendChild(seletor);
+
+        return linha;
+    }
+    function respostaJsonDeSucesso(r) {   // sessão expirada redireciona para o login com 200: não é sucesso
+        if (!r.ok || r.redirected || (r.headers.get('Content-Type') || '').indexOf('application/json') === -1) {
+            throw new Error(String(r.status));
+        }
+
+        return r.json();
+    }
+    function mudarAusencia(minutos) {
+        var meu = ++pedidoDeAusencia;
+        ausenciaMin = minutos;   // o redesenho de 4 e 20 s mantém a escolha
+        fetch(urlAusencia, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ minutos: minutos }),
+        }).then(respostaJsonDeSucesso)
+            .then(function (d) { ausenciaConfirmada = d && d.minutos ? d.minutos : minutos; })
+            .catch(function () {
+                if (meu !== pedidoDeAusencia) { return; }   // uma escolha mais nova já está a caminho
+                ausenciaMin = ausenciaConfirmada;
+                var atual = document.getElementById('presencaAusencia');   // o seletor da tela, não o de antes do redesenho
+                if (atual) { atual.value = String(ausenciaConfirmada); }
+                if (window.bjAviso) { window.bjAviso('Não foi possível salvar o tempo de ausência. Tente de novo.'); }
+            });
     }
 
     /* ── Equipe (nomes e cargos), na sessão do navegador ─────────────────────── */
@@ -260,6 +322,7 @@
 
     function desenharPainel() {
         if (!painel) { return; }
+        if (seletorDeAusenciaEmUso()) { redesenhoPendente = true; return; }
         var focoNoSom = document.activeElement && document.activeElement.classList.contains('presenca-som');
         var focoNoPonto = document.activeElement && document.activeElement.classList.contains('presenca-sub--ponto');
         var lista = pessoas();
@@ -297,6 +360,7 @@
         nota.appendChild(icone('bi-info-circle'));
         nota.appendChild(document.createTextNode(' ' + NOTA));
         painel.appendChild(nota);
+        if (urlAusencia) { painel.appendChild(regraDeAusencia()); }
         if (equipe && lista.length <= 1) { painel.appendChild(el('div', 'presenca-vazio', 'Só você está na equipe por enquanto.')); }
         if (focoNoSom) { som.focus(); }   // redesenhar a cada 20 s não tira o foco de quem está no botão
         var novoPonto = focoNoPonto ? painel.querySelector('.presenca-sub--ponto.is-acao') : null;
