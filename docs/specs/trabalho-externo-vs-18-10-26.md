@@ -93,7 +93,8 @@ Conferido no navegador (8107): modal de várias vagas e de uma, detalhe, menu.
 física (pendência abaixo); F3a: minimização (esconder e-mail,
 telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do decisor; hoje segue o
 desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
-é excluído (o termo fica ligado ao usuário).
+é excluído (o termo fica ligado ao usuário). Decidir se "Salvar edição" e "Novo escritório" do bloco SOLICITANTE da
+Nova solicitação (06 l.640, 641) entram (§4.8).
 
 **Próximo passo**: F4 (§4.4), empilhada sobre o #105, com as notificações pelo sino da Central; depois
 externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
@@ -673,6 +674,34 @@ e destinatário, sem duplicar pendente da mesma URL.
 - `POST /trabalho-externo/api/vagas/alerta` `trabalho_externo_vagas_alerta` `{ligado}`: `{alerta, toast}`.
 - Migration: `escritorio_do_candidato` na candidatura (o tenant do contexto no momento).
 - `index.html.twig`: `data-url-engajamento`, `data-url-vagas-alerta`.
+
+## 4.8 Conferência final do desenho 06 (19/10, noite)
+
+Desenho percorrido de ponta a ponta (l.1 a 1348) contra as specs e o código. Coberto pela pilha
+#62 → #83 → #84 → #96 → #105 → F4: moldura e acesso, demandas inteiras (spec base + F1), vagas (F2a,
+F2b, F2c), currículos (F3a), engajamento e avisos (F4).
+
+**Ainda por fazer, com dono**: F3b (painel e KPIs do Master, gráficos, crescimento, Termo de
+Voluntariado, filtro "Termo", chip e atalhos do termo, **e os avisos "termo enviado" e "termo aceito"**,
+l.1032 e 1033, pelo sino da F4); F2d (alertas por e-mail, depois da 5d); campanha por e-mail do Master
+(l.330 a 341, 940 a 957, 1082 a 1097; depende da 5d); KPIs da página pública (KPI "ALERTAS POR E-MAIL",
+l.1146: leads, visitas pelo link, cliques em criar conta, CSV `alertas-vagas-bluejus.csv`).
+
+**De outras frentes**: `bj-lembretes` (4b), `bj-recursos` (b5), `bj-plano` (f6), `bj-idioma` (7d),
+`bj-dica.js` (fidelidade-designer, `central-dica.js`), `bluejus-central.js` (central-comunicacao-a2),
+favicons e logos, moldura do sistema, login, cadastro e retorno depois do login (7d), preferência de
+apoiador (f6, decisão de produto com o coordenador).
+
+**Sem dono achados na conferência e destino**:
+
+| # | Item | Linhas | Destino |
+|---|---|---|---|
+| 1 | Modelo de requisitos ao escolher o cargo da vaga (`MODELOS`, 7 textos) | 970, 1068 | entra na F4 (tela) |
+| 2 | "Salvar edição" e "Novo escritório" no bloco SOLICITANTE da Nova solicitação | 640, 641, 1325 a 1327 | **Para o dono** (pendente desde 15/10; mexe em dado do escritório) |
+| 3 | Aviso ao solicitante no "Solicitar informações" da demanda | 784 | entra na F4 (sino) |
+| 4 | Avisos do Termo de Voluntariado | 1032, 1033 | F3b, pelo sino da F4 |
+| 5 | Currículo atualizado "aparece primeiro" | 839, 1021, 1059 | entra na F4: o banco ordena por `atualizadoEm` (como l.995 e 1006); RECEBIDO e "Novos na semana" seguem por `recebidoEm` |
+| 6 | Contratos de `bj-dica.js` e `bluejus-central.js` | 15, 17 | registrados acima |
 
 ## 5. Verificação
 
