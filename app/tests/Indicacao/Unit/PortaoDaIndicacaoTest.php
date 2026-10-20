@@ -70,6 +70,15 @@ final class PortaoDaIndicacaoTest extends TestCase
         self::assertSame($esperado, $this->portao()->pendenciasDoCadastro(Pessoas::usuario(1, $nome, $cpf)));
     }
 
+    #[TestDox('com o perfil sem telefone, o telefone entra nas pendências (campo do Meu Perfil, desenho 07)')]
+    public function testTelefoneObrigatorio(): void
+    {
+        $user = Pessoas::usuario(1);
+        $user->getProfile()?->setTelefone(null);
+
+        self::assertSame([PortaoDaIndicacao::TELEFONE], $this->portao()->pendenciasDoCadastro($user));
+    }
+
     #[TestDox('o texto das pendências junta a lista com vírgula, como no desenho')]
     public function testTextoDasPendencias(): void
     {

@@ -307,6 +307,7 @@ final class IndicacaoRepositoryTest extends KernelTestCase
         $ana = $this->usuario('Ana Souza');
         $perfil = new UserProfile($ana);
         $perfil->setCpf('123.456.789-09');
+        $perfil->setTelefone('(61) 99999-0000');
         $ana->setProfile($perfil);
         $this->em->persist($perfil);
         $this->em->persist(new IndicacaoPausa($ana, null, $this->agora));
