@@ -117,6 +117,15 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\AutomacaoDeEmail::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+
+        // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
+        // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
+        // (SET NULL na purga). Toda consulta do lado do usuário filtra pelo id de quem indica.
+        \App\Indicacao\Entity\Indicacao::class,
+        \App\Indicacao\Entity\IndicacaoCodigo::class,
+        \App\Indicacao\Entity\IndicacaoConfig::class,
+        \App\Indicacao\Entity\IndicacaoPausa::class,
+        \App\Indicacao\Entity\IndicacaoAlerta::class,
     ];
 
     /**
@@ -130,7 +139,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 25 com o Comercial e e-mails (19/10/2026): dado do Master, de escopo plataforma, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 25;
+    // 25 → 30 com o Indicar o BlueJus (19/10/2026): dado de plataforma, da pessoa e do Master, justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 30;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

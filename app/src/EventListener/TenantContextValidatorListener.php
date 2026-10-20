@@ -47,6 +47,12 @@ final class TenantContextValidatorListener
         'comercial_confirmar_endereco_gravar',
         'comercial_rastreio_abertura',
         'comercial_rastreio_clique',
+        // Indicar o BlueJus (spec indicar-bluejus.md): o menu oferece a janela a todo logado, com ou sem
+        // escritório (o Convidado do Trabalho Externo também). O dado é da pessoa, sem tenant; o controller só
+        // usa o escritório da sessão com vínculo ativo, conferido por ele mesmo.
+        'indicacao_janela',
+        'indicacao_email',
+        'indicacao_canal',
     ];
 
     /**

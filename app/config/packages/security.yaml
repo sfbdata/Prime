@@ -40,6 +40,7 @@ security:
         - { path: ^/convite,          roles: PUBLIC_ACCESS }  # aceite de convite
         - { path: ^/trabalho-externo/convite/, roles: PUBLIC_ACCESS }  # convite do Trabalho Externo (o aceite exige login; criar conta, não)
         - { path: ^/cadastro,         roles: PUBLIC_ACCESS }  # auto-cadastro público (conta + escritório)
+        - { path: ^/i/,               roles: PUBLIC_ACCESS }  # link curto do Indicar o BlueJus: guarda o código e leva ao cadastro
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
         - { path: ^/politica-de-privacidade, roles: PUBLIC_ACCESS }  # leitura pública: quem ainda não tem conta precisa ler
