@@ -15,6 +15,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
+use App\Shared\Prazo\RegraDoPrazo;
 
 /**
  * @extends ServiceEntityRepository<Tarefa>
@@ -374,10 +375,17 @@ class TarefaRepository extends ServiceEntityRepository
      */
     private function aplicarFiltrosDaTela(QueryBuilder $qb, array $filtros): void
     {
-        $busca = trim((string) ($filtros['busca'] ?? ''));
+        $busca      = trim((string) ($filtros['busca'] ?? ''));
+        $prioridade = !empty($filtros['prioridade']) ? PrioridadePasta::tryFrom((string) $filtros['prioridade']) : null;
+
+        // Busca e prioridade leem a pasta da meta: um join só, com um alias só, quando qualquer
+        // das duas pede. É ManyToOne, então não duplica linha.
+        if ($busca !== '' || $prioridade !== null) {
+            $qb->leftJoin('t.pasta', 'p_tela');
+        }
+
         if ($busca !== '') {
-            $qb->andWhere('(UNACCENT(LOWER(t.titulo)) LIKE UNACCENT(:busca) OR UNACCENT(LOWER(t.descricao)) LIKE UNACCENT(:busca))')
-               ->setParameter('busca', '%' . mb_strtolower($busca) . '%');
+            $this->aplicarBuscaDaTela($qb, $busca);
         }
 
         if (!empty($filtros['status'])) {
@@ -385,13 +393,9 @@ class TarefaRepository extends ServiceEntityRepository
                ->setParameter('statusFiltro', $filtros['status']);
         }
 
-        if (!empty($filtros['prioridade'])) {
-            $prioridade = PrioridadePasta::tryFrom((string) $filtros['prioridade']);
-            if ($prioridade !== null) {
-                $qb->join('t.pasta', 'p_prio')
-                   ->andWhere('p_prio.prioridade = :prioridade')
-                   ->setParameter('prioridade', $prioridade);
-            }
+        if ($prioridade !== null) {
+            $qb->andWhere('p_tela.prioridade = :prioridade')
+               ->setParameter('prioridade', $prioridade);
         }
 
         $prazo = (string) ($filtros['prazo'] ?? '');
@@ -428,6 +432,24 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * "Buscar por título, pasta ou cliente" (desenho de 19/10): título, nº da pasta e nome do cliente,
+     * sem acento. A descrição continua entrando, como antes do desenho. Usa o alias `p_tela`, que
+     * `aplicarFiltrosDaTela` junta uma vez só. `%`, `_` e `\` digitados são escapados (o escape padrão
+     * do LIKE no PostgreSQL é a barra), como no NotificacaoRepository: "%" procura um "%" literal nos
+     * quatro campos, em vez de casar tudo.
+     */
+    private function aplicarBuscaDaTela(QueryBuilder $qb, string $busca): void
+    {
+        $qb->andWhere(
+            '(UNACCENT(LOWER(t.titulo)) LIKE UNACCENT(:busca)'
+            . ' OR UNACCENT(LOWER(t.descricao)) LIKE UNACCENT(:busca)'
+            . ' OR UNACCENT(LOWER(p_tela.nup)) LIKE UNACCENT(:busca)'
+            . ' OR UNACCENT(LOWER(p_tela.nomeCliente)) LIKE UNACCENT(:busca))'
+        )
+           ->setParameter('busca', '%' . addcslashes(mb_strtolower($busca), '%_\\') . '%');
+    }
+
+    /**
      * @return Tarefa[]
      */
     public function findByProcesso(Processo $processo): array
@@ -460,6 +482,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->select('COUNT(t.id)')
             ->join('t.pasta', 'p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.status != :concluida')
             ->setParameter('tenant', $tenant)
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
@@ -478,6 +501,7 @@ class TarefaRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('t')
             ->join('t.pasta', 'p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->setParameter('tenant', $tenant);
 
         $this->aplicarFiltrosDashboard($qb, $filtros, true);
@@ -508,6 +532,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->setParameter('tenant', $tenant)
             ->groupBy('u.id');
 
@@ -534,6 +559,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.status != :concluida')
             ->setParameter('tenant', $tenant)
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
@@ -552,20 +578,23 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array<int, int>  userId => total (ativas com prazo < $referencia)
+     * @return array<int, int>  userId => total (ativas com prazo antes do dia de $referencia, RegraDoPrazo)
      */
     public function countVencidasPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia): array
     {
+        $referencia = RegraDoPrazo::inicioDoDia($referencia);
+
         $rows = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
-            ->andWhere('t.status != :concluida')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
+            ->andWhere('t.status NOT IN (:foraDaFila)') // em revisão não vence nem é prazo próximo, como em Minhas Metas
             ->andWhere('t.prazo IS NOT NULL')
             ->andWhere('t.prazo < :referencia')
             ->setParameter('tenant', $tenant)
-            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
             ->setParameter('referencia', $referencia)
             ->groupBy('u.id')
             ->getQuery()
@@ -580,23 +609,25 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array<int, int>  userId => total (ativas com prazo entre $referencia e $referencia+7 dias)
+     * @return array<int, int>  userId => total (ativas com prazo do dia de $referencia até 7 dias depois, RegraDoPrazo)
      */
     public function countPrazosProximosPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia): array
     {
-        $limite = $referencia->modify('+7 days');
+        $limite = RegraDoPrazo::fimDoPrazoProximo($referencia);
+        $referencia = RegraDoPrazo::inicioDoDia($referencia);
 
         $rows = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
-            ->andWhere('t.status != :concluida')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
+            ->andWhere('t.status NOT IN (:foraDaFila)') // em revisão não vence nem é prazo próximo, como em Minhas Metas
             ->andWhere('t.prazo IS NOT NULL')
             ->andWhere('t.prazo >= :referencia')
-            ->andWhere('t.prazo <= :limite')
+            ->andWhere('t.prazo < :limite')
             ->setParameter('tenant', $tenant)
-            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
             ->setParameter('referencia', $referencia)
             ->setParameter('limite', $limite)
             ->groupBy('u.id')
@@ -619,8 +650,9 @@ class TarefaRepository extends ServiceEntityRepository
      *
      *  - todas         → todos os status, período por t.dataCriacao (countPorResponsavel);
      *  - ativas        → status != concluida, período (countAtivasPorResponsavel);
-     *  - vencidas      → ativas com prazo < $referencia, SEM período (countVencidasPorResponsavel);
-     *  - prazo_proximo → ativas com prazo em [$referencia, $referencia+7d], SEM período
+     *  - vencidas      → na fila (nem concluída nem em revisão, como Minhas Metas) com prazo antes do dia de
+     *                    $referencia, SEM período (countVencidasPorResponsavel);
+     *  - prazo_proximo → na fila com prazo do dia de $referencia até 7 dias depois (RegraDoPrazo), SEM período
      *                    (countPrazosProximosPorResponsavel);
      *  - concluidas    → status = concluida, período (coluna extra "Metas concluídas", que é
      *                    countPorResponsavel − countAtivasPorResponsavel);
@@ -654,6 +686,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->leftJoin('t.responsaveis', 'r')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.id IN (SELECT t_eq.id FROM ' . Tarefa::class . ' t_eq JOIN t_eq.responsaveis u_eq WHERE u_eq.id IN (:fEquipeIds))')
             ->setParameter('tenant', $tenant)
             ->setParameter('fEquipeIds', $ids)
@@ -670,21 +703,21 @@ class TarefaRepository extends ServiceEntityRepository
                 break;
 
             case 'vencidas':
-                $qb->andWhere('t.status != :concluida')
+                $qb->andWhere('t.status NOT IN (:foraDaFila)')
                    ->andWhere('t.prazo IS NOT NULL')
                    ->andWhere('t.prazo < :referencia')
-                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
-                   ->setParameter('referencia', $referencia);
+                   ->setParameter('foraDaFila', self::FORA_DA_FILA)
+                   ->setParameter('referencia', RegraDoPrazo::inicioDoDia($referencia));
                 break;
 
             case 'prazo_proximo':
-                $qb->andWhere('t.status != :concluida')
+                $qb->andWhere('t.status NOT IN (:foraDaFila)')
                    ->andWhere('t.prazo IS NOT NULL')
                    ->andWhere('t.prazo >= :referencia')
-                   ->andWhere('t.prazo <= :limite')
-                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
-                   ->setParameter('referencia', $referencia)
-                   ->setParameter('limite', $referencia->modify('+7 days'));
+                   ->andWhere('t.prazo < :limite')
+                   ->setParameter('foraDaFila', self::FORA_DA_FILA)
+                   ->setParameter('referencia', RegraDoPrazo::inicioDoDia($referencia))
+                   ->setParameter('limite', RegraDoPrazo::fimDoPrazoProximo($referencia));
                 break;
 
             case 'concluidas':
@@ -725,6 +758,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->leftJoin('t.responsaveis', 'r')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.status != :concluida')
             ->setParameter('tenant', $tenant)
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
@@ -781,5 +815,38 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
+    }
+
+    /**
+     * Título e descrição das metas das pastas pedidas, para o relatório de pastas sem processo
+     * (desenho 1.2.3, `spAnalisar`: fonte "Meta"). Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<string>> pastaId => "título descrição"
+     */
+    public function textosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.pasta) AS pasta_id', 't.titulo', 't.descricao')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = trim($l['titulo'] . ' ' . $l['descricao']);
+        }
+
+        return $porPasta;
     }
 }

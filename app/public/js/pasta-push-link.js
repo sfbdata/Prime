@@ -729,6 +729,9 @@
             var alvo = e.target;
             var aba = estado.gatilhoMenu;
             if (alvo.closest('.js-ppl-menu-fechar')) { fecharMenu(true); return; }
+            // Ponto de extensão: itens que outro script pôs neste menu (`data-ppl-externo`, os de ocultar
+            // aba do pasta-abas-ocultas.js). Este menu só fecha; a ação é de quem os pôs.
+            if (alvo.closest('[data-ppl-externo]')) { fecharMenu(false); return; }
             if (alvo.closest('.js-ppl-menu-copiar')) {
                 var ativo = ativoMaisRecente();
                 fecharMenu(true);
@@ -771,6 +774,8 @@
        (`popovers()`) faz stopPropagation no clique do gatilho, e um ouvinte de bolha no
        document nunca seria chamado. */
     document.addEventListener('click', function (e) {
+        // Sem o item no ⋮ (tela `pushpub` desligada para quem não é Master), não há selo a atualizar nem GET a fazer.
+        if (!document.querySelector('.js-ppl-abrir')) { return; }
         if (e.target.closest && e.target.closest('[data-ps-pop="psMenuAcoes"]')) { carregar().catch(function () {}); }
     }, true);
 })();

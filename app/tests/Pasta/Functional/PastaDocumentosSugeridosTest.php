@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Service\FaseDoProcessoPeloPush;
 use App\Pasta\Twig\DocumentosSugeridosExtension;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -31,6 +33,7 @@ use Zenstruck\Foundry\Test\Factories;
  * comparam com o getter, nunca com o texto digitado.
  */
 #[CoversClass(DocumentosSugeridosExtension::class)]
+#[CoversClass(FaseDoProcessoPeloPush::class)]
 final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
 {
     use Factories;
@@ -281,6 +284,36 @@ final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
         self::assertSame('Cumprimento de sentença', trim($painel->filter('.ds-sug-fase')->text()));
         self::assertSame(1, $painel->filter('.ds-sug-grupo[data-status="req"] .ds-sug-item[data-chave="calculo"]')->count());
         self::assertSame(1, $painel->filter('.ds-sug-grupo[data-status="na"] .ds-sug-item[data-chave="acordao"]')->count());
+    }
+
+    #[TestDox('fase pela última movimentação do Push: intimação para réplica põe a lista da Réplica e diz de onde veio')]
+    public function testFaseDaUltimaMovimentacaoDoPush(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, 'Indenização');
+        $this->vincularProcesso($pasta, $tenant, 'Procedimento Comum Cível');
+        $processo = $pasta->getProcessoPrincipal();
+        self::assertNotNull($processo);
+        $pub = new PublicacaoDjen();
+        $pub->setTenant($tenant);
+        $pub->setDjenId((string) random_int(100000000, 999999999));
+        $pub->setNumeroProcesso((string) preg_replace('/\D/', '', (string) $processo->getNumeroProcesso()));
+        $pub->setNumeroProcessoComMascara((string) $processo->getNumeroProcesso());
+        $pub->setSiglaTribunal('TJDFT');
+        $pub->setTipoComunicacao('Intimação');
+        $pub->setNomeOrgao('1ª Vara Cível de Brasília');
+        $pub->setDataDisponibilizacao(new \DateTimeImmutable('-2 days'));
+        $pub->setTexto('Conclusos para réplica. Intime-se a parte autora.');
+        $pub->setProcesso($processo);
+        $this->em()->persist($pub);
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $painel = $this->abrir($client, (int) $pasta->getId())->filter('#documentosSugeridos');
+
+        self::assertSame('Réplica', trim($painel->filter('.ds-sug-fase')->text()));
+        self::assertStringContainsString('pela última movimentação do Push', $painel->text());
     }
 
     #[TestDox('pasta de outro escritório: a tela responde 404 e o POST do checklist também, sem gravar')]
