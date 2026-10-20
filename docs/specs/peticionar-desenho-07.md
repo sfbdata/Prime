@@ -1,0 +1,36 @@
+# Peticionar (desenho 07): P1 e P2
+
+**Risco:** BAIXO (tela; rotas que já existem) · **Frente:** `peticionar-desenho-07` (sessão 9b) · **Data:** 20/10/2026
+
+## Estado da frente
+
+- 20/10: aprovada pelo coordenador depois da conferência dos desenhos sem sessão. A partir do master, sem migration.
+- Não tocar em `PeticionarController.php` (#68), `layout_peticionar.html.twig` (#56) nem `PecaImagemController.php` (#120);
+  se for inevitável, avisar o coordenador antes.
+
+## Escopo
+
+Desenho: `docs/design/redesign-19-10-26/07 - Peticionar 1.0.dc.html`. Tela: `/pasta/{id}/peticionar` (`templates/pasta/peticionar.html.twig`).
+
+- **P1**
+  - "Voltar à pasta" no cabeçalho (L38).
+  - Menu ⋮ e botão direito na linha do documento (L54, L101-105, L161): Abrir, Renomear, Baixar, Classificar, Excluir (vai para a
+    lixeira). Rotas existentes: `pasta_documento_edit`, `pasta_documentos_excluir_lote` e a de download já usada na tela.
+  - Na barra do documento selecionado (L77-85): renomear com duplo clique no nome, Baixar, Excluir e "tamanho · data".
+  - Na linha (L53, L138): tamanho do arquivo e ícone por tipo.
+- **P2**
+  - Soltar arquivos na lista para enviar (L47, L147), pela rota `pasta_peticionar_upload` e as mesmas regras do modal "Adicionar peça".
+  - Dica na lista vazia (L57-58).
+
+Fora agora: ordem manual (número e arrastar), seletor do processo de destino (depois do #91), visualizador de DOCX.
+
+## Para o dono
+
+1. A ordem dos documentos no Peticionar é a mesma ordem manual da pasta? No desenho as duas telas dividem a lista; hoje o Peticionar
+   ordena por data, e os separadores por dia não convivem com ordem manual. Toca a frente da pasta por dentro (b5).
+2. Classificar pelo nome do arquivo, com as categorias do desenho (Petição, Decisão, Documento pessoal…), ou manter a escolha no modal
+   com as categorias atuais (Peça, Identificação, Gratuidade…).
+3. Aceitar qualquer formato no envio (hoje há lista de tipos aceitos).
+4. Onde guardar o processo de destino da peça (em cada peça ou na sessão); o seletor espera o #91 (apensados).
+5. Salvar o texto sozinho (autosalvamento do desenho) ou manter o "Salvar na pasta".
+6. Visualizador de DOCX/XLSX: escolher biblioteca ou conversão.
