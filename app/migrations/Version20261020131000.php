@@ -14,7 +14,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Gerada pelo make:migration e limpa do ruído de base (DROP INDEX de índices funcionais da cobrança e
  * ALTER ... DROP DEFAULT das tabelas de contato), que não é desta frente.
  */
-final class Version20261019120728 extends AbstractMigration
+final class Version20261020131000 extends AbstractMigration
 {
     public function getDescription(): string
     {

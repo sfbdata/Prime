@@ -39,7 +39,7 @@ compactação de contexto, releia antes de continuar.
   _globais, _dropdown, _modais, profile/index), #60/#65 (_dropdown, profile/index) e #55 (listener).
 
 **Fila de migrations** (a coordenação controla; renomear o timestamp para o atual antes de cada merge)
-- #60 `Version20261019120728`, depois de #55 → #56 (o #52 entrou em 19/10, master em a7433b93).
+- #60 `Version20261020131000` (renomeada em 20/10 a pedido da coordenação; master 88912605), primeiro da pilha.
 - #65 `Version20261019130750`, depois do #60.
 - #69 `Version20261019134246`, depois do #65.
 
