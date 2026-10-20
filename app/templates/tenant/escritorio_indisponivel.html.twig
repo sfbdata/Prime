@@ -1,0 +1,21 @@
+{#
+   Recusa de uma rota que age sobre um escritório suspenso ou excluído (spec
+   escritorio-inativo-nas-rotas-por-url, R5). Vem da BarreiraDoEscritorioInativoNaRota, com status 403;
+   o layout é o do escritório da sessão, que está ativo. Recebe `titulo` e `mensagem`.
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ titulo }} · BlueJus{% endblock %}
+
+{% block body %}
+<div class="container py-4" data-escritorio-indisponivel>
+    <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="alert" style="border-radius: 4px;">
+        <i class="bi bi-slash-circle" aria-hidden="true"></i>
+        <div>
+            <strong class="d-block">{{ titulo }}</strong>
+            <span class="js-escritorio-indisponivel-mensagem">{{ mensagem }}</span>
+        </div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ path('tenant_selecionar') }}">Selecionar outro escritório</a>
+</div>
+{% endblock %}
