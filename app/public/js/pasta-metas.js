@@ -979,4 +979,14 @@
             }
         });
     }
+
+    /* "Responsáveis nas metas" (dc L.1686, L.6706): o clique abre a conversa 1:1 no Chat I.A pela API da janela
+       (`BJCentral.conversar`, spec encaminhar-via-chat-ia §4.1). Pelo evento, para não depender da ordem de carga. */
+    document.addEventListener('click', function (e) {
+        var pessoa = e.target.closest('.js-metas-conversar');
+        if (!pessoa) { return; }
+        var id = Number(pessoa.getAttribute('data-user-id'));
+        if (!id) { return; }
+        document.dispatchEvent(new CustomEvent('bj-central:conversar', { detail: { userId: id } }));
+    });
 }());
