@@ -1,0 +1,36 @@
+/* Relatório de contribuições no Painel do Master (desenho 08, L253). O desenho não mostra o relatório: segue o
+   visual do painel (public/css/master.css), com as mesmas cores, tamanhos e cabeçalho cinza. Prefixo cr-. */
+.cr-relatorio > .mp-cab-cinza > b > .bi { color: #1e7b45; margin-right: 4px; }
+.cr-total { font-size: 12.5px; color: #5b7383; display: flex; align-items: baseline; gap: 8px; }
+.cr-total > b { font-size: 20px; color: #1e7b45; letter-spacing: -.3px; }
+
+.cr-corpo { padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 14px; }
+.cr-rotulo { font-size: 11.5px; font-weight: bold; letter-spacing: 1.4px; color: #34505f; }
+.cr-rotulo > b { color: #1e7b45; letter-spacing: 0; margin-left: 6px; }
+
+/* Grade dos 12 meses: barra proporcional ao maior mês (--h), valor e mês. */
+.cr-meses { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; }
+.cr-mes { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; text-align: center; }
+.cr-mes-barra { width: 100%; height: 72px; background: #eef2f5; border-radius: 3px; display: flex; align-items: flex-end; overflow: hidden; }
+.cr-mes-barra > i { display: block; width: 100%; height: var(--h); background: linear-gradient(180deg, #2f9a5c, #1e7b45); }
+.cr-mes > b { font-size: 12px; color: #12242f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cr-mes.cr-mes-zero > b { color: #9cb3c2; font-weight: normal; }
+.cr-mes-rot { font-size: 11px; color: #7d909d; }
+.cr-mes-inf { font-size: 10.5px; color: #c08a12; line-height: 1.25; }
+@media (max-width: 900px) { .cr-meses { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+.cr-informados { font-size: 12.5px; color: #8a6410; background: #fbf1dc; border-radius: 4px; padding: 8px 12px; }
+.cr-relatorio > .cr-informados { margin: 0 20px 16px; }
+
+/* Tabela por conta: cabeçalho azul do painel (como .mp-uf-cab). */
+.cr-tabela { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #e2e9ee; }
+.cr-tabela > thead > tr > th { background: #0a6fa0; color: #fff; font-weight: bold; text-align: left; padding: 8px 12px; }
+.cr-tabela > tbody > tr > td { padding: 9px 12px; border-bottom: 1px solid #eef2f5; color: #243845; }
+.cr-tabela > thead > tr > th:nth-child(n+2), .cr-tabela > tbody > tr > td:nth-child(n+2) { text-align: right; white-space: nowrap; }
+.cr-tabela > tbody > tr > td:nth-child(2) { font-weight: bold; color: #1e7b45; }
+.cr-tag-excluido { font-size: 10.5px; font-weight: bold; letter-spacing: .8px; color: #5b7383; background: #eef2f5; padding: 2px 6px; border-radius: 3px; margin-left: 6px; }
+
+.cr-desligado { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 18px 20px; font-size: 13.5px; color: #4a6373; }
+.cr-desligado > .bi { font-size: 22px; color: #7d909d; }
+.cr-desligado > span { flex: 1; min-width: 220px; }
+.cr-desligado > a { font-weight: bold; }
