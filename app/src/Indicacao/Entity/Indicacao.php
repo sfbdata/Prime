@@ -19,7 +19,8 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * A conta criada pelo link curto (`/i/{codigo}`) vira uma indicação de canal link com `indicadoUser` preenchido
  * ({@see self::porCadastroDoLink()}): é a atribuição, não um envio, então fica fora dos limites e do alerta. Uma por
- * conta nova (índice único parcial).
+ * conta nova (índice único parcial). `porCadastro` a marca para sempre: se a conta nova for apagada (SET NULL), a
+ * linha não vira um "Copiar link" e continua fora dos envios.
  */
 #[ORM\Entity(repositoryClass: IndicacaoRepository::class)]
 #[ORM\Table(name: 'indicacao')]
@@ -36,6 +37,10 @@ class Indicacao
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'indicado_user_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $indicadoUser = null;
+
+    /** Verdadeiro só na atribuição do cadastro pelo link: não é envio (fora de limites, alerta e contagens de envio). */
+    #[ORM\Column(name: 'por_cadastro', options: ['default' => false])]
+    private bool $porCadastro = false;
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: User::class)]
@@ -79,6 +84,7 @@ class Indicacao
         }
         $atribuicao = new self($indicadoPor, $origem, CanalDeIndicacao::Link, $em);
         $atribuicao->indicadoUser = $indicado;
+        $atribuicao->porCadastro = true;
 
         return $atribuicao;
     }
@@ -121,6 +127,11 @@ class Indicacao
     public function getIndicadoUser(): ?User
     {
         return $this->indicadoUser;
+    }
+
+    public function isPorCadastro(): bool
+    {
+        return $this->porCadastro;
     }
 
     /** E-mail e nome só existem no canal e-mail; nos outros a indicação é só a contagem. */

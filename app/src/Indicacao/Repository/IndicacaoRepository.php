@@ -17,8 +17,9 @@ use Doctrine\Persistence\ManagerRegistry;
  * tem conta criada DEPOIS da indicação, OU a atribuição de uma conta criada pelo link curto (`indicado_user_id`,
  * comportamento 7) ({@see self::VIROU_CONTA}). As consultas agregadas vão por SQL na conexão.
  *
- * A atribuição não é envio: fica fora das contagens de envio (limites, alerta, enviadas, janelas) por
- * {@see self::SO_ENVIOS}, e entra só no "virou conta" e na lista da própria pessoa.
+ * A atribuição (`por_cadastro`) não é envio: fica fora das contagens de envio (limites, alerta, enviadas, janelas) por
+ * {@see self::SO_ENVIOS}, mesmo depois que a conta nova for apagada (SET NULL), e entra só no "virou conta" (enquanto
+ * a conta existir) e na lista da própria pessoa.
  *
  * @extends ServiceEntityRepository<Indicacao>
  */
@@ -35,8 +36,8 @@ class IndicacaoRepository extends ServiceEntityRepository
      */
     private const CONTA_CRIADA = 'COALESCE(i.indicado_user_id, (SELECT u.id FROM "user" u WHERE i.canal = \'email\' AND lower(u.email) = i.email AND u.created_at > i.criada_em ORDER BY u.id LIMIT 1))';
 
-    /** Só os envios (os três canais); exclui a atribuição do cadastro pelo link. */
-    private const SO_ENVIOS = 'i.indicado_user_id IS NULL';
+    /** Só os envios (os três canais); exclui a atribuição do cadastro pelo link, com ou sem a conta nova ainda existindo. */
+    private const SO_ENVIOS = 'NOT i.por_cadastro';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -129,7 +130,8 @@ class IndicacaoRepository extends ServiceEntityRepository
         }
 
         return $this->conexao()->executeStatement(
-            'INSERT INTO indicacao (indicado_por_id, tenant_origem_id, canal, criada_em, indicado_user_id) VALUES (?, ?, ?, ?, ?)
+            'INSERT INTO indicacao (indicado_por_id, tenant_origem_id, canal, criada_em, indicado_user_id, por_cadastro)
+             VALUES (?, ?, ?, ?, ?, true)
              ON CONFLICT (indicado_user_id) WHERE indicado_user_id IS NOT NULL DO NOTHING',
             [
                 $atribuicao->getIndicadoPor()->getId(),
@@ -195,7 +197,7 @@ class IndicacaoRepository extends ServiceEntityRepository
         $linhas = $this->conexao()->fetchAllAssociative(
             'SELECT i.indicado_por_id AS user_id, u.full_name AS nome, u.email,
                     (SELECT t.name FROM indicacao r LEFT JOIN tenant t ON t.id = r.tenant_origem_id
-                      WHERE r.indicado_por_id = i.indicado_por_id AND r.indicado_user_id IS NULL
+                      WHERE r.indicado_por_id = i.indicado_por_id AND NOT r.por_cadastro
                       ORDER BY r.criada_em DESC, r.id DESC LIMIT 1) AS escritorio,
                     COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ') AS total,
                     COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ' AND i.criada_em > :d24) AS ultimas24h,

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Indicacao\Functional;
 
 use App\Entity\Auth\User;
+use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Indicacao\Controller\IndicacaoController;
 use App\Indicacao\Entity\IndicacaoConfig;
 use App\Indicacao\Entity\IndicacaoPausa;
 use App\Indicacao\EventListener\CadastroPeloLinkListener;
+use App\Indicacao\Repository\IndicacaoCodigoRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
 use App\Indicacao\Repository\IndicacaoRepository;
 use App\Indicacao\UseCase\AtribuirCadastroPeloLinkUseCase;
@@ -18,6 +20,11 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 
 /**
  * Quem chega pelo link curto `/i/{codigo}` e cria a conta pelo "Criar minha conta" fica ligado a quem indicou
@@ -118,6 +125,57 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $nova = $this->cadastrar();
 
         self::assertGreaterThan(0, $nova);
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('dono do código inativo: o cadastro passa, nada é ligado e a chave sai da sessão')]
+    public function testDonoInativoNaoLiga(): void
+    {
+        $this->client->request('GET', '/i/' . self::CODIGO);
+        $this->conexao->executeStatement('UPDATE "user" SET is_active = false WHERE id = ?', [$this->ana->getId()]);
+
+        $nova = $this->cadastrar();
+
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('autoindicação: o evento do cadastro com o código da própria conta não liga nada e tira a chave da sessão')]
+    public function testAutoindicacaoNaoLiga(): void
+    {
+        // Pelo HTTP a conta nova nunca tem código antes de nascer: o evento é disparado direto, com a sessão no request.
+        $sessao = new Session(new MockArraySessionStorage());
+        $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
+        $request = new Request();
+        $request->setSession($sessao);
+        $pilha = static::getContainer()->get(RequestStack::class);
+        $pilha->push($request);
+
+        try {
+            static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new ContaCriadaPeloCadastro((int) $this->ana->getId(), 0));
+        } finally {
+            $pilha->pop();
+        }
+
+        self::assertSame([], $this->atribuicoesDe((int) $this->ana->getId()));
+        self::assertFalse($sessao->has(IndicacaoController::CHAVE_DA_SESSAO));
+    }
+
+    #[TestDox('falha ao ligar (repositório lança): o cadastro responde sucesso, a conta nasce e a chave sai da sessão')]
+    public function testFalhaNaIndicacaoNaoDerrubaOCadastro(): void
+    {
+        // Código direto na sessão, sem requisição antes: o dublê posto no container sobrevive até o POST.
+        $sessao = $this->client->getSession();
+        $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
+        $sessao->save();
+        $quebrado = $this->createStub(IndicacaoCodigoRepository::class);
+        $quebrado->method('donoDoCodigo')->willThrowException(new \RuntimeException('banco fora do ar'));
+        static::getContainer()->set(IndicacaoCodigoRepository::class, $quebrado);
+
+        $nova = $this->cadastrar();
+
+        self::assertGreaterThan(0, $nova, 'a conta nasceu');
         self::assertSame([], $this->atribuicoesDe($nova));
         self::assertFalse($this->codigoNaSessao());
     }

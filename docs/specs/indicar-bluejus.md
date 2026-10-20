@@ -13,7 +13,12 @@
   pausa idempotente sob corrida).
 - 20/10: cadastro pelo link curto (frente `indicacao-no-cadastro`, empilhada sobre esta). Decisão do coordenador (opção A): coluna
   `indicacao.indicado_user_id` (migration `Version20261020129995`), ouvinte do `ContaCriadaPeloCadastro` no domínio Indicacao
-  (`CadastroPeloLinkListener` + `AtribuirCadastroPeloLinkUseCase`). Ver comportamento 7.
+  (`CadastroPeloLinkListener` + `AtribuirCadastroPeloLinkUseCase`). Ver comportamento 7. Depois da revisão: coluna
+  `por_cadastro` na mesma migration, para a atribuição continuar fora dos envios depois do SET NULL.
+- Riscos observados na revisão (sem mudança de código):
+  - o GET `/i/{codigo}` pode ser plantado por outra página (por exemplo, uma `img`) e gravar o código na sessão de quem a
+    visita; só vira risco se a indicação passar a dar recompensa;
+  - a chave fica na sessão até o cadastro ou até a sessão expirar.
 
 ## O desenho
 
@@ -47,7 +52,8 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
 - `indicacao`: `id`, `indicado_por_id` (User, CASCADE), `tenant_origem_id` (Tenant, SET NULL, só para mostrar o escritório),
   `canal` (`email` | `whatsapp` | `link`), `email` NULL, `nome` NULL (só no canal e-mail), `criada_em`,
   `indicado_user_id` (User, SET NULL; só na atribuição do cadastro pelo link, comportamento 7) com índice único parcial
-  `WHERE indicado_user_id IS NOT NULL` (uma atribuição por conta nova).
+  `WHERE indicado_user_id IS NOT NULL` (uma atribuição por conta nova); `por_cadastro` BOOLEAN DEFAULT false NOT NULL, verdadeiro
+  só na atribuição: é ele (e não o `indicado_user_id`, que vira NULL se a conta for apagada) que separa a atribuição dos envios.
   Índice `(indicado_por_id, criada_em)`. Sem índice em `lower(email)` (revisão A5): o e-mail já é gravado em minúsculas e
   nenhuma consulta o usaria.
 - `indicacao_codigo`: `user_id` PK, `codigo` varchar(12) único, aleatório (não derivado: hash seria adivinhável).
@@ -76,9 +82,10 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
    - só vale código existente de usuário ATIVO; a própria conta nova como dona do código é ignorada;
    - uma vez por conta nova (o índice único, a conferência antes e `ON CONFLICT DO NOTHING`);
    - a pausa (global ou da pessoa) não impede: ela trava o envio, e atribuir não envia nada;
-   - não é envio: fica fora dos limites, do alerta e das contagens de envio do painel (enviadas, últimas 24h, 30 dias, total,
+   - não é envio (`por_cadastro`): fica fora dos limites, do alerta e das contagens de envio do painel (enviadas, últimas 24h, 30 dias, total,
      última e o escritório mostrado); entra em "viraram conta"/"contas criadas" e em "SUAS INDICAÇÕES" (linha "link", sem dado
-     da pessoa nova, com "CONTA CRIADA");
+     da pessoa nova, com "CONTA CRIADA"); se a conta nova for apagada, a linha segue fora dos envios e deixa de contar como
+     conta criada;
    - sem aviso a quem indicou; qualquer falha vai para o log e o cadastro nunca falha por causa da indicação.
 8. **"Viraram conta"**: contado na leitura: indicação por e-mail cujo e-mail (normalizado) tem conta criada DEPOIS da indicação,
    ou atribuição do cadastro pelo link (comportamento 7). Cada conta conta uma vez (pelo id do usuário), mesmo indicada por e-mail

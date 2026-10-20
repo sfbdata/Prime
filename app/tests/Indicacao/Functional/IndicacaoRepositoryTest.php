@@ -233,6 +233,32 @@ final class IndicacaoRepositoryTest extends KernelTestCase
         self::assertNull($ultimas[0]['email']);
     }
 
+    #[TestDox('atribuição cuja conta nova foi apagada (SET NULL): continua fora dos envios e do limite, e não conta como conta criada')]
+    public function testAtribuicaoSemAContaNova(): void
+    {
+        $antes = $this->repo->totais($this->agora->modify('-24 hours'));
+        $ana = $this->usuario('Ana Souza');
+        $nova = $this->usuario('Nova', null, $this->agora->modify('-2 hours'));
+        $this->em->flush();
+        $anaId = (int) $ana->getId();
+        self::assertTrue($this->repo->gravarAtribuicao(Indicacao::porCadastroDoLink($ana, null, $nova, $this->agora->modify('-1 hour'))));
+        // O que o ON DELETE SET NULL faz quando a conta nova é apagada.
+        $this->em->getConnection()->executeStatement('UPDATE indicacao SET indicado_user_id = NULL WHERE indicado_por_id = ?', [$anaId]);
+        self::assertTrue((bool) $this->em->getConnection()->fetchOne('SELECT por_cadastro FROM indicacao WHERE indicado_por_id = ?', [$anaId]));
+
+        self::assertSame(0, $this->repo->contarDoUsuarioDesde($anaId, $this->agora->modify('-24 hours')), 'não conta no limite');
+        $totais = $this->repo->totais($this->agora->modify('-24 hours'));
+        self::assertSame(0, $totais['enviadas'] - $antes['enviadas']);
+        self::assertSame(0, $totais['ultimas24h'] - $antes['ultimas24h']);
+        self::assertSame(0, $totais['viraramConta'] - $antes['viraramConta']);
+        $linha = array_values(array_filter(
+            $this->repo->indicadores($this->agora->modify('-24 hours'), $this->agora->modify('-30 days'), 0, 1000),
+            static fn (array $l): bool => $l['user_id'] === $anaId,
+        ))[0];
+        self::assertSame([0, 0, 0, 0], [$linha['total'], $linha['ultimas24h'], $linha['ultimos30d'], $linha['contas_criadas']]);
+        self::assertFalse($this->repo->ultimasDoUsuario($anaId, 8)[0]['conta_criada']);
+    }
+
     #[TestDox('código do link curto: grava uma vez, não troca, e o mesmo código não serve para outra pessoa')]
     public function testCodigo(): void
     {

@@ -78,6 +78,7 @@ final class AtribuirCadastroPeloLinkUseCaseTest extends TestCase
         self::assertSame($this->ana, $i->getIndicadoPor());
         self::assertSame($this->nova, $i->getIndicadoUser());
         self::assertSame(CanalDeIndicacao::Link, $i->getCanal());
+        self::assertTrue($i->isPorCadastro());
         self::assertNull($i->getEmail());
         self::assertNull($i->getNome());
         self::assertNull($i->getTenantOrigem());
