@@ -247,7 +247,10 @@
     }
 
     document.addEventListener('keydown', function (e) {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        /* Teclado em composição (acento, IME): a tecla ainda não é do usuário. */
+        if (e.isComposing || e.keyCode === 229) { return; }
+        /* Só Ctrl + K minúsculo, sem Shift nem Alt: Ctrl + Shift + K é atalho do navegador (console). */
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === 'k') {
             if (!aberta() && quillComLink(e.target)) { return; }
             e.preventDefault();
             if (aberta()) { fechar(); } else { abrir(); }
