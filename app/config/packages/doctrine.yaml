@@ -33,6 +33,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Entity'
                 prefix: 'App\Entity'
                 alias: App
+            AppAgenda:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Agenda/Entity'
+                prefix: 'App\Agenda\Entity'
+                alias: AppAgenda
             AppCliente:
                 type: attribute
                 is_bundle: false
@@ -81,6 +87,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Kanban/Entity'
                 prefix: 'App\Kanban\Entity'
                 alias: AppKanban
+            AppMaster:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Master/Entity'
+                prefix: 'App\Master\Entity'
+                alias: AppMaster
             AppPasta:
                 type: attribute
                 is_bundle: false
@@ -129,6 +141,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Inteligencia/Entity'
                 prefix: 'App\Inteligencia\Entity'
                 alias: AppInteligencia
+            # Indicar o BlueJus (docs/specs/indicar-bluejus.md): dado de plataforma, sem tenant.
+            AppIndicacao:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Indicacao/Entity'
+                prefix: 'App\Indicacao\Entity'
+                alias: AppIndicacao
             AppDashboard:
                 type: attribute
                 is_bundle: false
@@ -147,6 +166,19 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Central/Entity'
                 prefix: 'App\Central\Entity'
                 alias: AppCentral
+            AppComercial:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Comercial/Entity'
+                prefix: 'App\Comercial\Entity'
+                alias: AppComercial
+            # Descadastro de e-mail reaproveitável (spec push-avisar-quando-chegar D3): mora em Shared.
+            AppSharedEmailDescadastro:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Shared/Email/Descadastro/Entity'
+                prefix: 'App\Shared\Email\Descadastro\Entity'
+                alias: AppSharedEmailDescadastro
         controller_resolver:
             auto_mapping: false
         dql:

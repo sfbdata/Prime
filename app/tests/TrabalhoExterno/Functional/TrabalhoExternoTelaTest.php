@@ -106,13 +106,16 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-anexar' => '/trabalho-externo/api/demandas/TE-0/documentos',
             'data-url-documento' => '/trabalho-externo/demandas/TE-0/documentos/0',
             'data-url-configuracao' => '/trabalho-externo/api/configuracao',
+            'data-url-marcacoes' => '/trabalho-externo/api/demandas/marcacoes',
+            'data-url-mensagens-marcacoes' => '/trabalho-externo/api/demandas/TE-0/mensagens/marcacoes',
+            'data-url-mensagem-apagar' => '/trabalho-externo/api/demandas/TE-0/mensagens/0/apagar',
         ];
         foreach ($esperadas as $atributo => $url) {
             self::assertSame($url, $raiz->attr($atributo), $atributo);
         }
     }
 
-    #[TestDox('esqueleto fixo em filhos diretos: título, bloqueio, área liberada com período, KPIs, filtros e tabela de 8 colunas, e as camadas do JS')]
+    #[TestDox('esqueleto fixo em filhos diretos: título, bloqueio, área liberada com período, KPIs, filtros, barra de lote e tabela de 9 colunas (a primeira é a de marcação), e as camadas do JS')]
     public function testEsqueletoDoTemplate(): void
     {
         $client = static::createClient();
@@ -120,7 +123,7 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $crawler->filter('#tePagina > .te-titulo-linha > h1.te-titulo > i.bi-geo-alt'));
         self::assertStringContainsString('Trabalho Externo', $crawler->filter('#tePagina > .te-titulo-linha > h1.te-titulo .te-titulo-nome')->text());
-        self::assertStringContainsString('Central nacional de advocacia correspondente', $crawler->filter('#tePagina > .te-titulo-linha > h1.te-titulo .te-titulo-sub')->text());
+        self::assertStringContainsString('Central de demandas, vagas e talentos jurídicos', $crawler->filter('#tePagina > .te-titulo-linha > h1.te-titulo .te-titulo-sub')->text());
         self::assertCount(1, $crawler->filter('#tePagina > .te-titulo-linha > #teTituloAcoes'));
 
         self::assertCount(1, $crawler->filter('#tePagina > #teBloqueio'));
@@ -134,14 +137,16 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
         );
 
         $cabecalho = $crawler->filter('#tePagina > #teLiberado > .te-tabela-caixa > .te-tabela > .te-grade--cab > div');
-        self::assertCount(8, $cabecalho);
+        self::assertCount(9, $cabecalho);
+        self::assertCount(1, $crawler->filter('#tePagina > #teLiberado > .te-tabela-caixa > .te-tabela > .te-grade--cab > div.te-cab-sel#teCabSel:first-child'));
+        self::assertCount(1, $crawler->filter('#tePagina > #teLiberado > .te-filtros + #teLote + .te-tabela-caixa'), 'a barra de lote fica entre os filtros e a tabela');
         self::assertSame(
-            ['ID', 'SERVIÇO', 'ORIGEM → EXECUÇÃO', 'PRAZO', 'RESPONSÁVEL', 'SITUAÇÃO', 'CHAT', ''],
+            ['', 'ID', 'SERVIÇO', 'ORIGEM → EXECUÇÃO', 'PRAZO', 'RESPONSÁVEL', 'SITUAÇÃO', 'CHAT', ''],
             $cabecalho->each(static fn (Crawler $c): string => trim($c->text())),
         );
         self::assertCount(1, $crawler->filter('#tePagina > #teLiberado > .te-tabela-caixa > .te-tabela > #teLinhas'));
 
-        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast'] as $camada) {
+        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast', 'teDesfazer'] as $camada) {
             self::assertCount(1, $crawler->filter("#tePagina > #{$camada}"), "camada {$camada} dentro do .te-page, para herdar os tokens do tema");
         }
     }

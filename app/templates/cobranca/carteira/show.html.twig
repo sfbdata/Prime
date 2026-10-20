@@ -28,9 +28,9 @@
        na tela e os outros três só como comando. Decisão do dono em 28/08: não
        mexer no caminho que grava dinheiro nesta fatia;
      · o menu "⋮" do desenho entrou em 19/10 SÓ com "Editar configuração" (abre o
-       mesmo #modalEditarConfiguracao do trilho). Os outros 3 itens (espelho contábil,
-       exportar .xlsx, excluir carteira) não têm rota no sistema: decisão do dono,
-       voltam quando as ações existirem.
+       mesmo #modalEditarConfiguracao do trilho); em 20/10 ganhou "Exportar lista
+       (.xlsx)". Os outros 2 itens (espelho contábil, excluir carteira) não têm rota
+       no sistema: decisão do dono, voltam quando as ações existirem.
 ============================================================================ #}
 {% block body %}
 {% set rotulo = carteira.rotuloObjeto|default('Objeto') %}
@@ -58,22 +58,31 @@
                         <i class="bi bi-upload"></i><span>Importar relatório</span>
                     </a>
                     {% endif %}
-                    {# ⋮ do desenho 1B (L75-84), só com o item que tem ação no sistema. O gate é o MESMO do
-                       modal (`forms.editarConfiguracao`, montado só para quem gerencia carteira): o botão
-                       nunca aponta para um modal que não foi renderizado. #}
-                    {% if forms.editarConfiguracao is defined %}
+                    {# ⋮ do desenho 1B (L75-84), só com os itens que têm ação no sistema. O ⋮ aparece para
+                       todo mundo que vê a carteira, porque exportar a lista tem a MESMA guarda da tela.
+                       "Editar configuração" segue o gate do modal (`forms.editarConfiguracao`, montado só
+                       para quem gerencia carteira): o item nunca aponta para um modal que não existe. #}
                     <div class="dropdown cs-mais">
                         <button type="button" class="cs-btn cs-btn-icone" data-bs-toggle="dropdown" data-bs-auto-close="true"
                                 aria-expanded="false" title="Mais ações" aria-label="Mais ações">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end cs-mais-menu">
+                            {% if forms.editarConfiguracao is defined %}
                             <button type="button" class="cs-mais-item" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
                                 <i class="bi bi-sliders"></i><span>Editar configuração</span>
                             </button>
+                            {% endif %}
+                            {# Leva o recorte que está na tela. O href já sai com o da carga da página (vale
+                               sem JS); como busca e Estado mudam por XHR sem recarregar, o script do fim
+                               da página o refaz no clique a partir do formulário da lista. #}
+                            <a class="cs-mais-item" data-exportar-lista
+                               data-exportar-base="{{ path('cobranca_carteira_exportar', {id: carteira.id}) }}"
+                               href="{{ path('cobranca_carteira_exportar', {id: carteira.id}|merge(filtros|filter(v => v is not empty))) }}">
+                                <i class="bi bi-file-earmark-spreadsheet"></i><span>Exportar lista (.xlsx)</span>
+                            </a>
                         </div>
                     </div>
-                    {% endif %}
                 </div>
             </div>
 
@@ -423,6 +432,33 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target.closest('button, a, form, input, select')) { return; }
         window.location.href = tr.dataset.href;
     });
+    /* "Exportar lista (.xlsx)": o href acompanha o recorte ATUAL do formulário da lista (busca, Estado,
+       ordenação), que muda por XHR sem recarregar a página. É refeito quando o formulário muda, depois
+       de cada troca do fragmento pelo XHR (é aí que ordenação, chips e "limpar" já gravaram os campos
+       escondidos) e, por garantia, em todo gesto sobre o próprio link: clique, clique do meio, menu de
+       contexto ("copiar link") e foco por teclado. */
+    var linkExportar = document.querySelector('a[data-exportar-lista]');
+    var formFiltro = document.querySelector('[data-filtro-form]');
+    if (linkExportar && formFiltro) {
+        var atualizarExportar = function () {
+            var params = new URLSearchParams();
+            new FormData(formFiltro).forEach(function (valor, nome) {
+                if (String(valor).trim() !== '') { params.append(nome, valor); }
+            });
+            var query = params.toString();
+            linkExportar.href = linkExportar.dataset.exportarBase + (query ? '?' + query : '');
+        };
+        ['input', 'change', 'submit'].forEach(function (tipo) {
+            formFiltro.addEventListener(tipo, atualizarExportar);
+        });
+        ['click', 'auxclick', 'contextmenu', 'mousedown', 'focus'].forEach(function (tipo) {
+            linkExportar.addEventListener(tipo, atualizarExportar);
+        });
+        var resultadoFiltro = document.querySelector('[data-filtro-resultado]');
+        if (resultadoFiltro && window.MutationObserver) {
+            new MutationObserver(atualizarExportar).observe(resultadoFiltro, { childList: true });
+        }
+    }
     /* Não há tooltip do Bootstrap nesta tela: o desenho usa `title` nativo, que sobrevive à
        troca do fragmento sem precisar ser religado a cada busca. */
 });

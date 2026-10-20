@@ -57,7 +57,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
         return (new AbrirLinkExternoDoPushUseCase(
             $this->links,
             $this->acessos,
-            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $pedidos),
+            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $pedidos, $this->cadeados()),
             new MockClock($this->agora()->modify('+' . $minutosDepois . ' minutes')),
         ))->executar($link->getEndereco(), $codigo);
     }
@@ -66,7 +66,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     public function testNaoEncontrado(): void
     {
         $this->links->method('findOnePeloEndereco')->willReturn(null);
-        $useCase = new AbrirLinkExternoDoPushUseCase($this->links, $this->acessos, new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->createMock(PedidoDeExclusaoDeContaRepository::class)), new MockClock($this->agora()));
+        $useCase = new AbrirLinkExternoDoPushUseCase($this->links, $this->acessos, new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->createStub(PedidoDeExclusaoDeContaRepository::class), $this->cadeados()), new MockClock($this->agora()));
 
         $pagina = $useCase->executar('bluejus-nada-aaaaaaaa');
 
@@ -88,7 +88,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     public function testPastaTrancada(): void
     {
         $link = $this->link();
-        $link->getPasta()->trancar($this->usuario(), $this->agora());
+        $this->comCadeado($link->getPasta());
 
         self::assertSame('nao_encontrado', $this->abrir($link)->estado);
     }

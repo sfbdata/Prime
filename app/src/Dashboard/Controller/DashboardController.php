@@ -9,6 +9,7 @@ use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Dashboard\UseCase\ObterPreferenciasDoDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\AcessoAPasta;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -27,6 +28,7 @@ final class DashboardController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly MontarLeituraDoDashboard $montarLeitura,
         private readonly ObterPreferenciasDoDashboardUseCase $obterPreferencias,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {}
 
     #[Route('', name: 'dashboard_index', methods: ['GET'])]
@@ -55,8 +57,12 @@ final class DashboardController extends AbstractController
         // sair com as colunas que ele ligou — e o servidor só calcula essas.
         $preferencias = $this->obterPreferencias->executar($tenant, $currentUser);
 
+        // Cadeado (spec pasta-cadeado D1 e D3): as metas das pastas ocultas para quem olha saem dos cards e
+        // das colunas de metas, como da lista /tarefas/equipe a que os números levam. Uma consulta só.
+        $pastasOcultas = $this->acessoAPasta->idsOcultosPara($currentUser, (int) $tenant->getId());
+
         $agora  = new \DateTimeImmutable();
-        $output = $this->obterDadosUseCase->executar($tenant, $agora, $filtros, $preferencias->colunasExtras);
+        $output = $this->obterDadosUseCase->executar($tenant, $agora, $filtros, $preferencias->colunasExtras, $pastasOcultas);
 
         // BlueJus Intelligence: leitura por regras sobre o DashboardOutput já calculado (os
         // mesmos filtros). O UseCase não sabe que o painel existe.

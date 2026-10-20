@@ -52,9 +52,9 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
 
         return new GerarLinkExternoDoPushUseCase(
             $this->links,
-            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->createMock(PedidoDeExclusaoDeContaRepository::class)),
+            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->createStub(PedidoDeExclusaoDeContaRepository::class), $this->cadeados()),
             new GeradorDeEnderecoDoLinkExterno($this->links),
-            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->createMock(PedidoDeExclusaoDeContaRepository::class))),
+            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->createStub(PedidoDeExclusaoDeContaRepository::class), $this->cadeados())),
             new MockClock($this->agora()),
         );
     }
@@ -71,7 +71,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
         yield 'cancelada' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->setSituacao(Pasta::SITUACAO_CANCELADA), 'A pasta está cancelada: o link externo fica indisponível.'];
         yield 'excluída (lápide)' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->marcarExcluida($t->usuario(), $t->agora()), 'A pasta está cancelada: o link externo fica indisponível.'];
         yield 'arquivada' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->setSituacao(Pasta::SITUACAO_ARQUIVADA), 'A pasta está arquivada: reative para compartilhar o Push.'];
-        yield 'trancada' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->trancar($t->usuario(), $t->agora()), 'A pasta está trancada: o link externo fica indisponível.'];
+        yield 'trancada' => [static fn (self $t): Pasta => $t->comCadeado($t->pastaComProcesso($t->tenant())), 'A pasta está trancada: o link externo fica indisponível.'];
         yield 'processo em segredo de justiça' => [static function (self $t): Pasta {
             $processo = $t->processo($t->tenant());
             $processo->setNivelSigilo(1);
@@ -91,6 +91,19 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
         $this->expectException(LinkExternoDoPushException::class);
         $this->expectExceptionMessage($mensagem);
         $this->useCase()->executar($pasta($this), $this->usuario(), true, true, false);
+    }
+
+    #[TestDox('Conta com o e-mail a confirmar não gera link: recusa com o pedido de confirmação e nada é salvo')]
+    public function testEmailAConfirmarNaoGeraLink(): void
+    {
+        $this->publicacoes->method('existePorNumerosDoTenant')->willReturn(true);
+        $this->links->expects(self::never())->method('salvar');
+        $usuario = $this->usuario();
+        $usuario->marcarEmailAConfirmar($this->agora());
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Confirme o seu e-mail para compartilhar o processo por link.');
+        $this->useCase()->executar($this->pastaComProcesso($this->tenant()), $usuario, false, true, false);
     }
 
     #[TestDox('Sem movimentações: "Ainda não há movimentações para compartilhar."')]

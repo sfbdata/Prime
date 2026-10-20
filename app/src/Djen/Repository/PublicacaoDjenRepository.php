@@ -91,12 +91,16 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
      * Lista PROJETADA das publicações do escritório (só as colunas exibidas na tela — NÃO hidrata
      * `texto`/`payloadDjen`). Escopa por tenant EXPLICITAMENTE (defesa em profundidade).
      *
+     * `$numerosOcultos` (dígitos): processos das pastas com cadeado ocultas para quem lista; as publicações
+     * deles não entram (spec pasta-cadeado D3).
+     *
      * @param array<string, string> $filtros  busca, tribunal, meio, vinculo (avulsa|vinculada), data_de, data_ate
+     * @param list<string>          $numerosOcultos
      * @return PublicacaoDjenListaItem[]
      */
-    public function listarItensDoTenant(Tenant $tenant, array $filtros, int $pagina = 1, int $porPagina = 25): array
+    public function listarItensDoTenant(Tenant $tenant, array $filtros, int $pagina = 1, int $porPagina = 25, array $numerosOcultos = []): array
     {
-        $linhas = $this->buildQbFiltros($tenant, $filtros)
+        $linhas = $this->buildQbFiltros($tenant, $filtros, $numerosOcultos)
             ->select(
                 'p.id AS id',
                 'p.siglaTribunal AS siglaTribunal',
@@ -123,10 +127,11 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<string>          $numerosOcultos
      */
-    public function countByFiltros(Tenant $tenant, array $filtros): int
+    public function countByFiltros(Tenant $tenant, array $filtros, array $numerosOcultos = []): int
     {
-        return (int) $this->buildQbFiltros($tenant, $filtros)
+        return (int) $this->buildQbFiltros($tenant, $filtros, $numerosOcultos)
             ->select('COUNT(p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -150,6 +155,60 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             ->getResult();
 
         return array_map(static fn (array $row): string => (string) $row['siglaTribunal'], $rows);
+    }
+
+    /**
+     * As publicações desta captação (pelos `djenId` novos) que estão VINCULADAS a um processo do
+     * escritório, com o processo junto: a entrada do "Avisar quando chegar" do Push (spec
+     * push-avisar-quando-chegar §3). Chamada depois da reconciliação, então pega também a que
+     * nasceu avulsa e foi religada na mesma captação. Tenant explícito: roda no CLI.
+     *
+     * @param list<string> $djenIds
+     *
+     * @return list<PublicacaoDjen>
+     */
+    public function listarVinculadasPorDjenIdsDoTenant(Tenant $tenant, array $djenIds): array
+    {
+        if ($djenIds === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('p')
+            ->addSelect('pr')
+            ->join('p.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('p.djenId IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', array_values(array_unique($djenIds)))
+            ->orderBy('p.dataDisponibilizacao', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * As publicações do escritório VINCULADAS a um processo dele e disponibilizadas no período (datas
+     * inclusivas), com o processo junto: a entrada do resumo semanal ao cliente (spec
+     * push-envio-automatico §3). Da mais antiga para a mais recente. Tenant explícito: roda no CLI.
+     *
+     * @return list<PublicacaoDjen>
+     */
+    public function listarVinculadasDoPeriodoDoTenant(Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        return $this->createQueryBuilder('p')
+            ->addSelect('pr')
+            ->join('p.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('p.dataDisponibilizacao BETWEEN :inicio AND :fim')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio->setTime(0, 0), 'date_immutable')
+            ->setParameter('fim', $fim->setTime(0, 0), 'date_immutable')
+            ->orderBy('p.dataDisponibilizacao', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
     /**
@@ -362,12 +421,18 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<string>          $numerosOcultos
      */
-    private function buildQbFiltros(Tenant $tenant, array $filtros): QueryBuilder
+    private function buildQbFiltros(Tenant $tenant, array $filtros, array $numerosOcultos = []): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
+
+        if ($numerosOcultos !== []) {
+            $qb->andWhere('p.numeroProcesso NOT IN (:numerosOcultos)')
+               ->setParameter('numerosOcultos', $numerosOcultos);
+        }
 
         $busca = trim((string) ($filtros['busca'] ?? ''));
         if ($busca !== '') {
@@ -424,5 +489,40 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
         }
 
         return $data;
+    }
+
+    /**
+     * A data de disponibilização mais recente de cada número de processo pedido (o Push da pasta, no
+     * relatório de pastas paradas). Os números são normalizados como na lista da pasta (só dígitos);
+     * uma consulta para o lote, com o tenant explícito.
+     *
+     * @param string[] $numeros números CNJ com ou sem máscara
+     *
+     * @return array<string, \DateTimeImmutable> número em dígitos => data da última publicação
+     */
+    public function ultimasDisponibilizacoesPorNumero(Tenant $tenant, array $numeros): array
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.numeroProcesso AS numero', 'MAX(p.dataDisponibilizacao) AS ultima')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->andWhere('p.dataDisponibilizacao IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->groupBy('p.numeroProcesso')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porNumero = [];
+        foreach ($linhas as $l) {
+            $porNumero[(string) $l['numero']] = new \DateTimeImmutable((string) $l['ultima']);
+        }
+
+        return $porNumero;
     }
 }

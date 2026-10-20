@@ -3898,8 +3898,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 
 /* Trilho da aba Metas (desenho): andamento, o que precisa de atencao e quem
    responde pelas metas. Tudo vem de `PastaMetasResumoOutput`. */
-.ps-metas-andamento, .ps-metas-pessoas, .ps-como-usar { padding: 16px 17px; }
-.ps-metas-andamento h2, .ps-metas-pessoas h2, .ps-como-usar h2, .ps-registro-pasta h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.ps-metas-andamento, .ps-metas-pessoas { padding: 16px 17px; }
+.ps-metas-andamento h2, .ps-metas-pessoas h2, .ps-registro-pasta h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
 .ps-metas-andamento h2 { margin-bottom: 13px; }
 .ps-metas-progresso { display: flex; align-items: baseline; gap: 8px; }
 .ps-metas-progresso-num { font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
@@ -3936,6 +3936,11 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 [data-bs-theme="dark"] .ps-avatar--neutro { background: var(--ps-cli-avatar-bg); color: var(--ps-cli-avatar-tx); }
 .ps-metas-pessoa-nome { font-size: 13.5px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-metas-pessoa-n { font-size: 11.5px; color: var(--ps-muted); }
+/* dc L.1686: a pessoa vira botão (abre a conversa): sem moldura, ocupa a largura com 8 px de folga para o hover. */
+.ps-metas-pessoa--conversar { width: calc(100% + 16px); margin: -4px -8px; padding: 4px 8px; border: none; border-radius: 4px; background: transparent; font-family: inherit; text-align: left; color: inherit; cursor: pointer; transition: background .18s; }
+.ps-metas-pessoa--conversar:hover, .ps-metas-pessoa--conversar:focus-visible { background: #eef5f9; }
+[data-bs-theme="dark"] .ps-metas-pessoa--conversar:hover, [data-bs-theme="dark"] .ps-metas-pessoa--conversar:focus-visible { background: rgba(255, 255, 255, .06); }
+.ps-metas-pessoa-chat { font-size: 13px; color: #0a7aad; flex-shrink: 0; }
 .ps-metas-pessoas-vazio { font-size: 12.5px; color: var(--ps-muted); }
 @media (prefers-reduced-motion: reduce) {
     .ps-meta:hover { transform: none; }
@@ -3985,7 +3990,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
     .ps-detalhes-obs .ps-obs-menu { animation: none; }
 }
-/* Trilho da aba Detalhes (desenho): "Registro da pasta" e "Como usar esta aba". */
+/* Trilho da aba Detalhes (desenho): "Registro da pasta" (o card "Pontos do relatório inicial" mora em pasta-pontos-relatorio.css). */
 .ps-registro-pasta { padding: 17px; }
 .ps-registro-pasta h2 { margin-bottom: 14px; }
 .ps-registro-pasta-campos { display: flex; flex-direction: column; gap: 14px; }
@@ -3995,10 +4000,6 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-registro-pasta .ps-btn { height: 32px; gap: 8px; }
 /* Alinhado a esquerda, 0 12px (dc 2386, auditoria 2 T4). */
 .ps-btn--largo { width: 100%; justify-content: flex-start; padding: 0 12px; }
-.ps-como-usar h2 { margin-bottom: 11px; }
-.ps-como-usar p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ps-text-3); text-wrap: pretty; }
-.ps-como-usar { padding: 17px; } /* dc 2399 (auditoria 2 T7) */
-.ps-como-usar strong { color: var(--ps-forte-2); font-weight: 700; }
 
 /* ── Aba Push: tipo da publicacao em pilula ── */
 .ps-push-titulo {

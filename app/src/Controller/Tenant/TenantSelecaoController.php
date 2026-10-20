@@ -69,7 +69,8 @@ final class TenantSelecaoController extends AbstractController
             return $this->redirectToRoute('admin_platform_dashboard');
         }
 
-        $convites = $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail());
+        // E-mail ainda a confirmar não vê convite (o token sairia para quem talvez não seja dono da caixa).
+        $convites = $user->isEmailConfirmado() ? $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()) : [];
 
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,

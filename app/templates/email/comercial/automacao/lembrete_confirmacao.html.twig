@@ -1,0 +1,6 @@
+{# Modelo "Confirmar e-mail" do desenho 05 (dc L.508), no lembrete `lemb`, com o link novo. Sem o código de 6
+   dígitos: o código na confirmação é da frente do desenho 10 (decisão de 19/10, Q5). #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto('Recebemos o cadastro da sua conta no BlueJus. Para proteger o acesso e liberar todas as funções, confirme que este e-mail é seu.') }}
+{{ b.botao('Confirmar meu e-mail', urlDeConfirmacao) }}
+{{ b.texto("O link vale por 24 horas.\n\nSe você não criou esta conta, ignore este e-mail.") }}
