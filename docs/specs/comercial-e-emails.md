@@ -234,7 +234,7 @@ fica numa coluna `tenant_id` nullable (null = plataforma), escrita à mão em ca
 | `tipo` | `transacional` (ciclo da conta, obrigação do serviço) ou `lista` (com descadastro) |
 | `lista` | obrigatória em `lista`, `PADRAO_DO_ASSUNTO` da 0d; proibida em `transacional` |
 | `escopo` | `?Tenant`; null = plataforma |
-| `origem` | `automacao:<chave>`, `campanha:<id>`, `teste`, `consumidor:<nome>` (`[a-z0-9_:]{3,60}`) |
+| `origem` | `automacao:<chave>`, `campanha:<id>`, `teste_campanha`, `consumidor:<nome>` (`[a-z0-9_:]{3,60}`) |
 | `replyTo` | opcional; a 0d manda o responsável |
 | `cc` | lista opcional; a 0d manda a Controladoria |
 | `rastrear` | bool; só vale em `lista` e só com o rastreio ligado (§3.8) |
@@ -447,8 +447,9 @@ seguintes), com:
   - Sem vaga no minuto: `DelayStamp` de 60 s. Sem vaga no dia: `DelayStamp` até 00:05 do dia seguinte.
   - **Prioridade (N6):** só os transacionais **do ciclo da conta** (`automacao:cad`, `lemb`, `val`, `conv`, `e90`,
     `e100`, `ped`) respeitam apenas o limite por minuto (as boas-vindas nunca esperam o dia seguinte por causa de
-    campanha). Todo o resto (`lista`, confirmações de endereço, testes, consumidores) respeita os dois. O teto diário
-    conta tudo o que saiu.
+    campanha). Todo o resto (`lista`, confirmações de endereço, consumidores) respeita os dois. Emenda da fatia 2: o
+    "Enviar teste" da campanha (`teste_campanha`) também fica isento do teto diário, e a lista passa a se chamar
+    `ORIGENS_ISENTAS_DO_TETO_DIARIO` (§8.4). O teto diário conta tudo o que saiu.
   - Os e-mails antigos síncronos não passam pela conta nem pelo limite (P5); o padrão conservador deixa folga para
     eles. Se o provedor for Gmail gratuito, o teto de 1.500 é alto demais (Q1).
 
@@ -551,11 +552,11 @@ Decididas pelo coordenador em 19/10: Q2, Q3, Q4, Q5 (frente do desenho 10), Q6 (
 - **Q6.** (à f6) Evento na primeira recusa por espaço, para o `e100` não depender de fechar exatamente no teto.
 - **Q7.** "Últimos disparos" com o destinatário mascarado (`a***@dominio.com`): o dc mostra o endereço inteiro.
 
-## 8. Fatia 2: campanhas (v2 da fatia, 19/10)
+## 8. Fatia 2: campanhas (v3 da fatia, 19/10)
 
 Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desenho: dc L229-260 (template) e L482-560
 (script); a lista de campanhas é dc L282-286 e L586. Risco MÉDIO (envio em massa, LGPD). v1 não aprovada na revisão
-(achados R1 a R16, todos tratados nesta v2). Dois PRs:
+(achados R1 a R16, tratados na v2); v2 não aprovada (A1 a A11, tratados nesta v3). Dois PRs:
 
 - **2a.** Modelos (fixos, de automação e próprios), editor de blocos, HTML importado, prévia, "Baixar HTML" e "Enviar
   teste". **Nada sai para mais de uma pessoa** (o teste vai só ao Master logado). Não cria campanha.
@@ -568,26 +569,34 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
    `Enviar "ASSUNTO" para N destinatário(s) agora?` ou `em AAAA-MM-DD HH:MM?`). O pedido leva uma chave de
    idempotência gerada na tela (UNIQUE): clique duplo não cria duas campanhas. (R5)
 2. **Chave da instalação** `COMERCIAL_CAMPANHAS_LIGADAS` (padrão `0`). Desligada, **"Enviar campanha" é recusado**
-   ("O envio de campanhas está desligado nesta instalação.") e nada se acumula: ligar a chave não dispara nada
-   represado. O expansor também confere a chave a cada lote (desligar no meio para). **A confirmar com o dono.** (R3)
+   ("O envio de campanhas está desligado nesta instalação."). **Desligar é parada de emergência:** na volta seguinte
+   o expansor cancela TODA campanha ativa (`na_fila`, `agendada`, `enviando`, `recorrente`) com o motivo "Envio de
+   campanhas desligado na instalação"; religar não solta nada represado (cada campanha precisa ser confirmada de novo).
+   A chave é variável de ambiente: trocar exige reiniciar o worker (em produção, deploy); **não** é o freio do dia a dia
+   (item 5). **A confirmar com o dono.** (R3, A2)
 3. Deploy, migration e semeadura nunca criam campanha nem envio.
 4. **Nada é recuperado:** a recorrente que perdeu execuções (worker parado) pula para a próxima data futura; a
    `agendada` que acordar mais de 24 h atrasada vira `cancelada` com o motivo, sem enviar. (R3)
 5. **Freio sem deploy (2b):** `app:comercial:encerrar-campanha <id>` (console) encerra qualquer campanha ativa
-   (`cancelada`), e o expansor para no lote seguinte. É o freio enquanto A3 (Pausar e Encerrar na tela) espera o dono;
+   (`cancelada`), e o expansor para no lote seguinte; o que já estava `enfileirado` no Carteiro também não sai: o
+   `EnviarEmailHandler` confere, para origem `campanha:<id>`, se a campanha foi cancelada e marca o envio como
+   `cancelado`. (A10) É o freio enquanto A3 (Pausar e Encerrar na tela) espera o dono;
    a tela da 2b mostra as campanhas ativas (lista do dc L586). **A confirmar com o dono** (A3). (R2)
 
 ### 8.2 Modelos (2a)
 
 - **Fixos** (`ModelosDeCampanha`, dc L504-507 e L514): `convite`, `vagas`, `obrigado`, `novidades` (simples: corpo,
   itens, cta, link) e `news` (blocos). Textos literais do dc.
-- **De automação** (dc L508-513: `validar`, `boasvindas`, `primeiros`, `espaco90`, `espaco100`, `pedido`): **fonte
-  única = os modelos da 1a** (`ModelosDeAutomacao`), para a grade mostrar o que a automação manda. Podem ser conteúdo
-  de campanha (o dc deixa). Duplicar cria um modelo próprio e **não muda o que a automação envia**. O "Ou use o código
-  482 917" do `validar` (dc L508) fica fora, como na 1a (Q5). (R7, R16)
+- **De automação** (dc L508-513: `validar`, `boasvindas`, `primeiros`, `espaco90`, `espaco100`, `pedido`): entram na
+  grade como **cópias em blocos, literais do dc** (JSON de blocos em `ModelosDeCampanha`), independentes dos templates
+  Twig das automações da 1a. Assim "Duplicar" (dc L550) tem blocos para copiar e a campanha congela `modo = blocos`.
+  **O que as automações enviam não muda** (seguem os templates da 1a e da 1b); alinhar o estilo desses templates ao dc
+  (h2 17 px contra 20 px de dc L488, `<p>` contra `<tr><td>` de L489) é follow-up da 1a, registrado. O "Ou use o código
+  482 917" do `validar` (dc L508) fica fora (Q5), e o botão `validar` vira `app` (8.3). Usar `validar` ("Confirme seu
+  e-mail") como campanha engana quem recebe; o dc deixa: **a confirmar com o dono**. (A1)
 - **Datas comemorativas** (dc L517-521, L529) entram na grade com a **fatia 4** (`CalendarioDoSistema`).
 - **Próprios** em `comercial_modelo` (no lugar do `localStorage 'bj-com-modelos'`): `id`, `nome` (1-40), `icone`
-  (lista fechada `bi-[a-z0-9-]{1,40}`, senão `bi-file-earmark`), `modo` (`simples` | `blocos` | `html`), `assunto`,
+  (precisa casar `^bi-[a-z0-9-]{1,40}$`, senão `bi-file-earmark`), `modo` (`simples` | `blocos` | `html`), `assunto`,
   `selo`, `titulo`, `conteudo` (JSON dos blocos ou o HTML já sanitizado), `criado_por`, `criado_em`, `alterado_em`.
   Plataforma (sem tenant). (R8)
 - Ações literais do dc: "Novo modelo" (L549), "Duplicar" (L550), "Salvar modelo" (L551, só próprio; num fixo: "Modelos
@@ -607,25 +616,32 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
   `contribua`, `app`, `espaco` e `cadastro` (página pública de cadastro) viram as URLs do sistema; `validar` (sem token
   por destinatário numa campanha) vira `app`; outro valor só com `https://` ou `http://`, senão o botão sai sem link.
   Imagem só com `https://`. (R16)
-- **Layout em modo "linhas"** (R7): o `_layout.html.twig` da 1a ganha um modo em que os blocos entram como `<tr>` da
-  tabela de 600 px seguidos da linha espaçadora de 14 px (dc L496-499); o modo simples segue dc L500. As automações
-  da 1a continuam no modo atual (sem mudança no que elas enviam).
+- **Layout em três modos** (R7, A3): `padrao` (o atual da 1a, miolo num `<td>`), `linhas` (os blocos como `<tr>` da
+  tabela de 600 px mais a linha espaçadora de 14 px, dc L496-499; o modo simples segue dc L500) e `cru` (o HTML
+  importado mais só o rodapé legal). **Contrato do Carteiro:** `MensagemDeEmail` ganha `layout` (padrão `padrao`; a 0d
+  e a a7 não mudam nada), gravado em coluna nova `layout` de `comercial_envio_conteudo` (migration da 2a, na fila) e
+  lido pelo `EnviarEmailHandler` ao remontar; o `MontadorDeEmail` ganha os dois ramos. As automações continuam
+  `padrao`.
 - **HTML importado (desvio do dc, a confirmar com o dono)** (R7): o dc envia o HTML cru, sem cabeçalho nem rodapé (L486).
   Aqui ele entra cru, **mais só o rodapé legal** (B3); sem o cabeçalho azul. Até 200 KB.
 - **Sanitização** (R8): `symfony/html-sanitizer` com tags de e-mail e estilos inline; sem script, iframe, form, object,
-  eventos; URLs só http(s) e mailto; `url(` e `expression(` removidos dos `style`. `<head>` e `<style>` caem (a tela
+  eventos; URLs só http(s) e mailto. O `html-sanitizer` não analisa CSS: um sanitizador de atributo próprio tira do
+  `style` as declarações com `url(`, `expression(` e `@import`. `<head>` e `<style>` caem (a tela
   avisa: "Estilos em bloco (<style>) não são mantidos; use estilos na própria tag."). Sanitiza **ao salvar e em toda
-  montagem** (prévia, teste, "Baixar HTML", envio).
-- **Prévia** (R8): resposta com `Content-Security-Policy: sandbox` (como `EntregaDeArquivo::CSP_SANDBOX`) e iframe
-  `sandbox` sem `allow-scripts` nem `allow-same-origin`. Nome e e-mail de exemplo **como o dc** (L537): os do primeiro
+  montagem** (prévia, teste, "Baixar HTML", envio). `{nome}` no HTML importado é trocado **depois** da sanitização, pelo
+  nome **escapado** (o nome pode vir do CSV). (A11)
+- **Prévia** (R8, A4): como o dc (L253, "a prévia atualiza na hora"): a tela pede o HTML ao servidor (JSON `{html}`,
+  com espera de 400 ms entre teclas) e o põe no `srcdoc` de um iframe `sandbox=""` (sem `allow-scripts` nem
+  `allow-same-origin`); estilos inline e imagens funcionam, scripts não. Nome e e-mail de exemplo **como o dc** (L537): os do primeiro
   destinatário do público escolhido; sem público (2a), "Dra. Ana" e teste@bluejus.com.br. (R12)
 - "Baixar HTML" (dc L558): o mesmo HTML da prévia, `email-CHAVE.html`.
 
 ### 8.4 Enviar teste (2a) e campanha (2b)
 
 **Enviar teste (C4):** monta como a campanha e manda ao Master logado, `tipo = lista`, lista `comercial_campanhas`,
-origem `teste_campanha` (fora do prefixo `campanha:` que o Monitoramento agrupa). Isento do teto diário (como o ciclo da
-conta), sujeito ao limite por minuto; teto de 10 testes por hora por Master. Mensagens: "Teste enviado para EMAIL.";
+origem `teste_campanha` (fora do prefixo `campanha:` que o Monitoramento agrupa), `layout` conforme o modo. Isento do
+teto diário: a lista `EnviarEmailHandler::ORIGENS_DO_CICLO_DA_CONTA` vira `ORIGENS_ISENTAS_DO_TETO_DIARIO` (ciclo da
+conta mais `teste_campanha`) e a §3.6 é emendada; sujeito ao limite por minuto; teto de 10 testes por hora por Master. Mensagens: "Teste enviado para EMAIL.";
 descadastrado da lista: "Você está descadastrado da lista de campanhas; o teste não foi enviado."; teto: "Limite de 10
 testes por hora atingido." (R13, R14)
 
@@ -641,7 +657,8 @@ e-mail: ASSUNTO · N destinatário(s)", L560; aqui sem o assunto por minimizaç�
 Estados (R10): única `na_fila`/`agendada` → `enviando` → `enviada` (quando o último destinatário foi entregue ao
 Carteiro; o resultado de cada envio é do Monitoramento); recorrente fica `recorrente` entre execuções (marca a execução
 em curso em `comercial_campanha_destino`, não no estado). Recorrente sem data começa agora. Próxima data: +7 dias, +14
-dias, ou mesmo dia do mês seguinte limitado ao último dia (31/01 → 28/02 ou 29/02). Rótulos e cores do dc (L586) para
+dias, ou o **dia original** do mês seguinte limitado ao último dia (31/01 → 28/02 → 31/03; ancora sempre no dia da
+primeira execução). (A9) Rótulos e cores do dc (L586) para
 "Na fila", "Agendada", "Recorrente"; os demais em texto ("Enviando", "Enviada", "Cancelada").
 
 ### 8.5 Públicos e envio (2b)
@@ -655,27 +672,36 @@ dias, ou mesmo dia do mês seguinte limitado ao último dia (31/01 → 28/02 ou 
 | `csv` "Importar lista (CSV)" | parsing do dc L545 no servidor; até 5.000 linhas / 1 MB |
 | `indiv` "Individual" | e-mails digitados (dc L239), até 50 |
 
+- **Envio:** `tipo = lista`, `lista = comercial_campanhas`, `origem = campanha:<id>`, `rastrear = true` (só vale com a
+  constante da 1a), `layout` conforme o modo; reply-to pela `PoliticaDeDestinatarios`. (A7)
+- O rótulo do dc "Inscritos pela página de vagas e campanhas" (L539) fica literal, embora a fonte hoje não inclua a página
+  de vagas: **desvio de texto a confirmar** (trocar o rótulo ou a fonte é do dono). (A8)
 - Deduplicação por e-mail minúsculo e retirada dos descadastrados (`comercial_campanhas` ou `todos`), como o dc. A
   linha do dc L254 conta K **desta lista** (o dc conta o global: número errado; desvio a confirmar). (R12)
 - **B1 restritivo (a confirmar com o dono):** `PoliticaDeDestinatarios::exigirAutorizacaoEmCsvEIndividual()` = `true`:
   no CSV e no Individual só entra usuário ativo cadastrado ou confirmado em `comercial_campanhas`; os demais saem e a
-  linha ganha "· J sem autorização fora da lista". Os recusados não são gravados. (R1, R9)
+  linha ganha "· J sem autorização fora da lista". Os recusados não são gravados. O B1 é **reaplicado a cada execução**
+  da recorrente (quem foi desativado depois da confirmação sai). (R1, R9, A10)
 - **Reply-to (a confirmar):** `PoliticaDeDestinatarios::replyToDaCampanha(): ?string` = `null` (padrão da 1a).
 - Textos do dc: "Nenhum destinatário nesta lista." (L560), rótulo "Agendar" / "Primeiro envio" (L557). Data passada:
   "Escolha uma data futura." (o dc aceita; convenção, a confirmar). Mensagem de sucesso: o dc diz "Campanha
   agendada/enfileirada: N e-mail(s). O servidor envia em lotes e registra entregas, aberturas e cliques." (L560); com o
   rastreio desligado, "aberturas e cliques" seria falso: a frase termina em "registra as entregas." até o rastreio
   ligar. **A confirmar.** (R11) O N da confirmação é o da hora; o da execução pode mudar (novos cadastros, descadastros).
-- **Expansor** (R4, R5, R10): uma cadeia única `ExpandirCampanhas` no transporte `comercial`, semeada pelo mesmo comando
-  da 1a (`app:comercial:varredura`, idempotente), que se reagenda a cada 60 s **só enquanto há campanha ativa** e é
-  despertada pela confirmação. A cada volta: confere a chave; materializa a execução devida em
-  `comercial_campanha_destino` (`campanha_id`, `execucao`, `email`, `nome`, `envio_id`; UNIQUE nos três primeiros);
-  libera um lote dentro de **uma transação da conexão**: `SELECT ... WHERE envio_id IS NULL FOR UPDATE SKIP LOCKED
-  LIMIT n`, `Carteiro::enviar` e grava o `envio_id` (o Carteiro abre savepoint dentro dela). Queda no meio = nada
-  gravado, nada duplicado.
+- **Expansor** (R4, R5, R10, A5): cadeia `ExpandirCampanhas` no transporte `comercial`, com **linha de controle**
+  `comercial_expansor` (id 1, `proxima_em`) e **reivindicação atômica** como a varredura da 1a (`UPDATE ... SET
+  proxima_em = :depois WHERE id = 1 AND proxima_em <= :agora`; quem não reivindica sai sem fazer nada, então
+  despachos extras não criam cadeia paralela). Campanha **ativa** = `na_fila`, `agendada`, `enviando` ou `recorrente`.
+  Com alguma ativa, a cadeia se reagenda a cada 60 s; sem nenhuma, para. A confirmação põe `proxima_em = agora` e
+  despacha. **Rede de segurança:** a `VarrerAutomacoes` (15 min) despacha a cadeia se houver ativa e `proxima_em`
+  estiver mais de 5 min no passado. Semeada também pelo `app:comercial:varredura`. A cada volta: confere a chave
+  (8.1.2); materializa a execução devida em `comercial_campanha_destino` (`campanha_id`, `execucao`, `email`, `nome`,
+  `envio_id`; UNIQUE nos três primeiros); libera um lote dentro de **uma transação da conexão**: `SELECT ... WHERE
+  envio_id IS NULL FOR UPDATE SKIP LOCKED LIMIT n`, `Carteiro::enviar` e grava o `envio_id` (o Carteiro vira savepoint
+  dentro dela, `use_savepoints: true`). Queda no meio = nada gravado, nada duplicado.
 - **Vazão própria da campanha** (R4): lote de até **10 por minuto** (metade do limite global, sobra para o ciclo da
   conta e os opt-ins), **teto diário de campanhas 1.000** (configurável, abaixo dos 1.500 globais), e **contrapressão**:
-  o próximo lote só sai se os envios de campanha ainda `enfileirado` forem menos que um lote. Assim o conteúdo não se
+  o próximo lote só sai se os envios de campanha ainda `enfileirado` ou `enviando` forem menos que um lote. Assim o conteúdo não se
   acumula em `comercial_envio_conteudo`.
 - **Retenção** (R9): `comercial_campanha_destino` segue a da §3.2 (P4, 24 meses; depois `email` vira hash e `nome`
   nulo); `publico_parametros` é apagado quando a campanha vira `enviada` ou `cancelada`.
@@ -710,6 +736,8 @@ recorrente pula, +1 mês no fim do mês, comando de encerrar).
 6. A frase de sucesso sem "aberturas e cliques" enquanto o rastreio estiver desligado.
 7. K "desta lista" e recusa de data passada (convenção).
 8. Secundários como clientes (legítimo interesse).
+9. O rótulo "Inscritos pela página de vagas e campanhas" (dc L539) mantido literal com a fonte nova (A8).
+10. O modelo `validar` disponível como campanha (A1).
 
 ### 8.9 Inventário do dc (19/10), para conferir item a item
 
