@@ -12,6 +12,8 @@ namespace App\Pasta\DTO;
  * - `grupo`: GRUPO_PASTA, GRUPO_CLIENTE ou GRUPO_PROCESSO.
  * - `nome` e `documento`: do cliente que casou (grupo Cliente); `documento` cru, como gravado.
  * - `numeroProcesso` e `classeProcessual`: do processo que casou (grupo Processo).
+ * - `restrito`: a pasta está OCULTA pelo cadeado para quem busca (spec pasta-cadeado D1). Ela só casa por
+ *   número e cliente, e o banco já a devolve sem a ação (`nomeAcao` nulo).
  */
 final class OcorrenciaDaBuscaRapida
 {
@@ -23,7 +25,7 @@ final class OcorrenciaDaBuscaRapida
         public readonly int $pastaId,
         public readonly string $grupo,
         public readonly string $nup,
-        public readonly bool $trancada,
+        public readonly bool $restrito,
         public readonly ?string $nomeAcao = null,
         public readonly ?string $nomeClienteDaPasta = null,
         public readonly ?string $nomeDoClientePrincipal = null,

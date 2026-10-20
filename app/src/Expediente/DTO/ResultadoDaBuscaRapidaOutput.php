@@ -8,10 +8,8 @@ namespace App\Expediente\DTO;
  * Um item da lista da Busca rápida (desenho 02 EXPEDIENTES L405-421): ícone pelo grupo, título,
  * subtítulo e o grupo em maiúsculas à direita. A URL de abrir fica com o controller.
  *
- * `restrito` existe desde já para a regra do AcessoAPasta (spec docs/specs/pasta-cadeado.md, D1):
- * pasta Oculta para a pessoa aparece só com número, cliente e CPF e o cadeado. Hoje é sempre false,
- * porque a regra provisória (BuscarRapidoUseCase::calcularVisibilidade) só deixa passar o que a pessoa vê.
- * `nup` vai junto para a janela de sigilo ("Pasta <nup> protegida") de qualquer grupo.
+ * `restrito`: a pasta está OCULTA pelo cadeado para quem busca (spec pasta-cadeado D1). Aparece só com
+ * número, cliente e CPF, com o cadeado, e ao abrir cai na tela "Pasta trancada" (com o pedido de acesso).
  */
 final class ResultadoDaBuscaRapidaOutput
 {
@@ -21,8 +19,7 @@ final class ResultadoDaBuscaRapidaOutput
         public readonly string $subtitulo,
         public readonly int $pastaId,
         public readonly string $nup,
-        public readonly bool $trancada,
-        public readonly bool $restrito = false,
+        public readonly bool $restrito,
     ) {
     }
 }

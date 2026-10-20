@@ -11,6 +11,9 @@ use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -18,7 +21,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Fixtures da Busca rápida (Ctrl + K): escritório, pessoa com papel de sistema ou com permissões exatas,
- * pasta e acesso próprio a uma pasta.
+ * pasta, acesso próprio a uma pasta e o cadeado da pasta (spec pasta-cadeado), como os testes do #120.
  */
 abstract class BuscaRapidaWebTestCase extends JusPrimeWebTestCase
 {
@@ -39,7 +42,7 @@ abstract class BuscaRapidaWebTestCase extends JusPrimeWebTestCase
         return $tenant;
     }
 
-    /** Administrador do escritório: papel de sistema, vê tudo e abre pasta trancada. */
+    /** Administrador do escritório (primário): papel de sistema, vê tudo, inclusive pasta com cadeado. */
     protected function criarAdministrador(Tenant $tenant): User
     {
         $role = $this->criarPapel($tenant, true);
@@ -99,6 +102,23 @@ abstract class BuscaRapidaWebTestCase extends JusPrimeWebTestCase
             ->setCanView($podeVer);
         $this->em()->persist($acesso);
         $this->em()->flush();
+    }
+
+    /**
+     * Cadeado gravado no banco, como o `CriaCenarioDoCadeadoFuncionalTrait` do #120.
+     *
+     * @param list<array{0: User, 1: NivelDeAcesso}> $grade vazia = "Ocultar para todos"
+     */
+    protected function trancar(Pasta $pasta, User $por, array $grade = []): CadeadoDaPasta
+    {
+        $cadeado = new CadeadoDaPasta($pasta->getTenant(), $pasta, $grade === [] ? ModoDoCadeado::Todos : ModoDoCadeado::PorPessoa, $por, new \DateTimeImmutable());
+        if ($grade !== []) {
+            $cadeado->definirPorPessoa($grade, $por, new \DateTimeImmutable());
+        }
+        $this->em()->persist($cadeado);
+        $this->em()->flush();
+
+        return $cadeado;
     }
 
     private function criarPapel(Tenant $tenant, bool $sistema): TenantRole

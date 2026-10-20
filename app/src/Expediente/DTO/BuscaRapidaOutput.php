@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Expediente\DTO;
 
 /**
- * Resposta da Busca rápida: até 8 resultados e se a pessoa abre pasta trancada direto.
- *
- * `abreTrancada` repete a regra da Lista do Expediente (expediente-lista.js, `abrirOuAvisar`): quem não
- * é administrador do escritório, ao abrir pasta trancada, recebe o aviso de sigilo em vez da pasta.
+ * Resposta da Busca rápida: até 8 resultados. Quem abre o quê não é decidido aqui: o resultado de pasta
+ * oculta (`restrito`) leva à própria pasta, onde a barreira do cadeado mostra a tela "Pasta trancada".
  */
 final class BuscaRapidaOutput
 {
@@ -17,7 +15,6 @@ final class BuscaRapidaOutput
      */
     public function __construct(
         public readonly array $resultados,
-        public readonly bool $abreTrancada,
     ) {
     }
 }

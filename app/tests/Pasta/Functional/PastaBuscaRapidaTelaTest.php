@@ -56,44 +56,13 @@ final class PastaBuscaRapidaTelaTest extends BuscaRapidaWebTestCase
         self::assertSame('combobox', $campo->attr('role'));
         self::assertSame('pbrOpcoes', $campo->attr('aria-controls'));
 
-        // Pasta trancada para quem não é administrador: o aviso de sigilo da Lista, com "Pedir acesso".
-        $sigilo = $crawler->filter('#pastaBuscaRapida > .pbr-janela > .pbr-sigilo');
-        self::assertCount(1, $sigilo);
-        self::assertNotNull($sigilo->attr('hidden'), 'o aviso nasce escondido');
-        self::assertSame('Pasta protegida', preg_replace('/\s+/', ' ', $sigilo->filter('.pbr-sigilo-titulo')->text()));
-        self::assertSame('Esta pasta contém documentos sigilosos. O acesso não é recomendado no momento.', $sigilo->filter('.pbr-sigilo-texto')->text());
-        self::assertSame('Somente o usuário primário pode liberar o acesso.', $sigilo->filter('.pbr-sigilo-nota')->text());
-        self::assertSame('Pedir acesso', $sigilo->filter('.pbr-sigilo > button.pbr-sigilo-pedir')->text());
-        self::assertSame('/expediente/pasta/0/pedir-acesso', $raiz->attr('data-url-pedir'));
-        self::assertNotSame('', (string) $raiz->attr('data-csrf-pedir'));
+        // Pasta oculta pelo cadeado abre na própria tela trancada (com o pedido de lá): a janela não tem aviso próprio.
+        self::assertCount(0, $crawler->filter('#pastaBuscaRapida .pbr-sigilo'));
+        self::assertNull($raiz->attr('data-url-pedir'));
+        self::assertNull($raiz->attr('data-csrf-pedir'));
 
         $rodape = $crawler->filter('#pastaBuscaRapida > .pbr-janela > .pbr-rodape > span');
         self::assertSame(['↑ ↓ navegar', 'Enter abrir', 'Ctrl + K abrir ou fechar'], $rodape->each(static fn ($s): string => $s->text()));
-    }
-
-    #[TestDox('o token da janela serve na rota de pedir acesso da Lista (pasta trancada, quem não é administrador)')]
-    public function testTokenDaJanelaPedeAcesso(): void
-    {
-        $client = static::createClient();
-        $tenant = $this->criarTenant();
-        $admin  = $this->criarAdministrador($tenant);
-        $pessoa = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view', 'modules.expediente.view', 'resources.pasta.view']);
-        $aberta = $this->criarPasta($tenant);
-        $trancada = $this->criarPasta($tenant);
-        $trancada->trancar($admin, new \DateTimeImmutable());
-        $this->em()->flush();
-
-        $this->logarComTenant($client, $pessoa, $tenant);
-        $crawler = $client->request('GET', '/pasta/' . $aberta->getId());
-        self::assertResponseIsSuccessful();
-        $raiz = $crawler->filter('#pastaBuscaRapida');
-
-        $client->xmlHttpRequest('POST', str_replace('/0/', '/' . $trancada->getId() . '/', (string) $raiz->attr('data-url-pedir')), [
-            '_token' => (string) $raiz->attr('data-csrf-pedir'),
-        ]);
-
-        self::assertResponseIsSuccessful();
-        self::assertArrayHasKey('avisados', json_decode((string) $client->getResponse()->getContent(), true));
     }
 
     #[TestDox('sem o módulo Pastas, a página da pasta não traz a janela nem o JS')]

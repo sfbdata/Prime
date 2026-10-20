@@ -17,6 +17,9 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Busca rápida da pasta (Ctrl + K na página da pasta, desenho 02 EXPEDIENTES L405-421). Devolve até 8
  * resultados em JSON para a janela montada por public/js/pasta-busca-rapida.js.
+ *
+ * A URL de todo resultado é a da pasta (`pasta_show`), inclusive a da pasta oculta pelo cadeado
+ * (`restrito`): lá a barreira do #120 mostra a tela "Pasta trancada", com o "Pedir acesso" dela.
  */
 final class BuscaRapidaController extends AbstractController
 {
@@ -39,8 +42,7 @@ final class BuscaRapidaController extends AbstractController
         $saida = $this->buscarRapido->executar((string) $request->query->get('q', ''), $user, $tenant);
 
         $resposta = $this->json([
-            'resultados'   => array_map($this->itemDaResposta(...), $saida->resultados),
-            'abreTrancada' => $saida->abreTrancada,
+            'resultados' => array_map($this->itemDaResposta(...), $saida->resultados),
         ]);
         $resposta->headers->set('Cache-Control', 'no-store');
 
@@ -57,7 +59,6 @@ final class BuscaRapidaController extends AbstractController
             'pastaId'   => $r->pastaId,
             'nup'       => $r->nup,
             'url'       => $this->generateUrl('pasta_show', ['id' => $r->pastaId]),
-            'trancada'  => $r->trancada,
             'restrito'  => $r->restrito,
         ];
     }

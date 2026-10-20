@@ -1639,8 +1639,13 @@ class PastaRepository extends ServiceEntityRepository
      *   pelos dígitos (3 ou mais).
      * - Termo vazio: só as pastas, as mais recentes.
      *
-     * `$somenteIds`: null = sem restrição; lista = só essas pastas (a visibilidade é decidida pelo
-     * chamador e aplicada AQUI, antes do LIMIT, para o corte valer sobre o que a pessoa vê).
+     * `$somenteIds`: null = sem restrição; lista = só essas pastas (o escopo da pessoa é decidido pelo
+     * chamador e aplicado AQUI, antes do LIMIT, para o corte valer sobre o que ela alcança).
+     *
+     * `$ocultas`: os ids das pastas OCULTAS pelo cadeado para quem busca (`AcessoAPasta::idsOcultosPara`,
+     * spec pasta-cadeado D1). Elas continuam no resultado, com `restrito`, mas casam SÓ pelo número da
+     * pasta e pelo cliente (nome e CPF/CNPJ): o grupo Processo não as traz (nem pelo número do processo,
+     * que viraria oráculo) e a ação delas nem sai do banco (`nome_acao` nulo), para não virar subtítulo.
      *
      * Sem acento e sem caixa (`unaccent` + `lower`). SQL nativo porque a comparação por dígitos
      * precisa do `regexp_replace` do PostgreSQL, que o DQL não tem; o filtro de tenant do Doctrine
@@ -1648,20 +1653,24 @@ class PastaRepository extends ServiceEntityRepository
      * processo. Pasta excluída (lápide) fica de fora.
      *
      * @param list<int>|null $somenteIds
+     * @param list<int>      $ocultas
      *
      * @return list<OcorrenciaDaBuscaRapida>
      */
-    public function buscarParaBuscaRapida(string $termo, Tenant $tenant, int $limite = 8, ?array $somenteIds = null): array
+    public function buscarParaBuscaRapida(string $termo, Tenant $tenant, int $limite = 8, ?array $somenteIds = null, array $ocultas = []): array
     {
         if ($somenteIds === []) {
             return [];
         }
 
-        $termo       = mb_strtolower(trim($termo));
-        $base        = self::SQL_BUSCA_RAPIDA_BASE . ($somenteIds !== null ? ' AND p.id IN (:ids)' : '');
+        $termo = mb_strtolower(trim($termo));
+        // `IN` com lista vazia vira `IN (NULL)` no DBAL (nulo, não falso): sem oculta, a coluna é `false` fixo.
+        $oculta = $ocultas === [] ? 'false' : 'p.id IN (:ocultas)';
+        $base   = sprintf(self::SQL_BUSCA_RAPIDA_BASE, $oculta, $oculta)
+            . ($somenteIds !== null ? ' AND p.id IN (:ids)' : '');
         $ocorrencias = $termo === '' ? self::SQL_BUSCA_RAPIDA_SO_PASTAS : self::SQL_BUSCA_RAPIDA_OCORRENCIAS;
         $sql = 'WITH base AS (' . $base . '), ocorrencias AS (' . $ocorrencias . ')'
-            . ' SELECT o.*, b.nup, b.nome_acao, b.nome_cliente, b.trancada, b.nome_principal'
+            . ' SELECT o.*, b.nup, b.nome_acao, b.nome_cliente, b.oculta, b.nome_principal'
             . ' FROM ocorrencias o JOIN base b ON b.id = o.pasta_id'
             . ' ORDER BY o.pasta_id DESC, o.ordem ASC, o.principal DESC, o.nome ASC, o.numero ASC'
             . ' LIMIT :limite';
@@ -1670,8 +1679,13 @@ class PastaRepository extends ServiceEntityRepository
         // converte os nomeados em posicionais pelo que aparece no SQL.
         $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
             $sql,
-            self::parametrosDaBuscaRapida($termo, $tenant, $limite, $somenteIds),
-            ['limite' => ParameterType::INTEGER, 'tenant' => ParameterType::INTEGER, 'ids' => ArrayParameterType::INTEGER],
+            self::parametrosDaBuscaRapida($termo, $tenant, $limite, $somenteIds, $ocultas),
+            [
+                'limite'  => ParameterType::INTEGER,
+                'tenant'  => ParameterType::INTEGER,
+                'ids'     => ArrayParameterType::INTEGER,
+                'ocultas' => ArrayParameterType::INTEGER,
+            ],
         );
 
         return array_map(self::ocorrenciaDaLinha(...), $linhas);
@@ -1679,10 +1693,11 @@ class PastaRepository extends ServiceEntityRepository
 
     /**
      * @param list<int>|null $somenteIds
+     * @param list<int>      $ocultas
      *
      * @return array<string, mixed>
      */
-    private static function parametrosDaBuscaRapida(string $termo, Tenant $tenant, int $limite, ?array $somenteIds): array
+    private static function parametrosDaBuscaRapida(string $termo, Tenant $tenant, int $limite, ?array $somenteIds, array $ocultas): array
     {
         $digitos = preg_replace('/\D/', '', $termo) ?? '';
         $digitos = \strlen($digitos) >= 3 ? $digitos : '';
@@ -1695,12 +1710,17 @@ class PastaRepository extends ServiceEntityRepository
             'digitosLike' => '%' . $digitos . '%',
             'limite'      => $limite,
             'ids'         => $somenteIds ?? [],
+            'ocultas'     => $ocultas,
         ];
     }
 
-    /** As pastas vivas do escritório, com o nome do cliente principal para o subtítulo. */
-    private const SQL_BUSCA_RAPIDA_BASE = 'SELECT p.id, p.nup, p.nome_acao, p.nome_cliente,'
-        . ' (p.trancada_em IS NOT NULL) AS trancada,'
+    /**
+     * As pastas vivas do escritório, com o nome do cliente principal para o subtítulo. Os dois `%s` são
+     * o critério de "oculta para quem busca": a coluna `oculta` e a ação apagada dessas pastas (D1).
+     */
+    private const SQL_BUSCA_RAPIDA_BASE = 'SELECT p.id, p.nup, p.nome_cliente,'
+        . ' (%s) AS oculta,'
+        . ' CASE WHEN %s THEN NULL ELSE p.nome_acao END AS nome_acao,'
         . ' COALESCE(cpf_pr.nome_completo, cpj_pr.razao_social) AS nome_principal'
         . ' FROM pasta p'
         . ' LEFT JOIN cliente c_pr ON c_pr.id = p.cliente_principal_id AND c_pr.tenant_id = :tenant'
@@ -1712,6 +1732,7 @@ class PastaRepository extends ServiceEntityRepository
         . ' NULL::text AS nome, NULL::text AS documento, NULL::text AS numero, NULL::text AS classe'
         . ' FROM base b';
 
+    /** O grupo Processo só olha as pastas que a pessoa vê (`NOT b.oculta`, D1). */
     private const SQL_BUSCA_RAPIDA_OCORRENCIAS = "SELECT b.id AS pasta_id, 1 AS ordem, 'Pasta' AS grupo, false AS principal,"
         . ' NULL::text AS nome, NULL::text AS documento, NULL::text AS numero, NULL::text AS classe'
         . ' FROM base b'
@@ -1729,8 +1750,8 @@ class PastaRepository extends ServiceEntityRepository
         . " UNION ALL SELECT b.id, 3, 'Processo', pp.principal, NULL, NULL, pr.numero_processo, pr.classe_processual"
         . ' FROM base b JOIN pasta_processo pp ON pp.pasta_id = b.id'
         . ' JOIN processo pr ON pr.id = pp.processo_id AND pr.tenant_id = :tenant'
-        . ' WHERE lower(pr.numero_processo) LIKE :termo'
-        . " OR (:digitos <> '' AND regexp_replace(pr.numero_processo, '\\D', '', 'g') LIKE :digitosLike)";
+        . ' WHERE NOT b.oculta AND (lower(pr.numero_processo) LIKE :termo'
+        . " OR (:digitos <> '' AND regexp_replace(pr.numero_processo, '\\D', '', 'g') LIKE :digitosLike))";
 
     /** @param array<string, mixed> $linha */
     private static function ocorrenciaDaLinha(array $linha): OcorrenciaDaBuscaRapida
@@ -1743,7 +1764,7 @@ class PastaRepository extends ServiceEntityRepository
             pastaId: (int) $linha['pasta_id'],
             grupo: (string) $linha['grupo'],
             nup: (string) $linha['nup'],
-            trancada: (bool) $linha['trancada'],
+            restrito: (bool) $linha['oculta'],
             nomeAcao: $texto('nome_acao'),
             nomeClienteDaPasta: $texto('nome_cliente'),
             nomeDoClientePrincipal: $texto('nome_principal'),
