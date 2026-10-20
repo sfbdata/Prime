@@ -7,6 +7,12 @@
 - 19/10: spec. Empilhada sobre `contribua-pix` (#88, que está sobre o #95), declarada; decisão do coordenador. A `contribua-pix` está
   atrás da `contribua-c3` e se atualiza quando #95 e #88 entrarem no master. A frente era da 4b (parada); a 0d confirmou que não começou nada.
 - Migration: uma, no fim da fila; timestamp do momento, renomeada na vez.
+- 19/10: **implementada** (base `ClientePixBacen`, `BancoInter`, `BancoDoBrasil`, `BancoPixPadrao`, campos extras, .pfx com senha,
+  webhook BACEN, `app:contribua:conciliar`). Revisão aprovada com ressalvas, **ressalvas corrigidas**: cliente HTTP dos bancos sem
+  logger e sem redirecionamento (`ClienteHttpDosBancos`); credenciais só do banco configurado; segredo exigido de novo ao trocar de
+  banco ou de URL do "Outro"; URLs do "Outro" sem rede interna; CONCLUIDA sem valor legível não confirma; bases do BB trocadas para
+  `api-pix.bb.com.br` / `api-pix.hm.bb.com.br`. Migration `Version20261019235500` no fim da fila (depois da `Version20261019230000`
+  da C4). **Falta:** push e PR (empilhado sobre o #88).
 
 ## O pedido
 
@@ -50,3 +56,12 @@ verdade, não como 'em breve'. Etapas C4b e C4c." Desenho: `docs/design/redesign
      (`.pfx` com senha) cadastrado no portal; chave PIX da conta.
    - **Outro (PSP com API Pix padrão):** URL base da API Pix e URL do token fornecidas pelo PSP, Client ID, Client Secret, certificado e chave PIX.
 3. O webhook do BACEN costuma chegar com mTLS do banco para o nosso servidor; o nginx de produção pode precisar aceitar o certificado do PSP.
+4. **Trocar de banco com cobranças abertas:** as credenciais guardadas são só do banco configurado, então as cobranças abertas do
+   banco anterior ficam **sem confirmação automática** (aviso, reconsulta e conciliação ignoram; nada é mandado ao banco errado).
+   Não existe hoje fluxo para o Master confirmar um apoio à mão: o escritório que pagou pode clicar em "Já contribuí" (fica como
+   apoio informado, sem confirmação do banco). Para não perder confirmações, troque de banco quando não houver cobrança aberta
+   recente (vencem em 7 dias) ou volte ao banco anterior por um tempo para a conciliação passar. Ao trocar de banco (ou as URLs do
+   "Outro"), o Client Secret e a app key guardados são apagados e precisam ser informados de novo.
+5. **Webhook sem limite por txid:** como na Cora, o endereço é público e não há limite de requisições; só aviso com txid de
+   cobrança nossa do banco ativo gera registro e fila (até 50 itens por aviso), e o mesmo `endToEndId` não é processado duas vezes.
+   Limite por origem fica para quando houver limitador no `framework.yaml`.
