@@ -6295,6 +6295,8 @@
         var como = S.como;
         var q = [];
         if (primeira && ORIGEM_LINK) {
+            // O servidor monta as boas-vindas pelo `origem=link`, mesmo sem vaga válida (l.1078, 1111).
+            q.push('origem=link');
             var vid = String(QS.get('vagas') || '').split(',').filter(function (c) { return /^VG-\d{1,9}$/.test(c.trim()); }).map(function (c) { return c.trim(); });
             if (vid.length) {
                 q.push('vagas=' + encodeURIComponent(vid.join(',')));
