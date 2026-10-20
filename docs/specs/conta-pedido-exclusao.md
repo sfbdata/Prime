@@ -16,8 +16,8 @@ Releia esta seção antes de continuar se a sessão for compactada.
   ativa com pedido pendente; `marcarExcluida` no `ExcluirContaPeloMasterUseCase`).
 - Migration `Version20261020150000`, no fim da fila (coordenador, 20/10). Mapeamento novo `AppTenant` no
   `doctrine.yaml` (arquivo quente).
-- 20/10, sem internet na máquina: commits só locais. FALTA ENVIAR: `git push -u origin conta-pedido-exclusao` e o PR
-  (base `meu-perfil-oab`); depois avisar a b5 (empilha o bloco do painel) e o coordenador.
+- 20/10: revisão (4 bloqueantes corrigidos) e re-revisão aprovada; suíte completa verde (10.505); visual conferido
+  contra o 07. PR aberto sobre `meu-perfil-oab`; a b5 empilha o bloco do painel do Master.
 - Coordenador (20/10): (d1) o link público do Push desliga com escritório suspenso, em quarentena ou suspenso a
   pedido (correção de segurança, vale para a suspensão do Master já em produção). Ao dono: (a) card para o Master
   que não é primário, (b) troca da rota antiga `escritorio_excluir` (ainda NÃO aplicada; aguarda), (d2) DJEN durante
