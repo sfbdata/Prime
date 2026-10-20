@@ -701,6 +701,10 @@ recorrente pula, +1 mês no fim do mês, comando de encerrar).
 1. `COMERCIAL_CAMPANHAS_LIGADAS` nasce desligada e recusa o envio enquanto desligada (nada represado).
 2. B1 restritivo no CSV e no Individual, com "sem autorização fora da lista".
 3. **Revista na v2 (R1):** "Base de contatos" = confirmados em `comercial_campanhas` (hoje 0), não `vagas_alerta`.
+   Nenhum desenho colhe consentimento para campanhas (busca em todos os `.dc.html`, 19/10): só "Autorizo o BlueJus a me
+   enviar vagas por e-mail" (Vagas Publicas L126, lista `vagas_alerta`), o do currículo (06 Trabalho Externo L283) e o
+   aceite de Termos no cadastro (10 Login L101). A lista fica vazia até o dono decidir a fonte; opções: autorizar
+   `vagas_alerta` só no modelo "Ofertas · vagas abertas" (dc L506), ou uma caixa nova no desenho.
 4. Recorrente sem Encerrar na tela (A3); freios: a chave e o comando de console.
 5. HTML importado cru mais o rodapé legal (o dc manda sem rodapé; B3 exige).
 6. A frase de sucesso sem "aberturas e cliques" enquanto o rastreio estiver desligado.
