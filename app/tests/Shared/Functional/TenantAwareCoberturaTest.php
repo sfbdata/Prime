@@ -36,6 +36,8 @@ use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
 use App\TrabalhoExterno\Entity\LeituraDemanda;
+use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
+use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use Doctrine\ORM\EntityManagerInterface;
@@ -124,6 +126,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         AvisoWhatsapp::class,
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
+        // Marcações pessoais (spec docs/specs/trabalho-externo-vs-18-10-26.md §2): estrela, lixeira,
+        // não lida e favorita são do USUÁRIO, como a LeituraDemanda; o Master marca demandas de
+        // todos os escritórios. Toda leitura filtra pelo usuário logado e só alcança itens que o
+        // LocalizadorDeDemanda já escopou, provado em MarcacoesDoTrabalhoExternoTest.
+        MarcacaoDoUsuario::class,   // do usuário, não do escritório; MarcarDemandasEmLoteUseCase só marca o que o LocalizadorDeDemanda escopou (MarcacoesDoTrabalhoExternoTest)
+        MarcacaoDeMensagem::class,  // do usuário; MarcarMensagensEmLoteUseCase só alcança mensagens visíveis pela PoliticaDaDemanda (MarcacoesDoTrabalhoExternoTest::testChatAvancado)
 
         // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
         // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
@@ -184,8 +192,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 34 → 35 com a fatia 2a do Comercial (20/10/2026): `comercial_modelo`, modelos de campanha do Master (plataforma).
     // 35 → 40 com o Indicar o BlueJus (19/10/2026): dado de plataforma, da pessoa e do Master, justificado acima.
     // 40 → 43 com a fatia 2b do Comercial (20/10/2026): campanha, destinatário da campanha e controle do expansor (plataforma).
-    // 43 → 44 com a marca global da sincronia do Google Agenda (19/10/2026), justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 44;
+    // 43 → 45 com as marcações pessoais do Trabalho Externo (19/10/2026): MarcacaoDoUsuario e
+    // MarcacaoDeMensagem são do usuário, justificadas acima. 45 → 46 com a marca global da sincronia do
+    // Google Agenda (19/10/2026), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 46;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

@@ -22,6 +22,7 @@ final class Pessoas
         if ($cpf !== null) {
             $perfil = new UserProfile($user);
             $perfil->setCpf($cpf);
+            $perfil->setTelefone('(61) 99999-0000');
             $user->setProfile($perfil);
         }
 

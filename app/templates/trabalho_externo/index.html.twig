@@ -40,6 +40,9 @@
      data-url-documento="{{ path('trabalho_externo_documento', {codigo: marcador, id: 0}) }}"
      data-url-convites="{{ path('trabalho_externo_convidar', {codigo: marcador}) }}"
      data-url-whatsapp="{{ path('trabalho_externo_whatsapp_avisar', {codigo: marcador}) }}"
+     data-url-marcacoes="{{ path('trabalho_externo_marcacoes') }}"
+     data-url-mensagens-marcacoes="{{ path('trabalho_externo_mensagens_marcacoes', {codigo: marcador}) }}"
+     data-url-mensagem-apagar="{{ path('trabalho_externo_mensagem_apagar', {codigo: marcador, id: 0}) }}"
      data-url-configuracao="{{ path('trabalho_externo_configuracao') }}"
      {#- Conta com o e-mail a confirmar não convida (spec login-desenho-10): o JS mostra o aviso e o botão de reenviar o link. #}
      {%- if app.user is not null and not app.user.emailConfirmado %}
@@ -53,7 +56,7 @@
             <i class="bi bi-geo-alt"></i>
             <span class="te-titulo-textos">
                 <span class="te-titulo-nome">Trabalho Externo</span>
-                <span class="te-titulo-sub">Central nacional de advocacia correspondente</span>
+                <span class="te-titulo-sub">Central de demandas, vagas e talentos jurídicos</span>
             </span>
         </h1>
         <div class="te-titulo-acoes" id="teTituloAcoes"></div>
@@ -78,10 +81,13 @@
             </label>
         </div>
 
+        {# Barra de lote e aviso da lixeira (spec VS 18.10.26 §3.3): o JS preenche conforme a seleção e o filtro. #}
+        <div id="teLote"></div>
+
         <div class="te-tabela-caixa">
             <div class="te-tabela">
                 <div class="te-grade te-grade--cab">
-                    <div>ID</div><div>SERVIÇO</div><div>ORIGEM → EXECUÇÃO</div><div>PRAZO</div><div>RESPONSÁVEL</div><div>SITUAÇÃO</div><div class="te-centro">CHAT</div><div></div>
+                    <div class="te-cab-sel" id="teCabSel"></div><div>ID</div><div>SERVIÇO</div><div>ORIGEM → EXECUÇÃO</div><div>PRAZO</div><div>RESPONSÁVEL</div><div>SITUAÇÃO</div><div class="te-centro">CHAT</div><div></div>
                 </div>
                 <div id="teLinhas"></div>
             </div>
@@ -95,6 +101,7 @@
     <div id="teCfg"></div>
     <div id="teConf"></div>
     <div id="teToast"></div>
+    <div id="teDesfazer"></div>
 </div>
 {% endblock %}
 

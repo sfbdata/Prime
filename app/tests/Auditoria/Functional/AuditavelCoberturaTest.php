@@ -135,6 +135,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // gravada pelo comando agendado. Dado derivado das pastas, não ato de uma pessoa (como a foto do
         // Dashboard).
         \App\Pasta\Entity\EnvioDoRelatorioSemProcesso::class,
+        // Envio mensal do relatório de pastas paradas: a trava do mês com as contagens, gravada pelo comando
+        // agendado. Dado derivado das pastas, não ato de uma pessoa (como o histórico acima).
+        \App\Pasta\Entity\EnvioDoRelatorioPastasParadas::class,
         // Decisão da equipe sobre pasta sem processo: gravada por upsert SQL (corrida no UNIQUE não pode
         // derrubar a marcação), derivada do ato já auditado (a troca de `administrativa` na Pasta).
         \App\Pasta\Entity\DecisaoSemProcessoDaPasta::class,
@@ -244,6 +247,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
         \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,
         \App\TrabalhoExterno\Entity\ConfiguracaoCentral::class,
+        // Marcações pessoais do Trabalho Externo (spec VS 18.10.26 §2): estrela, lixeira e favorita
+        // de UM usuário, como a LeituraDemanda. Não mudam nada para os outros; auditar seria ruído.
+        \App\TrabalhoExterno\Entity\MarcacaoDoUsuario::class,
+        \App\TrabalhoExterno\Entity\MarcacaoDeMensagem::class,
     ];
 
     private EntityManagerInterface $em;

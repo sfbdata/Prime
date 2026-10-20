@@ -8,6 +8,35 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.8.0] - 2026-10-20
+
+### Adicionado
+
+- Agenda nova: acertos finais contra o desenho 09: dica ao passar o mouse nos compromissos do Mês, da Semana e do Dia; contagem por calendário em qualquer data; lista de @ reabre ao clicar no campo; menu do dia pelo teclado (Menu, Shift+F10) e por toque longo no celular; botão direito só no Mês, como no desenho; lembretes refeitos em outras abas na hora e clique no push foca a aba aberta; avisos da Agenda na Central com o tipo azul do desenho.
+- Agenda nova: a grade mostra também os prazos e audiências cumpridos das pastas, riscados como concluídos; os lembretes continuam só com os abertos.
+- Agenda nova: "Avisar no Chat" também no prazo e na audiência de pasta, com o atalho para a pasta (só para quem vê as pastas).
+- Agenda: o aviso do colega no Chat sai com o título "Agenda: <compromisso>" e o resumo no corpo (antes, os dois saíam trocados).
+- Master: bloco "Nova campanha de e-mail" do desenho 05 na seção "Comercial e e-mails", com os modelos do desenho (convite, vagas, agradecimento, novidades, newsletter e as cópias em blocos dos e-mails das automações) e os modelos próprios do Master: "Novo modelo", "Duplicar", "Importar HTML", "Salvar modelo" e "Excluir", com trilha de auditoria sem o conteúdo.
+- Master: editor de blocos (título, texto, imagem, botão, notícias, 2 colunas e divisor), prévia do e-mail que atualiza enquanto se digita, "Baixar HTML" e "Enviar teste" (só para o próprio Master, até 10 por hora).
+- E-mails: o HTML importado é sanitizado ao salvar e em toda montagem (sem script, eventos, links que não sejam http(s) ou mailto, e estilos que buscam recursos de fora) e sai sempre com o rodapé legal.
+- E-mails: o Carteiro ganha o layout do conteúdo (padrão, linhas e cru); automações e demais consumidores seguem no padrão, sem mudança no que enviam.
+- Master: no bloco "Nova campanha de e-mail" do desenho 05, a escolha do público (Base de contatos, Usuários primários, Usuários secundários, Todos os cadastrados, Importar lista CSV e Individual), a contagem de destinatários sem repetidos e sem descadastrados, a frequência (envio único, semanal, quinzenal ou mensal), o agendamento e o botão "Enviar campanha", com confirmação.
+- Master: bloco "Monitoramento" com a lista das 12 últimas campanhas (nome, modelo, público, data, total e estado); os números de entregas, aberturas e cliques ficam para a próxima fatia.
+- E-mails: as campanhas saem pelo servidor em lotes de até 10 por minuto, com teto diário próprio (1.000 por padrão) e sem acumular fila; nada atrasado é recuperado (agendamento com mais de 24 h de atraso é cancelado, a recorrente pula para a próxima data).
+- E-mails: no CSV e no Individual só entra quem tem conta ativa ou confirmou o endereço na lista de campanhas; a regra vale de novo a cada envio da recorrente.
+- E-mails: a chave `COMERCIAL_CAMPANHAS_LIGADAS` nasce desligada (recusa o envio e, desligada, cancela as campanhas ativas) e o comando `app:comercial:encerrar-campanha <id>` encerra uma campanha sem deploy; o que já estava na fila não sai.
+- LGPD: destinatários de campanha com mais de 24 meses ficam com o endereço em hash e sem o nome.
+- Indicar o BlueJus: a conta criada pelo "Criar minha conta" por quem chegou pelo link curto `/i/{codigo}` fica ligada a quem indicou (colunas novas `indicacao.indicado_user_id`, uma vez por conta com índice único parcial, e `indicacao.por_cadastro`, que mantém a atribuição fora dos envios mesmo se a conta nova for apagada).
+- Ouvinte do evento `ContaCriadaPeloCadastro` no domínio Indicação: lê o código da sessão, tira a chave depois de usar e nunca derruba o cadastro (falha só vai para o log). Código inexistente, de pessoa inativa ou da própria conta nova é ignorado; a pausa não impede, porque atribuir não envia nada.
+- A atribuição conta em "Viraram conta" e em "Suas indicações" (cada conta uma vez só), mas não nos limites, no alerta de disparo alto nem nas contagens de envio do painel.
+- Indicar o BlueJus: item no menu do usuário (para todos os logados, com ou sem escritório) que abre a janela do desenho, com convite por e-mail (modelo fixo pelo Carteiro, lista `indicacao`, com descadastro), WhatsApp e cópia do link curto `/i/{codigo}`, e a lista "Suas indicações" com "Conta criada" ou "Enviada".
+- Regras: cadastro completo para indicar (nome com duas palavras e CPF; o telefone passa a valer quando o Meu Perfil tiver o campo), pausa global, pausa por pessoa, limite de 20 por dia e 200 por mês em janela móvel, contagem travada por pessoa contra envio simultâneo.
+- Alerta "Disparo alto de convites" no sino dos Masters quando a contagem de 24h de alguém cruza o alerta configurado.
+- Domínio novo `App\Indicacao` (tabelas `indicacao`, `indicacao_codigo`, `indicacao_config`, `indicacao_pausa`, `indicacao_alerta`) e os UseCases do card "Indicações do BlueJus" do Painel do Master (a tela do card chega em outra entrega).
+- Link curto `/i/{codigo}` público: guarda o código na sessão e leva ao cadastro.
+- Relatório mensal de pastas paradas (GET /expediente/pastas-paradas e /pdf, módulo Expediente): as pastas ativas sem movimentação há mais de 30 dias, da mais parada para a menos, com quatro cartões (pastas paradas, mais de 90 dias, sem contrato, sem processo), a tabela-resumo e um cartão por pasta com nível (Acompanhar, Atenção, Crítico), pré-análise (abertura, última movimentação, andamento, processo, contrato, documentos e financeiro) e sugestão. A última movimentação é a mais recente entre as movimentações dos processos, o Push, os registros de pessoas e a entrada na fase atual do andamento; sai da lista a pasta com andamento encerrado ou, sem andamento, com o processo arquivado. Cada leitor vê só as pastas que pode ver, e o financeiro só aparece para quem pode vê-lo.
+- Envio automático pelo comando app:pastas:relatorio-pastas-paradas (primeira segunda-feira do mês, a partir das 10h, uma vez por escritório; --dry-run e --tenant): avisa no sino e na Caixa da Central (tipo relatorio_pastas_paradas) cada responsável com as pastas dele e a Controladoria e os primários com a lista, só quem tem o módulo Expediente. O mês é gravado antes dos avisos (tabela relatorio_pastas_paradas_envio, INSERT com ON CONFLICT), então duas execuções não duplicam. Linha do cron em DEPLOY.md.
+
 ## [2.7.0] - 2026-10-20
 
 ### Adicionado
@@ -391,7 +420,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.7.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.8.0...HEAD
+[2.8.0]: https://github.com/sfbdata/Prime/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/sfbdata/Prime/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/sfbdata/Prime/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/sfbdata/Prime/compare/v2.4.0...v2.5.0

@@ -1,6 +1,15 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.8.0"
+  data: "2026-10-20"
+  itens:
+    - "Na Agenda, os prazos já cumpridos continuam aparecendo no dia, riscados, para você ver o que foi feito."
+    - "Dá para avisar um colega no Chat sobre um prazo ou uma audiência da pasta, direto da Agenda."
+    - "Passe o mouse num compromisso para ver o título e a hora; no celular, segure o dedo num dia para abrir o menu."
+    - "Quem cria a conta pelo seu link de convite agora aparece em \"Suas indicações\" como conta criada."
+    - "Agora você pode indicar o BlueJus para colegas e outros escritórios pelo menu do seu nome: por e-mail, pelo WhatsApp ou copiando o seu link de convite."
+    - "Novo relatório de pastas paradas: todo mês, na primeira segunda-feira, cada responsável recebe as pastas dele sem movimentação há mais de 30 dias, com uma pré-análise e a sugestão do que fazer, para decidir se a pasta vai receber movimentação ou ser arquivada. O relatório pode ser baixado em PDF."
 - versao: "2.7.0"
   data: "2026-10-20"
   itens:
