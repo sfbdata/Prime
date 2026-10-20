@@ -117,6 +117,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\AutomacaoDeEmail::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        // Fatia 2a (§8.2): os modelos próprios de campanha são do Master, de escopo plataforma, sem escritório.
+        \App\Comercial\Entity\ModeloDeCampanha::class,
     ];
 
     /**
@@ -130,7 +132,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 25 com o Comercial e e-mails (19/10/2026): dado do Master, de escopo plataforma, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 25;
+    // 25 → 26 com a fatia 2a do Comercial (19/10/2026): `comercial_modelo`, modelos de campanha do Master (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 26;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

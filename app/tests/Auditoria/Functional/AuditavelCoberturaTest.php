@@ -80,6 +80,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        // Modelo de campanha (comercial-e-emails.md §8.2, R6): o subscriber gravaria até 500 caracteres do conteúdo do
+        // e-mail. A trilha é manual (modelo_new, modelo_upd, modelo_del) com `changes` só {nome, modo}.
+        \App\Comercial\Entity\ModeloDeCampanha::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
