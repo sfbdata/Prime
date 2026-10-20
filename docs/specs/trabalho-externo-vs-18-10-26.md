@@ -781,7 +781,13 @@ gerado no servidor por Twig, com o marcador `{{descadastrar}}` no rodapé para a
 o link das vagas por um link público de vagas (F2c) com as vagas abertas filtradas.
 
 ### Destinatários (regra num único lugar: `DestinatariosDaCampanha`)
-- **Candidatos**: currículos com aceite LGPD (filtros de UF e área). Os inscritos nos alertas (página
+- **Candidatos, currículos: DESLIGADOS** (`CURRICULOS_LIBERADOS = false`, coordenador 19/10). O aceite do
+  currículo ("compartilhá-los apenas com quem publica as vagas a que eu me candidatar") não cobre e-mail de
+  campanha. A tela diz "N currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.".
+  **A confirmar com o dono**, entre: (a) um aceite específico de campanha no formulário do currículo (texto
+  novo, desvio do desenho); (b) só os inscritos confirmados da 5d; (c) aceitar o risco. Hoje a campanha sai
+  com 0 destinatários: o modal, a prévia e o HTML funcionam; o CSV responde "Sem destinatários".
+- **Candidatos**, regra quando liberados: currículos com aceite LGPD (filtros de UF e área). Os inscritos nos alertas (página
   pública) **só entram com o e-mail confirmado** (double opt-in da 5d); até lá ficam de fora, e a tela
   diz quantos e por quê ("N inscrito(s) nos alertas ficam de fora até confirmarem o e-mail."). **A
   confirmar com o dono.**
