@@ -43,6 +43,22 @@ class VagaRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('v')->orderBy('v.id', 'DESC')->getQuery()->getResult();
     }
 
+    /**
+     * As vagas abertas no banco, da mais nova para a mais antiga: o e-mail da campanha do Master
+     * (spec §4.10). Quem chama ainda confere o vencimento ({@see Vaga::situacaoEm()}).
+     *
+     * @return list<Vaga>
+     */
+    public function abertas(): array
+    {
+        return $this->createQueryBuilder('v')
+            ->andWhere('v.situacao = :aberta')
+            ->setParameter('aberta', SituacaoVaga::Aberta)
+            ->orderBy('v.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function daCentralPorId(int $id): ?Vaga
     {
         return $this->createQueryBuilder('v')
