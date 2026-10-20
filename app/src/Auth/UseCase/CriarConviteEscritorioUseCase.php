@@ -7,6 +7,7 @@ namespace App\Auth\UseCase;
 use App\Auth\DTO\CriarConviteEscritorioInput;
 use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\Invitation;
+use App\Entity\Tenant\Tenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
@@ -45,15 +46,7 @@ final class CriarConviteEscritorioUseCase
 
         $email = strtolower(trim($input->email));
 
-        $existingUser = $this->userRepository->findOneBy(['email' => $email]);
-        if ($existingUser !== null && $this->userTenantRepository->existeVinculoAtivo($existingUser, $input->tenant)) {
-            throw new \DomainException('Este usuário já é colaborador ativo deste escritório.');
-        }
-        // Quem está suspenso ou em análise só volta pela equipe da conta, pelo primário (spec equipe-da-conta §2).
-        $situacao = $existingUser === null ? null : $this->userTenantRepository->findPorUserETenant($existingUser, $input->tenant)?->getSituacao();
-        if ($situacao !== null && $situacao !== SituacaoNaEquipe::Aprovado) {
-            throw new \DomainException('Esta pessoa está com o acesso suspenso ou em análise neste escritório. Altere a situação dela na equipe da conta.');
-        }
+        $this->exigirQueAindaNaoEstaNaEquipe($email, $input->tenant);
 
         $invitation = new Invitation(
             email: $email,
@@ -70,5 +63,21 @@ final class CriarConviteEscritorioUseCase
         $this->em->flush();
 
         return $invitation;
+    }
+
+    /** Já ativo, ou suspenso / em análise (só volta pela equipe da conta, pelo primário; spec equipe-da-conta §2). */
+    private function exigirQueAindaNaoEstaNaEquipe(string $email, Tenant $tenant): void
+    {
+        $existingUser = $this->userRepository->findOneBy(['email' => $email]);
+        if ($existingUser === null) {
+            return;
+        }
+        if ($this->userTenantRepository->existeVinculoAtivo($existingUser, $tenant)) {
+            throw new \DomainException('Este usuário já é colaborador ativo deste escritório.');
+        }
+        $situacao = $this->userTenantRepository->findPorUserETenant($existingUser, $tenant)?->getSituacao();
+        if ($situacao !== null && $situacao !== SituacaoNaEquipe::Aprovado) {
+            throw new \DomainException('Esta pessoa está com o acesso suspenso ou em análise neste escritório. Altere a situação dela na equipe da conta.');
+        }
     }
 }

@@ -75,8 +75,7 @@ final class TenantSelecaoController extends AbstractController
             'vinculos' => $vinculos,
             'convites' => $convites,
             'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
-            // Vínculos em análise ou suspensos não entram na lista: a tela diz por quê (spec equipe-da-conta §3).
-            'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user),
+            'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user), // em análise ou suspensos: o porquê (equipe-da-conta §3)
         ]);
     }
 

@@ -58,14 +58,7 @@ final class AceitarConviteEscritorioComContaUseCase
         $this->regraDosPrimarios->garantirQueConviteDePrimarioSegueValido($invitation);
 
         $vinculo = $this->userTenantRepository->findPorUserETenant($input->usuarioAtual, $tenant);
-
-        if ($vinculo !== null && $vinculo->isActive()) {
-            throw new \DomainException('Você já é colaborador deste escritório.');
-        }
-        // Suspenso ou em análise: o convite não devolve o acesso; só o primário, pela equipe da conta.
-        if ($vinculo !== null && $vinculo->getSituacao() !== SituacaoNaEquipe::Aprovado) {
-            throw new \DomainException($vinculo->getSituacao()->mensagemDeAcesso((string) $tenant->getName()));
-        }
+        $this->exigirQueOConvitePodeAbrir($vinculo, $tenant);
 
         // Limite de usuários também no aceite (spec perfis-1.2-planos-e-limites §6): o convite pode ter saído com vaga.
         $this->vagaNoEscritorio->exigir((int) $tenant->getId());
@@ -93,6 +86,17 @@ final class AceitarConviteEscritorioComContaUseCase
         $this->avisarAceite($invitation, $input->usuarioAtual, $tenant);
 
         return $userTenant;
+    }
+
+    /** Já ativo, suspenso ou em análise: o convite não devolve o acesso; só o primário, pela equipe da conta. */
+    private function exigirQueOConvitePodeAbrir(?UserTenant $vinculo, Tenant $tenant): void
+    {
+        if ($vinculo !== null && $vinculo->isActive()) {
+            throw new \DomainException('Você já é colaborador deste escritório.');
+        }
+        if ($vinculo !== null && $vinculo->getSituacao() !== SituacaoNaEquipe::Aprovado) {
+            throw new \DomainException($vinculo->getSituacao()->mensagemDeAcesso((string) $tenant->getName()));
+        }
     }
 
     /** Depois do último flush: as boas-vindas do Comercial (comercial-e-emails.md §3.5). */
