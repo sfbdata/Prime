@@ -506,8 +506,9 @@
                         title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}"
                         {#- Botão direito (ou Shift+F10 / tecla de menu) na aba Push abre o menu
                             "PUSH PROCESSUAL" do link externo ([EXP] L.1241 `onContextMenu`,
-                            `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. #}
-                        {%- if aba.id == 'push' %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}
+                            `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. Com a tela `pushpub`
+                            desligada o menu não existe, e a aba não o anuncia. #}
+                        {%- if aba.id == 'push' and recurso_visivel('pushpub') %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}
                         {#- Botão direito em qualquer aba: ocultar para a equipe ([EXP] L.4409-4419). Quem
                             escuta é o pasta-abas-ocultas.js; o rótulo e a regra vão para o menu. #}
                         data-pao-aba="{{ aba.id }}" data-pao-rotulo="{{ aba.rotulo }}"

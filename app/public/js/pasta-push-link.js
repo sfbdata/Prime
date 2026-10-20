@@ -774,6 +774,8 @@
        (`popovers()`) faz stopPropagation no clique do gatilho, e um ouvinte de bolha no
        document nunca seria chamado. */
     document.addEventListener('click', function (e) {
+        // Sem o item no ⋮ (tela `pushpub` desligada para quem não é Master), não há selo a atualizar nem GET a fazer.
+        if (!document.querySelector('.js-ppl-abrir')) { return; }
         if (e.target.closest && e.target.closest('[data-ps-pop="psMenuAcoes"]')) { carregar().catch(function () {}); }
     }, true);
 })();
