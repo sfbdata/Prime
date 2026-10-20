@@ -30,17 +30,23 @@ Risco: MÉDIO (tabela nova ligada a usuário × escritório, dado de atividade e
 ## 2. Regras
 
 1. **Presença é por vínculo (usuário × escritório).** Tabela nova `central_presenca`: `tenant_id`, `usuario_id`,
-   `ultima_atividade`, `status` (`disponivel|ocupado|ausente`), `status_desde`; único `(tenant_id, usuario_id)`. Quem
+   `ultima_atividade`, `status` (`disponivel|ocupado|ausente|inativo`; `inativo` desde 19/10, ver regra 3), `status_desde`; único `(tenant_id, usuario_id)`. Quem
    tem dois escritórios tem presença separada em cada um. Entra na purga de escritório.
 2. **Batimento:** `POST /central/presenca {status}` (CSRF `ajax`) a cada 20 s enquanto houver algo do BlueJus **à
    vista** (a página com a Central ou a Central destacada), e na hora em que o status muda. Aba em segundo plano não
    bate (revisão de 16/10: senão a pessoa ficaria "on-line" a noite toda e a sessão nunca expiraria); o relógio é o da
    janela à vista, como o do polling. Exige vínculo ativo
    (`AcessoACentral::exigirVinculoAtivo`). Grava com `INSERT ... ON CONFLICT DO UPDATE` (duas abas ao mesmo tempo não
-   duplicam). `status_desde` só muda quando o status muda. Status fora da lista = 422.
-3. **Status efetivo** vem da tela: o manual (preferência deste navegador, como no desenho, lida do armazenamento a cada
-   uso para que todas as abas concordem) ou `ocupado` com "Não perturbe" ligado. O ponto do meu cabeçalho e o ⋮
-   mostram o MANUAL (L6337); o batimento leva o efetivo.
+   duplicam). `status_desde` só muda quando o status muda. Status fora da lista = 422. Desde 19/10 (spec
+   `presenca-e-ponto-no-cabecalho.md` §2) a resposta é `{status, online: [{id, status, semAtividadeMin}]}`: quem está
+   on-line no escritório (colegas com vínculo ATIVO, mesmo cálculo de 60 s), só ids, status e minutos, para o selo do
+   cabeçalho não pedir a equipe a cada 20 s. `semAtividadeMin` só no `inativo`.
+3. **Status efetivo** vem da tela, nesta precedência (emenda de 19/10, spec `presenca-e-ponto-no-cabecalho.md` §2):
+   `ocupado` com "Não perturbe" ligado; `inativo` sem atividade há mais de `Presenca::INATIVO_APOS_MINUTOS` (60 min);
+   senão o manual (preferência deste navegador, como no desenho, lida do armazenamento a cada uso para que todas as
+   abas concordem). A atividade é um instante só em `bj-central-ativ:<userId>` (todas as abas e a janela destacada);
+   o `storage` dessa chave não bate; a volta da inatividade bate na hora. O ponto do meu cabeçalho e o ⋮ mostram o
+   MANUAL (L6337); o batimento leva o efetivo. A Central mostra `inativo` como o Ausente dela.
 4. **On-line** = `ultima_atividade` há menos de 60 s (relógio do servidor). Off-line não mostra o status manual.
    "Visto por último" = `ultima_atividade` (nunca deu batimento: "sem atividade recente").
 5. **Equipe:** `GET /central/equipe` devolve todos os colegas com vínculo ATIVO no escritório (eu incluído, marcado):

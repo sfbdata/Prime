@@ -32,7 +32,9 @@ Campos obrigatórios:
 - `MAILER_DSN`
 - `DATAJUD_API_KEY`
 - `DEFAULT_URI` (URL base pública, ex: `https://grupojusprime.tech`)
-- `SYMFONY_TRUSTED_PROXIES` (ex: `private_ranges`)
+- `SYMFONY_TRUSTED_PROXIES=127.0.0.1` (exatamente assim. O nginx fala com o PHP por FastCGI e já entrega o IP real
+  em `REMOTE_ADDR`. **Não use `REMOTE_ADDR` nem `private_ranges`**: em FastCGI o `REMOTE_ADDR` é o próprio cliente, e
+  confiar nele deixa qualquer um forjar o IP no `X-Forwarded-For` e furar os limitadores por IP.)
 - `SYMFONY_TRUSTED_HOSTS` (regex do host, ex: `^grupojusprime\\.tech$`)
 
 3. Execute o deploy:

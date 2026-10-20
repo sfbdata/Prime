@@ -13,6 +13,7 @@
          data-url-presenca="{{ path('central_presenca') }}"
          data-eu-nome="{{ eu.fullName }}"
          data-eu-id="{{ eu.id }}"
+         data-inativo-apos-min="{{ constant('App\\Central\\Entity\\Presenca::INATIVO_APOS_MINUTOS') }}"
          data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
          {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
          data-modo="{{ modo|default('pagina') }}"
