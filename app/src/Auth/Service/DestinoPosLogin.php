@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Exception\ExceptionInterface as ExcecaoDeRota;
+use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Valida para onde o usuário pode ir depois do login (spec login-desenho-10, comportamento 2).
@@ -18,19 +20,119 @@ use Symfony\Component\HttpFoundation\Request;
  *   sem espaço nem caractere de controle (nem cru, nem codificado com `%`);
  * - URL absoluta `http(s)` do próprio host (e porta) da requisição, reduzida a caminho e query.
  *
- * Recusa também as telas de entrada (`/login`, `/logout`, `/senha`, `/cadastro`) para não criar laço, e o que
- * não é página: endpoint de dados (`/api/`, `.../count`, o polling do sino), arquivo estático e as rotas
- * internas do Symfony (`/_`). Em produção, o `fetch('/notificacoes/count')` do sino com a sessão vencida
- * virou destino e o dono entrou e caiu no JSON `{"count":390}`. Na dúvida, `null` (a página inicial).
+ * E, além disso, só PÁGINA: o caminho tem de casar uma rota GET no router e a rota tem de estar em
+ * `PAGINAS`. Antes a regra era recusar o que parecia dado (`.../count`); em produção o `fetch('/notificacoes/count')`
+ * do sino com a sessão vencida virou destino e o dono entrou e caiu no JSON `{"count":390}`. Lista de recusa
+ * sempre esquece um endpoint; lista de permitidas, no máximo, esquece uma página, e aí a pessoa vai à home.
  */
 final class DestinoPosLogin
 {
     private const TAMANHO_MAXIMO = 2048;
 
-    private const PREFIXOS_PROIBIDOS = ['/login', '/logout', '/senha', '/cadastro', '/api'];
+    /**
+     * As rotas que podem ser destino do login: páginas inteiras que a pessoa abre pela barra de endereço.
+     *
+     * Na dúvida, a rota fica de fora e o login vai à home (o Expediente). Não entram: sondagem e endpoint de
+     * dados (JSON), pedaço de tela carregado por `fetch` (os templates `_*.html.twig`), exportação e download (pdf,
+     * xlsx, csv, zip, anexo, visualizar documento), iframe, telas de entrada (login, senha, cadastro, convite,
+     * termos, seleção de escritório) e as rotas públicas. Página nova entra aqui com o nome da rota.
+     */
+    private const PAGINAS = [
+        // Início
+        'homepage',
+        'dashboard_index',
+        // Expediente e pastas
+        'expediente_index',
+        'expediente_relatorio_processos',
+        'pasta_show',
+        'pasta_peticionar',
+        'processo_index',
+        'processo_show',
+        'processo_new',
+        'processo_edit',
+        'push_processual_index',
+        'push_processual_show',
+        'push_processual_oabs',
+        // Agenda
+        'agenda_index',
+        'agenda_nova',
+        'agenda_lista',
+        'agenda_show',
+        'agenda_novo',
+        'agenda_editar',
+        // Tarefas e Kanban
+        'tarefa_minhas',
+        'tarefa_equipe',
+        'tarefa_show',
+        'kanban_index',
+        'kanban_board_view',
+        'demandas_index',
+        // Clientes
+        'cliente_show',
+        'cliente_edit',
+        // Cobrança
+        'cobranca_carteira_index',
+        'cobranca_carteira_show',
+        'cobranca_importacao_upload',
+        'cobranca_caso_index',
+        'cobranca_caso_show',
+        'cobranca_objeto_show',
+        'cobranca_acordo_show',
+        'cobranca_pessoa_show',
+        'cobranca_dashboard',
+        'cobranca_alertas',
+        'cobranca_central',
+        // Central, Notificações, Novidades, Trabalho Externo, Service Desk
+        'central_index',
+        'notificacao_index',
+        'novidades_index',
+        'trabalho_externo_index',
+        'servicedesk_index',
+        'servicedesk_meus_chamados',
+        'servicedesk_novo',
+        'servicedesk_show',
+        // Ponto
+        'ponto_index',
+        // Meu Perfil, convites, Contribua, Google Drive
+        'app_profile',
+        'auth_meus_convites',
+        'contribua_index',
+        'app_sync_drive_conexao',
+        // Escritório e usuários
+        'escritorio_contas',
+        'escritorio_criar',
+        'auth_gerenciar_convites',
+        'app_tenant_index',
+        'app_tenant_new',
+        'app_tenant_show',
+        'app_tenant_edit',
+        'app_tenant_users',
+        'app_tenant_user_edit_role',
+        'app_tenant_user_ponto_edit',
+        'app_tenant_role_index',
+        'app_tenant_role_new',
+        'app_tenant_role_edit',
+        'app_tenant_sedes',
+        'app_feriado_index',
+        'app_feriado_new',
+        'app_feriado_edit',
+        'audit_log_index',
+        'app_access_request_index',
+        // Master e administração da plataforma
+        'master_painel',
+        'master_mapa_brasil',
+        'master_mapa_mundo',
+        'admin_platform_dashboard',
+        'admin_platform_convite_index',
+        'admin_platform_oab_index',
+        'inteligencia_admin_config',
+        'auth_suporte_mensagens',
+    ];
 
-    /** Caminhos que devolvem dado, não página: o último trecho `count` e arquivos com extensão de recurso. */
-    private const NAO_E_PAGINA = '#^/_|(/count$|\.(json|js|css|map|xml|txt|png|jpe?g|gif|svg|ico|webp|avif|pdf|woff2?)$)#i';
+    public function __construct(
+        private readonly RouterInterface $router,
+    ) {
+    }
 
     public function validar(?string $destino, Request $request): ?string
     {
@@ -104,8 +206,7 @@ final class DestinoPosLogin
         }
 
         return preg_match('/[\x00-\x1F\x7F]/', $decodificado) !== 1
-            && !$this->apontaParaEntrada($decodificado)
-            && !$this->naoEPagina($decodificado);
+            && $this->ePagina($caminho);
     }
 
     /** Barra invertida, espaço e caractere de controle crus nunca entram. */
@@ -114,22 +215,24 @@ final class DestinoPosLogin
         return str_contains($texto, '\\') || preg_match('/[\x00-\x20\x7F]/', $texto) === 1;
     }
 
-    private function naoEPagina(string $caminho): bool
+    /**
+     * O caminho (sem a query) casa uma rota GET que está em `PAGINAS`. O contexto do router é trocado por um
+     * de GET só durante o `match()`: o login chega aqui num POST, e a rota POST de mesmo caminho não vale.
+     */
+    private function ePagina(string $caminho): bool
     {
-        // Sem a barra final: `/notificacoes/count/` também é o contador.
-        return preg_match(self::NAO_E_PAGINA, rtrim(strtolower((string) strtok($caminho, '?#')), '/')) === 1;
-    }
+        $soCaminho = (string) strtok($caminho, '?#');
+        $contexto = $this->router->getContext();
+        $this->router->setContext((clone $contexto)->setMethod('GET'));
 
-    private function apontaParaEntrada(string $caminho): bool
-    {
-        $soCaminho = strtolower((string) strtok($caminho, '?#'));
-
-        foreach (self::PREFIXOS_PROIBIDOS as $prefixo) {
-            if ($soCaminho === $prefixo || str_starts_with($soCaminho, $prefixo . '/')) {
-                return true;
-            }
+        try {
+            $rota = $this->router->match($soCaminho)['_route'] ?? null;
+        } catch (ExcecaoDeRota) {
+            return false;
+        } finally {
+            $this->router->setContext($contexto);
         }
 
-        return false;
+        return is_string($rota) && in_array($rota, self::PAGINAS, true);
     }
 }
