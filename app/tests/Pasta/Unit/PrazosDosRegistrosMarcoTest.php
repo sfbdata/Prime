@@ -9,6 +9,8 @@ use App\Pasta\Service\DiasUteisDoEscritorio;
 use App\Pasta\Service\LeitorDeDatas;
 use App\Pasta\Service\PrazosDosRegistros;
 use Doctrine\ORM\EntityManagerInterface;
+use Monolog\Handler\TestHandler;
+use Monolog\Logger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -57,6 +59,24 @@ final class PrazosDosRegistrosMarcoTest extends TestCase
         self::assertSame('2026-04-18', $this->ler($prazos, 'Prazo de 10 dias corridos.', new \DateTimeImmutable('2026-04-08 10:00'))[0]['data']);
         $hojeSemCalendario = LeitorDeDatas::ler('Prazo de 10 dias corridos.', $agora);
         self::assertSame($hojeSemCalendario, $this->ler($prazos, 'Prazo de 10 dias corridos.', $agora));
+    }
+
+    #[TestDox('marco inválido desliga e avisa no log; vazio e válido não avisam')]
+    public function testMarcoInvalidoAvisaNoLog(): void
+    {
+        $avisos = static function (string $desde): array {
+            $handler = new TestHandler();
+            new PrazosDosRegistros(self::createStub(EntityManagerInterface::class), new DiasUteisDoEscritorio(new CalendarioDoSistema()), $desde, new Logger('teste', [$handler]));
+
+            return $handler->getRecords();
+        };
+
+        $registros = $avisos('21/10/2026');
+        self::assertCount(1, $registros);
+        self::assertSame('WARNING', $registros[0]->level->getName());
+        self::assertSame('21/10/2026', $registros[0]->context['valor']);
+        self::assertSame([], $avisos(''));
+        self::assertSame([], $avisos('2026-10-22'));
     }
 
     #[TestDox('registro criado antes do marco: cálculo antigo, mesmo relido depois')]

@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPrazo;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -35,10 +36,15 @@ final class PrazosDosRegistros
         private readonly DiasUteisDoEscritorio $diasUteis,
         #[Autowire('%prazos_calendario_desde%')]
         string $calendarioDesde = '',
+        ?LoggerInterface $logger = null,
     ) {
         $desde = trim($calendarioDesde);
         $marco = \DateTimeImmutable::createFromFormat('!Y-m-d', $desde);
         $this->calendarioDesde = $marco !== false && $marco->format('Y-m-d') === $desde ? $marco : null;
+        if ($desde !== '' && $this->calendarioDesde === null) {
+            // Desligado do mesmo jeito (o lado seguro), mas quem configurou fica sabendo.
+            $logger?->warning('PRAZOS_CALENDARIO_DESDE inválida: use AAAA-MM-DD. O cálculo antigo continua valendo.', ['valor' => $desde]);
+        }
     }
 
     /** @return array{criados: int, apagados: int} */

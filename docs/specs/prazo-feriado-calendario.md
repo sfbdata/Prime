@@ -47,9 +47,16 @@ O padrão do coordenador vale: **não mexer em prazo já calculado; só os novos
   cálculo mudaria prazos antigos. Para evitar, a regra nova só vale para registros criados **a partir de
   `PRAZOS_CALENDARIO_DESDE`** (data ISO, variável de ambiente). Registro mais antigo continua com o cálculo
   antigo, mesmo relido.
-- Vazia (padrão), a regra nova fica **desligada** e nada muda. O dono define a data no deploy (sugestão:
-  a data do deploy). Assim nenhum prazo já gravado em produção muda de data, nem pelo listener nem pelo
-  comando.
+- Vazia (padrão), a regra nova fica **desligada** e nada muda. O dono define a data no deploy: **o dia
+  SEGUINTE ao deploy** (revisão de 20/10: com o próprio dia do deploy, os registros feitos nesse dia antes do
+  deploy foram gravados pelo cálculo antigo e mudariam na releitura). Data no passado tem o mesmo efeito.
+  Valor inválido desliga e avisa no log.
+- **Alcance da garantia** (revisão de 20/10): "nenhum prazo gravado muda" vale para os registros **anteriores
+  ao marco**. Os posteriores são relidos com o calendário e a UF do momento: mudar o `CalendarioDoSistema`,
+  a regra de Carnaval e Corpus Christi, os ajustes da Agenda (#70) ou a UF do escritório move a estimativa
+  deles na próxima releitura (sem perda de dado: prazo lido não pode ser cumprido). **Para o dono**: qualquer
+  mudança futura na regra (ex.: contar o Carnaval) precisa de um marco próprio se não puder mexer nos já
+  estimados.
 
 ## 4. Casos (base: registro criado depois do marco, escritório em AL)
 
