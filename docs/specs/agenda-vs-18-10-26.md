@@ -352,7 +352,7 @@ feriado ou data em dd/mm/aaaa", "Novo compromisso em ..." e "Restaurar datas do 
 algo ocultado ou renomeado). Os `prompt()` do protótipo viram um formulário pequeno: nome, tipo
 (Nacional, Estadual, Tribunal, Comemorativa; o desenho começa em Tribunal) e fonte opcional.
 
-**Onde fica:** tabela `agenda_data_ajuste` (migration `Version20261019135744`), por escritório: vale para
+**Onde fica:** tabela `agenda_data_ajuste` (migration `Version20261020125000`), por escritório: vale para
 a Agenda de todo o escritório. Quem pode: a mesma permissão de Feriados e Folgas
 (`admin.tenant.settings.manage`, convenção D2); os demais veem só "Ver detalhes" e "Novo compromisso".
 Aniversários também podem ser ocultados ou renomeados (o desenho os trata como data do sistema).
