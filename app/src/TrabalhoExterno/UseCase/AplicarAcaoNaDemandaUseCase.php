@@ -9,9 +9,11 @@ use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
 use App\TrabalhoExterno\DTO\Autor;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
+use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
@@ -33,6 +35,7 @@ final class AplicarAcaoNaDemandaUseCase
         private readonly PoliticaDaDemanda $politica,
         private readonly DemandaExternaRepository $repositorio,
         private readonly RemocaoAposTransacao $remocao,
+        private readonly MarcacaoDoUsuarioRepository $marcacoes,
     ) {
     }
 
@@ -61,12 +64,16 @@ final class AplicarAcaoNaDemandaUseCase
         return $demanda;
     }
 
-    /** Arquivo só sai DEPOIS do COMMIT (INV-6): se o DELETE falhar, nada some do disco. */
+    /**
+     * Arquivo só sai DEPOIS do COMMIT (INV-6): se o DELETE falhar, nada some do disco. As marcações
+     * dos usuários não têm FK para a demanda (tabela polimórfica) e saem aqui.
+     */
     private function excluirRascunho(DemandaExterna $demanda): void
     {
         $chaves = array_map(ChavesDeTrabalhoExterno::documento(...), $demanda->getDocumentos());
         $contexto = 'rascunho excluído do Trabalho Externo ' . $demanda->getCodigo();
 
+        $this->marcacoes->removerDoItem(TipoItemMarcado::Demanda, (int) $demanda->getId());
         $this->repositorio->remover($demanda, flush: true);
         $this->remocao->remover($chaves, $contexto);
     }

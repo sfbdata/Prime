@@ -9,17 +9,22 @@ use App\TrabalhoExterno\DTO\DadosDaProposta;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
+use App\TrabalhoExterno\Enum\OperacaoDeMarcacao;
+use App\TrabalhoExterno\Enum\OperacaoDeMensagem;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\UseCase\AlternarItemDoChecklistUseCase;
 use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
+use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\AtualizarConfiguracaoCentralUseCase;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\EnviarMensagemUseCase;
 use App\TrabalhoExterno\UseCase\EnviarPropostaUseCase;
 use App\TrabalhoExterno\UseCase\MarcarConversaLidaUseCase;
+use App\TrabalhoExterno\UseCase\MarcarDemandasEmLoteUseCase;
+use App\TrabalhoExterno\UseCase\MarcarMensagensEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\RegistrarAndamentoUseCase;
 use App\TrabalhoExterno\UseCase\SalvarSolicitacaoUseCase;
 use App\TrabalhoExterno\UseCase\SolicitarPeloMasterUseCase;
@@ -117,6 +122,40 @@ final class DemandaExternaController extends AbstractController
         });
     }
 
+    /** Barra de lote, estrela e importância (spec VS 18.10.26 §3.1): só para quem marca. */
+    #[Route('/demandas/marcacoes', name: 'trabalho_externo_marcacoes', methods: ['POST'])]
+    public function marcacoes(Request $request, MarcarDemandasEmLoteUseCase $marcar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $marcar): array {
+            $corpo = $this->corpo($request);
+            $op = OperacaoDeMarcacao::tryFrom((string) ($corpo['op'] ?? '')) ?? throw new DadosInvalidos('Operação desconhecida.');
+
+            return $marcar->executar($ctx, $this->listaDeTextos($corpo['codigos'] ?? null), $op);
+        });
+    }
+
+    #[Route('/demandas/{codigo}/mensagens/marcacoes', name: 'trabalho_externo_mensagens_marcacoes', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function marcacoesDoChat(Request $request, string $codigo, MarcarMensagensEmLoteUseCase $marcar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $marcar): array {
+            $corpo = $this->corpo($request);
+            $op = OperacaoDeMensagem::tryFrom((string) ($corpo['op'] ?? '')) ?? throw new DadosInvalidos('Operação desconhecida.');
+            $ids = array_map('intval', $this->listaDeTextos($corpo['ids'] ?? null));
+
+            return $marcar->executar($ctx, $codigo, $ids, $op) + ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
+    #[Route('/demandas/{codigo}/mensagens/{id}/apagar', name: 'trabalho_externo_mensagem_apagar', methods: ['POST'], requirements: ['codigo' => self::CODIGO, 'id' => '\d{1,9}'])]
+    public function apagarMensagem(Request $request, string $codigo, int $id, ApagarMensagemParaTodosUseCase $apagar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $id, $apagar): array {
+            $apagar->executar($ctx, $codigo, $id);
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
     #[Route('/demandas/{codigo}/checklist/{indice}', name: 'trabalho_externo_checklist', methods: ['POST'], requirements: ['codigo' => self::CODIGO, 'indice' => '\d{1,2}'])]
     public function checklist(Request $request, string $codigo, int $indice, AlternarItemDoChecklistUseCase $alternar): JsonResponse
     {
@@ -167,6 +206,16 @@ final class DemandaExternaController extends AbstractController
         $this->validarCsrfAjax($request);
 
         return $this->responder(static fn (): array => $acao($ctx));
+    }
+
+    /** @return list<string> */
+    private function listaDeTextos(mixed $valor): array
+    {
+        if (!is_array($valor)) {
+            throw new DadosInvalidos('Selecione ao menos um item.');
+        }
+
+        return array_values(array_map('strval', array_filter($valor, 'is_scalar')));
     }
 
     /** @return list<UploadedFile> */
