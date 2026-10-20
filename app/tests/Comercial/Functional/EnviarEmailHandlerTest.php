@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
+use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Message\EnviarEmail;
@@ -255,6 +256,49 @@ final class EnviarEmailHandlerTest extends KernelTestCase
 
         self::assertEmailCount(0);
         self::assertSame('enfileirado', $this->situacao($id));
+    }
+
+    #[TestDox('"Enviar teste" da campanha (teste_campanha) é isento do teto diário (§8.4)')]
+    public function testTesteDaCampanhaIgnoraTetoDiario(): void
+    {
+        $this->semearEnviados(3, '2030-01-15 08:00:00');
+        $id = $this->enfileirar(TipoDeEnvio::Lista, 'teste_campanha');
+
+        ($this->handler(porMinuto: 100, teto: 3))(new EnviarEmail($id));
+
+        self::assertEmailCount(1);
+        self::assertSame('enviado', $this->situacao($id));
+        self::assertContains('teste_campanha', EnviarEmailHandler::ORIGENS_ISENTAS_DO_TETO_DIARIO);
+    }
+
+    #[TestDox('"Enviar teste" da campanha continua sujeito ao limite por minuto')]
+    public function testTesteDaCampanhaRespeitaOMinuto(): void
+    {
+        $this->semearEnviados(2, '2030-01-15 09:59:30');
+        $id = $this->enfileirar(TipoDeEnvio::Lista, 'teste_campanha');
+
+        ($this->handler(porMinuto: 2))(new EnviarEmail($id));
+
+        self::assertEmailCount(0);
+        self::assertSame('enfileirado', $this->situacao($id));
+    }
+
+    #[TestDox('O layout gravado no conteúdo volta na remontagem: linhas sai sem o <td> do padrão; sem layout, padrao')]
+    public function testLayoutGravadoEReliido(): void
+    {
+        $carteiro = new Carteiro($this->envios, $this->descadastro, new BusQueRegistra($this->conexao), $this->relogio);
+        $linha = '<tr><td class="linha-do-bloco">Bloco de {nome}</td></tr>';
+        $id = $carteiro->enviar(new MensagemDeEmail('ana@exemplo.com', 'Assunto', $linha, TipoDeEnvio::Lista, 'teste_campanha', 'comercial_campanhas', nome: 'Ana Souza', layout: LayoutDoEmail::Linhas))->envioId;
+        self::assertSame('linhas', $this->conexao->fetchOne('SELECT layout FROM comercial_envio_conteudo WHERE envio_id = ?', [$id]));
+        $padrao = $this->enfileirar(TipoDeEnvio::Transacional, 'automacao:val');
+        self::assertSame('padrao', $this->conexao->fetchOne('SELECT layout FROM comercial_envio_conteudo WHERE envio_id = ?', [$padrao]));
+
+        ($this->handler())(new EnviarEmail($id));
+
+        $email = self::getMailerMessage();
+        self::assertNotNull($email);
+        self::assertEmailHtmlBodyContains($email, '</td></tr>' . "\n" . '<tr><td class="linha-do-bloco">Bloco de Ana</td></tr>');
+        self::assertEmailHtmlBodyNotContains($email, 'padding:28px 30px 8px;font:15px/1.6');
     }
 
     #[TestDox('Exceção no envio: volta a enfileirado (próxima tentativa agora), conteúdo guardado e relança')]

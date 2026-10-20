@@ -44,6 +44,10 @@ class ConteudoDoEnvio
     #[ORM\Column(name: 'motivo_do_envio', length: 300, nullable: true)]
     private ?string $motivoDoEnvio = null;
 
+    /** {@see \App\Comercial\Envio\LayoutDoEmail}: o handler remonta o e-mail no mesmo layout (spec §8.3). */
+    #[ORM\Column(length: 10, options: ['default' => 'padrao'])]
+    private string $layout = 'padrao';
+
     public function __construct(EnvioDeEmail $envio)
     {
         $this->envio = $envio;
