@@ -41,18 +41,26 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
     }
 
     /**
-     * As preferências de TODOS com esta chave (o aviso de vaga nova procura quem ligou o alerta). Só a
-     * chave sai daqui; quem chama confere o escritório guardado em cada uma.
+     * Os avisos de vaga nova LIGADOS, de todos (o envio procura quem quer receber). O `ligado` é lido no
+     * JSON pelo SQL; quem chama confere o escritório guardado em cada um.
      *
      * @return list<PreferenciaDoUsuario>
      */
-    public function comChave(string $chave): array
+    public function alertasDeVagasLigados(): array
     {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT id FROM trabalho_externo_preferencia WHERE chave = :chave AND (valor::jsonb ->> 'ligado') = 'true' ORDER BY id",
+            ['chave' => PreferenciaDoUsuario::ALERTA_DE_VAGAS],
+        );
+        if ($ids === []) {
+            return [];
+        }
+
         return $this->createQueryBuilder('p')
             ->addSelect('u')
             ->join('p.usuario', 'u')
-            ->andWhere('p.chave = :chave')
-            ->setParameter('chave', $chave)
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('ids', array_map('intval', $ids))
             ->orderBy('p.id', 'ASC')
             ->getQuery()
             ->getResult();

@@ -23,6 +23,7 @@ use App\TrabalhoExterno\Exception\SemCurriculo;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\CurriculoRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use App\TrabalhoExterno\Repository\DestinatariosDosAvisosRepository;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
 use App\TrabalhoExterno\Repository\VagaRepository;
@@ -220,6 +221,8 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
             $this->createStub(PreferenciaDoUsuarioRepository::class),
             $this->curriculos,
             new ResolvedorDePerfil($this->createStub(PermissionChecker::class)),
+            $this->politicaDaVaga(),
+            $this->createStub(ConviteDemandaRepository::class),
         );
     }
 

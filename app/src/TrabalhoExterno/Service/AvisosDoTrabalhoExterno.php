@@ -15,6 +15,7 @@ use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\SituacaoVaga;
+use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use App\TrabalhoExterno\Repository\CurriculoRepository;
 use App\TrabalhoExterno\Repository\DestinatariosDosAvisosRepository;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
@@ -26,9 +27,11 @@ use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
  * - **Central** (Master e Equipe com `talentos`): no escritório-sede. Sem sede, nenhum aviso.
  * - **Dono** da vaga: os Solicitantes do escritório dela; sem escritório na vaga (Convidado), quem pediu,
  *   no primeiro escritório ativo dele. Sem escritório nenhum, nenhum aviso.
- * - **Candidato**: no escritório gravado na candidatura.
- * - **Alerta de vaga**: quem ligou o aviso, no escritório guardado na preferência, com área em comum
- *   com o currículo (ou sem currículo, ou vaga sem área), só com o `sino` ligado pelo Master.
+ * - **Candidato**: no escritório gravado na candidatura, se ainda tem vínculo ativo lá; senão no primeiro
+ *   escritório ativo dele; sem nenhum, nenhum aviso.
+ * - **Alerta de vaga**: quem ligou o aviso e ainda vê a aba Vagas como externo (Solicitante ou Convidado)
+ *   no escritório guardado na preferência, com área em comum com o currículo (ou sem currículo, ou vaga
+ *   sem área), só com o `sino` ligado pelo Master.
  *
  * A `Notificacao` é auditada (`app/src/Central/CLAUDE.md`): o título leva o título da vaga ou o código
  * da demanda, nunca o nome nem o contato de um candidato. Quem age não recebe o próprio aviso; o aviso
@@ -44,6 +47,8 @@ final class AvisosDoTrabalhoExterno
         private readonly PreferenciaDoUsuarioRepository $preferencias,
         private readonly CurriculoRepository $curriculos,
         private readonly ResolvedorDePerfil $perfis,
+        private readonly PoliticaDaVaga $politicaDaVaga,
+        private readonly ConviteDemandaRepository $convites,
     ) {
     }
 
@@ -73,10 +78,17 @@ final class AvisosDoTrabalhoExterno
             : $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA, $titulo);
     }
 
-    /** "Enviar N ao escritório" (l.981). */
-    public function candidatosEnviados(Contexto $ctx, Vaga $vaga): void
+    /**
+     * "Enviar N ao escritório" (l.981): o dono e cada candidato enviado (o andamento dele virou "Em análise").
+     *
+     * @param list<Candidatura> $enviadas
+     */
+    public function candidatosEnviados(Contexto $ctx, Vaga $vaga, array $enviadas = []): void
     {
         $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS, 'Candidatos indicados pelo BlueJus na vaga ' . $vaga->getTitulo());
+        foreach ($enviadas as $candidatura) {
+            $this->andamentoDaCandidatura($ctx, $candidatura);
+        }
     }
 
     /** "Aprovar e publicar" (l.979). */
@@ -92,15 +104,16 @@ final class AvisosDoTrabalhoExterno
         $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA, 'Sua vaga não foi aprovada: ' . $vaga->getTitulo(), $motivo !== null ? 'Motivo: ' . $motivo : null);
     }
 
-    /** Mudança de status do candidato (l.985, 1040): no escritório gravado na candidatura. */
+    /** Mudança de status do candidato (l.985, 1040), no escritório dele ({@see escritorioDoCandidato()}). */
     public function andamentoDaCandidatura(Contexto $ctx, Candidatura $candidatura): void
     {
-        $escritorio = $candidatura->getEscritorioDoCandidato();
+        $candidato = $candidatura->getCurriculo()->getUsuario();
+        $escritorio = $this->escritorioDoCandidato($candidatura, $candidato);
         if ($escritorio === null) {
             return;
         }
         $vaga = $candidatura->getVaga();
-        $this->avisar($ctx, [$candidatura->getCurriculo()->getUsuario()], $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS, 'Andamento atualizado na sua candidatura à vaga ' . $vaga->getTitulo(), self::urlDaVaga($vaga));
+        $this->avisar($ctx, [$candidato], $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS, 'Andamento atualizado na sua candidatura à vaga ' . $vaga->getTitulo(), self::urlDaVaga($vaga));
     }
 
     /** Vaga nova ou reaberta na área (l.1012, 1107, 1160): aprovada, publicada pela Central, reaberta ou ofertada de novo. */
@@ -110,7 +123,7 @@ final class AvisosDoTrabalhoExterno
         if (!$cfg->getVagas()['sino'] || $vaga->situacaoEm($agora) !== SituacaoVaga::Aberta) {
             return;
         }
-        foreach ($this->preferencias->comChave(PreferenciaDoUsuario::ALERTA_DE_VAGAS) as $preferencia) {
+        foreach ($this->preferencias->alertasDeVagasLigados() as $preferencia) {
             $escritorio = $this->escritorioDoInteressado($preferencia, $vaga, $cfg);
             if ($escritorio !== null) {
                 $this->avisar($ctx, [$preferencia->getUsuario()], $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA, 'Nova vaga na sua área: ' . $vaga->getTitulo(), self::urlDaVaga($vaga));
@@ -176,10 +189,20 @@ final class AvisosDoTrabalhoExterno
         ));
     }
 
+    /** O gravado na candidatura, se ele ainda tem vínculo ativo lá; senão o primeiro escritório ativo dele. */
+    private function escritorioDoCandidato(Candidatura $candidatura, User $candidato): ?Tenant
+    {
+        $gravado = $candidatura->getEscritorioDoCandidato();
+        $ainda = $gravado !== null ? $this->destinatarios->escritorioDaPessoa($candidato, (int) $gravado->getId()) : null;
+
+        return $ainda ?? $this->destinatarios->primeiroEscritorio($candidato);
+    }
+
     /**
      * O escritório em que o interessado recebe o alerta desta vaga, ou null se não recebe: aviso ligado,
-     * vínculo ativo no escritório guardado, externo nele (nem Master nem Equipe), não é o dono da vaga e
-     * tem área em comum com ela (ou não tem currículo, ou a vaga não tem área), como o desenho (l.1012).
+     * vínculo ativo no escritório guardado, externo nele que vê a aba Vagas ({@see veAVagaComoExterno()}),
+     * não é o dono da vaga e tem área em comum com ela (ou não tem currículo, ou a vaga não tem área),
+     * como o desenho (l.1012).
      */
     private function escritorioDoInteressado(PreferenciaDoUsuario $preferencia, Vaga $vaga, ConfiguracaoCentral $cfg): ?Tenant
     {
@@ -189,12 +212,25 @@ final class AvisosDoTrabalhoExterno
             return null;
         }
         $escritorio = $this->destinatarios->escritorioDaPessoa($pessoa, $valor['escritorioId']);
-        if ($escritorio === null || $escritorio->getId() === $vaga->getEscritorio()?->getId() || in_array($this->perfis->resolver($pessoa, $escritorio, $cfg), [Perfil::Master, Perfil::Equipe], true)) {
+        if ($escritorio === null || $escritorio->getId() === $vaga->getEscritorio()?->getId() || !$this->veAVagaComoExterno($pessoa, $escritorio, $cfg)) {
             return null;
         }
         $cv = $this->curriculos->doUsuario($pessoa);
 
         return $cv === null || $vaga->getAreas() === [] || array_intersect($vaga->getAreas(), $cv->getAreas()) !== [] ? $escritorio : null;
+    }
+
+    /**
+     * O perfil que a pessoa teria entrando por este escritório é externo (Solicitante, ou Convidado com
+     * convite vigente, como a `FabricaDeContexto`) e esse perfil vê a aba Vagas.
+     */
+    private function veAVagaComoExterno(User $pessoa, Tenant $escritorio, ConfiguracaoCentral $cfg): bool
+    {
+        $perfil = $this->perfis->resolver($pessoa, $escritorio, $cfg)
+            ?? ($this->convites->vigentesDo($pessoa, new \DateTimeImmutable('today')) !== [] ? Perfil::Convidado : null);
+
+        return in_array($perfil, [Perfil::Solicitante, Perfil::Convidado], true)
+            && $this->politicaDaVaga->veAba(new Contexto($pessoa, $escritorio, $perfil, $cfg));
     }
 
     /** @param list<User> $pessoas */

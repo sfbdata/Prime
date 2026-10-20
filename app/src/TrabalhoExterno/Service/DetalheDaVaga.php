@@ -32,8 +32,8 @@ final class DetalheDaVaga
         $vaga = $this->localizador->localizar($ctx, $codigo, $agora);
         $id = (int) $vaga->getId();
         $marca = $ctx->previa ? null : ($this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Vaga, [$id])[$id] ?? null);
-        $em = $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->getValor()['em'] ?? null;
+        $visita = $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->visitaAnterior();
 
-        return $this->apresentador->detalhe($ctx, $vaga, $marca, is_string($em) ? new \DateTimeImmutable($em) : null, $agora, $this->resumo->paraDetalhe($ctx, $vaga));
+        return $this->apresentador->detalhe($ctx, $vaga, $marca, $visita, $agora, $this->resumo->paraDetalhe($ctx, $vaga));
     }
 }

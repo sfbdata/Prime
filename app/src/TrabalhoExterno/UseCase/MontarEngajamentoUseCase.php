@@ -27,7 +27,7 @@ use App\TrabalhoExterno\Service\PoliticaDaVaga;
  * Quem: qualquer perfil do Trabalho Externo; o Master também pela prévia (`?como=`, só leitura). Tudo
  * sai do que a pessoa já vê (as vagas e os currículos do escopo dela). O lembrete e as boas-vindas são
  * só do externo; com as boas-vindas não há lembrete na mesma visita (l.1078). `ofertas` é a situação
- * agora das vagas já publicadas que a tela acompanha (o QUASE da oferta perdida, l.1012), sem nenhum
+ * agora das ofertas com tempo já publicadas que a tela acompanha (o QUASE da oferta perdida, l.1012), sem nenhum
  * outro dado delas. Consulta: não grava nada.
  */
 final class MontarEngajamentoUseCase
@@ -67,12 +67,18 @@ final class MontarEngajamentoUseCase
                 'subtitulo' => $this->engajamento->subtitulo($r->interno),
                 'chips' => $this->engajamento->chips($r),
             ],
-            'alerta' => ['disponivel' => !$r->interno && $ctx->configuracao->getVagas()['sino'], 'ligado' => $r->alertaLigado],
+            'alerta' => ['disponivel' => $this->alertaDisponivel($ctx), 'ligado' => $r->alertaLigado],
             'lembrete' => !$r->interno && $boasVindas === null ? $this->engajamento->lembrete($r) : null,
             'boasVindas' => $boasVindas,
             'motiv' => $ctx->configuracao->getVagas()['motiv'],
-            'ofertas' => $this->situacaoDasOfertas($ofertas, $agora),
+            'ofertas' => $this->situacaoDasOfertas($ctx, $ofertas, $agora),
         ];
+    }
+
+    /** As mesmas condições do `DefinirAlertaDeVagasUseCase`: externo que vê a aba, com escritório e sino ligado. */
+    private function alertaDisponivel(Contexto $ctx): bool
+    {
+        return !$ctx->ehInterno() && $ctx->tenant !== null && $this->politica->veAba($ctx) && $ctx->configuracao->getVagas()['sino'];
     }
 
     /**
@@ -80,12 +86,15 @@ final class MontarEngajamentoUseCase
      *
      * @return array<string, string>|\stdClass código → aberta, preenchida, expirada, pausada ou encerrada (objeto vazio sem nenhuma)
      */
-    private function situacaoDasOfertas(array $codigos, \DateTimeImmutable $agora): array|\stdClass
+    private function situacaoDasOfertas(Contexto $ctx, array $codigos, \DateTimeImmutable $agora): array|\stdClass
     {
+        if (!$this->politica->veAba($ctx)) {
+            return new \stdClass();
+        }
         $ids = array_slice(array_values(array_unique(array_filter(array_map(Vaga::idDoCodigo(...), $codigos)))), 0, 50);
         $mapa = [];
         foreach ($this->repositorioDeVagas->publicadasEntre($ids) as $v) {
-            $situacao = match ($v->situacaoEm($agora)) {
+            $situacao = !$v->isOferta() ? null : match ($v->situacaoEm($agora)) {
                 SituacaoVaga::Aberta => 'aberta',
                 SituacaoVaga::Ocupada => 'preenchida',
                 SituacaoVaga::Expirada => 'expirada',
@@ -128,7 +137,7 @@ final class MontarEngajamentoUseCase
     {
         $meu = $this->curriculos->meu($ctx);
         $abertas = $this->naSituacao($vagas, SituacaoVaga::Aberta, $agora);
-        $visita = $this->dataGuardada($ctx, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS);
+        $visita = $ctx->previa ? null : $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->visitaAnterior();
         $alerta = $ctx->previa ? null : $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ALERTA_DE_VAGAS)?->getValor();
         $percentual = $meu !== null ? $this->percentual->calcular($meu) : null;
 
@@ -190,13 +199,6 @@ final class MontarEngajamentoUseCase
     private function novosNoBanco(Contexto $ctx): int
     {
         return count(array_filter($this->curriculos->visiveis($ctx), static fn (Curriculo $cv): bool => $cv->getStatus() === StatusCurriculo::Novo));
-    }
-
-    private function dataGuardada(Contexto $ctx, string $chave): ?\DateTimeImmutable
-    {
-        $em = $ctx->previa ? null : ($this->preferencias->doUsuario($ctx->usuario, $chave)?->getValor()['em'] ?? null);
-
-        return is_string($em) ? new \DateTimeImmutable($em) : null;
     }
 
     /**

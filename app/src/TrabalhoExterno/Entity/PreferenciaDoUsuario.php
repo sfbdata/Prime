@@ -20,6 +20,8 @@ use Doctrine\ORM\Mapping as ORM;
 class PreferenciaDoUsuario
 {
     public const ULTIMA_VISITA_VAGAS = 'vagas.ultimaVisita';
+    /** Visitas mais próximas que isso contam como a mesma: "desde a última visita" não zera ao recarregar. */
+    private const MINUTOS_DA_MESMA_VISITA = 30;
     public const OFERTANTE_PADRAO = 'vagas.ofertantePadrao';
     /** "Avisar quando sair vaga da minha área" (l.1107): `{ligado, escritorioId}`, o escritório do contexto. */
     public const ALERTA_DE_VAGAS = 'vagas.alerta';
@@ -51,6 +53,29 @@ class PreferenciaDoUsuario
     {
         $this->valor = $valor;
         $this->em = $agora;
+    }
+
+    /**
+     * A visita à aba Vagas (`{em, anterior}`): `em` é a de agora; `anterior` só avança quando a visita
+     * guardada tem mais de 30 min, para "NOVA" e "desde a sua última visita" sobreviverem ao recarregar e
+     * ao aviso de visita que a tela manda depois de listar.
+     */
+    public function registrarVisita(\DateTimeImmutable $agora): void
+    {
+        $em = $this->valor['em'] ?? null;
+        $anterior = $this->valor['anterior'] ?? null;
+        if (is_string($em) && new \DateTimeImmutable($em) < $agora->modify(sprintf('-%d minutes', self::MINUTOS_DA_MESMA_VISITA))) {
+            $anterior = $em;
+        }
+        $this->definir(['em' => $agora->format(\DATE_ATOM), 'anterior' => is_string($anterior) ? $anterior : null], $agora);
+    }
+
+    /** A referência de "nova" (a visita anterior); null quando ainda não houve: nada é novo. */
+    public function visitaAnterior(): ?\DateTimeImmutable
+    {
+        $anterior = $this->valor['anterior'] ?? null;
+
+        return is_string($anterior) ? new \DateTimeImmutable($anterior) : null;
     }
 
     public function getUsuario(): User

@@ -74,21 +74,25 @@ final class EngajamentoDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $master = $this->criarMaster($sede);
         [$doA, $doB] = [$this->criarUsuario($a, nome: 'Ana Souza'), $this->criarUsuario($b, nome: 'Bia')];
         $aberta = $this->publicar($master, $sede, self::vaga('Correspondente') + ['oferta' => true, 'duracaoDaOferta' => 15]);
+        $comum = $this->publicar($master, $sede, self::vaga('Vaga comum'));
         $pendente = $this->divulgar($doB, $b, 'Pendente de B');
 
         $this->logarComTenant($this->client, $doA, $a);
         $e = $this->engajamento();
-        self::assertSame(['vagas' => 1, 'curriculos' => 0], $e['contadores']);
+        self::assertSame(['vagas' => 2, 'curriculos' => 0], $e['contadores']);
         self::assertSame(['1 vaga(s) disputada(s) disponível(is) agora', 'Cadastre seu currículo para aceitar ofertas em 1 clique'], array_column($e['banner']['chips'], 'txt'));
         self::assertSame(['disponivel' => true, 'ligado' => false], $e['alerta']);
-        self::assertSame(['estado' => 'cadastrar', 'pct' => 0, 'faltas' => [], 'dias' => 0, 'vagasAbertas' => 1], $e['lembrete']);
+        self::assertSame(['estado' => 'cadastrar', 'pct' => 0, 'faltas' => [], 'dias' => 0, 'vagasAbertas' => 2], $e['lembrete']);
         self::assertNull($e['boasVindas']);
         self::assertSame([], $e['ofertas']);
 
-        $link = $this->engajamento('?vagas=VG-' . (int) substr($aberta, 3) . ',' . $pendente . ',lixo&cadastro=1&ofertas=' . $aberta . ',' . $pendente);
+        self::assertNull($this->engajamento('?vagas=' . $aberta . '&cadastro=1')['boasVindas'], 'sem origem=link não há boas-vindas');
+        $link = $this->engajamento('?origem=link&vagas=VG-' . (int) substr($aberta, 3) . ',' . $pendente . ',lixo&cadastro=1&ofertas=' . $aberta . ',' . $comum . ',' . $pendente);
         self::assertNull($link['lembrete'], 'com as boas-vindas não há lembrete');
         self::assertSame(['Bem-vindo ao BlueJus!', ['rot' => 'Cadastrar currículo e me candidatar', 'acao' => 'cadastrarCv', 'codigo' => $aberta]], [$link['boasVindas']['titulo'], $link['boasVindas']['botao']]);
-        self::assertSame([$aberta => 'aberta'], $link['ofertas'], 'a pendente de outro escritório não entra');
+        self::assertSame([$aberta => 'aberta'], $link['ofertas'], 'só ofertas com tempo; a pendente de outro escritório não entra');
+        $semVagas = $this->engajamento('?origem=link');
+        self::assertSame(['Que bom ter você de volta!', 'As vagas que te indicaram já foram preenchidas, mas há outras abertas agora. Cadastre seu currículo e ative os avisos para não perder as próximas.'], [$semVagas['boasVindas']['titulo'], $semVagas['boasVindas']['texto']]);
 
         $ligou = $this->postarJson($this->client, self::API . '/vagas/alerta', ['ligado' => true]);
         self::assertResponseIsSuccessful();
@@ -155,8 +159,10 @@ final class EngajamentoDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $id = (int) $this->em()->getConnection()->fetchOne('SELECT id FROM trabalho_externo_candidatura');
         $this->postarJson($this->client, self::API . "/vagas/$codigo/enviar", ['candidaturas' => [$id]]);
         self::assertSame([[(int) $doA->getId(), (int) $a->getId()]], $this->quem('trabalho_externo_candidatos_enviados'));
+        self::assertSame([[(int) $candidato->getId(), (int) $b->getId()]], $this->quem('trabalho_externo_candidatura_status'), 'o envio avisa também o candidato');
+        $this->em()->getConnection()->executeStatement("UPDATE notificacao SET lida = true WHERE tipo = 'trabalho_externo_candidatura_status'");
         $this->postarJson($this->client, self::API . "/candidaturas/$id/status", ['status' => 'entrevista']);
-        self::assertSame([[(int) $candidato->getId(), (int) $b->getId()]], $this->quem('trabalho_externo_candidatura_status'));
+        self::assertSame([[(int) $candidato->getId(), (int) $b->getId()], [(int) $candidato->getId(), (int) $b->getId()]], $this->quem('trabalho_externo_candidatura_status'));
 
         $outra = $this->divulgar($doA, $a, 'Estagiário');
         $this->logarComTenant($this->client, $master, $sede);
@@ -198,6 +204,27 @@ final class EngajamentoDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->postarJson($this->client, self::API . "/demandas/$codigo/acoes/info", ['motivo' => 'Faltou a pauta']);
         self::assertResponseIsSuccessful();
         self::assertSame([[(int) $doA->getId(), (int) $a->getId(), 'Pedido de informações na demanda ' . $codigo, '/trabalho-externo?te=' . $codigo]], $this->avisos('trabalho_externo_demanda_informacoes'));
+    }
+
+    #[TestDox('"desde a sua última visita": a referência é a visita anterior; o aviso de visita depois de listar não zera o chip nem o NOVA')]
+    public function testNovasDesdeAVisitaAnterior(): void
+    {
+        [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('A')];
+        $master = $this->criarMaster($sede);
+        $doA = $this->criarUsuario($a);
+        $this->logarComTenant($this->client, $doA, $a);
+        $this->postarJson($this->client, self::API . '/vagas/visita');
+        self::assertSame([], array_column($this->engajamento()['banner']['chips'], 'txt', 'ic')['bi-stars'] ?? [], 'a primeira visita não tem anterior: nada é novo');
+        $this->em()->getConnection()->executeStatement("UPDATE trabalho_externo_preferencia SET valor = ? WHERE chave = 'vagas.ultimaVisita'", [json_encode(['em' => (new \DateTimeImmutable('-2 hours'))->format(\DATE_ATOM), 'anterior' => null])]);
+        $this->postarJson($this->client, self::API . '/vagas/visita');
+        $codigo = $this->publicar($master, $sede, self::vaga('Nova depois da visita'));
+
+        $this->logarComTenant($this->client, $doA, $a);
+        $this->postarJson($this->client, self::API . '/vagas/visita');
+        self::assertSame('1 vaga(s) nova(s) desde sua última visita', array_column($this->engajamento()['banner']['chips'], 'txt', 'ic')['bi-stars'] ?? null);
+        $this->client->request('GET', self::API . '/vagas');
+        $cartao = array_values(array_filter($this->json($this->client)['vagas']['vagas'], static fn (array $v): bool => $v['codigo'] === $codigo))[0];
+        self::assertTrue($cartao['nova'], 'o NOVA continua depois do aviso de visita da mesma visita');
     }
 
     #[TestDox('banco de currículos: o atualizado mais recentemente primeiro')]

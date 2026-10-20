@@ -20,11 +20,15 @@ use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\AcaoVaga;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\Situacao;
+use App\TrabalhoExterno\Entity\ConviteDemanda;
+use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use App\TrabalhoExterno\Repository\CurriculoRepository;
 use App\TrabalhoExterno\Repository\DestinatariosDosAvisosRepository;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
 use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
+use App\TrabalhoExterno\Service\PoliticaDaDemanda;
+use App\TrabalhoExterno\Service\PoliticaDaVaga;
 use App\TrabalhoExterno\Service\ResolvedorDePerfil;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -59,6 +63,10 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
     /** @var array<int, Curriculo> */
     private array $cvs = [];
     private bool $pendente = false;
+    /** @var array<int, Tenant> */
+    private array $tenants = [];
+    /** @var list<int> quem tem convite vigente (vira Convidado sem a permissão do módulo) */
+    private array $comConvite = [];
     private ?Tenant $primeiroEscritorio = null;
 
     protected function setUp(): void
@@ -68,6 +76,7 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         [$this->equipe, $this->solicitante, $this->semPermissao] = [Apoio::usuario(2), Apoio::usuario(3), Apoio::usuario(4)];
         $this->comPermissao = [2, 3, 5, 6];
         $this->doEscritorio = [1 => [$this->master, $this->equipe, $this->semPermissao], 2 => [$this->master, $this->solicitante, $this->semPermissao]];
+        $this->tenants = [1 => $this->sede, 2 => $this->escritorio, 5 => Apoio::tenant(5), 6 => Apoio::tenant(6)];
         $this->cfg = new ConfiguracaoCentral();
         $this->cfg->definirSede($this->sede);
     }
@@ -112,12 +121,15 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         $this->semTextoPessoal();
     }
 
-    #[TestDox('candidatos enviados: o dono; vaga da Central nada; Convidado sem escritório na vaga: ele, no primeiro escritório; sem nenhum, nada')]
+    #[TestDox('candidatos enviados: o dono e cada candidato enviado; vaga da Central nada; Convidado sem escritório na vaga: ele, no primeiro escritório; sem nenhum, nada')]
     public function testCandidatosEnviados(): void
     {
-        $this->avisos()->candidatosEnviados($this->ctx($this->master), $this->vagaDoEscritorio());
-        self::assertSame([[3, 2]], $this->quem());
-        self::assertSame('Candidatos indicados pelo BlueJus na vaga Advogado cível', $this->criadas[0]['titulo']);
+        $candidato = Apoio::usuario(9);
+        $this->doEscritorio[6] = [$candidato];
+        $vaga = $this->vagaDoEscritorio();
+        $this->avisos()->candidatosEnviados($this->ctx($this->master), $vaga, [Candidatura::candidatar($vaga, $this->cv($candidato), new \DateTimeImmutable(), $this->tenants[6])]);
+        self::assertSame([[3, 2], [9, 6]], $this->quem());
+        self::assertSame(['Candidatos indicados pelo BlueJus na vaga Advogado cível', 'trabalho_externo_candidatura_status'], [$this->criadas[0]['titulo'], $this->criadas[1]['tipo']]);
 
         $this->limpar();
         $this->avisos()->candidatosEnviados($this->ctx($this->master), $this->comId(Vaga::daCentral($this->master, 'Ana', $this->dados(), new \DateTimeImmutable()), 42));
@@ -150,15 +162,21 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         self::assertSame([], $this->criadas, 'quem age não recebe o próprio aviso');
     }
 
-    #[TestDox('andamento: o candidato no escritório gravado na candidatura; sem escritório nada; pendente igual não repete')]
+    #[TestDox('andamento: o candidato no escritório gravado (com vínculo ativo), senão no primeiro dele; sem nenhum nada; pendente igual não repete')]
     public function testAndamentoEDedup(): void
     {
         $candidato = Apoio::usuario(9);
         $vaga = $this->vagaDoEscritorio();
         $this->avisos()->andamentoDaCandidatura($this->ctx($this->master), Candidatura::candidatar($vaga, $this->cv($candidato), new \DateTimeImmutable()));
-        self::assertSame([], $this->criadas, 'sem escritório gravado, nenhum aviso');
+        self::assertSame([], $this->criadas, 'sem escritório gravado nem outro, nenhum aviso');
+        $outro = $this->tenants[6];
+        $this->primeiroEscritorio = $this->tenants[5];
+        $this->avisos()->andamentoDaCandidatura($this->ctx($this->master), Candidatura::candidatar($vaga, $this->cv($candidato), new \DateTimeImmutable(), $outro));
+        self::assertSame([[9, 5]], $this->quem(), 'sem vínculo no gravado: o primeiro escritório ativo dele');
 
-        $outro = Apoio::tenant(6);
+        $this->limpar();
+        $this->primeiroEscritorio = null;
+        $this->doEscritorio[6] = [$candidato];
         $this->avisos()->andamentoDaCandidatura($this->ctx($this->master), Candidatura::candidatar($vaga, $this->cv($candidato), new \DateTimeImmutable(), $outro));
         self::assertSame([[9, 6]], $this->quem());
         self::assertSame(['trabalho_externo_candidatura_status', 'Andamento atualizado na sua candidatura à vaga Advogado cível'], [$this->criadas[0]['tipo'], $this->criadas[0]['titulo']]);
@@ -170,20 +188,23 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         self::assertSame([], $this->criadas, 'o aviso não lido do mesmo link não se repete');
     }
 
-    #[TestDox('vaga na área: quem ligou, no escritório guardado; área em comum ou sem currículo; desligado, sem escritório, área diferente, dono e interno ficam de fora; sino desligado nada')]
+    #[TestDox('vaga na área: quem ligou e vê a aba como externo (Solicitante ou Convidado), no escritório guardado; área em comum ou sem currículo; desligado, sem escritório, sem perfil, área diferente, dono e interno ficam de fora; sino desligado nada')]
     public function testVagaNaArea(): void
     {
         [$comArea, $semCv, $outraArea, $desligado, $semEscritorio, $doDono] = [Apoio::usuario(11), Apoio::usuario(12), Apoio::usuario(13), Apoio::usuario(14), Apoio::usuario(15), $this->solicitante];
+        [$convidado, $semPerfil] = [Apoio::usuario(8), $this->semPermissao];
+        $this->comConvite = [8];
+        $this->doEscritorio[5] = [$comArea, $semCv, $outraArea, $desligado, $convidado, $semPerfil];
         $this->cvs = [11 => $this->cv($comArea, ['Cível', 'Família']), 13 => $this->cv($outraArea, ['Penal'])];
         $this->alertas = [
-            $this->alerta($comArea, true, 5), $this->alerta($semCv, true, 5), $this->alerta($outraArea, true, 5),
-            $this->alerta($desligado, false, 5), $this->alerta($semEscritorio, true, null), $this->alerta($doDono, true, 2), $this->alerta($this->equipe, true, 1),
+            $this->alerta($comArea, true, 5), $this->alerta($semCv, true, 5), $this->alerta($outraArea, true, 5), $this->alerta($desligado, false, 5),
+            $this->alerta($semEscritorio, true, null), $this->alerta($doDono, true, 2), $this->alerta($this->equipe, true, 1), $this->alerta($convidado, true, 5), $this->alerta($semPerfil, true, 5),
         ];
         $vaga = $this->vagaDoEscritorio();
         $vaga->aplicar(AcaoVaga::Aprovar, null, 'Master', 0, 0, new \DateTimeImmutable());
 
         $this->avisos()->vagaNaArea($this->ctx($this->master), $vaga, new \DateTimeImmutable());
-        self::assertSame([[11, 5], [12, 5]], $this->quem());
+        self::assertSame([[11, 5], [12, 5], [8, 5]], $this->quem());
         self::assertSame(['trabalho_externo_vaga_na_area', 'Nova vaga na sua área: Advogado cível'], [$this->criadas[0]['tipo'], $this->criadas[0]['titulo']]);
 
         $this->limpar();
@@ -238,17 +259,20 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         $destinatarios = $this->createMock(DestinatariosDosAvisosRepository::class);
         $destinatarios->method('masters')->willReturnCallback(fn (): array => [$this->master]);
         $destinatarios->method('ativosDoEscritorio')->willReturnCallback(fn (Tenant $t): array => $this->doEscritorio[(int) $t->getId()] ?? []);
-        $destinatarios->method('escritorioDaPessoa')->willReturnCallback(fn (User $u, int $id): ?Tenant => $id === 5 ? Apoio::tenant(5) : (in_array($u, $this->doEscritorio[$id] ?? [], true) ? ($id === 1 ? $this->sede : $this->escritorio) : null));
+        $destinatarios->method('escritorioDaPessoa')->willReturnCallback(fn (User $u, int $id): ?Tenant => in_array($u, $this->doEscritorio[$id] ?? [], true) ? $this->tenants[$id] : null);
         $destinatarios->method('primeiroEscritorio')->willReturnCallback(fn (): ?Tenant => $this->primeiroEscritorio);
         $destinatarios->method('temPendente')->willReturnCallback(fn (): bool => $this->pendente);
         $preferencias = $this->createMock(PreferenciaDoUsuarioRepository::class);
-        $preferencias->method('comChave')->willReturnCallback(fn (): array => $this->alertas);
+        // Como o SQL: só as ligadas (o serviço confere de novo).
+        $preferencias->method('alertasDeVagasLigados')->willReturnCallback(fn (): array => array_values(array_filter($this->alertas, static fn (PreferenciaDoUsuario $p): bool => ($p->getValor()['ligado'] ?? false) === true)));
+        $convites = $this->createMock(ConviteDemandaRepository::class);
+        $convites->method('vigentesDo')->willReturnCallback(fn (User $u): array => in_array((int) $u->getId(), $this->comConvite, true) ? [$this->createStub(ConviteDemanda::class)] : []);
         $curriculos = $this->createMock(CurriculoRepository::class);
         $curriculos->method('doUsuario')->willReturnCallback(fn (User $u): ?Curriculo => $this->cvs[(int) $u->getId()] ?? null);
         $permissoes = $this->createMock(PermissionChecker::class);
         $permissoes->method('canAccessModule')->willReturnCallback(fn (User $u): bool => in_array('ROLE_SUPER_ADMIN', $u->getRoles(), true) || in_array((int) $u->getId(), $this->comPermissao, true) || (int) $u->getId() >= 10);
 
-        return new AvisosDoTrabalhoExterno($notificacoes, $destinatarios, $preferencias, $curriculos, new ResolvedorDePerfil($permissoes));
+        return new AvisosDoTrabalhoExterno($notificacoes, $destinatarios, $preferencias, $curriculos, new ResolvedorDePerfil($permissoes), new PoliticaDaVaga(new PoliticaDaDemanda()), $convites);
     }
 
     private function ctx(User $usuario, Perfil $perfil = Perfil::Master): Contexto

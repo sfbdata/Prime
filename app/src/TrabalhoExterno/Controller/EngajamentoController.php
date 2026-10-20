@@ -32,7 +32,10 @@ final class EngajamentoController extends AbstractController
     ) {
     }
 
-    /** `?vagas=VG-1,VG-2&cadastro=1` (boas-vindas pelo link) e `?ofertas=VG-3` (situação das ofertas acompanhadas). */
+    /**
+     * `?origem=link[&vagas=VG-1,VG-2][&cadastro=1]` (boas-vindas pelo link, l.1078: sem `vagas`, o texto de
+     * "já foram preenchidas") e `?ofertas=VG-3` (situação das ofertas acompanhadas).
+     */
     #[Route('/engajamento', name: 'trabalho_externo_engajamento', methods: ['GET'])]
     public function engajamento(Request $request, MontarEngajamentoUseCase $montar): JsonResponse
     {
@@ -43,7 +46,7 @@ final class EngajamentoController extends AbstractController
         $como = $this->previa->perfilPedido($ctx, $request->query->get('como'));
         $ctx = $como !== null ? $this->previa->contexto($ctx, $como) : $ctx;
         $q = $request->query;
-        $indicadas = $q->has('vagas') || $q->has('cadastro') ? self::codigos($q->get('vagas')) : null;
+        $indicadas = $q->get('origem') === 'link' ? self::codigos($q->get('vagas')) : null;
 
         return $this->responder(static fn (): array => $montar->executar($ctx, $indicadas, $q->get('cadastro') === '1', self::codigos($q->get('ofertas'))));
     }
