@@ -164,7 +164,7 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   importado (`symfony/html-sanitizer` configurado em código, mais o sanitizador do `style`), `LayoutDoEmail` (`padrao`,
   `linhas`, `cru`) no `MensagemDeEmail` e na coluna `comercial_envio_conteudo.layout`, a prévia em JSON (`srcdoc` de
   iframe `sandbox=""`), "Baixar HTML" (na tela) e "Enviar teste" (`teste_campanha`, isento do teto diário pela lista
-  renomeada `ORIGENS_ISENTAS_DO_TETO_DIARIO`, 10 por hora por Master). Migration provisória `Version20261021120000`.
+  renomeada `ORIGENS_ISENTAS_DO_TETO_DIARIO`, 10 por hora por Master). Migration `Version20261020129900`.
   Decisões da implementação: (1) as chaves de link `vagas`, `contribua` e `espaco` viram caminhos fixos
   (`/vagas-juridicas`, `/contribua#sug`, `/contribua#espaco`), porque as rotas da a7 e da f6 não estão nesta base; `app` é
   a página de entrada (`app_login`, como a 1a) e `cadastro` é `auth_cadastro`; (2) a prévia mostra "Dra. Ana" inteira

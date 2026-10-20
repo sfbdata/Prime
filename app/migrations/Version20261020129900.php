@@ -18,7 +18,7 @@ use Doctrine\Migrations\AbstractMigration;
  * (o 20261020130000 é de outra frente); renomear na vez. Escrita a partir do `schema:update --dump-sql` do mapeamento,
  * só com as linhas desta fatia.
  */
-final class Version20261021120000 extends AbstractMigration
+final class Version20261020129900 extends AbstractMigration
 {
     public function getDescription(): string
     {
