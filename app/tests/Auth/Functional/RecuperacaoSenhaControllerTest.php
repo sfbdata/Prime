@@ -42,6 +42,8 @@ final class RecuperacaoSenhaControllerTest extends JusPrimeWebTestCase
     private const SENHA_NOVA     = 'SenhaNova456';
     private const CSRF_VALIDO    = 'TOKEN_senha_codigo';
     private const ERRO_CODIGO    = 'Código incorreto. Confira o e-mail ou reenvie.';
+    /** REMOTE_ADDR padrão do KernelBrowser: o IP que o controller grava no pedido. */
+    private const IP_DO_CLIENTE  = '127.0.0.1';
 
     private function em(): EntityManagerInterface
     {
@@ -72,15 +74,15 @@ final class RecuperacaoSenhaControllerTest extends JusPrimeWebTestCase
     }
 
     /** Pedido da senha por código: o banco guarda o HMAC de "userId:codigo" com o kernel.secret. */
-    private function criarPedidoDeCodigo(User $user, string $codigo, string $expiraEm = '+15 minutes'): RedefinicaoSenha
+    private function criarPedidoDeCodigo(User $user, string $codigo, string $expiraEm = '+15 minutes', string $ip = '1.2.3.4'): RedefinicaoSenha
     {
         $segredo = (string) static::getContainer()->getParameter('kernel.secret');
         $hash    = SolicitarCodigoSenhaUseCase::hashDoCodigo((int) $user->getId(), $codigo, $segredo);
 
-        return $this->persistirPedido($user, $hash, $expiraEm);
+        return $this->persistirPedido($user, $hash, $expiraEm, $ip);
     }
 
-    private function persistirPedido(User $user, string $hash, string $expiraEm): RedefinicaoSenha
+    private function persistirPedido(User $user, string $hash, string $expiraEm, string $ip = '1.2.3.4'): RedefinicaoSenha
     {
         // Re-busca pelo id: depois de uma requisição o objeto do teste já está destacado
         // do EntityManager, e o Doctrine trataria a relação como entidade nova.
@@ -90,7 +92,7 @@ final class RecuperacaoSenhaControllerTest extends JusPrimeWebTestCase
             user: $user,
             tokenHash: $hash,
             expiraEm: new \DateTimeImmutable($expiraEm),
-            ip: '1.2.3.4',
+            ip: $ip,
         );
         $this->em()->persist($pedido);
         $this->em()->flush();
@@ -326,16 +328,22 @@ final class RecuperacaoSenhaControllerTest extends JusPrimeWebTestCase
         self::assertSame(self::ERRO_CODIGO, $this->confirmar($client, (string) $user->getEmail(), '111111')['erro'] ?? null);
     }
 
-    #[TestDox('Teto diário: o 11º pedido do dia não cria nem envia, e a resposta continua neutra')]
-    public function testTetoDiarioPorConta(): void
+    /** Semeia `$quantos` pedidos de código já encerrados para a conta, vindos de `$ip`. */
+    private function semearPedidos(User $user, int $quantos, string $ip, int $inicio = 0): void
     {
-        $client = $this->clienteJson();
-        $user   = $this->criarUsuario();
-        for ($i = 0; $i < SolicitarCodigoSenhaUseCase::TETO_DIARIO; ++$i) {
-            $pedido = $this->criarPedidoDeCodigo($user, sprintf('%06d', $i));
+        for ($i = 0; $i < $quantos; ++$i) {
+            $pedido = $this->criarPedidoDeCodigo($user, sprintf('%06d', $inicio + $i), ip: $ip);
             $pedido->marcarUsado(new \DateTimeImmutable());
         }
         $this->em()->flush();
+    }
+
+    #[TestDox('Teto diário: o 11º pedido do dia vindo do mesmo IP não cria nem envia, e a resposta continua neutra')]
+    public function testTetoDiarioPorContaEIp(): void
+    {
+        $client = $this->clienteJson();
+        $user   = $this->criarUsuario();
+        $this->semearPedidos($user, SolicitarCodigoSenhaUseCase::TETO_DIARIO, self::IP_DO_CLIENTE);
 
         $client->enableProfiler();
         $resposta = $this->pedirCodigo($client, (string) $user->getEmail());
@@ -349,23 +357,35 @@ final class RecuperacaoSenhaControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('Teto diário: pedidos de outro IP para a mesma conta não trancam quem pede deste IP')]
+    public function testTetoDiarioDeOutroIpNaoTranca(): void
+    {
+        $client = $this->clienteJson();
+        $user   = $this->criarUsuario();
+        $this->semearPedidos($user, SolicitarCodigoSenhaUseCase::TETO_DIARIO, '9.9.9.9');
+
+        $client->enableProfiler();
+        self::assertSame(['ok' => true], $this->pedirCodigo($client, (string) $user->getEmail()));
+        self::assertEmailCount(1);
+        self::assertSame(
+            SolicitarCodigoSenhaUseCase::TETO_DIARIO + 1,
+            $this->em()->getRepository(RedefinicaoSenha::class)->count(['user' => $user->getId()]),
+        );
+    }
+
     #[TestDox('Teto diário: pedido de mais de 24 h atrás não conta')]
     public function testTetoDiarioIgnoraPedidosAntigos(): void
     {
         $client = $this->clienteJson();
         $user   = $this->criarUsuario();
-        $this->criarPedidoDeCodigo($user, '000001');
+        $this->criarPedidoDeCodigo($user, '000001', ip: self::IP_DO_CLIENTE);
         // Pela data do PHP, não pelo NOW() do banco: a coluna é sem fuso e o fuso do banco não é o da aplicação.
         $antigo = (new \DateTimeImmutable('-25 hours'))->format('Y-m-d H:i:s');
         $this->em()->getConnection()->executeStatement(
             'UPDATE redefinicao_senha SET criado_em = :antigo, usado_em = :antigo WHERE user_id = :id',
             ['id' => $user->getId(), 'antigo' => $antigo],
         );
-        for ($i = 0; $i < SolicitarCodigoSenhaUseCase::TETO_DIARIO - 1; ++$i) {
-            $pedido = $this->criarPedidoDeCodigo($user, sprintf('%06d', 100 + $i));
-            $pedido->marcarUsado(new \DateTimeImmutable());
-        }
-        $this->em()->flush();
+        $this->semearPedidos($user, SolicitarCodigoSenhaUseCase::TETO_DIARIO - 1, self::IP_DO_CLIENTE, 100);
 
         $client->enableProfiler();
         self::assertSame(['ok' => true], $this->pedirCodigo($client, (string) $user->getEmail()));

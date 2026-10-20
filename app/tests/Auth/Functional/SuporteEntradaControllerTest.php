@@ -371,8 +371,30 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Mensagens de suporte');
-        self::assertCount(1, $crawler->filter('a[href="mailto:' . $email . '"]'));
+        self::assertCount(1, $crawler->filter('a[href="mailto:' . rawurlencode($email) . '"]'));
         self::assertStringContainsString('Primeira linha<br />', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('/suporte/mensagens: e-mail gravado com ?cc= não vira Cc injetado no link de resposta')]
+    public function testMailtoNaoInjetaCc(): void
+    {
+        $email = 'cliente%40escritorio.com?cc=atacante@evil.com';
+        $this->em()->persist(new MensagemSuporte('Cliente', $email, null, 'Mensagem longa o bastante.', '1.2.3.4'));
+        $this->em()->flush();
+        $this->entrarComo($this->master());
+
+        $crawler = $this->client->request('GET', '/suporte/mensagens');
+
+        self::assertResponseIsSuccessful();
+        $links = $crawler->filter('a[href^="mailto:"]')->each(static fn ($a): string => (string) $a->attr('href'));
+        $doCliente = array_values(array_filter($links, static fn (string $h): bool => str_contains($h, 'atacante')));
+        self::assertCount(2, $doCliente);
+        foreach ($doCliente as $href) {
+            self::assertStringNotContainsString('?cc=', $href);
+            self::assertStringNotContainsString('&cc=', $href);
+            self::assertLessThanOrEqual(1, substr_count($href, '?'), 'Só a ? do subject pode aparecer crua: ' . $href);
+        }
+        self::assertContains('mailto:' . rawurlencode($email) . '?subject=Suporte%20BlueJus', $doCliente);
     }
 
     #[TestDox('/suporte/mensagens: o destinatário escolhido (da equipe da conta do Master) também vê')]
@@ -495,7 +517,6 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
         return $this->limite;
     }
 
-    /** Entra com escritório na sessão e Termos aceitos (passa pelos portões de escritório e de Termos). */
     /**
      * Pessoa com escritório próprio (para poder entrar) e vínculo ativo no escritório do Master: entra nas opções
      * de quem recebe o suporte.
@@ -520,6 +541,7 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
         $this->em()->clear();
     }
 
+    /** Entra com escritório na sessão e Termos aceitos (passa pelos portões de escritório e de Termos). */
     private function entrarComo(User $user): void
     {
         $tenant = $this->em()->find(Tenant::class, $this->escritorioDe($user));

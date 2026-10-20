@@ -144,14 +144,14 @@ final class SolicitarCodigoSenhaUseCaseTest extends TestCase
         $this->executar('ninguem@adv.com');
     }
 
-    #[TestDox('Teto diário: com 10 pedidos nas últimas 24 h, não encerra, não grava nem envia, e registra no log')]
+    #[TestDox('Teto diário: com 10 pedidos da conta vindos do mesmo IP nas últimas 24 h, não encerra, não grava nem envia, e registra no log')]
     public function testTetoDiarioAtingidoFicaEmSilencio(): void
     {
         $user = $this->usuario();
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$user]);
         $this->redefinicaoRepository->expects($this->once())
             ->method('contarPedidosDesde')
-            ->with($user, self::callback(static function (\DateTimeImmutable $desde): bool {
+            ->with($user, '1.2.3.4', self::callback(static function (\DateTimeImmutable $desde): bool {
                 $diferenca = (new \DateTimeImmutable())->getTimestamp() - $desde->getTimestamp();
 
                 return abs($diferenca - 86400) <= 5;
@@ -161,7 +161,7 @@ final class SolicitarCodigoSenhaUseCaseTest extends TestCase
         $this->redefinicaoRepository->expects($this->never())->method('salvar');
         $this->mailer->expects($this->never())->method('enviarCodigo');
         $this->logger->expects($this->once())->method('warning')
-            ->with(self::stringContains('Teto diário'), self::callback(static fn (array $c): bool => $c['user_id'] === 42));
+            ->with(self::stringContains('Teto diário'), self::callback(static fn (array $c): bool => $c['user_id'] === 42 && $c['ip'] === '1.2.3.4'));
 
         $this->executar();
     }

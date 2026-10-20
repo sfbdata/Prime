@@ -32,11 +32,13 @@ final class SolicitarCodigoSenhaUseCase
     public const VALIDADE = '+15 minutes';
 
     /**
-     * Teto diário por conta, além dos limitadores por hora do controller: passado dele, nada é criado nem enviado
-     * (silêncio, RN02). Conta os pedidos das últimas 24 h pelas linhas de `redefinicao_senha`.
+     * Teto diário por conta + IP de origem, além dos limitadores por hora do controller: passado dele, nada é criado
+     * nem enviado (silêncio, RN02). Conta os pedidos das últimas 24 h daquela conta vindos daquele IP pelas linhas de
+     * `redefinicao_senha`. Por IP, e não só por conta, para que um atacante não tranque a recuperação de senha de
+     * outra pessoa: ele só se tranca a si mesmo, e o dono, de outro IP, continua recebendo código.
      */
     public const TETO_DIARIO = 10;
-    public const JANELA_DO_TETO = '-24 hours';
+    public const JANELA_DO_TETO = RedefinicaoSenhaRepository::JANELA_DO_TETO;
 
     /** Tentativas de sortear um código cujo hash ainda não existe (índice único). */
     private const SORTEIOS = 5;
@@ -70,7 +72,7 @@ final class SolicitarCodigoSenhaUseCase
         }
 
         $agora = new \DateTimeImmutable();
-        if ($this->redefinicaoRepository->contarPedidosDesde($user, $agora->modify(self::JANELA_DO_TETO)) >= self::TETO_DIARIO) {
+        if ($this->redefinicaoRepository->contarPedidosDesde($user, $ip, $agora->modify(self::JANELA_DO_TETO)) >= self::TETO_DIARIO) {
             $this->logger->warning('Teto diário de pedidos de código de senha atingido; código não enviado.', [
                 'user_id' => $user->getId(),
                 'ip' => $ip,

@@ -35,7 +35,7 @@
                                 <tr>
                                     <td class="text-nowrap">{{ m.criadaEm|date('d/m/Y H:i') }}</td>
                                     <td>{{ m.nome is empty ? '(sem nome)' : m.nome }}</td>
-                                    <td><a href="mailto:{{ m.email|e('html_attr') }}">{{ m.email }}</a><br><a class="btn btn-sm btn-outline-primary mt-1" href="mailto:{{ m.email|e('html_attr') }}?subject={{ 'Suporte BlueJus'|e('url') }}"><i class="bi bi-reply"></i> Responder por e-mail</a></td>
+                                    <td><a href="mailto:{{ m.email|url_encode }}">{{ m.email }}</a><br><a class="btn btn-sm btn-outline-primary mt-1" href="mailto:{{ m.email|url_encode }}?subject={{ 'Suporte BlueJus'|url_encode }}"><i class="bi bi-reply"></i> Responder por e-mail</a></td>
                                     <td>{{ m.assunto ?? 'Mensagem' }}</td>
                                     <td>{{ m.mensagem|nl2br }}</td>
                                     <td>{{ m.origem == 'login' ? 'Tela de entrada' : m.origem }}</td>

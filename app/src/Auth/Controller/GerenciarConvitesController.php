@@ -154,9 +154,13 @@ final class GerenciarConvitesController extends AbstractController
             throw $this->createNotFoundException('Convite não encontrado neste escritório.');
         }
 
+        $quem = $this->getUser();
+        if (!$quem instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
         try {
-            $quem = $this->getUser();
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem instanceof User ? $quem : null));
+            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem));
 
             try {
                 $this->mailer->enviarConviteEscritorio($invitation);

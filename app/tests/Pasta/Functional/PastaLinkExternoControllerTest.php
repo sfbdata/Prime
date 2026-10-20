@@ -8,6 +8,7 @@ use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Pasta\Controller\PastaLinkExternoController;
 use App\Pasta\Entity\LinkExternoDoPush;
+use App\Pasta\UseCase\GerarLinkExternoDoPushUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -110,6 +111,24 @@ final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erro' => 'Ainda não há movimentações para compartilhar.'], $this->corpo($client));
+    }
+
+    #[TestDox('Gerar com o e-mail da conta a confirmar: 422 com o texto da recusa e nada gravado')]
+    public function testGerarComEmailAConfirmar(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPush($tenant);
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 hour'));
+        $this->em()->flush();
+
+        $this->instalarCsrfPrevisivel();
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', "/pasta/{$pasta->getId()}/push/links", ['_token' => 'TOKEN_pasta_push_link_' . $pasta->getId()]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => GerarLinkExternoDoPushUseCase::RECUSA_EMAIL_A_CONFIRMAR], $this->corpo($client));
+        self::assertSame(0, $this->em()->getRepository(LinkExternoDoPush::class)->count(['pasta' => $pasta->getId()]));
     }
 
     #[TestDox('Listar: links mais recentes primeiro, acessos agregados, resumo e "pode gerar"')]

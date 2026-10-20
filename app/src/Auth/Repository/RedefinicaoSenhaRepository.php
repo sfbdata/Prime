@@ -15,10 +15,16 @@ use Doctrine\Persistence\ManagerRegistry;
 class RedefinicaoSenhaRepository extends ServiceEntityRepository
 {
     /**
-     * A purga não apaga pedido criado há menos disto: o teto diário do SolicitarCodigoSenhaUseCase conta os pedidos
-     * das últimas 24 h pelas linhas desta tabela, e a purga das 3 h zeraria a conta no meio da janela.
+     * Janela do teto diário do SolicitarCodigoSenhaUseCase (pedidos por conta + IP). Fonte única: o UseCase e a
+     * retenção da purga leem daqui, para não divergirem.
      */
-    public const RETENCAO_MINIMA = '-24 hours';
+    public const JANELA_DO_TETO = '-24 hours';
+
+    /**
+     * A purga não apaga pedido criado dentro da janela do teto: o teto conta os pedidos pelas linhas desta tabela,
+     * e a purga das 3 h zeraria a conta no meio da janela.
+     */
+    public const RETENCAO_MINIMA = self::JANELA_DO_TETO;
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -114,14 +120,20 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
         $this->getEntityManager()->refresh($redefinicao);
     }
 
-    /** Quantos pedidos a conta criou desde `$desde`, consumidos, encerrados ou vivos (teto diário do código). */
-    public function contarPedidosDesde(User $user, \DateTimeImmutable $desde): int
+    /**
+     * Quantos pedidos da conta vieram de `$ip` desde `$desde`, consumidos, encerrados ou vivos (teto diário do código).
+     * Conta por conta + IP: quem martela a conta de outra pessoa só tranca o próprio IP, e o dono, de outro IP,
+     * continua recebendo código.
+     */
+    public function contarPedidosDesde(User $user, string $ip, \DateTimeImmutable $desde): int
     {
         return (int) $this->createQueryBuilder('r')
             ->select('COUNT(r.id)')
             ->where('r.user = :user')
+            ->andWhere('r.ip = :ip')
             ->andWhere('r.criadoEm >= :desde')
             ->setParameter('user', $user)
+            ->setParameter('ip', $ip)
             ->setParameter('desde', $desde)
             ->getQuery()
             ->getSingleScalarResult();
