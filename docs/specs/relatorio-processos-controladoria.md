@@ -11,7 +11,7 @@ mesmo que precise de frente nova.
 1. #55 `push-link-externo`: link externo do Push. Migration Version20261019183000. Entra depois do #52 (de outra
    sessão); o #77 (trusted proxies, b5) também entra antes por mexer no framework.yaml.
 2. #68 `pasta-ocultar-aba`: EMPILHADO sobre o #55 (base push-link-externo). Migration Version20261019200000.
-3. #75 `relatorio-processos-controladoria`: base master. Migration Version20261019235550 (renomeada na vez dela: era 20261019233000).
+3. #75 `relatorio-processos-controladoria`: base master. Migration Version20261019235650 (renomeada na vez dela: era 20261019233000, depois 20261019235550).
 4. #82 `push-painel-monitoramento` (P4a): base master. Migration Version20261019234500.
 5. P4b `push-avisar-quando-chegar`: em implementação, EMPILHADO sobre o #82.
 Depois de cada merge: trazer o origin/master para as branches que ficaram, testes, push. Renomear a migration para

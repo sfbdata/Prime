@@ -9,6 +9,8 @@ use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\DTO\PastaExtratoImpressaoOutput;
 use App\Pasta\DTO\PastaImpressaoOpcoes;
 use App\Pasta\DTO\PastaPendenciasOutput;
@@ -71,6 +73,16 @@ final class PastaResumoController extends AbstractController
     /** Rodapé de cada página do PDF (desenho `pdfBaixar`): o do gerador compartilhado. */
     public const RODAPE_PDF = GeradorDePdf::RODAPE;
 
+    /**
+     * A aba de onde vem cada folha avulsa (spec pasta-ocultar-aba §4): com a aba oculta para quem pede,
+     * a folha é 403. O resumo geral não está aqui: ele omite as seções das abas ocultas.
+     */
+    private const ABA_DA_SECAO = [
+        PastaImpressaoOpcoes::SECAO_EXTRATO    => AbaDaPasta::Financeiro,
+        PastaImpressaoOpcoes::SECAO_OBSERVACAO => AbaDaPasta::Detalhes,
+        PastaImpressaoOpcoes::SECAO_PROCESSO   => AbaDaPasta::Processo,
+    ];
+
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
@@ -80,6 +92,7 @@ final class PastaResumoController extends AbstractController
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
         private readonly GeradorDePdf $geradorDePdf,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
     ) {
     }
 
@@ -154,6 +167,7 @@ final class PastaResumoController extends AbstractController
             throw $this->createNotFoundException('Folha de impressão desconhecida.');
         }
 
+        $this->exigirAbaDaSecaoVisivel($pasta, $usuario, $opcoes->secao);
         $veFinanceiro = $this->visibilidadeDoFinanceiro->podeVer($usuario, $tenant, $pasta);
         if ($opcoes->secao === PastaImpressaoOpcoes::SECAO_EXTRATO && !$veFinanceiro) {
             throw $this->createAccessDeniedException('Sem permissão para ver o financeiro desta pasta.');
@@ -169,7 +183,7 @@ final class PastaResumoController extends AbstractController
 
         $pagamentos = $this->pastaPagamentoRepository->findByPasta($pasta, $tenant);
         $resumo     = $opcoes->secao === PastaImpressaoOpcoes::SECAO_RESUMO
-            ? $this->resumoCompleto($pasta, $tenant, $pagamentos, $veFinanceiro)
+            ? $this->resumoCompleto($pasta, $tenant, $pagamentos, $veFinanceiro, $usuario)
             // As outras folhas só usam a faixa Pasta/Cliente/Processo: sem Push nem checklist.
             : PastaResumoImpressaoOutput::montar(
                 $pasta,
@@ -202,6 +216,14 @@ final class PastaResumoController extends AbstractController
             // Só na folha do processo: as linhas rótulo/valor do "Copiar resumo".
             'linhasProcesso' => $processoAlvo !== null ? self::linhasDoProcesso($pasta, $processoAlvo) : [],
         ];
+    }
+
+    private function exigirAbaDaSecaoVisivel(Pasta $pasta, User $usuario, ?string $secao): void
+    {
+        $aba = self::ABA_DA_SECAO[$secao ?? ''] ?? null;
+        if ($aba !== null && $this->visibilidadeDasAbas->ocultaPara($pasta, $aba, $usuario)) {
+            throw $this->createAccessDeniedException('A aba ' . $aba->rotulo() . ' está oculta para você nesta pasta.');
+        }
     }
 
     /** Id positivo da query, ou `null` (vazio, texto, zero): `getInt` daria 400 em texto. */
@@ -300,8 +322,11 @@ final class PastaResumoController extends AbstractController
     /**
      * @param PastaPagamento[] $pagamentos
      */
-    private function resumoCompleto(Pasta $pasta, Tenant $tenant, array $pagamentos, bool $veFinanceiro): PastaResumoImpressaoOutput
+    private function resumoCompleto(Pasta $pasta, Tenant $tenant, array $pagamentos, bool $veFinanceiro, User $usuario): PastaResumoImpressaoOutput
     {
+        // Abas ocultas para quem imprime (spec pasta-ocultar-aba §4): sem as pendências delas e, com o
+        // Push oculto, sem "Últimas movimentações". O Financeiro já sai pelo `$veFinanceiro`.
+        $ocultas = array_map(static fn (AbaDaPasta $aba): string => $aba->value, $this->visibilidadeDasAbas->abasOcultasPara($pasta, $usuario));
         $numeros = [];
         foreach ($pasta->getPastaProcessos() as $vinculo) {
             $numeros[] = $vinculo->getProcesso()->getNumeroProcesso();
@@ -329,10 +354,10 @@ final class PastaResumoController extends AbstractController
                 itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
                 // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
                 veFinanceiro: $veFinanceiro,
-            ),
-            $push->itens,
+            )->semAbas($ocultas),
+            \in_array(AbaDaPasta::Push->value, $ocultas, true) ? [] : $push->itens,
             $pagamentos,
             incluirFinanceiro: $veFinanceiro,
-        );
+        )->semSecoesDasAbas($ocultas);
     }
 }

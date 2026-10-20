@@ -108,6 +108,9 @@ final class PurgarEscritorioUseCase
         // NO ACTION — deleção explícita, ANTES da nota.
         ['nota_tecnica_versao', 'tenant_id = :tenant'],
         ['nota_tecnica', 'tenant_id = :tenant'],
+        // Previsões da Situação atual do Push (taxa de acertos): caem pela CASCADE do processo, mas
+        // a FK de tenant é NO ACTION; deleção explícita antes de apagar o processo e o tenant.
+        ['previsao_processual', 'tenant_id = :tenant'],
         // DJEN — publicações e OABs monitoradas (tenant_id direto; FKs a processo/oab_monitorada
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).
         ['publicacao_djen', 'tenant_id = :tenant'],
@@ -122,6 +125,11 @@ final class PurgarEscritorioUseCase
         // Contribua — plano e limites de espaço do escritório (tenant_id direto; FK tenant NO ACTION, nada a
         // referencia). O catálogo de planos e a configuração são globais e ficam.
         ['contribua_espaco_do_escritorio', 'tenant_id = :tenant'],
+        // Contribua C2: sugestões, apoios informados e motivos anônimos (tenant_id direto; FKs a "user"
+        // SET NULL; nada as referencia).
+        ['contribua_sugestao', 'tenant_id = :tenant'],
+        ['contribua_apoio', 'tenant_id = :tenant'],
+        ['contribua_motivo_de_nao_apoiar', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem
         // ANTES do bloco Etapa 2 (que apaga obrigação e caso).
@@ -197,6 +205,8 @@ final class PurgarEscritorioUseCase
         // são NO ACTION. Acesso antes do link (filho antes do pai).
         ['push_link_externo_acesso', 'tenant_id = :tenant'],
         ['push_link_externo', 'tenant_id = :tenant'],
+        // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
+        ['pasta_aba_oculta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],

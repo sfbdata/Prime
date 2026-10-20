@@ -18,7 +18,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Gerada a partir do `doctrine:schema:update --dump-sql`, só com as linhas desta frente: os DROP INDEX
  * de índice funcional e os DROP DEFAULT da cobrança que o comando também propõe são ruído antigo.
  */
-final class Version20261019235550 extends AbstractMigration
+final class Version20261019235650 extends AbstractMigration
 {
     public function getDescription(): string
     {

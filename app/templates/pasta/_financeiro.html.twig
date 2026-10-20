@@ -459,7 +459,8 @@
             </div>
 
             {# Passou de 3, o resto não some da vista sem dizer para onde foi. #}
-            {% if documentosContrato|length > arquivosVisiveis %}
+            {# Sem o atalho quando a aba Documentos está oculta para quem vê (ocultar aba). #}
+            {% if documentosContrato|length > arquivosVisiveis and 'documentos' not in abasOcultas|default([]) %}
                 <div class="ps-fin-doc-excedente" id="financeiro-docs-excedente">
                     <button type="button" class="ps-fin-link" data-ps-ir-aba="documentos-tab">
                         ver os outros {{ documentosContrato|length - arquivosVisiveis }} no gerenciador
@@ -812,7 +813,8 @@
 
     /** Atalho para o gerenciador quando há mais arquivos do que o card mostra. */
     function mostrarExcedente() {
-        if (document.getElementById('financeiro-docs-excedente')) { return; }
+        // Sem a aba Documentos (oculta para quem vê), o atalho não existe.
+        if (document.getElementById('financeiro-docs-excedente') || !document.getElementById('documentos-tab')) { return; }
 
         const bloco = document.createElement('div');
         bloco.className = 'ps-fin-doc-excedente';
