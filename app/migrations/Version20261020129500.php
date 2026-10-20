@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * marca da cadeia de varredura (uma linha, id 1). Tabelas novas, sem dado existente.
  * Spec: docs/specs/agenda-vs-18-10-26.md, seção 16.
  */
-final class Version20261020127000 extends AbstractMigration
+final class Version20261020129500 extends AbstractMigration
 {
     public function getDescription(): string
     {

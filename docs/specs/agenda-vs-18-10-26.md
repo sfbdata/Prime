@@ -492,7 +492,7 @@ Cumpre a promessa do `bj-lembretes.js`, linha 3 (seção 15). Mesmos lembretes d
 - **Como se recupera:** worker parado, mensagem perdida ou erro: a marca envelhece; passados 180 s, a
   próxima consulta de lembretes de qualquer navegador aberto (ou o comando) religa. Com todos os
   navegadores fechados e a cadeia morta, só o comando ou a próxima abertura religam.
-- **Tabelas novas** (`Version20261020127000`): `agenda_push_inscricao`, `agenda_push_enviado` e
+- **Tabelas novas** (`Version20261020129500`): `agenda_push_inscricao`, `agenda_push_enviado` e
   `agenda_push_varredura` (linha única). As duas primeiras entram no expurgo do escritório.
 - **Chaves VAPID inválidas** (assunto que não é `mailto:`/`https://`, chave de tamanho errado) deixam o
   push desligado, com erro no log, em vez de reservar lembretes e falhar.
