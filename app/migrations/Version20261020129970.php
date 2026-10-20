@@ -16,7 +16,7 @@ use Doctrine\Migrations\AbstractMigration;
  * cobranca_pessoa_* e DROP INDEX dos índices funcionais da Cobrança), que não é desta frente. Timestamp do momento:
  * renomeada na vez dela na fila de migrations.
  */
-final class Version20261019215845 extends AbstractMigration
+final class Version20261020129970 extends AbstractMigration
 {
     public function getDescription(): string
     {
