@@ -206,6 +206,21 @@ final class BancosBacenTest extends TestCase
         self::assertTrue($banco->consultar($c->idNoBanco)->cancelada);
     }
 
+    #[TestDox('Consulta paga com horario em UTC: vira o fuso do PHP (2026-10-31T01:30:00Z = 30/10 22:30 em São Paulo)')]
+    public function testHorarioEmUtcViraFusoDoPhp(): void
+    {
+        $this->configurar('inter');
+        $banco = $this->banco('inter');
+        $c = $banco->criarCobranca($this->pedido(2000));
+        $this->psp->pagar($c->idNoBanco);
+        $this->psp->cobs[$c->idNoBanco]['pix'][0]['horario'] = '2026-10-31T01:30:00Z';
+
+        $pago = $banco->consultar($c->idNoBanco);
+
+        self::assertSame('2026-10-30 22:30', $pago->pagaEm?->format('Y-m-d H:i'));
+        self::assertSame(date_default_timezone_get(), $pago->pagaEm?->getTimezone()->getName());
+    }
+
     #[TestDox('Consulta paga sem pix[0]: o valor é o valor.original')]
     public function testValorOriginal(): void
     {

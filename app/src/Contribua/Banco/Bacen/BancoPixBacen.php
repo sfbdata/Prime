@@ -209,13 +209,17 @@ abstract class BancoPixBacen implements BancoPix
         return max(self::EXPIRACAO_MINIMA_SEGUNDOS, $vencimento->setTime(23, 59, 59)->getTimestamp() - time());
     }
 
+    /**
+     * O `horario` do PSP é RFC 3339, quase sempre em UTC (`Z`). Vai para o fuso do PHP antes de virar `pagoEm`:
+     * a coluna grava a hora sem fuso, e `2026-10-31T01:30:00Z` tem de ficar 30/10 22:30 (America/Sao_Paulo).
+     */
     private static function horario(mixed $horario): ?\DateTimeImmutable
     {
         if (!is_string($horario) || '' === $horario) {
             return null;
         }
         try {
-            return new \DateTimeImmutable($horario);
+            return (new \DateTimeImmutable($horario))->setTimezone(new \DateTimeZone(date_default_timezone_get()));
         } catch (\Exception) {
             return null;
         }
