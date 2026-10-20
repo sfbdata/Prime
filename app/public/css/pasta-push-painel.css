@@ -1,5 +1,6 @@
 /* =============================================================================
-   pasta-push-painel.css: coluna direita da aba Push (spec push-painel-monitoramento §4).
+   pasta-push-painel.css: coluna direita da aba Push (spec push-painel-monitoramento §4)
+   e o cartão "Avisar quando chegar" (spec push-avisar-quando-chegar §2).
    Desenho: docs/design/claude-design-2026-10-05 (1)/02 - EXPEDIENTES 1.2.3.dc.html
    Os estilos inline do desenho viram classes, cada regra com a linha de onde saiu ("dc L.N").
 
@@ -176,6 +177,31 @@
 /* Retorno de erro do switch ou da busca (sem lastro no desenho: convenção do `.ps-ia-msg`). */
 .ps-push-painel-msg { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ps-danger-text); }
 .ps-push-painel-msg[hidden] { display: none; }
+
+/* "Avisar quando chegar" (dc L.2629-2636; spec push-avisar-quando-chegar §2). Cartão (dc L.2629),
+   título (dc L.2630) e cada linha é o botão inteiro com role=switch (dc L.2632-2634). */
+.ps-push-avisos {
+    background: var(--ps-card);
+    border: 1px solid var(--ps-border);
+    border-radius: 4px;
+    box-shadow: var(--pp-sombra);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ps-push-avisos-titulo { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ps-label); margin-bottom: 4px; } /* dc L.2630 */
+.ps-push-aviso { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 0; border: none; background: transparent; cursor: pointer; font-family: inherit; text-align: left; } /* dc L.2632 */
+.ps-push-aviso-rotulo { flex: 1; font-size: 13px; color: var(--ps-body); } /* dc L.2633 */
+/* O switch da linha é o `sw` do desenho sem o cursor (dc L.5447: `w[0].replace('cursor:pointer;', '')`). */
+.ps-push-aviso-sw { position: relative; width: 34px; height: 20px; border-radius: 999px; flex-shrink: 0; border: none; padding: 0; transition: background .2s; background: var(--pp-switch-off); } /* dc L.5415 */
+.ps-push-aviso.is-on .ps-push-aviso-sw { background: var(--ps-accent); }
+.ps-push-aviso.is-on .ps-push-switch-bola { left: 16px; }
+.ps-push-aviso:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; }
+/* Travada (sem permissão, lápide, e-mail sem o responsável, IA indisponível): o switch esmaece como o
+   do monitoramento sem processo (dc L.5441: opacity .4 e cursor default). */
+.ps-push-aviso:disabled { cursor: default; }
+.ps-push-aviso:disabled .ps-push-aviso-sw { opacity: .4; }
 
 /* Brilho do ponto ativo (dc L.35) e o respeito ao movimento reduzido (dc L.36). */
 @keyframes ppMovBrilho {

@@ -153,6 +153,36 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * As publicações desta captação (pelos `djenId` novos) que estão VINCULADAS a um processo do
+     * escritório, com o processo junto: a entrada do "Avisar quando chegar" do Push (spec
+     * push-avisar-quando-chegar §3). Chamada depois da reconciliação, então pega também a que
+     * nasceu avulsa e foi religada na mesma captação. Tenant explícito: roda no CLI.
+     *
+     * @param list<string> $djenIds
+     *
+     * @return list<PublicacaoDjen>
+     */
+    public function listarVinculadasPorDjenIdsDoTenant(Tenant $tenant, array $djenIds): array
+    {
+        if ($djenIds === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('p')
+            ->addSelect('pr')
+            ->join('p.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('p.djenId IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', array_values(array_unique($djenIds)))
+            ->orderBy('p.dataDisponibilizacao', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Publicações do escritório ainda sem vínculo com Processo — a entrada da reconciliação.
      * Devolve ENTIDADES (e não projeção) porque quem chama vai gravar a FK nelas.
      *

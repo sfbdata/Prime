@@ -13,6 +13,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\Service\DjenPublicacaoMapper;
 use App\Djen\Service\EsperaEntreConsultasInterface;
+use App\Djen\Service\AvisoDePublicacoesNovasInterface;
 use App\Djen\Service\NotificadorPublicacoesDjenInterface;
 use App\Djen\UseCase\ReconciliarPublicacoesComProcessosUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
@@ -108,6 +109,7 @@ final class MonitoramentoDoPushUseCasesTest extends TestCase
             $this->createMock(NotificadorPublicacoesDjenInterface::class),
             new ReconciliarPublicacoesComProcessosUseCase($publicacoes, $processos),
             $this->createMock(EsperaEntreConsultasInterface::class),
+            $this->createMock(AvisoDePublicacoesNovasInterface::class),
         );
 
         return new BuscarAgoraNoPushUseCase($sincronizar, new MockClock(new \DateTimeImmutable(self::AGORA)), $this->limitador ?? new RateLimiterFactoryEspiao(aceita: true));

@@ -73,6 +73,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // das publicações, gravado pelo sistema ao montar a aba, sem ato de ninguém. Auditar só duplicaria
         // a previsão; o processo dela já está fora da auditoria por decisão de produto.
         \App\Processo\Entity\PrevisaoRegistrada::class,
+        // Descadastro de e-mail (push-avisar-quando-chegar D3): a própria linha é o registro do pedido (escritório,
+        // endereço, assunto, origem e quando), gravada por SQL na rota pública sem sessão (não há autor
+        // para auditar) e nunca editada. Auditar só duplicaria o endereço no audit_log.
+        \App\Shared\Email\Descadastro\Entity\EmailDescadastro::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,

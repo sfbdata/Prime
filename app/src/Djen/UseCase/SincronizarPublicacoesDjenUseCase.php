@@ -13,6 +13,7 @@ use App\Djen\Enum\MotivoFalhaDjen;
 use App\Djen\Exception\ConsultaDjenException;
 use App\Djen\Repository\OabMonitoradaRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Djen\Service\AvisoDePublicacoesNovasInterface;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\Service\DjenPublicacaoMapper;
 use App\Djen\Service\EsperaEntreConsultasInterface;
@@ -32,6 +33,10 @@ use App\Processo\Repository\ProcessoRepository;
  * Nas duas, consulta o DJEN no período, deduplica (por escritório + dentro da execução, então a mesma
  * publicação vinda pela OAB e pelo número vira UMA linha), persiste as novas vinculando ao Processo
  * quando o número CNJ já existe no escritório, e notifica os usuários com acesso ao módulo.
+ * Por fim, depois da reconciliação, entrega os `djenId` novos ao {@see AvisoDePublicacoesNovasInterface}
+ * (o "Avisar quando chegar" de cada pasta, spec push-avisar-quando-chegar §3), UMA vez por execução:
+ * no botão do módulo e no "Buscar agora", no fim da chamada; no comando diário, no fim da 2ª fase,
+ * com as novas das duas. O --dry-run não avisa.
  *
  * Recebe o Tenant EXPLICITAMENTE — roda tanto no request (botão "sincronizar agora") quanto no comando
  * CLI (TenantFilter desligado). Toda query e criação é escopada por esse tenant; nunca depende do filtro.
@@ -58,6 +63,7 @@ final class SincronizarPublicacoesDjenUseCase
         private readonly NotificadorPublicacoesDjenInterface $notificador,
         private readonly ReconciliarPublicacoesComProcessosUseCase $reconciliar,
         private readonly EsperaEntreConsultasInterface $espera,
+        private readonly AvisoDePublicacoesNovasInterface $avisoDasNovas,
     ) {
     }
 
@@ -115,9 +121,21 @@ final class SincronizarPublicacoesDjenUseCase
         // faz a captação diária curar o passivo sozinha, em duas consultas.
         if (!$dryRun) {
             $this->reconciliar->executar($tenant);
+            $this->avisarSeForAExecucaoInteira($tenant, $incluirProcessos, $resultado);
         }
 
         return $resultado;
+    }
+
+    /**
+     * Só OABs = a 1ª fase do comando: quem avisa é a 2ª (`sincronizarProcessosCobrindoTodos`), uma
+     * vez por escritório, com as novas das duas fases. Senão a pasta receberia dois avisos.
+     */
+    private function avisarSeForAExecucaoInteira(Tenant $tenant, bool $incluirProcessos, ResultadoSincronizacao $resultado): void
+    {
+        if ($incluirProcessos) {
+            $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
+        }
     }
 
     /**
@@ -126,7 +144,8 @@ final class SincronizarPublicacoesDjenUseCase
      * então nenhum fica de fora por estar no fim da lista. O comando roda esta fase depois das
      * OABs de todos os escritórios, para a cota gasta aqui nunca faltar à captação por OAB.
      *
-     * @param list<string> $djenIdsJaCaptados djenId que a fase de OABs já contou como novos
+     * @param list<string> $djenIdsJaCaptados djenId que a fase de OABs já contou como novos (entram no
+     *                                       aviso único do escritório, dado aqui, no fim das duas fases)
      */
     public function sincronizarProcessosCobrindoTodos(
         Tenant $tenant,
@@ -139,11 +158,33 @@ final class SincronizarPublicacoesDjenUseCase
         // foi gravado, e sem isto a simulação contaria em dobro a publicação vinda pelas duas fontes.
         $vistosNesteRun = array_fill_keys($djenIdsJaCaptados, true);
 
-        $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
-        $this->concluir($tenant, $dryRun, $resultado);
-        $this->registrarVerificacoes($tenant, $dryRun, $resultado);
+        try {
+            $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
+            $this->concluir($tenant, $dryRun, $resultado);
+            $this->registrarVerificacoes($tenant, $dryRun, $resultado);
+        } catch (\Throwable $e) {
+            // A 2ª fase caiu: as novas da 1ª (já gravadas) ainda são avisadas, uma vez; as desta fase
+            // podem nem ter chegado ao banco. O erro segue para o comando registrar.
+            $this->avisarFimDoEscritorio($tenant, $dryRun, $djenIdsJaCaptados);
+
+            throw $e;
+        }
+        $this->avisarFimDoEscritorio($tenant, $dryRun, [...$djenIdsJaCaptados, ...$resultado->getDjenIdsNovos()]);
 
         return $resultado;
+    }
+
+    /**
+     * Fim da execução do escritório no comando: UM aviso com as novas da fase de OABs (recebidas em
+     * `$djenIdsJaCaptados`) e as da fase de processos.
+     *
+     * @param list<string> $djenIds
+     */
+    private function avisarFimDoEscritorio(Tenant $tenant, bool $dryRun, array $djenIds): void
+    {
+        if (!$dryRun) {
+            $this->avisoDasNovas->avisar($tenant, array_values(array_unique($djenIds)));
+        }
     }
 
     /**
@@ -163,6 +204,7 @@ final class SincronizarPublicacoesDjenUseCase
         $this->concluir($tenant, false, $resultado);
         $this->registrarVerificacoes($tenant, false, $resultado);
         $this->reconciliar->executar($tenant);
+        $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
 
         return $resultado;
     }

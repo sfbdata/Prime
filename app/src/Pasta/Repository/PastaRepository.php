@@ -1327,6 +1327,39 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Os vínculos pasta-processo dos processos informados, só das pastas VIVAS (sem lápide) do
+     * escritório, com a pasta junto: quem recebe o "Avisar quando chegar" do Push (spec
+     * push-avisar-quando-chegar §3). Presa ao escritório pelos dois lados e com o tenant explícito
+     * (roda no CLI, sem TenantFilter). Carrega o vínculo, e não a pasta com a coleção filtrada, para
+     * não deixar `getPastaProcessos()` parcial no EntityManager.
+     *
+     * @param list<int> $processoIds
+     *
+     * @return list<PastaProcesso>
+     */
+    public function listarVinculosDePastasVivasDosProcessos(Tenant $tenant, array $processoIds): array
+    {
+        if ($processoIds === []) {
+            return [];
+        }
+
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('pp', 'pa')
+            ->from(PastaProcesso::class, 'pp')
+            ->innerJoin('pp.pasta', 'pa')
+            ->innerJoin('pp.processo', 'proc')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('proc.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->andWhere('proc.id IN (:processos)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('processos', array_values(array_unique($processoIds)))
+            ->orderBy('pa.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * "Média por CPF" da aba Financeiro: o ticket médio do cliente — a soma do
      * valor da causa de todas as pastas dele dividida pela quantidade dessas
      * pastas.
