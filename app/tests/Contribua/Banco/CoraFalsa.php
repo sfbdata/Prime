@@ -12,6 +12,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  * - token: developers.cora.com.br/docs/client-credentials-int-direta
  * - QR Code Pix v2: developers.cora.com.br/reference/qr-code-pix-v2
  * - consulta: developers.cora.com.br/reference/consultar-detalhes-de-um-boleto-v2
+ * - boleto registrado v2 (`payment_forms` com BANK_SLIP): payment_options.bank_slip com digitable, barcode e url
  * Registra cada pedido (método, URL, opções) para conferir mTLS, token e idempotência.
  */
 final class CoraFalsa
@@ -27,6 +28,8 @@ final class CoraFalsa
     public ?int $statusDaCriacao = null;
     public int $tokensExpirados = 0;
     public int $tokensEmitidos = 0;
+    /** Boleto sem o Pix (conta sem chave Pix: `pix` vem nulo). */
+    public bool $boletoSemPix = false;
 
     public function cliente(): MockHttpClient
     {
@@ -89,11 +92,19 @@ final class CoraFalsa
         $this->status[$id] = 'OPEN';
         $this->codigos[$id] = (string) $corpo['code'];
 
+        $boleto = in_array('BANK_SLIP', (array) ($corpo['payment_forms'] ?? []), true);
+
         return $this->json([
             'id' => $id, 'status' => 'OPEN', 'created_at' => '2023-09-27T18:14:12Z', 'total_amount' => $corpo['services'][0]['amount'], 'total_paid' => 0,
             'occurrence_date' => null, 'code' => $corpo['code'], 'customer' => $corpo['customer'], 'services' => $corpo['services'],
             'payment_terms' => $corpo['payment_terms'], 'payments' => [],
-            'pix' => ['emv' => '00020101021226830014br.gov.bcb.pix2561qrcode-h.cora.com.br/v1/cobv/d1d790a04fe34c37b41676246fdd9baa5204000053039865802BR5912MARI COMPANY6009SAO PAULO62070503***6304F445'],
+            'payment_options' => $boleto ? ['bank_slip' => [
+                'barcode' => '40391950000000020000000000000000189170000005000',
+                'digitable' => '40390000007550000000000000000000189170000005000',
+                'registered' => true,
+                'url' => 'https://web.stage.cora.com.br/boleto/' . $id,
+            ]] : null,
+            'pix' => $boleto && $this->boletoSemPix ? null : ['emv' => '00020101021226830014br.gov.bcb.pix2561qrcode-h.cora.com.br/v1/cobv/d1d790a04fe34c37b41676246fdd9baa5204000053039865802BR5912MARI COMPANY6009SAO PAULO62070503***6304F445'],
             'notifications' => null,
         ]);
     }

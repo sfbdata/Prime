@@ -1,0 +1,16 @@
+/* Contribua, boleto de apoio (chave "Boleto" do desenho 08). O desenho não mostra a tela do boleto: vale o
+   visual da seção Apoie (botões ct-*, rótulo pequeno, nota) e o campo de documento do checkout. */
+.cb-boleto { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.cb-pedido, .cb-resultado { width: 100%; border: 1px solid #e6edf2; border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
+.cb-pedido[hidden], .cb-resultado[hidden], .cb-pix[hidden], .cb-erro[hidden] { display: none; }
+.cb-campo { display: flex; flex-direction: column; gap: 4px; font-size: 10.5px; font-weight: bold; letter-spacing: .6px; color: #5b7383; margin: 0; }
+.cb-campo input { height: 34px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 9px; font: inherit; font-size: 14px; font-weight: normal; letter-spacing: 0; color: #12242f; }
+.cb-erro { font-size: 12.5px; color: #b02a37; }
+.cb-pedido .ct-botao-azul { align-self: flex-start; }
+.cb-codigo { display: block; padding: 8px 10px; border: 1px solid #e6edf2; border-radius: 3px; background: #f7f9fb; font-size: 12.5px; color: #243845; word-break: break-all; }
+.cb-vencimento { font-size: 13px; color: #5b7383; }
+.cb-vencimento b { color: #243845; }
+.cb-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.cb-botoes a.ct-botao-contorno { text-decoration: none; }
+.cb-pix { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.cb-pix .cb-codigo { width: 100%; box-sizing: border-box; }

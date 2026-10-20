@@ -10,8 +10,10 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Cobrança PIX aberta no banco para uma conta e um valor (QR dinâmico, C4). Reaproveitada enquanto não
- * vence, para trocar de valor não criar uma cobrança por clique. Vira `Apoio` só quando o banco confirma.
+ * Cobrança aberta no banco para uma conta e um valor. Duas formas: PIX (QR dinâmico, C4), reaproveitada
+ * enquanto não vence, para trocar de valor não criar uma cobrança por clique; e boleto (chave `bol`, só
+ * Cora), com a linha digitável, o PDF e o Pix do boleto no copia e cola. As duas viram `Apoio` só quando o
+ * banco confirma, pela mesma reconsulta e conciliação.
  */
 #[ORM\Entity(repositoryClass: CobrancaPixDaContaRepository::class)]
 #[ORM\Table(name: 'contribua_cobranca_pix')]
@@ -22,6 +24,8 @@ class CobrancaPixDaConta implements TenantAware
     public const ABERTA = 'aberta';
     public const PAGA = 'paga';
     public const CANCELADA = 'cancelada';
+    public const FORMA_PIX = 'pix';
+    public const FORMA_BOLETO = 'boleto';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -39,6 +43,15 @@ class CobrancaPixDaConta implements TenantAware
 
     #[ORM\Column(length: 12)]
     private string $situacao = self::ABERTA;
+
+    #[ORM\Column(length: 10, options: ['default' => self::FORMA_PIX])]
+    private string $forma = self::FORMA_PIX;
+
+    #[ORM\Column(name: 'linha_digitavel', length: 60, nullable: true)]
+    private ?string $linhaDigitavel = null;
+
+    #[ORM\Column(name: 'url_do_boleto', type: 'text', nullable: true)]
+    private ?string $urlDoBoleto = null;
 
     #[ORM\Column(name: 'criada_em', type: 'datetime_immutable')]
     private \DateTimeImmutable $criadaEm;
@@ -73,6 +86,23 @@ class CobrancaPixDaConta implements TenantAware
     {
         $this->idNoBanco = $idNoBanco;
         $this->copiaECola = $copiaECola;
+    }
+
+    /**
+     * Boleto já emitido no banco (só nasce assim: a linha é gravada depois de a Cora responder). O código é
+     * derivado do pedido, como a chave de idempotência: repetir o pedido devolve a mesma fatura e o mesmo código.
+     */
+    public static function boletoEmitido(Tenant $tenant, string $banco, string $ambiente, int $valorCentavos, \DateTimeImmutable $vencimento, string $chaveDeIdempotencia, string $codigo, string $idNoBanco, string $linhaDigitavel, string $urlDoBoleto, ?string $pixDoBoleto): self
+    {
+        $boleto = new self($tenant, $banco, $ambiente, $valorCentavos, $vencimento, $chaveDeIdempotencia);
+        $boleto->forma = self::FORMA_BOLETO;
+        $boleto->codigo = $codigo;
+        $boleto->idNoBanco = $idNoBanco;
+        $boleto->linhaDigitavel = mb_substr($linhaDigitavel, 0, 60);
+        $boleto->urlDoBoleto = $urlDoBoleto;
+        $boleto->copiaECola = $pixDoBoleto;
+
+        return $boleto;
     }
 
     public function marcarPaga(): void
@@ -144,6 +174,21 @@ class CobrancaPixDaConta implements TenantAware
     public function getCodigo(): ?string
     {
         return $this->codigo;
+    }
+
+    public function getForma(): string
+    {
+        return $this->forma;
+    }
+
+    public function getLinhaDigitavel(): ?string
+    {
+        return $this->linhaDigitavel;
+    }
+
+    public function getUrlDoBoleto(): ?string
+    {
+        return $this->urlDoBoleto;
     }
 
     public function getSituacao(): string

@@ -32,7 +32,15 @@
         const banco = $('[data-cc-banco]', sec);
         const hook = () => { $('[data-cc-hook]', sec).textContent = sec.dataset.webhookBase + banco.value + '/pix'; };
         /* Campos extras (C4b): só os do banco escolhido aparecem. */
-        const extras = () => { sec.querySelectorAll('[data-cc-para]').forEach(el => { el.hidden = !el.dataset.ccPara.split(' ').includes(banco.value); }); };
+        const extras = () => {
+            sec.querySelectorAll('[data-cc-para]').forEach(el => { el.hidden = !el.dataset.ccPara.split(' ').includes(banco.value); });
+            /* Boleto só com a Cora: com outro banco a chave fica desabilitada, com a nota. */
+            sec.querySelectorAll('[data-cc-so-cora]').forEach(el => {
+                el.disabled = banco.value !== 'cora';
+                const nota = $('[data-cc-so-cora-nota]', el);
+                if (nota) { nota.hidden = banco.value === 'cora'; }
+            });
+        };
         const valor = s => { const el = $(s, sec); return el ? el.value.trim() : ''; };
         const estado = e => { const el = $('[data-cc-estado]', sec); el.className = 'cc-estado ' + ESTADOS[e][1]; $('span', el).textContent = ESTADOS[e][0]; };
         let temCert = sec.dataset.temCertificado === '1';
