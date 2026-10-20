@@ -10,6 +10,8 @@ use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\DTO\AnaliseOutput;
 use App\Inteligencia\DTO\SolicitarAnaliseDaPastaInput;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
+use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
@@ -36,7 +38,10 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * contexto não sigiloso e com ao menos uma linha nas seções do agente (409 `sem_dados`).
  * Idempotência POR AGENTE: pedido em andamento do mesmo agente → devolve o mesmo; contexto igual
  * ao da última concluída do agente → devolve a última com aviso (não gasta cota).
- * Pós-condição: linha `pendente` com `agente` e `contexto_resumo.financeiro` (a decisão sobre o
+ * Com COMANDO (drawer, spec inteligencia-drawer-da-pasta F1/F2): o agente é o do comando e a
+ * idempotência é POR COMANDO (dois comandos do mesmo agente não se travam). Sem comando, o
+ * comportamento por agente continua (rotas `/ia/agentes/{agente}`).
+ * Pós-condição: linha `pendente` com `agente` (e `comando`, quando houver) e `contexto_resumo.financeiro` (a decisão sobre o
  * financeiro é tomada AQUI, com sessão — o worker só obedece) + 1 mensagem no `async`.
  *
  * @throws PastaNaoEncontradaException
@@ -76,23 +81,24 @@ final class SolicitarAnaliseDaPastaUseCase
             throw new InteligenciaIndisponivelException($disponibilidade);
         }
 
-        $agente = $input->agente;
+        $comando = $input->comando;
+        $agente = $input->agenteEfetivo();
         $alvoId = (int) $pasta->getId();
-        $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente);
+        $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente, $comando);
         if ($emAndamento !== null) {
-            return AnaliseOutput::fromEntity($emAndamento, sprintf('Já existe uma análise do %s em andamento.', $agente->nome()));
+            return AnaliseOutput::fromEntity($emAndamento, self::avisoEmAndamento($agente, $comando));
         }
 
         $incluirFinanceiro = $agente->leFinanceiro() && $this->financeiro->podeVer($user, $tenant, $pasta);
         $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $this->abas->abasOcultasPara($pasta, $user));
-        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, $ocultas);
+        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, $ocultas, $comando);
         if ($contexto->vazio()) {
             throw ContextoVazioException::semDadosParaOAgente();
         }
 
-        $ultima = $this->analises->findUltimaConcluidaDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente);
+        $ultima = $this->analises->findUltimaConcluidaDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente, $comando);
         if ($ultima !== null && $ultima->getContextoHash() === $contexto->hash) {
-            return AnaliseOutput::fromEntity($ultima, 'Nada novo desde a última análise deste agente.');
+            return AnaliseOutput::fromEntity($ultima, self::avisoNadaNovo($comando));
         }
 
         $analise = new AnaliseDeInteligencia(
@@ -105,11 +111,28 @@ final class SolicitarAnaliseDaPastaUseCase
             contextoHash: $contexto->hash,
             contextoResumo: $contexto->resumo(),
             agente: $agente,
+            comando: $comando,
         );
         $this->analises->salvar($analise, true);
 
         $this->enfileirador->enfileirar($analise, $tenant);
 
         return AnaliseOutput::fromEntity($analise);
+    }
+
+    /** Aviso da idempotência "em andamento": com comando, o rótulo dele; sem, o nome do agente. */
+    private static function avisoEmAndamento(Agente $agente, ?Comando $comando): string
+    {
+        return $comando !== null
+            ? sprintf('Já existe uma análise "%s" em andamento.', $comando->rotulo())
+            : sprintf('Já existe uma análise do %s em andamento.', $agente->nome());
+    }
+
+    /** Aviso da idempotência "nada novo": com comando, o rótulo dele; sem, o texto por agente de antes. */
+    private static function avisoNadaNovo(?Comando $comando): string
+    {
+        return $comando !== null
+            ? sprintf('Nada novo desde a última análise "%s".', $comando->rotulo())
+            : 'Nada novo desde a última análise deste agente.';
     }
 }

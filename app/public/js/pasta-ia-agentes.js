@@ -1,18 +1,24 @@
 /* =============================================================================
-   BlueJus IA — agentes da pasta (spec inteligencia-agentes-da-pasta §5).
+   BlueJus IA — drawer da pasta (specs inteligencia-agentes-da-pasta §5 e
+   inteligencia-drawer-da-pasta F1/F2).
 
      1. abre/fecha o drawer do cabeçalho (botão, X, fundo, Esc) e, na PRIMEIRA
         abertura, carrega o painel (GET `inteligencia_agentes_painel`) no lugar
         da lista estática;
-     2. "Gerar análise" de um agente: POST `inteligencia_agente_solicitar` e o
-        retorno honesto (202 em andamento, 200 "nada novo", 409/429 motivo) —
-        motivo de disponibilidade trava TODOS os agentes até a página recarregar;
+     1b. abas Análise e Relatórios (`data-ia-aba` → `data-ia-aba-painel`, setas
+        do teclado no tablist) e a escolha do comando/relatório na grade
+        (`data-ia-escolher` → `data-ia-comando`); aba e escolhas sobrevivem à
+        troca do painel;
+     2. "Gerar análise" de um comando (ou agente): POST no `data-ia-url` do botão
+        (`inteligencia_comando_solicitar`) e o retorno honesto (202 em andamento,
+        200 "nada novo", 409/429 motivo); motivo de disponibilidade trava TODOS
+        os botões até a página recarregar;
      3. polling do status (GET `inteligencia_analise_status`) enquanto houver
         análise pendente/processando no drawer — 2 s, 5 s depois de 30 s, 10 s
         depois de 2 min; PAUSA com a página oculta ou o drawer fechado —, e
-        recarga do fragmento DO AGENTE (GET `inteligencia_agente_listar`) quando
-        ela termina;
-     4. ações da análise (lida · excluir · interna) por XHR + recarga do agente;
+        recarga do fragmento DO COMANDO (GET no `data-ia-url` da lista,
+        `inteligencia_comando_listar`) quando ela termina;
+     4. ações da análise (lida · excluir · interna) por XHR + recarga da lista;
      5. menu ⋮ do cartão;
      6. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
         pré-preenchido, no mesmo contrato do pasta-ia-push.js;
@@ -21,7 +27,7 @@
         (POST `inteligencia_analise_registro`) para o registro de auditoria —
         copiar, não (C6-IA-01);
      8. rodapé "Registro de auditoria (N)": GET `inteligencia_auditoria_da_pasta`
-        a cada abertura do drawer e depois de cada recarga de agente; o chevron
+        a cada abertura do drawer e depois de cada recarga de lista; o chevron
         abre e fecha a lista.
 
    Tudo por delegação no drawer: o painel e as listas são trocados inteiros.
@@ -172,6 +178,7 @@
                     var atual = painel();
                     if (!novo || !atual) { return; }
                     atual.replaceWith(novo);
+                    aplicarAbaEEscolhas();
                     acompanhar();
                 })
                 .catch(function (falha) {
@@ -180,8 +187,71 @@
                 .then(function () { carregandoPainel = false; });
         }
 
-        /* ── Botões e listas por agente ───────────────────────────────────── */
-        function secaoDe(el) { return el ? el.closest('[data-ia-agente]') : null; }
+        /* ── 1b. Abas e escolha do comando ────────────────────────────────── */
+        // A aba ativa e o comando escolhido em cada aba moram aqui: o painel é trocado inteiro
+        // (primeira abertura) e a escolha do usuário não pode voltar ao padrão do servidor.
+        var abaAtiva = 'analise';
+        var escolhidos = {};
+
+        function abas() { return drawer.querySelectorAll('[data-ia-aba]'); }
+
+        function mostrarAba(nome, focar) {
+            abaAtiva = nome;
+            abas().forEach(function (b) {
+                var ativa = b.getAttribute('data-ia-aba') === nome;
+                b.classList.toggle('is-ativa', ativa);
+                b.setAttribute('aria-selected', ativa ? 'true' : 'false');
+                b.tabIndex = ativa ? 0 : -1;
+                if (ativa && focar) { b.focus(); }
+            });
+            drawer.querySelectorAll('[data-ia-aba-painel]').forEach(function (p) {
+                p.hidden = p.getAttribute('data-ia-aba-painel') !== nome;
+            });
+        }
+
+        function escolher(valor) {
+            var secao = drawer.querySelector('[data-ia-comando="' + valor + '"]');
+            var aba = secao ? secao.closest('[data-ia-aba-painel]') : null;
+            if (!aba) { return; }
+            escolhidos[aba.getAttribute('data-ia-aba-painel')] = valor;
+            aba.querySelectorAll('[data-ia-escolher]').forEach(function (b) {
+                b.setAttribute('aria-pressed', b.getAttribute('data-ia-escolher') === valor ? 'true' : 'false');
+            });
+            aba.querySelectorAll('[data-ia-comando]').forEach(function (s) {
+                s.hidden = s.getAttribute('data-ia-comando') !== valor;
+            });
+        }
+
+        function aplicarAbaEEscolhas() {
+            mostrarAba(abaAtiva, false);
+            Object.keys(escolhidos).forEach(function (aba) { escolher(escolhidos[aba]); });
+        }
+
+        drawer.addEventListener('click', function (e) {
+            var aba = e.target.closest('[data-ia-aba]');
+            if (aba) { mostrarAba(aba.getAttribute('data-ia-aba'), false); return; }
+            var botao = e.target.closest('[data-ia-escolher]');
+            if (botao) { escolher(botao.getAttribute('data-ia-escolher')); }
+        });
+
+        // Tablist do WAI-ARIA: setas trocam de aba (e levam o foco), Home/End vão às pontas.
+        drawer.addEventListener('keydown', function (e) {
+            var atual = e.target.closest('[data-ia-aba]');
+            if (!atual) { return; }
+            var lista = Array.prototype.slice.call(abas());
+            var i = lista.indexOf(atual);
+            var destino = null;
+            if (e.key === 'ArrowRight') { destino = lista[(i + 1) % lista.length]; }
+            if (e.key === 'ArrowLeft') { destino = lista[(i - 1 + lista.length) % lista.length]; }
+            if (e.key === 'Home') { destino = lista[0]; }
+            if (e.key === 'End') { destino = lista[lista.length - 1]; }
+            if (!destino) { return; }
+            e.preventDefault();
+            mostrarAba(destino.getAttribute('data-ia-aba'), true);
+        });
+
+        /* ── Botões e listas por comando (ou agente) ──────────────────────── */
+        function secaoDe(el) { return el ? (el.closest('[data-ia-comando]') || el.closest('[data-ia-agente]')) : null; }
         function listaDe(secao) { return secao ? secao.querySelector('[data-ia-lista]') : null; }
         function botaoDe(secao) { return secao ? secao.querySelector('[data-ia-gerar]') : null; }
 
@@ -197,6 +267,14 @@
             if (sim) { rotuloDoBotao(botao, 'Analisando…'); }
         }
 
+        // O botão do comando na grade pulsa enquanto houver análise em andamento nele.
+        function marcarNaGrade(secao, emAndamentoAgora) {
+            var valor = secao ? secao.getAttribute('data-ia-comando') : null;
+            if (!valor) { return; }
+            var botao = drawer.querySelector('[data-ia-escolher="' + valor + '"]');
+            if (botao) { botao.classList.toggle('is-andamento', !!emAndamentoAgora); }
+        }
+
         // Rótulo e title saem do que a lista recém-carregada diz (mesma regra do template).
         function sincronizarBotao(secao) {
             var botao = botaoDe(secao);
@@ -205,15 +283,19 @@
             if (l.getAttribute('data-ia-em-andamento') === '1') {
                 botaoCarregando(botao, true);
                 botao.title = 'Análise em andamento';
+                marcarNaGrade(secao, true);
                 return;
             }
             botaoCarregando(botao, false);
+            marcarNaGrade(secao, false);
             var temConcluida = l.getAttribute('data-ia-tem-concluida') === '1';
-            rotuloDoBotao(botao, temConcluida ? 'Gerar nova análise' : 'Gerar análise');
-            botao.title = temConcluida ? 'Nova análise deste agente considerando o histórico' : 'Lê os dados desta pasta e responde';
+            var rotulo = botao.getAttribute('data-ia-rotulo') || 'Gerar análise';
+            var deNovo = botao.getAttribute('data-ia-rotulo-de-novo') || 'Gerar nova análise';
+            rotuloDoBotao(botao, temConcluida ? deNovo : rotulo);
+            botao.title = temConcluida ? 'Nova análise considerando o histórico' : 'Lê os dados desta pasta e responde';
         }
 
-        // Um 409/429 de disponibilidade vale para todos os agentes até a página recarregar.
+        // Um 409/429 de disponibilidade vale para todos os botões até a página recarregar.
         function travarTodos(mensagem, motivo) {
             drawer.querySelectorAll('[data-ia-gerar]').forEach(function (botao) {
                 botao.setAttribute('data-ia-disponivel', '0');
@@ -340,6 +422,7 @@
 
             avisar('');
             botaoCarregando(botao, true);
+            marcarNaGrade(secao, true);
             inicio = Date.now();
             limiteAvisado = false;
 
@@ -357,6 +440,7 @@
                         avisar(texto, true);
                         if (MOTIVOS_QUE_TRAVAM.indexOf(d.motivo) !== -1) {
                             travarTodos(texto, d.motivo);
+                            marcarNaGrade(secao, false);
                         } else {
                             botaoCarregando(botao, false);
                             sincronizarBotao(secao);

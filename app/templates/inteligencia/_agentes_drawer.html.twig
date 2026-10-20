@@ -1,17 +1,19 @@
 {# ============================================================================
    Drawer "BlueJus IA" da pasta (spec inteligencia-agentes-da-pasta §5).
 
-   Desenho 02 - EXPEDIENTES 1.2.3 (dc L.843-860): painel fixo à direita, 460px,
-   cabeçalho em degradê com a estrela, "BLUEJUS IA / Assistente jurídica do
-   escritório", X, chips do contexto carregado desta tela. As abas do desenho
-   (Análise · Documentos · Relatórios · Perguntar) NÃO são renderizadas: só a
-   lista de agentes existe no sistema, e aba que não funciona é mentira na tela.
+   Desenho 02 - EXPEDIENTES - VS 18.10.26 (dc L938-957): painel fixo à direita,
+   460px, cabeçalho em degradê com a estrela, "BLUEJUS IA / Assistente jurídica
+   do escritório", X, chips do contexto carregado desta tela e as abas (spec
+   inteligencia-drawer-da-pasta, F1/F2). Das quatro abas do desenho, só Análise e
+   Relatórios aparecem: Documentos e Perguntar ainda não funcionam (F3/F4), e aba
+   que não funciona é mentira na tela. Os painéis das abas moram no
+   `_agentes_painel.html.twig`.
 
    Incluído pelo `pasta/_cabecalho.html.twig` logo depois do botão, só para quem
    tem `modules.inteligencia.view`. Nasce `hidden`; o `pasta-ia-agentes.js` abre,
    fecha e carrega o painel (`inteligencia_agentes_painel`) na primeira abertura —
-   a lista de agentes já vem no HTML (sem análises) para a tela não depender do JS
-   para dizer o que existe.
+   os comandos e relatórios já vêm no HTML (sem análises) para a tela não depender
+   do JS para dizer o que existe.
 
    Contexto: `pasta` (entidade, a mesma do cabeçalho), `ia` (enum Disponibilidade).
    ============================================================================ #}
@@ -45,8 +47,20 @@
             <span class="ia-chip" data-ia-chip="processo"><i class="bi bi-diagram-3" aria-hidden="true"></i>{{ iaProcesso ? iaProcesso.numeroProcesso|numero_cnj : 'Sem processo' }}</span>
             <span class="ia-chip" data-ia-chip="responsavel"><i class="bi bi-person-badge" aria-hidden="true"></i>{{ iaResponsavel and iaResponsavel.fullName ? iaResponsavel.fullName : 'Sem responsável' }}</span>
         </div>
+        {# Abas do desenho (dc L955-956, `tab`): ícone + rótulo; a ativa fica branca. O
+           pasta-ia-agentes.js troca o painel visível (`data-ia-aba-painel`). #}
+        <div class="ia-abas" role="tablist" aria-label="Seções da BlueJus IA">
+            <button type="button" class="ia-aba is-ativa" role="tab" id="ia-aba-btn-analise" data-ia-aba="analise"
+                    aria-selected="true" aria-controls="ia-aba-analise">
+                <i class="bi bi-activity" aria-hidden="true"></i>Análise
+            </button>
+            <button type="button" class="ia-aba" role="tab" id="ia-aba-btn-relatorios" data-ia-aba="relatorios"
+                    aria-selected="false" aria-controls="ia-aba-relatorios" tabindex="-1">
+                <i class="bi bi-bar-chart-line" aria-hidden="true"></i>Relatórios
+            </button>
+        </div>
         {% if not ia.estaDisponivel %}
-            {# O motivo REAL, uma vez, no topo — cada agente repete no lugar do botão. #}
+            {# O motivo REAL, uma vez, no topo; cada comando repete no lugar do botão. #}
             <p class="ia-drawer-motivo" role="status" data-ia-motivo-geral="{{ ia.value }}">
                 <i class="bi bi-info-circle" aria-hidden="true"></i>{{ ia.mensagem }}
             </p>

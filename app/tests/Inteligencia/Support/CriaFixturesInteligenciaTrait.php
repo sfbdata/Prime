@@ -16,6 +16,7 @@ use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
@@ -147,7 +148,8 @@ trait CriaFixturesInteligenciaTrait
 
     /**
      * Análise pendente de UM agente da pasta (fatia 2), com a decisão sobre o financeiro já gravada
-     * em `contexto_resumo.financeiro`, como o UseCase faz.
+     * em `contexto_resumo.financeiro`, como o UseCase faz. Com `$comando` (drawer, F1/F2), o agente
+     * é o do comando e a linha grava o comando.
      */
     private function criarAnaliseDoAgentePendente(
         Tenant $tenant,
@@ -156,7 +158,9 @@ trait CriaFixturesInteligenciaTrait
         Agente $agente = Agente::Gestor,
         bool $financeiro = true,
         array $abasOcultas = [],
+        ?Comando $comando = null,
     ): AnaliseDeInteligencia {
+        $agente = $comando?->agente() ?? $agente;
         $analise = new AnaliseDeInteligencia(
             tenant: $tenant,
             solicitante: $solicitante,
@@ -166,8 +170,10 @@ trait CriaFixturesInteligenciaTrait
             versaoDoPrompt: PromptDoAgente::VERSAO,
             contextoHash: hash('sha256', $agente->value . uniqid()),
             contextoResumo: ['agente' => $agente->value, 'secoes' => [], 'omitidas' => [], 'total' => 0, 'processos' => [], 'financeiro' => $financeiro]
-                + ($abasOcultas !== [] ? ['abasOcultas' => $abasOcultas] : []),
+                + ($abasOcultas !== [] ? ['abasOcultas' => $abasOcultas] : [])
+                + ($comando !== null ? ['comando' => $comando->value] : []),
             agente: $agente,
+            comando: $comando,
         );
         $this->em()->persist($analise);
         $this->em()->flush();

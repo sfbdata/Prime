@@ -18,7 +18,8 @@ use App\Pasta\Entity\Pasta;
 /**
  * Os agentes da pasta (fatia 2) como {@see FluxoDeAnalise}: o contexto é o do agente gravado na
  * linha; a decisão sobre o financeiro vem de `contexto_resumo.financeiro` (tomada na solicitação,
- * com sessão — o worker não decide); a "análise anterior" é a última concluída do MESMO agente.
+ * com sessão — o worker não decide); a "análise anterior" é a última concluída do MESMO comando do
+ * drawer (spec inteligencia-drawer-da-pasta, F1) ou, na linha sem comando, do MESMO agente.
  *
  * Linha de `analise_pasta` sem agente não existe pelo UseCase; se aparecer, é dado corrompido e
  * o fluxo recusa com `\LogicException` (o handler a trata como falha, sem chamar o provedor).
@@ -46,12 +47,14 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
         }
 
         $incluirFinanceiro = ($analise->getContextoResumo()['financeiro'] ?? false) === true;
-        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, self::abasOcultasDo($analise));
+        $comando = $analise->getComando();
+        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, self::abasOcultasDo($analise), $comando);
         if ($contexto->vazio()) {
             return null;
         }
 
-        $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $agente);
+        // A anterior é a do MESMO comando (sem comando, a do mesmo agente, como antes).
+        $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $agente, $comando);
         $analise->registrarContexto($contexto->hash, $contexto->resumo());
 
         // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
@@ -88,6 +91,11 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
 
     public function textoDaNotificacao(AnaliseDeInteligencia $analise, Pasta $pasta): string
     {
+        $comando = $analise->getComando();
+        if ($comando !== null) {
+            return sprintf('A análise "%s" da pasta %s ficou pronta.', $comando->rotulo(), (string) $pasta->getNup());
+        }
+
         return sprintf(
             'A análise do %s da pasta %s ficou pronta.',
             $analise->getAgente()?->nome() ?? 'agente',
