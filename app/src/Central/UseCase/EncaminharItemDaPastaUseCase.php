@@ -8,6 +8,7 @@ use App\Central\Contract\AuditoriaDoDespacho;
 use App\Central\DTO\EncaminhamentoOutput;
 use App\Central\DTO\EncaminharItemInput;
 use App\Central\DTO\ItemEncaminhado;
+use App\Central\DTO\ReferenciaDeDespacho;
 use App\Central\Enum\PrioridadeDoDespacho;
 use App\Central\Enum\TipoDeItemEncaminhado;
 use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
@@ -42,6 +43,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * conversa já existente é reaproveitada como antes.
  *
  * No tipo `pasta` o `itemId` não tem sentido: é ignorado e a auditoria grava `null`.
+ *
+ * A mensagem leva a referência (pasta + tipo, {@see ReferenciaDeDespacho}): quem lê depois (quem entrou no grupo, quem
+ * perdeu o acesso) só vê o texto se vê a pasta naquela hora (`LeituraDasMensagens`). Registro do Financeiro: quem envia
+ * e quem recebe também precisam ver o financeiro (`GuardaDoEncaminhamento::podeVer` com o tipo); quem envia sem ver = 404.
  */
 final class EncaminharItemDaPastaUseCase
 {
@@ -71,6 +76,9 @@ final class EncaminharItemDaPastaUseCase
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         $pasta = $this->guarda->pastaQueEuVejo($input->pastaId, $eu, $tenant);
+        if (!$this->guarda->podeVer($eu, $pasta, $input->tipo)) {
+            throw new ItemEncaminhadoNaoEncontradoException();
+        }
         $item = $this->itens->resumir($tenant, $pasta, $input->tipo, $input->itemId);
 
         /** @var EncaminhamentoOutput $saida */
@@ -83,10 +91,10 @@ final class EncaminharItemDaPastaUseCase
     private function despachar(User $eu, Tenant $tenant, Pasta $pasta, ItemEncaminhado $item, EncaminharItemInput $input): EncaminhamentoOutput
     {
         ['conversaId' => $conversaId, 'nome' => $nome, 'pessoas' => $pessoas] = $input->usuarioId !== null
-            ? $this->conversaComOColega($eu, $tenant, $pasta, $input->usuarioId)
-            : $this->conversaQueTodosVeem($eu, $tenant, $pasta, (int) $input->conversaId);
+            ? $this->conversaComOColega($eu, $tenant, $pasta, $input->tipo, $input->usuarioId)
+            : $this->conversaQueTodosVeem($eu, $tenant, $pasta, $input->tipo, (int) $input->conversaId);
 
-        $this->enviarMensagem->executar($eu, $tenant, $conversaId, self::texto($item, $pasta, $input));
+        $this->enviarMensagem->executar($eu, $tenant, $conversaId, self::texto($item, $pasta, $input), null, new ReferenciaDeDespacho($pasta, $input->tipo));
         $this->avisarSeUrgente($input->prioridade, $conversaId, $eu, $tenant, $pessoas);
         $itemId = $input->tipo === TipoDeItemEncaminhado::Pasta ? null : $input->itemId;
         $this->auditoria->registrar($eu, $tenant, $pasta, $input->tipo, $itemId, $conversaId, $input->prioridade);
@@ -100,13 +108,13 @@ final class EncaminharItemDaPastaUseCase
      *
      * @return array{conversaId: int, nome: string, pessoas: list<User>}
      */
-    private function conversaComOColega(User $eu, Tenant $tenant, Pasta $pasta, int $usuarioId): array
+    private function conversaComOColega(User $eu, Tenant $tenant, Pasta $pasta, TipoDeItemEncaminhado $tipo, int $usuarioId): array
     {
         $colega = $this->usuarios->find($usuarioId);
         if ($colega === null || !$this->acesso->temVinculoAtivo($colega, $tenant)) {
             throw new PedidoInvalidoNaCentralException('Colega não encontrado neste escritório.');
         }
-        if (!$this->guarda->podeVer($colega, $pasta)) {
+        if (!$this->guarda->podeVer($colega, $pasta, $tipo)) {
             throw new PedidoInvalidoNaCentralException(self::MOTIVO_COLEGA);
         }
 
@@ -116,15 +124,18 @@ final class EncaminharItemDaPastaUseCase
     }
 
     /**
-     * Conversa de que eu participo (senão 404), e todos os outros membros ativos veem a pasta.
+     * Conversa de que eu participo (senão 404), com ao menos um outro membro ativo, e todos eles veem o item.
      *
      * @return array{conversaId: int, nome: string, pessoas: list<User>}
      */
-    private function conversaQueTodosVeem(User $eu, Tenant $tenant, Pasta $pasta, int $conversaId): array
+    private function conversaQueTodosVeem(User $eu, Tenant $tenant, Pasta $pasta, TipoDeItemEncaminhado $tipo, int $conversaId): array
     {
         $conversa = $this->acesso->participacao($conversaId, $eu, $tenant)->getConversa();
         $pessoas = $this->guarda->quemRecebe($conversa, $eu, $tenant, $this->acesso->idsComVinculoAtivo($tenant));
-        if (!$this->guarda->todosVeem($pessoas, $pasta)) {
+        if ($pessoas === []) {
+            throw new PedidoInvalidoNaCentralException(GuardaDoEncaminhamento::MOTIVO_SEM_DESTINATARIO);
+        }
+        if (!$this->guarda->todosVeem($pessoas, $pasta, $tipo)) {
             throw new PedidoInvalidoNaCentralException($conversa->isGrupo() ? GuardaDoEncaminhamento::MOTIVO_GRUPO : self::MOTIVO_COLEGA);
         }
 

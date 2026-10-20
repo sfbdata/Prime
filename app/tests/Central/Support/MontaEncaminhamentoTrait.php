@@ -13,6 +13,7 @@ use App\Central\Service\ItensEncaminhaveisDaPasta;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaMensagemRepository;
@@ -82,12 +83,17 @@ trait MontaEncaminhamentoTrait
         return new AcessoACentral($vinculos, $participantes, $usuarios);
     }
 
-    private function guarda(?Pasta $pasta, AcessoAPasta $acessoAPasta, ParticipanteRepository $participantes): GuardaDoEncaminhamento
+    /** @param list<int>|null $quemVeOFinanceiro ids de quem vê o financeiro da pasta (nulo: todos) */
+    private function guarda(?Pasta $pasta, AcessoAPasta $acessoAPasta, ParticipanteRepository $participantes, ?array $quemVeOFinanceiro = null): GuardaDoEncaminhamento
     {
         $pastas = $this->createStub(PastaRepository::class);
         $pastas->method('findOneBy')->willReturn($pasta);
+        $financeiro = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $financeiro->method('podeVer')->willReturnCallback(
+            static fn (User $u): bool => $quemVeOFinanceiro === null || in_array((int) $u->getId(), $quemVeOFinanceiro, true),
+        );
 
-        return new GuardaDoEncaminhamento($pastas, $acessoAPasta, $participantes);
+        return new GuardaDoEncaminhamento($pastas, $acessoAPasta, $participantes, $financeiro);
     }
 
     private function itens(?PastaMensagemRepository $mensagens = null): ItensEncaminhaveisDaPasta
