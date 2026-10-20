@@ -4632,7 +4632,8 @@
 
     /**
      * "ALERTAS POR E-MAIL" (l.1137): baixa o CSV do servidor. 404 com JSON = ninguém inscrito, com o
-     * toast do desenho; com sucesso, "Lista exportada" com o número de inscritos do painel.
+     * toast do desenho; com sucesso, "Lista exportada" com o número de linhas do CSV baixado
+     * (linhas não vazias, menos o cabeçalho).
      */
     function baixarAlertasCsv() {
         var url = String(D.urlAlertasCsv || '');
@@ -4653,13 +4654,17 @@
             }
             var nome = nomeDoAnexo(r.headers.get('Content-Disposition')) || 'alertas-vagas-bluejus.csv';
             return r.blob().then(function (blob) {
+                return blob.text().then(function (t) { return [blob, t]; }, function () { return [blob, '']; });
+            }).then(function (par) {
+                var blob = par[0];
+                var linhas = String(par[1]).split(/\r?\n/).filter(function (l) { return l.trim() !== ''; }).length;
                 var u = URL.createObjectURL(blob);
                 var a = el('a', { href: u, attrs: { download: nome } });
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 setTimeout(function () { URL.revokeObjectURL(u); }, 1000);
-                mostrarToast({ tit: 'Lista exportada', txt: (S.cvPn ? S.cvPn.inscritos : 0) + ' e-mail(s) inscrito(s).', hora: '' });
+                mostrarToast({ tit: 'Lista exportada', txt: Math.max(0, linhas - 1) + ' e-mail(s) inscrito(s).', hora: '' });
             });
         }).then(null, function () {
             toastErro();
@@ -4907,11 +4912,8 @@
         var atual = todos ? contaPn(cvs, '') : totS('cv');
         // Variação (lacuna 6): o ano de comparação e os dois totais comparados.
         var cmp = 0, ant = 0, anoBase = ga - 1;
-        if (todos) {
-            cmp = contaPn(cvs, String(anoAt));
-            ant = contaPn(cvs, String(anoAt - 1));
-            anoBase = anoAt - 1;
-        } else if (gm === 'mes' && ga === anoAt) {
+        // "Todos os anos" (ga = ano atual) e o Mensal do ano corrente: jan até o mês atual, contra o mesmo período do ano anterior.
+        if (todos || (gm === 'mes' && ga === anoAt)) {
             for (var m = 0; m < mesAt; m++) {
                 cmp += contaPn(cvs, mesPn(ga, m));
                 ant += contaPn(cvs, mesPn(ga - 1, m));
