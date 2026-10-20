@@ -60,6 +60,16 @@ final class PedidoDeNavegacao
         return str_contains(strtolower((string) $request->headers->get('Accept', '')), 'text/html');
     }
 
+    /**
+     * Navegação dentro de um quadro (iframe interno: folha de ponto, mapa do Master). Com a sessão vencida,
+     * mostra o login no quadro em vez do JSON do 401, mas também nunca vira destino do login.
+     */
+    public static function eQuadroInterno(Request $request): bool
+    {
+        return $request->headers->get('Sec-Fetch-Mode') === 'navigate'
+            && in_array($request->headers->get('Sec-Fetch-Dest'), ['iframe', 'frame', 'embed', 'object'], true);
+    }
+
     /** A resposta do pedido de dados sem sessão: o JS mostra o aviso e para de sondar. */
     public static function respostaDeSessaoVencida(): JsonResponse
     {

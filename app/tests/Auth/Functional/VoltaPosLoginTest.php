@@ -15,6 +15,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Security\Core\Authentication\Token\RememberMeToken;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -203,14 +204,14 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         self::assertSame('/expediente', $this->submeter($client, $crawler, $user));
     }
 
-    #[TestDox('Documento aberto num iframe com a sessão vencida: não grava destino')]
+    #[TestDox('Documento aberto num iframe com a sessão vencida: o quadro mostra o login e não grava destino')]
     public function testIframeNaoGravaDestino(): void
     {
         $client = static::createClient();
 
         $client->request('GET', '/pasta/documento/7/visualizar', [], [], ['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_SEC_FETCH_DEST' => 'iframe', 'HTTP_ACCEPT' => 'text/html']);
 
-        self::assertResponseStatusCodeSame(401);
+        self::assertResponseRedirects('/login');
         self::assertFalse($client->getSession()->has(self::TARGET_PATH));
     }
 
@@ -237,8 +238,32 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $vinculo->getTenant());
 
         $client->request('GET', '/master/dados/contas', [], [], self::FETCH);
-
         self::assertResponseStatusCodeSame(403);
+        // Recusa pelo firewall (#[IsGranted]) a quem entrou de verdade: 403, não 401.
+        $client->request('GET', '/admin/platform', [], [], self::FETCH);
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Lembrado pelo remember-me (não é autenticação completa) e sem permissão, em pedido de dados: 401, sem tocar o destino gravado')]
+    public function testRememberMeSemPermissaoEmPedidoDeDados(): void
+    {
+        $client = static::createClient();
+        $user = $this->criarUsuario(escritorios: 1);
+
+        $client->request('GET', '/agenda');
+        self::assertResponseRedirects('/login');
+        $session = $client->getSession();
+        $session->set('_security_main', serialize(new RememberMeToken($user, 'main')));
+        $session->save();
+        // Sem o termo aceito, o portão dos Termos responderia 403 antes do #[IsGranted].
+        $this->marcarTermosAceitos($client);
+
+        // Rota com #[IsGranted('ROLE_SUPER_ADMIN')]: a recusa sai do firewall, não do controller.
+        $client->request('GET', '/admin/platform', [], [], self::FETCH);
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertSame(PedidoDeNavegacao::MENSAGEM_SESSAO_VENCIDA, json_decode((string) $client->getResponse()->getContent(), true)['erro']);
+        self::assertSame('/agenda', parse_url((string) $client->getSession()->get(self::TARGET_PATH), PHP_URL_PATH));
     }
 
     #[TestDox('Master sem escritório volta para a tela pedida, ou para o painel do Master')]
