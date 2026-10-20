@@ -366,6 +366,9 @@ final class OabReviewTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($supId)->getStatus());
+
+        $client->followRedirect();
+        self::assertAnySelectorTextContains('.alert', 'A inscrição mudou depois que a fila foi aberta. Confira de novo.');
     }
 
     #[TestDox('Confirmar com CSRF inválido → 403 e situação inalterada')]

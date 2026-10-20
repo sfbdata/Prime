@@ -47,6 +47,19 @@
   sem estourar `uniq_inscricao_oab_principal`. Usuário novo (cadastro, convite) segue por `persist`, sem corrida.
 - Recusa (403) testada nas três ações, para usuário comum e para admin de escritório que não é Master.
 
+## Re-revisão (20/10, risco ALTO): riscos conhecidos e aceitos
+- **Principal gravada antes do fim do "criar escritório"**: o `criarPrincipalSeFaltar` grava na hora (para
+  resolver a corrida). Se o salvamento final do escritório falhar por problema de banco ou infraestrutura
+  (erro 500), fica uma principal Não verificada sem OAB no `User`; ela se corrige no envio seguinte (o
+  formulário pede a OAB de novo e `alterar` acerta). Nada é confirmado sem o Master e ninguém ganha acesso.
+  Pôr o caso de uso inteiro numa transação mexeria no fluxo de identidade; fica para frente própria.
+- **Auditoria**: a criação da principal por esse INSERT não aparece no log de auditoria da `InscricaoOab`
+  (como o `criarPrincipalDoEspelhoSeFaltar` do #65); a mudança no `User.oab*` continua auditada. As ações do
+  Master passam pelo ORM e são auditadas.
+- **Janela entre conferir e gravar**: confirmar/reverter conferem número e UF e gravam na mesma requisição;
+  uma troca feita pelo titular nos milissegundos entre os dois passa. Já existia; só fecharia com trava ou
+  versão.
+
 ## Segurança
 - Só quem já acessa a tela hoje (`ROLE_SUPER_ADMIN`, conferir no controller) e CSRF nas ações, como hoje.
 - Id de inscrição inexistente: 404 (o UseCase lança `DomainException`).
