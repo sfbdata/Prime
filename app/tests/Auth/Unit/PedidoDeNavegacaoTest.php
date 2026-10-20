@@ -69,4 +69,16 @@ final class PedidoDeNavegacaoTest extends TestCase
         self::assertSame(401, $resposta->getStatusCode());
         self::assertSame(['erro' => 'Sua sessão terminou. Entre de novo.'], json_decode((string) $resposta->getContent(), true));
     }
+
+    #[TestDox('Quadro interno: navegação em iframe, frame, embed ou object; documento e fetch não são')]
+    public function testQuadroInterno(): void
+    {
+        $pedido = static fn (array $cab): Request => Request::create('/x', 'GET', [], [], [], $cab);
+
+        self::assertTrue(PedidoDeNavegacao::eQuadroInterno($pedido(['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_SEC_FETCH_DEST' => 'iframe'])));
+        self::assertTrue(PedidoDeNavegacao::eQuadroInterno($pedido(['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_SEC_FETCH_DEST' => 'embed'])));
+        self::assertFalse(PedidoDeNavegacao::eQuadroInterno($pedido(['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_SEC_FETCH_DEST' => 'document'])));
+        self::assertFalse(PedidoDeNavegacao::eQuadroInterno($pedido(['HTTP_SEC_FETCH_MODE' => 'cors', 'HTTP_SEC_FETCH_DEST' => 'iframe'])));
+        self::assertFalse(PedidoDeNavegacao::eQuadroInterno($pedido([])));
+    }
 }

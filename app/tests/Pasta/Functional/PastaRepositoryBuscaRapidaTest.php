@@ -305,7 +305,13 @@ final class PastaRepositoryBuscaRapidaTest extends KernelTestCase
     private function criarPasta(Tenant $tenant, ?string $nomeAcao = null, ?string $nomeCliente = null): Pasta
     {
         $pasta = new Pasta();
-        $pasta->setNup('BR' . (++$this->seq) . 'X' . strtoupper(substr(uniqid(), -7)));
+        // Sem dígitos: a busca casa os dígitos do termo com CPF e processo, e um NUP com dígitos aleatórios
+        // às vezes casava com o CPF ou o processo do cenário (teste instável).
+        $letras = '';
+        foreach (str_split(str_pad((string) ++$this->seq, 3, '0', STR_PAD_LEFT) . bin2hex(random_bytes(5))) as $c) {
+            $letras .= chr(ord('A') + hexdec($c));
+        }
+        $pasta->setNup('BR' . $letras);
         $pasta->setTenant($tenant);
         $pasta->setNomeAcao($nomeAcao);
         $pasta->setNomeCliente($nomeCliente);

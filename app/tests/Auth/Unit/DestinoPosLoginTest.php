@@ -89,7 +89,6 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'auth_meus_convites' => ['auth_meus_convites', '/convites'];
         yield 'contribua_index' => ['contribua_index', '/contribua'];
         yield 'app_sync_drive_conexao' => ['app_sync_drive_conexao', '/sync/drive/conexao'];
-        yield 'escritorio_contas' => ['escritorio_contas', '/escritorio/contas'];
         yield 'escritorio_criar' => ['escritorio_criar', '/escritorio/criar'];
         yield 'auth_gerenciar_convites' => ['auth_gerenciar_convites', '/escritorio/convites'];
         yield 'app_tenant_index' => ['app_tenant_index', '/tenant'];
@@ -109,8 +108,6 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'audit_log_index' => ['audit_log_index', '/auditoria'];
         yield 'app_access_request_index' => ['app_access_request_index', '/access-requests'];
         yield 'master_painel' => ['master_painel', '/master'];
-        yield 'master_mapa_brasil' => ['master_mapa_brasil', '/master/mapa/brasil'];
-        yield 'master_mapa_mundo' => ['master_mapa_mundo', '/master/mapa/mundo'];
         yield 'admin_platform_dashboard' => ['admin_platform_dashboard', '/admin/platform'];
         yield 'admin_platform_convite_index' => ['admin_platform_convite_index', '/admin/platform/convites'];
         yield 'admin_platform_oab_index' => ['admin_platform_oab_index', '/admin/platform/oab'];
@@ -263,6 +260,10 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'rota só de POST' => ['/agenda/criar-ajax'];
         yield 'rota inexistente' => ['/nao-existe'];
         yield 'parecido com login, mas sem rota' => ['/loginx'];
+        // Fragmento e iframe: carregados por fetch ou dentro de outra página, nunca abertos sozinhos.
+        yield 'fragmento das contas do menu' => ['/escritorio/contas'];
+        yield 'mapa do Master (iframe)' => ['/master/mapa/brasil'];
+        yield 'mapa do mundo do Master (iframe)' => ['/master/mapa/mundo'];
         yield 'rota interna do Symfony' => ['/_fragment'];
         yield 'arquivo JSON' => ['/manifest.json'];
         yield 'arquivo JS' => ['/js/central.js'];
