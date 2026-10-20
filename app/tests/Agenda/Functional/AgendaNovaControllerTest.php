@@ -154,6 +154,7 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         self::assertSame($pasta->getId(), $comPastas[0]['pastaId'], 'a pasta do compromisso segue o módulo Pastas');
         self::assertSame(['Reunião da pasta', 'Contestação · Pasta AG-0004'], array_column($comPrazos, 'titulo'));
         self::assertNull($comPrazos[0]['pastaId'], 'sem o módulo Pastas, o compromisso não mostra a pasta');
+        self::assertNull($comPrazos[1]['pastaId'], 'nem o prazo leva o atalho para a pasta (daria 403)');
     }
 
     #[TestDox('Contagem da lateral: os meus de cada calendário em qualquer data, o antigo sem tipo pela cor como na grade, sem os de outra pessoa')]

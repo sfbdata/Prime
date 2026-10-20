@@ -132,8 +132,7 @@ final class CompromissoController extends AbstractController
             if (count($erros) > 0) {
                 return $this->json(['erro' => (string) $erros->get(0)->getMessage()], 422);
             }
-            $verPastas = $this->permissionChecker->canAccessModule($eu, $tenant, 'pastas');
-            $salvo = $this->salvar->executar($input, $id, $eu, $tenant, $verPastas);
+            $salvo = $this->salvar->executar($input, $id, $eu, $tenant, $this->daAgenda->verPastas($eu, $tenant));
 
             return $this->json(['ok' => true, 'id' => $salvo->id, 'data' => $salvo->data, 'avisados' => $salvo->avisados]);
         });

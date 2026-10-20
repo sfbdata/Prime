@@ -50,7 +50,7 @@ final class ListarLembretesUseCase
     {
         $de = $agora->modify('-' . self::ATRASO_HORAS . ' hours');
         $ate = $agora->modify('+' . (self::JANELA_HORAS + 1) . ' hours');
-        $lembretes = [...$this->dosCompromissos($tenant, $eu, $de, $ate, $agora, $verPastas), ...($verPrazos ? $this->dosPrazosDeHoje($tenant, $eu, $agora) : [])];
+        $lembretes = [...$this->dosCompromissos($tenant, $eu, $de, $ate, $agora, $verPastas), ...($verPrazos ? $this->dosPrazosDeHoje($tenant, $eu, $agora, $verPastas) : [])];
         usort($lembretes, static fn (L $a, L $b): int => $a->aviso <=> $b->aviso);
 
         return $lembretes;
@@ -105,7 +105,7 @@ final class ListarLembretesUseCase
     }
 
     /** @return list<L> */
-    private function dosPrazosDeHoje(Tenant $tenant, User $eu, \DateTimeImmutable $agora): array
+    private function dosPrazosDeHoje(Tenant $tenant, User $eu, \DateTimeImmutable $agora, bool $verPastas): array
     {
         $hoje = $agora->setTime(0, 0);
         $ocultas = $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? [];
@@ -115,13 +115,13 @@ final class ListarLembretesUseCase
             if (null === $hora || '' === $hora) {
                 continue;
             }
-            $saida[] = $this->doPrazo($z, new \DateTimeImmutable($hoje->format('Y-m-d') . ' ' . $hora, $agora->getTimezone()));
+            $saida[] = $this->doPrazo($z, new \DateTimeImmutable($hoje->format('Y-m-d') . ' ' . $hora, $agora->getTimezone()), $verPastas);
         }
 
         return $saida;
     }
 
-    private function doPrazo(PastaPrazo $z, \DateTimeImmutable $inicio): L
+    private function doPrazo(PastaPrazo $z, \DateTimeImmutable $inicio, bool $verPastas): L
     {
         $aud = $z->isAudiencia();
         $nup = (string) $z->getPasta()->getNup();
@@ -135,7 +135,8 @@ final class ListarLembretesUseCase
             tipo: $aud ? 'aud' : 'prazo',
             observacao: null !== $resp && '' !== $resp ? 'Responsável: ' . $resp : null,
             eventoId: null,
-            pastaId: $z->getPasta()->getId(),
+            // Sem o módulo Pastas, sem o atalho "Abrir pasta" (daria 403).
+            pastaId: $verPastas ? $z->getPasta()->getId() : null,
             dia: $inicio->format('Y-m-d'),
         );
     }

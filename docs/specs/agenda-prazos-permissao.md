@@ -19,7 +19,10 @@ administrador em Editar perfil; ela **nasce ligada** em todos os perfis que hoje
 - **O que a permissão controla** (separação aprovada pelo coordenador): os prazos e audiências das pastas na
   grade (`ListarCompromissosUseCase`), nos lembretes (`ListarLembretesUseCase`), no push
   (`VarrerLembretesDePushUseCase`) e no "Avisar no Chat" do prazo (`CompromissoController::avisarPrazo`). O
-  cadeado da pasta (#120) continua valendo por cima: prazo de pasta oculta para a pessoa não aparece.
+  cadeado da pasta (#120) continua valendo por cima: prazo de pasta oculta para a pessoa não aparece, e o
+  "Avisar no Chat" dele dá 404 (furo antigo achado na revisão, fechado aqui).
+- **Prazo para quem não vê pastas:** aparece sem o atalho "Abrir a Pasta" (`pastaId` nulo), porque o atalho
+  daria 403; o NUP continua no título (convenção do sistema; o desenho é omisso).
 - **O que continua com `modules.pastas.view`:** vincular uma pasta a um compromisso comum (campo PASTA do
   modal, `SalvarCompromissoUseCase`) e mostrar a pasta desse compromisso (`pastaId`/`pastaNup`).
 - **Uma regra só:** `App\Agenda\Service\PermissoesDaAgenda::verPrazos()` (e `verPastas()`), usada nos quatro
@@ -38,7 +41,7 @@ administrador em Editar perfil; ela **nasce ligada** em todos os perfis que hoje
 
 ## Testes
 
-- Unitário: `PermissoesDaAgenda`; migration e fixture com o mesmo código, descrição e grupo.
+- Unitário: `PermissoesDaAgenda`; push só com a permissão nova; migration e fixture com o mesmo código, descrição e grupo.
 - Funcional: com `modules.pastas.view` e sem a permissão nova, a grade e os lembretes não trazem prazos, mas o
   compromisso ainda mostra a pasta; com a permissão nova e sem pastas, trazem os prazos; o "Avisar no Chat" do
   prazo segue a permissão nova.

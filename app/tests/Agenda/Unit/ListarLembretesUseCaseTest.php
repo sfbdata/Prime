@@ -63,14 +63,15 @@ final class ListarLembretesUseCaseTest extends TestCase
         self::assertSame(['Amanhã cedo'], array_map(static fn (L $l): string => $l->titulo, $itens));
     }
 
-    #[TestDox('Prazos de hoje com hora: audiência 60 min antes, prazo 15; sem hora fica de fora; só com acesso às pastas')]
+    #[TestDox('Prazos de hoje com hora: audiência 60 min antes, prazo 15; sem hora fica de fora; só com Ver prazos na agenda')]
     public function testPrazos(): void
     {
         $pasta = (new Pasta())->setNup('1180');
         (new \ReflectionProperty(Pasta::class, 'id'))->setValue($pasta, 9);
         $prazos = [$this->prazo($pasta, PastaPrazo::TIPO_AUDIENCIA, 'Conciliação', '14:30', 'Maria'), $this->prazo($pasta, PastaPrazo::TIPO_PRAZO, 'Contestação', '18:00', null), $this->prazo($pasta, PastaPrazo::TIPO_PRAZO, 'Sem hora', null, null)];
 
-        $itens = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, true);
+        $itens = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), true, true);
+        $semPastas = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, true);
         $sem = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, false);
 
         self::assertSame(['Audiência · Pasta 1180', 'Contestação · Pasta 1180'], array_map(static fn (L $l): string => $l->titulo, $itens));
@@ -78,6 +79,7 @@ final class ListarLembretesUseCaseTest extends TestCase
         self::assertSame(['aud', 'prazo'], array_map(static fn (L $l): string => $l->tipo, $itens));
         self::assertSame('Responsável: Maria', $itens[0]->observacao);
         self::assertSame(9, $itens[0]->pastaId);
+        self::assertNull($semPastas[0]->pastaId, 'sem o módulo Pastas, sem o atalho para a pasta');
         self::assertSame([], $sem, 'sem acesso às pastas, nenhum prazo');
     }
 

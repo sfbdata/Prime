@@ -20,6 +20,8 @@ use App\Agenda\UseCase\ListarLembretesUseCase;
 use App\Agenda\UseCase\VarrerLembretesDePushUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Repository\PastaPrazoRepository;
 use App\Service\PermissionChecker;
 use App\Tests\Agenda\EnviadorDePushFalso;
@@ -49,6 +51,21 @@ final class PushUseCasesTest extends TestCase
         // 10:50 em Brasília = 09:50 em Manaus: venceu.
         self::assertSame(1, $this->varrer($evento, $manaus, $falso)->executar(new \DateTimeImmutable('2030-03-10 10:50', new \DateTimeZone('America/Sao_Paulo'))));
         self::assertSame('Às 10:00', $falso->enviados[0]['conteudo']['corpo']);
+    }
+
+    #[TestDox('Audiência de pasta vai por push só a quem tem "Ver prazos na agenda"; o módulo Pastas sozinho não basta')]
+    public function testPrazoSoComVerPrazos(): void
+    {
+        $semLembrete = (new Evento())->setTitulo('Sem lembrete')->setDataInicio(new \DateTimeImmutable('2030-03-10 10:00'))->setDataFim(new \DateTimeImmutable('2030-03-10 11:00'))->setLembreteMinutos(0);
+        $audiencia = new PastaPrazo(new Tenant(), (new Pasta())->setNup('1180'), null);
+        $audiencia->definir(PastaPrazo::TIPO_AUDIENCIA, 'Conciliação', new \DateTimeImmutable('2030-03-10'), '10:00', null);
+        $inscricao = new InscricaoDePush(new Tenant(), new User(), 'https://push/p', 'BOr5', 'YXV0', 'America/Sao_Paulo');
+        $quando = new \DateTimeImmutable('2030-03-10 09:30', new \DateTimeZone('America/Sao_Paulo'));
+        $falso = new EnviadorDePushFalso();
+
+        self::assertSame(1, $this->varrer($semLembrete, $inscricao, $falso, [$audiencia])->executar($quando));
+        self::assertSame('BlueJus · Audiência · Pasta 1180', $falso->enviados[0]['conteudo']['titulo']);
+        self::assertSame(0, $this->varrer($semLembrete, $inscricao, new EnviadorDePushFalso(), [$audiencia], false)->executar($quando));
     }
 
     #[TestDox('Inscrição de serviço de push conhecido e chaves do tamanho certo é gravada; fuso estranho vira o de Brasília')]
@@ -116,7 +133,8 @@ final class PushUseCasesTest extends TestCase
         return new InscreverPushUseCase($repo, $garantir);
     }
 
-    private function varrer(Evento $evento, InscricaoDePush $inscricao, EnviadorDePushFalso $falso): VarrerLembretesDePushUseCase
+    /** @param list<PastaPrazo> $prazos */
+    private function varrer(Evento $evento, InscricaoDePush $inscricao, EnviadorDePushFalso $falso, array $prazos = [], bool $verPrazos = true): VarrerLembretesDePushUseCase
     {
         $eventos = $this->createStub(EventoDaAgendaRepository::class);
         $eventos->method('doEscritorioNoPeriodo')->willReturn([$evento]);
@@ -126,7 +144,10 @@ final class PushUseCasesTest extends TestCase
         $enviados->method('reservar')->willReturn(true);
         $permissoes = $this->createStub(PermissionChecker::class);
         $permissoes->method('canAccessModule')->willReturn(true);
-        $listar = new ListarLembretesUseCase($eventos, new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class));
+        $permissoes->method('hasPermission')->willReturnCallback(static fn (User $u, ?Tenant $t, string $codigo): bool => $verPrazos && PermissoesDaAgenda::VER_PRAZOS === $codigo);
+        $repoDePrazos = $this->createStub(PastaPrazoRepository::class);
+        $repoDePrazos->method('abertosDoEscritorioNoPeriodo')->willReturn($prazos);
+        $listar = new ListarLembretesUseCase($eventos, new OcorrenciasDoEvento(), $repoDePrazos);
 
         return new VarrerLembretesDePushUseCase($inscricoes, $enviados, $listar, $permissoes, $falso, new PermissoesDaAgenda($permissoes));
     }

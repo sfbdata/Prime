@@ -49,7 +49,7 @@ final class ListarCompromissosUseCase
         $ateFim = $ate->setTime(23, 59, 59);
         $itens = [
             ...$this->dosEventos($tenant, $eu, $de, $ateFim, $soMinha, $administra, $verPastas),
-            ...($verPrazos ? $this->dosPrazos($tenant, $de, $ate, $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? []) : []),
+            ...($verPrazos ? $this->dosPrazos($tenant, $de, $ate, $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? [], $verPastas) : []),
             ...$this->dosAniversarios($tenant, $de, $ate),
         ];
         usort($itens, static fn (C $a, C $b): int => [$a->data, $a->dia ? '' : $a->h1] <=> [$b->data, $b->dia ? '' : $b->h1]);
@@ -144,9 +144,9 @@ final class ListarCompromissosUseCase
      *
      * @return list<C>
      */
-    private function dosPrazos(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate, array $pastasOcultas = []): array
+    private function dosPrazos(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate, array $pastasOcultas, bool $verPastas): array
     {
-        return array_map(static function (PastaPrazo $z): C {
+        return array_map(static function (PastaPrazo $z) use ($verPastas): C {
             $nup = (string) $z->getPasta()->getNup();
             $hora = (string) $z->getHora();
 
@@ -160,7 +160,8 @@ final class ListarCompromissosUseCase
                 h1: $hora,
                 observacao: null !== $z->getResponsavel() && '' !== $z->getResponsavel() ? 'Responsável: ' . $z->getResponsavel() : null,
                 status: $z->estaCumprido() ? 'concluido' : null,
-                pastaId: $z->getPasta()->getId(),
+                // Sem o módulo Pastas, sem o atalho "Abrir a Pasta" (daria 403).
+                pastaId: $verPastas ? $z->getPasta()->getId() : null,
                 pastaNup: $nup,
             );
         }, $this->prazos->doEscritorioNoPeriodo($tenant, $de, $ate, $pastasOcultas));
