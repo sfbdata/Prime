@@ -129,6 +129,36 @@ final class BancoCoraTest extends TestCase
         $sut->consultar('inv_que_nao_existe');
     }
 
+    #[TestDox('Consulta paga com hora em UTC: vira o fuso do PHP (2026-10-31T01:30:00Z = 30/10 22:30 em São Paulo)')]
+    public function testDataComFusoViraFusoDoPhp(): void
+    {
+        $this->configurar();
+        $sut = $this->sut();
+        $c = $sut->criarCobranca($this->pedido(2000));
+        $this->cora->status[$c->idNoBanco] = 'PAID';
+        $this->cora->dataDoPagamento = '2026-10-31T01:30:00Z';
+
+        $pago = $sut->consultar($c->idNoBanco);
+
+        self::assertSame('2026-10-30 22:30', $pago->pagaEm?->format('Y-m-d H:i'));
+        self::assertSame(date_default_timezone_get(), $pago->pagaEm?->getTimezone()->getName());
+    }
+
+    #[TestDox('Consulta paga só com a data: a data fica como veio, no fuso do PHP')]
+    public function testSoDataFicaComoVeio(): void
+    {
+        $this->configurar();
+        $sut = $this->sut();
+        $c = $sut->criarCobranca($this->pedido(2000));
+        $this->cora->status[$c->idNoBanco] = 'PAID';
+        $this->cora->dataDoPagamento = '2026-10-31';
+
+        $pago = $sut->consultar($c->idNoBanco);
+
+        self::assertSame('2026-10-31 00:00', $pago->pagaEm?->format('Y-m-d H:i'));
+        self::assertSame(date_default_timezone_get(), $pago->pagaEm?->getTimezone()->getName());
+    }
+
     #[TestDox('Produção usa a base de produção da Integração Direta')]
     public function testProducao(): void
     {
