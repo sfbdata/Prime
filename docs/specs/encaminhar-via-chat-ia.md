@@ -112,7 +112,8 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 
 ## 4.1 Contrato da API da janela (PR2, 19/10): para as outras áreas e a 0d
 
-A janela da Central expõe, onde o lançador flutuante está na página (`central_disponivel()`), o objeto
+A janela da Central expõe, onde o lançador flutuante está na página (`central_disponivel()`; a `/central`, sem
+lançador e sem menus de pasta, não expõe), o objeto
 `window.BJCentral` (nome do desenho, BC:6645) com três funções. Só identificadores saem da tela; o servidor relê
 tudo.
 
@@ -134,7 +135,10 @@ cartão, montado pelo mesmo `ItensEncaminhaveisDaPasta`; 404 se não achar ou eu
 Tela de despacho (BC:6218-6238, literal): cabeçalho "DESPACHAR VIA CHAT I.A" e "Cancelar"; cartão com ícone por tipo,
 título e resumo; "Instrução (opcional). Ex.: favor concluir até sexta."; prioridade Normal / Urgente / Para hoje;
 "Para quem?" com os destinos (grupo travado mostra o motivo, sem clique); ao escolher, envia, abre a conversa com o
-destino e avisa "Despachado para NOME.". Erro do servidor: o `erro` da resposta, na própria tela.
+destino e avisa "Despachado para NOME.". Erro do servidor: o `erro` da resposta, na própria tela. "Cancelar" volta à
+lista (BC:6223 só zera o despacho). Desvio registrado: a busca e as abas da lista, que no protótipo ficam à vista e
+inertes atrás da tela (BC:6362-6372), não aparecem no despacho. O chip "Pasta N" sai da linha "Pasta NUP" do texto,
+só como texto (sem o id da pasta na mensagem, não abre a pasta; abrir exige a coluna `referencia` da §5).
 
 ## 5. Fora
 
