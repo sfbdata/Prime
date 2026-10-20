@@ -13,8 +13,9 @@
 5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
    Migration `Version20261019231700`.
 6. `trabalho-externo-engajamento` (F4, §4.7) → **PR #113 em rascunho**, base `trabalho-externo-candidatura`.
-7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → em andamento, base `trabalho-externo-engajamento`.
    Migration `Version20261019235800`.
+7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → em andamento, base `trabalho-externo-engajamento`.
+   Migration `Version20261019235900`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
@@ -744,6 +745,10 @@ depois das decisões de produto (enviadas ao coordenador em 19/10).
   `/vagas-juridicas/{token}` válido) e **cliques em "Criar conta"** na página pública (com e sem token),
   por `POST /vagas-juridicas/cta` (sem sessão, limitador de taxa por IP, sem CSRF porque não grava
   nada pessoal; `navigator.sendBeacon`). Robôs conhecidos (User-Agent) não contam.
+- Revisão de 19/10: a visita também tem teto por IP e token (acima dele a página abre, só não conta);
+  o clique só conta vindo da própria origem (`Sec-Fetch-Site`/`Origin`); falha do contador nunca derruba
+  a página; robôs por padrão de User-Agent sem pegar celular (ex.: Cubot); o download do CSV de inscritos
+  fica no log (quem e quando, sem os e-mails); a variação em "Todos os anos" compara o mesmo período.
 - Tabela `trabalho_externo_metrica_publica` (dia, link opcional, visitas, cliques), um registro por dia
   e link, somado com UPSERT.
 
