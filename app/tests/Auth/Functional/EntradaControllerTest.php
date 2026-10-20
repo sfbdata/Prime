@@ -43,6 +43,17 @@ final class EntradaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Ana', json_decode((string) $crawler->filter('#veuEntrada')->attr('data-nome'), true));
     }
 
+    #[TestDox('Nome gravado em maiúsculas cumprimenta com só a inicial maiúscula: "SAMUEL FREITAS" é o Samuel')]
+    public function testNomeEmMaiusculas(): void
+    {
+        $client = static::createClient();
+        $this->logarComEscritorio($client, 'SAMUEL FREITAS');
+
+        $crawler = $client->request('GET', '/login/entrando');
+
+        self::assertSame('Samuel', json_decode((string) $crawler->filter('#veuEntrada')->attr('data-nome'), true));
+    }
+
     #[TestDox('Logado vê o véu com o primeiro nome, o subtítulo e o destino pedido')]
     public function testLogadoVeOVeuComODestino(): void
     {

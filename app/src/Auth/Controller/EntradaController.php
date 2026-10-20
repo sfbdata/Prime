@@ -55,13 +55,10 @@ final class EntradaController extends AbstractController
         while (count($partes) > 1 && preg_match('/^(dr|dra|sr|sra)\.?$/iu', $partes[0]) === 1) {
             array_shift($partes);
         }
-        if ($partes !== []) {
-            return $partes[0];
-        }
-
         $local = explode('@', (string) $user->getEmail())[0];
-        $primeiro = (preg_split('/[._-]/', $local) ?: [''])[0];
+        $primeiro = $partes[0] ?? (preg_split('/[._-]/', $local) ?: [''])[0];
 
-        return mb_strtoupper(mb_substr($primeiro, 0, 1)) . mb_substr($primeiro, 1);
+        // Nome gravado em maiúsculas ("SAMUEL FREITAS") cumprimenta o Samuel.
+        return mb_strtoupper(mb_substr($primeiro, 0, 1)) . mb_strtolower(mb_substr($primeiro, 1));
     }
 }

@@ -255,7 +255,7 @@
         while (partes.length > 1 && /^(dr|dra|sr|sra)\.?$/i.test(partes[0])) { partes.shift(); }
         const nm = partes[0] || ((em.split('@')[0] || '').split(/[._-]/)[0]) || '';
 
-        return (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + (nm ? ', ' + nm.charAt(0).toUpperCase() + nm.slice(1) : '') + '!';
+        return (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + (nm ? ', ' + nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase() : '') + '!';
     };
 
     const criarConta = async () => {
