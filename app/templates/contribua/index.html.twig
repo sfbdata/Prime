@@ -1,0 +1,206 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Quem somos e contribua | BlueJus{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/contribua.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set p = pagina %}
+<div class="ct-pagina"
+     data-contribua
+     data-csrf="{{ csrf_token('contribua') }}"
+     data-url-pix="{{ path('contribua_pix') }}"
+     data-url-apoio="{{ path('contribua_apoio') }}"
+     data-url-motivo="{{ path('contribua_motivo') }}"
+     data-url-sugestao="{{ path('contribua_sugestao') }}"
+     data-url-atender="{{ path('contribua_sugestao_atender', {id: 0}) }}"
+     data-url-pedido="{{ path('contribua_espaco_pedido') }}"
+     data-apoiou="{{ p.apoiouNoMes ? '1' : '0' }}">
+
+    {# Apresentação #}
+    <section class="ct-cartao ct-apresentacao">
+        <span class="ct-apresentacao-simbolo"><img src="{{ asset('images/logo/bluejus-simbolo-branco.png') }}" alt=""></span>
+        <div class="ct-apresentacao-texto">
+            <div class="ct-apresentacao-titulo">BlueJus, o escritório digital</div>
+            <div class="ct-apresentacao-sub">Prazos, processos, documentos, metas e equipe em um só lugar, com inteligência para que nada fique para trás.</div>
+        </div>
+        <nav class="ct-atalhos">
+            <a href="#apoie"><i class="bi bi-heart"></i>Apoiar o sistema</a>
+            <a href="#espaco"><i class="bi bi-hdd-stack"></i>Comprar espaço</a>
+            <a href="#quem"><i class="bi bi-info-circle"></i>Quem somos</a>
+            <a href="#sug"><i class="bi bi-lightbulb"></i>Sugestões</a>
+        </nav>
+    </section>
+
+    {# Comprar espaço #}
+    {% set e = p.espaco %}
+    <section id="espaco" class="ct-cartao ct-espaco" style="--ct-espaco-cor: {{ e.cor }}">
+        <div class="ct-espaco-topo" style="background: {{ e.fundo }}">
+            <span class="ct-espaco-icone"><i class="bi {{ e.icone }}"></i></span>
+            <div class="ct-espaco-titulos"><b>{{ e.titulo }}</b><span>{{ e.subtitulo }}</span></div>
+        </div>
+        <div class="ct-espaco-uso">
+            <div class="ct-barra"><div style="width: {{ e.largura }}"></div></div>
+            <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> de {{ e.limite }} no plano {{ e.plano }}</span><b>{{ e.percentual }}% ocupado</b></div>
+        </div>
+        <div class="ct-pacotes">
+            {% for pac in p.pacotes %}
+                <div class="ct-pacote{{ pac.recomendado ? ' ct-pacote--recomendado' }}{{ pac.atual ? ' ct-pacote--atual' }}">
+                    {% if pac.recomendado %}<span class="ct-pacote-selo"><i class="bi bi-check2-circle"></i>RECOMENDADO PARA VOCÊ</span>{% endif %}
+                    <div class="ct-pacote-cabeca"><b>{{ pac.rotulo }}</b>{% if pac.temGanho %}<span class="ct-pacote-ganho">{{ pac.ganho }}</span>{% endif %}</div>
+                    <b class="ct-pacote-gb">{{ pac.gb }}</b>
+                    <div class="ct-pacote-preco"><b>{{ pac.preco }}</b><span>{{ pac.periodo }}</span></div>
+                    <div class="ct-pacote-dia">{{ pac.porDia }}</div>
+                    <div class="ct-pacote-desc">{{ pac.descricao }}</div>
+                    <button type="button" class="ct-pacote-botao" data-pedir-plano="{{ pac.codigo }}"
+                            {{ pac.desabilitado or not p.podePedirEspaco ? 'disabled' }}>{{ pac.botao }}</button>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="ct-garantias">
+            {% for g in [
+                ['bi-lightning-charge', 'Liberado na hora', 'O espaço é ampliado assim que o pagamento é confirmado.'],
+                ['bi-shield-check', 'Seus arquivos seguros', 'Nada é apagado, mesmo se cancelar.'],
+                ['bi-arrow-counterclockwise', 'Sem fidelidade', 'Cancele quando quiser, em um clique.'],
+                ['bi-file-earmark-text', 'Nota fiscal', 'Enviada por e-mail todo mês.'],
+            ] %}
+                <div class="ct-garantia"><i class="bi {{ g[0] }}"></i><span><b>{{ g[1] }}</b>{{ g[2] }}</span></div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {# Apoie #}
+    <section id="apoie" class="ct-cartao">
+        <div class="ct-cabeca-cinza"><i class="bi bi-heart-fill ct-coracao"></i><b>Prefere apoiar sem mudar de plano?</b><span>contribuição voluntária por PIX, de qualquer valor</span></div>
+        <div class="ct-apoie">
+            <div class="ct-apoie-qr">
+                <div class="ct-qr" data-qr data-codigo="{{ p.pix.codigo }}"></div>
+                <div class="ct-pix-valido" data-pix-valido><i class="bi bi-patch-check-fill"></i>PIX válido · conta Nº {{ p.pix.conta }}</div>
+                <div class="ct-valores">
+                    {% for v in [[20, 'R$ 20'], [50, 'R$ 50'], [100, 'R$ 100'], [-1, 'Outro valor']] %}
+                        <button type="button" class="ct-valor{{ loop.first ? ' ct-valor--ativo' }}" data-valor="{{ v[0] }}">{{ v[1] }}</button>
+                    {% endfor %}
+                </div>
+                <label class="ct-outro" data-outro hidden>R$<input type="text" inputmode="decimal" placeholder="0,00" data-outro-valor></label>
+                <button type="button" class="ct-botao-azul ct-botao-grande" data-copiar-codigo><i class="bi bi-qr-code"></i><span>Copiar código PIX</span></button>
+            </div>
+            <div class="ct-apoie-dados">
+                <div class="ct-favorecido">
+                    <div class="ct-rotulo-pequeno">FAVORECIDO</div>
+                    <b class="ct-favorecido-nome">BlueJus Gestão e Tecnologia LTDA</b>
+                    <div class="ct-favorecido-dados">
+                        <span>CNPJ</span><b>66.803.163/0001-10</b>
+                        <span>Banco</span><b>Cora SCFI · 403</b>
+                        <span>Agência</span><b>0001</b>
+                        <span>Conta corrente</span><b>7202371-7</b>
+                        <span>Chave PIX</span><b>66.803.163/0001-10 (CNPJ)</b>
+                    </div>
+                    <div class="ct-favorecido-botoes">
+                        <button type="button" class="ct-botao-contorno ct-botao-contorno--azul" data-copiar-chave><i class="bi bi-key"></i><span>Copiar chave PIX</span></button>
+                        <button type="button" class="ct-botao-contorno" data-copiar-conta><i class="bi bi-bank"></i><span>Copiar dados bancários</span></button>
+                    </div>
+                </div>
+                <button type="button" class="ct-botao-apoio" data-registrar-apoio><i class="bi bi-check2-circle"></i><span>{{ p.apoiouNoMes ? 'Obrigado! Apoio registrado este mês' : 'Já contribuí, registrar meu apoio' }}</span></button>
+                <div class="ct-nota">O BlueJus é gratuito e continua assim. A contribuição é voluntária. Confira o favorecido no aplicativo do banco antes de pagar.</div>
+                {% if p.perguntarMotivo %}
+                    <div class="ct-motivo" data-motivo>
+                        <b>Ainda não é o momento de contribuir?</b>
+                        <span>Conte o motivo em um clique. É anônimo e nos ajuda a melhorar.</span>
+                        <div class="ct-motivo-opcoes">
+                            {% for m in p.motivos %}<button type="button" data-motivo-opcao="{{ m }}">{{ m }}</button>{% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="ct-motivo-feito" data-motivo-feito {{ p.motivoRespondido ? '' : 'hidden' }}><i class="bi bi-check2-circle"></i>Obrigado por contar! Sua resposta ajuda a melhorar o BlueJus.</div>
+            </div>
+        </div>
+    </section>
+
+    {# Quem somos #}
+    <section id="quem" class="ct-cartao">
+        <button type="button" class="ct-quem-botao" data-quem aria-expanded="true"><i class="bi bi-chevron-down"></i><b>Quem somos</b><span>a empresa e o propósito do sistema</span></button>
+        <div class="ct-quem" data-quem-corpo>
+            <div><div class="ct-rotulo-secao">A EMPRESA</div><p>O BlueJus é desenvolvido e mantido pela BlueJus Gestão e Tecnologia Ltda, CNPJ 66.803.163/0001-10, sediada em Brasília, no Distrito Federal, com atuação em tecnologia da informação, desenvolvimento e licenciamento de programas e serviços de dados.</p><p>Nasceu da rotina de quem advoga e administra um escritório, por isso foi construído em volta de prazos, processos e da organização do trabalho jurídico.</p></div>
+            <div><div class="ct-rotulo-secao">PARA QUE SERVE O SISTEMA</div><p>Reunir em um só lugar as pastas, os clientes, os processos, os prazos, as metas, os documentos e a equipe. O Push processual acompanha os andamentos, e a inteligência do sistema avisa o que vence, o que está parado e o que precisa de atenção, com registro de quem fez o quê e quando.</p></div>
+            <div><div class="ct-rotulo-secao">CONTATO</div><div class="ct-contato">BlueJus Gestão e Tecnologia Ltda<br>QND 14, Lote 7, Sala 11-A, Taguatinga Norte, Brasília/DF, CEP 72.120-140<br>bluejus.86@gmail.com · (61) 4104-9958</div><div class="ct-versao">Versão 1.0 · mantido pela BlueJus Gestão e Tecnologia Ltda</div></div>
+        </div>
+    </section>
+
+    {# Suporte #}
+    <section class="ct-cartao ct-suporte">
+        <i class="bi bi-headset"></i><b>Suporte e ajuda</b><span>canais oficiais de atendimento</span>
+        <a href="mailto:bluejus.86@gmail.com"><i class="bi bi-envelope"></i>bluejus.86@gmail.com</a>
+        <a href="https://wa.me/556141049958" target="_blank" rel="noopener" class="ct-suporte-whats"><i class="bi bi-whatsapp"></i>(61) 4104-9958</a>
+    </section>
+
+    {# Números #}
+    <div class="ct-numeros">
+        {% for k in [
+            ['SUGESTÕES RECEBIDAS', p.numeros.recebidas, 'de toda a equipe'],
+            ['EM ABERTO', p.numeros.emAberto, 'aguardando análise'],
+            ['JÁ ATENDIDAS', p.numeros.atendidas, 'entraram no sistema'],
+            ['APOIOS REGISTRADOS', p.numeros.apoios, 'ajudam a manter o BlueJus'],
+        ] %}
+            <div class="ct-numero"><div>{{ k[0] }}</div><b>{{ k[1] }}</b><span>{{ k[2] }}</span></div>
+        {% endfor %}
+    </div>
+
+    {# Sugestões #}
+    <section id="sug" class="ct-cartao">
+        <div class="ct-cabeca-cinza ct-sug-cabeca">
+            <i class="bi bi-lightbulb ct-azul"></i><b>Sugestões e melhorias</b>
+            <span class="ct-sug-sub">sua opinião melhora o BlueJus: envie uma ideia, um problema ou o que falta no dia a dia</span>
+            <div class="ct-filtros" role="tablist">
+                <button type="button" class="ct-filtro ct-filtro--ativo" data-filtro="aberto">Em aberto</button>
+                <button type="button" class="ct-filtro" data-filtro="ok">Atendidas</button>
+                <button type="button" class="ct-filtro" data-filtro="todas">Todas</button>
+            </div>
+            <button type="button" class="ct-botao-azul" data-nova-sugestao><i class="bi bi-plus-lg"></i>Enviar sugestão</button>
+        </div>
+        <div class="ct-sug-vazio" data-sug-vazio hidden>Nenhuma sugestão neste filtro. Use "Enviar sugestão" para mandar a primeira.</div>
+        {% for g in p.sugestoes %}
+            <div class="ct-sug" data-sug data-atendida="{{ g.atendida ? '1' : '0' }}">
+                <span class="ct-sug-icone" style="background: {{ g.fundo }}; color: {{ g.cor }}"><i class="bi {{ g.icone }}"></i></span>
+                <div class="ct-sug-corpo">
+                    <div class="ct-sug-linha"><b>{{ g.tipo }}</b><span class="ct-sug-quem">{{ g.quem }} · {{ g.em }}</span>
+                        <span class="ct-sug-situacao {{ g.atendida ? 'ct-sug-situacao--ok' : 'ct-sug-situacao--aberto' }}">{{ g.atendida ? 'ATENDIDA' : 'EM ABERTO' }}</span></div>
+                    <div class="ct-sug-texto">{{ g.texto }}</div>
+                    {% if g.resposta %}<div class="ct-sug-resposta"><i class="bi bi-reply"></i> {{ g.resposta }}</div>{% endif %}
+                </div>
+                {% if p.ehMaster %}
+                    <button type="button" class="ct-sug-atender" data-atender="{{ g.id }}" data-atendida="{{ g.atendida ? '1' : '0' }}">{{ g.atendida ? 'Reabrir' : 'Marcar atendida' }}</button>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </section>
+</div>
+
+{# Modal: enviar sugestão #}
+<div class="ct-modal" data-modal-sugestao hidden>
+    <div class="ct-modal-fundo" data-fechar-sugestao></div>
+    <div class="ct-modal-janela" role="dialog" aria-label="Enviar sugestão">
+        <div class="ct-modal-topo"><i class="bi bi-lightbulb"></i><b>Enviar sugestão</b><button type="button" data-fechar-sugestao aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>
+        <div class="ct-modal-corpo">
+            <div class="ct-tipos">
+                {% for t in p.tipos %}
+                    <button type="button" class="ct-tipo{{ loop.first ? ' ct-tipo--ativo' }}" data-tipo="{{ t.codigo }}" data-dica="{{ t.dica }}" style="--ct-tipo-cor: {{ t.cor }}; --ct-tipo-fundo: {{ t.fundo }}"><i class="bi {{ t.icone }}"></i>{{ t.rotulo }}</button>
+                {% endfor %}
+            </div>
+            <textarea rows="5" data-texto-sugestao placeholder="{{ p.tipos[0].dica }}"></textarea>
+            <div class="ct-erro" data-erro-sugestao hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
+        </div>
+        <div class="ct-modal-rodape"><button type="button" class="ct-botao-cancelar" data-fechar-sugestao>Cancelar</button><button type="button" class="ct-botao-azul ct-botao-enviar" data-enviar-sugestao><i class="bi bi-send"></i>Enviar</button></div>
+    </div>
+</div>
+
+<div class="ct-toast" data-toast hidden><i class="bi bi-check-circle"></i><span></span></div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
+    <script src="{{ asset('js/contribua.js') }}" defer></script>
+{% endblock %}

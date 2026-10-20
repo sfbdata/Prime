@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Master\Repository;
 
+use App\Contribua\Entity\ConfiguracaoDoEspaco;
+use App\Contribua\Entity\EspacoDoEscritorio;
+use App\Contribua\Entity\Plano;
+use App\Contribua\Event\EspacoAtingiuFaixa;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -11,19 +15,24 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
 use App\Master\Service\RegraDosMasters;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 
 /**
- * Consultas GLOBAIS do Painel do Master (spec perfis-master §4.3), SOMENTE LEITURA.
+ * Consultas GLOBAIS do Painel do Master (spec perfis-master §4.3), mais a gravação do "Alerta de consumo".
  *
  * Por que DBAL e não ORM: o painel atravessa todos os escritórios de propósito. SQL direto não passa
  * pelos filtros do ORM (TenantFilter, LixeiraFilter), então nenhum filtro precisa ser desligado e o
- * recorte de cada consulta fica explícito aqui. Nada neste arquivo grava: só SELECT.
+ * recorte de cada consulta fica explícito aqui. Tudo é SELECT, com UMA exceção:
+ * {@see registrarAlertaDeConsumo()}, o INSERT da linha do Sistema no `audit_log` (spec
+ * perfis-1.2-planos-e-limites P11).
  *
- * Quem pode chamar: apenas os UseCases do domínio Master, atrás de `ROLE_SUPER_ADMIN`.
+ * Quem pode chamar: as consultas, só os UseCases do domínio Master, atrás de `ROLE_SUPER_ADMIN`; a
+ * gravação do alerta, só o ouvinte {@see \App\Master\EventListener\AlertaDeConsumoNaTrilha}, que roda
+ * no envio de arquivo de qualquer escritório (sem Master na sessão).
  *
  * Recortes comuns:
  *  - escritório na quarentena (`tenant.excluido_em` preenchido) não conta em lugar nenhum;
@@ -31,7 +40,8 @@ use Doctrine\DBAL\ParameterType;
  *    fora da quarentena. Quem não tem vínculo (o Master sem escritório) não é usuário de escritório;
  *  - pasta na lixeira (`pasta.excluida_em`) e documento de pasta na lixeira (`excluido_em`) não contam.
  */
-final class PainelMasterRepository
+// Não-final: o teste do ouvinte do alerta dubla a gravação (padrão dos repositórios, skill criar-repository).
+class PainelMasterRepository
 {
     /**
      * Tabelas com tamanho de arquivo no banco: [tabela, coluna do tamanho, coluna da data, SQL do tenant, filtro extra].
@@ -50,7 +60,10 @@ final class PainelMasterRepository
         ['kanban_anexo', 'tamanho', 'criado_em', 'x.tenant_id', null],
     ];
 
-    /** Entidades administrativas que entram na trilha "Segurança e auditoria". */
+    /**
+     * Entidades administrativas que entram na trilha "Segurança e auditoria". As três da Contribua são os
+     * limites da conta, o catálogo de planos e as faixas de alerta (spec perfis-1.2-planos-e-limites P7).
+     */
     public const ENTIDADES_AUDITADAS = [
         Tenant::class,
         User::class,
@@ -59,7 +72,26 @@ final class PainelMasterRepository
         TenantRolePermission::class,
         Permission::class,
         Invitation::class,
+        EspacoDoEscritorio::class,
+        Plano::class,
+        ConfiguracaoDoEspaco::class,
+        RecursoEstado::class,
     ];
+
+    /** Linha própria do alerta de consumo (`action` cabe em 10 caracteres). */
+    public const ACAO_ALERTA_DE_CONSUMO = 'alerta';
+    public const ENTIDADE_ALERTA_DE_CONSUMO = EspacoAtingiuFaixa::class;
+
+    /**
+     * Filtro da trilha: entidades administrativas, purga e alerta de consumo, na janela `:desde`, sem o
+     * carimbo de login do vínculo (só `lastLoginAt`/`updatedAt`), que afogaria a trilha.
+     */
+    private const FILTRO_DA_TRILHA = "(a.entity_class IN (:entidades) OR a.action IN ('purge', '" . self::ACAO_ALERTA_DE_CONSUMO . "'))
+                AND a.created_at >= :desde
+                AND NOT (
+                    a.entity_class = :vinculo AND a.action = 'update'
+                    AND COALESCE(((a.changes::jsonb #> '{diff,changes}') - 'lastLoginAt' - 'updatedAt') = '{}'::jsonb, FALSE)
+                )";
 
     public function __construct(
         private readonly Connection $conexao,
@@ -396,6 +428,36 @@ final class PainelMasterRepository
     }
 
     /**
+     * Quantas linhas a trilha mostraria (até `$limite`): o selo do botão "Segurança e auditoria" desde a
+     * abertura do painel (desenho 1.2, linha 678; spec perfis-1.2-planos-e-limites P10), sem trazer as linhas.
+     */
+    public function contarTrilhaAdministrativa(int $limite, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao->fetchOne(
+            'SELECT COUNT(*) FROM (SELECT 1 FROM audit_log a WHERE ' . self::FILTRO_DA_TRILHA . ' LIMIT :limite) x',
+            ['entidades' => self::ENTIDADES_AUDITADAS, 'vinculo' => UserTenant::class, 'limite' => $limite, 'desde' => $desde->format('Y-m-d H:i:s')],
+            ['entidades' => ArrayParameterType::STRING, 'limite' => ParameterType::INTEGER],
+        );
+    }
+
+    /**
+     * Grava o "Alerta de consumo" do Sistema na trilha (desenho 1.2, linhas 481 e 700; spec P11): sem ator
+     * (aparece como "Sistema"), com a conta do evento. SQL direto, como a linha da purga: o ouvinte roda
+     * depois da resposta e não pode dar flush em nada que tenha ficado pendente no EntityManager.
+     */
+    public function registrarAlertaDeConsumo(int $tenantId, int $limiar, ?int $percentual, string $faixa): void
+    {
+        $this->conexao->insert('audit_log', [
+            'action'       => self::ACAO_ALERTA_DE_CONSUMO,
+            'entity_class' => self::ENTIDADE_ALERTA_DE_CONSUMO,
+            'entity_id'    => (string) $tenantId,
+            'changes'      => json_encode(['limiar' => $limiar, 'percentual' => $percentual, 'faixa' => $faixa], \JSON_THROW_ON_ERROR),
+            'tenant_id'    => $tenantId,
+            'created_at'   => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
      * Trilha administrativa do `audit_log` (cross-tenant), mais recente primeiro.
      *
      * Janela `$desde` (o painel usa 12 meses) para a varredura pelo índice de `created_at` parar cedo
@@ -404,25 +466,24 @@ final class PainelMasterRepository
      * Fica de fora a atualização de vínculo que só mexe em `lastLoginAt`/`updatedAt`: é o carimbo de
      * acesso gravado a cada login, não uma alteração administrativa (e afogaria a trilha).
      *
-     * @return list<array{id: int, acao: string, entidade: string, entidadeId: ?string, mudancas: ?string, tenantId: ?int, conta: ?string, responsavel: ?string, responsavelId: ?int, criadoEm: string}>
+     * `recurso` é a chave da tela ou função ligada/desligada (linha de RecursoEstado): a alteração só
+     * grava os campos mudados, e a chave nunca muda, então ela vem da própria `recurso_estado`.
+     *
+     * @return list<array{id: int, acao: string, entidade: string, entidadeId: ?string, mudancas: ?string, tenantId: ?int, conta: ?string, responsavel: ?string, responsavelId: ?int, criadoEm: string, recurso: ?string}>
      */
     public function trilhaAdministrativa(int $limite, \DateTimeImmutable $desde): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
             "SELECT a.id, a.action, a.entity_class, a.entity_id, a.changes::text AS changes, a.tenant_id,
-                    t.name AS conta, u.full_name AS responsavel, a.actor_user_id, a.created_at
+                    t.name AS conta, u.full_name AS responsavel, a.actor_user_id, a.created_at, re.chave AS recurso
                FROM audit_log a
           LEFT JOIN tenant t ON t.id = a.tenant_id
           LEFT JOIN \"user\" u ON u.id = a.actor_user_id
-              WHERE (a.entity_class IN (:entidades) OR a.action = 'purge')
-                AND a.created_at >= :desde
-                AND NOT (
-                    a.entity_class = :vinculo AND a.action = 'update'
-                    AND COALESCE(((a.changes::jsonb #> '{diff,changes}') - 'lastLoginAt' - 'updatedAt') = '{}'::jsonb, FALSE)
-                )
+          LEFT JOIN recurso_estado re ON a.entity_class = :recurso AND re.id::text = a.entity_id
+              WHERE " . self::FILTRO_DA_TRILHA . "
            ORDER BY a.created_at DESC, a.id DESC
               LIMIT :limite",
-            ['entidades' => self::ENTIDADES_AUDITADAS, 'vinculo' => UserTenant::class, 'limite' => $limite, 'desde' => $desde->format('Y-m-d H:i:s')],
+            ['entidades' => self::ENTIDADES_AUDITADAS, 'vinculo' => UserTenant::class, 'recurso' => RecursoEstado::class, 'limite' => $limite, 'desde' => $desde->format('Y-m-d H:i:s')],
             ['entidades' => ArrayParameterType::STRING, 'limite' => ParameterType::INTEGER],
         );
 
@@ -437,6 +498,7 @@ final class PainelMasterRepository
             'responsavel'      => self::textoOuNulo($l['responsavel']),
             'responsavelId'    => $l['actor_user_id'] !== null ? (int) $l['actor_user_id'] : null,
             'criadoEm'         => (string) $l['created_at'],
+            'recurso'          => self::textoOuNulo($l['recurso']),
         ], $linhas);
     }
 

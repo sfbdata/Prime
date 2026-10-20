@@ -11,9 +11,13 @@
          data-url-ler-tudo="{{ path('central_ler_tudo') }}"
          data-url-limpar-lidos="{{ path('central_avisos_limpar') }}"
          data-url-presenca="{{ path('central_presenca') }}"
+         data-url-encaminhar-item="{{ path('central_encaminhar_item') }}"
+         data-url-encaminhar-destinos="{{ path('central_encaminhar_destinos') }}"
+         data-url-encaminhar="{{ path('central_encaminhar') }}"
+         data-url-pasta-base="{{ path('pasta_show', {id: 0})|slice(0, -1) }}"
          data-eu-nome="{{ eu.fullName }}"
          data-eu-id="{{ eu.id }}"
-         data-inativo-apos-min="{{ constant('App\\Central\\Entity\\Presenca::INATIVO_APOS_MINUTOS') }}"
+         data-inativo-apos-min="{{ presenca_ausente_apos_min() }}"
          data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
          {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
          data-modo="{{ modo|default('pagina') }}"
@@ -112,6 +116,9 @@
     {# B: telas de "Novo grupo" (L6202) e "Ver informações" (L6164) — montadas por central.js #}
     <div class="bj-central-painel" data-central-tela-novo-grupo hidden></div>
     <div class="bj-central-painel" data-central-tela-info hidden></div>
+    {# "Despachar via Chat I.A" (telaDespacho, BC:6218-6238; spec encaminhar-via-chat-ia §4.1): aberta por
+       BJCentral.despachar, montada por central.js #}
+    <div class="bj-central-despacho" data-central-tela-despacho hidden></div>
 
     <div class="bj-central-conversa-tela" data-central-tela-conversa hidden>
         <div class="bj-central-corpo" data-central-corpo aria-live="polite"></div>

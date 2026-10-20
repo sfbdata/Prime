@@ -51,7 +51,13 @@
      data-url-vaga-editar="{{ path('trabalho_externo_vaga_editar', {codigo: 'VG-0'}) }}"
      data-url-vaga-excluir="{{ path('trabalho_externo_vaga_excluir', {codigo: 'VG-0'}) }}"
      data-url-vagas-visita="{{ path('trabalho_externo_vagas_visita') }}"
-     data-url-vagas-marcacoes="{{ path('trabalho_externo_vagas_marcacoes') }}">
+     data-url-vagas-marcacoes="{{ path('trabalho_externo_vagas_marcacoes') }}"
+     {#- Conta com o e-mail a confirmar não convida (spec login-desenho-10): o JS mostra o aviso e o botão de reenviar o link. #}
+     {%- if app.user is not null and not app.user.emailConfirmado %}
+     data-recusa-email-a-confirmar="{{ constant('App\\Auth\\UseCase\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR') }}"
+     data-url-reenviar-confirmacao="{{ path('conta_confirmacao_reenviar') }}"
+     data-csrf-reenviar-confirmacao="{{ csrf_token('conta_confirmacao_reenviar') }}"
+     {%- endif %}>
 
     <div class="te-titulo-linha">
         <h1 class="te-titulo">

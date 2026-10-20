@@ -18,6 +18,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Isolamento multi-tenant do ClienteController via HTTP. Usa gestores isSystem (que
@@ -229,6 +230,50 @@ final class ClienteIsolamentoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $cliente;
+    }
+
+    #[TestDox('renomear documento do cliente com barra grava hífen ("RG 01-2026.pdf"), como na pasta')]
+    public function testRenomearDocumentoComBarraGravaHifen(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('security.csrf.token_storage', new class () implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+
+            public function setToken(string $tokenId, string $token): void
+            {
+            }
+
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+
+            public function clear(): void
+            {
+            }
+        });
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_barra_' . uniqid() . '@test.com');
+        $doc = $this->criarDocumento($this->criarClientePF($tenant));
+        $docId = (int) $doc->getId();
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $client->request('POST', "/clientes/documento/{$docId}/editar", ['_token' => 'TOKEN_edit_doc_cliente_' . $docId, 'nomeBase' => 'RG 01/2026']);
+
+        self::assertLessThan(400, $client->getResponse()->getStatusCode());
+        $nome = static::getContainer()->get(EntityManagerInterface::class)->getConnection()
+            ->fetchOne('SELECT nome_original FROM cliente_documento WHERE id = :id', ['id' => $docId]);
+        self::assertSame('RG 01-2026.pdf', $nome);
     }
 
     private function criarDocumento(Cliente $cliente): ClienteDocumento

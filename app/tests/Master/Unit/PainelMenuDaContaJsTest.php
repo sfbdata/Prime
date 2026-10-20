@@ -32,21 +32,20 @@ final class PainelMenuDaContaJsTest extends TestCase
         return substr($js, $inicio, $fim - $inicio);
     }
 
-    #[TestDox('itens na ordem do desenho: Estatísticas, Histórico, Suspender (ativa) OU Reativar (suspensa ou em quarentena) e Excluir; sem limites (ainda)')]
+    #[TestDox('itens na ordem do desenho: limites (fora da quarentena), Estatísticas, Histórico, Suspender (ativa) OU Reativar (suspensa ou em quarentena) e Excluir')]
     public function testItensDoMenu(): void
     {
         $menu = self::menuDaConta();
 
-        $posicoes = array_map(static fn (string $rotulo): int|false => strpos($menu, $rotulo), ['Estatísticas de uso', 'Histórico de alterações', 'Suspender conta', 'Reativar conta', 'Excluir conta']);
+        $posicoes = array_map(static fn (string $rotulo): int|false => strpos($menu, $rotulo), ['Editar limite de armazenamento', 'Definir limite de usuários', 'Estatísticas de uso', 'Histórico de alterações', 'Suspender conta', 'Reativar conta', 'Excluir conta']);
         self::assertNotContains(false, $posicoes);
         self::assertSame($posicoes, array_values(array_unique($posicoes)));
-        self::assertLessThan($posicoes[2], $posicoes[1], 'Histórico antes de Suspender/Reativar');
-        self::assertLessThan($posicoes[4], $posicoes[3], 'Excluir conta por último');
+        $ordenadas = $posicoes;
+        sort($ordenadas);
+        self::assertSame($ordenadas, $posicoes, 'a ordem do desenho (linha 735)');
         self::assertMatchesRegularExpression("/c\\.situacao === 'Ativa'\\s*\\?\\s*opMenu\\('suspender'[^\\n]*\\n\\s*:\\s*opMenu\\('reativar'/", $menu, 'Suspender só na ativa; Reativar na suspensa e na quarentena');
         self::assertStringContainsString("(c.situacao !== QUARENTENA && !c.ehDoMaster ? opMenu('excluir', ' mp-menu-excluir', 'bi-trash3', 'Excluir conta', c) : '')", $menu, 'Excluir some na conta do Master (C5) e na quarentena (C4b)');
-        foreach (['Editar limite de armazenamento', 'Definir limite de usuários'] as $ausente) {
-            self::assertStringNotContainsString($ausente, $menu, "{$ausente}: fora desta frente");
-        }
+        self::assertStringContainsString("(c.situacao !== QUARENTENA ? opMenu('limArm', '', 'bi-hdd', 'Editar limite de armazenamento', c) + opMenu('limUsu', '', 'bi-people', 'Definir limite de usuários', c) : '')", $menu, 'ícones e cor padrão do desenho; quarentena sem limites');
 
         $css = (string) file_get_contents(self::RAIZ . 'public/css/master.css');
         self::assertStringContainsString('.mp-menu-op.mp-menu-excluir { color: #a3232b; }', $css);
